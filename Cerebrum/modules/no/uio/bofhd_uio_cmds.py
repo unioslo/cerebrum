@@ -3044,6 +3044,8 @@ class BofhdExtension(object):
         perm_filter='can_move_user')
     def user_move(self, operator, move_type, accountname, *args):
         account = self._get_account(accountname)
+        if account.is_expired():
+            raise CerebrumError, "Account %s has expired" % account.account_name
         br = BofhdRequests(self.db, self.const)
         if move_type in ("immediate", "batch", "nofile"):
             disk = args[0]
@@ -3350,7 +3352,7 @@ class BofhdExtension(object):
             host.find_by_name(name)
             return host
         except Errors.NotFoundError:
-            raise CerebrumError, "Unkown host: %s" % name
+            raise CerebrumError, "Unknown host: %s" % name
 
     def _get_group(self, id, idtype=None, grtype="Group"):
         if grtype == "Group":
