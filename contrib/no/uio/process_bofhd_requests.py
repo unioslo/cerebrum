@@ -865,9 +865,13 @@ def process_delete_requests():
                 account.find(id)
             account.expire_date = br.now
             account.write_db()
-            home = account.get_home(spread)
-            account.set_homedir(current_id=home['homedir_id'],
-                                status=const.home_status_archived)
+            try:
+                home = account.get_home(spread)
+            except Errors.NotFoundError:
+                pass
+            else:
+                account.set_homedir(current_id=home['homedir_id'],
+                                    status=const.home_status_archived)
             # Remove references in other tables
             # Note that we preserve the quarantines for deleted users
             # TBD: Should we have an API function for this?
