@@ -39,7 +39,7 @@ AUTH_CRYPT_METHODS = ("auth_type_md5_crypt",)
 
 # Look for things like person name by evaluating source systems in in
 # this order
-SYSTEM_LOOKUP_ORDER = ("system_lt", "system_fs", "system_ureg")
+SYSTEM_LOOKUP_ORDER = ("system_manual",)
 #  Generate a full-name to display in this order
 NAME_LOOKUP_ORDER = (("name_full",),
                      ("name_first", "name_last"))
@@ -78,7 +78,7 @@ CLASS_OU = ['Cerebrum.OU/OU']
 CLASS_PERSON = ['Cerebrum.Person/Person']
 CLASS_ACCOUNT = ['Cerebrum.Account/Account']
 CLASS_GROUP = ['Cerebrum.Group/Group']
-CLASS_CONSTANTS = ['Cerebrum.Constants/Constants']
+CLASS_CONSTANTS = ['Cerebrum.Constants/Constants', 'Cerebrum.Constants/ExampleConstants']
 
 CLASS_CL_CONSTANTS = ['Cerebrum.modules.CLConstants/CLConstants']
 
