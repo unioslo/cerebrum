@@ -114,9 +114,9 @@ def rec_make_ou(stedkode, ou, existing_ou_mappings, org_units,
     ou.clear()
     ou.find(stedkode2ou[stedkode])
     if stedkode2ou.has_key(org_stedkode):
-        ou.set_parent(co.perspective_lt, stedkode2ou[org_stedkode])
+        ou.set_parent(perspective, stedkode2ou[org_stedkode])
     else:
-        ou.set_parent(co.perspective_lt, None)
+        ou.set_parent(perspective, None)
     existing_ou_mappings[stedkode2ou[stedkode]] = org_stedkode_ou
 
 def import_org_units(oufile):
@@ -189,7 +189,7 @@ def import_org_units(oufile):
         db.commit()
 
     existing_ou_mappings = {}
-    for node in ou.get_structure_mappings(co.perspective_lt):
+    for node in ou.get_structure_mappings(perspective):
         existing_ou_mappings[int(node.ou_id)] = node.parent_id
 
     # Now populate ou_structure
@@ -205,16 +205,18 @@ def usage(exitcode=0):
     -v | --verbose: increase verbosity
     -o | --ou-file file: file to read stedinfo from
     --source-system name: name of source-system to use
+    --perspective name: name of perspective to use
 
     Imports OU data from systems that use 'stedkoder', primarily used
     to import from UoOs LT system"""
     sys.exit(exitcode)
     
 def main():
-    global source_system, verbose
+    global source_system, verbose, perspective
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'vo:',
-                                   ['verbose', 'ou-file=', 'source-system='])
+        opts, args = getopt.getopt(sys.argv[1:], 'vo:p:',
+                                   ['verbose', 'ou-file=', 'source-system=',
+                                    'perspective='])
     except getopt.GetoptError:
         usage(1)
     verbose = 0
@@ -227,6 +229,8 @@ def main():
             oufile = val
         elif opt in ('--source-system',):
             source_system = getattr(co, val)
+        elif opt in ('--perspective',):
+            perspective = getattr(co, val)
     if oufile is not None:
         import_org_units(oufile)
 
