@@ -144,14 +144,14 @@ class PPQUtil(object):
             if ignore_transaction_type:
                 # Don't know why we would need this
                 raise errors.IllegalUndoRequest, "Not implemented"
-            if page_units > -old_free + -old_pay:
+            if page_units > -old_free + -old_paid:
                 raise errors.IllegalUndoRequest, \
                       "Cannot undo more pages than was in the job"
 
             delta_total = -page_units
             delta_free = delta_paid = 0
-            if old_pay < 0:                  # Paid for refered print-job
-                delta = min(abs(old_pay), page_units)
+            if old_paid < 0:                  # Paid for refered print-job
+                delta = min(abs(old_paid), page_units)
                 delta_paid = delta
                 page_units -= delta
             if page_units and old_free < 0:  # old job had free pages
