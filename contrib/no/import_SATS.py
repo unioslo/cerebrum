@@ -20,7 +20,6 @@ OU_class = Factory.get('OU')
 
 source_system = co.system_sats
 school2ouid = {}
-elevoids2group = {}
 
 def read_inputfile(filename):
     print "Processing %s" % filename
@@ -80,6 +79,7 @@ def read_extra_person_info(ptype, level, schools):
     return spec[1:], ret
 
 def populate_people(level, type, pspec, pinfo):
+    print "Populating %i entries of type %s" % (len(pinfo), type)
     if type == 'elev':
         fname = 'person_elev_%s.txt' % level
         oidname = 'elevoid'
@@ -89,6 +89,8 @@ def populate_people(level, type, pspec, pinfo):
     else:
         fname = 'person_foreldre_%s.txt' % level
         oidname = 'parentfid'
+        elevoids2group = pinfo
+        print "# elever %i" % len(elevoids2group.keys())
     spec, dta = read_inputfile("sats/%s" % fname)
     # Create mapping of locname to locid
     loc = {}
@@ -104,7 +106,10 @@ def populate_people(level, type, pspec, pinfo):
     ret = {}
     # Process all people in the input-file
     for p in dta:
-        if type <> 'foreldre' and (not (pinfo.has_key(p[loc[oidname]]))):
+        if type == 'foreldre':
+            if not elevoids2group.has_key(p[loc['childfid']]):
+                continue
+        elif not (pinfo.has_key(p[loc[oidname]])):
             continue                          # Skip unknown person
         sys.stdout.write('.')
         sys.stdout.flush()
@@ -112,43 +117,52 @@ def populate_people(level, type, pspec, pinfo):
         # find all affiliations and groups for this person
         affiliations = []
         groups = {}
-        for extra in pinfo[p[loc[oidname]]]:
-            school = extra[ploc['schoolcode']]
-            affiliations += school
-            if type eq 'elev':
-                groups["%s_%s_%s" % (school, extra[ploc['klassekode']], type)] = 1
-            elif type eq 'lærer':
-                groups["%s_%s_%s" % (school, extra[ploc['elevgruppekode']], type)] = 1
-        if type eq 'foreldre':
-            groups = elevoids2group[p[loc['childfid']]]
+        if type == 'foreldre':
+            h = elevoids2group[p[loc['childfid']]]
+            for k in h.keys():
+                k.replace('_elev', '_foreldre')
+                groups[k] = 1
+        else:
+            for extra in pinfo[p[loc[oidname]]]:
+                school = extra[ploc['schoolcode']]
+                affiliations += [school, ]
+                if type == 'elev':
+                    groups["%s_%s_%s" % (school, extra[ploc['klassekode']], type)] = 1
+                elif type == 'lærer':
+                    groups["%s_%s_%s" % (school, extra[ploc['elevgruppekode']], type)] = 1
             
-        p_id = update_person(p, loc, type, affiliations, groups.keys())
-        ret[p_id] = groups
+        try:
+            p_id = update_person(p, loc, type, affiliations, groups.keys())
+            ret[p[loc[oidname]]] = groups
+        except:
+            print "WARNING: Error importing %s" % p[loc[oidname]]
+            pp.pprint ((p, loc, type, affiliations, groups.keys() ))
+            raise
     return ret
 
 def do_all():
-    schools = {'gs': ('VAHL', 'JORDAL'),
+    schools = {'gs': ('VAHL', ), # 'JORDAL'),
                'vg': ('ELV', )}
 
     school2ouid = import_OU(schools)
     for level in schools.keys():
 
         espec, elev_info =  read_extra_person_info('elev', level, schools[level])
-        elevoids2group = populate_people(level, 'elev', elev_info)
+        elevoids2group = populate_people(level, 'elev', espec, elev_info)
 
         # Populate parents for the already imported students
-        elevoid2entity_id = populate_people(level, 'foreldre', level, None)
-
-
-        aspec, adminoid2info = read_extra_person_info('admin', level, schools[level])
-        populate_people(level, 'lærer', tspec, teacheriod2info)
+        elevoid2entity_id = populate_people(level, 'foreldre', [], elevoids2group)
 
         tspec, teacheriod2info = read_extra_person_info('lærer', level, schools[level])
+        populate_people(level, 'lærer', tspec, teacheriod2info)
+
+        aspec, adminoid2info = read_extra_person_info('admin', level, schools[level])
         populate_people(level, 'ansatt', aspec, adminoid2info)
 
     # fordel å legge inn åpning for foreldre->barn rolle-mapping
+    Cerebrum.commit()
 
-def update_person(p, loc, affiliations):
+def update_person(p, loc,type, affiliations, groupnames):
     """Create or update the persons name, address and contact info.
 
     TODO: Also set affiliation
@@ -162,11 +176,11 @@ def update_person(p, loc, affiliations):
         day, mon, year = [int(x) for x in p[loc['birthday']].split('.')]
         date = Cerebrum.Date(year, mon, day)
     except:
-        print "\nWARNING: Bad date %s for %s" % (p[loc['birthday']],
-                                                 p[loc['personoid']])
+        warn("\nWARNING: Bad date %s for %s" % (p[loc['birthday']],
+                                                 p[loc['personoid']]))
     if p[loc['firstname']] == '' or p[loc['lastname']] == '':
-        print "\nWARNING: bad name for %s" % p[loc['personoid']]
-        continue
+        warn("\nWARNING: bad name for %s" % p[loc['personoid']])
+        return
 
     person.clear()
     try:
@@ -182,34 +196,38 @@ def update_person(p, loc, affiliations):
         person.populate_external_id(source_system, co.externalid_fodselsnr,
                                     p[loc['socialsecno']])
     else:
-        print "\nWARNING: no ssid for %s" % p[loc['personoid']]
+        warn("\nWARNING: no ssid for %s" % p[loc['personoid']])
     person.populate_external_id(source_system, co.externalid_personoid,
                                 p[loc['personoid']])
 
     op = person.write_db()
-    if op is None:
-        print "**** EQUAL ****"
-    elif op == True:
-        print "**** NEW ****"
-    elif op == False:
-        print "**** UPDATE ****"
+##     if op is None:
+##         print "**** EQUAL ****"
+##     elif op == True:
+##         print "**** NEW ****"
+##     elif op == False:
+##         print "**** UPDATE ****"
 
-    if p[loc['address3']] == '': # or elev[loc['address1']] == '':
-        print "\nWARNING: Bad address for %s" % p[loc['personoid']]
-    else:
+    if op <> True:          # TODO: handle update/equal
+        return person.entity_id
+
+    try:
         postno, city = string.split(p[loc['address3']], maxsplit=1)
         if postno.isdigit():
             person.add_entity_address(source_system, co.address_post,
                                       address_text=p[loc['address1']],
                                       postal_number=postno, city=city)
         else:
-            print "\nWARNING: Bad address for %s" % p[loc['personoid']]
+            warn("\nWARNING: Bad address for %s" % p[loc['personoid']])
+    except ValueError:
+        warn("\nWARNING: Bad address for %s" % p[loc['personoid']])
+        
     if p[loc['phoneno']] <> '':
-        person.add_contact_info(source_system, co.contact_phone, elev[loc['phoneno']])
+        person.add_contact_info(source_system, co.contact_phone, p[loc['phoneno']])
     if p[loc['faxno']] <> '':
-        person.add_contact_info(source_system, co.contact_fax, elev[loc['faxno']])
+        person.add_contact_info(source_system, co.contact_fax, p[loc['faxno']])
     if p[loc['email']] <> '':
-        person.add_contact_info(source_system, co.contact_email, elev[loc['email']])
+        person.add_contact_info(source_system, co.contact_email, p[loc['email']])
     return person.entity_id
 
 def import_OU(schools):
@@ -227,7 +245,7 @@ def import_OU(schools):
             loc[k.lower()] = n
             n += 1
         for skole in dta:
-            if not school2ouid[level].contains(skole[loc['institutioncode']]):
+            if not (skole[loc['institutioncode']] in schools[level]):
                 continue
             sys.stdout.write('.')
             sys.stdout.flush()
@@ -275,17 +293,12 @@ def convert_all():
         spec, ret = read_inputfile("sats/%s" % f)
         save_outputfile(f, spec, ret)
 
+def warn(msg):
+    # print "WARNING: %s" % msg
+    pass
 
 def main():
-    #x = read_extra_person_info('lærer', 'vg', ('ELV', ))
-    #pp.pprint(x)
-    #do_all()
-    pass
-    # convert_all()
-##     import_OU('vg')
-##     elev_filter = 
-##     import_elever('vg')
-    
+    do_all()
 
 if __name__ == '__main__':
     main()
