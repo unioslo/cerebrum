@@ -141,18 +141,18 @@ def destroy_group(group_id, max_recurse):
                      group_id)
         sys.exit(1)
     gr = get_group(group_id)
-    logger.debug("destroy_group(%s/%d, %d) [After get_group]"
-                 % (gr.group_name, gr.entity_id, max_recurse))
+    logger.debug("destroy_group(%s/%d, %d) [After get_group]",
+                 gr.group_name, gr.entity_id, max_recurse)
     if max_recurse < 0:
-        logger.fatal("destroy_group(%s): Recursion too deep" % gr.group_name)
+        logger.fatal("destroy_group(%s): Recursion too deep", gr.group_name)
         sys.exit(3)
         
     # If this group is a member of other groups, remove those
     # memberships.
     for r in gr.list_groups_with_entity(gr.entity_id):
         parent = get_group(r['group_id'])
-        logger.debug("removing %s from group %s" % (gr.group_name,
-                                                    parent.group_name))
+        logger.debug("removing %s from group %s",
+                     gr.group_name, parent.group_name)
         parent.remove_member(gr.entity_id, r['operation'])
 
     # If a e-mail target is of type multi and has this group as its
@@ -165,18 +165,18 @@ def destroy_group(group_id, max_recurse):
     except Errors.NotFoundError:
         pass
     else:
-        logger.debug("found email target referencing %s" % gr.group_name)
+        logger.debug("found email target referencing %s", gr.group_name)
         ea = Email.EmailAddress(db)
         for r in et.get_addresses():
             ea.clear()
             ea.find(r['address_id'])
-            logger.debug("deleting address %s@%s" %
-                         (r['local_part'], r['domain']))
+            logger.debug("deleting address %s@%s",
+                         r['local_part'], r['domain'])
             ea.delete()
         et.delete()
     # Fetch group's members
     u, i, d = gr.list_members(member_type=const.entity_group)
-    logger.debug("destroy_group() subgroups: %r" % (u,))
+    logger.debug("destroy_group() subgroups: %r", u)
     # Remove any spreads the group has
     for row in gr.get_spread():
         gr.delete_spread(row['spread'])
@@ -235,7 +235,7 @@ class group_tree(object):
 	elif len(ret) == 0:
 	    # To many users are not registrated correct and flooding 
 	    # the error-log.  
-	    logger.debug("Ikke gyldig kull eller studieprog: args=%r" % args)
+	    logger.debug("Ikke gyldig kull eller studieprog: args=%r", args)
 	    return () 
         logger.error("Matchet for mange: self=%r, args=%r, kws=%r, ret=%r",
                      self, args, kws, ret)
@@ -741,8 +741,8 @@ def prefetch_primaryusers():
         if fnr_source.has_key(fnr) and fnr_source[fnr][0] <> p_id:
             # Multiple person_info rows have the same fnr (presumably
             # the different fnrs come from different source systems).
-            logger.error("Multiple persons share fnr %s: (%d, %d)" % (
-                fnr, fnr_source[fnr][0], p_id))
+            logger.error("Multiple persons share fnr %s: (%d, %d)",
+                         fnr, fnr_source[fnr][0], p_id)
             # Determine which person's fnr registration to use.
             source_weight = {int(const.system_fs): 4,
                              int(const.system_manual): 3,
