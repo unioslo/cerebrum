@@ -610,7 +610,7 @@ class Student(FSObject):
         return self.db.query(qry)
 
 
-    def list_drgrad(self): # GetStudinfDrgrad
+    def list_drgrad_50(self): # GetStudinfDrgrad
 	"""Henter info om aktive doktorgradsstudenter."""
         qry = """
         SELECT fodselsdato, personnr, institusjonsnr, faknr,
@@ -618,6 +618,28 @@ class Student(FSObject):
         FROM fs.drgradsavtale
         WHERE dato_start <= SYSDATE AND
               NVL(DATO_BEREGNET_SLUTT, sysdate) >= SYSDATE"""
+        return self.db.query(qry)
+
+    def list_drgrad(self): # GetStudinfDrgrad
+	"""Henter info om aktive doktorgradsstudenter.  Aktive er
+        definert til å være de som har en studierett til et program
+        som har nivåkode lik 980, og der datoen for tildelt studierett
+        er passert og datoen for fratatt studierett enten ikke er satt
+        eller ikke passert."""
+
+        qry = """
+        SELECT sps.fodselsdato, sps.personnr,
+               sp.institusjonsnr_studieansv AS institusjonsnr,
+               sp.faknr_studieansv AS faknr,
+               sp.instituttnr_studieansv AS instituttnr, 
+               sp.gruppenr_studieansv AS gruppenr,
+               sps.dato_studierett_tildelt,
+               sps.dato_studierett_gyldig_til
+        FROM fs.studieprogramstudent sps, fs.studieprogram sp
+        WHERE sps.dato_studierett_tildelt <= SYSDATE AND
+              NVL(sps.dato_studierett_gyldig_til, sysdate) >= SYSDATE AND
+              sps.studieprogramkode = sp.studieprogramkode AND
+              sp.studienivakode = 980"""
         return self.db.query(qry)
 
     def get_studierett(self, fnr, pnr): # GetStudentStudierett_50
