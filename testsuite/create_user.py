@@ -14,6 +14,7 @@ def create_user(db, external_id):
 
     ef = BofhdExtension(db)
 
+    # Are these still used? [pere 2003-02-06]
     home = "/home/dir"
     posix_gid = 999999
     shell = const.posix_shell_bash
