@@ -669,9 +669,12 @@ CREATE TABLE person_external_id
   id_type	NUMERIC(6,0)
 		CONSTRAINT person_external_id_id_type
 		  REFERENCES person_external_id_code(code),
+  source_system	NUMERIC(6,0)
+		CONSTRAINT person_external_id_source_sys
+		  REFERENCES authoritative_system_code(code),
   external_id	CHAR VARYING(256),
   CONSTRAINT person_external_id_pk
-    PRIMARY KEY (person_id, id_type),
+    PRIMARY KEY (person_id, id_type, source_system),
   CONSTRAINT person_external_id_unique
     UNIQUE (id_type, external_id)
 );
@@ -791,6 +794,9 @@ CREATE TABLE person_affiliation
   affiliation	NUMERIC(6,0)
 		CONSTRAINT person_affiliation_affiliation
 		  REFERENCES person_affiliation_code(code),
+  source_system	NUMERIC(6,0)
+		CONSTRAINT person_affiliation_source_sys
+		  REFERENCES authoritative_system_code(code),
   status	NUMERIC(6,0),
   create_date	DATE
 		DEFAULT SYSDATE
@@ -800,7 +806,7 @@ CREATE TABLE person_affiliation
 		NOT NULL,
   deleted_date	DATE,
   CONSTRAINT person_affiliation_pk
-    PRIMARY KEY (person_id, ou_id, affiliation),
+    PRIMARY KEY (person_id, ou_id, affiliation, source_system),
   CONSTRAINT person_affiliation_status
     FOREIGN KEY (affiliation, status)
     REFERENCES person_aff_status_code(affiliation, status)
@@ -823,12 +829,13 @@ CREATE TABLE account_type
   person_id	NUMERIC(12,0),
   ou_id		NUMERIC(12,0),
   affiliation	NUMERIC(6,0),
+  source_system	NUMERIC(6,0),
   account_id	NUMERIC(12,0),
   CONSTRAINT account_type_pk
-    PRIMARY KEY (person_id, ou_id, affiliation, account_id),
+    PRIMARY KEY (person_id, ou_id, affiliation, account_id, source_system),
   CONSTRAINT account_type_affiliation
-    FOREIGN KEY (person_id, ou_id, affiliation)
-    REFERENCES person_affiliation(person_id, ou_id, affiliation),
+    FOREIGN KEY (person_id, ou_id, affiliation, source_system)
+    REFERENCES person_affiliation(person_id, ou_id, affiliation, source_system),
   CONSTRAINT account_type_account
     FOREIGN KEY (account_id, person_id)
     REFERENCES account_info(account_id, owner_id)
