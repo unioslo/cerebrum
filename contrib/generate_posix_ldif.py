@@ -24,22 +24,20 @@
 Write user and group information to an LDIF file (if enabled in
 cereconf), which can then be loaded into LDAP.
 
-  --user=<outfile>     | -u <outfile>  Write users to a LDIF-file
-  --group=<outfile>    | -g <outfile>  Write posix groups to a LDIF-file
-  --netgroup=<outfile> | -n <outfile>  Write netgroup map to a LDIF-file
+  --user=<outfile>      | -u <outfile>  Write users to a LDIF-file
+  --filegroup=<outfile> | -f <outfile>  Write posix filegroups to a LDIF-file
+  --netgroup=<outfile>  | -n <outfile>  Write netgroup map to a LDIF-file
   --posix  Write all of the above, plus optional top object and extra file,
            to a file given in cereconf (unless the above options override).
            Also disable ldapsync first.
 
-With none of the above options, do the same as --posix except only write
-the parts that are enabled in cereconf.
+With none of the above options, do the same as --posix.
 
-  --user_spread=<value>     | -U <value>  (used by all components)
-  --group_spread=<value>    | -G <value>  (used by --group component)
-  --netgroup_spread=<value> | -N <value>  (used by --netgroup component)
+  --user_spread=<value>      | -U <value>  (used by all components)
+  --filegroup_spread=<value> | -F <value>  (used by --filegroup component)
+  --netgroup_spread=<value>  | -N <value>  (used by --netgroup component)
 
-The spread options accept multiple spread-values (<value1>,<value2>,...).
-They cannot be used without at least one of the previous options."""
+The spread options accept multiple spread-values (<value1>,<value2>,...)."""
 
 import time, sys, getopt, os
 
@@ -158,7 +156,7 @@ def generate_users(spread=None,filename=None):
 def generate_posixgroup(spread=None,u_spread=None,filename=None):
     posix_group = PosixGroup.PosixGroup(db)
     group = Factory.get('Group')(db)
-    spreads = eval_spread_codes(spread or cereconf.LDAP_GROUP_SPREAD)
+    spreads = eval_spread_codes(spread or cereconf.LDAP_FILEGROUP_SPREAD)
     u_spreads = eval_spread_codes(u_spread or cereconf.LDAP_USER_SPREAD)
     if filename:
 	f = file(filename, 'w')
@@ -166,10 +164,10 @@ def generate_posixgroup(spread=None,u_spread=None,filename=None):
     else:
 	f = glob_fd
 
-    f.write(container_entry_string('GROUP'))
+    f.write(container_entry_string('FILEGROUP'))
 
     groups = {}
-    dn_str = get_tree_dn('GROUP')
+    dn_str = get_tree_dn('FILEGROUP')
     obj_str = "".join(["objectClass: %s\n" % oc for oc in
                        ('top', 'posixGroup')])
     for row in posix_group.list_all_grp(spreads):
@@ -293,9 +291,10 @@ def disable_ldapsync_mode():
 
 
 def main():
-    short2long_opts = (('u:', 'U:', 'g:', 'G:', 'n:', 'N:'),
-                       ('user=', 'user_spread=', 'group=', 'group_spread=',
-                        'netgroup=', 'netgroup_spread='))
+    short2long_opts = (('u:', 'U:', 'f:', 'F:', 'n:', 'N:'),
+                       ('user=',      'user_spread=',
+                        'filegroup=', 'filegroup_spread=',
+                        'netgroup=',  'netgroup_spread='))
     try:
         opts, args = getopt.getopt(sys.argv[1:],
                                    "".join(short2long_opts[0]),
@@ -311,51 +310,33 @@ def main():
         if val is not None:
             opts['-' + short.replace(':','')] = val
 
-    got_posix  = '--posix' in opts
-    got_file   = filter(opts.has_key, ('-u', '-g', '-n'))
-    got_spread = filter(opts.has_key, ('-U', '-G', '-N'))
-    if got_spread and not (got_posix or got_file):
-        usage(1)
-    for opt in got_spread:
+    got_file = filter(opts.has_key, ('-u', '-f', '-n'))
+    for opt in filter(opts.has_key, ('-U', '-F', '-N')):
         opts[opt] = eval_spread_codes(opts[opt].split(','))
+    do_all = '--posix' in opts or not got_file
 
     global glob_fd
     glob_fd = None
-    if got_posix or not got_file:
+    if do_all:
         glob_fd = SimilarSizeWriter(cereconf.LDAP_DUMP_DIR + "/" +
                                     cereconf.LDAP_POSIX_FILE)
         glob_fd.set_size_change_limit(10)
-
-    if got_posix or got_file:
-        if got_posix:
-            disable_ldapsync_mode()
-            init_ldap_dump()
-        if got_posix or '-u' in opts:
-            generate_users(opts.get('-U'), opts.get('-u'))
-        if got_posix or '-g' in opts:
-            generate_posixgroup(opts.get('-G'), opts.get('-U'), opts.get('-g'))
-        if got_posix or '-n' in opts:
-            generate_netgroup(opts.get('-N'), opts.get('-U'), opts.get('-n'))
-    else:
-        config()
-
+        disable_ldapsync_mode()
+        init_ldap_dump()
+    for conf_var, func, args in \
+            (('LDAP_USER_DN',      generate_users,            ('-U', '-u')),
+             ('LDAP_FILEGROUP_DN', generate_posixgroup, ('-F', '-U', '-f')),
+             ('LDAP_NETGROUP_DN',  generate_netgroup,   ('-N', '-U', '-n'))):
+        if (do_all or args[-1] in opts) and getattr(cereconf, conf_var, False):
+            func(*map(opts.get, args))
+        elif args[-1] in opts:
+            sys.exit("Option %s requires cereconf.%s." % (args[-1], conf_var))
     if glob_fd:
         glob_fd.close()
 
 def usage(exitcode=0):
     print __doc__
     sys.exit(exitcode)
-
-def config():
-	disable_ldapsync_mode()
-        init_ldap_dump()
-	if (cereconf.LDAP_USER == 'Enable'):
-	    generate_users()
-	if (cereconf.LDAP_GROUP == 'Enable'):
-	    generate_posixgroup()
-	if (cereconf.LDAP_NETGROUP == 'Enable'):
-	    generate_netgroup()
-	
 
 if __name__ == '__main__':
     	main()
