@@ -792,23 +792,23 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
 
 
     def list_persons_name(self, source_system=None, name_type=None):
-        str = ""
+        type_str = ""
         if name_type == None:
-            str = "= %d" % int(self.const.name_full)
+            type_str = "= %d" % int(self.const.name_full)
         elif isinstance(name_type, list):
-            str = "IN (%d" % int(name_type[0])
+            type_str = "IN (%d" % int(name_type[0])
             for tuple in name_type[1:]:
-                str += ", %d" % int(tuple)
-            str += ")"
+                type_str += ", %d" % int(tuple)
+            type_str += ")"
         else:
-            str = "= %d" % int(name_type)
+            type_str = "= %d" % int(name_type)
         if source_system:
-            str += " AND source_system = %d" % int(source_system)
+            type_str += " AND source_system = %d" % int(source_system)
 
         return self.query("""
         SELECT DISTINCT person_id, name_variant, name
         FROM [:table schema=cerebrum name=person_name]
-        WHERE name_variant %s""" % str)
+        WHERE name_variant %s""" % type_str)
 
 
     def getdict_persons_names(self, source_system=None, name_types=None):
