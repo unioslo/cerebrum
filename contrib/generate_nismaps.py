@@ -58,7 +58,7 @@ class NISMapError(NISMapException): pass
 class BadUsername(NISMapError): pass
 class NoDisk(NISMapError): pass
 
-def generate_passwd(filename, spread=None):
+def generate_passwd(filename, shadow_file, spread=None):
     if spread is None:
         raise ValueError, "Must set user_spread"
     shells = {}
@@ -66,6 +66,9 @@ def generate_passwd(filename, spread=None):
         shells[int(s['code'])] = s['shell']
     f = Utils.SimilarSizeWriter(filename, "w")
     f.set_size_change_limit(10)
+    if shadow_file:
+        s = Utils.SimilarSizeWriter(shadow_file, "w")
+        s.set_size_change_limit(10)
     n = 0
     diskid2path = {}
     disk = Factory.get('Disk')(db)
@@ -116,10 +119,15 @@ def generate_passwd(filename, spread=None):
             if row['disk_id'] is None:
                 raise NoDisk, "Bad disk for %s" % uname
             home = diskid2path[int(row['disk_id'])] + "/" + uname
-            
+
+        if shadow_file:
+            s.write("%s:%s:::\n" % (uname, passwd))
+            if not passwd[0] == '*':
+                passwd = "!!"
+
         line = join((uname, passwd, str(row['posix_uid']),
-                    str(posix_group.posix_gid), gecos,
-                    str(home), shell))
+                     str(posix_group.posix_gid), gecos,
+                     str(home), shell))
         if debug:
             print line
         f.write(line+"\n")
@@ -158,6 +166,8 @@ def generate_passwd(filename, spread=None):
     if e_o_f:
 	f.write('E_O_F\n')
     f.close()
+    if s:
+        s.close()
 
 def generate_netgroup(filename, group_spread, user_spread):
     # TODO: It may be desireable to merge this method with
@@ -379,16 +389,17 @@ def main():
     global e_o_f
     global max_group_memberships
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'dg:p:n:',
+        opts, args = getopt.getopt(sys.argv[1:], 'dg:p:n:s:',
                                    ['debug', 'help', 'eof', 'group=',
                                     'passwd=', 'group_spread=',
                                     'user_spread=', 'netgroup=',
-                                    'max_memberships='])
+                                    'max_memberships=', 'shadow='])
     except getopt.GetoptError:
         usage(1)
 
     user_spread = group_spread = None
     max_group_memberships = 16
+    shadow_file = None
     for opt, val in opts:
         if opt in ('--help',):
             usage()
@@ -397,10 +408,20 @@ def main():
         elif opt in ('--eof',):
             e_o_f = True
         elif opt in ('-g', '--group'):
+            if not (user_spread and group_spread):
+                sys.stderr.write("Must set user and group spread!\n")
+                sys.exit(1)
             generate_group(val, group_spread, user_spread)
         elif opt in ('-p', '--passwd'):
-            generate_passwd(val, user_spread)
+            if not user_spread:
+                sys.stderr.write("Must set user spread!\n")
+                sys.exit(1)
+            generate_passwd(val, shadow_file, user_spread)
+            shadow_file = None
         elif opt in ('-n', '--netgroup'):
+            if not (user_spread and user_spread):
+                sys.stderr.write("Must set user and group spread!\n")
+                sys.exit(1)
             generate_netgroup(val, group_spread, user_spread)
         elif opt in ('--group_spread',):
             group_spread = map_spread(val)
@@ -408,6 +429,8 @@ def main():
             max_group_memberships = val
         elif opt in ('--user_spread',):
             user_spread = map_spread(val)
+        elif opt in ('-s', '--shadow'):
+            shadow_file = val
         else:
             usage()
     if len(opts) == 0:
@@ -415,20 +438,36 @@ def main():
 
 def usage(exitcode=0):
     print """Usage: [options]
+  
+   [--user_spread spread [--shadow outfile]* [--passwd outfile]* \
+    [--group_spread spread [--group outfile]* [--netgroup outfile]*]*]+
+
+   Any of the two types may be repeated as many times as needed, and will
+   result in generate_nismaps making several maps based on spread. If eg.
+   user_spread is set, generate_nismaps will use this if a new one is not
+   set before later passwd files. This is not the case for shadow.
+
+   Misc options:
     -d | --debug
       Enable deubgging
-    --group_spread value
-      Filter by group_spread
-    --user_spread value
-      Filter by user_spread
     --eof
       End dump file with E_O_F to mark successful completion
-    -p | --passwd outfile
-      Write password map to outfile
+
+   Group options:
+    --group_spread value
+      Filter by group_spread
     -g | --group outfile
       Write posix group map to outfile
     -n | --netgroup outfile
       Write netgroup map to outfile
+
+   User options:
+    --user_spread value
+      Filter by user_spread
+    -s | --shadow outfile
+      Write shadow file. Password hashes in passwd will then be '!!' or '*'.
+    -p | --passwd outfile
+      Write password map to outfile
 
     Generates a NIS map of the requested type for the requested spreads."""
     sys.exit(exitcode)
