@@ -24,7 +24,7 @@ from Cerebrum import Entity
 from Cerebrum.modules import PosixGroup
 from Cerebrum.modules.no.uio import PrinterQuotas
 from Cerebrum.Utils import Factory
-from templates.letters import TemplateHandler
+from Cerebrum.modules.templates.letters import TemplateHandler
 from server.bofhd_errors import CerebrumError
 from Cerebrum.modules.no.uio import bofhd_uio_help
 from Cerebrum.Constants import _CerebrumCode, _QuarantineCode, _SpreadCode,\
@@ -477,17 +477,32 @@ class BofhdExtension(object):
 
     # person find
     all_commands['person_find'] = Command(
-        ("person", "find"), PersonSearchType(), SimpleString())
+        ("person", "find"), PersonSearchType(), SimpleString(),
+        fs=FormatSuggestion("%6i %-28s %10s %s", ('id', 'birth', 'export_id', 'name'),
+                            hdr="%6s %-28s %10s %s" % ('Id', 'Birth', 'Exp-id', 'Name')))
     def person_find(self, operator, search_type, value):
         # TODO: Need API support for this
-        if search_type == 'name':
-            pass
-        elif search_type == 'date':
-            pass
-        elif search_type == 'person_id':
+        matches = []
+        if search_type == 'person_id':
             person = self._get_person(*self._map_person_id(person_id))
-        raise NotImplementedError, "Feel free to implement this function"
-
+            matches = [{'person_id': person.entity_id}]
+        else:
+            person = self.person
+            person.clear()
+            if search_type == 'name':
+                matches = person.find_persons_by_name(value)
+            elif search_type == 'date':
+                matches = person.find_persons_by_bdate(self._parse_date(value))
+        ret = []
+        for row in matches:
+            person = self._get_person('entity_id', row['person_id'])
+            ret.append({'id': row['person_id'],
+                        'birth': person.birth_date,
+                        'export_id': person.export_id,
+                        'name': person.get_name(self.const.system_cached,
+                                                getattr(self.const, cereconf.DEFAULT_GECOS_NAME))})
+        return ret
+    
     # person info
     all_commands['person_info'] = Command(
         ("person", "info"), PersonId(),
@@ -907,12 +922,23 @@ class BofhdExtension(object):
         # TODO: Return more info about account
         return ret
 
-    # user list_created
-    all_commands['user_list_passwords'] = Command(
-        ("user", "list_passwords"),
-        fs=FormatSuggestion("%12s %20s %s", ("account_id", "operation", "password"),
-                            hdr="%12s %20s %s" % ("Id", "Operation", "Password")))
-    def user_list_passwords(self, operator):
+
+    def _map_template(self, num=None):
+        """If num==None: return list of avail templates, else return
+        selected template """
+        tpls = ""
+        n = 1
+        for k in cereconf.BOFHD_TEMPLATES.keys():
+            for tpl in cereconf.BOFHD_TEMPLATES[k]:
+                tpls += "%2i %s:%s.%s\n" % (n, k, tpl[0], tpl[1])
+                if num is not None and n == int(num):
+                    return (k, tpl[0], tpl[1])
+                n += 1
+        if num is not None:
+            raise CerebrumError, "Unknown template selected"
+        return tpls
+
+    def _get_cached_passwords(self, operator):
         ret = []
         for r in operator.get_state():
             # state_type, entity_id, state_data, set_time
@@ -922,6 +948,76 @@ class BofhdExtension(object):
                             'password': r['state_data']['password'],
                             'operation': r['state_type']})
         return ret
+
+    # user list_passwords
+    def user_list_passwords_prompt_func(self, session, *args):
+        """  - Går inn i "vis-info-om-oppdaterte-brukere-modus":
+  1 Skriv ut passordark
+  1.1 Lister ut templates, ber bofh'er om å velge en
+  1.1.[0] Spesifiser skriver (for template der dette tillates valgt av
+          bofh'er)
+  1.1.1 Lister ut alle aktuelle brukernavn, ber bofh'er velge hvilke
+        som skal skrives ut ('*' for alle).
+  1.1.2 (skriv ut ark/brev)
+  2 List brukernavn/passord til skjerm
+  """
+        all_args = list(args[:])
+        if(len(all_args) == 0):
+            return {'prompt': "1: Skriv ut passordark\n2: List brukernavn/passord til skjerm\nVelg#"}
+        arg = all_args.pop(0)
+        if(arg == '2'):
+            return {'last_arg': 1}
+        if(len(all_args) == 0):
+            return {'prompt': "%sVelg template #" % self._map_template(),
+                    'help_ref': 'print_select_template'}
+        arg = all_args.pop(0)
+        tpl_lang, tpl_name, tpl_type = self._map_template(arg)
+        if not tpl_lang.endswith("-letter"):
+            if(len(all_args) == 0):
+                return {'prompt': 'Oppgi skrivernavn'}
+            skriver = all_args.pop(0)
+        if(len(all_args) == 0):
+            lst = ""
+            n = 1
+            for row in self._get_cached_passwords(session):
+                lst += "%2i: %-12s %s\n" % (n, row['account_id'], row['operation'])
+                n += 1
+            if lst == "":
+                lst = "Ingen brukere"
+            return {'prompt': '%sVelg bruker(e)' % lst, 'last_arg': 1,
+                    'help_ref': 'print_select_range'}
+
+    all_commands['user_list_passwords'] = Command(
+        ("user", "list_passwords"), prompt_func=user_list_passwords_prompt_func,
+        fs=FormatSuggestion("%-8s %-12s %s", ("account_id", "operation", "password"),
+                            hdr="%-8s %-12s %s" % ("Id", "Operation", "Password")))
+    def user_list_passwords(self, operator, *args):
+        if args[0] == "2":
+            return self._get_cached_passwords(operator)
+        args = list(args[:])
+        args.pop(0)
+        tpl_lang, tpl_name, tpl_type = self._map_template(args.pop(0))
+        skriver = None
+        if not tpl_lang.endswith("-letter"):
+            skriver = args.pop(0)
+        selection = args.pop(0)
+        cache = self._get_cached_passwords(operator)
+        th = TemplateHandler(tpl_lang, tpl_name, tpl_type)
+        out, out_name = self._mktmp_file()
+        if th._hdr is not None:
+            out.write(th._hdr)
+        for n in self._parse_range(selection):
+            n -= 1
+            mapping = {'Brukernavn': cache[n]['account_id'],
+                       'Passord': cache[n]['password']}
+            out.write(th.apply_template('body', mapping))
+        if th._footer is not None:
+            out.write(th._footer)
+        out.close()
+        # TODO: pick up out_name and send it to printer, running
+        # through latex if tpl_type == 'tex'
+        return "OK: %s/%s.%s spooled @ %s for %s" % (
+            tpl_lang, tpl_name, tpl_type, skriver, selection)
 
     # user move
     all_commands['user_move'] = Command(
@@ -1064,29 +1160,6 @@ class BofhdExtension(object):
             return self.const.group_memberop_union
         raise NotImplementedError, "unknown group opcode: '%s'" % operator
 
-    def _get_person_name(self, person):
-        name = None
-        for ss in cereconf.PERSON_NAME_SS_ORDER:
-            try:
-                name = person.get_name(getattr(self.const, ss),
-                                       self.const.name_full)
-                break
-            except Errors.NotFoundError:
-                pass
-            if name is None:
-                try:
-                    f = person.get_name(getattr(self.const, ss),
-                                        self.const.name_first)
-                    l = person.get_name(getattr(self.const, ss),
-                                        self.const.name_last)
-                    name = "%s %s" % (f, l)
-                except Errors.NotFoundError:
-                    pass
-
-        if name is None:
-            name = "Ukjent"
-        return name
-
     def _get_entity(self, idtype, id):
         if idtype == 'account':
             return self._get_account(id)
@@ -1193,3 +1266,24 @@ class BofhdExtension(object):
             return self.db.Date(*([ int(x) for x in date.split('-')]))
         except:
             raise CerebrumError, "Illegal date: %s" % date
+
+    def _mktmp_file(self):
+        # TODO: Assert unique filename, and avoid potential security risks
+        name = "/tmp/bofhd_tmp.%s" % time.time()
+        f = file(name, "w")
+        return f, name
+
+    def _parse_range(self, selection):
+        lst = []
+        for part in selection.split():
+            idx = part.find('-')
+            if idx != -1:
+                for n in range(int(part[:idx]), int(part[idx+1:])+1):
+                    if n not in lst:
+                        lst.append(n)
+            else:
+                part = int(part)
+                if part not in lst:
+                    lst.append(part)
+        lst.sort()
+        return lst
