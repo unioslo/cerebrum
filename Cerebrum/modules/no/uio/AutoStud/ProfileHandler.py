@@ -42,6 +42,18 @@ class Profile(object):
         disks = self.matcher.toplevel_settings.get("disk", [])
         if len(disks) == 0:
             raise ValueError, "No disk matches profiles"
+        # Detect conflicting disks at same 'nivåkode'
+        tmp = disks[0]
+        for d in disks:
+            if d != tmp:
+                for tmp in self.matcher.matches:
+                    profile, nivaakode = tmp
+                    if profile.settings.has_key("disk"):
+                        if nivaakode < 300:  # TODO: don't hardcode these
+                            disks = [{'prefix': '/uio/platon/div-l'}]
+                        else:
+                            disks = [{'prefix': '/uio/platon/div-h'}]
+                break
         if current_disk is not None:
             if not self.pc.autostud.student_disk.has_key(int(current_disk)):
                 return current_disk
@@ -221,11 +233,20 @@ class ProfileMatcher(object):
             return
         nivakode = 0
         if sx_match_attr == 'studieprogram':
-            nivakode = self.pc.autostud.studieprogramkode2info.get(
-                value, {}).get('studienivakode', 0)
+            nivakode = self._normalize_nivakode(
+                self.pc.autostud.studieprogramkode2info.get(
+                value, {}).get('studienivakode', 0))
         self.matching_selectors.setdefault(sx_match_attr, {})[value] = 1
         for match in matches:
             self.matches.append((match, nivakode))
+
+    def _normalize_nivakode(self, niva):
+        niva = int(niva)
+        if niva >= 100 and niva < 300:
+            niva = 100
+        elif niva >= 300 and niva < 400:
+            niva = 300
+        return niva
 
     def _matches_sort(self, x, y):
         """Sort by nivaakode, then by profile"""
@@ -245,8 +266,12 @@ class ProfileMatcher(object):
                                     profile.settings[k])
                 if set_at.get(k, nivaakode) == nivaakode:
                     set_at[k] = nivaakode
-                    self._unique_extend(self.toplevel_settings.setdefault(k, []),
-                                        profile.settings[k])
+                    # NOTE: By using :1 we assert that disks inherited
+                    # from a parent profile won't move us to a
+                    # div-disk.  However, this also means that we
+                    # won't be member of all default_groups
+                    self._unique_extend(self.toplevel_settings.setdefault(
+                        k, []), profile.settings[k][:1])
 
         # Automatically add the stedkode from the studieprogram that matched
         for p in self.matching_selectors.get('studieprogram', {}).keys():
