@@ -423,4 +423,9 @@ LDAP_REWRITE_EMAIL_DOMAIN = {}
 # LDIF files to insert in the LDAP dumps from generate_<org,posix>_ldif.
 LDAP_ORG_ADD_LDIF_FILE = LDAP_POSIX_ADD_LDIF_FILE = None
 
+# generate_mail_dns_ldif.py parameter:
+# Maximum percent change of the size of the output file since last run.
+# With a larger change, an error is reported and the file if not updated.
+LDAP_MAIL_DNS_MAX_CHANGE = 10
+
 # arch-tag: 58fc16b3-e7ef-4304-b561-477ced8d6b96
