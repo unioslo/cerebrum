@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2004 University of Oslo, Norway
+# Copyright 2004, 2005 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -27,17 +27,17 @@ from ldif import LDIFParser,LDIFWriter
 from dsml import DSMLParser,DSMLWriter 
 
 import unittest
-from doc_exception import DocstringException
+from errors import ServerError
 
 import config
 
-class LdapConnectionError(DocstringException):
+class LdapConnectionError(ServerError):
     print "Could not connect to LDAP server"
 
 class DsmlHandler(DSMLParser):
     """Class for a DSMLv1 parser. Overrides method handle from class dsml.DSMLParser"""
 
-    def handle():
+    def handle(self):
         """Do something meaningful """
         pass
 
@@ -105,7 +105,7 @@ class LdapBack:
     l = None
 
     def __init__(self):
-        self.l = False # Holds the authenticated ldapConnection object
+        self.l = None # Holds the authenticated ldapConnection object
 
     def begin(self,incr=False,uri="ldaps://localhost:636",binddn="",bindpw=""):
         """
@@ -351,7 +351,7 @@ class OU:
 ###
 
 class testLdapBack(unittest.TestCase):
-    def setUp():
+    def setUp(self):
         self.lback = LdapBack()
 
     def testBegin(self):
