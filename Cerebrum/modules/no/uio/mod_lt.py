@@ -842,7 +842,7 @@ class PersonLTMixin(Person.Person):
                      DELETE FROM %s
                      WHERE
                         person_id = :person_id AND
-                        ou_id = :ou_id AND'
+                        ou_id = :ou_id AND
                         dato_fra = :dato_fra
                      """ % _GJEST_SCHEMA
 
