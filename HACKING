@@ -7,3 +7,10 @@ This was tested using these versions:
 
   aclocal (GNU automake) 1.4-p4
   autoconf (GNU Autoconf) 2.53
+
+Developer hints
+---------------
+
+  Nice Debian packages to install while developing Cerebrum:
+
+    ant jikes python2.2-elisp
