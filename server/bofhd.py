@@ -511,6 +511,8 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
             raise ServerRestartedError()
         self.server.db.cl_init(change_by=entity_id)
         logger.debug("Run command: %s (%s) by %i" % (cmd, args, entity_id))
+        if not self.server.cmd2instance.has_key(cmd):
+            raise CerebrumError, "Illegal command '%s'" % cmd
         func = getattr(self.server.cmd2instance[cmd], cmd)
 
         try:
