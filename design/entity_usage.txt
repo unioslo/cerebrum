@@ -1,0 +1,78 @@
+1. Create PosixGroup (INSERT)
+1.1 Underlying Group exists
+
+  g = Group(db).find(group_id)
+  pg = PosixGroup(db)
+  pg.populate(gid=GID, parent=g)
+  # Should only (try to) do an INSERT into posix_group.
+  pg.write_db()
+
+1.2 Group does not exist
+
+  pg = PosixGroup()
+  pg.populate(# Group-specific attributes:
+              creator, name, visibility, expire_date, ...,
+              # PosixGroup-specific attributes:
+              gid=GID,
+              # Not strictly necessare, as this is the default value:
+              parent=None)
+  # Should (try to) do an INSERT into group_info (and entity_name),
+  # and then go on to do an INSERT into posix_group.
+  pg.write_db()
+
+2. Modify a PosixGroup (UPDATE)
+2.1 Modification _only_ of PosixGroup-specific attributes
+
+  pg = PosixGroup(db).find(group_id)
+  pg.gid = NEWGID
+  # Should only do an UPDATE on posix_group.
+  pg.write_db()
+
+2.2 Modify both Group- and PosixGroup-related attributes
+
+  pg = PosixGroup(db).find(group_id)
+  pg.creator, pg.gid = NEWCREATOR, NEWGID
+  # First, UPDATE on group_info (and possibly entity_name?), then
+  # UPDATE on posix_group.
+  pg.write_db()
+
+3. Modify set of members in PosixGroup
+
+  The Group subclasses that come with the Cerebrum distribution does
+  not put any restrictions on what entity types they allow their
+  members to have.  The problem of dealing with e.g. OU members in a
+  PosixGroup is left to the system that generates exportable data from
+  this PosixGroup.
+
+4. Deleting PosixGroup (DELETE)
+4.1 Delete only PosixGroup
+
+  pg = PosixGroup(db).find(group_id)
+  # DELETE from posix_group.
+  pg.delete()
+
+4.2 Delete both PosixGroup and underlying Group.
+
+  pg = PosixGroup(db).find(group_id)
+  # DELETE from posix_group.
+  pg.delete()
+  g = Group(db).find(group_id)
+  # DELETE from the following tables, in this order:
+  #   group_member (to empty this Group's set of members.  This method
+  #                 does NOT delete memberships this Group might have
+  #                 in other groups)
+  #   entity_name
+  #   group_info
+  #   entity_info
+  g.delete()
+
+5. Population of attributes from mixin classes.
+
+  p = Person(db).find(person_id)
+  p.affect_names(LT, 'full', 'last', 'nick')
+  p.populate_name('full', 'Harald Meland')
+  p.populate_name('given, 'Harald')
+  # p.populate_name('last', 'Meland')
+  # Should remove any 'last'-name-entries with source LT, and do
+  # INSERT/UPDATE (as appropriate) of 'full' and 'nick'-entries.
+  p.write_db()
