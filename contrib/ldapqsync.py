@@ -477,10 +477,10 @@ def user_add_del_grp(ch_type,user_id,dn_dest):
     account.entity_id = int(user_id)
     group.clear()
     group.entity_id = int(dn_dest)
-    if True in ([group.has_spread(x) for x in g_spreads]):
-	grp_list = [int(dn_dest),]
-    else: grp_list = []
-    for grp in get_groups(group.entity_id,g_spreads,grp_list,fg=True):
+    grp_list = group.list_member_groups(group.entity_id,g_spreads)
+    if [x for x in g_spreads if group.has_spread(x)]:
+	grp_list.append(int(dn_dest))
+    for grp in grp_list:
 	group.clear()
 	group.entity_id = int(grp)
 	dn = "cn=%s,%s" % (group.get_name(co.group_namespace),group_dn)
@@ -512,12 +512,10 @@ def user_add_del_grp(ch_type,user_id,dn_dest):
 	else: logger.info("Uknown command at log ")
     group.clear()
     group.entity_id = int(dn_dest)
-    if True in ([group.has_spread(x) for x in n_spreads]):
-        grp_list = [int(dn_dest),]
-    else: 
-	ng_list = []
-	grp_list = get_groups(group.entity_id,n_spreads,ng_list,fg=False)
-    for grp in grp_list:
+    n_grp_list = group.list_member_groups(group.entity_id,n_spreads,grp_sup=True)
+    if [x for x in n_spreads if group.has_spread(x)]:
+        n_grp_list.append(group.entity_id)
+    for grp in n_grp_list:
 	group.clear()
         group.entity_id = int(grp)
         cn = "cn=%s" % group.get_name(co.group_namespace)
@@ -553,31 +551,11 @@ def user_add_del_grp(ch_type,user_id,dn_dest):
 					pres_value,dn,entry[1],list=True)
 
 		    
-	
-
 
 def iso2utf(s):
     """Convert iso8859-1 to utf-8"""
     utf_str = unicode(s,'iso-8859-1').encode('utf-8')
     return utf_str
-
-
-def get_groups(grp_id,spreads,grp_list,fg=False):
-    # Pain: En såkalt "supergruppe" kan få nye medlemmer og da 
-    # må disse nye medlemene  knyttes til § 
-    # 
-    group = Group.Group(db)
-    for entry in group.list_groups_with_entity(grp_id):
-	if (int(entry['member_type']) == int(co.entity_group)):
-	    group.clear()
-	    group.entity_id = int(entry['group_id'])
-	    if (fg and True in [group.has_spread(x) for x in spreads]):
-		grp_list.append(int(entry['group_id']))
-	    	get_groups(group.entity_id,spreads,grp_list,fg)
-	    elif (not fg and True in [group.has_spread(x) for x in spreads]):
-		grp_list.append(int(entry['group_id']))
-    return(grp_list)
-    
 
 
 def file_exist(filename):
@@ -598,6 +576,7 @@ def main():
     # add and delete 
     clh = CLHandler.CLHandler(db)
     global logger,ch_log_list, u_spreads, g_spreads, n_spreads, lc
+    # 'int' done, not sure if all calls support Constants (probably)
     u_spreads = [int(getattr(co,x)) for x in cereconf.LDAP_USER_SPREAD]
     g_spreads = [int(getattr(co,x)) for x in cereconf.LDAP_GROUP_SPREAD]
     n_spreads = [int(getattr(co,x)) for x in cereconf.LDAP_NETGROUP_SPREAD]
