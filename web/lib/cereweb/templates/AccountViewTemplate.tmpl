@@ -1,5 +1,5 @@
 #from Cerebrum.web.InitTemplate import InitTemplate
-#extends InitTemplate
+#extends EntityViewTemplate
 #import forgetHTML
 #from Cerebrum.web.TableView import TableView
 #from Cerebrum.web.utils import url
@@ -37,7 +37,6 @@
 </dl>
 </div>
 
-#if $show_history
-    $HistoryLog.view_history_short($account)
+$view_entity($account)
 #end if
 #end def
