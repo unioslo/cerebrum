@@ -335,6 +335,10 @@ class PasswordChecker(DatabaseAccessor):
 
         if re.search(r'\0', passwd):
             raise PasswordGoodEnoughException(msgs['not_null_char'])
+        if passwd[0] in '([{<':     # Detect passwords like [Secret]
+            passwd = passwd[1:]
+            if passwd[-1] in ')]}>':
+                passwd = passwd[:-1]
         if len(passwd) < 8:
             raise PasswordGoodEnoughException(msgs['atleast8'])
         if len(passwd) > 15:
@@ -343,6 +347,9 @@ class PasswordChecker(DatabaseAccessor):
             raise PasswordGoodEnoughException(msgs['8bit'])
         if re.search(r' ', passwd):
             raise PasswordGoodEnoughException(msgs['space'])
+        # Concatenated names or words from dictionaries
+        if re.search(r'^[A-Z][a-z]+[^A-Za-z0-9][A-Z][a-z]*$', passwd[0:7]):
+            raise PasswordGoodEnoughException(msgs['dict_hit'])
 
         self._check_variation(passwd)
         if account is not None:
