@@ -33,7 +33,7 @@ from Cerebrum.modules.no.hia import access_FS #Not sure yet
 from Cerebrum import Database
 from Cerebrum import Person
 from Cerebrum import Group
-from Cerebrum.modules.no.Stedkode import Stedkode 
+from Cerebrum.modules.no import Stedkode 
 from Cerebrum.modules.no.hia import fronter_lib
 
 db = const = logger = None
@@ -97,7 +97,7 @@ def get_names(person_id):
 	    break	    
 
 
-def get_group():
+def get_group(fact_dict):
     group = Factory.get('Group')(db)
     global und_grp, stu_grp
     und_grp = {}
@@ -106,7 +106,13 @@ def get_group():
 	if 'undenh' in [str(y) for y in  (x['name']).split(':')]:
 	    name_l = [str(y) for y in  (x['name']).split(':')]
 	    und_key = ':'.join(name_l[5:])
+	    term = ':'.join(name_l[5:7])
 	    grp_name = name_l[7:8][0]
+	    fak_nr = None
+	    for k,v in fact_dict.items():
+		if grp_name in v:
+		     fak_nr = "%02d0000" % k
+	    parent = ('hia.no:fs:struktur:emner:%s:201:%s') % (term,fak_nr)
 	    mem_l = []
 	    group.clear()
 	    group.entity_id = int(x['group_id'])
@@ -118,6 +124,7 @@ def get_group():
 		und_grp[und_key] = {'group_id': int(x['group_id']),
 					'group_name': x['name'], 
 					'title': sh2long[grp_name]['navn'],
+					'parent': parent,
 					'members': mem_l}
 	    else:
 		und_grp[und_key] = {'group_id':int(x['group_id']),
@@ -222,7 +229,8 @@ class CFundenhParser(xml.sax.ContentHandler):
                                                                                                                                                             
     def endElement(self, name):
         if name == "undervenhet":
-            self.call_back_function(self.p_data)
+	    pass
+            #self.call_back_function(self.p_data)
                                                                                                                                                             
 
 
@@ -264,7 +272,6 @@ def main():
     load_acc2name()
     CFundenhParser('/cerebrum/dumps/FS/underv_enhet.xml',process_undenh)
     CFundenhParser('/cerebrum/dumps/FS/under_next_sem.xml',process_undenh)
-    get_group()
     top_dict[0] = {'level': 0 , 'group_name':'hia.no:fs:top',
                 'title':'HiA-Fronter','parent':'hia.no:fs:top'}
     top_dict[1] = {'level': 0 , 'group_name':'hia.no:fs:struktur:emner',
@@ -274,16 +281,20 @@ def main():
     top_dict[3] = {'level': 0 , 'group_name':'hia.no:fs:struktur:emner:2004:host',
                 'title':'Emner HOST 2004','parent':'hia.no:fs:struktur:emner'}
     fak_dict = get_faknr()
+    get_group(fak_dict)
     fak_d1,fak_d2 = make_fak_dict(fak_dict)
     xml1.start_xml_head()
     #genere topp struktur 
     for k,v in top_dict.items():
 	xml1.group_to_XML(v)
-    for k,v in 
+    for k,v in fak_d1.items():
+	xml1.group_to_XML(v)
+    for k,v in fak_d2.items():
+        xml1.group_to_XML(v)
+    for k,v in und_grp.items():
+        xml1.room_to_XML(v)
     for k,v in acc2names.items():
 	xml1.user_to_XML(v)
-    for k,v in und_grp.items():
-	xml1.group_to_XML(v)
     xml1.end()
     
 

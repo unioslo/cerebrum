@@ -641,43 +641,43 @@ class FronterXML(object):
         # Lager XML for et rom
         #
         # Gamle rom skal aldri slettes automatisk.
-        if recstatus == Fronter.STATUS_DELETE:
-            return 
+        ## if recstatus == Fronter.STATUS_DELETE:
+        #    return 
         self.xml.startTag('GROUP', {'recstatus': 1})
         self.xml.startTag('SOURCEDID')
         self.xml.dataElement('SOURCE', self.DataSource)
         self.xml.dataElement('ID', data['group_name'])
         self.xml.endTag('SOURCEDID')
-        if (recstatus == Fronter.STATUS_ADD or recstatus == Fronter.STATUS_UPDATE):
-            self.xml.startTag('GROUPTYPE')
-            self.xml.dataElement('SCHEME', 'FronterStructure1.0')
-            self.xml.emptyTag('TYPEVALUE', {'level': 4})
-            self.xml.endTag('GROUPTYPE')
-            if (recstatus == Fronter.STATUS_ADD):
+        #if (recstatus == Fronter.STATUS_ADD or recstatus == Fronter.STATUS_UPDATE):
+        self.xml.startTag('GROUPTYPE')
+        self.xml.dataElement('SCHEME', 'FronterStructure1.0')
+        self.xml.emptyTag('TYPEVALUE', {'level': 4})
+        self.xml.endTag('GROUPTYPE')
+            #if (recstatus == Fronter.STATUS_ADD):
                 # Romprofil settes kun ved opprettelse av rommet, og vil
                 # aldri senere tvinges tilbake til noen bestemt profil.
-                self.xml.startTag('GROUPTYPE')
-                self.xml.dataElement('SCHEME', 'Roomprofile1.0')
-                self.xml.emptyTag('TYPEVALUE', {'level': data.get(
-                    'profile',
-                    self.fronter._accessFronter.GetProfileId('UiOstdrom2003'))})
-                self.xml.endTag('GROUPTYPE')
+                #self.xml.startTag('GROUPTYPE')
+                #self.xml.dataElement('SCHEME', 'Roomprofile1.0')
+                #self.xml.emptyTag('TYPEVALUE', {'level': data.get(
+                    #'profile',
+                    #self.fronter._accessFronter.GetProfileId('UiOstdrom2003'))})
+                #self.xml.endTag('GROUPTYPE')
 
-            self.xml.startTag('DESCRIPTION')
-            if (len(data['title']) > 60):
-                self.xml.emptyTag('SHORT')
-                self.xml.dataElement('LONG', data['title'])
-            else:
-                self.xml.dataElement('SHORT', data['title'])
+        self.xml.startTag('DESCRIPTION')
+        if (len(data['title']) > 60):
+            self.xml.emptyTag('SHORT')
+            self.xml.dataElement('LONG', data['title'])
+        else:
+            self.xml.dataElement('SHORT', data['title'])
 
-            self.xml.endTag('DESCRIPTION')
-            self.xml.startTag('RELATIONSHIP', {'relation': 1})
-            self.xml.startTag('SOURCEDID')
-            self.xml.dataElement('SOURCE', self.DataSource)
-            self.xml.dataElement('ID', data['parent'])
-            self.xml.endTag('SOURCEDID')
-            self.xml.emptyTag('LABEL')
-            self.xml.endTag('RELATIONSHIP')
+        self.xml.endTag('DESCRIPTION')
+        self.xml.startTag('RELATIONSHIP', {'relation': 1})
+        self.xml.startTag('SOURCEDID')
+        self.xml.dataElement('SOURCE', self.DataSource)
+        self.xml.dataElement('ID', data['parent'])
+        self.xml.endTag('SOURCEDID')
+        self.xml.emptyTag('LABEL')
+        self.xml.endTag('RELATIONSHIP')
         self.xml.endTag('GROUP')
 
     def personmembers_to_XML(self, gid, recstatus, members):
