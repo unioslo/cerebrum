@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2002, 2003 University of Oslo, Norway
+# Copyright 2002-2004 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -2245,14 +2245,18 @@ class BofhdExtension(object):
         tmp = {}
         for co in self.const.fetch_constants(_PersonAffStatusCode):
             aff = str(co.affiliation)
-            if not tmp.has_key(aff):
+            if aff not in tmp:
                 tmp[aff] = [{'aff': aff,
                              'status': '',
                              'desc': co.affiliation._get_description()}]
-            else:
-                tmp[aff].append({'aff': '',
-                                 'status': "%s" % co,
-                                 'desc': co._get_description()})
+            tmp[aff].append({'aff': '',
+                             'status': "%s" % co,
+                             'desc': co._get_description()})
+        # fetch_constants returns a list sorted according to the name
+        # of the constant.  Since the name of the constant and the
+        # affiliation status usually are kept related, the list for
+        # each affiliation will tend to be sorted as well.  Not so for
+        # the affiliations themselves.
         keys = tmp.keys()
         keys.sort()
         ret = []
@@ -3965,12 +3969,12 @@ class BofhdExtension(object):
         if account.owner_type == self.const.entity_person:
             for row in account.get_account_types():
                 account.del_account_type(row['ou_id'], row['affiliation'])
+        account.owner_type = new_owner.entity_type
+        account.owner_id = new_owner.entity_id
+        account.write_db()
         if new_owner.entity_type == self.const.entity_person:
             for row in new_owner.get_affiliations():
                 account.set_account_type(row['ou_id'], row['affiliation'])
-        account.owner_type=new_owner.entity_type
-        account.owner_id=new_owner.entity_id
-        account.write_db()
         return "OK"
 
     # user shell
