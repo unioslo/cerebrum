@@ -32,7 +32,7 @@ from Cerebrum.modules.bofhd.utils import BofhdRequests
 
 class EmailLDAP(DatabaseAccessor):
     """The EmailLDAP class is used to gather methodes used to generate
-    an ldif for mail-backneds."""
+    an ldif for mail-backends."""
     
     __metaclass__ = mark_update
 
@@ -67,6 +67,8 @@ class EmailLDAP(DatabaseAccessor):
     def get_targettype(self, targettype):
         return str(targettype)
 
+    def get_target(self, entity_id, target_id):
+        return self.acc2name[entity_id][0]
 
     def get_server_info(self, target, entity, home):
         # Find mail-server settings:
@@ -234,3 +236,16 @@ class EmailLDAP(DatabaseAccessor):
                 raise ValueError, ("%s in group %s has no primary address" %
                                    (acc.account_name, grp.group_name))
         return member_addrs
+
+    def read_misc_target(self):
+        # Dummy method for Mixin-classes. By default it generates a hash with
+        # nothing, but one could populate non-default attributes using this
+        # method(in a Mixin-class). Entry per target. If more than one attribute
+        # should be populated, cat it to the string in this hash with a '\n'
+        # between them.
+        pass
+
+    def get_misc(self, entity_id, target_id):
+        # Return optional strings to the script.
+        pass
+    

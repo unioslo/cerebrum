@@ -566,3 +566,9 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine, Entity):
                 return r
             except PasswordChecker.PasswordGoodEnoughException:
                 pass  # Wasn't good enough
+
+    def list_accounts_owner(self):
+        """List account_ids and its owner_id."""
+        return self.query("""
+        SELECT account_id, owner_id
+        FROM [:table schema=cerebrum name=account_info]""")

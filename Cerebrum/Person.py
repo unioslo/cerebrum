@@ -732,6 +732,17 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
         SELECT person_id
         FROM [:table schema=cerebrum name=person_info]""")
 
+    def list_persons_name(self, var=None):
+        if var == None:
+            var = int(self.const.name_full)
+        return self.query("""
+        SELECT DISTINCT pi.person_id, pn.name
+        FROM [:table schema=cerebrum name=person_info] pi
+             LEFT JOIN [:table schema=cerebrum name=person_name] pn
+               ON pi.person_id=pn.person_id AND
+                  pn.name_variant=:con
+        """ % locals(),
+                          {'con': int(var),})
 
     def list_extended_person(self, spread=None, include_quarantines=False,
                              include_mail=False):

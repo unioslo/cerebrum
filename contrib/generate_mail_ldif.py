@@ -20,19 +20,14 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 import re
-#import os
-#import time
 import sys
 import base64
 import getopt
-#import string
 
 import cerebrum_path
 import cereconf
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import Email
-#from Cerebrum.modules.EmailLDAP import EmailLDAP
-#from Cerebrum.modules import EmailLDAP
 from Cerebrum.modules.bofhd.utils import BofhdRequests
 from Cerebrum.Constants import _SpreadCode
 from time import time as now
@@ -54,10 +49,13 @@ def write_ldif():
 
     for row in mail_targ.list_email_targets_ext():
         t = int(row['target_id'])
-
+        if verbose > 1:
+            print "Target_id: %d" % t
         if not ldap.targ2addr.has_key(t):
             # There are no addresses for this target; hence, no mail
             # can reach it.  Move on.
+            if verbose > 1:
+                print "No addresses for target. Moving on."
             continue
 
         tt = int(row['target_type'])
@@ -88,6 +86,8 @@ def write_ldif():
         if tt == co.email_target_account:
             # Target is the local delivery defined for the Account whose
             # account_id == email_target.entity_id.
+            if verbose > 1:
+                print "Target is co.email_target_account"
             target = ""
             home = ""
             if et == co.entity_account:
@@ -97,6 +97,10 @@ def write_ldif():
                         home = "%s/%s" % (path, target)
                 else:
                     txt = "Target: %s(account) no user found: %s\n"% (t,ei)
+                    sys.stdout.write(txt)
+                    for an in ldap.acc2name.keys():
+                        sys.stdout.write("%s:%s" % (an, ldap.acc2name[an]))
+                    sys.exit(0)
                     sys.stderr.write(txt)
                     continue
             else:
@@ -130,6 +134,8 @@ def write_ldif():
             # for which it is useful to include of a short custom text in
             # the error message returned to the sender.  The text
             # is taken from email_target.alias_value
+            if verbose > 1:
+                print "Target is co.email_target_deleted"
             if et == co.entity_account:
                 if ldap.acc2name.has_key(ei):
                     target = ldap.acc2name[ei][0]
@@ -143,6 +149,8 @@ def write_ldif():
             # to.  Both email_target.entity_id and email_target.alias_value
             # should be NULL, as they are ignored.  The email address(es)
             # to forward to is taken from table email_forward.
+            if verbose > 1:
+                print "Target is co.email_target_forward"
             pass
         
         elif tt == co.email_target_pipe or \
@@ -164,7 +172,10 @@ def write_ldif():
             # Iff email_target.entity_id is set and belongs to an
             # Account, deliveries to this target will be run as that
             # account.
-
+            
+            if verbose > 1:
+                print "Target is co.email_target_(pipe,file,Mailman)"
+                
             if alias == None:
                 txt = "Target: %s(%s) needs a value in alias_value\n" % (t, tt)
                 sys.stderr.write(txt)
@@ -184,6 +195,10 @@ def write_ldif():
             # Target is the set of `account`-type targets corresponding to
             # the Accounts that are first-level members of the Group that
             # has group_id == email_target.entity_id.
+            
+            if verbose > 1:
+                print "Target is co.email_target_multi"
+                
             if et == co.entity_group:
                 try:
                     addrs = ldap.read_multi_target(ei)
@@ -209,7 +224,9 @@ def write_ldif():
         f.write("cn: d%s\n" % t)
         f.write("targetType: %s\n" % ldap.get_targettype(tt))
         if target:
-            f.write("target: %s\n" % target)
+            # You may want to change the way targets appear.
+            # Hence the call to ldap.get_target()
+            f.write("target: %s\n" % ldap.get_target(ei,t))
         if uid:
             f.write("uid: %s\n" % uid)
         if rest:
@@ -258,6 +275,10 @@ def write_ldif():
                 f.write("virusScanning: TRUE\n")
                 f.write("virusFound: 1\n")
                 f.write("virusRemoved: 1\n")        
+
+        misc = ldap.get_misc(ei, t)
+        if misc:
+            f.write("%s\n" % misc)
         f.write("\n")
 
 
@@ -310,6 +331,11 @@ def get_data(spread):
     ldap.read_accounts(spread)
     if verbose:
         print "  done in %d sec." % (now() - curr)
+        print "Starting read_misc()..."
+        curr = now()
+    ldap.read_misc_target()
+    if verbose:
+        print "  done in %d sec." % (now() - curr)
         print "Starting write_ldif()..."
         curr = now()
     write_ldif()
@@ -327,9 +353,11 @@ def map_spread(id):
 
 def usage():
     print """
-generate_mail_ldif.py [-v|--verbose]+ [-m|--mail-file <file>]
+generate_mail_ldif.py -s|--spread <spread> [-h] [-v|--verbose]+ [-m|--mail-file <file>]
+  -s|--spread <spread>: Targets printed found in spread.
   -v|--verbose: Shows some statistics.
-  -m|--mail-file <file>: Specify file to write to."""
+  -m|--mail-file <file>: Specify file to write to.
+  -h|--help: This message."""
     sys.exit(0)
 
 
@@ -337,8 +365,8 @@ def main():
     global verbose, f, db, co, ldap
     
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'vm:s:',
-                                   ['verbose', 'mail-file=', 'spread='])
+        opts, args = getopt.getopt(sys.argv[1:], 'vm:s:h',
+                                   ['verbose', 'mail-file=', 'spread=','help'])
     except getopt.GetoptError:
         usage()
 
