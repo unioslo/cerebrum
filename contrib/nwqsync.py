@@ -24,6 +24,7 @@ import sys
 import getopt
 import time
 import string
+import pickle
 import re
 import ldap
 
@@ -46,7 +47,7 @@ db = Factory.get('Database')()
 const = Factory.get('CLConstants')(db)
 co = Factory.get('Constants')(db)
 cl_events = (const.account_mod, \
-#		const.account_password, \
+		const.account_password, \
 		const.group_add, \
 		const.group_rem, \
 		const.group_mod, \
@@ -72,6 +73,7 @@ cl_entry = {'group_mod' : 'pass',
 	'group_rem' : 'group_mod(cll.change_type_id,cll.subject_entity,\
 					cll.dest_entity,cll.change_id)',
 	'account_mod' : 'mod_account(cll.subject_entity,i)',
+	'account_password' : 'change_passwd(cll.subject_entity, cll.change_params)',
 	'spread_add' : 'change_spread(cll.subject_entity,cll.change_type_id,\
 							cll.change_params)',
 	'spread_del' : 'change_spread(cll.subject_entity,cll.change_type_id,\
@@ -295,7 +297,7 @@ def mod_account(dn_id,i):
         for entry in base_entry.keys():
             try:
                 if (ldap_attr[entry] <> base_entry[entry]):
-                    if entry in ('description',):
+                    if entry in ('userPassword',):
                         pass
                     else:
                         print "Diff:", ldap_attr[entry], base_entry[entry]
@@ -303,6 +305,28 @@ def mod_account(dn_id,i):
                         attr_mod_ldap(dn_str, value)
             except KeyError:
                 pass
+
+
+
+def change_passwd(dn_id, ch_params):
+    account = Account.Account(db)
+    account.clear()
+    account.find(dn_id)
+    ldap_entry = []
+    if account.has_spread(spread_id):
+        search_str = "cn=%s" % account.account_name
+        search_dn = "%s" % cereconf.NW_LDAP_ROOT
+        ldap_entry = ldap_handle.GetObjects(search_dn,search_str)
+    if ldap_entry == []:
+        return
+    try:
+        attrs = []
+        pwd = pickle.loads(ch_params)['password']
+        attrs.append( ("userPassword", unicode(pwd, 'iso-8859-1').encode('utf-8')) )
+        attr_mod_ldap(ldap_entry[0][0], attrs)
+    except:
+        pass
+    
 
 
 
@@ -360,8 +384,10 @@ def main():
             server = val
         elif opt == '-s':
             spread = val
+        elif opt == '-p':
+            port = int(val)
         elif opt == '-d':
-            dbg_level = val
+            dbg_level = int(val)
     if spread is not None:
         if host is None:
             host = cereconf.NW_LDAPHOST

@@ -288,7 +288,8 @@ def get_account_info(account_id, spread):
     if home_dir is not None:
         utf8_home = unicode(home_dir, 'iso-8859-1').encode('utf-8')
         attrs.append( ("ndsHomeDirectory",  utf8_home) )
-    attrs.append( ("description","Cerebrum;%d;%s" % (ext_id, now()) ) )
+    attrs.append( ("description","Cerebrum;%d" % ext_id ) )
+    attrs.append( ("generationQualifier","%d" % ext_id ) )
     attrs.append( ("passwordAllowChange", cereconf.NW_CAN_CHANGE_PW) )
     attrs.append( ("loginDisabled", account_disable) )
     passwd = unicode(pwd, 'iso-8859-1').encode('utf-8')
