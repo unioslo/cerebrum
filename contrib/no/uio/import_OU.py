@@ -196,6 +196,11 @@ def import_org_units(oufile):
             elif t['kommtypekode'] == 'EPOST':
                 ou.populate_contact_info(source_system, co.contact_email,
                                          t['kommnrverdi'], contact_pref=n)
+	n += 1
+	if k.has_key('innvalgnr') and k.has_key('linjenr'):
+	    phone_value = "%s%s" % (k['innvalgnr'],k['linjenr'])
+            ou.populate_contact_info(source_system, co.contact_phone,
+					phone_value, contact_pref=n)
         op = ou.write_db()
         if verbose:
             if op is None:
