@@ -36,7 +36,7 @@ public class BofhdConnection {
         }
     }
     
-    String login(String uname, String password) {
+    String login(String uname, String password) throws BofhdException {
         Vector args = new Vector();
         args.add(uname);
         args.add(password);
@@ -46,34 +46,36 @@ public class BofhdConnection {
         return sessid;
     }
     
-    Hashtable getCommands() {
+    Hashtable getCommands() throws BofhdException {
         Vector args = new Vector();
         args.add(sessid);
         return (Hashtable) sendRawCommand("get_commands", args);
     }
     
-    String getHelp(Vector args) {
+    String getHelp(Vector args) throws BofhdException {
         return (String) sendRawCommand("help", args);
     }
     
-    Object sendCommand(String cmd, Vector args) {
+    Object sendCommand(String cmd, Vector args) throws BofhdException {
         args.add(0, sessid);
         args.add(1, cmd);
         return sendRawCommand("run_command", args);
     }
 
-    Object sendRawCommand(String cmd, Vector args) {
+    Object sendRawCommand(String cmd, Vector args) throws BofhdException {
         try {
             logger.debug("sendCommand("+cmd+", "+args);
             return xmlrpc.execute(cmd, args);
         } catch (XmlRpcException e) {
-            logger.error("err:", e);
-            System.out.println("Error: "+e.getMessage());
-            return null;
+	    if(e.getMessage().startsWith("CerebrumError")) {
+		throw new BofhdException("User error: "+e.getMessage());
+	    } else {
+		logger.error("err: code="+e.code, e);
+		throw new BofhdException("Error: "+e.getMessage());
+	    }
         } catch (IOException e) {
             logger.error("IO", e);
-            System.out.println("Server error: "+e);
-            return null;
+            throw new BofhdException("Server error: "+e);
         }
     }
 

@@ -200,7 +200,7 @@ public class JBofh {
     Hashtable knownFormats;
 
     /** Creates a new instance of JBofh */
-    public JBofh() {
+    public JBofh(String def_uname, String def_password) throws BofhdException {
         PropertyConfigurator.configure("log4j.properties");
         props = new Properties();
         try {
@@ -209,19 +209,35 @@ public class JBofh {
         bc = new BofhdConnection(logger);
         bc.connect((String) props.get("bofhd_url"));
         
-        bc.login("runefro", "password");
-        commands = bc.getCommands();
-
-        bcompleter = new BofhdCompleter(this, logger);
         // Setup ReadLine routines
         try {
             Readline.load(ReadlineLibrary.GnuReadline);
-            Readline.setCompleter(bcompleter);
         }
         catch (UnsatisfiedLinkError ignore_me) {
             System.err.println("couldn't load readline lib. Using simple stdin.");
         }
+
         cLine = new CommandLine(logger);
+	String uname, password;
+	try {
+	    if(def_password != null) {  // Shortcut wile debugging (-q param)
+		bc.login(def_uname, def_password);
+	    } else {
+		uname = cLine.promptArg("Username " + 
+					(def_uname == null ? "" : "["+def_uname+"]") +": ", 
+					false);
+		if(uname.equals("")) uname = def_uname;
+		password = cLine.promptArg("Password: ", false);
+		bc.login(uname, password);
+	    }
+	} catch (IOException io) {
+	    System.exit(0);
+	}
+
+        commands = bc.getCommands();
+        bcompleter = new BofhdCompleter(this, logger);
+	Readline.setCompleter(bcompleter);
+
         knownFormats = new Hashtable();
         enterLoop();
     }
@@ -267,43 +283,47 @@ public class JBofh {
                 continue;
             }
             if(args.size() == 0) continue;
-            if(((String) args.get(0)).equals("commands")) {  // Neat while debugging
-                for (Enumeration e = commands.keys() ; e.hasMoreElements() ;) {
-                    Object key = e.nextElement();
-                    System.out.println(key+" -> "+ commands.get(key)); 
-                }
-            } else if(((String) args.get(0)).equals("help")) {
-		args.remove(0);
-                System.out.println(bc.getHelp(args));
-            } else {
-                try {
-                    Vector lst = bcompleter.analyzeCommand(args, -1);
-                    for(int i = 0; i < lst.size(); i++) args.set(i, lst.get(i));
-                } catch (AnalyzeCommandException e) {
-                    System.out.println("Error translating command:"+e); continue;
-                }
+	    try {
+		if(((String) args.get(0)).equals("commands")) {  // Neat while debugging
+		    for (Enumeration e = commands.keys() ; e.hasMoreElements() ;) {
+			Object key = e.nextElement();
+			System.out.println(key+" -> "+ commands.get(key)); 
+		    }
+		} else if(((String) args.get(0)).equals("help")) {
+		    args.remove(0);
+		    System.out.println(bc.getHelp(args));
+		} else {
+		    try {
+			Vector lst = bcompleter.analyzeCommand(args, -1);
+			for(int i = 0; i < lst.size(); i++) args.set(i, lst.get(i));
+		    } catch (AnalyzeCommandException e) {
+			System.out.println("Error translating command:"+e); continue;
+		    }
                     
-                Object r[] = translateCommand(args);
-                if(r == null) {
-                    System.out.println("Error translating command"); continue;
-                }
-                String protoCmd = (String) r[0];
-                Vector protoArgs = (Vector) r[1];
-                protoArgs = checkArgs(protoCmd, protoArgs);
-                if(protoArgs == null) continue;
-		try {
-		    Object resp = bc.sendCommand(protoCmd, protoArgs);
-		    if(resp != null) showResponse(protoCmd, resp);
-		} catch (Exception ex) {
-		    System.out.println("Unexpected error (bug): "+ex);
-		    ex.printStackTrace();
+		    Object r[] = translateCommand(args);
+		    if(r == null) {
+			System.out.println("Error translating command"); continue;
+		    }
+		    String protoCmd = (String) r[0];
+		    Vector protoArgs = (Vector) r[1];
+		    protoArgs = checkArgs(protoCmd, protoArgs);
+		    if(protoArgs == null) continue;
+		    try {
+			Object resp = bc.sendCommand(protoCmd, protoArgs);
+			if(resp != null) showResponse(protoCmd, resp);
+		    } catch (Exception ex) {
+			System.out.println("Unexpected error (bug): "+ex);
+			ex.printStackTrace();
+		    }
 		}
-            }
-        }
+	    } catch (BofhdException be) {
+		System.out.println(be.getMessage());
+	    }
+	}
         System.out.println("I'll be back");
     }
 
-    Vector checkArgs(String cmd, Vector args) {
+    Vector checkArgs(String cmd, Vector args) throws BofhdException {
         /*
         logger.debug("Tra: "+cmd+" -> ("+args.length +") "+args);
         for(int i = 0; i < args.length; i++)
@@ -333,7 +353,7 @@ public class JBofh {
         return ret;
     }
     
-    void showResponse(String cmd, Object resp) {
+    void showResponse(String cmd, Object resp) throws BofhdException {
         Vector args = new Vector();
         args.add(cmd);
         Hashtable format = (Hashtable) knownFormats.get(cmd);
@@ -383,6 +403,15 @@ public class JBofh {
      * @param args the command line arguments
      */
     public static void main(String[] args) {
-        new JBofh();
+        try {
+	    if(args.length == 1 && args[0].equals("-q")) {
+		new JBofh("bootstrap_account", "test");
+	    } else {    // "test" md5: $1$F9feZuRT$hNAtCcCIHry4HKgGkkkFF/
+		new JBofh(System.getProperty("user.name"), null);
+	    }
+	} catch (BofhdException be) {
+	    System.out.println("Caught error during init, terminating: \n"+
+			       be.getMessage());
+	}
     }    
 }
