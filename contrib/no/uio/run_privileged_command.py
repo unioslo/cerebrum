@@ -36,7 +36,7 @@ commands = {
     # uname, uid, gid, old_disk, new_disk, mailto, receipt
     'mvuser': [cereconf.MVUSER_SCRIPT, 8],
     # uname, operator, old_home
-    #'rmuser': [cereconf.RMUSER_SCRIPT, 3],
+    'aruser': [cereconf.RMUSER_SCRIPT, 3],
     # action, server, uname
     'subscribeimap': [cereconf.SUBSCRIBE_SCRIPT, 3],
     # uname, home, mailto, hquota, from_host, from_type, to_host, to_type
