@@ -25,7 +25,7 @@ class Sync:
         # We shouldn't have any open transactions now, but if we do, we
         # abort them.
         if self._open_transactions():
-            print >>sys.stderr, "WARNING: %s transactions still open" % len(self._transactions)
+            print >>sys.stderr, "WARNING: %s transactions still open, rolling back" % len(self._transactions)
         self._rollback()
     
     def _rollback(self):
@@ -106,6 +106,15 @@ class Sync:
             results.append(g)
         t.rollback()
         return results
+
+    def get_persons(self):
+        t = self._transaction()
+        search = t.get_person_searcher()
+        persons = search.search()
+        try:
+            return [Person(p) for p in persons]
+        finally:    
+            t.rollback()
  
 class Group:           
     """Stub object for representation of an account"""
@@ -172,7 +181,38 @@ class Account:
 
     def __repr__(self):
         return "<Account %s %r>" % (self.name, self.fullname)
-    
+
+class Person:
+    """Stub object for representation of a person"""
+    def __init__(self, person):
+        # Internal Cerebrum ID 
+        self.id = person.get_id()
+        self.type = person.get_type().get_name()
+        self.description = person.get_description()
+        # FIXME: Might get_b_date() and get_gender() return None or fail?
+        self.birth_date = person.get_birth_date().strftime("%Y-%m-%d")
+        # a letter like "F", "M", "X"  (female, male, unknown)
+        self.gender = person.get_gender().get_name()
+        # FIXME: untested as no person yet has any group
+        self.groups = [g.get_name() for g in person.get_groups()]
+        # FIXME: What about organizational belongings?
+
+        # Map to true Python booleans
+        bools = {"F": False, "T": True}
+        self.deceased = bools[person.get_deceased()]
+
+        # Unwrap PersonName objects
+        names = person.get_names() 
+        self.names = {}
+        for name in names:
+            variant = name.get_name_variant().get_name()
+            name = name.get_name()
+            self.names[variant] = name
+            # Could also get source system of name variant, but why?
+        self.name = self.names.get("FULL") # Could be None (when?)    
+        
+        # FIXME:  add: addresses, contact_info 
+   
 class TestConnect(unittest.TestCase):
     def testConnect(self):
         # Constructor connects
@@ -241,7 +281,7 @@ class TestSync(unittest.TestCase):
         accounts = self.s.get_accounts()
         assert accounts
         # We can assume that bootstrap_account exists for now 
-        has_bootstrap = filter(lambda a: a.name == 'bootstrap_account', accounts)
+        has_bootstrap = [a for a in accounts if a.name == 'bootstrap_account']
         assert has_bootstrap
         bootstrap = has_bootstrap[0]
         assert bootstrap.fullname == "bootstrap_account"
@@ -251,15 +291,51 @@ class TestSync(unittest.TestCase):
         assert not bootstrap.gid
         assert not bootstrap.shell
 
+        # Test for a known POSIX account
+        # FIXME: Should have a predefined (or inserted)
+        # Posix account instead of relying on stain being present
+        stains = [a for a in accounts if a.name == "stain"]
+        assert stains
+        stain = stains[0]
+        assert stain.uid > 0
+        # Should not be group name, group object, etc.. just gid 
+        assert type(stain.gid) == int
+        assert stain.gid > 0
+        # HEHEHE 
+        self.assertEqual(stain.shell, "/local/gnu/bin/bash")
+
+
     def testGetGroups(self):
         groups = self.s.get_groups()
         assert groups
         # We can assume that bootstrap_group exists for now 
-        has_bootstrap = filter(lambda g: g.name == 'bootstrap_group', groups)
+        has_bootstrap = [g for g in groups if g.name == 'bootstrap_group']
         assert has_bootstrap
         bootstrap = has_bootstrap[0]
         assert "bootstrap_account" in bootstrap.membernames
+        # Not a POSIX group
         assert not bootstrap.gid
+        # Only member should be bootstrap_account 
+        members = bootstrap.members 
+        self.assertEqual(len(members), 1)
+        self.assertEqual(members[0].name, "bootstrap_account")
+        # FIXME: Should test a posix group 
+   
+    def testGetPersons(self):
+        persons = self.s.get_persons()
+        assert persons
+        soilands = [p for p in persons if p.name=="Stian Soiland"]
+        assert soilands   # There's no other default person we can rely on..
+        soiland = soilands[0]
+        self.assertEqual(soiland.type, "person")
+        # FIXME: Could contain more names
+        self.assertEqual(soiland.names, { 'FULL': "Stian Soiland" })
+        # FIXME: Should be 1979-02-15   =) 
+        self.assertEqual(soiland.birth_date, "1971-02-01")
+        # FIXME: Should be "M"  =)
+        self.assertEqual(soiland.gender, "X")
+        # at least for now.. 
+        self.assertEqual(soiland.deceased, False)
 
 if __name__ == "__main__":
     unittest.main()
