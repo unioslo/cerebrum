@@ -87,3 +87,22 @@ def keep_entries(rows, *predicates):
 def reject_entries(rows, *predicates):
     """Return the 'reject' part of separate_entries() return value."""
     return separate_entries(rows, *predicates)[1]
+
+def mangle_name(classname, attr):
+    """Do 'name mangling' for attribute ``attr`` in class ``classname``."""
+    if not classname or not isinstance(classname, str):
+        raise ValueError, "Not a valid class name: '%s'" % classname
+    if attr.startswith("__") and not attr.endswith("__"):
+        # Attribute name starts with at least two underscores, and
+        # ends with at most one underscore.
+        #
+        # Strip leading underscores from classname.
+        for i in range(len(classname)):
+            if classname[i] <> "_":
+                classname = classname[i:]
+                break
+        if classname and classname[0] == "_":
+            # classname is all underscores.  No mangling.
+            return attr
+        return '_' + classname + attr
+    return attr
