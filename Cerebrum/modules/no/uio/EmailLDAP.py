@@ -313,7 +313,7 @@ class EmailLDAPUiOMixin(EmailLDAP):
                 uname, passwd = self.e_id2passwd[entity_id]
                 if not passwd:
                     passwd = "*invalid"
-                txt = "uid: %s \nuserPassword: {crypt}%s" % (uname, passwd)
+                txt = "uid: %s\nuserPassword: {crypt}%s" % (uname, passwd)
                 return txt
             else:
                 txt = "No auth-data for user: %s\n" % entity_id
