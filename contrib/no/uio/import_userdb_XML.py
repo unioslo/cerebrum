@@ -1032,8 +1032,12 @@ def create_account(u, owner_id, owner_type, np_type=None):
         mailvacation.clear()
         mailvacation.find(mt_id)
         none_enabled = True
+        has_this_startdate = {}
         for tmp in u.get("tripnote", []):
             startdate = parse_date(tmp['startdate'])
+            if has_this_startdate.has_key(startdate):
+                continue   # Work-around for ureg-conflicting PK.  TBD: Warn?
+            has_this_startdate[startdate] = 1
             enddate = None
             if tmp.has_key('enddate'):
                 enddate = parse_date(tmp['enddate'])
