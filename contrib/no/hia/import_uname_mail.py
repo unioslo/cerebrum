@@ -265,8 +265,7 @@ def process_mail(account_id, type, addr):
 
 def usage():
     print """Usage: import_uname_mail.py
-    -v, --verbose : Show extra information. Multiple -v's are allowed
-                    (more info).
+    -d, --dryrun  : Run a fake import. Rollback after run.
     -f, --file    : File to parse.
     """
 # end usage
