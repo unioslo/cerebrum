@@ -27,6 +27,7 @@ class OperationSet( BofhdAuthOpSet ):
             (code, code_str, description)
         VALUES (:code, :code_str, :description)""",
             { 'code': op_code, 'code_str': code_str, 'description': description})
+        #should make create a auth_operation too? and add it to the operation set?
         return op_code
 
     def del_op_code(self, op_code):
@@ -37,23 +38,36 @@ class OperationSet( BofhdAuthOpSet ):
         self.execute("""
         DELETE FROM [:table schema=cerebrum name=auth_op_code]
         WHERE code=:code""", {'code': op_code})
+        #should maybe remove all auth_operation using this code??
 
     def list_op_codes(self, op_id=None):
         """Retrieves a list with code, code_str and description.
         
         Filtered by op_id if included, else all operation codes are returned.
         """
-        sql = """SELECT aoc.code AS code, aoc.code_str AS code_str,
-                        aoc.description AS description FROM"""
-        tables = "[:table schema=cerebrum name=auth_op_code] aoc"
-        where = ""
+        sql = 'SELECT aoc.code, aoc.code_str, aoc.description FROM'
+        tables = '[:table schema=cerebrum name=auth_op_code] aoc'
+        where = ''
 
         if op_id is not None:
-            tables += ", [:table schema=cerebrum name=auth_operation] ao"
-            where += "WHERE aoc.code=ao.op_code AND ao.op_id=:op_id"
+            tables += ', [:table schema=cerebrum name=auth_operation] ao'
+            where += 'WHERE aoc.code=ao.op_code AND ao.op_id=:op_id'
 
         return self.query("""%s %s %s""" %
                             (sql, tables, where), {'op_id': op_id})
+
+    def list_operations(self):
+        """Retrieves a list with operations for this operationset.
+
+        BofhdAuthOperationSet does not return the code_str wich can be very
+        usefull, so we overloads the method and includes it in the query.
+        """
+        return self.query("""
+        SELECT ao.op_code, ao.op_id, ao.op_set_id, aoc.code_str
+        FROM [:table schema=cerebrum name=auth_operation] ao,
+             [:table schema=cerebrum name=auth_op_code] aoc
+        WHERE ao.op_set_id=:op_set_id AND
+              ao.op_code=aoc.code""", {'op_set_id': self.op_set_id})
 
 class Target( BofhdAuthOpTarget ):
     """Wrapper for BofhdAuthOpTarget
@@ -100,7 +114,8 @@ class Auth( BofhdAuth ):
         return False
 
     def auth(self, operator):
-        """Operator is the entity_id for the operator."""
+        """Operator is the entity_id for the operator.
+        """
         return self.is_superuser(operator)
 
     def check_permission(self, operator, operation, target_id):
@@ -131,10 +146,10 @@ class Auth( BofhdAuth ):
         try:
             operation = int(operation)
         except (TypeError, ValueError):
-            where = """LOWER(aoc.code_str) LIKE LOWER(:operation) AND
-                       aoc.code=ao.op_code"""
+            where = '''LOWER(aoc.code_str) LIKE LOWER(:operation) AND
+                       aoc.code=ao.op_code'''
         else:
-            where = "ao.op_id=:operation"
+            where = 'ao.op_id=:operation'
         sql = """
         SELECT aot.attr, ao.op_id, aot.op_target_id
         FROM [:table schema=cerebrum name=auth_op_code] aoc,
@@ -151,4 +166,26 @@ class Auth( BofhdAuth ):
             aot.entity_id=:target_id""" % (where, ", ".join(
                 ["%i" % x for x in self._get_users_auth_entities(operator)]))
         return self.query(sql, {'operation': operation,'target_id': target_id})
+
+    def list_operations(self, operator, target_id):
+        """Retrieves a list with operations the operator can perform.
+        
+        Returns a list with tuples with the info (op_code, code_str).
+        """
+        return self.query("""
+        SELECT ao.op_code, aoc.code_str
+        FROM [:table schema=cerebrum name=auth_op_code] aoc,
+             [:table schema=cerebrum name=auth_operation] ao,
+             [:table schema=cerebrum name=auth_operation_set] aos,
+             [:table schema=cerebrum name=auth_role] ar,
+             [:table schema=cerebrum name=auth_op_target] aot
+        WHERE
+            aoc.code=ao.op_code AND
+            ao.op_set_id=aos.op_set_id AND
+            aos.op_set_id=ar.op_set_id AND
+            ar.entity_id IN (%s) AND
+            ar.op_target_id=aot.op_target_id AND
+            aot.entity_id=:target_id""" % (",".join(
+                ["%i" % x for x in self._get_users_auth_entities(operator)])),
+                {'target_id': target_id})
 
