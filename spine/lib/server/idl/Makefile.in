@@ -38,7 +38,7 @@ objects = $(objdir)/errors_idl.py \
 #TODO: Plukk idl-kompilator fra cereconf (eller annet lurt sted)
 Cerebrum/gro: $(sources)
 	rm -rf Cerebrum
-	omniidl -bpython -Wbpackage=Cerebrum.spine $(sources)
+	omniidl -bpython -Wbpackage=Cerebrum.spine.server $(sources)
 
 all: Cerebrum/spine
 
