@@ -226,7 +226,7 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
             for idx in db_affil.keys():
                 if db_affil[idx][1] is None:
                     ou_id, affil, status = [int(x) for x in idx.split(":")]
-                    self.delete_affiliation(ou_id, affil, source, status)
+                    self.delete_affiliation(ou_id, affil, source)
                     if is_new <> 1:
                         is_new = False
 
@@ -606,7 +606,7 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
             self._db.log_change(self.entity_id,
                                 self.const.person_aff_src_add, None)
 
-    def delete_affiliation(self, ou_id, affiliation, source, status):
+    def delete_affiliation(self, ou_id, affiliation, source):
         binds = {'ou_id': int(ou_id),
                  'affiliation': int(affiliation),
                  'source': int(source),
