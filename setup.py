@@ -7,7 +7,7 @@
 # /cerebrum".  Otherwise all these paths are relative to / unless
 # otherwise noted.
 #
-# / 
+# /
 #   README:       usr/share/cerebrum/doc/
 #   COPYING:      usr/share/cerebrum/doc/
 #
@@ -26,7 +26,7 @@
 # design/
 #   *.sql:        usr/share/cerebrum/doc/design/
 #   *.html,*.dia: usr/share/cerebrum/doc/
-# 
+#
 # doc/
 #   *:            usr/share/cerebrum/doc/
 #   *cron*:       usr/share/cerebrum/doc/samples
@@ -60,9 +60,9 @@
 #   generate_nismaps.py:  usr/sbin
 #
 # contrib/no
-#   *.py:         usr/sbin 
+#   *.py:         usr/sbin
 # contrib/no/uio
-#   *.py:         usr/sbin 
+#   *.py:         usr/sbin
 #
 # contrib/no/uio/studit
 #   *:            usr/share/cerebrum/studit
@@ -162,15 +162,9 @@ setup (name = "Cerebrum", version = "0.1",
        data_files = [({'path': "%s/doc/cerebrum/design" % sharedir,
                        'owner': cerebrum_user,
                        'mode': 0750},
-                      [('design/drop_mod_stedkode.sql', 0644),
-                       ('design/drop_mod_nis.sql', 0644),
-                       ('design/drop_mod_posix_user.sql', 0644),
-                       ('design/drop_core_tables.sql', 0644),
-                       ('design/core_tables.sql', 0644),
-
+                      [('design/core_tables.sql', 0644),
                        ('design/mod_posix_user.sql', 0644),
                        ('design/mod_nis.sql', 0644),
-                       ('design/core_data.sql', 0644),
                        ('design/mod_stedkode.sql', 0644)
                        ]),
                      ({'path': "%s/doc/cerebrum" % sharedir,
@@ -200,6 +194,7 @@ setup (name = "Cerebrum", version = "0.1",
                        'mode': 0750},
                       [('server/bofhd.py', 0755),
                        ('server/bofhd_cmds.py', 0644),   # WRONG!
+                       ('server/bofhd_errors.py', 0644), # WRONG!
                        ('server/cmd_param.py', 0644),    # WRONG!
                        ('contrib/generate_nismaps.py', 0755),
                        ('contrib/no/import_SATS.py', 0755),
@@ -210,7 +205,7 @@ setup (name = "Cerebrum", version = "0.1",
                        ('contrib/no/uio/import_from_FS.py', 0755),
                        ('contrib/no/uio/import_from_LT.py', 0755),
                        ('contrib/no/uio/import_userdb_XML.py', 0755)
-                       
+
                        ]),
                      ({'path': "%s" % bindir,
                        'owner': cerebrum_user,
