@@ -20,6 +20,8 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 import unittest
+import mx
+import mx.DateTime
 
 import cereconf
 from Cerebrum.Utils import Factory
@@ -46,12 +48,28 @@ class SQLDriverTestCase(unittest.TestCase):
             CREATE TABLE [:table schema=cerebrum name=test_db_utf8] (
               key     NUMERIC(1,0) PRIMARY KEY,
               value   CHAR VARYING(128))""")
+            self.db.execute("""
+            CREATE TABLE [:table schema=cerebrum name=test_db_date] (
+                tdate DATE,
+                ttime TIMESTAMP)""")
+            self.db.execute("""
+            INSERT INTO [:table schema=cerebrum name=test_db_date]
+            VALUES ([:now], [:now])""")
         except:
             self.tearDown()
             raise
         # Calling commit() to make sure it is possible to continue
         # testing even if the SQL call fails.
         self.db.commit()
+
+    def testDateReturnTypes(self):
+        """Check that return-type of SQL-dates is using mx"""
+        r = self.db.query_1("""SELECT tdate, ttime
+        FROM  [:table schema=cerebrum name=test_db_date]""")
+        self.failIf(not isinstance(r['tdate'], mx.DateTime.DateTimeType),
+                    "tdate is type '%s'" % type(r['tdate']))
+        self.failIf(not isinstance(r['ttime'], mx.DateTime.DateTimeType),
+                    "ttime is type '%s'" % type(r['ttime']))
 
     def testSQLIntHashable(self):
         "Check if SQL NUMERIC is hashable"
@@ -120,12 +138,15 @@ class SQLDriverTestCase(unittest.TestCase):
         self.db.execute("""
         DROP TABLE [:table schema=cerebrum name=test_db_utf8]""")
         self.db.execute("""
-        DROP TABLE [:table schema=cerebrum name=test_db_dict]""");
+        DROP TABLE [:table schema=cerebrum name=test_db_dict]""")
+        self.db.execute("""
+        DROP TABLE [:table schema=cerebrum name=test_db_date]""")
         self.db.commit()
         self.db.close()
 
     def suite():
         suite = unittest.TestSuite()
+        suite.addTest(SQLDriverTestCase("testDateReturnTypes"))
         suite.addTest(SQLDriverTestCase("testSQLIntHashable"))
         suite.addTest(SQLDriverTestCase("testBrokenDateBefore1901"))
         suite.addTest(SQLDriverTestCase("testBrokenDateBefore1970"))
