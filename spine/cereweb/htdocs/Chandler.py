@@ -36,7 +36,7 @@ def cgi_main():
     if id:
         try:
             req.session = Session(id.value)
-        except IOError, e:
+        except KeyError, e:
             id = None
 
     path = os.environ.get('PATH_INFO', '')[1:]

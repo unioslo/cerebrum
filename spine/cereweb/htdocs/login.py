@@ -42,9 +42,11 @@ def index(req, username="", password=""):
             error = error.replace(">", "")
         else:
             #create new session. Security & obscurity
-            id = md5.new('ce%sre%swe%sb' % (time.time(), username, password))
-            req.session = Session(id.hexdigest())
+            if not req.session:
+                id = md5.new('ce%sre%swe%sb' % (time.time(), username, password))
+                req.session = Session(id.hexdigest(), create=True)
             req.session['session'] = session
+            req.session.save()
             
             #redirect to the main page and start using the cereweb.publisher.
             redirect(req, url("/index"))
