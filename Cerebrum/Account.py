@@ -237,7 +237,8 @@ class AccountHome(object):
                ['home', home],
                ['disk_id', disk_id],
                ['status', status]]
-        if not isinstance(home, NotSet) and not isinstance(disk_id, NotSet):
+        if ((home is not None and not isinstance(home, NotSet)) and
+            (disk_id is not None and not isinstance(disk_id, NotSet))):
             raise self._db.IntegrityError, "Cannot set both home and disk_id"
         if isinstance(current_id, NotSet):    # Allocate new id
             tmp.append(('homedir_id', long(self.nextval('homedir_id_seq'))))
@@ -258,7 +259,7 @@ class AccountHome(object):
                 self.entity_id, self.const.homedir_add, None,
                 change_params={'homedir_id': tmp[-1][1]})
         else:
-            tmp = filter(lambda k: not isinstance(k[1], NotSet), tmp)
+            tmp = filter(lambda k: not (k[1] is None or isinstance(k[1], NotSet)), tmp)
             if 'home' in [x[0] for x in tmp]:
                 tmp.append(['disk_id', None])
             elif 'disk_id' in [x[0] for x in tmp]:
