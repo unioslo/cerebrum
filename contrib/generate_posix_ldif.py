@@ -182,7 +182,7 @@ def generate_posixgroup(spread=None,u_spread=None,filename=None):
     for row in posix_group.list_all_grp(spreads):
 	posix_group.clear()
         posix_group.find(row.group_id)
-        gname = posix_group.group_name
+        gname = iso2utf(posix_group.group_name)
         members = []
         entry = {'objectClass': ('top', 'posixGroup'),
                  'cn':          (gname,),
@@ -223,7 +223,7 @@ def generate_netgroup(spread=None,u_spread=None,filename=None):
 	grp_memb = {}
         pos_netgrp.clear()
         pos_netgrp.find(row.group_id)
-        netgrp_name = pos_netgrp.group_name
+        netgrp_name = iso2utf(pos_netgrp.group_name)
         entry = {'objectClass':       ('top', 'nisNetGroup'),
                  'cn':                (netgrp_name,),
                  'nisNetgroupTriple': [],
@@ -252,7 +252,7 @@ def get_netgrp(pos_netgrp, spreads, u_spreads, triples, members):
         pos_netgrp.clear()
         pos_netgrp.entity_id = int(group[1])
 	if filter(pos_netgrp.has_spread, spreads):
-            members.append(group[2])
+            members.append(iso2utf(group[2]))
         else:
             get_netgrp(pos_netgrp, spreads, u_spreads, triples, members)
 
