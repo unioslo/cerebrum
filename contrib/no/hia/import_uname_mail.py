@@ -303,7 +303,7 @@ def main():
     # fi
 
     db = Factory.get('Database')()
-    db.cl_init(change_program='import_uname_mail')
+    db.cl_init(change_program='import_uname')
     constants = Factory.get('Constants')(db)
     account = Factory.get('Account')(db)
     group = Factory.get('Group')(db)
