@@ -751,5 +751,3 @@ class RecursiveDict(dict):
                 # Wrap it, make sure it follows our rules
                 value = RecursiveDict(value)
             dict.__setitem__(self, key, value)    
-                      
-                
