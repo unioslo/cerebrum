@@ -321,15 +321,17 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
         SELECT person_id FROM [:table schema=cerebrum name=person_info]
         WHERE to_date(birth_date, 'YYYY-MM-DD')=:bdate""", locals())
 
-    def find_by_external_id(self, id_type, external_id, source_system):
+    def find_by_external_id(self, id_type, external_id, source_system=None):
+        binds = {'id_type': int(id_type),
+                 'ext_id': external_id }
+        where = ""
+        if source_system is not None:
+            binds['src'] = int(source_system)
+            where = " AND source_system=:src"
         person_id = self.query_1("""
         SELECT person_id
         FROM [:table schema=cerebrum name=person_external_id]
-        WHERE id_type=:id_type AND
-              external_id=:ext_id AND
-              source_system=:src""", {'id_type': int(id_type),
-                                      'ext_id': external_id,
-                                      'src': int(source_system)})
+        WHERE id_type=:id_type AND external_id=:ext_id %s""" % where, binds)
         self.find(person_id)
 
     def _compare_names(self, type, other):
