@@ -49,57 +49,84 @@ def get_person_info(outfile):
     Ettersom opplysningene samles fra flere datakilder, lagres de
     først i en dict persondta"""
 
+    # Lag mapping fra stillingskodenr til titel (ala overing)
     skode2tittel = {}
     for t in LT.GetTitler()[1]:
         skode2tittel[t['stillingkodenr']] = (t['tittel'], t['univstkatkode'])
 
+    # Lag mapping fra univstkatkode til hovedkatkode (VIT etc.)
     kate2hovedkat = {}
     for t in LT.GetHovedkategorier()[1]:
         kate2hovedkat[t['univstkatkode']] = t['hovedkatkode']
 
-    f=open(outfile, 'w')
-    f.write(xml.xml_hdr + "<data>\n")
+    # Hent alle aktive tilsetninger
     tilscols, tils = LT.GetTilsettinger()
     persondta = {}
     for t in tils:
-        # f.write(xml.xmlify_dbrow(t, xml.conv_colnames(cols), 'tils', 0) + "\n")
-        key = '-'.join((str(t['fodtdag']), str(t['fodtmnd']), str(t['fodtar']), str(t['personnr'])))
+        key = '-'.join(["%i" % x for x in [t['fodtdag'], t['fodtmnd'],
+                                           t['fodtar'], t['personnr']]])
         if not persondta.has_key(key):
             persondta[key] = {}
         persondta[key]['tils'] = persondta[key].get('tils', []) + [t]
 
-    # $tid er siste entry i lønnsposterings-cache. TODO
-    tid = '20020601'
+    # Hent alle lønnsposteringer siste 180 dager.
+    #
+    # Tidligere cachet vi disse dataene slik at vi kunne søke over
+    # færre dager, men det ser ikke ut til å være nødvendig da søket
+    # ikke tar mer enn ca et minutt
+    tid = time.strftime("%Y-%m-%d", time.gmtime(time.time() - (3600*24*180)))
     lonnscols, lonnspost = LT.GetLonnsPosteringer(tid)
     for lp in lonnspost:
-        key = '-'.join((str(lp['fodtdag']), str(lp['fodtmnd']), str(lp['fodtar']),
-                        str(lp['personnr'])))
-        if not persondta.has_key(key):
-            persondta[key] = {}
-        persondta[key]['bil'] = persondta[key].get('bil', []) + [
-            "%02d%02d%02d" % (lp['fakultetnr_kontering'], lp['instituttnr_kontering'],
-                              lp['gruppenr_kontering'])]
+        key = '-'.join(["%i" % x for x in [lp['fodtdag'], lp['fodtmnd'],
+                                           lp['fodtar'], lp['personnr']]])
+        sko = "%02d%02d%02d" % (lp['fakultetnr_kontering'],
+                                lp['instituttnr_kontering'],
+                                lp['gruppenr_kontering'])
+        persondta.setdefault(key, {}).setdefault('bil', []).append(sko)
 
+    gcols, gjester = LT.GetGjester()
+    for g in gjester:
+        key = '-'.join(["%i" % x for x in [g['fodtdag'], g['fodtmnd'],
+                                           g['fodtar'], g['personnr']]])
+        sko = "%02d%02d%02d" % (lp['fakultetnr'],
+                                lp['instituttnr'],
+                                lp['gruppenr'])
+        persondta.setdefault(key, {}).setdefault('bil', []).append(
+            {'sko': sko, 'gjestetypekode': g['gjestetypekode']})
+
+    # Skriv ut informasjon om de personer vi allerede har hentet, og
+    # hent noe tillegs informasjon om de
+    f=open(outfile, 'w')
+    f.write(xml.xml_hdr + "<data>\n")
     for p in persondta.keys():
         fodtdag, fodtmnd, fodtar, personnr = p.split('-')
         picols, pi = LT.GetPersonInfo(fodtdag, fodtmnd, fodtar, personnr)
-        f.write(xml.xmlify_dbrow(pi[0],  xml.conv_colnames(picols), 'person', 0,
-                              extra_attr={'fodtdag': fodtdag, 'fodtmnd':fodtmnd,
-                                          'fodtar':fodtar, 'personnr': personnr}) + "\n")
-        tlfcols, tlf = LT.GetTelefon(fodtdag, fodtmnd, fodtar, personnr)
+        f.write(
+            xml.xmlify_dbrow(pi[0],  xml.conv_colnames(picols), 'person', 0,
+                             extra_attr={'fodtdag': fodtdag, 'fodtmnd':fodtmnd,
+                                         'fodtar':fodtar, 'personnr': personnr}
+                             ) + "\n")
+        tlfcols, tlf = LT.GetArbTelefon(fodtdag, fodtmnd, fodtar, personnr)
         for t in tlf:
-            f.write(xml.xmlify_dbrow(t,  xml.conv_colnames(tlfcols), 'arbtlf') + "\n")
+            f.write(xml.xmlify_dbrow(
+                t, xml.conv_colnames(tlfcols), 'arbtlf') + "\n")
 
-        kcols, komm = LT.GetKomm(fodtdag, fodtmnd, fodtar, personnr)
+        kcols, komm = LT.GetPersKomm(fodtdag, fodtmnd, fodtar, personnr)
         for k in komm:
-            f.write(xml.xmlify_dbrow(k,  xml.conv_colnames(kcols), 'komm') + "\n")
+            f.write(xml.xmlify_dbrow(
+                k,  xml.conv_colnames(kcols), 'komm') + "\n")
+
+        rcols, roller = LT.GetPersonRoller(fodtdag, fodtmnd, fodtar, personnr)
+        for r in roller:
+            f.write(xml.xmlify_dbrow(
+                r, xml.conv_colnames(rcols), 'rolle') +"\n")
 
         for t in persondta[p].get('tils', ()):
             # Unfortunately the oracle driver returns
             # to_char(dato_fra,'yyyymmdd') as key for rows, so we use
             # indexes here :-(
             attr = " ".join(["%s=%s" % (tilscols[i], xml.escape_xml_attr(t[i]))
-                             for i in (4,5,6,7,8,9,10,11, )])
+                             for i in (4,5,6,7,8,9,10, )])
             if t['stillingkodenr_beregnet_sist'] is not None:
                 sk = skode2tittel[t['stillingkodenr_beregnet_sist']]
                 attr += ' hovedkat=%s' % xml.escape_xml_attr(

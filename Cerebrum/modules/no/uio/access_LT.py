@@ -72,10 +72,10 @@ ORDER BY tlfpreftegn"""
         "Henter alle tilsetninger med dato_til frem i tid"
         qry = """SELECT distinct fodtdag, fodtmnd, fodtar, personnr,
 	       fakultetnr_utgift, instituttnr_utgift, gruppenr_utgift,
-               stilnr, stillingkodenr_beregnet_sist, prosent_tilsetting,
+               stillingkodenr_beregnet_sist, prosent_tilsetting,
                TO_CHAR(dato_fra, 'YYYYMMDD'), TO_CHAR(dato_til, 'YYYYMMDD')
             FROM lt.tilsetting
-	    WHERE NVL(dato_til, SYSDATE) > SYSDATE"""
+	    WHERE dato_fra <= SYSDATE AND NVL(dato_til, SYSDATE) > SYSDATE"""
         return (self._get_cols(qry), self.db.query(qry))
 
     def GetTitler(self):
@@ -90,34 +90,58 @@ ORDER BY tlfpreftegn"""
         qry = """SELECT belopskodenr
         FROM lt.belkodespesielle WHERE belkodeomradekode='LT35UREG' """
         koder = [str(k['belopskodenr']) for k in self.db.query(qry)]
-
-        qry = ("""SELECT TO_CHAR(dato_oppgjor, 'YYYYMMDD'), p.fodtdag, p.fodtmnd, p.fodtar, p.personnr,
-               fakultetnr_kontering, instituttnr_kontering, gruppenr_kontering
+        qry = ("""SELECT TO_CHAR(dato_oppgjor, 'YYYYMMDD'), p.fodtdag,
+               p.fodtmnd, p.fodtar, p.personnr, fakultetnr_kontering,
+               instituttnr_kontering, gruppenr_kontering
             FROM lt.lonnspostering p, lt.delpostering d
-	    WHERE p.posteringsnr=d.posteringsnr AND p.aarnr_termin=d.aarnr AND p.mndnr_termin=d.mndnr
-               AND p.fodtdag=d.fodtdag AND p.fodtmnd=d.fodtmnd AND p.fodtar=d.fodtar AND p.personnr=d.personnr
-               AND dato_oppgjor > TO_DATE(%s, 'YYYYMMDD') AND (d.belopskodenr=""" % tid +
-        " OR d.belopskodenr=".join(koder) + ")")
+	    WHERE p.posteringsnr=d.posteringsnr AND
+               p.aarnr_termin=d.aarnr AND p.mndnr_termin=d.mndnr AND
+               p.fodtdag=d.fodtdag AND p.fodtmnd=d.fodtmnd AND
+               p.fodtar=d.fodtar AND p.personnr=d.personnr AND
+               dato_oppgjor > TO_DATE(%s, 'YYYYMMDD') AND
+               d.belopskodenr IN (" % tid +", ".join(koder)+")")
         return (self._get_cols(qry), self.db.query(qry))
 
+    def GetGjester(self):
+        "Hent informasjon om gjester"
+        qry = """SELECT fodtdag, fodtmnd, fodtar, personnr,
+                    fakultetnr, instituttnr, gruppenr, gjestetypekode,
+                    dato_fra, dato_til
+                 FROM lt.gjest
+                 WHERE dato_fra <= SYSDATE AND NVL(dato_til, SYSDATE) > SYSDATE"""
+        return (self._get_cols(qry), self.db.query(qry))
+
+    def GetPersonRoller(self, fodtdag, fodtmnd, fodtar, personnr):
+        "Hent informasjon om hvilke roller en person har"
+        qry = """SELECT
+  fakultetnr, instituttnr, gruppenr, ansvarsrollekode, dato_fra,
+  dato_til
+FROM lt.personrolle
+WHERE fodtdag=:fodtdag AND fodtmnd=:fodtmnd AND fodtar=:fodtar AND
+  personnr=:personnr AND dato_fra <= SYSDATE AND NVL(dato_til,
+  SYSDATE) > SYSDATE"""
+        return (self._get_cols(qry), self.db.query(qry, locals()))
+        
     def GetPersonInfo(self, fodtdag, fodtmnd, fodtar, personnr):
         "Hent informasjon om en bestemt person"
         qry = """SELECT
-  navn, tittel_personlig, fakultetnr_for_lonnsslip,
-  instituttnr_for_lonnsslip, gruppenr_for_lonnsslip,
+  fornavn, etternavn, navn, adrtypekode_privatadresse,
   adresselinje1_privatadresse, adresselinje2_privatadresse,
   poststednr_privatadresse, poststednavn_privatadresse,
-  landnavn_privatadresse, telefonnr_privattelefon
+  landnavn_privatadresse, telefonnr_privattelefon, tittel_personlig,
+  fakultetnr_for_lonnsslip, instituttnr_for_lonnsslip,
+  gruppenr_for_lonnsslip,
 FROM
   lt.person
 WHERE
-  fodtdag=:fodtdag AND fodtmnd=:fodtmnd AND fodtar=:fodtar AND personnr=:personnr"""
+  fodtdag=:fodtdag AND fodtmnd=:fodtmnd AND fodtar=:fodtar AND
+  personnr=:personnr"""
         return (self._get_cols(qry), self.db.query(qry, locals()))
 
-    def GetTelefon(self, fodtdag, fodtmnd, fodtar, personnr):
+    def GetArbTelefon(self, fodtdag, fodtmnd, fodtar, personnr):
         "Hent en persons telefon-nr"
         qry = """SELECT
-  innvalgnr, linjenr
+  telefonnr, innvalgnr, linjenr, tlfpreftegn
 FROM
   lt.arbstedtelefon
 WHERE
@@ -125,10 +149,10 @@ WHERE
 ORDER BY tlfpreftegn"""
         return (self._get_cols(qry), self.db.query(qry, locals()))
 
-    def GetKomm(self, fodtdag, fodtmnd, fodtar, personnr):
+    def GetPersKomm(self, fodtdag, fodtmnd, fodtar, personnr):
         "Hent kontakt informasjon for en person"
         qry = """SELECT
-  kommtypekode, kommnrverdi, telefonnr
+  kommtypekode, kommnrverdi, telefonnr, tlfpreftegn
 FROM
   lt.perskomm
 WHERE
