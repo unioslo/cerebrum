@@ -276,7 +276,7 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
                 # CerebrumError so that the client can recognize this
                 # as a user-error.
                 # TODO: This is not a perfect solution...
-                if sys.exc_type in (ServerRestartedError,):
+                if sys.exc_type in (ServerRestartedError, SessionExpiredError):
                     error_class = sys.exc_type
                 else:
                     error_class = CerebrumError
@@ -477,6 +477,7 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
 
         session = BofhdSession(self.server.db, session_id)
         entity_id = session.get_entity_id()
+        session.remote_address=self.client_address
         if not self.server.known_sessions.has_key(session_id):
             self.server.known_sessions[session_id] = 1
             raise ServerRestartedError()
