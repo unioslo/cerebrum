@@ -568,7 +568,9 @@
   Assigned to: runefro
   Resources: jazz, baardj
   Cost:
-  Status:
+  Status: Done.  Vi lager ikke noe spesial-magi for EVU brukere.  De
+          slettes av de samme rutinene som sletter øvrige
+          student-brukere.
   Due date:
   Priority: 2
 
@@ -1017,7 +1019,7 @@
   Assigned to: runefro
   Resources:   hmeland
   Cost:
-  Status:      Forslag til løsning er sendt 
+  Status:      Done
   Due date:
   Priority: 2
 
@@ -1275,6 +1277,32 @@
   Due date:
   Priority: 1.3
 
+*** Dokumentere expire_dates
+  Description: Det må dokumenteres hva en expire_date er ment å bety
+  	       for Cerebrum APIet, og hvordan de forskjellige metoder
+  	       skal forholde seg til dette.  Dette innbefatter å
+  	       dokumentere hvordan quick-/full-sync moduler skal
+  	       forholde seg til entites som har expire_date satt.
+  Dependencies:
+  Assigned to: Rune
+  Resources:
+  Cost:
+  Status: Diskutert på møte, dokument skal skrives.
+  Due date:
+  Priority: 1.3
+
+*** Implementasjon av expire_dates
+
+  Description: Gå gjennom eksisterende kode, og forsikre seg om at den
+               håndterer expire_dates som beskrevet i dokumentasjonen.
+  Dependencies: Dokumentere expire_dates
+  Assigned to:
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority: 1.3
+
 ** Installasjon og oppgradering av Cerebrum
   Description: Må gå gjennom eksisterende installasjonsrutine og sørge
 	       for at den beskriver det vi vil, og deretter oppdatere
@@ -1491,7 +1519,7 @@
   Assigned to: runefro
   Resources:  kjetilho, hmeland
   Cost:
-  Status: venter på ny pythonver.
+  Status: Done.
   Due date:
   Priority: 2
 
