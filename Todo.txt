@@ -639,6 +639,24 @@
   Priority: 2
 
 
+* FRIDA
+
+** Etablere eksport i hht nytt eksportformat
+
+  Description: FRIDA, rapporteringssystemet for
+               forskningsdokumentasjon har laget sin egen DTD som de
+               ønsker å få data efter.  Dagens modul støtter ikke
+               dette, slik at denne må skrives om.
+  Dependencies: Avhengig av endringer i den import vi gjør fra LT
+                (senere SAP/POLS).
+  Assigned to: igorr
+  Resources: igorr, baardj, runefro, jazz
+  Cost: 200
+  Status:
+  Due date:
+  Priority: 2
+ 
+
 * UiO: UA
 ** UiO: Vet vi hva UA vil ha?
   Description: UiO sitt fysiske adgangssystem bruker et system som
