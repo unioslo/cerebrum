@@ -237,7 +237,9 @@ class AccountHome(object):
                ['home', home],
                ['disk_id', disk_id],
                ['status', status]]
-        if isinstance(current_id, NotSet):
+        if not isinstance(home, NotSet) and not isinstance(disk_id, NotSet):
+            raise self._db.IntegrityError, "Cannot set both home and disk_id"
+        if isinstance(current_id, NotSet):    # Allocate new id
             tmp.append(('homedir_id', long(self.nextval('homedir_id_seq'))))
             for t in tmp:
                 if isinstance(t[1], NotSet):
@@ -257,6 +259,11 @@ class AccountHome(object):
                 change_params={'homedir_id': tmp[-1][1]})
         else:
             tmp = filter(lambda k: not isinstance(k[1], NotSet), tmp)
+            if 'home' in [x[0] for x in tmp]:
+                tmp.append(['disk_id', None])
+            elif 'disk_id' in [x[0] for x in tmp]:
+                tmp.append(['home', None])
+
             self.execute("""
             UPDATE [:table schema=cerebrum name=homedir]
               SET %s
@@ -678,7 +685,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine, Entity):
         if disk_id is not None:
             where.append("hd.disk_id=:disk_id")
         if host_id is not None:
-            where.append("hd.host_id=:host_id")
+            where.append("d.host_id=:host_id")
         where = " AND ".join(where)
         tables = "\n".join(tables)
 
