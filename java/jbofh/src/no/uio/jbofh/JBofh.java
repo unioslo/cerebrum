@@ -341,6 +341,7 @@ public class JBofh {
         String sample[] = {};
         Vector ret = (Vector) args.clone();
         Vector cmd_def = (Vector) commands.get(cmd);
+	if(cmd_def.size() == 1) return ret;
 	Object pspec = cmd_def.get(1);
 	if (pspec instanceof String) {
 	    if(! "prompt_func".equals(pspec)) {
