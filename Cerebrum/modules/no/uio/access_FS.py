@@ -48,8 +48,10 @@ class FS(object):
         t = time.localtime()[0:2]
         if t[1] <= 6:
             self.sem = 'V'
+            self.semester = 'VÅR'
         else:
             self.sem = 'H'
+            self.semester = 'HØST'
         self.year = t[0]
         self.YY = str(t[0])[2:]
 
@@ -638,6 +640,33 @@ ORDER BY fodselsdato, personnr
                                                      False))
     # end GetPortalInfo
 
+    ################################################
+    # Papirpenger
+    # Skal avvikles i løpet av sommeren 2004
+    ################################################
+
+    def GetStudBetPapir(self):
+        """Lister ut fødselsnummer til alle de som har betalt en eller
+        annen form for papirpenger"""
+
+        qry = """
+        SELECT DISTINCT r.fodselsdato, r.personnr
+        FROM fs.fakturareskontrodetalj fkd,
+             fs.fakturareskontro frk,
+             fs.registerkort r
+        WHERE
+        r.TERMINKODE = :semester and  r.arstall = :year and
+        r.regformkode in ('STUDWEB','MANUELL') and
+        r.fodselsdato = frk.fodselsdato and
+        r.personnr = frk.personnr and
+        frk.status_betalt = 'J' AND
+        frk.terminkode = r.terminkode AND
+        frk.arstall = r.arstall AND
+        frk.fakturastatuskode ='OPPGJORT' and
+        fkd.fakturanr = frk.fakturanr AND
+        fkd.fakturadetaljtypekode in ('PAPIRHEL','PAPIRDEL','PAPIRPU')"""
+        return (self._get_cols(qry), self.db.query(qry, {'semester': self.semester,
+                                                         'year': self.year}))
 
 
     def get_termin_aar(self, only_current=0):
