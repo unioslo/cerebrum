@@ -11,22 +11,22 @@ XMLRPC_METHODS = """login logout get_commands get_format_suggestion
 # argument
 WITHOUT_SESSION = "login get_format_suggestion".split()
 
-class functionWrapper:
+class FunctionWrapper:
     def __init__(self, serverconn, methodname):
         # Stores the ServerConnection for back-calling
         self.serverconn = serverconn
         self.methodname = methodname
     def __call__(self, *args):
-        return self.serverconn._runMethod(self.methodname, *args)
-    def getName(self):
+        return self.serverconn._run_method(self.methodname, *args)
+    def get_name(self):
         return self.methodname    
-    __name__ = property(getName)
+    __name__ = property(get_name)
         
-class commandWrapper(functionWrapper):
+class CommandWrapper(FunctionWrapper):
     def __call__(self, *args):
         return self.serverconn.run_command(self.methodname, *args)
     def doc(self):
-        return self.serverconn._helpMethod(self.methodname)
+        return self.serverconn._help_Method(self.methodname)
     __doc__ = property(doc)    
 
 class ServerConnection:
@@ -34,17 +34,17 @@ class ServerConnection:
     _url = "http://localhost:8000/"
     _encoding = "iso-8859-1"
     _server = None
-    _serverLock = Lock()
-    _acquire = _serverLock.acquire
-    _release = _serverLock.release
+    _server_lock = Lock()
+    _acquire = _server_lock.acquire
+    _release = _server_lock.release
     
     def __init__(self, user, password):
-        self._checkConnection()
-        self._registerRPCCommands()
+        self._check_connection()
+        self._register_rpc_commands()
         self._login(user, password)
-        self._registerRunCommands()
+        self._register_run_commands()
     
-    def _checkConnection(cls):    
+    def _check_connection(cls):    
         cls._acquire()
         try:
             if cls._server is None:
@@ -52,13 +52,16 @@ class ServerConnection:
         finally:
             cls._release()
 
-    _checkConnection = classmethod(_checkConnection)
+    _check_connection = classmethod(_check_connection)
     
     def _login(self, user, password):
         self._session = self.login(user, password)
     
-    def _helpMethod(self, methodname):
-        """"Generates the __doc__ body for the methodname"""
+    def _help_method(self, methodname):
+        """Generates the __doc__ body for the methodname.
+        This method is largely a major hack of no use other than
+        for other hackers using ServerConnection from the Python shell
+        """
         try:
             helpnames = methodname.split("_")
             help = self.help(*helpnames)
@@ -99,7 +102,7 @@ class ServerConnection:
         return doc    
         
         
-    def _runMethod(self, methodname, *args):
+    def _run_method(self, methodname, *args):
         if methodname not in WITHOUT_SESSION:
             # Add the session ID as the first argument 
             args = (self._session,) + args
@@ -110,7 +113,7 @@ class ServerConnection:
         finally:
             self._release()
          
-    def _registerRPCCommands(self):
+    def _register_rpc_commands(self):
         """Registers known commands as methods on self. 
            Note that available commands vary with the rights of
            the current user, that's why these methods are set on
@@ -119,30 +122,22 @@ class ServerConnection:
             # (ie. not behind run_command) - we'll wrap it to
             # get locking, and make sure we store the method.
         for command in XMLRPC_METHODS:
-            
-            # This lambda could have been used instead of the 
-            # class below!
-            ##func = (lambda methodname: 
-            ##    lambda *args: self._runMethod(methodname, *args))(command)
-            ##func.__doc__ = command + "\n"
-
             # Prepare the fake function
-            func = functionWrapper(self, command)        
+            func = FunctionWrapper(self, command)        
             setattr(self, command, func)
 
-    def _registerRunCommands(self):
+    def _register_run_commands(self):
         """Register Cerebrum commands, which uses
         run_command to takes care of locking, all we need to
         to is to be a function."""
         # NOTE: run_command and get_commands are in XMLRPC_METHODS and
-        # must be registered first. (see _registerRPCCommands)
+        # must be registered first. (see _register_rpc_commands)
         self._commands = self.get_commands()
         for command in self._commands:
             if command in XMLRPC_METHODS:
                 # Overloading those methods could be dangerous
                 continue
-
             # Prepare the fake function
-            func = commandWrapper(self, command)        
+            func = CommandWrapper(self, command)        
             setattr(self, command, func)
 

@@ -1,7 +1,6 @@
-"""Abstract superclasses for the model, ie. the business data.
-   Implementation modules should subclass all of these classes
-   providing network communication, updating the database or
-   whatever might be neccessary.
+"""Implements AbstractModels using the xmlrpc-based Bohf protocol.
+   ``server`` parameters refer to instances of
+   Cerebrum.client.ServerConnection.ServerConnection
 """
 
 import AbstractModel as Abstract
@@ -22,8 +21,8 @@ class Entity(Abstract.Entity):
         Abstract.Entity.__init__(self)
         self.server = server
     
-    def loadEntityInfo(self, id):
-        """Loads entity specific data from server using the given <id>.
+    def load_entity_info(self, id):
+        """Loads entity specific data from server using the given ``id``.
         """
         warn("entity_info not implemented yet")
         return
@@ -31,52 +30,35 @@ class Entity(Abstract.Entity):
         self.names = info['names']
         self.type = info['type']
 
-    def getByID(cls, id, server):
-        """ Retrieves an instance from <server> with given <id>.
-            <server> is a ServerConnection.
+    def get_by_id(cls, id, server):
+        """ Retrieves an instance from ``server`` with given ``id``.
+            ``server`` is a ServerConnection.
         """
         entity = Entity(server)
-        entity.loadEntityInfo(id)
+        entity.load_entity_info(id)
         return entity
         
-    getByID = classmethod(getByID)    
+    get_by_id = classmethod(get_by_id)    
     
     def delete(self):
         """ Deletes this entity from the database.
         """
         pass
         
-    def getAddressInfo(self):
+    def get_address_info(self):
         pass
         
-    def getContactInfo(self):
+    def get_contact_info(self):
         pass
         
-    def getSpreadInfo(self):
+    def get_spread_info(self):
         pass
         
-    def addQuarantine(self, quarantineType, description, startDate=None, 
-                      disableUntil=None, endDate='default'):
-        """ Adds the enitity to a defined <quarantineType> with <description>.
-            
-            Quarantine starts at <startDate>, defaults to None which is now.
-            
-            Quarantine ends at <endDate>, defaults to 'default' which uses the 
-            duration field from the defined quarantine-type. Setting this parameter
-            to None means indefinitely.
-            
-            Setting <disableUntil> indicates that the quarantine is lifted until
-            given date. This is useful e.g. for giving users who have been
-            quarantined for having too old passwords a limited time to change
-            their password; in order to change their password they must use
-            their old password, and this won't work when they're quarantined.
-        """
+    def add_quarantine(self, quarantine_type, description, start_date=None, 
+                      disable_until=None, end_date='default'):
         pass
         
-    def listQuarantines(self):
-        """ Returns a list of quarantine-objects, if the entity has any quarantines
-            set.
-        """
+    def list_quarantines(self):
         pass
 
 
@@ -94,7 +76,7 @@ class Group(Entity, Abstract.Group):
 
         # FIXME: Check for errors...
         info = server.group_create(name, description)
-        group.loadEntityInfo(info['group_id'])
+        group.load_entity_info(info['group_id'])
         group.expire = info['expire']
         group.gid = info.get('gid')
         group.spreads = info['spread'].split(",")
@@ -102,7 +84,7 @@ class Group(Entity, Abstract.Group):
         
     create = classmethod(create)
     
-    def findByName(cls, name, server):
+    def find_by_name(cls, name, server):
         """ Retrieves an instance with given name.
         """
         group = Group(server)
@@ -112,7 +94,7 @@ class Group(Entity, Abstract.Group):
         #spread=kommaseparert liste med code_str
         
         group.name = name
-        group.loadEntityInfo(info['entity_id'])
+        group.load_entity_info(info['entity_id'])
         group.description = info['desc']
         group.expire = info['expire']
         group.gid = info.get('gid')
@@ -120,9 +102,9 @@ class Group(Entity, Abstract.Group):
         group.spreads = info['spread'].split(",")
         return group
         
-    findByName = classmethod(findByName)
+    find_by_name = classmethod(find_by_name)
 
-    def getMembers(self):
+    def get_members(self):
         """ Retrieves members of the group, does _not_ recurse, ie.
             groups that's a member of the group will be listed.
         """
@@ -142,26 +124,26 @@ class Group(Entity, Abstract.Group):
             
         return members
         
-    def getAllAccounts(self):
+    def get_all_accounts(self):
         """ Retrieves members of the group, _with_ recursion.
         """
         pass
         
-    def addMember(self, member, operation="union"):
-        """ Adds <member> to group with <operation>.
-            <operation> is one of 'union', 'difference' and
+    def add_member(self, member, operation="union"):
+        """ Adds ``member`` to group with ``operation``.
+            ``operation`` is one of 'union', 'difference' and
             'intersection', the default is 'union'.
         """
         # FIXME: Make this use the soon-to-be-universiall group_add
         self.server.group_gadd(member.name, self.name, operation)
 
-    def removeMember(self, member):
-        """ Removes <member> from group.
+    def remove_member(self, member):
+        """ Removes ``member`` from group.
         """
         # FIXME: Make this use the soon-to-be-universiall group_remove
         self.server.group_gremove(member.name, self.name)
 
-    def deleteGroup(self):
+    def delete_group(self):
         """ Deletes the group.
         """
         self.server.group_delete(self.name)

@@ -1,48 +1,43 @@
 """Abstract superclasses for the model, ie. the business data.
    Implementation modules should subclass all of these classes
    providing network communication, updating the database or
-   whatever might be neccessary.
-"""
+   whatever might be neccessary. """
 
 
 class Address:
 
-    def setInfo(cls, entity_id, source_system, address_type, 
+    def set_info(cls, entity_id, source_system, address_type, 
                 address_text=None, p_o_box=None, city=None, 
                 country=None):
-        """ Sets address-info for a given entity_id, and returns
-            an address-object with this info.
-        """
+        """Sets address-info for a given entity_id, and returns
+           an address-object with this info."""
         pass
         
-    setInfo = classmethod(setInfo)
+    set_info = classmethod(set_info)
 
-    def getInfo(cls, entity_id):
-        """ Retrieves a list of address-objects for given entity
-        """
+    def get_info(cls, entity_id):
+        """Retrieves a list of address-objects for given entity"""
         pass
 
-    getInfo = classmethod(getInfo)
+    get_info = classmethod(get_info)
 
 
 class ContactInfo:
 
-    def setInfo(cls, entitiy_id, source_system, contact_type,
+    def set_info(cls, entitiy_id, source_system, contact_type,
                 contact_pref=None, contact_value=None, 
                 description=None):
-        """ Sets contactinfo for a given entity_id, and returns
-            a contactinfo-object with this info.
-        """
+        """Sets contactinfo for a given entity_id, and returns
+           a contactinfo-object with this info."""
         pass
 
-    setInfo = classmethod(setInfo)
+    set_info = classmethod(set_info)
 
-    def getInfo(cls, entity_id):
-        """ Retrieves a list of contactinfo-objects for given entity.
-        """
+    def get_info(cls, entity_id):
+        """Retrieves a list of contactinfo-objects for given entity."""
         pass
 
-    getInfo = classmethod(getInfo)
+    get_info = classmethod(get_info)
         
 
 class Entity:
@@ -54,46 +49,46 @@ class Entity:
         self.contactinfo = []
         self.spreads = []
     
-    def getByID (cls, id):
-        """ Retrieves an instance with given id """
+    def get_by_id(cls, id):
+        """Retrieves an instance with given id """
         # entity_info og entity_type_code
         pass
         
-    getByID = classmethod(getByID)
+    get_by_id = classmethod(get_by_id)
     
     def delete(self):
         """ Deletes this entity from the database.
         """
         pass
         
-    def getAddressInfo(self):
+    def get_address_info(self):
         pass
         
-    def getContactInfo(self):
+    def get_contact_info(self):
         pass
         
-    def getSpreadInfo(self):
+    def get_spread_info(self):
         pass
         
-    def addQuarantine(self, quarantineType, description, startDate=None, 
-                      disableUntil=None, endDate='default'):
-        """ Adds the enitity to a defined <quarantineType> with <description>.
-            
-            Quarantine starts at <startDate>, defaults to None which is now.
-            
-            Quarantine ends at <endDate>, defaults to 'default' which uses the 
-            duration field from the defined quarantine-type. Setting this parameter
-            to None means indefinitely.
-            
-            Setting <disableUntil> indicates that the quarantine is lifted until
-            given date. This is useful e.g. for giving users who have been
-            quarantined for having too old passwords a limited time to change
-            their password; in order to change their password they must use
-            their old password, and this won't work when they're quarantined.
+    def add_quarantine(self, quarantine_type, description, start_date=None, 
+                       disable_until=None, end_date='default'):
+        """Adds the enitity to a defined ``quarantine_type`` with ``description``.
+           
+           Quarantine starts at ``start_date``, defaults to None which is now.
+           
+           Quarantine ends at ``end_date``, defaults to 'default' which uses the 
+           duration field from the defined quarantine-type. Setting this parameter
+           to None means indefinitely.
+           
+           Setting ``disable_until`` indicates that the quarantine is lifted until
+           given date. This is useful e.g. for giving users who have been
+           quarantined for having too old passwords a limited time to change
+           their password; in order to change their password they must use
+           their old password, and this won't work when they're quarantined.
         """
         pass
         
-    def listQuarantines(self):
+    def list_quarantines(self):
         """ Returns a list of quarantine-objects, if the entity has any quarantines
             set.
         """
@@ -106,67 +101,61 @@ class Group(Entity):
         """ Creates a new group with given name and description.
         """
         pass
-
     create = classmethod(create)
     
-    def findByName(cls, name):
+    def find_by_name(cls, name):
         """ Retrieves an instance with given name.
         """
         pass
-        
-    findByName = classmethod(findByName)
+    find_by_name = classmethod(find_by_name)
 
-    def getMembers(self):
+    def get_members(self):
         """ Retrieves members of the group, does _not_ recurse, ie.
             groups that's a member of the group will be listed.
         """
         pass
         
-    def getAllAccounts(self):
+    def get_all_accounts(self):
         """ Retrieves members of the group, _with_ recursion.
         """
         pass
         
-    def addMember(self, member, operation):
-        """ Adds <member> to group with <operation>.
+    def add_member(self, member, operation):
+        """ Adds ``member`` to group with ``operation``.
         """
         pass
         
-    def removeMember(self, member):
-        """ Removes <member> from group.
+    def remove_member(self, member):
+        """ Removes ``member`` from group.
         """
         pass
 
-    def changeMemberOperation(self, member, operation):
-        """ Changes <member>'s <operation> in group.
-        """
-        self.removeMember(member)
-        self.addMember(member, operation)
+    def change_member_operation(self, member, operation):
+        """Changes ``member``'s ``operation`` in group."""
+        self.remove_member(member)
+        self.add_member(member, operation)
 
-    def deleteGroup(self):
-        """ Deletes the group.
-        """
+    def delete_group(self):
+        """Deletes the group."""
         pass
 
 
 class Account(Entity):
 
     def create(cls, name):
-        """ Creates an account with given name.
-        """
+        """Creates an account with given name."""
         pass
+    create = classmethod(create)
 
-    def findByName(cls, name):
-        """ Retrieves an instace with given name.
-        """
+    def find_by_name(cls, name):
+        """Retrieves an instance with given name."""
         pass
-
-    findByName = classmethod(findByName)
+    find_by_name = classmethod(find_by_name)
 
 
 class Quarantine:
-    def __init__ (self, startDate, endDate, quarantineType, reason):
-        self.startDate = startDate
-        self.endDate = endDate
-        self.type = quarantineType
+    def __init__ (self, start_date, end_date, quarantine_type, reason):
+        self.start_date = start_date
+        self.end_date = end_date
+        self.type = quarantine_type
         self.reason = reason
