@@ -7,6 +7,7 @@ DATABASE_DRIVER = 'PostgreSQL'
 CEREBRUM_DATABASE_NAME = "cerebrum"
 DB_AUTH_DIR = '/etc/cerebrum'
 CLASS_CONSTANTS = (
+        'Cerebrum.modules.no.debian_edu/Constants'
         'Cerebrum.modules.PosixUser/Constants',
         'Cerebrum.modules.CLConstants/CLConstants',
         'Cerebrum.modules.bofhd.utils/Constants',
