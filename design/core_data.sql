@@ -109,10 +109,20 @@ INSERT INTO [:table schema=cerebrum name=posix_shell_code]
   (code, code_str, shell) VALUES
   ([:sequence schema=cerebrum name=code_seq op=next], 'bash', '/bin/bash');
 
+/* It is rather likely that some installations want the names of their
+   user accounts to live in the same value domain as the names of
+   their groups.  Such a setup is not possible with the following two
+   statements -- the second one will fail due to uniqueness constraints.
+   Hence, we need to come up with a better solution... */
 INSERT INTO [:table schema=cerebrum name=value_domain_code]
   (code, code_str, description) VALUES
   ([:sequence schema=cerebrum name=code_seq op=next], 'def_accname_dom',
    'Default domain for account names');
+INSERT INTO [:table schema=cerebrum name=value_domain_code]
+  (code, code_str, description) VALUES
+  ([:sequence schema=cerebrum name=code_seq op=next],
+   [:get_config var=DEFAULT_GROUP_NAMESPACE],
+   'Default domain for group names');
 
 INSERT INTO [:table schema=cerebrum name=authentication_code]
   (code, code_str, description) VALUES
