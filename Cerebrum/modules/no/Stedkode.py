@@ -55,7 +55,7 @@ class Stedkode(OU):
         self.__updated = []
 
     def populate(self, name, fakultet, institutt, avdeling,
-                 institusjon=None, landkode=0, katalog_merke='T', acronym=None,
+                 institusjon=None, landkode=0, katalog_merke='F', acronym=None,
                  short_name=None, display_name=None, sort_name=None,
                  parent=None):
         """Set instance's attributes without referring to the Cerebrum DB."""
