@@ -64,11 +64,11 @@ class AccountType(object):
     def del_account_type(self, person_id, ou_id, affiliation):
         cols = {'person_id': person_id,
                 'ou_id': ou_id,
-                'affiliation': affiliation,
+                'affiliation': int(affiliation),
                 'account_id': self.entity_id}
         self.execute("""
         DELETE FROM [:table schema=cerebrum name=account_type]
-        WHERE %s""" % " AND".join(["%s=:%s" % (x, x)
+        WHERE %s""" % " AND ".join(["%s=:%s" % (x, x)
                                    for x in cols.keys()]), cols)
 
     def list_accounts_by_type(self, ou_id=None, affiliation=None,
