@@ -30,6 +30,7 @@ Options:
                            Repeat the option for more verbosity.
   -m | --mail-file <file>: Specify file to write to.
   -i | --ignore-size:      Use file class instead of SimilarSizeWriter.
+  -a | --no-auth-data:     Don't populate userPassword.
   -h | --help:             This message."""
 
 import sys
@@ -279,7 +280,17 @@ def write_ldif():
                 # Set default-settings.
                 f.write("virusScanning: TRUE\n")
                 f.write("virusFound: 1\n")
-                f.write("virusRemoved: 1\n")        
+                f.write("virusRemoved: 1\n")
+        # Populate auth-data:
+        if auth and tt == co.email_target_account:
+            if ldap.e_id2passwd.has_key(ei):
+                uname, passwd = ldap.e_id2passwd[ei]
+                if not passwd:
+                    passwd = "*invalid"
+                f.write("userPassword: {crypt}%s\n" % passwd)
+            else:
+                txt = "No auth-data for user: %s\n" % ei
+                sys.stderr.write(txt)
 
         misc = ldap.get_misc(ei, t, tt)
         if misc:
@@ -336,6 +347,14 @@ def get_data(spread):
     ldap.read_accounts(spread)
     if verbose:
         print "  done in %d sec." % (now() - curr)
+    if auth:
+        if verbose:
+            print "Starting read_target_auth_data()..."
+            curr = now()
+        ldap.read_target_auth_data()
+        if verbose:
+            print "  done in %d sec." % (now() - curr)
+    if verbose:
         print "Starting read_misc()..."
         curr = now()
     # ldap.read_misc_target() is by default empty. See EmailLDAP for details.
@@ -348,20 +367,15 @@ def get_data(spread):
     if verbose:
         print "  done in %d sec." % (now() - curr)
         print "Total time: %d" % (now() - start)
-    # ldap.read_misc_target() may be used for other operations than
-    # making attributes. In HiAs case we open a file. To get this
-    # working, we need to close the file after it's populated. Default
-    # ldap.read_misc_target() is empty.
-    ldap.close_misc_target()
 
     
 def main():
-    global verbose, f, db, co, ldap
+    global verbose, f, db, co, ldap, auth
     
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "vm:s:ih",
+        opts, args = getopt.getopt(sys.argv[1:], "vm:s:iha",
                                    ("verbose", "mail-file=", "spread=",
-                                    "ignore-size", "help"))
+                                    "ignore-size", "help", "no-ath-data"))
     except getopt.GetoptError, e:
         usage(str(e))
     if args:
@@ -371,6 +385,7 @@ def main():
     mail_file = None
     spread = None
     max_change = None
+    auth = True
     for opt, val in opts:
         if opt in ("-v", "--verbose"):
             verbose += 1
@@ -382,6 +397,8 @@ def main():
             max_change = 100
         elif opt in ("-h", "--help"):
             usage()
+        elif opt in ("-a", "--no-auth-data"):
+            auth = False
 
     db = Factory.get('Database')()
     co = Factory.get('Constants')(db)

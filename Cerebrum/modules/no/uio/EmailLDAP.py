@@ -33,14 +33,12 @@ from Cerebrum.modules.EmailLDAP import EmailLDAP
 class EmailLDAPUiOMixin(EmailLDAP):
     """Methods specific for UiO."""
 
-    __write_attr__ = ('home2spool', 'local_uio_domain', 'e_id2passwd')
+    __write_attr__ = ('home2spool', 'local_uio_domain')
 
     def __init__(self, db):
         self.__super.__init__(db)
         self.local_uio_domain = {}
         self.home2spool = {}
-        self.e_id2passwd = {}
-        
 
     spam_act2dig = {'noaction':   '0',
                     'spamfolder': '1',
@@ -292,47 +290,5 @@ class EmailLDAPUiOMixin(EmailLDAP):
                 continue
             self.home2spool["/%s/%s" % (faculty, host)] = "/%s/%s/mail" % (
                 faculty, spoolhost[host])
-
-    def read_misc_target(self):
-        a = Factory.get('Account')(self._db)
-        # For the time being, remove passwords for all quarantined
-        # accounts, regardless of quarantine type.
-        quarantines = {}
-        now = mx.DateTime.now()
-        for row in a.list_entity_quarantines(
-                entity_types = self.const.entity_account):
-            if (row['start_date'] <= now
-                and (row['end_date'] is None or row['end_date'] >= now)
-                and (row['disable_until'] is None
-                     or row['disable_until'] < now)):
-                # The quarantine in this row is currently active.
-                quarantines[int(row['entity_id'])] = "*locked"
-        for row in a.list_account_authentication():
-            account_id = int(row['account_id'])
-            self.e_id2passwd[account_id] = (
-                row['entity_name'],
-                quarantines.get(account_id) or row['auth_data'])
-        for row in a.list_account_authentication(self.const.auth_type_crypt3_des):
-            # *sigh* Special-cases do exist. If a user is created when the
-            # above for-loop runs, this loop gets a row more. Before I ignored
-            # this, and the whole thing went BOOM on me.
-            account_id = int(row['account_id'])
-            if not self.e_id2passwd.get(account_id, (0, 0))[1]:
-                self.e_id2passwd[account_id] = (
-                    row['entity_name'],
-                    quarantines.get(account_id) or row['auth_data'])
-
-    def get_misc(self, entity_id, target_id, email_target_type):
-        if email_target_type == self.const.email_target_account:
-            if self.e_id2passwd.has_key(entity_id):
-                uname, passwd = self.e_id2passwd[entity_id]
-                if not passwd:
-                    passwd = "*invalid"
-                txt = "#remove: uid: %s\nuid: %s\nuserPassword: {crypt}%s" % \
-                      (uname, uname, passwd)
-                return txt
-            else:
-                txt = "No auth-data for user: %s\n" % entity_id
-                sys.stderr.write(txt)
 
 # arch-tag: 7bb4c2b7-8112-4bd0-85dd-0112db222638

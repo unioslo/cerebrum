@@ -41,7 +41,7 @@ class EmailLDAP(DatabaseAccessor):
     __write_attr__ = ('aid2addr', 'targ2addr', 'targ2prim', 'targ2spam',
                       'targ2quota', 'targ2virus', 'serv_id2server',
                       'targ2server_id', 'targ2forward', 'targ2vacation',
-                      'acc2name', 'pending')
+                      'acc2name', 'pending', 'e_id2passwd')
 
 
     def __init__(self, db):
@@ -60,6 +60,7 @@ class EmailLDAP(DatabaseAccessor):
         self.targ2vacation = {}
         self.acc2name = {}
         self.pending = {}
+        self.e_id2passwd = {}
        
 
     def _build_addr(self, local_part, domain):
@@ -243,6 +244,37 @@ class EmailLDAP(DatabaseAccessor):
                                    (acc.account_name, grp.group_name))
         return member_addrs
 
+
+    def read_target_auth_data(self):
+        a = Factory.get('Account')(self._db)
+        # For the time being, remove passwords for all quarantined
+        # accounts, regardless of quarantine type.
+        quarantines = {}
+        now = mx.DateTime.now()
+        for row in a.list_entity_quarantines(
+                entity_types = self.const.entity_account):
+            if (row['start_date'] <= now
+                and (row['end_date'] is None or row['end_date'] >= now)
+                and (row['disable_until'] is None
+                     or row['disable_until'] < now)):
+                # The quarantine in this row is currently active.
+                quarantines[int(row['entity_id'])] = "*locked"
+        for row in a.list_account_authentication():
+            account_id = int(row['account_id'])
+            self.e_id2passwd[account_id] = (
+                row['entity_name'],
+                quarantines.get(account_id) or row['auth_data'])
+        for row in a.list_account_authentication(self.const.auth_type_crypt3_des):
+            # *sigh* Special-cases do exist. If a user is created when the
+            # above for-loop runs, this loop gets a row more. Before I ignored
+            # this, and the whole thing went BOOM on me.
+            account_id = int(row['account_id'])
+            if not self.e_id2passwd.get(account_id, (0, 0))[1]:
+                self.e_id2passwd[account_id] = (
+                    row['entity_name'],
+                    quarantines.get(account_id) or row['auth_data'])
+
+
     def read_misc_target(self):
         # Dummy method for Mixin-classes. By default it generates a hash with
         # nothing, but one could populate non-default attributes using this
@@ -253,13 +285,6 @@ class EmailLDAP(DatabaseAccessor):
 
     def get_misc(self, entity_id, target_id, email_target_type):
         # Return optional strings to the script.
-        pass
-
-    def close_misc_target(self):
-        # If you need to close, or do something to the things you did in
-        # read_misc_target(); Do that here. This means overriding this
-        # method in your sub-class. The deafult is doing nothing, and should
-        # _never_ do anything else.
         pass
     
 # arch-tag: ec5fc24f-7ccb-415c-a0f9-c87c7230a2cb
