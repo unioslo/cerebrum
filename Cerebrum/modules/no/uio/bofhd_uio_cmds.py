@@ -1316,7 +1316,7 @@ class BofhdExtension(object):
         else:
             raise CerebrumError, ("%s-archive@%s already exists" % (lp, dom))
         archive_user = 'www'
-        archive_prog = '/local/share/mta/bin/new-archive-monthly'
+        archive_prog = '/site/mailpipe/bin/new-archive-monthly'
         arch = lp.lower() + "-archive"
         dc = dom.lower().split('.'); dc.reverse()
         archive_dir = "/uio/caesar/mailarkiv/" + ".".join(dc) + "/" + arch
