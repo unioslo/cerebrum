@@ -125,7 +125,7 @@ class RequestHandler(SocketServer.StreamRequestHandler):
         # Possible &send() feedback: ok, no, edbdown, badpage
         if self.printer_quota.has_printerquota in (None, '0', 'F'):
             return ok
-        pageunits = int(pageunits)
+        pageunits = float(pageunits)
         self.log('TRACE', 'check_quota: %s@%s %s' % (pageunits, printer, self.printer_quota))
         if pageunits <= 0:
             return ebadpage
@@ -137,7 +137,7 @@ class RequestHandler(SocketServer.StreamRequestHandler):
         # A LOT of printers don't have page accounting, and even though
         # this should be filtered out at an earlier stage it miiight
         # happen that we get a request to subtract 0 pages. Just OK that.
-        pageunits = int(pageunits)
+        pageunits = float(pageunits)
         if pageunits == 0:
             self.log('TRACE', "subtract_quota: 0_PAGE_REQUEST")
             return ok
