@@ -75,9 +75,11 @@ module Cerebrum_core {
 
         /**
         * Method for fetching a handler for an LO client.
+        * \param username
+        * \param password
         * \return An LO Handler.
         */
-        LOHandler get_lo_handler();
+        LOHandler get_lo_handler(in string username, in string password);
 
         string test();
 
@@ -91,7 +93,6 @@ module Cerebrum_core {
         */
         Object get_ap_handler(in string username, in string password)
             raises(Errors::LoginError);
-        Object get_ap_handler_by_session_id(in string session_id);
     };
 
     /**
@@ -120,10 +121,11 @@ module Cerebrum_core {
         * \return The last ID present in the change log. This ID is used as an
         * argument when fetching the next update.
         */
-        long get_all(out EntitySeq entity_iterator,
+        long get_all(out EntitySeq entities,
                      out GroupMemberSeq groups,
                      in string group_name,
-                     in StringSeq tags);
+                     in StringSeq group_tags,
+                     in StringSeq entity_tags);
 
         /**
         * Method for fetching all objects of a given type from Gro, updated
