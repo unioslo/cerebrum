@@ -173,8 +173,9 @@ class Constants(Constants.Constants):
     quarantine_autostud = _QuarantineCode('autostud', 'Ikke aktiv student')
     quarantine_autoekstern = _QuarantineCode('autoekstern', 'Ekstern konto gått ut på dato')
     quarantine_ou_notvalid = _QuarantineCode('ou_notvalid',
-                                            'OU not valid from external source')    quarantine_ou_remove = _QuarantineCode('ou_remove',
-                                                'OU is clean and may be removed')
+					     'OU not valid from external source')    
+    quarantine_ou_remove = _QuarantineCode('ou_remove',
+					   'OU is clean and may be removed')
 
     
     # Navnkonstanter spesifikke for SAP
