@@ -354,12 +354,13 @@ class Group(EntityName, Entity):
     def list_all(self, spread=None):
         where = ""
         if spread is not None:
+            spread = int(spread)
             where = """gi, [:table schema=cerebrum name=entity_spread] es
             WHERE gi.group_id=es.entity_id AND es.entity_type=:etype AND es.spread=:spread"""
         return self.query("""
         SELECT group_id
         FROM [:table schema=cerebrum name=group_info] %s""" % where,
-                          {'spread': int(spread), 'etype': int(self.const.entity_group)})
+                          {'spread': spread, 'etype': int(self.const.entity_group)})
 
 # Python 2.3 has a 'set' module in the standard library; for now we'll
 # roll our own.
