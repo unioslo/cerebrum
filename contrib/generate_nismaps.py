@@ -262,6 +262,7 @@ def map_spread(id):
 
 def main():
     global debug
+    global e_o_f
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'dg:p:n:',
                                    ['debug', 'help', 'eof', 'group=',
