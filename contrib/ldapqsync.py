@@ -578,7 +578,7 @@ def main():
     global logger,ch_log_list, u_spreads, g_spreads, n_spreads, lc
     # 'int' done, not sure if all calls support Constants (probably)
     u_spreads = [int(getattr(co,x)) for x in cereconf.LDAP_USER_SPREAD]
-    g_spreads = [int(getattr(co,x)) for x in cereconf.LDAP_GROUP_SPREAD]
+    g_spreads = [int(getattr(co,x)) for x in cereconf.LDAP_FILEGROUP_SPREAD]
     n_spreads = [int(getattr(co,x)) for x in cereconf.LDAP_NETGROUP_SPREAD]
     load_cltype_table(cltype)
     logg_dir = cereconf.LDAP_DUMP_DIR + '/log'
