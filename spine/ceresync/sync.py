@@ -127,7 +127,8 @@ class Sync:
 
         try:
             self._handler = self.spine.login(user, password)
-        except SpineErrors.LoginError, e:
+        #except SpineErrors.LoginError, e:
+        except Exception, e:
             raise errors.LoginError, "Spine user %s" % user
    
     def _transaction(self):
