@@ -1,7 +1,7 @@
 #!/usr/bin/env python2.2
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2003 University of Oslo, Norway
+# Copyright 2004 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -12,12 +12,10 @@ import cerebrum_path
 import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-from Cerebrum.modules.no.uio.printer_quota import PPQUtil
 from Cerebrum.modules.no.uio.printer_quota import PaidPrinterQuotas
 
 db = Factory.get('Database')()
 co = Factory.get('Constants')(db)
-pu = PPQUtil.PPQUtil(db)
 ppq = PaidPrinterQuotas.PaidPrinterQuotas(db)
 
 def sort_by_numjobs(a, b):
@@ -102,7 +100,9 @@ def payment_stats(from_date, to_date):
 
 def main():
     try:
-        opts, args = getopt.getopt(sys.argv[1:], '', ['help', 'from=', 'to=', 'sted-level=', 'printjobs', 'payments', 'top-user', 'sort-user-by=', 'user-rows='])
+        opts, args = getopt.getopt(sys.argv[1:], '', [
+            'help', 'from=', 'to=', 'sted-level=', 'printjobs',
+            'payments', 'top-user', 'sort-user-by=', 'user-rows='])
     except getopt.GetoptError:
         usage(1)
 
@@ -128,7 +128,7 @@ def main():
         elif opt in ('--top-user',):
             user_print_stats(from_date, to_date, sort_by=user_sort_by, num=num_user_rows)
         elif opt in ('--sort-user-by',):
-            sort_by = val
+            user_sort_by = val
         elif opt in ('--user-rows',):
             num_user_rows = int(val)
 
@@ -150,8 +150,8 @@ def usage(exitcode=0):
 
     Example:
       Show top-20 users whos paid qouta was reduced from june to august:
-      quota_stats.py --from 2004-06-01 --to 2004-08-05 --sort-user-by paid \
-         --user-rows 20--top-user
+      quota_stats.py --from 2004-06-01 --to 2004-08-05 --sort-user-by paid \\
+         --user-rows 20 --top-user
 
       Show usage by faculty:
       quota_stats.py --from 2004-06-01 --to 2004-08-05 --sted-level fak --printjobs
