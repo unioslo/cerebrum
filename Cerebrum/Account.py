@@ -717,7 +717,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine, Entity):
         """Return a list of account-ids, or None if none found"""
         where = "owner_id = :o_id"
         if filter_expired:
-            where += " AND (expire_date IS NULL OR expire_date > [:now]"
+            where += " AND (expire_date IS NULL OR expire_date > [:now])"
         return self.query("""
             SELECT account_id
             FROM [:table schema=cerebrum name=account_info]
