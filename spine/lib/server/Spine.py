@@ -18,13 +18,17 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+import os
 import Communication
 
-import Cerebrum_core__POA
-import Cerebrum_core
+import omniORB
+spine_core = os.path.join(os.path.dirname(__file__), "SpineCore.idl")
+omniORB.importIDL(spine_core)
+
+import SpineCore
+import SpineCore__POA
 
 import Session
-
 from Cerebrum.spine.Account import get_account_by_name
 
 # The major version number of the Spine server
@@ -33,7 +37,7 @@ SPINE_MAJOR_VERSION = 0
 # The minor version of the Spine server
 SPINE_MINOR_VERSION = 1
 
-class SpineImpl(Cerebrum_core__POA.Spine):
+class SpineImpl(SpineCore__POA.Spine):
     """Implementation of the Spine interface.
     
     Implements the methods in the Spine interface.
@@ -54,7 +58,7 @@ class SpineImpl(Cerebrum_core__POA.Spine):
         return Session.idl_source_commented
 
     def get_version(self):
-        return Cerebrum_core.Version(SPINE_MAJOR_VERSION, SPINE_MINOR_VERSION)
+        return SpineCore.Version(SPINE_MAJOR_VERSION, SPINE_MINOR_VERSION)
         
     def login(self, username, password):
         """Return the user-spesific session.
@@ -65,7 +69,7 @@ class SpineImpl(Cerebrum_core__POA.Spine):
         """
         # We will always throw the same exception in here. This is important!
 
-        exception = Cerebrum_core.Errors.LoginError('Wrong username or password')
+        exception = SpineCore.Spine.LoginError('Wrong username or password')
 
         # Check username
         for char in ['*','?']:

@@ -23,7 +23,6 @@ from __future__ import generators
 import md5
 
 import omniORB
-import cereconf
 
 from Corba import create_idl_source, convert_to_corba, register_spine_class
 from Cerebrum.spine.CerebrumHandler import CerebrumHandler
@@ -123,19 +122,20 @@ classes = []
 classes += registry.classes
 classes.append(Session)
 
-idl_source = create_idl_source(classes, 'generated')
+idl_source = create_idl_source(classes, 'SpineIDL')
 idl_source_md5 = md5.new(idl_source).hexdigest()
-idl_source_commented = create_idl_source(classes, 'generated', docs=True)
+idl_source_commented = create_idl_source(classes, 'SpineIDL', docs=True)
 
-omniORB.importIDLString(idl_source, ['-I' + cereconf.IDL_PATH])
+omniORB.importIDLString(idl_source)
 
-import generated, generated__POA
+import SpineIDL, SpineIDL__POA
+
 for name, cls in registry.map.items():
-    idl_class = getattr(generated__POA, 'Spine' + name)
-    idl_struct = getattr(generated, name + 'Struct', None)
+    idl_class = getattr(SpineIDL__POA, 'Spine' + name)
+    idl_struct = getattr(SpineIDL, name + 'Struct', None)
     register_spine_class(cls, idl_class, idl_struct)
 
-class SessionImpl(Session, generated__POA.SpineSession):
+class SessionImpl(Session, SpineIDL__POA.SpineSession):
     pass
 
 # arch-tag: 6fceeb42-b06a-4779-a088-7316dd68a981
