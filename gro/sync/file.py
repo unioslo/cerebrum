@@ -81,3 +81,5 @@ class aliasfile(cflfileback):
             to=addr.primary
             mod=">>"
         return "%s: %s %s" % ( addr.name, mod, to)
+
+# arch-tag: 15c0dab6-50e3-4093-ba64-5be1b5789d90
