@@ -5,6 +5,7 @@ ClientAPI = Factory.get_module("ClientAPI")
 from Cerebrum.web.templates.GroupSearchTemplate import GroupSearchTemplate
 from Cerebrum.web.templates.GroupViewTemplate import GroupViewTemplate
 from Cerebrum.web.templates.GroupAddMemberTemplate import GroupAddMemberTemplate
+from Cerebrum.web.templates.EditGroupTemplate import EditGroupTemplate
 from Cerebrum.web.Main import Main
 from gettext import gettext as _
 from Cerebrum.web.utils import url
@@ -18,7 +19,8 @@ def index(req):
 
 def search(req, name, desc, spread):
     page = Main(req)
-    page.menu.setFocus("group/list")
+    page.title = "Group search"
+    page.setFocus("group/list")
     server = req.session['server']
     # Store given search parameters in search form
     formvalues = {}
@@ -36,7 +38,7 @@ def search(req, name, desc, spread):
     table.add(_("Name"), _("Description"))
     for (id, name,desc) in groups:
         desc = desc or ""
-        link = url("group/view?name=%s" % name)
+        link = url("group/view?id=%s" % id)
         link = html.Anchor(name, href=link)
         table.add(link, desc)
     if groups:    
@@ -48,18 +50,30 @@ def search(req, name, desc, spread):
     page.content = result
     return page    
 
-def view(req, name):
-    page = Main(req)
-    page.menu.setFocus("group/view", name)
+def _create_view(req, id):
+    """Creates a page with a view of the group given by id, returns
+       a tuple of a Main-template and a group instance"""
     server = req.session['server']
-    group = ClientAPI.Group.fetch_by_name(name, server)
+    page = Main(req)
+    try:
+        group = ClientAPI.Group.fetch_by_id(server, id)
+    except:
+        page.add_message(_("Could not load group with id %s") % id)
+        return (page, None)
+
+    page.menu.setFocus("group/view", id)
     view = GroupViewTemplate()
     view.add_member = lambda group:_add_box(group)
     page.content = lambda: view.viewGroup(group)
+    return (page, group)
+
+
+def view(req, id):
+    (page, group) = _create_view(req, id)
     return page
     
 def _add_box(group):
-    operations = [(ClientAPI.Constants.JOIN, _("Union")), 
+    operations = [(ClientAPI.Constants.UNION, _("Union")), 
                   (ClientAPI.Constants.INTERSECTION, _("Intersection")), 
                   (ClientAPI.Constants.DIFFERENCE, _("Difference"))]
     member_types = [("account", _("Account")),
@@ -70,25 +84,56 @@ def _add_box(group):
     return template.add_member_box(action, member_types, operations)
 
 def add_member(req, id, name, type, operation):
-    server = req.session['server']
-    
-    page = view(req, name)
-    if operation not in (ClientAPI.Constants.JOIN, 
+    (page, group) = _create_view(req, id)
+    if not group:
+        return page
+    if operation not in (ClientAPI.Constants.UNION, 
                          ClientAPI.Constants.INTERSECTION, 
                          ClientAPI.Constants.DIFFERENCE):
         # Display an error-message on top of page.
-        page.add_message(_("%s is not a valid operation." % operation), true)
+        page.add_message(_("%s is not a valid operation.") % operation, True)
         return page
     
-    group = ClientAPI.Group.fetch_by_id(server, id)
-    if (type == "account"):
-        entity = ClientAPI.Account.fetch_by_name(server, name)
-    elif (type == "group"):
-        entity = ClientAPI.Group.fetch_by_name(server, name)
+    try:
+        if (type == "account"):
+            entity = ClientAPI.Account.fetch_by_name(server, name)
+        elif (type == "group"):
+            entity = ClientAPI.Group.fetch_by_name(server, name)
+    except:
+        page.add_message(_("Could not add non-existing member %s %s") %
+                         (type, name), True)       
+        return page 
 
     #FIXME: Operation should be constants somewhere
-    group.add_member(entity, operation)
-   
+    try:
+        group.add_member(entity, operation)
+    except:    
+        page.add_message(_("Could not add member %s %s to group, "
+                           "already member?") % (type, name), True) 
     # Display a message stating that entity is added as group-member
-    page.add_message(_("%s added as a member to group." % name), false)
+    page.add_message(_("%s %s added as a member to group.") % 
+                        (type, name), False)
     return page
+
+def remove_member(req, groupid, memberid, operation):
+    (page, group) = _create_view(req, groupid)
+    if not group:
+        return page
+    group.remove_member(member_id=memberid, operation=operation)
+    page.add_message(_("%s removed") % memberid)
+    return page
+
+def edit(req, id):
+    server = req.session['server']
+    page = Main(req)
+    edit = EditGroupTemplate()
+    group = ClientAPI.Group.fetch_by_id(server, id)
+    edit.formvalues['name'] = group.name
+    edit.formvalues['desc'] = group.description
+    edit.formvalues['expire'] = str(group.expire)
+    page.content = lambda: edit.form(id)
+    return page
+
+def save(req, id, name, desc, expire):
+    return "eh.. %s" % name    
+
