@@ -33,8 +33,8 @@ def main():
 
     # Defaults to fetch configuration from sync.conf
     user = directory.PosixUser(base=config.sync.get("ldap","user_base"))
-    group = directory.PosixGroup(base=config.sync.get("ldap","group_base"))
-    person = directory.Person(base=config.sync.get("ldap","people_base"))
+    groups = directory.PosixGroup(base=config.sync.get("ldap","group_base"))
+    persons = directory.Person(base=config.sync.get("ldap","people_base"))
 
     # Syncronize users
     print "Syncronizing users"
@@ -51,10 +51,29 @@ def main():
         user.close()
 
     # Syncronize groups
-    # to come...
+    print "Syncronizing groups"
+    groups.begin(incr)
+    try:
+        for group in s.get_groups():
+            if not group.posix_gid_exists:
+                continue
+            else:
+                groups.add(group)
+    except IOError,e:
+        print "Exception %s occured, aborting" % e
+    else:
+        groups.close()
 
     # Syncronize persons
-    # to come...
+    print "Syncronizing persons"
+    persons.begin(incr)
+    try:
+        for person in s.get_persons():
+            persons.add(person)
+    except IOError,e:
+        print "Exception %s occured, aborting" % e
+    else:
+        persons.close()
 
     print "Final closing"
     s.close()
