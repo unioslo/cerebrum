@@ -4,7 +4,6 @@
 # $Id$
 import popen2
 import fcntl
-import stat
 import os
 import select
 import sys
@@ -166,8 +165,8 @@ class System(CallableAction):
         self.logger.debug("Wait (wait=%i) ret: %s/%s" % (self.wait, pid, exit_code))
         if pid == self.pid:
             if ((self.stdout_ok == 0 and 
-                 os.stat("%s/stdout.log" % self.run_dir)[stat.ST_SIZE] > 0) or 
-                os.stat("%s/stderr.log" % self.run_dir)[stat.ST_SIZE] > 0 or
+                 os.path.getsize("%s/stdout.log" % self.run_dir) > 0) or 
+                os.path.getsize("%s/stderr.log" % self.run_dir) > 0 or
                 exit_code != 0):
                 newdir = "%s.%s" % (self.run_dir, time.time())
                 os.rename(self.run_dir, newdir)
