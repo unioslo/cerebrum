@@ -465,6 +465,9 @@ printer."""],
     'string_perm_target_type':
         ['type', 'Enter target type',
          'Legal types: host, disk, group'],
+    'string_disk_status':
+        ['disk_status', 'Enter disk status',
+         'Legal values: archived create_failed not_created on_disk'],
     'string_from_to':
         ['from_to', 'Enter end date (YYYY-MM-DD) or '+
          'begin and end date (YYYY-MM-DD--YYYY-MM-DD)'],

@@ -4502,13 +4502,13 @@ class BofhdExtension(object):
                               "Spreads:       %s\n" +
                               "Affiliations:  %s\n" +
                               "Expire:        %s\n" +
-                              "Home:          %s\n" +
+                              "Home:          %s (status: %s)\n" +
                               "Entity id:     %i\n" +
                               "Owner id:      %i (%s: %s)",
                               ("username", "spread", "affiliations",
                                format_day("expire"),
-                               "home", "entity_id", "owner_id", "owner_type",
-                               "owner_desc")),
+                               "home", "home_status", "entity_id", "owner_id",
+                               "owner_type", "owner_desc")),
                              ("UID:           %i\n" +
                               "Default fg:    %i=%s\n" +
                               "Gecos:         %s\n" +
@@ -4533,8 +4533,10 @@ class BofhdExtension(object):
                                            self._format_ou_name(ou)))
         try:
             tmp = account.get_home(self.const.spread_uio_nis_user)
+            home_status = "%s" % self.num2const[int(tmp['status'])]
         except Errors.NotFoundError:
-            tmp = {'disk_id': None, 'home': None}
+            tmp = {'disk_id': None, 'home': None, 'status': None}
+            home_status = None
         ret = {'entity_id': account.entity_id,
                'username': account.account_name,
                'spread': ",".join(["%s" % self.num2const[int(a['spread'])]
@@ -4542,6 +4544,7 @@ class BofhdExtension(object):
                'affiliations': (",\n" + (" " * 15)).join(affiliations),
                'expire': account.expire_date,
                'home': tmp['home'],
+               'home_status': home_status,
                'owner_id': account.owner_id,
                'owner_type': str(self.num2const[int(account.owner_type)])}
         if account.owner_type == self.const.entity_person:
@@ -4868,6 +4871,26 @@ class BofhdExtension(object):
         operator.store_state("new_account_passwd", {'account_id': int(account.entity_id),
                                                     'password': passwd})
         return {'account_id': int(account.entity_id)}
+
+    # user set_disk_status
+    all_commands['user_set_disk_status'] = Command(
+        ('user', 'set_disk_status'), AccountName(),
+        SimpleString(help_ref='string_disk_status'),
+        perm_filter='is_superuser')
+    def user_set_disk_status(self, operator, accountname, status):
+        try:
+            status = self.const.AccountHomeStatus(status)
+            int(status)
+        except Errors.NotFoundError:
+            raise CerebrumError, "Unknown status"
+        account = self._get_account(accountname)
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            raise PermissionDenied("Currently limited to superusers")
+        tmp = account.get_home(self.const.spread_uio_nis_user)
+        account.set_home(self.const.spread_uio_nis_user,
+                         disk_id=tmp['disk_id'], home=tmp['home'],
+                         status=status)
+        return "OK, set home-status for %s to %s" % (accountname, status)
 
     # user set_expire
     all_commands['user_set_expire'] = Command(
