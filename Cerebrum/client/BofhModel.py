@@ -131,9 +131,10 @@ class Entity(Abstract.Entity):
             result.append(quarantine)
         return result    
  
-    def _get_qtype(self, type, quarantine):
+    def _get_qtype(self, quarantine=None, type=None):
         """Retrieve the quarantine type string from either
-           a quarantine type or a quarantine"""
+           a quarantine type or a quarantine object 
+           (but not both)"""
         if (not(type or quarantine) or 
                (type and quarantine)):
               raise ValueError, "type OR quarantine must be given"
@@ -146,6 +147,9 @@ class Entity(Abstract.Entity):
         return type
 
     def remove_quarantine(self, quarantine=None, type=None):
+        """Removes a quarantine identified by either 
+           quarantine = Quarantine-instance   --or
+           type = QuarantineType or quarantine type string"""
         qtype = self._get_qtype(quarantine, type)
         self.server.quarantine_remove(self.type,
                                       "id:%s" % self.id,
@@ -153,6 +157,10 @@ class Entity(Abstract.Entity):
    
     def disable_quarantine(self, quarantine=None, type=None,
                                  until=None):
+        """Removes a quarantine identified by either 
+           'quarantine': Quarantine-instance   --or
+           'type': QuarantineType or quarantine type string.
+           Disables until date given by 'until'"""
         qtype = self._get_qtype(quarantine, type)
         self.server.quarantine_disable(self.type,
                                        "id:%s" % self.id,
