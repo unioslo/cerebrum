@@ -35,6 +35,15 @@ def redirect(req, url, temporary=False, seeOther=False):
     seeOther parameter is set, 303 See Other response is sent, if the
     temporary parameter is set, the server issues a 307 Temporary
     Redirect. Otherwise a 301 Moved Permanently response is issued.
+
+    General use:
+        After a POST request you want to revert to the normal viewing:
+            seeOther=True
+        Some general style url, like entity/view?id=29, really should
+        mean somewhere else, ie. group/view?id=29:
+            the defaults (permanent redirect)
+        An error occured, and you want to go to some default page
+            temporary=True    
     """
     from mod_python import apache
 
@@ -49,4 +58,13 @@ def redirect(req, url, temporary=False, seeOther=False):
     req.status = status
     raise apache.SERVER_RETURN, status
     
-
+def redirect_object(req, object, method="view", 
+                    temporary=False, seeOther=False):
+    """Redirects to the given object. 
+       This is shorthand for calling object_url and redirect 
+       in succession. See the respecting methods for
+       explanation of the parameters.
+    """                 
+    url = object_url(object, method)                   
+    redirect(req, url, temporary, seeOther)
+        
