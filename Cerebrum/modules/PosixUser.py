@@ -78,29 +78,35 @@ class PosixUser(object):
             INSERT INTO [:table schema=cerebrum name=posix_user]
               (account_id, user_uid, gid, gecos, home, shell)
             VALUES (:a_id, :u_id, :gid, :gecos, :home, :shell)""",
-                         {'a_id' : self.account_id, 'u_id' : self.user_uid,
-                          'gid' : self.gid, 'gecos' : self.gecos,
-                          'home' : self.home, 'shell' : int(self.shell)})
+                         {'a_id': self.account_id,
+                          'u_id': self.user_uid,
+                          'gid': self.gid,
+                          'gecos': self.gecos,
+                          'home': self.home,
+                          'shell': int(self.shell)})
         else:
             self.execute("""
             UPDATE [:table schema=cerebrum name=posix_user]
             SET account_id=:a_id, user_uid=:u_id, gid=:gid, gecos=:gecos,
                 home=:home, shell=:shell)
             WHERE account_id=:orig_account_id""",
-                         {'a_id' : self.account_id, 'u_id' : self.user_uid,
-                          'gid' : self.gid, 'gecos' : self.gecos,
-                          'home' : self.home, 'shell' : int(self.shell),
-                          'orig_account_id' : as_object.account_id})
+                         {'a_id': self.account_id,
+                          'u_id': self.user_uid,
+                          'gid': self.gid,
+                          'gecos': self.gecos,
+                          'home': self.home,
+                          'shell': int(self.shell),
+                          'orig_account_id': as_object.account_id})
         self.__write_db = False
 
     def find_posixuser(self, account_id):
         self.find(account_id)
 
         (self.account_id, self.user_id, self.gid, self.gecos,
-         self.home, self.shell) = self.query_1(
-            """SELECT account_id, user_uid, gid, gecos, home, shell
-               FROM [:table schema=cerebrum name=posix_user]
-               WHERE account_id=:a_id""", {'a_id' : account_id})
+         self.home, self.shell) = self.query_1("""
+         SELECT account_id, user_uid, gid, gecos, home, shell
+         FROM [:table schema=cerebrum name=posix_user]
+         WHERE account_id=:account_id""", locals())
 
     def get_all_posix_users(self):
         return self.query("SELECT account_id FROM posix_user")
@@ -124,7 +130,8 @@ class PosixUser(object):
         for ss in cereconf.POSIX_GECOS_SS_ORDER:
             try:
                ret = p.get_name(getattr(self.const, ss),
-                                getattr(self.const, cereconf.DEFAULT_GECOS_NAME))
+                                getattr(self.const,
+                                        cereconf.DEFAULT_GECOS_NAME))
                return ret
             except Errors.NotFoundError:
                 pass
@@ -206,12 +213,14 @@ class PosixUser(object):
     		# Is there room for an initial?
                     if j == llim and i + llim < 8:
                         un = fname[0:i] + initial + lname[0:j]
-                        if self.validate_new_uname(domain, un): potuname += (un, )
+                        if self.validate_new_uname(domain, un):
+                            potuname += (un, )
     		# Is there room for an initial if we chop a letter off
     		# last name?
                     if j > 1:
                         un = fname[0:i] + initial + lname[0:j-1]
-                        if self.validate_new_uname(domain, un): potuname += (un, )
+                        if self.validate_new_uname(domain, un):
+                            potuname += (un, )
                 un = fname[0:i] + lname[0:j]
                 if self.validate_new_uname(domain, un): potuname += (un, )
             if len(potuname) >= goal: break
@@ -230,7 +239,8 @@ class PosixUser(object):
 
     def validate_new_uname(self, domain, uname):
         try:
-            from Cerebrum import Account     # Delayed import to prevent python from barfing
+            # Delayed import to prevent python from barfing
+            from Cerebrum import Account
             acc = Account.Account(self._db)
             acc.find_account_by_name(domain, uname)
             return 0
@@ -238,7 +248,8 @@ class PosixUser(object):
             return 1
 
     def make_passwd(self, uname):
-        pot = '-+?=*()/&%#\'_!,;.:abcdefghijklmnopqrstuvwxyABCDEFGHIJKLMNOPQRSTUVWXY0123456789'
+        pot = ('-+?=*()/&%#\'_!,;.:'
+               'abcdefghijklmnopqrstuvwxyABCDEFGHIJKLMNOPQRSTUVWXY0123456789')
         while 1:
             r = ''
             while(len(r) < 8):
@@ -251,11 +262,12 @@ class PosixUser(object):
 
     def conv_name(self, s, alt=0):
         xlate = {'Æ' : 'ae', 'æ' : 'ae', 'Å' : 'aa', 'å' : 'aa'}
-        if(alt):
+        if alt:
             s = string.join(map(lambda x:xlate.get(x, x), s), '')
 
-        tr = string.maketrans('ÆØÅæø¿åÀÁÂÃÄÇÈÉÊËÌÍÎÏÑÒÓÔÕÖÙÚÛÜÝàáâãäçèéêëìíîïñòóôõöùúûüý{[}]|¦\\',
-                       'AOAaooaAAAAACEEEEIIIINOOOOOUUUUYaaaaaceeeeiiiinooooouuuuyaAaAooO')
+        tr = string.maketrans(
+           'ÆØÅæø¿åÀÁÂÃÄÇÈÉÊËÌÍÎÏÑÒÓÔÕÖÙÚÛÜÝàáâãäçèéêëìíîïñòóôõöùúûüý{[}]|¦\\',
+           'AOAaooaAAAAACEEEEIIIINOOOOOUUUUYaaaaaceeeeiiiinooooouuuuyaAaAooO')
         s = string.translate(s, tr)
 
         xlate = {}
@@ -271,32 +283,36 @@ class PosixUser(object):
 
     # TODO: These don't belong here
     msgs = {
-        'not_null_char' : "Please don't use the null character in your password.",
-        'atleast8' : "The password must be atleast 8 characters",
-        '8bit' : ("Don't use 8-bit characters in your password (æøå), it creates problems "+
-                  "when using different machines"),
-        'space' : ("Don't use a space in the password.  It creates problems for the "+
-                   "POP3-protocol (Eudora and other e-mail readers"),
-        'mix_needed8' : ("A valid password must contain characters from "+
-                         "atleast three of these four characers: Large "+
-                         "letters, small letters, numbers and spesial "+
-                         "characers.  If the password only contains one "+
-                         "capital letter, it may not be the first.  If the "+
-                         "first 8 characters only contains one number or "+
-                         "special characer, it may not be at position 8"),
-        'mix_needed' : ("A valid password must contain characters from "+
-                        "atleast three of these four characers: Large "+
-                        "letters, small letters, numbers and spesial "+
-                        "characers."),
+        'not_null_char': ("Please don't use the null character in your"
+                          " password."),
+        'atleast8': "The password must be at least 8 characters long.",
+        '8bit': ("Don't use 8-bit characters in your password (æøå),"
+                 " it creates problems when using some keyboards."),
+        'space': ("Don't use a space in the password.  It creates"
+                  " problems for the POP3-protocol (Eudora and other"
+                  " e-mail readers)."),
+        'mix_needed8': ("A valid password must contain characters from at"
+                        " least three of these four character groups:"
+                        " Uppercase letters, lowercase letters, numbers and"
+                        " special characters.  If the password only contains"
+                        " one uppercase letter, this must not be at the start"
+                        " of the password.  If the first 8 characters only"
+                        " contains one number or special character, this must"
+                        " not be in position 8."),
+        'mix_needed': ("A valid password must contain characters from at"
+                       " least three of these four character groups:"
+                       " Uppercase letters, lowercase letters, numbers and"
+                       " special characters."),
         
-        'was_like_old' : "That was to close to an old password.  You must select a new one.",
-        'dict_hit' : "Don't use words in a dictionary"
-    }
+        'was_like_old': ("That was to close to an old password.  You must"
+                         " select a new one."),
+        'dict_hit': "Don't use words in a dictionary."
+        }
     words = ("huge.sorted.txt",)
     dir = "/u2/dicts"
     
     def check_password_history(self, uname, passwd):
-        if(0):
+        if 0:
             raise msgs['was_like_old']
         return 1
 
@@ -342,7 +358,7 @@ class PosixUser(object):
         if re.search(r'\0', passwd):
             raise msgs['not_null_char']
 
-        if(len(passwd) < 8):
+        if len(passwd) < 8:
             raise msgs['atleast8']
     
 
