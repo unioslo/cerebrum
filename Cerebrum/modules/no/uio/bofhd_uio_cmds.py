@@ -1334,7 +1334,33 @@ class BofhdExtension(object):
 
     def user_create_prompt_func(self, session, *args):
         return self._user_create_prompt_func_helper('PosixUser', session, *args)
-    
+
+    def _user_create_set_account_type(self, account, owner_id, affiliation):
+        ou = self._get_ou(stedkode=cereconf.DEFAULT_OU)
+        person = self._get_person('entity_id', owner_id)
+        if not (affiliation == self.const.affiliation_ansatt or
+                affiliation == self.const.affiliation_student):
+            tmp = self.person_affiliation_statusids[str(self.const.affiliation_manuell)]
+            for k in tmp.keys():
+                if affiliation == int(tmp[k]):
+                    break
+            affiliation = tmp[k].affiliation
+            has_affiliation = False
+            for a in person.get_affiliations():
+                if (a['ou_id'] == ou.entity_id and
+                    a['affiliation'] == int(tmp[k].affiliation)):
+                    has_affiliation = True
+            if not has_affiliation:
+                person.add_affiliation(ou.entity_id, tmp[k].affiliation,
+                                       self.const.system_manual, tmp[k])
+        else:
+            for aff in person.get_affiliations():
+                if aff['affiliation'] == int(self.const.affiliation_ansatt):
+                    ou = self._get_ou(aff['ou_id'])
+                if aff['affiliation'] == int(self.const.affiliation_student):
+                    ou = self._get_ou(aff['ou_id'])
+        account.set_account_type(ou.entity_id, affiliation)
+        
     # user create
     all_commands['user_create'] = Command(
         ('user', 'create'), prompt_func=user_create_prompt_func,
@@ -1378,24 +1404,7 @@ class BofhdExtension(object):
         try:
             posix_user.write_db()
             if len(args) != 6:
-                ou = self._get_ou(stedkode=cereconf.DEFAULT_OU)
-                if not (affiliation == self.const.affiliation_ansatt or
-                        affiliation == self.const.affiliation_student):
-                    tmp = self.person_affiliation_statusids[str(self.const.affiliation_manuell)]
-                    for k in tmp.keys():
-                        if affiliation == int(tmp[k]):
-                            break
-                    affiliation = tmp[k].affiliation
-                    person = self._get_person('entity_id', owner_id)
-                    has_affiliation = False
-                    for a in person.get_affiliations():
-                        if (a['ou_id'] == ou.entity_id and
-                            a['affiliation'] == int(tmp[k].affiliation)):
-                            has_affiliation = True
-                    if not has_affiliation:
-                        person.add_affiliation(ou.entity_id, tmp[k].affiliation,
-                                               self.const.system_manual, tmp[k])
-                posix_user.set_account_type(ou.entity_id, affiliation)
+                self._user_create_set_account_type(posix_user, owner_id, affiliation)
         except self.db.DatabaseError, m:
             raise CerebrumError, "Database error: %s" % m
         operator.store_state("new_account_passwd", {'account_id': int(posix_user.entity_id),
@@ -1720,24 +1729,7 @@ class BofhdExtension(object):
         account.set_password(passwd)
         try:
             account.write_db()
-            ou = self._get_ou(stedkode=cereconf.DEFAULT_OU)
-            if not (affiliation == self.const.affiliation_ansatt or
-                    affiliation == self.const.affiliation_student):
-                tmp = self.person_affiliation_statusids[str(self.const.affiliation_manuell)]
-                for k in tmp.keys():
-                    if affiliation == int(tmp[k]):
-                        break
-                affiliation = tmp[k].affiliation
-                person = self._get_person("entity_id", person.entity_id)
-                has_affiliation = False
-                for a in person.get_affiliations():
-                    if (a['ou_id'] == ou.entity_id and
-                        a['affiliation'] == int(tmp[k].affiliation)):
-                        has_affiliation = True
-                if not has_affiliation:
-                    person.add_affiliation(ou.entity_id, tmp[k].affiliation,
-                                           self.const.system_manual, tmp[k])
-            account.set_account_type(ou.entity_id, affiliation)
+            self._user_create_set_account_type(account, person.entity_id, affiliation)
         except self.db.DatabaseError, m:
             raise CerebrumError, "Database error: %s" % m
         operator.store_state("new_account_passwd", {'account_id': int(account.entity_id),
