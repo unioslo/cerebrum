@@ -64,11 +64,16 @@ class AccountType(object):
         WHERE %s""" % " AND".join(["%s=:%s" % (x, x)
                                    for x in cols.keys()]), cols)
 
-    def find_accounts_by_type(self, ou_id=None, affiliation=None, status=None):
-        """Return the account_id of the matching accounts"""
+    def list_accounts_by_type(self, ou_id=None, affiliation=None,
+                              status=None):
+        """Return ``account_id``s of the matching accounts."""
         extra=""
         if affiliation is not None:
             extra += " AND at.affiliation=:affiliation"
+            # To use 'affiliation' as a bind param, it might need
+            # casting to 'int'.  Do this here, where we know that
+            # 'affiliation' isn't None.
+            affiliation = int(affiliation)
         if status is not None:
             extra += " AND pas.status=:status"
         if ou_id is not None:
@@ -77,10 +82,12 @@ class AccountType(object):
         SELECT DISTINCT account_id
         FROM [:table schema=cerebrum name=account_type] at,
              [:table schema=cerebrum name=person_affiliation_source] pas
-        WHERE at.person_id=pas.person_id AND at.ou_id=pas.ou_id
-          AND at.affiliation=pas.affiliation %s""" % extra,
+        WHERE at.person_id=pas.person_id AND
+              at.ou_id=pas.ou_id AND
+              at.affiliation=pas.affiliation
+              %s""" % extra,
                           {'ou_id': ou_id,
-                           'affiliation': int(affiliation),
+                           'affiliation': affiliation,
                            'status': status})
 
 class Account(AccountType, EntityName, EntityQuarantine, Entity):
