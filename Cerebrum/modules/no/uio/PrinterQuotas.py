@@ -12,12 +12,8 @@ class PrinterQuotas(Entity):
 
     def clear(self):
         super(PrinterQuotas, self).clear()
-        for attr in PrinterQuotas.__read_attr__:
-            if hasattr(self, attr):
-                delattr(self, attr)
-        for attr in PrinterQuotas.__write_attr__:
-            setattr(self, attr, None)
-        self.__updated = False
+        self.clear_class(PrinterQuotas)
+        self.__updated = []
 
     def populate(self, account_id, printer_quota, pages_printed,
                  pages_this_semester, termin_quota, has_printerquota,
@@ -54,7 +50,7 @@ class PrinterQuotas(Entity):
         except AttributeError:
             pass
         self.__in_db = True
-        self.__updated = False
+        self.__updated = []
 
     def write_db(self):
         # self.__super.write_db()

@@ -160,12 +160,8 @@ class Account(AccountType, EntityName, EntityQuarantine, Entity):
 
     def clear(self):
         super(Account, self).clear()
-        for attr in Account.__read_attr__:
-            if hasattr(self, attr):
-                delattr(self, attr)
-        for attr in Account.__write_attr__:
-            setattr(self, attr, None)
-        self.__updated = False
+        self.clear_class(Account)
+        self.__updated = []
 
         # TODO: The following attributes are currently not in
         #       Account.__slots__, which means they will stop working
@@ -220,7 +216,7 @@ class Account(AccountType, EntityName, EntityQuarantine, Entity):
 
     def populate_authentication_type(self, type, value):
         self._auth_info[int(type)] = value
-        self.__updated = True
+        self.__updated.append((type, value))
 
     def set_password(self, plaintext):
         """Updates all account_authentication entries with an encrypted
@@ -360,7 +356,7 @@ class Account(AccountType, EntityName, EntityQuarantine, Entity):
                                  {'acc_id' : self.entity_id, 'method' : k})
         del self.__in_db
         self.__in_db = True
-        self.__updated = False
+        self.__updated = []
         return is_new
 
     def new(self, name, owner_type, owner_id, np_type, creator_id,
@@ -386,7 +382,7 @@ class Account(AccountType, EntityName, EntityQuarantine, Entity):
         except AttributeError:
             pass
         self.__in_db = True
-        self.__updated = False
+        self.__updated = []
 
     def find_by_name(self, name, domain=None):
         if domain is None:

@@ -29,12 +29,8 @@ class PosixGroup(Group.Group):
 
     def clear(self):
         self.__super.clear()
-        for attr in PosixGroup.__read_attr__:
-            if hasattr(self, attr):
-                delattr(self, attr)
-        for attr in PosixGroup.__write_attr__:
-            setattr(self, attr, None)
-        self.__updated = False
+        self.clear_class(PosixGroup)
+        self.__updated = []
 
     # We do not allow giving PosixGroups names that differ from the
     # names of the Groups they are based on, as we anticipate that
@@ -74,7 +70,7 @@ class PosixGroup(Group.Group):
                                       'posix_gid': self.posix_gid})
         del self.__in_db
         self.__in_db = True
-        self.__updated = False
+        self.__updated = []
 
     def __eq__(self, other):
         assert isinstance(other, PosixGroup)

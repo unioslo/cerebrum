@@ -78,7 +78,7 @@ class Entity(DatabaseAccessor):
     def clear(self):
         "Clear all attributes associating instance with a DB entity."
         self.clear_class(Entity)
-        self.__updated = False
+        self.__updated = []
 
     ###
     ###   Methods dealing with the `cerebrum.entity_info' table
@@ -152,7 +152,7 @@ class Entity(DatabaseAccessor):
             pass
         del self.__in_db
         self.__in_db = True
-        self.__updated = False
+        self.__updated = []
         return is_new
 
     def new(self, entity_type):
@@ -193,7 +193,7 @@ class Entity(DatabaseAccessor):
         except AttributeError:
             pass
         self.__in_db = True
-        self.__updated = False
+        self.__updated = []
 
     def delete(self):
         "Completely remove an entity."
@@ -328,7 +328,7 @@ class EntityContactInfo(Entity):
                 delattr(self, attr)
         for attr in EntityContactInfo.__write_attr__:
             setattr(self, attr, None)
-        self.__updated = False
+        self.__updated = []
 
     def add_contact_info(self, source, type, value, pref=None,
                          description=None):
@@ -436,7 +436,7 @@ class EntityAddress(Entity):
 
     def clear(self):
         super(EntityAddress, self).clear()
-        self.__updated = False
+        self.__updated = []
 
     def populate_address(self, source_system, type=None,
                          address_text=None, p_o_box=None,

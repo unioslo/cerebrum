@@ -37,12 +37,8 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
     def clear(self):
         "Clear all attributes associating instance with a DB entity."
         self.__super.clear()
-        for attr in Person.__read_attr__:
-            if hasattr(self, attr):
-                delattr(self, attr)
-        for attr in Person.__write_attr__:
-            setattr(self, attr, None)
-        self.__updated = False
+        self.clear_class(Person)
+        self.__updated = []
 
         # TODO: The following attributes are currently not in
         #       Person.__slots__, which means they will stop working
@@ -268,7 +264,7 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
         # TODO: Handle external_id
         del self.__in_db
         self.__in_db = True
-        self.__updated = False
+        self.__updated = []
         return is_new
 
     def new(self, birth_date, gender, description=None, deceased='F'):
@@ -296,7 +292,7 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
         except AttributeError:
             pass
         self.__in_db = True
-        self.__updated = False
+        self.__updated = []
 
     def affect_external_id(self, source, *types):
         self._extid_source = source
@@ -310,7 +306,7 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
             raise ValueError, \
                   "Can't populate multiple `source_system`s w/o write_db()."
         self._external_id[int(id_type)] = external_id
-        self.__updated = True
+        self.__updated.append((source_system, id_type, external_id))
 
     def _delete_external_id(self, source_system, id_type):
         self.execute("""DELETE FROM [:table schema=cerebrum name=person_external_id]
@@ -512,7 +508,7 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
 
     def populate_name(self, type, name):
         self._name_info[type] = name
-        self.__updated = True
+        self.__updated.append((type, name))
 
     def populate_affiliation(self, source_system, ou_id=None,
                              affiliation=None, status=None):

@@ -41,7 +41,7 @@ class BofhdAuthOpSet(DatabaseAccessor):
 
     def clear(self):
         self.clear_class(BofhdAuthOpSet)
-        self.__updated = False
+        self.__updated = []
 
     def find(self, id):
         self.name, self.op_set_id = self.query_1("""
@@ -53,7 +53,7 @@ class BofhdAuthOpSet(DatabaseAccessor):
         except AttributeError:
             pass
         self.__in_db = True
-        self.__updated = False
+        self.__updated = []
 
     def find_by_name(self, name):
         id = self.query_1("""
@@ -88,7 +88,7 @@ class BofhdAuthOpSet(DatabaseAccessor):
                 'os_id': self.op_set_id, 'name': self.name})
         del self.__in_db
         self.__in_db = True
-        self.__updated = False
+        self.__updated = []
         return is_new
 
     def add_operation(self, op_code):
@@ -149,7 +149,7 @@ class BofhdAuthOpTarget(DatabaseAccessor):
 
     def clear(self):
         self.clear_class(BofhdAuthOpTarget)
-        self.__updated = False
+        self.__updated = []
 
     def populate(self, entity_id, target_type):
         self.__in_db = False
@@ -178,7 +178,7 @@ class BofhdAuthOpTarget(DatabaseAccessor):
                 't_type': self.target_type, 'has_attr': self.has_attr})
         del self.__in_db
         self.__in_db = True
-        self.__updated = False
+        self.__updated = []
         return is_new
 
     def add_op_target_attr(self, attr):

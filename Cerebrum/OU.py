@@ -35,12 +35,8 @@ class OU(EntityContactInfo, EntityAddress, Entity):
     def clear(self):
         """Clear all attributes associating instance with a DB entity."""
         self.__super.clear()
-        for attr in OU.__read_attr__:
-            if hasattr(self, attr):
-                delattr(self, attr)
-        for attr in OU.__write_attr__:
-            setattr(self, attr, None)
-        self.__updated = False
+        self.clear_class(OU)
+        self.__updated = []
 
     def populate(self, name, acronym=None, short_name=None,
                  display_name=None, sort_name=None, parent=None):
@@ -107,7 +103,7 @@ class OU(EntityContactInfo, EntityAddress, Entity):
             self._db.log_change(self.entity_id, self.const.ou_mod, None)
         del self.__in_db
         self.__in_db = True
-        self.__updated = False
+        self.__updated = []
         return is_new
 
     def __eq__(self, other):
@@ -147,7 +143,7 @@ class OU(EntityContactInfo, EntityAddress, Entity):
         except AttributeError:
             pass
         self.__in_db = True
-        self.__updated = False
+        self.__updated = []
 
     def find_by_parent(self, acronym, perspective, parent_id):
         pid = "AND s.parent_id=:parent_id"

@@ -32,12 +32,8 @@ class Disk(Entity):
     def clear(self):
         """Clear all attributes associating instance with a DB entity."""
         self.__super.clear()
-        for attr in Disk.__read_attr__:
-            if hasattr(self, attr):
-                delattr(self, attr)
-        for attr in Disk.__write_attr__:
-            setattr(self, attr, None)
-        self.__updated = False
+        self.clear_class(Disk)
+        self.__updated = []
 
     def populate(self, host_id, path, description, parent=None):
         """Set instance's attributes without referring to the Cerebrum DB."""
@@ -94,7 +90,7 @@ class Disk(Entity):
             self._db.log_change(self.entity_id, self.const.disk_mod, None)
         del self.__in_db
         self.__in_db = True
-        self.__updated = False
+        self.__updated = []
         return is_new
 
     def __eq__(self, other):
@@ -123,7 +119,7 @@ class Disk(Entity):
         except AttributeError:
             pass
         self.__in_db = True
-        self.__updated = False
+        self.__updated = []
 
     def find_by_path(self, path, host_id=None):
         """Attempt to uniquely identify the disk."""
@@ -154,12 +150,8 @@ class Host(Entity):
     def clear(self):
         """Clear all attributes associating instance with a DB entity."""
         self.__super.clear()
-        for attr in Host.__read_attr__:
-            if hasattr(self, attr):
-                delattr(self, attr)
-        for attr in Host.__write_attr__:
-            setattr(self, attr, None)
-        self.__updated = False
+        self.clear_class(Host)
+        self.__updated = []
 
     def populate(self, name, description, parent=None):
         """Set instance's attributes without referring to the Cerebrum DB."""
@@ -214,7 +206,7 @@ class Host(Entity):
             self._db.log_change(self.entity_id, self.const.host_mod, None)
         del self.__in_db
         self.__in_db = True
-        self.__updated = False
+        self.__updated = []
         return is_new
 
     def __eq__(self, other):
@@ -243,7 +235,7 @@ class Host(Entity):
         except AttributeError:
             pass
         self.__in_db = True
-        self.__updated = False
+        self.__updated = []
 
     def find_by_name(self, name):
         """Associate the object with the Host whose name is name.

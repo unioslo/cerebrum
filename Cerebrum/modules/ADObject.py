@@ -44,12 +44,8 @@ class ADObject(Entity, EntityName, EntityQuarantine):
 
     def clear(self):
         self.__super.clear()
-        for attr in ADObject.__read_attr__:
-            if hasattr(self, attr):
-                delattr(self, attr)
-        for attr in ADObject.__write_attr__:
-            setattr(self, attr, None)
-        self.__updated = False
+        self.clear_class(ADObject)
+        self.__updated = []
 
     def __eq__(self, other):
         assert isinstance(other, ADObject)
@@ -94,7 +90,7 @@ class ADObject(Entity, EntityName, EntityQuarantine):
                                        'e_ou': int(self.ou_id)})
         del self.__in_db
         self.__in_db = True
-        self.__updated = False
+        self.__updated = []
 
     def find(self, entity_id):
         """Associate the object with the ADObject whose identifier is entity_id
@@ -110,7 +106,7 @@ class ADObject(Entity, EntityName, EntityQuarantine):
         except AttributeError:
             pass
         self.__in_db = True
-        self.__updated = False
+        self.__updated = []
 
     def list_ad_objects(self,e_type):
         "get all users in the ad table"

@@ -37,12 +37,8 @@ class Group(EntityName, Entity):
 
     def clear(self):
         self.__super.clear()
-        for attr in Group.__read_attr__:
-            if hasattr(self, attr):
-                delattr(self, attr)
-        for attr in Group.__write_attr__:
-            setattr(self, attr, None)
-        self.__updated = False
+        self.clear_class(Group)
+        self.__updated = []
 
     def populate(self, creator_id, visibility, name,
                  description=None, create_date=None, expire_date=None,
@@ -147,7 +143,7 @@ class Group(EntityName, Entity):
         ## EntityName.write_db(self, as_object)
         del self.__in_db
         self.__in_db = True
-        self.__updated = False
+        self.__updated = []
         return is_new
 
     def delete(self):
@@ -215,7 +211,7 @@ class Group(EntityName, Entity):
         except AttributeError:
             pass
         self.__in_db = True
-        self.__updated = False
+        self.__updated = []
 
     def find_by_name(self, name, domain=None):
         """Connect object to group having ``name`` in ``domain``."""

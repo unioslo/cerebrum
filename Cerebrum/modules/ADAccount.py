@@ -40,12 +40,8 @@ class ADAccount(ADObject):
 
     def clear(self):
         self.__super.clear()
-        for attr in ADAccount.__read_attr__:
-            if hasattr(self, attr):
-                delattr(self, attr)
-        for attr in ADAccount.__write_attr__:
-            setattr(self, attr, None)
-        self.__updated = False
+        self.clear_class(ADAccount)
+        self.__updated = []
 
     def __eq__(self, other):
         assert isinstance(other, ADUser)
@@ -92,7 +88,7 @@ class ADAccount(ADObject):
                                        'h_dir': self.home_dir, })
         del self.__in_db
         self.__in_db = True
-        self.__updated = False
+        self.__updated = []
 
 
 
@@ -111,6 +107,6 @@ class ADAccount(ADObject):
         except AttributeError:
             pass
         self.__in_db = True
-        self.__updated = False
+        self.__updated = []
 
 

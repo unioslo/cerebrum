@@ -51,12 +51,8 @@ class Stedkode(OU):
     def clear(self):
         """Clear all attributes associating instance with a DB entity."""
         self.__super.clear()
-        for attr in Stedkode.__read_attr__:
-            if hasattr(self, attr):
-                delattr(self, attr)
-        for attr in Stedkode.__write_attr__:
-            setattr(self, attr, None)
-        self.__updated = False
+        self.clear_class(Stedkode)
+        self.__updated = []
 
     def populate(self, name, fakultet, institutt, avdeling,
                  institusjon=185, landkode=0, katalog_merke='T', acronym=None,
@@ -151,7 +147,7 @@ class Stedkode(OU):
                           'katalog_merke': self.katalog_merke})
         del self.__in_db
         self.__in_db = True
-        self.__updated = False
+        self.__updated = []
         return is_new
 
     def delete(self):
@@ -169,7 +165,7 @@ class Stedkode(OU):
         except AttributeError:
             pass
         self.__in_db = True
-        self.__updated = False
+        self.__updated = []
 
     def find_stedkode(self, fakultet, institutt, avdeling, institusjon=185,
                       landkode=0):

@@ -67,12 +67,8 @@ class PosixUser(Account.Account):
 
     def clear(self):
         super(PosixUser, self).clear()
-        for attr in PosixUser.__read_attr__:
-            if hasattr(self, attr):
-                delattr(self, attr)
-        for attr in PosixUser.__write_attr__:
-            setattr(self, attr, None)
-        self.__updated = False
+        self.clear_class(PosixUser)
+        self.__updated = []
 
     def __eq__(self, other):
         assert isinstance(other, PosixUser)
@@ -138,7 +134,7 @@ class PosixUser(Account.Account):
                           'shell': int(self.shell)})
         del self.__in_db
         self.__in_db = True
-        self.__updated = False
+        self.__updated = []
         return is_new
 
     def find(self, account_id):
@@ -150,7 +146,7 @@ class PosixUser(Account.Account):
          FROM [:table schema=cerebrum name=posix_user]
          WHERE account_id=:account_id""", locals())
         self.__in_db = True
-        self.__updated = False
+        self.__updated = []
 
     def list_posix_users(self):
         """Return account_id of all PosixUsers in database"""
