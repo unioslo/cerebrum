@@ -1,28 +1,28 @@
+import pickle
+
 class ChangeLog(object):
-    def __init__(self, change_by=None, change_program=None):
+    # Don't want to override the Database constructor
+    def cl_init(self, change_by=None, change_program=None):
         self.change_by = change_by
         self.change_program = change_program
         self.messages = []
         
-    def log_change(self, target_entity, target_type, change_category,
-                   change_type, change_params=None, change_by=None,
-                   change_program=None, comment=None):
+    def log_change(self, subject_entity, change_type_id,
+                   destination_entity, change_params=None,
+                   change_by=None, change_program=None):
         if change_by is None and self.change_by is not None:
             change_by = self.change_by
         elif change_program is None and self.change_program is not None:
             change_program = self.change_program
         if change_by is None and change_program is None:
             raise self.ProgrammingError, "must set change_by or change_program"
-        self.messages.append( {'id': id,
-                               't_type': target_type,
-                               'c_category': change_category,
-                               'c_type': change_type,
-                               'c_params': change_params,
-                               'c_by': change_by,
-                               'c_program': change_program,
-                               'comment': comment})
+        change_type_id = int(change_type_id)
+        if change_params is not None:
+            change_params = pickle.dumps(change_params)
+        self.messages.append( locals() )
 
     def rollback_log(self):
+        """See commit_log"""
         self.messages = []
 
     def commit_log(self):
@@ -31,12 +31,19 @@ class ChangeLog(object):
         thus invisible to other processes, and may be rolled back),"""
 
         for m in self.messages:
-            id = int(self.nextval('change_log_seq'))
+            m['id'] = int(self.nextval('change_log_seq'))
             self.execute("""
             INSERT INTO [:table schema=cerebrum name=change_log]
-               (change_id, target_entity, target_type, change_category,
-                change_type, change_params, change_by, change_program,
-                comment)
-            VALUES (:id, :t_id, :t_type, :c_category, :c_type, :c_params, :c_by,
-                    :c_program, :comment)""", m)
+               (change_id, subject_entity, 
+                change_type_id, dest_entity, change_params, change_by, change_program)
+            VALUES (:id, :subject_entity, :change_type_id,
+                :destination_entity, :change_params, :change_by, :change_program)""", m)
         self.messages = []
+
+##     def rollback(self):
+##         self.rollback_log()
+##         self.orig_rollback()
+
+##     def commit(self):
+##         self.commit_log()
+##         self.orig_commit()
