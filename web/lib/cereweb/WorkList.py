@@ -53,10 +53,10 @@ class WorkList(html.Division):
         """
         buttons = []
         buttons.append(("select", "Select"))
+        buttons.append(("forget", "Forget"))
         buttons.append(("all", "All"))
         buttons.append(("none", "None"))
         buttons.append(("invert", "Invert"))
-        buttons.append(("forget", "Forget"))
         return buttons
         
 

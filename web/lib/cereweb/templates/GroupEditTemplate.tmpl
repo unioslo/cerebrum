@@ -66,10 +66,12 @@ $url("group/edit")#slurp
     <form action="$getAction()" method="POST">
         <div class="editform">
             $input("name", "Name", $group.get_name())
+            <label for="desc">$_('Description'):</label>
+            <textarea rows="3" cols="40" name="desc">$group.get_description()</textarea>
+            <br />
             #set $date = $group.get_expire_date().get_date()
             #set $date = time.strftime("%Y-%m-%d", time.gmtime($date))
             $input("expire_date", "Expire date", $date)
-            $input("desc", "Description", $group.get_description())
             <input type="hidden" name="id" value="$group.get_entity_id()" />
         </div>
         $showHelp($help)

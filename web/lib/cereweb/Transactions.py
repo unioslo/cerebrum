@@ -19,44 +19,51 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 import time
-import forgetHTML as html
-from Cerebrum.web.templates.TransactionsTemplate import TransactionsTemplate
 
-def begin():
+#_id_counter = 1
+
+def begin(req, name="", desc=""):
     """Starts a new transaction."""
-    return Transaction(20)
-
-#subclass Division to be included in a division..
-class TransactionBox(html.Division):
-    """Creates the box for transactions on the left corner."""
-    def __init__(self):
-        self.active = Transaction(5)
-        self.transactions = [Transaction(1),
-                             Transaction(2, "TransTycoon"),
-                             Transaction(2000)]
-    
-    def output(self):
-        template = TransactionsTemplate()
-        return template.transactionbox(self.transactions, self.active)
+#    global _id_counter
+#    _id_counter = _id_counter + 1
+    if not req.session.has_key('trans_id_counter'):
+        req.session['trans_id_counter'] = 1
+    new_trans = Transaction(req.session['trans_id_counter'], name, desc)
+    if not req.session.has_key('transactions'):
+        req.session['transactions'] = []
+    req.session['trans_id_counter'] += 1
+    req.session['transactions'].append(new_trans)
+    req.session['active'] = new_trans
+    return new_trans
 
 class Transaction:
     """Temporarly empty transaction untill the metaserver has implementet it!"""
-    def __init__(self, id, name=""):
+    def __init__(self, id, name="", desc=""):
         self.id = id
         if name:
             self.name = name
         else:
             self.name = "Transaction%i" % self.id
-        self.objects_num = 10
-        self.objects_changed_num = 7
+        self.description = desc
+        self.objects_num = 0
+        self.objects_changed_num = 0
         self.time_started = time.ctime()
-        self.last_edited = "3 mins ago"
+        self.last_edited = "0 mins ago"
 
     def get_id(self):
         return self.id
 
     def get_name(self):
         return self.name
+    
+    def set_name(self, name):
+        self.name = name
+
+    def get_description(self):
+        return self.description
+
+    def set_description(self, description):
+        self.description = description
 
     def get_objects_num(self):
         return self.objects_num

@@ -20,9 +20,11 @@
 
 from Cerebrum.web.templates.MainTemplate import MainTemplate
 from Cerebrum.web.SideMenu import SideMenu
-from Cerebrum.web.Transactions import TransactionBox
 from Cerebrum.web.WorkList import WorkList
 from Cerebrum.web.ActivityLog import ActivityLog
+
+from Cerebrum.web.Transactions import begin
+from Cerebrum.web.templates.TransactionsTemplate import TransactionsTemplate
 
 class Main(MainTemplate):
     """Creates the main page without any content.
@@ -37,24 +39,27 @@ class Main(MainTemplate):
         MainTemplate.__init__(self)
         req.content_type="text/html" # With this content-type, זרו works! :)
         self.session = req.session
-        self.prepare_session()
+        self.prepare_session(req)
         self.menu = SideMenu()
-        self.transactionbox = self.session['transactionbox']
-        self.worklist = self.session['worklist']
-        self.activitylog = self.session['activitylog']
+        self.worklist = WorkList()
+        self.activitylog = ActivityLog()
+        #self.worklist = self.session['worklist']
+        #self.activitylog = self.session['activitylog']
 
-    def prepare_session(self):
+    def prepare_session(self, req):
         """Makes sure parts of the page is created only once.
         
         Creates the transaction, worklist, and activitylog.
         Also prepares and displays any messages stored in the session.
         """
-        if not self.session.has_key("transactionbox"):
-           self.session['transactionbox'] = TransactionBox()
-        if not self.session.has_key("worklist"):
-            self.session['worklist'] = WorkList() 
-        if not self.session.has_key("activitylog"):
-            self.session['activitylog'] = ActivityLog() 
+        if not self.session.has_key("transactions"):
+            self.session['active'] = begin(req, "DefaultName")
+            self.session['transactions'] = [self.session['active']]
+        self.transactionbox = lambda: TransactionsTemplate().smallbox(req)
+        #if not self.session.has_key("worklist"):
+        #    self.session['worklist'] = WorkList() 
+        #if not self.session.has_key("activitylog"):
+        #    self.session['activitylog'] = ActivityLog() 
         self.prepare_messages()
     
     def prepare_messages(self):
