@@ -67,7 +67,7 @@ tag is present, hdr and footer will be empty.
             return (None, hdr, None)
         return (hdr, body, footer)
 
-    def apply_template(self, template, mapping):
+    def apply_template(self, template, mapping, no_quote=()):
         """applies mapping to hdr, body or footer template and returns
         the resulting string.  Mapping is a dict, where strings named
         <key> are replaced with mapping[key].  The special key
@@ -85,7 +85,9 @@ tag is present, hdr and footer will be empty.
                 v = ""
             else:
                 v = str(mapping[k])
-            if self._type == 'ps':  # Quote postscript
+            if k in no_quote:
+                pass
+            elif self._type == 'ps':  # Quote postscript
                 v = v.replace('\\', '\\\\')
                 v = v.replace(')', '\\)')
                 v = v.replace('(', '\\(')
@@ -109,6 +111,7 @@ tag is present, hdr and footer will be empty.
                   lpr_user='unknown'):
         if logfile is None:
             logfile = Utils.make_temp_file(only_name=True)
+        self.logfile = logfile
         base_filename = filename[:filename.rindex('.')]	
 	if type == 'tex':
             status = (os.system("%s --interaction nonstopmode %s >> %s 2>&1" % (
