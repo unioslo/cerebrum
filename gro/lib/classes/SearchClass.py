@@ -105,3 +105,4 @@ SearchClass.register_method(Method('set_intersections', SearchClass, sequence=Tr
 SearchClass.register_method(Method('set_differences', SearchClass, sequence=True, write=True), set_differences)
 
 
+# arch-tag: e799b5c6-7514-435c-a027-430c7941144e
