@@ -310,16 +310,25 @@ class BofhdAuth(DatabaseAccessor):
                                               self.const.auth_target_type_global_maildomain,
                                               None, None)
 
+    def is_account_owner(self, operator, operation, account):
+        if self._has_access_to_entity_via_ou(operator, operation, account):
+            return True
+        if account.disk_id:
+            self._query_disk_permissions(operator, operation,
+                                         self._get_disk(account.disk_id),
+                                         account.entity_id)
+        else:
+            raise PermissionDenied("No access to account")
+
+
     def can_set_person_user_priority(self, operator, account=None,
                                      query_run_any=False):
         if query_run_any:
             return True
         if self.is_superuser(operator) or operator == account.entity_id:
             return True
-        return self._query_disk_permissions(operator,
-                                            self.const.auth_set_password,
-                                            self._get_disk(account.disk_id),
-                                            account.entity_id)
+        return self.is_account_owner(operator, self.const.auth_set_password,
+                                     account)
 
     def can_get_student_info(self, operator, person=None, query_run_any=False):
         # TODO: Change can_get_student_info so that the old studit
@@ -331,7 +340,8 @@ class BofhdAuth(DatabaseAccessor):
             return False
         raise PermissionDenied("Not authorized to view student info")
 
-    def can_create_person(self, operator, query_run_any=False):
+    def can_create_person(self, operator, ou=None, affiliation=None,
+                          query_run_any=False):
         if (self.is_superuser(operator) or
             self._query_target_permissions(operator,
                                            self.const.auth_create_user,
@@ -340,7 +350,10 @@ class BofhdAuth(DatabaseAccessor):
             self._query_target_permissions(operator,
                                            self.const.auth_create_user,
                                            self.const.auth_target_type_disk,
-                                           None, None)):
+                                           None, None) or
+            self._query_ou_permissions(operator,
+                                       self.const.auth_create_user,
+                                       ou, affiliation, None)):
             return True
         if query_run_any:
             return False
@@ -358,10 +371,8 @@ class BofhdAuth(DatabaseAccessor):
         account.find(operator)
         if person.entity_id == account.owner_id:
             return True
-        return self._query_disk_permissions(operator,
-                                            self.const.auth_create_user,
-                                            self._get_disk(account.disk_id),
-                                            None)
+        return self.is_account_owner(operator, self.const.auth_create_user,
+                                     account)
 
     def can_alter_printerquota(self, operator, account=None,
                                query_run_any=False):
@@ -370,10 +381,9 @@ class BofhdAuth(DatabaseAccessor):
         if query_run_any:
             return self._has_operation_perm_somewhere(
                 operator, self.const.auth_alter_printerquota)
-        return self._query_disk_permissions(operator,
-                                            self.const.auth_alter_printerquota,
-                                            self._get_disk(account.disk_id),
-                                            account.entity_id)
+        return self.is_account_owner(operator,
+                                     self.const.auth_alter_printerquota,
+                                     account)
     
     def can_query_printerquota(self, operator, account=None,
                               query_run_any=False):
@@ -391,10 +401,8 @@ class BofhdAuth(DatabaseAccessor):
         # TODO 2003-07-04: Bård is going to comment this
         if not(isinstance(entity, Factory.get('Account'))):
             raise PermissionDenied("No access")
-        return self._query_disk_permissions(operator,
-                                            self.const.auth_set_password,
-                                            self._get_disk(entity.disk_id),
-                                            entity.entity_id)
+        return self.is_account_owner(operator, self.const.auth_set_password,
+                                     entity)
     
     def can_remove_quarantine(self, operator, entity=None, qtype=None,
                               query_run_any=False):
@@ -406,10 +414,8 @@ class BofhdAuth(DatabaseAccessor):
         # TODO 2003-07-04: Bård is going to comment this
         if not(isinstance(entity, Factory.get('Account'))):
             raise PermissionDenied("No access")
-        return self._query_disk_permissions(operator,
-                                            self.const.auth_set_password,
-                                            self._get_disk(entity.disk_id),
-                                            entity.entity_id)
+        return self.is_account_owner(operator, self.const.auth_set_password,
+                                     entity)
 
     def can_set_quarantine(self, operator, entity=None, qtype=None,
                            query_run_any=False):
@@ -421,10 +427,8 @@ class BofhdAuth(DatabaseAccessor):
         # TODO 2003-07-04: Bård is going to comment this
         if not(isinstance(entity, Factory.get('Account'))):
             raise PermissionDenied("No access")
-        return self._query_disk_permissions(operator,
-                                            self.const.auth_set_password,
-                                            self._get_disk(entity.disk_id),
-                                            entity.entity_id)
+        return self.is_account_owner(operator, self.const.auth_set_password,
+                                     entity)
 
     def can_show_quarantines(self, operator, entity=None,
                              query_run_any=False):
@@ -436,10 +440,8 @@ class BofhdAuth(DatabaseAccessor):
         # TODO 2003-07-04: Bård is going to comment this
         if not(isinstance(entity, Factory.get('Account'))):
             raise PermissionDenied("No access")
-        return self._query_disk_permissions(operator,
-                                            self.const.auth_set_password,
-                                            self._get_disk(entity.disk_id),
-                                            entity.entity_id)
+        return self.is_account_owner(operator, self.const.auth_set_password,
+                                     entity)
 
     def can_alter_group(self, operator, group=None, query_run_any=False):
         if self.is_superuser(operator):
@@ -447,10 +449,10 @@ class BofhdAuth(DatabaseAccessor):
         if query_run_any:
             return self._has_operation_perm_somewhere(
                 operator, self.const.auth_alter_group_membership)
-        if self._query_target_permissions(
-            operator, self.const.auth_alter_group_membership,
-            self.const.auth_target_type_group,
-            group.entity_id, group.entity_id):
+        if self._query_target_permissions(operator,
+                                          self.const.auth_alter_group_membership,
+                                          self.const.auth_target_type_group,
+                                          group.entity_id, group.entity_id):
             return True
         raise PermissionDenied("No access to group")
 
@@ -485,12 +487,8 @@ class BofhdAuth(DatabaseAccessor):
             if lacks_group:
                 return True
             raise PermissionDenied("Already has personal file group")
-        if self._query_disk_permissions(operator,
-                                        self.const.auth_create_user,
-                                        self._get_disk(account.disk_id),
-                                        account.entity_id):
-            return True
-        raise PermissionDenied("No access to user")
+        return self.is_account_owner(operator, self.const.auth_create_user,
+                                     account)
 
     def can_delete_group(self, operator, group=None, query_run_any=False):
         if self.is_superuser(operator):
@@ -503,7 +501,6 @@ class BofhdAuth(DatabaseAccessor):
         if self.is_superuser(operator):
             return True
         if query_run_any:
-            # What !"#!"# does this mean..?
             return False
         raise PermissionDenied("Currently limited to superusers")
     
@@ -558,6 +555,7 @@ class BofhdAuth(DatabaseAccessor):
         if query_run_any:
             return self._has_operation_perm_somewhere(
                 operator, self.const.auth_create_user)
+        # TODO: check person's OU for sites with no disks?
         return self._query_disk_permissions(operator,
                                             self.const.auth_create_user,
                                             self._get_disk(disk),
@@ -570,10 +568,8 @@ class BofhdAuth(DatabaseAccessor):
         if query_run_any:
             return self._has_operation_perm_somewhere(
                 operator, self.const.auth_remove_user)
-        return self._query_disk_permissions(operator,
-                                            self.const.auth_remove_user,
-                                            self._get_disk(account.disk_id),
-                                            account.entity_id)
+        return self.is_account_owner(operator, self.const.auth_remove_user,
+                                     account)
     
     def can_set_gecos(self, operator, account=None,
                       query_run_any=False):
@@ -587,10 +583,11 @@ class BofhdAuth(DatabaseAccessor):
                       query_run_any=False):
         if self.is_superuser(operator):
             return True
-        return self.can_give_user(
-            operator, account, query_run_any=query_run_any) and \
-            self.can_receive_user(
-            operator, account, dest_disk, query_run_any=query_run_any)
+        return (self.can_give_user(operator, account,
+                                   query_run_any=query_run_any)
+                and
+                self.can_receive_user(operator, account, dest_disk,
+                                      query_run_any=query_run_any))
 
     def can_give_user(self, operator, account=None,
                       query_run_any=False):
@@ -599,10 +596,8 @@ class BofhdAuth(DatabaseAccessor):
         if query_run_any:
             return self._has_operation_perm_somewhere(
                 operator, self.const.auth_move_from_disk)
-        return self._query_disk_permissions(operator,
-                                            self.const.auth_move_from_disk,
-                                            self._get_disk(account.disk_id),
-                                            account.entity_id)
+        return self.is_account_owner(operator, self.const.auth_move_from_disk,
+                                     account)
 
     def can_receive_user(self, operator, account=None, dest_disk=None,
                          query_run_any=False):
@@ -624,13 +619,8 @@ class BofhdAuth(DatabaseAccessor):
             return True
         if operator == account.entity_id:
             return True
-        if account.disk_id is None:
-            raise PermissionDenied(
-                "Only superusers can set passwords for users with no homedir")
-        return self._query_disk_permissions(operator,
-                                            self.const.auth_set_password,
-                                            self._get_disk(account.disk_id),
-                                            account.entity_id)
+        return self.is_account_owner(operator, self.const.auth_set_password,
+                                     account)
 
     def can_set_shell(self, operator, account=None, shell=None,
                       query_run_any=False):
@@ -640,23 +630,18 @@ class BofhdAuth(DatabaseAccessor):
         if query_run_any:
             return True
         # TODO 2003-07-04: Bård is going to comment this
-        return self._query_disk_permissions(operator,
-                                            self.const.auth_set_password,
-                                            self._get_disk(account.disk_id),
-                                            account.entity_id)
+        return self.is_account_owner(operator, self.const.auth_set_password,
+                                     account)
 
-    def can_show_history(self, operator, entity=None,
-                         query_run_any=False):
+    def can_show_history(self, operator, entity=None, query_run_any=False):
         if self.is_superuser(operator):
             return True
         if query_run_any:
             return self._has_operation_perm_somewhere(
                 operator, self.const.auth_create_user)
         if entity.entity_type == self.const.entity_account:
-            return self._query_disk_permissions(operator,
-                                                self.const.auth_create_user,
-                                                self._get_disk(entity.disk_id),
-                                                entity.entity_id)
+            return self.is_account_owner(operator, self.const.auth_create_user,
+                                         entity)
         raise PermissionDenied("no access for that entity_type")
 
     # TODO: the can_email_xxx functions do not belong in core Cerebrum
@@ -678,10 +663,8 @@ class BofhdAuth(DatabaseAccessor):
                 operator, self.const.auth_set_password)
         if operator == account.entity_id:
             return True
-        return self._query_disk_permissions(operator,
-                                            self.const.auth_set_password,
-                                            self._get_disk(account.disk_id),
-                                            account.entity_id)
+        return self.is_account_owner(operator, self.const.auth_set_password,
+                                     account)
 
     # the user, local sysadmin, and helpdesk can ask for migration
     def can_email_migrate(self, operator, account=None, query_run_any=False):
@@ -704,23 +687,19 @@ class BofhdAuth(DatabaseAccessor):
     # tripnote on/off
     def can_email_forward_toggle(self, operator, account=None,
                                  query_run_any=False):
-        if self.is_superuser(operator):
+        if account and operator == account.entity_id:
             return True
-        if self.is_postmaster(operator):
-            return True
-        if query_run_any:
-            return self._has_operation_perm_somewhere(
-                operator, self.const.auth_create_user)
-        if operator == account.entity_id:
-            return True
-        return self._query_disk_permissions(operator,
-                                            self.const.auth_create_user,
-                                            self._get_disk(account.disk_id),
-                                            account.entity_id)
+        return self._is_local_postmaster(operator,
+                                         self.const.auth_email_forward_off,
+                                         account, None, query_run_any)
 
     def can_email_tripnote_toggle(self, operator, account=None,
                                   query_run_any=False):
-        return self.can_email_forward_toggle(operator, account, query_run_any)
+        if account and operator == account.entity_id:
+            return True
+        return self._is_local_postmaster(operator,
+                                         self.const.auth_email_vacation_off,
+                                         account, None, query_run_any)
 
     # only the user may add or remove forward addresses.
     def can_email_forward_edit(self, operator, account=None,
@@ -758,6 +737,17 @@ class BofhdAuth(DatabaseAccessor):
                               query_run_any=False):
         return self.can_email_list_create(operator, domain, query_run_any)
 
+    # associate a new e-mail address with an account, or other target.
+    def can_email_address_add(self, operator, account=None, domain=None,
+                              query_run_any=False):
+        return self._is_local_postmaster(operator, self.const.auth_email_create,
+                                         account, domain, query_run_any)
+
+    def can_email_address_delete(self, operator, account=None, domain=None,
+                                 query_run_any=False):
+        return self._is_local_postmaster(operator, self.const.auth_email_delete,
+                                         account, domain, query_run_any)
+
     def _is_local_postmaster(self, operator, operation, account=None,
                              domain=None, query_run_any=False):
         if self.is_superuser(operator):
@@ -770,21 +760,8 @@ class BofhdAuth(DatabaseAccessor):
             self._query_maildomain_permissions(operator, operation,
                                                domain, None)
         if account:
-            self._query_disk_permissions(operator, operation,
-                                         self._get_disk(account.disk_id),
-                                         account.entity_id)
+            self.is_account_owner(operator, operation, account)
         return True
-
-    # associate a new e-mail address with an account, or other target.
-    def can_email_address_add(self, operator, account=None, domain=None,
-                              query_run_any=False):
-        return self._is_local_postmaster(operator, self.const.auth_email_create,
-                                         account, domain, query_run_any)
-
-    def can_email_address_delete(self, operator, account=None, domain=None,
-                                 query_run_any=False):
-        return self._is_local_postmaster(operator, self.const.auth_email_delete,
-                                         account, domain, query_run_any)
 
     def _query_disk_permissions(self, operator, operation, disk, victim_id):
         """Permissions on disks may either be granted to a specific
@@ -803,14 +780,10 @@ class BofhdAuth(DatabaseAccessor):
                                                 disk.host_id, victim_id):
             if not int(r['has_attr']):
                 return True
-            for r2 in self.query("""
-            SELECT attr
-            FROM [:table schema=cerebrum name=auth_op_target_attrs]
-            WHERE op_target_id=:op_target_id""",
-                                 {'op_target_id': r['op_target_id']}):
-                m = re.compile(r2['attr']).match(disk.path.split("/")[-1])
-                if m != None:
-                    return True
+            pattern = self._get_auth_op_target_attr(r['op_target_id'])
+            m = re.compile(pattern).match(disk.path.split("/")[-1])
+            if m != None:
+                return True
         raise PermissionDenied("No access to disk")
 
     def _query_maildomain_permissions(self, operator, operation, domain,
@@ -825,6 +798,25 @@ class BofhdAuth(DatabaseAccessor):
                                           domain.email_domain_id, victim_id):
             return True
         raise PermissionDenied("No access to e-mail domain")
+
+    def _query_ou_permissions(self, operator, operation, ou, affiliation,
+                              victim_id):
+        """Permissions on OUs are granted specifically."""
+        ou_id = None
+        if ou:
+            ou_id = ou.ou_id
+        for r in self._query_target_permissions(operator, operation,
+                                                self.const.auth_target_type_ou,
+                                                ou_id, victim_id):
+            # We got at least one hit.  If we don't match a specific
+            # affiliation, just return.
+            if not affiliation or not int(r['has_attr']):
+                return True
+            if (int(r['has_attr']) and
+                self._get_auth_op_target_attr(r['op_target_id']) ==
+                str(affiliation)):
+                return True
+        return False
 
     def _has_operation_perm_somewhere(self, operator, operation):
         # This is called numerous times when using "help", so we use a cache
@@ -853,7 +845,7 @@ class BofhdAuth(DatabaseAccessor):
     def _query_target_permissions(self, operator, operation, target_type,
                                   target_id, victim_id):
         """Query any permissions that operator, or any of the groups
-        where operator is a member has been grantet operation on
+        where operator is a member, has been granted operation on
         target_type:target_id"""
         ewhere = ""
 
@@ -873,6 +865,11 @@ class BofhdAuth(DatabaseAccessor):
             elif target_type == self.const.auth_target_type_maildomain:
                 if self._has_global_access(operator, operation,
                                            self.const.auth_target_type_global_maildomain,
+                                           victim_id):
+                    return True
+            elif target_type == self.const.auth_target_type_ou:
+                if self._has_global_access(operator, operation,
+                                           self.const.auth_target_type_global_ou,
                                            victim_id):
                     return True
 
@@ -897,7 +894,63 @@ class BofhdAuth(DatabaseAccessor):
                           {'opcode': int(operation),
                            'target_type': target_type,
                            'target_id': target_id})
-    
+
+    def _has_access_to_entity_via_ou(self, operator, operation, entity):
+        """entity may be an instance of Person or Account.  Returns
+        True if the operator has access to any of the OU's associated
+        with the entity, or False otherwise.  If an auth_op_target
+        has an attribute, the attribute value is compared to the
+        string representation of the affiliations the entity is a
+        member of."""
+        # make a list of the groups the operator is a (direct) member of.
+        operator_groups = ["%i" % x
+                           for x in self._get_users_auth_entities(operator)]
+        if isinstance(entity, Factory.get('Account')):
+            table_name = "account_type"
+            id_colname = "account_id"
+        else:
+            table_name = "person_affiliation"
+            id_colname = "person_id"
+
+        sql = """
+        SELECT at.affiliation, aot.has_attr, ao.op_id, aot.op_target_id
+        FROM [:table schema=cerebrum name=%(table_name)s] at,
+             [:table schema=cerebrum name=auth_op_target] aot,
+             [:table schema=cerebrum name=auth_operation] ao,
+             [:table schema=cerebrum name=auth_operation_set] aos,
+             [:table schema=cerebrum name=auth_role] ar
+        WHERE at.%(id_colname)s=:id AND
+              at.ou_id=aot.entity_id AND
+              aot.op_target_id=ar.op_target_id AND
+              aot.target_type=:target_type AND
+              ar.entity_id IN (%(group_list)s) AND
+              aos.op_set_id=ar.op_set_id AND
+              ao.op_set_id=aos.op_set_id AND
+              ao.op_code=:opcode
+              """ % {'group_list': ", ".join(operator_groups),
+                     'table_name': table_name,
+                     'id_colname': id_colname}
+
+        for r in self.query(sql,
+                            {'opcode': int(operation),
+                             'target_type': self.const.auth_target_type_ou,
+                             'id': entity.entity_id}):
+            if not int(r['has_attr']):
+                return True
+            else:
+                aff = str(self.const._PersonAffiliationCode(r['affiliation']))
+                if aff == self._get_auth_op_target_attr(r['op_target_id']):
+                    return True
+        return False
+
+    def _get_auth_op_target_attr(self, op_target_id):
+        r = self.query("""
+           SELECT attr
+           FROM [:table schema=cerebrum name=auth_op_target_attrs]
+           WHERE op_target_id=:op_target_id""",
+                             {'op_target_id': op_target_id})
+        return r['attr']
+
     def _has_global_access(self, operator, operation, global_type, victim_id):
         """global_host and global_group should not be allowed to
         operate on BOFHD_SUPERUSER_GROUP"""
