@@ -26,6 +26,7 @@ import re
 import cereconf
 import time
 import os
+import smtplib
 import string
 import new
 
@@ -55,6 +56,13 @@ def this_module():
             correct_mod = mod
     assert correct_mod is not None
     return correct_mod
+
+def sendmail(fromaddr, toaddr, message):
+    smtphost = cereconf.SMTP_HOST
+    smtp = smtplib.SMTP(smtphost)
+    smtp.set_debuglevel(1)
+    smtp.sendmail(fromaddr, toaddr, message.as_string())
+    smtp.quit()
 
 def separate_entries(rows, *predicates):
     """Separate ``rows`` into (keep, reject) tuple based on ``predicates``.
