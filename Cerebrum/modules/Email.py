@@ -235,23 +235,6 @@ class EmailDomain(EmailEntity):
           ON edc.domain_id = ed.domain_id
         WHERE edc.category = :cat""", {'cat': int(category)})
 
-    def list_email_domains_with_categories(self, category):
-        categories = ""
-        if isinstance(category,list):
-            for entry in category:
-                if entry == category[0]:
-                    categories += " edc.category=%d" % int(entry)
-                else:
-                    categories += " OR edc.category=%d" % int(entry)
-        elif isinstance(category,int):
-            categories += " edc.category=%d" % int(category)
-        return self.query("""
-        SELECT ed.domain_id, ed.domain
-        FROM [:table schema=cerebrum name=email_domain] ed
-        JOIN [:table schema=cerebrum name=email_domain_category] edc
-          ON edc.domain_id = ed.domain_id
-        AND (%s)""" %  categories)
-
     def list_email_domains(self):
         return self.query("""
         SELECT domain_id, domain
