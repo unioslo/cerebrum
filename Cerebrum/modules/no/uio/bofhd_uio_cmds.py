@@ -4401,7 +4401,10 @@ class BofhdExtension(object):
                 home = home[1:]
             else:
                 raise CerebrumError, "Invalid disk"
-        person = self._get_person("entity_id", account.owner_id)
+        if account.owner_type == self.const.entity_person:
+            person = self._get_person("entity_id", account.owner_id)
+        else:
+            person = None
         self.ba.can_create_user(operator.get_entity_id(), person, disk_id)
         pu.populate(uid, group.entity_id, None, shell, parent=account)
         pu.set_home(self.const.spread_uio_nis_user,
