@@ -571,8 +571,7 @@ ORDER BY fodselsdato, personnr
             sp.fodselsdato = p.fodselsdato AND
             sp.personnr = p.personnr AND
             NVL(p.status_dod, 'N') = 'N' AND
-            (st.opphortstudierettstatkode IS NULL OR
-             st.DATO_GYLDIG_TIL >= sysdate) AND
+            NVL(st.DATO_GYLDIG_TIL,SYSDATE) >= sysdate AND
             st.status_privatist = 'N' AND
             sp.emnekode = e.emnekode AND
             sp.versjonskode = e.versjonskode AND
@@ -606,8 +605,7 @@ ORDER BY fodselsdato, personnr
               stup.fodselsdato = p.fodselsdato AND
               stup.personnr = p.personnr AND
               NVL(p.status_dod, 'N') = 'N' AND
-              (st.opphortstudierettstatkode IS NULL OR
-               st.DATO_GYLDIG_TIL >= sysdate) AND
+              NVL(st.DATO_GYLDIG_TIL, SYSDATE) >= sysdate AND
               st.status_privatist = 'N' AND
               stup.studieprogramkode = st.studieprogramkode AND
               stup.studieprogramkode = sprg.studieprogramkode AND
