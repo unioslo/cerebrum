@@ -2677,8 +2677,9 @@ class BofhdExtension(object):
         host = self._get_host(hostname)
         disk = Utils.Factory.get('Disk')(self.db)
         disk.find_by_path(diskname, host_id=host.entity_id)
-        raise NotImplementedError, "API does not support disk removal"
-
+        disk.delete()
+        return "OK, %s deleted" % diskname
+    
     all_commands['misc_hadd'] = Command(
         ("misc", "hadd"), SimpleString(help_ref='string_host'),
         perm_filter='is_superuser')
