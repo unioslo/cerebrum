@@ -44,7 +44,7 @@ def printjob_stats(from_date, to_date, sted_level=None):
     if sted_level:
         if sted_level == 'fak':
             sted_level = 2
-        elif sted_level == 'gr':
+        elif sted_level == 'inst':
             sted_level = 4
         else:
             sted_level = 6
@@ -138,7 +138,7 @@ def usage(exitcode=0):
     Parameter options:
        --from date (YYYY-MM-DD)
        --to date
-       --sted-level (fak|gr|inst) (default: none).  Group statistics by sted
+       --sted-level (fak|inst|gr) (default: none).  Group statistics by sted
        --sort-user-by (jobs|free|paid|total)                (default: jobs)
        --user-rows num: limit number of returned rows       (default: 10)
 
