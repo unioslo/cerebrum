@@ -166,6 +166,9 @@ keep_togglers = [
     # Account updates
     {'columns': ('subject_entity', ),
      'triggers': (co.account_mod, )},
+    # Account updates
+    {'columns': ('subject_entity', ),
+     'triggers': (co.posix_demote, )},
     # Account passwords
     {'columns': ('subject_entity', ),
      'triggers': (co.account_password, )},
@@ -327,6 +330,7 @@ def process_log():
     last_seen = {}
     n = 0
     db2 = Factory.get('Database')()  # Work-around for fetchmany cursor re-usage
+    warn_unknown_type = {}
     for e in db2.get_log_events():
         n += 1
         tmp = e['change_params']
@@ -339,8 +343,10 @@ def process_log():
                       repr(tmp)))
 
         if not trigger_mapping.has_key(int(e['change_type_id'])):
-            logger.warn("Unknown change_type_id:%i for change_id=%i" % (
-                e['change_type_id'], e['change_id']))
+            if not warn_unknown_type.has_key(int(e['change_type_id'])):
+                warn_unknown_type[ int(e['change_type_id']) ] = 1
+            else:
+                warn_unknown_type[ int(e['change_type_id']) ] += 1
             continue
         
         age = now - e['tstamp'].ticks()
@@ -379,6 +385,9 @@ def process_log():
         if (n % 500) == 0:
             if not dryrun:
                 db.commit()
+    for k, v in warn_unknown_type.items():
+        logger.warn("Unknown change_type_id:%i for %i entries" % (k, v))
+
     if not dryrun:
         db.commit()
     else:
