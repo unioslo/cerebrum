@@ -561,7 +561,7 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
                                                                                                                                                           
                                                                                                                                                           
 	for ss in cereconf.SYSTEM_LOOKUP_ORDER:
-	full_name = {}
+	    full_name = {}
 	    for n_part in ('name_first','name_last','name_full'):
 		try:
 		    full_name[n_part] = p.get_name(getattr(self.const, ss),
