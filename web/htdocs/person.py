@@ -71,8 +71,7 @@ def search(req, fullname="", firstname="", lastname="", accountname="", birthdat
         server = ServerConnection.get_server(req)
 
         def intersection(a, b):
-            if a:
-                b = a.intersection(b)
+            if a: b = a.intersection(b)
             return b
 
         def get_id_set(id_set, names):
@@ -82,10 +81,9 @@ def search(req, fullname="", firstname="", lastname="", accountname="", birthdat
             return intersection(id_set, set)
         
         def get_person_list(persons, names):
-            list = []
             for name in names:
-                list.append(name.get_person())
-            return persons+list
+                persons.append(name.get_person())
+            return persons
         
         def name_search(name, variant, persons, id_set):
             searcher = server.get_person_name_search()
