@@ -46,9 +46,11 @@ class Locking(object):
         - Many clients can have read locks simultaneously.
     """
 
-    def __init__(self):
+    def __init__(self, write_lock=None):
         self.read_locks = weakref.WeakKeyDictionary()
         self.write_lock = None
+        if write_lock is not None:
+            self.lock_for_writing(write_lock)
 
     def lock_for_reading(self, client):
         """
@@ -162,12 +164,3 @@ class Locking(object):
         return ref()
 
 
-class LockHolder:
-    """
-    This class defines the interface required by clients who
-    want to use the Locking class to get locks on objects.
-    """
-    def __init__(self):
-        self.lost_locks = []
-    def get_database(self):
-        pass
