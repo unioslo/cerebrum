@@ -302,7 +302,11 @@ def import_all():
         'VG': {'datakilde': co.system_sats_oslo_vg,
                'skoler': ('ELV', )},
         }
-    bootstrap_disks((('bas', '/home'), ('foo', '/bar'))) # TODO: proper values
+    bootstrap_disks((('marius.fibsko.oslo.no', '/fibsko/marius/elv-2000'),
+                     ('marius.fibsko.oslo.no', '/fibsko/marius/elv-2001'),
+                     ('marius.fibsko.oslo.no', '/fibsko/marius/elv-2002'),
+                     ('marius.fibsko.oslo.no', '/fibsko/marius/elv-ansatt')
+                     ))
     for level, spec in import_spec.items():
         skoler = spec['skoler']
         src_sys = spec['datakilde']
@@ -351,21 +355,31 @@ def import_all():
             person_id = write_person(rows, skole2ou_id, src_sys)
             person_id = int(person_id)  # cast to int to make it hashable
             poid2person_id[oid] = person_id
+            disk = None
+            skole = None
             for row in rows:
                 if isinstance(row, ElevRow):
                     # Gruppe med elever per kombinasjon (skole, klasse)
                     gname = '%s_%s_elev' % (row.skole, row.klasse)
                     groups.setdefault(gname, []).append(person_id)
+                    disk = 2003-int(multi_getattr_uniq(rows, 'klassetrinn')) + 1
+                    skole = multi_getattr_uniq(rows, 'skole')
+                    if not (disk >= 2000 and disk <= 2002):
+                        disk = None
                 elif isinstance(row, ForesattRow):
                     # Gruppe med foresatte per kombinasjon (skole, klasse)
                     gname = '%s_%s_foresatt' % (row.skole, row.klasse)
                     groups.setdefault(gname, []).append(person_id)
                 elif isinstance(row, AnsattRow):
                     gname = "%s_ansatt" % row.skole
+                    disk = "ansatt"
+                    skole = multi_getattr_uniq(rows, 'skole')
             # TBD: vi ønsker antagelig å dytte inn account_id sammen
             #   med person_id i groups dict'en over + lærer under
-            account_id = write_account(rows, person_id, gname)
-            poid2account_id[oid] = account_id
+            if disk is not None and skole == 'ELV':
+                disk_id = user_disks['marius.fibsko.oslo.no:/fibsko/marius/elv-%s' % disk]
+                account_id = write_account(rows, person_id, gname, disk_id)
+                poid2account_id[oid] = account_id
         progress.write("\n")
         Cerebrum.commit()
 
@@ -859,7 +873,7 @@ def write_person(rows, skole2ou_id, src_sys):
 ##     # TODO: Add affiliations.
     return person.entity_id
 
-def write_account(rows, person_id, gname):
+def write_account(rows, person_id, gname, disk_id):
     # TODO:
     # - account affiliations
 
@@ -877,7 +891,6 @@ def write_account(rows, person_id, gname):
             group.write_db()
         gid = group.entity_id
         group_cache[gname] = gid
-    disk_id = user_disks['bas:/home']
     creator_id = default_creator_id
 
     if verbose > 1:
