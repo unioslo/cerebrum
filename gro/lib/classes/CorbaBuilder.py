@@ -19,6 +19,8 @@
 
 __all__ = ['CorbaBuilder']
 
+from Cerebrum.extlib import sets
+
 class CorbaBuilder:
     corba_parents = []
 
@@ -61,13 +63,16 @@ class CorbaBuilder:
         txt = 'interface %s {\n' % cls.__name__
 
         txt = 'interface ' + cls.__name__
-        if cls.corba_parents:
-            txt += ': ' + ', '.join(cls.corba_parents)
+
+        parent_slots = sets.Set()
+        if cls.builder_parents:
+            txt += ': ' + ', '.join([i.__name__ for i in sets.Set(cls.builder_parents)])
+            for i in cls.builder_parents:
+                parent_slots.update(i.slots)
+                parent_slots.update(i.method_slots)
 
         txt += ' {\n'
 
-        txt += '\t//constructors\n'
-        
         def get_exceptions(exceptions):
             # FIXME: hente ut navnerom fra cereconf? err.. stygt :/
             if not exceptions:
@@ -93,6 +98,8 @@ class CorbaBuilder:
 
         txt += '\n\t//get and set methods for attributes\n'
         for attr in cls.slots:
+            if attr in parent_slots:
+                continue
             exception = get_exceptions(tuple(attr.exceptions) + tuple(exceptions))
             type = get_type(attr.data_type, attr.sequence)
             txt += '\t%s get_%s()%s;\n' % (type, attr.name, exception)
@@ -100,8 +107,11 @@ class CorbaBuilder:
                 txt += '\tvoid set_%s(in %s new_%s)%s;\n' % (attr.name, type, attr.name, exception)
             txt += '\n'
 
-        txt += '\n\t//other methods\n'
+        if cls.method_slots:
+            txt += '\n\t//other methods\n'
         for method in cls.method_slots:
+            if method in parent_slots:
+                continue
             exception = get_exceptions(tuple(method.exceptions) + tuple(exceptions))
 
             args = []

@@ -34,7 +34,13 @@ class Registry(object):
             gro_class.build_methods()
 
         if issubclass(gro_class, Searchable) and issubclass(gro_class, Builder):
-            self.register_class(gro_class.create_search_class())
+            gro_class.build_search_class()
+            self.register_class(gro_class.search_class)
+
+        for i in self.classes:
+            if issubclass(gro_class, i):
+                gro_class.builder_parents += (i, )
+                i.builder_children += (gro_class, )
 
         self.map[name] = gro_class
         self.classes.append(gro_class)
