@@ -1423,7 +1423,7 @@ class AccountEmailMixin(Account.Account):
         # account.
         et = EmailTarget(self._db)
         target_type = self.const.email_target_account
-        if self.is_deleted() or self.is_reserved():
+        if self.is_expired() or self.is_reserved():
             target_type = self.const.email_target_deleted
         try:
             et.find_by_email_target_attrs(entity_id = self.entity_id)
