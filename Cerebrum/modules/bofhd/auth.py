@@ -250,7 +250,7 @@ class BofhdAuth(DatabaseAccessor):
         self.const = Factory.get('Constants')(database)
         self._superusers = self._get_group_members(cereconf.BOFHD_SUPERUSER_GROUP)
         # TODO: should not be hardcoded, but what do we call the cereconf variable?
-        self._student_info_users = self._get_group_members("studit")
+        self._student_info_users = self._get_group_members(cereconf.BOFHD_STUDADM_GROUP)
 
     def is_superuser(self, operator):
         if operator in self._superusers:

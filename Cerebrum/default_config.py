@@ -122,7 +122,7 @@ QUARANTINE_RULES = {}
 
 CEREBRUM_DDL_DIR="../share/doc/cerebrum/design"
 BOFHD_SUPERUSER_GROUP=INITIAL_GROUPNAME
-
+BOFHD_STUDADM_GROUP=BOFHD_SUPERUSER_GROUP
 # Should contain mapping lang: [('template-prefix', 'tpl-type)...]
 BOFHD_TEMPLATES={}
 # Directory for templates
