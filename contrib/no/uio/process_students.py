@@ -136,7 +136,7 @@ def update_account(profile, account_ids, account_info={}):
         # Set/change homedir
         try:
             current_disk_id = user.get_home(user_spread)['disk_id']
-        except errors.NotFoundError:
+        except Errors.NotFoundError:
             current_disk_id = None
         if move_users or current_disk_id is None:
             try:
