@@ -14,6 +14,10 @@ from Cerebrum import Errors
 from Cerebrum import Utils
 from Cerebrum.modules import PasswordHistory
 
+# TODO: the pickle solution means that if the script dies
+# unexpectedly, one must manually fix the datafile using data from the
+# debug-log.  This should be fixed.
+
 logger = Utils.Factory.get_logger("cronjob")
 db = Utils.Factory.get('Database')()
 db.cl_init(change_program="notify_ch_pass")
@@ -156,7 +160,7 @@ def send_mail(mail_to, mail_from, subject, body, mail_cc=None):
         if debug_verbose:
             print "---- Mail: ---- \n"+ ret
     except smtplib.SMTPException, msg:
-        logger.warn("Error sending to %s: %s" % (mailto, msg))
+        logger.warn("Error sending to %s: %s" % (mail_to, msg))
         return False
     return True
 
