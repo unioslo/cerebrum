@@ -29,7 +29,11 @@ school2ouid = {}
 def read_inputfile(filename):
     print "Processing %s" % filename
     f = open(filename, 'rb')
-    spec = f.readline().strip().split(",")
+    spec = {}
+    n = 0
+    for k in f.readline().strip().split(","):
+        spec[k.lower()] = n
+        n += 1
     ret = []
     nlegal = nillegal = 0
     while 1:
@@ -37,7 +41,7 @@ def read_inputfile(filename):
         if line == '': break
         
         dta = line.strip().split(",")
-        if(len(dta) != len(spec)):
+        if(len(dta) != n):
             # print "WARNING: Illegal line: '%s'" % line
             nillegal += 1
             continue
@@ -70,18 +74,15 @@ def read_extra_person_info(ptype, level, schools):
         fname = 'person_elev_ekstra_opplys_%s.txt' % level
 
     spec, dta = read_inputfile("sats/%s" % fname)
-    n = 0
-    schoolcode_pos = None
-    for k in spec:
-        if(k.lower() == 'schoolcode'):
-            schoolcode_pos = n
-        n += 1
+    schoolcode_pos = spec['schoolcode']
     ret = {}
     for t in dta:
         if not (t[schoolcode_pos] in schools):
             continue
         ret[t[0]] = ret.get(t[0], []) + [t[1:],]
-    return spec[1:], ret
+    for t in spec.keys():
+        spec[t] -= 1
+    return spec, ret
 
 def populate_people(level, type, pspec, pinfo):
     print "Populating %i entries of type %s" % (len(pinfo), type)
@@ -98,23 +99,13 @@ def populate_people(level, type, pspec, pinfo):
         print "# elever %i" % len(elevoids2info.keys())
     spec, dta = read_inputfile("sats/%s" % fname)
     # Create mapping of locname to locid
-    loc = {}
-    n = 0
-    for k in spec:
-        loc[k.lower()] = n
-        n += 1
-    ploc = {}
-    n = 0
-    for k in pspec:
-        ploc[k.lower()] = n
-        n += 1
     ret = {}
     # Process all people in the input-file
     for p in dta:
         if type == 'foreldre':
-            if not elevoids2info.has_key(p[loc['childfid']]):
+            if not elevoids2info.has_key(p[spec['childfid']]):
                 continue
-        elif not (pinfo.has_key(p[loc[oidname]])):
+        elif not (pinfo.has_key(p[spec[oidname]])):
             continue                          # Skip unknown person
         sys.stdout.write('.')
         sys.stdout.flush()
@@ -123,26 +114,26 @@ def populate_people(level, type, pspec, pinfo):
         affiliations = {}
         groups = {}
         if type == 'foreldre':
-            (gh, ah) = elevoids2info[p[loc['childfid']]]
+            (gh, ah) = elevoids2info[p[spec['childfid']]]
             for k in gh.keys():
                 k = k.replace('_elev', '_foreldre')
                 groups[k] = 1
             for k in ah.keys():
                 affiliations[k] = 1
         else:
-            for extra in pinfo[p[loc[oidname]]]:
-                school = extra[ploc['schoolcode']]
+            for extra in pinfo[p[spec[oidname]]]:
+                school = extra[pspec['schoolcode']]
                 affiliations["%s:%s" % (level, school)] = 1
                 if type == 'elev':
-                    groups["%s_%s_%s" % (school, extra[ploc['klassekode']], type)] = 1
+                    groups["%s_%s_%s" % (school, extra[pspec['klassekode']], type)] = 1
                 elif type == 'lærer':
-                    groups["%s_%s_%s" % (school, extra[ploc['elevgruppekode']], type)] = 1
+                    groups["%s_%s_%s" % (school, extra[pspec['elevgruppekode']], type)] = 1
         try:
-            p_id = update_person(p, loc, type, affiliations.keys(), groups.keys())
-            ret[p[loc[oidname]]] = (groups, affiliations)
+            p_id = update_person(p, spec, type, affiliations.keys(), groups.keys())
+            ret[p[spec[oidname]]] = (groups, affiliations)
         except:
-            print "WARNING: Error importing %s" % p[loc[oidname]]
-            pp.pprint ((p, loc, type, affiliations, groups.keys() ))
+            print "WARNING: Error importing %s" % p[spec[oidname]]
+            pp.pprint ((p, spec, type, affiliations, groups.keys() ))
             raise
     return ret
 
@@ -166,43 +157,43 @@ def do_all():
         populate_people(level, 'ansatt', aspec, adminoid2info)
     Cerebrum.commit()
 
-def update_person(p, loc,type, affiliations, groupnames):
+def update_person(p, spec,type, affiliations, groupnames):
     """Create or update the persons name, address and contact info.
 
     TODO: Also set affiliation
     """
     person = Person.Person(Cerebrum)
     gender = co.gender_female
-    if p[loc['sex']] == '1':
+    if p[spec['sex']] == '1':
         gender = co.gender_male
     date = None
     try:
-        day, mon, year = [int(x) for x in p[loc['birthday']].split('.')]
+        day, mon, year = [int(x) for x in p[spec['birthday']].split('.')]
         date = Cerebrum.Date(year, mon, day)
     except:
-        warn("\nWARNING: Bad date %s for %s" % (p[loc['birthday']],
-                                                 p[loc['personoid']]))
-    if p[loc['firstname']] == '' or p[loc['lastname']] == '':
-        warn("\nWARNING: bad name for %s" % p[loc['personoid']])
+        warn("\nWARNING: Bad date %s for %s" % (p[spec['birthday']],
+                                                 p[spec['personoid']]))
+    if p[spec['firstname']] == '' or p[spec['lastname']] == '':
+        warn("\nWARNING: bad name for %s" % p[spec['personoid']])
         return
 
     person.clear()
     try:
         person.find_by_external_id(co.externalid_personoid,
-                                   p[loc['personoid']])
+                                   p[spec['personoid']])
     except Errors.NotFoundError:
         pass
     person.populate(date, gender)
     person.affect_names(source_system, co.name_first, co.name_last)
-    person.populate_name(co.name_first, p[loc['firstname']])
-    person.populate_name(co.name_last, p[loc['lastname']])
-    if p[loc['socialsecno']] <> '':
+    person.populate_name(co.name_first, p[spec['firstname']])
+    person.populate_name(co.name_last, p[spec['lastname']])
+    if p[spec['socialsecno']] <> '':
         person.populate_external_id(source_system, co.externalid_fodselsnr,
-                                    p[loc['socialsecno']])
+                                    p[spec['socialsecno']])
     else:
-        warn("\nWARNING: no ssid for %s" % p[loc['personoid']])
+        warn("\nWARNING: no ssid for %s" % p[spec['personoid']])
     person.populate_external_id(source_system, co.externalid_personoid,
-                                p[loc['personoid']])
+                                p[spec['personoid']])
 
     op = person.write_db()
 ##     if op is None:
@@ -235,22 +226,22 @@ def update_person(p, loc,type, affiliations, groupnames):
             group.write_db()
         group.add_member(person, co.group_memberop_union)
     try:
-        postno, city = string.split(p[loc['address3']], maxsplit=1)
+        postno, city = string.split(p[spec['address3']], maxsplit=1)
         if postno.isdigit():
             person.add_entity_address(source_system, co.address_post,
-                                      address_text=p[loc['address1']],
+                                      address_text=p[spec['address1']],
                                       postal_number=postno, city=city)
         else:
-            warn("\nWARNING: Bad address for %s" % p[loc['personoid']])
+            warn("\nWARNING: Bad address for %s" % p[spec['personoid']])
     except ValueError:
-        warn("\nWARNING: Bad address for %s" % p[loc['personoid']])
+        warn("\nWARNING: Bad address for %s" % p[spec['personoid']])
         
-    if p[loc['phoneno']] <> '':
-        person.add_contact_info(source_system, co.contact_phone, p[loc['phoneno']])
-    if p[loc['faxno']] <> '':
-        person.add_contact_info(source_system, co.contact_fax, p[loc['faxno']])
-    if p[loc['email']] <> '':
-        person.add_contact_info(source_system, co.contact_email, p[loc['email']])
+    if p[spec['phoneno']] <> '':
+        person.add_contact_info(source_system, co.contact_phone, p[spec['phoneno']])
+    if p[spec['faxno']] <> '':
+        person.add_contact_info(source_system, co.contact_fax, p[spec['faxno']])
+    if p[spec['email']] <> '':
+        person.add_contact_info(source_system, co.contact_email, p[spec['email']])
     return person.entity_id
 
 def import_OU(schools):
@@ -262,38 +253,33 @@ def import_OU(schools):
     ret = {}         # Python *****: can't declare a variable as local
     for level in schools.keys():
         spec, dta = read_inputfile("sats/sted_%s.txt" % level)
-        loc = {}
-        n = 0
-        for k in spec:
-            loc[k.lower()] = n
-            n += 1
         for skole in dta:
-            if not (skole[loc['institutioncode']] in schools[level]):
+            if not (skole[spec['institutioncode']] in schools[level]):
                 continue
             sys.stdout.write('.')
             sys.stdout.flush()
             ou.clear()
 
-            ou.populate(skole[loc['name']],
-                        acronym=skole[loc['institutioncode']][:15],
-                        short_name=skole[loc['institutioncode']][:30],
-                        display_name=skole[loc['name']],
-                        sort_name=skole[loc['name']])
+            ou.populate(skole[spec['name']],
+                        acronym=skole[spec['institutioncode']][:15],
+                        short_name=skole[spec['institutioncode']][:30],
+                        display_name=skole[spec['name']],
+                        sort_name=skole[spec['name']])
             ou.write_db()
-            ret["%s:%s" % (level, skole[loc['institutioncode']])] = ou.entity_id
+            ret["%s:%s" % (level, skole[spec['institutioncode']])] = ou.entity_id
 
-            if skole[loc['address3']] == '': # or skole[loc['address1']] == '':
-                print "\nWARNING: Bad info for %s" % skole[loc['name']]
+            if skole[spec['address3']] == '': # or skole[spec['address1']] == '':
+                print "\nWARNING: Bad info for %s" % skole[spec['name']]
                 pp.pprint(skole)
             else:
-                postno, city = skole[loc['address3']].split()
+                postno, city = skole[spec['address3']].split()
                 ou.add_entity_address(source_system, co.address_post,
-                                      address_text=skole[loc['address1']],
+                                      address_text=skole[spec['address1']],
                                       postal_number=postno, city=city)
-            if skole[loc['phoneno']] <> '':
-                ou.add_contact_info(source_system, co.contact_phone, skole[loc['phoneno']])
-            if skole[loc['faxno']] <> '':
-                ou.add_contact_info(source_system, co.contact_fax, skole[loc['faxno']])
+            if skole[spec['phoneno']] <> '':
+                ou.add_contact_info(source_system, co.contact_phone, skole[spec['phoneno']])
+            if skole[spec['faxno']] <> '':
+                ou.add_contact_info(source_system, co.contact_fax, skole[spec['faxno']])
         Cerebrum.commit()
         print
     return ret
