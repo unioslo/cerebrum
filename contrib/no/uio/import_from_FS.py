@@ -23,6 +23,7 @@ import cerebrum_path
 import re
 import os
 import sys
+import getopt
 import cereconf
 
 from Cerebrum import Database
@@ -33,51 +34,62 @@ from Cerebrum.modules.no.uio.access_FS import FSPerson
 default_person_file = "/cerebrum/dumps/FS/persons.xml"
 default_topics_file = "/cerebrum/dumps/FS/topics.xml"
 default_studprog_file = "/cerebrum/dumps/FS/studprog.xml"
+default_regkort_file = "/cerebrum/dumps/FS/regkort.xml"
 
-Cerebrum = Database.connect(user="ureg2000", service="FSPROD.uio.no",
-                            DB_driver='Oracle')
-FSP = FSPerson(Cerebrum)
 xml = XMLHelper()
+FSP = None
 
 def write_person_info(outfile):
-    # KURS & EVU fagpersoner
-    # Employees from FS related to ordinary courses KURS.
-    # Prefix: F
-    # !!! Mulig at dette er den eneste spørringen som trengs !!!
+    """Lager fil med informasjon om alle personer registrert i FS som
+    vi muligens også ønsker å ha med i Cerebrum.  En person kan
+    forekomme flere ganger i filen."""
 
+    # TBD: Burde vi cache alle data, slik at vi i stedet kan lage en
+    # fil der all informasjon om en person er samlet under en egen
+    # <person> tag?
+    
     f=open(outfile, 'w')
     f.write(xml.xml_hdr + "<data>\n")
-    # Her kan stedkodeinfo utledes direkte ...
+    # Fagpersoner
     cols, fagpersoner = FSP.GetKursFagpersonundsemester()
     for p in fagpersoner:
         f.write(xml.xmlify_dbrow(p, xml.conv_colnames(cols), 'fagperson') + "\n")
 
-    # STUDENTS
-    # Studensts from FS
-    # Prefix: S
-
-    cols, students = FSP.GetStudinfRegkort()
+    # Studenter med opptak, privatister og Alumni
+    cols, students = FSP.GetStudinfOpptak()
     for s in students:
-        f.write(xml.xmlify_dbrow(s, xml.conv_colnames(cols), 'student') + "\n")
+        f.write(xml.xmlify_dbrow(s, xml.conv_colnames(cols), 'opptak') + "\n")
 
-    cols, students = FSP.GetStudinfNaaKlasse()
-    for s in students:
-        f.write(xml.xmlify_dbrow(s, xml.conv_colnames(cols), 'student') + "\n")
+    # EVU students
+    # En del EVU studenter vil være gitt av søket over
 
-    cols, students = FSP.GetStudinfStudierett()
-    for s in students:
-        f.write(xml.xmlify_dbrow(s, xml.conv_colnames(cols), 'student') + "\n")
-
-    # EVU STUDENTS
-    # Evu students from FS
-    # Prefix: E
-
-    cols, evustud = FSP.GetStudinfEvuKurs()
+    cols, evustud = FSP.GetStudinfEvu()
     for e in evustud:
         f.write(xml.xmlify_dbrow(e, xml.conv_colnames(cols), 'evu') + "\n")
+
+    # Studenter i permisjon (også dekket av GetStudinfOpptak)
+    cols, permstud = FSP.GetStudinfPerm()
+    for p in permstud:
+        f.write(xml.xmlify_dbrow(p, xml.conv_colnames(cols), 'perm') + "\n")
+
+    # Personer som har fått tilbud
+    cols, tilbudstud = FSP.GetStudinfTilbud()
+    for t in tilbudstud:
+        f.write(xml.xmlify_dbrow(t, xml.conv_colnames(cols), 'tilbud') + "\n")
+    
+    f.write("</data>\n")
+
+def write_ou_info(outfile):
+    f=open(outfile, 'w')
+    f.write(xml.xml_hdr + "<data>\n")
+    cols, ouer = FSP.TODO()  # TODO
+    for o in ouer:
+        f.write(xml.xmlify_dbrow(o, xml.conv_colnames(cols), 'ou') + "\n")
     f.write("</data>\n")
 
 def write_topic_info(outfile):
+    """Lager fil med informasjon om alle XXX"""
+    # TODO: Denne filen blir endret med det nye opplegget :-(
     f=open(outfile, 'w')
     f.write(xml.xml_hdr + "<data>\n")
     cols, topics = FSP.GetAlleEksamener()
@@ -87,12 +99,22 @@ def write_topic_info(outfile):
         f.write(xml.xmlify_dbrow(t, xml.conv_colnames(cols), 'topic') + "\n")
     f.write("</data>\n")
 
-def write_studprog_info(outfile):
+def write_regkort_info(outfile):
+    """Lager fil med informasjon om semesterregistreringer for
+    inneværende semester"""
     f=open(outfile, 'w')
     f.write(xml.xml_hdr + "<data>\n")
-    cols, dta = FSP.FinnAlleStudprogSko()
+    cols, regkort = FSP.GetStudinfRegkort()
+    for r in regkort:
+        f.write(xml.xmlify_dbrow(r, xml.conv_colnames(cols), 'regkort') + "\n")
+    f.write("</data>\n")
+
+def write_studprog_info(outfile):
+    """Lager fil med informasjon om alle definerte studieprogrammer"""
+    f=open(outfile, 'w')
+    f.write(xml.xml_hdr + "<data>\n")
+    cols, dta = FSP.GetStudieproginf()
     for t in dta:
-        # The Oracle driver thinks the result of a union of ints is float
         f.write(xml.xmlify_dbrow(t, xml.conv_colnames(cols), 'studprog') + "\n")
     f.write("</data>\n")
 
@@ -101,10 +123,67 @@ def fix_float(row):
         if isinstance(row[n], float):
             row[n] = int(row[n])
 
+def usage(exitcode=0):
+    print """Usage: [options]
+    --person-file name: override person xml filename
+    --topics-file name: override topics xml filename
+    --studprog-file name: override studprog xml filename
+    --regkort-file name: override regkort xml filename
+    --db-user name: connect with given database username
+    --db-service name: connect to given database
+    -p: generate person xml file
+    -t: generate topics xml file
+    -s: generate studprog xml file
+    -r: generate regkort xml file
+    """
+    sys.exit(exitcode)
+
+def assert_connected(user="ureg2000", service="FSPROD.uio.no"):
+    global FSP
+    if FSP is None:
+        db = Database.connect(user=user, service=service,
+                              DB_driver='Oracle')
+        FSP = FSPerson(db)
+
 def main():
-    write_person_info(default_person_file)
-    write_topic_info(default_topics_file)
-    write_studprog_info(default_studprog_file)
+    try:
+        opts, args = getopt.getopt(sys.argv[1:], "ptsr",
+                                   ["person-file=", "topics-file=",
+                                    "studprog-file=", "regkort-file=",
+                                    "db-user=", "db-service="])
+    except getopt.GetoptError:
+        usage()
+        sys.exit(2)
+
+    person_file = default_person_file
+    topics_file = default_topics_file
+    studprog_file = default_studprog_file
+    regkort_file = default_regkort_file
+    db_user = None         # TBD: cereconf value?
+    db_service = None      # TBD: cereconf value?
+    for o, val in opts:
+        if o in ('--person-file',):
+            person_file = val
+        elif o in ('--topics-file',):
+            topics_file = val
+        elif o in ('--studprog-file',):
+            studprog_file = val
+        elif o in ('--regkort-file',):
+            regkort_file = val
+        elif o in ('--db-user',):
+            db_user = val
+        elif o in ('--db-service',):
+            db_service = val
+    assert_connected(user=db_user, service=db_service)
+    for o, val in opts:
+        if o in ('-p',):
+            write_person_info(person_file)
+        elif o in ('-t',):
+            write_topic_info(topics_file)
+        elif o in ('-s',):
+            write_studprog_info(studprog_file)
+        elif o in ('-r',):
+            write_regkort_info(regkort_file)
 
 if __name__ == '__main__':
     main()
