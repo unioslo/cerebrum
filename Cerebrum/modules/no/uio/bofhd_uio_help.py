@@ -33,9 +33,16 @@ group_help = {
 # The texts in command_help are automatically line-wrapped, and should
 # not contain \n
 command_help = {
+    'access': {
+    'access_grant': "Grant authorisation to operate on entity",
+    'access_group': "List who's authorised to operate on group",
+    'access_host': "List who's authorised to operate on group",
+    'access_revoke': "Revoke authorisation",
+    },
     'email': {
     'email_add_address': 'Add an alias address',
     'email_remove_address': 'Remove an alias address',
+    'email_update': 'Update default address and aliases associated with account',
     'email_create_domain': 'Create a new e-mail domain',
     'email_create_forward': 'Create a new e-mail forward target',
     'email_domain_info': 'View information about an e-mail domain',
@@ -293,6 +300,14 @@ You may also use entity_id:id."""],
         ['fullname', 'Enter persons fullname'],
     'person_name_type':
         ['nametype', 'Enter person name type'],
+    # this is also in help.py, but without the search type "stedkode"
+    'person_search_type':
+        ['search_type', 'Enter person search type',
+         """Possible values:
+  - 'name'
+  - 'date' of birth, on format YYYY-MM-DD
+  - 'person_id'
+  - 'stedkode'"""],
     'posix_shell':
         ['shell', 'Enter shell',
          'Enter the required shell without path.  Example: bash'],
