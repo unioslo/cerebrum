@@ -320,7 +320,7 @@ class BofhdExtension(object):
         try:
             self._get_group(group, grtype="PosixGroup")
             raise CerebrumError("%s is already a PosixGroup" % group)
-        except Errors.NotFountEddor:
+        except CerebrumError:
             pass
 
         group=self._get_group(group)
