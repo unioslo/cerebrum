@@ -78,66 +78,10 @@ class SearchClass(SpineClass):
                 alive[attr.name] = val
         return alive
 
-    def search(self):
-        unions = sets.Set()
-
-        if not hasattr(self, '_result') or self.updated:
-            alive = self.get_alive_slots()
-            unions.update(self._search(**alive))
-            self.updated.clear()
-        else:
-            unions.update(self._result)
-
-        def convert(searcher):
-            if searcher.mark is not None:
-                new_objs = sets.Set()
-
-                for i in searcher.search():
-                    if searcher.mark.optional:
-                        try:
-                            new_objs.add(getattr(i, searcher.mark.get_name_get())())
-#                        except Cerebrum.Errors.NotFoundError, e:
-                        except:
-                            continue
-                    else:
-                        new_objs.add(getattr(i, searcher.mark.get_name_get())())
-
-                return new_objs
-
-            elif issubclass(searcher._cls, self._cls):
-                return searcher.search()
-            else:
-                raise ClientProgrammingError, \
-                        'Not able to merge searchclasses withouth a marked attribute'
-
-        for i in self._unions:
-            unions.update(convert(i))
-
-        if hasattr(self, '_intersections') and self._intersections:
-            intersections = sets.Set()
-            intersections.update(convert(self._intersections.pop()))
-            for i in self._intersections:
-                intersections.intersection_update(convert(i))
-        else:
-            intersections = None
-
-        if hasattr(self, '_differences') and self._differences:
-            differences = sets.Set()
-            differences.update(convert(self._differences.pop()))
-            for i in self._differences:
-                differences.difference_update(convert(i))
-        else:
-            differences = None
-
-        if intersections is not None:
-            unions.intersection_update(intersections)
-        if differences is not None:
-            unions.difference_update(differences)
-
-        self._result = list(unions)
-
-        return self._result
-
+    def search(self, **vargs):
+        alive = self.get_alive_slots()
+        alive.update(vargs)
+        return self._search(**alive)
 
 def set_unions(self, unions):
     self._unions = unions

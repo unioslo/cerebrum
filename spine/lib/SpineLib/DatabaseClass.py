@@ -296,7 +296,7 @@ class DatabaseClass(SpineClass, Searchable, Dumpable):
         Used when creating a searchclass for class 'cls', to add a method
         which searches for instances of the class.
         """
-        def search(self, *args, **vargs):
+        def search(self, _sql_only=False, sql_where='', *args, **vargs):
             """Search for instances of the original class.
 
             Creates SQL query for finding instances of the original class
@@ -309,17 +309,19 @@ class DatabaseClass(SpineClass, Searchable, Dumpable):
             """
             map = self.map_args(*args, **vargs) # Dict with Attribute: value
 
-            # We need the original slots, to fill attrs when we create new objects
-            originals = []
-            tables = sets.Set()
+            tables = []
+            attrs = []
             for attr in cls.slots:
                 if not isinstance(attr, DatabaseAttr) or attr.optional:
                     continue
-                originals.append(attr)
-                tables.add(attr.table)
+                if attr.table not in tables:
+                    tables.append(attr.table)
+                attrs.append(attr)
             
             def _get_real_name(*args, **vargs):
                 return get_real_name(self.db_attr_aliases, *args, **vargs)
+
+            unique_key = 's%s' % id(self)
             
             def convert_value(attr, value):
                 """Returns the where query for the attr & key.
@@ -327,7 +329,7 @@ class DatabaseClass(SpineClass, Searchable, Dumpable):
                 Prepares the value to be inserted into the query,
                 and returns the where clause for the query.
                 """
-                args = (attr.table, _get_real_name(attr), attr.name)
+                args = (attr.table, _get_real_name(attr), unique_key + attr.name)
                 value = attr.convert_to(value)
                 if getattr(attr, 'like', False):
                     whr = 'LOWER(%s.%s) LIKE :%s' % args
@@ -349,34 +351,54 @@ class DatabaseClass(SpineClass, Searchable, Dumpable):
         
             # Prepare the where clause and values to supply with the sql query
             where = []
+            if sql_where:
+                where.append(sql_where)
             values = {}
             for attr, value in map.items():
                 if not isinstance(attr, DatabaseAttr):
                     continue
                 whr, val = convert_value(attr, value)
                 where.append(whr)
-                values[attr.name] = val
-                tables.add(attr.table)
+                values[unique_key + attr.name] = val
+                #tables.add(attr.table)
 
-            # We need to make sure all primary keys are the same
-            if len(tables) > 1:
-                table = tables.pop()
-                for i in cls.primary:
-                    tmp = '%s.%s = %%s.%%s' % (table, _get_real_name(i, table))
-                    for table in tables:
-                        where.append(tmp % (table, _get_real_name(i, table)))
-                tables.add(table)
+            table = tables[0]
+            for i in cls.primary:
+                tmp = '%s.%s = %%s.%%s' % (table, _get_real_name(i, table))
+                for table in tables[1:]:
+                    where.append(tmp % (table, _get_real_name(i, table)))
             
             # Create sql query
             sql = 'SELECT '
-            sql += ', '.join(['%s.%s AS %s' % (attr.table, _get_real_name(attr),
-                                               attr.name) for attr in originals])
+
+            join = ''
+            for key, op in [('_intersections', 'INTERSECT'), ('_differences', 'EXCEPT'), ('_unions', 'UNION')]:
+                for s in getattr(self, key, ()):
+                    i, j = s.search(_sql_only=True)
+                    join += ' %s (%s)' % (op, i)
+                    values.update(j)
+
+            if join or _sql_only:
+                attrs = cls.primary
+
+            if self.mark and _sql_only:
+                sql += '%s.%s AS %s' % (self.mark.table, _get_real_name(self.mark), self.mark.name)
+            else:
+                sql += ', '.join(['%s.%s AS %s' % (attr.table, _get_real_name(attr),
+                                                   attr.name) for attr in attrs])
             sql += ' FROM '
             sql += ', '.join(tables)
             if where:
                 sql += ' WHERE '
                 sql += ' AND '.join(where)
 
+            sql += join
+
+            if _sql_only:
+                return sql, values
+
+            import time
+            start = time.time()
             # Build objects from the query result, and return them in a list.
             try:
                 rows = self.get_database().query(sql, values)
@@ -388,11 +410,11 @@ class DatabaseClass(SpineClass, Searchable, Dumpable):
             objects = []
             for row in rows:
                 tmp = {}
-                for attr in originals:
+                for attr in attrs:
                     value = row[attr.name]
                     tmp[attr.name] = attr.convert_from(value)
                 objects.append(cls(**tmp))
-            
+
             return objects
         return search
     
