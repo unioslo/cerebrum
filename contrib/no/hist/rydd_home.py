@@ -25,3 +25,5 @@ for row in account.list_account_home():
                row['home'], account.get_name(const.account_namespace), row['home_spread'])
         account.write_db()
 db.commit()
+
+# arch-tag: 99857f39-ea5b-471d-9cae-e3ddd2dd525c
