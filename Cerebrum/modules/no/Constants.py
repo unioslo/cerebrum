@@ -21,11 +21,28 @@
 """
 
 from Cerebrum import Constants
-from Cerebrum.Constants import _AuthoritativeSystemCode
-from Cerebrum.Constants import _PersonExternalIdCode
+from Cerebrum.Constants import \
+     _AuthoritativeSystemCode, _OUPerspectiveCode, _PersonExternalIdCode, \
+     _PersonAffiliationCode, _PersonAffStatusCode
 
 class Constants(Constants.Constants):
-    system_sats = _AuthoritativeSystemCode('SATS', 'SATS')
+
+    # TBD: Finnes det egentlige *noen* konstanter som er "globale" for
+    # hele Norge, og derfor bør ligge som attributter i denne klassen?
+
+    system_sats_oslo_gs = _AuthoritativeSystemCode(
+        'SATS/OSLO/GS',
+        'Skoleetaten i Oslo sin SATS-instans for grunnskoler.')
+    system_sats_oslo_vg = _AuthoritativeSystemCode(
+        'SATS/OSLO/VGS',
+        'Skoleetaten i Oslo sin SATS-instans for videregående skoler.')
+
+    perspective_sats = _OUPerspectiveCode('SATS', 'SATS')
 
     externalid_personoid = _PersonExternalIdCode('SATS_PERSONOID',
                                                  'PK in SATS')
+
+    affiliation_foresatt = _PersonAffiliationCode('FORESATT',
+                                                  'Foresatt for elev')
+    affiliation_status_foresatt_valid = _PersonAffStatusCode(
+        affiliation_foresatt, 'VALID', 'Valid')
