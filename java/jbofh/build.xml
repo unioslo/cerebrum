@@ -35,7 +35,9 @@
     <unzip src="lib/libreadline-java.jar" dest="${tmp}"/>
     <unzip src="lib/xmlrpc-1.1.jar" dest="${tmp}"/>
     <!-- Put everything in ${build} into the JBofh-${DSTAMP}.jar file -->
-    <exec dir="${basedir}" failonerror="on" executable="${basedir}/mkversion.py" output="version.txt"/>
+    <exec dir="${basedir}" failonerror="on" executable="python" output="version.txt">
+      <arg value="${basedir}/../../Cerebrum/__init__.py"/>
+    </exec>
     <jar basedir="${build}" jarfile="${dist}/lib/JBofh.jar">
       <fileset dir="${tmp}">
         <include name="**/*.class"/>
