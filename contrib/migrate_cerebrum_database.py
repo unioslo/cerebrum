@@ -34,7 +34,7 @@ from Cerebrum import Metainfo
 from Cerebrum.Constants import _SpreadCode
 
 # run migrate_* in this order
-versions = ('rel_0_9_2', 'rel_0_9_3')
+versions = ('rel_0_9_2', 'rel_0_9_3', 'rel_0_9_4')
 
 def makedb(release, stage):
     print "Running Makedb(%s, %s)..." % (release, stage)
@@ -210,6 +210,65 @@ def migrate_to_rel_0_9_3():
     print "Migration to 0.9.3 completed successfully"
     db.commit()
 
+
+def migrate_to_rel_0_9_4():
+    """Migrate from 0.9.3 database to the 0.9.4 database schema."""
+
+    assert_db_version("0.9.3")
+    makedb('0_9_4', 'pre')
+
+    # Move all "home, disk_id, status" (t1) settings in account_home
+    # to homedir.  If an account has the same values for t1 for two
+    # different spreads, the same homedir_id should be used for both.
+
+    rows = db.query("""SELECT account_id, spread, home, disk_id, status
+    FROM  [:table schema=cerebrum name=account_home]""")
+    print "%d rows to convert..." % len(rows)
+    rows_per_dot = int(len(rows) / 79 + 1)
+    count = 0
+    account_id2home = {}
+    for row in rows:
+        if count % rows_per_dot == 0:
+            sys.stdout.write('.')
+            sys.stdout.flush()
+        count += 1
+        homedir_id = None
+        for home, disk_id, status, tmp_hid in account_id2home.get(
+            long(row['account_id']), []):
+            if home == row['home'] and disk_id == row['disk_id']:
+                if status != row['status']:
+                    print >>sys.stderr, "WARNING, check status on", tmp_hid 
+                homedir_id = tmp_hid
+                break
+        if homedir_id is None:
+            # Cannot use AccountHome as the new class is not yet installed
+            homedir_id = long(db.nextval('entity_id_seq'))
+            db.execute("""
+            INSERT INTO [:table schema=cerebrum name=homedir]
+              (homedir_id, home, disk_id, status)
+            VALUES (:h_id, :home, :disk_id, :status)""", {
+                'h_id': homedir_id,
+                'home': row['home'],
+                'disk_id': row['disk_id'],
+                'status': row['status']})
+            account_id2home.setdefault(long(row['account_id']), []).append(
+                (row['home'], row['disk_id'], row['status'], homedir_id))
+
+        db.execute("""UPDATE [:table schema=cerebrum name=account_home]
+        SET homedir_id=:h_id
+        WHERE account_id=:ac_id AND spread=:spread""", {
+            'h_id': homedir_id,
+            'ac_id': row['account_id'],
+            'spread': row['spread']})
+
+    db.commit()
+    print "\ndone."
+    makedb('0_9_4', 'post')
+    meta = Metainfo.Metainfo(db)
+    meta.set_metainfo(Metainfo.SCHEMA_VERSION_KEY, (0,9,4))
+    print "Migration to 0.9.4 completed successfully"
+    db.commit()
+
 def init():
     global db, co, str2const, num2const
 
@@ -259,7 +318,8 @@ def main():
     if (not (from_rel or to_rel)) or (not (makedb_path and design_path)):
         usage()
         
-    continue_prompt("Do you have a backup of your database? (y/n)[y]")
+    continue_prompt("Do you have a backup of your '%s' database? (y/n)[y]" % \
+                    cereconf.CEREBRUM_DATABASE_NAME)
     init()
     started = False
     if not from_rel:
