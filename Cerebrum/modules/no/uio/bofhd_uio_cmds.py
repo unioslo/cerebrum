@@ -2476,7 +2476,7 @@ class BofhdExtension(object):
                 mapping['birthdate'] = person.birth_date.strftime('%Y-%m-%d')
                 mapping['emailadr'] =  "TODO"  # We probably don't need to support this...
 
-            out.write(th.apply_template('body', mapping))
+            out.write(th.apply_template('body', mapping, no_quote=('barcode',)))
         if th._footer is not None:
             out.write(th._footer)
         out.close()
