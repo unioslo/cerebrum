@@ -90,7 +90,6 @@ from Cerebrum.modules.no.uio import fronter_lib
 from Cerebrum.Utils import Factory
 from Cerebrum import Database
 from Cerebrum.modules import PosixUser
-from Cerebrum import Logging
 from Cerebrum import Errors
 
 cf_dir = '/cerebrum/dumps/Fronter'
@@ -98,6 +97,14 @@ root_sko = '900199'
 root_struct_id = 'UiO root node'
 group_struct_id = "UREG2000@uio.no imported groups"
 group_struct_title = 'Automatisk importerte grupper'
+
+# Module globals, properly initialized in main().
+db = const = logger = fronter = xml = None
+new_group = old_group = group_updates = None
+new_users = old_users = deleted_users = user_updates = None
+new_rooms = old_rooms = room_updates = None
+new_groupmembers = old_groupmembers = groupmember_updates = None
+new_acl = old_acl = acl_updates = None
 
 def usage(exitcode=0):
     print """Usage: [options] outfile
@@ -150,7 +157,7 @@ def main():
     global db, const, logger, fronter, xml
     db = Factory.get('Database')()
     const = Factory.get('Constants')(db)
-    logger = Logging.getLogger("console")
+    logger = Factory.get_logger("cronjob")
     fronter = fronter_lib.Fronter(host, db, const, fs_db,
                                   logger=logger)
     xml = fronter_lib.FronterXML(args[0],
@@ -497,7 +504,8 @@ def build_structure(sko, allow_room=0, allow_contact=0):
     return id
 
 def process_single_enhet_id(kurs_id, enhet_id, struct_id, emnekode,
-                            groups, enhet_node, undervisning_node):
+                            groups, enhet_node, undervisning_node,
+                            termin_suffix=""):
     # I tillegg kommer så evt. rom knyttet til de
     # undervisningsaktivitetene studenter kan melde seg på.
     for akt in fronter.enhet2akt.get(enhet_id, []):
@@ -536,14 +544,15 @@ def process_single_enhet_id(kurs_id, enhet_id, struct_id, emnekode,
             new_acl.setdefault('All_users', {})[aktans] = {'gacc': '100',
                                                            'racc': '0'}
 
-        aktid = "%s:%s" % (struct_id, aktkode)
-        new_rooms["ROOM/Aktivitet:%s:%s" % (kurs_id, aktkode)] = {
-            'title': "%s - %s" % (emnekode.upper(), aktnavn),
-             'parent': enhet_node,
-             'CFid': "ROOM/Aktivitet:%s" % aktid}
-        new_acl.setdefault("ROOM/Aktivitet:%s" % aktid, {})[aktans] = {
+        akt_rom_id = "ROOM/Aktivitet:%s:%s" % (enhet_id.upper(),
+                                               aktkode.upper())
+        akt_tittel = "%s - %s%s" % (emnekode.upper(), aktnavn, termin_suffix)
+        new_rooms[akt_rom_id] = {'title': akt_tittel,
+                                 'parent': enhet_node,
+                                 'CFid': akt_rom_id}
+        new_acl.setdefault(akt_rom_id, {})[aktans] = {
             'role': fronter.ROLE_CHANGE}
-        new_acl.setdefault("ROOM/Aktivitet:%s" % aktid, {})[aktstud] = {
+        new_acl.setdefault(akt_rom_id, {})[aktstud] = {
             'role': fronter.ROLE_WRITE}
 
     # Til slutt deler vi ut "View Contacts"-rettigheter på kryss og
@@ -606,25 +615,27 @@ def process_kurs2enhet():
                                          fronter.kurs2navn[kurs_id],
                                          termk.upper(), aar)
             multi_enhet = []
+            termin_suffix = ""
             multi_id = ":".join((Instnr, emnekode, termk, aar))
             if len(fronter.emne_termnr[multi_id]) > 1:
                 multi_enhet.append("%s. termin" % termnr)
+                termin_suffix = " %s %s" % (termk.upper(), aar)
             if len(fronter.emne_versjon[multi_id]) > 1:
                 multi_enhet.append("v%s" % versjon)
             if multi_enhet:
-                tittel += ", %s" % ", ".join(multi_enhet)
+                tittel += ", " + ", ".join(multi_enhet)
 
             register_group(tittel, enhet_node, sko_node, 1)
-            register_group("%s - Undervisningsrom" % emnekode,
+            register_group("%s - Undervisningsrom" % emnekode.upper(),
                            undervisning_node, enhet_node, 1);
 
             # Alle eksporterte kurs skal i alle fall ha ett fellesrom og
             # ett lærerrom.
-            new_rooms["ROOM/Felles:%s" % kurs_id] = {
+            new_rooms["ROOM/Felles:%s" % struct_id] = {
                 'title': "%s - Fellesrom" % emnekode.upper(),
                 'parent': enhet_node,
                 'CFid': "ROOM/Felles:%s" % struct_id}
-            new_rooms["ROOM/Larer:%s" % kurs_id] = {
+            new_rooms["ROOM/Larer:%s" % struct_id] = {
                 'title': "%s - Lærerrom" % emnekode.upper(),
                 'parent': enhet_node,
                 'CFid': "ROOM/Larer:%s" % struct_id}
@@ -664,7 +675,8 @@ def process_kurs2enhet():
                          }
                 process_single_enhet_id(kurs_id, enhet_id, struct_id,
                                         emnekode, groups,
-                                        enhet_node, undervisning_node)
+                                        enhet_node, undervisning_node,
+                                        termin_suffix)
         elif type == fronter.EVU_PREFIX.lower():
             # EVU-kurs er modellert helt uavhengig av semester-inndeling i
             # FS, slik at det alltid vil være nøyaktig en enhet-ID for
@@ -698,7 +710,7 @@ def process_kurs2enhet():
 
                 # Alle eksporterte emner skal i alle fall ha ett
                 # fellesrom og ett lærerrom.
-                new_rooms["ROOM/Felles:%s" % kurs_id] = {
+                new_rooms["ROOM/Felles:%s" % struct_id] = {
                     'title': "%s - Fellesrom" % kurskode.upper(),
                     'parent': enhet_node,
                     'CFid': "ROOM/Felles:%s" % struct_id}
@@ -708,7 +720,7 @@ def process_kurs2enhet():
                 new_acl.setdefault("ROOM/Felles:%s" % struct_id,
                                    {})[enhstud] = {
                     'role': fronter.ROLE_WRITE}
-                new_rooms["ROOM/Larer:%s" % kurs_id] = {
+                new_rooms["ROOM/Larer:%s" % struct_id] = {
                     'title': "%s - Lærerrom" % kurskode.upper(),
                     'parent': enhet_node,
                     'CFid': "ROOM/Larer:%s" % struct_id}
