@@ -536,15 +536,22 @@ class ConstantsBase(DatabaseAccessor):
                         raise
                     code.insert()
                     stats['inserted'] += 1
-                del order[root][cls]
-                table_code_count = self._db.query_1(
-                    """SELECT count(*) FROM %s""" % cls._lookup_table)
-                if cls_code_count <> table_code_count:
+                rows = self._db.query(
+                    """SELECT * FROM %s""" % cls._lookup_table)
+                if cls_code_count <> len(rows):
+                    table_vals = [str(r['code_str']) for r in rows]
+                    code_vals = [str(x) for x in order[root][cls]]
+                    table_vals.sort()
+                    code_vals.sort()
                     raise RuntimeError, \
                           ("Number of %s code attributes (%d)"
-                           " differs from number of %s rows (%d)") % (
+                           " differs from number of %s rows (%d)\n"
+                           "In table: %s\nIn class def:%s\n") % (
                         cls.__name__, cls_code_count,
-                        cls._lookup_table, table_code_count)
+                        cls._lookup_table, len(rows),
+                        ",".join(table_vals),
+                        ",".join(code_vals))
+                del order[root][cls]
                 if order.has_key(cls):
                     insert(cls, update)
             del order[root]
