@@ -70,7 +70,7 @@ def synchronize_attribute(cerebrum_lookup, fs_lookup,
                           fs_update, index, const):
     """
     Synchronize an attribute A (e-mail or primary account) between Cerebrum
-    and FS.
+    and FS.  Attribute A's value MUST be unique (or Null).
 
     CEREBRUM_LOOKUP is a function yielding a mapping between no_ssn and A
     from Cerebrum.
@@ -83,34 +83,71 @@ def synchronize_attribute(cerebrum_lookup, fs_lookup,
     logger.debug("Fetching information from Cerebrum")
     fnr2attribute = cerebrum_lookup(const.externalid_fodselsnr)
     logger.debug("Done fetching information from Cerebrum")
+    updates = {}
 
     for row in fs_lookup():
 	fnr = "%06d%05d" % (int(row['fodselsdato']), int(row['personnr']))
         cere_attribute = fnr2attribute.get(fnr, None)
         fs_attribute = row[index]
-        
-        # Cerebrum has a record of this fnr
-        if fnr in fnr2attribute:
-            # We update only when the values differ
-            if cere_attribute != fs_attribute:
-                logger.debug1("Updating for %s: %s -> %s",
-                              fnr, fs_attribute, cere_attribute)
 
-                fs_update(row['fodselsdato'], row['personnr'], cere_attribute)
-		attempt_commit()
+        # Cerebrum has a record of this fnr
+        if cere_attribute is not None:
+            if fs_attribute is None:
+                logger.debug1("Adding address for %s: %s",
+                              fnr, cere_attribute)
+            # We update only when the values differ, but we can't do
+            # it here since FS may have a uniqueness constraint, and
+            # an update could then lead to two entries temporarily
+            # having the same value.
+            elif cere_attribute != fs_attribute:
+                logger.debug1("Will update %s: %s -> %s",
+                              fnr, fs_attribute, cere_attribute)
+                updates[fs_attribute] = [row['fodselsdato'], row['personnr'],
+                                         cere_attribute]
             # fi
 
         # Attribute registered in FS does not exist in Cerebrum anymore
 	else:
 
 	    if fs_attribute is not None:
-                logger.debug1("Deleting address for %s.", fnr)
+                logger.debug1("Deleting address for %s: %s",
+                              fnr, fs_attribute)
 
                 # None in FS means "no value"
                 fs_update(row['fodselsdato'], row['personnr'], None)
                 attempt_commit()
             # fi
         # fi
+    # od
+
+    for fs_value in updates.keys():
+        # Have we already done this update?
+        if updates[fs_value] is None:
+            continue
+        # fi
+
+        fdato, persnr, cere_value = updates[fs_value]
+        
+        # Does the value we're changing to exist in FS already?  If
+        # so, change the person having that value first.  This should
+        # be a recursive function, but cascading changes probably
+        # don't happen in practice.  Update the other
+
+        if cere_value in updates:
+            u_fs_value = cere_value
+            u_fdato, u_persnr, u_cere_value = updates[u_fs_value]
+            logger.debug1("Changing cascading address for %06d%05d: %s -> %s",
+                          u_fdato, u_persnr, u_fs_value, u_cere_value)
+            fs_update(u_fdato, u_persnr, u_cere_value)
+            attempt_commit()
+            # Mark it as done
+            updates[cere_value] = None
+        # fi
+
+        logger.debug1("Changing address for %06d%05d: %s -> %s",
+                      fdato, persnr, fs_value, cere_value)
+        fs_update(fdato, persnr, cere_value)
+        attempt_commit()
     # od
 
     logger.debug("Done updating attributes")
@@ -207,19 +244,6 @@ def main():
 # end main
 
 
-
-
-
 if __name__ == '__main__':
     main()
 # fi
-
-
-
-
-
-
-
-
-
-
