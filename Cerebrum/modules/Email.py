@@ -334,6 +334,10 @@ class EmailTarget(EmailEntity):
             if column in kwargs:
                 where.append("%s = :%s" % (column, column))
                 binds[column] = kwargs[column]
+                if column == 'target_type':
+                    # Avoid errors caused by the database driver
+                    # converting bind args to str's.
+                    binds[column] = int(binds[column])
                 del kwargs[column]
         if kwargs:
             raise ProgrammingError, \
@@ -377,6 +381,14 @@ class EmailTarget(EmailEntity):
                                  {'uid': using_uid,
                                   'alias': alias})
         self.find(target_id)
+
+    def get_addresses(self):
+        return self.query("""
+        SELECT ea.local_part, ed.domain, ea.address_id
+        FROM [:table schema=cerebrum name=email_address] ea
+        JOIN [:table schema=cerebrum name=email_domain] ed
+          ON ed.domain_id = ea.domain_id
+        WHERE ea.target_id = :t_id""", {'t_id': int(self.email_target_id)})
 
     def list_email_targets(self):
         """Return target_id of all EmailTarget in database"""
