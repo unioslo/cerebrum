@@ -10,8 +10,6 @@
 # - kopiavgift_fritak fritak fra å betale selve kopiavgiften
 # - betaling_fritak fritak for å betale for den enkelte utskrift
 
-# TODO: Håndtere 1.3: dato for sanksjonering.
-
 import getopt
 import os
 import sys
@@ -27,7 +25,8 @@ from Cerebrum import Group
 from Cerebrum import Person
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no import fodselsnr
-from Cerebrum.modules.no.uio.printer_quota import AutoStud
+from Cerebrum.modules.no.uio import AutoStud
+from Cerebrum.modules.no.uio.printer_quota import bofhd_pq_utils
 from Cerebrum.modules.no.uio.printer_quota import PaidPrinterQuotas
 from Cerebrum.modules.no.uio.printer_quota import PPQUtil
 from Cerebrum.modules.no.uio.AutoStud.StudentInfo import GeneralDataParser
@@ -39,19 +38,29 @@ pu = PPQUtil.PPQUtil(db)
 const = Factory.get('Constants')(db)
 processed_person = {}
 person = Person.Person(db)
+pq_logger = bofhd_pq_utils.SimpleLogger('pq_bofhd.log')
 
 # term_init_mask brukes til å identifisere de kvotetildelinger som har
 # skjedde i dette semesteret.  Den definerer også tidspunktet da
 # forrige-semesters gratis-kvote nulles, og ny initiell kvote
 # tildeles.
-year, term = time.localtime()[0:2]
-if term <= 6:
+
+# All PQ_DATES has the format month, day.  Date is inclusive
+
+require_kopipenger = True
+year, month, mday = time.localtime()[0:3]
+if ((month, mday) >= cereconf.PQ_SPRING_START and
+    (month, mday) < cereconf.PQ_FALL_START):
     term = 'V'
+    if ((month, mday) >= cereconf.PQ_SPRING_FREE[0] and
+        (month, mday) <= cereconf.PQ_SPRING_FREE[1]):
+        require_kopipenger = False
 else:
     term = 'H'
+    if ((month, mday) >= cereconf.PQ_FALL_FREE[0] and
+        (month, mday) <= cereconf.PQ_FALL_FREE[1]):
+        require_kopipenger = False
 term_init_prefix = '%i-%s:init:' % (year, term)
-
-# TODO: 15 september
 
 class ThreeLevelDataParser(xml.sax.ContentHandler):
     """General parser for processing files like:
@@ -109,15 +118,16 @@ def set_quota(person_id, has_quota=False, has_blocked_quota=False,
         new_blocked = has_blocked_quota and 'T' or 'F'
         if ppq_info['has_quota'] != new_has:
             ppq.set_status_attr(person_id, {'has_quota': has_quota})
+            pq_logger.info("set has_quota=%i for %i" % (has_quota, person_id))
         if ppq_info['has_blocked_quota'] != new_blocked:
             ppq.set_status_attr(person_id, {'has_blocked_quota': has_blocked_quota})
+            pq_logger.info("set has_blocked_quota=%i for %i" % (has_quota, person_id))
     except Errors.NotFoundError:
         ppq_info = {'max_quota': None,
                     'weekly_quota': None}
         ppq.new_quota(person_id, has_quota=has_quota,
                       has_blocked_quota=has_blocked_quota)
-        #             weekly_quota=new_quota.get('weekly', None),
-        #             max_quota=new_quota.get('max', None))
+        pq_logger.info("new empty quota for %i" % person_id)
 
     if not has_quota or has_blocked_quota:
         logger.debug("skipping quota calculation for %i" % person_id)
@@ -127,6 +137,8 @@ def set_quota(person_id, has_quota=False, has_blocked_quota=False,
     # Tildel default kvote for dette semesteret
     if 'default' not in free_this_term.get(person_id, []):
         logger.debug("grant %s for %i" % ('default', person_id))
+        pq_logger.info("set initial %s=%i for %i" % (
+            'default', int(autostud.pc.default_values['print_start']), person_id))
         pu.set_free_pages(person_id,
                           int(autostud.pc.default_values['print_start']),
                           '%s%s' % (term_init_prefix, 'default'),
@@ -144,6 +156,8 @@ def set_quota(person_id, has_quota=False, has_blocked_quota=False,
                                   q['start'],
                                   '%s%s' % (term_init_prefix, q['id']),
                                   update_program=update_program)
+                pq_logger.info("grant %s=%i for %i" % (
+                    q['id'], q['start'], person_id))
         if q.has_key('weekly'):
             new_weekly = (new_weekly or 0) + q['weekly']
         if q.has_key('max'):
@@ -151,8 +165,10 @@ def set_quota(person_id, has_quota=False, has_blocked_quota=False,
     
     if new_weekly != ppq_info['weekly_quota']:
         ppq.set_status_attr(person_id, {'weekly_quota': new_weekly})
+        pq_logger.info("set weekly_quota=%i for %i" % (new_weekly, person_id))
     if new_max != ppq_info['max_quota']:
         ppq.set_status_attr(person_id, {'max_quota': new_max})
+        pq_logger.info("set max_quota=%i for %i" % (new_max, person_id))
     db.commit()
 
 def recalc_quota_callback(person_info):
@@ -177,11 +193,13 @@ def recalc_quota_callback(person_info):
     if not quota_victims.has_key(person_id):
         logger.debug("not a quota victim %s" % person_id)
         logger.set_indent(0)
-        # TODO: assert that person does _not_ have quota
+        # assert that person does _not_ have quota
+        set_quota(person_id, has_quota=False)
         return
     
     # Blokker de som ikke har betalt/ikke har kopiavgift-fritak
-    if (not har_betalt.get(person_id, False) and
+    if (require_kopipenger and
+        not har_betalt.get(person_id, False) and
         not kopiavgift_fritak.get(person_id, False)):
         logger.debug("block %s (bet=%i, fritak=%i)" % (
             person_id, har_betalt.get(person_id, False),
