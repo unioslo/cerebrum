@@ -224,6 +224,8 @@ _arg_help = {
  - account"""],
     'posix_gecos': ['gecos', 'Enter gecos'],
     'string': ['string', 'Enter value'],
+    'group_search_type': ['search_type', 'Enter group search type', 
+                          'This should be a hash, so just forget it'],
     'person_search_type': ['search_type', 'Enter person search type',
                            """Possible values:
   - 'name'
