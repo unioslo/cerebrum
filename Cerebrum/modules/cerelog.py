@@ -1,7 +1,7 @@
 #!/usr/bin/env python2.2
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2003 University of Oslo, Norway
+# Copyright 2004 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -24,7 +24,7 @@
 This file is part of Cerebrum.
 
 This module provides a logging framework for Cerebrum. The idea is based on
-python2.3's logging module and a few knits of our own.
+python2.3's logging module and a few nits of our own.
 
 The logging framework behaviour is controlled by a suitable configuration
 file, described at [1]. Although we use the very same format/options as the
@@ -39,7 +39,7 @@ logging.fileConfig. Most noteably:
   *all* handers, only those attached to the requested logger.
 
 * The root logger (if it is initialized at all) is an instance of
-  cerebrumLogger, not logging.RootLogger.
+  CerebrumLogger, not logging.RootLogger.
 
 * The parent-child hierarchy is constructed by this module. We do not rely
   on logging.getLogger's behaviour. Nevertheless, the 'dotted name
@@ -49,10 +49,10 @@ logging.fileConfig. Most noteably:
 Furthermore, this module provides additional extensions to the standard
 logging framework:
 
-* a cerebrumLogger class, with several additional message levels (five new
+* a CerebrumLogger class, with several additional message levels (five new
   debug levels)
 
-* a cerebrumRotatingHandler class, which is a specialization of
+* a CerebrumRotatingHandler class, which is a specialization of
   logging.RotatingFileHandler capable of arranging the logfiles based on
   sys.argv[0]
 
@@ -125,8 +125,8 @@ def init_cerebrum_extensions():
     """
 
     # Certain things are evaluated in logging package's context
-    setattr(logging, "cerebrumRotatingHandler", cerebrumRotatingHandler)
-    setattr(logging, "cerebrumLogger", cerebrumLogger)
+    setattr(logging, "CerebrumRotatingHandler", CerebrumRotatingHandler)
+    setattr(logging, "CerebrumLogger", CerebrumLogger)
         
     # A couple of constants for our debugging levels
     for i in range(1,6):
@@ -137,7 +137,7 @@ def init_cerebrum_extensions():
         logging.addLevelName(value, name)
     # od
 
-    logging.setLoggerClass(cerebrumLogger)
+    logging.setLoggerClass(CerebrumLogger)
 # end init_cerebrum_extensions
 
 
@@ -507,7 +507,7 @@ def cerelog_init(config_file, name):
 
 
 
-class cerebrumLogger(logging.Logger):
+class CerebrumLogger(logging.Logger):
     """
     This is the logger class used by the Cerebrum framework.
     """
@@ -548,13 +548,13 @@ class cerebrumLogger(logging.Logger):
         self.__cerebrum_debug(logging.DEBUG5, msg, *args, **kwargs)
     # end debug1
     
-# end cerebrumLogger
+# end CerebrumLogger
 
 
 
 
 
-class cerebrumRotatingHandler(logging.FileHandler, object):
+class CerebrumRotatingHandler(logging.FileHandler, object):
     """
     Cerebrum's own rotating handler. 
     """
@@ -607,7 +607,7 @@ class cerebrumRotatingHandler(logging.FileHandler, object):
         self.filename = os.path.join(self.logdir,
                                      self.directory,
                                      self.basename)
-        super(cerebrumRotatingHandler, self).__init__(self.filename, mode)
+        super(CerebrumRotatingHandler, self).__init__(self.filename, mode)
 
         self.maxBytes = maxBytes
         self.backupCount = backupCount
@@ -670,4 +670,4 @@ class cerebrumRotatingHandler(logging.FileHandler, object):
         
         logging.FileHandler.emit(self, record)
     # end emit
-# end cerebrumRotatingHandler
+# end CerebrumRotatingHandler
