@@ -174,6 +174,16 @@ class AliasFile(CLFileBack):
             mod=">>"
         return "%s: %s %s\n" % ( addr.name, mod, to)
 
+class SambaFile(CLFileBack):
+    """One entry in a samba passwordfile lookes like this:
+    <username>:<uid>:<lanman-hash>:<nt-hash>:<Long Name>:<homedir>:<user shell>"""
+    filename="/etc/cerecync/smbpasswd"
+    def format(self,account):
+        if account.uid is None:
+            raise NotPosixError, account.name
+        return "%s:%s:%s:%s:%s:%s:%s\n" % ( account.name,account.uid,account.lmhash,\
+            account.nthash,account.fullname,account.homedir,account.shell)
+
 
 # When using the file backend the user will want to save the id of the
 # last recorded update to a file. (But will the users of other backends
