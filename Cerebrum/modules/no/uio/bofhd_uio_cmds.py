@@ -282,7 +282,7 @@ class BofhdExtension(object):
     def _get_access_id(self, target_type, target_name):
         func_name = "_get_access_id_%s" % target_type
         if not func_name in dir(self):
-            raise CerebrumError, "Unknown type %s" % target_type
+            raise CerebrumError, "Unknown id type %s" % target_type
         return self.__getattribute__(func_name)(target_name)
 
     def _validate_access(self, target_type, opset, attr):
@@ -318,6 +318,23 @@ class BofhdExtension(object):
                 re.compile(attr)
             except re.error, e:
                 raise CerebrumError, ("Syntax error in regexp: %s" % e)
+
+    def _get_access_id_ou(self, ou):
+        ou = self._get_ou(stedkode=ou)
+        return ou.entity_id, self.const.auth_target_type_ou
+    def _validate_access_ou(self, ou, attr):
+        # TODO: check if the opset is relevant for an ou
+        if attr is not None:
+            raise CerebrumError, "Can't specify attribute for ou access"
+
+    def _get_access_id_global_ou(self, ou):
+        if ou != '':
+            raise CerebrumError, "Cannot set OU for global access"
+        return None, self.const.auth_target_type_global_ou
+    def _validate_access_global_ou(self, ou, attr):
+        # TODO: check if the opset is relevant for an ou
+        if attr is not None:
+            raise CerebrumError, "Can't specify attribute for ou access"
 
     # def _get_access_id_maildom(self, target_name):
         
