@@ -120,7 +120,11 @@ class JobRunner(object):
             if jobs[k].when is not None:
                 n = jobs[k].when.next_delta(self.last_run.get(k, 0), current_time)
                 if n <= 0:
+                    pre_len = len(self.ready_to_run)
                     self.insert_job(k)
+                    # If max_freq or similar prevented a run, don't return a small delta
+                    if pre_len == len(self.ready_to_run):
+                        n = min_delta
                 min_delta = min(n, min_delta)
         return min_delta
 
