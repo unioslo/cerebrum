@@ -496,6 +496,63 @@ class BofhdExtension(object):
         et.delete()
         return "OK, also deleted e-mail target"
 
+    # email reassign_address <address> <destination>
+    all_commands['email_reassign_address'] = Command(
+        ('email', 'reassign_address'),
+        EmailAddress(help_ref='email_address'),
+        AccountName(help_ref='account_name'),
+        perm_filter='can_email_address_reassign')
+    def email_reassign_address(self, operator, address, dest):
+        source_et, source_acc = self.__get_email_target_and_account(address)
+        ttype = source_et.email_target_type
+        if ttype not in (self.const.email_target_account,
+                         self.const.email_target_deleted):
+            raise CerebrumError, ("Can't reassign e-mail address from target "+
+                                  "type %s") % self.const.EmailTarget(ttype)
+        dest_acc = self._get_account(dest)
+        if dest_acc.is_deleted():
+            raise CerebrumError, ("Can't reassign e-mail address to deleted "+
+                                  "account %s") % dest
+        dest_et = Email.EmailTarget(self.db)
+        try:
+            dest_et.find_by_entity(dest_acc.entity_id)
+        except Errors.NotFoundError:
+            raise CerebrumError, "Account %s has no e-mail target" % dest
+        if dest_et.email_target_type <> self.const.email_target_account:
+            raise CerebrumError, ("Can't reassign e-mail address to target "+
+                                  "type %s") % self.const.EmailTarget(ttype)
+        if source_et.email_target_id == dest_et.email_target_id:
+            return "%s is already connected to %s" % (address, dest)
+        if (source_acc.owner_type <> dest_acc.owner_type or
+            source_acc.owner_id <> dest_acc.owner_id):
+            raise CerebrumError, ("Can't reassign e-mail address to a "+
+                                  "different person.")
+        
+        self.ba.can_email_address_reassign(operator.get_entity_id(),
+                                           dest_acc)
+
+        source_epat = Email.EmailPrimaryAddressTarget(self.db)
+        try:
+            source_epat.find(source_et.email_target_id)
+            source_epat.delete()
+        except Errors.NotFoundError:
+            pass
+        
+        ea = Email.EmailAddress(self.db)
+        ea.find_by_address(address)
+        ea.email_addr_target_id = dest_et.email_target_id
+        ea.write_db()
+        
+        dest_acc.update_email_addresses()
+        
+        if (len(source_et.get_addresses()) == 0 and
+            ttype == self.const.email_target_deleted):
+            source_et.delete()
+            return "OK, also deleted e-mail target"
+        
+        source_acc.update_email_addresses()
+        return "OK"
+
     # email forward "on"|"off"|"local" <account>+ [<address>+]
     all_commands['email_forward'] = Command(
         ('email', 'forward'),
