@@ -72,7 +72,7 @@ def read_addr():
         # Fill glob_addr[numeric code value][local_part]
         for row in mail_addr.list_email_addresses_ext(domain):
             lp_dict[row['local_part']] = row
-        for row in mail_dom.list_email_domain_with_category(dom_catg):
+        for row in mail_dom.list_email_domains_with_category(dom_catg):
             # Alias glob_addr[domain name] to glob_addr[numeric code
             # value], for later "was local_part@domain overridden"
             # check.
@@ -80,7 +80,6 @@ def read_addr():
             # Update dicts 'targ2addr' and 'aid2addr' with the
             # override addresses.
             for lp, row2 in lp_dict.items():
-                counter += 1
                 # Use 'row', and not 'row2', for domain.  Using 'dom2'
                 # would give us 'UIO_GLOBALS'.
                 addr = "%s@%s" % (lp, row['domain'])
@@ -103,7 +102,7 @@ def read_addr():
         a_id, t_id = [int(row[x]) for x in ('address_id', 'target_id')]
         targ2addr.setdefault(t_id, []).append(addr)
         aid2addr[a_id] = addr
-
+        
 def read_prim():
     counter = 0
     curr = now()
@@ -337,7 +336,6 @@ description: mail-config ved UiO.\n
             continue
 
         f.write("dn: cn=d%s,ou=mail,%s\n" % (t, base_dn))
-        f.write("objectClass: top\n")
         f.write("objectClass: mailAddr\n")
         f.write("cn: d%s\n" % t)
         f.write("targetType: %s\n" % tt)
@@ -350,7 +348,11 @@ description: mail-config ved UiO.\n
         
         # Find primary mail-address:
         if targ2prim.has_key(t):
-            f.write("defaultMailAddress: %s\n" % aid2addr[targ2prim[t]])
+            if aid2addr.has_key(targ2prim[t]):
+                f.write("defaultMailAddress: %s\n" % aid2addr[targ2prim[t]])
+            else:
+                print "Strange: t: %d, targ2prim[t]: %d, but no aid2addr" % (
+                    t, targ2prim[t])
             
         # Find addresses for target:
         if targ2addr.has_key(t):
@@ -366,27 +368,27 @@ description: mail-config ved UiO.\n
         # Find spam-settings:
         if targ2spam.has_key(t):
             level, action = targ2spam[t]
-            rest += "spamLevel: %s\n" % level
-            rest += "spamAction: %s\n" % action
+            f.write("spamLevel: %s\n" % level)
+            f.write("spamAction: %s\n" % action)
         else:
             # Set default-settings.
-            rest += "spamLevel: 9999\n"
-            rest += "spamAction: 0\n"
+            f.write("spamLevel: 9999\n")
+            f.write("spamAction: 0\n")
 
         # Find virus-setting:
         if targ2virus.has_key(t):
             found, rem, enable = targ2virus[t]
-            rest += "virusFound: %s\n" % found
-            rest += "virusRemoved: %s\n" % rem
+            f.write("virusFound: %s\n" % found)
+            f.write("virusRemoved: %s\n" % rem)
             if enable == 'T':
-                rest += "virusScanning: TRUE\n"
+                f.write("virusScanning: TRUE\n")
             else:
-                rest += "virusScanning: FALSE\n"
+                f.write("virusScanning: FALSE\n")
         else:
             # Set default-settings.
-            rest += "virusScanning: TRUE\n"
-            rest += "virusFound: 1\n"
-            rest += "virusRemoved: 1\n"
+            f.write("virusScanning: TRUE\n")
+            f.write("virusFound: 1\n")
+            f.write("virusRemoved: 1\n")
 
             
         f.write("\n")
