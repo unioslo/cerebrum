@@ -73,7 +73,9 @@ class DatabaseClass(GroBuilder, Searchable, Dumpable):
         for i in self.primary:
             keys[i.name] = i.to_db(getattr(self, '_' + i.name))
 
-        row, = db.query(sql, keys)
+        row = db.query_1(sql, keys)
+        if len(attributes) == 1:
+            row = {attributes[0].name:row}
 
         for i in attributes:
             value = row[i.name]
