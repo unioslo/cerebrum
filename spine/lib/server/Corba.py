@@ -203,13 +203,15 @@ def _create_corba_method(method):
             return convert_to_corba(value, self.transaction, method.data_type)
 
         except Exception, e:
-            import SpineIDL, types
+            import SpineIDL, types, traceback
 
             if getattr(e, '__class__', e) not in method.exceptions:
+                
                 #temp throw unknown exceptions to the client.
                 #remember to remove this, and in Builder.py before production.
                 exception = SpineIDL.Errors.DebugException
                 name = getattr(e, '__class__',str(e))
+                traceback.print_exc()
                 raise exception("Unkown error '%s': %s" % (name, str(e.args)))
                 #raise
 
