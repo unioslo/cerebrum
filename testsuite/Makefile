@@ -4,4 +4,4 @@ bootstrap:
 	./bootstrap.sh
 
 testrun:
-	#./inittest.sh
+	./inittest.sh

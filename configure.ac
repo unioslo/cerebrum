@@ -5,7 +5,7 @@ AC_INIT("cerebrum", "0.1", "cerebrum-developers@usit.uio.no")
 
 # Checks for programs.
 AC_PROG_MAKE_SET
-#AM_MISSING_PROG(AUTOCONF, autoconf, $missing_dir)
+AM_MISSING_PROG(AUTOCONF, autoconf, $missing_dir)
 
 AC_ARG_WITH(python,
 	[  --with-python=NAME      which Python binary to use [[python]]],
