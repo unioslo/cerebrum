@@ -37,6 +37,7 @@ host_config = {
     'petra.uio.no': { 'DBinst': 'DLODEMO.uio.no',
                       'admins': AllAdmins,
                       'export': ['FS', 'All_users'],
+                      'spread': 'spread_fronter_petra'
                       },
     'blyant.uio.no': { 'DBinst': 'DLOPROD.uio.no',
                        'admins': AllAdmins,
@@ -336,7 +337,7 @@ class Fronter(object):
             if kurs.has_key(kurs_id):
                 # Alle kurs-IDer som stammer fra EVU-kurs prefikses med "EVU:".
                 enhet_id = ":".join(id_seq)
-                self.kurs2enhet[kurs_id].append(enhet_id)
+                self.kurs2enhet.setdefault(kurs_id, []).append(enhet_id)
                 self.enhet2sko[enhet_id] = "%02d%02d00" % (
                     evu['faknr_adm_ansvar'],
                     evu['instituttnr_adm_ansvar'])
