@@ -1417,6 +1417,8 @@ class BofhdExtension(object):
             is_posix = True
         except CerebrumError:
             account = self._get_account(accountname)
+        if account.is_deleted() and not self.ba.is_superuser(operator.get_entity_id()):
+            raise CerebrumError("User is deleted")
         affiliations = []
         for row in account.get_account_types():
             ou = self._get_ou(ou_id=row['ou_id'])
