@@ -162,3 +162,5 @@ class PasswdImport(ImportBase):
             print("User %s promoted with uid: %s", user_name, uid)
         # yrt
     # end process_user
+
+# arch-tag: eaaffe67-b88f-4545-93dc-d6bbb884a444

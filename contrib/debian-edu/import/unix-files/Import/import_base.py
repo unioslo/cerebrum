@@ -32,3 +32,5 @@ class ImportBase(object):
             print("Committed all changes")
         # fi
     # end attempt_commit
+
+# arch-tag: 37206c5e-6d41-4b27-931b-7662b5fa7803
