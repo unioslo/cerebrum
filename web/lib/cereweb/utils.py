@@ -76,3 +76,7 @@ def queue_message(req, message, error=False):
         session['messages'] = []
     session['messages'].append((message, error))
                
+def no_cache(req):
+    """Makes the current request non-cachable"""
+    req.headers_out.add("Cache-Control:","no-cache")
+    req.headers_out.add("Pragma:","no-cache")
