@@ -44,11 +44,11 @@ class Group(Entity):
                             CerebrumTypeAttr('visibility', 'GroupVisibilityType',
                                              GroupVisibilityType, write=True),
                             CerebrumAttr('expire_date', 'Date', write=True)]
-    method_slots = Entity.method_slots + [Method('get_group_members', 'GroupMemberSeq')]
+    method_slots = Entity.method_slots + [Method('get_members', 'GroupMemberSeq')]
 
     cerebrum_class = Cerebrum.Group.Group
 
-    def get_group_members(self):
+    def get_members(self):
         members = []
         e = Cerebrum.Group.Group(self.get_database())
         e.entity_id = self._entity_id

@@ -51,6 +51,7 @@ class Entity(Builder, CerebrumClass, EntityAuth):
         Method('get_notes', 'NoteSeq'),
         Method('get_contact_info', 'ContactInfoSeq'),
         Method('get_addresses', 'AddressSeq'),
+        Method('get_groups', 'GroupSeq'),
         Method('add_note', 'void', [('subject', 'string'), ('description', 'string')], write=True)]
 
     cerebrum_class = Cerebrum.Entity.Entity
@@ -149,6 +150,17 @@ class Entity(Builder, CerebrumClass, EntityAuth):
         if qh.should_skip() or qh.is_locked():
             return True
         return False
+
+    def get_groups(self):
+        cgroup = registry.Group.cerebrum_class(self.get_database())
+        groups = []
+
+        # FIXME: sett include_indirect_members=True når dette blir implementert
+        for row in cgroup.list_groups_with_entity(self.get_entity_id(), include_indirect_members=False):
+            groups.append(registry.Group(int(row[0])))
+        return groups
+
+
 
 class ContactInfo(Builder):
     primary = [Attribute('entity_id', 'long'),
