@@ -36,7 +36,7 @@ module Cerebrum_core{
         * Error raised when trying to fetch a node wich dont exists.
         * \param explanation A string containing a short explanation.
         */
-        exception NoSuchNodeError {
+        exception NoSuchNodeError{
             string explanation;
         };
 
@@ -63,15 +63,24 @@ module Cerebrum_core{
         * dont exists.
         * \param explanation A string containing a short explanation
         */
-        exception NoSuchAttributeError {
+        exception NoSuchAttributeError{
             string explanation;
         };
 
-        exception ReadOnlyAttributeError {
+        /**
+        * Error raised when trying to write an attribute wich is only readable.
+        * \param explanation A string containing a short explanation
+        */
+        exception ReadOnlyAttributeError{
             string explanation;
         };
 
-        exception ServerError {
+        /**
+        * Error raised when the server creates an error. In other words, when
+        * the PROGRAMMER writes crappy code!
+        * \param explanation A string containing a short explanation
+        */
+        exception ServerError{
             string explanation;
         };
 

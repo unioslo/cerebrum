@@ -205,7 +205,10 @@ module Cerebrum_core {
         any getPrimaryKey();
 
         /**
-        * get an attribute for this node
+        * Get an attribute for this node.
+        * \param key The name of the attribute you want.
+        * \exception Raises an exception if the node dont got the attribute,
+        * or if the node isnt locked for reading if the attribute is writeable.
         */
         any get(in string key)
             raises (Errors::NotLockedError, Errors::NoSuchAttributeError);
@@ -219,18 +222,39 @@ module Cerebrum_core {
             raises (Errors::NotLockedError, Errors::NoSuchAttributeError);
  
         /**
-        * set an attribute for this node
+        * Set an attribute for this node.
+        * \param key The name of the attribute.
+        * \param value The value you want to set for the key.
+        * \exception Raises an exception if the node doesnt have the attribute
+        * or if the attribute isnt writeable, or if the node isnt locked for
+        * writing.
         */
-        any set(in string key, in any value);
-        any setLong(in string key, in long value);
-        any setString(in string key, in string value);
+        any set( in string key, in any value )
+            raises ( Errors::NotLockedError,
+                     Errors::NoSuchAttributeError,
+                     Errors::ReadOnlyAttributeError );
+        any setLong( in string key, in long value )
+            raises ( Errors::NotLockedError,
+                     Errors::NoSuchAttributeError,
+                     Errors::ReadOnlyAttributeError );
+        any setString( in string key, in string value )
+            raises ( Errors::NotLockedError,
+                     Errors::NoSuchAttributeError,
+                     Errors::ReadOnlyAttributeError );
 
         /**
         * get the name of the class used for this Node
         */
         string getClassName();
 
+        /**
+        * Get a list over all attributes the node got wich you can read.
+        */
         StringSeq getReadAttributes();
+
+        /**
+        * Get a list over all writeable attributes this node got.
+        */
         StringSeq getWriteAttributes();
 
         /**
