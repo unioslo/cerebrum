@@ -24,7 +24,12 @@
 import unittest
 
 def suite():
-    tests = "config sync directory".split()
+    tests = "config sync".split()
+    try:
+        import ldap
+        tests.append("directory")
+    except ImportError: 
+        print "Module 'ldap' not installed, ignoring test 'directory'"
     return unittest.defaultTestLoader.loadTestsFromNames(tests)
 
 if __name__ == "__main__":
