@@ -161,8 +161,8 @@ def latin1_to_iso646_60(s, substitute=''):
     s = string.translate(s, tr)
 
     xlate = {}
-    for y in range(0x00, 0x1f): xlate[chr(y)] = ''
-    for y in range(0x7f, 0xff): xlate[chr(y)] = ''
+    for y in range(0x00, 0x1f): xlate[chr(y)] = substitute
+    for y in range(0x7f, 0xff): xlate[chr(y)] = substitute
     xlate['Ð'] = 'Dh'
     xlate['ð'] = 'dh'
     xlate['Þ'] = 'Th'
