@@ -27,6 +27,7 @@ default username is stored in is yet to be determined.
 
 import os
 import crypt,random,string
+import time
 import re
 
 from Cerebrum import Utils
@@ -424,6 +425,14 @@ class Account(AccountType, EntityName, EntityQuarantine, Entity):
         if (self.expire_date is not None) or self.get_spread():
             return False
         return True
+
+    def is_deleted(self):
+        """We define a reserved account as an account with 
+        expire_date < now() and no spreads"""
+        if (self.expire_date is not None and
+            self.expire_date < time.time and (not self.get_spread())):
+            return True
+        return False
 
     def list(self):
         """Returns all accounts"""
