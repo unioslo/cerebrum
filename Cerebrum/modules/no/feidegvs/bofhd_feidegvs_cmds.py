@@ -1598,16 +1598,22 @@ class BofhdExtension(object):
     # person create
     all_commands['person_create'] = Command(
         ("person", "create"), PersonId(),
-        Date(help_ref='date_birth'), PersonName(help_ref="person_name_full"), OU(),
+        Date(help_ref='date_birth'), PersonName(help_ref="person_name_first"), 
+	PersonName(help_ref="person_name_last"), OU(),
         Affiliation(), AffiliationStatus(),
         fs=FormatSuggestion("Created: %i",
         ("person_id",)), perm_filter='can_create_person')
-    def person_create(self, operator, person_id, bdate, person_name,
-                      ou, affiliation, aff_status):
-	ou = self._get_ou(ou)
-        aff = self._get_affiliationid(affiliation)
-        aff_status = self._get_affiliation_statusid(aff, aff_status)
-	self.ba.can_create_person(operator.get_entity_id(), ou, aff)
+    def person_create(self, operator, person_id, bdate, person_name_first,
+		      person_name_last, ou, affiliation, aff_status):
+        try:
+            ou = self._get_ou(ou)
+        except Errors.NotFoundError:
+            raise CerebrumError, "Unknown OU (%s)" % ou
+        try:
+            aff = self._get_affiliationid(affiliation)
+        except Errors.NotFoundError:
+            raise CerebrumError, "Unknown affiliation type (%s)" % affiliation
+        self.ba.can_create_person(operator.get_entity_id(), ou, aff)
         person = self.person
         person.clear()
         if bdate is not None:
@@ -1640,17 +1646,17 @@ class BofhdExtension(object):
                                             self.const.externalid_fodselsnr,
                                             id)
         person.populate(bdate, gender,
-                        description='Manualy created')
-        person.affect_names(self.const.system_manual, self.const.name_full)
-        person.populate_name(self.const.name_full,
-                             person_name.encode('iso8859-1'))
-        ou = self._get_ou(ou)
-        aff = self._get_affiliationid(affiliation)
-        aff_status = self._get_affiliation_statusid(aff, aff_status)
+                        description='Manually created')
+        person.affect_names(self.const.system_manual, self.const.name_first, 
+			    self.const.name_last)
+        person.populate_name(self.const.name_first,
+                             person_name_first.encode('iso8859-1'))
+	person.populate_name(self.const.name_last,
+                             person_name_last.encode('iso8859-1'))
         try:
             person.write_db()
-            person.add_affiliation(ou.entity_id, aff,
-                                   self.const.system_manual, aff_status)
+            self._person_affiliation_add_helper(
+                operator, person, stedkode, str(aff), aff_status)
         except self.db.DatabaseError, m:
             raise CerebrumError, "Database error: %s" % m
         return {'person_id': person.entity_id}
