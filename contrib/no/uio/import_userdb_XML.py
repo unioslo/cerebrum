@@ -54,6 +54,11 @@ co = Factory.get('Constants')(db)
 pp = pprint.PrettyPrinter(indent=4)
 prev_msgtime = time()
 
+user_creators = {}     # Store post-processing info for users
+uname2entity_id = {}
+deleted_users = {}
+uid_taken = {}
+
 namestr2const = {'lname': co.name_last, 'fname': co.name_first}
 personObj = Factory.get('Person')(db)
 posix_user = PosixUser.PosixUser(db)
@@ -72,6 +77,7 @@ shell2shellconst = {
     'nologin.chpwd': co.posix_shell_nologin,
     'nologin.ftpuser': co.posix_shell_nologin,
     'nologin.nystudent': co.posix_shell_nologin,
+    'nologin.pwd': co.posix_shell_nologin,
     'nologin.sh': co.posix_shell_nologin,
     'nologin.sluttet': co.posix_shell_nologin,
     'nologin.stengt': co.posix_shell_nologin,
@@ -125,7 +131,6 @@ class PersonUserParser(xml.sax.ContentHandler):
 
     def endElement(self, name):
         if name == "person":
-            #self.personer.append(self.person)
             self.call_back_function(self.person)
         elif name == "user":
             self.person['user'] = self.person.get('user', []) + [self.user]
@@ -218,8 +223,17 @@ def import_groups(groupfile, fill=0):
             if group['type'] == 'fg':
                 pg.populate(parent=groupObj, gid=group['gid'])
                 pg.write_db()
-            else:
-                pass   # TODO:  Marker som nettgruppe med rett spread
+                if group['uiospread'] in ('u', 'b'):
+                    groupObj.add_spread(co.spread_uio_nis_fg)
+                if group['uiospread'] in ('i', 'b'):
+                    groupObj.add_spread(co.spread_ifi_nis_fg)
+            elif group['type'] == 'ng':
+                if group['uiospread'] in ('u', 'b'):
+                    groupObj.add_spread(co.spread_uio_nis_ng)
+                if group['uiospread'] in ('i', 'b'):
+                    groupObj.add_spread(co.spread_ifi_nis_ng)
+            elif group['type'] == 'ig':
+                pass     # Nothing needs to be done for itgroups
         else:
             try:
                 if group['type'] == 'fg':
@@ -281,17 +295,44 @@ def import_person_users(personfile):
     else:
         for row in group.list_all_ext():
             gid2entity_id[int(row['posix_gid'])] = row['group_id']
-        
-##     ou = Stedkode.Stedkode(db)
+
+    ou = Stedkode.Stedkode(db)
     stedkode2ou_id = {}
-##     for row in ou.list_all():
-##         ou.clear()
-##         ou.find(row['ou_id'])
-##         stedkode2ou_id["%02i%02i%02i" % (
-##             ou.fakultet, ou.institutt, ou.avdeling)] = ou.entity_id
+    if 0:  # TODO: set to 1 when debugging is reasonably complete
+        for row in ou.list_all():
+            ou.clear()
+            ou.find(row['ou_id'])
+            stedkode2ou_id["%02i%02i%02i" % (
+                ou.fakultet, ou.institutt, ou.avdeling)] = ou.entity_id
 
     showtime("Parsing")
-    xml.sax.parse(personfile, PersonUserParser(person_callback))
+    try:
+        xml.sax.parse(personfile, PersonUserParser(person_callback))
+    except StopIteration:
+        pass
+    showtime("Post-processing")
+    warned_uc = {}
+    for uc in user_creators.keys():
+        creator_id = uname2entity_id.get(user_creators[uc], None)
+        if creator_id is None:
+            if not warned_uc.has_key(user_creators[uc]):
+                print "Warning: Unknown creator: %s" % user_creators[uc]
+                warned_uc[user_creators[uc]] = 1
+        else:
+            account.clear()
+            account.find(uc)
+            account.creator_id = creator_id
+            account.write_db()
+    # Since the deleted users are sorted by deleted_date DESC and
+    # grouped by person, we may end up building the wrong user.  This
+    # is not critical.
+    # If we move this code above the code that sets creator, we risk
+    # setting the wrong creator
+    for person_id in deleted_users.keys():
+        for du in deleted_users[person_id]:
+            if not uname2entity_id.has_key(du['uname']):
+                account_id = create_account(du, person_id)
+                uname2entity_id[du['uname']] = account_id
     db.commit()
 
 def person_callback(person):
@@ -301,7 +342,11 @@ def person_callback(person):
     # Etter at hele filen er prosessert, gå gjennom alle som har
     # deleted_date, og bygg PosixUser til de, men sett
     # expire_date=deleted_date
-
+    global max_cb
+    if max_cb is not None:
+        max_cb -= 1
+        if max_cb < 0:
+            raise StopIteration()
     personObj.clear()
     fnr = None
     for e in person['extid']:
@@ -330,8 +375,6 @@ def person_callback(person):
                 bdate = db.Date(*bdate)
             except:
                 print "Warning, %s is an illegal date" % person['bdate']
-                #bdate = [1970, 1, 1]
-                #bdate = db.Date(*bdate)
                 bdate = None
         personObj.populate(bdate,
                             co.gender_unknown)
@@ -378,76 +421,116 @@ def person_callback(person):
         personObj.write_db()
         person_id = personObj.entity_id
 
-    # Bygg brukeren
-
-    # TODO:
-    # - sette rett create_date og creator_id
-
+    # Build the persons users.  Delay building deleted users to avoid
+    # username conflicts, and store creators uname as its entity_id is
+    # not available yet.
     for u in person['user']:
-        if u.has_key('deleted_date'):  # TODO
-            continue
-        expire_date = None  # TODO
+        if u.has_key('deleted_date'):
+            deleted_users.setdefault(person_id, []).append(u)
+        else:
+            account_id = create_account(u, person_id)
+            if not u.has_key('reserved'):
+                user_creators[account_id] = u['created_by']
+            uname2entity_id[u['uname']] = account_id
 
-        is_posix = 0
+def create_account(u, owner_id):
+    is_posix = 0
+    if u.has_key('deleted_date'):
+        expire_date = [int(x) for x in u['deleted_date'].split('-')]
+        expire_date = db.Date(*expire_date)
+        if int(u['dfg']) > 0 and not uid_taken.has_key(int(u['uid'])):
+            is_posix = 1
+    else:
+        expire_date = None  # TBD: what is the correct value for existing users?
+
         for tmp in u.get('spread', []):
             if tmp['domain'] in ('u', 'i'):
                 is_posix = 1
 
-        home = disk_id = None
-        if is_posix:
-            gecos = None        # TODO
-            shell = shell2shellconst[u['shell']]
-            posix_user.clear()
-            accountObj = posix_user
-            tmp = u['home'].split("/")
-            if len(tmp) == 5:
-                disk_id = disk2id.get("/".join(tmp[:4]), None)
-                if disk_id is None:
-                    disk = tmp[3]
-                    host = tmp[2]
-                    disk_id = make_disk(host, disk, "/".join(tmp[:4]))
-                    disk2id["/".join(tmp[:4])] = disk_id
-            if disk_id is not None:  # Only set home if not on a normal disk
-                home = None
-        else:
-            account.clear()
-            accountObj = account
+    home = disk_id = None
+    if is_posix:
+        gecos = None        # TODO
+        shell = shell2shellconst[u['shell']]
+        posix_user.clear()
+        accountObj = posix_user
+    else:
+        account.clear()
+        accountObj = account
 
-        accountObj.affect_auth_types(co.auth_type_md5_crypt,
-                                     co.auth_type_crypt3_des)
-        for au in u.get('auth', []):
-            if au['type'] == 'plaintext':   # TODO: Should be called last?
-                accountObj.set_password(au['val'])
-            elif au['type'] == 'md5':
-                accountObj.populate_authentication_type(
-                    co.auth_type_md5_crypt, au['val'])
-            elif au['type'] == 'crypt':
-                accountObj.populate_authentication_type(
-                    co.auth_type_crypt3_des, au['val'])
-        if is_posix:
-            accountObj.populate(u['uid'],
-                                gid2entity_id[int(u['dfg'])],
-                                gecos,
-                                shell,
-                                home=home, # TODO: disk_id
-                                name=u['uname'],
-                                disk_id=disk_id,
-                                owner_type=co.entity_person,
-                                owner_id=person_id,
-                                creator_id=acc_creator_id,
-                                expire_date=expire_date)
+    if not u.has_key('reserved'):
+        tmp = u['home'].split("/")
+        if len(tmp) == 5:
+            disk_id = disk2id.get("/".join(tmp[:4]), None)
+            if disk_id is None:
+                disk = tmp[3]
+                host = tmp[2]
+                disk_id = make_disk(host, disk, "/".join(tmp[:4]))
+                disk2id["/".join(tmp[:4])] = disk_id
+        if disk_id is not None:  # Only set home if not on a normal disk
+            home = None
+
+    accountObj.affect_auth_types(co.auth_type_md5_crypt,
+                                 co.auth_type_crypt3_des)
+    had_splat = 0
+    for au in u.get('auth', []):
+        if len(au['val']) == 0:
+            continue
+        if au['type'] in ('md5', 'crypt') and au['val'][0] == '*':
+            had_splat = 1
+            if au['val'] == '*invalid':
+                continue
+            au['val'] = au['val'][1:]
+        if au['type'] == 'plaintext':   # TODO: Should be called last?
+            accountObj.set_password(au['val'])
+        elif au['type'] == 'md5':
+            accountObj.populate_authentication_type(
+                co.auth_type_md5_crypt, au['val'])
+        elif au['type'] == 'crypt':
+            accountObj.populate_authentication_type(
+                co.auth_type_crypt3_des, au['val'])
+    if is_posix:
+        uid_taken[int(u['uid'])] = 1
+        accountObj.populate(u['uid'],
+                            gid2entity_id[int(u['dfg'])],
+                            gecos,
+                            shell,
+                            home=home, # TODO: disk_id
+                            name=u['uname'],
+                            disk_id=disk_id,
+                            owner_type=co.entity_person,
+                            owner_id=owner_id,
+                            creator_id=acc_creator_id,
+                            expire_date=expire_date)
+    else:
+        accountObj.populate(u['uname'],
+                            co.entity_person,
+                            owner_id,
+                            None,
+                            acc_creator_id,
+                            expire_date,
+                            home,
+                            disk_id)
+    accountObj.write_db()
+    if u.has_key('quarantine') or had_splat:
+        if not u.has_key('quarantine'):
+            print "Warning, user %s had splat, but no quatantine" % u['uname']
+            when = db.TimestampFromTicks(time())
+            why = "Had splat on import from ureg2000"
         else:
-            accountObj.populate(u['uname'],
-                                co.entity_person,
-                                person_id,
-                                None,
-                                acc_creator_id,
-                                expire_date,
-                                home,
-                                disk_id)
-        accountObj.write_db()
-        for tmp in u.get('spread', []):
-            pass             # TODO
+            when = [int(x) for x in u['quarantine']['when'].split('-')]
+            when = db.Date(*when)
+            why = u['quarantine']['why']
+        accountObj.add_entity_quarantine(int(co.quarantine_generell),
+                                         acc_creator_id, # TODO: Set this
+                                         description=why,
+                                         start=when)
+
+    for tmp in u.get('spread', []):
+        if tmp['domain'] == 'u':
+            accountObj.add_spread(co.spread_uio_nis_user)
+        elif tmp['domain'] == 'i':
+            accountObj.add_spread(co.spread_ifi_nis_user)
+    return accountObj.entity_id
 
 def make_disk(hostname, disk, diskname):
     host = Disk.Host(db)
@@ -464,7 +547,7 @@ def make_disk(hostname, disk, diskname):
     except Errors.NotFoundError:
         disk.populate(host.entity_id, diskname, 'uio disk')
         disk.write_db()
-
+    return disk.entity_id
 
 def showtime(msg):
     global prev_msgtime
@@ -472,7 +555,7 @@ def showtime(msg):
     prev_msgtime = time()
 
 def usage():
-    print """import_userdb_XML.py [-p file | -g file] {-P | -G | -M}
+    print """import_userdb_XML.py [-p file | -g file | -m num] {-P | -G | -M}
 
 -G : generate the groups
 -P : generate persons and accounts
@@ -489,12 +572,14 @@ located by their extid (currently only fnr is supported).
 
 if __name__ == '__main__':
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "p:g:PGM",
+        opts, args = getopt.getopt(sys.argv[1:], "p:g:m:PGM",
                                    ["pfile=", "gfile=", "persons", "groups",
-                                    "groupmembers"])
+                                    "groupmembers", "max_cb="])
     except getopt.GetoptError:
         usage()
         sys.exit(2)
+    global max_cb
+    max_cb = None
     pfile = default_personfile
     gfile = default_groupfile
     for o, a in opts:
@@ -506,6 +591,8 @@ if __name__ == '__main__':
             import_person_users(pfile)
         elif o in ('-G', '--groups'):
             import_groups(gfile, 0)
+        elif o in ('-m', '--max_cb'):
+            max_cb = int(a)
         elif o in ('-M', '--groupmembers'):
             import_groups(gfile, 1)
     if(len(opts) == 0):
