@@ -51,6 +51,10 @@ class InternalTrustManager implements X509TrustManager {
     public void checkServerTrusted( X509Certificate[] cert, String str) 
 	throws CertificateException {
         Date date = new Date();
+        if(cert == null || cert.length == 0)
+            throw new IllegalArgumentException("null or zero-length certificate chain");
+        if(str == null || str.length() == 0)
+            throw new IllegalArgumentException("null or zero-length authentication type");
         for(int i = 0; i < cert.length; i++) {
             X509Certificate parent;
             if(i + 1 >= cert.length) {
