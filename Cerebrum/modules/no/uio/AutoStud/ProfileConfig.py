@@ -237,7 +237,7 @@ class ProfileDefinition(object):
 
         # Find all student disks from disk_defs
         for k in ('path', 'prefix'):
-            for ddef in config.disk_defs[k].keys():
+            for ddef in config.disk_defs.get(k, {}).keys():
                 path = config.disk_defs[k][ddef].get('path', None)
                 prefix = config.disk_defs[k][ddef].get('prefix', None)
                 for d in config.autostud.disks.keys():
