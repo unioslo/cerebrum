@@ -23,6 +23,8 @@ import socket
 import re
 import time
 
+import cerebrum_path
+import cereconf
 from Cerebrum.Utils import Factory
 from Cerebrum import Account
 from Cerebrum import Errors
@@ -32,18 +34,25 @@ from Cerebrum import OU
 from Cerebrum import Entity
 from Cerebrum.modules import ADAccount
 from Cerebrum import QuarantineHandler
+from Cerebrum.modules import MountHost
 
-import cereconf
 
 db = Factory.get('Database')()
 co = Factory.get('Constants')(db)
 account = Account.Account(db)
 person = Person.Person(db)
 ad_account = ADAccount.ADAccount(db)
+moho = MountHost.MountHost(db)
 disk = Disk.Disk(db)
 host = Disk.Host(db)
 quarantine = Entity.EntityQuarantine(db)
 ou = OU.OU(db)
+
+
+#div constants.
+
+AD_DEFAULT_OU = '0'
+AD_CERE_ROOT_OU_ID = '682'
 
 class SocketCom(object):
     """Class for Basic socket communication to connect to the ADserver"""
@@ -182,24 +191,30 @@ def get_ad_ou(ldap_path):
 
 
 def get_crbrm_ou(ou_id):
-
-    try:        
-        ou.clear()
-        ou.find(ou_id)
-        path = ou.structure_path(co.perspective_lt)
-        #TBD: Utvide med spread sjekk, OUer uten acronym, problem?
-        return 'OU=%s' % path.replace('/',',OU=')
-    except Errors.NotFoundError:
-        print "WARNING: Could not find OU with id",ou_id
+     ou.clear()
+     ou.find(AD_CERE_ROOT_OU_ID)	
+     return 'OU=%s' % ou.acronym
+     	
+#    Do not use OU placement at UiO.
+#    try:      
+#        ou.clear()
+#        ou.find(ou_id)
+#        path = ou.structure_path(co.perspective_lt)
+#        #TBD: Utvide med spread sjekk, OUer uten acronym, problem?
+#        return 'OU=%s' % path.replace('/',',OU=')
+#    except Errors.NotFoundError:
+#        print "WARNING: Could not find OU with id",ou_id
 
 
 def id_to_ou_path(ou_id,ourootname):
     crbrm_ou = get_crbrm_ou(ou_id)
     if crbrm_ou == ourootname:
-        if cereconf.AD_DEFAULT_OU == '0':
+        if AD_DEFAULT_OU == '0':
             crbrm_ou = 'CN=Users,%s' % ourootname
+        elif AD_DEFAULT_OU == '-1':
+            crbrm_ou = ourootname
         else:
-            crbrm_ou = get_crbrm_ou(cereconf.AD_DEFAULT_OU)
+            crbrm_ou = get_crbrm_ou(AD_DEFAULT_OU)
 
     crbrm_ou = crbrm_ou.replace(ourootname,cereconf.AD_LDAP)
     return crbrm_ou
@@ -210,12 +225,15 @@ def find_home_dir(account_id, account_name):
         account.find(account_id)
         disk.clear()
         disk.find(account.disk_id)
-        host.clear()
-        host.find(disk.host_id)
-        home_srv = host.name
-        #TBD:In the UiO version we need to make a translate from host to
-        #samba server   
-        return "\\\\%s\\%s" % (home_srv,account_name)
+        try:
+	    moho.clear()	
+	    moho.find(disk.host_id)	
+	    home_srv = moho.mount_name			
+	except Errors.NotFoundError:
+	    host.clear()
+            host.find(disk.host_id)
+            home_srv = host.name
+	return "\\\\%s\\%s" % (home_srv,account_name)
     except Errors.NotFoundError:
         print "WARNING: Failure finding the disk of account ",account_id
         
