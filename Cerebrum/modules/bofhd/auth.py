@@ -2,8 +2,10 @@
 
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum import Constants
+from Cerebrum import Group
 from Cerebrum.Utils import Factory
 from Cerebrum import Utils
+from Cerebrum.modules.bofhd.errors import PermissionDenied
 import re
 
 class BofhdAuthOpSet(DatabaseAccessor):
@@ -154,65 +156,226 @@ class BofhdAuth(DatabaseAccessor):
         """
         super(BofhdAuth, self).__init__(database)
         self.const = Factory.get('Constants')(database)
-        self.std_qry = """
-        SELECT 'yes'
-        FROM auth_role_grants arg, auth_role_ops op
-        WHERE arg.entity_id=:operator AND arg.role_id=op.role_id
-          AND op.op_code=:opcode AND arg.dest_entity_id=:dest
-          """
-        self.attr_qry = """
-        SELECT attr
-        FROM auth_role_grants arg, auth_role_attrs ara, auth_role_ops op
-        WHERE arg.entity_id=:operator AND ara.role_id=arg.role_id AND
-          arg.role_id=op.role_id AND op.op_code=:opcode
-          """
 
-    qry = """
-    SELECT ao.op_id, aot.op_target_id, aot.has_attr
-    FROM auth_operation_set aos, auth_operation ao,
-         auth_role ar, auth_op_target aot, 
-    WHERE aos.op_set_id=ao.op_set_id
-        AND ao.op_code=:code
-        AND ar.entity_id=:e_id
-        AND ar.op_set_id=ao.op_set_id
-        AND ar.op_target_id=aot.op_target_id
-        AND aot.entity_id=:tgt_e_id
-        AND aot.target_type=:t_type
-    """
+    def is_superuser(self, operator):
+        return 0
+    
+    def can_set_person_user_priority(self, operator, account):
+        if self.is_superuser(operator):
+            return 1
+        return _query_disk_persmissions(operator, account,
+                                        co.auth_set_password,
+                                        self._get_disk(account.disk_id))
 
-
-    def _check_disk_access(self, operator, disk_id, direction):
-        
+    def can_get_student_info(self, operator, person):
+        # TBD: Should this return some 'level' of visibility?
+        if self.is_superuser(operator):
+            return 1
         return 1
 
-    def can_change_disk(self, operator, new_disk, old_disk=None):
-        """With controls_disk, destination_id may point to a disk or a
-        host.  If pointing to a host, auth_role_attrs are checked for
-        wildcard matches.
-        """
-
-        if (self.query(self.std_qry,
-                       {'operator': operator,
-                        'opcode': self.const.controls_disk,
-                        'dest': disk.entity_id}) or
-            self.query(self.std_qry,
-                       {'operator': operator,
-                        'opcode': self.const.controls_host,
-                        'dest': disk.host_id})):
+    def can_create_person(self, operator):
+        if self.is_superuser(operator):
             return 1
-        for wc in self.query(self.attr_qry+" AND arg.dest_entity_id=:dest", {
-            'operator': operator,
-            'opcode': self.const.controls_wcdisk,
-            'dest': disk.host_id}):
-            m = re.compile(wc['attr']).match(disk.path)
-            if m != None:
+        return 1
+
+    def can_set_person_id(self, operator, person, idtype):
+        if self.is_superuser(operator):
+            return 1
+        return _query_disk_persmissions(operator, account,
+                                        co.auth_set_password,
+                                        self._get_disk(account.disk_id))
+
+    def can_alter_printerquta(self, operator, account):
+        if self.is_superuser(operator):
+            return 1
+        return _query_disk_persmissions(operator, account,
+                                        co.auth_set_password,
+                                        self._get_disk(account.disk_id))
+    
+    def can_query_printerquta(self, operator, account):
+        if self.is_superuser(operator):
+            return 1
+        return 1
+
+    def can_disable_quarantine(self, operator, entity, qtype):
+        if self.is_superuser(operator):
+            return 1
+        return _query_disk_persmissions(operator, account,
+                                        co.auth_set_password,
+                                        self._get_disk(account.disk_id))
+    
+    def can_remove_quarantine(self, operator, entity, qtype):
+        if self.is_superuser(operator):
+            return 1
+        return _query_disk_persmissions(operator, account,
+                                        co.auth_set_password,
+                                        self._get_disk(account.disk_id))
+
+    def can_set_quarantine(self, operator, entity, qtype):
+        if self.is_superuser(operator):
+            return 1
+        return _query_disk_persmissions(operator, account,
+                                        co.auth_set_password,
+                                        self._get_disk(account.disk_id))
+
+    def can_show_quarantines(self, operator, entity):
+        if self.is_superuser(operator):
+            return 1
+        return _query_disk_persmissions(operator, account,
+                                        co.auth_set_password,
+                                        self._get_disk(account.disk_id))
+
+    def can_alter_group(self, operator, group):
+        if self.is_superuser(operator):
+            return 1
+        if self._get_can_modify_target(operator,
+                                       self.const.auth_alter_group_membership,
+                                       'group', group.entity_id):
+            return 1
+        raise PermissionDenied("No access to group")
+
+
+    def can_create_group(self, operator):
+        if self.is_superuser(operator):
+            return 1
+        return 1
+    
+    def can_delete_group(self, operator, group):
+        if self.is_superuser(operator):
+            return 1
+        return self.can_alter_group(operator, group)
+
+    def can_add_spread(self, operator, entity, spread):
+        if self.is_superuser(operator):
+            return 1
+        return 1
+
+    def can_remove_spread(self, operator, entity, spread):
+        if self.is_superuser(operator):
+            return 1
+        return 1
+    
+    def can_add_affiliation(self, operator, person, ou, aff, aff_status):
+        if self.is_superuser(operator):
+            return 1
+        return 1
+
+    def can_remove_affiliation(self, operator, person, ou, aff):
+        if self.is_superuser(operator):
+            return 1
+        return 1
+
+    def can_create_user(self, operator, person, disk):
+        if self.is_superuser(operator):
+            return 1
+        return 1
+
+    def can_delete_user(self, operator, account):
+        if self.is_superuser(operator):
+            return 1
+        return _query_disk_persmissions(operator, account,
+                                        co.auth_set_password,
+                                        self._get_disk(account.disk_id))
+    
+    def can_set_gecos(self, operator, account):
+        if self.is_superuser(operator):
+            return 1
+        return _query_disk_persmissions(operator, account,
+                                        co.auth_set_password,
+                                        self._get_disk(account.disk_id))
+
+    def can_move_user(self, operator, account, dest_disk):
+        if self.is_superuser(operator):
+            return 1
+        return self.can_give_user(operator, account) and \
+               self.can_receive_user(operator, account, dest_disk)
+
+    def can_give_user(self, operator, account):
+        if self.is_superuser(operator):
+            return 1
+        return _query_disk_persmissions(operator, account,
+                                        co.auth_move_from_disk,
+                                        self._get_disk(account.disk_id))
+
+    def can_receive_user(self, operator, account, dest_disk):
+        if self.is_superuser(operator):
+            return 1
+        return _query_disk_persmissions(operator, account,
+                                        co.auth_move_to_disk,
+                                        self._get_disk(dest_disk))
+
+    def can_set_password(self, operator, account):
+        if self.is_superuser(operator):
+            return 1
+        return _query_disk_persmissions(operator, account,
+                                        co.auth_set_password,
+                                        self._get_disk(account.disk_id))
+
+    def can_set_shell(self, operator, account, shell):
+        # TBD: auth_op_attrs may contain legal shells
+        if self.is_superuser(operator):
+            return 1
+        return _query_disk_persmissions(operator, account,
+                                        co.auth_set_password,
+                                        self._get_disk(account.disk_id))
+
+    def _query_disk_persmissions(self, operator, operation, disk):
+        """Permissions on disks may either be granted to a specific
+        disk, a complete host, or a set of disks matching a regexp"""
+        
+        if self._query_target_permissions(operator, operation, 'disk',
+                                          disk.disk_id):
+            return 1
+        for r in self._query_target_permissions(operator, operation, 'host',
+                                                disk.host_id()):
+            if not int(r['has_attr']):
                 return 1
-        return 0
+            for r2 in self.query("""
+            SELECT attr
+            FROM auth_op_target_attrs
+            WHERE op_target_id=:op_target_id""",
+                                 {'op_target_id': r['op_target_id']}):
+                m = re.compile(wc['attr']).match(disk.path)
+                if m != None:
+                    return 1
+        raise PermissionDenied("No access to disk")
 
-    def can_alter_group(self, operator, group_id):
-        if self.query(self.std_qry,
-                      {'operator': operator,
-                       'opcode': self.const.auth_alter_group_membership,
-                       'dest': group_id}):
-            return 1
-        return 0
+
+    def _query_target_permissions(self, operator, operation, target_type,
+                                  target_id):
+        """Query any permissions that operator, or any of the groups
+        where operator is a member has been grantet operation on
+        target_type:target_id"""
+
+        # Connect auth_operation and auth_op_target
+        sql = """
+        SELECT aot.has_attr, ao.op_id, aot.op_target_id
+        FROM auth_operation ao,
+             auth_operation_set aos,
+             auth_role ar,
+             auth_op_target aot
+        WHERE
+           ao.op_code=:opcode AND
+           ao.op_set_id=aos.op_set_id AND
+           aos.op_set_id=ar.op_set_id AND
+           ar.entity_id IN (%s) AND
+           ar.op_target_id=aot.op_target_id AND
+           aot.target_type=:target_type AND
+           aot.entity_id=:target_id
+          """ % ", ".join(
+            ["%i" % x for x in self._get_users_auth_entities(operator)])
+        return self.query(sql,
+                          {'opcode': int(operation),
+                           'target_type': target_type,
+                           'target_id': target_id})
+
+    def _get_users_auth_entities(self, entity_id):
+        """Return all entity_ids that may be relevant in auth_role for
+        this user"""
+        group = Group.Group(self._db)
+        ret = [entity_id]
+        # TODO: Assert that user is a union member
+        for r in group.list_groups_with_entity(entity_id):
+            ret.append(r['group_id'])
+        return ret
+    
