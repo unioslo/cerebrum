@@ -41,6 +41,7 @@ from Cerebrum.extlib import logging
 
 db = Factory.get('Database')()
 db.cl_init(change_program='process_bofhd_r')
+cl_const = Factory.get('CLConstants')(db)
 const = Factory.get('Constants')(db)
 logging.fileConfig(cereconf.LOGGING_CONFIGFILE)
 logger = logging.getLogger("cronjob")
@@ -522,7 +523,9 @@ def process_move_requests():
                 account.disk_id =  r['destination_id']
                 account.write_db()
                 br.delete_request(request_id=r['request_id'])
+		db.log_change(r['entity_id'], cl_const.account_move , None, change_params={ 'old_host':old_host , 'new_host':new_host , 'old_disk':old_disk, 'new_disk':new_disk })
                 db.commit()
+
     # Resten fungerer ikkje enno, so vi sluttar her.
     return
 
@@ -538,7 +541,6 @@ def process_move_requests():
             account.write_db()
             br.delete_request(request_id=r['request_id'])
             db.commit()
-
 def delete_user(uname, old_host, old_home, operator):
     cmd = [SUDO_CMD, cereconf.WRAPPER_CMD, '-c', 'aruser', uname,
            operator, old_home]
