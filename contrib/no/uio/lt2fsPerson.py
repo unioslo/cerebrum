@@ -260,7 +260,6 @@ def process_person(pdata):
         fs.person.add_person(pdata.fnr, pdata.pnr, pdata.name_first,
                              pdata.name_last, pdata.email, pdata.gender,
                              "%4i-%02i-%02i" % pdata.birth_date)
-        fs.db.commit()
 
     if not pdata.should_reg_fagperson():
         return
@@ -284,7 +283,6 @@ def process_person(pdata):
     if not fagperson:
         logger.debug("...add fagperson (%s)" % (repr((pdata.fnr11, pdata.fnr, pdata.pnr, new_data))))
         fs.person.add_fagperson(pdata.fnr, pdata.pnr, *new_data)
-        fs.db.commit()
     else:
         # Only update fax/tlf columns
         fs_data = [str(fagperson[0][c]) for c in (
@@ -294,7 +292,6 @@ def process_person(pdata):
             logger.debug("...update fagperson")
             fs.person.update_fagperson(pdata.fnr, pdata.pnr, tlf=new_data[0],
                                        fax=new_data[1])
-            fs.db.commit()
 
 def update_lt():
     global fs_stedinfo, arstall, termin
@@ -307,6 +304,7 @@ def update_lt():
             continue
         try:
             process_person(pdata)
+            fs.db.commit()
         except fs.db.DatabaseError, msg:
             logger.warn("Error processing %s: %s" % (pdata, msg))
             fs.db.rollback()
@@ -315,8 +313,9 @@ def main():
     global fs
     try:
         opts, args = getopt.getopt(sys.argv[1:], '', ['help', 'db-service=',
-                                                      'db-user='])
-    except getopt.GetoptError:
+                                                      'db-user=', 'dryrun'])
+    except getopt.GetoptError, msg:
+        print "GetoptError: %s" % msg
         usage(1)
 
     database = "FSDEMO.uio.no"
