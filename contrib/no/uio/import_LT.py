@@ -122,6 +122,7 @@ def main():
         new_person.populate(Cerebrum.Date(year, mon, day), gender)
 
         new_person.affect_names(co.system_lt, co.name_full)
+        new_person.affect_external_id(co.system_lt, co.externalid_fodselsnr)
         lname, fname = conv_name(person['navn'])
         new_person.populate_name(co.name_full, "%s %s" % (lname, fname))
 
