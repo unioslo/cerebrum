@@ -15,6 +15,8 @@ from Cerebrum import Person
 from Cerebrum import Group
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no.uio.access_FS import FS
+from Cerebrum.modules.no.uio.fronter_lib import FronterUtils
+
 from Cerebrum.extlib import logging
 
 def prefetch_primaryusers():
@@ -241,8 +243,8 @@ def populate_enhet_groups(enhet_id):
         # at kurset/emnet starter hvert semester.  Utvider strukturen
         # til å ta høyde for at det til enhver tid kan finnes flere
         # kurs av samme type til en hver tid.
-        kurs_id = UE2KursID('kurs', Instnr, emnekode, versjon, termk,
-                            aar, termnr)
+        kurs_id = FronterUtils.UE2KursID('kurs', Instnr, emnekode,
+                                         versjon, termk, aar, termnr)
 
         # Også supergruppene til undervisningsenhet - og
         # -aktivitets-avledede grupper skal ha "kurs:"-prefiks.
@@ -304,7 +306,7 @@ def populate_enhet_groups(enhet_id):
 
     elif type == 'evu':
         kurskode, tidsrom = type_id
-        kurs_id = UE2KursID("evu", kurskode, tidsrom)
+        kurs_id = FronterUtils.UE2KursID("evu", kurskode, tidsrom)
         logger.debug("Oppdaterer grupper for %s: " % enhet_id)
         #
         # Ansvarlige for EVU-kurset
@@ -417,67 +419,6 @@ def sync_group(affil, gname, descr, mtype, memb):
     for member in members.keys():
         group.add_member(member, mtype, co.group_memberop_union)
 
-def UE2KursID(type, *rest):  # TODO: Denne hører hjemme i et bibliotek
-    """Lag ureg2000-spesifikk "kurs-ID" av primærnøkkelen til en
-    undervisningsenhet eller et EVU-kurs.  Denne kurs-IDen forblir
-    uforandret så lenge kurset pågår; den endres altså ikke bår man
-    f.eks. kommer til et nytt semester.
-    
-    Første argument angir hvilken type FS-entitet de resterende
-    argumentene stammer fra; enten 'KURS' (for undervisningsenhet) eller
-    'EVU' (for EVU-kurs)."""
-    type = type.lower()
-    if type == 'evu':
-        if len(rest) != 2:
-            raise ValueError, "ERROR: EVU-kurs skal identifiseres av 2 felter, "+\
-                  "ikke <%s>" % ">, <".join(rest)
-	# EVU-kurs er greie; de identifiseres unikt ved to
-	# fritekstfelter; kurskode og tidsangivelse, og er modellert i
-	# FS uavhengig av semester-inndeling.
-        rest = list(rest)
-        rest.insert(0, type)
-	return ":".join(rest).lower()
-    elif type != 'kurs':
-	raise ValueError, "ERROR: Ukjent kurstype <%s> (%s)" % (type, rest)
-
-    # Vi vet her at $type er 'KURS', og vet dermed også hvilke
-    # elementer som er med i @rest:
-    if len(rest) != 6:
-        raise ValueError, "ERROR: Undervisningsenheter skal identifiseres av 6 "+\
-              "felter, ikke <%s>" % ">, <".join(rest)
-
-    instnr, emnekode, versjon, termk, aar, termnr = rest
-    termnr = int(termnr)
-    aar = int(aar)
-    tmp_termk = re.sub('[^a-zA-Z0-9]', '_', termk).lower()
-    # Finn $termk og $aar for ($termnr - 1) semestere siden:
-    if (tmp_termk == 'h_st'):
-        if (termnr % 2) == 1:
-            termk = 'høst'
-        else:
-            termk = 'vår'
-        aar -= int((termnr - 1) / 2)
-    elif tmp_termk == 'v_r':
-        if (termnr % 2) == 1:
-            termk = 'vår'
-        else:
-            termk = 'høst'
-	aar -= int(termnr / 2)
-    else:
-	# Vi krysser fingrene og håper at det aldri vil benyttes andre
-	# verdier for $termk enn 'vår' og 'høst', da det i så fall vil
-	# bli vanskelig å vite hvilket semester det var "for 2
-	# semestere siden".
-        raise ValueError, "ERROR: Unknown terminkode <%s> for emnekode <%s>." % (
-            termk, emnekode)
-
-    # $termnr er ikke del av den returnerte strengen.  Vi har benyttet
-    # $termnr for å beregne $termk og $aar ved $termnr == 1; det er
-    # altså implisitt i kurs-IDen at $termnr er lik 1 (og dermed
-    # unødvendig å ta med).
-    ret = "%s:%s:%s:%s:%s:%s" % (type, instnr, emnekode, versjon, termk, aar)
-    return ret
-
 def destroy_group(gname, max_recurse):
     gr = get_group(gname)
     u, i, d = gr.list_members(member_type=co.entity_group)
@@ -498,7 +439,7 @@ def get_account(name):
 def mkgname(id, prefix='internal:'):
     if id[0:len(prefix)] == prefix:
         return id.lower()
-    return ("%s%s" % (id, prefix)).lower()
+    return ("%s%s" % (prefix, id)).lower()
 
 def usage(exitcode=0):
     print """Usage: [optons]
