@@ -46,13 +46,13 @@ class SearchClass(Builder):
     def __init__(self, search_id=None):
         Builder.__init__(self)
 
-    def get_key(cls, search_id=None):
+    def create_primary_key(cls, search_id=None):
         if search_id is None:
             search_id = cls.search_id_iterator.next()
 
         return search_id
 
-    get_key = classmethod(get_key)
+    create_primary_key = classmethod(create_primary_key)
 
     def search(self):
         if not hasattr(self, '_result') or self.updated:
