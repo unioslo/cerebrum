@@ -10,8 +10,10 @@ module Cerebrum_core {
     interface LOHandler;
     interface APHandler;
     interface BulkIterator;
+    interface Node;
 
     typedef sequence<string> StringSeq;
+    typedef sequence<Node> NodeSeq;
 
     /**
     * Structure/object representing a key->value pair.
@@ -67,9 +69,10 @@ module Cerebrum_core {
         LOHandler get_lo_handler();
 
         /**
-        * \warning !!!NOT IMPLEMENTED!!!
+        * Method for fetching a handler for an AP client
+        * \return An AP Handler
         */
-        APHandler get_ap_handler();
+        APHandler get_ap_handler(in string username, in string password);
     };
 
     /**
@@ -127,29 +130,19 @@ module Cerebrum_core {
                          in long from_change_id );
     };
 
+
     /**
-    * \warning !!!NOT IMPLEMENTED!!!
+    * The Access Point Handler
     */
-    interface APHandler{
-
+    interface APHandler {
         /**
-        * Starts transaction, more to come!.
+        * Get a type node
         */
-        void begin();
-
+        Node getTypeByName(in string className, in string name);
         /**
-        * Commit changes to the database.
-        * Raises a CommitError, since i dont know what errors we can expect.
+        * Get an entity
         */
-        void commit()
-            raises( Errors::CommitError );
-
-        /**
-        * Rollback changes done to entitys. Rolls back to begin, wont have
-        * any effect if used after commit(), i think?
-        */
-        void rollback();
-
+        Node getEntity(in long id);
     };
 
     /**
@@ -172,6 +165,32 @@ module Cerebrum_core {
         * \return True when the iterator is empty.
         */
         boolean is_empty();        
+    };
+
+    /**
+    * Interface used to represent data in the Cerebrum Database
+    */
+    interface Node {
+        /**
+        /* Parents for this node
+        */
+        NodeSeq getParents();
+        /**
+        * Children for this node
+        */
+        NodeSeq getChildren();
+        /**
+        * get an attribute for this node
+        */
+        any get(in string key);
+        /**
+        * set an attribute for this node
+        */
+        any set(in string key, in any value);
+        /**
+        * get the name of the class used for this Node
+        */
+        string getClassName();
     };
 };
 /** \page info Additional information
