@@ -315,39 +315,32 @@ class LT(object):
         query = """
         SELECT
           fodtdag, fodtmnd, fodtar, personnr, kommnrverdi, tlfpreftegn
-        FROM lt.perskomm
+        FROM
+          lt.perskomm
         WHERE kommtypekode = :kommtype
 
         UNION
 
         SELECT
-          fodtdag, fodtmnd, fodtar, personnr, NULL, 'A' AS tlfpreftegn
-        FROM lt.person p
+          fodtdag, fodtmnd, fodtar, personnr, NULL as kommnrverdi,
+          'A' AS tlfpreftegn
+        FROM
+          lt.person p
         WHERE NOT EXISTS (
-          SELECT 'x'
-          FROM lt.perskomm k
+          SELECT
+            *
+          FROM
+            lt.perskomm k
           WHERE
-            k.kommtypekode = :1 AND
+            k.kommtypekode = :kommtype AND
             p.fodtdag = k.fodtdag AND
             p.fodtmnd = k.fodtmnd AND
             p.fodtar = k.fodtar
         )
-
         ORDER BY fodtdag, fodtmnd, fodtar, personnr, tlfpreftegn
         """
-        fnr2komm = []
 
-        for row in self.db.query(query, {'kommtype': kommtype}):
-            fnr = fodselsnr.personnr_ok(
-                "%02d%02s%02d%05d" % (tuple([int(row[x]) for x in (
-                'fodtdag', 'fodtmnd', 'fodtar', 'personnr')])))
-            fnr = fodselsnr.personnr_ok(fnr)
-            if row['kommnrverdi'] is not None:
-                ret.setdefault(fnr, []).append(row['kommnrverdi'])
-            # fi
-        # od
-
-        return fnr2komm
+        return self.db.query(query, {'kommtype': kommtype})
     # end _GetAllPersonsKommType
 
 
@@ -397,12 +390,12 @@ class LT(object):
           kommnrverdi=:kommverdi
         """
 
-        return self.execute(query, {'dag': dag,
-                                    'maned': maned,
-                                    'aar': aar,
-                                    'personnr': personnr,
-                                    'kommtypekode': kommtypekode,
-                                    'kommverdi': kommnrverdi}) 
+        return self.db.execute(query, {'dag': dag,
+                                       'maned': maned,
+                                       'aar': aar,
+                                       'personnr': personnr,
+                                       'kommtypekode': kommtypekode,
+                                       'kommverdi': kommnrverdi}) 
     # end _DeleteKommtypeVerdi
     
     
@@ -419,36 +412,40 @@ class LT(object):
 
     
 
-    def _AddKommtypeVerdi(self, fnr, kommtypekode, kommnrverdi):
+    def _UpdateKommtypeVerdi(self, fnr, kommtypekode, kommnrverdi):
         dag, maned, aar, personnr = fodselsnr.del_fnr_4(fnr)
 
         query = """
-        INSERT INTO lt.perskomm
-          (FODTDAG, FODTMND, FODTAR, PERSONNR,
-           KOMMTYPEKODE, TLFPREFTEGN, KOMMNRVERDI)
-        VALUES
-          (:dag, :maned, :aar, :personnr,
-           :kommtypekode, 'A', :kommverdi)
+        UPDATE lt.perskomm
+        SET
+          kommnrverdi = :kommnrverdi
+        WHERE
+          FODTDAG = :fodtdag AND
+          FODTMND = :fodtmnd AND
+          FODTAR = :fodtar AND
+          PERSONNR = :personnr AND
+          TLFPREFTEGN = 'A' AND 
+          KOMMTYPEKODE = :kommtypekode
         """
 
-        return self.execute(query, {'dag': dag,
-                                    'maned': maned,
-                                    'aar': aar,
-                                    'personnr': personnr,
-                                    'kommtypekode': kommtypekode,
-                                    'kommverdi': kommnrverdi})
+        return self.db.execute(query, {'fodtdag': dag,
+                                       'fodtmnd': maned,
+                                       'fodtar': aar,
+                                       'personnr': personnr,
+                                       'kommtypekode': kommtypekode,
+                                       'kommnrverdi': kommnrverdi})
     # end _AddKommtypeVerdi
 
     
 
-    def WritePriMailAddr(self, fnr, email):
-        return self._AddKommtypeVerdi(fnr, 'UREG-EMAIL', email)
+    def UpdatePriMailAddr(self, fnr, email):
+        return self._UpdateKommtypeVerdi(fnr, 'UREG-EMAIL', email)
     # end WritePriMailAddr
 
     
 
-    def WritePriUser(self, fnr, uname):
-        return self._AddKommtypeVerdi(fnr, 'UREG-USER', uname)
+    def UpdatePriUser(self, fnr, uname):
+        return self._UpdateKommtypeVerdi(fnr, 'UREG-USER', uname)
     # end WritePriUser
 
 

@@ -727,6 +727,44 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
         # fi
     # end get_primary_account
 
+    def getdict_external_id2primary_account(self, id_type):
+        """
+        Returns a dictionary mapping all existing external ids of given
+        ID_TYPE to the corresponding primary account.
+        
+        This is a *convenience* function. The very same thing can be
+        accomplished with get_primary_account() + Account.find() and a
+        suitable number of database lookups
+        """
+
+        result = dict()
+
+        # NB! outer joins are not necessary here. Not displaying FNRs with
+        # missing accounts is quite alright.
+        for row in self.query("""
+            SELECT
+              DISTINCT pei.external_id, en.entity_name
+            FROM
+              [:table schema=cerebrum name=person_external_id] pei,
+              [:table schema=cerebrum name=account_type] at,
+              [:table schema=cerebrum name=entity_name] en
+            WHERE
+              pei.id_type = :id_type AND
+              pei.person_id = at.person_id AND
+              at.priority = (SELECT
+                               min(at2.priority)
+                             FROM
+                               [:table schema=cerebrum name=account_type] at2
+                             WHERE
+                               at2.person_id = pei.person_id) AND
+              at.account_id = en.entity_id
+            """, {"id_type" : int(id_type)}):
+            result[row.external_id] = row.entity_name
+        # od
+
+        return result
+    # end getdict_external_id2primary_account
+
     def list_persons(self):
         """Return all person ids."""
         return self.query("""

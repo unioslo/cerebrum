@@ -1,6 +1,6 @@
 #!/usr/bin/env python2.2
 # -*- coding: iso-8859-1 -*-
-
+# 
 # Copyright 2003 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
@@ -19,125 +19,172 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+"""
+
+This file is a part of the Cerebrum framework. At the University of Oslo
+Cerebrum is considerer authoritative source system in respect to the mail
+addresses and primary user names of the persons with registrations in LT.
+
+This script is very similar in nature to update_FS_mailadr.
+
+"""
+
 import getopt
-import re
 import sys
 
+import cerebrum_path
 import cereconf
+
 from Cerebrum import Database
 from Cerebrum.Utils import Factory
-from Cerebrum.extlib import logging
 from Cerebrum.modules.no.uio.access_LT import LT
 
-def usage(exitcode=0):
-    print """Usage: [options]
-    Updates all e-mail adresses in LT that come from Cerebrum
-    -v | --verbose
-    -d | --dryrun
-    --db-user name: connect with given database username
-    --db-service name: connect to given database
+
+
+
+
+def usage():
+    message = """
+This script synchronizes email and uname information in LT with Cerebrum.
+
+--help, -h		display this message
+--email, -e		synchronize email
+--uname, -u		synchronize uname
+--dryrun, -d		run everything, but do not commit results to LT
+"""
+    logger.info(message)
+# end usage
+
+
+
+def synchronize_attribute(cerebrum_lookup,
+                          lt_lookup,
+                          lt_update,
+                          lt_delete,
+                          db):
     """
-    sys.exit(exitcode)
+    Synchronize an attribute from Cerebrum to LT
+    """
+
+    logger.debug("Synchronizing with functions:\n"
+                 "cerebrum lookup: %s\n"
+                 "LT lookup: %s\n"
+                 "LT update: %s\n"
+                 "LT delete: %s",
+                 cerebrum_lookup.__name__, lt_lookup.__name__,
+                 lt_update.__name__, lt_delete.__name__)
+
+    const = Factory.get("Constants")(db)
+
+    logger.debug("Fetching information from Cerebrum")
+    fnr2attribute = cerebrum_lookup(const.externalid_fodselsnr)
+    logger.debug("Done fetching information from Cerebrum")
+
+    # Commit/rollback every COMMIT_LIMIT processed rows, to reduce the
+    # number of rows locked by this job
+    commit_limit = 100
+    count = 0
+    for db_row in lt_lookup():
+        fnr = "%02d%02d%02d%05d" % (db_row.fodtdag, db_row.fodtmnd,
+                                    db_row.fodtar, db_row.personnr)
+        lt_attribute = db_row.kommnrverdi
+        
+        # This FNR exists in Cerebrum
+        if fnr2attribute.has_key(fnr):
+            # ... but Cerebrum's value is different from LT's
+            if fnr2attribute[fnr] != lt_attribute:
+                logger.debug("Updating for %s in LT: %s -> %s",
+                             fnr, lt_attribute, fnr2attribute[fnr])
+                lt_update(fnr, fnr2attribute[fnr])
+            # fi
+        # This FNR does NOT exist in Cerebrum
+        else:
+            # ... and it should be deleted
+            if lt_attribute is not None:
+                logger.debug("Deleting %s's attribute %s in LT",
+                             fnr, lt_attribute)
+                lt_delete(fnr, lt_attribute)
+            # fi
+        # fi
+    # od
+
+    logger.debug("Done synchronizing email information")
+# end synchronize_attribute
+        
+
 
 def main():
-    db_user = db_service = None
-    verbose = dryrun = 0
+
+    global logger
+    logger = Factory.get_logger("cronjob")
+    logger.info("Starting LT sync")
+
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "dv",
-                                   ["dryrun", "verbose", "db-user=",
-                                    "db-service="])
+        options, rest = getopt.getopt(sys.argv[1:],
+                                      "deuh",
+                                      ["help",
+                                       "email",
+                                       "uname",
+                                       "dryrun",])
     except getopt.GetoptError:
         usage()
-        sys.exit(2)
-    for o, val in opts:
-        if o in ('-v', '--verbose'):
-            verbose += 1
-        elif o in ('-d', '--dryrun'):
-            dryrun = 1
-        elif o in ('--db-user',):
-            db_user = val
-        elif o in ('--db-service',):
-            db_service = val
+        sys.exit(1)
+    # yrt
 
-    logging.fileConfig(cereconf.LOGGING_CONFIGFILE)
-    logger = logging.getLogger("console")
+    global dryrun
+    dryrun = False
+    email = False
+    uname = False
 
-    db = Database.connect(user=db_user, service=db_service,
-                          DB_driver='Oracle')
-    fs = LT(db)
-    db = Factory.get('Database')()
-    fnr2primary = {}  # TODO: Fill with mapping fnr -> [account_id, uname, email]
+    for option, value in options:
+        if option in ("-d", "--dryrun"):
+            dryrun = True
+        elif option in ("-h", "--help"):
+            usage()
+            sys.exit(2)
+        elif option in ("-e", "--email"):
+            logger.debug("Running sync for email")
+            email = True
+        elif option in ("-u", "--uname"):
+            logger.debug("Running sync for uname")
+            uname = True
+        # fi
+    # od
 
-    LT_fnr2email = LT.GetAllPersonsUregEmail()
-    LT_fnr2user = LT.GetAllPersonsUregUser()
+    lt = LT(Database.connect(user="ureg2000", service = "LTPROD.uio.no",
+                             DB_driver = "DCOracle2"))
+    db = Factory.get("Database")()
+    person = Factory.get("Person")(db)
 
-    re_cerebrum_addr = re.compile('[@.]uio\.no$', re.IGNORECASE)
-    # TODO: should either be in cereconf, or deduced from the email system
+    if email:
+        synchronize_attribute(person.getdict_external_id2mailaddr,
+                              lt.GetAllPersonsUregEmail,
+                              lt.UpdatePriMailAddr,
+                              lt.DeletePriMailAddr,
+                              db)
+    # fi
 
-    for fnr in fnr2primary.keys():
-        account_id, uname_cerebrum, email_cerebrum = fnr2primary[fnr]
-
-        if LT_fnr2email.has_key(fnr):
-	    # Fjern evt. mailadresser som ikke lenger er personens
-	    # default-adresse.
-            for email_lt in LT_fnr2email[fnr]:
-                if email_lt == email_cerebrum or email_cerebrum is None:
-                    continue
-                logger.debug("%s: Sletter email %s" % (fnr, email_lt))
-		LT.DeletePriMailAddr(fnr, email_lt)
-                LT_fnr2email[fnr].remove(email_lt)
-
-	    # Nå skal det enten være 0 eller 1 adresser igjen for
-	    # denne personen; dersom det fortsatt er 1 adresse igjen,
-	    # er den identisk med den nåværende default-adressen
-	    # personen har i Ureg.
-            if len(LT_fnr2email[fnr]) == 0 and email_cerebrum != '':
-		# Personen finnes i LT, men har ikke (lenger) definert
-		# noen 'ureg-mailadresse'.
-                logger.debug("%s: Skriver email %s" % (fnr, email_cerebrum))
-		LT.WritePriMailAddr(fnr, email_cerebrum)
-
-	    # Trenger ikke å ha emailentryen i hashen lenger.
-	    del(LT_fnr2email[fnr])
-
-	if LT_fnr2user.has_key(fnr):
-            for uname_lt in LT_fnr2user[fnr]:
-                if uname_lt == uname_cerebrum:
-                    continue
-                logger.debug("%s: Sletter uname %s" % (fnr, uname_lt))
-		LT.DeletePriUser(fnr, uname_lt)
-                LT_fnr2user[fnr].remove(uname_lt)
-
-	    if len(LT_fnr2user[fnr]) == 0:
-		# Personen finnes i LT, men har ikke (lenger) definert
-		# noen 'ureg-mailadresse'.
-                logger.debug("%s: Skriver uname %s" % (fnr, uname_cerebrum))
-		LT.WritePriUser(fnr, uname_cerebrum)
-
-	    # Trenger ikke å ha emailentryen i hashen lenger.
-	    del(LT_fnr2user[fnr])
-
-    # Hvis det nå finnes entries i hashene fra LT _hvis verdier er
-    # ikke-tomme lister_, betyr det at dette er gamle brukere som
-    # tidligere har blitt registrert i LT med email-addresse og/eller
-    # brukernavn, men ikke lenger finnes i Ureg.  Disse innslagene slettes
-    # fra LT.
-    for fnr in LT_fnr2email.keys():
-        for email in LT_fnr2email[fnr]:
-            logger.debug("%s: Sletter email %s" % (fnr, email))
-            LT.DeletePriMailAddr(fnr, email)
-        del(LT_fnr2email[fnr])
-
-    for fnr in LT_fnr2user.keys():
-        for uname in LT_fnr2user[fnr]:
-            logger.debug("%s: Sletter uname %s" % (fnr, uname))
-            LT.DeletePriUser(fnr, uname)
-        del(LT_fnr2user[fnr])
+    if uname:
+        synchronize_attribute(person.getdict_external_id2primary_account,
+                              lt.GetAllPersonsUregUser,
+                              lt.UpdatePriUser,
+                              lt.DeletePriUser,
+                              db)
+    # fi
 
     if dryrun:
-        LT.db.rollback()
+        lt.db.rollback()
+        logger.info("Rolled back all changes in LT")
     else:
-        LT.db.commit()
+        lt.db.commit()
+        logger.info("Committed all changes to LT")
+    # fi
+# end main    
 
-if __name__ == '__main__':
+
+    
+    
+
+if __name__ == "__main__":
     main()
+# fi
