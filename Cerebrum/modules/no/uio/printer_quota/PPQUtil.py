@@ -88,7 +88,14 @@ class PPQUtil(object):
     def undo_transaction(
         self, person_id, target_job_id, page_units, description,
         update_by=None, update_program=None):
-        if not (page_units > 0):
+        """Undo a transaction.  If page_units='', undo all pages in
+        given job"""
+        if page_units != '':
+            try:
+                page_units = int(page_units)
+            except ValueError:
+                raise errors.IllegalUndoRequest("page_units is not a number")
+        if page_units != '' and not (page_units > 0):
             raise errors.IllegalUndoRequest("page_units must be > 0")
         rows = self.ppq.get_history(
             target_job_id=target_job_id)
@@ -104,6 +111,8 @@ class PPQUtil(object):
         # Calculate change
         old_free, old_pay = (rows[0]['pageunits_free'],
                              rows[0]['pageunits_paid'])
+        if page_units == '':
+            page_units = int(-old_free + -old_pay)
 
         if page_units > -old_free + -old_pay:
             raise errors.IllegalUndoRequest, "Cannot undo more pages than was in the job"
