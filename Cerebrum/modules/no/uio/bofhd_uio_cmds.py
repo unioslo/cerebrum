@@ -31,6 +31,7 @@ import re
 import sys
 import time
 import os
+import email.Generator, email.Message
 import cyruslib
 import pickle
 from mx import DateTime
@@ -1879,6 +1880,65 @@ class BofhdExtension(object):
         except self.db.DatabaseError, m:
             raise CerebrumError, "Database error: %s" % m
         return {'group_id': int(g.entity_id)}
+
+    # group request, like group create, but only send request to
+    # the ones with the access to the 'group create' command
+    # Currently send email to brukerreg@usit.uio.no
+    all_commands['group_request'] = Command(
+        ("group", "request"), GroupName(help_ref="group_name_new"),
+        SimpleString(help_ref="string_description"), SimpleString(),
+	#Spread(help_ref="spread",repeat=True), 
+	GroupName(), fs=FormatSuggestion("Group requested as a normal group"),
+        perm_filter='can_create_person')    
+
+    def group_request(self, operator, groupname, description, spread, moderator):
+        self.ba.can_create_person(operator.get_entity_id())
+        # Get email from AccountEmailMixin.get_primary_mailaddress() or
+        # process_bofhd_requests.get_primary_mailaddress()
+	opr = operator.get_entity_id()
+        acc = Utils.Factory.get("Account")(self.db)
+	acc.find(opr)
+	
+        fromaddr = acc.get_primary_mailaddress()
+
+	toaddr = cereconf.GROUP_REQUESTS_SENDTO
+	spreadstring = "(" + spread + ")"
+	
+	spreads = []
+	spreads = re.split(" ",spread)
+
+	subject = "Cerebrum group create request %s" % groupname
+
+	body = []
+	body.append("Please create a new group:")
+	body.append("")
+	body.append("Groupname: %s." % groupname)
+	body.append("Description:  %s" % description)
+	body.append("Requested by: %s" % fromaddr)
+	body.append("Moderator: %s" % moderator)
+	body.append("")
+	body.append("group create %s \"%s\"" % (groupname, description))
+	
+	for i in range(len(spreads)):
+	    if (self._get_constant(spreads[i],"No such spread") in \
+		[self.const.spread_uio_nis_ng,self.const.spread_uio_nis_fg,\
+		 self.const.spread_ifi_nis_ng,self.const.spread_ifi_nis_fg]):
+		 body.append("group promote_posix %s" % groupname)
+		 break
+	    else:
+		 pass	    
+
+	body.append("spread add %s %s" % (groupname, spreadstring))
+	body.append("")
+	body.append("")
+	
+	message = email.Message.Message()
+	message["From"] = fromaddr
+	message["To"] = toaddr
+	message["Subject"] = subject
+	message.set_payload("\n".join(body), "ISO-8859-1")
+	Utils.sendmail(fromaddr, toaddr, message)	
+	return "Request sendt to brukerreg@usit.uio.no"
 
     #  group def
     all_commands['group_def'] = Command(
