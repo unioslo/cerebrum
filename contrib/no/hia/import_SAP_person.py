@@ -75,7 +75,7 @@ def locate_person(person, sap_id, no_ssn, const):
     try:
         person.clear()
         person.find_by_external_id(const.externalid_fodselsnr,
-                                   no_ssn, const.system_sap)
+                                   no_ssn)
         person_id_from_no_ssn = int(person.entity_id)
     except Errors.NotFoundError:
         logger.debug("No person matches NO_SSN «%s»", no_ssn)
