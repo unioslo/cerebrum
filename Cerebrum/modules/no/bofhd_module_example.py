@@ -21,15 +21,18 @@
 # Sample module that extends bofhd with a set of commands
 
 from Cerebrum import Database
+from Cerebrum.Utils import Factory
+
 from cmd_param import Command,Id
-from Cerebrum.modules.no.uio import OU
+
+OU_class = Factory.get('OU')
 
 class BofhdExtension(object):
     def __init__(self, Cerebrum):
         self.all_commands = {
             'get_stedkode_info': Command(('ou', 'stedkode'), Id())
             }
-        self.ou = OU.OU(Cerebrum)
+        self.ou = OU_class(Cerebrum)
 
     def get_commands(self, uname):
         # TODO: Do some filtering on uname to remove commands
