@@ -17,14 +17,14 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import Database
 from Builder import Attribute
+from GroBuilder import GroBuilder
 from Searchable import Searchable
 
 class DatabaseAttr(Attribute):
-    def __init__(self, name, data_type, table, dbattr_name=None,
+    def __init__(self, name, table, data_type, sequence=False, dbattr_name=None,
                  write=False, from_db=None, to_db=None):
-        Attribute.__init__(self, name, data_type, write=write)
+        Attribute.__init__(self, name, data_type, sequence=sequence, write=write)
 
         self.dbattr_name = dbattr_name or name
         self.table = table
@@ -37,15 +37,23 @@ class DatabaseAttr(Attribute):
         assert type(self.dbattr_name) == str
 
     def to_db(self, value):
-        return value
+        if isinstance(value, GroBuilder):
+            key = value.get_primary_key()
+            assert len(key) == 1
+            return key[0]
+        else:
+            return value
 
     def from_db(self, value):
-        return value
+        if issubclass(self.data_type, GroBuilder):
+            return self.data_type(int(value)) # kind of stupid thing to do
+        else:
+            return self.data_type(value)
 
-class DatabaseClass(Searchable):
+class DatabaseClass(GroBuilder, Searchable):
     db_aliases = {}
     db_extra = {}
-    
+
     def _load_all_db(self):
         db = self.get_database()
         
@@ -77,7 +85,7 @@ class DatabaseClass(Searchable):
 
         for i in attributes:
             value = i.from_db(row[i.name])
-            setattr(self, '_' + i.name, value)
+            setattr(self, i.get_name_private(), value)
 
     def _get_sql_tables(self):
         tables = {}
@@ -97,6 +105,9 @@ class DatabaseClass(Searchable):
         db = self.get_database()
 
         for table, attributes in self._get_sql_tables().items():
+            attributes = [i for i in attributes if i in self.updated]
+            if not attributes:
+                continue
             sql = 'UPDATE %s SET %s' % (
                 table,
                 ', '.join(['%s=:%s' % (self._get_real_name(attr), attr.name) for attr in attributes])
@@ -112,7 +123,7 @@ class DatabaseClass(Searchable):
 
             keys = {}
             for i in self.primary + attributes:
-                keys[i.name] = getattr(self, '_' + i.name)
+                keys[i.name] = attr.to_db(getattr(self, i.get_name_private()))
 
             db.execute(sql, keys)
 
@@ -146,22 +157,23 @@ class DatabaseClass(Searchable):
             for key, value in vargs.items():
                 if value is None or key not in attributes.keys():
                     continue
-                real_key = cls._get_real_name(attributes[key])
-                if attributes[key].data_type == 'string':
-                    where.append('LOWER(%s.%s) LIKE :%s' % (attributes[key].table, real_key, key))
+                attr = attributes[key]
+                real_key = cls._get_real_name(attr)
+                if attributes[key].data_type == str:
+                    where.append('LOWER(%s.%s) LIKE :%s' % (attr.table, real_key, key))
                     value = value.replace("*","%")
                     value = value.replace("?","_")
                     value = value.lower()
                 else:
-                    where.append('%s.%s = :%s' % (attributes[key].table, real_key, key))
-                    value = attributes[key].to_db(value)
+                    where.append('%s.%s = :%s' % (attr.table, real_key, key))
+                    value = attr.to_db(value)
                 values[key] = value
 
             for table in tables.keys():
                 if table in cls.db_extra: where.append(self.db_extra[table])
             
             sql = 'SELECT '
-            sql += ', '.join(['%s.%s AS %s' % (attr.table, attr.name, attr.name) for attr in main_attrs])
+            sql += ', '.join(['%s.%s AS %s' % (attr.table, cls._get_real_name(attr), attr.name) for attr in main_attrs])
             sql += ' FROM '
             sql += ', '.join(tables.keys())
             if where:
@@ -186,6 +198,8 @@ class DatabaseClass(Searchable):
         for i in cls.slots:
             setattr(cls, 'save_' + i.name, cls._save_all_db)
 
+        super(DatabaseClass, cls).build_methods()
+ 
     build_methods = classmethod(build_methods)
 
 # arch-tag: 82d3bc09-ba4a-46dc-a714-7d78aaf21bde
