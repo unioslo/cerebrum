@@ -176,10 +176,10 @@ public class BofhdConnection {
         Vector args = new Vector();
         args.add(uname);
         args.add(password);
-        String sessid = (String) sendRawCommand("login", args, -1);
-        logger.debug("Login ret: "+sessid);
-        this.sessid = sessid;
-        return sessid;
+        String newsessid = (String) sendRawCommand("login", args, -1);
+        logger.debug("Login ret: "+newsessid);
+        this.sessid = newsessid;
+        return newsessid;
     }
 
     String getMotd(String version) throws BofhdException {
