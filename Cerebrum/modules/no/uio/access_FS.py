@@ -200,7 +200,6 @@ WHERE p.fodselsdato=sa.fodselsdato AND
         affiliation student med kode 'opptak' ('privatist' for disse)
         til stedskoden sp.faknr_studieansv + sp.instituttnr_studieansv
         + sp.gruppenr_studieansv""" 
-
         qry = """
 SELECT DISTINCT s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
        s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
@@ -217,8 +216,9 @@ WHERE  p.fodselsdato=s.fodselsdato AND
        st.studieprogramkode = sp.studieprogramkode AND
        st.opphortstudierettstatkode IS NULL AND
        st.studierettstatkode IN (RELEVANTE_STUDIERETTSTATKODER) AND
-       st.dato_tildelt >= to_date('2003-01-01', 'yyyy-mm-dd'))
-UNION
+       st.dato_tildelt >= to_date('2003-01-01', 'yyyy-mm-dd')
+       """
+        qry += """ UNION
 SELECT DISTINCT s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
        s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
        s.adrlin3_semadr, s.adresseland_semadr, p.adrlin1_hjemsted,
@@ -239,19 +239,17 @@ WHERE  p.fodselsdato=s.fodselsdato AND
        st.studierettstatkode IN (RELEVANTE_STUDIERETTSTATKODER) AND
        r.arstall >= (%s - 1)
        """ % (aar)
-        return (self._get_cols(qry), self.db.query(qry))
-    
+        return qry
 
     def GetStudinfOpptak(self):
-        studierettstatkoder = """'AUTOMATISK', 'AVTALE', 'CANDMAG',
-       'DIVERSE', 'EKSPRIV', 'ERASMUS', 'FJERNUND', 'GJEST',
-       'FULBRIGHT', 'HOSPITANT', 'KULTURAVT', 'KVOTEPROG',
-       'LEONARDO', 'OVERGANG', 'NUFU', 'SOKRATES', 'LUBECK', 'NORAD',
-       'ARKHANG', 'NORDPLUS', 'ORDOPPTAK', 'EVU', 'UTLOPPTAK'"""
+        studierettstatkoder = """'AUTOMATISK','AVTALE','CANDMAG',
+	'DIVERSE','EKSPRIV','ERASMUS','FJERNUND','GJEST','FULBRIGHT','HOSPITANT',
+	'KULTURAVT','KVOTEPROG','LEONARDO','OVERGANG','NUFU','SOKRATES','LUBECK',
+	'NORAD','ARKHANG','NORDPLUS','ORDOPPTAK','EVU','UTLOPPTAK'"""
         qry = self._GetOpptakQuery().replace("RELEVANTE_STUDIERETTSTATKODER",
                                              studierettstatkoder)
         return (self._get_cols(qry), self.db.query(qry))
-
+        
     def GetAlumni(self):
         qry = """
 SELECT DISTINCT s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
