@@ -173,7 +173,24 @@ class AccountUiOMixin(Account.Account):
         return ret
 
     def update_email_addresses(self):
-        ret = self.__super.update_email_addresses()
+        # Avoid circular import dependency
+        from Cerebrum.modules.PosixUser import PosixUser
+
+        if isinstance(self, PosixUser):
+            ret = self.__super.update_email_addresses()
+        else:
+            try:
+                # We use the PosixUser object to get access to GECOS.
+                # TODO: This ought to be in a mixin class for Account
+                # for installations where both the PosixUser and the
+                # Email module is in use.  For now we'll just put it
+                # in the UiO specific code.
+                posixuser = PosixUser(self._db)
+                posixuser.find(self.entity_id)
+                ret = posixuser.__super.update_email_addresses()
+            except Errors.NotFoundError:
+                ret = self.__super.update_email_addresses()
+
         # Make sure the email target of this account is associated
         # with an appropriate email server.
         if not (self.is_reserved() or self.is_deleted()):
