@@ -1,6 +1,6 @@
 #!/usr/bin/env python2.2
 # -*- coding: iso-8859-1 -*-
- 
+
 # Copyright 2004 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
@@ -18,332 +18,394 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
- 
 
 
-import sys, re, locale, os, string
-import xml.sax
+import sys
+import locale
+import os
+import getopt
+import time
 
 import cerebrum_path
 import cereconf
-
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-from Cerebrum.modules.no.hia import access_FS #Not sure yet
+from Cerebrum.modules.no.hia import access_FS
 from Cerebrum import Database
 from Cerebrum import Person
 from Cerebrum import Group
-from Cerebrum.modules.no import Stedkode 
+from Cerebrum.modules.no import Stedkode
 from Cerebrum.modules.no.hia import fronter_lib
 
+
+
 db = const = logger = None
-acc2names = {}
-ent2uname = {}
-global db, const, logger, acc2name, person
-db = Factory.get("Database")()
-person = Factory.get('Person')(db)
-const = Factory.get("Constants")(db)
-logger = Factory.get_logger("console")
+fxml = None
 
+def init_globals():
+    global db, const, logger
+    db = Factory.get("Database")()
+    const = Factory.get("Constants")(db)
+    logger = Factory.get_logger("console")
 
+def get_semester():
+    t = time.localtime()[0:2]
+    this_year = t[0]
+    if t[1] <= 6:
+        this_sem = 'vår'
+        next_year = this_year
+        next_sem = 'høst'
+    else:
+        this_sem = 'høst'
+        next_year = this_year + 1
+        next_sem = 'vår'
+    return ((str(this_year), this_sem), (str(next_year), next_sem))
 
 def load_acc2name():
     logger.debug('Loading person/user-to-names table')
+    ret = {}
     front = fronter_lib.hiafronter(db)
-    """	Followin field in fronter_lib.hiafronter.list_cf_persons         
+    """	Followin field in fronter_lib.hiafronter.list_cf_persons
 	person_id, account_id, external_id, name, entity_name,
 	fs_l_name, fs_f_name, local_part, domain """
     for pers in front.list_cf_persons():
 	#logger.debug("Loading person: %s" % pers['name'])
-	if pers['fs_l_name'] == None:
-	    l_name,f_name = get_names(pers['person_id'])
+	if not (pers['fs_f_name'] and pers['fs_l_name']):
+	    l_name, f_name = get_names(pers['person_id'])
 	else:
-	    l_name,f_name = pers['fs_l_name'],pers['fs_f_name']
-	acc2names[pers['account_id']] = {'NAME': pers['entity_name'],
-					'FN': pers['name'],
-					'GIVEN': l_name, 
-					'FAMILY': f_name,
-					'EMAIL': '@'.join((pers['local_part'],pers['domain'])),
-					'USERACCESS':  2,
-					'PASSWORD': 5, 
-					'EMAILCLIENT': 1}
-
-
+	    l_name, f_name = pers['fs_l_name'],pers['fs_f_name']
+	ret[pers['account_id']] = {
+            'NAME': pers['entity_name'],
+            'FN': pers['name'],
+            'GIVEN': f_name,
+            'FAMILY': l_name,
+            'EMAIL': '@'.join((pers['local_part'], pers['domain'])),
+            'USERACCESS': 2,
+            'PASSWORD': 5,
+            'EMAILCLIENT': 1}
+    return ret
 
 def get_names(person_id):
     name_tmp = {}
-    person.clear()
-    person.entity_id = int(person_id)
+    person = Factory.get('Person')(db)
+    person.find(person_id)
     for names in person.get_all_names():
-	if (int(names['source_system']) <> int(const.system_cached)):
+	if int(names['source_system']) <> int(const.system_cached):
 	    sys_key = int(names['source_system'])
-	    name_li = "%s:%s" % (names['name_variant'],names['name'])
-	    if name_tmp.has_key(sys_key):
-		name_tmp[sys_key].append(name_li)
-	    else: 
-		 name_tmp[sys_key] = [name_li,]
+            sys_names = name_tmp.setdefault(sys_key, [])
+	    name_li = "%s:%s" % (names['name_variant'], names['name'])
+            sys_names.append(name_li)
     last_n = first_n = None
     for a_sys in cereconf.SYSTEM_LOOKUP_ORDER:
-	sys_key = int(getattr(const,a_sys))
-	if name_tmp.has_key(sys_key):
-	    for p_name in name_tmp[sys_key]:
-		var_n,nam_n = p_name.split(':')
-		if (int(var_n) == int(const.name_last)):
-		    last_n = nam_n
-		elif (int(var_n) == int(const.name_first)):
-		    first_n = nam_n
-		else: pass 
-	    return(last_n,first_n)
-	    break	    
+	sys_key = int(getattr(const, a_sys))
+        for p_name in name_tmp.get(sys_key, []):
+            var_n, nam_n = p_name.split(':')
+            if (int(var_n) == int(const.name_last)):
+                last_n = nam_n
+            elif (int(var_n) == int(const.name_first)):
+                first_n = nam_n
+            else: pass
+            if first_n is not None and last_n is not None:
+                return (last_n, first_n)
+    return ("*Ukjent etternavn*", "*Ukjent fornavn*")
 
-
-def get_group(fact_dict):
+def register_spread_groups(emne_info, stprog_info):
     group = Factory.get('Group')(db)
-    global und_grp, stu_grp
-    und_grp = {}
-    stu_grp = {}
-    for x in group.search(filter_spread=const.spread_hia_fronter):
-	if 'undenh' in [str(y) for y in  (x['name']).split(':')]:
-	    name_l = [str(y) for y in  (x['name']).split(':')]
-	    und_key = ':'.join(name_l[5:])
-	    term = ':'.join(name_l[5:7])
-	    grp_name = name_l[7:8][0]
-	    fak_nr = None
-	    for k,v in fact_dict.items():
-		if grp_name in v:
-		     fak_nr = "%02d0000" % k
-	    parent = ('hia.no:fs:struktur:emner:%s:201:%s') % (term,fak_nr)
-	    mem_l = []
-	    group.clear()
-	    group.entity_id = int(x['group_id'])
-	    for grp in group.list_members(None, int(const.entity_group),
-						get_entity_name=True)[0]:
-		mem_l.append("%s:%s" % (int(grp[1]),([str(y) for y in \
-						grp[2].split(':')][-1:][0])))
-	    if len(mem_l) != 0:
-		und_grp[und_key] = {'group_id': int(x['group_id']),
-					'group_name': x['name'], 
-					'title': sh2long[grp_name]['navn'],
-					'parent': parent,
-					'members': mem_l}
-	    else:
-		und_grp[und_key] = {'group_id':int(x['group_id']),
-					'group_name': grp_name}
-	else:
-	    stu_key = ':'.join([str(y) for y in  (x['name']).split(':')][5:])
-            stu_grp[stu_key] = {int(x['group_id']): True}
+    for r in group.search(filter_spread=const.spread_hia_fronter):
+        gname = r['name']
+        gname_el = gname.split(':')
+        if gname_el[4] == 'undenh':
+            # Nivå 3: internal:DOMAIN:fs:INSTITUSJONSNR:undenh:ARSTALL:
+            #           TERMINKODE:EMNEKODE:VERSJONSKODE:TERMINNR
+            #
+            # De interessante gruppene (som har brukermedlemmer) er på
+            # nivå 4.
+            instnr = gname_el[3]
+            ar, term, emnekode, versjon, terminnr = gname_el[5:10]
+            fak_sko = "%02d0000" % emne_info[emnekode]['fak']
+
+            # Rom for undervisningsenheten.
+            emne_id_prefix = '%s:fs:emner:%s:%s:%s:%s' % (
+                cereconf.INSTITUTION_DOMAIN_NAME,
+                ar, term, instnr, fak_sko)
+            emne_sted_id = 'STRUCTURE:%s' % emne_id_prefix
+            emne_rom_id = 'ROOM:%s:undenh:%s:%s:%s' % (
+                emne_id_prefix, emnekode, versjon, terminnr)
+            register_room('%s: %s' % (emnekode.upper(),
+                                      emne_info[emnekode]['navn']),
+                          emne_rom_id, emne_sted_id)
+
+            # Grupper for studenter, forelesere og studieveileder på
+            # undervisningsenheten.
             group.clear()
-            group.entity_id = int(x['group_id'])
-            for grp in group.list_members(None, int(const.entity_group),
-                                                get_entity_name=True)[0]:
-                stu_key = ':'.join([str(y) for y in  grp[2].split(':')][5:])
-                stu_grp[stu_key] = {int(grp[1]): False}
+            group.find(r['group_id'])
+	    for op, subg_id, subg_name in \
+                    group.list_members(None, int(const.entity_group),
+                                       get_entity_name=True)[0]:
+                # Nivå 4: internal:DOMAIN:fs:INSTITUSJONSNR:undenh:ARSTALL:
+                #           TERMINKODE:EMNEKODE:VERSJONSKODE:TERMINNR:KATEGORI
+                subg_name_el = subg_name.split(':')
+                # Fjern "internal:"-prefiks.
+                if subg_name_el[0] == 'internal':
+                    subg_name_el.pop(0)
+                kategori = subg_name_el[9]
+                parent_id = 'STRUCTURE:%s:fs:emner:%s:%s:%s' % (
+                    subg_name_el[0],    # DOMAIN
+                    subg_name_el[4],    # ARSTALL
+                    subg_name_el[5],    # TERMINKODE
+                    kategori
+                    )
+                if kategori == 'student':
+                    title = 'Studenter på '
+                    rettighet = fronter_lib.Fronter.ROLE_WRITE
+                elif kategori == 'foreleser':
+                    title = 'Forelesere på '
+                    rettighet = fronter_lib.Fronter.ROLE_DELETE
+                elif kategori == 'studieleder':
+                    title = 'Studieledere for '
+                    rettighet = fronter_lib.Fronter.ROLE_DELETE
+                else:
+                    raise RuntimeError, "Ukjent kategori: %r" % (kategori,)
+                title += subg_name_el[6].upper() # EMNEKODE
+                fronter_gname = ':'.join(subg_name_el)
+                register_group(title, fronter_gname, parent_id,
+                               allow_contact=True)
+                group.clear()
+                group.find(subg_id)
+                user_members = [
+                    row[2]  # username
+                    for row in group.list_members(None,
+                                                  const.entity_account,
+                                                  get_entity_name=True)[0]]
+                if user_members:
+                    register_members(fronter_gname, user_members)
+                register_room_acl(emne_rom_id, fronter_gname, rettighet)
 
-
-
-def make_fak_dict(fak_dict):
-    res1 = {}
-    res2 = {}
-    sted = Stedkode.Stedkode(db)
-    for k in fak_dict.keys():
-	sted.clear()
-	try:
-	    sted.find_stedkode(k,0,0,201) # Constant, senere
-	    # Hent inn riktig &r og termin senere
-	    if sted.acronym:
-		st_name = sted.acronym
-	    else: st_name = sted.short_name
-	    s = k
-	    sted_k = "%02d0000" % k 
-	    res2[int(k)] = {'title': st_name, 'group_name':('hia.no:fs:struktur:emner:2004:h&st:øst:' + (str(sted_k))),
-				'parent':'hia.no:fs:struktur:emner:2004:høst','level': 1}
-	    res1[int(k)] = {'title': st_name, 'group_name':('hia.no:fs:struktur:emner:2004:v&r:' + (str(sted_k))),
-                                'parent':'hia.no:fs:struktur:emner:2004:vår','level': 1}
-	except Errors.NotFoundError: 
-	    pass
-    par1,par2 = res1[int(s)]['parent'], res2[int(s)]['parent']
-    term1,term2 = res1[int(s)]['group_name'].split(':')[-2:][0],res2[int(s)]['group_name'].split(':')[-2:][0]
-    for kor in ('student','foreleser','studieleder'):
-	res2[kor] = {'title':('aktive '+ kor), 'group_name': (':'.join((par2,kor))),
-			'parent':par2 ,'level': 1, 'term':term2¦}
-	res1[kor] = {'title':('aktive '+ kor), 'group_name': (':'.join((par1,kor))),
-                        'parent':par1 ,'level': 1 ,'term': term1}
-    return(res1,res2)
-
-def make_undenh_user_grp(res1_in,res2_in):
-    group = Factory.get('Group')(db) 
-    role = {}
-    res = {}
-    grp_str = 'hia.no:fs:gruppe:undenh'
-    for rol,acc in [x.split(':') for x in ('student:1',
-					'foreleser:2',
-					'studieleder:2')]:
-	role[rol]= acc
-    for k,v in und_grp.items():
-	for grp in ('student','foreleser','studieleder'):
-	    group.clear()
-	    for id,ro in [mem.split(':')for mem in v['members']]:
-		if grp == ro:
-		    group.find(int(id))
-		    members = []
-		    for grp_mem in group.list_members(None, 
-						int(const.entity_account),
-                                                get_entity_name=True)[0]: 
-			members.append(grp_mem[2])
-		    term = k.split(':')[1:2][0]
-		    if (res1_in[grp]['term'] == term):
-			parent = res1_in[grp]['group_name']
-		    else: parent = res2_in[grp]['group_name']
-		    title = "%s for %s" % (string.capitalize(grp) + 'for' + k.split(':')[2:3][0]) 
-		    key_res = ':'.join((k,grp))
-		    res[key_res] = {'role':role[grp],'group_name':':'.join((grp_str,key_res)),
-			     'members':members, 'title':title, 'parent': parent}
-		    xml1.group_to_XML(res[key_res])
-    return(res) 
-
-#def check_adm_access():
-#    global 
-#    fdsl2prim = person.getdict_external_id2primary_account(const.externalid_fodselsnr,ent_id=True)
-#    roles_xml_parser('/cerebrum/dumps/FS/roles.xml',process_role_callback)
-
-#def process_role_callback(r_info):
-#    fnr = "%06d%05d" % (int(r_info['fodselsdato']),int(r_info['personnr']))
-#    print fnr
-#    for k,v in r_info.items():
-#	print k,v
-
-def process_undenh(undenh):
-    if not sh2long.has_key(str(undenh['emnekode']).lower()):
-	sh2long[str(undenh['emnekode']).lower()] =  {'navn':undenh['emnenavn_bokmal'],
-							'fak':undenh['faknr_kontroll']}
- 
-   
-def get_faknr():
-    fak_dict = {}
-    for k,v in sh2long.items():
-	if fak_dict.has_key(int(v['fak'])):
-	    fak_dict[int(v['fak'])].append(k)
-	else:
-	    fak_dict[int(v['fak'])] = [k,]
-    return(fak_dict)
-
-
-class CFroleParser(xml.sax.ContentHandler):
-   
-    def __init__(self, filename, call_back_function):
-        self.call_back_function = call_back_function
-        xml.sax.parse(filename, self)
-                                                                                                                                                    
-    def startElement(self, name, attrs):
-        if name == 'data':
-            pass
-        elif name == "role" :
-            self.p_data = {}
-            for k in attrs.keys():
-                self.p_data[k] = attrs[k].encode('iso8859-1')
-	    self.call_back_function(self.p_data)
+	elif gname_el[4] == 'studieprogram':
+            # En av studieprogram-grenene på nivå 3.  Vil eksportere
+            # gruppene på nivå 4.
+            group.clear()
+            group.find(r['group_id'])
+            for op, subg_id, subg_name in \
+                    group.list_members(None, int(const.entity_group),
+                                       get_entity_name=True)[0]:
+                subg_name_el = subg_name.split(':')
+                # Fjern "internal:"-prefiks.
+                if subg_name_el[0] == 'internal':
+                    subg_name_el.pop(0)
+                if subg_name_el[-1] == 'student':
+                    stprog = subg_name_el[4]
+                    fak_sko = '%02d0000' % stprog_info[stprog]['fak']
+                    brukere_studenter_id = ':'.join((
+                        'STRUCTURE', cereconf.INSTITUTION_DOMAIN_NAME,
+                        'fs', 'brukere', subg_name_el[2], fak_sko,
+                        'student'))
+                    brukere_stprog_id = brukere_studenter_id + \
+                                        ':%s' % stprog
+                    fronter_gname = ':'.join(subg_name_el)
+                    register_group(stprog.upper(), brukere_stprog_id,
+                                   brukere_studenter_id)
+                    register_group(
+                        'Studenter på %s' % subg_name_el[6], # kullkode
+                        fronter_gname, brukere_stprog_id)
+                    # Synkroniser medlemmer i Cerebrum-gruppa til CF.
+                    group.clear()
+                    group.find(subg_id)
+                    user_members = [
+                        row[2]  # username
+                        for row in group.list_members(None,
+                                                      const.entity_account,
+                                                      get_entity_name=True)[0]]
+                    if user_members:
+                        register_members(fronter_gname, user_members)
+                elif subg_name_el[-1] == 'studieleder':
+                    # TBD: Hvor i CF-strukturen skal disse
+                    # "studieleder på studieprogram" forankres?
+                    pass
+                else:
+                    raise RuntimeError, \
+                          "Ukjent studieprogram-gruppe: %r" % (gname,)
         else:
-            print "WARNING: unknown element: %s" % name
-                                                                                                                                                    
-    def endElement(self, name):
-        if name == "data":
-            self.call_back_function(self.p_data)
-  
+            raise RuntimeError, \
+                  "Ukjent type gruppe eksportert: %r" % (gname,)
 
-class CFundenhParser(xml.sax.ContentHandler):
-                                                                                                                                                            
-    def __init__(self, filename, call_back_function):
-        self.call_back_function = call_back_function
-        xml.sax.parse(filename, self)
-                                                                                                                                                            
-    def startElement(self, name, attrs):
-        if name == 'undervenhet':
-            pass
-        elif name == "undenhet":
-            self.p_data = {}
-            for k in attrs.keys():
-                self.p_data[k] = attrs[k].encode('iso8859-1')
-	    self.call_back_function(self.p_data)
-        else:
-            print "WARNING: unknown element: %s" % name
-                                                                                                                                                            
-    def endElement(self, name):
-        if name == "undervenhet":
-	    pass
-            #self.call_back_function(self.p_data)
-                                                                                                                                                            
+new_acl = {}
+def register_room_acl(room_id, group_id, role):
+    new_acl.setdefault(room_id, {})[group_id] = {'role': role}
 
+def register_structure_acl(node_id, group_id, contactAccess, roomAccess):
+    new_acl.setdefault(node_id, {})[group_id] = {'gacc': contactAccess,
+                                                 'racc': roomAccess}
+
+new_groupmembers = {}
+def register_members(gname, members):
+    new_groupmembers[gname] = members
+
+new_rooms = {}
+def register_room(title, id, parentid):
+    new_rooms[id] = {
+        'title': title,
+        'parent': parentid,
+        'CFid': id}
+
+new_group = {}
+def register_group(title, id, parentid, allow_room=0, allow_contact=0):
+    """Adds info in new_group about group."""
+    new_group[id] = { 'title': title,
+                      'parent': parentid,
+                      'allow_room': allow_room,
+                      'allow_contact': allow_contact,
+                      'CFid': id,
+		      }
+
+def usage(exitcode):
+    print "Usage: export_xml_fronter.py OUTPUT_FILENAME"
+    sys.exit(exitcode)
 
 def main():
-    # H&ndter upper- og lowercasing av strenger som inneholder norske
+    # Håndter upper- og lowercasing av strenger som inneholder norske
     # tegn.
-    cf_dir = '/cerebrum/dumps/Fronter/'
     locale.setlocale(locale.LC_CTYPE, ('en_US', 'iso88591'))
- 
+
+    init_globals()
+
+    cf_dir = '/cerebrum/dumps/Fronter'
+
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'h:',
-                                   ['host=', 'fs-db-user=', 'fs-db-service=',
-                                    'debug-file=', 'debug-level='])
+        opts, args = getopt.getopt(sys.argv[1:], '',
+                                   ['debug-file=', 'debug-level='])
     except getopt.GetoptError:
         usage(1)
-    debug_file = "%s/x-import.log" % cf_dir
+    debug_file = os.path.join(cf_dir, "x-import.log")
     debug_level = 4
     for opt, val in opts:
-        if opt in ('-h', '--host'):
-            host = val
-        elif opt == '--fs-db-user':
-            fs_db_user = val
-        elif opt == '--fs-db-service':
-            fs_db_service = val
-        elif opt == '--debug-file':
-            debug_file  = val
+        if opt == '--debug-file':
+            debug_file = val
         elif opt == '--debug-level':
             debug_level = val
-                                                                                                                                                                                               
-    if len(args) != 1:
-        usage(1)
-                                                                                                                                                                                               
-    global xml1, fdsl2prim, sh2long,
-    top_dict = {}
-    sh2long = {}
-    fdsl2prim = person.getdict_external_id2primary_account(const.externalid_fodselsnr,ent_id=True)
-    xml1 = fronter_lib.FronterXML('test.xml',cf_dir = cf_dir,debug_file = debug_file,
-				debug_level = debug_level, fronter = None)
-    load_acc2name()
-    CFundenhParser('/cerebrum/dumps/FS/underv_enhet.xml',process_undenh)
-    CFundenhParser('/cerebrum/dumps/FS/under_next_sem.xml',process_undenh)
-    top_dict[0] = {'level': 0 , 'group_name':'hia.no:fs:top',
-                'title':'HiA-Fronter','parent':'hia.no:fs:top'}
-    top_dict[1] = {'level': 0 , 'group_name':'hia.no:fs:struktur:emner',
-                'title':'Emner','parent':'hia.no:fs:top'}
-    top_dict[2] = {'level': 0 , 'group_name':'hia.no:fs:struktur:emner:2004:vår',
-                'title':'Emner VÅR 2004','parent':'hia.no:fs:struktur:emner'}
-    top_dict[3] = {'level': 0 , 'group_name':'hia.no:fs:struktur:emner:2004:høst',
-                'title':'Emner HØST 2004','parent':'hia.no:fs:struktur:emner'}
-    fak_dict = get_faknr()
-    get_group(fak_dict)
-    fak_d1,fak_d2 = make_fak_dict(fak_dict)
-    xml1.start_xml_head()
-    for k,v in acc2names.items():
-        xml1.user_to_XML(v)
-    #gruppe,rom og struktur starter 
-    for k,v in top_dict.items():
-	xml1.group_to_XML(v)
-    for k,v in fak_d1.items():
-	xml1.group_to_XML(v)
-    for k,v in fak_d2.items():
-        xml1.group_to_XML(v)
-    for k,v in und_grp.items():
-        xml1.room_to_XML(v)
-    mem_grp = make_undenh_user_grp(fak_d1,fak_d2)
-    #grupper ferdig
-    for k,v in mem_grp.items():
-	members = v['members']
-	personmembers_to_XML(v,members)
-    xml1.end()
-    
+        else:
+            raise ValueError, "Invalid argument: %r", (opt,)
+
+    filename = os.path.join(cf_dir, 'test.xml')
+    if len(args) == 1:
+        filename = args[0]
+    elif len(args) <> 0:
+        usage(2)
+
+    global fxml
+    fxml = fronter_lib.FronterXML(filename,
+                                  cf_dir = cf_dir,
+                                  debug_file = debug_file,
+                                  debug_level = debug_level,
+                                  fronter = None)
+    fxml.start_xml_head()
+
+    # Finn `account_id` -> account-data for alle brukere.
+    acc2names = load_acc2name()
+    # Spytt ut PERSON-elementene.
+    for user in acc2names.itervalues():
+	fxml.user_to_XML(user)
+
+    # Registrer en del semi-statiske strukturnoder.
+    root_node_id = "STRUCTURE:ClassFronter structure root node"
+    register_group('Høyskolen i Agder', root_node_id, root_node_id)
+
+    emner_id = 'STRUCTURE:%s:fs:emner' % cereconf.INSTITUTION_DOMAIN_NAME
+    register_group('Emner', emner_id, root_node_id)
+
+    this_sem, next_sem = get_semester()
+    emner_this_sem_id = emner_id + ':%s:%s' % tuple(this_sem)
+    emner_next_sem_id = emner_id + ':%s:%s' % tuple(next_sem)
+    register_group('Emner %s %s' % (this_sem[1].upper(), this_sem[0]),
+                   emner_this_sem_id, emner_id)
+    register_group('Emner %s %s' % (next_sem[1].upper(), next_sem[0]),
+                   emner_next_sem_id, emner_id)
+
+    for sem_node_id in (emner_this_sem_id, emner_next_sem_id):
+        for suffix, title in (('student', 'Aktive studenter'),
+                              ('foreleser', 'Aktive forelesere'),
+                              ('studieleder', 'Studieledere')):
+            node_id = sem_node_id + ':' + suffix
+            register_group(title, node_id, sem_node_id)
+
+    brukere_id= 'STRUCTURE:%s:fs:brukere' % cereconf.INSTITUTION_DOMAIN_NAME
+    register_group('Brukere', brukere_id, root_node_id)
+
+    fellesrom_id = 'STRUCTURE:%s:fs:fellesrom' % \
+                   cereconf.INSTITUTION_DOMAIN_NAME
+    register_group('Fellesrom', fellesrom_id, root_node_id)
+
+    # Populer dicter for "emnekode -> emnenavn" og "fakultet ->
+    # [emnekode ...]".
+    emne_info = {}
+    fak_emner = {}
+    def finn_emne_info(element, attrs):
+        if element <> 'undenhet':
+            return
+        emnekode = attrs['emnekode'].lower()
+        faknr = int(attrs['faknr_kontroll'])
+        emne_info[emnekode] = {'navn': attrs['emnenavn_bokmal'],
+                               'fak': faknr}
+        fak_emner.setdefault(faknr, []).append(emnekode)
+    access_FS.underv_enhet_xml_parser('/cerebrum/dumps/FS/underv_enhet.xml',
+                                      finn_emne_info)
+
+    stprog_info = {}
+    def finn_stprog_info(element, attrs):
+        if element == 'studprog':
+            stprog = attrs['studieprogramkode'].lower()
+            faknr = int(attrs['faknr_studieansv'])
+            stprog_info[stprog] = {'fak': faknr}
+    access_FS.studieprog_xml_parser('/cerebrum/dumps/FS/studieprog.xml',
+                                    finn_stprog_info)
+
+    # Opprett de forskjellige stedkode-korridorene.
+    ou = Stedkode.Stedkode(db)
+    for faknr in fak_emner.iterkeys():
+        fak_sko = "%02d0000" % faknr
+        ou.clear()
+        try:
+	    ou.find_stedkode(faknr, 0, 0,
+                             institusjon = cereconf.DEFAULT_INSTITUSJONSNR)
+	except Errors.NotFoundError:
+	    logger.error("Finner ikke stedkode for fakultet %d", faknr)
+        else:
+            if ou.acronym:
+                faknavn = ou.acronym
+            else:
+                faknavn = ou.short_name
+                for sem_node_id in (emner_this_sem_id,
+                                    emner_next_sem_id):
+                    fak_node_id = sem_node_id + \
+                                  ":%s:%s" % (cereconf.DEFAULT_INSTITUSJONSNR,
+                                              fak_sko)
+                    register_group(faknavn, fak_node_id, sem_node_id,
+                                   allow_room=1)
+                brukere_sted_id = brukere_id + \
+                                  ":%s:%s" % (cereconf.DEFAULT_INSTITUSJONSNR,
+                                              fak_sko)
+                register_group(faknavn, brukere_sted_id, brukere_id)
+                brukere_studenter_id = brukere_sted_id + ':student'
+                register_group('Studenter', brukere_studenter_id,
+                               brukere_sted_id)
+                fellesrom_sted_id = fellesrom_id + ":%s:%s" % (
+                    cereconf.DEFAULT_INSTITUSJONSNR, fak_sko)
+                register_group(faknavn, fellesrom_sted_id, fellesrom_id,
+                               allow_room=1)
+
+    register_spread_groups(emne_info, stprog_info)
+
+    for group, data in new_group.iteritems():
+        fxml.group_to_XML(data['CFid'], fronter_lib.Fronter.STATUS_ADD, data)
+
+    for node, data in new_acl.iteritems():
+        fxml.acl_to_XML(node, fronter_lib.Fronter.STATUS_ADD, data)
+
+    for gname, members in new_groupmembers.iteritems():
+        fxml.personmembers_to_XML(gname, fronter_lib.Fronter.STATUS_ADD,
+                                  members)
+    fxml.end()
 
 
 if __name__ == '__main__':
     main()
-
