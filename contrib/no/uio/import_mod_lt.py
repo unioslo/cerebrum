@@ -307,7 +307,7 @@ def import_gjest(pxml, person, stedkode, constants):
         person.populate_gjest(stedkode.entity_id,
                               element["dato_fra"],
                               code,
-                              element["dato_til"])
+                              element.get("dato_til"))
     # od
     person.write_db()
     
@@ -377,7 +377,7 @@ def import_tilsetting(pxml, person, stedkode, constants):
                                    stedkode.entity_id,
                                    code,
                                    tilsetting["dato_fra"],
-                                   tilsetting["dato_til"],
+                                   tilsetting.get("dato_til"),
                                    float(tilsetting["prosent_tilsetting"]))
         for p in permisjon:
             logger.info("Permisjon for %s", person.entity_id)
@@ -441,7 +441,7 @@ def import_rolle(pxml, person, stedkode, constants):
         person.populate_rolle(stedkode.entity_id,
                               code,
                               element["dato_fra"],
-                              element["dato_til"])
+                              element.get("dato_til"))
     # od
     person.write_db()
 
@@ -571,4 +571,9 @@ def main(argv):
 # end 
 
 
-main(sys.argv[1:])
+
+
+
+if __name__ == '__main__':
+    main(sys.argv[1:])
+# fi

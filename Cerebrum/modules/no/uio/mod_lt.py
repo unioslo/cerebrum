@@ -201,13 +201,16 @@ class PersonLTMixin(Person.Person):
 
         # New employment is a dictionary of (name, value) pairs, where name
         # corresponds to a column in the database table
+        if dato_til is not None:
+            dato_til = strptime(dato_til, "%Y%m%d")
+        # fi
         self.tilsetting[key] = {
             "tilsettings_id" : int(tilsettings_id),
             "person_id"      : self.entity_id,
             "ou_id"          : int(ou_id),
             "stillingskode"  : int(stillingskode),
             "dato_fra"       : strptime(dato_fra, "%Y%m%d"),
-            "dato_til"       : strptime(dato_til, "%Y%m%d"),
+            "dato_til"       : dato_til,
             "andel"          : int(andel)
         }
     # end populate_tilsetting
@@ -280,13 +283,15 @@ class PersonLTMixin(Person.Person):
                              (self.entity_id, key))
         # fi
 
+        if dato_til is not None:
+            dato_til = strptime(dato_til, "%Y%m%d")
+        # fi
         self.gjest[key] = {
             "person_id"      : int(self.entity_id),
             "ou_id"          : int(ou_id),
-            # it has been coerced already
             "dato_fra"       : strptime(dato_fra, "%Y%m%d"),
             "gjestetypekode" : int(gjestetypekode),
-            "dato_til"       : strptime(dato_til, "%Y%m%d"),
+            "dato_til"       : dato_til,
         }
     # end populate_gjest
 
@@ -376,12 +381,16 @@ class PersonLTMixin(Person.Person):
                              (self.entity_id, key))
         # fi
 
+        if dato_til is not None:
+            dato_til = strptime(dato_til, "%Y%m%d")
+        # fi
+
         self.rolle[key] = {
             "person_id"	: int(self.entity_id),
             "ou_id"     : int(ou_id),
             "rollekode" : int(rollekode),
             "dato_fra"  : strptime(dato_fra, "%Y%m%d"),
-            "dato_til"  : strptime(dato_til, "%Y%m%d"),
+            "dato_til"  : dato_til,
         }
     # end populate_rolle
         
