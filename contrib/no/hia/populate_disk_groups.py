@@ -372,7 +372,7 @@ def main():
     opt_s = del_all = None
     try:
         opts, args = getopt.getopt(sys.argv[1:], "hs:d",
-                                   ("help", "spread","delete_all"))
+                                   ("help", "spread=","delete_all"))
     except getopt.GetoptError, e:
         usage(str(e))
     if args:
