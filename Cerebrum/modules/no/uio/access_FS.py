@@ -100,22 +100,22 @@ WHERE r.fodselsdato = fp.fodselsdato AND
 
     def GetStudinfTilbud(self, institutsjonsnr=0):
         """Hent personer som har fått tilbud om opptak
-	Disse skal gis affiliation student med kode tilbud til 
+	Disse skal gis affiliation student med kode tilbud til
         stedskoden sp.faknr_studieansv+sp.instituttnr_studieansv+
-        sp.gruppenr_studieansv. Personer som har fått tilbud om 
-        opptak til et studieprogram ved UiO vil inngå i denne 
-        kategorien. Alle søkere til studierved UiO registreres 
-        i tabellen fs.soknadsalternativ og informasjon om noen 
-        har fått tilbud om opptak hentes også derfra (feltet 
+        sp.gruppenr_studieansv. Personer som har fått tilbud om
+        opptak til et studieprogram ved institusjonen vil inngå i
+        denne kategorien.  Alle søkere til studierved institusjonen
+	registreres i tabellen fs.soknadsalternativ og informasjon om
+	noen har fått tilbud om opptak hentes også derfra (feltet
         fs.soknadsalternativ.tilbudstatkode er et godt sted å 
         begynne å lete etter personer som har fått tilbud)."""
 
         qry = """
 SELECT DISTINCT
       p.fodselsdato, p.personnr, p.etternavn, p.fornavn, 
-      osp.studieprogramkode, p.adrlin1_hjemsted, p.adrlin2_hjemsted,
+      p.adrlin1_hjemsted, p.adrlin2_hjemsted,
       p.postnr_hjemsted, p.adrlin3_hjemsted, p.adresseland_hjemsted,
-      p.sprakkode_malform
+      p.sprakkode_malform, osp.studieprogramkode, p.kjonn
 FROM fs.soknadsalternativ sa, fs.person p, fs.opptakstudieprogram osp,
      fs.studieprogram sp
 WHERE p.fodselsdato=sa.fodselsdato AND
@@ -132,13 +132,14 @@ WHERE p.fodselsdato=sa.fodselsdato AND
 
     def GetStudinfOpptak(self):
 	aar, maned = time.localtime()[0:2]
-        """Hent personer med opptak til et studieprogram ved UiO
-	som i løpet av de to siste år har avlagt en eksamen
-	eller har vært eksamensmeldt i minst ett emne ved UiO 
-	i løpet av de to siste år inngår i denne gruppen
-        Disse får affiliation student med kode opptak 
-        til stedskoden sp.faknr_studieansv+sp.instituttnr_studieansv+
-        sp.gruppenr_studieansv""" 
+        """Hent personer med opptak til et studieprogram ved
+        institusjonen og som i løpet av de to siste år har avlagt en
+        eksamen eller har vært eksamensmeldt i minst ett emne ved
+        institusjonen i løpet av de to siste år inngår i denne gruppen
+        Med untak av de som har 'studierettstatkode' lik 'PRIVATIST'
+        skal alle disse får affiliation student med kode 'opptak'
+        ('privatist' for disse) til stedskoden sp.faknr_studieansv +
+        sp.instituttnr_studieansv + sp.gruppenr_studieansv""" 
 
         qry = """
 SELECT DISTINCT s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
@@ -146,7 +147,8 @@ SELECT DISTINCT s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
        s.adrlin3_semadr, s.adresseland_semadr, p.adrlin1_hjemsted,
        p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
        p.adresseland_hjemsted, p.status_reserv_nettpubl, 
-       p.sprakkode_malform,st.studieprogramkode, st.studierettstatkode
+       p.sprakkode_malform,st.studieprogramkode, st.studierettstatkode,
+       p.kjonn
 FROM fs.student s, fs.person p, fs.studierett st, fs.eksmeldinglogg el,
      fs.studieprogram sp
 WHERE  p.fodselsdato=s.fodselsdato AND
@@ -174,34 +176,30 @@ WHERE  p.fodselsdato=s.fodselsdato AND
 
     def GetStudinfAktiv(self):
         """Hent fødselsnummer+studieprogram for alle aktive 
-        studenter. 
-	Som aktive studenter regner vi alle studenter med opptak 
-	til et studieprogram som samtidig har en eksamensmelding
-	i et emne som kan inngå i det studieprogrammet, eller
-	som har bekreftet sin utdanningsplan
+        studenter.  Som aktive studenter regner vi alle studenter med
+   	opptak til et studieprogram som samtidig har en
+	eksamensmelding i et emne som kan inngå i dette
+	studieprogrammet, eller som har bekreftet sin utdanningsplan
 	Disse får affiliation student med kode aktiv til 
         sp.faknr_studieansv+sp.instituttnr_studieansv+
-        sp.gruppenr_studieansv"""
+        sp.gruppenr_studieansv.  Vi har alt hentet opplysninger om
+	adresse ol. efter som de har opptak.  Henter derfor kun
+        fødselsnummer og studieprogram.  Medfører at du kan få med
+        linjer som du ikke har personinfo for, dette vil være snakk om
+        ekte-døde personer."""
 
         qry = """
 SELECT DISTINCT
-      s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
-      s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
-      s.adrlin3_semadr, s.adresseland_semadr, p.adrlin1_hjemsted,
-      p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
-      p.adresseland_hjemsted, p.status_reserv_nettpubl, 
-      p.sprakkode_malform, sp.studieprogramkode
+      s.fodselsdato, s.personnr, sp.studieprogramkode
 FROM fs.studieprogram sp, fs.studierett st, fs.student s,
-     fs.registerkort r, fs.eksamensmelding em, fs.person p,
+     fs.registerkort r, fs.eksamensmelding em,
      fs.emne_i_studieprogram es
-WHERE s.fodselsdato=p.fodselsdato AND
-      s.personnr=p.personnr AND
-      p.fodselsdato=r.fodselsdato AND
-      p.personnr=r.personnr AND
-      p.fodselsdato=st.fodselsdato AND
-      p.personnr=st.personnr AND
-      p.fodselsdato=em.fodselsdato AND
-      p.personnr=em.personnr AND
+WHERE s.fodselsdato=r.fodselsdato AND
+      s.personnr=r.personnr AND
+      s.fodselsdato=st.fodselsdato AND
+      s.personnr=st.personnr AND
+      s.fodselsdato=em.fodselsdato AND
+      s.personnr=em.personnr AND
       es.studieprogramkode=sp.studieprogramkode AND
       em.emnekode=es.emnekode AND
       st.status_privatist='N' AND 
@@ -209,25 +207,18 @@ WHERE s.fodselsdato=p.fodselsdato AND
       r.regformkode IN ('STUDWEB','DOKTORREG','MANUELL') AND
       (st.opphortstudierettstatkode IS NULL OR
       st.dato_gyldig_til >= sysdate) AND
-      %s %s
-UNION """ %(self.get_termin_aar(only_current=1),self.is_alive()) 
+      %s
+UNION """ %(self.get_termin_aar(only_current=1)
 
 	qry = qry + """
 SELECT DISTINCT
-     s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
-     s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
-     s.adrlin3_semadr, s.adresseland_semadr, p.adrlin1_hjemsted,
-     p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
-     p.adresseland_hjemsted, p.status_reserv_nettpubl,
-     p.sprakkode_malform, sp.studieprogramkode
-FROM fs.person p, fs.student s, fs.studierett st,
+     s.fodselsdato, s.personnr, sp.studieprogramkode
+FROM fs.student s, fs.studierett st,
      fs.studprogstud_planbekreft r, fs.studieprogram sp
-WHERE p.fodselsdato=s.fodselsdato AND
-      p.personnr=s.personnr AND
-      p.fodselsdato=st.fodselsdato AND
-      p.personnr=st.personnr AND
-      p.fodselsdato=r.fodselsdato AND
-      p.personnr=r.personnr AND
+WHERE s.fodselsdato=st.fodselsdato AND
+      s.personnr=st.personnr AND
+      s.fodselsdato=r.fodselsdato AND
+      s.personnr=r.personnr AND
       sp.status_utdplan='J' AND
       st.status_privatist='N' AND     
       r.studieprogramkode=st.studieprogramkode AND
@@ -235,8 +226,7 @@ WHERE p.fodselsdato=s.fodselsdato AND
       (st.opphortstudierettstatkode IS NULL OR
       st.dato_gyldig_til >= sysdate) AND
       r.dato_bekreftet < SYSDATE
-      %s
-      """ % (self.is_alive())   
+      """ % 
      	return (self._get_cols(qry), self.db.query(qry))
 
 
@@ -271,26 +261,24 @@ SELECT s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
        s.adrlin3_semadr, s.adresseland_semadr, p.adrlin1_hjemsted,
        p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
        p.adresseland_hjemsted, p.status_reserv_nettpubl, 
-       p.sprakkode_malform, sp.studieprogramkode
-FROM fs.student s, fs. person p, fs.studierett st, 
-     fs.studieprogram sp, fs.registerkort r,
+       p.sprakkode_malform, sp.studieprogramkode, p.kjonn
+FROM fs.student s, fs. person p, fs.studieprogram sp, fs.registerkort r,
      fs.eksamensmelding em, fs.emne_i_studieprogram es 
 WHERE s.fodselsdato=p.fodselsdato AND
       s.personnr=p.personnr AND
-      p.fodselsdato=st.fodselsdato AND
-      p.personnr=st.personnr AND
       p.fodselsdato=r.fodselsdato AND
       p.personnr=r.personnr AND
       p.fodselsdato=em.fodselsdato AND
       p.personnr=em.personnr AND
-      st.status_privatist='J' AND
-      es.studieprogramkode=sp.studieprogramkode AND
-      em.emnekode <> es.emnekode AND
-      st.studieprogramkode=sp.studieprogramkode AND      
-      r.regformkode IN ('STUDWEB','DOKTORREG','MANUELL') AND
-      (st.opphortstudierettstatkode IS NULL OR
-      st.dato_gyldig_til >= sysdate) AND
-      %s %s
+      em.emnekode = es.emnekode AND
+       %s %s
+      es.studieprogramkode not exists
+      (select st.studieprogramkode from fs.studierett st where
+       p.fodselsdato=st.fodselsdato AND
+       p.personnr=st.personnr AND
+       (st.opphortstudierettstatkode IS NULL OR
+        st.dato_gyldig_til >= sysdate))
+
       """ % (self.get_termin_aar(only_current=1),self.is_alive())
         return (self._get_cols(qry), self.db.query(qry))
 
@@ -345,6 +333,18 @@ SELECT DISTINCT
        fodselsdato, personnr, regformkode, dato_endring, dato_opprettet
 FROM fs.registerkort r
 WHERE %s""" % self.get_termin_aar(only_current=1)
+        return (self._get_cols(qry), self.db.query(qry))
+
+
+    def GetDod(self):
+        """Henter en liste med de personer som ligger i FS og som er
+           registrert som død.  Listen kan sikkert kortes ned slik at
+           man ikke tar alle, men i denne omgang så gjør vi det
+           slik."""
+        qry = """
+SELECT p.fodselsdato, p.personnr
+FROM   fs.person p
+WHERE  p.status_dod = 'J'"""
         return (self._get_cols(qry), self.db.query(qry))
 
 
