@@ -127,11 +127,8 @@ class Constants(Constants.Constants):
     spread_hia_ad_group = _SpreadCode('group@ad', Constants.Constants.entity_group,
 				      'group included in Active Directory')   
 
-    spread_hia_fronter = _SpreadCode('classgroup@fronter', Constants.Constants.entity_group,
-				     '''Group representing a course \
-				     that should be exported to the ClassFronter.\
-				     Should only be given to groups that have been \
-				     automatically generated from FS.''')  
+    spread_hia_fronter = _SpreadCode('group@fronter', Constants.Constants.entity_group,
+				     '''Group representing a course that should be exported to the ClassFronter.Should only be given to groups that have been automatically generated from FS.''')
 
 #Kommenteres ut foreløpig, er usikkert om vi skal ha dem 
 
