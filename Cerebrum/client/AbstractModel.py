@@ -3,6 +3,26 @@
    providing network communication, updating the database or
    whatever might be neccessary. """
 
+class CerebrumError(Exception):
+    """General Cerebrum error"""
+    def __str__(self):
+        args = Exception.__str__(self) # Get our arguments
+        if args: 
+            return self.__doc__ + ': ' + args
+        else:
+            return self.__doc__
+
+class ServerError(CerebrumError):
+    """Server error"""
+
+class ServerRestartedError(ServerError):
+    """Server restarted"""
+
+class NotSupportedError(ServerError):
+    """Method not supported"""
+
+class NoQuarantineSupport(NotSupportedError):
+    """Entity type does not support quarantines"""
 
 class Address(object):
 
@@ -384,7 +404,6 @@ class OU(Entity):
 
     def delete(self):
         pass
-
 
 class Constants(object):
     JOIN = 1
