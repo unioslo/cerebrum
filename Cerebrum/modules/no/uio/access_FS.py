@@ -413,11 +413,12 @@ FROM fs.studieprogram"""
 	"""For hvert definerte Emne henter vi informasjon om 
            ansvarlig sted."""
         qry = """
-        SELECT e.emnekode, e.versjonskode, e.institusjonsnr_reglement,
+        SELECT e.emnekode, e.versjonskode, e.institusjonsnr,
                e.faknr_reglement, e.instituttnr_reglement,
                e.gruppenr_reglement, e.studienivakode
         FROM fs.emne e
-        WHERE NVL(e.arstall_eks_siste, :year) >= :year - 1"""
+        WHERE e.institusjonsnr = '185' AND
+              NVL(e.arstall_eks_siste, :year) >= :year - 1"""
         return (self._get_cols(qry), self.db.query(qry, {'year': self.year}))
 
 
