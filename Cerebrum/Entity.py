@@ -377,7 +377,14 @@ class EntityContactInfo(Entity):
             # source system.
             return
         idx = "%d:%d" % (type, contact_pref)
-        self.__data[idx] = {'value': value,
+        # For some contact values, e.g. phone numbers, it makes sense
+        # to pass in numeric 'value' arguments.  However, this breaks
+        # the update magic in write_db(), as the values it compares
+        # against er fetched from a text column in the database.
+        #
+        # To avoid such problems, the 'value' argument is always
+        # converted to a string before being stored in self.__data.
+        self.__data[idx] = {'value': str(value),
                             'description': description}
 
     def write_db(self):
