@@ -333,12 +333,14 @@ class EmailTarget(EmailEntity):
         self.find(target_id)
 
     def find_by_entity_and_alias(self, entity_id, alias):
-        # Due to the UNIQUE constraint in table email_target, this
-        # should never find more than one row.
+        # Due to the UNIQUE constraint in table email_target, this can
+        # only find more than one row if both entity_id and alias are
+        # None.
         target_id = self.query_1("""
         SELECT target_id
         FROM [:table schema=cerebrum name=email_target]
-        WHERE entity_id=:e_id AND alias_value=:alias""",
+        WHERE (entity_id=:e_id OR :e_id IS NULL)
+          AND (alias_value=:alias OR :alias IS NULL)""",
                                  {'e_id': entity_id,
                                   'alias': alias})
         self.find(target_id)
