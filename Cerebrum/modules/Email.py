@@ -134,7 +134,7 @@ class EmailDomain(EmailEntity):
             VALUES (:d_id, :name, :category, :descr)""",
                          {'d_id': self.email_domain_id,
                           'name': self.email_domain_name,
-                          'category': self.email_domain_category,
+                          'category': int(self.email_domain_category),
                           'descr': self.email_domain_description})
         else:
             self.execute("""
@@ -143,7 +143,7 @@ class EmailDomain(EmailEntity):
             WHERE domain_id=:d_id""",
                          {'d_id': self.email_domain_id,
                           'name': self.email_domain_name,
-                          'category': self.email_domain_category,
+                          'category': int(self.email_domain_category),
                           'descr': self.email_domain_description})
         del self.__in_db
         self.__in_db = True
@@ -204,7 +204,7 @@ class EmailTarget(EmailEntity):
     def write_db(self):
         if not self.__updated:
             return
-
+        is_new = not self.__in_db
         if is_new:
             self.email_target_id = int(self.nextval("email_id_seq"))
             self.execute("""
@@ -212,9 +212,9 @@ class EmailTarget(EmailEntity):
               (target_id, target_type, entity_id, entity_type, alias_value)
             VALUES (:t_id, :t_type, :e_id, :e_type, :alias)""",
                          {'t_id': self.email_target_id,
-                          't_type': self.email_target_type,
+                          't_type': int(self.email_target_type),
                           'e_id': self.email_target_entity_id,
-                          'e_type': self.email_target_entity_type,
+                          'e_type': int(self.email_target_entity_type),
                           'alias': self.email_target_alias})
         else:
             self.execute("""
@@ -254,7 +254,7 @@ class EmailTarget(EmailEntity):
         FROM [:table schema=cerebrum name=email_target]
         WHERE entity_id=:e_id AND entity_type=:e_type""",
                                  {'e_id': entity_id,
-                                  'e_type': entity_type})
+                                  'e_type': int(entity_type)})
         self.find(target_id)
 
     def find_by_alias(self, alias):
@@ -357,7 +357,8 @@ class EmailAddress(EmailEntity):
 
     def find_by_address(self, address):
         lp, dp = address.split('@')
-        domain = EmailDomain(self._db).find_by_domain(dp)
+        domain = EmailDomain(self._db)
+        domain.find_by_domain(dp)
         address_id = self._db.query_1("""
         SELECT address_id
         FROM [:table schema=cerebrum name=email_address]
@@ -840,6 +841,7 @@ class EmailPrimaryAddress(EmailTarget):
         self.__in_db = True
         self.__updated = False
         return is_new
+
     def find(self, target_id):
         self.__super.find(target_id)
         self.email_primaddr_id = self.query_1("""
