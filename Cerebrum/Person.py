@@ -287,13 +287,15 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
                       'ext_id': external_id})
 
     def get_external_id(self, source_system=None, id_type=None):
-        cols = {'source_system': source_system,
-                'id_type': id_type,
-                'entity_id': self.entity_id}
+        cols = {'person_id': int(self.entity_id)}
+        if source_system is not None:
+            cols['source_system'] = int(source_system)
+        if id_type is not None:
+            cols['id_type'] = int(id_type)
         return self.query("""
         SELECT id_type, source_system, external_id
-        FROM [:table schema=cerebrum name=person_info]
-        WHERE %s""" % " AND".join(["%s=:%s" % (x, x)
+        FROM [:table schema=cerebrum name=person_external_id]
+        WHERE %s""" % " AND ".join(["%s=:%s" % (x, x)
                                    for x in cols.keys()]), cols)
 
     def find_persons_by_bdate(self, bdate):
@@ -422,12 +424,6 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
               affiliation=:affiliation AND
               source_system=:source""", binds)
             self.execute("""
-            INSERT INTO [:table schema=cerebrum name=person_affiliation_source]
-              (person_id, ou_id, affiliation, source_system, status)
-            VALUES (:p_id, :ou_id, :affiliation, :source, :status)""",
-                         binds)
-        except Errors.NotFoundError:
-            self.execute("""
             UPDATE [:table schema=cerebrum name=person_affiliation_source]
             SET status=:status, last_date=[:now], deleted_date=NULL
             WHERE
@@ -435,6 +431,12 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
               ou_id=:ou_id AND
               affiliation=:affiliation AND
               source_system=:source""", binds)
+        except Errors.NotFoundError:
+            self.execute("""
+            INSERT INTO [:table schema=cerebrum name=person_affiliation_source]
+              (person_id, ou_id, affiliation, source_system, status)
+            VALUES (:p_id, :ou_id, :affiliation, :source, :status)""",
+                         binds)
 
     def delete_affiliation(self, ou_id, affiliation, source, status):
         self.execute("""
