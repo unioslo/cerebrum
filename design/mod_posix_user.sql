@@ -80,4 +80,5 @@ CREATE TABLE posix_user (
 		NOT NULL
 		CONSTRAINT posix_user_shell REFERENCES posix_shell_code(code)
 );
-CREATE SEQUENCE uid_seq START WITH 1000;
+
+CREATE SEQUENCE posix_uid_seq [:sequence_start value=1000];
