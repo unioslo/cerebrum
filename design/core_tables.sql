@@ -349,7 +349,7 @@ CREATE TABLE account_info
 		CONSTRAINT account_info_np_type
 		  REFERENCES account_code(code),
   create_date	DATE
-		DEFAULT SYSDATE
+		DEFAULT [:now]
 		NOT NULL,
   creator_id	NUMERIC(12,0)
 		NOT NULL
@@ -404,7 +404,7 @@ CREATE TABLE entity_quarantine
 		  REFERENCES account_info(account_id),
   description	CHAR VARYING(512),
   create_date	DATE
-		DEFAULT SYSDATE
+		DEFAULT [:now]
 		NOT NULL,
   start_date	DATE
 		NOT NULL,
@@ -800,10 +800,10 @@ CREATE TABLE person_affiliation
 		  REFERENCES authoritative_system_code(code),
   status	NUMERIC(6,0),
   create_date	DATE
-		DEFAULT SYSDATE
+		DEFAULT [:now]
 		NOT NULL,
   last_date	DATE
-		DEFAULT SYSDATE
+		DEFAULT [:now]
 		NOT NULL,
   deleted_date	DATE,
   CONSTRAINT person_affiliation_pk
@@ -939,7 +939,7 @@ CREATE TABLE group_info
 		CONSTRAINT group_info_creator_id
 		  REFERENCES account_info(account_id),
   create_date	DATE
-		DEFAULT SYSDATE
+		DEFAULT [:now]
 		NOT NULL,
 /* expire_date kan brukes for å slette grupper, f.eks. ved at gruppen
    ikke lenger eksporteres etter at datoen er passert, men først
@@ -1247,7 +1247,7 @@ CREATE TABLE group_export
   gtype		CHAR VARYING(32),
   system_owner	CHAR VARYING(32),
   create_date	DATE
-		DEFAULT SYSDATE
+		DEFAULT [:now]
 		NOT NULL,
   create_by	NUMERIC(12,0)
 		NOT NULL

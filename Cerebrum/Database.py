@@ -699,6 +699,9 @@ class PostgreSQL(Database):
     def _sql_port_from_dual(self):
         return []
 
+    def _sql_port_now(self):
+        return ['NOW()']
+
 
 class Oracle(Database):
     """Oracle database driver class."""
@@ -746,6 +749,9 @@ class Oracle(Database):
 
     def _sql_port_from_dual(self):
         return ["FROM", "DUAL"]
+
+    def _sql_port_now(self):
+        return ['SYSDATE']
 
 
 def connect(*args, **kws):
