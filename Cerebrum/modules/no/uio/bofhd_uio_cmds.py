@@ -1510,6 +1510,8 @@ class BofhdExtension(object):
         posix_user.set_password(passwd)
         try:
             posix_user.write_db()
+            for spread in cereconf.BOFHD_NEW_USER_SPREADS:
+                posix_user.add_spread(self.str2const[spread])
             if len(args) != 6:
                 self._user_create_set_account_type(posix_user, owner_id, affiliation)
         except self.db.DatabaseError, m:
