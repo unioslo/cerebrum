@@ -1,22 +1,22 @@
 #!/usr/bin/env  python
+import sys
+
+from omniORB import CORBA, PortableServer, sslTP
+import CosNaming
+
+from Cerebrum.Utils import Factory
+from Cerebrum.gro import Cerebrum_core__POA, Cerebrum_core
+from Constants import *
+import cereconf
+
+import LOHandler
+import APHandler
 
 # The major version number of Gro
 GRO_MAJOR_VERSION = 0
 
 # The minor version of Gro
 GRO_MINOR_VERSION = 1
-
-from Cerebrum.Utils import Factory
-import cereconf
-
-import sys
-from omniORB import CORBA, PortableServer, sslTP
-import CosNaming
-import LOHandler
-from Constants import *
-
-from Cerebrum.gro import Cerebrum_core__POA, Cerebrum_core
-
 
 class GroImpl( Cerebrum_core__POA.Gro ):
     """
@@ -38,6 +38,10 @@ class GroImpl( Cerebrum_core__POA.Gro ):
     
     def get_lo_handler( self ):
         return self.loHandler
+
+    def get_ap_handler( self, username, password ):
+        ap = APHandler.APHandler( self.com, username, password )
+        return self.com.get_corba_representation( ap )
 
     
 class Communication( object ):
