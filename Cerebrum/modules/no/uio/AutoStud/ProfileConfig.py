@@ -313,7 +313,8 @@ class ProfileDefinition(object):
         tmp = []
         for q in self.settings.get("quarantine", []):
             tmp.append({'quarantine': config.autostud.co.Quarantine(q['navn']),
-                        'start_at': int(q.get('start_at', 0)) * 3600 * 24})
+                        'start_at': int(q.get('start_at', 0)) * 3600 * 24,
+                        'scope': q.get('scope', None)})
         self.settings["quarantine"] = tmp  
 
         self._convert_disk_settings(config)
