@@ -26,6 +26,7 @@ class Profile(object):
         self.settings = {}
         self.toplevel_settings = {}
         self._get_profile_matches(student_info)
+        logger.debug("Matching profiles: %s" % self.matches)
         self._resolve_matches()
         if len(self.matches) == 0:
             raise ValueError, "No matching profiles"
@@ -138,7 +139,7 @@ class Profile(object):
                     if d['path'] == current_disk:
                         return current_disk
                 else:
-                    disk_path = self._autostud._disks[int(current_disk)][0]
+                    disk_path = self._autostud.disks[int(current_disk)][0]
                     if d['prefix'] == disk_path[0:len(d['prefix'])]:
                         return current_disk
         disk = disks[0]
@@ -147,14 +148,14 @@ class Profile(object):
             return disk['path']
 
         dest_pfix = disk['prefix']
-        max_on_disk = self._autostud.pc.disk_defs['prefix'][dest_pfix]['max']
+        max_on_disk = int(self._autostud.pc.disk_defs['prefix'][dest_pfix]['max'])
         if max_on_disk == -1:
             max_on_disk = 999999
         for d in self._autostud.disks_order:
             tmp_path, tmp_count = self._autostud.disks[d]
             if (dest_pfix == tmp_path[0:len(dest_pfix)]
                 and tmp_count < max_on_disk):
-                return d
+                 return d
         raise ValueError, "Bad disk %s" % disk
 
     def notify_used_disk(self, old=None, new=None):
