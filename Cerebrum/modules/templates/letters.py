@@ -69,9 +69,9 @@ tag is present, hdr and footer will be empty.
             else:
                 v = str(mapping[k])
             if self._type == 'ps':  # Quote postscript
-                v.replace('\\', '\\\\')
-                v.replace(')', '\\)')
-                v.replace('(', '\\(')
+                v = v.replace('\\', '\\\\')
+                v = v.replace(')', '\\)')
+                v = v.replace('(', '\\(')
             elif self._type == 'tex':
                 if not v:
                     v = '\\ '
