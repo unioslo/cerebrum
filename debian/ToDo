@@ -1,0 +1,7 @@
+things to sort out:
+- put the diagram/*.sql file list into a config file.
+- make the files in /usr/sbin/ loose their .py
+- move all the small adjustments against upstream into patches
+- add the Jasmin`s documentation to the doc package
+- initial password handling in debconf
+- config files values, comment and make work
