@@ -70,6 +70,10 @@ class Group(EntityName, Entity):
         # "group_name".
         self.group_name = name
 
+    def illegal_name(self, name):
+        """Return a string with error message if username is illegal"""
+        return False
+
     def write_db(self):
         """Write group instance to database.
 
@@ -82,6 +86,9 @@ class Group(EntityName, Entity):
         this object.
 
         """
+        tmp = self.illegal_name(self.account_name)
+        if tmp:
+            raise self._db.IntegrityError, "Illegal groupname: %s" % tmp
         self.__super.write_db()
         if not self.__updated:
             return

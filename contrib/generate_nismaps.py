@@ -74,6 +74,9 @@ def generate_passwd(filename, spread=None):
         diskid2path[int(d['disk_id'])] = d['path']
     def process_user(row, extra_rows):
         uname = row['entity_name']
+        tmp = posix_user.illegal_name(uname)
+        if tmp:
+            raise BadUsername, "Bad username %s" % tmp            
         if len(uname) > 8:
             raise BadUsername, "Bad username %s" % uname
         passwd = row['auth_data']
@@ -181,8 +184,11 @@ def generate_netgroup(filename, group_spread, user_spread):
             u, i, d = group.list_members(spread=user_spread,
                                          member_type=co.entity_account)
             for row in u:
-                uname = entity2uname[int(row[1])]
-                if len(uname) > 8:
+                uname = entity2uname[int(row[1])] 
+                tmp = posix_user.illegal_name(uname)
+                if tmp:
+                    print "Bad username %s in %s" % (tmp, group.group_name)
+                elif len(uname) > 8:
                     print ("Bad username %s in %s" %
                            (uname, group.group_name))
                 else:
@@ -240,6 +246,9 @@ def generate_group(filename, group_spread, user_spread):
         # corresponding PosixUser, and resolve the remaining ones to
         # their PosixUser usernames.
         gname = posix_group.group_name
+        tmp = posix_group.illegal_name(gname)
+        if tmp:
+            print "Bad groupname %s" % tmp            
         if len(gname) > 8:
             print "Bad groupname %s" % gname
             continue
@@ -250,7 +259,10 @@ def generate_group(filename, group_spread, user_spread):
             id = db.pythonify_data(id)
             if entity2uname.has_key(id):
                 if not account2def_group.get(id,None) == posix_group.posix_gid:
-                    if len(entity2uname[id]) > 8:
+                    tmp = posix_user.illegal_name(entity2uname[id])
+                    if tmp:
+                        print "Bad username %s" % tmp            
+                    elif len(entity2uname[id]) > 8:
                         print "Bad username %s in %s"%(entity2uname[id], gname)
                     else:
                         user_membership_count[id] = user_membership_count.get(id, 0) + 1

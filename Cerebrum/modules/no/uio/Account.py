@@ -21,6 +21,7 @@
 
 import random
 
+import re
 from Cerebrum import Account
 from Cerebrum import Errors
 from Cerebrum.modules import Email
@@ -152,6 +153,20 @@ class AccountUiOMixin(Account.Account):
                 raise self._db.IntegrityError, \
                       "Can't move email target away from IMAP."
 
+    def illegal_name(self, name):
+        # Avoid circular import dependency
+        from Cerebrum.modules.PosixUser import PosixUser
+
+        if isinstance(self, PosixUser):
+            # TODO: Kill the ARsystem user to limit range og legal characters
+            if len(name) > 8:
+                return "too long (%s)" % name
+            if re.search("^[^A-Za-z]", name):
+                return "must start with a character (%s)" % name
+            if re.search("[^A-Za-z0-9\-_]", name):
+                return "contains illegal characters (%s)" % name
+        return False
+        
     def delete_spread(self, spread):
         #
         # Pre-remove checks
