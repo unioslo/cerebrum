@@ -14,7 +14,7 @@ from Cerebrum.Utils import Factory
 import xml.sax
 import pprint
 
-default_personfile = "/u2/dumps/LT/person.dat.2"
+default_personfile = "/cerebrum/dumps/LT/person.xml"
 
 class LTData(object):
     """This class is used to iterate over all users in LT. """
@@ -88,6 +88,11 @@ def main():
         (year, mon, day) = fodselsnr.fodt_dato(person['fnr'])
         if(year < 1970 and getattr(cereconf, "ENABLE_MKTIME_WORKAROUND", 0) == 1):
             year = 1970   # Seems to be a bug in time.mktime on some machines
+        try:
+            new_person.find_by_external_id(co.externalid_fodselsnr, person['fnr'])
+        except Errors.NotFoundError:
+            pass
+
         new_person.populate(Cerebrum.Date(year, mon, day), gender)
 
         new_person.affect_names(co.system_lt, co.name_full)
@@ -111,7 +116,6 @@ def main():
         if stedkode == '' and person.has_key('bilag'):
             stedkode = person['bilag'][0]['stedkode']
         if stedkode == '' and person.has_key('fakultetnr_for_lonnsslip'):
-            # TODO: Kan være NONE
             stedkode = "%02d%02d%02d" % (int(person['fakultetnr_for_lonnsslip']),
                                          int(person['instituttnr_for_lonnsslip']),
                                          int(person['gruppenr_for_lonnsslip']))
@@ -148,17 +152,14 @@ def main():
             except:
                 print "Error setting stedkode"
 
-        try:
-            personObj.find_by_external_id(co.externalid_fodselsnr, person['fnr'])
-            if not (new_person == personObj):
-                print "**** UPDATE ****"
-                new_person.write_db(personObj)
-            else:
-                print "**** EQUAL ****"
-        except Errors.NotFoundError:
+        op = new_person.write_db()
+        if op is None:
+            print "**** EQUAL ****"
+        elif op == True:
             print "**** NEW ****"
-            new_person.write_db()
-    Cerebrum.commit()
+        elif op == False:
+            print "**** UPDATE ****"
+        Cerebrum.commit()
 
 if __name__ == '__main__':
     main()
