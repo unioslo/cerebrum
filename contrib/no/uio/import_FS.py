@@ -10,6 +10,8 @@ from Cerebrum.modules.no.uio import OU
 from Cerebrum.modules.no import fodselsnr
 # import pprint
 
+personfile = "/u2/dumps/FS/persons.dat";
+
 class FSData(object):
     cols_n = """fdato, pnr, lname, fname, adr1, adr2, postnr,adr3,
 	     adrland, adr1_hjem, adr2_hjem, postnr_hjem, adr3_hjem,
@@ -43,30 +45,24 @@ class FSData(object):
                 persondta[c] = None
         return persondta
 
-personfile = "/u2/dumps/FS/persons.dat";
-
-if len(sys.argv) == 2:
-    personfile = sys.argv[1]
-
-Cerebrum = Database.connect()
-ou = OU.OU(Cerebrum)
-person = Person.Person(Cerebrum)
-new_person = Person.Person(Cerebrum)
-co = Constants.Constants(Cerebrum)
-
 def main():
+    Cerebrum = Database.connect()
+
+    if len(sys.argv) == 2:
+        personfile = sys.argv[1]
+
     f = os.popen("sort -u "+personfile)
 
     dta = FSData()
     for line in f.readlines():
         persondta = dta.parse_line(line)
         if persondta is not None:
-            process_person(persondta)
+            process_person(Cerebrum, persondta)
         else:
             print "Unhandled format: ",line
     Cerebrum.commit()
 
-def process_person(persondta):
+def process_person(Cerebrum, persondta):
     print "Process %06d%05d %s %s " % (
         int(persondta['fdato']), int(persondta['pnr']),
         persondta['fname'], persondta['lname']),
@@ -82,7 +78,9 @@ def process_person(persondta):
         return
 
 
-    new_person.clear()
+    new_person = Person.Person(Cerebrum)
+    co = Constants.Constants(Cerebrum)
+    
     gender = co.gender_male
     if(fodselsnr.er_kvinne(fnr)):
         gender = co.gender_female
@@ -101,13 +99,14 @@ def process_person(persondta):
                                  persondta['adr2']),
                                 zip=persondta['postnr'],
                                 city=persondta['adr3'])
-
+    ou = OU.OU(Cerebrum)
     ou.find_stedkode(int(persondta['fak']), int(persondta['inst']), int(persondta['gruppe']))
 
     new_person.affect_affiliations(co.system_fs, co.affiliation_student)
     new_person.populate_affiliation(ou.ou_id, co.affiliation_student, co.affiliation_status_student_valid)
 
     try:
+        person = Person.Person(Cerebrum)
         person.find_by_external_id(co.externalid_fodselsnr, fnr)
         if not (new_person == person):
             print "**** UPDATE ****"
