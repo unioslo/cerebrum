@@ -60,9 +60,13 @@ class Person_createTestCase(OU_createTestCase):
         person.populate_address(self.co.system_manual,
                                 self.co.address_post, address_text=pd['address_text'],
                                 postal_number=pd['postal_number'], city=pd['city'])
-        person.populate_affiliation(self.co.system_manual,
-                                    self.ou_id, self.co.affiliation_student,
-                                    self.co.affiliation_status_student_valid)
+        # As there are no defined person_affiliations in the default
+        # config, it wouldn't be proper to test population of
+        # affiliations here.
+##         person.populate_affiliation(self.co.system_manual,
+##                                     self.ou.entity_id,
+##                                     self.co.affiliation_student,
+##                                     self.co.affiliation_status_student_valid)
 
     def tearDown(self):
         # print "Person_createTestCase.tearDown()"
