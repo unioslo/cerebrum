@@ -515,9 +515,9 @@ WHERE fodselsdato=:fodselsdato AND personnr=:personnr""", locals())
         mon = time.localtime()[1]
         # Months January - June == Spring semester
         if mon <= 6:
-            return 'V_R'
+            return 'VÅR'
         # Months July - December == Autumn semester
-        return 'H_ST' 
+        return 'HØST' 
 
 
     def GetUndervEnhetAll(self, yr=time.localtime()[0], sem=None):
@@ -615,6 +615,42 @@ WHERE k.etterutdkurskode=:kurs AND
         return (self._get_cols(qry),
                 self.db.query(qry, {'kurs': kurs, 'tid': tid}))
 
+    def GetStudUndAktivitet(self, Instnr, emnekode, versjon, termk,
+                            aar, termnr, aktkode):
+        qry = """
+SELECT
+  su.fodselsdato, su.personnr
+FROM
+  FS.STUDENT_PA_UNDERVISNINGSPARTI su,
+  FS.undaktivitet ua
+WHERE
+  ua.institusjonsnr = :instnr AND
+  ua.emnekode       = :emnekode AND
+  ua.versjonskode   = :versjon AND
+  ua.terminkode     = :terminkode AND
+  ua.arstall        = :arstall AND
+  ua.terminnr       = :terminnr AND
+  ua.aktivitetkode  = :aktkode AND
+  su.terminnr       = ua.terminnr       AND
+  su.institusjonsnr = ua.institusjonsnr AND
+  su.emnekode       = ua.emnekode       AND
+  su.versjonskode   = ua.versjonskode   AND
+  su.terminkode     = ua.terminkode     AND
+  su.arstall        = ua.arstall        AND
+  su.undpartilopenr = ua.undpartilopenr AND
+  su.disiplinkode   = ua.disiplinkode   AND
+  su.undformkode    = ua.undformkode"""
+
+        return (self._get_cols(qry),
+                self.db.query(qry, {
+            'instnr': Instnr,
+            'emnekode': emnekode,
+            'versjon': versjon,
+            'terminkode': termk,
+            'arstall': aar,
+            'terminnr': termnr,
+            'aktkode': aktkode}))
+
     # GetAnsvUndervEnhet
     #
     #   Finner alle som er ansvarlige for undervisning av et gitt emne
@@ -707,6 +743,63 @@ WHERE
             'arstall': aar,
             'terminnr': termnr}))
 
+    def GetAnsvUndAktivitet(self, Instnr, emnekode, versjon, termk,
+                            aar, termnr, aktkode):
+        qry = """
+SELECT
+  ual.fodselsdato_fagansvarlig AS fodselsdato,
+  ual.personnr_fagansvarlig AS personnr,
+  ual.status_publiseres AS publiseres
+FROM
+  fs.undaktivitet_lerer ual
+WHERE
+  ual.institusjonsnr = :instnr AND
+  ual.emnekode       = :emnekode AND
+  ual.versjonskode   = :versjon AND
+  ual.terminkode     = :terminkode AND
+  ual.arstall        = :arstall AND
+  ual.terminnr       = :terminnr AND
+  ual.aktivitetkode  = :aktkode
+UNION
+SELECT
+  ul.fodselsdato_underviser AS fodselsdato,
+  ul.personnr_underviser AS personnr,
+  ul.status_publiseres AS publiseres
+FROM
+  FS.UNDERVISNING_LERER ul
+WHERE
+  ul.institusjonsnr = :instnr AND
+  ul.emnekode       = :emnekode AND
+  ul.versjonskode   = :versjon AND
+  ul.terminkode     = :terminkode AND
+  ul.arstall        = :arstall AND
+  ul.terminnr       = :terminnr AND
+  ul.aktivitetkode  = :aktkode
+UNION
+SELECT ua.fodselsdato_fagansvarlig AS fodselsdato,
+  ua.personnr_fagansvarlig AS personnr,
+  ua.status_fagansvarlig_publiseres AS publiseres
+FROM fs.undaktivitet ua
+WHERE
+  ua.institusjonsnr = :instnr AND
+  ua.emnekode       = :emnekode AND
+  ua.versjonskode   = :versjon AND
+  ua.terminkode     = :terminkode AND
+  ua.arstall        = :arstall AND
+  ua.terminnr       = :terminnr AND
+  ua.aktivitetkode  = :aktkode AND
+  ua.fodselsdato_fagansvarlig IS NOT NULL AND
+  ua.personnr_fagansvarlig IS NOT NULL"""
+
+        return (self._get_cols(qry),
+                self.db.query(qry, {
+            'instnr': Instnr,
+            'emnekode': emnekode,
+            'versjon': versjon,
+            'terminkode': termk,
+            'arstall': aar,
+            'terminnr': termnr,
+            'aktkode': aktkode}))
 
     # GetStudUndervEnhet
     #
