@@ -6,11 +6,12 @@ import sys
 
 import xml.sax
 
-from Cerebrum import Database,Constants,Errors
+from Cerebrum import Database,Errors
 from Cerebrum import Person
 from Cerebrum import cereconf
 from Cerebrum.modules.no.uio import OU
 from Cerebrum.modules.no import fodselsnr
+from Cerebrum.Utils import Factory
 
 default_personfile = "/u2/dumps/FS/persons.dat.2"
 
@@ -76,7 +77,7 @@ def process_person(Cerebrum, persondta):
         return
 
     new_person = Person.Person(Cerebrum)
-    co = Constants.Constants(Cerebrum)
+    co = Factory.getConstants()(Cerebrum)
     
     gender = co.gender_male
     if(fodselsnr.er_kvinne(fnr)):
