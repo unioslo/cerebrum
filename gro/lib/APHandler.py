@@ -196,7 +196,10 @@ class APHandler(CorbaBuilder):
     register_gro_class = classmethod(register_gro_class)
 
     def create_idl(cls):
-        txt = ''
+        txt = 'typedef sequence<string> stringSeq;\n'
+        txt += 'typedef sequence<long> longSeq;\n'
+        txt += 'typedef sequence<float> floatSeq;\n'
+        txt += 'typedef sequence<boolean> booleanSeq;\n'
 
         defined = []
         for gro_class in cls.gro_classes.values():
