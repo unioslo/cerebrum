@@ -70,9 +70,9 @@ class GroupImport(ImportBase):
                 print "Collision: %s" % ( gids[gid] )
 
 
-
+            member_list = string.split(members_raw.strip(),",")
             if members_raw:
-                for member in string.split(members_raw.strip(),","):
+                for member in member_list:
                     members[ member ] = line_count
 
             name_corrupt = False
@@ -81,7 +81,7 @@ class GroupImport(ImportBase):
                 corrupt = True
 
             names[ name ] = { line_count : fields,
-                                      "members"  : members,
+                                      "member_list"  : member_list,
                                       "gid"      : gid }
             if name_corrupt:
                 print "Collision: %s" % ( names[name] )
@@ -165,7 +165,7 @@ class GroupImport(ImportBase):
         for group_name, group_data in groups.iteritems():
 
             commit_count += 1
-            member_list = group_data['members']
+            member_list = group_data['member_list']
 
             if member_list:
                 print "Adding members to group |%s|" % (group_name) 
