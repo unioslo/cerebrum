@@ -87,7 +87,7 @@ def generate_users():
         shell = PosixUser._PosixShellCode(int(posix_user.shell))
         shell = shell.description
 
-        print "dn: uid=%s,ou=users," % (uname, base_dn)
+        print "dn: uid=%s,ou=users,%s" % (uname, base_dn)
         print "objectClass: top"
         print "objectClass: account"
         print "objectClass: posixAccount"
