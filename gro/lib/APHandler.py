@@ -1,5 +1,5 @@
 from Cerebrum.gro.Cerebrum_core import Errors
-from Cerebrum.gro import Cerebrum_core__POA, Utils, Node, Locking, Locker
+from Cerebrum.gro import Cerebrum_core__POA, Node, Locking, Locker
 
 from omniORB.any import to_any, from_any
 import mx.DateTime
@@ -52,6 +52,11 @@ class APHandler(Cerebrum_core__POA.APHandler, Locker):
 
         raise Errors.NoSuchTypeError('className %s was not found' % className)
 
+
+    """ Returns a corba node wich got that specific name.
+
+    The diffrence between this method and getTypeBy() is that this method
+    maps classnames to a string wich can differ from the classname."""
     def getNode(self, className, key):
         if className not in Node.classMap:
             raise Errors.NoSuchTypeError('className %s was not found' % className)
@@ -115,6 +120,8 @@ class APNode(Cerebrum_core__POA.Node):
     def getChildren(self):
         return self._convert(self.node.children)
 
+
+    """ Returns a tuple with the primary key changed into an anyobject. """
     def getPrimaryKey(self):
         key = self.node.getPrimaryKey()[1]
         if type(key) != tuple:
@@ -154,17 +161,26 @@ class APNode(Cerebrum_core__POA.Node):
     def getClassName(self):
         return self.node.__class__.__name__
 
+
+    """ Returns a list over all readable attributes for the node. """
     def getReadAttributes(self):
         return self.node.readSlots
 
+
+    """ Returns a list over all writeable attributes for the node. """
     def getWriteAttributes(self):
         return self.node.writeSlots
 
+
+    """ Set the attribute key to value, value should be a string. """
     def setString(self, key, value):
         setattr(self.node, key, value)
 
+
+    """ Set the attribute key to value, value should be a long. """
     def setLong(self, key, value):
         setattr(self.node, key, value)
+
 
     """ Prevent other from locking the node for writing.
 
