@@ -279,7 +279,7 @@ def fetch_data(drgrad_file, fritak_kopiavg_file, betalt_papir_file, lt_person_fi
 
     # Alle personer med student affiliation
     for row in person.list_affiliations(affiliation=const.affiliation_student,
-                                        include_deleted=True):
+                                        include_deleted=True, fetchall=False):
         quota_victim[int(row['person_id'])] = True
     logger.debug("person.list_affiliations -> %i quota_victims" % len(quota_victim))
 
@@ -289,7 +289,7 @@ def fetch_data(drgrad_file, fritak_kopiavg_file, betalt_papir_file, lt_person_fi
     person_ac_affiliation = {}
     account_id2pid = {}
     has_account = {}
-    for row in account.list_accounts_by_type(filter_expired=False):
+    for row in account.list_accounts_by_type(filter_expired=False, fetchall=False):
         # TBD: Skal vi skippe expired entries der affiliation != student?
         account_id2pid[int(row['account_id'])] = int(row['person_id'])
         has_account[int(row['person_id'])] = True
@@ -308,7 +308,7 @@ def fetch_data(drgrad_file, fritak_kopiavg_file, betalt_papir_file, lt_person_fi
 
     # Ansatte har fritak
     for row in person.list_affiliations(affiliation=const.affiliation_ansatt,
-                                        include_deleted=False):
+                                        include_deleted=False, fetchall=False):
         if int(row['status']) not in (
             int(const.affiliation_status_ansatt_vit),
             int(const.affiliation_status_ansatt_tekadm)):

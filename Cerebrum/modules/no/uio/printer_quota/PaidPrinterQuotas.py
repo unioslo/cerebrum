@@ -210,7 +210,7 @@ class PaidPrinterQuotas(DatabaseAccessor):
         pass
 
     def get_history_payments(self, transaction_type=None, desc_mask=None,
-                             bank_id_mask=None):
+                             bank_id_mask=None, fetchall=False):
         binds = {
             'transaction_type': int(transaction_type or 0),
             'description': desc_mask,
@@ -231,7 +231,7 @@ class PaidPrinterQuotas(DatabaseAccessor):
             """SELECT transaction_type, person_id, description, bank_id
             FROM [:table schema=cerebrum name=paid_quota_transaction] pqt,
                  [:table schema=cerebrum name=paid_quota_history] pqh
-            WHERE pqh.job_id=pqt.job_id %s""" % where, binds)
+            WHERE pqh.job_id=pqt.job_id %s""" % where, binds, fetchall=fetchall)
 
     def get_history(self, job_id=None, person_id=None, tstamp=None,
                     target_job_id=None):
