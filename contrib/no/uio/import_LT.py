@@ -79,13 +79,13 @@ def conv_name(fullname):
     return fullname.split(None, 1)
 
 def main():
-    opts, args = getopt.getopt(sys.argv[1:], 'vp', ['verbose', 'person-file'])
+    opts, args = getopt.getopt(sys.argv[1:], 'vp:', ['verbose', 'person-file'])
     verbose = 0
     personfile = default_personfile
     for opt, val in opts:
         if opt in ('-v', '--verbose'):
             verbose += 1
-        elif opt in ('p', '--person-file'):
+        elif opt in ('-p', '--person-file'):
             personfile = val
             
     Cerebrum = Factory.get('Database')()
