@@ -19,7 +19,12 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import os, re
+"""Generate LDAP host/domain info to be used by the mail system.
+See Cerebrum/default_config.py:LDAP_MAIL_DNS_* for configuration."""
+
+import os
+import re
+
 import cerebrum_path
 import cereconf
 from Cerebrum import Entity
@@ -27,22 +32,7 @@ from Cerebrum.modules import Email
 from Cerebrum.Utils import Factory,SimilarSizeWriter
 from Cerebrum.modules.LDIFutils import container_entry_string
 
-# These configuration parameters belong in some config file, but
-# since the whole program is so UiO-specific anyway, who cares.
-
-filename = "/".join((cereconf.LDAP_DUMP_DIR, 'mail-dns.ldif'))
-
-# Only consider hosts which have these hosts as lowest priority MX record
-# and also are A records
-mx_hosts = ('pat.uio.no', 'mons.uio.no',
-            'goggins.uio.no', 'miss.uio.no', 'smtp.uio.no')
-
-# Consider these hosts to have DNS A records
-extra_hosts = ('notes.uio.no',)
-
-dig_cmd  = '/local/bin/dig %s. @%s. axfr'
-dig_args = (('uio.no',     'nissen.uio.no'),
-            ('ifi.uio.no', 'bestemor.ifi.uio.no'))
+filename = os.path.join(cereconf.LDAP_DUMP_DIR, "mail-dns.ldif")
 
 # Expect /local/bin/dig output like this:
 #   ; <<>> DiG 9.2.1 <<>> uio.no. @nissen.uio.no. axfr
@@ -64,13 +54,10 @@ def get_hosts_and_cnames():
     lower2host        = {}              # lowercase hostname -> hostname
 
     # Read in the above variables from Dig
-    for args in dig_args:
+    for args in cereconf.LDAP_MAIL_DNS_DIG_ARGS:
         dig_version_found = False
-        f = os.popen(dig_cmd % args, 'r')
-        while True:
-            line = f.readline()
-            if line == '':
-                break
+        f = os.popen(cereconf.LDAP_MAIL_DNS_DIG_CMD % args, 'r')
+        for line in f:
             match = dig_line_re.match(line)
             if match:
                 name, type, info = match.groups()
@@ -97,13 +84,13 @@ def get_hosts_and_cnames():
             raise SystemExit("Dig version changed.  Check output format.")
 
     # Add fake Dig records
-    for host in extra_hosts:
+    for host in cereconf.LDAP_MAIL_DNS_EXTRA_A_HOSTS:
         host_has_A_record[host] = True
 
     # Find hosts that both have an A record
-    # and has its 'best' MX record in mx_hosts.
+    # and has its 'best' MX record in cereconf.LDAP_MAIL_DNS_MX_HOSTS.
     hosts = {}
-    accept_mx = dict(zip(mx_hosts, mx_hosts)).has_key
+    accept_mx = dict(zip(*((cereconf.LDAP_MAIL_DNS_MX_HOSTS,) * 2))).has_key
     for host, mx_dict in host2mx.items():
         if host in host_has_A_record:
             prio = 99.0e9
