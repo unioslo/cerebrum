@@ -116,7 +116,7 @@ class ExportedFuncs(object):
         pass
     
     def help(self, group):
-        # TODO: Re-think this
+        # TBD: Re-think this
         # Show help by parsing the help file.  This is only partially implemented
         f = file("help.txt")
         if group == '':
@@ -143,7 +143,7 @@ class ExportedFuncs(object):
             if correct_section:
                 pos = re.search(re_cmd, line)
                 if pos is not None:
-                    # TODO: Check if command is legal for user
+                    # TBD: Check if command is legal for user
                     line = re.sub(re_cmd, pos.group(1), line)
                     line = re.sub(re_strip, "", line)
                 ret = ret + line
@@ -161,24 +161,24 @@ class ExportedFuncs(object):
         try:
             new_args = ()
             for n in range(1, len(args)):
-                if args[n] == 'XNone':     # TODO: Don't do this this way
+                if args[n] == 'XNone':     # TBD: Don't do this this way
                     new_args += (None,)
                 else:
                     new_args += (args[n],)
-                # TODO: Hvis vi får lister/tupler som input, skal func
+                # TBD: Hvis vi får lister/tupler som input, skal func
                 # kalles flere ganger
-                if isinstance(ret, list) or isinstance(ret, tuple):
+                if isinstance(args[n], list) or isinstance(args[n], tuple):
                     raise NotImplemetedError, "tuple argumenter ikke implemetert enda"
             ret = func(user, *new_args)
             print "process ret: "
             pp.pprint(ret)
-            self.ef.Cerebrum.commit()
+            self.Cerebrum.commit()
             return self.process_returndata(ret)
         except Exception:
             # ret = "Feil: %s" % sys.exc_info()[0]
             # print "Error: %s: %s " % (sys.exc_info()[0], sys.exc_info()[1])
             # traceback.print_tb(sys.exc_info()[2])
-            self.ef.Cerebrum.rollback()
+            self.Cerebrum.rollback()
             raise
 
     ## Prompting and tab-completion works pretty much the same way.
@@ -266,12 +266,19 @@ class CallableFuncs(object):
         ## bofh> person afflist <idtype> <id>
         ## bofh> person affrem <idtype> <id> <affiliation> [<ou>]
         ## bofh> person create <display_name> {<birth_date (yyyy-mm-dd)> | <id_type> <id>}
+        'person_create': Command(("person", "create"), PersonName(),
+                                 Date(optional=1), PersonIdType(),
+                                 PersonId()),
+
         ## bofh> person delete <id_type> <id>
         ## bofh> person find {<name> | <id> [<id_type>] | <birth_date>}
         'person_find': Command(("person", "find") , Id(),
                                PersonIdType(optional=1)),
         
         ## bofh> person info <idtype> <id>
+        'person_info': Command(("person", "info"), PersonIdType(),
+                               PersonId())
+
         ## bofh> person name <id_type> {<export_id> | <fnr>} <name_type> <name>
 
         ## bofh> account affadd <accountname> <affiliation> <ou=>
@@ -320,7 +327,7 @@ class CallableFuncs(object):
         return "Enter a joke"
         
     def get_commands(self, uname):
-        # TODO: Do some filtering on uname to remove commands
+        # TBD: Do some filtering on uname to remove commands
         commands = {}
         for k in self.all_commands.keys():
             commands[k] = self.all_commands[k].getStruct()
@@ -334,17 +341,90 @@ class CallableFuncs(object):
             }
         return suggestions.get(cmd)
 
+    # TBD:  Should add a generic _get_person(idtype, id) method
+    
+    def person_info(self, user, idtype, id):
+        person = self.ef.person
+        if idtype == 'fnr':
+            person.find_by_external_id(self.const.externalid_fodselsnr, id)
+        else:
+            raise NotImplemetedError, "Unknown idtype: %s" % idtype
+        name = None
+        for ss in cereconf.PERSON_NAME_SS_ORDER:
+            try:
+                name = person.get_name(getattr(self.const, ss), self.const.name_full)
+                break
+            except Errors.NotFoundError:
+                pass
+        
+        return {'name': name, 'pid': person.person_id,
+                'expid': person.export_id, 'birth': str(person.birth_date),
+                'gender': person.gender, 'dead': person.deceased,
+                'desc': person.description or ''}
+
     def person_find(self, key, keytype):
+        personids = ()
         if keytype is None:  # Is name or date (YYYY-MM-DD)
             m = re.match(r'(\d{4})-(\d{2})-(\d{2})', key)
             if m is not None:
                 # dato sok
-                pass
+                personids = person.find_persons_by_bdate(key)
             else:
                 # navn sok
                 pass
         else:
             raise NotImplementedError, "What keytypes do exist?"
+        ret = ()
+        person = self.ef.person
+        person.clear()
+        for p in personids:
+            person.find(p_id.person_id)
+            name = person.get_name(self.const.system_lt, self.const.name_full)  # TBD: SourceSystem
+            ret = ret + ({'p_id' : p_id.person_id, 'name' : name},)
+        return ret
+
+    def person_create(self, user, display_name, birth_date=None, id_type=None, id=None):
+        person = self.ef.person
+        person.clear()
+        date = self.ef.Cerebrum.Date(*([int(x) for x in birth_date.split('-')]))
+        person.populate(date, self.const.gender_male, description='Manualy created')
+        person.affect_names(self.const.system_manual, self.const.name_full) # TDB: new constants
+        person.populate_name(self.const.name_full, display_name.encode('iso8859-1'))
+        if(id_type is not None):
+            if id_type == 'fnr':
+                person.populate_external_id(self.const.system_manual,
+                                            self.const.externalid_fodselsnr, id)
+        person.write_db()
+        return person.person_id
+
+    def account_create(self, user, accountname, idtype, id,
+                       affiliation=None, ou=None, expire_date=None):
+        creator_id = 888888    # TBD: set this from user
+        account = Account.Account(self.ef.Cerebrum)  # TBD: Flytt denne
+        account.clear()
+        person = self.ef.person
+        person.clear()
+        if idtype == 'fnr':
+            person.find_by_external_id(self.const.externalid_fodselsnr, id)
+        else:
+            raise NotImplemetedError, "Unknown idtype: %s" % idtype
+        
+        account.populate(accountname,
+                         self.const.entity_person,  # Owner type
+                         person.person_id,
+                         None, 
+                         creator_id, expire_date)
+        account.write_db()
+        return account.account_id
+
+    def group_add(self, user, src_group, dest_group, operator=None):
+        if operator == 'union':   # TBD:  Need a way to map to constant
+            operator = co.group_memberop_union
+        group_s = Group.Group(self.ef.Cerebrum)
+        group_s.find_by_name(src_group)
+        group_d = Group.Group(self.ef.Cerebrum)
+        group_d.find_by_name(dest_group)
+        group_d.add_member(group_s, operator)
 
     ##
     ## 2002-11-11: The functions below are obsoleted
@@ -356,7 +436,7 @@ class CallableFuncs(object):
         for p_id in person.find_persons_by_bdate(date):
             print "Looking for %s" % p_id.person_id
             person.find(p_id.person_id)
-            name = person.get_name(self.const.system_lt, self.const.name_full)  # TODO: SourceSystem
+            name = person.get_name(self.const.system_lt, self.const.name_full)  # TBD: SourceSystem
             ret = ret + ({'p_id' : p_id.person_id, 'name' : name},)
         if len(ret) == 0:
             return ()
@@ -364,12 +444,12 @@ class CallableFuncs(object):
 
     # user create 2734 XNone XNone XNone XNone 999999 XNone /home 18
     def user_create(self, user, person_id, np_type, expire_date, uname, uid, gid, gecos, home, shell):
-        creator_id = 888888    # TODO: Set this
+        creator_id = 888888    # TBD: Set this
 
         try:
-            account = Account.Account(self.ef.Cerebrum)  # TODO: Flytt denne
+            account = Account.Account(self.ef.Cerebrum)  # TBD: Flytt denne
             account.clear()
-            posix_user = PosixUser.PosixUser(self.ef.Cerebrum)  # TODO: Flytt denne
+            posix_user = PosixUser.PosixUser(self.ef.Cerebrum)  # TBD: Flytt denne
             posix_user.clear()
             if(uid is None):
                 uid = posix_user.get_free_uid()
@@ -385,7 +465,7 @@ class CallableFuncs(object):
                     except Errors.NotFoundError:
                         pass
                 if name is None:
-                    raise "No name for person!"  #TODO: errror-class
+                    raise "No name for person!"  #TBD: errror-class
                 name = name.split()
                 uname = posix_user.suggest_unames(self.const.account_namespace,
                                                name[0], name[1])
@@ -410,7 +490,7 @@ class CallableFuncs(object):
             
             return {'password' : passwd, 'uname' : uname}
         except Database.DatabaseError:
-            # TODO: Log something here
+            # TBD: Log something here
             raise "Something went wrong, see log for details: %s" % (sys.exc_info()[1])
 
     def get_person(self, user, fnr):
