@@ -3,6 +3,7 @@ from GroBuilder import GroBuilder
 from Transaction import Transaction
 
 from Entity import Entity
+from Types import CodeType
 
 import Registry
 registry = Registry.get_registry() 
@@ -23,13 +24,6 @@ class APHandler(Transaction, GroBuilder):
             Transaction.__init__(self, self.get_client())
 
 for name, gro_class in registry.map.items():
-    method_name = 'get'
-    for i in name:
-        if i.isupper():
-            method_name += '_' + i.lower()
-        else:
-            method_name += i
-
     method_name = 'get_' + name[0].lower()
     last = name[0]
     for i in name[1:]:
@@ -38,12 +32,21 @@ for name, gro_class in registry.map.items():
         last = i
         method_name += i.lower()
 
-    args = []
-    for i in gro_class.primary:
-        args.append((i.name, i.data_type, i.sequence))
+    if issubclass(gro_class, CodeType):
+        def blipp(gro_class):
+            def get_method(self, name):
+                return gro_class(name=name)
+            return get_method
+        m = blipp(gro_class)
+        args = [('name', str, False)]
+    else:
+        m = gro_class
+        args = []
+        for i in gro_class.primary:
+            args.append((i.name, i.data_type, i.sequence))
 
     method = Method(method_name, gro_class, False, args)
-    APHandler.register_method(method, gro_class)
+    APHandler.register_method(method, m)
 
 registry.register_class(APHandler)
 
