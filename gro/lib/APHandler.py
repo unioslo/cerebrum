@@ -109,7 +109,7 @@ class APNode(Cerebrum_core__POA.Node):
         return self._convert(self.node.parents)
 
     def getChildren(self):
-        """ Returns the childrens of the node. """
+        """ Returns the children of the node. """
         return self._convert(self.node.children)
 
     def getPrimaryKey(self):
@@ -135,12 +135,11 @@ class APNode(Cerebrum_core__POA.Node):
 
     def get(self, key):
         """ Wrapper for the _get-method.
-    
+
         Will return the same as the _get-method, but the value of the attribute 
         is transformed into an any type. get can return any type of value, but
         if you know you want a string, you should use getString."""
         return to_any(self._get(key))
-
 
     # Methods wich dont return the value as an any-type
     getString = getLong = getNode = getNodeSeq = _get
@@ -157,13 +156,26 @@ class APNode(Cerebrum_core__POA.Node):
         """ Returns a list over all writeable attributes for the node. """
         return self.node.writeSlots
 
+    def _set( self, key, value ):
+        """ Set a node attribute.
+        
+        Set an attribute on a node, if that node got that attribute, and if
+        the attribute is writeable. Called by setString and setLong."""
+        if key not in self.node.readSlots:
+            raise NoSuchAttributeError( 'Not a valid attribute for the node.' )
+        if key not in self.node.writeSlots:
+            raise ReadOnlyAttributeError( '%s is not writeable.' % key )
+        if not self.isWriteLockedByMe():
+            raise NotLockedError( 'You dont got a writelock on this node.' )
+        setattr( self.node, key, value )
+
     def setString(self, key, value):
-        """ Set the attribute key to value, value should be a string. """
-        setattr(self.node, key, value)
+        """ Wrapper-method for _set() so corba can send it as a string. """
+        self._set( key, value )
 
     def setLong(self, key, value):
-        """ Set the attribute key to value, value should be a long. """
-        setattr(self.node, key, value)
+        """ Wrapper-method for _set() so corba can send it as a long. """
+        self._set( key, value )
 
     def lockForReading( self ):
         """ Prevent other from locking the node for writing.
