@@ -80,6 +80,7 @@ public class BofhdConnection {
     Category logger;
     XmlRpcClient xmlrpc;
     String sessid;
+    Hashtable commands;
     
     /** Creates a new instance of BofdConnection */
     public BofhdConnection(Category log) {
@@ -135,10 +136,10 @@ public class BofhdConnection {
         return sessid;
     }
     
-    Hashtable getCommands() throws BofhdException {
+    void updateCommands() throws BofhdException {
         Vector args = new Vector();
         args.add(sessid);
-        return (Hashtable) sendRawCommand("get_commands", args);
+        commands = (Hashtable) sendRawCommand("get_commands", args);
     }
     
     String getHelp(Vector args) throws BofhdException {
@@ -188,9 +189,27 @@ public class BofhdConnection {
         try {
             if(cmd.equals("login")) {
                 logger.debug("sendCommand("+cmd+", ********");
-            } else {
-                logger.debug("sendCommand("+cmd+", "+args);
-            }
+            } else if(cmd.equals("run_command")){
+		Vector cmdDef = (Vector) commands.get(args.get(1));
+		Vector protoArgs = (Vector) cmdDef.get(1);
+		Vector logArgs = new Vector();
+		logArgs.add(args.get(0));
+		logArgs.add(args.get(1));
+		int i = 2;
+		for (Enumeration e = protoArgs.elements() ; e.hasMoreElements() ;) {
+		    Hashtable h = (Hashtable) e.nextElement();
+		    String type = (String) h.get("type");
+		    if (type != null && type.equals("accountPassword")) {
+			logArgs.add("********");
+		    } else {
+			logArgs.add(args.get(i));
+		    }
+		    i++;
+		}
+		logger.debug("sendCommand("+cmd+", "+logArgs);
+	    } else {
+		logger.debug("sendCommand("+cmd+", "+args);
+	    }
 	    Object r = washResponse(xmlrpc.execute(cmd, args));
 	    logger.debug("<-"+r);
             return r;

@@ -60,9 +60,9 @@ class BofhdCompleter implements org.gnu.readline.ReadlineCompleter {
     
     public void buildCompletionHash() {
         complete = new Hashtable();
-        for (Enumeration e = jbofh.commands.keys(); e.hasMoreElements(); ) {
+        for (Enumeration e = jbofh.bc.commands.keys(); e.hasMoreElements(); ) {
             String protoCmd = (String) e.nextElement();
-            Vector cmd = (Vector) ((Vector) jbofh.commands.get(protoCmd)).get(0);
+            Vector cmd = (Vector) ((Vector) jbofh.bc.commands.get(protoCmd)).get(0);
             logger.debug(protoCmd+" -> "+cmd);
             Hashtable h = complete;
             for(int i = 0; i < cmd.size(); i++) {
@@ -201,7 +201,6 @@ class BofhdCompleter implements org.gnu.readline.ReadlineCompleter {
  */
 public class JBofh {
     Properties props;
-    Hashtable commands;
     CommandLine cLine;
     BofhdConnection bc;
     static Category logger = Category.getInstance(JBofh.class);
@@ -251,7 +250,7 @@ public class JBofh {
 	    System.exit(0);
 	}
 
-        commands = bc.getCommands();
+        bc.updateCommands();
         bcompleter = new BofhdCompleter(this, logger);
 	Readline.setCompleter(bcompleter);
 
@@ -268,9 +267,9 @@ public class JBofh {
     Object []translateCommand(Vector cmd) {
         Object ret[] = new Object[2];
         if(cmd.size() < 2) return null;
-        for (Enumeration e = commands.keys() ; e.hasMoreElements() ;) {
+        for (Enumeration e = bc.commands.keys() ; e.hasMoreElements() ;) {
             Object key = e.nextElement();
-            Vector cmd_def = (Vector) commands.get(key);
+            Vector cmd_def = (Vector) bc.commands.get(key);
             if(cmd_def.get(0) instanceof String) {
                 System.out.println("Warning, "+key+" is old protocol, skipping");
                 continue;
@@ -302,9 +301,9 @@ public class JBofh {
             if(args.size() == 0) continue;
 	    try {
 		if(((String) args.get(0)).equals("commands")) {  // Neat while debugging
-		    for (Enumeration e = commands.keys() ; e.hasMoreElements() ;) {
+		    for (Enumeration e = bc.commands.keys() ; e.hasMoreElements() ;) {
 			Object key = e.nextElement();
-			System.out.println(key+" -> "+ commands.get(key)); 
+			System.out.println(key+" -> "+ bc.commands.get(key)); 
 		    }
 		} else if(((String) args.get(0)).equals("help")) {
 		    args.remove(0);
@@ -345,7 +344,7 @@ public class JBofh {
     Vector checkArgs(String cmd, Vector args) throws BofhdException {
         String sample[] = {};
         Vector ret = (Vector) args.clone();
-        Vector cmd_def = (Vector) commands.get(cmd);
+        Vector cmd_def = (Vector) bc.commands.get(cmd);
 	if(cmd_def.size() == 1) return ret;
 	Object pspec = cmd_def.get(1);
 	if (pspec instanceof String) {
@@ -375,10 +374,16 @@ public class JBofh {
 		}
 	    }
 	    String prompt = (String) param.get("prompt");
+	    String type = (String) param.get("type");
             try {
-		String s = 
-		    cLine.promptArg(prompt+
-                        (defval == null ? "" : " ["+defval+"]")+" >", false);
+		String s;
+		if (type != null && type.equals("accountPassword")) {
+		    ConsolePassword cp = new ConsolePassword();
+		    s = cp.getPassword(prompt+" >");
+		} else {
+		    s = cLine.promptArg(prompt+
+					(defval == null ? "" : " ["+defval+"]")+" >", false);
+		}
 		if(defval != null && s.equals("")) {
 		    ret.add(defval);
                 } else if(s.equals("?")) {
