@@ -592,7 +592,7 @@ class BofhdAuth(DatabaseAccessor):
         if entity.entity_type == self.const.entity_account:
             return self._query_disk_permissions(operator,
                                                 self.const.auth_create_user,
-                                                self._get_disk(entity.disk))
+                                                self._get_disk(entity.disk_id))
         raise PermissionDenied("no access for that entity_type")
 
     def _query_disk_permissions(self, operator, operation, disk):
