@@ -363,6 +363,31 @@ class XMLHelper(object):
         return '"%s"' % a
 
 class Factory(object):
+
+    def get(comp):
+        components = {'OU': 'CLASS_OU',
+                      'Person': 'CLASS_PERSON',
+                      'Account': 'CLASS_ACCOUNT',
+                      'Group': 'CLASS_GROUP'}
+        try:
+            conf_var = components[comp]
+        except KeyError:
+            raise ValueError, "Unknown component %r" % comp
+        import_spec = getattr(cereconf, conf_var)
+##         if type(import_spec) is str:
+##             # Assume the class to import has the same name as the
+##             # module it lives in.
+##             cls = import_spec.split(".")[-1]
+##             import_spec = (import_spec, cls)
+        if isinstance(import_spec, tuple):
+            mod = dyn_import(import_spec[0])
+            return getattr(mod, import_spec[1])
+        else:
+            raise ValueError, \
+                  "Invalid import spec for component %s: %r" % (comp,
+                                                                import_spec)
+    get = staticmethod(get)
+
     def getConstants():
         try:
             mod = dyn_import(cereconf.CONSTANTS_MODULE)
