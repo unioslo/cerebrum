@@ -7,6 +7,7 @@ import unittest
 from Cerebrum.tests.OUTestCase import OUTestCase
 from Cerebrum.tests.PersonTestCase import PersonTestCase
 from Cerebrum.tests.AccountTestCase import AccountTestCase
+from Cerebrum.tests import GroupTestCase
 from Cerebrum.tests.SQLDriverTestCase import SQLDriverTestCase
 
 def suite():
@@ -20,7 +21,8 @@ def suite():
     suite2 = OUTestCase.suite()
     suite3 = PersonTestCase.suite()
     suite4 = AccountTestCase.suite()
-    return unittest.TestSuite((suite1, suite2, suite3, suite4))
+    suite5 = GroupTestCase.suite()
+    return unittest.TestSuite((suite1, suite2, suite3, suite4, suite5))
 
 
 if __name__ == '__main__':
