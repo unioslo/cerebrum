@@ -60,7 +60,6 @@ def search(req, name="", owner="", expire_date="", create_date="", transaction=N
     accountsearch = AccountSearchTemplate(
                        searchList=[{'formvalues': formvalues}])
 
-
     if name or owner or expire_date or create_date:
         server = transaction
 
@@ -117,6 +116,8 @@ def search(req, name="", owner="", expire_date="", create_date="", transaction=N
             page.add_message(_("Sorry, no account(s) found matching " \
                                "the given criteria."))
             page.content = lambda: accountsearch.form()
+    else:
+        page.content = lambda: accountsearch.form()
 
     return page
 
