@@ -678,15 +678,15 @@ def generate_users(spread=None,filename=None):
                 home = "%s/%s" % (disks[int(row['disk_id'])],uname)
             elif row['home']:
                 home = row['home']
-	    else: home = None
+	    else:
+                continue
             if acc_id <> prev_userid:
                 f.write('dn: %s%s%s\n' % (posix_dn_string, uname, posix_dn))
                 f.write('%scn: %s\n' % (obj_string, gecos))
                 f.write('uid: %s\n' % uname)
                 f.write('uidNumber: %s\n' % str(row['posix_uid']))
                 f.write('gidNumber: %s\n' % str(row['posix_gid']))
-                if home:
-                    f.write('homeDirectory: %s\n' % home)
+                f.write('homeDirectory: %s\n' % home)
                 f.write('userPassword: %s\n' % passwd)
                 f.write('loginShell: %s\n' % shell)
                 f.write('gecos: %s\n' % gecos)
