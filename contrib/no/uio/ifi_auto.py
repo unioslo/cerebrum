@@ -245,13 +245,23 @@ def process_groups(super, fg_super):
         if m:
             course = m.group(1)
             act = int(m.group(2))
+            # this group often has a single member which is a
+            # different group, so get rid of needless indirection.
+            leaf = find_leaf(group)
         else:
             m = re.match(r'g(\w+)$', group.group_name)
             if m:
                 course = m.group(1)
                 act = 'grl'
+            # we don't want to recurse in this case, we might end up
+            # with a leaf node which has already been assigned a
+            # different e-mail address.  this would trigger a
+            # constraint.
+            #
+            # FIXME: handle the case where a single e-mail target is
+            # in charge of more than one group.
+            leaf = get_group(group)
         if course:
-            leaf = find_leaf(group)
             sync_email_address("%s-%s@ifi.uio.no" % (course, act), leaf)
             if not course in short_name:
                 short_name[course] = shorten_course_name(course)
