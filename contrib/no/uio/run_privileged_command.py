@@ -31,8 +31,8 @@ import cereconf
 # Format: 'key': ['path', 'number-of-args']
 # future versions could provide more restrictions on the legal arguments
 commands = {
-    # uname, home, uid, gid, fullname
-    #'mkhome': [cereconf.MKHOME_SCRIPT, 5],
+    # uname, home, uid, gid, gecos
+    'mkhome': [cereconf.CREATE_USER_SCRIPT, 5],
     # uname, uid, gid, old_disk, new_disk, mailto, receipt
     'mvuser': [cereconf.MVUSER_SCRIPT, 8],
     # uname, operator, old_home
