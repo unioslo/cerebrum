@@ -5,8 +5,7 @@ include INSTALL
 include configure
 include configure.ac
 include testsuite/*.in testsuite/*.sh testsuite/*.dat  testsuite/*.py
-include java/jbofh/mkversion.py
-recursive-include java *.java *.jar *.xml *.properties *.so
+recursive-include java *.java *.jar *.xml *.properties *.so *.py
 recursive-include client *.py *.html
 recursive-include contrib *.py
 recursive-include design *.sql *.dia *.html *.ini *.py
