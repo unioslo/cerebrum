@@ -108,6 +108,8 @@ class ExportedFuncs(object):
         suggestion = self.modules[modfile].get_format_suggestion(cmd)
         if suggestion is not None:
             suggestion['str'] = unicode(suggestion['str'], 'iso8859-1')
+        else:
+            return ''    # TODO:  Would be better to allow xmlrpc-wrapper to handle none
         return suggestion
 
     def validate(self, argtype, arg):
@@ -190,10 +192,7 @@ class ExportedFuncs(object):
             return self.process_returndata(ret)
         else:
             if param._prompt_func is None:
-                if param._name is not None:
-                    return param._prompt % param._name  # TBD: set this explicitly
-                else:
-                    return param._prompt
+                return param.getPrompt()
             else:
                 return getattr(modref, param._prompt_func)(user, *args[1:])
 
