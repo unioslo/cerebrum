@@ -85,7 +85,6 @@ class AccountHiAMixin(Account.Account):
 	try:
 	    self.get_primary_mailaddress()
 	    primary_set = True
-	    return
 	except Errors.NotFoundError:
 	    pass
         epat = Email.EmailPrimaryAddressTarget(self._db)
