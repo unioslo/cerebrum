@@ -5,7 +5,9 @@
 
 import AbstractModel as Abstract
 import ServerConnection
+from mx import DateTime
 from warnings import warn
+import types
 
 class Constants(Abstract.Constants):
     UNION = "union"
@@ -24,6 +26,51 @@ class ChangeType(Abstract.ChangeType):
 
 class Change(Abstract.Change):
     pass
+
+class QuarantineType(Abstract.QuarantineType):
+    
+    # cache for get_by_name
+    _cache = {}
+
+    def get_all(cls, server):
+        quarantines = server.quarantine_list()
+        cls._cache.clear()
+        for q in quarantines:
+            (name, desc) = (q['name'], q['desc'])
+            quarantinetype = cls(name, desc)
+            cls._cache[name] = quarantinetype
+        return cls._cache.values()
+
+    get_all = classmethod(get_all)     
+
+    def get_by_name(cls, name, server):
+        if not cls._cache:
+            cls.get_all(server)
+        return cls._cache[name]    
+        
+    get_by_name = classmethod(get_by_name)
+    
+
+class Quarantine(Abstract.Quarantine):
+
+    def __init__(self, entity, quarantine_type, start, end, who, why, disable_until):
+        if isinstance(quarantine_type, types.StringTypes):
+            quarantine_type = QuarantineType.get_by_name(quarantine_type, entity.server)
+        super(Quarantine, self).__init__(entity, quarantine_type, 
+                                         start, end, who, why, disable_until)
+    
+    def remove(self):
+        self.server.quarantine_remove(self.entity.type,
+                                      "id:%s" % self.entity.id,
+                                      self.type.name)
+   
+    def disable(self, until=None):
+        if isinstance(until, DateTime.DateTimeType):
+            until = until.strftime("%Y-%m-%d")
+        self.server.quarantine_disable(self.entity.type,
+                                       "id:%s" % self.entity.id,
+                                       self.type.name,
+                                       until)    
 
 class Entity(Abstract.Entity):
     
@@ -70,12 +117,34 @@ class Entity(Abstract.Entity):
     def get_spread_info(self):
         pass
         
-    def add_quarantine(self, quarantine_type, description, start_date=None, 
-                      disable_until=None, end_date='default'):
-        pass
+    def add_quarantine(self, quarantine_type, why="", 
+                       start=None, end=None):
+        """Create and store a new quarantine on entity"""
+        # we only need the type name
+        if isinstance(quarantine_type, QuarantineType):
+            quarantine_type = quarantine_type.name
+            
+        fix_date = lambda date: (isinstance(date, DateTime.DateTimeType) and 
+                                date.strftime("%Y-%m-%d") or date)
+        (start, stop) = map(fix_date, (start, stop))
+                         
+        if start and stop:
+            from_to = "%s--%s" % (start, stop)
+        else:
+            from_to = start    
+        self.server.quarantine_set(self.type, "id:%s" % self.id, 
+                                   quarantine_type, why, from_to)
         
     def get_quarantines(self):
-        pass
+        quarantines = self.server.quarantine_show(self.type,
+                                                  "id:%s" % self.id)
+        result = []
+        for q in quarantines:
+            quarantine = Quarantine(self, q.type, q.start,
+                         q.end, q.who, q.why, q.disable_until)
+            result.append(quarantine)
+        return result    
+
     
     def get_history(self):
         # get the history log, and some helping information on entities and
@@ -85,9 +154,9 @@ class Entity(Abstract.Entity):
         # Use entity info-dicts to create all entities that are referred to
         # within history
         entity_map = {}
-        for (entity_id,info) in entities.items():
-            entity = fetch_object_by_id(self.server, entity_id, info=info)
-            entity_map[int(entity_id)] = entity
+        for (id,info) in entities.items():
+            entity = fetch_object_by_id(self.server, id, info=info)
+            entity_map[int(id)] = entity
 
         # And vice versa for the change types    
         change_map = {}
@@ -109,6 +178,7 @@ class Entity(Abstract.Entity):
                             change_by = entity_map.get(entry['change_by']) or entry['change_by'])
             changes.append(change)
         return changes       
+
 
 class Group(Entity, Abstract.Group):
     
@@ -175,7 +245,7 @@ class Group(Entity, Abstract.Group):
 
     def get_members(self):
         # FIXME: Check for errors...
-        info = self.server.group_list(self.name)
+        info = self.server.group_list("id:%s" % self.id)
         
         members = []
         for grpmember in info:
@@ -191,7 +261,9 @@ class Group(Entity, Abstract.Group):
         return members
         
     def get_all_accounts(self):
-        pass
+        members = self.server.group_list_expanded("id:%s" % self.id)
+        return [fetch_object_by_id(self.server, member['member_id']) 
+                for member in members]
         
     def add_member(self, member, operation=Constants.UNION):
         """ Adds ``member`` to group with ``operation``.
@@ -201,7 +273,8 @@ class Group(Entity, Abstract.Group):
 
     def remove_member(self, member_id=None, member_entity=None, 
                       operation=Constants.UNION):
-        # FIXME: Make this use the soon-to-be-universiall group_remove
+        """Removes member given by id (member_id) or Entity instance (member_entity).
+           If operation is not given, UNION-members are removed"""              
         if member_id and member_entity:
             raise TypeError, "member_id or member_entity must be given, not both"    
         if member_entity:
