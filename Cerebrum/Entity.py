@@ -312,7 +312,6 @@ class EntityContactInfo(Entity):
             do_del = True
             if self._contact_info.has_key(int(r['contact_type'])):
                 h = self._contact_info[int(r['contact_type'])]
-                print h
                 if (h['value'] == r['contact_value'] and
                     h['pref'] == r['contact_pref'] and
                     h['description'] == r['description']):

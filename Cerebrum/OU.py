@@ -152,7 +152,7 @@ class OU(EntityContactInfo, EntityAddress, Entity):
     def find_by_parent(self, acronym, perspective, parent_id):
         pid = "AND s.parent_id=:parent_id"
         if parent_id is None:
-            pid = ""
+            pid = "AND s.parent_id IS NULL"
         ou_id = self.query_1("""
         SELECT o.ou_id
         FROM [:table schema=cerebrum name=ou_structure] s,
