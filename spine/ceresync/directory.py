@@ -175,9 +175,13 @@ class LdapBack:
         """
         pass
 
-    def search(self,base="dc=example,dc=com",scope=ldap.SCOPE_SUBTREE,filterstr='(objectClass=*)',attrslist=None,attrsonly=0):
-       pass
-
+    def search(self,conn,base="dc=example,dc=com",scope=ldap.SCOPE_SUBTREE,filterstr='(objectClass=*)',attrslist=None,attrsonly=0):
+        try:
+            result = conn.search_s(base,scope,filterstr,attrslist,attrsonly)
+        except ldap.LDAPError,e:
+            print "Error occured while searching with filter: %s" % (filterstr)
+            return [] # Consider raise exception later
+        return res
 
 ###
 ###
@@ -207,24 +211,24 @@ class PosixUser(LdapBack):
 
     def get_dn(self,obj):
         # Maybe generalize this to LdapBack instead
-        return "uid=" + obj.name + "," + config.get('ldap','user_base')
+        return "uid=" + obj.name + "," + config.sync.get('ldap','user_base')
 
     def add(self,obj,conn):
         # Convert obj into a useful LDAPObject
         self.dn = self.get_dn(obj)
         self.attrs = self.get_attributes(obj)
         try:
-            self._add(dn,attrs,conn)
+            self._add(self.dn,self.attrs,conn)
         except ldap.LDAPError,e:
-            print "Error adding %s: %s" % (dn,e)
+            print "Error adding %s: %s" % (self.dn,e)
 
     def delete(self,obj):
         # Convert obj into something more usefule...
         self.dn = self.get_dn(obj)
         try:
-            self._delete(dn)
+            self._delete(self.dn)
         except ldap.LDAPError,e:
-            print "Error removing %s: %s" % (dn,e)
+            print "Error removing %s: %s" % (self.dn,e)
 
     def update(self,obj):
         # Convert obj into something more usefule...
@@ -234,20 +238,113 @@ class PosixUser(LdapBack):
 
 
 class PosixGroup(LdapBack):
+    '''Abstraction of a group of accounts'''
     def __init__(self,base="ou=groups,dc=ntnu,dc=no"):
         self.base = base
+        self.obj_class = ['top','posixGroup']
+
+    def get_attributes(self,obj):
+        s = {}
+        s['objectClass'] = self.obj_class
+        s['cn'] = obj.name
+        s['memberUid'] = obj.membernames
+        s['description'] = obj.description
+        s['gidNumber'] = obj.gid
+        return s
+
+    def get_dn(self,obj):
+        return "cn=" + obj.name + "," + config.sync.get('ldap','group_base')
+
+    def add(self,obj,conn):
+        self.dn = self.get_dn(obj)
+        self.attrs = self.get_attributes(obj)
+        try:
+            self._add(dn,attrs,conn)
+        except ldap.ALREADY_EXIST,e:
+            # Log error, and run update instead
+            self.update(obj,conn)
+        except ldap.LDAPError,e:
+            print "Error adding %s: %s" % (self.dn,e)
+
+    def update(self,obj,conn):
+        self.dn = self.get_dn(obj)
+        self.old_attrs = self.get_attributes(obj)
+        self.new_attrs = self.search(base=dn)[0][1] # Only interested in the first record returned.. ('dn','dict_of_attributes')
+        try:
+            self._update(self.dn,self.old_attributes,self.new_attributes)
+        except ldap.NO_SUCH_OBJECT,e:
+            # If object, does not exist - add it, and log the event...
+            self.add(obj,conn)
+        except ldap.LDAPError,e:
+            print "Error modifying %s: %s" % (self.dn,e)
+
+    def delete(self,obj,conn):
+        self.dn = self.get_dn(obj)
+        try:
+            self._delete(self.dn,conn)
+        except ldap.NO_SUCH_OBJECT,e:
+            # if object does not exist, log the event
+            print "Object not found trying to delete %s: %s" % (self.dn,e)
+        except ldap.LDAPError,e:
+            print "Error modifying %s: %s" % (self.dn,e)
 
 class EduPerson:
     def __init__(self,base="ou=People,dc=ntnu,dc=no"):
         self.base = base
+        self.obj_class = ['top','person','organizationalPerson','inetorgperson','eduperson','noreduperson']
+
+    def get_dn(self,obj):
+        return "cn=" + obj.name + "," + config.sync.get('ldap','people_base')
+
+    def get_attributes(self,obj):
+        s = {}
+        s['objectClass'] = self.obj_class
+        s['cn'] = obj.fullname
+        s['sn'] = obj.fullname.split()[len(obj.fullname)-1] # presume last name, is surname
+        s['uid'] = obj.name
+        s['userPassword'] = '{MD5}' + obj.password # until further notice, presume md5-hash
+        s['eduPersonPrincipalName'] = obj.name + "@" + config.sync.get('ldap','eduperson_realm')
+        s['norEduPersonNIN'] = '01012005 99999' # Norwegian "Birth number" / SSN
+        s['mail'] = self.email
+        return s
+
+    def add(self,obj,conn):
+        self.dn = self.get_dn(obj)
+        self.attrs = self.get_attributes(obj)
+        try:
+            self._add(self.dn,self.attrs,conn)
+        except ldap.ALREADY_EXIST,e:
+            # Log error, and run update instead
+            self.update(obj,conn)
+        except ldap.LDAPError,e:
+            print "Error adding %s: %s" % (self.dn,e)
+
+    def update(self,obj,conn):
+        self.dn = self.get_dn(obj)
+        self.old_attrs = self.get_attributes(obj)
+        self.new_attrs = self.search(base=dn)[0][1] # Only interested in the first record returned.. ('dn','dict_of_attributes')
+        try:
+            self._update(self.dn,self.old_attributes,self.new_attributes)
+        except ldap.NO_SUCH_OBJECT,e:
+            # If object, does not exist - add it, and log the event...
+            self.add(obj,conn)
+        except ldap.LDAPError,e:
+            print "Error modifying %s: %s" % (self.dn,e)
 
 class Alias:
+    """ Mail aliases, for setups that store additional mailinglists and personal aliases in ldap."""
     def __init__(self,base=""):
         self.base = base
 
 class OU:
+    """ OrganizationalUnit, where people work or students follow studyprograms.
+    Needs name,id and parent as minimum.
+    """
     def __init__(self,base="ou=organization,dc=ntnu,dc=no"):
         self.base = base
+        self.obj_class = ['top','organizationalUnit']
+
+
 
 ###
 ### UnitTesting is good for you
