@@ -180,4 +180,4 @@ def delete(req, id):
     queue_message(req, _("Account '%s' queued for removal") % account.name)
     return redirect_object(req, owner)
 
-# arch-tag: 4e19718e-008b-4939-861a-12bd272048df
+# arch-tag: 2af5c9c4-0d57-41c8-9c72-846d5adfec0e

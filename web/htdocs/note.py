@@ -58,4 +58,4 @@ def delete(req, entity, id):
     queue_message(req, _("Deleted note"))
     return redirect_object(req, entity, seeOther=True)
 
-# arch-tag: a346491e-4e47-42c1-8646-391b6375b69f
+# arch-tag: 0cd7dbc5-9b16-47de-884c-2d36697cda7f
