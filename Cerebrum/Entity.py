@@ -333,8 +333,9 @@ class EntityAddress(object):
             except KeyError, msg:
                 # Note: the arg to a python exception must be casted to str :-(
                 if str(msg) == "MissingOther":
-                    self._add_entity_address(self._affect_source, type,
-                                             **self._address_info[type])
+                    if self._address_info.has_key(type):
+                        self._add_entity_address(self._affect_source, type,
+                                                 **self._address_info[type])
                 elif str(msg) == "MissingSelf":
                     self.execute("""
                     DELETE [:table schema=cerebrum name=entity_address]
