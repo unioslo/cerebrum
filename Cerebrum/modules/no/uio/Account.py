@@ -207,6 +207,21 @@ class AccountUiOMixin(Account.Account):
         if spread == self.const.spread_ifi_nis_user:
             self.clear_home(self.const.spread_ifi_nis_user)
 
+        # Remove IMAP user
+        # TBD: It is currently a bit uncertain who and when we should
+        # allow this.  Currently it should only be used when deleting
+        # a user.
+        if (spread == self.const.spread_uio_imap and :
+            int(self.const.spread_uio_imap) in spreads:
+            est = Email.EmailServerTarget(self._db)
+            est.find_by_entity(self.entity_id)            
+            br = BofhdRequests(self._db, self.const)
+            reqid = br.add_request(None,        # Requestor
+                                   br.now, self.const.bofh_email_delete,
+                                   self.entity_id, None,
+                                   state_data=est.email_server_id)
+            # TBD: should we also perform a "cascade delete" from EmailTarget?
+
         #
         # (Try to) perform the actual spread removal.
         ret = self.__super.delete_spread(spread)
