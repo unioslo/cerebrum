@@ -17,6 +17,7 @@ class APHandler(Cerebrum_core__POA.APHandler, Locker):
         self.com = com
         self.username = username
         self.password = password
+        self.nodes = [] # used to store nodes the client access, for transactions
 
     def getUsername(self):
         """ Returns the username of the client.
@@ -64,6 +65,15 @@ class APHandler(Cerebrum_core__POA.APHandler, Locker):
         node = Node.classMap[className](*l)
         return self.com.get_corba_representation(APNode(self, node))
 
+    def begin(self):
+        pass
+
+    def rollback(self):
+        pass
+
+    def commit(self):
+        pass
+        
 
 class APNode(Cerebrum_core__POA.Node):
     """ Access point proxy node.

@@ -21,13 +21,12 @@ class OperationSet( BofhdAuthOpSet ):
         
         Adds an operation code_str and its description into the database.
         """
-        op_code = int(self.nextval('entity_id_seq')) # how does nextval work???
+        op_code = int(self.nextval('code_seq'))
         self.execute("""
         INSERT INTO [:table schema=cerebrum name=auth_op_code]
             (code, code_str, description)
         VALUES (:code, :code_str, :description)""",
             { 'code': op_code, 'code_str': code_str, 'description': description})
-        #should make create a auth_operation too? and add it to the operation set?
         return op_code
 
     def del_op_code(self, op_code):
@@ -38,7 +37,6 @@ class OperationSet( BofhdAuthOpSet ):
         self.execute("""
         DELETE FROM [:table schema=cerebrum name=auth_op_code]
         WHERE code=:code""", {'code': op_code})
-        #should maybe remove all auth_operation using this code??
 
     def list_op_codes(self, op_id=None):
         """Retrieves a list with code, code_str and description.
