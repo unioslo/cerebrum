@@ -492,12 +492,7 @@ class BofhdExtension(object):
         for r in et.get_addresses():
             # there is at least one address left
             return "OK"
-        # clean up and remove the target.  we remove any forward
-        # addresses first.
-        ef = Email.EmailForward(self.db)
-        ef.find(et.email_target_id)
-        for r in ef.get_forward():
-            ef.delete_forward(r['forward_to'])
+        # clean up and remove the target.
         et.delete()
         return "OK, also deleted e-mail target"
 
