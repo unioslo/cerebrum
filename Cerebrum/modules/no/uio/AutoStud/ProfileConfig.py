@@ -371,8 +371,8 @@ class StudconfigParser(xml.sax.ContentHandler):
                   ename in self.select_map_defs):
                 self._in_profil.add_selection_criteria(ename, tmp)
             else:
-                raise SyntaxWarning, "Unexpected tag %s in %s" % (
-                    ename, repr(self.elementstack))
+                raise SyntaxWarning, "Unexpected tag '%s', attr=%s in %s" % (
+                    ename, str(tmp), repr(self.elementstack))
         else:
             raise SyntaxWarning, "Unexpected tag %s in %s" % (ename, repr(self.elementstack))
 
