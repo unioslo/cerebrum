@@ -1,7 +1,7 @@
 #!/usr/bin/env python2.2
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2003 University of Oslo, Norway
+# Copyright 2003, 2004 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -35,7 +35,6 @@ from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import Email
 from Cerebrum.modules import PosixGroup
-from Cerebrum import Logging
 
 def get_email_target_and_address(address):
     ea = Email.EmailAddress(db)
@@ -304,7 +303,7 @@ def main():
     db = Factory.get('Database')()
     db.cl_init(change_program='ifi_auto')
     co = Factory.get('Constants')(db)
-    logger = Logging.getLogger("console")
+    logger = Factory.get_logger("cronjob")
 
     supergroup = "internal:uio.no:fs:{autogroup}"
     fg_supergroup = "internal:uio.no:fs:{ifi_auto_fg}"
