@@ -357,6 +357,13 @@ class Cursor(object):
 
 ##         query = query.strip()
 ##         assert query.lower().startswith("select")
+        
+        if not fetchall:
+            # If the cursor to iterate over is used for other queries
+            # before the iteration is finished, things won't work.
+            # Hence, we generate a fresh cursor to use for this
+            # iteration.
+            self = self._db.cursor()
         self.execute(query, params)
         if self.description is None:
             # TBD: This should only occur for operations that do
@@ -368,7 +375,7 @@ class Cursor(object):
             R = self._row_class
             return [ R(row) for row in self.fetchall() ]
         else:
-            return self
+            return iter(self)
 
     def query_1(self, query, params=()):
         """Perform an SQL query that should yield at most one row.
