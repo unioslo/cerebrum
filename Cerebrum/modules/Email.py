@@ -266,7 +266,7 @@ class EmailTarget(EmailEntity):
         WHERE alias_value=:alias""", {'alias': alias})
         self.find(target_id)
 
-    def get_all_email_targets(self):
+    def list_email_targets(self):
         """Return target_id of all EmailTarget in database"""
         return self.query("""
         SELECT target_id
@@ -366,7 +366,7 @@ class EmailAddress(EmailEntity):
                                        'd_id': domain.email_domain_id})
         self.find(address_id)
 
-    def get_all_email_addresses(self):
+    def list_email_addresses(self):
         """Return address_id of all EmailAddress in database"""
         return self.query("""
         SELECT address_id

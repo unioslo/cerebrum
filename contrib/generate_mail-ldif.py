@@ -39,7 +39,7 @@ targets = []
 
 
 def read_addr():
-    for row in mail_addr.get_all_email_addresses():
+    for row in mail_addr.list_email_addresses():
 
         id = Cerebrum.pythonify_data(row['address_id'])
         mail_addr.clear()
@@ -50,19 +50,19 @@ def read_addr():
 
 
 def read_targ():
-    for row in mail_targ.get_all_email_targets():
+    for row in mail_targ.list_email_targets():
 
         id = Cerebrum.pythonify_data(row['target_id'])
         mail_targ.clear()
         mail_targ.find(id)
-    
+
         targets.append(id)
 
 def write_misc(t):
     mail_quota = Email.EmailQuota(Cerebrum)
     mail_spam = Email.EmailSpamFilter(Cerebrum)
     mail_virus = Email.EmailVirusScan(Cerebrum)
-    
+
     # Find quota-info for target:
     try:
         mail_quota.clear()
@@ -71,7 +71,7 @@ def write_misc(t):
         print "hardQuota: %d" % mail_quota.get_quota_hard()
     except Errors.NotFoundError:
         pass
-        
+
     # Find SPAM-info for target:
     try:
         mail_spam.clear()
@@ -80,7 +80,7 @@ def write_misc(t):
         print "spamAction: %s" % mail_spam.get_spam_action()
     except Errors.NotFoundError:
         pass
-    
+
     # Find virus-info for target:
     try:
         mail_virus.clear()
@@ -98,7 +98,7 @@ def write_misc(t):
 
 def write_ldif():
     mail_prim = Email.EmailPrimaryAddress(Cerebrum)
-    
+
     for t in targets:
         mail_targ.clear()
         mail_targ.find(t)
@@ -107,15 +107,16 @@ def write_ldif():
 
         # The structure is decided by what target-type the
         # target is (class EmailConstants in Email.py):
-        tt = mail_targ.get_target_type_name()
+        tt = mail_targ.get_target_type()
+        tt = Email._EmailTargetCode(tt)
 
-        if str(tt) == "account":
+        if tt == co.email_target_account:
             # Target is the local delivery defined for the Account whose
             # account_id == email_target.entity_id.
             ent_type = mail_targ.get_entity_type()
             ent_id = mail_targ.get_entity_id()
             # TODO: Get string "account" out of EmailTarget, not a number.
-            if ent_type == 2003:
+            if ent_type == co.entity_account:
                 try:
                     acc = Account.Account(Cerebrum)
                     acc.clear()
@@ -125,8 +126,10 @@ def write_ldif():
                     txt = "Target: %s(account) no user found: %s"% (t,ent_id)
                     sys.stderr.write(txt)
                     continue
-            
-        elif str(tt) == "pipe" or str(tt) == "pipe" or str(tt) == "Mailman":
+
+        elif tt == co.email_target_pipe or \
+             tt == co.email_target_file or \
+             tt == co.email_target_Mailman:
             # Target is a shell pipe. The command (and args) to pipe mail
             # into is gathered from email_target.alias_value.  Iff
             # email_target.entity_id is set and belongs to an Account,
@@ -144,37 +147,45 @@ def write_ldif():
             # account.
             target = mail_targ.get_alias()
             if target == None:
-                txt = "Target: %s(%s) needs a value in alias_value\n" % (t,tt)
+                txt = "Target: %s(%s) needs a value in alias_value\n" % (t, tt)
                 sys.stderr.write(txt)
                 continue
 
             ent_type = mail_targ.get_entity_type()
             ent_id = mail_targ.get_entity_id()
             # TODO: Get "account" out of EmailTarget, not a number.
-            if ent_type == 2003:
+            if ent_type == co.entity_account:
                 try:
                     acc = Account.Account(Cerebrum)
                     acc.clear()
                     acc.find(ent_id)
                     target = ":%s:%s" % (acc.account_name, target)
                 except Errors.NotFoundError:
-                    txt = "Target: %s(%s) no user found: %s" % (t,tt,ent_id)
+                    txt = "Target: %s(%s) no user found: %s" % (t, tt, ent_id)
                     sys.stderr.write(txt)
                     continue
             elif ent_type == None and ent_id == None:
                 # Catch valid targets with no user bound to it.
                 pass
             else:
-                txt = "Target: %s(pipe) has invalid entities: %s, %s"\
-                      % (t,ent_type, ent_id)
+                txt = "Target: %s (%s) has invalid entities: %s, %s" \
+                      % (t, tt, ent_type, ent_id)
                 stderr.write(txt)
                 continue
 
-        elif str(tt) == "multi":
-            # Target is the set of `account`-type targets corresponding to
-            # the Accounts that are first-level members of the Group that
-            # has group_id == email_target.entity_id.
-            pass
+        elif tt == co.email_target_multi:
+            # Target is not set; forwardAddress is the set of
+            # addresses that should receive mail for this target.
+            mail_fwd = Email.EmailForward(Cerebrum)
+            try:
+                mail_fwd.find(t)
+                forwards = [x.forward_to for x in mail_fwd.get_forward()
+                            if x.enable <> 'T']
+            except Errors.NotFoundError:
+                # A 'multi' target with no forwarding; seems odd.
+                txt = "Target: %s (%s) no forwarding found." % (t, tt)
+                sys.stderr.write(txt)
+                continue
         else:
             # The target-type isn't known to this script.
             stderr.write("Wrong target-type in target: %s: %s" % ( t, tt ))
@@ -186,7 +197,7 @@ def write_ldif():
         print "targetType: %s" % tt
         #print "target:: %s" % base64.encodestring(target)
         print "target: %s" % target
-        
+
         # Find primary mail-address:
         try:
             mail_prim.clear()
@@ -200,7 +211,7 @@ def write_ldif():
             print "defaultMailAddress: %s@%s" % ( mail_addr.get_localpart(),
                                                   mail_dom.get_domain_name() )
         except Errors.NotFoundError:
-            pass 
+            pass
 
         # Find addresses for target:
         if targ2addr.has_key(t):
@@ -216,7 +227,7 @@ def write_ldif():
 
         write_misc(t)
         print "\n"
-    
+
 
 def main():
     read_addr()
