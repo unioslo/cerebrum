@@ -1,4 +1,4 @@
-# Copyright 2002 University of Oslo, Norway
+# Copyright 2002, 2003 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -37,6 +37,7 @@ from cStringIO import StringIO
 import cereconf
 from Cerebrum import Errors
 from Cerebrum import Utils
+from Cerebrum import Cache
 from Cerebrum import SqlScanner
 from Cerebrum.extlib import db_row
 
@@ -139,6 +140,9 @@ class Cursor(object):
         self._db = db
         real = db.driver_connection()
         self._cursor = real.cursor()
+        self._sql_cache = Cache.Cache(mixins=[Cache.cache_mru,
+                                              Cache.cache_slots],
+                                      size=100)
         # Copy the Database-specific type constructors; these have
         # already been converted into static methods by
         # Database._register_driver_types().
@@ -182,7 +186,7 @@ class Cursor(object):
         # this 'unspecified' value anyway.
         try:
 ##             print "DEBUG: sql=<%s>\nDEBUG: binds=<%s>" % (sql, binds)
-            return self._cursor.execute(sql, *binds)
+            return self._cursor.execute(sql, binds)
         except self.DatabaseError:
             # TBD: These errors should probably be logged somewhere,
             # and not merely printed...
@@ -202,8 +206,13 @@ class Cursor(object):
             # module, we require `params' to be a mapping (even though
             # the DB-API allows both sequences and mappings).
             assert type(params) == DictType
+        try:
+            driver_sql, pconv = self._sql_cache[statement]
+            return (driver_sql, pconv(params))
+        except KeyError:
+            pass
         out_sql = []
-        out_params = self._db.param_converter()
+        pconv = self._db.param_converter()
         sql_done = False
         p_item = None
         for token, text in SqlScanner.SqlScanner(StringIO(statement)):
@@ -246,7 +255,7 @@ class Cursor(object):
                 if not params.has_key(name):
                     raise self.ProgrammingError, \
                           "Bind parameter %s has no value." % text
-                translation.append(out_params.register(name, params[name]))
+                translation.append(pconv.register(name))
             else:
                 translation.append(text)
             if translation:
@@ -258,13 +267,13 @@ class Cursor(object):
         if p_item:
             out_sql.extend(self._db.sql_repr(*p_item))
             p_item = None
-        return (" ".join(out_sql), out_params.get_data())
+        driver_sql = " ".join(out_sql)
+        # Cache for later use.
+        self._sql_cache[statement] = (driver_sql, pconv)
+        return (driver_sql, pconv(params))
 
     def executemany(self, operation, seq_of_parameters):
         """Do DB-API 2.0 .executemany()."""
-        # TBD: Optimize _translate() to avoid having to do the same
-        #      "input SQL" -> "backend-specific SQL" translationfor
-        #      each set of bind params.
         ret = None
         for p in seq_of_parameters:
             ret = self.execute(operation, p)
@@ -372,77 +381,69 @@ class Cursor(object):
 # Support for conversion from 'named' to the other bind parameter
 # styles.
 #
-class bind_param_converter(object):
-    def __init__(self, init_data):
-        self._data = init_data
+class convert_param_base(object):
+    """Convert bind parameters to appropriate paramstyle."""
 
-    param_format = ''
-    def register(self, name, value):
-        raise NotImplementedError
+    __slots__ = ('map',)
+    # To be overridden in subclasses.
+    param_format = None
 
-    def get_data(self):
-        return [self._data]
-
-
-class params_as_sequence(bind_param_converter):
-    handle_repeat = False
     def __init__(self):
-        super(params_as_sequence, self).__init__([])
-        if self.handle_repeat:
-            self._name2idx = {}
+        self.map = []
 
-    def register(self, name, value):
-        if self.handle_repeat:
-            if self._name2idx.has_key(name):
-                index = self._name2idx[name]
-                assert self._data[index - 1] == value
-            else:
-                self._data.append(value)
-                index = len(self._data)
-                self._name2idx[name] = index
-        else:
-            self._data.append(value)
-        return self.param_format % locals()
+    def __call__(self, param_dict):
+        #
+        # DCOracle2 does not treat bind parameters passed as a list
+        # the same way it treats params passed as a tuple.  The DB API
+        # states that "Parameters may be provided as sequence or
+        # mapping", so this can be construed as a bug in DCOracle2.
+        return tuple([param_dict[i] for i in self.map])
 
-    #
-    # DCOracle2 does not treat bind parameters passed as a list the
-    # same way it treats params passed as a tuple.  The DB API states
-    # that "Parameters may be provided as sequence or mapping", so
-    # this can be construed as a bug in DCOracle2.
-    def get_data(self):
-        return [tuple(self._data)]
+    def register(self, name):
+        return self.param_format % {'name': name}
 
 
-class paramstyle_qmark(params_as_sequence):
+class convert_param_nonrepeat(convert_param_base):
+    __slots__ = ()
+    def register(self, name):
+        self.map.append(name)
+        return super(convert_param_nonrepeat, self).register(name)
+
+class convert_param_qmark(convert_param_nonrepeat):
+    __slots__ = ()
     param_format = '?'
 
-
-class paramstyle_numeric(params_as_sequence):
-    handle_repeat = True
-    param_format = ':%(index)d'
-
-
-class paramstyle_format(params_as_sequence):
+class convert_param_format(convert_param_nonrepeat):
+    __slots__ = ()
     param_format = '%%s'
 
 
-class params_as_dict(bind_param_converter):
+class convert_param_numeric(convert_param_base):
+    __slots__ = ()
+    def register(self, name):
+        if name not in self.map:
+            self.map.append(name)
+        # Construct return value on our own, as it must include a
+        # numeric index associated with `name` and not `name` itself.
+        return ':' + str(self.map.index(name) + 1)
+
+
+class convert_param_to_dict(convert_param_base):
+    __slots__ = ()
     def __init__(self):
-        super(params_as_dict, self).__init__({})
+        # Override to avoid creating self.map; that's not needed here.
+        pass
 
-    def register(self, name, value):
-        if self._data.has_key(name):
-            assert self._data[name] == value
-        else:
-            self._data[name] = value
-        return self.param_format % locals()
+    def __call__(self, param_dict):
+        # Simply return `param_dict` as is.
+        return param_dict
 
-
-class paramstyle_named(params_as_dict):
+class convert_param_named(convert_param_to_dict):
+    __slots__ = ()
     param_format = ':%(name)s'
 
-
-class paramstyle_pyformat(params_as_dict):
+class convert_param_pyformat(convert_param_to_dict):
+    __slots__ = ()
     param_format = '%%(%(name)s)s'
 
 
@@ -543,7 +544,7 @@ class Database(object):
         # Set up a "bind parameter converter" suitable for the driver
         # module's `paramstyle' constant.
         if self.param_converter is None:
-            converter_name = 'paramstyle_%s' % self._db_mod.paramstyle
+            converter_name = 'convert_param_%s' % self._db_mod.paramstyle
             cls = getattr(Utils.this_module(), converter_name)
             self_class.param_converter = cls
 
