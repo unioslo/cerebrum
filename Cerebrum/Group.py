@@ -125,8 +125,7 @@ class Group(EntityName, Entity):
                     ('creator_id', ':creator_id')]
             if self.create_date is not None:
                 cols.append(('create_date', ':create_date'))
-            if self.expire_date is not None:
-                cols.append(('expire_date', ':exp_date'))
+            cols.append(('expire_date', ':exp_date'))
             self.execute("""
             UPDATE [:table schema=cerebrum name=group_info]
             SET %(defs)s
