@@ -45,9 +45,7 @@ class SearchClass(SpineClass):
     def __init__(self, search_id=None):
         if SpineClass.__init__(self):
             return
-        self._unions = []
-        self._intersections = []
-        self._differences = []
+        self._unions = sets.Set()
         self.mark = None
 
     def save(self):
@@ -76,8 +74,6 @@ class SearchClass(SpineClass):
 
     def search(self):
         unions = sets.Set()
-        intersections = sets.Set()
-        differences = sets.Set()
 
         if not hasattr(self, '_result') or self.updated:
             alive = self.get_alive_slots()
@@ -102,14 +98,24 @@ class SearchClass(SpineClass):
 
         for i in self._unions:
             unions.update(convert(i))
-        for i in self._intersections:
-            intersections.update(convert(i))
-        for i in self._differences:
-            differences.update(convert(i))
 
-        if intersections:
+        if hasattr(self, '_intersections'):
+            intersections = sets.Set()
+            for i in self._intersections:
+                intersections.update(convert(i))
+        else:
+            intersections = None
+
+        if hasattr(self, '_differences'):
+            differences = sets.Set()
+            for i in self._differences:
+                differences.update(convert(i))
+        else:
+            differences = None
+
+        if intersections is not None:
             unions.intersection_update(intersections)
-        if differences:
+        if differences is not None:
             unions.difference_update(differences)
 
         self._result = list(unions)
