@@ -41,7 +41,7 @@ co = Factory.get('Constants')(db)
 # TODO: Should have a cereconf variable for /cerebrum/var/log
 status_file = "%s/db_clean_password.id" % cereconf.JOB_RUNNER_LOG_DIR  
 
-logger = Factory.get_logger("cronjob")
+logger = Factory.get_logger("big_shortlived")
 
 """
 Hva skal ryddes bort?
