@@ -57,11 +57,27 @@ This script synchronizes email and uname information in LT with Cerebrum.
 
 
 
+def attempt_commit(lt):
+    """
+    Command-line controlled committing to LT.
+
+    This is a convenience function.
+    """
+    
+    if dryrun:
+        lt.db.rollback()
+    else:
+        lt.db.commit()
+    # fi
+# end attempt_commit
+
+
+
 def synchronize_attribute(cerebrum_lookup,
                           lt_lookup,
                           lt_update,
                           lt_delete,
-                          db):
+                          const, lt):
     """
     Synchronize an attribute from Cerebrum to LT
     """
@@ -74,16 +90,10 @@ def synchronize_attribute(cerebrum_lookup,
                  cerebrum_lookup.__name__, lt_lookup.__name__,
                  lt_update.__name__, lt_delete.__name__)
 
-    const = Factory.get("Constants")(db)
-
     logger.debug("Fetching information from Cerebrum")
     fnr2attribute = cerebrum_lookup(const.externalid_fodselsnr)
     logger.debug("Done fetching information from Cerebrum")
 
-    # Commit/rollback every COMMIT_LIMIT processed rows, to reduce the
-    # number of rows locked by this job
-    commit_limit = 100
-    count = 0
     for db_row in lt_lookup():
         fnr = "%02d%02d%02d%05d" % (db_row.fodtdag, db_row.fodtmnd,
                                     db_row.fodtar, db_row.personnr)
@@ -96,6 +106,8 @@ def synchronize_attribute(cerebrum_lookup,
                 logger.debug("Updating for %s in LT: %s -> %s",
                              fnr, lt_attribute, fnr2attribute[fnr])
                 lt_update(fnr, fnr2attribute[fnr])
+
+                attempt_commit(lt)
             # fi
         # This FNR does NOT exist in Cerebrum
         else:
@@ -104,6 +116,8 @@ def synchronize_attribute(cerebrum_lookup,
                 logger.debug("Deleting %s's attribute %s in LT",
                              fnr, lt_attribute)
                 lt_delete(fnr, lt_attribute)
+
+                attempt_commit(lt)
             # fi
         # fi
     # od
@@ -155,13 +169,14 @@ def main():
                              DB_driver = "DCOracle2"))
     db = Factory.get("Database")()
     person = Factory.get("Person")(db)
+    const = Factory.get("Constants")(db)
 
     if email:
         synchronize_attribute(person.getdict_external_id2mailaddr,
                               lt.GetAllPersonsUregEmail,
                               lt.UpdatePriMailAddr,
                               lt.DeletePriMailAddr,
-                              db)
+                              const, lt)
     # fi
 
     if uname:
@@ -169,15 +184,7 @@ def main():
                               lt.GetAllPersonsUregUser,
                               lt.UpdatePriUser,
                               lt.DeletePriUser,
-                              db)
-    # fi
-
-    if dryrun:
-        lt.db.rollback()
-        logger.info("Rolled back all changes in LT")
-    else:
-        lt.db.commit()
-        logger.info("Committed all changes to LT")
+                              const, lt)
     # fi
 # end main    
 
