@@ -7,6 +7,7 @@
   <property location="src" name="src"/>
   <property location="build" name="build"/>
   <property location="dist" name="dist"/>
+  <property location="tmpdist" name="tmp"/>
 
   <target name="init">
     <!-- Create the time stamp -->
@@ -28,9 +29,19 @@
   <target depends="compile" description="generate the distribution" name="dist">
     <!-- Create the distribution directory -->
     <mkdir dir="${dist}/lib"/>
-
+    <unzip src="lib/log4jME.jar" dest="${tmp}"/>
+    <unzip src="lib/JavaPrintf.jar" dest="${tmp}"/>
+    <unzip src="lib/xp.jar" dest="${tmp}"/>
+    <unzip src="lib/libreadline-java.jar" dest="${tmp}"/>
+    <unzip src="lib/xmlrpc-1.1.jar" dest="${tmp}"/>
     <!-- Put everything in ${build} into the JBofh-${DSTAMP}.jar file -->
     <jar basedir="${build}" jarfile="${dist}/lib/JBofh.jar">
+      <fileset dir="${tmp}">
+        <include name="**/*.class"/>
+      </fileset>
+      <fileset dir="${basedir}">
+        <include name="*.properties"/>
+      </fileset>
       <manifest>
         <attribute name="Main-Class" value="no.uio.jbofh.JBofh"/>
       </manifest>
@@ -41,5 +52,6 @@
     <!-- Delete the ${build} and ${dist} directory trees -->
     <delete dir="${build}"/>
     <delete dir="${dist}"/>
+    <delete dir="${tmp}"/>
   </target>
 </project>
