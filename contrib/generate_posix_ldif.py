@@ -109,8 +109,8 @@ def generate_users(spread=None,filename=None):
                 qshell = qh.get_shell()
                 if qshell is not None:
                     shell = qshell
-            cn    = some2utf(row['name'] or gecos or uname)
-            gecos = latin1_to_iso646_60(some2iso(gecos or cn))
+            cn    = row['name'] or gecos or uname
+            gecos = latin1_to_iso646_60(gecos or cn)
             if row['disk_id']:
                 home = "%s/%s" % (disks[int(row['disk_id'])],uname)
             elif row['home']:
@@ -119,7 +119,7 @@ def generate_users(spread=None,filename=None):
                 continue
             if acc_id <> prev_userid:
                 f.write('dn: uid=%s%s\n' % (uname, posix_dn))
-                f.write('%scn: %s\n' % (obj_string, cn))
+                f.write('%scn: %s\n' % (obj_string, iso2utf(cn)))
                 f.write('uid: %s\n' % uname)
                 f.write('uidNumber: %s\n' % str(row['posix_uid']))
                 f.write('gidNumber: %s\n' % str(row['posix_gid']))
@@ -161,7 +161,7 @@ def generate_posixgroup(spread=None,u_spread=None,filename=None):
         pos_grp += "gidNumber: %s\n" % posix_group.posix_gid
         if posix_group.description:
             # latin1_to_iso646_60 later
-            pos_grp += "description: %s\n" % some2utf(posix_group.description)
+            pos_grp += "description: %s\n" % iso2utf(posix_group.description)
 	group.clear()
         group.find(row.group_id)
         # Since get_members only support single user spread, spread is
