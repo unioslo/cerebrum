@@ -160,9 +160,10 @@ def populate_external_ids(db, person, fields, const):
 
     sap_id, no_ssn, birth_date, fo_kode = (fields[0], fields[4],
                                            fields[5], fields[25])
-    
-    fo_kode_internal = int(SAPForretningsOmradeKode(fo_kode_external))
-    if fo_kode_internal == int(const.sap_eksterne_tilfeldige):
+
+    if (fo_kode and 
+        int(SAPForretningsOmradeKode(fo_kode)) ==
+          int(const.sap_eksterne_tilfeldige)):
         logger.debug("Ignored external person: «%s»«%s»", sap_id, no_ssn)
         return False
     # fi

@@ -108,18 +108,19 @@ def populate_tilsetting(person, ou, fields, const):
      lonnstittel, fo_kode,
      start_date, end_date, stillingstype, percentage) = fields
     
+    # External project/people/whatever. They are not supposed to be in
+    # Cerebrum.
+    if (fo_kode and
+        int(SAPForretningsOmradeKode(fo_kode)) ==
+          int(const.sap_eksterne_tilfeldige)):
+        logger.debug("External employment, ignored")
+        return True
+    # fi
+
     if not locate_person(person, sap_id, const):
         logger.warn("Aiee! Cannot locate person with SAP id «%s»",
                     sap_id)
         return False
-    # fi
-
-    # fo_kode == 9999 means external project/people/whatever. They are not
-    # supposed to be in Cerebrum.
-    fo_kode_internal = int(SAPForretningsOmradeKode(fo_kode))
-    if fo_kode_internal == int(const.sap_eksterne_tilfeldige):
-        logger.debug("External employment, ignored")
-        return True
     # fi
 
     if not locate_ou(ou, orgeh, fo_kode, const):
