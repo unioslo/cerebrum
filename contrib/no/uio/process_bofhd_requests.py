@@ -909,8 +909,11 @@ def get_account(account_id, type='Account', spread=None):
     account.find(account_id)
     if spread is None:
         spread = default_spread
-    home = account.get_home(spread)
     uname = account.account_name
+    try:
+        home = account.get_home(spread)
+    except Errors.NotFoundError:
+        return account, uname, None, None
     if home['home'] is None:
         if home['disk_id'] is None:
             return account, uname, None, None
