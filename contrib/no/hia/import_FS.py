@@ -44,7 +44,6 @@ group_desc = "Internal group for students which will be shown online."
 
 studieprog2sko = {}
 ou_cache = {}
-gen_groups = False
 
 """Importerer personer fra FS iht. fs_import.txt."""
 
@@ -120,6 +119,7 @@ def process_person_callback(person_info):
                                                   int(person_info['personnr'])))
         fnr = fodselsnr.personnr_ok(fnr)
         logger.info2("Process %s " % (fnr), append_newline=0)
+
         (year, mon, day) = fodselsnr.fodt_dato(fnr)
         if (year < 1970
             and getattr(cereconf, "ENABLE_MKTIME_WORKAROUND", 0) == 1):
@@ -142,14 +142,17 @@ def process_person_callback(person_info):
     for dta_type in person_info.keys():
         x = person_info[dta_type]
 	p = x[0]
+	print x[0]
         if isinstance(p, str):
             continue
         # Get name
-        if dta_type in ('aktiv','tilbud', 'evu', 'privatist_studieprogram'):
+        if dta_type in ('aktiv','tilbud','evu', 'privatist_studieprogram',):
             etternavn = p['etternavn']
             fornavn = p['fornavn']
         if p.has_key('studentnr_tildelt'):
             studentnr = p['studentnr_tildelt']
+	else: 
+	    logger.info("\n%s mangler studentnr!" % fnr)
         # Get address
         if address_info is None:
 	    if dta_type in ('privatist_studieprogram',):
@@ -178,23 +181,23 @@ def process_person_callback(person_info):
         # Lots of changes here compared to import_FS.py @ uio
 	# TODO: split import_FS into a common part and organization spesific parts
         if dta_type in ('aktiv', ):
-	    for row in x:
-                if studieprog2sko[row['studieprogramkode']] is not None:
-                    aktiv_sted.append(int(studieprog2sko[row['studieprogramkode']]))
+	  for row in x:
 		_process_affiliation(co.affiliation_student,
-                		 co.affiliation_status_student_aktiv,
-                		 affiliations, studieprog2sko[p['studieprogramkode']])
+                 		 co.affiliation_status_student_aktiv,
+                		 affiliations, studieprog2sko[row['studieprogramkode']])
         elif dta_type in ('evu',):
-	    _process_affiliation(co.affiliation_student,
-                		 co.affiliation_status_student_privatist,
-                		 affiliations, studieprog2sko[p['studieprogramkode']])
+	  for row in x:
+	        _process_affiliation(co.affiliation_student,
+                		 co.affiliation_status_student_evu,
+                		 affiliations, studieprog2sko[row['studieprogramkode']])
         elif dta_type in ('privatist_studieprogram', ):
-            _process_affiliation(co.affiliation_student,
+	  for row in x:
+                _process_affiliation(co.affiliation_student,
                                  co.affiliation_status_student_privatist,
-                                 affiliations, studieprog2sko[p['studieprogramkode']])
+                                 affiliations, studieprog2sko[row['studieprogramkode']])
         elif dta_type in ('tilbud', ):
-	    for row in x:
-           	 _process_affiliation(co.affiliation_student,
+	  for row in x:
+                _process_affiliation(co.affiliation_student,
                                  co.affiliation_status_student_tilbud,
                                  affiliations, studieprog2sko[row['studieprogramkode']])
 	# HiA does not have "real" evu-students yet. this means that the evu-students get 
@@ -213,7 +216,7 @@ def process_person_callback(person_info):
         return
 
     # TODO: If the person already exist and has conflicting data from
-    # another source-system, some mecanism is needed to determine the
+    # another source-system, some mechanism is needed to determine the
     # superior setting.
     
     new_person = Factory.get('Person')(db)
@@ -224,6 +227,7 @@ def process_person_callback(person_info):
     new_person.affect_names(co.system_fs, co.name_first, co.name_last)
     new_person.populate_name(co.name_first, fornavn)
     new_person.populate_name(co.name_last, etternavn)
+
 
     if studentnr is not None:
         new_person.affect_external_id(co.system_fs,
@@ -243,6 +247,7 @@ def process_person_callback(person_info):
     op = new_person.write_db()
     for a in affiliations:
         ou, aff, aff_status = a
+	print "\n%s, %s" % (ou, aff_status) 
         new_person.populate_affiliation(co.system_fs, ou, aff, aff_status)
 	if include_delete:
 	    key_a = "%s:%s:%s" % (new_person.entity_id,ou,int(aff))
@@ -264,13 +269,9 @@ def process_person_callback(person_info):
             p = person_info[dta_type][0]
             if isinstance(p, str):
                 continue
-            # Presence of 'fagperson' elements for a person should not
-            # affect that person's reservation status.
-            if dta_type in ('fagperson',):
-                continue
             # We only fetch the column in these queries
-            if dta_type not in ('tilbud', 'opptak', 'alumni',
-                                'privatist_studieprogram', 'evu',):
+            if dta_type not in ('tilbud', 'aktiv', 'privatist_studieprogram', 
+				'evu',):
                 continue
             # If 'status_reserv_nettpubl' == "N": add to group
             if p.get('status_reserv_nettpubl', "") == "N":
@@ -360,3 +361,5 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+
