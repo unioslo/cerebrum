@@ -28,10 +28,14 @@ import cereconf
 from Cerebrum.Utils import Factory
 
 def main():
-    opts, args = getopt.getopt(sys.argv[1:], 'd', ['debug', 'drop'])
+    opts, args = getopt.getopt(sys.argv[1:], 'd',
+                               ['debug', 'drop', 'insert-codes',
+                                'extra-file='])
 
     debug = 0
     do_drop = False
+    do_insert = False
+    extra_files = []
     for opt, val in opts:
         if opt in ('-d', '--debug'):
             debug += 1
@@ -39,6 +43,10 @@ def main():
             # We won't drop any tables (which might be holding data)
             # unless we're explicitly asked to do so.
             do_drop = True
+        elif opt == '--insert-codes':
+            do_insert = True
+        elif opt == '--extra-file':
+            extra_files.append(val)
 
     Cerebrum = Factory.get('Database')(
         user=cereconf.CEREBRUM_DATABASE_CONNECT_DATA['table_owner'])
@@ -49,7 +57,7 @@ def main():
         files = args
     else:
         do_bootstrap = True
-        files = get_filelist(Cerebrum)
+        files = get_filelist(Cerebrum, extra_files)
     for phase in order:
         if phase == 'drop':
             if do_drop:
@@ -58,7 +66,7 @@ def main():
                 for f in fr:
                     runfile(f, Cerebrum, debug, phase)
         elif phase == '  insert':
-            if do_bootstrap:
+            if do_bootstrap or do_insert:
                 insert_code_values(Cerebrum)
         else:
             for f in files:
@@ -104,14 +112,21 @@ def makeInitialUsers(Cerebrum):
 
 CEREBRUM_DDL_DIR = "design"
 
-def get_filelist(Cerebrum):
+def get_filelist(Cerebrum, extra_files=[]):
     files = ['core_tables.sql',
              'mod_posix_user.sql',
              'mod_nis.sql',
              'mod_stedkode.sql',
              'mod_changelog.sql'
              ]
-    return [os.path.join(CEREBRUM_DDL_DIR, f) for f in files]
+    files.extend(extra_files)
+    ret = []
+    for f in files:
+        if '/' in f:
+            ret.append(f)
+        else:
+            ret.append(os.path.join(CEREBRUM_DDL_DIR, f))
+    return ret
 
 def runfile(fname, Cerebrum, debug, phase):
     print "Reading file (phase=%s): <%s>" % (phase, fname)
