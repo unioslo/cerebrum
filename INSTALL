@@ -1,0 +1,69 @@
+Installation of Cerebrum
+
+1. Prerequisities
+2. Get the sources
+3. testing the distribution
+4. Installing the software
+5. Post installation steps
+
+Prerequisities
+--------------
+Install python >= 2.2, and a Postgress or Oracle database.  Install
+PyPostgress or DCOracle2.
+
+Create a database instance where cerebrum should be ran, as well as a
+user which cerebrum should connect as.
+
+
+Get the sources
+---------------
+You can either download a stable version, or use the CVS version.
+
+To get the latest stable version:
+  - Dowload Cerebrum-X.Y.tar.gz from http://sourceforge.net/projects/cerebrum/
+  - untar the sources into an empty directory
+
+Or get the CVS version:
+  - cvs -d:pserver:anonymous@cvs.cerebrum.sourceforge.net:/cvsroot/cerebrum login
+  (no password required)
+  -cvs -z3 -d:pserver:anonymous@cvs.cerebrum.sourceforge.net:/cvsroot/cerebrum \
+   co cerebrum
+
+
+Testing the distribution
+------------------------
+
+Set PYTHONPATH to point to the directory where you extracted the
+sources.  Edit Cerebrum/cereconf.py and set DB_AUTH_DIR,
+CEREBRUM_DATABASE_CONNECT_DATA['user'], DATABASE_DRIVER and
+CEREBRUM_DATABASE_NAME. 
+
+Warning: the target datbases cerebrum tables will be dropped and
+recreated when running this script!
+
+Run "make check"
+
+If any of the checks failes on your system, you chould investigate the
+error before proceeding with the installation.
+
+
+Installing the software
+-----------------------
+Enter the directory where you installed the sources, and run:
+
+  python2.2 setup.py install [--prefix /cerebrum]
+
+This will install the Cerebrum python modules into your site-packages
+directory.  A number of other files are placed as documented in the
+top of setup.py.  To install to an alternative location, use the
+--prefix option to install.  If you use --prefix, remember to set
+PYTHONPATH when running scripts.
+
+run makedp.py to create the required tables.
+
+
+Post installation steps
+-----------------------
+- cronjobs
+- auto starting bofhd
+- ?
