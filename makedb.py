@@ -22,17 +22,47 @@ import sys
 import re
 
 from Cerebrum import Database
+from Cerebrum import Constants
+from Cerebrum import Group
+from Cerebrum import Account
+from Cerebrum import cereconf
+
+from Cerebrum import Entity
 
 def main():
     ignoreerror = False
-    
+    global Cerebrum
     Cerebrum = Database.connect()
     if len(sys.argv) >= 2:
         for f in sys.argv[1:]:
             runfile(f, Cerebrum, ignoreerror)
     else:
         makedbs(Cerebrum, ignoreerror)
+    makeInitialUsers()
 
+def makeInitialUsers():
+    co = Constants.Constants(Cerebrum)
+    eg = Entity.Entity(Cerebrum)
+    eg.populate(co.entity_group)
+    eg.write_db()
+
+    ea = Entity.Entity(Cerebrum)
+    ea.populate(co.entity_account)
+    ea.write_db()
+
+    # TODO:  These should have a permanent quarantine and be non-visible
+    a = Account.Account(Cerebrum)
+    a.populate(cereconf.INITIAL_ACCOUNTNAME, co.entity_group,
+               eg.entity_id, int(co.account_program), ea.entity_id,
+               None, parent=ea)
+    a.write_db()
+
+    g = Group.Group(Cerebrum)
+    g.populate(a, co.group_visibility_all, cereconf.INITIAL_GROUPNAME,
+               parent=eg)
+    g.write_db()
+
+    Cerebrum.commit()
 
 def makedbs(Cerebrum, ignoreerror):
     for f in ('drop_mod_stedkode.sql',
