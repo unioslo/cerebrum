@@ -246,7 +246,11 @@ def process_person(person):
                 contact.append((const.contact_fax,
                                 get_sted(affiliations[0][0])['fax']))
                 added_ou_fax = True
-
+	if include_del:
+	    key1 = str(new_person.entity_id) + 'a' + str(ou_id) 
+				+ 'a' + str(int(aff))
+	    if cere_list.has_key(key1):
+		cere_list.__delitem__(key1)
     c_prefs = {}
     new_person.populate_contact_info(const.system_lt)
     for c_type, value in contact:
@@ -281,17 +285,32 @@ def usage(exitcode=0):
     print """Usage: import_LT.py -p personfile [-v] [-g]"""
     sys.exit(exitcode)
 
+def load_all_affi_entry():
+    affi_list = {}
+    for row in new_person.list_affiliations(source_system=const.system_lt):
+	key_l = str(row['person_id']) + 'a' + str(row['ou_id']) + 'a' + str(row['affiliation'])
+	affi_list[key_l] = int(row['person_id']), int(row['ou_id']), int(row['affiliation'])
+    return(affi_list)
+
+def clean_affi_s_list():
+    for ent_id,ou,affi in cere_list.items():
+	new_person.clear()
+	#new_person.find(int(ent_id))
+	new_person.entity_id = int(ent_id)
+	new_person.delete_affiliation(ou,affi,const.system_lt,1)
+
 def main():
-    global db, new_person, const, ou, logger, gen_groups, group
+    global db, new_person, const, ou, logger, gen_groups, group, cere_list, include_del, test_list
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'vp:g', ['verbose', 'person-file',
-                                                          'group'])
+        opts, args = getopt.getopt(sys.argv[1:], 'vp:g:d', ['verbose', 'person-file',
+                                                          'group','include_delete'])
     except getopt.GetoptError:
         usage(1)
 
     gen_groups = 0
     verbose = 0
     personfile = None
+    include_del = False
     
     for opt, val in opts:
         if opt in ('-v', '--verbose'):
@@ -300,6 +319,8 @@ def main():
             personfile = val
         elif opt in ('-g', '--group'):
             gen_groups = 1
+	elif opt in ('-d', '--include_delete'):
+	    include_del = True
     if personfile is None:
         usage(1)
 
@@ -320,7 +341,11 @@ def main():
         group.write_db()	
     ou = Factory.get('OU')(db)
     new_person = Person.Person(db)
+    if include_del:
+	cere_list = load_all_affi_entry()
     LTDataParser(personfile, process_person)
+    if include_del:
+	clean_affi_s_list()
     db.commit()
 
 if __name__ == '__main__':
