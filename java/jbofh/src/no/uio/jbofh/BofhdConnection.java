@@ -136,6 +136,12 @@ public class BofhdConnection {
         return sessid;
     }
     
+    String logout() throws BofhdException {
+        Vector args = new Vector();
+        args.add(sessid);
+        return (String) sendRawCommand("logout", args);
+    }
+
     void updateCommands() throws BofhdException {
         Vector args = new Vector();
         args.add(sessid);
