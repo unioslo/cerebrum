@@ -55,6 +55,9 @@ class Constants(central_Constants):
 
     account_test = _AccountCode('testbruker', 'Testkonto')
     account_kurs = _AccountCode('kursbruker', 'Kurskonto')
+    account_studorg = _AccountCode('studorgbruker','Studentorganisasjonsbruker')
+    account_felles  = _AccountCode('fellesbruker','Fellesbruker')
+    account_system  = _AccountCode('systembruker', 'Systembruker') 
 
 ## AFFILIATIONS FOR ANSATTE
     affiliation_ansatt = _PersonAffiliationCode('ANSATT', 'Ansatt ved HiA')
@@ -114,6 +117,15 @@ class Constants(central_Constants):
     affiliation_status_manuell_ans_uten_sap = _PersonAffStatusCode(
         affiliation_manuell, 'ans_uten_sap',
         'Ansatt som ikke er lagt inn i SAP. En midlertidig status for folk')
+    affiliation_status_manuell_gjest_ikke_epost = _PersonAffStatusCode(
+        affiliation_manuell, 'gjest_no_epost', 
+	'Gjesteopphold som ansatt ved HiA. Skal ikke ha epost')
+    affiliation_status_manuell_gjest_student = _PersonAffStatusCode(
+        affiliation_manuell, 'gjest_student', 
+	'Gjesteopphold for student ved HiA. Epost skal tildeles')
+    affiliation_status_manuell_gjest_student_ikke_epost = _PersonAffStatusCode(
+	affiliation_manuell, 'gj_st_no_epost', 
+	'Gjesteopphold for student ved HiA. Epost skal ikke tildeles')
 
     affiliation_upersonlig = _PersonAffiliationCode(
         'UPERSONLIG', 'Fellesbrukere, samt andre brukere uten eier')
@@ -123,6 +135,9 @@ class Constants(central_Constants):
         affiliation_upersonlig, 'kurs', 'Kurskonti')
     affiliation_upersonlig_pvare = _PersonAffStatusCode(
         affiliation_upersonlig, 'pvare', 'Programvarekonti')
+    affiliation_upersonlig_studentforening = _PersonAffStatusCode(       
+	affiliation_upersonlig, 'studorg', 
+	'Studentforening eller -aktivitet ved HiA')
 
 ## DEFINISJON AV SHELL 
     # We override the default Cerebrum paths for shells, thus this
