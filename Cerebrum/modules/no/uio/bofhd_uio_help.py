@@ -37,6 +37,7 @@ command_help = {
     'email_add_address': 'Add an alias address',
     'email_remove_address': 'Remove an alias address',
     'email_create_domain': 'Create a new e-mail domain',
+    'email_create_forward': 'Create a new e-mail forward target',
     'email_domain_info': 'View information about an e-mail domain',
     'email_add_domain_affiliation': 'Connect a OU to an e-mail domain',
     'email_remove_domain_affiliation': 'Remove link between OU and e-mail domain',
