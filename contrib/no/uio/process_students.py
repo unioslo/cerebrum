@@ -2,6 +2,8 @@
 
 import getopt
 import sys
+import os
+
 import cereconf
 from time import gmtime, strftime, time
 
@@ -15,15 +17,11 @@ from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.uio import AutoStud
 from Cerebrum.modules.templates.letters import TemplateHandler
 
-import pprint
-pp = pprint.PrettyPrinter(indent=4)
-
 db = Factory.get('Database')()
 db.cl_init(change_program='process_students')
 const = Factory.get('Constants')(db)
 all_passwords = {}
 person_affiliations = {}
-prev_msgtime = time()
 debug = 0
 
 def bootstrap():
@@ -35,12 +33,12 @@ def bootstrap():
     default_shell = const.posix_shell_bash
 
 def create_user(fnr, profile, reserve=0):
-    print " CREATE", 
+    logger.info2("CREATE")
     person = Person.Person(db)
     try:
         person.find_by_external_id(const.externalid_fodselsnr, fnr, const.system_fs)
     except Errors.NotFoundError:
-        print "OUCH! person %s not found" % fnr
+        logger.warn("OUCH! person %s not found" % fnr)
         return None
     posix_user = PosixUser.PosixUser(db)
     full_name = person.get_name(const.system_fs, const.name_full)
@@ -72,7 +70,7 @@ def update_account(profile, account_ids, do_move=0, rem_grp=0, account_info={}):
     person = Person.Person(db)
         
     for account_id in account_ids:
-        print " UPDATE:%s" % account_id,
+        logger.info2(" UPDATE:%s" % account_id)
         try:
             posix_user.find(account_id)
             # populate logic asserts that db-write is only done if needed
@@ -147,9 +145,7 @@ def get_student_accounts():
         person_affiliations.setdefault(int(p['person_id']), []).append(
             (int(p['source_system']), int(p['ou_id']), int(p['affiliation']), int(p['status'])))
     ret = {}
-    if debug:
-        print "Finding student accounts...",
-        sys.stdout.flush()
+    logger.info("Finding student accounts...")
     pid2fnr = {}
     for p in person.list_external_ids(source_system=const.system_fs,
                                       id_type=const.externalid_fodselsnr):
@@ -159,38 +155,35 @@ def get_student_accounts():
             continue
         ret.setdefault(pid2fnr[int(a['person_id'])], {}).setdefault(
             int(a['account_id']), []).append([ int(a['ou_id']), int(a['affiliation']) ])
-    if debug:
-        print " found %i entires" % len(ret)
+    logger.info(" found %i entires" % len(ret))
     return ret
 
-def show_update(char, func_ret):
-    if func_ret is None:
-        print "%s=" % char,
-    elif func_ret:
-        print "%s+" % char,
-    else:
-        print "%sM" % char,
-
-def make_letters():
+def make_letters(data_file=None, type=None, range=None):
+    if data_file is not None:  # Load info on letters to print from file
+        f=open(data_file, 'r')
+        tmp_passwords = pickle.load(f)
+        f.close()
+        for r in [int(x) for x in range.split(",")]:
+            tmp = tmp_passwords["%s-%i" % (type, r)]
+            tmp[1].append(r)
+            all_passwords[tmp[0]] = tmp[1]
     person = Person.Person(db)
     account = Account.Account(db)
-    # TODO: remember that things can go wrong in printing etc, so info
-    #       should probably be saved somewhere
     dta = {}
     for account_id in all_passwords.keys():
-        account_id
         try:
             account.clear()
             account.find(account_id)
             person.clear()
             person.find(account.owner_id)  # should be account.owner_id
         except Errors.NotFoundError:
-            print "NotFoundError for account_id=%s" % account_id
+            logger.warn("NotFoundError for account_id=%s" % account_id)
             continue
         tpl = {}
-        address = person.get_entity_address(source=const.system_fs, type=const.address_post)
+        address = person.get_entity_address(source=const.system_fs,
+                                            type=const.address_post)
         if address is None:
-            print "Bad address for %s" % account_id
+            logger.warn("Bad address for %s" % account_id)
             continue
         address = address[0]
         alines = address['address_text'].split("\n")+[""]
@@ -212,88 +205,105 @@ def make_letters():
 
     keys = dta.keys()
     keys.sort(lambda x,y: cmp(dta[x]['zip'], dta[y]['zip']))
-
-    for run_no in range(2):
+    letter_info = {}
+    tmp = ('reservert', 'konto')
+    if data_file is not None:
+        tmp = (type,)
+    for run_no in tmp:
         num = 1
-        out = file("ps_run.%i.%i" % (time(), run_no), "w")
-        if run_no == 0:
+        out = file("letter-%s.%i" % (run_no, time()), "w")
+        if run_no == 'reservert':
             th = TemplateHandler('no', 'new_user', 'txt')
         else:
-            th = TemplateHandler('no', 'new_user', 'txt')  # TODO: write this template
-        out.write(th._hdr)
+            th = TemplateHandler('no', 'new_user', 'txt')
+        if th._hdr is not None:
+            out.write(th._hdr)
         for k in keys:
             if all_passwords[k][1] != run_no:
                 continue
-            dta[k]['lopenr'] = num
+            letter_info["%s-%i" % (run_no, num)] = [k, all_passwords[k]]
+            if data_file is not None:
+                dta[k]['lopenr'] = all_passwords[k][2]
+            else:
+                dta[k]['lopenr'] = num
             out.write(th.apply_template('body', dta[k]))
             num += 1
-        out.write(th._footer)
+        if th._footer is not None:
+            out.write(th._footer)
         out.close()
+    # Save passwords for created users so that letters may be
+    # re-printed at a later time in case of print-jam etc.
+    if data_file is not None:
+        f=open("letters.info", 'w')
+        pickle.dump(letter_info, f)
+        f.close()
 
 def process_students_callback(person_info):
     fnr = fodselsnr.personnr_ok("%06d%05d" % (int(person_info['fodselsdato']),
                                               int(person_info['personnr'])))
-    if debug > 1:
-        print "x" * 60
-        pp.pprint(person_info)
-    elif debug:
-        print "%s" % fnr,
+    logger.set_indent(0)
+    logger.debug("Callback for %s" % fnr)
+    logger.set_indent(3)
+    logger.debug2(logger.pformat(person_info))
     try:
         profile = autostud.get_profile(person_info)
     except Errors.NotFoundError, msg:
-        print "  Error for %s: %s" %  (fnr, msg)
+        logger.warn("  Error for %s: %s" %  (fnr, msg))
+        logger.set_indent(0)
         return
     if fast_test:
-        print profile.debug_dump()
+        logger.debug(profile.debug_dump())
+        logger.set_indent(0)
         return
-    if debug:
-        print " disk=%s, dfg=%s, def_sko=%s, fg=%s sko=%s" % \
-              (profile._disk, profile.get_dfg(),
-              profile.get_grupper(),
-              profile.get_stedkoder())
     try:
+        logger.debug(" disk=%s, dfg=%s, fg=%s sko=%s" % \
+                     (profile.get_disk(), profile.get_dfg(),
+                      profile.get_grupper(),
+                      profile.get_stedkoder()))
         if create_users and not students.has_key(fnr):
-            students.setdefault(fnr, []).append(
-                create_user(fnr, profile))
+            account_id = create_user(fnr, profile)
+            if account_id is None:
+                logger.set_indent(0)
+                return
+            students.setdefault(fnr, []).append(account_id)
         if update_accounts and students.has_key(fnr):
             update_account(profile, students[fnr].keys(),
                            account_info=students[fnr])
-        if debug:
-            print
     except ValueError, msg:  # TODO: Bad disk should throw a spesific class
-        print "  Error for %s: %s" % (fnr, msg)
+        logger.error("  Error for %s: %s" % (fnr, msg))
+    logger.set_indent(0)
     
+def process_students():
+    global autostud, students
 
-def process_students(update_accounts=0, create_users=0):
-    showtime("process_students started")
+    logger.info("process_students started")
     students = get_student_accounts()
-    showtime("got student accounts")
-    
-    global autostud
-    autostud = AutoStud.AutoStud(db, debug=debug, cfg_file=studconfig_file)
-    showtime("config processed")
+    logger.info("got student accounts")
+    autostud = AutoStud.AutoStud(db, logger, debug=debug, cfg_file=studconfig_file)
+    logger.info("config processed")
     autostud.start_student_callbacks(student_info_file,
                                      process_students_callback)
-    showtime("student_info_file processed")
-    db.commit()  # TBD: should we commit more frequently?
-    showtime("making letters")
+    logger.set_indent(0)
+    logger.info("student_info_file processed")
+    db.commit()
+    logger.info("making letters")
     make_letters()
-    showtime("process_students finished")
+    logger.info("process_students finished")
 
-def showtime(msg):
-    global prev_msgtime
-    print "[%s] %s (delta: %i)" % (strftime("%H:%M:%S", gmtime()), msg, (time()-prev_msgtime))
-    prev_msgtime = time()
-    
 def main():
-    opts, args = getopt.getopt(sys.argv[1:], 'dcut:s:C:',
+    opts, args = getopt.getopt(sys.argv[1:], 'dcus:C:',
                                ['debug', 'create-users', 'update-accounts',
-                                'topics-file=', 'student-info-file=',
-                                'studconfig-file=', 'fast-test'])
-    global debug, topics_file, student_info_file, studconfig_file, fast_test
+                                'student-info-file=',
+                                'studconfig-file=', 'fast-test',
+                                'workdir', 'type', 'reprint'])
+
+    global debug, fast_test, create_users, update_accounts, logger
+    global student_info_file, studconfig_file
+    
     update_accounts = create_users = 0
-    studieprogs_file = topics_file = None
     fast_test = False
+    workdir = None
+    range = None
     bootstrap()
     for opt, val in opts:
         if opt in ('-d', '--debug'):
@@ -302,28 +312,44 @@ def main():
             create_users = 1
         elif opt in ('-u', '--update-accounts'):
             update_accounts = 1
-        elif opt in ('-t', '--topics-file'):
-            topics_file = val
         elif opt in ('-s', '--student-info-file'):
             student_info_file = val
         elif opt in ('-C', '--studconfig-file'):
             studconfig_file = val
         elif opt in ('--fast-test',):  # Internal debug use ONLY!
             fast_test = True
+        elif opt in ('--workdir',):
+            workdir = val
+        elif opt in ('--type',):
+            type = val
+        elif opt in ('--reprint',):
+            range = val
         else:
             usage()
-    if(not update_accounts and not create_users):
+    if(not update_accounts and not create_users and range is None):
         usage()
-    process_students(update_accounts, create_users)
+    if workdir is None:
+        workdir = "%s/ps-%s.%i" % (cereconf.AUTOADMIN_LOG_DIR,
+                                   strftime("%Y-%m-%d", gmtime()), os.getpid())
+        os.mkdir(workdir)
+    os.chdir(workdir)
+    logger = AutoStud.Util.ProgressReporter(
+        "%s/run.log.%i" % (workdir, os.getpid()))
+    if range is not None:
+        make_letters("letters.info", type=type, range=val)
+    else:
+        process_students()
     
 def usage():
     print """Usage: process_students.py -d | -c | -u
     -d | --debug: increases debug verbosity
     -c | -create-use : create new users
     -u | --update-accounts : update existing accounts
-    -t | --topics-file file:
     -s | --student-info-file file:
     -C | --studconfig-file file:
+    --workdir dir:  set workdir for --reprint
+    --type type: set type for --reprint
+    --reprint range:  Re-print letters in case of paper-jam etc.
 
 ./contrib/no/uio/process_students.py --fast-test -d -d -C ../uiocerebrum/etc/config/studconfig.xml -s ~/.usit.cerebrum.etc/fsprod/merged_info.xml -c
 
