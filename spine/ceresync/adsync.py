@@ -5,6 +5,7 @@ from win32com.client import GetObject
 ou = GetObject("LDAP://ou=Brukere,dc=twin,dc=itea,dc=ntnu,dc=no")
 print "Deleting existing users in AD"
 for user in ou:
+    # FIXME: They might not all be users
     ou.delete("user", user.name)
 
 print "Adding accounts from Spine"
@@ -33,6 +34,7 @@ for account in s.get_accounts():
 group_ou = GetObject("LDAP://ou=Grupper,dc=twin,dc=itea,dc=ntnu,dc=no")
 print "Deleting existing groups in AD"
 for adgroup in group_ou:
+    # FIXME: They might not all be groups
     group_ou.delete("group", adgroup.name)
 
 for group in s.get_groups():
@@ -40,6 +42,7 @@ for group in s.get_groups():
     # NT4 compatible "short name"
     adgroup.sAMAccountName = group.name
     # A security group is type 0x80000000, or -2147483646
+    # FIXME: Fetch this constant from somewhere 
     adgroup.groupType = -2147483646
     try:
         adgroup.setInfo()
@@ -48,9 +51,9 @@ for group in s.get_groups():
     else:
         print "Added group", group.name
     
-    # Add members
+    # Add members (users)
+    # FIXME: Should add group members as groups
     for member in group.membernames:
-        members = adgroup.members()
         try:
             adgroup.add("LDAP://cn=%s,ou=Brukere,dc=twin,dc=itea,dc=ntnu,dc=no" % member)
         except:
