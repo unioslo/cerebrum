@@ -1,7 +1,7 @@
 #!/usr/bin/env python2.2
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2003 University of Oslo, Norway
+# Copyright 2003, 2004 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -27,20 +27,15 @@ from Cerebrum.modules import Email
 from Cerebrum.Utils import Factory,SimilarSizeWriter
 from Cerebrum.modules.LDIFutils import container_entry_string
 
-Cerebrum = Factory.get('Database')()
-co = Factory.get('Constants')(Cerebrum)
+# These configuration parameters belong in some config file, but
+# since the whole program is so UiO-specific anyway, who cares.
 
-dn_suffix = cereconf.LDAP_MAIL_DNS_DN
+filename = "/".join((cereconf.LDAP_DUMP_DIR, 'mail-dns.ldif'))
 
-# Only consider hosts with these lowercased hosts as lowest priority MX record
-# and which are also A records
-uio_mx_dict = {
-    'pat.uio.no':	1,
-    'mons.uio.no':	1,
-    'goggins.uio.no':	1,
-    'miss.uio.no':	1,
-    'smtp.uio.no':	1
-    }
+# Only consider hosts which have these hosts as lowest priority MX record
+# and also are A records
+mx_hosts = ('pat.uio.no', 'mons.uio.no',
+            'goggins.uio.no', 'miss.uio.no', 'smtp.uio.no')
 
 # Consider these hosts to have DNS A records
 extra_hosts = ('notes.uio.no',)
@@ -56,21 +51,23 @@ dig_args = (('uio.no',     'nissen.uio.no'),
 #   beeblebrox.uio.no.      86400   IN      A       129.240.10.17
 dig_line_re = re.compile(r'(\S+)\.\s+\d+\s+IN\s+(A|MX|CNAME)\s+(.*[^.\n])\.?$')
 dig_version_re = re.compile(r';[ <>]+DiG 9\.', re.IGNORECASE)
-filename = "%s/%s" % (cereconf.LDAP_DUMP_DIR,'mail-dns.ldif')
+
 
 def get_hosts_and_cnames():
-    """Return host->cnames, cname->host and lowercase->host dictionaries"""
-    got_host    = {}
-    host2cnames = {}
-    cname2host  = {}
-    host2mx     = {}
-    lower2host  = {}
-    for host in extra_hosts:
-        got_host[host] = 1
+    """Return dicts host->[cnames, if any], cname->host, lowercase host->host.
+
+    All keys are lowercase, as well as all values except in the 3rd dict."""
+    host_has_A_record = {}              # host  -> True if host has A record
+    host2cnames       = {}              # host  -> {cname: True, ...}
+    cname2host        = {}              # cname -> host
+    host2mx           = {}              # host  -> {MX priority: MX name, ...}
+    lower2host        = {}              # lowercase hostname -> hostname
+
+    # Read in the above variables from Dig
     for args in dig_args:
-        dig_version_found = 0
+        dig_version_found = False
         f = os.popen(dig_cmd % args, 'r')
-        while 1:
+        while True:
             line = f.readline()
             if line == '':
                 break
@@ -81,11 +78,11 @@ def get_hosts_and_cnames():
                 info = info.lower()
                 lower2host[lname] = name
                 if type == 'A':
-                    got_host[lname] = 1
+                    host_has_A_record[lname] = True
                 elif type == 'CNAME':
                     if not host2cnames.has_key(info):
                         host2cnames[info] = {}
-                    host2cnames[info][lname] = 1
+                    host2cnames[info][lname] = True
                     cname2host[lname] = info
                 elif type == 'MX':
                     prio, mx = info.split()
@@ -93,14 +90,22 @@ def get_hosts_and_cnames():
                         host2mx[lname] = {}
                     host2mx[lname][prio] = mx
             elif dig_version_re.match(line):
-                dig_version_found = 1
+                dig_version_found = True
         if f.close() is not None:
-            raise Exception("Dig failed: %s tree not updated" % dn_suffix)
+            raise SystemExit("Dig failed.")
         if not dig_version_found:
-            raise Exception("Dig version changed.  Check output format.")
+            raise SystemExit("Dig version changed.  Check output format.")
+
+    # Add fake Dig records
+    for host in extra_hosts:
+        host_has_A_record[host] = True
+
+    # Find hosts that both have an A record
+    # and has its 'best' MX record in mx_hosts.
     hosts = {}
+    accept_mx = dict(zip(mx_hosts, mx_hosts)).has_key
     for host, mx_dict in host2mx.items():
-        if got_host.has_key(host):
+        if host in host_has_A_record:
             prio = 99.0e9
             mx = "-"
             for p, m in mx_dict.items():
@@ -108,16 +113,20 @@ def get_hosts_and_cnames():
                 if p < prio:
                     prio = p
                     mx = m
-            if uio_mx_dict.has_key(mx):
+            if accept_mx(mx):
                 if host2cnames.has_key(host):
                     hosts[host] = host2cnames[host].keys()
                     hosts[host].sort()
                 else:
                     hosts[host] = ()
+
+    # Remove cnames that do not appear in host2cnames ??? should be hosts[]?
     for cname in cname2host.keys():
         if not host2cnames.has_key(cname2host[cname]):
             del cname2host[cname]
+
     return hosts, cname2host, lower2host
+
 
 def write_mail_dns():
     f = SimilarSizeWriter(filename,'w')
@@ -125,7 +134,9 @@ def write_mail_dns():
 
     hosts, cnames, lower2host = get_hosts_and_cnames()
 
-    email = Email.EmailDomain(Cerebrum)
+    db = Factory.get('Database')()
+    co = Factory.get('Constants')(db)
+    email = Email.EmailDomain(db)
     email_domain = {}
     for dom_entry in email.list_email_domains():
         email_domain[int(dom_entry['domain_id'])] = dom_entry['domain']
@@ -135,7 +146,7 @@ def write_mail_dns():
     domains.sort()
     domain_dict = {}
     for domain in domains:
-        domain_dict[domain.lower()] = 1
+        domain_dict[domain.lower()] = True
 
     def handle_domain_host(host):
         f.write("host: %s\n" % lower2host[host])
@@ -144,6 +155,8 @@ def write_mail_dns():
                 f.write("cn: %s\n" % lower2host[cname])
                 del cnames[cname]
         del hosts[host]
+
+    dn_suffix = cereconf.LDAP_MAIL_DNS_DN
 
     f.write(container_entry_string('MAIL_DNS'))
 
@@ -172,6 +185,7 @@ cn: %s
             f.write("cn: %s\n" % lower2host[cname])
         f.write('\n')
     f.close()
+
 
 write_mail_dns()
 
