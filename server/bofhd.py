@@ -588,8 +588,10 @@ if __name__ == '__main__':
             print dir(ctx)
             return ctx
 
-        ctx = init_context('sslv23', 'server.cert', 'ca.pem', SSL.verify_none)
-        ctx.set_tmp_dh('dh1024.pem')
+        ctx = init_context('sslv23', '%s/server.cert' % cereconf.DB_AUTH_DIR,
+                           '%s/ca.pem' % cereconf.DB_AUTH_DIR,
+                           SSL.verify_none)
+        ctx.set_tmp_dh('%s/dh1024.pem' % cereconf.DB_AUTH_DIR)
         server = SSLBofhdServer(Factory.get('Database')(), conffile,
                                 ("0.0.0.0", port), BofhdRequestHandler, ctx)
     else:
