@@ -259,7 +259,6 @@ def process_groups(super, fg_super):
             if leaf and act:
                 todo["%s-%s" % (course, act)] = (course, act, leaf)
 
-    print repr(todo)
     for course, act, group in todo.values():
         fgname = make_filegroup_name(course, act, short_name)
         fgroup = sync_filegroup(fgname, group, course, act)
@@ -279,8 +278,10 @@ def process_groups(super, fg_super):
         fgroup = get_group(fgname)
         u, i, d = fgroup.list_members()
         for type, id in u:
-            logger.info("Remove %d from obsolete filegroup %s", id, fgname)
-            fgroup.remove_member(type, id)
+            logger.info("Remove %s %d from obsolete filegroup %s",
+                        co.EntityType(type), id, fgroup.group_name)
+            fgroup.remove_member(id, co.group_memberop_union)
+        fgroup.write_db()
 
 def get_group(id):
     gr = Factory.get('Group')(db)
