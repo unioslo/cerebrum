@@ -109,7 +109,7 @@ class Config(object):
         ret = "Profile definitions:"
         for p in self.profiles:
             ret += p.debug_dump()+"\n"
-        ret = "Select mappings:\n"
+        ret += "Select mappings:\n"
         for tag, sm in self.select_tool.select_map_defs.items():
             ret += "  %s\n" % tag
             ret += "".join(["    %s\n" % line for line in str(sm).split("\n")])
