@@ -510,7 +510,7 @@ class PersonLTMixin(Person.Person):
 
         
 
-    def list_tilsetting(self, person_id, timestamp = None):
+    def list_tilsetting(self, person_id = None, timestamp = None):
         """
         List all employment (tilsetting) records for PERSON_ID.
 
@@ -519,7 +519,13 @@ class PersonLTMixin(Person.Person):
         dato_til only.
         """
 
-        values = {"person_id" : int(person_id)}
+        values = dict()
+        person_clause = ""
+        if person_id is not None:
+            values["person_id"] = int(person_id)
+            person_clause = " AND t.person_id = :person_id "
+        # fi
+        
         time_clause, extra_vars = self._make_timestamp_clause(timestamp)
         values.update(extra_vars)
 
@@ -534,11 +540,12 @@ class PersonLTMixin(Person.Person):
                             %s t,
                             %s s
                           WHERE
-                            t.person_id = :person_id AND
-                            t.stillingskode = s.code
+                            t.stillingskode = s.code 
+                            %s
                             %s
                           """ % (_TILSETTINGS_SCHEMA,
                                  _STILLINGSKODE_SCHEMA,
+                                 person_clause,
                                  time_clause),
                           values)
     # end list_tilsetting
