@@ -133,18 +133,19 @@ def update_account(profile, account_ids, do_move=0, rem_grp=0, account_info={}):
         for ou_id in profile.get_stedkoder():
             try:
                 idx = paffs.index((const.system_fs, ou_id, const.affiliation_student,
-                                   const.affiliation_status_student_valid))
+                                   const.affiliation_status_student_aktiv))
                 del(paffs[idx])
             except ValueError:
                 changed = 1
                 pass
         if len(paffs) > 0:
             changed = 1
+        person.clear()
         person.find(user.owner_id)
         if changed:
             for ou_id in profile.get_stedkoder():
                 person.populate_affiliation(const.system_fs, ou_id, const.affiliation_student,
-                                            const.affiliation_status_student_valid)
+                                            const.affiliation_status_student_aktiv)
             tmp = person.write_db()
             logger.debug2("alter person affiliations, write_db=%s" % tmp)
         for ou_id in profile.get_stedkoder():
