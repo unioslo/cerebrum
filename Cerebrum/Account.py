@@ -216,7 +216,7 @@ class Account(AccountType, EntityName, EntityQuarantine, Entity):
 
     def populate_authentication_type(self, type, value):
         self._auth_info[int(type)] = value
-        self.__updated.append((type, value))
+        self.__updated.append('password')
 
     def set_password(self, plaintext):
         """Updates all account_authentication entries with an encrypted
@@ -302,7 +302,8 @@ class Account(AccountType, EntityName, EntityQuarantine, Entity):
                           'disk_id' : self.disk_id,
                           'acc_id' : self.entity_id})
             self._db.log_change(self.entity_id, self.const.account_mod, None)
-            self.update_entity_name(self.const.account_namespace, self.account_name)
+            if 'account_name' in self.__updated:
+                self.update_entity_name(self.const.account_namespace, self.account_name)
 
         # We store the plaintext password in the changelog so that
         # other systems that need it may get it.  The changelog
