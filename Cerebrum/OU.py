@@ -167,6 +167,76 @@ class OU(EntityContactInfo, EntityAddress, Entity):
         WHERE ou_id=:ou_id AND  perspective=:perspective""",
                             {'ou_id': self.entity_id,
                              'perspective': int(perspective)})
+    # end get_parent
+
+    def _get_item_languages(self, item_name, merge):
+        """
+        Fetch ITEM_NAME's values with respective languages.
+
+        ITEM_NAME can be 'name', 'acronym', 'short_name', 'display_name',
+        'sort_name'.
+
+        MERGE's values can be 'default', 'extra' or 'both', meaning that
+        language information is fetched from tables ou_info only,
+        ou_name_language only, or both respectively.
+
+        This function is not meant to be directly accessible from outside
+        OU. Write a suitable interface, like get_names(), if you need it.
+        """
+        
+        if item_name not in ("name", "acronym", "short_name",
+                             "display_name", "sort_name"):
+            raise Exception, ("Aiee! Merging invalid item in SQL (%s)" %
+                              item_name)
+        # fi
+
+        result = []
+        if merge in ("default", "both"):
+            # Note that we could have obtained this information directly
+            # from SELF, but it is bad carma to return a heterogeneous list
+            # (tuples of strings and db_rows (below)).
+            # This way the client code can safely work with the result as a
+            # list of db rows.
+            result.append(self.query_1("""
+            SELECT %s, '' as language
+            FROM [:table schema=cerebrum name=ou_info]
+            WHERE ou_id=:ou_id""" % item_name,
+                                    {"ou_id": self.entity_id,
+                                     "item": item_name}))
+        # fi
+
+        if merge in ("extra", "both"):
+            result.extend(self.query("""
+            SELECT onl.%s as %s, lc.code_str as language
+            FROM [:table schema=cerebrum name=ou_name_language] onl,
+                 [:table schema=cerebrum name=language_code] lc
+            WHERE onl.ou_id = :ou_id AND
+                  onl.language_code = lc.code""" % (item_name,
+                                                    item_name),
+                                     {"ou_id": self.entity_id,
+                                      "item": item_name}))
+        # fi
+
+        return result
+    # end _get_item_languages
+        
+    def get_names(self):
+        """
+        Returns all names in all languages for this OU
+        """
+
+        return self._get_item_languages(item_name="name",
+                                        merge="both")
+    # end get_names
+
+    def get_acronyms(self):
+        """
+        Returns all acronyms in all languages for this OU
+        """
+
+        return self._get_item_languages(item_name="acronym",
+                                        merge="both")
+    # end get_acronyms
 
     def structure_path(self, perspective):
         """Return a string indicating OU's structural placement.
