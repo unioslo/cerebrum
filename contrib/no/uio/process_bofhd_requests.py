@@ -917,7 +917,7 @@ def move_user(uname, uid, gid, old_host, old_disk, new_host, new_disk, spread,
 
 def set_operator(entity_id=None):
     if entity_id:
-        db.cl_init(change_py=entity_id)
+        db.cl_init(change_by=entity_id)
     else:
         db.cl_init(change_program='process_bofhd_r')
 
