@@ -15,6 +15,7 @@ def logg(tekst):
 def handler(req):
     logg("Started handler")
     req.session = Session(req)
+    req.content_type = "text/html; charset=utf8";
     logg("Got session - put it in req.session")
     check_connection(req)
     check_profile(req)
