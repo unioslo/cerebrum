@@ -85,7 +85,7 @@ class BofhdExtension(object):
             tmp = getattr(self.const, c)
             if isinstance(tmp, _CerebrumCode):
                 self.num2const[int(tmp)] = tmp
-                self.str2const["%s" % tmp] = tmp
+                self.str2const[str(tmp)] = tmp
         self.ba = BofhdAuth(self.db)
         aos = BofhdAuthOpSet(self.db)
         self.num2op_set_name = {}
@@ -1953,7 +1953,7 @@ class BofhdExtension(object):
     def quarantine_disable(self, operator, entity_type, id, qtype, date):
         entity = self._get_entity(entity_type, id)
         date = self._parse_date(date)
-        qtype = int(self.str2const[qtype])
+        qtype = int(self._get_constant(qtype, "No such quarantine"))
         self.ba.can_disable_quarantine(operator.get_entity_id(), entity, qtype)
         entity.disable_entity_quarantine(qtype, date)
         return "OK"
@@ -1978,7 +1978,7 @@ class BofhdExtension(object):
         perm_filter='can_remove_quarantine')
     def quarantine_remove(self, operator, entity_type, id, qtype):
         entity = self._get_entity(entity_type, id)
-        qtype = int(self.str2const[qtype])
+        qtype = int(self._get_constant(qtype, "No such quarantine"))
         self.ba.can_remove_quarantine(operator.get_entity_id(), entity, qtype)
         entity.delete_entity_quarantine(qtype)
         return "OK"
@@ -1991,7 +1991,7 @@ class BofhdExtension(object):
     def quarantine_set(self, operator, entity_type, id, qtype, why, date):
         date_start, date_end = self._parse_date_from_to(date)
         entity = self._get_entity(entity_type, id)
-        qtype = int(self.str2const[qtype])
+        qtype = int(self._get_constant(qtype, "No such quarantine"))
         self.ba.can_set_quarantine(operator.get_entity_id(), entity, qtype)
         if entity_type != 'account':
             raise CerebrumError("Quarantines can only be set on accounts")
@@ -2031,7 +2031,7 @@ class BofhdExtension(object):
         perm_filter='can_add_spread')
     def spread_add(self, operator, entity_type, id, spread):
         entity = self._get_entity(entity_type, id)
-        spread = int(self.str2const[spread])
+        spread = int(self._get_constant(spread, "No such spread"))
         self.ba.can_add_spread(operator.get_entity_id(), entity, spread)
         entity.add_spread(spread)
         return "OK"
@@ -2055,7 +2055,7 @@ class BofhdExtension(object):
         perm_filter='can_add_spread')
     def spread_remove(self, operator, entity_type, id, spread):
         entity = self._get_entity(entity_type, id)
-        spread = int(self.str2const[spread])
+        spread = int(self._get_constant(spread, "No such spread"))
         self.ba.can_add_spread(operator.get_entity_id(), entity, spread)
         entity.delete_spread(spread)
         return "OK"
@@ -2235,7 +2235,7 @@ class BofhdExtension(object):
             group_id, np_type, filegroup, shell, home, uname = args
             owner_type = self.const.entity_group
             owner_id = self._get_group(group_id.split(":")[1]).entity_id
-            np_type = int(self.str2const[np_type])
+            np_type = int(self._get_constant(np_type, "Unknown account type"))
         else:
             idtype, person_id, affiliation, filegroup, shell, home, uname = args
             owner_type = self.const.entity_person
@@ -2266,7 +2266,8 @@ class BofhdExtension(object):
         try:
             posix_user.write_db()
             for spread in cereconf.BOFHD_NEW_USER_SPREADS:
-                posix_user.add_spread(self.str2const[spread])
+                posix_user.add_spread(self._get_constant(spread,
+                                                         "No such spread"))
             # For correct ordering of ChangeLog events, new users
             # should be signalled as "exported to" a certain system
             # before the new user's password is set.
@@ -2784,7 +2785,7 @@ class BofhdExtension(object):
     def _get_shell(self, shell):
         if shell == 'bash':
             return self.const.posix_shell_bash
-        return int(self.str2const[shell])
+        return int(self._get_constant(shell, "Unknown shell"))
     
     def _format_ou_name(self, ou):
         return "%s (%02i%02i%02i)" % (ou.short_name, ou.fakultet,
@@ -2955,11 +2956,11 @@ class BofhdExtension(object):
 
     def _map_np_type(self, np_type):
         # TODO: Assert _AccountCode
-        return int(self.str2const[np_type])
+        return int(self._get_constant(np_type, "Unknown account type"))
         
     def _map_visibility_id(self, visibility):
         # TODO: Assert _VisibilityCode
-        return int(self.str2const[visibility])
+        return int(self._get_constant(visibility, "No such visibility type"))
 
 
     def _is_yes(self, val):
@@ -2978,6 +2979,11 @@ class BofhdExtension(object):
             if k.lower() == code_str.lower():
                 return self.person_affiliation_statusids[str(affiliation)][k]
         raise CerebrumError("Unknown affiliation status")
+
+    def _get_constant(self, const_str, err_msg="Could not find constant"):
+        if self.str2const.has_key(const_str):
+            return self.str2const[const_str]
+        raise CerebrumError("%s: %s" % (err_msg, const_str))
 
     def _parse_date_from_to(self, date):
         date_start = self._today()
