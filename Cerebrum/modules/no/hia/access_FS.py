@@ -272,8 +272,7 @@ SELECT DISTINCT
    etterutdkurskode, kurstidsangivelsekode
 FROM fs.personrolle 
 WHERE dato_fra < SYSDATE AND
-      NVL(dato_til,SYSDATE) >= sysdate AND
-      institusjonsnr = %s""" %  institusjonsnr
+      NVL(dato_til,SYSDATE) >= sysdate"""
         return (self._get_cols(qry), self.db.query(qry))
 
     def GetUndervEnhet(self, sem="current"):
