@@ -762,7 +762,7 @@ CREATE TABLE account_home
   spread	NUMERIC(6,0) NOT NULL
 		CONSTRAINT account_home_spread REFERENCES spread_code(code),
   homedir_id	NUMERIC(12,0) NOT NULL
-		CONSTRAINT account_home_homedir REFERENCES homedir(homedir_id),
+		CONSTRAINT account_home_homedir_id REFERENCES homedir(homedir_id),
   CONSTRAINT account_home_pk
     PRIMARY KEY (account_id, spread),
   CONSTRAINT account_home_homedir
