@@ -589,10 +589,11 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
                                       include_deleted = include_deleted)
 
     def list_affiliations(self, person_id=None, source_system=None,
-                          affiliation=None, status=None,
+                          affiliation=None, status=None, ou_id=None,
                           include_deleted=False):
         cols = {}
-        for t in ('person_id', 'affiliation', 'source_system', 'status'):
+        for t in ('person_id', 'affiliation', 'source_system', 'status', \
+								'ou_id'):
             if locals()[t] is not None:
                 cols[t] = int(locals()[t])
         tests = ["%s=:%s" % (x, x) for x in cols.keys()
