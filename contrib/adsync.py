@@ -247,7 +247,7 @@ def get_ad_objects(entity_type):
         #if not ad_object.got_spread(spread):
         #    ad_object.add_spread(spread)
         #    ad_object.commit()
-        if ad_object.got_spread(spread):
+        if ad_object.has_spread(spread):
             count = count+1                   
             ou_id = row['ou_id']
             id_and_ou = id, ou_id

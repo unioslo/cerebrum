@@ -82,11 +82,11 @@ def quick_user_sync():
             account.clear()
             a_obj = account.find(ans['subject_entity'])
             #test: account.add_spread(int(co.spread_uio_ad_account))
-            if account.got_spread(int(co.spread_uio_ad_account)):
+            if account.has_spread(int(co.spread_uio_ad_account)):
                 group.clear()
                 g_obj = group.find(ans['dest_entity'])
 
-                if group.got_spread(int(co.spread_uio_ad_group)):
+                if group.has_spread(int(co.spread_uio_ad_group)):
                     print ans['dest_entity'], "missing spread_uio_ad_group"
 
                 else:
@@ -195,7 +195,7 @@ def add_spread(entity_id,param):
                 except Errors.NotFoundError:
                     print 'WARNING:account ',grpmemb,' not found in ad_tables'  
                 name = ad_object.get_name(int(co.account_namespace))
-                if ad_object.got_spread(int(co.spread_uio_ad_account)):
+                if ad_object.has_spread(int(co.spread_uio_ad_account)):
                     print 'INFO:Add', name, 'to', grp                
                     sock.send('ADDUSRGR&%s/%s&%s/%s\n' % (cereconf.AD_DOMAIN, name, cereconf.AD_DOMAIN, grp))
                     if sock.read() != ['210 OK']:
@@ -275,7 +275,7 @@ def group_rem(account_id,group_id):
 def change_pw(account_id,pw_params):
     account.clear()
     a_obj = account.find(ans['subject_entity'])
-    if account.got_spread(int(co.spread_uio_ad_account)):
+    if account.has_spread(int(co.spread_uio_ad_account)):
         pw=pw_params['password']
         user = id_to_name(account_id,'user')
         sock.send('ALTRUSR&%s/%s&pass&%s\n' % (cereconf.AD_DOMAIN,user,pw))
