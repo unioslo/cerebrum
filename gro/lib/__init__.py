@@ -1,4 +1,5 @@
 from classes.Account import *
+from classes.Clever import *
 from classes.Disk import *
 from classes.Entity import *
 from classes.Group import *
