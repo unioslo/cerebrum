@@ -13,6 +13,7 @@ import java.util.Arrays;
 import java.util.Vector;
 import java.util.Hashtable;
 import java.util.Enumeration;
+import java.util.Date;
 import java.io.*;
 
 import java.security.cert.CertificateException;
@@ -49,20 +50,37 @@ class InternalTrustManager implements X509TrustManager {
     
     public void checkServerTrusted( X509Certificate[] cert, String str) 
 	throws CertificateException {
-	/* This implementation is rather primitive in that we only
-	 * allow a keychain length of one.
-	 */
-	if(cert.length != 1)
-	    throw new CertificateException("Unexpected keychain length");
+        Date date = new Date();
+        for(int i = 0; i < cert.length; i++) {
+            X509Certificate parent;
+            if(i + 1 >= cert.length) {
+                parent = cert[i];
+            } else {
+                parent = cert[i+1];
+            }
 
-	if(! serverCert.getSubjectDN().equals(cert[0].getIssuerDN()))
-	    throw new CertificateException("Incorrect issuer for server cert");
-
-	try {
-	    cert[0].verify(serverCert.getPublicKey());
-	} catch (Exception e) {
-	    throw new CertificateException("Bad server certificate: "+e);
-	}
+            if(! parent.getSubjectDN().equals(cert[i].getIssuerDN())) {
+                throw new CertificateException("Incorrect issuer for server cert");
+            }
+            cert[i].checkValidity(date);
+            parent.checkValidity(date);
+            try {
+                cert[i].verify(parent.getPublicKey());
+            } catch (Exception e) {
+                throw new CertificateException("Bad server certificate: "+e);
+            }
+            if(cert[i].getIssuerDN().equals(serverCert.getSubjectDN())) {
+                // Issuer is trusted
+                try {
+                    cert[i].verify(serverCert.getPublicKey());
+                    serverCert.checkValidity(date);
+                } catch (Exception e) {
+                    System.out.println("bas");
+                    throw new CertificateException("Bad server certificate: "+e);
+                }
+                return;
+            }
+        }
     }
     
     public X509Certificate[] getAcceptedIssuers() {
