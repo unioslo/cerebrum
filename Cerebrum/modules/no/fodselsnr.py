@@ -52,14 +52,9 @@ def personnr_ok(nr, _retDate=0):
         raise InvalidFnrError, \
               "Ugyldig lengde for fødselsnummer <%s>." % nr
 
-    for vekt in ((3, 7, 6, 1, 8, 9, 4, 5, 2, 1, 0),
-                 (5, 4, 3, 2, 7, 6, 5, 4, 3, 2, 1)):
-        sum = 0
-        for x in range(11):
-            sum = sum + int(nr[x]) * int(vekt[x])
-        if sum % 11:
-            raise InvalidFnrError, \
-                  "Feil sjekksum for fødselsnummer <%s>." % nr
+    if nr <> beregn_sjekksum(nr):
+        raise InvalidFnrError, \
+              "Feil sjekksum for fødselsnummer <%s>." % nr
 
     # Del opp fødselsnummeret i dets enkelte komponenter.
     day, month, year, pnr = \
@@ -115,6 +110,38 @@ def _is_legal_date(y, m, d):
     if d > mdays:
         return
     return 1
+
+def beregn_sjekksum(fnr):
+    """Returner ``fnr`` med korrekt kontrollsifferdel."""
+    # TODO: Kanonikalisering av fnr; må være nøyaktig 11 elementer
+    # lang.
+    nr = list(fnr)
+    idx = 9                             # Første kontrollsiffer
+    for vekt in ((3, 7, 6, 1, 8, 9, 4, 5, 2, 1, 0),
+                 (5, 4, 3, 2, 7, 6, 5, 4, 3, 2, 1)):
+        sum = 0
+        for x in range(11):
+            #
+            # Lag vektet sum av alle siffer, utenom det
+            # kontrollsifferet vi forsøker å beregne.
+            if x <> idx:
+                sum = sum + int(nr[x]) * int(vekt[x])
+        # Kontrollsifferet har vekt 1; evt. etterfølgende
+        # kontrollsiffer har vekt 0.  Riktig kontrollsiffer er det som
+        # får den totale kontrollsummen (for hver vekt-serie) til å gå
+        # opp i 11.
+        kontroll = (11 - (sum % 11)) % 11
+        #
+        # Det skal ikke skade å være litt ekstra paranoid her; vi vil
+        # definitivt kun ha ikke-negative, en-sifrede kontrollsiffer:
+        if kontroll < 0 or kontroll >= 10:
+            raise ValueError, \
+                  "Klarte ikke å beregne kontrollsiffer for %s." % fnr
+        # Vi har funnet riktig siffer; sett det inn og gå videre til
+        # neste.
+        nr[idx] = kontroll
+        idx += 1
+    return "".join([str(x) for x in nr])
 
 def er_mann(nr):
     """Vil returnere 1 hvis nr tilhører en mann."""
