@@ -48,7 +48,7 @@ import classes.AccountHome
 import classes.Host
 import classes.Disk
 
-## modules
+# Modules
 import classes.Note
 import classes.PosixGroup
 import classes.PosixUser
@@ -56,5 +56,6 @@ import classes.ChangeLog
 import classes.Auth
 import classes.Commands
 import classes.EntityFlag
+import classes.Request
 
 # arch-tag: cdf0cb72-2dea-4122-8f02-2546e3b3c03e

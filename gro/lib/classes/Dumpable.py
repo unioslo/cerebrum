@@ -30,9 +30,8 @@ registry = Registry.get_registry()
 
 def create_mark_method(name, method_name):
     """
-    This function creates a simple get method get(self), which
-    uses getattr().
-    Methods created with this function are used in search objects.
+    This function creates a mark method for every attribute and read method in the class.
+    Using mark_<something> marks <something> for inclusion in the dump.
     """
 
     def dump(self):
