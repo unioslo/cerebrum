@@ -483,6 +483,29 @@ class EmailTarget(EmailEntity):
                using_uid
         FROM [:table schema=cerebrum name=email_target]
         """, fetchall=False)
+    
+    def list_email_target_primary_addresses(self, target_type=None):
+        """Return an iterator over primary email-addresses belonging
+        to email_target.
+        Returns target_id, entity_id, local_part and domain.
+
+        target_type decides which email_target to filter on.
+        """
+
+        where = ""
+        if target_type:
+            where = "WHERE et.target_type = %d" % int(target_type)
+ 
+        return self.query("""
+        SELECT et.target_id, et.entity_id, ea.local_part, ed.domain
+        FROM [:table schema=cerebrum name=email_target] et
+          JOIN [:table schema=cerebrum name=email_primary_address] epa
+            ON et.target_id=epa.target_id
+          JOIN [:table schema=cerebrum name=email_address] ea
+            ON epa.address_id=ea.address_id
+          JOIN [:table schema=cerebrum name=email_domain] ed
+            ON ea.domain_id=ed.domain_id
+        %s""" % where)
         
     def get_target_type(self):
         return self.email_target_type
