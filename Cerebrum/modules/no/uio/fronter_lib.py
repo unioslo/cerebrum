@@ -46,11 +46,6 @@ host_config = {
                           'plain_users': ['mgrude', 'gunnarfk'],
                           'spread': 'spread_fronter_kladdebok'
                           },
-    'kladdebok.uio.no/dlotest': {'DBinst': 'DLOTEST.uio.no',
-                                 'admins': AllAdmins + ['hmtest'],
-                                 'export': ['FS', 'All_users'],
-                                 'spread': 'spread_fronter_blyant'
-                                 },
     'petra.uio.no': { 'DBinst': 'DLODEMO.uio.no',
                       'admins': AllAdmins,
                       'export': ['FS', 'All_users'],
