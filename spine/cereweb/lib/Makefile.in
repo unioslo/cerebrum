@@ -1,0 +1,42 @@
+##
+## Makefile for Cereweb/lib/
+##
+
+SHELL = @SHELL@
+INSTALL = @INSTALL@
+CHEETAH = @CHEETAH@
+
+prefix = @prefix@
+libdir = @libdir@
+pythondir = @PYTHONDIR@/Cereweb
+
+sources = $(wildcard *.py)
+
+.PHONY: all install install-lib clean distclean print
+
+all: 
+	$(MAKE) -C templates $@
+
+print:
+	@echo Sources
+	@echo $(sources)
+	@echo --
+	@echo Going to $(templatedir)
+
+install: install-lib
+	$(MAKE) -C templates $@
+
+install-lib: $(sources)
+	@for file in $(sources); do \
+	  $(INSTALL) -D -v -m 644 $$file $(DESTDIR)/$(pythondir)/$$file || exit 1; \
+	done
+	touch $(DESTDIR)/$(pythondir)/__init__.py
+	chmod 644 $(DESTDIR)/$(pythondir)/__init__.py
+
+clean:
+	rm -f *~ 
+	$(MAKE) -C templates $@
+
+distclean: clean
+	rm -f Makefile
+	$(MAKE) -C templates $@
