@@ -1,3 +1,11 @@
+BOFH - En administrasjonsklient mot Cerebrum
+============================================
+
+$Id$
+
+Tegnsett, spesial-tegn, quoting
+-------------------------------
+
 Om man ønsker å angi verdien '-' eller '?' i et argument, må dette
 quotes -- enten inne i fnutter (som i denne setningen :-), eller ved å
 prefikse med backslash.  Klienten forstår både enkle og doble fnutter,
@@ -7,6 +15,10 @@ Vil angi: foo"bar'xyzzy med \backslash
 Quotes som: foo\"bar\'xyzzy\ med\ \\backslash
 eller: 'foo"bar\'xyzzy med \\backslash'
 osv.
+
+
+Default verdier/Optional attributter
+------------------------------------
 
 Argumenter som muligens har default-verdi angis i spesifikasjonen med
 "=" på slutten.  I klienten kan man skrive "-" i stedet for å angi
@@ -32,28 +44,48 @@ prompt ved å oppgi verdien '?'.  Er man allerede i prompt-modus i det
 man kommer til et valgfritt argument, vil det promptes også etter
 dette.
 
-[Harald Meland]
 
-> [B}rd Henry Moum Jakobsen]
->
->> Person - Create, modefy, destroy
->>
->>  I tillegg til de personer som systemet får via autorative systemer må
->>  en kunne legge inn helt egne personentyer, og modefisere affiliation
->>  for disse.
+Person - Create
+---------------
 
-# Gender will default to 'unknown' for persons with no fnr.
-bofh> person bcreate <display_name> <birth_date (yyyy-mm-dd)>
+ I tillegg til de personer som systemet får via autorative systemer må
+ en kunne legge inn helt egne personentyer.
+
+
+# Gender will default to 'unknown' for persons with no fnr, if not
+# given here.
+
+bofh> person bcreate <display_name> <birth_date (yyyy-mm-dd)> [gender (m|f)]
 Created 'display_name' as person with birthdate yyyy-mm-dd.
 
-bofh> person create <display_name> <id_type> <id>
+ Warning:
+   - Finnes person med navn og fødseldato fra før.  Skal kun bygge
+     efter en bekreftelse fra bruker av bofh.
+
+
+bofh> person fcreate <display_name> <NoSSN (19027732244)>
+Created 'display_name' as person whith fnr 'fnr'.
+
+ Feil:
+   - Det finnes alt en person med dette fødselnummeret
+
+
+bofh> person create <display_name> <id_type> <id> 
 Created 'display_name' as person with id 'export_id' (name).
 
-> # Max hits?  20?
-> bofh> person find {<name> | <id_type> <id> | <birth_date>}
-> Found N entries, reporting first 20:
-> ##  ExportID   Name                         Birthdate
-> 1   0982734    Roger Rakett                 2002-11-06
+ Feil:
+   - Det finnes alt en person med denne ID av denne typen.
+
+
+Person - Modify and delete
+--------------------------
+
+Finding person
+# Max hits?  20?
+bofh> person find {<name> | <id_type> <id> | <birth_date>}
+Found N entries, reporting first 20:
+##  ExportID   Name                         Birthdate
+1   0982734    Roger Rakett                 2002-11-06
 > ...
 >
 > # Set new name (source_system == "manual").
