@@ -1,4 +1,4 @@
-from Cerebrum.RecursiveDict import RecursiveDict
+from Cerebrum.Utils import RecursiveDict
 import default_profile
 
 def get_profile(req):
