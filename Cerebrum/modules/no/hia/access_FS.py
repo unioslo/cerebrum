@@ -268,13 +268,6 @@ WHERE r.emnekode = e.emnekode AND
 	qry = """
 SELECT DISTINCT
   fodselsdato, personnr
-
-# sjekk dette her! 
-# de ønsker å endre slik at det bare skal brukes eksamensmelding 
-# dette høres teit ut, men de har ikke noe kultur for å følge 
-# undervisning eller melde seg til undervisning. de har stort sett
-# masse problemer med dette
-
 FROM fs.undervisningsmelding, fs.eksamenmelding
 WHERE
   institusjonsnr = :institusjonsnr AND
@@ -292,7 +285,6 @@ WHERE
                                     'arstall': arstall}
                               ))
 
-# endres
     def StudprogAlleStud(self, faknr, studprogkode):
 	"""Henter data om alle studenter på et gitt studieprogram og 
 	fakultetet denne tilhører. Med alle studenter mener vi her de
