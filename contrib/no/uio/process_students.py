@@ -45,6 +45,7 @@ const = Factory.get('Constants')(db)
 all_passwords = {}
 derived_person_affiliations = {}
 processed_students = {}
+keep_account_home = {}
 debug = 0
 max_errors = 50          # Max number of errors to accept in person-callback
 
@@ -300,7 +301,6 @@ def get_existing_accounts():
                                   not others.has_key(fnr)):
             others[fnr] = None
     logger.info(" found %i + %i entires" % (len(students), len(others)))
-
     return students, others
 
 def make_letters(data_file=None, type=None, range=None):
@@ -526,6 +526,7 @@ def process_student(person_info):
         return
     
     processed_students[fnr] = 1
+    keep_account_home[fnr] = profile.get_build()['home']
     if fast_test:
         logger.debug(profile.debug_dump())
         logger.debug("Disk: %s" % profile.get_disk())
@@ -542,7 +543,8 @@ def process_student(person_info):
         if dryrun:
             logger.set_indent(0)
             return
-        if create_users and not students.has_key(fnr):
+        if (create_users and not students.has_key(fnr) and
+            profile.get_build()['action']):
             if alternative_account_id is None:
                 logger.debug("Has active non-student account, skipping")
                 return
@@ -614,9 +616,23 @@ def process_unprocessed_students():
     callback at all"""
     # TBD: trenger vi skille på de?
     
+    user = Factory.get('Account')(db)
     for fnr in students.keys(): 
         if not processed_students.has_key(fnr):
             logger.debug("%s has student accounts, but has not been processed" % fnr)
+        if not keep_account_home.get(fnr, False):
+            # If this student 
+            accounts = []
+            for account_id in students[fnr].keys():
+                user.clear()
+                user.find(account_id)
+                try:
+                    disk_id=user.get_home(user_spread)['disk_id']
+                except (Errors.NotFoundError, TypeError):
+                    pass
+                accounts.append("%s:%i" % (user.account_name,
+                                           autostud.student_disk.has_key(disk_id)))
+            logger.debug("%s didn't set keep_account_home: %s" % (fnr, str(accounts)))
 
 def main():
     try:
