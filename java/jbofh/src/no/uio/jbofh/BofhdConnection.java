@@ -97,7 +97,11 @@ public class BofhdConnection {
 
     Object sendRawCommand(String cmd, Vector args) throws BofhdException {
         try {
-            logger.debug("sendCommand("+cmd+", "+args);
+            if(cmd.equals("login")) {
+                logger.debug("sendCommand("+cmd+", ********");
+            } else {
+                logger.debug("sendCommand("+cmd+", "+args);
+            }
 	    Object r = washResponse(xmlrpc.execute(cmd, args));
 	    logger.debug("<-"+r);
             return r;
