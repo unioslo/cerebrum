@@ -1,4 +1,7 @@
+import time
+
 import Cerebrum.Entity
+import Cerebrum.QuarantineHandler
 import Cerebrum.modules.Note
 
 from Cerebrum.extlib import sets
@@ -53,6 +56,8 @@ class Entity(Builder):
         e.entity_id = self.get_entity_id()
 
         for row in e.get_notes():
+            row = dict(row._items())
+            row['entity_id'] = self._entity_id
             notes.append(Note.getByRow(row))
 
         return notes
@@ -71,16 +76,33 @@ class Entity(Builder):
         contact_info = []
 
         e = Cerebrum.Entity.EntityContactInfo(db)
-        e.entity_id = self.get_entity_id
+        e.entity_id = self._entity_id
 
         for row in e.get_contact_info():
             contact_info.append(ContactInfo.getByRow(row))
 
         return contact_info
 
-    def __repr__(self):
-        return '%s(entity_id=%s)' % (self.__class__.__name__, self._entity_id)
-    
+    def is_quarantined(self):
+        account = Cerebrum.Entity.EntityQuarantine(db)
+        account.entity_id = self._entity_id
+
+        # koka fra bofhd
+        quarantines = []      # TBD: Should the quarantine-check have a utility-API function?
+        now = db.DateFromTicks(time.time())
+        for qrow in account.get_entity_quarantine():
+            if (qrow['start_date'] <= now
+                and (qrow['end_date'] is None or qrow['end_date'] >= now)
+                and (qrow['disable_until'] is None 
+                or qrow['disable_until'] < now)):
+                # The quarantine found in this row is currently
+                # active.
+                quarantines.append(qrow['quarantine_type'])
+        qh = Cerebrum.QuarantineHandler.QuarantineHandler(db, quarantines)
+        if qh.should_skip() or qh.is_locked():
+            return True
+        return False
+
 class ContactInfo(Builder):
     primary = [Attribute('entity_id', 'long'),
                Attribute('source_system', 'SourceSystem'),
@@ -109,9 +131,6 @@ class ContactInfo(Builder):
         return entity_id, source_system, contact_type
     getKey = staticmethod(getKey)
 
-    def __repr__(self):
-        return 'ContactInfo(entity_id=%s, source_system=%s, contact_type=%s)' % (self._entity_id, self._source_system, self._contact_type)
-
 class Note(Builder):
     primary = [Attribute('note_id', 'long')]
     slots = primary + [Attribute('create_date', 'Date'),
@@ -121,9 +140,10 @@ class Note(Builder):
                        Attribute('description', 'string')]
     
     def getByRow(cls, row):
-        return cls(entity_id=int(row['note_id']),
+        return cls(note_id=int(row['note_id']),
                    create_date=row['create_date'],
                    creator_id=int(row['creator_id']),
+                   entity_id=int(row['entity_id']),
                    subject=row['subject'],
                    description=row['description'])
 
