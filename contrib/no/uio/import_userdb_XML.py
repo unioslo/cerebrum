@@ -953,6 +953,38 @@ def person_callback(person):
                     user_creators[account_id] = u.get('created_by', 'bootstrap_account')
                 uname2entity_id[u['uname']] = account_id
 
+def map_quarantine(shell, quarantine, had_splat):
+    if shell == 'nologin.autostud':
+        return co.quarantine_autostud
+    elif shell == 'nologin':
+        return co.quarantine_nologin
+    elif shell == 'nologin.brk':
+        return co.quarantine_nologin_brk
+    elif shell == 'nologin.chpwd':
+        return co.quarantine_autopassord
+    elif shell == 'nologin.ftpuser':
+        return co.quarantine_nologin_ftpuser
+    elif shell == 'nologin.nystudent':
+        return co.quarantine_nologin_nystudent
+    elif shell == 'nologin.pwd':
+        return co.quarantine_svakt_passord
+    elif shell == 'nologin.sh':
+        return co.quarantine_nologin_sh
+    elif shell == 'nologin.sluttet':
+        return co.quarantine_slutta
+    elif shell == 'nologin.stengt':
+        return co.quarantine_nologin_stengt
+    elif shell == 'nologin.teppe':
+        return co.quarantine_teppe
+    elif shell == 'nologin.permisjon':
+        return co.quarantine_permisjon
+    else:
+        if had_splat:
+            return co.quarantine_generell
+        print "WARNING: Unable to map quarantine: (%s, %s, %s)", (
+            shell, quarantine, had_splat)
+        return None
+
 def create_account(u, owner_id, owner_type, np_type=None):
     if uname_exists.has_key(u['uname']):
         print "User %s already exists, skipping" % u['uname']
@@ -1179,10 +1211,12 @@ def create_account(u, owner_id, owner_type, np_type=None):
         else:
             when = parse_date(u['quarantine']['when'])
             why = u['quarantine']['why']
-        accountObj.add_entity_quarantine(int(co.quarantine_generell),
-                                         acc_creator_id, # TODO: Set this
-                                         description=why,
-                                         start=when)
+        q_type = map_quarantine(u['shell'], u.get('quarantine', None), had_splat)
+        if q_type is not None:
+            accountObj.add_entity_quarantine(int(q_type),
+                                             acc_creator_id, # TODO: Set this
+                                             description=why,
+                                             start=when)
     if u.has_key("printerquota"):
         p = u['printerquota']
         pquotas.clear()
