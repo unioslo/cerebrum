@@ -300,8 +300,8 @@ class OU(EntityContactInfo, EntityAddress, Entity):
         WHERE parent_id=:e_id AND perspective=:perspective""",
                           {'e_id': entity_id,
                            'perspective': int(perspective)})
-        if tmp:
-            ret.extend(tmp)
+        ret.extend(tmp)
+        if recursive:
             for r in tmp:
                 ret.extend(self.list_children(perspective, r['ou_id'], recursive))
         return ret
