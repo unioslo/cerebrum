@@ -448,6 +448,15 @@ class BofhdAuth(DatabaseAccessor):
                                             self.const.auth_set_password,
                                             self._get_disk(account.disk_id))
 
+    def can_show_history(self, operator, entity):
+        if self.is_superuser(operator):
+            return True
+        if entity.entity_type == co.entity_account:
+            return self._query_disk_permissions(operator,
+                                                self.const.auth_create_user,
+                                                self._get_disk(entity.disk))
+        raise PermissionDenied("no access for that entity_type")
+
     def _query_disk_permissions(self, operator, operation, disk):
         """Permissions on disks may either be granted to a specific
         disk, a complete host, or a set of disks matching a regexp"""
