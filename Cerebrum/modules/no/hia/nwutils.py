@@ -403,7 +403,7 @@ def get_user_info(account_id, spread):
             logger.info("WARNING: missing QUARANTINE_RULE")    
     if (account.is_expired()):
         account_disable = 'TRUE'
-    return (first_n, last_n, account_disable, home_dir, affiliation, ext_id, email)
+    return (names['name_first'], names['name_last'], account_disable, home_dir, affiliation, ext_id, email)
 
 
 def get_primary_ou(account_id,namespace):
