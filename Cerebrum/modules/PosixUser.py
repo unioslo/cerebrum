@@ -84,6 +84,15 @@ class PosixUser(Account.Account):
         this object."""
         assert self.__write_db
 
+        # TODO: This may be incorrect.  What we're trying to do is to
+        # assert that if the user has called something like
+        # set_password on the object, the update is written to the
+        # database.
+        if as_object is None:
+            super(PosixUser, self).write_db(self)
+        else:
+            super(PosixUser, self).write_db(as_object)
+        
         if as_object is None:
             self.execute("""
             INSERT INTO [:table schema=cerebrum name=posix_user]
