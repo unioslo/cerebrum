@@ -53,7 +53,7 @@ from Cerebrum.modules import PosixUser
 from Cerebrum.modules.bofhd.cmd_param import *
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd.utils import BofhdRequests
-from Cerebrum.modules.no.auth import BofhdAuth, BofhdAuthOpSet, \
+from Cerebrum.modules.bofhd.auth import BofhdAuth, BofhdAuthOpSet, \
      AuthConstants, BofhdAuthOpTarget, BofhdAuthRole
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.uio import PrinterQuotas
@@ -3419,30 +3419,30 @@ class BofhdExtension(object):
     #person set name
     all_commands['person_set_name'] = Command(
 	("person", "set_name"),PersonId(help_ref="person_id_other"),
-	PersonName(help_ref="person_name_full"),
+	PersonName(help_ref="person_name_first"),
+	PersonName(help_ref="person_name_last"),
 	fs=FormatSuggestion("Name altered for: %i",
-        ("person_id",)),
+			    ("person_id",)),
 	perm_filter='is_superuser')
-    def person_set_name(self, operator, person_id, person_fullname):
+    def person_set_name(self, operator, person_id, person_name_first, person_name_last):
         person = self._get_person(*self._map_person_id(person_id))
         if not self.ba.is_superuser(operator.get_entity_id()):
             raise PermissionDenied("Currently limited to superusers")
 
 	for a in person.get_affiliations():
-	    if (int(a['source_system']) in \
-		[int(self.const.system_fs), int(self.const.system_sap)]):
-		raise CerebrumError, "You can't alter name of a person registered in an authorative source system!"
-	    else:
-		pass
-	    person.affect_names(self.const.system_manual, self.const.name_full)
-	    person.populate_name(self.const.name_full,
-				 person_fullname.encode('iso8859-1'))
-	    
-	    try:
-		person.write_db()
-	    except self.db.DatabaseError, m:
-		raise CerebrumError, "Database error: %s" % m
-	    return {'person_id': person.entity_id}
+	    if ((int(a['source_system']) in
+		 [int(self.const.system_fs), int(self.const.system_sap)]) and person.get_all_names()):
+		 raise CerebrumError, "You can't alter name of a person registered in an authorative source system!"
+	person.affect_names(self.const.system_manual, self.const.name_first, self.const.name_last)
+	person.populate_name(self.const.name_first,
+			     person_name_first.encode('iso8859-1'))
+	person.populate_name(self.const.name_last,
+			     person_name_last.encode('iso8859-1'))
+	try:
+	    person.write_db()
+	except self.db.DatabaseError, m:
+	    raise CerebrumError, "Database error: %s" % m
+	return {'person_id': person.entity_id}
 
     # person student_info
     all_commands['person_student_info'] = Command(
