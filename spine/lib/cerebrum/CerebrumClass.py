@@ -107,7 +107,7 @@ class CerebrumClass(SpineClass):
         """Stores 'attributes' in cerebrum."""
         obj = self._get_cerebrum_obj()
         for attr in self._cerebrum_save_attributes:
-            if i not in self.updated:
+            if attr not in self.updated:
                 continue
             value = getattr(self, attr.get_name_private())
             setattr(obj, self._get_cerebrum_name(attr), attr.convert_to(value))
