@@ -45,6 +45,8 @@ commands = {
     'convertmail': [cereconf.CONVERT_MAILCONFIG_SCRIPT, 4],
     # mode, listname, admin
     'mailman': [cereconf.MAILMAN_SCRIPT, 3],
+    # operation
+    'clean_rmuser': [cereconf.CLEAN_RMUSER_SCRIPT, 1],
     }
 
 def usage(exitcode=0):
