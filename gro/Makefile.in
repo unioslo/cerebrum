@@ -6,16 +6,21 @@
 .PHONY: all install install-lib clean distclean
 
 all: 
+	$(MAKE) -C bin $@
 	$(MAKE) -C lib $@
 
 install: install-lib
+	$(MAKE) -C bin $@
 	$(MAKE) -C lib $@
 
 install-lib:
+	$(MAKE) -C bin $@
 	$(MAKE) -C lib $@
 
 clean:
+	$(MAKE) -C bin $@
 	$(MAKE) -C lib $@
 
 distclean: clean
+	$(MAKE) -C bin $@
 	$(MAKE) -C lib $@
