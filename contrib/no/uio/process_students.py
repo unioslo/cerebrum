@@ -104,8 +104,6 @@ class AccountUtil(object):
         password = account.make_passwd(uname)
         account.set_password(password)
         tmp = account.write_db()
-        # Temporary hack until all students should have imap spread
-        account.add_spread(const.spread_uio_imap)
         logger.debug("new Account, write_db=%s" % tmp)
         all_passwords[int(account.entity_id)] = [password, profile.get_brev()]
         as_posix = False
@@ -114,7 +112,6 @@ class AccountUtil(object):
                 as_posix = True
         accounts[int(account.entity_id)] = {'owner': fnr,
                                             'expire_date': None,
-                                            'spreads': [const.spread_uio_imap],
                                             'groups': [],
                                             'affs': [],
                                             'home': {},
