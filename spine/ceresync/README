@@ -1,16 +1,26 @@
+Quick howto on the layout of a ceresync backend
+===============================================
+
 Ceresync concist of different types of backends.
 
 A backend can be ldap,file,etc.
 
-For each backend, you can store information for different types of "databases".
-For file-type backend, databases can be equivalents to:
-/etc/passwd
-/etc/shadow
-/etc/group
-/etc/aliases
+For each backend, you can store information for different types of
+entity types, like Person, Account, Group.
+
+It is unclear if it's the backend's responsibility to ignore or report
+unsupported entity types.  For instance, for Accounts, backends should
+silently ignore those that lack posix stuff if the backend require posix
+material.  
+
+For file-type backend, this can be almost mapped to::
+    /etc/passwd
+    /etc/shadow
+    /etc/group
+    /etc/aliases
 
 Each backend implements a set of functions:
-    begin(inkr=False) # Defaults to work in bulk-mode
+    begin(incr=False) # Defaults to work in bulk-mode
     close() # Close open connections
     abort() # Stop ongoing operations
     add(obj)
@@ -18,6 +28,7 @@ Each backend implements a set of functions:
     delete(obj)
 
 obj.name is always the primary key in the database (e.g. username)
+
 obj has other attributes as well, and each backend will always
 receive the full object (possibly exception for delete).
 
@@ -26,11 +37,16 @@ Typical bulk-synchronization:
     add(obj)
     close() # will also remove any unwanted objects
 
-add in inrk=False -mode is supposed to work as if the object doesn't exist,
+add in incr=False -mode is supposed to work as if the object doesn't exist,
 and shouldn't give an error-message.
 
+Starting a bulk synchronization means that all objects will be
+transfered. The backend should either delete or compare all existing
+objects on his end. (ie. start with a blank file)
+
+
 Typical incremental run:
-    begin(inkr=True)
+    begin(incr=True)
     add(a)
     update(b)
     delete(c)
@@ -38,11 +54,19 @@ Typical incremental run:
     delete(e)
     close() 
 
-add and update in inkr=True -mode, is supposed to work if object exist in backend or not, but 
-"should" give a warning if object doesn't exist when calling update(), or if it exist when
-calling add().
+Incremental runs will "modify" the backend's database since only new,
+changed or deleted objects are passed on. This means that the backend
+should not delete existing objects unless delete() is called. For a file
+based backend, this means that the file should be edited "in place" in
+some way.    
 
-If an error get raised, its expected that abort() is called.
+add and update in incr=True -mode is supposed to work if object exist
+in backend or not, but "should" give a warning if object doesn't exist
+when calling update() or delete(), or if it exist when calling add().
+
+If an error gets raised, it's expected that abort() is called.
 
 abort() doesn't need to rollback changes done since begin() - 
-but each backend need to document what will happen.
+but each backend need to document what will happen. The preferred
+behaviour is that no changes is submitted to the backend database unless
+close() is called, and that an abort() avoids committing such changes. 
