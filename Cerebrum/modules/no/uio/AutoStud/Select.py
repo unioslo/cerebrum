@@ -64,7 +64,7 @@ class SelectMapTag(SelectMapSuper):
         
     def _append_match(self, lst, profiles, pdta):
         nivakode = 0
-        if self._match_tag[0] == 'studieprogramkode':
+        if self._match_attr[0] == 'studieprogramkode':
             nivakode = self._normalize_nivakode(
                 self._pc.autostud.studieprogramkode2info.get(
                 pdta['studieprogramkode'], {}).get('studienivakode', 0))
@@ -107,8 +107,6 @@ class SelectMapTag(SelectMapSuper):
                 if n_matches == len(select_attrs):
                     self._logger.debug2("OK: %s -> %s" % (select_attrs, profile))
                     self._append_match(matches, profile, pdta)
-        self._logger.debug2("Ret: %s + %s -> %s" % (
-            self._match_tag, self._match_attr, matches))
         return matches
 
     def __str__(self):
@@ -122,7 +120,7 @@ class SelectMapAktivtSted(SelectMapSuper):
         
     def _append_match(self, lst, profiles, fs_info):
         nivakode = self._normalize_nivakode(fs_info.get('studienivakode', 0))
-        super(SelectMapTag, self)._append_match(lst, profiles, nivakode=nivakode)
+        super(SelectMapAktivtSted, self)._append_match(lst, profiles, nivakode=nivakode)
 
     def _get_steder(self, institusjon, stedkode, scope):
         ret = []
@@ -160,16 +158,22 @@ class SelectMapAktivtSted(SelectMapSuper):
     
     def get_matches(self, person_info, member_groups=None, person_affs=None):
         matches = []
-        for fs_infodict, attrname, match_tag, col_postfix in (
+        for fs_infodict, match_tag, col_postfix in (
             (self._pc.autostud.studieprogramkode2info,
-             'studieprogram', 'studieprogramkode', '_studieansv'),
+             'studieprogramkode', '_studieansv'),
             (self._pc.autostud.emnekode2info,
-             'emne', 'emnekode', '_reglement')):
-            for pdta in person_info.get(match_tag, []):
-                fs_info = fs_infodict[entry[attrname]]
+             'emnekode', '_reglement')):
+            #self._logger.debug2("Check with %s" % match_tag)
+            for pdta in person_info.get('aktiv', []):
+                try:
+                    fs_info = fs_infodict[pdta[match_tag]]
+                except KeyError:
+                    self._logger.error("Ukjent: %s=%s" % (match_tag, pdta[match_tag]))
+                    continue
                 sko = "%02i%02i%02i" % (int(fs_info['faknr%s' % col_postfix]),
                                         int(fs_info['instituttnr%s' % col_postfix]),
                                         int(fs_info['gruppenr%s' % col_postfix]))
+                #self._logger.debug2("Is %s in %s?" % (sko, self._select_map.values()))
                 for select_attrs in self._select_map.values():
                     if not sko in select_attrs['steder']:
                         continue
@@ -232,9 +236,6 @@ class SelectMapPersonAffiliation(SelectMapSuper):
             affiliation = self._pc.autostud.co.PersonAffiliation(
                 s_attr['affiliation'])
             if not s_attr.has_key('status'):
-##                 for aff_status in self._pc.autostud.co.fetch_constants(
-##                     self._pc.autostud.co.PersonAffStatus):
-##                     key = (int(affiliation), int(aff_status))
                 key = int(affiliation)
                 self._select_map.setdefault(key, []).append(profile)
             else:
@@ -305,10 +306,12 @@ class SelectTool(object):
     def get_person_match(self, person_info, member_groups=None, person_affs=None):
         matches = []
         for mtype, sm in self.select_map_defs.items():
-            self._logger.debug2("check-type: %s" % mtype)
-            matches.extend(sm.get_matches(person_info, member_groups=member_groups,
-                                          person_affs=person_affs))
+            tmp = sm.get_matches(person_info, member_groups=member_groups,
+                                 person_affs=person_affs)
+            self._logger.debug2("check-type: %s -> %s" % (mtype, tmp))
+            matches.extend(tmp)
 
+        self._logger.debug2("pre-priority filter: m= %s" % matches)
         if self._pc.using_priority:
             # Only use matches at prioritylevel with lowest value
             tmp = []
