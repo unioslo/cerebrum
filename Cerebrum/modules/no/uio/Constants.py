@@ -25,7 +25,7 @@ Address, Gender etc. type."""
 from Cerebrum import Constants
 from Cerebrum.Constants import _AuthoritativeSystemCode,_OUPerspectiveCode, \
      _SpreadCode, _QuarantineCode, _PersonExternalIdCode, \
-     _PersonAffiliationCode, _PersonAffStatusCode
+     _PersonAffiliationCode, _PersonAffStatusCode, _AccountCode
 from Cerebrum.modules.PosixUser import _PosixShellCode
 
 class Constants(Constants.Constants):
@@ -39,6 +39,8 @@ class Constants(Constants.Constants):
 
     perspective_lt = _OUPerspectiveCode('LT', 'LT')
     perspective_fs = _OUPerspectiveCode('FS', 'FS')
+
+    account_test = _AccountCode('T', 'Testkonto')
 
     affiliation_ansatt = _PersonAffiliationCode('ANSATT',
                                                 'Ansatt ved UiO (i følge LT)')
