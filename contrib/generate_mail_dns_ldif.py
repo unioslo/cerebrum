@@ -20,7 +20,7 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 """Generate LDAP host/domain info to be used by the mail system.
-See Cerebrum/default_config.py:LDAP_MAIL_DNS_* for configuration."""
+See Cerebrum/default_config.py:LDAP_MAIL_DNS for configuration."""
 
 import os
 import re
@@ -28,12 +28,10 @@ import sys
 
 import cerebrum_path
 import cereconf
-from Cerebrum import Entity
 from Cerebrum.modules import Email
-from Cerebrum.Utils import Factory,SimilarSizeWriter
-from Cerebrum.modules.LDIFutils import container_entry_string
-
-filename = os.path.join(cereconf.LDAP_DUMP_DIR, "mail-dns.ldif")
+from Cerebrum.Utils import Factory
+from Cerebrum.modules.LDIFutils import \
+     ldapconf, ldif_outfile, end_ldif_outfile, container_entry_string
 
 # Expect /local/bin/dig output like this:
 #   ; <<>> DiG 9.2.1 <<>> uio.no. @nissen.uio.no. axfr
@@ -72,10 +70,10 @@ def get_hosts_and_cnames():
     host2mx           = {}              # host  -> {MX priority: MX name, ...}
     lower2host        = {}              # lowercase hostname -> hostname
 
-    save = getattr(cereconf, 'LDAP_MAIL_DNS_SAVE_DIG_OUTPUT', 0)
+    save = cereconf.LDAP_MAIL_DNS.get('save_dig_output', 0)
     if save:
         # Save and rotate dig output, so unexpected output can be inspected.
-        savename = os.path.join(cereconf.LDAP_DUMP_DIR, "dig.out")
+        savename = os.path.join(cereconf.LDAP['dump_dir'], "dig.out")
         rotate = [(savename, savename + ".1")]
         for i in xrange(2, save+1):
             rotate.insert(0, (rotate[0][1], "%s.%d" % (savename, i)))
@@ -92,11 +90,12 @@ def get_hosts_and_cnames():
 
     # Read in the above variables from Dig
     use_types = {"A": True, "MX": True, "CNAME": True}
-    for args in cereconf.LDAP_MAIL_DNS_DIG_ARGS:
+    for args in cereconf.LDAP_MAIL_DNS['dig_args']:
+        cmd = cereconf.LDAP_MAIL_DNS['dig_cmd'] % args
         if save:
-            print >>save, "## %s ##" % (cereconf.LDAP_MAIL_DNS_DIG_CMD % args)
+            print >>save, "## %s ##" % (cmd,)
         check_lines = []
-        f = os.popen(cereconf.LDAP_MAIL_DNS_DIG_CMD % args, 'r')
+        f = os.popen(cmd, 'r')
         for line in f:
             if save:
                 save.write(line)
@@ -141,13 +140,13 @@ def get_hosts_and_cnames():
         save.close()
 
     # Add fake Dig records
-    for host in cereconf.LDAP_MAIL_DNS_EXTRA_A_HOSTS:
+    for host in cereconf.LDAP_MAIL_DNS.get('extra_a_hosts') or ():
         host_has_A_record[host] = True
 
     # Find hosts that both have an A record
-    # and has its 'best' MX record in cereconf.LDAP_MAIL_DNS_MX_HOSTS.
+    # and has its 'best' MX record in cereconf.LDAP_MAIL_DNS['mx_hosts'].
     hosts = {}
-    accept_mx = dict(zip(*((cereconf.LDAP_MAIL_DNS_MX_HOSTS,) * 2))).has_key
+    accept_mx = dict(zip(*((cereconf.LDAP_MAIL_DNS['mx_hosts'],) * 2))).has_key
     for host, mx_dict in host2mx.items():
         if host in host_has_A_record:
             prio = 99.0e9
@@ -173,8 +172,7 @@ def get_hosts_and_cnames():
 
 
 def write_mail_dns():
-    f = SimilarSizeWriter(filename,'w')
-    f.set_size_change_limit(cereconf.LDAP_MAIL_DNS_MAX_CHANGE)
+    f = ldif_outfile('MAIL_DNS')
 
     hosts, cnames, lower2host = get_hosts_and_cnames()
 
@@ -200,7 +198,7 @@ def write_mail_dns():
                 del cnames[cname]
         del hosts[host]
 
-    dn_suffix = cereconf.LDAP_MAIL_DNS_DN
+    dn_suffix = ldapconf('MAIL_DNS', 'dn')
 
     f.write(container_entry_string('MAIL_DNS'))
 
@@ -228,7 +226,7 @@ cn: %s
         for cname in hosts[host]:
             f.write("cn: %s\n" % lower2host[cname])
         f.write('\n')
-    f.close()
+    end_ldif_outfile('MAIL_DNS', f)
 
 
 write_mail_dns()

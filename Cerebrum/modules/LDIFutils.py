@@ -28,35 +28,44 @@ import string
 import os.path
 from binascii import \
      b2a_hex as _str2hex, a2b_hex as _hex2str, b2a_base64 as _base64encode
+
 import cereconf
+from Cerebrum import Errors as _Errors, Utils as _Utils
 
 
-def cereconf2utf(*args):
-    """Fetch VARIABLE [with DEFAULT] from cereconf, and translate to UTF-8."""
-    return _deep_text2utf(getattr(cereconf, *args))
+def ldapconf(tree, attr, default=Ellipsis, utf8=True):
+    """Return cereconf.LDAP_<tree>[<attr>] with default, translated to UTF-8.
 
-def _deep_text2utf(obj):
-    if isinstance(obj, str):
-        return iso2utf(obj)
-    if isinstance(obj, unicode):
-        return obj.encode('utf-8')
+    Fetch cereconf.LDAP_<tree>[<attr>], or LDAP[<attr>] if <tree> is None.
+    If <default> is given, it is used if the setting is absent or None.
+    If <utf8>, the result is converted to UTF-8, recursing through tuples,
+    lists and dict values, but not dict keys.  If <utf8> is a type or list
+    of types, only values with or inside these types are converted.
+    """
+    var = tree is None and 'LDAP' or 'LDAP_' + tree
+    val = getattr(cereconf, var).get(attr, default)
+    if val is Ellipsis:
+        raise _Errors.PoliteException("cereconf.%s['%s'] is not set"
+                                      % (var, attr))
+    if val is None and default is not Ellipsis:
+        val = default
+    if utf8:
+        val = _deep_text2utf(val, utf8)
+    return val
+
+def _deep_text2utf(obj, utf8):
+    if utf8 == True:
+        if isinstance(obj, str):
+            return iso2utf(obj)
+        if isinstance(obj, unicode):
+            return obj.encode('utf-8')
+    elif isinstance(obj, utf8):
+        return _deep_text2utf(obj, True)
     if isinstance(obj, (tuple, list)):
-        return type(obj)(map(_deep_text2utf, obj))
+        return type(obj)([_deep_text2utf(x, utf8) for x in obj])
     if isinstance(obj, dict):
-        return dict([(_deep_text2utf(x), _deep_text2utf(obj[x])) for x in obj])
+        return dict([(x, _deep_text2utf(obj[x], utf8)) for x in obj])
     return obj
-
-
-def get_tree_dn(tree_name, *default_arg):
-    """Get dn of tree_name (cereconf.LDAP_<tree_name>_DN).
-
-    Will be abolished in favor of simply using cereconf.LDAP_<tree_name>_DN.
-    The function is used for backwards compatibility because the cereconf
-    variable could previously be just the value of an OU."""
-    dn = getattr(cereconf, tree_name.join(('LDAP_', '_DN')), *default_arg)
-    if dn and '=' not in dn:
-        dn = "ou=%s,%s" % (dn, cereconf.LDAP_BASE_DN)
-    return dn
 
 
 # Match an escaped character in a DN; group 1 will match the character.
@@ -122,51 +131,101 @@ def entry_string(dn, attrs, add_rdn = True):
 
 def container_entry_string(tree_name, attrs = {}):
     """Return a string with an LDIF entry for the specified container entry."""
-    entry = dict(cereconf2utf('LDAP_CONTAINER_ATTRS', {}))
+    entry = dict(ldapconf(None, 'container_attrs', {}))
     entry.update(attrs)
-    entry.update(cereconf2utf('LDAP_%s_ATTRS' % tree_name, {}))
-    return entry_string(get_tree_dn(tree_name), entry)
+    entry.update(ldapconf(tree_name, 'attrs', {}))
+    return entry_string(ldapconf(tree_name, 'dn'), entry)
 
 
-def add_ldif_file(outfile, filename):
-    """Write to OUTFILE the LDIF file FILENAME, unless FILENAME is false."""
+def ldif_outfile(tree, filename=None, default=None, explicit_default=False,
+                 max_change=None):
+    """(Open and) return LDIF outfile for <tree>.
+
+    Use <filename> if specified,
+    otherwise cereconf.LDAP_<tree>['file'] unless <explicit_default>,
+    otherwise return <default> (an open filehandle) if that is not None.
+    (explicit_default should be set if <default> was opened from a
+    <filename> argument and not from cereconf.LDAP*['file'].)
+
+    When opening a file, use SimilarSizeWriter where close() fails if
+    the resulting file has changed more than <max_change>, or
+    cereconf.LDAP_<tree>['max_change'], or cereconf.LDAP['max_change'].
+    If max_change is unset or >= 100, just open the file normally.
+    """
+    if not (filename or explicit_default):
+        filename = getattr(cereconf, 'LDAP_' + tree).get('file')
+        if filename:
+            filename = os.path.join(cereconf.LDAP['dump_dir'], filename)
     if filename:
-        # Test for isabs() so cereconf.LDAP_DUMP_DIR is not required to
+        if max_change is None:
+            max_change = ldapconf(tree, 'max_change',
+                                  ldapconf(None, 'max_change', 100))
+        if max_change < 100:
+            f = _Utils.SimilarSizeWriter(filename, 'w')
+            f.set_size_change_limit(max_change)
+        else:
+            f = file(filename, 'w')
+        return f
+    if default:
+        return default
+    raise _Errors.PoliteException(
+        "Outfile not specified and LDAP_%s['file'] not set" % (tree,))
+
+def end_ldif_outfile(tree, outfile, default_file=None):
+    """Finish the <tree> part of <outfile>.  Close it if != <default_file>."""
+    append_file = getattr(cereconf, 'LDAP_' + tree).get('append_file')
+    if append_file:
+        # Test for isabs() so cereconf.LDAP['dump_dir'] is not required to
         # be set.  (It is a poor variable name for where to fetch an input
         # file.  However, so far we have no need for yet another variable.)
-        if not os.path.isabs(filename):
-            filename = os.path.join(cereconf.LDAP_DUMP_DIR, filename)
-        outfile.write(file(filename, 'r').read().strip("\n") + "\n\n")
+        if not os.path.isabs(append_file):
+            append_file = os.path.join(cereconf.LDAP['dump_dir'], append_file)
+        outfile.write(file(append_file, 'r').read().strip("\n") + "\n\n")
+    if outfile is not default_file:
+        outfile.close()
 
 
-def iso2utf(s):
-    """Convert iso8859-1 to utf-8."""
-    return unicode(s, 'iso-8859-1').encode('utf-8')
+def map_spreads(spreads, return_type=None):
+    """Convert a spread name/code or sequence of spreads to an int or list.
 
-def utf2iso(s):
-    """Not in use for the moment, remove this line if used """
-    """Convert utf-8 to iso8859-1"""
-    return unicode(s, 'utf-8').encode('iso-8859-1')
+    The input spreads may be Constants.py names or Cerebrum spread names/codes.
+    If return_type is int or list, return that type.
+    if return_type is None, return an int if 1 spread, a list otherwise.
+    """
+    arg = spreads
+    if spreads is not None:
+        if not isinstance(spreads, (list, tuple)):
+            spreads = (spreads,)
+        spreads = map(_spread_code, spreads)
+        if return_type is not list and len(spreads) == 1:
+            spreads = spreads[0]
+    if return_type is int and not isinstance(spreads, (int, long)):
+        raise _Errors.PoliteException("Expected 1 spread: %r" % (arg,))
+    return spreads
 
+_const = _SpreadCode = None
 
-# Match an 8-bit string which is not an utf-8 string
-_iso_re = re.compile("[\300-\377](?![\200-\277])|(?<![\200-\377])[\200-\277]")
+def _spread_code(spread):
+    global _const, _SpreadCode
+    try:
+        return int(spread)
+    except ValueError:
+        if not _const:
+            from Cerebrum.Constants import _SpreadCode
+            _const = _Utils.Factory.get('Constants')(
+                _Utils.Factory.get('Database')())
+        try:
+            return int(getattr(_const, spread))
+        except AttributeError:
+            try:
+                return int(_SpreadCode(spread))
+            except _Errors.NotFoundError:
+                raise _Errors.PoliteException("Invalid spread code: %r"
+                                              % (spread,))
+
 
 # Match an 8-bit string
 _is_eightbit = re.compile('[\200-\377]').search
-
-def some2utf(str):
-    """Unreliable hack: Convert either iso8859-1 or utf-8 to utf-8."""
-    if _iso_re.search(str):
-        str = unicode(str, 'iso8859-1').encode('utf-8')
-    return str
-
-def some2iso(str):
-    """Unreliable hack: Convert either iso8859-1 or utf-8 to iso8859-1."""
-    if _is_eightbit(str) and not _iso_re.search(str):
-        str = unicode(str, 'utf-8').encode('iso8859-1')
-    return str
-
 
 _normalize_trans = string.maketrans(
     "ABCDEFGHIJKLMNOPQRSTUVWXYZ" + string.whitespace.replace(" ", ""),
@@ -178,10 +237,18 @@ _multi_space_re = re.compile('[%s]{2,}' % string.whitespace)
 # Match one or more spaces
 _space_re = re.compile('[%s]+' % string.whitespace)
 
+
+def iso2utf(s):
+    """Convert iso8859-1 to utf-8."""
+    if _is_eightbit(s):
+        return unicode(s, 'iso-8859-1').encode('utf-8')
+    return s
+
+
 def normalize_phone(phone):
     """Normalize phone/fax numbers for comparison of LDAP values."""
     return phone.translate(_normalize_trans, " -")
- 
+
 def normalize_string(str):
     """Normalize strings for comparison of LDAP values."""
     str = _multi_space_re.sub(' ', str.translate(_normalize_trans)).strip()
@@ -206,37 +273,5 @@ verify_printableString = re.compile(r"[-a-zA-Z0-9'()+,.=/:? ]+\Z").match
 # Return true if the parameter is valid for the LDAP syntax IA5String (ASCII):
 # mail, dc, gecos, homeDirectory, loginShell, memberUid, memberNisNetgroup.
 verify_IA5String = re.compile("[\0-\x7e]*\\Z").match
-
-def attr_lines(name, strings, normalize = None, verify = None, raw = False):
-    """ Not in use for the moment, remove this line if used """
-    ret = []
-    done = {}
-
-    # Make each attribute name and value - but only one of
-    # each value, compared by attribute syntax ('normalize')
-    for s in strings:
-        if not raw:
-            # Clean up the string: remove surrounding and multiple whitespace
-            s = _multi_space_re.sub(' ', s.strip())
-
-        # Skip the value if it is not valid according to its LDAP syntax
-        if s == '' or (verify and not verify(s)):
-            continue
-
-        # Check if value has already been made (or equivalent by normalize)
-        if normalize:
-            norm = normalize(s)
-        else:
-            norm = s
-        if done.has_key(norm):
-            continue
-        done[norm] = True
-
-        # Encode as base64 if necessary, otherwise as plain text
-        if _need_base64(s):
-            ret.append(":: ".join((name, _base64encode(s))))
-        else:
-            ret.append("%s: %s\n" % (name, s))
-    return ret
 
 # arch-tag: 9544a041-07cb-4494-92ea-c8dc82c9808a

@@ -34,12 +34,10 @@ installations without the mod_email module."""
 
 import getopt
 import sys
-import os.path
 
 import cerebrum_path
-import cereconf
-from Cerebrum.Utils   import Factory, SimilarSizeWriter
-from Cerebrum.modules import LDIFutils
+from Cerebrum.Utils import Factory
+from Cerebrum.modules.LDIFutils import ldif_outfile, end_ldif_outfile
 
 
 def main():
@@ -67,14 +65,15 @@ def main():
 
     ldif = Factory.get('OrgLDIF')(Factory.get('Database')(), logger)
     timer = ldif.make_timer("Starting dump.")
-    outfile = SimilarSizeWriter(ofile or os.path.join(cereconf.LDAP_DUMP_DIR,
-                                                      cereconf.LDAP_ORG_FILE))
-    outfile.set_size_change_limit(10)
-    ldif.generate_base_object(outfile)
-    ldif.generate_org(outfile)
-    ldif.generate_person(outfile, use_mail_module)
-    LDIFutils.add_ldif_file(outfile, cereconf.LDAP_ORG_ADD_LDIF_FILE)
-    outfile.close()
+    outfile = ldif_outfile('ORG', ofile)
+    ldif.generate_org_object(outfile)
+    ou_outfile = ldif_outfile('OU', default=outfile, explicit_default=ofile)
+    ldif.generate_ou(ou_outfile)
+    pers_outfile= ldif_outfile('PERSON',default=outfile,explicit_default=ofile)
+    ldif.generate_person(pers_outfile, ou_outfile, use_mail_module)
+    end_ldif_outfile('PERSON', pers_outfile, outfile)
+    end_ldif_outfile('OU', ou_outfile, outfile)
+    end_ldif_outfile('ORG', outfile)
     timer("Dump done.")
 
 

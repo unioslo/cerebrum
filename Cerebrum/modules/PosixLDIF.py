@@ -22,8 +22,8 @@
 """
 
 import time
-import cereconf
  
+import cereconf
 from Cerebrum.modules import LDIFutils
 from Cerebrum.QuarantineHandler import QuarantineHandler
 from Cerebrum.Utils import Factory, latin1_to_iso646_60, auto_super
@@ -52,28 +52,18 @@ class PosixLDIF(object):
         self.db		= db
         self.logger	= logger
         self.const	= Factory.get('Constants')(self.db)
-        self.base_dn	= getattr(cereconf, 'LDAP_BASE_DN', None)
 	self.posuser	= PosixUser.PosixUser(self.db)
 	self.posgrp	= PosixGroup.PosixGroup(self.db)
-        self.user_dn	= LDIFutils.get_tree_dn('USER', None)
+        self.user_dn	= LDIFutils.ldapconf('USER', 'dn', None)
 	self.get_name 	= True
 	
 	self.spread_d = {}
 	# Validate spread from arg or from cereconf
 	for x,y in zip(['USER','FILEGROUP','NETGROUP'],[u_sprd,g_sprd,n_sprd]):
-	    conf_str = 'LDAP' + '_' + x
-	    if y or getattr(cereconf,conf_str).has_key('spread'):
-		spread = y or getattr(cereconf,conf_str)['spread']
-		# Chech input format
-		if isinstance(spread,(list,tuple)):
-		    self.spread_d[x.lower()] = [int(getattr(self.const,z)) \
-							for z in spread if z]
-		elif isinstance(spread,str):
-		    self.spread_d[x.lower()] = [int(getattr(self.const,spread)),]
-		elif isinstance(spread,int):
-		    self.spread_d[x.lower()] = [spread,]
-		else:
-		    raise ValueError,'Not a valid spread: %s' % spread
+	    spread = LDIFutils.map_spreads(
+                y or getattr(cereconf, 'LDAP_' + x).get('spread'), list)
+	    if spread:
+                self.spread_d[x.lower()] = spread
 	if not self.spread_d:
 	    raise ProgrammingError, "Must specify spread-value as 'arg' or in cereconf"
         self.id2uname	= {} 	   
@@ -111,7 +101,7 @@ class PosixLDIF(object):
 	auth_meth_l = []
 	self.user_auth = None
 	# Priority is arg, else cereconf default value
-	auth = auth_meth or cereconf.LDAP_AUTH_METHOD
+	auth = auth_meth or cereconf.LDAP['auth_method']
 	if isinstance(auth,(list,tuple)):
 	     self.user_auth = int(getattr(self.const,auth[:1][0]))
 	     for entry in auth[1:]:
@@ -239,7 +229,7 @@ class PosixLDIF(object):
 	""" Initiate modules and constants for posixgroup"""
 	from Cerebrum.modules import PosixGroup
 	self.posgrp = PosixGroup.PosixGroup(self.db)
-	self.fgrp_dn = LDIFutils.get_tree_dn('FILEGROUP')
+	self.fgrp_dn = LDIFutils.ldapconf('FILEGROUP', 'dn')
 
     def filegroup_object(self,row):
 	""" Create the group-entry attributes"""
@@ -295,7 +285,7 @@ class PosixLDIF(object):
 	"""
 	Initiate modules and constants.
 	"""
-	self.ngrp_dn = LDIFutils.get_tree_dn('NETGROUP')
+	self.ngrp_dn = LDIFutils.ldapconf('NETGROUP', 'dn')
 	# Sjekk om det ikke holder med posgrp
 	from Cerebrum import Group
 	self.grp = Factory.get('Group')(self.db)

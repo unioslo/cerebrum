@@ -30,12 +30,13 @@ from Cerebrum.extlib import logging
 from Cerebrum import Database
 from Cerebrum.Database import Errors
 from Cerebrum.Utils import Factory
+from Cerebrum.modules.LDIFutils import ldapconf
  
 db = Factory.get('Database')()
  
 logger = Factory.get_logger("console")
 
-ldap_update_str = ','.join(('ou=services', cereconf.LDAP_BASE_DN))
+ldap_update_str = "ou=services," + ldapconf('ORG', 'dn')
 
 
 class LdapCall:
@@ -58,11 +59,11 @@ class LdapCall:
 
     def ldap_connect(self,serv_l=None):
         if not serv_l:
-            serv_l = cereconf.LDAP_SERVER
+            serv_l = cereconf.LDAP['server']
         for server in serv_l:
             try:
                 serv,user = [str(y) for y in server.split(':')]
-                f_name = cereconf.LDAP_DUMP_DIR + '/log/' + serv + '.sync.log'
+                f_name = cereconf.LDAP['dump_dir']+'/log/' + serv+'.sync.log'
                 try:
                     passwd = db._read_password(serv,user)
                 except:
@@ -70,7 +71,7 @@ class LdapCall:
                     break
                 if os.path.isfile(f_name): self.s_list[serv] = [file(f_name,'a'),]
                 else: self.s_list[serv] = [file(f_name,'w'),]
-                user = ','.join((user, cereconf.LDAP_BASE_DN))
+                user = ",".join((user, ldapconf('ORG', 'dn')))
                 con = ldap.open(serv)
                 con.protocol_version = ldap.VERSION3
                 try:

@@ -42,7 +42,7 @@ from Cerebrum.extlib import logging
 from Cerebrum.modules import CLHandler
 from Cerebrum.modules import ChangeLog
 from Cerebrum.Utils import Factory
-from Cerebrum.modules.LDIFutils import get_tree_dn
+from Cerebrum.modules.LDIFutils import ldapconf
 
 db = Factory.get('Database')()
 const = Factory.get('CLConstants')(db)
@@ -67,10 +67,10 @@ cl_entry = {'group_mod' : 'pass',
 							cll.change_type_id)'}
 
 global user_dn, person_dn, group_dn, ngroup_dn
-user_dn   = get_tree_dn('USER')
-person_dn = get_tree_dn('PERSON')
-group_dn  = get_tree_dn('GROUP')
-ngroup_dn = get_tree_dn('NETGROUP')
+user_dn   = ldapconf('USER', 'dn')
+person_dn = ldapconf('PERSON', 'dn')
+group_dn  = ldapconf('GROUP', 'dn')
+ngroup_dn = ldapconf('NETGROUP', 'dn')
 
 
 
@@ -577,11 +577,11 @@ def main():
     clh = CLHandler.CLHandler(db)
     global logger,ch_log_list, u_spreads, g_spreads, n_spreads, lc
     # 'int' done, not sure if all calls support Constants (probably)
-    u_spreads = [int(getattr(co,x)) for x in cereconf.LDAP_USER_SPREAD]
-    g_spreads = [int(getattr(co,x)) for x in cereconf.LDAP_FILEGROUP_SPREAD]
-    n_spreads = [int(getattr(co,x)) for x in cereconf.LDAP_NETGROUP_SPREAD]
+    u_spreads = [int(getattr(co,x)) for x in cereconf.LDAP_USER['spread']]
+    g_spreads = [int(getattr(co,x)) for x in cereconf.LDAP_FILEGROUP['spread']]
+    n_spreads = [int(getattr(co,x)) for x in cereconf.LDAP_NETGROUP['spread']]
     load_cltype_table(cltype)
-    logg_dir = cereconf.LDAP_DUMP_DIR + '/log'
+    logg_dir = cereconf.LDAP['dump_dir'] + '/log'
     if not os.path.isdir(logg_dir):
 	os.makedirs(logg_dir, mode = 0770)
     logger = Factory.get_logger("console")

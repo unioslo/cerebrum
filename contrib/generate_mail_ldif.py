@@ -35,21 +35,17 @@ Options:
 import sys
 import base64
 import getopt
-import os.path
 from time import time as now
 
 import cerebrum_path
-import cereconf
-from Cerebrum.Errors import NotFoundError, PoliteException
-from Cerebrum.Utils import Factory, SimilarSizeWriter
+from Cerebrum.Utils import Factory
 from Cerebrum.modules import Email
-from Cerebrum.modules.LDIFutils import container_entry_string
-from Cerebrum.Constants import _SpreadCode
+from Cerebrum.modules.LDIFutils import \
+     ldapconf,map_spreads,ldif_outfile,end_ldif_outfile,container_entry_string
 
-default_mail_file = "mail-db.ldif"
 default_spam_level = 9999
 default_spam_action = 0
-mail_dn = cereconf.LDAP_MAIL_DN
+mail_dn = ldapconf('MAIL', 'dn')
 
 
 def write_ldif():
@@ -353,13 +349,6 @@ def get_data(spread):
         print "Total time: %d" % (now() - start)
 
     
-def map_spread(id):
-    try:
-        return int(_SpreadCode(id))
-    except NotFoundError:
-        raise PoliteException("Invalid spread code: %r" % id)
-
-
 def main():
     global verbose, f, db, co, ldap
     
@@ -375,7 +364,7 @@ def main():
     verbose = 0
     mail_file = None
     spread = None
-    ignore = False
+    max_change = None
     for opt, val in opts:
         if opt in ("-v", "--verbose"):
             verbose += 1
@@ -384,27 +373,18 @@ def main():
         elif opt in ("-s", "--spread"):
             spread = val
         elif opt in ("-i", "--ignore-size"):
-            ignore = True
+            max_change = 100
         elif opt in ("-h", "--help"):
             usage()
-    if mail_file is None:
-        mail_file = os.path.join(cereconf.LDAP_DUMP_DIR, default_mail_file)
-    if spread is None:
-        sys.exit("Must set spread.")
 
     db = Factory.get('Database')()
-    _SpreadCode.sql = db   # TODO: provide a map-spread in Util.py
     co = Factory.get('Constants')(db)
     ldap = Factory.get('EmailLDAP')(db)
-    spread = map_spread(spread)
+    spread = map_spreads(spread, int)
 
-    if ignore:
-        f = file(mail_file, 'w')
-    else:
-        f = SimilarSizeWriter(mail_file, 'w')	
-	f.set_size_change_limit(10)
+    f = ldif_outfile('MAIL', mail_file, max_change=max_change)
     get_data(spread)
-    f.close()
+    end_ldif_outfile('MAIL', f)
 
 
 def usage(err=0):

@@ -36,7 +36,7 @@ class norEduLDIFMixin(OrgLDIF):
         # '@<security domain>' for the eduPersonPrincipalName attribute.
         self.eduPPN_domain = '@' + cereconf.INSTITUTION_DOMAIN_NAME
 
-    def update_base_object_entry(self, entry):
+    def update_org_object_entry(self, entry):
         # Changes from superclass:
         # Add object class norEduOrg and its attribute norEduOrgUniqueNumber,
         # and optionally eduOrgHomePageURI, labeledURI and labeledURIObject.
@@ -63,7 +63,7 @@ class norEduLDIFMixin(OrgLDIF):
         self.ou.find(self.root_ou_id)
         entry.update({
             'objectClass': ['top', 'organizationalUnit', 'norEduOrgUnit'],
-            'cn':                        (cereconf.LDAP_DUMMY_OU_NAME,),
+            'cn':                        (ldapconf('OU', 'dummy_name'),),
             'norEduOrgUnitUniqueNumber': (self.get_orgUnitUniqueNumber(),),
             'norEduOrgUniqueNumber':     self.norEduOrgUniqueNumber})
 
@@ -71,7 +71,7 @@ class norEduLDIFMixin(OrgLDIF):
         # Changes from superclass:
         # Add mail attribute (allowed by the norEdu* object classes).
         # Do not add labeledURIObject; either object class norEduOrgUnit
-        # or the update_base_object_entry routine will allow labeledURI.
+        # or the update_org_object_entry routine will allow labeledURI.
         ou_id = self.ou.ou_id
         for attr, id2contact in self.attr2id2contacts:
             contact = id2contact.get(ou_id)
@@ -112,7 +112,7 @@ class norEduLDIFMixin(OrgLDIF):
             'cn': ou_names[-1:]}
         if acronym:
             entry['norEduOrgAcronym'] = (acronym,)
-        dn = self.make_ou_dn(entry, parent_dn or self.org_dn)
+        dn = self.make_ou_dn(entry, parent_dn or self.ou_dn)
         if not dn:
             return parent_dn, None
         entry['ou'] = self.attr_unique(entry['ou'], normalize_string)
@@ -173,5 +173,23 @@ class norEduLDIFMixin(OrgLDIF):
                     time.strftime("%Y%m%d",
                                   time.strptime(str(birth_date),
                                                 "%Y-%m-%d %H:%M:%S.00")),)
+
+    # TEST - fjern langsom birth_date parsing
+    def update_person_entry(self, entry, row):
+        # Changes from superclass:
+        # If possible, add object class norEduPerson and its attributes
+        # norEduPersonNIN, norEduPersonBirthDate, eduPersonPrincipalName.
+        self.__super.update_person_entry(entry, row)
+        uname = entry.get('uid')
+        person_id = int(row['person_id'])
+        fnr = self.fodselsnrs.get(person_id)
+        if uname and fnr:
+            entry['objectClass'].append('norEduPerson')
+            entry['eduPersonPrincipalName'] = (uname[0] + self.eduPPN_domain,)
+            entry['norEduPersonNIN'] = (str(fnr),)
+            birth_date = self.birth_dates.get(person_id)
+            if birth_date:
+                entry['norEduPersonBirthDate'] = ("%04d%02d%02d" % (
+                    birth_date.year, birth_date.month, birth_date.day),)
 
 # arch-tag: f895ee98-7185-40df-83bb-96aa506d8b21

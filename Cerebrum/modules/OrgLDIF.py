@@ -18,6 +18,8 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 import re, time
+
+import cereconf
 from Cerebrum                   import Entity
 from Cerebrum.Utils             import Factory, auto_super
 from Cerebrum.QuarantineHandler import QuarantineHandler
@@ -28,14 +30,14 @@ postal_escape_re = re.compile(r'[$\\]')
 class OrgLDIF(object):
     """Factory-class to generate the organization and person trees for LDAP.
 
-    A number of cereconf.LDAP_* variables control the output.
+    A number of cereconf.LDAP* variables control the output.
     Subclasses can also override its methods as necessary.
     Generally, each entry is built in an 'entry' dict and finally written.
 
     By default, entires are generated with the eduPerson/eduOrg schemas
     from EDUCAUSE: <http://www.educause.edu/eduperson/>.
 
-    The base object gets object classes: 'top', 'organization', 'eduOrg'.
+    The organization gets object classes: 'top', 'organization', 'eduOrg'.
     Organizational units:  'top', 'organizationalUnit'.
     Persons:               'inetOrgPerson', 'eduPerson' and superclasses.
     Aliases, if generated: 'top', 'alias', 'extensibleObject'.
@@ -44,9 +46,9 @@ class OrgLDIF(object):
     Interface:
     org_ldif = Factory.get('OrgLDIF')(Factory.get('Database')(),
                                       Factory.get_logger(...))
-    org_ldif.generate_base_object(file object)
-    org_ldif.generate_org(file object)
-    org_ldif.generate_person(file object, use_mail_module)."""
+    org_ldif.generate_org_object(file object)
+    org_ldif.generate_ou(file object)
+    org_ldif.generate_person(person file obj, alias file, use_mail_module)."""
 
     __metaclass__ = auto_super
 
@@ -56,11 +58,11 @@ class OrgLDIF(object):
         self.logger        = logger
         self.const         = Factory.get('Constants')(db)
         self.ou            = Factory.get('OU')(db)
-        self.base_dn       = getattr(cereconf, 'LDAP_BASE_DN', None)
-        self.org_dn        = get_tree_dn('ORG', None)
-        self.person_dn     = get_tree_dn('PERSON', None)
+        self.org_dn        = ldapconf('ORG', 'dn', None)
+        self.ou_dn         = ldapconf('OU', 'dn', None)
+        self.person_dn     = ldapconf('PERSON', 'dn', None)
         self.dummy_ou_dn   = None  # Set if generate_dummy_ou() made a dummy OU
-        self.aliases       = bool(cereconf.LDAP_ALIASES)
+        self.aliases       = bool(cereconf.LDAP_PERSON['aliases'])
         self.ou2DN         = {None: None}  # {ou_id:      DN or None(root)}
         self.used_DNs      = {}            # {used DN:    True}
         self.person_groups = {}            # {group name: {member ID: True}}
@@ -74,19 +76,19 @@ class OrgLDIF(object):
             'labeledURI':      (iso2utf, None, normalize_caseExactString),
             'mail':            (None, verify_IA5String, normalize_IA5String)}
 
-    def init_base_object_dump(self):
-        # Set variables for the base object dump.
+    def init_org_object_dump(self):
+        # Set variables for the organization object dump.
         self.init_ou_root()
         if self.root_ou_id is not None:
             self.init_attr2id2contacts()
 
-    def init_org_dump(self):
+    def init_ou_dump(self):
         # Set variables for the org.unit dump.
         if not hasattr(self, 'root_ou_id'):       self.init_ou_root()
         if not hasattr(self, 'ou_tree'):          self.init_ou_structure()
         if not hasattr(self, 'attr2id2contacts'): self.init_attr2id2contacts()
 
-    def uninit_org_dump(self):
+    def uninit_ou_dump(self):
         del self.ou, self.ou_tree
 
     def init_ou_structure(self):
@@ -95,7 +97,7 @@ class OrgLDIF(object):
         timer = self.make_timer("Fetching OU tree...")
         self.ou.clear()
         ou_list = self.ou.get_structure_mappings(
-            self.const.OUPerspective(cereconf.LDAP_OU_PERSPECTIVE))
+            self.const.OUPerspective(cereconf.LDAP_OU['perspective']))
         self.logger.debug("OU-list length: %d", len(ou_list))
         self.ou_tree = {None: []} # {parent ou_id or None: [child ou_id...]}
         for ou_id, parent_id in ou_list:
@@ -106,30 +108,30 @@ class OrgLDIF(object):
 
     def init_ou_root(self):
         # Set self.root_ou_id = ou_id representing the organization, or None.
-        if cereconf.LDAP_ORG_ROOT is None:
+        if cereconf.LDAP_ORG['ou_id'] is None:
             self.root_ou_id = None
-        elif cereconf.LDAP_ORG_ROOT is not 'base':
-            self.root_ou_id = int(cereconf.LDAP_ORG_ROOT)
+        elif cereconf.LDAP_ORG['ou_id'] is not 'base':
+            self.root_ou_id = int(cereconf.LDAP_ORG['ou_id'])
         else:
             self.init_ou_structure()
             if len(self.ou_tree[None]) == 1:
                 self.root_ou_id = self.ou_tree[None][0]
             else:
-                print "The org. tree has %d roots:" % len(self.ou_tree[None])
+                print "The OU tree has %d roots:" % len(self.ou_tree[None])
                 for ou_id in self.ou_tree[None]:
                     self.ou.clear()
                     self.ou.find(ou_id)
                     print "Org.unit: %-30s   ou_id=%s" % (self.ou.display_name,
                                                           self.ou.ou_id)
                 print """\
-Set cereconf.LDAP_ORG_ROOT to the organization's root ou_id or to None."""
+Set cereconf.LDAP_ORG['ou_id'] = the organization's root ou_id or None."""
                 raise ValueError("No root-OU found.")
 
     def init_attr2id2contacts(self):
         # Set contact information variables:
         # self.attr2id2contacts = {attr.type: {entity id: [attr.value, ...]}}
         # self.id2labeledURI    = self.attr2id2contacts['labeledURI'].
-        s = getattr(self.const, cereconf.LDAP_CONTACT_SOURCE_SYSTEM)
+        s = getattr(self.const, cereconf.LDAP['contact_source_system'])
         c = [(a, self.get_contacts(contact_type  = t,
                                    source_system = s,
                                    convert       = self.attr2syntax[a][0],
@@ -142,38 +144,38 @@ Set cereconf.LDAP_ORG_ROOT to the organization's root ou_id or to None."""
         self.id2labeledURI    = c[-1][1]
         self.attr2id2contacts = [v for v in c if v[1]]
 
-    def generate_base_object(self, outfile):
-        """Output the base object if cereconf.LDAP_BASE_DN was set."""
-        if not self.base_dn:
+    def generate_org_object(self, outfile):
+        """Output the organization object if cereconf.LDAP_ORG['dn'] is set."""
+        if not self.org_dn:
             return
-        self.init_base_object_dump()
+        self.init_org_object_dump()
         entry = {}
         self.ou.clear()
         if self.root_ou_id is not None:
             self.ou2DN[self.root_ou_id] = None
             self.ou.find(self.root_ou_id)
             self.fill_ou_entry_contacts(entry)
-        entry.update(cereconf2utf('LDAP_BASE_ATTRS', {}))
+        entry.update(ldapconf('ORG', 'attrs', {}))
         oc = ['top', 'organization', 'eduOrg']
         oc.extend(entry.get('objectClass', ()))
         entry['objectClass'] = (['top', 'organization', 'eduOrg']
                                 + list(entry.get('objectClass', ())))
-        self.update_base_object_entry(entry)
+        self.update_org_object_entry(entry)
         entry['objectClass'] = self.attr_unique(entry['objectClass'],str.lower)
-        outfile.write(entry_string(self.base_dn, entry))
+        outfile.write(entry_string(self.org_dn, entry))
 
-    def update_base_object_entry(self, entry):
-        # Override this to fill in the base object further before output.
+    def update_org_object_entry(self, entry):
+        # Override this to fill in the ORG object further before output.
         pass
 
-    def generate_org(self, outfile):
-        """Output the org. unit (OU) tree if cereconf.LDAP_ORG_DN was set."""
-        if not self.org_dn:
+    def generate_ou(self, outfile):
+        """Output the org. unit (OU) tree if cereconf.LDAP_OU['dn'] is set."""
+        if not self.ou_dn:
             return
-        self.init_org_dump()
+        self.init_ou_dump()
         timer = self.make_timer("Processing OUs...")
-        if self.org_dn != self.base_dn:
-            outfile.write(container_entry_string('ORG'))
+        if self.ou_dn != self.org_dn:
+            outfile.write(container_entry_string('OU'))
         self.generate_dummy_ou(outfile)
         self.traverse_ou_children(outfile, self.root_ou_id, None)
         if self.root_ou_id is not None:
@@ -181,20 +183,20 @@ Set cereconf.LDAP_ORG_ROOT to the organization's root ou_id or to None."""
         loops = [i for i in self.ou_tree.iteritems() if i[0] not in self.ou2DN]
         if loops:
             self.logger.warn(
-                "Loops in org.tree; ignored {parent:[children]} = %s",
+                "Loops in org.unit tree; ignored {parent:[children]} = %s",
                 dict(loops))
         timer("...OUs done.")
-        self.uninit_org_dump()
+        self.uninit_ou_dump()
 
     def generate_dummy_ou(self, outfile):
-        # Output the cereconf.LDAP_DUMMY_OU_NAME entry, if given.
+        # Output the cereconf.LDAP_OU['dummy_name'] entry, if given.
         # If so, set self.dummy_ou_dn.
-        dummy_name = getattr(cereconf, 'LDAP_DUMMY_OU_NAME', None)
-        if dummy_name:
-            self.dummy_ou_dn = "ou=%s,%s" % (dummy_name, self.org_dn)
+        name = ldapconf('OU', 'dummy_name', None)
+        if name:
+            self.dummy_ou_dn = "ou=%s,%s" % (name, self.ou_dn)
             entry = {'objectClass': ['top', 'organizationalUnit']}
             self.update_dummy_ou_entry(entry)
-            entry.update(cereconf2utf('LDAP_DUMMY_OU_ATTRS', {}))
+            entry.update(ldapconf('OU', 'dummy_attrs', {}))
             outfile.write(entry_string(self.dummy_ou_dn, entry))
 
     def update_dummy_ou_entry(self, entry):
@@ -213,7 +215,7 @@ Set cereconf.LDAP_ORG_ROOT to the organization's root ou_id or to None."""
     def write_ou(self, outfile, ou_id, parent_dn):
         # Output the org.unit with this ou_id if appropriate.
         # Return its DN, or its parent DN if the org.unit was not output.
-        # Note that parent_dn = None if the parent is self.org_dn, and the
+        # Note that parent_dn = None if the parent is self.ou_dn, and the
         # returned parent DN must be None if it is to represent that DN.
         dn, entry = self.make_ou_entry(ou_id, parent_dn)
         if entry:
@@ -230,7 +232,7 @@ Set cereconf.LDAP_ORG_ROOT to the organization's root ou_id or to None."""
     def make_ou_entry(self, ou_id, parent_dn):
         # Return (the OU's DN,        entry) for this OU,
         #     or (the OU's parent DN, None)  to omit the OU entry.
-        # Note that parent_dn = None if the parent is self.org_dn, and the
+        # Note that parent_dn = None if the parent is self.ou_dn, and the
         # returned parent DN must be None if it is to represent that DN.
         self.ou.clear()
         self.ou.find(ou_id)
@@ -239,7 +241,7 @@ Set cereconf.LDAP_ORG_ROOT to the organization's root ou_id or to None."""
             'ou': filter(None, [iso2utf((n or '').strip())
                                 for n in (self.ou.acronym, self.ou.short_name,
                                           self.ou.display_name)])}
-        dn = self.make_ou_dn(entry, parent_dn or self.org_dn)
+        dn = self.make_ou_dn(entry, parent_dn or self.ou_dn)
         if not dn:
             return parent_dn, None
         entry['ou'] = self.attr_unique(entry['ou'], normalize_string)
@@ -288,7 +290,7 @@ Set cereconf.LDAP_ORG_ROOT to the organization's root ou_id or to None."""
     def init_person_dump(self, use_mail_module):
         # Set variables for the person dump.
         self.person = Factory.get('Person')(self.db)
-        if self.person_dn != (self.org_dn or self.base_dn):
+        if self.person_dn != (self.ou_dn or self.org_dn):
             self.person_parent_dn = self.person_dn
         else:
             self.person_parent_dn = None
@@ -301,28 +303,27 @@ Set cereconf.LDAP_ORG_ROOT to the organization's root ou_id or to None."""
         self.init_account_mail(use_mail_module)
         self.init_person_addresses()
         self.init_person_aliases()
+        self.visible_person_attrs = ldapconf('PERSON', 'attrs_visible', {})
 
     def init_person_selections(self):
         # Set self.person_spread and self.*_selector, which select
         # which persons to print, affiliations to consider, and
         # eduPersonAffiliation values for the relevant affiliations.
-        self.person_spread = cereconf.LDAP_PERSON_SPREAD
-        if self.person_spread is not None:
-            self.person_spread = int(getattr(self.const, self.person_spread))
+        self.person_spread = map_spreads(cereconf.LDAP_PERSON.get('spread'))
         self.person_aff_selector     = self.internal_selector(
-            bool, cereconf.LDAP_PERSON_AFFILIATION_SELECTOR)
+            bool, cereconf.LDAP_PERSON['affiliation_selector'])
         self.visible_person_selector = self.internal_selector(
-            bool, cereconf.LDAP_VISIBLE_PERSON_SELECTOR)
+            bool, cereconf.LDAP_PERSON['visible_selector'])
         self.contact_selector        = self.internal_selector(
-            bool, cereconf.LDAP_PERSON_CONTACT_SELECTOR)
+            bool, cereconf.LDAP_PERSON['contact_selector'])
         self.eduPersonAff_selector   = self.internal_selector(
-            list, cereconf.LDAP_EDUPERSONAFFILIATION_SELECTOR)
+            list, ldapconf('PERSON','eduPersonAffiliation_selector',utf8=list))
 
     def init_person_affiliations(self):
         # Set self.affiliations = dict {person_id: [(aff, status, ou_id), ...]}
         timer = self.make_timer("Fetching personal affiliations...")
         self.affiliations = affiliations = {}
-        source = cereconf.LDAP_PERSON_AFFILIATION_SOURCE_SYSTEM
+        source = cereconf.LDAP_PERSON['affiliation_source_system']
         if source is not None:
             if isinstance(source, (list, tuple)):
                 source = [getattr(self.const, s) for s in source]
@@ -432,11 +433,11 @@ Set cereconf.LDAP_ORG_ROOT to the organization's root ou_id or to None."""
         timer = self.make_timer("Fetching personal addresses...")
         self.addr_info = addr_info = {}
         for row in self.person.list_entity_addresses(
-                entity_type   = self.const.entity_person,
-                source_system = getattr(self.const,
-                                        cereconf.LDAP_CONTACT_SOURCE_SYSTEM),
-                address_type  = [self.const.address_street,
-                                 self.const.address_post]):
+                entity_type  = self.const.entity_person,
+                source_system= getattr(self.const,
+                                       cereconf.LDAP['contact_source_system']),
+                address_type = [self.const.address_street,
+                                self.const.address_post]):
             entity_id = int(row['entity_id'])
             if not addr_info.has_key(entity_id):
                 addr_info[entity_id] = {}
@@ -448,15 +449,16 @@ Set cereconf.LDAP_ORG_ROOT to the organization's root ou_id or to None."""
     def init_person_aliases(self):
         # Set variables for aliases: self.alias_default_parent_dn.
         if self.aliases:
-            if self.org_dn in (None, self.person_dn):
+            if self.ou_dn in (None, self.person_dn):
                 raise ValueError("""\
-cereconf.LDAP_ALIASES requires LDAP_ORG_DN != None / LDAP_PERSON_DN.""")
-            self.alias_default_parent_dn = self.dummy_ou_dn or self.org_dn
+cereconf.LDAP_PERSON['aliases'] requires LDAP_OU['dn'] to be different
+from None and LDAP_PERSON['dn'].""")
+            self.alias_default_parent_dn = self.dummy_ou_dn or self.ou_dn
 
-    def generate_person(self, outfile, use_mail_module):
-        """Output person tree and aliases if cereconf.LDAP_PERSON_DN was set.
+    def generate_person(self, outfile, alias_outfile, use_mail_module):
+        """Output person tree and aliases if cereconf.LDAP_PERSON['dn'] is set.
 
-        Aliases are only output if cereconf.LDAP_ALIASES was true.
+        Aliases are only output if cereconf.LDAP_PERSON['aliases'] is true.
 
         If use_mail_module is set, persons' e-mail addresses are set to
         their primary users' e-mail addresses.  Otherwise, the addresses
@@ -464,7 +466,7 @@ cereconf.LDAP_ALIASES requires LDAP_ORG_DN != None / LDAP_PERSON_DN.""")
         if not self.person_dn:
             return
         self.init_person_dump(use_mail_module)
-        if self.person_parent_dn not in (None, self.base_dn):
+        if self.person_parent_dn not in (None, self.org_dn):
             outfile.write(container_entry_string('PERSON'))
         timer       = self.make_timer("Processing persons...")
         round_timer = self.make_timer()
@@ -482,7 +484,8 @@ cereconf.LDAP_ALIASES requires LDAP_ORG_DN != None / LDAP_PERSON_DN.""")
                     self.used_DNs[dn] = True
                     outfile.write(entry_string(dn, entry, False))
                     if self.aliases and alias_info:
-                        self.write_person_alias(outfile, dn, entry, alias_info)
+                        self.write_person_alias(alias_outfile,
+                                                dn, entry, alias_info)
         timer("...persons done.")
 
     def list_persons(self):
@@ -550,13 +553,13 @@ cereconf.LDAP_ALIASES requires LDAP_ORG_DN != None / LDAP_PERSON_DN.""")
         if not dn:
             return None, None, None
 
-        if self.base_dn:
-            entry['eduPersonOrgDN'] = (self.base_dn,)
+        if self.org_dn:
+            entry['eduPersonOrgDN'] = (self.org_dn,)
         if primary_ou_dn:
             entry['eduPersonPrimaryOrgUnitDN'] = (primary_ou_dn,)
-        edu_orgs = [primary_ou_dn] + [self.ou2DN.get(aff[2])
-                                      for aff in p_affiliations]
-        entry['eduPersonOrgUnitDN']   = self.attr_unique(filter(None,edu_orgs))
+        edu_OUs = [primary_ou_dn] + [self.ou2DN.get(aff[2])
+                                     for aff in p_affiliations]
+        entry['eduPersonOrgUnitDN']   = self.attr_unique(filter(None, edu_OUs))
         entry['eduPersonAffiliation'] = self.attr_unique(self.select_list(
             self.eduPersonAff_selector, person_id, p_affiliations))
 
@@ -606,7 +609,7 @@ cereconf.LDAP_ALIASES requires LDAP_ORG_DN != None / LDAP_PERSON_DN.""")
         alias_info = ()
         if self.select_bool(self.visible_person_selector,
                             person_id, p_affiliations):
-            entry.update(cereconf.LDAP_VISIBLE_PERSON_ATTRS)
+            entry.update(self.visible_person_attrs)
             alias_info = (primary_ou_dn,)
 
         self.update_person_entry(entry, row)

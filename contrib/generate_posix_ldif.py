@@ -46,13 +46,8 @@ import os.path
 
 import cerebrum_path
 import cereconf  
-from Cerebrum import Entity
-from Cerebrum.extlib import logging
-from Cerebrum.Errors import PoliteException
-from Cerebrum.Utils import Factory, latin1_to_iso646_60, SimilarSizeWriter
-from Cerebrum.modules import PosixUser
-from Cerebrum.modules import PosixGroup
-from Cerebrum.Constants import _SpreadCode
+from Cerebrum.Utils import Factory, latin1_to_iso646_60
+from Cerebrum.modules import PosixUser, PosixGroup
 from Cerebrum.QuarantineHandler import QuarantineHandler
 from Cerebrum.modules.LDIFutils import *
 
@@ -66,22 +61,20 @@ disablesync_cn = 'disablesync'
 
 
 def init_ldap_dump():
-    glob_fd.write("\n")
-    if getattr(cereconf, 'LDAP_POSIX_DN', None):
+    if cereconf.LDAP_POSIX.get('dn'):
         glob_fd.write(container_entry_string('POSIX'))
-    add_ldif_file(glob_fd, getattr(cereconf, 'LDAP_POSIX_ADD_LDIF_FILE', None))
 
 
 def generate_users(spread=None,filename=None):
     posix_user = PosixUser.PosixUser(db)
     account = Factory.get('Account')(db)
     disk = Factory.get('Disk')(db)
-    spreads = eval_spread_codes(spread or cereconf.LDAP_USER_SPREAD)
+    spread = map_spreads(spread or cereconf.LDAP_USER['spread'], int)
     shells = {}
     for sh in posix_user.list_shells():
 	shells[int(sh['code'])] = sh['shell']
     disks = {}
-    for hd in disk.list(spread=spreads[0]):
+    for hd in disk.list(spread=spread):
 	disks[int(hd['disk_id'])] = hd['path']  
     quarantines = {}
     now = db.DateFromTicks(time.time())
@@ -93,13 +86,8 @@ def generate_users(spread=None,filename=None):
             # The quarantine in this row is currently active.
             quarantines.setdefault(int(row['entity_id']), []).append(
                 int(row['quarantine_type']))
-    posix_dn = "," + get_tree_dn('USER')
-    if filename:
-	f = file(filename,'w')
-        f.write("\n")
-    else:
-	f = glob_fd
-
+    posix_dn = "," + ldapconf('USER', 'dn')
+    f = ldif_outfile('USER', filename, glob_fd)
     f.write(container_entry_string('USER'))
 
     # When all authentication-needing accounts possess an 'md5_crypt'
@@ -110,7 +98,7 @@ def generate_users(spread=None,filename=None):
     # We already favour the stronger 'md5_crypt' hash over any
     # 'crypt3_des', though.
     for auth_method in (co.auth_type_md5_crypt, co.auth_type_crypt3_des):
-        for row in posix_user.list_extended_posix_users(auth_method, spreads, 
+        for row in posix_user.list_extended_posix_users(auth_method, spread, 
 						include_quarantines = False):
             (acc_id, shell, gecos, uname) = (
                 row['account_id'], row['shell'], row['gecos'],
@@ -159,25 +147,19 @@ def generate_users(spread=None,filename=None):
                 "gecos: ",          gecos,          "\n"
                 "\n")))
             entity2name[acc_id] = uname
-    if filename:
-	f.close()
+    end_ldif_outfile('USER', f, glob_fd)
 
 
-def generate_posixgroup(spread=None,u_spread=None,filename=None):
+def generate_posixgroup(spread=None, u_spread=None, filename=None):
     posix_group = PosixGroup.PosixGroup(db)
     group = Factory.get('Group')(db)
-    spreads = eval_spread_codes(spread or cereconf.LDAP_FILEGROUP_SPREAD)
-    u_spreads = eval_spread_codes(u_spread or cereconf.LDAP_USER_SPREAD)
-    if filename:
-	f = file(filename, 'w')
-        f.write("\n")
-    else:
-	f = glob_fd
-
+    spreads = map_spreads(spread or cereconf.LDAP_FILEGROUP['spread'])
+    u_spread = map_spreads(u_spread or cereconf.LDAP_USER['spread'], int)
+    f = ldif_outfile('FILEGROUP', filename, glob_fd)
     f.write(container_entry_string('FILEGROUP'))
 
     groups = {}
-    dn_str = get_tree_dn('FILEGROUP')
+    dn_str = ldapconf('FILEGROUP', 'dn')
     for row in posix_group.list_all_grp(spreads):
 	posix_group.clear()
         posix_group.find(row.group_id)
@@ -194,30 +176,24 @@ def generate_posixgroup(spread=None,u_spread=None,filename=None):
         group.find(row.group_id)
         # Since get_members only support single user spread, spread is
         # set to [0]
-        for id in group.get_members(spread=u_spreads[0], get_entity_name=True):
+        for id in group.get_members(spread=u_spread, get_entity_name=True):
             uname_id = int(id[0])
             if not entity2name.has_key(uname_id):
                 entity2name[uname_id] = id[1]
             members.append(entity2name[uname_id])
         f.write(entry_string("cn=%s,%s" % (gname, dn_str), entry, False))
-    if filename:
-	f.close()
+    end_ldif_outfile('FILEGROUP', f, glob_fd)
 
 
-def generate_netgroup(spread=None,u_spread=None,filename=None):
+def generate_netgroup(spread=None, u_spread=None, filename=None):
     global grp_memb
     pos_netgrp = Factory.get('Group')(db)
-    if filename:
-        f = file(filename, 'w')
-        f.write("\n")
-    else:
-	f = glob_fd
-
+    f = ldif_outfile('NETGROUP', filename, glob_fd)
     f.write(container_entry_string('NETGROUP'))
 
-    spreads = eval_spread_codes(spread or cereconf.LDAP_NETGROUP_SPREAD)
-    u_spreads = eval_spread_codes(u_spread or cereconf.LDAP_USER_SPREAD)
-    dn_str = get_tree_dn('NETGROUP')
+    spreads = map_spreads(spread or cereconf.LDAP_NETGROUP['spread'])
+    u_spread = map_spreads(u_spread or cereconf.LDAP_USER['spread'], int)
+    dn_str = ldapconf('NETGROUP', 'dn')
     for row in pos_netgrp.list_all_grp(spreads):
 	grp_memb = {}
         pos_netgrp.clear()
@@ -232,15 +208,14 @@ def generate_netgroup(spread=None,u_spread=None,filename=None):
         if pos_netgrp.description:
             entry['description'] = (
                 latin1_to_iso646_60(pos_netgrp.description),)
-        get_netgrp(pos_netgrp, spreads, u_spreads,
+        get_netgrp(pos_netgrp, spreads, u_spread,
                    entry['nisNetgroupTriple'], entry['memberNisNetgroup'])
         f.write(entry_string("cn=%s,%s" % (netgrp_name, dn_str), entry, False))
-    if filename:
-	f.close()
+    end_ldif_outfile('NETGROUP', f, glob_fd)
 
 
-def get_netgrp(pos_netgrp, spreads, u_spreads, triples, members):
-    for id in pos_netgrp.list_members(u_spreads[0], int(co.entity_account),\
+def get_netgrp(pos_netgrp, spreads, u_spread, triples, members):
+    for id in pos_netgrp.list_members(u_spread, int(co.entity_account),\
 						get_entity_name= True)[0]:
         uname_id,uname = int(id[1]),id[2]
         if ("_" not in uname) and not grp_memb.has_key(uname_id):
@@ -253,40 +228,23 @@ def get_netgrp(pos_netgrp, spreads, u_spreads, triples, members):
 	if filter(pos_netgrp.has_spread, spreads):
             members.append(iso2utf(group[2]))
         else:
-            get_netgrp(pos_netgrp, spreads, u_spreads, triples, members)
-
-
-def eval_spread_codes(spread):
-    if isinstance(spread,(str,int)):
-        spread = (spread,)
-    if isinstance(spread,(list,tuple)):
-        return filter(None, map(spread_code, spread))
-    return None
-
-
-def spread_code(spr_str):
-    try: return int(spr_str)
-    except:
-	try: return int(getattr(co, spr_str))
-        except: 
-	    try: return int(_SpreadCode(spr_str)) 
-	    except:
-		raise PoliteException("Invalid spread code: %r" % spr_str)
+            get_netgrp(pos_netgrp, spreads, u_spread, triples, members)
 
 
 def disable_ldapsync_mode():
+    ldap_servers = cereconf.LDAP.get('server')
+    if ldap_servers is None:
+	logger.info("No active LDAP-sync servers configured")
+        return
     try:
-	ldap_servers = cereconf.LDAP_SERVER
 	from Cerebrum.modules import LdapCall
-    except AttributeError:
-	logger.info("No active LDAP-sync severs configured")
     except ImportError: 
 	logger.info("LDAP modules missing. Probably python-LDAP")
     else:
 	s_list = LdapCall.ldap_connect()
 	LdapCall.add_disable_sync(s_list,disablesync_cn)
 	LdapCall.end_session(s_list)
-	log_dir = os.path.join(cereconf.LDAP_DUMP_DIR, "log")
+	log_dir = os.path.join(cereconf.LDAP['dump_dir'], "log")
 	if os.path.isdir(log_dir):  
 	    rotate_file = os.path.join(log_dir, "rotate_ldif.tmp")
 	    if not os.path.isfile(rotate_file):
@@ -319,27 +277,25 @@ def main():
 
     got_file = filter(opts.has_key, ("-u", "-f", "-n"))
     for opt in filter(opts.has_key, ("-U", "-F", "-N")):
-        opts[opt] = eval_spread_codes(opts[opt].split(","))
+        opts[opt] = map_spreads(opts[opt].split(","))
     do_all = "--posix" in opts or not got_file
 
     global glob_fd
     glob_fd = None
     if do_all:
-        glob_fd = SimilarSizeWriter(os.path.join(cereconf.LDAP_DUMP_DIR,
-                                                 cereconf.LDAP_POSIX_FILE))
-        glob_fd.set_size_change_limit(10)
+        glob_fd = ldif_outfile('POSIX')
         disable_ldapsync_mode()
         init_ldap_dump()
-    for conf_var, func, args in \
-            (('LDAP_USER_DN',      generate_users,            ("-U", "-u")),
-             ('LDAP_FILEGROUP_DN', generate_posixgroup, ("-F", "-U", "-f")),
-             ('LDAP_NETGROUP_DN',  generate_netgroup,   ("-N", "-U", "-n"))):
-        if (do_all or args[-1] in opts) and getattr(cereconf, conf_var, False):
+    for var, func, args in \
+            (('LDAP_USER',      generate_users,            ("-U", "-u")),
+             ('LDAP_FILEGROUP', generate_posixgroup, ("-F", "-U", "-f")),
+             ('LDAP_NETGROUP',  generate_netgroup,   ("-N", "-U", "-n"))):
+        if (do_all or args[-1] in opts) and getattr(cereconf, var).get('dn'):
             func(*map(opts.get, args))
         elif args[-1] in opts:
-            sys.exit("Option %s requires cereconf.%s." % (args[-1], conf_var))
+            sys.exit("Option %s requires cereconf.%s['dn']." % (args[-1], var))
     if glob_fd:
-        glob_fd.close()
+        end_ldif_outfile('POSIX', glob_fd)
 
 
 def usage(err=0):
