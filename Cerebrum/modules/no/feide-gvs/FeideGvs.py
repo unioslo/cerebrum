@@ -31,27 +31,44 @@ from Cerebrum.Constants import _AuthoritativeSystemCode,_PersonAffiliationCode, 
 
 import cereconf
 
+class _FeideGvsGuardianCode(Constants._CerebrumCode):
+    _lookup_table = '[:table schema=cerebrum name=feide_gvs_guardian_code]'
+
 class FeideGvsConstants(Constants.Constants):
 
     system_sas = _AuthoritativeSystemCode(
         'SAS',
         'Skole Administrativt System')
+
+    externalid_sas_id = _PersonExternalIdCode(
+        'SASID',
+        'SAS internal id-number')
+
+    affiliation_admin = _PersonAffiliationCode(
+        'ADMIN',
+        'person in tha administration')
+
+    affiliation_guardian = _PersonAffiliationCode(
+        'GUARDIAN',
+        'guardian for a pupil')
     
     affiliation_pupil = _PersonAffiliationCode(
         'PUPIL',
         'pupil in school')
 
-    affiliation_guardian = _PersonAffiliationCode(
-        'GUARDIAN',
-        'guardian for a pupil')
-
     affiliation_teacher = _PersonAffiliationCode(
         'TEACHER',
         'teacher in a school')
 
-    externalid_sas_id = _PersonExternalIdCode(
-        'SASID',
-        'SAS internal id-number')
+    affiliation_status_admin_active = _PersonAffStatusCode(
+        affiliation_admin,
+        'active',
+        'Active member of administration')
+
+    affiliation_status_guardian_active = _PersonAffStatusCode(
+        affiliation_guardian,
+        'active',
+        'Active member of administration')
 
     affiliation_status_pupil_active = _PersonAffStatusCode(
         affiliation_pupil,
@@ -72,6 +89,10 @@ class FeideGvsConstants(Constants.Constants):
         'SAS',
         'Perspective: SAS')
 
+    feide_gvs_guardian_parent = _FeideGvsGuardianCode(
+        'PARENT',
+        'A pupils parent.')
+
     quarantine_generell = _QuarantineCode(
 	'generell', 
 	'Generell splatt')
@@ -87,6 +108,7 @@ class FeideGvsConstants(Constants.Constants):
     quarantine_svakt_passord = _QuarantineCode(
 	'svakt_passord', 
 	'For dårlig passord')
+
 
 class FeideGvsEntity(DatabaseAccessor):
     def clear_class(self, cls):
@@ -111,4 +133,49 @@ class FeideGvsTeacherSchool(FeideGvsEntity):
         self.clear_class(FeideGvsTeacherSchool)
         self.__updated = []
 
+
     
+class FeideGvsGuardian(FeideGvsEntity):
+    __read_attr__ = ('__in_db',)
+    __write_attr__ = ('guardian_id','pupil_id', 'relation')
+
+    def clear(self):
+        self.__super.clear()
+        self.clear_class(FeideGvsGuardian)
+        self.__updated = []
+
+    def populate(self, guardian_id, pupil_id, relation):
+        try:
+            if not self.__in_db:
+                raise RuntimeError, "populate() called multiple times."
+        except AttributeError:
+            self.__in_db = False
+        self.guardian_id = guardian_id
+        self.pupil_id = pupil_id
+        self.relation = relation
+
+    def write_db(self):
+        self.__super.write_db()
+        if not self.__updated:
+            return
+        is_new = not self.__in_db
+        if is_new:
+            self.execute("""
+            INSERT INTO [:table schema=cerebrum name=feide_gvs_guardian_pupil]
+              (guardian_id, pupil_id, relation)
+            VALUES (:g_id, :p_id, :rel)""",
+                         {'g_id': self.guardian_id,
+                          'p_id': self.pupil_id,
+                          'rel': self.relation})
+        else:
+            self.execute("""
+            UPDATE [:table schema=cerebrum name=feide_gvs_guardian_pupil]
+            SET relatian=:rel
+            WHERE guardian_id=:g_id AND pupil_id=:p_id""",
+                         {'g_id': self.guardian_id,
+                          'p_id': self.pupil_id,
+                          'rel': self.relation})
+        del self.__in_db
+        self.__in_db = True
+        self.__updated = []
+        return is_new
