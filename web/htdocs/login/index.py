@@ -18,16 +18,11 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+import forgetHTML as html
 from mod_python.Session import Session
-from mod_python import apache
 from mod_python import util
 from Cerebrum.web.utils import url
-
-#FIXME 
-import forgetHTML as html
-
-from Cerebrum.gro import ServerConnection
-import generated
+from Cerebrum.web import ServerConnection
 
 
 def index(req, user="", password=""):
@@ -54,7 +49,7 @@ def index(req, user="", password=""):
             req.session['server'] = server     
             req.session.save()
             util.redirect(req, url("/"))
-        
+ 
     doc = html.SimpleDocument("Log in to Cerebrum")
     body = doc.body
     body.append(html.Paragraph("Cerebrum is powered by 230V"))
@@ -66,6 +61,5 @@ def index(req, user="", password=""):
     form.addText("password", "Password", password)
     form.append(html.Submit("Login"))
     return doc
-    
 
 # arch-tag: 4dc1ddde-c201-4b09-8a81-b007662cabca
