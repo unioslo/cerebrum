@@ -67,6 +67,7 @@ uid_taken = {}
 group2entity_id = {}
 person_id2affs = {}
 account_id2aff = {}
+primary_users = {}
 
 namestr2const = {'lname': co.name_last, 'fname': co.name_first}
 personObj = Factory.get('Person')(db)
@@ -579,10 +580,12 @@ def import_person_users(personfile):
                 warned_uc[user_creators[uc]] = 1
         if account_id2aff.has_key(uc):
             ou_id, aff, affstat = account_id2aff[uc]
+            priority = primary_users.get(int(account.entity_id), None)
             if verbose:
-                print "  add_acc_type: (%s / %s) -> %s, %s, %s" % (
-                    account.account_name, account.owner_id, ou_id, aff, affstat)
-            account.add_account_type(account.owner_id, ou_id, aff)
+                print "  add_acc_type: (%s / %s) -> %s, %s, %s, %s" % (
+                    account.account_name, account.owner_id, ou_id, aff, affstat, priority)
+            account.set_account_type(ou_id, aff, priority)
+
     # Since the deleted users are sorted by deleted_date DESC and
     # grouped by person, we may end up building the wrong user.  This
     # is not critical.
@@ -841,6 +844,9 @@ def create_account(u, owner_id):
                          p['termin_quota'], p['has_printerquota'],
                          p['weekly_quota'], p['max_quota'])
         pquotas.write_db()
+
+    if u.get('is_primary', 0) and int(u['is_primary']):
+        primary_users[int(accountObj.entity_id)] = 1
  
     for tmp in u.get('spread', []):
         if tmp['domain'] == 'u':
