@@ -331,12 +331,14 @@ def del_spread(entity_id, spread, delete=delete_users):
                     if sock.read() == ['210 OK']:
                         sock.send('LGROUP&%s/%s\n' % (cereconf.AD_DOMAIN, group_n))
                         result = sock.readgrp()
-                        for line in result.splitlines:
-                            if line != '210 OK':
-                                mem = l.split('&')
-                                sock.send('DELUSRGR&%s/%s&%s/%s\n' % (cereconf.AD_DOMAIN, mem[1], cereconf.AD_DOMAIN, group_n))
-                                if sock.read() != ['210 OK']:
-                                    print 'WARNING: Failed delete', member, 'from', group_n
+
+                        if result:
+                            for line in result.splitlines:
+                                if line != '210 OK':
+                                    mem = l.split('&')
+                                    sock.send('DELUSRGR&%s/%s&%s/%s\n' % (cereconf.AD_DOMAIN, mem[1], cereconf.AD_DOMAIN, group_n))
+                                    if sock.read() != ['210 OK']:
+                                        print 'WARNING: Failed delete', member, 'from', group_n
                     else:
                         print 'WARNING: Error moving:', ldap[0], 'to',cereconf.AD_LOST_AND_FOUND
 
