@@ -62,15 +62,19 @@ class Parameter(object):
         return ret
 
     def getPrompt(self):
-        # Should probably flag if type has a %s argument instead
         if self._ptype is not None:
-            return self._prompt % self._ptype
+            return self._prompt % (self._ptype+" ")
+        try:
+            self._prompt.index("%s")
+            return self._prompt % ""
+        except ValueError:
+            pass
         return self._prompt
 
 class AccountName(Parameter):
     _tab_func = 'tab_foobar'
     _type = 'accountName'
-    _prompt = "Enter %s accountname"
+    _prompt = "Enter %saccountname"
 
 class AccountPassword(Parameter):
     _type = 'accountPassword'
@@ -86,7 +90,11 @@ class AffiliationStatus(Parameter):
 
 class Date(Parameter):
     _type = 'date'
-    _prompt = "Enter %s date"
+    _prompt = "Enter %sdate"
+
+class DiskId(Parameter):
+    _type = 'disk'
+    _prompt = "Enter %sdisk"
 
 class Description(Parameter):
     _type = 'description'
@@ -94,12 +102,12 @@ class Description(Parameter):
 
 class EntityName(Parameter):
     _type = 'entityName'
-    _prompt = "Enter %s entity name"
+    _prompt = "Enter %sentity name"
 
 class GroupName(Parameter):
     # _prompt_func = 'prompt_foobar'
     _type = 'groupName'
-    _prompt = "Enter %s groupname"
+    _prompt = "Enter %sgroupname"
 
 class GroupOperation(Parameter):
     _tab_func = 'tab_foobar'
@@ -155,8 +163,12 @@ class PosixGecos(Parameter):
 class Command(object):
     def __init__(self, cmd, *params, **kw):
         self._cmd = cmd
+        if len(params) == 0:
+            params = None
         self._params = params
         self._format_suggestion = kw.get('fs', None)
+        self._prompt_func = kw.get('prompt_func', None)
+        assert self._params is None or self._prompt_func is None
         self._default = None
 
     def get_fs(self):
@@ -166,7 +178,11 @@ class Command(object):
             return None
 
     def get_struct(self):
-        return (self._cmd, [k.get_struct() for k in self._params])
+        if self._params is not None:
+            return (self._cmd, [k.get_struct() for k in self._params])
+        if self._prompt_func is not None:
+            return (self._cmd, 'prompt_func')
+        return (self._cmd,)
 
 class FormatSuggestion(object):
     def __init__(self, string, vars, hdr=None):
