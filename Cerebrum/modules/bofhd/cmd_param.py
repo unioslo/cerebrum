@@ -205,16 +205,13 @@ class Command(object):
 
 class FormatSuggestion(object):
     """FormatSuggestion is used by the client to determine how to
-    format a return value from a command.  It returns a list-of-lists
-    where the inner list contains a <format-string, var-list>.
-
-    Normally it will only contain one such list, however some commands
-    may wish to display varying amounts of information.  Before trying
-    to show a format-string, the client should check that atleast one
-    of the required values from var-list are in the dict returned by
-    the command in question."""
+    format a return value from a command."""
     
     def __init__(self, string, vars=None, hdr=None):
+        """For description of the parameters, see get_format().  The
+        only difference is that string may contain format specifiers
+        even if it is a plain string, provided that vars is set."""
+
         if vars is None:
             self._string_vars = string
         else:
@@ -222,6 +219,29 @@ class FormatSuggestion(object):
         self._hdr = hdr
 
     def get_format(self):
+        """Returns a dict with the following keys:
+
+        - str_vars:
+        
+          - If it is a string, the string is displayed as is. 
+          - May also be a list of (string, vars) pairs:
+          
+            - string is a plain string.  It may contain printf format
+              specifiers used by vars.  string may also be a list of
+              (string, vars, hdr) pairs.  hdr is optional.  If hdr
+              contains the character %, hdr will be used instead of
+              string for the first data.
+            - vars is a list of variable name who must correspond to
+              keys in the dict that the FormatSuggestion should be
+              applied to.  If none of the keys are present, the string
+              should not be shown.  The ordering of the keys should
+              match the printf format specifiedrs in string.
+
+              The key may be prepended with :yyyy-MM-dd to format the
+              returned date object.  The format-specifier is the same
+              as used by java.text.SimpleDateFormat
+        - hdr: an optional header to be displayed before the data."""
+
         ret = {'str_vars': self._string_vars}
         if self._hdr is not None:
             ret['hdr'] = self._hdr
