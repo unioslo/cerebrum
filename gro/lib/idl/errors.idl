@@ -106,5 +106,12 @@ module Cerebrum_core{
             string explanation;
         };
 
+        /**
+        * Error raised during login.
+        */
+        exception LoginError{
+            string explanation;
+        };
+
     };
 };
