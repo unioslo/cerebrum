@@ -264,6 +264,16 @@ class EntityName(Entity):
         WHERE entity_id=:e_id AND value_domain=:domain""",
                           {'e_id': self.entity_id,
                            'domain': int(domain)})
+    
+    def get_names(self):
+        return self.query("""
+        SELECT en.entity_name, val.code_str
+        FROM [:table schema=cerebrum name=entity_name] en
+        JOIN [:table schema=cerebrum name=value_domain_code] val
+        ON en.value_domain=val.code
+        WHERE en.entity_id=:e_id""",
+                          {'e_id': self.entity_id,
+                           })
 
     def add_entity_name(self, domain, name):
         self._db.log_change(self.entity_id, self.const.entity_name_add, None,
