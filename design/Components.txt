@@ -3,7 +3,7 @@ The Cerebrum distribution consists of the following code components:
 
 Core API
 --------
-  STATUS: Started, but still incomplete and likely to change.
+  STATUS: 2002-10-24: Nearing feature completion.
 	  During 2002-09 this API should be somewhat usable.
 
   RESPONSIBILITY OF: HM, *
@@ -23,9 +23,23 @@ Core API
     Cerebrum/{Entity,OU,Person,Account,Group}.py
 
 
-Installation and upgrade magic
-------------------------------
-  STATUS:
+Installation magic
+------------------
+  STATUS: 2002-10-24: Not started; will encourage test users to
+	  contribute.
+	  Must be ready by 2002-11-15.
+
+  RESPONSIBILITY OF: HM, PR, RF
+
+
+  CODE DEPENDENCIES:
+
+  FILES:
+
+
+Upgrade magic
+-------------
+  STATUS: Not started.
 
   RESPONSIBILITY OF: HM, PR, RF
 
@@ -37,7 +51,7 @@ Installation and upgrade magic
 
 POSIX users and groups
 ----------------------
-  STATUS: Not started.
+  STATUS: 2002-10-24: Users seems usable; groups not quite there yet.
 	  Should be somewhat usable by 2002-10-17.
 
   RESPONSIBILITY OF: HM, RF
@@ -54,7 +68,7 @@ POSIX users and groups
 
 NIS export
 ----------
-  STATUS: Not started.
+  STATUS: 2002-10-24: Generates passwd.
 	  Should be usable by 2002-10-21.
 
   RESPONSIBILITY OF: HM, RF, PR
@@ -70,7 +84,8 @@ NIS export
 
 User administration protocol
 ----------------------------
-  STATUS: Started reviewing options.
+  STATUS: 2002-10-24: Started implementation on top of XML-RPC;
+	  specification of required function calls not yet complete.
 	  Should be operative by end of 2002-09.
 
   RESPONSIBILITY OF: RF, HM
@@ -83,7 +98,8 @@ User administration protocol
 
 User administration server
 --------------------------
-  STATUS: Started working on design (what protocol should we use?).
+  STATUS: 2002-10-24: Proof-on-concept has been available for some
+	  time.
 	  Should be operative by end of 2002-10.
 
   RESPONSIBILITY OF: RF, HM
@@ -103,7 +119,8 @@ User administration server
 
 User administration terminal client
 -----------------------------------
-  STATUS: Not started
+  STATUS: 2002-10-24: Proof-of-concept has been available for some
+	  time, but still needs a lot of work.
           Should be operative by end of 2002-10.
 
   RESPONSIBILITY OF: PR, RF
@@ -117,7 +134,7 @@ User administration terminal client
 
 User administration web frontend
 --------------------------------
-  STATUS: Not started
+  STATUS: 2002-10-24: Proof-of-concept for password change ready.
 	  Should offer web-based password change by 2002-11-15.
 
   RESPONSIBILITY OF: RF, KS? RM? Webgruppa?
@@ -131,7 +148,7 @@ User administration web frontend
 
 Import from SATS (specific to Norway)
 -------------------------------------
-  STATUS: Not started
+  STATUS: 2002-10-24: Still waiting for specification.
 	  Should be operative by 2002-11-15.
 
   RESPONSIBILITY OF: BHMJ, RF, HM
@@ -147,7 +164,7 @@ Import from SATS (specific to Norway)
 
 Email API
 ---------
-  STATUS: Not started
+  STATUS: 2002-10-24: Not started
 	  Should be working by 2002-11-15.
 
   RESPONSIBILITY OF: HM
@@ -166,10 +183,10 @@ Email API
 
 Export to LMS "Itslearning"
 ---------------------------
-  STATUS: Not started
+  STATUS: 2002-10-24: BHMJ delivers specification/example by 2002-10-31.
 	  Should be working by 2002-11-15.
 
-  RESPONSIBILITY OF: PR, BHMJ
+  RESPONSIBILITY OF: BHMJ, PR
 
   Scripts and possibly database structures/API for exporting user and
   group data to the LMS "Itslearning".
@@ -209,7 +226,7 @@ Import from FS (Specific to Norway)
 -----------------------------------
   STATUS: Not started
 
-  RESPONSIBILITY OF: HM, RF, BHMJ
+  RESPONSIBILITY OF: RF, HM, BHMJ
 
   Scripts (and possibly database structures/API) for importing person
   and grouping info from the Norwegian student administration system
@@ -237,7 +254,7 @@ Import from MSTAS (Specific to Norway)
 --------------------------------------
   STATUS: Not started
 
-  RESPONSIBILITY OF:
+  RESPONSIBILITY OF: RF
 
   Scripts (and possibly database structures/API) for importing person
   and grouping info from the Norwegian student administration system
@@ -251,7 +268,7 @@ Export to MSTAS (Specific to Norway)
 ------------------------------------
   STATUS: Not started
 
-  RESPONSIBILITY OF:
+  RESPONSIBILITY OF: RF
 
   Scripts (and possibly database structures/API) for exporting person
   info and email addresses to the Norwegian student administration
@@ -265,7 +282,7 @@ Export to SATS (Specific to Norway)
 -----------------------------------
   STATUS: Not started
 
-  RESPONSIBILITY OF:
+  RESPONSIBILITY OF: BHMJ, RF, HM
 
   Scripts (and possibly database structures/API) for exporting person
   info to the Norwegian pupil administration system SATS.
@@ -320,7 +337,7 @@ Export of user and filegroup data to LDAP
 -----------------------------------------
   STATUS: Not started
 	  This is needed for (a future version of) MacOS X
-	  authentication.
+	  authentication; usable by 2002-12-31.
 
   RESPONSIBILITY OF: MM, HBF, HM
 
@@ -333,6 +350,7 @@ Export of user and filegroup data to LDAP
 Export of OU and person data to LDAP
 ------------------------------------
   STATUS: Not started
+	  Usable by 2002-12-31.
 
   RESPONSIBILITY OF: MM, HBF
 
@@ -390,13 +408,13 @@ Printer quota API
 
   FILES:
 
-Password history API
---------------------
+Password quality check API
+--------------------------
   STATUS: Not started
 
-  RESPONSIBILITY OF:
+  RESPONSIBILITY OF: SS
 
-  
+  Password history etc.
 
   CODE DEPENDENCIES: Core API
 
