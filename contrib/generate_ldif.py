@@ -18,7 +18,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import time, re, string, sys, getopt
+import time, re, string, sys, getopt, base64
 import cerebrum_path
 import cereconf  
 from Cerebrum import OU
@@ -27,10 +27,13 @@ from Cerebrum import Errors
 from Cerebrum import Account
 from Cerebrum import Group
 from Cerebrum import Disk
-from Cerebrum.Utils import Factory
+from Cerebrum import Entity
+from string import maketrans
+from Cerebrum.Utils import Factory, latin1_to_iso646_60
 from Cerebrum.modules.no import Stedkode
 from Cerebrum.modules import PosixUser
 from Cerebrum.modules import PosixGroup
+from Cerebrum import QuarantineHandler
 from Cerebrum.Constants import _SpreadCode
 #from Cerebrum.modules.no.uio import Constants
 
@@ -42,11 +45,17 @@ affiliation_code = {}
 alias_list = {}
 org_root = None
 
-def vailidate_name(str):
-    #str = str.encode("ascii")
-    #str = re.sub(rå]','0',str)
-    str = re.sub(r',',' ', str)
-    return str
+normalize_trans = maketrans(
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZ\t\n\r\f\v",
+    "abcdefghijklmnopqrstuvwxyz     ")
+
+
+#def conv_gecos(s):
+#        xlate = {'Æ' : '[', 'æ' : '{', 'Å' : ']', 'å' : '}','Ø' : '\\','ø' : '|' }
+#        s = string.join(map(lambda x:xlate.get(x, x), s), '')
+#        return s
+
+
 
 def load_code_tables():
     person = Person.Person(Cerebrum)
@@ -74,40 +83,51 @@ def init_ldap_dump(ou_org,filename=None):
     ou = OU.OU(Cerebrum)
     ou.find(ou_org)
     ou_fax = None
+    ou_faxs = ''
     try:
-	ou_faxnumber = ou.get_contact_info(None, co.contact_fax)
-        if ou_faxnumber:
-	    ou_fax = (Cerebrum.pythonify_data(ou_faxnumber[0]['contact_value']))
-            init_str += "facsimileTlephoneNumber: %s\n" % ou_fax
-    except:
-	pass
+	ou_faxnumber = get_contacts(int(ou_org),int(co.contact_fax))
+	for fax in ou_fax_number:
+            if verify_printableString(fax):
+		init_str += "facsimileTelephoneNumber: %s\n" % fax
+		ou_faxs += fax + '$'
+    except: pass
     try:
 	stedkode = Stedkode.Stedkode(Cerebrum)
 	stedkode.find(ou_org)
-	stedkodestr = string.join((string.zfill(str(stedkode.fakultet),2), string.zfill(str(stedkode.institutt),2), string.zfill(str(stedkode.avdeling),2)),'')
+	stedkodestr = string.join((string.zfill(str(stedkode.fakultet),2), 
+			string.zfill(str(stedkode.institutt),2), 
+			string.zfill(str(stedkode.avdeling),2)),'')
         init_str += "norInstitutionNumber: %s\n" % stedkodestr
     except:
         pass
     init_str += "l: %s\n" % cereconf.BASE_CITY
     for alt in cereconf.BASE_ALTERNATIVE_NAME:
 	init_str += "o: %s\n" % alt
+    post_string = street_string = None
     try:
 	post_addr = ou.get_entity_address(None, co.address_post)
 	post_addr_str = "%s" % string.replace(string.rstrip(post_addr[0]['address_text']),"\n","$")
-        post_string = "%s$ %s %s" % (post_addr_str,vailidate_name(post_addr[0]['postal_number']),vailidate_name(post_addr[0]['city']))
+        post_string = "%s$%s %s" % (post_addr_str,post_addr[0]['postal_number'],
+					post_addr[0]['city'])
         init_str += "postalAddress: %s\n" % post_string
+    except: pass
+    try:
 	street_addr = ou.get_entity_address(None,co.address_street)
-        street_addr_str = "%s" % string.replace(string.rstrip(street_addr[0]['address_text']),"\n",",")
-        street_string = "%s %s %s" %(street_addr_str, vailidate_name(street_addr[0]['postal_number']),vailidate_name(street_addr[0]['city']))
+        street_addr_str = "%s" % string.replace(string.rstrip(street_addr[0]['address_text']),"\n",", ")
+        street_string = "%s, %s %s" %(street_addr_str, street_addr[0]['postal_number'],
+							street_addr[0]['city'])
         init_str += "street: %s\n" % street_string
     except:
         pass
     ou_phone = None
+    ou_phones = ''
     try:
-	ou_phonenumber = ou.get_contact_info(None, co.contact_phone)
-        if ou_phonenumber:
-	    ou_phone = (Cerebrum.pythonify_data(ou_phonenumber[0]['contact_value']))
-            init_str += "telephoneNumber: %s\n" % ou_phone
+	phones = get_contacts(int(ou_org),co.contact_phone)
+	if phones is not None:
+	    for phone in phones:
+                if verify_printableString(phone):
+		    init_str += "telephoneNumber: %s\n" % phone
+		    ou_phones += phone + '$'
     except:
         pass
     try:
@@ -116,17 +136,33 @@ def init_ldap_dump(ou_org,filename=None):
         pass
     f.write(init_str)
     f.write("\n")
-    ou_struct[int(ou.ou_id)]= cereconf.LDAP_BASE,post_string,street_string,ou_phone,ou_fax
+    try:
+    	ou_struct[int(ou.ou_id)]= cereconf.LDAP_BASE,post_string,street_string,ou_phones,ou_faxs
+    except: pass
     for org in cereconf.ORG_GROUPS:
 	org = string.upper(org)
-	init_str = "dn: %s=%s,%s\n" % (cereconf.ORG_ATTR,getattr(cereconf,(string.join((org,'DN'),'_'))),cereconf.LDAP_BASE)
+	org_name = str(getattr(cereconf,(string.join((org,'DN'),'_'))))
+	init_str = "dn: %s=%s,%s\n" % (cereconf.ORG_ATTR,org_name,cereconf.LDAP_BASE)
+	#init_str = "dn: %s=%s,%s\n" % (cereconf.ORG_ATTR,getattr(cereconf,(string.join((org,'DN'),'_'))),cereconf.LDAP_BASE)
 	init_str += "objectClass: top\n"
 	for obj in cereconf.ORG_OBJECTCLASS:
 	    init_str += "objectClass: %s\n" % obj
 	for ous in getattr(cereconf,(string.join((org,'ALTERNATIVE_NAME'),'_'))):
 	    init_str += "%s: %s\n" % (cereconf.ORG_ATTR,ous)
-	init_str += "description: %s\n\n" % iso2utf(getattr(cereconf,(string.join((org,'DESCRIPTION'),'_')))) 
+	init_str += "description: %s\n" % some2utf(getattr(cereconf,(string.join((org,'DESCRIPTION'),'_')))) 
+	try:
+	    for attrs in getattr(cereconf,(string.join((org,'ADD_ATTR'),'_'))):
+		init_str += attrs + '\n'
+	except: pass
+	init_str += '\n'
 	f.write(init_str)
+    try:
+	if cereconf.MAN_LDIF_ADD_FILE:
+	    lfile = file((string.join(('/usit/cerebellum/u1/areen/cerebrum',cereconf.MAN_LDIF_ADD_FILE),'/')),'r')
+	    f.write(lfile.read().strip()) 
+	    f.write('\n')
+	    lfile.close()
+    except: pass
     f.close()	
 
 def root_OU():
@@ -151,7 +187,7 @@ def root_OU():
 
 def generate_org(ou_id,filename=None):
     ou = OU.OU(Cerebrum)
-    ou_list = ou.get_structure_mappings(152)
+    ou_list = ou.get_structure_mappings(co.perspective_lt)
     ou_string = "%s=%s,%s" % (cereconf.ORG_ATTR,cereconf.ORG_DN, cereconf.LDAP_BASE)
     trav_list(ou_id, ou_list, ou_string, filename)
     stedkode = Stedkode.Stedkode(Cerebrum)
@@ -164,90 +200,132 @@ def generate_org(ou_id,filename=None):
 		    stedkode.clear()
 		    stedkode.find(non_org)
 		    if (stedkode.katalog_merke == 'T'):
-			stedkodestr = string.join((string.zfill(str(stedkode.fakultet),2), string.zfill(str(stedkode.institutt),2), string.zfill(str(stedkode.avdeling),2)),'')
+			stedkodestr = string.join((string.zfill(str(stedkode.fakultet),2), 
+						string.zfill(str(stedkode.institutt),2), 
+						string.zfill(str(stedkode.avdeling),2)),'')
 			par_ou = "%s=%s,%s" % (cereconf.ORG_ATTR,cereconf.NON_ROOT_ATTR,ou_string)
 			str_ou = print_OU(non_org, par_ou, stedkodestr, filename)
     
-def print_OU(id, par_ou, stedkodestr, filename=None):
+def print_OU(id, par_ou, stedkodestr,par, filename=None):
     ou = OU.OU(Cerebrum)
     ou.clear()
     ou.find(id)
     str_ou = []
-    ou_fax = None
     street_string = None
     post_string = None
-    ou_phone = None
+    ou_phones = ou_faxs = ''
     if filename:
 	f = file(filename, 'a')
     else:
 	f = file(string.join((cereconf.LDAP_DUMP_DIR,cereconf.ORG_FILE),'/'), 'a')
     f.write("\n")
     if ou.acronym:
-        str_ou = "%s=%s,%s" % (cereconf.ORG_ATTR,vailidate_name(ou.acronym),par_ou)
+	ou_dn = make_ou_for_rdn(some2utf(ou.acronym))
     else:
-        str_ou = "%s=%s,%s" % (cereconf.ORG_ATTR,vailidate_name(ou.name),par_ou)
+	ou_dn = make_ou_for_rdn(some2utf(ou.short_name))
+    str_ou = "%s=%s,%s" % (cereconf.ORG_ATTR,ou_dn,par_ou)
     ou_str = "dn: %s\n" % str_ou
     ou_str += "objectClass: top\n"
     for ss in cereconf.ORG_OBJECTCLASS:
         ou_str += "objectClass: %s\n" % ss
     try:
-    	ou_faxnumber = ou.get_contact_info(None, co.contact_fax)
-    	if ou_faxnumber:
-	    #ou_fax = "%s" % (Cerebrum.pythonify_data(ou_faxnumber[0]['contact_value'])) 
-	    for x in ou_faxnumber:
-	    	ou_str += "facsimileTelephoneNumber: %s\n" % (Cerebrum.pythonify_data(x['contact_value']))
-    except:
-	pass
+	ou_fax_numbers = get_contacts(id, co.contact_fax)
+	if ou_fax_numbers is not None:
+	    ou_faxs = ''
+	    for ou_fax in ou_fax_numbers:
+		ou_str += "facsimileTelephoneNumber: %s\n" % ou_fax
+		ou_faxs += ou_fax + '$'
+    except:  pass
     try: 
-	ou_email = ou.get_contact_info(None,co.contact_email)
+	ou_email = get_contacts(id,co.contact_email,email=1)
 	if ou_email:
-	    for x in ou_email:
-		ou_str += "mail: %s\n" % (x['contact_value'])
-	else:
-	    t_email = Email.EmailTarget(Cerebrum)
-	    ou_mail_target = t_email.find_by_entity(ou.entity_id,co.entity_ou)
-	    p_email = Email.EmailPrimaryAddressTarget(Cerebrum)
-	    p_email.find(ou_mail_target)
-	    a_email = Email.EmailAddress(Cerebrum)
-	    a_email.find(p_email.email_primaddr_id)
-	    d_email = Email.EmailDomain(Cerebrum)
-	    d_email.find(a_email.email_addr_domain_id)
-	    ou_str += "mail: %s@%s\n" % (a_email.email_addr_local_part, d_email.email_domain_name) 
+	    for email in ou_email:
+		ou_str += "mail: %s\n" % email
     except:  pass
     if stedkodestr:	
 	ou_str += "norOrgUnitNumber: %s\n" % stedkodestr
+    cmp_ou_str = []
     if ou.acronym:
-	ou_str += "acronym: %s\n" % iso2utf(ou.acronym)
-    ou_str += "ou: %s\n" % iso2utf(ou.short_name)
-    ou_str += "ou: %s\n" % iso2utf(ou.display_name)
-    ou_str += "ou: %s\n" % iso2utf(ou.sort_name)
-    ou_str += "cn: %s\n" % iso2utf(ou.sort_name)
-    try:
-	for cc in cereconf.SYSTEM_LOOKUP_ORDER:
-	    post_addr = ou.get_entity_address(getattr(co, cc), co.address_post)
+	acr_name = some2utf(ou.acronym)
+	ou_str += "acronym: %s\n" % acr_name
+    ou_str += "ou: %s\n" % ou_dn
+    cmp_ou_str.append(normalize_string(ou_dn))
+    cn_str = ou_dn
+    if ou.acronym and normalize_string(acr_name) not in cmp_ou_str:
+	cmp_ou_str.append(normalize_string(acr_name)) 
+	ou_str += "ou: %s\n" % acr_name.strip()
+    if ou.short_name:
+	sho_name =  some2utf(ou.short_name).strip() 
+	if normalize_string(sho_name) not in cmp_ou_str:
+	    cmp_ou_str.append(normalize_string(sho_name))
+	    ou_str += "ou: %s\n" % sho_name
+            cn_str = sho_name
+    if ou.display_name:
+	dis_name = some2utf(ou.display_name).strip()
+	if normalize_string(dis_name) not in cmp_ou_str:
+	    cmp_ou_str.append(normalize_string(dis_name))
+            ou_str += "ou: %s\n" % dis_name
+            cn_str = dis_name
+    if ou.sort_name:
+        sor_name = some2utf(ou.sort_name).strip()
+        if normalize_string(sor_name) not in cmp_ou_str:
+            cmp_ou_str.append(normalize_string(sor_name))
+            ou_str += "ou: %s\n" % sor_name
+            cn_str = sor_name
+    if cn_str:
+	ou_str += "cn: %s\n" % cn_str
+    for cc in cereconf.SYSTEM_LOOKUP_ORDER:
+	try:
+	    post_addr = ou.get_entity_address(int(getattr(co, cc)), 
+						co.address_post)
     	    if post_addr:
 		post_addr_str = "%s" % string.replace(string.rstrip(post_addr[0]['address_text']),"\n","$") 
-		post_string = "%s$ %s %s" % (post_addr_str,vailidate_name(post_addr[0]['postal_number']),vailidate_name(post_addr[0]['city']))
-		ou_str += "postalAddress: %s\n" % iso2utf(post_string)
+		if (post_addr[0]['postal_number']) is not None and (post_addr[0]['city']) is not None:
+		    if int(post_addr[0]['postal_number']) >> 0:
+			post_string = "%s$%s %s" % (post_addr_str,
+						string.zfill((post_addr[0]['postal_number']),4),
+						post_addr[0]['city'])
+		    else:
+			post_string = "%s$%s" % (post_addr_str,post_addr[0]['city'])
+		if (post_addr[0]['country']):
+		    post_string += '$' + (post_addr[0]['country'])
+		ou_str += "postalAddress: %s\n" % some2utf(post_string)
 		break
-    	for dd in cereconf.SYSTEM_LOOKUP_ORDER:
-            street_addr = ou.get_entity_address(getattr(co, dd), co.address_street)
+	except: pass
+    for dd in cereconf.SYSTEM_LOOKUP_ORDER:
+	try:
+            street_addr = ou.get_entity_address(int(getattr(co, dd)), co.address_street)
             if street_addr:
-		street_addr_str = "%s" % string.replace(string.rstrip(street_addr[0]['address_text']),"\n",",")
-		street_string = "%s$ %s %s" %(street_addr_str, vailidate_name(street_addr[0]['postal_number']),vailidate_name(street_addr[0]['city']))
-		ou_str += "street: %s\n" % iso2utf(street_string)
+		street_addr_str = "%s" % string.replace(string.rstrip(street_addr[0]['address_text']),"\n",", ")
+		if (street_addr[0]['postal_number']) and (street_addr[0]['city']):
+		    if int(street_addr[0]['postal_number']) > 0:
+		    	street_string = "%s, %s %s" %(street_addr_str, 
+							string.zfill((street_addr[0]['postal_number']),4),
+							street_addr[0]['city'])
+		    else:
+			street_string = "%s, %s" %(street_addr_str,street_addr[0]['city'])
+		if street_addr[0]['country']:
+		    street_string += ', ' + street_addr[0]['country']
+		ou_str += "street: %s\n" % some2utf(street_string)
                 break
-   	ou_phnumber = (ou.get_contact_info(None, co.contact_phone))
-    	if ou_phnumber:
-	    for x in ou_phnumber:
-		ou_phone = "%s" % (Cerebrum.pythonify_data(x['contact_value']))
-		ou_str += "telephoneNumber: %s\n" % ou_phone
-    except:
-	pass
-    ou_struct[int(id)]= str_ou,post_string,street_string,ou_phone,ou_fax
-    f.write(ou_str)
-    f.close()
-    return str_ou
+	except: pass
+    try:
+	ou_phnumber = get_contacts(ou.ou_id, co.contact_phone)
+	ou_phones = ''
+	for phone in ou_phnumber:
+            if verify_printableString(phone):
+	        ou_str += "telephoneNumber: %s\n" % phone
+	        ou_phones += phone + '$'
+    except: pass
+    if par:
+	ou_struct[int(id)]= str_ou,post_string,street_string,ou_phones,ou_faxs,int(par),int(id)
+	f.close()
+	return par_ou
+    else:
+	ou_struct[int(id)]= str_ou,post_string,street_string,ou_phones,ou_faxs,None
+    	f.write(ou_str)
+    	f.close()
+    	return str_ou
 
     
 def trav_list(par, ou_list, par_ou,filename=None):
@@ -257,16 +335,19 @@ def trav_list(par, ou_list, par_ou,filename=None):
 	    stedkode.clear()
 	    try:
 		stedkode.find(c)
+		stedkodestr = string.join((string.zfill(str(stedkode.fakultet),2),
+                                                string.zfill(str(stedkode.institutt),2),
+                                                string.zfill(str(stedkode.avdeling),2)),'')
  	   	if stedkode.katalog_merke == 'T':
-		    stedkodestr = string.join((string.zfill(str(stedkode.fakultet),2), string.zfill(str(stedkode.institutt),2), string.zfill(str(stedkode.avdeling),2)),'')
-            	    str_ou = print_OU(c, par_ou, stedkodestr, filename)
-            	    trav_list(c, ou_list, str_ou, filename)
+            	    str_ou = print_OU(c,par_ou,stedkodestr,None,filename)
+            	    trav_list(c,ou_list,str_ou,filename)
     	    	else:
-		    trav_list(c, ou_list, par_ou, filename)
+		    dummy = print_OU(c,par_ou,stedkodestr,p,filename)
+		    trav_list(c,ou_list,par_ou,filename)
 	    except:
 		ou_struct[str(c)] = par_ou
-		str_ou = print_OU(c, par_ou, None, filename)
-		trav_list(c, ou_list, str_ou, filename)
+		str_ou = print_OU(c,par_ou,None,filename)
+		trav_list(c,ou_list,str_ou,filename)
 
 def generate_person(filename=None):
     person = Person.Person(Cerebrum)
@@ -282,79 +363,138 @@ def generate_person(filename=None):
     dn_base = "%s" % cereconf.LDAP_BASE
     dn_string = "%s=%s,%s" % (cereconf.ORG_ATTR,cereconf.PERSON_DN,dn_base) 
     person_spread = acl_spread = None
-    try:  perrson_spread = int(getattr(co,cereconf.PERSON_SPREAD))
+    try:  person_spread = int(getattr(co,cereconf.PERSON_SPREAD))
     except:  pass
-    try:  acl_spread = int(cereconf.PERSON_ACL_SPREAD) # When change to co -> int(getattr(co,cereconf.PERSON_..)
+    try:  acl_spread = int(cereconf.PERSON_ACL_SPREAD) 
+    # When change to co -> int(getattr(co,cereconf.PERSON_..)
     except:  pass
-    for row in person.list_extended_person(person_spread, include_quarantines=0):
-	id, birth_date,external_id,name,entity_name,phone,passwd,ou_id,email,domain,affili = row['person_id'], row['birth_date'],row['external_id'],row['name'],row['entity_name'],row['contact_value'],row['auth_data'],row['ou_id'],row['local_part'],row['domain'],row['affiliation']
-	if external_id:
+    try:
+	email_domains = {}  
+	email_domains = cereconf.PERSON_REWRITE_EMAIL_DOMAIN
+    except: pass
+    affili_stu = "student"
+    affili_em = "employee"
+    for row in person.list_extended_person(person_spread, include_quarantines=1):
+	name,entity_name,ou_id,affili = row['name'],row['entity_name'],row['ou_id'],row['affiliation']
+	if row['external_id'] and (affili == int(co.affiliation_ansatt) or affili == int(co.affiliation_student)): # and not alias_list[int(row['person_id'])]; # Sjekker for en entry
 	    person.clear()
-	    person.entity_id = id
+	    person.entity_id = row['person_id']
 	    pers_string = "dn: %s=%s,%s\n" % (dn_attr,entity_name,dn_string)
 	    pers_string += "%s" % objclass_string
-  	    utf_name = iso2utf(name)
+  	    utf_name = some2utf(name)
 	    pers_string += "cn: %s\n" % utf_name
-	    if birth_date:
-		pers_string += "birthDate: %s\n" % (time.strftime("%d%m%y",time.strptime(str(birth_date),"%Y-%m-%d %H:%M:%S.00")))
-	    pers_string += "norSSN: %s\n" % external_id
+	    if row['birth_date']:
+		pers_string += "birthDate: %s\n" % (time.strftime("%d%m%y",time.strptime(str(row['birth_date']),
+									"%Y-%m-%d %H:%M:%S.00")))
+	    pers_string += "norSSN: %s\n" % re.sub('\D','',row['external_id'])
 	    pers_string += "eduPersonOrgDN: %s\n" % dn_base
-	    prim_org = (ou_struct[int(ou_id)][0])
+	    try:
+		if (ou_struct[int(ou_id)][5] == None):
+	    	    prim_org = (ou_struct[int(ou_id)][0])
+		else:
+		    par = int(ou_struct[int(ou_id)][5])
+		    tt = par
+		    xx = ou_id
+		    while ou_struct[par][5] <> None:
+			par = int(ou_struct[int(par)][5])
+			print "Par2: %s %s %s %s" % (par,int(ou_struct[int(par)][6]),tt,xx)
+		    prim_org = (ou_struct[par][0])
+	    except:
+		prim_org = "%s=%s,%s" % (cereconf.ORG_ATTR,cereconf.DUMMY_DN,cereconf.LDAP_BASE)
+	    if (string.find(prim_org,cereconf.ORG_DN) == -1):
+		prim_org = "%s=%s,%s" % (cereconf.ORG_ATTR,cereconf.DUMMY_DN,cereconf.LDAP_BASE)
 	    pers_string += "eduPersonPrimaryOrgUnitDN: %s\n" % prim_org
             p_affiliations = person.get_affiliations()
-	    org_printed = str(' ')
+	    org_printed = str('')
 	    for edu_org in p_affiliations:
-		org = ou_struct[int(edu_org['ou_id'])][0]
-		if (string.find(org_printed,org) == -1):
-		    pers_string += "eduPersonOrgUnitDN: %s\n" % org
-		    org_printed += org
-	    pers_string += "eduPersonPrincipalName: %s@%s\n" % (entity_name, cereconf.BASE_DOMAIN)
-	    for sys in cereconf.SYSTEM_LOOKUP_ORDER:
-		given_name = None
-		lastname = None
 		try:
-		    pers_string += "givenName: %s\n" % iso2utf(person.get_name(getattr(co,sys),co.name_first))
-		    lastname = iso2utf(person.get_name(getattr(co,sys),co.name_last))
+		    org = ou_struct[int(edu_org['ou_id'])][0]
+		    if (string.find(org_printed,org) == -1):
+			pers_string += "eduPersonOrgUnitDN: %s\n" % org
+			org_printed += org 
+		except: pass
+	    pers_string += "eduPersonPrincipalName: %s@%s\n" % (entity_name, cereconf.BASE_DOMAIN)
+	    lastname = name
+	    for sys in cereconf.SYSTEM_LOOKUP_ORDER:
+		try:
+		    pers_string += "givenName: %s\n" % some2utf(person.get_name(getattr(co,sys),co.name_first))
+		    lastname = person.get_name(getattr(co,sys),co.name_last)
 		    break
 		except:
 		    pass
-		#if given_name:
-		#    print "Givenname::: %s %s" % (person.get_name(getattr(co,sys),co.name_first),sys)
-		#    pers_string += "\ngivenName: %s" % given_name
-		#    break
-	    if email and domain:
-		pers_string += "mail: %s@%s\n" % (email,domain)
-	    if lastname:
-		pers_string += "sn: %s\n" % lastname
-	    if (int(affili) == int(co.affiliation_ansatt)): 
-		pers_string += "postalAddress: %s\n" % iso2utf(ou_struct[int(ou_id)][1])
-		pers_string += "street: %s\n" % iso2utf(ou_struct[int(ou_id)][2])
-		#pers_string += "title: "
-		if phone is not None:
-		    phonelist = string.split(phone,'$')
-		    for phones in phonelist:
-		    	pers_string += "telephoneNumber: %s\n" % phones
+	    if row['local_part'] and row['domain']:
+		domain = row['domain']
+		if email_domains and email_domains.has_key(domain):
+		    pers_string += "mail: %s@%s\n" % (row['local_part'],email_domains[domain])
 		else:
-		    if ou_struct[int(ou_id)][3] is not None:
-		    	pers_string += "telephoneNumber: %s\n" % ou_struct[int(ou_id)][3]
-		    else:
-			pass
-		if ou_struct[int(ou_id)][4]:
-		    pers_string += "facsimileTelephoneNumber: %s\n" % ou_struct[int(ou_id)][4]
+		    pers_string += "mail: %s@%s\n" % (row['local_part'],domain)
+	    if lastname:
+		pers_string += "sn: %s\n" % some2utf(lastname)
+	    if (int(affili) == int(co.affiliation_ansatt)): 
+		try:
+		    if ou_struct[int(ou_id)][1]:
+			pers_string += "postalAddress: %s\n" % some2utf(ou_struct[int(ou_id)][1])
+		    if ou_struct[int(ou_id)][2]:
+			pers_string += "street: %s\n" % some2utf(ou_struct[int(ou_id)][2])
+		except: pass
+		#pers_string += "title: "
+		#phone = row['contact_value']
+		if row['contact_value']:
+		    phone_str = []
+		    for phones in string.split(row['contact_value'],'$'):
+ 	               if verify_printableString(phones):
+			    phone_nr = normalize_phone(phones)
+			    if phone_nr not in phone_str: 
+		    	        pers_string += "telephoneNumber: %s\n" % phones
+			        phone_str.append(phone_nr)
+		faxes = []
+		if row['fax']:
+		    for fax in string.split(row['fax'],'$'):
+ 	               if verify_printableString(fax):
+			    fax_n = normalize_phone(fax)
+			    if fax_n not in faxes:
+			    	pers_string += "facsimileTelephoneNumber: %s\n" % fax
+				faxes.append(fax_n)
+		else:
+		    try:
+			for fax in string.split(ou_struct[int(ou_id)][4],'$'):
+			    if fax is not '':
+			    	pers_string += "facsimileTelephoneNumber: %s\n" % fax
+		    except: pass
+	    affili_str = str('')
 	    for affi in p_affiliations:
-		pers_string += "eduPersonAffiliation: %s\n" % string.lower(affiliation_code[int(affi['affiliation'])])
+                if (int(affi['affiliation']) == int(co.affiliation_ansatt)):
+                    if (string.find(affili_str,affili_em) == -1):
+                        pers_string += "eduPersonAffiliation: %s\n" % affili_em
+			if row['status'] == co.affiliation_status_ansatt_tekadm:
+			    pers_string += "eduPersonAffiliation: staff\n" 
+			elif row['status'] == co.affiliation_status_ansatt_vit:
+			    pers_string += "eduPersonAffiliation: faculty\n"
+                        affili_str += affili_em
+                if (int(affi['affiliation']) == int(co.affiliation_student)):
+                    if (string.find(affili_str,affili_stu) == -1):
+                        pers_string += "eduPersonAffiliation: %s\n" % affili_stu
+                        affili_str += affili_stu
 	    pers_string += "uid: %s\n" % entity_name
+	    passwd = row['auth_data']
 	    if passwd:
+		if row['quarantine_type'] is not None:
+            	    qh = QuarantineHandler.QuarantineHandler(Cerebrum, [row['quarantine_type']])
+            	    if qh.should_skip():
+			continue
+            	    if qh.is_locked():
+			passwd = '*Locked'
 		pers_string += "userPassword: {crypt}%s\n" % passwd
 	    else:
-		pers_string += "userPassword: *\n"
+		pers_string += "userPassword: {crypt}*Invalid\n"
 	    if acl_spread and person.has_spread(acl_spread):
 		pers_string += "%s\n" % cereconf.PERSON_LDAP_ACL
-	    alias_list[int(id)] = entity_name, prim_org, name, lastname
+	    alias_list[int(person.entity_id)] = entity_name,prim_org,name,lastname
 	    f.write("\n")
 	    f.write(pers_string)
 	else:
 	    pass
+    #ou_struct = None
     f.close()
 
 def generate_alias(filename=None):
@@ -369,18 +509,16 @@ def generate_alias(filename=None):
     for obj in cereconf.ALIAS_OBJECTCLASS:
         obj_string += "\nobjectClass: %s" % obj
     for alias in person.list_persons():
-	#print "Person_id: %s" % alias
 	person_id = int(alias['person_id'])
 	if alias_list.has_key(person_id):
-	    #print "has_key treff"
 	    entity_name, prim_org, name, lastname = alias_list[person_id]
 	    alias_str = "\ndn: uid=%s,%s" % (entity_name, prim_org)
 	    alias_str += "%s" % obj_string
 	    alias_str += "\nuid: %s" % entity_name
 	    if name:
-		alias_str += "\ncn: %s" % iso2utf(name)
+		alias_str += "\ncn: %s" % some2utf(name)
 	    if lastname:
-		alias_str += "\nsn: %s" % iso2utf(lastname)
+		alias_str += "\nsn: %s" % some2utf(lastname)
 	    alias_str += "\naliasedObjectName: uid=%s,%s" % (entity_name,dn_string)
 	    f.write("\n")
 	    f.write(alias_str)
@@ -392,6 +530,13 @@ def generate_users(spread=None,filename=None):
     posix_user = PosixUser.PosixUser(Cerebrum)
     posix_group = PosixGroup.PosixGroup(Cerebrum)
     disk = Disk.Disk(Cerebrum)
+    spreads = []
+    if spread:
+	#for entry in spread:
+ 	    spreads.append(int(spread))
+    else:
+	for entry in cereconf.USER_SPREAD:
+	    spreads.append(int(getattr(co,entry)))
     for sh in posix_user.list_shells():
 	shells[int(sh['code'])] = sh['shell']
     for hd in disk.list():
@@ -401,30 +546,41 @@ def generate_users(spread=None,filename=None):
     obj_string = "objectClass: top\n"
     for obj in cereconf.USER_OBJECTCLASS:
 	obj_string += "objectClass: %s\n" % obj
-    if (cereconf.USER_QUARANTINE != None):
-	quara = int(cereconf.USER_QUARANTINE)
-    else: quara = 0
-    if filename: f = file(filename, 'w')
-    else: f = file(string.join((cereconf.LDAP_DUMP_DIR,cereconf.USER_FILE),'/'), 'w')
-    if not spread: 
-    	pos_user = posix_user.list_extended_posix_users(getattr(co,'auth_type_md5_crypt'),include_quarantines=quara)
-    else:
-	pos_user = posix_user.list_extended_posix_users(getattr(co,'auth_type_md5_crypt'),spread,include_quarantines=quara)
+    if filename: 
+	f = file(filename, 'w')
+    else: 
+	f = file(string.join((cereconf.LDAP_DUMP_DIR,cereconf.USER_FILE),'/'), 'w')
+    pos_user = posix_user.list_extended_posix_users_test(getattr(co,'auth_type_md5_crypt'),
+								spreads,include_quarantines=1)
     f.write("\n")
     for row in pos_user:
-	acc_id,uid,shell,gecos,uname,home,disk_id,passwd,gid, full_name = row['account_id'],row['posix_uid'],row['shell'],row['gecos'],row['entity_name'],row['home'],row['disk_id'],row['auth_data'],row['posix_gid'],row['name']
+	acc_id,shell,gecos,uname = row['account_id'],row['shell'],row['gecos'],row['entity_name']
 	entity2uname[int(acc_id)] = uname
-	if not passwd:
-	    passwd = '*'
+	if not row['auth_data']:
+	    passwd = '{crypt}*Invalid'
 	else:
-	    passwd = "{crypt}%s" % passwd
-	if not gecos:
-	    gecos = posix_user._conv_name(full_name,alt=0,as_gecos=1)
-	if not home:
-	    home = "%s/%s" % (disks[int(disk_id)],uname)
+	    passwd = "{crypt}%s" % row['auth_data']
+	cn = some2utf(row['name'])
+	if gecos:
+	    gecos = latin1_to_iso646_60(some2iso(gecos))
+	else:
+	    gecos = latin1_to_iso646_60(some2iso(cn))
+	if not row['home']:
+	    home = "%s/%s" % (disks[int(row['disk_id'])],uname)
+	else:
+	    home = row['home']
         shell = shells[int(shell)]
+	if row['quarantine_type'] is not None:
+	    qh = QuarantineHandler.QuarantineHandler(Cerebrum, [row['quarantine_type']])
+            if qh.should_skip():
+                continue
+            if qh.is_locked():
+                passwd = '{crypt}*Locked'
+            qshell = qh.get_shell()
+            if qshell is not None:
+                shell = qshell
 	posix_text = """
-\ndn: %s%s%s
+dn: %s%s%s
 %scn: %s
 uid: %s
 uidNumber: %s
@@ -432,18 +588,24 @@ gidNumber: %s
 homeDirectory: %s
 userPassword: %s
 loginShell: %s
-gecos: %s""" % (posix_dn_string, uname, posix_dn, obj_string, gecos, uname,
-	str(uid), str(gid),
-	home, passwd, shell, gecos)
+gecos: %s\n""" % (posix_dn_string, uname, posix_dn, obj_string, gecos, 
+		uname,str(row['posix_uid']), str(row['posix_gid']),
+		home, passwd,shell, gecos)
 	f.write(posix_text)
     f.close()
 
 def generate_posixgroup():
-    spread = cereconf.GROUP_SPREAD
-    generate_group(int(getattr(co,spread)))
+    spreads = []
+    for spread in cereconf.GROUP_SPREAD:
+	spreads.append(int(getattr(co,spread)))
+    generate_group(spreads)
 
 def generate_group(spread=None, filename=None):
     posix_group = PosixGroup.PosixGroup(Cerebrum)
+    group = Group.Group(Cerebrum)
+    pos_usr = PosixUser.PosixUser(Cerebrum)
+    user_spread = int(getattr(co,cereconf.USER_SPREAD[0]))
+    print "user_spread: %s" % user_spread
     if filename:
 	f = file(filename, 'w')
     else:
@@ -454,7 +616,7 @@ def generate_group(spread=None, filename=None):
     obj_str = "objectClass: top\n"
     for obj in cereconf.GROUP_OBJECTCLASS:
 	obj_str += "objectClass: %s\n" % obj
-    for row in posix_group.list_all(spread):
+    for row in posix_group.list_all_test(spread):
 	posix_group.clear()
 	try:
 	    posix_group.find(row.group_id)
@@ -464,8 +626,10 @@ def generate_group(spread=None, filename=None):
 	    pos_grp += "cn: %s\n" % gname
 	    pos_grp += "gidNumber: %s\n" % posix_group.posix_gid
 	    if posix_group.description:
-		pos_grp += "description: %s\n" % posix_group.description
-	    for id in posix_group.get_members():
+		pos_grp += "description: %s\n" % some2utf(posix_group.description) #latin1_to_iso646_60 later
+	    group.clear()
+	    group.find(row.group_id)
+	    for id in group.get_members(spread=int(user_spread)):
 		uname_id = int(Cerebrum.pythonify_data(id))
 		if entity2uname.has_key(uname_id):
 		    pos_grp += "memberUid: %s\n" % entity2uname[uname_id]
@@ -477,28 +641,30 @@ def generate_group(spread=None, filename=None):
 		    pos_grp += "memberUid: %s\n" % mem_name
 	    f.write("\n")
             f.write(pos_grp)
-	except:
-	    pass
+	except:  pass
     f.close()
 
 
-def genenerate_netgroup(spread=None, filename=None):
+def generate_netgroup(spread=None, filename=None):
     pos_netgrp = Group.Group(Cerebrum) 
-    #posix_user = PosixUser.PosixUser(Cerebrum)
+    posix_user = PosixUser.PosixUser(Cerebrum)
     if filename:
         f = file(filename, 'w')
     else:
         f = file(string.join((cereconf.LDAP_DUMP_DIR,cereconf.NETGROUP_FILE),'/'), 'w')
+    spreads = []
     if spread:
-	spread = "%s" % spread
+	spreads.append(int(getattr(co,spread)))
     else:
-	spread = "%s" % cereconf.NETGROUP_SPREAD
+	for spread in cereconf.NETGROUP_SPREAD:
+	    spreads.append(int(getattr(co,spread)))
+	#spreads = "%s" % cereconf.NETGROUP_SPREAD
     f.write("\n")
     dn_str = "%s=%s,%s" % (cereconf.ORG_ATTR,cereconf.NETGROUP_DN,cereconf.LDAP_BASE)
     obj_str = "objectClass: top\n"
     for obj in cereconf.NETGROUP_OBJECTCLASS:
         obj_str += "objectClass: %s\n" % obj
-    for row in pos_netgrp.list_all(int(getattr(co,spread))):
+    for row in pos_netgrp.list_all_test(spreads):
         pos_netgrp.clear()
         try:
             pos_netgrp.find(row.group_id)
@@ -509,7 +675,7 @@ def genenerate_netgroup(spread=None, filename=None):
 	    if not entity2uname.has_key(int(row.group_id)):
 		entity2uname[int(row.group_id)] = netgrp_name
 	    if pos_netgrp.description:
-                 netgrp_str+= "description: %s\n" % pos_netgrp.description
+                 netgrp_str+= "description: %s\n" % latin1_to_iso646_60(pos_netgrp.description)
 	    members = []
 	    hosts = []
 	    groups = []
@@ -519,11 +685,15 @@ def genenerate_netgroup(spread=None, filename=None):
 	    for id in members:
                 uname_id = int(id[1])
                 if entity2uname.has_key(uname_id):
-                    netgrp_str += "nisNetgroupTriple: (,%s,)\n" % entity2uname[uname_id]
+                    netgrp_str += "nisNetgroupTriple: (,%s,)\n" % re.sub('\W','',
+							entity2uname[uname_id]).replace('_','')
                 else:
                     pos_netgrp.clear()
+		    #posix_user.clear()
                     pos_netgrp.entity_id = uname_id
-                    netgrp_str += "nisNetgroupTriple: (,%s,)\n" % posix_group.get_name(co.account_namespace)
+		    #posix_user.entity_id = uname_id
+                    netgrp_str += "nisNetgroupTriple: (,%s,)\n" % re.sub('\W','',
+							pos_netgrp.get_name(co.account_namespace)).replace('_','')
 #	    for host in hosts:
 #		host_id = int(host[1])
 #		if entity2uname.has_key(host_id):
@@ -547,20 +717,116 @@ def genenerate_netgroup(spread=None, filename=None):
     f.close()
 
 def iso2utf(s):
-  new = ''
-  for ch in s:
-    c=ord(ch)
-    if (c & 0x80) == 0:
-      new = new+ch
+     utf_str = unicode(s,'iso-8859-1').encode('utf-8')
+     return utf_str
+
+def utf2iso(s):
+     iso_str = unicode(s,'utf-8').encode('iso-8859-1')
+     return iso_str
+
+# match an 8-bit string which is not an utf-8 string
+iso_re = re.compile("[\300-\377](?![\200-\277])|(?<![\200-\377])[\200-\277]")
+
+# match an 8-bit string
+eightbit_re = re.compile('[\200-\377]')
+
+# match multiple spaces
+multi_space_re = re.compile('[%s]{2,}' % string.whitespace)
+
+def some2utf(str):
+    """Convert either iso8859-1 or utf-8 to utf-8"""
+    if iso_re.search(str):
+        str = unicode(str, 'iso8859-1').encode('utf-8')
+    return str
+
+def some2iso(str):
+    """Convert either iso8859-1 or utf-8 to iso8859-1"""
+    if eightbit_re.search(str) and not iso_re.search(str):
+        str = unicode(str, 'utf-8').encode('iso8859-1')
+    return str
+
+def normalize_phone(phone):
+    """Normalize phone/fax numbers for LDAP"""
+    return phone.translate(normalize_trans, " -")
+ 
+def normalize_string(str):
+    """Normalize strings for LDAP"""
+    str = multi_space_re.sub(' ', str.translate(normalize_trans).strip())
+    if eightbit_re.search(str):
+        str = unicode(str, 'utf-8').lower().encode('utf-8')
+    return str
+
+# Match attributes with the printableString LDAP syntax
+printablestring_re = re.compile('^[a-zA-Z0-9\'()+,\\-.=/:? ]+$')
+
+ou_rdn_re = re.compile(r'[,+\\ ]+')
+
+def make_ou_for_rdn(ou):
+    return ou_rdn_re.sub(' ', ou).strip()
+
+
+def verify_printableString(str):
+    """Return true if STR is valid for the LDAP syntax printableString"""
+    return printablestring_re.match(str)
+
+def get_contacts(id,contact_type,email=0):
+    """ Process infomation in entity_contact_info into a list.
+        Splits string in to entities, nomalize and remove duplicats"""
+    entity = Entity.EntityContactInfo(Cerebrum)
+    entity.clear()
+    entity.entity_id = int(id)
+    list_contact_entry = []
+    contact_entries = entity.get_contact_info(None, int(contact_type))
+    if len(contact_entries) == 1:
+    	for contact in string.split((Cerebrum.pythonify_data(contact_entries[0]['contact_value'])),'$'):
+	    if normalize_phone(contact) not in list_contact_entry and email == 0:
+		list_contact_entry.append(normalize_phone(contact))
+	    elif contact not in list_contact_entry and email == 1:
+		list_contact_entry.append(contact)  
+    elif len(contact_entries) >> 1:
+	for contact_entry in contact_entries:
+	    for contact in  string.split((Cerebrum.pythonify_data(contact_entry['contact_value'])),'$'):
+		if normalize_phone(contact) not in list_contact_entry and email == 0:
+                    list_contact_entry.append(normalize_phone(contact))
+		elif contact not in list_contact_entry and email == 1:
+		     list_contact_entry.append(contact)
     else:
-      new = new+chr(0xC0 | (0x03 & (c >> 6)))+chr(0x80 | (0x3F & c))
-  return new
-    
+	list_contact_entry = None
+    return(list_contact_entry)
+	
+
+def unique(values, normalize):
+    """Return the unique values in VALUES, compared after doing NORMALIZE"""
+    done = {}
+    ret = []
+    for val in values:
+        norm = normalize(val)
+        if not done.has_key(norm):
+            done[norm] = 1
+            ret.append(val)
+    return ret
+
+need_b64_re = re.compile('^\\s|[\0\r\n]|\\s$')
+
+def print_string_attr(name, strings, normalize):
+    strings = unique(strings, normalize)
+    for str in strings:
+        str = str.strip()
+        while str.find('  ') >= 0:
+            str = str.replace('  ', ' ')
+        if str == '':
+            str = ' '
+        str = unicode(str, 'iso-8859-1').encode('utf-8')
+        if re.match(need_b64_re, str):
+            print "%s:: %s" % (name, (base64.encodestring(str).replace("\n", '')))
+        else:
+            print "%s: %s" % (name, str)
+
 def main():
     global debug
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'dg:p:n:',
-                                   ['debug', 'help', 'group=','org=','person=',
+                                   ['debug', 'help', 'group=','org=','person=','user=',
                                     'group_spread=','user_spread=', 'netgroup='])
     except getopt.GetoptError:
         usage(1)
@@ -586,13 +852,14 @@ def main():
 	elif opt in ('-p', '--person'):
             generate_person(val)
 	elif opt in ('-u', '--user'):
-            generate_users()
+            generate_users(user_spread, val)
 	elif opt in ('-g', '--group'):
-	    load_entity2uname()
+	    #load_entity2uname()
+	    #generate_posixgroup()
 	    generate_group(group_spread, val)
 	elif opt in ('-n', '--netgroup'):
-	    load_entity2uname()
-	    generate_netgroup(val, group_spread)
+	    #load_entity2uname()
+	    generate_netgroup(group_spread, val)
 	elif opt in ('--user_spread',):
 	    user_spread = map_spread(val)
 	elif opt in ('--group_spread',):
@@ -617,7 +884,7 @@ def usage(exitcode=0):
     --netgroup outfile
       Write netgroup map to a LDIF-file
 
-    Generates a NIS map of the requested type for the requested spreads."""
+    Generates a ldif-file of the requested type for the requested spreads."""
     sys.exit(exitcode)
 
 def map_spread(id):
@@ -643,7 +910,6 @@ def config():
 	    if (cereconf.PERSON == 'Enable'):
     		print "Person generate" 
 		generate_person()
-		sys.exit()
 	    if (cereconf.ALIAS == 'Enable'):
 		print "Alias generate"
 		generate_alias()
@@ -655,7 +921,7 @@ def config():
 		generate_posixgroup()
 	    if (cereconf.NETGROUP == 'Enable'):
 		print "Netgroup generate"
-		genenerate_netgroup()
+		generate_netgroup()
 	    #files_
 	else:
 	    pass
