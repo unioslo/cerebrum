@@ -279,6 +279,10 @@ class Group(Entity, Abstract.Group):
 
     def delete_group(self):
         self.server.group_delete(self.name)
+ 
+    def set_expire_date(self, expire_date):
+        """Sets the expire date on group"""
+        info = self.server.group_set_expire("id:%s" % self.id, expire_date)
 
 class Account(Entity, Abstract.Account):
     
