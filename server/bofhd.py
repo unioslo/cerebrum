@@ -382,19 +382,18 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
             raise CerebrumError, "Unexpected help request"
         return ret
 
-    def _run_command_with_tuples(self, func, session, args, myret=()):
+    def _run_command_with_tuples(self, func, session, args, myret):
         next_tuple = -1
         for n in range(len(args)):
             if isinstance(args[n], (tuple, list)):
                 next_tuple = n
                 break
         if next_tuple == -1:
-            myret += (func(session, *args),)
+            myret.append(func(session, *args))
         else:
             for x in args[next_tuple]:
                 new_args = args[:next_tuple] + (x,) + args[next_tuple+1:]
                 self._run_command_with_tuples(func, session, new_args, myret)
-        return myret
 
     def bofhd_run_command(self, sessionid, cmd, *args):
         """Execute the callable function (in the correct module) with
@@ -412,7 +411,8 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
                 if isinstance(x, (tuple, list)):
                     has_tuples = True
                     break
-            ret = self._run_command_with_tuples(func, session, args)
+            ret = []
+            self._run_command_with_tuples(func, session, args, ret)
             if not has_tuples:
                 ret = ret[0]
             self.server.db.commit()
