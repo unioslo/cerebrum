@@ -30,7 +30,6 @@ from Cerebrum import Errors
 from Cerebrum import Entity
 from Cerebrum import QuarantineHandler
 from Cerebrum.modules import MountHost
-from Cerebrum import OU
 
 db = Factory.get('Database')()
 co = Factory.get('Constants')(db)
@@ -40,8 +39,7 @@ moho = MountHost.MountHost(db)
 disk = Factory.get('Disk')(db)
 host = Factory.get('Host')(db)
 quarantine = Entity.EntityQuarantine(db)
-ou= OU.OU(db)
-#ou = Factory.get('OU')(db)
+ou = Factory.get('OU')(db)
 
 
 class SocketCom(object):

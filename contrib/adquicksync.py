@@ -29,7 +29,6 @@ from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum import Entity
 from Cerebrum.modules import CLHandler
-from Cerebrum import OU
 import adutils
 
 db = Factory.get('Database')()
@@ -37,8 +36,7 @@ co = Factory.get('Constants')(db)
 clco = Factory.get('CLConstants')(db)
 entity = Entity.Entity(db)
 entityname = Entity.EntityName(db)
-ou = OU.OU(db)
-#ou = Factory.get('OU')(db)
+ou = Factory.get('OU')(db)
 group = Factory.get('Group')(db)
 account = Factory.get('Account')(db)
 cl = CLHandler.CLHandler(db)
