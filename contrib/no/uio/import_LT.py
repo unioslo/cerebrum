@@ -117,9 +117,12 @@ def main():
         if(year < 1970 and getattr(cereconf, "ENABLE_MKTIME_WORKAROUND", 0) == 1):
             year = 1970   # Seems to be a bug in time.mktime on some machines
         try:
-            new_person.find_by_external_id(co.externalid_fodselsnr, person['fnr'], co.system_lt)
-        except Errors.NotFoundError:
-            pass
+            new_person.find_by_external_id(co.externalid_fodselsnr, person['fnr'])
+        except Errors.TooManyRowsError:
+            try:
+                new_person.find_by_external_id(co.externalid_fodselsnr, person['fnr'], co.system_lt)
+            except Errors.NotFoundError:
+                pass
 
         new_person.populate(db.Date(year, mon, day), gender)
 
