@@ -147,6 +147,9 @@ class Constants(Constants.Constants):
         affiliation_manuell, 'simula', "Simula Research Laboratory")
     affiliation_manuell_notur = _PersonAffStatusCode(
         affiliation_manuell, 'notur', 'Notur')
+    affiliation_manuell_nikk = _PersonAffStatusCode(
+        affiliation_manuell, 'nikk', 
+	'Norsk senter for kjønn- og kvinneforskning')
     affiliation_manuell_gjest = _PersonAffStatusCode(
         affiliation_manuell, 'gjest', 'Gjest')
     affiliation_manuell_unirand = _PersonAffStatusCode(
@@ -300,7 +303,10 @@ automatically generated from FS.''')
     quarantine_svakt_passord = _QuarantineCode('svakt_passord', 'For dårlig passord')
     quarantine_autopassord = _QuarantineCode('autopassord',
                                             'Passord ikke skiftet trass pålegg')
-    quarantine_autostud = _QuarantineCode('autostud', 'Ikke aktiv student')
+    quarantine_auto_emailonly = _QuarantineCode('auto_emailonly', 
+                                               'Ikke ordinær student, tilgang til bare e-post')
+    quarantine_auto_inaktiv = _QuarantineCode('auto_inaktiv', 
+                                             'Ikke aktiv student, utestengt')
     quarantine_autoekstern = _QuarantineCode('autoekstern',
                                             'Ekstern konto gått ut på dato')
     quarantine_autointsomm = _QuarantineCode('autointsomm',
@@ -319,7 +325,7 @@ automatically generated from FS.''')
     quarantine_ou_notvalid = _QuarantineCode('ou_notvalid',
                                             'OU not valid from external source')
     quarantine_ou_remove = _QuarantineCode('ou_remove',
-                                                'OU is clean and may be removed')
+                                          'OU is clean and may be removed')
 
     email_domain_category_uio_globals = _EmailDomainCategoryCode(
         'UIO_GLOBALS',
