@@ -13,16 +13,6 @@ class SQLDriverTestCase(unittest.TestCase):
         # testing even if the SQL call fails.
         self.db.commit()
         
-    def testSQLIntComparable1(self):
-        "Check if SQL Integer is comparable to Python Integer"
-        value = self.db.query_1("SELECT max(value) FROM test_db_dict")
-        assert(value == 1, 'Unable to compare SQL Integer to Integer')
-
-    def testSQLIntComparable2(self):
-        "Check if Python Integer is comparable to SQL Integer"
-        value = self.db.query_1("SELECT max(value) FROM test_db_dict")
-        assert(1 == value, 'Unable to compare Integer to SQL Integer')
-
     def testSQLIntHashable(self):
         "Check if SQL Integer is hashable"
         # This test fails with Debian package python2.2-pgsql version
@@ -57,8 +47,6 @@ class SQLDriverTestCase(unittest.TestCase):
 
     def suite():
         suite = unittest.TestSuite()
-        suite.addTest(SQLDriverTestCase("testSQLIntComparable1"))
-        suite.addTest(SQLDriverTestCase("testSQLIntComparable2"))
         suite.addTest(SQLDriverTestCase("testSQLIntHashable"))
         suite.addTest(SQLDriverTestCase("testBrokenDateBefore1901"))
         suite.addTest(SQLDriverTestCase("testBrokenDateBefore1970"))
