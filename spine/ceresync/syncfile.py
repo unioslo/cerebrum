@@ -55,14 +55,14 @@ def main():
             if obj is None:
                 continue # the object is not supported yet
             try:
-                config.apply_default(account, obj.type)
-                config.apply_override(account, obj.type)
-                config.apply_quarantine(account, obj.type)
+                config.apply_default(obj, obj.type)
+                config.apply_override(obj, obj.type)
+                config.apply_quarantine(obj, obj.type)
                 for i in backend_map[obj.type]:
                     if operation == 'add':
                         i.add(obj)
                     elif operation == 'delete':
-                        print 'promp'
+                        i.delete(obj)
                     elif operation == 'update':
                         i.update(obj)
             except errors.NotSupportedError:
