@@ -31,6 +31,32 @@ class Constants(Constants.Constants):
     auth_move_to_disk = _AuthRoleOpCode('move_to_disk',
                                          'can move to disk')
     auth_alter_group_membership = _AuthRoleOpCode('alter_group_memb', 'desc')
+    auth_email_forward_off = _AuthRoleOpCode('email_forw_off',
+                                             "Disable user's forwards")
+    auth_email_vacation_off = _AuthRoleOpCode('email_vac_off',
+                                              "Disable user's vacation message")
+    auth_email_migrate = _AuthRoleOpCode('email_migrate',
+                                         "Move user's mailbox")
+    auth_email_quota_set = _AuthRoleOpCode('email_quota_set',
+                                           "Set quota on user's mailbox")
+    auth_email_create = _AuthRoleOpCode('email_create',
+                                        "Create e-mail addresses")
+    auth_email_delete = _AuthRoleOpCode('email_delete',
+                                        "Delete e-mail addresses")
+    # These are values used as auth_op_target.target_type.  This table
+    # doesn't use a code table to map into integers, so we can't use
+    # the CerebrumCode framework.  TODO: redefine the database table
+    # In the meantime, we define the valid code values as constant
+    # strings here.
+    auth_target_type_disk = "disk"
+    auth_target_type_group = "group"
+    auth_target_type_host = "host"
+    auth_target_type_maildomain = "maildom"
+    auth_target_type_spread = "spread"
+    # These are wildcards, allowing access to _all_ objects of that type
+    auth_target_type_global_group = "global_group"
+    auth_target_type_global_host = "global_host" # also "disk"
+    auth_target_type_global_maildomain = "global_maildom"
 
     bofh_move_user = _BofhdRequestOpCode('br_move_user', 'Move user')
     bofh_move_student = _BofhdRequestOpCode('br_move_student', 'Move student')
