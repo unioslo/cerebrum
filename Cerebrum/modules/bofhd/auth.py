@@ -796,22 +796,24 @@ class BofhdAuth(DatabaseAccessor):
                                          account, None, query_run_any)
 
     # only the user may add or remove forward addresses.
-    def can_email_forward_edit(self, operator, account=None,
+    def can_email_forward_edit(self, operator, account=None, domain=None,
                                 query_run_any=False):
         if query_run_any:
             return True
-        if self.is_superuser(operator):
+        if account and operator == account.entity_id:
             return True
-        if self.is_postmaster(operator):
-            return True
-        if operator == account.entity_id:
+        # TODO: make a separate authentication operation for this!
+        if self._is_local_postmaster(operator,
+                                     self.const.auth_email_forward_off,
+                                     account, domain, query_run_any):
             return True
         return PermissionDenied("Currently limited to superusers")
 
     # or edit the tripnote messages or add new ones.
     def can_email_tripnote_edit(self, operator, account=None,
                                 query_run_any=False):
-        return self.can_email_forward_edit(operator, account, query_run_any)
+        return self.can_email_forward_edit(operator, account,
+                                           query_run_any=query_run_any)
 
     # TODO: when Mailman is better integrated with Cerebrum, we can
     # allow local postmasters to create lists, but today creating a
@@ -858,22 +860,23 @@ class BofhdAuth(DatabaseAccessor):
             return False
         raise PermissionDenied("Currently limited to superusers")
 
-    # create e-mail targets of type "multi"
+    # create/delete e-mail targets of type "multi"
     def can_email_multi_create(self, operator, domain=None, group=None,
                                query_run_any=False):
-        if self.is_superuser(operator):
-            return True
-        if self.is_postmaster(operator):
-            return True
-        if query_run_any:
-            return False
-        raise PermissionDenied("Currently limited to superusers")
+        # not sure if we'll ever look at the group
+        return self._is_local_postmaster(operator, self.const.auth_email_create,
+                                         None, domain, query_run_any)
 
-    # delete e-mail targets of type "multi"
     def can_email_multi_delete(self, operator, domain=None, group=None,
                                query_run_any=False):
-        return self.can_email_multi_create(operator, domain, group,
-                                           query_run_any)
+        return self._is_local_postmaster(operator, self.const.auth_email_delete,
+                                         None, domain, query_run_any)
+
+    # create e-mail targets of type "forward"
+    def can_email_forward_create(self, operator, domain=None,
+                                 query_run_any=False):
+        return self._is_local_postmaster(operator, self.const.auth_email_create,
+                                         None, domain, query_run_any)
 
     # associate a new e-mail address with an account, or other target.
     def can_email_address_add(self, operator, account=None, domain=None,
