@@ -40,6 +40,22 @@ class ChangeLog(object):
                 :destination_entity, :change_params, :change_by, :change_program)""", m)
         self.messages = []
 
+    def get_log_events(self, start_id, type=None):
+        where = ["change_id >= :start_id"]
+        bind = {'start_id': start_id}
+        if type is not None:
+            where += "type = :type"
+            bind['type'] = type
+        where = "WHERE "+" AND ".join(where)
+        ret = []
+        for r in self.query("""
+        SELECT change_id, subject_entity, change_type_id, dest_entity,
+               change_params, change_by, change_program
+        FROM [:table schema=cerebrum name=change_log] %s
+        ORDER BY change_id""" % where, bind):
+            ret.append(r)
+        return ret
+
 ##     def rollback(self):
 ##         self.rollback_log()
 ##         self.orig_rollback()
