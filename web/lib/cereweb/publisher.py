@@ -6,6 +6,7 @@ from mod_python.Session import Session
 from time import strftime
 from Cerebrum.web.utils import url
 from Cerebrum.web.profile import get_profile
+import sys
 
 def logg(tekst):
     file = open("tmp/cleanup", "a")
@@ -17,10 +18,19 @@ def handler(req):
     req.session = Session(req)
     req.content_type = "text/html; charset=utf8";
     logg("Got session - put it in req.session")
+    check_encoding()
     check_connection(req)
     check_profile(req)
     logg("Calling normal handler")
     return publisher.handler(req)
+
+def check_encoding():
+    if sys.getdefaultencoding() <> "utf8":
+        ## If this doesn't work, add this to sitecustomize.py:
+        ##   # save a copy for hacking since site.py deletes setdefaultencoding 
+        ##   sys.setenc = sys.setdefaultencoding
+        sys.setenc("utf8")   
+    logg("Enkodingen er %s" % sys.getdefaultencoding())
 
 def check_connection(req):
     if req.session.has_key("server"):
