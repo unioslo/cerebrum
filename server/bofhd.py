@@ -398,7 +398,7 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
                     chars = 'chars, including [^!-~]'
                 else:
                     chars = 'good chars'
-                logger.warn("Password (%d %s) for user %s matches"
+                logger.info("Password (%d %s) for user %s matches"
                             " auth_data '%s' but not '%s'"
                             % (len(password), chars, uname,
                                "', '".join(match), "', '".join(mismatch)))
