@@ -34,6 +34,7 @@ from Cerebrum.modules import Email
 #from Cerebrum.modules.EmailLDAP import EmailLDAP
 #from Cerebrum.modules import EmailLDAP
 from Cerebrum.modules.bofhd.utils import BofhdRequests
+from Cerebrum.Constants import _SpreadCode
 from time import time as now
 
 default_mail_file = "/cerebrum/dumps/LDAP/mail-db.ldif"
@@ -260,7 +261,7 @@ def write_ldif():
         f.write("\n")
 
 
-def get_data():
+def get_data(spread):
     start = now()
 
     if verbose:
@@ -306,7 +307,7 @@ def get_data():
         print "  done in %d sec." % (now() - curr)
         print "Starting read_account()..."
         curr = now()    
-    ldap.read_accounts()
+    ldap.read_accounts(spread)
     if verbose:
         print "  done in %d sec." % (now() - curr)
         print "Starting write_ldif()..."
@@ -317,6 +318,12 @@ def get_data():
         print "Total time: %d" % (now() - start)
 
     
+def map_spread(id):
+    try:
+        return int(_SpreadCode(id))
+    except Errors.NotFoundError:
+        print "Error mapping %s" % id
+        raise
 
 def usage():
     print """
@@ -330,28 +337,35 @@ def main():
     global verbose, f, db, co, ldap
     
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'vm:', ['verbose', 'mail-file'])
+        opts, args = getopt.getopt(sys.argv[1:], 'vm:s:',
+                                   ['verbose', 'mail-file=', 'spread='])
     except getopt.GetoptError:
         usage()
 
     db = Factory.get('Database')()
+    _SpreadCode.sql = db   # TODO: provide a map-spread in Util.py
     co = Factory.get('Constants')(db)
     #ldap = EmailLDAP(db)
     ldap = Factory.get('EmailLDAP')(db)
 
     verbose = 0
     mail_file = default_mail_file
-        
+    spread = None
+    
     for opt, val in opts:
         if opt in ('-v', '--verbose'):
             verbose += 1
         elif opt in ('-m', '--mail-file'):
             mail_file = val
+        elif opt in ('-s', '--spread'):
+            spread = map_spread(val)
         elif opt in ('-h', '--help'):
             usage()
 
+    if spread is None:
+        raise ValueError, "Must set spread"
     f = file(mail_file,'w')
-    get_data()
+    get_data(spread)
     
 
 if __name__ == '__main__':
