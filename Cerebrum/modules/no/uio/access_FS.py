@@ -690,22 +690,26 @@ ORDER BY fodselsdato, personnr
                 self.db.query(qry, {'semester': self.semester,
                                     'year': self.year}))
 
-    def GetUtskriftsBetaling(self):
-
+    def GetUtskriftsBetaling(self, days_past=180):
         """Lister fødselsnummer, betalingsinformasjon og beløp for de
         innbetalinger som er gjordt gjennom studentweben for
         utskriftssystemet. """
-
+        
+        if days_past is None:
+            where = ""
+        else:
+            # Vi vet ikke om dato_betalt må være != null når status_betalt='J'
+            where = " AND NVL(dato_betalt, [:now]) > [:now]-%i" % days_past
+            
         qry = """
         SELECT frk.fodselsdato, frk.personnr, frk.fakturanr, frk.dato_betalt,
                fkd.belop
         FROM fs.fakturareskontrodetalj fkd,
              fs.fakturareskontro frk
-        WHERE fkd.fakturanr = fkd.fakturanr AND
-              fkr.status_betalt = 'J' AND
-              frd.fakturadetaljtypekode IN ('UTSKRIFT', 'UTSKRIFT1',
+        WHERE fkd.fakturanr = frk.fakturanr AND
+              fkd.fakturadetaljtypekode IN ('UTSKRIFT', 'UTSKRIFT1',
               'UTSKRIFT2', 'UTSKRIFT3') AND
-              frd.status_betalt = 'J'"""
+              frk.status_betalt = 'J' %s""" % where
         
         return (self._get_cols(qry), self.db.query(qry))
 
