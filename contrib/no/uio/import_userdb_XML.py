@@ -831,7 +831,7 @@ def person_callback(person):
         if max_cb < 0:
             raise StopIteration()
     tmp_time = strftime("%H:%M", localtime())
-    if tmp_time > prev_time:
+    if tmp_time != prev_time:
         tmp = '?'
         try:
             tmp = os.popen("ps u %i" % os.getpid())
@@ -843,7 +843,7 @@ def person_callback(person):
         if False:
             print "[%s] person_callbacks last minute: %i (mem=%s, gc=%i)" % (strftime("%H:%M:%S", localtime()), users_minute, tmp, gc.collect())
         else:
-            print "[%s] person_callbacks last minute: %i (%s)" % (strftime("%H:%M:%S", localtime()), users_minute, tmp)
+            print "[%s] person_callbacks last minute: %i (%s)" % (strftime("%a H:%M:%S", localtime()), users_minute, tmp)
         users_minute = 0
         prev_time = tmp_time
     users_minute += 1
@@ -1114,13 +1114,14 @@ def create_account(u, owner_id, owner_type, np_type=None):
                 pass
             mailquota.populate_quota(int(u['mail_softquota']),
                                      int(u['mail_hardquota']))
-        mailserver.clear()
-        try:
-            mailserver.find(mt_id)
-        except Errors.NotFoundError:
-            pass
-        mailserver.populate(get_server_id(u['mailhost']), parent=mt_id)
-        mailserver.write_db()
+        if u.has_key('mailhost'):
+            mailserver.clear()
+            try:
+                mailserver.find(mt_id)
+            except Errors.NotFoundError:
+                pass
+            mailserver.populate(get_server_id(u['mailhost']), parent=mt_id)
+            mailserver.write_db()
                 
     # Assign account affiliaitons by checking the
     # user_aff_mapping.  if subtype = '*unset*, try to find a
