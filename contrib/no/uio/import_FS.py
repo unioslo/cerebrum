@@ -164,8 +164,8 @@ def process_person_callback(person_info):
 
         # Get affiliations
         if dta_type in ('fagperson',):
-            _process_affiliation(co.affiliation_ansatt,
-                                 co.affiliation_status_ansatt_vit,
+            _process_affiliation(co.affiliation_tilknyttet,
+                                 co.affiliation_tilknyttet_fagperson,
                                  affiliations, _get_sko(p, 'faknr',
                                  'instituttnr', 'gruppenr', 'institusjonsnr'))
         elif dta_type in ('aktiv', ):
