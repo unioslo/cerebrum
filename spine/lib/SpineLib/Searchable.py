@@ -67,8 +67,6 @@ def create_mark_method(attr):
     """
     method = Method('mark_' + attr.name, None, write=True)
     def mark(self):
-        if self.mark is not None:
-            raise Exception('Allready marked for %s' % self.mark)
         self.mark = attr
     return method, mark
 
@@ -118,7 +116,7 @@ class Searchable(object):
 
         for attr in cls.slots + cls.search_slots:
             # Mark-methods is used when merging search-objects.
-            if issubclass(attr.data_type, Searchable):
+            if type(attr.data_type) == type(Searchable) and issubclass(attr.data_type, Searchable):
                 method, mark = create_mark_method(attr)
                 search_class.register_method(method, mark, overwrite=True)
 
