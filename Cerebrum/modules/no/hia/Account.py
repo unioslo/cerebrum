@@ -1,5 +1,5 @@
 # -*- coding: iso-8859-1 -*-
-# Copyright 2004 University of Oslo, Norway
+# Copyright 2004, 2005 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -26,5 +26,12 @@ class AccountHiAMixin(Account.Account):
         # The email data should, for now, not be touched by any kind
         # of internal Cerebrum update magic.
         pass
+
+    def suggest_unames(self, domain, fname, lname, maxlen=8, suffix=""):
+        from time import localtime
+        t = localtime()[0:2]
+        year = str(t[0])[2:]
+        return self.__super.suggest_unames(domain, fname, lname, maxlen,
+                                           suffix=year)
 
 # arch-tag: e0828813-9221-4e43-96f0-0194d131e683
