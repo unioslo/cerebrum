@@ -464,7 +464,7 @@ class BofhdAuth(DatabaseAccessor):
             FROM [:table schema=cerebrum name=auth_op_target_attrs]
             WHERE op_target_id=:op_target_id""",
                                  {'op_target_id': r['op_target_id']}):
-                m = re.compile(wc['attr']).match(disk.path)
+                m = re.compile(r2['attr']).match(disk.path)
                 if m != None:
                     return True
         raise PermissionDenied("No access to disk")
