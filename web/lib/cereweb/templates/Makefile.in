@@ -15,10 +15,11 @@ templates = $(patsubst %.tmpl,%.py, $(sources))
 backups = $(patsubst %.py,%.py_bak, $(templates))
 
 .PHONY: all install install-lib clean distclean print
+.SUFFIXES: .tmpl .py
 
 all: $(templates)
 
-$(templates): %.py: %.tmpl
+.tmpl.py:
 	$(CHEETAH) compile $<
 
 print:
