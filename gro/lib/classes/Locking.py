@@ -22,7 +22,7 @@ import time, weakref
 
 import cereconf
 
-from Cerebrum.gro import Transaction
+from Transaction import Transaction
 from Cerebrum.gro.Cerebrum_core import Errors
 
 import Scheduler

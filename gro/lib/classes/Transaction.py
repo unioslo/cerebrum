@@ -40,6 +40,10 @@ class Transaction(LockHolder):
             raise Errors.TransactionError('No transaction started')
 
         self._refs.append(obj)
+   
+    def is_started(self):
+        """Is the transaction started?"""
+        return self.transaction_started
 
     def commit(self):
         """ Commits all changes made by this transaction to all objects

@@ -38,7 +38,7 @@ scheduler = classes.Scheduler.get_scheduler()
 GroupSearch = registry.GroupSearch
 GroupMemberSearch = registry.GroupMemberSearch
 AccountSearch = registry.AccountSearch
-ChangeEventSearch = registry.ChangeEventSearch
+ChangeEventSearch = registry.ChangeLogSearch
 
 class LOHandler(Cerebrum_core__POA.LOHandler):
     def __init__(self, client):

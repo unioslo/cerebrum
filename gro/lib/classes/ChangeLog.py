@@ -25,7 +25,7 @@ from Date import Date
 import Registry
 registry = Registry.get_registry()
 
-__all__ = ['ChangeType', 'ChangeEvent']
+__all__ = ['ChangeType', 'ChangeLog']
 
 table = 'change_type'
 class ChangeType(DatabaseClass):
