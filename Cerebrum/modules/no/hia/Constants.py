@@ -40,6 +40,8 @@ class Constants(Constants.Constants):
                                                     'HiA SAP employee number')
 
     system_fs = _AuthoritativeSystemCode('FS', 'FS')
+    system_fs_derived = _AuthoritativeSystemCode('FS-auto',
+                                                 'Utledet av FS data')
     system_migrate = _AuthoritativeSystemCode('MIGRATE', 'Migrate from files')
     system_sap = _AuthoritativeSystemCode('SAP', 'SAP')
     system_manual =  _AuthoritativeSystemCode('MANUELL', 
