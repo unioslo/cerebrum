@@ -28,6 +28,7 @@ category:code;
 CREATE TABLE feide_guardian_code
 (
   code		NUMERIC(6,0)
+		NOT NULL
 		CONSTRAINT feide_guardian_code_pk PRIMARY KEY,
   code_str	CHAR VARYING(16)
 		NOT NULL
@@ -42,47 +43,57 @@ CREATE TABLE feide_guardian_code
   Define relations between pupils and guardians(parents).
 */
 
-category:code;
+category:main;
 CREATE TABLE feide_guardian_pupil
 (
-  guartdian_id	NUMERIC(12,0)
+  guardian_id	NUMERIC(12,0)
+		NOT NULL
 		CONSTRAINT feide_guardian_pupil_guardian_id
 		  REFERENCES person_info(person_id),
   pupil_id	NUMERIC(12,0)
+		NOT NULL
 		CONSTRAINT feide_guardian_pupil_pupil_id
-		  REFERENCES person_info(person_id)
+		  REFERENCES person_info(person_id),
+  relation	NUMERIC(6,0)
+		NOT NULL
+		CONSTRAINT feide_guardian_pupil_relation
+		  REFERENCES feide_guardian_code(code)
 );
 
 
-category:code;
+category:main;
 CREATE TABLE feide_teacher_school
 (
   teacher_id	NUMERIC(12,0)
+		NOT NULL
 		CONSTRAINT feide_teacher_school_teacher_id
 		  REFERENCES person_info(person_id),
   ou_id		NUMERIC(12,0)
+		NOT NULL
 		CONSTRAINT feide_teacher_school_scchool_id
 		  REFERENCES person_info(person_id)
 );
 
 
 
-category:code;
+category:main;
 CREATE TABLE feide_program
 (
   program_id	NUMERIC(12,0)
-		CONSTRAINT feide_program_pk PRIMARY KEY
+		CONSTRAINT feide_program_pk PRIMARY KEY,
   class_id	NUMERIC(12,0)
 		NOT NULL
 		CONSTRAINT feide_program_class_id
-		  REFERENCES group(group_id),
+		  REFERENCES group_info(group_id),
   course_id	NUMERIC(12,0)
 		NOT NULL
 		CONSTRAINT feide_program_course_id
-		  REFERENCES group(group_id),
+		  REFERENCES group_info(group_id),
   name		CHAR VARYING(512)
 		NOT NULL,
   teacher_id    NUMERIC(12,0)
+		CONSTRAINT feide_program_teacher_id
+		  REFERENCES person_info(person_id)
 );
 
 
