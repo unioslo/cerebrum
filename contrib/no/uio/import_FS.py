@@ -48,8 +48,13 @@ def _get_sko(a_dict, kfak, kinst, kgr, kinstitusjon=None):
     key = "-".join((a_dict[kfak], a_dict[kinst], a_dict[kgr]))
     if not ou_cache.has_key(key):
         ou = Factory.get('OU')(db)
+        if kinstitusjon is not None:
+            institusjon=a_dict[kinstitusjon]
+        else:
+            institusjon=cereconf.DEFAULT_INSTITUSJONSNR
         try:
-            ou.find_stedkode(int(a_dict[kfak]), int(a_dict[kinst]), int(a_dict[kgr]))
+            ou.find_stedkode(int(a_dict[kfak]), int(a_dict[kinst]), int(a_dict[kgr]),
+                             institusjon=institusjon)
             ou_cache[key] = ou.ou_id
         except Errors.NotFoundError:
             logger.warn("bad stedkode: %s" % key)
