@@ -86,7 +86,7 @@ class EmailLDAPUiOMixin(EmailLDAP):
         disk = Factory.get('Disk')(self._db)
         res = []
         path_pattern = re.compile(r'/(?P<department>[^/]+)/(?P<host>[^/]+)/[^/]+')
-        for d in disk.list(spread):
+        for d in disk.list(spread=spread):
             path = d['path']
             m = path_pattern.match(path)
             if m:
