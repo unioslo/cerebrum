@@ -48,7 +48,7 @@ class StudconfigParser(xml.sax.ContentHandler):
         self._in_gruppe_oversikt = None
         self._in_disk_oversikt = None
         self.group_defs = {}
-        self.disk_defs = []
+        self.disk_defs = {}
         self.db = db
         self._super = None
 
@@ -84,7 +84,10 @@ class StudconfigParser(xml.sax.ContentHandler):
         elif self._in_disk_oversikt:
             if ename == 'diskdef':
                 tmp['max'] = tmp.get('max', self.default_disk_max)
-                self.disk_defs.append(tmp)
+                if tmp.has_key('path'):
+                    self.disk_defs.setdefault('path', {})[tmp['path']] = tmp
+                else:
+                    self.disk_defs.setdefault('prefix', {})[tmp['prefix']] = tmp
             else:
                 raise SyntaxWarning, "Unexpected tag %s in diskdef" % ename
         elif self._in_profil:
@@ -121,19 +124,18 @@ class StudconfigParser(xml.sax.ContentHandler):
         elif self._in_disk_oversikt and ename == 'disk_oversikt':
             self._in_disk_oversikt = None
         elif len(self.elementstack) == 0 and ename == 'config':
-            m = _MapStudconfigData(self.db)
-            m.mapData(self.profiles)
-
+            pass
 
 class _MapStudconfigData(object):
     """Map data from StudconfigParser to cerebrum object ids etc."""
     
-    def __init__(self, db):
+    def __init__(self, db, autostud):
         self.db = db
         self._sko_cache = {}
         self._group_cache = {}
         self._ou = Factory.get('OU')(self.db)
         self._group = Group.Group(self.db)
+        self._autostud = autostud
 
     def mapData(self, dta):
         # pp.pprint(dta)
@@ -165,11 +167,14 @@ class _MapStudconfigData(object):
                     dta[dtatype].setdefault('primargruppe',
                                             []).extend(primargruppe)
                 elif dtakey == 'disk':
-                    pass
+                    for d in dta[dtatype][dtakey]:
+                        if d.has_key('path'):
+                            for d in self._autostud._disks.keys():
+                                if self._autostud._disks[d][0] == self._disk['path']:
+                                    self._autostud.sp.disk_defs['path'][d] = self._autostud.sp.disk_defs[self._disk['path']]
+                                    self._disk['path'] = d
                 else:
-                    # print "skip %s" % dtakey
                     pass
-        pp.pprint(dta)
 
     def _get_spread(self, name):
         # TODO: Map2const
@@ -401,13 +406,6 @@ class Profile(object):
         else:
              self._disk = singular_settings['disk'][1][0]
 
-        self.max_on_disk = 4000  # TODO: set this properly
-        # autostud.sp.disk_defs, se etter disk med samme prefix eller
-        # path for å hente ut max
-        #print "dfg: %s" % self._dfg
-        #print "sko: %s" % self._email_sko
-        #print "disk: %s" % self._disk
-
     def _normalize_nivakode(self, niva):
         niva = int(niva)
         if niva >= 100 and niva < 300:
@@ -428,12 +426,26 @@ class Profile(object):
         prefix. (i.e from /foo/bar/u11 to /foo/bar/u12)"""
 
         if current_disk is not None:
-            dta = self._autostud._disks[int(current_disk)]
-            if self._disk == dta[0][0:len(self._disk)]:
-                return current_disk
+            if self._disk.has_key('path'):
+                if self._disk['path'] == current_disk:
+                    return current_disk
+            else:
+                disk_path = self._autostud._disks[int(current_disk)][0]
+                if self._disk['prefix'] == disk_path[0:len(self._disk['prefix'])]:
+                    return current_disk
+        
+        if self._disk.has_key('path'):
+            # TBD: Should we ignore max_on_disk when path is explisitly set?
+            return self._disk['path']
+
+        dest_pfix = self._disk['prefix']
+        max_on_disk = self._autostud.sp.disk_defs['prefix'][dest_pfix]['max']
+        if max_on_disk == -1:
+            max_on_disk = 999999
         for d in self._autostud._disks.keys():
-            dta = self._autostud._disks[d]
-            if(self._disk == dta[0][0:len(self._disk)] and dta[1] < self.max_on_disk):
+            tmp_path, tmp_count = self._autostud._disks[d]
+            if (dest_pfix == tmp_path[0:len(dest_pfix)]
+                and tmp_count < max_on_disk):
                 return d
         raise ValueError, "Bad disk %s" % self._disk
 
@@ -474,6 +486,9 @@ class AutoStud(object):
             self._disks[int(d['disk_id'])] = [d['path'], int(d['count'])]
         self.sp = StudconfigParser(db)
         xml.sax.parse(cfg_file, self.sp)
+        m = _MapStudconfigData(db, self)
+        m.mapData(self.sp.profiles)
+
         if debug > 2:
             print "Parsed studconfig.xml expanded to: "
             pp.pprint(self.sp.selection2profile)
