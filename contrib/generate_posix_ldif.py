@@ -46,15 +46,14 @@ disablesync_cn = 'disablesync'
 def init_ldap_dump():
     glob_fd.write("\n")
     if getattr(cereconf, 'LDAP_POSIX_DN', None):
-        glob_fd.write(make_container_entry('POSIX'))
+        glob_fd.write(container_entry_string('POSIX'))
     add_ldif_file(glob_fd, getattr(cereconf, 'LDAP_POSIX_ADD_LDIF_FILE', None))
 
 
 def generate_users(spread=None,filename=None):
     posix_user = PosixUser.PosixUser(Cerebrum)
     disk = Factory.get('Disk')(Cerebrum)
-    if spread: spreads = eval_spread_codes(spread)
-    else: spreads = eval_spread_codes(cereconf.LDAP_USER_SPREAD)
+    spreads = eval_spread_codes(spread or cereconf.LDAP_USER_SPREAD)
     shells = {}
     for sh in posix_user.list_shells():
 	shells[int(sh['code'])] = sh['shell']
@@ -70,7 +69,7 @@ def generate_users(spread=None,filename=None):
     else:
 	f = glob_fd
 
-    f.write(make_container_entry('USER'))
+    f.write(container_entry_string('USER'))
 
     #done_users = {}
     # Change to uname2id
@@ -110,16 +109,12 @@ def generate_users(spread=None,filename=None):
                 qshell = qh.get_shell()
                 if qshell is not None:
                     shell = qshell
-            if row['name']:
-                cn = some2utf(row['name'])
-            elif gecos:
-                cn = some2utf(gecos)
+            cn = (row['name'] or gecos)
+            if cn:
+                cn = some2utf(cn)
             else:
                 cn = uname
-            if gecos:
-                gecos = latin1_to_iso646_60(some2iso(gecos))
-            else:
-                gecos = latin1_to_iso646_60(some2iso(cn))
+            gecos = latin1_to_iso646_60(some2iso(gecos or cn))
             if row['disk_id']:
                 home = "%s/%s" % (disks[int(row['disk_id'])],uname)
             elif row['home']:
@@ -146,17 +141,15 @@ def generate_users(spread=None,filename=None):
 def generate_posixgroup(spread=None,u_spread=None,filename=None):
     posix_group = PosixGroup.PosixGroup(Cerebrum)
     group = Factory.get('Group')(Cerebrum)
-    if spread: spreads = eval_spread_codes(spread)
-    else: spreads = eval_spread_codes(cereconf.LDAP_GROUP_SPREAD)
-    if u_spread: u_spreads = eval_spread_codes(u_spread)
-    else: u_spreads = eval_spread_codes(cereconf.LDAP_USER_SPREAD)
+    spreads = eval_spread_codes(spread or cereconf.LDAP_GROUP_SPREAD)
+    u_spreads = eval_spread_codes(u_spread or cereconf.LDAP_USER_SPREAD)
     if filename:
 	f = file(filename, 'w')
         f.write("\n")
     else:
 	f = glob_fd
 
-    f.write(make_container_entry('GROUP'))
+    f.write(container_entry_string('GROUP'))
 
     groups = {}
     dn_str = get_tree_dn('GROUP')
@@ -197,12 +190,10 @@ def generate_netgroup(spread=None,u_spread=None,filename=None):
     else:
 	f = glob_fd
 
-    f.write(make_container_entry('NETGROUP'))
+    f.write(container_entry_string('NETGROUP'))
 
-    if spread: spreads = eval_spread_codes(spread)
-    else: spreads = eval_spread_codes(cereconf.LDAP_NETGROUP_SPREAD)
-    if u_spread: u_spreads = eval_spread_codes(u_spread)
-    else: u_spreads = eval_spread_codes(cereconf.LDAP_USER_SPREAD)
+    spreads = eval_spread_codes(spread or cereconf.LDAP_NETGROUP_SPREAD)
+    u_spreads = eval_spread_codes(u_spread or cereconf.LDAP_USER_SPREAD)
     dn_str = get_tree_dn('NETGROUP')
     obj_str = "".join(["objectClass: %s\n" % oc for oc in
                        ('top', 'nisNetGroup')])
@@ -349,23 +340,21 @@ def main():
 def usage(exitcode=0):
     print """Usage: [options]
 
- No option will generate a full dump with default values from cereconf.
+  --user=<outfile>     | -u <outfile>  Write users to a LDIF-file
+  --group=<outfile>    | -g <outfile>  Write posix groups to a LDIF-file
+  --netgroup=<outfile> | -n <outfile>  Write netgroup map to a LDIF-file
+  --posix  Write all of the above, plus optional top object and extra file,
+           to a file given in cereconf (unless the above options override).
+           Also disable ldapsync first.
 
-  --user=<outfile>| -u <outfile> --user_spread=<value>|-U <value>
-      Write users to a LDIF-file
+ With none of the above options, do the same as --posix except only write
+ the parts that are enabled in cereconf.
 
-  --group=<outfile>| -g <outfile>  --group_spread=<value>|-G <value> -U <value>
-      Write posix groups to a LDIF-file
+  --user_spread=<value>     | -U <value>  (used by all components)
+  --group_spread=<value>    | -G <value>  (used by --group component)
+  --netgroup_spread=<value> | -N <value>  (used by --netgroup component)
 
-  --netgroup=<outfile>| -n <outfile> --netgroup_spread=<value>|-N <val> -U <val>
-      Write netgroup map to a LDIF-file
-
-  --posix
-      write all posix-user,-group and -netgroup
-      from default cereconf parameters
-
-  Both --user_spread, --netgroup_spread  and --group_spread can handle
-  multiple spread-values (<value> | <value1>,<value2>,,,)"""
+  The spread options accept multiple spread-values (<value1>,<value2>,...)"""
     sys.exit(exitcode)
 
 def config():

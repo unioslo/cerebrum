@@ -83,7 +83,7 @@ def init_ldap_dump(ou_org):
     ou = Factory.get('OU')(Cerebrum)
     ou.find(ou_org)
     if fax_tab.has_key(int(ou_org)):
-        attrs.setdefault('facsimileTelephoneNumber', fax_tab[int(ou_org)])
+        attrs['facsimileTelephoneNumber'] = fax_tab[int(ou_org)]
     post_string = street_string = None
     try:
 	post_addr = ou.get_entity_address(None, co.address_post)[0]
@@ -97,7 +97,7 @@ def init_ldap_dump(ou_org):
                                    post_addr['city'],
                                    post_addr['country'])
         if post_string:
-            attrs.setdefault('postalAddress', (post_string,))
+            attrs['postalAddress'] = (post_string,)
     try:
 	street_addr = ou.get_entity_address(None,co.address_street)[0]
     except:
@@ -110,19 +110,18 @@ def init_ldap_dump(ou_org):
                                      street_addr['city'],
                                      street_addr['country'])
         if street_string:
-            attrs.setdefault('street', (street_string,))
+            attrs['street'] = (street_string,)
     if ph_tab.has_key(int(ou_org)):
-        attrs.setdefault('telephoneNumber', ph_tab[int(ou_org)])
+        attrs['telephoneNumber'] = ph_tab[int(ou_org)]
     attrs.update(cereconf2utf('LDAP_BASE_ATTRS', {}))
-    ocs = list(attrs.get('objectClass', ()))
-    ocs.append(filter(lambda oc: oc not in ocs,
-                      ('top', 'organization', 'eduOrg', 'norEduOrg')))
+    ocs  = ['top', 'organization', 'eduOrg', 'norEduOrg']
+    ocs += [oc for oc in attrs.get('objectClass', ()) if oc not in ocs]
     attrs['objectClass'] = ocs
-    if attrs.has_key('labeledURI'):
+    if attrs.get('labeledURI'):
         attrs.setdefault('eduOrgHomePageURI', attrs['labeledURI'])
 
     glob_fd.write("\n")
-    glob_fd.write(make_entry(cereconf.LDAP_BASE, attrs))
+    glob_fd.write(entry_string(cereconf.LDAP_BASE, attrs))
 
     ou_struct[int(ou.ou_id)] = (cereconf.LDAP_BASE, post_string,
                                 street_string, None, None, None)
@@ -156,7 +155,7 @@ Set LDAP_ORG_ROOT_AUTO='Disable' and LDAP_ORG_ROOT to the correct ou_id no.!"""
 
 
 def generate_org(ou_id):
-    glob_fd.write(make_container_entry('ORG'))
+    glob_fd.write(container_entry_string('ORG'))
 
     stedkode = Stedkode.Stedkode(Cerebrum)
     if True:
@@ -172,7 +171,7 @@ def generate_org(ou_id):
         attrs.update(cereconf2utf('LDAP_NON_ROOT_ATTRS', {}))
         non_root_dn = "ou=%s,%s" % (cereconf.LDAP_NON_ROOT_ATTR,
                                     get_tree_dn('ORG'))
-	glob_fd.write(make_entry(non_root_dn, attrs))
+	glob_fd.write(entry_string(non_root_dn, attrs))
 
     ou = Factory.get('OU')(Cerebrum)
     ou_list = ou.get_structure_mappings(co.perspective_lt)
@@ -328,7 +327,7 @@ def trav_list(par, ou_list, par_ou):
 
 
 def generate_person():
-    glob_fd.write(make_container_entry('PERSON'))
+    glob_fd.write(container_entry_string('PERSON'))
 
     person = Factory.get('Person')(Cerebrum)
     group = Factory.get('Group')(Cerebrum)
@@ -599,8 +598,8 @@ def get_contacts(entity_id=None,source_system=None,contact_type=None,email=0):
 
 def main():
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'o', ['help', 'org='])
-    opts = dict(opts)
+        opts, args = getopt.getopt(sys.argv[1:], 'o:', ['help', 'org='])
+        opts = dict(opts)
     except getopt.GetoptError:
         usage(1)
     if args or opts.has_key('--help'):
@@ -616,35 +615,19 @@ def main():
         org_root = root_OU()
 
     if org_root:
-        org_file = opts.get('--org', opts.get('-o', None))
-        if not org_file:
-            org_file = cereconf.LDAP_DUMP_DIR + "/" + cereconf.LDAP_ORG_FILE
-
         global glob_fd
-        glob_fd = SimilarSizeWriter(org_file)
+        glob_fd = SimilarSizeWriter(opts.get('--org') or opts.get('-o') or
+                                    cereconf.LDAP_DUMP_DIR + '/'
+                                    + cereconf.LDAP_ORG_FILE)
         glob_fd.set_size_change_limit(10)
 
-        if org_file is not None:
-            load_code_tables()
-            init_ldap_dump(org_root)
-            generate_org(org_root)
-            generate_person()
-            generate_alias()
-        else:
-            config(org_root)
+        config(org_root)
 
         glob_fd.close()
 
 def usage(exitcode=0):
-    print """Usage: [options]
-
- No option will generate a full dump with default values from cereconf.
-
-  --org=<outfile>
-      Write organization, person and alias to a LDIF-file
-
-  Both --user_spread, --netgroup_spread  and --group_spread can handle
-  multiple spread-values (<value> | <value1>,<value2>,,,)"""
+    print """Usage: [--org=<outfile> | -o <outfile>]
+ Write organization, person (if enabled) and alias (if enabled) to LDIF-file"""
     sys.exit(exitcode)
 
 def config(org_root):

@@ -51,7 +51,7 @@ def get_tree_dn(tree_name):
     return dn
 
 
-def make_entry(dn, attrs, add_rdn = True):
+def entry_string(dn, attrs, add_rdn = True):
     """Return a string with an LDIF entry with the specified DN and ATTRS.
     **Does not currently base64-encode values when necessary.**
     If ADD_RDN, add the values in the RDN to the attribues if necessary."""
@@ -61,8 +61,10 @@ def make_entry(dn, attrs, add_rdn = True):
             old = attrs.get(ava[0])
             if not old:
                 attrs[ava[0]] = (ava[1],)
-            elif not filter(lambda s: normalize_string(s) == ava[1], old):
-                attrs[ava[0]] = (ava[1],) + tuple(old)
+            else:
+                norm = normalize_string(ava[1])
+                if not filter(lambda s: normalize_string(s) == norm, old):
+                    attrs[ava[0]] = (ava[1],) + tuple(old)
     keys = attrs.keys()
     keys.sort()         # not necessary, but minimizes changes in file
     return ("dn: %s\n" % dn
@@ -71,28 +73,22 @@ def make_entry(dn, attrs, add_rdn = True):
                        for val in attrs[attr]])
             + "\n")
 
-def make_container_entry(tree_name, attrs = {}):
+def container_entry_string(tree_name, attrs = {}):
     attrs = dict(cereconf2utf('LDAP_CONTAINER_ATTRS'))
     attrs.update(attrs)
     attrs.update(cereconf2utf('LDAP_%s_ATTRS' % tree_name, {}))
     if 'top' not in attrs['objectClass']:
         attrs['objectClass'] = ('top',) + tuple(attrs['objectClass'])
-    return make_entry(get_tree_dn(tree_name), attrs)
+    return entry_string(get_tree_dn(tree_name), attrs)
 
 
-def add_ldif_file(outfile, filename, required = False):
-    """Write to OUTFILE the LDIF file FILENAME, if it exists."""
+def add_ldif_file(outfile, filename):
+    """Write to OUTFILE the LDIF file FILENAME, unless FILENAME is false."""
     if filename:
-        try:
-            if not filename.startswith('/'):
-                filename = cereconf.LDAP_DUMP_DIR + '/' + filename
-	    lfile = file(filename, 'r')
-        except IOError:
-            if required:
-                raise
-        else:
-	    outfile.write(lfile.read().strip() + "\n\n")
-	    lfile.close()
+        # Removed 'try: / except IOError: pass / else:' around file()
+        if not re.match(r'^\.*/', filename):
+            filename = cereconf.LDAP_DUMP_DIR + '/' + filename
+        outfile.write(file(filename, 'r').read().strip() + "\n\n")
 
 
 def iso2utf(s):
@@ -157,7 +153,7 @@ def verify_printableString(str):
 
 _need_base64_re = re.compile('^\\s|[\0\r\n]|\\s$')
 
-def make_attr(name, strings, normalize = None, verify = None, raw = False):
+def attr_lines(name, strings, normalize = None, verify = None, raw = False):
     """ Not in use for the moment, remove this line if used """
     ret = []
     done = {}
@@ -188,4 +184,4 @@ def make_attr(name, strings, normalize = None, verify = None, raw = False):
                                              .replace("\n", ''))))
         else:
             ret.append("%s: %s\n" % (name, s))
-    return ''.join(ret)
+    return ret
