@@ -8,6 +8,7 @@ include /usr/share/cdbs/1/rules/simple-patchsys.mk
 binary-post-install/%::
 	-mv debian/tmp/usr/var debian/tmp/
 	-mv debian/tmp/usr/etc debian/tmp/
+	make -C doc install DESTDIR=$(PWD)/debian/tmp 
 	cp debian/cereconf.py.default debian/tmp/etc/cerebrum/cereconf.py
 	cp debian/debian_config.py.default debian/tmp/usr/lib/python2.3/site-packages/Cerebrum/debian_config.py
 	cp debian/jbofh.sh debian/tmp/usr/bin/jbofh
@@ -35,4 +36,4 @@ common-binary-indep::
 #	(cd java/jbofh; \
 	 JAVACMD=/usr/lib/kaffe/bin/kaffe ANT_OPTS="-ss 512k" ant -Dbuild.compiler=kjc -Dnogui dist)
 	 #/debian/cerebrum-doc/usr/share/doc/cerebrum-doc
-	DESTDIR=$(PWD)/debian/tmp make -C doc install
+	make -C doc DESTDIR=$(PWD)/debian/tmp 
