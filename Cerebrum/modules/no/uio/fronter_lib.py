@@ -314,7 +314,7 @@ class Fronter(object):
             # pga. utplukket som finnes i dumpfila.
             self.kurs2navn[kurs_id] = navn_sorted[0][2]
 
-        for akt in self._fs.GetUndAktivitet()[1]:
+        for akt in self._fs.list_undervisningsaktiviteter():
             id_seq = (self.EMNE_PREFIX, akt['institusjonsnr'],
                       akt['emnekode'], akt['versjonskode'],
                       akt['terminkode'], akt['arstall'],

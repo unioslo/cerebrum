@@ -775,8 +775,8 @@ WHERE
   ue.versjonskode   = e.versjonskode AND
   ue.terminkode IN ('VÅR', 'HØST') AND
   ue.terminkode = t.terminkode AND
-  (ue.arstall > %s OR
-   (ue.arstall = %s AND
+  (ue.arstall > %d OR
+   (ue.arstall = %d AND
     EXISTS(SELECT 'x' FROM fs.arstermin tt
            WHERE tt.terminkode = '%s' AND
                  t.sorteringsnokkel >= tt.sorteringsnokkel)))
@@ -785,28 +785,32 @@ WHERE
         return (self._get_cols(qry), self.db.query(qry))
 
 
-    def GetUndAktivitet(self, yr=time.localtime()[0], sem=None):
-        if sem == None:
-            sem=self.get_curr_semester()
-            
-        qry = """
-SELECT
-  ua.institusjonsnr, ua.emnekode, ua.versjonskode,
-  ua.terminkode, ua.arstall, ua.terminnr, ua.aktivitetkode,
-  ua.undpartilopenr, ua.disiplinkode, ua.undformkode, ua.aktivitetsnavn
-FROM
-  fs.undaktivitet ua
-WHERE
-  ua.arstall    = %s AND
-  ua.terminkode = '%s' AND
-  ua.undpartilopenr IS NOT NULL AND
-  ua.disiplinkode IS NOT NULL AND
-  ua.undformkode IS NOT NULL
-  """ % (yr, sem)
-        
-        return (self._get_cols(qry), self.db.query(qry))
+    def list_undervisningsaktiviteter(self, start_aar=time.localtime()[0],
+                                      start_semester=None):
+        if start_semester is None:
+            start_semester = self.get_curr_semester()
+        return self.db.query("""
+        SELECT  
+          ua.institusjonsnr, ua.emnekode, ua.versjonskode,
+          ua.terminkode, ua.arstall, ua.terminnr, ua.aktivitetkode,
+          ua.undpartilopenr, ua.disiplinkode, ua.undformkode, ua.aktivitetsnavn
+        FROM
+          [:table schema=fs name=undaktivitet] ua,
+          [:table schema=fs name=arstermin] t
+        WHERE
+          ua.undpartilopenr IS NOT NULL AND
+          ua.disiplinkode IS NOT NULL AND
+          ua.undformkode IS NOT NULL AND
+          ua.terminkode IN ('VÅR', 'HØST') AND
+          ua.terminkode = t.terminkode AND
+          (ua.arstall > :aar OR
+           (ua.arstall = :aar AND
+            EXISTS (SELECT 'x' FROM fs.arstermin tt
+                    WHERE tt.terminkode = :semester AND
+                          t.sorteringsnokkel >= tt.sorteringsnokkel)))""",
+                             {'aar': start_aar,
+                              'semester': start_semester})
 
-    
     def GetEvuKurs(self, date=time.localtime()):
         d = time.strftime("%Y-%m-%d", date)
         qry = """

@@ -177,7 +177,7 @@ def get_undervisningsenheter():
         emne_termnr.setdefault(multi_id, {})[enhet['terminnr']] = 1
 
 def get_undervisningsaktiviteter():
-    for akt in fs.GetUndAktivitet()[1]:
+    for akt in fs.list_undervisningsaktiviteter():
         enhet_id = "kurs:%s:%s:%s:%s:%s:%s" % (
             akt['institusjonsnr'], akt['emnekode'],
             akt['versjonskode'], akt['terminkode'],
