@@ -21,6 +21,7 @@ from Cerebrum import Account
 from Cerebrum import Errors
 from Cerebrum import Group
 from Cerebrum import Person
+from bofhd_errors import CerebrumError
 import cereconf
 from Cerebrum.modules import PosixUser
 import re
@@ -83,7 +84,7 @@ class BofhdExtension(object):
         ('account', 'create'),
         AccountName(ptype="new"), PersonIdType(), PersonId(),
         Affiliation(default=True), OU(default=True), Date(optional=True),
-        fs=FormatSuggestion("Created: %i", ("account_id",)))
+        fs=FormatSuggestion("Created with id: %i", ("account_id",)))
     def account_create(self, user, accountname, idtype, id,
                        affiliation=None, ou=None, expire_date=None):
         """Create account 'accountname' belonging to 'idtype':'id'"""
@@ -93,13 +94,7 @@ class BofhdExtension(object):
         account.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
         creator_id = account.entity_id
         account.clear()
-        person = self.person
-        person.clear()
-        if idtype == 'fnr':
-            person.find_by_external_id(self.const.externalid_fodselsnr, id)
-        else:
-            raise NotImplementedError, "Unknown idtype: %s" % idtype
-
+        person = self._get_person(id, idtype)
         account.populate(accountname,
                          self.const.entity_person,  # Owner type
                          person.entity_id,
@@ -126,29 +121,39 @@ class BofhdExtension(object):
     ##         <shell=> <gecos=>
     all_commands['account_posix_create'] = Command(
         ('account', 'posix_create'),
-        AccountName(ptype="new"), GroupName(ptype="primary"),
+        AccountName(ptype="existing"), GroupName(ptype="primary"),
         PosixHome(default=True), PosixShell(default=True),
-        PosixGecos(default=True))
+        PosixGecos(default=True),
+        fs=FormatSuggestion("Created with password: %s", ("password", )))
     # TODO:  Ettersom posix er optional, flytt denne til en egen fil
     def account_posix_create(self, user, accountname, prigroup, home=None,
                              shell=None, gecos=None):
         """Create a PosixUser for existing 'accountname'"""
-        account = self._get_account(accountname)
+        try:
+            account = self._get_account(accountname)
+        except Errors.NotFoundError:
+            raise CerebrumError, "parent account not found"
         group=Group.Group(self.Cerebrum)
-        group.find_by_name(prigroup)
+        try:
+            group.find_by_name(prigroup)
+        except Errors.NotFoundError:
+            raise CerebrumError, "group not found"
         posix_user = PosixUser.PosixUser(self.Cerebrum)
         uid = posix_user.get_free_uid()
 
         if home is None:
             home = '/home/%s' % accountname
         if shell is None:
-            shell = cereconf.default_shell
-        posix_user.populate(account.account_id, uid, group.group_id, gecos,
-                            home, shell)
+            shell = self.const.posix_shell_bash
+        posix_user.clear()
+        posix_user.populate(uid, group.entity_id, gecos,
+                            home, shell, parent=account)
         # uname = posix_user.get_name(co.account_namespace)[0][2]
         passwd = posix_user.make_passwd(None)
         posix_user.set_password(passwd)
         posix_user.write_db()
+            
+        return {'password': passwd}
 
     ## bofh> account type <accountname>
     all_commands['account_type'] = Command(('account', 'type'), AccountName())
@@ -177,22 +182,30 @@ class BofhdExtension(object):
 
     ## bofh> group add <entityname+> <groupname+> [<op>]
     all_commands['group_add'] = Command(("group", "add"),
-                                        GroupName("source", repeat=True),
-                                        GroupName("destination", repeat=True),
+                                        EntityName(ptype="source", repeat=True),
+                                        GroupName(ptype="destination", repeat=True),
                                         GroupOperation(optional=True))
-    def group_add(self, user, src_group, dest_group,
+    def group_add(self, user, src_name, dest_group,
                   operator=None):
-        """Add group named src to group named dest using specified
+        """Add entity named src to group named dest using specified
         operator"""
-        # TODO: I flg utkast til kommando-spec, kan src_group være
-        # navn på en entitet som ikke er gruppe
-        if operator is None: operator = self.const.group_memberop_union
-        if operator == 'union':   # TBD:  Need a way to map to constant
-            operator = self.const.group_memberop_union
-        group_s = Group.Group(self.Cerebrum)
-        group_s.find_by_name(src_group)
-        group_d = Group.Group(self.Cerebrum)
-        group_d.find_by_name(dest_group)
+        operator = self._get_group_opcode(operator)
+        group_s = account_s = None
+        try:
+            group_s = self._get_group(src_name)
+        except Errors.NotFoundError:
+            pass
+        try:
+            account_s = self._get_account(src_name)
+        except Errors.NotFoundError:
+            pass
+        if group_s is None:
+            if account_s is None:
+                raise CerebrumError, "Unkown source: %s" % src_name
+            group_s = account_s
+        elif account_s is not None:
+            raise CerebrumError, "Ambigious source: %s" % src_name
+        group_d = self._get_group(dest_group)
         group_d.add_member(group_s, operator)
         return "OK"
 
@@ -257,13 +270,14 @@ class BofhdExtension(object):
         raise NotImplementedError, "Feel free to implement this function"
 
     ## bofh> group list <groupname>
-    all_commands['group_list'] = Command(("group", "list"),
-                                         GroupName("existing"))
+    all_commands['group_list'] = Command(
+        ("group", "list"), GroupName("existing"),
+        fs=FormatSuggestion("%i", ("member_id",), hdr="Members ids"))
     def group_list(self, user, groupname):
         """List direct members of group (with their entity types), in
         categories coresponding to the three membership ops.  """
         group = self._get_group(groupname)
-        return group.get_members()
+        return [{'member_id': a} for a in group.get_members()]
 
     ## bofh> group person <person_id>
     all_commands['group_person'] = Command(("group", "person"),
@@ -277,7 +291,7 @@ class BofhdExtension(object):
     ## bofh> group remove <entityname+> <groupname+> [<op>]
     # TODO: "entityname" er litt vagt, skal man gjette entitytype?
     all_commands['group_remove'] = Command(("group", "remove"),
-                                           EntityName(repeat=True),
+                                           EntityName(ptype="source", repeat=True),
                                            GroupName("existing", repeat=True),
                                            GroupOperation(optional=True))
     def group_remove(self, user, entityname, groupname, op=None):
@@ -406,10 +420,12 @@ class BofhdExtension(object):
         "Navn     : %20s\nFødt     : %20s\nKjønn    : %20s\n"
         "person id: %20d\nExport-id: %20s",
         ("name", "birth", "gender", "pid", "expid")))
-    # TBD:  Should add a generic _get_person(idtype, id) method
     def person_info(self, user, idtype, id):
         """Returns some info on person with 'idtype'='id'"""
-        person = self._get_person(id, idtype)
+        try:
+            person = self._get_person(id, idtype)
+        except Errors.NotFoundError:
+            raise CerebrumError, "person not found"
         name = self._get_person_name(person)
         return {'name': name, 'pid': person.entity_id,
                 'expid': person.export_id, 'birth': str(person.birth_date),
@@ -436,9 +452,11 @@ class BofhdExtension(object):
 
     def _get_account(self, id, idtype='name'):
         account = Account.Account(self.Cerebrum)  # TBD: Flytt denne
+        account.clear()
         if idtype == 'name':
-            account.clear()
             account.find_by_name(id, self.const.account_namespace)
+        elif idtype == 'id':
+            account.find(id)
         else:
             raise NotImplementedError, "unknown idtype: '%s'" % idtype
         return account
@@ -452,6 +470,13 @@ class BofhdExtension(object):
             raise NotImplementedError, "unknown idtype: '%s'" % idtype
 
         return group
+
+    def _get_group_opcode(self, operator):
+        if operator is None:
+            return self.const.group_memberop_union
+        if operator == 'union':
+            return self.const.group_memberop_union
+        raise NotImplementedError, "unknown group opcode: '%s'" % operator
 
     def _get_person_name(self, person):
         name = None
@@ -481,6 +506,8 @@ class BofhdExtension(object):
         person.clear()
         if idtype == 'fnr':
             person.find_by_external_id(self.const.externalid_fodselsnr, id)
+        elif idtype == 'id':
+            person.find(id)
         else:
             raise NotImplementedError, "Unknown idtype: %s" % idtype
         return person
