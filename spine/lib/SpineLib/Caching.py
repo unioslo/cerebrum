@@ -92,8 +92,8 @@ class Caching(object):
             def holder(): # this will make sure a reference to self exists as long as holder exists
                 self
 
-            scheduler = Scheduler.get_scheduler()
-            scheduler.addTimer(minimum_lifetime, holder)
+#            scheduler = Scheduler.get_scheduler()
+#            scheduler.addTimer(minimum_lifetime, holder)
 
     def invalidate(self):
         """ Remove the node from the cache.

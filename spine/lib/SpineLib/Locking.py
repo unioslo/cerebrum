@@ -76,8 +76,8 @@ class Locking(object):
                 self.unlock(o)
                 self.__lost_lock(o)
 
-        scheduler = Scheduler.get_scheduler()
-        scheduler.addTimer(cereconf.SPINE_LOCK_TIMEOUT, unlock, weakref.ref(client))
+#        scheduler = Scheduler.get_scheduler()
+#        scheduler.addTimer(cereconf.SPINE_LOCK_TIMEOUT, unlock, weakref.ref(client))
 
     def __lost_lock(self, client):
         client.lost_locks.append(self)
@@ -118,8 +118,8 @@ class Locking(object):
                 self.unlock(o)
                 self.__lost_lock(o)
                     
-        scheduler = Scheduler.get_scheduler()
-        scheduler.addTimer(cereconf.SPINE_LOCK_TIMEOUT, unlock, weakref.ref(client))
+#        scheduler = Scheduler.get_scheduler()
+#        scheduler.addTimer(cereconf.SPINE_LOCK_TIMEOUT, unlock, weakref.ref(client))
 
     def unlock(self, client):
         """
