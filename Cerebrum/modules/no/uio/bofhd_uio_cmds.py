@@ -2208,7 +2208,7 @@ class BofhdExtension(object):
 	body.append("spread add group %s %s" % (groupname, spreadstring))
 	body.append("")
 	body.append("")
-        Utils.sendmail(fromaddr, toaddr, subject, "\n".join(body))
+        Utils.sendmail(toaddr, fromaddr, subject, "\n".join(body))
 	return "Request sent to brukerreg@usit.uio.no"
 
     #  group def
