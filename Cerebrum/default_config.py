@@ -35,9 +35,15 @@ CEREBRUM_DATABASE_NAME = None
 CEREBRUM_DATABASE_CONNECT_DATA = {'user': None,
                                   'table_owner': None}
 
-DEFAULT_GECOS_NAME="name_full"
 AUTH_CRYPT_METHODS = ("auth_type_md5_crypt",)
-PERSON_NAME_SS_ORDER = ("system_lt", "system_fs")
+
+# Look for things like person name by evaluating source systems in in
+# this order
+SYSTEM_LOOKUP_ORDER = ("system_lt", "system_fs", "system_ureg")
+#  Generate a full-name to display in this order
+NAME_LOOKUP_ORDER = (("name_full",),
+                     ("name_first", "name_last"))
+DEFAULT_GECOS_NAME="name_full"
 
 LOG_CONFIG_FILE = "/etc/cerebrum/logconfig.ini"
 
@@ -45,10 +51,6 @@ DEFAULT_GROUP_NAMESPACE = 'group_names'
 DEFAULT_ACCOUNT_NAMESPACE = 'account_names'
 
 DEFAULT_OU = None   # Used by bofh "account affadd" if OU is not set
-
-# When gecos for a posix user is None, we look for the person name by
-# evaluating source systems in in this order
-POSIX_GECOS_SOURCE_ORDER = ("system_lt", "system_fs")
 POSIX_HOME_TEMPLATE_DIR = "/local/etc/newusertemplates"
 POSIX_USERMOD_SCRIPTDIR = "/etc/cerebrum"
 # Temporary switch until someone can figure out why mktime won't work
