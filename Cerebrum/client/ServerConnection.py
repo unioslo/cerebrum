@@ -47,6 +47,9 @@ class ServerConnection:
         self._login(user, password)
         self._register_run_commands()
     
+    def __getattr__(self, command):
+        return CommandWrapper(self, command)
+    
     def _check_connection(cls):    
         cls._acquire()
         try:
