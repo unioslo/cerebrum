@@ -232,5 +232,159 @@ class PosixUser(object):
             if self.goodenough(uname, r): break
         return r
 
-    def goodenough(self, uname, passwd):
+    def conv_name(s, alt=0):
+        xlate = {'Æ' : 'ae', 'æ' : 'ae', 'Å' : 'aa', 'å' : 'aa'}
+        if(alt):
+            s = string.join(map(lambda x:xlate.get(x, x), s), '')
+
+        tr = string.maketrans('ÆØÅæø¿åÀÁÂÃÄÇÈÉÊËÌÍÎÏÑÒÓÔÕÖÙÚÛÜİàáâãäçèéêëìíîïñòóôõöùúûüı{[}]|¦\\',
+                       'AOAaooaAAAAACEEEEIIIINOOOOOUUUUYaaaaaceeeeiiiinooooouuuuyaAaAooO')
+        s = string.translate(s, tr)
+
+        xlate = {}
+        for y in range(0200, 0377): xlate[chr(y)] = 'x'
+        xlate['Ğ'] = 'Dh'
+        xlate['ğ'] = 'dh'
+        xlate['Ş'] = 'Th'
+        xlate['ş'] = 'th'
+        xlate['ß'] = 'ss'
+        s = string.join(map(lambda x:xlate.get(x, x), s), '').lower()
+        s = re.sub(r'[^a-z0-9 ]', '', s)
+        return s
+
+    # TODO: These don't belong here
+    msgs = {
+        'not_null_char' : "Please don't use the null character in your password.",
+        'atleast8' : "The password must be atleast 8 characters",
+        '8bit' : ("Don't use 8-bit characters in your password (æøå), it creates problems "+
+                  "when using different machines"),
+        'space' : ("Don't use a space in the password.  It creates problems for the "+
+                   "POP3-protocol (Eudora and other e-mail readers"),
+        'mix_needed8' : ("A valid password must contain characters from "+
+                         "atleast three of these four characers: Large "+
+                         "letters, small letters, numbers and spesial "+
+                         "characers.  If the password only contains one "+
+                         "capital letter, it may not be the first.  If the "+
+                         "first 8 characters only contains one number or "+
+                         "special characer, it may not be at position 8"),
+        'mix_needed' : ("A valid password must contain characters from "+
+                        "atleast three of these four characers: Large "+
+                        "letters, small letters, numbers and spesial "+
+                        "characers."),
+        
+        'was_like_old' : "That was to close to an old password.  You must select a new one.",
+        'dict_hit' : "Don't use words in a dictionary"
+    }
+    words = ("huge.sorted.txt",)
+    dir = "/u2/dicts"
+    
+    def check_password_history(uname, passwd):
+        if(0):
+            raise msgs['was_like_old']
         return 1
+
+    def look(FH, key, dict, fold):
+        """Quick port of look.pl (distributed with perl)"""
+        blksize = os.statvfs(FH.name)[0]
+        if blksize < 1 or blksize > 65536: blksize = 8192
+        if dict: key = re.sub(r'[^\w\s]', '', key)
+        if fold: key = key.lower()
+        max = int(os.path.getsize(FH.name) / blksize)
+        min = 0
+        while (max - min > 1):
+            mid = int((max + min) / 2)
+            FH.seek(mid * blksize, 0)
+            if mid: line = FH.readline()  # probably a partial line
+            line = FH.readline()
+            line.strip()
+            if dict: line = re.sub(r'[^\w\s]', '', line)
+            if fold: line = line.lower()
+            if line < key:
+                min = mid
+            else:
+                max = mid
+        min = min * blksize
+        FH.seek(min, 0)
+        if min: FH.readline()
+        while 1:
+            line = FH.readline()
+            if line == None: break
+            line.strip()
+            if dict: line = re.sub(r'[^\w\s]', '', line)
+            if fold: line = line.lower()
+            if line >= key: break
+            min = FH.tell()
+        FH.seek(min, 0)
+        return min
+
+    def goodenough(self, uname, passwd):
+        # TODO:  This needs more work.
+        passwd = passwd[0:8]
+
+        if re.search(r'\0', passwd):
+            raise msgs['not_null_char']
+
+        if(len(passwd) < 8):
+            raise msgs['atleast8']
+    
+
+        if re.search(r'[\200-\376]', passwd):
+            raise msgs['8bit']
+
+        if re.search(r' ', passwd):
+            raise msgs['space']
+
+        good_try = variation = 0
+        if re.search(r'[a-z]', passwd): variation += 1
+        if re.search(r'[A-Z][^A-Z]{7}', passwd): good_try += 1
+        if re.search(r'[A-Z]', passwd[1:8]): variation += 1
+        if re.search(r'[^0-9]{7}[0-9]', passwd): good_try += 1
+
+        if re.search(r'[0-9]', passwd[0:7]): variation += 1
+        if re.search(r'[A-Za-z0-9]{7}[^A-Za-z0-9]', passwd): good_try += 1
+        if re.search(r'[^A-Za-z0-9]', passwd[0:7]): variation += 1
+
+        if variation < 3:
+            if good_try:
+                raise msgs['mix_needed8']
+            else:
+                raise msgs['mix_needed']
+
+        # Too much like the old password?
+
+        check_password_history(uname, passwd)   # Will raise on error
+
+        # Is it in one of the dictionaries?
+
+        if re.search(r'^[a-zA-Z]', passwd):
+            chk = passwd.lower()
+            # Truncate common suffixes before searching dict.
+
+            even = ''
+            chk = re.sub(r'\d+$', '', chk)
+            chk = re.sub(r'\(', '', chk)
+
+            chk = re.sub('s$', '', chk)
+            chk = re.sub('ed$', '', chk)
+            chk = re.sub('er$', '', chk)
+            chk = re.sub('ly$', '', chk)
+            chk = re.sub('ing$', '', chk)
+
+            # We'll iterate over several dictionaries.
+
+            for d in words:
+                print "Check %s in %s" % (chk, d)
+                f = file("%s/%s" % (dir, d))
+                look(f, chk, 1, 1)
+                
+                # Do the lookup (dictionary order, case folded)
+                while (1):
+                    line = f.readline()
+                    print "r: %s" % line
+                    if line == None: break
+                    line = line.lower()
+                    if line[0:len(chk)] != chk: break
+                    raise msgs['dict_hit']
+        return 1
+
+
