@@ -31,6 +31,7 @@ import sys
 import crypt
 import md5
 import socket
+from Cerebrum.extlib import timeoutsocket
 import thread
 import threading
 import time
@@ -261,6 +262,15 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
             ret = "Unknown error (a server error has been logged)."
             raise sys.exc_info()[0], ret
         return native_to_xmlrpc(ret)
+
+    def handle(self):
+        self.connection.set_timeout(cereconf.BOFHD_CLIENT_SOCKET_TIMEOUT)
+        try:
+            super(BofhdRequestHandler, self).handle()
+        except timeoutsocket.Timeout, msg:
+            logger.debug("Timeout: %s from %s" % (
+                msg, ":".join([str(x) for x in self.client_address])))
+            self.server.db.rollback()
 
     # This method is pretty identical to the one shipped with Python,
     # except that we don't silently eat exceptions

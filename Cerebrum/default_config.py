@@ -182,6 +182,8 @@ BOFHD_TEMPLATES={}
 BOFHD_MOTD_FILE=None
 BOFHD_NEW_USER_SPREADS = []
 BOFHD_CLIENTS = {'jbofh': '0.0.3'}
+# Max number of seconds a client can have a socket stuck in recv/send
+BOFHD_CLIENT_SOCKET_TIMEOUT=None
 # Directory for templates
 TEMPLATE_DIR=None
 
