@@ -83,7 +83,8 @@ class RequestHandler(SocketServer.StreamRequestHandler):
                 account.clear()
                 account.find_by_name(cmd[1])
             except Errors.NotFoundError:
-                self.log('ERROR', "Invalid username %s" % cmd[1])
+                self.log('ERROR', "Invalid username %s from %s" % (
+                    cmd[1], self.client_address))
                 self.send(enouser)
                 return
             try:
@@ -93,7 +94,8 @@ class RequestHandler(SocketServer.StreamRequestHandler):
                 self.log('TRACE', "%s / %i has no quota" % (cmd[1],  account.entity_id))
                 pq = None  # User has no quota
                 pass
-            self.log('INFO', "HELO %s %s" % (cmd[1], cmd[2]))
+            self.log('INFO', "HELO %s %s from %s" % (
+                cmd[1], cmd[2], self.client_address))
             self.send("%s %s." % (firstok, cmd[1]))
             self.printer_quota = pq
             
@@ -186,7 +188,7 @@ class RequestHandler(SocketServer.StreamRequestHandler):
 
     def log(self, lvl, msg):
         f = file(pqdlog, "a")
-        f.write("%s [%s] %s %s\n" % (strftime("%H:%M:%S", gmtime()), my_pid, lvl, msg))
+        f.write("%s [%s] %s %s\n" % (strftime("%Y-%m-%d %H:%M:%S", gmtime()), my_pid, lvl, msg))
         f.close()
 
 if __name__ == '__main__':
