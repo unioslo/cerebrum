@@ -1,0 +1,2 @@
+check:
+	./inittest.sh

@@ -7,11 +7,12 @@ all:
 
 install:
 
-check:
-
 dist:
 
-distcheck: dist check
+distcheck: dist
+
+check:
+	make -C testsuite check 2>&1 | tee testsuite/check.log
 
 clean:
 
