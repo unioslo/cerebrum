@@ -47,7 +47,7 @@ SELECT
   poststednr_intern_adr, poststednavn_intern_adr, landnavn_intern_adr,
   adrtypekode_alternativ_adr, adresselinje1_alternativ_adr,
   adresselinje2_alternativ_adr, poststednr_alternativ_adr,
-  poststednavn_alternativ_adr, landnavn_alternativ_adr, 
+  poststednavn_alternativ_adr, landnavn_alternativ_adr
 FROM lt.sted
 WHERE
   dato_nedlagt > sysdate AND dato_opprettet >= sysdate
@@ -85,8 +85,8 @@ ORDER BY tlfpreftegn"""
         return (self._get_cols(qry), self.db.query(qry))
 
     def GetLonnsPosteringer(self, tid):
-        "Hent person og sted informasjon for alle lønnsposteringer med
-        relevante beløpskoder foretatt etter TID"
+        """Hent person og sted informasjon for alle lønnsposteringer med
+        relevante beløpskoder foretatt etter TID"""
         qry = """SELECT belopskodenr
         FROM lt.belkodespesielle WHERE belkodeomradekode='LT35UREG' """
         koder = [str(k['belopskodenr']) for k in self.db.query(qry)]
@@ -99,7 +99,7 @@ ORDER BY tlfpreftegn"""
                p.fodtdag=d.fodtdag AND p.fodtmnd=d.fodtmnd AND
                p.fodtar=d.fodtar AND p.personnr=d.personnr AND
                dato_oppgjor > TO_DATE(%s, 'YYYYMMDD') AND
-               d.belopskodenr IN (" % tid +", ".join(koder)+")")
+               d.belopskodenr IN (""" % tid +", ".join(koder)+")")
         return (self._get_cols(qry), self.db.query(qry))
 
     def GetGjester(self):
@@ -130,7 +130,7 @@ WHERE fodtdag=:fodtdag AND fodtmnd=:fodtmnd AND fodtar=:fodtar AND
   poststednr_privatadresse, poststednavn_privatadresse,
   landnavn_privatadresse, telefonnr_privattelefon, tittel_personlig,
   fakultetnr_for_lonnsslip, instituttnr_for_lonnsslip,
-  gruppenr_for_lonnsslip,
+  gruppenr_for_lonnsslip
 FROM
   lt.person
 WHERE

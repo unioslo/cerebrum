@@ -26,6 +26,7 @@ import os
 import sys
 import getopt
 import cereconf
+import time
 
 from Cerebrum.modules.no.uio.access_LT import LT
 from Cerebrum import Database,Errors
@@ -74,7 +75,7 @@ def get_person_info(outfile):
     # Tidligere cachet vi disse dataene slik at vi kunne søke over
     # færre dager, men det ser ikke ut til å være nødvendig da søket
     # ikke tar mer enn ca et minutt
-    tid = time.strftime("%Y-%m-%d", time.gmtime(time.time() - (3600*24*180)))
+    tid = time.strftime("%Y%m%d", time.gmtime(time.time() - (3600*24*180)))
     lonnscols, lonnspost = LT.GetLonnsPosteringer(tid)
     for lp in lonnspost:
         key = '-'.join(["%i" % x for x in [lp['fodtdag'], lp['fodtmnd'],
@@ -88,9 +89,9 @@ def get_person_info(outfile):
     for g in gjester:
         key = '-'.join(["%i" % x for x in [g['fodtdag'], g['fodtmnd'],
                                            g['fodtar'], g['personnr']]])
-        sko = "%02d%02d%02d" % (lp['fakultetnr'],
-                                lp['instituttnr'],
-                                lp['gruppenr'])
+        sko = "%02d%02d%02d" % (g['fakultetnr'],
+                                g['instituttnr'],
+                                g['gruppenr'])
         persondta.setdefault(key, {}).setdefault('bil', []).append(
             {'sko': sko, 'gjestetypekode': g['gjestetypekode']})
 
@@ -171,11 +172,11 @@ def main():
             pass  # not currently used
         elif opt in ('-s', '--sid'):
             sid = val
-        elif opt in ('-u'):
+        elif opt in ('-u',):
             user = val
-        elif opt in ('--sted-file'):
+        elif opt in ('--sted-file',):
             stedfile = val
-        elif opt in ('--person-file'):
+        elif opt in ('--person-file',):
             personfile = val
     if user is None or sid is None:
         usage(1)
