@@ -73,7 +73,7 @@ def create_user(fnr, profile):
     update_account(profile, [account.entity_id])
     return account.entity_id
 
-def update_account(profile, account_ids, do_move=False, rem_grp=False,
+def update_account(profile, account_ids, rem_grp=False,
                    account_info={}):
     """Update the account by checking that group, disk and
     affiliations are correct.  For existing accounts, account_info
@@ -98,21 +98,22 @@ def update_account(profile, account_ids, do_move=False, rem_grp=False,
             user.clear()
             user.find(account_id)
             # populate logic asserts that db-write is only done if needed
-            try:
-                disk = profile.get_disk(user.disk_id)
-            except ValueError, msg:  # TODO: get_disk should raise DiskError
-                disk = None
-            if user.disk_id != disk:
-                profile.notify_used_disk(old=user.disk_id, new=disk)
-                changes.append("disk %s->%s" % (
-                    autostud.disks.get(user.disk_id, ['None'])[0],
-                    autostud.disks.get(disk, ['None'])[0]))
-                if disk != None:
-                    br = BofhdRequests(db, const)
-                    # TBD: Is it correct to set requestee_id=None?
-                    br.add_request(None, br.batch_time,
-                                   const.bofh_move_user, account_id,
-                                   disk)
+            if move_users or user.disk_id is None:
+                try:
+                    disk = profile.get_disk(user.disk_id)
+                except ValueError, msg:  # TODO: get_disk should raise DiskError
+                    disk = None
+                if user.disk_id != disk:
+                    profile.notify_used_disk(old=user.disk_id, new=disk)
+                    changes.append("disk %s->%s" % (
+                        autostud.disks.get(user.disk_id, ['None'])[0],
+                        autostud.disks.get(disk, ['None'])[0]))
+                    if disk != None:
+                        br = BofhdRequests(db, const)
+                        # TBD: Is it correct to set requestee_id=None?
+                        br.add_request(None, br.batch_time,
+                                       const.bofh_move_user, account_id,
+                                       disk)
             if as_posix:
                 old_gid = user.gid
                 user.gid = profile.get_dfg()
@@ -225,7 +226,8 @@ def get_existing_accounts():
     # Find all student accounts.  A student accound is an account that
     # has only account_types with affiliation=student
     students = {}
-    for a in account.list_accounts_by_type(affiliation=const.affiliation_student):
+    for a in account.list_accounts_by_type(
+        affiliation=const.affiliation_student, filter_expired=True):
         if not pid2fnr.has_key(int(a['person_id'])):
             continue
         students.setdefault(pid2fnr[int(a['person_id'])], {}).setdefault(
@@ -246,7 +248,7 @@ def get_existing_accounts():
         fnr = pid2fnr.get(int(a['owner_id']), None)
         if (fnr is not None) and (not students.has_key(fnr)):
             others[fnr] = int(a['account_id'])
-    for a in account.list():
+    for a in account.list(filter_expired=True):
         fnr = pid2fnr.get(int(a['owner_id']), None)
         if (fnr is not None) and (not students.has_key(fnr) and
                                   not others.has_key(fnr)):
@@ -542,17 +544,17 @@ def main():
                                     'student-info-file=', 'only-dump-results=',
                                     'studconfig-file=', 'fast-test', 'with-lpr',
                                     'workdir=', 'type=', 'reprint=',
-                                    'emne-info-file=',
+                                    'emne-info-file=', 'move-users',
                                     'recalc-pq', 'studie-progs-file=',
                                     'dryrun'])
     except getopt.GetoptError:
         usage()
     global debug, fast_test, create_users, update_accounts, logger, skip_lpr
     global student_info_file, studconfig_file, only_dump_to, studieprogs_file, \
-           recalc_pq, dryrun, emne_info_file
+           recalc_pq, dryrun, emne_info_file, move_users
 
     skip_lpr = True       # Must explicitly tell that we want lpr
-    update_accounts = create_users = recalc_pq = dryrun = False
+    update_accounts = create_users = recalc_pq = dryrun = move_users = False
     fast_test = False
     workdir = None
     range = None
@@ -574,6 +576,8 @@ def main():
             studieprogs_file = val
         elif opt in ('--recalc-pq',):
             recalc_pq = True
+        elif opt in ('--move-users',):
+            move_users = True
         elif opt in ('-C', '--studconfig-file'):
             studconfig_file = val
         elif opt in ('--fast-test',):  # Internal debug use ONLY!
@@ -631,6 +635,7 @@ def usage():
     --only-dump-results file: just dump results with pickle without
       entering make_letters
     --workdir dir:  set workdir for --reprint
+    --move-users: move users if profile says so
     --type type: set type (=the mal attribute to <brev> in -C) for --reprint
     --reprint range:  Re-print letters in case of paper-jam etc. (comma separated)
     --with-lpr: Spool the file with new user letters to printer
