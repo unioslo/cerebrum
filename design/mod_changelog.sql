@@ -62,7 +62,7 @@ CREATE TABLE change_log
   change_by       NUMERIC(12,0)
                   REFERENCES entity_info(entity_id),
   change_program  CHAR VARYING(16),
-  comment         CHAR VARYING(255)
+  description     CHAR VARYING(255)
 );
 category:main;
 CREATE TABLE change_handler_data
