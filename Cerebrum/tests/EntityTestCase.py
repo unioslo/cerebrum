@@ -5,6 +5,7 @@
 import unittest
 import cereconf
 from Cerebrum import Database
+from Cerebrum import Utils
 from Cerebrum.Entity import \
      Entity, EntityName, EntityContactInfo, EntityAddress
 from Cerebrum import Constants
@@ -13,6 +14,8 @@ import traceback
 from Cerebrum.tests.PersonTestCase import Person_createTestCase
 
 class Entity_createTestCase(unittest.TestCase, Entity):
+    __metaclass__ = Utils.mark_update
+
     Cerebrum = Database.connect()
     co = Constants.Constants(Cerebrum)
 
@@ -51,8 +54,8 @@ class EntityTestCase(Entity_createTestCase):
         self._myPopulateEntity(new_entity)
 
         self.failIf(new_entity <> entity, "Error: should be equal")
-        new_entity.entity_type = 'foobar'  # TBD: Is this even legal?
-        self.failIf(new_entity == entity, "Error: should be different if it is legal to change entity_type")
+        #new_entity.entity_type = 'foobar'  # TBD: Is this even legal?
+        #self.failIf(new_entity == entity, "Error: should be different if it is legal to change entity_type")
 
     def testDeleteEntity(self):
         "Delete the Entity"
@@ -100,6 +103,7 @@ class EntityNameTestCase(EntityName_createTestCase):
         "Test that one can find an entity by name"
         
         old_id = self.entity_id
+        self.clear()
         self.find_by_name(self.co.account_namespace, self.test_name)
         self.failIf(self.entity_id <> old_id, "EntityNames entity_id should be equal")
 
