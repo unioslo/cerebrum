@@ -98,10 +98,10 @@ class Entity(DatabaseAccessor):
 
         assert self.__write_db
         if as_object is None:
-            entity_id = self.nextval('cerebrum.entity_id_seq')
+            entity_id = self.nextval('entity_id_seq')
             self.execute("""
             INSERT INTO cerebrum.entity_info(entity_id, entity_type)
-            VALUES (:1, :2)""", entity_id, int(self.entity_type))
+            VALUES (:e_id, :e_type)""", {'e_id' : entity_id, 'e_type': int(self.entity_type)})
         else:
             entity_id = as_object.entity_id
             # Don't need to do anything as entity type can't change
@@ -130,7 +130,7 @@ class Entity(DatabaseAccessor):
         self.entity_id, self.entity_type = self.query_1("""
         SELECT entity_id, entity_type
         FROM cerebrum.entity_info
-        WHERE entity_id=:1""", entity_id)
+        WHERE entity_id=:e_id""", {'e_id' : entity_id})
 
     def delete(self):
         "Completely remove an entity."
@@ -138,7 +138,7 @@ class Entity(DatabaseAccessor):
             raise Errors.NoEntityAssociationError, \
                   "Unable to determine which entity to delete."
         self.execute("""
-        DELETE cerebrum.entity_info WHERE entity_id=:1""", self.entity_id)
+        DELETE cerebrum.entity_info WHERE entity_id=:e_id""", {'e_id' : self.entity_id})
         self.clear()
         return
 
@@ -149,26 +149,29 @@ class EntityName(object):
         return Utils.keep_entries(
             self.query("""
             SELECT * FROM cerebrum.entity_name
-            WHERE entity_id=:1""", self.entity_id),
+            WHERE entity_id=:e_id""", {'e_id' : self.entity_id}),
             ('value_domain', domain))
 
     def add_name(self, domain, name):
         return self.execute("""
         INSERT INTO cerebrum.entity_name
           (entity_id, value_domain, entity_name)
-        VALUES (:1, :2, :3)""", self.entity_id, domain, name)
+        VALUES (:e_id, :domain, :name)""", {'e_id' : self.entity_id,
+                                            'domain' : domain, 'name' : name})
 
     def delete_name(self, domain):
         return self.execute("""
         DELETE cerebrum.entity_name
-        WHERE entity_id=:1 AND value_domain=:1""", self.entity_id, domain)
+        WHERE entity_id=:e_id AND value_domain=:domain""",
+                            {'e_id' : self.entity_id, 'domain' : domain})
 
     def find_by_name(self, domain, name):
         "Associate instance with the entity having NAME in DOMAIN."
         entity_id = self.query_1("""
         SELECT entity_id
         FROM cerebrum.entity_name
-        WHERE value_domain=:1 AND entity_name=:2""", domain, name)
+        WHERE value_domain=:domain AND entity_name=:name""",
+                                 {'domain' : domain, 'name' : name})
         Entity.find(self, entity_id)
 
 class EntityContactInfo(object):
@@ -183,25 +186,28 @@ class EntityContactInfo(object):
         INSERT INTO cerebrum.entity_contact_info
           (entity_id, source_system, contact_type, contact_pref,
            contact_value, description)
-        VALUES (:1, :2, :3, :4, :5, :6)""",
-                     self.entity_id, source, type, pref, value, description)
+        VALUES (:e_id, :source, :type, :pref, :value, :descript)""",
+                     {'e_id' : self.entity_id, 'source' : source, 'type' : type,
+                      'pref' : pref, 'value' : value, 'descript' : description})
 
     def get_contact_info(self, source=None, contact=None):
         return Utils.keep_entries(
             self.query("""
             SELECT * FROM cerebrum.entity_contact_info
-            WHERE entity_id=:1""", self.entity_id),
+            WHERE entity_id=:e_id""", {'e_id' : self.entity_id}),
             ('source_system', source),
             ('contact_type', type))
+
+    def populate_contact_info(self, type, value, contact_pref=50, description=None):
+        pass
 
     def delete_contact_info(self, source, type, pref):
         self.execute("""
         DELETE cerebrum.entity_contact_info
-        WHERE
-          entity_id=:1 AND
-          source_system=:2 AND
-          contact_type=:3 AND
-          contact_pref=:4""", self.entity_id, source, type, pref)
+        WHERE entity_id=:e_id AND source_system=:s_system AND
+          contact_type=:c_type AND contact_pref=:c_pref""",
+                     {'e_id' : self.entity_id,
+                      's_system' : source, 'c_type' : type, 'c_pref' : pref})
 
 
 class EntityAddress(object):
@@ -281,21 +287,25 @@ class EntityAddress(object):
                     ai = self._address_info.get(type)
                     self.execute("""
                     UPDATE cerebrum.entity_address
-                    SET address_text=:1, p_o_box=:2, postal_number=:3, city=:4, country=:5
-                    WHERE entity_id=:6 AND source_system=:7 AND address_type=:8""",
-                                 ai['address_text'], ai['p_o_box'], ai['postal_number'],
-                                 ai['city'], ai['country'],
-                                 as_object.entity_id, int(self._affect_source),
-                                 int(type))
+                    SET address_text=:a_text, p_o_box=:p_box, postal_number=:p_num,
+                        city=:city, country=:country
+                    WHERE entity_id=:e_id AND source_system=:s_system AND
+                        address_type=:a_type""",
+                                 {'a_text' : ai['address_text'], 'p_box' : ai['p_o_box'],
+                                  'p_num' : ai['postal_number'], 'city' : ai['city'],
+                                  'country' : ai['country'], 'e_id' : as_object.entity_id,
+                                  's_system' : int(self._affect_source), 'a_type' : int(type)})
             except KeyError, msg:
                 # Note: the arg to a python exception must be casted to str :-(
                 if str(msg) == "MissingOther":
                     self._add_entity_address(self._affect_source, type, **self._address_info[type])
                 elif str(msg) == "MissingSelf":
                     self.execute("""DELETE cerebrum.entity_address
-                                    WHERE entity_id=:1 AND source_system=:2
-                                          AND address_type=:3""",
-                                 as_object.entity_id, int(self._affect_source), int(type))
+                                    WHERE entity_id=:e_id AND source_system=:s_system
+                                          AND address_type=:a_type""",
+                                 {'e_id' : as_object.entity_id,
+                                  's_system' : int(self._affect_source),
+                                  'a_type' : int(type)})
                 else:
                     raise
 
@@ -312,9 +322,10 @@ class EntityAddress(object):
         INSERT INTO cerebrum.entity_address
           (entity_id, source_system, address_type,
            address_text, p_o_box, postal_number, city, country)
-        VALUES (:1, :2, :3, :4, :5, :6, :7, :8)""",
-                     self.entity_id, int(source), int(type),
-                     address_text, p_o_box, postal_number, city, country)
+        VALUES (:e_id, :s_system, :a_type, :a_text, :p_box, :p_num, :city, :country)""",
+                     {'e_id' : self.entity_id, 's_system' : int(source), 'a_type' : int(type),
+                      'a_text' : address_text, 'p_box' : p_o_box, 'p_num' : postal_number,
+                      'city' : city, 'country' : country})
 
     def get_entity_address(self, source=None, type=None):
         # TODO: Select * gives positional args, which is error-prone: fix
@@ -324,7 +335,7 @@ class EntityAddress(object):
         return Utils.keep_entries(
             self.query("""
             SELECT * FROM cerebrum.entity_address
-            WHERE entity_id=:1""", self.entity_id),
+            WHERE entity_id=:e_id""", {'e_id' : self.entity_id}),
             ('source_system', int(source)),
             ('address_type', int(type)))
 
@@ -332,9 +343,10 @@ class EntityAddress(object):
         self.execute("""
         DELETE cerebrum.entity_address
         WHERE
-          entity_id=:1 AND
-          source_system=:2 AND
-          address_type=:3""", self.entity_id, source, type)
+          entity_id=:e_id AND
+          source_system=:s_system AND
+          address_type=:a_type""", {'e_id' : self.entity_id, 's_system' : source,
+                                    'a_type' : type})
 
 class EntityQuarantine(object):
     "Mixin class, usable alongside Entity for entities we can quarantine."
@@ -344,29 +356,27 @@ class EntityQuarantine(object):
         INSERT INTO cerebrum.entity_quarantine
           (entity_id, quarantine_type,
            creator_id, comment, start_date, end_date)
-        VALUES (:1, :2, :3, :4, :5, :6)""",
-                     self.entity_id, type,
-                     creator, comment, start, end)
+        VALUES (:e_id, :q_type, :c_id, :comment, :start_date, :end_date)""",
+                     {'e_id' : self.entity_id, 'q_type' : type,
+                      'c_id' : creator, 'comment' : comment,
+                      'start_date' : start, 'end_date' : end})
 
     def get_entity_quarantine(self, type=None):
         return Utils.keep_entries(
             self.query("""
             SELECT * FROM cerebrum.entity_quarantine
-            WHERE entity_id=:1""", self.entity_id),
+            WHERE entity_id=:e_id""", {'e_id' : self.entity_id}),
             ('quarantine_type', type))
 
     def disable_entity_quarantine(self, type, until):
         self.execute("""
         UPDATE cerebrum.entity_quarantine
-        SET disable_until=:3
-        WHERE
-          entity_id=:1 AND
-          quarantine_type=:2
-        """, self.entity_id, type, until)
+        SET disable_until=:d_until
+        WHERE entity_id=:e_id AND quarantine_type=:q_type""",
+                     {'e_id' : self.entity_id, 'q_type' : type, 'd_until' : until})
 
     def delete_entity_quarantine(self, type):
         self.execute("""
         DELETE cerebrum.entity_quarantine
-        WHERE
-          entity_id=:1 AND
-          quarantine_type=:2""", self.entity_id, type)
+        WHERE entity_id=:e_id AND quarantine_type=:q_type""",
+                     {'e_id' : self.entity_id, 'q_type' : type})

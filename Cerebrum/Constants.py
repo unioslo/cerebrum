@@ -19,9 +19,9 @@ class _CerebrumCode(DatabaseAccessor):
     
     def __int__(self):
         if self.int is None:
-            self.int = self.sql.query_1("SELECT %s FROM %s WHERE %s=:1" %
+            self.int = self.sql.query_1("SELECT %s FROM %s WHERE %s=:str" %
                                    (self._lookup_code_column, self._lookup_table,
-                                    self._lookup_str_column), self.str)
+                                    self._lookup_str_column), {'str': self.str})
         return self.int
 
 class _EntityTypeCode(_CerebrumCode):

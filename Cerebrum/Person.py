@@ -71,7 +71,9 @@ class PersonName(object):
     def _set_name(self, source_system, variant, name):
         self.execute("""
         INSERT INTO cerebrum.person_name (person_id, name_variant, source_system, name)
-        VALUES (:1, :2, :3, :4)""", self.person_id, int(variant), int(source_system), name)
+        VALUES (:p_id, :n_variant, :s_system, :name)""",
+                     {'p_id' : self.person_id, 'n_variant' : int(variant),
+                      's_system' : int(source_system), 'name' : name})
 
     def get_person_name_codes(self):
         return self.query("SELECT code, description FROM person_name_code")
@@ -80,8 +82,9 @@ class PersonName(object):
         """Return the name with the given variant"""
 
         return self.query_1("""SELECT name FROM person_name
-            WHERE person_id=:1 AND name_variant=:2 AND source_system=:3""",
-                            self.person_id, int(variant), int(source_system))
+            WHERE person_id=:p_id AND name_variant=:n_variant AND source_system=:s_system""",
+                            {'p_id' : self.person_id, 'n_variant' : int(variant),
+                             's_system' : int(source_system)})
 
     def affect_names(self, source, *types):
         self._pn_affect_source = source
@@ -103,11 +106,12 @@ class PersonName(object):
                     n = self._name_info.get(type)
                     self.execute("""
                     UPDATE cerebrum.person_name
-                    SET name=:1
-                    WHERE person_id=:2 AND source_system=:3 AND
-                      name_variant=:4""",  self._name_info[type],
-                                 as_object.person_id, int(self._pn_affect_source),
-                                 int(type))
+                    SET name=:name
+                    WHERE person_id=:p_id AND source_system=:s_system AND
+                       name_variant=:n_variant""",
+                                 {'name' : self._name_info[type], 'p_id' : as_object.person_id,
+                                  's_system' : int(self._pn_affect_source),
+                                  'n_variant' : int(type)})
             except KeyError, msg:
                 # Note: the arg to a python exception must be casted to str :-(
                 if str(msg) == "MissingOther":
@@ -115,9 +119,11 @@ class PersonName(object):
                         self._set_name(self._pn_affect_source, type, self._name_info[type])
                 elif str(msg) == "MissingSelf":
                     self.execute("""DELETE cerebrum.person_name
-                                    WHERE person_id=:1 AND source_system=:2
-                                          AND name_variant=:3""",
-                                 as_object.person_id, int(self._pn_affect_source), int(type))
+                                    WHERE person_id=:p_id AND source_system=:s_system
+                                          AND name_variant=:n_variant""",
+                                 {'p_id' : as_object.person_id,
+                                  's_system' : int(self._pn_affect_source),
+                                  'n_variant' : int(type)})
                 else:
                     raise
             
@@ -170,38 +176,44 @@ class PersonAffiliation(object):
                     self.execute("""
                     INSERT INTO cerebrum.person_affiliation (person_id, ou_id, affiliation,
                        source_system, status, create_date, last_date)
-                    VALUES (:1, :2, :3, :4, :5, SYSDATE, SYSDATE)""", self.person_id, ou_id,
-                                 int(affect_type), int(self._pa_affect_source), int(status))
+                    VALUES (:p_id, :ou_id, :affiliation, :s_system, :status,
+                            SYSDATE, SYSDATE)""",
+                                 {'p_id' : self.person_id, 'ou_id' : ou_id,
+                                  'affiliation' : int(affect_type),
+                                  's_system' : int(self._pa_affect_source),
+                                  'status' : int(status)})
 
                 elif other[key] != int(status):
                     self.execute("""
-                    UPDATE cerebrum.person_affiliation SET status=:1
-                    WHERE person_id=:2 AND ou_id=:3 AND affiliation=:4 AND source_system=:5""",
-                                 int(status), self.person_id, ou_id, int(affect_type),
-                                 int(self._pa_affect_source))
+                    UPDATE cerebrum.person_affiliation SET status=:status
+                    WHERE person_id=:p_id AND ou_id=:ou_id AND affiliation=:affiliation
+                          AND source_system=:s_system""",
+                                 {'status' : int(status), 'p_id' : self.person_id,
+                                  'ou_id' : ou_id, 'affiliation' : int(affect_type),
+                                  's_system' : int(self._pa_affect_source)})
                 if other.has_key(key): del other[key]
             for k in other.keys():
                 # TODO: We don't delete affiliations, we mark them as deleted
                 ou_id, affect_type = k.split('-')
                 self.execute("""
                    DELETE cerebrum.person_affiliation
-                   WHERE person_id=:1 AND ou_id=:2 AND affiliation=:3 AND source_system=:4""",
-                             self.person_id, int(ou_id), int(affect_type), int(self._pa_affect_source))
+                   WHERE person_id=:p_id AND ou_id=:ou_id AND affiliation=:affiliation
+                         AND source_system=:s_system""",
+                             {'p_id' : self.person_id, 'ou_id' : int(ou_id),
+                              'affiliation' : int(affect_type),
+                              's_system' : int(self._pa_affect_source)})
 
     def get_affiliations(self, source_system=None, affiliation=None, ou_id=None):
 
         qry = """SELECT source_system, ou_id, affiliation, status
-                 FROM cerebrum.person_affiliation WHERE person_id=:1"""
-        params = (self.person_id,)
-        n = 2
+                 FROM cerebrum.person_affiliation WHERE person_id=:p_id"""
+        params = {'p_id' : self.person_id}
         for v in ('source_system', 'affiliation', 'ou_id'):
             val = globals().get(v, None)
             if val != None:
-                qry += " AND %s=:%d" % (v, val)
-                n += 1
-                params += (val,)
-
-        return self.query(qry, *params)
+                qry += " AND %s=:%s" % (v, v)
+                params["%s" % v] = val
+        return self.query(qry, params)
 
 class Person(Entity, EntityContactInfo, EntityAddress,
              EntityQuarantine, PersonName, PersonAffiliation):
@@ -228,8 +240,8 @@ class Person(Entity, EntityContactInfo, EntityAddress,
         self.__write_db = True
 
         
-    def __ne__(self, other):
-        return not self.__eq__(other)
+##     def __ne__(self, other):
+##         return not self.__eq__(other)
 
     def __eq__(self, other):
         """Ovveride the == test for objects.
@@ -287,10 +299,11 @@ class Person(Entity, EntityContactInfo, EntityAddress,
             self.execute("""
             INSERT INTO cerebrum.person_info (entity_type, person_id,
                export_id, birth_date, gender, deceased, description)
-            VALUES (:1, :2, :3, :4, :5, :6, :7)""",
-                         int(self.constants.entity_person), self.person_id,
-                         'exp-'+str(self.person_id), self.birth_date, int(self.gender), 'F',
-                         self.description)
+            VALUES (:e_type, :p_id, :exp_id, :b_date, :gender, :deceased, :desc)""",
+                         {'e_type' : int(self.constants.entity_person),
+                          'p_id' : self.person_id, 'exp_id' : 'exp-'+str(self.person_id),
+                          'b_date' : self.birth_date, 'gender' : int(self.gender),
+                          'deceased' : 'F', 'desc' : self.description})
             # print "X: %s" % str(self._external_id)
             for t_ss, t_type, t_id in self._external_id:
                 self._set_external_id(t_ss, t_type, t_id)
@@ -298,10 +311,12 @@ class Person(Entity, EntityContactInfo, EntityAddress,
             self.person_id = as_object.person_id
             
             self.execute("""
-            UPDATE cerebrum.person_info SET export_id=:1, birth_date=:2,
-               gender=:3, deceased=:4, description=:5
-            WHERE person_id=:6""", 'exp-'+str(self.person_id), self.birth_date,
-                         int(self.gender), 'F', self.description, self.person_id)
+            UPDATE cerebrum.person_info SET export_id=:exp_id, birth_date=:b_date,
+               gender=:gender, deceased=:deceased, description=:desc
+            WHERE person_id=:p_id""",
+                         {'exp_id' : 'exp-'+str(self.person_id), 'b_date' : self.birth_date,
+                          'gender' : int(self.gender), 'deceased' : 'F',
+                          'desc' : self.description, 'p_id' : self.person_id})
 
         EntityAddress.write_db(self, as_object)
         PersonAffiliation.write_db(self, as_object)
@@ -335,7 +350,7 @@ class Person(Entity, EntityContactInfo, EntityAddress,
             """SELECT person_id, export_id, birth_date, gender,
                       deceased, description
                FROM cerebrum.person_info
-               WHERE person_id=:1 """, person_id)
+               WHERE person_id=:p_id""", {'p_id' : person_id})
         super(Person, self).find(person_id)
 
 
@@ -345,7 +360,9 @@ class Person(Entity, EntityContactInfo, EntityAddress,
     def _set_external_id(self, source_system, id_type, external_id):
         self.execute("""
         INSERT INTO cerebrum.person_external_id(person_id, id_type, source_system, external_id)
-        VALUES (:1, :2, :3, :4)""", self.person_id, int(id_type), int(source_system), external_id)
+        VALUES (:p_id, :id_type, :s_system, :ext_id)""",
+                     {'p_id' : self.person_id, 'id_type' : int(id_type),
+                      's_system' : int(source_system), 'ext_id' : external_id})
 
         pass
 
@@ -353,7 +370,7 @@ class Person(Entity, EntityContactInfo, EntityAddress,
         person_id = self.query_1("""
         SELECT person_id
         FROM cerebrum.person_external_id
-        WHERE id_type=:1 AND external_id=:2""",
-                                 int(id_type), external_id)
+        WHERE id_type=:id_type AND external_id=:ext_id""",
+                                 {'id_type' : int(id_type), 'ext_id' : external_id})
         self.find(person_id)
         return person_id

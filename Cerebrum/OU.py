@@ -30,13 +30,15 @@ class OUStructure(object):
         "Set the parent of this OU to `parent_id' in `perspective'."
         self.execute("""
         INSERT INTO cerebrum.ou_structure (ou_id, perspective, parent_id)
-        VALUES (:1, :2, :3)""", self.entity_id, int(perspective), parent_id)
+        VALUES (:e_id, :perspective, :parent_id)""",
+                     {'e_id' : self.entity_id, 'perspective' : int(perspective),
+                      'parent_id' : parent_id})
 
     def get_structure_mappings(self, perspective):
         "Return a list of ou_id -> parent_id mappings reperesenting the ou structure."
         return self.query("""
         SELECT ou_id, parent_id FROM cerebrum.ou_structure
-        WHERE perspective=:1""", int(perspective))
+        WHERE perspective=:perspective""", {'perspective' : int(perspective)})
 
 class OU(Entity, EntityContactInfo, EntityAddress, OUStructure):
 
@@ -114,18 +116,21 @@ class OU(Entity, EntityContactInfo, EntityAddress, OUStructure):
             self.execute("""
             INSERT INTO cerebrum.ou_info (entity_type, ou_id, name, acronym,
                    short_name, display_name, sort_name)
-            VALUES (:1, :2, :3, :4, :5, :6, :7)""", int(self.constants.entity_ou),
-                         ou_id, self.name, self.acronym, self.short_name, self.display_name,
-                         self.sort_name)
+            VALUES (:e_type, :ou_id, :name, :acronym, :short_name, :disp_name, :sort_name)""",
+                         {'e_type' : int(self.constants.entity_ou), 'ou_id' : ou_id,
+                          'name' : self.name, 'acronym' : self.acronym,
+                          'short_name' : self.short_name, 'disp_name' : self.display_name,
+                          'sort_name' : self.sort_name})
         else:
             ou_id = as_object.ou_id
             
             self.execute("""
-            UPDATE cerebrum.ou_info SET name=:1, acronym=:2,
-                   short_name=:3, display_name=:4, sort_name=:5
-            WHERE ou_id=:6""", 
-                         self.name, self.acronym, self.short_name, self.display_name,
-                         self.sort_name, ou_id)
+            UPDATE cerebrum.ou_info SET name=:name, acronym=:acronym,
+                   short_name=:short_name, display_name=:disp_name, sort_name=:sort_name
+            WHERE ou_id=:ou_id""", 
+                         {'name' : self.name, 'acronym' : self.acronym,
+                          'short_name' : self.short_name, 'disp_name' : self.display_name,
+                          'sort_name' : self.sort_name, 'ou_id' : ou_id})
 
         EntityAddress.write_db(self, as_object)
 
@@ -158,5 +163,5 @@ class OU(Entity, EntityContactInfo, EntityAddress, OUStructure):
         self.ou_id, self.name, self.acronym, self.short_name, self.display_name, self.sort_name = self.query_1("""
         SELECT ou_id, name, acronym, short_name, display_name, sort_name
         FROM cerebrum.ou_info
-        WHERE ou_id=:1""", ou_id)
+        WHERE ou_id=:ou_id""", {'ou_id' : ou_id})
         super(OU, self).find(ou_id)
