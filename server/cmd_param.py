@@ -82,7 +82,7 @@ class Description(Parameter):
 
 class EntityName(Parameter):
     _type = 'entityName'
-    _prompt = "Enter entity name"
+    _prompt = "Enter %s entity name"
 
 class GroupName(Parameter):
     # _prompt_func = 'prompt_foobar'
