@@ -23,12 +23,24 @@ Core API
     Cerebrum/{Entity,OU,Person,Account,Group}.py
 
 
+Installation and upgrade magic
+------------------------------
+  STATUS:
+
+  RESPONSIBILITY OF: HM, PR, RF
+
+
+  CODE DEPENDENCIES:
+
+  FILES:
+
+
 POSIX users and groups
 ----------------------
   STATUS: Not started.
-	  Should be somewhat usable by the end of 2002-10-10.
+	  Should be somewhat usable by 2002-10-17.
 
-  RESPONSIBILITY OF: SS, KTH, HM
+  RESPONSIBILITY OF: HM, RF
 
   Extra database structures for specializing the core entities
   "Account" and "Group" into the corresponding POSIX terms, and API to
@@ -43,9 +55,9 @@ POSIX users and groups
 NIS export
 ----------
   STATUS: Not started.
-	  Should be usable by the end of 2002-10-10.
+	  Should be usable by 2002-10-21.
 
-  RESPONSIBILITY OF: SS, KTH
+  RESPONSIBILITY OF: HM, RF, PR
 
   Database structures, API and scripts needed to define which POSIX
   users/groups should be exported to NIS, and to build the source for
@@ -94,7 +106,7 @@ User administration terminal client
   STATUS: Not started
           Should be operative by end of 2002-10.
 
-  RESPONSIBILITY OF: PR
+  RESPONSIBILITY OF: PR, RF
 
   A text terminal client for requesting the operations offered by the
   User administration server.
@@ -106,9 +118,9 @@ User administration terminal client
 User administration web frontend
 --------------------------------
   STATUS: Not started
-	  Should offer web-based password change by end of 2002-11.
+	  Should offer web-based password change by 2002-11-15.
 
-  RESPONSIBILITY OF: KS? RM? Webgruppa?
+  RESPONSIBILITY OF: RF, KS? RM? Webgruppa?
 
   A web frontend for performing (at least some of) the operations
   offered by the User administration server.
@@ -120,9 +132,9 @@ User administration web frontend
 Import from SATS (specific to Norway)
 -------------------------------------
   STATUS: Not started
-	  Should be operative by end of 2002-11.
+	  Should be operative by 2002-11-15.
 
-  RESPONSIBILITY OF: RF, HM
+  RESPONSIBILITY OF: BHMJ, RF, HM
 
   Scripts (and possibly database structures/API) for importing person,
   OU and grouping data from the pupil administration system SATS.
@@ -136,9 +148,9 @@ Import from SATS (specific to Norway)
 Email API
 ---------
   STATUS: Not started
-	  Should be working by end of 2002-11.
+	  Should be working by 2002-11-15.
 
-  RESPONSIBILITY OF: HM, KTH
+  RESPONSIBILITY OF: HM
 
   Database structures, API and scripts for allowing Cerebrum to build
   email system tables (e.g. exportable as sendmail-style alias files).
@@ -155,9 +167,9 @@ Email API
 Export to LMS "Itslearning"
 ---------------------------
   STATUS: Not started
-	  Should be working by end of 2002-11.
+	  Should be working by 2002-11-15.
 
-  RESPONSIBILITY OF: PR
+  RESPONSIBILITY OF: PR, BHMJ
 
   Scripts and possibly database structures/API for exporting user and
   group data to the LMS "Itslearning".
@@ -169,28 +181,27 @@ Export to LMS "Itslearning"
 ChangeLog API
 -------------
   STATUS: Not started
-	  Should be operative by end of 2002-11.
+	  After 2002-11-15.
 
   RESPONSIBILITY OF: SS
 
   
 
-  CODE DEPENDENCIES: Email API
+  CODE DEPENDENCIES:
 
   FILES:
 
 Export to Active Directory
 --------------------------
   STATUS: Not started
-	  Should be operative by end of 2002-11.
+	  Should be operative by end of 2002-11-15.
 
   RESPONSIBILITY OF: FV, RF
 
-  Scripts, database structures and API for exporting OU, user and
-  group data to Active Directory.  This will very likely also include
-  some kind of service that must be installed at the AD server.
-
-  CODE DEPENDENCIES: Email API
+  Scripts, database structures and API for exporting user and group
+  data (and, eventually, OU) to Active Directory.  This will very
+  likely also include some kind of service that must be installed at
+  the AD server.
 
   FILES:
 
@@ -308,8 +319,8 @@ Export to LT (Specific to uio.no)
 Export of user and filegroup data to LDAP
 -----------------------------------------
   STATUS: Not started
-	  This might be needed for MacOS X authentication; if so, it's
-	  needed by the end of 2002-11.
+	  This is needed for (a future version of) MacOS X
+	  authentication.
 
   RESPONSIBILITY OF: MM, HBF, HM
 
