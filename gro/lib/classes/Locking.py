@@ -49,8 +49,9 @@ class Locking( object ):
     def lockForWriting( self, client ):
         if not self.writeLock:
             if self.isReadLockedByMe( client ) and not self.isReadLockedByOther( client ):
-                self.writeLock = weakref.ref( client, getattr( self, 'invalidateObject', None ) )
-                self.writeLock = weakref.ref( client, test )
+                def rollback(obj):
+                    self.rollback()
+                self.writeLock = weakref.ref( client, rollback )
             elif not self.readLocks:
                 raise Errors.NotLockedError( 'You dont got a readlock on this node yet' )
             else:
