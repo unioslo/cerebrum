@@ -98,7 +98,7 @@ def _assert_has_quota(person_id):
 # class RequestHandler(SocketServer.BaseRequestHandler):
 class RequestHandler(SocketServer.StreamRequestHandler):
     def process_commands(self):
-        if not self.client_address in authorized_hosts:
+        if not self.client_address[0] in authorized_hosts:
             self.send(eperm)
             return
         
