@@ -336,6 +336,10 @@ def initialize_logger(name, level, config):
         logger_level = config.get(section_name, "level")
         logger.setLevel(logging.getLevelName(logger_level))
     # fi
+    if not isinstance(logger.level, int):
+        # Textual log-levels usually results in no logging what so ever
+        raise ValueError, \
+              "loglevel is not numeric (%s).  Check your config!" % logger.level
 
     # FIXME: is this really necessary? (stolen from logging)
     for handler in logger.handlers:
