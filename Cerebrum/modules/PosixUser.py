@@ -63,6 +63,7 @@ class PosixUser(object):
         return True
 
     def populate_posix_user(self, posix_uid, gid, gecos, home, shell):
+        """Populate PosixUser instance's attributes without database access."""
         self.posix_uid = posix_uid
         self.gid = gid
         self.gecos = gecos
@@ -71,6 +72,14 @@ class PosixUser(object):
         self.__write_db = True  # TODO: Tramper vi nå i Account's navnerom?
 
     def write_db(self, as_object=None):
+        """Write PosixUser instance to database.
+
+        If ``as_object`` is set, it should be another PosixUser object.
+        That object's entity_id will be the one that is updated with
+        this object's attributes.
+
+        Otherwise, a new entity_id is generated and used to insert
+        this object."""
         assert self.__write_db
 
         if as_object is None:
@@ -100,6 +109,7 @@ class PosixUser(object):
         self.__write_db = False
 
     def find_posixuser(self, account_id):
+        """Connect object to PosixUser with ``account_id`` in database."""
         self.find(account_id)
 
         (self.account_id, self.user_id, self.gid, self.gecos,
@@ -109,6 +119,7 @@ class PosixUser(object):
          WHERE account_id=:account_id""", locals())
 
     def get_all_posix_users(self):
+        """Return account_id of all PosixUsers in database"""
         return self.query("SELECT account_id FROM posix_user")
 
     def get_free_uid(self):
@@ -124,7 +135,12 @@ class PosixUser(object):
                 return uid
 
     def get_gecos(self):
+        """Returns the gecos string of this object.  If self.gecos is
+        not set, gecos is determined by searching for
+        DEFAULT_GECOS_NAME in POSIX_GECOS_SS_ORDER"""
         assert self.owner_type == int(self.const.entity_person)
+        if self.gecos is not None:
+            return self.gecos
         p = Person.Person(self._db)
         p.find(self.owner_id)
         for ss in cereconf.POSIX_GECOS_SS_ORDER:
@@ -138,9 +154,11 @@ class PosixUser(object):
         return "Unknown"  # Raise error?
 
     def suggest_unames(self, domain, fname, lname):
+        """Returns a tuple with 15 (unused) username suggestions based
+        on the persons first and last name"""
         goal = 15
         potuname = ()
-        complete_name = self.conv_name("%s %s" % (fname, lname), 1)
+        complete_name = self._conv_name("%s %s" % (fname, lname), 1)
 
         # Remember just the first initials.
         m = re.search('^(.*)[ -]+(\S+)\s+(\S+)$', complete_name)
@@ -238,6 +256,7 @@ class PosixUser(object):
         return potuname
 
     def validate_new_uname(self, domain, uname):
+        """Check that the requested username is legal and free"""
         try:
             # Delayed import to prevent python from barfing
             from Cerebrum import Account
@@ -248,6 +267,7 @@ class PosixUser(object):
             return 1
 
     def make_passwd(self, uname):
+        """Generate a random password with 8 characters"""
         pot = ('-+?=*()/&%#\'_!,;.:'
                'abcdefghijklmnopqrstuvwxyABCDEFGHIJKLMNOPQRSTUVWXY0123456789')
         while 1:
@@ -260,7 +280,9 @@ class PosixUser(object):
                 pass  # Wasn't good enough
         return r
 
-    def conv_name(self, s, alt=0):
+    def _conv_name(self, s, alt=0):
+        """Convert string so that it only contains characters that are
+        legal in a posix username"""
         xlate = {'Æ' : 'ae', 'æ' : 'ae', 'Å' : 'aa', 'å' : 'aa'}
         if alt:
             s = string.join(map(lambda x:xlate.get(x, x), s), '')
@@ -312,6 +334,8 @@ class PosixUser(object):
     dir = "/u2/dicts"
     
     def check_password_history(self, uname, passwd):
+        """Check wether uname had this passwd earlier.  Raises a
+        TODOError if this is true"""
         if 0:
             raise msgs['was_like_old']
         return 1
@@ -351,6 +375,11 @@ class PosixUser(object):
         return min
 
     def goodenough(self, uname, passwd):
+        """Perform a number of checks on a password to see if it is
+        random enough.  This is done by checking the mix of
+        upper/lowercase letters and special characers, as well as
+        checking a database."""
+
         # TODO:  This needs more work.
         msgs = self.msgs
         passwd = passwd[0:8]
@@ -368,6 +397,11 @@ class PosixUser(object):
         if re.search(r' ', passwd):
             raise msgs['space']
 
+        # I'm not sure that the below is very smart.  If this rule
+        # causes most users to include a digit in their password, one
+        # has managed to reduce the password space by 26*2/10 provided
+        # that a hacker performs a bruteforce attack
+        
         good_try = variation = 0
         if re.search(r'[a-z]', passwd): variation += 1
         if re.search(r'[A-Z][^A-Z]{7}', passwd): good_try += 1
