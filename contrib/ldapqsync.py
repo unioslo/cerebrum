@@ -14,18 +14,26 @@ from Cerebrum.modules import PosixGroup
 from Cerebrum.Constants import _SpreadCode
 from Cerebrum.extlib import logging
 from Cerebrum.modules import CLHandler
+from Cerebrum.modules import ChangeLog
 from Cerebrum.Utils import Factory
 
 db = Factory.get('Database')()
+#db.commit = db.rollback
 const = Factory.get('CLConstants')(db)
 co = Factory.get('Constants')(db)
+are_test = """1
+2
+3
+113"""
 cltype = {}
 cl_entry = {'group_mod' : 'pass', 				
 	'group_add' : 'group_mod(cll.change_type_id,cll.subject_entity,\
-							cll.dest_entity)',
+					cll.dest_entity,cll.change_id)',
 	'group_rem' : 'group_mod(cll.change_type_id,cll.subject_entity,\
-							cll.dest_entity)',
-	'account_mod' : 'mod_account(cll.subject_entity,i)',
+					cll.dest_entity,cll.change_id)',
+	#'account_mod' : 'mod_account(cll.subject_entity,i)',
+	#'account_mod' : 'group_mod(45,1154,2273,15)', #test purpose
+	'account_mod' : 'change_spread(18337,70,are_test)',
 	'spread_add' : 'change_spread(cll.subject_entity,cll.change_type_id,\
 							cll.change_params)',
 	'spread_del' : 'change_spread(cll.subject_entity,cll.change_type_id,\
@@ -36,7 +44,7 @@ cl_entry = {'group_mod' : 'pass',
 							cll.change_type_id)',
 	'quarantine_del' : 'change_quarantine(cll.subject_entity,\
 							cll.change_type_id)'}
-ldapfiles = []
+#ldapfiles = []
 global user_dn, person_dn, group_dn, ngroup_dn
 bas = cereconf.LDAP_BASE
 org_att = cereconf.LDAP_ORG_ATTR
@@ -45,53 +53,189 @@ person_dn = "%s=%s,%s" % (org_att,cereconf.LDAP_PERSON_DN,bas)
 group_dn = "%s=%s,%s" % (org_att,cereconf.LDAP_GROUP_DN,bas)
 ngroup_dn = "%s=%s,%s" % (org_att,cereconf.LDAP_NETGROUP_DN,bas) 
 
+
+def start_tls_and_log(list_1=None):
+    global s_list
+    s_list = {}
+    if not list_1:
+        if isinstance(cereconf.LDAP_SERVER,str):
+            conf_list = []
+            conf_list.append(cereconf.LDAP_SERVER)
+        elif isinstance(cereconf.LDAP_SERVER,(tuple,list)):
+            conf_list = cereconf.LDAP_SERVER
+        else:
+            print "Not valid LDAP_SERVER in cereconf!"
+            sys.exit(0)
+    else:
+        conf_list = list_1
+    for server in conf_list:
+        try:
+            serv,user,passwd = [str(y) for y in server.split(':')]
+            f_name = cereconf.LDAP_DUMP_DIR + '/log/' + serv + '.sync.log'
+            if os.path.isfile(f_name): s_list[serv] = [file(f_name,'a'),]
+            else: s_list[serv] = [file(f_name,'w'),]
+            # LDAP_SERVER parametre; ['server1:user:passwd','server2:user:passwd']
+            con = None
+            con = ldap.open(serv)
+            con.protocol_version = ldap.VERSION3
+            try:
+                if cereconf.TLS_CACERT_FILE is not None:
+                    con.OPT_X_TLS_CACERTFILE = cereconf.TLS_CACERT_FILE
+            except:  pass
+            try:
+                if cereconf.TLS_CACERT_DIR is not None:
+                    con.OPT_X_TLS_CACERTDIR = cereconf.TLS_CACERT_DIR
+            except:  pass
+            # Evaluate more LDAP-properties(tls,version,timeout,servercontrol etc)
+            #print "Opening TLS-connection to %s ......" % cereconf.LDAP_SERVER
+            try:
+                con.start_tls_s()
+                l_bind = con.simple_bind(user,passwd)
+                s_list[serv].append(con)
+            except:
+                print "Could not open TLS-connection to %s" % serv
+                log_fail.write("\n#Fault. Could not open TLS-connection to %s" % serv)
+                del s_list[serv]
+            if l_bind and con:
+                s_list[serv][0].write("\n# TLS-connection open to %s" % serv)
+        #except: pass
+        except ldap.LDAPError, e:
+            logg_fail.write(e)
+
+def get_ldap_value(search_id,dn,retrieveAttributes=None):
+    searchScope = ldap.SCOPE_SUBTREE
+    result_set = []
+    for serv,l in s_list.items():
+        try:
+            ldap_result_id = l[1].search(search_id,searchScope,dn,retrieveAttributes)
+            #result_set = []
+            while 1:
+                result_type, result_data = l[1].result(ldap_result_id, 0)
+                if (result_data == []):
+                    break
+                else:
+                    if result_type == ldap.RES_SEARCH_ENTRY:
+                        result_data.append(serv)
+                        result_set.append(result_data)
+                        #print result_data
+                    else:
+                        pass
+        except ldap.LDAPError, e:
+            print e #log problem in problem-file
+            return(None)
+    return(result_set)
+
+
+
 def mod_ldap(ldap_mod,attr,attr_value,dn_value,list=None):
+    print "in mod_ldap"
     if list:
 	ldif_list = [(ldap_mod,attr,attr_value)]
     else:
     	ldif_list = [(ldap_mod,attr,(attr_value,))]
-    result_ldap_mod = l.modify(dn_value,ldif_list)
-    log_str = '\n' + ldif.CreateLDIF(dn_value,ldif_list)
-    if result_ldap_mod:
-	log_diff.write(log_str)
+    print ldif_list
+    for serv,l in s_list.items():
+	result_ldap_mod = l[1].modify(dn_value,ldif_list)
+	log_str = '\n' + ldif.CreateLDIF(dn_value,ldif_list)
+	if result_ldap_mod:
+	    l[0].write(log_str)
+	else:
+	    log_str = '\n# ' + serv + ': ' + log_str
+	    log_fail.write(log_str)
+
+def mod_ldap_serv(ldap_mod,attr,attr_value,dn_value,k,list=None):
+    print "in mod_ldap_serv"
+    if list:
+	ldif_list = [(ldap_mod,attr,attr_value)]
     else:
+	ldif_list = [(ldap_mod,attr,(attr_value,))]
+    result_ldap_mod = s_list[k][1].modify(dn_value,ldif_list)
+    log_str = '\n' + ldif.CreateLDIF(dn_value,ldif_list)
+    if result_ldap_mod :
+	s_list[k][0].write(log_str)
+    else:
+	log_str = '\n# ' + serv + ': ' + log_str
 	log_fail.write(log_str)
-    return
 
 def add_ldap(dn_value,ldif_list):
-    result_add_ldap = l.add(dn_value,ldif_list)
+    print "in add ldap %s %s" % (dn_value,ldif_list)
+    for serv,l in s_list.items():
+	result_add_ldap = l[1].add(dn_value,ldif_list)
+	log_str = '\n' + ldif.CreateLDIF(dn_value,ldif_list)
+	if result_add_ldap:
+	    l[0].write(log_str)
+	else:
+	    log_str = '\n# ' + serv + ': ' + log_str 
+	    log_fail.write(log_str)
+
+def add_ldap_serv(dn_value,ldif_list,k):
+    result_add_ldap = s_list[k][1].add(dn_value,ldif_list)
     log_str = '\n' + ldif.CreateLDIF(dn_value,ldif_list)
     if result_add_ldap:
-	log_diff.write(log_str)
+	s_list[k][0].write(log_str)
     else:
+	log_str = '\n# ' + serv + ': ' + log_str
         log_fail.write(log_str)
 
+
 def delete_ldap(dn_value):
-    result_del_ldap = l.delete(dn_value)
-    log_str = ldif.CreateLDIF(dn_value,{'changetype': ('delete',)})
+    print "in delete ldap"
+    for serv,l in s_list.items():
+	result_del_ldap = l[1].delete(dn_value)
+	log_str = '\n' + ldif.CreateLDIF(dn_value,{'changetype': ('delete',)})
+	if result_del_ldap:
+	    l[0].write(log_str)
+	else:
+	    log_str = '\n# ' + serv + ': ' + log_str
+	    log_fail.write(log_str)
+
+def delete_ldap_serv(dn_value,k):
+    print "in delete ldap serv"
+    result_del_ldap = s_list[k][1].delete(dn_value)
+    log_str = '\n' + ldif.CreateLDIF(dn_value,{'changetype': ('delete',)})
     if result_del_ldap:
-        log_diff.write(log_str)
+        s_list[k][0].write(log_str)
     else:
+        log_str = '\n# ' + k + ': ' + log_str
         log_fail.write(log_str)
+
+def modrdn_ldap(dn_value,new_value,delete_old=True):
+    print "in delete ldap"
+    for serv,l in s_list.items():
+        result_del_ldap = l[1].modrdn(dn_value,new_value,delete_old)
+        log_str = '\n' + ldif.CreateLDIF(dn_value,{'changetype': ('modrdn',),\
+			'newrdn':(new_value,),'deleteoldrdn':(str(delete_old),)})
+        if result_del_ldap:
+            l[0].write(log_str)
+        else:
+            log_str = '\n# ' + serv + ': ' + log_str
+            log_fail.write(log_str)
+
 
 def mod_account(dn_id,i):
     j = i + 1
+    print "In account mod" 
     account = Account.Account(db)
     account.clear()
     account.find(dn_id)
+    print account.account_name
     if (j < len(ch_log_list)):
+	print "test1"
 	try:
+	    print "test2"
 	    if ((ch_log_list[j]['change_type_id']) == \
 			int(const.account_password)):
+		print "test3"
 		change_passwd(dn_id)
 	except: pass 
     else:
-	  for entry in cereconf.LDAP_USER_SPREAD:
-	    if not account.has_spread(getattr(co,entry)):
-		continue
+	print "test4"
+	if True in [account.has_spread(x) for x in u_spreads]:
+	    print "test5"
 	    search_str = "%s=%s" % (cereconf.LDAP_USER_ATTR,
 					account.account_name)
 	    ldap_entry = get_ldap_value(user_dn,search_str,None)
+	    print ldap_entry
 	    dn_str,ldap_entry_u = ldap_entry[0][0]
 	    base_entry = get_user_info_dict(dn_id)
 	    for entry in base_entry.keys():
@@ -107,6 +251,7 @@ def get_user_info_dict(dn_id):
 
 
 def change_passwd(dn_id):
+    print "in passwd"
     acc = Account.Account(db)
     acc.find(int(dn_id))
     search_str = "%s=%s" % (cereconf.LDAP_USER_ATTR,acc.account_name)
@@ -120,80 +265,68 @@ def change_passwd(dn_id):
 	try:
 	    new_passwd = "{crypt}%s" % \
 		acc.get_account_authentication(co.auth_type_crypt3_des)
-	except Errors.NotFoundError:
-	    new_passwd = "{crypt}*Invalid"
-    try:
-	quarant = acc.get_entity_quarantine()
-    except Errors.NotFoundError: pass
-    try:
-	valid_spread = False
-	for spreads in cereconf.LDAP_USER_SPREAD:
-	    if acc.has_spread(getattr(co,spreads)):
-		valid_spread = True
-    except Errors.NotFoundError: pass
+	except Errors.NotFoundError: new_passwd = '*Invalid'
+    if (acc.get_entity_quarantine() <> []): new_passwd = '*Invalid'
     attr_list.append(passwd_attr)
-    ldap_res = get_ldap_value(user_dn,search_str,attr_list)
-    if ldap_res:
-	old_passwd = str(ldap_res[0][0][1]['userPassword'])
-	if (re.sub('\W','',old_passwd)) == (re.sub('\W','',new_passwd)):
-	    pass_ch = False
-	else: 
-	    pass_ch = True
-    ldap_people_res = get_ldap_value(person_dn,search_str,None)
-    if pass_ch and valid_spread and not quarant:
-	mod_ldap(ldap.MOD_REPLACE,passwd_attr,new_passwd,search_dn)
-    if ldap_people_res and not quarant:
-	pers_dn = "%s,%s" % (search_str,person_dn)	
-	mod_ldap(ldap.MOD_REPLACE,passwd_attr,new_passwd,pers_dn)
+    if True in ([acc.has_spread(x) for x in u_spreads]):
+	ldap_res = get_ldap_value(user_dn,search_str,attr_list)
+	if ldap_res <> []:
+	    mod_ldap(ldap.MOD_REPLACE,passwd_attr,new_passwd,search_dn)
+    if (get_ldap_value(person_dn,search_str,None) <> []):
+	mod_ldap(ldap.MOD_REPLACE,passwd_attr,new_passwd,pers_dn)	
 
 def change_quarantine(dn_id,ch_type):
-    acc = Account.Account(db)
-    posixuser = PosixUser.PosixUser(db)
+    print "in change quarantine"
+    #acc = Account.Account(db)
+    posusr = PosixUser.PosixUser(db)
     try:
-	acc.find(dn_id)
+	posusr.find(dn_id)
     except Errors.NotFoundError: 
 	log_fail.write("\n#ID:%s was no account!" % dn_id)
-    search_str = "%s=%s" % (cereconf.LDAP_USER_ATTR,acc.account_name)
+    if True in [posusr.has_spread(x) for x in u_spreads]:
+	spread_u = True
+    else: spread_u = False
+    search_str = "%s=%s" % (cereconf.LDAP_USER_ATTR,posusr.account_name)
+    # posusr.account_name -> posusr.get_name(account_namespace)
     search_dn = "%s,%s" % (search_str,user_dn)
-    try:
-	for spreads in cereconf.LDAP_USER_SPREAD:
-	    if acc.has_spread(getattr(co,spreads)):
-		posixuser.find(dn_id)
-		valid_spread = True
-    except Errors.NotFoundError: pass
+#    try:
+#	for spreads in cereconf.LDAP_USER_SPREAD:
+#	    if acc.has_spread(getattr(co,spreads)):
+#		posixuser.find(dn_id)
+#		valid_spread = True
+#    except Errors.NotFoundError: pass
     user = {}
     passwd = 'userPassword'
     shells = 'loginShell'
     try:
 	user[passwd] = "{crypt}%s" % \
-		acc.get_account_authentication(co.auth_type_md5_crypt)
+		posusr.get_account_authentication(co.auth_type_md5_crypt)
     except Errors.NotFoundError:
         try:
 	    user[passwd] = "{crypt}%s" % \
-		acc.get_account_authentication(co.auth_type_crypt3_des)
+		posusr.get_account_authentication(co.auth_type_crypt3_des)
 	except Errors.NotFoundError: 
-		user[passwd] = '{crypt}*Invalid'
+		user[passwd] = '*Invalid'
     ldap_people_res = get_ldap_value(person_dn,search_str,None)
     pers_string = '%s,%s' % (search_str,person_dn)
     quaran = eval_quarantine(dn_id)
-    if (int(ch_type) == int(co.quarantine_del)) and \
-		valid_spread and quaran is None:
+    if (int(ch_type) == int(co.quarantine_del)) and not quaran and spread_u:
 	mod_ldap(ldap.MOD_REPLACE,shells,
 			posixuser.shell,search_dn)
 	mod_ldap(ldap.MOD_REPLACE,passwd,
 			user[passwd],search_dn)
 	if ldap_people_res:
 	    mod_ldap(ldap.MOD_REPLACE,passwd,user[passwd],pers_string)
-    elif valid_spread and quaran is not None:
+    elif quaran and spread_u:
 	for attr,value in quaran.items():
 	    mod_ldap(ldap.MOD_REPLACE,attr,value,search_dn)
         if ldap_people_res:
             mod_ldap(ldap.MOD_REPLACE,passwd,quaran[passwd],pers_string)
-    elif ldap_people_res and not valid_spread:
-	if (int(ch_type) == int(co.quarantine_del)) and quaran is not None:
+    elif ldap_people_res and not spread_u:
+	if (int(ch_type) == int(co.quarantine_del)) and quaran:
 	    mod_ldap(ldap.MOD_REPLACE,passwd,new_passwd,pers_string)
 	elif quaran:
-	    new_passwd = '{crypt}*Locked'
+	    new_passwd = '*Locked'
 	    mod_ldap(ldap.MOD_REPLACE,passwd,quaran[passwd],pers_string)
     else: pass
 
@@ -227,6 +360,7 @@ def change_spread(dn_id,ch_type,ch_params):
     """Spread can be users, filegroup or netgroup. Since e_account.create 
     not necesary include spread to posix, creation of user-,filegroup- and
     netgroup-record will be based on add/mod/del spread"""
+    print "In change spread"
     entity = Entity.Entity(db)
     entity.find(int(dn_id))
     """What to do with ch_param"""
@@ -239,73 +373,67 @@ def change_spread(dn_id,ch_type,ch_params):
 					% (dn_id,ch_type)) 
 
 def change_user_spread(dn_id, ch_type, ch_params):
+    print "in user spread change"
     account = Account.Account(db)
-    posixuser = PosixUser.PosixUser(db)
+    group = Group.Group(db)
     param_list = []
     param_list = string.split(ch_params,'\n')
-    u_spread = int(re.sub('\D','',param_list[3]))
-    for entry in cereconf.LDAP_USER_SPREAD:
-	if not (u_spread == int(getattr(co,entry))):
-	    continue
-	try:
-            account.find(dn_id)
-	except Errors.NotFoundError:
-            log_fail.write("\n# ID:%s was no account!" % dn_id)
-            break
-    	uname = account.get_name(co.account_namespace)
-    	valid_spread = False
-    	for entry in cereconf.LDAP_USER_SPREAD:
-	    if account.has_spread(getattr(co,entry)):
-		valid_spread = True
-    	search_str = "%s=%s" % (cereconf.LDAP_USER_ATTR,account.account_name)
-    	search_dn = "%s,%s" % (search_str,user_dn)
-    	ldap_res = get_ldap_value(user_dn,search_str,None)
-    	if ldap_res and int(ch_type) == int(co.spread_add):
-	    log_fail.write("\n# Cant create user, exist in LDAP(%s,%s)" % \
-							(dn_id,ch_type))
-	elif not ldap_res and int(ch_type) == int(co.spread_del):
-	    log_fail.write("\n# Cant delete user, doesnt exist(%s,%s)" % \
-							(dn_id,ch_type)) 
-	elif not ldap_res and (int(ch_type) == int(co.spread_add)) and \
-							valid_spread:
-	    ldif_list = get_user_info(dn_id)
-	    if ldif_list:
-		add_ldap(search_dn,ldif_list)
+    cl_spread = int(re.sub('\D','',param_list[3]))
+    if cl_spread in u_spreads:
+	account.find(dn_id)
+	search_str = "%s=%s" % (cereconf.LDAP_USER_ATTR,account.account_name)
+	search_dn = "%s,%s" % (search_str,user_dn)
+	if (ch_type == int(const.spread_del)):
+	    #print "in user-delete loop"
+	    for entry in  get_ldap_value(user_dn,search_str,None):
+		#print "parameters to ldap_del: %s %s" % (search_dn,entry[1])
+		delete_ldap_serv(search_dn,entry[1])
+	    # Remove all entries in netgroups and filegroups
+	    for grp in group.list_groups_with_entity(dn_id):
+		user_add_del_grp(const.group_rem,dn_id,grp['group_id'])
+	elif (ch_type == int(const.spread_add)):
+	    #print "in user add part"
+	    usr_list = get_user_info(dn_id)
+	    #print usr_list
+	    ldap_res = get_ldap_value(user_dn,search_str,None)
+	    #print ldap_res
+	    if (ldap_res == []):
+		#print "in correct rutine"
+		add_ldap(search_dn,usr_list)
 	    else:
-		log_fail.write("\n# Add_spread didn't res request(%s,%s)" % \
-							(dn_id, ch_type))
-	elif ldap_res and (int(ch_type) == int(co.spread_del)):
-	    result_del_ldap = delete_ldap(search_dn)
-	else:
-	    log_fail.write("\n# Spread-change could not be processed(%s,%s)" %\
-							(dn_id, ch_type))
-	    
+		for serv in s_list.keys():
+		    if serv in [x[1] for x in ldap_res]:
+			log_fail.write("\n# User: %s exist in server: %s" % \
+						(account.account_name,serv))
+		    else: add_ldap_serv(search_dn,usr_list,serv)
+	    for grp in group.list_groups_with_entity(dn_id):
+		 user_add_del_grp(const.group_add,dn_id,grp['group_id'])
+	
+	
 def change_group_spread(dn_id,ch_type,ch_params):
     posixgroup = PosixGroup.PosixGroup(db)
     posixgroup.find(dn_id)
     group_name = posixgroup.get_name(co.group_namespace)
     param_list = []
     param_list = string.split(ch_params,'\n')
-    g_spread = int(re.sub('\D','',param_list[3]))
-    for entry in cereconf.LDAP_GROUP_SPREAD:
-	if int(getattr(co,entry)) == g_spread:
-	    dn_path = group_dn
-	    dn_attr = "%s=%s" % (cereconf.LDAP_GROUP_ATTR,group_name) 
-	    dn_value = "%s,%s" % (dn_attr,group_dn)
-    for entry in cereconf.LDAP_NETGROUP_SPREAD:
-	if int(getattr(co,entry)) == g_spread:
-	    dn_path = ngroup_dn
-	    dn_attr = "%s=%s" % (cereconf.LDAP_NETGROUP_ATTR,group_name)
-            dn_value = "%s,%s" % (dn_attr,ngroup_dn)
+    grp_spread = int(re.sub('\D','',param_list[3]))
+    if grp_spread in g_spreads: 
+	dn_path = group_dn
+	dn_attr = "%s=%s" % (cereconf.LDAP_GROUP_ATTR,group_name) 
+	dn_value = "%s,%s" % (dn_attr,group_dn)
+    elif grp_spread in n_spreads:
+	dn_path = ngroup_dn
+	dn_attr = "%s=%s" % (cereconf.LDAP_NETGROUP_ATTR,group_name)
+	dn_value = "%s,%s" % (dn_attr,ngroup_dn)
     if dn_path: #and posixgroup.has_spread(g_spread):
     	ldap_res = get_ldap_value(dn_path,dn_attr,None)
 	if (int(ch_type) == int(co.spread_del)) and ldap_res:
 	    delete_ldap(dn_value)
 	elif (int(ch_type) == int(co.spread_add)) and not ldap_res:
 	    if dn_path == group_dn:
-		ldif_list = get_group_info(dn_id,group_name)
+		ldif_list = get_group_info(dn_id)
 	    else:
-		ldif_list = get_netgroup_info(dn_id,group_name)
+		ldif_list = get_netgroup_info(dn_id)
 	    add_ldap(dn_value,ldif_list)
 	else: pass
     else: pass
@@ -313,13 +441,9 @@ def change_group_spread(dn_id,ch_type,ch_params):
 
 def get_user_info(dn_id):
     pos = PosixUser.PosixUser(db)
-    disk = Disk.Disk(db)
-    acc = Account.Account(db)
-    shells = disks = {}
+    shells = {}
     for sh in pos.list_shells():
 	shells[int(sh['code'])] = sh['shell']
-    for hd in disk.list():
-        disks[int(hd['disk_id'])] = hd['path']
     objcl_list = []
     objcl_list.append('top')
     for obj in cereconf.LDAP_USER_OBJECTCLASS:
@@ -327,15 +451,13 @@ def get_user_info(dn_id):
     try:
 	pos.clear()
 	pos.find(dn_id)
-	acc.find(dn_id)
+	r_name = pos.get_gecos()
+	cn_name = some2utf(r_name)
 	if not pos.gecos:
-	    cn_name = gecos = pos.get_gecos()
+	    gecos = latin1_to_iso646_60(some2iso(r_name))
 	else:
-	    gecos = pos.gecos
-	try:
-	    user_home = pos.get_home()
-	except:
-	    user_home = disks[int(acc.disk_id)] + '/' + acc.account_name
+	    gecos = latin1_to_iso646_60(some2iso(pos.gecos))
+	user_home = pos.get_posix_home(u_spreads[0])
 	user_shell = shells[int(pos.shell)]
 	if not cn_name:
 	    cn_name = pos.get_gecos()
@@ -363,12 +485,28 @@ def get_user_info(dn_id):
 					'loginShell': [user_shell],
 					'gecos': [gecos]})
 	return(ldif_list)
-    except: return(None)
+    except: 
+	log_fail.write("\n#Not valid user-info of user: %s" % dn_id) 
+	return(None)
 
-def get_group_info(dn_id,group_name):
+iso_re = re.compile("[\300-\377](?![\200-\277])|(?<![\200-\377])[\200-\277]")
+
+eightbit_re = re.compile('[\200-\377]')
+
+def some2utf(str):
+    """Convert either iso8859-1 or utf-8 to utf-8"""
+    if iso_re.search(str):
+        str = unicode(str, 'iso8859-1').encode('utf-8')
+    return str
+
+def some2iso(str):
+    """Convert either iso8859-1 or utf-8 to iso8859-1"""
+    if eightbit_re.search(str) and not iso_re.search(str):
+        str = unicode(str, 'utf-8').encode('iso8859-1')
+    return str
+
+def get_group_info(dn_id):
     posixgroup = PosixGroup.PosixGroup(db)
-    account = Account.Account(db)
-    group = Group.Group(db)
     try:
 	posixgroup.find(dn_id)
 	objcl_list = []
@@ -376,25 +514,20 @@ def get_group_info(dn_id,group_name):
 	for obj in cereconf.LDAP_GROUP_OBJECTCLASS:
 	    objcl_list.append(obj)
 	ldif_list = modlist.addModlist({'objectClass': objcl_list})
-	ldif_list.append(('cn',[group_name]))
+	ldif_list.append(('cn',[posixgroup.group_name]))
 	ldif_list.append(('gidNumber',[str(posixgroup.posix_gid)]))
 	if posixgroup.description:
 	    ldif_list.append(('description', 
-		[latin1_to_iso646_60(posixgroup.description)]))
+		[latin1_to_iso646_60(some2iso(posixgroup.description))]))
 	member = []
-	group.find(dn_id)
-	for memb in group.get_members(spread=int(getattr(co,\
-					cereconf.LDAP_USER_SPREAD[0]))):
-	    account.clear()
-	    account.entity_id = int(memb)
-	    member.append(account.get_name(co.account_namespace))
+	for memb in posixgroup.get_members(spread=u_spreads[0],\
+					get_entity_name=True):
+	    member.append(memb[1])
 	ldif_list.append(('memberUid',member))
     	return(ldif_list)
-    except: return(None)
+    except Errors.NotFoundError: return(None)
 
-def get_netgroup_info(dn_id,group_name):
-    posixgroup = PosixGroup.PosixGroup(db)
-    account = Account.Account(db)
+def get_netgroup_info(dn_id):
     group = Group.Group(db)
     try:
         group.find(dn_id)
@@ -403,205 +536,237 @@ def get_netgroup_info(dn_id,group_name):
         for obj in cereconf.LDAP_NETGROUP_OBJECTCLASS:
             objcl_list.append(obj)
         ldif_list = modlist.addModlist({'objectClass': objcl_list})
-        ldif_list.append(('cn',[group_name]))
+        ldif_list.append(('cn',[group.group_name]))
         if group.description:
             ldif_list.append(('description', 
-			[latin1_to_iso646_60(group.description)]))
-        member = []
-	u_spread = int(getattr(co,cereconf.LDAP_USER_SPREAD[0]))
-        for memb in group.list_members(u_spread,int(co.entity_account))[0]:
-            account.clear()
-            account.entity_id = int(memb[1])
-	    member_str = "(,%s,)" % \
-		account.get_name(co.account_namespace).replace('_','')
-            member.append(member_str)
-        ldif_list.append(('nisNetgroupTriple',member))
-	# list_members method can only resolve one spread. 
-	# Spread should not be None.
-	groups = []  
-	for group_entry in group.list_members(None,int(co.entity_group))[0]:
-	    group.clear()
-            group.find(int(group_entry[1]))
-            groups.append(group.group_name)
+			[latin1_to_iso646_60(some2iso(group.description))]))
+        members = []
+	groups = []
+	get_netgroup_mem(dn_id,members,groups)
+        ldif_list.append(('nisNetgroupTriple',members))
 	ldif_list.append(('membernisNetgroup',groups))
         return(ldif_list)
-    except: return(None)
+    except Errors.NotFoundError: return(None)
+
+def get_netgroup_mem(netgrp_id,members,groups):
+    pos_netgrp = Factory.get('Group')(db)
+    pos_netgrp.clear()
+    pos_netgrp.entity_id = int(netgrp_id)
+    for uname in [id[2] for id in pos_netgrp.list_members(u_spreads[0],\
+			int(co.entity_account),get_entity_name= True)[0]]:    
+        if ('_' not in uname) and uname not in members: members.append(uname)
+    for group in pos_netgrp.list_members(None, int(co.entity_group)\
+					,get_entity_name=True)[0]:
+        pos_netgrp.clear()
+        pos_netgrp.entity_id = int(group[1])
+        if True in ([pos_netgrp.has_spread(x) for x in n_spreads]):
+	    groups.append(group[2])
+        else:
+            get_netgrp(int(group[1]),members,groups)
  
-def load_spread(spread):
-    sp_table = []
-    for entry in spread:
-	sp_table.append(int(getattr(co,entry)))
-    return(sp_table)
+ 
 
-def change_user(dn_id,ch_type):
-    account = Account.Account(db)
-    
-def group_mod(ch_type,dn_id,dn_dest):
-    account = Account.Account(db)
+def group_mod(ch_type,dn_id,dn_dest,log_id):
+    print "in group_mod"
+    entity = Entity.Entity(db)
+    entity.clear()
+    entity.find(dn_id)
+    if True in ([entity.has_spread(x) for x in u_spreads]):
+	user_add_del_grp(ch_type,dn_id,dn_dest)
+    elif (int(entity.entity_type) == int(co.entity_group)): 
+	print "riktig sted"
+	if True in [entity.has_spread(x) for x in n_spreads]:
+	    print "feil sted"
+	    add_netg2netg(ch_type,dn_id,dn_dest)
+	if True in [entity.has_spread(x) for x in g_spreads]:
+	    print "enda mere riktig"
+	    group = Group.Group(db)
+	    group.entity_id = int(dn_id)
+	    for mem in group.get_members(spread=u_spreads[0]):
+		user_add_del_grp(ch_type,mem,dn_dest)
+    	if not True in [entity.has_spread(x) for x in (n_spreads + g_spreads)]:
+	    for mem in group.get_members(get_members(spread=u_spreads[0])):
+                user_add_del_grp(ch_type,mem,dn_dest)
+     
+
+def add_netg2netg(ch_type,dn_id,dn_dest):
+    posgrp = PosixGroup.PosixGroup(db)
+    posgrp.clear()
+    posgrp.find(int(dn_dest))
+    if True in [posgrp.has_spread(x) for x in n_spreads]:
+	cn = "%s=%s" % (cereconf.LDAP_NETGROUP_ATTR,posgrp.group_name)
+	dn = cn + ',' + ngroup_dn
+	ng__attr = 'memberNisNetgroup'
+	posgrp.clear()
+	posgrp.find(int(dn_id))
+        search_dn = "(&(%s)(%s=%s))" % (cn,ng_attr,posgrp.group_name)
+        ldap_value = get_ldap_value(ngroup_dn,search_dn,[ng_attr,])
+	if (int(ch_type) == int(const.group_add)):
+	    if (ldap_value == []):
+		mod_ldap(ldap.MOD_ADD,ng_attr,posgrp.group_name,dn)
+	    else:
+		for serv in s_list.keys():
+		    if serv in [x[1] for x in ldap_value]:
+			log_fail.write('\n# %s: Group:%s already in group:%s'\
+						% (serv,posgrp.group_name,cn))
+		    else:
+			mod_ldap_serv(ldap.MOD_ADD,ng_attr,posgrp.group_name,\
+									dn,serv)
+	elif (int(ch_type) == int(const.group_rem)):
+    	    if (ldap_value == []):
+		log_fail.write('\n# Group:%s doesent exist in group:%s' \
+						% (posgrp.group_name,cn))
+	    else:
+		for serv in s_list.keys():
+                    if serv in [x[1] for x in ldap_value]:
+                        mod_ldap_serv(ldap.MOD_DELETE,ng_attr,\
+						posgrp.group_name,dn,serv)
+		    else:
+			 log_fail.write('\n# %s: Group:%s already in group:%s'\
+                                                % (serv,posgrp.group_name,cn))
+
+
+
+def user_add_del_grp(ch_type,user_id,dn_dest):
     group = Group.Group(db)
+    account = Account.Account(db)
+    account.entity_id = int(user_id)
     group.clear()
-    account.clear()
     group.entity_id = int(dn_dest)
-    account.entity_id = int(dn_id)
-    for row in group.get_spread():
-	netgroup_spread = load_spread(cereconf.LDAP_NETGROUP_SPREAD)
-	group_spread = load_spread(cereconf.LDAP_GROUP_SPREAD)
-	user_spread = load_spread(cereconf.LDAP_USER_SPREAD)
-	if int(row['spread']) in group_spread:
-	    base_dn = "%s=%s,%s" % (cereconf.LDAP_GROUP_ATTR,
-				group.get_name(co.group_namespace),group_dn)
-	    user = account.get_name(co.account_namespace)
-	    memb_attr = "memberUid"
-	    member_uid = "%s=%s" % (memb_attr, user)
-	    res_ldap_fg = get_ldap_value(base_dn, member_uid, None)
-	    if (ch_type == const.group_add) and (res_ldap_fg == []):
-		mod_ldap(ldap.MOD_ADD,memb_attr,user,base_dn)
-	    elif (ch_type == const.group_rem) and (res_ldap_fg == []):
-		text = "\n# User %s cant be deleted from %s."% (user,base_dn)
-		log_fail.write(text)
-	    elif (ch_type == const.group_add) and (res_ldap_fg[0][0][0]):
-		text = "\n# User %s cant be added,already exist in %s" % (user,
-								       base_dn)
-		log_fail.write(text)
-	    elif (ch_type == const.group_rem) and (res_ldap_fg[0][0][0]):
-		mod_ldap(ldap.MOD_DELETE,memb_attr,user,base_dn)
-	    elif res_ldap_fg is None: 
-		if (ch_type == const.group_add):
-		    ldif_list = [(ldap.MOD_ADD,membattr,(user,))]
-		else:
-		    ldif_list = [(ldap.MOD_DELETE,membattr,(user,))]
-		log_str = '\n' + ldif.CreateLDIF(base_dn,ldif_list)
-		log_fail(log_str)
+    if True in ([group.has_spread(x) for x in g_spreads]):
+	grp_list = [int(dn_dest),]
+	#print grp_list
+    else: grp_list = []
+    test = get_groups(group.entity_id,g_spreads,grp_list,fg=True)
+    print "list av grupper %s" % test
+    #for grp in get_groups(group.entity_id,g_spreads,grp_list,fg=True):
+    for grp in test:
+	group.clear()
+	group.entity_id = int(grp)
+	print "Grp: %d" % grp
+	dn = "%s=%s,%s" % (cereconf.LDAP_GROUP_ATTR,\
+                                group.get_name(co.group_namespace),group_dn)
+	memb_attr = 'memberUid'
+	#print "dn: %s" % dn
+	user = account.get_name(co.account_namespace)
+	memb_id = '%s=%s' % (memb_attr,user)
+	#print " Soke-krit: %s %s" % (dn,memb_id)
+	ldap_value = get_ldap_value(dn,memb_id)
+	#print ldap_value
+	if (ch_type == const.group_add):
+	    #print "in add_user_to_group"
+	    if (ldap_value == []):
+		#print "ldap_value = []"
+		mod_ldap(ldap.MOD_ADD,memb_attr,user,dn)
 	    else:
-		log_fail.write("Totally wrong with entry ") 
-	elif int(row['spread']) in netgroup_spread:
-	    base_dn = "ou=%s,%s" % (cereconf.LDAP_NETGROUP_DN,
-					cereconf.LDAP_BASE)
-	    search_dn = "%s=%s" % (cereconf.LDAP_NETGROUP_ATTR,
-					group.get_name(co.group_namespace))
-	    full_dn = "%s,%s" % (search_dn,base_dn)
-	    valid_group = True
-	    for entry in netgroup_spread:
-		if account.has_spread(entry):
-                    ng_search_attr = 'memberNisNetgroup'
-                    nisnetgroup = account.get_name(co.group_namespace)
-                    search_dn_group = "(&(%s)(%s=%s))" % (search_dn,
-                                        ng_search_attr,nisnetgroup)
-		    res_ldap_ng = get_ldap_value(base_dn, search_dn, None)
-		    if (res_ldap_ng == []):
-			log_fail.write("\n# Group does not exist in LDAP")
-			valid_group = False
-		    else:
-			res_ldap_mem = get_ldap_value(base_dn,
-							search_dn_group,None)
-			if ((res_ldap_mem == []) and \
-				(int(ch_type) == int(const.group_add))):
-			    ldap_mod(ldap.MOD_ADD,ng_search_attr,
-							nisnetgroup,full_dn)
-			elif ((res_ldap_mem <> []) and \
-				(int(ch_type) == int(const.group_rem))):
-			    ldap_mod(ldap.MOD_DELETE,ng_search_attr,
-							nisnetgroup,full_dn)
-			else:
-			    log_fail.write("\n# Unknown operation")
-			break  
-	    for entry in user_spread:
-		if account.has_spread(entry):
-		    # Do "value_domain" search instead beacause of host
-		    ng_search_attr = 'nisNetgroupTriple'
-		    nisnetgroup_user = account.get_name(co.account_namespace)
-		    nisnetgroup = "(,%s,)" % nisnetgroup_user
-		    res_ldap_ng = get_ldap_value(base_dn,search_dn,None)
-		    if (res_ldap_ng == []):
-			#log_failed(ldif,proper_text)
-			log_fail.write("\n# Group does not exist in LDAP")
-			valid_group = False
-		    else:
-			ng_entry_exist = False
-			for xx in res_ldap_ng[0][0][1][ng_search_attr]:
-			    x,y,z = string.split(xx,',',3)
-			    if y == nisnetgroup_user:
-				ng_entry_exist = True
-	    if valid_group and (ng_search_attr == 'nisNetgroupTriple'):
-		if (ng_entry_exist and (ch_type == const.group_add)):  
-		    log_fail.write("\n# User exist, can't add user %s" % \
-							nisnetgroup_user)
-		elif (not ng_entry_exist and (ch_type == const.group_rem)):  
-		    log_fail.write("\n# User doesnt exist, can't del(%s,%s)"\
-							 % (dn_dest,dn_id))
-		elif (ng_entry_exist and (ch_type == const.group_rem)):
-		    res_l = res_ldap_ng[0][0][1]
-		    ldap_mod(ldap.MOD_DELETE,ng_search_attr,
-			res_l[ng_search_attr],full_dn,list=True)
-		    res_l[ng_search_attr].remove(nisnetgroup)
-		    ldap_mod(ldap.MOD_ADD,ng_search_attr,
-			res_l[ng_search_attr],full_dn,list=True)
-		elif (not ng_entry_exist and (ch_type == const.group_add)):
-		    res_l = res_ldap_ng[0][0][1]
-		    mod_ldap(ldap.MOD_DELETE,ng_search_attr,
-			(res_l[ng_search_attr]),full_dn,list=True)
-		    res_l[ng_search_attr].append(nisnetgroup)
-		    mod_ldap(ldap.MOD_ADD,ng_search_attr,
-			(res_l[ng_search_attr]),full_dn,list=True)
-		else: log_fail.write("\n# Operation not supported")
+		mod_s = []
+		for entry in ldap_value:
+		    mod_s.append(entry[1])
+		for serv,value in s_list.items():
+		    if serv in mod_s:
+			log_fail.write('\n# %s: User:%s already in group:%s'\
+								%(serv,user,dn))
+		    else: ldap_mod_serv(ldap.MOD_ADD,memb_attr,user,dn,serv)
+	elif (ch_type == const.group_rem):
+	    #mem_list = []
+	    mem_list = [(mem[1]) for mem in group.get_members(spread=\
+					u_spreads[0],get_entity_name=True)]
+	    print mem_list
+	    if user not in mem_list:
+		print "in correct place de"
+		for ldap_entry in ldap_value:
+		    print (memb_attr,user,dn,ldap_entry[1])
+		    mod_ldap_serv(ldap.MOD_DELETE,memb_attr,user,dn,\
+							ldap_entry[1]) # (sjekk entry 2) 
+	else: log_fail.write("\n# Uknown command at log ")
+    group.clear()
+    group.entity_id = int(dn_dest)
+    if True in ([group.has_spread(x) for x in n_spreads]):
+        grp_list = [int(dn_dest),]
+    else: 
+	ng_list = []
+	grp_list = get_groups(group.entity_id,n_spreads,ng_list,fg=False)
+    print "Gruppe av net_grupper : %s" % grp_list
+    for grp in grp_list:
+	group.clear()
+        group.entity_id = int(grp)
+        cn = "%s=%s" % (cereconf.LDAP_GROUP_ATTR,\
+			 group.get_name(co.group_namespace))
+	dn = "%s,%s" % (cn,ngroup_dn)
+	print dn
+        mem_attr = 'nisNetgroupTriple'
+	acc_name = account.get_name(co.account_namespace)
+        user = '(,%s,)' % acc_name
+        mem_id = '%s=%s' % (mem_attr,user)
+        ldap_value = get_ldap_value(ngroup_dn,cn)
+	print ldap_value
+	if (ch_type == const.group_add) and (ldap_value <> None) and \
+							(ldap_value <> []):
+	    for entry in ldap_value:
+		if entry[0][1].has_key('nisNetgroupTriple'):
+		    pres_value = entry[0][1]['nisNetgroupTriple']
+		    print "user:%s gruppe: %s" % (user,pres_value)
+		    if user not in pres_value:
+			#mod_ldap_serv(ldap.MOD_DELETE,mem_attr,pres_value,dn,\
+                        #                                entry[1],list=True)
+			pres_value.append(user)
+			mod_ldap_serv(ldap.MOD_REPLACE,mem_attr,pres_value,dn,\
+                                                        entry[1],list=True)
+		else: 
+		    mod_ldap_serv(ldap.MOD_ADD,mem_attr,[user,],\
+						dn,entry[1],list=True)
+	if (ch_type == const.group_rem) and (ldap_value <> []) and \
+						(ldap_value <> None):
+	    cer_mem = [x[2] for x in group.list_members(spread=u_spreads[0],\
+			member_type=co.entity_account,get_entity_name= True)[0]]
+	    print "member in net_group: %s" % cer_mem
+	    if acc_name not in cer_mem:
+		print "user: %s not in group" % acc_name
+	    	for entry in ldap_value:
+		    if entry[0][1].has_key('nisNetgroupTriple'):
+			pres_value = entry[0][1]['nisNetgroupTriple']
+			print "present value: %s" % pres_value
+			if user in pres_value:
+			    #mod_ldap_serv(ldap.MOD_DELETE,mem_attr,pres_value,dn,\
+                            #                            entry[1],list=True)			    
+			    pres_value.remove(user)
+			    print "net_group after removal: %s" % pres_value
+			    mod_ldap_serv(ldap.MOD_REPLACE,mem_attr,pres_value,dn,\
+                                                        	entry[1],list=True)
+			    #if (pres_value <> []):
+				#mod_ldap_serv(ldap.MOD_ADD,mem_attr,pres_value,\
+				#		dn,entry[1],list=True)
+		
 
-
-def get_ldap_value(search_id,dn,retrieveAttributes=None):
-    searchScope = ldap.SCOPE_SUBTREE
-    try:
-	ldap_result_id = l.search(search_id,searchScope,dn,retrieveAttributes)
-	result_set = []
-	while 1:
-	    result_type, result_data = l.result(ldap_result_id, 0)
-	    if (result_data == []):
-		break
-	    else:
-		if result_type == ldap.RES_SEARCH_ENTRY:
-		    result_set.append(result_data)
-		else:
-		    pass
-	return(result_set)
-    except ldap.LDAPError, e:
-        log_fail.write('\n# ' + e) #log problem in problem-file
-	return(None) 
+		    
+	
 
 
 def iso2utf(s):
-  new = ''
-  for ch in s:
-    c=ord(ch)
-    if (c & 0x80) == 0:
-      new = new+ch
-    else:
-      new = new+chr(0xC0 | (0x03 & (c >> 6)))+chr(0x80 | (0x3F & c))
-  return new
+    """Convert iso8859-1 to utf-8"""
+    utf_str = unicode(s,'iso-8859-1').encode('utf-8')
+    return utf_str
 
-def modify():
-    pass
 
-def start_tls_channel():
-    global l
-    try:
-	l = ldap.open(cereconf.LDAP_SERVER)
-	l.protocol_version = ldap.VERSION3
-	try:
-	    if cereconf.TLS_CACERT_FILE is not None:
-		l.OPT_X_TLS_CACERTFILE = cereconf.TLS_CACERT_FILE
-	except:  pass
-	try:
-	    if cereconf.TLS_CACERT_DIR is not None:
-		l.OPT_X_TLS_CACERTDIR = cereconf.TLS_CACERT_DIR
-	except:  pass
-    	# Evaluate more LDAP-properties(tls,version,timeout,servercontrol etc)
-	#print "Opening TLS-connection to %s ......" % cereconf.LDAP_SERVER
-	l_start = l.start_tls_s()
-	l_bind = l.simple_bind_s(cereconf.LDAP_ROOTDN,cereconf.LDAP_PWD)
-	if l_bind and l_start:
-	    log_diff.write("\n# TLS-channel open to %s" % cereconf.LDAP_SERVER)
-	return(l)
-    except ldap.LDAPError, e:
-	logg_fail.write(e)
-	return(None)
+def get_groups(grp_id,spreads,grp_list,fg=False):
+    # Pain: En såkalt "supergruppe" kan få nye medlemmer og da 
+    # må disse nye medlemene  knyttes til § 
+    # 
+    group = Group.Group(db)
+    print "in get_group"
+    for entry in group.list_groups_with_entity(grp_id):
+	if (int(entry['member_type']) == int(co.entity_group)):
+	    group.clear()
+	    group.entity_id = int(entry['group_id'])
+	    #print entry['group_id']
+	    if (fg and True in [group.has_spread(x) for x in spreads]):
+		grp_list.append(int(entry['group_id']))
+	    	get_groups(group.entity_id,spreads,grp_list,fg)
+	    elif (not fg and True in [group.has_spread(x) for x in spreads]):
+		grp_list.append(int(entry['group_id']))
+    return(grp_list)
+    
+
 
 def file_exist(filename):
     if os.path.isfile(filename):
@@ -613,11 +778,16 @@ def load_cltype_table(cltype):
 	# make if-entry to list in cereconf to remove dynamic service
 	cltype[int(getattr(co,clt))] = proc	
 
-def end_session(log_fail,log_diff,l):
-    l.unbind()
-    log_diff.write("\n# Closed TLS-connection to server")
-    log_fail.close()
-    log_diff.close()
+def end_session(s_list):
+    for serv,value in s_list.items():
+	try: value[1].unbind()
+	except: print "Could not unbind LDAP/SSL to server: %s" % serv
+    	value[0].write("\n# Closed TLS-connection and log_file.")
+	try: value[0].close()
+	except: "Could not close LDIF-log file to server: %s" % serv
+    try: log_fail.close()
+    except: print "Could not close application log file"
+    s_list = None
 
 
 def main():
@@ -626,7 +796,10 @@ def main():
     # add, delete and mod DN and add and delete attributes in DN
     # add and delete 
     clh = CLHandler.CLHandler(db)
-    global log_fail, log_diff, ch_log_list
+    global log_fail,ch_log_list, u_spreads, g_spreads, n_spreads
+    u_spreads = [int(getattr(co,x)) for x in cereconf.LDAP_USER_SPREAD]
+    g_spreads = [int(getattr(co,x)) for x in cereconf.LDAP_GROUP_SPREAD]
+    n_spreads = [int(getattr(co,x)) for x in cereconf.LDAP_NETGROUP_SPREAD]
     load_cltype_table(cltype)
     if not os.path.isdir(cereconf.LDAP_DUMP_DIR + '/log'):
 	os.makedirs(cereconf.LDAP_DUMP_DIR + '/log', mode = 0770)
@@ -634,30 +807,33 @@ def main():
     if not os.path.isfile(file_path_str + cereconf.LDAP_PID_FILE):
 	valid_sync_mode = True
     else: valid_sync_mode = False
-    if os.path.isfile(file_path_str + cereconf.LDAP_SYNC_LOG):
-	log_diff = file(file_path_str + cereconf.LDAP_SYNC_LOG,'a')
-    else:
-	log_diff = file(file_path_str + cereconf.LDAP_SYNC_LOG,'w')
     if os.path.isfile(file_path_str + cereconf.LDAP_SYNC_FAULT):
 	log_fail = file(file_path_str + cereconf.LDAP_SYNC_FAULT,'a')
     else:
 	log_fail = file(file_path_str + cereconf.LDAP_SYNC_FAULT,'w')
-    start_tls_channel()
-    if valid_sync_mode and log_diff and log_fail:
+    start_tls_and_log()
+    print s_list
+    if valid_sync_mode and log_fail:
 	i = 0
-	ch_log_list = clh.get_events('LDAP',(const.account_mod,\
-		const.account_password,const.group_add,const.group_rem,\
-		const.group_mod,const.spread_add,const.spread_del,\
-		const.quarantine_add,const.quarantine_mod,\
-		const.quarantine_del))
-	for cll in ch_log_list:
-	    try:
-		exec cltype[int(cll.change_type_id)]
-		clh.confirm_event(cll)
-	    except: pass 
-	    i += 1
-    clh.commit_confirmations()
-    end_session(log_fail,log_diff,l)
+	#ch_log_list = clh.get_events('ldap',(const.account_mod,\
+	#	const.account_password,const.group_add,const.group_rem,\
+	#	const.group_mod,const.spread_add,const.spread_del,\
+	#	const.quarantine_add,const.quarantine_mod,\
+	#	const.quarantine_del))
+	#print "jalla 1 len: %d" % len(ch_log_list)
+	#for cll in ch_log_list:
+	#    print cll.change_id,cll.change_type_id,cll.subject_entity,cll.change_type_id
+	#    try:
+	#	print cltype[int(cll.change_type_id)]
+	#	exec cltype[int(cll.change_type_id)]
+	#	clh.confirm_event(cll)
+	#    except: pass 
+	#    i += 1
+	#    clh.confirm_event(cll)
+	exec cltype[24]
+    #clh.commit_confirmations()
+    end_session(s_list)
+    #time.sleep(120)
     
 
 
@@ -668,4 +844,3 @@ if __name__ == '__main__':
 # Get CLdata. Activate elseif on entry_type (modify-,delete- or add-user, same 
 # for filegroups and netgroups
 # user_modify: check datebase and ldap -> generate ldif, do ldap_mod (exception 
-# password, check if dn exist in ou=people and change passwd.) 
