@@ -170,7 +170,7 @@ ORDER BY tlfpreftegn"""
         if kommtype not in ('UREG-EMAIL', 'UREG-USER'):
             raise ValueError, "Bad kommtype: %s" % kommtype
         fnr2komm = []
-    for row in self.db.query("""
+        for row in self.db.query("""
 SELECT
   fodtdag, fodtmnd, fodtar, personnr, kommnrverdi, tlfpreftegn
 FROM
