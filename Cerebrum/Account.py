@@ -342,3 +342,16 @@ class Account(AccountType, EntityName, EntityQuarantine, Entity):
                                 {'a_id': self.entity_id})
         except Errors.NotFoundError:
             return False
+
+    def get_accounts_by_owner_id(self, owner_id):
+        """Return a list of account-ids, or None if none found"""
+        try:
+            return self.query("""
+            SELECT account_id
+            FROM [:table schema=cerebrum name=account_info]
+            WHERE owner_id=:o_id""",{'o_id': owner_id})
+        except Errors.NotFoundError:
+            return None
+
+    def get_account_name(self):
+        return self.account_name
