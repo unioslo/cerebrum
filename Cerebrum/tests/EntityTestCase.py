@@ -35,7 +35,7 @@ class Entity_createTestCase(unittest.TestCase, object):
 
     Cerebrum = Factory.get('Database')()
     Cerebrum.cl_init(change_program="EntityTestCase")
-    co = Constants.Constants(Cerebrum)
+    co = Factory.get('Constants')(Cerebrum)
     entity_class = Entity
 
     def _myPopulateEntity(self, e):
