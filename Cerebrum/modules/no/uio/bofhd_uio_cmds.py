@@ -26,8 +26,9 @@ from Cerebrum.Utils import Factory
 from Cerebrum.modules import PosixGroup
 from Cerebrum.modules import PosixUser
 from Cerebrum.modules.bofhd.cmd_param import *
-from Cerebrum.modules.bofhd.errors import CerebrumError
+from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd.utils import BofhdRequests
+from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.no.uio import PrinterQuotas
 from Cerebrum.modules.no.uio import bofhd_uio_help
 from Cerebrum.modules.templates.letters import TemplateHandler
@@ -65,6 +66,7 @@ class BofhdExtension(object):
             if isinstance(tmp, _CerebrumCode):
                 self.num2const[int(tmp)] = tmp
                 self.str2const["%s" % tmp] = tmp
+        self.ba = BofhdAuth(server.db)
 
     def get_commands(self, uname):
         # TBD: Do some filtering on uname to remove commands
@@ -113,6 +115,7 @@ class BofhdExtension(object):
         elif type == "account":
             src_entity = self._get_account(src_name)
         group_d = self._get_group(dest_group)
+        self.ba.can_alter_group(operator.get_entity_id(), group_d)
         try:
             group_d.add_member(src_entity.entity_id, src_entity.entity_type, group_operator)
         except self.db.DatabaseError, m:
@@ -125,6 +128,7 @@ class BofhdExtension(object):
         SimpleString(help_ref="string_description"),
         fs=FormatSuggestion("Group created as a normal group, internal id: %i", ("group_id",)))
     def group_create(self, operator, groupname, description):
+        self.ba.can_create_group(operator.get_entity_id())
         g = Group.Group(self.db)
         g.populate(creator_id=operator.get_entity_id(),
                    visibility=self.const.group_visibility_all,
@@ -141,6 +145,7 @@ class BofhdExtension(object):
     def group_def(self, operator, accountname, groupname):
         account = self._get_account(accountname, actype="PosixUser")
         grp = self._get_group(groupname, grtype="PosixGroup")
+        self.ba.can_alter_group(operator.get_entity_id(), grp)
         account.gid = grp.entity_id
         account.write_db()
         return "OK"
@@ -150,6 +155,7 @@ class BofhdExtension(object):
         ("group", "delete"), GroupName(), YesNo(help_ref="yes_no_force", default="No"))
     def group_delete(self, operator, groupname, force=None):
         grp = self._get_group(groupname)
+        self.ba.can_delete_group(operator.get_entity_id(), grp)
         if self._is_yes(force):
 ##             u, i, d = grp.list_members()
 ##             for op, tmp in ((self.const.group_memberop_union, u),
@@ -193,6 +199,7 @@ class BofhdExtension(object):
         elif type == "account":
             src_entity = self._get_account(src_name)
         group_d = self._get_group(dest_group)
+        self.ba.can_alter_group(operator.get_entity_id(), group_d)
         try:
             group_d.remove_member(src_entity.entity_id, group_operator)
         except self.db.DatabaseError, m:
@@ -206,6 +213,8 @@ class BofhdExtension(object):
                               ("entity_id", "spread", "desc", "expire")),
                              ("Gid: %i", ('gid',))]))
     def group_info(self, operator, groupname):
+        # TODO: Group visibility should probably be checked against
+        # operator for a number of commands
         is_posix = 0
         try:
             grp = self._get_group(groupname, grtype="PosixGroup")
@@ -267,6 +276,7 @@ class BofhdExtension(object):
         SimpleString(help_ref="string_description", optional=True),
         fs=FormatSuggestion("Group created, posix gid: %i", ("group_id",)))
     def group_posix_create(self, operator, group, description=None):
+        self.ba.can_create_group(operator.get_entity_id())
         group=self._get_group(group)
         pg = PosixGroup.PosixGroup(self.db)
         pg.populate(parent=group)
@@ -281,6 +291,7 @@ class BofhdExtension(object):
         ("group", "posix_delete"), GroupName())
     def group_posix_delete(self, operator, group):
         grp = self._get_group(group, grtype="PosixGroup")
+        self.ba.can_delete_group(operator.get_entity_id(), grp)
         grp.delete()
         return "OK"
     
@@ -289,6 +300,7 @@ class BofhdExtension(object):
         ("group", "set_expire"), GroupName(), Date())
     def group_set_expire(self, operator, group, expire):
         grp = self._get_group(group)
+        self.ba.can_delete_group(operator.get_entity_id(), grp)
         grp.expire_date = self._parse_date(expire)
         grp.write_db()
         return "OK"
@@ -298,6 +310,7 @@ class BofhdExtension(object):
         ("group", "set_visibility"), GroupName(), GroupVisibility())
     def group_set_visibility(self, operator, group, visibility):
         grp = self._get_group(group)
+        self.ba.can_delete_group(operator.get_entity_id(), grp)
         grp.visibility = self._map_visibility_id(visibility)
         grp.write_db()
         return "OK"
@@ -345,13 +358,6 @@ class BofhdExtension(object):
         return ret
 
         # TODO: Defile affiliations for UiO
-        raise NotImplementedError, "Feel free to implement this function"
-
-    # misc all_requests
-    all_commands['misc_all_requests'] = Command(
-        ("misc", "all_requests"), )
-    def misc_all_requests(self, operator):
-        # TODO: Add support for storing move requests
         raise NotImplementedError, "Feel free to implement this function"
 
     # misc checkpassw
@@ -426,6 +432,8 @@ class BofhdExtension(object):
         ("misc", "user_passwd"), AccountName(), AccountPassword())
     def misc_user_passwd(self, operator, accountname, password):
         ac = self._get_account(accountname)
+        # Only people who can set the password are allowed to check it
+        self.ba.can_set_password(operator.get_entity_id(), ac)
         old_pass = ac.get_account_authentication(self.const.auth_type_md5_crypt)
         if(ac.enc_auth_type_md5_crypt(password, salt=old_pass[:old_pass.rindex('$')])
            == old_pass):
@@ -468,6 +476,7 @@ class BofhdExtension(object):
 
     def _person_create(self, operator, display_name, birth_date=None,
                       id_type=None, id=None):
+        self.ba.can_create_person(operator.get_entity_id())
         person = self.person
         person.clear()
         if birth_date is not None:
@@ -545,6 +554,7 @@ class BofhdExtension(object):
     def person_set_id(self, operator, current_id, new_id):
         person = self._get_person(*self._map_person_id(current_id))
         idtype, id = self._map_person_id(new_id)
+        self.ba.can_set_person_id(operator.get_entity_id(), person, idtype)
         person.affect_external_id(self.const.system_manual, idtype)
         person.populate_external_id(self.const.system_manual,
                                     idtype, id)
@@ -556,6 +566,7 @@ class BofhdExtension(object):
         ("person", "student_info"), PersonId())
     def person_student_info(self, operator, person_id):
         person = self._get_person(*self._map_person_id(person_id))
+        self.ba.can_get_student_info(operator.get_entity_id(), person)
         # TODO: We don't have an API for this yet
         raise NotImplementedError, "Feel free to implement this function"
 
@@ -563,6 +574,9 @@ class BofhdExtension(object):
     all_commands['person_user_priority'] = Command(
         ("person", "user_priority"), AccountName(), SimpleString())
     def person_user_priority(self, operator, account_name, priority):
+        account = self._get_account(account_name)
+        person = self._get_person('entity_id', account.owner_id)
+        self.ba.can_set_person_user_priority(operator.get_entity_id(), person)
         # TODO: The API doesn't support this yet
         raise NotImplementedError, "Feel free to implement this function"
 
@@ -574,6 +588,7 @@ class BofhdExtension(object):
         ("print", "qoff"), AccountName())
     def printer_qoff(self, operator, accountname):
         account = self._get_account(accountname)
+        self.ba.can_alter_printerquta(operator.get_entity_id(), account)
         pq = self._get_printerquota(account.entity_id)
         if pq is None:
             return "User has no quota"
@@ -591,6 +606,7 @@ class BofhdExtension(object):
                             'weekly_quota', 'termin_quota', 'max_quota')))
     def printer_qpq(self, operator, accountname):
         account = self._get_account(accountname)
+        self.ba.can_query_printerquta(operator.get_entity_id(), account)
         pq = self._get_printerquota(account.entity_id)
         if pq is None:
             return "User has no quota"
@@ -606,6 +622,7 @@ class BofhdExtension(object):
         ("print", "upq"), AccountName(), SimpleString())
     def printer_upq(self, operator, accountname, pages):
         account = self._get_account(accountname)
+        self.ba.can_alter_printerquta(operator.get_entity_id(), account)
         pq = self._get_printerquota(account.entity_id)
         if pq is None:
             return "User has no quota"
@@ -625,6 +642,7 @@ class BofhdExtension(object):
         entity = self._get_entity(entity_type, id)
         date = self._parse_date(date)
         qtype = int(self.str2const[qtype])
+        self.ba.can_disable_quarantine(operator.get_entity_id(), entity, qtype)
         entity.disable_entity_quarantine(qtype, date)
         return "OK"
 
@@ -647,6 +665,7 @@ class BofhdExtension(object):
     def quarantine_remove(self, operator, entity_type, id, qtype):
         entity = self._get_entity(entity_type, id)
         qtype = int(self.str2const[qtype])
+        self.ba.can_remove_quarantine(operator.get_entity_id(), entity, qtype)
         entity.delete_entity_quarantine(qtype)
         return "OK"
 
@@ -669,6 +688,7 @@ class BofhdExtension(object):
                 raise CerebrumError, "Incorrect date specification: %s." % date
         entity = self._get_entity(entity_type, id)
         qtype = int(self.str2const[qtype])
+        self.ba.can_set_quarantine(operator.get_entity_id(), entity, qtype)
         entity.add_entity_quarantine(qtype, operator.get_entity_id(), why, date_start, date_end)
         return "OK"
 
@@ -682,6 +702,7 @@ class BofhdExtension(object):
     def quarantine_show(self, operator, entity_type, id):
         ret = []
         entity = self._get_entity(entity_type, id)
+        self.ba.can_show_quarantines(operator.get_entity_id(), entity)
         for r in entity.get_entity_quarantine():
             acc = self._get_account(r['creator_id'], idtype='id')
             ret.append({'type': "%s" % self.num2const[int(r['quarantine_type'])],
@@ -701,6 +722,7 @@ class BofhdExtension(object):
     def spread_add(self, operator, entity_type, id, spread):
         entity = self._get_entity(entity_type, id)
         spread = int(self.str2const[spread])
+        self.ba.can_add_spread(operator.get_entity_id(), entity, spread)
         entity.add_spread(spread)
         return "OK"
 
@@ -723,6 +745,7 @@ class BofhdExtension(object):
     def spread_remove(self, operator, entity_type, id, spread):
         entity = self._get_entity(entity_type, id)
         spread = int(self.str2const[spread])
+        self.ba.can_add_spread(operator.get_entity_id(), entity, spread)
         entity.delete_spread(spread)
         return "OK"
 
@@ -739,6 +762,7 @@ class BofhdExtension(object):
         aff_status = self._get_affiliation_statusid(aff, aff_status)
         ou = self._get_ou(stedkode=ou)
         person = self._get_person('entity_id', account.owner_id)
+        self.ba.can_add_affiliation(operator.get_entity_id(), person, ou, aff, aff_status)
 
         # Assert that the person already have the affiliation
         has_aff = 0
@@ -763,6 +787,8 @@ class BofhdExtension(object):
         account = self._get_account(accountname)
         aff = self._get_affiliationid(aff)
         ou = self._get_ou(stedkode=ou)
+        person = self._get_person('entity_id', account.owner_id)
+        self.ba.can_remove_affiliation(operator.get_entity_id(), person, ou, aff)
         account.del_account_type(account.owner_id, ou.entity_id, aff)
         account.write_db()
         return "OK"
@@ -849,6 +875,7 @@ class BofhdExtension(object):
         posix_user.clear()
         gecos = None
         expire_date = None
+        self.ba.can_create_user(operator.get_entity_id(), person, disk_id)
 
         posix_user.populate(uid, group.entity_id, gecos, shell, home, 
                             disk_id=disk_id, name=uname,
@@ -872,6 +899,7 @@ class BofhdExtension(object):
     def user_delete(self, operator, accountname):
         # TODO: How do we delete accounts?
         account = self._get_account(accountname)
+        self.ba.can_delete_user(operator.get_entity_id(), account)
         br = BofhdRequests(self.db, self.const)
         br.add_request(operator.get_entity_id(), br.now,
                        self.const.bofh_delete_user,
@@ -886,6 +914,7 @@ class BofhdExtension(object):
     def user_gecos(self, operator, accountname, gecos):
         account = self._get_account(accountname, actype="PosixUser")
         # Set gecos to NULL if user requests a whitespace-only string.
+        self.ba.can_set_gecos(operator.get_entity_id(), account)
         account.gecos = gecos.strip() or None
         account.write_db()
         return "OK"
@@ -1077,6 +1106,7 @@ class BofhdExtension(object):
         if move_type in ("immediate", "batch", "nofile"):
             disk = args[0]
             disk_id, home = self._get_disk(disk)
+            self.ba.can_move_user(operator.get_entity_id(), account, disk_id)
             if disk_id is None and move_type != "nofile":
                 raise CerebrumError, "Bad destination disk"
             if move_type == "immediate":
@@ -1095,6 +1125,7 @@ class BofhdExtension(object):
                 account.write_db()
                 return "OK, user moved"
         elif move_type in ("student", "student_immediate", "confirm", "cancel"):
+            self.ba.can_give_user(operator.get_entity_id(), account)
             if move_type == "student":
                 br.add_request(operator.get_entity_id(), br.batch_time,
                                self.const.bofh_move_student,
@@ -1124,11 +1155,13 @@ class BofhdExtension(object):
         elif move_type in ("request",):
             disk, why = args[0], args[1]
             disk_id, home = self._get_disk(disk)
+            self.ba.can_receive_user(operator.get_entity_id(), account, disk_id)
             br.add_request(operator.get_entity_id(), br.now,
                            self.const.bofh_move_request,
                            account.entity_id, disk_id, why)
             return "OK, request registered"
         elif move_type in ("give",):
+            self.ba.can_give_user(operator.get_entity_id(), account)
             group, why = args[0], args[1]
             group = self._get_group(group)
             br.add_request(operator.get_entity_id(), br.now, self.const.bofh_move_give,
@@ -1140,6 +1173,7 @@ class BofhdExtension(object):
         ('user', 'password'), AccountName(), AccountPassword(optional=True))
     def user_password(self, operator, accountname, password=None):
         account = self._get_account(accountname)
+        self.ba.can_set_password(operator.get_entity_id(), account)
         if password is None:
             password = account.make_passwd(accountname)
         try:
@@ -1167,6 +1201,8 @@ class BofhdExtension(object):
         group = self._get_group(dfg, grtype='PosixGroup')
         shell = self._get_shell(shell)
         disk_id, home = self._get_disk(home)
+        person = self._get_person("entity_id", account.owner_id)
+        self.ba.can_create_user(operator.get_entity_id(), person, disk_id)
         pu.populate(uid, group.entity_id, None, shell, home=home,
                     disk_id=disk_id, parent=account)
         pu.write_db()
@@ -1183,6 +1219,7 @@ class BofhdExtension(object):
         ('user', 'set_expire'), AccountName(), Date())
     def user_set_expire(self, operator, accountname, date):
         account = self._get_account(accountname)
+        self.ba.can_delete_user(operator.get_entity_id(), account)
         account.expire_date = self._parse_date(date)
         account.write_db()
 
@@ -1191,6 +1228,7 @@ class BofhdExtension(object):
         ('user', 'set_np_type'), AccountName(), SimpleString(help_ref="string_np_type"))
     def user_set_np_type(self, operator, accountname, np_type):
         account = self._get_account(accountname)
+        self.ba.can_delete_user(operator.get_entity_id(), account)
         account.np_type = self._map_np_type(np_type)
         account.write_db()
 
@@ -1199,6 +1237,7 @@ class BofhdExtension(object):
         ("user", "shell"), AccountName(), PosixShell(default="bash"))
     def user_shell(self, operator, accountname, shell=None):
         account = self._get_account(accountname, actype="PosixUser")
+        self.ba.can_set_shell(operator.get_entity_id(), account, shell)
         shell = self._get_shell(shell)
         account.shell = shell
         account.write_db()
