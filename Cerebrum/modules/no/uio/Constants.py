@@ -116,10 +116,10 @@ class Constants(Constants.Constants):
     affiliation_tilknyttet_grlaerer = _PersonAffStatusCode(
         affiliation_tilknyttet, 'grlaerer',
         'Personer registrert i LT med gjestetypekode=GRUPPELÆRER'),
-    affiliation_tilknyttet_grlaerer = _PersonAffStatusCode(
+    affiliation_tilknyttet_studpol = _PersonAffStatusCode(
         affiliation_tilknyttet, 'studpol',
         'Personer registrert i LT med gjestetypekode=ST-POL FRI eller ST-POL UTV'),
-    affiliation_tilknyttet_grlaerer = _PersonAffStatusCode(
+    affiliation_tilknyttet_studorg = _PersonAffStatusCode(
         affiliation_tilknyttet, 'studorg',
         'Personer registrert i LT med gjestetypekode=ST-ORG FRI eller ST-ORG UTV')
 
