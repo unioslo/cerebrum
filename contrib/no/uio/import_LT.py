@@ -247,10 +247,27 @@ def process_person(person):
 
     # TODO: We currently do nothing with PROSENT_TILSETTING
     affiliations = determine_affiliations(person)
+    new_person.populate_affiliation(const.system_lt)
     contact = determine_contact(person)
-    if len(affiliations) > 0:      # Legg til fax fra 1ste affiliation
-        contact.append((const.contact_fax,
-                        get_sted(affiliations[0][0])['fax']))
+    added_ou_fax = False
+    for ou_id, aff, aff_stat in affiliations:
+        new_person.populate_affiliation(const.system_lt, ou_id, aff, aff_stat)
+        if not added_ou_fax:
+            sted = get_sted(ou_id)
+            if sted is not None and sted['fax'] is not None:
+                # Add fax of the first affiliation with a non-NULL fax
+                # to person's contact info.
+                contact.append((const.contact_fax,
+                                get_sted(affiliations[0][0])['fax']))
+                added_ou_fax = True
+
+    c_prefs = {}
+    new_person.populate_contact_info(const.system_lt)
+    for c_type, value in contact:
+        c_type = int(c_type)
+        pref = c_prefs.get(c_type, 0)
+        new_person.populate_contact_info(const.system_lt, c_type, value, pref)
+        c_prefs[c_type] = pref + 1
 
     if person.has_key('fakultetnr_for_lonnsslip'):
         sko = "%02i%02i%02i" % tuple([int(
