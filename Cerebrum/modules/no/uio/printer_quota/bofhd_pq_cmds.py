@@ -45,7 +45,13 @@ class Constants(Constants.Constants):
     auth_pquota_off = _AuthRoleOpCode(
         'pq_off', 'Turn off printerquota')
     auth_pquota_undo = _AuthRoleOpCode(
-        'pq_undo', 'Undo printjob')
+        'pq_undo', 'Undo printjob < 72 hours')
+    auth_pquota_undo_old = _AuthRoleOpCode(
+        'pq_undo_old', 'Undo printjob of any age')
+    auth_pquota_job_info = _AuthRoleOpCode(
+        'pq_job_info', 'Job_info printjob < 72 hours')
+    auth_pquota_job_info_old = _AuthRoleOpCode(
+        'pq_job_info_old', 'Job_info printjob of any age')
     auth_pquota_update = _AuthRoleOpCode(
         'pq_update', 'Update printerquota')
 
@@ -102,11 +108,42 @@ class PQBofhdAuth(auth.BofhdAuth):
                                              person,
                                              query_run_any)
 
-    def can_pquota_undo(self, operator, person=None, query_run_any=False):
-        return self._query_person_permission(operator,
-                                             self.const.auth_pquota_undo,
-                                             person,
-                                             query_run_any)
+    def _check_job_access_by_age(self, operator, operation,
+                                 operation_anyage,
+                                 job_id=None, query_run_any=False):
+        # Note that permissions are currently not tied to a target
+        if not query_run_any:
+            ppq = PaidPrinterQuotas.PaidPrinterQuotas(self._db)
+            rows = ppq.get_history(job_id=job_id)
+            if len(rows) == 0:
+                raise errors.NotFoundError, "Unknown target_job_id"
+            operator = operator.get_entity_id()
+
+        if (self.is_superuser(operator) or
+            self._has_operation_perm_somewhere(operator, operation_anyage)):
+            return True
+        
+        if query_run_any:
+            if self._has_operation_perm_somewhere(operator, operation):
+                return True
+            return False
+        if self._has_operation_perm_somewhere(operator, operation):
+            if rows[0]['tstamp'].ticks() > time.time() - 3600*24*3:
+                return True
+            raise PermissionDenied, "Job is too old"
+        raise PermissionDenied, "access denied"
+
+    def can_pquota_undo(self, operator, job_id=None, query_run_any=False):
+        return self._check_job_access_by_age(
+            operator, job_id=job_id, query_run_any=query_run_any,
+            operation=self.const.auth_pquota_undo,
+            operation_anyage=self.const.auth_pquota_undo_old)
+
+    def can_pquota_job_info(self, operator, job_id=None, query_run_any=False):
+        return self._check_job_access_by_age(
+            operator, job_id=job_id, query_run_any=query_run_any,
+            operation=self.const.auth_pquota_job_info,
+            operation_anyage=self.const.auth_pquota_job_info_old)
 
     def can_pquota_update(self, operator, person=None, query_run_any=False):
         return self._query_person_permission(operator,
@@ -338,16 +375,8 @@ The currently defined id-types are:
         ppq = PaidPrinterQuotas.PaidPrinterQuotas(self.db)
         if not job_id.isdigit():
             raise CerebrumError, "%s is not a number" % job_id
+        self.ba.can_pquota_job_info(operator, job_id)
         rows = ppq.get_history(job_id=job_id)
-        if len(rows) == 0:
-            raise CerebrumError, "Unknown job_id"
-        # Must have undo permissions to see job-details for a person.
-        # Also, there is no reason to allow looking at old jobs.
-        self.ba.can_pquota_undo(operator, rows[0]['person_id'])
-        if ((not self.ba.is_superuser(operator.get_entity_id())) and
-            rows[0]['tstamp'].ticks() < time.time() - 3600*24*3):
-            raise PermissionDenied, "Job is too old"
-
         cols = ['job_id', 'transaction_type', 'tstamp', 'person_id',
                 'update_by', 'update_program', 'pageunits_free',
                 'pageunits_paid', 'pageunits_total']
@@ -416,19 +445,12 @@ The currently defined id-types are:
         perm_filter='can_pquota_undo')
     def pquota_undo(self, operator, person_id, job_id, num_pages, why):
         person_id = self.bu.find_person(person_id)
-        self.ba.can_pquota_undo(operator, person_id)
         try:
             job_id = int(job_id)
         except ValueError:
             raise CerebrumError, "job_id should be a number"
+        self.ba.can_pquota_undo(operator, job_id)
         pu = PPQUtil.PPQUtil(self.db)
-        ppq = PaidPrinterQuotas.PaidPrinterQuotas(self.db)
-        rows = ppq.get_history(job_id=job_id)
-        if len(rows) == 0:
-            raise errors.IllegalUndoRequest, "Unknown target_job_id"
-        if ((not self.ba.is_superuser(operator.get_entity_id())) and
-            rows[0]['tstamp'].ticks() < time.time() - 3600*24*3):
-            raise PermissionDenied, "Job is too old"
         # Throws subclass for CerebrumError, which bofhd.py will handle
         pu.undo_transaction(person_id, job_id, num_pages,
                             why, update_by=operator.get_entity_id())
