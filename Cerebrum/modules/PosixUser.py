@@ -167,30 +167,36 @@ class PosixUser(Account.Account):
         efrom = ewhere = ecols = ""
         if include_quarantines:
             efrom = """ LEFT JOIN [:table schema=cerebrum name=entity_quarantine] eq
-                           ON ai.account_id=eq.entity_id"""
+                           ON pu.account_id=eq.entity_id"""
             ecols = ", eq.quarantine_type"
         if spread is not None:
-            efrom += ", [:table schema=cerebrum name=entity_spread] es"
-            ewhere = "ai.account_id=es.entity_id AND es.spread=:spread AND "
+            efrom += """  JOIN [:table schema=cerebrum name=entity_spread] es
+            ON pu.account_id=es.entity_id AND es.spread=:spread"""
         # TBD: should we LEFT JOIN with account_authentication so that
         # users without passwords of the given type are returned?
         return self.query("""
-        SELECT ai.account_id, posix_uid, shell, entity_name, ai.home,
-          ai.disk_id, aa.auth_data, pg.posix_gid %s
-        FROM [:table schema=cerebrum name=posix_user] pu,
-          [:table schema=cerebrum name=posix_group] pg,
-          [:table schema=cerebrum name=account_info] ai %s,
-          [:table schema=cerebrum name=account_authentication] aa,
-          [:table schema=cerebrum name=entity_name] en
-        WHERE %s pu.gid=pg.group_id AND
-            ai.account_id=pu.account_id AND
-            aa.account_id=pu.account_id AND
-            aa.method=:auth_method AND
-            pu.account_id=en.entity_id AND
-            value_domain=:vd """ % (ecols, efrom, ewhere),
+        SELECT ai.account_id, posix_uid, shell, gecos, entity_name, ai.home,
+          ai.disk_id, aa.auth_data, pg.posix_gid, pn.name %s
+        FROM
+          [:table schema=cerebrum name=posix_user] pu
+          %s
+          JOIN [:table schema=cerebrum name=account_info] ai
+            ON ai.account_id=pu.account_id
+          LEFT JOIN  [:table schema=cerebrum name=person_name] pn
+            ON pn.person_id=ai.owner_id AND pn.source_system=:pn_ss AND
+               pn.name_variant=:pn_nv
+          JOIN [:table schema=cerebrum name=posix_group] pg
+            ON pu.gid=pg.group_id
+          JOIN [:table schema=cerebrum name=account_authentication] aa
+            ON aa.account_id=pu.account_id AND aa.method=:auth_method
+          JOIN [:table schema=cerebrum name=entity_name] en
+            ON en.entity_id=pu.account_id AND en.value_domain=:vd
+          """ % (ecols, efrom),
                           {'vd': int(self.const.account_namespace),
                            'auth_method': int(auth_method),
-                           'spread': spread})
+                           'spread': spread,
+                           'pn_ss': int(self.const.system_cached),
+                           'pn_nv': int(self.const.name_full)})
 
     def get_free_uid(self):
         """Returns the next free uid from ``posix_uid_seq``"""
