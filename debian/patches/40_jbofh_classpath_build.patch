@@ -1,0 +1,49 @@
+Work around the lack of javax.swing.JTextField.getKeymap() by
+commenting out the code remapping the keyboard.  This code should be
+restored when
+<URL:http://savannah.gnu.org/bugs/?func=detailitem&item_id=10756> is
+fixed and a version of classpath with this function is available in
+debian.
+
+Index: java/jbofh/src/no/uio/jbofh/JBofhFrameImpl.java
+===================================================================
+RCS file: /cvsroot/cerebrum/cerebrum/java/jbofh/src/no/uio/jbofh/JBofhFrameImpl.java,v
+retrieving revision 1.3
+diff -u -3 -p -u -r1.3 JBofhFrameImpl.java
+--- java/jbofh/src/no/uio/jbofh/JBofhFrameImpl.java	15 Oct 2004 10:25:26 -0000	1.3
++++ java/jbofh/src/no/uio/jbofh/JBofhFrameImpl.java	21 Oct 2004 06:45:15 -0000
+@@ -196,20 +196,20 @@ public class JBofhFrameImpl implements A
+ 	frame.getContentPane().add(np, BorderLayout.SOUTH);
+ 
+         // We want control over some keys used on tfCmdLine
+-        tfCmdLine.setFocusTraversalKeysEnabled(false);
+-        Keymap keymap = tfCmdLine.addKeymap("MyBindings", tfCmdLine.getKeymap());
+-        keymap.addActionForKeyStroke(KeyStroke.getKeyStroke(KeyEvent.VK_TAB, 0), 
+-            new MyKeyAction("tab"));
+-        keymap.addActionForKeyStroke(KeyStroke.getKeyStroke(KeyEvent.VK_DOWN, 0), 
+-            new MyKeyAction("down"));
+-        keymap.addActionForKeyStroke(KeyStroke.getKeyStroke(KeyEvent.VK_UP, 0), 
+-            new MyKeyAction("up"));
+-        keymap.addActionForKeyStroke(KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0), 
+-            new MyKeyAction("esc"));
+-        keymap.addActionForKeyStroke(KeyStroke.getKeyStroke(KeyEvent.VK_U, 
+-                                         java.awt.event.InputEvent.CTRL_MASK), 
+-            new MyKeyAction("clearline"));
+-        tfCmdLine.setKeymap(keymap);
++        //tfCmdLine.setFocusTraversalKeysEnabled(false);
++        //Keymap keymap = tfCmdLine.addKeymap("MyBindings", tfCmdLine.getKeymap());
++        //keymap.addActionForKeyStroke(KeyStroke.getKeyStroke(KeyEvent.VK_TAB, 0), 
++        //    new MyKeyAction("tab"));
++        //keymap.addActionForKeyStroke(KeyStroke.getKeyStroke(KeyEvent.VK_DOWN, 0), 
++        //    new MyKeyAction("down"));
++        //keymap.addActionForKeyStroke(KeyStroke.getKeyStroke(KeyEvent.VK_UP, 0), 
++        //    new MyKeyAction("up"));
++        //keymap.addActionForKeyStroke(KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0), 
++        //    new MyKeyAction("esc"));
++        //keymap.addActionForKeyStroke(KeyStroke.getKeyStroke(KeyEvent.VK_U, 
++        //                                 java.awt.event.InputEvent.CTRL_MASK), 
++        //    new MyKeyAction("clearline"));
++        //tfCmdLine.setKeymap(keymap);
+ 
+         String popups[] = {"Clear screen", "clear_screen"};
+         tfPopup = new JPopupMenu();
