@@ -127,7 +127,7 @@ class BofhdExtension(object):
         PosixGecos(default="foobar"),
         fs=FormatSuggestion("Created with password: %s", ("password", )))
     # TODO:  Ettersom posix er optional, flytt denne til en egen fil
-    def account_posix_create(self, operator, accountname, prigroup, home=None,
+    def account_posix_create(self, operator, accountname, prigroup, home,
                              shell=None, gecos=None):
         """Create a PosixUser for existing 'accountname'"""
         account = self._get_account(accountname)
@@ -137,9 +137,24 @@ class BofhdExtension(object):
 
         if shell == 'bash':
             shell = self.const.posix_shell_bash
+        disk_id = None
+        try:
+            host = None
+            if home.find(":") != -1:
+                host, path = home.split(":")
+            else:
+                path = home
+            disk = Disk.Disk(self.Cerebrum)
+            disk.find_by_path(path, host)
+            home = None
+            disk_id = disk.entity_id
+        except Errors.NotFoundError:
+            pass
+        except Errors.TooManyRowsError:
+            raise CerebrumError, "The home path is not unique in the Disks table"
         posix_user.clear()
         posix_user.populate(uid, group.entity_id, gecos,
-                            home, shell, parent=account)
+                            home, shell, disk_id=disk_id, parent=account)
         # uname = posix_user.get_name(co.account_namespace)[0][2]
         passwd = posix_user.make_passwd(None)
         posix_user.set_password(passwd)
