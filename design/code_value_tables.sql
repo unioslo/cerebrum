@@ -91,6 +91,9 @@ CREATE TABLE language_code
    * 'unix_uid@uio.no'	- the numeric user ID value space
    * 'uname@uio.no'	- the namespace for user names
    * 'fgname@uio.no'	- the NIS filegroup namespace.
+   * 'unix_uid@ANY'	- all defined numeric user ID value spaces
+   * 'ANY@uio.no'	- all defined value spaces @uio.no
+   * 'ANY@ANY'		- all defined value spaces
 
   Note that this table does not try to indicate what restrictions
   there are on the various value domains (e.g. numeric values only,
