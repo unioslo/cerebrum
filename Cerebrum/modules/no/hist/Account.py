@@ -31,3 +31,5 @@ class AccountHiSTMixin(Account.Account):
         DELETE FROM [:table schema=cerebrum name=account_info]
         WHERE account_id=:acc_id""", {'acc_id' : self.entity_id})
         self.__super.delete()
+
+# arch-tag: 0742389f-b5a4-4c58-96b4-f40659a92b8a
