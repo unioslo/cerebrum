@@ -19,15 +19,19 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+import re
+import os
 import time
 import sys
 import base64
 import getopt
+import string
 
 import cerebrum_path
 import cereconf
 from Cerebrum import Errors
 from Cerebrum import Account
+from Cerebrum import Disk
 from Cerebrum import Group
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import Email
@@ -50,11 +54,175 @@ targ2server_id = {}
 targ2forward = {}
 targ2vacation = {}
 acc2name = {}
-
+home2spool = {}
+local_uio_domain = {}
 base_dn = "dc=uio,dc=no"
 db_tt2ldif_tt = {'account': 'user',
                  'forward': 'forwardAddress'}
 
+def validate_primary(dom, prim):
+    if prim in ['pat', 'mons', 'goggins', 'miss', 'smtp', 'mail-mx1',
+                'mail-mx2', 'mail-mx3']:
+        if local_uio_domain.has_key(dom):
+            if verbose > 1:
+                print "Domain '%s' has already been declared local " \
+                      "-- strange..." % dom
+        local_uio_domain[dom] = prim
+    elif verbose > 1:
+        print "Domain '%s' handles it's own email at '%s'." % (dom,prim)
+
+def list_machines():
+    disk = Disk.Disk(db)
+    res = []
+    pat = r'\/(\S+)\/(\S+)\/'
+    for d in disk.list():
+        path = d['path']
+        r = re.search(pat, path)
+        res.append([r.group(1), r.group(2)])
+    return res
+
+def list_machines():
+    disk = Disk.Disk(db)
+    res = []
+    pat = r'/([^/]+)/([^/]+)/'
+    for d in disk.list():
+        path = d['path']
+        r = re.search(pat, path)
+        res.append([r.group(1), r.group(2)])
+    return res
+
+def make_home2spool():
+    spoolhost = {}
+    cname_cache = {}
+    curdom, lowpri, primary = "", "", ""
+    
+    # Define domains in zone uio.no whose primary MX is one of our
+    # mail servers as "local domains".
+    cmd = "/local/bin/host -t mx -l uio.no. nissen.uio.no"
+    out = os.popen(cmd)
+    res = out.readlines()
+    err = out.close()
+    if err:
+        raise RuntimeError, '%s: failed with exit code %d' % (cmd, err)
+
+    pat = r'^(\S+) mail is handled by (\d+) (\S+)\.\n$'
+    for line in res:
+        m = re.search(pat, line)
+        if m:
+            dom = string.lower(m.group(1))
+            pri = int(m.group(2))
+            mx = string.lower(m.group(3))
+            dom = re.sub(no_uio, '', dom)
+            mx = re.sub(no_uio, '', mx)
+            if not curdom:
+                curdom = dom
+            if curdom and curdom != dom:
+                validate_primary(curdom, primary)
+                curdom = dom
+                lowpri, primary = "", ""
+            if (not lowpri) or (pri < lowpri):
+                lowpri, primary = pri, mx
+            if int(pri) == 33:
+                spoolhost[dom] = mx
+
+    if curdom and primary:
+        validate_primary(curdom, primary)
+
+    # We have now defined all "proper" local domains (i.e. ones that
+    # have explicit MX records).  We also want to accept mail for any
+    # CNAME in the uio.no zone pointing to any of these local domains.
+
+    cmd = "/local/bin/host -t cname -l uio.no. nissen.uio.no"
+    out = os.popen(cmd)
+    res = out.readlines()
+    err = out.close()
+    if err:
+        raise RuntimeError, '%s: failed with exit code %d' % (cmd, err)
+
+    pat = r'^(\S+) is an alias for (\S+)\.\n$'
+    for line in res:
+        m = re.search(pat, line)
+        if m:
+            alias, real = string.lower(m.group(1)), string.lower(m.group(2))
+            alias = re.sub(no_uio, '', alias)
+            real = re.sub(no_uio, '', real)
+            if local_uio_domain.has_key(real):
+                local_uio_domain[alias] = local_uio_domain[real]
+            if spoolhost.has_key(real):
+                spoolhost[alias] = spoolhost[real]
+
+    # Define domains in zone ifi.uio.no whose primary MX is one of our
+    # mail servers as "local domains".  Cache CNAMEs at the same time.
+
+    cmd = "/local/bin/dig @bestemor.ifi.uio.no ifi.uio.no. axfr"
+    out = os.popen(cmd)
+    res = out.readlines()
+    err = out.close()
+    if err:
+        raise RuntimeError, '%s: failed with exit code %d' % (cmd, err)
+
+    pat = r'^(\S+)\.\s+\d+\s+IN\s+MX\s+(\d+)\s+(\S+)\.'
+    pat2 = r'^(\S+)\.\s+\d+\s+IN\s+CNAME\s+(\S+)\.'
+    for line in res:
+        m = re.search(pat, line)
+        if m:
+            dom = string.lower(m.group(1))
+            pri = int(m.group(2))
+            mx = string.lower(m.group(3))
+            dom = re.sub(no_uio, '', dom)
+            mx = re.sub(no_uio, '', mx)
+            if not curdom:
+                curdom = dom
+            if curdom and curdom != dom:
+                validate_primary(curdom, primary)
+                curdom = dom
+                lowpri, primary = "", ""
+            if (not lowpri) or (pri < lowpri):
+                lowpri, primary = pri, mx
+            if pri == 33:
+                spoolhost[dom] = mx
+        else:
+            m = re.search(pat2, line)
+            if m:
+                alias = string.lower(m.group(1))
+                real = string.lower(m.group(2))
+                alias = re.sub(no_uio, '', alias)
+                real = re.sub(no_uio, '', real)
+                cname_cache[alias] = real
+
+    if curdom and primary:
+        validate_primary(curdom, primary)
+
+    # Define CNAMEs for domains whose primary MX is one of our mail
+    # servers as "local domains".
+
+    for alias in cname_cache.keys():
+        real = cname_cache[alias]
+        if local_uio_domain.has_key(real):
+            local_uio_domain[alias] = local_uio_domain[real]
+        if spoolhost.has_key(real):
+            spoolhost[alias] = spoolhost[real]
+
+    for faculty, host in list_machines():
+        host = string.lower(host)
+        if host == '*':
+            continue
+        if faculty == "ifi":
+            if verbose > 1 and spoolhost.has_key(host):
+                print "MX 33 of host %s.ifi implies spoolhost %s, ignoring." % (
+                    host, spoolhost[host])
+            spoolhost[host] = "ulrik"
+            continue
+        elif not spoolhost.has_key(host):
+            if verbose > 1:
+                print "Host '%s' defined in UREG2000, but has no MX" \
+                      "-- skipping..." % host
+            continue
+        if spoolhost[host] == "ulrik":
+            continue
+        home2spool["/%s/%s" % (faculty, host)] = "/%s/%s/mail" % (
+            faculty, spoolhost[host])
+        
 def read_addr():
     counter = 0
     curr = now()
@@ -178,7 +346,8 @@ def read_accounts():
     acc = Account.Account(db)
     for row in acc.list_account_name_home():
         acc2name[int(row['account_id'])] = [row['entity_name'],
-                                            row['home']]
+                                            row['home'],
+                                            row['path']]
 
 def write_ldif():
     counter = 0
@@ -221,7 +390,9 @@ description: mail-config ved UiO.\n
             home = ""
             if et == co.entity_account:
                 if acc2name.has_key(ei):
-                    target,home = acc2name[ei]
+                    target,home,path = acc2name[ei]
+                    if not home:
+                        home = "%s/%s" % (path, target)
                 else:
                     txt = "Target: %s(account) no user found: %s\n"% (t,ei)
                     sys.stderr.write(txt)
@@ -243,13 +414,22 @@ description: mail-config ved UiO.\n
                 if enable == 'T':
                     cur = db.DateFromTicks(time.time())
                     if start and end and start <= cur and end >= cur:
-                        rest += "tripnote:: %s\n" %  base64.encodestring(txt)
+                        tmp = re.sub('\n', '', base64.encodestring(txt))
+                        rest += "tripnote:: %s\n" % tmp
 
             # Find mail-server settings:
             if targ2server_id.has_key(t):
                 type, name = serv_id2server[int(targ2server_id[t])]
                 if type == co.email_server_type_nfsmbox:
-                    rest += "spoolInfo: home=%s\n" % home
+                    maildrop = "/uio/mailspool/mail"
+                    tmphome = "/home/%s" % target
+                    r = re.search(r'^/([^/]+/[^/]+)/', home)
+                    if r:
+                        tmphome = r.group(1)
+                        if home2spool.has_key(tmphome):
+                            maildrop = home2spool(tmphome)
+                    rest += "spoolInfo: home=%s maildrop=%s/%s\n" % (
+                        home, maildrop, target)
                 elif type == co.email_server_type_cyrus:
                     rest += "IMAPserver: %s\n" % name
 
@@ -421,6 +601,11 @@ def main():
     start = now()
 
     if verbose:
+        print "Starting make_home2spool()..."
+        curr = now()
+    make_home2spool()
+    if verbose:
+        print "  done in %d sec." % (now() - curr)
         print "Starting read_prim()..."
         curr = now()
     read_prim()
