@@ -456,10 +456,10 @@ class BofhdExtension(object):
             info["server"] = es.name
             type = int(es.email_server_type)
             info["server_type"] = str(Email._EmailServerTypeCode(type))
-        if et.email_target_type == self.const.email_target_deleted:
-            info["def_addr"] = "<none>"
-        else:
+        try:
             info["def_addr"] = acc.get_primary_mailaddress()
+        except Errors.NotFoundError:
+            info["def_addr"] = "<none>"
         if addrs:
             info["valid_addr_1"] = addrs[0]
             for idx in range(1, len(addrs)):
