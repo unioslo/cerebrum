@@ -46,6 +46,7 @@ studieprog2sko = {}
 ou_cache = {}
 ou_adr_cache = {}
 gen_groups = False
+no_name = 0 # count persons for which we do not have any name data from FS
 
 """Importerer personer fra FS iht. fs_import.txt."""
 
@@ -188,6 +189,7 @@ def process_person_callback(person_info):
     file.  Updates/inserts name, address and affiliation
     information."""
     
+    global no_name
     try:
         fnr = fodselsnr.personnr_ok("%06d%05d" % (int(person_info['fodselsdato']),
                                                   int(person_info['personnr'])))
@@ -270,7 +272,8 @@ def process_person_callback(person_info):
                                  'instituttnr_adm_ansvar', 'gruppenr_adm_ansvar'))
             
     if etternavn is None:
-        logger.warn("Ikke noe navn på %s" % fnr)
+        logger.debug("Ikke noe navn på %s" % fnr)
+	no_name += 1 
         return
 
     # TODO: If the person already exist and has conflicting data from
@@ -361,7 +364,8 @@ def process_person_callback(person_info):
 
 def main():
     global verbose, ou, db, co, logger, fnr2person_id, gen_groups, group, \
-							old_aff, include_delete
+							old_aff, include_delete, \
+							no_name
     verbose = 0
     include_delete = False
     logger = Factory.get_logger("cronjob")
@@ -423,6 +427,7 @@ def main():
     if include_delete:
 	rem_old_aff()
     db.commit()
+    logger.info("Found %d persons without name." % no_name)
     logger.info("Completed")
 
 if __name__ == '__main__':
