@@ -31,6 +31,9 @@ class Registry(object):
         
         name = cls.__name__
 
+        cls.builder_parents = ()
+        cls.builder_children = ()
+
         assert not name in self.map
 
         if issubclass(cls, Builder):
