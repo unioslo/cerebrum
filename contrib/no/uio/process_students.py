@@ -274,8 +274,9 @@ def get_existing_accounts():
         affiliation=const.affiliation_student, filter_expired=True):
         if not pid2fnr.has_key(int(a['person_id'])):
             continue
-        students.setdefault(pid2fnr[int(a['person_id'])], {}).setdefault(
-            int(a['account_id']), []).append([ int(a['ou_id']), int(a['affiliation']) ])
+        student_data = students.setdefault(pid2fnr[int(a['person_id'])], {})
+        student_data.setdefault(int(a['account_id']), []).append(
+            [ int(a['ou_id']), int(a['affiliation']) ])
     for person_id in students.keys():
         for account_id in students[person_id].keys():
             do_del = False
@@ -560,7 +561,7 @@ def process_student(person_info):
             if account_id is None:
                 logger.set_indent(0)
                 return
-            students.setdefault(fnr, []).append(account_id)
+            students.setdefault(fnr, {})[account_id] = []
         elif update_accounts and students.has_key(fnr):
             update_account(profile, students[fnr].keys(),
                            account_info=students[fnr])
