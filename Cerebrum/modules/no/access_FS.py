@@ -562,21 +562,25 @@ class Student(FSObject):
         
 
     def list_utvekslings_student(self): # GetStudinfUtvekslingsStudent
+        """ Henter personer som er registrert som utvekslingsSTUDENT i
+            fs.utvekslingsperson. Vi henter 14 dager før studenten står
+            på trappa. """ 
         qry = """
         SELECT DISTINCT s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
                s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
                s.adrlin3_semadr, s.adresseland_semadr, p.adrlin1_hjemsted,
                p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
                p.adresseland_hjemsted, p.status_reserv_nettpubl, 
-               p.sprakkode_malform, p.kjonn, u.institusjonsnr_internt
+               p.sprakkode_malform, p.kjonn, u.institusjonsnr_internt,
                u.faknr_internt, u.instituttnr_internt, u.gruppenr_internt
         FROM fs.student s, fs.person p, fs.utvekslingsperson u
         WHERE s.fodselsdato = p.fodselsdato AND
               s.personnr = p.personnr AND
               s.fodselsdato = u.fodselsdato AND
               s.personnr = u.personnr AND
+              u.utvpersonkatkode = 'STUDENT' AND
               u.status_innreisende = 'J' AND
-              u.dato_fra <= SYSDATE AND
+              u.dato_fra <= (SYSDATE + 14) AND
               u.dato_til >= SYSDATE
       """
         return self.db.query(qry)
