@@ -217,7 +217,7 @@ class EmailDomain(EmailEntity):
         INSERT INTO [:table schema=cerebrum name=email_domain_category]
           (domain_id, category)
         VALUES (:d_id, :cat)""", {'d_id': self.email_domain_id,
-                                  'cat': category})
+                                  'cat': int(category)})
 
     def remove_category(self, category):
         return self.execute("""
@@ -1165,19 +1165,63 @@ class AccountEmailMixin(Account.Account):
     def write_db(self):
         # Make sure Account is present in database.
         ret = super(AccountEmailMixin, self).write_db()
-        # Verify that Account has the email addresses it should,
-        # creating those not present.
-        self.update_email_addresses()
+        if ret is not None:
+            # Account.write_db() seems to have made changes.  Verify
+            # that this Account has the email addresses it should,
+            # creating those not present.
+            self.update_email_addresses()
         return ret
 
     def update_email_addresses(self):
-        ed = EmailDomain(self._db)
-        ed.find(self.get_primary_domain())
-        local_parts = [self.account_name]
-        ea = EmailAddress(self._db)
-        if self.const.email_domain_category_cnaddr in ed.get_categories():
-            local_parts.insert(0, self.get_email_cn_local_part())
+        et = EmailTarget(self._db)
+        try:
+            et.find_by_entity(self.entity_id, self.const.entity_account)
+        except Errors.NotFoundError:
+            et.populate(self.const.email_target_account,
+                        self.entity_id, self.const.entity_account)
+            et.write_db()
 
+        ed = EmailDomain(self._db)
+        ed.find(self.get_primary_maildomain())
+        domains = [ed.email_domain_name]
+        if cereconf.EMAIL_DEFAULT_DOMAIN not in domains:
+            domains.append(cereconf.EMAIL_DEFAULT_DOMAIN)
+        ea = EmailAddress(self._db)
+        primary_set = False
+        epta = EmailPrimaryAddressTarget(self._db)
+        for domain in domains:
+            if ed.email_domain_name <> domain:
+                ed.clear()
+                ed.find_by_domain(domain)
+            local_parts = [self.account_name]
+            if self.const.email_domain_category_cnaddr in ed.get_categories():
+                local_parts.insert(0, self.get_email_cn_local_part())
+            for lp in local_parts:
+                # Is the address taken?
+                ea.clear()
+                try:
+                    ea.find_by_local_part_and_domain(lp, ed.email_domain_id)
+                    if ea.email_addr_target_id <> self.entity_id:
+                        # Address already exists, and isn't owned by this
+                        # Account.
+                        continue
+                except Errors.NotFoundError:
+                    # Address doesn't exist; create it.
+                    ea.populate(lp, ed.email_domain_id, self.entity_id,
+                                expire=None)
+                    ea.write_db()
+                if not primary_set:
+                    epta.clear()
+                    try:
+                        epta.find(ea.email_addr_target_id)
+                    except Errors.NotFoundError:
+                        # Object is in sync with 'email_target' row, but
+                        # has no 'email_primary_address' data.
+                        pass
+                    epta.populate(ea.email_addr_id)
+                    epta.write_db()
+                    primary_set = True
+        # Finally, allocate an addresses in EMAIL_DEFAULT_DOMAIN.
 
     def get_email_cn_local_part(self):
         if self.owner_type <> self.const.entity_person:
