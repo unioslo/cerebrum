@@ -311,21 +311,19 @@ class Account(Entity, Abstract.Account):
         super(Account, self)._load_entity_info(info)
         self.name = info['name']
         self.owner_id = info['owner_id']
-
+        self.creator_id = info['creator_id']
+        self.create_date = info['create_date']
+        self.expire_date = info['expire_date']
+        self.spread = info['spread']
 
     def fetch_by_name(cls, name):
         pass
     fetch_by_name = classmethod(fetch_by_name)
     
-    def search(cls, name=None, create_date=None, creator_id=None, home=None,
-               disk_id=None, expire_date=None, owner_id=None, np_type=None, auth_method=None):
+    def search(cls, name=None, create_date=None, creator_id=None, 
+               expire_date=None, owner_id=None, np_type=None):
         pass
-
-    def set_home(self, home):
-        pass
-
-    def set_disk_id(self, disk_id):
-        pass
+    search = classmethod(search)
 
     def set_owner(self, entity_id):
         pass
@@ -375,6 +373,17 @@ class Person(Entity, Abstract.Person):
             affiliation['ou'] = ou
         return self._affiliations      
     affiliations = property(affiliations)    
+
+    def get_accounts(self):
+        """Retrieves a list of accounts this person owns, or empty list if none"""
+        info = self.server.person_accounts("entity_id:%s" % self.id)
+
+        accounts = []
+        for acc in info:
+            accountinfo = fetch_object_by_id(self.server, acc['account_id'])
+            accounts.append(accountinfo)
+        
+        return accounts
 
                                                     
 class OU(Entity, Abstract.OU):
