@@ -92,6 +92,20 @@ def create_set_method(attr):
 
 
 class Searchable(object):
+    """Mixin class for adding searchobjects.
+
+    Mixin class which adds generating of searchobjects, which provides
+    a complex, but easy to use, API for searching. Classes which
+    inherits from this class should implement their own
+    create_search_method which should return the search-method.
+
+    In searchobjects you set the values you want to search for, and if
+    you want other than direct comparisation, you can use less, more,
+    like and exists. You can also merge searchobjects, with intersection,
+    union or diffrence, if you need to search on serveral types of
+    objects.
+    """
+    
     search_slots = []
 
     def build_search_class(cls):

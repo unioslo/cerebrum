@@ -22,6 +22,8 @@ import copy
 
 from Builder import Method, Attribute
 
+__all__ = ['Dumpable']
+
 def create_mark_method(name, method_name, optional=False):
     """
     This function creates a mark method for every attribute and read method in the class.
@@ -46,6 +48,16 @@ def create_mark_method(name, method_name, optional=False):
     return dump
 
 class Dumpable(object):
+    """Mixin class for adding dumperobjects.
+    
+    Mixin class which adds generating of dumperobjects, which can be
+    used to read many attributes/methods in one method-call.
+
+    The new generated class has methods for marking which attributes and
+    methods you want returned, and can then be asked to return them all
+    at once, in structs.
+    """
+    
     def build_dumper_class(cls):
         from DumpClass import DumpClass, Struct
         from Searchable import Searchable
