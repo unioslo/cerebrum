@@ -25,14 +25,15 @@ class BofhdExtension(object):
                                   AccountName(ptype="new"),
                                   PersonIdType(), PersonId(),
                                   Affiliation(default=1),
-                                  OU(default=1), Date(optional=1)),
-
+                                  OU(default=1), Date(optional=1),
+                                  fs=FormatSuggestion("Created: %i",
+                                                   ("account_id",))),
         ## bofh> account password <accountname> [<password>]
         'account_password': Command(('account', 'password'),
                                   AccountName(), AccountPassword(optional=1)),
         ## bofh> account posix_create <accountname> <prigroup> <home=> <shell=> <gecos=>
         'account_posix_create': Command(('account', 'posix_create'),
-                                        AccountName(), GroupName(),
+                                        AccountName(ptype="new"), GroupName(ptype="primary"),
                                         PosixHome(default=1),
                                         PosixShell(default=1),
                                         PosixGecos(default=1)),
@@ -45,7 +46,8 @@ class BofhdExtension(object):
                              GroupName("destination", repeat=1),
                              GroupOperation(optional=1)),
         ## bofh> group create <name> [<description>]
-        'group_create': Command(("group", "create"), GroupName("new"), Description()),
+        'group_create': Command(("group", "create"), GroupName(ptype="new"), Description(),
+                                fs=FormatSuggestion("Created: %i",("group_id",))),
         ## bofh> group delete <name>
         'group_delete': Command(("group", "delete"), GroupName("existing")),
         ## bofh> group expand <groupname>
@@ -146,8 +148,10 @@ class BofhdExtension(object):
     def account_create(self, user, accountname, idtype, id,
                        affiliation=None, ou=None, expire_date=None):
         """Create account 'accountname' belonging to 'idtype':'id'"""
-        creator_id = 888888    # TBD: set this from user
         account = Account.Account(self.Cerebrum)  # TBD: Flytt denne
+        account.clear()
+        account.find_by_name(cereconf.INITIAL_ACCOUNTNAME)  # TBD: set this from user
+        creator_id = account.entity_id
         account.clear()
         person = self.person
         person.clear()
@@ -158,11 +162,11 @@ class BofhdExtension(object):
         
         account.populate(accountname,
                          self.const.entity_person,  # Owner type
-                         person.person_id,
+                         person.entity_id,
                          None, 
                          creator_id, expire_date)
         account.write_db()
-        return account.account_id
+        return {'account_id': account.entity_id}
 
     def account_password(self, user, accountname, password=None):
         """Set account password for 'accountname'.  If password=None,
@@ -221,17 +225,25 @@ class BofhdExtension(object):
         # navn på en entitet som ikke er gruppe
         if operator is None: operator = self.const.group_memberop_union
         if operator == 'union':   # TBD:  Need a way to map to constant
-            operator = co.group_memberop_union
+            operator = self.const.group_memberop_union
         group_s = Group.Group(self.Cerebrum)
         group_s.find_by_name(src_group)
         group_d = Group.Group(self.Cerebrum)
         group_d.find_by_name(dest_group)
         group_d.add_member(group_s, operator)
+        return "OK"
 
     def group_create(self, user, groupname, description):
         """Create the group 'groupname' with 'description'.  Returns
         the new groups id"""
-        raise NotImplemetedError, "Feel free to implement this function"
+
+        account = Account.Account(self.Cerebrum)
+        account.find_by_name(cereconf.INITIAL_ACCOUNTNAME)  # TODO: current user
+        group = Group.Group(self.Cerebrum)
+        group.populate(account, self.const.group_visibility_all,
+                          groupname, description)
+        group.write_db()
+        return {'group_id': group.entity_id}
     
     def group_delete(self, user, groupname):
         """Deletes the group 'groupname'"""
