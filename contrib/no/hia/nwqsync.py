@@ -302,7 +302,7 @@ def user_add_del_grp(ch_type,dn_user,dn_dest):
             search_dn = "%s" % cereconf.NW_LDAP_ROOT
             ldap_obj = ldap_handle.GetObjects(search_dn,search_str)
             if ldap_obj == []:
-                logger.warn("#del/add member:%s to group %s, failed." & \
+                logger.warn("#del/add member:%s to group %s, failed." % \
 						(search_str,group_name))
                 dn_user.remove(user)
             else:
