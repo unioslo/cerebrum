@@ -319,11 +319,11 @@ class BofhdAuth(DatabaseAccessor):
         Account, check if operator's access to the account's disk.
         Returns True for success and raises exception PermissionDenied
         for failure."""
+
         if self._has_access_to_entity_via_ou(operator, operation, entity):
             return True
         if not isinstance(entity, Factory.get('Account')):
             raise PermissionDenied("No access to person")
-
         disk = self._get_user_disk(entity.entity_id)
         if disk:
             self._query_disk_permissions(operator, operation,
@@ -689,10 +689,18 @@ class BofhdAuth(DatabaseAccessor):
 
     def can_set_shell(self, operator, account=None, shell=None,
                       query_run_any=False):
+        if query_run_any:
+            return True
         # TBD: auth_op_attrs may contain legal shells
         if self.is_superuser(operator):
             return True
-        if query_run_any:
+        # A bit of a hack: Restrict the kinds of shells a normal user
+        # can select based on the pathname of the shell.  He can still
+        # choose "sync" ("/bin/sync"), though.
+        # TODO: add a Boolean to _PosixShellCode() signifying whether
+        # it should be user selectable or not.
+        if (operator == account.entity_id and shell and
+            shell.description.find("/bin/") <> -1):
             return True
         # TODO 2003-07-04: Bård is going to comment this
         return self.is_account_owner(operator, self.const.auth_set_password,
