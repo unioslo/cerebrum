@@ -900,7 +900,8 @@ class BofhdExtension(object):
         server."""
         lp, dom = listname.split('@')
         ed = self._get_email_domain(dom)
-        self.ba.can_email_list_create(operator.get_entity_id(), ed)
+        op = operator.get_entity_id()
+        self.ba.can_email_list_create(op, ed)
         ea = Email.EmailAddress(self.db)
         try:
             ea.find_by_local_part_and_domain(lp, ed.email_domain_id)
@@ -918,7 +919,31 @@ class BofhdExtension(object):
         self._register_list_addresses(listname, lp, dom)
         if admins:
             # TODO: add bofh request to run newlist on lister
-            pass
+            br = BofhdRequests(self.db, self.const)
+            ea.clear()
+            ea.find_by_local_part_and_domain(lp, ed.email_domain_id)
+            list_id = ea.email_addr_id
+            admin_list = []
+            for addr in admins.split(","):
+                if addr.count('@') == 0:
+                    admin_list.append(addr + "@UIO_HOST")
+                else:
+                    admin_list.append(addr)
+            ea.clear()
+            try:
+                ea.find_by_address(admin_list[0])
+            except Errors.NotFoundError:
+                raise CerebrumError, "%s: unknown address" % admin_list[0]
+            req = br.add_request(op, br.now, self.const.bofh_mailman_create,
+                                 list_id, ea.email_addr_id, None)
+            for addr in admin_list[1:]:
+                ea.clear()
+                try:
+                    ea.find_by_address(addr)
+                except Errors.NotFoundError:
+                    raise CerebrumError, "%s: unknown address" % addr
+                br.add_request(op, br.now, self.const.bofh_mailman_add_admin,
+                               list_id, ea.email_addr_id, str(req))
         return "OK"
 
     # email create_list_alias <list-address> <new-alias>
