@@ -21,6 +21,7 @@
 import pprint
 
 from Cerebrum.modules.no import fodselsnr
+from Cerebrum import Disk
 from Cerebrum.modules.no.uio.AutoStud.ProfileConfig import StudconfigParser
 from Cerebrum.modules.no.uio.AutoStud.Util import AutostudError
 
@@ -130,6 +131,27 @@ class Profile(object):
                     and tmp_count < max_on_disk):
                      return d
         raise NoAvailableDisk, "No disks with free space matches %s" % new_disk
+
+    def get_disk_kvote(self, disk_id):
+        self._logger.debug2("Determine disk_quota (disk_id=%i)" % disk_id)
+        # Look for profile match
+        for m in self.matcher.get_match("disk_kvote"):
+            self._logger.debug2("get_disk_kvote <tag>: %s" % m)
+            return int(m['value'])
+        # Look for match by diskdef
+        quota = self.pc.disk_defs['path'].get(disk_id, {}).get('disk_kvote', None)
+        if quota is not None:
+            return quota
+        disk = Disk.Disk(self.pc.autostud.db)
+        disk.find(disk_id)
+        for prefix, settings in self.pc.disk_defs['prefix'].items():
+            if prefix == disk.path[:len(prefix)]:
+                quota = self.pc.disk_defs['prefix'][prefix]['disk_kvote']
+                self._logger.debug2("Match: %s - %s: %s" % (prefix, disk.path, quota))
+                return int(quota)
+        if self.pc.default_values.has_key('disk_kvote_value'):
+            return int(self.pc.default_values['disk_kvote_value'])
+        raise AutostudError("No defined disk_kvote")
 
     def notify_used_disk(self, old=None, new=None):
         if old is not None:

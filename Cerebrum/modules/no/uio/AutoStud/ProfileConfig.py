@@ -46,6 +46,7 @@ class Config(object):
         self.profiles = []
         self.required_spread_order = []
         self.lookup_helper = LookupHelper(autostud.db, logger, autostud.ou_perspective)
+        self.using_disk_kvote = False
         sp = StudconfigParser(self)
         parser = xml.sax.make_parser()
         parser.setContentHandler(sp)
@@ -353,6 +354,9 @@ class StudconfigParser(xml.sax.ContentHandler):
                 self._default_group_auto = tmp['default_auto']
             elif ename == 'disk_oversikt':
                 self._default_disk_max = tmp['default_max']
+                self._default_disk_kvote = tmp.get(
+                    'default_disk_kvote',
+                    self._config.default_values.get('disk_kvote_value', None))
                 self._tmp_disk_spreads = []
             elif ename in ('default_values', 'disk_pools', 'spread_oversikt'):
                 pass
@@ -387,6 +391,9 @@ class StudconfigParser(xml.sax.ContentHandler):
                 if not self._tmp_disk_spreads:
                     raise ValueError, "DTD-violation: no disk_spread defined"
                 tmp['max'] = tmp.get('max', self._default_disk_max)
+                tmp['disk_kvote'] = tmp.get('disk_kvote', self._default_disk_kvote)
+                if tmp['disk_kvote'] is not None:
+                    self._config.using_disk_kvote = True
                 tmp['spreads'] = self._tmp_disk_spreads
                 if tmp.has_key('path'):
                     self._config.disk_defs.setdefault('path', {})[tmp['path']] = tmp
@@ -412,6 +419,8 @@ class StudconfigParser(xml.sax.ContentHandler):
                     elif ename == 'spread' and not self.legal_spreads.has_key(tmp['system']):
                         self._config.add_error("Not in spreaddef: %s" % \
                                                tmp['system'])
+                    elif ename == 'disk_kvote':
+                        self._config.using_disk_kvote = True
                     self._in_profil.add_setting(ename, tmp)
                 else:
                     self._config.add_error("Unexpected tag %s in %s" % (
