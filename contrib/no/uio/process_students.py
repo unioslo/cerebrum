@@ -302,7 +302,7 @@ def make_letters(data_file=None, type=None, range=None):
         if not files.has_key(letter_type):
             files[letter_type] = file("letter-%i-%s" % (time(), letter_type), "w")
             tpls[letter_type] = TemplateHandler(
-                'no-letter', brev_profil['mal'], brev_profil['type'])
+                'no_NO/letter', brev_profil['mal'], brev_profil['type'])
             if tpls[letter_type]._hdr is not None:
                 files[letter_type].write(tpls[letter_type]._hdr)
             counters[letter_type] = 1
