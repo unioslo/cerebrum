@@ -31,6 +31,7 @@ import sys
 import crypt
 import md5
 import socket
+import cerebrum_path
 from Cerebrum.extlib import timeoutsocket
 import thread
 import threading
@@ -52,7 +53,6 @@ except ImportError:
 
 # import SecureXMLRPCServer
 
-import cerebrum_path
 import cereconf
 from Cerebrum import Errors
 from Cerebrum import Utils
@@ -264,7 +264,8 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
         return native_to_xmlrpc(ret)
 
     def handle(self):
-        self.connection.set_timeout(cereconf.BOFHD_CLIENT_SOCKET_TIMEOUT)
+        if not use_encryption:
+            self.connection.set_timeout(cereconf.BOFHD_CLIENT_SOCKET_TIMEOUT)
         try:
             super(BofhdRequestHandler, self).handle()
         except timeoutsocket.Timeout, msg:
