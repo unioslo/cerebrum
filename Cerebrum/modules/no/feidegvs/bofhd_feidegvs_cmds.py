@@ -1724,7 +1724,7 @@ class BofhdExtension(object):
             raise CerebrumError("Unexpectedly found more than one person")
         ou, aff, aff_status = self._person_affiliation_add_helper(
             operator, person, ou, aff, aff_status)
-        return "OK, added %s@%s to %s" % (aff, ou), person.entity_id)
+        return "OK, added %s@%s to %s" % (aff, ou, person.entity_id)
 
     # person affilation_remove
     all_commands['person_affiliation_remove'] = Command(
