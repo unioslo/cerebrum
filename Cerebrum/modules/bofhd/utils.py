@@ -104,6 +104,19 @@ class Constants(Constants.Constants):
                                             'Set e-mail hard quota')
     bofh_email_convert = _BofhdRequestOpCode('br_email_convert',
                                              'Convert user mail config')
+    # entity_id is address_id of the official name of the mailing list
+    # destination_id is address_id of the admin address
+    bofh_mailman_create = _BofhdRequestOpCode('br_mm_create',
+                                              'Create mailman list')
+    # entity_id and destination_id as above
+    # state_data is optional request_id for dependency
+    bofh_mailman_add_admin = _BofhdRequestOpCode('br_mm_add_admin',
+                                                 'Add admin to mailman list')
+    # entity_id as above
+    # since this has been deleted by the time process_bofhd_requests runs,
+    # the name of the list is passed as a string in state_data as well.
+    bofh_mailman_remove = _BofhdRequestOpCode('br_mm_remove',
+                                              'Remove mailman list')
 
 class BofhdRequests(object):
     def __init__(self, db, const, id=None):
@@ -139,6 +152,10 @@ class BofhdRequests(object):
                                                      c.bofh_email_move ],
                       int(c.bofh_email_hquota):    [ c.bofh_email_delete ],
                       int(c.bofh_email_convert):   [ c.bofh_email_delete ],
+                      int(c.bofh_mailman_create):  [ c.bofh_mailman_remove ],
+                      int(c.bofh_mailman_add_admin):  None,
+                      int(c.bofh_mailman_remove):  [ c.bofh_mailman_create,
+                                                     c.bofh_mailman_add_admin ],
                       }
 
         conf = conflicts[int(op_code)]
