@@ -3507,7 +3507,7 @@ class BofhdExtension(object):
                         'dato_regform_endret': DateTime.DateTimeFromTicks(row['dato_regform_endret'])})
 
 	for row in fs.GetStudentKull(fodselsdato, pnum)[1]:
-	    ret.append({'kullkode': "%s-%s-%s" % (row['studieprogramkode'], row['terminkode_kull'], row['arstall_kull'])
+	    ret.append({'kullkode': "%s-%s-%s" % (row['studieprogramkode'], row['terminkode_kull'], row['arstall_kull']),
 			'status_aktiv': row['status_aktiv']})
 
         db.close()
