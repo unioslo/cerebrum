@@ -2701,10 +2701,10 @@ class BofhdExtension(object):
                     'help_ref': 'print_select_template'}
         arg = all_args.pop(0)
         tpl_lang, tpl_name, tpl_type = self._map_template(arg)
-        if not tpl_lang.endswith("letter"):
-            if not all_args:
-                return {'prompt': 'Oppgi skrivernavn'}
-            skriver = all_args.pop(0)
+        #if not tpl_lang.endswith("letter"):
+        #    if not all_args:
+        #        return {'prompt': 'Oppgi skrivernavn'}
+        #    skriver = all_args.pop(0)
         if not all_args:
             n = 1
             map = [(("%8s %s", "uname", "operation"), None)]
