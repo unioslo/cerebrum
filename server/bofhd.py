@@ -298,13 +298,13 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
             enc_pass = account.get_account_authentication(
                 self.server.const.auth_type_md5_crypt)
         except Errors.NotFoundError:
-            raise CerebrumError, "Invalid user"
+            raise CerebrumError, "Unknown username or password"
         # TODO: Add API for credential verification to Account.py.
         if enc_pass <> crypt.crypt(password, enc_pass):
             # Use same error message as above; un-authenticated
             # parties should not be told that this in fact is a valid
             # username.
-            raise CerebrumError, "Invalid user"
+            raise CerebrumError, "Unknown username or password"
         try:
             session = BofhdSession(self.server.db)
             session_id = session.set_authenticated_entity(account.entity_id)
