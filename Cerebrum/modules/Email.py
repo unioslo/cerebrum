@@ -493,6 +493,12 @@ class EmailQuota(EmailTarget):
         self.__in_db = True
         self.__updated = False
 
+    def get_quota_soft(self):
+        return self.email_quota_soft
+
+    def get_quota_hard(self):
+        return self.email_quota_hard
+
 
 class _EmailSpamLevelCode(Constants._CerebrumCode):
     _lookup_table = '[:table schema=cerebrum name=email_spam_level_code]'
@@ -559,6 +565,13 @@ class EmailSpamFilter(EmailTarget):
             pass
         self.__in_db = True
         self.__updated = False
+
+    def get_spam_level(self):
+        return self.email_spam_level
+
+    def get_spam_action(self):
+        return self.email_spam_action
+
 
 
 class _EmailVirusFoundCode(Constants._CerebrumCode):
@@ -631,6 +644,17 @@ class EmailVirusScan(EmailTarget):
             pass
         self.__in_db = True
         self.__updated = False
+
+    def is_enabled(self):
+        if self.email_virus_enable == "T":
+            return True
+        return False
+
+    def get_virus_found_act(self):
+        return self.email_virus_found_act
+
+    def get_virus_removed_act(self):
+        return self.email_virus_removed_act
 
 
 class EmailForward(EmailTarget):
