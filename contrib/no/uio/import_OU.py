@@ -30,8 +30,8 @@ class StedData(object):
         stedinfo = {}
         for c in self.colnames:
             stedinfo[c] = info.pop(0)
-        sko = "%s-%s-%s" % (stedinfo['fakultetnr'], stedinfo['instituttnr'], stedinfo['gruppenr'])
-        return (sko, stedinfo)
+        stedkode = "%s-%s-%s" % (stedinfo['fakultetnr'], stedinfo['instituttnr'], stedinfo['gruppenr'])
+        return (stedkode, stedinfo)
 
 stedfile = "/u2/dumps/LT/sted.dta";
 
@@ -40,22 +40,24 @@ def main():
     steder = les_sted_info()
     ou = OU.OU(Cerebrum)
     i = 1
-    sko2ou = {}
+    stedkode2ou = {}
     for k in steder.values():
         i = i + 1
         try:
-            sko = "%s-%s-%s" % (k['fakultetnr'], k['instituttnr'], k['gruppenr'])
-            ou.get_sko(k['fakultetnr'], k['instituttnr'], k['gruppenr'])
-            sko2ou[sko] = ou.ou_id
+            stedkode = "%s-%s-%s" % (k['fakultetnr'], k['instituttnr'], k['gruppenr'])
+            ou.get_stedkode(k['fakultetnr'], k['instituttnr'], k['gruppenr'])
+            stedkode2ou[stedkode] = ou.ou_id
+
+            
 
             # Todo: compare old and new
         except : # Cerebrum.Errors.NotFoundError:
             id = ou.new(k['stednavn'], k['akronym'], k['forkstednavn'],
                         k['stednavn'], k['stednavn'])
-            sko = "%s-%s-%s" % (k['fakultetnr'], k['instituttnr'], k['gruppenr'])
-            sko2ou[sko] = id
+            stedkode = "%s-%s-%s" % (k['fakultetnr'], k['instituttnr'], k['gruppenr'])
+            stedkode2ou[stedkode] = id
             ou.find(id)             # new setter ikke denne i self (bug?)
-            ou.add_sko(k['fakultetnr'], k['instituttnr'], k['gruppenr'])
+            ou.add_stedkode(k['fakultetnr'], k['instituttnr'], k['gruppenr'])
             ou.add_entity_address('LT', 'p', addr="%s\n%s" %
                                   (k['adresselinje1_intern_adr'],
                                    k['adresselinje2_intern_adr']),
@@ -75,38 +77,38 @@ def main():
         existing_ou_mappings[t[0]] = t[1]
         
     # Now populate ou_structure
-    for sko in steder.keys():
-        rec_make_sko(sko, ou, existing_ou_mappings, steder, sko2ou)
+    for stedkode in steder.keys():
+        rec_make_stedkode(stedkode, ou, existing_ou_mappings, steder, stedkode2ou)
 
-def rec_make_sko(sko, ou, existing_ou_mappings, steder, sko2ou):
+def rec_make_stedkode(stedkode, ou, existing_ou_mappings, steder, stedkode2ou):
     """Recursively create the ou_id -> parent_id mapping"""
-    sted = steder[sko]
-    org_sko = "%s-%s-%s" % (sted['fakultetnr_for_org_sted'],
+    sted = steder[stedkode]
+    org_stedkode = "%s-%s-%s" % (sted['fakultetnr_for_org_sted'],
                             sted['instituttnr_for_org_sted'],
                             sted['gruppenr_for_org_sted'])
-    if(not sko2ou.has_key(org_sko)):
-        print "Error in dataset, missing SKO: %s, using None" % org_sko
-        org_sko = None
-        org_sko_ou = None
+    if(not stedkode2ou.has_key(org_stedkode)):
+        print "Error in dataset, missing STEDKODE: %s, using None" % org_stedkode
+        org_stedkode = None
+        org_stedkode_ou = None
     else:
-        org_sko_ou = sko2ou[org_sko]
+        org_stedkode_ou = stedkode2ou[org_stedkode]
         
-    if(existing_ou_mappings.has_key(sko2ou[sko])):
-        if(existing_ou_mappings[sko2ou[sko]] != org_sko_ou):
+    if(existing_ou_mappings.has_key(stedkode2ou[stedkode])):
+        if(existing_ou_mappings[stedkode2ou[stedkode]] != org_stedkode_ou):
             print "Mapping for %s changed TODO (%s != %s)" % (
-                sko, existing_ou_mappings[sko2ou[sko]], org_sko_ou)
+                stedkode, existing_ou_mappings[stedkode2ou[stedkode]], org_stedkode_ou)
         return
 
-    if(org_sko_ou != None and (sko != org_sko) and
-       (not existing_ou_mappings.has_key(org_sko_ou))):
-        rec_make_sko(org_sko, ou, existing_ou_mappings, steder, sko2ou)
+    if(org_stedkode_ou != None and (stedkode != org_stedkode) and
+       (not existing_ou_mappings.has_key(org_stedkode_ou))):
+        rec_make_stedkode(org_stedkode, ou, existing_ou_mappings, steder, stedkode2ou)
 
-    ou.find(sko2ou[sko])
-    if sko2ou.has_key(org_sko):
-        ou.set_parent('LT', sko2ou[org_sko])
+    ou.find(stedkode2ou[stedkode])
+    if stedkode2ou.has_key(org_stedkode):
+        ou.set_parent('LT', stedkode2ou[org_stedkode])
     else:
         ou.set_parent('LT', None)
-    existing_ou_mappings[sko2ou[sko]] = org_sko_ou
+    existing_ou_mappings[stedkode2ou[stedkode]] = org_stedkode_ou
 
 def les_sted_info():
     steder = {}
@@ -115,8 +117,8 @@ def les_sted_info():
     dta = StedData()
 
     for line in f.readlines():
-        (sko, sted) = dta.parse_line(line)
-        steder[sko] = sted
+        (stedkode, sted) = dta.parse_line(line)
+        steder[stedkode] = sted
     return steder
 
 if __name__ == '__main__':
