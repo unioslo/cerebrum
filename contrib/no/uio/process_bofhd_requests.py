@@ -486,6 +486,7 @@ def main():
             debug += 1
         elif opt in ('-p', '--process'):
             process_move_requests()
+            process_email_requests()
     
 def usage(exitcode=0):
     print """Usage: process_bofhd_requests.py
