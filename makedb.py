@@ -16,6 +16,7 @@ def makedbs(Cerebrum):
               'core_tables.sql',
               'core_data.sql',
               #'pop.sql',
+              'mod_drop_stedkode.sql',
               'mod_stedkode.sql'):
         runfile("design/%s" % f, Cerebrum)
 
