@@ -236,22 +236,13 @@ def now():
 
 
 
-def get_primary_affiliation(account_id, namespace):
+def get_primary_affiliation(account_id):
     account.clear()
     account.find(account_id)
     acc_types = account.get_account_types()
-    c = 0
-    current = 0
-    pri = 9999
-    for acc in acc_types:
-        if acc['priority'] < pri:
-            current = c
-            pri = acc['priority']
-            c = c+1
     if acc_types:
-        return acc_types[current]['affiliation']
-    else:
-        return None
+        return acc_types[0]['affiliation']
+    return None
 
 
 
@@ -300,7 +291,7 @@ def get_account_info(account_id, spread, site_callback, cache_pass=False):
     (first_n, last_n, account_disable, home_dir, affiliation, ext_id) = get_user_info(account_id, spread)
     pwd = get_ptpass(account_id, cache_pass)
     try:
-        pri_ou = get_primary_ou(account_id, co.account_namespace)
+        pri_ou = get_primary_ou(account_id)
     except Errors.NotFoundError:
         print "Unexpected error /me thinks"
     if not pri_ou:
@@ -361,7 +352,7 @@ def get_user_info(account_id, spread):
         person_id = account.owner_id
         person.clear()
         person.find(person_id)
-        affiliation = get_primary_affiliation(account_id, co.account_namespace)
+        affiliation = get_primary_affiliation(account_id)
             
         full_name = ' '
         ext_id = 0
@@ -407,23 +398,15 @@ def get_user_info(account_id, spread):
     return (first_n, last_n, account_disable, home_dir, affiliation, ext_id)
 
 
-def get_primary_ou(account_id,namespace):
+def get_primary_ou(account_id):
     account.clear()
     account.find(account_id)
     acc_types = account.get_account_types()
-    c = 0
-    current = 0
-    pri = 9999
-    for acc in acc_types:
-        if acc['priority'] < pri:
-            current = c
-            pri = acc['priority']
-            c = c+1
     if acc_types:
-        return acc_types[current]['ou_id']
-    else:
-        return None
-        
+        return acc_types[0]['ou_id']
+    return None
+
+
 def get_nw_ou(ldap_path):
     ou_list = []
     p = re.compile(r'ou=(.+)')

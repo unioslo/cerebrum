@@ -326,7 +326,7 @@ def full_group_sync(spread_str):
                     if ent_name.has_spread(int(getattr(co, spread_str))):
                         name = ent_name.get_name(int(co.account_namespace))
                         if not name in memblist:
-                            ou_id = nwutil.get_primary_ou(ent_name.entity_id, co.account_namespace)
+                            ou_id = nwutil.get_primary_ou(ent_name.entity_id)
                             crbrm_ou = nwutil.get_crbrm_ou(ou_id)
                             memblist.append("cn=%s,%s" % (name, utfcrbm_ou))
                 except Errors.NotFoundError:
@@ -475,7 +475,7 @@ def get_objects(entity_type, spread_str):
         if ent_name.entity_type != e_type: continue
         name = ent_name.get_name(namespace)
         try:
-            pri_ou = nwutils.get_primary_ou(id,namespace)
+            pri_ou = nwutils.get_primary_ou(id)
         except Errors.NotFoundError:
             print "Unexpected error /me thinks"
         if not pri_ou:

@@ -230,8 +230,7 @@ class LDAPConnection:
     def get_pq(self, acc_id, uname):
         pq_valid = False
         pq_quota = False
-        if get_primary_affiliation(acc_id, self.co.account_namespace) ==\
-                        self.co.affiliation_student:
+        if get_primary_affiliation(acc_id) == self.co.affiliation_student:
             pq_valid = True
             search_str = "(&(cn=%s)(objectClass=inetOrgPerson))" % uname
             res = self.GetObjects(cereconf.NW_LDAP_ROOT,
@@ -299,26 +298,13 @@ def now():
 #    log_str = str(nwutils.now()) + log_txt
 #    attr_add_ldap(ldap_user,[('description',[log_str,])])
 
-def get_primary_affiliation(account_id, namespace):
+def get_primary_affiliation(account_id):
     account.clear()
     account.find(account_id)
-    name = account.get_name(namespace)
-    try:
-        acc_types = account.get_account_types()
-    except Errors.NotFoundError:
-        return(None)
-    c = 0
-    current = 0
-    pri = 9999
-    for acc in acc_types:
-        if acc['priority'] < pri:
-            current = c
-            pri = acc['priority']
-            c = c+1
+    acc_types = account.get_account_types()
     if acc_types:
-        return acc_types[current]['affiliation']
-    else:
-        return None
+        return acc_types[0]['affiliation']
+    return None
 
 
 
@@ -341,7 +327,7 @@ def get_account_info(account_id, spread, site_callback):
         pwd = ''
     if pers:
 	try:
-	    pri_ou = get_primary_ou(account_id, co.account_namespace)
+	    pri_ou = get_primary_ou(account_id)
 	except Errors.NotFoundError:
 	    logger.info("Unexpected error me thinks")
 	if not pri_ou:
@@ -450,7 +436,7 @@ def get_user_info(account_id, spread):
 	    for name_var in names:
 		names[name_var] = account.account_name
 	try:
-	    affiliation = get_primary_affiliation(account_id, co.account_namespace)
+	    affiliation = get_primary_affiliation(account_id)
 	    if affiliation == co.affiliation_student:
 		ext_id = int(person.get_external_id(co.system_fs, co.externalid_studentnr)[0]['external_id'])
 	    else: 
@@ -488,27 +474,16 @@ def get_user_info(account_id, spread):
 		home_dir, affiliation, ext_id, email, pers)
 
 
-def get_primary_ou(account_id,namespace):
+def get_primary_ou(account_id):
     account.clear()
     account.find(account_id)
-    name = account.get_name(namespace)
-    try:
-        acc_types = account.get_account_types()
-    except Errors.NotFoundError:
-        return None
-    c = 0
-    current = 0
-    pri = 9999
-    for acc in acc_types:
-        if acc['priority'] < pri:
-            current = c
-            pri = acc['priority']
-            c = c+1
+    acc_types = account.get_account_types()
     if acc_types:
-        return acc_types[current]['ou_id']
-    else:
-        return None
-        
+        return acc_types[0]['ou_id']
+    return None
+
+
+
 def get_nw_ou(ldap_path):
     ou_list = []
     p = re.compile(r'ou=(.+)')

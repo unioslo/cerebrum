@@ -153,22 +153,13 @@ def chk_quarantine(account_id):
 	return True
 
 
-def get_primary_ou(account_id,namespace):
+def get_primary_ou(account_id):
     account.clear()
     account.find(account_id)
     acc_types = account.get_account_types()
-    c = 0
-    current = 0
-    pri = 9999
-    for acc in acc_types:
-        if acc['priority'] < pri:
-            current = c
-            pri = acc['priority']
-            c = c+1
     if acc_types:
-        return acc_types[current]['ou_id']
-    else:
-        return None
+        return acc_types[0]['ou_id']
+    return None
 
 
 def now():

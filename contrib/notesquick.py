@@ -112,7 +112,7 @@ def change_pw(account_id,pw_params):
 
 def add_user(account_id):		
     account_name =id_to_name(account_id)        
-    pri_ou = notesutils.get_primary_ou( account_id, co.account_namespace)
+    pri_ou = notesutils.get_primary_ou(account_id)
     if not pri_ou:
 	oustr="OU1&%s" % (cereconf.NOTES_DEFAULT_OU)
     else:

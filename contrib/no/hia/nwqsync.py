@@ -561,8 +561,8 @@ def change_group_spread(dn_id,ch_type,gname=None):
 	    student_grp = False
 	    grp_mem = []
 	    for mem in group.get_members(spread = spread_ids[0],get_entity_name=False):
-		if  (co.affiliation_student == \
-				nwutils.get_primary_affiliation(mem,co.account_namespace)):
+		if (nwutils.get_primary_affiliation(mem) ==
+                    co.affiliation_student):
 		    student_grp = True
 		grp_mem.append(int(mem))
 		# If any of this members does not exist on eDirectory server,

@@ -246,7 +246,7 @@ def add_spread(entity_id, spread):
         if cereconf.AD_DEFAULT_OU=='0':
             ad_ou='CN=Users,%s' % (cereconf.AD_LDAP)
         else:
-            pri_ou = adutils.get_primary_ou( entity_id, co.account_namespace)
+            pri_ou = adutils.get_primary_ou(entity_id)
             if not pri_ou:
                 logger.debug("No account_type information for object %s" % id)
                 ad_ou='CN=Users,%s' % (cereconf.AD_LDAP)
