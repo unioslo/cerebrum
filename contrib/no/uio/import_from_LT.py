@@ -33,6 +33,7 @@ from Cerebrum.modules.no.uio.access_LT import LT
 from Cerebrum import Database,Errors
 from Cerebrum.Utils import XMLHelper
 from Cerebrum.Utils import AtomicFileWriter
+from Cerebrum.extlib import xmlprinter
 
 
 def get_sted_info(outfile):
@@ -311,7 +312,49 @@ def make_key(db_row):
                              db_row['gruppenr_kontering'])
 # end 
 
+
+
+def get_fnr_update_info(filename):
+    """
+    Fetch updates in Norwegian sosial security number (fødselsnummer) from
+    LT and generate a suitable xml dump containing the changes.
+    """
+
+    output_stream = AtomicFileWriter(filename, "w")
+    writer = xmlprinter.xmlprinter(output_stream,
+                                   indent_level = 2,
+                                   # Output is for humans too
+                                   data_mode = True,
+                                   input_encoding = 'latin1')
+    writer.startDocument(encoding = "iso8859-1")
+
+    writer.startElement("data")
     
+    for row in LT.GetFnrEndringer():
+        # Make the format resemble the corresponding FS output as close as
+        # possible
+        attributes = { "fnr_ny" :
+                         "%02d%02d%02d%05d" % (row["fodtdag_ble_til"],
+                                               row["fodtmnd_ble_til"],
+                                               row["fodtar_ble_til"],
+                                               row["personnr_ble_til"]),
+                       "fnr_gammel" :
+                         "%02d%02d%02d%05d" % (row["fodtdag_kom_fra"],
+                                               row["fodtmnd_kom_fra"],
+                                               row["fodtar_kom_fra"],
+                                               row["personnr_kom_fra"]),
+                       "dato_foretatt" : str(row["dato_endret"]),
+                     }
+        
+        writer.emptyElement("fnr", attributes)
+    # od
+
+    writer.endElement("data")
+    writer.endDocument()
+    output_stream.close()
+# end get_fnr_update_info
+
+
 
 def usage(exitcode=0):
     print """Usage: -s sid -u uname [options]
@@ -319,7 +362,9 @@ def usage(exitcode=0):
     -s | --sid sid: sid to connect with
     -u uname: username to connect with
     --sted-file file: filename to write sted info to
-    --person-file file: filename to write person info to"""
+    --person-file file: filename to write person info to
+    -f | --fnr-update <filename> : generate fnr updates from LT
+    """
     sys.exit(exitcode)
 
 def main():
@@ -329,9 +374,13 @@ def main():
     stedfile = None
     sid = None
     user = None
+    fnr_update = None
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'vs:u:',
-                                   ['verbose', 'sid=', 'sted-file=', 'person-file='])
+        opts, args = getopt.getopt(sys.argv[1:],
+                                   'vs:u:f:',
+                                   ['verbose', 'sid=', 'sted-file=',
+                                    'person-file=',
+                                    'fnr-update='])
     except getopt.GetoptError:
         usage(1)
     for opt, val in opts:
@@ -345,16 +394,35 @@ def main():
             stedfile = val
         elif opt in ('--person-file',):
             personfile = val
+        elif opt in ('-f', '--fnr-update'):
+            fnr_update = val
+        # fi
+    # od
+            
     if user is None or sid is None:
         usage(1)
+
     db = Database.connect(user=user, service=sid, DB_driver='Oracle')
     LT = LT(db)
     xml = XMLHelper()
 
     if stedfile is not None:
         get_sted_info(stedfile)
+    # fi
+    
     if personfile is not None:
         get_person_info(personfile)
+    # fi
+
+    if fnr_update is not None:
+        get_fnr_update_info(fnr_update)
+    # fi
+# end main
+
+
+
+
 
 if __name__ == '__main__':
     main()
+# fi
