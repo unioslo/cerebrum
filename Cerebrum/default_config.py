@@ -49,7 +49,10 @@ DEFAULT_OU = None   # Used by bofh "account affadd" if OU is not set
 POSIX_HOME_TEMPLATE_DIR = "/local/etc/newusertemplates"
 POSIX_USERMOD_SCRIPTDIR = "/etc/cerebrum"
 CREATE_USER_SCRIPT= '/local/etc/reguser/mkhomedir'
+MVUSER_SCRIPT = '/cerebrum/sbin/mvuser'
+RMUSER_SCRIPT = '/cerebrum/sbin/aruser'
 RSH_CMD = '/local/bin/ssh'
+
 # Temporary switch until someone can figure out why mktime won't work
 # with year < 1970 on some systems.  Must NOT be set on production
 # systems.
