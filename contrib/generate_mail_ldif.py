@@ -35,6 +35,7 @@ from Cerebrum import Disk
 from Cerebrum import Group
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import Email
+from Cerebrum.modules.bofhd.utils import BofhdRequests
 from time import time as now
 
 db = Factory.get('Database')()
@@ -384,9 +385,19 @@ def read_accounts():
                                             row['home'],
                                             row['path']]
 
+def read_pending_moves():
+    br = BofhdRequests(db, co)
+    pending = {}
+    for r in br.get_requests(operation=co.bofh_email_will_move):
+        pending[int(r['entity_id'])] = True
+    for r in br.get_requests(operation=co.bofh_email_move):
+        pending[int(r['entity_id'])] = True
+    return pending
+
 def write_ldif():
     counter = 0
     curr = now()
+    pending_move = read_pending_moves()
 
     f.write("""
 dn: ou=mail,%s
@@ -395,7 +406,7 @@ objectClass: norOrganizationalUnit
 ou: mail
 description: mail-config ved UiO.\n
 """ % base_dn)
-    
+
     for row in mail_targ.list_email_targets_ext():
         t = int(row['target_id'])
         tt = int(row['target_type'])
@@ -450,6 +461,10 @@ description: mail-config ved UiO.\n
                 rest += "tripnote:: %s\n" % tmp
                 if enable == 'T':
                     rest += "tripnoteActive: TRUE\n"
+
+            # See if e-mail delivery should be suspended
+            if ei in pending:
+                rest += "mailPause: TRUE\n"
 
             # Find mail-server settings:
             if targ2server_id.has_key(t):
