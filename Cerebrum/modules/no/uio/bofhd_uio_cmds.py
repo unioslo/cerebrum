@@ -3904,9 +3904,9 @@ class BofhdExtension(object):
     all_commands['person_student_info'] = Command(
         ("person", "student_info"), PersonId(),
         fs=FormatSuggestion([
-        ("Studieprogrammer: %s, %s, %s, tildelt=%s->%s privatist: %s",
-         ("studprogkode", "studierettstatkode", "opphortstatus", format_day("dato_tildelt"),
-          format_day("dato_gyldig_til"), "privatist")),
+        ("Studieprogrammer: %s, %s, %s, %s, tildelt=%s->%s privatist: %s",
+         ("studprogkode", "studieretningkode", "studierettstatkode", "studentstatkode", 
+	  format_day("dato_tildelt"), format_day("dato_gyldig_til"), "privatist")),
         ("Eksamensmeldinger: %s (%s), %s",
          ("ekskode", "programmer", format_day("dato"))),
         ("Utd. plan: %s, %s, %d, %s",
@@ -3930,14 +3930,15 @@ class BofhdExtension(object):
         db = Database.connect(user="ureg2000", service="FSPROD.uio.no",
                               DB_driver='Oracle')
         fs = FS(db)
-        for row in fs.GetStudentStudierett(fodselsdato, pnum)[1]:
+        for row in fs.GetStudentStudierett_50(fodselsdato, pnum)[1]:
             har_opptak["%s" % row['studieprogramkode']] = \
                             row['status_privatist']
             ret.append({'studprogkode': row['studieprogramkode'],
                         'studierettstatkode': row['studierettstatkode'],
-                        'opphortstatus': row['opphortstudierettstatkode'],
-                        'dato_tildelt': DateTime.DateTimeFromTicks(row['dato_tildelt']),
-                        'dato_gyldig_til': DateTime.DateTimeFromTicks(row['dato_gyldig_til']),
+                        'studentstatkode': row['studentstatkode'],
+			'studieretning': row['studieretninhkode'],
+                        'dato_tildelt': DateTime.DateTimeFromTicks(row['dato_studierett_tildelt']),
+                        'dato_gyldig_til': DateTime.DateTimeFromTicks(row['dato_studierett_gyldig_til']),
                         'privatist': row['status_privatist']})
 
         for row in fs.GetStudentEksamen(fodselsdato, pnum)[1]:
@@ -5329,8 +5330,6 @@ class BofhdExtension(object):
         # Date-type.
         if y > 2050:
             raise CerebrumError, "Too far into the future: %s" % date
-        if y < 1800:
-            raise CerebrumError, "Too long ago: %s" % date
         try:
             return self.db.Date(y, m, d)
         except:
