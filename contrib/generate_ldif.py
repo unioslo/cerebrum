@@ -85,9 +85,9 @@ def make_address(sep, p_o_box, address_text, postal_number, city, country):
 
 def init_ldap_dump(ou_org,filename=None):
     if filename:
-	f = file(filename,'w')
+	f = file(filename, 'w')
     else:
-	f = file(string.join((cereconf.LDAP_DUMP_DIR,cereconf.LDAP_ORG_FILE),'/'), 'w')
+	f = file(cereconf.LDAP_DUMP_DIR + "/" + cereconf.LDAP_ORG_FILE, 'w')
     print "Generate organization"
     init_str = "dn: %s\n" % (cereconf.LDAP_BASE)    
     init_str += "objectClass: top\n"
@@ -154,37 +154,34 @@ def init_ldap_dump(ou_org,filename=None):
         pass
     f.write(init_str)
     f.write("\n")
-    try:
-    	ou_struct[int(ou.ou_id)] = (cereconf.LDAP_BASE,
-                                    post_string, street_string,
-                                    ou_phones, ou_faxs)
-    except: pass
+    ou_struct[int(ou.ou_id)] = (cereconf.LDAP_BASE, post_string,
+                                street_string, ou_phones, ou_faxs)
     for org in cereconf.LDAP_ORG_GROUPS:
-	org = string.upper(org)
-	org_name = str(getattr(cereconf,(string.join((string.join(('LDAP',org),'_'),'DN'),'_'))))
+	org = org.upper()
+	org_name = str(getattr(cereconf, 'LDAP_' + org + '_DN'))
 	init_str = "dn: %s=%s,%s\n" % (cereconf.LDAP_ORG_ATTR,org_name,cereconf.LDAP_BASE)
 	init_str += "objectClass: top\n"
 	for obj in cereconf.LDAP_ORG_OBJECTCLASS:
 	    init_str += "objectClass: %s\n" % obj
-	for ous in getattr(cereconf,(string.join((string.join(('LDAP',org),'_'),'ALTERNATIVE_NAME'),'_'))):
+	for ous in getattr(cereconf, 'LDAP_' + org + '_ALTERNATIVE_NAME'):
 	    init_str += "%s: %s\n" % (cereconf.LDAP_ORG_ATTR,ous)
-	init_str += "description: %s\n" % some2utf(getattr(cereconf,(string.join((string.join(('LDAP',org),'_'),'DESCRIPTION'),'_')))) 
-	try:
-	    for attrs in getattr(cereconf,(string.join((string.join(('LDAP',org),'_'),'ADD_ATTR'),'_'))):
-		init_str += attrs + '\n'
-	except: pass
+	init_str += "description: %s\n" % \
+                    some2utf(getattr(cereconf, 'LDAP_' + org + '_DESCRIPTION'))
+        for attrs in cereconf.get('LDAP_' + org + '_ADD_ATTR'):
+            init_str += attrs + '\n'
 	init_str += '\n'
 	f.write(init_str)
     if cereconf.LDAP_MAN_LDIF_ADD_FILE:
         try:
-	    lfile = file((string.join((cereconf.LDAP_DUMP_DIR,cereconf.LDAP_MAN_LDIF_ADD_FILE)),'/'), 'r')
+	    lfile = file(cereconf.LDAP_DUMP_DIR + '/' +
+                         cereconf.LDAP_MAN_LDIF_ADD_FILE, 'r')
         except:
             pass
         else:
 	    f.write(lfile.read().strip()) 
 	    f.write('\n')
 	    lfile.close()
-    f.close()	
+    f.close()
 
 def root_OU():
     ou = Factory.get('OU')(Cerebrum)
@@ -240,7 +237,7 @@ def print_OU(id, par_ou, stedkodestr,par, filename=None):
     if filename:
 	f = file(filename, 'a')
     else:
-	f = file(string.join((cereconf.LDAP_DUMP_DIR,cereconf.LDAP_ORG_FILE),'/'), 'a')
+	f = file(cereconf.LDAP_DUMP_DIR + '/' + cereconf.LDAP_ORG_FILE, 'a')
     if ou.acronym:
 	ou_dn = make_ou_for_rdn(some2utf(ou.acronym))
     else:
@@ -377,7 +374,8 @@ def generate_person(filename=None):
     if filename:
 	f = file(filename, 'a')
     else:
-	f = SimilarSizeWriter(string.join((cereconf.LDAP_DUMP_DIR,cereconf.LDAP_PERSON_FILE),'/'), 'w')	
+	f = SimilarSizeWriter(cereconf.LDAP_DUMP_DIR + '/' +
+                              cereconf.LDAP_PERSON_FILE, 'w')	
 	f.set_size_change_limit(10)
     f.write("\n")
     objclass_string = "objectClass: top\n"
@@ -473,8 +471,10 @@ def generate_person(filename=None):
 		    prim_org = (ou_struct[par][0])
 	    except:
 		prim_org = "%s=%s,%s" % (cereconf.LDAP_ORG_ATTR,cereconf.LDAP_DUMMY_DN,cereconf.LDAP_BASE)
-	    if (string.find(prim_org,cereconf.LDAP_ORG_DN) == -1):
-		prim_org = "%s=%s,%s" % (cereconf.LDAP_ORG_ATTR,cereconf.LDAP_DUMMY_DN,cereconf.LDAP_BASE)
+	    if (prim_org.find(cereconf.LDAP_ORG_DN) == -1):
+		prim_org = "%s=%s,%s" % (cereconf.LDAP_ORG_ATTR,
+                                         cereconf.LDAP_DUMMY_DN,
+                                         cereconf.LDAP_BASE)
 	    pers_string += "eduPersonPrimaryOrgUnitDN: %s\n" % prim_org
 	    org_printed = []
 	    pers_string += "eduPersonOrgUnitDN: %s\n" % prim_org
@@ -537,19 +537,19 @@ def generate_person(filename=None):
 	    affili_str = str('')
 	    for affi in p_affiliations:
                 if (int(affi['affiliation']) == int(co.affiliation_ansatt)):
-                    if (string.find(affili_str,affili_em) == -1):
+                    if (affili_str.find(affili_em) == -1):
                         pers_string += "eduPersonAffiliation: %s\n" % affili_em
 			affili_str += affili_em
-		    if (affi['status'] == co.affiliation_status_ansatt_tekadm) and \
-					(string.find(affili_str,'staff') == -1):
+		    if (affi['status'] == co.affiliation_status_ansatt_tekadm
+                        and affili_str.find('staff') == -1):
 			pers_string += "eduPersonAffiliation: staff\n"
 			affili_str += 'staff' 
-		    if (affi['status'] == co.affiliation_status_ansatt_vit) and \
-					(string.find(affili_str,'faculty') == -1):
+		    if (affi['status'] == co.affiliation_status_ansatt_vit
+                        and affili_str.find('faculty') == -1):
 			pers_string += "eduPersonAffiliation: faculty\n"
 			affili_str += 'faculty'
                 if (int(affi['affiliation']) == int(co.affiliation_student)):
-                    if (string.find(affili_str,affili_stu) == -1):
+                    if (affili_str.find(affili_stu) == -1):
                         pers_string += "eduPersonAffiliation: %s\n" % affili_stu
                         affili_str += affili_stu
 	    pers_string += "uid: %s\n" % entity_name
@@ -582,7 +582,8 @@ def generate_alias(filename=None):
     if filename:
 	f = file(filename,'a')
     else:
-	f = SimilarSizeWriter(string.join((cereconf.LDAP_DUMP_DIR,cereconf.LDAP_ALIAS_FILE),'/'), 'w')
+	f = SimilarSizeWriter(cereconf.LDAP_DUMP_DIR + '/' +
+                              cereconf.LDAP_ALIAS_FILE, 'w')
 	f.set_size_change_limit(10)
     f.write("\n")
     obj_string = "\nobjectClass: top"
@@ -706,7 +707,8 @@ def generate_posixgroup(spread=None,u_spread=None,filename=None):
     if filename:
 	f = file(filename, 'w')
     else:
-	f = SimilarSizeWriter(string.join((cereconf.LDAP_DUMP_DIR,cereconf.LDAP_GROUP_FILE),'/'), 'w')
+	f = SimilarSizeWriter(cereconf.LDAP_DUMP_DIR + '/' +
+                              cereconf.LDAP_GROUP_FILE, 'w')
 	f.set_size_change_limit(10)
     groups = {}
     dn_str = "%s=%s,%s" % (cereconf.LDAP_ORG_ATTR,cereconf.LDAP_GROUP_DN,cereconf.LDAP_BASE)
@@ -745,76 +747,71 @@ def generate_posixgroup(spread=None,u_spread=None,filename=None):
     f.close()
 
 def generate_netgroup(spread=None,u_spread=None,filename=None):
-    global grp_memb
     pos_netgrp = Factory.get('Group')(Cerebrum)
     if filename:
         f = file(filename, 'w')
     else:
-        f = SimilarSizeWriter(string.join((cereconf.LDAP_DUMP_DIR,cereconf.LDAP_NETGROUP_FILE),'/'), 'w')
+        f = SimilarSizeWriter(cereconf.LDAP_DUMP_DIR + '/' +
+                              cereconf.LDAP_NETGROUP_FILE, 'w')
         f.set_size_change_limit(10)
     if spread: spreads = eval_spread_codes(spread)
     else: spreads = eval_spread_codes(cereconf.LDAP_NETGROUP_SPREAD)
     if u_spread: u_spreads = eval_spread_codes(u_spread)
     else: u_spreads = eval_spread_codes(cereconf.LDAP_USER_SPREAD)
     f.write("\n")
-    dn_str = "%s=%s,%s" % (cereconf.LDAP_ORG_ATTR,cereconf.LDAP_NETGROUP_DN,cereconf.LDAP_BASE)
+    dn_str = "%s=%s,%s" % (cereconf.LDAP_ORG_ATTR,
+                           cereconf.LDAP_NETGROUP_DN,
+                           cereconf.LDAP_BASE)
     obj_str = "objectClass: top\n"
     for obj in cereconf.LDAP_NETGROUP_OBJECTCLASS:
         obj_str += "objectClass: %s\n" % obj
     for row in pos_netgrp.list_all_test(spreads):
-	grp_memb = {}
         pos_netgrp.clear()
-        try:
-            pos_netgrp.find(row.group_id)
-            netgrp_name = pos_netgrp.group_name
-            netgrp_str = "dn: %s=%s,%s\n" % (cereconf.LDAP_NETGROUP_ATTR,netgrp_name,dn_str)
-            netgrp_str += "%s" % obj_str
-            netgrp_str += "cn: %s\n" % netgrp_name
-            if not entity2uname.has_key(int(row.group_id)):
-                entity2uname[int(row.group_id)] = netgrp_name
-            if pos_netgrp.description:
-                 netgrp_str+= "description: %s\n" % latin1_to_iso646_60(pos_netgrp.description)
-            f.write(netgrp_str)
-            get_netgrp(row.group_id,spreads,u_spreads,f)
-            f.write("\n")
-        except:
-            pass
+        pos_netgrp.find(row.group_id)
+        netgrp_name = pos_netgrp.group_name
+        netgrp_str = "dn: %s=%s,%s\n" % (cereconf.LDAP_NETGROUP_ATTR,
+                                         netgrp_name, dn_str)
+        netgrp_str += "%s" % obj_str
+        netgrp_str += "cn: %s\n" % netgrp_name
+        if not entity2uname.has_key(int(row.group_id)):
+            entity2uname[int(row.group_id)] = netgrp_name
+        if pos_netgrp.description:
+            netgrp_str += "description: %s\n" % \
+                          latin1_to_iso646_60(pos_netgrp.description)
+        f.write(netgrp_str)
+        get_netgrp(row.group_id, spreads, u_spreads, f)
+        f.write("\n")
     f.close()
 
-def get_netgrp(netgrp_id,spreads,u_spreads,f):
+def get_netgrp(netgrp_id, spreads, u_spreads, f, grp_memb = {}):
     pos_netgrp = Factory.get('Group')(Cerebrum)
     pos_user = PosixUser.PosixUser(Cerebrum)
     pos_netgrp.clear()
     pos_netgrp.find(int(netgrp_id))
-    try:
-        for id in pos_netgrp.list_members(u_spreads[0],int(co.entity_account))[0]:
-            uname_id = int(id[1])
-	    try:
-            	if entity2uname.has_key(uname_id):
-                    uname = entity2uname[uname_id]
-		else:
-		    pos_user.clear()
-		    pos_user.find(uname_id)
-		    uname = pos_user.account_name
-            # The LDAP schema for NIS netgroups doesn't allow
-            # usernames with '_' in.
-		if ('_' not in uname) and not grp_memb.has_key(uname_id):
-		    f.write("nisNetgroupTriple: (,%s,)\n" % uname)
-		    grp_memb[uname_id] = True
-	    except: print "LDAP:netgroup: User not valid (%d)" % uname_id
-        for group in pos_netgrp.list_members(None,int(co.entity_group))[0]:
-            valid_spread = False
-            pos_netgrp.clear()
-            group_id = int(group[1])
-            pos_netgrp.find(group_id)
-            for spread_search in spreads:
-                if pos_netgrp.has_spread(spread_search):
-                    valid_spread = True
-            if valid_spread:
-                f.write("memberNisNetgroup: %s\n" % pos_netgrp.group_name)
-            else:
-                get_netgrp(group_id,spreads,u_spreads,f)
-    except: print "Fault with group: %s" % netgrp_id
+    for id in pos_netgrp.list_members(u_spreads[0], int(co.entity_account))[0]:
+        uname_id = int(id[1])
+        if uname_id not in entity2uname:
+            pos_user.clear()
+            pos_user.find(uname_id)
+            entity2uname[uname_id] = pos_user.account_name
+        uname = entity2uname[uname_id]
+        # The LDAP schema for NIS netgroups doesn't allow
+        # usernames with '_' in.
+        if ('_' not in uname) and not grp_memb.has_key(uname_id):
+            f.write("nisNetgroupTriple: (,%s,)\n" % uname)
+            grp_memb[uname_id] = True
+    for group in pos_netgrp.list_members(None, int(co.entity_group))[0]:
+        valid_spread = False
+        pos_netgrp.clear()
+        group_id = int(group[1])
+        pos_netgrp.find(group_id)
+        for spread_search in spreads:
+            if pos_netgrp.has_spread(spread_search):
+                valid_spread = True
+        if valid_spread:
+            f.write("memberNisNetgroup: %s\n" % pos_netgrp.group_name)
+        else:
+            get_netgrp(group_id, spreads, u_spreads, f, grp_memb)
 
 
 def eval_spread_codes(spread):
@@ -940,30 +937,30 @@ def make_attr(name, strings, normalize = None, verify = None, raw = False):
 
     # Make each attribute name and value - but only one of
     # each value, compared by attribute syntax ('normalize')
-    for str in strings:
+    for s in strings:
         if not raw:
             # Clean up the string: remove surrounding and multiple whitespace
-            str = multi_space_re.sub(' ', str.strip())
+            s = multi_space_re.sub(' ', s.strip())
 
         # Skip the value if it is not valid according to its LDAP syntax
-        if str == '' or (verify and not verify(str)):
+        if s == '' or (verify and not verify(s)):
             continue
 
         # Check if value has already been made (or equivalent by normalize)
         if normalize:
-            norm = normalize(str)
+            norm = normalize(s)
         else:
-            norm = str
+            norm = s
         if done.has_key(norm):
             continue
         done[norm] = True
 
         # Encode as base64 if necessary, otherwise as plain text
-        if need_base64_re.search(str):
-            ret.append("%s:: %s\n" % (name, (base64.encodestring(str)
+        if need_base64_re.search(s):
+            ret.append("%s:: %s\n" % (name, (base64.encodestring(s)
                                              .replace("\n", ''))))
         else:
-            ret.append("%s: %s\n" % (name, str))
+            ret.append("%s: %s\n" % (name, s))
 
     return ''.join(ret)
 
