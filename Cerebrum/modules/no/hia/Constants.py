@@ -64,7 +64,17 @@ class Constants(Constants.Constants):
     affiliation_student = _PersonAffiliationCode(
         'STUDENT', 'Student ved HiA (i følge FS)')
     affiliation_status_student_manuell = _PersonAffStatusCode(
-	affiliation_student, 'student', 'Student, manuell import')
+	affiliation_student, 'manuell', 'Student, manuell import')
+    affiliation_status_student_evu = _PersonAffStatusCode(
+	affiliation_student, 'evu', 'Student, etter og videre utdanning')
+    affiliation_status_student_aktiv = _PersonAffStatusCode(
+	affiliation_student, 'aktiv', 'Student, aktiv')
+    affiliation_status_student_tilbud = _PersonAffStatusCode(
+	affiliation_student, 'tilbud', 'Student, tilbud')
+    affiliation_status_student_privatist = _PersonAffStatusCode(
+	affiliation_student, 'privatist', 'Student, privatist')
+    affiliation_status_student_opptak = _PersonAffStatusCode(
+	affiliation_student, 'opptak', 'Student, opptak')
 
     # We override the default settings for shells, thus this file
     # should be before PosixUser in cereconf.CLASS_CONSTANTS
