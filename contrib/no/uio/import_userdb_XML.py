@@ -184,7 +184,7 @@ def import_groups(groupfile, fill=0):
         groupObj = Group.Group(Cerebrum)
         pg = PosixGroup.PosixGroup(Cerebrum)
         if not fill:
-            groupObj.populate(account, co.group_visibility_all,
+            groupObj.populate(account.entity_id, co.group_visibility_all,
                               group['name'], group['comment'])
             groupObj.write_db()
             pg.populate(parent=groupObj, gid=group['gid'])
@@ -250,18 +250,17 @@ def import_person_users(personfile):
                 personObj.populate_external_id(co.system_ureg, co.externalid_fodselsnr, fnr)
             for c in person['contact']:
                 if c['type'] == 'workphone':
-                    personObj.populate_contact_info(co.contact_phone, c['val'],
+                    personObj.populate_contact_info(co.system_ureg, co.contact_phone, c['val'],
                                                     contact_pref=1)
                 elif c['type'] == 'privphone':
-                    personObj.populate_contact_info(co.contact_phone, c['val'],
+                    personObj.populate_contact_info(co.system_ureg, co.contact_phone, c['val'],
                                                     contact_pref=2)
                 elif c['type'] == 'workfax':
-                    personObj.populate_contact_info(co.contact_phone, c['val'])
+                    personObj.populate_contact_info(co.system_ureg, co.contact_phone, c['val'])
                 elif c['type'] == 'privaddress':
-                    personObj.affect_addresses(co.system_ureg, co.address_post)
                     a = c['val'].split('$', 2)
-                    personObj.populate_address(co.address_post,
-                                               addr="\n".join(a))
+                    personObj.populate_address(co.system_ureg, co.address_post,
+                                               address_text="\n".join(a))
             if person.has_key('uio'):
                 if person['uio'].has_key('psko'):
                     # Typer v/uio: A B M S X a b s
@@ -275,15 +274,13 @@ def import_person_users(personfile):
                         s = person['uio']['psko']
                         fak, inst, gruppe = s[0:2], s[2:4], s[4:6]
                         ou.find_stedkode(int(fak), int(inst), int(gruppe))
-                        personObj.affect_affiliations(co.system_ureg,
-                                                      aff)
-                        personObj.populate_affiliation(ou.ou_id, aff,
+                        personObj.populate_affiliation(co.system_ureg, ou.ou_id, aff,
                                                        affstat)
                     except:
                         print "Error setting stedkode: %s" % s
 
             personObj.write_db()
-            person_id = personObj.person_id
+            person_id = personObj.entity_id
 
         # Bygg brukeren
 
@@ -327,11 +324,11 @@ def import_person_users(personfile):
             posix_user.populate(u['uid'],
                                 group.entity_id,
                                 gecos,
-                                u['home'],
-                                shell,
+                                int(shell),
+                                home=u['home'], # TODO: disk_id
                                 parent=account)
 
-            posix_user.write_db(account)
+            posix_user.write_db()
     Cerebrum.commit()
 
 def usage():
