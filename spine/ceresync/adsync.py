@@ -11,6 +11,7 @@ print "Adding accounts from Spine"
 s = sync.Sync()
 for account in s.get_accounts():
     user = ou.create("user", "cn=%s" % account.name)
+    # NT4 compatible "short name"
     user.saMAccountName = account.name
     try:
         # Must save early to be able to set the rest of the attributes
@@ -36,6 +37,7 @@ for adgroup in group_ou:
 
 for group in s.get_groups():
     adgroup = group_ou.create("group", "cn=%s" % group.name)
+    # NT4 compatible "short name"
     adgroup.sAMAccountName = group.name
     # A security group is type 0x80000000, or -2147483646
     adgroup.groupType = -2147483646
