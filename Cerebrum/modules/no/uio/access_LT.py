@@ -36,10 +36,10 @@ SELECT
   fakultetnr, instituttnr, gruppenr,
   forkstednavn, NVL(stednavnfullt, stednavn) as stednavn, akronym,
   stedkortnavn_bokmal, stedkortnavn_nynorsk, stedkortnavn_engelsk,
-  stedlangnavn_bokmal, stedlangnavn_nynorsk, stedlangnavn_engelsk
+  stedlangnavn_bokmal, stedlangnavn_nynorsk, stedlangnavn_engelsk,
   fakultetnr_for_org_sted, instituttnr_for_org_sted, gruppenr_for_org_sted,
   opprettetmerke_for_oppf_i_kat,
-  telefonnr, innvalgnr, linjenr
+  telefonnr, innvalgnr, linjenr,
   stedpostboks,
   adrtypekode_besok_adr, adresselinje1_besok_adr, adresselinje2_besok_adr,
   poststednr_besok_adr, poststednavn_besok_adr, landnavn_besok_adr,
