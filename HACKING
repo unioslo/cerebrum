@@ -14,3 +14,29 @@ Developer hints
   Nice Debian packages to install while developing Cerebrum:
 
     ant jikes python2.2-elisp
+
+Some core concepts in Cerebrum
+------------------------------
+
+ * Entity -- the "superclass" of all kinds of things that can be
+   modeled in the Cerebrum core.
+
+ * OU -- useful for modeling organizational structure and info on the
+   various organizational units (OUs).
+
+ * Person -- models info on persons related to the organization.
+
+ * Account -- models info on "user accounts", e.g. account ownership
+   and authentication data.
+
+ * Group -- models group in a non-target-system-specific way, i.e. a
+   single Group in Cerebrum can end up being used as e.g. a NIS
+   filegroup, a Active Directory group and/or the set of members on a
+   mailing list.
+
+Implementation of a user administration system on top of Cerebrum is
+done by adding modules to the Cerebrum core.  Typically, a module will
+take care of importing and/or exporting data from/to other systems
+(e.g. import person data from a student system), or specialize the
+generic nature of the core to the needs of your organization
+(e.g. allow Accounts to be specialized as "POSIX users").
