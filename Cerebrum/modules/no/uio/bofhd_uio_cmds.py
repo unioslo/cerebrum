@@ -163,6 +163,7 @@ class BofhdExtension(object):
         et, acc = self.__get_email_target_and_account(uname)
         ttype = et.email_target_type
         if ttype not in (self.const.email_target_Mailman,
+                         self.const.email_target_forward,
                          self.const.email_target_multi,
                          self.const.email_target_pipe,
                          self.const.email_target_account):
@@ -1264,8 +1265,8 @@ class BofhdExtension(object):
             if addr <> self.__get_address(epat):
                 raise CerebrumError, ("%s is not the primary address of "+
                                       "the target") % addr
+            epat.delete()
         # All OK, let's nuke it all.
-        epat.delete()
         result = []
         ea = Email.EmailAddress(self.db)
         for r in et.get_addresses():
@@ -3909,6 +3910,9 @@ class BofhdExtension(object):
         if account.owner_type == self.const.entity_person:
             for row in account.get_account_types():
                 account.del_account_type(row['ou_id'], row['affiliation'])
+        if new_owner.entity_type == self.const.entity_person:
+            for row in new_owner.get_affiliations():
+                account.set_account_type(row['ou_id'], row['affiliation'])
         account.owner_type=new_owner.entity_type
         account.owner_id=new_owner.entity_id
         account.write_db()
