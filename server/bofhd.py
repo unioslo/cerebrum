@@ -370,6 +370,16 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
             return ''
         return suggestion
 
+    def bofhd_get_motd(self, client_id=None, client_version=None):
+        ret = ""
+        if cereconf.BOFHD_MOTD_FILE is not None:
+            f = file(cereconf.BOFHD_MOTD_FILE)
+            for line in f.readlines():
+                ret += line
+        if (client_id is not None and
+            cereconf.BOFHD_CLIENTS.get(client_id, '') != client_version):
+            ret += "You do not seem to run the latest version of the client\n"
+        return ret[:-1]
 ##     def validate(self, argtype, arg):
 ##         """Check if arg is a legal value for the given argtype"""
 ##         pass

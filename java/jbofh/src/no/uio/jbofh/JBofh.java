@@ -260,7 +260,7 @@ public class JBofh {
         catch (UnsatisfiedLinkError ignore_me) {
             showMessage("couldn't load readline lib. Using simple stdin.", true);
         }
-
+        
         cLine = new CommandLine(logger, this);
 	String uname, password;
 	try {
@@ -286,6 +286,9 @@ public class JBofh {
 	} catch (IOException io) {
 	    System.exit(0);
 	}
+        String msg = bc.getMotd(version);
+        if(msg.length() > 0)
+            showMessage(msg, true);
 
         bc.updateCommands();
         bcompleter = new BofhdCompleter(this, logger);

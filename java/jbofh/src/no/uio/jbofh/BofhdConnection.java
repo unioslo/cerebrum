@@ -159,6 +159,14 @@ public class BofhdConnection {
         this.sessid = sessid;
         return sessid;
     }
+
+    String getMotd(String version) throws BofhdException {
+        Vector args = new Vector();
+        args.add("jbofh");
+        args.add(version);
+        String msg = (String) sendRawCommand("get_motd", args);
+        return msg;
+    }
     
     String logout() throws BofhdException {
         Vector args = new Vector();
