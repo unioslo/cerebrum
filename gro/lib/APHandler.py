@@ -24,17 +24,25 @@ from Transaction import Transaction
 from classes.Builder import CorbaBuilder, Method, Attribute
 from classes.Account import Account # FIXME: midlertidig. bruker denne til å lage søkeklasse. GroRegistry noen?
 
-def create_ap_method(method_name, data_type, method_arguments=[]):
+def create_ap_method(method_name, data_type, write, method_arguments):
     args_table = dict(method_arguments)
     def method(self, *corba_args, **corba_vargs):
         if len(corba_args) + len(corba_vargs) > len(method_arguments):
             raise TypeError('too many arguments')
 
-        # TODO: hooks til transaksjon/låsing/auth må fikses her
+        # TODO: hooks til auth må komme her
+        # TODO: fungerer ikke uten at man har startet en transaksjon
+
+        if write:
+            self.gro_object.lock_for_writing(self.ap_handler)
+        else:
+            self.gro_object.lock_for_reading(self.ap_handler)
+
+        self.ap_handler.add_ref(self.gro_object)
 
         args = []
         for value, arg in zip(corba_args, method_arguments):
-            args.append(APHandler.convert_from_corba(value, arg[1])) # FIXME: er arg[1] riktig?
+            args.append(APHandler.convert_from_corba(value, arg[1]))
 
         vargs = {}
         for name, value in corba_vargs.items():
@@ -69,18 +77,18 @@ class APClass:
 
         for attribute in gro_class.slots:
             get_name = 'get_' + attribute.name
-            get = create_ap_method(get_name, attribute.data_type)
+            get = create_ap_method(get_name, attribute.data_type, False, [])
             setattr(ap_class, get_name, get)
 
-            if attribute.writable:
+            if attribute.write:
                 set_name = 'set_' + attribute.name
-                set = create_ap_method(set_name, 'void', [(attribute.name, attribute.data_type)])
+                set = create_ap_method(set_name, 'void', True, [(attribute.name, attribute.data_type)])
                 setattr(ap_class, set_name, set)
 
         # TODO: legge til support for gro_class.method_slots
 
         for method in gro_class.method_slots:
-            ap_method = create_ap_method(method.name, method.data_type, method.args)
+            ap_method = create_ap_method(method.name, method.data_type, method.write, method.args)
             setattr(ap_class, method.name, ap_method)
 
         ap_class.gro_class = gro_class
@@ -142,9 +150,10 @@ class APHandler(CorbaBuilder, Transaction):
     convert_from_corba = classmethod(convert_from_corba)
 
     def __init__(self, com, username, password):
-        self.client = self.login(username, password)
+        client = self.login(username, password)
         self.username = username
         self.com = com
+        Transaction.__init__(self, client)
 
     def login(self, username, password):
         """Login the user with the username and password.

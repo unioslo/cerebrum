@@ -2,10 +2,22 @@ from classes import Database
 from Cerebrum_core import Errors
 
 class Transaction:
-    def begin(self):
-        self._refs = []
+    def __init__(self, client):
+        self.client = client
+        self._refs = None
+        self._db = None
 
-    def addref(self, obj):
+    def transaction_started(self):
+        return self._refs is None and False or True
+
+    def begin(self):
+        if self._refs is None:
+            self._refs = []
+            self._db = Database.GroDatabase(self.client.get_entity_id())
+        else:
+            Errors.TransactionError('Transaction has already begun')
+
+    def add_ref(self, obj):
         """ Add a new object to this transaction.
         Changes made by this client will be written to the database
         if the transaction is commited and rolled back if the transaction
@@ -22,9 +34,6 @@ class Transaction:
 
         This transaction object cannot be used again."""
 
-        db = Database.get_database()
-        db.lock(self.entity.get_entity_id())
-        
         try:
             for item in self._refs:
                 if item.updated and item.is_writelocked_by_me(self):
@@ -35,7 +44,7 @@ class Transaction:
             db.release()
             raise Errors.TransactionError('Failed to commit: %s' % e)
 
-        db.release()
+        self._db.commit()
         self._refs = None
         
 
@@ -49,4 +58,12 @@ class Transaction:
                 item.reload()
             item.unlock(self)
 
+        self._db.rollback()
+        self._db = None
         self._refs = None
+
+    def get_database(self):
+        if self._db is None:
+            raise Errors.TransactionError('No transaction started')
+        else:
+            return self._db
