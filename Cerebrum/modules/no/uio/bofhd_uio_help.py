@@ -90,7 +90,7 @@ command_help = {
     'user_gecos': 'Sette gecos på en bruker',
     'user_history': 'Vis historikk for en bruker',
     'user_info': 'vis info om en bruker',
-    'user_list_passwords': 'oversikt over byggede brukere',
+    'user_list_passwords': 'Viser informasjon om alle brukere bygget i løpet av nåværende bofh-sesjon',
     'user_move': 'Flytter en bruker',
     'user_password': 'Setter passord for en bruker',
     'user_posix_create': 'Gjøre en bruker om til en PosixUser',
@@ -108,10 +108,16 @@ arg_help = {
                          'You should enter the name of the source account for this operation'],
     'account_password': ['password', 'Enter password'],
     'affiliation': ['affiliation', 'Enter affiliaton',
-                    "'misc affiliations' lists all possible affiliations"],
+                    """A persons affiliation defines the current rolle  
+                       of that person within a defined organizational unit. 
+                       'misc affiliations' lists all possible affiliations"""],
     'affiliation_status': ['aff_status', 'Enter affiliation status',
-                           "'misc aff_status_codes' lists affiliation status codes"],
-    'date': ['date', 'Enter date'],
+                           """Affiliation status describes a persons current 
+			      status within a defined organizational unit 
+ 			      (e.a. whether the person is an active student or 
+                               an employee on leave).  
+			      'misc aff_status_codes' lists affiliation status codes"""],
+    'date': ['date', 'Enter date of birth(YYYY-MM-DD)'],
     'disk': ['disk', 'Enter disk',
              'Enter the path to the disc without trailing slash or username.\n'+
              'Example: /usit/sauron/u1\n',
@@ -134,12 +140,16 @@ arg_help = {
  - request
  - confirm
  - cancel"""],
-    'ou': ['ou', 'Enter OU', 'The OU is identified by its 6-digits stedcode'],
+    'ou': ['ou', 'Enter OU', 'Enter the 6-digit code of the organizational unit the person is affiliated to'],
     'person_id': ['person_id', 'Enter person id',
     """Enter person id as idtype:id.
 If idtype=fnr, the idtype does not have to be specified.
 The currently defined id-types are:
   - fnr : norwegian fødselsnummer."""],
+    'person_id_other':['person_id','Enter person id',
+    """Enter person id as idtype:id.
+If idtype=fnr, the idtype does not have to be specified.
+You may also use entity_id:id."""]
     'person_id:current': ['[id_type:]current_id', 'Enter current person id'],
     'person_id:new': ['[id_type:]new_id', 'Enter newperson id'],
     'person_name': ['name', 'Enter person name'],
