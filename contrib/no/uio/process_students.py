@@ -497,6 +497,9 @@ def recalc_quota_callback(person_info):
         pq.write_db()
         has_quota[int(account_id)] = True
     logger.set_indent(0)
+    # We commit once for each person to avoid locking too many db-rows
+    if not dryrun:
+        db.commit()
 
 def process_students_callback(person_info):
     global max_errors
