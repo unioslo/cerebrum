@@ -119,6 +119,8 @@ class System(CallableAction):
         self.cmd = cmd
         self.params = list(params)
         self.stdout_ok = stdout_ok
+        self.run_dir = None
+        self.pid = None
 
     def setup(self):
         self.logger.debug("Setup: %s" % self.id)
