@@ -149,10 +149,18 @@ def read_country_file(fname, db):
                                                    cols.keys()])), cols)
     db.commit()
 
-def insert_code_values(Cerebrum):
-    const = Factory.get('Constants')(Cerebrum)
+def insert_code_values(db):
+    const = Factory.get('Constants')(db)
     print "Inserting code values."
-    new, total = const.initialize()
+    try:
+        new, total = const.initialize()
+    except db.DatabaseError:
+        traceback.print_exc(file=sys.stdout)
+
+        print "Error initializing constants, check that you include "+\
+              "the sql files referenced by CLASS_CONSTANTS"
+
+        sys.exit(1)
     print "  Inserted %d new codes (new total: %d)." % (new, total)
     Cerebrum.commit()
 
@@ -191,7 +199,10 @@ def get_filelist(Cerebrum, extra_files=[]):
     files = core_files[:]
     files.extend(extra_files)
     ret = []
-    ddl_dir = os.path.dirname(sys.argv[0])+"/"+cereconf.CEREBRUM_DDL_DIR
+    ddl_dir = os.path.dirname(sys.argv[0])
+    if ddl_dir == '':
+        ddl_dir = '.'
+    ddl_dir += "/"+cereconf.CEREBRUM_DDL_DIR
     for f in files:
         if '/' in f:
             ret.append(f)
