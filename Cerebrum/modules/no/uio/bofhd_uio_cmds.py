@@ -282,8 +282,11 @@ class BofhdExtension(object):
     # group list_all
     all_commands['group_list_all'] = Command(
         ("group", "list_all"), SimpleString(help_ref="string_group_filter", optional=True),
-        fs=FormatSuggestion("%8i %s", ("id", "name"), hdr="%8s %s" % ("Id", "Name")))
+        fs=FormatSuggestion("%8i %s", ("id", "name"), hdr="%8s %s" % ("Id", "Name")),
+        perm_filter='is_superuser')
     def group_list_all(self, operator, filter=None):
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            raise PermissionDenied("Currently limited to superusers (is is slooow)")
         group = Group.Group(self.db)
         ret = []
         for r in group.list_all():
