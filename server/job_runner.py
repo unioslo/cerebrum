@@ -47,7 +47,7 @@ def get_jobs():
                               max_freq=23*60*60),
         'daily': Action(pre=['import_lt', 'import_fs', 'process_students'],
                         call=None,
-                        when=When(time=[Time(min=10, hour=1)]),
+                        when=When(time=[Time(min=[10], hour=[1])]),
                         post=['backup', 'rotate_logs']),
         'generate_passwd': Action(call=System('contrib/generate_nismaps', []),
                                   max_freq=5*60),
@@ -80,24 +80,12 @@ class Action(object):
           If max_freq is None, the job will allways run.  If when is
           None, the job will only run if it is a prerequisite of
           another job."""
-        
+
         self.pre = pre
         self.call = call
         self.max_freq = max_freq
         self.when = when
         self.post = post
-
-    def setup(self):
-        if self.call is not None:
-            self.call.setup()
-
-    def execute(self):
-        if self.call is not None:
-            self.call.execute()
-            
-    def cleanup(self):
-        if self.call is not None:
-            self.call.cleanup()
 
 class When(object):
     def __init__(self, freq=None, time=None):
@@ -114,20 +102,69 @@ class When(object):
         if self.freq is not None:
             return last_time + self.freq - current_time
         else:
-            # TODO: Check jobs[k].when.time
-            if run_once:
-                return 0
-            else:
-                return 999999
+            times = []
+            for t in self.time:
+                d = t.next_time(last_time)
+                times.append(d + last_time - current_time)
+            return min(times)
 
 class Time(object):
-    def __init__(self, sek=0, min=None, hour=None, day=None, mon=None, weekday=None):
+    def __init__(self, min=None, hour=None, wday=None):
         """Emulate time part of crontab(5), None=*"""
         self.min = min
+        if min is not None:
+            self.min.sort()
         self.hour = hour
-        self.day = day
-        self.mon = mon
-        self.weekday = weekday
+        if hour is not None:
+            self.hour.sort()
+        self.wday = wday
+        if wday is not None:
+            self.wday.sort()
+
+    def _next_list_value(self, val, list, size):
+        for n in list:
+            if n > val:
+                return n, 0
+        return min(list), 1
+
+    def next_time(self, num):
+        """Return the number of seconds until next time after num"""
+        hour, min, sec, wday = (time.localtime(num))[3:7]
+
+        add_week = 0
+        for i in range(10):
+            if self.wday is not None and wday not in self.wday:
+                # finn midnatt neste ukedag
+                hour = 0
+                min = 0
+                t, wrap = self._next_list_value(wday, self.wday, 6)
+                wday = t
+                if wrap:
+                    add_week = 1
+
+            if self.hour is not None and hour not in self.hour:
+                # finn neste time, evt neste ukedag
+                min = 0
+                t, wrap = self._next_list_value(hour, self.hour, 23)
+                hour = t
+                if wrap:
+                    wday += 1
+                    continue
+
+            if self.min is not None and min not in self.min:
+                # finn neste minutt, evt neste ukedag
+                t, wrap = self._next_list_value(min, self.min, 59)
+                min = t
+                if wrap:
+                    hour += 1
+                    continue
+
+            # Now calculate the diff
+            old_hour, old_min, old_sec, old_wday = (time.localtime(num))[3:7]
+            week_start_delta = (old_wday*24*3600 + old_hour*3600 + old_min*60 + old_sec)
+
+            return add_week*7*24*3600 + wday*24*3600 + hour*3600 + min*60 - week_start_delta
+        raise ValueError, "Programming error for %i" % num
 
 def makeNonBlocking(fd):
     fl = fcntl.fcntl(fd, fcntl.F_GETFL)
@@ -135,12 +172,12 @@ def makeNonBlocking(fd):
 	fcntl.fcntl(fd, fcntl.F_SETFL, fl | os.O_NDELAY)
     except AttributeError:
 	fcntl.fcntl(fd, fcntl.F_SETFL, fl | os.FNDELAY)
-    
+
 class System(object):
     n = 1
-    def __init__(self, cmd, params=None):
+    def __init__(self, cmd, *params):
         self.cmd = cmd
-        self.params = params
+        self.params = list(*params)
 
     # TODO: simple versions of these methods should be in a superclass
     def setup(self):
@@ -162,7 +199,7 @@ class System(object):
         # From http://aspn.activestate.com/ASPN/Cookbook/Python/Recipe/52296
         child = popen2.Popen3(p, 1)
         child.tochild.close()
-        outfile = child.fromchild 
+        outfile = child.fromchild
         outfd = outfile.fileno()
         errfile = child.childerr
         errfd = errfile.fileno()
@@ -185,9 +222,9 @@ class System(object):
         err = child.wait()
         if err != 0 or len(outdata) != 0 or len(errdata) != 0:
             # TODO: What shall we do here?
-            logger.error("Error running command, ret=%d, stdout=%s, stderr=%s" % 
+            logger.error("Error running command, ret=%d, stdout=%s, stderr=%s" %
                          (err, outdata, errdata))
-    
+
     def cleanup(self):
         pass
 
@@ -205,7 +242,7 @@ def insert_job(job):
 
     We allways process all parents jobs, but they are only added to
     the ready_to_run queue if it won't violate max_freq."""
-    
+
     if all_jobs[job].pre is not None:
         for j in all_jobs[job].pre:
             insert_job(j)
@@ -247,9 +284,10 @@ def runner():
     last_run = get_last_run()
     while 1:
         for job in ready_to_run:
-            all_jobs[job].setup()
-            all_jobs[job].execute()
-            all_jobs[job].cleanup()
+            if all_jobs[job].call is not None:
+                all_jobs[job].call.setup()
+                all_jobs[job].call.execute()
+                all_jobs[job].call.cleanup()
             if debug_time:
                 last_run[job] = current_time
             else:
