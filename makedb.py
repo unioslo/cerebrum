@@ -95,8 +95,8 @@ def makeInitialUsers(Cerebrum):
     a.write_db()
 
     g = Group.Group(Cerebrum)
-    g.populate(a, co.group_visibility_all, cereconf.INITIAL_GROUPNAME,
-               parent=eg)
+    g.populate(a.entity_id, co.group_visibility_all,
+               cereconf.INITIAL_GROUPNAME, parent=eg)
     g.write_db()
 
     Cerebrum.commit()
