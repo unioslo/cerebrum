@@ -8,6 +8,7 @@ import cereconf
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum import Constants
 from Cerebrum import Group
+from Cerebrum import Account
 from Cerebrum.Utils import Factory
 from Cerebrum import Utils
 from Cerebrum import Disk
@@ -327,33 +328,41 @@ class BofhdAuth(DatabaseAccessor):
         if self.is_superuser(operator):
             return True
         # TODO 2003-07-04: Bård is going to comment this
+        if not(isinstance(entity, Account.Account)):
+            raise PermissionDenied("No access")
         return self._query_disk_permissions(operator,
                                             self.const.auth_set_password,
-                                            self._get_disk(account.disk_id))
+                                            self._get_disk(entity.disk_id))
     
     def can_remove_quarantine(self, operator, entity, qtype):
         if self.is_superuser(operator):
             return True
         # TODO 2003-07-04: Bård is going to comment this
+        if not(isinstance(entity, Account.Account)):
+            raise PermissionDenied("No access")
         return self._query_disk_permissions(operator,
                                             self.const.auth_set_password,
-                                            self._get_disk(account.disk_id))
+                                            self._get_disk(entity.disk_id))
 
     def can_set_quarantine(self, operator, entity, qtype):
         if self.is_superuser(operator):
             return True
         # TODO 2003-07-04: Bård is going to comment this
+        if not(isinstance(entity, Account.Account)):
+            raise PermissionDenied("No access")
         return self._query_disk_permissions(operator,
                                             self.const.auth_set_password,
-                                            self._get_disk(account.disk_id))
+                                            self._get_disk(entity.disk_id))
 
     def can_show_quarantines(self, operator, entity):
         if self.is_superuser(operator):
             return True
         # TODO 2003-07-04: Bård is going to comment this
+        if not(isinstance(entity, Account.Account)):
+            raise PermissionDenied("No access")
         return self._query_disk_permissions(operator,
                                             self.const.auth_set_password,
-                                            self._get_disk(account.disk_id))
+                                            self._get_disk(entity.disk_id))
 
     def can_alter_group(self, operator, group):
         if self.is_superuser(operator):
@@ -471,7 +480,7 @@ class BofhdAuth(DatabaseAccessor):
     def can_show_history(self, operator, entity):
         if self.is_superuser(operator):
             return True
-        if entity.entity_type == co.entity_account:
+        if entity.entity_type == self.const.entity_account:
             return self._query_disk_permissions(operator,
                                                 self.const.auth_create_user,
                                                 self._get_disk(entity.disk))
