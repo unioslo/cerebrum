@@ -123,7 +123,7 @@ description: Maskiner og domener ved UiO, brukes til mail
     domains = email_domain.values()
     domains.sort()
     for domain in domains:
-        f.write("""dn: cn=%s,%s 
+        f.write("""dn: cn=%s,%s
 objectClass: uioHost
 cn: %s
 """ % (domain, dn_suffix, domain))
