@@ -294,11 +294,11 @@ def load_all_affi_entry():
 def clean_affi_s_list():
     for k,v in cere_list.items():
 	if v:
-	    ent_id,ou,affi = re.split(':',k)
+	    ent_id,ou,affi = k.split(':')
 	    new_person.clear()
 	    #new_person.find(int(ent_id))
 	    new_person.entity_id = int(ent_id)
-	    new_person.delete_affiliation(int(ou),int(affi),const.system_lt,1)
+	    new_person.delete_affiliation(ou, affi, const.system_lt)
 
 def main():
     global db, new_person, const, ou, logger, gen_groups, group, cere_list,\
