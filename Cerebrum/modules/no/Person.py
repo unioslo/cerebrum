@@ -26,7 +26,7 @@ class PersonFnrMixin(Person.Person):
 
     def __init__(self, db):
         self.__super.__init__(db)
-        self.fnr_sources = dict(zip(
+        self._fnr_sources = dict(zip(
             [int(getattr(self.const,s)) for s in cereconf.SYSTEM_LOOKUP_ORDER],
             range(-len(cereconf.SYSTEM_LOOKUP_ORDER), 0)))
 
@@ -40,7 +40,7 @@ class PersonFnrMixin(Person.Person):
         Prefer permanent nums over B-nums over fake nums.
         Reject severely malformed nums.
         With several equally good nums, choose by cereconf.SYSTEM_LOOKUP_ORDER
-        (unless self.fnr_sources is overridden)."""
+        (unless self._fnr_sources is overridden)."""
         selected = None
         select = "SELECT external_id, source_system" \
                  " FROM [:table schema=cerebrum name=person_external_id]" \
@@ -73,7 +73,7 @@ class PersonFnrMixin(Person.Person):
                                   (person_id, self.const.externalid_fodselsnr))
         for fnr, source in selected:
             if fnr in best_nums:
-                nums.append((self.fnr_sources.get(int(source), 1), fnr))
+                nums.append((self._fnr_sources.get(int(source), 1), fnr))
         if nums:
             nums.sort()
             return nums[0][1]
