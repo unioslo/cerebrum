@@ -314,10 +314,13 @@ def process_students_callback(person_info):
         logger.set_indent(0)
         return
     try:
-        logger.debug(" disk=%s, dfg=%s, fg=%s sko=%s" % \
-                     (profile.get_disk(), profile.get_dfg(),
-                      profile.get_grupper(),
-                      profile.get_stedkoder()))
+        try:
+            logger.debug(" disk=%s, dfg=%s, fg=%s sko=%s" % \
+                         (profile.get_disk(), profile.get_dfg(),
+                          profile.get_grupper(),
+                          profile.get_stedkoder()))
+        except ValueError:
+            pass
         if create_users and not students.has_key(fnr):
             account_id = create_user(fnr, profile)
             if account_id is None:
