@@ -198,7 +198,11 @@ class EmailLDAP(DatabaseAccessor):
 
     def read_accounts(self, spread):
         acc = Factory.get('Account')(self._db)
-        for row in acc.list_account_name_home(spread, filter_home=True):
+        # Since get_target() can be called for target type "deleted",
+        # we need to include expired accounts.
+        for row in acc.list_account_home(home_spread=spread,
+                                         include_nohome=True,
+                                         filter_expired=False):
             self.acc2name[int(row['account_id'])] = [row['entity_name'],
                                                      row['home'],
                                                      row['path']]

@@ -129,7 +129,8 @@ def prefetch_affiliations():
         (co.affiliation_manuell, co.affiliation_manuell_inaktiv_student),
         (co.affiliation_manuell, co.affiliation_manuell_inaktiv_ansatt)):
         for row in ac.list_accounts_by_type(affiliation=aff,
-                                            status=int(aff_status)):
+                                            status=int(aff_status),
+                                            filter_expired=False):
             manuell_account_affs.setdefault(
                 int(row['person_id']), {}).setdefault(
                 int(row['account_id']), []).append(

@@ -99,7 +99,7 @@ def main():
         id2acc[int(row['entity_id'])] = row['entity_name']
 
     person2URLs = {}            # {person_id: [desired URL, ...]}
-    for row in account.list_accounts_by_type(filter_expired=True):
+    for row in account.list_accounts_by_type():
         account_id = int(row['account_id'])
         user = id2acc.get(account_id)
         if user in home_page_users:

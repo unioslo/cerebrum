@@ -59,7 +59,8 @@ def calculate_account_type_priority(account, ou_id, affiliation,
         return current_pri, pri_min, pri_max
     # Find taken values in this range and sort them
     taken = []
-    for row in account.get_account_types(all_persons_types=True):
+    for row in account.get_account_types(all_persons_types=True,
+                                         filter_expired=False):
         taken.append(int(row['priority']))
     taken = [x for x in taken if x >= pri_min and x < pri_max]
     taken.sort()

@@ -102,12 +102,10 @@ from Cerebrum.modules.no.uio.fronter_lib import FronterUtils
 def ordered_uniq(input):
     """Take a list as input and remove (later) duplicates without
     changing the ordering of the elements."""
-    seen = {}
     output = []
     for el in input:
-        if el not in seen:
+        if el not in output:
             output.append(el)
-            seen[el] = True
     return output
 
 def prefetch_primaryusers():
@@ -116,7 +114,7 @@ def prefetch_primaryusers():
     account = Factory.get('Account')(db)
     personid2accountid = {}
     personid2student = {}
-    for a in account.list_accounts_by_type(filter_expired=True):
+    for a in account.list_accounts_by_type():
         p_id = int(a['person_id'])
         a_id = int(a['account_id'])
         if a['affiliation'] == co.affiliation_student:
@@ -158,6 +156,8 @@ def prefetch_primaryusers():
             else:
                 fnr2stud_account_id[fnr] = account_ids
             fnr2account_id[fnr] = account_ids
+    # TODO: We can not make this change in the middle of a term
+    fnr2stud_account_id = fnr2account_id
     del fnr_source
 
 def fnrs2account_ids(rows, primary_only=True, prefer_student=False):

@@ -189,7 +189,8 @@ class PosixUser(Account_class):
 
     def list_extended_posix_users(self, 
 				  auth_method=Constants.auth_type_crypt3_des, 
-				  spread=None, include_quarantines=0):
+				  spread=None, include_quarantines=0,
+                                  filter_expired=True):
         """Returns data required for building a password map.  It is
         not recommended to use this method.  If you do, be prepared to
         update your code when the API changes"""
@@ -218,6 +219,8 @@ class PosixUser(Account_class):
               ON es.entity_id=ah.account_id %s
             LEFT JOIN [:table schema=cerebrum name=homedir] hd
               ON ah.homedir_id=hd.homedir_id""" % (esprd, asprd)
+        if filter_expired:
+            ewhere = "WHERE ai.expire_date IS NULL OR ai.expire_date > [:now]"
         return self.query("""
         SELECT ai.account_id, posix_uid, shell, gecos, entity_name, 
           aa.auth_data, pg.posix_gid, pn.name %s
@@ -235,7 +238,8 @@ class PosixUser(Account_class):
             ON aa.account_id=pu.account_id AND aa.method=:auth_method
           JOIN [:table schema=cerebrum name=entity_name] en
             ON en.entity_id=pu.account_id AND en.value_domain=:vd
-          ORDER BY ai.account_id""" % (ecols, efrom),
+          %s
+          ORDER BY ai.account_id""" % (ecols, efrom, ewhere),
                           {'vd': int(self.const.account_namespace),
                            'auth_method': int(auth_method),
                            'spread': spread,

@@ -3139,7 +3139,8 @@ class BofhdExtension(object):
         person = self._get_person(*self._map_person_id(id))
         account = self.Account_class(self.db)
         ret = []
-        for r in account.list_accounts_by_owner_id(person.entity_id):
+        for r in account.list_accounts_by_owner_id(person.entity_id,
+                                                   filter_expired=False):
             account = self._get_account(r['account_id'], idtype='id')
 
             ret.append({'account_id': r['account_id'],
@@ -3833,7 +3834,8 @@ class BofhdExtension(object):
 	    person = self._get_person("entity_id", owner_id)
             existing_accounts = []
             account = self.Account_class(self.db)
-            for r in account.list_accounts_by_owner_id(person.entity_id):
+            for r in account.list_accounts_by_owner_id(person.entity_id,
+                                                       filter_expired=False):
                 account = self._get_account(r['account_id'], idtype='id')
                 if account.expire_date:
                     exp = account.expire_date.strftime('%Y-%m-%d')
@@ -4097,7 +4099,7 @@ class BofhdExtension(object):
         if account.is_deleted() and not self.ba.is_superuser(operator.get_entity_id()):
             raise CerebrumError("User is deleted")
         affiliations = []
-        for row in account.get_account_types():
+        for row in account.get_account_types(filter_expired=False):
             ou = self._get_ou(ou_id=row['ou_id'])
             affiliations.append("%s@%s" % (self.num2const[int(row['affiliation'])],
                                            self._format_ou_name(ou)))
@@ -4500,7 +4502,7 @@ class BofhdExtension(object):
             raise PermissionDenied("only superusers may assign account ownership")
         new_owner = self._get_entity(entity_type, id)
         if account.owner_type == self.const.entity_person:
-            for row in account.get_account_types():
+            for row in account.get_account_types(filter_expired=False):
                 account.del_account_type(row['ou_id'], row['affiliation'])
         account.owner_type = new_owner.entity_type
         account.owner_id = new_owner.entity_id

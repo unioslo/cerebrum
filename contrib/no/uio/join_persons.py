@@ -176,13 +176,15 @@ def person_join(old_person, new_person, with_pq):
     old_account_types = []
     # To avoid FK contraint on account_type, we must first remove all
     # account_types
-    for a in account.get_account_types(owner_id=old_person.entity_id):
+    for a in account.get_account_types(owner_id=old_person.entity_id,
+                                       filter_expired=False):
         account.clear()
         account.find(a['account_id'])
         account.del_account_type(a['ou_id'], a['affiliation'])
         old_account_types.append(a)
         logger.debug("account_type: %s" % account.account_name)
-    for r in account.list_accounts_by_owner_id(old_person.entity_id):
+    for r in account.list_accounts_by_owner_id(old_person.entity_id,
+                                               filter_expired=False):
         account.clear()
         account.find(r['account_id'])
         account.owner_id = new_person.entity_id

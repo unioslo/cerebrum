@@ -27,8 +27,8 @@ from Cerebrum.modules import Email
 class AccountHiSTMixin(Email.AccountEmailMixin):
     """Delete an account, does not handle group memberships""" 
     def delete(self):
-        for s in self.get_account_types():
-          self.del_account_type(s['ou_id'], s['affiliation'])
+        for s in self.get_account_types(filter_expired=False):
+            self.del_account_type(s['ou_id'], s['affiliation'])
         self.execute("""
         DELETE FROM [:table schema=cerebrum name=account_authentication]
         WHERE account_id=:acc_id""", {'acc_id' : self.entity_id})

@@ -461,8 +461,7 @@ def generate_account_statistics(perspective, empty_statistics, level, db):
     # Keep track of accounts that had been processed
     processed = Set()
 
-    for row in account.list_accounts_by_type(filter_expired = True,
-                                             fetchall = False):
+    for row in account.list_accounts_by_type(fetchall=False):
         row_count += 1
         if row_count % limit == 0:
             logger.debug("Next %d (%d) rows", limit, row_count)

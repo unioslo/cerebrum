@@ -79,7 +79,8 @@ class AccountType(object):
         all_pris = {}
         orig_pri = None
         max_pri = 0
-        for row in self.get_account_types(all_persons_types=True):
+        for row in self.get_account_types(all_persons_types=True,
+                                          filter_expired=False):
             all_pris[int(row['priority'])] = row
             if(ou_id == row['ou_id'] and affiliation == row['affiliation'] and
                self.entity_id == row['account_id']):
@@ -143,7 +144,7 @@ class AccountType(object):
                                                  'affiliation': int(affiliation)})
 
     def list_accounts_by_type(self, ou_id=None, affiliation=None,
-                              status=None, filter_expired=False,
+                              status=None, filter_expired=True,
                               account_id=None, person_id=None,
                               primary_only=False, person_spread=None,
                               fetchall=True):
@@ -611,7 +612,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine, Entity):
             return False
         return True
 
-    def list(self, filter_expired=False, fetchall=True):
+    def list(self, filter_expired=True, fetchall=True):
         """Returns all accounts"""
         where = []
         if filter_expired:
@@ -625,10 +626,10 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine, Entity):
         FROM [:table schema=cerebrum name=account_info] ai %s""" % where,
                           fetchall = fetchall)
 
-    def list_account_home(self, home_spread=None,
-                          account_spread=None, disk_id=None,
-                          host_id=None, include_nohome=False):
-        """List users with homedirectory, optionaly filtering the
+    def list_account_home(self, home_spread=None, account_spread=None,
+                          disk_id=None, host_id=None, include_nohome=False,
+                          filter_expired=True):
+        """List users with homedirectory, optionally filtering the
         results on home/account spread, disk/host.
 
         If include_nohome=True, users without home will be included in
@@ -644,9 +645,11 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine, Entity):
             tables.append(", [:table schema=cerebrum name=entity_spread] es")
 
         tables.append(', [:table schema=cerebrum name=account_info] ai')
+        if filter_expired:
+            where.append("(ai.expire_date IS NULL OR ai.expire_date > [:now])")
 
         # We must perform a left-join or inner-join depending on
-        # wheter or not include_nohome is True.
+        # whether or not include_nohome is True.
         if include_nohome:
             if home_spread is not None:
                 tables.append(
@@ -690,40 +693,6 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine, Entity):
             'disk_id': disk_id,
             'host_id': host_id
             })
-
-    def list_account_name_home(self, spread, filter_home=False):
-        """Returns a list of account_id, name, home and path.
-           filter_home=False means that spread is a filter on
-           accounts. filter_home=True means that the spread is
-           a filter on home."""
-        # Obsolete, use list_account_homes instead
-        if filter_home:
-            return self.query("""
-            SELECT ai.account_id, en.entity_name, hd.home, d.path
-            FROM [:table schema=cerebrum name=entity_name] en,
-                 [:table schema=cerebrum name=account_info] ai
-                 LEFT JOIN [:table schema=cerebrum name=account_home] ah
-                   ON ah.account_id=ai.account_id AND ah.spread=:spread
-                 LEFT JOIN [:table schema=cerebrum name=homedir] hd
-                   ON ah.homedir_id=hd.homedir_id
-                 LEFT JOIN [:table schema=cerebrum name=disk_info] d
-                   ON d.disk_id = hd.disk_id
-            WHERE ai.account_id=en.entity_id""", {'spread': int(spread)})
-
-        return self.query("""
-            SELECT ai.account_id, en.entity_name, hd.home, d.path
-            FROM [:table schema=cerebrum name=entity_name] en,
-                 [:table schema=cerebrum name=account_info] ai,
-                 [:table schema=cerebrum name=entity_spread] es
-                 LEFT JOIN [:table schema=cerebrum name=account_home] ah
-                   ON ah.account_id=es.entity_id AND es.spread = ah.spread
-                 LEFT JOIN [:table schema=cerebrum name=homedir] hd
-                   ON ah.homedir_id=hd.homedir_id
-                 LEFT JOIN [:table schema=cerebrum name=disk_info] d
-                   ON d.disk_id = ah.disk_id
-            WHERE ai.account_id=en.entity_id AND en.entity_id=es.entity_id
-                  AND es.spread=:spread""", {'spread': int(spread)})
-
     
     def list_reserved_users(self, fetchall=True):
         """Return all reserved users"""
@@ -744,34 +713,35 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine, Entity):
           SELECT 'foo' FROM [:table schema=cerebrum name=entity_spread] es
           WHERE es.entity_id=ai.account_id)""")
 
-    def list_accounts_by_owner_id(self, owner_id):
+    def list_accounts_by_owner_id(self, owner_id, filter_expired=True):
         """Return a list of account-ids, or None if none found"""
-        try:
-            return self.query("""
+        where = "owner_id = :o_id"
+        if filter_expired:
+            where += " AND (expire_date IS NULL OR expire_date > [:now]"
+        return self.query("""
             SELECT account_id
             FROM [:table schema=cerebrum name=account_info]
-            WHERE owner_id=:o_id""",{'o_id': owner_id})
-        except Errors.NotFoundError:
-            return None
+            WHERE """ + where, {'o_id': owner_id})
 
-    def list_account_authentication(self, auth_type=None):
-        type_str = ""
+    def list_account_authentication(self, auth_type=None, filter_expired=True):
         if auth_type == None:
             type_str = "= %d" % int(self.const.auth_type_md5_crypt)
         elif isinstance(auth_type, list):
-            type_str = "IN (%d" % int(auth_type[0])
-            for at in auth_type[1:]:
-                type_str += ", %d" % int(at)
-            type_str += ")"
+            type_str = ("IN (" +
+                        ", ".join([str(int(x)) for x in auth_type]) +
+                        ")")
         else:
             type_str = "= %d" % int(auth_type)
+        where = "ai.account_id=en.entity_id"
+        if filter_expired:
+            where += " AND (ai.expire_date IS NULL OR ai.expire_date > [:now])"
         return self.query("""
         SELECT ai.account_id, en.entity_name, aa.method, aa.auth_data
         FROM [:table schema=cerebrum name=entity_name] en,
              [:table schema=cerebrum name=account_info] ai
              LEFT JOIN [:table schema=cerebrum name=account_authentication] aa
                ON ai.account_id=aa.account_id AND aa.method %s
-        WHERE ai.account_id=en.entity_id""" % type_str)
+        WHERE %s""" % (type_str, where))
 
     def get_account_name(self):
         return self.account_name
@@ -971,12 +941,12 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine, Entity):
         return xlate_subst(xlate_match, s.translate(tr)).strip()
 
     def search(self, spread=None, name=None, owner_id=None, owner_type=None,
-               exclude_expired=False):
+               filter_expired=True):
         """Retrieves a list of Accounts filtered by the given criterias.
         
         Returns a list of tuples with the info (account_id, name).
         If no criteria is given, all accounts are returned. ``name`` should
-        be string if given. ``spead`` can either be string or int. ``owner_id``
+        be string if given. ``spread`` can either be string or int. ``owner_id``
         and ``owner_type`` should be int. Wildcards * and ? are expanded for
         "any chars" and "one char"."""
 
@@ -1017,7 +987,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine, Entity):
         if owner_type is not None:
             where.append("ai.owner_type=:owner_type")
 
-        if exclude_expired:
+        if filter_expired:
             where.append("(ai.expire_date IS NULL OR ai.expire_date > [:now])")
 
         where_str = ""

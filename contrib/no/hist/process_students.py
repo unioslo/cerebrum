@@ -347,7 +347,7 @@ def get_existing_accounts():
     # If the user has no student or reserved account, we check for
     # other active accounts
 
-    for a in account.list(filter_expired=True, fetchall=False):
+    for a in account.list(fetchall=False):
         # Also populate account_id -> fnr mapping
         account_id2fnr[int(a['account_id'])] = pid2fnr.get(
             int(a['owner_id'] or 0), None)

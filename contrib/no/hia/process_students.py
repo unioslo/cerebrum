@@ -322,17 +322,15 @@ def get_existing_accounts():
                 had_fs_fnr[int(p['person_id'])] = True                                                            
     logger.info("done listing_external_ids")
     # Find all student accounts.  A student account is an account that
-    # has only account_types with affiliation=student.  We're
-    # currently only interested in active accounts, thus we filter on
-    # expired (which also includes filtering on deleted)
+    # has only account_types with affiliation=student.  Expired accounts
+    # are ignored.
 
     # TBD: skal vi implementere en cereconf.STUDENT_DISKS som benyttes
     # istedet dersom den er != None?
 
     students = {}
     for a in account.list_accounts_by_type(
-        affiliation=const.affiliation_student, filter_expired=True,
-        fetchall=False):
+        affiliation=const.affiliation_student, fetchall=False):
         if not pid2fnr.has_key(int(a['person_id'])):
             continue
         student_data = students.setdefault(pid2fnr[int(a['person_id'])], {})
@@ -359,7 +357,7 @@ def get_existing_accounts():
     # If the user has no student or reserved account, we check for
     # other active accounts
 
-    for a in account.list(filter_expired=True, fetchall=False):
+    for a in account.list(fetchall=False):
         # Also populate account_id -> fnr mapping
         account_id2fnr[int(a['account_id'])] = pid2fnr.get(
             int(a['owner_id'] or 0), None)

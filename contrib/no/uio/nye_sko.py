@@ -63,8 +63,7 @@ def reorganise_users(fac, inst=None, aff=None, persaff=None):
         logger.debug("Doing OU %02d%02d%02d" % (ou.fakultet, ou.institutt,
                                                 ou.avdeling))
         for r in acc.list_accounts_by_type(ou_id=ou_id,
-                                           affiliation=aff,
-                                           filter_expired=True):
+                                           affiliation=aff):
             if r.account_id in done:
                 continue
             done[r.account_id] = 1

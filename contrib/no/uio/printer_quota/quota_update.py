@@ -379,7 +379,7 @@ def fetch_data(drgrad_file, fritak_kopiavg_file, betalt_papir_file, lt_person_fi
     account = Account.Account(db)
     account_id2pid = {}
     has_account = {}
-    for row in account.list_accounts_by_type(filter_expired=False, fetchall=False):
+    for row in account.list_accounts_by_type(fetchall=False):
         account_id2pid[int(row['account_id'])] = int(row['person_id'])
         has_account[int(row['person_id'])] = True
     for p_id in quota_victim.keys():

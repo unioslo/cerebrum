@@ -55,7 +55,7 @@ def user_print_stats(from_date, to_date, sort_by='total', num=10):
 def user_type_stats(from_date, to_date, sort_by='total'):
     ac = Factory.get('Account')(db)
     ac_type = {}
-    for r in ac.list(filter_expired=True):
+    for r in ac.list():
         ac_type[int(r['account_id'])] = r['np_type']
     
     cols = ['jobs', 'free', 'paid', 'total']

@@ -1643,11 +1643,14 @@ class AccountEmailMixin(Account.Account):
         return (r['local_part'] + '@' +
                 ed.rewrite_special_domains(r['domain']))
 
-    def getdict_uname2mailaddr(self):
+    def getdict_uname2mailaddr(self, filter_expired=True):
         ret = {}
         target_type = int(self.const.email_target_account)
         namespace = int(self.const.account_namespace)
         ed = EmailDomain(self._db)
+        where = "en.value_domain = :namespace"
+        if filter_expired:
+            where += " AND (ai.expire_date IS NULL OR ai.expire_date > [:now])"
         for row in self.query("""
         SELECT en.entity_name, ea.local_part, ed.domain
         FROM [:table schema=cerebrum name=account_info] ai
@@ -1662,7 +1665,7 @@ class AccountEmailMixin(Account.Account):
           ON ea.address_id = epa.address_id
         JOIN [:table schema=cerebrum name=email_domain] ed
           ON ed.domain_id = ea.domain_id
-        WHERE en.value_domain = :namespace""",
+        WHERE """ + where,
                               {'targ_type': target_type,
                                'namespace': namespace}):
             ret[row['entity_name']] = '@'.join((

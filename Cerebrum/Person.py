@@ -810,21 +810,21 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
             self._db.log_change(self.entity_id,
                                 self.const.person_aff_del, None)
 
-    def get_accounts(self):
+    def get_accounts(self, filter_expired=True):
         acc = Utils.Factory.get('Account')(self._db)
-        return acc.list_accounts_by_owner_id(self.entity_id)
+        return acc.list_accounts_by_owner_id(self.entity_id,
+                                             filter_expired=filter_expired)
 
     def get_primary_account(self):
         """Returns the account_id of SELF.entity_id's primary account"""
         acc = Utils.Factory.get("Account")(self._db)
-        # get_account_types *must* return its results sorted
-        accounts = acc.get_account_types(True, self.entity_id)
+        # get_account_types returns its results sorted
+        accounts = acc.get_account_types(all_persons_types=True,
+                                         owner_id=self.entity_id)
         if accounts:
             return accounts[0].account_id
         else:
             return None
-        # fi
-    # end get_primary_account
 
     def getdict_external_id2primary_account(self, id_type):
         """

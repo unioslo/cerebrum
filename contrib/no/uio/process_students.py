@@ -663,7 +663,7 @@ def get_existing_accounts():
     #
     logger.info("Listing accounts...")
     accounts = {}
-    for row in account_obj.list(filter_expired=True, fetchall=False):
+    for row in account_obj.list(fetchall=False):
         if not row['owner_id'] or not pid2fnr.has_key(int(row['owner_id'])):
             continue
         accounts[int(row['account_id'])] = {
@@ -737,8 +737,7 @@ def get_existing_accounts():
                 tmp['groups'].append(group_id)
     # Affiliations
     for row in account_obj.list_accounts_by_type(
-        affiliation=const.affiliation_student, filter_expired=True,
-        fetchall=False):
+        affiliation=const.affiliation_student, fetchall=False):
         tmp = accounts.get(int(row['account_id']), None)
         if tmp is not None:
             tmp['affs'].append([ int(row['affiliation']) , int(row['ou_id'])])
@@ -953,7 +952,8 @@ def list_noncallback_users(fname):
     
     f = file(fname, 'w')
     on_student_disk = {}
-    for row in account_obj.list_account_home():
+    # TBD: This includes expired accounts, is that what we want?
+    for row in account_obj.list_account_home(filter_expired=False):
         if autostud.student_disk.has_key(int(row['disk_id'] or 0)):
             on_student_disk[int(row['account_id'])] = True
 

@@ -59,7 +59,8 @@ class AutoPriorityAccountMixin(Account.Account):
             return current_pri
         # Find taken values in this range and sort them
         taken = []
-        for row in self.get_account_types(all_persons_types=True):
+        for row in self.get_account_types(all_persons_types=True,
+                                          filter_expired=False):
             taken.append(int(row['priority']))
         taken = [x for x in taken if x >= pri_min and x < pri_max]
         taken.sort()

@@ -1517,8 +1517,7 @@ class BofhdExtension(object):
         count = 0
         acc = self.Account_class(self.db)
         acc2 = self.Account_class(self.db)
-        for r in acc.list_accounts_by_type(ou_id=ou_id, affiliation=aff_id,
-                                           filter_expired=True):
+        for r in acc.list_accounts_by_type(ou_id=ou_id, affiliation=aff_id):
             acc2.clear()
             acc2.find(r['account_id'])
             primary = acc2.get_account_types()[0]
@@ -3024,11 +3023,13 @@ class BofhdExtension(object):
         self.ba.can_remove_disk(operator.get_entity_id(), host)
         disk = self._get_disk(diskname, host_id=host.entity_id)[0]
         account = self.Account_class(self.db)
-        for row in account.list_account_home(disk_id=disk.entity_id):
+        for row in account.list_account_home(disk_id=disk.entity_id,
+                                             filter_expired=False):
             if row['disk_id'] is None:
                 continue
             if row['status'] == int(self.const.home_status_on_disk):
-                raise CerebrumError, "Users still on disk"
+                raise CerebrumError, ("One or more users still on disk " +
+                                      "(e.g. %s)" % row['entity_name'])
             account.clear()
             account.find(row['account_id'])
             ah = account.get_home(row['home_spread'])
@@ -3632,7 +3633,8 @@ class BofhdExtension(object):
         person = self._get_person(*self._map_person_id(id))
         account = self.Account_class(self.db)
         ret = []
-        for r in account.list_accounts_by_owner_id(person.entity_id):
+        for r in account.list_accounts_by_owner_id(person.entity_id,
+                                                   filter_expired=False):
             account = self._get_account(r['account_id'], idtype='id')
 
             ret.append({'account_id': r['account_id'],
@@ -4015,7 +4017,7 @@ class BofhdExtension(object):
             raise CerebrumError, "priority must be a number"
         ou = None
         affiliation = None
-        for row in account.get_account_types():
+        for row in account.get_account_types(filter_expired=False):
             if row['priority'] == old_priority:
                 ou = row['ou_id']
                 affiliation = row['affiliation']
@@ -4580,7 +4582,7 @@ class BofhdExtension(object):
         if account.is_deleted() and not self.ba.is_superuser(operator.get_entity_id()):
             raise CerebrumError("User is deleted")
         affiliations = []
-        for row in account.get_account_types():
+        for row in account.get_account_types(filter_expired=False):
             ou = self._get_ou(ou_id=row['ou_id'])
             affiliations.append("%s@%s" % (self.num2const[int(row['affiliation'])],
                                            self._format_ou_name(ou)))
@@ -5057,7 +5059,7 @@ class BofhdExtension(object):
             raise PermissionDenied("only superusers may assign account ownership")
         new_owner = self._get_entity(entity_type, id)
         if account.owner_type == self.const.entity_person:
-            for row in account.get_account_types():
+            for row in account.get_account_types(filter_expired=False):
                 account.del_account_type(row['ou_id'], row['affiliation'])
         account.owner_type = new_owner.entity_type
         account.owner_id = new_owner.entity_id
