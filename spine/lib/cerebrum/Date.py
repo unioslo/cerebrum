@@ -18,9 +18,13 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+import mx.DateTime
+
 from SpineLib.SpineClass import SpineClass
 from SpineLib.Builder import Attribute, Method
 from SpineLib import Registry
+
+from Commands import Commands
 
 registry = Registry.get_registry()
 
@@ -44,9 +48,9 @@ class Date(SpineClass):
 
     create_primary_key = classmethod(create_primary_key)
 
-    def __init__(self, value):
+    def __init__(self, value, *args, **vargs):
         self._value = value
-        SpineClass.__init__(self, cache=None)
+        SpineClass.__init__(self, *args, **vargs)
 
     def get_year(self):
         return self._value.year
@@ -70,5 +74,30 @@ class Date(SpineClass):
         return self._value.strftime(formatstr)
 
 registry.register_class(Date)
+
+# Commands for clients to create Date-objects.
+
+def get_date(self, year, month, day):
+    return Date(mx.DateTime.Date(year, month, day))
+
+def get_datetime(self, year, month, day, hour, minute, second):
+    return Date(mx.DateTime.DateTime(year, month, day, hour, minute, second))
+
+def strptime(self, datestr, formatstr):
+    """Get date from a string.
+    
+    Returns a Date-object reflecting the parsed date and time.
+    """
+    return Date(mx.DateTime.strptime(datestr, formatstr))
+
+date_args = [('year', int), ('month', int), ('day', int)]
+Commands.register_method(Method('get_date', Date, args=date_args), get_date)
+
+datetime_args = [('year', int), ('month', int), ('day', int),
+                 ('hour', int), ('minute', int), ('second', int)]
+Commands.register_method(Method('get_datetime', Date, args=datetime_args), get_datetime)
+
+strptime_args = [("datestr", str), ("formatstr", str)]
+Commands.register_method(Method('strptime', Date, args=strptime_args), strptime)
 
 # arch-tag: 57d51c14-a6c9-4913-a011-1f7222ad79b5
