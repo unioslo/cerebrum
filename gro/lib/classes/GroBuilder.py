@@ -36,17 +36,18 @@ class GroBuilder(Builder, Caching, Locking, CorbaBuilder):
         write_lock = vargs.get('write_lock', None)
         if 'write_lock' in vargs:
             del vargs['write_lock']
-        nocache = vargs.get('nocache', False)
-        if 'nocache' in vargs:
-            del vargs['nocache']
 
-        # check if this object is old
-        old = Builder.__init__(self, *args, **vargs)
+        # Builder will only update attributes who has not been set
+        Builder.__init__(self, *args, **vargs)
+
+        # Caching will return a timestamp if this object is old
+        old = Caching.__init__(self)
         if old:
+            if write_lock is not None:
+                self.lock_for_writing(write_lock)
             return old
 
-        Locking.__init__(self, write_lock=write_lock)
-        Caching.__init__(self, nocache=nocache)
+        Locking.__init__(self, write_lock)
 
     def get_database(self):
         c = self.get_writelock_holder()

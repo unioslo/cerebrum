@@ -40,42 +40,44 @@ class Caching(object):
 
         # FIXME: vi trenger låsing her
 
-        nocache = vargs.get('nocache', False)
-        if 'nocache' in vargs:
-            del vargs['nocache']
+        cache = vargs.get('cache', cls.cache)
+        if 'cache' in vargs:
+            del vargs['cache']
 
         # getting the key to uniquely identify this object
         primary_key = cls.create_primary_key(*args, **vargs)
         assert type(primary_key) == tuple
         key = cls, primary_key # cls is inserted to avoid collisions
 
-        if nocache:
-            self = object.__new__(cls)
-            self.nocache = nocache
-            self._key = key
-            return self
-
         # if it allready exists, return the old one
-        if key in cls.cache:
-            return cls.cache[key]
+        if cache is not None and key in cache:
+            return cache[key]
         
         # create a new object
         self = object.__new__(cls)
-        self.nocache = nocache
+        self.__key = key
+        self.cache = cache
 
-        cls.cache_object(self, primary_key)
+        if cache is not None:
+            self.cache_self()
 
         # remember __init__ will be run, even though it is an old object
         return self 
 
+    def __init__(self):
+        mark = '_%s%s' % (self.__class__.__name__, id(self))
+        if hasattr(self, mark):
+            return getattr(self, mark)
+        setattr(self, mark, time.time())
+
     def get_primary_key(self):
         """ Returns the primary key for the object. """
-        return self._key[1]
+        return self.__key[1]
 
     def invalidate_object(cls, obj):
         """ Remove the node from the cache. """
         assert 0 # uh. this is not the right way to do this.
-        del cls.cache[obj._key]
+        del cls.cache[obj.__key]
 
     invalidate_object = classmethod(invalidate_object)
 
@@ -83,29 +85,24 @@ class Caching(object):
         # FIXME: where should we put this default variable?
         return 10
 
-    def cache_object(cls, obj, primary_key):
-        key = cls, primary_key
+    def cache_self(self):
+        key = self.__class__, self.get_primary_key()
 
-        obj._key = key
-        cls.cache[key] = obj
+        self.cache[key] = self
 
-        minimum_lifetime = obj.get_minimum_lifetime()
+        minimum_lifetime = self.get_minimum_lifetime()
 
         if minimum_lifetime:
-            def holder(): # this will make sure a reference to obj exists as long as holder exists
-                obj
+            def holder(): # this will make sure a reference to self exists as long as holder exists
+                self
 
             scheduler = Scheduler.get_scheduler()
-            scheduler.addTimer(obj.get_minimum_lifetime(), holder)
-
-    cache_object = classmethod(cache_object)
+            scheduler.addTimer(minimum_lifetime, holder)
 
     def invalidate(self):
         """ Remove the node from the cache. """
         self.invalidate_object(self)
 
-    def cache_self(self):
-        self.cache_object(self, self.get_primary_key())
 
     def create_primary_key(*args, **vargs):
         return None # this will make it a singleton

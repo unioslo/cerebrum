@@ -119,7 +119,7 @@ def create_corba_method(method):
 
         elif not method.write:
             if self.gro_object.get_writelock_holder() is not None:
-                self.gro_object = self.gro_class(*self.gro_object.get_primary_key(), **{'nocache':True})
+                self.gro_object = self.gro_class(*self.gro_object.get_primary_key(), **{'cache':{}})
 
         else:
             raise Exception('Trying to access write-method outside a transaction: %s' % method)

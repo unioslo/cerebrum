@@ -46,7 +46,7 @@ class Date(GroBuilder):
 
     def __init__(self, value):
         self._value = value
-        GroBuilder.__init__(self, nocache=True)
+        GroBuilder.__init__(self, cache=None)
 
     def get_year(self):
         return self._value.year

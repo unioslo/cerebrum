@@ -109,11 +109,6 @@ class Builder(object):
     builder_children = ()
 
     def __init__(self, *args, **vargs):
-        mark = '_%s%s' % (self.__class__.__name__, id(self))
-        # check if the object is old
-        if hasattr(self, mark):
-            return getattr(self, mark)
-
         map = self.map_args(*args, **vargs)
         
         # set all variables give in args and vargs
@@ -125,9 +120,6 @@ class Builder(object):
         # used to track changes
         if not hasattr(self, 'updated'):
             self.updated = sets.Set()
-
-        # mark the object as old
-        setattr(self, mark, time.time())
 
     def map_args(cls, *args, **vargs):
         slotMap = dict([(i.name, i) for i in cls.slots])

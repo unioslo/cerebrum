@@ -76,7 +76,7 @@ class CerewebCommands(GroBuilder):
     ]
 
     def __init__(self):
-        GroBuilder.__init__(self, nocache=True)
+        GroBuilder.__init__(self, cache=None)
 
     def create_cereweb_motd(self, subject, message):
         db = self.get_database()

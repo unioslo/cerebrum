@@ -38,7 +38,7 @@ class Commands(GroBuilder):
     ]
 
     def __init__(self):
-        GroBuilder.__init__(self, nocache=True)
+        GroBuilder.__init__(self, cache=None)
 
     def create_group(self, name):
         db = self.get_database()
@@ -49,5 +49,7 @@ class Commands(GroBuilder):
 
         id = group.entity_id
         return Group(id, write_lock=self.get_writelock_holder())
+
+registry.register_class(Commands)
 
 # arch-tag: d756f6b2-7b09-4bf5-a65e-81cacfea017a
