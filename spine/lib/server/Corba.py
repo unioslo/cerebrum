@@ -208,7 +208,7 @@ def _create_corba_method(method):
             if getattr(e, '__class__', e) not in method.exceptions:
                 raise
 
-            if len(e.args) > 1 and type(e.args[0]) is str:
+            if len(e.args) > 0 and type(e.args[0]) is str:
                 explanation = e.args[0]
             else:
                 explanation = ""
