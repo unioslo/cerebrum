@@ -46,3 +46,4 @@ class SpineException(Exception):
 
         Exception.__init__(self, *args, **vargs)
 
+# arch-tag: 7c3b53d8-649b-4dfc-8582-1664e52b6e0e
