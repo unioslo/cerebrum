@@ -346,16 +346,32 @@ public class JBofh {
             logger.debug("ps: "+i+" -> "+pspec.get(i));
             /* TODO:  I'm not sure how to handle the diff between optional and default */
             Integer opt = (Integer) ((Hashtable)pspec.get(i)).get("optional");
-            if(opt == null) opt = (Integer) ((Hashtable)pspec.get(i)).get("default");
             if(opt != null && opt.intValue() == 1) 
                 break;
-            ret.add(0, bc.sessid);
-            ret.add(1, cmd);
-            String prompt = (String) bc.sendRawCommand("prompt_next_param", ret);
-            ret.remove(0);
-            ret.remove(0);
+	    Object tmp = ((Hashtable)pspec.get(i)).get("default");
+	    String defval = null;
+	    if(tmp != null) {
+		if(tmp instanceof String){
+		    defval = (String) tmp;
+		} else {
+		    ret.add(0, bc.sessid);
+		    ret.add(1, cmd);
+		    defval = (String) bc.sendRawCommand("get_default_param", ret);
+		    ret.remove(0);
+		    ret.remove(0);
+		}
+	    }
+	    String prompt = (String)((Hashtable)pspec.get(i)).get("prompt");
             try {
-                ret.add(cLine.promptArg(prompt+" >", false));
+		String s = 
+		    cLine.promptArg(prompt+
+				    (defval == null ? "" : " ["+defval+"]")+" >", 
+				    false);
+		if(defval != null && s.equals("")) {
+		    ret.add(defval);
+		} else {
+		    ret.add(s);
+		}
             } catch (IOException io) {
                 return null;
             }
