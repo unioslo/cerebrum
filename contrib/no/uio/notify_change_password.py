@@ -60,11 +60,13 @@ def splat_user(account_id):
     account.clear()
     account.find(account_id)
     splatted_users.append(account.account_name)
+    logger.debug("Splatting %s" % account.account_name)
+    if debug_enabled:
+        return
     account.add_entity_quarantine(
         co.quarantine_autopassord, splattee_id,
         "password not changed", db_now, None)
     db.commit()
-    logger.debug("Splatting %s" % account.account_name)
 
 def process_data():
     # mail_data_file always contain information about users that
@@ -110,6 +112,8 @@ def process_data():
                                      "\n  ".join(splatted_users),))
 
 def send_mail(mail_to, mail_from, subject, body, mail_cc=None,):
+    if debug_enabled and not debug_verbose:
+        return
     ret = Utils.sendmail(mail_to, mail_from, subject, body,
                          cc=mail_cc, debug=debug_enabled)
     if debug_verbose:
@@ -121,7 +125,7 @@ def main():
             sys.argv[1:], 'p',
             ['help', 'from=', 'to=', 'cc=', 'msg-file=',
              'max-password-age=', 'grace-period=', 'data-file=',
-             'max-users='])
+             'max-users=', 'debug'])
     except getopt.GetoptError:
         usage(1)
 
@@ -141,6 +145,12 @@ def main():
             summary_email_info['From'] = val
         elif opt in ('--to',):
             summary_email_info['To'] = val
+        elif opt in ('--debug',):
+            global debug_enabled
+            debug_enabled = True
+            if logger.name != 'console':
+                print "Use --logger-name=console so that logs don't get changed"
+                sys.exit(1)
         elif opt in ('--cc',):
             summary_email_info['Cc'] = val
         elif opt in ('--msg-file',):
@@ -178,6 +188,8 @@ def usage(exitcode=0):
     --grace-period days : minimum time between warn and splat
     --data-file name : location of the database with info about who was mailed when
     --max-users num : debug purposes only: limit max processed users
+    --debug : Will not send mail or splat accounts (updates data-file).
+              Use with --logger-name=console
     """
     sys.exit(exitcode)
 
