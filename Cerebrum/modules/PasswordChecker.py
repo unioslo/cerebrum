@@ -44,16 +44,16 @@ problems when using some keyboards.""",
 """Don't use a space in the password.  It creates problems for the
 POP3-protocol (Eudora and other e-mail readers).""",
     'mix_needed8':
-"""A valid password must contain characters from at least three of
-these four character groups: Uppercase letters, lowercase letters,
-numbers and special characters.  If the password only contains one
-uppercase letter, this must not be at the start of the password.  If
-the first 8 characters only contains one number or special character,
-this must not be in position 8.""",
+"""For a password to be valid the first 8 characters must be from at
+least three of these four character groups: Uppercase letters,
+lowercase letters, numbers and special characters.  If the password
+only contains one uppercase letter, this must not be at the start of
+the password.  If the first 8 characters only contains one number or
+special character, this must not be in position 8.""",
     'mix_needed':
-"""A valid password must contain characters from at least three of
-these four character groups: Uppercase letters, lowercase letters,
-numbers and special characters.""",
+"""For a password to be valid the first 8 characters must be from at
+least three of these four character groups: Uppercase letters,
+lowercase letters, numbers and special characters.""",
     'was_like_old':
 """That was to close to an old password.  You must select a new
 one.""",
@@ -290,9 +290,9 @@ class PasswordChecker(DatabaseAccessor):
 
         if variation < 3:
             if good_try:
-                raise PasswordGoodEnoughException(msgs['mix_needed8'])
+                raise PasswordGoodEnoughException(msgs['mix_needed8']+self.extra_msg)
             else:
-                raise PasswordGoodEnoughException(msgs['mix_needed'])
+                raise PasswordGoodEnoughException(msgs['mix_needed']+self.extra_msg)
 
     def _check_sequence(self, passwd):
         passwd = passwd.lower()
@@ -337,14 +337,14 @@ class PasswordChecker(DatabaseAccessor):
 
         if re.search(r'\0', passwd):
             raise PasswordGoodEnoughException(msgs['not_null_char'])
-        extra_msg = ''
+        self.extra_msg = ''
+        if len(passwd) < 8:
+            raise PasswordGoodEnoughException(msgs['atleast8'])
         if passwd[0] in '([{<':     # Detect passwords like [Secret]
             passwd = passwd[1:]
-            extra_msg = msgs['used_parentheses']
+            self.extra_msg = msgs['used_parentheses']
             if passwd[-1] in ')]}>':
                 passwd = passwd[:-1]
-        if len(passwd) < 8:
-            raise PasswordGoodEnoughException(msgs['atleast8']+extra_msg)
         if len(passwd) > 15:
             raise PasswordGoodEnoughException(msgs['atmost15'])
         if re.search(r'[\200-\376]', passwd):
