@@ -307,13 +307,57 @@ CREATE TABLE person_aff_status_code
 
 /*	account_code
 
+  Accounts can be either personal or non-personal.  While the data in
+  table `account_type' should be sufficient to identify the type(s) of
+  personal accounts, there's still a need to keep track of the various
+  kinds of non-personal accounts.
 
+  This table holds code values for these data.  Some examples of code
+  values can be "system account", "program account", "group account".
 
 */
 CREATE TABLE account_code
 (
   code		CHAR VARYING(16)
 		CONSTRAINT account_code_pk PRIMARY KEY,
+  description	CHAR VARYING(512)
+		NOT NULL
+);
+
+
+/*	authentication_code
+
+
+
+*/
+CREATE TABLE authentication_code
+(
+  code		CHAR VARYING(16)
+		CONSTRAINT authentication_code_pk PRIMARY KEY,
+  description	CHAR VARYING(512)
+		NOT NULL
+);
+
+
+
+/*****
+ ***** Code values related to Group entities.
+ *****/
+
+
+CREATE TABLE group_visibility_code
+(
+  code		CHAR VARYING(16)
+		CONSTRAINT group_visibility_code_pk PRIMARY KEY,
+  description	CHAR VARYING(512)
+		NOT NULL
+);
+
+
+CREATE TABLE group_membership_operation_code
+(
+  code		CHAR VARYING(16)
+		CONSTRAINT group_membership_operation_pk PRIMARY KEY,
   description	CHAR VARYING(512)
 		NOT NULL
 );
