@@ -42,7 +42,6 @@ command_help = {
     },
     'person': {
     'person_accounts': 'vis brukernavn for person',
-    'person_bcreate': 'bytter en person med fødselsdato',
     'person_create': 'bygger en person',
     'person_find': 'søker etter personer',
     'person_info': 'viser informasjon om en person',
@@ -98,8 +97,10 @@ arg_help = {
     'account_name_src': ['uname', 'Enter source accountname',
                          'You should enter the name of the source account for this operation'],
     'account_password': ['password', 'Enter password'],
-    'affiliation': ['affiliation', 'Enter affiliaton'],
-    'affiliation_status': ['aff_status', 'Enter affiliation status'],
+    'affiliation': ['affiliation', 'Enter affiliaton',
+                    "'misc affiliations' lists all possible affiliations"],
+    'affiliation_status': ['aff_status', 'Enter affiliation status',
+                           "'misc aff_status_codes' lists affiliation status codes"],
     'date': ['date', 'Enter date'],
     'disk': ['disk', 'Enter disk'],
     'group_name': ['gname', 'Enter groupname'],
@@ -119,7 +120,7 @@ arg_help = {
  - request
  - confirm
  - cancel"""],
-    'ou': ['ou', 'Enter OU'],
+    'ou': ['ou', 'Enter OU', 'The OU is identified by its 6-digits stedcode'],
     'person_id': ['person_id', 'Enter person id',
     """Enter person id as idtype:id.
 If idtype=fnr, the idtype does not have to be specified.
@@ -128,6 +129,7 @@ The currently defined id-types are:
     'person_id:current': ['[id_type:]current_id', 'Enter current person id'],
     'person_id:new': ['[id_type:]new_id', 'Enter newperson id'],
     'person_name': ['name', 'Enter person name'],
+    'person_name_full': ['fullname', 'Enter persons fullname'],
     'person_name_type': ['nametype', 'Enter person name type'],
     'posix_shell': ['shell', 'Enter shell'],
     'quarantine_type': ['qtype', 'Enter quarantine type', """'quarantine list' lists possible values"""],
@@ -135,7 +137,8 @@ The currently defined id-types are:
     'string_description': ['description', 'Enter description'],
     'string_filename': ['filename', 'Enter filename'],
     'string_group_filter': ['filter', 'Enter filter'],
-    'string_np_type': ['np_type', 'Enter np_type'],
+    'string_np_type': ['np_type', 'Enter np_type', """Valid values include:
+'p' - Programvarekonto."""],
     'string_from_to': ['from_to', 'Enter from and optionally to-date (YYYY-MM-DD-YYYY-MM-DD)'],
     'string_why': ['why', 'Why?'],
     'user_create_id': ['owner', 'Enter account owner', """Identify account owner (person or group) by entering:
