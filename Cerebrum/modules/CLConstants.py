@@ -88,8 +88,15 @@ class CLConstants(Constants.Constants):
                                    'modified %(subject)s')
     account_password =  _ChangeTypeCode('e_account', 'password',
                                         'new password for %(subject)s')
+    # TODO: account_move is obsolete, remove it
     account_move =  _ChangeTypeCode('e_account', 'move',
                                     '%(subject)s moved to %(param_name)s')
+    account_home_updated = _ChangeTypeCode('e_account', 'home_update',
+                                           'home updated for %(subject)s')
+    account_home_added = _ChangeTypeCode('e_account', 'home_added',
+                                           'home added for %(subject)s')
+    account_home_removed = _ChangeTypeCode('e_account', 'home_removed',
+                                           'home removed for %(subject)s')
     spread_add =  _ChangeTypeCode('spread', 'add',
                                   'add spread for %(subject)s')
     spread_del =  _ChangeTypeCode('spread', 'delete',
