@@ -189,8 +189,11 @@ def dependency_pending(dep_id):
     return False
 
 def process_email_requests():
+    global start_time
+    
     acc = Factory.get('Account')(db)
     br = BofhdRequests(db, const)
+    start_time = time.time()
     for r in br.get_requests(operation=const.bofh_email_create):
         logger.debug("Req: email_create %d at %s",
                      r['request_id'], r['run_at'])
@@ -204,6 +207,7 @@ def process_email_requests():
                 br.delay_request(r['request_id'])
             db.commit()
 
+    start_time = time.time()
     for r in br.get_requests(operation=const.bofh_email_hquota):
         logger.debug("Req: email_hquota %s", r['run_at'])
 	if keep_running() and r['run_at'] < br.now:
@@ -215,6 +219,7 @@ def process_email_requests():
                 br.delay_request(r['request_id'])
             db.commit()
 
+    start_time = time.time()
     for r in br.get_requests(operation=const.bofh_email_delete):
         logger.debug("Req: email_delete %s", r['run_at'])
 	if keep_running() and r['run_at'] < br.now:
@@ -247,6 +252,7 @@ def process_email_requests():
                 br.delay_request(r['request_id'])
             db.commit()
 
+    start_time = time.time()
     for r in br.get_requests(operation=const.bofh_email_move):
         logger.debug("Req: email_move %s %d", r['run_at'], int(r['state_data']))
 	if keep_running() and r['run_at'] < br.now:
@@ -299,6 +305,7 @@ def process_email_requests():
                 br.delay_request(r['request_id'])
             db.commit()
 
+    start_time = time.time()
     for r in br.get_requests(operation=const.bofh_email_convert):
         logger.debug("Req: email_convert %s", r['run_at'])
 	if keep_running() and r['run_at'] < br.now:
