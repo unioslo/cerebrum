@@ -98,7 +98,8 @@ def nwqsync(spreads):
         try:
             func = cltype[int(cll.change_type_id)]
         except KeyError:
-            int_log.write("#event_type %d not handled\n" % cll.change_type_id)
+	    pass
+            #int_log.write("#event_type %d not handled\n" % cll.change_type_id)
         else:
             exec cltype[int(cll.change_type_id)]
             clh.confirm_event(cll)
@@ -107,6 +108,7 @@ def nwqsync(spreads):
     clh.commit_confirmations()
 
 def ldap_connect(serv_l=None):
+    con = None
     global con
     if not serv_l:
 	serv_l = []
@@ -119,6 +121,7 @@ def ldap_connect(serv_l=None):
 	    con.protocol_version = ldap.VERSION3
 	except ldap.LDAPError, e:
 	    logger.warn(e)
+	    con = None
 
 def get_ldap_value(search_id,dn,retrieveAttributes=None):
     searchScope = ldap.SCOPE_SUBTREE
@@ -161,6 +164,8 @@ def add_ldap(obj_dn, attrs):
         ldap_handle.CreateObject(obj_dn, attrs)
 	attr = []
 	for obj,value in attrs:
+	    if obj == 'userPassword':
+		value = 'xxxxxx'
 	    attr.append((obj,[value,]))
 	log_str = '\n' + ldif.CreateLDIF(obj_dn,attr)
         int_log.write(log_str)
@@ -183,8 +188,9 @@ def attr_add_ldap(obj_dn, attrs):
 def attr_del_ldap(obj_dn, attrs):
     try:
         ldap_handle.DeleteAttributes(obj_dn, attrs)
+	attr = []
 	for obj,value in attrs:
-	    attr = [(ldap.MOD_DELETE,obj,value)]
+	    attr.append( (ldap.MOD_DELETE,obj,value))
 	log_str = '\n' + ldif.CreateLDIF(obj_dn,attr)
         int_log.write(log_str)
     except ldap.LDAPError, e:
@@ -196,10 +202,9 @@ def attr_mod_ldap(obj_dn, attrs):
         ldap_handle.ModifyAttributes(obj_dn, attrs)
 	attr = []
 	for obj,value in attrs:
-	   if obj == 'userPassword':
-		attr.append((ldap.MOD_REPLACE,obj,['xxxxxxx',]))
-	   else:
-		attr.append((ldap.MOD_REPLACE,obj,value))	
+	    if obj == 'userPassword':
+		value = 'xxxxxxx'
+	    attr.append((ldap.MOD_REPLACE,obj,value))	
 	log_str = '\n' + ldif.CreateLDIF(obj_dn,attr)
 	int_log.write(log_str)
     except ldap.LDAPError, e:
@@ -355,8 +360,12 @@ def change_group_spread(dn_id,ch_type,ch_params):
 
 def change_spread(dn_id,ch_type,ch_params):
     entity = Entity.Entity(db)
-    entity.find(int(dn_id))
-    """What to do with ch_param"""
+    try:
+	entity.find(int(dn_id))
+    except Errors.NotFoundError:
+	logger.info("Entity_id %d do not exist" % dn_id)
+	return
+    #What to do with ch_param
     if entity.entity_type == int(co.entity_account):
 	print "in user spread"
         change_user_spread(dn_id,ch_type,ch_params)
@@ -508,11 +517,14 @@ def main():
 					binddn=cereconf.NW_ADMINUSER, 
 					password=passwd, scope='sub')
 	ldap_connect()
-        load_cltype_table(cltype)                            
-        nwqsync(spread)
-        int_log.write("\n# End at  %s \n" % time.strftime("%a, 
+	if con:
+	    load_cltype_table(cltype)
+	    nwqsync(spread)
+	    int_log.write("\n# End at  %s \n" % time.strftime("%a, 
 						%d %b %Y %H:%M:%S +0000",
 						time.localtime()))
+	else:
+	    int_log.write("\n # Could not connect to server!")
 	int_log.close()
     else:
         usage(1);        
