@@ -27,6 +27,7 @@ The format of cereconf.QUARANTINE_RULES is
   { <quarantine_code_str>: [ {  
          'lock': <0|1>,  'shell': <shell>, ....,
          'spread': spread_code|[spread_codes]
+         'sort_num': unique_number
        } ] }
 
 I.e, a dict of quarantine_code_str points to a list of dicts (for
@@ -37,8 +38,8 @@ quarantine rule will only apply when the user has the spread in
 question.  A spread value '*' or absence of spread attr matches any
 spread.
 
-The module will probably be expanded at a later time to allow for
-ranking between quarantines etc.
+If multiple quarantines match, they are ordered by sort_num.  If
+sort_num is not set, int(QuarantineCode) is used.
 """
 
 import cereconf
@@ -49,6 +50,8 @@ class QuarantineHandler(object):
 #    __slots__ = 'quarantines'
 
     qc2rules = {}
+    _explicit_sort = None
+    
     def __init__(self, database, quarantines, spreads=None):
         """Constructs a QuarantineHandler.  quarantines should point
         to the quarantines that the user currently has.  Spreads is
@@ -63,6 +66,7 @@ class QuarantineHandler(object):
             # self.qc2rules = {'qc': {'spread_code': {settings} } }
             _QuarantineCode.sql = database
             _SpreadCode.sql = database
+            used_sort_nums = []
             for code, rules in cereconf.QUARANTINE_RULES.items():
                 qc_rules = {}
                 self.qc2rules[int(_QuarantineCode(code))] = qc_rules
@@ -70,6 +74,7 @@ class QuarantineHandler(object):
                     rules = (rules,)
                 for r in rules:
                     settings = r.copy()
+                    used_sort_nums.append(settings.get('sort_num', None))
                     if settings.has_key('spread'):
                         tmp_spreads = settings['spread']
                         del(settings['spread'])
@@ -81,7 +86,13 @@ class QuarantineHandler(object):
                         if c != '*':
                             c = int(_SpreadCode(c))
                         qc_rules[c] = settings
-                        
+            # sort_num must be unique if used
+            orig_len = len(used_sort_nums)
+            used_sort_nums = dict([(t, None) for t in used_sort_nums
+                                   if t is not None]).keys()
+            if len(used_sort_nums) != 0 and orig_len != len(used_sort_nums):
+                raise ValueError, "sort_num in QUARANTINE_RULES illegal"
+                    
         if quarantines is None:
             quarantines = []
         self.quarantines = quarantines
@@ -102,9 +113,13 @@ class QuarantineHandler(object):
             # spesific spread.
             for spread in self.spreads:
                 if spread2settings.has_key(spread):
-                    ret.append(spread2settings[spread])
+                    ret.append((spread2settings[spread], int(q)))
                     break
-        return ret
+        if self._explicit_sort:
+            ret.sort(lambda a, b: a[0]['sort_num'] - b[0]['sort_num'])
+        else:
+            ret.sort(lambda a, b: a[1] - b[1])
+        return [s[0] for s in ret]
 
     def get_shell(self):
         for m in self._get_matches():
@@ -143,9 +158,9 @@ def _test():
     # TODO: This should use the unit-testing framework, and use common
     # constants (which we currently don't have for spreads)    
     cereconf.QUARANTINE_RULES = {
-        'nologin': {'lock': 1, 'shell': 'nologin-shell'},
-        'system': [{'lock': 1, 'shell': 'nologin-shell'},
-                   {'spread': 'AD_account', 'shell': 'ad-shell'}]
+        'nologin': {'lock': 1, 'shell': 'nologin-shell', 'sort_num': 10},
+        'system': [{'lock': 1, 'shell': 'nologin-shell', 'sort_num': 2},
+                   {'spread': 'AD_account', 'shell': 'ad-shell', 'sort_num': 3}]
         }
     from Cerebrum.Utils import Factory
     db = Factory.get('Database')()
@@ -153,25 +168,25 @@ def _test():
 
     # Check with old cereconf syntax
     qh = QuarantineHandler(db, (co.quarantine_nologin,))
-    print "nolgin: L=", qh.is_locked(), "S=", qh.get_shell()
+    print "nolgin: L=%i, S=%s" % (qh.is_locked(), qh.get_shell())
 
     # New cereconf syntax, non-spread spesific
     qh = QuarantineHandler(db, (co.quarantine_system,))
-    print "system: L=", qh.is_locked(), "S=", qh.get_shell()
+    print "system: L=%i, S=%s" % (qh.is_locked(), qh.get_shell())
 
     # spread-spesific quarantine action, should not be locked
     qh = QuarantineHandler(db, (co.quarantine_system,),
                            spreads=(co.spread_uio_ad_account,))
-    print "system & AD: L=", qh.is_locked(), "S=", qh.get_shell()
+    print "system & AD: L=%i, S=%s" % (qh.is_locked(), qh.get_shell())
 
     # spread-specific quarantine action and another quarantine that
     # requires lock
     qh = QuarantineHandler(db, (co.quarantine_system, co.quarantine_nologin),
                            spreads=(co.spread_uio_ad_account,))
-    print "system & AD & L: L=", qh.is_locked(), "S=", qh.get_shell()
+    print "system & AD & L: L=%i, S=%s" % (qh.is_locked(), qh.get_shell())
 
     qh = QuarantineHandler.check_entity_quarantines(db, 67201)
-    print "An entity: L=", qh.is_locked(), "S=", qh.get_shell()
+    print "An entity: L=%i, S=%s" % (qh.is_locked(), qh.get_shell())
 
 if __name__ == '__main__':
     _test()
