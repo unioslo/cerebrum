@@ -323,7 +323,7 @@ def get_ad_objects(entity_type):
         
     ulist = {}
     count = 0
-    for row in ad_object.get_all_ad_objects(e_type):
+    for row in ad_object.list_ad_objects(e_type):
         count = count+1
         if count > 100: break
         id = row['entity_id']

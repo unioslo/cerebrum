@@ -55,15 +55,10 @@ class ADObject(EntityName, EntityQuarantine, Entity):
             return self.__super.__eq__(other)
         return False
 
-    def get_all_ad_objects(self,e_type):
+    def list_ad_objects(self,e_type):
         "get all users in the ad table"
         return self.query("""
         SELECT entity_id,ou_id
         FROM [:table schema=cerebrum name=ad_entity]
         WHERE entity_type=:e_type""",
                           {'e_type': int(e_type)})
-
-                          
-
-
-
