@@ -26,6 +26,7 @@ from Cerebrum import Errors
 from Cerebrum import Utils
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum.Utils import Factory
+from Cerebrum.Constants import _EntityTypeCode
 
 class Entity(DatabaseAccessor):
     """Class for generic access to Cerebrum entities.
@@ -267,7 +268,7 @@ class EntityName(Entity):
     
     def get_names(self):
         return self.query("""
-        SELECT en.entity_name, val.code_str
+        SELECT val.code_str AS domain, en.entity_name AS name
         FROM [:table schema=cerebrum name=entity_name] en
         JOIN [:table schema=cerebrum name=value_domain_code] val
         ON en.value_domain=val.code
@@ -602,3 +603,19 @@ class EntityQuarantine(Entity):
                       'q_type': type})
         self._db.log_change(self.entity_id, self.const.quarantine_del,
                             None, change_params={'q_type': type})
+
+def object_by_entityid(id, database): 
+    """Instanciates and returns a object of the proper class
+       based on the entity's type."""
+    entity = Entity(database)   
+    entity.find(id)
+    # nice - convert from almost-int to int to EntityTyoeCode to str 
+    type = str(_EntityTypeCode(int(entity.entity_type)))
+    try:
+        component = Factory.type_component_map.get(type)
+    except KeyError:
+        raise ValueError, "No component for type %s" % type
+    Class = Factory.get(component)
+    object = Class(database)
+    object.find(id)
+    return object        
