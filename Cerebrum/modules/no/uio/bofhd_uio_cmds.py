@@ -3721,7 +3721,10 @@ class BofhdExtension(object):
             ou = self._get_ou(ou_id=row['ou_id'])
             affiliations.append("%s@%s" % (self.num2const[int(row['affiliation'])],
                                            self._format_ou_name(ou)))
-        tmp = account.get_home(self.const.spread_uio_nis_user)
+        try:
+            tmp = account.get_home(self.const.spread_uio_nis_user)
+        except Errors.NotFoundError:
+            tmp = {'disk_id': None, 'home': None}
         ret = {'entity_id': account.entity_id,
                'spread': ",".join(["%s" % self.num2const[int(a['spread'])]
                                    for a in account.get_spread()]),
