@@ -14,7 +14,6 @@ $SortedTableTemplate().sorted_table($table, $headers, $url("sortpri=%s"), $url("
 
 #def viewCompleteHistoryLog($table)
 #set $headers = {'timestamp': $_("Timestamp"), 'icon': $_("Icon"), 'who': $_("Who"), 'message': $_("Message")}
-##<h1>$_("Entity") $entity.name</h1>
 <div class="historylog">
 <h2>History log</h2>
 $SortedTableTemplate().sorted_table($table, $headers, $url("sortpri=%s"), $url("sortby=%s"), "history")
