@@ -217,19 +217,37 @@ def join_printerquotas(old_id, new_id):
     term_init_prefix = PPQUtil.get_term_init_prefix(*time.localtime()[0:3])
     free_this_term = {}
     
+    # Now figure out if the user has been granted the same free-quota
+    # twice, and if so, undo the duplicate(s)
     for row in ppq.get_history_payments(
         transaction_type=co.pqtt_quota_fill_free,
         desc_mask=term_init_prefix+'%%',
         person_id=new_id, order_by_job_id=True):
-        free_id = row['description'][len(term_init_prefix):]
-        if free_this_term.has_key(free_id):
-            logger.debug("Undoing pq_job_id %i" % row['job_id'])
-            pq_util.undo_transaction(
-                new_id, row['job_id'], '',
-                'Join-persons resulted in duplicate free quota',
-                update_program='join_persons',
-                ignore_transaction_type=True)
-        free_this_term[free_id] = True
+
+        free_this_term[int(row['job_id'])] = row['description']
+
+    logger.debug("Free this_term: %s" % free_this_term)
+    for row in ppq.get_history_payments(
+        transaction_type=co.pqtt_undo,
+        person_id=new_id, order_by_job_id=True):
+
+        if free_this_term.has_key(int(row['target_job_id'])):
+            del free_this_term[int(row['target_job_id'])]
+
+    logger.debug("... removed already undone: %s" % free_this_term)
+    tmp = {}
+    for job_id, desc in free_this_term.items():
+        tmp.setdefault(desc, []).append(job_id)
+    logger.debug("Potential duplicates: %s" % tmp)
+    for desc, job_ids in tmp.items():
+        if len(job_ids) > 1:
+            for job_id in job_ids[1:]:
+                logger.debug("Undoing pq_job_id %i" % job_id)
+                pq_util.undo_transaction(
+                    new_id, job_id, '',
+                    'Join-persons resulted in duplicate free quota',
+                    update_program='join_persons',
+                    ignore_transaction_type=True)
 
 def usage(exitcode=0):
     print """join_persons.py [options] 
