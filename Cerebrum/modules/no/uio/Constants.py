@@ -200,6 +200,11 @@ class Constants(Constants.Constants):
                                      'OU included in LDAP directory')
     spread_uio_ad_account = _SpreadCode('AD_account', Constants.Constants.entity_account,'account included in Active Directory')
     spread_uio_ad_group = _SpreadCode('AD_group', Constants.Constants.entity_group,'group included in Active Directory')
+    spread_uio_ua = _SpreadCode('UA@uio', Constants.Constants.entity_person,
+                                'Person exported to UA')
+    spread_uio_imap = _SpreadCode('IMAP@uio', Constants.Constants.entity_account,
+                                  'IMAP account')
+
 
     # LDAP: Brukere, grupper
 
