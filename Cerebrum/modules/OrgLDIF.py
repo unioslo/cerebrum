@@ -217,12 +217,13 @@ Set cereconf.LDAP_ORG_ROOT to the organization's root ou_id or to None."""
         # returned parent DN must be None if it is to represent that DN.
         dn, entry = self.make_ou_entry(ou_id, parent_dn)
         if entry:
-            if dn in self.used_DNs:
+            norm_dn = normalize_string(dn)
+            if norm_dn in self.used_DNs:
                 self.logger.warn("Omitting ou_id %d: duplicate DN '%s'",
                                  ou_id, dn)
                 dn = parent_dn
             else:
-                self.used_DNs[dn] = True
+                self.used_DNs[norm_dn] = True
                 outfile.write(entry_string(dn, entry, False))
         return dn
 
