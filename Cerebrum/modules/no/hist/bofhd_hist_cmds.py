@@ -61,7 +61,7 @@ from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.uio import PrinterQuotas
 from Cerebrum.modules.no.hist import bofhd_hist_help
 # from Cerebrum.modules.no.hia.access_FS import HiAFS
-from Cerebrum.modules.no.hist.access_FS import HiSTFS
+from Cerebrum.modules.no.hist.access_FS import FS
 from Cerebrum.modules.templates.letters import TemplateHandler
 
 # TBD: It would probably be cleaner if our time formats were specified
@@ -169,6 +169,7 @@ class BofhdExtension(object):
 
     def get_format_suggestion(self, cmd):
         return self.all_commands[cmd].get_fs()
+
 
 
     #
@@ -309,8 +310,25 @@ class BofhdExtension(object):
 
     # def _get_access_id_maildom(self, target_name):
         
-    # def _get_access_id_ou(self, target_name):
+    def _get_access_id_ou(self, ou):
+	ou = self._get_ou(stedkode=ou)
+	return ou.entity_id, self.const.auth_target_type_ou
 
+    def _validate_access_ou(self, ou, attr):
+        try:
+            int(self.const.PersonAffiliation(attr))
+        except Errors.NotFoundError:
+            raise CerebrumError, "Must specify affiliation for ou access"
+
+    def _get_access_id_global_ou(self, ou):
+        if ou is not None and ou != '':
+            raise CerebrumError, "Cannot set OU for global access"
+        return None, self.const.auth_target_type_global_ou
+    def _validate_access_global_ou(self, ou, attr):
+        try:
+            int(self.const.PersonAffiliation(attr))
+        except Errors.NotFoundError:
+            raise CerebrumError, "Must specify affiliation for global ou access"
     # def _get_access_id_spread(self, target_name):
 
 
@@ -367,7 +385,6 @@ class BofhdExtension(object):
         if len(rows) == 0:
             ar.grant_auth(entity_id, opset.op_set_id, op_target_id)
             return "OK"
-        print "DEBUG", "hei"
         return "%s already has %s access to %s" % (entity_name, opset.name,
                                                    target_name)
 
@@ -382,8 +399,6 @@ class BofhdExtension(object):
         if len(rows) == 0:
             return "%s don't have %s access to %s" % (entity_name, opset.name,
                                                       target_name)
-        print ["%r" % x for x in (entity_id, opset, target_id, target_type,
-                                  attr, entity_name, target_name)]
         ar.revoke_auth(entity_id, opset.op_set_id, op_target_id)
         # See if the op_target has any references left, delete it if not.
         rows = ar.list(op_target_id=op_target_id)
@@ -396,6 +411,40 @@ class BofhdExtension(object):
     #
     # email commands
     #
+
+    # email set_primary_address account lp@dom
+    all_commands['email_set_primary_address'] = Command(
+	("email", "set_primary_address"),
+        AccountName(help_ref="account_name", repeat=False),
+        EmailAddress(help_ref='email_address', repeat=False),
+	perm_filter='is_superuser')
+    def email_set_primary_address(self, operator, uname, address):
+	et, acc = self.__get_email_target_and_account(uname)
+        ea = Email.EmailAddress(self.db)
+	if address == '':
+	    return "Primary address cannot be an empty string!"
+	lp, dom = address.split('@')
+        ed = self._get_email_domain(dom)
+        ea.clear()
+        try:
+            ea.find_by_address(address)
+            if ea.email_addr_target_id <> et.email_target_id:
+              raise CerebrumError, "Address (%s) is in use by another user" % address
+        except Errors.NotFoundError:
+            pass
+        ea.populate(lp, ed.email_domain_id, et.email_target_id)
+        ea.write_db()
+        epat = Email.EmailPrimaryAddressTarget(self.db)
+        epat.clear()
+        try:
+            epat.find(ea.email_addr_target_id)
+            epat.populate(ea.email_addr_id)
+        except Errors.NotFoundError:
+            epat.clear()
+            epat.find(ea.email_addr_target_id)
+            epat.populate(ea.email_addr_id, parent = et)
+        epat.write_db()
+        return "Registered %s as primary address for %s" % (address, acc.account_name)
 
     # email add_address <address or account> <address>+
     all_commands['email_add_address'] = Command(
@@ -2630,7 +2679,7 @@ class BofhdExtension(object):
         host = self._get_host(hostname)
         disks = {}
         disk = Utils.Factory.get('Disk')(self.db)
-        for row in disk.list(host.host_id):
+        for row in disk.list(host.host_id, filter_expired=False):
             disks[row['disk_id']] = {'disk_id': row['disk_id'],
                                      'host_id': row['host_id'],
                                      'path': row['path']}
@@ -2739,11 +2788,12 @@ class BofhdExtension(object):
         th = TemplateHandler(tpl_lang, tpl_name, tpl_type)
         tmp_dir = Utils.make_temp_dir(dir=cereconf.JOB_RUNNER_LOG_DIR,
                                       prefix="bofh_spool")
-        out_name = "%s/%s.%s" % (tmp_dir, "job", tpl_type)
+	out_name = "%s/%s-%s-%s.%s" % (tmp_dir, opr, time_temp, os.getpid(), tpl_type)
         out = file(out_name, "w")
         if th._hdr is not None:
             out.write(th._hdr)
-        ret = []
+	ret = []
+        num_ok = 0
         
         for n in self._parse_range(selection):
             n -= 1
@@ -3351,7 +3401,9 @@ class BofhdExtension(object):
         ("               %s [from %s]",
          ("affiliation", "source_system")),
         ("Fnr:           %s [from %s]",
-         ("fnr", "fnr_src"))
+         ("fnr", "fnr_src")),
+        ("Snr:           %s [from %s]",
+         ("snr", "snr_src"))
         ]))
     def person_info(self, operator, person_id):
         try:
@@ -3385,6 +3437,11 @@ class BofhdExtension(object):
                 data.append({'fnr': row['external_id'],
                              'fnr_src': str(
                     self.const.AuthoritativeSystem(row['source_system']))})
+        for row in person.get_external_id(id_type=self.const.externalid_studentnr):
+            data.append({'snr': row['external_id'],
+                             'snr_src': str(
+                    self.const.AuthoritativeSystem(row['source_system']))})
+        
         return data
 
     # person set_id
@@ -3404,11 +3461,12 @@ class BofhdExtension(object):
     #person set name
     all_commands['person_set_name'] = Command(
 	("person", "set_name"),PersonId(help_ref="person_id_other"),
-	PersonName(help_ref="person_name_full"),
+	PersonName(help_ref="person_name_first"),
+	PersonName(help_ref="person_name_last"),
 	fs=FormatSuggestion("Name altered for: %i",
         ("person_id",)),
 	perm_filter='is_superuser')
-    def person_set_name(self, operator, person_id, person_fullname):
+    def person_set_name(self, operator, person_id, person_name_first, person_name_last):
         person = self._get_person(*self._map_person_id(person_id))
         if not self.ba.is_superuser(operator.get_entity_id()):
             raise PermissionDenied("Currently limited to superusers")
@@ -3419,10 +3477,11 @@ class BofhdExtension(object):
 		raise CerebrumError, "You can't alter name of a person registered in an authorative source system!"
 	    else:
 		pass
-	    person.affect_names(self.const.system_manual, self.const.name_full)
-	    person.populate_name(self.const.name_full,
-				 person_fullname.encode('iso8859-1'))
-	    
+	    person.affect_names(self.const.system_manual, self.const.name_first, self.const.name_last)
+	    person.populate_name(self.const.name_first,
+				 person_name_first.encode('iso8859-1'))
+            person.populate_name(self.const.name_last,   
+                                 person_name_last.encode('iso8859-1'))   	    
 	    try:
 		person.write_db()
 	    except self.db.DatabaseError, m:
@@ -3434,8 +3493,8 @@ class BofhdExtension(object):
         ("person", "student_info"), PersonId(),
         fs=FormatSuggestion([
         ("Studieprogrammer: %s, %s, %s, tildelt=%s->%s privatist: %s",
-         ("studprogkode", "studierettstatkode", "opphortstatus", format_day("dato_tildelt"),
-          format_day("dato_gyldig_til"), "privatist")),
+         ("studprogkode", "studierettstatkode", "status", format_day("dato_studierett_tildelt"),
+          format_day("dato_studierett_gyldig_til"), "privatist")),
         ("Eksamensmeldinger: %s (%s), %s",
          ("ekskode", "programmer", format_day("dato"))),
         ("Utd. plan: %s, %s, %d, %s",
@@ -3444,7 +3503,7 @@ class BofhdExtension(object):
         ("Semesterreg: %s, %s, betalt: %s, endret: %s",
          ("regformkode", "betformkode", format_day("dato_betaling"),
           format_day("dato_regform_endret"))),
-        ("Klasse: %s, (%s)", ("klassekode", "kullkode"))
+        ("Kull: %s, (%s)", ("kullkode", "status_aktiv"))
 	]),
         perm_filter='can_get_student_info')
     def person_student_info(self, operator, person_id):
@@ -3457,43 +3516,43 @@ class BofhdExtension(object):
         fodselsdato, pnum = fodselsnr.del_fnr(fnr[0]['external_id'])
         har_opptak = {}
         ret = []
-        db = Database.connect(user="cerebrum", service="FSHIST.uio.no",
+        db = Database.connect(user="HISTBAS", service="FSHIST.uio.no",
                               DB_driver='Oracle')
-        fs = HiSTFS(db)
-        for row in fs.GetStudentStudierett(fodselsdato, pnum)[1]:
+        fs = FS(db)
+        for row in fs.student.get_studierett(fodselsdato, pnum):
             har_opptak["%s" % row['studieprogramkode']] = \
 			    row['status_privatist']
             ret.append({'studprogkode': row['studieprogramkode'],
                         'studierettstatkode': row['studierettstatkode'],
-                        'opphortstatus': row['opphortstudierettstatkode'],
-                        'dato_tildelt': DateTime.DateTimeFromTicks(row['dato_tildelt']),
-                        'dato_gyldig_til': DateTime.DateTimeFromTicks(row['dato_gyldig_til']),
+                        'status': row['studentstatkode'], 
+                        'dato_studierett_tildelt': DateTime.DateTimeFromTicks(row['dato_studierett_tildelt']),
+                        'dato_studierett_gyldig_til': DateTime.DateTimeFromTicks(row['dato_studierett_gyldig_til']), 
                         'privatist': row['status_privatist']})
 
-        for row in fs.GetStudentEksamen(fodselsdato, pnum)[1]:
+        for row in fs.student.get_eksamensmeldinger(fodselsdato, pnum):
             programmer = []
-            for row2 in fs.GetEmneIStudProg(row['emnekode'])[1]:
+            for row2 in fs.info.get_emne_i_studieprogram(row['emnekode']):
                 if har_opptak.has_key("%s" % row2['studieprogramkode']):
                     programmer.append(row2['studieprogramkode'])
             ret.append({'ekskode': row['emnekode'],
                         'programmer': ",".join(programmer),
                         'dato': DateTime.DateTimeFromTicks(row['dato_opprettet'])})
                       
-        for row in fs.GetStudentUtdPlan(fodselsdato, pnum)[1]:
+        for row in fs.student.get_utdanningsplan(fodselsdato, pnum):
             ret.append({'studieprogramkode': row['studieprogramkode'],
                         'terminkode_bekreft': row['terminkode_bekreft'],
                         'arstall_bekreft': row['arstall_bekreft'],
                         'dato_bekreftet': DateTime.DateTimeFromTicks(row['dato_bekreftet'])})
 
-        for row in fs.GetStudentSemReg(fodselsdato, pnum)[1]:
+        for row in fs.student.get_semreg(fodselsdato, pnum):
             ret.append({'regformkode': row['regformkode'],
                         'betformkode': row['betformkode'],
                         'dato_betaling': DateTime.DateTimeFromTicks(row['dato_betaling']),
                         'dato_regform_endret': DateTime.DateTimeFromTicks(row['dato_regform_endret'])})
 
-	for row in fs.GetStudentKullOgKlasse(fodselsdato, pnum)[1]:
-	    ret.append({'kullkode': row['kullkode'],
-			'klassekode': row['klassekode']})
+#	for row in fs.GetStudentKull(fodselsdato, pnum)[1]:
+#	    ret.append({'kullkode': "%s-%s-%s" % (row['studieprogramkode'], row['terminkode_kull'], row['arstall_kull']),
+#                        'status_aktiv': row['status_aktiv']})
 
         db.close()
         return ret
@@ -3512,7 +3571,7 @@ class BofhdExtension(object):
         new_priority = int(new_priority)
         ou = None
         affiliation = None
-        for row in account.get_account_types():
+        for row in account.get_account_types(filter_expired=False):
             if row['priority'] == old_priority:
                 ou = row['ou_id']
                 affiliation = row['affiliation']
@@ -3826,6 +3885,9 @@ class BofhdExtension(object):
                         ("%8i %s", int(c[i]['person_id']),
                          person.get_name(self.const.system_cached, self.const.name_full)),
                         int(c[i]['person_id'])))
+                if not len(map) > 1: 
+                    raise CerebrumError, "No persons matched"
+
                 return {'prompt': "Choose person from list",
                         'map': map,
                         'help_ref': 'user_create_select_person'}
@@ -3834,8 +3896,7 @@ class BofhdExtension(object):
 	    person = self._get_person("entity_id", owner_id)
             existing_accounts = []
             account = self.Account_class(self.db)
-            for r in account.list_accounts_by_owner_id(person.entity_id,
-                                                       filter_expired=False):
+            for r in account.list_accounts_by_owner_id(person.entity_id, filter_expired=False):
                 account = self._get_account(r['account_id'], idtype='id')
                 if account.expire_date:
                     exp = account.expire_date.strftime('%Y-%m-%d')
@@ -3862,7 +3923,8 @@ class BofhdExtension(object):
                         self.num2const[int(aff['affiliation'])],
                         self.num2const[int(aff['status'])],
                         self._format_ou_name(ou))
-                    map.append((("%s", name), int(aff['affiliation'])))
+                    map.append((("%s", name), 
+				{'ou_id': int(aff['ou_id']), 'aff': int(aff['affiliation'])}))
                 if not len(map) > 1:
                     raise CerebrumError(
                         "Person has no affiliations. Try person affiliation_add")
@@ -4099,7 +4161,7 @@ class BofhdExtension(object):
         if account.is_deleted() and not self.ba.is_superuser(operator.get_entity_id()):
             raise CerebrumError("User is deleted")
         affiliations = []
-        for row in account.get_account_types(filter_expired=False):
+        for row in account.get_account_types():
             ou = self._get_ou(ou_id=row['ou_id'])
             affiliations.append("%s@%s" % (self.num2const[int(row['affiliation'])],
                                            self._format_ou_name(ou)))
@@ -4329,21 +4391,21 @@ class BofhdExtension(object):
 
 
     # user showpass
-    all_commands['user_showpass'] = Command(
-        ("user", "showpass"), AccountName(), perm_filter='is_superuser')
-    def user_showpass(self, operator, accountname):
-        account = self._get_account(accountname)
-        self.ba.can_set_password(operator.get_entity_id(), account)
-        passwords = self.db.get_log_events(types=(int(self.const.account_password),),
-                    subject_entity = account.entity_id)
-        pwd_rows = [row for row in passwords]
-        try:
-          pwd = pickle.loads(pwd_rows[-1].change_params)['password']
-        except:
-          type, value, tb = sys.exc_info()
-          print "Error: %s %s" % (str(type), str(value))
-          pwd = ''
-        return ("Password: %s" % pwd)
+    # all_commands['user_showpass'] = Command(
+    #    ("user", "showpass"), AccountName(), perm_filter='is_superuser')
+    # def user_showpass(self, operator, accountname):
+    #    account = self._get_account(accountname)
+    #    self.ba.can_set_password(operator.get_entity_id(), account)
+    #    passwords = self.db.get_log_events(types=(int(self.const.account_password),),
+    #                subject_entity = account.entity_id)
+    #    pwd_rows = [row for row in passwords]
+    #    try:
+    #      pwd = pickle.loads(pwd_rows[-1].change_params)['password']
+    #    except:
+    #      type, value, tb = sys.exc_info()
+    #      print "Error: %s %s" % (str(type), str(value))
+    #      pwd = ''
+    #    return ("Password: %s" % pwd)
 	
     # user promote_posix
     all_commands['user_promote_posix'] = Command(
@@ -4502,7 +4564,7 @@ class BofhdExtension(object):
             raise PermissionDenied("only superusers may assign account ownership")
         new_owner = self._get_entity(entity_type, id)
         if account.owner_type == self.const.entity_person:
-            for row in account.get_account_types(filter_expired=False):
+            for row in account.get_account_types():
                 account.del_account_type(row['ou_id'], row['affiliation'])
         account.owner_type = new_owner.entity_type
         account.owner_id = new_owner.entity_id
@@ -4761,8 +4823,11 @@ class BofhdExtension(object):
     def _map_person_id(self, id):
         """Map <idtype:id> to const.<idtype>, id.  Recognizes
         fødselsnummer without <idtype>.  Also recognizes entity_id"""
-        if id.isdigit() and len(id) >= 10:
-            return self.const.externalid_fodselsnr, id
+        if id.isdigit():
+            if len(id) >= 10:
+              return self.const.externalid_fodselsnr, id
+            elif len(id) == 6:
+              return self.const.externalid_studentnr, id
         if id.find(":") == -1:
             self._get_account(id)  # We assume this is an account
             return "account_name", id

@@ -30,7 +30,7 @@ from Cerebrum import Database
 from Cerebrum import Errors
 from Cerebrum.extlib import xmlprinter
 from Cerebrum.Utils import XMLHelper, MinimumSizeWriter, AtomicFileWriter
-from Cerebrum.modules.no.hist.access_FS import HiSTFS
+from Cerebrum.modules.no.hist.access_FS import FS
 from Cerebrum.Utils import Factory
 
 default_person_file = "/cerebrum/dumps/FS/person.xml"
@@ -48,26 +48,35 @@ fs = None
 KiB = 1024
 MiB = KiB**2
 
+def _ext_cols(db_rows):
+    # TBD: One might consider letting xmlify_dbrow handle this
+    cols = None
+    if db_rows:
+        cols = list(db_rows[0]._keys())
+    return cols, db_rows
+
+
+
 def write_hist_person_info(outfile):
     f = MinimumSizeWriter(outfile)
     f.set_minimum_size_limit(1*MiB)
     f.write(xml.xml_hdr + "<data>\n")
 
     #Aktive ordinære studenter ved HiST
-    cols, histaktiv = fs.GetAktive()
+    cols, histaktiv = _ext_cols(fs.student.GetAktive())
     for a in histaktiv:
 	fix_float(a)
         f.write(xml.xmlify_dbrow(a,xml.conv_colnames(cols),'aktiv') + "\n")
     #Privatister ved HiST
-    cols, histprivatist = fs.GetPrivatist()
+    cols, histprivatist = _ext_cols(fs.student.GetPrivatist())
     for p in histprivatist:
 	f.write(xml.xmlify_dbrow(p,xml.conv_colnames(cols),'privatist_studieprogram') + "\n")
     #Personer som har tilbud om opptak ved HiST
-#    cols, histtilbud = fs.GetTilbud(cereconf.DEFAULT_INSTITUSJONSNR)
+#    cols, histtilbud = _ext_cols(fs.student.GetTilbud(cereconf.DEFAULT_INSTITUSJONSNR))
 #    for t in histtilbud:
 #        f.write(xml.xmlify_dbrow(t,xml.conv_colnames(cols),'tilbud') + "\n")
     #EVU-studenter ved HiST
-    cols, histevu = fs.GetDeltaker()
+    cols, histevu = _ext_cols(fs.student.GetDeltaker())
     for e in histevu:
         f.write(xml.xmlify_dbrow(e,xml.conv_colnames(cols),'evu') + "\n")
 
@@ -79,7 +88,7 @@ def write_ou_info(outfile):
     f = MinimumSizeWriter(outfile)
     f.set_minimum_size_limit(5*KiB)
     f.write(xml.xml_hdr + "<data>\n")
-    cols, ouer = fs.GetAlleOUer(cereconf.DEFAULT_INSTITUSJONSNR)  # TODO
+    cols, ouer = _ext_cols(fs.student.GetAlleOUer(cereconf.DEFAULT_INSTITUSJONSNR))  # TODO
     for o in ouer:
         sted = {}
         for fs_col, xml_attr in (
@@ -126,7 +135,7 @@ def write_role_info(outfile):
     f = MinimumSizeWriter(outfile)
     f.set_minimum_size_limit(5*KiB)
     f.write(xml.xml_hdr + "<data>\n")
-    cols, role = fs.GetAllePersonRoller(cereconf.DEFAULT_INSTITUSJONSNR)
+    cols, role = _ext_cols(fs.GetAllePersonRoller(cereconf.DEFAULT_INSTITUSJONSNR))
     for r in role:
 	f.write(xml.xmlify_dbrow(r, xml.conv_colnames(cols), 'role') + "\n")
     f.write("</data>\n")
@@ -138,7 +147,7 @@ def write_undenh_metainfo(outfile):
     f.set_minimum_size_limit(100*KiB)
     f.write(xml.xml_hdr + "<undervenhet>\n")
     for semester in ('current', 'next'):
-        cols, undenh = fs.GetUndervEnhet(sem=semester)
+        cols, undenh = _ext_cols(fs.GetUndervEnhet(sem=semester))
         for u in undenh:
             f.write(xml.xmlify_dbrow(u, xml.conv_colnames(cols), 'undenhet')
                     + "\n")
@@ -154,13 +163,13 @@ def write_undenh_student(outfile):
     f.set_minimum_size_limit(10*KiB)
     f.write(xml.xml_hdr + "<data>\n")
     for semester in ('current', 'next'):
-        cols, undenh = fs.GetUndervEnhet(sem=semester)
+        cols, undenh = _ext_col1(fs.GetUndervEnhet(sem=semester))
         for u in undenh:
             u_attr = {}
             for k in ('institusjonsnr', 'emnekode', 'versjonskode',
                       'terminnr', 'terminkode', 'arstall'):
                 u_attr[k] = u[k]
-            student_cols, student = fs.GetStudenterUndervEnhet(**u_attr)
+            student_cols, student = _ext_cols(fs.GetStudenterUndervEnhet(**u_attr)) 
             for s in student:
                 s_attr = u_attr.copy()
                 for k in ('fodselsdato', 'personnr'):
@@ -176,7 +185,7 @@ def write_studprog_info(outfile):
     f = MinimumSizeWriter(outfile)
     f.set_minimum_size_limit(50*KiB)
     f.write(xml.xml_hdr + "<data>\n")
-    cols, dta = fs.GetStudieproginf()
+    cols, dta = _ext_cols(fs.student.GetStudieproginf())
     for t in dta:
         f.write(xml.xmlify_dbrow(t, xml.conv_colnames(cols), 'studprog')
                 + "\n")
@@ -187,7 +196,7 @@ def write_emne_info(outfile):
     """Lager fil med informasjon om alle definerte emner"""
     f=open(outfile, 'w')
     f.write(xml.xml_hdr + "<data>\n")
-    cols, dta = fs.GetAlleEmner()
+    cols, dta = _ext_cols(fs.student.GetAlleEmner())
     for t in dta:
         f.write(xml.xmlify_dbrow(t, xml.conv_colnames(cols), 'emne') + "\n")
     f.write("</data>\n")
@@ -207,7 +216,7 @@ def write_fnrupdate_info(outfile):
 
     writer.startElement("data", {"source_system" : str(const.system_fs)})
 
-    junk, data = fs.GetFnrEndringer()
+    junk, data = _ext_cols(fs.GetFnrEndringer())
     for row in data:
         # Make the format resemble the corresponding FS output as close as
         # possible.
@@ -260,7 +269,7 @@ def assert_connected(user="CEREBRUM", service="FSHIA.uio.no"):
     if fs is None:
         db = Database.connect(user=user, service=service,
                               DB_driver='Oracle')
-        fs = HiSTFS(db)
+        fs = FS(db)
 
 def main():
     try:
@@ -325,5 +334,17 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+
+
+
+
+
+
+
+
+
+
+
 
 # arch-tag: 6819a45d-89b6-4ab0-8111-14bb53b4f8bc

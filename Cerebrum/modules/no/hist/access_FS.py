@@ -22,9 +22,10 @@ import os
 import sys
 import time
 
-from Cerebrum.modules.no.uio.access_FS import FS
+# from Cerebrum.modules.no.uio.access_FS import FS
+from Cerebrum.modules.no import access_FS
 
-class HiSTFS(FS):
+class HiSTStudent(access_FS.Student):
     """FS klassen definerer et sett med metoder som kan benyttes for å
     hente ut informasjon om personer og OU-er fra FS. De fleste
     metodene returnerer en tuple med kolonnenavn fulgt av en tuple med
@@ -269,14 +270,118 @@ WHERE institusjonsnr='%s'
 	return self.db.query(qry)
         
 
+
+##################################################################
+# Metoder brukt av bofh
+##################################################################
+ 
+    def GetStudentEksamen(self,fnr,pnr):
+        """Hent alle eksamensmeldinger for en student for nåværende
+        semester"""
+        qry = """
+SELECT DISTINCT
+   em.emnekode, em.dato_opprettet, em.status_er_kandidat
+FROM fs.eksamensmelding em, fs.person p
+WHERE em.fodselsdato = :fnr AND
+      em.personnr = :pnr AND
+      em.fodselsdato = p.fodselsdato AND
+      em.personnr = p.personnr AND
+      em.arstall >= :year AND
+      em.manednr > :mnd - 3
+      AND %s 
+        """ % self.is_alive()
+        return (self._get_cols(qry), self.db.query(qry, {'fnr': fnr,
+                                                         'pnr': pnr,
+                                                         'year': self.year,
+                                                         'mnd': self.mndnr}))
+ 
+    def GetStudentStudierett(self,fnr,pnr):
+        """Hent info om alle studierett en student har eller har hatt"""
+        qry = """
+SELECT DISTINCT
+  sps.studieprogramkode, sps.studierettstatkode,
+sps.dato_studierett_tildelt,
+  sps.dato_studierett_gyldig_til, sps.status_privatist, sps.studentstatkode
+FROM fs.studieprogramstudent sps, fs.person p
+WHERE sps.fodselsdato=:fnr AND
+      sps.personnr=:pnr AND
+      p.fodselsdato = sps.fodselsdato AND
+      p.personnr = sps.personnr AND
+      %s 
+        """ % self.is_alive()
+        return (self._get_cols(qry), self.db.query(qry, {'fnr': fnr, 
+                                                         'pnr': pnr}))
+
+
+    def GetStudentSemReg(self,fnr,pnr):
+        """Hent data om semesterregistrering for student i nåværende semester."""
+        qry = """
+SELECT DISTINCT
+  r.regformkode, r.betformkode, r.dato_betaling, r.dato_regform_endret
+FROM fs.registerkort r, fs.person p
+WHERE r.fodselsdato = :fnr AND
+      r.personnr = :pnr AND
+      %s AND 
+      r.fodselsdato = p.fodselsdato AND
+      r.personnr = p.personnr AND
+      %s 
+        """ %(self.get_termin_aar(only_current=1),self.is_alive())
+        return (self._get_cols(qry), self.db.query(qry, {'fnr': fnr, 'pnr': pnr}))
+ 
+
+    def GetStudentUtdPlan(self,fnr,pnr):
+        """Hent opplysninger om utdanningsplan for student"""
+        qry = """
+SELECT DISTINCT
+  utdp.studieprogramkode, utdp.terminkode_bekreft, utdp.arstall_bekreft,
+  utdp.dato_bekreftet
+FROM fs.studprogstud_planbekreft utdp, fs.person p
+WHERE utdp.fodselsdato = :fnr AND
+      utdp.personnr = :pnr AND
+      utdp.fodselsdato = p.fodselsdato AND
+      utdp.personnr = p.personnr AND
+      %s 
+        """ % self.is_alive()
+        return (self._get_cols(qry), self.db.query(qry, {'fnr': fnr, 'pnr': pnr}))
+
+
+    def GetStudentKull(self, fnr, pnr):
+        """Hent opplysninger om hvilken klasse studenten er en del av og 
+        hvilken kull studentens klasse tilhører."""
+        qry = """
+SELECT DISTINCT
+  sps.studieprogramkode, sps.terminkode_kull, sps.arstall_kull,
+  k.status_aktiv
+FROM fs.studieprogramstudent sps, fs.kull k, fs.person p
+WHERE sps.fodselsdato = :fnr AND
+      sps.personnr = :pnr AND
+      p.fodselsdato = sps.fodselsdato AND
+      p.personnr = sps.personnr AND
+      sps.studieprogramkode = k.studieprogramkode AND
+      sps.terminkode_kull = k.terminkode AND
+      sps.arstall_kull = k.arstall AND
+      %s 
+      """ % self.is_alive()
+        return (self._get_cols(qry), self.db.query(qry, {'fnr': fnr, 'pnr': pnr}))
+ 
+    def GetEmneIStudProg(self,emne):
+        """Hent alle studieprogrammer et gitt emne kan inngå i."""
+        qry = """
+SELECT DISTINCT 
+  studieprogramkode   
+FROM fs.emne_i_studieprogram
+WHERE emnekode = :emne
+      """  
+        return (self._get_cols(qry), self.db.query(qry, {'emne': emne}))
+
+
+
 ##################################################################
 # Hjelpemetoder  
 ##################################################################
 
     def is_alive(self):	
 	return "NVL(p.status_dod, 'N') = 'N'\n"
-
-
 ##################################################################
 # Metoder for å luke ut feil i FS  
 ##################################################################
@@ -301,6 +406,16 @@ ORDER BY sps.studieprogramkode
 	return self.db.query(qry)
 
 
-#   
+
+class FS(access_FS.FS): 
+    def __init__(self, db=None, user=None, database=None): 
+        super(FS, self).__init__(db=db, user=user, database=database)
+ 
+        # Override with uio-spesific classes 
+        self.student = HiSTStudent(self.db)
+#        self.portal = UiOPortal(self.db)
+#        self.betaling = UiOBetaling(self.db) 
+
+
 
 # arch-tag: edebb9a0-5e67-4fb6-91a3-da5536ec4dfa
