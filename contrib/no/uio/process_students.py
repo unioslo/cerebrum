@@ -131,6 +131,9 @@ def update_account(profile, account_ids, account_info={}):
             user.gid = profile.get_dfg()
             if user.gid_id != old_gid:
                 changes.append("dfg %s->%s" % (user.gid_id, old_gid))
+        else:
+            user.clear()
+            user.find(account_id)  # If it don't exist, it is a bug
 
         if user.expire_date:
             user.expire_date = default_expire_date
