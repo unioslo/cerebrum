@@ -1,6 +1,8 @@
 # -*- coding: iso-8859-1 -*-
 # Copyright 2002, 2003 University of Oslo, Norway
-    
+
+import xmlrpclib
+
 def native_to_xmlrpc(obj, no_unicodify=0):
     """Translate Python objects to XML-RPC-usable structures."""
     if obj is None:
