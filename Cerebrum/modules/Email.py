@@ -461,14 +461,19 @@ class EmailAddress(EmailEntity):
         SELECT address_id
         FROM [:table schema=cerebrum name=email_address]""", fetchall=False)
 
-    def list_email_addresses_ext(self):
+    def list_email_addresses_ext(self, domain=None):
         """Return address_id, target_id, local_part and domainof all
         EmailAddress in database"""
+        with_domain = ""
+        if domain is not None:
+            with_domain = " AND d.domain = :domain"
         return self.query("""
         SELECT a.address_id, a.target_id, a.local_part, d.domain
         FROM [:table schema=cerebrum name=email_address] a,
              [:table schema=cerebrum name=email_domain] d
-        WHERE a.domain_id = d.domain_id""", fetchall=False)
+        WHERE a.domain_id = d.domain_id""" + with_domain,
+                          {'domain': domain},
+                          fetchall=False)
 
     def get_target_id(self):
         """Return target_id of this EmailAddress in database"""
