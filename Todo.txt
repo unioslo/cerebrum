@@ -18,6 +18,9 @@
   Assigned to: runefro
   Due date:
   Priority: 4 (Innebærer at mreg er på plass)
+  Status: Det er restartet en aktivitet for å få etablert noe i løpet
+          av ikke alt for lang tid.  Aktiviteten ledes av Petter
+          Reinholdsen.
 
 ** Rekursive grupper
 
@@ -351,6 +354,8 @@
   Priority: 3
 
 ** Støtte for å hente FS-data fra FS v5.0
+
+
   Description: FS har skrevet om sentrale deler av database-skjemaet.
                Cerebrum må støtte det nye skjemaet.  Det er for tiden
                uklart hva det betyr.
@@ -377,6 +382,53 @@
   Status:
   Due date:
   Priority: 3
+
+** Støtte for å hente FS-data fra FS v5.1
+
+  Description: FS 5.1 slippes i mars 2005, og vil trolig komme i
+               produksjon ved UiO mot slutten av april.  Denne
+               versjonen gir oss en avvikling av doktorgradsmodulen,
+               slik at disse blir studieprogramstudenter.  Videre vil
+               denne versjonen bringe personroller som eneste måte å
+               angi roller i forhold til entiteter i FS.
+
+               Denne vil medføre behov for omskriving av UiO sin
+               CF-eksport.
+
+  Dependencies:
+  Assigned to:
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority: 1
+
+*** Utvide access_FS.py til også å hente inn personroller
+
+  Description: Denne er alt laget og i bruk ved HiA.  Vi trenger
+               trolig å se litt på den, bla for å se på hva vi kan
+               gjøre for å redusere mengden feil registreringer som vi
+               i dag ser fra HiA.
+
+  Dependencies:
+  Assigned to:
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority: 1
+
+** Støtte for å hente FS-data fra FS v5.2
+
+  Description: Slippes november 2005.  Uvisst nå hva den bringer med
+               seg.
+
+  Assigned to:
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority: 1
 
 ** Import av kull/klasser/studieretninger fra FS
   Description: Versjon 5.0 av FS rydder opp i en del uklarheter rundt
@@ -1005,6 +1057,18 @@
   Resources: baardj
   Cost:
   Status: Done
+  Due date:
+  Priority: 2
+
+** Ta i bruk personroller
+
+  Description: FS 5.1 har lærere/forelesere i en egen personrolle
+               tabell i stede for aktivitet/emne spesifikke.
+  Dependencies:
+  Assigned to: igorr
+  Resources: baardj, hmeland
+  Cost:
+  Status: 
   Due date:
   Priority: 2
 
