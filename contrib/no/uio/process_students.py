@@ -302,6 +302,9 @@ def process_students_callback(person_info):
     logger.debug2(logger.pformat(person_info))
     try:
         profile = autostud.get_profile(person_info)
+        if len(profile.matches) == 0:
+            logger.warn("No matching profiles for %s" % fnr)
+            return
     except Errors.NotFoundError, msg:
         logger.warn("  Error for %s: %s" %  (fnr, msg))
         logger.set_indent(0)
