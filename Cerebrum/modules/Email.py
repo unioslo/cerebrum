@@ -927,18 +927,18 @@ class EmailForward(EmailTarget):
                                                'forward': forward,
                                                'enable': enable})
 
-    def _set_forward_enable(self, forward, enable):
+    def _set_forward_enable(self, enable):
         return self.execute("""
         UPDATE [:table schema=cerebrum name=email_forward]
         SET enable=:enable
         WHERE target_id=:t_id""", {'t_id': self.email_target_id,
                                    'enable': enable})
 
-    def enable_forward(self, forward):
-        return self._set_forward_enable(forward, 'T')
+    def enable_forward(self):
+        return self._set_forward_enable('T')
 
-    def disable_forward(self, forward):
-        return self._set_forward_enable(forward, 'F')
+    def disable_forward(self):
+        return self._set_forward_enable('F')
 
     def get_forward(self):
         return self.query("""
