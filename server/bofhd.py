@@ -269,7 +269,8 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
             logger.warn("Not-implemented: ", exc_info=1)
             raise CerebrumError, "NotImplemented: %s" % str(e)
         except TypeError, e:
-            if str(e).find("takes exactly") != -1:
+            if (str(e).find("takes exactly") != -1 or
+                str(e).find("takes at most") != -1):
                 raise CerebrumError, str(e)
             logger.warn("Unexpected exception", exc_info=1)
             ret = "Unknown error (a server error has been logged)."
@@ -422,7 +423,7 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
             for line in f.readlines():
                 ret += line
         if (client_id is not None and
-            cereconf.BOFHD_CLIENTS.get(client_id, '') != client_version):
+            cereconf.BOFHD_CLIENTS.get(client_id, '') > client_version):
             ret += "You do not seem to run the latest version of the client\n"
         return ret[:-1]
 ##     def validate(self, argtype, arg):
