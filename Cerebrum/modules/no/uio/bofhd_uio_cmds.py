@@ -1,6 +1,5 @@
 # -*- coding: iso-8859-1 -*-
 # Copyright 2002, 2003 University of Oslo, Norway
-
 # Denne fila implementerer er en bofhd extension som i størst mulig
 # grad forsøker å etterligne kommandoene i ureg2000 sin bofh klient.
 #
@@ -49,7 +48,8 @@ class BofhdExtension(object):
     OU_class = Utils.Factory.get('OU')
     external_id_mappings = {}
     format_time = "date:dd.MM.yy HH:mm"
-    format_day = "date:dd.MM.yy"
+    #format_day = "date:dd.MM.yy"
+    format_day = "date:yyyy-MM-dd"
 
     def __init__(self, server):
         self.server = server
@@ -243,9 +243,9 @@ class BofhdExtension(object):
     # group info
     all_commands['group_info'] = Command(
         ("group", "info"), GroupName(),
-        fs=FormatSuggestion([("Name: %s\nSpreads: %s\nDescription: %s\nExpire: %s\nentity id: %i",
+        fs=FormatSuggestion([("Name:\t\t%s\nSpreads:\t%s\nDescription:\t%s\nExpire:\t\t%s\nEntity id:\t%i",
                               ("name", "spread", "desc", "expire:%s" % format_day, "entity_id")),
-                             ("Gid: %i", ('gid',))]))
+                             ("Gid:\t\t%i", ('gid',))]))
     def group_info(self, operator, groupname):
         # TODO: Group visibility should probably be checked against
         # operator for a number of commands
@@ -257,7 +257,7 @@ class BofhdExtension(object):
             grp = self._get_group(groupname)
         ret = {'entity_id': grp.entity_id,
                'name': grp.group_name,
-               'spread': ",".join(["%s" % self.num2const[int(a['spread'])]
+               'spread': ", ".join(["%s" % self.num2const[int(a['spread'])]
                                    for a in grp.get_spread()]),
                'desc': grp.description,
                'expire': grp.expire_date}
@@ -978,8 +978,8 @@ class BofhdExtension(object):
     # person find
     all_commands['person_find'] = Command(
         ("person", "find"), PersonSearchType(), SimpleString(),
-        fs=FormatSuggestion("%6i %-8s %10s %s", ('id', 'birth:%s' % format_day, 'export_id', 'name'),
-                            hdr="%6s %-8s %10s %s" % ('Id', 'Birth', 'Exp-id', 'Name')))
+        fs=FormatSuggestion("%6i \t%8s \t%10s \t%s", ('id', 'birth:%s' % format_day, 'export_id', 'name'),
+                            hdr="%6s \t%8s \t%10s \t%s" % ('Id', 'Birth', 'Exp-id', 'Name')))
     def person_find(self, operator, search_type, value):
         # TODO: Need API support for this
         matches = []
@@ -1009,11 +1009,11 @@ class BofhdExtension(object):
     # person info
     all_commands['person_info'] = Command(
         ("person", "info"), PersonId(),
-        fs=FormatSuggestion("Name: %s\nExport ID: %s\nBirth: %s\nAffiliations: %s",
+        fs=FormatSuggestion("Name:\t\t%s\nExport ID:\t%s\nBirth:\t\t%s\nAffiliations:\t%s",
                             ("name", "export_id", "birth:%s" % format_day, "affiliations")))
     def person_info(self, operator, person_id):
         try:
-            perseon = self._get_person(*self._map_person_id(person_id))
+            person = self._get_person(*self._map_person_id(person_id))
         except Errors.TooManyRowsError:
             raise CerebrumError("Unexpectedly found more than one person")
         affiliations = []
@@ -1025,7 +1025,7 @@ class BofhdExtension(object):
                 self._format_ou_name(ou)))
         return {'name': person.get_name(self.const.system_cached,
                                         getattr(self.const, cereconf.DEFAULT_GECOS_NAME)),
-                'affiliations': ", ".join(affiliations),
+                'affiliations': ", \n\t\t".join(affiliations),
                 'export_id': person.export_id,
                 'birth': person.birth_date}
 
@@ -1602,10 +1602,10 @@ class BofhdExtension(object):
     # user info
     all_commands['user_info'] = Command(
         ("user", "info"), AccountName(),
-        fs=FormatSuggestion([("Spreads: %s\nAffiliations: %s\n"+
-                              "Expire: %s\nHome: %s\nentity id: %i",
+        fs=FormatSuggestion([("Spreads:\t%s\nAffiliations:\t%s\n"+
+                              "Expire:\t\t%s\nHome:\t\t%s\nEntity id:\t%i",
                               ("spread", "affiliations", "expire:%s" % format_day, "home", "entity_id")),
-                             ("uid: %i\ndefault fg: %i=%s\ngecos: %s\nshell: %s",
+                             ("uid:\t\t%i\ndefault fg:\t%i=%s\ngecos:\t\t%s\nshell:\t\t%s",
                               ('uid', 'dfg_posix_gid', 'dfg_name', 'gecos', 'shell'))]))
     def user_info(self, operator, accountname):
         is_posix = False
@@ -1624,7 +1624,7 @@ class BofhdExtension(object):
         ret = {'entity_id': account.entity_id,
                'spread': ",".join(["%s" % self.num2const[int(a['spread'])]
                                    for a in account.get_spread()]),
-               'affiliations': ",".join(affiliations),
+               'affiliations': ", \n\t\t".join(affiliations),
                'expire': account.expire_date,
                'home': account.home}
         if account.disk_id is not None:
