@@ -801,20 +801,25 @@ class EmailVacation(EmailTarget):
                              'start': start})
 
 
-class EmailPrimaryAddress(EmailTarget):
+class EmailPrimaryAddressTarget(EmailTarget):
     __read_attr__ = ('__in_db',)
     __write_attr__ = ('email_primaddr_id',)
 
     def clear(self):
         self.__super.clear()
-        self.clear_class(EmailPrimaryAddress)
+        self.clear_class(EmailPrimaryAddressTarget)
         self.__updated = False
 
-    def populate(self, address_id):
+    def populate(self, address_id, parent=None):
+        if parent is not None:
+            self.__xerox__(parent)
         try:
             if not self.__in_db:
                 raise RuntimeError, "populate() called multiple times."
         except AttributeError:
+            if parent is None:
+                raise RunTimeError, \
+                      "Can't populate EmailPrimaryAddressTarget w/o parent."
             self.__in_db = False
         self.email_primaddr_id = address_id
 

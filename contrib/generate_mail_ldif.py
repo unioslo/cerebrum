@@ -98,7 +98,7 @@ def write_misc(t):
 
 
 def write_ldif():
-    mail_prim = Email.EmailPrimaryAddress(Cerebrum)
+    mail_prim = Email.EmailPrimaryAddressTarget(Cerebrum)
 
     for t in targets:
         mail_targ.clear()
