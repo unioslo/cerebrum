@@ -323,12 +323,15 @@ class OU(EntityContactInfo, EntityAddress, Entity, EntityQuarantine):
         FROM [:table schema=cerebrum name=ou_structure]
         WHERE parent_id ISNULL""")
 
-    def search(self, name=None, acronym=None, short_name=None
-               display_name=None, sort_name=None):
+    def search(self, spread=None, name=None, acronym=None,
+               short_name=None, display_name=None, sort_name=None):
         """Retrives a list of OUs filtered by the given criterias.
         
         Returns a list of tuples with the info (ou_id, name).
-        If no criteria is given, all OUs are returned."""
+        If no criteria is given, all OUs are returned. ``name``, ``acronum``,
+        ``short_name``, ``display_name`` and ``sort_name`` should be string if
+        given. ``spread`` can be either string or int. Wildcards * and ? are
+        expanded for "any chars" and "one char"."""
 
         def prepare_string(value):
             value = value.replace("*", "%")
@@ -340,7 +343,7 @@ class OU(EntityContactInfo, EntityAddress, Entity, EntityQuarantine):
         where = []
         tables.append("[:table schema=cerebrum name=ou_info] oi")
 
-        if spread:
+        if spread is not None:
             tables.append("[:table schema=cerebrum name=entity_spread] es")
             where.append("oi.ou_id=es.entity_id")
             where.append("es.entity_type=:entity_type")
@@ -354,25 +357,25 @@ class OU(EntityContactInfo, EntityAddress, Entity, EntityQuarantine):
             else:
                 where.append("es.spread=:spread")
 
-        if name:
+        if name is not None:
             name = prepare_string(name)
             where.append("LOWER(oi.name) LIKE :name")
 
-        if acronym:
+        if acronym is not None:
             acronym = prepare_string(acronym)
             where.append("LOWER(oi.acronym) LIKE :acronym")
 
-        if short_name:
+        if short_name is not None:
             short_name = prepare_string(short_name)
             where.append("LOWER(oi.short_name) LIKE :short_name")
 
-        if display_name:
+        if display_name is not None:
             display_name = prepare_string(display_name)
             where.append("LOWER(oi.display_name) LIKE :display_name")
         
-        if sort_name:
+        if sort_name is not None:
             sort_name = prepare_string(sort_name)
-            where.append("LOWE(oi.sort_name) LIKE :sort_name")
+            where.append("LOWER(oi.sort_name) LIKE :sort_name")
 
         where_str = ""
         if where:
@@ -380,7 +383,7 @@ class OU(EntityContactInfo, EntityAddress, Entity, EntityQuarantine):
 
         return self.query("""
         SELECT DISTINCT oi.ou_id AS ou_id, oi.name AS name
-        FROM %s %s""", % (','.join(tables), where_str),
+        FROM %s %s""" % (','.join(tables), where_str),
             {'spread': spread, 'entity_type': int(self.const.entity_ou),
              'name': name, 'acronym': acronym, 'short_name': short_name,
              'display_name': display_name, 'sort_name': sort_name})

@@ -1067,7 +1067,10 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
         """Retrieves a list over Persons filtered by the given criterias.
         
         Returns a list of tuples with the info (person_id, name, description).
-        If no criteria is given, all persons are returned."""
+        If no criteria is given, all persons are returned. ``name`` and
+        ``description`` should be strings if given. ``spread`` can be either
+        string or int. Wildcards * and ? are expanded for "any chars" and
+        "one char"."""
 
         def prepare_string(value):
             value = value.replace("*", "%")
@@ -1081,7 +1084,7 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
         tables.append("[:table schema=cerebrum name=person_name] pn")
         where.append("pi.person_id=pn.person_id")
 
-        if spread:
+        if spread is not None:
             tables.append("[:table schema=cerebrum name=entity_spread] es")
             where.append("pi.person_id=es.entity_id")
             where.append("es.entity_type=:entity_type")
@@ -1095,17 +1098,17 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
             else:
                 where.append("es.spread=:spread")
 
-        if exclude_deceased:
-            where.append("pi.deceased LIKE F")
-
-        if name:
+        if name is not None:
             name = prepare_string(name)
             where.append("LOWER(pn.name) LIKE :name")
 
-        if description:
+        if description is not None:
             description = prepare_string(description)
             where.append("LOWER(pi.description) LIKE :description")
         
+        if exclude_deceased:
+            where.append("pi.deceased LIKE F")
+
         where_str = ""
         if where:
             where_str = "WHERE " + " AND ".join(where)

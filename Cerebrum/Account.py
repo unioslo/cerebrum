@@ -773,7 +773,10 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine, Entity):
         """Retrieves a list of Accounts filtered by the given criterias.
         
         Returns a list of tuples with the info (account_id, name).
-        If no criteria is given, all accounts are returned."""
+        If no criteria is given, all accounts are returned. ``name`` should
+        be string if given. ``spead`` can either be string or int. ``owner_id``
+        and ``owner_type`` should be int. Wildcards * and ? are expanded for
+        "any chars" and "one char"."""
 
         def prepare_string(value):
             value = value.replace("*", "%")
@@ -788,7 +791,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine, Entity):
         where.append("en.entity_id=ai.account_id")
         where.append("en.value_domain=:vdomain")
 
-        if spread:
+        if spread is not None:
             tables.append("[:table schema=cerebrum name=entity_spread] es")
             where.append("ai.account_id=es.entity_id")
             where.append("es.entity_type=:entity_type")
@@ -802,18 +805,18 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine, Entity):
             else:
                 where.append("es.spread=:spread")
 
-        if exclude_expired:
-            where.append("(ai.expire_date IS NULL OR ai.expire_date > [:now])")
-
-        if name:
+        if name is not None:
             name = prepare_string(name)
             where.append("LOWER(en.entity_name) LIKE :name")
 
-        if owner_id:
+        if owner_id is not None:
             where.append("ai.owner_id=:owner_id")
 
-        if owner_type:
+        if owner_type is not None:
             where.append("ai.owner_type=:owner_type")
+
+        if exclude_expired:
+            where.append("(ai.expire_date IS NULL OR ai.expire_date > [:now])")
 
         where_str = ""
         if where:

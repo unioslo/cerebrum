@@ -408,20 +408,21 @@ class Group(EntityQuarantine, EntityName, Entity):
         return self.search(filter_spread=spread)
 
     def search(self, filter_spread=None, filter_name=None, filter_desc=None,
-               spread=None, name=None, description=None, exclude_expired=False):
+               exclude_expired=False, spread=None, name=None, description=None):
         """Retrieves a list of groups filtered by the given criterias.
-           (list of tuples (group_id, name, description)).
-           If no criteria is given, all groups are returned.
-           ``filter_name`` and ``filter_desc`` should be strings if
-           given, wildcards * and ? are expanded for "any chars" and
-           "one char".""" 
+        
+        Returns a list of tuples with the info  (group_id, name, description)).
+        If no criteria is given, all groups are returned. ``name`` and
+        ``description`` should be strings if given. ``spread`` can be either
+        string or int. Wildcards * and ? are expanded for "any chars" and
+        "one char". ``filter_*`` are DEPRECATED."""
 
         # If the new names arent use, use the old ones.
-        if not spread:
+        if spread is None:
             spread = filter_spread
-        if not name:
+        if name is None:
             name = filter_name
-        if not description:
+        if description is None:
             description = filter_desc
 
         def prepare_string(value):
@@ -437,7 +438,7 @@ class Group(EntityQuarantine, EntityName, Entity):
         where.append("en.entity_id=gi.group_id")
         where.append("en.value_domain=:vdomain")
         
-        if spread:
+        if spread is not None:
             tables.append("[:table schema=cerebrum name=entity_spread] es")
             where.append("gi.group_id=es.entity_id")
             where.append("es.entity_type=:entity_type")
@@ -455,16 +456,16 @@ class Group(EntityQuarantine, EntityName, Entity):
                 # Go for the simple int version
                 where.append("es.spread=:spread")
 
-        if exclude_expired:
-            where.append("(gi.expire_date IS NULL OR gi.expire_date > [:now])")
-
-        if name:
+        if name is not None:
             name = prepare_string(name)
             where.append("LOWER(en.entity_name) LIKE :name")
 
-        if description:
+        if description is not None:
             description = prepare_string(description)
             where.append("LOWER(gi.description) LIKE :description")
+
+        if exclude_expired:
+            where.append("(gi.expire_date IS NULL OR gi.expire_date > [:now])")
             
         where_str = ""
         if where:

@@ -173,7 +173,10 @@ class Disk(Entity):
         """Retrives a list of Disks filtered by the given criterias.
         
         Returns a list of tuples with the info (disk_id, path, description).
-        If no criteria is given, all persons are returned."""
+        If no criteria is given, all persons are returned. ``path`` and 
+        ``description`` should be strings if given. ``host_id`` should be int.
+        ``spread`` can be either string or int. Wildcards * and ? are expanded
+        for "any chars" and "one char"."""
 
         def prepare_string(value):
             value = value.replace("*", "%")
@@ -185,7 +188,7 @@ class Disk(Entity):
         where = []
         tables.append("[:table schema=cerebrum name=disk_info] di")
 
-        if spread:
+        if spread is not None:
             tables.append("[:table schema=cerebrum name=entity_spread] es")
             where.append("di.disk_id=es.entity_id")
             where.append("es.entity_type=:entity_type")
@@ -199,14 +202,14 @@ class Disk(Entity):
             else:
                 where.append("es.spread=:spread")
 
-        if host_id:
+        if host_id is not None:
             where.append("di.host_id=:host_id")
             
-        if path:
+        if path is not None:
             path = prepare_string(path)
             where.append("LOWER(di.path) LIKE :path")
 
-        if description:
+        if description is not None:
             description = prepare_string(description)
             where.append("LOWER(di.description) LIKE :description")
         
@@ -339,7 +342,9 @@ class Host(Entity):
         """Retrieves a list of Hosts filtered by the given criterias.
 
         Returns a list of tuples with the info (host_id, name, description).
-        If no criteria is given, all hosts are returned."""
+        If no criteria is given, all hosts are returned. ``name`` and
+        ``description`` should be strings if given. Wildcards * and ? are
+        expanded for "any chars" and "one char"."""
     
         def prepare_string(value):
             value = value.replace("*", "%")
@@ -351,11 +356,11 @@ class Host(Entity):
         where = []
         tables.append("[:table schema=cerebrum name=host_info] hi")
 
-        if name:
+        if name is not None:
             name = prepare_string(name)
             where.append("LOWER(hi.name) LIKE :name")
 
-        if description:
+        if description is not None:
             description = prepare_string(description)
             where.append("LOWER(hi.description) LIKE :description")
 
