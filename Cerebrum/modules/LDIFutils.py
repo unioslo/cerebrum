@@ -124,7 +124,7 @@ def entry_string(dn, attrs, add_rdn = True):
 
 def container_entry_string(tree_name, attrs = {}):
     """Return a string with an LDIF entry for the specified container entry."""
-    entry = dict(cereconf2utf('LDAP_CONTAINER_ATTRS'))
+    entry = dict(cereconf2utf('LDAP_CONTAINER_ATTRS', {}))
     entry.update(attrs)
     entry.update(cereconf2utf('LDAP_%s_ATTRS' % tree_name, {}))
     return entry_string(get_tree_dn(tree_name), entry)
