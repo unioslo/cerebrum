@@ -62,7 +62,7 @@ class BofhdRequests(object):
             'entity_id': entity_id,
             'destination_id': destination_id,
             'state_data': state_data,
-            'request_id': int(self.nextval('request_id_seq'))
+            'request_id': int(self._db.nextval('request_id_seq'))
             }
         
         self._db.execute("""
@@ -97,7 +97,7 @@ class BofhdRequests(object):
             cols['requestee_id'] = operator_id
         if operation is not None:
             cols['operation'] = int(operation)
-        qry = """SELECT requestee_id, run_at, operation, entity_id, destination_id, state_data
+        qry = """SELECT request_id, requestee_id, run_at, operation, entity_id, destination_id, state_data
         FROM [:table schema=cerebrum name=bofhd_request]"""
         ret = self._db.query("%s WHERE %s" % (qry, " AND ".join(["%s=:%s" % (x, x) for x in cols.keys()])), cols)
         if given:
