@@ -48,11 +48,11 @@ host_config = {
                           'plain_users': ['mgrude', 'gunnarfk'],
                           'spread': 'spread_fronter_kladdebok'
                           },
-#    'petra.uio.no': { 'DBinst': 'DLODEMO.uio.no',
-#                      'admins': AllAdmins,
-#                      'export': ['FS', 'All_users'],
-#                      'spread': 'spread_fronter_petra'
-#                      },
+    'petra.uio.no': { 'DBinst': 'DLODEMO.uio.no',
+                      'admins': AllAdmins,
+                      'export': ['FS', 'All_users'],
+                      'spread': 'spread_fronter_petra'
+                      },
     'blyant.uio.no': { 'DBinst': 'DLOPROD.uio.no',
                        'admins': AllAdmins,
                        'export': ['FS', 'All_users'],
