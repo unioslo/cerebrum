@@ -3938,7 +3938,7 @@ class BofhdExtension(object):
             ret.append({'studprogkode': row['studieprogramkode'],
                         'studierettstatkode': row['studierettstatkode'],
                         'studentstatkode': row['studentstatkode'],
-			'studieretning': row['studieretninhkode'],
+			'studieretningkode': row['studieretningkode'],
                         'dato_tildelt': DateTime.DateTimeFromTicks(row['dato_studierett_tildelt']),
                         'dato_gyldig_til': DateTime.DateTimeFromTicks(row['dato_studierett_gyldig_til']),
                         'privatist': row['status_privatist']})
