@@ -14,23 +14,23 @@ import sys
 import time
 
 import cereconf
-from cmd_param import *
 from Cerebrum import Account
+from Cerebrum import Disk
+from Cerebrum import Entity
 from Cerebrum import Errors
 from Cerebrum import Group
 from Cerebrum import Person
-from Cerebrum import Disk
-from Cerebrum import Entity
-from Cerebrum.modules import PosixGroup
-from Cerebrum.modules.no.uio import PrinterQuotas
-from Cerebrum.Utils import Factory
-from Cerebrum.modules.templates.letters import TemplateHandler
-from server.bofhd import BofhdRequests
-from server.bofhd_errors import CerebrumError
-from Cerebrum.modules.no.uio import bofhd_uio_help
 from Cerebrum.Constants import _CerebrumCode, _QuarantineCode, _SpreadCode,\
      _PersonAffiliationCode, _PersonAffStatusCode
+from Cerebrum.Utils import Factory
+from Cerebrum.modules import PosixGroup
 from Cerebrum.modules import PosixUser
+from Cerebrum.modules.bofhd.cmd_param import *
+from Cerebrum.modules.bofhd.errors import CerebrumError
+from Cerebrum.modules.bofhd.utils import BofhdRequests
+from Cerebrum.modules.no.uio import PrinterQuotas
+from Cerebrum.modules.no.uio import bofhd_uio_help
+from Cerebrum.modules.templates.letters import TemplateHandler
 
 class BofhdExtension(object):
     """All CallableFuncs takes user as first arg, and is responsible
@@ -389,7 +389,6 @@ class BofhdExtension(object):
         ret = []
         for r in br.get_requests(operator_id=operator.get_entity_id(), given=True):
             op = self.num2const[int(r['operation'])]
-            print op
             dest = None
             if op in (self.const.bofh_move_user, self.const.bofh_move_request):
                 disk = Disk.Disk(self.db)
