@@ -664,7 +664,7 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
         FROM [:table schema=cerebrum name=person_info]""")
 
 
-    def list_extended_person(self, spread=None, include_quarantines=0):
+    def list_extended_person(self, spread=None, include_quarantines=0, incl_mail=False):
         """ Multiple join's to increase performance on LDAP-dump"""
         efrom = ewhere = ecols = ""
         if include_quarantines:
@@ -674,10 +674,24 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
         if spread is not None:
             efrom += """  JOIN [:table schema=cerebrum name=entity_spread] es
             ON pi.person_id=es.entity_id AND es.spread=:spread"""
+        if incl_mail:
+            ecols += ", ea.local_part, ed.domain"
+            efrom += """LEFT JOIN [:table schema=cerebrum name=email_target] et
+             ON at.account_id=et.entity_id AND et.target_type=:em_type
+                                           AND et.entity_type=:em_type
+          LEFT JOIN [:table schema=cerebrum name=email_primary_address] epa
+             ON et.target_id=epa.target_id
+          LEFT JOIN [:table schema=cerebrum name=email_address] ea
+             ON epa.address_id=ea.address_id
+          LEFT JOIN [:table schema=cerebrum name=email_domain] ed
+             ON ea.domain_id=ed.domain_id""" % locals(),
+            {'em_type' : int(self.const.email_target_account)}
+
+            
         return self.query("""
-        SELECT DISTINCT pi.person_id, pi.birth_date, pei.external_id, pn.name, en.entity_name,
-         eci.contact_value, aa.auth_data, at.ou_id, at.affiliation, ea.local_part, ed.domain,
-	 pas.status, eci3.contact_value AS fax %(ecols)s 
+        SELECT DISTINCT pi.person_id, pi.birth_date, pei.external_id, pn.name,
+         en.entity_name, eci.contact_value, aa.auth_data, at.ou_id, at.affiliation,
+         pas.status, eci3.contact_value AS fax %(ecols)s 
 	FROM
           [:table schema=cerebrum name=person_info] pi
           JOIN [:table schema=cerebrum name=account_type] at
@@ -709,14 +723,6 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
                 eci3.contact_pref=(SELECT MIN(contact_pref)
                 FROM [:table schema=cerebrum name=entity_contact_info] eci4
                 WHERE eci4.entity_id = pi.person_id)
-          LEFT JOIN [:table schema=cerebrum name=email_target] et
-             ON at.account_id=et.entity_id AND et.target_type=:em_type AND et.entity_type=:et_type
-          LEFT JOIN [:table schema=cerebrum name=email_primary_address] epa
-             ON et.target_id=epa.target_id
-          LEFT JOIN [:table schema=cerebrum name=email_address] ea
-             ON epa.address_id=ea.address_id
-          LEFT JOIN [:table schema=cerebrum name=email_domain] ed
-             ON ea.domain_id=ed.domain_id
           LEFT JOIN [:table schema=cerebrum name=person_affiliation_source] pas
              ON pi.person_id=pas.person_id AND at.affiliation=pas.affiliation AND at.ou_id=pas.ou_id
                 AND pas.source_system=(SELECT MIN(source_system) FROM
@@ -729,6 +735,5 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
                            'pn_nv': int(self.const.name_full),
 			   'eci_phone': int(self.const.contact_phone),
                            'et_type': int(self.const.entity_account),
-                           'em_type': int(self.const.email_target_account),
                            'aa_method': int(self.const.auth_type_md5_crypt)})
 
