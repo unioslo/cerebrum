@@ -235,6 +235,10 @@ def process_person(person):
     new_person.populate_external_id(
         const.system_lt, const.externalid_fodselsnr, fnr)
 
+    # If it's a new person, we need to call write_db() to have an entity_id
+    # assigned to it.
+    op = new_person.write_db()
+
     # TODO: We currently do nothing with PROSENT_TILSETTING
     affiliations = determine_affiliations(person)
     new_person.populate_affiliation(const.system_lt)
@@ -270,17 +274,17 @@ def process_person(person):
             new_person.populate_address(
                 const.system_lt, type=const.address_street,
                 **sted['addr'])
-    op = new_person.write_db()
+    op2 = new_person.write_db()
     if gen_groups == 1:
         # determine_reservation() needs new_person.entity_id to be
         # set; this should always be the case after write_db() is
         # done.
         determine_reservations(person)
-    if op is None:
+    if op is None and op2 is None:
         logger.info2("**** EQUAL ****")
     elif op == True:
         logger.info2("**** NEW ****")
-    elif op == False:
+    else:
         logger.info2("**** UPDATE ****")
 
 def usage(exitcode=0):
