@@ -21,62 +21,42 @@ import crypt
 
 import Cerebrum.Account
 
-from Cerebrum.extlib import sets
-
-
-from GroBuilder import GroBuilder
 from Builder import Attribute, Method
-from CerebrumClass import CerebrumAttr, CerebrumEntityAttr
+from CerebrumClass import CerebrumAttr
 
 import Registry
 registry = Registry.get_registry()
 
-Entity = registry.Entity
+from Entity import Entity
 
-__all__ = ['Account', 'AccountAuthentication']
+__all__ = ['Account']
 
 class Account(Entity):
-    # hmm.. skipper np_type inntil videre. og konseptet rundt home/disk er litt føkka
-    slots = Entity.slots + [CerebrumAttr('name', 'string', 'account_name', write=True),
-                            CerebrumEntityAttr('owner', 'long', Entity, 'owner_id'),
-                            CerebrumAttr('create_date', 'Date'),
-                            CerebrumEntityAttr('creator', 'long', Entity, 'creator_id'),
-                            CerebrumAttr('expire_date', 'Date', write=True)]
-    method_slots = Entity.method_slots + [Method('get_authentications', 'AccountAuthentication'),
-                                          Method('authenticate', 'boolean', [('password', 'string')])]
+    slots = Entity.slots + [
+        CerebrumAttr('name', str, 'account_name', write=True),
+        CerebrumAttr('owner', Entity, 'owner_id'),
+        CerebrumAttr('create_date', str),
+        CerebrumAttr('creator', Entity, 'creator_id'),
+        CerebrumAttr('expire_date', str, write=True)
+    ]
 
     cerebrum_class = Cerebrum.Account.Account
+
+registry.register_class(Account)
+
+#def get_accounts(self):
+#    s = registry.AccountSearch(self)
+#    s.set_owner(self)
+#    return s.search()
+
+def get_accounts(self):
+    e = Account.cerebrum_class(self.get_database())
+
+    accounts = []
+    for row in e.list_accounts_by_owner_id(self.get_id()):
+        accounts.append(registry.Account(int(row['account_id'])))
+    return accounts
+
+Entity.register_method(Method('get_accounts', Account, sequence=True), get_accounts)
     
-    def get_authentications(self): # jada... dette skal bort/gjøres på en annen måte
-        authentications = []
-        for row in self.get_database().query('''SELECT account_id, method, auth_data
-                               FROM account_authentication
-                               WHERE account_id = %s''' % self._entity_id):
-            authentications.append(AccountAuthentication.getByRow(row))
-        return authentications
-
-    def authenticate(self, password):
-        e = Cerebrum.Account.Account(self.get_database())
-
-        for auth in self.get_authentications():
-            auth_data = auth.get_auth_data()
-            if auth_data == crypt.crypt(password, auth_data):
-                return True
-        return False
-
-class AccountAuthentication(GroBuilder):
-    primary = [Attribute('account_id', 'Account'),
-               Attribute('method', 'AuthenticationType')]
-    slots = primary + [Attribute('auth_data', 'string', write=True)]
-
-    def getByRow(cls, row):
-        account_id = int(row['account_id'])
-        method = registry.AuthenticationType(id=int(row['method']))
-        auth_data = row['auth_data']
-
-        return cls(account_id=account_id,
-                   method=method,
-                   auth_data=auth_data)
-    getByRow = classmethod(getByRow)
-
 # arch-tag: 96b23dbe-d907-44f6-b6ac-a953ec3034e0

@@ -20,10 +20,15 @@
 from GroBuilder import GroBuilder
 from Builder import Attribute, Method
 
+import Registry
+
+registry = Registry.get_registry()
+
 __all__ = ['Date']
 
 class Date(GroBuilder):
-    primary = [Attribute('date', 'long')]
-    slots = primary
+    primary = [Attribute('date', int)]
+
+registry.register_class(Date)
 
 # arch-tag: b91bce22-4551-41a3-a2ea-b84cd02944f2
