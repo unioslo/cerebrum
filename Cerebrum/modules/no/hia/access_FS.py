@@ -200,6 +200,24 @@ WHERE p.fodselsdato=d.fodselsdato AND
       NVL(e.dato_til, SYSDATE) >= SYSDATE - 30"""
         return (self._get_cols(qry), self.db.query(qry))
 
+    def GetAlleEksamensmeldinger(self):  # GetAlleEksamener
+	"""Hent ut alle eksamensmeldinger i nåværende sem.
+	samt fnr for oppmeldte(topics.xml)"""
+        # TODO: Det er mulig denne skal splittes i to søk, ett som
+        # returnerer lovlige, og et som returnerer "ulovlige"
+        # eksamensmeldinger (sistnevnte er vel GetStudinfPrivatist?)
+	aar = time.localtime()[0:1]
+	qry = """
+SELECT p.fodselsdato, p.personnr, e.emnekode, e.studieprogramkode
+FROM fs.person p, fs.eksamensmelding e
+WHERE p.fodselsdato=e.fodselsdato AND
+      p.personnr=e.personnr AND
+      e.arstall=%s 
+      AND %s
+ORDER BY fodselsdato, personnr
+      """ %(aar[0],self.is_alive())                            
+      	return (self._get_cols(qry), self.db.query(qry))
+
     def GetFnrEndringer(self):
         """Hent informasjon om alle registrerte fødselsnummerendringer"""
         qry = """
@@ -518,15 +536,15 @@ WHERE emnekode = :emne
 
 # oppdatere til fs.person
     def GetAllPersonsUname(self, fetchall = False):
-        return self.db.query("""
+        return self.db.query("""select fodselsdato, personnr,
         SELECT fodselsdato, personnr, brukernavn
-        FROM fs.personreg""", fetchall = fetchall)
+        FROM fs.person""", fetchall = fetchall)
     # end GetAllPersonsUname
 
 
     def WriteUname(self, fodselsdato, personnr, uname):
         self.db.execute("""
-        UPDATE fs.personreg
+        UPDATE fs.person
         SET brukernavn = :uname
         WHERE fodselsdato = :fodselsdato AND personnr = :personnr""",
                         {'fodselsdato': fodselsdato,
@@ -547,53 +565,17 @@ WHERE emnekode = :emne
     def get_next_termin_aar(self):
 	"""en fin metode som henter neste semesters terminkode og årstal."""
 	yr, mon, md = time.localtime()[0:3]
-	# This is an ugly hack and will have to go shortly. The purpose is
-	# to pick out UNDERVISNINGSENHETER and such from last semester so that 
-	# they may be accessed by the students and teachers at HiA
-	# The proper solution to the problem is an implementation of Fronters
-	# import script which can deal with this
-	if (mon < 3 or (mon == 3 and md <= 15)):
-	    next = "(r.terminkode LIKE 'V_R' AND r.arstall=%s)\n" % yr
-	# fi
-	elif mon <= 6:
+	if mon <= 6:
 	    next = "(r.terminkode LIKE 'H_ST' AND r.arstall=%s)\n" % yr
 	else:
 	    next = "(r.terminkode LIKE 'V_R' AND r.arstall=%s)\n" % (yr + 1)
 	return next
 
-##    def get_termin_aar(self, only_current=0):
-##         yr, mon, md = time.localtime()[0:3]
-##         if mon <= 6:
-##             # Months January - June == Spring semester
-##             current = "(r.terminkode LIKE 'V_R' AND r.arstall=%s)\n" % yr;
-##             if only_current or mon >= 3 or (mon == 2 and md > 15):
-##                 return current
-##             return "(%s OR (r.terminkode LIKE 'H_ST' AND r.arstall=%d))\n" % (
-##                 current, yr-1)
-##         # Months July - December == Autumn semester
-##         current = "(r.terminkode LIKE 'H_ST' AND r.arstall=%d)\n" % yr
-##         if only_current or mon >= 10 or (mon == 9 and md > 15):
-##             return current
-##         return "(%s OR (r.terminkode LIKE 'V_R' AND r.arstall=%d))\n" % (current, yr)
-
-# This is an ogly hack and will have to go shortly. The purpose is
-# to pick out UNDERVISNINGSENHETER and such from last semester so that 
-# they may be accessed by the students and teachers at HiA
-# The proper solution to the problem is an implementation of Fronters
-# import script which can deal with this
-# The hack actually tricks the fetch-methods into believing that we are in
-# the autumn semester 2004 until march 15-th 2005
-
     def get_termin_aar(self, only_current=0):
         yr, mon, md = time.localtime()[0:3]
-	if (mon < 3 or (mon == 3 and md < 15)):
-	    current = "(r.terminkode LIKE 'H_ST' AND r.arstall=%d)\n" % (yr-1)
-	    if only_current:
-		return current
-	    return "(%s OR (r.terminkode LIKE 'V_R' AND r.arstall=%d))\n" % (current, yr)
         if mon <= 6:
             # Months January - June == Spring semester
-            current = "(r.terminkode LIKE 'V_R' AND r.arstall=%s)\n" % yr
+            current = "(r.terminkode LIKE 'V_R' AND r.arstall=%s)\n" % yr;
             if only_current or mon >= 3 or (mon == 2 and md > 15):
                 return current
             return "(%s OR (r.terminkode LIKE 'H_ST' AND r.arstall=%d))\n" % (
