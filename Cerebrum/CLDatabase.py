@@ -22,8 +22,8 @@ cl = Factory.get('ChangeLog')
 
 class CLDatabase(db, cl):
     def __init__(self, *args, **kwd):
-        super(CLDatabase, self).__init__(*args, **kwd)
         self.cl_init()
+        super(CLDatabase, self).__init__(*args, **kwd)
 
     def rollback(self):
         self.rollback_log()
