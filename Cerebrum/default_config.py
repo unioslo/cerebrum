@@ -260,6 +260,7 @@ PGP_ENC_OPTS = ['--encrypt', '--armor', '--batch', '--quiet']
 
 # Generation of LDIF-file for organizational data
 CLASS_ORGLDIF = ['Cerebrum.modules.OrgLDIF/OrgLDIF']
+CLASS_POSIXLDIF = ['Cerebrum.modules.PosixLDIF/PosixLDIF']
 
 # General LDAP info
 LDAP = {
@@ -285,6 +286,11 @@ LDAP = {
     # Sequence of Constants.py varnames for OpenLDAP userPassword values.
     'auth_methods': ('auth_type_md5_crypt',),
 
+    # To support future formats of userPassword (smd5, glibc etc)
+    # and authPassword. Support priority of hash'es inside list.
+    # Example with "libc" md5 hash "{crypt}$1$salt$digest
+    'auth_attr':{'userPassword':[('MD5-crypt','{crypt}%s'),]},
+    
     # Default 'max_change' for the LDAP_<tree>s
     'max_change': 10,
     }
