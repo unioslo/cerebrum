@@ -40,9 +40,20 @@ class Caching(object):
 
         # FIXME: vi trenger låsing her
 
+        nocache = vargs.get('nocache', False)
+        if 'nocache' in vargs:
+            del vargs['nocache']
+
         # getting the key to uniquely identify this object
         primary_key = cls.create_primary_key(*args, **vargs)
+        assert type(primary_key) == tuple
         key = cls, primary_key # cls is inserted to avoid collisions
+
+        if nocache:
+            self = object.__new__(cls)
+            self.nocache = nocache
+            self._key = key
+            return self
 
         # if it allready exists, return the old one
         if key in cls.cache:
@@ -50,6 +61,7 @@ class Caching(object):
         
         # create a new object
         self = object.__new__(cls)
+        self.nocache = nocache
 
         cls.cache_object(self, primary_key)
 
