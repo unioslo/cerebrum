@@ -229,6 +229,9 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
             # ret = ":".join((":Exception:", type(e).__name__, str(e)))
             ret = str(e)
             raise sys.exc_info()[0], ret
+        except NotImplementedError, e:
+            logger.warn("Not-implemented: ", exc_info=1)
+            raise CerebrumError, "NotImplemented: %s" % str(e)
         except TypeError, e:
             if str(e).find("takes exactly") != -1:
                 raise CerebrumError, str(e)
