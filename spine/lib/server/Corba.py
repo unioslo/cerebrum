@@ -206,7 +206,6 @@ def _create_corba_method(method):
             import SpineIDL, types
 
             if getattr(e, '__class__', e) not in method.exceptions:
-                print e, e.__class__
                 raise
 
             if len(e.args) > 0 and type(e.args[0]) is str:
