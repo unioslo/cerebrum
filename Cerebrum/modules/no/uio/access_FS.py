@@ -689,8 +689,27 @@ ORDER BY fodselsdato, personnr
         return (self._get_cols(qry),
                 self.db.query(qry, {'semester': self.semester,
                                     'year': self.year}))
-        
 
+    def GetUtskriftsBetaling(self):
+
+        """Lister fødselsnummer, betalingsinformasjon og beløp for de
+        innbetalinger som er gjordt gjennom studentweben for
+        utskriftssystemet. """
+
+        qry = """
+        SELECT frk.fodselsdato, frk.personnr, frk.fakturanr, frk.dato_betalt,
+               fkd.belop
+        FROM fs.fakturareskontrodetalj fkd,
+             fs.fakturareskontro frk
+        WHERE fkd.fakturanr = fkd.fakturanr AND
+              fkr.status_betalt = 'J' AND
+              frd.fakturadetaljtypekode IN ('UTSKRIFT', 'UTSKRIFT1',
+              'UTSKRIFT2', 'UTSKRIFT3') AND
+              frd.status_betalt = 'J'"""
+        
+        return (self._get_cols(qry), self.db.query(qry))
+
+    
     ################################################
     # Papirpenger
     # Skal avvikles i løpet av sommeren 2004
