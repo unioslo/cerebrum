@@ -50,7 +50,7 @@ class SQLDriverTestCase(unittest.TestCase):
     def testUTF8TextParam(self):
         "Check if CHAR VARYING() can store Unicode/UTF8 text"
         self.db.execute("INSERT INTO test_db_utf8 (value, key) VALUES (:text, 1)",
-                        {'text': u"unicodeTest"})
+                        {'text': u"unicodeTest∆ÿ≈Ê¯Â"})
         self.db.commit()
 
     def testUTF8TextStatement(self):
