@@ -147,14 +147,14 @@ class ProfileMatcher(object):
             # Does this aktivt_sted criteria match an 'eksamen'?
             for entry in student_info.get('eksamen', []):
                 d = self.pc.autostud.emnekode2info[
-                    entry['studieprogramkode']]
+                    entry['emnekode']]
                 if ((v['nivaa_min'] and
                      int(v['nivaa_min']) <= int(d['studienivakode'])) or
                     (v['nivaa_max'] and
                      int(d['studienivakode']) > int(v['nivaa_max']))):
                     continue
                 sko = "%02i%02i%02i" % (int(d['faknr_reglement']),
-                                        int(d['instituttnr_reglem']),
+                                        int(d['instituttnr_reglement']),
                                         int(d['gruppenr_reglement']))
                 if sko in v['steder']:
                     self._append_match(
