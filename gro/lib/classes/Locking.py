@@ -4,7 +4,8 @@ import time
 import weakref
 import threading
 
-from Cerebrum_core.Errors import AlreadyLockedError
+from Cerebrum.gro.Cerebrum_core.Error import AlreadyLockedError
+import Caching
 
 
 """ Adds methods to lock down objects.
@@ -15,10 +16,11 @@ for a certain client, with a timeout with the help of the LockTimeout-class.
 class Locking( object ):
 
     def __init__( self ):
-        # Weak dictionaries wich contains clientobjects and the time
-        # they were locked. How are we gonna timeout the locking?
+        # Weak dictionarie wich contains the clients and the time
+        # they were locked. Time is used to timeout locks.
         self.readLocks = weakref.WeakKeyDictionary()
-        self.writeLocks = weakref.WeakKeyDictionary()
+        self.writeLock = None
+        ref( self.writeLock, Caching.invalidate )
 
 
     """ Prevent others from locking object.
@@ -27,8 +29,8 @@ class Locking( object ):
     from putting a writelock on this object.
     Raises an exception if someone else got a writelock on this object.
     """
-    def readLock( self, client ):
-        if not self.writeLocks:
+    def lockForReading( self, client ):
+        if not self.writeLock:
             self.readLocks[ client ] = time.time()
         else:
             raise AlreadyLockedError( '''Someone already got writelock on
@@ -41,13 +43,13 @@ class Locking( object ):
     writelock if noone else already got a readlock.
     Raises an exception if someone else got readlock and/or writelock.
     """
-    def writeLock( self, client ):
-        if not self.writeLocks:
+    def lockForWriting( self, client ):
+        if not self.writeLock:
             if not self.readLocks:
-                self.readLock( client )
+                self.lockForReading( self,  client )
             
-            if len( self.readLocks ) == 1 and client in self.readLock:
-                self.writeLocks[ client ] = time.time()
+            if len( self.readLocks ) == 1 and client in self.readLocks:
+                self.writeLock = client
             else:
                 raise AlreadyLockedError( '''Others got a readlock on this 
                     object, preventing you from getting a writelock''' )
@@ -62,40 +64,60 @@ class Locking( object ):
     remove only a writelock, because <insert good reason here>...
     """
     def unlock( self, client ):
-        if client in self.writeLocks:
-            del self.writeLocks[ client ]
+        if client is self.writeLock:
+            self.writeLock = None
         if client in self.readLocks:
             del self.readLocks[ client ]
 
 
-    """ Check if this object is locked for reading.
+    """ Check if this object is locked for reading by the client
+    
+    Returns true if the client got a readlock.
+    Returns false if the client dont got a readlock, regardless of who
+    else got a readlock.
+    """
+    def isReadLockedByMe( self, client ):
+        return ( client in self.readLocks )
+
+
+    """ Check if this object is locked for reading by others than the client.
     
     Returns true if someone else than the client got a readlock.
-    Returns false if noone has a readlock, or the client has a readlock.
+    Returns false if noone has a readlock, or if the client is the only
+    with a readlock.
     """
-    def isReadLocked( self, client = None ):
-        return not ( self.readLocks and client in self.readLocks )
+    def isReadLockedByOther:( self, client ):
+        if client not in self.readLocks and self.readLocks:
+            return True
+        elif client in self.readLocks and len( self.readLocks ) > 1:
+            return True
+        else:
+            return False
 
 
-    """ Check if this object is locked for writing.
+    """ Check if this object is locked for writing by the client.
     
-    Returns true if the client dont got a writelock, and someone else got it.
-    Returns false if noone has a writelock, or the client has a writelock.
+    Returns true if the client got a writelock.
+    Returns false if noone has a writelock, or someone else got a writelock.
     """
-    def isWriteLocked( self, client = None ):
-        return not ( self.writeLocks and client in self.writeLocks )
-        #return ( not self.writeLocks or client not in self.writeLocks )
-        #if not self.writeLocks or client in self.writeLocks:
-        #    return False
-        #else:
-        #    return True
+    def isWriteLockedByMe( self, client ):
+        return ( client is self.writeLock ) 
+
+
+    """ Check if this object is locked for writing by someone else.
+
+    Returns true if someone else than the client got a writelock on this node.
+    Returns false if noone has a writelock, or the client has the writelock.
+    """
+    def isWriteLockedByOther( self, client ):
+        return self.writeLock and ( client is not self.writeLock )
 
 
 
-""" Handles timeout of locked entitys.
+""" Handles timeout of locked nodes.
 
 This class should have its own thread wich removes locks after a certain time.
-Still not sure how it will work together with Locking.py
+Still not sure how it will work together with Locking
 """
 class LockTimeout( threading.Thread ):
 
