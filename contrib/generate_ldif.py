@@ -56,6 +56,21 @@ def load_code_tables():
         affiliation_code[int(Cerebrum.pythonify_data(aff['code']))] = Cerebrum.pythonify_data(aff['code_str'])
     
 
+def make_address(sep, p_o_box, address_text, postal_number, city, country):
+    if (p_o_box and int(postal_number or 0) / 100 == 3):
+        address_text = "Pb. %s - Blindern" % p_o_box
+    else:
+        address_text = some2utf(address_text or "").strip()
+    post_nr_city = None
+    if city or (postal_number and country):
+        post_nr_city = " ".join(filter(None, (postal_number,
+                                              some2utf(city or "").strip())))
+    if country:
+        country = some2utf(country)
+    return sep.join(filter(None, (address_text,
+                                  post_nr_city,
+                                  country))).replace("\n", sep)
+
 def init_ldap_dump(ou_org,filename=None):
     if filename:
 	f = file(filename,'w')
@@ -77,40 +92,55 @@ def init_ldap_dump(ou_org,filename=None):
     ou_fax = None
     ou_faxs = ''
     try:
-	ou_faxnumber = get_contacts(int(ou_org),int(co.contact_fax))
-	for fax in ou_fax_number:
-            if verify_printableString(fax):
-		init_str += "facsimileTelephoneNumber: %s\n" % fax
-		ou_faxs += fax + '$'
-    except: pass
+	ou_fax_numbers = get_contacts(int(ou_org),int(co.contact_fax))
+    except:
+        pass
+    else:
+        if ou_fax_numbers:
+            for fax in ou_fax_numbers:
+                if verify_printableString(fax):
+                    init_str += "facsimileTelephoneNumber: %s\n" % fax
+                    ou_faxs += fax + '$'
     try:
 	stedkode = Stedkode.Stedkode(Cerebrum)
 	stedkode.find(ou_org)
-	stedkodestr = string.join((string.zfill(str(stedkode.fakultet),2), 
-			string.zfill(str(stedkode.institutt),2), 
-			string.zfill(str(stedkode.avdeling),2)),'')
-        init_str += "norInstitutionNumber: %s\n" % stedkodestr
     except:
         pass
+    else:
+	stedkodestr = "%02d%02d%02d" % (stedkode.fakultet,
+                                        stedkode.institutt,
+                                        stedkode.avdeling)
+        init_str += "norInstitutionNumber: %s\n" % stedkodestr
     init_str += "l: %s\n" % cereconf.LDAP_BASE_CITY
     for alt in cereconf.LDAP_BASE_ALTERNATIVE_NAME:
 	init_str += "o: %s\n" % alt
     post_string = street_string = None
     try:
-	post_addr = ou.get_entity_address(None, co.address_post)
-	post_addr_str = "%s" % string.replace(string.rstrip(post_addr[0]['address_text']),"\n","$")
-        post_string = "%s$%s %s" % (post_addr_str,post_addr[0]['postal_number'],
-					post_addr[0]['city'])
-        init_str += "postalAddress: %s\n" % post_string
-    except: pass
-    try:
-	street_addr = ou.get_entity_address(None,co.address_street)
-        street_addr_str = "%s" % string.replace(string.rstrip(street_addr[0]['address_text']),"\n",", ")
-        street_string = "%s, %s %s" %(street_addr_str, street_addr[0]['postal_number'],
-							street_addr[0]['city'])
-        init_str += "street: %s\n" % street_string
+	post_addr = ou.get_entity_address(None, co.address_post)[0]
     except:
         pass
+    else:
+        post_string = make_address("$",
+                                   post_addr['p_o_box'],
+                                   post_addr['address_text'],
+                                   post_addr['postal_number'],
+                                   post_addr['city'],
+                                   post_addr['country'])
+        if post_string:
+            init_str += "postalAddress: %s\n" % post_string
+    try:
+	street_addr = ou.get_entity_address(None,co.address_street)[0]
+    except:
+        pass
+    else:
+        street_string = make_address(", ",
+                                     None,
+                                     street_addr['address_text'],
+                                     street_addr['postal_number'],
+                                     street_addr['city'],
+                                     street_addr['country'])
+        if street_string:
+            init_str += "street: %s\n" % street_string
     ou_phone = None
     ou_phones = ''
     try:
@@ -129,7 +159,9 @@ def init_ldap_dump(ou_org,filename=None):
     f.write(init_str)
     f.write("\n")
     try:
-    	ou_struct[int(ou.ou_id)]= cereconf.LDAP_BASE,post_string,street_string,ou_phones,ou_faxs
+    	ou_struct[int(ou.ou_id)] = (cereconf.LDAP_BASE,
+                                    post_string, street_string,
+                                    ou_phones, ou_faxs)
     except: pass
     for org in cereconf.LDAP_ORG_GROUPS:
 	org = string.upper(org)
@@ -147,13 +179,15 @@ def init_ldap_dump(ou_org,filename=None):
 	except: pass
 	init_str += '\n'
 	f.write(init_str)
-    try:
-	if cereconf.LDAP_MAN_LDIF_ADD_FILE:
+    if cereconf.LDAP_MAN_LDIF_ADD_FILE:
+        try:
 	    lfile = file((string.join(('/usit/cerebellum/u1/areen/cerebrum',cereconf.LDAP_MAN_LDIF_ADD_FILE),'/')),'r')
+        except:
+            pass
+        else:
 	    f.write(lfile.read().strip()) 
 	    f.write('\n')
 	    lfile.close()
-    except: pass
     f.close()	
 
 def root_OU():
@@ -193,9 +227,9 @@ def generate_org(ou_id,filename=None):
 		    stedkode.clear()
 		    stedkode.find(non_org)
 		    if (stedkode.katalog_merke == 'T'):
-			stedkodestr = string.join((string.zfill(str(stedkode.fakultet),2), 
-						string.zfill(str(stedkode.institutt),2), 
-						string.zfill(str(stedkode.avdeling),2)),'')
+			stedkodestr = "%02d%02d%02d" % (stedkode.fakultet,
+                                                        stedkode.institutt,
+                                                        stedkode.avdeling)
 			par_ou = "%s=%s,%s" % (cereconf.LDAP_ORG_ATTR,cereconf.LDAP_NON_ROOT_ATTR,ou_string)
 			str_ou = print_OU(non_org, par_ou, stedkodestr, filename)
     
@@ -211,7 +245,6 @@ def print_OU(id, par_ou, stedkodestr,par, filename=None):
 	f = file(filename, 'a')
     else:
 	f = file(string.join((cereconf.LDAP_DUMP_DIR,cereconf.LDAP_ORG_FILE),'/'), 'a')
-    f.write("\n")
     if ou.acronym:
 	ou_dn = make_ou_for_rdn(some2utf(ou.acronym))
     else:
@@ -223,18 +256,21 @@ def print_OU(id, par_ou, stedkodestr,par, filename=None):
         ou_str += "objectClass: %s\n" % ss
     try:
 	ou_fax_numbers = get_contacts(id, co.contact_fax)
+    except:
+        pass
+    else:
 	if ou_fax_numbers is not None:
-	    ou_faxs = ''
 	    for ou_fax in ou_fax_numbers:
 		ou_str += "facsimileTelephoneNumber: %s\n" % ou_fax
 		ou_faxs += ou_fax + '$'
-    except:  pass
     try: 
 	ou_email = get_contacts(id,co.contact_email,email=1)
+    except:
+        pass
+    else:
 	if ou_email:
 	    for email in ou_email:
 		ou_str += "mail: %s\n" % email
-    except:  pass
     if stedkodestr:	
 	ou_str += "norOrgUnitNumber: %s\n" % stedkodestr
     cmp_ou_str = []
@@ -271,51 +307,56 @@ def print_OU(id, par_ou, stedkodestr,par, filename=None):
 	try:
 	    post_addr = ou.get_entity_address(int(getattr(co, cc)), 
 						co.address_post)
+	except:
+            pass
+        else:
     	    if post_addr:
-		post_addr_str = "%s" % string.replace(string.rstrip(post_addr[0]['address_text']),"\n","$") 
-		if (post_addr[0]['postal_number']) is not None and (post_addr[0]['city']) is not None:
-		    if int(post_addr[0]['postal_number']) >> 0:
-			post_string = "%s$%s %s" % (post_addr_str,
-						string.zfill((post_addr[0]['postal_number']),4),
-						post_addr[0]['city'])
-		    else:
-			post_string = "%s$%s" % (post_addr_str,post_addr[0]['city'])
-		if (post_addr[0]['country']):
-		    post_string += '$' + (post_addr[0]['country'])
-		ou_str += "postalAddress: %s\n" % some2utf(post_string)
+                post_string = make_address("$",
+                                           post_addr[0]['p_o_box'],
+                                           post_addr[0]['address_text'],
+                                           post_addr[0]['postal_number'],
+                                           post_addr[0]['city'],
+                                           post_addr[0]['country'])
+                if post_string:
+                    ou_str += "postalAddress: %s\n" % post_string
 		break
-	except: pass
     for dd in cereconf.SYSTEM_LOOKUP_ORDER:
 	try:
             street_addr = ou.get_entity_address(int(getattr(co, dd)), co.address_street)
+	except:
+            pass
+        else:
             if street_addr:
-		street_addr_str = "%s" % string.replace(string.rstrip(street_addr[0]['address_text']),"\n",", ")
-		if (street_addr[0]['postal_number']) and (street_addr[0]['city']):
-		    if int(street_addr[0]['postal_number']) > 0:
-		    	street_string = "%s, %s %s" %(street_addr_str, 
-							string.zfill((street_addr[0]['postal_number']),4),
-							street_addr[0]['city'])
-		    else:
-			street_string = "%s, %s" %(street_addr_str,street_addr[0]['city'])
-		if street_addr[0]['country']:
-		    street_string += ', ' + street_addr[0]['country']
-		ou_str += "street: %s\n" % some2utf(street_string)
+                street_string = make_address(", ",
+                                             None,
+                                             street_addr[0]['address_text'],
+                                             street_addr[0]['postal_number'],
+                                             street_addr[0]['city'],
+                                             street_addr[0]['country'])
+                if street_string:
+                    ou_str += "street: %s\n" % street_string
                 break
-	except: pass
     try:
 	ou_phnumber = get_contacts(ou.ou_id, co.contact_phone)
-	ou_phones = ''
-	for phone in ou_phnumber:
-            if verify_printableString(phone):
-	        ou_str += "telephoneNumber: %s\n" % phone
-	        ou_phones += phone + '$'
-    except: pass
+    except:
+        pass
+    else:
+        if ou_phnumber:
+            for phone in ou_phnumber:
+                if verify_printableString(phone):
+                    ou_str += "telephoneNumber: %s\n" % phone
+                    ou_phones += phone + '$'
     if par:
-	ou_struct[int(id)]= str_ou,post_string,street_string,ou_phones,ou_faxs,int(par)
+	ou_struct[int(id)] = (str_ou, post_string,
+                              ", ".join(filter(None, (ou.short_name,
+                                                      street_string))),
+                              ou_phones, ou_faxs, int(par))
 	f.close()
 	return par_ou
     else:
-	ou_struct[int(id)]= str_ou,post_string,street_string,ou_phones,ou_faxs,None
+	ou_struct[int(id)] = (str_ou, post_string, street_string,
+                              ou_phones, ou_faxs, None)
+        f.write("\n")
     	f.write(ou_str)
     	f.close()
     	return str_ou
@@ -329,19 +370,20 @@ def trav_list(par, ou_list, par_ou,filename=None):
 	    stedkode.clear()
 	    try:
 		stedkode.find(c)
-		stedkodestr = string.join((string.zfill(str(stedkode.fakultet),2),
-                                                string.zfill(str(stedkode.institutt),2),
-                                                string.zfill(str(stedkode.avdeling),2)),'')
+	    except:
+		ou_struct[str(c)] = par_ou
+		str_ou = print_OU(c,par_ou,None,filename)
+		trav_list(c,ou_list,str_ou,filename)
+            else:
+		stedkodestr = "%02d%02d%02d" % (stedkode.fakultet,
+                                                stedkode.institutt,
+                                                stedkode.avdeling)
  	   	if stedkode.katalog_merke == 'T':
             	    str_ou = print_OU(c,par_ou,stedkodestr,None,filename)
             	    trav_list(c,ou_list,str_ou,filename)
     	    	else:
 		    dummy = print_OU(c,par_ou,stedkodestr,p,filename)
 		    trav_list(c,ou_list,par_ou,filename)
-	    except:
-		ou_struct[str(c)] = par_ou
-		str_ou = print_OU(c,par_ou,None,filename)
-		trav_list(c,ou_list,str_ou,filename)
 
 def generate_person(filename=None):
     person = Person.Person(Cerebrum)
@@ -574,7 +616,6 @@ def generate_users(spread=None,filename=None):
 	f.set_size_change_limit(10)
     pos_user = posix_user.list_extended_posix_users_test(getattr(co,'auth_type_md5_crypt'),
 								spreads,include_quarantines=1)
-    f.write("\n")
     for row in pos_user:
 	acc_id,shell,gecos,uname = row['account_id'],row['shell'],row['gecos'],row['entity_name']
 	entity2uname[int(acc_id)] = uname
@@ -621,6 +662,7 @@ gecos: %s\n""" % (posix_dn_string, uname, posix_dn, obj_string, gecos,
 	if int(acc_id) <> prev_userid:
 	    f.write(posix_text)
 	prev_userid = int(acc_id)
+    f.write("\n")
     f.close()
 
 def generate_posixgroup():
@@ -639,7 +681,6 @@ def generate_group(spread=None, filename=None):
     else:
 	f = SimilarSizeWriter(string.join((cereconf.LDAP_DUMP_DIR,cereconf.LDAP_GROUP_FILE),'/'), 'w')
 	f.set_size_change_limit(10)
-    f.write("\n")
     groups = {}
     dn_str = "%s=%s,%s" % (cereconf.LDAP_ORG_ATTR,cereconf.LDAP_GROUP_DN,cereconf.LDAP_BASE)
     obj_str = "objectClass: top\n"
@@ -672,6 +713,7 @@ def generate_group(spread=None, filename=None):
 	    f.write("\n")
             f.write(pos_grp)
 	except:  pass
+    f.write("\n")
     f.close()
 
 
@@ -740,15 +782,18 @@ def generate_netgroup(spread=None, filename=None):
             f.write(netgrp_str)
         except:
             pass
+    f.write("\n")
     f.close()
 
 def iso2utf(s):
-     utf_str = unicode(s,'iso-8859-1').encode('utf-8')
-     return utf_str
+    """Convert iso8859-1 to utf-8"""
+    utf_str = unicode(s,'iso-8859-1').encode('utf-8')
+    return utf_str
 
 def utf2iso(s):
-     iso_str = unicode(s,'utf-8').encode('iso-8859-1')
-     return iso_str
+    """Convert utf-8 to iso8859-1"""
+    iso_str = unicode(s,'utf-8').encode('iso-8859-1')
+    return iso_str
 
 # match an 8-bit string which is not an utf-8 string
 iso_re = re.compile("[\300-\377](?![\200-\277])|(?<![\200-\377])[\200-\277]")
@@ -821,32 +866,41 @@ def get_contacts(id,contact_type,email=0):
     return(list_contact_entry)
 	
 
-def unique(values, normalize):
-    """Return the unique values in VALUES, compared after doing NORMALIZE"""
-    done = {}
+need_base64_re = re.compile('^\\s|[\0\r\n]|\\s$')
+
+def make_attr(name, strings, normalize = None, verify = None, raw = False):
     ret = []
-    for val in values:
-        norm = normalize(val)
-        if not done.has_key(norm):
-            done[norm] = 1
-            ret.append(val)
-    return ret
+    done = {}
 
-need_b64_re = re.compile('^\\s|[\0\r\n]|\\s$')
-
-def print_string_attr(name, strings, normalize):
-    strings = unique(strings, normalize)
+    # Make each attribute name and value - but only one of
+    # each value, compared by attribute syntax ('normalize')
     for str in strings:
-        str = str.strip()
-        while str.find('  ') >= 0:
-            str = str.replace('  ', ' ')
-        if str == '':
-            str = ' '
-        str = unicode(str, 'iso-8859-1').encode('utf-8')
-        if re.match(need_b64_re, str):
-            print "%s:: %s" % (name, (base64.encodestring(str).replace("\n", '')))
+        if not raw:
+            # Clean up the string: remove surrounding and multiple whitespace
+            str = multi_space_re.sub(' ', str.strip())
+
+        # Skip the value if it is not valid according to its LDAP syntax
+        if str == '' or (verify and not verify(str)):
+            continue
+
+        # Check if value has already been made (or equivalent by normalize)
+        if normalize:
+            norm = normalize(str)
         else:
-            print "%s: %s" % (name, str)
+            norm = str
+        if done.has_key(norm):
+            continue
+        done[norm] = True
+
+        # Encode as base64 if necessary, otherwise as plain text
+        if need_base64_re.search(str):
+            ret.append("%s:: %s\n" % (name, (base64.encodestring(str)
+                                             .replace("\n", ''))))
+        else:
+            ret.append("%s: %s\n" % (name, str))
+
+    return ''.join(ret)
+
 
 def main():
     global debug
@@ -913,12 +967,12 @@ def usage(exitcode=0):
       Write users to a LDIF-file
     --group=<outfile>
       Write posix groups to a LDIF-file
-    --netgroup outfile
+    --netgroup=<outfile>
       Write netgroup map to a LDIF-file
     --posix 
       write all posix-user,-group and -netgroup from default ldapconf parameters
 
-    Generates a ldif-file of the requested type for the requested spreads."""
+    Generates an LDIF-file of the requested type for the requested spreads."""
     sys.exit(exitcode)
 
 def map_spread(id):
