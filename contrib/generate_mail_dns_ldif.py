@@ -119,15 +119,29 @@ def get_hosts_and_cnames():
     return hosts, cname2host, lower2host
 
 def write_mail_dns():
-    hosts, cnames, lower2host = get_hosts_and_cnames()
     f = SimilarSizeWriter(filename,'w')
     f.set_size_change_limit(10)
+
+    hosts, cnames, lower2host = get_hosts_and_cnames()
+
+    email = Email.EmailDomain(Cerebrum)
+    email_domain = {}
+    for dom_entry in email.list_email_domains():
+        email_domain[int(dom_entry['domain_id'])] = dom_entry['domain']
+    for no_exp_dom in email.list_email_domains_with_category(co.email_domain_category_noexport):
+        del email_domain[int(no_exp_dom['domain_id'])]
+    domains = email_domain.values()
+    domains.sort()
+    domain_dict = {}
+    for domain in domains:
+        domain_dict[domain.lower()] = 1
 
     def handle_domain_host(host):
         f.write("host: %s\n" % lower2host[host])
         for cname in hosts[host]:
-            f.write("cn: %s\n" % lower2host[cname])
-            del cnames[cname]
+            if not domain_dict.has_key(cname):
+                f.write("cn: %s\n" % lower2host[cname])
+                del cnames[cname]
         del hosts[host]
 
     f.write("""
@@ -138,14 +152,6 @@ ou: %s
 description: Maskiner og domener ved UiO, brukes til mail
 
 """ % (dn_suffix, dn_suffix.split(',')[0].split('=')[1]))
-    email = Email.EmailDomain(Cerebrum)
-    email_domain = {}
-    for dom_entry in email.list_email_domains():
-	email_domain[int(dom_entry['domain_id'])] = dom_entry['domain']
-    for no_exp_dom in email.list_email_domains_with_category(co.email_domain_category_noexport):
-	del email_domain[int(no_exp_dom['domain_id'])]
-    domains = email_domain.values()
-    domains.sort()
     for domain in domains:
         f.write("""dn: cn=%s,%s
 objectClass: uioHost
@@ -153,6 +159,7 @@ cn: %s
 """ % (domain, dn_suffix, domain))
         domain = domain.lower()
         if cnames.has_key(domain):
+            f.write("cn: %s\n" % lower2host[cnames[domain]])
             handle_domain_host(cnames[domain])
         elif hosts.has_key(domain):
             handle_domain_host(domain)
