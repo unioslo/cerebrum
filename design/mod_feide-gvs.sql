@@ -25,17 +25,17 @@
 */
 
 category:code;
-CREATE TABLE feide_guardian_code
+CREATE TABLE feide_gvs_guardian_code
 (
   code		NUMERIC(6,0)
 		NOT NULL
-		CONSTRAINT feide_guardian_code_pk PRIMARY KEY,
+		CONSTRAINT feide_gvs_guardian_code_pk PRIMARY KEY,
   code_str	CHAR VARYING(16)
 		NOT NULL
-		CONSTRAINT feide_guardian_codestr_u UNIQUE,
+		CONSTRAINT feide_gvs_guardian_codestr_u UNIQUE,
   relation	CHAR VARYING(512)
 		NOT NULL
-		CONSTRAINT feide_guardian_code_relation_u UNIQUE
+		CONSTRAINT feide_gvs_guardian_code_relation_u UNIQUE
 );
 
 
@@ -44,67 +44,67 @@ CREATE TABLE feide_guardian_code
 */
 
 category:main;
-CREATE TABLE feide_guardian_pupil
+CREATE TABLE feide_gvs_guardian_pupil
 (
   guardian_id	NUMERIC(12,0)
 		NOT NULL
-		CONSTRAINT feide_guardian_pupil_guardian_id
+		CONSTRAINT feide_gvs_guardian_pupil_guardian_id
 		  REFERENCES person_info(person_id),
   pupil_id	NUMERIC(12,0)
 		NOT NULL
-		CONSTRAINT feide_guardian_pupil_pupil_id
+		CONSTRAINT feide_gvs_guardian_pupil_pupil_id
 		  REFERENCES person_info(person_id),
   relation	NUMERIC(6,0)
 		NOT NULL
-		CONSTRAINT feide_guardian_pupil_relation
-		  REFERENCES feide_guardian_code(code)
+		CONSTRAINT feide_gvs_guardian_pupil_relation
+		  REFERENCES feide_gvs_guardian_code(code)
 );
 
 
 category:main;
-CREATE TABLE feide_teacher_school
+CREATE TABLE feide_gvs_teacher_school
 (
   teacher_id	NUMERIC(12,0)
 		NOT NULL
-		CONSTRAINT feide_teacher_school_teacher_id
+		CONSTRAINT feide_gvs_teacher_school_teacher_id
 		  REFERENCES person_info(person_id),
   ou_id		NUMERIC(12,0)
 		NOT NULL
-		CONSTRAINT feide_teacher_school_scchool_id
+		CONSTRAINT feide_gvs_teacher_school_scchool_id
 		  REFERENCES person_info(person_id)
 );
 
 
 
 category:main;
-CREATE TABLE feide_program
+CREATE TABLE feide_gvs_program
 (
   program_id	NUMERIC(12,0)
-		CONSTRAINT feide_program_pk PRIMARY KEY,
+		CONSTRAINT feide_gvs_program_pk PRIMARY KEY,
   class_id	NUMERIC(12,0)
 		NOT NULL
-		CONSTRAINT feide_program_class_id
+		CONSTRAINT feide_gvs_program_class_id
 		  REFERENCES group_info(group_id),
   course_id	NUMERIC(12,0)
 		NOT NULL
-		CONSTRAINT feide_program_course_id
+		CONSTRAINT feide_gvs_program_course_id
 		  REFERENCES group_info(group_id),
   name		CHAR VARYING(512)
 		NOT NULL,
   teacher_id    NUMERIC(12,0)
-		CONSTRAINT feide_program_teacher_id
+		CONSTRAINT feide_gvs_program_teacher_id
 		  REFERENCES person_info(person_id)
 );
 
 
 category:drop;
-DROP TABLE feide_guardian_pupil;
+DROP TABLE feide_gvs_guardian_pupil;
 category:drop;
-DROP TABLE feide_guardian_code;
+DROP TABLE feide_gvs_guardian_code;
 category:drop;
-DROP TABLE feide_teacher_school;
+DROP TABLE feide_gvs_teacher_school;
 category:drop;
-DROP TABLE feide_program;
+DROP TABLE feide_gvs_program;
 
 
 /*
@@ -112,7 +112,7 @@ DROP TABLE feide_program;
 Dumped designs. Hangs around for future (mis)use.
 
 category:code;
-CREATE TABLE feide_pupil_course
+CREATE TABLE feide_gvs_pupil_course
 (
   person_id	 NUMERIC(12,0)
 
@@ -120,7 +120,7 @@ CREATE TABLE feide_pupil_course
 );
 
 category:code;
-CREATE TABLE feide_pupil_class
+CREATE TABLE feide_gvs_pupil_class
 (
   person_id	NUMERIC(12,0)
 
@@ -128,19 +128,19 @@ CREATE TABLE feide_pupil_class
 );
 
 category:code;
-CREATE TABLE feide_course
+CREATE TABLE feide_gvs_course
 (
   course_id	NUMERIC(12,0)
-                CONSTRAINT feide_course_pk PRIMARY KEY,
+                CONSTRAINT feide_gvs_course_pk PRIMARY KEY,
   name		CHAR VARYING(512)
 		NOT NULL
 );
 
 category:code;
-CREATE TABLE feide_class
+CREATE TABLE feide_gvs_class
 (
   class_id	NUMERIC(12,0)
-		CONSTRAINT feide_class_pk PRIMARY KEY,
+		CONSTRAINT feide_gvs_class_pk PRIMARY KEY,
   name		CHAR VARYING(512)
 		NOT NULL
 );
