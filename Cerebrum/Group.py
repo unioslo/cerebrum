@@ -343,8 +343,11 @@ class Group(EntityName, Entity):
             # The only "positive" members are unions; if there are
             # none of those, the resulting set must be empty.
             return ()
-        # TBD: Should this just be a Group instance?
-        temp = self.__class__(self._db)
+        # The code originally used temp = self.__class__(self._db), but
+        # this doesn't work since self may be subclassed (e.g.,
+        # PosixGroup), and the member group isn't necessarily a valid
+        # instance of the subclass.
+        temp = Group(self._db)
         def expand(accounts, groups):
             ret = []
             for row in accounts:
@@ -378,7 +381,8 @@ class Group(EntityName, Entity):
         """
         return self.search(filter_spread=spread)
 
-    def search(self, filter_spread=None, filter_name=None, filter_desc=None):
+    def search(self, filter_spread=None, filter_name=None, filter_desc=None,
+               exclude_expired=False):
         """Retrieves a list of groups filtered by the given criterias.
            (list of tuples (id, name, desc)).
            If no criteria is given, all groups are returned.
@@ -416,6 +420,9 @@ class Group(EntityName, Entity):
             else:    
                 # Go for the simple int version
                 where.append("es.spread=:filterspread")
+
+        if exclude_expired:
+            where.append("(gi.expire_date IS NULL OR gi.expire_date > [:now])")
 
         if filter_name is not None:
             filter_name = prep_string(filter_name)
