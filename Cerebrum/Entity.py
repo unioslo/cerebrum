@@ -51,6 +51,7 @@ class Entity(DatabaseAccessor):
                      # write-once...
                      'entity_id')
     __write_attr__ = ('entity_type',)
+    dontclear = ('const',)
 
     def __init__(self, database):
         """
@@ -64,9 +65,11 @@ class Entity(DatabaseAccessor):
         "Clear all attributes associating instance with a DB entity."
         for attr in Entity.__read_attr__:
             if hasattr(self, attr):
-                delattr(self, attr)
+                if attr not in self.dontclear:
+                    delattr(self, attr)
         for attr in Entity.__write_attr__:
-            setattr(self, attr, None)
+            if attr not in self.dontclear:
+                setattr(self, attr, None)
         self.__updated = False
 
     ###
@@ -281,7 +284,7 @@ class EntityAddress(object):
                 return False
         return True
 
-    def _compare_addresses(self, type, other):
+    def _compare_addresses(self, type):
         """Returns True if addresses are equal.
 
         Raises KeyError with msg=MissingOther/MissingSelf if the
@@ -289,6 +292,9 @@ class EntityAddress(object):
 
         self must be a populated object."""
 
+        print "WARNING: _compare_addresses not yet ported"
+        return True
+        other = None
         try:
             tmp = other.get_entity_address(self._affect_source, type)
             if cereconf.DEBUG_COMPARE:
@@ -337,8 +343,8 @@ class EntityAddress(object):
                                     'country': country}
         pass
 
-    def write_db(self, as_object=None):
-        super(EntityAddress, self).write_db(as_object)
+    def write_db(self):
+        super(EntityAddress, self).write_db()
         # If affect_addresses has not been called, we don't care about
         # addresses
         if self._affect_source is None:
@@ -347,7 +353,7 @@ class EntityAddress(object):
         for type in self._affect_types:
             insert = False
             try:
-                if not self._compare_addresses(type, as_object):
+                if not self._compare_addresses(type):
                     ai = self._address_info.get(type)
                     self.execute("""
                     UPDATE [:table schema=cerebrum name=entity_address]
@@ -362,7 +368,7 @@ class EntityAddress(object):
                                   'p_num': ai['postal_number'],
                                   'city': ai['city'],
                                   'country': ai['country'],
-                                  'e_id': as_object.entity_id,
+                                  'e_id': self.entity_id,
                                   'src': int(self._affect_source),
                                   'a_type': int(type)})
             except KeyError, msg:
@@ -411,7 +417,7 @@ class EntityAddress(object):
                       entity_id=:e_id AND
                       source_system=:src AND
                       address_type=:a_type""",
-                     {'e_id': as_object.entity_id,
+                     {'e_id': self.entity_id,
                       'src': int(source_type),
                       'a_type': int(a_type)})
 
