@@ -407,10 +407,15 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
         WHERE to_date(birth_date, 'YYYY-MM-DD')=:bdate""", locals())
 
 
-    def find_persons_by_name(self, name):
+    def find_persons_by_name(self, name, case_sensitive=True):
+        if case_sensitive:
+            where = "name LIKE :name"
+        else:
+            name = name.lower()
+            where = "LOWER(name) LIKE :name"
         return self.query("""
         SELECT DISTINCT person_id FROM [:table schema=cerebrum name=person_name]
-        WHERE name LIKE :name""", locals())
+        WHERE """ + where, locals())
 
     def find_by_external_id(self, id_type, external_id, source_system=None):
         binds = {'id_type': int(id_type),
