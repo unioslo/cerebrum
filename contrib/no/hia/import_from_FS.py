@@ -19,9 +19,6 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-# Use for HiA:
-# python2.2 ~./import_from_FS.py --db-user cerebrum --db-service FSHIA.uio.no
-#                                -o -a -s
 
 import re
 import sys
@@ -66,14 +63,8 @@ def write_hia_person_info(outfile):
     cols, hiatilbud = fs.GetTilbud(cereconf.DEFAULT_INSTITUSJONSNR)
     for t in hiatilbud:
         f.write(xml.xmlify_dbrow(t,xml.conv_colnames(cols),'tilbud') + "\n")
-
-    #Studenter med EVU-opptak ved HiA
-    cols, hiaevuopt = fs.GetAlleMedEvuStudierett()
-    for eo in hiaevuopt:
-        f.write(xml.xmlify_dbrow(eo,xml.conv_colnames(cols),'evu') + "\n")
-
-    #Ekte EVU-studenter ved HiA
-    cols, hiaevu = fs.GetEkteEvu()
+    #EVU-studenter ved HiA
+    cols, hiaevu = fs.GetDeltaker()
     for e in hiaevu:
         f.write(xml.xmlify_dbrow(e,xml.conv_colnames(cols),'evu') + "\n")
 
