@@ -49,9 +49,20 @@ person.xml format is specified by lt-person.dtd available in the
 export. We use Norwegian fødselsnummer to tie <person>-elements to database
 rows.
 
-sted.xml format is noe specified anywhere (but it will be :)). For now, this
+sted.xml format is not specified anywhere (but it will be :)). For now, this
 file is ignored and no <URL> elements are generated in frida.xml (in
 violation of the FRIDA.dtd).
+
+The output generation consists of the following steps:
+
+1. grock options
+2. generate hardcoded headers
+3. output information on all interesting organizational units (output_OUs)
+4. output information on all interesting people               (output_people)
+
+Step 3 can be further split into:
+3a. retrieve URL map for OUs
+3b. output information on all interesting OUs (output_OUs)
 
 """
 
@@ -323,6 +334,8 @@ class LTPersonRepresentation(object):
 
 
 
+
+
 class LTPersonParser(xml.sax.ContentHandler, object):
     '''
     This class is used to extract <person> elements (defined by
@@ -418,6 +431,105 @@ class LTPersonParser(xml.sax.ContentHandler, object):
 
 
 
+
+
+class LTStedParser(xml.sax.ContentHandler, object):
+    """
+    This class is used to build a dictionary from sted.xml, mapping OU
+    identification to URLs.
+
+    OUs are identified in sted.xml by a triple - (faculty, institute, group).
+
+    The URLs are of interest to the FRIDA project.
+
+    The dictionary looks thus:
+       { (faculty1, institute1, group1) -> [ URL11, URL12, ... URL1n ],
+         (faculty2, institute2, group2) -> [ URL21, URL22, ... URL2m ],
+         ...
+       }
+    """
+    
+    STED_ELEMENT = "sted"
+    URL_ELEMENT = "komm"
+    URL_ATTRIBUTE = "kommtypekode"
+    URL_VALUE = "kommnrverdi"
+
+    def __init__(self, filename):
+        super(LTStedParser, self).__init__()
+
+        self.filename = filename
+        self.current_OU = None
+        self.map = {}
+
+        xml.sax.parse(self.filename, self)
+    # end
+
+
+    
+    def extract_map(self):
+        return self.map
+    # end
+
+
+
+    def startElement(self, name, attributes):
+        """
+        We have to keep track of which OU is currently being processed. This
+        information is stored in self.current_OU.
+        """
+
+        if name == self.STED_ELEMENT:
+            self.current_OU = (attributes["fakultetnr"].encode("latin1"),
+                               attributes["instituttnr"].encode("latin1"),
+                               attributes["gruppenr"].encode("latin1"))
+        elif ( name == self.URL_ELEMENT and
+               attributes.get(self.URL_ATTRIBUTE, None) == "URL" ):
+            url = attributes[self.URL_VALUE].encode("latin1")
+
+            # sanity check
+            if not self.current_OU:
+                logger.error("Aiee! we have an URL, but we have no OU!")
+            else:
+                self.map.setdefault(self.current_OU, []).append(url)
+            # fi
+        # fi
+    # end startElement
+                                
+
+    def endElement(self, name):
+        if name == self.STED_ELEMENT:
+            self.current_OU = None
+        # fi
+    # end endElement
+# end class LTStedParser
+
+
+
+
+
+def output_element(writer, value, element, attributes = {}):
+    '''
+    A helper function to write out xml elements.
+
+    The output element would look like this:
+
+    <ELEMENT KEY1="VALUE1" KEY2="VALUE2" ... >
+      VALUE
+    </ELEMENT>
+
+    ... where KEY,VALUE pairs come from ATTRIBUTES
+
+    This function is just a shorthand, to avoid mistyping the element names
+    in open and close tags
+    '''
+
+    writer.startElement(element, attributes)
+    writer.data(str(value))
+    writer.endElement(element)
+# end output_element
+
+
+
 def output_organization(writer, db):
     """
     Output information about <Organization>
@@ -429,23 +541,18 @@ def output_organization(writer, db):
 
     writer.startElement("Organization")
 
-    writer.startElement("norInstitutionNumber")
-    writer.data("0185")
-    writer.endElement("norInstitutionNumber")
+    output_element(writer, "0185", "norInstitutionNumber")
 
     for attributes in [("no", "Universitetet i Oslo"),
                        ("en", "University of Oslo"),
                        ("la", "Universitas Osloensis")]:
-        writer.startElement("norInstitutionName", {"language" : attributes[0]})
-        writer.data(attributes[1])
-        writer.endElement("norInstitutionName")
+        output_element(writer, attributes[1],
+                       "norInstitutionName", {"language" : attributes[0]})
     # od
 
     for attributes in [("no", "UiO"), ("en", "UoO")]:
-        writer.startElement("norInstitutionAcronym",
-                            {"language" : attributes[0]})
-        writer.data(attributes[1])
-        writer.endElement("norInstitutionAcronym")
+        output_element(writer, attributes[1],
+                       "norInstitutionAcronym", {"language" : attributes[0]})
     # od
 
     writer.endElement("Organization")
@@ -465,7 +572,6 @@ def output_OU_address(writer, db_ou, constants):
     # what might be potentially useful.
     # 
     
-    writer.startElement("Addressline")
     address = db_ou.get_entity_address(constants.system_lt,
                                        constants.address_post)
 
@@ -506,14 +612,41 @@ def output_OU_address(writer, db_ou, constants):
                          db_ou.entity_id)
         # fi
     # fi
-    
-    writer.data(output)
-    writer.endElement("Addressline")
+
+    output_element(writer, output, "Addressline")
 # end output_OU_address
 
 
 
-def output_OU(writer, id, db_ou, stedkode, constants):
+def output_OU_parent(writer, child_ou, parent_stedkode, constants):
+    """
+    Output all information about CHILD_OU's parent OU
+    """
+
+    parent_id = child_ou.get_parent(constants.perspective_lt)
+
+    # This is a hack for the root of the organisational structure.
+    # I.e. the root of the OU structure is its own parent
+    if parent_id is None:
+        parent_id = child_ou.entity_id
+    # fi
+
+    # find parent OU/stedkode
+    parent_stedkode.clear()
+    parent_stedkode.find(parent_id)
+
+    for attr_name, element_name in [("fakultet", "norParentOrgUnitFaculty"),
+                                    ("institutt", "norParentOrgUnitDepartment"),
+                                    ("avdeling", "norParentOrgUnitGroup")]:
+        output_element(writer,
+                       getattr(parent_stedkode, attr_name),
+                       element_name)
+    # od
+# end output_OU_parent
+        
+
+
+def output_OU(writer, id, db_ou, stedkode, parent_stedkode, constants, url_map):
     """
     Output all information pertinent to a specific OU
 
@@ -528,16 +661,16 @@ def output_OU(writer, id, db_ou, stedkode, constants):
     """
 
     stedkode.clear()
-    db_ou.clear()
     stedkode.find(id)
-    db_ou.find(id)
-    
     # This entry is not supposed to be published
     if stedkode.katalog_merke != 'T':
         logger.debug("Skipping ou_id == %s", id)
         return
     # fi
 
+    db_ou.clear()
+    db_ou.find(id)
+    
     ou_names = db_ou.get_names()
     ou_acronyms = db_ou.get_acronyms()
     # Ufh! I want CL's count-if
@@ -560,65 +693,30 @@ def output_OU(writer, id, db_ou, stedkode, constants):
         if not name: continue
         attributes = {}
         if language: attributes = {"language": language}
-        writer.startElement("norOrgUnitName", attributes)
-        writer.data(name)
-        writer.endElement("norOrgUnitName")
+
+        output_element(writer, name, "norOrgUnitName", attributes)
     # od
 
     # norOrgUnitFaculty
-    writer.startElement("norOrgUnitFaculty")
-    writer.data(str(stedkode.fakultet))
-    writer.endElement("norOrgUnitFaculty")
+    output_element(writer, stedkode.fakultet, "norOrgUnitFaculty")
 
     # norOrgUnitDepartment
-    writer.startElement("norOrgUnitDepartment")
-    writer.data(str(stedkode.institutt))
-    writer.endElement("norOrgUnitDepartment")
+    output_element(writer, stedkode.institutt, "norOrgUnitDepartment")
 
     # norOrgUnitGroup
-    writer.startElement("norOrgUnitGroup")
-    writer.data(str(stedkode.avdeling))
-    writer.endElement("norOrgUnitGroup")
+    output_element(writer, stedkode.avdeling, "norOrgUnitGroup")
 
-    # NB! Extra lookups here cost us about 1/3 of the time it takes to
-    #     generate all information on OUs
-    parent_id = db_ou.get_parent(constants.perspective_lt)
-    # This is a hack (blame baardj) for the root of the organisational
-    # structure.
-    if parent_id is None:
-        parent_id = id
-    # fi
-
-    # find parent. NB! Remember to reset stedkode
-    stedkode.clear(); stedkode.find(parent_id)
-
-    # norParentOrgUnitFaculty
-    writer.startElement("norParentOrgUnitFaculty")
-    writer.data(str(stedkode.fakultet))
-    writer.endElement("norParentOrgUnitFaculty")
+    # Information on this OUs parent
+    output_OU_parent(writer, db_ou, parent_stedkode, constants)
     
-    # norParentOrgUnitDepartment
-    writer.startElement("norParentOrgUnitDepartment")
-    writer.data(str(stedkode.institutt))
-    writer.endElement("norParentOrgUnitDepartment")
-    
-    # norParentOrgUnitGroup
-    writer.startElement("norParentOrgUnitGroup")
-    writer.data(str(stedkode.avdeling))
-    writer.endElement("norParentOrgUnitGroup")
-    
-    # restore 'pointer' back to child
-    stedkode.clear(); stedkode.find(id)
-
     # norOrgUnitAcronym+
     for acronym, language in ou_acronyms:
         # some tuples might have empty acronyms
         if not acronym: continue
         attributes = {}
         if language: attributes = {"language": language}
-        writer.startElement("norOrgUnitAcronym", attributes)
-        writer.data(str(acronym))
-        writer.endElement("norOrgUnitAcronym")
+
+        output_element(writer, acronym, "norOrgUnitAcronym", attributes)
     # od
 
     # Addressline
@@ -627,30 +725,33 @@ def output_OU(writer, id, db_ou, stedkode, constants):
     # Telephone
     for row in db_ou.get_contact_info(source=constants.system_lt,
                                       type=constants.contact_phone):
-        writer.startElement("Telephone")
-        writer.data(row.contact_value)
-        writer.endElement("Telephone")
+        output_element(writer, row.contact_value, "Telephone")
     # od
 
     # Fax
     for row in db_ou.get_contact_info(source=constants.system_lt,
                                       type=constants.contact_fax):
-        writer.startElement("Fax")
-        writer.data(row.contact_value)
-        writer.endElement("Fax")
+        output_element(writer, row.contact_value, "Fax")
     # od
         
-    # FIXME: URLs! For now we will simply ignore them
-    writer.startElement("URL")
-    writer.data("Not implemented")
-    writer.endElement("URL")
-    
+    # URL*
+    # FIXME! Here, I assume that all the OUs are a part of the same
+    # intitution. I.e. this would probably /not/ work if the source for
+    # URL_MAP spans several institutions, as only the quadruple (intitution,
+    # faculty, institute, group) is guaranteed to be unique.
+    key = (str(stedkode.fakultet),
+           str(stedkode.institutt),
+           str(stedkode.avdeling))
+    for url in url_map.get(key, []):
+        output_element(writer, url, "URL")
+    # od
+
     writer.endElement("norOrgUnit")
 # end output_OU
     
 
 
-def output_OUs(writer, db):
+def output_OUs(writer, db, sted_file):
     """
     Output information about all interesting OUs.
 
@@ -661,11 +762,17 @@ def output_OUs(writer, db):
 
     db_ou = Factory.get("OU")(db)
     stedkode = Stedkode.Stedkode(db)
+    parent_stedkode = Stedkode.Stedkode(db)
     constants = Factory.get("Constants")(db)
+
+    # Fetch the URL map
+    parser = LTStedParser(sted_file)
+    url_map = parser.extract_map()
 
     writer.startElement("OrganizationUnits")
     for id in db_ou.list_all():
-        output_OU(writer, id["ou_id"], db_ou, stedkode, constants)
+        output_OU(writer, id["ou_id"], db_ou,
+                  stedkode, parent_stedkode, constants, url_map)
     # od
     writer.endElement("OrganizationUnits")
 # end output_OUs
@@ -780,7 +887,7 @@ def output_employment_information(writer, pobj):
         # fi
         
         writer.startElement("Tilsetting", attributes)
-        for output, input in [("Stillingkode", "stillingkodenr_beregnet_sist"),
+        for output, index in [("Stillingkode", "stillingkodenr_beregnet_sist"),
                               ("Stillingstittel", "tittel"),
                               ("Stillingsandel", "prosent_tilsetting"),
                               ("StillingFak", "fakultetnr_utgift"),
@@ -789,9 +896,7 @@ def output_employment_information(writer, pobj):
                               ("fraDato", "dato_fra"),
                               ("tilDato", "dato_til"),
                               ]:
-            writer.startElement(output)
-            writer.data(element[input])
-            writer.endElement(output)
+            output_element(writer, element[index], output)
         # od
         writer.endElement("Tilsetting")
     # od
@@ -831,9 +936,7 @@ def output_guest_information(writer, pobj):
                               ("guestInstitutt", key[2:4]),
                               ("guestGroup", key[4:6]),
                               ]:
-            writer.startElement(output)
-            writer.data(value)
-            writer.endElement(output)
+            output_element(writer, value, output)
         # od
 
         # FIXME: The source has *no* information about dates. It is a DTD
@@ -865,8 +968,6 @@ def output_person(writer, pobj, db_person, db_account, constants):
     if not pobj.is_frida(): return
 
     db_person.clear()
-    db_account.clear()
-
     try:
         # NB! There can be *only one* FNR per person in LT (PK in
         # the person_external_id table)
@@ -888,18 +989,16 @@ def output_person(writer, pobj, db_person, db_account, constants):
                                                     db_person,
                                                     constants))
     # surname
-    writer.startElement("sn")
-    writer.data(str(db_person.get_name(constants.system_lt,
-                                       constants.name_last)))
-    writer.endElement("sn")
+    output_element(writer,
+                   db_person.get_name(constants.system_lt,
+                                      constants.name_last),
+                   "sn")
 
     # first name
     first_name = db_person.get_name(constants.system_lt,
                                     constants.name_first)
     if first_name:
-        writer.startElement("givenName")
-        writer.data(str(first_name))
-        writer.endElement("givenName")
+        output_element(writer, first_name, "givenName")
     # fi
 
     # uname && email for the *primary* account.
@@ -907,14 +1006,13 @@ def output_person(writer, pobj, db_person, db_account, constants):
     if primary_account is None:
         logger.info("Person %s has no accounts", pobj.fnr)
     else:
+        db_account.clear()
         db_account.find(primary_account)
-        writer.startElement("uname")
-        writer.data(db_account.get_account_name())
-        writer.endElement("uname")
+
+        output_element(writer, db_account.get_account_name(), "uname")
         
-        writer.startElement("emailAddress")
-        writer.data(db_account.get_primary_mailaddress())
-        writer.endElement("emailAddress")
+        output_element(writer, db_account.get_primary_mailaddress(),
+                       "emailAddress")
     # fi
 
     # <Telephone>?
@@ -923,9 +1021,7 @@ def output_person(writer, pobj, db_person, db_account, constants):
                                          type=constants.contact_phone)
     contact.sort(lambda x, y: cmp(x.contact_pref, y.contact_pref))
     if contact:
-        writer.startElement("Telephone")
-        writer.data(contact[0].contact_value)
-        writer.endElement("Telephone")
+        output_element(writer, contact[0].contact_value, "Telephone")
     # od
 
     output_employment_information(writer, pobj)
@@ -959,8 +1055,6 @@ def output_people(writer, db, person_file):
                      c, getattr(constants,c), getattr(constants,c))
     # od
 
-    writer.startElement("norPersons")
-
     # NB! The callable object (2nd argument) is invoked each time the parser
     # sees a </person> tag.
     # 
@@ -971,7 +1065,6 @@ def output_people(writer, db, person_file):
                                                     db_account = db_account,
                                                     constants = constants))
     parser.parse()
-    writer.endElement("norPersons")
 # end output_people    
 
 
@@ -979,7 +1072,8 @@ def output_people(writer, db, person_file):
 def output_xml(output_file,
                data_source,
                target,
-               person_file):
+               person_file,
+               sted_file):
     """
     Initialize all connections and start generating the xml output.
 
@@ -987,7 +1081,9 @@ def output_xml(output_file,
 
     DATA_SOURCE and TARGET are elements in the xml output.
 
-    PERSON_FILE is the name of the LT dump (used as input).
+    PERSON_FILE is the name of the person LT dump (used as input).
+
+    STED_FILE is the name of the OU LT dump (used as input).
     """
 
     # Nuke the old copy
@@ -1005,16 +1101,14 @@ def output_xml(output_file,
     writer.startElement("XML-export")
 
     writer.startElement("Properties")
-    writer.startElement("datasource")
-    writer.data(data_source)
-    writer.endElement("datasource")
-    writer.startElement("target")
-    writer.data(target)
-    writer.endElement("target")
-    writer.startElement("datetime")
+
+    output_element(writer, data_source, "datasource")
+
+    output_element(writer, target, "target")
+
     # ISO8601 style -- the *only* right way :)
-    writer.data(time.strftime("%Y-%m-%dT%H:%M:%S"))
-    writer.endElement("datetime")
+    output_element(writer, time.strftime("%Y-%m-%dT%H:%M:%S"), "datetime")
+
     writer.endElement("Properties")
 
     writer.startElement("norOrgUnits")
@@ -1023,12 +1117,14 @@ def output_xml(output_file,
     output_organization(writer, db)
 
     # Dump all OUs
-    output_OUs(writer, db)
+    output_OUs(writer, db, sted_file)
+    writer.endElement("norOrgUnits")
 
     # Dump all people
+    writer.startElement("norPersons")
     output_people(writer, db, person_file)
+    writer.endElement("norPersons")
     
-    writer.endElement("norOrgUnits")
     writer.endDocument()
     output_stream.close()
 # end 
@@ -1045,7 +1141,7 @@ options:
 -o, --output-file: output file (default ./frida.xml)
 -p, --person-file: person input file (default ./person.xml)
 -s, --sted-file:   sted input file (default ./sted.xml)
--v, --verbose:     output some debugging
+-v, --verbose:     output more debugging information
 -d, --data-source: source that generates frida.xml (default"Cerebrum@uio.no")
 -t, --target:      what (whom :)) the dump is meant for (default "FRIDA")
 -h, --help:        display usage
@@ -1086,7 +1182,6 @@ def main(argv):
     output_file = "frida.xml"
     person_file = "person.xml"
     sted_file = "sted.xml"
-    verbose = False
     # FIXME: Maybe snatch these from cereconf?
     data_source = "Cerebrum@uio.no"
     target = "FRIDA"
@@ -1100,8 +1195,7 @@ def main(argv):
         elif option in ("-s", "--sted-file"):
             sted_file = value
         elif option in ("-v", "--verbose"):
-            # FIXME: make the logger log more? :)
-            pass
+            logger.setLevel(logging.DEBUG)
         elif option in ("-d", "--data-source"):
             data_source = value
         elif option in ("-t", "--target"):
@@ -1115,8 +1209,9 @@ def main(argv):
     output_xml(output_file = output_file,
                data_source = data_source,
                target = target,
-               person_file = person_file)
-# fi
+               person_file = person_file,
+               sted_file = sted_file)
+# end main
 
 
 
