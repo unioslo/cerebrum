@@ -25,7 +25,9 @@ Address, Gender etc. type."""
 from Cerebrum import Constants
 from Cerebrum.Constants import _AuthoritativeSystemCode,_OUPerspectiveCode, \
      _SpreadCode, _QuarantineCode, _PersonExternalIdCode, \
-     _PersonAffiliationCode, _PersonAffStatusCode, _AccountCode
+     _PersonAffiliationCode, _PersonAffStatusCode, _AccountCode, \
+     _PersonNameCode, _ContactInfoCode, _CountryCode
+
 from Cerebrum.modules.PosixUser import _PosixShellCode
 
 class Constants(Constants.Constants):
@@ -39,6 +41,7 @@ class Constants(Constants.Constants):
 
     system_fs = _AuthoritativeSystemCode('FS', 'FS')
     system_migrate = _AuthoritativeSystemCode('MIGRATE', 'Migrate from files')
+    system_sap = _AuthoritativeSystemCode('SAP', 'SAP')
 
     perspective_fs = _OUPerspectiveCode('FS', 'FS')
 
@@ -132,8 +135,30 @@ class Constants(Constants.Constants):
     quarantine_autostud = _QuarantineCode('autostud', 'Ikke aktiv student')
     quarantine_autoekstern = _QuarantineCode('autoekstern', 'Ekstern konto gått ut på dato')
     
-
     
+    # Navnkonstanter spesifikke for SAP
+    name_middle = _PersonNameCode('MIDDLE', 'Middle name')
+    name_initials = _PersonNameCode('INITIALS', 'Initials')
+
+    # Kommtypekonstater spesifikke for SAP
+    contact_phone_cellular = _ContactInfoCode("CELLPHONE",
+                                              "Person's cellular phone")
+    contact_phone_cellular_private = _ContactInfoCode(
+                                       "PRIVCELLPHONE",
+                                       "Person's private cellular phone")
+
+    # Landkonstanter for SAP
+    country_no = _CountryCode("NO", "Norway", "47", "Norway")
+    country_gb = _CountryCode("GB", "Great Britain", "44", "Great Britain")
+    country_fi = _CountryCode("FI", "Finland", "358", "Finland")
+    country_se = _CountryCode("SE", "Sweden", "46", "Sweden")
+    country_us = _CountryCode("US", "USA", "1", "United states of America")
+    country_nl = _CountryCode("NL", "The Netherlands", "31", "The Netherlands")
+    country_de = _CountryCode("DE", "Germany", "49", "Germany")
+    country_au = _CountryCode("AU", "Australia", "61", "Australia")
+    country_dk = _CountryCode("DK", "Denmark", "45", "Denmark")
+
+# end Constants
 
 
 
