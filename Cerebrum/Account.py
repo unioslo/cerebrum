@@ -441,11 +441,13 @@ class Account(AccountType, EntityName, EntityQuarantine, Entity):
         FROM [:table schema=cerebrum name=account_info]""")
 
     def list_account_name_home(self):
-        """Returns a list of account_id and name."""
+        """Returns a list of account_id, name, home and path."""
         return self.query("""
-        SELECT a.account_id, e.entity_name, a.home
-        FROM [:table schema=cerebrum name=account_info] a,
-             [:table schema=cerebrum name=entity_name] e
+        SELECT a.account_id, e.entity_name, a.home, d.path
+        FROM [:table schema=cerebrum name=entity_name] e,
+             [:table schema=cerebrum name=account_info] a
+             LEFT JOIN [:table schema=cerebrum name=disk_info] d
+               ON d.disk_id = a.disk_id
         WHERE a.account_id=e.entity_id""")
 
     def list_reserved_users(self):
