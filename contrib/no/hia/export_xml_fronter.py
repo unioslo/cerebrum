@@ -41,12 +41,60 @@ from Cerebrum.modules.no.hia import fronter_lib
 
 db = const = logger = None
 fxml = None
+romprofil_id = {}
 
 def init_globals():
     global db, const, logger
     db = Factory.get("Database")()
     const = Factory.get("Constants")(db)
     logger = Factory.get_logger("console")
+
+    cf_dir = '/cerebrum/dumps/Fronter'
+
+    try:
+        opts, args = getopt.getopt(sys.argv[1:], 'h:',
+                                   ['host=', 'rom-profil=',
+                                    'debug-file=', 'debug-level='])
+    except getopt.GetoptError:
+        usage(1)
+    debug_file = os.path.join(cf_dir, "x-import.log")
+    debug_level = 4
+    host = None
+    for opt, val in opts:
+        if opt in ('-h', '--host'):
+            host = val
+        elif opt == '--debug-file':
+            debug_file = val
+        elif opt == '--debug-level':
+            debug_level = val
+        elif opt == 'rom-profil':
+            profil_navn, profil_id = val.split(':')
+            romprofil_id[profil_navn] = profil_id
+        else:
+            raise ValueError, "Invalid argument: %r", (opt,)
+
+    host_profiles = {'hia': {'emnerom': 42,
+                             'studieprogram': 42},
+                     'hia2': {'emnerom': 42,
+                              'studieprogram': 42},
+                     'hia3': {'emnerom': 42,
+                              'studieprogram': 42}
+                     }
+    if host_profiles.has_key(host):
+        romprofil_id.update(host_profiles[host])
+
+    filename = os.path.join(cf_dir, 'test.xml')
+    if len(args) == 1:
+        filename = args[0]
+    elif len(args) <> 0:
+        usage(2)
+
+    global fxml
+    fxml = fronter_lib.FronterXML(filename,
+                                  cf_dir = cf_dir,
+                                  debug_file = debug_file,
+                                  debug_level = debug_level,
+                                  fronter = None)
 
 def get_semester():
     t = time.localtime()[0:2]
@@ -109,7 +157,7 @@ def get_names(person_id):
                 return (last_n, first_n)
     return ("*Ukjent etternavn*", "*Ukjent fornavn*")
 
-def get_ans_fak(fak_list,ent2uname):
+def get_ans_fak(fak_list, ent2uname):
     fak_res = {}
     person = Factory.get('Person')(db)
     stdk = Stedkode.Stedkode(db)
@@ -128,7 +176,7 @@ def get_ans_fak(fak_list,ent2uname):
                     acc_id = person.get_primary_account()
                 except Errors.NotFoundError:
                     logger.debug("Person pers_id: %d , no valid account!" % \
-                                        person.entity_id)
+                                 person.entity_id)
                     break
 		if acc_id and ent2uname.has_key(acc_id):
 		    uname = ent2uname[acc_id]['NAME']
@@ -166,7 +214,7 @@ def register_spread_groups(emne_info, stprog_info):
             register_room('%s (ver %s, %d. termin)' %
                           (emnekode.upper(), versjon, int(terminnr)),
                           emne_rom_id, emne_sted_id,
-                          profile='BAS-emnerom04h')
+                          profile=romprofil_id['emnerom'])
 
             # Grupper for studenter, forelesere og studieveileder på
             # undervisningsenheten.
@@ -308,35 +356,6 @@ def main():
 
     init_globals()
 
-    cf_dir = '/cerebrum/dumps/Fronter'
-
-    try:
-        opts, args = getopt.getopt(sys.argv[1:], '',
-                                   ['debug-file=', 'debug-level='])
-    except getopt.GetoptError:
-        usage(1)
-    debug_file = os.path.join(cf_dir, "x-import.log")
-    debug_level = 4
-    for opt, val in opts:
-        if opt == '--debug-file':
-            debug_file = val
-        elif opt == '--debug-level':
-            debug_level = val
-        else:
-            raise ValueError, "Invalid argument: %r", (opt,)
-
-    filename = os.path.join(cf_dir, 'test.xml')
-    if len(args) == 1:
-        filename = args[0]
-    elif len(args) <> 0:
-        usage(2)
-
-    global fxml
-    fxml = fronter_lib.FronterXML(filename,
-                                  cf_dir = cf_dir,
-                                  debug_file = debug_file,
-                                  debug_level = debug_level,
-                                  fronter = None)
     fxml.start_xml_head()
 
     # Finn `account_id` -> account-data for alle brukere.
