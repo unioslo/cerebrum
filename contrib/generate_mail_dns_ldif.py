@@ -41,7 +41,7 @@ def get_hosts_and_cnames():
     host2cnames = {}
     cname2host  = {}
     host2mx     = {}
-    host2host   = {}
+    lower2host  = {}
     for args in dig_args:
         dig_version_found = 0
         f = os.popen(dig_cmd % args, 'r')
@@ -54,7 +54,7 @@ def get_hosts_and_cnames():
                 name, type, info = match.groups()
                 lname = name.lower()
                 info = info.lower()
-                host2host[lname] = name
+                lower2host[lname] = name
                 if type == 'A':
                     got_host[lname] = 1
                 elif type == 'CNAME':
@@ -92,17 +92,17 @@ def get_hosts_and_cnames():
     for cname in cname2host.keys():
         if not host2cnames.has_key(cname2host[cname]):
             del cname2host[cname]
-    return hosts, cname2host, host2host
+    return hosts, cname2host, lower2host
 
 def write_mail_dns():
-    hosts, cnames, host2host = get_hosts_and_cnames()
+    hosts, cnames, lower2host = get_hosts_and_cnames()
     f = SimilarSizeWriter(filename,'w')
     f.set_size_change_limit(10)
 
     def handle_domain_host(host):
-        f.write("host: %s\n" % host2host[host])
+        f.write("host: %s\n" % lower2host[host])
         for cname in hosts[host]:
-            f.write("cn: %s\n" % host2host[cname])
+            f.write("cn: %s\n" % lower2host[cname])
             del cnames[cname]
         del hosts[host]
 
@@ -141,9 +141,9 @@ cn: %s
 objectClass: uioHost
 host: %s
 cn: %s
-""" % (host2host[host], dn_suffix, host2host[host], host2host[host]))
+""" % (lower2host[host], dn_suffix, lower2host[host], lower2host[host]))
         for cname in hosts[host]:
-            f.write("cn: %s\n" % host2host[cname])
+            f.write("cn: %s\n" % lower2host[cname])
         f.write('\n')
     f.close()
 
