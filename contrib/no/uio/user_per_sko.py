@@ -306,10 +306,19 @@ def people_statistics(ou_to_stedkode, db):
     order = make_affiliation_priorities(const)
     row_count = 0; limit = 10000
 
-    for row in people.list_affiliated_persons(fetchall = False):
+    # Keep track of accounts that had been processed
+    processed = Set()
+
+    for row in people.list_affiliations(fetchall = False):
         row_count += 1
         if row_count % limit == 0:
             logger.debug("Next %d (%d) rows", limit, row_count)
+        # fi
+
+        if int(row.person_id) in processed:
+            continue
+        else:
+            processed.add(int(row.person_id))
         # fi
 
         # Fetch all of row's affiliations. 
