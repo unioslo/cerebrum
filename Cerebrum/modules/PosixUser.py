@@ -551,3 +551,12 @@ class PosixUser(Account.Account):
                     if line[0:len(chk)] != chk: break
                     raise msgs['dict_hit']
         return 1
+
+    def get_account_authentication(self, method):
+        """Return the name with the given variant"""
+        return self.query_1("""
+        SELECT auth_data
+        FROM [:table schema=cerebrum name=account_authentication]
+        WHERE account_id=:a_id AND method=:method""",
+                            {'a_id': self.entity_id,
+                             'method': int(method)})

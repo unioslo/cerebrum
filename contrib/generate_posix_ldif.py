@@ -19,8 +19,7 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 import time
-
-import cerebrum_path
+import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import PosixUser
@@ -58,25 +57,23 @@ def generate_users():
         id = Cerebrum.pythonify_data(row['account_id'])
         posix_user.clear()
         posix_user.find(id)
-
         # TODO: The value_domain should be fetched from somewhere
         # The array indexes should be replaced with hash-keys
-        uname = posix_user.get_name(co.account_namespace)['entity_name']
+	uname = posix_user.get_name(co.account_namespace)
         if entity2uname.has_key(id):
             raise ValueError, "Entity %d has multiple unames: (%s, %s)" % (
                 entity2uname[id], uname)
         else:
             entity2uname[id] = uname
-        # TODO: Something should set which auth_type to use for this map
+        # TODO: Something should set which auth_type to use for this map 
+	# TODO: Change 23 to a constant entry
         try:
-            passwd = posix_user.get_account_authentication(
-                co.auth_type_md5_crypt)
+	    passwd = posix_user.get_account_authentication('23')
         except Errors.NotFoundError:
             passwd = '*'
-
         try:
             posix_group.clear()
-            posix_group.find(posix_user.gid)
+            posix_group.find(posix_user.gid_id)
         except Errors.NotFoundError:
             continue
 
