@@ -161,7 +161,7 @@ class GroupFile(CLFileBack):
         if group.posix_gid is None:
             raise errors.NotPosixError, group.name
         return "%s:*:%d:%s\n" % (
-            group.name, group.posix_gid, ",".join(group.membernames))
+            group.name, group.posix_gid, ",".join([i.name for i in group.get_members]))
 
 
 class ShadowFile(CLFileBack):
