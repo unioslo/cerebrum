@@ -170,6 +170,7 @@ class Command(object):
         self._params = params
         self._format_suggestion = kw.get('fs', None)
         self._prompt_func = kw.get('prompt_func', None)
+        self.perm_filter = kw.get('perm_filter', None)
         assert self._params is None or self._prompt_func is None
         self._default = None
 

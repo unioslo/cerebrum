@@ -17,6 +17,7 @@ import os
 
 import cereconf
 from Cerebrum import Account
+from Cerebrum import Cache
 from Cerebrum import Disk
 from Cerebrum import Entity
 from Cerebrum import Errors
@@ -82,14 +83,24 @@ class BofhdExtension(object):
             self.change_type2details[int(r['change_type_id'])] = [
                 r['category'], r['type'], r['msg_string']]
 
+        self._cached_client_commands = Cache.Cache(mixins=[Cache.cache_mru,
+                                                           Cache.cache_slots],
+                                                   size=500)
 
-
-    def get_commands(self, uname):
-        # TBD: Do some filtering on uname to remove commands
+    def get_commands(self, account_id):
+        try:
+            return self._cached_client_commands[int(account_id)]
+        except KeyError:
+            pass
         commands = {}
         for k in self.all_commands.keys():
-            if self.all_commands[k] is not None:
-                commands[k] = self.all_commands[k].get_struct(self)
+            tmp = self.all_commands[k]
+            if tmp is not None:
+                if tmp.perm_filter:
+                    if not getattr(self.ba, tmp.perm_filter)(account_id, query_run_any=True):
+                        continue
+                commands[k] = tmp.get_struct(self)
+        self._cached_client_commands[int(account_id)] = commands
         return commands
 
     def get_help_strings(self):
@@ -107,7 +118,7 @@ class BofhdExtension(object):
     all_commands['group_add'] = Command(
         ("group", "add"), AccountName(help_ref="account_name_src", repeat=True),
         GroupName(help_ref="group_name_dest", repeat=True),
-        GroupOperation(optional=True))
+        GroupOperation(optional=True), perm_filter='can_alter_group')
     def group_add(self, operator, src_name, dest_group,
                   group_operator=None):
         return self._group_add(operator, src_name, dest_group,
@@ -117,7 +128,7 @@ class BofhdExtension(object):
     all_commands['group_gadd'] = Command(
         ("group", "gadd"), GroupName(help_ref="group_name_src", repeat=True),
         GroupName(help_ref="group_name_dest", repeat=True),
-        GroupOperation(optional=True))
+        GroupOperation(optional=True), perm_filter='can_alter_group')
     def group_gadd(self, operator, src_name, dest_group,
                   group_operator=None):
         return self._group_add(operator, src_name, dest_group,
@@ -143,7 +154,8 @@ class BofhdExtension(object):
     all_commands['group_create'] = Command(
         ("group", "create"), GroupName(help_ref="group_name_new"),
         SimpleString(help_ref="string_description"),
-        fs=FormatSuggestion("Group created as a normal group, internal id: %i", ("group_id",)))
+        fs=FormatSuggestion("Group created as a normal group, internal id: %i", ("group_id",)),
+        perm_filter='can_create_group')
     def group_create(self, operator, groupname, description):
         self.ba.can_create_group(operator.get_entity_id())
         g = Group.Group(self.db)
@@ -169,7 +181,8 @@ class BofhdExtension(object):
 
     # group delete
     all_commands['group_delete'] = Command(
-        ("group", "delete"), GroupName(), YesNo(help_ref="yes_no_force", default="No"))
+        ("group", "delete"), GroupName(), YesNo(help_ref="yes_no_force", default="No"),
+        perm_filter='can_delete_group')
     def group_delete(self, operator, groupname, force=None):
         grp = self._get_group(groupname)
         self.ba.can_delete_group(operator.get_entity_id(), grp)
@@ -192,7 +205,7 @@ class BofhdExtension(object):
     all_commands['group_remove'] = Command(
         ("group", "remove"), AccountName(help_ref="account_name_member", repeat=True),
         GroupName(help_ref="group_name_dest", repeat=True),
-        GroupOperation(optional=True))
+        GroupOperation(optional=True), perm_filter='can_alter_group')
     def group_remove(self, operator, src_name, dest_group,
                      group_operator=None):
         return self._group_remove(operator, src_name, dest_group,
@@ -201,7 +214,8 @@ class BofhdExtension(object):
     # group gremove
     all_commands['group_gremove'] = Command(
         ("group", "gremove"), GroupName(repeat=True),
-        GroupName(repeat=True), GroupOperation(optional=True))
+        GroupName(repeat=True), GroupOperation(optional=True),
+        perm_filter='can_alter_group')
     def group_gremove(self, operator, src_name, dest_group,
                       group_operator=None):
         return self._group_remove(operator, src_name, dest_group,
@@ -293,7 +307,7 @@ class BofhdExtension(object):
         ("group", "promote_posix"), GroupName(),
         SimpleString(help_ref="string_description", optional=True),
         fs=FormatSuggestion("Group promoted to PosixGroup, posix gid: %i",
-                            ("group_id",)))
+                            ("group_id",)), perm_filter='can_create_group')
     def group_promote_posix(self, operator, group, description=None):
         self.ba.can_create_group(operator.get_entity_id())
         try:
@@ -313,7 +327,7 @@ class BofhdExtension(object):
 
     # group posix_demote
     all_commands['group_demote_posix'] = Command(
-        ("group", "demote_posix"), GroupName())
+        ("group", "demote_posix"), GroupName(), perm_filter='can_delete_group')
     def group_demote_posix(self, operator, group):
         grp = self._get_group(group, grtype="PosixGroup")
         self.ba.can_delete_group(operator.get_entity_id(), grp)
@@ -322,7 +336,7 @@ class BofhdExtension(object):
     
     # group set_expire
     all_commands['group_set_expire'] = Command(
-        ("group", "set_expire"), GroupName(), Date())
+        ("group", "set_expire"), GroupName(), Date(), perm_filter='can_delete_group')
     def group_set_expire(self, operator, group, expire):
         grp = self._get_group(group)
         self.ba.can_delete_group(operator.get_entity_id(), grp)
@@ -332,7 +346,8 @@ class BofhdExtension(object):
 
     # group set_visibility
     all_commands['group_set_visibility'] = Command(
-        ("group", "set_visibility"), GroupName(), GroupVisibility())
+        ("group", "set_visibility"), GroupName(), GroupVisibility(),
+        perm_filter='can_delete_group')
     def group_set_visibility(self, operator, group, visibility):
         grp = self._get_group(group)
         self.ba.can_delete_group(operator.get_entity_id(), grp)
@@ -427,7 +442,8 @@ class BofhdExtension(object):
 
 
     all_commands['misc_dadd'] = Command(
-        ("misc", "dadd"), SimpleString(help_ref='string_host'), DiskId())
+        ("misc", "dadd"), SimpleString(help_ref='string_host'), DiskId(),
+        perm_filter='is_superuser')
     def misc_dadd(self, operator, hostname, diskname):
         if not self.ba.is_superuser(operator.get_entity_id()):
             raise PermissionDenied("Currently limited to superusers")
@@ -452,7 +468,8 @@ class BofhdExtension(object):
         return ret
 
     all_commands['misc_drem'] = Command(
-        ("misc", "drem"), SimpleString(help_ref='string_host'), DiskId())
+        ("misc", "drem"), SimpleString(help_ref='string_host'), DiskId(),
+        perm_filter='is_superuser')
     def misc_drem(self, operator, hostname, diskname):
         if not self.ba.is_superuser(operator.get_entity_id()):
             raise PermissionDenied("Currently limited to superusers")
@@ -462,7 +479,8 @@ class BofhdExtension(object):
         raise NotImplementedError, "API does not support disk removal"
 
     all_commands['misc_hadd'] = Command(
-        ("misc", "hadd"), SimpleString(help_ref='string_host'))
+        ("misc", "hadd"), SimpleString(help_ref='string_host'),
+        perm_filter='is_superuser')
     def misc_hadd(self, operator, hostname):
         if not self.ba.is_superuser(operator.get_entity_id()):
             raise PermissionDenied("Currently limited to superusers")
@@ -472,7 +490,8 @@ class BofhdExtension(object):
         return "OK"
 
     all_commands['misc_hrem'] = Command(
-        ("misc", "hrem"), SimpleString(help_ref='string_host'))
+        ("misc", "hrem"), SimpleString(help_ref='string_host'),
+        perm_filter='is_superuser')
     def misc_hrem(self, operator, hostname):
         if not self.ba.is_superuser(operator.get_entity_id()):
             raise PermissionDenied("Currently limited to superusers")
@@ -658,7 +677,8 @@ class BofhdExtension(object):
     # perm opset_list
     all_commands['perm_opset_list'] = Command(
         ("perm", "opset_list"), 
-        fs=FormatSuggestion("%-6i %s", ("id", "name"), hdr="Id     Name"))
+        fs=FormatSuggestion("%-6i %s", ("id", "name"), hdr="Id     Name"),
+        perm_filter='is_superuser')
     def perm_opset_list(self, operator):
         if not self.ba.is_superuser(operator.get_entity_id()):
             raise PermissionDenied("Currently limited to superusers")
@@ -673,7 +693,8 @@ class BofhdExtension(object):
     all_commands['perm_opset_show'] = Command(
         ("perm", "opset_show"), SimpleString(help_ref="string_op_set"),
         fs=FormatSuggestion("%-6i %-16s %s", ("op_id", "op", "attrs"),
-                            hdr="%-6s %-16s %s" % ("Id", "op", "Attributes")))
+                            hdr="%-6s %-16s %s" % ("Id", "op", "Attributes")),
+        perm_filter='is_superuser')
     def perm_opset_show(self, operator, name):
         if not self.ba.is_superuser(operator.get_entity_id()):
             raise PermissionDenied("Currently limited to superusers")
@@ -695,7 +716,8 @@ class BofhdExtension(object):
         fs=FormatSuggestion("%-8i %-15i %-10s %-18s %s",
                             ("tgt_id", "entity_id", "target_type", "name", "attrs"),
                             hdr="%-8s %-15s %-10s %-18s %s" % (
-        "TargetId", "TargetEntityId", "TargetType", "TargetName", "Attrs")))
+        "TargetId", "TargetEntityId", "TargetType", "TargetName", "Attrs")),
+        perm_filter='is_superuser')
     def perm_target_list(self, operator, target_type, entity_id=None):
         if not self.ba.is_superuser(operator.get_entity_id()):
             raise PermissionDenied("Currently limited to superusers")
@@ -725,7 +747,7 @@ class BofhdExtension(object):
     # perm add_target
     all_commands['perm_add_target'] = Command(
         ("perm", "add_target"), SimpleString(help_ref="string_perm_target_type"),
-        Id())
+        Id(), perm_filter='is_superuser')
     def perm_add_target(self, operator, target_type, op_target_id):
         if not self.ba.is_superuser(operator.get_entity_id()):
             raise PermissionDenied("Currently limited to superusers")
@@ -737,7 +759,8 @@ class BofhdExtension(object):
     # perm add_target_attr
     all_commands['perm_add_target_attr'] = Command(
         ("perm", "add_target_attr"), Id(help_ref="id:op_target"),
-        SimpleString(help_ref="string_attribute"))
+        SimpleString(help_ref="string_attribute"),
+        perm_filter='is_superuser')
     def perm_add_target_attr(self, operator, op_target_id, attr):
         if not self.ba.is_superuser(operator.get_entity_id()):
             raise PermissionDenied("Currently limited to superusers")
@@ -748,7 +771,8 @@ class BofhdExtension(object):
 
     # perm del_target
     all_commands['perm_del_target'] = Command(
-        ("perm", "del_target"), Id(help_ref="id:op_target"))
+        ("perm", "del_target"), Id(help_ref="id:op_target"),
+        perm_filter='is_superuser')
     def perm_del_target(self, operator, op_target_id):
         if not self.ba.is_superuser(operator.get_entity_id()):
             raise PermissionDenied("Currently limited to superusers")
@@ -760,7 +784,7 @@ class BofhdExtension(object):
     # perm del_target_attr
     all_commands['perm_del_target_attr'] = Command(
         ("perm", "del_target_attr"), Id(help_ref="id:op_target"),
-        SimpleString(help_ref="string_attribute"))
+        SimpleString(help_ref="string_attribute"), perm_filter='is_superuser')
     def perm_del_target_attr(self, operator, op_target_id, attr):
         if not self.ba.is_superuser(operator.get_entity_id()):
             raise PermissionDenied("Currently limited to superusers")
@@ -775,7 +799,8 @@ class BofhdExtension(object):
         fs=FormatSuggestion("%-8s %-8s %-8i",
                             ("entity_id", "op_set_id", "op_target_id"),
                             hdr="%-8s %-8s %-8s" %
-                            ("entity_id", "op_set_id", "op_target_id")))
+                            ("entity_id", "op_set_id", "op_target_id")),
+        perm_filter='is_superuser')
     def perm_list(self, operator, entity_id):
         if not self.ba.is_superuser(operator.get_entity_id()):
             raise PermissionDenied("Currently limited to superusers")
@@ -790,7 +815,7 @@ class BofhdExtension(object):
     # perm grant
     all_commands['perm_grant'] = Command(
         ("perm", "grant"), Id(), SimpleString(help_ref="string_op_set"),
-        Id(help_ref="id:op_target"))
+        Id(help_ref="id:op_target"), perm_filter='is_superuser')
     def perm_grant(self, operator, entity_id, op_set_name, op_target_id):
         if not self.ba.is_superuser(operator.get_entity_id()):
             raise PermissionDenied("Currently limited to superusers")
@@ -801,7 +826,7 @@ class BofhdExtension(object):
     # perm revoke
     all_commands['perm_revoke'] = Command(
         ("perm", "revoke"), Id(), SimpleString(help_ref="string_op_set"),
-        Id(help_ref="id:op_target"))
+        Id(help_ref="id:op_target"), perm_filter='is_superuser')
     def perm_revoke(self, operator, entity_id, op_set_name, op_target_id):
         if not self.ba.is_superuser(operator.get_entity_id()):
             raise PermissionDenied("Currently limited to superusers")
@@ -837,7 +862,7 @@ class BofhdExtension(object):
         Date(help_ref='date_birth'), PersonName(help_ref="person_name_full"), OU(),
         Affiliation(), AffiliationStatus(),
         fs=FormatSuggestion("Created: %i",
-        ("person_id",)))
+        ("person_id",)), perm_filter='can_create_person')
     def person_create(self, operator, person_id, bdate, person_name,
                       ou, affiliation, aff_status):
         self.ba.can_create_person(operator.get_entity_id())
@@ -938,7 +963,7 @@ class BofhdExtension(object):
     
     # person student_info
     all_commands['person_student_info'] = Command(
-        ("person", "student_info"), PersonId())
+        ("person", "student_info"), PersonId(), perm_filter='can_get_student_info')
     def person_student_info(self, operator, person_id):
         person = self._get_person(*self._map_person_id(person_id))
         self.ba.can_get_student_info(operator.get_entity_id(), person)
@@ -994,7 +1019,7 @@ class BofhdExtension(object):
     #
 
     all_commands['printer_qoff'] = Command(
-        ("print", "qoff"), AccountName())
+        ("print", "qoff"), AccountName(), perm_filter='can_alter_printerquota')
     def printer_qoff(self, operator, accountname):
         account = self._get_account(accountname)
         self.ba.can_alter_printerquta(operator.get_entity_id(), account)
@@ -1028,7 +1053,7 @@ class BofhdExtension(object):
                 'max_quota': pq.max_quota}
 
     all_commands['printer_upq'] = Command(
-        ("print", "upq"), AccountName(), SimpleString())
+        ("print", "upq"), AccountName(), SimpleString(), perm_filter='can_alter_printerquota')
     def printer_upq(self, operator, accountname, pages):
         account = self._get_account(accountname)
         self.ba.can_alter_printerquta(operator.get_entity_id(), account)
@@ -1053,7 +1078,7 @@ class BofhdExtension(object):
     # quarantine disable
     all_commands['quarantine_disable'] = Command(
         ("quarantine", "disable"), EntityType(default="account"), Id(),
-        QuarantineType(), Date())
+        QuarantineType(), Date(), perm_filter='can_disable_quarantine')
     def quarantine_disable(self, operator, entity_type, id, qtype, date):
         entity = self._get_entity(entity_type, id)
         date = self._parse_date(date)
@@ -1078,7 +1103,8 @@ class BofhdExtension(object):
 
     # quarantine remove
     all_commands['quarantine_remove'] = Command(
-        ("quarantine", "remove"), EntityType(default="account"), Id(), QuarantineType())
+        ("quarantine", "remove"), EntityType(default="account"), Id(), QuarantineType(),
+        perm_filter='can_remove_quarantine')
     def quarantine_remove(self, operator, entity_type, id, qtype):
         entity = self._get_entity(entity_type, id)
         qtype = int(self.str2const[qtype])
@@ -1090,7 +1116,7 @@ class BofhdExtension(object):
     all_commands['quarantine_set'] = Command(
         ("quarantine", "set"), EntityType(default="account"), Id(repeat=True),
         QuarantineType(), SimpleString(help_ref="string_why"),
-        SimpleString(help_ref="string_from_to"))
+        SimpleString(help_ref="string_from_to"), perm_filter='can_set_quarantine')
     def quarantine_set(self, operator, entity_type, id, qtype, why, date):
         date_start = self.db.TimestampFromTicks(time.time())
         date_end = None
@@ -1119,7 +1145,8 @@ class BofhdExtension(object):
                              'end:%s' % format_time,
                              'disable_until:%s' % format_day, 'who', 'why'),
                             hdr="%-14s %-14s %-14s %-14s %-8s %s" % \
-                            ('Type', 'Start', 'End', 'Disable until', 'Who', 'Why')))
+                            ('Type', 'Start', 'End', 'Disable until', 'Who', 'Why')),
+        perm_filter='can_show_quarantines')
     def quarantine_show(self, operator, entity_type, id):
         ret = []
         entity = self._get_entity(entity_type, id)
@@ -1139,7 +1166,8 @@ class BofhdExtension(object):
 
     # spread add
     all_commands['spread_add'] = Command(
-        ("spread", "add"), EntityType(default='account'), Id(), Spread())
+        ("spread", "add"), EntityType(default='account'), Id(), Spread(),
+        perm_filter='can_add_spread')
     def spread_add(self, operator, entity_type, id, spread):
         entity = self._get_entity(entity_type, id)
         spread = int(self.str2const[spread])
@@ -1162,7 +1190,8 @@ class BofhdExtension(object):
 
     # spread remove
     all_commands['spread_remove'] = Command(
-        ("spread", "remove"), EntityType(default='account'), Id(), Spread())
+        ("spread", "remove"), EntityType(default='account'), Id(), Spread(),
+        perm_filter='can_add_spread')
     def spread_remove(self, operator, entity_type, id, spread):
         entity = self._get_entity(entity_type, id)
         spread = int(self.str2const[spread])
@@ -1176,7 +1205,8 @@ class BofhdExtension(object):
 
     # user affiliation_add
     all_commands['user_affiliation_add'] = Command(
-        ("user", "affiliation_add"), AccountName(), OU(), Affiliation(), AffiliationStatus())
+        ("user", "affiliation_add"), AccountName(), OU(), Affiliation(), AffiliationStatus(),
+        perm_filter='can_add_affiliation')
     def user_affiliation_add(self, operator, accountname, ou, aff, aff_status):
         account = self._get_account(accountname)
         aff = self._get_affiliationid(aff)
@@ -1207,7 +1237,8 @@ class BofhdExtension(object):
     
     # user affiliation_remove
     all_commands['user_affiliation_remove'] = Command(
-        ("user", "affiliation_remove"), AccountName(), OU(), Affiliation())
+        ("user", "affiliation_remove"), AccountName(), OU(), Affiliation(),
+        perm_filter='can_remove_affiliation')
     def user_affiliation_remove(self, operator, accountname, ou, aff): 
         account = self._get_account(accountname)
         aff = self._get_affiliationid(aff)
@@ -1307,7 +1338,8 @@ class BofhdExtension(object):
     # user create
     all_commands['user_create'] = Command(
         ('user', 'create'), prompt_func=user_create_prompt_func,
-        fs=FormatSuggestion("Created uid=%i", ("uid",)))
+        fs=FormatSuggestion("Created uid=%i", ("uid",)),
+        perm_filter='can_create_user')
     def user_create(self, operator, *args):
         if len(args) == 6:
             group_id, np_type, filegroup, shell, home, uname = args
@@ -1372,7 +1404,7 @@ class BofhdExtension(object):
 
     # user delete
     all_commands['user_delete'] = Command(
-        ("user", "delete"), AccountName())
+        ("user", "delete"), AccountName(), perm_filter='can_delete_user')
     def user_delete(self, operator, accountname):
         # TODO: How do we delete accounts?
         account = self._get_account(accountname)
@@ -1387,7 +1419,8 @@ class BofhdExtension(object):
 
     # user gecos
     all_commands['user_gecos'] = Command(
-        ("user", "gecos"), AccountName(), PosixGecos())
+        ("user", "gecos"), AccountName(), PosixGecos(),
+        perm_filter='can_set_gecos')
     def user_gecos(self, operator, accountname, gecos):
         account = self._get_account(accountname, actype="PosixUser")
         # Set gecos to NULL if user requests a whitespace-only string.
@@ -1398,7 +1431,8 @@ class BofhdExtension(object):
 
     # user history
     all_commands['user_history'] = Command(
-        ("user", "history"), AccountName())
+        ("user", "history"), AccountName(),
+        perm_filter='can_show_history')
     def user_history(self, operator, accountname):
         account = self._get_account(accountname)
         self.ba.can_show_history(operator.get_entity_id(), account)
@@ -1532,7 +1566,8 @@ class BofhdExtension(object):
         raise CerebrumError, "Bad user_move command (%s)" % mtype
         
     all_commands['user_move'] = Command(
-        ("user", "move"), prompt_func=user_move_prompt_func)
+        ("user", "move"), prompt_func=user_move_prompt_func,
+        perm_filter='can_move_user')
     def user_move(self, operator, move_type, accountname, *args):
         account = self._get_account(accountname)
         br = BofhdRequests(self.db, self.const)
@@ -1633,7 +1668,8 @@ class BofhdExtension(object):
     # user posix_create
     all_commands['user_promote_posix'] = Command(
         ('user', 'promote_posix'), AccountName(), GroupName(),
-        PosixShell(default="bash"), DiskId())
+        PosixShell(default="bash"), DiskId(),
+        perm_filter='can_create_user')
     def user_promote_posix(self, operator, accountname, dfg=None, shell=None,
                           home=None):
         try:
@@ -1656,7 +1692,7 @@ class BofhdExtension(object):
 
     # user posix_delete
     all_commands['user_demote_posix'] = Command(
-        ('user', 'demote_posix'), AccountName())
+        ('user', 'demote_posix'), AccountName(), perm_filter='can_create_user')
     def user_demote_posix(self, operator, accountname):
         raise NotImplementedError, "Feel free to implement this function"
 
@@ -1666,7 +1702,8 @@ class BofhdExtension(object):
     # user create
     all_commands['user_reserve'] = Command(
         ('user', 'create_reserve'), prompt_func=user_create_basic_prompt_func,
-        fs=FormatSuggestion("Created account_id=%i", ("account_id",)))
+        fs=FormatSuggestion("Created account_id=%i", ("account_id",)),
+        perm_filter='can_create_user')
     def user_reserve(self, operator, idtype, person_id, affiliation, uname):
         person = self._get_person("entity_id", person_id)
         account = Account.Account(self.db)
@@ -1709,7 +1746,8 @@ class BofhdExtension(object):
 
     # user set_expire
     all_commands['user_set_expire'] = Command(
-        ('user', 'set_expire'), AccountName(), Date())
+        ('user', 'set_expire'), AccountName(), Date(),
+        perm_filter='can_delete_user')
     def user_set_expire(self, operator, accountname, date):
         account = self._get_account(accountname)
         self.ba.can_delete_user(operator.get_entity_id(), account)
@@ -1719,7 +1757,8 @@ class BofhdExtension(object):
 
     # user set_np_type
     all_commands['user_set_np_type'] = Command(
-        ('user', 'set_np_type'), AccountName(), SimpleString(help_ref="string_np_type"))
+        ('user', 'set_np_type'), AccountName(), SimpleString(help_ref="string_np_type"),
+        perm_filter='can_delete_user')
     def user_set_np_type(self, operator, accountname, np_type):
         account = self._get_account(accountname)
         self.ba.can_delete_user(operator.get_entity_id(), account)
@@ -1729,7 +1768,7 @@ class BofhdExtension(object):
 
     all_commands['user_set_owner'] = Command(
         ("user", "set_owner"), AccountName(), EntityType(default='person'),
-        Id())
+        Id(), perm_filter='is_superuser')
     def user_set_owner(self, operator, accountname, entity_type, id):
         account = self._get_account(accountname)
         if not self.ba.is_superuser(operator.get_entity_id()):

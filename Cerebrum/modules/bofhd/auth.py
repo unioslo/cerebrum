@@ -7,6 +7,7 @@ import sys
 import cereconf
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum import Constants
+from Cerebrum import Cache
 from Cerebrum import Group
 from Cerebrum import Account
 from Cerebrum.Utils import Factory
@@ -262,33 +263,48 @@ class BofhdAuthRole(DatabaseAccessor):
 
 class BofhdAuth(DatabaseAccessor):
     """Defines methods that are used by bofhd to determine wheter
-    an operator is allowed to perform a given action."""
+    an operator is allowed to perform a given action.
+
+    The query_run_any parameter is used to determine if operator has
+    this permission somewhere.  It is used to filter available
+    commands in bofhds get_commands().  Note that this should NOT be
+    used a security measure"""
 
     def __init__(self, database):
         super(BofhdAuth, self).__init__(database)
         self.const = Factory.get('Constants')(database)
-        self._superusers = self._get_group_members(cereconf.BOFHD_SUPERUSER_GROUP)
+        self._superusers = self._get_group_members(
+            cereconf.BOFHD_SUPERUSER_GROUP)
         # TODO: should not be hardcoded, but what do we call the cereconf variable?
-        self._student_info_users = self._get_group_members(cereconf.BOFHD_STUDADM_GROUP)
+        self._student_info_users = self._get_group_members(
+            cereconf.BOFHD_STUDADM_GROUP)
+        self._any_perm_cache = Cache.Cache(mixins=[Cache.cache_mru,
+                                                   Cache.cache_slots],
+                                           size=500)
 
-    def is_superuser(self, operator):
+    def is_superuser(self, operator, query_run_any=False):
         if operator in self._superusers:
             return True
         return False
     
-    def can_set_person_user_priority(self, operator, account):
+    def can_set_person_user_priority(self, operator, account=None,
+                                     query_run_any=False):
+        if query_run_any:
+            return True
         if self.is_superuser(operator) or operator == account.entity_id:
             return True
         return self._query_disk_permissions(operator,
                                             self.const.auth_set_password,
                                             self._get_disk(account.disk_id))
 
-    def can_get_student_info(self, operator, person):
+    def can_get_student_info(self, operator, person=None, query_run_any=False):
         if self.is_superuser(operator) or operator in self._student_info_users:
             return True
+        if query_run_any:
+            return False
         raise PermissionDenied("Not authorized to view student info")
 
-    def can_create_person(self, operator):
+    def can_create_person(self, operator, query_run_any=False):
         if (self.is_superuser(operator) or
             self._query_target_permissions(operator,
                                            self.const.auth_create_user,
@@ -297,9 +313,14 @@ class BofhdAuth(DatabaseAccessor):
                                            self.const.auth_create_user,
                                            'disk', None)):
             return True
+        if query_run_any:
+            return False
         raise PermissionDenied("Not allowed to create persons")
 
-    def can_set_person_id(self, operator, person, idtype):
+    def can_set_person_id(self, operator, person=None, idtype=None,
+                          query_run_any=False):
+        if query_run_any:
+            return True
         if self.is_superuser(operator):
             return True
         if person.get_external_id(id_type=idtype):
@@ -312,21 +333,30 @@ class BofhdAuth(DatabaseAccessor):
                                             self.const.auth_create_user,
                                             self._get_disk(account.disk_id))
 
-    def can_alter_printerquta(self, operator, account):
+    def can_alter_printerquota(self, operator, account=None,
+                               query_run_any=False):
         if self.is_superuser(operator):
             return True
+        if query_run_any:
+            return self._has_operation_perm_somewhere(
+                operator, self.const.auth_alter_printerquota)
         return self._query_disk_permissions(operator,
                                             self.const.auth_alter_printerquota,
                                             self._get_disk(account.disk_id))
     
-    def can_query_printerquta(self, operator, account):
+    def can_query_printerquta(self, operator, account=None,
+                              query_run_any=False):
         if self.is_superuser(operator):
             return True
         return True                     # Anyone can query quota
 
-    def can_disable_quarantine(self, operator, entity, qtype):
+    def can_disable_quarantine(self, operator, entity=None,
+                               qtype=None, query_run_any=False):
         if self.is_superuser(operator):
             return True
+        if query_run_any:
+            return self._has_operation_perm_somewhere(
+                operator, self.const.auth_set_password)
         # TODO 2003-07-04: Bård is going to comment this
         if not(isinstance(entity, Account.Account)):
             raise PermissionDenied("No access")
@@ -334,9 +364,13 @@ class BofhdAuth(DatabaseAccessor):
                                             self.const.auth_set_password,
                                             self._get_disk(entity.disk_id))
     
-    def can_remove_quarantine(self, operator, entity, qtype):
+    def can_remove_quarantine(self, operator, entity=None, qtype=None,
+                              query_run_any=False):
         if self.is_superuser(operator):
             return True
+        if query_run_any:
+            return self._has_operation_perm_somewhere(
+                operator, self.const.auth_set_password)
         # TODO 2003-07-04: Bård is going to comment this
         if not(isinstance(entity, Account.Account)):
             raise PermissionDenied("No access")
@@ -344,9 +378,13 @@ class BofhdAuth(DatabaseAccessor):
                                             self.const.auth_set_password,
                                             self._get_disk(entity.disk_id))
 
-    def can_set_quarantine(self, operator, entity, qtype):
+    def can_set_quarantine(self, operator, entity=None, qtype=None,
+                           query_run_any=False):
         if self.is_superuser(operator):
             return True
+        if query_run_any:
+            return self._has_operation_perm_somewhere(
+                operator, self.const.auth_set_password)
         # TODO 2003-07-04: Bård is going to comment this
         if not(isinstance(entity, Account.Account)):
             raise PermissionDenied("No access")
@@ -354,9 +392,13 @@ class BofhdAuth(DatabaseAccessor):
                                             self.const.auth_set_password,
                                             self._get_disk(entity.disk_id))
 
-    def can_show_quarantines(self, operator, entity):
+    def can_show_quarantines(self, operator, entity=None,
+                             query_run_any=False):
         if self.is_superuser(operator):
             return True
+        if query_run_any:
+            return self._has_operation_perm_somewhere(
+                operator, self.const.auth_set_password)
         # TODO 2003-07-04: Bård is going to comment this
         if not(isinstance(entity, Account.Account)):
             raise PermissionDenied("No access")
@@ -364,32 +406,43 @@ class BofhdAuth(DatabaseAccessor):
                                             self.const.auth_set_password,
                                             self._get_disk(entity.disk_id))
 
-    def can_alter_group(self, operator, group):
+    def can_alter_group(self, operator, group=None, query_run_any=False):
         if self.is_superuser(operator):
             return True
-        if self._query_target_permissions(operator,
-                                          self.const.auth_alter_group_membership,
-                                          'group', group.entity_id):
+        if query_run_any:
+            return self._has_operation_perm_somewhere(
+                operator, self.const.auth_alter_group_membership)
+        if self._query_target_permissions(
+            operator, self.const.auth_alter_group_membership,
+            'group', group.entity_id):
             return True
         raise PermissionDenied("No access to group")
 
 
-    def can_create_group(self, operator):
+    def can_create_group(self, operator, query_run_any=False):
         if self.is_superuser(operator):
             return True
+        if query_run_any:
+            return False
         raise PermissionDenied("Currently limited to superusers")
     
-    def can_delete_group(self, operator, group):
+    def can_delete_group(self, operator, group=None, query_run_any=False):
         if self.is_superuser(operator):
             return True
+        if query_run_any:
+            return False
         raise PermissionDenied("Currently limited to superusers")
 
-    def can_add_spread(self, operator, entity, spread):
+    def can_add_spread(self, operator, entity=None, spread=None,
+                       query_run_any=False):
         """The list of spreads that an operator may modify are stored
         in auth_op_target_attrs, where the corresponding
         auth_op_target has target_type='spread' and entity_id=None"""
         if self.is_superuser(operator):
             return True
+        if query_run_any:
+            return self._has_operation_perm_somewhere(
+                operator, self.const.auth_modify_spread)
         for r in self._query_target_permissions(operator,
                                                 self.const.auth_modify_spread,
                                                 'spread', None) :
@@ -404,63 +457,96 @@ class BofhdAuth(DatabaseAccessor):
                 return True
         raise PermissionDenied("No access to spread")
     
-    def can_remove_spread(self, operator, entity, spread):
-        return self.can_add_spread(self, operator, entity, spread)
+    def can_remove_spread(self, operator, entity=None, spread=None,
+                          query_run_any=False):
+        return self.can_add_spread(self, operator, entity, spread,
+                                   query_run_any=query_run_any)
     
-    def can_add_affiliation(self, operator, person, ou, aff, aff_status):
+    def can_add_affiliation(self, operator, person=None, ou=None, aff=None,
+                            aff_status=None, query_run_any=False):
         if self.is_superuser(operator):
             return True
+        if query_run_any:
+            return False
         # TODO (at a later time): add 'auth_add_affiliation',
         # 'auth_remove_affiliation'.  Determine how these should be
         # connected to ou etc.
         raise PermissionDenied("Currently limited to superusers")
 
-    def can_remove_affiliation(self, operator, person, ou, aff):
+    def can_remove_affiliation(self, operator, person=None, ou=None,
+                               aff=None, query_run_any=False):
         if self.is_superuser(operator):
             return True
+        if query_run_any:
+            return False
         raise PermissionDenied("Currently limited to superusers")
 
-    def can_create_user(self, operator, person, disk):
+    def can_create_user(self, operator, person=None, disk=None,
+                        query_run_any=False):
         if self.is_superuser(operator):
             return True
+        if query_run_any:
+            return self._has_operation_perm_somewhere(
+                operator, self.const.auth_create_user)
         return self._query_disk_permissions(operator,
                                             self.const.auth_create_user,
                                             self._get_disk(disk))
 
-    def can_delete_user(self, operator, account):
+    def can_delete_user(self, operator, account=None,
+                        query_run_any=False):
         if self.is_superuser(operator):
             return True
+        if query_run_any:
+            return self._has_operation_perm_somewhere(
+                operator, self.const.auth_remove_user)
         return self._query_disk_permissions(operator,
                                             self.const.auth_remove_user,
                                             self._get_disk(account.disk_id))
     
-    def can_set_gecos(self, operator, account):
+    def can_set_gecos(self, operator, account=None,
+                      query_run_any=False):
         if self.is_superuser(operator):
             return True
+        if query_run_any:
+            return False
         raise PermissionDenied("Currently limited to superusers")
 
-    def can_move_user(self, operator, account, dest_disk):
+    def can_move_user(self, operator, account=None, dest_disk=None,
+                      query_run_any=False):
         if self.is_superuser(operator):
             return True
-        return self.can_give_user(operator, account) and \
-               self.can_receive_user(operator, account, dest_disk)
+        return self.can_give_user(
+            operator, account, query_run_any=query_run_any) and \
+            self.can_receive_user(
+            operator, account, dest_disk, query_run_any=query_run_any)
 
-    def can_give_user(self, operator, account):
+    def can_give_user(self, operator, account=None,
+                      query_run_any=False):
         if self.is_superuser(operator):
             return True
+        if query_run_any:
+            return self._has_operation_perm_somewhere(
+                operator, self.const.auth_move_from_disk)
         return self._query_disk_permissions(operator,
                                             self.const.auth_move_from_disk,
                                             self._get_disk(account.disk_id))
 
-    def can_receive_user(self, operator, account, dest_disk):
+    def can_receive_user(self, operator, account=None, dest_disk=None,
+                         query_run_any=False):
         if self.is_superuser(operator):
             return True
+        if query_run_any:
+            return self._has_operation_perm_somewhere(
+                operator, self.const.auth_move_to_disk)
         return self._query_disk_permissions(operator,
                                             self.const.auth_move_to_disk,
                                             self._get_disk(dest_disk))
 
-    def can_set_password(self, operator, account):
+    def can_set_password(self, operator, account=None,
+                         query_run_any=False):
         if self.is_superuser(operator):
+            return True
+        if query_run_any:
             return True
         if operator == account.entity_id:
             return True
@@ -468,18 +554,25 @@ class BofhdAuth(DatabaseAccessor):
                                             self.const.auth_set_password,
                                             self._get_disk(account.disk_id))
 
-    def can_set_shell(self, operator, account, shell):
+    def can_set_shell(self, operator, account=None, shell=None,
+                      query_run_any=False):
         # TBD: auth_op_attrs may contain legal shells
         if self.is_superuser(operator):
+            return True
+        if query_run_any:
             return True
         # TODO 2003-07-04: Bård is going to comment this
         return self._query_disk_permissions(operator,
                                             self.const.auth_set_password,
                                             self._get_disk(account.disk_id))
 
-    def can_show_history(self, operator, entity):
+    def can_show_history(self, operator, entity=None,
+                         query_run_any=False):
         if self.is_superuser(operator):
             return True
+        if query_run_any:
+            return self._has_operation_perm_somewhere(
+                operator, self.const.auth_create_user)
         if entity.entity_type == self.const.entity_account:
             return self._query_disk_permissions(operator,
                                                 self.const.auth_create_user,
@@ -506,6 +599,29 @@ class BofhdAuth(DatabaseAccessor):
                 if m != None:
                     return True
         raise PermissionDenied("No access to disk")
+
+    def _has_operation_perm_somewhere(self, operator, operation):
+        # This is called numerous times when using "help", so we use a cache
+        key = "%i:%i" % (operator, operation)
+        try:
+            return self._any_perm_cache[key]
+        except KeyError:
+            r = self.query("""
+            SELECT 'foo'
+            FROM [:table schema=cerebrum name=auth_operation] ao,
+                 [:table schema=cerebrum name=auth_operation_set] aos,
+                 [:table schema=cerebrum name=auth_role] ar
+            WHERE     
+               ao.op_id=:operation AND
+               ao.op_set_id=aos.op_set_id AND
+               aos.op_set_id=ar.op_set_id AND
+               ar.entity_id=:operator""", {'operation': int(operation),
+                                       'operator': int(operator)})
+            if r:
+                self._any_perm_cache[key] = True
+            else:
+                self._any_perm_cache[key] = False
+        return self._any_perm_cache[key] 
 
     def _query_target_permissions(self, operator, operation, target_type,
                                   target_id):

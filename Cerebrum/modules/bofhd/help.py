@@ -325,6 +325,8 @@ class Help(object):
         known_commands = self._map_all_commands(all_commands)
         call_func_keys = self.command_help[group].keys()
         call_func_keys.sort()
+        if not known_commands.has_key(group):
+            return "Unkown command group: %s" % group
         not_shown = known_commands[group].keys()
         lines = []
         for call_func in call_func_keys:
