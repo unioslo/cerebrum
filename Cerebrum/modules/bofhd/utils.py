@@ -43,29 +43,19 @@ class Constants(Constants.Constants):
     # if either type of request is in the queue, generate_mail_ldif.py
     # will set the mailPause attribute for that user.
 
-    # state_data:
-    #    source_server
-    #    depend_req (request_id: wait while it's in queue)
+    # state_data is request_id: wait while that request is in queue
     bofh_email_will_move = _BofhdRequestOpCode('br_em_will_move',
                                                'Will move user e-mail')
-    # same as bofh_email_will_move
     # will insert a bofh_email_convert when done
     bofh_email_move = _BofhdRequestOpCode('br_email_move',
                                           'Move user among e-mail servers')
-    # state_data:
-    #    (nothing)
     bofh_email_create = _BofhdRequestOpCode('br_email_create',
                                             'Create user mailboxes')
-    # state_data:
-    #    imaphost (string: hostname)
+    # state_data is emailserver (entity_id):
     bofh_email_delete = _BofhdRequestOpCode('br_email_delete',
                                             'Delete all user mailboxes')
-    # state_data:
-    #    (nothing)
     bofh_email_hquota = _BofhdRequestOpCode('br_email_hquota',
                                             'Set e-mail hard quota')
-    # state_data:
-    #    (nothing)
     bofh_email_convert = _BofhdRequestOpCode('br_email_convert',
                                              'Convert user mail config')
 
@@ -111,14 +101,14 @@ class BofhdRequests(object):
                          cols)
         return reqid
 
-    def delay_request(self, request_id, seconds=600):
+    def delay_request(self, request_id, minutes=10):
         for r in self.get_requests(request_id):
-            when = r['run_at'] + seconds;
+            when = self._db.TimestampFromTicks(r['run_at'] +
+                                               minutes/24.0/60.0)
             self._db.execute("""
 		UPDATE [:table schema=cerebrum name=bofhd_request]
-		SET run_at = %d
-		WHERE request_id = %d
-		""" % (when, request_id))
+		SET run_at=:when WHERE request_id=:id""",
+                             {'when': when, 'id': request_id})
 
     def delete_request(self, entity_id=None, request_id=None,
                        operator_id=None, operation=None):
