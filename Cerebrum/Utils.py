@@ -396,6 +396,8 @@ class Factory(object):
                 (mod_name, class_name) = c.split("/", 2)
                 mod = dyn_import(mod_name)
                 bases += (getattr(mod, class_name), )
+            if len(bases) == 1:
+                return bases[0]
             Factory.class_cache[comp] = type(comp, bases, {})
             return Factory.class_cache[comp]
         else:
