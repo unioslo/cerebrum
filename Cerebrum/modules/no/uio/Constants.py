@@ -26,7 +26,7 @@ Address, Gender etc. type."""
 from Cerebrum import Constants
 from Cerebrum.Constants import _AuthoritativeSystemCode,_OUPerspectiveCode, \
      _SpreadCode, _QuarantineCode, _PersonExternalIdCode, \
-     _PersonAffiliationCode, _PersonAffStatusCode, _AccountCode
+     _PersonAffiliationCode, _PersonAffStatusCode, _AccountCode,_AuthenticationCode
 from Cerebrum.modules.PosixUser import _PosixShellCode
 from Cerebrum.modules.Email import \
      _EmailSpamLevelCode, _EmailSpamActionCode, _EmailDomainCategoryCode
