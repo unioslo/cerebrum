@@ -16,6 +16,7 @@ from Cerebrum import Group
 from Cerebrum import Person
 from Cerebrum import Disk
 from Cerebrum.modules import PosixGroup
+from Cerebrum.modules.no.uio import PrinterQuotas
 from Cerebrum.Utils import Factory
 from templates.letters import TemplateHandler
 from bofhd_errors import CerebrumError
@@ -179,18 +180,26 @@ class BofhdExtension(object):
     all_commands['account_def'] = Command(
         ('group', 'def'), AccountName(ptype=""), GroupName(ptype="existing"))
     def account_def(self, operator, accountname, groupname):
-        account = self._get_account(accountname)
-        raise NotImplementedError, "Feel free to implement this function"
+        account = self._get_account(accountname, actype="PosixUser")
+        grp = self._get_group(groupname, grtype="PosixGroup")
+        account.gid = grp.entity_id
+        account.write_db()
+        return "OK"
 
     all_commands['group_destroy'] = Command(
         ("group", "destroy"), GroupName(ptype="existing"))
     def group_destroy(self, operator, groupname):
-        raise NotImplementedError, "Feel free to implement this function"
+        grp = self._get_group(groupname)
+        grp.delete()
+        return "OK"
 
     all_commands['group_info'] = Command(
-        ("group", "info"), GroupName(ptype="existing"))
+        ("group", "info"), GroupName(ptype="existing"),
+        fs=FormatSuggestion("id: %i", ("entity_id",)))
     def group_info(self, operator, groupname):
-        raise NotImplementedError, "Feel free to implement this function"
+        grp = self._get_group(groupname)
+        # TODO: Return more info about groups
+        return {'entity_id': grp.entity_id}
 
     all_commands['group_list'] = Command(
         ("group", "ls"), GroupName(ptype="existing"),
@@ -345,40 +354,63 @@ class BofhdExtension(object):
             raise CerebrumError, "Database error: %s" % m
         operator.store_state("account_passwd", {'account_id': int(account.entity_id),
                                                 'password': password})
-        return password
+        return "OK"
 
     all_commands['account_info'] = Command(
-        ("user", "info"), AccountName(ptype="existing"))
+        ("user", "info"), AccountName(ptype="existing"),
+        fs=FormatSuggestion("entity id: %i", ("entity_id",)))
     def account_info(self, operator, accountname):
-        raise NotImplementedError, "Feel free to implement this function"
+        account = self._get_account(accountname)
+        # TODO: Return more info about account
+        return {'entity_id': account.entity_id}
 
-    all_commands['account_accounts'] = Command(("user", "accounts"),
-                                         PersonIdType(), PersonId())
+    all_commands['account_accounts'] = Command(
+        ("user", "accounts"), PersonIdType(), PersonId(),
+        fs=FormatSuggestion("%6i", ("account_id",), hdr="Id"))
     def account_accounts(self, operator, id_type, id):
-        raise NotImplementedError, "Feel free to implement this function"
+        person = self._get_person(id, id_type)
+        account = Account.Account(self.db)
+        ret = []
+        for r in account.list_accounts_by_owner_id(person.entity_id):
+            ret.append({'account_id': r['account_id']})
+        return ret
 
-    all_commands['account_delete'] = Command(("user", "delete"),
-                                         AccountName(ptype="existing"))
+    all_commands['account_delete'] = Command(
+        ("user", "delete"), AccountName(ptype="existing"))
     def account_delete(self, operator, accountname):
+        # TODO: How do we delete accounts?
         raise NotImplementedError, "Feel free to implement this function"
 
-    all_commands['account_lcreated'] = Command(("user", "lcreated"))
+    all_commands['account_lcreated'] = Command(
+        ("user", "lcreated"), fs=FormatSuggestion("%6i %s", ("account_id", "password")))
     def account_lcreated(self, operator):
-        raise NotImplementedError, "Feel free to implement this function"
+        ret = []
+        for r in operator.get_state():
+            # state_type, entity_id, state_data, set_time
+            if r['state_type'] == 'new_account_passwd':
+                ret.append(r['state_data'])
+        return ret
 
     all_commands['account_move'] = Command(
         ("user", "move"), AccountName(ptype="existing"), DiskId())
     def account_move(self, operator, accountname, disk_id):
+        # TODO: What should be done, apart from updating the database
+        # when moving a user?
         raise NotImplementedError, "Feel free to implement this function"
 
     all_commands['account_shell'] = Command(
         ("user", "shell"), AccountName(ptype="existing"), PosixShell(default="bash"))
     def account_shell(self, operator, accountname, shell=None):
-        raise NotImplementedError, "Feel free to implement this function"
+        account = self._get_account(accountname, actype="PosixUser")
+        shell = self._get_shell(shell)
+        account.shell = shell
+        account.write_db()
+        return "OK"
 
     all_commands['account_splatt'] = Command(
         ("user", "splatt"), AccountName(ptype="existing"), Description(prompt="Why"))
     def account_splatt(self, operator, accountname, shell=None):
+        # TODO: How do we splatt a user?
         raise NotImplementedError, "Feel free to implement this function"
 
     #
@@ -388,18 +420,46 @@ class BofhdExtension(object):
     all_commands['printer_qoff'] = Command(
         ("print", "qoff"), AccountName(ptype="existing"))
     def printer_qoff(self, operator, accountname):
-        raise NotImplementedError, "Feel free to implement this function"
+        account = self._get_account(accountname)
+        pq = self._get_printerquota(account.entity_id)
+        if pq is None:
+            return "User has no quota"
+        pq.has_printerquota = 0
+        pq.write_db()
+        return "OK"
 
     all_commands['printer_qpq'] = Command(
-        ("print", "qpq"), AccountName(ptype="existing"))
+        ("print", "qpq"), AccountName(ptype="existing"),
+        fs=FormatSuggestion("Has quota Quota Pages printed This "+
+                            "term Weekly q. Term q. Max acc.\n"+
+                            "%-9s %5i %13i %9i %9i %7i %8i",
+                            ('has_printerquota', 'printer_quota',
+                            'pages_printed', 'pages_this_semester',
+                            'weekly_quota', 'termin_quota', 'max_quota')))
     def printer_qpq(self, operator, accountname):
-        raise NotImplementedError, "Feel free to implement this function"
+        account = self._get_account(accountname)
+        pq = self._get_printerquota(account.entity_id)
+        if pq is None:
+            return "User has no quota"
+        return {'printer_quota': pq.printer_quota,
+                'pages_printed': pq.pages_printed,
+                'pages_this_semester': pq.pages_this_semester,
+                'termin_quota': pq.termin_quota,
+                'has_printerquota': pq.has_printerquota,
+                'weekly_quota': pq.weekly_quota,
+                'max_quota': pq.max_quota}
 
     all_commands['printer_upq'] = Command(
         ("print", "upq"), AccountName(ptype="existing"), Description(prompt="# sider"))
     def printer_upq(self, operator, accountname, pages):
-        raise NotImplementedError, "Feel free to implement this function"
-
+        account = self._get_account(accountname)
+        pq = self._get_printerquota(account.entity_id)
+        if pq is None:
+            return "User has no quota"
+        # TBD: Should we check that pages is not > pq.max_quota?
+        pq.printer_quota = pages
+        pq.write_db()
+        return "OK"
 
     #
     # person commands
@@ -447,8 +507,11 @@ class BofhdExtension(object):
     # TODO: These should be protected so that they are not remotely callable
     #
 
-    def _get_account(self, id, idtype='name'):
-        account = Account.Account(self.db)  # TBD: Flytt denne
+    def _get_account(self, id, idtype='name', actype="Account"):
+        if actype == 'Account':
+            account = Account.Account(self.db)
+        elif actype == 'PosixUser':
+            account = PosixUser.PosixUser(self.db)
         account.clear()
         try:
             if idtype == 'name':
@@ -461,8 +524,11 @@ class BofhdExtension(object):
             raise CerebrumError, "Could not find account with %s=%s" % (idtype, id)
         return account
 
-    def _get_group(self, id, idtype='name'):
-        group = Group.Group(self.db)
+    def _get_group(self, id, idtype='name', grtype="Group"):
+        if grtype == "Group":
+            group = Group.Group(self.db)
+        elif grtype == "PosixGroup":
+            group = PosixGroup.PosixGroup(self.db)
         try:
             if idtype == 'name':
                 group.clear()
@@ -527,6 +593,14 @@ class BofhdExtension(object):
         except Errors.NotFoundError:
             raise CerebrumError, "Could not find person with %s=%s" % (idtype, id)
         return person
+
+    def _get_printerquota(self, account_id):
+        pq = PrinterQuotas.PrinterQuotas(self.db)
+        try:
+            pq.find(account_id)
+            return pq
+        except Errors.NotFoundError:
+            return None
 
     def _get_nametypeid(self, nametype):
         if nametype == 'first':
