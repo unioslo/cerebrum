@@ -52,7 +52,7 @@ class OU(OUStructure, EntityContactInfo, EntityAddress, Entity):
     # break a lot of code, we're starting here.
     __metaclass__ = Utils.mark_update
 
-    __read_attr = ('__in_db',)
+    __read_attr__ = ('__in_db',)
     __write_attr__ = ('name', 'acronym', 'short_name', 'display_name',
                       'sort_name')
 
@@ -73,7 +73,16 @@ class OU(OUStructure, EntityContactInfo, EntityAddress, Entity):
             self.__xerox__(parent)
         else:
             Entity.populate(self, self.const.entity_ou)
-        self.__in_db = False
+        # If __in_db is present, it must be True; calling populate on
+        # an object where __in_db is present and False is very likely
+        # a programming error.
+        #
+        # If __in_db in not present, we'll set it to False.
+        try:
+            if not self.__in_db:
+                raise RuntimeError, "populate() called multiple times."
+        except AttributeError:
+            self.__in_db = False
         self.name = name
         self.acronym = acronym
         self.short_name = short_name
@@ -156,3 +165,9 @@ class OU(OUStructure, EntityContactInfo, EntityAddress, Entity):
         SELECT ou_id, name, acronym, short_name, display_name, sort_name
         FROM [:table schema=cerebrum name=ou_info]
         WHERE ou_id=:ou_id""", {'ou_id': ou_id})
+        try:
+            del self.__in_db
+        except AttributeError:
+            pass
+        self.__in_db = True
+        self.__updated = False
