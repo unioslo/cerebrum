@@ -135,7 +135,94 @@ def get_id_type(kind, const):
 
 
 
-def process_file(filename, db, const, person_old, person_new):
+def remove_cyclic_updates(all_updates):
+    """
+    Remove external id updates of the form A -> ... -> A (i.e. cyclic
+    updates).
+
+    Caveat:
+
+    * If there are several updates of the form A->B_i, A->B_k, we use the
+      latest update only (all updates have timestamp information with them)
+
+    * The cycles are reported, but everything leading up to a cycle is still
+      a valid change: A->B->C->D->C means A->B->C.
+    """
+
+    class node:
+        def __init__(self, data):
+            self.data = data
+            # Link to the external id this id is to be changed from
+            self.link = None
+            # Time of change
+            self.date = self.data["date"]
+            # Used for cycle detection
+            self.mark = 0
+        # end __init__
+
+        def __str__(self):
+            return "%s -> %s (@ %s)" % (self.data["old"],
+                                        self.data["new"],
+                                        self.data["date"])
+        # end __str__
+    # end class
+
+    logger.info("Removing cyclic updates")
+
+    # Build the graph first. We register the most recent update only
+    graph = dict()
+    for i in all_updates:
+        from_id, date = i["old"], i["date"]
+
+        if from_id not in graph:
+            graph[from_id] = node(i)
+        elif graph[from_id].date < date:
+            logger.debug("More recent ID change: %s -> %s @ %s (%s)",
+                         from_id, i["new"], i["date"], graph[from_id])
+            graph[from_id] = node(i)
+        # fi
+    # od
+
+    # Link all nodes.
+    # 2) If the node representing the ID we change to is not present, it
+    #    means that we cannot have a cycle.
+    for old_id in graph:
+        n = graph[old_id]
+        follower = n.data["new"]
+        assert n.link is None, "Aiee! node %s already has a follower!" % str(n)
+        n.link = graph.get(follower, None)
+        if n.link:
+            n.link.mark += 1
+    # od
+
+    #
+    # topological sort
+    queue = [ graph[n] for n in graph if graph[n].mark == 0 ]
+    result = dict()
+    while queue:
+        item = queue.pop(0)
+        result[item.data["old"]] = item.data
+
+        if item.link is not None:
+            item.link.mark -= 1
+            if item.link.mark == 0:
+                queue.append(item.link)
+        # fi
+    # od
+
+
+    for key in graph:
+        if key not in result:
+            logger.debug("%s is part of a cycle, skipping", graph[key])
+        # fi
+    # od
+
+    return result.values()
+# end remove_cyclic_updates
+
+
+
+def process_file(filename, db, const, person_old, person_new, exemptions):
     """
     Scan the FILENAME and update Cerebrum with changes therein.
     """
@@ -153,8 +240,8 @@ def process_file(filename, db, const, person_old, person_new):
     # yrt
 
     logger.info("Source system is '%d' (%s)", source_system, source_system_name)
-    
-    for element in parser:
+
+    for element in remove_cyclic_updates(parser):
         old, new = element["old"], element["new"]
         prefix = "%s %s" % (source_system_name, element["date"])
         tmp_exempt_date = exemptions.get((source_system_name, old, new), None)
@@ -202,6 +289,8 @@ def process_file(filename, db, const, person_old, person_new):
     # od
 # end process_file
 
+
+
 def read_exemptions_file(fname):
     """The exceptions file contains a list of fnr-changes to ignore.
     Blank lines and lines starting with # are considered comments.
@@ -219,7 +308,12 @@ def read_exemptions_file(fname):
         
         end_date, src_system, old_fnr, new_fnr = line.split()
         ret[(src_system, old_fnr, new_fnr)] = end_date
+    # od
+    
     return ret
+# end read_exemptions_file
+
+
 
 def usage(exitcode=0):
     print """Usage: [options] filenames
@@ -228,6 +322,8 @@ def usage(exitcode=0):
     -e | --exemptions fname : Load exemptions from file
     """
     sys.exit(exitcode)
+# end usage
+
 
 
 def main():
@@ -235,7 +331,7 @@ def main():
     Start method for this script. 
     """
 
-    global logger, exemptions
+    global logger
     logger = Factory.get_logger("cronjob")
     logger.info("Generating external id updates")
     
@@ -265,7 +361,7 @@ def main():
     person_new = Factory.get("Person")(db)
 
     for filename in rest:
-        process_file(filename, db, const, person_old, person_new)
+        process_file(filename, db, const, person_old, person_new, exemptions)
     # od
 
     if dryrun:
