@@ -31,6 +31,7 @@
 import SocketServer
 import socket
 import signal
+import os
 from time import gmtime, strftime, time
 import pwd
 
@@ -57,6 +58,7 @@ eerror   = "515 Unknown error"
 # pqdlog = "/u2/log/priss/prissquotad"
 pqdlog = "/cerebrum/var/log/prissquotad"
 db = Factory.get('Database')()
+my_pid = os.getpid()
 
 class MyServer(SocketServer.TCPServer):
     allow_reuse_address = 1    # Seems to make sense in testing environment
@@ -171,7 +173,8 @@ class RequestHandler(SocketServer.StreamRequestHandler):
         if self.printer_quota is None:
             return ok
 
-        self.log('TRACE', "subtract_quota: HAS")
+        self.log('TRACE', "subtract_quota: %s for %i" % (
+            pageunits, self.printer_quota.account_id))
         self.printer_quota.pages_printed += pageunits
         self.printer_quota.printer_quota -= pageunits
         self.printer_quota.write_db()
@@ -188,7 +191,7 @@ class RequestHandler(SocketServer.StreamRequestHandler):
 
     def log(self, lvl, msg):
         f = file(pqdlog, "a")
-        f.write("%s [%s] %s %s\n" % (strftime("%H:%M:%S", gmtime()), 'pid', lvl, msg))
+        f.write("%s [%s] %s %s\n" % (strftime("%H:%M:%S", gmtime()), my_pid, lvl, msg))
         f.close()
 
 if __name__ == '__main__':
