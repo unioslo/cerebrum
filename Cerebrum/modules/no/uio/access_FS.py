@@ -357,8 +357,12 @@ WHERE s.fodselsdato=st.fodselsdato AND
       r.studieprogramkode=st.studieprogramkode AND
       st.studieprogramkode=sp.studieprogramkode AND
       NVL(st.dato_gyldig_til,SYSDATE) >= sysdate AND
-      r.dato_bekreftet < SYSDATE
-UNION
+      r.dato_bekreftet < SYSDATE AND
+      r.arstall_bekreft = %s AND
+      r.terminkode_bekreft = %s
+UNION""" %(self.year, self.semester)
+
+        qry = qry + """
 SELECT DISTINCT sp.fodselsdato, sp.personnr, st.studieprogramkode,
                 st.studieretningkode
 FROM fs.studentseksprotokoll sp, fs.studierett st,
