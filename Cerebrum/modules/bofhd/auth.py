@@ -111,6 +111,12 @@ class BofhdAuthOpSet(DatabaseAccessor):
         self.__updated = []
         return is_new
 
+    def delete(self):
+        self.execute("""
+        DELETE FROM [:table schema=cerebrum name=auth_operation_set]
+        WHERE op_set_id=:os_id""", {'os_id': self.op_set_id})
+        self.clear()
+
     def add_operation(self, op_code):
         op_id = int(self.nextval('entity_id_seq'))
         self.execute("""
@@ -137,7 +143,7 @@ class BofhdAuthOpSet(DatabaseAccessor):
         DELETE FROM [:table schema=cerebrum name=auth_op_attrs]
         WHERE op_id=:op_id AND attr=:attr""", {
             'op_id': int(op_id), 'attr': attr})
-
+    
     def list(self):
         return self.query("""
         SELECT op_set_id, name
@@ -481,6 +487,28 @@ class BofhdAuth(DatabaseAccessor):
         return self.is_account_owner(operator, self.const.auth_set_password,
                                      entity)
 
+    def can_create_disk(self, operator, query_run_any=False):
+        if self.is_superuser(operator):
+            return True
+        # auth_create_disk is not tied to a target
+        return self._has_operation_perm_somewhere(
+            operator, self.const.auth_add_disk)
+        raise PermissionDenied("Permission denied")
+
+    def can_remove_disk(self, operator, query_run_any=False):
+        return self.can_create_disk(operator, query_run_any=query_run_any)
+
+    def can_create_host(self, operator, query_run_any=False):
+        if self.is_superuser(operator):
+            return True
+        # auth_create_host is not tied to a target
+        return self._has_operation_perm_somewhere(
+            operator, self.const.auth_create_host)
+        raise PermissionDenied("Permission denied")
+
+    def can_remove_host(self, operator, query_run_any=False):
+        return self.can_create_host(operator, query_run_any=query_run_any)
+
     def can_alter_group(self, operator, group=None, query_run_any=False):
         if self.is_superuser(operator):
             return True
@@ -497,9 +525,10 @@ class BofhdAuth(DatabaseAccessor):
     def can_create_group(self, operator, query_run_any=False):
         if self.is_superuser(operator):
             return True
-        if query_run_any:
-            return False
-        raise PermissionDenied("Currently limited to superusers")
+        # auth_create_group is not tied to a target
+        return self._has_operation_perm_somewhere(
+            operator, self.const.auth_create_group)
+        raise PermissionDenied("Permission denied")
 
     def can_create_personal_group(self, operator, account=None,
                                   query_run_any=False):
@@ -677,8 +706,10 @@ class BofhdAuth(DatabaseAccessor):
         if self.is_superuser(operator):
             return True
         if query_run_any:
-            return False
-        raise PermissionDenied("Currently limited to superusers")
+            return self._has_operation_perm_somewhere(
+                operator, self.const.auth_set_gecos)
+        return self.is_account_owner(operator, self.const.auth_set_gecos,
+                                     account)
 
     def can_move_user(self, operator, account=None, dest_disk=None,
                       query_run_any=False):

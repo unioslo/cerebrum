@@ -38,9 +38,11 @@ class Constants(Constants.Constants):
     BofhdRequestOp = _BofhdRequestOpCode
     AuthRoleOp = _AuthRoleOpCode
 
-    auth_add_disks = _AuthRoleOpCode('add_disks', 'add userdisks to hosts')
-    auth_create_hosts = _AuthRoleOpCode('create_host',
-                                        'Can add hosts for userdisks')
+    auth_add_disk = _AuthRoleOpCode('add_disks', 'add userdisks to hosts')
+    auth_create_host = _AuthRoleOpCode('create_host',
+                                       'Can add hosts for userdisks')
+    auth_create_group = _AuthRoleOpCode('create_group',
+                                        'Can create groups')
     auth_view_studentinfo = _AuthRoleOpCode('view_studinfo',
                                             'Can view student info')
     auth_alter_printerquota = _AuthRoleOpCode('alter_printerquo', 'desc')
@@ -49,6 +51,7 @@ class Constants(Constants.Constants):
     auth_remove_user = _AuthRoleOpCode('remove_user', 'remove user')
     auth_view_history = _AuthRoleOpCode('view_history', 'view history')
     auth_set_password = _AuthRoleOpCode('set_password', 'desc')
+    auth_set_gecos = _AuthRoleOpCode('set_gecos', 'Set persons gecos field')
     auth_move_from_disk = _AuthRoleOpCode('move_from_disk',
                                          'can move from disk')
     auth_move_to_disk = _AuthRoleOpCode('move_to_disk',
