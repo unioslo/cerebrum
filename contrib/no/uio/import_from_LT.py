@@ -32,11 +32,11 @@ import string
 from Cerebrum.modules.no.uio.access_LT import LT
 from Cerebrum import Database,Errors
 from Cerebrum.Utils import XMLHelper
-
+from Cerebrum.Utils import AtomicFileWriter
 
 
 def get_sted_info(outfile):
-    f=open(outfile, 'w')
+    f = AtomicFileWriter(outfile, 'w')
     f.write(xml.xml_hdr + "<data>\n")
 
     steder = LT.GetSteder()
@@ -51,6 +51,7 @@ def get_sted_info(outfile):
         f.write("</sted>\n")
     # od 
     f.write("</data>\n")
+    f.close()
 # end get_sted_info
 
 
@@ -155,8 +156,8 @@ def get_person_info(outfile):
 
 
     # Skriv ut informasjon om de personer vi allerede har hentet, og
-    # hent noe tillegs informasjon om de
-    f=open(outfile, 'w')
+    # hent noe tilleggsinformasjon om dem
+    f = AtomicFileWriter(outfile, 'w')
     f.write(xml.xml_hdr + "<data>\n")
     for p in persondta.keys():
         fodtdag, fodtmnd, fodtar, personnr = p.split('-')
@@ -265,6 +266,7 @@ def get_person_info(outfile):
         f.write("</person>\n")
 
     f.write("</data>\n")
+    f.close()
 # end get_person_info
 
 
