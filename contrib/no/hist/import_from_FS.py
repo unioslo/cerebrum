@@ -19,42 +19,67 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import cerebrum_path
 
 import re
-import os
 import sys
 import getopt
-import cereconf
 
+import cerebrum_path
+import cereconf
 from Cerebrum import Database
 from Cerebrum import Errors
-from Cerebrum.Utils import XMLHelper
-from Cerebrum.modules.no.hist.access_FS import HistFS
+from Cerebrum.extlib import xmlprinter
+from Cerebrum.Utils import XMLHelper, MinimumSizeWriter, AtomicFileWriter
+from Cerebrum.modules.no.hist.access_FS import HiSTFS
+from Cerebrum.Utils import Factory
 
-default_person_file = "/cerebrum/dumps/FS/hist_stud.xml"
-default_topics_file = "/cerebrum/dumps/FS/topics.xml"
-default_studieprogram_file = "/cerebrum/dumps/FS/studieprogrammer.xml"
-default_regkort_file = "/cerebrum/dumps/FS/regkort.xml"
+default_person_file = "/cerebrum/dumps/FS/person.xml"
+default_role_file = "/cerebrum/dumps/FS/roles.xml"
+default_undvenh_file = "/cerebrum/dumps/FS/underv_enhet.xml"
+default_undenh_student_file = "/cerebrum/dumps/FS/student_undenh.xml"
+default_studieprogram_file = "/cerebrum/dumps/FS/studieprog.xml"
 default_ou_file = "/cerebrum/dumps/FS/ou.xml"
+default_emne_file = "/cerebrum/dumps/FS/emner.xml"
+default_fnr_update_file = "/cerebrum/dumps/FS/fnr_update.xml"
 
 xml = XMLHelper()
 fs = None
 
-def write_hist_studinfo(outfile):
-    f=open(outfile, 'w')
+KiB = 1024
+MiB = KiB**2
+
+def write_hist_person_info(outfile):
+    f = MinimumSizeWriter(outfile)
+    f.set_minimum_size_limit(1*MiB)
     f.write(xml.xml_hdr + "<data>\n")
-    #Hist-studenter
-    cols, histstudenter = fs.GetHistStudent()
-    for hs in histstudenter:
-        f.write(xml.xmlify_dbrow(hs,xml.conv_colnames(cols),'aktiv') + "\n")
+
+    #Aktive ordinære studenter ved HiST
+    cols, histaktiv = fs.GetAktive()
+    for a in histaktiv:
+	fix_float(a)
+        f.write(xml.xmlify_dbrow(a,xml.conv_colnames(cols),'aktiv') + "\n")
+    #Privatister ved HiST
+    cols, histprivatist = fs.GetPrivatist()
+    for p in histprivatist:
+	f.write(xml.xmlify_dbrow(p,xml.conv_colnames(cols),'privatist_studieprogram') + "\n")
+    #Personer som har tilbud om opptak ved HiST
+#    cols, histtilbud = fs.GetTilbud(cereconf.DEFAULT_INSTITUSJONSNR)
+#    for t in histtilbud:
+#        f.write(xml.xmlify_dbrow(t,xml.conv_colnames(cols),'tilbud') + "\n")
+    #EVU-studenter ved HiST
+    cols, histevu = fs.GetDeltaker()
+    for e in histevu:
+        f.write(xml.xmlify_dbrow(e,xml.conv_colnames(cols),'evu') + "\n")
+
     f.write("</data>\n")
+    f.close()
 
 def write_ou_info(outfile):
     """Lager fil med informasjon om alle OU-er"""
-    f=open(outfile, 'w')
+    f = MinimumSizeWriter(outfile)
+    f.set_minimum_size_limit(5*KiB)
     f.write(xml.xml_hdr + "<data>\n")
-    cols, ouer = fs.GetAlleOUer(cereconf.ORGANIZATIONAL_INSTNR)  # TODO
+    cols, ouer = fs.GetAlleOUer(cereconf.DEFAULT_INSTITUSJONSNR)  # TODO
     for o in ouer:
         sted = {}
         for fs_col, xml_attr in (
@@ -78,7 +103,9 @@ def write_ou_info(outfile):
         komm = []
         for fs_col, typekode in (
             ('telefonnr', 'EKSTRA TLF'),
-            ('faxnr', 'FAX')):
+            ('faxnr', 'FAX'),
+	    ('emailadresse','EMAIL'),
+	    ('url', 'URL')):
             if o[fs_col]:               # Skip NULLs and empty strings
                 komm.append({'kommtypekode': xml.escape_xml_attr(typekode),
                              'kommnrverdi': xml.escape_xml_attr(o[fs_col])})
@@ -93,38 +120,112 @@ def write_ou_info(outfile):
                     ' />\n')
         f.write('</sted>\n')
     f.write("</data>\n")
+    f.close()
 
-def write_topic_info(outfile):
-    """Lager fil med informasjon om alle XXX"""
-    # TODO: Denne filen blir endret med det nye opplegget :-(
-    f=open(outfile, 'w')
+def write_role_info(outfile):
+    f = MinimumSizeWriter(outfile)
+    f.set_minimum_size_limit(5*KiB)
     f.write(xml.xml_hdr + "<data>\n")
-    cols, topics = fs.GetAlleEksamener()
-    for t in topics:
-        # The Oracle driver thinks the result of a union of ints is float
-        fix_float(t)
-        f.write(xml.xmlify_dbrow(t, xml.conv_colnames(cols), 'topic') + "\n")
+    cols, role = fs.GetAllePersonRoller(cereconf.DEFAULT_INSTITUSJONSNR)
+    for r in role:
+	f.write(xml.xmlify_dbrow(r, xml.conv_colnames(cols), 'role') + "\n")
     f.write("</data>\n")
+    f.close()
 
-def write_regkort_info(outfile):
-    """Lager fil med informasjon om semesterregistreringer for
-    inneværende semester"""
-    f=open(outfile, 'w')
+def write_undenh_metainfo(outfile):
+    "Skriv metadata om undervisningsenheter for inneværende+neste semester."
+    f = MinimumSizeWriter(outfile)
+    f.set_minimum_size_limit(100*KiB)
+    f.write(xml.xml_hdr + "<undervenhet>\n")
+    for semester in ('current', 'next'):
+        cols, undenh = fs.GetUndervEnhet(sem=semester)
+        for u in undenh:
+            f.write(xml.xmlify_dbrow(u, xml.conv_colnames(cols), 'undenhet')
+                    + "\n")
+    f.write("</undervenhet>\n")
+    f.close()
+
+def write_undenh_student(outfile):
+    """Skriv oversikt over personer oppmeldt til undervisningsenheter.
+
+    Tar med data for alle undervisingsenheter i inneværende+neste
+    semester."""
+    f = MinimumSizeWriter(outfile)
+    f.set_minimum_size_limit(10*KiB)
     f.write(xml.xml_hdr + "<data>\n")
-    cols, regkort = fs.GetStudinfRegkort()
-    for r in regkort:
-        f.write(xml.xmlify_dbrow(r, xml.conv_colnames(cols), 'regkort') + "\n")
+    for semester in ('current', 'next'):
+        cols, undenh = fs.GetUndervEnhet(sem=semester)
+        for u in undenh:
+            u_attr = {}
+            for k in ('institusjonsnr', 'emnekode', 'versjonskode',
+                      'terminnr', 'terminkode', 'arstall'):
+                u_attr[k] = u[k]
+            student_cols, student = fs.GetStudenterUndervEnhet(**u_attr)
+            for s in student:
+                s_attr = u_attr.copy()
+                for k in ('fodselsdato', 'personnr'):
+                    s_attr[k] = s[k]
+                f.write(xml.xmlify_dbrow({}, (), 'student',
+                                         extra_attr=s_attr)
+                        + "\n")
     f.write("</data>\n")
+    f.close()
 
 def write_studprog_info(outfile):
     """Lager fil med informasjon om alle definerte studieprogrammer"""
-    f=open(outfile, 'w')
+    f = MinimumSizeWriter(outfile)
+    f.set_minimum_size_limit(50*KiB)
     f.write(xml.xml_hdr + "<data>\n")
     cols, dta = fs.GetStudieproginf()
     for t in dta:
-        f.write(xml.xmlify_dbrow(t, xml.conv_colnames(cols), 'studprog') + "\n")
+        f.write(xml.xmlify_dbrow(t, xml.conv_colnames(cols), 'studprog')
+                + "\n")
+    f.write("</data>\n")
+    f.close()
+
+def write_emne_info(outfile):
+    """Lager fil med informasjon om alle definerte emner"""
+    f=open(outfile, 'w')
+    f.write(xml.xml_hdr + "<data>\n")
+    cols, dta = fs.GetAlleEmner()
+    for t in dta:
+        f.write(xml.xmlify_dbrow(t, xml.conv_colnames(cols), 'emne') + "\n")
     f.write("</data>\n")
 
+def write_fnrupdate_info(outfile):
+    """Lager fil med informasjon om alle fødselsnummerendringer"""
+    stream = AtomicFileWriter(outfile, 'w')
+    writer = xmlprinter.xmlprinter(stream,
+                                   indent_level = 2,
+                                   # Human-readable output
+                                   data_mode = True,
+                                   input_encoding = "latin1")
+    writer.startDocument(encoding = "iso8859-1")
+
+    db = Factory.get("Database")()
+    const = Factory.get("Constants")(db)
+
+    writer.startElement("data", {"source_system" : str(const.system_fs)})
+
+    junk, data = fs.GetFnrEndringer()
+    for row in data:
+        # Make the format resemble the corresponding FS output as close as
+        # possible.
+        attributes = { "type" : str(const.externalid_fodselsnr), 
+                       "new"  : "%06d%05d" % (row["fodselsdato_naverende"],
+                                              row["personnr_naverende"]),
+                       "old"  : "%06d%05d" % (row["fodselsdato_tidligere"],
+                                              row["personnr_tidligere"]),
+                       "date" : str(row["dato_foretatt"]),
+                     }
+        
+        writer.emptyElement("external_id", attributes)
+    # od
+
+    writer.endElement("data")
+    writer.endDocument()
+    stream.close()
+# end get_fnr_update_info
 
 def fix_float(row):
     for n in range(len(row)):
@@ -133,54 +234,70 @@ def fix_float(row):
 
 def usage(exitcode=0):
     print """Usage: [options]
-    --topics-file name: override topics xml filename
     --studprog-file name: override studprog xml filename
-    --regkort-file name: override regkort xml filename
-    --hist-studinfo-file: override hist person xml filename
+    --hist-personinfo-file: override hist person xml filename
+    --hist-roleinfo-file: override role xml filename
+    --hist-undenh-file: override 'topics' file
+    --hist-emneinfo-file: override emne info
+    --hist-student-undenh-file: override student on UE file
+    --hist-fnr-update-file: override fnr_update file
     --ou-file name: override ou xml filename
     --db-user name: connect with given database username
     --db-service name: connect to given database
-    -t: generate topics xml file
     -s: generate studprog xml file
-    -r: generate regkort xml file
     -o: generate ou xml (sted.xml) file
-    -a: generate active-students file
+    -p: generate person file
+    -r: generate role file
+    -f: generate fnr_update file
+    -e: generate emne info file
+    -u: generate undervisningsenhet xml file
+    -U: generate student on UE xml file
     """
     sys.exit(exitcode)
 
-def assert_connected(user="HISTBAS", service="FSHIST.uio.no"):
+def assert_connected(user="CEREBRUM", service="FSHIA.uio.no"):
     global fs
     if fs is None:
         db = Database.connect(user=user, service=service,
                               DB_driver='Oracle')
-        fs = HistFS(db)
+        fs = HiSTFS(db)
 
 def main():
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "tsroa",
-                                   ["hist-studinfo-file=", "topics-file=",
-                                    "studprog-file=", "regkort-file=",
+        opts, args = getopt.getopt(sys.argv[1:], "fpsruUoe",
+                                   ["hist-personinfo-file=", "studprog-file=", 
+				    "hist-roleinfo-file=", "hist-undenh-file=",
+                                    "hist-student-undenh-file=",
+				    "hist-emneinfo-file=",
+				    "hist-fnr-update-file=",
                                     "ou-file=", "db-user=", "db-service="])
     except getopt.GetoptError:
         usage()
         sys.exit(2)
 
     person_file = default_person_file
-    topics_file = default_topics_file
     studprog_file = default_studieprogram_file
-    regkort_file = default_regkort_file
     ou_file = default_ou_file
+    role_file = default_role_file
+    undervenh_file = default_undvenh_file
+    emne_info_file = default_emne_file 
+    fnr_update_file = default_fnr_update_file
+    undenh_student_file = default_undenh_student_file
     db_user = None         # TBD: cereconf value?
     db_service = None      # TBD: cereconf value?
     for o, val in opts:
-        if o in ('--hist-studinfo-file',):
+        if o in ('--hist-personinfo-file',):
             person_file = val
-        elif o in ('--topics-file',):
-            topics_file = val
         elif o in ('--studprog-file',):
             studprog_file = val
-        elif o in ('--regkort-file',):
-            regkort_file = val
+	elif o in ('--hist-roleinfo-file',):
+	    role_file = val
+	elif o in ('--hist-undenh-file',):
+	    undervenh_file = val
+        elif o in ('--hist-student-undenh-file',):
+            undenh_student_file = val
+	elif o in ('--hist-fnr-update-file',):
+	    fnr_update_file = val
         elif o in ('--ou-file',):
             ou_file = val
         elif o in ('--db-user',):
@@ -189,18 +306,37 @@ def main():
             db_service = val
     assert_connected(user=db_user, service=db_service)
     for o, val in opts:
-        if o in ('-a',):
-            write_hist_studinfo(person_file)
-        elif o in ('-t',):
-            write_topic_info(topics_file)
+        if o in ('-p',):
+            write_hist_person_info(person_file)
         elif o in ('-s',):
             write_studprog_info(studprog_file)
-        elif o in ('-r',):
-            write_regkort_info(regkort_file)
+	elif o in ('-r',):
+	    write_role_info(role_file)
+	elif o in ('-u',):
+	    write_undenh_metainfo(undervenh_file)
+        elif o in ('-U',):
+            write_undenh_student(undenh_student_file)
+        elif o in ('-e',):
+	    write_emne_info(emne_info_file)
+	elif o in ('-f',):
+	    write_fnrupdate_info(fnr_update_file)
         elif o in ('-o',):
             write_ou_info(ou_file)
 
 if __name__ == '__main__':
     main()
 
-# arch-tag: 352f3016-f777-4110-9636-c3d657fa6070
+
+
+
+
+
+
+
+
+
+
+
+
+
+# arch-tag: 64983f85-1234-4b7a-9ef2-205f6ec3f2ed
