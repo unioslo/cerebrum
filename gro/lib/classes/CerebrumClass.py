@@ -18,6 +18,7 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 from Builder import Attribute
+from Searchable import Searchable
 import Database
 
 __all__ = ['CerebrumAttr', 'CerebrumEntityAttr', 'CerebrumClass']
@@ -60,7 +61,7 @@ class CerebrumTypeAttr(CerebrumAttr):
     def from_cerebrum(self, value):
         return self.type_class.get_by_id(value)
 
-class CerebrumClass(object):
+class CerebrumClass(Searchable):
     cerebrum_class = None
 
     def _load_cerebrum(self):
@@ -99,3 +100,28 @@ class CerebrumClass(object):
             setattr(cls, 'save_' + i.name, cls._save_cerebrum)
 
     build_methods = classmethod(build_methods)
+    
+    def create_search_method(cls):
+        """
+        This function creates a search method for a search class, using
+        the slots convention of the AP API. The generated method calls search()
+        on the Cerebrum API class which the search class represents, and returns
+        populated AP objects from the results.
+        """
+        def search(self, **args):
+            obj = cls.cerebrum_class(Database.get_database())
+            rows = obj.search(**args)
+            objects = []
+
+            for row in rows:
+                try:
+                    entity_id = int(row[0])
+                except TypeError:
+                    raise Errors.SearchError( 
+                        'Could not fetch the ID of one of the found objects.')
+                objects.append(cls(entity_id))
+                
+            return objects
+        return search
+
+    create_search_method = classmethod(create_search_method)

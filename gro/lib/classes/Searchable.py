@@ -54,9 +54,19 @@ class SearchClass(Builder):
 
     create_primary_key = classmethod(create_primary_key)
 
+    def get_alive_slots(self): # FIXME: dårlig navn?
+        alive = {}
+        mine = object() # make a unique object
+        for attr in self.slots:
+            val = getattr(self, '_' + attr.name, mine)
+            if val is not mine:
+                alive[attr.name] = val
+        return alive
+
     def search(self):
         if not hasattr(self, '_result') or self.updated:
-            self._result = self._search()
+            alive = self.get_alive_slots()
+            self._result = self._search(**alive)
             self.updated.clear()
 
         return self._result
@@ -74,54 +84,25 @@ class Searchable(object):
         search_class.method_slots = []
         
         for attr in cls.slots:
-            if not attr.write:
-                continue
-
             get = create_get_method(attr.name)
 
             new_attr = Attribute(attr.name, attr.data_type, write=True)
             search_class.register_attribute(new_attr, get=get)
             
-        if not hasattr(cls, 'cerebrum_class'): # shouldnt this be an assert?
-            raise Errors.UnsearchableClassError( 
-                'Class %s has no cerebrum_class reference' % cls.__name__)
-
-
         # FIXME: this should use register_method
         search_class._search = cls.create_search_method()
         search_class.method_slots.append(Method('search', '%sSeq' % cls.__name__))
 
         return search_class
+
+    create_search_class = classmethod(create_search_class)
     
     def create_search_method(cls):
         """
-        This function creates a search method for a search class, using
-        the slots convention of the AP API. The generated method calls search()
-        on the Cerebrum API class which the search class represents, and returns
-        populated AP objects from the results.
+        This function creates a search(**args) method for the search class, using
+        the slots convention of the AP API.
+
         """
-        def search(self):
-            search_dict = {}
-            for attr in self.slots:
-                mine = object()
-                val = attr.get(self, mine)
-                if val is not mine:
-                    search_dict[attr.name] = val
+        raise NotImplementedError('this needs to be implemented in subclass')
 
-            obj = cls.cerebrum_class(Database.get_database())
-            rows = obj.search(**search_dict)
-            objects = []
-
-            for row in rows:
-                try:
-                    entity_id = int(row[0])
-                except TypeError:
-                    raise Errors.SearchError( 
-                        'Could not fetch the ID of one of the found objects.')
-                objects.append(cls(entity_id))
-                
-            return objects
-        return search
-
-    create_search_class = classmethod(create_search_class)
     create_search_method = classmethod(create_search_method)
