@@ -68,10 +68,13 @@ user_creators = {}     # Store post-processing info for users
 uname2entity_id = {}
 deleted_users = {}
 uid_taken = {}
-group2entity_id = {}
 person_id2affs = {}
 account_id2aff = {}
 primary_users = {}
+
+# Some caches for speedup
+group2entity_id = {}
+account2entity_id = {}
 
 namestr2const = {'lname': co.name_last, 'fname': co.name_first}
 personObj = Factory.get('Person')(db)
@@ -541,16 +544,18 @@ def import_itperms(filename):
     db.commit()
 
 def _get_group(name):
-    if not group2entity_id.has_key('name'):
+    if not group2entity_id.has_key(name):
         tmpg = Group.Group(db)
         tmpg.find_by_name(name)
-        group2entity_id[name] = tmpg.entity_id
+        group2entity_id[name] = int(tmpg.entity_id)
     return group2entity_id[name]
 
 def _get_account(name):
-    tmpa = Account.Account(db)
-    tmpa.find_by_name(name)
-    return tmpa.entity_id
+    if not account2entity_id.has_key(name):
+        tmpa = Account.Account(db)
+        tmpa.find_by_name(name)
+        account2entity_id[name] = int(tmpa.entity_id)
+    return account2entity_id[name]
 
 def import_groups(groupfile, fill=0):
     account = Account.Account(db)
@@ -623,39 +628,36 @@ def import_groups(groupfile, fill=0):
             for m in group.get('member', []):
                 try:
                     if m['type'] == 'user':
-                        account.clear()
-                        account.find_by_name(m['name'])
+                        account_id = _get_account(m['name'])
                     else:  # Delay insertion as group may not exist yet
                         group_group.setdefault(int(groupObj.entity_id), []).append(m['name'])
                         continue
 
                     if not group_has_member.get(int(destination.entity_id), {}
-                                                ).has_key(int(account.entity_id)):
-                        destination.add_member(account.entity_id, account.entity_type,
+                                                ).has_key(account_id):
+                        destination.add_member(account_id, co.entity_account,
                                                co.group_memberop_union);
                         group_has_member.setdefault(int(destination.entity_id), {}
-                                                    )[int(account.entity_id)] = 1
+                                                    )[account_id] = 1
                     print "A",
                 except Errors.NotFoundError:
                     print "n",
                     continue
 
     groupObj = Group.Group(db)
-    tmp = Group.Group(db)
     for group in group_group.keys():
         groupObj.clear()
         groupObj.find(group)
         for m in group_group[group]:
-            tmp.clear()
             try:
-                tmp.find_by_name(m)
+                tmp = _get_group(m)
             except Errors.NotFoundError:
                 print "E:%i/%s" % (group, m)
                 continue
-            if int(group) == int(tmp.entity_id):
+            if int(group) == tmp:
                 print "Warning group memember of itself, skipping %s" % m
                 continue
-            groupObj.add_member(tmp.entity_id, tmp.entity_type, co.group_memberop_union)
+            groupObj.add_member(tmp, co.entity_group, co.group_memberop_union)
     db.commit()
 
 ureg_person_aff_mapping = {
@@ -752,7 +754,9 @@ def import_person_users(personfile):
     warned_uc = {}
     
     # Populate person affiliations
+    showtime("Populate person affiliations")
     for p_id in person_id2affs.keys():
+        print "a"
         personObj.clear()
         personObj.find(p_id)
         for ou_id, aff, affstat in person_id2affs[p_id]:
@@ -766,7 +770,9 @@ def import_person_users(personfile):
             print "  person.write_db (%s)-> %s" % (p_id, tmp)
     # Set user_creator and account affiliations.
     # user_creators and account_id2aff have atleast all keys in account_id2aff
+    showtime("Setting user_creators")
     for uc in user_creators.keys():
+        print "c"
         creator_id = uname2entity_id.get(user_creators[uc], None)
         account.clear()
         account.find(uc)
@@ -790,6 +796,7 @@ def import_person_users(personfile):
     # is not critical.
     # If we move this code above the code that sets creator, we risk
     # setting the wrong creator
+    showtime("Creating deleted users")
     for person_id in deleted_users.keys():
         for du in deleted_users[person_id]:
             if not uname2entity_id.has_key(du['uname']):
