@@ -727,6 +727,7 @@ public class JBofh {
                     System.out.println(
                         "Usage: ... [-q | --url url | --gui | --nogui | -d]\n"+
                         "-q : internal use only\n"+
+                        "-u uname : connect as the given user\n"+
                         "--url url : connect to alternate server\n"+
                         "--gui : start with primitive java gui\n"+
                         "--nogui : start in console mode\n"+
