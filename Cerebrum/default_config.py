@@ -206,6 +206,21 @@ JOB_RUNNER_MAX_PARALELL_JOBS = 3
 # Used by Cerebrum/no/Stedkode.py
 DEFAULT_INSTITUSJONSNR=None
 
+# INSTITUTION_DOMAIN_NAME: The DNS domain name your institution
+# prefers to use for identifying itself on the internet.
+#
+# For FEIDE-enabled institutions, this setting specifies the domain
+# name that will be used for qualifying its eduPersonPrincipalName
+# attributes, as described in the "FEIDE Object Class Specification".
+#
+# Note that you MUST override this setting in your cereconf.py; the
+# default value given here will parse as a domain name, but is
+# guaranteed (by RFC 2606) to never actually appear in DNS.
+#
+# Example: At the University of Oslo in Norway, this setting should be
+# "uio.no".
+INSTITUTION_DOMAIN_NAME = "my-institution.example"
+
 # The Email module's algorithm for determining a user's "default"
 # email domain needs a default.  This should be a string, naming fully
 # qualified domain name that is registered in the installation's
