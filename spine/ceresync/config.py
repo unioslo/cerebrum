@@ -1,4 +1,23 @@
 #!/usr/bin/env python
+# -*- coding: iso-8859-1 -*-
+
+# Copyright 2004, 2005 University of Oslo, Norway
+#
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 import ConfigParser
 import unittest
@@ -14,7 +33,7 @@ sync.read(('sync.conf.template', 'sync.conf'))
 # sense too, like that files referenced do exist
 class TestConf(unittest.TestCase):
     def testSections(self):
-        assert conf.has_section("gro")
+        assert conf.has_section("spine")
         assert conf.has_section("corba")
         assert conf.has_section("idl")
         assert conf.has_section("ssl")
@@ -29,34 +48,35 @@ class TestConf(unittest.TestCase):
         conf.get("ssl", "password")
     
     def testGro(self):
-        if conf.getboolean("gro", "cache"):
-            path = conf.get("gro", "cache_dir")
+        if conf.getboolean("spine", "cache"):
+            path = conf.get("spine", "cache_dir")
             assert os.path.isdir(path)
     
     def testCorba(self):
         # Connection testing will be done by Gro.py
-        conf.get("corba", "context")        
-        conf.get("corba", "service")
-        conf.get("corba", "object")
+        #conf.get("corba", "context")        
+        #conf.get("corba", "service")
+        #conf.get("corba", "object")
+        conf.get("corba", "url")
     
     def testIDL(self):
         path = conf.get("idl", "path")
         assert os.path.isdir(path)
-        gro_idl = conf.get("idl", "gro")
-        assert os.path.isfile(os.path.join(path, gro_idl))
+        server_idl = conf.get("idl", "server")
+        assert os.path.isfile(os.path.join(path, server_idl))
         errors_idl = conf.get("idl", "errors")
         assert os.path.isfile(os.path.join(path, errors_idl))
 
 class TestSync(unittest.TestCase):
     def testSections(self):
-        assert sync.has_section("gro")
+        assert sync.has_section("spine")
         assert sync.has_section("file")
         assert sync.has_section("ldap")
 
     def testGro(self):
-        assert sync.get("gro", "login")
-        assert sync.get("gro", "password")
-        last_change = sync.get("gro", "last_change")
+        assert sync.get("spine", "login")
+        assert sync.get("spine", "password")
+        last_change = sync.get("spine", "last_change")
         # we cannot know if the file exist, but the dir must exist 
         # (why this 'or "."' thing? os.path.dirname() returns
         # a blank string instead of . if there is no dirname)
