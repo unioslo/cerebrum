@@ -29,7 +29,7 @@ from Cerebrum.QuarantineHandler import QuarantineHandler
 from Cerebrum.Utils import Factory, latin1_to_iso646_60, auto_super
  
  
-#logger = Factory.get_logger("console")
+logger = Factory.get_logger("cronjob")
  
 
 
