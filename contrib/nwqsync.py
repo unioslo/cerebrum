@@ -50,8 +50,8 @@ db = Factory.get('Database')()
 const = Factory.get('CLConstants')(db)
 co = Factory.get('Constants')(db)
 cl_events = (
-#		const.account_mod, \
-#		const.account_password, \
+		const.account_mod, \
+		const.account_password, \
 		const.group_add, \
 		const.group_rem, \
 		const.group_mod, \
