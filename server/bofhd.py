@@ -343,16 +343,16 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
             raise CerebrumError, "User has active lock/skip quarantines, login denied"
 
         # Check password
-        enc_pass = None
+        enc_passwords = []
         for auth in (self.server.const.auth_type_md5_crypt,
                      self.server.const.auth_type_crypt3_des):
             try:
                 enc_pass = account.get_account_authentication(auth)
-                if enc_pass:
-                    break               # Ignore empty password hashes
+                if enc_pass:            # Ignore empty password hashes
+                    enc_passwords.append(enc_pass)
             except Errors.NotFoundError:
                 pass
-        if not enc_pass:
+        if not enc_passwords:
             logger.info("Missing password for %s from %s" % (uname,
                         ":".join([str(x) for x in self.client_address])))
             raise CerebrumError, "Unknown username or password"
@@ -360,10 +360,23 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
             # TODO: ideally we should not hardcode charset here.
             password = password.encode('iso8859-1')
         # TODO: Add API for credential verification to Account.py.
-        if enc_pass <> crypt.crypt(password, enc_pass):
+        mismatch = map(lambda e: e <> crypt.crypt(password, e), enc_passwords)
+        if filter(None, mismatch):
             # Use same error message as above; un-authenticated
             # parties should not be told that this in fact is a valid
             # username.
+            if filter(lambda m: not m, mismatch):
+                mismatch = zip(mismatch, enc_passwords)
+                match    = [p[1] for p in mismatch if not p[0]]
+                mismatch = [p[1] for p in mismatch if p[0]]
+                if filter(lambda c: c < '!' or c > '~', password):
+                    chars = 'chars, including [^!-~]'
+                else:
+                    chars = 'good chars'
+                logger.warn("Password (%d %s) for user %s matches"
+                            " auth_data '%s' but not '%s'"
+                            % (len(password), chars, uname,
+                               "', '".join(match), "', '".join(mismatch)))
             logger.info("Failed login for %s from %s" % (
                 uname, ":".join([str(x) for x in self.client_address])))
             raise CerebrumError, "Unknown username or password"
