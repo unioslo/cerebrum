@@ -232,7 +232,7 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
             for row in self.get_affiliations(include_deleted = True):
                 if source == row['source_system']:
                     idx = "%d:%d:%d" % (row['ou_id'], row['affiliation'], row['status'])
-                    db_affil[idx] = deleted_date
+                    db_affil[idx] = row['deleted_date']
 		    db_prim['%s:%s' % (row['ou_id'], row['affiliation'])] = idx
             pop_affil = self.__affil_data
             for prim in pop_affil.keys():
