@@ -38,10 +38,9 @@ class TrivialParser(xml.sax.ContentHandler):
 
     def startElement(self, name, attrs):
         if name in ('fagperson', 'student', 'evu'):
-            tmp = {}
+            tmp = {'type': name}
             for k in attrs.keys():
                 tmp[k] = attrs[k].encode('iso8859-1')
-                tmp['type'] = name
             self.personer.append(tmp)
 
     def endElement(self, name): 
@@ -62,12 +61,15 @@ def main():
 
 def process_person(Cerebrum, persondta):
     try:
-        fnr = fodselsnr.personnr_ok("%06d%05d" % (int(persondta['fodselsdato']),
-                                                  int(persondta['personnr'])))
-        print "Process %s %s %s " % (fnr, persondta['fornavn'], persondta['etternavn']),
+        fnr = fodselsnr.personnr_ok("%06d%05d" % (
+            int(persondta['fodselsdato']), int(persondta['personnr'])))
+        print "Process %s %s %s " % (fnr, persondta['fornavn'],
+                                     persondta['etternavn']),
         (year, mon, day) = fodselsnr.fodt_dato(fnr)
-        if(year < 1970 and getattr(cereconf, "ENABLE_MKTIME_WORKAROUND", 0) == 1):
-            year = 1970   # Seems to be a bug in time.mktime on some machines
+        if (year < 1970
+            and getattr(cereconf, "ENABLE_MKTIME_WORKAROUND", 0) == 1):
+            # Seems to be a bug in time.mktime on some machines
+            year = 1970
     except fodselsnr.InvalidFnrError:
         print "Ugyldig fødselsnr: %s%s" % (persondta['fodselsdato'],
                                            persondta['personnr'])
@@ -82,22 +84,28 @@ def process_person(Cerebrum, persondta):
 
     new_person.populate(Cerebrum.Date(year, mon, day), gender)
     new_person.affect_names(co.system_fs, co.name_full)
-    new_person.populate_name(co.name_full, "%s %s" % (persondta['etternavn'], persondta['fornavn']))
+    new_person.populate_name(co.name_full,
+                             "%s %s" % (persondta['etternavn'],
+                                        persondta['fornavn']))
 
     new_person.populate_external_id(co.system_fs, co.externalid_fodselsnr, fnr)
 
     new_person.affect_addresses(co.system_fs, co.address_post)
     sko_info = ()
-    aff_type, aff_status = co.affiliation_student, co.affiliation_status_student_valid
+    aff_type, aff_status = (co.affiliation_student,
+                            co.affiliation_status_student_valid)
     if persondta['type'] == 'fagperson':
         atype = 'arbeide'
-        sko_info = (persondta['faknr'], persondta['instituttnr'], persondta['gruppenr'])
-        aff_type, aff_status = co.affiliation_employee, co.affiliation_status_employee_valid
+        sko_info = (persondta['faknr'], persondta['instituttnr'],
+                    persondta['gruppenr'])
+        aff_type, aff_status = (co.affiliation_employee,
+                                co.affiliation_status_employee_valid)
     elif persondta['type'] == 'student':
         atype = 'semadr'  # Evt. hjemsted
     elif persondta['type'] == 'evu':
         atype = 'hjem'   # Evt. hjemsted
-    # TODO: Trenger kanskje noen tester på gyldighet av addr før vi legger den inn?
+    # TODO: Trenger kanskje noen tester på gyldighet av addr før vi
+    # legger den inn?
     new_person.populate_address(co.address_post, addr="%s\n%s" %
                                 (persondta.get('adrlin1_%s' % atype, ''),
                                  persondta.get('adrlin2_%s' % atype, '')),
@@ -106,7 +114,8 @@ def process_person(Cerebrum, persondta):
 
     for i in range(0, len(sko_info), 3):
         ou = OU.OU(Cerebrum)
-        ou.find_stedkode(int(sko_info[i]), int(sko_info[i+1]), int(sko_info[i+2]))
+        ou.find_stedkode(int(sko_info[i]), int(sko_info[i+1]),
+                         int(sko_info[i+2]))
 
         new_person.affect_affiliations(co.system_fs, aff_type)
         new_person.populate_affiliation(ou.ou_id, aff_type, aff_status)
