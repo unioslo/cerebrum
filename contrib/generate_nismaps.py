@@ -40,7 +40,14 @@ db = Factory.get('Database')()
 co = Factory.get('Constants')(db)
 posix_user = PosixUser.PosixUser(db)
 posix_group = PosixGroup.PosixGroup(db)
-MAX_LINE_LENGTH = 1023
+
+# The "official" NIS max line length (consisting of key + NUL + value
+# + NUL) is 1024; however, some implementations appear to have lower
+# limits.
+#
+# Specifically, on Solaris 9 makedbm(1M) chokes on lines longer than
+# 1018 characters.  Other systems might be even more limited.
+MAX_LINE_LENGTH = 1000
 _SpreadCode.sql = db
 
 entity2uname = {}
@@ -136,13 +143,16 @@ def generate_netgroup(filename, group_spread, user_spread):
                     group_members.append(entity2gname[int(row2[1])])
         # TODO: Also process intersection and difference members.
         line = " ".join((join(group_members, ' '), join(account_members, ' ')))
-        maxlen = MAX_LINE_LENGTH - (len(group.group_name) + 1)*2
+        maxlen = MAX_LINE_LENGTH - (len(group.group_name) + 1)
         while len(line) > maxlen:
-            pos = line.index(" ", len(line) - maxlen)
+            # TODO: Make sure that these automatically generated xNN
+            # netgroups won't collide with the name of any real group.
             tmp_gname = "x%02x" % num
+            num += 1
+            maxlen = MAX_LINE_LENGTH - (len(tmp_gname) + 1)
+            pos = line.index(" ", len(line) - maxlen)
             f.write("%s %s\n" % (tmp_gname, line[pos+1:]))
             line = "%s %s" % (tmp_gname, line[:pos])
-            num += 1
         f.write("%s %s\n" % (group.group_name, line))
     if e_o_f:
 	f.write('E_O_F\n')
@@ -181,6 +191,8 @@ def generate_group(filename, group_spread, user_spread):
                     id, gname)
 
         gline = join((gname, '*', gid, join(members, ',')))
+        # The group name is both the key and the start of the value in
+        # NIS group maps.
         if len(gline) + len(gname) + 1 <= MAX_LINE_LENGTH:
             f.write(gline+"\n")
             groups[gname] = None
@@ -216,7 +228,9 @@ def generate_group(filename, group_spread, user_spread):
         gname = g
         gid, members = groups[g]
         while members:
-            # gname gname:*:gid:
+            # In the NIS map, the gname will appear both as key and as
+            # the first field of the value:
+            #   gname gname:*:gid:
             memb_str, members = maxjoin(members, MAX_LINE_LENGTH -
                                         (len(gname)*2 + 1 + len(gid) + 4))
             if memb_str is None:
