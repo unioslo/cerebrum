@@ -218,30 +218,19 @@ class EmailLDAP(DatabaseAccessor):
             grp.find(group_id)
         except Errors.NotFoundError:
             raise ValueError, "no group found: %d" % group_id
-        u, i, d = grp.list_members()
-        if i or d:
-            raise ValueError, "group has non-union members: %d" % group_id
-        # Iterate over group's union members
         member_addrs = []
-        for member_type, member_id in u:
-            if member_type <> self.const.entity_account:
-                continue
-            # Verify that the user has its own email target.
-            mail_targ.clear()
-            try:
-                mail_targ.find_by_email_target_attrs(
-                    target_type = self.const.email_target_account,
-                    entity_id = member_id)
-            except Errors.NotFoundError:
-                raise ValueError, "no target for group member: %d" % member_id
-            targ_id = int(mail_targ.email_target_id)
-            if not self.targ2addr.has_key(targ_id):
+        for member_id in grp.get_members():
+            acc.clear()
+            acc.find(member_id)
+            if acc.is_deleted() or acc.is_reserved():
                 continue
             # The address selected for the target will become the
             # envelope recipient address after expansion, so it must
-            # be deterministic.
-            acc.clear()
-            acc.find(mail_targ.email_target_entity_id)
-            member_addrs.append(acc.get_primary_mailaddress())
+            # be a value the user expects.  Use primary address rather
+            # than random element from targ2addr.
+            try:
+                member_addrs.append(acc.get_primary_mailaddress())
+            except Errors.NotFoundError:
+                raise ValueError, ("%s in group %s has no primary address" %
+                                   (acc.account_name, grp.group_name))
         return member_addrs
-
