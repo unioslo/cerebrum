@@ -1,0 +1,43 @@
+#def sorted_table($tableview, $headers, $change_sort_priority, $change_sort_order, $css_class=None)
+##doc: Presents a TableView instance.
+##doc:   tableview -- instance of TableView filled with data, with 
+##doc:      tableview.columns and tableview..sort set
+##doc:   headers -- a dictionary of headers, keys are column names
+##doc:      as in tableview.columns, values are inserted 
+##doc:      into HTML for those columns that are chosen for 
+##doc:      presentation in tableview.columns
+##doc:   change_sort_priority -- URL to script that changes 
+##doc:      tableview's sort priority, ie. which columns are first
+##doc:      in tableview.columns. The URL should include %s that will
+##doc:      be replaced with the column name to be prioritized
+##doc:   change_sort_order -- URL to script that changes
+##doc:      tableview's sort order for a column (ie. switching between 
+##doc:      ascending/descending). The URL should include %s that will
+##doc:      be replaced with the column name to be reordered
+##doc:   css_class -- optional parameter, a string selecting a css 
+##doc:      class to be set for the returned table
+
+#if $css_class
+<table class='$css_class'>
+#else
+<table>
+#end if
+    <tr>
+#for $column in $tableview.columns
+#set $header = $headers.get($column, "")
+#set $pri_link = $change_sort_priority % $column    
+#set $ord_link = $change_sort_order % column
+#set $dir = $tableview.column_order($column)    
+        <td><a href='$pri_link'>$header</a> 
+            <a href='$ord_link'>($dir)</a></td>
+#end for
+    </tr>
+#for $row in $tableview.sorted()
+    <tr>
+#for $col in $row    
+        <td>$col</td>
+#end for
+    </tr>
+#end for
+</table>
+#end def
