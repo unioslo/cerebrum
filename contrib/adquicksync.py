@@ -60,7 +60,10 @@ def quick_user_sync():
                                   clco.quarantine_mod,
                                   clco.quarantine_refresh,
                                   clco.account_home_added,
-                                  clco.account_home_updated))
+                                  clco.account_home_updated,
+				  clco.homedir_update,
+				  clco.homedir_add,
+				  clco.homedir_remove))
 
     for ans in answer:	
         chg_type = ans['change_type_id']
@@ -135,7 +138,10 @@ def quick_user_sync():
               chg_type == clco.quarantine_refresh):
 	    change_quarantine(ans['subject_entity'])
 	elif (chg_type == clco.account_home_updated or
-              chg_type == clco.account_home_added):
+              chg_type == clco.account_home_added or 
+	      chg_type == clco.homedir_update or 
+	      chg_type == clco.homedir_add or
+	      chg_type == clco.homedir_remove):
 	    move_account(ans['subject_entity'])
     cl.commit_confirmations()
 
@@ -143,6 +149,9 @@ def quick_user_sync():
 def move_account(entity_id):
     account.clear()
     account.find(entity_id)
+    if account.is_expired():
+	logger.debug('move_account:Account %s is expired' % entity_id)
+	return False
     if account.has_spread(int(co.spread_uio_ad_account)):
 	account_name = id_to_name(entity_id, 'user')
 	if not account_name:
@@ -151,13 +160,16 @@ def move_account(entity_id):
        	sock.send('ALTRUSR&%s/%s&hdir&%s\n' % (cereconf.AD_DOMAIN,
                                                account_name, home))
 	if sock.read() != ['210 OK']:
-	    logger.debug('Failed update home directory %s' % account_name)
+	    logger.warn('Failed update home directory %s' % account_name)
 
 
 def change_quarantine(entity_id):
     account.clear()
     try:
 	account.find(entity_id)
+	if account.is_expired():
+	    logger.debug('change_quarantine:Account %s is expired' % entity_id)
+	    return False
     except Errors.NotFoundError:
 	# The entity exists, but account information deleted, ignore
 	# further processing.
@@ -330,12 +342,15 @@ def add_spread(entity_id, spread):
             for grpmemb in group.get_members():
                 account.clear()
                 account.find(grpmemb)
-                if account.has_spread(co.spread_uio_ad_account):
-                    name = account.get_name(int(co.account_namespace))
-                    logger.debug('Add %s to %s' % (name,grp))
-                    sock.send('ADDUSRGR&%s/%s&%s/%s\n' % (cereconf.AD_DOMAIN, name, cereconf.AD_DOMAIN, grp))
-                    if sock.read() != ['210 OK']:
-                        logger.debug('Failed add %s to %s' % (name, grp))
+		if account.is_expired():
+		    #Groupmember is expired and is not added to group.	
+		    logger.debug('Add_spread:Groupmember %s is expired' % entity_id)
+                    if account.has_spread(co.spread_uio_ad_account):
+                        name = account.get_name(int(co.account_namespace))
+                        logger.debug('Add %s to %s' % (name,grp))
+                        sock.send('ADDUSRGR&%s/%s&%s/%s\n' % (cereconf.AD_DOMAIN, name, cereconf.AD_DOMAIN, grp))
+                        if sock.read() != ['210 OK']:
+                            logger.debug('Failed add %s to %s' % (name, grp))
 	    return True
         logger.debug('Failed create group %s in OU Users' % grp)
     else:
@@ -424,6 +439,9 @@ def group_rem(account_name,group_name):
 def change_pw(account_id,pw_params):
     account.clear()
     account.find(account_id)
+    if account.is_expired():
+	logger.debug('change_pw:Account %s is expired' % entity_id)
+	return False
     user = id_to_name(account_id,'user')
     if not user:
 	return False
