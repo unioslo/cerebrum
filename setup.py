@@ -84,16 +84,26 @@
 
 from distutils.core import setup
 
+prefix="."  # Should preferably be initialized from the command-line argument
+sharedir="%s/share" % prefix
+sbindir="%s/sbin" % prefix
+bindir="%s/bin" % prefix
+
 setup (name = "Cerebrum", version = "0.1",
        url = "http://cerebrum.sourceforge.net",
        maintainer = "Cerebrum Developers",
        maintainer_email = "do.we@want.this.here",
        description = "Cerebrum...",
        # NOTE: all scripts ends up in the same dir!
-       scripts = ['contrib/no/uio/import_FS.py', 'contrib/generate_nismaps.py'],
+       # scripts = ['contrib/no/uio/import_FS.py', 'contrib/generate_nismaps.py'],
        packages = ['Cerebrum'],
+
+       # options override --prefix
+       #options = {'install_data': {'root' : '/foo/bar',  # prefix on slash
+       #                            'install_dir': '/dddddddd' # prefix on no-slash
+       #                            }},
        # data_files doesn't seem to handle wildcards
-       data_files = [("usr/share/doc/cerebrum/design",
+       data_files = [("%s/design" % sharedir,
                       ['design/drop_mod_stedkode.sql',
                        'design/drop_mod_nis.sql',
                        'design/drop_mod_posix_user.sql',
@@ -104,8 +114,44 @@ setup (name = "Cerebrum", version = "0.1",
                        'design/core_data.sql',
                        'design/mod_stedkode.sql'
                        ]),
-                     ("etc/cerebrum",
-                      ["Cerebrum/cereconf.py"
-                       ])
+                     ("%s/doc/cerebrum" % sharedir,
+                      ['design/cerebrum-core.dia',
+                       'design/cerebrum-core.html',
+                       'design/adminprotocol.html',
+                       'README',
+                       'COPYING',
+                       # 'doc/*'
+                       ]),
+                     ## ("%s/samples" % sharedir,
+                     ##  ['doc/*.cron']),
+                     ("%s" % sbindir,
+                      ['server/bofhd.py',
+                       'server/bofhd_cmds.py',   # WRONG!
+                       'server/cmd_param.py',    # WRONG!
+                       'contrib/generate_nismaps.py',
+                       'contrib/no/uio/import_OU.py',  # TODO: These should not allways be installed?
+                       'contrib/no/uio/import_FS.py',
+                       'contrib/no/uio/import_LT.py',
+                       'contrib/no/uio/import_from_FS.py',
+                       'contrib/no/uio/import_from_LT.py',
+                       'contrib/no/uio/import_userdb_XML.py'
+                       
+                       ]),
+                     ("%s" % bindir,
+                      ['client/bofh.py']),
+                     ("%s/cerebrum/client" % sharedir,
+                       ['client/passweb.py',
+                        'client/pform.html',
+                        'java/jbofh/dist/lib/JBofh.jar']),
+                     ("%s/cerebrum/client/linux" % sharedir,  # TODO: arch
+                      ['java/jbofh/lib/libJavaReadline.so']),
+                     ("/etc/cerebrum",
+                      ["Cerebrum/cereconf.py",
+                       'server/config.dat'
+                       ]),
+                     ("/var/log/cerebrum",
+                      []),
+                     ("%s/cerebrum/data" % sharedir,
+                      []),
                      ]
       )
