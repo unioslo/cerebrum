@@ -48,20 +48,27 @@ def _add_to_tuple(name, obj):
 # Exceptions defined in DB-API 2.0; the module-global tuples below
 # will contain the corresponding exceptions from all the driver
 # modules that have been loaded.
-_EXCEPTION_NAMES = ("Error", "Warning", "InterfaceError", "DatabaseError",
-                    "InternalError", "OperationalError", "ProgrammingError",
-                    "IntegrityError", "DataError", "NotSupportedError")
-for e in _EXCEPTION_NAMES:
+API_EXCEPTION_NAMES = ("Error", "Warning", "InterfaceError", "DatabaseError",
+                       "InternalError", "OperationalError", "ProgrammingError",
+                       "IntegrityError", "DataError", "NotSupportedError")
+for e in API_EXCEPTION_NAMES:
     setattr(Utils.this_module(), e, ())
 
-_TYPE_NAMES = ("STRING", "BINARY", "NUMBER", "DATETIME")
-for t in _TYPE_NAMES:
+API_TYPE_NAMES = ("STRING", "BINARY", "NUMBER", "DATETIME")
+for t in API_TYPE_NAMES:
     setattr(Utils.this_module(), t, ())
 
+API_TYPE_CTOR_NAMES = ("Date", "Time", "Timestamp", "DateFromTicks",
+                       "TimeFromTicks", "TimestampFromTicks", "Binary")
 
 class Cursor(object):
-    def __init__(self, csr):
+    def __init__(self, csr, db):
         self._cursor = csr
+        # Copy the Database-specific type constructors; these have
+        # already been converted into static methods by
+        # Database._register_driver_types().
+        for ctor in API_TYPE_CTOR_NAMES:
+            setattr(self, ctor, getattr(db, ctor))
 
     ####################################################################
     #
@@ -219,7 +226,7 @@ class Database(object):
 
     def _register_driver_exceptions(self):
         'Copy DB-API 2.0 error classes from the appropriate driver module.'
-        for name in _EXCEPTION_NAMES:
+        for name in API_EXCEPTION_NAMES:
             exc = getattr(self._db_mod, name)
             setattr(self.__class__, name, exc)
             #
@@ -229,11 +236,10 @@ class Database(object):
 
     def _register_driver_types(self):
         'Copy DB-API 2.0 types from the appropriate driver module.'
-        for ctor_name in ("Date", "Time", "Timestamp", "DateFromTicks",
-                          "TimeFromTicks", "TimestampFromTicks", "Binary"):
+        for ctor_name in API_TYPE_CTOR_NAMES:
             f = getattr(self._db_mod, ctor_name)
-            setattr(self.__class__, ctor_name, f)
-        for type_name in _TYPE_NAMES:
+            setattr(self.__class__, ctor_name, staticmethod(f))
+        for type_name in API_TYPE_NAMES:
             type_obj = getattr(self._db_mod, type_name)
             setattr(self.__class__, type_name, type_obj)
             #
@@ -326,7 +332,7 @@ class Database(object):
     #
     def create_cursor(self):
         "Generate and return a fresh cursor object."
-        return Cursor(self._db.cursor())
+        return Cursor(self._db.cursor(), self)
 
     def query(self, query, *params):
         """Perform an SQL query, and return all rows it yields.
@@ -385,8 +391,7 @@ class Oracle(Database):
         if service is None:
             service = cereconf.CEREBRUM_DATABASE_NAME
         if user is None:
-            # TODO: This shouldn't be hardcoded.
-            user = 'cerebrum_user'
+            user = cereconf.CEREBRUM_DATABASE_CONNECT_DATA.get('user')
         if password is None:
             password = self._read_password(service, user)
         conn_str = '%s/%s@%s' % (user, password, service)
@@ -417,7 +422,10 @@ class Oracle(Database):
 
 def connect(*args, **kws):
     "Return a new instance of the Database subclass used by this installation."
-    db_driver = cereconf.DATABASE_DRIVER
     mod = sys.modules.get(__name__)
+    db_driver = cereconf.DATABASE_DRIVER
+    if kws.has_key('DB_driver'):
+        db_driver = kws['DB_driver']
+        del kws['DB_driver']
     cls = getattr(mod, db_driver)
     return cls(*args, **kws)
