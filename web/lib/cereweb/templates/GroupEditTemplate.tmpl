@@ -1,4 +1,5 @@
 #from Cerebrum.web.InitTemplate import InitTemplate
+#from Cerebrum.web.utils import url
 #extends InitTemplate
 
 ## List of tuples (name, label)
@@ -12,17 +13,13 @@ $url("group/save")#slurp
 
 #attr $formvalues = {}
 
-#def getAction
-/some/where#slurp
-#end def
-
 #def input($name, $label)
     #set $value = $formvalues.get($name, "")
     <label for='$name'>$label</label>
     <input type='text' name='$name' id='$name' value='$value' /><br />
 #end def
 
-#def form($id=-1)
+#def form($id="")
 <form action="$getAction()" method="POST">
 #for $name, $label in $fields #
     #echo $input($name, $label) #

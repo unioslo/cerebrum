@@ -5,7 +5,7 @@ ClientAPI = Factory.get_module("ClientAPI")
 from Cerebrum.web.templates.GroupSearchTemplate import GroupSearchTemplate
 from Cerebrum.web.templates.GroupViewTemplate import GroupViewTemplate
 from Cerebrum.web.templates.GroupAddMemberTemplate import GroupAddMemberTemplate
-from Cerebrum.web.templates.EditGroupTemplate import EditGroupTemplate
+from Cerebrum.web.templates.GroupEditTemplate import GroupEditTemplate
 from Cerebrum.web.templates.HistoryLogTemplate import HistoryLogTemplate
 from Cerebrum.web.Main import Main
 from gettext import gettext as _
@@ -134,7 +134,7 @@ def remove_member(req, groupid, memberid, operation):
 def edit(req, id):
     server = req.session['server']
     page = Main(req)
-    edit = EditGroupTemplate()
+    edit = GroupEditTemplate()
     group = ClientAPI.Group.fetch_by_id(server, id)
     edit.formvalues['name'] = group.name
     edit.formvalues['desc'] = group.description
@@ -142,6 +142,18 @@ def edit(req, id):
     page.content = lambda: edit.form(id)
     return page
 
+def new(req):
+    page = Main(req)
+    edit = GroupEditTemplate()
+    page.content = lambda: edit.form()
+    return page
+
 def save(req, id, name, desc, expire):
-    return "eh.. %s" % name    
+    server = req.session['server']
+    if not(id):
+        ClientAPI.Group.create(server, name, desc)
+        return "OK, created group %s" % name
+    if expire:
+        return "Cannot set expire yet"    
+    return "Don't know how to edit group"
 
