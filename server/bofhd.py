@@ -203,7 +203,10 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler):
             elif isinstance(obj, (int, long, float)):
                 return obj
             elif str(type(obj)) == "<type 'DateTime'>":  # TODO: use isinstance instead
-                return xmlrpclib.DateTime(obj.localtime())
+                # TODO: This only works for Postgres.  Needs support
+                # in Database.py as the Python database API doesn't
+                # define any return type for Date
+                return xmlrpclib.DateTime(obj.localtime().tuple())
             else:
                 raise ValueError, "Unrecognized parameter type: '%r'" % obj
         try:
@@ -372,6 +375,12 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler):
             # TBD: What should be returned if `args' contains tuple,
             # indicating that `func` should be called multiple times?
             return self.server.db.pythonify_data(ret)
+        except self.server.db.IntegrityError, m:
+            # TODO: Sometimes we also get an OperationalError, we
+            # should trap this as well, probably with a more
+            # user-friendly message
+            self.server.db.rollback()
+            raise CerebrumError, "DatabaseError: %s" % m
         except Exception:
             # ret = "Feil: %s" % sys.exc_info()[0]
             # print "Error: %s: %s " % (sys.exc_info()[0], sys.exc_info()[1])
