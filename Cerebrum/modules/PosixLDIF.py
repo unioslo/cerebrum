@@ -359,3 +359,4 @@ class PosixLDIF(object):
 		self.get_netgrp(triples, memgrp)
 
 
+# arch-tag: 036e91f4-cf0f-4337-86fa-9aa316010614
