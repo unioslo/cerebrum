@@ -62,6 +62,7 @@ class BofhdExtension(object):
 
     def __init__(self, server):
         self.server = server
+        self.logger = server.logger
         self.db = server.db
         self.person = Person.Person(self.db)
         self.const = self.person.const
@@ -226,8 +227,8 @@ class BofhdExtension(object):
         address = address.strip()
         if address.find("@") == -1:
             raise CerebrumError, "E-mail addresses must include the domain name"
-        if not (re.match('^[^@\s]+@[^@\s.]+\.[^@\s]+$', address) or
-                re.search('<[^@\s]+@[^@\s.]+\.[^@\s]+>$', address)):
+        if not (re.match(r'[^@\s]+@[^@\s.]+\.[^@\s]+$', address) or
+                re.search(r'<[^@>\s]+@[^@>\s.]+\.[^@>\s]+>$', address)):
             raise CerebrumError, "Invalid e-mail address (%s)" % address
         return address
 
@@ -381,7 +382,7 @@ class BofhdExtension(object):
                       "owner-%(local_part)s@%(domain)s"]
         }
     _mailman_pipe = "|/local/Mailman/mail/wrapper %(interface)s %(listname)s"
-    _mailman_patt = "^\|/local/Mailman/mail/wrapper (\S+) (\S+)$"
+    _mailman_patt = r'\|/local/Mailman/mail/wrapper (\S+) (\S+)$'
     
     def _email_info_mailman(self, addr, et):
         m = re.match(self._mailman_patt, et.email_target_alias)
