@@ -209,8 +209,9 @@ WHERE  p.fodselsdato=s.fodselsdato AND
        st.opphortstudierettstatkode IS NULL AND
        st.studierettstatkode IN (RELEVANTE_STUDIERETTSTATKODER)
        AND
-       ((el.arstall = %s and el.manednr <=%s) OR
-       (el.arstall = %s and el.manednr >= %s))
+       (((el.arstall = %s and el.manednr <=%s) OR
+       (el.arstall = %s and el.manednr >= %s))) OR
+       st.dato_tildelt < sysdate - 365 
        """ % (aar, maned, aar-1, maned)
         # Man kan ikke sjekke el.aarstall >= i fjor ettersom tabellen
         # også inneholder fremtidige meldinger.
