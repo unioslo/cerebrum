@@ -64,8 +64,11 @@ class Transaction(LockHolder):
 
         for item in self._refs:
             if item.has_writelock(self):
+                # FIXME: her burde vi kanskje skifte låsholder til den globale lås holderen...
+                item.unlock(self)
                 item.reset()
-            item.unlock(self)
+            else:
+                item.unlock(self)
 
         self._db = None
         self._refs = None
