@@ -182,7 +182,7 @@ def populate_external_ids(db, person, fields, const):
 
     There are two external IDs in SAP -- the Norwegian social security
     number (11-siffret personnummer, no_ssn) and the SAP employee id
-    (sap_id).
+    (sap_id). SAP IDs are permanent, no_ssn can change.
     """
 
     sap_id, no_ssn, birth_date, fo_kode = (fields[0], fields[4],
