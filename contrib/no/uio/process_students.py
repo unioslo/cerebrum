@@ -19,6 +19,7 @@ from Cerebrum.Utils import Factory
 from Cerebrum.modules import PosixUser
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.uio import AutoStud
+from Cerebrum.modules.no.uio import PrinterQuotas
 from Cerebrum.modules.templates.letters import TemplateHandler
 
 db = Factory.get('Database')()
@@ -199,12 +200,24 @@ def get_existing_accounts():
     for p in person.list_external_ids(id_type=const.externalid_fodselsnr):
         if not pid2fnr.has_key(int(p['person_id'])):
             pid2fnr[int(p['person_id'])] = p['external_id']
+
+    # Find all student accounts.  A student accound is an account that
+    # has only account_types with affiliation=student
     students = {}
     for a in account.list_accounts_by_type(affiliation=const.affiliation_student):
         if not pid2fnr.has_key(int(a['person_id'])):
             continue
         students.setdefault(pid2fnr[int(a['person_id'])], {}).setdefault(
             int(a['account_id']), []).append([ int(a['ou_id']), int(a['affiliation']) ])
+    for person_id in students.keys():
+        for account_id in students[person_id].keys():
+            do_del = False
+            for aff_data in students[person_id][account_id]:
+                if aff_data[1] != const.affiliation_student:
+                    do_del = True
+            if do_del:
+                del(students[person_id][account_id])
+
     others = {}
     # We only register the reserved account if the user doesn't
     # have another active account
@@ -327,6 +340,41 @@ def make_barcode(account_id):
     if ret:
         logger.warn("Bardode returned %s" % ret)
 
+def recalc_quota_callback(person_info):
+    fnr = fodselsnr.personnr_ok("%06d%05d" % (int(person_info['fodselsdato']),
+                                              int(person_info['personnr'])))
+    logger.set_indent(0)
+    logger.debug("Callback for %s" % fnr)
+    logger.set_indent(3)
+    logger.debug2(logger.pformat(person_info))
+    try:
+        profile = autostud.get_profile(person_info)
+        quota = profile.get_pquota()
+    except ValueError, msg:
+        logger.warn("Error for %s: %s" %  (fnr, msg))
+        logger.set_indent(0)
+        return
+    except Errors.NotFoundError, msg:
+        logger.warn("Error for %s: %s" %  (fnr, msg))
+        logger.set_indent(0)
+        return
+    logger.debug2("Setting %s as pquotas for %s" % (
+        quota, str(students.get(fnr, {}).keys())))
+    pq = PrinterQuotas.PrinterQuotas(db)
+    for account_id in students.get(fnr, {}).keys():
+        pq.clear()
+        try:
+            pq.find(account_id)
+        except Errors.NotFoundError:
+            # The quota update script should be ran just after this script
+            pq.printer_quota = quota['initial_quota'] - quota['weekly_quota']
+        pq.has_printerquota = 1
+        pq.weekly_quota = quota['weekly_quota']
+        pq.max_quota = quota['max_quota']
+        pq.termin_quota = quota['termin_quota']
+        pq.write_db()
+    logger.set_indent(0)
+
 def process_students_callback(person_info):
     global max_errors
     try:
@@ -401,18 +449,22 @@ def process_students():
     autostud = AutoStud.AutoStud(db, logger, debug=debug, cfg_file=studconfig_file,
                                  studieprogs_file=studieprogs_file)
     logger.info("config processed")
-    autostud.start_student_callbacks(student_info_file,
-                                     process_students_callback)
-    logger.set_indent(0)
-    logger.info("student_info_file processed")
-    db.commit()
-    logger.info("making letters")
-    if only_dump_to is not None:
-        f = open(only_dump_to, 'w')
-        pickle.dump(all_passwords, f)
-        f.close()
+    if recalc_pq:
+        autostud.start_student_callbacks(student_info_file,
+                                         recalc_quota_callback)
     else:
-        make_letters()
+        autostud.start_student_callbacks(student_info_file,
+                                         process_students_callback)
+        logger.set_indent(0)
+        logger.info("student_info_file processed")
+        db.commit()
+        logger.info("making letters")
+        if only_dump_to is not None:
+            f = open(only_dump_to, 'w')
+            pickle.dump(all_passwords, f)
+            f.close()
+        else:
+            make_letters()
     logger.info("process_students finished")
 
 def main():
@@ -422,14 +474,16 @@ def main():
                                     'student-info-file=', 'only-dump-results=',
                                     'studconfig-file=', 'fast-test', 'with-lpr',
                                     'workdir=', 'type=', 'reprint=',
+                                    'recalc-pq',
                                     'studie-progs-file='])
     except getopt.GetoptError:
         usage()
     global debug, fast_test, create_users, update_accounts, logger, skip_lpr
-    global student_info_file, studconfig_file, only_dump_to, studieprogs_file
+    global student_info_file, studconfig_file, only_dump_to, studieprogs_file, \
+           recalc_pq
 
     skip_lpr = True       # Must explicitly tell that we want lpr
-    update_accounts = create_users = False
+    update_accounts = create_users = recalc_pq = False
     fast_test = False
     workdir = None
     range = None
@@ -447,6 +501,8 @@ def main():
             student_info_file = val
         elif opt in ('-S', '--studie-progs-file'):
             studieprogs_file = val
+        elif opt in ('--recalc-pq',):
+            recalc_pq = True
         elif opt in ('-C', '--studconfig-file'):
             studconfig_file = val
         elif opt in ('--fast-test',):  # Internal debug use ONLY!
@@ -464,14 +520,18 @@ def main():
             to_stdout = True
         else:
             usage()
+
     if (not update_accounts and not create_users and range is None):
-        usage()
+        if not recalc_pq:
+            usage()
+    else:
+        if recalc_pq:
+            raise ValueError, "recalc-pq cannot be combined with other operations"
     if workdir is None:
         workdir = "%s/ps-%s.%i" % (cereconf.AUTOADMIN_LOG_DIR,
                                    strftime("%Y-%m-%d", localtime()),
                                    os.getpid())
         os.mkdir(workdir)
-    os.chdir(workdir)
     logger = AutoStud.Util.ProgressReporter(
         "%s/run.log.%i" % (workdir, os.getpid()), stdout=to_stdout)
     bootstrap()
@@ -488,6 +548,8 @@ def usage():
     -s | --student-info-file file:
     -C | --studconfig-file file:
     -S | --studie-progs-file file:
+    --recalc-pq : recalculate printerquota settings (does not update
+      quota).  Cannot be combined with -c/-u
     --only-dump-results file: just dump results with pickle without
       entering make_letters
     --workdir dir:  set workdir for --reprint
@@ -496,7 +558,7 @@ def usage():
     --with-lpr: Spool the file with new user letters to printer
 
 To create new users:
-  ./contrib/no/uio/process_students.py -C .../studconfig.xml -s .../studieprogrammer.xml -p .../merged_persons.xml -c
+  ./contrib/no/uio/process_students.py -C .../studconfig.xml -S .../studieprogrammer.xml -s .../merged_persons.xml -c
 
 To reprint letters of a given type:
   ./contrib/no/uio/process_students.py --workdir tmp/ps-2003-09-25.1265 --type nye-stud-brukerkonto-brev --reprint 1,2
