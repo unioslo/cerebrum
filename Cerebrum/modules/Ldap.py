@@ -85,7 +85,7 @@ class LdapCall:
                 logger.info('File closed')
             except:
                 logger.warn("Could not close log-file to server: %s" % serv)
-        self.s_list = None
+        self.s_list = {}
 
 
     def get_ldap_value(self,search_id,dn,retrieveAttributes=None):
@@ -208,7 +208,9 @@ class LdapCall:
 	else:
  	    return(False)
 
-    def delete_disabel_sync(self,cn_tag):
+    def delete_disable_sync(self,cn_tag):
 	cn_str = ','.join(('cn=' + cn_tag, ldap_update_str))
 	self.delete_ldap(cn_str)
+
+
 
