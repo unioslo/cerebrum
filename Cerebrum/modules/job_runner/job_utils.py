@@ -169,6 +169,15 @@ class SocketHandling(object):
                         conn, 'QUIT is now only entry in ready-to-run queue')
                     job_runner.quit()
                     break
+                elif data.startswith('RUNCMD '):
+                    jobname = data[7:]
+                    if not job_runner.job_queue.get_known_jobs().has_key(jobname):
+                        self.send_response(conn, 'Unknown job %s' % jobname)
+                    else:
+                        job_runner.job_queue.get_run_queue().insert(0, jobname)
+                        self.send_response(conn, 'Added %s to head of queue' % jobname)
+                        job_runner.wake_runner_signal()
+                    break
                 elif data == 'STATUS':
                     ret = "Run-queue: \n  %s\n" % "\n  ".join(
                         [str({'name': x['name'], 'pid': x['pid'],

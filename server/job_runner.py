@@ -254,26 +254,31 @@ def usage(exitcode=0):
       --config file : use alternative config-file
       --quit : exit gracefully (allowing current job to complete)
       --status : show status for a running job-runner
-      --dump level : shows dependency graph, level must be in the range 0-3"""
+      --dump level : shows dependency graph, level must be in the range 0-3
+      --run jobname : adds jobname to the front of the run queue, ignoring
+        dependencies"""
+
     sys.exit(exitcode)
 
 def main():
     try:
         opts, args = getopt.getopt(sys.argv[1:], '',
                                    ['reload', 'quit', 'status', 'config=',
-                                    'dump='])
+                                    'dump=', 'run='])
     except getopt.GetoptError:
         usage(1)
     #global scheduled_jobs
     alt_config = False
     for opt, val in opts:
-        if opt in('--reload', '--quit', '--status'):
+        if opt in('--reload', '--quit', '--status', '--run'):
             if opt == '--reload':
                 cmd = 'RELOAD'
             elif opt == '--quit':
                 cmd = 'QUIT'
             elif opt == '--status':
                 cmd = 'STATUS'
+            elif opt == '--run':
+                cmd = 'RUNCMD %s' % val
             sock = SocketHandling()
             try:
                 print "Response: %s" % sock.send_cmd(cmd)
