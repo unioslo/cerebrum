@@ -181,20 +181,26 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
         # Handle external_id
         if hasattr(self, '_extid_source'):
             types = list(self._extid_types[:])
+            did_update = False
             for row in self.get_external_id(source_system=self._extid_source):
                 if int(row['id_type']) not in self._extid_types:
                     continue
                 tmp = self._external_id.get(int(row['id_type']), None)
                 if tmp is None:
+                    did_update = True
                     self._delete_external_id(self._extid_source, row['id_type'])
                 elif tmp <> row['external_id']:
+                    did_update = True
                     self._set_external_id(self._extid_source, row['id_type'],
                                           tmp, update=True)
                 types.remove(int(row['id_type']))
             for type in types:
                 if self._external_id.has_key(type):
+                    did_update = True
                     self._set_external_id(self._extid_source, type,
                                           self._external_id[type])
+            if did_update and is_new <> 1:
+                is_new = False
 
         # Handle PersonAffiliations
         if hasattr(self, '_affil_source'):
@@ -306,7 +312,6 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
             raise ValueError, \
                   "Can't populate multiple `source_system`s w/o write_db()."
         self._external_id[int(id_type)] = external_id
-        self.__updated.append((source_system, id_type, external_id))
 
     def _delete_external_id(self, source_system, id_type):
         self.execute("""DELETE FROM [:table schema=cerebrum name=person_external_id]
@@ -508,7 +513,6 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
 
     def populate_name(self, type, name):
         self._name_info[type] = name
-        self.__updated.append((type, name))
 
     def populate_affiliation(self, source_system, ou_id=None,
                              affiliation=None, status=None):
