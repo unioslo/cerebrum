@@ -50,7 +50,6 @@ gen_groups = False
 def _add_res(entity_id):
     if not group.has_member(entity_id, co.entity_person, co.group_memberop_union):
         group.add_member(entity_id, co.entity_person, co.group_memberop_union)
-        group.write_db()
 
 def _rem_res(entity_id):
     if group.has_member(entity_id, co.entity_person, co.group_memberop_union):
@@ -191,7 +190,8 @@ def process_person_callback(person_info):
                                  'instituttnr', 'gruppenr', 'institusjonsnr'))
         elif dta_type in ('aktiv', ):
 	    for row in x:
-		aktiv_sted.append(int(studieprog2sko[row['studieprogramkode']]))
+                if studieprog2sko[row['studieprogramkode']] is not None:
+                    aktiv_sted.append(int(studieprog2sko[row['studieprogramkode']]))
         elif dta_type in ('opptak', ):
 	    for row in x:
 		subtype = co.affiliation_status_student_opptak
@@ -272,6 +272,7 @@ def process_person_callback(person_info):
 
     # Reservations    
     if gen_groups:
+        should_add = False
         for dta_type in person_info.keys():
             p = person_info[dta_type][0]
             if isinstance(p, str):
@@ -280,18 +281,26 @@ def process_person_callback(person_info):
             # affect that person's reservation status.
             if dta_type in ('fagperson',):
                 continue
+            # We only fetch the column in these queries
+            if dta_type not in ('tilbud', 'opptak', 'alumni',
+                                'privatist_emne', 'evu',
+                                'privatist_studieprogram'):
+                continue
             # If 'status_reserv_nettpubl' == "N": add to group
             if p.get('status_reserv_nettpubl', "") == "N":
-                # The student has explicitly given us permission to be
-                # published in the directory.
-                _add_res(new_person.entity_id)
+                should_add = True
             else:
-                # The student either hasn't registered an answer to
-                # the "Can we publish info about you in the directory"
-                # question at all, or has given an explicit "I don't
-                # want to appear in the directory" answer.
-                _rem_res(new_person.entity_id)
-
+                should_add = False
+        if should_add:
+            # The student has explicitly given us permission to be
+            # published in the directory.
+            _add_res(new_person.entity_id)
+        else:
+            # The student either hasn't registered an answer to
+            # the "Can we publish info about you in the directory"
+            # question at all, or has given an explicit "I don't
+            # want to appear in the directory" answer.
+            _rem_res(new_person.entity_id)
 
 def main():
     global verbose, ou, db, co, logger, fnr2person_id, gen_groups, group, \
