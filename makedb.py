@@ -43,24 +43,27 @@ def main():
     Cerebrum = Factory.get('Database')(
         user=cereconf.CEREBRUM_DATABASE_CONNECT_DATA['table_owner'])
 
+    order = ('drop', 'code', '  insert', 'main')
     if args:
-        for f in args:
-            runfile(f, Cerebrum, debug, None)
+        do_bootstrap = False
+        files = args
     else:
+        do_bootstrap = True
         files = get_filelist(Cerebrum)
-        if do_drop:
-            fr = files[:]
-            fr.reverse()
-            for f in fr:
-                runfile(os.path.join(CEREBRUM_DDL_DIR, f),
-                        Cerebrum, debug, 'drop')
-        for f in files:
-            runfile(os.path.join(CEREBRUM_DDL_DIR, f),
-                    Cerebrum, debug, 'code')
-        insert_code_values(Cerebrum)
-        for f in files:
-            runfile(os.path.join(CEREBRUM_DDL_DIR, f),
-                    Cerebrum, debug, 'main')
+    for phase in order:
+        if phase == 'drop':
+            if do_drop:
+                fr = files[:]
+                fr.reverse()
+                for f in fr:
+                    runfile(f, Cerebrum, debug, phase)
+        elif phase == '  insert':
+            if do_bootstrap:
+                insert_code_values(Cerebrum)
+        else:
+            for f in files:
+                runfile(f, Cerebrum, debug, phase)
+    if do_bootstrap:
         makeInitialUsers(Cerebrum)
 
 def insert_code_values(Cerebrum):
@@ -111,10 +114,10 @@ def get_filelist(Cerebrum):
              'mod_stedkode.sql'
              ]
     if isinstance(Cerebrum, Database.Oracle):
-        files.extend(['oracle_grants.sql'])
-    return files
+        files.append('oracle_grants.sql')
+    return [os.path.join(CEREBRUM_DDL_DIR, f) for f in files]
 
-def runfile(fname, Cerebrum, debug, phase=None):
+def runfile(fname, Cerebrum, debug, phase):
     print "Reading file (phase=%s): <%s>" % (phase, fname)
     f = file(fname)
     text = "".join(f.readlines())
@@ -126,13 +129,16 @@ def runfile(fname, Cerebrum, debug, phase=None):
     text = text.split(";")
     NO_CATEGORY, WRONG_CATEGORY, CORRECT_CATEGORY = 1, 2, 3
     state = NO_CATEGORY
-    for i in text:
+    for stmt in text:
+        stmt = stmt.strip()
+        if not stmt:
+            continue
         if state == NO_CATEGORY:
-            (type_id, value) = i.strip().split(":", 1)
+            (type_id, value) = stmt.split(":", 1)
             if type_id <> 'category':
                 raise ValueError, \
                       "Illegal type_id in file %s: %s" % (fname, i)
-            if phase is None or phase == value:
+            if phase == value:
                 state = CORRECT_CATEGORY
             else:
                 state = WRONG_CATEGORY
@@ -141,9 +147,6 @@ def runfile(fname, Cerebrum, debug, phase=None):
             continue
         elif state == CORRECT_CATEGORY:
             state = NO_CATEGORY
-            stmt = i.strip()
-            if not stmt:
-                continue
             try:
                 status = "."
                 try:
