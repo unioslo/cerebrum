@@ -39,11 +39,11 @@ body {
 }
 
 div.menu,div.bottom {
-  position: absolute;
-  margin: 0;
+  position: absolute;  
+  /*margin: 0;*/
   /* Debuglines */
   border: 1px dashed #aaa;
-  background: white;
+/*  background: white; */
   /* If scrolling is needed: */
   overflow: auto; 
 }
@@ -55,6 +55,15 @@ div.menu {
   width: ${menuwidth}em;
   height: 100%;
 }
+div.menu div {
+  position: static; 
+  /*top: auto;
+  left: auto;*/
+  /* Width of menu */
+  width: auto;
+  height: auto;
+}
+
 div.bottom  {
   /* Placed in the lower left corner */
   bottom: 0;
@@ -64,9 +73,24 @@ div.bottom  {
   right: 0;
   /* Height of bottom part */
   height: ${bottomheight}em;
+  width: 80%;
   /* avoid collission with div.menu */
   margin-left: ${menuwidth}em;
 }
+div.bottom div {
+  /* Placed in the lower left corner */
+  /*bottom: auto;*/
+  left: 0;
+  /*border: black thin solid;*/
+  /* width: 100% is too wide.. use right: 0; although this shrinks
+     the thingie in IE.. avoid background color! */
+  right: auto;
+  /* Height of bottom part */
+  height: auto;
+  /* avoid collission with div.menu */
+  /*margin-left: auto;*/
+}
++
 /* This trick is to fix something i IE 5 on Mac..  */
 @media screen {
   body>div.menu,body>div.bottom {
@@ -86,3 +110,5 @@ div.content {
   padding-left: ${paddingleft}em; 
   padding-bottom: ${paddingbottom}em;
 }
+
+ 
