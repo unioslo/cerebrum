@@ -218,16 +218,13 @@ def generate_netgroup(spread=None,u_spread=None,filename=None):
         if pos_netgrp.description:
             entry['description'] = (
                 latin1_to_iso646_60(pos_netgrp.description),)
-        get_netgrp(int(row.group_id), spreads, u_spreads,
+        get_netgrp(pos_netgrp, spreads, u_spreads,
                    entry['nisNetgroupTriple'], entry['memberNisNetgroup'])
         f.write(entry_string("cn=%s,%s" % (netgrp_name, dn_str), entry, False))
     if filename:
 	f.close()
 
-def get_netgrp(netgrp_id, spreads, u_spreads, triples, members):
-    pos_netgrp = Factory.get('Group')(db)
-    pos_netgrp.clear()
-    pos_netgrp.entity_id = netgrp_id
+def get_netgrp(pos_netgrp, spreads, u_spreads, triples, members):
     for id in pos_netgrp.list_members(u_spreads[0], int(co.entity_account),\
 						get_entity_name= True)[0]:
         uname_id,uname = int(id[1]),id[2]
@@ -241,7 +238,7 @@ def get_netgrp(netgrp_id, spreads, u_spreads, triples, members):
 	if filter(pos_netgrp.has_spread, spreads):
             members.append(group[2])
         else:
-            get_netgrp(int(group[1]), spreads, u_spreads, triples, members)
+            get_netgrp(pos_netgrp, spreads, u_spreads, triples, members)
 
 
 def eval_spread_codes(spread):
