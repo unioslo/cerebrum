@@ -127,13 +127,17 @@ class BofhdExtension(object):
     # email commands
     #
 
+    # email add_address <account> <address>+
+    
+    # email remove_address <account> <address>+
+    
     # email forward "on"|"off"|"local" <account>+ [<address>+]
     all_commands['email_forward'] = Command(
         ('email', 'forward'),
         SimpleString(help_ref='email_forward_action'),
         AccountName(help_ref='account_name', repeat=True),
-        EmailAddressString(help_ref='email_address',
-                           repeat=True, optional=True),
+        EmailAddress(help_ref='email_address',
+                     repeat=True, optional=True),
         perm_filter='can_email_forward_toggle')
     def email_forward(self, operator, action, uname, addr=None):
         acc = self._get_account(uname)
@@ -151,7 +155,7 @@ class BofhdExtension(object):
         elif not addr and not matches:
             raise (CerebrumError,
                    "No forward addresses for %s" % uname)
-        prim = acc.get_primary_mailaddress()
+        prim = self._rewrite_address(acc.get_primary_mailaddress())
         if action == 'local':
             action = 'on'
             if self._forward_exists(fw, prim):
@@ -174,7 +178,7 @@ class BofhdExtension(object):
     all_commands['email_add_forward'] = Command(
         ('email', 'add_forward'),
         AccountName(help_ref='account_name', repeat=True),
-        EmailAddressString(help_ref='email_address', repeat=True),
+        EmailAddress(help_ref='email_address', repeat=True),
         perm_filter='can_email_forward_edit')
     def email_add_forward(self, operator, uname, address):
         acc = self._get_account(uname)
@@ -194,7 +198,7 @@ class BofhdExtension(object):
     all_commands['email_remove_forward'] = Command(
         ("email", "remove_forward"),
         AccountName(help_ref="account_name", repeat=True),
-        EmailAddressString(help_ref='email_address', repeat=True),
+        EmailAddress(help_ref='email_address', repeat=True),
         perm_filter='can_email_forward_edit')
     def email_remove_forward(self, operator, uname, address):
         acc = self._get_account(uname)
@@ -202,7 +206,7 @@ class BofhdExtension(object):
         fw = Email.EmailForward(self.db)
         fw.find_by_entity(acc.entity_id)
         if address == 'local':
-            address = acc.get_primary_mailaddress()
+            address = self._rewrite_address(acc.get_primary_mailaddress())
         addr = self._check_email_address(address)
         if self._forward_exists(fw, addr):
             fw.delete_forward(addr)
@@ -239,6 +243,7 @@ class BofhdExtension(object):
         AccountName(help_ref="account_name", repeat=True),
         perm_filter='can_email_info',
         fs=FormatSuggestion([
+        # target_type == Account
         ("Account:          %s\nMail server:      %s (%s)\n"+
          "Default address:  %s\nValid addresses:  %s",
          ("account", "server", "server_type", "def_addr", "valid_addr")),
@@ -249,7 +254,15 @@ class BofhdExtension(object):
         ("Quota:            %d MiB, warn at %d%% (%s MiB used)",
          ("quota_hard", "quota_soft", "quota_used")),
         ("Forwarding:       %s",
-         ("forward", ))]))
+         ("forward", )),
+        # target_type == Mailman
+        ("Mailing list:     %s",
+         ("mailman_list", )),
+        ("Alias:            %s",
+         ("mailman_alias", )),
+        ("Administrative addresses:\n                  %s",
+         ("mailman_admin", )),
+        ]))
     def email_info(self, operator, uname):
         if uname.find('@') <> -1:
             try:
@@ -258,7 +271,14 @@ class BofhdExtension(object):
                 ea.find_by_address(uname)
                 et = Email.EmailTarget(self.db)
                 et.find(ea.get_target_id())
-                acc.find(et.email_target_entity_id)
+                ttype = et.email_target_type
+                if (ttype == self.const.email_target_Mailman):
+                    return self._email_info_mailman(uname, et)
+                elif (ttype == self.const.email_target_account):
+                    acc.find(et.email_target_entity_id)
+                else:
+                    raise CerebrumError, ("email info for target type %s isn't "
+                                          "implemented") % self.num2const[ttype]
             except Errors.NotFoundError:
                 raise CerebrumError, "No such e-mail address (%s)" % uname
         else:
@@ -282,14 +302,12 @@ class BofhdExtension(object):
         info["server"] = es.name
         type = int(es.email_server_type)
         info["server_type"] = str(Email._EmailServerTypeCode(type))
-        info["def_addr"] = acc.get_primary_mailaddress()
+        info["def_addr"] = self._rewrite_address(acc.get_primary_mailaddress())
         et = Email.EmailTarget(self.db)
         et.find_by_entity(acc.entity_id)
         addrs = []
         for r in et.get_addresses():
-            dom = r['domain']
-            if dom in cereconf.LDAP_REWRITE_EMAIL_DOMAIN:
-                dom = cereconf.LDAP_REWRITE_EMAIL_DOMAIN[dom]
+            dom = self._rewrite_domain(r['domain'])
             addrs.append(r['local_part'] + '@' + dom)
         info["valid_addr"] = "\n                  ".join(addrs)
         return [ info ]
@@ -338,7 +356,7 @@ class BofhdExtension(object):
         local_copy = ""
         ef = Email.EmailForward(self.db)
         ef.find_by_entity(acc.entity_id)
-        prim = acc.get_primary_mailaddress()
+        prim = self._rewrite_address(acc.get_primary_mailaddress())
         for r in ef.get_forward():
             if r['enable'] == 'T':
                 enabled = "on"
@@ -354,9 +372,166 @@ class BofhdExtension(object):
         if forw:
             info.append({'forward': "\n                  ".join(forw)})
         return info
-
-    # email mailman
     
+    _interface2addrs = {
+        'post': ["%(local_part)s@%(domain)s"],
+        'mailcmd': ["%(local_part)s-request@%(domain)s"],
+        'mailowner': ["%(local_part)s-admin@%(domain)s",
+                      "%(local_part)s-owner@%(domain)s",
+                      "owner-%(local_part)s@%(domain)s"]
+        }
+    _mailman_pipe = "|/local/Mailman/mail/wrapper %(interface)s %(listname)s"
+    _mailman_patt = "^\|/local/Mailman/mail/wrapper (\S+) (\S+)$"
+    
+    def _email_info_mailman(self, addr, et):
+        m = re.match(self._mailman_patt, et.email_target_alias)
+        if not m:
+            raise CerebrumError, ("Unrecognised pipe command for Mailman list:"+
+                                  et.email_target_alias)
+        interface, list = m.groups()
+        # this is the primary name
+        ret = [{'mailman_list': list}]
+        lp, dom = list.split('@')
+        ed = Email.EmailDomain(self.db)
+        ed.find_by_domain(dom)
+        ea = Email.EmailAddress(self.db)
+        try:
+            ea.find_by_local_part_and_domain(lp, ed.email_domain_id)
+        except Errors.NotFoundError:
+            raise CerebrumError, ("Address %s exists, but the list it points "
+                                  "to, %s, does not") % (addr, list)
+        # now find all e-mail addresses
+        et.clear()
+        et.find(ea.email_addr_target_id)
+        aliases = []
+        for r in et.get_addresses():
+            a = "%(local_part)s@%(domain)s" % r
+            if a == list:
+                continue
+            aliases.append(a)
+        if aliases:
+            print "DEBUG:", "\n                  ".join(aliases)
+            ret.append({'mailman_alias':
+                        "\n                  ".join(aliases)})
+        # and all administrative addresses ... TODO
+        return ret
+
+    def _rewrite_domain(self, dom):
+        if dom in cereconf.LDAP_REWRITE_EMAIL_DOMAIN:
+            return cereconf.LDAP_REWRITE_EMAIL_DOMAIN[dom]
+        return dom
+    
+    def _rewrite_address(self, addr):
+        lp, dom = addr.split('@')
+        return lp + "@" + self._rewrite_domain(dom)
+
+    # email create_list <list-address> [<existing-list>]
+    all_commands['email_create_list'] = Command(
+        ("email", "create_list"),
+        EmailAddress(help_ref="mailman_list"),
+        EmailAddress(help_ref="mailman_list_exist", optional=True),
+        perm_filter="can_email_list_create")
+    def email_create_list(self, operator, listname, address=None):
+        list = address or listname
+        lp, dom = list.split('@')
+        ed = Email.EmailDomain(self.db)
+        ed.find_by_domain(dom)
+        self.ba.can_email_list_create(operator.get_entity_id(),
+                                      ed.email_domain_id)
+        acc = None
+        try:
+            acc = self._get_account(lp)
+        except CerebrumError:
+            pass
+        if acc:
+            raise CerebrumError, ("Won't create list %s, as %s is an "
+                                  "existing username") % (list, lp)
+        mailman = self._get_account("mailman", actype="PosixUser")
+        et = Email.EmailTarget(self.db)
+        ea = Email.EmailAddress(self.db)
+        try:
+            ea.find_by_local_part_and_domain(lp, ed.email_domain_id)
+            raise CerebrumError, "The address is already in use"
+        except Errors.NotFoundError:
+            pass
+        for interface in self._interface2addrs.keys():
+            targ = self._mailman_pipe % { 'interface': interface,
+                                          'listname': listname }
+            found_target = False
+            for addr_format in self._interface2addrs[interface]:
+                addr = addr_format % {'local_part': lp,
+                                      'domain': dom}
+                addr_lp, addr_dom = addr.split('@')
+                # all addresses are in same domain, do an EmailDomain
+                # lookup here if  _interface2addrs changes:
+                try:
+                    ea.clear()
+                    ea.find_by_local_part_and_domain(addr_lp,
+                                                     ed.email_domain_id)
+                    # TODO: steal this address if it exists?
+                    self.db.rollback()
+                    raise CerebrumError, ("Can't add list %s, as the "
+                                          "address %s is already in use"
+                                          ) % (list, addr)
+                except Errors.NotFoundError:
+                    pass
+                if not found_target:
+                    et.clear()
+                    try:
+                        et.find_by_alias_and_account(targ, mailman.entity_id)
+                    except Errors.NotFoundError:
+                        et.populate(self.const.email_target_Mailman,
+                                    alias=targ, using_uid=mailman.entity_id)
+                        et.write_db()
+                    found_target = True
+                ea.clear()
+                ea.populate(addr_lp, ed.email_domain_id, et.email_target_id)
+                ea.write_db()
+        self.db.commit()
+        return "OK"
+
+    # email delete_list <list-address>
+    all_commands['email_delete_list'] = Command(
+        ("email", "delete_list"),
+        EmailAddress(help_ref="mailman_list"),
+        perm_filter="can_email_list_delete")
+    def email_delete_list(self, operator, list):
+        lp, dom = list.split('@')
+        ed = Email.EmailDomain(self.db)
+        ed.find_by_domain(dom)
+        self.ba.can_email_list_delete(operator.get_entity_id(),
+                                      ed.email_domain_id)
+        mailman = self._get_account("mailman", actype="PosixUser")
+        et = Email.EmailTarget(self.db)
+        ea = Email.EmailAddress(self.db)
+        try:
+            ea.find_by_local_part_and_domain(lp, ed.email_domain_id)
+        except Errors.NotFoundError:
+            raise CerebrumError, "No such list"
+        for interface in self._interface2addrs.keys():
+            targ = self._mailman_pipe % { 'interface': interface,
+                                          'listname': list }
+            for addr_format in self._interface2addrs[interface]:
+                addr = addr_format % {'local_part': lp,
+                                      'domain': dom}
+                addr_lp, addr_dom = addr.split('@')
+                # all addresses are in same domain, do an EmailDomain
+                # lookup here if  _interface2addrs changes:
+                try:
+                    ea.clear()
+                    ea.find_by_local_part_and_domain(addr_lp,
+                                                     ed.email_domain_id)
+                except Errors.NotFoundError:
+                    # hmm, deleted already?  oh well.
+                    continue
+                ea.delete()
+            et.clear()
+            # won't try to catch this, should always exist
+            et.find_by_alias_and_account(targ, mailman.entity_id)
+            et.delete()
+        self.db.commit()
+        return "OK"
+
     # email migrate
     all_commands['email_migrate'] = Command(
         ("email", "migrate"),
@@ -1944,7 +2119,8 @@ class BofhdExtension(object):
         all_args = list(args[:])
 
         if not all_args:
-            return {'prompt': "Person identification", 'help_ref': "user_create_person_id"}
+            return {'prompt': "Person identification",
+                    'help_ref': "user_create_person_id"}
         arg = all_args.pop(0)
         if arg.startswith("group:"):
             group_owner = True
@@ -1967,7 +2143,8 @@ class BofhdExtension(object):
                         ("%8i %s", int(c[i]['person_id']),
                          person.get_name(self.const.system_cached, self.const.name_full)),
                         int(c[i]['person_id'])))
-                return {'prompt': "Velg person fra listen", 'map': map,
+                return {'prompt': "Choose person from list",
+                        'map': map,
                         'help_ref': 'user_create_select_person'}
         owner_id = all_args.pop(0)
         if not group_owner:
@@ -1984,15 +2161,16 @@ class BofhdExtension(object):
                 tmp = self.person_affiliation_statusids[str(self.const.affiliation_manuell)]
                 for k in tmp.keys():
                     map.append((("MANUELL:%s", str(tmp[k])), int(tmp[k])))
-                return {'prompt': "Velg affiliation fra listen", 'map': map}
+                return {'prompt': "Choose affiliation from list", 'map': map}
             affiliation = all_args.pop(0)
         else:
             if not all_args:
-                return {'prompt': "Oppgi np_type"}
+                return {'prompt': "Enter np_type",
+                        'help_ref': 'string_np_type'}
             np_type = all_args.pop(0)
         if ac_type == 'PosixUser':
             if not all_args:
-                return {'prompt': "Default filgruppe"}
+                return {'prompt': "Default filegroup"}
             filgruppe = all_args.pop(0)
             if not all_args:
                 return {'prompt': "Shell", 'default': 'bash'}
@@ -2001,7 +2179,7 @@ class BofhdExtension(object):
                 return {'prompt': "Disk", 'help_ref': 'disk'}
             disk = all_args.pop(0)
         if not all_args:
-            ret = {'prompt': "Brukernavn", 'last_arg': True}
+            ret = {'prompt': "Username", 'last_arg': True}
             posix_user = PosixUser.PosixUser(self.db)
             if not group_owner:
                 try:
