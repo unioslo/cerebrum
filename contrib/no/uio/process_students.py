@@ -480,7 +480,8 @@ def process_students():
     
     logger.info("got student accounts")
     autostud = AutoStud.AutoStud(db, logger, debug=debug, cfg_file=studconfig_file,
-                                 studieprogs_file=studieprogs_file)
+                                 studieprogs_file=studieprogs_file,
+                                 emne_info_file=emne_info_file)
     logger.info("config processed")
     if recalc_pq:
         autostud.start_student_callbacks(student_info_file,
@@ -509,18 +510,19 @@ def process_students():
 
 def main():
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'dcus:C:S:',
+        opts, args = getopt.getopt(sys.argv[1:], 'dcus:C:S:e:',
                                    ['debug', 'create-users', 'update-accounts',
                                     'student-info-file=', 'only-dump-results=',
                                     'studconfig-file=', 'fast-test', 'with-lpr',
                                     'workdir=', 'type=', 'reprint=',
+                                    'emne-info-file=',
                                     'recalc-pq', 'studie-progs-file=',
                                     'dryrun'])
     except getopt.GetoptError:
         usage()
     global debug, fast_test, create_users, update_accounts, logger, skip_lpr
     global student_info_file, studconfig_file, only_dump_to, studieprogs_file, \
-           recalc_pq, dryrun
+           recalc_pq, dryrun, emne_info_file
 
     skip_lpr = True       # Must explicitly tell that we want lpr
     update_accounts = create_users = recalc_pq = dryrun = False
@@ -539,6 +541,8 @@ def main():
             update_accounts = True
         elif opt in ('-s', '--student-info-file'):
             student_info_file = val
+        elif opt in ('-e', '--emne-info-file'):
+            emne_info_file = val
         elif opt in ('-S', '--studie-progs-file'):
             studieprogs_file = val
         elif opt in ('--recalc-pq',):
@@ -589,6 +593,7 @@ def usage():
     -c | -create-use : create new users
     -u | --update-accounts : update existing accounts
     -s | --student-info-file file:
+    -e | --emne-info-file file:
     -C | --studconfig-file file:
     -S | --studie-progs-file file:
     --dryrun: don't do any changes to the database.  This can be used
