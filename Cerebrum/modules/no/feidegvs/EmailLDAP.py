@@ -51,6 +51,6 @@ class EmailLDAPFeideGvsMixin(EmailLDAP):
             if p_id2name.has_key(o_id):
                 self.a_id2name[a_id] = p_id2name[o_id]
 
-    def get_misc(self, entity_id, target_id):
+    def get_misc(self, entity_id, target_id, email_target_type):
         if  self.a_id2name.has_key(entity_id):
             return "name: %s" % self.a_id2name[entity_id]
