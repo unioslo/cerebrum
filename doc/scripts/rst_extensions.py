@@ -2,6 +2,7 @@
 from docutils.parsers.rst import directives
 import re
 import os
+import sys
 from docutils import io, nodes, statemachine
 
 known_vars = {}
@@ -9,7 +10,12 @@ known_vars = {}
 def namespace(name, arguments, options, content, lineno,
               content_offset, block_text, state, state_machine):
     """Define the namespace of this reST file."""
-    state.document.set_namespace(arguments[0])
+    if not hasattr(state.document, 'set_namespace'):
+        sys.stderr.write(
+            "WARNING: set_namespace undefined. docutils.diff has "
+            "not been applied. db2pdf will fail")
+    else:
+        state.document.set_namespace(arguments[0])
     return None
 
 namespace.arguments = (1, 0, 1)
