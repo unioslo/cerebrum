@@ -577,6 +577,18 @@
   Priority: 2
 
 
+** Opprydding i access_FS
+  Description: Filen består av 2k kodelinjer i en klasse.  Må splittes
+               opp som beskrevet i todo-komentaren øverst i den
+               aktuelle filen.
+  Dependencies:
+  Assigned to: 
+  Resources: 
+  Cost:
+  Status:
+  Due date:
+  Priority: 2
+
 * HR (POLS)
 ** Må ha mulighet for automatisk generering av grupper
   Description: Det må etableres en automagi som vedlikeholder ymse
@@ -1036,6 +1048,29 @@
   Due date:
   Priority: 2
 
+** Karantener frem i tid
+  Description: Det trengs støtte for at QuickSync moduler kan ta
+               hensyn til karantener som tar effekt frem i tid.
+  Dependencies:
+  Assigned to:
+  Resources:
+  Cost:
+  Status: 
+  Due date:
+  Priority: 1
+
+** Deterministisk effekt av karantener
+  Description: Hvis en entitet har multiple karantener er det
+               tilfeldig hvilken av de som slår til.  Dette må være
+               deterministisk, enten eksplisitt via en verdi, eller
+               ved å sortere på noe, f.eks quarantine_code.
+  Dependencies:
+  Assigned to:
+  Resources:
+  Cost:
+  Status: 
+  Due date:
+  Priority: 2
 
 * Ymse
 ** Logging generelt, ikke holdbart for drift slik vi gjør det i dag
@@ -1361,3 +1396,47 @@
 
 
 arch-tag: a2bdce9c-5efd-44a2-b13f-d190e665ef25
+
+* Opprydding i API
+** Etablere kode-standard
+  Description: Det har etterhvert dukket opp en mengde list_extended
+  	       metoder.  Den senere tid har vi også fått ymse getdict
+  	       metoder.  Det må etableres en standard for hva slags
+  	       metoder vi vil ha inn i core.  Alternativt må vi
+  	       etablere en ordning med code-review av kode som går inn
+  	       i core.
+  Dependencies:
+  Assigned to:
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority: 3
+
+** Rydde i core-klassene
+  Description: Enkelte av core-klassene har fått et tilsig av
+  	       kodeduplisering.  Andre steder er det manglende
+  	       konsistens i forhold til hvordan ting gjøres.  Noen må
+  	       lese gjennom de forskjellige klassene og rydde opp.
+  Dependencies:
+  Assigned to:
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority: 3
+
+** Vurdere utility-metoder for SQL-søk
+  Description: Flere steder i core bygger man opp mer eller mindre
+  	       dynamiske SQL-søk basert på input-argumenter.  Koden
+  	       for dette kan trolig forenkles via en eller flere
+  	       hjelpemetoder.  Se f.eks tråden
+  	       "Entity.list_contact_info()" på cerebrum-developers.
+  Dependencies:
+  Assigned to:
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority: 3
+
