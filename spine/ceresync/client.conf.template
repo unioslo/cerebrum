@@ -12,5 +12,4 @@ password: client
 
 [idl]
 path: .
-server: server.idl
-errors: errors.idl
+core: SpineCore.idl

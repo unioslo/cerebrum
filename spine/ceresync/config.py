@@ -62,10 +62,8 @@ class TestConf(unittest.TestCase):
     def testIDL(self):
         path = conf.get("idl", "path")
         assert os.path.isdir(path)
-        server_idl = conf.get("idl", "server")
-        assert os.path.isfile(os.path.join(path, server_idl))
-        errors_idl = conf.get("idl", "errors")
-        assert os.path.isfile(os.path.join(path, errors_idl))
+        core_idl = conf.get("idl", "core")
+        assert os.path.isfile(os.path.join(path, core_idl))
 
 class TestSync(unittest.TestCase):
     def testSections(self):

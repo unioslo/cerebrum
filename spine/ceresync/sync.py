@@ -22,7 +22,7 @@
 import Spine
 # We need to catch CORBA.UNKNOWN :(
 from Spine import CORBA
-import Cerebrum_core.Errors as SpineErrors
+import SpineIDL.Errors as SpineErrors
 import config
 import unittest
 import sys
