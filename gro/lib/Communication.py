@@ -62,13 +62,19 @@ class Communication(object):
         except CosNaming.NamingContext.AlreadyBound:
             self.context.rebind(name, obj)
 
-    def register_objects(self, *objects):
+    def servant_to_reference(self, *objects):
         """
         Must be called on all objects that
         clients are to interact with"""
 
         # convert all objects to corba-objects
         r = [self.rootPOA.id_to_reference(self.rootPOA.activate_object(i)) for i in objects]
+
+        # return a tuple only if there is more than 1 object
+        return len(r) == 1 and r[0] or tuple(r)
+
+    def reference_to_servant(self, *objects):
+        r = [self.rootPOA.reference_to_servant(i) for i in objects]
 
         # return a tuple only if there is more than 1 object
         return len(r) == 1 and r[0] or tuple(r)

@@ -44,7 +44,7 @@ class GroImpl(Cerebrum_core__POA.Gro):
     def __init__(self):
         self.ap_handler_class = APHandler.get_ap_handler_class()
         com = Communication.get_communication()
-        self.loHandler = com.register_objects(LOHandler.LOHandler())
+        self.loHandler = com.servant_to_reference(LOHandler.LOHandler())
 
     def get_idl(self):
         return self.ap_handler_class.create_idl()
@@ -65,7 +65,7 @@ class GroImpl(Cerebrum_core__POA.Gro):
         client = self.login(username, password)
         ap = self.ap_handler_class(client)
         com = Communication.get_communication()
-        return com.register_objects(ap)
+        return com.servant_to_reference(ap)
 
     def login(self, username, password):
         """Login the user with the username and password.

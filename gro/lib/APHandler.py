@@ -154,7 +154,7 @@ class APHandler(CorbaBuilder, Transaction):
         elif data_type in cls.classes:
             ap_object = cls.classes[data_type](value, ap_handler)
             com = Communication.get_communication()
-            return com.register_objects(ap_object)
+            return com.servant_to_reference(ap_object)
 
         elif data_type == 'void':
             return value
@@ -174,7 +174,8 @@ class APHandler(CorbaBuilder, Transaction):
         if data_type.endswith('Seq'):
             return [cls.convert_from_corba(i, data_type[:-3]) for i in value]
         elif data_type in cls.classes:
-            return value.gro_object
+            com = Communication.get_communication()
+            return com.reference_to_servant(value).gro_object
         else:
             return value
 
@@ -246,7 +247,7 @@ class APHandler(CorbaBuilder, Transaction):
         ap = self.__class__(self.client)
         Transaction.begin(ap)
         com = Communication.get_communication()
-        return com.register_objects(ap)
+        return com.servant_to_reference(ap)
 
 _ap_handler_class = None
 _is_built = None
