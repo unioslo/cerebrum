@@ -2736,7 +2736,7 @@ class BofhdExtension(object):
         #    skriver = cereconf.PRINT_PRINTER
 	try:
             acc = self._get_account(operator.get_entity_id(), idtype='id')
-	    opr=account.account_name
+	    opr=acc.account_name
         except Errors.NotFoundError:
 	    raise CerebrumError, ("Could not find the operator id!")
 	time_temp = strftime("%Y-%m-%d-%H%M", localtime())
