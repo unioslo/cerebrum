@@ -1,6 +1,6 @@
 #!/usr/bin/env python2.2
 # -*- coding: iso-8859-1 -*-
-                                                                                                                                                            
+
 # Copyright 2002, 2003, 2004 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
@@ -18,40 +18,37 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-                                                                                                                                                            
+
 """Usage: generate_posix_ldif.py [options]
-                                                                                                                                                            
+
 Write user and group information to an LDIF file (if enabled in
 cereconf), which can then be loaded into LDAP.
-                                                                                                                                                            
+
   --user=<outfile>      | -u <outfile>  Write users to a LDIF-file
   --filegroup=<outfile> | -f <outfile>  Write posix filegroups to a LDIF-file
   --netgroup=<outfile>  | -n <outfile>  Write netgroup map to a LDIF-file
   --posix  Write all of the above, plus optional top object and extra file,
            to a file given in cereconf (unless the above options override).
            Also disable ldapsync first.
-                                                                                                                                                            
+
 With none of the above options, do the same as --posix.
-                                                                                                                                                            
+
   --user_spread=<value>      | -U <value>  (used by all components)
   --filegroup_spread=<value> | -F <value>  (used by --filegroup component)
   --netgroup_spread=<value>  | -N <value>  (used by --netgroup component)
-                                                                                                                                                            
+
 The spread options accept multiple spread-values (<value1>,<value2>,...)."""
-                                                                                                                                                            
+
 import sys
 import getopt
 import os.path
 import time
-                                                                                                                                                            
+
 import cerebrum_path
 import cereconf
-from Cerebrum.Utils import Factory 
+from Cerebrum.Utils import Factory
 from Cerebrum.modules.LDIFutils import *
-                                                                                                                                                            
-db = Factory.get('Database')()
-                                                                                                                                                            
-logger = Factory.get_logger("cronjob")
+
 disablesync_cn = 'disablesync'
 
 def init_ldap_dump(fd):
@@ -61,14 +58,21 @@ def init_ldap_dump(fd):
 
 
 def disable_ldapsync_mode():
+    try:
+        logger = Factory.get_logger("cronjob")
+    except IOError, e:
+        print >>sys.stderr, "get_logger: %s" % e
+        logger = None
     ldap_servers = cereconf.LDAP.get('server')
     if ldap_servers is None:
-        logger.info("No active LDAP-sync servers configured")
+        if logger:
+            logger.info("No active LDAP-sync servers configured")
         return
     try:
         from Cerebrum.modules import LdapCall
     except ImportError:
-        logger.info("LDAP modules missing. Probably python-LDAP")
+        if logger:
+            logger.info("LDAP modules missing. Probably python-LDAP")
     else:
         s_list = LdapCall.ldap_connect()
         LdapCall.add_disable_sync(s_list,disablesync_cn)
@@ -80,7 +84,6 @@ def disable_ldapsync_mode():
                 f = file(rotate_file,'w')
                 f.write(time.strftime("%d %b %Y %H:%M:%S", time.localtime()))
                 f.close()
-
 
 
 def main():
@@ -95,7 +98,7 @@ def main():
         opts = dict(opts)
     except getopt.GetoptError, e:
         usage(str(e))
-                                                                                                                                                            
+
     if args:
         usage("Invalid arguments: " + " ".join(args))
     if "--help" in opts:
@@ -105,20 +108,21 @@ def main():
         val = opts.get("--" + longs.replace("=", ""))
         if val is not None:
             opts["-" + short.replace(":", "")] = val
-                                                                                                                                                            
+
     got_file = filter(opts.has_key, ("-u", "-f", "-n"))
     for opt in ("-U", "-F", "-N"):
 	if opts.has_key(opt):
 	    opts[opt] = opts[opt].split(",")
 	else:
 	    opts[opt] = None
-    
+
     do_all = "--posix" in opts or not got_file
     fd = None
     if do_all:
         fd = ldif_outfile('POSIX')
         disable_ldapsync_mode()
         init_ldap_dump(fd)
+    db = Factory.get('Database')()
     posldif = Factory.get('PosixLDIF')(db,opts['-U'],opts['-F'],opts['-N'],fd)
     for var, func, arg in \
             (('LDAP_USER',      posldif.user_ldif,            "-u"),
@@ -132,14 +136,13 @@ def main():
         end_ldif_outfile('POSIX', fd)
 
 
-                                                                                                                                                            
 def usage(err=0):
     if err:
         print >>sys.stderr, err
     print >>sys.stderr, __doc__
     sys.exit(bool(err))
-                                                                                                                                                            
-                                                                                                                                                            
+
+
 if __name__ == '__main__':
         main()
 
