@@ -128,9 +128,11 @@ class BofhdRequests(object):
     def delay_request(self, request_id, minutes=10):
         for r in self.get_requests(request_id):
             t = r['run_at']
-            if t < self.now:
-                t = self.now
-            when = self._db.TimestampFromTicks(t) + minutes/24.0/60.0
+            # don't use self.time, it's a DateTime object
+            now = time.time()
+            if t < now:
+                t = now
+            when = self._db.TimestampFromTicks(t + minutes*60)
             self._db.execute("""
 		UPDATE [:table schema=cerebrum name=bofhd_request]
 		SET run_at=:when WHERE request_id=:id""",
