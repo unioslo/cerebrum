@@ -304,13 +304,13 @@ def register_spread_groups(emne_info, stprog_info):
                                                       get_entity_name=True)[0]]
                     if user_members:
                         register_members(fronter_gname, user_members)
-                    fellesrom_sted_id = ':'.join(
+                    fellesrom_sted_id = ':'.join((
                         'STRUCTURE', cereconf.INSTITUTION_DOMAIN_NAME,
                         'fs', 'fellesrom', subg_name_el[2], # institusjonsnr
-                        fak_sko)
-                    fellesrom_stprog_rom_id = ':'.join(
+                        fak_sko))
+                    fellesrom_stprog_rom_id = ':'.join((
                         'ROOM', cereconf.INSTITUTION_DOMAIN_NAME, 'fs',
-                        'fellesrom', 'studieprogram', stprog)
+                        'fellesrom', 'studieprogram', stprog))
                     register_room(stprog.upper(), fellesrom_stprog_rom_id,
                                   fellesrom_sted_id,
                                   profile=romprofil_id['studieprogram'])
@@ -476,8 +476,8 @@ def main():
 			cereconf.DEFAULT_INSTITUSJONSNR,
 			fak_sko)
 	    ans_title = "Ansatte ved %s" % faknavn
-	    print "register group",ans_title, brukere_id, fak_ans_id
-	    register_group(ans_title, fak_ans_id, brukere_id, allow_contact=True)
+            register_group(ans_title, fak_ans_id, brukere_id,
+                           allow_contact=True)
 	    ans_memb = ans_dict[int(faknr)]
 	    register_members(fak_ans_id, ans_memb)
             for sem_node_id in (emnerom_this_sem_id,
