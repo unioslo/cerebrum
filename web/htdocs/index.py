@@ -2,7 +2,7 @@ import forgetHTML as html
 html.Element.__call__ = html.Element.__str__
 
 from Cerebrum.web.templates.MainTemplate import MainTemplate
-from Cerebrum.web.templates.ActivityLogTemplate import ActivityLogTemplate
+from Cerebrum.web.ActivityLog import ActivityLog
 from Cerebrum.web.WorkList import WorkList
 from Cerebrum.web.SideMenu import SideMenu
 
