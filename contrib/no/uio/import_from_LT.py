@@ -70,6 +70,16 @@ def get_person_info(outfile):
             persondta[key] = {}
         persondta[key]['tils'] = persondta[key].get('tils', []) + [t]
 
+    # Hent alle reservasjoner
+    rescols, res = LT.GetReservasjoner()
+    reservasjoner = {}
+    for r in res:
+        key = '-'.join(["%i" % x for x in [r['fodtdag'], r['fodtmnd'],
+                                           r['fodtar'], r['personnr']]])
+        if not reservasjoner.has_key(key):
+            reservasjoner[key] = {}
+        reservasjoner[key]['res'] = reservasjoner[key].get('res', []) + [r]
+
     # Hent alle lønnsposteringer siste 180 dager.
     #
     # Tidligere cachet vi disse dataene slik at vi kunne søke over
@@ -135,6 +145,12 @@ def get_person_info(outfile):
                 attr += ' tittel=%s' % xml.escape_xml_attr(sk[0])
                 f.write("  <tils "+attr+"/>\n")
 
+        if reservasjoner.has_key(p): 
+            for r in reservasjoner[p].get('res', ()):
+                attr = " ".join(["%s=%s" % (rescols[i], xml.escape_xml_attr(r[i]))
+                                 for i in (4,5, )])
+                f.write("  <res "+attr+"/>\n")
+            
         prev = ''
         persondta[p].get('bil', []).sort()
         for t in persondta[p].get('bil', []):
