@@ -278,7 +278,6 @@ class Account(AccountType, EntityName, EntityQuarantine, Entity):
             self._db.log_change(self.entity_id, self.const.a_password,
                                 None, change_params={'password': plain})
 
-
         # Store the authentication data.
         for k in self._acc_affect_auth_types:
             k = int(k)
@@ -288,6 +287,8 @@ class Account(AccountType, EntityName, EntityQuarantine, Entity):
                     dta = self.get_account_authentication(k)
                     if dta != self._auth_info.get(k, None):
                         what = 'update'
+                    else:
+                        what = 'nothing'
                 except Errors.NotFoundError:
                      # insert
                      pass
@@ -300,7 +301,7 @@ class Account(AccountType, EntityName, EntityQuarantine, Entity):
                     VALUES (:acc_id, :method, :auth_data)""",
                                  {'acc_id' : self.entity_id, 'method' : k,
                                   'auth_data' : self._auth_info[k]})
-                else:
+                elif what == 'update':
                     self.execute("""
                     UPDATE [:table schema=cerebrum name=account_authentication]
                     SET auth_data=:auth_data
