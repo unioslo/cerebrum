@@ -355,7 +355,18 @@ class Group(EntityName, Entity):
         return res
 
 
-    def list_all(self, spread=None, filter_name=None, filter_desc=None):
+    def list_all(self, spread=None):
+        """Lists all groups (of given ``spread``).
+           DEPRECATED: use search() instead"""
+        return self.search(filter_spread=spread)
+
+    def search(self, filter_spread=None, filter_name=None, filter_desc=None):
+        """Retrieves a list of groups filtered by the given criterias.
+           (list of tuples (id, name, desc)).
+           If no criteria is given, all groups are returned.
+           ``filter_name`` and ``filter_desc`` should be strings if
+           given, wildcards * and ? are expanded for "any chars" and
+           "one char".""" 
             
         def replace_wildcards(value):
             value = value.replace("*", "%")
@@ -365,19 +376,19 @@ class Group(EntityName, Entity):
         tables = []
         where = []
         tables.append("[:table schema=cerebrum name=group_info] gi")
+        tables.append("[:table schema=cerebrum name=entity_name] en")
+        where.append("en.entity_id=gi.group_id")
+        where.append("en.value_domain=:vdomain")
         
-        if spread is not None:
-            spread = int(spread)
+        if filter_spread is not None:
+            filter_spread = int(filter_spread)
             tables.append("[:table schema=cerebrum name=entity_spread] es")
             where.append("gi.group_id=es.entity_id")
             where.append("es.entity_type=:etype")
-            where.append("es.spread=:spread")
+            where.append("es.spread=:filterspread")
 
         if filter_name is not None:
             filter_name = replace_wildcards(filter_name)
-            tables.append("[:table schema=cerebrum name=entity_name] en")
-            where.append("en.entity_id=gi.group_id")
-            where.append("en.value_domain=:vdomain")
             where.append("en.entity_name like :filtername")
 
         if filter_desc is not None:
@@ -389,9 +400,11 @@ class Group(EntityName, Entity):
             where_str = "WHERE " + " AND ".join(where)
             
         return self.query("""
-        SELECT group_id
+        SELECT gi.group_id AS group_id, 
+               en.entity_name AS name,  
+               gi.description AS description
         FROM %s %s""" % (', '.join(tables), where_str), 
-            {'spread': spread, 'etype': int(self.const.entity_group),
+            {'filterspread': filter_spread, 'etype': int(self.const.entity_group),
              'filtername': filter_name, 'filterdesc': filter_desc,
              'vdomain': int(self.const.group_namespace)})
 
