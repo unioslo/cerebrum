@@ -30,7 +30,7 @@ from Cerebrum import Errors
 class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
     __metaclass__ = Utils.mark_update
 
-    __read_attr = ('__in_db',)
+    __read_attr__ = ('__in_db',)
     __write_attr__ = ('birth_date', 'gender', 'description', 'deceased')
 
     def clear(self):

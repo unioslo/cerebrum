@@ -34,7 +34,7 @@ import crypt,random,string
 class Account(EntityName, EntityQuarantine, Entity):
     __metaclass__ = Utils.mark_update
 
-    __read_attr = ('__in_db',)
+    __read_attr__ = ('__in_db',)
     __write_attr__ = ('account_name', 'owner_type', 'owner_id',
                       'np_type', 'creator_id', 'expire_date', 'create_date')
 

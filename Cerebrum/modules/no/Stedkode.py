@@ -35,7 +35,7 @@ from Cerebrum.OU import OU
 # down...
 class Stedkode(OU):
 
-    __read_attr = ('__in_db',)
+    __read_attr__ = ('__in_db',)
     __write_attr__ = ('institusjon', 'fakultet', 'institutt', 'avdeling',
                       'katalog_merke')
 

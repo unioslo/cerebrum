@@ -34,7 +34,7 @@ class Group(EntityName, Entity):
     # break a lot of code, we're starting here.
     __metaclass__ = Utils.mark_update
 
-    __read_attr = ('__in_db',)
+    __read_attr__ = ('__in_db',)
     __write_attr__ = ('description', 'visibility', 'creator_id',
                       'create_date', 'expire_date', 'group_name')
 
