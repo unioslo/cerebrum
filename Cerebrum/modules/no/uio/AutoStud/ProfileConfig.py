@@ -44,7 +44,11 @@ class Config(object):
         parser = xml.sax.make_parser()
         parser.setContentHandler(sp)
         # Don't resolve external entities
-        parser.setFeature(xml.sax.handler.feature_external_ges, 0)
+        try:
+            parser.setFeature(xml.sax.handler.feature_external_ges, 0)
+        except xml.sax._exceptions.SAXNotRecognizedException:
+            # Older API versions don't try to handle external entities
+            pass
         parser.parse(cfg_file)
 
         # Generate select_mapping dict and expand super profiles
