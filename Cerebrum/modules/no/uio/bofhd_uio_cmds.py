@@ -126,6 +126,14 @@ class BofhdExtension(object):
                                                            Cache.cache_slots],
                                                    size=500)
 
+    def num2str(self, num):
+        """Returns the string value of a numerical constant"""
+        return str(self.num2const[int(num)])
+        
+    def str2num(self, string):
+        """Returns the numerical value of a string constant"""
+        return int(self.str2const[str(string)])
+
     def get_commands(self, account_id):
         try:
             return self._cached_client_commands[int(account_id)]
@@ -1724,15 +1732,8 @@ class BofhdExtension(object):
         """Returns basic information on the given entity id"""
         entity = self._get_entity(id=entity_id)
         result = {}
-        result['type'] = str(_EntityTypeCode(int(entity.entity_type)))
+        result['type'] = self.num2str(entity.entity_type)
         result['entity_id'] = entity.entity_id
-        try:
-            names = entity.get_names()
-        except AttributeError:
-            pass
-        else:        
-            # convert to python tuples
-            result['names'] = [(r.domain, r.name) for r in names]
         if entity.entity_type in \
             (self.const.entity_group, self.const.entity_account): 
             result['creator_id'] = entity.creator_id
@@ -1740,7 +1741,7 @@ class BofhdExtension(object):
             result['expire_date'] = entity.expire_date
             # FIXME: Should be a list instead of a string, but text clients doesn't 
             # know how to view such a list
-            result['spread'] = ", ".join(["%s" % self.num2const[int(a['spread'])]
+            result['spread'] = ", ".join([self.num2str(a.spread)
                                          for a in entity.get_spread()])
         if entity.entity_type == self.const.entity_group:
             result['name'] = entity.group_name
@@ -1758,6 +1759,36 @@ class BofhdExtension(object):
             #result['disk_id'] = entity.disk_id
            # TODO: de-reference np_type
            # result['np_type'] = entity.np_type
+        elif entity.entity_type == self.const.entity_person:   
+            result['name'] = entity.get_name(self.const.system_cached,
+                                             getattr(self.const,
+                                                     cereconf.DEFAULT_GECOS_NAME))
+            result['export_id'] = entity.export_id
+            result['birthdate'] =  entity.birth_date
+            result['description'] = entity.description
+            result['gender'] = self.num2str(entity.gender)
+            # make boolean
+            result['deceased'] = entity.deceased == 'T'
+            names = []
+            for name in entity.get_all_names():
+                source_system = self.num2str(name.source_system)
+                name_variant = self.num2str(name.name_variant)
+                names.append((source_system, name_variant, name.name))
+            result['names'] = names    
+            affiliations = []
+            for row in entity.get_affiliations():
+                affiliation = {}
+                affiliation['ou'] = row['ou_id']
+                affiliation['affiliation'] = self.num2str(row.affiliation)
+                affiliation['status'] = self.num2str(row.status)
+                affiliation['source_system'] = self.num2str(row.source_system)
+                affiliations.append(affiliation)
+            result['affiliations'] = affiliations     
+        elif entity.entity_type == self.const.entity_ou:
+            for attr in '''name acronym short_name display_name
+                           sort_name'''.split():
+                result[attr] = getattr(entity, attr)               
+                
         return result
     
     # entity history
@@ -1769,8 +1800,10 @@ class BofhdExtension(object):
         events = []
         entities = Set()
         change_types = Set()
-        # skip all but the last entries
-        #result = result[-limit:]
+        # (dirty way of unwrapping DB-iterator) 
+        result = [r for r in result]
+        # skip all but the last entries 
+        result = result[-limit:]
         for row in result:
             event = {}
             change_type = int(row['change_type_id'])
