@@ -28,14 +28,15 @@ from ldap import modlist
 from ldif import LDIFParser,LDIFWriter
 from dsml import DSMLParser,DSMLWriter 
 
+
 import unittest
-from errors import BackendError
+from errors import ServerError,BackendError
 
 import config
 
 
 
-class LdapConnectionError(BackendError):
+class LdapConnectionError(ServerError):
     pass
 
 class DsmlHandler(DSMLParser):
@@ -111,11 +112,11 @@ class LdapBack:
     def __init__(self):
         self.l = None # Holds the authenticated ldapConnection object
 
-    def utf8_encode(str):
+    def iso2utf(str):
         """ Return utf8-encoded string """
         return unicode(str, "iso-8859-1").encode("utf-8")
         
-    def utf8_decode(str):
+    def utf2iso(str):
         "Return decoded utf8-string"
         return unicode(str,"utf-8").encode("iso-8859-1")
 
@@ -141,8 +142,8 @@ class LdapBack:
             self.notinsync = []
             if incr == False:
                 res = self.search(filterstr=self.filter,attrslist=["dn"]) # Only interested in attribute dn to be received
-                for entry in res:
-                    self.notinsync.append(entry[0])
+                for (dn, attrs) in res:
+                    self.notinsync.append(dn)
         except ldap.LDAPError,e:
             #raise LdapConnectionError
             print "Error connecting to server: %s" % (e)
@@ -152,7 +153,7 @@ class LdapBack:
         Syncronize current base if incr=False, then
         close ongoing operations and disconnect from server
         """
-        if self.incr == False:
+        if not self.incr :
             self.syncronize()
         try:
             self.l.unbind_s()
@@ -186,7 +187,7 @@ class LdapBack:
         attrs=self.get_attributes(obj)
         try:
             self.l.add_s(dn,modlist.addModlist(attrs,ignore_attr_types))
-            if self.incr == False:
+            if not self.incr:
                 try:
                     self.notinsync.remove(dn)
                 except:
@@ -206,17 +207,18 @@ class LdapBack:
         if old == None:
             # Fetch old values from LDAP
             res = self.search(base=dn) # using dn as base, and fetch first record
+            if not res:
+                self.add(obj)
+                return
             old_attrs = res[0][1]
         else:
             old_attrs = {}
         mod_attrs = modlist.modifyModlist(old_attrs,attrs,ignore_attr_types,ignore_oldexistent)
         try:
             self.l.modify_s(dn,mod_attrs)
-            self.notinsync.remove(dn)
+            if not self.incr:
+                self.notinsync.remove(dn)
             print "%s updated successfully" % (obj.name)
-        except ldap.NO_SUCH_OBJECT,e:
-            # Object does not exist.. add it instead
-            self.add(obj)
         except ldap.LDAPError,e:
             print "An error occured while modifying %s" % (dn)
 
@@ -224,7 +226,7 @@ class LdapBack:
         """
         Delete object from LDAP. 
         """
-        if not obj == None:
+        if obj:
             dn=self.get_dn(obj)
         try:
             self.l.delete_s(dn)
@@ -247,6 +249,7 @@ class LdapBack:
 ###
 ###
 
+
 class PosixUser(LdapBack):
     """Stub object for representation of an account."""
     def __init__(self,conn=None,base=None):
@@ -255,14 +258,15 @@ class PosixUser(LdapBack):
         else:
             self.base = base
         self.filter = config.sync.get("ldap","userfilter")
-        self.obj_class = ['top','person','posixAccount','shadowAccount'] # Need 'person' for structural-objectclass
+        # Need 'person' for structural-objectclass
+        self.obj_class = ['top','person','posixAccount','shadowAccount'] 
 
     def get_attributes(self,obj):
         """Convert Account-object to map ldap-attributes"""
         s = {}
         s['objectClass'] = self.obj_class
-        s['cn'] = obj.gecos
-        s['sn'] = obj.gecos.split()[len(obj.gecos.split())-1] # presume last name, is surname
+        s['cn'] = iso2utf(obj.gecos)
+        s['sn'] = iso2utf(obj.gecos.split()[len(obj.gecos.split())-1]) # presume last name, is surname
         s['uid'] = obj.name
         s['uidNumber'] = str(obj.posix_uid)
         s['userPassword'] = '{MD5}' + obj.password # until further notice, presume md5-hash
@@ -274,6 +278,7 @@ class PosixUser(LdapBack):
 
     def gecos(self,s,default=1):
         # Taken from cerebrum/contrib/generate_ldif.py and then modified.
+        # Maybe use latin1_to_iso646_60 from Cerebrum.utils?
         """  Convert special chars to 7bit ascii for gecos-attribute. """
         if default == 1:
             translate = {'Æ' : 'Ae', 'æ' : 'ae', 'Å' : 'Aa', 'å' : 'aa','Ø' : 'Oe','ø' : 'oe' }
@@ -292,7 +297,7 @@ class PosixGroup(LdapBack):
     '''Abstraction of a group of accounts'''
     def __init__(self,base=None):
         if base == None:
-            self.base = config.sync.get("ldap","user_base")
+            self.base = config.sync.get("ldap","group_base")
         else:
             self.base = base
         self.filter = config.sync.get("ldap","groupfilter")
@@ -313,64 +318,110 @@ class PosixGroup(LdapBack):
     def get_dn(self,obj):
         return "cn=" + obj.name + "," + self.base
 
+class NetGroup(LdapBack):
+    ''' '''
+    def __init__(self,base=None):
+        if base == None:
+            self.base = config.sync.get("ldap","netgroup_base")
+        else:
+            self.base = base
+        self.filter = config.sync.get("ldap","netgroupfilter")
+        self.obj_class = ('top', 'nisNetGroup')
 
-class Person:
+    def get_dn(self,obj):
+        return "cn=" + obj.name + "," + self.base
+
+    def get_attributes(self,obj):
+        s = {}
+        s['objectClass'] = self.obj_class
+        s['cn'] = (obj.name)
+        s['nisNetGroupTriple'] = [] # Which attribute to fetch? FIXME
+        s['memberNisNetgroup'] = [] # Which attribute to fetch? FIXME
+        return s
+
+
+class Person(LdapBack):
     def __init__(self,base="ou=People,dc=ntnu,dc=no"):
         self.base = base
         self.filter = config.sync.get("ldap","peoplefilter")
         self.obj_class = ['top','person','organizationalPerson','inetorgperson','eduperson','noreduperson']
 
     def get_dn(self,obj):
-        return "cn=" + obj.name + "," + config.sync.get('ldap','people_base')
+        return "uid=" + obj.name + "," + self.base
 
     def get_attributes(self,obj):
         s = {}
         s['objectClass'] = self.obj_class
-        s['cn'] = obj.full_name
-        s['sn'] = obj.full_name.split()[len(obj.full_name)-1] # presume last name, is surname
+        s['cn'] = iso2utf(obj.full_name)
+        s['sn'] = iso2utf(obj.full_name.split()[len(obj.full_name)-1]) # presume last name, is surname
         s['uid'] = obj.name
-        # FIXME
-        #s['userPassword'] = '{MD5}' + 'secrethashhere' 
-        #obj.password # until further notice, presume md5-hash
+        s['userPassword'] = '{' + config.sync.get('ldap','hash').upper() + '}' + obj.password 
         s['eduPersonPrincipalName'] = obj.name + "@" + config.sync.get('ldap','eduperson_realm')
-        s['norEduPersonBirthDate'] = str(obj.birth_date) # Norwegian "Birth date" 
-        #FIXME
-        #s['norEduPersonNIN'] = str(obj.birth_date) # Norwegian "Birth number" / SSN
+        s['norEduPersonBirthDate'] = str(obj.birth_date) # Norwegian "Birth date" FIXME 
+        s['norEduPersonNIN'] = str(obj.birth_date) # Norwegian "Birth number" / SSN FIXME
         s['mail'] = s['eduPersonPrincipalName'] # FIXME 
-        #s['description'] = obj.description
+        s['description'] = obj.description
         return s
 
 class Alias:
-    """ Mail aliases, for setups that store additional mailinglists and personal aliases in ldap."""
-    def __init__(self,base=""):
-        self.base = base
-        self.filter = config.sync.get("ldap","aliasfilter")
+    """ Mail aliases, for setups that store additional mailinglists and personal aliases in ldap.
+    rfc822 mail address of group member(s)
+    Depends on rfc822-MailMember.schema
+    """
+    def __init__(self,base=None):
+        if base == None:
+            self.base = config.sync.get("ldap","mail_base")
+        else:
+            self.base = base
+        self.filter = config.sync.get("ldap","mailfilter")
+        self.obj_class = ('top','nicMailAlias')
 
     def get_dn(self,obj):
-        pass
+        return "cn=" + obj.name + "," + self.base
 
     def get_attributes(self,obj):
-        pass
+        s = {}
+        s['objectClass'] = self.obj_class
+        s['cn'] = obj.name
+        s['rfc822MailMember'] = obj.membernames()
+        return s
+
 
 class OU:
     """ OrganizationalUnit, where people work or students follow studyprograms.
     Needs name,id and parent as minimum.
     """
-    def __init__(self,base="ou=organization,dc=ntnu,dc=no"):
-        self.base = base
+
+    def __init__(self,base=None):
+        self.ou_dict = {}
+        if base == None:
+            self.base = config.sync.get("ldap","ou_base")
+        else:
+            self.base = base
         self.filter = config.sync.get("ldap","oufilter")
         self.obj_class = ['top','organizationalUnit']
 
     def get_dn(self,obj):
-        #FIXME
-        pass
+        base = self.base
+        filter = 'norEduOrgUnitUniqueNumber=%s' % obj.parent_id 
+        if (self.ou_dict.has_key[obj.parent_id]):
+            parentdn = self.ou_dict[obj.parent_id]
+        else:
+            parentdn = self.search(base=base,filterstr=filter)[0][0]
+        dn = "ou=" + obj.name + parentdn
+        self.ou_dict['obj.id'] = dn # Local cache to speed things up.. 
+        return dn
 
     def get_attributes(self,obj):
         #FIXME: add support for storing unit-id,parent-id and rootnode-id
         s = {}
-        s['objectClass'] = ('top','organizationalUnit')
+        s['objectClass'] = ('top','organizationalUnit','norEduOrgUnit')
         s['ou'] = obj.name
+        s['cn'] = obj.full_name
         s['description'] = obj.description
+        s['norEduOrgUniqueNumber'] = config.sync.get('ldap','norEduOrgUniqueNumber')
+        s['norEduOrgUnitUniqueNumber'] = obj.id
+        #s['norEduOrgAcronym'] = obj.acronyms
         return s
 
 
@@ -380,14 +431,24 @@ class OU:
 ###
 
 class testLdapBack(unittest.TestCase):
+    
     def setUp(self):
         self.lback = LdapBack()
+
+    def testBegin(self):
+        self.lback.begin()
 
     def testBeginFails(self):
         self.assertRaises(LdapConnectionError, self.lback.begin, hostname='doesnotexist.bizz')
 
     def testClose(self):
         self.lback.close()
+
+    # Test-cases to be added:
+    # Search (find root-node from config-file)
+    # Add,Update,Delete
+    # sync a test-tree
+    # strange characters in gecos-attribute.. 
 
 if __name__ == "__main__":
     unittest.main()
