@@ -50,7 +50,7 @@ Description: cerebrum server
 
 Package: cerebrum-jbofh
 Architecture: any
-Depends: j2re (>= 1.4) | java2-runtime
+Depends: j2re (>= 1.4) | java2-runtime, libreadline-java
 Description: java client with command line interface for cerebrum systems
  The java bofh client to cerebrum systems with a commandline 
  interface without propriatary libs
