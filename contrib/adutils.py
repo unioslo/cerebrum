@@ -40,7 +40,7 @@ disk = Factory.get('Disk')(db)
 host = Factory.get('Host')(db)
 quarantine = Entity.EntityQuarantine(db)
 ou = Factory.get('OU')(db)
-
+logger = Factory.get_logger("cronjob")
 
 class SocketCom(object):
     """Class for Basic socket communication to connect to the ADserver"""
@@ -56,13 +56,12 @@ class SocketCom(object):
         try:
 	    self.sockobj = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 	    self.sockobj.connect((cereconf.AD_SERVER_HOST, cereconf.AD_SERVER_PORT))
-            print 'INFO: Connecting, starting session', now()
-            print ">>", self.sockobj.recv(8192),
-	    print "<< Authenticating"
+            logger.debug(">> %s" % self.sockobj.recv(8192).strip())
+	    logger.debug("<< Authenticating")
 	    self.sockobj.send(cereconf.AD_PASSWORD)
 	    self.read()
         except:
-	    print 'CRITICAL: failed connecting to:', cereconf.AD_SERVER_HOST, cereconf.AD_SERVER_PORT
+	    logger.fatal("Failed connecting to:%s %s" % (cereconf.AD_SERVER_HOST, cereconf.AD_SERVER_PORT))
             raise 
 
 
@@ -73,15 +72,16 @@ class SocketCom(object):
                 gr=1
             else:
                 gr=2            
-            print '<< %s&pass&XXXXXXXX%s' % (message[0:m.start(gr)],message[m.end(gr):-1])
+            logger.debug('<< %s&pass&XXXXXXXX%s' % (message[0:m.start(gr)],message[m.end(gr):-1]))
         else:
-            print '<<', message,
+            logger.debug("<< %s" %  message.strip())
         self.sockobj.send(message)
         
 
     def read(self,out=1):
         received = []
         rec = []
+
         while 1:
             data = self.sockobj.recv(8192)
             if data[3] != '-': break
@@ -94,7 +94,7 @@ class SocketCom(object):
 	    rec.append(i.strip())		   	
         if out:     
             for elem in rec:
-                 print '>>', elem
+                 logger.debug('>> %s' % elem)
         return rec    
 
     def readgrp(self,out=1):
@@ -113,14 +113,13 @@ class SocketCom(object):
 	    i.strip()
 	    rec = '%s%s' % (rec,i)		   	
         if out:     
-            print '>>', rec
+            logger.debug('>> %s' % rec)
         return rec    
 
     def close(self):
-        print 'INFO: Finished, ending session', now()
+        logger.debug("Finished, ending session")
         self.sockobj.send("QUIT\n")
         self.sockobj.close()
-
 
 
 def now():
@@ -142,7 +141,7 @@ def get_user_info(account_id, account_name, spread):
         person.find(person_id)
         full_name = person.get_name(int(co.system_cached), int(co.name_full)) 
         if not full_name:
-            print "WARNING: getting persons name failed, account.owner_id:",person_id
+            logger.warn('getting persons full_name failed, account.owner_id: %s' % person_id)
     except Errors.NotFoundError:        
         #This account is missing a person_id.
         full_name = account.account_name
@@ -156,7 +155,6 @@ def get_user_info(account_id, account_name, spread):
 
 def chk_quarantine(account_id):
     # Check against quarantine.
-    print "checking for quarantine:", account_id
     quarantine.clear()
     quarantine.find(account_id)
     quarantines = quarantine.get_entity_quarantine()
@@ -214,7 +212,7 @@ def get_crbrm_ou(ou_id):
 #        #TBD: Utvide med spread sjekk, OUer uten acronym, problem?
 #        return 'OU=%s' % path.replace('/',',OU=')
 #    except Errors.NotFoundError:
-#        print "WARNING: Could not find OU with id",ou_id
+#        logger.warn("Could not find OU with id: %s" % ou_id)
 
 
 def id_to_ou_path(ou_id,ourootname):
@@ -247,7 +245,7 @@ def find_home_dir(account_id, account_name, disk_spread):
             home_srv = host.name
 	return "\\\\%s\\%s" % (home_srv,account_name)
     except Errors.NotFoundError:
-        print "WARNING: Failure finding the disk of account ",account_id
+        logger.warn("Failure finding the disk of account: %s" % account_id)
         
 
 def find_login_script(account):

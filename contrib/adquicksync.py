@@ -41,6 +41,7 @@ ou = Factory.get('OU')(db)
 group = Factory.get('Group')(db)
 account = Factory.get('Account')(db)
 cl = CLHandler.CLHandler(db)
+logger = Factory.get_logger("cronjob")
 
 delete_users = 0
 delete_groups = 0
@@ -63,14 +64,14 @@ def quick_user_sync():
     for ans in answer:
         chg_type = ans['change_type_id']
         if debug:
-            print "change_id:",ans['change_id']
+            logger.debug("change_id: %s" % ans['change_id'])
         cl.confirm_event(ans)
         if chg_type == clco.account_password:
             change_params = pickle.loads(ans['change_params'])
             if change_pw(ans['subject_entity'],change_params):
 		cl.confirm_event(ans)
 	    else:
-		print 'WARNING: failed changing password for ',ans['subject_entity']
+		logger.warn('Failed changing password for %s ' % ans['subject_entity'])
         elif chg_type == clco.group_add or chg_type == clco.group_rem:
             entity.clear()
             try:
@@ -101,23 +102,23 @@ def quick_user_sync():
 		    if not group_name:
 	    		return False
                     if debug:
-                        print ("account:%s,group_name:%s") % (account_name,group_name)
+                        logger.debug("account:%s,group_name:%s" % (account_name,group_name))
                     if chg_type == clco.group_add:
                         if group_add(account_name,group_name):
 			    cl.confirm_event(ans)
 			else:
-		            print 'WARNING: failed adding',account_name,' to group ',group_name
+		            logger.warn('Failed adding %s to group %s' % (account_name,group_name))
                     else:
 			if group_rem(account_name,group_name):
 			    cl.confirm_event(ans)
 			else:
-			    print 'WARNING: failed removing',account_name,' from group ',group_name
+			    logger.warn('Failed removing %s from group %s' % (account_name,group_name))
 		else:
                     if debug:
-                        print ans['dest_entity'], 'add/rem group: missing spread_uio_ad_group'
+                        logger.debug('%s add/rem group: missing spread_uio_ad_group' % ans['dest_entity'])
             else:
                 if debug:
-                    print ans['subject_entity'],' add/rem group: missing spread_uio_ad_account'
+                    logger.debug('%s add/rem group: missing spread_uio_ad_account' % ans['subject_entity'])
 
         elif chg_type == clco.spread_add:
             change_params = pickle.loads(ans['change_params'])
@@ -148,7 +149,7 @@ def move_account(entity_id):
        	sock.send('ALTRUSR&%s/%s&hdir&%s\n' % (cereconf.AD_DOMAIN,
                                                account_name, home))
 	if sock.read() != ['210 OK']:
-	    print 'WARNING: Failed update home directory ', account_name
+	    logger.warn('Failed update home directory %s' % account_name)
 
 
 def change_quarantine(entity_id):
@@ -180,11 +181,11 @@ def change_quarantine(entity_id):
                                                cereconf.AD_PASSWORD_EXPIRE,
                                                cereconf.AD_CANT_CHANGE_PW))
 		    if sock.read() != ['210 OK']:
-			print "WARNING: Failed enabling account ", account_name
+			logger.warn("Failed enabling account %s" % account_name)
                 else:
-                    print "WARNING: Failed move user ", account_name
+                    logger.warn("Failed move user %s" % account_name)
             else:
-                print "WARNING: Failed getting AD_OU ", account_name , ", creating..."
+                logger.warn("Failed getting AD_OU, %s, creating..." %  account_name)
                 add_spread(entity_id, co.spread_uio_ad_account)
 
 
@@ -202,7 +203,7 @@ def add_spread(entity_id, spread):
         else:
             pri_ou = adutils.get_primary_ou( entity_id, co.account_namespace)
             if not pri_ou:
-                print "WARNING: No account_type information for object ", id
+                logger.debug("No account_type information for object %s" % id)
                 ad_ou='CN=Users,%s' % (cereconf.AD_LDAP)
             else:
                 ad_ou = adutils.id_to_ou_path(pri_ou, ourootname)
@@ -228,7 +229,7 @@ def add_spread(entity_id, spread):
                     pw=pw.replace('&','%26')
                 sock.send('ALTRUSR&%s/%s&pass&%s\n' % (cereconf.AD_DOMAIN,account_name,pw))
             else:
-                print 'WARNING: Failed creating new user ', account_name
+                logger.warn('Failed creating new user %s' % account_name)
 
         if sock.read() == ['210 OK']:
             (full_name, account_disable, home_dir, cereconf.AD_HOME_DRIVE,
@@ -253,11 +254,10 @@ def add_spread(entity_id, spread):
                     if group.has_spread(int(co.spread_uio_ad_group)):
                         grp_name = '%s-gruppe' % (group.group_name)
                         if not group_add(account_name,grp_name):
-                            print 'WARNING: add user %s to group %s failed' % (account_name,grp_name)
+                            logger.warn('Add user %s to group %s failed' % (account_name,grp_name))
 
         else:
-            #TBD: This is serious and should write to std.err.
-            print 'CRITICAL: Failed replacing password or Move account', account_name
+            logger.fatal('Failed replacing password or Move account: %s' % account_name)
             return False
 
     elif spread == co.spread_uio_ad_group:
@@ -287,15 +287,15 @@ def add_spread(entity_id, spread):
                 account.find(grpmemb)
                 if account.has_spread(co.spread_uio_ad_account):
                     name = account.get_name(int(co.account_namespace))
-                    print 'INFO:Add', name, 'to', grp
+                    logger.debug('Add %s to %s' % (name,grp))
                     sock.send('ADDUSRGR&%s/%s&%s/%s\n' % (cereconf.AD_DOMAIN, name, cereconf.AD_DOMAIN, grp))
                     if sock.read() != ['210 OK']:
-                        print 'WARNING: Failed add', name, 'to', grp
+                        logger.warn('Failed add %s to %s' % (name, grp))
 	    return True
-        print 'WARNING: create group failed ', grp,'in Users'
+        logger.warn('Failed create group %s in OU Users' % grp)
     else:
         if debug:
-            print 'Add spread:', spread , ' not an ad_spread'
+            logger.debug('Add spread: %s not an ad_spread' %  spread) 
         return True
 
 
@@ -308,22 +308,22 @@ def del_spread(entity_id, spread, delete=delete_users):
         if delete:
             sock.send('DELUSR&%s/%s\n' % (cereconf.AD_DOMAIN, user))
             if sock.read() != ['210 OK']:
-                print 'WARNING: Error deleting, ', user
+                logger.warn('Error deleting %s' %  user)
         else:
             sock.send('ALTRUSR&%s/%s&dis&1\n' % ( cereconf.AD_DOMAIN, user))
             if sock.read() != ['210 OK']:
-                print 'WARNING: Error disabling account', user
+                logger.warn('Error disabling account %s' % user)
 
             sock.send('TRANS&%s/%s\n' % ( cereconf.AD_DOMAIN, user))
             ldap = sock.read()[0]
             if ldap[0:3] != "210":
-                print 'WARNING: Error getting WinNT from LDAP path for', user
+                logger.warn('Error getting WinNT from LDAP path for %s' %  user)
             else:
                 if cereconf.AD_LOST_AND_FOUND not in adutils.get_ad_ou(ldap[4:]):
                     sock.send('MOVEOBJ&%s&LDAP://OU=%s,%s\n' % (
                         ldap[4:], cereconf.AD_LOST_AND_FOUND, cereconf.AD_LDAP))
                     if sock.read() != ['210 OK']:
-                        print 'WARNING: Error moving:', ldap[4:], 'to',cereconf.AD_LOST_AND_FOUND
+                        logger.warn('Error moving: %s to %s' % (ldap[4:], cereconf.AD_LOST_AND_FOUND))
 
     elif spread == co.spread_uio_ad_group:
         group_n=id_to_name(entity_id,'group')
@@ -332,12 +332,12 @@ def del_spread(entity_id, spread, delete=delete_users):
         if delete_groups:
             sock.send('DELGR&%s/%s\n' % (cereconf.AD_DOMAIN, group_n))
             if sock.read() != ['210 OK']:
-                print 'WARNING: Error deleting ',group_n
+                logger.warn('Error deleting %s' % group_n)
         else:
             sock.send('TRANS&%s/%s\n' % ( cereconf.AD_DOMAIN, group_n))
             ldap = sock.read()
             if ldap[0][0:3] != "210":
-                print 'WARNING: Error Transforming WinNT to LDAP for', group_n
+                logger.warn('Error Transforming WinNT to LDAP for %s' % group_n)
             else:
                 if cereconf.AD_LOST_AND_FOUND not in adutils.get_ad_ou(ldap[0]):
                     sock.send('MOVEOBJ&%s&LDAP://OU=%s,%s\n' % (
@@ -352,13 +352,13 @@ def del_spread(entity_id, spread, delete=delete_users):
                                     mem = l.split('&')
                                     sock.send('DELUSRGR&%s/%s&%s/%s\n' % (cereconf.AD_DOMAIN, mem[1], cereconf.AD_DOMAIN, group_n))
                                     if sock.read() != ['210 OK']:
-                                        print 'WARNING: Failed delete', member, 'from', group_n
+                                        logger.warn('Failed delete %s from %s') % (member, group_n)
                     else:
-                        print 'WARNING: Error moving:', ldap[0], 'to',cereconf.AD_LOST_AND_FOUND
+                        logger.warn('Error moving: %s to %s' % (ldap[0], cereconf.AD_LOST_AND_FOUND))
 
     else:
         if debug:
-            print 'Delete spread: ',spread,' not an AD spread.'
+            logger.debug('Delete spread: %s not an AD spread.' % spread)
         return True
 
 
@@ -395,7 +395,7 @@ def change_pw(account_id,pw_params):
             passwords[account_id] = pw
     else:
         if debug:
-            print "Change password: Account %s, missing ad_spread" % (account_id)
+            logger.debug("Change password: Account %s, missing ad_spread" % (account_id))
         return True
     return False
 
@@ -415,7 +415,7 @@ def id_to_name(id,entity_type):
         name = entityname.get_name(namespace)
         obj_name = "%s%s" % (name,grp_postfix)
     except Errors.NotFoundError:
-	print 'WARNING: id %s missing, probably deleted' % id
+	logger.warn('id %s missing, probably deleted' % id)
 	return False
     return obj_name
 
