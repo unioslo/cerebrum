@@ -22,9 +22,10 @@
 import sys
 import re
 import pickle
+import string
 
-import cereconf
 import cerebrum_path
+import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum import OU
@@ -67,23 +68,24 @@ def quick_sync():
 	try:
 	    entity.clear()
     	    entity.find(ans['subject_entity'])
+#            entity.has_spread(int(co.spread_uio_notes_account))
+    	
+	    if entity.has_spread(int(co.spread_uio_notes_account)):        
+	        if chg_type == clco.account_password:
+            	    change_params = pickle.loads(ans['change_params'])	
+                    change_pw(ans['subject_entity'],change_params)
+                elif chg_type == clco.spread_add:
+                    change_params = pickle.loads(ans['change_params'])
+                    if change_params['spread'] == int(co.spread_uio_notes_account):    
+                        add_user(ans['subject_entity'])
+                elif chg_type == clco.spread_del:
+            	    change_params = pickle.loads(ans['change_params'])
+		    if change_params['spread'] == int(co.spread_uio_notes_account):    
+              	        delundel_user(ans['subject_entity'],'splatt')
+                elif chg_type == clco.quarantine_add or chg_type == clco.quarantine_del or chg_type == clco.quarantine_mod:
+		    change_quarantine(ans['subject_entity']) 
 	except Errors.NotFoundError:
 	    print "WARNING: Could not find entity ",ans['subject_entity']	
-    	
-	if entity.has_spread(int(co.spread_uio_notes_account)):        
-	    if chg_type == clco.account_password:
-            	change_params = pickle.loads(ans['change_params'])	
-        	change_pw(ans['subject_entity'],change_params)
-            elif chg_type == clco.spread_add:
-            	change_params = pickle.loads(ans['change_params'])
-		if change_params['spread'] == int(co.spread_uio_notes_account):    
-                    add_user(ans['subject_entity'])
-            elif chg_type == clco.spread_del:
-            	change_params = pickle.loads(ans['change_params'])
-		if change_params['spread'] == int(co.spread_uio_notes_account):    
-              	    delundel_user(ans['subject_entity'],'splatt')
-            elif chg_type == clco.quarantine_add or chg_type == clco.quarantine_del or chg_type == clco.quarantine_mod:
-		change_quarantine(ans['subject_entity']) 
 
     cl.commit_confirmations()    
 
@@ -97,6 +99,8 @@ def change_quarantine(entity_id):
 def change_pw(account_id,pw_params):
     pw=pw_params['password']
     user = id_to_name(account_id)
+    pw=string.replace(pw,'%','%25')
+    pw=string.replace(pw,'&','%26')
     sock.send('CHPASS&ShortName&%s&pass&%s\n' % (user,pw))
     sock.read()
 
@@ -123,7 +127,7 @@ def add_user(account_id):
         sock.send('CREATEUSR&ShortName&%s&FirstName&%s&LastName&%s&%s\n' % (account_name,name[0],name[1],oustr))
         sock.read()        	
     if notesutils.chk_quarantine(account_id):
-	splatt_user(account_id)	
+	delundel_user(account_id,'splatt')	
 
 def delundel_user(account_id,status):
     account_name = id_to_name(account_id)
