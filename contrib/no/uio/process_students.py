@@ -53,6 +53,9 @@ account_id2fnr = {}
 debug = 0
 max_errors = 50          # Max number of errors to accept in person-callback
 
+enable_fs_derived=False  # Aparently we no longer want this feature,
+                         # but we don't want to remove the code yet.
+
 def bootstrap():
     global default_creator_id, default_expire_date, default_shell
     for t in ('PRINT_PRINTER', 'PRINT_BARCODE', 'AUTOADMIN_LOG_DIR',
@@ -95,6 +98,37 @@ def create_user(fnr, profile):
     all_passwords[int(account.entity_id)] = [password, profile.get_brev()]
     update_account(profile, fnr, [account.entity_id])
     return account.entity_id
+
+def populate_accoount_affiliations(profile, user, person):
+    # Populate affiliations
+    # Speedup: Try to determine if object is changed without populating
+    changed = False
+    paffs = derived_person_affiliations.get(int(user.owner_id), [])
+    for ou_id in profile.get_stedkoder():
+        try:
+            idx = paffs.index((const.system_fs_derived, ou_id, const.affiliation_student,
+                               const.affiliation_status_student_aktiv))
+            del paffs[idx]
+        except ValueError:
+            changed = True
+            pass
+    if paffs:
+        changed = True
+    person.clear()
+    person.find(user.owner_id)
+    if changed:
+        for ou_id in profile.get_stedkoder():
+            person.populate_affiliation(const.system_fs_derived, ou_id, const.affiliation_student,
+                                        const.affiliation_status_student_aktiv)
+        tmp = person.write_db()
+        logger.debug2("alter person affiliations, write_db=%s" % tmp)
+    for ou_id in profile.get_stedkoder():
+        has = False
+        for has_ou, has_aff in account_info.get(account_id, []):
+            if has_ou == ou_id and has_aff == const.affiliation_student:
+                has = True
+        if not has:
+            user.set_account_type(ou_id, const.affiliation_student)
 
 def update_account(profile, fnr, account_ids, account_info={}):
     """Update the account by checking that group, disk and
@@ -204,35 +238,12 @@ def update_account(profile, fnr, account_ids, account_info={}):
             changes.append("removed quarantine_autostud")
             user.delete_entity_quarantine(const.quarantine_autostud)
 
-        # Populate affiliations
-        # Speedup: Try to determine if object is changed without populating
-        changed = False
-        paffs = derived_person_affiliations.get(int(user.owner_id), [])
-        for ou_id in profile.get_stedkoder():
-            try:
-                idx = paffs.index((const.system_fs_derived, ou_id, const.affiliation_student,
-                                   const.affiliation_status_student_aktiv))
-                del paffs[idx]
-            except ValueError:
-                changed = True
-                pass
-        if paffs:
-            changed = True
-        person.clear()
-        person.find(user.owner_id)
-        if changed:
-            for ou_id in profile.get_stedkoder():
-                person.populate_affiliation(const.system_fs_derived, ou_id, const.affiliation_student,
-                                            const.affiliation_status_student_aktiv)
-            tmp = person.write_db()
-            logger.debug2("alter person affiliations, write_db=%s" % tmp)
-        for ou_id in profile.get_stedkoder():
-            has = False
-            for has_ou, has_aff in account_info.get(account_id, []):
-                if has_ou == ou_id and has_aff == const.affiliation_student:
-                    has = True
-            if not has:
-                user.set_account_type(ou_id, const.affiliation_student)
+        if enable_fs_derived:
+            populate_accoount_affiliations(profile, user, person)
+        else:
+            person.clear()
+            person.find(user.owner_id)
+
         # Populate spreads
         has_acount_spreads = [int(x['spread']) for x in user.get_spread()]
         has_person_spreads = [int(x['spread']) for x in person.get_spread()]
@@ -258,19 +269,27 @@ def get_existing_accounts():
         return {}, {}
     account = Factory.get('Account')(db)
     person = Factory.get('Person')(db)
-    for p in person.list_affiliations(source_system=const.system_fs_derived,
-                                      affiliation=const.affiliation_student,
-                                      fetchall=False):
-        derived_person_affiliations.setdefault(int(p['person_id']), []).append(
-            (int(p['source_system']), int(p['ou_id']), int(p['affiliation']), int(p['status'])))
+    if enable_fs_derived:
+        for p in person.list_affiliations(
+            source_system=const.system_fs_derived,
+            affiliation=const.affiliation_student,
+            fetchall=False):
+            derived_person_affiliations.setdefault(int(p['person_id']),
+                                                   []).append(
+                (int(p['source_system']), int(p['ou_id']),
+                 int(p['affiliation']), int(p['status'])))
+
     logger.info("Finding student accounts...")
-    pid2fnr = {}
-    for p in person.list_external_ids(source_system=const.system_fs,
-                                      id_type=const.externalid_fodselsnr):
-        pid2fnr[int(p['person_id'])] = p['external_id']
+    pid2fnr = {}              # Prefer fnr from FS
+    had_fs_fnr = {}
     for p in person.list_external_ids(id_type=const.externalid_fodselsnr):
         if not pid2fnr.has_key(int(p['person_id'])):
+            if had_fs_fnr.has_key(int(p['person_id'])):
+                continue
             pid2fnr[int(p['person_id'])] = p['external_id']
+            if p['source_system'] == int(const.system_fs):
+                had_fs_fnr[int(p['person_id'])] = True
+    logger.info("  done list_external_ids")
 
     # Find all student accounts.  A student account is an account that
     # has only account_types with affiliation=student.  We're
@@ -297,6 +316,7 @@ def get_existing_accounts():
                     do_del = True
             if do_del:
                 del(students[person_id][account_id])
+    logger.info("  done list_accounts_by_type")
 
     others = {}
     # We only register the reserved account if the user doesn't
@@ -309,6 +329,7 @@ def get_existing_accounts():
         if (fnr is not None) and not students.has_key(fnr):
             others[fnr] = None   # TODO: a bit ugly, use an extra dict instead
 
+    logger.info("  done account.list")
     for a in account.list_reserved_users(fetchall=False):
         fnr = pid2fnr.get(int(a['owner_id']), None)
         if (fnr is not None) and (not students.has_key(fnr)  and
