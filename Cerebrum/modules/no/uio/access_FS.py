@@ -24,7 +24,134 @@ import time
 from Cerebrum import Database
 from Cerebrum import Errors
 
-class FS(object):
+# TODO:
+# - De forskjellige metodene bør gruperes etter typen operasjon, og
+#   legges i egne klasser.  Klassen FS vil arve denne samlingen av
+#   klasser.
+# - klasser som er generiske nok bør flyttes opp i no katalogen
+# - metodenavnene bør endres slik at de følger nomenklaturen for
+#   resten av Cerebrum.  I.e. get_person, ikke GetPerson, samt list_*
+#   for metoder som returnerer multiple rader.
+# - har man behov for spesifik kode for en gitt FS-versjon bør denne
+#   legges i en engen klasse, samt etablere en mekanisme for å bruke
+#   denne klassen via cereconf e.l.
+
+class FSPerson(object):
+    """Metoder som opererer på data om forskjellige typer personer.
+    """
+
+    def get_person(self, fnr, pnr):
+        return self.db.query("""
+SELECT fornavn, etternavn, fornavn_uppercase, etternavn_uppercase,
+       emailadresse, kjonn, dato_fodt
+FROM fs.person
+WHERE fodselsdato=:fnr AND personnr=:pnr""",  {'fnr': fnr, 'pnr': pnr})
+
+    def add_person(self, fnr, pnr, fornavn, etternavn, email, kjonn,
+                   birth_date):
+        # Note that birth_date is YYYY-MM-DD and not db.Date because
+        # the oracle driver does not support dates before 1970
+        return self.db.execute("""
+INSERT INTO fs.person
+  (fodselsdato, personnr, fornavn, etternavn, fornavn_uppercase,
+   etternavn_uppercase, emailadresse, kjonn, dato_fodt)
+VALUES
+  (:fnr, :pnr, :fornavn, :etternavn, UPPER(:fornavn2),
+  UPPER(:etternavn2), :email, :kjonn, TO_DATE(:birth_date, 'YYYY-MM-DD'))""", {
+            'fnr': fnr, 'pnr': pnr, 'fornavn': fornavn,
+            'etternavn': etternavn, 'email': email,
+            'kjonn': kjonn, 'birth_date': birth_date,
+            'fornavn2': fornavn, 'etternavn2': etternavn})
+
+    def get_fagperson(self, fnr, pnr):
+        return self.db.query("""
+SELECT
+  fodselsdato, personnr, adrlin1_arbeide, adrlin2_arbeide,
+  postnr_arbeide, adrlin3_arbeide, telefonnr_arbeide, arbeidssted,
+  institusjonsnr_ansatt, faknr_ansatt, instituttnr_ansatt,
+  gruppenr_ansatt, stillingstittel_norsk, telefonnr_fax_arb,
+  status_aktiv
+FROM fs.fagperson
+WHERE fodselsdato=:fnr AND personnr=:pnr""", {'fnr': fnr, 'pnr': pnr})
+
+    def add_fagperson(self, fnr, pnr, adr1, adr2, postnr, adr3,
+                      arbsted, institusjonsnr, fakultetnr, instiuttnr,
+                      gruppenr, tlf, tittel, fax, status):
+        return self.db.execute("""
+INSERT INTO fs.fagperson
+  (fodselsdato, personnr, adrlin1_arbeide, adrlin2_arbeide,
+   postnr_arbeide, adrlin3_arbeide, telefonnr_arbeide, arbeidssted,
+   institusjonsnr_ansatt, faknr_ansatt, instituttnr_ansatt,
+   gruppenr_ansatt, stillingstittel_norsk, telefonnr_fax_arb,
+   status_aktiv)
+VALUES
+  (:fnr, :pnr, :adr1, :adr2, :postnr, :adr3, :tlf, :arbsted,
+   :institusjonsnr, :fakultetnr, :instiuttnr, :gruppenr)""", {
+            'fnr': fnr, 'pnr': pnr,
+            'adr1': adr1, 'adr2': adr2, 'postnr': postnr, 'adr3': adr3,
+            'tlf': tlf, 'arbsted': arbsted,
+            'institusjonsnr': institusjonsnr , 'fakultetnr': fakultetnr,
+            'instiuttnr': instiuttnr, 'gruppenr':gruppenr,
+            'tittel': tittel, 'fax': fax, 'status': status})
+
+    def update_fagperson(self, fnr, pnr, adr1, adr2, postnr, adr3,
+                         arbsted, institusjonsnr, fakultetnr,
+                         instiuttnr, gruppenr, tlf, tittel, fax,
+                         status):
+        return self.db.execute("""
+UPDATE fs.fagperson
+SET
+  adrlin1_arbeide=:adr1, adrlin2_arbeide=:adr2,
+  postnr_arbeide=:postnr, adrlin3_arbeide=:adr3,
+  telefonnr_arbeide=:tlf, arbeidssted=:arbsted,
+  institusjonsnr_ansatt=:institusjonsnr, faknr_ansatt=:fakultetnr,
+  instituttnr_ansatt=:instiuttnr, gruppenr_ansatt=:gruppenr,
+  stillingstittel_norsk=:tittel, telefonnr_fax_arb=:fax,
+  status_aktiv=:status
+WHERE fodselsdato=:fnr AND personnr=:pnr""", {
+            'fnr': fnr, 'pnr': pnr,
+            'adr1': adr1, 'adr2': adr2, 'postnr': postnr, 'adr3': adr3,
+            'tlf': tlf, 'arbsted': arbsted,
+            'institusjonsnr': institusjonsnr , 'fakultetnr': fakultetnr,
+            'instiuttnr': instiuttnr, 'gruppenr':gruppenr,
+            'tittel': tittel, 'fax': fax, 'status': status})
+
+    # TBD: Disse metodene bør kanskje i en egen undsem klasse
+    
+    def get_fagpersonundsem(self, fnr, pnr, institusjonsnr, fakultetnr,
+                            instiuttnr, gruppenr, termin, arstall):
+        return self.db.query("""
+SELECT
+  terminkode, arstall, institusjonsnr, faknr, instituttnr,
+  gruppenr, status_aktiv, status_publiseres
+FROM fs.fagpersonundsemester r
+WHERE
+  fodselsdato=:fnr AND personnr=:pnr AND
+  terminkode=:termin AND arstall=:arstall AND
+  institusjonsnr=:institusjonsnr AND faknr=:fakultetnr AND
+  instituttnr=:instiuttnr AND gruppenr=:gruppenr""", {
+            'fnr': fnr, 'pnr': pnr,
+            'institusjonsnr': institusjonsnr, 'fakultetnr': fakultetnr,
+            'instiuttnr': instiuttnr, 'gruppenr': gruppenr,
+            'termin': termin, 'arstall': arstall})
+
+    def add_fagpersonundsem(self, fnr, pnr, institusjonsnr,
+                            fakultetnr, instiuttnr, gruppenr, termin,
+                            arstall, status_aktiv, status_publiseres):
+        return self.db.execute("""
+INSERT INTO fs.fagpersonundsemester
+  (fodselsdato, personnr, terminkode, arstall, institusjonsnr, faknr,
+   instituttnr, gruppenr, status_aktiv, status_publiseres)
+VALUES
+  (:fnr, :pnr, :termin, :arstall, :institusjonsnr, :fakultetnr,
+  :instiuttnr, :gruppenr, :status_aktiv, :status_publiseres)""", {
+            'fnr': fnr, 'pnr': pnr,
+            'institusjonsnr': institusjonsnr, 'fakultetnr': fakultetnr,
+            'instiuttnr': instiuttnr, 'gruppenr': gruppenr,
+            'termin': termin, 'arstall': arstall,
+            'status_aktiv': status_aktiv, 'status_publiseres': status_publiseres})
+    
+class FS(FSPerson):
 
     """Metoder for å hente ut informasjon om personer og OUer fra FS.
 
@@ -1424,7 +1551,7 @@ WHERE utdp.fodselsdato = :fnr AND
 	"""Hent data om stedskoder registrert i FS"""
         qry = """
 SELECT DISTINCT
-  faknr, instituttnr, gruppenr, stedakronym, stednavn_bokmal,
+  institusjonsnr, faknr, instituttnr, gruppenr, stedakronym, stednavn_bokmal,
   faknr_org_under, instituttnr_org_under, gruppenr_org_under,
   adrlin1, adrlin2, postnr, telefonnr, faxnr,
   adrlin1_besok, adrlin2_besok, postnr_besok, url,
