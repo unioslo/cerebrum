@@ -14,8 +14,8 @@ binary-post-install/%::
 	perl -pi -e 's:$(PWD)/debian/tmp::; s:/usr/etc/:/etc/:' \
 		debian/tmp/usr/lib/python2.3/site-packages/cerebrum_path.py
 	# This should be a patch, or shouldnt it?.
-	-find debian/tmp -name '*.py' | xargs -n1 \
-	        perl -pi -e 's:(#![ ]*/usr/bin.*python2)\.2:$1.3: if $. == 1'
+	find debian/tmp -name '*.py' | xargs -n1 \
+	        perl -pi -e 's:(#![ ]*/usr/bin.*python2)\.2:$$1.3: if $$. == 1'
 
 clean::
 	-find -name '*.py[co]' | xargs rm  
