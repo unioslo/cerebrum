@@ -1,27 +1,58 @@
 #!/usr/bin/env python2.2
+# -*- coding: iso-8859-1 -*-
+
+import cerebrum_path
 
 import sys
 import getopt
 import re
 
+import cereconf
 from Cerebrum import Database
 from Cerebrum import Errors
+from Cerebrum import Account
+from Cerebrum import Person
+from Cerebrum import Group
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no.uio.access_FS import FS
+from Cerebrum.extlib import logging
 
-db = Factory.get('Database')()
-db.cl_init(change_program='CF_gen_groups')
-co = Factory.get('Constants')(db)
+def prefetch_primaryusers():
+    # TBD: This code is used to get account_id for both students and
+    # fagansv.  Should we look at affiliation here?
+    account = Account.Account(db)
+    personid2accountid = {}
+    for a in account.list_accounts_by_type():
+        # TODO: Also look at account_type.priority
+        personid2accountid[a['person_id']] = a['account_id']
 
-def main():
-    fnr2uname = get_primusers()
-    account_id2fnr = {}
-    undervEnhet = {}
-    get_undervisningsenheter(undervEnhet)    # Utvider undervEnhet med mer data
-    get_undervisningsaktiviteter(undervEnhet)
-    get_evukurs_aktiviteter(unervEnhet)
+    person = Person.Person(db)
+    for row in person.list_external_ids(
+        source_system=co.system_fs, id_type=co.externalid_fodselsnr):
+        if personid2accountid.has_key(row['person_id']):
+            account_id = personid2accountid[row['person_id']]
+            account_id2fnr[account_id] = row['external_id']
+            fnr2account_id[row['external_id']] = account_id
 
-    for k in unervEnhet.keys():
+def fnrs2account_ids(rows):
+    ret = []
+    for r in rows:
+        fnr = "%06d%05d" % (
+            int(r['fodselsdato']), int(r['personnr']))
+        if fnr2account_id.has_key(fnr):
+            ret.append(fnr2account_id[fnr])
+    return ret
+
+def process_kursdata():
+    logger.debug("Getting all primaryusers")
+    prefetch_primaryusers()
+    logger.debug(" ... done")
+    get_undervisningsenheter()    # Utvider UndervEnhet med mer data
+    get_undervisningsaktiviteter()
+    get_evukurs_aktiviteter()
+    logging.debug(UndervEnhet)
+
+    for k in UndervEnhet.keys():
         # Legger inn brukere i gruppene på nivå 3.
         #
         # $enhet er her enten en undervisningsenhet (starter med "kurs:")
@@ -35,20 +66,20 @@ def main():
     # Må skille mellom EVU-kurs og vanlige kurs da identifikatorene deres
     # har forskjellig antall felter i $kurs_id.
     #
-    logging.info("Oppdaterer enhets-supergrupper:")
-    for kurs_ud in affiliatedGroups.keys():
+    logger.info("Oppdaterer enhets-supergrupper:")
+    for kurs_id in AffiliatedGroups.keys():
         rest = kurs_id.split(":")
         type = rest.pop(0).lower()
         if type == 'kurs':
             instnr, emnekode, versjon, termk, aar = rest
             sync_group("%s:%s" % (type, emnekode), kurs_id,
                        "Ikke-eksporterbar gruppe.  Brukes for å definere hvor"+
-                       " data om kurset <> skal eksporteres." % kurs_id,
+                       " data om kurset <%s> skal eksporteres." % kurs_id,
                        co.entity_group,
                        AffiliatedGroups[kurs_id])
         elif type == 'evu':
             kurskode, tidsrom = rest
-            sync_group("s:%s" % (type, kurskode), kurs_id,
+            sync_group("%s:%s" % (type, kurskode), kurs_id,
                        "Ikke-eksporterbar gruppe.  Brukes for å definere hvor"+
                        " data om emnet <%s> skal eksporteres. " % kurs_id,
                        co.entity_group,
@@ -59,8 +90,8 @@ def main():
         # Kallene på sync_group legger inn nye entries i
         # %AffiliatedGroups; ting blir mye greiere å holde rede på om vi
         # fjerner "våre" nøkler derfra så snart vi er ferdige.
-        del(affiliatedGroups[kurs_id])
-    logging.info(" ... done")
+        del(AffiliatedGroups[kurs_id])
+    logger.info(" ... done")
 
     # Oppdaterer gruppene på nivå 1.
     #
@@ -68,13 +99,13 @@ def main():
     # u2k-interne emnekode-gruppen.  Man benytter så emnekode-gruppen til
     # å definere eksport-egenskaper for alle grupper tilknyttet en
     # undervisningsenhet.
-    logging.info("Oppdaterer emne-supergrupper:")
-    for gname in affiliatedGroups.keys():
+    logger.info("Oppdaterer emne-supergrupper:")
+    for gname in AffiliatedGroups.keys():
         sync_group(fs_supergroup, gname,
                    "Ikke-eksporterbar gruppe.  Brukes for å samle kursene"+
                    " knyttet til %s." % gname,
                    co.entity_group, AffiliatedGroups[gname]);
-    logging.info(" ... done")
+    logger.info(" ... done")
 
 
     #
@@ -85,13 +116,13 @@ def main():
     # automatisk opprettet på bakgrunn av import fra FS.  Uten en slik
     # oversikt vil man ikke kunne foreta automatisk sletting av grupper
     # tilhørende "utgåtte" undervisningsenheter og -aktiviteter.
-    logging.info("Oppdaterer supergruppe for alle emnekode-supergrupper")
-    sync_group(undef, fs_supergroup,
+    logger.info("Oppdaterer supergruppe for alle emnekode-supergrupper")
+    sync_group(None, fs_supergroup,
                "Ikke-eksporterbar gruppe.  Definerer hvilke andre grupper "+
                "som er opprettet automatisk som følge av FS-import.",
                co.entity_group,
                AffiliatedGroups[fs_supergroup])
-    logging.info(" ... done")
+    logger.info(" ... done")
 
 
 
@@ -105,69 +136,73 @@ def main():
 
 ## $u2k.commit() unless $dryrun;
 
-def get_undervisningsenheter(undervEnhet):
+def get_undervisningsenheter():
     # TODO: Dumpe alle unervisningsenheter til fil
     for enhet in fs.GetUndervEnhetAll()[1]:
         # Prefikser alle nøkler i %UndervEnhet som stammer fra
         # undervisningsenheter med "kurs:".
-        enhet_id =":".join("kurs", enhet['ue.institusjonsnr'],
-                           enhet['ue.emnekode'],
-                           enhet['ue.versjonskode'], enhet['ue.terminkode'],
-                           enhet['ue.arstall'], enhet['ue.terminnr'])
-        if undervEnhet.has_key(enhet_id):
+        enhet_id = "kurs:%s:%s:%s:%s:%s:%s" % (
+            enhet['institusjonsnr'], enhet['emnekode'],
+            enhet['versjonskode'], enhet['terminkode'],
+            enhet['arstall'], enhet['terminnr'])
+        if UndervEnhet.has_key(enhet_id):
             raise ValueError, "Duplikat undervisningsenhet: <%s>" % enhet_id
-        undervEnhet[enhet_id] = {}
-        multi_id = ".".join(enhet['ue.institusjonsnr'], enhet['ue.emnekode'],
-                            enhet['ue.terminkode'], enhet['ue.arstall'])
+        UndervEnhet[enhet_id] = {}
+        multi_id = "%s.%s.%s.%s" % (enhet['institusjonsnr'], enhet['emnekode'],
+                                    enhet['terminkode'], enhet['arstall'])
         # Finnes det flere enn en undervisningsenhet tilknyttet denne
         # emnekoden i inneværende semester?
-        emne_versjon[multi_id][enhet['ue.versjonskode']] = 1
-        emne_termnr[multi_id][enhet['ue.terminnr']] = 1
+        emne_versjon.setdefault(multi_id, {})[enhet['versjonskode']] = 1
+        emne_termnr.setdefault(multi_id, {})[enhet['terminnr']] = 1
 
 def get_undervisningsaktiviteter():
     for akt in fs.GetUndAktivitet()[1]:
-        enhet_id =":".join("kurs", akt['ua.institusjonsnr'],
-                           akt['ua.emnekode'],
-                           akt['ua.versjonskode'], akt['ua.terminkode'],
-                           akt['ua.arstall'], akt['ua.terminnr'])
-        if not undervEnhet.has_key(enhet_id):
+        enhet_id = "kurs:%s:%s:%s:%s:%s:%s" % (
+            enhet['institusjonsnr'], enhet['emnekode'],
+            enhet['versjonskode'], enhet['terminkode'],
+            enhet['arstall'], enhet['terminnr'])
+        if not UndervEnhet.has_key(enhet_id):
             raise ValueError, "Ikke-eksisterende enhet <%s> har aktiviteter" %\
                   enhet_id
-        if undervEnhet[enhet_id]['aktivitet'].has_key(akt['aktkode']):
+        if UndervEnhet[enhet_id]['aktivitet'].has_key(akt['aktkode']):
             raise ValueError, "Duplikat undervisningsaktivitet <%s:%s>" % (
                 enhet_id, akt['aktkode'])
-        undervEnhet[enhet_id][
-            'aktivitet'][akt['aktkode']] = akt['ua.aktivitetsnavn']
+        UndervEnhet[enhet_id][
+            'aktivitet'][akt['aktkode']] = akt['aktivitetsnavn']
 
-
-def get_evukurs_aktiviteter(undervEnhet):
+def get_evukurs_aktiviteter():
     for kurs in fs.GetEvuKurs()[1]:
-        kurs_id = ":".join('evu', kurs['kurskode'], kurs['tidsrom'])
-        undervEnhet[kurs_id] = {}
+        kurs_id = "evu:%s:%s" % (kurs['etterutdkurskode'],
+                                 kurs['kurstidsangivelsekode'])
+        UndervEnhet[kurs_id] = {}
         for aktivitet in fs.GetAktivitetEvuKurs(
-            kurs['kurskode'], kurs['tidsrom'])[1]:
-            undervEnhet[kurs_id][
-                'aktivitet'][aktivitet['aktkode']] = aktivitet['aktnavn']
-        tmp = []
-        for evuansv in fs.GetAnsvEvuKurs(kurs['kurskode'], kurs['tidsrom'])[1]:
+            kurs['etterutdkurskode'], kurs['kurstidsangivelsekode'])[1]:
+            UndervEnhet[kurs_id].setdefault('aktivitet', {})[
+                aktivitet['aktivitetskode']] = aktivitet['aktivitetsnavn']
+        tmp = {}
+        for evuansv in fs.GetAnsvEvuKurs(kurs['etterutdkurskode'],
+                                         kurs['kurstidsangivelsekode'])[1]:
             fnr = "%06d%05d" % (
-                int(evuansv['fodselsdato']), int(evuansv['fodselsnr']))
-            tmp.append(fnr2uname.get(fnr, None))
-        undervEnhet[kurs_id]['fagansv'] = tmp[:]
-        tmp = []
-        for student in fs.GetStudEvuKurs(kurskode, tidsrom)[1]:
+                int(evuansv['fodselsdato']), int(evuansv['personnr']))
+            if fnr2account_id.has_key(fnr):
+                tmp[fnr2account_id[fnr]] = 1
+        UndervEnhet[kurs_id]['fagansv'] = tmp.copy()
+        tmp = {}
+        for student in fs.GetStudEvuKurs(kurs['etterutdkurskode'],
+                                         kurs['kurstidsangivelsekode'])[1]:
             fnr = "%06d%05d" % (
-                int(student['fodselsdato']), int(student['fodselsnr']))
-            tmp.append(fnr2uname.get(fnr, None))
-        undervEnhet[kurs_id]['students'] = tmp[:]
+                int(student['fodselsdato']), int(student['personnr']))
+            if fnr2account_id.has_key(fnr):
+                tmp[fnr2account_id[fnr]] = 1
+        UndervEnhet[kurs_id]['students'] = tmp.copy()
 
 def get_evu_ansv(kurskode, tidsrom):
-    kurs_id = ":".join('evu', kurskode, tidsrom)
-    return undervEnhet[kurs_id]['fagansv']
+    kurs_id = "evu:%s:%s" % (kurskode, tidsrom)
+    return UndervEnhet[kurs_id]['fagansv']
 
 def get_evu_students(kurskode, tidsrom):
-    kurs_id = ":".join('evu', kurskode, tidsrom)
-    return undervEnhet[kurs_id]['students']
+    kurs_id = "evu:%s:%s" % (kurskode, tidsrom)
+    return UndervEnhet[kurs_id]['students']
 
 def populate_enhet_groups(enhet_id):
     type_id = enhet_id.split(":")
@@ -181,26 +216,26 @@ def populate_enhet_groups(enhet_id):
         # så fall bør gruppene få beskrivelser som gjør det mulig å
         # knytte dem til riktig undervisningsenhet.
         multi_enhet = []
-        multi_id = ":",join(Instnr, emnekode, termk, aar)
-        if emne_termnr[multi_id].keys() > 1:
+        multi_id = "%s:%s:%s:%s" % (Instnr, emnekode, termk, aar)
+        if emne_termnr.get(multi_id, {}).keys() > 1:
             multi_enhet.append("%s. termin" % termnr)
-        if emne_versjon[multi_id].keys() > 1:
+        if emne_versjon.get(multi_id, {}).keys() > 1:
             multi_enhet.append("v%s" % versjon)
         if multi_enhet:
             enhet_suffix = ", %s" % ", ".join(multi_enhet)
         else:
             enhet_suffix = ""
-        logging.debug("Oppdaterer grupper for %s %s %s%s:" % (
+        logger.debug("Oppdaterer grupper for %s %s %s%s:" % (
             emnekode, termk, aar, enhet_suffix))
 
         #
         # Ansvarlige for undervisningsenheten.
-        logging.debug(" enhetsansvar")
+        logger.debug(" enhetsansvar")
         enhet_ansv = {}
-        for uname in fnrs2unames(
+        for account_id in fnrs2account_ids(
             fs.GetAnsvUndervEnhet(Instnr, emnekode, versjon, termk,
-                                  aar, termnr))[1]:
-            enhet_ansv[uname] = 1
+                                  aar, termnr)[1]):
+            enhet_ansv[account_id] = 1
 
         # Finnes kurs som går over mer enn et semester, samtidig som
         # at kurset/emnet starter hvert semester.  Utvider strukturen
@@ -218,27 +253,27 @@ def populate_enhet_groups(enhet_id):
         #
         # Alle nåværende undervisningsmeldte samt nåværende+fremtidige
         # eksamensmeldte studenter.
-        logging.debug(" student")
+        logger.debug(" student")
         alle_stud = {}
-        for uname in fnrs2unames(
+        for account_id in fnrs2account_ids(
             fs.GetStudUndervEnhet(Instnr, emnekode, versjon, termk,
-                                  aar, termnr))[1]:
-            alle_stud[uname] = 1
+                                  aar, termnr)[1]):
+            alle_stud[account_id] = 1
 
         sync_group(kurs_id, "%s:student" % enhet_id,
                    "Studenter %s %s %s%s" % (emnekode, termk,
                                              aar, enhet_suffix),
                    co.entity_account, alle_stud);
 
-        for aktkode in UndervEnhet[enhet_id]['aktivitet'].keys():
+        for aktkode in UndervEnhet[enhet_id].get('aktivitet', {}).keys():
             #
             # Ansvarlige for denne undervisningsaktiviteten.
-            logging.debug(" aktivitetsansvar:%s" % aktkode)
+            logger.debug(" aktivitetsansvar:%s" % aktkode)
             akt_ansv = {}
-            for uname in fnrs2unames(
+            for account_id in fnrs2account_ids(
                 fs.GetAnsvUndAktivitet(Instnr, emnekode, versjon, termk,
-                                       aar, termnr, aktkode))[1]:
-                akt_ansv[uname] = 1
+                                       aar, termnr, aktkode)[1]):
+                akt_ansv[account_id] = 1
                 
             sync_group(kurs_id, "%s:aktivitetsansvar:%s" % (enhet_id, aktkode),
                        "Ansvarlige %s %s %s%s %s" % (
@@ -247,19 +282,19 @@ def populate_enhet_groups(enhet_id):
                        co.entity_account, akt_ansv);
 
             # Studenter meldt på denne undervisningsaktiviteten.
-            logging.debug(" student:%s" % aktkode)
-            akt_stud = ()
-            for uname in fnrs2unames(
+            logger.debug(" student:%s" % aktkode)
+            akt_stud = {}
+            for account_id in fnrs2account_ids(
                 fs.GetStudUndAktivitet(Instnr, emnekode, versjon, termk,
-                                       aar, termnr, aktkode))[1]:
-                if not alle_stud.has_key(uname):
+                                       aar, termnr, aktkode)[1]):
+                if not alle_stud.has_key(account_id):
                     warn_msg += (
                         "OBS: Bruker <%s> (fnr <%s>) er med i"+
                         " undaktivitet <%s>, men ikke i"+
                         " undervisningsenhet <%s>.\n" % (
-                        uname, account_id2fnr[uname],
+                        account_id, account_id2fnr[account_id],
                               "%s:%s" % (enhet_id, aktkode), enhet_id))
-                akt_stud[uname] = 1
+                akt_stud[account_id] = 1
 
             sync_group(kurs_id, "%s:student:%s" % (enhet_id, aktkode),
                        "Studenter %s %s %s%s %s" % (
@@ -270,30 +305,30 @@ def populate_enhet_groups(enhet_id):
     elif type == 'evu':
         kurskode, tidsrom = type_id
         kurs_id = UE2KursID("evu", kurskode, tidsrom)
-        logging.debug("Oppdaterer grupper for %s: " % enhet_id)
+        logger.debug("Oppdaterer grupper for %s: " % enhet_id)
         #
         # Ansvarlige for EVU-kurset
-        logging.debug(" evuAnsvar")
+        logger.debug(" evuAnsvar")
         evuans = get_evu_ansv(kurskode, tidsrom)
         sync_group(kurs_id, "%s:enhetsansvar" % enhet_id,
                    "Ansvarlige EVU-kurs %s, %s" % (kurskode, tidsrom),
                    co.entity_account, evuans)
         #
         # Alle påmeldte studenter
-        logging.debug(" evuStudenter")
+        logger.debug(" evuStudenter")
         evustud = get_evu_students(kurskode, tidsrom)
         sync_group(kurs_id, "%s:student" % enhet_id,
                    "Studenter EVU-kurs %s, %s" % (kurskode, tidsrom),
                    co.entity_account, evustud)
 
-        for aktkode in UndervEnhet[enhet_id]['aktivitet'].keys():
+        for aktkode in UndervEnhet[enhet_id].get('aktivitet', {}).keys():
             #
             # Ansvarlige for kursaktivitet
-            logging.debug(" aktivitetsansvar:%s" % aktkode)
+            logger.debug(" aktivitetsansvar:%s" % aktkode)
             evu_akt_ansv = {}
-            for uname in fnrs2unames(
-                fs.GetAnsvEvuAktivitet(kurskode, tidsrom, aktkode))[1]:
-                evu_akt_ansv[uname] = 1
+            for account_id in fnrs2account_ids(
+                fs.GetAnsvEvuAktivitet(kurskode, tidsrom, aktkode)[1]):
+                evu_akt_ansv[account_id] = 1
 
             sync_group(kurs_id, "%s:aktivitetsansvar:%s" % (enhet_id, aktkode),
                        "Ansvarlige EVU-kurs %s, %s: %s" % (
@@ -302,27 +337,34 @@ def populate_enhet_groups(enhet_id):
                        co.entity_account, evu_akt_ansv)
 
             # Studenter til denne kursaktiviteten
-            logging.debug(" student:%s" % aktkode)
+            logger.debug(" student:%s" % aktkode)
             evu_akt_stud = {}
-            for uname in fnrs2unames(
-                fs.GetStudEvuAktivitet(kurskode, tidsrom, aktkode))[1]:
-                if not evustud.has_key(uname):
+            for account_id in fnrs2account_ids(
+                fs.GetStudEvuAktivitet(kurskode, tidsrom, aktkode)[1]):
+                if not evustud.has_key(account_id):
                     warn_msg += (
                         "OBS: Bruker <%s> (fnr <%s>) er med i" +
                         " aktivitet <%s>, men ikke i kurset <%s>.\n" % (
-                        uname, account_id2fnr[uname],
+                        account_id, account_id2fnr[account_id],
                               "%s:%s" % (enhet_id, aktkode), enhet_id))
-                evu_akt_stud[uname] = 1
+                evu_akt_stud[account_id] = 1
             sync_group(kurs_id, "%s:student:%s" % (enhet_id, aktkode),
                        "Studenter EVU-kurs %s, %s: %s" % (
                 kurskode, tidsrom,
                 UndervEnhet[enhet_id]['aktivitet'][aktkode]),
                        co.entity_account, evu_akt_stud)
-    logging.debug(" done")
+    logger.debug(" done")
 
 
 def sync_group(affil, gname, descr, mtype, memb):
-    members = memb.copy()
+    logger.debug("sync_group(%s; %s; %s; %s; %s" % (affil, gname, descr, mtype, memb))
+    if mtype == co.entity_group:   # memb has group_name as keys
+        members = {}
+        for tmp_gname in memb.keys():
+            grp = get_group(tmp_gname)
+            members[grp.entity_id] = 1
+    else:                          # memb has account_id as keys
+        members = memb.copy()
     gname = mkgname(gname, 'uio.no:fs:')
     correct_visib = co.group_visibility_none
     if (affil is None or               # Nivå 0; $gname er supergruppen
@@ -333,28 +375,29 @@ def sync_group(affil, gname, descr, mtype, memb):
         gname = mkgname(gname)
         correct_visib = co.group_visibility_internal
     if affil is not None:
-        AffiliatedGroups[affil][gname] = 1
+        AffiliatedGroups.setdefault(affil, {})[gname] = 1
     known_FS_groups[gname] = 1
 
     # Gjør objektet $Group klar til å modifisere gruppen med navn
     # $gname.
     try:
-        gr = group.find_by_name(gname)
+        group = get_group(gname)
         # Dersom gruppen $gname fantes, er $gr nå en peker til samme
         # objekt som $Group; i motsatt fall er $gr false.
-        if gr.visibility != correct_visib:
-            logging.fatal("Group <%s> has wrong visibility." % gname)
+        if group.visibility != correct_visib:
+            logger.fatal("Group <%s> has wrong visibility." % gname)
 
-        if gr.description != descr:
-            gr.description = descr
-            gr.write_db()
+        if group.description != descr:
+            group.description = descr
+            group.write_db()
 
-        u, i, d = gr.list_members(member_type=mtype)
+        u, i, d = group.list_members(member_type=mtype)
         for member in u:
+            member = member[1]      # member_id has index=1 (poor API design?)
             if members.has_key(member):
                 del(members[member])
             else:
-                gr.remove_member(member, co.group_memberop_union)
+                group.remove_member(member, co.group_memberop_union)
                 #
                 # Supergroups will only contain groups that have been
                 # automatically created by this script, hence it is
@@ -366,19 +409,96 @@ def sync_group(affil, gname, descr, mtype, memb):
                     (not known_FS_groups.has_key(member))):
                     destroy_group(member, 2)
     except Errors.NotFoundError:
-        gr.populate(gname, correct_visib, descr)
-        gr.write_db()
+        group = Group.Group(db)
+        group.clear()
+        group.populate(group_creator, correct_visib, gname, description=descr)
+        group.write_db()
 
     for member in members.keys():
-        gr.add_member(member)
+        group.add_member(member, mtype, co.group_memberop_union)
+
+def UE2KursID(type, *rest):  # TODO: Denne hører hjemme i et bibliotek
+    """Lag ureg2000-spesifikk "kurs-ID" av primærnøkkelen til en
+    undervisningsenhet eller et EVU-kurs.  Denne kurs-IDen forblir
+    uforandret så lenge kurset pågår; den endres altså ikke bår man
+    f.eks. kommer til et nytt semester.
+    
+    Første argument angir hvilken type FS-entitet de resterende
+    argumentene stammer fra; enten 'KURS' (for undervisningsenhet) eller
+    'EVU' (for EVU-kurs)."""
+    type = type.lower()
+    if type == 'evu':
+        if len(rest) != 2:
+            raise ValueError, "ERROR: EVU-kurs skal identifiseres av 2 felter, "+\
+                  "ikke <%s>" % ">, <".join(rest)
+	# EVU-kurs er greie; de identifiseres unikt ved to
+	# fritekstfelter; kurskode og tidsangivelse, og er modellert i
+	# FS uavhengig av semester-inndeling.
+        rest = list(rest)
+        rest.insert(0, type)
+	return ":".join(rest).lower()
+    elif type != 'kurs':
+	raise ValueError, "ERROR: Ukjent kurstype <%s> (%s)" % (type, rest)
+
+    # Vi vet her at $type er 'KURS', og vet dermed også hvilke
+    # elementer som er med i @rest:
+    if len(rest) != 6:
+        raise ValueError, "ERROR: Undervisningsenheter skal identifiseres av 6 "+\
+              "felter, ikke <%s>" % ">, <".join(rest)
+
+    instnr, emnekode, versjon, termk, aar, termnr = rest
+    termnr = int(termnr)
+    aar = int(aar)
+    tmp_termk = re.sub('[^a-zA-Z0-9]', '_', termk).lower()
+    # Finn $termk og $aar for ($termnr - 1) semestere siden:
+    if (tmp_termk == 'h_st'):
+        if (termnr % 2) == 1:
+            termk = 'høst'
+        else:
+            termk = 'vår'
+        aar -= int((termnr - 1) / 2)
+    elif tmp_termk == 'v_r':
+        if (termnr % 2) == 1:
+            termk = 'vår'
+        else:
+            termk = 'høst'
+	aar -= int(termnr / 2)
+    else:
+	# Vi krysser fingrene og håper at det aldri vil benyttes andre
+	# verdier for $termk enn 'vår' og 'høst', da det i så fall vil
+	# bli vanskelig å vite hvilket semester det var "for 2
+	# semestere siden".
+        raise ValueError, "ERROR: Unknown terminkode <%s> for emnekode <%s>." % (
+            termk, emnekode)
+
+    # $termnr er ikke del av den returnerte strengen.  Vi har benyttet
+    # $termnr for å beregne $termk og $aar ved $termnr == 1; det er
+    # altså implisitt i kurs-IDen at $termnr er lik 1 (og dermed
+    # unødvendig å ta med).
+    ret = "%s:%s:%s:%s:%s:%s" % (type, instnr, emnekode, versjon, termk, aar)
+    return ret
 
 def destroy_group(gname, max_recurse):
-    gr = Group.Group(db)
-    gr.find_by_name(gname)
+    gr = get_group(gname)
     u, i, d = gr.list_members(member_type=co.entity_group)
     for subg in u:
         destroy_group(subg['entity_id'], max_recurse - 1)
     gr.delete()
+
+def get_group(name):
+    gr = Group.Group(db)
+    gr.find_by_name(name)
+    return gr
+
+def get_account(name):
+    ac = Account.Account(db)
+    ac.find_by_name(name)
+    return ac
+
+def mkgname(id, prefix='internal:'):
+    if id[0:len(prefix)] == prefix:
+        return id.lower()
+    return ("%s%s" % (id, prefix)).lower()
 
 def usage(exitcode=0):
     print """Usage: [optons]
@@ -386,8 +506,10 @@ def usage(exitcode=0):
     --db-service name: connect to given database"""
     sys.exit(exitcode)
 
-if __name__ == '__main__':
-    global fs
+def main():
+    global fs, db, co, logger, emne_versjon, emne_termnr, \
+           account_id2fnr, fnr2account_id, AffiliatedGroups, \
+           known_FS_groups, fs_supergroup, group_creator, UndervEnhet
     try:
         opts, args = getopt.getopt(sys.argv[1:], "",
                                    ["db-user=", "db-service="])
@@ -401,7 +523,27 @@ if __name__ == '__main__':
             db_user = val
         elif o in ('--db-service',):
             db_service = val
-    db = Database.connect(user=db_user, service=db_service,
-                      DB_driver='Oracle')
-    fs = FS(db)
+    fs_db = Database.connect(user=db_user, service=db_service,
+                             DB_driver='Oracle')
+    fs = FS(fs_db)
 
+    db = Factory.get('Database')()
+    db.cl_init(change_program='CF_gen_groups')
+    co = Factory.get('Constants')(db)
+    logging.fileConfig(cereconf.LOGGING_CONFIGFILE)
+    logger = logging.getLogger("console")
+    emne_versjon = {}
+    emne_termnr = {}
+    account_id2fnr = {}
+    fnr2account_id = {}
+    AffiliatedGroups = {}
+    known_FS_groups = {}
+    UndervEnhet = {}
+
+    fs_supergroup = "{supergroup}"
+    group_creator = get_account(cereconf.INITIAL_ACCOUNTNAME).entity_id
+    process_kursdata()
+    db.commit()
+
+if __name__ == '__main__':
+    main()
