@@ -58,6 +58,7 @@ def quick_user_sync():
                                   clco.quarantine_add,
                                   clco.quarantine_del,
                                   clco.quarantine_mod,
+                                  clco.quarantine_refresh,
                                   clco.account_home_added,
                                   clco.account_home_updated))
 
@@ -130,7 +131,8 @@ def quick_user_sync():
 		cl.confirm_event(ans)
 	elif (chg_type == clco.quarantine_add or
               chg_type == clco.quarantine_del or
-              chg_type == clco.quarantine_mod):
+              chg_type == clco.quarantine_mod or
+              chg_type == clco.quarantine_refresh):
 	    change_quarantine(ans['subject_entity'])
 	elif (chg_type == clco.account_home_updated or
               chg_type == clco.account_home_added):
