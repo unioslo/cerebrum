@@ -11,12 +11,10 @@ import cyruslib
 import cerebrum_path
 import cereconf
 
-from Cerebrum import Account
 from Cerebrum import Errors
 from Cerebrum.modules import Email
 from Cerebrum.modules import PosixUser
 from Cerebrum.modules import PosixGroup
-from Cerebrum import Account
 from Cerebrum import Disk
 from Cerebrum import Constants
 from Cerebrum.Utils import Factory
@@ -99,10 +97,20 @@ def get_home(acc):
 def add_forward(user_id, addr):
     ef = Email.EmailForward(db)
     ef.find_by_entity(user_id)
+    if addr.startswith('\\'):
+        addr = addr[1:]
+    if addr.find('@') == -1:
+        acc = Factory.get('Account')
+        try:
+            acc.find_by_name(addr)
+        except Errors.NotFoundError:
+            logger.warn("forward to unknown username: %s", addr)
+        addr = acc.get_primary_mailaddress()
     for r in ef.get_forward():
         if r['forward_to'] == addr:
             return
     ef.add_forward(addr)
+    ef.write_db()
 
 def connect_cyrus(host=None, user_id=None):
     global imapconn, imaphost
@@ -300,11 +308,11 @@ def process_email_requests():
                         # if there's a message imported from ~/tripnote
                         # already, get rid of it -- this message will
                         # be the same or fresher.
-                        try:
-                            vac.delete_vacation(db.Date(1970, 1, 1))
-                        except OperationalError:
-                            pass
-                        vac.add_vacation(db.Date(1970, 1, 1), msg, enable='T')
+                        start = db.Date(1970, 1, 1)
+                        for v in vac.get_vacation():
+                            if v['start_date'] == start:
+                                vac.delete_vacation(start)
+                        vac.add_vacation(start, msg, enable='T')
                     else:
                         logger.error("convertmail reported: %s\n" % line)
             except Exception, e:
