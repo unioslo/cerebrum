@@ -72,3 +72,6 @@ registry.register_class(PersonName)
 
 from classes.Date import Date
 registry.register_class(Date)
+
+from classes.Commands import Commands
+registry.register_class(Commands)
