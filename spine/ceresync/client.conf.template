@@ -12,5 +12,5 @@ password: client
 
 [idl]
 path: .
-gro: gro.idl
+server: server.idl
 errors: errors.idl
