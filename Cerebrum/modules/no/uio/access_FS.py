@@ -643,6 +643,27 @@ WHERE sps.fodselsdato=:fnr AND
         return (self._get_cols(qry), self.db.query(qry, {'fnr': fnr, 'pnr': pnr}))
 
 
+# Studinfo (bofh) metoder
+
+    def GetStudentStudierett_50(self,fnr,pnr):
+	"""Hent info om alle studierett en student har eller har hatt"""
+        qry = """
+SELECT DISTINCT
+  sps.studieprogramkode, sps.studieretningkode, sps.terminkode_kull
+  sps.arstall_kull, sps.studierettstatkode, sps.dato_studierett_tildelt,
+  sps.dato_studierett_gyldig_til, sps.status_privatist, sps.studentstatkode
+FROM fs.studieprogramstudent sps, fs.person p
+WHERE sps.fodselsdato=:fnr AND
+      sps.personnr=:pnr AND
+      sps.fodselsdato=p.fodselsdato AND
+      sps.personnr=p.personnr 
+      AND %s
+        """ % self.is_alive()
+        return (self._get_cols(qry), self.db.query(qry, {'fnr': fnr, 'pnr': pnr}))
+
+
+
+
 
 ################################################################
 #
