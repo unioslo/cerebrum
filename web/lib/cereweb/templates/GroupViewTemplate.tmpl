@@ -68,10 +68,10 @@ $MemberTableTemplate().sorted_table($table, $headers, $url("blapp=%s"), $url("bl
     <dt>$_("Description")</dt>
     <dd>$group.description</dd>
 
-#if $group.expire
-#set expire=$group.expire.Format("%Y-%m-%d")
+#if $group.expire_date
+#set $expire_date=$group.expire_date.Format("%Y-%m-%d")
     <dt>$_("Expire")</dt>
-    <dd>$expire</dd>
+    <dd>$expire_date</dd>
 #end if
 
 #set $spreads=', '.join($group.spreads)    
