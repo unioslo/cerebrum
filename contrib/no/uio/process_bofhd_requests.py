@@ -37,6 +37,9 @@ from Cerebrum import Constants
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.bofhd.utils import BofhdRequests
 from Cerebrum.modules.bofhd.errors import CerebrumError
+from Cerebrum.modules.no import fodselsnr
+from Cerebrum.modules.no.uio import AutoStud
+from Cerebrum.modules.no.uio.AutoStud.Util import AutostudError
 from Cerebrum.extlib import logging
 
 db = Factory.get('Database')()
@@ -616,6 +619,7 @@ def process_move_requests():
     br = BofhdRequests(db, const)
     requests = br.get_requests(operation=const.bofh_move_user_now)
     if is_ok_batch_time(time.strftime("%H:%M")):
+        process_move_student_requests() # generates bofh_move_user requests
         requests.extend(br.get_requests(operation=const.bofh_move_user))    
     for r in requests:
         if keep_running() and r['run_at'] < br.now:
@@ -664,10 +668,124 @@ def process_move_requests():
                     br.delay_request(r['request_id'], minutes=24*60)
             db.commit()
 
-    for r in br.get_requests(operation=const.bofh_move_student):
-        # TODO: Må også behandle const.bofh_move_student, men
-        # student-auomatikken mangler foreløbig støtte for det.
-        pass
+def process_move_student_requests():
+    global fnr2move_student, autostud
+    br = BofhdRequests(db, const)
+    rows = br.get_requests(operation=const.bofh_move_student)
+    if not rows:
+        return
+    logger.debug("Preparing autostud framework")
+    autostud = AutoStud.AutoStud(db, logger, debug=False,
+                                 cfg_file=studconfig_file,
+                                 studieprogs_file=studieprogs_file,
+                                 emne_info_file=emne_info_file,
+                                 ou_perspective=ou_perspective)
+
+    # Hent ut personens fødselsnummer + account_id
+    fnr2move_student = {}
+    account = Factory.get('Account')(db)
+    person = Factory.get('Person')(db)
+    for r in rows:
+        account.clear()
+        account.find(r['entity_id'])
+        person.clear()
+        person.find(account.owner_id)
+        fnr = person.get_external_id(id_type=const.externalid_fodselsnr,
+                                     source_system=const.system_fs)
+        if not fnr:
+            logger.warn("Not student fnr for: %i" % account.entity_id)
+            br.delete_request(request_id=r['request_id'])
+            db.commit()
+            continue
+        fnr = fnr[0]['external_id']
+        if not fnr2move_student.has_key(fnr):
+            fnr2move_student[fnr] = []
+        fnr2move_student[fnr].append((
+            int(account.entity_id), int(r['request_id']),
+            int(r['requestee_id'])))
+    logger.debug("Starting callbacks to find: %s" % fnr2move_student)
+    autostud.start_student_callbacks(
+        student_info_file, move_student_callback)
+
+    # Move remaining users to pending disk
+    disk = Factory.get('Disk')(db)
+    disk.find_by_path(cereconf.AUTOSTUD_PENDING_DISK)
+    logger.debug(str(fnr2move_student.values()))
+    for tmp_stud in fnr2move_student.values():
+        for account_id, request_id, requestee_id in tmp_stud:
+            br.delete_request(request_id=request_id)
+            br.add_request(requestee_id, br.batch_time,
+                           const.bofh_move_user,
+                           account_id, disk.entity_id,
+                           state_data=int(default_spread))
+            db.commit()
+
+def move_student_callback(person_info):
+    """We will only move the student if it has a valid fnr from FS,
+    and it is not currently on a student disk.
+
+    If the new homedir cannot be determined, user will be moved to a
+    pending disk.  process_students moves users from this disk as soon
+    as a proper disk can be determined.
+
+    Currently we only operate on the disk whose spread is
+    default_spread"""
+
+    fnr = fodselsnr.personnr_ok("%06d%05d" % (int(person_info['fodselsdato']),
+                                              int(person_info['personnr'])))
+    if not fnr2move_student.has_key(fnr):
+        return
+    logger.debug("Callback for %s" % fnr)
+    account = Factory.get('Account')(db)
+    group = Factory.get('Group')(db)
+    for account_id, request_id, requestee_id in fnr2move_student.get(fnr, []):
+        account.clear()
+        account.find(account_id)
+        groups = []
+        for r in group.list_groups_with_entity(account_id):
+            groups.append(int(r['group_id']))
+        try:
+            profile = autostud.get_profile(person_info, member_groups=groups)
+        except AutostudError, msg:
+            logger.debug("Error getting profile, using pending: %s" % msg)
+            continue
+
+        # Determine disk
+        disks = []
+        spreads = [int(s) for s in profile.get_spreads()]
+        try:
+            for d_spread in profile.get_disk_spreads():
+                if d_spread != default_spread:
+                    # TBD:  How can all spreads be taken into account?
+                    continue
+                if d_spread in spreads:
+                    try:
+                        current_disk_id = account.get_home(d_spread)['disk_id']
+                    except Errors.NotFoundError:
+                        current_disk_id = None
+                    if autostud.student_disk.has_key(int(current_disk_id)):
+                        logger.debug("Already on a student disk")
+                        raise "NextAccount"
+                    try:
+                        disks.append(
+                            (profile.get_disk(d_spread, current_disk_id),
+                             d_spread))
+                    except AutostudError, msg:
+                        # Will end up on pending (since we only use one spread)
+                        logger.debug("Error getting disk: %s" % msg)
+                        break
+        except "NextAccount":
+            pass   # Stupid python don't have labeled breaks
+        logger.debug(str((fnr, account_id, disks)))
+        if disks:
+            del(fnr2move_student[fnr])
+            br = BofhdRequests(db, const)
+            for disk, spread in disks:
+                br.delete_request(request_id=request_id)
+                br.add_request(requestee_id, br.batch_time,
+                               const.bofh_move_user,
+                               account_id, disk, state_data=spread)
+                db.commit()
 
 def process_delete_requests():
     br = BofhdRequests(db, const)
@@ -817,15 +935,22 @@ def keep_running():
 
 def main():
     global start_time, max_requests
+    global ou_perspective, emne_info_file, studconfig_file, \
+           studieprogs_file, student_info_file
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'dpt:m:',
-                                   ['debug', 'process', 'type=', 'max='])
+                                   ['debug', 'process', 'type=', 'max=',
+                                    'ou-perspective=',
+                                    'emne-info-file=','studconfig-file=',
+                                    'studie-progs-file=',
+                                    'student-info-file='])
     except getopt.GetoptError:
         usage(1)
     if not opts:
         usage(1)
     types = []
     max_requests = 999999
+    ou_perspective = None
     for opt, val in opts:
         if opt in ('-d', '--debug'):
             print "debug mode has not been implemented"
@@ -844,6 +969,17 @@ def main():
                 start_time = time.time()
                 func = globals()["process_%s_requests" % t]
                 apply(func)
+        elif opt in ('--ou-perspective',):
+            ou_perspective = const.OUPerspective(val)
+            int(ou_perspective)   # Assert that it is defined
+        elif opt in ('--emne-info-file',):
+            emne_info_file = val
+        elif opt in ('--studconfig-file',):
+            studconfig_file = val
+        elif opt in ('--studie-progs-file',):
+            studieprogs_file = val
+        elif opt in ('--student-info-file',):
+            student_info_file = val
 
 def usage(exitcode=0):
     print """Usage: process_bofhd_requests.py
@@ -851,7 +987,15 @@ def usage(exitcode=0):
     -p | --process: perform the queued operations
     -t | --type type: performe queued operations of this type.  May be
          repeated, and must be preceeded by -p
-    -m | --max val: perform up to this number of requests"""
+    -m | --max val: perform up to this number of requests
+
+    Needed for move_student requests:
+    --ou-perspective code_str: set ou_perspective (default: perspective_fs)
+    --emne-info-file file:
+    --studconfig-file file:
+    --studie-progs-file file:
+    --student-info-file file:
+    """
     sys.exit(exitcode)
 
 if __name__ == '__main__':
