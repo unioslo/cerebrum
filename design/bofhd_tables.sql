@@ -86,7 +86,8 @@ CREATE SEQUENCE request_id_seq;
 category:main;
 CREATE TABLE bofhd_request
 (
-  request_id   NUMERIC(12,0),
+  request_id   NUMERIC(12,0)
+               CONSTRAINT bofhd_request_pk PRIMARY KEY,
   requestee_id  NUMERIC(12,0),
   run_at        TIMESTAMP NULL,
   operation     NUMERIC(6,0)
@@ -107,3 +108,5 @@ category:drop;
 DROP TABLE bofhd_session_state;
 category:drop;
 DROP TABLE bofhd_session;
+category:drop;
+DROP SEQUENCE request_id_seq;
