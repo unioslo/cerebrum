@@ -1,9 +1,4 @@
 import sys
-
-sys.path = ["/home/havarden/install/lib/python2.2/site-packages"] + sys.path
-sys.path.append('/home/havarden/install/etc/cerebrum')
-
-import sys
 import os
 import omniORB
 import CosNaming
