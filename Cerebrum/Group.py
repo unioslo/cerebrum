@@ -243,9 +243,8 @@ class Group(EntityName, Entity):
             return True
         raise ValueError
 
-    def add_member(self, member, op):
+    def add_member(self, member_id, op):
         """Add ``member`` to group with operation type ``op``."""
-        self.validate_member(member)
         self.execute("""
         INSERT INTO [:table schema=cerebrum name=group_member]
           (group_id, operation, member_type, member_id)
@@ -253,11 +252,11 @@ class Group(EntityName, Entity):
                      {'g_id': self.entity_id,
                       'op': int(op),
                       'm_type': int(member.entity_type),
-                      'm_id': member.entity_id})
+                      'm_id': member_id})
         self._db.log_change(member.entity_id, self.clconst.g_add,
                             self.entity_id)
 
-    def has_member(self, member, op):
+    def has_member(self, member_id, op):
         try:
             self.query_1("""
             SELECT 'x' FROM [:table schema=cerebrum name=group_member]
@@ -266,15 +265,14 @@ class Group(EntityName, Entity):
                   member_type=:m_type AND
                   member_id=:m_id""", {'g_id': self.entity_id,
                                        'op': int(op),
-                                       'm_id': member.entity_id,
+                                       'm_id': member_id,
                                        'm_type': int(member.entity_type)})
             return True
         except Errors.NotFoundError:
             return False
 
-    def remove_member(self, member, op):
+    def remove_member(self, member_id, op):
         """Remove ``member``'s membership of operation type ``op`` in group."""
-        self.validate_member(member)
         self.execute("""
         DELETE FROM [:table schema=cerebrum name=group_member]
         WHERE
@@ -282,7 +280,7 @@ class Group(EntityName, Entity):
           operation=:op AND
           member_id=:m_id""", {'g_id': self.entity_id,
                                'op': int(op),
-                               'm_id': member.entity_id})
+                               'm_id': member_id})
 
     def list_members(self):
         """Return a list of lists indicating the members of the group.
