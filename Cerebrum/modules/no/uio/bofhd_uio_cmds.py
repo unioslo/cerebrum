@@ -4389,6 +4389,15 @@ class BofhdExtension(object):
         self.ba.can_set_gecos(operator.get_entity_id(), account)
         account.gecos = gecos.strip() or None
         account.write_db()
+        # TBD: As the 'gecos' attribute lives in class PosixUser,
+        # which is ahead of AccountEmailMixin in the MRO of 'account',
+        # the write_db() method of AccountEmailMixin will receive a
+        # "no updates happened" from its call to superclasses'
+        # write_db().  Is there a better way to solve this kind of
+        # problem than by adding explicit calls to one if the mixin's
+        # methods?  The following call will break if anyone tries this
+        # code with an Email-less cereconf.CLASS_ACCOUNT.
+        account.update_email_addresses()
         return "OK"
 
     # user history
