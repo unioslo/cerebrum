@@ -3687,6 +3687,8 @@ class BofhdExtension(object):
         # TODO: How do we delete accounts?
         account = self._get_account(accountname)
         self.ba.can_delete_user(operator.get_entity_id(), account)
+        if account.is_deleted():
+            raise CerebrumError, "User is already deleted"
         br = BofhdRequests(self.db, self.const)
         br.add_request(operator.get_entity_id(), br.now,
                        self.const.bofh_delete_user,
