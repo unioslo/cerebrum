@@ -30,10 +30,6 @@ from Cerebrum import Utils
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum.Utils import Factory
 
-import pprint
-
-pp = pprint.PrettyPrinter(indent=4)
-
 class Entity(DatabaseAccessor):
     """Class for generic access to Cerebrum entities.
 
@@ -284,47 +280,30 @@ class EntityAddress(object):
                 return False
         return True
 
-    def _compare_addresses(self, type):
+    def _compare_addresses(self, type, other):
         """Returns True if addresses are equal.
 
         Raises KeyError with msg=MissingOther/MissingSelf if the
         corresponding object doesn't have this object type.
 
         self must be a populated object."""
-
-        print "WARNING: _compare_addresses not yet ported"
-        return True
-        other = None
+        if getattr(self, '_pn_affect_source', None) is None:
+            return True
         try:
-            tmp = other.get_entity_address(self._affect_source, type)
-            if cereconf.DEBUG_COMPARE:
-                print "Comparing, got tmp=%s" % tmp
+            tmp = other.get_entity_address(self._pn_affect_source, type)
             if len(tmp) == 0:
                 raise KeyError
-        except:
-            if cereconf.DEBUG_COMPARE:
-                print "Comparing address - missingOther"
+        except KeyError:
             raise KeyError, "MissingOther"
-
-        if cereconf.DEBUG_COMPARE:
-            print "Comparing address"
-        other_addr = {'address_text': tmp[0][3],
-                      'p_o_box': tmp[0][4],
-                      'postal_number': tmp[0][5],
-                      'city': tmp[0][6],
-                      'country': tmp[0][7]}
         try:
             ai = self._address_info[type]
-        except:
+        except KeyError:
             raise KeyError, "MissingSelf"
-
-        if cereconf.DEBUG_COMPARE:
-            print "Compare: %s AND %s" % (ai, other_addr)
         for k in ('address_text', 'p_o_box', 'postal_number', 'city',
                   'country'):
             if cereconf.DEBUG_COMPARE:
                 print "compare: '%s' '%s'" % (ai[k], other_addr[k])
-            if(ai[k] != other_addr[k]):
+            if(ai[k] !=tmp[0][k]):
                 return False
         return True
 
@@ -353,7 +332,7 @@ class EntityAddress(object):
         for type in self._affect_types:
             insert = False
             try:
-                if not self._compare_addresses(type):
+                if not self._compare_addresses(type, self):
                     ai = self._address_info.get(type)
                     self.execute("""
                     UPDATE [:table schema=cerebrum name=entity_address]
@@ -423,9 +402,6 @@ class EntityAddress(object):
 
     def get_entity_address(self, source=None, type=None):
         # TODO: Select * gives positional args, which is error-prone: fix
-        if self._is_populated:
-            raise RunTimeError, \
-                  "is populated... Not implemented, and probably should not(?)"
 
         return Utils.keep_entries(
             self.query("""
