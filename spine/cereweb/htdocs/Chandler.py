@@ -8,6 +8,8 @@ import traceback
 import cereweb_path
 
 from Cereweb.Session import Session
+from Cereweb.utils import url, redirect
+import forgetHTML as html
 
 class Req(object):
     def __init__(self):
@@ -35,15 +37,14 @@ def cgi_main():
         try:
             req.session = Session(id.value)
         except IOError, e:
-            pass
+            id = None
 
     path = os.environ.get('PATH_INFO', '')[1:]
 
-    if not path:
-        path = 'index/index'
-
-    if req.session is None:
-        path = 'login/index'
+    if not path == 'login':
+        if id is None or req.session is None:
+            redirect(req, url("/login"))
+            path = 'redirected'
 
     try:
         doc = '<html><body>not found: %s</body></html>' % path
@@ -59,8 +60,9 @@ def cgi_main():
             if method[:1].isalpha() and method.isalnum():
                 doc = getattr(module, method)(req, **args)
 
-        if req.session is not None:
+        if req.session:
             req.session.save()
+        if id is None and req.session is not None:
             cookie = Cookie.SimpleCookie()
             cookie['cereweb_id'] = req.session.id
             print cookie.output()
@@ -71,12 +73,18 @@ def cgi_main():
             print 'Status:', req.status
         print
         print doc
-    except:
+    except Exception, e:
+        for key, value in req.headers_out.items():
+            print '%s: %s' % (key, value)
         print
-        print '<html><pre>'
+        doc = html.SimpleDocument("unexcepted error")
+        doc.body.append(html.Paragraph(str(e), style="color: red;"))
+        doc.body.append(html.Paragraph("Path: %s; Args: %s;" % (path, args), style="color: red;"))
+        print doc
+        print '<pre>'
         traceback.print_exc(file=sys.stdout)
         print os.environ
-        print '</pre></html>'
+        print '</pre>'
 
 if __name__ == '__main__': # for cgi
     cgi_main()
