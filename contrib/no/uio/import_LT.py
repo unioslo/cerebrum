@@ -11,9 +11,6 @@ import pprint
 
 personfile = "/u2/dumps/LT/persons.dat";
 
-if len(sys.argv) == 2:
-    personfile = sys.argv[1]
-
 class LTData(object):
     """This class is used to iterate over all users in LT. """
 
@@ -70,15 +67,18 @@ def conv_name(fullname):
     fullname = fullname.strip()
     return fullname.split(None, 1)
 
-Cerebrum = Database.connect()
-ou = OU.OU(Cerebrum)
-personObj = Person.Person(Cerebrum)
-co = Constants.Constants(Cerebrum)
-
 def main():
+    Cerebrum = Database.connect()
+    ou = OU.OU(Cerebrum)
+    personObj = Person.Person(Cerebrum)
+    co = Constants.Constants(Cerebrum)
+
     pp = pprint.PrettyPrinter(indent=4)
     new_person = Person.Person(Cerebrum)
             
+    if len(sys.argv) == 2:
+        personfile = sys.argv[1]
+
     for person in LTData(personfile):
         print "Got %s" % person['fnr'],
         # pp.pprint(person)
