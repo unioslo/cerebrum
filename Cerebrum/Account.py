@@ -81,6 +81,7 @@ class Account(EntityName, EntityQuarantine, Entity):
 
     def populate_authentication_type(self, type, value):
         self._auth_info[int(type)] = value
+        self.__updated = True
 
     def set_password(self, plaintext):
         """Updates all account_authentication entries with an encrypted
@@ -147,8 +148,6 @@ class Account(EntityName, EntityQuarantine, Entity):
                     ('owner_id',':o_id'),
                     ('np_type',':np_type'),
                     ('creator_id',':c_id')]
-            if self.create_date is not None:
-                cols.append(('create_date', ':create_date'))
             if self.expire_date is not None:
                 cols.append(('expire_date', ':exp_date'))
 
