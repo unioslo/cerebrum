@@ -480,7 +480,10 @@ public class JBofh {
 	while(true) {
 	    ret.add(0, bc.sessid);
 	    ret.add(1, cmd);
-	    Hashtable arginfo = (Hashtable) bc.sendRawCommand("call_prompt_func", ret);
+            Object obj =  bc.sendRawCommand("call_prompt_func", ret);
+            if (! (obj instanceof Hashtable))
+                throw new BofhdException("Server bug: prompt_func returned " + obj);
+	    Hashtable arginfo = (Hashtable) obj;
 	    ret.remove(0);
 	    ret.remove(0);
 	    try {
