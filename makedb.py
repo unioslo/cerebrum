@@ -131,6 +131,10 @@ def main():
 
 def read_country_file(fname, db):
     from Cerebrum import Constants
+    # Create a dummy Constants object in order to ensure that the .sql
+    # attribute of Constants._CerebrumCode is present.  FIXME: This is
+    # seriously ugly.
+    foo = Constants.Constants(db)
     f = file(fname, "r")
     for line in f.readlines():
         if line[0] == '#':
