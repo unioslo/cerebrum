@@ -4,47 +4,48 @@ import re
 import os
 import sys
 
+import xml.sax
+
 from Cerebrum import Database,Constants,Errors
 from Cerebrum import Person
 from Cerebrum import cereconf
 from Cerebrum.modules.no.uio import OU
 from Cerebrum.modules.no import fodselsnr
-# import pprint
 
-default_personfile = "/u2/dumps/FS/persons.dat"
+default_personfile = "/u2/dumps/FS/persons.dat.2"
 
 class FSData(object):
-    cols_n = """fdato, pnr, lname, fname, adr1, adr2, postnr,adr3,
-	     adrland, adr1_hjem, adr2_hjem, postnr_hjem, adr3_hjem,
-	     adrland_hjem"""
-    cols_f = """fdato, pnr, lname, fname, adr1, adr2, postnr, adr3,
-	     adrland, tlf_arb, fax_arb, tlf_hjem, title, institusjon,
-	     fak, inst, gruppe"""
+    """This class is used to iterate over FS students in the XML dump."""
 
-    # TODO: Denne datakilden skal neppe brukes.  Den fremtidige
-    # implementasjonen må håndtere tilhørighet til multiple stedkoder.
+    def __init__(self, filename):
+        # Ugly memory-wasting, inflexible way:
+        self.tp = TrivialParser()
+        xml.sax.parse(filename, self.tp)
 
-    def parse_line(self, line):
-	info = line.split("','")
-        type = info.pop(0)
+    def __iter__(self):
+        return self
 
-        if(type == 'F'):
-            colnames = self.cols_f
-        else:   # S || E
-            # Not really handle yet.  The fak, inst and gruppe fields
-            # are missing
-            colnames = self.cols_n
-            return None
+    def next(self):
+        """Returns a dict with data about the next user in LT."""
+        try:
+            return self.tp.personer.pop(0)
+        except IndexError:
+            raise StopIteration, "End of file"
 
-        re_cols = re.compile(r"\s+", re.DOTALL)
-        colnames = re.sub(re_cols, "", colnames)
-        colnames = colnames.split(",")
-        persondta = {}
-        for c in colnames:
-            persondta[c] = info.pop(0)
-            if(persondta[c] == ''):
-                persondta[c] = None
-        return persondta
+class TrivialParser(xml.sax.ContentHandler):
+    def __init__(self):
+        self.personer = []
+
+    def startElement(self, name, attrs):
+        if name in ('fagperson', 'student', 'evu'):
+            tmp = {}
+            for k in attrs.keys():
+                tmp[k] = attrs[k].encode('iso8859-1')
+                tmp['type'] = name
+            self.personer.append(tmp)
+
+    def endElement(self, name): 
+        pass
 
 def main():
     Cerebrum = Database.connect()
@@ -55,33 +56,22 @@ def main():
         personfile = sys.argv[1]
     else:
         personfile = default_personfile
-    f = os.popen("sort -u "+personfile)
-
-    dta = FSData()
-    for line in f.readlines():
-        persondta = dta.parse_line(line)
-        if persondta is not None:
-            process_person(Cerebrum, persondta)
-        else:
-            print "Unhandled format: ",line
+    for persondta in FSData(personfile):
+        process_person(Cerebrum, persondta)
     Cerebrum.commit()
 
 def process_person(Cerebrum, persondta):
-    print "Process %06d%05d %s %s " % (
-        int(persondta['fdato']), int(persondta['pnr']),
-        persondta['fname'], persondta['lname']),
-    
     try:
-        (year, mon, day) = fodselsnr.fodt_dato(persondta['fdato'] + persondta['pnr'])
+        fnr = fodselsnr.personnr_ok("%06d%05d" % (int(persondta['fodselsdato']),
+                                                  int(persondta['personnr'])))
+        print "Process %s %s %s " % (fnr, persondta['fornavn'], persondta['etternavn']),
+        (year, mon, day) = fodselsnr.fodt_dato(fnr)
         if(year < 1970 and getattr(cereconf, "ENABLE_MKTIME_WORKAROUND", 0) == 1):
             year = 1970   # Seems to be a bug in time.mktime on some machines
-
-        fnr = fodselsnr.personnr_ok(persondta['fdato'] + persondta['pnr'])
     except fodselsnr.InvalidFnrError:
-        print "Ugyldig fødselsnr: %s%s" % (persondta['fdato'],
-                                           persondta['pnr'])
+        print "Ugyldig fødselsnr: %s%s" % (persondta['fodselsdato'],
+                                           persondta['personnr'])
         return
-
 
     new_person = Person.Person(Cerebrum)
     co = Constants.Constants(Cerebrum)
@@ -92,23 +82,35 @@ def process_person(Cerebrum, persondta):
 
     new_person.populate(Cerebrum.Date(year, mon, day), gender)
     new_person.affect_names(co.system_fs, co.name_full)
-    new_person.populate_name(co.name_full, "%s %s" % (persondta['lname'], persondta['fname']))
+    new_person.populate_name(co.name_full, "%s %s" % (persondta['etternavn'], persondta['fornavn']))
 
     new_person.populate_external_id(co.system_fs, co.externalid_fodselsnr, fnr)
 
     new_person.affect_addresses(co.system_fs, co.address_post)
-    if persondta['adr2'] is None:   # None is inserted in the string for some reason
-        persondta['adr2'] = ''
+    sko_info = ()
+    aff_type, aff_status = co.affiliation_student, co.affiliation_status_student_valid
+    if persondta['type'] == 'fagperson':
+        atype = 'arbeide'
+        sko_info = (persondta['faknr'], persondta['instituttnr'], persondta['gruppenr'])
+        aff_type, aff_status = co.affiliation_employee, co.affiliation_status_employee_valid
+    elif persondta['type'] == 'student':
+        atype = 'semadr'  # Evt. hjemsted
+    elif persondta['type'] == 'evu':
+        atype = 'hjem'   # Evt. hjemsted
+    if persondta['adrlin2_%s' % atype] is None:   # None is inserted in the string for some reason
+        persondta['adrlin2_%s' % atype] = ''
     new_person.populate_address(co.address_post, addr="%s\n%s" %
-                                (persondta['adr1'],
-                                 persondta['adr2']),
-                                zip=persondta['postnr'],
-                                city=persondta['adr3'])
-    ou = OU.OU(Cerebrum)
-    ou.find_stedkode(int(persondta['fak']), int(persondta['inst']), int(persondta['gruppe']))
+                                (persondta['adrlin1_%s' % atype],
+                                 persondta['adrlin2_%s' % atype]),
+                                zip=persondta['postnr_%s' % atype],
+                                city=persondta['adrlin3_%s' % atype])
 
-    new_person.affect_affiliations(co.system_fs, co.affiliation_student)
-    new_person.populate_affiliation(ou.ou_id, co.affiliation_student, co.affiliation_status_student_valid)
+    for i in range(0, len(sko_info), 3):
+        ou = OU.OU(Cerebrum)
+        ou.find_stedkode(int(sko_info[i]), int(sko_info[i+1]), int(sko_info[i+2]))
+
+        new_person.affect_affiliations(co.system_fs, aff_type)
+        new_person.populate_affiliation(ou.ou_id, aff_type, aff_status)
 
     try:
         person = Person.Person(Cerebrum)
