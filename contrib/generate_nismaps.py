@@ -92,8 +92,11 @@ def generate_group():
 
         members = []
         for id in posix_group.get_members():
-            if entity2uname.has_key(str(id)):
-                members = [entity2uname[id]]
+            id = Cerebrum.pythonify_data(id)
+            if entity2uname.has_key(id):
+                members.append(entity2uname[id])
+            #if entity2uname.has_key(str(id)):
+            #    members = [entity2uname[id]]
             else:
                 raise ValueError, "Found no id: %s for group: %s" % (
                     id, gname)
