@@ -360,7 +360,7 @@ class Profile(object):
             self._email_sko = found['SKO'][0][0]
         except (KeyError, IndexError):
             raise Errors.NotFoundError, "ingen primærsko"
-        self.max_on_disk = 400  # TODO: set this properly
+        self.max_on_disk = 4000  # TODO: set this properly
         try:
             # TODO:
             cereconf.DEFAULT_HIGH_DISK, cereconf.DEFAULT_LOW_DISK = "/uio/platon/div-h","/uio/platon/div-l"
@@ -386,7 +386,16 @@ class Profile(object):
         y = self._normalize_nivakode(y['studienivakode'])
         return cmp(y, x)
         
-    def get_disk(self):
+    def get_disk(self, current_disk=None):
+        """Return a disk_id matching the current profile.  If the
+        account already exists, current_disk should be set to assert
+        that the user is not moved to a new disk with the same
+        prefix. (i.e from /foo/bar/u11 to /foo/bar/u12)"""
+
+        if current_disk is not None:
+            dta = self._autostud._disks[int(current_disk)]
+            if self._disk == dta[0][0:len(self._disk)]:
+                return current_disk
         for d in self._autostud._disks.keys():
             dta = self._autostud._disks[d]
             if(self._disk == dta[0][0:len(self._disk)] and dta[1] < self.max_on_disk):
@@ -395,7 +404,7 @@ class Profile(object):
 
     def notify_used_disk(self, old=None, new=None):
         if old is not None:
-            self._autostud._disks[old][1] -= 1
+            self._autostud._disks[int(old)][1] -= 1
         if new is not None:
             self._autostud._disks[new][1] += 1
 
@@ -430,11 +439,8 @@ class AutoStud(object):
         self.debug = debug
         self._disks = {}
         disk = Disk.Disk(db)
-        for i in disk.list():
-            disk.clear()
-            disk.find(i['disk_id'])
-            count = 42  # TODO: set this to N users on disk
-            self._disks[int(disk.entity_id)] = [disk.path, count]
+        for d in disk.list():
+            self._disks[int(d['disk_id'])] = [d['path'], int(d['count'])]
         self.sp = StudconfigParser()
         xml.sax.parse(STUDCONFIG_FILE, self.sp)
         m = _MapStudconfigData(db)
