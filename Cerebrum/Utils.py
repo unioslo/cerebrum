@@ -106,3 +106,190 @@ def mangle_name(classname, attr):
             return attr
         return '_' + classname + attr
     return attr
+
+
+class auto_super(type):
+    """Metaclass adding a private class variable __super, set to super(cls).
+
+    Any class C of this metaclass can use the shortcut
+      self.__super.method(args)
+    instead of
+      super(C, self).method(args)
+
+    Besides being slightly shorter to type, this should also be less
+    error prone -- there's no longer a need to remember that the first
+    argument to super() must be changed whenever one copies its
+    invocation into a new class.
+
+    NOTE: As the __super trick relies on Pythons name-mangling
+          mechanism for class private identifiers, it won't work if a
+          subclass has the same name as one of its base classes.  This
+          is a situation that hopefully won't be very common; however,
+          if such a situation does arise, the subclass's definition
+          will fail, raising a ValueError.
+
+    """
+    def __init__(cls, name, bases, dict):
+        super(auto_super, cls).__init__(name, bases, dict)
+        attr = mangle_name(name, '__super')
+        if hasattr(cls, attr):
+            # The class-private attribute slot is already taken; the
+            # most likely cause for this is a base class with the same
+            # name as the subclass we're trying to create.
+            raise ValueError, \
+                  "Found '%s' in class '%s'; name clash with base class?" % \
+                  (attr, name)
+        setattr(cls, attr, super(cls))
+
+
+class mark_update(auto_super):
+    """Metaclass marking objects as 'updated' per superclass.
+
+    This metaclass looks in the class attributes ``__read_attr__`` and
+    ``__write_attr__`` (which should be tuples of strings) to
+    determine valid attributes for that particular class.  The
+    attributes stay valid in subclasses, but assignment to them are
+    handled by code objects that live in the class where they were
+    defined.
+
+    The following class members are automatically defined for classes
+    with this metaclass:
+
+    ``__updated`` (class private variable):
+      Set to ``False`` initially; see description of ``__setattr__``.
+
+    ``__setattr__`` (Python magic for customizing attribute assignment):
+      * When a 'write' attribute gets assigned to, the appropriate
+        class's ``__updated`` attribute gets set.
+
+      * 'Read' attributes can only be assigned to if there hasn't
+        already been defined any attribute by that name on the
+        instance.
+        This means that initial assignment will work, but plain
+        reassignment will fail.  To perform a reassignment one must
+        delete the attribute from the instance (e.g. by using ``del``
+        or ``delattr``).
+      NOTE: If a class has an explicit definition of ``__setattr__``,
+            that class will retain that definition.
+
+    ``__new__``:
+      Make sure that instances get ``__updated`` attributes for the
+      instance's class and for all of its base classes.
+      NOTE: If a class has an explicit definition of ``__new__``,
+            that class will retain that definition.
+
+    ``__slots__``:
+      Set automatically from ``__write_attr__`` and ``__read_attr__``.
+      NOTE: If a class has an explicit definition of ``__slots__``,
+            this metaclass will only add to the slots already defined.
+
+    ``__read_attr__`` and ``__write_attr__``:
+      Gets overwritten with tuples holding the name-mangled versions
+      of the names they initially held.  If there was no initial
+      definition, the attribute is set to the empty tuple.
+
+    Additionally, mark_update is a subclass of the auto_super
+    metaclass; hence, all classes with metaclass mark_update will also
+    be subject to the functionality provided by the auto_super
+    metaclass.
+
+    A quick (and rather nonsensical) example of usage:
+
+    >>> class A(object):
+    ...     __metaclass__ = mark_update
+    ...     __write_attr__ = ('breakfast',)
+    ...     def print_updated(self):
+    ...         if self.__updated:
+    ...             print  'A'
+    ... 
+    >>> class B(A):
+    ...     __write_attr__ = ('egg', 'sausage', 'bacon')
+    ...     __read_attr__ = ('spam',)
+    ...     def print_updated(self):
+    ...         if self.__updated:
+    ...             print  'B'
+    ...         self.__super.print_updated()
+    ... 
+    >>> b = B()
+    >>> b.breakfast = 'vroom'
+    >>> b.spam = False
+    >>> b.print_updated()
+    A
+    >>> b.egg = 7
+    >>> b.print_updated()
+    B
+    A
+    >>> b.spam = True
+    Traceback (most recent call last):
+      File "<stdin>", line 1, in ?
+      File "Cerebrum/Utils.py", line 237, in __setattr__
+        raise AttributeError, \
+    AttributeError: Attribute 'spam' is read-only.
+    >>> del b.spam 
+    >>> b.spam = True
+    >>> b.spam
+    1
+    >>> b.egg
+    7
+    >>> b.sausage
+    Traceback (most recent call last):
+      File "<stdin>", line 1, in ?
+    AttributeError: sausage
+    >>> 
+
+    """
+    def __new__(cls, name, bases, dict):
+        read = [mangle_name(name, x) for x in
+                dict.get('__read_attr__', ())]
+        dict['__read_attr__'] = read
+        write = [mangle_name(name, x) for x in
+                 dict.get('__write_attr__', ())]
+        dict['__write_attr__'] = write
+        mupdated = mangle_name(name, '__updated')
+        msuper = mangle_name(name, '__super')
+
+        # Define the __setattr__ method that should be used in the
+        # class we're creating.
+        def __setattr__(self, attr, val):
+##            print "%s.__setattr__:" % name, self, attr, val
+            if attr in read:
+                # Only allow setting if attr has no previous
+                # value.
+                if hasattr(self, attr):
+                    raise AttributeError, \
+                          "Attribute '%s' is read-only." % attr
+            elif attr in write:
+                if hasattr(self, attr) and val == getattr(self, attr):
+                    # No change, don't set __updated.
+                    return
+            elif attr <> mupdated:
+                # This attribute doesn't belong in this class; try the
+                # base classes.
+                return getattr(self, msuper).__setattr__(attr, val)
+            # We're in the correct class, and we've established that
+            # it's OK to set the attribute.  Short circuit directly to
+            # object's __setattr__, as that's where the attribute
+            # actually gets its new value set.
+##            print "%s.__setattr__: setting %s = %s" % (self, attr, val)
+            object.__setattr__(self, attr, val)
+            if attr in write:
+                setattr(self, mupdated, True)
+        dict.setdefault('__setattr__', __setattr__)
+
+        def __new__(cls, *args, **kws):
+            # Get a bound super object.
+            sup = getattr(cls, msuper).__get__(cls)
+            # Call base class's __new__() to perform initialization
+            # and get an instance of this class.
+            obj = sup.__new__(cls, *args, **kws)
+            # Add a default for this class's __updated attribute.
+            setattr(obj, mupdated, False)
+            return obj
+        dict.setdefault('__new__', __new__)
+
+        slots = list(dict.get('__slots__', []))
+        for slot in read + write + [mupdated]:
+            slots.append(slot)
+        dict['__slots__'] = tuple(slots)
+
+        return super(mark_update, cls).__new__(cls, name, bases, dict)
