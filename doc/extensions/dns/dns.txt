@@ -32,3 +32,5 @@ Alle metoder i HostInfo() oppfører seg slik at det utenfra ser ut som
 om name er lagret i klassen.  Oppdatering av hostname kan dog ikke
 gjøres (TODO: oppdag forsøk på det), da det også vil kunne medføre at
 andre ting bytter navn.
+
+arch-tag: 4cd649ad-d295-4628-8072-baa55a4d8c6f

@@ -495,3 +495,4 @@ Ting som kan vente til Version >= 1.1:
   inntasting av kodeverdien for disse en optimal løsning.  Finnes det
   noe bedre alternativ?
 
+arch-tag: 8f399da5-564d-4e26-88cf-e0c804fe2c4e

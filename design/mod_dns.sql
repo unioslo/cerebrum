@@ -360,3 +360,6 @@ CREATE TABLE dns_entity_note(
   data            CHAR VARYING(128) NOT NULL,
   CONSTRAINT entity_note_pk PRIMARY KEY (entity_id, note_type)
 );
+
+/* arch-tag: 712a00e6-bdbe-4029-9dcc-795f9a047ee8
+   (do not change this comment) */
