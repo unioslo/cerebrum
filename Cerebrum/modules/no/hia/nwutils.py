@@ -311,7 +311,7 @@ def get_account_info(account_id, spread, site_callback):
     usr_attr = {}
     ent_name.clear()
     ent_name.find(account_id)
-    #pq = PrinterQuotas.PrinterQuotas(db);
+    print_quota = None
     name = ent_name.get_name(co.account_namespace)
     (first_n,last_n,account_disable,home_dir,affiliation,ext_id,email,pers) = get_user_info(account_id, spread)
     passwords = db.get_log_events(types=(int(co.account_password),), subject_entity=account_id)
@@ -357,8 +357,6 @@ def get_account_info(account_id, spread, site_callback):
 	except ValueError, e:
 	    raise Errors.PoliteException((str(e) + '\n' +\
 			"cereconf's NW_PR_QUOTA is not number"))
-        else:
-            print_quota = 0
     time_now = time.strftime("%H:%M:%S %d/%m/%Y",time.localtime()) 
     attrs = []
     attrs.append( ("ObjectClass", "user" ) )
