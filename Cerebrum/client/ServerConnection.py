@@ -1,8 +1,8 @@
 from threading import Lock
 import xmlrpclib
 import re
-from Cerebrum.modules.bofhd.utils import xmlrpc_to_native
-from Cerebrum.modules.bofhd.utils import native_to_xmlrpc
+from Cerebrum.modules.bofhd.xmlutils import xmlrpc_to_native
+from Cerebrum.modules.bofhd.xmlutils import native_to_xmlrpc
 
 
 # these methods are available directly under the _server connection
