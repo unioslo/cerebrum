@@ -893,6 +893,7 @@ def main():
     output_file = "frida.xml"
     data_source = "UiO-Cerebrum"
     target = "UiO-FRIDA"
+    ou_file = None
 
     # Why does this look _so_ ugly?
     for option, value in options:
