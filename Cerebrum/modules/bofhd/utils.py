@@ -140,8 +140,12 @@ class BofhdRequests(object):
         # that op pending.  All other ops implicitly conflict with
         # themselves, so there can only be one of each op.
         c = self.const
-        conflicts = { int(c.bofh_move_user):       [ c.bofh_move_student ],
-                      int(c.bofh_move_student):    [ c.bofh_move_user ],
+        conflicts = { int(c.bofh_move_user):       [ c.bofh_move_student,
+                                                     c.bofh_move_user_now],
+                      int(c.bofh_move_student):    [ c.bofh_move_user,
+                                                     c.bofh_move_user_now],
+                      int(c.bofh_move_user_now):   [ c.bofh_move_student,
+                                                     c.bofh_move_user_now],
                       int(c.bofh_move_request):    None,	# what is this?
                       int(c.bofh_move_give):       None,
                       int(c.bofh_delete_user):     [ c.bofh_move_user,
