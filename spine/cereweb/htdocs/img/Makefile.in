@@ -1,0 +1,33 @@
+##
+## Makefile for htdocs/img/
+##
+SHELL = @SHELL@
+INSTALL = @INSTALL@
+
+prefix = @prefix@
+libdir = @libdir@
+webroot = @webroot@
+
+sources = $(wildcard *.png)
+
+.PHONY: all install install-lib clean distclean print
+
+all: 
+
+print:
+	@echo Sources
+	@echo $(sources)
+
+install-lib:
+
+install: $(sources) htaccess
+	@for file in $(sources); do \
+	  $(INSTALL) -D -v -m 644 $$file $(DESTDIR)/$(webroot)/img/$$file || exit 1; \
+	done
+	$(INSTALL) -D -v -m 644 htaccess $(DESTDIR)/$(webroot)/img/.htaccess
+
+clean:
+	rm -f *~ 
+
+distclean: clean
+	rm -f Makefile
