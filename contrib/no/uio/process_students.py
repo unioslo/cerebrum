@@ -88,8 +88,7 @@ def create_user(fnr, profile):
     update_account(profile, [account.entity_id])
     return account.entity_id
 
-def update_account(profile, account_ids, rem_grp=False,
-                   account_info={}):
+def update_account(profile, account_ids, account_info={}):
     """Update the account by checking that group, disk and
     affiliations are correct.  For existing accounts, account_info
     should be filled with affiliation info """
@@ -126,14 +125,20 @@ def update_account(profile, account_ids, rem_grp=False,
                     if disk != None:
                         br = BofhdRequests(db, const)
                         # TBD: Is it correct to set requestee_id=None?
-                        br.add_request(None, br.batch_time,
-                                       const.bofh_move_user, account_id,
-                                       disk)
+                        try:
+                            br.add_request(None, br.batch_time,
+                                           const.bofh_move_user, account_id,
+                                           disk)
+                        except Cerebrum.modules.bofhd.errors.CerebrumError, e:
+                            # Conflicting request or similiar
+                            logger.warn(e)
             if as_posix:
                 old_gid = user.gid
                 user.gid = profile.get_dfg()
                 if user.gid != old_gid:
                     changes.append("dfg %s->%s" % (user.gid, old_gid))
+            if user.expire_date:
+                user.expire_date = default_expire_date
             tmp = user.write_db()
             logger.debug("old User, write_db=%s" % tmp)
         except Errors.NotFoundError:
@@ -147,7 +152,7 @@ def update_account(profile, account_ids, rem_grp=False,
                 gid = profile.get_dfg()
                 shell = default_shell
                 user.populate(uid, gid, None, shell, disk_id=disk_id,
-                                    parent=account_id)
+                              parent=account_id, expire_date=default_expire_date)
             else:
                 raise ValueError, "This is a bug, the Account object should exist"
             tmp = user.write_db()
@@ -166,10 +171,17 @@ def update_account(profile, account_ids, rem_grp=False,
                 changes.append("g_add: %s" % group.group_name)
             else:
                 del already_member[g]
-        if rem_grp:
+        if remove_groupmembers:
             for g in already_member.keys():
-                if g in autostud.autogroups:
-                    pass  # TODO:  studxonfig.xml should have the list...
+                if autostud.pc.group_defs.get(g, {}).get('auto', None) == 'auto':
+                    group.clear()
+                    group.find(g)
+                    group.remove_member(account_id, const.group_memberop_union)
+
+        # Check quarantines
+        if user.get_entity_quarantine(type=const.quarantine_autostud):
+            changes.append("removed quarantine_autostud")
+            user.delete_entity_quarantine(const.quarantine_autostud)
 
         # Populate affiliations
         # Speedup: Try to determine if object is changed without populating
@@ -238,8 +250,10 @@ def get_existing_accounts():
         if not pid2fnr.has_key(int(p['person_id'])):
             pid2fnr[int(p['person_id'])] = p['external_id']
 
-    # Find all student accounts.  A student accound is an account that
-    # has only account_types with affiliation=student
+    # Find all student accounts.  A student account is an account that
+    # has only account_types with affiliation=student.  We're
+    # currently only interested in active accounts, thus we filter on
+    # expired (which also includes filtering on deleted)
     students = {}
     for a in account.list_accounts_by_type(
         affiliation=const.affiliation_student, filter_expired=True):
@@ -263,6 +277,10 @@ def get_existing_accounts():
         fnr = pid2fnr.get(int(a['owner_id']), None)
         if (fnr is not None) and (not students.has_key(fnr)):
             others[fnr] = int(a['account_id'])
+
+    # If the user has no student or reserved account, we check for
+    # other active accounts
+
     for a in account.list(filter_expired=True):
         fnr = pid2fnr.get(int(a['owner_id']), None)
         if (fnr is not None) and (not students.has_key(fnr) and
@@ -330,6 +348,11 @@ def make_letters(data_file=None, type=None, range=None):
     tpls = {}
     counters = {}
     for account_id in keys:
+        if not dta[account_id]['zip'] or tpl['country']:
+            # TODO: Improve this check, which is supposed to skip foreign addresses
+            logger.warn("Not sending abroad: %s" % dta[account_id]['uname'])
+            continue
+        
         password, brev_profil = all_passwords[account_id][:2]
         letter_type = "%s.%s" % (brev_profil['mal'], brev_profil['type'])
         if not files.has_key(letter_type):
@@ -561,15 +584,16 @@ def main():
                                     'workdir=', 'type=', 'reprint=',
                                     'emne-info-file=', 'move-users',
                                     'recalc-pq', 'studie-progs-file=',
-                                    'dryrun'])
+                                    'dryrun', 'remove-groupmembers'])
     except getopt.GetoptError:
         usage()
     global debug, fast_test, create_users, update_accounts, logger, skip_lpr
     global student_info_file, studconfig_file, only_dump_to, studieprogs_file, \
-           recalc_pq, dryrun, emne_info_file, move_users
+           recalc_pq, dryrun, emne_info_file, move_users, remove_groupmembers
 
     skip_lpr = True       # Must explicitly tell that we want lpr
     update_accounts = create_users = recalc_pq = dryrun = move_users = False
+    remove_groupmembers = False
     fast_test = False
     workdir = None
     range = None
@@ -591,6 +615,8 @@ def main():
             studieprogs_file = val
         elif opt in ('--recalc-pq',):
             recalc_pq = True
+        elif opt in ('--remove-groupmembers',):
+            remove_groupmembers = True
         elif opt in ('--move-users',):
             move_users = True
         elif opt in ('-C', '--studconfig-file'):
@@ -624,6 +650,7 @@ def main():
                                    strftime("%Y-%m-%d", localtime()),
                                    os.getpid())
         os.mkdir(workdir)
+    os.chdir(workdir)
     logger = AutoStud.Util.ProgressReporter(
         "%s/run.log.%i" % (workdir, os.getpid()), stdout=to_stdout,
         loglevel=AutoStud.Util.ProgressReporter.DEBUG)
@@ -650,6 +677,7 @@ def usage():
     --only-dump-results file: just dump results with pickle without
       entering make_letters
     --workdir dir:  set workdir for --reprint
+    --remove-groupmembers: remove groupmembers if profile says so
     --move-users: move users if profile says so
     --type type: set type (=the mal attribute to <brev> in -C) for --reprint
     --reprint range:  Re-print letters in case of paper-jam etc. (comma separated)
@@ -664,6 +692,9 @@ To reprint letters of a given type:
     sys.exit(0)
 
 if __name__ == '__main__':
-    # AutoStud.AutoStud(db, debug=3, cfg_file="/home/runefro/usit/uiocerebrum/etc/config/studconfig.xml")
+    #logger = AutoStud.Util.ProgressReporter(
+    #    None, stdout=1, loglevel=AutoStud.Util.ProgressReporter.DEBUG)
+    #AutoStud.AutoStud(db, logger, debug=3,
+    #                  cfg_file="/home/runefro/usit/cerebrum/uiocerebrum/etc/config/studconfig.xml")
 
     main()
