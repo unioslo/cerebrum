@@ -54,7 +54,7 @@ def native_to_xmlrpc(obj, no_unicodify=0):
         # TODO: This only works for Postgres.  Needs support
         # in Database.py as the Python database API doesn't
         # define any return type for Date
-        return xmlrpclib.DateTime(obj.localtime().tuple())
+        return xmlrpclib.DateTime(obj.tuple())
     else:
         raise ValueError, "Unrecognized parameter type: '%r' %r" % (obj, 
                         getattr(obj, '__class__', type(obj)))
