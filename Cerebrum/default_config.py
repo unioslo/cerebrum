@@ -20,6 +20,8 @@
 
 # The name of the DB-API 2.0 driver class.  Supported values is
 # "Oracle" and "PostgreSQL"
+# TBD: Having both 'DATABASE_DRIVER' and 'CLASS_DATABASE' seems to
+#      invite confusion; we should choose one.
 DATABASE_DRIVER = "PostgreSQL"
 
 # Files containing the authentication data needed for database access
@@ -70,7 +72,7 @@ CLASS_PERSON = ('Cerebrum.Person', 'Person')
 CLASS_ACCOUNT = ('Cerebrum.Account', 'Account')
 CLASS_GROUP = ('Cerebrum.Group', 'Group')
 CLASS_CONSTANTS = ('Cerebrum.Constants', 'Constants')
-CLASS_DATABASE = ('Cerebrum', 'Database')
+CLASS_DATABASE = ('Cerebrum.Database', 'PostgreSQL')
 
 # Path to templates for passweb.py et. al.
 TEMPLATE_DIR='/path'
