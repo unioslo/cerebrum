@@ -48,7 +48,7 @@ def search(req, name, owner, expire_date, create_date):
         result.append(html.Emphasis(_("Sorry, no account(s) found matching the given criteria.")))
     result.append(html.Header(_("Search for other accounts"), level=2))
     result.append(accountsearch.form())
-    page.content = result
+    page.content = result.output().encode("utf8")
     return page    
 
 
