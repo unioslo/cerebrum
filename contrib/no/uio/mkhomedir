@@ -24,6 +24,6 @@ cp -rp $tpldir $homedir
 chown -R $uid $homedir
 chgrp -R $gid $homedir
 
-if [ -f $scriptdir/mkhomedir.pre ]; then
+if [ -f $scriptdir/mkhomedir.post ]; then
    . $scriptdir/mkhomedir.post
 fi
