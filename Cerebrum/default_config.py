@@ -24,6 +24,7 @@
 #      invite confusion; we should choose one.
 DATABASE_DRIVER = "PostgreSQL"
 
+
 # Files containing the authentication data needed for database access
 # are kept in this directory.
 DB_AUTH_DIR = '/etc/cerebrum'
@@ -72,7 +73,8 @@ CLASS_OU = ['Cerebrum.OU/OU']
 CLASS_PERSON = ['Cerebrum.Person/Person']
 CLASS_ACCOUNT = ['Cerebrum.Account/Account']
 CLASS_GROUP = ['Cerebrum.Group/Group']
-CLASS_CONSTANTS = ['Cerebrum.Constants/Constants']
+CLASS_CONSTANTS = ['Cerebrum.Constants/Constants',
+                   'Cerebrum.modules.no.uio.Constants/Constants']
 CLASS_CL_CONSTANTS = ['Cerebrum.modules.CLConstants/CLConstants']
 
 CLASS_DBDRIVER = ['Cerebrum.Database/PostgreSQL']
@@ -89,3 +91,18 @@ BOFH_URL='http://127.0.0.1:8000'
 # Toggle debugging various parts of the code.
 # Comparing two Entity (or subclass) instances:
 DEBUG_COMPARE = False
+
+# Active directory specific settings.
+
+AD_SERVER_HOST = 'bastard'
+AD_SERVER_PORT = 1681
+AD_DOMAIN = 'WinNT://WINTEST'
+AD_LDAP= 'DC=wintest,DC=uio,DC=no'
+AD_SOURCE_SEARCH_ORDER = ('system_ureg','system_lt','system_fs')
+AD_PASSWORD = 'hallo\n'
+AD_LOST_AND_FOUND = 'lost-n-found'
+AD_DONT_TOUCH = ('Administrator','Guest','tmersrvd','krbtgt','TsInternetUser')
+AD_HOME_DRIVE = 'M'
+AD_PASSWORD_EXPIRE = '0'
+AD_CANT_CHANGE_PW = '0'
+
