@@ -504,3 +504,4 @@ def fetch_object_by_id(server, id, info=None):
     entity = GeneralEntity(server)
     entity._load_entity_info(info)
     return entity
+
