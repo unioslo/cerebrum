@@ -2,15 +2,17 @@
 
 import sys
 
-from Cerebrum import Constants
 from Cerebrum import Person
+from Cerebrum import Account
+from Cerebrum import Errors
+import cereconf
 from Cerebrum.Utils import Factory
 from server.bofhd_cmds import BofhdExtension
 
 def create_user(db, external_id):
     print "Creating posix user for person with external id", external_id
 
-    const = Constants.Constants(db)
+    const = Factory.get('Constants')(db)
 
     ef = BofhdExtension(db)
 
@@ -19,11 +21,15 @@ def create_user(db, external_id):
     posix_gid = 999999
     shell = const.posix_shell_bash
 
-    person_info = ef._get_person(external_id)
+    try:
+        person_info = ef._get_person(external_id)
+    except Errors.TooManyRowsError:
+        return  # Person not uniquely identified
 
     print "PersonID:", person_info.entity_id
-
-    ef.account_create(None, 'accname', 'fnr', external_id)
+    account = Account.Account(db)
+    account.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
+    ef.account_create(account.entity_id, 'accname', 'fnr', external_id)
 
 
 def main():
@@ -41,5 +47,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
-
