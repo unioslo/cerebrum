@@ -17,9 +17,13 @@ person_aff_mapping = {
     }
 # *unset* aff_status -> inherit from Person
 user_aff_mapping = {
-    'A' : {'*unset*': [co.affiliation_ansatt, '*unset*']
+    'A' : {'*unset*': [co.affiliation_ansatt, '*unset*'],
+           '*fallback*': [co.affiliation_manuell,
+                          co.affiliation_manuell_inaktiv_ansatt],
            },
-    'S' : {'*unset*': [co.affiliation_student, '*unset*']
+    'S' : {'*unset*': [co.affiliation_student, '*unset*'],
+           '*fallback*': [co.affiliation_manuell,
+                          co.affiliation_manuell_inaktiv_student],
            },
     'X' : {'C': [co.affiliation_manuell, co.affiliation_manuell_cicero],
            'D' : [co.affiliation_upersonlig, co.affiliation_upersonlig_felles],
@@ -53,9 +57,13 @@ user_aff_mapping = {
            # TODO: noen har blank.  Hva er rett affiliation?
            '*unset*' : [co.affiliation_manuell, co.affiliation_manuell_ekst_person],
            },
-    'a' : {'*unset*': [co.affiliation_ansatt, '*unset*']
+    'a' : {'*unset*': [co.affiliation_ansatt, '*unset*'],
+           '*fallback*': [co.affiliation_manuell,
+                          co.affiliation_manuell_inaktiv_ansatt],
            },
-    's' : {'*unset*': [co.affiliation_student, '*unset*']
+    's' : {'*unset*': [co.affiliation_student, '*unset*'],
+           '*fallback*': [co.affiliation_manuell,
+                          co.affiliation_manuell_inaktiv_student],
            }
     }
 

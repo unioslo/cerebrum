@@ -124,6 +124,12 @@ class Constants(Constants.Constants):
     affiliation_manuell_konsulent = _PersonAffStatusCode(
         affiliation_manuell, 'konsulent',
         'Konsulent (under utfasing)')
+    affiliation_manuell_inaktiv_student = _PersonAffStatusCode(
+        affiliation_manuell, 'inaktiv_student',
+        'Ikke-student med studentkonto i Ureg2000 (under utfasing)')
+    affiliation_manuell_inaktiv_ansatt = _PersonAffStatusCode(
+        affiliation_manuell, 'inaktiv_ansatt',
+        'Ikke-ansatt med ansattkonto i Ureg2000 (under utfasing)')
 
     affiliation_upersonlig = _PersonAffiliationCode(
         'UPERSONLIG', 'Fellesbrukere, samt andre brukere uten eier')

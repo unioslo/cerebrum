@@ -1026,8 +1026,12 @@ def create_account(u, owner_id, owner_type, np_type=None):
     # corresponding person affiliation, first at the same OU, then at
     # any OU (overriding the OU set for the user).
     #
-    # If no corresponding person_affiliation was found, the
-    # affiliation is IGNORED (with a warning).
+    # If no corresponding person_affiliation was found, and the (type,
+    # '*fallback*') combination is registered in user_aff_mapping, use
+    # the (affiliation, aff_status) specified there.
+    #
+    # If no such fallback is registered, the affiliation is IGNORED
+    # (with a warning).
 
     if u.get('uio', {}).has_key('utype'):
         utype = u['uio']['utype']
@@ -1050,6 +1054,9 @@ def create_account(u, owner_id, owner_type, np_type=None):
                         affstat = tmp_affstat
                         ou_id = tmp_ou_id
                         break
+            if str(affstat) == '*unset*' and \
+                   user_aff_mapping[utype].has_key('*fallback*'):
+                aff, affstat = user_aff_mapping[utype]['*fallback*']
             if str(affstat) <> '*unset*':
                 account_id2aff[accountObj.entity_id] = (ou_id, aff, affstat)
                 if not (ou_id, aff, affstat) in person_id2affs[owner_id]:
