@@ -1,5 +1,5 @@
 import sys
 import os
 
-sys.path.append("@PYTHONDIR@")
-sys.path.append(os.environ.get("CERECONF_DIR", "@CONFDIR@"))
+sys.path.insert(0, "@PYTHONDIR@")
+sys.path.insert(0, os.environ.get("CERECONF_DIR", "@CONFDIR@"))
