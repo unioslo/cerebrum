@@ -106,7 +106,7 @@ ORDER BY tlfpreftegn"""
         "Hent informasjon om gjester"
         qry = """SELECT fodtdag, fodtmnd, fodtar, personnr,
                     fakultetnr, instituttnr, gruppenr, gjestetypekode,
-                    dato_fra, dato_til
+                    TO_CHAR(dato_fra, 'YYYYMMDD'), TO_CHAR(dato_til, 'YYYYMMDD')
                  FROM lt.gjest
                  WHERE dato_fra <= SYSDATE AND NVL(dato_til, SYSDATE) > SYSDATE"""
         return (self._get_cols(qry), self.db.query(qry))
@@ -114,8 +114,8 @@ ORDER BY tlfpreftegn"""
     def GetPersonRoller(self, fodtdag, fodtmnd, fodtar, personnr):
         "Hent informasjon om hvilke roller en person har"
         qry = """SELECT
-  fakultetnr, instituttnr, gruppenr, ansvarsrollekode, dato_fra,
-  dato_til
+  fakultetnr, instituttnr, gruppenr, ansvarsrollekode,
+  TO_CHAR(dato_fra, 'YYYYMMDD'), TO_CHAR(dato_til, 'YYYYMMDD')
 FROM lt.personrolle
 WHERE fodtdag=:fodtdag AND fodtmnd=:fodtmnd AND fodtar=:fodtar AND
   personnr=:personnr AND dato_fra <= SYSDATE AND NVL(dato_til,
