@@ -55,13 +55,6 @@ class Profile(object):
                                       member_groups=member_groups,
                                       person_affs=None)
 
-    def debug_dump(self):
-        ret = "Dumping %i match entries\n" % len(self.matcher.matches)
-        ret += pp.pformat(self.matcher.matches)
-        ret += "\nSettings: "
-        ret += pp.pformat(self.matcher.matched_settings)
-        return ret
-
     def get_disk_spreads(self):
         tmp = {}
         for disk in self.matcher.get_match("disk"):
@@ -82,7 +75,7 @@ class Profile(object):
         # Detect conflicting disks at same 'nivåkode'
         disk_spread = int(disk_spread)
         new_disk, tmp_nivaakode = None, None
-        for d, n in self.matcher.matched_settings.get("disk", []):
+        for d, n in self.matcher.get_raw_match('disk'):
             if disk_spread not in d.keys():
                 continue            # Incorrect spread for this disk
             if not new_disk:
@@ -222,212 +215,25 @@ class ProfileMatcher(object):
     def __init__(self, pc, student_info, logger, member_groups=None,
                  person_affs=None):
         self.pc = pc
-        self.matches = []
         self.logger = logger
-        self.matching_selectors = {}
-        self._process_person_info(student_info, member_groups=member_groups,
-                                  person_affs=person_affs)
-        if self.pc.using_priority:
-            # Only use matches at prioritylevel with lowest value
-            tmp = []
-            min_pri = None
-            for m in self.matches:
-                if min_pri is None or m[0].priority < min_pri:
-                    min_pri = m[0].priority
-            for m in self.matches:
-                if m[0].priority == min_pri:
-                    tmp.append(m)
-            self.logger.debug2("Priority filter gave %i -> %i entries" % (
-                len(self.matches), len(tmp)))
-            self.matches = tmp
-        self.logger.debug("Matching profiles: %s" % self.matches)
-        if len(self.matches) == 0:
+        self._matches, self._matched_settings = pc.select_tool.get_person_match(
+            student_info, member_groups=member_groups, person_affs=person_affs)
+        self.logger.debug("Matched settings: %s" % self._matched_settings)
+        if not self._matched_settings:
             raise NoMatchingProfiles, "No matching profiles"
-        self.matched_settings = {}
-        # type: [(value_from_profile, nivaakode_where_first_set)]
-        self._resolve_matches()
 
     def get_match(self, match_type):
-        return [x[0] for x in self.matched_settings.get(match_type, [])]
+        return [x[0] for x in self._matched_settings.get(match_type, [])]
 
-    def _process_person_info(self, student_info, member_groups=None,
-                             person_affs=None):
-        """Check if student_info contains data of the type identified
-        by StudconfigParser.select_elements.  If yes, check if the
-        corresponding value matches a profile."""
+    def get_raw_match(self, match_type):
+        return self._matched_settings.get(match_type, [])
 
-        # Find the select_map_defs that map to data in student_info
-        for select_type in StudconfigParser.select_map_defs.keys():
-            map_data = StudconfigParser.select_map_defs[select_type]
-            if map_data[0] == StudconfigParser.NORMAL_MAPPING:
-                for entry in student_info.get(map_data[2], []):
-                    for match_attr in map_data[3]:
-                        value = entry.get(match_attr, None)
-                        if not value:
-                            continue
-                        if self._check_match(select_type, value):
-                            continue  # No point in matching twice to same profile
-            else:
-                if select_type == 'aktivt_sted':
-                    self._check_aktivt_sted(student_info)
-                elif select_type == 'evu_sted':
-                    self._check_evu_sted(student_info)
-                elif select_type == 'medlem_av_gruppe':
-                    self._check_group_membership(member_groups)
-                elif select_type == 'person_affiliation':
-                    if len(self.pc.known_select_criterias['person_affiliation']) == 0:
-                        # Small speedup when this criteria is not used by studconfig.xml
-                        continue
-                    self._check_person_affiliation(person_affs)
-                elif select_type == 'match_any':
-                    self._append_match(
-                        select_type, None,
-                        None, self.pc.select_mapping.get(select_type, []))
-                else:
-                    raise ValueError, "Unknown select-type: %s" % select_type
+    def debug_dump(self):
+        ret = "Dumping %i match entries\n" % len(self._matches)
+        ret += pp.pformat(self._matches)
+        ret += "\nSettings: "
+        ret += pp.pformat(self._matched_settings)
+        return ret
 
-    def _check_aktivt_sted(self, student_info):
-        """Resolve all aktivt_sted criterias for this student."""
-
-        as_dict = self.pc.select_mapping.get('aktivt_sted', {})
-        for k in as_dict.keys():
-            v = as_dict[k]
-            had_eksamen = False
-            if had_eksamen:
-                continue
-            # Does this aktivt_sted criteria match a 'studieprogram'?
-            for entry in student_info.get('aktiv', []):
-                d = self.pc.autostud.studieprogramkode2info[
-                    entry['studieprogramkode']]
-                if ((v['nivaa_min'] and
-                     int(d['studienivakode']) < int(v['nivaa_min'])) or
-                    (v['nivaa_max'] and
-                     int(d['studienivakode']) > int(v['nivaa_max']))):
-                    continue
-                sko = "%02i%02i%02i" % (int(d['faknr_studieansv']),
-                                        int(d['instituttnr_studieansv']),
-                                        int(d['gruppenr_studieansv']))
-                if sko in v['steder']:
-                    self._append_match(
-                        'aktivt_sted', 'studieproram',
-                        entry['studieprogramkode'], v['profiles'])
-
-    def _check_evu_sted(self, student_info):
-        """Resolve all evu_sted criterias for this student."""
-
-        as_dict = self.pc.select_mapping.get('evu_sted', {})
-        for k in as_dict.keys():
-            v = as_dict[k]
-            # Does this aktivt_sted criteria match a 'evu' entry?
-            for entry in student_info.get('evu', []):
-                sko = "%02i%02i%02i" % (int(entry['faknr_adm_ansvar']),
-                                        int(entry['instituttnr_adm_ansvar']),
-                                        int(entry['gruppenr_adm_ansvar']))
-                if sko in v['steder']:
-                    self._append_match(
-                        'evu_sted', 'sted', sko, v['profiles'])
-
-    def _check_group_membership(self, groups):
-        if not groups:
-            return
-        for g in self.pc.select_mapping.get('medlem_av_gruppe', {}).keys():
-            if g in groups:
-                self._append_match(
-                    'medlem_av_gruppe', 'gruppe',
-                    g, self.pc.select_mapping['medlem_av_gruppe'][g])
-
-    def _check_person_affiliation(self, persons_affiliations):
-        if not persons_affiliations:
-            return
-        persons_affiliations = [(x['affiliation'], x['status']) for x in persons_affiliations]
-        for p_aff in self.pc.select_mapping.get('person_affiliation', {}).keys():
-            if p_aff in persons_affiliations:
-                self._append_match(
-                    'person_affiliation', 'affiliation',
-                    p_aff, self.pc.select_mapping['person_affiliation'][p_aff])
-
-    def _check_match(self, select_type, value):
-        # If studconfig.xml don't use this mapping: return
-        if not self.pc.select_mapping.has_key(select_type):
-            return False
-
-        # Check if this value matches any <select> criterias
-        map_data = StudconfigParser.select_map_defs[select_type]
-        if map_data[0] == StudconfigParser.NORMAL_MAPPING:
-            tmp_map = self.pc.select_mapping[select_type][map_data[1]]
-            matches = tmp_map.get(value, None)
-            if matches:
-                self._append_match(select_type, map_data[1], value, matches)
-            else:
-                matches = tmp_map.get('*', None)
-                self._append_match(select_type, map_data[1], value, matches)
-            if matches:
-                return True
-        return False
-
-    def _append_match(self, select_type, sx_match_attr, value, matches):
-        """Calculate the significance of this match, and append to
-        to the list of matches"""
-        if matches is None:
-            return
-        self.logger.debug2("_append_match: "+pp.pformat((select_type, sx_match_attr, value, matches)))
-        nivakode = 0
-        if sx_match_attr == 'studieprogram':
-            nivakode = self._normalize_nivakode(
-                self.pc.autostud.studieprogramkode2info.get(
-                value, {}).get('studienivakode', 0))
-        self.matching_selectors.setdefault(sx_match_attr, {})[value] = 1
-        for match in matches:
-            self.matches.append((match, nivakode))
-
-    def _normalize_nivakode(self, niva):
-        niva = int(niva)
-        if niva >= 100 and niva < 300:
-            niva = 100
-        elif niva >= 300 and niva < 400:
-            niva = 300
-        return niva
-
-    def _matches_sort(self, x, y):
-        """Sort by nivaakode (highest first), then by profile"""
-        if(x[1] == y[1]):
-            return cmp(x[0], y[0])
-        return cmp(y[1], x[1])
-
-    def _resolve_matches(self):
-        """Fill self.matched_settings with settings from the matched profiles,
-        highest nivaakode first."""
-        self.matches.sort(self._matches_sort)
-        for match in self.matches:
-            profile, nivaakode = match
-            for k in profile.settings.keys():
-                if not profile.settings[k]:
-                    continue      # This profile had no setting of this type
-                self._unique_extend(self.matched_settings.setdefault(k, []),
-                                    profile.settings[k], nivaakode=nivaakode)
-
-        # Automatically add the stedkode from the studieprogram that matched
-        tmp = []
-        for p in self.matching_selectors.get('studieprogram', {}).keys():
-            if not self.pc.autostud.studieprogramkode2info.has_key(p):
-                continue
-            d = self.pc.autostud.studieprogramkode2info[p]
-            sko = self.pc.lookup_helper.get_stedkode(
-                "%02i%02i%02i" % (int(d['faknr_studieansv']),
-                                  int(d['instituttnr_studieansv']),
-                                  int(d['gruppenr_studieansv'])),
-                                  int(d['institusjonsnr_studieansv']))
-            tmp.append([sko,
-                        self._normalize_nivakode(int(d['studienivakode']))])
-        tmp.sort(self._matches_sort)
-        for sko, nivaa in tmp:
-            self._unique_extend(self.matched_settings.setdefault(
-                "stedkode", []), [sko], nivaakode=nivaa)
-            
-
-    def _unique_extend(self, list, values, nivaakode=0):
-        for item in values:
-            if item not in [x[0] for x in list]:
-                list.append((item, nivaakode))
 
 # arch-tag: 729aa779-5820-442a-aad6-31e56666d9ae

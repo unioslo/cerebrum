@@ -25,6 +25,7 @@ import sys
 import xml.sax
 import pprint
 from Cerebrum.modules.no.uio.AutoStud.Util import LookupHelper
+from Cerebrum.modules.no.uio.AutoStud.Select import SelectTool
 from Cerebrum.modules import PosixGroup
 from Cerebrum import Errors
 
@@ -41,8 +42,6 @@ class Config(object):
         self.disk_pools = {}
         self.disk_spreads = {}  # defined <disk_spread> tags
         self.group_defs = {}
-        self.known_select_criterias = {'medlem_av_gruppe': {},
-                                       'person_affiliation': {}}
         self.default_values = {}
         self.profiles = []
         self.required_spread_order = []
@@ -64,10 +63,12 @@ class Config(object):
                              "%s" % "\n".join(self._errors))
             raise
         self.spread_defs = [int(autostud.co.Spread(x)) for x in sp.legal_spreads.keys()]
+        self._post_process_config()
 
-        # Generate select_mapping dict and expand super profiles
+    def _post_process_config(self):
+        # Config parsing complete.  Convert config-settings to
+        # database references etc.
         profilename2profile = {}
-        self.select_mapping = {}
         self.using_priority = False
         for p in self.profiles:
             if profilename2profile.has_key(p.name):
@@ -75,7 +76,6 @@ class Config(object):
             profilename2profile[p.name] = p
             p.expand_profile_settings()
             p.convertToDatabaseRefs(self.lookup_helper, self)
-            p.set_select_mapping(self.select_mapping)
             if p.priority is not None:
                 self.using_priority=True
         for p in self.profiles:
@@ -84,8 +84,10 @@ class Config(object):
             if self.using_priority and p.priority is None:
                 self.add_error("Priority used, but not defined for %s" % \
                                p.name)
+
+        self.select_tool = SelectTool(self.profiles, self._logger, self)
         # Change keys in group_defs from name to entity_id
-        pg = PosixGroup.PosixGroup(autostud.db)
+        pg = PosixGroup.PosixGroup(self.autostud.db)
         tmp = {}
         for k in self.group_defs.keys():
             id = self.lookup_helper.get_group(k)
@@ -99,16 +101,18 @@ class Config(object):
             tmp[id] = t
         self.group_defs = tmp
         if self._errors:
-            logger.fatal("The configuration file has errors, refusing to "
-                         "continue: \n%s" % "\n".join(self._errors))
+            self._logger.fatal("The configuration file has errors, refusing to "
+                               "continue: \n%s" % "\n".join(self._errors))
             sys.exit(1)
 
     def debug_dump(self):
-        ret = "Mapping of select-criteria to profile:\n"
-        ret += pp.pformat(self.select_mapping)
-        ret += "Profile definitions:"
+        ret = "Profile definitions:"
         for p in self.profiles:
             ret += p.debug_dump()+"\n"
+        ret = "Select mappings:\n"
+        for tag, sm in self.select_tool.select_map_defs.items():
+            ret += "  %s\n" % tag
+            ret += "".join(["    %s\n" % line for line in str(sm).split("\n")])
         ret += "Pools:\n"
         ret += pp.pformat(self.disk_pools)
         return ret
@@ -163,55 +167,6 @@ class ProfileDefinition(object):
                     self.name, tmp_super.name, self.priority,
                     tmp_super.priority))
             self.super = None
-
-    def set_select_mapping(self, mapping):
-        """Expands the select mapping (in Config) to map to this
-        profile for apropriate select criterias.  The format of the
-        mapping is like:
-
-         {'aktiv': {
-           'studieprogram': {
-             'AKSU6117': [ Profile object(TF_høyeregrad)]}}}
-        """
-        for select_type in self.selection_criterias.keys():
-            for s_criteria in self.selection_criterias[select_type]:
-                map_data = StudconfigParser.select_map_defs[select_type]
-                if map_data[0] == StudconfigParser.NORMAL_MAPPING:
-                    tmp = s_criteria.get(map_data[1], None)
-                    mapping.setdefault(select_type, {}).setdefault(
-                        map_data[1], {}).setdefault(tmp, []).append(self)
-                elif map_data[0] == StudconfigParser.SPECIAL_MAPPING:
-                    if select_type in('aktivt_sted', 'evu_sted'):
-                        # nivaa is not used by evu_sted, but it doesn't hurt
-                        # to include it
-                        tmp = ":".join((s_criteria['stedkode'],
-                                        s_criteria['institusjon'],
-                                        s_criteria['scope'],
-                                        s_criteria.get('nivaa_min', ''),
-                                        s_criteria.get('nivaa_max', '')))
-                        tmp = mapping.setdefault(
-                            select_type, {}).setdefault(tmp, {})
-                        tmp.setdefault('profiles', []).append(self)
-                        if not tmp.has_key('steder'):
-                            tmp['steder'] = self._get_steder(
-                                s_criteria['institusjon'],
-                                s_criteria['stedkode'],
-                                s_criteria['scope'])
-                        tmp['nivaa_min'] = s_criteria.get('nivaa_min', None)
-                        tmp['nivaa_max'] = s_criteria.get('nivaa_max', None)
-                    elif select_type == 'medlem_av_gruppe':
-                        mapping.setdefault(
-                            select_type, {}).setdefault(s_criteria['group_id'], []).append(self)
-                    elif select_type == 'person_affiliation':
-                        mapping.setdefault(
-                            select_type, {}).setdefault((
-                            s_criteria['affiliation_id'], s_criteria['status_id']), []).append(self)
-                    elif select_type == 'match_any':
-                        mapping.setdefault(
-                            select_type, []).append(self)
-                    else:
-                        self.config.add_error(
-                            "Unknown special mapping %s" % select_type)
 
     def _get_steder(self, institusjon, stedkode, scope):
         ret = []
@@ -300,6 +255,8 @@ class ProfileDefinition(object):
             self.settings["disk"] = [tmp]
 
     def convertToDatabaseRefs(self, lookup_helper, config):
+        """Convert references in profil-settings to database values
+        where apropriate"""
         for p in self.settings.get("priority", []):
             if self.priority is not None and self.priority != int(p['level']):
                 self.config.add_error(
@@ -336,33 +293,6 @@ class ProfileDefinition(object):
 
         self._convert_disk_settings(config)
 
-        tmp = []
-        for group in self.selection_criterias.get("medlem_av_gruppe", []):
-            id = lookup_helper.get_group(group['navn'])
-            if id:
-                tmp.append({'group_id': id })
-                config.known_select_criterias['medlem_av_gruppe'][group['navn']] = id
-        self.selection_criterias["medlem_av_gruppe"] = tmp  
-        
-        tmp = []
-        for aff_info in self.selection_criterias.get("person_affiliation", []):
-            affiliation = config.autostud.co.PersonAffiliation(
-                aff_info['affiliation'])
-            if not aff_info.has_key('status'):
-                for aff_status in config.autostud.co.fetch_constants(
-                    config.autostud.co.PersonAffStatus):
-                    tmp.append({'affiliation_id': int(affiliation),
-                                'status_id': int(aff_status)})
-            else:
-                aff_status = config.autostud.co.PersonAffStatus(affiliation,
-                                                                aff_info['status'])
-                tmp.append({'affiliation_id': int(affiliation), 
-                            'status_id': int(aff_status)})
-        self.selection_criterias["person_affiliation"] = tmp
-        for t in tmp:
-            config.known_select_criterias['person_affiliation'][
-                (t['affiliation_id'], t['status_id'])] = True
-
         # Find all student disks from disk_defs
         for k in ('path', 'prefix'):
             for ddef in config.disk_defs.get(k, {}).keys():
@@ -391,46 +321,6 @@ class StudconfigParser(xml.sax.ContentHandler):
     are applied after the profile with the super attribute has been
     applied, thus values from the current profile will appear before
     values from the super."""
-
-    NORMAL_MAPPING='*NORMAL_FLAG*'
-    SPECIAL_MAPPING='*SPECIAL_FLAG*'
-    # select_map_defs defines how to determine if data in
-    # merged_persons.xml matches a select criteria in studconfig.xml
-    #
-    # With NORMAL_MAPPING, a '*' will match any entry.  If other
-    # special processing should occour, the SPECIAL_MAPPING flag must
-    # be set, and relevant code added to
-    # ProfileHandler.ProfileMatcher and ProfileDefinition.set_select_mapping
-    select_map_defs = {
-        ## SX = studconfig.xml, MX = merged_persons.xml
-        ## <SX:select-tag>: [MAPPING_TYPE, <SX:match-attribute>,
-        ##                   <MX:studinfo-tag>, [<MX:match-attribute>]]
-        ## match-attributes are OR'ed
-        ##
-        ## When MAPPING_TYPE != NORMAL_MAPPING, the rest of the
-        ## corresponding values may depend on the specific
-        ## implemetation for the SPECIAL_MAPPING
-
-        "tilbud": [NORMAL_MAPPING, 'studieprogram', 'tilbud',
-                   ['studieprogramkode']],
-        "studierett": [NORMAL_MAPPING, 'studieprogram', 'opptak',
-                       ['studieprogramkode', 'status']],
-        "aktiv": [NORMAL_MAPPING, 'studieprogram', 'aktiv',
-                  ['studieprogramkode']],
-        "privatist_studieprogram": [NORMAL_MAPPING, 'studieprogram',
-                                    'privatist_studieprogram',
-                                    ['studieprogramkode']],
-        "emne": [NORMAL_MAPPING, 'emnekode', 'eksamen', ['emnekode']],
-        "privatist_emne": [NORMAL_MAPPING, 'emnekode',
-                           'privatist_emne', ['emnekode']],
-        "aktivt_sted": [SPECIAL_MAPPING, 'stedkode', 'aktiv',
-                        'studieprogramkode'],
-        "evu_sted": [SPECIAL_MAPPING, 'stedkode', 'evu',
-                        'studieprogramkode'],
-        "medlem_av_gruppe": [SPECIAL_MAPPING],
-        "person_affiliation": [SPECIAL_MAPPING],
-        "match_any": [SPECIAL_MAPPING],
-        }
 
     profil_settings = ("stedkode", "gruppe", "spread", "disk", "mail",
                        "printer_kvote", "disk_kvote", "brev", "build",
@@ -528,7 +418,7 @@ class StudconfigParser(xml.sax.ContentHandler):
                         ename, repr(self.elementstack)))
             elif (len(self.elementstack) == 4 and
                   self.elementstack[2] == 'select' and
-                  ename in self.select_map_defs):
+                  ename in SelectTool.select_map_defs):
                 self._in_profil.add_selection_criteria(ename, tmp)
             else:
                 self._config.add_error("Unexpected tag '%s', attr=%s in %s" % (
