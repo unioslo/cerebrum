@@ -285,7 +285,7 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
                                       SSL.SSL_SENT_SHUTDOWN)
             self.request.close()
         else:
-            super(self, BofhdRequestHandler).finish()
+            super(BofhdRequestHandler, self).finish()
     
     def bofhd_login(self, uname, password):
         account = Account.Account(self.server.db)
