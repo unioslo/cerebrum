@@ -19,35 +19,31 @@
 
 import omniORB
 
-from Cerebrum.gro.Cerebrum_core import Errors
-from Cerebrum.gro import Transaction
-from Cerebrum.gro import Account, Builder, CorbaBuilder, Attribute, Method
+from Cerebrum_core import Errors
+import Transaction
+from classes.Builder import CorbaBuilder, Method, Attribute
+from classes.Account import Account # FIXME: midlertidig. bruker denne til å lage søkeklasse. GroRegistry noen?
 
-def create_ap_get_method(attribute):
-    def get(self):
-        # TODO: hooks til transaksjon/låsing må fikses her
+def create_ap_method(method_name, data_type, method_arguments=[]):
+    args_table = dict(method_arguments)
+    def method(self, *corba_args, **corba_vargs):
+        if len(corba_args) + len(corba_vargs) > len(method_arguments):
+            raise TypeError('too many arguments')
 
-        value = attribute.get(self.gro_object)
+        # TODO: hooks til transaksjon/låsing/auth må fikses her
 
-        ap_object = APHandler.convert(value, attribute.data_type, self.ap_handler)
-        if ap_object is value:
-            print 'returning:', [value]
-            return value
-        else:
-            print 'returning:', [ap_object]
-            return self.ap_handler.com.get_corba_representation(ap_object)
-    return get
+        args = []
+        for value, arg in zip(corba_args, method_arguments):
+            args.append(APHandler.convert_from_corba(value, arg[1])) # FIXME: er arg[1] riktig?
 
-def create_ap_set_method(attribute):
-    def set(self, corbaValue):
-        # hooks til transaksjon/låsing må fikses her
-        
-        # så må value konverteres....
-        
-        value = corbaValue
-        
-        attribute.set(self.gro_object, value)
-    return set
+        vargs = {}
+        for name, value in corba_vargs.items():
+            vargs[name] = APHandler.convert_from_corba(value, args_table[name])
+
+        value = getattr(self.gro_object, method_name)(*args, **vargs)
+
+        return APHandler.convert_to_corba(value, data_type, self.ap_handler)
+    return method
 
 class APClass:
     """ Creator of Access point proxy object.
@@ -72,26 +68,31 @@ class APClass:
              ap_class_name, ap_class_name)
 
         for attribute in gro_class.slots:
-            get = create_ap_get_method(attribute)
-            setattr(ap_class, 'get_' + attribute.name, get)
+            get_name = 'get_' + attribute.name
+            get = create_ap_method(get_name, attribute.data_type)
+            setattr(ap_class, get_name, get)
 
             if attribute.writable:
-                set = create_ap_set_method(attribute)
-                setattr(ap_class, 'set_' + attribute.name, set)
-
-        ap_class.gro_class = gro_class
+                set_name = 'set_' + attribute.name
+                set = create_ap_method(set_name, 'void', [(attribute.name, attribute.data_type)])
+                setattr(ap_class, set_name, set)
 
         # TODO: legge til support for gro_class.method_slots
+
+        for method in gro_class.method_slots:
+            ap_method = create_ap_method(method.name, method.data_type, method.args)
+            setattr(ap_class, method.name, ap_method)
+
+        ap_class.gro_class = gro_class
 
         return ap_class
 
     create_ap_class = classmethod(create_ap_class)
 
-def create_ap_handler_get_method(name):
+def create_ap_handler_get_method(data_type):
     def get(self, *args, **vargs):
-        print args, vargs, name, self
-        obj = APHandler.gro_classes[name](*args, **vargs)
-        return self.com.get_corba_representation(APHandler.classes[name](obj, self))
+        obj = APHandler.gro_classes[data_type](*args, **vargs)
+        return APHandler.convert_to_corba(obj, data_type, self)
     return get
 
 class APHandler(CorbaBuilder):
@@ -109,17 +110,36 @@ class APHandler(CorbaBuilder):
     slots = []
     method_slots = [Method('begin','void'), Method('rollback', 'void'), Method('commit', 'void')]
 
-    def convert(cls, value, data_type, ap_handler):
+    def convert_to_corba(cls, value, data_type, ap_handler):
+        if data_type == 'Entity': # we need to "cast" to the correct class
+            data_type = value.__class__.__name__
         # TODO: skummel bruk av navnekonvesjon, burde legge til flags i Attribute i stedet
         if data_type.endswith('Seq'):
-            return [cls.convert(i) for i in value]
-        elif data_type[0].isupper():
-            ap_class = cls.classes[data_type]
-            return ap_class(value, ap_handler)
+            return [cls.convert_to_corba(i, data_type[:-3], ap_handler) for i in value]
+        elif data_type in cls.classes:
+            ap_object = cls.classes[data_type](value, ap_handler)
+            return ap_handler.com.get_corba_representation(ap_object)
+        elif data_type == 'void':
+            return value
+        elif value is None:
+            # TODO. her må vi bestemme oss for noe. lage en egen exception for dette kanskje,
+            # siden det verdier faktisk kan være None
+            print 'warning. trying to return None'
+            raise TypeError('cant convert None')
         else:
             return value
 
-    convert = classmethod(convert)
+    convert_to_corba = classmethod(convert_to_corba)
+
+    def convert_from_corba(cls, value, data_type):
+        if data_type.endswith('Seq'):
+            return [cls.convert_from_corba(i, data_type[:-3]) for i in value]
+        elif data_type in cls.classes:
+            return value.gro_object
+        else:
+            return value
+
+    convert_from_corba = classmethod(convert_from_corba)
 
     def __init__(self, com, username, password):
         # Login raises exception if it fails, or returns entity_id if not.
@@ -131,25 +151,27 @@ class APHandler(CorbaBuilder):
     def login(self, username, password):
         """Login the user with the username and password.
         """
+        # We will always throw the same exception in here.
+        exception = Errors.LoginError('Wrong username or password.')
         # Check username
         for char in ['*','?']:
             if char in username:
-                raise Errors.LoginError('Username contains invalid characters.')
+                raise exception
 
-        search = Account.create_search_class()()
+        search = Account.create_search_class()() # FIXME: midlertidig. hente ut fra GroRegistry
         search.set_name(username)
         unames = search.search()
         if len(unames) != 1:
-            raise Errors.LoginError('Wrong username or password.')
+            raise exception
         account = unames[0]
 
         # Check password
         if not account.authenticate(password):
-            raise Errors.LoginError('Wrong username or password.')
+            raise exception
 
         # Check quarantines
         if account.is_quarantined():
-            raise Errors.LoginError('Account has active quarantine, access denied.')
+            raise exception
 
         # Log successfull login..
         
@@ -183,11 +205,12 @@ class APHandler(CorbaBuilder):
         self.transaction.commit()
 
     def register_gro_class(cls, gro_class):
+        gro_class.build_methods()
         name = gro_class.__name__
 
         method_name = 'get_%s' % name.lower()
         method_impl = create_ap_handler_get_method(name)
-        method = Method(method_name, name, gro_class.primary)
+        method = Method(method_name, name, [(i.name, i.data_type) for i in gro_class.primary])
 
         cls.method_slots.append(method)
         cls.gro_classes[name] = gro_class
