@@ -25,8 +25,8 @@
                union, snitt og differanse).  Tar hensyn til
                union-medlemmer i dag, men snitt og differanse er ikke
                implementert.
-  Dependencies:
-  Assigned to:
+  Dependencies: 
+  Assigned to: kjetilho
   Resources:
   Cost:
   Due date:
@@ -80,7 +80,7 @@
                kan gjøre med 'user gecos', som bla implisitt kan endre
                defaultadressen til brukeren.
   Dependencies:
-  Assigned to: 
+  Assigned to: jazz
   Resources: Hvem som helst
   Cost: 
   Status: Trenger kort diskusjon
@@ -148,7 +148,7 @@
   Assigned to: fredrivo
   Resources: runefro
   Cost: 16t
-  Status:
+  Status: har opplegg klart, men må testes på nytt
   Due date:
   Priority: 2
 ** Skrive om AD-servicen
@@ -223,7 +223,7 @@
   Assigned to: hbf
   Resources: mathiasm, baardj
   Cost:
-  Status:
+  Status: egentlig en sak for katalogdrift
   Due date: 2005-01-15
   Priority: 1.5
 ** Hvordan representerer vi Feide-ID i Cerebrum?
@@ -273,8 +273,8 @@
   Priority: 3
 ** Grupper/Roller fra FS
   Description: Grupper rundt programmer/kurs/studieretninger/kull.
-               Dette må ses i sammenheng med CF-synkroniseringen. 
-  Dependencies:
+               Dette må ses i sammenheng med CF-synkroniseringen.
+  Dependencies: 4.5
   Assigned to: hmeland
   Resources: jazz, kjetilho, baardj
   Cost:
@@ -292,15 +292,6 @@
   Status: Done
   Due date:
   Priority: 2
-** En del tjenester vil snakke med POSIX-treet i Cerebrum
-  Description: ??? (Skjønner ikke hva dette punktet er ment å bety)
-  Dependencies:
-  Assigned to:
-  Resources:
-  Cost:
-  Status:
-  Due date:
-  Priority: 3
 ** Quicksync. av LDAP
   Description: Det er uklart hvilket LDAP-tre vi tenker på, og
                eventuelt hvilke deler av et tre som dette skal
@@ -399,6 +390,38 @@
   Due date:
   Priority: 2
 
+*** Spesifikasjon av automatiske grupper
+  Description: Hvilke grupper trenger vi og hvordan skal navnene være?
+               Hvordan vil de interne navnene mappes til eksterne
+               systemer?
+  Dependencies:
+  Assigned to:
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority: 2
+
+*** Import av data inn i Cerebrum
+  Description: Utvide import-skriptene for FS til å hente
+               kull-informasjon etc. inn i Cerebrum
+  Dependencies:
+  Assigned to:
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority: 2
+
+*** Gruppeproduksjon
+  Description: Eksportere kull-informasjon etc. til andre systemer.
+  Dependencies:
+  Assigned to:
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority: 2
 
 ** Studieprogram/Studieretninger
   Description: Vi må få inn støtte for studieretninger under
@@ -407,6 +430,50 @@
                gruppere studenter på, som må over til Cerebrum og
                videre til systemer som trenger denne typen informasjon
                (typisk LMS).
+  Dependencies:
+  Assigned to:
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority: 2
+
+*** Støtte for studieretninger i studconfig
+  Description: DTD-en støtter filtrering på studieretning, men
+               implementasjonen mangler.
+  Dependencies:
+  Assigned to:
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority: 2
+
+*** Spesifikasjon av automatiske grupper
+  Description: Vi ønsker automatiske grupper for studieprogrammer og
+               -retninger på lik linje med kull og klasser.
+  Dependencies:
+  Assigned to:
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority: 2
+
+*** Import av data inn i Cerebrum
+  Description: Utvide import-skriptene for FS til å hente
+               kull-informasjon etc. inn i Cerebrum
+  Dependencies:
+  Assigned to:
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority: 2
+
+*** Gruppeproduksjon
+  Description: Eksportere studieretning-informasjon etc. til andre
+               systemer.
   Dependencies:
   Assigned to:
   Resources:
@@ -431,16 +498,6 @@
   Status:
   Due date:
   Priority: 3
-
-** Må ha egne søk, kan ikke parse på tags
-  Description: ??? (Skjønner ikke hva dette punktet er ment å bety)
-  Dependencies:
-  Assigned to:
-  Resources:
-  Cost:
-  Status:
-  Due date:
-  Priority:
 
 ** Flere alternative adresser per person
   Description: FS har et flere adresser knyttet til personer, og typer
@@ -580,14 +637,28 @@
                opp som beskrevet i todo-komentaren øverst i den
                aktuelle filen.
   Dependencies:
+  Assigned to: runefro
+  Resources: 
+  Cost:
+  Status: godt i gang
+  Due date:
+  Priority: 2
+
+** Gjenoppretting av slettede brukere
+  Description: Når en tidligere student som har hatt konto kommer
+               tilbake, bør hans gamle kontonavn gjenbrukes.  Det må
+               også tas stilling til om det gamle hjemmeområdet og
+               e-posten hans skal hentes tilbake fra backup.
+  Dependencies: 9.4
   Assigned to: 
   Resources: 
   Cost:
   Status:
   Due date:
-  Priority: 2
+  Priority: 2.2
 
-* HR (POLS)
+
+* HR (POLS + LT)
 ** Må ha mulighet for automatisk generering av grupper
   Description: Det må etableres en automagi som vedlikeholder ymse
                former for grupper ut fra hvor folk (ansatte og andre)
@@ -662,7 +733,7 @@
   Assigned to: igorr
   Resources: baardj
   Cost: 200
-  Status: 
+  Status: Done
   Due date:
   Priority: 2.1
  
@@ -756,7 +827,7 @@
                studieretninger og klasser.  Primært betyr det at det
                må bygges grupper i Cerebrum som så kan gjøres til
                gjenstand for spread mot CF-løsningene våre.
-  Dependencies:
+  Dependencies: 4.5
   Assigned to: hmeland
   Resources:
   Cost:
@@ -817,12 +888,6 @@
 
 
 * Hjemmeområdeadministrering
-** Må kunne kontrollere flere hjemmeområder
-  Description: ??? (Tror dette punktet allerede er ferdig)
-
-** Ett hjemmeområde per spreadtype
-  Description: ??? (Vi har jo allerede dette?)
-	       Antagelig mangler vi beskrivelse av hva vi har :)
 
 ** Lagre hvert fysiske hjemmeområde for bruker kun en gang i databasen
   Description: I dag kan brukers hjemmeområde lagres en gang
@@ -830,10 +895,10 @@
 	       hjemmeområde for flere spreads så finnes det ikke noen
 	       garanti for at disse holdes i synk.
   Dependencies:
-  Assigned to: Rune
-  Resources: Harald
+  Assigned to: runefro
+  Resources:   hmeland
   Cost:
-  Status:
+  Status:      Forslag til løsning er sendt 
   Due date:
   Priority: 2
 
@@ -1012,10 +1077,11 @@
   Description: Det trengs støtte for at QuickSync moduler kan ta
                hensyn til karantener som tar effekt frem i tid.
   Dependencies:
-  Assigned to:
-  Resources:
+  Assigned to: runefro
+  Resources:   fredrivo
   Cost:
-  Status: 
+  Status:      Rune har kommet med forslag, Fredrik skal sjekke om det er
+               spiselig for AD-eksporten.
   Due date:
   Priority: 1
 
@@ -1025,7 +1091,7 @@
                deterministisk, enten eksplisitt via en verdi, eller
                ved å sortere på noe, f.eks quarantine_code.
   Dependencies:
-  Assigned to:
+  Assigned to: runefro
   Resources:
   Cost:
   Status: 
@@ -1037,11 +1103,13 @@
   Description: Cerebrum logger for mye og til for mange steder; det
 	       blir vanskelig å holde oversikt/plukke ut signifikante
 	       feil. Må dokumenteres.
-  Dependencies:
+  Dependencies: Endelig løsning krever Python 2.3 og konvertering av
+                process_students og job_runner til det felles
+                logging-rammeverket.
   Assigned to: Igor
   Resources: Harald, Rune, Kjetil/Mathias
   Cost:
-  Status: ferdig?
+  Status: i test
   Due date: 
   Priority: 1.5
 
@@ -1051,12 +1119,12 @@
                hvilket autoritativt system de kommer fra.  Hvilke
                skjemaer trenger vi, hvor rike skal de være, må vi lage
                helt nye...
-               Denne er todelt: Bård Entreprise og IMS. Se IMS-punkt.
+               Denne er todelt: Bård Enterprise og IMS. Se IMS-punkt.
   Dependencies:
-  Assigned to: Bård
-  Resources: Mathias, Rune
+  Assigned to: mathiasm
+  Resources: baardj, runefro
   Cost:
-  Status: ferdig?
+  Status: under mutasjon
   Due date:
   Priority: 1.2
 
@@ -1154,7 +1222,7 @@
   Assigned to: jazz
   Resources:
   Cost:
-  Status: Fordrer møte med spesifisering og avgrensning
+  Status: Done
   Due date:
   Priority: 2
 
@@ -1162,8 +1230,8 @@
   Description: Store deler av bofh_uio_cmds er ikke UiO-spesifikke.
 	       Disse delene bør derfor splittes ut i andre bofh-moduler.
   Dependencies:
-  Assigned to: Rune
-  Resources: Jazz
+  Assigned to: kjetilho
+  Resources: jazz
   Cost:
   Status:
   Due date:
@@ -1208,22 +1276,12 @@
   Description: Ymse former for dokumentasjon av Cerebrum må på plass.
 	       Punktet må splittes.
   Dependencies:
-  Assigned to:
+  Assigned to: mraaum
   Resources: runefro, hmeland, jazz, mathiasm, christfs, igorr
   Cost:
   Status:
   Due date:
   Priority: 2
-
-** Rettighetsstruktur i BOFH ikke bra nok, mangler fleksibilitet.
-  Description: ??? Ønsker utdyping; nøyaktig hva er det man savner?
-  Dependencies:
-  Assigned to:
-  Resources:
-  Cost:
-  Status:
-  Due date:
-  Priority:
 
 ** Generalisering av AutoStud
   Description: Automatikken som i dag oppretter og administrerer
@@ -1242,14 +1300,14 @@
 	       ikke bare "BOFH"-requests.  Er det mulig/ønskelig å slå
 	       sammen denne med process_changes?
   Dependencies:
-  Assigned to: Rune
-  Resources: mathiasm
+  Assigned to: mathiasm
+  Resources: runefro
   Cost:
   Status:
   Due date:
   Priority: 2
 
-** Utvide request-data
+*** Utvide request-data
   Description: Kolonnen i bofh-request-tabellen som kan inneholde
 	       vilkårlige ekstra-data er for liten, og brukes ikke på
 	       noen konsistent måte (kan f.eks. inneholde enten
@@ -1290,6 +1348,22 @@
   Due date:
   Priority: 2
 
+*** Lage testdatabase
+  Description: For å lette testingen ville det være nyttig med en
+               statisk database med realistiske, men anonyme data (må
+               kunne være tilgjengelig som en del av CVS-treet).
+               Arbeidet med å legge data i en slik database kan være
+               naturlig å ta som en del av det å skrive unit-tester.
+  Dependencies:
+  Assigned to:
+  Resources: 
+  Cost:
+  Status:
+  Due date:
+  Priority: 2
+
+
+
 ** Bytte databasedriver (psycopg)
   Description: Cerebrum bruker i dag pyPgSQL-driveren, som er ganske
 	       treig.  Vi ønsker å bytte ut denne, f.eks. med
@@ -1297,7 +1371,7 @@
 	       må det antagelig litt mer kode inn i Database.py.
   Dependencies:
   Assigned to: runefro
-  Resources:  kjetilth, hmeland
+  Resources:  kjetilho, hmeland
   Cost:
   Status: venter på ny pythonver.
   Due date:
@@ -1310,7 +1384,7 @@
 	       å fungere med noen nyere Python.
   Dependencies:
   Assigned to: runefro
-  Resources: Kjetil, hmeland
+  Resources: kjetilho, hmeland
   Cost:
   Status: er i testdrift
   Due date:
@@ -1356,7 +1430,7 @@
 	       featuren (med input-data som ofte er fritekst) må
 	       lages.
   Dependencies:
-  Assigned to: Rune
+  Assigned to: igorr
   Resources: Hvem som helst
   Cost: (ikke mye)
   Status: Fordrer et par avgjørelser i forkant
@@ -1390,9 +1464,17 @@
   Due date:
   Priority: 3
 
-
-
-arch-tag: a2bdce9c-5efd-44a2-b13f-d190e665ef25
+** Sletting av gamle utskriftsdata
+  Description: Vi er bare på pålagt å ha informasjon om
+               utskriftsjobber i 6 månader.  Da dette er betydelige
+               mengder data, bør dette fjernes så snart vi kan.
+  Dependencies:
+  Assigned to:
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority: 3
 
 * Opprydding i API
 ** Etablere kode-standard
