@@ -397,7 +397,8 @@ class Constants(DatabaseAccessor):
     group_visibility_all = _GroupVisibilityCode('A', 'All')
 
     def map_const(self, num):
-        skip = dir(_CerebrumCode.sql)
+        skip = list(dir(_CerebrumCode.sql))
+        skip.extend(("map_const", "initialize"))
         for x in filter(lambda x: x[0] != '_' and not x in skip, dir(self)):
             v = getattr(self, x)
             if int(v) == num:
