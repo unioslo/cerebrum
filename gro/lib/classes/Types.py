@@ -47,11 +47,13 @@ for name, table in [('AccountType', 'account_code'),
                     ('NameType', 'person_name_code'),
                     ('AuthenticationType', 'authentication_code'),
                     ('Spread', 'spread_code'),
+                    ('Flag', 'flag_code'),
                     ('GroupMemberOperationType', 'group_membership_op_code'),
                     ('GroupVisibilityType', 'group_visibility_code'),
                     ('QuarantineType', 'quarantine_code'),
                     ('OUPerspectiveType', 'ou_perspective_code'),
                     ('AuthOperationType', 'auth_op_code'),
+                    ('HomeStatus', 'home_status_code'),
                     ('ValueDomain', 'value_domain_code')]:
 
     exec 'class %s(CodeType):\n pass\ncls=%s' % (name, name)
