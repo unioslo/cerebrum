@@ -94,7 +94,7 @@ class _CerebrumCode(DatabaseAccessor):
                 new.__init__(*args, **kwargs)
                 cls._cache[str(new)] = new
         else:
-            if cls._key_size > 1:
+            if cls._key_size > 1 and len(args) > 1:
                 raise ValueError, ("When initialising a multi key constant, "
                                    "the first argument must be a CerebrumCode "
                                    "or string")
