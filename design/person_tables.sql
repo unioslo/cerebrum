@@ -1,34 +1,58 @@
 /*	person
 
+  `export_id'	Unique, constant-over-time identifier for a person.
+		This is the identifier one should use when exporting
+		person data outside the system.  The intention is that
+		an individual should keep its `export_id' value
+		forever once it has been assigned.
 
+		TBD: Fint om man kunne garantere at denne IDen var
+		unik på tvers av forskjellige Cerebrum-installasjoner;
+		holder det med en felles konvensjon for hvordan IDen
+		ser ut?
+
+  TODO: Må definere API for å flytte informasjon knyttet til en
+	person_id over til en annen.  Både kjernen og alle moduler må
+	støtte dette.
 
 */
 CREATE TABLE person
 (
+  /* Dummy column, needed for type check against `entity_id'. */
+  entity_type	CHAR VARYING(16)
+		NOT NULL
+		DEFAULT 'p'
+		CONSTRAINT person_entity_type_chk CHECK (entity_type = 'p'),
+
   person_id	NUMERIC(12,0)
 		CONSTRAINT person_pk PRIMARY KEY,
-/* TBD: Should we have a unique, constant ID for each person, for use
-	when exporting data to other systems -- or is it sufficient to
-	keep such an ID (for the persons that need it) in the
-	person_external_id-table?  What happens when someone have been
-	away from the institution for so long that their entry in this
-	table has been deleted? */
+  export_id	CHAR VARYING(16)
+		DEFAULT NULL
+		CONSTRAINT person_export_id_unique UNIQUE,
   birth_date	DATE
 		NOT NULL,
-/* TBD: Kjønn kan i Norge avledes av FNR; bør kolonnen under allikevel
-	finnes mhp. at tilsvarende ikke nødvendigvis er mulig i
-	utlandet? */
   gender	CHAR VARYING(16)
 		NOT NULL
-		CONSTRAINT person_gender REFERENCE gender_code(code),
+		CONSTRAINT person_gender REFERENCES gender_code(code),
   deceased	CHAR(1)
 		NOT NULL
 		CONSTRAINT person_deceased_bool
 		  CHECK (deceased IN ('T', 'F')),
-  comment	CHAR VARYING(512)
+  comment	CHAR VARYING(512),
+  CONSTRAINT person_entity_id FOREIGN KEY (entity_type, person_id)
+    REFERENCES entity_id(entity_type, id)
 );
 
 
+/*	person_external_id
+
+  There exists a lot of different ID systems for persons outside
+  Cerebrum, and a person will typically have been assigned an ID in
+  several of these.  To allow Cerebrum to identify a single person by
+  several ID schemes, this table holds the various external person IDs
+  that is known to relate to a single person.
+
+*/
 CREATE TABLE person_external_id
 (
   person_id	NUMERIC(12,0)
@@ -92,7 +116,7 @@ CREATE TABLE person_affiliation
 		CONSTRAINT person_affiliation_affiliation
 		  REFERENCES person_affiliation_code(code),
   status	CHAR VARYING(16),
-  appear_date	DATE
+  create_date	DATE
 		NOT NULL
 		DEFAULT SYSDATE,
   last_date	DATE
@@ -103,173 +127,5 @@ CREATE TABLE person_affiliation
     PRIMARY KEY (person_id, ou_id, affiliation),
   CONSTRAINT person_affiliation_status
     FOREIGN KEY (affiliation, status)
-    REFERENCES person_aff_status(affiliation, status)
-);
-
-
-/*	person_address
-
-
-
-*/
-CREATE TABLE person_address
-(
-  person_id	NUMERIC(12,0)
-		CONSTRAINT person_address_person_id
-		  REFERENCES person(person_id),
-  source_system	CHAR VARYING(16)
-		CONSTRAINT person_address_source_system
-		  REFERENCES authoritative_system_code(code),
-  address_type	CHAR VARYING(16)
-		CONSTRAINT person_address_address_type
-		  REFERENCES address_code(code),
-  aline1	CHAR VARYING(80),
-  aline2	CHAR VARYING(80),
-  aline3	CHAR VARYING(80),
-  aline4	CHAR VARYING(80),
-  p_o_box	CHAR VARYING(10),
-  postal_number	CHAR VARYING(8),
-  city		CHAR VARYING(128),
-  country	CHAR VARYING(128),
-  CONSTRAINT person_address_pk
-    PRIMARY KEY (person_id, source_system, address_type)
-);
-
-
-/*	person_phone
-
-
-
-*/
-CREATE TABLE person_phone
-(
-  person_id	NUMERIC(12,0)
-		CONSTRAINT person_phone_person_id
-		  REFERENCES person(person_id),
-  source_system	CHAR VARYING(16)
-		CONSTRAINT person_phone_source_system
-		  REFERENCES authoritative_system_code(code),
-  phone_type	CHAR VARYING(16)
-		CONSTRAINT person_phone_phone_type
-		  REFERENCES phone_code(code),
-  phone_pref	NUMERIC(2,0),
-  phone_number	CHAR VARYING(20)
-		NOT NULL,
-/* TBD: Do we need the following column?  For what purpose?  What about
-        an update_date column? */
-  create_date	DATE
-		DEFAULT SYSDATE,
-  description	CHAR VARYING(512),
-  PRIMARY KEY (person_id, source_system, phone_type, phone_pref)
-);
-
-
-/*	person_contact_info
-
-
-
-*/
-CREATE TABLE person_contact_info
-(
-  person_id	NUMERIC(12,0)
-		CONSTRAINT person_contact_info_person_id
-		  REFERENCES person(person_id),
-  source_system	CHAR VARYING(16)
-		CONSTRAINT person_contact_info_source_system
-		  REFERENCES authoritative_system_code(code),
-  contact_type	CHAR VARYING(16)
-		CONSTRAINT person_contact_info_contact_type
-		  REFERENCES contact_info_code(code),
-  contact_pref	NUMERIC(2,0),
-  contact_value	CHAR VARYING(255)
-		NOT NULL,
-  description	CHAR VARYING(512),
-  CONSTRAINT person_contact_info_pk
-    PRIMARY KEY (person_id, source_system, contact_type, contact_pref)
-);
-
-
-/*	person_quarantine
-
-
-
-*/
-CREATE TABLE person_quarantine
-(
-  person_id	NUMERIC(12,0)
-		CONSTRAINT person_quarantine_person_id
-		  REFERENCES person(person_id),
-  quarantine_type
-		CHAR VARYING(16)
-		CONSTRAINT person_quarantine_quarantine_type
-		  REFERENCES quarantine_code(code),
-  creator	NUMERIC(12,0)
-		NOT NULL
-		CONSTRAINT person_quarantine_creator
-		  REFERENCES account(account_id),
-  create_date	DATE
-		NOT NULL
-		DEFAULT SYSDATE,
-/* TBD: Are the following two columns necessary? */
-  start_date	DATE
-		NOT NULL,
-  end_date	DATE,
-  CONSTRAINT person_quarantine_pk PRIMARY KEY (person_id, quarantine_type)
-);
-
-
-/***
- *** Module 'name-history' -- keep track of persons' names as they
- *** change over time.
- ***/
-CREATE TABLE person_name_history
-(
-  person_id	NUMERIC(12,0)
-		NOT NULL
-		CONSTRAINT person_name_history_person_id
-		  REFERENCES person(person_id),
-  name_variant	CHAR VARYING(16)
-		NOT NULL
-		CONSTRAINT person_name_history_name_variant
-		  REFERENCES person_name_code(code),
-  source_system	CHAR VARYING(16)
-		NOT NULL
-		CONSTRAINT person_name_history_source_system
-		  REFERENCES authoritative_system_code(code),
-  entry_date	DATE
-		NOT NULL,
-/* TBD: Should we allow NULL names (to indicate that a person have
-	seized to have a value for one name_variant)? */
-  name		CHAR VARYING(256)
-		NOT NULL
-/* TBD: Should this table have any primary key, e.g.
-  CONSTRAINT person_name_history_pk PRIMARY KEY
-    (person_id, name_variant, source_system, entry_date) */
-);
-
-
-/***
- *** Module 'SSN-change' -- keep track of change history of persons'
- *** external IDs.
- ***/
-CREATE TABLE person_external_id_change
-(
-  person_id	NUMERIC(12,0)
-		CONSTRAINT person_external_id_change_person_id
-		  REFERENCES person(person_id),
-  id_type	CHAR VARYING(16)
-		CONSTRAINT person_external_id_change_id_type
-		  REFERENCES person_external_id_code(code),
-  change_date	DATE
-		NOT NULL,
-/* TBD: Should we mix source_system into this?
-  source_system CHAR VARYING(16)
-		CONSTRAINT person_external_id_change_source_system
-		  REFERENCES authoritative_system_code(code), */
-  old_id	CHAR VARYING(256)
-		NOT NULL,
-  new_id	CHAR VARYING(256)
-		NOT NULL,
-  CONSTRAINT person_external_id_change_pk PRIMARY KEY
-    (person_id, id_type, change_date /*, source_system */)
+    REFERENCES person_aff_status_code(affiliation, status)
 );
