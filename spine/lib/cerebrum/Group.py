@@ -22,7 +22,8 @@ from Cerebrum.Utils import Factory
 from SpineLib.Builder import Method, Attribute
 from SpineLib.DatabaseClass import DatabaseAttr
 
-import CereUtils
+from CerebrumClass import CerebrumClass, CerebrumAttr, CerebrumDbAttr
+from Cerebrum.Utils import Factory
 
 from Entity import Entity
 from Types import EntityType, GroupVisibilityType
@@ -36,14 +37,14 @@ __all__ = ['Group']
 
 table = 'group_info'
 
-class Group(Entity):
+class Group(CerebrumClass, Entity):
     slots = Entity.slots + [
-        DatabaseAttr('description', table, str, write=True),
-        DatabaseAttr('visibility', table, GroupVisibilityType, write=True),
-        DatabaseAttr('creator', table, Entity),
-        DatabaseAttr('create_date', table, Date),
-        DatabaseAttr('expire_date', table, Date, write=True),
-        Attribute('name', str, write=True)
+        CerebrumDbAttr('description', table, str, write=True),
+        CerebrumDbAttr('visibility', table, GroupVisibilityType, write=True),
+        CerebrumDbAttr('creator', table, Entity),
+        CerebrumDbAttr('create_date', table, Date),
+        CerebrumDbAttr('expire_date', table, Date, write=True),
+        CerebrumAttr('name', str, write=True)
     ]
     method_slots = Entity.method_slots + [
         Method('delete', None, write=True)
@@ -54,6 +55,9 @@ class Group(Entity):
         'id':'group_id',
         'creator':'creator_id'
     }
+
+    cerebrum_attr_aliases = {'name':'group_name'}
+    cerebrum_class = Factory.get('Group')
 
     entity_type = EntityType(name='group')
 
@@ -67,11 +71,6 @@ class Group(Entity):
         group.find(self.get_id())
         group.delete()
         self.invalidate()
-
-cls = CereUtils.Factory.get('Group')
-Group.save_name = CereUtils.create_save(Group.get_attr('name'), cls, 'group_name')
-Group.save_description = CereUtils.create_save(Group.get_attr('description'), cls, 'description')
-Group.save_expire_date = CereUtils.create_save(Group.get_attr('expire_date'), cls, 'description')
 
 registry.register_class(Group)
 
