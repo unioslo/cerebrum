@@ -239,7 +239,7 @@ WHERE  p.fodselsdato=s.fodselsdato AND
        st.studierettstatkode IN (RELEVANTE_STUDIERETTSTATKODER) AND
        r.arstall >= (%s - 1)
        """ % (aar)
-        return qry
+        return (self._get_cols(qry), self.db.query(qry))
     
 
     def GetStudinfOpptak(self):
