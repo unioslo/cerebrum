@@ -41,11 +41,14 @@ dette.
 >>  I tillegg til de personer som systemet får via autorative systemer må
 >>  en kunne legge inn helt egne personentyer, og modefisere affiliation
 >>  for disse.
->
-> # Gender will default to 'unknown' for persons with no fnr.
-> bofh> person create <display_name> {<birth_date (yyyy-mm-dd)> | <id_type> <id>}
-> Created 'display_name' as person with id 'export_id' (name).
-> 
+
+# Gender will default to 'unknown' for persons with no fnr.
+bofh> person bcreate <display_name> <birth_date (yyyy-mm-dd)>
+Created 'display_name' as person with birthdate yyyy-mm-dd.
+
+bofh> person create <display_name> <id_type> <id>
+Created 'display_name' as person with id 'export_id' (name).
+
 > # Max hits?  20?
 > bofh> person find {<name> | <id_type> <id> | <birth_date>}
 > Found N entries, reporting first 20:
@@ -168,7 +171,8 @@ account password <accountname> [<password>]
 >
 >>  Endre medlemmer
 
-group add <entityname+> <groupname+> [<op>]
+group add <accountname+> <groupname+> [<op>]
+group gadd <groupname+> <groupname+> [<op>]
 group remove <entityname+> <groupname+> [<op>]
 
 > bofh> group add haraldme usit
