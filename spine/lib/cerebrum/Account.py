@@ -66,7 +66,7 @@ class Account(CerebrumClass, Entity):
     def delete(self):
         db = self.get_database()
         account = Factory.get('Account')(db)
-        account.find(self.get_id)
+        account.find(self.get_id())
         account.delete()
         self.invalidate()
 
