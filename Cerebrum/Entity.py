@@ -471,19 +471,25 @@ class EntityContactInfo(Entity):
                                   'pref': pref})
 
     def list_contact_info(self, entity_id=None, source_system=None,\
-                                                 contact_type=None):
+                          contact_type=None, entity_type=None):
         cols = {}
         for t in ('entity_id', 'source_system', 'contact_type'):
             if locals()[t] is not None:
                 cols[t] = int(locals()[t])
         where = " AND ".join(["%s=:%s" % (x, x)
                              for x in cols.keys() if cols[x] is not None])
+        join = ""
+        if entity_type:
+            join = """
+            JOIN [:table schema=cerebrum name=entity_info] e
+              ON ec.entity_id = e.entity_id AND
+              e.entity_type = %d""" % int(entity_type)
         if len(where) > 0:
             where = "WHERE %s" % where
         return self.query("""
-        SELECT entity_id, contact_value
-        FROM [:table schema=cerebrum name=entity_contact_info]
-        %s order by contact_pref""" % where, cols)
+        SELECT ec.entity_id, ec. contact_type, ec.contact_value
+        FROM [:table schema=cerebrum name=entity_contact_info] ec
+        %s %s order by ec.contact_pref""" % (join, where), cols)
 
 
 
@@ -604,6 +610,52 @@ class EntityAddress(Entity):
     def list_country_codes(self):
         return self.query("""
             SELECT * FROM [:table schema=cerebrum name=country_code]""")
+
+    def list_entity_addresses(self, entity_type=None, source_system=None,
+                              address_type=None):
+        e_type = ""
+        if entity_type == None:
+            pass  # Ok. No type to filter on.
+        else:
+            e_type = """
+            JOIN [:table schema=cerebrum name=entity_info] e
+              ON e.entity_id """
+            if isinstance(entity_type, list):
+                e_type += "IN (%s)" % ", ".join(map(str,
+                                                    map(int,entity_type)))
+            else:
+                e_type += "= %s" % int(entity_type)
+
+        where = ""
+        if source_system or address_type:
+            where = "WHERE "
+
+        if source_system == None:
+            pass # No source_system to filter on.
+        elif isinstance(source_system, list):
+            where += "ea.source_system IN (%s)" %\
+                      ", ".join(map(str, map(int, source_system)))
+        else:
+            where += "ea.source_system=%s" % int(source_system)
+
+        if source_system and address_type:
+            where += " AND "
+
+        if address_type == None:
+            pass # No address_type to filter on.
+        elif isinstance(address_type, list):
+            where += "ea.address_type IN (%s)" %\
+                      ", ".join(map(str, map(int, address_type)))
+        else:
+            where += "ea.address_type=%s" % int(address_type)
+            
+        return self.query("""
+        SELECT ea.entity_id, ea.source_system, ea.address_type,
+               ea.address_text, ea.p_o_box, ea.postal_number, ea.city,
+               ea.country
+        FROM [:table schema=cerebrum name=entity_address] ea
+        %s %s""" % (e_type, where))
+
 
 class EntityQuarantine(Entity):
     "Mixin class, usable alongside Entity for entities we can quarantine."
