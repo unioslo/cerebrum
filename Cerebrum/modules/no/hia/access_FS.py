@@ -586,7 +586,12 @@ class roles_xml_parser(non_nested_xml_parser):
             logger.error("Ukjente kolonner i FS.PERSONROLLE: %r", data)
             do_callback = False
 
-        target = tuple(target - not_target)
+        if target is not None:
+            target = tuple(target - not_target)
+        else:
+            # Denne personrollen inneholdt ikke _noen_
+            # target-spesifiserende kolonner.
+            target = ()
         if len(target) <> 1:
             if len(target) > 1:
                 logger.error("Personrolle har flertydig angivelse av",
