@@ -407,7 +407,8 @@ def _check_owner_status(person, owner_id, username, stream):
     if not (person.get_tilsetting(now) or
             person.get_bilag() or
             person.get_gjest(now)):
-        stream.write("Owner of account %s has no records in LT\n" % username)
+        stream.write("Owner of account %s has no tilsetting/bilag/gjest records in LT\n" %
+                     username)
     # fi
 
     if person.get_permisjon(now):
