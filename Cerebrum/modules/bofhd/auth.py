@@ -322,6 +322,8 @@ class BofhdAuth(DatabaseAccessor):
         self.const = Factory.get('Constants')(database)
         self._group_member_cache = Cache.Cache(mixins = [Cache.cache_timeout],
                                                timeout = 60)
+        self._users_auth_entities_cache = Cache.Cache(mixins = [Cache.cache_timeout],
+                                               timeout = 60)
         group = Factory.get('Group')(self._db)
         group.find_by_name(cereconf.BOFHD_SUPERUSER_GROUP)
         self._superuser_group = group.entity_id
@@ -343,7 +345,7 @@ class BofhdAuth(DatabaseAccessor):
                                               self.const.auth_target_type_global_maildomain,
                                               None, None)
 
-    def is_account_owner(self, operator, operation, entity):
+    def is_account_owner(self, operator, operation, entity, operation_attr=None):
         """See if operator has access to entity.  entity can be either
         a Person or Account object.  First check if operator is
         allowed to perform operation on one of the OUs associated with
@@ -352,7 +354,8 @@ class BofhdAuth(DatabaseAccessor):
         Returns True for success and raises exception PermissionDenied
         for failure."""
 
-        if self._has_access_to_entity_via_ou(operator, operation, entity):
+        if self._has_access_to_entity_via_ou(operator, operation, entity,
+                                             operation_attr=operation_attr):
             return True
         if not isinstance(entity, Factory.get('Account')):
             raise PermissionDenied("No access to person")
@@ -360,11 +363,11 @@ class BofhdAuth(DatabaseAccessor):
         if disk and disk['disk_id']:
             self._query_disk_permissions(operator, operation,
                                          self._get_disk(disk['disk_id']),
-                                         entity.entity_id)
+                                         entity.entity_id, operation_attr=operation_attr)
         else:
             if self._has_global_access(operator, operation,
                                        self.const.auth_target_type_global_host,
-                                       entity.entity_id):
+                                       entity.entity_id, operation_attr=operation_attr):
                 return True
             raise PermissionDenied("No access to account")
 
@@ -587,22 +590,17 @@ class BofhdAuth(DatabaseAccessor):
     def can_add_spread(self, operator, entity=None, spread=None,
                        query_run_any=False):
         """The list of spreads that an operator may modify are stored
-        in auth_op_target with target_type 'spread' and entity_id set
-        to the integer code value of the spread."""
+        in auth_op_attrs"""
+        if isinstance(spread, int):
+            spread = "%s" % self.const.Spread(spread)
+
         if self.is_superuser(operator):
             return True
         if query_run_any:
             return self._has_operation_perm_somewhere(
                 operator, self.const.auth_modify_spread)
-        if spread is not None:
-            if isinstance(spread, str):
-                spread = self.const.Spread(spread)
-            if self._query_target_permissions(operator,
-                                              self.const.auth_modify_spread,
-                                              self.const.auth_target_type_spread,
-                                              int(spread), None):
-                return True
-        raise PermissionDenied("No access to spread")
+        return self.is_account_owner(operator, self.const.auth_modify_spread,
+                                     entity, operation_attr=spread)
 
     def can_remove_spread(self, operator, entity=None, spread=None,
                           query_run_any=False):
@@ -997,21 +995,25 @@ class BofhdAuth(DatabaseAccessor):
             self.is_account_owner(operator, operation, account)
         return True
 
-    def _query_disk_permissions(self, operator, operation, disk, victim_id):
+    def _query_disk_permissions(self, operator, operation, disk, victim_id,
+                                operation_attr=None):
         """Permissions on disks may either be granted to a specific
         disk, a complete host, or a set of disks matching a regexp"""
-        
+                
         if self._query_target_permissions(operator, operation,
                                           self.const.auth_target_type_disk,
-                                          disk.entity_id, victim_id):
+                                          disk.entity_id, victim_id,
+                                          operation_attr=operation_attr):
             return True
         if self._has_global_access(operator, operation,
                                    self.const.auth_target_type_global_host,
-                                   victim_id):
+                                   victim_id, operation_attr=operation_attr):
             return True
+        # Check regexp on host targets
         for r in self._query_target_permissions(operator, operation,
                                                 self.const.auth_target_type_host,
-                                                disk.host_id, victim_id):
+                                                disk.host_id, victim_id,
+                                                operation_attr=operation_attr):
             if not r['attr']:
                 return True
             m = re.compile(r['attr']).match(disk.path.split("/")[-1])
@@ -1074,37 +1076,42 @@ class BofhdAuth(DatabaseAccessor):
         return self._any_perm_cache[key] 
 
     def _query_target_permissions(self, operator, operation, target_type,
-                                  target_id, victim_id):
+                                  target_id, victim_id, operation_attr=None):
         """Query any permissions that operator, or any of the groups
         where operator is a member, has been granted operation on
         target_type:target_id"""
         ewhere = ""
-
         if target_id is not None:
             ewhere = "AND aot.entity_id=:target_id"
             if target_type in (self.const.auth_target_type_host,
                                self.const.auth_target_type_disk):
                 if self._has_global_access(operator, operation,
                                            self.const.auth_target_type_global_host,
-                                           victim_id):
+                                           victim_id, operation_attr=operation_attr):
                     return True
             elif target_type == self.const.auth_target_type_group:
                 if self._has_global_access(operator, operation,
                                            self.const.auth_target_type_global_group,
-                                           victim_id):
+                                           victim_id, operation_attr=operation_attr):
                     return True
             elif target_type == self.const.auth_target_type_maildomain:
                 if self._has_global_access(operator, operation,
                                            self.const.auth_target_type_global_maildomain,
-                                           victim_id):
+                                           victim_id, operation_attr=operation_attr):
                     return True
             elif target_type == self.const.auth_target_type_ou:
                 if self._has_global_access(operator, operation,
                                            self.const.auth_target_type_global_ou,
-                                           victim_id):
+                                           victim_id, operation_attr=operation_attr):
                     return True
 
         # Connect auth_operation and auth_op_target
+        # Relevant entries in auth_operation are:
+        # 
+        # - all with correct op_code that either:
+        #   o  has no entries in auth_op_attrs
+        #   o  or has correct entry in auth_op_attrs
+
         sql = """
         SELECT aot.attr, ao.op_id, aot.op_target_id
         FROM [:table schema=cerebrum name=auth_operation] ao,
@@ -1113,6 +1120,14 @@ class BofhdAuth(DatabaseAccessor):
              [:table schema=cerebrum name=auth_op_target] aot
         WHERE
            ao.op_code=:opcode AND
+           ((EXISTS (
+              SELECT 'foo'
+              FROM [:table schema=cerebrum name=auth_op_attrs] aoa
+              WHERE ao.op_id=aoa.op_id AND aoa.attr=:operation_attr)) OR
+            NOT EXISTS (
+              SELECT 'foo'
+              FROM [:table schema=cerebrum name=auth_op_attrs] aoa
+              WHERE ao.op_id=aoa.op_id)) AND
            ao.op_set_id=aos.op_set_id AND
            aos.op_set_id=ar.op_set_id AND
            ar.entity_id IN (%s) AND
@@ -1124,9 +1139,11 @@ class BofhdAuth(DatabaseAccessor):
         return self.query(sql,
                           {'opcode': int(operation),
                            'target_type': target_type,
-                           'target_id': target_id})
+                           'target_id': target_id,
+                           'operation_attr': operation_attr})
 
-    def _has_access_to_entity_via_ou(self, operator, operation, entity):
+    def _has_access_to_entity_via_ou(self, operator, operation, entity,
+                                     operation_attr=None):
         """entity may be an instance of Person or Account.  Returns
         True if the operator has access to any of the OU's associated
         with the entity, or False otherwise.  If an auth_op_target
@@ -1143,6 +1160,7 @@ class BofhdAuth(DatabaseAccessor):
             table_name = "person_affiliation"
             id_colname = "person_id"
 
+        # TODO: operation_attr
         sql = """
         SELECT at.affiliation, aot.attr, ao.op_id, aot.op_target_id
         FROM [:table schema=cerebrum name=%(table_name)s] at,
@@ -1158,7 +1176,15 @@ class BofhdAuth(DatabaseAccessor):
               ar.entity_id IN (%(group_list)s) AND
               aos.op_set_id=ar.op_set_id AND
               ao.op_set_id=aos.op_set_id AND
-              ao.op_code=:opcode
+              ao.op_code=:opcode AND
+              ((EXISTS (
+                 SELECT 'foo'
+                 FROM [:table schema=cerebrum name=auth_op_attrs] aoa
+                 WHERE ao.op_id=aoa.op_id AND aoa.attr=:operation_attr)) OR
+               NOT EXISTS (
+                 SELECT 'foo'
+                 FROM [:table schema=cerebrum name=auth_op_attrs] aoa
+                 WHERE ao.op_id=aoa.op_id))
               """ % {'group_list': ", ".join(operator_groups),
                      'table_name': table_name,
                      'id_colname': id_colname}
@@ -1169,7 +1195,8 @@ class BofhdAuth(DatabaseAccessor):
                                      self.const.auth_target_type_ou,
                              'global_target_type':
                              	     self.const.auth_target_type_global_ou,
-                             'id': entity.entity_id}):
+                             'id': entity.entity_id,
+                             'operation_attr': operation_attr}):
             if not r['attr']:
                 return True
             else:
@@ -1178,7 +1205,8 @@ class BofhdAuth(DatabaseAccessor):
                     return True
         return False
 
-    def _has_global_access(self, operator, operation, global_type, victim_id):
+    def _has_global_access(self, operator, operation, global_type, victim_id,
+                           operation_attr=None):
         """global_host and global_group should not be allowed to
         operate on BOFHD_SUPERUSER_GROUP"""
         if global_type == self.const.auth_target_type_global_group:
@@ -1188,18 +1216,25 @@ class BofhdAuth(DatabaseAccessor):
                  self._get_group_members(cereconf.BOFHD_SUPERUSER_GROUP):
             return False
         for k in self._query_target_permissions(operator, operation,
-                                                global_type, None, None):
+                                                global_type, None, None,
+                                                operation_attr=operation_attr):
             return True
         return False
 
     def _get_users_auth_entities(self, entity_id):
         """Return all entity_ids that may be relevant in auth_role for
         this user"""
+        entity_id = int(entity_id)
+        try:
+            return self._users_auth_entities_cache[entity_id]
+        except KeyError:
+            pass
         group = Factory.get('Group')(self._db)
         ret = [entity_id]
         # TODO: Assert that user is a union member
         for r in group.list_groups_with_entity(entity_id):
-            ret.append(r['group_id'])
+            ret.append(int(r['group_id']))
+        self._users_auth_entities_cache[entity_id] = ret
         return ret
 
     def _get_group_members(self, groupname):
