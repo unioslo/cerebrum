@@ -29,11 +29,24 @@ LDAP_PERSON_ALTERNATIVE_NAME = ('people','Persons')
 LDAP_PERSON_OBJECTCLASS = ('person','organizationalPerson','inetOrgPerson','eduPerson')
 LDAP_PERSON_DESCRIPTION = 'All persons in Example INC Company'
 LDAP_PERSON_FILE = 'person.ldif'
-LDAP_PERSON_SPREAD = None #'spread_ldap_person'
-LDAP_PERSON_LIST_AFFI = ('affiliation_status_employee','affiliation_status_external_consultant','affiliation_status_contract_hired')
+LDAP_PERSON_FILTER = 'Disable' 	
+# Filters. _LIST_AFFI list is a filter on which entry should be exported based on 
+# the person affiliation. _PH_ADDR_AFFI will export contact info of persons with 
+# the affiliation listed. 
+LDAP_PERSON_LIST_AFFI = ('affiliation_status_employee_staff','affiliation_status_employee_sales',
+			'affiliation_status_external_consultant','affiliation_status_contract_hired')
+LDAP_PERSON_PH_ADDR_AFFI = ('affiliation_status_employee_sales',)
+# OPENLDAPaci-filters: Only support one filter to add on a person-entry.
+# This example has default not open public search, and the aci will open the entry
+# for open public search.   
+# _AFF_ACI will give default aci to any person with this affiliation.
+# Both 
+# _NOT_PUBLIC_GR will remove aci from persons which is included by AFF_ACI.
+# _PUBLIC_GR
+LDAP_PERSON_AFF_ACI = ('affiliation_status_employee_staff','affiliation_status_employee_sales')   
 PERSON_NOT_PUBLIC_GR = 'group_of_not_public_internal'
 PERSON_PUBLIC_GR = 'group_of_public_external'
-LDAP_PERSON_ACL = "OpenLDAPaci: 1.1#entry#grant;c,r,s,x;[all],[entry]#public#"
+LDAP_PERSON_ACI = 'OpenLDAPaci: 1.1#entry#grant;c,r,s,x;[all],[entry]#public#'
 
 
 LDAP_USER = 'Enable'
