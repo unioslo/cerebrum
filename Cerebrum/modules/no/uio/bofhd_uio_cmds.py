@@ -1919,7 +1919,7 @@ class BofhdExtension(object):
 		    break
 	    else:
 		pass	    
-	body.append("spread add %s %s" % (groupname, spreadstring))
+	body.append("spread add group %s %s" % (groupname, spreadstring))
 	body.append("")
 	body.append("")
 	message = email.Message.Message()
