@@ -22,7 +22,8 @@ from Cerebrum import Database
 from Cerebrum import Entity
 from Cerebrum import Errors
 from Cerebrum.Constants import _CerebrumCode, _QuarantineCode, _SpreadCode,\
-     _PersonAffiliationCode, _PersonAffStatusCode
+     _PersonAffiliationCode, _PersonAffStatusCode, _EntityTypeCode
+from Cerebrum.Constants import CoreConstants     
 from Cerebrum import Utils
 from Cerebrum.modules import Email
 from Cerebrum.modules.Email import _EmailSpamLevelCode, _EmailSpamActionCode
@@ -922,13 +923,38 @@ class BofhdExtension(object):
                                             Id())
     def entity_info(self, operator, entity_id):
         """Returns a dings"""
-        entity = self._get_general_entity(entity_id)
+        entity = self._get_entity(id=entity_id)
         result = {}
-        result['type'] = entity.entity_type
+        result['type'] = str(_EntityTypeCode(int(entity.entity_type)))
         result['id'] = entity.entity_id
-        names = entity.get_names()
-        # convert to a python type 
-        result['names'] = [(a,b) for (a,b) in names]
+        try:
+            names = entity.get_names()
+        except AttributeError:
+            pass
+        else:        
+            # convert to a python type 
+            result['names'] = [(a,b) for (a,b) in names]
+        if entity.entity_type in \
+            (CoreConstants.entity_group, CoreConstants.entity_account): 
+            result['creator_id'] = entity.creator_id
+            result['create_date'] = entity.create_date
+            result['expire_date'] = entity.expire_date
+        if entity.entity_type == CoreConstants.entity_group:
+            result['name'] = entity.group_name
+            result['description'] = entity.description
+            result['visibility'] = entity.visibility
+            try:
+                result['gid'] = getattr(entity, 'gid')
+            except AttributeError:
+                pass    
+        elif entity.entity_type == CoreConstants.entity_account:
+            result['name'] = entity.account_name
+            result['owner_id'] = entity.owner_id
+            result['home'] = entity.home
+           # TODO: de-reference disk_id
+            result['disk_id'] = entity.disk_id
+           # TODO: de-reference np_type
+           # result['np_type'] = entity.np_type
         return result
     #
     # group commands
@@ -956,12 +982,16 @@ class BofhdExtension(object):
 
     def _group_add(self, operator, src_name, dest_group,
                   group_operator=None, type=None):
-        group_operator = self._get_group_opcode(group_operator)
-        group_s = account_s = None
         if type == "group":
             src_entity = self._get_group(src_name)
         elif type == "account":
             src_entity = self._get_account(src_name)
+        return self._group_add_entity(operator, src_entity, 
+                                 dest_group, group_operator)    
+
+    def _group_add_entity(self, operator, src_entity, dest_group,
+                          group_operator=None):
+        group_operator = self._get_group_opcode(group_operator)
         group_d = self._get_group(dest_group)
         self.ba.can_alter_group(operator.get_entity_id(), group_d)
         try:
@@ -969,6 +999,24 @@ class BofhdExtension(object):
         except self.db.DatabaseError, m:
             raise CerebrumError, "Database error: %s" % m
         return "OK"
+
+    # group add_entity
+    all_commands['group_add_entity'] = Command(
+        ("group", "add_entity"), perm_filter='can_alter_group')
+    def group_add_entity(self, operator, src_entity_id, dest_group_id,
+                  group_operator=None):
+        """Adds a entity to a group. Both the source entity and the group
+           should be entity IDs"""          
+        # tell _group_find later on that dest_group is a entity id          
+        dest_group = 'id:%s' % dest_group_id
+        src_entity = self._get_entity(id=src_entity_id)
+        if not src_entity.entity_type in \
+            (CoreConstants.entity_account, CoreConstants.entity_group):
+            raise CerebrumError, \
+              "Entity %s is not a legal type " \
+              "to become group member" % src_entity_id
+        return self._group_add_entity(operator, src_entity, dest_group,
+                               group_operator)
 
     # group create
     all_commands['group_create'] = Command(
@@ -1043,19 +1091,35 @@ class BofhdExtension(object):
 
     def _group_remove(self, operator, src_name, dest_group,
                       group_operator=None, type=None):
-        group_operator = self._get_group_opcode(group_operator)
-        group_s = account_s = None
         if type == "group":
             src_entity = self._get_group(src_name)
         elif type == "account":
             src_entity = self._get_account(src_name)
         group_d = self._get_group(dest_group)
-        self.ba.can_alter_group(operator.get_entity_id(), group_d)
+        return self._group_remove_entity(operator, src_entity, group_d,
+                                         group_operator)
+
+    def _group_remove_entity(self, operator, member, group,
+                             group_operation):
+        group_operation = self._get_group_opcode(group_operation)
+        self.ba.can_alter_group(operator.get_entity_id(), group)
         try:
-            group_d.remove_member(src_entity.entity_id, group_operator)
+            group.remove_member(member.entity_id, group_operation)
         except self.db.DatabaseError, m:
             raise CerebrumError, "Database error: %s" % m
-        return "OK"   # TBD: returns OK if user is not member of group.  correct?
+        return "OK"   # TBD: returns OK if user is not member of group?
+
+
+    # group remove_entity
+    all_commands['group_remove_entity'] = Command(
+        ("group", "remove_entity"), perm_filter='can_alter_group')
+    def group_remove_entity(self, operator, member_entity, group_entity,
+                            group_operation):
+        group = self._get_entity(id=group_entity)
+        member = self._get_entity(id=member_entity)
+        return self._group_remove_entity(operator, member, 
+                                         group, group_operation)
+                               
     
     # group info
     all_commands['group_info'] = Command(
@@ -2976,7 +3040,7 @@ class BofhdExtension(object):
         try:
             group.clear()
             if idtype is None:
-                if id.find(':') <> -1:
+                if id.count(':'):
                     idtype, id = id.split(':', 1)
                 else:
                     idtype='name'
@@ -3016,6 +3080,10 @@ class BofhdExtension(object):
             return self.const.group_memberop_union
         if operator == 'union':
             return self.const.group_memberop_union
+        if operator == 'intersection':
+            return self.const.group_memberop_intersection
+        if operator == 'difference':
+            return self.const.group_memberop_difference
         raise CerebrumError("unknown group opcode: '%s'" % operator)
 
     def _get_entity(self, idtype=None, id=None):
@@ -3028,22 +3096,8 @@ class BofhdExtension(object):
         if idtype == 'group':
             return self._get_group(id)
         if idtype is None:
-            return self._get_general_entity(self, id)
+            return Entity.object_by_entityid(id, self.db)
         raise CerebrumError, "Invalid idtype"
-
-    def _get_general_entity(self, id):
-        # This is rather dirty...
-        class SuperEntity(Entity.Entity, Entity.EntityName,
-                      Entity.EntityContactInfo, Entity.EntityAddress,
-                      Entity.EntityQuarantine):
-            """A Entity class uniting all mixins"""
-            pass
-        entity = SuperEntity(self.db)
-        try:
-            entity.find(id)
-        except Errors.NotFoundError:
-            raise CerebrumError, "Could not find entity id %s" % id
-        return entity
 
     def _find_persons(self, arg):
         if arg.isdigit() and len(arg) > 10:  # finn personer fra fnr
