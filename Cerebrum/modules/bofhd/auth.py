@@ -476,20 +476,15 @@ class BofhdAuth(DatabaseAccessor):
         if query_run_any:
             return self._has_operation_perm_somewhere(
                 operator, self.const.auth_modify_spread)
-        for r in self._query_target_permissions(operator,
-                                                self.const.auth_modify_spread,
-                                                'spread', None, None) :
-            if not int(r['has_attr']):
-                continue
-            if self.query("""
-            SELECT attr
-            FROM [:table schema=cerebrum name=auth_op_target_attrs]
-            WHERE op_target_id=:op_target_id AND attr=:spread""", {
-                'op_target_id': r['op_target_id'],
-                'spread': str(spread)}):
+        if spread is not None:
+            if isinstance(spread, str):
+                spread = Constants._SpreadCode(spread)
+            if self._query_target_permissions(operator,
+                                              self.const.auth_modify_spread,
+                                              'spread', int(spread), None):
                 return True
         raise PermissionDenied("No access to spread")
-    
+
     def can_remove_spread(self, operator, entity=None, spread=None,
                           query_run_any=False):
         return self.can_add_spread(self, operator, entity, spread,
