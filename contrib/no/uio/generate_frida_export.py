@@ -288,9 +288,7 @@ def output_OU(writer, start_id, db_ou, parent_ou, lifetimes, constants):
     #
     id = find_suitable_OU(db_ou, start_id, constants)
     if id is None:
-        sko = find_sko(db_ou, start_id)
-        logger.warn("Cannot find an OU with katalog_merke = 'T' " +
-                    "from id = %s (sko: %s)", start_id, sko)
+        # Errors are reported later, when we output employments
         return
     # fi
 
@@ -562,6 +560,10 @@ def process_person_frida_information(db_person, db_ou, constants):
 
 
 
+#
+# To keep track of which OUs we have complained about. This should be very
+# small.
+__missing = Set()
 def _update_person_ou_information(dictionary, db_ou, constants):
     """
     This function forces the OU_ID in DICTIONARY to be the ou_id for a
@@ -576,6 +578,12 @@ def _update_person_ou_information(dictionary, db_ou, constants):
 
     ou_id = find_suitable_OU(db_ou, dictionary["ou_id"], constants)
     if ou_id is None:
+        if int(dictionary["ou_id"]) not in __missing:
+            sko = find_sko(db_ou, dictionary["ou_id"])
+            logger.warn("Cannot find an OU with katalog_merke = 'T' " +
+                        "from id = %s (sko: %s)", dictionary["ou_id"], sko)
+            __missing.add(int(dictionary["ou_id"]))
+        # fi
         return False
     # fi
 
