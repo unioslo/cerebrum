@@ -29,9 +29,9 @@ from Cerebrum.Entity import Entity, EntityName
 
 class Group(EntityName, Entity):
 
-    # TBD: Eventually, this metaclass definition should be part of the
-    # class definitions in Entity.py, but as that probably will break
-    # a lot of code, we're starting here.
+    # TODO: Eventually, this metaclass definition should be part of
+    # the class definitions in Entity.py, but as that probably will
+    # break a lot of code, we're starting here.
     __metaclass__ = Utils.mark_update
 
     __read_attr = ('__in_db',)
@@ -39,13 +39,13 @@ class Group(EntityName, Entity):
                       'create_date', 'expire_date', 'group_name')
 
     def clear(self):
-        super(Group, self).clear()
+        self.__super.clear()
         for attr in Group.__read_attr__:
             if hasattr(self, attr):
                 delattr(self, attr)
         for attr in Group.__write_attr__:
             setattr(self, attr, None)
-            self.__updated = False
+        self.__updated = False
 
     def populate(self, creator, visibility, name,
                  description=None, create_date=None, expire_date=None,
@@ -58,8 +58,8 @@ class Group(EntityName, Entity):
         else:
             Entity.populate(self, self.const.entity_group)
         self.__in_db = False
-        self.creator_id = int(creator.entity_id)
-        self.visibility = visibility
+        self.creator_id = creator.entity_id
+        self.visibility = int(visibility)
         self.description = description
         self.create_date = create_date
         self.expire_date = expire_date
@@ -101,7 +101,7 @@ class Group(EntityName, Entity):
                          {'e_type': int(self.const.entity_group),
                           'g_id': self.entity_id,
                           'desc': self.description,
-                          'visib': int(self.visibility),
+                          'visib': self.visibility,
                           'creator_id': self.creator_id,
                           # Even though the following two bind
                           # variables will only be used in the query
@@ -198,7 +198,7 @@ class Group(EntityName, Entity):
             description=None, create_date=None, expire_date=None):
         """Insert a new group into the database."""
         Group.populate(self, creator, visibility, name, description,
-                        create_date, expire_date)
+                       create_date, expire_date)
         Group.write_db()
         # TBD: What is the following call meant to do?
         Group.find(self, self.entity_id)
@@ -215,7 +215,7 @@ class Group(EntityName, Entity):
              [:table schema=cerebrum name=entity_name] en
         WHERE
           gi.group_id=:g_id AND
-          en.entity_id=:g_id AND
+          en.entity_id=gi.group_id AND
           en.value_domain=:domain""",
                       {'g_id': group_id,
                        'domain': int(self.const.group_namespace)})
@@ -229,7 +229,7 @@ class Group(EntityName, Entity):
     def find_by_name(self, name, domain=None):
         """Connect object to group having ``name`` in ``domain``."""
         if domain is None:
-            domain = int(self.const.group_namespace)
+            domain = self.const.group_namespace
         EntityName.find_by_name(self, domain, name)
 
     def validate_member(self, member):
@@ -246,7 +246,7 @@ class Group(EntityName, Entity):
           (group_id, operation, member_type, member_id)
         VALUES (:g_id, :op, :m_type, :m_id)""",
                      {'g_id': self.entity_id,
-                      'op': int(op),
+                      'op': op,
                       'm_type': member.entity_type,
                       'm_id': member.entity_id})
 
@@ -259,7 +259,7 @@ class Group(EntityName, Entity):
           group_id=:g_id AND
           operation=:op AND
           member_id=:m_id""", {'g_id': self.entity_id,
-                               'op': int(op),
+                               'op': op,
                                'm_id': member.entity_id})
 
     def list_members(self):
@@ -281,13 +281,13 @@ class Group(EntityName, Entity):
         SELECT operation, member_type, member_id
         FROM [:table schema=cerebrum name=group_member]
         WHERE m.group_id=:g_id""", {'g_id': self.entity_id}):
-            op2set[int(op)].append((int(mtype), int(mid)))
+            op2set[int(op)].append((mtype, mid))
         return members
 
     def get_members(self, _trace=()):
         my_id = self.entity_id
         if my_id in _trace:
-            # Circular list definition, _trace should be logged.
+            # TODO: Circular list definition, log value of _trace.
             return ()
         u, i, d = self.list_members()
         if not u:
