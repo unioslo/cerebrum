@@ -42,7 +42,7 @@ db = Factory.get('Database')()
 co = Factory.get('Constants')(db)
 mail_dom = Email.EmailDomain(db)
 mail_targ = Email.EmailTarget(db)
-default_mail_file = "/cerebrum/dumps/LDAP/mail.ldif"
+default_mail_file = "/cerebrum/dumps/LDAP/mail-db.ldif"
 
 aid2addr = {}
 targ2addr = {}
