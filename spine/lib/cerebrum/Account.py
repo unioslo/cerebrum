@@ -97,4 +97,10 @@ def get_accounts(self):
 
 Entity.register_method(Method('get_accounts', [Account]), get_accounts)
 
+def suggest_unames(self, domain, first_name, last_name):
+    account = Factory.get('Account')(self.get_database())
+    return account.suggest_unames(domain.get_id(), first_name, last_name)
+
+Commands.register_method(Method('suggest_unames', [str], args=[('domain', registry.ValueDomain), ('first_name', str), ('last_name', str)]), suggest_unames)
+
 # arch-tag: 166fa5e9-de27-4bb9-ad37-79f73fc4e102
