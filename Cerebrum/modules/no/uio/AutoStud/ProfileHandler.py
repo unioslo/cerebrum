@@ -26,6 +26,10 @@ class Profile(object):
         self.toplevel_settings = {}
         self._get_profile_matches(student_info)
         self._resolve_matches()
+        if len(self.matches) == 0:
+            raise ValueError, "No matching profiles"
+        if len(self.get_stedkoder()) == 0:
+            raise ValueError, "No stedkode known"
 
     def _matches_sort(self, x, y):
         """Sort by nivaakode, then by profile"""
