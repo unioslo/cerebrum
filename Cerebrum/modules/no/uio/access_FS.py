@@ -1,4 +1,5 @@
 # -*- coding: iso-8859-1 -*-
+
 # Copyright 2002, 2003 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
@@ -22,15 +23,27 @@ import os
 import sys
 import time
 
-from Cerebrum import Database,Errors
+from Cerebrum import Database
+from Cerebrum import Errors
 
 class FS(object):
-    """FS klassen definerer et sett med metoder som kan benyttes for å
-    hente ut informasjon om personer og OU-er fra FS. De fleste
-    metodene returnerer en tuple med kolonnenavn fulgt av en tuple med
-    dbrows."""
 
-    def __init__(self, db):
+    """Metoder for å hente ut informasjon om personer og OUer fra FS.
+
+    De fleste metodene returnerer en tuple med kolonnenavn fulgt av en
+    tuple med dbrows.  Da db_row-objekter selv holder orden på hva
+    navnet på de returnerte kolonnene er, er egentlig det første
+    tuppelet redundant.  Opprydning er følgelig forestående, men noe
+    tidsestimat for når dette vil skje er ennå ikke fastlagt.
+
+    """
+
+    def __init__(self, db=None, user=None, database=None):
+        if db is None:
+            # TBD: Should user and database have default values in
+            # cereconf?
+            db = Database.connect(user = user, service = database,
+                                  DB_driver = 'Oracle')
         self.db = db
         t = time.localtime()[0:2]
         if t[1] <= 6:
