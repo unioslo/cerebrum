@@ -943,19 +943,34 @@ class PsycoPGCursor(Cursor):
         for k in parameters:
             if type(parameters[k]) is DateTime.DateTimeType:
                 parameters[k] = self._db._db_mod.TimestampFromMx(parameters[k])
-        return super(PsycoPGCursor, self).execute(operation, parameters)
+        ret = super(PsycoPGCursor, self).execute(operation, parameters)
+        if self.description is not None:
+            self._convert_cols = []
+            for n in range(len(self.description)):
+                if self.description[n][5] == 0:  # pos 5 = scale in DB-API spec
+                    self._convert_cols.append(n)
+        return ret
 
     def query(self, query, params=(), fetchall=True):
         # The PsycoPG driver returns floats for all columns of type
         # numeric.  The PyPgSQL driver only does this if the column is
         # defined to have digits.  This method makes PsycoPG behave
         # the same way
-        ret = super(PsycoPGCursor, self).query(query, params=params, fetchall=fetchall)
-        for n in range(len(self.description)):
-            if self.description[n][5] == 0:  # pos 5 = scale in DB-API spec
-                for r in range(len(ret)):
+        ret = super(PsycoPGCursor, self).query(
+            query, params=params, fetchall=fetchall)
+        if fetchall and self._convert_cols:
+            for r in range(len(ret)):
+                for n in self._convert_cols:
                     ret[r][n] = long(ret[r][n] )
         return ret
+
+    def wrap_row(self, row):
+        """Return `row' wrapped in a db_row object."""
+        ret = self._row_class(row)
+        for n in self._convert_cols:
+            ret[n] = long(ret[n] )
+        return ret
+
  
 class OracleBase(Database):
     """Oracle database driver class."""
