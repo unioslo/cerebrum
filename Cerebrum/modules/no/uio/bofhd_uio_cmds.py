@@ -2484,7 +2484,7 @@ class BofhdExtension(object):
             raise CerebrumError, "Database error: %s" % m
         # 3. make user the owner of the group so he can administer it
         op_set = BofhdAuthOpSet(self.db)
-        op_set.find_by_name('ureg_group')
+        op_set.find_by_name('Group-owner')
         op_target = BofhdAuthOpTarget(self.db)
         op_target.populate(group.entity_id, 'group')
         op_target.write_db()
