@@ -79,6 +79,10 @@ def main():
                                  k['gruppenr']),
                 k['forkstednavn']),
         new_ou.clear()
+        try:
+            new_ou.find_stedkode(k['fakultetnr'], k['instituttnr'], k['gruppenr'])
+        except Errors.NotFoundError:
+            pass
 
         new_ou.populate(k['stednavn'], k['fakultetnr'],
                         k['instituttnr'], k['gruppenr'], acronym=k.get('akronym', None),
@@ -99,19 +103,14 @@ def main():
                                      k.get('adresselinje2_besok_adr', '')),
                                     zip=k.get('poststednr_besok_adr', None),
                                     city=k.get('poststednavn_besok_adr', None))
-        try:
-            ou.clear()
-            ou.find_stedkode(k['fakultetnr'], k['instituttnr'], k['gruppenr'])
 
-            if not (new_ou == ou):
-                if verbose: print "**** UPDATE ****"
-                new_ou.write_db(ou)
-            else:
-                if verbose: print "**** EQUAL ****"
-            new_ou.entity_id = ou.entity_id
-        except Errors.NotFoundError:
-            if verbose: print "**** NEW ****"
-            new_ou.write_db()
+        op = new_ou.write_db()
+        if op is None:
+            print "**** EQUAL ****"
+        elif op == True:
+            print "**** NEW ****"
+        elif op == False:
+            print "**** UPDATE ****"
             
         stedkode = get_stedkode_str(k['fakultetnr'], k['instituttnr'],
                                     k['gruppenr'])
