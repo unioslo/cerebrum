@@ -130,8 +130,15 @@ class PasswdImport(ImportBase):
             self.account.find_by_name(user_name)
             print "User %s exists in Cerebrum" % user_name
         except Errors.NotFoundError:
-            print "User %s not found. Skipping." % user_name
-            return
+            self.posixuser.clear()
+            self.posixuser.populate(uid,
+                                    self.posixgroup.entity_id,
+                                    None,
+                                    self.constants.posix_shell_tcsh,
+                                    parent=self.account)
+            self.posixuser.write_db()
+            self.db.commit()
+            print "User %s promoted with uid: %s" % (user_name, uid)
         # yrt
 
         try:
@@ -157,10 +164,12 @@ class PasswdImport(ImportBase):
             return
         except Errors.NotFoundError:
             self.posixuser.clear()
-            self.posixuser.populate(uid, self.posixgroup.entity_id, None, constants.posix_shell_tcsh, parent=account)
+            self.posixuser.populate(uid,
+                                    self.posixgroup.entity_id,
+                                    None,
+                                    self.constants.posix_shell_tcsh,
+                                    parent=self.account)
             self.posixuser.write_db()
             print "User %s promoted with uid: %s" % (user_name, uid)
         # yrt
     # end process_user
-
-# arch-tag: eaaffe67-b88f-4545-93dc-d6bbb884a444
