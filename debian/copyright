@@ -1,11 +1,39 @@
 This package was debianized by Andreas Schuldei <andreas@schuldei.org> on
 Sat, 31 Jan 2004 18:13:28 +0100.
 
-It was downloaded from  cvs.sourceforge.net:/cvsroot/cerebrum
+It was downloaded from  http://sourceforge.net/projects/cerebrum
 
-Upstream Author(s): cerebrum-developers@usit.uio.no
 
-Copyright: GPL
+Upstream Authors:   Are Engstrom <areen at users.sourceforge.net>
+                    Bard Henry Moum jakobsen <baardj at users.sourceforge.net>
+                    Erik Gorset <erikgors at users.sourceforge.net>
+                    Havard Stranden <havarden at users.sourceforge.net>
+                    Havar Fruseth <havlar at users.sourceforge.net>
+                    Hallvard B Furuseth <hfuru at users.sourceforge.net>
+                    Harald Meland <hmeland at users.sourceforge.net>
+                    Igor Rafienko <igorr at users.sourceforge.net>
+                    Jasmina Hodzic <jasminah at users.sourceforge.net>
+                    Kjetil T. Homme <kjetilho at users.sourceforge.net>
+                    Andreas Nilsen <lemondog at users.sourceforge.net>
+                    Tom-Anders N. Rost <loke_phb at users.sourceforge.net>
+                    Mathias Meisfjordskar <matmeis at users.sourceforge.net>
+                    kenneth johansen <nappy- at users.sourceforge.net>
+                    Odd Arne Haugen <oahaugen at users.sourceforge.net>
+                    Odd Rune Dahle <oddrune at users.sourceforge.net>
+                    Petter Reinholdtsen <pere at users.sourceforge.net>
+                    Fredrik Vogel <rikfred at users.sourceforge.net>
+                    Rune Froysa <runefro at users.sourceforge.net>
+                    Andreas Schuldei <schuldei at users.sourceforge.net>
+                    Ole-Marius Moe-Helgesen <silmaril at users.sourceforge.net>
+                    Stian Soiland <stain at users.sourceforge.net>
+                    Steinar Hamre <steinarh at users.sourceforge.net>
+                    Steinar Kleven <steinark at users.sourceforge.net>
+                    Sturle Sunde <sturle at users.sourceforge.net>
+                    Thomas Langas <tlan at users.sourceforge.net>
+
+
+
+Copyright 2002, 2003, 2004 University of Oslo, Norway: GPL
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
