@@ -78,11 +78,12 @@ def validate_primary(dom, prim):
 def list_machines():
     disk = Disk.Disk(db)
     res = []
-    pat = r'/([^/]+)/([^/]+)/'
+    path_pattern = re.compile(r'/(?P<department>[^/]+)/(?P<host>[^/]+)/[^/]+')
     for d in disk.list():
         path = d['path']
-        r = re.search(pat, path)
-        res.append([r.group(1), r.group(2)])
+        m = path_pattern.match(path)
+        if m:
+            res.append([m.group('department'), m.group('host')])
     return res
 
 def make_home2spool():
