@@ -202,6 +202,17 @@ def import_groups(groupfile, fill=0):
     group_group = {}
     group_exists = {}
     group_has_member = {}
+    tmpg = Group.Group(db)
+    tmpg2 = Group.Group(db)
+    for g in tmpg.list_all():
+        tmpg2.clear()
+        tmpg2.find(g['group_id'])
+        u, i, d = tmpg2.list_members()
+        group_has_member[g['group_id']] = {}
+        for t, rows in ('union', u), ('inters.', i), ('diff', d):
+            for r in rows:
+                group_has_member[g['group_id']][r[1]] = 1
+
     # Note: File and netgroups are merged
     for group in GroupData(groupfile):
         # pp.pprint(group)
@@ -250,7 +261,8 @@ def import_groups(groupfile, fill=0):
             for m in group.get('member', []):
                 try:
                     if m['type'] == 'user':
-                        account.find_by_name(m['uname'])
+                        account.clear()
+                        account.find_by_name(m['name'])
                     else:  # Delay insertion as group may not exist yet
                         group_group.setdefault(groupObj.entity_id, []).append(m['name'])
                         continue
