@@ -181,11 +181,11 @@ class Cursor(object):
         # compatibility with the underlying database module, we return
         # this 'unspecified' value anyway.
         try:
+##             print "DEBUG: sql=<%s>\nDEBUG: binds=<%s>" % (sql, binds)
             return self._cursor.execute(sql, *binds)
         except self.DatabaseError:
             # TBD: These errors should probably be logged...
-##             print "ERROR:\n\tsql=%s\n\tbinds=%s\n%s", (sql, `binds`,
-##                                                        sys.exc_info())
+##             print "ERROR: sql=<%s>\nERROR: binds=<%s>" % (sql, binds)
             raise
 ##        return self._cursor.execute(operation, *parameters)
 
@@ -719,6 +719,9 @@ class PostgreSQL(Database):
         cdata['real_service'] = service
         super(PostgreSQL, self).connect(user = user, password = password,
                                         database = service)
+        # TBD: This is a hack, and probably not the correct fix.
+        self.execute("SET CLIENT_ENCODING TO 'ISO_8859_1'")
+        
 
     # According to its documentation, this driver module implements
     # the Binary constructor as a method of the connection object.
