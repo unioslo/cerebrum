@@ -303,6 +303,7 @@ def process_person_callback(person_info):
             # question at all, or has given an explicit "I don't
             # want to appear in the directory" answer.
             _rem_res(new_person.entity_id)
+    db.commit()
 
 
 class FnrUpdateParser(StudentInfo.GeneralDataParser):
