@@ -492,7 +492,9 @@ class CallableFuncs(object):
     
     def group_expire(self, user, groupname, date):
         """Set group expiration date for 'groupname' to 'date'"""
-        raise NotImplemetedError, "Feel free to implement this function"
+        group = _get_group(groupname)
+        group.expire_date = self.ef.Cerebrum.Date(*([int(x) for x in date.split('-')]))
+        group.write_db()
     
     def group_group(self, user, groupname):
         """List all groups where 'groupname' is a (direct or
@@ -507,7 +509,8 @@ class CallableFuncs(object):
     def group_list(self, user, groupname):
         """List direct members of group (with their entity types), in
         categories coresponding to the three membership ops.  """
-        raise NotImplemetedError, "Feel free to implement this function"
+        group = _get_group(groupname)
+        return group.get_members()
     
     def group_person(self, user, personid):
         """List all groups where 'personid' is a (direct or
@@ -522,7 +525,10 @@ class CallableFuncs(object):
     
     def group_visibility(self, user, groupname, visibility):
         """Change 'groupname's visibility to 'visibility'"""
-        raise NotImplemetedError, "Feel free to implement this function"
+        raise NotImplemetedError, "What format should visibility have?"
+        group = _get_group(groupname)
+        group.visibility = visibility
+        group.write_db()
     
     #
     # person commands
@@ -589,11 +595,7 @@ class CallableFuncs(object):
     # TBD:  Should add a generic _get_person(idtype, id) method
     def person_info(self, user, idtype, id):
         """Returns some info on person with 'idtype'='id'"""
-        person = self.ef.person
-        if idtype == 'fnr':
-            person.find_by_external_id(self.const.externalid_fodselsnr, id)
-        else:
-            raise NotImplemetedError, "Unknown idtype: %s" % idtype
+        person = _get_person(id, idtype)
         name = None
         for ss in cereconf.PERSON_NAME_SS_ORDER:
             try:
@@ -609,7 +611,11 @@ class CallableFuncs(object):
 
     def person_name(self, user, idtype, id, nametype, name):
         """Set name of 'nametype' to 'name' for person with 'idtype'='id'"""
-        raise NotImplemetedError, "Feel free to implement this function"
+        # TODO: Map nametype to Constant
+        person = _get_person(id, idtype)
+        person.affect_names(self.const.system_manual, nametype)
+        person.populate_name(nametype, name)
+        person.write_db()
 
     #
     # misc helper functions.
@@ -624,6 +630,23 @@ class CallableFuncs(object):
             raise NotImplemetedError, "unknown idtype: '%s'" % idtype
         return account
 
+    def _get_group(self, id, idtype='name'):
+        group = Group.Group(self.ef.Cerebrum)
+        if idtype == 'name':
+            group.clear()
+            group.find_by_name(id)
+        else:
+            raise NotImplemetedError, "unknown idtype: '%s'" % idtype
+        
+        return group
+
+    def _get_person(self, id, idtype='fnr'):
+        person = self.ef.person
+        if idtype == 'fnr':
+            person.find_by_external_id(self.const.externalid_fodselsnr, id)
+        else:
+            raise NotImplemetedError, "Unknown idtype: %s" % idtype
+        return person
 
 if __name__ == '__main__':
     # Loop for an available port while testing to avoid already bound error
