@@ -58,13 +58,15 @@ numbers and special characters.""",
 """That was to close to an old password.  You must select a new
 one.""",
     'dict_hit': "Don't use words in a dictionary.",
+    'dict_hit_joined':  "Don't use words in a dictionary or concatenations.",
     'combo': "You should not combine two words like %s and %s",
     'sequence_alphabet':
     "Don't use charactersin alpabetical or numerical order",
     'sequence_keys': "Don't use neighbouring keyboard keys",
     'repetitive_sequence':
 """Don't use repeating sequences of the same characters""",
-    'uname_backwards': "Don't use your username backwards"}
+    'uname_backwards': "Don't use your username backwards",
+    'used_paranthesis': "\nDon't enclose password in parantheses."}
 
 class PasswordGoodEnoughException(Exception):
     """Exception raised for insufficiently strong passwds."""
@@ -335,12 +337,14 @@ class PasswordChecker(DatabaseAccessor):
 
         if re.search(r'\0', passwd):
             raise PasswordGoodEnoughException(msgs['not_null_char'])
+        extra_msg = ''
         if passwd[0] in '([{<':     # Detect passwords like [Secret]
             passwd = passwd[1:]
+            extra_msg = msgs['used_paranthesis']
             if passwd[-1] in ')]}>':
                 passwd = passwd[:-1]
         if len(passwd) < 8:
-            raise PasswordGoodEnoughException(msgs['atleast8'])
+            raise PasswordGoodEnoughException(msgs['atleast8']+extra_msg)
         if len(passwd) > 15:
             raise PasswordGoodEnoughException(msgs['atmost15'])
         if re.search(r'[\200-\376]', passwd):
@@ -348,8 +352,9 @@ class PasswordChecker(DatabaseAccessor):
         if re.search(r' ', passwd):
             raise PasswordGoodEnoughException(msgs['space'])
         # Concatenated names or words from dictionaries
-        if re.search(r'^[A-Z][a-z]+[^A-Za-z0-9][A-Z][a-z]*$', passwd[0:7]):
-            raise PasswordGoodEnoughException(msgs['dict_hit'])
+        if (re.search(r'^[A-Z][a-z]+[^A-Za-z0-9][A-Z][a-z]*$', passwd[0:7]) or
+            re.search(r'^[A-Z][a-z]+[^A-Za-z0-9][A-Z][a-z]*$', fullpasswd)):
+            raise PasswordGoodEnoughException(msgs['dict_hit_joined'])
 
         self._check_variation(passwd)
         if account is not None:
