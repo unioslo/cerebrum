@@ -141,7 +141,8 @@ class RequestHandler(SocketServer.StreamRequestHandler):
         #
         # Possible &send() feedback: ok, no, edbdown, badpage
 
-        if self.printer_quota.has_printerquota in (None, '0', 'F'):
+        if (self.printer_quota is None or
+            self.printer_quota.has_printerquota in (None, '0', 'F')):
             return ok
         pageunits = float(pageunits)
         self.log('TRACE', 'check_quota: %s@%s %s' % (
