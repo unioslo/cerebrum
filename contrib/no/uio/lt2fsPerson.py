@@ -66,6 +66,12 @@ fs.fagpersonundsemester
   tabellens primærnøkkel spenner over alle kolonnene nevnt over med
   untak av status kolonnene.
 
+Spesielle merknader
+--------------------
+  Dersom personen i følge Cerebrum finnes i FS og LT, men har
+  forskjellig fødselsnummer, skal logges en feilmelding.  Ingen data
+  skal endres for personen.
+
 """
 
 db = Factory.get('Database')()
@@ -115,8 +121,12 @@ class SimplePerson(object):
         self.gender = None
         self.phone = None
         self.fax = None
+        self.fnr_mismatch = None
 
     def is_vitenskapelig_ansatt(self):
+        for aff in self.affiliations:
+            if aff['status'] == int(co.affiliation_status_ansatt_vit):
+                return True
         return False
 
     def get_primary_sted(self):
@@ -194,6 +204,12 @@ def prefetch_person_info():
         sp.fnr, sp.pnr = fodselsnr.del_fnr(sp.fnr11)
         sp.birth_date = fodselsnr.fodt_dato(sp.fnr11)
         sp.gender = fodselsnr.er_mann(sp.fnr11) and 'M' or 'K'
+    for row in person.list_external_ids(source_system=co.system_fs,
+                                        id_type=co.externalid_fodselsnr):
+        sp = pid2person.get(long(row['person_id']), None)
+        if sp:
+            if row['external_id'] != sp.fnr11:
+                sp.fnr_mismatch = "FS:%s LT:%s" % (row['external_id'], sp.fnr11)
 
     logger.debug("Prefetch contact info...")
     # Finn telefon-nr og fax-nr på personene
@@ -203,6 +219,10 @@ def prefetch_person_info():
                                             contact_type=name_type):
             sp = pid2person.get(long(row['entity_id']), None)
             if sp:
+                if len(row['contact_value']) > 8:
+                    logger.warn("Ignoring too long contact: %s for %s" % (
+                        sp.fnr11, row['contact_value']))
+                    continue
                 setattr(sp, attr_name, row['contact_value'])
 
     logger.debug("Prefetch mail address...")
@@ -223,15 +243,10 @@ def process_person(pdata):
     logger.debug2("pdata=%s" % pdata)
     if not fs.get_person(pdata.fnr, pdata.pnr):
         logger.debug("...add person")
-        try:
-            fs.add_person(pdata.fnr, pdata.pnr, pdata.name_first,
-                          pdata.name_last, pdata.email, pdata.gender,
-                          "%4i-%02i-%02i" % pdata.birth_date)
-            fs.db.commit()
-        except fs.db.DatabaseError, msg:
-            # F.eks unique-constraint FS.I2_PERSON = duplikat e-mail adresse
-            logger.warn("Error adding %s: %s" % (pdata, msg))
-            fs.db.rollback()
+        fs.add_person(pdata.fnr, pdata.pnr, pdata.name_first,
+                      pdata.name_last, pdata.email, pdata.gender,
+                      "%4i-%02i-%02i" % pdata.birth_date)
+        fs.db.commit()
 
     if not pdata.is_vitenskapelig_ansatt():
         return
@@ -242,14 +257,19 @@ def process_person(pdata):
     # Statisk: $status
 
     stedkode = pdata.get_primary_sted()
+    if not fs_stedinfo.has_key(stedkode):
+        logger.warn("Sted %s er ukjent i FS" % stedkode)
+        return
     new_data = [fs_stedinfo[stedkode][c] for c in (
         'adrlin1', 'adrlin2', 'postnr', 'adrlin3', 'stedkortnavn',
         'institusjonsnr', 'faknr', 'instituttnr', 'gruppenr')]
     new_data.extend([pdata.phone, pdata.work_title, pdata.fax, status])
 
     fagperson = fs.get_fagperson(pdata.fnr, pdata.pnr)
+    logger.debug2("... er fp?: %s" % fagperson)
     if not fagperson:
-        logger.debug("...add fagperson")
+        print "Add", pdata.fnr11, pdata.fnr
+        logger.debug("...add fagperson (%s)" % (repr((pdata.fnr11, pdata.fnr, pdata.pnr, new_data))))
         fs.add_fagperson(pdata.fnr, pdata.pnr, *new_data)
         fs.db.commit()
     else:
@@ -270,15 +290,16 @@ def process_person(pdata):
     # $termin, $arstall, $instinr, $fak, $inst, $gruppe, $status,
     # $status_publ
 
-    new_data.extend([fs_stedinfo[stedkode][c] for c in (
-        'institusjonsnr', 'faknr', 'instituttnr', 'gruppenr')])
+    new_data = [fs_stedinfo[stedkode][c] for c in (
+        'institusjonsnr', 'faknr', 'instituttnr', 'gruppenr')]
     new_data.extend([termin, arstall, status, status_publ])
 
     fagpersonundsem = fs.get_fagpersonundsem(
         pdata.fnr, pdata.pnr, *new_data[0:6])
+    logger.debug2("... undsem?: %s -> %s" % (fagpersonundsem, repr((new_data))))
     if not fagpersonundsem:
         logger.debug("...add fagpersonundsem")
-        fs.add_fagpersonundsem(fnr, *new_data)
+        fs.add_fagpersonundsem(pdata.fnr, pdata.pnr, *new_data)
         fs.db.commit()
     else:
         # Oppdatering ikke nødvendig
@@ -290,6 +311,9 @@ def update_lt():
     fs_stedinfo = get_fs_stedkoder()
     arstall, termin = get_termin()
     for person_id, pdata in prefetch_person_info().items():
+        if pdata.fnr_mismatch:
+            logger.warn("Fnr-mismatch, skipping: %s" % pdata.fnr_mismatch)
+            continue
         try:
             process_person(pdata)
         except fs.db.DatabaseError, msg:
@@ -303,7 +327,7 @@ def main():
     except getopt.GetoptError:
         usage(1)
 
-    database = "FSPROD.uio.no"
+    database = "FSDEMO.uio.no"
     user = "ureg2000"
     for opt, val in opts:
         if opt in ('--help',):
