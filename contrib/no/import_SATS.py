@@ -357,15 +357,21 @@ def import_all():
             poid2person_id[oid] = person_id
             disk = None
             skole = None
+            # TBD: Note that we currently selects the first
+            # klassetrinn and skole matching a person.  This is
+            # probably wrong.
             for row in rows:
                 if isinstance(row, ElevRow):
                     # Gruppe med elever per kombinasjon (skole, klasse)
                     gname = '%s_%s_elev' % (row.skole, row.klasse)
                     groups.setdefault(gname, []).append(person_id)
-                    disk = 2003-int(multi_getattr_uniq(rows, 'klassetrinn')) + 1
-                    skole = multi_getattr_uniq(rows, 'skole')
-                    if not (disk >= 2000 and disk <= 2002):
-                        disk = None
+                    try:
+                        disk = 2003-int(multi_getattr(rows, 'klassetrinn')[0]) + 1
+                        skole = multi_getattr(rows, 'skole')[0]
+                        if not (disk >= 2000 and disk <= 2002):
+                            disk = None
+                    except ValueError:
+                        pass  # TBD: Is this a legal sats data entry?
                 elif isinstance(row, ForesattRow):
                     # Gruppe med foresatte per kombinasjon (skole, klasse)
                     gname = '%s_%s_foresatt' % (row.skole, row.klasse)
@@ -373,7 +379,7 @@ def import_all():
                 elif isinstance(row, AnsattRow):
                     gname = "%s_ansatt" % row.skole
                     disk = "ansatt"
-                    skole = multi_getattr_uniq(rows, 'skole')
+                    skole = multi_getattr(rows, 'skole')[0]
             # TBD: vi ønsker antagelig å dytte inn account_id sammen
             #   med person_id i groups dict'en over + lærer under
             if disk is not None and skole == 'ELV':
