@@ -92,6 +92,7 @@ person = Factory.get('Person')(db)
 logger = Factory.get_logger("cronjob")
 
 ou_id2stedkode = {}
+ou_id2parent_id = {}
 
 def get_fs_stedkoder():
     """Returnere en mapping fra ou_id til data om stedet fra FS. """
@@ -274,7 +275,11 @@ def process_person(pdata):
     # Statisk: $status
 
     ou_id = pdata.get_primary_sted()
-    if not fs_stedinfo.has_key(ou_id):
+    while ou_id is not None and not fs_stedinfo.has_key(ou_id):
+        logger.debug("%s ukjent i FS, sjekk parent-ou" % ou_id)
+        ou_id = ou_id2parent_id[ou_id]
+
+    if ou_id is None:
         logger.warn("Sted %s (%s) er ukjent i FS" % (ou_id, ou_id2stedkode[ou_id]))
         return
     new_data = [None, None, None, None, None]  # SFA didn't want address
@@ -297,11 +302,20 @@ def process_person(pdata):
             fs.person.update_fagperson(pdata.fnr, pdata.pnr, tlf=new_data[0],
                                        fax=new_data[1])
 
-def update_lt():
+def update_from_lt():
     global fs_stedinfo, arstall, termin
     
     fs_stedinfo = get_fs_stedkoder()
     arstall, termin = get_termin()
+
+    ou = Factory.get("OU")(db)
+    for row in ou.get_structure_mappings(co.perspective_lt):
+        parent_id = None
+        if row['parent_id'] is not None and (
+            int(row['parent_id']) != int(row['ou_id'])):
+            parent_id = int(row['parent_id'])
+        ou_id2parent_id[ int(row['ou_id']) ] = parent_id
+
     for person_id, pdata in prefetch_person_info().items():
         if pdata.fnr_mismatch:
             logger.warn("Fnr-mismatch, skipping: %s" % pdata.fnr_mismatch)
@@ -340,7 +354,7 @@ def main():
     fs = FS(user=user, database=database)
     if dryrun:
         fs.db.commit = fs.db.rollback
-    update_lt()
+    update_from_lt()
 
 def usage(exitcode=0):
     print """Usage: lt2fsPerson [opsjoner]
