@@ -68,12 +68,12 @@ def quick_user_sync():
 	    else:	            
 		print 'WARNING: failed changing password for ',ans['subject_entity']
         elif chg_type == clco.group_add or chg_type == clco.group_rem:
-            account.clear()
-            a_obj = account.find(ans['subject_entity'])
-            if account.has_spread(int(co.spread_uio_ad_account)):
+            entity.clear()
+            entity.find(ans['subject_entity'])
+            #TBD:A group added to a group should be expanded and its members added. 
+            if entity.has_spread(int(co.spread_uio_ad_account)):
                 group.clear()
                 g_obj = group.find(ans['dest_entity'])
-
                 if group.has_spread(int(co.spread_uio_ad_group)):
                     account_name = id_to_name(ans['subject_entity'],'user')
                     group_name = id_to_name(ans['dest_entity'],'group')
@@ -156,20 +156,19 @@ def add_spread(entity_id,spread):
             else:
                 'WARNING: Failed creating new user ', account_name
 
-        if sock.read() == ['210 OK']:
-            
+        if sock.read() == ['210 OK']:            
             (full_name, account_disable, home_dir, cereconf.AD_HOME_DRIVE, login_script) = adutils.get_user_info(entity_id,account_name)
             sock.send('ALTRUSR&%s/%s&fn&%s&dis&%s&hdir&%s&hdr&%s&ls&%s&pexp&%s&ccp&%s\n' % ( cereconf.AD_DOMAIN, account_name, full_name, account_disable, home_dir, cereconf.AD_HOME_DRIVE, login_script, cereconf.AD_PASSWORD_EXPIRE, cereconf.AD_CANT_CHANGE_PW ))  
             #TBD:Even a new user that received AD_spread can have a quarantine setting.
             if sock.read() == ['210 OK']:
-                    #Make sure that the user is in the groups he should be.
-                    for row in group.list_groups_with_entity(account.entity_id):
-                        group.clear()
-                        group.find(row['group_id'])
-                        if group.has_spread(int(co.spread_uio_ad_group)):
-                            grp_name = '%s-gruppe' % (group.group_name)
-                            if not group_add(account_name,grp_name):
-                                print 'WARNING: add user %s to group %s failed' % (account_name,grp_name)        
+                #Make sure that the user is in the groups he should be.
+                for row in group.list_groups_with_entity(account.entity_id):
+                    group.clear()
+                    group.find(row['group_id'])
+                    if group.has_spread(int(co.spread_uio_ad_group)):
+                        grp_name = '%s-gruppe' % (group.group_name)
+                        if not group_add(account_name,grp_name):
+                            print 'WARNING: add user %s to group %s failed' % (account_name,grp_name)                    
         else:    
             #TBD: This is serious and should write to std.err.
             print 'CRITICAL: ', account_name ,', failed replacing blank password.' 
