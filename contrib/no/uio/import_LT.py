@@ -3,16 +3,13 @@
 import re
 import os
 
-from Cerebrum import Database
-from Cerebrum import Person
+from Cerebrum import Database, Person, Constants, Errors
 from Cerebrum.modules.no.uio import OU
 from Cerebrum.modules.no import fodselsnr
 from DCOracle2 import Date
 import pprint
 
 personfile = "/u2/dumps/LT/persons.dat";
-FEMALE = 'F'
-MALE = 'M'
 
 class LTData(object):
     """This class is used to iterate over all users in LT. """
@@ -73,18 +70,29 @@ def conv_name(fullname):
 Cerebrum = Database.connect(user="cerebrum")
 ou = OU.OU(Cerebrum)
 personObj = Person.Person(Cerebrum)
+co = Constants.Constants(Cerebrum)
 
 def main():
     pp = pprint.PrettyPrinter(indent=4)
-    
+    new_person = Person.Person(Cerebrum)
+            
     for person in LTData(personfile):
         print "Got %s" % person['fnr'],
         # pp.pprint(person)
-
+        new_person.clear()
+        gender = co.gender_male
         if(fodselsnr.er_kvinne(person['fnr'])):
-            gender = FEMALE
-        else:
-            gender = MALE
+            gender = co.gender_female
+
+        (year, mon, day) = fodselsnr.fodt_dato(person['fnr'])
+        if(year < 1970): year = 1970   # Seems to be a bug in time.mktime on some machines
+        new_person.populate(Date(year, mon, day), gender)
+
+        new_person.affect_names(co.system_lt, co.name_full)
+        lname, fname = conv_name(person['navn'])
+        new_person.populate_name(co.name_full, "%s %s" % (lname, fname))
+
+        new_person.populate_external_id(co.system_lt, co.externalid_fodselsnr, person['fnr'])
 
         # Gå gjennom tils+bil for å finne riktig STEDKODE, og bruk denne
         bigpros = 0
@@ -109,44 +117,39 @@ def main():
             faxer = [t[2] or t[1] for t in person['komm'] if t[0] == 'FAX']
         if len(faxer) == 0:
             pass            # TODO: Hente fax fra stedkode 
-            
+        for tlf in telefoner:
+            new_person.populate_contact_info(co.contact_phone, tlf)
+        for fax in faxer:
+            new_person.populate_contact_info(co.contact_fax, fax)
+
+        new_person.affect_addresses(co.system_lt, co.address_post)
+        new_person.populate_address(co.address_post, addr="%s\n%s" %
+                                    (person['adr1'],
+                                     person['adr2']),
+                                    zip=person['poststednr'],
+                                    city=person['poststednavn'])
+
+        if(person.has_key('faknr')):
+            try:
+                fak, inst, gruppe = stedkode[0:2], stedkode[2:4], stedkode[4:6]
+                ou.find_stedkode(int(fak), int(inst), int(gruppe))
+                new_person.affect_affiliations(co.system_lt, co.affiliation_employee)
+                new_person.populate_affiliation(ou.ou_id, co.affiliation_employee,
+                                                co.affiliation_status_employee_valid)
+            except:
+                print "Error setting stedkode"
+
         try:
-            personObj.find_by_external_id('fodselsnr', person['fnr'])
-            print " Already exists"
-
-            # Todo: cmp
-        except:
-            print " Is new"
-            (year, mon, day) = fodselsnr.fodt_dato(person['fnr'])
-            if(year < 1970): year = 1970   # Seems to be a bug in time.mktime on some machines
-
-            id = personObj.new(Date(year, mon, day), gender)
-            personObj.find(id)
-            personObj.set_external_id('fodselsnr', person['fnr'])
-            lname, fname = conv_name(person['navn'])
-            personObj.set_name('full', 'LT', "%s %s" % (fname, lname))
-            personObj.entity_id = personObj.person_id
-
-            personObj.add_entity_address('LT', 'p', addr="%s\n%s" %
-                                      (person['adr1'],
-                                       person['adr2']),
-                                      zip=person['poststednr'],
-                                      city=person['poststednavn'])
-
-            for tlf in telefoner:
-                personObj.add_entity_phone('LT', FAST_TELEFON, tlf)
-            for fax in faxer:
-                pass   # Hvor skal fax lagres?  entity_contact_info?
-                
-
-            if(person.has_key('faknr')):
-                try:
-                    ou.get_stedkode(int(stedkode[0:2]), int(stedkode[2:4]), int(stedkode[4:6]))
-                    # TODO: Not sure how status/code is supposed to be used
-                    personObj.set_affiliation(ou.ou_id, 'valid')
-                except:
-                    print "Error setting stedkode "
+            personObj.find_by_external_id(co.externalid_fodselsnr, person['fnr'])
+            if not (new_person == personObj):
+                print "**** UPDATE ****"
+                new_person.write_db(personObj)
+            else:
+                print "-"
+        except Errors.NotFoundError:
+            print "**** NEW ****"
+            new_person.write_db()
+    Cerebrum.commit()
 
 if __name__ == '__main__':
     main()
-
