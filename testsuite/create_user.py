@@ -5,26 +5,24 @@ import sys
 from Cerebrum import Constants
 from Cerebrum import Person
 from Cerebrum.Utils import Factory
-from server.bofhd import ExportedFuncs
-from server.bofhd import CallableFuncs
+from server.bofhd_cmds import BofhdExtension
 
 def create_user(db, external_id):
     print "Creating posix user for person with external id", external_id
 
     const = Constants.Constants(db)
 
-    ef = ExportedFuncs(db, "config.dat")
+    ef = BofhdExtension(db)
 
     home = "/home/dir"
     posix_gid = 999999
     shell = const.posix_shell_bash
 
-    person_info = ef.cfu.get_person(None, external_id)
+    person_info = ef._get_person(external_id)
 
-    print "PersonID:", person_info['pid'], "Name:", person_info['name']
+    print "PersonID:", person_info.entity_id
 
-    ef.cfu.user_create(None, person_info['pid'], None, None, None, None,
-                       posix_gid, None, home, shell)
+    ef.account_create(None, 'accname', 'fnr', external_id)
 
 
 def main():
