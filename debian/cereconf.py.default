@@ -18,18 +18,7 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 # Provide defaults for all settings.
-from Cerebrum.default_config import *
+from Cerebrum.debian_config import *
 
 # Put any changes to the default settings below.
-CEREBRUM_DATABASE_CONNECT_DATA['user'] = 'cerebrum' 
-DATABASE_DRIVER = 'PostgreSQL' 
-CEREBRUM_DATABASE_NAME = "cerebrum" 
-DB_AUTH_DIR = '/etc/cerebrum' 
-CLASS_CONSTANTS = ( 
-	'Cerebrum.modules.no.uio.Constants/Constants', 
-	'Cerebrum.modules.no.Constants/Constants', 
-	'Cerebrum.modules.PosixUser/Constants', 
-	'Cerebrum.modules.CLConstants/CLConstants' 
-) 
-CLASS_OU = ('Cerebrum.modules.no.Stedkode/Stedkode',)
 INITIAL_ACCOUNTNAME_PASSWORD = "change_on_install"
