@@ -3425,6 +3425,8 @@ class BofhdExtension(object):
         entity = self._get_entity(entity_type, id)
         spread = int(self._get_constant(spread, "No such spread"))
         self.ba.can_add_spread(operator.get_entity_id(), entity, spread)
+        if spread == int(self.const.spread_uio_imap):
+            raise CerebrumError, "Cannot remove IMAP spread without deleting user"
         entity.delete_spread(spread)
         if entity_type == 'account':
             self.__spread_sync_group(entity)
