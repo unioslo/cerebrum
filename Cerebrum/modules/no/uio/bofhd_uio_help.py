@@ -13,6 +13,8 @@ group_help = {
     'perm': 'Control of Privileges in Cerebrum'
     }
 
+# The texts in command_help are automatically line-wrapped, and should
+# not contain \n
 command_help = {
     'group': {
     'group_add': 'Let an account join a group',
@@ -92,8 +94,7 @@ command_help = {
     'user_delete': 'Delete an account',
     'user_demote_posix': 'Make a POSIX user account into a generic Cerebrum account',
     'user_gecos': 'Set gecos field for a user account',
-    'user_history': """Show history of the account with uname. Limited to users subordinate 
-to a privilege group the BOFH user is a member of""",
+    'user_history': "Show history of the account with uname. Limited to users subordinate to a privilege group the BOFH user is a member of",
     'user_info': 'View general information about an account',
     'user_move': 'Move a users home directory to another disk',
     'user_password': 'Set a new password for an account',
