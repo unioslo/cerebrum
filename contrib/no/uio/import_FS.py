@@ -97,11 +97,12 @@ def process_person(Cerebrum, persondta):
         atype = 'semadr'  # Evt. hjemsted
     elif persondta['type'] == 'evu':
         atype = 'hjem'   # Evt. hjemsted
+    # TODO: Trenger kanskje noen tester på gyldighet av addr før vi legger den inn?
     new_person.populate_address(co.address_post, addr="%s\n%s" %
-                                (persondta['adrlin1_%s' % atype],
+                                (persondta.get('adrlin1_%s' % atype, ''),
                                  persondta.get('adrlin2_%s' % atype, '')),
-                                zip=persondta['postnr_%s' % atype],
-                                city=persondta['adrlin3_%s' % atype])
+                                zip=persondta.get('postnr_%s' % atype, ''),
+                                city=persondta.get('adrlin3_%s' % atype, ''))
 
     for i in range(0, len(sko_info), 3):
         ou = OU.OU(Cerebrum)
