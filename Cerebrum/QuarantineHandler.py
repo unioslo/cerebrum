@@ -26,7 +26,8 @@ class QuarantineHandler(object):
             for k in cereconf.QUARANTINE_RULES.keys():
                 qc = _QuarantineCode(k)
                 self.rules[int(qc)] = cereconf.QUARANTINE_RULES[k]
-                print qc
+        if quarantines is None:
+            quarantines = []
         self.quarantines = quarantines
 
     def get_shell(self):
