@@ -770,7 +770,6 @@ def make_letters(data_file=None, type=None, range=None):
     account = Factory.get('Account')(db)
     dta = {}
     logger.debug("Making %i letters" % len(all_passwords))
-    any_letter = None
     for account_id in all_passwords.keys():
         try:
             account.clear()
@@ -805,54 +804,65 @@ def make_letters(data_file=None, type=None, range=None):
         tpl['birthno'] =  tmp[0]['external_id']
         tpl['emailadr'] =  "TODO"  # We probably don't need to support this...
         tpl['account_id'] = account_id
-        dta[account_id] = tpl
-        if any_letter is None:
-            any_letter = all_passwords[account_id][1]
-    # Print letters sorted by zip by default. Override with 'order_by' in 
-    # studconfig. order_by must have the same value in ALL letters.
+
+        # First we group letters by 'order_by', default is 'zip'
+        brev_profil = all_passwords[account_id][1]
+        order_by = 'zip'
+        if brev_profil.has_key('order_by'):
+            order_by = brev_profil['order_by']
+        if not dta.has_key(order_by):
+            dta[order_by] = {}
+        dta[order_by][account_id] = tpl
+
+    # Do the actual sorting. We end up with one array with account_id's 
+    # sorted in groups on sorting criteria.
+    sorted_keys = []
+    for order in dta.keys():
+        keys = dta[order].keys()
+        keys.sort(lambda x,y: cmp(dta[order][x][order_by], dta[order][y][order_by]))
+        sorted_keys = sorted_keys + keys
+
     # Each template type has its own letter number sequence
-    order_by = 'zip'
-    if any_letter is not None and any_letter.has_key('order_by'):
-        order_by = any_letter['order_by']
-    keys = dta.keys()
-    keys.sort(lambda x,y: cmp(dta[x][order_by], dta[y][order_by]))
     letter_info = {}
     files = {}
     tpls = {}
     counters = {}
     printers = {}
-    for account_id in keys:
-        if not dta[account_id]['zip'] or dta[account_id]['country']:
+    for account_id in sorted_keys:
+        password, brev_profil = all_passwords[account_id][:2]
+        order_by = 'zip'
+        if brev_profil.has_key('order_by'):
+            order_by = brev_profil['order_by']
+        if not dta[order_by][account_id]['zip'] or dta[order_by][account_id]['country']:
             # TODO: Improve this check, which is supposed to skip foreign addresses
             logger.warn("Not sending abroad: %s" % dta[account_id]['uname'])
             continue
-        
-        password, brev_profil = all_passwords[account_id][:2]
-        letter_type = "%s.%s" % (brev_profil['mal'], brev_profil['type'])
+        printer = cereconf.PRINT_PRINTER
+        if brev_profil.has_key('printer'):
+            printer = brev_profil['printer']
+        letter_type = "%s-%s.%s" % (brev_profil['mal'], printer, brev_profil['type'])
         if not files.has_key(letter_type):
             files[letter_type] = file("letter-%i-%s" % (time(), letter_type), "w")
+            printers[letter_type] = printer
             tpls[letter_type] = TemplateHandler(
                 'no_NO/letter', brev_profil['mal'], brev_profil['type'])
             if tpls[letter_type]._hdr is not None:
                 files[letter_type].write(tpls[letter_type]._hdr)
-            printers[letter_type] = cereconf.PRINT_PRINTER
-            if brev_profil.has_key('printer'):
-                printers[letter_type] = brev_profil['printer']
             counters[letter_type] = 1
         if data_file is not None:
-            dta[account_id]['lopenr'] = all_passwords[account_id][2]
+            dta[order_by][account_id]['lopenr'] = all_passwords[account_id][2]
             if not os.path.exists("barcode_%s.eps" % account_id):
                 make_barcode(account_id)
         else:
-            dta[account_id]['lopenr'] = counters[letter_type]
+            dta[order_by][account_id]['lopenr'] = counters[letter_type]
             letter_info["%s-%i" % (brev_profil['mal'], counters[letter_type])] = \
                                 [account_id, [password, brev_profil, counters[letter_type]]]
             # We allways create a barcode file, this is not strictly
             # neccesary
             make_barcode(account_id)
-        dta[account_id]['barcode'] = os.path.realpath('barcode_%s.eps' %  account_id)
+        dta[order_by][account_id]['barcode'] = os.path.realpath('barcode_%s.eps' %  account_id)
         files[letter_type].write(tpls[letter_type].apply_template(
-            'body', dta[account_id], no_quote=('barcode',)))
+            'body', dta[order_by][account_id], no_quote=('barcode',)))
         counters[letter_type] += 1
     # Save passwords for created users so that letters may be
     # re-printed at a later time in case of print-jam etc.
