@@ -25,6 +25,7 @@ import base64
 import cerebrum_path
 from Cerebrum import Errors
 from Cerebrum import Account
+from Cerebrum import Group
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import Email
 
@@ -104,11 +105,12 @@ def write_ldif():
         mail_targ.find(t)
 
         target = ""
+        uid = ""
 
         # The structure is decided by what target-type the
         # target is (class EmailConstants in Email.py):
         tt = mail_targ.get_target_type()
-        tt = Email._EmailTargetCode(tt)
+        tt = Email._EmailTargetCode(int(tt))
 
         if tt == co.email_target_account:
             # Target is the local delivery defined for the Account whose
@@ -126,10 +128,15 @@ def write_ldif():
                     txt = "Target: %s(account) no user found: %s"% (t,ent_id)
                     sys.stderr.write(txt)
                     continue
-
+            else:
+                txt = "Target: %s(account) wrong entity type: %s"% (t,ent_id)
+                sys.stderr.write(txt)
+                continue
+            
         elif tt == co.email_target_pipe or \
              tt == co.email_target_file or \
              tt == co.email_target_Mailman:
+
             # Target is a shell pipe. The command (and args) to pipe mail
             # into is gathered from email_target.alias_value.  Iff
             # email_target.entity_id is set and belongs to an Account,
@@ -159,7 +166,7 @@ def write_ldif():
                     acc = Account.Account(Cerebrum)
                     acc.clear()
                     acc.find(ent_id)
-                    target = ":%s:%s" % (acc.account_name, target)
+                    uid = acc.account_name
                 except Errors.NotFoundError:
                     txt = "Target: %s(%s) no user found: %s" % (t, tt, ent_id)
                     sys.stderr.write(txt)
@@ -186,9 +193,10 @@ def write_ldif():
                 txt = "Target: %s (%s) no forwarding found." % (t, tt)
                 sys.stderr.write(txt)
                 continue
+
         else:
             # The target-type isn't known to this script.
-            stderr.write("Wrong target-type in target: %s: %s" % ( t, tt ))
+            sys.stderr.write("Wrong target-type in target: %s: %s" % ( t, tt ))
             continue
 
         print "dn: cn=a%s,ou=mail,dc=uio,dc=no" % t
@@ -197,7 +205,9 @@ def write_ldif():
         print "targetType: %s" % tt
         #print "target:: %s" % base64.encodestring(target)
         print "target: %s" % target
-
+        if uid:
+            print "uid: %s" % uid
+        
         # Find primary mail-address:
         try:
             mail_prim.clear()
