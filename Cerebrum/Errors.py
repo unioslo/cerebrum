@@ -37,5 +37,5 @@ class NotFoundError(DatabaseException):
 class TooManyRowsError(DatabaseException):
     pass
 
-class NoEntityAssociationError(CerebrumError):
+class NoEntityAssociationError(CerebrumException):
     pass
