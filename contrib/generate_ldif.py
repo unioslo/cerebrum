@@ -155,7 +155,7 @@ def init_ldap_dump(ou_org,filename=None):
     f.write(init_str)
     f.write("\n")
     ou_struct[int(ou.ou_id)] = (cereconf.LDAP_BASE, post_string,
-                                street_string, ou_phones, ou_faxs)
+                                street_string, None, None, None)
     for org in cereconf.LDAP_ORG_GROUPS:
 	org = org.upper()
 	org_name = str(getattr(cereconf, 'LDAP_' + org + '_DN'))
@@ -167,8 +167,11 @@ def init_ldap_dump(ou_org,filename=None):
 	    init_str += "%s: %s\n" % (cereconf.LDAP_ORG_ATTR,ous)
 	init_str += "description: %s\n" % \
                     some2utf(getattr(cereconf, 'LDAP_' + org + '_DESCRIPTION'))
-        for attrs in cereconf.get('LDAP_' + org + '_ADD_ATTR'):
-            init_str += attrs + '\n'
+        try:
+            for attrs in getattr(cereconf, 'LDAP_' + org + '_ADD_ATTR'):
+                init_str += attrs + '\n'
+        except AttributeError:
+            pass
 	init_str += '\n'
 	f.write(init_str)
     if cereconf.LDAP_MAN_LDIF_ADD_FILE:
