@@ -23,7 +23,7 @@ class BofhdExtention:
 
     def get_stedkode_info(self, uname, number):
         fakultetnr, instituttnr, gruppenr = number[0:2], number[2:4], number[4:6]
-        self.ou.get_stedkode(fakultetnr, instituttnr, gruppenr)
+        self.ou.find_stedkode(fakultetnr, instituttnr, gruppenr)
         self.ou.find(self.ou.ou_id)
         return {
             'name' : self.ou.name,
@@ -41,5 +41,5 @@ class BofhdExtention:
 
 if __name__ == '__main__':
     Cerebrum = Database.connect(user="cerebrum")
-    sm = SkeletonModule(Cerebrum)
+    sm = BofhdExtention(Cerebrum)
     print "Ret: %s" % sm.get_stedkode_info('user', '900547')
