@@ -1098,6 +1098,8 @@ def create_account(u, owner_id, owner_type, np_type=None):
             accountObj.add_spread(co.spread_uio_ad_account)
         elif tmp['domain'] == 'i':
             accountObj.add_spread(co.spread_ifi_nis_user)
+        elif tmp['domain'] == 'n':
+            accountObj.add_spread(co.spread_uio_notes_account)
     for tmp in u.get('pwdhist', []):
         pwdhist.add_history(accountObj, '', _csum=tmp['value'])
     return accountObj.entity_id
