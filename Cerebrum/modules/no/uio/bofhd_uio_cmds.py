@@ -156,11 +156,12 @@ class BofhdExtension(object):
 
     all_commands['group_account'] = Command(
         ('group', 'user'), AccountName(), fs=FormatSuggestion(
-        "%-9i %i", ("memberop", "group"), hdr="Operation Group id"))
+        "%-9s %s", ("memberop", "group"), hdr="Operation Group"))
     def group_account(self, operator, accountname):
         account = self._get_account(accountname)
         group = Group.Group(self.db)
-        return [{'memberop': r['operation'], 'group': r['group_id']}
+        return [{'memberop': self._get_const(r['operation']),
+                 'group': self._get_entity_name(self.const.entity_group, r['group_id'])}
                 for r in group.list_groups_with_entity(account.entity_id)]
 
     all_commands['group_create'] = Command(
@@ -195,36 +196,43 @@ class BofhdExtension(object):
 
     all_commands['group_info'] = Command(
         ("group", "info"), GroupName(ptype="existing"),
-        fs=FormatSuggestion("id: %i", ("entity_id",)))
+        fs=FormatSuggestion("id: %i\nSpreads: %s", ("entity_id", "spread")))
     def group_info(self, operator, groupname):
         grp = self._get_group(groupname)
+        
         # TODO: Return more info about groups
-        return {'entity_id': grp.entity_id}
+        # TODO: We need a method for formating lists (here: spreads)
+        #       as part of the result
+        return {'entity_id': grp.entity_id,
+                'spread': ",".join([self._get_const(int(a['spread']))
+                                    for a in grp.get_spread()])}
 
     all_commands['group_list'] = Command(
         ("group", "ls"), GroupName(ptype="existing"),
-        fs=FormatSuggestion("%-2s %-5i %i", ("op", "type", "id"),
-                            hdr="Op Type  Id"))
+        fs=FormatSuggestion("%-8s %-7s %6i %s", ("op", "type", "id", "name"),
+                            hdr="MemberOp Type    Id     Name"))
     def group_list(self, operator, groupname):
         """List direct members of group"""
         group = self._get_group(groupname)
         ret = []
         u, i, d = group.list_members()
-        for r in u:
-            ret.append({'op': 'u', 'type': r[0], 'id': r[1]})
-        for r in i:
-            ret.append({'op': 'i', 'type': r[0], 'id': r[1]})
-        for r in d:
-            ret.append({'op': 'd', 'type': r[0], 'id': r[1]})
+        for t, rows in ('union', u), ('inters.', i), ('diff', d):
+            for r in rows:
+                ret.append({'op': t,
+                            'type': self._get_const(r[0]),
+                            'id': r[1],
+                            'name': self._get_entity_name(r[0], r[1])})
         return ret
 
     all_commands['group_list_expanded'] = Command(
         ("group", "lsexp"), GroupName(ptype="existing"),
-        fs=FormatSuggestion("%i", ("member_id",), hdr="Members ids"))
+        fs=FormatSuggestion("%8i %s", ("member_id", "name"), hdr="Id       Name"))
     def group_list_expanded(self, operator, groupname):
         """List members of group after expansion"""
         group = self._get_group(groupname)
-        return [{'member_id': a} for a in group.get_members()]
+        return [{'member_id': a,
+                 'name': self._get_entity_name(self.const.entity_account, a)
+                 } for a in group.get_members()]
 
     #
     # user commands
@@ -358,21 +366,26 @@ class BofhdExtension(object):
 
     all_commands['account_info'] = Command(
         ("user", "info"), AccountName(ptype="existing"),
-        fs=FormatSuggestion("entity id: %i", ("entity_id",)))
+        fs=FormatSuggestion("entity id: %i\nSpreads: %s", ("entity_id", "spread")))
     def account_info(self, operator, accountname):
         account = self._get_account(accountname)
         # TODO: Return more info about account
-        return {'entity_id': account.entity_id}
+        return {'entity_id': account.entity_id,
+                'spread': ",".join([self._get_const(int(a['spread']))
+                                    for a in account.get_spread()])}
 
     all_commands['account_accounts'] = Command(
         ("user", "accounts"), PersonIdType(), PersonId(),
-        fs=FormatSuggestion("%6i", ("account_id",), hdr="Id"))
+        fs=FormatSuggestion("%6i %s", ("account_id", "name"), hdr="Id     Name"))
     def account_accounts(self, operator, id_type, id):
         person = self._get_person(id, id_type)
         account = Account.Account(self.db)
         ret = []
         for r in account.list_accounts_by_owner_id(person.entity_id):
-            ret.append({'account_id': r['account_id']})
+            account = self._get_account(r['account_id'], idtype='id')
+
+            ret.append({'account_id': r['account_id'],
+                        'name': account.account_name})
         return ret
 
     all_commands['account_delete'] = Command(
@@ -530,15 +543,21 @@ class BofhdExtension(object):
         elif grtype == "PosixGroup":
             group = PosixGroup.PosixGroup(self.db)
         try:
+            group.clear()
             if idtype == 'name':
-                group.clear()
                 group.find_by_name(id)
+            elif idtype == 'id':
+                group.find(id)
             else:
                 raise NotImplementedError, "unknown idtype: '%s'" % idtype
         except Errors.NotFoundError:
             raise CerebrumError, "Could not find group with %s=%s" % (idtype, id)
         return group
 
+    def _get_const(self, num):
+        c = self.const.map_const(num)
+        return str(c)
+    
     def _get_shell(self, shell):
         if shell == 'bash':
             return self.const.posix_shell_bash
@@ -611,6 +630,16 @@ class BofhdExtension(object):
             return self.const.name_full
         else:
             raise NotImplementedError, "unkown nametype: %s" % nametye
+
+    def _get_entity_name(self, type, id):
+        if type == self.const.entity_account:
+            acc = self._get_account(id, idtype='id')
+            return acc.account_name
+        elif type == self.const.entity_group:
+            group = self._get_group(id, idtype='id')
+            return group.get_name(self.const.group_namespace)
+        else:
+            return "%s:%s" % (type, id)
 
     # TODO: the mapping of user typed description to numeric db-id for
     # codes, and from id -> description should be done in an elegant way
