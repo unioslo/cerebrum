@@ -678,7 +678,7 @@ ORDER BY fodselsdato, personnr
              fs.registerkort r
         WHERE
         r.TERMINKODE = :semester and  r.arstall = :year and
-        r.regformkode in ('STUDWEB','MANUELL','FRITATT') and
+        r.regformkode in ('STUDWEB','MANUELL') and
         r.fodselsdato = frk.fodselsdato and
         r.personnr = frk.personnr and
         frk.status_betalt = 'J' AND
@@ -687,6 +687,12 @@ ORDER BY fodselsdato, personnr
         frk.fakturastatuskode ='OPPGJORT' and
         fkd.fakturanr = frk.fakturanr AND
         fkd.fakturadetaljtypekode = 'PAPIRAVG'"""
+	qry += """ UNION
+        SELECT DISTINCT r.fodselsdato, r.personnr
+        FROM fs.registerkort r
+        WHERE
+        r.TERMINKODE = : semester and r.arstall = :year AND
+        r.betformkode='FRITATT'"""
 	
 #Ved senere anledning (når studierettstatuskoder som skal brukes er bekreftet
 # skal denne delen av søket også taes i bruk
