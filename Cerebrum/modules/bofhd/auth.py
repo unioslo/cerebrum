@@ -30,6 +30,7 @@ from Cerebrum import Person
 from Cerebrum.modules import PosixGroup
 from Cerebrum.Utils import Factory, mark_update
 from Cerebrum.modules.bofhd.errors import PermissionDenied
+from Cerebrum.modules.bofhd.utils import BofhdRequests
 
 
 class AuthConstants(Constants._CerebrumCode):
@@ -612,41 +613,61 @@ class BofhdAuth(DatabaseAccessor):
                                    query_run_any=query_run_any)
     
     def can_add_account_type(self, operator, account=None, ou=None, aff=None,
-                            aff_status=None, query_run_any=False):
+                             aff_status=None, query_run_any=False):
+        """If operator is same person as account, allow him to add any
+        of the person's existing affiliation, but only allow him to
+        remove an affiliation if at least one other account still has
+        it.
+
+        If the operator has create_user access to the account's disk,
+        as above, but also allow the last affiliation to be removed."""
+
+        if query_run_any:
+            return True
         if self.is_superuser(operator):
             return True
-        if query_run_any:
-            if self._has_operation_perm_somewhere(operator, self.const.auth_create_user):
-                return True
-            return False
-        # Return true if we have auth_create_user on this user, and
-        # the affiliation is of type manual or the person has the affiliaton
-        disk = self._get_user_disk(account.entity_id)
-        if disk:
-            disk = disk['disk_id']
-        self.can_create_user(operator, disk=disk)
-        if aff == self.const.affiliation_manuell:
+        op_acc = Factory.get("Account")(self._db)
+        op_acc.find(operator)
+        myself = False
+        if (op_acc.owner_id == account.owner_id and
+            op_acc.owner_type == account.owner_type):
+            myself = True
+        else:
+            disk = self._get_user_disk(account.entity_id)
+            if disk:
+                disk = disk['disk_id']
+            self.can_create_user(operator, disk=disk)
+
+        # aff_status is only None when removing account_type.
+        if myself and aff_status is None:
+            others = False
+            exists = False
+            for r in account.get_account_types(all_persons_types=True):
+                if r['ou_id'] == ou.entity_id and r['affiliation'] == aff:
+                    if r['account_id'] == account.entity_id:
+                        exists = True
+                    else:
+                        others = True
+            if not exists:
+                raise PermissionDenied, "No such affiliation"
+            if not others:
+                raise PermissionDenied, \
+                      "Can't remove affiliation from last account"
             return True
+
         person = Person.Person(self._db)
         person.find(account.owner_id)
         for tmp_aff in person.get_affiliations():
-            if (tmp_aff['affiliation'] == aff and
-                tmp_aff['status'] == aff_status):
+            if (tmp_aff['ou_id'] == ou.entity_id and
+                tmp_aff['affiliation'] == aff and
+                (aff_status is None or tmp_aff['status'] == aff_status)):
                 return True
         raise PermissionDenied("No access")
 
     def can_remove_account_type(self, operator, account=None, ou=None,
-                               aff=None, query_run_any=False):
-        if self.is_superuser(operator):
-            return True
-        if query_run_any:
-            if self._has_operation_perm_somewhere(operator, self.const.auth_create_user):
-                return True
-            return False
-        disk = self._get_user_disk(account.entity_id)
-        if disk:
-            disk = disk['disk_id']
-        return self.can_create_user(operator, disk=disk)
+                                aff=None, query_run_any=False):
+        return self.can_add_account_type(operator, account=account, ou=ou,
+                                         aff=aff, query_run_any=query_run_any)
     
     def can_add_affiliation(self, operator, person=None, ou=None, aff=None,
                             aff_status=None, query_run_any=False):
@@ -806,6 +827,19 @@ class BofhdAuth(DatabaseAccessor):
             return self.is_account_owner(operator, self.const.auth_view_history,
                                          entity)
         raise PermissionDenied("no access for that entity_type")
+
+    def can_cancel_request(self, operator, req_id, query_run_any=False):
+        if query_run_any:
+            return True
+        if self.is_superuser(operator):
+            return True
+        req_operator = None
+        br = BofhdRequests(self.db, self.const)
+        for r in br.get_requests(request_id=req_id):
+            if int(r['requestee_id']) == operator:
+                return True
+        raise PermissionDenied("You are not requester")
+
 
     # TODO: the can_email_xxx functions do not belong in core Cerebrum
 
