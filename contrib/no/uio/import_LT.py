@@ -77,12 +77,14 @@ def conv_name(fullname):
     return fullname.split(None, 1)
 
 ou_cache = {}
-def get_sted(stedkode):
+def get_sted(fakultet, institutt, gruppe):
+    fakultet, institutt, gruppe = int(fakultet), int(institutt), int(gruppe)
+    stedkode = (fakultet, institutt, gruppe)
+    
     if not ou_cache.has_key(stedkode):
         ou = Factory.get('OU')(db)
         try:
-            fak, inst, gruppe = stedkode[0:2], stedkode[2:4], stedkode[4:6]
-            ou.find_stedkode(int(fak), int(inst), int(gruppe),
+            ou.find_stedkode(fakultet, institutt, gruppe,
                              institusjon=cereconf.DEFAULT_INSTITUSJONSNR)
             addr_street = ou.get_entity_address(source=const.system_lt,
                                                 type=const.address_street)
@@ -122,7 +124,7 @@ def get_sted(stedkode):
                                   'addr_post': addr_post}
             ou_cache[int(ou.ou_id)] = ou_cache[stedkode]
         except Errors.NotFoundError:
-            logger.warn("bad stedkode: %s" % stedkode)
+            logger.warn("bad stedkode: %s" % str(stedkode))
             ou_cache[stedkode] = None
     return ou_cache[stedkode]
 
@@ -132,9 +134,9 @@ def determine_affiliations(person):
     tittel = None
     prosent_tilsetting = -1
     for t in person.get('tils', ()):
-        stedkode =  "%02d%02d%02d" % (int(t['fakultetnr_utgift']),
-                                      int(t['instituttnr_utgift']),
-                                      int(t['gruppenr_utgift']))
+        fakultet, institutt, gruppe = (t['fakultetnr_utgift'],
+                                       t['instituttnr_utgift'],
+                                       t['gruppenr_utgift'])
         pros = float(t['prosent_tilsetting'])
         if t['tittel'] == 'professor II':
             pros = pros / 5.0
@@ -148,17 +150,19 @@ def determine_affiliations(person):
         else:
             logger.warn("Unknown hovedkat: %s" % t['hovedkat'])
             continue
-        sted = get_sted(stedkode)
+        sted = get_sted(fakultet, institutt, gruppe)
         if sted is None:
             continue
 	k = "%s:%s:%s" % (new_person.entity_id,sted['id'],
-					int(const.affiliation_ansatt)) 
+                          int(const.affiliation_ansatt)) 
 	if not ret.has_key(k):
 	    ret[k] = sted['id'],const.affiliation_ansatt, aff_stat
     if tittel:
         new_person.populate_name(const.name_work_title, tittel)
     for b in person.get('bilag', ()):
-        sted = get_sted(b['stedkode'])
+        sted = get_sted(b['fakultetnr_kontering'],
+                        b['instituttnr_kontering'],
+                        b['gruppenr_kontering'])
         if sted is None:
             continue
 	k = "%s:%s:%s" % (new_person.entity_id,sted['id'],
@@ -172,7 +176,9 @@ def determine_affiliations(person):
         else:
             logger.warn("Unknown gjestetypekode: %s" % g['gjestetypekode'])
             continue
-        sted = get_sted(g['sko'])
+        sted = get_sted(g['fakultetnr'],
+                        g['instituttnr'],
+                        g['gruppenr'])
         if sted is None:
             continue
 	k = "%s:%s:%s" % (new_person.entity_id,sted['id'],
@@ -272,10 +278,9 @@ def process_person(person):
     contact = determine_contact(person)
     got_fax = filter(lambda x: x[0] == const.contact_fax, contact)
     if person.has_key('fakultetnr_for_lonnsslip'):
-        sko = "%02i%02i%02i" % tuple([int(
-            person["%s_for_lonnsslip" % x]) for x in (
-            'fakultetnr', 'instituttnr', 'gruppenr')])
-        sted = get_sted(sko)
+        sted = get_sted(person['fakultetnr_for_lonnsslip'],
+                        person['instituttnr_for_lonnsslip'],
+                        person['gruppenr_for_lonnsslip'])
         if sted is not None:
             if sted['addr_street'] is not None:
                 new_person.populate_address(

@@ -55,11 +55,13 @@ def get_person_info(outfile):
     skode2tittel = {}
     for t in LT.GetTitler()[1]:
         skode2tittel[t['stillingkodenr']] = (t['tittel'], t['univstkatkode'])
+    # od
 
     # Lag mapping fra univstkatkode til hovedkatkode (VIT etc.)
     kate2hovedkat = {}
     for t in LT.GetHovedkategorier()[1]:
         kate2hovedkat[t['univstkatkode']] = t['hovedkatkode']
+    # od
 
     # Hent alle aktive tilsetninger
     tilscols, tils = LT.GetTilsettinger()
@@ -91,18 +93,17 @@ def get_person_info(outfile):
     for lp in lonnspost:
         key = '-'.join(["%i" % x for x in [lp['fodtdag'], lp['fodtmnd'],
                                            lp['fodtar'], lp['personnr']]])
-        sko = "%02d%02d%02d" % (lp['fakultetnr_kontering'],
-                                lp['instituttnr_kontering'],
-                                lp['gruppenr_kontering'])
-        persondta.setdefault(key, {}).setdefault('bil', []).append(sko)
+        if not persondta.has_key(key):
+            persondta[key] = {}
+        # fi
+
+        persondta[key]['bil'] = persondta[key].get('bil', []) + [lp]
+    # od
 
     gcols, gjester = LT.GetGjester()
     for g in gjester:
         key = '-'.join(["%i" % x for x in [g['fodtdag'], g['fodtmnd'],
                                            g['fodtar'], g['personnr']]])
-        sko = "%02d%02d%02d" % (g['fakultetnr'],
-                                g['instituttnr'],
-                                g['gruppenr'])
         if not persondta.has_key(key):
             persondta[key] = {}
         # fi
@@ -156,16 +157,23 @@ def get_person_info(outfile):
                                  for i in (4,5,6, )])
                 f.write("  <res "+attr+"/>\n")
             
-        prev = ''
-        persondta[p].get('bil', []).sort()
+        prev = None
+        persondta[p].get('bil', []).sort( lambda x, y: cmp(make_key(x), make_key(y)) )
         for t in persondta[p].get('bil', []):
-            if t == prev:
+            if make_key(t) == make_key(prev):
                 continue
-            f.write('  <bilag stedkode="%s"' % t + "/>\n")
+
+            attr = string.join(["%s=%s" % (lonnscols[i],
+                                            xml.escape_xml_attr(t[i]))
+                                for i in (0,5,6,7,)],
+                               " ")
+            f.write("  <bilag " + attr + "/>\n")
             prev = t
+        # od
+
         for g in persondta[p].get('gjest', ()):
             attr = string.join(["%s=%s" % (gcols[i], xml.escape_xml_attr(g[i]))
-                                for i in range(len(gcols))],
+                                for i in range(len(gcols))[4:]],
                                " ")
             f.write("  <gjest "+attr+"/>\n")
         # od
@@ -173,6 +181,20 @@ def get_person_info(outfile):
         f.write("</person>\n")
 
     f.write("</data>\n")
+# end get_person_info
+
+
+def make_key(db_row):
+    if db_row is None:
+        return ''
+    # fi
+    
+    return "%02d%02d%02d" % (db_row['fakultetnr_kontering'],
+                             db_row['instituttnr_kontering'],
+                             db_row['gruppenr_kontering'])
+# end 
+
+    
 
 def usage(exitcode=0):
     print """Usage: -s sid -u uname [options]
