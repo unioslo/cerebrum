@@ -33,6 +33,7 @@ from Cerebrum.Utils import XMLHelper
 from Cerebrum.modules.no.uio.access_FS import FS
 
 default_person_file = "/cerebrum/dumps/FS/persons.xml"
+default_emne_file = "/cerebrum/dumps/FS/emner.xml"
 default_topics_file = "/cerebrum/dumps/FS/topics.xml"
 default_studieprogram_file = "/cerebrum/dumps/FS/studieprogrammer.xml"
 default_regkort_file = "/cerebrum/dumps/FS/regkort.xml"
@@ -188,6 +189,15 @@ def write_studprog_info(outfile):
         f.write(xml.xmlify_dbrow(t, xml.conv_colnames(cols), 'studprog') + "\n")
     f.write("</data>\n")
 
+def write_emne_info(outfile):
+    """Lager fil med informasjon om alle definerte emner"""
+    f=open(outfile, 'w')
+    f.write(xml.xml_hdr + "<data>\n")
+    cols, dta = fs.GetEmneinf()
+    for t in dta:
+        f.write(xml.xmlify_dbrow(t, xml.conv_colnames(cols), 'emne') + "\n")
+    f.write("</data>\n")
+
 def fix_float(row):
     for n in range(len(row)):
         if isinstance(row[n], float):
@@ -198,12 +208,14 @@ def usage(exitcode=0):
     --person-file name: override person xml filename
     --topics-file name: override topics xml filename
     --studprog-file name: override studprog xml filename
+    --emne-file name: override emne xml filename
     --regkort-file name: override regkort xml filename
     --ou-file name: override ou xml filename
     --db-user name: connect with given database username
     --db-service name: connect to given database
     -p: generate person xml file
     -t: generate topics xml file
+    -e: generate emne xml file
     -s: generate studprog xml file
     -r: generate regkort xml file
     -o: generate ou xml file
@@ -219,10 +231,11 @@ def assert_connected(user="ureg2000", service="FSPROD.uio.no"):
 
 def main():
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "ptsro",
+        opts, args = getopt.getopt(sys.argv[1:], "ptsroe",
                                    ["person-file=", "topics-file=",
                                     "studprog-file=", "regkort-file=",
-                                    "ou-file=", "db-user=", "db-service="])
+                                    'emne-file=', "ou-file=", "db-user=",
+                                    "db-service="])
     except getopt.GetoptError:
         usage()
         sys.exit(2)
@@ -231,6 +244,7 @@ def main():
     topics_file = default_topics_file
     studprog_file = default_studieprogram_file
     regkort_file = default_regkort_file
+    emne_file = default_emne_file
     ou_file = default_ou_file
     db_user = None         # TBD: cereconf value?
     db_service = None      # TBD: cereconf value?
@@ -239,6 +253,8 @@ def main():
             person_file = val
         elif o in ('--topics-file',):
             topics_file = val
+        elif o in ('--emne-file',):
+            emne_file = val
         elif o in ('--studprog-file',):
             studprog_file = val
         elif o in ('--regkort-file',):
@@ -257,6 +273,8 @@ def main():
             write_topic_info(topics_file)
         elif o in ('-s',):
             write_studprog_info(studprog_file)
+        elif o in ('-e',):
+            write_emne_info(emne_file)
         elif o in ('-r',):
             write_regkort_info(regkort_file)
         elif o in ('-o',):
