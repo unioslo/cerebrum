@@ -20,12 +20,9 @@
 
 import forgetHTML as html
 from gettext import gettext as _
-from Cerebrum.web.Main import Main
-from Cerebrum.web.utils import queue_message
-from Cerebrum.web.utils import redirect
-from Cerebrum.web.utils import url
-from Cerebrum.web.Transactions import begin
-from Cerebrum.web.templates.TransactionsTemplate import TransactionsTemplate
+from Cereweb.Main import Main
+from Cereweb.utils import queue_messagem, url, redirect, new_transaction
+from Cereweb.templates.TransactionsTemplate import TransactionsTemplate
 
 def _get_transaction(req, id):
     """Return the transaction object for the specific id."""
@@ -43,7 +40,7 @@ def list(req, name="", desc=""):
     """Creates a page with create-new-form and list all transactions."""
     page = Main(req)
     page.title = _("Transactions:")
-    page.menu.setFocus("transactions/list")
+    page.setFocus("transactions/list")
     values = {}
     values['name'] = name
     values['desc'] = desc

@@ -21,30 +21,24 @@
 import forgetHTML as html
 from gettext import gettext as _
 from Cerebrum import Errors
-from Cerebrum.web.Main import Main
-from Cerebrum.web.utils import url
-from Cerebrum.web.utils import redirect
-from Cerebrum.web.utils import redirect_object
-from Cerebrum.web.utils import queue_message
-from Cerebrum.web.utils import no_cache
-from Cerebrum.web import ServerConnection
-from Cerebrum.web.templates.AccountSearchTemplate import AccountSearchTemplate
-from Cerebrum.web.templates.AccountViewTemplate import AccountViewTemplate
-from Cerebrum.web.templates.AccountEditTemplate import AccountEditTemplate
-from Cerebrum.web.templates.AccountCreateTemplate import AccountCreateTemplate
-from Cerebrum.web.templates.HistoryLogTemplate import HistoryLogTemplate
+from Cereweb.Main import Main
+from Cereweb.utils import url, redirect, redirect_object, queue_message, snapshot
+from Cereweb.templates.AccountSearchTemplate import AccountSearchTemplate
+#from Cereweb.templates.AccountViewTemplate import AccountViewTemplate
+#from Cereweb.templates.AccountEditTemplate import AccountEditTemplate
+#from Cereweb.templates.AccountCreateTemplate import AccountCreateTemplate
+#from Cereweb.templates.HistoryLogTemplate import HistoryLogTemplate
 
 
 def index(req):
     page = Main(req)
     page.title = _("Search for account(s):")
-    page.menu.setFocus("account/search")
+    page.setFocus("account/search")
     accountsearch = AccountSearchTemplate()
     page.content = accountsearch.form
     return page
 
 def list(req):
-    no_cache(req)
     (name, owner, expire_date, create_date) = \
         req.session.get('account_lastsearch', ("", "", "", ""))
     return search(req, name, owner, expire_date, create_date)
@@ -55,7 +49,7 @@ def search(req, name="", owner="", expire_date="", create_date=""):
     page = Main(req)
     page.title = _("Account search:")
     page.setFocus("account/list")
-    server = ServerConnection.get_server(req)
+    server = snapshot(req)
     # Store given search parameters in search form
     formvalues = {}
     formvalues['name'] = name
@@ -67,27 +61,19 @@ def search(req, name="", owner="", expire_date="", create_date=""):
     result = html.Division()
     result.append(html.Header(_("Account search results:"), level=2))
     
-    searcher = server.get_account_search()
+    searcher = server.get_account_searcher()
     if name:
-        searcher.set_name(name)
+        searcher.set_name_like(name)
     if owner:
-        seacher.set_owner(owner)
+        seacher.set_owner_like(owner)
     accounts = searcher.search()
     
     table = html.SimpleTable(header="row")
     table.add(_("Name"), _("Owner"))
     for account in accounts:
-        try:
-            name = account.get_name()
-        except:
-            name = ''
-        try:
-            owner = account.get_owner()
-        except:
-            owner = 'owner n/a'
-        link = url("account/view?id=%s" % account.get_entity_id())
-        link = html.Anchor(name, href=link)
-        table.add(link, owner)
+        link = url("account/view?id=%s" % account.get_id())
+        link = html.Anchor(account.get_name(), href=link)
+        table.add(link, account.get_owner())
 
     if accounts:
         result.append(table)
@@ -104,7 +90,7 @@ def create(req, ownerid="", name="", affiliation="", expire_date=""):
     page = Main(req)
     page.title = _("Create a new person:")
     page.setFocus("account/create")
-    server = ServerConnection.get_server(req)
+    server = req.session.get("active")
     # Store given createparameters in the create-form
     values = {}
     values['name'] = name
@@ -119,14 +105,13 @@ def create(req, ownerid="", name="", affiliation="", expire_date=""):
     return page
 
 def _get_account(req, id):
-    server = ServerConnection.get_server(req)
+    server = req.session.get("active")
     try:
         return server.get_account(int(id))
     except Exception, e:
         queue_message(req, _("Could not load account with id=%s") % id, error=True)
         queue_message(req, _(str(e)), error=True)
         redirect(req, url("account"), temporary=True)
-        raise Errors.UnreachableCodeError
 
 def _create_view(req, id):
     """Creates a page with a view of the account given by id, returns
@@ -134,7 +119,7 @@ def _create_view(req, id):
     page = Main(req)
     page.title = ""
     account = _get_account(req, id)
-    page.menu.setFocus("account/view", id)
+    page.setFocus("account/view", id)
     view = AccountViewTemplate()
     page.content = lambda: view.viewAccount(req, account)
     return (page, account)
@@ -148,7 +133,7 @@ def edit(req, id):
     account = _get_account(req, id)
     page = Main(req)
     page.title = ""
-    page.menu.setFocus("account/edit")
+    page.setFocus("account/edit")
     edit = AccountEditTemplate()
     edit.formvalues['name'] = account.get_name()
 # TODO: fetch more values from the server...
@@ -156,7 +141,7 @@ def edit(req, id):
     return page
 
 def save(req, id, save=None, abort=None, expire_date=''):
-    server = ServerConnection.get_server(req)
+    pass
 #    account = ClientAPI.Account.fetch_by_id(server, id)
 #    owner = account.get_owner_object()
 #    if not save:
@@ -177,8 +162,8 @@ def save(req, id, save=None, abort=None, expire_date=''):
 #    return redirect_object(req, owner, seeOther=True)
         
 
-def delete(req, id):    
-    server = ServerConnection.get_server(req)
+def delete(req, id):
+    pass
 #    account = ClientAPI.Account.fetch_by_id(server, id)
 #    owner = account.get_owner_object()
 #    account.set_expire_date(DateTime.DateFrom('').Format('%Y-%m-%d'))

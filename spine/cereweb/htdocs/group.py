@@ -20,34 +20,27 @@
 
 import forgetHTML as html
 from gettext import gettext as _
-from mx import DateTime
 from Cerebrum import Errors
-from Cerebrum.web.Main import Main
-from Cerebrum.web.utils import url
-from Cerebrum.web.utils import queue_message
-from Cerebrum.web.utils import redirect_object
-from Cerebrum.web.utils import redirect
-from Cerebrum.web.utils import no_cache
-from Cerebrum.web import ServerConnection
-from Cerebrum.web.templates.GroupSearchTemplate import GroupSearchTemplate
-from Cerebrum.web.templates.GroupViewTemplate import GroupViewTemplate
-from Cerebrum.web.templates.GroupAddMemberTemplate import GroupAddMemberTemplate
-from Cerebrum.web.templates.GroupEditTemplate import GroupEditTemplate
-from Cerebrum.web.templates.GroupCreateTemplate import GroupCreateTemplate
+from Cereweb.Main import Main
+from Cereweb.utils import url, queue_message, redirect_object, redirect, snapshot
+from Cereweb.templates.GroupSearchTemplate import GroupSearchTemplate
+#from Cereweb.templates.GroupViewTemplate import GroupViewTemplate
+#from Cereweb.templates.GroupAddMemberTemplate import GroupAddMemberTemplate
+#from Cereweb.templates.GroupEditTemplate import GroupEditTemplate
+#from Cereweb.templates.GroupCreateTemplate import GroupCreateTemplate
 
 
 def index(req):
     """Creates a page with the search for group form."""
     page = Main(req)
     page.title = _("Search for group(s):")
-    page.menu.setFocus("group/search")
+    page.setFocus("group/search")
     groupsearch = GroupSearchTemplate()
     page.content = groupsearch.form
     return page
 
 def list(req):
     """Creates a page wich content is the last group-search performed."""
-    no_cache(req)
     (name, desc, spread) = req.session.get('group_lastsearch', ("", "", ""))
     return search(req, name, desc, spread)
 
@@ -56,7 +49,7 @@ def search(req, name="", desc="", spread=""):
     req.session['group_lastsearch'] = (name, desc, spread)
     page = Main(req)
     page.title = _("Search for group(s):")
-    page.menu.setFocus("group/list")
+    page.setFocus("group/list")
     
     # Store given search parameters in search form
     values = {}
@@ -66,12 +59,12 @@ def search(req, name="", desc="", spread=""):
     form = GroupSearchTemplate(searchList=[{'formvalues': values}])
 
     if name or desc or spread:
-        server = ServerConnection.get_server(req)
-        searcher = server.get_group_search()
+        server = snapshot(req)
+        searcher = server.get_group_searcher()
         if name:
-            searcher.set_name(name)
+            searcher.set_name_like(name)
         if desc:
-            searcher.set_description(desc)
+            searcher.set_description_like(desc)
         if spread:
             pass
         groups = searcher.search()
@@ -83,8 +76,8 @@ def search(req, name="", desc="", spread=""):
         table = html.SimpleTable(header="row", _class="results")
         table.add(_("Group name"), _("Description"), _("Actions"))
         for group in groups:
-            view = url("group/view?id=%i" % group.get_entity_id())
-            edit = url("group/edit?id=%i" % group.get_entity_id())
+            view = url("group/view?id=%i" % group.get_id())
+            edit = url("group/edit?id=%i" % group.get_id())
             link = html.Anchor(group.get_name(), href=view)
             view = html.Anchor(_('view'), href=view, _class="actions")
             edit = html.Anchor(_('edit'), href=edit, _class="actions")
@@ -109,23 +102,20 @@ def search(req, name="", desc="", spread=""):
 
 def _get_group(req, id):
     """Returns a Group-object from the database with the specific id."""
-    server = ServerConnection.get_server(req)
+    server = req.session.get("active")
     try:
         return server.get_group(int(id))
     except Exception, e:
-        queue_message(req, _("Could not load group with id=%s") % id, 
-                      error=True)
+        queue_message(req, _("Could not load group with id=%s") % id, error=True)
         queue_message(req, str(e), error=True)
-        # Go back to the root of groups, raise redirect-error.
         redirect(req, url("group"), temporary=True)
-        raise Errors.UnreachableCodeError
 
 def view(req, id):
     """Creates a page with the view of the group with the given by."""
     group = _get_group(req, id)
     page = Main(req)
     page.title = _("Group %s:" % group.get_name())
-    page.menu.setFocus("group/view", str(group.get_entity_id()))
+    page.setFocus("group/view", str(group.get_id()))
     view = GroupViewTemplate()
     view.add_member = lambda group:_add_box(group)
     page.content = lambda: view.viewGroup(req, group)
@@ -135,7 +125,7 @@ def _add_box(group):
     operations = [('union',)*2, ('intersection',)*2, ('difference',)*2]
     member_types = [("account", _("Account")),
                     ("group", _("Group"))]
-    action = url("group/add_member?id=%s" % group.get_entity_id())
+    action = url("group/add_member?id=%s" % group.get_id())
 
     template = GroupAddMemberTemplate()
     return template.add_member_box(action, member_types, operations)
@@ -180,14 +170,13 @@ def remove_member(req, groupid, memberid, operation):
     group.remove_member(member_id=memberid, operation=operation)
     queue_message(req, _("%s removed from group %s") % (memberid, group))
     redirect_object(req, group, seeOther=True)
-    raise Errors.UnreachableCodeError
 
 def edit(req, id):
     """Creates a page with the form for editing a person."""
     group = _get_group(req, id)
     page = Main(req)
     page.title = _("Edit %s:" % group.get_name())
-    page.menu.setFocus("group/edit", str(group.get_entity_id()))
+    page.setFocus("group/edit", str(group.get_id()))
     edit = GroupEditTemplate()
     page.content = lambda: edit.editGroup(req, group)
     return page
@@ -199,7 +188,7 @@ def create(req, name="", expiration="", description=""):
     """
     page = Main(req)
     page.title = _("Create a new group:")
-    page.menu.setFocus("group/create")
+    page.setFocus("group/create")
     
     # Store given parameters in the create-form
     values = {}
@@ -209,7 +198,7 @@ def create(req, name="", expiration="", description=""):
     create = GroupCreateTemplate(searchList=[{'formvalues': values}])
 
     if name:
-        server = ServerConnection.get_server(req)
+        server = req.session.get("active")
         page.add_message(_("Sorry, group not create error!"), error=True)
     
     page.content = create.form

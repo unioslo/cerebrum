@@ -22,30 +22,26 @@ import time
 import forgetHTML as html
 from gettext import gettext as _
 from Cerebrum.extlib import sets
-from Cerebrum.web.Main import Main
-from Cerebrum.web.utils import url
-from Cerebrum.web.utils import no_cache
-from Cerebrum.web.utils import queue_message
-from Cerebrum.web.utils import redirect, redirect_object
-from Cerebrum.web import ServerConnection
-from Cerebrum.web.templates.PersonSearchTemplate import PersonSearchTemplate
-from Cerebrum.web.templates.PersonViewTemplate import PersonViewTemplate
-from Cerebrum.web.templates.PersonEditTemplate import PersonEditTemplate
-from Cerebrum.web.templates.PersonCreateTemplate import PersonCreateTemplate
+from Cereweb.Main import Main
+from Cereweb.utils import url, queue_message, redirect, redirect_object
+from Cereweb.utils import new_transaction, snapshot
+from Cereweb.templates.PersonSearchTemplate import PersonSearchTemplate
+from Cereweb.templates.PersonViewTemplate import PersonViewTemplate
+from Cereweb.templates.PersonEditTemplate import PersonEditTemplate
+from Cereweb.templates.PersonCreateTemplate import PersonCreateTemplate
 
 
 def index(req):
     """Creates a page with the search for person form."""
     page = Main(req)
     page.title = _("Search for person(s):")
-    page.menu.setFocus("person/search")
+    page.setFocus("person/search")
     personsearch = PersonSearchTemplate()
     page.content = personsearch.form
     return page
 
 def list(req):
     """Creates a page wich content is the last search performed."""
-    no_cache(req)
     (fullname, firstname, lastname,  accountname, birthdate) = \
         req.session.get('person_lastsearch', ("", "", "", "", ""))
     return search(req, fullname, firstname, lastname, accountname, birthdate)
@@ -68,68 +64,47 @@ def search(req, fullname="", firstname="", lastname="", accountname="", birthdat
     form = PersonSearchTemplate(searchList=[{'formvalues': values}])
     
     if fullname or firstname or lastname or accountname or birthdate:
-        server = ServerConnection.get_server(req)
-
-        def intersection(a, b):
-            if a: b = a.intersection(b)
-            return b
-
-        def get_id_set(id_set, names):
-            set = sets.Set()
-            for name in names:
-                set.add(name.get_person().get_entity_id())
-            return intersection(id_set, set)
+        server = snapshot(req)
         
-        def get_person_list(persons, names):
-            for name in names:
-                persons.append(name.get_person())
-            return persons
-        
-        def name_search(name, variant, persons, id_set):
-            searcher = server.get_person_name_search()
-            searcher.set_name(name)
-            searcher.set_name_variant(server.get_name_type(variant))
-            result = searcher.search()
-            return get_person_list(persons, result), get_id_set(id_set, result)
+        personsearcher = server.get_person_searcher()
+        intersections = []
 
-        # personnames is a list with the objects found matching individual
-        # criterias. id_set contains ids for the end result of the search.
-        persons = []
-        id_set = sets.Set()
         if fullname:
-            persons, id_set = name_search(fullname, "FULL", persons, id_set)
+            searcher = server.get_person_name_searcher()
+            searcher.set_name_variant(server.get_name_type("FULL"))
+            searcher.set_name_like(fullname)
+            searcher.mark_person()
+            intersections.append(searcher)
+
         if firstname:
-            persons, id_set = name_search(firstname, "FIRST", persons, id_set)
+            searcher = server.get_person_name_searcher()
+            searcher.set_name_variant(server.get_name_type("FIRST"))
+            searcher.set_name_like(firstname)
+            searcher.mark_person()
+            intersections.append(searcher)
+
         if lastname:
-            persons, id_set = name_search(lastname, "LAST", persons, id_set)
+            searcher = server.get_person_name_searcher()
+            searcher.set_name_variant(server.get_name_type("LAST"))
+            searcher.set_name_like(lastname)
+            searcher.mark_person()
+            intersections.append(searcher)
+        
         if accountname:
-            pass
-            #if owner isnt person, we are in trouble!
-            #searcher = server.get_account_search()
-            #searcher.set_name(accountname)
-            #result = searcher.search()
-            #persons += result
-            #set = sets.Set()
-            #for tmp in result:
-            #    set.add(tmp.get_owner())
-            #id_set = intersection(id_set, set)
+            searcher = server.get_account_searcher()
+            searcher.set_name_like(accountname)
+            searcher.mark_owner()
+            intersections.append(searcher)
+            
         if birthdate:
-            searcher = server.get_person_search()
-            #searcher.set_birth_date(birthdate)
-            result = searcher.search()
-            persons += result
-            set = sets.Set()
-            for tmp in result:
-               set.add(tmp.get_entity_id())
-            id_set = intersection(id_set, set)
+            date = server.get_commands().strptime(birthdate, "%Y-%m-%d")
+            personsearcher.set_birth_date(date)
 
-        tmp_persons = {}
-        for person in persons:
-            tmp_persons[person.get_entity_id()] = person
-        persons = []
-        for id in id_set:
-            persons.append(tmp_persons[id])
-
+        if intersections:
+            personsearcher.set_intersections(intersections)
+        
+        persons = personsearcher.search()
+        
         # Print results
         result = html.Division(_class="searchresult")
         header = html.Header(_("Person search results:"), level=3)
@@ -137,24 +112,23 @@ def search(req, fullname="", firstname="", lastname="", accountname="", birthdat
         table = html.SimpleTable(header="row", _class="results")
         table.add(_("Name"), _("Date of birth"), _("Account(s)"), _("Actions"))
         for person in persons:
-            date = person.get_birth_date().get_date()
-            date = time.strftime("%Y-%m-%d", time.gmtime(date))
+            date = person.get_birth_date().strftime("%Y-%m-%d")
             date = html.TableCell(date, align="center")
-            accounts = []
-            for account in person.get_accounts()[:4]:
-                viewaccount = url("account/view?id=%i" % account.get_entity_id())
-                accounts.append(str(html.Anchor(account.get_name(), href=viewaccount)))
-            if len(accounts) > 3:
-                accounts = ", ".join(accounts[:3]) + "..."
-            else:
-                accounts = ", ".join(accounts)
-            view = url("person/view?id=%i" % person.get_entity_id())
-            edit = url("person/edit?id=%i" % person.get_entity_id())
+            accounts = ""
+#            for account in person.get_accounts()[:4]:
+#                viewaccount = url("account/view?id=%i" % account.get_id())
+#                accounts.append(str(html.Anchor(account.get_name(), href=viewaccount)))
+#            if len(accounts) > 3:
+#                accounts = ", ".join(accounts[:3]) + "..."
+#            else:
+#                accounts = ", ".join(accounts)
+            view = url("person/view?id=%i" % person.get_id())
+            edit = url("person/edit?id=%i" % person.get_id())
             link = html.Anchor(_(_primary_name(person)), href=view)
             view = html.Anchor(_('view') , href=view, _class="actions")
             edit = html.Anchor(_('edit') , href=edit, _class="actions")
             table.add(link, date, accounts, str(view)+str(edit))
-
+    
         if persons:
             result.append(table)
         else:
@@ -185,7 +159,7 @@ def _primary_name(person):
 
 def _get_person(req, id):
     """Returns a Person-object from the database with the specific id."""
-    server = ServerConnection.get_server(req)
+    server = req.session.get("active")
     try:
         return server.get_person(int(id))
     except Exception, e:
@@ -193,7 +167,6 @@ def _get_person(req, id):
                       error=True)
         queue_message(req, str(e), error=True)
         redirect(req, url("person"), temporary=True)
-        raise Errors.UnreachableCodeError
 
 def view(req, id, addName=False):
     """Creates a page with a view of the person given by id.
@@ -203,7 +176,7 @@ def view(req, id, addName=False):
     person = _get_person(req, id)
     page = Main(req)
     page.title = _("Person %s:" % _primary_name(person))
-    page.menu.setFocus("person/view", str(person.get_entity_id()))
+    page.setFocus("person/view", str(person.get_id()))
     view = PersonViewTemplate()
     page.content = lambda: view.viewPerson(req, person, addName)
     return page
@@ -216,7 +189,7 @@ def edit(req, id, addName=False):
     person = _get_person(req, id)
     page = Main(req)
     page.title = _("Edit %s:" % _primary_name(person))
-    page.menu.setFocus("person/edit", str(person.get_entity_id()))
+    page.setFocus("person/edit", str(person.get_id()))
     edit = PersonEditTemplate()
     page.content = lambda: edit.editPerson(req, person, addName)
     return page
@@ -228,7 +201,7 @@ def create(req, birthnr="", gender="", birthdate="", ou="", affiliation="", aff_
     """
     page = Main(req)
     page.title = _("Create a new person:")
-    page.menu.setFocus("person/create")
+    page.setFocus("person/create")
     # Store given create parameters in create-form
     values = {}
     values['birthnr'] = birthnr

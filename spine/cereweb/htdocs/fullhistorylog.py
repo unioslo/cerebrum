@@ -18,14 +18,11 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import cerebrum_path
 import forgetHTML as html
-from Cerebrum.Utils import Factory
-ClientAPI = Factory.get_module("ClientAPI")
-from Cerebrum.web.templates.FullHistoryLogTemplate import FullHistoryLogTemplate
-from Cerebrum.web.Main import Main
 from gettext import gettext as _
-from Cerebrum.web.utils import url
+from Cereweb.Main import Main
+from Cereweb.utils import url
+from Cereweb.templates.FullHistoryLogTemplate import FullHistoryLogTemplate
 
 def index(req):
     page = Main(req)

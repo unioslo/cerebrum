@@ -19,7 +19,7 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 import forgetHTML as html
-from mod_python.Session import Session
+from mod_python import Session
 from Cereweb import ServerConnection
 from Cereweb.utils import url, redirect
 
@@ -31,28 +31,27 @@ def index(req, user="", password=""):
         error = "Login"
         try:
             spine = ServerConnection.connect()
-            server = spine.login(user, password).new_transaction()
-            server = ServerConnection.get_orb().object_to_string(server)
+            session = spine.login(user, password)
         except Exception, e:
             error = str(e)
             error = error.replace("<", "")
             error = error.replace(">", "")
         else:
-            #remove old session
-            req.session = Session(req)
-            req.session.invalidate()
-
             #create new session
-            req.session = Session(req)
-            req.session['server'] = server
-            req.session.save()
+            req.session = Session.Session(req)
+            req.session['server'] = spine
+            req.session['session'] = session
             
             #redirect to the main page and start using the cereweb.publisher.
             redirect(req, url("/"))
+
+    # We have to create the cookie before we redirect..
+    req.session = Session.Session(req)
+    req.session.clear()
+    req.session.save()
     
     doc = html.SimpleDocument("Log in to Cerebrum")
     body = doc.body
-    body.append(html.Paragraph("Cerebrum is powered by 230V"))
     if error:
         body.append(html.Paragraph(error, style="color: red;"))
     form = html.SimpleForm(method="POST")

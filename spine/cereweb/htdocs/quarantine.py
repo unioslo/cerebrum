@@ -18,15 +18,11 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import cerebrum_path
 import forgetHTML as html
-from Cerebrum.Utils import Factory
-ClientAPI = Factory.get_module("ClientAPI")
-from Cerebrum.web.templates.QuarantineTemplate import QuarantineTemplate
-from Cerebrum.web.Main import Main
 from gettext import gettext as _
-from Cerebrum.web.utils import queue_message
-from Cerebrum.web.utils import redirect_object
+from Cereweb.Main import Main
+from Cereweb.utils import queue_message, redirect_object
+from Cereweb.templates.QuarantineTemplate import QuarantineTemplate
 
 def _quarantine_vars():
     fields =[("entity_type", "Entity type"),

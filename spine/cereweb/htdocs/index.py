@@ -20,9 +20,8 @@
 
 import forgetHTML as html
 from gettext import gettext as _
-from Cerebrum.web.Main import Main
-from Cerebrum.web.templates.MotdViewTemplate import MotdViewTemplate
-
+from Cereweb.Main import Main
+from Cereweb.templates.MotdViewTemplate import MotdViewTemplate
 
 def index(req, tag="p"):
     page = Main(req)

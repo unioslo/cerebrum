@@ -20,17 +20,15 @@
 
 import forgetHTML as html
 from gettext import gettext as _
-from Cerebrum.web.Main import Main
-from Cerebrum.web.utils import redirect_object
-from Cerebrum.web.utils import queue_message
-from Cerebrum.gro import ServerConnection
-from Cerebrum.web.templates.NoteAddTemplate import NoteAddTemplate
+from Cereweb.Main import Main
+from Cereweb.utils import redirect_object, queue_message
+from Cereweb.templates.NoteAddTemplate import NoteAddTemplate
 
 
 def index(req, entity, subject="", description=""):
-    """Shows the add note template."""
-    server = ServerConnection.get_server(req)
-    entity = server.get_entity(entity)
+    """Shows the add-note-template."""
+    server = req.session.get("active")
+    entity = server.get_entity(int(entity))
     page = Main(req)
     noteadd = NoteAddTemplate()
     index = html.Division()
@@ -41,7 +39,7 @@ def index(req, entity, subject="", description=""):
 
 def add(req, entity, subject, description):
     """Adds a note to some entity."""
-    server = ServerConnection.get_server(req)
+    server = req.session.get("active")
     entity = server.get_entity(int(entity))
     entity.add_note(subject, description)
     queue_message(req, _("Added note '%s'") % subject)
@@ -49,10 +47,10 @@ def add(req, entity, subject, description):
 
 def delete(req, entity, id):
     """Removes a note."""
-    server = ServerConnection.get_server(req)
+    server = req.session.get("active")
     entity = server.get_entity(int(entity))
     entity.remove_note(int(id))
-    queue_message(req, _("Deleted note"))
+    queue_message(req, _("Note deleted"))
     return redirect_object(req, entity, seeOther=True)
 
 # arch-tag: a346491e-4e47-42c1-8646-391b6375b69f
