@@ -186,8 +186,19 @@ def add_spread(entity_id,spread):
                 print 'WARNING: Failed creating new user ', account_name
 
         if sock.read() == ['210 OK']:            
-            (full_name, account_disable, home_dir, cereconf.AD_HOME_DRIVE, login_script) = adutils.get_user_info(entity_id,account_name)
-            sock.send('ALTRUSR&%s/%s&fn&%s&dis&%s&hdir&%s&hdr&%s&ls&%s&pexp&%s&ccp&%s\n' % ( cereconf.AD_DOMAIN, account_name, full_name, account_disable, home_dir, cereconf.AD_HOME_DRIVE, login_script, cereconf.AD_PASSWORD_EXPIRE, cereconf.AD_CANT_CHANGE_PW ))  
+            (full_name, account_disable, home_dir, cereconf.AD_HOME_DRIVE,
+             login_script) = adutils.get_user_info(entity_id, account_name,
+                                                   spread)
+            sock.send(('ALTRUSR&%s/%s&fn&%s&dis&%s&hdir&%s&hdr&%s&ls&%s'+
+                       '&pexp&%s&ccp&%s\n') % (cereconf.AD_DOMAIN,
+                                               account_name,
+                                               full_name,
+                                               account_disable,
+                                               home_dir,
+                                               cereconf.AD_HOME_DRIVE,
+                                               login_script,
+                                               cereconf.AD_PASSWORD_EXPIRE,
+                                               cereconf.AD_CANT_CHANGE_PW))
             if sock.read() == ['210 OK']:
                 #Make sure that the user is in the groups he should be.
                 for row in group.list_groups_with_entity(entity_id):
