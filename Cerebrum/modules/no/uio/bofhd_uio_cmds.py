@@ -1781,6 +1781,9 @@ class BofhdExtension(object):
         account = self._get_account(accountname)
         self.ba.can_set_password(operator.get_entity_id(), account)
         if password is None:
+            if operator.get_entity_id() <> account.entity_id:
+                raise CerebrumError, \
+                      "Cannot specify password for another user."
             password = account.make_passwd(accountname)
         try:
             pc = PasswordChecker.PasswordChecker(self.db)
