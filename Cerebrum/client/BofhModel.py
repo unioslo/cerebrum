@@ -111,7 +111,7 @@ class Entity(Abstract.Entity):
             from_to = "%s--%s" % (start, end)
         else:
             from_to = start    
-        self.server.quarantine_set("id:%s" % self.id, 
+        self.server.quarantine_set(None, self.id,
                                    type, why, from_to)
         
     def get_quarantines(self):
