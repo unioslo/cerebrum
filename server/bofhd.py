@@ -33,6 +33,7 @@ class ExportedFuncs:
         self.command2module = {}
         self.Cerebrum = Database.connect(user="cerebrum")
         self.person = Person.Person(self.Cerebrum)
+        self.const = self.person.const
         self.cfu = CallableFuncs(self)
         self.modules[self.THIS_CFU] = self.cfu
 
@@ -235,6 +236,7 @@ class CallableFuncs:
             'user_lbdate' : ('user', 'lbdate', 'number', 1),
             'user_create' : ('user', 'create', 'person_id', 'np_type', 'expire_date', 'uname', 'uid', 'gid', 'gecos', 'home', 'shell', 0)
             }
+        self.const = self.ef.const
         self.name_codes = {}
         for t in self.ef.person.get_person_name_codes():
             self.name_codes[t.code] = t.description
@@ -250,7 +252,7 @@ class CallableFuncs:
         suggestions = {
             'get_person' : "Navn     : %20s\nFødt     : %20s\nKjønn    : %20s\nperson id: %20s\nExport-id: %20s¤name;birth;gender;pid;expid",
             'user_lbdate' : 'Fødselsnr(todo, currently person_id) : %10s    Navn: %s¤p_id;name',
-            'user_create' : 'Passord: %s¤password'
+            'user_create' : 'Username: %8s   Passord: %s¤uname;password'
             }
         return suggestions.get(cmd)
 
@@ -260,19 +262,36 @@ class CallableFuncs:
         for p_id in person.find_persons_by_bdate(date):
             print "Looking for %s" % p_id.person_id
             person.find(p_id.person_id)
-            name = person.get_name(person.const.system_lt, person.const.name_full)  # TODO: SourceSystem
+            name = person.get_name(self.const.system_lt, self.const.name_full)  # TODO: SourceSystem
             ret = ret + ({'p_id' : p_id.person_id, 'name' : name},)
         if len(ret) == 0:
             return ()
         return ret
 
+    # user create 2734 XNone XNone XNone XNone 999999 XNone /home 20
     def user_create(self, user, person_id, np_type, expire_date, uname, uid, gid, gecos, home, shell):
         creator_id = 888888    # TODO: Set this
-        # person.find(person_id)
+
         try:
             account = Account.Account(self.ef.Cerebrum)  # TODO: Flytt denne
             account.clear()
-            account.populate(self.ef.person.const.entity_person,  # TODO: definer egen e.l
+            if(uid == None):
+                uid = account.get_free_uid()
+
+            if(uname == None):                  # Find a suitable username
+                person = self.ef.person
+                person.find(person_id)
+                name = person.get_name(self.const.system_lt, self.const.name_full)
+                name = name.split()
+                uname = account.suggest_unames(self.const.entity_accname_default,
+                                               name[0], name[1])
+                uname = uname[0]
+
+            # Home should be specified without trailing uname.  (Might want to override this?)
+            if home != "/":           
+                home = home + "/" + uname
+
+            account.populate(self.const.entity_person,
                              person_id,
                              np_type, 
                              creator_id, expire_date)
@@ -281,20 +300,20 @@ class CallableFuncs:
             account.populate_posix_user(uid, gid, gecos,
                                         home, shell)
             
-            account.affect_domains(self.ef.person.const.entity_accname_default)
-            account.populate_name(self.ef.person.const.entity_accname_default, uname)
+            account.affect_domains(self.const.entity_accname_default)
+            account.populate_name(self.const.entity_accname_default, uname)
             
-            passwd = "dette er et MD5 passord"
-            account.affect_auth_types(self.ef.person.const.auth_type_md5)
-            account.populate_authentication_type(self.ef.person.const.auth_type_md5, passwd)
+            passwd = account.make_passwd(uname)
+            account.affect_auth_types(self.const.auth_type_md5)
+            account.populate_authentication_type(self.const.auth_type_md5, passwd)
             
             account.write_db()
             self.ef.Cerebrum.commit()
-            return {'password' : passwd}
+            return {'password' : passwd, 'uname' : uname}
         except Database.DatabaseError:
             self.ef.Cerebrum.rollback()
             # TODO: Log something here
-        raise "Something went wrong"
+            raise "Something went wrong, see log for details: %s" % (sys.exc_info()[1])
 
     def get_person(self, user, fnr):
         person = self.ef.person
