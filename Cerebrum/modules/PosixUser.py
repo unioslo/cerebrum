@@ -102,8 +102,10 @@ class PosixUser(Account.Account):
         is_new = not self.__in_db
         primary_group = PosixGroup.PosixGroup(self._db)
         primary_group.find(self.gid)
-        if not primary_group.has_member(self, self.const.group_memberop_union):
-            primary_group.add_member(self, self.const.group_memberop_union)
+        if not primary_group.has_member(self.entity_id, self.entity_type,
+                                        self.const.group_memberop_union):
+            primary_group.add_member(self.entity_id,
+                                     self.entity_type, self.const.group_memberop_union)
         if is_new:
             self.execute("""
             INSERT INTO [:table schema=cerebrum name=posix_user]

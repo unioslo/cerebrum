@@ -243,7 +243,7 @@ class Group(EntityName, Entity):
             return True
         raise ValueError
 
-    def add_member(self, member_id, op):
+    def add_member(self, member_id, type, op):
         """Add ``member`` to group with operation type ``op``."""
         self.execute("""
         INSERT INTO [:table schema=cerebrum name=group_member]
@@ -251,12 +251,12 @@ class Group(EntityName, Entity):
         VALUES (:g_id, :op, :m_type, :m_id)""",
                      {'g_id': self.entity_id,
                       'op': int(op),
-                      'm_type': int(member.entity_type),
+                      'm_type': int(type),
                       'm_id': member_id})
-        self._db.log_change(member.entity_id, self.clconst.g_add,
+        self._db.log_change(member_id, self.clconst.g_add,
                             self.entity_id)
 
-    def has_member(self, member_id, op):
+    def has_member(self, member_id, type, op):
         try:
             self.query_1("""
             SELECT 'x' FROM [:table schema=cerebrum name=group_member]
@@ -266,7 +266,7 @@ class Group(EntityName, Entity):
                   member_id=:m_id""", {'g_id': self.entity_id,
                                        'op': int(op),
                                        'm_id': member_id,
-                                       'm_type': int(member.entity_type)})
+                                       'm_type': int(type)})
             return True
         except Errors.NotFoundError:
             return False
