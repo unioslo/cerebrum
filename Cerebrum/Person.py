@@ -290,7 +290,7 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
                     is_new = False
                     updated_name = True
             if updated_name:
-                self._update_cached_fullname()
+                self._update_cached_names()
             # Clear affect_name() settings
             self._pn_affect_source = None
             self._pn_affect_variants = None
@@ -504,44 +504,121 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
                                            'name': name,
                                            'name_variant': int(variant)})
 
-    def _update_cached_fullname(self):
-	"""Update the persons cached names if it has been modified.
-	The  names is determined by evaluating the name variants
-	by using the source system order defined by
-	cereconf.SYSTEM_LOOKUP_ORDER.
+    def _update_cached_names(self):
+        """Update cache of person's names.
 
-	A ValueError is raised if the not any names couldn't be established.
-	"""
-	p = Person(self._db)
-	p.find(self.entity_id)
-	for ss in cereconf.SYSTEM_LOOKUP_ORDER:
-	    full_name = {}
-	    for n_part in ('name_first','name_last','name_full'):
-		try:
-		    full_name[n_part] = p.get_name(getattr(self.const, ss),
-						getattr(self.const, n_part))
-		except Errors.NotFoundError:
-		    continue
-	    if len(full_name) == 0:
-		continue
-	    if 'name_full' not in full_name.keys():
-		full_name['name_full'] =  " ".join((full_name['name_first'],
-							full_name['name_last']))
-	    for attrs,new_name in full_name.items():
-		try:
-		    old_name = self.get_name(self.const.system_cached,
-						getattr(self.const,attrs))
-		    if old_name != new_name:
-			self._update_name(self.const.system_cached,
-					getattr(self.const,attrs),
-					new_name)
-		except Errors.NotFoundError:
-		    self._set_name(self.const.system_cached,
-					getattr(self.const,attrs),
-					new_name)
-            return
-        raise ValueError, "Bad name for %s / %s" % (self.entity_id,
-                                                    self._name_info)
+        The algorithm for constructing the cached name values looks
+        for the first source system in cereconf.SYSTEM_LOOKUP_ORDER
+        with enough data to construct a full name for the person.
+
+        Once a full name has been established (either an actual
+        registered full name or a source system in which both first
+        and last name is registered), the search through the source
+        systems continues until a first- and last-name pair match the
+        full name is found.
+
+        If no such first- and last-name pair is found, attempt using
+        the heuristics in the _split_full_name() method to guess at
+        those name variants.
+
+        A ValueError is raised if no cacheworthy name variants are
+        found for the person."""
+
+        cached_name = {
+            'name_first': None,
+            'name_last': None,
+            'name_full': None
+            }
+        for ss in cereconf.SYSTEM_LOOKUP_ORDER:
+            source = getattr(self.const, ss)
+            names = {}
+            for ntype in cached_name.keys():
+                try:
+                    names[ntype] = self.get_name(source,
+                                                 getattr(self.const, ntype))
+                except Errors.NotFoundError:
+                    continue
+            if not names:
+                # This source system had no name data on this person.
+                continue
+            if cached_name['name_full'] is None:
+                full_name = None
+                if 'name_full' in names:
+                    full_name = names['name_full']
+                elif 'name_first' in names and 'name_last' in names:
+                    full_name = " ".join(
+                        (names['name_first'], names['name_last']))
+                if full_name:
+                    cached_name['name_full'] = full_name
+                else:
+                    # None of the source systems this far have
+                    # presented us with enough data to form a full
+                    # name.
+                    continue
+            # Here, we know that cached_name['full_name'] is set to
+            # the person's proper full name; try to find matching
+            # values for first and last name.
+            if 'name_first' in names and 'name_last' in names:
+                test_full_name = " ".join(
+                    (names['name_first'], names['name_last']))
+                if test_full_name == cached_name['name_full']:
+                    cached_name['name_first'] = names['name_first']
+                    cached_name['name_last'] = names['name_last']
+            more_to_cache = [n for n in cached_name if cached_name[n] is None]
+            if not more_to_cache:
+                # All name variants in cached_name are present; we're
+                # ready to start updating the database.
+                break
+        else:
+            # Couldn't find proper data for caching of all name
+            # variants.  If there is cacheable data for full name, our
+            # last, best hope for getting cached first- and last names
+            # is to chop the full name apart.
+            if 'name_full' in cached_name:
+                ok_splitnames = {}
+                for k, v in self._split_full_name(cached_name['name_full']):
+                    if k in cached_name and cached_name[k] is None:
+                        ok_splitnames[k] = v
+                    else:
+                        # The return value from _split_full_name
+                        # should not be used to either add new name
+                        # variants to cache, or to override the
+                        # cacheable values we already have.
+                        break
+                else:
+                    # All the data returned from _split_full_name is
+                    # safe to use.
+                    cached_name.update(ok_splitnames)
+        if not [n for n in cached_name if cached_name[n] is not None]:
+            # We have at zero cacheable name variants.
+            raise ValueError, "No cacheable name for %d / %r" % (
+                self.entity_id, self._name_info)
+        sys_cache = self.const.system_cached
+        for ntype, name in cached_name.items():
+            name_type = getattr(self.const, ntype)
+            try:
+                old_name = self.get_name(sys_cache, name_type)
+                if name is None:
+                    self._delete_name(sys_cache, name_type)
+                elif old_name != name:
+                    self._update_name(sys_cache, name_type, name)
+            except Errors.NotFoundError:
+                if name is not None:
+                    self._set_name(sys_cache, name_type, name)
+
+    def _split_full_name(self, full_name):
+        """Split full name into its name part constituents.
+
+        Return a dict whose keys are the 'Constants' attribute names
+        for name part code values, while the values should be the part
+        of 'full_name' that corresponds to that code value."""
+
+        name_parts = [part for part in full_name.split(" ") if part]
+        ret = {}
+        if len(name_parts) >= 2:
+            ret['name_last'] = name_parts.pop()
+            ret['name_first'] = " ".join(name_parts)
+        return ret
 
     def list_person_name_codes(self):
         return self.query("""
