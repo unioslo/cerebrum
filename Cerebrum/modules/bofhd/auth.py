@@ -550,6 +550,9 @@ class BofhdAuth(DatabaseAccessor):
             return True
         if operator == account.entity_id:
             return True
+        if account.disk_id is None:
+            raise PermissionDenied(
+                "Only superusers can set passwords for users with no homedir")
         return self._query_disk_permissions(operator,
                                             self.const.auth_set_password,
                                             self._get_disk(account.disk_id))
