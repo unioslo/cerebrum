@@ -258,7 +258,7 @@ class RequestHandler(SocketServer.StreamRequestHandler):
         when = db.Date(*( localtime(time()-3600*24*7)[:3]))
         rows = ppq.get_history(person_id=person_id, tstamp=when)
         ok_data = ok[:3] +'-'
-        for r in rows[:7]:
+        for r in rows[-7:]:
             if  r['transaction_type'] == int(co.pqtt_printout):
                 self.send(ok_data+":".join(["%s" % x for x in (
                     r['job_id'], r['tstamp'].ticks(), r['printer_queue'],
