@@ -23,15 +23,17 @@ import os
 import sys
 import re
 
-def validate_address(addr):
-    if re.match(r'[a-z0-9][a-z0-9._-]*[a-z0-9]@[a-z0-9-]+(\.[a-z0-9]+)+$',
-                addr):
+def validate_address(addr, mode="any"):
+    if (re.match(r'[a-z0-9][a-z0-9._-]*[a-z0-9](@|$)', addr) and
+        (mode == 'rmlist' or
+         (addr.count('@') == 1 and
+          re.search(r'@[a-z0-9-]+(\.[a-z0-9]+)+$', addr)))):
         return True
     raise ValueError("illegal address: '%s'" % addr)
 
 mode, listname, admin = sys.argv[1:]
 
-validate_address(listname)
+validate_address(listname, mode=mode)
 
 if mode == 'newlist':
     validate_address(admin)
