@@ -17,10 +17,67 @@ brukere.  Detaljert hjelp kan finnes på http://.....
 For hjelp om en enkelt hovedgruppe, skriv "help <hovedgruppe>".
 Tilgjengelige hovedgrupper:
 """,
-               'glossary': """Common terms in Cerebrum and their meaning:
+               'glossary': """Glossary of common terms in Cerebrum:
+- account: a user account (POSIX or generic user) in Cerebrum
+- account authentication: data needed to authenticate a particular 
+  user troughout the system
+- account owner: person or group which holds the ownership of an 
+  account
+- account type: describes the ownership of an non-personal account
+  (i.e. system account, software account, group account)
+- affilliation: the role a person possess within an organizational unit
+- affiliation status code: more precise description of a persons role 
+  (i.e. affiliation -> STUDENT, affiliation status code -> 
+  within an organizational unit
+- authoritative system: source system primarily used to update any 
+  particular type of data in Cerebrum
+- changelog: system for keeping track of modifications to the database 
+  and making other systems detected changes at sync-time
+- core: Cerebrum core API (see http://cerebrum_core...)
+- disk: a disk defined on a machine registered in Cerebrum
+- entity: an account (user), organizational unit, person or a group 
+  registered in Cerebrum (abstract concept allowing easy administration
+  within Cerebrum)
+- entity id: an id assigned to each entity that exist in Cerebrum
+- email domain: the domain assignet to each e-mail address in Cerebrum 
+  (the part of the address after the "@")
+- export id: an internal id asigned to each entity used to ease the 
+  export of Cerebrum specific data to other systems
+- external id: unique id assigned to each person registered in Cerebrum
+   (e.g. national sosial security number)
+- group: a collection of users or machines usually used to assign various
+  permissions in Cerebrum or troughout the system
+- group visibility:
+- home: home directory of a user registered in Cerebrum
+- uid: the numeric user ID value space in UNIX
+- host: a machine registered in Cerebrum
 - ou: Organizational Unit
+- ou perspective: decides which ou-structure is to be used
+- spread: decides in which parts of the system within the organization an
+  entity should be recognized
+- quarantine: limitations imposed on entitis in Cerebrum
+- quota: the resources available to a user in terms of storage 
+  (home directory or email) or printing (sheets of paper available 
+  per week)
                """,
-               'intro': """Need some intro text here...
+               'intro': """
+Although Cerebrum encourages use of automatic processing, a need for 
+manually done modifications of the contents of the database is usually
+present in any large organization. BOFH is a command-line based client 
+software for Cerebrum developed at theUniversity of Oslo to facilitate 
+this need. In order to use BOFH authentication is required and privileges
+assigned to the account owner calculated (trough group membership). All 
+communication between a BOFH user and the database happens during a 
+session (which starts when BOFH is started and authentication is 
+successfully done). The server logs information about which actions are
+performed by which user, and also records the changes made to
+interesting attributes of registered users in the system.  This
+enables the privileged users of the system to trace the changes and
+thus correct errors introduced into the system.  During a session a
+user typically executes various commands and some of these (and their
+consequences) are temporarily stored in a way that allows the user to
+retrace his or hers steps.
+Online help is also available troughout the session.  
                """
               }
 
