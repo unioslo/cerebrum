@@ -2,7 +2,7 @@ from Cerebrum.Utils import Factory
 from Cerebrum.gro.Cerebrum_core import Errors
 from Cerebrum.gro.classes.db import db
 from Cerebrum.gro import Cerebrum_core__POA
-from Cerebrum.gro import Builder, Entity, Locking, Locker
+from Cerebrum.gro import Builder, Entity, Locking, Locker, Account
 from Cerebrum.gro import Transaction
 
 from omniORB.any import to_any, from_any
@@ -20,31 +20,35 @@ class APHandler(Cerebrum_core__POA.APHandler, Locker):
     """
 
     def __init__( self, com, username, password ):
-        self.login( username, password ) # Raises exception if failed.
-        self.com = com
+        # Login raises exception if it fails, or returns entity_id if not.
+        self.entity_id = self.login( username, password )
         self.username = username
-        self.password = password
+        self.com = com
         self.transaction = None
 
-    def login( username, password ):
+    def login( self, username, password ):
         """Login the user with the username and password.
         """
-        account = Factory.get( 'Account' )( db )
-        
         # Check username
-        try:
-            account.find_by_name( username )
-        except Cerebrum.Errors.NotFoundError:
-            raise Exception, "Unknown username or password" # GRO-exceptions!
-
-        # Check quarantines
-        pass
+        # TODO: CHECK IF USERNAME CONTAINS WILDCHARS OR QUESTIOMARK!!!!!!
+        search = Account.build_search_class()()
+        search.set_name( username )
+        unames = search.search()
+        if len( unames ) != 1:
+            raise Exception, "Wrong username or password" # Gro-exceptions!
+        account = unames[0]
 
         # Check password
-        if password != password: # CRYPTERING!! != account.password!
-            raise Exception, "Unknown username or password" # GRO-exceptions!
+        if not account.authenticate( password ):
+            raise Exception, "Wrong username or password" # GRO-exceptions!
+
+        # Check quarantines
+        if account.is_quarantined():
+            raise Exception, "Account has active quarantines, login denied"
 
         # Log successfull login..
+        
+        return account.get_entity_id()
 
     def get_username( self ):
         """Returns the username of the client.
