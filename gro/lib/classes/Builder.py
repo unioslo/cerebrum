@@ -25,7 +25,7 @@ from Cerebrum.gro.Cerebrum_core import Errors
 from Caching import Caching
 from Locking import Locking
 
-__all__ = ['Attribute', 'Method', 'Builder']
+__all__ = ['Attribute', 'Method', 'Builder', 'CorbaBuilder']
 
 
 class Attribute:
@@ -92,7 +92,81 @@ def create_readonly_set_method(var):
         raise Errors.ReadOnlyAttributeError('attribute %s is read only' % var)
     return readonly_set
 
-class Builder(Caching, Locking):
+class CorbaBuilder:
+#    def create_idl_class(cls):
+#        # TODO: bør vi legge CorbaBuilder i en egen fil?
+#        idl_string = cls.create_idl('generated') # TODO: hvor skal generert idl havne?
+#        import sys
+#        import omniORB
+#        omniORB.importIDLString(idl_string)
+#
+#        idl_class = getattr(sys.modules['generated'], cls.__name__)
+#        return idl_class
+
+    def create_idl(cls, module_name=None):
+        txt = cls.create_idl_header()
+        txt += cls.create_idl_interface()
+
+        if module_name is not None:
+            return 'module %s {\n\t%s\n};' % (module_name, txt.replace('\n', '\n\t'))
+        else:
+            return txt
+
+    def create_idl_header(cls, defined = None):
+        if defined is None:
+            defined = []
+
+        txt = ''
+#        txt = 'interface %s;\n' % cls.__name__
+#        txt += 'typedef sequence<%s> %sSeq;\n' % (cls.__name__, cls.__name__)
+
+        # TODO. this is a bit nasty
+
+        for slot in cls.slots + cls.method_slots:
+            if not slot.data_type[0].isupper():
+                continue
+            if slot.data_type.endswith('Seq'):
+                name = slot.data_type[:-3]
+            else:
+                name = slot.data_type
+
+            if name in defined:
+                continue
+            else:
+                defined.append(name)
+            txt += 'interface %s;\n' % name
+            txt += 'typedef sequence<%s> %sSeq;\n' % (name, name)
+
+        return txt
+
+    def create_idl_interface(cls):
+        txt = 'interface %s {\n' % cls.__name__
+
+        txt += '\t//constructors\n'
+#        txt += '\t%s get_object(%s);\n' % (cls.__name__, ', '.join(['in %s %s' % (attr.data_type, attr.name) for attr in cls.primary]))
+
+        txt += '\n\t//get and set methods for attributes\n'
+        for attr in cls.slots:
+            txt += '\t%s get_%s();\n' % (attr.data_type, attr.name)
+            if attr.writable:
+                txt += '\tvoid set_%s(in %s new_%s);\n' % (attr.name, attr.data_type, attr.name)
+            txt += '\n'
+
+        txt += '\n\t//other methods\n'
+        for method in cls.method_slots: # args blir ignorert for øyeblikket...
+            args = ['in %s %s' % (attr.data_type, attr.name) for attr in method.args]
+            txt += '\t%s %s(%s);\n' % (method.data_type, method.name, ', '.join(args))
+
+        txt += '};\n'
+
+        return txt
+
+    create_idl = classmethod(create_idl)
+    create_idl_header = classmethod(create_idl_header)
+    create_idl_interface = classmethod(create_idl_interface)
+ 
+
+class Builder(Caching, Locking, CorbaBuilder):
     primary = []
     slots = []
     method_slots = []
@@ -142,8 +216,8 @@ class Builder(Caching, Locking):
 
     # class methods
     
-    def get_key(cls, *args, **vargs):
-        """ Get primary key from args and vargs
+    def create_primary_key(cls, *args, **vargs):
+        """ Create primary key from args and vargs
 
         Used by the caching facility to identify a unique object
         """
@@ -223,7 +297,7 @@ class Builder(Caching, Locking):
         """ Registers a method
         """
         if hasattr(cls, method.name) and not overwrite:
-            raise AttributeError('%s already exists in %s' % ( method.name, cls.__name__))
+            raise AttributeError('%s already exists in %s' % (method.name, cls.__name__))
         setattr(cls, method.name, meth_func)
         # TODO: This needs work
 
@@ -231,37 +305,9 @@ class Builder(Caching, Locking):
         for attribute in cls.slots:
             cls.register_attribute(attribute, get=attribute.get, set=attribute.set, override=True, register=False)
 
-    def build_idl_header( cls ):
-        txt = 'interface %s;\n' % cls.__name__
-        txt += 'typedef sequence<%s> %sSeq;\n' % (cls.__name__, cls.__name__)
-        return txt
-
-    def build_idl_interface( cls ):
-        txt = 'interface %s {\n' % cls.__name__
-
-        txt += '\t//constructors\n'
-#        txt += '\t%s get_object(%s);\n' % (cls.__name__, ', '.join(['in %s %s' % (attr.data_type, attr.name) for attr in cls.primary]))
-
-        txt += '\n\t//get and set methods for attributes\n'
-        for attr in cls.slots:
-            txt += '\t%s get_%s();\n' % (attr.data_type, attr.name)
-            if attr.writable:
-                txt += '\tvoid set_%s(in %s new_%s);\n' % (attr.name, attr.data_type, attr.name)
-            txt += '\n'
-
-        txt += '\n\t//other methods\n'
-        for method in cls.method_slots: # args blir ignorert for øyeblikket...
-            txt += '\t%s %s();\n' % (method.data_type, method.name)
-
-        txt += '};\n'
-
-        return txt
-
-    get_key = classmethod(get_key)
+    create_primary_key = classmethod(create_primary_key)
     register_attribute = classmethod(register_attribute)
     prepare = classmethod(prepare)
-    build_idl_header = classmethod(build_idl_header)
-    build_idl_interface = classmethod(build_idl_interface)
 
     def __repr__(self):
         key = self._key[1]
