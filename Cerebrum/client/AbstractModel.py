@@ -116,6 +116,10 @@ class QuarantineType(object):
     def __repr__(self):
         return "<QuarantineType %s>" % self.name
     
+    def __eq__(self, other):
+        return isinstance(other, QuarantineType) and \
+               other.name == self.name    
+    
     def get_all(cls):    
         """Returns all known Quarantine types"""
         pass
