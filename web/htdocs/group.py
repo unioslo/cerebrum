@@ -6,6 +6,7 @@ from Cerebrum.web.templates.GroupSearchTemplate import GroupSearchTemplate
 from Cerebrum.web.templates.GroupViewTemplate import GroupViewTemplate
 from Cerebrum.web.templates.GroupAddMemberTemplate import GroupAddMemberTemplate
 from Cerebrum.web.templates.EditGroupTemplate import EditGroupTemplate
+from Cerebrum.web.templates.HistoryLogTemplate import HistoryLogTemplate
 from Cerebrum.web.Main import Main
 from gettext import gettext as _
 from Cerebrum.web.utils import url
@@ -66,7 +67,6 @@ def _create_view(req, id):
     view.add_member = lambda group:_add_box(group)
     page.content = lambda: view.viewGroup(group)
     return (page, group)
-
 
 def view(req, id):
     (page, group) = _create_view(req, id)
