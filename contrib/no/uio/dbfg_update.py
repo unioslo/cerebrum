@@ -207,12 +207,11 @@ def synchronize_group(external_group, cerebrum_group_name):
 
         # FIXME: Ugh! Username cases are different here and there. This
         # assumes that there are no two different accounts whose name
-        # differs only in the case. However, There are also accounts with
+        # differs only in the case. However, there are also accounts with
         # mixed cased in cerebrum. Basically, this means that such accounts
         # would be left out of group synchronization.
         #
-        # Alternatively, we could look things up twice -- case sensitive and
-        # case insensitive.
+        # External sources hand us usernames in uppercase.
         account_name = string.lower(row.username)
 
         # Find it in cerebrum
@@ -274,8 +273,10 @@ def remove_from_cerebrum_group(account, group, constants):
     """
 
     try:
-        for operation in [ constants.group_memberop_difference,
-                           constants.group_memberop_union ]:
+        # Since GROUP is 'sanitized' prior to calling this method, is there
+        # any point in remove the intersection members? (there are none)
+        for operation in [ constants.group_memberop_union,
+                           constants.group_memberop_intersection ]:
             group.remove_member(int(account.entity_id),
                                 int(operation))
         # od
@@ -296,9 +297,8 @@ def add_to_cerebrum_group(account, group, constants):
     """
     Adds the ACCOUNT.ENTITY_ID as a (union) member of GROUP.ENTITY_ID.
 
-    Also, removes difference member ACCOUNT.ENTITY_ID from GROUP.ENTITY_ID,
-    should such a member exist (it should not, really, but this is just a
-    precaution).
+    Also, removes difference member ACCOUNT from GROUP, should such a member
+    exist (it should not, really, but this is just a precaution).
     """
 
     logger.debug("Adding 'union' account member %s (%s) to group %s (%s)",
@@ -306,15 +306,18 @@ def add_to_cerebrum_group(account, group, constants):
                  group.entity_id, group.group_name)
 
     try:
-        # Add a new union member ... 
+        # Add a new union member
+
+        # NB! Removal has to be done before addition in this case.
+        # Otherwise the changelog displays the changes as a removal of
+        # ACCOUNT from GROUP (changelog is not aware of the various group
+        # operations))
+        group.remove_member(int(account.entity_id),
+                            int(constants.group_memberop_difference))
+        
         group.add_member(int(account.entity_id),
                          int(constants.entity_account),
                          int(constants.group_memberop_union))
-        
-        # ... and remove any difference members (it won't fail if there is no
-        # such member
-        group.remove_member(int(account.entity_id),
-                            int(constants.group_memberop_difference))
     except:
         # FIXME: How safe is it to do any updates if this happens?
         type, value, tb = sys.exc_info()
