@@ -1,5 +1,5 @@
 # -*- coding: iso-8859-1 -*-
-# Copyright 2002, 2003 University of Oslo, Norway
+# Copyright 2002, 2003, 2004 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -217,7 +217,7 @@ LDAP_BASE_DN="dc=uio,dc=no"
 LDAP_MAIL_BASE = """
 dn: ou=mail,%s
 objectClass: top
-objectClass: norOrganizationalUnit
+objectClass: organizationalUnit
 ou: mail
 description: mail-config ved UiO.\n
 """ % LDAP_BASE_DN

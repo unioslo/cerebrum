@@ -64,13 +64,12 @@ cl_entry = {'group_mod' : 'pass',
 							cll.change_type_id)',
 	'quarantine_del' : 'change_quarantine(cll.subject_entity,\
 							cll.change_type_id)'}
+
 global user_dn, person_dn, group_dn, ngroup_dn
-bas = cereconf.LDAP_BASE
-org_att = cereconf.LDAP_ORG_ATTR
-user_dn = "%s=%s,%s" % (org_att,cereconf.LDAP_USER_DN,bas)
-person_dn = "%s=%s,%s" % (org_att,cereconf.LDAP_PERSON_DN,bas)
-group_dn = "%s=%s,%s" % (org_att,cereconf.LDAP_GROUP_DN,bas)
-ngroup_dn = "%s=%s,%s" % (org_att,cereconf.LDAP_NETGROUP_DN,bas) 
+user_dn   = get_tree_dn('USER')
+person_dn = get_tree_dn('PERSON')
+group_dn  = get_tree_dn('GROUP')
+ngroup_dn = get_tree_dn('NETGROUP')
 
 
 

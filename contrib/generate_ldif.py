@@ -1,7 +1,7 @@
 #!/usr/bin/env python2.2
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2002, 2003 University of Oslo, Norway
+# Copyright 2002, 2003, 2004 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -32,6 +32,7 @@ from Cerebrum.modules import PosixUser
 from Cerebrum.modules import PosixGroup
 from Cerebrum import QuarantineHandler
 from Cerebrum.Constants import _SpreadCode
+from Cerebrum.modules.LDIFutils import *
 
 Cerebrum = Factory.get('Database')()
 co = Factory.get('Constants')(Cerebrum)
@@ -47,10 +48,6 @@ org_root = None
 global dn_dict
 dn_dict = {}
 disablesync_cn = 'disablesync'
-
-normalize_trans = string.maketrans(
-    "ABCDEFGHIJKLMNOPQRSTUVWXYZ\t\n\r\f\v",
-    "abcdefghijklmnopqrstuvwxyz     ")
 
 
 def load_code_tables():
@@ -91,14 +88,12 @@ def init_ldap_dump(ou_org,filename=None):
     init_str = "dn: %s\n" % (cereconf.LDAP_BASE)    
     for oc in ('top', 'organization', 'eduOrg', 'norEduOrg'):
 	init_str += "objectClass: %s\n" % oc
-    try:
-        if cereconf.LDAP_BASE_URL:
-            init_str += """objectClass: labeledURIObject
-eduOrgHomePageURI: %s
+    homepage = cereconf.getattr(LDAP_BASE_URL, None)
+    if homepage:
+        init_str += """objectClass: labeledURIObject
 labeledURI: %s
-""" % (cereconf.LDAP_BASE_URL, cereconf.LDAP_BASE_URL)
-    except (AttributeError, NameError):
-        pass
+eduOrgHomePageURI: %s
+""" % (homepage, homepage)
     init_str += "%s: %s\n" % tuple(cereconf.LDAP_BASE
                                    .split(',')[0].split('=', 2))
     init_str += ("norEduOrgUniqueNumber: %08d\n"
@@ -152,9 +147,9 @@ labeledURI: %s
     ou_struct[int(ou.ou_id)] = (cereconf.LDAP_BASE, post_string,
                                 street_string, None, None, None)
     for org in cereconf.LDAP_ORG_GROUPS:
+	if org == 'DUMMY': continue     # backwards compatibility hack
 	org = org.upper()
-	org_name = str(getattr(cereconf, 'LDAP_' + org + '_DN'))
-	init_str = "dn: %s=%s,%s\n" % (cereconf.LDAP_ORG_ATTR,org_name,cereconf.LDAP_BASE)
+	init_str = "dn: %s\n" % get_tree_dn(org)
 	init_str += "objectClass: top\n"
 	for obj in cereconf.LDAP_ORG_OBJECTCLASS:
 	    init_str += "objectClass: %s\n" % obj
@@ -179,6 +174,24 @@ labeledURI: %s
 	    f.write(lfile.read().strip()) 
 	    f.write('\n')
 	    lfile.close()
+
+    if True:
+        stedkode = Stedkode.Stedkode(Cerebrum)
+	stedkode.find(ou_org)
+        stedkodestr = "%02d%02d%02d" % (
+            stedkode.fakultet, stedkode.institutt, stedkode.avdeling)
+
+	init_str = "dn: ou=%s,%s" % (cereconf.LDAP_NON_ROOT_ATTR,
+                                     get_tree_dn('ORG'))
+        for ss in ('top', 'organizationalUnit', 'norEduOrgUnit'):
+            init_str += "objectClass: %s\n" % ss
+        init_str += "ou: %s\n" % cereconf.LDAP_NON_ROOT_ATTR
+        init_str += "norEduOrgUnitUniqueNumber: %s\n" % stedkodestr
+        init_str += ("norEduOrgUniqueNumber: %08d\n"
+                   % int(cereconf.DEFAULT_INSTITUSJONSNR))
+	f.write(init_str)
+        f.write("\n")
+
     f.close()
 
 def root_OU():
@@ -208,8 +221,7 @@ Set LDAP_ORG_ROOT_AUTO='Disable' and LDAP_ORG_ROOT to the correct ou_id no.!"""
 def generate_org(ou_id,filename=None):
     ou = Factory.get('OU')(Cerebrum)
     ou_list = ou.get_structure_mappings(co.perspective_lt)
-    ou_string = "%s=%s,%s" % (cereconf.LDAP_ORG_ATTR,cereconf.LDAP_ORG_DN, 
-						cereconf.LDAP_BASE)
+    ou_string = get_tree_dn('ORG')
     trav_list(ou_id, ou_list, ou_string, filename)
     stedkode = Stedkode.Stedkode(Cerebrum)
     if (cereconf.LDAP_PRINT_NONE_ROOT == 'Enable'):
@@ -224,10 +236,7 @@ def generate_org(ou_id,filename=None):
 			stedkodestr = "%02d%02d%02d" % (stedkode.fakultet,
                                                         stedkode.institutt,
                                                         stedkode.avdeling)
-			# ???? Bug: Should use 'ou' instead of LDAP_ORG_ATTR
-			# here, but must get rid of LDAP_DUMMY_DN first.
-			par_ou = "%s=%s,%s" % (cereconf.LDAP_ORG_ATTR,
-						cereconf.LDAP_NON_ROOT_ATTR,
+			par_ou = "ou=%s,%s" % (cereconf.LDAP_NON_ROOT_ATTR,
 						ou_string)
 			str_ou = print_OU(non_org, par_ou, stedkodestr, filename)
     
@@ -385,8 +394,7 @@ def generate_person(filename=None):
                      'inetOrgPerson', 'eduPerson', 'norEduPerson'):
 	objclass_string += "objectClass: %s\n" % objclass
     dn_base = cereconf.LDAP_BASE
-    dn_string = "%s=%s,%s" % (cereconf.LDAP_ORG_ATTR, cereconf.LDAP_PERSON_DN,
-                              dn_base)
+    dn_string = get_tree_dn('PERSON')
     person_spread = acl_spread = None
     valid_print_affi = []
     valid_phaddr_affi = []
@@ -479,11 +487,8 @@ def generate_person(filename=None):
 	    except:
                 prim_org = ""
 	    if prim_org.find(cereconf.LDAP_ORG_DN) == -1:
-		# ???? Bug: Should use 'ou' instead of LDAP_ORG_ATTR
-		# here, but must get rid of LDAP_DUMMY_DN first.
-		prim_org = "%s=%s,%s" % (cereconf.LDAP_ORG_ATTR,
-                                         cereconf.LDAP_DUMMY_DN,
-                                         cereconf.LDAP_BASE)
+		prim_org = "ou=%s,%s" % (cereconf.LDAP_NON_ROOT_ATTR,
+                                         get_tree_dn('ORG'))
 	    pers_string += "eduPersonPrimaryOrgUnitDN: %s\n" % prim_org
 	    org_printed = []
 	    pers_string += "eduPersonOrgUnitDN: %s\n" % prim_org
@@ -569,12 +574,7 @@ def generate_person(filename=None):
                         pers_string +="eduPersonAffiliation: %s\n" % affili_stu
                         affili_str += affili_stu
 	    pers_string += "uid: %s\n" % entity_name
-	    if row['auth_data'] is not None:
-		passwd = row['auth_data']
-	    elif row['auth_crypt'] is not None:
-		passwd = row['auth_crypt']
-	    else:
-                passwd = '*Invalid'
+	    passwd = (row['auth_data'] or row['auth_crypt'])
 	    if row['quarantine_type'] is not None:
                 qh = QuarantineHandler.QuarantineHandler(Cerebrum, 
                                                     [row['quarantine_type']])
@@ -582,7 +582,7 @@ def generate_person(filename=None):
                     continue
                 if qh.is_locked():
                     passwd = '*Locked'
-            pers_string += "userPassword: {crypt}%s\n" % passwd
+            pers_string += "userPassword: {crypt}%s\n" % (passwd or '*Invalid')
 
 	    #if aci_person  and (int(person.entity_id)  not in aci_empl_gr):
 	    if aci_person  and not aci_empl_gr.has_key(int(person.entity_id)):
@@ -600,8 +600,7 @@ def generate_person(filename=None):
 
 def generate_alias(filename=None):
     person = Factory.get('Person')(Cerebrum)
-    dn_string = "%s=%s,%s" % (cereconf.LDAP_ORG_ATTR,cereconf.LDAP_PERSON_DN,
-							cereconf.LDAP_BASE)
+    dn_string = get_tree_dn('PERSON')
     if filename:
 	f = file(filename,'a')
     else:
@@ -639,8 +638,7 @@ def generate_users(spread=None,filename=None):
     disks = {}
     for hd in disk.list(spread=spreads[0]):
 	disks[int(hd['disk_id'])] = hd['path']  
-    posix_dn = ",%s=%s,%s" % (cereconf.LDAP_ORG_ATTR,cereconf.LDAP_USER_DN,
-							cereconf.LDAP_BASE)
+    posix_dn = "," + get_tree_dn('USER')
     obj_string = "".join(["objectClass: %s\n" % oc for oc in
                           ('top', 'account', 'posixAccount')])
     if filename is None:
@@ -733,8 +731,7 @@ def generate_posixgroup(spread=None,u_spread=None,filename=None):
                               cereconf.LDAP_GROUP_FILE, 'w')
 	f.set_size_change_limit(10)
     groups = {}
-    dn_str = "%s=%s,%s" % (cereconf.LDAP_ORG_ATTR, cereconf.LDAP_GROUP_DN,
-                           cereconf.LDAP_BASE)
+    dn_str = get_tree_dn('GROUP')
     obj_str = "".join(["objectClass: %s\n" % oc for oc in
                        ('top', 'posixGroup')])
     for row in posix_group.list_all_grp(spreads):
@@ -776,9 +773,7 @@ def generate_netgroup(spread=None,u_spread=None,filename=None):
     if u_spread: u_spreads = eval_spread_codes(u_spread)
     else: u_spreads = eval_spread_codes(cereconf.LDAP_USER_SPREAD)
     f.write("\n")
-    dn_str = "%s=%s,%s" % (cereconf.LDAP_ORG_ATTR,
-                           cereconf.LDAP_NETGROUP_DN,
-                           cereconf.LDAP_BASE)
+    dn_str = get_tree_dn('NETGROUP')
     obj_str = "".join(["objectClass: %s\n" % oc for oc in
                        ('top', 'nisNetGroup')])
     for row in pos_netgrp.list_all_grp(spreads):
@@ -848,65 +843,12 @@ def spread_code(spr_str):
     return(spread)
 
 
-def iso2utf(s):
-    """Not in use for the moment, remove this line if used """
-    """Convert iso8859-1 to utf-8"""
-    utf_str = unicode(s,'iso-8859-1').encode('utf-8')
-    return utf_str
-
-def utf2iso(s):
-    """Not in use for the moment, remove this line if used """
-    """Convert utf-8 to iso8859-1"""
-    iso_str = unicode(s,'utf-8').encode('iso-8859-1')
-    return iso_str
-
-# match an 8-bit string which is not an utf-8 string
-iso_re = re.compile("[\300-\377](?![\200-\277])|(?<![\200-\377])[\200-\277]")
-
-# match an 8-bit string
-eightbit_re = re.compile('[\200-\377]')
-
-# match multiple spaces
-multi_space_re = re.compile('[%s]{2,}' % string.whitespace)
-
-def some2utf(str):
-    """Convert either iso8859-1 or utf-8 to utf-8"""
-    if iso_re.search(str):
-        str = unicode(str, 'iso8859-1').encode('utf-8')
-    return str
-
-def some2iso(str):
-    """Convert either iso8859-1 or utf-8 to iso8859-1"""
-    if eightbit_re.search(str) and not iso_re.search(str):
-        str = unicode(str, 'utf-8').encode('iso8859-1')
-    return str
-
-def normalize_phone(phone):
-    """Normalize phone/fax numbers for LDAP"""
-    return phone.translate(normalize_trans, " -")
- 
-def normalize_string(str):
-    """Normalize strings for LDAP"""
-    str = multi_space_re.sub(' ', str.translate(normalize_trans).strip())
-    if eightbit_re.search(str):
-        str = unicode(str, 'utf-8').lower().encode('utf-8')
-    return str
-
-# Match attributes with the printableString LDAP syntax
-printablestring_re = re.compile('^[a-zA-Z0-9\'()+,\\-.=/:? ]+$')
-
 ou_rdn_re = re.compile(r'[,+\\ ]+')
 
 def make_ou_for_rdn(ou):
     return ou_rdn_re.sub(' ', ou).strip()
 
 
-def verify_printableString(str):
-    """Not in use for the moment, remove this line if used """
-    """Return true if STR is valid for the LDAP syntax printableString"""
-    return printablestring_re.match(str)
-
-	
 def get_contacts(entity_id=None,source_system=None,contact_type=None,email=0):
     entity = Entity.EntityContactInfo(Cerebrum)
     cont_tab = {}
@@ -932,44 +874,6 @@ def get_contacts(entity_id=None,source_system=None,contact_type=None,email=0):
 	    return(v)
     else:
 	return(cont_tab)
-
-
-
-
-need_base64_re = re.compile('^\\s|[\0\r\n]|\\s$')
-
-def make_attr(name, strings, normalize = None, verify = None, raw = False):
-    """ Not in use for the moment, remove this line if used """
-    ret = []
-    done = {}
-
-    # Make each attribute name and value - but only one of
-    # each value, compared by attribute syntax ('normalize')
-    for s in strings:
-        if not raw:
-            # Clean up the string: remove surrounding and multiple whitespace
-            s = multi_space_re.sub(' ', s.strip())
-
-        # Skip the value if it is not valid according to its LDAP syntax
-        if s == '' or (verify and not verify(s)):
-            continue
-
-        # Check if value has already been made (or equivalent by normalize)
-        if normalize:
-            norm = normalize(s)
-        else:
-            norm = s
-        if done.has_key(norm):
-            continue
-        done[norm] = True
-
-        # Encode as base64 if necessary, otherwise as plain text
-        if need_base64_re.search(s):
-            ret.append("%s:: %s\n" % (name, (base64.encodestring(s)
-                                             .replace("\n", ''))))
-        else:
-            ret.append("%s: %s\n" % (name, s))
-    return ''.join(ret)
 
 
 def disable_ldapsync_mode():

@@ -1,7 +1,7 @@
 #!/usr/bin/env python2.2
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2002, 2003 University of Oslo, Norway
+# Copyright 2002, 2003, 2004 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -31,6 +31,7 @@ from Cerebrum.modules import PosixUser
 from Cerebrum.modules import PosixGroup
 from Cerebrum import QuarantineHandler
 from Cerebrum.Constants import _SpreadCode
+from Cerebrum.modules.LDIFutils import *
 
 Cerebrum = Factory.get('Database')()
 co = Factory.get('Constants')(Cerebrum)
@@ -39,62 +40,15 @@ logging.fileConfig(cereconf.LOGGING_CONFIGFILE)
 logger = logging.getLogger("cronjob")
 
 entity2uname = {}
-global dn_dict
-dn_dict = {}
 disablesync_cn = 'disablesync'
 
-normalize_trans = string.maketrans(
-    "ABCDEFGHIJKLMNOPQRSTUVWXYZ\t\n\r\f\v",
-    "abcdefghijklmnopqrstuvwxyz     ")
 
+def init_ldap_dump():
+    glob_fd.write("\n")
+    if getattr(cereconf, 'LDAP_POSIX_DN', None):
+        glob_fd.write(make_container_entry('POSIX'))
+    add_ldif_file(glob_fd, getattr(cereconf, 'LDAP_POSIX_ADD_LDIF_FILE', None))
 
-
-def init_ldap_dump(filename=None):
-    if filename:
-	f = file(filename, 'w')
-    else:
-	f = glob_fd
-    init_str = "dn: %s\n" % (cereconf.LDAP_BASE)    
-    init_str += "objectClass: top\n"
-    for oc in cereconf.LDAP_BASE_OBJECTCLASS:
-	init_str += "objectClass: %s\n" % oc
-    init_str += "l: %s\n" % cereconf.LDAP_BASE_CITY
-    for alt in cereconf.LDAP_BASE_ALTERNATIVE_NAME:
-	init_str += "o: %s\n" % alt
-    for des in cereconf.LDAP_BASE_DESCRIPTION:
-	init_str += "description: %s\n" % des
-    f.write(init_str)
-    f.write("\n")
-    for org in cereconf.LDAP_ORG_GROUPS:
-	org = org.upper()
-	org_name = str(getattr(cereconf, 'LDAP_' + org + '_DN'))
-	init_str = "dn: %s=%s,%s\n" % (cereconf.LDAP_ORG_ATTR,org_name,cereconf.LDAP_BASE)
-	init_str += "objectClass: top\n"
-	for obj in cereconf.LDAP_ORG_OBJECTCLASS:
-	    init_str += "objectClass: %s\n" % obj
-	for ous in getattr(cereconf, 'LDAP_' + org + '_ALTERNATIVE_NAME'):
-	    init_str += "%s: %s\n" % (cereconf.LDAP_ORG_ATTR,ous)
-	init_str += "description: %s\n" % \
-                    some2utf(getattr(cereconf, 'LDAP_' + org + '_DESCRIPTION'))
-        try:
-            for attrs in getattr(cereconf, 'LDAP_' + org + '_ADD_ATTR'):
-                init_str += attrs + '\n'
-        except AttributeError:
-            pass
-	init_str += '\n'
-	f.write(init_str)
-    if cereconf.LDAP_MAN_LDIF_ADD_FILE:
-        try:
-	    lfile = file(cereconf.LDAP_DUMP_DIR + '/' +
-                         cereconf.LDAP_MAN_LDIF_ADD_FILE, 'r')
-        except:
-            pass
-        else:
-	    f.write(lfile.read().strip()) 
-	    f.write('\n')
-	    lfile.close()
-    if filename:
-	f.close()
 
 def generate_users(spread=None,filename=None):
     posix_user = PosixUser.PosixUser(Cerebrum)
@@ -107,17 +61,17 @@ def generate_users(spread=None,filename=None):
     disks = {}
     for hd in disk.list(spread=spreads[0]):
 	disks[int(hd['disk_id'])] = hd['path']  
-    posix_dn = ",%s=%s,%s" % (cereconf.LDAP_ORG_ATTR,
-					cereconf.LDAP_USER_DN,
-					cereconf.LDAP_BASE)
-    posix_dn_string = "%s=" % cereconf.LDAP_USER_ATTR
-    obj_string = "objectClass: top\n"
-    for obj in cereconf.LDAP_USER_OBJECTCLASS:
-	obj_string += "objectClass: %s\n" % obj
+    posix_dn = "," + get_tree_dn('USER')
+    obj_string = "".join(["objectClass: %s\n" % oc for oc in
+                          ('top', 'account', 'posixAccount')])
     if filename:
 	f = file(filename,'w')
+        f.write("\n")
     else:
 	f = glob_fd
+
+    f.write(make_container_entry('USER'))
+
     #done_users = {}
     # Change to uname2id
     # When all authentication-needing accounts possess an 'md5_crypt'
@@ -173,7 +127,7 @@ def generate_users(spread=None,filename=None):
 	    else:
                 continue
             if acc_id <> prev_userid:
-                f.write('dn: %s%s%s\n' % (posix_dn_string, uname, posix_dn))
+                f.write('dn: uid=%s%s\n' % (uname, posix_dn))
                 f.write('%scn: %s\n' % (obj_string, gecos))
                 f.write('uid: %s\n' % uname)
                 f.write('uidNumber: %s\n' % str(row['posix_uid']))
@@ -185,7 +139,6 @@ def generate_users(spread=None,filename=None):
                 f.write('\n')
 		entity2uname[acc_id] = uname
                 prev_userid = acc_id
-    f.write("\n")
     if filename:
 	f.close()
 
@@ -199,19 +152,21 @@ def generate_posixgroup(spread=None,u_spread=None,filename=None):
     else: u_spreads = eval_spread_codes(cereconf.LDAP_USER_SPREAD)
     if filename:
 	f = file(filename, 'w')
+        f.write("\n")
     else:
 	f = glob_fd
+
+    f.write(make_container_entry('GROUP'))
+
     groups = {}
-    dn_str = "%s=%s,%s" % (cereconf.LDAP_ORG_ATTR, cereconf.LDAP_GROUP_DN,
-                           cereconf.LDAP_BASE)
-    obj_str = "objectClass: top\n"
-    for obj in cereconf.LDAP_GROUP_OBJECTCLASS:
-	obj_str += "objectClass: %s\n" % obj
+    dn_str = get_tree_dn('GROUP')
+    obj_str = "".join(["objectClass: %s\n" % oc for oc in
+                       ('top', 'posixGroup')])
     for row in posix_group.list_all_grp(spreads):
 	posix_group.clear()
         posix_group.find(row.group_id)
         gname = posix_group.group_name
-        pos_grp = "dn: %s=%s,%s\n" % (cereconf.LDAP_GROUP_ATTR, gname, dn_str)
+        pos_grp = "dn: cn=%s,%s\n" % (gname, dn_str)
         pos_grp += "%s" % obj_str
         pos_grp += "cn: %s\n" % gname
         pos_grp += "gidNumber: %s\n" % posix_group.posix_gid
@@ -227,37 +182,36 @@ def generate_posixgroup(spread=None,u_spread=None,filename=None):
             if not entity2uname.has_key(uname_id):
                 entity2uname[uname_id] = id[1]
             pos_grp += "memberUid: %s\n" % entity2uname[uname_id]
-	f.write("\n")
         f.write(pos_grp)
-    f.write("\n")
+	f.write("\n")
     if filename:
 	f.close()
+
 
 def generate_netgroup(spread=None,u_spread=None,filename=None):
     global grp_memb
     pos_netgrp = Factory.get('Group')(Cerebrum)
     if filename:
         f = file(filename, 'w')
+        f.write("\n")
     else:
 	f = glob_fd
+
+    f.write(make_container_entry('NETGROUP'))
+
     if spread: spreads = eval_spread_codes(spread)
     else: spreads = eval_spread_codes(cereconf.LDAP_NETGROUP_SPREAD)
     if u_spread: u_spreads = eval_spread_codes(u_spread)
     else: u_spreads = eval_spread_codes(cereconf.LDAP_USER_SPREAD)
-    f.write("\n")
-    dn_str = "%s=%s,%s" % (cereconf.LDAP_ORG_ATTR,
-                           cereconf.LDAP_NETGROUP_DN,
-                           cereconf.LDAP_BASE)
-    obj_str = "objectClass: top\n"
-    for obj in cereconf.LDAP_NETGROUP_OBJECTCLASS:
-        obj_str += "objectClass: %s\n" % obj
+    dn_str = get_tree_dn('NETGROUP')
+    obj_str = "".join(["objectClass: %s\n" % oc for oc in
+                       ('top', 'nisNetGroup')])
     for row in pos_netgrp.list_all_grp(spreads):
 	grp_memb = {}
         pos_netgrp.clear()
         pos_netgrp.find(row.group_id)
         netgrp_name = pos_netgrp.group_name
-        netgrp_str = "dn: %s=%s,%s\n" % (cereconf.LDAP_NETGROUP_ATTR,
-                                         netgrp_name, dn_str)
+        netgrp_str = "dn: cn=%s,%s\n" % (netgrp_name, dn_str)
         netgrp_str += "%s" % obj_str
         netgrp_str += "cn: %s\n" % netgrp_name
         if not entity2uname.has_key(int(row.group_id)):
@@ -304,7 +258,6 @@ def eval_spread_codes(spread):
         spreads = None
     return(spreads)
 
-
 def spread_code(spr_str):
     spread=""
     #if isinstance(spr_str, _SpreadCode):
@@ -318,38 +271,6 @@ def spread_code(spr_str):
 		print "Not valid Spread-Code"
 		spread = None
     return(spread)
-
-#    return iso_str
-
-# match an 8-bit string which is not an utf-8 string
-iso_re = re.compile("[\300-\377](?![\200-\277])|(?<![\200-\377])[\200-\277]")
-
-# match an 8-bit string
-eightbit_re = re.compile('[\200-\377]')
-
-# match multiple spaces
-multi_space_re = re.compile('[%s]{2,}' % string.whitespace)
-
-def some2utf(str):
-    """Convert either iso8859-1 or utf-8 to utf-8"""
-    if iso_re.search(str):
-        str = unicode(str, 'iso8859-1').encode('utf-8')
-    return str
-
-def some2iso(str):
-    """Convert either iso8859-1 or utf-8 to iso8859-1"""
-    if eightbit_re.search(str) and not iso_re.search(str):
-        str = unicode(str, 'utf-8').encode('iso8859-1')
-    return str
-
-    return ou_rdn_re.sub(' ', ou).strip()
-
-
-def verify_printableString(str):
-    """Not in use for the moment, remove this line if used """
-    """Return true if STR is valid for the LDAP syntax printableString"""
-    return printablestring_re.match(str)
-
 
 
 def disable_ldapsync_mode():
@@ -372,56 +293,58 @@ def disable_ldapsync_mode():
 		f.write(time.strftime("%d %b %Y %H:%M:%S", time.localtime())) 
 		f.close()
 
+
 def main():
-    global glob_fd
-    glob_fd = SimilarSizeWriter(cereconf.LDAP_DUMP_DIR + "/" +  \
-					cereconf.LDAP_POSIX_FILE)
-    glob_fd.set_size_change_limit(10)
+    short2long_opts = (('u:', 'U:', 'g:', 'G:', 'n:', 'N:'),
+                       ('user=', 'user_spread=', 'group=', 'group_spread=',
+                        'netgroup=', 'netgroup_spread='))
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'u:g:n:U:G:N:po',
-					['help', 'group=','user=',
-					'netgroup_spread=', 'group_spread=',
-					'user_spread=', 'netgroup=','posix'])
+        opts, args = getopt.getopt(sys.argv[1:],
+                                   "".join(short2long_opts[0]),
+                                   ('help', 'posix') + short2long_opts[1])
+        opts = dict(opts)
     except getopt.GetoptError:
         usage(1)
-    user_spread = group_spread = None
-    p = {}
-    for opt, val in opts:
-	m_val = []
-        if opt in ('--help',):
-            usage()
-	elif opt in ('-u', '--user'):
-            p['u_file'] = val
-	elif opt in ('-g', '--group'):
-            p['g_file'] = val
-	elif opt in ('-n', '--netgroup'):
-            p['n_file'] = val
-	elif opt in ('-U','--user_spread'):
-	    [m_val.append(str(x)) for x in val.split(',')]
-	    p['u_spr'] = eval_spread_codes(m_val)
-	elif opt in ('-G','--group_spread',):
-	    [m_val.append(str(x)) for x in val.split(',')]
-	    p['g_spr'] = eval_spread_codes(m_val)
-        elif opt in ('-N','--netgroup_spread',):
-	    [m_val.append(str(x)) for x in val.split(',')]
-            p['n_spr'] = eval_spread_codes(m_val)
-	elif opt in ('--posix',):
-	    disable_ldapsync_mode()
-	    init_ldap_dump()
-            generate_users()
-            generate_posixgroup()
-            generate_netgroup()
-        else:
-            usage()
-    if len(opts) == 0:
+    if args or opts.has_key('--help'):
+        usage(bool(args))
+
+    for short, long in zip(*short2long_opts):
+        val = opts.get('--' + long.replace('=',''))
+        if val is not None:
+            opts['-' + short.replace(':','')] = val
+
+    got_posix  = opts.has_key('--posix')
+    got_file   = filter(lambda opt: opts.has_key(opt), ('-u', '-g', '-n'))
+    got_spread = False
+    for opt in ('-U', '-G', '-N'):
+        if opts.has_key(opt):
+	    opts[opt]  = eval_spread_codes(opts[opt].split(','))
+            got_spread = True
+
+    global glob_fd
+    glob_fd = None
+    if got_posix or not got_file:
+        glob_fd = SimilarSizeWriter(cereconf.LDAP_DUMP_DIR + "/" +
+                                    cereconf.LDAP_POSIX_FILE)
+        glob_fd.set_size_change_limit(10)
+
+    if got_posix or got_file:
+        if got_posix:
+            disable_ldapsync_mode()
+            init_ldap_dump()
+        if got_posix or opts.has_key('-u'):
+            generate_users(opts.get('-U'), opts.get('-u'))
+        if got_posix or opts.has_key('-g'):
+            generate_posixgroup(opts.get('-G'), opts.get('-U'), opts.get('-g'))
+        if got_posix or opts.has_key('-n'):
+            generate_netgroup(opts.get('-N'), opts.get('-U'), opts.get('-n'))
+    else:
+        if got_spread:
+            usage(1)
         config()
-    if p.has_key('n_file'):
-        generate_netgroup(p.get('n_spr'), p.get('u_spr'), p.get('n_file'))
-    if p.has_key('g_file'):
-        generate_posixgroup(p.get('g_spr'), p.get('u_spr'), p.get('g_file'))
-    if p.has_key('u_file'):
-        generate_users(p.get('u_spr'), p.get('u_file'))
-    glob_fd.close()
+
+    if glob_fd:
+        glob_fd.close()
 
 def usage(exitcode=0):
     print """Usage: [options]
@@ -447,15 +370,14 @@ def usage(exitcode=0):
 
 def config():
 	disable_ldapsync_mode()
-	init_ldap_dump()
+        init_ldap_dump()
 	if (cereconf.LDAP_USER == 'Enable'):
 	    generate_users()
 	if (cereconf.LDAP_GROUP == 'Enable'):
 	    generate_posixgroup()
 	if (cereconf.LDAP_NETGROUP == 'Enable'):
 	    generate_netgroup()
-	else:
-	    pass
 	
+
 if __name__ == '__main__':
     	main()

@@ -1,7 +1,7 @@
 #!/usr/bin/env python2.2
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2002, 2003 University of Oslo, Norway
+# Copyright 2002, 2003, 2004 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -30,6 +30,7 @@ from Cerebrum.Utils import Factory, latin1_to_iso646_60, SimilarSizeWriter
 from Cerebrum.modules.no import Stedkode
 from Cerebrum import QuarantineHandler
 from Cerebrum.Constants import _SpreadCode
+from Cerebrum.modules.LDIFutils import *
 
 Cerebrum = Factory.get('Database')()
 co = Factory.get('Constants')(Cerebrum)
@@ -43,10 +44,6 @@ alias_list = {}
 org_root = None
 global dn_dict
 dn_dict = {}
-
-normalize_trans = string.maketrans(
-    "ABCDEFGHIJKLMNOPQRSTUVWXYZ\t\n\r\f\v",
-    "abcdefghijklmnopqrstuvwxyz     ")
 
 
 def load_code_tables():
@@ -62,7 +59,7 @@ def load_code_tables():
                                 contact_type=int(co.contact_phone))
     fax_tab = get_contacts(source_system=int(co.system_lt),\
                                 contact_type=int(co.contact_fax))
-    
+
 
 def make_address(sep, p_o_box, address_text, postal_number, city, country):
     if (p_o_box and int(postal_number or 0) / 100 == 3):
@@ -79,35 +76,14 @@ def make_address(sep, p_o_box, address_text, postal_number, city, country):
                                   post_nr_city,
                                   country))).replace("\n", sep)
 
+
 def init_ldap_dump(ou_org):
-    init_str = "dn: %s\n" % (cereconf.LDAP_BASE)    
-    init_str += "objectClass: top\n"
-    for oc in cereconf.LDAP_BASE_OBJECTCLASS:
-	init_str += "objectClass: %s\n" % oc
-    for bc in cereconf.LDAP_BASE_BUSINESSCATEGORY:
-	init_str += "businessCategory: %s\n" % bc
-    for dc in cereconf.LDAP_BASE_ALTERNATIVE_DN:
-	init_str += "dc: %s\n" % dc
-    for des in cereconf.LDAP_BASE_DESCRIPTION:
-	init_str += "description: %s\n" % des
+    attrs = {
+        'norEduOrgUniqueNumber': ("%08d" % cereconf.DEFAULT_INSTITUSJONSNR,) }
     ou = Factory.get('OU')(Cerebrum)
     ou.find(ou_org)
     if fax_tab.has_key(int(ou_org)):
-	for fax in fax_tab[int(ou_org)]:
-	    init_str += "facsimileTelephoneNumber: %s\n" % fax
-    try:
-	stedkode = Stedkode.Stedkode(Cerebrum)
-	stedkode.find(ou_org)
-    except:
-        pass
-    else:
-	stedkodestr = "%02d%02d%02d" % (stedkode.fakultet,
-                                        stedkode.institutt,
-                                        stedkode.avdeling)
-        init_str += "norInstitutionNumber: %s\n" % stedkodestr
-    init_str += "l: %s\n" % cereconf.LDAP_BASE_CITY
-    for alt in cereconf.LDAP_BASE_ALTERNATIVE_NAME:
-	init_str += "o: %s\n" % alt
+        attrs.setdefault('facsimileTelephoneNumber', fax_tab[int(ou_org)])
     post_string = street_string = None
     try:
 	post_addr = ou.get_entity_address(None, co.address_post)[0]
@@ -121,7 +97,7 @@ def init_ldap_dump(ou_org):
                                    post_addr['city'],
                                    post_addr['country'])
         if post_string:
-            init_str += "postalAddress: %s\n" % post_string
+            attrs.setdefault('postalAddress', (post_string,))
     try:
 	street_addr = ou.get_entity_address(None,co.address_street)[0]
     except:
@@ -134,47 +110,25 @@ def init_ldap_dump(ou_org):
                                      street_addr['city'],
                                      street_addr['country'])
         if street_string:
-            init_str += "street: %s\n" % street_string
+            attrs.setdefault('street', (street_string,))
     if ph_tab.has_key(int(ou_org)):
-        for phone in ph_tab[int(ou_org)]:
-            init_str += "telephoneNumber: %s\n" % phone
+        attrs.setdefault('telephoneNumber', ph_tab[int(ou_org)])
+    attrs.update(cereconf2utf('LDAP_BASE_ATTRS', {}))
+    ocs = list(attrs.get('objectClass', ()))
+    ocs.append(filter(lambda oc: oc not in ocs,
+                      ('top', 'organization', 'eduOrg', 'norEduOrg')))
+    attrs['objectClass'] = ocs
+    if attrs.has_key('labeledURI'):
+        attrs.setdefault('eduOrgHomePageURI', attrs['labeledURI'])
 
-    try:
-        init_str += "labeledURI: %s\n" % cereconf.LDAP_BASE_URL
-    except:
-        pass
-    glob_fd.write(init_str)
     glob_fd.write("\n")
+    glob_fd.write(make_entry(cereconf.LDAP_BASE, attrs))
+
     ou_struct[int(ou.ou_id)] = (cereconf.LDAP_BASE, post_string,
                                 street_string, None, None, None)
-    for org in cereconf.LDAP_ORG_GROUPS:
-	org = org.upper()
-	org_name = str(getattr(cereconf, 'LDAP_' + org + '_DN'))
-	init_str = "dn: %s=%s,%s\n" % (cereconf.LDAP_ORG_ATTR,org_name,cereconf.LDAP_BASE)
-	init_str += "objectClass: top\n"
-	for obj in cereconf.LDAP_ORG_OBJECTCLASS:
-	    init_str += "objectClass: %s\n" % obj
-	for ous in getattr(cereconf, 'LDAP_' + org + '_ALTERNATIVE_NAME'):
-	    init_str += "%s: %s\n" % (cereconf.LDAP_ORG_ATTR,ous)
-	init_str += "description: %s\n" % \
-                    some2utf(getattr(cereconf, 'LDAP_' + org + '_DESCRIPTION'))
-        try:
-            for attrs in getattr(cereconf, 'LDAP_' + org + '_ADD_ATTR'):
-                init_str += attrs + '\n'
-        except AttributeError:
-            pass
-	init_str += '\n'
-	glob_fd.write(init_str)
-    if cereconf.LDAP_MAN_LDIF_ADD_FILE:
-        try:
-	    lfile = file(cereconf.LDAP_DUMP_DIR + '/' +
-                         cereconf.LDAP_MAN_LDIF_ADD_FILE, 'r')
-        except:
-            pass
-        else:
-	    glob_fd.write(lfile.read().strip()) 
-	    glob_fd.write('\n')
-	    lfile.close()
+
+    add_ldif_file(glob_fd, getattr(cereconf, 'LDAP_ORG_ADD_LDIF_FILE', None))
+
 
 def root_OU():
     ou = Factory.get('OU')(Cerebrum)
@@ -200,13 +154,29 @@ Set LDAP_ORG_ROOT_AUTO='Disable' and LDAP_ORG_ROOT to the correct ou_id no.!"""
 	root_org = Cerebrum.pythonify_data(root_id[0]['ou_id'])	
 	return(root_org)
 
-def generate_org(ou_id,filename=None):
+
+def generate_org(ou_id):
+    glob_fd.write(make_container_entry('ORG'))
+
+    stedkode = Stedkode.Stedkode(Cerebrum)
+    if True:
+	stedkode.find(ou_id)
+	stedkodestr = "%02d%02d%02d" % (stedkode.fakultet,
+                                        stedkode.institutt,
+                                        stedkode.avdeling)
+        attrs = {
+            'objectClass': ('top', 'organizationalUnit', 'norEduOrgUnit'),
+            'norEduOrgUnitUniqueNumber': (stedkodestr,),
+            'norEduOrgUniqueNumber':("%08d" % cereconf.DEFAULT_INSTITUSJONSNR,)
+            }
+        attrs.update(cereconf2utf('LDAP_NON_ROOT_ATTRS', {}))
+        non_root_dn = "ou=%s,%s" % (cereconf.LDAP_NON_ROOT_ATTR,
+                                    get_tree_dn('ORG'))
+	glob_fd.write(make_entry(non_root_dn, attrs))
+
     ou = Factory.get('OU')(Cerebrum)
     ou_list = ou.get_structure_mappings(co.perspective_lt)
-    ou_string = "%s=%s,%s" % (cereconf.LDAP_ORG_ATTR,cereconf.LDAP_ORG_DN, 
-						cereconf.LDAP_BASE)
-    trav_list(ou_id, ou_list, ou_string, filename)
-    stedkode = Stedkode.Stedkode(Cerebrum)
+    trav_list(ou_id, ou_list, get_tree_dn('ORG'))
     if (cereconf.LDAP_PRINT_NONE_ROOT == 'Enable'):
 	root_ids = ou.root()
 	if len(root_ids) > 1:
@@ -219,16 +189,12 @@ def generate_org(ou_id,filename=None):
 			stedkodestr = "%02d%02d%02d" % (stedkode.fakultet,
                                                         stedkode.institutt,
                                                         stedkode.avdeling)
-			par_ou = "%s=%s,%s" % (cereconf.LDAP_ORG_ATTR,
-						cereconf.LDAP_NON_ROOT_ATTR,
-						ou_string)
-			str_ou = print_OU(non_org, par_ou, stedkodestr, filename)
-    
-def print_OU(id, par_ou, stedkodestr,par, filename=None):
+			dummy = print_OU(non_org, non_root_dn, stedkodestr)
+
+def print_OU(id, par_ou, stedkodestr, par):
     ou = Factory.get('OU')(Cerebrum)
     ou.clear()
     ou.find(id)
-    str_ou = []
     street_string = None
     post_string = None
     ou_phones = ou_faxs = ''
@@ -236,14 +202,12 @@ def print_OU(id, par_ou, stedkodestr,par, filename=None):
 	ou_dn = make_ou_for_rdn(some2utf(ou.acronym))
     else:
 	ou_dn = make_ou_for_rdn(some2utf(ou.short_name))
-    str_ou = "%s=%s,%s" % (cereconf.LDAP_ORG_ATTR,ou_dn,par_ou)
+    str_ou = "ou=%s,%s" % (ou_dn, par_ou)
     if dn_dict.has_key(str_ou):
-        str_ou = "%s=%s+norOrgUnitNumber=%s,%s" % (cereconf.LDAP_ORG_ATTR,
-						ou_dn,stedkodestr,par_ou)
+        str_ou = "norEduOrgUnitUniqueNumber=%s+%s" % (stedkodestr, str_ou)
     dn_dict[str_ou] = stedkodestr
     ou_str = "dn: %s\n" % str_ou
-    ou_str += "objectClass: top\n"
-    for ss in cereconf.LDAP_ORG_OBJECTCLASS:
+    for ss in ('top', 'organizationalUnit', 'norEduOrgUnit'):
         ou_str += "objectClass: %s\n" % ss
     if fax_tab.has_key(id):
 	for ou_fax in fax_tab[id]:
@@ -257,12 +221,13 @@ def print_OU(id, par_ou, stedkodestr,par, filename=None):
 	if ou_email:
 	    for email in ou_email:
 		ou_str += "mail: %s\n" % email
-    if stedkodestr:	
-	ou_str += "norOrgUnitNumber: %s\n" % stedkodestr
+    ou_str += "norEduOrgUnitUniqueNumber: %s\n" % stedkodestr
+    ou_str += ("norEduOrgUniqueNumber: %08d\n"
+               % cereconf.DEFAULT_INSTITUSJONSNR)
     cmp_ou_str = []
     if ou.acronym:
 	acr_name = some2utf(ou.acronym)
-	ou_str += "acronym: %s\n" % acr_name
+	ou_str += "norEduOrgAcronym: %s\n" % acr_name
     ou_str += "ou: %s\n" % ou_dn
     cmp_ou_str.append(normalize_string(ou_dn))
     cn_str = ou_dn
@@ -287,8 +252,7 @@ def print_OU(id, par_ou, stedkodestr,par, filename=None):
             cmp_ou_str.append(normalize_string(sor_name))
             ou_str += "ou: %s\n" % sor_name
             cn_str = sor_name
-    if cn_str:
-	ou_str += "cn: %s\n" % cn_str
+    ou_str += "cn: %s\n" % cn_str
     for cc in cereconf.SYSTEM_LOOKUP_ORDER:
 	try:
 	    post_addr = ou.get_entity_address(int(getattr(co, cc)), 
@@ -331,17 +295,15 @@ def print_OU(id, par_ou, stedkodestr,par, filename=None):
                               ", ".join(filter(None, (ou.short_name,
                                                       street_string))),
                               ou_phones, ou_faxs, int(par))
-	#f.close()
 	return par_ou
     else:
 	ou_struct[int(id)] = (str_ou, post_string, street_string,
                               ou_phones, ou_faxs, None)
-        glob_fd.write("\n")
     	glob_fd.write(ou_str)
+        glob_fd.write("\n")
     	return str_ou
 
-    
-def trav_list(par, ou_list, par_ou,filename=None):
+def trav_list(par, ou_list, par_ou):
     stedkode = Stedkode.Stedkode(Cerebrum)
     for c,p in ou_list:
 	# Check if it is child of parent and not cyclic
@@ -351,30 +313,31 @@ def trav_list(par, ou_list, par_ou,filename=None):
 		stedkode.find(c)
 	    except:
 		ou_struct[str(c)] = par_ou
-		str_ou = print_OU(c,par_ou,None,filename)
-		trav_list(c,ou_list,str_ou,filename)
+		str_ou = print_OU(c, par_ou, None)
+		trav_list(c, ou_list, str_ou)
             else:
 		stedkodestr = "%02d%02d%02d" % (stedkode.fakultet,
                                                 stedkode.institutt,
                                                 stedkode.avdeling)
  	   	if stedkode.katalog_merke == 'T':
-            	    str_ou = print_OU(c,par_ou,stedkodestr,None,filename)
-            	    trav_list(c,ou_list,str_ou,filename)
+            	    str_ou = print_OU(c, par_ou, stedkodestr, None)
+            	    trav_list(c, ou_list, str_ou)
     	    	else:
-		    dummy = print_OU(c,par_ou,stedkodestr,p,filename)
-		    trav_list(c,ou_list,par_ou,filename)
+		    dummy = print_OU(c, par_ou, stedkodestr, p)
+		    trav_list(c, ou_list, par_ou)
 
-def generate_person(filename=None):
+
+def generate_person():
+    glob_fd.write(make_container_entry('PERSON'))
+
     person = Factory.get('Person')(Cerebrum)
     group = Factory.get('Group')(Cerebrum)
-    glob_fd.write("\n")
-    objclass_string = "objectClass: top\n"
-    for objclass in cereconf.LDAP_PERSON_OBJECTCLASS:
-	objclass_string += "objectclass: %s\n" % objclass
-    dn_attr = cereconf.LDAP_PERSON_ATTR
-    dn_base = "%s" % cereconf.LDAP_BASE
-    dn_string = "%s=%s,%s" % (cereconf.LDAP_ORG_ATTR,
-				cereconf.LDAP_PERSON_DN,dn_base) 
+    objclass_string = ""
+    for objclass in ('top', 'person', 'organizationalPerson',
+                     'inetOrgPerson', 'eduPerson', 'norEduPerson'):
+	objclass_string += "objectClass: %s\n" % objclass
+    dn_base = cereconf.LDAP_BASE
+    dn_string = get_tree_dn('PERSON')
     person_spread = acl_spread = None
     valid_print_affi = []
     valid_phaddr_affi = []
@@ -444,15 +407,17 @@ def generate_person(filename=None):
 	if print_person:
 	    person.clear()
 	    person.entity_id = row['person_id']
-	    pers_string = "dn: %s=%s,%s\n" % (dn_attr,entity_name,dn_string)
+	    pers_string = "dn: uid=%s,%s\n" % (entity_name, dn_string)
 	    pers_string += "%s" % objclass_string
   	    utf_name = some2utf(name)
 	    pers_string += "cn: %s\n" % utf_name
 	    if row['birth_date']:
-		pers_string += "birthDate: %s\n" % (time.strftime("%d%m%y",
-					time.strptime(str(row['birth_date']),
-					"%Y-%m-%d %H:%M:%S.00")))
-	    pers_string += "norSSN: %s\n" % re.sub('\D','',row['external_id'])
+		pers_string += "norEduPersonBirthDate: %s\n" % (
+                    time.strftime("%Y%m%d",
+                                  time.strptime(str(row['birth_date']),
+                                                "%Y-%m-%d %H:%M:%S.00")))
+	    pers_string += ("norEduPersonNIN: %s\n"
+                            % re.sub(r'\D','',row['external_id']))
 	    pers_string += "eduPersonOrgDN: %s\n" % dn_base
 	    try:
 		if (ou_struct[int(ou_id)][5] == None):
@@ -463,13 +428,10 @@ def generate_person(filename=None):
 			par = int(ou_struct[int(par)][5])
 		    prim_org = (ou_struct[par][0])
 	    except:
-		prim_org = "%s=%s,%s" % (cereconf.LDAP_ORG_ATTR,
-					cereconf.LDAP_DUMMY_DN,
-					cereconf.LDAP_BASE)
-	    if (prim_org.find(cereconf.LDAP_ORG_DN) == -1):
-		prim_org = "%s=%s,%s" % (cereconf.LDAP_ORG_ATTR,
-                                         cereconf.LDAP_DUMMY_DN,
-                                         cereconf.LDAP_BASE)
+		prim_org = ""
+	    if not prim_org.endswith(get_tree_dn('ORG')):
+		prim_org = "ou=%s,%s" % (cereconf.LDAP_NON_ROOT_ATTR,
+                                         get_tree_dn('ORG'))
 	    pers_string += "eduPersonPrimaryOrgUnitDN: %s\n" % prim_org
 	    org_printed = []
 	    pers_string += "eduPersonOrgUnitDN: %s\n" % prim_org
@@ -555,7 +517,7 @@ def generate_person(filename=None):
                         pers_string +="eduPersonAffiliation: %s\n" % affili_stu
                         affili_str += affili_stu
 	    pers_string += "uid: %s\n" % entity_name
-	    passwd = row['auth_data']
+            passwd = (row['auth_data'] or row['auth_crypt'])
 	    if passwd:
 		if row['quarantine_type'] is not None:
             	    qh = QuarantineHandler.QuarantineHandler(Cerebrum, 
@@ -564,9 +526,8 @@ def generate_person(filename=None):
 			continue
             	    if qh.is_locked():
 			passwd = '*Locked'
-		pers_string += "userPassword: {crypt}%s\n" % passwd
-	    else:
-		pers_string += "userPassword: {crypt}*Invalid\n"
+            pers_string += "userPassword: {crypt}%s\n" % (passwd or '*Invalid')
+
 	    #if aci_person  and (int(person.entity_id)  not in aci_empl_gr):
 	    if aci_person  and not aci_empl_gr.has_key(int(person.entity_id)):
 		pers_string += "%s\n" % cereconf.LDAP_PERSON_ACI
@@ -575,70 +536,33 @@ def generate_person(filename=None):
 		pers_string += "%s\n" % cereconf.LDAP_PERSON_ACI
 	    alias_list[int(person.entity_id)] = entity_name, prim_org,\
 							name, lastname
-	    glob_fd.write("\n")
 	    glob_fd.write(pers_string)
+	    glob_fd.write("\n")
 	else:
 	    pass
 
-def generate_alias(filename=None):
+
+def generate_alias():
     person = Factory.get('Person')(Cerebrum)
-    dn_string = "%s=%s,%s" % (cereconf.LDAP_ORG_ATTR,cereconf.LDAP_PERSON_DN,
-							cereconf.LDAP_BASE)
-    glob_fd.write("\n")
-    obj_string = "\nobjectClass: top"
-    for obj in cereconf.LDAP_ALIAS_OBJECTCLASS:
-        obj_string += "\nobjectClass: %s" % obj
+    dn_string  = get_tree_dn('PERSON')
+    obj_string = "".join(["objectClass: %s\n" % oc for oc in
+                          ('top', 'alias', 'extensibleObject')])
     for alias in person.list_persons():
 	person_id = int(alias['person_id'])
 	if alias_list.has_key(person_id):
 	    entity_name, prim_org, name, lastname = alias_list[person_id]
-	    alias_str = "\ndn: uid=%s,%s" % (entity_name, prim_org)
-	    alias_str += "%s" % obj_string
-	    alias_str += "\nuid: %s" % entity_name
+	    alias_str = "dn: uid=%s,%s\n" % (entity_name, prim_org)
+	    alias_str += obj_string
+	    alias_str += "uid: %s\n" % entity_name
 	    if name:
-		alias_str += "\ncn: %s" % some2utf(name)
+		alias_str += "cn: %s\n" % some2utf(name)
 	    if lastname:
-		alias_str += "\nsn: %s" % some2utf(lastname)
-	    alias_str += "\naliasedObjectName: uid=%s,%s" % (entity_name,
-								dn_string)
-	    glob_fd.write("\n")
+		alias_str += "sn: %s\n" % some2utf(lastname)
+	    alias_str += "aliasedObjectName: uid=%s,%s\n" % (entity_name,
+                                                             dn_string)
 	    glob_fd.write(alias_str)
+	    glob_fd.write("\n")
 
-
-# match an 8-bit string which is not an utf-8 string
-iso_re = re.compile("[\300-\377](?![\200-\277])|(?<![\200-\377])[\200-\277]")
-
-# match an 8-bit string
-eightbit_re = re.compile('[\200-\377]')
-
-# match multiple spaces
-multi_space_re = re.compile('[%s]{2,}' % string.whitespace)
-
-def some2utf(str):
-    """Convert either iso8859-1 or utf-8 to utf-8"""
-    if iso_re.search(str):
-        str = unicode(str, 'iso8859-1').encode('utf-8')
-    return str
-
-def some2iso(str):
-    """Convert either iso8859-1 or utf-8 to iso8859-1"""
-    if eightbit_re.search(str) and not iso_re.search(str):
-        str = unicode(str, 'utf-8').encode('iso8859-1')
-    return str
-
-def normalize_phone(phone):
-    """Normalize phone/fax numbers for LDAP"""
-    return phone.translate(normalize_trans, " -")
- 
-def normalize_string(str):
-    """Normalize strings for LDAP"""
-    str = multi_space_re.sub(' ', str.translate(normalize_trans).strip())
-    if eightbit_re.search(str):
-        str = unicode(str, 'utf-8').lower().encode('utf-8')
-    return str
-
-# Match attributes with the printableString LDAP syntax
-printablestring_re = re.compile('^[a-zA-Z0-9\'()+,\\-.=/:? ]+$')
 
 ou_rdn_re = re.compile(r'[,+\\ ]+')
 
@@ -646,12 +570,6 @@ def make_ou_for_rdn(ou):
     return ou_rdn_re.sub(' ', ou).strip()
 
 
-def verify_printableString(str):
-    """Not in use for the moment, remove this line if used """
-    """Return true if STR is valid for the LDAP syntax printableString"""
-    return printablestring_re.match(str)
-
-	
 def get_contacts(entity_id=None,source_system=None,contact_type=None,email=0):
     entity = Entity.EntityContactInfo(Cerebrum)
     cont_tab = {}
@@ -667,7 +585,7 @@ def get_contacts(entity_id=None,source_system=None,contact_type=None,email=0):
 	for ph in ph_list:
 	    if (ph <> '0'):
 		if not email:
-		    ph = re.sub('\s','',normalize_phone(ph))
+		    ph = re.sub(r'\s','',normalize_phone(ph))
 		if ph:
 		    if cont_tab.has_key(key):
 			if ph not in cont_tab[key]: cont_tab[key].append(ph)
@@ -679,100 +597,43 @@ def get_contacts(entity_id=None,source_system=None,contact_type=None,email=0):
 	return(cont_tab)
 
 
-
-
-need_base64_re = re.compile('^\\s|[\0\r\n]|\\s$')
-
-def make_attr(name, strings, normalize = None, verify = None, raw = False):
-    """ Not in use for the moment, remove this line if used """
-    ret = []
-    done = {}
-
-    # Make each attribute name and value - but only one of
-    # each value, compared by attribute syntax ('normalize')
-    for s in strings:
-        if not raw:
-            # Clean up the string: remove surrounding and multiple whitespace
-            s = multi_space_re.sub(' ', s.strip())
-
-        # Skip the value if it is not valid according to its LDAP syntax
-        if s == '' or (verify and not verify(s)):
-            continue
-
-        # Check if value has already been made (or equivalent by normalize)
-        if normalize:
-            norm = normalize(s)
-        else:
-            norm = s
-        if done.has_key(norm):
-            continue
-        done[norm] = True
-
-        # Encode as base64 if necessary, otherwise as plain text
-        if need_base64_re.search(s):
-            ret.append("%s:: %s\n" % (name, (base64.encodestring(s)
-                                             .replace("\n", ''))))
-        else:
-            ret.append("%s: %s\n" % (name, s))
-    return ''.join(ret)
-
-
 def main():
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'u:g:n:U:G:N:po',
-					['help', 'group=','org=','user=',
-					'netgroup_spread=', 'group_spread=',
-					'user_spread=', 'netgroup=','posix'])
+        opts, args = getopt.getopt(sys.argv[1:], 'o', ['help', 'org='])
+    opts = dict(opts)
     except getopt.GetoptError:
         usage(1)
+    if args or opts.has_key('--help'):
+        usage(bool(args))
 
-    user_spread = group_spread = None
-    p = {}
-    for opt, val in opts:
-	m_val = []
-        if opt in ('--help',):
-            usage()
-	elif opt in ('-o','--org'):
-	    if (cereconf.LDAP_ORG_ROOT_AUTO == 'Enable'):
-		org_root = int(cereconf.LDAP_ORG_ROOT)
-	    else:
-		org_root = root_OU()
-	    if org_root:
-		load_code_tables() 
-		init_ldap_dump(org_root,val)
-		generate_org(org_root,val)
-		generate_person(val)
-		generate_alias(val)
-	elif opt in ('-u', '--user'):
-            p['u_file'] = val
-	elif opt in ('-g', '--group'):
-            p['g_file'] = val
-	elif opt in ('-n', '--netgroup'):
-            p['n_file'] = val
-	elif opt in ('-U','--user_spread'):
-	    [m_val.append(str(x)) for x in val.split(',')]
-	    p['u_spr'] = eval_spread_codes(m_val)
-	elif opt in ('-G','--group_spread',):
-	    [m_val.append(str(x)) for x in val.split(',')]
-	    p['g_spr'] = eval_spread_codes(m_val)
-        elif opt in ('-N','--netgroup_spread',):
-	    [m_val.append(str(x)) for x in val.split(',')]
-            p['n_spr'] = eval_spread_codes(m_val)
-	elif opt in ('--posix',):
-	    disable_ldapsync_mode()
-            generate_users()
-            generate_posixgroup()
-            generate_netgroup()
+    if (cereconf.LDAP_ORG_ROOT_AUTO != 'Enable'):
+        try:
+            org_root = int(cereconf.LDAP_ORG_ROOT)
+        except Errors.NotFoundError:
+            print "ORG_ROOT parameter in ldapconf.py not valid"
+            raise
+    else:
+        org_root = root_OU()
+
+    if org_root:
+        org_file = opts.get('--org', opts.get('-o', None))
+        if not org_file:
+            org_file = cereconf.LDAP_DUMP_DIR + "/" + cereconf.LDAP_ORG_FILE
+
+        global glob_fd
+        glob_fd = SimilarSizeWriter(org_file)
+        glob_fd.set_size_change_limit(10)
+
+        if org_file is not None:
+            load_code_tables()
+            init_ldap_dump(org_root)
+            generate_org(org_root)
+            generate_person()
+            generate_alias()
         else:
-            usage()
-    if len(opts) == 0:
-        config()
-    if p.has_key('n_file'):
-        generate_netgroup(p.get('n_spr'), p.get('u_spr'), p.get('n_file'))
-    if p.has_key('g_file'):
-        generate_posixgroup(p.get('g_spr'), p.get('u_spr'), p.get('g_file'))
-    if p.has_key('u_file'):
-        generate_users(p.get('u_spr'), p.get('u_file'))
+            config(org_root)
+
+        glob_fd.close()
 
 def usage(exitcode=0):
     print """Usage: [options]
@@ -782,49 +643,18 @@ def usage(exitcode=0):
   --org=<outfile>
       Write organization, person and alias to a LDIF-file
 
-  --user=<outfile>| -u <outfile> --user_spread=<value>|-U <value>
-      Write users to a LDIF-file
-
-  --group=<outfile>| -g <outfile>  --group_spread=<value>|-G <value> -U <value>
-      Write posix groups to a LDIF-file
-
-  --netgroup=<outfile>| -n <outfile> --netgroup_spread=<value>|-N <val> -U <val>
-      Write netgroup map to a LDIF-file
-
-  --posix
-      write all posix-user,-group and -netgroup
-      from default cereconf parameters
-
   Both --user_spread, --netgroup_spread  and --group_spread can handle
   multiple spread-values (<value> | <value1>,<value2>,,,)"""
     sys.exit(exitcode)
 
-def config():
-	if (cereconf.LDAP_ORG_ROOT_AUTO != 'Enable'):
-	    try:
-	    	org_root = int(cereconf.LDAP_ORG_ROOT)
-	    except Errors.NotFoundError:
-		print "ORG_ROOT parametre in ldapconf.py not valid"
-		raise
-	else:
-	    org_root = root_OU()
-	if org_root: 
-	    load_code_tables()
-	    init_ldap_dump(org_root)
-	    generate_org(org_root)
+def config(org_root):
+            load_code_tables()
+            init_ldap_dump(org_root)
+            generate_org(org_root)
 	    if (cereconf.LDAP_PERSON == 'Enable'):
 		generate_person()
 	    if (cereconf.LDAP_ALIAS == 'Enable'):
 		generate_alias()
-	    if (cereconf.LDAP_USER == 'Enable'):
-		disable_ldapsync_mode()
-		generate_users()
-	    if (cereconf.LDAP_GROUP == 'Enable'):
-		generate_posixgroup()
-	    if (cereconf.LDAP_NETGROUP == 'Enable'):
-		generate_netgroup()
-	else:
-	    pass
-	
+
 if __name__ == '__main__':
     	main()
