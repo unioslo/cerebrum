@@ -32,7 +32,7 @@ from Cerebrum import Person
 from Cerebrum import Disk
 from Cerebrum import OU
 from Cerebrum import Entity
-from Cerebrum.modules import ADAccount
+#from Cerebrum.modules import ADAccount
 from Cerebrum import QuarantineHandler
 from Cerebrum.modules import MountHost
 
@@ -41,7 +41,7 @@ db = Factory.get('Database')()
 co = Factory.get('Constants')(db)
 account = Account.Account(db)
 person = Person.Person(db)
-ad_account = ADAccount.ADAccount(db)
+#ad_account = ADAccount.ADAccount(db)
 moho = MountHost.MountHost(db)
 disk = Disk.Disk(db)
 host = Disk.Host(db)
@@ -52,6 +52,7 @@ class SocketCom(object):
     """Class for Basic socket communication to connect to the ADserver"""
 
     p = re.compile('210 OK')
+    s = re.compile('(&pass&.+)&|(&pass&.+)\n')
     
     def __init__(self):
         self.connect()
@@ -72,8 +73,15 @@ class SocketCom(object):
 
 
     def send(self, message):
-        print "<<", message,
-        self.last_send=message
+        m = self.s.search(message)
+        if m:
+            if not m.group(2):
+                gr=1
+            else:
+                gr=2            
+            print '<< %s&pass&XXXXXXXX%s' % (message[0:m.start(gr)],message[m.end(gr):-1])
+        else:
+            print '<<', message,
         self.sockobj.send(message)
         
 
@@ -115,10 +123,32 @@ class SocketCom(object):
         return rec    
 
 
+    def readgrp(self,out=1):
+        received = []
+        rec = ''
+        while 1:
+            data = self.sockobj.recv(8192)
+            m=self.p.search(data)
+            if m: 
+		break
+	    else:
+            	received.append(data)
+        received.append(data)
+        #process data
+        for i in received:
+	    i.strip()
+	    rec = '%s%s' % (rec,i)		   	
+        if out:     
+            print '>>', rec
+        return rec    
+
+
     def close(self):
         print 'INFO: Finished, ending session', now()
         self.sockobj.send("QUIT\n")
         self.sockobj.close()
+
+
 
 def now():
     return time.ctime(time.time())
@@ -128,15 +158,8 @@ def now():
 
 def get_user_info(account_id, account_name):
 
-    try:
-        ad_account.clear()
-        ad_account.find(account_id)
-        home_dir = ad_account.home_dir
-        login_script = ad_account.login_script
-    except Errors.NotFoundError:    
-        home_dir = find_home_dir(account_id, account_name)
-        login_script = find_login_script(account_name)
-        
+    home_dir = find_home_dir(account_id, account_name)
+    login_script = find_login_script(account_name)
         
     try:
         account.clear()
@@ -144,14 +167,8 @@ def get_user_info(account_id, account_name):
         person_id = account.owner_id
         person.clear()
         person.find(person_id)
-        for ss in cereconf.AD_SOURCE_SEARCH_ORDER:
-            try:
-                first_n = person.get_name(int(getattr(co, ss)), int(co.name_first))
-                last_n = person.get_name(int(getattr(co, ss)), int(co.name_last))
-                full_name = first_n +' '+ last_n
-            except Errors.NotFoundError:
-                pass
-        if full_name == '':
+        full_name = person.get_name(int(co.system_cached), int(co.name_full)) 
+        if not full_name:
             print "WARNING: getting persons name failed, account.owner_id:",person_id
     except Errors.NotFoundError:
         print "WARNING: find on person or account failed, aduser_id:", account_id        
