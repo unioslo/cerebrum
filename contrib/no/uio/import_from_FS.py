@@ -39,6 +39,7 @@ default_studieprogram_file = "/cerebrum/dumps/FS/studieprogrammer.xml"
 default_regkort_file = "/cerebrum/dumps/FS/regkort.xml"
 default_ou_file = "/cerebrum/dumps/FS/ou.xml"
 default_fnrupdate_file = "/cerebrum/dumps/FS/fnr_udpate.xml"
+default_betalt_papir_file = "/cerebrum/dumps/FS/betalt_papir.xml"
 
 xml = XMLHelper()
 fs = None
@@ -211,6 +212,15 @@ def write_fnrupdate_info(outfile):
         f.write(xml.xmlify_dbrow(t, xml.conv_colnames(cols), 'fnr') + "\n")
     f.write("</data>\n")
 
+def write_betalt_papir_info(outfile):
+    """Lager fil med informasjon om alle som har betalt papirpenger"""
+    f=open(outfile, 'w')
+    f.write(xml.xml_hdr + "<data>\n")
+    cols, dta = fs.GetStudBetPapir()
+    for t in dta:
+        f.write(xml.xmlify_dbrow(t, xml.conv_colnames(cols), 'betalt') + "\n")
+    f.write("</data>\n")
+
 def fix_float(row):
     for n in range(len(row)):
         if isinstance(row[n], float):
@@ -224,12 +234,14 @@ def usage(exitcode=0):
     --emne-file name: override emne xml filename
     --regkort-file name: override regkort xml filename
     --fnr-update-file name: override fnr-update xml filename
+    --betalt-papir-file name: override betalt-papir xml filename
     --ou-file name: override ou xml filename
     --db-user name: connect with given database username
     --db-service name: connect to given database
     -p: generate person xml file
     -t: generate topics xml file
     -e: generate emne xml file
+    -b: generate betalt-papir xml file
     -f: generate fnr xml update file
     -s: generate studprog xml file
     -r: generate regkort xml file
@@ -246,11 +258,11 @@ def assert_connected(user="ureg2000", service="FSPROD.uio.no"):
 
 def main():
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "ptsroef",
+        opts, args = getopt.getopt(sys.argv[1:], "ptsroefb",
                                    ["person-file=", "topics-file=",
                                     "studprog-file=", "regkort-file=",
                                     'emne-file=', "ou-file=", "db-user=",
-                                    'fnr-update-file=',
+                                    'fnr-update-file=', 'betalt-papir-file=',
                                     "db-service="])
     except getopt.GetoptError:
         usage()
@@ -263,6 +275,7 @@ def main():
     emne_file = default_emne_file
     ou_file = default_ou_file
     fnrupdate_file = default_fnrupdate_file
+    betalt_papir_file = default_betalt_papir_file
     db_user = None         # TBD: cereconf value?
     db_service = None      # TBD: cereconf value?
     for o, val in opts:
@@ -280,6 +293,8 @@ def main():
             ou_file = val
         elif o in ('--fnr-update-file',):
             fnrupdate_file = val
+        elif o in ('--betalt-papir-file',):
+            betalt_papir_file = val
         elif o in ('--db-user',):
             db_user = val
         elif o in ('--db-service',):
@@ -290,6 +305,8 @@ def main():
             write_person_info(person_file)
         elif o in ('-t',):
             write_topic_info(topics_file)
+        elif o in ('-b',):
+            write_betalt_papir_info(betalt_papir_file)
         elif o in ('-s',):
             write_studprog_info(studprog_file)
         elif o in ('-f',):
