@@ -202,13 +202,13 @@ class TopicsParser(xml.sax.ContentHandler):
         if name == "topic":
             self.topics.append(self.t_data)
 
-    def __init__(self, history=None, fnr=None):
+    def __init__(self, history=None, fnr=None, topics_file=TOPICS_FILE):
         self.topics = []
         # Ugly memory-wasting, inflexible way:
         self.tp = self
         self.history = history
         self.fnr = fnr
-        xml.sax.parse(TOPICS_FILE, self.tp)
+        xml.sax.parse(topics_file, self.tp)
 
     def __iter__(self):
         return self
@@ -254,7 +254,9 @@ class Profile(object):
         self._matches = []
         topics.sort(self._topics_sort)
         if self._autostud.debug > 1:
-            print "Topics: %s" % topics
+            print " topics=%s" % ["%s:%s@%s" %
+                                   (x['emnekode'], x['studienivakode'],
+                                    x['studieprogramkode']) for x in topics]
         for t in topics:
             k = autostud.sp.ke['emne'].get(t['emnekode'], None)
             if k is not None:
@@ -268,8 +270,8 @@ class Profile(object):
         singular = ('home', 'SKO', 'Primærgruppe')
         found = {}
         home_conflict = 0
-        if self._autostud.debug > 1:
-            print "Matches: %s" % self._matches
+        if self._autostud.debug > 2:
+            print " matches= %s" % self._matches
         for m in self._matches:
             spec, level = m
             for t in spec.get('SKO', []):
@@ -389,14 +391,16 @@ class AutoStud(object):
             print "Parsed studconfig.xml expanded to: "
             pp.pprint(self.sp.ke)
 
-    def get_topics_list(self, history=None, fnr=None):
+    def get_topics_list(self, history=None, fnr=None, topics_file=None):
         """Use like:
           for topics in foo.get_topics_list:
 
         topics will contain a list of dicts with lines from the topics
         file for one person.  If fnr is not None, only lines for a
         given user is returned."""
-        return TopicsParser(fnr=fnr)
+        if topics_file is None:
+            return TopicsParser(fnr=fnr, history=history)
+        return TopicsParser(fnr=fnr, history=history, topics_file=topics_file)
 
     def get_profile(self, topics, groups=None):
         """Returns a Profile object matching the topics, to check
