@@ -107,7 +107,7 @@ def nwqsync(spreads,g_spread):
 	sys.exit(1)	    
     for cll in ch_log_list:
 	if int(cll.change_type_id) in [const.entity_name_del,]:
-	    param_list = string.split(ch_params,'\n')
+	    param_list = string.split(cll.change_params,'\n')
 	    domain = re.sub('\D','',param_list[3])
             ent_name = param_list[6].split('\'')[1]
 	    ent_name_cache[cll.subject_id] = {'name':ent_name,'value_domain':domain}
