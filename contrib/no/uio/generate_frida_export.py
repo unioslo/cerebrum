@@ -352,6 +352,7 @@ def output_OU(writer, start_id, db_ou, parent_ou, lifetimes, constants):
         output_element(writer, lifetimes[sko][1], "datoAktivTil")
         output_element(writer, lifetimes[sko][2], "navnBokmal")
         output_element(writer, lifetimes[sko][3], "navnEngelsk")
+        output_element(writer, lifetimes[sko][4], "NSDKode")
     # fi
 
     output_element(writer, db_ou.acronym or "", "akronym")
@@ -433,7 +434,7 @@ class OUParser(xml.sax.ContentHandler):
 
         return (reformat_date(attrs.get("dato_opprettet")),
                 reformat_date(attrs.get("dato_nedlagt")),
-                name_bokmal, name_english)
+                name_bokmal, name_english, attrs.get("nsd_kode"))
     # end extract_attributes
 # end OUParser
 
@@ -853,6 +854,7 @@ def output_xml(output_file, data_source, target, ou_file):
     output_element(writer, "Universitetet i Oslo", "navnBokmal")
     output_element(writer, "University of Oslo", "navnEngelsk")
     output_element(writer, "UiO", "akronym")
+    output_element(writer, "1110", "NSDKode")
     writer.endElement("institusjon")
 
     # Dump all OUs
@@ -915,7 +917,7 @@ def main():
 
     # Default values
     output_file = "frida.xml"
-    data_source = "UiO-Cerebrum"
+    data_source = "UIO"
     target = "UiO-FRIDA"
     ou_file = None
 
