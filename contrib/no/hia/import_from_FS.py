@@ -133,10 +133,11 @@ def write_role_info(outfile):
 	f.write(xml.xmlify_dbrow(r, xml.conv_colnames(cols), 'role') + "\n")
     f.write("</data>\n")
 
-def write_undenh_file(outfile):
+def write_undenh_file(outfile, termin):
+    # valid termins = next/current
     f=open(outfile,'w')
     f.write(xml.xml_hdr + "<undervenhet>\n")
-    cols, undenh= fs.GetUndervEnhet(sem="next")
+    cols, undenh= fs.GetUndervEnhet(sem=termin)
     for u in undenh:
 	f.write(xml.xmlify_dbrow(u, xml.conv_colnames(cols), 'undenhet') + "\n")
     f.write("</undervenhet>\n")
