@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2003 University of Oslo, Norway
+# Copyright 2003-2005 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -109,6 +109,7 @@ def ordered_uniq(input):
     return output
 
 def prefetch_primaryusers():
+    global fnr2account_id, fnr2stud_account_id
     # TBD: This code is used to get account_id for both students and
     # fagansv.  Should we look at affiliation here?
     account = Factory.get('Account')(db)
