@@ -31,6 +31,7 @@ import random
 import string
 import time
 import re
+import mx
 
 from Cerebrum import Utils
 from Cerebrum.Entity import \
@@ -531,7 +532,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine, Entity):
         return False
 
     def is_expired(self):
-        now = self._db.DateFromTicks(time.time())
+        now = mx.DateTime.now()
         if self.expire_date is None or self.expire_date >= now:
             return False
         return True

@@ -18,6 +18,7 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 import re, time
+import mx
 
 import cereconf
 from Cerebrum                   import Entity
@@ -390,7 +391,7 @@ Set cereconf.LDAP_ORG['ou_id'] = the organization's root ou_id or None."""
             if method:
                 fill_passwd[int(method)](account_id, row['auth_data'])
         timer2("...account quarantines...")
-        now = self.db.DateFromTicks(time.time())
+        now = mx.DateTime.now()
         for row in self.account.list_entity_quarantines(
                 entity_types = self.const.entity_account):
             if (row['start_date'] <= now

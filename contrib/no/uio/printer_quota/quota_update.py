@@ -33,6 +33,7 @@ import os
 import sys
 import time
 import xml.sax
+import mx
 
 import cerebrum_path
 import cereconf
@@ -291,7 +292,7 @@ def get_students():
     tmp_gyldige = {}
     tmp_slettede = {}
 
-    now = db.TimestampFromTicks(time.time())
+    now = mx.DateTime.now()
     # Alle personer med student affiliation
     for row in person.list_affiliations(include_deleted=True, fetchall=False):
         aff = (int(row['affiliation']), int(row['status']))

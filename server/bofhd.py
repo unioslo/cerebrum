@@ -30,6 +30,7 @@
 import sys
 import crypt
 import md5
+import mx
 import socket
 import cerebrum_path
 import cereconf
@@ -369,7 +370,7 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
 
         # Check quarantines
         quarantines = []      # TBD: Should the quarantine-check have a utility-API function?
-        now = server.db.DateFromTicks(time.time())
+        now = mx.DateTime.now()
         for qrow in account.get_entity_quarantine():
             if (qrow['start_date'] <= now
                 and (qrow['end_date'] is None or qrow['end_date'] >= now)

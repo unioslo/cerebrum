@@ -24,6 +24,7 @@ import re
 import sys
 import string
 import time
+import mx
 
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import Email
@@ -297,7 +298,7 @@ class EmailLDAPUiOMixin(EmailLDAP):
         # For the time being, remove passwords for all quarantined
         # accounts, regardless of quarantine type.
         quarantines = {}
-        now = self._db.DateFromTicks(time.time())
+        now = mx.DateTime.now()
         for row in a.list_entity_quarantines(
                 entity_types = self.const.entity_account):
             if (row['start_date'] <= now

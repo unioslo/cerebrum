@@ -26,6 +26,8 @@
 import ldif, sys, os, re, time, string 
 import cerebrum_path
 import cereconf
+import mx
+
 from ldap import modlist
 from Cerebrum import Errors
 from Cerebrum import Account
@@ -176,7 +178,7 @@ def change_quarantine(dn_id,ch_type):
 def eval_quarantine(dn_id):
     account = Account.Account(db)
     account.find(dn_id)
-    now = db.DateFromTicks(time.time())
+    now = mx.DateTime.now()
     quarantines = []
     for row in account.get_entity_quarantine():
 	if (row['start_date'] <= now

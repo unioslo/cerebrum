@@ -22,6 +22,7 @@
 """
 
 import time, sys
+import mx
  
 import cereconf
 from Cerebrum.modules import LDIFutils
@@ -171,7 +172,7 @@ class PosixLDIF(object):
 
     def load_quaratines(self):
 	self.quarantines = {}
-	now = self.db.DateFromTicks(time.time())
+	now = mx.DateTime.now()
 	for row in self.posuser.list_entity_quarantines(
             		entity_types = self.const.entity_account):
             if (row['start_date'] <= now and (row['end_date'] is None \
