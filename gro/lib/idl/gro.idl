@@ -148,6 +148,18 @@ module Cerebrum_core {
         * Get an entity
         */
         Node getEntity(in long id);
+
+        /**
+        * Get a node
+        */
+        Node getNode(in string className, in any key)
+            raises (Errors::NoSuchTypeError, Errors::NoSuchNodeError);
+
+        /**
+        * Create a node
+        */
+        Node createNode(in string className, in any key)
+            raises (Errors::NoSuchTypeError, Errors::NoSuchNodeError);
     };
 
     /**
@@ -188,6 +200,11 @@ module Cerebrum_core {
         NodeSeq getChildren();
 
         /**
+        * Get a unique key to identify this node
+        */
+        any getPrimaryKey();
+
+        /**
         * get an attribute for this node
         */
         any get(in string key)
@@ -205,11 +222,16 @@ module Cerebrum_core {
         * set an attribute for this node
         */
         any set(in string key, in any value);
+        any setLong(in string key, in long value);
+        any setString(in string key, in string value);
 
         /**
         * get the name of the class used for this Node
         */
         string getClassName();
+
+        StringSeq getReadAttributes();
+        StringSeq getWriteAttributes();
 
         /**
         * Lock the node so no other client can put a writelock on it.
