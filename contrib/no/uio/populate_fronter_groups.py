@@ -477,6 +477,7 @@ def populate_enhet_groups(enhet_id):
         # som er eksamens- eller undervisningsmeldt uten å være meldt
         # til noen aktiviteter.
         student_med_akt = {}
+        account = Factory.get("Account")(db)
 
         for aktkode in UndervEnhet[enhet_id].get('aktivitet', {}).keys():
             #
@@ -528,6 +529,7 @@ def populate_enhet_groups(enhet_id):
                     aktnavn = m.group(1)
                 else:
                     aktnavn = aktnavn.replace(" ", "-")
+                    aktnavn = account.simplify_name(aktnavn, alt=1)
                 logger.debug("Aktivitetsnavn '%s' -> '%s'" %
                              (UndervEnhet[enhet_id]['aktivitet'][aktkode],
                               aktnavn))
