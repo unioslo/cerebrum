@@ -152,7 +152,7 @@ def update_account(profile, account_ids, do_move=0, rem_grp=0, account_info={}):
                 if has_ou == ou_id and has_aff == const.affiliation_student:
                     has = 1
             if not has:
-                user.add_account_type(person.entity_id, ou_id, const.affiliation_student)
+                user.set_account_type(person.entity_id, ou_id, const.affiliation_student)
         # Populate spreads
         has_acount_spreads = [int(x['spread']) for x in user.get_spread()]
         has_person_spreads = [int(x['spread']) for x in person.get_spread()]
