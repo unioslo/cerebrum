@@ -327,20 +327,18 @@ def dump_perspective(sources):
 
         # And now we find out if there are people with affiliations to this
         # place
-        if key is None:
-            people_mark = " "
-        else:
+        people_mark = " "
+        if key is not None:
             try:
                 fakultet, institutt, avdeling = string.split(key, "-")
                 ou.clear()
                 ou.find_stedkode(int(fakultet), int(institutt), int(avdeling),
                                  cereconf.DEFAULT_INSTITUSJONSNR)
-                people_mark = " "
                 if person.list_affiliations(ou_id = ou.entity_id):
                     people_mark = "*"
                 # fi
             except Errors.NotFoundError:
-                people_mark = " "
+                pass
             # yrt
         # fi
             
