@@ -6,7 +6,7 @@ import sys
 import os
 import pickle
 import traceback
-from time import gmtime, strftime, time
+from time import localtime, strftime, time
 
 import cerebrum_path
 import cereconf
@@ -64,13 +64,15 @@ def create_user(fnr, profile):
     update_account(profile, [account.entity_id])
     return account.entity_id
 
-def update_account(profile, account_ids, do_move=0, rem_grp=0, account_info={}):
+def update_account(profile, account_ids, do_move=False, rem_grp=False,
+                   account_info={}):
     """Update the account by checking that group, disk and
     affiliations are correct.  For existing accounts, account_info
     should be filled with affiliation info """
     
     group = Group.Group(db)
-    as_posix = 0    # TODO.  This value must be gotten from somewhere
+    # TODO.  This value must be gotten from somewhere
+    as_posix = False
     if as_posix:
         user = PosixUser.PosixUser(db)
     else:
@@ -114,15 +116,15 @@ def update_account(profile, account_ids, do_move=0, rem_grp=0, account_info={}):
         already_member = {}
         for r in group.list_groups_with_entity(account_id):
             if r['operation'] == const.group_memberop_union:
-                already_member[int(r['group_id'])] = 1
+                already_member[int(r['group_id'])] = True
         for g in profile.get_grupper():
-            if not already_member.get(g, 0):
+            if not already_member.has_key(g):
                 group.clear()
                 group.find(g)
                 group.add_member(account_id, const.entity_account,
                                  const.group_memberop_union)
             else:
-                del(already_member[g])
+                del already_member[g]
         if rem_grp:
             for g in already_member.keys():
                 if g in autostud.autogroups:
@@ -130,18 +132,18 @@ def update_account(profile, account_ids, do_move=0, rem_grp=0, account_info={}):
 
         # Populate affiliations
         # Speedup: Try to determine if object is changed without populating
-        changed = 0
+        changed = False
         paffs = person_affiliations.get(int(user.owner_id), [])
         for ou_id in profile.get_stedkoder():
             try:
                 idx = paffs.index((const.system_fs, ou_id, const.affiliation_student,
                                    const.affiliation_status_student_aktiv))
-                del(paffs[idx])
+                del paffs[idx]
             except ValueError:
-                changed = 1
+                changed = True
                 pass
-        if len(paffs) > 0:
-            changed = 1
+        if paffs:
+            changed = True
         person.clear()
         person.find(user.owner_id)
         if changed:
@@ -151,10 +153,10 @@ def update_account(profile, account_ids, do_move=0, rem_grp=0, account_info={}):
             tmp = person.write_db()
             logger.debug2("alter person affiliations, write_db=%s" % tmp)
         for ou_id in profile.get_stedkoder():
-            has = 0
+            has = False
             for has_ou, has_aff in account_info.get(account_id, []):
                 if has_ou == ou_id and has_aff == const.affiliation_student:
-                    has = 1
+                    has = True
             if not has:
                 user.set_account_type(ou_id, const.affiliation_student)
         # Populate spreads
@@ -294,7 +296,7 @@ def make_letters(data_file=None, type=None, range=None):
 def make_barcode(account_id):
     ret = os.system("%s -e EAN -E -n -b %012i > barcode_%s.eps" % (
         cereconf.PRINT_BARCODE, account_id, account_id))
-    if(ret):
+    if ret:
         logger.warn("Bardode returned %s" % ret)
 
 def process_students_callback(person_info):
@@ -387,7 +389,7 @@ def main():
     global student_info_file, studconfig_file, only_dump_to, studieprogs_file
 
     skip_lpr = True       # Must explicitly tell that we want lpr
-    update_accounts = create_users = 0
+    update_accounts = create_users = False
     fast_test = False
     workdir = None
     range = None
@@ -397,9 +399,9 @@ def main():
         if opt in ('-d', '--debug'):
             debug += 1
         elif opt in ('-c', '--create-users'):
-            create_users = 1
+            create_users = True
         elif opt in ('-u', '--update-accounts'):
-            update_accounts = 1
+            update_accounts = True
         elif opt in ('-s', '--student-info-file'):
             student_info_file = val
         elif opt in ('-S', '--studie-progs-file'):
@@ -420,15 +422,16 @@ def main():
             range = val
         else:
             usage()
-    if(not update_accounts and not create_users and range is None):
+    if (not update_accounts and not create_users and range is None):
         usage()
     if workdir is None:
         workdir = "%s/ps-%s.%i" % (cereconf.AUTOADMIN_LOG_DIR,
-                                   strftime("%Y-%m-%d", gmtime()), os.getpid())
+                                   strftime("%Y-%m-%d", localtime()),
+                                   os.getpid())
         os.mkdir(workdir)
     os.chdir(workdir)
     logger = AutoStud.Util.ProgressReporter(
-        "%s/run.log.%i" % (workdir, os.getpid()), stdout=1)
+        "%s/run.log.%i" % (workdir, os.getpid()), stdout=True)
     if range is not None:
         make_letters("letters.info", type=type, range=val)
     else:
