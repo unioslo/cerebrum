@@ -193,6 +193,10 @@ def determine_affiliations(person):
 	    aff_stat = const.affiliation_tilknyttet_gjesteforsker
 	elif (g['gjestetypekode'] == 'REGANSV' or g['gjestetypekode'] == 'REG-ANSV'):
 	    aff_stat = const.affiliation_tilknyttet_frida_reg
+        elif (g['gjestetypekode'] == 'ST-POL FRI' or g['gjestetypekode'] =='ST-POL UTV'):
+            aff_stat = const.affiliation_tilknyttet_studpol
+        elif (g['gjestetypekode'] == 'ST-ORG FRI' or g['gjestetypekode'] =='ST-ORG UTV'):
+            aff_stat = const.affiliation_tilknyttet_studorg
         else:
             logger.warn("Unknown gjestetypekode: %s" % g['gjestetypekode'])
             continue
