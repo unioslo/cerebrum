@@ -40,6 +40,7 @@ def usage(exitcode=0):
   --only-insert-codes
         Make sure all code values for the current configuration of
         cereconf.CLASS_CONSTANTS have been inserted into the database.
+        Does not create tables.
   --drop
         Perform only the 'drop' phase.
         WARNING: This will remove tables and the data they're holding
