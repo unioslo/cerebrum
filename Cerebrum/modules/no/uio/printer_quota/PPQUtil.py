@@ -61,7 +61,7 @@ class PPQUtil(object):
             raise errors.InvalidQuotaData, "Cannot %s negative quota" % op
         row = self.ppq.find(person_id)
         if op == 'set':
-            new_value = new_value - row['free_quota']
+            new_value = new_value - int(row['free_quota'])
         if new_value == 0:
             raise errors.InvalidQuotaData, "quota already at that value"
         
@@ -109,8 +109,8 @@ class PPQUtil(object):
             raise errors.IllegalUndoRequest, "Can only undo print jobs"
 
         # Calculate change
-        old_free, old_pay = (rows[0]['pageunits_free'],
-                             rows[0]['pageunits_paid'])
+        old_free, old_pay = (int(rows[0]['pageunits_free']),
+                             int(rows[0]['pageunits_paid']))
         if page_units == '':
             page_units = int(-old_free + -old_pay)
 
