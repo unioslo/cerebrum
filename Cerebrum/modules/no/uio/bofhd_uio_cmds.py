@@ -296,6 +296,12 @@ class BofhdExtension(object):
                             ("group_id",)))
     def group_promote_posix(self, operator, group, description=None):
         self.ba.can_create_group(operator.get_entity_id())
+        try:
+            self._get_group(group, grtype="PosixGroup")
+            raise CerebrumError("%s is already a PosixGroup" % group)
+        except Errors.NotFountEddor:
+            pass
+
         group=self._get_group(group)
         pg = PosixGroup.PosixGroup(self.db)
         pg.populate(parent=group)
@@ -1100,6 +1106,8 @@ class BofhdExtension(object):
         entity = self._get_entity(entity_type, id)
         qtype = int(self.str2const[qtype])
         self.ba.can_set_quarantine(operator.get_entity_id(), entity, qtype)
+        if entity_type != 'account':
+            raise CerebrumError("Quarantines can only be set on accounts")
         entity.add_entity_quarantine(qtype, operator.get_entity_id(), why, date_start, date_end)
         return "OK"
 
@@ -1628,6 +1636,11 @@ class BofhdExtension(object):
         PosixShell(default="bash"), DiskId())
     def user_promote_posix(self, operator, accountname, dfg=None, shell=None,
                           home=None):
+        try:
+            self._get_account(accountname, actype="PosixUser")
+            raise CerebrumError("%s is already a PosixUser" % accountname)
+        except Errors.NotFoundError:
+            pass
         account = self._get_account(accountname)
         pu = PosixUser.PosixUser(self.db)
         uid = pu.get_free_uid()
