@@ -82,8 +82,11 @@ sent to bofhd to execute the command.
 */
 
 category:main;
+CREATE SEQUENCE request_id_seq;
+category:main;
 CREATE TABLE bofhd_request
 (
+  request_id   NUMERIC(12,0),
   requestee_id  NUMERIC(12,0),
   run_at        TIMESTAMP NULL,
   operation     NUMERIC(6,0)
