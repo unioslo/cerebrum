@@ -2033,11 +2033,11 @@ class BofhdExtension(object):
         Integer(help_ref='number_size_mib'),
         Integer(help_ref='number_percent', optional=True),
         perm_filter='can_email_set_quota')
-    def email_quota(self, operator, uname, hquota, squota=90):
+    def email_quota(self, operator, uname, hquota, squota="90"):
         acc = self._get_account(uname)
         op = operator.get_entity_id()
         self.ba.can_email_set_quota(op, acc)
-        if not hquota.isdigit() and squota.isdigit():
+        if not (hquota.isdigit() and squota.isdigit()):
             raise CerebrumError, "Quotas must be numeric"
         hquota = int(hquota)
         if hquota < 100:
@@ -4201,6 +4201,9 @@ class BofhdExtension(object):
         qconst = self._get_constant(qtype, "No such quarantine")
         qtype = int(qconst)
         self.ba.can_set_quarantine(operator.get_entity_id(), entity, qtype)
+        rows = entity.get_entity_quarantine(type=qtype)
+        if rows:
+            raise CerebrumError("User already has a quarantine of this type")
         try:
             entity.add_entity_quarantine(qtype, operator.get_entity_id(), why, date_start, date_end)
         except AttributeError:    
@@ -5019,7 +5022,9 @@ class BofhdExtension(object):
         uid = pu.get_free_uid()
         group = self._get_group(dfg, grtype='PosixGroup')
         shell = self._get_shell(shell)
-        if home[0] != ':':  # Hardcoded path
+        if not home:
+            raise CerebrumError("home cannot be empty")
+        elif home[0] != ':':  # Hardcoded path
             disk_id, home = self._get_disk(home)[1:3]
         else:
             if not self.ba.is_superuser(operator.get_entity_id()):
