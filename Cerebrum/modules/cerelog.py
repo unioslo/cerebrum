@@ -147,7 +147,7 @@ def fetch_logger_arguments(keys):
     Unfortunately getopt reacts adversely to unknown arguments. Thus we'd
     have to process command-line arguments ourselves.
 
-    This is a hack. The problem could probably be remedied by optparse.
+    This is still a hack, though.
     """
 
     result = dict()
@@ -267,7 +267,9 @@ def process_config(fname, logger_name, logger_level):
         pos = string.rfind(name, ".")
         while (pos > 0) and current.propagate:
             parent_name = name[:pos]
-            parent = initialize_logger(parent_name, logger_level, parser)
+            # logger_name is a command-line argument. It should not affect
+            # the parents
+            parent = initialize_logger(parent_name, None, parser)
 
             # Link child to its parent
             current.parent = parent
@@ -282,8 +284,8 @@ def process_config(fname, logger_name, logger_level):
         # default (uninitialized logger)
         if current.name != "root":
             if current.propagate:
-                current.parent = initialize_logger("root", logger_level,
-                                                   parser)
+                # Do *not* touch root logger's level
+                current.parent = initialize_logger("root", None, parser)
                 current.parent.parent = None
             else:
                 current.parent = None
@@ -345,7 +347,6 @@ def initialize_logger(name, level, config):
     if handler_names:
         for handler_name in string.split(handler_names, ","):
             logger.addHandler(initialize_handler(handler_name,
-                                                 level,
                                                  config))
         # od
     else:
@@ -364,7 +365,7 @@ def initialize_logger(name, level, config):
 
 
 __handlers = dict()
-def initialize_handler(name, level, config):
+def initialize_handler(name, config):
     """
     This function creates and initializes a handler NAME from an ini-file
     represented by CONFIG.
@@ -396,10 +397,12 @@ def initialize_handler(name, level, config):
 
     handler = apply(klass, arguments)
 
-    # If no level was specified on the command line,
-    # ... and there is a level specification in the ini-file, use it
-    if level is None and "level" in options:
+    # If there is a level specification in the ini-file, use it. 
+    if "level" in options:
         level = config.get(section_name, "level")
+    # ... otherwise, we get a handler than never logs.
+    else:
+        level = None
     # fi
 
     handler.setLevel(logging.getLevelName(level))
@@ -593,7 +596,7 @@ class CerebrumRotatingHandler(logging.FileHandler, object):
         # a problem.
 
         self.logdir = logdir
-        self.directory = sys.argv[0]
+        self.directory = os.path.basename(sys.argv[0])
         self.basename = "log"
         if not os.path.exists(self.logdir):
             os.mkdir(self.logdir, 0770)
