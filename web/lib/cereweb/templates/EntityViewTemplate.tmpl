@@ -1,0 +1,32 @@
+#from Cerebrum.web.InitTemplate import InitTemplate
+#extends InitTemplate
+#from Cerebrum.web.TableView import TableView
+#from Cerebrum.web.utils import url
+#from Cerebrum.web import HistoryLog
+#from QuarantineViewTemplate import QuarantineViewTemplate
+#from NoteViewTemplate import NoteViewTemplate
+#from NoteAddTemplate import NoteAddTemplate
+
+#def view_entity($entity)
+$add_note($entity)
+$history($entity)
+$quarantines($entity)
+#end def
+
+#def history($entity)
+$HistoryLog.view_history_short($entity)
+#end def
+
+#def quarantines($entity)
+#set q = QuarantineViewTemplate()
+$q.view_quarantines($entity)
+#end def
+
+#def add_note($entity)
+#set t = NoteViewTemplate()
+$t.viewNotes($entity)
+#set t = NoteAddTemplate()
+$t.addForm($entity)
+#end def
+
+
