@@ -69,6 +69,7 @@ from Cerebrum import Database
 from Cerebrum.Utils import Factory
 
 from Cerebrum.modules.no.uio.access_FS import FS
+from Cerebrum.Utils import SimilarSizeWriter
 
 if sys.version >= (2, 3):
     import logging
@@ -160,38 +161,31 @@ def output_text(output_file):
     Initialize data structures and start generating the output.
     """
 
-    try:
-        output_stream = None
-        output_stream = open(output_file, "w")
-        db_cerebrum = Factory.get("Database")()
-        logger.debug(cereconf.DB_AUTH_DIR)
-        
-        logger.debug(Database.__file__)
-        db = Database.connect(user="ureg2000",
-                              service="FSPROD.uio.no",
-                              DB_driver='Oracle')
-        db_fs = FS(db)
+    output_stream = SimilarSizeWriter(output_file, "w")
+    db_cerebrum = Factory.get("Database")()
+    logger.debug(cereconf.DB_AUTH_DIR)
+    
+    logger.debug(Database.__file__)
+    db = Database.connect(user="ureg2000",
+                          service="FSPROD.uio.no",
+                          DB_driver='Oracle')
+    db_fs = FS(db)
+    
+    db_person = Factory.get("Person")(db_cerebrum)
+    db_account = Factory.get("Account")(db_cerebrum)
+    constants = Factory.get("Constants")(db_cerebrum)
+    
+    names, rows = db_fs.GetPortalInfo()
+    count = 0
+    for row in rows:
+        output_row(row, output_stream, db_person, db_account, constants)
+        count += 1
+        if count % 10000:
+            logger.debug("Written next 10000 rows")
+        # fi
+    # od
 
-        db_person = Factory.get("Person")(db_cerebrum)
-        db_person.clear()
-
-        db_account = Factory.get("Account")(db_cerebrum)
-        db_account.clear()
-
-        constants = Factory.get("Constants")(db_cerebrum)
-        
-        names, rows = db_fs.GetPortalInfo()
-        count = 0
-        for row in rows:
-            output_row(row, output_stream, db_person, db_account, constants)
-            count += 1
-            if count % 10000:
-                logger.debug("Written next 10000 rows")
-            # fi
-        # od
-    finally:
-        if output_stream: output_stream.close()
-    # yrt
+    output_stream.close()
 # end output_text
 
 
