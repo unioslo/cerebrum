@@ -73,8 +73,8 @@ CLASS_OU = ['Cerebrum.OU/OU']
 CLASS_PERSON = ['Cerebrum.Person/Person']
 CLASS_ACCOUNT = ['Cerebrum.Account/Account']
 CLASS_GROUP = ['Cerebrum.Group/Group']
-CLASS_CONSTANTS = ['Cerebrum.Constants/Constants',
-                   'Cerebrum.modules.no.uio.Constants/Constants']
+CLASS_CONSTANTS = ['Cerebrum.Constants/Constants']
+
 CLASS_CL_CONSTANTS = ['Cerebrum.modules.CLConstants/CLConstants']
 
 CLASS_DBDRIVER = ['Cerebrum.Database/PostgreSQL']
