@@ -1024,6 +1024,50 @@ class PersonLTMixin(Person.Person):
                                      new_state,
                                      update_sql, insert_sql, delete_sql)
     # end _write_reservert
+
+
+
+    def list_frida_persons(self):
+        """
+        Return a list of person_ids eligible for FRIDA output.
+
+        This method is not necessary, strictly speaking. However, it speeds
+        up FRIDA export by a factor of about 9 and reduces the memory
+        footprint by a factor of about 8 compared to naive db lookups.
+
+        NB! Do *NOT* (I repeat, do *NOT*) use this method, unless you have
+        the proper indices built in the database.
+        """
+        import time
+
+        now = time.strftime("%Y%m%d")
+        time_clause, values = self._make_timestamp_clause(now)
+
+        query = """
+                SELECT
+                  p.person_id
+                FROM
+                  [:table schema=cerebrum name=person_info] p
+                WHERE
+                  EXISTS (SELECT
+                            *
+                          FROM
+                            %s t
+                          WHERE
+                            p.person_id = t.person_id
+                            %s)
+                  OR EXISTS (SELECT
+                               *
+                             FROM
+                               %s g
+                             WHERE p.person_id = g.person_id
+                             %s)
+                """ % (_TILSETTINGS_SCHEMA,
+                       time_clause,
+                       _GJEST_SCHEMA,
+                       time_clause)
+        return self.query(query, values)
+    # end list_frida_persons
     
 # end PersonLTMixin
 
