@@ -37,8 +37,8 @@
 #else
 <td>
 #end if
-        <a href='$pri_link'>$header</a> 
-        <a href='$ord_link'>($dir)</a></td>
+        <a href='$pri_link'></a> 
+        <a href='$ord_link'>$header</a></td>
 #end for
     </tr>
 #for $row, $rowdata in $tableview.sorted(includeData=True)
