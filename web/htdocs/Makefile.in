@@ -15,6 +15,7 @@ sources = $(wildcard *.py)
 all: 
 	$(MAKE) -C css $@
 	$(MAKE) -C login $@
+	$(MAKE) -C img $@
 
 print:
 	@echo Sources
@@ -29,13 +30,16 @@ install: $(sources) htaccess
 	$(INSTALL) -D -v -m 644 htaccess $(DESTDIR)/$(webroot)/.htaccess
 	$(MAKE) -C css $@
 	$(MAKE) -C login $@
+	$(MAKE) -C img $@
 
 clean:
 	rm -f *~ 
 	$(MAKE) -C css $@
 	$(MAKE) -C login $@
+	$(MAKE) -C img $@
 
 distclean: clean
 	rm -f Makefile
 	$(MAKE) -C css $@
 	$(MAKE) -C login $@
+	$(MAKE) -C img $@
