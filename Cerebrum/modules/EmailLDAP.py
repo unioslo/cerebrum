@@ -212,6 +212,7 @@ class EmailLDAP(DatabaseAccessor):
     def read_multi_target(self, group_id):
         mail_targ = Email.EmailTarget(self._db)
         grp = Factory.get('Group')(self._db)
+        acc = Factory.get('Account')(self._db)
         grp.clear()
         try:
             grp.find(group_id)
@@ -236,8 +237,11 @@ class EmailLDAP(DatabaseAccessor):
             targ_id = int(mail_targ.email_target_id)
             if not self.targ2addr.has_key(targ_id):
                 continue
-            addrs = self.targ2addr[targ_id][:]
-            addrs.sort()
-            member_addrs.append(addrs[0])
+            # The address selected for the target will become the
+            # envelope recipient address after expansion, so it must
+            # be deterministic.
+            acc.clear()
+            acc.find(mail_targ.email_target_entity_id)
+            member_addrs.append(acc.get_primary_mailaddress())
         return member_addrs
 
