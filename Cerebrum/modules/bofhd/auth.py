@@ -339,7 +339,7 @@ class BofhdAuth(DatabaseAccessor):
         if not isinstance(entity, Factory.get('Account')):
             raise PermissionDenied("No access to person")
         disk = self._get_user_disk(entity.entity_id)
-        if disk:
+        if disk and disk['disk_id']:
             self._query_disk_permissions(operator, operation,
                                          self._get_disk(disk['disk_id']),
                                          entity.entity_id)
