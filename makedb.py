@@ -4,9 +4,10 @@ import sys
 import re
 
 from Cerebrum import Database
+from Cerebrum import cereconf
 
 def main():
-    Cerebrum = Database.connect(user="cerebrum")
+    Cerebrum = Database.connect(user=cereconf.CEREBRUM_DATABASE_USER)
     makedbs(Cerebrum)
 
 

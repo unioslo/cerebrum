@@ -26,6 +26,9 @@ DATABASE_DRIVER = "Oracle"
 # are kept in this directory.
 DB_AUTH_DIR = '/etc/cerebrum'
 
+# Name of the SQL database user connecting to the database
+CEREBRUM_DATABASE_USER = None
+
 # Name of the SQL database
 CEREBRUM_DATABASE_NAME = None
 
