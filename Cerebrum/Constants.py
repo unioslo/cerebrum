@@ -88,8 +88,8 @@ class _CerebrumCode(DatabaseAccessor):
                                            self._lookup_str_column),
                                           self.__dict__)
         return self._desc
-    description = property(
-        _get_description, None, None, "This code value's description.")
+    description = property(_get_description, None, None,
+                           "This code value's description.")
 
     def __int__(self):
         if self.int is None:
@@ -431,6 +431,15 @@ class ConstantsBase(DatabaseAccessor):
         # superclasses might use the .sql attribute themselves for
         # other purposes; should be cleaned up.
         _CerebrumCode.sql = database
+
+    def fetch_constants(self, wanted_class):
+        """Return all constant instances of wanted_class."""
+        clist = []
+        for name in dir(self):
+            const = getattr(self, name)
+            if isinstance(const, wanted_class):
+                clist.append(const)
+        return clist
 
 
 class CoreConstants(ConstantsBase):
