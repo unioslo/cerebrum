@@ -10,7 +10,7 @@ import xml.sax
 
 from Cerebrum import Database,Errors
 from Cerebrum import Person
-from Cerebrum import cereconf
+import cereconf
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.Utils import Factory
 

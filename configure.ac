@@ -11,6 +11,9 @@ AM_MISSING_PROG(AUTOCONF, autoconf, $missing_dir)
 PYTHONDIR="$prefix/lib/python2.2/site-packages/"
 AC_SUBST(PYTHONDIR)
 
+CONFDIR=`eval "echo $sysconfdir/cerebrum"`
+AC_SUBST(CONFDIR)
+
 AC_CONFIG_FILES([
 	Makefile
 	testsuite/Makefile

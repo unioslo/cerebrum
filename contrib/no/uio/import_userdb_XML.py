@@ -14,11 +14,11 @@ import pprint
 import xml.sax
 import sys
 import getopt
+import cereconf
 from Cerebrum import Database
 from Cerebrum import Account
 from Cerebrum import Group
 from Cerebrum import Person
-from Cerebrum import cereconf
 from Cerebrum import Errors
 from Cerebrum.modules import PosixGroup
 from Cerebrum.modules import PosixUser

@@ -6,8 +6,8 @@ import re
 import os
 import sys
 
+import cereconf
 from Cerebrum import Database, Person, Errors
-from Cerebrum import cereconf
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.Utils import Factory
 

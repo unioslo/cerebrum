@@ -22,7 +22,7 @@ The Constants class defines a set of methods that should be used to
 get the actual database code/code_str representing a given Entity,
 Address, Gender etc. type."""
 
-from Cerebrum import cereconf
+import cereconf
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
 
 class _CerebrumCode(DatabaseAccessor):

@@ -28,7 +28,7 @@ from Cerebrum import Utils
 from Cerebrum.Entity import \
      Entity, EntityName, EntityQuarantine
 from Cerebrum.Database import Errors
-from Cerebrum import cereconf
+import cereconf
 import crypt,random,string
 
 class Account(EntityName, EntityQuarantine, Entity):

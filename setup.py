@@ -147,8 +147,11 @@ setup (name = "Cerebrum", version = "0.1",
        description = "Cerebrum...",
        # NOTE: all scripts ends up in the same dir!
        # scripts = ['contrib/no/uio/import_FS.py', 'contrib/generate_nismaps.py'],
-       packages = ['Cerebrum', 'Cerebrum/extlib', 'Cerebrum/extlib/Plex',
-                   'Cerebrum/modules', 'Cerebrum/modules/no',
+       packages = ['Cerebrum',
+                   'Cerebrum/extlib',
+                   'Cerebrum/extlib/Plex',
+                   'Cerebrum/modules',
+                   'Cerebrum/modules/no',
                    'Cerebrum/modules/no/uio'],
 
        # options override --prefix
@@ -227,7 +230,7 @@ setup (name = "Cerebrum", version = "0.1",
                      ({'path': sysconfdir,
                        'owner': cerebrum_user,
                        'mode': 0750},
-                      [('Cerebrum/cereconf.py', 0644),
+                      [('cereconf.py', 0644),
                        ('server/config.dat', 0644)
                        ]),
                      ({'path': logdir,

@@ -34,8 +34,8 @@ import sys
 from types import DictType, StringType
 from cStringIO import StringIO
 
+import cereconf
 from Cerebrum import Errors
-from Cerebrum import cereconf
 from Cerebrum import Utils
 from Cerebrum import SqlScanner
 from Cerebrum.extlib import db_row

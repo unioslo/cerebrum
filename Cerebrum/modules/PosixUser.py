@@ -30,8 +30,8 @@ SourceSystems are evaluated in the order defined by
 POSIX_GECOS_SOURCE_ORDER"""
 
 import random,re,string
+import cereconf
 from Cerebrum import Person,Constants,Errors
-from Cerebrum import cereconf
 from Cerebrum import Account
 
 class PosixUser(Account.Account):

@@ -5,7 +5,7 @@ import cerebrum_path
 import re
 import os
 import sys
-from Cerebrum import cereconf
+import cereconf
 
 from modules.no.uio.access_LT import LT
 from Cerebrum import Database,Errors
