@@ -136,12 +136,11 @@ def main():
         for fax in faxer:
             new_person.populate_contact_info(co.contact_fax, fax)
 
-        new_person.affect_addresses(co.system_lt, co.address_post)
         if person.has_key('adresselinje1_privatadresse'):
-            new_person.populate_address(co.address_post, addr="%s\n%s" %
+            new_person.populate_address(co.system_lt, co.address_post, address_text="%s\n%s" %
                                        (person['adresselinje1_privatadresse'],
                                         person.get('adresselinje2_privatadresse', '')),
-                                       zip=person.get('poststednr_privatadresse', None),
+                                       postal_number=person.get('poststednr_privatadresse', None),
                                        city=person.get('poststednavn_privatadresse', None))
         if stedkode <> '':
             try:

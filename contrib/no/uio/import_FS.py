@@ -96,7 +96,6 @@ def process_person(Cerebrum, persondta):
 
     new_person.populate_external_id(co.system_fs, co.externalid_fodselsnr, fnr)
 
-    new_person.affect_addresses(co.system_fs, co.address_post)
     sko_info = ()
     aff_type, aff_status = (co.affiliation_student,
                             co.affiliation_status_student_valid)
@@ -112,10 +111,10 @@ def process_person(Cerebrum, persondta):
         atype = 'hjem'   # Evt. hjemsted
     # TODO: Trenger kanskje noen tester på gyldighet av addr før vi
     # legger den inn?
-    new_person.populate_address(co.address_post, addr="%s\n%s" %
+    new_person.populate_address(co.system_fs, co.address_post, address_text="%s\n%s" %
                                 (persondta.get('adrlin1_%s' % atype, ''),
                                  persondta.get('adrlin2_%s' % atype, '')),
-                                zip=persondta.get('postnr_%s' % atype, ''),
+                                postal_number=persondta.get('postnr_%s' % atype, ''),
                                 city=persondta.get('adrlin3_%s' % atype, ''))
 
     for i in range(0, len(sko_info), 3):
