@@ -181,9 +181,10 @@ WHERE p.fodselsdato=sa.fodselsdato AND
     def _GetOpptakQuery(self):
 	aar, maned = time.localtime()[0:2]
         """Hent personer med opptak til et studieprogram ved
-        institusjonen og som i løpet av siste år har avlagt en
-        eksamen eller har vært eksamensmeldt i minst ett emne ved
-        institusjonen i løpet av siste år inngår i denne gruppen
+        institusjonen og som i løpet av siste år har avlagt en eksamen
+        eller har vært eksamensmeldt i minst ett emne ved
+        institusjonen i løpet av siste år inngår i denne gruppen, samt
+        de som har fått opptak de siste 365 dager.
         Med untak av de som har 'studierettstatkode' lik 'PRIVATIST'
         skal alle disse får affiliation student med kode 'opptak'
         ('privatist' for disse) til stedskoden sp.faknr_studieansv +
@@ -211,7 +212,7 @@ WHERE  p.fodselsdato=s.fodselsdato AND
        AND
        ((((el.arstall = %s and el.manednr <=%s) OR
         (el.arstall = %s and el.manednr >= %s))) OR
-       st.dato_tildelt < sysdate - 365)
+       st.dato_tildelt > sysdate - 365)
        """ % (aar, maned, aar-1, maned)
         # Man kan ikke sjekke el.aarstall >= i fjor ettersom tabellen
         # også inneholder fremtidige meldinger.
