@@ -70,11 +70,20 @@ tag is present, hdr and footer will be empty.
                 v.replace('\\', '\\\\')
                 v.replace(')', '\\)')
                 v.replace('(', '\\(')
+            elif self._type == 'tex':
+                if len(v) == 0:
+                    v = '\ '
+                else:
+                    for c in '#$%&~_^\{}':
+                        v = v.replace(c, '\%s' % c)
+                    v = v.replace('-', '{-}')
             template = template.replace("<%s>" % k, v)
         return template
 
-    def spool_job(self, filename, type, printer):
+    def spool_job(self, filename, type, printer, skip_lpr=False):
         logfile = Utils.make_temp_file(only_name=1)
+        self.logfile = logfile
+        base_filename = filename[:filename.rindex('.')]
         if type == 'tex':
             status = (os.system("%s --interaction nonstopmode %s >> %s 2>&1" % (
                 cereconf.PRINT_LATEX_CMD, filename, logfile)) or
@@ -82,7 +91,9 @@ tag is present, hdr and footer will be empty.
                 cereconf.PRINT_DVIPS_CMD, base_filename, base_filename, logfile)))
             if status:
                 raise IOError("Error spooling job, see %s for details" % logfile)
-        status = os.system("%s %s >> %s 2>&1" % (
-            cereconf.PRINT_LPR_CMD, filename, logfile))
-        if status:
-            raise IOError("Error spooling job, see %s for details" % logfile)
+        if not skip_lpr:
+            lpr_cmd = cereconf.PRINT_LPR_CMD.replace("<printer>", printer)
+            status = os.system("%s %s.ps >> %s.zz 2>&1" % (
+                lpr_cmd, base_filename, logfile))
+            if status:
+                raise IOError("Error spooling job, see %s for details" % logfile)
