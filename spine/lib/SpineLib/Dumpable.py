@@ -24,7 +24,7 @@ from Builder import Method, Attribute
 
 __all__ = ['Dumpable']
 
-def create_mark_method(name, method_name, optional=False):
+def create_mark_method(name, method_name, optional=False, attr=None):
     """
     This function creates a mark method for every attribute and read method in the class.
     Using mark_<something> marks <something> for inclusion in the dump.
@@ -32,11 +32,19 @@ def create_mark_method(name, method_name, optional=False):
 
     def dump(self):
         holder = self.get_writelock_holder()
+        for obj in self._objects:
+            obj.lock_for_reading(holder)
+
+
+        if attr is not None:
+            objects = [i for i in self._objects if not hasattr(i, attr.get_name_private())]
+            if len(objects) > 100:
+                self.cls.search_class().search()
+
         for struct, obj in zip(self.structs, self._objects):
             if optional:
                 struct['%s_exists' % name] = True
             try:
-                obj.lock_for_reading(holder)
                 value = getattr(obj, method_name)()
                 struct[name] = value
             except Exception, e:
@@ -79,7 +87,7 @@ class Dumpable(object):
         # mark methods for attributes and methods
         
         for attr in cls.slots:
-            get = create_mark_method(attr.name, attr.get_name_get(), attr.optional)
+            get = create_mark_method(attr.name, attr.get_name_get(), attr.optional, attr)
             dumper_class.register_method(Method('mark_' + attr.name, None, write=True), get, overwrite=True)
 
         for method in cls.method_slots:
@@ -129,9 +137,9 @@ def create_generic_dumper(dumper_class, name, method_name, optional=False):
     m = Method(name, dumper_class, write=True)
     def get_dumper(self):
         holder = self.get_writelock_holder()
-        objects = []
+        objects = set()
         for i in self._objects:
-            i.lock_for_reading(holder)
+#            i.lock_for_reading(holder)
             if optional:
                 try:
                     value = getattr(i, method_name)()
@@ -139,7 +147,7 @@ def create_generic_dumper(dumper_class, name, method_name, optional=False):
                     continue
             else:
                 value = getattr(i, method_name)()
-            objects.append(value)
+            objects.add(value)
 
         return dumper_class(objects)
 
