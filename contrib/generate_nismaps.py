@@ -43,7 +43,7 @@ def generate_passwd():
 
         # TODO: The value_domain should be fetched from somewhere
         # The array indexes should be replaced with hash-keys
-        uname = posix_user.get_name(co.account_namespace)[0][2]
+        uname = posix_user.get_name(co.account_namespace)['entity_name']
         if entity2uname.has_key(id):
             raise ValueError, "Entity %d has multiple unames: (%s, %s)" % (
                 entity2uname[id], uname)
