@@ -543,12 +543,74 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine, Entity):
         FROM [:table schema=cerebrum name=account_info] ai %s""" % where,
                           fetchall = fetchall)
 
+    def list_account_home(self, home_spread=None,
+                          account_spread=None, disk_id=None,
+                          host_id=None, include_nohome=False):
+        """List users with homedirectory, optionaly filtering the
+        results on home/account spread, disk/host.
+
+        If include_nohome=True, users without home will be included in
+        the search-result when filtering on home_spread.  Should not
+        be used in combination with filter on disk/host."""
+
+        where = ["en.entity_id=ai.account_id"]
+        tables = ['[:table schema=cerebrum name=entity_name] en']
+        if account_spread is not None:
+            # Add this table before account_info for correct left-join syntax
+            where.append("es.entity_id=ai.account_id")
+            where.append("es.spread=:account_spread")
+            tables.append(", [:table schema=cerebrum name=entity_spread] es")
+
+        tables.append(', [:table schema=cerebrum name=account_info] ai')
+
+        # We must perform a left-join or inner-join depending on
+        # wheter or not include_nohome is True.
+        if include_nohome:
+            if home_spread is not None:
+                tables.append(
+                    'LEFT JOIN [:table schema=cerebrum name=account_home] ah' +
+                    '  ON ah.account_id=ai.account_id AND ah.spread=:home_spread')
+            else:
+                tables.append(
+                    'LEFT JOIN [:table schema=cerebrum name=account_home] ah' +
+                    '  ON ah.account_id=ai.account_id')
+            tables.append(
+                'LEFT JOIN [:table schema=cerebrum name=disk_info] d' +
+                '  ON d.disk_id = ah.disk_id')
+        else:
+            tables.extend([
+                ', [:table schema=cerebrum name=account_home] ah ',
+                ', [:table schema=cerebrum name=disk_info] d'])
+            where.extend(["ai.account_id=ah.account_id",
+                          "d.disk_id=ah.disk_id"])
+            if home_spread is not None:
+                where.append("ah.spread=:home_spread")
+
+        if disk_id is not None:
+            where.append("ah.disk_id=:disk_id")
+        if host_id is not None:
+            where.append("ah.host_id=:host_id")
+        where = " AND ".join(where)
+        tables = "\n".join(tables)
+
+        return self.query("""
+        SELECT ai.account_id, en.entity_name, ah.home,
+               ah.spread AS home_spread, d.path,
+               ah.status, ai.expire_date, d.disk_id
+        FROM %s
+        WHERE %s""" % (tables, where), {
+            'home_spread': int(home_spread or 0),
+            'account_spread': int(account_spread or 0),
+            'disk_id': disk_id,
+            'host_id': host_id
+            })
+
     def list_account_name_home(self, spread, filter_home=False):
         """Returns a list of account_id, name, home and path.
            filter_home=False means that spread is a filter on
            accounts. filter_home=True means that the spread is
            a filter on home."""
-
+        # Obsolete, use list_account_homes instead
         if filter_home:
             return self.query("""
             SELECT ai.account_id, en.entity_name, ah.home, d.path
