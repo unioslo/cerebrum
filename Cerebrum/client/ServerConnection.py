@@ -48,6 +48,9 @@ class ServerConnection:
         self._register_run_commands()
     
     def __getattr__(self, command):
+        # Avoid retrieval of __dict__ and so on
+        if command.startswith("_"):
+            raise AttributeError, command
         return CommandWrapper(self, command)
     
     def _check_connection(cls):    
