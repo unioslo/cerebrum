@@ -196,6 +196,9 @@ class PosixUser(Account.Account):
         on the persons first and last name"""
         goal = 15
         potuname = ()
+        if fname == "" or lname == "":
+            raise ValueError,\
+                  "Currently only fullname supported, got %s, %s" % (fname, lname)
         complete_name = self._conv_name("%s %s" % (fname, lname), 1)
 
         # Remember just the first initials.
@@ -218,7 +221,7 @@ class PosixUser(Account.Account):
         initial = m.group(3)
         lname = m.group(4)[0:8]
 
-        if lname == '': fname = lname	# Sane behaviour if only one name.
+        if lname == '': lname = fname	# Sane behaviour if only one name.
 
         # For people with many names, we prefer to use all initials:
         # Example:  Geir-Ove Johnsen Hansen
@@ -299,7 +302,7 @@ class PosixUser(Account.Account):
             # Delayed import to prevent python from barfing
             from Cerebrum import Account
             acc = Account.Account(self._db)
-            acc.find_account_by_name(domain, uname)
+            acc.find_by_name(uname, domain=domain)
             return 0
         except Errors.NotFoundError:
             return 1
