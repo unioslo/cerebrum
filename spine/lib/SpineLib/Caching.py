@@ -100,7 +100,6 @@ class Caching(object):
         
         Will not prevent this object from futher use.
         """
-        print "test", self, self.cache
         if self.cache is not None:
             del self.cache[self.__key]
 

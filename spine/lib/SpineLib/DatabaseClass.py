@@ -281,7 +281,6 @@ class DatabaseClass(SpineClass, Searchable, Dumpable):
                     else:
                         whr = '%s.%s is :%s' % args
                     value = None
-                    print whr, value
                 else:
                     whr = '%s.%s = :%s' % args
                 return (whr, value)
