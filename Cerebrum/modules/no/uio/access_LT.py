@@ -82,7 +82,7 @@ ORDER BY tlfpreftegn"""
                t.tilsnr
             FROM lt.tilsetting t, lt.stilling s
 	    WHERE dato_fra <= SYSDATE AND
-                  NVL(dato_til, SYSDATE) > SYSDATE AND
+                  NVL(dato_til, SYSDATE) >= SYSDATE AND
                   t.stilnr = s.stilnr"""
         return (self._get_cols(qry), self.db.query(qry))
 
