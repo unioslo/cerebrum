@@ -1,8 +1,5 @@
 # -*- coding: iso-8859-1 -*-
 group_help = {
-    'intro': "Short description of BOFH",
-    'glossary': "Glossary of commonly used terms in Cerebrum",
-    'basics': "basic usage of BOFH",
     'group': "Group commands",
     'misc': 'Miscellaneous commands',
     'person': 'Person related commands',
