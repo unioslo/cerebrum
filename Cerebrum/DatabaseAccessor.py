@@ -21,6 +21,10 @@
 from Cerebrum import Database
 
 class DatabaseAccessor(object):
+
+    __slots__ = Database.API_TYPE_CTOR_NAMES + \
+                Database.API_EXCEPTION_NAMES + ('_db',)
+
     def __init__(self, database):
         assert isinstance(database, Database.Database)
         self._db = database
@@ -41,3 +45,6 @@ class DatabaseAccessor(object):
 
     def nextval(self, seq_name):
         return self._db.nextval(seq_name)
+
+    def commit(self):
+        return self._db.commit()
