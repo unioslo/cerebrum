@@ -582,28 +582,31 @@ class FronterXML(object):
         self.xml.endTag('EXTENSION')
         self.xml.endTag('PROPERTIES')
 
-    def user_to_XML(self, data):
+    def user_to_XML(self, id, recstatus, data):
         """Lager XML for en person"""
-        self.xml.startTag('PERSON', {'recstatus': 1})
+        self.xml.startTag('PERSON', {'recstatus': recstatus})
         self.xml.startTag('SOURCEDID')
         self.xml.dataElement('SOURCE', self.DataSource)
-        self.xml.dataElement('ID', data['NAME'])
+        self.xml.dataElement('ID', id)
         self.xml.endTag('SOURCEDID')
-        #if (recstatus == Fronter.STATUS_ADD or recstatus == Fronter.STATUS_UPDATE):
-        self.xml.startTag('NAME')
-        self.xml.dataElement('FN', data['FN'])
-        self.xml.startTag('N')
-        self.xml.dataElement('FAMILY', data['FAMILY'])
-        self.xml.dataElement('GIVEN', data['GIVEN'])
-        self.xml.endTag('N')
-        self.xml.endTag('NAME')
-        self.xml.dataElement('EMAIL', data['EMAIL'])
-        self.xml.startTag('EXTENSION')
-        if self.include_password:
-            self.xml.emptyTag('PASSWORD', {'passwordtype': data['PASSWORD']})
-        self.xml.emptyTag('EMAILCLIENT', {'clienttype': data['EMAILCLIENT']})
-        self.xml.emptyTag('USERACCESS', {'accesstype': data['USERACCESS']})
-        self.xml.endTag('EXTENSION')
+        if (recstatus == Fronter.STATUS_ADD
+            or recstatus == Fronter.STATUS_UPDATE):
+            self.xml.startTag('NAME')
+            self.xml.dataElement('FN', data['FN'])
+            self.xml.startTag('N')
+            self.xml.dataElement('FAMILY', data['FAMILY'])
+            self.xml.dataElement('GIVEN', data['GIVEN'])
+            self.xml.endTag('N')
+            self.xml.endTag('NAME')
+            self.xml.dataElement('EMAIL', data['EMAIL'])
+            self.xml.startTag('EXTENSION')
+            if self.include_password:
+                self.xml.emptyTag('PASSWORD',
+                                  {'passwordtype': data['PASSWORD']})
+            self.xml.emptyTag('EMAILCLIENT',
+                              {'clienttype': data['EMAILCLIENT']})
+            self.xml.emptyTag('USERACCESS', {'accesstype': data['USERACCESS']})
+            self.xml.endTag('EXTENSION')
         self.xml.endTag('PERSON')
 
     def group_to_XML(self, id, recstatus, data):
