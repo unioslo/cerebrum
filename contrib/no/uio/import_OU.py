@@ -88,19 +88,17 @@ def main():
                         short_name=k['forkstednavn'],
                         display_name=k['stednavn'],
                         sort_name=k['stednavn'])
-        new_ou.affect_addresses(co.system_lt, co.address_street,
-                                co.address_post)
         if k.has_key('adresselinje1_intern_adr'):
-            new_ou.populate_address(co.address_post, addr="%s\n%s" %
+            new_ou.populate_address(co.system_lt, co.address_post, address_text="%s\n%s" %
                                     (k['adresselinje1_intern_adr'],
                                      k.get('adresselinje2_intern_adr', '')),
-                                    zip=k.get('poststednr_intern_adr', ''),
+                                    postal_number=k.get('poststednr_intern_adr', ''),
                                     city=k.get('poststednavn_intern_adr', ''))
         if k.has_key('adresselinje1_besok_adr'):
-            new_ou.populate_address(co.address_street, addr="%s\n%s" %
+            new_ou.populate_address(co.system_lt, co.address_street, address_text="%s\n%s" %
                                     (k['adresselinje1_besok_adr'],
                                      k.get('adresselinje2_besok_adr', '')),
-                                    zip=k.get('poststednr_besok_adr', None),
+                                    postal_number=k.get('poststednr_besok_adr', None),
                                     city=k.get('poststednavn_besok_adr', None))
 
         op = new_ou.write_db()
