@@ -5,6 +5,7 @@ class SideMenu(Menu):
         Menu.__init__(self)
         self.makePerson()
         self.makeGroup()
+        self.makeSpread()
     def makePerson(self):
         self.person = self.addItem("person", "Person", "/person")
         self.person.addItem("search", "Search", "/person/search")
@@ -18,4 +19,11 @@ class SideMenu(Menu):
         self.group.addItem("list", "List", "/group/list")
         self.group.addItem("view", "View", "/group/view?id=%s")
         self.group.addItem("edit", "Edit", "/group/edit?id=%s")
+
+    def makeSpread(self):
+        self.group = self.addItem("spread", "spread", "/spread")
+        self.group.addItem("search", "Search", "/spread/search")
+        self.group.addItem("list", "List", "/spread/list")
+        self.group.addItem("view", "View", "/spread/view?id=%s")
+        self.group.addItem("edit", "Edit", "/spread/edit?id=%s")
 
