@@ -1,5 +1,7 @@
 #extends FramesTemplate 
 
+#from ActivityLogTemplate import ActivityLogTemplate
+
 #def bottom
 $worklist()
 $activitylog()
@@ -14,11 +16,7 @@ $activitylog()
 #end def worklist
 
 #def activitylog
-<div class="activitylog">
-  <div class="entry">Line 1</div>
-  <div class="entry">Line 2</div>
-  <div class="entry">Line 3</div>
-</div>
+$activitylog.viewActivityLog()
 #end def activitylog
 
 
