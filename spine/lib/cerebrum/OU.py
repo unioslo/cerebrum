@@ -20,9 +20,7 @@
 
 import Cerebrum.OU
 from Cerebrum.extlib import sets
-from Cerebrum.Errors import NotFoundError
 
-from server.Cerebrum_core import Errors
 from SpineLib.SpineClass import SpineClass
 from SpineLib.Builder import Attribute, Method
 from SpineLib.DatabaseClass import DatabaseClass, DatabaseAttr
