@@ -47,7 +47,7 @@ const = Factory.get('Constants')(db)
 logging.fileConfig(cereconf.LOGGING_CONFIGFILE)
 logger = logging.getLogger("cronjob")
 # for debug:
-logger = logging.getLogger("console")
+# logger = logging.getLogger("console")
 # Hosts to connect to, set to None in a production environment:
 debug_hostlist = None
 SUDO_CMD = "/usr/bin/sudo"
