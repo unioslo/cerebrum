@@ -25,14 +25,18 @@ import pickle
 import time
 
 import cerebrum_path
+import cereconf
 from Cerebrum import Errors
 from Cerebrum import Utils
 from Cerebrum.Constants import _SpreadCode
 from Cerebrum.modules import ChangeLog
+from Cerebrum.extlib import logging
 
 Factory = Utils.Factory
 db = Factory.get('Database')()
 co = Factory.get('Constants')(db)
+
+logging.fileConfig(cereconf.LOGGING_CONFIGFILE)
 logger = logging.getLogger("console")
 
 """
@@ -113,6 +117,12 @@ max_ages = {
     int(co.group_add): AGE_FOREVER,
     int(co.spread_add): AGE_FOREVER,
     int(co.account_password): AGE_FOREVER,
+
+    # TODO: Once account_type changes are better logged, we don't need
+    # this special case
+    int(co.account_type_add): 3600*24*31,
+    int(co.account_type_mod): 3600*24*31,
+    int(co.account_type_del): 3600*24*31,
     }
 
 # The keep_togglers datastructure is a list of entries that has the
@@ -132,7 +142,7 @@ keep_togglers = (
      'change_params': ('spread', ),
      'triggers': (co.spread_add, co.spread_del)},
     # Group members
-    {'columns': ('subject_entity', 'destination_entity'),
+    {'columns': ('subject_entity', 'dest_entity'),
      'triggers': (co.group_add, co.group_rem)},
     # Group creation/modification
     {'columns': ('subject_entity', ),
@@ -157,7 +167,8 @@ keep_togglers = (
     # AccountType
     # TBD:  Hvordan håndtere account_type_mod der vi bare logger old_pri og new_pri
     {'columns': ('subject_entity', ),
-     'change_params': ('ou_id', 'affiliation', ),
+     # may remove a bit too much, but we log too little to filter better...
+     # 'change_params': ('ou_id', 'affiliation', ),
      'triggers': (co.account_type_add, co.account_type_mod,
                   co.account_type_del)},
     # Disk
@@ -178,7 +189,7 @@ keep_togglers = (
      'triggers': (co.person_create, co.person_update)},
     # Person names
     {'columns': ('subject_entity', ),
-     'change_params': ('name_variant', ),
+     'change_params': ('name_variant', 'src', ),
      'triggers': (co.person_name_del, co.person_name_add, co.person_name_mod)},
     # Person external id
     {'columns': ('subject_entity', ),
@@ -223,7 +234,7 @@ def setup():
     for k in keep_togglers:
         k['toggler_id'] = i
         i += 1
-        for t in keep_togglers[k]['triggers']:
+        for t in k['triggers']:
             if trigger_mapping.has_key(int(t)):
                 raise ValueError, "%s is not a unique trigger" % t
             trigger_mapping[int(t)] = k
@@ -244,16 +255,36 @@ def remove_plaintext_passwords():
             dta = pickle.loads(e['change_params'])
             if dta.has_key('password'):
                 del(dta['password'])
-                db.update_log_event(e['change_id'], dta)
+                logger.debug(
+                    "Removed password for id=%i" % e['change_type_id'])
+                if not dryrun:
+                    db.update_log_event(e['change_id'], dta)
+    if not dryrun:
+        db.commit()
+    else:
+        db.rollback()   # noia rollback just in case
+
+def format_as_int(i):
+    if i is not None:
+        return "%i" % i
+    return i
 
 def process_log():
     if 0:
         for c in db.get_changetypes():
             print "%-5i %-8s %-8s" % (c['change_type_id'],
                                       c['category'], c['type'])
+
     now = time.time()
+    last_seen = {}
+    n = 0
     for e in db.get_log_events():
-        logger.debug((e['tstamp'], e['change_id'], e['change_type_id'],
+        n += 1
+        
+        logger.debug((e['tstamp'].strftime('%Y-%m-%d'),
+                      int(e['change_id']), int(e['change_type_id']),
+                      format_as_int(e['subject_entity']),
+                      format_as_int(e['dest_entity']),
                       repr(e['change_params'])))
 
         if not trigger_mapping.has_key(int(e['change_type_id'])):
@@ -263,13 +294,15 @@ def process_log():
         
         age = now - e['tstamp'].ticks()
         # Keep all data newer than minimum_age
-        if age < minumum_age:
+        if age < minimum_age:
             continue
 
         tmp = max_ages.get(int(e['change_type_id']), default_age)
         if tmp != AGE_FOREVER and age > tmp:
             logger.debug("Remove due to age: %i" % e['change_id'])
-
+            if not dryrun:
+                db.remove_log_event(e['change_id'])
+            
         # Determine a unique key for this event to check togglability
         m = trigger_mapping[int(e['change_type_id'])]
         key = [ "%i" % m['toggler_id'] ]
@@ -278,32 +311,57 @@ def process_log():
         if m.has_key('change_params'):
             dta = pickle.loads(e['change_params'])
             for c in m['change_params']:
-                key.append(dta[c])
+                key.append("%s" % dta[c])
         # Not needed if a list may be efficiently/safely used as key in a dict:
         key = "-".join(key)
-
+        logger.debug("Key is: %s" % key)
         if last_seen.has_key(key):
-            logger.debug("Remove: %i" % last_seen[key])
+            logger.debug("Remove (%s): %i" % (key, last_seen[key]))
+            if not dryrun:
+                db.remove_log_event(last_seen[key])
         last_seen[key] = int(e['change_id'])
-    db.commit()
+        if (n % 500) == 0:
+            if not dryrun:
+                db.commit()
+    if not dryrun:
+        db.commit()
+    else:
+        db.rollback()   # noia rollback just in case
 
 def main():
+    global dryrun
     try:
-        opts, args = getopt.getopt(sys.argv[1:], '', [])
+        opts, args = getopt.getopt(
+            sys.argv[1:], '', ['help', 'dryrun', 'plain',
+                               'changelog'])
+
     except getopt.GetoptError:
         usage(1)
-
+    do_remove_plain = do_process_log = dryrun = False
     for opt, val in opts:
         if opt in ('--help',):
             usage()
+        elif opt in ('--dryrun',):
+            dryrun = True
+        elif opt in ('--plain',):
+            do_remove_plain = True
+        elif opt in ('--changelog',):
+            do_process_log = True
         else:
             usage()
 
     setup()
-    process_log()
+    if do_remove_plain:
+        remove_plaintext_passwords()
+    if do_process_log:
+        process_log()
 
 def usage(exitcode=0):
     print """Usage: [options]
+    --help : this text
+    --dryrun : don't do any changes to the db
+    --plain : delete plaintext passwords
+    --changelog : delete 'irrelevant' changelog entries
     """
     sys.exit(exitcode)
 
