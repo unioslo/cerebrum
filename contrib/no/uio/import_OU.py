@@ -118,8 +118,12 @@ def main():
         for t in k.get('komm', []):
             n += 1       # TODO: set contact_pref properly
             if t['kommtypekode'] == 'FAX':
+                nr = t.get('telefonnr', t.get('kommnrverdi', None))
+                if nr is None:
+                    print "Warning: unknown contact: %s" % str(t)
+                    continue
                 ou.populate_contact_info(co.system_lt, co.contact_fax,
-                                         t['telefonnr'], contact_pref=n)
+                                         nr, contact_pref=n)
             elif t['kommtypekode'] == 'TLF':
                 if len(t['telefonnr']) == 5:
                     t['telefonnr'] = "228%s" % t['telefonnr']
