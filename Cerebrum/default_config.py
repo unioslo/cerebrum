@@ -35,6 +35,7 @@ AUTH_CRYPT_METHODS = ("auth_type_md5_crypt",)
 # passwords.
 PASSWORD_DICTIONARIES = ()
 
+
 # Look for things like person name by evaluating source systems in in
 # this order
 SYSTEM_LOOKUP_ORDER = ("system_manual",)
@@ -111,6 +112,9 @@ DEBUG_COMPARE = False
 # GroupUioMixin limits max # of groupmemberships in groups with
 # these spreads
 NIS_SPREADS = ()
+
+# Spreads that are legal for entries in account_home
+HOME_SPREADS = ()
 
 # Active directory specific settings.
 
