@@ -211,7 +211,7 @@ class Cursor(object):
                 # us one statement at a time.
                 raise self.ProgrammingError, \
                       "Token '%s' found after end of SQL statement." % text
-            elif p_item is not None:
+            elif p_item:
                 #
                 # We're in the middle of parsing an SQL portability
                 # item; collect all of the item's arguments before
@@ -247,6 +247,13 @@ class Cursor(object):
                 translation.append(text)
             if translation:
                 out_sql.extend(translation)
+        #
+        # If the input statement ended with a portability item, no
+        # non-SQL_PORTABILITY_ARG token has triggered inclusion of the
+        # final p_item into out_sql.
+        if p_item:
+            out_sql.extend(self._db.sql_repr(*p_item))
+            p_item = None
         return (" ".join(out_sql), out_params.get_data())
 
     def executemany(self, operation, seq_of_parameters):
@@ -393,6 +400,14 @@ class params_as_sequence(bind_param_converter):
             self._data.append(value)
         return self.param_format % locals()
 
+    #
+    # DCOracle2 does not treat bind parameters passed as a list the
+    # same way it treats params passed as a tuple.  The DB API states
+    # that "Parameters may be provided as sequence or mapping", so
+    # this can be construed as a bug in DCOracle2.
+    def get_data(self):
+        return [tuple(self._data)]
+
 
 class paramstyle_qmark(params_as_sequence):
     param_format = '?'
@@ -462,6 +477,8 @@ class Database(object):
 
         self._db = None
         self._cursor = None
+
+        self._connect_data = {}
 
         if do_connect:
             # Start a connection
@@ -686,12 +703,20 @@ class PostgreSQL(Database):
     _db_mod = "pyPgSQL.PgSQL"
 
     def connect(self, user=None, password=None, service=None):
+        cdata = self._connect_data
+        cdata.clear()
+        cdata['arg_user'] = user
+        cdata['arg_password'] = password
+        cdata['arg_service'] = service
         if service is None:
             service = cereconf.CEREBRUM_DATABASE_NAME
         if user is None:
             user = cereconf.CEREBRUM_DATABASE_CONNECT_DATA.get('user')
         #if password is None:
         #    password = self._read_password(service, user)
+        cdata['real_user'] = user
+        cdata['real_password'] = password
+        cdata['real_service'] = service
         super(PostgreSQL, self).connect(user = user, password = password,
                                         database = service)
 
@@ -735,6 +760,11 @@ class Oracle(Database):
     _db_mod = "DCOracle2"
 
     def connect(self, user=None, password=None, service=None):
+        cdata = self._connect_data
+        cdata.clear()
+        cdata['arg_user'] = user
+        cdata['arg_password'] = password
+        cdata['arg_service'] = service
         if service is None:
             service = cereconf.CEREBRUM_DATABASE_NAME
         if user is None:
@@ -742,6 +772,7 @@ class Oracle(Database):
         if password is None:
             password = self._read_password(service, user)
         conn_str = '%s/%s@%s' % (user, password, service)
+        cdata['conn_str'] = conn_str
         #
         # Call superclass .connect with appropriate CONNECTIONSTRING;
         # this will in turn invoke the connect() function in the
