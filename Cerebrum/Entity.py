@@ -53,7 +53,7 @@ class Entity(DatabaseAccessor):
         super(Entity, self).__init__(database)
         self.clear()
         self.__write_db = False
-        self.constants = Constants.Constants(database)
+        self.const = Constants.Constants(database)
         self._debug_eq = False
 
     def clear(self):
@@ -145,19 +145,19 @@ class Entity(DatabaseAccessor):
 
 class EntityName(object):
     "Mixin class, usable alongside Entity for entities having names."
-    def get_name(self, domain=None):
-        return Utils.keep_entries(
-            self.query("""
+    def get_name(self, domain):
+        return self.query("""
             SELECT * FROM cerebrum.entity_name
-            WHERE entity_id=:e_id""", {'e_id' : self.entity_id}),
-            ('value_domain', domain))
+            WHERE entity_id=:e_id AND value_domain=:domain""",
+                          {'e_id' : self.entity_id,
+                          'domain' : int(domain)})
 
     def add_name(self, domain, name):
         return self.execute("""
         INSERT INTO cerebrum.entity_name
           (entity_id, value_domain, entity_name)
         VALUES (:e_id, :domain, :name)""", {'e_id' : self.entity_id,
-                                            'domain' : domain, 'name' : name})
+                                            'domain' : int(domain), 'name' : name})
 
     def delete_name(self, domain):
         return self.execute("""
