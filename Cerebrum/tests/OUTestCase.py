@@ -3,6 +3,7 @@
 # $Id$
 
 import unittest
+import traceback
 from Cerebrum import Database
 from Cerebrum import OU
 from Cerebrum import Person
@@ -32,12 +33,17 @@ class OU_createTestCase(unittest.TestCase, object): # 'object' because
                             city=self.ou_dta['city'])
         
     def setUp(self):
-        # print "OU_createTestCase.setUp()"
-        new_ou = OU.OU(self.Cerebrum)
-        new_ou.clear()
-        self._myPopulateOU(new_ou)
-        new_ou.write_db()
-        self.ou_id = new_ou.ou_id
+        try:
+            self.Cerebrum.commit()
+            # print "OU_createTestCase.setUp()"
+            new_ou = OU.OU(self.Cerebrum)
+            new_ou.clear()
+            self._myPopulateOU(new_ou)
+            new_ou.write_db()
+            self.ou_id = new_ou.ou_id
+        except:
+            print "error: unable to create OU."
+            traceback.print_exc()
 
     def tearDown(self):
         # print "OU_createTestCase.tearDown()"
