@@ -21,36 +21,39 @@
 import forgetHTML as html
 from gettext import gettext as _
 from Cereweb.Main import Main
-from Cereweb.utils import redirect_object, queue_message
+from Cereweb.utils import redirect_object, queue_message, transaction_decorator
 from Cereweb.templates.NoteAddTemplate import NoteAddTemplate
 
 
-def index(req, entity, subject="", description=""):
+@transaction_decorator
+def index(req, transaction, entity, subject="", description=""):
     """Shows the add-note-template."""
-    server = req.session.get("active")
-    entity = server.get_entity(int(entity))
+    entity = transaction.get_entity(int(entity))
     page = Main(req)
     noteadd = NoteAddTemplate()
     index = html.Division()
-    index.append(html.Header(_("Add note for entity '%s':") % entity.get_entity_id(), level=2))
+    index.append(html.Header(_("Add note for entity '%s':") % entity.get_id(), level=2))
     index.append(noteadd.addForm(entity))
     page.content = index.output
     return page
 
-def add(req, entity, subject, description):
+@transaction_decorator
+def add(req, transaction, entity, subject, description):
     """Adds a note to some entity."""
-    server = req.session.get("active")
-    entity = server.get_entity(int(entity))
+    entity = transaction.get_entity(int(entity))
     entity.add_note(subject, description)
     queue_message(req, _("Added note '%s'") % subject)
-    return redirect_object(req, entity, seeOther=True)
+    redirect_object(req, entity, seeOther=True)
 
-def delete(req, entity, id):
+    transaction.commit()
+
+@transaction_decorator
+def delete(req, transaction, entity, id):
     """Removes a note."""
-    server = req.session.get("active")
-    entity = server.get_entity(int(entity))
-    entity.remove_note(int(id))
+    entity = transaction.get_entity(int(entity))
+    note = transaction.get_note(int(id))
+    entity.remove_note(note)
     queue_message(req, _("Note deleted"))
-    return redirect_object(req, entity, seeOther=True)
+    redirect_object(req, entity, seeOther=True)
 
 # arch-tag: a346491e-4e47-42c1-8646-391b6375b69f

@@ -21,8 +21,7 @@
 #extends InitTemplate
 
 #def viewNotes($entity, $req)
-##set $notes = $entity.get_notes()
-#set $notes = []
+#set $notes = $entity.get_notes()
 #if $notes
 <h2>$_("Notes:")</h2>
 #for $note in $notes
@@ -33,7 +32,7 @@
     <div class="note">
         <div>
             <em>$note.get_create_date().strftime("%Y-%m-%d")</em>&nbsp;
-            <em>Creator: <a href="$creator_url">$create_name</a></em>&nbsp;
+            <em>Creator: <a href="$creator_url">$creator_name</a></em>&nbsp;
             <a href="$delete" class="actions">$_("delete")</a>
         </div>
         <div>$note.get_subject()</div>
