@@ -18,6 +18,9 @@ class FSData(object):
 	     adrland, tlf_arb, fax_arb, tlf_hjem, title, institusjon,
 	     fak, inst, gruppe"""
 
+    # TODO: Denne datakilden skal neppe brukes.  Den fremtidige
+    # implementasjonen må håndtere tilhørighet til multiple stedkoder.
+
     def parse_line(self, line):
 	info = line.split("','")
         type = info.pop(0)
@@ -51,8 +54,6 @@ def main():
     for line in f.readlines():
         persondta = dta.parse_line(line)
         process_person(person, persondta)
-        i = i + 1
-        # if(i > 10): break
     Cerebrum.commit()
 
 def process_person(person, persondta):
@@ -76,7 +77,7 @@ def process_person(person, persondta):
 
     new_person.populate(Date(year, mon, day), gender)
     new_person.affect_names(co.system_fs, co.name_full)
-    new_person.populate_name(co.name_full, "%s %s" % (persondta['fname'], persondta['lname']))
+    new_person.populate_name(co.name_full, "%s %s" % (persondta['lname'], persondta['fname']))
 
     new_person.populate_external_id(co.system_fs, co.externalid_fodselsnr, fnr)
 
@@ -89,7 +90,7 @@ def process_person(person, persondta):
                                 zip=persondta['postnr'],
                                 city=persondta['adr3'])
 
-    ou.get_stedkode(int(persondta['fak']), int(persondta['inst']), int(persondta['gruppe']))
+    ou.find_stedkode(int(persondta['fak']), int(persondta['inst']), int(persondta['gruppe']))
 
     new_person.affect_affiliations(co.system_fs, co.affiliation_student)
     new_person.populate_affiliation(ou.ou_id, co.affiliation_student, co.affiliation_status_valid)
@@ -97,12 +98,12 @@ def process_person(person, persondta):
     try:
         person.find_by_external_id(co.externalid_fodselsnr, fnr)
         if not (new_person == person):
-            print "Changed"
+            print "**** UPDATE ****"
             new_person.write_db(person)
         else:
-            print "no change"
+            print "-"
     except Errors.NotFoundError:
-        print "is new"
+        print "**** NEW ****"
         new_person.write_db()
 
 if __name__ == '__main__':
