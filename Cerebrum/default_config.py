@@ -24,3 +24,6 @@ DATABASE_DRIVER = "Oracle"
 # Files containing the authentication data needed for database access
 # are kept in this directory.
 DB_AUTH_DIR = '/etc/cerebrum'
+
+#
+CEREBRUM_DATABASE_NAME = None
