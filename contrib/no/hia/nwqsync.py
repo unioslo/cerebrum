@@ -394,10 +394,11 @@ def change_group_spread(dn_id,ch_type,spread,gname=None):
     else: grp_name = gname	
     group_name = evaluate_grp_name(grp_name)
     #utf8_ou = nwutils.get_ldap_group_ou(group_name)
-    utf8_dn = unicode('cn=%s,' % group_name, 'iso-8859-1').encode('utf-8') #+ utf8_ou
+    utf8_dn = unicode('cn=%s' % group_name, 'iso-8859-1').encode('utf-8') #+ utf8_ou
+    search_cn = "(&(%s)(objectclass=group))"
     search_dn = "%s" % cereconf.NW_LDAP_ROOT
     #ldap_obj = get_ldap_value(search_dn, utf8_dn)
-    ldap_obj = ldap_handle.GetObjects(search_dn,utf8_dn)
+    ldap_obj = ldap_handle.GetObjects(search_dn, search_cn)
     if ch_type==int(const.spread_del) and ldap_obj <> []:
 	(ldap_group, ldap_attrs) = ldap_obj[0]
 	if not nwutils.touchable(ldap_attrs):
@@ -412,14 +413,11 @@ def change_group_spread(dn_id,ch_type,spread,gname=None):
 							nwutils.now())))
 	    #add_ldap(utf8_dn, attrs)
 	    student_grp = False
-	    members = []
 	    for mem in group.get_members(spread = spread_ids[0],get_entity_name=True):
 		if  (co.affiliation_student == \
 				nwutils.get_primary_affiliation(mem[0],co.account_namespace)):
 		    student_grp = True
-		members.append(mem[1])
-		#user_add_del_grp(const.group_add,mem,dn_id)
-	    attrs.append(("member", members))
+		attrs.append('member',mem[1])
 	    if student_grp:
 		grp_dn = utf8_dn + ',ou=grp,ou=stud'
 	    else:
