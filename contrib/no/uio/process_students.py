@@ -198,7 +198,6 @@ class AccountUtil(object):
                     person_obj.clear()
                     person_obj.find(user.owner_id)
                 person_obj.add_spread(dta)
-                logger.warn("Person spread?  TODO: implement")
             elif c_id == 'set_ac_type':
                 user.set_account_type(dta[0], dta[1])
             elif c_id == 'del_ac_type':
@@ -288,6 +287,7 @@ class AccountUtil(object):
             elif spread.entity_type == const.entity_person:
                 if not int(spread) in has_person_spreads:
                     changes.append(('add_person_spread', spread))
+                    has_person_spreads.append(int(spread))
 
         changes.extend(AccountUtil._populate_account_affiliations(account_id, fnr))
         # We have now collected all changes that would need fetching of
