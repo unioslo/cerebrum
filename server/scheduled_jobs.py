@@ -4,7 +4,8 @@
 # cerebrum installation.  See the documentation for job_runner for
 # details.
 
-from job_runner import *
+from job_actions import *
+from job_utils import When, Time
 
 def get_jobs():
     sbin = '/cerebrum/sbin'
