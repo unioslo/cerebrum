@@ -55,6 +55,7 @@ db.cl_init(change_program='migrate_iux')
 co = Factory.get('Constants')(db)
 pp = pprint.PrettyPrinter(indent=4)
 prev_msgtime = time()
+debug = 0
 
 user_creators = {}     # Store post-processing info for users
 uname2entity_id = {}
@@ -76,18 +77,18 @@ shell2shellconst = {
     'csh': co.posix_shell_csh,
     'false': co.posix_shell_false,
     'nologin': co.posix_shell_nologin,
-    'nologin.autostud': co.posix_shell_nologin,  # TODO: more shells, (and their path)
-    'nologin.brk': co.posix_shell_nologin,
-    'nologin.chpwd': co.posix_shell_nologin,
-    'nologin.ftpuser': co.posix_shell_nologin,
-    'nologin.nystudent': co.posix_shell_nologin,
-    'nologin.pwd': co.posix_shell_nologin,
-    'nologin.sh': co.posix_shell_nologin,
-    'nologin.sluttet': co.posix_shell_nologin,
-    'nologin.stengt': co.posix_shell_nologin,
-    'nologin.teppe': co.posix_shell_nologin,
-    'puberos': co.posix_shell_nologin,
-    'sftp-server': co.posix_shell_nologin,
+    'nologin.autostud': co.posix_shell_nologin_autostud,  # TODO: more shells, (and their path)
+    'nologin.brk': co.posix_shell_nologin_brk,
+    'nologin.chpwd': co.posix_shell_nologin_chpwd,
+    'nologin.ftpuser': co.posix_shell_nologin_ftpuser,
+    'nologin.nystudent': co.posix_shell_nologin_nystudent,
+    'nologin.pwd': co.posix_shell_nologin_pwd,
+    'nologin.sh': co.posix_shell_nologin_sh,
+    'nologin.sluttet': co.posix_shell_nologin_sluttet,
+    'nologin.stengt': co.posix_shell_nologin_stengt,
+    'nologin.teppe': co.posix_shell_nologin_teppe,
+    'puberos': co.posix_shell_puberos,
+    'sftp-server': co.posix_shell_sftp_server,
     'sh': co.posix_shell_sh,
     'tcsh': co.posix_shell_tcsh,
     'zsh': co.posix_shell_zsh,
@@ -406,6 +407,8 @@ def person_callback(person):
             personObj.populate_external_id(co.system_ureg,
                                            co.externalid_fodselsnr, fnr)
         for c in person['contact']:
+            if(len(c['val']) == 0):
+                continue
             if c['type'] == 'workphone':
                 personObj.populate_contact_info(co.system_ureg,
                                                 co.contact_phone, c['val'],
@@ -480,7 +483,8 @@ def create_account(u, owner_id):
         accountObj = account
 
     if not u.has_key('reserved'):
-        tmp = u['home'].split("/")
+        home = u['home']
+        tmp = home.split("/")
         if len(tmp) == 5:
             disk_id = disk2id.get("/".join(tmp[:4]), None)
             if disk_id is None:
@@ -490,7 +494,8 @@ def create_account(u, owner_id):
                 disk2id["/".join(tmp[:4])] = disk_id
         if disk_id is not None:  # Only set home if not on a normal disk
             home = None
-
+    if debug:
+        print "%s: home=%s, disk_id=%s" % (u['uname'], home, disk_id)
     accountObj.affect_auth_types(co.auth_type_md5_crypt,
                                  co.auth_type_crypt3_des)
     had_splat = 0
@@ -605,13 +610,14 @@ located by their extid (currently only fnr is supported).
 
 if __name__ == '__main__':
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "p:g:m:PGM",
+        opts, args = getopt.getopt(sys.argv[1:], "dp:g:m:PGM",
                                    ["pfile=", "gfile=", "persons", "groups",
                                     "groupmembers", "max_cb="])
     except getopt.GetoptError:
         usage()
         sys.exit(2)
     global max_cb
+    # global debug
     max_cb = None
     pfile = default_personfile
     gfile = default_groupfile
@@ -627,6 +633,8 @@ if __name__ == '__main__':
             import_groups(gfile, 0)
         elif o in ('-m', '--max_cb'):
             max_cb = int(a)
+        elif o in ('-d',):
+            debug += 1
         elif o in ('-M', '--groupmembers'):
             import_groups(gfile, 1)
     if(len(opts) == 0):
