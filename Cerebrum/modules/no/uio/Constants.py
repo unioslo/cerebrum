@@ -155,6 +155,8 @@ class Constants(Constants.Constants):
         'Presumptivt ansatt uten noen registrering i LT')
     affiliation_manuell_frisch = _PersonAffStatusCode(
         affiliation_manuell, 'frisch', 'Frischsenteret')
+    affiliation_manuell_universitas = _PersonAffStatusCode(
+        affiliation_manuell, 'universitas', 'Universitas')
 
     affiliation_upersonlig = _PersonAffiliationCode(
         'UPERSONLIG', 'Fellesbrukere, samt andre brukere uten eier')
@@ -171,11 +173,11 @@ class Constants(Constants.Constants):
     affiliation_upersonlig_uio_forening = _PersonAffStatusCode(
         affiliation_upersonlig, 'uio_forening', 'Forening ved UiO')
 
-    auth_type_pgp_crypt = Constants._AuthenticationCode(
-        'PGP-crypt',
-        "PGP-encrypt the password so that we later can get at the plaintext "
-        "password if we want to populate new backends.  The secret key "
-        "should be stored offline.")
+    #auth_type_pgp_crypt = Constants._AuthenticationCode(
+    #    'PGP-crypt',
+    #    "PGP-encrypt the password so that we later can get at the plaintext "
+    #    "password if we want to populate new backends.  The secret key "
+    #    "should be stored offline.")
 
     # We override the default settings for shells, thus this file
     # should be before PosixUser in cereconf.CLASS_CONSTANTS
