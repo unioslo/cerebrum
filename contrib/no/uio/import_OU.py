@@ -2,6 +2,7 @@
 # -*- coding: iso-8859-1 -*-
 
 import cerebrum_path
+import cereconf
 
 import re
 import pickle
@@ -139,6 +140,7 @@ def import_org_units(oufile):
             pass
         ou.populate(k['stednavn'], k['fakultetnr'],
                     k['instituttnr'], k['gruppenr'],
+                    institusjon=k.get('institusjonsnr',cereconf.DEFAULT_INSTITUSJONSNR),
                     acronym=k.get('akronym', None),
                     short_name=k['forkstednavn'],
                     display_name=k['stednavn'],
