@@ -544,6 +544,23 @@ class Factory(object):
                                                                 import_spec)
     get = staticmethod(get)
 
+
+
+    def get_logger(name = None):
+        """
+        Return THE cerebrum logger.
+
+        Although this method does very little now, we should keep our
+        options open for the future.
+        """
+        from Cerebrum.modules import cerelog
+
+        return cerelog.get_logger(cereconf.LOGGING_CONFIGFILE_NEW, name)
+    # end get_logger
+    get_logger = staticmethod(get_logger)
+    
+
+
     def get_module(comp):
         components = {
             'ClientAPI': 'MODULE_CLIENTAPI',
