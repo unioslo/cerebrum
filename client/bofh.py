@@ -1,5 +1,4 @@
-#!/local/python-2.2.1/bin/python
-# #!/usr/bin/env python2.2
+#!/usr/bin/env python2.2
 
 # Copyright 2002 University of Oslo, Norway
 #
@@ -49,6 +48,22 @@ def run_command(sessid, cmd):
     # - If <something magical>, run the command in a seperate thread,
     #   returning controll to the user
 
+    if(cmd[0] == 'quit'):
+        sys.exit()
+        return
+
+    if(cmd[0] == 'help'):
+        try:
+            if(len(cmd) == 1):
+                print testsvr.help('').encode('iso8859-1')
+            else:
+                print testsvr.help(cmd[1]).encode('iso8859-1')
+        except Exception, e:
+            print "Unable to find help:"
+            print e
+        return
+            
+            
     ok_cmd = 0
     ret = None
     format = ''
@@ -98,15 +113,23 @@ def run_command(sessid, cmd):
     else:
         print ret
 
-port = 8000
-if len(sys.argv) == 2:
-    port = int(sys.argv[1])
-testsvr = xmlrpclib.Server("http://localhost:%d" % port, encoding='iso8859-1') #, verbose=1)
+serverhost = "localhost"
+serverport = 8000
 
 # user = ext_prompt('User', 'string', getpass.getuser())
 # passwd = ext_prompt('Password', 'passwd')
 user = 'runefro'
 passwd = 'foo'
+
+if len(sys.argv) >= 2:
+    serverport = int(sys.argv[1])
+
+if len(sys.argv) >= 3:
+    serverhost = sys.argv[2]
+
+testsvr = xmlrpclib.Server("http://%s:%d" % (serverhost, serverport),
+                           encoding='iso8859-1') #, verbose=1)
+
 try:
     sessid = testsvr.login(user, passwd)
 except xmlrpclib.Fault, msg:
@@ -115,16 +138,11 @@ except xmlrpclib.Fault, msg:
     
 print "Sessid: %s" % sessid
 commands = testsvr.get_commands(sessid)
-print "My commands: %s" % commands
+print "My commands: "
+pp.pprint(commands)
 
 
 while 1:
     cmd = ext_prompt('PyBofh', 'string').split()
-    #    print "Cmd: %s" % cmd
-    if(cmd[0] == 'help'):
-        if(len(cmd) == 1):
-            print testsvr.help('').encode('iso8859-1')
-        else:
-            print testsvr.help(cmd[1]).encode('iso8859-1')
-    else:
-        run_command(sessid, cmd)
+    print "Cmd: '%s'" % cmd
+    run_command(sessid, cmd)
