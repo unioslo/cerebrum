@@ -139,13 +139,13 @@ class BofhdSession(object):
             SELECT account_id
             FROM [:table schema=cerebrum name=bofhd_session]
             WHERE session_id=:session_id""", {'session_id': self._id})
-            if (int(time.time()*10) % 10) == 0:   # about 10% propability of update
+            if int(Random().random()*10) == 0:   # about 10% propability of update
                 self._db.execute("""
                 UPDATE [:table schema=cerebrum name=bofhd_session]
                 SET last_seen=[:now]
                 WHERE session_id=:session_id""", {'session_id': self._id})
         except Errors.NotFoundError:
-            raise CerebrumError, "Authentication failure: session expired"
+            raise CerebrumError, "Authentication failure: session expired. You must login again"
         return self._entity_id
 
     def store_state(self, state_type, state_data, entity_id=None):
