@@ -3,11 +3,12 @@
 import re
 import os
 
-from Cerebrum import Database
+from Cerebrum import Database,Constants,Errors
 from Cerebrum import Person
 from Cerebrum.modules.no.uio import OU
 from Cerebrum.modules.no import fodselsnr
 from DCOracle2 import Date
+import pprint
 
 class FSData(object):
     cols_n = """fdato, pnr, lname, fname, adr1, adr2, postnr,adr3,
@@ -31,17 +32,16 @@ class FSData(object):
         persondta = {}
         for c in colnames:
             persondta[c] = info.pop(0)
+            if(persondta[c] == ''):
+                persondta[c] = None
         return persondta
-
-# These should be set in constants.py or similar
-FEMALE = 'F'
-MALE = 'M'
-FAST_TELEFON = 'f'
 
 personfile = "/u2/dumps/FS/persons.dat";
 Cerebrum = Database.connect(user="cerebrum")
 ou = OU.OU(Cerebrum)
 person = Person.Person(Cerebrum)
+new_person = Person.Person(Cerebrum)
+co = Constants.Constants(Cerebrum)
 
 def main():
     f = os.popen("sort -u "+personfile)
@@ -52,56 +52,60 @@ def main():
         persondta = dta.parse_line(line)
         process_person(person, persondta)
         i = i + 1
-#        if(i > 10): break
+        # if(i > 10): break
+    Cerebrum.commit()
 
 def process_person(person, persondta):
     print "Process %06d%05d %s %s " % (
         int(persondta['fdato']), int(persondta['pnr']),
         persondta['fname'], persondta['lname']),
-    (year, mon, day) = fnrdato2dato(persondta['fdato'])
-    if(year < 1970): year = 1970      # Seems to be a bug in DCOracle2
+    
     try:
+        (year, mon, day) = fodselsnr.fodt_dato(persondta['fdato'] + persondta['pnr'])
+        if(year < 1970): year = 1970   # Seems to be a bug in time.mktime on some machines
+        
         fnr = fodselsnr.personnr_ok(persondta['fdato'] + persondta['pnr'])
     except fodselsnr.InvalidFnrError:
         print "Ugyldig fødselsnr: %s%s" % persondta['fdato'], persondta['pnr']
 
+
+    new_person.clear()
+    gender = co.gender_male
     if(fodselsnr.er_kvinne(fnr)):
-        gender = FEMALE
-    else:
-        gender = MALE
+        gender = co.gender_female
+
+    new_person.populate(Date(year, mon, day), gender)
+    new_person.affect_names(co.system_fs, co.name_full)
+    new_person.populate_name(co.name_full, "%s %s" % (persondta['fname'], persondta['lname']))
+
+    new_person.populate_external_id(co.system_fs, co.externalid_fodselsnr, fnr)
+
+    new_person.affect_addresses(co.system_fs, co.address_post)
+    if persondta['adr2'] == None:   # None is inserted in the string for some reason
+        persondta['adr2'] = ''
+    new_person.populate_address(co.address_post, addr="%s\n%s" %
+                                (persondta['adr1'],
+                                 persondta['adr2']),
+                                zip=persondta['postnr'],
+                                city=persondta['adr3'])
+
+    ou.get_stedkode(int(persondta['fak']), int(persondta['inst']), int(persondta['gruppe']))
+
+    new_person.affect_affiliations(co.system_fs, co.affiliation_student)
+    new_person.populate_affiliation(ou.ou_id, co.affiliation_student, co.affiliation_status_valid)
 
     try:
-        person.find_by_external_id('fodselsnr', fnr)
-        print " Already exists"
-
-        # Todo: cmp
-    except:
-        print " Is new"
-        id = person.new(Date(year, mon, day), gender)
-        person.find(id)
-        person.set_external_id('fodselsnr', fnr)
-        person.set_name('full', 'FS', "%s %s" % (persondta['fname'], persondta['lname']))
-        person.entity_id = person.person_id
-        person.add_entity_address('FS', 'p', addr="%s\n%s" %
-                                  (persondta['adr1'],
-                                   persondta['adr2']),
-                                  zip=persondta['postnr'],
-                                  city=persondta['adr3'])
-        if persondta['tlf_arb'].strip() != '':
-            person.add_entity_phone('FS', FAST_TELEFON, persondta['tlf_arb'])
-
-        if(persondta.has_key('fak')):
-            try:
-                ou.get_stedkode(int(persondta['fak']), int(persondta['inst']), int(persondta['gruppe']))
-                # TODO: Not sure how status/code is supposed to be used
-                person.set_affiliation(ou.ou_id, 'valid')
-            except:
-                print "Error setting stedkode "
-
-# TODO: Update to get correct century
-def fnrdato2dato(dato):
-    return (int(dato[4:6]) + 1900, int(dato[2:4]), int(dato[0:2]))
+        person.find_by_external_id(co.externalid_fodselsnr, fnr)
+        if not (new_person == person):
+            print "Changed"
+            new_person.write_db(person)
+        else:
+            print "no change"
+    except Errors.NotFoundError:
+        print "is new"
+        new_person.write_db()
 
 if __name__ == '__main__':
     main()
+
 
