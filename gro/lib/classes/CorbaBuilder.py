@@ -39,23 +39,17 @@ class CorbaBuilder:
 
         txt = ''
 
-#        txt = 'interface %s;\n' % cls.__name__
-#        txt += 'typedef sequence<%s> %sSeq;\n' % (cls.__name__, cls.__name__)
-
-        # TODO. this is a bit nasty
-
         for slot in cls.slots + cls.method_slots:
-            if not slot.data_type[0].isupper():
+            if slot.data_type in (str, int, None, bool):
                 continue
-            if slot.data_type.endswith('Seq'):
-                name = slot.data_type[:-3]
-            else:
-                name = slot.data_type
 
-            if name in defined:
+            if slot.data_type in defined:
                 continue
             else:
-                defined.append(name)
+                defined.append(slot.data_type)
+
+            name = slot.data_type.__name__
+
             txt += 'interface %s;\n' % name
             txt += 'typedef sequence<%s> %sSeq;\n' % (name, name)
 
@@ -80,21 +74,48 @@ class CorbaBuilder:
                 return ''
             else:
                 return '\n\t\traises(%s)' % ', '.join(['Cerebrum_core::Errors::' + i for i in exceptions])
+
+        def get_type(data_type, sequence):
+            if data_type == str:
+                name = 'string'
+            elif data_type == int:
+                name = 'long'
+            elif data_type == None:
+                name = 'void'
+            elif data_type == bool:
+                name = 'boolean'
+            else:
+                name = data_type.__name__
+            if sequence:
+                name += 'Seq'
+            return name
                 
 
         txt += '\n\t//get and set methods for attributes\n'
         for attr in cls.slots:
             exception = get_exceptions(tuple(attr.exceptions) + tuple(exceptions))
-            txt += '\t%s get_%s()%s;\n' % (attr.data_type, attr.name, exception)
+            type = get_type(attr.data_type, attr.sequence)
+            txt += '\t%s get_%s()%s;\n' % (type, attr.name, exception)
             if attr.write:
-                txt += '\tvoid set_%s(in %s new_%s)%s;\n' % (attr.name, attr.data_type, attr.name, exception)
+                txt += '\tvoid set_%s(in %s new_%s)%s;\n' % (attr.name, type, attr.name, exception)
             txt += '\n'
 
         txt += '\n\t//other methods\n'
         for method in cls.method_slots:
             exception = get_exceptions(tuple(method.exceptions) + tuple(exceptions))
-            args = ['in %s in_%s' % (data_type, name) for name, data_type in method.args]
-            txt += '\t%s %s(%s)%s;\n' % (method.data_type, method.name, ', '.join(args), exception)
+
+            args = []
+            for arg in method.args:
+                if len(arg) == 2:
+                    name, data_type = arg
+                    sequence = False
+                else:
+                    name, data_type, sequence = arg
+                
+                args.append('in %s in_%s' % (get_type(data_type, sequence), name))
+
+            type = get_type(method.data_type, method.sequence)
+            txt += '\t%s %s(%s)%s;\n' % (type, method.name, ', '.join(args), exception)
 
         txt += '};\n'
 
@@ -102,4 +123,24 @@ class CorbaBuilder:
 
     create_idl_interface = classmethod(create_idl_interface)
 
+def create_idl_source(classes, module_name = 'Generated'):
+    include = '#include "errors.idl"\n'
+    header = []
+    lines = []
+    header.append('typedef sequence<string> stringSeq;\n')
+    header.append('typedef sequence<long> longSeq;\n')
+    header.append('typedef sequence<float> floatSeq;\n')
+    header.append('typedef sequence<boolean> booleanSeq;\n')
+
+    exceptions = ('TransactionError', 'AlreadyLockedError')
+
+    defined = []
+    for cls in classes:
+        header.append('\t' + cls.create_idl_header(defined).replace('\n', '\n\t'))
+        lines.append('\t' + cls.create_idl_interface(exceptions=exceptions).replace('\n', '\n\t'))
+
+    return '%s\nmodule %s {\n%s\n%s\n};\n' % (include,
+                                              module_name,
+                                              '\n'.join(header),
+                                              '\n'.join(lines))
 # arch-tag: bddbc6e7-fa76-4a6e-a7be-c890c537b54c
