@@ -24,21 +24,12 @@
 
 ## The bottom "frame" on the page, wich contains transactions, worklist and history.
 #def bottom
-    $transactionbox()
+    ##$activitylog()
     $worklist()
-    $activitylog()
 #end def bottom
 
 ## All the other methods (transactionbox, worklist, activitylog) is overloaded
 ## in Cereweb.Main
-
-## Menu for actives transactions.
-#def transactionbox
-<div class="transbox">
-    <h2>Transactions:</h2>
-    transaksjoner!<br />
-</div>
-#end def
 
 ## List of objects wich the user is working on.
 ## Should be specific to the current active transaction, when finished.

@@ -18,7 +18,6 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-from utils import new_transaction
 from SideMenu import SideMenu
 from WorkList import WorkList
 #from ActivityLog import ActivityLog
@@ -43,15 +42,12 @@ class Main(MainTemplate):
     def prepare_session(self, req):
         """Makes sure parts of the page is created only once.
         
-        Creates the transaction, worklist, and activitylog.
+        Creates worklist, and activitylog.
         Also prepares and displays any messages stored in the session.
         """
-        if not self.session.has_key("transactions"):
-            self.session['active'] = new_transaction(req)
-
         self.transactionbox = lambda: TransactionsTemplate().smallbox(req)
         self.menu = SideMenu()
-        self.worklist = WorkList()
+        self.worklist = WorkList(req)
 #        self.activitylog = ActivityLog()
 
         self.prepare_messages()

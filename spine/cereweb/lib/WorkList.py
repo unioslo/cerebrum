@@ -24,22 +24,23 @@ from Cereweb.templates.WorkListTemplate import WorkListTemplate
 # subclass Division to be included in a division..
 class WorkList(html.Division):
 
-    def __init__(self):
-        self.remembered = []
-        self.selected = []
+    def __init__(self, req):
+        if 'remembered' not in req.session:
+            req.session['remembered'] = []
+        if 'selected' not in req.session:
+            req.session['selected'] = []
+        self.remembered = req.session['remembered']
+        self.selected = req.session['selected']
 
     def addEntity(self, id):
-        object = APImannen.getEntity(id)
-        self.remembered.append(object)
+        self.remembered.append(id)
 
     def output(self):
         template = WorkListTemplate()
         objects = []
-        for object in self.remembered:
-            view = str(object)
-            key = object.getEntityID()
+        for type, view, key in self.remembered:
             objects.append( (key, view) )
-        selected = [object.getEntityID() for object in self.selected]
+        selected = [str(object) for object in self.selected]
         buttons = self.getButtons()
         actions = self.getActions()
         return template.worklist(objects, buttons, actions, selected)
