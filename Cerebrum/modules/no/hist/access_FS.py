@@ -74,8 +74,9 @@ WHERE nk.studieprogramkode = sk.studieprogramkode AND
         informasjon om utd_plan og eier samt studieprogkode"""
         qry = """
 
-SELECT studieprogramkode, faknr_studieansv,
-instituttnr_studieansv, gruppenr_studieansv, studienivakode
+SELECT studieprogramkode, status_utdplan, institusjonsnr_studieansv,
+       faknr_studieansv, instituttnr_studieansv, gruppenr_studieansv, 
+       studienivakode
 FROM fs.studieprogram
 """
 
