@@ -108,8 +108,9 @@ class AccountUtil(object):
         logger.debug("new Account, write_db=%s" % tmp)
         all_passwords[int(account.entity_id)] = [password, profile.get_brev()]
         as_posix = False
-        if int(spread) in posix_spreads:
-            as_posix = True
+	for spread in profile.get_spreads():
+	    if int(spread) in posix_spreads:
+		as_posix = True
         accounts[int(account.entity_id)] = {'owner': fnr,
                                             'expire_date': None,
                                             'groups': [],
