@@ -12,7 +12,10 @@ from Cerebrum import Constants
 import traceback
 
 
-class Entity_createTestCase(unittest.TestCase):
+# We want new-style classes.  To make a new-style subclass of an
+# old-style class like unittest.TestCase, we append `object` to the
+# subclass's base class list.
+class Entity_createTestCase(unittest.TestCase, object):
 
     Cerebrum = Database.connect()
     co = Constants.Constants(Cerebrum)
@@ -38,7 +41,6 @@ class Entity_createTestCase(unittest.TestCase):
         self.Cerebrum.execute("""
         DELETE FROM [:table schema=cerebrum name=entity_info]
         WHERE entity_id=:id""", {'id': self.entity_id})
-        self.Cerebrum.commit()
 
 class EntityTestCase(Entity_createTestCase):
     def testCreateEntity(self):
@@ -78,8 +80,9 @@ class EntityTestCase(Entity_createTestCase):
 class EntityName_createTestCase(Entity_createTestCase):
     entity_class = EntityName
     test_name = "foobar3"
+
     def setUp(self):
-        Entity_createTestCase.setUp(self)
+        super(EntityName_createTestCase, self).setUp()
         try:
             self.entity.add_name(self.co.account_namespace, self.test_name)
         except:
@@ -89,19 +92,17 @@ class EntityName_createTestCase(Entity_createTestCase):
 
     def tearDown(self):
         self.entity.delete_name(self.co.account_namespace)
-        Entity_createTestCase.tearDown(self)
+        super(EntityName_createTestCase, self).tearDown()
 
 class EntityNameTestCase(EntityName_createTestCase):
     def testEntityGetName(self):
         "Test that one can get the created EntityName"
-
         name = self.entity.get_name(self.co.account_namespace)
         self.failIf(name.entity_name <> self.test_name,
                     "EntityNames should be equal")
 
     def testEntityFindByName(self):
         "Test that one can find an entity by name"
-
         old_id = self.entity_id
         self.entity.clear()
         self.entity.find_by_name(self.co.account_namespace, self.test_name)
@@ -110,7 +111,6 @@ class EntityNameTestCase(EntityName_createTestCase):
 
     def testEntityDeleteName(self):
         "Test that the EntityName can be deleted"
-
         self.entity.delete_name(self.co.account_namespace)
         self.assertRaises(Errors.NotFoundError,
                           self.entity.get_name, self.co.account_namespace)
@@ -131,7 +131,7 @@ class EntityContactInfo_createTestCase(Entity_createTestCase):
                'desc': 'some description'}
 
     def setUp(self):
-        Entity_createTestCase.setUp(self)
+        super(EntityContactInfo_createTestCase, self).setUp()
         try:
             for k in ('src', 'type'):
                 if isinstance(self.test_ci[k], str):
@@ -149,12 +149,11 @@ class EntityContactInfo_createTestCase(Entity_createTestCase):
     def tearDown(self):
         self.entity.delete_contact_info(self.test_ci['src'],
                                         self.test_ci['type'])
-        Entity_createTestCase.tearDown(self)
+        super(EntityContactInfo_createTestCase, self).tearDown()
 
 class EntityContactInfoTestCase(EntityContactInfo_createTestCase):
     def testEntityGetContactInfo(self):
         "Test that one can get the created EntityContactInfo"
-
         ci = self.entity.get_contact_info(self.test_ci['src'],
                                           self.test_ci['type'])
         ci = ci[0]
@@ -164,7 +163,6 @@ class EntityContactInfoTestCase(EntityContactInfo_createTestCase):
 
     def testEntityDeleteContactInfo(self):
         "Test that the EntityContactInfo can be deleted"
-
         self.entity.delete_contact_info(self.test_ci['src'],
                                         self.test_ci['type'])
         self.failIf(self.entity.get_contact_info(self.test_ci['src'],
@@ -190,7 +188,7 @@ class EntityAddress_createTestCase(Entity_createTestCase):
               'country': None}
 
     def setUp(self):
-        Entity_createTestCase.setUp(self)
+        super(EntityAddress_createTestCase, self).setUp()
         try:
             for k in ('src', 'type'):
                 if isinstance(self.test_a[k], str):
@@ -210,12 +208,11 @@ class EntityAddress_createTestCase(Entity_createTestCase):
     def tearDown(self):
         self.entity.delete_entity_address(self.test_a['src'],
                                           self.test_a['type'])
-        Entity_createTestCase.tearDown(self)
+        super(EntityAddress_createTestCase, self).tearDown()
 
 class EntityAddressTestCase(EntityAddress_createTestCase):
     def testEntityGetAddress(self):
         "Test that one can get the created EntityAddress"
-
         addr = self.entity.get_entity_address(self.test_a['src'],
                                               self.test_a['type'])
         addr = addr[0]
@@ -227,7 +224,6 @@ class EntityAddressTestCase(EntityAddress_createTestCase):
 
     def testEntityDeleteAddress(self):
         "Test that the EntityAddress can be deleted"
-
         self.entity.delete_entity_address(self.test_a['src'],
                                           self.test_a['type'])
         self.failIf(self.entity.get_entity_address(self.test_a['src'],
