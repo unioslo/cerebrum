@@ -56,10 +56,10 @@ class SearchClass(SpineClass):
         self.mark = None
 
     def save(self):
-        pass
+        self.updated.clear()
 
     def reset(self):
-        pass
+        self.updated.clear()
 
     def create_primary_key(cls, search_id=None):
         if search_id is None:
