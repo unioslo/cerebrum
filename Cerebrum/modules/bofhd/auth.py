@@ -697,6 +697,9 @@ class BofhdAuth(DatabaseAccessor):
             return False
         raise PermissionDenied("Currently limited to superusers")
 
+    def can_email_set_quota(self, operator, account=None, query_run_any=False):
+        return self.can_email_move(operator, account, query_run_any)
+
     # the user and local sysadmin is allowed to turn forwarding and
     # tripnote on/off
     def can_email_forward_toggle(self, operator, account=None,

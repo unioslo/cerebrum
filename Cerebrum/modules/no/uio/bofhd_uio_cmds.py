@@ -590,8 +590,57 @@ class BofhdExtension(object):
             raise NotImplementedError, "can't move to non-IMAP server" 
         return "OK"
 
-    # email quota
-    
+    # email quota <uname>+ hardquota-in-mebibytes [softquota-in-percent]
+    all_commands['email_quota'] = Command(
+        ('email', 'quota'),
+        AccountName(help_ref='account_name', repeat=True),
+        Integer(help_ref='number_size_mib'),
+        Integer(help_ref='number_percent', optional=True),
+        perm_filter='can_email_set_quota')
+    def email_quota(self, operator, uname, hquota, squota=90):
+        acc = self._get_account(uname)
+        op = operator.get_entity_id()
+        self.ba.can_email_set_quota(op, acc)
+        hquota = int(hquota)
+        if hquota < 100:
+            raise CerebrumError, "The hard quota can't be less than 100 MiB"
+        if hquota > 1024*1024:
+            raise CerebrumError, "The hard quota can't be more than 1 TiB"
+        squota = int(squota)
+        if squota < 10 or squota > 99:
+            raise CerebrumError, ("The soft quota must be in the interval "+
+                                  "10% to 99%")
+        et = Email.EmailTarget(self.db)
+        try:
+            et.find_by_entity(acc.entity_id)
+        except Errors.NotFoundError:
+            raise CerebrumError, ("The account %s has no e-mail data "+
+                                  "associated with it") % uname
+        eq = Email.EmailQuota(self.db)
+        change = False
+        try:
+            eq.find_by_entity(acc.entity_id)
+            if eq.get_quota_hard() <> hquota:
+                change = True
+            eq.email_quota_hard = hquota
+            eq.email_quota_soft = squota
+        except Errors.NotFoundError:
+            # not sure if this can happen, but...
+            eq.populate(squota, hquota, parent=et.email_target_id)
+            change = True
+        eq.write_db()
+        if change:
+            br = BofhdRequests(self.db, self.const)
+            # if this operator has already asked for a quota change, but
+            # process_bofh_requests hasn't run yet, delete the existing
+            # request to avoid the annoying error message.
+            for r in br.get_requests(operation=self.const.bofh_email_hquota,
+                                     operator_id=op, entity_id=acc.entity_id):
+                br.delete_request(request_id=r['request_id'])
+            br.add_request(op, br.now, self.const.bofh_email_hquota,
+                           acc.entity_id, None)
+        return "OK"
+
     # email spam
 
     # email tripnote on|off <uname> [<begin-date>]

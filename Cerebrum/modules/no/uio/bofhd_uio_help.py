@@ -23,6 +23,7 @@ command_help = {
     'email_delete_list': "Remove a Mailman list's addresses",
     'email_migrate': 'Migrate users from old to new e-mail service',
     'email_move': 'Move a user\'s e-mail to another server',
+    'email_quota': "Change a user's storage quota for e-mail",
     'email_tripnote': 'Turn vacation messages on/off',
     'email_add_tripnote': 'Add vacation message',
     'email_list_tripnotes': "List user's vacation messages",
