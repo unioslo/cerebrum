@@ -60,6 +60,8 @@ def main():
     steder = {}
     co = Factory.getConstants()(Cerebrum)
     ou = OU_class(Cerebrum)
+    if getattr(ou, 'find_stedkode', None) is None:
+        raise ValueError, "Wrong OU class, override CLASS_OU in cereconf.py"
     new_ou = OU_class(Cerebrum)
     i = 1
     stedkode2ou = {}
