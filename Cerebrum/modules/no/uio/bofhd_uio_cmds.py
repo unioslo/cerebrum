@@ -24,6 +24,7 @@ from Cerebrum import Person
 from Cerebrum.Constants import _CerebrumCode, _QuarantineCode, _SpreadCode,\
      _PersonAffiliationCode, _PersonAffStatusCode
 from Cerebrum import Utils
+from Cerebrum.modules import PasswordChecker
 from Cerebrum.modules import PosixGroup
 from Cerebrum.modules import PosixUser
 from Cerebrum.modules.bofhd.cmd_param import *
@@ -369,10 +370,10 @@ class BofhdExtension(object):
     all_commands['misc_checkpassw'] = Command(
         ("misc", "checkpassw"), AccountPassword())
     def misc_checkpassw(self, operator, password):
-        posix_user = PosixUser.PosixUser(self.db)
+        pc = PasswordChecker.PasswordChecker(self.db)
         try:
-            posix_user.goodenough("foobar", password)
-        except Account.PasswordGoodEnoughException, m:
+            pc.goodenough(None, password, uname="foobar")
+        except PasswordChecker.PasswordGoodEnoughException, m:
             raise CerebrumError, "Bad password: %s" % m
         return "OK"
 
@@ -955,13 +956,15 @@ class BofhdExtension(object):
                 c = person.find_persons_by_bdate(arg)
             else:
                 raise NotImplementedError, "idtype not implemented"
-            map = {}
-            plist = ""
+            map = [(("%-8s %s", "Id", "Name"), None)]
             for i in range(len(c)):
+                person = self._get_person("entity_id", c[i]['person_id'])
                 # TODO: We should show the persons name in the list
-                map["%i" % i] = int(c[i]['person_id'])
-                plist += "%3i  %i\n" % (i, c[i]['person_id'])
-            return {'prompt': "Num  Id\n"+plist+"Velg person fra listen", 'map': map}
+                map.append((
+                    ("%8i %s", int(c[i]['person_id']),
+                     person.get_name(self.const.system_cached, self.const.name_full)),
+                    int(c[i]['person_id'])))
+            return {'prompt': "Velg person fra listen", 'map': map}
         person_id = all_args.pop(0)
         if(len(all_args) == 0):
             return {'prompt': "Default filgruppe"}
@@ -1087,11 +1090,11 @@ class BofhdExtension(object):
     def _map_template(self, num=None):
         """If num==None: return list of avail templates, else return
         selected template """
-        tpls = ""
+        tpls = []
         n = 1
         for k in cereconf.BOFHD_TEMPLATES.keys():
             for tpl in cereconf.BOFHD_TEMPLATES[k]:
-                tpls += "%2i %s:%s.%s\n" % (n, k, tpl[0], tpl[1])
+                tpls.append("%s:%s.%s" % (k, tpl[0], tpl[1]))
                 if num is not None and n == int(num):
                     return (k, tpl[0], tpl[1])
                 n += 1
@@ -1124,12 +1127,20 @@ class BofhdExtension(object):
   """
         all_args = list(args[:])
         if(len(all_args) == 0):
-            return {'prompt': "1: Skriv ut passordark\n2: List brukernavn/passord til skjerm\nVelg#"}
+            return {'prompt': "Velg#",
+                    'map': [(("Alternativer",), None),
+                            (("Skriv ut passordark",), 1),
+                            (("List brukernavn/passord til skjerm",), 2)]}
         arg = all_args.pop(0)
         if(arg == '2'):
             return {'last_arg': 1}
         if(len(all_args) == 0):
-            return {'prompt': "%sVelg template #" % self._map_template(),
+            map = [(("Alternativer",), None)]
+            n = 1
+            for t in self._map_template():
+                map.append(((t,), n))
+                n += 1
+            return {'prompt': "Velg template #", 'map': map,
                     'help_ref': 'print_select_template'}
         arg = all_args.pop(0)
         tpl_lang, tpl_name, tpl_type = self._map_template(arg)
@@ -1138,14 +1149,15 @@ class BofhdExtension(object):
                 return {'prompt': 'Oppgi skrivernavn'}
             skriver = all_args.pop(0)
         if(len(all_args) == 0):
-            lst = ""
             n = 1
+            map = [(("%8s %s", "uname", "operation"), None)]
             for row in self._get_cached_passwords(session):
-                lst += "%2i: %-12s %s\n" % (n, row['account_id'], row['operation'])
+                map.append((("%-12s %s", row['account_id'], row['operation']), n))
                 n += 1
-            if lst == "":
-                lst = "Ingen brukere"
-            return {'prompt': '%sVelg bruker(e)' % lst, 'last_arg': 1,
+            if n == 1:
+                raise CerebrumError, "no users"
+            return {'prompt': 'Velg bruker(e)', 'last_arg': 1,
+                    'map': map, 'raw': 1,
                     'help_ref': 'print_select_range'}
 
     all_commands['user_list_passwords'] = Command(
@@ -1304,8 +1316,9 @@ class BofhdExtension(object):
         if password is None:
             password = account.make_passwd(accountname)
         try:
-            account.goodenough(accountname, password)
-        except Account.PasswordGoodEnoughException, m:
+            pc = PasswordChecker.PasswordChecker(self.db)
+            pc.goodenough(account, password)
+        except PasswordChecker.PasswordGoodEnoughException, m:
             raise CerebrumError, "Bad password: %s" % m
         account.set_password(password)
         try:
@@ -1441,6 +1454,8 @@ class BofhdExtension(object):
             return self._get_account(id)
         if idtype == 'person':
             return self._get_person(*self._map_person_id(id))
+        if idtype == 'group':
+            return self._get_group(id)
         raise CerebrumError, "Invalid idtype"
     
     def _get_person(self, idtype, id):
