@@ -53,7 +53,7 @@ import string
 import cerebrum_path
 import cereconf
 
-import Cerebrum
+from Cerebrum import Errors
 from Cerebrum import Database
 from Cerebrum.Utils import Factory
 from Cerebrum.Utils import AtomicFileWriter
@@ -189,7 +189,7 @@ def find_sko(ou, id):
     try:
         ou.clear()
         ou.find(id)
-    except Cerebrum.Errors.NotFoundError:
+    except Errors.NotFoundError:
         return ""
     else:
         return int(ou.fakultet), int(ou.institutt), int(ou.avdeling)
@@ -228,7 +228,7 @@ def __find_suitable_OU(ou, id, constants):
             parent_id != ou.entity_id):
             return __find_suitable_OU(ou, parent_id, constants)
         # fi
-    except Cerebrum.Errors.NotFoundError, value:
+    except Errors.NotFoundError, value:
         logger.error("AIEE! Looking up an OU failed: %s", value)
         return None
     # yrt
@@ -308,13 +308,17 @@ def output_OU(writer, start_id, db_ou, parent_ou, lifetimes, constants):
 
     #
     # Locate the parent
-    # 
-    parent_id = db_ou.get_parent(constants.perspective_lt)
-    # This is a hack for the root of the organisational structure.
-    # I.e. the root of the OU structure is its own parent
-    if parent_id is None:
+    #
+    try:
+        parent_id = db_ou.get_parent(constants.perspective_lt)
+        if parent_id is None:
+            parent_id = id
+        # fi
+    except Errors.NotFoundError:
+        # This is a hack for the roots of the organisational structure.
+        # I.e. the root of the OU structure is its own parent
         parent_id = db_ou.entity_id
-    # fi
+    # yrt
 
     parent_ou.clear()
     parent_ou.find(parent_id)
@@ -730,7 +734,7 @@ def output_person(writer, person_id, db_person, db_account,
     try:
         db_person.clear()
         db_person.find(person_id)
-    except Cerebrum.Errors.NotFoundError:
+    except Errors.NotFoundError:
         logger.error("Aiee! person_id %s spontaneously disappeared", person_id)
         return
     # yrt
@@ -758,7 +762,7 @@ def output_person(writer, person_id, db_person, db_account,
                        (constants.name_personal_title, "personligTittel")):
         try:
             value = db_person.get_name(constants.system_lt, item)
-        except Cerebrum.Errors.NotFoundError:
+        except Errors.NotFoundError:
             value = ""
         # yrt
 
@@ -778,7 +782,7 @@ def output_person(writer, person_id, db_person, db_account,
         try:
             primary_email = db_account.get_primary_mailaddress()
             output_element(writer, primary_email, "epost")
-        except Cerebrum.Errors.NotFoundError:
+        except Errors.NotFoundError:
             logger.info("person_id %s has no primary e-mail address",
                         db_person.entity_id)
             pass
