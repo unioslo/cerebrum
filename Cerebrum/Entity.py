@@ -380,7 +380,7 @@ class EntityContactInfo(Entity):
         # For some contact values, e.g. phone numbers, it makes sense
         # to pass in numeric 'value' arguments.  However, this breaks
         # the update magic in write_db(), as the values it compares
-        # against er fetched from a text column in the database.
+        # against are fetched from a text column in the database.
         #
         # To avoid such problems, the 'value' argument is always
         # converted to a string before being stored in self.__data.
@@ -407,7 +407,11 @@ class EntityContactInfo(Entity):
             if do_del:
                 self.delete_contact_info(self._src_sys,
                                          row['contact_type'],
-                                         row['contact_pref'])
+                                         # FIXME: Workaround for
+                                         # stupid PgSQL bug; any
+                                         # PgNumeric with value zero
+                                         # is treated as NULL.
+                                         int(row['contact_pref']))
         for idx in self.__data.keys():
             type, pref = [int(x) for x in idx.split(":", 1)]
             self.add_contact_info(self._src_sys,
