@@ -45,7 +45,7 @@ class Account(EntityName, EntityQuarantine, Entity):
                 delattr(self, attr)
         for attr in Account.__write_attr__:
             setattr(self, attr, None)
-            self.__updated = False
+        self.__updated = False
         self._name_info = {}
         self._auth_info = {}
         self._acc_affect_auth_types = ()
@@ -220,6 +220,8 @@ class Account(EntityName, EntityQuarantine, Entity):
                FROM [:table schema=cerebrum name=account_info]
                WHERE account_id=:a_id""", {'a_id' : account_id})
         self.account_name = self.get_name(self.const.account_namespace)[0][2]
+        self.__in_db = True
+        self.__updated = False
 
     def find_account_by_name(self, domain, name):
         self.find_by_name(domain, name)
