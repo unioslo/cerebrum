@@ -419,7 +419,7 @@ SELECT e.emnekode, e.versjonskode, e.institusjonsnr_reglement,
        e.studienivakode
 FROM fs.emne e
 WHERE e.arstall_eks_siste is NULL OR
-      e.arstall_eks_siste < %s""" self.year()
+      e.arstall_eks_siste < %s""" % self.year
         return (self._get_cols(qry), self.db.query(qry))
 
 
