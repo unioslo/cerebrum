@@ -87,14 +87,6 @@ class CLConstants(Constants.Constants):
     p_move =  _ChangeTypeCode('e_account', 'move',
                               '%(subject)s moved to %(param_name)s')
 
-    def map_const(self, num):
-        skip = dir(_ChangeTypeCode.sql)
-        for x in filter(lambda x: x[0] != '_' and not x in skip, dir(self)):
-            v = getattr(self, x)
-            if int(v) == num:
-                return v
-        return None
-
     def __init__(self, database):
         super(CLConstants, self).__init__(database)
 
