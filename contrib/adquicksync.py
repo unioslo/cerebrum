@@ -120,11 +120,14 @@ def quick_user_sync():
 def move_account(entity_id,params):
     account.clear()
     account.find(entity_id)
-    print params['old_host']
     if account.has_spread(int(co.spread_uio_ad_account)):		
-	account_name = id_to_name(entity_id,'user')	
 	if params['old_host'] != params['new_host']:
-       	    sock.send('ALTRUSR&%s/%s&hdir&\\\\%s\\%s&hdr&%s\n' % ( cereconf.AD_DOMAIN, account_name, params['new_host'], account_name, cereconf.AD_HOME_DRIVE ))  
+	    account_name = id_to_name(entity_id,'user')	
+	    new_home = adutils.find_home_dir(entity_id, account_name)
+       	    sock.send('ALTRUSR&%s/%s&hdir&%s\n' % ( cereconf.AD_DOMAIN, account_name, new_home ))  
+            if sock.read() != ['210 OK']:
+                print 'WARNING: Failed update home directory ', account_name
+
 
 def change_quarantine(entity_id):
     account.clear()
@@ -138,7 +141,6 @@ def change_quarantine(entity_id):
 
 def add_spread(entity_id,spread):
     if spread == co.spread_uio_ad_account:
-        #TBD: Account must be added to relevant groups.
         account_name =id_to_name(entity_id,'user')	
 	ou.clear()
     	ou.find(cereconf.AD_CERE_ROOT_OU_ID)
@@ -152,7 +154,7 @@ def add_spread(entity_id,spread):
                 print "WARNING: No account_type information for object ", id
                 ad_ou='CN=Users,%s' % (cereconf.AD_LDAP)
             else:
-                ad_ou = adutils.id_to_ou_path( pri_ou, ourootname)
+                ad_ou = adutils.id_to_ou_path(pri_ou, ourootname)
 
 
         sock.send('TRANS&%s/%s\n' % (cereconf.AD_DOMAIN, account_name))
@@ -175,7 +177,6 @@ def add_spread(entity_id,spread):
         if sock.read() == ['210 OK']:            
             (full_name, account_disable, home_dir, cereconf.AD_HOME_DRIVE, login_script) = adutils.get_user_info(entity_id,account_name)
             sock.send('ALTRUSR&%s/%s&fn&%s&dis&%s&hdir&%s&hdr&%s&ls&%s&pexp&%s&ccp&%s\n' % ( cereconf.AD_DOMAIN, account_name, full_name, account_disable, home_dir, cereconf.AD_HOME_DRIVE, login_script, cereconf.AD_PASSWORD_EXPIRE, cereconf.AD_CANT_CHANGE_PW ))  
-            #TBD:Even a new user that received AD_spread can have a quarantine setting.
             if sock.read() == ['210 OK']:
                 #Make sure that the user is in the groups he should be.
                 for row in group.list_groups_with_entity(entity_id):
