@@ -325,7 +325,7 @@ class DbQueueHandler(object):
 
         try:
             self.db.query_1("""
-            SELECT 'yes'
+            SELECT 'yes' AS yes
             FROM [:table schema=cerebrum name=job_ran]
             WHERE id=:id""", locals())
         except Errors.NotFoundError:
