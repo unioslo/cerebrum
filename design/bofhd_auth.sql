@@ -74,38 +74,28 @@ Examples:
     op_target_type = 'disk'     entity_id=<disk.entity_id>
   Users on a host:
     op_target_type = 'host'     entity_id=<host.entity_id>
-  Users on a host:/path/foo/sv-l*
+  Users on a host:/path/host/sv-l*
     op_target_type = 'host'     entity_id=<host.entity_id> 
-    has_attrs=1, then fill auth_op_target_attrs with one or more regexps
+    attr = 'sv-l.*' (note: regular expression, and only leaf directory)
   Allowed to set/clear spread X
     op_target_type = 'spread'   entity_id = <spread_code.code>
-
 */
 
 category:main;
 CREATE TABLE auth_op_target (
   op_target_id     NUMERIC(12,0)
                      CONSTRAINT auth_op_target_pk PRIMARY KEY,
-  entity_id        NUMERIC(12,0),
-  target_type      CHAR VARYING(16),
-  has_attr         NUMERIC(1,0) NOT NULL
+  entity_id        NUMERIC(12,0)
+		     NOT NULL,
+  target_type      CHAR VARYING(16)
+		     NOT NULL,
+  attr             CHAR VARYING(50),
+  CONSTRAINT auth_op_target_unique UNIQUE (entity_id, target_type, attr)
+  /* unfortunately, more than one instance of (id, type, NULL) is
+     allowed, but the constraint will catch some errors. */
 );
 category:main;
 CREATE INDEX auth_op_target_entity_id ON auth_op_target(entity_id);
-
-/* Defines attributes associated with an op_target, such as a regexp for
-   disk-name */
-
-category:main;
-CREATE TABLE auth_op_target_attrs (
-  op_target_id     NUMERIC(12,0)
-                     NOT NULL
-                     CONSTRAINT auth_op_attrs_fk
-                       REFERENCES auth_op_target(op_target_id),
-  attr             CHAR VARYING(50)
-);
-category:main;
-CREATE INDEX auth_op_target_attrs_oti ON auth_op_target_attrs(op_target_id);
 
 /* A role associates an auth_operation_set with an auth_op_target */
 

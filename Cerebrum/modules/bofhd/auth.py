@@ -145,13 +145,12 @@ class BofhdAuthOpSet(DatabaseAccessor):
 
 
 class BofhdAuthOpTarget(DatabaseAccessor):
-    """Methods for updating auth_op_target and auth_op_target_attrs
-    with information identifying targets which operations may be
-    performed on."""
+    """Methods for updating auth_op_target with information
+    identifying targets which operations may be performed on."""
 
     __metaclass__ = mark_update
     __read_attr__ = ('__in_db', 'const')
-    __write_attr__ = ('entity_id', 'target_type', 'has_attr', 'op_target_id')
+    __write_attr__ = ('entity_id', 'target_type', 'attr', 'op_target_id')
     dontclear = ('const',)
 
     def __init__(self, database):
@@ -178,8 +177,9 @@ class BofhdAuthOpTarget(DatabaseAccessor):
         self.clear()
 
     def find(self, id):
-        self.op_target_id, self.entity_id, self.target_type, self.has_attr = self.query_1("""
-        SELECT op_target_id, entity_id, target_type, has_attr
+        self.op_target_id, self.entity_id, self.target_type, self.attr = \
+        self.query_1("""
+        SELECT op_target_id, entity_id, target_type, attr
         FROM [:table schema=cerebrum name=auth_op_target]
         WHERE op_target_id=:id""", {'id': id})
         try:
@@ -189,11 +189,11 @@ class BofhdAuthOpTarget(DatabaseAccessor):
         self.__in_db = True
         self.__updated = []
 
-    def populate(self, entity_id, target_type):
+    def populate(self, entity_id, target_type, attr=None):
         self.__in_db = False
         self.entity_id = entity_id
         self.target_type = target_type
-        self.has_attr = 0
+        self.attr = attr
 
     def write_db(self):
         if not self.__updated:
@@ -203,33 +203,21 @@ class BofhdAuthOpTarget(DatabaseAccessor):
             self.op_target_id = int(self.nextval('entity_id_seq'))
             self.execute("""
             INSERT INTO [:table schema=cerebrum name=auth_op_target]
-            (op_target_id, entity_id, target_type, has_attr) VALUES
-            (:t_id, :e_id, :t_type, :has_attr)""", {
+            (op_target_id, entity_id, target_type, attr) VALUES
+            (:t_id, :e_id, :t_type, :attr)""", {
                 't_id': self.op_target_id, 'e_id': self.entity_id,
-                't_type': self.target_type, 'has_attr': self.has_attr})
+                't_type': self.target_type, 'attr': self.attr})
         else:
             self.execute("""
             UPDATE [:table schema=cerebrum name=auth_op_target]
-            SET target_type=:t_type, has_attr=:has_attr, entity_id=:e_id
+            SET target_type=:t_type, attr=:attr, entity_id=:e_id
             WHERE op_target_id=:t_id""", {
                 't_id': self.op_target_id, 'e_id': self.entity_id,
-                't_type': self.target_type, 'has_attr': self.has_attr})
+                't_type': self.target_type, 'attr': self.attr})
         del self.__in_db
         self.__in_db = True
         self.__updated = []
         return is_new
-
-    def add_op_target_attr(self, attr):
-        self.has_attr = 1
-        self.execute("""
-        INSERT INTO [:table schema=cerebrum name=auth_op_target_attrs]
-        (op_target_id, attr)
-        VALUES (:id, :attr)""", {'id': self.op_target_id, 'attr': attr})
-
-    def del_op_target_attr(self, attr):
-        # TBD: should we also check if has_attr should be set to 0?
-        self.execute("""DELETE FROM [:table schema=cerebrum name=auth_op_target_attrs]
-        WHERE op_target_id=:id AND attr=:attr""", {'id': self.op_target_id, 'attr': attr})
 
     def list(self, target_id=None, target_type=None, entity_id=None):
         ewhere = []
@@ -240,18 +228,12 @@ class BofhdAuthOpTarget(DatabaseAccessor):
         if target_type is not None:
             ewhere.append("target_type=:target_type")
         return self.query("""
-        SELECT op_target_id, entity_id, target_type, has_attr
+        SELECT op_target_id, entity_id, target_type, attr
         FROM [:table schema=cerebrum name=auth_op_target]
         WHERE %s
         ORDER BY entity_id""" % " AND ".join(ewhere), {
             'target_type': target_type, 'entity_id': entity_id,
             'target_id': target_id})
-
-    def list_target_attrs(self, op_target_id):
-        return self.query("""
-        SELECT attr
-        FROM [:table schema=cerebrum name=auth_op_target_attrs]
-        WHERE op_target_id=:op_target_id""", {'op_target_id': op_target_id})
 
 
 class BofhdAuthRole(DatabaseAccessor):
@@ -928,12 +910,11 @@ class BofhdAuth(DatabaseAccessor):
         for r in self._query_target_permissions(operator, operation,
                                                 self.const.auth_target_type_host,
                                                 disk.host_id, victim_id):
-            if not int(r['has_attr']):
+            if not r['attr']:
                 return True
-            for pattern in self._get_auth_op_target_attr(r['op_target_id']):
-                m = re.compile(pattern).match(disk.path.split("/")[-1])
-                if m != None:
-                    return True
+            m = re.compile(r['attr']).match(disk.path.split("/")[-1])
+            if m != None:
+                return True
         raise PermissionDenied("No access to disk")
 
     def _query_maildomain_permissions(self, operator, operation, domain,
@@ -960,11 +941,9 @@ class BofhdAuth(DatabaseAccessor):
                                                 ou_id, victim_id):
             # We got at least one hit.  If we don't match a specific
             # affiliation, just return.
-            if not affiliation or not int(r['has_attr']):
+            if not affiliation or not r['attr']:
                 return True
-            if (int(r['has_attr']) and
-                str(affiliation) in
-                self._get_auth_op_target_attr(r['op_target_id'])):
+            if r['attr'] and str(affiliation) == r['attr']:
                 return True
         return False
 
@@ -1025,7 +1004,7 @@ class BofhdAuth(DatabaseAccessor):
 
         # Connect auth_operation and auth_op_target
         sql = """
-        SELECT aot.has_attr, ao.op_id, aot.op_target_id
+        SELECT aot.attr, ao.op_id, aot.op_target_id
         FROM [:table schema=cerebrum name=auth_operation] ao,
              [:table schema=cerebrum name=auth_operation_set] aos,
              [:table schema=cerebrum name=auth_role] ar,
@@ -1063,7 +1042,7 @@ class BofhdAuth(DatabaseAccessor):
             id_colname = "person_id"
 
         sql = """
-        SELECT at.affiliation, aot.has_attr, ao.op_id, aot.op_target_id
+        SELECT at.affiliation, aot.attr, ao.op_id, aot.op_target_id
         FROM [:table schema=cerebrum name=%(table_name)s] at,
              [:table schema=cerebrum name=auth_op_target] aot,
              [:table schema=cerebrum name=auth_operation] ao,
@@ -1085,11 +1064,11 @@ class BofhdAuth(DatabaseAccessor):
                             {'opcode': int(operation),
                              'target_type': self.const.auth_target_type_ou,
                              'id': entity.entity_id}):
-            if not int(r['has_attr']):
+            if not r['attr']:
                 return True
             else:
                 aff = str(self.const._PersonAffiliationCode(r['affiliation']))
-                if aff in self._get_auth_op_target_attr(r['op_target_id']):
+                if aff == r['attr']:
                     return True
         return False
 

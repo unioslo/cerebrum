@@ -34,7 +34,7 @@ from Cerebrum import Metainfo
 from Cerebrum.Constants import _SpreadCode
 
 # run migrate_* in this order
-versions = ('rel_0_9_2', )
+versions = ('rel_0_9_2', 'rel_0_9_3')
 
 def makedb(release, stage):
     print "Running Makedb(%s, %s)..." % (release, stage)
@@ -56,22 +56,27 @@ def continue_prompt(message):
         print "aborting"
         sys.exit(1)
 
-def migrate_to_rel_0_9_2():
-    """Migrate a pre 0.9.2 (the first version) database to the 0.9.2
-    database schema."""
-
+def assert_db_version(wanted):
     meta = Metainfo.Metainfo(db)
+    version = "pre-0.9.2"
     try:
-        version = meta.get_metainfo(Metainfo.SCHEMA_VERSION_KEY)
-        print "Oops, your database is already at %s, aborting" % str(version)
-        sys.exit(1)
+        version = "%d.%d.%d" % meta.get_metainfo(Metainfo.SCHEMA_VERSION_KEY)
     except Errors.NotFoundError:
         pass
     except Exception, e:
         # Not sure how to trap the PgSQL OperationalError
         if str(e.__class__).find("OperationalError") == -1:
             raise
+    if wanted <> version:
+        print "your database is %s, not %s, aborting" % (version, wanted)
+        sys.exit(1)
 
+def migrate_to_rel_0_9_2():
+    """Migrate a pre 0.9.2 (the first version) database to the 0.9.2
+    database schema."""
+
+    assert_db_version("pre-0.9.2")
+    
     # TODO: Assert that the new classes has been installed
     makedb('0_9_2', 'pre')
 
@@ -140,8 +145,67 @@ def migrate_to_rel_0_9_2():
 
     db.commit()
     makedb('0_9_2', 'post')
+    meta = Metainfo.Metainfo(db)
     meta.set_metainfo(Metainfo.SCHEMA_VERSION_KEY, (0,9,2))
     print "Migration to 0.9.2 completed successfully"
+    db.commit()
+
+def migrate_to_rel_0_9_3():
+    """Migrate from 0.9.2 database to the 0.9.3 database schema."""
+
+    assert_db_version("0.9.2")
+
+    # TODO: Assert that the new classes has been installed
+    makedb('0_9_3', 'pre')
+
+    # Convert all rows in auth_op_target with has_attr true.  If
+    # auth_op_target_attrs contains multiple rows, we need to add
+    # additional rows.
+
+    rows = db.query(
+        """SELECT op_target_id, entity_id, target_type
+        FROM [:table schema=cerebrum name=auth_op_target]
+        WHERE has_attr=1""")
+    print "%d rows to convert..." % len(rows)
+    rows_per_dot = int(len(rows) / 79 + 1)
+    count = 0
+    for row in rows:
+        if count % rows_per_dot == 0:
+            sys.stdout.write('.')
+            sys.stdout.flush()
+        count += 1
+        attr_rows = db.query(
+            """SELECT attr
+            FROM [:table schema=cerebrum name=auth_op_target_attrs]
+            WHERE op_target_id=:id""", {'id': int(row['op_target_id'])})
+        assert attr_rows
+        db.execute(
+            """UPDATE [:table schema=cerebrum name=auth_op_target]
+            SET attr=:attr WHERE op_target_id=:id""",
+            {'id': int(row['op_target_id']), 'attr': attr_rows[0]['attr']})
+        for attr_row in attr_rows[1:]:
+            values = {'op_target_id': int(db.nextval('entity_id_seq')),
+                      'entity_id': int(row['entity_id']),
+                      'target_type': row['target_type'],
+                      'attr': attr_row['attr']}
+            db.execute(
+                """INSERT INTO [:table schema=cerebrum name=auth_op_target]
+                (%(tcols)s)
+                VALUES (%(tvalues)s)""",
+                {'tcols': ", ".join([x[0] for x in values]),
+                 'tvalues': ", ".join([x[1] for x in values])})
+            # We need to duplicate the rows in auth_role which refer
+            # to this op_target_id as well, but since our database
+            # doesn't have multiple attr values, I won't bother to
+            # implement it.  Let me know if you need it!
+            raise NotImplementedError
+    
+    db.commit()
+    print "\ndone."
+    makedb('0_9_3', 'post')
+    meta = Metainfo.Metainfo(db)
+    meta.set_metainfo(Metainfo.SCHEMA_VERSION_KEY, (0,9,3))
+    print "Migration to 0.9.3 completed successfully"
     db.commit()
 
 def init():
