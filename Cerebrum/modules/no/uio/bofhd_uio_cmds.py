@@ -2723,9 +2723,19 @@ class BofhdExtension(object):
         arg = all_args.pop(0)
         tpl_lang, tpl_name, tpl_type = self._map_template(arg)
         if not tpl_lang.endswith("letter"):
+            default_printer = session.get_state(state_type='default_printer')
+            if default_printer:
+                default_printer = default_printer[0]['state_data']
             if not all_args:
-                return {'prompt': 'Oppgi skrivernavn'}
+                ret = {'prompt': 'Oppgi skrivernavn'}
+                if default_printer:
+                    ret['default'] = default_printer
+                return ret
             skriver = all_args.pop(0)
+            if skriver != default_printer:
+                session.clear_state(state_types=['default_printer'])
+                session.store_state('default_printer', skriver)
+                self.db.commit()
         if not all_args:
             n = 1
             map = [(("%8s %s", "uname", "operation"), None)]
@@ -2736,7 +2746,8 @@ class BofhdExtension(object):
                 raise CerebrumError, "no users"
             return {'prompt': 'Velg bruker(e)', 'last_arg': True,
                     'map': map, 'raw': True,
-                    'help_ref': 'print_select_range'}
+                    'help_ref': 'print_select_range',
+                    'default': str(n-1)}
 
     all_commands['misc_list_passwords'] = Command(
         ("misc", "list_passwords"), prompt_func=misc_list_passwords_prompt_func,
@@ -4268,6 +4279,11 @@ class BofhdExtension(object):
             raise CerebrumError, "Database error: %s" % m
         operator.store_state("user_passwd", {'account_id': int(account.entity_id),
                                              'password': password})
+        # Remove "weak password" quarantine
+        for r in account.get_entity_quarantine():
+            if int(r['quarantine_type']) == self.const.quarantine_autopassord:
+                account.delete_entity_quarantine(self.const.quarantine_autopassord)
+
         if account.get_entity_quarantine():
             return "OK.  Warning: user has quarantine"
         return "Password altered. Please use misc list_password to print or view the new password."
