@@ -42,3 +42,8 @@ DEFAULT_GROUP_NAMESPACE = 'group_names'
 # When gecos for a posix user is None, we look for the person name by
 # evaluating source systems in in this order
 POSIX_GECOS_SOURCE_ORDER = ("system_lt", "system_fs")
+
+# Temporary switch until someone can figure out why mktime won't work
+# with year < 1970 on some systems.  Must NOT be set on production
+# systems.
+ENABLE_MKTIME_WORKAROUND=0
