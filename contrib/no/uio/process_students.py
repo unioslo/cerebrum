@@ -430,9 +430,6 @@ def process_student(person_info):
     logger.set_indent(0)
     logger.debug("Callback for %s" % fnr)
     alternative_account_id = other_account_owners.get(fnr, -1)
-    if alternative_account_id is None:
-        logger.debug("Has active non-student account, skipping")
-        return
     logger.set_indent(3)
     logger.debug(logger.pformat(_filter_person_info(person_info)))
     try:
@@ -462,7 +459,10 @@ def process_student(person_info):
             logger.set_indent(0)
             return
         if create_users and not students.has_key(fnr):
-            if alternative_account_id != -1:  # has a reserved account
+            if alternative_account_id is None:
+                logger.debug("Has active non-student account, skipping")
+                return
+            elif alternative_account_id != -1:  # has a reserved account
                 logger.debug("using reserved: %i" % alternative_account_id)
                 account_id = alternative_account_id
                 update_account(profile, [account_id],
