@@ -28,3 +28,6 @@ category:post;
 ALTER TABLE account_home DROP COLUMN status;
 category:post;
 ALTER TABLE account_home ALTER COLUMN homedir_id SET NOT NULL;
+
+/* arch-tag: 7f7ee4c6-d53d-4206-bea5-89c8a9f45a5c
+   (do not change this comment) */
