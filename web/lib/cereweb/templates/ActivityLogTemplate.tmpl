@@ -1,0 +1,16 @@
+#from Cerebrum.web.InitTemplate import InitTemplate
+#extends InitTemplate
+##extends FramesTemplate
+#import forgetHTML
+#from Cerebrum.web.TableView import TableView
+#from SortedTableTemplate import SortedTableTemplate
+#from Cerebrum.web.utils import url
+
+#def viewActivityLog(self)
+#set $headers = {'timestamp': $_("Timestamp"), 'who': $_("Who"), 'type': $_("Type"), 'message': $_("Message")}
+#set $table = $TableView("timestamp", "who", "type", "message")
+<div class="activitylog">
+<h2>Activity log</h2>
+$SortedTableTemplate().sorted_table($table, $headers, $url("ting=%s"), $url("dings=%s"))
+</div>
+#end def
