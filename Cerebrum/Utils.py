@@ -694,6 +694,7 @@ class AtomicFileWriter(object):
         self._tmpname = self.make_tmpname(name)
         self.__file = open(self._tmpname, mode, buffering)
         self.closed = False
+        self.replaced_file = False
         self._replace_equal = replace_equal
 
     def close(self):
@@ -711,8 +712,10 @@ class AtomicFileWriter(object):
                     os.unlink(self._tmpname)
                 else:
                     os.rename(self._tmpname, self._name)
+                    self.replaced_file = True
             else:
                 os.rename(self._tmpname, self._name)
+                self.replaced_file = True
         return ret
 
     def validate_output(self):
