@@ -343,7 +343,7 @@ class Account(AccountType, EntityName, EntityQuarantine, Entity):
         except Errors.NotFoundError:
             return False
 
-    def get_accounts_by_owner_id(self, owner_id):
+    def list_accounts_by_owner_id(self, owner_id):
         """Return a list of account-ids, or None if none found"""
         try:
             return self.query("""
