@@ -1252,7 +1252,10 @@ class BofhdExtension(object):
         """Create a forward target, add localaddr as an address
         associated with that target, and add remoteaddr as a forward
         addresses."""
-        lp, dom = localaddr.split('@')
+        try:
+            lp, dom = localaddr.split('@')
+        except ValueError:
+            raise CerebrumError, "invalid format for e-mail address"
         ed = self._get_email_domain(dom)
         self.ba.can_email_forward_create(operator.get_entity_id(), ed)
         ea = Email.EmailAddress(self.db)
@@ -1620,7 +1623,7 @@ class BofhdExtension(object):
             # TBD: should we remove spread_uio_imap ?
             # It does not do much good to add to a bofh request, mvmail
             # can't handle this anyway.
-            raise NotImplementedError, "can't move to non-IMAP server" 
+            raise CerebrumError, "can't move to non-IMAP server" 
         return "OK"
 
     # email quota <uname>+ hardquota-in-mebibytes [softquota-in-percent]
@@ -2674,6 +2677,17 @@ class BofhdExtension(object):
         host = self._get_host(hostname)
         disk = Utils.Factory.get('Disk')(self.db)
         disk.find_by_path(diskname, host_id=host.entity_id)
+        account = self.Account_class(self.db)
+        for row in account.list_account_home(disk_id=disk.entity_id):
+            if row['disk_id'] is None:
+                continue
+            if row['status'] == int(self.const.home_status_on_disk):
+                raise CerebrumError, "Users still on disk"
+            account.clear()
+            account.find(row['account_id'])
+            account.set_home(row['home_spread'], disk_id=None,
+                             home='%s/%s' % (account.account_name, row['path']),
+                             status=row['status'])
         try:
             disk.delete()
         except self.db.DatabaseError, m:
@@ -3414,7 +3428,7 @@ class BofhdExtension(object):
             elif search_type == 'stedkode':
                 ou = self._get_ou(stedkode=value)
                 # We potentially get multiple rows for a person when
-                # s/he has more than one kind of affiliation.  Store
+                # s/he has moreef than one kind of affiliation.  Store
                 # result in a dict to get rid of dups.
                 result = {}
                 for r in person.list_affiliations(ou_id=ou.entity_id):
@@ -4534,7 +4548,7 @@ class BofhdExtension(object):
     all_commands['user_student_create'] = Command(
         ('user', 'student_create'), PersonId())
     def user_student_create(self, operator, person_id):
-        raise NotImplementedError, "Feel free to implement this function"
+        raise CerebrumError, "Not implemented"
 
     #
     # commands that are noe available in jbofh, but used by other clients
@@ -4606,7 +4620,7 @@ class BofhdExtension(object):
             elif idtype == 'id':
                 account.find(id)
             else:
-                raise NotImplementedError, "unknown idtype: '%s'" % idtype
+                raise CerebrumError, "unknown idtype: '%s'" % idtype
         except Errors.NotFoundError:
             raise CerebrumError, "Could not find %s with %s=%s" % (actype, idtype, id)
         return account
@@ -4644,7 +4658,7 @@ class BofhdExtension(object):
             elif idtype == 'id':
                 group.find(id)
             else:
-                raise NotImplementedError, "unknown idtype: '%s'" % idtype
+                raise CerebrumError, "unknown idtype: '%s'" % idtype
         except Errors.NotFoundError:
             raise CerebrumError, "Could not find %s with %s=%s" % (grtype, idtype, id)
         return group
@@ -4669,14 +4683,17 @@ class BofhdExtension(object):
     def _get_ou(self, ou_id=None, stedkode=None):
         ou = self.OU_class(self.db)
         ou.clear()
-        if ou_id is not None:
-            ou.find(ou_id)
-        else:
-            if len(stedkode) != 6 or not stedkode.isdigit():
-                raise CerebrumError("Expected 6 digits in stedkode")
-            ou.find_stedkode(stedkode[0:2], stedkode[2:4], stedkode[4:6],
-                             institusjon=cereconf.DEFAULT_INSTITUSJONSNR)
-        return ou
+        try:
+            if ou_id is not None:
+                ou.find(ou_id)
+            else:
+                if len(stedkode) != 6 or not stedkode.isdigit():
+                    raise CerebrumError("Expected 6 digits in stedkode")
+                ou.find_stedkode(stedkode[0:2], stedkode[2:4], stedkode[4:6],
+                                 institusjon=cereconf.DEFAULT_INSTITUSJONSNR)
+            return ou
+        except Errors.NotFoundError:
+            raise CerebrumError, "Unknown stedkode"
 
     def _get_group_opcode(self, operator):
         if operator is None:
@@ -4780,6 +4797,8 @@ class BofhdExtension(object):
         if id_type != 'entity_id':
             id_type = self.external_id_mappings.get(id_type, None)
         if id_type is not None:
+            if len(id) == 0:
+                raise CerebrumError, "id cannot be blank"
             return id_type, id
         raise CerebrumError, "Unknown person_id type"
 
