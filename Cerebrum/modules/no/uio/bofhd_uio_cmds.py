@@ -25,6 +25,7 @@ from Cerebrum.modules import PosixGroup
 from Cerebrum.modules.no.uio import PrinterQuotas
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.templates.letters import TemplateHandler
+from server.bofhd import BofhdRequests
 from server.bofhd_errors import CerebrumError
 from Cerebrum.modules.no.uio import bofhd_uio_help
 from Cerebrum.Constants import _CerebrumCode, _QuarantineCode, _SpreadCode,\
@@ -378,20 +379,33 @@ class BofhdExtension(object):
         # TODO: Dunno what this command is supposed to do
         raise NotImplementedError, "Feel free to implement this function"
 
-    # misc mmove_confirm
-    all_commands['misc_mmove_confirm'] = Command(
-        ("misc", "mmove_confirm"), )
-    def misc_mmove_confirm(self, operator):
-        # TODO: Add support for storing move requests
-        raise NotImplementedError, "Feel free to implement this function"
-
-    # misc mmove_requests
-    all_commands['misc_mmove_requests'] = Command(
-        ("misc", "mmove_requests"), )
-    def misc_mmove_requests(self, operator):
-        # TODO: Add support for storing move requests
-        raise NotImplementedError, "Feel free to implement this function"
-
+    # misc mmove
+    all_commands['misc_mmove'] = Command(
+        ("misc", "mmove"),
+        fs=FormatSuggestion("%-10s %-30s %-15s %-10s %-20s %s", ("requestee", "when", "op", "entity", "destination", "args"),
+                            hdr="%-10s %-30s %-15s %-10s %-20s %s" % ("Requestee", "When", "Op", "Entity", "Destination", "Arguments")))
+    def misc_mmove(self, operator):
+        br = BofhdRequests(self.db, self.const)
+        ret = []
+        for r in br.get_requests(operator_id=operator.get_entity_id(), given=True):
+            op = self.num2const[int(r['operation'])]
+            print op
+            dest = None
+            if op in (self.const.bofh_move_user, self.const.bofh_move_request):
+                disk = Disk.Disk(self.db)
+                disk.find(r['destination_id'])
+                dest = disk.path
+            elif op in (self.const.bofh_move_give,):
+                dest = self._get_entity_name(self.const.entity_group,
+                                             r['destination_id'])
+            ret.append({'when': r['run_at'],
+                        'requestee': self._get_entity_name(self.const.entity_account, r['requestee_id']),
+                        'op': str(op),
+                        'entity': self._get_entity_name(self.const.entity_account, r['entity_id']),
+                        'destination': dest,
+                        'args': r['state_data']
+                        })
+        return ret
 
     # misc profile_download
     all_commands['misc_profile_download'] = Command(
@@ -615,13 +629,6 @@ class BofhdExtension(object):
         entity.disable_entity_quarantine(qtype, date)
         return "OK"
 
-    # quarantine info
-    all_commands['quarantine_info'] = Command(
-        ("quarantine", "info"), QuarantineType())
-    def quarantine_info(self, operator, qtype):
-        # TODO: I'm uncertain as to what this is supposed to do
-        raise NotImplementedError, "Feel free to implement this function"
-
     # quarantine list
     all_commands['quarantine_list'] = Command(
         ("quarantine", "list"),
@@ -697,13 +704,6 @@ class BofhdExtension(object):
         spread = int(self.str2const[spread])
         entity.add_spread(spread)
         return "OK"
-
-    # spread info
-    all_commands['spread_info'] = Command(
-        ("spread", "info"), Spread())
-    def spread_info(self, operator, spread):
-        # I'm not sure what this function is supposed to do
-        raise NotImplementedError, "Feel free to implement this function"
 
     # spread list
     all_commands['spread_list'] = Command(
@@ -788,7 +788,6 @@ class BofhdExtension(object):
         - map (optional) maps the user-entered value to a value that
           is returned to the server, typically when user selects from
           a list."""
-        print "Got: %s" % str(args)
         all_args = list(args[:])
         if(len(all_args) == 0):
             return {'prompt': "Enter bdate, fnr or idtype"}
@@ -873,7 +872,14 @@ class BofhdExtension(object):
         ("user", "delete"), AccountName())
     def user_delete(self, operator, accountname):
         # TODO: How do we delete accounts?
-        raise NotImplementedError, "Feel free to implement this function"
+        account = self._get_account(accountname)
+        br = BofhdRequests(self.db, self.const)
+        br.add_request(operator.get_entity_id(), br.now,
+                       self.const.bofh_delete_user,
+                       account.entity_id, None)
+        return "User queued for deletion"
+
+        # raise NotImplementedError, "Feel free to implement this function"
 
     # user gecos
     all_commands['user_gecos'] = Command(
@@ -1020,10 +1026,115 @@ class BofhdExtension(object):
             tpl_lang, tpl_name, tpl_type, skriver, selection)
 
     # user move
+    def user_move_prompt_func(self, session, *args):
+        all_args = list(args[:])
+        print all_args
+        if(len(all_args) == 0):
+            mt = MoveType()
+            return mt.get_struct(self)
+        mtype = all_args.pop(0)
+        if(len(all_args) == 0):
+            an = AccountName()
+            return an.get_struct(self)
+        ac_name = all_args.pop(0)
+        if mtype in ("immediate", "batch", "nofile"):
+            if(len(all_args) == 0):
+                di = DiskId()
+                r = di.get_struct(self)
+                r['last_arg'] = 1
+                return r
+            return {'last_arg': 1}
+        elif mtype in ("student", "student_immediate", "confirm", "cancel"):
+            return {'last_arg': 1}
+        elif mtype in ("request",):
+            if(len(all_args) == 0):
+                di = DiskId()
+                return di.get_struct(self)
+            disk = all_args.pop(0)
+            if(len(all_args) == 0):
+                ss = SimpleString(help_ref="string_why")
+                r = ss.get_struct(self)
+                r['last_arg'] = 1
+                return r
+            return {'last_arg': 1}
+        elif mtype in ("give",):
+            if(len(all_args) == 0):
+                who = GroupName()
+                return who.get_struct(self)
+            who = all_args.pop(0)
+            if(len(all_args) == 0):
+                ss = SimpleString(help_ref="string_why")
+                r = ss.get_struct(self)
+                r['last_arg'] = 1
+                return r
+            return {'last_arg': 1}
+        raise CerebrumError, "Bad user_move command (%s)" % mtype
+        
     all_commands['user_move'] = Command(
-        ("user", "move"), MoveType(), AccountName(), DiskId())
-    def user_move(self, operator, accountname, disk_id):
-        raise NotImplementedError, "Feel free to implement this function"
+        ("user", "move"), prompt_func=user_move_prompt_func)
+    def user_move(self, operator, move_type, accountname, *args):
+        account = self._get_account(accountname)
+        br = BofhdRequests(self.db, self.const)
+        if move_type in ("immediate", "batch", "nofile"):
+            disk = args[0]
+            disk_id, home = self._get_disk(disk)
+            if disk_id is None and move_type != "nofile":
+                raise CerebrumError, "Bad destination disk"
+            if move_type == "immediate":
+                br.add_request(operator.get_entity_id(), br.now,
+                               self.const.bofh_move_user,
+                               account.entity_id, disk_id)
+                return "Command queued for immediate execution"
+            elif move_type == "batch":
+                br.add_request(operator.get_entity_id(), br.batch_time,
+                               self.const.bofh_move_user,
+                               account.entity_id, disk_id)
+                return "move queued for execution at %s" % br.batch_time
+            elif move_type == "nofile":
+                account.disk_id = disk_id
+                account.home = home
+                account.write_db()
+                return "OK, user moved"
+        elif move_type in ("student", "student_immediate", "confirm", "cancel"):
+            if move_type == "student":
+                br.add_request(operator.get_entity_id(), br.batch_time,
+                               self.const.bofh_move_student,
+                               account.entity_id, None)
+                return "student-move queued for execution at %s" % br.batch_time
+            elif move_type == "student_immediate":
+                br.add_request(operator.get_entity_id(), br.now,
+                               const.bofh_move_student,
+                               account.entity_id, None)
+                return "student-move queued for immediate execution"
+            elif move_type == "confirm":
+                r = br.get_requests(entity_id=account.entity_id,
+                                    operation=self.const.bofh_move_request)
+                if len(r) < 1:
+                    raise CerebrumError, "No matching request found"
+                br.delete_request(account.entity_id,
+                                  operation=self.const.bofh_move_request)
+                # Flag as authenticated
+                br.add_request(operator.get_entity_id(), br.batch_time,
+                               self.const.bofh_move_user,
+                               account.entity_id, r[0]['destination_id'])
+                return "move queued for execution at %s" % br.batch_time
+            elif move_type == "cancel":
+                br.delete_request(account.entity_id,
+                                  operator_id=operator.get_entity_id())
+                return "OK, move data deleted"
+        elif move_type in ("request",):
+            disk, why = args[0], args[1]
+            disk_id, home = self._get_disk(disk)
+            br.add_request(operator.get_entity_id(), br.now,
+                           self.const.bofh_move_request,
+                           account.entity_id, disk_id, why)
+            return "OK, request registered"
+        elif move_type in ("give",):
+            group, why = args[0], args[1]
+            group = self._get_group(group)
+            br.add_request(operator.get_entity_id(), br.now, self.const.bofh_move_give,
+                           account.entity_id, group.entity_id, why)
+            return "OK, 'give' registered"
 
     # user password
     all_commands['user_password'] = Command(
