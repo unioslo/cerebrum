@@ -256,6 +256,8 @@ Normally only union is used."""],
          'Enter an entity_id either as number or as group:name / account:name'],
     'id:op_target':
         ['op_target_id', 'Enter op_target_id'],
+    'id:request_id':
+        ['request_id', 'Enter request_id', '"misc list_requests" returns legal values'],
     'mailman_admins':
         ['addresses', 'Enter comma separated list of administrators for '+
          'the Mailman list'],

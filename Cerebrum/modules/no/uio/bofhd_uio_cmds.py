@@ -2594,7 +2594,7 @@ class BofhdExtension(object):
 
     # misc checkpassw
     all_commands['misc_change_request'] = Command(
-        ("misc", "change_request"), Id(), Date())
+        ("misc", "change_request"), Id(help_ref="id:request_id"), Date())
     def misc_change_request(self, operator, request_id, date):
         date = self._parse_date(date)
         br = BofhdRequests(self.db, self.const)
@@ -4381,24 +4381,40 @@ class BofhdExtension(object):
     all_commands['user_reserve'] = Command(
         ('user', 'create_reserve'), prompt_func=user_create_basic_prompt_func,
         fs=FormatSuggestion("Created account_id=%i", ("account_id",)),
-        perm_filter='can_create_user')
-    def user_reserve(self, operator, idtype, person_id, affiliation, uname):
-        person = self._get_person("entity_id", person_id)
+        perm_filter='is_superuser')
+    def user_reserve(self, operator, *args):
+        if args[0].startswith('group:'):
+            group_id, np_type, uname = args
+            owner_type = self.const.entity_group
+            owner_id = self._get_group(group_id.split(":")[1]).entity_id
+            np_type = int(self._get_constant(np_type, "Unknown account type"))
+            affiliation = None
+            owner_type = self.const.entity_group
+        else:
+            if len(args) == 4:
+                idtype, person_id, affiliation, uname = args
+            else:
+                idtype, person_id, yes_no, affiliation, uname = args
+            person = self._get_person("entity_id", person_id)
+            owner_type, owner_id = self.const.entity_person, person.entity_id
+            np_type = None
         account = self.Account_class(self.db)
         account.clear()
         if not self.ba.is_superuser(operator.get_entity_id()):
             raise PermissionDenied("only superusers may reserve users")
         account.populate(uname,
-                         self.const.entity_person,  # Owner type
-                         person.entity_id,
-                         None,                      # np_type
+                         owner_type,  # Owner type
+                         owner_id,
+                         np_type,                      # np_type
                          operator.get_entity_id(),  # creator_id
                          None)                      # expire_date
         passwd = account.make_passwd(uname)
         account.set_password(passwd)
         try:
             account.write_db()
-            self._user_create_set_account_type(account, person.entity_id, affiliation)
+            if affiliation is not None:
+                self._user_create_set_account_type(
+                    account, person.entity_id, affiliation)
         except self.db.DatabaseError, m:
             raise CerebrumError, "Database error: %s" % m
         operator.store_state("new_account_passwd", {'account_id': int(account.entity_id),
