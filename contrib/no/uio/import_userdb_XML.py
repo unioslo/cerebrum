@@ -388,10 +388,21 @@ def create_email_alias(otype, data):
                   "Don't know how to convert emailalias:" + repr(data)
         try:
             mailtarg.find_by_entity_and_alias(e_id, alias)
+            progress.write('t')
         except Errors.NotFoundError:
             mailtarg.populate(typ, e_id, e_typ, alias)
             mailtarg.write_db()
             progress.write('T')
+        if typ == co.email_target_forward:
+            # Add 'alias' to an email_forward row.  The same 'alias'
+            # has just been written to email_target.alias_value;
+            # however, that value isn't used by the export script, but
+            # is only there to make it possible to find the target
+            # with .find_by_entity_and_alias().
+            mailforward.clear()
+            mailforward.find(int(mailtarg.email_target_id))
+            mailforward.add_forward(dest)
+            progress.write('F')
     elif dt == 'l':
         typ = co.email_target_Mailman
         # Mailman list; all these aliases should run as user
