@@ -4294,7 +4294,7 @@ class BofhdExtension(object):
         if password is None:
             password = account.make_passwd(accountname)
         else:
-            if operator.get_entity_id() <> account.entity_id:
+            if (operator.get_entity_id() <> account.entity_id and not self.ba.is_superuser(operator.get_entity_id())):
                 raise CerebrumError, \
                       "Cannot specify password for another user."
         try:
