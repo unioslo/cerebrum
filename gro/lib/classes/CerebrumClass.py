@@ -22,6 +22,9 @@ from GroBuilder import GroBuilder
 from Builder import Attribute
 from Searchable import Searchable
 
+import Registry
+registry = Registry.get_registry()
+
 
 __all__ = ['CerebrumAttr', 'CerebrumEntityAttr', 'CerebrumClass']
 
@@ -64,6 +67,16 @@ class CerebrumTypeAttr(CerebrumAttr):
 
     def from_cerebrum(self, value):
         return self.type_class(id=int(value))
+
+class CerebrumDateAttr(CerebrumAttr):
+    def __init__(self, name, data_type, cerebrum_name=None, write=False):
+        CerebrumAttr.__init__(self, name, data_type, cerebrum_name, write)
+
+    def to_cerebrum(self, value):
+        return mx.DateTime.TimestampFromTicks(value.get_date())
+
+    def from_cerebrum(self, value):
+        return registry.Date(value.ticks())
 
 class CerebrumClass(Searchable):
     cerebrum_class = None

@@ -24,7 +24,7 @@ from Cerebrum.extlib import sets
 from Cerebrum.extlib import sets
 from GroBuilder import GroBuilder
 from Builder import Attribute, Method
-from CerebrumClass import CerebrumAttr, CerebrumTypeAttr
+from CerebrumClass import CerebrumAttr, CerebrumTypeAttr, CerebrumDateAttr
 
 import Registry
 registry = Registry.get_registry()
@@ -40,7 +40,7 @@ class Person(Entity):
     # name gir bare navnet blant names som er fult navn (:P)
     # affiliations, quarantine med venner må implementeres
     slots = Entity.slots + [CerebrumAttr('export_id', 'string'),
-                            CerebrumAttr('birth_date', 'Date', write=True),
+                            CerebrumDateAttr('birth_date', 'Date', write=True),
                             CerebrumAttr('deceased', 'boolean', write=True),
                             CerebrumTypeAttr('gender', 'GenderType', GenderType, write=True),
                             CerebrumAttr('description', 'string', write=True)]
