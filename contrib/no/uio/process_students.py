@@ -464,7 +464,7 @@ class BuildAccounts(object):
         try:
             profile = autostud.get_profile(person_info, member_groups=persons[fnr]['groups'],
                                            person_affs=persons[fnr]['affs'])
-            logger.debug(profile.debug_dump())
+            logger.debug(profile.matcher.debug_dump())
         except AutoStud.ProfileHandler.NoMatchingProfiles, msg:
             logger.warn("No matching profile error for %s: %s" %  (fnr, msg))
             logger.set_indent(0)
