@@ -78,15 +78,16 @@ class Locking( object ):
             self.lock_for_reading( client )
 
         def rollback(obj):
-            self.rollback()
+            self.reload()
         self.writeLock = weakref.ref( client, rollback )
 
     def unlock( self, client ):
         """Remove all locks held by client on this node.
         """
+        assert not getattr(self, 'updated', None) # trying to unlock a changed object
+
         if self.is_readlocked_by_me( client ):
             if self.is_writelocked_by_me( client ):
-                # her må det sikkert gjøres noe opprydding i objectet..
                 self.writeLock = None
             del self.readLocks[ client ]
 
