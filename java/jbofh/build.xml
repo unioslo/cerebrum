@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project basedir="." default="dist" name="JBofh">
+    <description>
+        simple example build file
+    </description>
+  <!-- set global properties for this build -->
+  <property location="src" name="src"/>
+  <property location="build" name="build"/>
+  <property location="dist" name="dist"/>
+
+  <target name="init">
+    <!-- Create the time stamp -->
+    <tstamp/>
+    <!-- Create the build directory structure used by compile -->
+    <mkdir dir="${build}"/>
+  </target>
+
+  <target depends="init" description="compile the source " name="compile">
+    <!-- Compile the java code from ${src} into ${build} -->
+    <javac destdir="${build}" srcdir="${src}" debug="on">
+            <classpath>
+                <fileset dir="lib" includes="*.jar">
+                </fileset>
+            </classpath>
+        </javac>
+  </target>
+
+  <target depends="compile" description="generate the distribution" name="dist">
+    <!-- Create the distribution directory -->
+    <mkdir dir="${dist}/lib"/>
+
+    <!-- Put everything in ${build} into the JBofh-${DSTAMP}.jar file -->
+    <jar basedir="${build}" jarfile="${dist}/lib/JBofh.jar">
+      <manifest>
+        <attribute name="Main-Class" value="no.uio.jbofh.JBofh"/>
+      </manifest>
+    </jar>
+  </target>
+
+  <target description="clean up" name="clean">
+    <!-- Delete the ${build} and ${dist} directory trees -->
+    <delete dir="${build}"/>
+    <delete dir="${dist}"/>
+  </target>
+</project>
