@@ -178,9 +178,9 @@ def process_person_callback(person_info):
                         'adrlin3_hjemsted', 'postnr_hjemsted',
                         'adresseland_hjemsted')
             elif dta_type in ('evu',):
-                address_info = _ext_address_info(p, 'adrlin1_hjem',
-                    'adrlin2_hjem', 'adrlin3_hjem', 'postnr_hjem',
-                    'adresseland_hjem')
+                address_info = _ext_address_info(p, 'adrlin1_job',
+                    'adrlin2_job', 'adrlin3_job', 'postnr_job',
+                    'adresseland_job')
                 if address_info is None:
                     address_info = _ext_address_info(p,
                         'adrlin1_hjemsted', 'adrlin2_hjemsted',
