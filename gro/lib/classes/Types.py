@@ -7,7 +7,8 @@ from Cerebrum.gro.Utils import Lazy, LazyMethod, Clever
 from db import db
 
 __all__ = ['AddressType', 'ContactInfoType', 'GenderType', 'EntityType',
-           'SourceSystem', 'NameType', 'AuthenticationType']
+           'SourceSystem', 'NameType', 'AuthenticationType', 'Spread',
+           'GroupMemberOperationType']
 
 class CodeType(Node):
     slots = ['id', 'name', 'description']
@@ -124,3 +125,34 @@ class AuthenticationType(CodeType):
             self._children.add(Account.AccountAuthentication.getByRow(row))
 
 Clever.prepare(AuthenticationType)
+
+class GroupMemberOperationType(CodeType):
+    _tableName = 'group_membership_op_code'
+
+class Spread(CodeType):
+    _tableName = 'spread_code'
+    slots = CodeType.slots + ['entityType']
+
+    def __init__(self, id, parents=Lazy, children=Lazy, *args, **vargs):
+        Clever.__init__(self, Spread, id, *args, **vargs)
+
+    def load(self):
+        rows = db.query('''SELECT code_str, entity_type, description
+                           FROM spread_code WHERE code = %s''' % self.id)
+        if not rows:      
+            raise KeyError('spread %s not found' % self.id)
+        row = rows[0]     
+                          
+        self._entityType = EntityType(int(row['entity_type']))
+        self._name = row['code_str']
+        self._description = row['description']
+
+    def loadChildren(self):
+        import Entity
+
+        CodeType.loadChildren(self)
+
+        e = Cerebrum.Entity.Entity(db)
+        self._children.update([Entity(int(i[0])) for i in e.list_all_with_spread(self.id)])
+
+Clever.prepare(Spread, 'load')
