@@ -9,6 +9,7 @@ import pickle
 import sys
 import getopt
 import time
+import string
 
 import xml.sax
 
@@ -293,6 +294,30 @@ def set_quaran():
                                           start = now) 
     db.commit()
 
+"""
+   0 000000        UKJ (Uspesifisiert sted)
+X* 0 900199        UiO (UiO orgnivå 0)
+   1     900000     (Organisasjonssted Kollegiet)
+X* 2         110000 TF (Det teologiske fakultet)
+X* 3             110010 Faksekr (Fakultetssekretariat Teologisk fakultet)
+X* 3             110020 Fagsek (Fagseksjonen, Teologisk fakultet)
+X* 3             110030 AKS (Avd kompetansehevende studier, Teologisk)
+X* 2         120000 JF (Det juridiske fakultet)
+X* 3             120010 Faksekr (Det juridiske fakultets sekretariat)
+ * 4                 120011  (Juridisk fakultet, Admin.seksjonen)
+ * 4                 120012  (Juridisk fakultet, IT-seksjonen)
+ * 4                 120013  (Juridiske fakultet, Studie/eksamensseksj)
+ * 5                     120014  (Juridisk fakultet, Eksamensgruppen)
+ * 5                     120015  (Juridisk fakultet, Informasjonsgruppen)
+ * 5                     120016  (Juridisk fakultet, Studieadm.gruppen)
+   4                 120030  (Juridisk fakultet, Hustrykkeriet)
+X* 3             120100 IfK (Institutt for kriminologi)
+X* 3             120200 IfP (Institutt for privatrett)
+X* 3             120300 IRS (Institutt for rettssosiologi)
+X* 4                 120310  (Juss-buss, Inst. for rettssosiologi)
+X* 3             120400 NIfS (Nordisk institutt for sjørett)
+"""
+
 
 def dump_perspective(sources):
     """Displays the OU hierarchy in a fairly readable way"""
@@ -305,17 +330,73 @@ def dump_perspective(sources):
             self.name = name
             self.parent = parent
             self.children = []
+        # end __init__
+    # end class
 
-    def dump_part(parent, indent):
-        print " " * indent + "%s (%s)" % (
-            str(parent),
-            org_units.get(parent, {'forkstednavn': 'n/a'})['forkstednavn'])
+
+    ou = Factory.get("OU")(db)
+    person = Factory.get("Person")(db)
+    def make_prefix(key, level):
+        """
+        Make a pretty prefix for each output line
+        """
+
+        if key in org_units:
+            katalogmerke = org_units[key].get("opprettetmerke_for_oppf_i_kat",
+                                              " ")
+        else:
+            katalogmerke = " "
+        # fi
+
+        # And now we find out if there are people with affiliations to this
+        # place
+        if key is None:
+            people_mark = " "
+        else:
+            try:
+                fakultet, institutt, avdeling = string.split(key, "-")
+                ou.clear()
+                ou.find_stedkode(int(fakultet), int(institutt), int(avdeling),
+                                 cereconf.DEFAULT_INSTITUSJONSNR)
+                people_mark = " "
+                if person.list_affiliations(ou_id = ou.entity_id):
+                    people_mark = "*"
+                # fi
+            except Errors.NotFoundError:
+                people_mark = " "
+            # yrt
+        # fi
+            
+        return "%s%s %s" % (katalogmerke, people_mark, level)
+    # end make_prefix
+    
+
+    def dump_part(parent, level):
+        dummy = { "stednavn" : "N/A",
+                  "akronym"  : "N/A", }
+        values = org_units.get(parent, dummy)
+        
+        print "%s%s %s %s (%s)" % (make_prefix(parent, level),
+                                   " " * (level * 4),
+                                   parent,
+                                   values.get("akronym", "N/A"),
+                                   values.get("stednavn", "N/A"))
+        children = list()
         for t in tree_info.keys():
             if tree_info[t].parent == parent:
                 if t == parent:
                     print "WARNING: circular for %s" % t
                 else:
-                    dump_part(t, indent + 3)
+                    children.append(t)
+                # fi
+            # fi
+        # od
+
+        children.sort()
+        for t in children:
+            dump_part(t, level + 1)
+        # od 
+
 
     # Read data source
     for k in OUData(sources):
@@ -335,9 +416,15 @@ def dump_perspective(sources):
 
     # Display structure
     dump_part(None, 0)
-    for t in tree_info.keys():
+    top_keys = tree_info.keys(); top_keys.sort()
+    for t in top_keys:
         if tree_info[t].parent == tree_info[t].name:
             dump_part(t, 0)
+        # fi
+    # od
+# end dump_perspective
+
+
 
 def usage(exitcode=0):
     print """Usage: [options] [file ...]
