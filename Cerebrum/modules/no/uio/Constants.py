@@ -218,6 +218,24 @@ class Constants(Constants.Constants):
                                   'IMAP account')
     spread_uio_notes_account = _SpreadCode('Notes_user', Constants.Constants.entity_account,
                                            'Account exported to Notes')
+    spread_fronter_kladdebok = _SpreadCode('CF@uio_kladdebok',
+                                           Constants.Constants.entity_group,
+                                           '''Group representing a course \
+that should be exported to the ClassFronter instance on \
+kladdebok.uio.no.  Should only be given to groups that have been \
+automatically generated from FS.''')
+    spread_fronter_blyant = _SpreadCode('CF@uio_blyant',
+                                           Constants.Constants.entity_group,
+                                           '''Group representing a course \
+that should be exported to the ClassFronter instance on \
+blyant.uio.no.  Should only be given to groups that have been \
+automatically generated from FS.''')
+    spread_fronter_petra = _SpreadCode('CF@uio_petra',
+                                           Constants.Constants.entity_group,
+                                           '''Group representing a course \
+that should be exported to the ClassFronter instance on \
+petra.uio.no.  Should only be given to groups that have been \
+automatically generated from FS.''')
 
     # LDAP: Brukere, grupper
 
