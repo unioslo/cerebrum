@@ -19,6 +19,9 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+# Use for HiA:
+# python2.2 ~./import_from_FS.py --db-user cerebrum --db-service FSHIA.uio.no
+#                                -o -a -s
 import cerebrum_path
 
 import re
@@ -30,25 +33,47 @@ import cereconf
 from Cerebrum import Database
 from Cerebrum import Errors
 from Cerebrum.Utils import XMLHelper
-from Cerebrum.modules.no.hia.access_FS import HiaFS
+from Cerebrum.modules.no.hia.access_FS import HiAFS
 
-default_person_file = "/cerebrum/dumps/FS/hia_stud.xml"
-default_topics_file = "/cerebrum/dumps/FS/topics.xml"
-default_studieprogram_file = "/cerebrum/dumps/FS/studieprogrammer.xml"
-default_regkort_file = "/cerebrum/dumps/FS/regkort.xml"
+default_person_file = "/cerebrum/dumps/FS/person.xml"
+default_role_file = "/cerebrum/dumps/FS/roles.xml"
+default_undvenh_file = "/cerebrum/dumps/FS/underv_enhet.xml"
+default_studieprogram_file = "/cerebrum/dumps/FS/studieprog.xml"
 default_ou_file = "/cerebrum/dumps/FS/ou.xml"
 
 xml = XMLHelper()
 fs = None
 
-def write_hia_studinfo(outfile):
+def write_hia_person_info(outfile):
     f=open(outfile, 'w')
     f.write(xml.xml_hdr + "<data>\n")
-    #HiA-studenter
-    cols, hiastudenter = fs.GetHiaStudent()
-    for hs in hiastudenter:
-        f.write(xml.xmlify_dbrow(hs,xml.conv_colnames(cols),'aktiv') + "\n")
+
+    #Aktive ordinære studenter ved HiA
+    cols, hiaaktiv = fs.GetAktive()
+    for a in hiaaktiv:
+	fix_float(a)
+        f.write(xml.xmlify_dbrow(a,xml.conv_colnames(cols),'aktiv') + "\n")
+    #Privatister ved HiA
+    cols, hiaprivatist = fs.GetPrivatist()
+    for p in hiaprivatist:
+	f.write(xml.xmlify_dbrow(p,xml.conv_colnames(cols),'privatist') + "\n")
+    #Personer som har tilbud om opptak ved HiA
+    #cols, hiatilbud = fs.GetTilbud(cereconf.DEFAULT_INSTITUSJONSNR)
+    #for t in hiatilbud:
+    #    f.write(xml.xmlify_dbrow(t,xml.conv_colnames(cols),'tilbud') + "\n")
+
+    #Studenter med EVU-opptak ved HiA
+    cols, hiaevuopt = fs.GetAlleMedEvuStudierett()
+    for eo in hiaevuopt:
+        f.write(xml.xmlify_dbrow(eo,xml.conv_colnames(cols),'evu') + "\n")
+
+    #Ekte EVU-studenter ved HiA
+    cols, hiaevu = fs.GetEkteEvu()
+    for e in hiaevu:
+        f.write(xml.xmlify_dbrow(e,xml.conv_colnames(cols),'evu') + "\n")
+
     f.write("</data>\n")
+
 
 def write_ou_info(outfile):
     """Lager fil med informasjon om alle OU-er"""
@@ -78,7 +103,9 @@ def write_ou_info(outfile):
         komm = []
         for fs_col, typekode in (
             ('telefonnr', 'EKSTRA TLF'),
-            ('faxnr', 'FAX')):
+            ('faxnr', 'FAX'),
+	    ('emailadresse','EMAIL'),
+	    ('url', 'URL')):
             if o[fs_col]:               # Skip NULLs and empty strings
                 komm.append({'kommtypekode': xml.escape_xml_attr(typekode),
                              'kommnrverdi': xml.escape_xml_attr(o[fs_col])})
@@ -94,27 +121,21 @@ def write_ou_info(outfile):
         f.write('</sted>\n')
     f.write("</data>\n")
 
-def write_topic_info(outfile):
-    """Lager fil med informasjon om alle XXX"""
-    # TODO: Denne filen blir endret med det nye opplegget :-(
-    f=open(outfile, 'w')
+def write_role_info(outfile):
+    f=open(outfile,'w')
     f.write(xml.xml_hdr + "<data>\n")
-    cols, topics = fs.GetAlleEksamener()
-    for t in topics:
-        # The Oracle driver thinks the result of a union of ints is float
-        fix_float(t)
-        f.write(xml.xmlify_dbrow(t, xml.conv_colnames(cols), 'topic') + "\n")
+    cols, role = fs.GetAllePersonRoller(cereconf.DEFAULT_INSTITUSJONSNR)
+    for r in role:
+	f.write(xml.xmlify_dbrow(r, xml.conv_colnames(cols), 'role') + "\n")
     f.write("</data>\n")
 
-def write_regkort_info(outfile):
-    """Lager fil med informasjon om semesterregistreringer for
-    inneværende semester"""
-    f=open(outfile, 'w')
-    f.write(xml.xml_hdr + "<data>\n")
-    cols, regkort = fs.GetStudinfRegkort()
-    for r in regkort:
-        f.write(xml.xmlify_dbrow(r, xml.conv_colnames(cols), 'regkort') + "\n")
-    f.write("</data>\n")
+def write_undenh_file(outfile):
+    f=open(outfile,'w')
+    f.write(xml.xml_hdr + "<undervenhet>\n")
+    cols, undenh= fs.GetUndervEnhet(sem="next")
+    for u in undenh:
+	f.write(xml.xmlify_dbrow(u, xml.conv_colnames(cols), 'undenhet') + "\n")
+    f.write("</undervenhet>\n")
 
 def write_studprog_info(outfile):
     """Lager fil med informasjon om alle definerte studieprogrammer"""
@@ -133,54 +154,54 @@ def fix_float(row):
 
 def usage(exitcode=0):
     print """Usage: [options]
-    --topics-file name: override topics xml filename
     --studprog-file name: override studprog xml filename
-    --regkort-file name: override regkort xml filename
-    --hia-studinfo-file: override hia person xml filename
+    --hia-personinfo-file: override hia person xml filename
+    --hia-roleinfo-file: override role xml filename
+    --hia-undenh-file: override 'topics' file
     --ou-file name: override ou xml filename
     --db-user name: connect with given database username
     --db-service name: connect to given database
-    -t: generate topics xml file
     -s: generate studprog xml file
-    -r: generate regkort xml file
     -o: generate ou xml (sted.xml) file
-    -a: generate active-students file
+    -p: generate person file
+    -r: genereta role file
+    -u: generate undervisningsenhet xml file
     """
     sys.exit(exitcode)
 
-def assert_connected(user="HIABAS", service="FSHIA.uio.no"):
+def assert_connected(user="CEREBRUM", service="FSHIA.uio.no"):
     global fs
     if fs is None:
         db = Database.connect(user=user, service=service,
                               DB_driver='Oracle')
-        fs = HiaFS(db)
+        fs = HiAFS(db)
 
 def main():
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "tsroa",
-                                   ["hia-studinfo-file=", "topics-file=",
-                                    "studprog-file=", "regkort-file=",
+        opts, args = getopt.getopt(sys.argv[1:], "psruo",
+                                   ["hia-personinfo-file=", "studprog-file=", 
+				    "hia-roleinfo-file=", "hia-undenh-file=",
                                     "ou-file=", "db-user=", "db-service="])
     except getopt.GetoptError:
         usage()
         sys.exit(2)
 
     person_file = default_person_file
-    topics_file = default_topics_file
     studprog_file = default_studieprogram_file
-    regkort_file = default_regkort_file
     ou_file = default_ou_file
+    role_file = default_role_file
+    undervenh_file = default_undvenh_file
     db_user = None         # TBD: cereconf value?
     db_service = None      # TBD: cereconf value?
     for o, val in opts:
-        if o in ('--hia-studinfo-file',):
+        if o in ('--hia-personinfo-file',):
             person_file = val
-        elif o in ('--topics-file',):
-            topics_file = val
         elif o in ('--studprog-file',):
             studprog_file = val
-        elif o in ('--regkort-file',):
-            regkort_file = val
+	elif o in ('--hia-roleinfo-file',):
+	    role_file = val
+	elif o in ('--hia-undenh-file',):
+	    undervenh_file = val
         elif o in ('--ou-file',):
             ou_file = val
         elif o in ('--db-user',):
@@ -189,14 +210,14 @@ def main():
             db_service = val
     assert_connected(user=db_user, service=db_service)
     for o, val in opts:
-        if o in ('-a',):
-            write_hia_studinfo(person_file)
-        elif o in ('-t',):
-            write_topic_info(topics_file)
+        if o in ('-p',):
+            write_hia_person_info(person_file)
         elif o in ('-s',):
             write_studprog_info(studprog_file)
-        elif o in ('-r',):
-            write_regkort_info(regkort_file)
+	elif o in ('-r',):
+	    write_role_info(role_file)
+	elif o in ('-u',):
+	    write_undenh_file(undervenh_file)
         elif o in ('-o',):
             write_ou_info(ou_file)
 
