@@ -78,7 +78,7 @@ class CerebrumClass(SpineClass):
         """
         db = self.get_database()
         obj = self.cerebrum_class(db)
-        id = self.get_primary_key()[0]
+        id = self.get_id()
         if not hasattr(obj, 'find'):
             raise Exception("Cerebrum-class %s has no find-method" % obj.__class__)
         obj.find(id)
@@ -129,9 +129,10 @@ class CerebrumClass(SpineClass):
         arguments are given, and since you must returned the newly
         created object yourself, which you lock for writing.
         """
-        obj = self.cerebrum_class(db)
+        obj = cls.cerebrum_class(db)
         obj.populate(*args, **vargs)
         obj.write_db()
+        return obj.entity_id
 
     _create = classmethod(_create)
 
