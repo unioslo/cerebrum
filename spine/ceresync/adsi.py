@@ -16,7 +16,7 @@ class AdsiBack:
     def __init__(self):
         pass
 
-    def begin(inkr=False):
+    def begin(incr=False):
         ''' Initialize objects and authenticate as needed. '''
         pass
 
