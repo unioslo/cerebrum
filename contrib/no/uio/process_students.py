@@ -115,62 +115,57 @@ def update_account(profile, account_ids, account_info={}):
     for account_id in account_ids:
         logger.info2(" UPDATE:%s" % account_id)
         changes = []
-        try:
-            user.clear()
-            user.find(account_id)
-            # populate logic asserts that db-write is only done if needed
+        if as_posix:
             try:
-                disk_id = user.get_home(user_spread)['disk_id']
-            except errors.NotFoundError:
-                disk_id = None
-            if move_users or disk_id is None:
-
-                try:
-                    disk = profile.get_disk(disk_id)
-                except ValueError, msg:  # TODO: get_disk should raise DiskError
-                    disk = None
-                if disk_id != disk:
-                    profile.notify_used_disk(old=disk_id, new=disk)
-                    changes.append("disk %s->%s" % (
-                        autostud.disks.get(disk_id, ['None'])[0],
-                        autostud.disks.get(disk, ['None'])[0]))
-                    if disk_id is None:
-                        user.set_home(user_spread, disk_id = disk_id)
-                    elif disk != None:
-                        br = BofhdRequests(db, const)
-                        # TBD: Is it correct to set requestee_id=None?
-                        try:
-                            br.add_request(None, br.batch_time,
-                                           const.bofh_move_user, account_id,
-                                           disk, state_data=int(user_spread))
-                        except errors.CerebrumError, e:
-                            # Conflicting request or similiar
-                            logger.warn(e)
-            if as_posix:
-                old_gid = user.gid_id
-                user.gid = profile.get_dfg()
-                if user.gid_id != old_gid:
-                    changes.append("dfg %s->%s" % (user.gid_id, old_gid))
-            if user.expire_date:
-                user.expire_date = default_expire_date
-            tmp = user.write_db()
-            logger.debug("old User, write_db=%s" % tmp)
-        except Errors.NotFoundError:
-            try:
-                disk_id=profile.get_disk()
-            except ValueError, msg:  # TODO: get_disk should raise DiskError
-                disk_id = None
-            profile.notify_used_disk(old=None, new=disk_id)
-            if as_posix:
+                user.clear()
+                user.find(account_id)
+            except Errors.NotFoundError:
                 uid = user.get_free_uid()
                 gid = profile.get_dfg()
                 shell = default_shell
                 user.populate(uid, gid, None, shell, 
                               parent=account_id, expire_date=default_expire_date)
-            else:
-                raise ValueError, "This is a bug, the Account object should exist"
-            tmp = user.write_db()
-            logger.debug("new User, write_db=%s" % tmp)
+            old_gid = user.gid_id
+            user.gid = profile.get_dfg()
+            if user.gid_id != old_gid:
+                changes.append("dfg %s->%s" % (user.gid_id, old_gid))
+
+        if user.expire_date:
+            user.expire_date = default_expire_date
+
+        # Set/change homedir
+        try:
+            current_disk_id = user.get_home(user_spread)['disk_id']
+        except errors.NotFoundError:
+            current_disk_id = None
+        if move_users or current_disk_id is None:
+            try:
+                new_disk = profile.get_disk(current_disk_id)
+            except ValueError, msg:  # TODO: get_disk should raise DiskError
+                raise
+            if current_disk_id != new_disk:
+                profile.notify_used_disk(old=current_disk_id, new=new_disk)
+                changes.append("disk %s->%s" % (
+                    autostud.disks.get(current_disk_id, ['None'])[0],
+                    autostud.disks.get(new_disk, ['None'])[0]))
+                if current_disk_id is None:
+                    logger.debug("Set home: %s" % new_disk)
+                    user.set_home(user_spread, disk_id = new_disk,
+                                  status=const.home_status_not_created)
+                else:
+                    br = BofhdRequests(db, const)
+                    # TBD: Is it correct to set requestee_id=None?
+                    try:
+                        br.add_request(None, br.batch_time,
+                                       const.bofh_move_user, account_id,
+                                       new_disk, state_data=int(user_spread))
+                    except errors.CerebrumError, e:
+                        # Conflicting request or similiar
+                        logger.warn(e)
+
+        tmp = user.write_db()
+        logger.debug("write_db=%s" % tmp)
+
         # Populate groups
         already_member = {}
         for r in group.list_groups_with_entity(account_id):
