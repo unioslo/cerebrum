@@ -3781,3 +3781,5 @@ NamesToIIDMap = {
 
 win32com.client.constants.__dicts__.append(constants.__dict__)
 
+
+# arch-tag: a2a80eeb-ca77-442b-bf23-1dafc6e56040
