@@ -54,7 +54,7 @@ class PosixGroup(Group_class):
         if parent is not None:
             self.__xerox__(parent)
         else:
-            super(PosixGroup, self).populate(self, creator_id, visibility,
+            super(PosixGroup, self).populate(creator_id, visibility,
                                              name, description, create_date,
                                              expire_date)
         self.__in_db = False
