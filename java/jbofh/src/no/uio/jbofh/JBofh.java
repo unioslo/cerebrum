@@ -133,6 +133,8 @@ class BofhdCompleter implements org.gnu.readline.ReadlineCompleter {
                 return thisLvl;
             }
             if(thisLvl.size() == 1) {  // Check next level
+                if (lvl >= cmd.size()) 
+                    throw new AnalyzeCommandException(lvl + " >= " + cmd.size());
                 cmd.set(lvl, thisLvl.get(0));
                 h = (Hashtable) h.get(cmd.get(lvl));
                 if(h.size() == 0 && expat < 0) {
