@@ -27,8 +27,13 @@ class SQLDriverTestCase(unittest.TestCase):
         hash[value] = 1
         assert(1 == hash[value], 'Unable to compare Integer to SQL Integer')
 
-    def testBrokenDate(self):
-        "Check if the Date class handle dates before 1970"
+    def testBrokenDateBefore1901(self):
+        "Check if the Date class handle dates before 1901 (1900-01-01)"
+        date = self.db.Date(1900, 1, 1)
+        date = None
+
+    def testBrokenDateBefore1970(self):
+        "Check if the Date class handle dates before 1970 (1969-01-01)"
         date = self.db.Date(1969, 1, 1)
         date = None
 
@@ -41,7 +46,8 @@ class SQLDriverTestCase(unittest.TestCase):
         suite.addTest(SQLDriverTestCase("testSQLIntComparable1"))
         suite.addTest(SQLDriverTestCase("testSQLIntComparable2"))
         suite.addTest(SQLDriverTestCase("testSQLIntHashable"))
-        suite.addTest(SQLDriverTestCase("testBrokenDate"))
+        suite.addTest(SQLDriverTestCase("testBrokenDateBefore1901"))
+        suite.addTest(SQLDriverTestCase("testBrokenDateBefore1970"))
         return suite
     suite=staticmethod(suite)
 
