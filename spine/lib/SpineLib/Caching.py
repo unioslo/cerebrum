@@ -24,23 +24,25 @@ import time
 import Scheduler
 
 class Caching(object):
-    """ Handles caching of objects.
+    """Handles caching of objects.
     
-    If a new object is requested which is already created, a reference to the existing
-    object will be returned. The object is automatically removed from the cache when no one
-    is no longer holding a reference to it"""
+    If a new object is requested which is already created, a
+    reference to the existing object will be returned.
+    The object is automatically removed from the cache when no
+    one is no longer holding a reference to it.
+    """
 
     global_cache = weakref.WeakValueDictionary()
 
     def __new__(cls, *args, **vargs):
         """
         When a new object is requested, the system will check, using
-        cls.create_primary_key(*args, **vargs) to see if it exists in the cache. If so, then
-        a reference to it is returned. Otherwise a new object is created and the reference to
-        that is returned instead."""
-
+        cls.create_primary_key(*args, **vargs) to see if it exists in
+        the cache. If so, then a reference to it is returned.
+        Otherwise a new object is created and the reference to that is
+        returned instead.
+        """
         # FIXME: vi trenger låsing her
-
         cache = vargs.get('cache', cls.global_cache)
         if 'cache' in vargs:
             del vargs['cache']
@@ -72,7 +74,7 @@ class Caching(object):
         setattr(self, mark, time.time())
 
     def get_primary_key(self):
-        """ Returns the primary key for the object. """
+        """Returns the primary key for the object."""
         return self.__key[1]
 
     def get_minimum_lifetime(self):
@@ -98,7 +100,9 @@ class Caching(object):
         
         Will not prevent this object from futher use.
         """
-        del self.cache[self.__key]
+        print "test", self, self.cache
+        if self.cache is not None:
+            del self.cache[self.__key]
 
     def create_primary_key(*args, **vargs):
         return None # this will make it a singleton
