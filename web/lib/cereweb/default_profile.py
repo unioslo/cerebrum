@@ -29,8 +29,5 @@ profile = {
     },
     'menu': {
     },
-    'various': {
-        'last_error_message': ''  # should always be '' in the profile
-    },
     
 }
