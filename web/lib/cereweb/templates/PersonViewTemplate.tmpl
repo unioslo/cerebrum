@@ -10,7 +10,7 @@
 <h1>$_("Person") $person.name</h1>
 $personInfo($person)
 $personAccounts($person)
-$HistoryLog.view_history($person)
+$HistoryLog.view_history_short($person, $person.id)
 #end def
 
 #def personAccounts($person)
@@ -20,7 +20,7 @@ $HistoryLog.view_history($person)
 <h2>$_("Accounts")</h2>
 #for $account in $allaccounts
 #set t = $AccountViewTemplate()
-$t.viewAccount($account, False)
+$t.viewAccount($account, False, False)
 #end for
 </div>
 #end def
