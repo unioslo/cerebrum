@@ -118,13 +118,14 @@ class RequestHandler(SocketServer.StreamRequestHandler):
                 cmd[1], cmd[2], self.client_address))
             self._helo = (cmd[1], cmd[2])
             # Get information based on username
+            self.username = cmd[1]
             try:
                 account = Factory.get('Account')(db)
                 account.clear()
-                account.find_by_name(cmd[1])
+                account.find_by_name(self.username)
             except Errors.NotFoundError:
                 self.log('ERROR', "Invalid username %s from %s" % (
-                    cmd[1], self.client_address))
+                    self.username, self.client_address))
                 self.send(enouser)
                 if not log_unknown_accounts:
                     return
@@ -201,14 +202,14 @@ class RequestHandler(SocketServer.StreamRequestHandler):
         #
         # Possible &send() feedback: ok, no, edbdown, badpage
 
+        self.log('TRACE', 'check_quota: %s@%s %s / %i' % (
+            pageunits, printer, self.username, self.person_id or 0))
         if (self.pq_data is None or
             self.pq_data['has_quota'] == 'F'):
             return ok
         if self.pq_data['has_blocked_quota'] == 'T':
             return no
         pageunits = float(pageunits)
-        self.log('TRACE', 'check_quota: %s@%s %s' % (
-            pageunits, printer, self.account_id))
         if pageunits <= 0:
             return ebadpage
         quota = self.pq_data['free_quota'] + self.pq_data['paid_quota']
@@ -220,13 +221,13 @@ class RequestHandler(SocketServer.StreamRequestHandler):
         if not self.client_address[0] in authorized_hosts:
             return eperm
         
+        self.log('TRACE', "subtract_quota: %s for %s / %i, data=%s" % (
+            pageunits, self.username, self.person_id or 0, repr(job_data)))
         pageunits = float(pageunits)
         if pageunits < 0:
             self.log('TRACE', "subtract_quota: BAD_PAGE")
             return ebadpage
 
-        self.log('TRACE', "subtract_quota: %s for %i, data=%s" % (
-            pageunits, self.person_id or 0, repr(job_data)))
         update_quota = self.pq_data and self.pq_data['has_quota'] == 'T'
 
         _assert_has_quota(self.person_id)
