@@ -1,43 +1,12 @@
 #!/usr/bin/env python2.2
 # $Id$
 
-## Import from Ureg2000 (Specific to uio.no)
-## -----------------------------------------
-##   STATUS: 2002-11-19: Not started, but will be very useful for testing
-## 		      of other components; hence, start is scheduled
-## 		      before 2002-11-22.
-##
-##   RESPONSIBILITY OF: RF
-##
-##   Scripts for importing user, email, filegroup and and netgroup data
-##   from Ureg2000.  Person data not appearing in any of Cerebrum's
-##   authoritative sources must also be imported.
-##
-##   CODE DEPENDENCIES: Core API
-## 		     POSIX users and groups
-## 		     Email API
-##
-##   DATA DEPENDENCIES: Import LT+FS
-##
-##   FILES:
-
-
 """
 Reads XML files with user and person data from file, and imports them
 into cerebrum.  Contains some UREG specific parts, but attempt has
 been made to isolate these so that this script also can be used with
 other sources.
 """
-
-## HOWTO:
-##
-## - importer alle filgrupper m/creator_id=ureg2000
-## - for hver person:
-##   - hvis personen ikke finnes, legg vedkommende inn med ss=ureg2000
-##   - bygg brukeren
-##     - ignorer spread (foreløbig)
-##     - husk create_date og creator_id i en hash, samt alle byggedes id
-## - sett create_date og creator_id direkte i SQL (API støtter det ikke)
 
 import pprint
 import xml.sax
@@ -47,6 +16,7 @@ from Cerebrum import Database
 from Cerebrum import Account
 from Cerebrum import Group
 from Cerebrum import Person
+from Cerebrum import cereconf
 from Cerebrum import Constants
 from Cerebrum import Errors
 from Cerebrum.modules import PosixGroup
@@ -178,21 +148,23 @@ class FilegroupParser(xml.sax.ContentHandler):
 
 def import_groups(groupfile, fill=0):
     account = Account.Account(Cerebrum)
-    # insert into entity_name values(888888, 21, 'ureg2000');
-    account.find(888888)
+    account.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
 
+    print """Processing groups.  Progress indicators means:
+    . : a group with members has been read from XML file
+    G : a group in the file did not exist (when -M is used)
+    A : an account was added as member to a group
+    n : the member being populated was missing"""
     for group in GroupData(groupfile):
         # pp.pprint(group)
         print ".",
+        sys.stdout.flush()
         groupObj = Group.Group(Cerebrum)
         pg = PosixGroup.PosixGroup(Cerebrum)
         if not fill:
             groupObj.populate(account, co.group_visibility_all,
                               group['name'], group['comment'])
             groupObj.write_db()
-            # groupObj.find(groupObj.entity_id)
-
-            # pg = PosixGroup.PosixGroup(Cerebrum)
             pg.populate(parent=groupObj, gid=group['gid'])
             pg.write_db()
         else:
@@ -201,20 +173,22 @@ def import_groups(groupfile, fill=0):
             except Errors.NotFoundError:
                 print "G",
                 continue
-            for m in group['member']:
+            for m in group.get('member', []):
                 try:
-                    account.find_account_by_name(co.account_namespace, m['uname'])
+                    account.find_by_name(m['uname'])
                     pg.add_member(account, co.group_memberop_union);
                     print "A",
                 except Errors.NotFoundError:
                     print "n",
                     continue
-
     Cerebrum.commit()
 
 def import_person_users(personfile):
     namestr2const = {'lname': co.name_last, 'fname': co.name_first}
-
+    account = Account.Account(Cerebrum)
+    account.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
+    acc_creator_id = account.entity_id
+    
     for person in PersonUserData(personfile):
         # pp.pprint(person)
 
@@ -245,55 +219,110 @@ def import_person_users(personfile):
                     personObj.populate_name(namestr2const[k['type']], k['val'])
             if fnr is not None:
                 personObj.populate_external_id(co.system_ureg, co.externalid_fodselsnr, fnr)
-            # personObj.populate_contact_info(co.contact_phone, tlf)
-            # personObj.affect_addresses(co.system_lt, co.address_post)
-            # personObj.populate_address(co.address_post, addr="%s\n%s" %
+            for c in person['contact']:
+                if c['type'] == 'workphone':
+                    personObj.populate_contact_info(co.contact_phone, c['val'],
+                                                    contact_pref=1)
+                elif c['type'] == 'privphone':
+                    personObj.populate_contact_info(co.contact_phone, c['val'],
+                                                    contact_pref=2)
+                elif c['type'] == 'workfax':
+                    personObj.populate_contact_info(co.contact_phone, c['val'])
+                elif c['type'] == 'privaddress':
+                    personObj.affect_addresses(co.system_ureg, co.address_post)
+                    a = c['val'].split('$', 2)
+                    personObj.populate_address(co.address_post,
+                                               addr="%s\n%s" % (a[0], a[1]))
+            if person.has_key('uio'):
+                if person['uio'].has_key('psko'):
+                    # Typer v/uio: A B M S X a b s
+                    aff = co.affiliation_student   # TODO: define all const
+                    affstat = co.affiliation_status_student_valid
+                    if person['uio']['ptype'] in ('A', 'a'):
+                        aff = co.affiliation_employee
+                        affstat = co.affiliation_status_employee_valid
 
-            # if stedkode <> '':
-            #             try:
-            #                 fak, inst, gruppe = stedkode[0:2], stedkode[2:4], stedkode[4:6]
-            #                 ou.find_stedkode(int(fak), int(inst), int(gruppe))
-            #                 personObj.affect_affiliations(co.system_lt, co.affiliation_employee)
-            #                 personObj.populate_affiliation(ou.ou_id, co.affiliation_employee,
-            #                                                 co.affiliation_status_employee_valid)
-            #             except:
-            #                 print "Error setting stedkode"
+                    try:
+                        s = person['uio']['psko']
+                        fak, inst, gruppe = s[0:2], s[2:4], s[4:6]
+                        ou.find_stedkode(int(fak), int(inst), int(gruppe))
+                        personObj.affect_affiliations(co.system_ureg,
+                                                      aff)
+                        personObj.populate_affiliation(ou.ou_id, aff,
+                                                       affstat)
+                    except:
+                        print "Error setting stedkode: %s" % s
 
             personObj.write_db()
             person_id = personObj.person_id
 
         # Bygg brukeren
-        # print "Building user for person_id=%s" % person_id
+
+        # TODO:
+        # - ta hensyn til spread
+        # - sette rett create_date og creator_id
+
         for u in person['user']:
-            print "%s" % u['uname']
             expire_date = None  # TODO
             gecos = None        # TODO
             shell = co.posix_shell_bash # TODO: shell2shellconst[u['shell']]
             
             group=PosixGroup.PosixGroup(Cerebrum)
             group.find_by_gid(u['dfg'])
-            account = Account.Account(Cerebrum)
             account.clear()
             account.populate(u['uname'],
                              co.entity_person,  # Owner type TODO
                              person_id,
                              None, 
-                             888888, expire_date)
+                             acc_creator_id, expire_date)
+            account.affect_auth_types(co.auth_type_md5, co.auth_type_crypt)
+            for au in u.get('auth', []):
+                if au['type'] == 'plaintext':   # TODO: Should be called last?
+                    account.set_password(au['val'])
+                elif au['type'] == 'md5':
+                    account.populate_authentication_type(co.auth_type_md5,
+                                                            au['val'])
+                elif au['type'] == 'crypt':
+                    account.populate_authentication_type(co.auth_type_crypt,
+                                                            au['val'])
             account.write_db()
 
             posix_user = PosixUser.PosixUser(Cerebrum)
-            posix_user.populate(account.entity_id, u['uid'], group.entity_id, gecos,
-                                u['home'], shell)
-            posix_user.set_password('TODO')    # TODO
+            posix_user.clear()
+
+            posix_user.populate(u['uid'],
+                                group.entity_id,
+                                gecos,
+                                u['home'],
+                                shell,
+                                parent=account)
+
             posix_user.write_db(account)
             Cerebrum.commit()
+
+def usage():
+    print """import_userdb_XML.py [-p file | -g file] {-P | -G | -M}
+
+-G : generate the groups
+-P : generate persons and accounts
+-M : populate the groups with members
+
+Normaly first run with -G, then -P and finally with -M.  The program
+is not designed to be ran multiple times.
+
+This script is designed to be ran on a database that contains no users
+or groups.  ou and person tables should preferable be populated.  When
+importing accounts, the persons will be created iff they cannot be
+located by their extid (currently only fnr is supported).
+    """
 
 if __name__ == '__main__':
     try:
         opts, args = getopt.getopt(sys.argv[1:], "p:g:PGM",
-                                   ["pfile=", "gfile=", "persons", "groups", "groupmembers"])
+                                   ["pfile=", "gfile=", "persons", "groups",
+                                    "groupmembers"])
     except getopt.GetoptError:
-        print "usage()"
+        usage()
         sys.exit(2)
     pfile = default_personfile
     gfile = default_groupfile
@@ -308,3 +337,5 @@ if __name__ == '__main__':
             import_groups(gfile, 0)
         elif o in ('-M', '--groupmembers'):
             import_groups(gfile, 1)
+    if(len(opts) == 0):
+        usage()
