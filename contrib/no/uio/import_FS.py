@@ -7,7 +7,6 @@ from Cerebrum import Database,Constants,Errors
 from Cerebrum import Person
 from Cerebrum.modules.no.uio import OU
 from Cerebrum.modules.no import fodselsnr
-from DCOracle2 import Date
 # import pprint
 
 class FSData(object):
@@ -75,7 +74,7 @@ def process_person(persondta):
     if(fodselsnr.er_kvinne(fnr)):
         gender = co.gender_female
 
-    new_person.populate(Date(year, mon, day), gender)
+    new_person.populate(Cerebrum.Date(year, mon, day), gender)
     new_person.affect_names(co.system_fs, co.name_full)
     new_person.populate_name(co.name_full, "%s %s" % (persondta['lname'], persondta['fname']))
 

@@ -6,7 +6,6 @@ import os
 from Cerebrum import Database, Person, Constants, Errors
 from Cerebrum.modules.no.uio import OU
 from Cerebrum.modules.no import fodselsnr
-from DCOracle2 import Date
 import pprint
 
 personfile = "/u2/dumps/LT/persons.dat";
@@ -86,7 +85,7 @@ def main():
 
         (year, mon, day) = fodselsnr.fodt_dato(person['fnr'])
         if(year < 1970): year = 1970   # Seems to be a bug in time.mktime on some machines
-        new_person.populate(Date(year, mon, day), gender)
+        new_person.populate(Cerebrum.Date(year, mon, day), gender)
 
         new_person.affect_names(co.system_lt, co.name_full)
         lname, fname = conv_name(person['navn'])
