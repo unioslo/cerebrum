@@ -60,9 +60,8 @@ class Person_createTestCase(OU_createTestCase):
         person.populate_address(self.co.system_manual,
                                 self.co.address_post, address_text=pd['address_text'],
                                 postal_number=pd['postal_number'], city=pd['city'])
-        person.affect_affiliations(self.co.system_manual,
-                                   self.co.affiliation_student)
-        person.populate_affiliation(self.ou_id, self.co.affiliation_student,
+        person.populate_affiliation(self.co.system_manual,
+                                    self.ou_id, self.co.affiliation_student,
                                     self.co.affiliation_status_student_valid)
 
     def tearDown(self):

@@ -30,7 +30,7 @@ from Cerebrum import Errors
 
 class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
 
-    __read_attr__ = ('__in_db',)
+    __read_attr__ = ('__in_db', '_affil_source', '__affil_data')
     __write_attr__ = ('birth_date', 'gender', 'description', 'deceased')
 
     def clear(self):
@@ -52,10 +52,6 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
         self._pn_affect_source = None
         self._pn_affect_types = None
         self._name_info = {}
-        # Person affiliations:
-        self._pa_affect_source = None
-        self._pa_affiliations = {}
-        self._pa_affected_affiliations = ()
 
     def populate(self, birth_date, gender, description=None, deceased='F',
                  parent=None):
@@ -88,30 +84,34 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
                 print "Person.super.__eq__ = %s" % identical
             return False
 
-        affected_source = self._pa_affect_source
-        if affected_source is not None:
-            for affected_affil in self._pa_affected_affiliations:
-                other_dict = {}
-                for t in other.get_affiliations():
-                    if t.source_system == affected_source:
-                        # Not sure why this casting to int is required
-                        # on PostgreSQL
-                        other_dict[int(t.ou_id)] = t.status
-                for t_ou_id, t_status in \
-                        self._pa_affiliations.get(affected_affil, []):
-                    # Not sure why this casting to int is required on
-                    # PostgreSQL
-                    t_ou_id = int(t_ou_id)
-                    if other_dict.has_key(t_ou_id):
-                        if other_dict[t_ou_id] <> t_status:
-                            if cereconf.DEBUG_COMPARE:
-                                print "PersonAffiliation.__eq__ = %s" % False
-                            return False
-                        del other_dict[t_ou_id]
-                if len(other_dict) != 0:
-                    if cereconf.DEBUG_COMPARE:
-                        print "PersonAffiliation.__eq__ = %s" % False
-                    return False
+# The affiliation comparison stuff below seems to suffer from bitrot
+# -- and with the current write_db() API, I'm not sure that we really
+# *need* this functionality in __eq__().
+#
+##         if hasattr(self, '_affil_source'):
+##             source = self._affil_source
+##             for affected_affil in self._pa_affected_affiliations:
+##                 other_dict = {}
+##                 for t in other.get_affiliations():
+##                     if t.source_system == source:
+##                         # Not sure why this casting to int is required
+##                         # on PostgreSQL
+##                         other_dict[int(t.ou_id)] = t.status
+##                 for t_ou_id, t_status in \
+##                         self._pa_affiliations.get(affected_affil, []):
+##                     # Not sure why this casting to int is required on
+##                     # PostgreSQL
+##                     t_ou_id = int(t_ou_id)
+##                     if other_dict.has_key(t_ou_id):
+##                         if other_dict[t_ou_id] <> t_status:
+##                             if cereconf.DEBUG_COMPARE:
+##                                 print "PersonAffiliation.__eq__ = %s" % False
+##                             return False
+##                         del other_dict[t_ou_id]
+##                 if len(other_dict) != 0:
+##                     if cereconf.DEBUG_COMPARE:
+##                         print "PersonAffiliation.__eq__ = %s" % False
+##                     return False
         if cereconf.DEBUG_COMPARE:
             print "PersonAffiliation.__eq__ = %s" % identical
         if not identical:
@@ -149,7 +149,6 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
         """
         self.__super.write_db()
         if not self.__updated:
-            print "not updated"
             return
         is_new = not self.__in_db
         if is_new:
@@ -182,26 +181,25 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
                           'desc': self.description,
                           'p_id': self.entity_id})
 
-        affected_source = self._pa_affect_source
-        if affected_source is not None:    # Handle PersonAffiliations
-            other = {}
+        # Handle PersonAffiliations
+        if hasattr(self, '_affil_source'):
+            source = self._affil_source
+            db_affil = {}
             for t_ou_id, t_affiliation, t_source, t_status in \
                     self.get_affiliations():
-                if affected_source == t_source:
-                    other["%d-%d" % (t_ou_id, t_affiliation)] = t_status
-            for affected_affil in self._pa_affected_affiliations:
-                for ou_id, status in self._pa_affiliations[affected_affil]:
-                    key = "%d-%d" % (ou_id, affected_affil)
-                    if not other.has_key(key) or other[key] <> status:
-                        self.add_affiliation(ou_id, affected_affil,
-                                             affected_source, status)
-                    if other.has_key(key):
-                        del other[key]
-                for key in other.keys():
-                    ou_id, affected_affil = key.split('-')
-                    status = other[key]
-                    self.delete_affiliation(ou_id, affected_affiliation,
-                                            affected_source, status)
+                if source == t_source:
+                    idx = "%d:%d:%d" % (t_ou_id, t_affiliation, t_status)
+                    db_affil[idx] = True
+            pop_affil = self.__affil_data
+            for idx in pop_affil.keys():
+                if db_affil.has_key(idx):
+                    del db_affil[idx]
+                else:
+                    ou_id, affil, status = [int(x) for x in idx.split(":")]
+                    self.add_affiliation(ou_id, affil, source, status)
+            for idx in db_affil.keys():
+                ou_id, affil, status = [int(x) for x in idx.split(":")]
+                self.delete_affiliation(ou_id, affil, source, status)
 
         # If affect_names has not been called, we don't care about
         # names
@@ -293,13 +291,15 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
         SELECT person_id FROM [:table schema=cerebrum name=person_info]
         WHERE to_date(birth_date, 'YYYY-MM-DD')=:bdate""", locals())
 
-    def find_by_external_id(self, id_type, external_id):
+    def find_by_external_id(self, id_type, external_id, source_system):
         person_id = self.query_1("""
         SELECT person_id
         FROM [:table schema=cerebrum name=person_external_id]
-        WHERE id_type=:id_type AND external_id=:ext_id""",
-                                 {'id_type': int(id_type),
-                                  'ext_id': external_id})
+        WHERE id_type=:id_type AND
+              external_id=:ext_id AND
+              source_system=:src""", {'id_type': int(id_type),
+                                      'ext_id': external_id,
+                                      'src': int(source_system)})
         self.find(person_id)
 
     def _compare_names(self, type, other):
@@ -357,16 +357,18 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
         self._name_info[type] = name
         self.__updated = True
 
-    def affect_affiliations(self, source, *types):
-        self._pa_affect_source = source
-        if types is None:
-            raise NotImplementedError
-        self._pa_affected_affiliations = types
-
-    def populate_affiliation(self, ou_id, affiliation, status):
-        self._pa_affiliations[affiliation] = \
-            self._pa_affiliations.get(affiliation, []) + [(ou_id, status)]
-        self.__updated = True
+    def populate_affiliation(self, source_system, ou_id=None,
+                             affiliation=None, status=None):
+        if not hasattr(self, '_affil_source'):
+            self._affil_source = source_system
+            self.__affil_data = {}
+        elif self._affil_source <> source_system:
+            raise ValueError, \
+                  "Can't populate multiple `source_system`s w/o write_db()."
+        if ou_id is None:
+            return
+        idx = "%d:%d:%d" % (ou_id, affiliation, status)
+        self.__affil_data[idx] = True
 
     def get_affiliations(self):
         return self.query("""
