@@ -20,6 +20,7 @@
 
 """
 
+import cereconf
 from Cerebrum import Utils
 from Cerebrum.Entity import Entity, EntityContactInfo, EntityAddress
 
@@ -142,7 +143,7 @@ class OU(OUStructure, EntityContactInfo, EntityAddress, Entity):
                      (other.short_name == self.short_name) and
                      (other.display_name == self.display_name) and
                      (other.sort_name == self.sort_name))
-        if self._debug_eq:
+        if cereconf.DEBUG_COMPARE:
             print "OU.__eq__ = %s" % identical
         return identical
 

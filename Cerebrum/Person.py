@@ -20,6 +20,7 @@
 
 """
 
+import cereconf
 from Cerebrum.Entity import \
      Entity, EntityContactInfo, EntityAddress, EntityQuarantine
 from Cerebrum import OU
@@ -84,7 +85,8 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
         assert isinstance(other, Person)
         identical = self.__super.__eq__(other)
         if not identical:
-            if self._debug_eq: print "Person.super.__eq__ = %s" % identical
+            if cereconf.DEBUG_COMPARE:
+                print "Person.super.__eq__ = %s" % identical
             return False
 
         affected_source = self._pa_affect_source
@@ -103,15 +105,16 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
                     t_ou_id = int(t_ou_id)
                     if other_dict.has_key(t_ou_id):
                         if other_dict[t_ou_id] <> t_status:
-                            if self._debug_eq:
+                            if cereconf.DEBUG_COMPARE:
                                 print "PersonAffiliation.__eq__ = %s" % False
                             return False
                         del other_dict[t_ou_id]
                 if len(other_dict) != 0:
-                    if self._debug_eq:
+                    if cereconf.DEBUG_COMPARE:
                         print "PersonAffiliation.__eq__ = %s" % False
                     return False
-        if self._debug_eq: print "PersonAffiliation.__eq__ = %s" % identical
+        if cereconf.DEBUG_COMPARE:
+            print "PersonAffiliation.__eq__ = %s" % identical
         if not identical:
             return False
 
@@ -122,7 +125,8 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
                 if my_name != other_name:
                     identical = False
                     break
-        if self._debug_eq: print "PersonName.__eq__ = %s" % identical
+        if cereconf.DEBUG_COMPARE:
+            print "PersonName.__eq__ = %s" % identical
         if not identical:
             return False
 
@@ -130,7 +134,8 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
                      (other.gender == int(self.gender)) and
                      (other.description == self.description) and
                      (other.deceased == self.deceased))
-        if self._debug_eq: print "Person.__eq__ = %s" % identical
+        if cereconf.DEBUG_COMPARE:
+            print "Person.__eq__ = %s" % identical
         return identical
 
     def write_db(self):
