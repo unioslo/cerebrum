@@ -358,8 +358,8 @@ WHERE s.fodselsdato=st.fodselsdato AND
       st.studieprogramkode=sp.studieprogramkode AND
       NVL(st.dato_gyldig_til,SYSDATE) >= sysdate AND
       r.dato_bekreftet < SYSDATE AND
-      r.arstall_bekreft = %s AND
-      r.terminkode_bekreft = %s
+      r.arstall_bekreft = %d AND
+      r.terminkode_bekreft = '%s'
 UNION""" %(self.year, self.semester)
 
         qry = qry + """
