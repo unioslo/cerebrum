@@ -38,6 +38,7 @@ from Cerebrum.modules.no import fodselsnr
 
 group_name = "LT-elektroniske-reservasjoner"
 group_desc = "Internal group for people from LT which will not be shown online"
+ignore_gjestetypekode_group = ('IKKE ANGIT','EKST. KONS')
 
 
 
@@ -197,6 +198,11 @@ def determine_affiliations(person):
             aff_stat = const.affiliation_tilknyttet_studpol
         elif (g['gjestetypekode'] == 'ST-ORG FRI' or g['gjestetypekode'] =='ST-ORG UTV'):
             aff_stat = const.affiliation_tilknyttet_studorg
+	# Some known gjestetypekode can't be maped to any known affiliations
+	# at the moment. Group defined above in head.  
+	elif g['gjestetypekode'] in ignore_gjestetypekode_group:
+	    logger.info("No registrations of gjestetypekode: %s" % g['gjestetypekode'])
+	    continue
         else:
             logger.warn("Unknown gjestetypekode: %s" % g['gjestetypekode'])
             continue
