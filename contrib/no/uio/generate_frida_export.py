@@ -61,6 +61,7 @@ from Cerebrum.extlib import xmlprinter
 from Cerebrum.extlib.sets import Set
 
 from Cerebrum.modules.no import fodselsnr
+from Cerebrum.Cache import memoize_function
 
 
 
@@ -81,6 +82,11 @@ def output_element(writer, value, element, attributes = {}):
     This function is just a shorthand, to avoid mistyping the element names
     in open and close tags
     '''
+
+    # skip "empty" elements
+    if not attributes and not str(value):
+        return
+    # fi
 
     writer.startElement(element, attributes)
     writer.data(str(value))
@@ -159,26 +165,37 @@ def output_OU_address(writer, db_ou, constants):
 #
 # publishable_id is any id in the OU hierarchy (starting from ou_id and
 # walking upwards toward the root) for which katalog_merke = 'T'
-# 
-_ou_parent = dict()
 def find_suitable_OU(ou, id, constants):
     """
     This is a caching wrapper around __find_suitable_OU
     """
     child = int(id)
 
-    if _ou_parent.has_key(child):
-        return _ou_parent[child]
-    # fi
-
     parent = __find_suitable_OU(ou, child, constants)
     if parent is not None:
         parent = int(parent)
     # fi
     
-    _ou_parent[child] = parent
     return parent
 # end find_suitable_OU
+find_suitable_OU = memoize_function(find_suitable_OU)
+
+
+
+def find_sko(ou, id):
+    """
+    """
+
+    try:
+        ou.clear()
+        ou.find(id)
+    except Cerebrum.Errors.NotFoundError:
+        return ""
+    else:
+        return int(ou.fakultet), int(ou.institutt), int(ou.avdeling)
+    # yrt
+# end find_sko
+find_sko = memoize_function(find_sko)
 
 
 
@@ -271,7 +288,9 @@ def output_OU(writer, start_id, db_ou, parent_ou, lifetimes, constants):
     #
     id = find_suitable_OU(db_ou, start_id, constants)
     if id is None:
-        logger.warn("No suitable ids for (start) id = %s", start_id)
+        sko = find_sko(db_ou, start_id)
+        logger.warn("Cannot find an OU with katalog_merke = 'T' " +
+                    "from id = %s (sko: %s)", start_id, sko)
         return
     # fi
 
@@ -398,7 +417,7 @@ class OUParser(xml.sax.ContentHandler):
         # end
         
         name_bokmal = ""
-        for i in ("stedlangnavn_bokmnal", "stedkortnavn_bokmal",
+        for i in ("stedlangnavn_bokmal", "stedkortnavn_bokmal",
                   "stednavn"):
             if attrs.get(i):
                 name_bokmal = attrs[i]
@@ -411,8 +430,6 @@ class OUParser(xml.sax.ContentHandler):
                 name_english = attrs[i]
             # fi
         # od
-
-        
 
         return (reformat_date(attrs.get("dato_opprettet")),
                 reformat_date(attrs.get("dato_nedlagt")),
@@ -531,6 +548,13 @@ def process_person_frida_information(db_person, db_ou, constants):
                                                   db_ou,
                                                   constants),
                     guests)
+
+    for sequence in (employments, guests):
+        for item in sequence:
+            item["dato_fra"] = item["dato_fra"].strftime("%Y-%m-%d")
+            item["dato_til"] = item["dato_til"].strftime("%Y-%m-%d")
+        # od
+    # od
 
     return (employments, guests)
 # end process_person_frida_information

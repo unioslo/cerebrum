@@ -143,4 +143,22 @@ class cache_timeout(Cache):
             raise KeyError, "Timed out"
         return val
 
+def memoize_function(function, cache_type=Cache, **kwargs):
+    """
+    Return a wrapper around FUNCTION that caches previously computed
+    results. KWARGS is passed to CACHE_TYPE.
+    """
+
+    cache = cache_type(**kwargs)
+
+    def memoized(*rest):
+        if rest in cache:
+            return cache[rest]
+
+        result = function(*rest)
+        cache[rest] = result
+        return result
+
+    return memoized
+
 # arch-tag: 40287917-369a-46c5-8154-ca389c695e95
