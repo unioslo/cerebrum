@@ -25,6 +25,7 @@ mailed_users = {}
 splatted_users = []
 debug_enabled = False   # If set to true, no e-mail will be sent
 debug_verbose = False   # e-mail is shown on stdout (requires debug_enabled)
+debug_account_ids = None
 
 account.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
 splattee_id = account.entity_id
@@ -89,8 +90,11 @@ def process_data(status_mode=False, normal_mode=False):
     max_date = time.strftime('%Y-%m-%d',
                              time.localtime(time.time()-max_password_age))
     ph = PasswordHistory.PasswordHistory(db)
-    account_ids = [int(x['account_id']) for x in ph.find_old_password_accounts(max_date)]
-    account_ids.extend( [int(x['account_id']) for x in ph.find_no_history_accounts() ])
+    if debug_account_ids is None:
+        account_ids = [int(x['account_id']) for x in ph.find_old_password_accounts(max_date)]
+        account_ids.extend( [int(x['account_id']) for x in ph.find_no_history_accounts() ])
+    else:
+        account_ids = debug_account_ids
     logger.debug("Found %i users" % len(account_ids))
     num_mailed = num_splatted = num_previously_warned = num_reminded = 0
     for account_id in account_ids:
@@ -175,7 +179,7 @@ def main():
             ['help', 'from=', 'to=', 'cc=', 'msg-file=',
              'max-password-age=', 'grace-period=', 'data-file=',
              'max-users=', 'debug', 'status', 'reminder-delay=',
-             'reminder-msg-file='])
+             'reminder-msg-file=', 'debug-data='])
     except getopt.GetoptError:
         usage(1)
     if len(opts) == 0:
@@ -204,6 +208,13 @@ def main():
             if logger.name != 'console':
                 print "Use --logger-name=console so that logs don't get changed"
                 sys.exit(1)
+        elif opt in ('--debug-data',):
+            global debug_account_ids
+            debug_account_ids = []
+            for name in val.split(","):
+                account.clear()
+                account.find_by_name(name)
+                debug_account_ids.append(int(account.entity_id))
         elif opt in ('--cc',):
             summary_email_info['Cc'] = val
         elif opt in ('--msg-file',):
@@ -246,8 +257,12 @@ def usage(exitcode=0):
     --max-users num : debug purposes only: limit max processed users
     --debug : Will not send mail or splat accounts (updates data-file).
               Use with --logger-name=console
+    --debug-data: comma separated username list of users with expired passwords
     --status : Show statistics about what would happen if the script
-         was ran now.  Does not update files/send mail."""
+         was ran now.  Does not update files/send mail.
+
+Example: notify_change_password.py --logger-name=console --debug --debug-data uname --from foo@bar.com --to foo@bar.com --msg-file templates/no_NO/email/skiftpassordmail.txt --reminder-msg-file templates/no_NO/email/skiftpassordmail_reminder.txt --max-password-age 350 --grace-period 30 --reminder-delay 16 --data-file notify_change_password.dat -p
+         """
     sys.exit(exitcode)
 
 if __name__ == '__main__':
