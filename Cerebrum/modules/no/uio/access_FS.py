@@ -400,7 +400,7 @@ WHERE p.fodselsdato=d.fodselsdato AND
 	informasjon om utd_plan og eier samt studieprogkode"""
         qry = """
 
-SELECT studieprogramkode, status_utdplan, faknr_studieansv,
+SELECT studieprogramkode, status_utdplan, institusjonsnr_studieansv, faknr_studieansv,
        instituttnr_studieansv, gruppenr_studieansv, studienivakode
 FROM fs.studieprogram"""
         return (self._get_cols(qry), self.db.query(qry))
