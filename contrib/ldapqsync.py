@@ -87,8 +87,7 @@ def mod_account(dn_id,i):
 	except: pass 
     else:
 	if True in [account.has_spread(x) for x in u_spreads]:
-	    search_str = "%s=%s" % (cereconf.LDAP_USER_ATTR,
-					account.account_name)
+	    search_str = "uid=%s" % account.account_name
 	    ldap_entry = lc.get_ldap_value(user_dn,search_str,None)
 	    dn_str,ldap_entry_u = ldap_entry[0][0]
 	    base_entry = get_user_info_dict(dn_id)
@@ -107,7 +106,7 @@ def get_user_info_dict(dn_id):
 def change_passwd(dn_id):
     acc = Account.Account(db)
     acc.find(int(dn_id))
-    search_str = "%s=%s" % (cereconf.LDAP_USER_ATTR,acc.account_name)
+    search_str = "uid=%s" % acc.account_name
     search_dn = "%s,%s" % (search_str,user_dn)
     passwd_attr = 'userPassword'
     attr_list = []
@@ -137,7 +136,7 @@ def change_quarantine(dn_id,ch_type):
     if True in [posusr.has_spread(x) for x in u_spreads]:
 	spread_u = True
     else: spread_u = False
-    search_str = "%s=%s" % (cereconf.LDAP_USER_ATTR,posusr.account_name)
+    search_str = "uid=%s" % posusr.account_name
     search_dn = "%s,%s" % (search_str,user_dn)
     user = {}
     passwd = 'userPassword'
@@ -223,7 +222,7 @@ def change_user_spread(dn_id, ch_type, ch_params):
     cl_spread = int(re.sub('\D','',param_list[3]))
     if cl_spread in u_spreads:
 	account.find(dn_id)
-	search_str = "%s=%s" % (cereconf.LDAP_USER_ATTR,account.account_name)
+	search_str = "uid=%s" % account.account_name
 	search_dn = "%s,%s" % (search_str,user_dn)
 	if (ch_type == int(const.spread_del)):
 	    for entry in lc.get_ldap_value(user_dn,search_str,None):
@@ -250,10 +249,7 @@ def get_user_info(dn_id):
     shells = {}
     for sh in pos.list_shells():
 	shells[int(sh['code'])] = sh['shell']
-    objcl_list = []
-    objcl_list.append('top')
-    for obj in cereconf.LDAP_USER_OBJECTCLASS:
-	objcl_list.append(obj)
+    objcl_list = ['top', 'account', 'posixAccount']
     try:
 	pos.clear()
 	pos.find(dn_id)
@@ -315,10 +311,7 @@ def get_group_info(dn_id):
     posixgroup = PosixGroup.PosixGroup(db)
     try:
 	posixgroup.find(dn_id)
-	objcl_list = []
-	objcl_list.append('top')
-	for obj in cereconf.LDAP_GROUP_OBJECTCLASS:
-	    objcl_list.append(obj)
+	objcl_list = ['top', 'posixGroup']
 	ldif_list = modlist.addModlist({'objectClass': objcl_list})
 	ldif_list.append(('cn',[posixgroup.group_name]))
 	ldif_list.append(('gidNumber',[str(posixgroup.posix_gid)]))
@@ -337,10 +330,7 @@ def get_netgroup_info(dn_id):
     group = Group.Group(db)
     try:
         group.find(dn_id)
-        objcl_list = []
-        objcl_list.append('top')
-        for obj in cereconf.LDAP_NETGROUP_OBJECTCLASS:
-            objcl_list.append(obj)
+        objcl_list = ['top', 'nisNetGroup']
         ldif_list = modlist.addModlist({'objectClass': objcl_list})
         ldif_list.append(('cn',[group.group_name]))
         if group.description:
@@ -396,7 +386,7 @@ def add_netg2netg(ch_type,dn_id,dn_dest):
     posgrp.clear()
     posgrp.find(int(dn_dest))
     if True in [posgrp.has_spread(x) for x in n_spreads]:
-	cn = "%s=%s" % (cereconf.LDAP_NETGROUP_ATTR,posgrp.group_name)
+	cn = "cn=%s" % posgrp.group_name
 	dn = cn + ',' + ngroup_dn
 	ng__attr = 'memberNisNetgroup'
 	posgrp.clear()
@@ -441,8 +431,7 @@ def user_add_del_grp(ch_type,user_id,dn_dest):
     for grp in get_groups(group.entity_id,g_spreads,grp_list,fg=True):
 	group.clear()
 	group.entity_id = int(grp)
-	dn = "%s=%s,%s" % (cereconf.LDAP_GROUP_ATTR,\
-                                group.get_name(co.group_namespace),group_dn)
+	dn = "cn=%s,%s" % (group.get_name(co.group_namespace),group_dn)
 	memb_attr = 'memberUid'
 	user = account.get_name(co.account_namespace)
 	memb_id = '%s=%s' % (memb_attr,user)
@@ -479,8 +468,7 @@ def user_add_del_grp(ch_type,user_id,dn_dest):
     for grp in grp_list:
 	group.clear()
         group.entity_id = int(grp)
-        cn = "%s=%s" % (cereconf.LDAP_GROUP_ATTR,\
-			 group.get_name(co.group_namespace))
+        cn = "cn=%s" % group.get_name(co.group_namespace)
 	dn = "%s,%s" % (cn,ngroup_dn)
         mem_attr = 'nisNetgroupTriple'
 	acc_name = account.get_name(co.account_namespace)
@@ -494,7 +482,7 @@ def user_add_del_grp(ch_type,user_id,dn_dest):
 		    pres_value = entry[0][1]['nisNetgroupTriple']
 		    if user not in pres_value:
 			pres_value.append(user)
-			lc.mod_ldap_serv(ldap.MOD_REPLACE,mem_attr,\ 
+			lc.mod_ldap_serv(ldap.MOD_REPLACE,mem_attr,
 					pres_value,dn,entry[1],list=True)
 		else: 
 		    lc.mod_ldap_serv(ldap.MOD_ADD,mem_attr,[user,],\

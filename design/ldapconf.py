@@ -1,7 +1,5 @@
 LDAP_BASE = 'dc=example,dc=com'
-LDAP_BASE_OBJECTCLASS = ('organization','labeledURIObject')
 LDAP_BASE_BUSINESSCATEGORY = ('Manufacturing','Education')
-LDAP_BASE_ALTERNATIVE_DN = ('Example','EX')
 LDAP_BASE_DESCRIPTION = ('Example INC Company, Middle Of Nowhere','Test')	
 LDAP_BASE_CITY = 'City of Example' 		
 LDAP_BASE_ALTERNATIVE_NAME = ('Example','Example INC','EX INC')
@@ -24,9 +22,7 @@ LDAP_MAN_LDIF_ADD_FILE = 'manuell.ldif'
 
 LDAP_PERSON = 'Enable'
 LDAP_PERSON_DN = 'people'
-LDAP_PERSON_ATTR = 'uid' # 'uid' or 'cn'
 LDAP_PERSON_ALTERNATIVE_NAME = ('people','Persons')
-LDAP_PERSON_OBJECTCLASS = ('person','organizationalPerson','inetOrgPerson','eduPerson')
 LDAP_PERSON_DESCRIPTION = 'All persons in Example INC Company'
 LDAP_PERSON_FILE = 'person.ldif'
 LDAP_PERSON_FILTER = 'Disable' 	
@@ -52,23 +48,17 @@ LDAP_PERSON_ACI = 'OpenLDAPaci: 1.1#entry#grant;c,r,s,x;[all],[entry]#public#'
 LDAP_USER = 'Enable'
 LDAP_USER_DN = 'users'
 LDAP_USER_ALTERNATIVE_NAME = ('users','Users in Example','Accounts')
-LDAP_USER_ATTR = 'uid'
-LDAP_USER_OBJECTCLASS = ('account','posixAccount')
 LDAP_USER_DESCRIPTION = 'Users in Example INC.'
 LDAP_USER_FILE = 'posixuser.ldif'
 LDAP_USER_SPREAD = ('spread_nis_user',)
 
 
 LDAP_ALIAS = 'Enable'
-LDAP_ALIAS_ATTR = 'uid'
-LDAP_ALIAS_OBJECTCLASS = ('alias','extensibleObject')
 LDA_ALIAS_FILE = 'alias.ldif'
 
 
 LDAP_GROUP = 'Enable'
 LDAP_GROUP_DN = 'filegroups'
-LDAP_GROUP_ATTR = 'cn'
-LDAP_GROUP_OBJECTCLASS = ('posixGroup',)
 LDAP_GROUP_ALTERNATIVE_NAME = ('filegroups','Filegroups in Example')
 LDAP_GROUP_DESCRIPTION = 'All filegroups in Example INC.'
 LDAP_GROUP_SPREAD = ('spread_nis_fg',)
@@ -76,8 +66,6 @@ LDAP_GROUP_FILE = 'posixgroup.ldif'
 
 LDAP_NETGROUP = 'Enable'
 LDAP_NETGROUP_DN = 'netgroups'
-LDAP_NETGROUP_ATTR = 'cn'
-LDAP_NETGROUP_OBJECTCLASS = ('nisNetGroup',)
 LDAP_NETGROUP_ALTERNATIVE_NAME = ('netgroups','Netgroup in Example INC')
 LDAP_NETGROUP_DESCRIPTION = 'All acccess groups in Example INC'
 LDAP_NETGROUP_SPREAD = ('spread_nis_ng',)
