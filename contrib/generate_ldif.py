@@ -754,7 +754,7 @@ def generate_group(spread=None, filename=None):
     f.close()
 
 def generate_netgroup(spread=None, filename=None):
-    pos_netgrp = Group.Group(Cerebrum)
+    pos_netgrp = Factory.get('Group')(Cerebrum)
     posix_user = PosixUser.PosixUser(Cerebrum)
     if filename:
         f = file(filename, 'w')
