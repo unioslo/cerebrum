@@ -29,6 +29,7 @@ import cerebrum_path
 import cereconf
 from Cerebrum.Utils import Factory
 
+all_ok = True
 def usage(exitcode=0):
     print """makedb.py [options] [sql-file ...]
 
@@ -45,6 +46,8 @@ def usage(exitcode=0):
         Perform only the 'drop' phase.
         WARNING: This will remove tables and the data they're holding
                  from your database.
+  --stage
+        Only peform this stage in the files.
   -d | --debug
   -c file | --country-file=file
 
@@ -60,12 +63,13 @@ def main():
         opts, args = getopt.getopt(sys.argv[1:], 'dc:',
                                    ['debug', 'help', 'drop',
                                     'only-insert-codes', 'country-file=',
-                                    'extra-file='])
+                                    'extra-file=', 'stage='])
     except getopt.GetoptError:
         usage(1)
 
     debug = 0
     do_drop = False
+    stage = None
     extra_files = []
     db_user = cereconf.CEREBRUM_DATABASE_CONNECT_DATA['table_owner']
     if db_user is None:
@@ -87,6 +91,8 @@ def main():
         elif opt == '--only-insert-codes':
             insert_code_values(db)
             sys.exit()
+        elif opt == '--stage':
+            stage = val
         elif opt == '--extra-file':
             extra_files.append(val)
         elif opt in ('-c', '--country-file'):
@@ -102,6 +108,8 @@ def main():
     # single space before it tries to decide what phase a statement
     # belongs in.
     order = ('code', '  insert', 'main')
+    if stage:
+        order = (stage,)
     if args:
         do_bootstrap = False
         files = args
@@ -128,6 +136,8 @@ def main():
                 runfile(f, db, debug, phase)
     if do_bootstrap:
         makeInitialUsers(db)
+    if not all_ok:
+        sys.exit(1)
 
 def read_country_file(fname, db):
     from Cerebrum import Constants
@@ -210,6 +220,7 @@ def get_filelist(db, extra_files=[]):
     return ret
 
 def runfile(fname, db, debug, phase):
+    global all_ok
     print "Reading file (phase=%s): <%s>" % (phase, fname)
     f = file(fname)
     text = "".join(f.readlines())
@@ -250,6 +261,7 @@ def runfile(fname, db, debug, phase):
                 try:
                     db.execute(stmt)
                 except db.DatabaseError:
+                    all_ok = False
                     status = "E"
                     print "\n  ERROR: [%s]" % stmt
                     if debug:
