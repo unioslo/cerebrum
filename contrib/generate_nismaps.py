@@ -71,6 +71,9 @@ def generate_passwd(filename, spread=None):
     for row in posix_user.list_extended_posix_users(auth_method=co.auth_type_crypt3_des,
                                                     spread=spread, include_quarantines=1):
         uname = row['entity_name']
+        if len(uname) > 8:
+            print "Bad username %s" % uname
+            continue
         passwd = row['auth_data']
         if passwd is None:
             passwd = '*'
@@ -138,7 +141,11 @@ def generate_netgroup(filename, group_spread, user_spread):
             u, i, d = group.list_members(spread=spread)
             for row2 in u:
                 if int(row2[0]) == co.entity_account:
-                    account_members.append("(,%s,)" % entity2uname[int(row2[1])])
+                    uname = entity2uname[int(row2[1])]
+                    if len(uname) > 8:
+                        print "Bad username %s in %s" %(uname,group.group_name)
+                    else:
+                        account_members.append("(,%s,)" % uname)
                 elif int(row2[0]) == co.entity_group:
                     group_members.append(entity2gname[int(row2[1])])
         # TODO: Also process intersection and difference members.
@@ -184,8 +191,11 @@ def generate_group(filename, group_spread, user_spread):
         for id in posix_group.get_members(spread=user_spread):
             id = db.pythonify_data(id)
             if entity2uname.has_key(id):
-                if not account2def_group.get(id, None) == posix_group.posix_gid:
-               	    members.append(entity2uname[id])
+                if not account2def_group.get(id,None) == posix_group.posix_gid:
+                    if len(entity2uname[id]) > 8:
+                        print "Bad username %s in %s"%(entity2uname[id], gname)
+                    else:
+                        members.append(entity2uname[id])
             else:
                 raise ValueError, "Found no id: %s for group: %s" % (
                     id, gname)
