@@ -24,6 +24,7 @@ import time
 import ldap
 import pickle
 import re
+from mx import DateTime
 import cereconf
  
 from Cerebrum.Utils import Factory
@@ -279,9 +280,24 @@ def op_check(attrs, value_name, new_value):
 
 
 def now():
-    return time.ctime(time.time())
+    return DateTime.now()
 
 
+#def write_elog(ldap_user, log_txt, desc_list=[]):
+#    if not desc_list:
+#	try:
+#	    ldap_list = ldap_user.split(',')
+#	    (foo,ldap_attrs) = ldap_handle.GetObjects((','.join(ldap_user[1:])),
+#							ldap_user[0])[0]
+#	    desc_list = ldap_attrs.get('description')
+#	except:
+#	    logger.warn("Write_elog could not resolve %s" % ldap_user) 
+#	    return
+#    if len(desc_list) >= 4:
+#	for x in desc_list[1:][:len(desc_list)-3]:
+#	    attr_del_ldap(ldap_user, [('description',[x,])])
+#    log_str = str(nwutils.now()) + log_txt
+#    attr_add_ldap(ldap_user,[('description',[log_str,])])
 
 def get_primary_affiliation(account_id, namespace):
     account.clear()
@@ -368,7 +384,7 @@ def get_account_info(account_id, spread, site_callback):
         utf8_home = unicode(home_dir, 'iso-8859-1').encode('utf-8')
         attrs.append( ("ndsHomeDirectory",  utf8_home) )
     attrs.append( ("description","Cerebrum;%d" % ext_id ) )
-    attrs.append( ("generationQualifier","%d ,%s" % (ext_id,time_now) ))
+    attrs.append( ("generationQualifier","%d" % ext_id ))
     attrs.append( ("passwordAllowChange", cereconf.NW_CAN_CHANGE_PW) )
     attrs.append( ("loginDisabled", account_disable) )
     if print_quota is not None:
