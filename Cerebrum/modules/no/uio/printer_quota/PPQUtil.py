@@ -94,13 +94,17 @@ class PPQUtil(object):
 
 
     def _alter_free_pages(self, op, person_id, new_value, why,
-                          update_by=None, update_program=None):
+                          update_by=None, update_program=None, force=False):
         if new_value < 0:
             raise errors.InvalidQuotaData, "Cannot %s negative quota" % op
         row = self.ppq.find(person_id)
         if op == 'set':
             new_value = new_value - int(row['free_quota'])
-        if new_value == 0:
+        if new_value == 0 and not force:
+            # don't want excessive logging of peoples typos, but
+            # things like quota_update should be allowed to force so
+            # that the initial semester quota is granted on first run,
+            # and not on first run after user has printed something.
             raise errors.InvalidQuotaData, "quota already at that value"
         
         self.ppq._add_transaction(
@@ -112,10 +116,11 @@ class PPQUtil(object):
             update_program=update_program)
 
     def set_free_pages(self, person_id, new_value, why,
-                       update_by=None, update_program=None):
+                       update_by=None, update_program=None, force=False):
         self._alter_free_pages('set', person_id, int(new_value), why,
                                update_by=update_by,
-                               update_program=update_program)
+                               update_program=update_program,
+                               force=force)
 
     def add_free_pages(self, person_id, increment, why,
                        update_by=None, update_program=None):
