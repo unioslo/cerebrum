@@ -297,7 +297,7 @@ CREATE TABLE person_aff_status_code
   status	CHAR VARYING(16),
   description	CHAR VARYING(512)
 		NOT NULL,
-  CONSTRAINT person_aff_status_pk
+  CONSTRAINT person_aff_status_code_pk
     PRIMARY KEY (affiliation, status)
 );
 
