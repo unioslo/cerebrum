@@ -57,7 +57,6 @@ from Cerebrum.Utils import AtomicFileWriter
 from Cerebrum.extlib import xmlprinter
 from Cerebrum.extlib.sets import Set
 
-from Cerebrum.modules.no import Stedkode
 from Cerebrum.modules.no import fodselsnr
 
 # FIXME: As of python 2.3, this module is part of the standard distribution
@@ -182,7 +181,7 @@ def output_OU_address(writer, db_ou, constants):
 
 
 
-def output_OU_parent(writer, child_ou, parent_stedkode, constants):
+def output_OU_parent(writer, child_ou, parent_ou, constants):
     """
     Output all information about CHILD_OU's parent OU
     """
@@ -195,44 +194,44 @@ def output_OU_parent(writer, child_ou, parent_stedkode, constants):
         parent_id = child_ou.entity_id
     # fi
 
-    # find parent OU/stedkode
-    parent_stedkode.clear()
-    parent_stedkode.find(parent_id)
+    # find parent OU
+    parent_ou.clear()
+    parent_ou.find(parent_id)
 
     for attr_name, element_name in [("fakultet", "norParentOrgUnitFaculty"),
                                     ("institutt", "norParentOrgUnitDepartment"),
                                     ("avdeling", "norParentOrgUnitGroup")]:
         output_element(writer,
-                       getattr(parent_stedkode, attr_name),
+                       getattr(parent_ou, attr_name),
                        element_name)
     # od
 # end output_OU_parent
 
 
 
-ou_parent = dict()
-def find_suitable_OU(stedkode, id, constants):
+_ou_parent = dict()
+def find_suitable_OU(ou, id, constants):
     """
     This is a caching wrapper around __find_suitable_OU
     """
     child = int(id)
 
-    if ou_parent.has_key(child):
-        return ou_parent[child]
+    if _ou_parent.has_key(child):
+        return _ou_parent[child]
     # fi
 
-    parent = __find_suitable_OU(stedkode, child, constants)
+    parent = __find_suitable_OU(ou, child, constants)
     if parent is not None:
         parent = int(parent)
     # fi
     
-    ou_parent[child] = parent
+    _ou_parent[child] = parent
     return parent
 # end find_suitable_OU
 
 
 
-def __find_suitable_OU(stedkode, id, constants):
+def __find_suitable_OU(ou, id, constants):
     """
     Return ou_id for an OU x that:
 
@@ -246,20 +245,20 @@ def __find_suitable_OU(stedkode, id, constants):
     """
 
     try:
-        stedkode.clear()
-        stedkode.find(id)
+        ou.clear()
+        ou.find(id)
 
-        if stedkode.katalog_merke == 'T':
+        if ou.katalog_merke == 'T':
             return id
         # fi
 
-        parent_id = stedkode.get_parent(constants.perspective_lt)
+        parent_id = ou.get_parent(constants.perspective_lt)
         logger.debug("parent search: %s -> %s",
-                     stedkode.entity_id, parent_id)
+                     ou.entity_id, parent_id)
                  
         if (parent_id is not None and 
-            parent_id != stedkode.entity_id):
-            return __find_suitable_OU(stedkode, parent_id, constants)
+            parent_id != ou.entity_id):
+            return __find_suitable_OU(ou, parent_id, constants)
         # fi
     except Cerebrum.Errors.NotFoundError, value:
         logger.error("AIEE! Looking up an OU failed: %s", value)
@@ -272,7 +271,7 @@ def __find_suitable_OU(stedkode, id, constants):
 
 
 _ou_cache = Set()
-def output_OU(writer, start_id, db_ou, stedkode, parent_stedkode, constants):
+def output_OU(writer, start_id, db_ou, parent_ou, constants):
     """
     Output all information pertinent to a specific OU
 
@@ -286,7 +285,7 @@ def output_OU(writer, start_id, db_ou, stedkode, parent_stedkode, constants):
                           Addressline, Telephon*, Fax*, URL*)>
     """
 
-    id = find_suitable_OU(stedkode, start_id, constants)
+    id = find_suitable_OU(db_ou, start_id, constants)
     if id is None:
         logger.warn("No suitable ids for (start) id = %s", start_id)
         return
@@ -326,16 +325,16 @@ def output_OU(writer, start_id, db_ou, stedkode, parent_stedkode, constants):
     # od
 
     # norOrgUnitFaculty
-    output_element(writer, stedkode.fakultet, "norOrgUnitFaculty")
+    output_element(writer, db_ou.fakultet, "norOrgUnitFaculty")
 
     # norOrgUnitDepartment
-    output_element(writer, stedkode.institutt, "norOrgUnitDepartment")
+    output_element(writer, db_ou.institutt, "norOrgUnitDepartment")
 
     # norOrgUnitGroup
-    output_element(writer, stedkode.avdeling, "norOrgUnitGroup")
+    output_element(writer, db_ou.avdeling, "norOrgUnitGroup")
 
     # Information on this OUs parent
-    output_OU_parent(writer, db_ou, parent_stedkode, constants)
+    output_OU_parent(writer, db_ou, parent_ou, constants)
     
     # norOrgUnitAcronym*
     ou_acronyms = db_ou.get_acronyms()
@@ -384,14 +383,13 @@ def output_OUs(writer, db):
     """
 
     db_ou = Factory.get("OU")(db)
-    stedkode = Stedkode.Stedkode(db)
-    parent_stedkode = Stedkode.Stedkode(db)
+    parent_ou = Factory.get("OU")(db)
     constants = Factory.get("Constants")(db)
 
     writer.startElement("OrganizationUnits")
     for id in db_ou.list_all():
         output_OU(writer, id["ou_id"], db_ou,
-                  stedkode, parent_stedkode, constants)
+                  parent_ou, constants)
     # od
     writer.endElement("OrganizationUnits")
 # end output_OUs
@@ -455,7 +453,7 @@ def construct_person_attributes(writer, db_person, constants):
 
 
 
-def process_person_frida_information(db_person, stedkode, constants):
+def process_person_frida_information(db_person, db_ou, constants):
     """
     This function locate all tils/gjest records for DB_PERSON and possibly
     re-writes them in a suitable fashion.
@@ -486,14 +484,14 @@ def process_person_frida_information(db_person, stedkode, constants):
     # Force ou_ids to refer to publishable OUs
     employments = filter(lambda dictionary:
                          _update_person_ou_information(dictionary,
-                                                       stedkode,
+                                                       db_ou,
                                                        constants),
                          employments)
 
     # Force ou_ids to refer to publishable OUs
     guests = filter(lambda dictionary:
                     _update_person_ou_information(dictionary,
-                                                  stedkode,
+                                                  db_ou,
                                                   constants),
                     guests)
 
@@ -502,7 +500,7 @@ def process_person_frida_information(db_person, stedkode, constants):
 
 
 
-def _update_person_ou_information(dictionary, stedkode, constants):
+def _update_person_ou_information(dictionary, db_ou, constants):
     """
     This function forces the OU_ID in DICTIONARY to be the ou_id for a
     publishable OU, if at all possible.
@@ -512,17 +510,19 @@ def _update_person_ou_information(dictionary, stedkode, constants):
     Consult find_suitable_OU.__doc__ for more information.
     """
 
-    # Stedkode is updated by _find_suitable_OU
-    ou_id = find_suitable_OU(stedkode, dictionary["ou_id"], constants)
+    ou_id = find_suitable_OU(db_ou, dictionary["ou_id"], constants)
     if ou_id is None:
         return False
     # fi
 
+    db_ou.clear()
+    db_ou.find(ou_id)
+
     # Otherwise, register the publishable parent under the key ou_id
     dictionary["ou_id"] = ou_id
-    dictionary["fakultet"] = stedkode.fakultet
-    dictionary["institutt"] = stedkode.institutt
-    dictionary["avdeling"] = stedkode.avdeling
+    dictionary["fakultet"] = db_ou.fakultet
+    dictionary["institutt"] = db_ou.institutt
+    dictionary["avdeling"] = db_ou.avdeling
     return True
 # end _process_employment
 
@@ -628,7 +628,7 @@ def output_guest_information(writer, guest, constants):
 
 
 def output_person(writer, person_id, db_person, db_account,
-                  constants, stedkode):
+                  constants, db_ou):
     """
     Output all information pertinent to a particular person (PERSON_ID)
 
@@ -654,7 +654,7 @@ def output_person(writer, person_id, db_person, db_account,
     # yrt
 
     employment, guest = process_person_frida_information(db_person,
-                                                         stedkode,
+                                                         db_ou,
                                                          constants)
     logger.debug("There are %d employments and %d guest rows for %s",
                  len(employment), len(guest), db_person.entity_id)
@@ -733,7 +733,7 @@ def output_people(writer, db):
     db_person = Factory.get("Person")(db)
     constants = Factory.get("Constants")(db)
     db_account = Factory.get("Account")(db)
-    stedkode = Stedkode.Stedkode(db)    
+    ou = Factory.get("OU")(db)    
 
     writer.startElement("NorPersons")
     for id in db_person.list_frida_persons():
@@ -741,7 +741,7 @@ def output_people(writer, db):
                       db_person,
                       db_account,
                       constants,
-                      stedkode)
+                      ou)
     # od
     writer.endElement("NorPersons")
 # end output_people    
