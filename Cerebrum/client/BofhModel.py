@@ -82,6 +82,11 @@ class Entity(Abstract.Entity):
         
     fetch_by_id = classmethod(fetch_by_id)    
     
+    def reload(self):
+        """Reloads info about self"""
+        info = self.server.entity_info(self.id)
+        self._load_entity_info(info)
+    
     def _load_entity_info(self, info):
         """Loads entity specific data to this object
            from a infohash as defined by bofh.
@@ -282,7 +287,8 @@ class Group(Entity, Abstract.Group):
  
     def set_expire_date(self, expire_date):
         """Sets the expire date on group"""
-        info = self.server.group_set_expire("id:%s" % self.id, expire_date)
+        self.server.group_set_expire("id:%s" % self.id, expire_date)
+        self.reload()
 
 class Account(Entity, Abstract.Account):
     
@@ -326,7 +332,9 @@ class Account(Entity, Abstract.Account):
         pass
 
     def set_expire_date(self, expire_date):
-        pass
+        """Sets the expire date on account"""
+        self.server.user_set_expire("id:%s" % self.id, expire_date)
+        self.reload()
 
     def get_owner_object(self):
         return fetch_object_by_id(self.server, self.owner_id)
@@ -339,9 +347,6 @@ class Account(Entity, Abstract.Account):
 
     def get_account_types(self):
         pass
-
-    def delete(self):
-        pass    
 
 class Person(Entity, Abstract.Person):
 
