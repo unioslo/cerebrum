@@ -299,7 +299,16 @@ class BofhdAuth(DatabaseAccessor):
         if operator in self._get_group_members(cereconf.BOFHD_SUPERUSER_GROUP):
             return True
         return False
-    
+
+    def is_postmaster(self, operator, query_run_any=False):
+        # Rather than require an operation as an argument, we pick a
+        # suitable value which all postmasters ought to have.
+        # auth_email_create seems appropriate.
+        return self._query_target_permissions(operator,
+                                              self.const.auth_email_create,
+                                              self.const.auth_target_type_global_maildomain,
+                                              None, None)
+
     def can_set_person_user_priority(self, operator, account=None,
                                      query_run_any=False):
         if query_run_any:
@@ -325,10 +334,12 @@ class BofhdAuth(DatabaseAccessor):
         if (self.is_superuser(operator) or
             self._query_target_permissions(operator,
                                            self.const.auth_create_user,
-                                           'host', None, None) or
+                                           self.const.auth_target_type_host,
+                                           None, None) or
             self._query_target_permissions(operator,
                                            self.const.auth_create_user,
-                                           'disk', None, None)):
+                                           self.const.auth_target_type_disk,
+                                           None, None)):
             return True
         if query_run_any:
             return False
@@ -437,7 +448,8 @@ class BofhdAuth(DatabaseAccessor):
                 operator, self.const.auth_alter_group_membership)
         if self._query_target_permissions(
             operator, self.const.auth_alter_group_membership,
-            'group', group.entity_id, group.entity_id):
+            self.const.auth_target_type_group,
+            group.entity_id, group.entity_id):
             return True
         raise PermissionDenied("No access to group")
 
@@ -481,7 +493,8 @@ class BofhdAuth(DatabaseAccessor):
                 spread = Constants._SpreadCode(spread)
             if self._query_target_permissions(operator,
                                               self.const.auth_modify_spread,
-                                              'spread', int(spread), None):
+                                              self.const.auth_target_type_spread,
+                                              int(spread), None):
                 return True
         raise PermissionDenied("No access to spread")
 
@@ -629,6 +642,8 @@ class BofhdAuth(DatabaseAccessor):
                               query_run_any=False):
         if self.is_superuser(operator):
             return True
+        if self.is_postmaster(operator):
+            return True
         if query_run_any:
             return self._has_operation_perm_somewhere(
                 operator, self.const.auth_set_password)
@@ -647,6 +662,8 @@ class BofhdAuth(DatabaseAccessor):
     def can_email_move(self, operator, account=None, query_run_any=False):
         if self.is_superuser(operator):
             return True
+        if self.is_postmaster(operator):
+            return True
         if query_run_any:
             return False
         raise PermissionDenied("Currently limited to superusers")
@@ -656,6 +673,8 @@ class BofhdAuth(DatabaseAccessor):
     def can_email_forward_toggle(self, operator, account=None,
                                  query_run_any=False):
         if self.is_superuser(operator):
+            return True
+        if self.is_postmaster(operator):
             return True
         if query_run_any:
             return self._has_operation_perm_somewhere(
@@ -676,6 +695,8 @@ class BofhdAuth(DatabaseAccessor):
                                 query_run_any=False):
         if self.is_superuser(operator):
             return True
+        if self.is_postmaster(operator):
+            return True
         if query_run_any:
             return True
         if operator == account.entity_id:
@@ -691,6 +712,8 @@ class BofhdAuth(DatabaseAccessor):
                               query_run_any=False):
         if self.is_superuser(operator):
             return True
+        if self.is_postmaster(operator):
+            return True
         if query_run_any:
             return False
         raise PermissionDenied("Currently limited to superusers")
@@ -703,12 +726,16 @@ class BofhdAuth(DatabaseAccessor):
         """Permissions on disks may either be granted to a specific
         disk, a complete host, or a set of disks matching a regexp"""
         
-        if self._query_target_permissions(operator, operation, 'disk',
+        if self._query_target_permissions(operator, operation,
+                                          self.const.auth_target_type_disk,
                                           disk.entity_id, victim_id):
             return True
-        if self._has_global_access(operator, operation, 'global_host', victim_id):
+        if self._has_global_access(operator, operation,
+                                   self.const.auth_target_type_global_host,
+                                   victim_id):
             return True
-        for r in self._query_target_permissions(operator, operation, 'host',
+        for r in self._query_target_permissions(operator, operation,
+                                                self.const.auth_target_type_host,
                                                 disk.host_id, victim_id):
             if not int(r['has_attr']):
                 return True
@@ -721,6 +748,19 @@ class BofhdAuth(DatabaseAccessor):
                 if m != None:
                     return True
         raise PermissionDenied("No access to disk")
+
+    def _query_maildomain_permissions(self, operator, operation, domain,
+                                      victim_id):
+        """Permissions on e-mail domains are granted specifically."""
+        if self._has_global_access(operator, operation,
+                                   self.const.auth_target_type_global_maildomain,
+                                   victim_id):
+            return True
+        if self._query_target_permissions(operator, operation,
+                                          self.const.auth_target_type_maildomain,
+                                          domain.email_domain_id, victim_id):
+            return True
+        raise PermissionDenied("No access to e-mail domain")
 
     def _has_operation_perm_somewhere(self, operator, operation):
         # This is called numerous times when using "help", so we use a cache
@@ -755,13 +795,21 @@ class BofhdAuth(DatabaseAccessor):
 
         if target_id is not None:
             ewhere = "AND aot.entity_id=:target_id"
-            if target_type in ('host', 'disk'):
+            if target_type in (self.const.auth_target_type_host,
+                               self.const.auth_target_type_disk):
                 if self._has_global_access(operator, operation,
-                                           'global_host', victim_id):
+                                           self.const.auth_target_type_global_host,
+                                           victim_id):
                     return True
-            elif target_type == 'group':
+            elif target_type == self.const.auth_target_type_group:
                 if self._has_global_access(operator, operation,
-                                           'global_group', victim_id):
+                                           self.const.auth_target_type_global_group,
+                                           victim_id):
+                    return True
+            elif target_type == self.const.auth_target_type_maildomain:
+                if self._has_global_access(operator, operation,
+                                           self.const.auth_target_type_global_maildomain,
+                                           victim_id):
                     return True
 
         # Connect auth_operation and auth_op_target
@@ -789,7 +837,7 @@ class BofhdAuth(DatabaseAccessor):
     def _has_global_access(self, operator, operation, global_type, victim_id):
         """global_host and global_group should not be allowed to
         operate on BOFHD_SUPERUSER_GROUP"""
-        if global_type == 'global_group':
+        if global_type == self.const.auth_target_type_global_group:
             if victim_id == self._superuser_group:
                 return False
         elif victim_id in \
