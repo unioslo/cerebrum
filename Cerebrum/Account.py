@@ -49,10 +49,23 @@ class Account(Entity, EntityName, EntityQuarantine, PosixUser):
         self._acc_affect_auth_types = None
 
     def __eq__(self, other):
-        # TODO: Implement this
         if self._pn_affect_source == None:
             return True
         assert isinstance(other, Account)
+        if not PosixUser.__eq__(self, other): return False
+
+        if (self.owner_type != other.owner_type or
+            self.owner_id != other.owner_id or
+            self.np_type != other.np_type or
+            self.creator_id != other.creator_id or
+            self.expire_date != other.expire_date):
+            return False
+
+        for type in self._acc_affect_domains:  # Compare unames in afffect_domaines
+            other_name = other.get_name(type)
+            my_name = self._name_info.get(type, None)
+            if my_name != other_name:
+                return False
         return True
 
     def affect_domains(self, *domains):
@@ -76,12 +89,15 @@ class Account(Entity, EntityName, EntityQuarantine, PosixUser):
         self._auth_info[int(type)] = value
 
     def set_password(self, plaintext):
-        # Updates all account_authentication entries with an encrypted
-        # version of the plaintext password.  The methods to be used
-        # are determined by AUTH_CRYPT_METHODS
+        """Updates all account_authentication entries with an encrypted
+        version of the plaintext password.  The methods to be used
+        are determined by AUTH_CRYPT_METHODS.
+
+        Note: affect_auth_types is automatically extended to contain
+        these methods."""
         for method in cereconf.AUTH_CRYPT_METHODS:
-            # TODO: We should probably assert that the corresponding
-            # self._acc_affect_auth_types is set
+            if not method in self._acc_affect_auth_types:
+                self._acc_affect_auth_types = self._acc_affect_auth_types + (method,)
             enc = getattr(self, "enc_%s" % method)
             enc = enc(plaintext)
             self.populate_authentication_type(getattr(self.const, method), enc)
@@ -95,43 +111,75 @@ class Account(Entity, EntityName, EntityQuarantine, PosixUser):
         return crypt.crypt(plaintext, salt)
     
     def write_db(self, as_object=None):
-        # TODO: Update existing records
-        
-        new_id = super(Account, self).new(int(self.const.entity_account))
         type = self.np_type
         if type != None: type = int(type)
 
-        self.execute("""
-        INSERT INTO [:table schema=cerebrum name=account_info] (entity_type, account_id, owner_type,
-                    owner_id, np_type, create_date, creator_id, expire_date)
-        VALUES (:e_type, :acc_id, :o_type, :o_id, :np_type, [:now], :c_id, :e_date)""",
-                     {'e_type' : int(self.const.entity_account),
-                      'acc_id' : new_id, 'o_type' : int(self.owner_type),
-                      'c_id' : self.creator_id,
-                      'o_id' : self.owner_id, 'np_type' : type,
-                      'e_date' : self.expire_date})
-        self.account_id = new_id
-        for k in self._acc_affect_domains:
-            if self._name_info.get(k, None) != None:
-                self.add_name(k, self._name_info[k])
-        PosixUser.write_db(self, as_object)
+        if as_object is None:
+            new_id = super(Account, self).new(int(self.const.entity_account))
+
+            self.execute("""
+            INSERT INTO [:table schema=cerebrum name=account_info] (entity_type, account_id,
+                owner_type, owner_id, np_type, create_date, creator_id, expire_date)
+            VALUES (:e_type, :acc_id, :o_type, :o_id, :np_type, [:now], :c_id, :e_date)""",
+                         {'e_type' : int(self.const.entity_account),
+                          'acc_id' : new_id,
+                          'o_type' : int(self.owner_type),
+                          'c_id' : self.creator_id,
+                          'o_id' : self.owner_id,
+                          'np_type' : type,
+                          'e_date' : self.expire_date})
+            self.account_id = new_id
+            for k in self._acc_affect_domains:
+                if self._name_info.get(k, None) != None:
+                    self.add_name(k, self._name_info[k])
+            PosixUser.write_db(self, as_object)
+        else:
+            self.execute("""
+            UPDATE [:table schema=cerebrum name=account_info]
+            SET owner_type=:o_type, owner_id=:o_id, np_type=:np_type,
+               creator_id:c_id, expire_date:e_date)
+            WHERE account_id=:acc_id""",
+                         {'o_type' : int(self.owner_type),
+                          'c_id' : self.creator_id,
+                          'o_id' : self.owner_id,
+                          'np_type' : type,
+                          'e_date' : self.expire_date,
+                          'acc_id' : as_object.account_id})
+            self.account_id = as_object.account_id
 
         # Store the authentication data.
-        #
-        # We probably want to do this in another way, or atleast
-        # provide an optional method "set_password" that takes a
-        # plaintext password as input, and sets the apropriate
-        # auth_data for the desired (=_acc_affect_auth_types?)
-        # account_authentication methods.
 
         for k in self._acc_affect_auth_types:
             k = int(k)
+            what = 'insert'
+            if as_object is not None:
+                try:
+                    dta = as_object.get_account_authentication(k)
+                    if dta != self._auth_info.get(k, None):
+                        what = 'update'
+                except Errors.NotFoundError:
+                     # insert
+                     pass
             if self._auth_info.get(k, None) != None:
-                self.execute("""
-                INSERT INTO [:table schema=cerebrum name=account_authentication] (account_id, method, auth_data)
-                VALUES (:acc_id, :method, :auth_data)""",
-                             {'acc_id' : self.account_id, 'method' : k,
-                              'auth_data' : self._auth_info[k]})
+                if what == 'insert':
+                    self.execute("""
+                    INSERT INTO [:table schema=cerebrum name=account_authentication]
+                        (account_id, method, auth_data)
+                    VALUES (:acc_id, :method, :auth_data)""",
+                                 {'acc_id' : self.account_id, 'method' : k,
+                                  'auth_data' : self._auth_info[k]})
+                else:
+                    self.execute("""
+                    UPDATE [:table schema=cerebrum name=account_authentication]
+                    SET auth_data=:auth_data
+                    WHERE account_id=:acc_id AND method=:method""",
+                                 {'acc_id' : self.account_id, 'method' : k,
+                                  'auth_data' : self._auth_info[k]})
+            elif as_object is not None and what == 'update':
+                    self.execute("""
+                    DELETE [:table schema=cerebrum name=account_authentication]
+                    WHERE account_id=:acc_id AND method=:method""",
+                                 {'acc_id' : self.account_id, 'method' : k})
         return new_id
 
     def find(self, account_id):
