@@ -640,9 +640,6 @@ CREATE TABLE account_info
 		NOT NULL
 		CONSTRAINT account_info_creator_id
 		  REFERENCES account_info(account_id),
-  home		CHAR VARYING(512),
-  disk_id	NUMERIC(12,0)
-		CONSTRAINT account_info_disk_id REFERENCES disk_info(disk_id),
   expire_date	DATE
 		DEFAULT NULL,
   description	CHAR VARYING(512)
@@ -667,6 +664,57 @@ GRANT SELECT ON account_info TO read_account;
 category:main/Oracle;
 GRANT INSERT, UPDATE, DELETE ON account_info TO change_account;
 
+/* home_status_code may have values like not_created, create_failed,
+   on_disk, on_tape */
+category:code;
+CREATE TABLE home_status_code (
+  code          NUMERIC(6,0)
+                CONSTRAINT home_status_code_pk PRIMARY KEY,
+  code_str      CHAR VARYING(16)
+                NOT NULL
+                CONSTRAINT home_status_codestr_u UNIQUE,
+  description   CHAR VARYING(512)
+                NOT NULL
+);
+
+/*      account_home
+
+  home or disk_id
+    Location of the users home directory.
+  spread
+    Spread indicates what spread this homedir applies to.  API logic
+    asserts that only relevant spreads are used in this column.
+  status
+    Status indicates the state of the homedir.
+*/
+
+category:main;
+CREATE TABLE account_home (
+  account_id    NUMERIC(12,0)
+                CONSTRAINT account_home_fk 
+                REFERENCES account_info(account_id),
+  spread        NUMERIC(6,0) NOT NULL
+		CONSTRAINT account_home_spread
+		  REFERENCES spread_code(code),
+  home          CHAR VARYING(512),
+  disk_id       NUMERIC(12,0)
+                CONSTRAINT account_info_disk_id REFERENCES disk_info(disk_id),
+  status        NUMERIC(6,0) NOT NULL
+                CONSTRAINT home_status_code
+                  REFERENCES home_status_code(code),
+  CONSTRAINT account_home_pk
+    PRIMARY KEY (account_id, spread)
+);
+
+/*      cerebrum_metainfo 
+  Store information like the version of the currently installed database schema.
+*/
+category:main;
+CREATE TABLE cerebrum_metainfo (
+  name		CHAR VARYING(80)
+		CONSTRAINT global_constants_pk PRIMARY KEY,
+  value		CHAR VARYING(1024) NOT NULL
+);
 
 /*	entity_quarantine
 
@@ -1425,6 +1473,7 @@ category:main/Oracle;
 GRANT INSERT, UPDATE, DELETE ON group_info TO change_group;
 
 
+
 /*	group_membership_op_code
 
 
@@ -1746,6 +1795,12 @@ category:drop;
 DROP TABLE ou_info;
 category:drop;
 DROP TABLE entity_quarantine;
+category:drop;
+DROP TABLE account_home;
+category:drop;
+DROP TABLE home_status_code;
+category:drop;
+DROP TABLE global_constants
 category:drop;
 DROP TABLE account_info;
 category:drop;
