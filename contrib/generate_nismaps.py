@@ -39,7 +39,7 @@ db = Factory.get('Database')()
 co = Factory.get('Constants')(db)
 posix_user = PosixUser.PosixUser(db)
 posix_group = PosixGroup.PosixGroup(db)
-MAX_LINE_LENGTH = 512
+MAX_LINE_LENGTH = 1023
 _SpreadCode.sql = db
 
 entity2uname = {}
@@ -133,7 +133,7 @@ def generate_netgroup(filename, group_spread, user_spread):
         line = " ".join((join(group_members, ' '), join(account_members, ' ')))
         maxlen = MAX_LINE_LENGTH - (len(group.group_name) + 1)
         while len(line) > maxlen:
-            pos = line.index(" ", len(line) - (MAX_LINE_LENGTH - 3))
+            pos = line.index(" ", len(line) - (MAX_LINE_LENGTH - 12))
             tmp_gname = "x%02x" % num
             f.write("%s %s\n" % (tmp_gname, line[pos+1:]))
             line = "%s %s" % (tmp_gname, line[:pos])
