@@ -124,7 +124,10 @@ class ProfileDefinition(object):
         self.settings["primarygroup"] = tmp  
         tmp = []
         for stedkode in self.settings.get("stedkode", []):
-            tmp.append(lookup_helper.get_stedkode(stedkode['verdi']))
+            tmp2 = lookup_helper.get_stedkode(stedkode['verdi'],
+                                              stedkode['institusjon'])
+            if tmp2 is not None:
+                tmp.append(tmp2)
         self.settings["stedkode"] = tmp
         tmp = []
         for disk in self.settings.get("disk", []):
