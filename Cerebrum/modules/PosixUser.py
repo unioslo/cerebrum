@@ -184,7 +184,7 @@ class PosixUser(Account_class):
     def list_posix_users(self):
         """Return account_id of all PosixUsers in database"""
         return self.query("""
-        SELECT account_id
+        SELECT account_id, posix_uid, gid
         FROM [:table schema=cerebrum name=posix_user]""")
 
     def list_extended_posix_users(self, 
@@ -216,8 +216,6 @@ class PosixUser(Account_class):
               ON pu.account_id=es.entity_id %s
             LEFT JOIN [:table schema=cerebrum name=account_home] ah
               ON es.entity_id=ah.account_id %s""" % (esprd, asprd)
-        # TBD: should we LEFT JOIN with account_authentication so that
-        # users without passwords of the given type are returned?
         return self.query("""
         SELECT ai.account_id, posix_uid, shell, gecos, entity_name, 
           aa.auth_data, pg.posix_gid, pn.name %s
