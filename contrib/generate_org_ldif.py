@@ -43,6 +43,8 @@ from Cerebrum.modules import LDIFutils
 
 
 def main():
+    logger = Factory.get_logger("cronjob")
+
     # The script is designed to use the mail-module.
     use_mail_module = True
     ofile = None
@@ -63,7 +65,6 @@ def main():
         else:
             usage()
 
-    logger = Factory.get_logger("cronjob")
     ldif = Factory.get('OrgLDIF')(Factory.get('Database')(), logger)
     timer = ldif.make_timer("Starting dump.")
     outfile = SimilarSizeWriter(ofile or os.path.join(cereconf.LDAP_DUMP_DIR,
