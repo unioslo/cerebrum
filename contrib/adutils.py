@@ -251,12 +251,12 @@ def id_to_ou_path(ou_id,ourootname):
     crbrm_ou = crbrm_ou.replace(ourootname,cereconf.AD_LDAP)
     return crbrm_ou
 
-def find_home_dir(account_id, account_name):
+def find_home_dir(account_id, account_name, disk_spread):
     try:
         account.clear()
         account.find(account_id)
         disk.clear()
-        disk.find(account.disk_id)
+        disk.find(account.get_home(disk_spread))
         try:
 	    moho.clear()	
 	    moho.find(disk.host_id)	
