@@ -652,7 +652,7 @@ def output_OU(writer, id, db_ou, stedkode, parent_stedkode, constants, url_map):
 
     Each OU is described thus:
 
-    <!ELEMENT norOrgUnit (norOrgUnitName+, norOrgUnitFaculty,
+    <!ELEMENT NorOrgUnit (norOrgUnitName+, norOrgUnitFaculty,
                           norOrgUnitDepartment, norOrgUnitGroup,
                           norParentOrgUnitFaculty,
                           norParentOrgUnitDepartment,
@@ -861,8 +861,8 @@ def output_employment_information(writer, pobj):
 
     Each employment record is written out thus:
 
-    <!ELEMENT Tilsetting (Stillingkode, StillingsTitle, Stillingsandel,
-                          StillingFak, StillingInstitutt, StillingGruppe,
+    <!ELEMENT Tilsetting (Stillingskode, StillingsTitle, Stillingsandel,
+                          StillingsFak, StillingsInstitutt, StillingsGruppe,
                           fraDato, tilDato)>
     <!ATTLIST Tilsetting Affiliation ( Staff | Faculty ) #REQUIRED>
 
@@ -887,12 +887,12 @@ def output_employment_information(writer, pobj):
         # fi
         
         writer.startElement("Tilsetting", attributes)
-        for output, index in [("Stillingkode", "stillingkodenr_beregnet_sist"),
-                              ("Stillingstittel", "tittel"),
+        for output, index in [("Stillingskode", "stillingkodenr_beregnet_sist"),
+                              ("StillingsTitle", "tittel"),
                               ("Stillingsandel", "prosent_tilsetting"),
-                              ("StillingFak", "fakultetnr_utgift"),
-                              ("StillingInstitutt", "instituttnr_utgift"),
-                              ("StillingGruppe", "gruppenr_utgift"),
+                              ("StillingsFak", "fakultetnr_utgift"),
+                              ("StillingsInstitutt", "instituttnr_utgift"),
+                              ("StillingsGruppe", "gruppenr_utgift"),
                               ("fraDato", "dato_fra"),
                               ("tilDato", "dato_til"),
                               ]:
@@ -928,8 +928,8 @@ def output_guest_information(writer, pobj):
 
         writer.startElement("Gjest", attributes)
 
-        # This is *unbelievably* braindead. Atomic keys with hidden parts
-        # are The Wrong Thing[tm]. The LT dump should be changed to
+        # This is *unbelievably* braindead. "Almost atomic" keys with hidden
+        # subkeys are a Wrong Thing[tm]. The LT dump should be modified to
         # represent this information in the same way as with <tils>
         key = element["sko"]
         for output, value in [("guestFak", key[0:2]),
@@ -1111,19 +1111,18 @@ def output_xml(output_file,
 
     writer.endElement("Properties")
 
-    writer.startElement("norOrgUnits")
+    writer.startElement("NorOrgUnits")
     # Organization "header"
     # FIXME: It's all hardwired
     output_organization(writer, db)
-
     # Dump all OUs
     output_OUs(writer, db, sted_file)
-    writer.endElement("norOrgUnits")
+    writer.endElement("NorOrgUnits")
 
     # Dump all people
-    writer.startElement("norPersons")
+    writer.startElement("NorPersons")
     output_people(writer, db, person_file)
-    writer.endElement("norPersons")
+    writer.endElement("NorPersons")
     
     writer.endDocument()
     output_stream.close()
