@@ -24,12 +24,11 @@ from Transaction import Transaction
 
 import Communication
 
+from classes.CorbaBuilder import CorbaBuilder
+from classes.Builder import Method, Attribute
+
 import classes.Registry
 registry = classes.Registry.get_registry()
-
-CorbaBuilder = registry.CorbaBuilder
-Method = registry.Method
-Attribute = registry.Attribute
 
 def create_ap_method(class_name, method_name, data_type, write, method_arguments):
     args_table = dict(method_arguments)
