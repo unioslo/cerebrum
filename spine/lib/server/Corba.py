@@ -138,82 +138,85 @@ def _create_corba_method(method):
         if len(corba_args) + len(corba_vargs) > len(args_table):
             raise TypeError('too many arguments')
 
-        # Auth
+        try:    # Wrap expected exceptions in corba-expcetions.
 
-        class_name = self.spine_class.__name__
-        if self.transaction is not None:
-            operator = self.transaction.get_client()
-        else:
-            operator = None
-        operation_name = '%s.%s' % (class_name, method.name)
-        try:
-            operation_type = AuthOperationType(name=operation_name)
-        except Exception, e:
-            # FIXME: kaste en exception
-            # print 'no operation_type defined for %s' % operation_name
-            operation_type = None
+            # Auth
+            class_name = self.spine_class.__name__
+            if self.transaction is not None:
+                operator = self.transaction.get_client()
+            else:
+                operator = None
+            operation_name = '%s.%s' % (class_name, method.name)
+            try:
+                operation_type = AuthOperationType(name=operation_name)
+            except Exception, e:
+                # FIXME: kaste en exception
+                # print 'no operation_type defined for %s' % operation_name
+                operation_type = None
 
-        # FIXME: bruk isinstance eller issubclass
-        if operator is not None and hasattr(self.spine_object, 'check_permission'):
-            if self.spine_object.check_permission(operator, operation_type):
-                print operation_name, 'access granted'
+            # FIXME: bruk isinstance eller issubclass
+            if operator is not None and hasattr(self.spine_object, 'check_permission'):
+                if self.spine_object.check_permission(operator, operation_type):
+                    print operation_name, 'access granted'
+                else:
+                    # FIXME: kaste en exception
+                    # print operation_name, 'access denied' 
+                    pass
             else:
                 # FIXME: kaste en exception
-                # print operation_name, 'access denied' 
                 pass
-        else:
-            # FIXME: kaste en exception
-            pass
 
-        # Transaction
-
-        if hasattr(self.transaction, 'snapshot'):
-            if isinstance(self.spine_object, DumpClass) or isinstance(self.spine_object, SearchClass):
-                self.spine_object.cache = self.transaction.snapshot
-            elif method.write:
-                raise Exception('Trying to access write-method outside a transaction: %s' % method)
+            # Transaction
+            if hasattr(self.transaction, 'snapshot'):
+                if isinstance(self.spine_object, DumpClass) or isinstance(self.spine_object, SearchClass):
+                    self.spine_object.cache = self.transaction.snapshot
+                elif method.write:
+                    raise Exception('Trying to access write-method outside a transaction: %s' % method)
+                else:
+                    cache = self.transaction.snapshot
+                    key = self.spine_object.get_primary_key()
+                    self.spine_object = self.spine_class(*key, **{'cache':cache})
             else:
-                cache = self.transaction.snapshot
-                key = self.spine_object.get_primary_key()
-                self.spine_object = self.spine_class(*key, **{'cache':cache})
-        else:
-            self.transaction.add_ref(self.spine_object)
+                self.transaction.add_ref(self.spine_object)
 
-        if method.write:
-            self.spine_object.lock_for_writing(self.transaction)
-        else:
-            self.spine_object.lock_for_reading(self.transaction)
+            if method.write:
+                self.spine_object.lock_for_writing(self.transaction)
+            else:
+                self.spine_object.lock_for_reading(self.transaction)
 
-        # convert corba arguments to real arguments
-        args = []
-        for value, (name, data_type) in zip(corba_args, method.args):
-            args.append(convert_from_corba(value, data_type))
+            # convert corba arguments to real arguments
+            args = []
+            for value, (name, data_type) in zip(corba_args, method.args):
+                args.append(convert_from_corba(value, data_type))
 
-        vargs = {}
-        for name, value in corba_vargs:
-            data_type = args_table[name]
-            vargs[name] = convert_from_corba(value, data_type)
+            vargs = {}
+            for name, value in corba_vargs:
+                data_type = args_table[name]
+                vargs[name] = convert_from_corba(value, data_type)
 
-        # Run the real method
+            # Run the real method
+            value = getattr(self.spine_object, method.name)(*args, **vargs)
 
-        actual_method = getattr(self.spine_object, method.name)
-        try:
-            value = actual_method(*args, **vargs)
+            if method.write:
+                self.spine_object.save()
+
+            return convert_to_corba(value, self.transaction, method.data_type)
+
         except Exception, e:
             import SpineIDL, types
 
             if getattr(e, '__class__', e) not in method.exceptions:
                 raise
 
+            if len(e.args) > 1 and type(e.args[0]) is str:
+                explanation = e.args[0]
+            else:
+                explanation = ""
+            
             exception = getattr(SpineIDL.Errors, e.__class__.__name__)
-            exception = exception(getattr(e, 'explanation', ""))
+            exception = exception(explanation)
              
             raise exception
-        
-        if method.write:
-            self.spine_object.save()
-
-        return convert_to_corba(value, self.transaction, method.data_type)
 
     return corba_method
 
@@ -281,15 +284,12 @@ def _trim_docstring(docstring):
     # Return a single string:
     return '\n'.join(trimmed)
 
-def _create_idl_interface(cls, exceptions=(), error_module="", docs=False):
+def _create_idl_interface(cls, error_module="", docs=False):
     """Create idl definition for the class 'cls'.
     
     Creates idl interface for the class from attributes in cls.slots
     and methods in cls.method_slots.
 
-    'exceptions' takes a list of strings, with the name of exceptions
-    which can be raised by all the methods in the class 'cls'.
-    
     If you wish the idl to be commented, use docs=True. This will copy
     the docstring into the idl interface for this class.
     """
@@ -373,13 +373,12 @@ def _create_idl_interface(cls, exceptions=(), error_module="", docs=False):
             continue
 
         exceptions_headers.extend(attr.exceptions)
-        excps = tuple(attr.exceptions) + tuple(exceptions)
-        excp = get_exceptions(excps, error_module)
+        excp = get_exceptions(attr.exceptions, error_module)
 
         data_type = get_type(attr.data_type)
 
         if docs:
-            txt += _create_idl_comment('', (), data_type, excps, tabs=1)
+            txt += _create_idl_comment('', (), data_type, attr.exceptions, 1)
 
         txt += '\t%s get_%s()%s;\n' % (data_type, attr.name, excp)
         txt += '\n'
@@ -387,7 +386,7 @@ def _create_idl_interface(cls, exceptions=(), error_module="", docs=False):
         if attr.write:
             args = ((attr.name, attr.data_type),)
             if docs:
-                txt += _create_idl_comment('', args, 'void', excps, tabs=1)
+                txt += _create_idl_comment('', args, 'void', attr.exceptions, 1)
             txt += '\tvoid set_%s(in %s new_%s)%s;\n' % (attr.name, data_type, attr.name, excp)
             txt += '\n'
 
@@ -405,15 +404,14 @@ def _create_idl_interface(cls, exceptions=(), error_module="", docs=False):
         data_type = get_type(method.data_type)
         
         exceptions_headers.extend(method.exceptions)
-        excps = tuple(method.exceptions) + tuple(exceptions)
-        excp = get_exceptions(excps, error_module)
+        excp = get_exceptions(method.exceptions, error_module)
 
         if method.doc is None and hasattr(cls, method.name):
             method.doc = getattr(cls, method.name).__doc__
         doc = _trim_docstring(method.doc or '')
         
         if docs:
-            txt += _create_idl_comment(doc, method.args, data_type, excps, tabs=1)
+            txt += _create_idl_comment(doc, method.args, data_type, method.exceptions, 1)
 
         txt += '\t%s %s(%s)%s;\n' % (data_type, method.name, ', '.join(args), excp)
         txt += '\n'
@@ -445,18 +443,13 @@ def create_idl_source(classes, module_name='Generated', docs=False):
     If you wish the idl to be commented, use docs=True. This will copy
     the docstring into the idl.
     """
-    gexceptions = () # Global exceptions in the generated module.
-    
     # Prepare headers, exceptions and lines for all classes.
     headers = []        # contains headers for all classes.
     exceptions = []     # contains exceptions for the module.
     lines = []          # contains interface definitions for all classes.
     
-    exceptions.extend(gexceptions)
-    error_module = '%s::Errors' % module_name
-    
     for cls in classes:
-        values = _create_idl_interface(cls, gexceptions, error_module, docs)
+        values = _create_idl_interface(cls, '%s::Errors' % module_name, docs)
         cls_headers, cls_exceptions, cls_txt = values
         for i in cls_headers:
             if i not in headers:
