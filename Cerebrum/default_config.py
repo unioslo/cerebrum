@@ -33,3 +33,4 @@ CEREBRUM_DATABASE_CONNECT_DATA = { 'user' : None }
 
 DEFAULT_GECOS_NAME="name_full"
 AUTH_CRYPT_METHODS = ("auth_type_md5",)
+PERSON_NAME_SS_ORDER = ("system_lt", "system_fs")
