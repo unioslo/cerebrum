@@ -86,7 +86,7 @@ class Group(EntityName, Entity):
         this object.
 
         """
-        tmp = self.illegal_name(self.account_name)
+        tmp = self.illegal_name(self.group_name)
         if tmp:
             raise self._db.IntegrityError, "Illegal groupname: %s" % tmp
         self.__super.write_db()
