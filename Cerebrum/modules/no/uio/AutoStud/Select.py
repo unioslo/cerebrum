@@ -38,9 +38,11 @@ class SelectMapSuper(object):
 
     def _normalize_nivakode(self, niva):
         niva = int(niva)
-        if niva >= 100 and niva < 300:
+        if niva < 100:                   # Forkurs ol.
+            niva = 50
+        elif niva >= 100 and niva < 500: # Laveregrad, Cand.Mag, Bachelor
             niva = 100
-        elif niva >= 300 and niva < 400:
+        elif niva >= 500: # Høyeregrad, Profesjon, hovedfag, master, PHD
             niva = 300
         return niva
 
