@@ -1,0 +1,48 @@
+Ceresync concist of different types of backends.
+
+A backend can be ldap,file,etc.
+
+For each backend, you can store information for different types of "databases".
+For file-type backend, databases can be equivalents to:
+/etc/passwd
+/etc/shadow
+/etc/group
+/etc/aliases
+
+Each backend implements a set of functions:
+    begin(inkr=False) # Defaults to work in bulk-mode
+    close() # Close open connections
+    abort() # Stop ongoing operations
+    add(obj)
+    update(obj)
+    delete(obj)
+
+obj.name is always the primary key in the database (e.g. username)
+obj has other attributes as well, and each backend will always
+receive the full object (possibly exception for delete).
+
+Typical bulk-synchronization:
+    begin()
+    add(obj)
+    close() # will also remove any unwanted objects
+
+add in inrk=False -mode is supposed to work as if the object doesn't exist,
+and shouldn't give an error-message.
+
+Typical incremental run:
+    begin(inkr=True)
+    add(a)
+    update(b)
+    delete(c)
+    add(d)
+    delete(e)
+    close() 
+
+add and update in inkr=True -mode, is supposed to work if object exist in backend or not, but 
+"should" give a warning if object doesn't exist when calling update(), or if it exist when
+calling add().
+
+If an error get raised, its expected that abort() is called.
+
+abort() doesn't need to rollback changes done since begin() - 
+but each backend need to document what will happen.
