@@ -508,12 +508,19 @@ def process_move_requests():
     br = BofhdRequests(db, const)
     for r in br.get_requests(operation=const.bofh_move_user):
         if r['run_at'] < br.now:
+            logger.debug("Req %d: bofh_move_user %d",
+                         r['request_id'], r['entity_id'])
             try:
                 account, uname, old_host, old_disk = get_account(
                     r['entity_id'], type='PosixUser')
                 new_host, new_disk  = get_disk(r['destination_id'])
             except Errors.NotFoundError:
                 logger.error("%i not found" % r['entity_id'])
+                continue
+            if account.is_expired():
+                logger.warn("Account %s is expired, cancelling request" %
+                            account.account_name)
+                br.delete_request(request_id=r['request_id'])
                 continue
             operator = get_account(r['requestee_id'])[0].account_name
             group = get_group(account.gid_id, grtype='PosixGroup')
