@@ -25,17 +25,17 @@ ChangeLog in Cerebrum
 Event-listeners
 ===============
 
-  A stand-alone process EL receives log_change events either through
+  A stand-alone process CLH receives log_change events either through
   regular polling or over a socket or similar.  The process is not
   required to be running at all times.
 
-  Calling ELInterface.add_action_listener(self, key, type=None) will
-  register a program with EL, and EL will cause
+  Calling CLHandler.add_action_listener(self, key, type=None) will
+  register a program with CLH, and CLH will cause
   self.update_event(change_id) to be called whenever a log_change of
   the corresponding change_category has occoured.  This is done
   through polling/socket.
 
-  Calling ELInterface.get_events(key, type) will receive all events
+  Calling CLHandler.get_events(key, type) will receive all events
   that were received since the last time it was called.
 
   The key parameter is used to keep track of what events that has
