@@ -61,7 +61,7 @@ def quick_user_sync():
                                   clco.account_home_added,
                                   clco.account_home_updated))
 
-    for ans in answer:
+    for ans in answer:	
         chg_type = ans['change_type_id']
         if debug:
             logger.debug("change_id: %s" % ans['change_id'])
@@ -188,6 +188,49 @@ def change_quarantine(entity_id):
                 logger.warn("Failed getting AD_OU, %s, creating..." %  account_name)
                 add_spread(entity_id, co.spread_uio_ad_account)
 
+def build_user(entity_id):
+    account_name =id_to_name(entity_id,'user')
+    if not account_name:
+	return False
+	
+    ad_ou = cereconf.AD_LOST_AND_FOUND 
+
+    sock.send('NEWUSR&LDAP://OU=%s,%s&%s&%s\n' % ( ad_ou, cereconf.AD_LDAP, account_name, account_name))
+    #Set a random password on user, bacause NEWUSR creates an
+    #account with blank password.
+    if sock.read() == ['210 OK']:
+	if entity_id in passwords:
+	#Set correct password if in an earlier changelog entry.
+	    pw = passwords[entity_id]
+	else:
+	    #Set random password.
+            pw = account.make_passwd(account_name)
+            pw=pw.replace('%','%25')
+            pw=pw.replace('&','%26')
+        sock.send('ALTRUSR&%s/%s&pass&%s\n' % (cereconf.AD_DOMAIN,account_name,pw))
+        if sock.read() == ['210 OK']:
+            (full_name, account_disable, home_dir, cereconf.AD_HOME_DRIVE,
+             login_script) = adutils.get_user_info(entity_id, account_name,
+                                                   disk_spread)
+
+            sock.send(('ALTRUSR&%s/%s&fn&%s&dis&%s&hdir&%s&hdr&%s&ls&%s'+
+                       '&pexp&%s&ccp&%s\n') % (cereconf.AD_DOMAIN,
+                                               account_name,
+                                               full_name,
+                                               account_disable,
+                                               home_dir,
+                                               cereconf.AD_HOME_DRIVE,
+                                               login_script,
+                                               cereconf.AD_PASSWORD_EXPIRE,
+                                               cereconf.AD_CANT_CHANGE_PW))
+            if sock.read() == ['210 OK']:
+		logger.debug('Builded user:%s' % account_name)
+        else:
+            logger.fatal('Failed replacing password or Move account: %s' % account_name)
+
+
+
+
 
 def add_spread(entity_id, spread):
     if spread == co.spread_uio_ad_account:
@@ -234,7 +277,7 @@ def add_spread(entity_id, spread):
         if sock.read() == ['210 OK']:
             (full_name, account_disable, home_dir, cereconf.AD_HOME_DRIVE,
              login_script) = adutils.get_user_info(entity_id, account_name,
-                                                   spread)
+                                                   disk_spread)
 
             sock.send(('ALTRUSR&%s/%s&fn&%s&dis&%s&hdir&%s&hdr&%s&ls&%s'+
                        '&pexp&%s&ccp&%s\n') % (cereconf.AD_DOMAIN,
@@ -379,25 +422,32 @@ def group_rem(account_name,group_name):
 def change_pw(account_id,pw_params):
     account.clear()
     account.find(account_id)
+    user = id_to_name(account_id,'user')
+    if not user:
+	return False
     if account.has_spread(int(co.spread_uio_ad_account)):
-        pw=pw_params['password']
-	#Convert password so that it don't mess up the communication protocol.
-        pw=pw.replace('%','%25')
-        pw=pw.replace('&','%26')
-        user = id_to_name(account_id,'user')
-	if not user:
-	    return False
-        sock.send('ALTRUSR&%s/%s&pass&%s\n' % (cereconf.AD_DOMAIN,user,pw))
-        if sock.read() == ['210 OK']:
-	    return True
-	else:
-	    #Remember password from changelog, if user not yet created in AD.
-            passwords[account_id] = pw
+        set_pw(account_id,pw_params,user)
     else:
-        if debug:
-            logger.debug("Change password: Account %s, missing ad_spread" % (account_id))
-        return True
-    return False
+        sock.send('TRANS&%s/%s\n' % (cereconf.AD_DOMAIN, user))
+        ou_in_ad = sock.read()[0]
+        if ou_in_ad[0:3] != '210':
+	    build_user(account_id)	
+	set_pw(account_id,pw_params,user)
+    return True
+
+
+def set_pw(account_id,pw_params,user):
+
+    pw=pw_params['password']
+    #Convert password so that it don't mess up the communication protocol.
+    pw=pw.replace('%','%25')
+    pw=pw.replace('&','%26')
+    sock.send('ALTRUSR&%s/%s&pass&%s\n' % (cereconf.AD_DOMAIN,user,pw))
+    if sock.read() == ['210 OK']:
+	return True
+    else:
+	#Remember password from changelog, if user not yet created in AD.
+        passwords[account_id] = pw
 
 
 def id_to_name(id,entity_type):
