@@ -12,7 +12,11 @@ def main():
 
 
 def makedbs(Cerebrum):
-    for f in ('drop_core_tables.sql', 'core_tables.sql', 'core_data.sql', 'pop.sql', 'mod_stedkode.sql'):
+    for f in ('drop_core_tables.sql',
+              'core_tables.sql',
+              'core_data.sql',
+              #'pop.sql',
+              'mod_stedkode.sql'):
         runfile("design/%s" % f, Cerebrum)
 
 def runfile(fname, Cerebrum):
