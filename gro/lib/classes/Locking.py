@@ -34,70 +34,77 @@ class Locking( object ):
         self.readLocks = weakref.WeakKeyDictionary()
         self.writeLock = None
 
-    def lockForReading( self, client ):
-        """Request a read lock on this node."""
+    def lock_for_reading( self, client ):
+        """Request a readlock on this node.
 
-        if not self.writeLock or self.writeLock() is client:
-            if not self.isReadLockedByMe( client ):
-                self.readLocks[ client ] = time.time()
-        else:
-            raise Errors.AlreadyLockedError( 'Someone already got writelock on this node' )
+        If the node is already writelocked an exception is raised.
+        """
+        if self.is_writelocked_by_other( client ):
+            raise Errors.AlreadyLockedError, 'Node is writelocked by someone else.'
+        self.readLocks[ client ] = time.time()
 
-    def lockForWriting( self, client ):
-        """Request a write lock on this node."""
-        if not self.writeLock or self.writeLock() is client:
-            if self.isReadLockedByMe( client ) and not self.isReadLockedByOther( client ):
-                def rollback(obj):
-                    self.rollback()
-                self.writeLock = weakref.ref( client, rollback )
-            elif not self.readLocks:
-                self.lockForReading( client )
-            else:
-                raise Errors.AlreadyLockedError( 'Others got a readlock on this node,\
-                    preventing you from getting a writelock' )
-        else:
-            raise Errors.AlreadyLockedError( 'A writelock already exists on this node' )
+    def lock_for_writing( self, client ):
+        """Request a writelock on this node.
+
+        If the node is already writelocked an exception is raised.
+        If someone else also got a readlock on the node, an exception is raised.
+        """
+        if self.is_writelocked_by_other( client ):
+            raise Errors.AlreadyLockedError, 'A writelock already exists on this node'
+
+        if self.is_readlocked_by_other( client ):
+            raise Errors.AlreadyLockedError( 'Others got a readlock on this node,' \
+                'preventing you from getting a writelock' )
+
+        if not self.is_readlocked_by_me( client ):
+            self.lock_for_reading( client )
+
+        def rollback(obj):
+            self.rollback()
+        self.writeLock = weakref.ref( client, rollback )
 
     def unlock( self, client ):
-        """Remove all locks held by client on this node."""
-        if self.isReadLockedByMe( client ):
-            if self.isWriteLockedByMe( client ):
+        """Remove all locks held by client on this node.
+        """
+        if self.is_readlocked_by_me( client ):
+            if self.is_writelocked_by_me( client ):
                 # her må det sikkert gjøres noe opprydding i objectet..
                 self.writeLock = None
             del self.readLocks[ client ]
 
-    def isReadLockedByMe( self, client ):
+    def is_readlocked_by_me( self, client ):
         """Check if this node is locked for reading by the client
     
-        Returns true if the client got a read lock and false otherwise.
+        Returns true if the client got a readlock and false otherwise.
         Other locks are disregarded.
         """
         return ( client in self.readLocks.keys() )
 
-    def isReadLockedByOther( self, client ):
+    def is_readlocked_by_other( self, client ):
         """Check if this node is locked for reading by other clients.
     
-        Returns true if a client different to the specified client got a read lock
+        Returns true if a client different to the specified client got a readlock
         and false otherwise.
         """
-        return len(self.readLocks) > 1 or not self.readLocks and self.isReadLockedByMe()
+        return len( self.readLocks ) > 1 or (
+               self.readLocks and not self.is_readlocked_by_me( client ) )
 
-    def isWriteLockedByMe( self, client ):
+    def is_writelocked_by_me( self, client ):
         """Check if this node is locked for writing by the client.
     
         Returns true if the client specified got a write lock and false otherwise.
         """
         return ( self.writeLock and client is self.writeLock() ) 
 
-    def isWriteLockedByOther( self, client ):
+    def is_writelocked_by_other( self, client ):
         """Check if this node is locked for writing by another client.
 
-        Returns true if a client different to the client specified got a write lock
+        Returns true if a client different to the client specified got a writelock
         and false otherwise.
         """
         return self.writeLock and ( client is not self.writeLock() )
 
-    def getReadLockers( self ):
+    def get_readlockers( self ):
         """Returns a list over all who got a readlock.
 
         Returns a list with usernames for all who got a readlock on this node.
@@ -106,18 +113,18 @@ class Locking( object ):
         if self.readLocks:
             str = 'Users with readlock on this node:\n'
             for client in self.readLocks.keys():
-                str += '%s\n' % client.getUsername()
+                str += '%s\n' % client.get_username()
         else:
             str = 'No readlock exists on this node'
         return str
 
-    def getWriteLocker( self ):
+    def get_writelocker( self ):
         """Returns the username wich got a writelock.
 
         Will return an informative string if the node isn't locked for writing.
         """
         if self.writeLock:
-            str = '%s got a write lock on this node' % self.writeLock.getUsername()
+            str = '%s got a write lock on this node' % self.writeLock().get_username()
         else:
             str = 'No write lock exists on this node'
         return str
@@ -134,12 +141,12 @@ class Locker:
     def __init__( self, username ):
         self.username = username
 
-    def getUsername():
+    def get_username(self):
         """The name of the locking client.
 
         Should return a username wich identifies the person behind the client.
         """
-        return ''
+        return self.username
 
 
 
