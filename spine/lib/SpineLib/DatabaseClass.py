@@ -25,8 +25,12 @@ from Builder import Attribute
 from Searchable import Searchable
 from Dumpable import Dumpable
 from SpineClass import SpineClass
+from SpineExceptions import SpineException
 
 __all__ = ['DatabaseAttr', 'DatabaseClass', 'ConvertableAttribute']
+
+class DatabaseError(SpineException):
+    pass
 
 class ConvertableAttribute(object):
     """Mixin for attributes which needs to be converted.
@@ -67,8 +71,13 @@ class DatabaseAttr(Attribute, ConvertableAttribute):
     with the generic search/create/delete-methods found in DatabaseClass.
     """
     
-    def __init__(self, name, table, data_type, exceptions=(), write=False,
+    def __init__(self, name, table, data_type, exceptions=None, write=False,
                  convert_to=None, convert_from=None, optional=False):
+
+        if exceptions is None:
+            exceptions = []
+        exceptions += [DatabaseError]
+
         Attribute.__init__(self, name, data_type, exceptions=exceptions,
                            write=write, optional=optional)
 

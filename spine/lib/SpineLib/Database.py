@@ -21,7 +21,6 @@
 from threading import Lock
 from Cerebrum.Utils import Factory
 Database = Factory.get('Database')
-from Cerebrum.spine.server.Cerebrum_core import Errors
 
 __all__ = ['get_database']
 

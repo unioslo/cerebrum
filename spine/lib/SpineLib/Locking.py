@@ -19,15 +19,16 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 import time, weakref
-
 import cereconf
 
-from Transaction import Transaction
-from Cerebrum.spine.server.Cerebrum_core import Errors
+from SpineExceptions import SpineException
+from Transaction import Transaction, TransactionError
 import Scheduler
 
+__all__ = ['Locking', 'AlreadyLockedError']
 
-__all__ = ['Locking']
+class AlreadyLockedError(SpineException):
+    pass
 
 class Locking(object):
     """
@@ -62,7 +63,7 @@ class Locking(object):
             if ref() is client:
                 self.lock_for_writing(client)
                 return
-            raise Errors.AlreadyLockedError, 'Write lock exists on %s' % self
+            raise AlreadyLockedError, 'Write lock exists on %s' % self
         self.read_locks[client] = time.time()
 
         def unlock(ref):
@@ -84,7 +85,7 @@ class Locking(object):
     def __has_timeouts(self, client):
         if len(client.lost_locks) > 0:
             l = client.lost_locks.pop(0)
-            raise Errors.TransactionError('Your lock on %s timed out' % l)
+            raise TransactionError('Your lock on %s timed out' % l)
 
     def lock_for_writing(self, client):
         """
@@ -93,14 +94,14 @@ class Locking(object):
         self.__has_timeouts(client)
 
         if self.is_writelocked() and self.get_writelock_holder() is not client:
-            raise Errors.AlreadyLockedError, 'Write lock exists on %s' % self
+            raise AlreadyLockedError, 'Write lock exists on %s' % self
 
         if self.read_locks.has_key(client):
             if len(self.read_locks) > 1:
-                raise Errors.AlreadyLockedError, 'Other read locks exist on %s' % self
+                raise AlreadyLockedError, 'Other read locks exist on %s' % self
             del self.read_locks[client]
         elif len(self.read_locks) > 0:
-            raise Errors.AlreadyLockedError, 'Other read locks exist on %s' % self
+            raise AlreadyLockedError, 'Other read locks exist on %s' % self
 
         def rollback(obj):
             self.reset()

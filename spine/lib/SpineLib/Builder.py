@@ -19,9 +19,14 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 from Cerebrum.extlib import sets
-from Cerebrum.spine.server.Cerebrum_core import Errors
+from Transaction import TransactionError
+from Locking import AlreadyLockedError
+
 
 __all__ = ['Attribute', 'Method', 'Builder']
+
+class ReadOnlyAttributeError(Exception):
+    pass
 
 class Attribute(object):
     """Representation of an attribute in Spine.
@@ -35,7 +40,7 @@ class Attribute(object):
     are writeable, will also get set/save-methods.
     """
     
-    def __init__(self, name, data_type, exceptions=(), write=False, optional=False):
+    def __init__(self, name, data_type, exceptions=None, write=False, optional=False):
         """Initiate the attribute.
 
         name        - the name of the attribute in a string.
@@ -46,14 +51,16 @@ class Attribute(object):
 
         optional attributes have exists-comparisation in searchobjects.
         """
+        if exceptions is None:
+            exceptions = []
         self.name = name
         assert type(data_type) != str
-        assert type(exceptions) in (list, tuple)
+        assert type(exceptions) is list
         assert write in (True, False)
         assert optional in (True, False)
 
         self.data_type = data_type
-        self.exceptions = exceptions
+        self.exceptions = exceptions + [AlreadyLockedError, TransactionError]
         self.write = write
         self.optional = optional
 
@@ -94,7 +101,7 @@ class Method(object):
     before the method is called.
     """
     
-    def __init__(self, name, data_type, args=(), exceptions=(), write=False):
+    def __init__(self, name, data_type, args=None, exceptions=None, write=False):
         """Initiate the method.
 
         name        - the name of the method as a string.
@@ -103,14 +110,19 @@ class Method(object):
         exceptions  - list with all exceptions accessing this attribute might raise.
         write       - should be True for methods which should requiere writelocks.
         """
+        if args is None:
+            args = ()
+        if exceptions is None:
+            exceptions = []
+        
         self.name = name
         assert type(data_type) != str
-        assert type(exceptions) in (list, tuple)
+        assert type(exceptions) is list
         assert write in (True, False)
 
         self.data_type = data_type
         self.args = args
-        self.exceptions = exceptions
+        self.exceptions = exceptions + [AlreadyLockedError, TransactionError]
         self.write = write
         self.doc = None
 
@@ -144,9 +156,9 @@ def create_set_method(attr):
     return set
 
 def create_readonly_set_method(attr):
-    """Returns a method which will raise and exception if called."""
+    """Returns a method which will raise an exception if called."""
     def readonly_set(self, *args, **vargs):
-        raise Errors.ReadOnlyAttributeError('attribute %s is read only' % attr.name)
+        raise ReadOnlyAttributeError('attribute %s is read only' % attr.name)
     return readonly_set
 
 class Builder(object):

@@ -19,9 +19,14 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 import Database
-from Cerebrum.spine.server.Cerebrum_core import Errors
-
 from LockHolder import LockHolder
+from SpineExceptions import SpineException
+
+
+__all__ = ['Transaction', 'TransactionError']
+
+class TransactionError(SpineException):
+    pass
 
 class Transaction(LockHolder):
     def __init__(self, client):
@@ -38,7 +43,7 @@ class Transaction(LockHolder):
         is aborted.
         """
         if not self.transaction_started:
-            raise Errors.TransactionError('No transaction started')
+            raise TransactionError('No transaction started')
 
         self._refs.append(obj)
    
@@ -53,7 +58,7 @@ class Transaction(LockHolder):
         This transaction object cannot be used again.
         """
         if not self.transaction_started:
-            raise Errors.TransactionError('No transaction started')
+            raise TransactionError('No transaction started')
 
         try:
             self._db.commit()
@@ -61,7 +66,7 @@ class Transaction(LockHolder):
                 item.unlock(self)
 
         except Exception, e:
-            raise Errors.TransactionError('Failed to commit: %s' % e)
+            raise TransactionError('Failed to commit: %s' % e)
 
         self._refs = None
         self.transaction_started = False
@@ -75,7 +80,7 @@ class Transaction(LockHolder):
         """
 
         if not self.transaction_started:
-            raise Errors.TransactionError('No transaction started')
+            raise TransactionError('No transaction started')
 
         self._db.rollback()
 
@@ -92,7 +97,7 @@ class Transaction(LockHolder):
 
     def get_database(self):
         if self._db is None:
-            raise Errors.TransactionError('No transaction started')
+            raise TransactionError('No transaction started')
         else:
             return self._db
 
