@@ -5,18 +5,24 @@ class Parameter(object):
     the __init__ constructor are None, they may be overridden in a
     subclass's definition."""
 
-    def __init__(self, name=None, optional=0, default=0, repeat=0, ptype=None,
-                 prompt_func=None, tab_func=None, prompt=None):
+    # TODO: Document what the various keyword arguments signify.
+    def __init__(self, name=None,
+                 optional=False, default=False, repeat=False,
+                 ptype=None, prompt_func=None, tab_func=None, prompt=None):
         self._name = name
 
-        for k in locals().keys():
-            if locals()[k] is None:
-                if not hasattr(self, '_'+k):
-                    setattr(self, '_'+k, None)
+        for k, v in locals().items():
+            attr = '_' + k
+            if v is None:
+                # If a constructor argument is None, it should only
+                # become an instance attribute iff this would not
+                # shadow any class attribute with the same name.
+                if not hasattr(self, attr):
+                    setattr(self, attr, None)
                 else:
-                    pass   # Already set
+                    pass
             else:
-                setattr(self, '_'+k, locals()[k])
+                setattr(self, attr, v)
 
     def get_struct(self):
         ret = {}
@@ -143,14 +149,20 @@ class FormatSuggestion(object):
 
 if __name__ == '__main__':
     all_commands = {
-        ## bofh> account create <accountname> <idtype> <id> <affiliation= <ou= [<expire_date>]
-        'account_create': Command(('account', 'create'), AccountName(ptype="new"), PersonIdType(), PersonId(),
-                                  Affiliation(default=1), OU(default=1), Date(optional=1)),
+        ## bofh> account create <accountname> <idtype> <id> \
+        ##         <affiliation=> <ou=> [<expire_date>]
+        'account_create': Command(('account', 'create'),
+                                  AccountName(ptype="new"), PersonIdType(),
+                                  PersonId(), Affiliation(default=True),
+                                  OU(default=True), Date(optional=True)),
         ## bofh> person find {<name> | <id> [<id_type>] | <birth_date>}
-        'person_find': Command(("person", "find") , Id(), PersonIdType(optional=1)),
+        'person_find': Command(("person", "find"),
+                               Id(), PersonIdType(optional=True)),
         ## bofh> group add <entityname+> <groupname+> [<op>]
-        'group_add': Command(("group", "add"), GroupName("source", repeat=1),
-                             GroupName("destination", repeat=1), GroupOperation(optional=1))
+        'group_add': Command(("group", "add"),
+                             GroupName("source", repeat=True),
+                             GroupName("destination", repeat=True),
+                             GroupOperation(optional=True))
         }
-    
+
     print all_commands['account_create'].get_struct()
