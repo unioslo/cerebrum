@@ -457,6 +457,16 @@ WHERE p.fodselsdato=d.fodselsdato AND
 	return (self._get_cols(qry), self.db.query(qry))
       
 
+    def GetStudinfDrgrad(self):
+	"""Henter info om aktive doktorgradsstudenter."""
+        qry = """
+
+SELECT fodselsdato, personnr, institusjonsnr, faknr, instituttnr, gruppenr
+FROM fs.drgradsavtale
+WHERE dato_start <= SYSDATE AND
+      NVL(dato_slutt, sysdate) >= SYSDATE"""
+        return (self._get_cols(qry), self.db.query(qry))
+
     def GetStudieproginf(self):
 	"""For hvert definerte studieprogram henter vi 
 	informasjon om utd_plan og eier samt studieprogkode"""
