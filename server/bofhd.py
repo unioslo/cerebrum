@@ -565,8 +565,7 @@ if __name__ == '__main__':
             # This is a bit icky.  What we want to accomplish is to
             # fetch the results from a bofhd_get_commands client
             # command.
-            server = BofhdServer(Factory.get('Database')(), conffile,
-                                 ("0.0.0.0", 9999))
+            server = BofhdServer(Factory.get('Database')(), conffile)
             commands = {}
             for inst in server.cmd_instances:
                 newcmd = inst.get_commands(None)
