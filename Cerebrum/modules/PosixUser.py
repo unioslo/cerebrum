@@ -207,6 +207,61 @@ class PosixUser(Account_class):
                            'pn_ss': int(self.const.system_cached),
                            'pn_nv': int(self.const.name_full)})
 
+    def list_extended_posix_users_test(self, auth_method, spread=None,
+                                  a_id=None,include_quarantines=0):
+        """This is a test-version and is going to be rebuild. """
+        efrom = ewhere = ecols = espread = ""
+        if include_quarantines:
+            efrom = """ LEFT JOIN [:table schema=cerebrum name=entity_quarantine] eq
+                           ON pu.account_id=eq.entity_id"""
+            ecols = ", eq.quarantine_type"
+        if spread is not None:
+            spread1 = int(spread[0])
+            spread.remove(spread1)
+            if spread:
+                for entry in spread:
+                    espread += " OR es.spread=%s" % (int(entry))
+            efrom += """  JOIN [:table schema=cerebrum name=entity_spread] es
+            ON pu.account_id=es.entity_id AND (es.spread=%s %s)""" % (spread1,espread)
+        if a_id is None:
+            ecols += ", shell"
+        if a_id is not None:
+            ewhere += """ AND pu.account_id=:a_id
+            LEFT JOIN [:table schema=cerebrum name=posix_shell_code] psc
+                ON pu.shell=psc.code
+            LEFT JOIN [:table schema=cerebrum name=disk_info] di
+                ON ai.disk_id=di.disk_id"""
+            ecols += ", di.path, psc.shell"
+        # TBD: should we LEFT JOIN with account_authentication so that
+        # users without passwords of the given type are returned?
+        return self.query("""
+        SELECT ai.account_id, posix_uid, gecos, entity_name, ai.home,
+          ai.disk_id, aa.auth_data, pg.posix_gid, pn.name %s
+        FROM
+          [:table schema=cerebrum name=posix_user] pu
+          %s
+          JOIN [:table schema=cerebrum name=account_info] ai
+            ON ai.account_id=pu.account_id
+          LEFT JOIN  [:table schema=cerebrum name=person_name] pn
+            ON pn.person_id=ai.owner_id AND pn.source_system=:pn_ss AND
+               pn.name_variant=:pn_nv
+          JOIN [:table schema=cerebrum name=posix_group] pg
+            ON pu.gid=pg.group_id
+          LEFT JOIN [:table schema=cerebrum name=account_authentication] aa
+            ON aa.account_id=pu.account_id AND aa.method=(SELECT MAX(method)
+                FROM [:table schema=cerebrum name=account_authentication] aa2
+                WHERE aa2.account_id=pu.account_id)
+          JOIN [:table schema=cerebrum name=entity_name] en
+            ON en.entity_id=pu.account_id AND en.value_domain=:vd
+          %s
+          """ % (ecols, efrom, ewhere),
+                          {'vd': int(self.const.account_namespace),
+                           #'auth_method': int(auth_method),
+                           'spread': spread,
+			   'pn_ss': int(self.const.system_cached),
+                           'pn_nv': int(self.const.name_full),
+                           'a_id': a_id})
+
     def get_free_uid(self):
         """Returns the next free uid from ``posix_uid_seq``"""
         while 1:
