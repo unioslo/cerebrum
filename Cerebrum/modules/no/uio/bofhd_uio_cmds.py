@@ -391,7 +391,7 @@ class BofhdExtension(object):
     def misc_change_request(self, operator, request_id, date):
         date = self._parse_date(date)
         br = BofhdRequests(self.db, self.const)
-        old_req = br.get_request(request_id=request_id)
+        old_req = br.get_requests(request_id=request_id)[0]
         if old_req['requestee_id'] != operator.get_entity_id():
             raise PermissionDenied("You are not the requestee")
         br.delete_request(request_id=request_id)
@@ -423,6 +423,8 @@ class BofhdExtension(object):
     all_commands['misc_dadd'] = Command(
         ("misc", "dadd"), SimpleString(help_ref='string_host'), DiskId())
     def misc_dadd(self, operator, hostname, diskname):
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            raise PermissionDenied("Currently limited to superusers")
         host = self._get_host(hostname)
         disk = Disk.Disk(self.db)
         disk.populate(host.entity_id, diskname, 'uio disk')
@@ -446,14 +448,18 @@ class BofhdExtension(object):
     all_commands['misc_drem'] = Command(
         ("misc", "drem"), SimpleString(help_ref='string_host'), DiskId())
     def misc_drem(self, operator, hostname, diskname):
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            raise PermissionDenied("Currently limited to superusers")
         host = self._get_host(hostname)
-        disk = Disk.Disk(db)
+        disk = Disk.Disk(self.db)
         disk.find_by_path(diskname, host_id=host.entity_id)
         raise NotImplementedError, "API does not support disk removal"
 
     all_commands['misc_hadd'] = Command(
         ("misc", "hadd"), SimpleString(help_ref='string_host'))
     def misc_hadd(self, operator, hostname):
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            raise PermissionDenied("Currently limited to superusers")
         host = Disk.Host(self.db)
         host.populate(hostname, 'uio host')
         host.write_db()
@@ -462,6 +468,8 @@ class BofhdExtension(object):
     all_commands['misc_hrem'] = Command(
         ("misc", "hrem"), SimpleString(help_ref='string_host'))
     def misc_hrem(self, operator, hostname):
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            raise PermissionDenied("Currently limited to superusers")
         host = self._get_host(hostname)
         raise NotImplementedError, "API does not support host removal"
 
@@ -820,7 +828,7 @@ class BofhdExtension(object):
     # person create
     all_commands['person_create'] = Command(
         ("person", "create"), PersonId(),
-        Date(), PersonName(help_ref="person_name_full"), OU(),
+        Date(help_ref='date_birth'), PersonName(help_ref="person_name_full"), OU(),
         Affiliation(), AffiliationStatus(),
         fs=FormatSuggestion("Created: %i",
         ("person_id",)))
@@ -833,7 +841,7 @@ class BofhdExtension(object):
             bdate = self._parse_date(bdate)
         id_type, id = self._map_person_id(person_id)
         gender = self.const.gender_unknown
-        if id_type is not None:
+        if id_type is not None and id:
             if id_type == self.const.externalid_fodselsnr:
                 if fodselsnr.er_mann(id):
                     gender = self.const.gender_male
@@ -1236,13 +1244,15 @@ class BofhdExtension(object):
         owner_id = all_args.pop(0)
         if not group_owner:
             if not all_args:
-                # TODO: ansatt/student kun hvis personen har denne affiliation fra før
-                map = [(("%-8s %s", "Num", "Affiliation"), None),
-                       (("%s", str(self.const.affiliation_ansatt)),
-                        int(self.const.affiliation_ansatt)),
-                       (("%s", str(self.const.affiliation_student)),
-                        int(self.const.affiliation_student)),
-                       ]
+                map = [(("%-8s %s", "Num", "Affiliation"), None)]
+                person = self._get_person("entity_id", owner_id)
+                for aff in person.get_affiliations():
+                    if aff['affiliation'] == int(self.const.affiliation_ansatt):
+                        map.append((("%s", str(self.const.affiliation_ansatt)),
+                                    int(self.const.affiliation_ansatt)))
+                    if aff['affiliation'] == int(self.const.affiliation_student):
+                        map.append((("%s", str(self.const.affiliation_student)),
+                                    int(self.const.affiliation_student)))
                 tmp = self.person_affiliation_statusids[str(self.const.affiliation_manuell)]
                 for k in tmp.keys():
                     map.append((("MANUELL:%s", str(tmp[k])), int(tmp[k])))
@@ -1638,7 +1648,7 @@ class BofhdExtension(object):
     all_commands['user_reserve'] = Command(
         ('user', 'create_reserve'), prompt_func=user_create_basic_prompt_func,
         fs=FormatSuggestion("Created account_id=%i", ("account_id",)))
-    def user_reserve(self, operator, idtype, person_id, uname):
+    def user_reserve(self, operator, idtype, person_id, affiliation, uname):
         person = self._get_person("entity_id", person_id)
         account = Account.Account(self.db)
         account.clear()
@@ -1654,6 +1664,24 @@ class BofhdExtension(object):
         account.set_password(passwd)
         try:
             account.write_db()
+            ou = self._get_ou(stedkode=cereconf.DEFAULT_OU)
+            if not (affiliation == self.const.affiliation_ansatt or
+                    affiliation == self.const.affiliation_student):
+                tmp = self.person_affiliation_statusids[str(self.const.affiliation_manuell)]
+                for k in tmp.keys():
+                    if affiliation == int(tmp[k]):
+                        break
+                affiliation = tmp[k].affiliation
+                person = self._get_person("entity_id", person.entity_id)
+                has_affiliation = False
+                for a in person.get_affiliations():
+                    if (a['ou_id'] == ou.entity_id and
+                        a['affiliation'] == int(tmp[k].affiliation)):
+                        has_affiliation = True
+                if not has_affiliation:
+                    person.add_affiliation(ou.entity_id, tmp[k].affiliation,
+                                           self.const.system_manual, tmp[k])
+            account.set_account_type(ou.entity_id, affiliation)
         except self.db.DatabaseError, m:
             raise CerebrumError, "Database error: %s" % m
         operator.store_state("new_account_passwd", {'account_id': int(account.entity_id),
@@ -1668,6 +1696,7 @@ class BofhdExtension(object):
         self.ba.can_delete_user(operator.get_entity_id(), account)
         account.expire_date = self._parse_date(date)
         account.write_db()
+        return "OK"
 
     # user set_np_type
     all_commands['user_set_np_type'] = Command(
@@ -1855,8 +1884,15 @@ class BofhdExtension(object):
             if idtype == 'exp':
                 raise NotImplementedError, "Lack API support for this"
             elif idtype == 'fnr':
-                person.find_by_external_id(self.const.externalid_fodselsnr, id)
-                ret = [{'person_id': person.entity_id}]
+                for ss in [self.const.system_fs, self.const.system_lt,
+                           self.const.system_manual, self.const.system_ureg]:
+                    try:
+                        person.clear()
+                        person.find_by_external_id(self.const.externalid_fodselsnr, id,
+                                                   source_system=ss)
+                        ret.append({'person_id': person.entity_id})
+                    except Errors.NotFoundError:
+                        pass
         else:
             raise CerebrumError, "Unable to parse person id"
         return ret
