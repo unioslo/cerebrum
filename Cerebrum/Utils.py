@@ -435,6 +435,8 @@ class Factory(object):
         'person': 'Person',
         'account': 'Account',
         'group': 'Group',
+        'host': 'Host',
+        'disk': 'Disk',
     }
 
     def get(comp):
