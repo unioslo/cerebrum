@@ -19,32 +19,24 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 import os
+import cPickle
 import SpineClient
 
-class Session(object):
+class Session(dict):
     def __init__(self, id):
         self.id = id
         self.filename = '/tmp/cereweb_%s' % id
         if os.path.exists(self.filename):
-            self.data = eval(open(self.filename).read())
-        else:
-            self.data = {}
-
-        self.__getitem__ = self.data.__getitem__
-        self.get = self.data.get
+            fd = open(self.filename)
+            self.update(cPickle.load(fd))
+            fd.close()
 
     def save(self):
         tmpname = self.filename + ".tmp." + str(os.getpid())
         fd = open(tmpname, 'w')
-        fd.write(repr(self.data))
+        cPickle.dump(self.items(), fd)
         fd.close()
         os.rename(tmpname, self.filename)
-
-    def __setitem__(self, key, value):
-        assert type(key) is str
-        assert type(value) in (int, str)
-
-        self.data[key] = value
 
     def get_spine_session(self):
         return SpineClient.orb.string_to_object(self['spine_session'])
