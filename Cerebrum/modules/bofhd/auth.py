@@ -740,6 +740,10 @@ class BofhdAuth(DatabaseAccessor):
                                 query_run_any=False):
         return self.can_email_forward_edit(operator, account, query_run_any)
 
+    # TODO: when Mailman is better integrated with Cerebrum, we can
+    # allow local postmasters to create lists, but today creating a
+    # list requires shell access to mailman@lister.uio.no, so there's
+    # no point.
     def can_email_list_create(self, operator, domain=None,
                               query_run_any=False):
         if self.is_superuser(operator):
@@ -753,6 +757,34 @@ class BofhdAuth(DatabaseAccessor):
     def can_email_list_delete(self, operator, domain=None,
                               query_run_any=False):
         return self.can_email_list_create(operator, domain, query_run_any)
+
+    def _is_local_postmaster(self, operator, operation, account=None,
+                             domain=None, query_run_any=False):
+        if self.is_superuser(operator):
+            return True
+        if query_run_any:
+            return self._has_operation_perm_somewhere(operator, operation)
+        if self.is_postmaster(operator):
+            return True
+        if domain:
+            self._query_maildomain_permissions(operator, operation,
+                                               domain, None)
+        if account:
+            self._query_disk_permissions(operator, operation,
+                                         self._get_disk(account.disk_id),
+                                         account.entity_id)
+        return True
+
+    # associate a new e-mail address with an account, or other target.
+    def can_email_address_add(self, operator, account=None, domain=None,
+                              query_run_any=False):
+        return self._is_local_postmaster(operator, self.const.auth_email_create,
+                                         account, domain, query_run_any)
+
+    def can_email_address_delete(self, operator, account=None, domain=None,
+                                 query_run_any=False):
+        return self._is_local_postmaster(operator, self.const.auth_email_delete,
+                                         account, domain, query_run_any)
 
     def _query_disk_permissions(self, operator, operation, disk, victim_id):
         """Permissions on disks may either be granted to a specific

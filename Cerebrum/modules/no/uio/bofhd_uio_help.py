@@ -15,6 +15,8 @@ group_help = {
 # not contain \n
 command_help = {
     'email': {
+    'email_add_address': 'Add an alias address',
+    'email_remove_address': 'Remove an alias address',
     'email_forward': 'Turn e-mail forwarding for a user on/off',
     'email_add_forward': 'Add a forward address',
     'email_remove_forward': 'Remove a forward address',

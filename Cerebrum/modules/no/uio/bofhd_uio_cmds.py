@@ -126,9 +126,94 @@ class BofhdExtension(object):
     # email commands
     #
 
-    # email add_address <account> <address>+
+    # email add_address <address or account> <address>+
+    all_commands['email_add_address'] = Command(
+        ('email', 'add_address'),
+        AccountName(help_ref='account_name'),
+        EmailAddress(help_ref='email_address', repeat=True),
+        perm_filter='can_email_address_add')
+    def email_add_address(self, operator, uname, address):
+        ea = Email.EmailAddress(self.db)
+        et = Email.EmailTarget(self.db)
+        if uname.find('@') <> -1:
+            try:
+                ea.find_by_address(uname)
+                et.find(ea.get_target_id())
+                ttype = et.email_target_type
+                if ttype == self.const.email_target_Mailman:
+                    acc = None
+                elif ttype == self.const.email_target_account:
+                    acc = self._get_account(et.email_target_entity_id,
+                                            idtype = 'id')
+                else:
+                    raise CerebrumError, ("Can't add e-mail address to target "+
+                                          "type %s") % self.num2const[ttype]
+            except Errors.NotFoundError:
+                raise CerebrumError, "No such e-mail address (%s)" % uname
+        else:
+            acc = self._get_account(uname)
+            et.find_by_entity(acc.entity_id)
+            if et.email_target_type == self.const.email_target_deleted:
+                raise CerebrumError, ("Can't add e-mail address to deleted "+
+                                      "user (%s)" % uname)
+        lp, dom = address.split('@')
+        try:
+            ed = Email.EmailDomain(self.db)
+            ed.find_by_domain(dom)
+        except Errors.NotFoundError:
+            raise CerebrumError, "Unknown domain name (%s)" % dom
+        self.ba.can_email_address_add(operator.get_entity_id(),
+                                      account=acc, domain=ed)
+        ea.clear()
+        try:
+            ea.find_by_address(address)
+            raise CerebrumError, "Address already exists (%s)" % address
+        except Errors.NotFoundError:
+            pass
+        ea.clear()
+        ea.populate(lp, ed.email_domain_id, et.email_target_id)
+        ea.write_db()
+        return "OK"
     
     # email remove_address <account> <address>+
+    all_commands['email_remove_address'] = Command(
+        ('email', 'remove_address'),
+        AccountName(help_ref='account_name'),
+        EmailAddress(help_ref='email_address', repeat=True),
+        perm_filter='can_email_address_delete')
+    def email_remove_address(self, operator, uname, address):
+        ea = Email.EmailAddress(self.db)
+        et = Email.EmailTarget(self.db)
+        if uname.find('@') <> -1:
+            try:
+                ea.find_by_address(uname)
+                et.find(ea.get_target_id())
+                ttype = et.email_target_type
+                if ttype == self.const.email_target_Mailman:
+                    acc = None
+                elif (ttype == self.const.email_target_account or
+                      ttype == self.const.email_target_deleted):
+                    acc = self._get_account(et.email_target_entity_id,
+                                            idtype = 'id')
+                else:
+                    raise CerebrumError, ("Can't add e-mail address to target "+
+                                          "type %s") % self.num2const[ttype]
+            except Errors.NotFoundError:
+                raise CerebrumError, "No such e-mail address (%s)" % uname
+        else:
+            acc = self._get_account(uname)
+            et.find_by_entity(acc.entity_id)
+        ea.clear()
+        try:
+            ea.find_by_address(address)
+        except Errors.NotFoundError:
+            raise CerebrumError, "No such e-mail address (%s)" % address
+        ed = Email.EmailDomain(self.db)
+        ed.find(ea.email_addr_domain_id)
+        self.ba.can_email_address_add(operator.get_entity_id(),
+                                      account=acc, domain=ed)
+        ea.delete()
+        return "OK"
     
     # email forward "on"|"off"|"local" <account>+ [<address>+]
     all_commands['email_forward'] = Command(
