@@ -487,6 +487,24 @@ public class JBofh {
                 if(arginfo.get("prompt") == null && arginfo.get("last_arg") != null)
                     break;
 		String defval = (String) arginfo.get("default");
+                Vector map = (Vector) arginfo.get("map");
+                if(map != null) {
+                    for(int i = 0; i < map.size(); i++) {
+                        Vector line = (Vector) map.get(i);
+                        Vector description = (Vector) line.get(0);
+                        String format_desc = (String) description.get(0);
+                        description.remove(0);
+                        if(i == 0) {
+                            format_desc = "%4s " + format_desc;
+                            description.add(0, "Num");
+                        } else {
+                            format_desc = "%4i " + format_desc;
+                            description.add(0, new Integer(i));
+                        }
+                        PrintfFormat pf = new PrintfFormat(format_desc);
+                        showMessage(pf.sprintf(description.toArray()), true);
+                    }
+                }
 		String s = cLine.promptArg((String) arginfo.get("prompt") +
                     (defval == null ? "" : " ["+defval+"]")+" >", false);
 		if(s.equals("") && defval == null) continue;
@@ -503,16 +521,16 @@ public class JBofh {
                     continue;
                 }
 		if(! s.equals("")) {
-		    Hashtable h = (Hashtable) arginfo.get("map");
-		    if(h != null) {
-			if(h.get(s) == null) {
+		    if(map != null && arginfo.get("raw") == null) {
+                        try {
+                            int i = Integer.parseInt(s);
+			    ret.add(((Vector)map.get(i)).get(1));
+                        } catch (Exception e) {
 			    showMessage("Value not in list", true);
-			} else {
-			    ret.add(h.get(s));
-			}
+                        }
 		    } else {
 			ret.add(s);
-		    }
+                    } 
 		} else {
 		    if(defval != null) ret.add(defval);
 		}
