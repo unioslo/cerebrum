@@ -25,6 +25,8 @@ class CorbaSession(CorbaBuilder):
         Method('get_transactions', APHandler, sequence=True),
         Method('get_transaction', APHandler, args=[('id', int)])
     ]
+    builder_parents = ()
+    builder_children = ()
     def __init__(self, client):
         self.client = client
         self.counter = count()
@@ -37,7 +39,17 @@ class CorbaSession(CorbaBuilder):
         self.transactions[id] = corba_obj
         return corba_obj
 
+    def cleanup(self):
+        dirty = []
+        for id in self.transactions:
+            if not APHandler(self.client, id).transaction_started:
+                dirty.append(id)
+
+        for id in dirty:
+            del self.transactions[id]
+
     def get_transactions(self):
+        self.cleanup()
         return self.transactions.values()
 
     def get_transaction(self, id):
@@ -57,7 +69,10 @@ classes.append(CorbaSession)
 
 idl_source = create_idl_source(classes, 'generated')
 
-omniORB.importIDLString(idl_source, ['-I' + cereconf.IDL_PATH])
+try:
+    omniORB.importIDLString(idl_source, ['-I' + cereconf.IDL_PATH])
+except:
+    print idl_source
 
 import generated__POA
 for name, gro_class in registry.map.items():
