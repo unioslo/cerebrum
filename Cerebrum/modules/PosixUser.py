@@ -185,7 +185,7 @@ class PosixUser(Account.Account):
                pn.name_variant=:pn_nv
           JOIN [:table schema=cerebrum name=posix_group] pg
             ON pu.gid=pg.group_id
-          JOIN [:table schema=cerebrum name=account_authentication] aa
+          LEFT JOIN [:table schema=cerebrum name=account_authentication] aa
             ON aa.account_id=pu.account_id AND aa.method=:auth_method
           JOIN [:table schema=cerebrum name=entity_name] en
             ON en.entity_id=pu.account_id AND en.value_domain=:vd
