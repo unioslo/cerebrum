@@ -36,8 +36,9 @@ from Cerebrum.modules import CLHandler
 from Cerebrum.modules.no.hia import nwutils
 
 
-global ldap_handle, cl_mask, group_done, logger
+global ldap_handle, group_done, logger, int_log
 group_done = {}
+int_log = None
 db = Factory.get('Database')()
 const = Factory.get('CLConstants')(db)
 co = Factory.get('Constants')(db)
@@ -64,9 +65,9 @@ cl_entry = {'group_mod' : 'pass',
 					cll.dest_entity,cll.change_id)',
 	#'account_mod' : 'mod_account(cll.subject_entity,i)',
 	'spread_add' : 'change_spread(cll.subject_entity,cll.change_type_id,\
-						cll.change_params,cll.change_id)',
+						cll.change_params)',
 	'spread_del' : 'change_spread(cll.subject_entity,cll.change_type_id,\
-						cll.change_params,cll.change_id)',
+						cll.change_params)',
 	#'quarantine_add' : 'change_quarantine(cll.subject_entity,\
 	#						cll.change_type_id)',
 	#'quarantine_mod' : 'change_quarantine(cll.subject_entity,\
@@ -76,6 +77,62 @@ cl_entry = {'group_mod' : 'pass',
 	'account_password' : 'change_passwd(cll.subject_entity, cll.change_params)'
 	}
 									
+def main():
+    global int_log
+    int_log = port = host = spread = g_spread =None
+    try:
+        opts, args = getopt.getopt(sys.argv[1:], 'S:s:p:g', ['help'])
+    except getopt.GetoptError:
+        usage(1)
+                                                                                                                                               
+    if args:
+        usage(1)
+    for opt, val in opts:
+        if opt == '--help':
+            usage()
+        elif opt == '-S':
+            host = val
+        elif opt == '-s':
+            spread = val
+        elif opt == '-p':
+            port = int(val)
+        elif opt == '-g':
+            g_spread = [x for x in val.split(',')]
+    if spread is not None:
+        host = host or cereconf.NW_LDAPHOST
+        if not host:
+            logger.error("No valid server in arg or config")
+            sys.exit(0)
+        port = port or cereconf.NW_LDAPPORT
+        if not port:
+            logger.info("No port in arg or config. Port set to default(389)!")
+            port = 389
+        # TODO fix with som default and cereconf values
+        default_dir = '/cerebrum/dumps/eDir/'
+        default_file = 'edir.ldif'
+        if not os.path.isdir(default_dir):
+            os.makedirs(default_dir, mode = 0770)
+        if not os.path.exists(default_dir + default_file):
+            int_log = file((default_dir + default_file),'w')
+        else:
+            int_log = file((default_dir + default_file),'a')
+        int_log.write("\n# %s \n" % time.strftime("%a, %d %b %Y %H:%M:%S +0000",
+                                                        time.localtime()))
+        passwd = db._read_password(host,cereconf.NW_ADMINUSER.split(',')[:1][0])
+        ldap_handle = nwutils.LDAPConnection(host, port,
+                                        binddn=cereconf.NW_ADMINUSER,
+                                        password=passwd, scope='sub')
+        if ldap_handle:
+            load_cltype_table(cltype)
+            nwqsync(spread, g_spread)
+        else:
+            logger.error("Could not create TLS-channel to server %s." % host)
+        int_log.write("\n# End at  %s \n" % time.strftime("%a, %d %b %Y %H:%M:%S +0000", time.localtime()))
+        #else:
+        #    int_log.write("\n # Could not connect to server!")
+        int_log.close()
+    else:
+        usage(1);
 
 
 def nwqsync(spreads,g_spread):
@@ -104,12 +161,14 @@ def nwqsync(spreads,g_spread):
 	    clh.confirm_event(cll)
 	    continue
         try:
-            func = cltype[int(cll.change_type_id)]
+            #func = cltype[int(cll.change_type_id)]
+	    exec cltype[int(cll.change_type_id)]
+            clh.confirm_event(cll)
         except KeyError:
 	    pass
             #int_log.write("#event_type %d not handled\n" % cll.change_type_id)
-	else:
-            exec cltype[int(cll.change_type_id)]
+	#else:
+        #    exec cltype[int(cll.change_type_id)]
             #clh.confirm_event(cll)
         i += 1
         clh.confirm_event(cll)
@@ -137,7 +196,7 @@ def add_ldap(obj_dn, attrs):
 		value = 'xxxxxx'
 	    attr.append((obj,[value,]))
 	log_str = '\n' + ldif.CreateLDIF(obj_dn,attr)
-        int_log.write(log_str)
+	int_log.write(log_str)
     except ldap.LDAPError, e:
         logger.warn("add_ldap() ERROR: ", e, obj_dn, attrs)
         
@@ -199,7 +258,7 @@ def evaluate_grp_name(grp_name):
     return(grp_name)
 
     
-def user_add_del_grp(ch_type,dn_user,dn_dest,ch_id=None):
+def user_add_del_grp(ch_type,dn_user,dn_dest):
     group = Group.Group(db)
     group.clear()
     account = Account.Account(db)
@@ -254,6 +313,9 @@ def user_add_del_grp(ch_type,dn_user,dn_dest,ch_id=None):
 			del ldap_users[user]
 	    if ldap_users:
 		attr_add_ldap(ldap_group,[('member',ldap_users.values())])
+		for users in ldap_users.values():
+		    attr_add_ldap(users,[('groupMembership', [ldap_group,])])
+		    attr_add_ldap(users,[('securityEquals', [ldap_group,])])
 	elif ch_type == const.group_rem:
 	    grp_mem = []
 	    for spr in spread_ids:
@@ -266,6 +328,9 @@ def user_add_del_grp(ch_type,dn_user,dn_dest,ch_id=None):
 		del ldap_users[del_user]
 	    if ldap_users:
 		attr_del_ldap(ldap_group, [('member',ldap_users.values())])
+		for users in ldap_users.values():
+		    attr_del_ldap(users, [('groupMembership', [ldap_group,])])
+		    attr_del_ldap(users, [('securityEquals', [ldap_group,])])
 	else:
 	    logger.info("WARNING: unhandled group logic")
 
@@ -350,7 +415,7 @@ def change_user_spread(dn_id,ch_type,spread,uname=None):
 
 
 
-def change_group_spread(dn_id,ch_type,spread,gname=None):    
+def change_group_spread(dn_id,ch_type,gname=None):    
     group = Group.Group(db)
     #if group_done.has_key(dn_id) and group_done[dn_id] is ch_type:
     #    return
@@ -372,11 +437,14 @@ def change_group_spread(dn_id,ch_type,spread,gname=None):
 	sys.exit(0)
     if ch_type==int(const.spread_del) and ldap_obj <> []:
 	(ldap_group, ldap_attrs) = ldap_obj[0]
-	if not nwutils.touchable(ldap_attrs):
-	    logger.info("ERROR: LDAP object %s not managed by Cerebrum." % ldap_group)
-	    return
-	else:
-	    delete_ldap(ldap_group)
+	#if not nwutils.touchable(ldap_attrs):
+	#    logger.info("ERROR: LDAP object %s not managed by Cerebrum." % ldap_group)
+	#    return
+	#else:
+	for mem in ldap_attrs['member']:
+	    attr_del_ldap(mem, [('groupMembership', [ldap_group,])])
+	    attr_del_ldap(mem, [('securityEquals', [ldap_group,])])
+	delete_ldap(ldap_group)
     elif ch_type==int(co.spread_add) and ldap_obj == []:
 	try:
 	    attrs = []
@@ -407,7 +475,7 @@ def change_group_spread(dn_id,ch_type,spread,gname=None):
 	    else:
 		grp_dn = utf8_dn + ',ou=grp,ou=ans,' + cereconf.NW_LDAP_ROOT
 	    add_ldap(grp_dn, attrs)
-	    for delay in range(6):
+	    for delay in range(8):
 		if ldap_handle.GetObjects(search_dn, search_cn):
 		    user_add_del_grp(const.group_add, grp_mem, dn_id)
 		    return
@@ -424,7 +492,7 @@ def change_group_spread(dn_id,ch_type,spread,gname=None):
 	
 
 
-def change_spread(dn_id,ch_type,ch_params,ch_id):
+def change_spread(dn_id,ch_type,ch_params):
     spread = int(re.sub('\D','',(string.split(ch_params,'\n')[3])))
     if spread not in (spread_ids + spread_grp): 
 	return
@@ -434,7 +502,7 @@ def change_spread(dn_id,ch_type,ch_params,ch_id):
 	if entity.entity_type == int(co.entity_account) and spread in spread_ids:
 	    change_user_spread(dn_id,ch_type,spread)
 	elif entity.entity_type == int(co.entity_group) and spread in spread_grp:
-	    change_group_spread(dn_id,ch_type,spread)
+	    change_group_spread(dn_id,ch_type)
 	else: pass 
 	    # Maybe it should be a logger message
     except Errors.NotFoundError:
@@ -445,7 +513,7 @@ def change_spread(dn_id,ch_type,ch_params,ch_id):
 	if ent_name_cache.has_key(dn_id) or get_cl_event(dn_id):
 	    if (ent_name_cache[dn_id]['domain'] == const.group_namespace) \
 						and spread in spread_grp:
-		change_group_spread(dn_id,ch_type, spread,\
+		change_group_spread(dn_id,ch_type,\
 			gname=ent_name_cache[dn_id]['name'])
 	    elif ent_name_cache[dn_id]['domain'] == const.account_namespace \
 						and spread in spread_ids:
@@ -465,8 +533,8 @@ def mod_account(dn_id,i):
     account = Account.Account(db)
     account.clear()
     account.find(dn_id)
-    has_spread = 0
-    if True in [account.has_spread(x) for x in spread_ids]:
+    #has_spread = 0
+    if [x for x in spread_ids if account.has_spread(x)]: 
         search_str = "(&(cn=%s)(objectClass=inetOrgPerson))" % account.account_name
         search_dn = "%s" % cereconf.NW_LDAP_ROOT
 	ldap_obj = ldap_handle.GetObjects(search_dn,search_str)
@@ -502,7 +570,7 @@ def change_passwd(dn_id, ch_params):
     account = Account.Account(db)
     account.clear()
     account.find(dn_id)
-    if True in [account.has_spread(x) for x in spread_ids]:
+    if [x for x in spread_ids if account.has_spread(x)]:
 	search_str = "(&(cn=%s)(objectClass=inetOrgPerson))" % account.account_name
 	search_dn = "%s" % cereconf.NW_LDAP_ROOT
 	ldap_obj = ldap_handle.GetObjects(search_dn,search_str)
@@ -573,7 +641,7 @@ def group_mod(ch_type,dn_id,dest_id,log_id):
     grp_list += [group.entity_id for x in spread_grp if group.has_spread(x) \
 					and group.entity_id not in grp_list]
     for grp in grp_list:
-	user_add_del_grp(ch_type,user_list,grp,ch_id=log_id)		
+	user_add_del_grp(ch_type,user_list,grp)		
 
 
 def get_cl_event(subject_id, change_type=[const.entity_name_del,],
@@ -605,68 +673,7 @@ def usage(exitcode=0):
     sys.exit(exitcode)
 
 
-def main():
-    global ldap_handle, dbg_level, int_log
-    port = host = spread = g_spread =None
-    try:
-        opts, args = getopt.getopt(sys.argv[1:], 'S:s:p:d:g', ['help'])
-    except getopt.GetoptError:
-        usage(1)
 
-    if args:
-        usage(1)
-    for opt, val in opts:
-        if opt == '--help':
-            usage()
-        elif opt == '-S':
-            server = val
-        elif opt == '-s':
-            spread = val
-        elif opt == '-p':
-            port = int(val)
-        elif opt == '-d':
-            dbg_level = int(val)
-	elif opt == '-g':
-	    g_spread = [x for x in val.split(',')]
-    if spread is not None:
-	host = host or cereconf.NW_LDAPHOST
-	if not host:
-	    logger.error("No valid server in arg or config")
-	    sys.exit(0)
-        port = port or cereconf.NW_LDAPPORT
-	if not port:
-	    logger.info("No port in arg or config. Port set to default(389)!")
-	    port = 389
-	# TODO fix with som default and cereconf values
-	default_dir = '/cerebrum/dumps/eDir/'
-	default_file = 'edir.ldif'
-	if not os.path.isdir(default_dir):
-	    os.makedirs(default_dir, mode = 0770)
-	if not os.path.exists(default_dir + default_file):
-	    int_log = file((default_dir + default_file),'w')
-	else:
-	    int_log = file((default_dir + default_file),'a')
-	int_log.write("\n# %s \n" % time.strftime("%a, %d %b %Y %H:%M:%S +0000", 
-							time.localtime()))
-	passwd = db._read_password(host,cereconf.NW_ADMINUSER.split(',')[:1][0])
-        ldap_handle = nwutils.LDAPConnection(host, port,
-					binddn=cereconf.NW_ADMINUSER, 
-					password=passwd, scope='sub')
-	if ldap_handle:
-	    load_cltype_table(cltype)
-	    nwqsync(spread, g_spread)
-	else:
-	    logger.error("Could not create TLS-channel to server %s." % host)
-	int_log.write("\n# End at  %s \n" % time.strftime("%a, %d %b %Y %H:%M:%S +0000", time.localtime()))
-	#else:
-	#    int_log.write("\n # Could not connect to server!")
-	int_log.close()
-    else:
-        usage(1);        
-    
-    
-        
-        
 if __name__ == '__main__':
     main()
 
