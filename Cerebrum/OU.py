@@ -45,29 +45,26 @@ class OUStructure(object):
         WHERE perspective=:perspective""", {'perspective': int(perspective)})
 
 
-class OU(Entity, EntityContactInfo, EntityAddress, OUStructure):
+class OU(OUStructure, EntityContactInfo, EntityAddress, Entity):
 
     def clear(self):
         """Clear all attributes associating instance with a DB entity."""
+        super(OU, self).clear()
         self.name = None
         self.acronym = None
         self.short_name = None
         self.display_name = None
         self.sort_name = None
-        EntityAddress.clear(self)
-        super(OU, self).clear()
 
     def populate(self, name, acronym=None, short_name=None,
                  display_name=None, sort_name=None):
         """Set instance's attributes without referring to the Cerebrum DB."""
+        Entity.populate(self, self.const.entity_ou)
         self.name = name
         self.acronym = acronym
         self.short_name = short_name
         self.display_name = display_name
         self.sort_name = sort_name
-
-        super(OU, self).populate(self.const.entity_ou)
-
         self.__write_db = True
 
     def __eq__(self, other):
@@ -136,7 +133,6 @@ class OU(Entity, EntityContactInfo, EntityAddress, OUStructure):
                           'disp_name': self.display_name,
                           'sort_name': self.sort_name,
                           'ou_id': ou_id})
-        EntityAddress.write_db(self, as_object)
         self.ou_id = ou_id
         self.__write_db = False
 
