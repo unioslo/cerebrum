@@ -76,8 +76,8 @@ class AccountUiOMixin(Account.Account):
             except Errors.NotFoundError:
                 eq.populate(90, 100)
                 eq.write_db()
-                br.add_request(None, br.now, self.const.bofh_email_hquota,
-                               self.entity_id)
+                br.add_request(None, br.now, self.const.bofh_email_hquota, 
+                               self.entity_id, old_server)
 
             if old_server == est.email_server_id:
                 return ret
