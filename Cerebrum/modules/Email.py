@@ -312,15 +312,13 @@ class EmailTarget(EmailEntity):
         self.__in_db = True
         self.__updated = []
 
-    def find_by_entity(self, entity_id, entity_type):
+    def find_by_entity(self, entity_id):
         # This might find no rows, and it might find more than one
         # row.  In those cases, query_1() will raise an exception.
         target_id = self.query_1("""
         SELECT target_id
         FROM [:table schema=cerebrum name=email_target]
-        WHERE entity_id=:e_id AND entity_type=:e_type""",
-                                 {'e_id': entity_id,
-                                  'e_type': int(entity_type)})
+        WHERE entity_id=:e_id""", {'e_id': entity_id})
         self.find(target_id)
 
     def find_by_alias(self, alias):
@@ -1173,9 +1171,10 @@ class AccountEmailMixin(Account.Account):
         return ret
 
     def update_email_addresses(self):
+        # Find or create EmailTarget for this account.
         et = EmailTarget(self._db)
         try:
-            et.find_by_entity(self.entity_id, self.const.entity_account)
+            et.find_by_entity(self.entity_id)
         except Errors.NotFoundError:
             et.populate(self.const.email_target_account,
                         self.entity_id, self.const.entity_account)
