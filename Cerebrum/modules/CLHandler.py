@@ -91,11 +91,13 @@ class CLHandler(DatabaseAccessor):
             if debug:
                 print "Matching range# %i for %i (len=%i) hole=%s" % (
                     range_no, tmp_evt_id, len(new_ranges), found_hole)
-            # Check if the event was confirmed
-            while (i_confirmed+1 < len(self._confirmed_events) and
-                   self._confirmed_events[i_confirmed] < tmp_evt_id):
+		print i_confirmed+1,"<=",len(self._confirmed_events)
+		print self._confirmed_events[i_confirmed],"<=",tmp_evt_id   
+        # Check if the event was confirmed
+            while (i_confirmed < len(self._confirmed_events) and
+                   self._confirmed_events[i_confirmed] <= tmp_evt_id):
                 i_confirmed += 1
-            if (self._confirmed_events[i_confirmed] == tmp_evt_id):
+            if (self._confirmed_events[i_confirmed-1] == tmp_evt_id):
                 # The event was confirmed, uppdate corresponding range
                 if debug:
                     print "  C: hole=%i (%s)" % (found_hole, new_ranges)
