@@ -23,6 +23,7 @@
 
 import cereconf
 from Cerebrum import Utils
+from Cerebrum import Errors
 from Cerebrum.Entity import \
      Entity, EntityContactInfo, EntityAddress, EntityQuarantine
 
