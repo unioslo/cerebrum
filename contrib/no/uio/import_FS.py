@@ -153,20 +153,9 @@ def process_person(db, dta):
         print "Ugyldig fødselsnr: %s" % fnr
         return
 
-    new_person = Person.Person(db)
-    co = Factory.get('Constants')(db)
-    try:
-        # TODO: det er feil å filtrere på source-system her.  Da vil
-        # en person fra FS og LT registreres to ganger
-        new_person.find_by_external_id(co.externalid_fodselsnr, fnr, co.system_fs)
-    except Errors.NotFoundError:
-        pass
-
     gender = co.gender_male
     if(fodselsnr.er_kvinne(fnr)):
         gender = co.gender_female
-
-    new_person.populate(db.Date(year, mon, day), gender)
 
     etternavn = fornavn = None
     studentnr = None
@@ -209,6 +198,10 @@ def process_person(db, dta):
                         'adrlin1_hjemsted', 'adrlin2_hjemsted',
                         'adrlin3_hjemsted', 'postnr_hjemsted',
                         'adresseland_hjemsted')
+            elif p['type'] in ('tilbud',):
+                # TODO: adresse informasjon mangler i xml fila
+                pass
+
         # Get affiliations
         if p['type'] in ('fagperson',):
             _process_affiliation(co.affiliation_ansatt,
@@ -249,6 +242,23 @@ def process_person(db, dta):
         print "WARNING: Ikke noe navn på %s" % fnr
         return
 
+    # TODO: If the person already exist and has conflicting data from
+    # another source-system, some mecanism is needed to determine the
+    # superior setting.
+    
+    new_person = Person.Person(db)
+    try:
+        new_person.find_by_external_id(co.externalid_fodselsnr, fnr)
+    except Errors.NotFoundError:
+        pass
+    except Errors.TooManyRowsError:
+        try:
+            new_person.find_by_external_id(co.externalid_fodselsnr, fnr, co.system_fs)
+        except Errors.NotFoundError:
+            pass
+
+    new_person.populate(db.Date(year, mon, day), gender)
+
     new_person.affect_names(co.system_fs, co.name_first, co.name_last)
     new_person.populate_name(co.name_first, etternavn)
     new_person.populate_name(co.name_last, fornavn)
@@ -281,7 +291,7 @@ def process_person(db, dta):
             print "**** UPDATE ****"
 
 def main():
-    global verbose, ou, db
+    global verbose, ou, db, co
     verbose = 0
     opts, args = getopt.getopt(sys.argv[1:], 'vp:s:', ['verbose', 'person-file=',
                                                        'studieprogram-file='])
@@ -298,6 +308,7 @@ def main():
     db = Factory.get('Database')()
     db.cl_init(change_program='import_FS')
     ou = Factory.get('OU')(db)
+    co = Factory.get('Constants')(db)
     if getattr(cereconf, "ENABLE_MKTIME_WORKAROUND", 0) == 1:
         print "Warning: ENABLE_MKTIME_WORKAROUND is set"
 
