@@ -201,7 +201,7 @@ setup (name = "Cerebrum", version = "0.1",
                        'owner': cerebrum_user,
                        'mode': 0750},
                        [('client/passweb.py', 0755),
-                        ('client/passweb_pform.html', 0644),
+                        ('client/passweb_form.html', 0644),
                         ('client/passweb_receipt.html', 0644),
                         ('java/jbofh/dist/lib/JBofh.jar', 0644)]),
                      ({'path': "%s/cerebrum/client/linux" % sharedir,  # TODO: arch
