@@ -31,17 +31,27 @@ DROP TABLE dns_entity_note_code;
 category:drop;
 DROP SEQUENCE ip_number_id_seq;
 
-/* Stores an ip_number
-   ip_number_id: identifier
-   a_ip:    textual representation of the ip-number
-   aaaa_ip: ip (v6) address
-   ipnr:    the numerical 32-bit ip-number.
-
-   We store a_ip to make searches easier, and ipnr to make searches
-   based on ranges of ips easier. 
-*/
 category:main;
 CREATE SEQUENCE ip_number_id_seq;
+/*	dns_ip_number
+
+The ``dns_ip_number`` table stores an ip_number.  We store ip-numbers
+in a separate table to make unique-constaint and consistent updates to
+dns_a_record and dns_override_reversemap easier.  It has the following
+columns:
+
+ip_number_id
+  identifier (PK)
+a_ip
+  textual representation of the ip-number
+aaaa_ip
+  ip (v6) address
+ipnr
+  the numerical 32-bit ip-number.
+
+We store a_ip to make searches easier, and ipnr to make searches
+based on ranges of ips easier. 
+*/
 category:main;
 CREATE TABLE dns_ip_number (
   ip_number_id  NUMERIC(12,0)
@@ -52,17 +62,26 @@ CREATE TABLE dns_ip_number (
   ipnr          NUMERIC(14,0) NOT NULL
 );
 
-/* Stores a dns_owner
+/*	dns_owner
 
-     zone:          TODO - for multiple zones (affects name unique constr.)
-     dns_owner_id:  identifier
-     entity_type:   dns_owner
-     name:          name of this dns-owner
-     is_foreign:    if this owner is not in uio.no (may be dropped later)
-     mx_set_id:     FK to mx_set
+The ``dns_owner`` table represents the leftmost argument in a typical
+zone file, typically a host-name.  It has the following columns:
 
-   The name is stored in entity_name.  By making it an entity,
-   netgroups becomes trivial.
+zone
+  TODO - for multiple zones (affects name unique constr.)
+dns_owner_id
+  identifier (PK)
+entity_type
+  dns_owner (part of FK)
+name
+  name of this dns-owner (TODO: Bruke EntityName)
+is_foreign
+  if this owner is not in uio.no (may be dropped later)
+mx_set_id
+  FK to mx_set
+
+The name is stored in entity_name.  By making it an entity,
+netgroups becomes trivial.
 */
 category:main;
 CREATE TABLE dns_owner (
@@ -85,17 +104,28 @@ CREATE TABLE dns_owner (
 );
 
 
-/* Stores an a_record that maps between a hostname and an IP.
+/*	dns_a_record
 
-   entity_type: part of FK
-   a_record_id: identifier
-   dns_owner_id: FK to dns_owner
-   ip_number_id: FK to ip_number
-   ttl:     optional TTL value 
-   mac:     mac address
+The ``dns_a_record`` table stores an a_record that maps between a
+hostname and an IP.  It has the following columns:
 
-   it is an entity so that we may register entity_note
-   (comment/contact) for it.
+entity_type
+  part of FK
+a_record_id
+  identifier (PK)
+dns_owner_id
+  FK to dns_owner
+ip_number_id
+  FK to ip_number
+ttl
+  optional TTL value 
+mac
+  mac address
+
+it is an entity so that we may register entity_note (comment/contact)
+for it.
+
+TBD: we might want to only register such info for dns_owner entries.
 */
 
 category:main;
@@ -119,7 +149,9 @@ CREATE TABLE dns_a_record (
     UNIQUE (ip_number_id, dns_owner_id)
 );
 
-/* Defines legal HINFO values
+/*	dns_hinfo_code
+
+Defines legal HINFO values
 */
 
 category:code;
@@ -134,21 +166,28 @@ CREATE TABLE dns_hinfo_code
   os            CHAR VARYING(64) NOT NULL
 );
 
-/* Store information about a host (name-clash with existing table
-   host_info).  A host is typically a hardware box.
+/*	dns_host_info
 
-   entity_type:  part of FK 
-   host_id:      identifier    
-   dns_owner_id: FK to dns_owner
-   ttl:          optional TTL value          
-   hinfo:        FK to hinfo_code
-                
-   it is an entity so that we may register entity_note
-   (comment/contact) for it.
+The ``dns_host_info`` table store information about a host.  A host is
+typically a hardware box.  It has the following columns:
+
+entity_type
+  part of FK 
+host_id
+  identifier (PK)
+dns_owner_id
+  FK to dns_owner
+ttl
+  optional TTL value          
+hinfo
+  FK to hinfo_code
+
+it is an entity so that we may register entity_note (comment/contact)
+for it.
 */
 
 category:main;
-CREATE TABLE dns_host_info(
+CREATE TABLE dns_host_info (
   entity_type   NUMERIC(6,0)
                 DEFAULT [:get_constant name=entity_dns_host]
                 NOT NULL
@@ -169,12 +208,16 @@ CREATE TABLE dns_host_info(
     REFERENCES entity_info(entity_type, entity_id)
 );
 
-/* Defines a mx_set.  mx_set is used to represent a collection of mx
-   targets for a host.  The number of sets is typically small.
+/*	dns_mx_set
 
-   mx_set_id:  PK
-   name:       used in clients to identify the set
+The ``dns_mx_set`` table defines a mx_set.  mx_set is used to
+represent a collection of mx targets for a host.  The number of
+sets is typically small.  It has the following columns:
 
+mx_set_id
+  PK
+name
+  used in clients to identify the set
 */
 
 category:main;
@@ -193,16 +236,23 @@ ALTER TABLE dns_owner
     FOREIGN KEY (mx_set_id) 
     REFERENCES dns_mx_set(mx_set_id);
 
-/* Defines members of a mx_set.
+/*	dns_mx_set_member
 
-   mx_set_id:  FK to mx_set
-   ttl:        optional TTL value      
-   pri:        priority         
-   target_id:  FK to dns_owner
-                
-   The host that has an MX record is usually an A record, while the
-   target is usually a host.  We don't enforce this as there are
-   exceptions.
+The ``dns_mx_set_member`` table stores members of a mx_set.  It has
+the following columns:
+
+mx_set_id
+  FK to mx_set
+ttl
+  optional TTL value      
+pri
+  priority         
+target_id
+  FK to dns_owner
+             
+The host that has an MX record is usually an A record, while the
+target is usually a host.  We don't enforce this as there are
+exceptions.
 */
 
 category:main;
@@ -217,18 +267,26 @@ CREATE TABLE dns_mx_set_member (
                    REFERENCES dns_owner(dns_owner_id)
 );
 
-/* Store cnames for an a_record.
+/*	dns_cname_record
 
-   entity_type:     part of FK       
-   cname_id:        identifier          
-   cname_owner_id:  FK to dns_owner    
-   ttl:             optional TTL value          
-   target_owner_id: FK to dns_owner   
+The ``dns_cname_record`` table stores cnames for an a_record.  It has
+the following columns:
 
-   it is an entity so that one may attach entity_note to it. */
+entity_type
+  part of FK       
+cname_id
+  identifier (PK)        
+cname_owner_id
+  FK to dns_owner    
+ttl
+  optional TTL value          
+target_owner_id
+  FK to dns_owner   
+
+it is an entity so that one may attach entity_note to it. */
 
 category:main;
-CREATE TABLE dns_cname_record(
+CREATE TABLE dns_cname_record (
   entity_type       NUMERIC(6,0)
                     DEFAULT [:get_constant name=entity_dns_cname]
                     NOT NULL
@@ -249,7 +307,9 @@ CREATE TABLE dns_cname_record(
 
 );
 
-/* Defines the legal field types for the general_dns_record.  Typical
+/*	dns_field_type_code
+
+   Defines the legal field types for the general_dns_record.  Typical
    values are TXT, RP */
 
 category:code;
@@ -264,12 +324,25 @@ CREATE TABLE dns_field_type_code
                 NOT NULL
 );
 
-/* A general record that has some data and an optional TTL associated
-   with a dns-owner.  TXT records is one example.
- */
+/*	dns_general_dns_record
+
+The ``dns_general_dns_record`` table stores A general record that has
+some data and an optional TTL associated with a dns-owner.  TXT
+records is one example.  It has the following columns:
+
+dns_owner_id
+  FK to associated dns_owner
+field_type
+  FK to the corresponding dns_field_type_code
+ttl
+  optional TTL value 
+data
+  data associated with this field_type
+
+  */
 
 category:main;
-CREATE TABLE dns_general_dns_record(
+CREATE TABLE dns_general_dns_record (
   dns_owner_id    NUMERIC(12,0)
                     CONSTRAINT a_record_owner_fk 
                     REFERENCES dns_owner(dns_owner_id),
@@ -281,15 +354,20 @@ CREATE TABLE dns_general_dns_record(
   CONSTRAINT general_dns_record_pk PRIMARY KEY (dns_owner_id, field_type)
 );
 
-/* Default is that the reversemap can be automatically deduced from
-   a_record.  This table stores overrides to this behaviour.  
+/*	dns_override_reversemap
 
-   ext_name/ext_ip is filled when the a_record references won't be
-   unique or don't exist.
-  */
+By default, the reversemap is automatically deduced from dns_a_record
+entry.  The ``dns_override_reversemap`` table can be used to override
+this reversemap with another value.  It has the following columns:
+
+ip_number_id
+  FK to ip_number
+dns_owner_id
+  FK to dns_owner
+*/
 
 category:main;
-CREATE TABLE dns_override_reversemap(
+CREATE TABLE dns_override_reversemap (
   ip_number_id  NUMERIC(12,0)
                   CONSTRAINT override_reversemap_ip_fk 
                   REFERENCES dns_ip_number(ip_number_id),
@@ -299,13 +377,32 @@ CREATE TABLE dns_override_reversemap(
   CONSTRAINT override_reversemap_unique UNIQUE (ip_number_id)
 );
 
-/* Stores a SRV (service) record (RFC 2782)
+/*	dns_srv_record
 
-  It seems that the PK should span all-rows except ttl
+The ``dns_srv_record`` table stores a SRV (service) record (RFC 2782).
 
-  Example of this record type:
-    <service> <ttl> SRV <priority> <weight> <port> <hostname>
-    _http._tcp.example.com. SRV 10 5 80. www.example.com
+It seems that the PK should span all-rows except ttl
+
+Example of this record type::
+
+  <service> <ttl> SRV <priority> <weight> <port> <hostname>
+  _http._tcp.example.com. SRV 10 5 80. www.example.com
+
+The table has the following columns:
+
+service_owner_id
+  FK to dns_owner
+pri
+  priority
+weight
+  weight
+port
+  port
+ttl
+  optional TTL value
+target_owner_id
+  FK to the dns_owner being a target for this SRV record
+
 
 */
 
@@ -331,7 +428,9 @@ CREATE TABLE dns_reserved_host(
   id              CHAR VARYING(128)
 );
 */
-/* Defines the legal field types for the general_dns_record.  Typical
+/*	dns_entity_note_code
+
+   Defines the legal field types for the general_dns_record.  Typical
    values are TXT, RP */
 
 category:code;
@@ -346,11 +445,24 @@ CREATE TABLE dns_entity_note_code
                 NOT NULL
 );
 
-/* A general record with some info about an entity where we only want
-   one instance of the information of a given type. */
+/*	dns_entity_note
+
+The ``dns_entity_note`` table stores a general record with some info
+about an entity where we only want one instance of the information
+of a given type.  It has the following columns:
+
+entity_id
+  FK to entity_info
+note_type
+  FK to dns_entity_note_code
+data
+  information of the given note_type
+
+TODO: Consider moving this into core
+*/
 
 category:main;
-CREATE TABLE dns_entity_note(
+CREATE TABLE dns_entity_note (
   entity_id       NUMERIC(12,0)
                     CONSTRAINT entity_note_fk 
                     REFERENCES entity_info(entity_id),
