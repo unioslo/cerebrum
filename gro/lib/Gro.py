@@ -20,7 +20,7 @@
 
 import sys
 
-from omniORB import CORBA, PortableServer, sslTP
+from omniORB import CORBA, sslTP
 import CosNaming
 
 import Cerebrum_core__POA, Cerebrum_core
@@ -43,16 +43,22 @@ class GroImpl(Cerebrum_core__POA.Gro):
 
     def __init__(self, com):
         self.com = com
-        self.ap_handler_class = APHandler.APHandler.create_ap_handler_impl()
-#        self.loHandler = com.get_corba_representation(LOHandler.LOHandler(self, self._db))
+        self.ap_handler_class = APHandler.get_ap_handler_class()
+        import classes.Database
+        db = classes.Database.get_database()
+        self.loHandler = com.get_corba_representation(LOHandler.LOHandler(self, db))
+
+    def get_idl(self):
+        return self.ap_handler_class.create_idl()
 
     def get_version(self):
         return Cerebrum_core.Version(GRO_MAJOR_VERSION, GRO_MINOR_VERSION)
         
-    def test(self):
-        mahString = "foomeee"
-        print "server: %s"% (mahString)
-        return mahString
+    def test(self, txt=None):
+        if txt is None:
+            txt = 'foomeeee'
+        print "server: %s"% (txt)
+        return txt
     
     def get_lo_handler(self):
         return self.loHandler
@@ -72,10 +78,11 @@ class Communication(object):
         Locates the naming service, and registers our naming
         context with it """
         d = cereconf.SSL_DIR
+        print d
         sslTP.certificate_authority_file(d + "/CA.crt")
         sslTP.key_file(d + "/server.pem") 
         sslTP.key_file_password("server")
-        self.orb = CORBA.ORB_init(sys.argv + ['-ORBendPoint', 'giop:ssl::'], CORBA.ORB_ID)
+        self.orb = CORBA.ORB_init(sys.argv + ['-ORBendPoint', 'giop:ssl:garbageman.itea.ntnu.no:12345'], CORBA.ORB_ID)
         self.rootPOA = self.orb.resolve_initial_references("RootPOA")
         ns = self.orb.resolve_initial_references("NameService")
         root_context = ns._narrow(CosNaming.NamingContext)
@@ -102,10 +109,12 @@ class Communication(object):
         Shortcut function to bind an object to a name in our
         naming context in the name server"""
         name = [CosNaming.NameComponent(name, "")]
+        obj = to_bind._this()
+        print self.orb.object_to_string(obj)
         try:
-            self.context.bind(name, to_bind._this())
+            self.context.bind(name, obj)
         except CosNaming.NamingContext.AlreadyBound:
-            self.context.rebind(name, to_bind._this())
+            self.context.rebind(name, obj)
 
     def get_corba_representation(self, *objects):
         """
