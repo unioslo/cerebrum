@@ -540,7 +540,7 @@ class PersonSAPMixin(Person.Person):
         attribute.
         """
 
-        if name not in self.__write_attr__:
+        if name not in PersonSAPMixin.__write_attr__:
             raise AttributeError, \
                   "Unknown attribute %s in %s" % (name, self.__class__.__name__)
         # fi
