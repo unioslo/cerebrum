@@ -28,8 +28,10 @@ Fagpersoner:
 Studenter:
   - semesteradresse, fra FS.student	(som co.address_post)
     Hvis denne ikke finnes, brukes hjemstedsadresse fra FS.person
-  - Stedkode(r) (*_studieansv) for aktivt studieprogram
-  - Stedkode(r) (*_kontroll) for emner eksamensmeldt eller undervisningsmeldt.
+  - Følgende settes av scriptet som leser topics i 2.0:
+    - Stedkode(r) (*_studieansv) for aktivt studieprogram
+    - Stedkode(r) (*_kontroll) for emner eksamensmeldt eller
+      undervisningsmeldt.
 
 EVU-studenter:
   - Job-adresse, fra FS.deltaker	(som co.address_post)
