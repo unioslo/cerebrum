@@ -64,6 +64,7 @@ import string
 import cerebrum_path
 import cereconf
 
+import Cerebrum
 from Cerebrum import Database
 from Cerebrum.Utils import Factory
 from Cerebrum.extlib import xmlprinter
@@ -463,35 +464,45 @@ def output_OU_address(writer, db_ou, constants):
     # 
     
     writer.startElement("Addressline")
-    # We cannot have more than one answer for any given
-    # (ou_id, source_system, address_type) triple
     address = db_ou.get_entity_address(constants.system_lt,
-                                       constants.address_post)[0]
-    city = address["city"]
-    po_box = address["p_o_box"]
-    postal_number = address["postal_number"]
-    country = address["country"]
-    
-    if (po_box and int(postal_number or 0) / 100 == 3):
-        address_text = "Pb. %s - Blindern" % po_box
-    else:
-        address_text = (address["address_text"] or "").strip()
-    # fi
+                                       constants.address_post)
 
-    post_nr_city = None
-    if city or (postal_number and country):
-        post_nr_city = string.join(filter(None,
-                                          [postal_number,
-                                           (city or "").strip()]))
-    # fi
-
-    output = string.join(filter(None,
-                                (address_text,
-                                 post_nr_city,
-                                 country))).replace("\n", ",")
-    if not output:
-        logger.error("There is no address information for %s",
+    # Unfortunately, there are OUs without any addresses registered
+    if not address:
+        logger.error("No address information for %s is registered",
                      db_ou.entity_id)
+        output = "No address information available"
+    else:
+        # We cannot have more than one answer for any given
+        # (ou_id, source_system, address_type) triple
+        address = address[0]
+
+        city = address["city"]
+        po_box = address["p_o_box"]
+        postal_number = address["postal_number"]
+        country = address["country"]
+        
+        if (po_box and int(postal_number or 0) / 100 == 3):
+            address_text = "Pb. %s - Blindern" % po_box
+        else:
+            address_text = (address["address_text"] or "").strip()
+        # fi
+        
+        post_nr_city = None
+        if city or (postal_number and country):
+            post_nr_city = string.join(filter(None,
+                                              [postal_number,
+                                               (city or "").strip()]))
+        # fi
+
+        output = string.join(filter(None,
+                                    (address_text,
+                                     post_nr_city,
+                                     country))).replace("\n", ",")
+        if not output:
+            logger.error("No address information for %s could be generated",
+                         db_ou.entity_id)
+        # fi
     # fi
     
     writer.data(output)
@@ -854,12 +865,21 @@ def output_person(writer, pobj, db_person, db_account, constants):
     db_person.clear()
     db_account.clear()
 
-    # NB! There can be *only one* FNR per person in LT (PK in
-    # the person_external_id table)
-    db_person.find_by_external_id(constants.externalid_fodselsnr,
-                                  pobj.fnr,
-                                  constants.system_lt)
-
+    try:
+        # NB! There can be *only one* FNR per person in LT (PK in
+        # the person_external_id table)
+        db_person.find_by_external_id(constants.externalid_fodselsnr,
+                                      pobj.fnr,
+                                      constants.system_lt)
+    except Cerebrum.Errors.NotFoundError:
+        # This should *not* be possible -- everyone in the LT dump should
+        # also be registered in the database (after a while, at least)
+        logger.error("Aiee! No person with NO_SSN (fnr) = %s found " +
+                     "although this NO_SSN exists in the LT dump",
+                     pobj.fnr)
+        return 
+    # yrt
+        
     writer.startElement("Person",
                         construct_person_attributes(writer,
                                                     pobj,
@@ -1044,7 +1064,7 @@ def main(argv):
     logging.fileConfig(cereconf.LOGGING_CONFIGFILE)
     logger = logging.getLogger("console")
     logger.setLevel(logging.INFO)
-    logger.info( "Generating FRIDA export")
+    logger.info("Generating FRIDA export")
     
     try:
         options, rest = getopt.getopt(argv,
