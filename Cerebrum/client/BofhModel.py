@@ -64,10 +64,10 @@ class QuarantineType(Abstract.QuarantineType):
 
 class Quarantine(Abstract.Quarantine):
 
-    def __init__(self, entity, quarantine_type, start, end, who, why, disable_until):
-        if isinstance(quarantine_type, types.StringTypes):
-            quarantine_type = QuarantineType.get_by_name(quarantine_type, entity.server)
-        super(Quarantine, self).__init__(entity, quarantine_type, 
+    def __init__(self, entity, type, start, end, who, why, disable_until):
+        if isinstance(type, types.StringTypes):
+            type = QuarantineType.get_by_name(type, entity.server)
+        super(Quarantine, self).__init__(entity, type, 
                                          start, end, who, why, disable_until)
     
 class Entity(Abstract.Entity):
@@ -106,12 +106,12 @@ class Entity(Abstract.Entity):
     def delete(self):
         pass
         
-    def add_quarantine(self, quarantine_type, why="", 
+    def add_quarantine(self, type, why="", 
                        start=None, end=None):
         """Create and store a new quarantine on entity"""
         # we only need the type name
-        if isinstance(quarantine_type, QuarantineType):
-            quarantine_type = quarantine_type.name
+        if isinstance(type, QuarantineType):
+            type = type.name
         
         # Make sure start-end are strings so we can concatinate them
         (start, end) = map(date_string, (start, end))
@@ -121,7 +121,7 @@ class Entity(Abstract.Entity):
         else:
             from_to = start    
         self.server.quarantine_set(self.type, "id:%s" % self.id, 
-                                   quarantine_type, why, from_to)
+                                   type, why, from_to)
         
     def get_quarantines(self):
         quarantines = self.server.quarantine_show(self.type,
@@ -133,29 +133,29 @@ class Entity(Abstract.Entity):
             result.append(quarantine)
         return result    
  
-    def _get_qtype(self, quarantine_type, quarantine):
+    def _get_qtype(self, type, quarantine):
         """Retrieve the quarantine type string from either
            a quarantine type or a quarantine"""
-        if (not(quarantine_type or quarantine) or 
-               (quarantine_type and quarantine)):
-              raise ValueError, "quarantine_type OR quarantine must be given"
+        if (not(type or quarantine) or 
+               (type and quarantine)):
+              raise ValueError, "type OR quarantine must be given"
         if quarantine:
-            quarantine_type = quarantine.type
+            type = quarantine.type
             assert self == quarantine.entity
-        if not isinstance(quarantine_type, types.StringTypes):    
+        if not isinstance(type, types.StringTypes):    
             # get string
-            quarantine_type = quarantine_type.type
-        return quarantine_type
+            type = type.type
+        return type
 
-    def remove_quarantine(self, quarantine=None, quarantine_type=None):
-        qtype = self._get_quarantine_type(quarantine, quarantine_type)
+    def remove_quarantine(self, quarantine=None, type=None):
+        qtype = self._get_type(quarantine, type)
         self.server.quarantine_remove(self.type,
                                       "id:%s" % self.id,
                                       qtype)
    
-    def disable_quarantine(self, quarantine=None, quarantine_type=None,
+    def disable_quarantine(self, quarantine=None, type=None,
                                  until=None):
-        qtype = self._get_quarantine_type(quarantine, quarantine_type)
+        qtype = self._get_type(quarantine, type)
         self.server.quarantine_disable(self.type,
                                        "id:%s" % self.id,
                                        qtype, until)

@@ -126,9 +126,9 @@ class QuarantineType(object):
         
         
 class Quarantine(object):
-    def __init__(self, entity, quarantine_type, start, end, who, why, disable_until):
+    def __init__(self, entity, type, start, end, who, why, disable_until):
         self.entity = entity
-        self.quarantine_type = quarantine_type
+        self.type = type
         self.start = start
         self.end = end
         self.who = who
@@ -136,7 +136,7 @@ class Quarantine(object):
         self.disable_until = disable_until
     
     def __repr__(self):
-        return "<Quarantine %s on %s from %s>" % (self.quarantine_type.name, 
+        return "<Quarantine %s on %s from %s>" % (self.type.name, 
                                                   self.entity,
                                                   self.start)
 
@@ -180,13 +180,13 @@ class Entity(object):
         """
         pass
     
-    def add_quarantine(self, quarantine_type, why="", 
+    def add_quarantine(self, type, why="", 
                        start=None, end=None):
         """Create and store a new quarantine on entity.
         Note: Only one quarantine of each quarantine type can be set on any
         given entity.
         
-        quarantine_type must be given, see QuarantineType.get_all()
+        type must be given, see QuarantineType.get_all()
 
         why is a string explaining the quarantine in verbose, if needed
 
@@ -203,18 +203,18 @@ class Entity(object):
         """
         pass
 
-    def remove_quarantine(self, quarantine=None, quarantine_type=None):    
+    def remove_quarantine(self, quarantine=None, type=None):    
         """Removes an existing quarantine from entity. 
         Parameters should be *either* a matching Quarantine object quarantine
-        or a quarantine_type - that could be QuarantineType or string."""
+        or a type - that could be QuarantineType or string."""
         pass
     
-    def disable_quarantine(self, quarantine=None, quarantine_type=None,
+    def disable_quarantine(self, quarantine=None, type=None,
                            until=None):
         """Disables an existing quarantine on entity.
         
         Parameters should be *either* a matching Quarantine object quarantine
-        or a quarantine_type - that could be QuarantineType or string.
+        or a type - that could be QuarantineType or string.
         until, if given, is the day to disable until - either a 
         
         mx.DateTime object or a ISO8601-formatted date, ex: "2003-12-24"
