@@ -84,11 +84,29 @@ class FileBack:
         self.f.flush()
         os.fsync(self.f.fileno())
         self.f.close()
-        os.rename(self.tmpname, self.filename)
+        # Move the old file to .old, which we delete first in case it
+        # exists.
+        old = self.filename + ".old"
+        try:
+            os.remove(old)
+        except OSError:    
+            pass
+        try:
+            os.rename(self.filename, old)
+        except OSError:
+            old = None
+        # Note that on win32 os.rename won't work if self.filename
+        # exists.
+        try:
+            os.rename(self.tmpname, self.filename)
+        except OSError:
+            if old:
+                # Roll back to the old file, since we renamed it
+                os.rename(old, self.filename)    
 
     def abort(self):
         self.f.close()
-        os.unlink(self.tmpname)
+        os.remove(self.tmpname)
 
     def add(self, obj):
         if self.incr:
