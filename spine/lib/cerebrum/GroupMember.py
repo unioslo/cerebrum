@@ -128,4 +128,18 @@ def get_members(self):
 
 Group.register_method(Method('get_members', [Entity]), get_members)
 
+def add_member(self, entity, operation):
+    obj = self._get_cerebrum_obj()
+    obj.add_member(entity.get_id(), entity.get_type().get_id(), operation.get_id())
+    obj.write_db()
+
+Group.register_method(Method('add_member', None, args=[('entity', Entity), ('operation', GroupMemberOperationType)], write=True), add_member)
+
+def remove_group_member(self, group_member):
+    obj = self._get_cerebrum_obj()
+    obj.remove_member(group_member.get_member().get_id(), group_member.get_operation().get_id())
+    obj.write_db()
+
+Group.register_method(Method('remove_group_member', None, args=[('group_member', GroupMember)], write=True), remove_group_member)
+
 # arch-tag: 62cc34ca-6553-4fcc-bed2-70c0d7dcf6e9
