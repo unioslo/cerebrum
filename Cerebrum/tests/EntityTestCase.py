@@ -5,7 +5,6 @@
 import unittest
 import cereconf
 from Cerebrum import Database
-from Cerebrum import Utils
 from Cerebrum.Entity import \
      Entity, EntityName, EntityContactInfo, EntityAddress
 from Cerebrum import Constants
@@ -14,7 +13,6 @@ import traceback
 from Cerebrum.tests.PersonTestCase import Person_createTestCase
 
 class Entity_createTestCase(unittest.TestCase, Entity):
-    __metaclass__ = Utils.mark_update
 
     Cerebrum = Database.connect()
     co = Constants.Constants(Cerebrum)

@@ -36,7 +36,6 @@ from Cerebrum import Utils
 # down...
 class Stedkode(OU):
 
-    __metaclass__ = Utils.mark_update
     __read_attr__ = ('__in_db',)
     __write_attr__ = ('institusjon', 'fakultet', 'institutt', 'avdeling',
                       'katalog_merke')

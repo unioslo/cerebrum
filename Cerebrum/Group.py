@@ -29,11 +29,6 @@ from Cerebrum.Entity import Entity, EntityName
 
 class Group(EntityName, Entity):
 
-    # TODO: Eventually, this metaclass definition should be part of
-    # the class definitions in Entity.py, but as that probably will
-    # break a lot of code, we're starting here.
-    __metaclass__ = Utils.mark_update
-
     __read_attr__ = ('__in_db',)
     __write_attr__ = ('description', 'visibility', 'creator_id',
                       'create_date', 'expire_date', 'group_name')

@@ -32,9 +32,10 @@ import cereconf
 import crypt,random,string
 
 class Account(EntityName, EntityQuarantine, Entity):
-    __metaclass__ = Utils.mark_update
 
-    __read_attr__ = ('__in_db',)
+    __read_attr__ = ('__in_db',
+                     # TODO: Get rid of these.
+                     '_auth_info', '_acc_affect_auth_types')
     __write_attr__ = ('account_name', 'owner_type', 'owner_id',
                       'np_type', 'creator_id', 'expire_date', 'create_date')
 
@@ -51,7 +52,6 @@ class Account(EntityName, EntityQuarantine, Entity):
         #       Account.__slots__, which means they will stop working
         #       once all Entity classes have been ported to use the
         #       mark_update metaclass.
-        self._name_info = {}
         self._auth_info = {}
         self._acc_affect_auth_types = ()
 

@@ -48,11 +48,6 @@ class OUStructure(object):
 
 class OU(OUStructure, EntityContactInfo, EntityAddress, Entity):
 
-    # TODO: Eventually, this metaclass definition should be part of
-    # the class definitions in Entity.py, but as that probably will
-    # break a lot of code, we're starting here.
-    __metaclass__ = Utils.mark_update
-
     __read_attr__ = ('__in_db',)
     __write_attr__ = ('name', 'acronym', 'short_name', 'display_name',
                       'sort_name')
