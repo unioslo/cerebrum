@@ -56,7 +56,42 @@ def write_ou_info(outfile):
     f.write(xml.xml_hdr + "<data>\n")
     cols, ouer = fs.GetAlleOUer(cereconf.ORGANIZATIONAL_INSTNR)  # TODO
     for o in ouer:
-        f.write(xml.xmlify_dbrow(o, xml.conv_colnames(cols), 'sted') + "\n")
+        sted = {}
+        for fs_col, xml_attr in (
+            ('faknr', 'fakultetnr'),
+            ('instituttnr', 'instituttnr'),
+            ('gruppenr', 'gruppenr'),
+            ('stedakronym', 'akronym'),
+            ('stedakronym', 'forkstednavn'),
+            ('stednavn_bokmal', 'stednavn'),
+            ('faknr_org_under', 'fakultetnr_for_org_sted'),
+            ('instituttnr_org_under', 'instituttnr_for_org_sted'),
+            ('gruppenr_org_under', 'gruppenr_for_org_sted'),
+            ('adrlin1', 'adresselinje1_intern_adr'),
+            ('adrlin2', 'adresselinje2_intern_adr'),
+            ('postnr', 'poststednr_intern_adr'),
+            ('adrlin1_besok', 'adresselinje1_besok_adr'),
+            ('adrlin2_besok', 'adresselinje2_besok_adr'),
+            ('postnr_besok', 'poststednr_besok_adr')):
+            if o[fs_col] is not None:
+                sted[xml_attr] = xml.escape_xml_attr(o[fs_col])
+        komm = []
+        for fs_col, typekode in (
+            ('telefonnr', 'EKSTRA TLF'),
+            ('faxnr', 'FAX')):
+            if o[fs_col]:               # Skip NULLs and empty strings
+                komm.append({'kommtypekode': xml.escape_xml_attr(typekode),
+                             'kommnrverdi': xml.escape_xml_attr(o[fs_col])})
+        # TODO: Kolonnene 'url' og 'bibsysbeststedkode' hentes ut fra
+        # FS, men tas ikke med i outputen herfra.
+        f.write('<sted ' +
+                ' '.join(["%s=%s" % item for item in sted.items()]) +
+                '>\n')
+        for k in komm:
+            f.write('<komm ' +
+                    ' '.join(["%s=%s" % item for item in k.items()]) +
+                    ' />\n')
+        f.write('</sted>\n')
     f.write("</data>\n")
 
 def write_topic_info(outfile):
