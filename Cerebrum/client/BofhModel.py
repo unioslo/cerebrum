@@ -21,11 +21,11 @@ class Entity(Abstract.Entity):
         Abstract.Entity.__init__(self)
         self.server = server
     
-    def fetch_by_id(cls, id, server):
+    def fetch_by_id(cls, server, id):
         """ Retrieves an instance from ``server`` with given ``id``.
             ``server`` is a ServerConnection.
         """
-        entity = Entity(server)
+        entity = cls(server)
         entity.load_entity_info(id)
         return entity
         
@@ -34,12 +34,15 @@ class Entity(Abstract.Entity):
     def load_entity_info(self, id):
         """Loads entity specific data to this object
            from server using the given ``id``.
+           Returns a dictionary of possibly other useful items.
+           (for subclasses)
         """
         self.id = id
         warn("entity_info not implemented yet")
         info = self.server.entity_info(id)
         self.names = info['names']
         self.type = info['type']
+        return info
     
     def delete(self):
         pass
@@ -66,7 +69,7 @@ class Group(Entity, Abstract.Group):
     def __init__(self, server):
         Entity.__init__(self, server)
     
-    def create(cls, name, description, server):
+    def create(cls, server, name, description):
         group = Group(server)
         group.name = name
         group.description = description
@@ -81,23 +84,30 @@ class Group(Entity, Abstract.Group):
         
     create = classmethod(create)
     
-    def fetch_by_name(cls, name, server):
+    def fetch_by_name(cls, server, name):
         group = Group(server)
         # FIXME: Check for errors: not found, etc.
         info = server.group_info(name)
-        #'gid', 'entity_id', 'spread', 'expire', 'desc'
-        #spread=kommaseparert liste med code_str
-        
-        group.name = name
         group.load_entity_info(info['entity_id'])
-        group.description = info['desc']
-        group.expire = info['expire']
-        group.gid = info.get('gid')
         # FIXME: Only spread names currently
+        # TODO: Don't fetch spreads here
+        #spread=kommaseparert liste med code_str
         group.spreads = info['spread'].split(",")
         return group
         
     fetch_by_name = classmethod(fetch_by_name)
+    
+    def load_entity_info(self, id):
+        info = Entity.load_entity_info(self, id)    
+        self.name = info['name']
+        self.description = info['description']
+        self.visibility = info['visibility']
+        self.creatorid = info['creator_id']
+        self.create = info['create_date']
+        self.expire = info['expire_date']
+        self.gid = info.get('gid')
+        # TODO - get spreads (or make a method to get spreads)
+        self.spreads = []
 
     def search(cls, server, spread=None, name=None, desc=None):
         filter = {}
@@ -139,11 +149,10 @@ class Group(Entity, Abstract.Group):
     def get_all_accounts(self):
         pass
         
-    def add_member(self, member, operation="union"):
+    def add_member(self, member, operation=Constants.UNION):
         """ Adds ``member`` to group with ``operation``.
-            ``operation`` is one of 'union', 'difference' and
-            'intersection', the default is 'union'.
-        """
+            ``operation`` is one of Constants.UNION, 
+            INTESECTION or DIFFERENCE, default is UNION."""
         self.server.group_add_entity(member.id, self.id, operation)
 
     def remove_member(self, member):
@@ -152,4 +161,22 @@ class Group(Entity, Abstract.Group):
 
     def delete_group(self):
         self.server.group_delete(self.name)
+
+def fetch_object_by_id(server, id):
+    classes = {
+        'group': Group,
+        'account': Account,
+        # 'ou': OU,
+        # 'person': Person,
+        #'host': Host,
+        'disk': Disk
+    }
+    info = server.entity_info(id)
+    entity_class = classes.get(info['type'], Entity)
+    return entity_class.fetch_by_id(server, id)
+
+class Constants(Abstract.Constants):
+    UNION = "union"
+    INTERSECTION = "intersection"
+    DIFFERENCE = "difference"
 
