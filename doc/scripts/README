@@ -22,7 +22,7 @@ To build the html version, do something like::
 To build the pdf version, do something like::
   cd $CEREDOC
   scripts/build.py --xml book.xml
-  cd build
+  cd ,build
   db2pdf book.xml 
 
 
