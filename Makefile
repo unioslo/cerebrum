@@ -16,7 +16,7 @@ check:
 
 	( \
 	    PYTHONPATH=`pwd` python2.2 testsuite/Run.py  -v ; \
-	) | tee testsuite/log-tests.out
+	) 2>&1 | tee testsuite/log-tests.out
 
 clean:
 
