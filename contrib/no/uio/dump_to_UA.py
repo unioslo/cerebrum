@@ -173,8 +173,6 @@ def main():
             systemnr = val
         elif opt in ('-o', '--out-dir'):
             out_dir = val
-    print out_dir    
-    print sqlfile    
 
     if korttype is None or systemnr is None:
         print "Must set korttype and systemnr"
