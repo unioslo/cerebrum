@@ -43,31 +43,23 @@ class CerebrumAttr(Attribute):
         assert type(self.cerebrum_name) == str
 
     def to_cerebrum(self, value):
-        return value
+        if isinstance(value, GroBuilder):
+            key = value.get_primary_key()
+            assert len(key) == 1
+            return key[0]
+        else:
+            return value
+
 
     def from_cerebrum(self, value):
-        return value
-
-class CerebrumEntityAttr(CerebrumAttr):
-    def __init__(self, name, data_type, entity_class, cerebrum_name=None, write=False):
-        CerebrumAttr.__init__(self, name, data_type, cerebrum_name, write)
-        self.entity_class = entity_class
-    def to_cerebrum(self, value):
-        return value.get_entity_id()
-
-    def from_cerebrum(self, value):
-        return self.entity_class(int(value))
-
-class CerebrumTypeAttr(CerebrumAttr):
-    def __init__(self, name, data_type, type_class, cerebrum_name=None, write=False):
-        CerebrumAttr.__init__(self, name, data_type, cerebrum_name, write)
-        self.type_class = type_class
-
-    def to_cerebrum(self, value):
-        return value.get_id()
-
-    def from_cerebrum(self, value):
-        return self.type_class(id=int(value))
+        if issubclass(self.data_type, GroBuilder):
+            try:
+                value = int(value)
+            except:
+                pass
+            return self.data_type(value)
+        else:
+            return self.data_type(value)
 
 class CerebrumBooleanAttr(CerebrumAttr):
     def __init__(self, name, data_type, cerebrum_name=None, write=False):
@@ -79,22 +71,12 @@ class CerebrumBooleanAttr(CerebrumAttr):
     def from_cerebrum(self, value):
         return value == "T" and True or False
 
-class CerebrumDateAttr(CerebrumAttr):
-    def __init__(self, name, data_type, cerebrum_name=None, write=False):
-        CerebrumAttr.__init__(self, name, data_type, cerebrum_name, write)
-
-    def to_cerebrum(self, value):
-        return mx.DateTime.TimestampFromTicks(value.get_date())
-
-    def from_cerebrum(self, value):
-        return registry.Date(value is not None and value.ticks() or 0)
-
-class CerebrumClass(Searchable):
+class CerebrumClass(GroBuilder, Searchable):
     cerebrum_class = None
 
     def _load_cerebrum(self):
         e = self.cerebrum_class(self.get_database())
-        e.find(self.get_entity_id())
+        e.find(self.get_id())
 
         for attr in self.slots:
             if not isinstance(attr, CerebrumAttr):
@@ -108,7 +90,7 @@ class CerebrumClass(Searchable):
 
     def _save_cerebrum(self):
         e = self.cerebrum_class(self.get_database())
-        e.find(self.get_entity_id())
+        e.find(self.get_id())
 
         for attr in self.slots:
             if not isinstance(attr, CerebrumAttr):
@@ -126,6 +108,8 @@ class CerebrumClass(Searchable):
             setattr(cls, 'load_' + i.name, cls._load_cerebrum)
         for i in cls.slots:
             setattr(cls, 'save_' + i.name, cls._save_cerebrum)
+
+        super(CerebrumClass, cls).build_methods()
 
     build_methods = classmethod(build_methods)
     
