@@ -59,3 +59,37 @@ user_aff_mapping = {
     }
 
 default_ou = "900199"
+
+
+
+shell2shellconst = {
+    'bash': co.posix_shell_bash,
+    'csh': co.posix_shell_csh,
+    'false': co.posix_shell_false,
+    'nologin': co.posix_shell_nologin,
+    'nologin.autostud': co.posix_shell_nologin_autostud,  # TODO: more shells, (and their path)
+    'nologin.brk': co.posix_shell_nologin_brk,
+    'nologin.chpwd': co.posix_shell_nologin_chpwd,
+    'nologin.ftpuser': co.posix_shell_nologin_ftpuser,
+    'nologin.nystudent': co.posix_shell_nologin_nystudent,
+    'nologin.pwd': co.posix_shell_nologin_pwd,
+    'nologin.sh': co.posix_shell_nologin_sh,
+    'nologin.sluttet': co.posix_shell_nologin_sluttet,
+    'nologin.stengt': co.posix_shell_nologin_stengt,
+    'nologin.teppe': co.posix_shell_nologin_teppe,
+    'puberos': co.posix_shell_puberos,
+    'sftp-server': co.posix_shell_sftp_server,
+    'sh': co.posix_shell_sh,
+    'tcsh': co.posix_shell_tcsh,
+    'zsh': co.posix_shell_zsh,
+    }
+
+ureg_domtyp2catgs = {
+    'u': (co.email_domain_category_uidaddr,),
+    'U': (co.email_domain_category_uidaddr,
+          co.email_domain_category_include_all_uids),
+    'p': (co.email_domain_category_cnaddr,),
+    'P': (co.email_domain_category_cnaddr,
+          co.email_domain_category_include_all_uids),
+    'N': ()
+    }

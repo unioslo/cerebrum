@@ -20,3 +20,9 @@ user_aff_mapping = {
 
 default_ou = "000000"
 
+
+shell2shellconst = {
+    }
+
+ureg_domtyp2catgs = {
+    }

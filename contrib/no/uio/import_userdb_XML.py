@@ -105,29 +105,6 @@ class AutoFlushStream(object):
 
 progress = AutoFlushStream(sys.stdout)
 
-
-shell2shellconst = {
-    'bash': co.posix_shell_bash,
-    'csh': co.posix_shell_csh,
-    'false': co.posix_shell_false,
-    'nologin': co.posix_shell_nologin,
-    'nologin.autostud': co.posix_shell_nologin_autostud,  # TODO: more shells, (and their path)
-    'nologin.brk': co.posix_shell_nologin_brk,
-    'nologin.chpwd': co.posix_shell_nologin_chpwd,
-    'nologin.ftpuser': co.posix_shell_nologin_ftpuser,
-    'nologin.nystudent': co.posix_shell_nologin_nystudent,
-    'nologin.pwd': co.posix_shell_nologin_pwd,
-    'nologin.sh': co.posix_shell_nologin_sh,
-    'nologin.sluttet': co.posix_shell_nologin_sluttet,
-    'nologin.stengt': co.posix_shell_nologin_stengt,
-    'nologin.teppe': co.posix_shell_nologin_teppe,
-    'puberos': co.posix_shell_puberos,
-    'sftp-server': co.posix_shell_sftp_server,
-    'sh': co.posix_shell_sh,
-    'tcsh': co.posix_shell_tcsh,
-    'zsh': co.posix_shell_zsh,
-    }
-
 class PersonUserParser(xml.sax.ContentHandler):
     """Parser for the users.xml file.  Stores recognized data in an
     internal datastructure"""
@@ -296,15 +273,6 @@ def import_email(filename):
         pass
 
 
-ureg_domtyp2catgs = {
-    'u': (co.email_domain_category_uidaddr,),
-    'U': (co.email_domain_category_uidaddr,
-          co.email_domain_category_include_all_uids),
-    'p': (co.email_domain_category_cnaddr,),
-    'P': (co.email_domain_category_cnaddr,
-          co.email_domain_category_include_all_uids),
-    'N': ()
-    }
 maildomain2eid = {}
 
 def create_email(otype, data):
@@ -1090,14 +1058,16 @@ def showtime(msg):
 
 def read_config(fname):
     "Reads configuration from a python-script specified by filename"
-    global person_aff_mapping, user_aff_mapping, default_ou
-
+    global person_aff_mapping, user_aff_mapping, default_ou,\
+           shell2shellconst, ureg_domtyp2catgs
     globs = {}
     locs = {}
     execfile(fname, globs, locs)
     person_aff_mapping = locs.get('person_aff_mapping')
     user_aff_mapping = locs.get('user_aff_mapping')
     default_ou = locs.get('default_ou')
+    shell2shellconst = locs.get('shell2shellconst')
+    ureg_domtyp2catgs = locs.get('ureg_domtyp2catgs')
 
 def usage():
     print """import_userdb_XML.py -c file -s system [{-g|-e|-p|-m|-i} file] [ -m num ] {-G|-E|-P|-M|-I}
