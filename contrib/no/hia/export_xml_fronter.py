@@ -109,6 +109,36 @@ def get_names(person_id):
                 return (last_n, first_n)
     return ("*Ukjent etternavn*", "*Ukjent fornavn*")
 
+def get_ans_fak(fak_list):
+    fak_res = {}
+    person = Factory.get('Person')(db)
+    stdk = Stedkode.Stedkode(db)
+    for fak in fak_list:
+        ans_list = []
+        # Get all stedkoder in one faculty
+        for ou in stdk.get_stedkoder(fakultet=int(fak)):
+            print fak, int(ou['ou_id'])
+            # get persons in the stedkode
+            for pers in person.list_affiliations(source_system=const.system_sap,
+                                        affiliation=const.affiliation_ansatt,
+                                        ou_id=int(ou['ou_id'])):
+                person.clear()
+                #person.find(int(pers['person_id']))
+                person.entity_id = int(pers['person_id'])
+                try:
+                    person.get_primary_account()
+                except Errors.NotFoundError:
+                    logger.debug("Person pers_id: %d , no valid account!" % \
+                                        person.entity_id)
+                    break
+                # Add primary account id if not added before inside faculty
+                if person.entity_id not in ans_list:
+                    ans_list.append(person.entity_id)
+        fak_res[int(fak)] = ans_list
+    return fak_res
+
+
+
 def register_spread_groups(emne_info, stprog_info):
     group = Factory.get('Group')(db)
     for r in group.search(filter_spread=const.spread_hia_fronter):
@@ -191,6 +221,7 @@ def register_spread_groups(emne_info, stprog_info):
             # gruppene på nivå 4.
             group.clear()
             group.find(r['group_id'])
+	    # Legges inn new group hvis den ikke er opprettet
             for op, subg_id, subg_name in \
                     group.list_members(None, int(const.entity_group),
                                        get_entity_name=True)[0]:
