@@ -1264,6 +1264,15 @@ class AccountEmailMixin(Account.Account):
                     ea.email_addr_expire_date = expire_date
                 ea.write_db()
             return
+        # Until a user's email target is associated with an email
+        # server, the mail system won't know where to deliver mail for
+        # that user.  Hence, we return early (thereby avoiding
+        # creation of email addresses) for such users.
+        est = EmailServerTarget(self._db)
+        try:
+            est.find(et.email_target_id)
+        except Errors.NotFoundError:
+            return
         # Figure out which domain(s) the user should have addresses
         # in.  Primary domain should be at the front of the resulting
         # list.

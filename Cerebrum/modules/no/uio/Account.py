@@ -113,6 +113,10 @@ class AccountUiOMixin(Account.Account):
                                self.entity_id, est.email_server_id,
                                state_data = {'depend_req': reqid,
                                              'source_server': old_server})
+            # The user's email target is now associated with an email
+            # server; try generating email addresses connected to the
+            # target.
+            self.update_email_addresses()
         return ret
 
     def delete_spread(self, spread):
