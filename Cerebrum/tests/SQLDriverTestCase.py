@@ -7,13 +7,19 @@ from Cerebrum import Database
 class SQLDriverTestCase(unittest.TestCase):
     def setUp(self):
         self.db = Database.connect()
-        self.db.execute("CREATE TABLE test_db_dict (value NUMERIC(6,0))")
-        self.db.execute("INSERT INTO test_db_dict (value) VALUES (1)")
+        try:
+            self.db.execute("CREATE TABLE test_db_dict (value NUMERIC(6,0))")
+            self.db.execute("INSERT INTO test_db_dict (value) VALUES (1)")
+        except:
+            pass
+
+        try:
+            self.db.execute("CREATE TABLE test_db_utf8 (value CHAR VARYING(128))")
+        except:
+            pass
+
         # Calling commit() to make sure it is possible to continue
         # testing even if the SQL call fails.
-
-        self.db.execute("CREATE TABLE test_db_utf8 (value CHAR VARYING(128))")
-
         self.db.commit()
         
     def testSQLIntHashable(self):
