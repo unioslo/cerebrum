@@ -26,7 +26,8 @@ import Registry
 registry = Registry.get_registry()
 
 
-__all__ = ['CerebrumAttr', 'CerebrumEntityAttr', 'CerebrumClass']
+__all__ = ['CerebrumAttr', 'CerebrumEntityAttr', 'CerebrumClass',
+           'CerebrumDateAttr', 'CerebrumBooleanAttr']
 
 class CerebrumAttr(Attribute):
     def __init__(self, name, data_type, cerebrum_name=None,
@@ -68,6 +69,16 @@ class CerebrumTypeAttr(CerebrumAttr):
     def from_cerebrum(self, value):
         return self.type_class(id=int(value))
 
+class CerebrumBooleanAttr(CerebrumAttr):
+    def __inti__(self, name, data_type, cerebrum_name=None, write=False):
+        CerebrumAttr.__init__(self, name, data_type, cerebrum_name, write)
+
+    def to_cerebrum(self, value):
+        return value and "T" or "F"
+
+    def from_cerebrum(self, value):
+        return value == "T" and True or False
+
 class CerebrumDateAttr(CerebrumAttr):
     def __init__(self, name, data_type, cerebrum_name=None, write=False):
         CerebrumAttr.__init__(self, name, data_type, cerebrum_name, write)
@@ -76,7 +87,7 @@ class CerebrumDateAttr(CerebrumAttr):
         return mx.DateTime.TimestampFromTicks(value.get_date())
 
     def from_cerebrum(self, value):
-        return registry.Date(value.ticks())
+        return registry.Date(value is not None and value.ticks() or 0)
 
 class CerebrumClass(Searchable):
     cerebrum_class = None
