@@ -87,7 +87,14 @@ class SearchClass(SpineClass):
                 new_objs = sets.Set()
 
                 for i in searcher.search():
-                    new_objs.add(getattr(i, searcher.mark.get_name_get())())
+                    if searcher.mark.optional:
+                        try:
+                            new_objs.add(getattr(i, searcher.mark.get_name_get())())
+#                        except Cerebrum.Errors.NotFoundError, e:
+                        except:
+                            continue
+                    else:
+                        new_objs.add(getattr(i, searcher.mark.get_name_get())())
 
                 return new_objs
 
