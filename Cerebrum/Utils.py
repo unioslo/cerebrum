@@ -464,7 +464,26 @@ class Factory(object):
             for c in import_spec:
                 (mod_name, class_name) = c.split("/", 1)
                 mod = dyn_import(mod_name)
-                bases.append(getattr(mod, class_name))
+                cls = getattr(mod, class_name)
+                # The cereconf.CLASS_* tuples control which classes
+                # are used to construct a Factory product class.
+                # Order inside such a tuple is significant for the
+                # product class's method resolution order.
+                #
+                # A likely misconfiguration is to list a class A as
+                # class_tuple[N], and a subclass of A as
+                # class_tuple[N+x], as that would mean the subclass
+                # won't override any of A's methods.
+                #
+                # The following code should ensure that this form of
+                # misconfiguration won't be used.
+                for override in bases:
+                    if issubclass(cls, override):
+                        raise RuntimeError, \
+                              ("Class %r should appear earlier in"
+                               " cereconf.%s, as it's a subclass of"
+                               " class %r." % (cls, conf_var, override))
+                bases.append(cls)
             if len(bases) == 1:
                 comp_class = bases[0]
             else:
