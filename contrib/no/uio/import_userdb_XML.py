@@ -43,6 +43,7 @@ from Cerebrum import Person
 from Cerebrum import Errors
 from Cerebrum.modules import PosixGroup
 from Cerebrum.modules import PosixUser
+from Cerebrum.modules import PasswordHistory
 from Cerebrum.modules.no import Stedkode
 from Cerebrum.Utils import Factory
 
@@ -66,6 +67,7 @@ disk2id = {}
 account = Account.Account(db)
 account.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
 acc_creator_id = account.entity_id
+pwdhist = PasswordHistory.PasswordHistory(db)
 
 shell2shellconst = {
     'bash': co.posix_shell_bash,
@@ -530,6 +532,8 @@ def create_account(u, owner_id):
             accountObj.add_spread(co.spread_uio_nis_user)
         elif tmp['domain'] == 'i':
             accountObj.add_spread(co.spread_ifi_nis_user)
+    for tmp in u.get('pwdhist', []):
+        pwdhist.add_history(accountObj.entity_id, '', _csum=tmp['value'])
     return accountObj.entity_id
 
 def make_disk(hostname, disk, diskname):
