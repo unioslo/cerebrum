@@ -247,7 +247,7 @@ def get_bet_fritak_data(lt_person_file):
             "%02d%02d%02d%05d" % (int(person['fodtdag']), int(person['fodtmnd']),
                                   int(person['fodtar']), int(person['personnr'])))
         for g in data.get('gjest', []):
-            if g['gjestetypekode'] in ('PCVAKT', 'GRP-LÆRER'):
+            if g['gjestetypekode'] in ('PCVAKT', 'GRP-LÆRER', 'ST.POL FRI', 'ST.ORG FRI'):
                 if not fnr2pid.has_key(fnr):
                     logger.warn("Unknown LT-person %s" % fnr)
                     return
@@ -449,7 +449,7 @@ def auto_stud(studconfig_file, student_info_file, studieprogs_file,
     (fnr2pid, quota_victims, person_id_member, kopiavgift_fritak,
      har_betalt, free_this_term, betaling_fritak) = fetch_data(
         drgrad_file, fritak_kopiavg_file, betalt_papir_file, lt_person_file)
-
+    logger.debug("Victims: %s" % quota_victims)
     # Start call-backs via autostud modulen med vanlig
     # merged_persons.xml fil.  Vi har da mulighet til å styre kvoter
     # via de vanlige select kriteriene.  Callback metoden må sjekke
@@ -493,7 +493,6 @@ def process_data():
 
 def main():
     global logger
-    
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'b:e:f:rs:C:D:L:S:', [
             'help', 'student-info-file=', 'emne-info-file=',
