@@ -188,10 +188,8 @@ class BofhdRequests(object):
             conflicts = []
         else:
             conflicts.append(op)
-        # Make sure all elements in the list are integers
-        for i in range(len(conflicts)):
-            conflicts[i] = int(conflicts[i])
-        return conflicts
+        # Make sure all elements in the returned list are integers
+        return [int(c) for c in conflicts]
 
     def add_request(self, operator, when, op_code, entity_id,
                     destination_id, state_data=None):
