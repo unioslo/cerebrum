@@ -5,6 +5,7 @@ import getopt
 import sys
 import pickle
 import email
+import smtplib
 from email import Header
 
 import cerebrum_path
@@ -52,8 +53,8 @@ def mail_user(account_id, deadline=''):
     body = body.replace('${USERNAME}', account.account_name)
     body = body.replace('${DEADLINE}', deadline)
     
-    send_mail(prim_email, email_info['From'], subject, body)
-    mailed_users.append(account.account_name)
+    if send_mail(prim_email, email_info['From'], subject, body):
+        mailed_users.append(account.account_name)
     return True
 
 def splat_user(account_id):
@@ -113,11 +114,16 @@ def process_data():
 
 def send_mail(mail_to, mail_from, subject, body, mail_cc=None,):
     if debug_enabled and not debug_verbose:
-        return
-    ret = Utils.sendmail(mail_to, mail_from, subject, body,
-                         cc=mail_cc, debug=debug_enabled)
-    if debug_verbose:
-        print "---- Mail: ---- \n"+ ret
+        return True
+    try:
+        ret = Utils.sendmail(mail_to, mail_from, subject, body,
+                             cc=mail_cc, debug=debug_enabled)
+        if debug_verbose:
+            print "---- Mail: ---- \n"+ ret
+    except smtplib.SMTPException, msg:
+        logger.warn("Error sending to %s: %s" % (mailto, msg))
+        return False
+    return True
 
 def main():
     try:
