@@ -390,8 +390,7 @@ def main():
     co = Factory.get('Constants')(db)
     if do_update_fnr:
         update_fnr(fnrupdate_file)
-        db.rollback()
-        #db.commit()
+        db.commit()
         sys.exit(0)
     group = Factory.get('Group')(db)
     try:
