@@ -87,19 +87,51 @@
 # To build dist file:
 #  python2.2 setup.py sdist
 
+import os
+import sys
+import pwd
+from glob import glob
+from types import StringType
+
+from distutils import sysconfig
+from distutils.command import install_data, install_lib
 from distutils.command.build import build
-from distutils.command import install_data
+from distutils.command.sdist import sdist
 from distutils.core import setup, Command
 from distutils.util import change_root, convert_path
-import os
-import pwd
+import Cerebrum
 
 #
 # Which user should own the installed files
 #
 cerebrum_user = "cerebrum"
 
-class my_install_data (install_data.install_data):
+class my_install_data (install_data.install_data, object):
+    def finalize_options (self):
+        """Add wildcard support for filenames.  Generate cerebrum_path.py"""
+        super(my_install_data, self).finalize_options()
+        for f in self.data_files:
+            if type(f) != StringType:
+                files = f[1]
+                i = 0
+                while i < len(files):
+                    if files[i][0].find('*') > -1:
+                        for e in glob(files[i][0]):
+                            files.append((e, files[i][1]))
+                        files.pop(i)
+                        i -= 1
+                    i += 1
+        f_in = open("cerebrum_path.py.in", "r")
+        f_out = open("%s/cerebrum_path.py" % sysconfig.get_python_lib(), "w")
+        etc_dir = "%s/etc/cerebrum" % self.install_dir
+        python_dir = sysconfig.get_python_lib(prefix=self.install_dir)
+        for line in f_in.readlines():
+            line = line.replace("@CONFDIR@", etc_dir)
+            line = line.replace("@PYTHONDIR@", python_dir)
+            f_out.write(line)
+        f_in.close()
+        f_out.close()
+
     def run (self):
         self.mkpath(self.install_dir)
         for f in self.data_files:
@@ -131,7 +163,28 @@ class my_install_data (install_data.install_data):
                     if(os.geteuid() == 0):
                         os.chown(out, uid, gid)
 
-# class my_install_data
+class test(Command):
+    user_options = [('check', None, 'Run check'),
+                    ('dbcheck', None, 'Run db-check')]
+    def initialize_options (self):
+        self.check = None
+        self.dbcheck = None
+
+    def finalize_options (self):
+        if self.check is None and self.dbcheck is None:
+            raise RuntimeError, "Must specify test option"
+    
+    def run (self):
+        if self.dbcheck is not None:
+            os.system('%s testsuite/Run.py -v Cerebrum.tests.SQLDriverTestCase.suite' % sys.executable)
+        if self.check is not None:
+            os.system('%s testsuite/Run.py -v' % sys.executable)
+
+class my_sdist(sdist, object):
+    def finalize_options (self):
+        super(my_sdist, self).finalize_options()
+        if os.system('cd java/jbofh && ant dist') != 0:
+            raise RuntimeError, "Error running ant"
 
 prefix="."  # Should preferably be initialized from the command-line argument
 sharedir="%s/share" % prefix
@@ -140,7 +193,7 @@ bindir="%s/bin" % prefix
 sysconfdir = "%s/etc/cerebrum" % prefix # Should be /etc/cerebrum/
 logdir = "%s/var/log/cerebrum" % prefix # Should be /var/log/cerebrum/
 
-setup (name = "Cerebrum", version = "0.1",
+setup (name = "Cerebrum", version = Cerebrum.__version__,
        url = "http://cerebrum.sourceforge.net",
        maintainer = "Cerebrum Developers",
        maintainer_email = "do.we@want.this.here",
@@ -151,6 +204,7 @@ setup (name = "Cerebrum", version = "0.1",
                    'Cerebrum/extlib',
                    'Cerebrum/extlib/Plex',
                    'Cerebrum/modules',
+                   'Cerebrum/modules/bofhd',
                    'Cerebrum/modules/no',
                    'Cerebrum/modules/no/uio'],
 
@@ -162,10 +216,7 @@ setup (name = "Cerebrum", version = "0.1",
        data_files = [({'path': "%s/doc/cerebrum/design" % sharedir,
                        'owner': cerebrum_user,
                        'mode': 0750},
-                      [('design/core_tables.sql', 0644),
-                       ('design/mod_posix_user.sql', 0644),
-                       ('design/mod_nis.sql', 0644),
-                       ('design/mod_stedkode.sql', 0644)
+                      [('design/*.sql', 0644),
                        ]),
                      ({'path': "%s/doc/cerebrum" % sharedir,
                        'owner': cerebrum_user,
@@ -179,34 +230,22 @@ setup (name = "Cerebrum", version = "0.1",
                        ]),
                      ## ("%s/samples" % sharedir,
                      ##  ['doc/*.cron']),
-                     ({'path': "%s" % bindir,
-                       'owner': cerebrum_user,
-                       'mode': 0750},
-                      [('cerebrum_path.py', 0644)]
-                      ),
                      ({'path': "%s" % sbindir,
                        'owner': cerebrum_user,
                        'mode': 0750},
-                      [('cerebrum_path.py', 0644)]
-                      ),
-                     ({'path': "%s" % sbindir,
+                      [('server/bofhd.py', 0755)]),
+                     ({'path': "%s/cerebrum/contrib" % sharedir,
                        'owner': cerebrum_user,
                        'mode': 0750},
-                      [('server/bofhd.py', 0755),
-                       ('server/bofhd_cmds.py', 0644),   # WRONG!
-                       ('server/bofhd_errors.py', 0644), # WRONG!
-                       ('server/cmd_param.py', 0644),    # WRONG!
-                       ('contrib/generate_nismaps.py', 0755),
-                       ('contrib/no/import_SATS.py', 0755),
-                       ('contrib/no/import_from_MSTAS.py', 0755),
-                       ('contrib/no/uio/import_OU.py', 0755),  # TODO: These should not allways be installed?
-                       ('contrib/no/uio/import_FS.py', 0755),
-                       ('contrib/no/uio/import_LT.py', 0755),
-                       ('contrib/no/uio/import_from_FS.py', 0755),
-                       ('contrib/no/uio/import_from_LT.py', 0755),
-                       ('contrib/no/uio/import_userdb_XML.py', 0755)
-
-                       ]),
+                      [('contrib/*.py', 0755)]),
+                     ({'path': "%s/cerebrum/contrib/no" % sharedir,
+                       'owner': cerebrum_user,
+                       'mode': 0750},
+                      [('contrib/no/*.py', 0755)]),
+                     ({'path': "%s/cerebrum/contrib/no/uio" % sharedir,
+                       'owner': cerebrum_user,
+                       'mode': 0750},
+                      [('contrib/no/uio/*.py', 0755)]),
                      ({'path': "%s" % bindir,
                        'owner': cerebrum_user,
                        'mode': 0750},
@@ -238,5 +277,7 @@ setup (name = "Cerebrum", version = "0.1",
                       []),
                      ],
        # Overridden command classes
-       cmdclass = {'install_data': my_install_data}
+       cmdclass = {'install_data': my_install_data,
+                   'sdist': my_sdist,
+                   'test': test}
       )
