@@ -133,8 +133,3 @@ class PosixGroup(Group.Group):
 ##                 raise ValueError, \
 ##                       "PosixGroup name '%s' contains illegal char '%s'." % \
 ##                       (name, c)
-
-    def list_all(self):
-        return self.query("""
-        SELECT group_id
-        FROM [:table schema=cerebrum name=posix_group]""")
