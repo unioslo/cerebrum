@@ -83,8 +83,6 @@ CLASS_DATABASE = ['Cerebrum.CLDatabase/CLDatabase']
 #CLASS_CHANGELOG = ['Cerebrum.modules.ChangeLog/ChangeLog']
 CLASS_CHANGELOG = ['Cerebrum.ChangeLog/ChangeLog']
 
-# Path to templates for passweb.py et. al.
-TEMPLATE_DIR='/path'
 # URL to bofh server
 BOFH_URL='http://127.0.0.1:8000'
 
@@ -118,3 +116,10 @@ QUARANTINE_RULES = {}
 CEREBRUM_DDL_DIR="../share/doc/cerebrum/design"
 # Should contain mapping lang: [('template-prefix', 'tpl-type)...]
 BOFHD_TEMPLATES={}
+# Directory for templates
+TEMPLATE_DIR=None
+
+# Configure commands needed to send processed templates to printer
+PRINT_LATEX_CMD=None
+PRINT_DVIPS_CMD=None
+PRINT_LPR_CMD=None
