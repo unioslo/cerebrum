@@ -218,6 +218,7 @@ WHERE  p.fodselsdato=s.fodselsdato AND
         # også inneholder fremtidige meldinger.
         return qry
     
+
     def GetStudinfOpptak(self):
         studierettstatkoder = """'AUTOMATISK', 'AVTALE', 'CANDMAG',
        'DIVERSE', 'EKSPRIV', 'ERASMUS', 'FJERNUND', 'GJEST',
@@ -469,6 +470,83 @@ ORDER BY fodselsdato, personnr
     def is_alive(self):
 	return "NVL(p.status_dod, 'N') = 'N'\n"
 
+###################################################################
+# Studinfo-metoder
+# Hent data om eksamensmeldinger, opptak , utdanningsplan og semreg
+# for en gitt person. Disse brukes til å vise studentstaus for en
+# person i BOFH.
+###################################################################
+
+    def GetStudentEksamen(self,fnr,pnr):
+	"""Hent alle eksamensmeldinger for en student for nåværende
+           semester"""
+        qry = """
+SELECT DISTINCT
+  em.emnekode, em.dato_opprettet
+FROM fs.eksamensmelding em, fs.person p
+WHERE em.fodselsdato=fnr AND
+      em.personnr=pnr AND
+      em.fodselsdato=p.fodselsdato AND
+      em.personnr=p.personnr 
+      AND %s
+        """ % self.is_alive()
+        return (self._get_cols(qry), self.db.query(qry))
+
+    def GetStudentStudierett(self,fnr,pnr):
+	"""Hent info om alle studierett en student har eller har hatt"""
+        qry = """
+SELECT DISTINCT
+  st.studieprogramkode, st.studierettstatkode, st.dato_tildelt,
+  st.dato_gyldig_til, st.status_privatist
+FROM fs.studierett st, fs.person p
+WHERE st.fodselsdato=fnr AND
+      st.personnr=pnr AND
+      st.fodselsdato=p.fodselsdato AND
+      st.personnr=p.personnr 
+      AND %s
+        """ % self.is_alive()
+        return (self._get_cols(qry), self.db.query(qry))
+
+    def GetEmneIStudProg(self,emne):
+        """Hent alle studieprogrammer et gitt emne kan inngå i."""
+        qry = """
+SELECT DISTINCT 
+  studieprogramkode   
+FROM fs.emne_i_studieprogram
+WHERE emnekode = emne
+       """ 
+        return (self._get_cols(qry), self.db.query(qry))
+
+    def GetStudentSemReg(self,fnr,pnr):
+        """Hent data om semesterregistrering for student i nåværende semester."""
+        qry = """
+SELECT DISTINCT
+  rk.regformkode, rk.betformkode, rk.dato_betaling, rk.dato_regform_endret
+FROM fs.registerkort rk, fs.person p
+WHERE rk.fodselsdato = fnr AND
+      rk.personnr = pnr AND
+      %s AND
+      rk.fodselsdato = p.fodselsdato AND
+      rk.personnr = p.personnr AND
+      %s
+        """ %(self.get_termin_aar(only_current=1),self.is_alive())
+	return (self._get_cols(qry), self.db.query(qry))
+
+    def GetStudentUtdPlan(self,fnr,pnr):
+        """Hent opplysninger om utdanningsplan for student"""
+        qry = """
+SELECT DISTINCT
+  utdp.studieprogramkode, utdp.terminkode_bekreft, utdp.arstall_bekreft,
+  utdp.dato_bekreftet
+FROM fs.studprogstud_planbekreft utdp, fs.person p
+WHERE utdp.fodselsdato = fnr AND
+      utdp.personnr = pnr AND
+      utdp.fodselsdato = p.fodselsdato AND
+      utdp.personnr = p.personnr AND
+      %s
+        """ % self.is_alive()
+	return (self._get_cols(qry), self.db.query(qry))
+    
 	
 ##################################################################
 # Metoder for OU-er:
