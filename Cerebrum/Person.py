@@ -527,6 +527,10 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
         A ValueError is raised if no cacheworthy name variants are
         found for the person."""
 
+        # The keys in this dict tells us which name variants should be
+        # kept in the cache.  The corresponding values will be set as
+        # we walk through the name data from the authoritative source
+        # systems.
         cached_name = {
             'name_first': None,
             'name_last': None,
@@ -560,7 +564,7 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
                     # presented us with enough data to form a full
                     # name.
                     continue
-            # Here, we know that cached_name['full_name'] is set to
+            # Here, we know that cached_name['name_full'] is set to
             # the person's proper full name; if gen_full is set, we
             # know the current source system has good values for first
             # and last name, too.
@@ -576,8 +580,8 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
             # variants.  If there is cacheable data for full name, our
             # last, best hope for getting cached first- and last names
             # is to chop the full name apart.
-            if 'name_full' in cached_name:
-                name_parts = full_name.split()
+            if cached_name['name_full'] is not None:
+                name_parts = cached_name['name_full'].split()
                 if len(name_parts) >= 2:
                     last_name = name_parts.pop()
                     if 'name_last' not in cached_name:
@@ -585,6 +589,20 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
                     if 'name_first' not in cached_name:
                         cached_name['name_first'] = " ".join(name_parts)
 
+        # TBD: When we're unable to find cacheable data, it would
+        #      probably be more correct to update the cache (that is,
+        #      remove any previously cached values, in the for loop
+        #      below), before issuing a warning/raising an exception
+        #      to signal that there is no cacheable name data for this
+        #      person.
+        #
+        #      However, that behaviour would represent a bigger change
+        #      from how the cache has worked until now; some persons
+        #      would end up without any cached fullname, which could
+        #      lead to other scripts breaking.
+        #
+        #      So, until we have the resources to do proper testing on
+        #      such a more correct change, we'll live with this hack.
         if not [n for n in cached_name if cached_name[n] is not None]:
             # We have no cacheable name variants.
             raise ValueError, "No cacheable name for %d / %r" % (
