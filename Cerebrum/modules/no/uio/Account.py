@@ -67,6 +67,8 @@ class AccountUiOMixin(Account.Account):
             est = self._UiO_update_email_server(
                 self.const.email_server_type_cyrus)
 
+            br = BofhdRequests(self._db, self.const)
+
             # Set quota.
             eq = Email.EmailQuota(self._db)
             try:
@@ -80,7 +82,6 @@ class AccountUiOMixin(Account.Account):
             if old_server == est.email_server_id:
                 return ret
             # Register a BofhdRequest to create the mailbox
-            br = BofhdRequests(self._db, self.const)
             reqid = br.add_request(None,        # Requestor
                                    br.now, self.const.bofh_email_create,
                                    self.entity_id, est.email_server_id)
