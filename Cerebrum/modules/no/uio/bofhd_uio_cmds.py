@@ -1986,15 +1986,28 @@ class BofhdExtension(object):
             change = True
         eq.write_db()
         if change:
-            br = BofhdRequests(self.db, self.const)
-            # if this operator has already asked for a quota change, but
-            # process_bofh_requests hasn't run yet, delete the existing
-            # request to avoid the annoying error message.
-            for r in br.get_requests(operation=self.const.bofh_email_hquota,
-                                     operator_id=op, entity_id=acc.entity_id):
-                br.delete_request(request_id=r['request_id'])
-            br.add_request(op, br.now, self.const.bofh_email_hquota,
-                           acc.entity_id, None)
+            # If we're supposed to put a request in BofhdRequests we'll have to
+            # be sure that the user getting the quota is a Cyrus-user. If not,
+            # Cyrus will spew out errors telling us "user foo is not a cyrus-user".
+            est = Email.EmailServerTarget(self.db)
+            try:
+                est.find(et.email_target_id)
+            except Errors.NotFoundError:
+                raise CerebrumError, ("The account %s has no e-mail server "+
+                                      "associated with it") % uname
+            es = Email.EmailServer(self.db)
+            es.find(est.email_server_id)
+                    
+            if es.email_server_type == self.const.email_server_type_cyrus:
+                br = BofhdRequests(self.db, self.const)
+                # if this operator has already asked for a quota change, but
+                # process_bofh_requests hasn't run yet, delete the existing
+                # request to avoid the annoying error message.
+                for r in br.get_requests(operation=self.const.bofh_email_hquota,
+                                         operator_id=op, entity_id=acc.entity_id):
+                    br.delete_request(request_id=r['request_id'])
+                br.add_request(op, br.now, self.const.bofh_email_hquota,
+                               acc.entity_id, None)
         return "OK, set quota for '%s'" % uname
 
     # email spam_level <level> <uname>+
