@@ -31,5 +31,23 @@ module Cerebrum_core{
         exception CommitError{
             string explanation;
         };
+
+        /**
+        * Error raised when trying to lock a node wich is already locked
+        * for reading or for writing.
+        * \param explanation A string containing a short explanation.
+        */
+        exception AlreadyLockedError{
+            string explanation;
+        };
+
+        /**
+        * Error raised when trying to writelock without obtaining a
+        * readlock first.
+        * \param explanation A string containing a short explanation.
+        */
+        exception NotLockedError{
+            string explanation;
+        };
     };
 };
