@@ -73,31 +73,60 @@ from Cerebrum.modules import PosixUser
 from Cerebrum.extlib import logging
 
 cf_dir = '/cerebrum/dumps/Fronter'
-debug_file = "%s/x-import.log" % cf_dir  # cmd-line
-debug_level = 4                          # cmd-line
 root_sko = '900199'
 root_struct_id = 'UiO root node'
 group_struct_id = "UREG2000@uio.no imported groups"
 group_struct_title = 'Automatisk importerte grupper'
 
+def usage(exitcode=0):
+    print """Usage: [options] outfile
+    -h | --host name : fronter host to use
+    --fs-db-user uname : uname when connecting to FS
+    --fs-db-service sid: SID to FS instance
+    --debug-file name: name of debug file (used by fronter)
+    --debug-level level: number of debug level (used by fronter)
+
+    Will connect to the specified fronter host and compare the groups,
+    rooms, users and usermemberships therein with settings in Cerebrum
+    and FS.  Builds and XML file in outfile that can be imported into
+    Fronter to sync the databases.
+    """
+    sys.exit(exitcode)
+
 def main():
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'h:',
-                                   ['host='])
+                                   ['host=', 'fs-db-user=', 'fs-db-service=',
+                                    'debug-file=', 'debug-level='])
     except getopt.GetoptError:
         usage(1)
     host = 'kladdebok.uio.no'
     fs_db_user = 'ureg2000'
     fs_db_service = 'FSPROD.uio.no'
+    debug_file = "%s/x-import.log" % cf_dir
+    debug_level = 4
     for opt, val in opts:
         if opt in ('-h', '--host'):
             host = val
+        elif opt == '--fs-db-user':
+            fs_db_user = val
+        elif opt == '--fs-db-service':
+            fs_db_service = val
+        elif opt == '--debug-file':
+            debug_file  = val
+        elif opt == '--debug-level':
+            debug_level = val
+
+    if len(args) != 1:
+        usage(1)
+
     fs_db = Database.connect(user=fs_db_user, service=fs_db_service,
                              DB_driver='Oracle')
     global xml, logger
     logging.fileConfig(cereconf.LOGGING_CONFIGFILE)
     logger = logging.getLogger("console")
-    xml = fronter_lib.FronterXML('%s/outfile.xml' % cf_dir,   # cmd-line
+    xml = fronter_lib.FronterXML(args[0],
+                                 cf_dir=cf_dir,
                                  debug_file=debug_file,
                                  debug_level=debug_level)
     gen_export(host, fs_db)
@@ -235,6 +264,7 @@ def get_new_users():  # ca 345-374
         new_users[user['uname']]['PASSWORD'] = 'unix:'
         if user['uname'] in fronter.plain_users:
             new_users[user['uname']]['PASSWORD'] = "plain:%s" % user['uname']
+    logger.debug("get_new_users returns %i users" % len(new_users))
 
 def register_user_update(operation, uname):
     """Update user_updates with info about changes that should be done
