@@ -55,9 +55,9 @@ case "$1" in
   start)
 	if check_mandatory_files_are_there ; then
 		echo -n "Starting $DESC: "
-		start-stop-daemon --start --quiet --pidfile /var/run/$PID_BOFHD.pid \
+		start-stop-daemon --start --background --quiet --pidfile /var/run/$PID_BOFHD.pid \
 			--chuid cerebrum --exec $DAEMON_BOFHD -- $DAEMON_BOFHD_OPTS
-		start-stop-daemon --start --quiet --pidfile /var/run/$PID_JOB_R.pid \
+		start-stop-daemon --start --background --quiet --pidfile /var/run/$PID_JOB_R.pid \
 			--chuid cerebrum --exec $DAEMON_JOB_R -- $DAEMON_JOB_R_OPTS
 		echo "$NAME."
 	fi
@@ -83,9 +83,9 @@ case "$1" in
 		/var/run/$PID_JOB_R.pid --exec $DAEMON_JOB_R
 	sleep 1
 	if check_mandatory_files_are_there ; then
-		start-stop-daemon --start --quiet --pidfile /var/run/$PID_BOFHD.pid \
+		start-stop-daemon --start ---background -quiet --pidfile /var/run/$PID_BOFHD.pid \
 			--chuid cerebrum --exec $DAEMON_BOFHD -- $DAEMON_BOFHD_OPTS
-		start-stop-daemon --start --quiet --pidfile /var/run/$PID_JOB_R.pid \
+		start-stop-daemon --start ---background -quiet --pidfile /var/run/$PID_JOB_R.pid \
 			--chuid cerebrum --exec $DAEMON_JOB_R -- $DAEMON_JOB_R_OPTS
 	fi
 	echo "$NAME."
