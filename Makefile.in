@@ -10,8 +10,13 @@ srcdir       = .
 top_builddir = .
 
 all: Makefile
+
+.PHONY: install
 install: Makefile
-	./setup.py install install_data --install-dir=$(prefix)
+	#./setup.py install install_data --install-dir=$(prefix)
+	./setup.py install --prefix=/tmp/cerebrum
+
+.PHONY: dist
 dist: Makefile
 	./setup.py sdist
 
@@ -27,6 +32,7 @@ check: all
 fullcheck: bootstrap check testrun
 
 clean:
+	$(RM) -r build
 
 distclean: clean
 	-$(RM) config.log config.status Makefile
