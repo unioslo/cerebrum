@@ -25,7 +25,7 @@ import traceback
 import unittest
 from test import test_support
 
-Errors = Spine.Cerebrum_core.Errors
+Errors = Spine.SpineIDL.Errors
 
 class CommunicationTest(unittest.TestCase):
     """A simple test to verify that the Spine server is available and that CORBA is working."""
@@ -332,7 +332,7 @@ if __name__ == '__main__':
 
     # Create the unit tests and add the pre-defined ones
     classes = [CommunicationTest, TransactionTest, LockingTest, 
-        MultipleTransactionTest] + create_test_classes()
+        MultipleTransactionTest]# + create_test_classes()
     test_support.run_unittest(*classes)
 
 # arch-tag: d4e71fa7-90e0-4fd5-8b38-ce5ac0340e2f

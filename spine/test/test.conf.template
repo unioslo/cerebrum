@@ -5,9 +5,6 @@ username: user
 password: password
 
 [corba]
-context: Cerebrum
-service: Spine
-object: SpineServer
 url: /tmp/spine.ior
 
 [ssl]
@@ -16,6 +13,5 @@ key_file: client.pem
 password: client
 
 [idl]
-path: ../lib/server/idl/
-spine: server.idl
-errors: errors.idl
+path: .
+core: SpineCore.idl

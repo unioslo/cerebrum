@@ -23,8 +23,6 @@ import Spine
 import unittest
 from test import test_support
 
-Errors = Spine.Cerebrum_core.Errors
-
 def Connection():
     """Returns a new connection to Spine."""
     return Spine.connect()
