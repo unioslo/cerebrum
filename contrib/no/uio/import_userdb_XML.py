@@ -935,7 +935,7 @@ def person_callback(person):
                                                 c['val'])
             elif c['type'] == 'workfax':
                 personObj.populate_contact_info(source_system,
-                                                co.contact_phone, c['val'])
+                                                co.contact_fax, c['val'])
             elif c['type'] == 'privaddress':
                 a = c['val'].split('$', 2)
                 personObj.populate_address(source_system,
