@@ -4811,6 +4811,8 @@ class BofhdExtension(object):
     def _parse_date(self, date):
         if not date:
             return None
+        if isinstance(date, DateTime.DateTimeType):
+            date = date.Format("%Y-%m-%d")
         try:
             return self.db.Date(*([ int(x) for x in date.split('-')]))
         except:
