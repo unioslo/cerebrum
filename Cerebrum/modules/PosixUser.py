@@ -256,7 +256,7 @@ class PosixUser(Account_class):
                 WHERE aa2.account_id=pu.account_id)
           JOIN [:table schema=cerebrum name=entity_name] en
             ON en.entity_id=pu.account_id AND en.value_domain=:vd
-          %s
+          %s ORDER BY ai.account_id
           """ % (ecols, efrom, ewhere),
                           {'vd': int(self.const.account_namespace),
                            #'auth_method': int(auth_method),
