@@ -278,8 +278,7 @@ class EntityName(Entity):
 
     def delete_entity_name(self, domain):
         self._db.log_change(self.entity_id, self.const.entity_name_del, None,
-                            change_params={'domain': int(domain),
-                                           'name': name})
+                            change_params={'domain': int(domain)})
         return self.execute("""
         DELETE FROM [:table schema=cerebrum name=entity_name]
         WHERE entity_id=:e_id AND value_domain=:domain""",
