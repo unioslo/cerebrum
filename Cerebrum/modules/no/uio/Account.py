@@ -74,8 +74,12 @@ class AccountUiOMixin(Account.Account):
             except Errors.NotFoundError:
                 eq.populate(90, 100)
                 eq.write_db()
+                br.add_request(None, br.now, self.const.bofh_email_hquota,
+                               self.entity_id)
 
-            # Register self.const.bofh_email_create BofhdRequest
+            if old_server == est.email_server_id:
+                return ret
+            # Register a BofhdRequest to create the mailbox
             br = BofhdRequests(self._db, self.const)
             reqid = br.add_request(None,        # Requestor
                                    br.now, self.const.bofh_email_create,
