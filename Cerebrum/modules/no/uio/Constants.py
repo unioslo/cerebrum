@@ -109,7 +109,13 @@ class Constants(Constants.Constants):
         'Personer registrert i LT med gjestetypekode=SIVILARB')
     affiliation_tilknyttet_diverse = _PersonAffStatusCode(
         affiliation_tilknyttet, 'diverse',
-        'Personer registrert i LT med gjestetypekode=IKKE ANGIT')
+        'Personer registrert i LT med gjestetypekode=IKKE ANGITT')
+    affiliation_tilknyttet_pcvakt = _PersonAffStatusCode(
+        affiliation_tilknyttet, 'pcvakt',
+        'Personer registrert i LT med gjestetypekode='PCVAKT')
+    affiliation_tilknyttet_grlaerer = _PersonAffStatusCode(
+        affiliation_tilknyttet, 'grlaerer',
+        'Personer registrert i LT med gjestetypekode='GRUPPELÆRER')
 
     affiliation_manuell = _PersonAffiliationCode(
         'MANUELL', 'Tilknyttet enheter/instutusjoner som USIT har avtale med')
