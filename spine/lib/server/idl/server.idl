@@ -24,6 +24,7 @@
 * Module containing all interfaces defined as the core of the server.
 */
 module Cerebrum_core {    
+
     /**
     * Structure/object used to hold the Spine version.
     * If a client shares the major version number of Spine, then
@@ -40,7 +41,6 @@ module Cerebrum_core {
         octet minor;
     };
 
-
     /**
     * The interface representing Spine, and thus the entry point to the server.
     */
@@ -52,13 +52,28 @@ module Cerebrum_core {
         */
         Version get_version();
 
-        string test();
-
+        /**
+        * Returns the idl source for the servers, which clients should
+        * import in their orb.
+        * \return A string with the idl source.
+        */
         string get_idl();
+
+        /**
+        * MD5-sum for the idl string, returned by get_idl(). Clients can
+        * use this to check if the idl have been updated.
+        * \return A string with the md5-sum for the idl source.
+        */
         string get_idl_md5();
 
         /**
-        * Login
+        * Returns the same as get_idl(), but with comments.
+        * \return A string with the idl source with comments.
+        */
+        string get_idl_commented();
+
+        /**
+        * Login to the server, will return a session object.
         * \param username
         * \param password
         * \return A session object 
