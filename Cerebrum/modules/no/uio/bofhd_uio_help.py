@@ -113,7 +113,7 @@ command_help = {
     'user_set_expire': 'Set expire date for an account',
     'user_set_np_type': 'Set/remove np-type for an account (i.e. program, system etc)',
     'user_set_owner': 'Assing ownership of an account',
-    'user_shell': 'Set login-sehll for a POSIX user account',
+    'user_shell': 'Set login-shell for a POSIX user account',
     'user_student_create': 'Create a user for a student'
     },
     }
@@ -149,6 +149,10 @@ affiliation status codes"""],
  - on
  - off
  - local"""],
+    'email_tripnote_action': ['action', 'Enter action',
+"""Legal tripnote actions:
+ - on
+ - off"""],
     'group_name': ['gname', 'Enter groupname'],
     'group_name_dest': ['gname', 'Enter the destination group'],
     'group_name_new': ['gname', 'Enter the new group name'],
@@ -229,9 +233,13 @@ printer."""],
                            'Legal types: host, disk, group'],
     'string_perm_target_type': ['type', 'Enter target type',
                            'Legal types: host, disk, group'],
-    'string_from_to': ['from_to', 'Enter from and optionally to-date (YYYY-MM-DD-YYYY-MM-DD)'],
+    'string_from_to': ['from_to', 'Enter end date (YYYY-MM-DD) or '+
+                       'begin and end date (YYYY-MM-DD--YYYY-MM-DD)'],
     'string_why': ['why', 'Why?',
                    'You should type a text indicating why you perform the operation'],
+    'tripnote_text': ['text', 'Tripnote',
+                      'Enter message to be sent.  You may use \n to separate '+
+                      'lines of text.'],
     'user_create_person_id': ['owner', 'Enter account owner',
 """Identify account owner (person or group) by entering:
   Birthdate (YYYY-MM-DD)
