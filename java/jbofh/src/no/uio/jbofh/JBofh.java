@@ -227,7 +227,7 @@ public class JBofh {
     pass so many parameters to it */
 
     public JBofh(String def_uname, String def_password, boolean gui, 
-        String log4jPropertyFile, String bofhd_url) throws BofhdException {
+        String log4jPropertyFile, String bofhd_url, String uname) throws BofhdException {
 	guiEnabled = gui;
         try {
 	    URL url = ResourceLocator.getResource(this, log4jPropertyFile);
@@ -269,24 +269,27 @@ public class JBofh {
         }
         
         cLine = new CommandLine(logger, this);
-	String uname, password;
+	String password;
 	try {
 	    if(def_password != null) {  // Shortcut wile debugging (-q param)
 		bc.login(def_uname, def_password);
 	    } else {
-		uname = cLine.promptArg("Username " + 
-                    (def_uname == null ? "" : "["+def_uname+"]") +": ", 
-                    false);
-		if(uname.equals("")) uname = def_uname;
+                if(uname == null) {
+                    uname = cLine.promptArg("Username " + 
+                        (def_uname == null ? "" : "["+def_uname+"]") +": ", 
+                        false);
+                    if(uname.equals("")) uname = def_uname;
+                }
                 ConsolePassword cp = new ConsolePassword();
+                String prompt = "Password for "+uname+":";
 		if(guiEnabled) {
 		    try {
-			password = cp.getPasswordByJDialog("Password:", mainFrame.frame);
+			password = cp.getPasswordByJDialog(prompt, mainFrame.frame);
 		    } catch (ConsolePassword.MethodFailedException e) {
 			return;
 		    }
 		} else {
-		    password = cp.getPassword("Password:");
+		    password = cp.getPassword(prompt);
 		}
 		bc.login(uname, password);
 	    }
@@ -702,6 +705,7 @@ public class JBofh {
      */
     public static void main(String[] args) {
 	boolean gui = JBofh.isMSWindows();
+        String uname = System.getProperty("user.name");
         try {
             String bofhd_url = null;
 	    boolean test_login = false;
@@ -715,6 +719,8 @@ public class JBofh {
 		    gui = true;
 		} else if(args[i].equals("--nogui")) {
 		    gui = false;
+		} else if(args[i].equals("-u")) {
+                    uname = args[++i];
 		} else if(args[i].equals("-d")) {
                     log4jPropertyFile = "/log4j.properties";
 		} else {
@@ -730,11 +736,11 @@ public class JBofh {
 	    }
 	    if(test_login) {
 		new JBofh("bootstrap_account", "test", gui, 
-                    log4jPropertyFile, bofhd_url);
+                    log4jPropertyFile, bofhd_url, uname);
 	    } else {    // "test" md5: $1$F9feZuRT$hNAtCcCIHry4HKgGkkkFF/
                 // insert into account_authentication values((select entity_id from entity_name where entity_name='bootstrap_account'), (select code from authentication_code where code_str='MD5-crypt'), '$1$F9feZuRT$hNAtCcCIHry4HKgGkkkFF/');
 		new JBofh(System.getProperty("user.name"), null, gui, 
-                    log4jPropertyFile, bofhd_url);
+                    log4jPropertyFile, bofhd_url, uname);
 	    }
 	} catch (BofhdException be) {
 	    String msg = "Caught error during init, terminating: \n"+ be.getMessage();
