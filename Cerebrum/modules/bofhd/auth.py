@@ -494,6 +494,8 @@ class BofhdAuth(DatabaseAccessor):
         if self._has_operation_perm_somewhere(
             operator, self.const.auth_add_disk):
             return True
+        if query_run_any:
+            return False
         raise PermissionDenied("Permission denied")
 
     def can_remove_disk(self, operator, query_run_any=False):
@@ -506,6 +508,8 @@ class BofhdAuth(DatabaseAccessor):
         if self._has_operation_perm_somewhere(
             operator, self.const.auth_create_host):
             return True
+        if query_run_any:
+            return False
         raise PermissionDenied("Permission denied")
 
     def can_remove_host(self, operator, query_run_any=False):
@@ -531,6 +535,8 @@ class BofhdAuth(DatabaseAccessor):
         if self._has_operation_perm_somewhere(
             operator, self.const.auth_create_group):
             return True
+        if query_run_any:
+            return False
         raise PermissionDenied("Permission denied")
 
     def can_create_personal_group(self, operator, account=None,
