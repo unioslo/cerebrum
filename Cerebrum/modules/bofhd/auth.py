@@ -163,9 +163,9 @@ class BofhdAuth(DatabaseAccessor):
     def can_set_person_user_priority(self, operator, account):
         if self.is_superuser(operator):
             return 1
-        return _query_disk_persmissions(operator, account,
-                                        co.auth_set_password,
-                                        self._get_disk(account.disk_id))
+        return self._query_disk_persmissions(operator, account,
+                                             co.auth_set_password,
+                                             self._get_disk(account.disk_id))
 
     def can_get_student_info(self, operator, person):
         # TBD: Should this return some 'level' of visibility?
@@ -181,16 +181,16 @@ class BofhdAuth(DatabaseAccessor):
     def can_set_person_id(self, operator, person, idtype):
         if self.is_superuser(operator):
             return 1
-        return _query_disk_persmissions(operator, account,
-                                        co.auth_set_password,
-                                        self._get_disk(account.disk_id))
+        return self._query_disk_persmissions(operator, account,
+                                             co.auth_set_password,
+                                             self._get_disk(account.disk_id))
 
     def can_alter_printerquta(self, operator, account):
         if self.is_superuser(operator):
             return 1
-        return _query_disk_persmissions(operator, account,
-                                        co.auth_set_password,
-                                        self._get_disk(account.disk_id))
+        return self._query_disk_persmissions(operator, account,
+                                             co.auth_set_password,
+                                             self._get_disk(account.disk_id))
     
     def can_query_printerquta(self, operator, account):
         if self.is_superuser(operator):
@@ -200,30 +200,30 @@ class BofhdAuth(DatabaseAccessor):
     def can_disable_quarantine(self, operator, entity, qtype):
         if self.is_superuser(operator):
             return 1
-        return _query_disk_persmissions(operator, account,
-                                        co.auth_set_password,
-                                        self._get_disk(account.disk_id))
+        return self._query_disk_persmissions(operator, account,
+                                             co.auth_set_password,
+                                             self._get_disk(account.disk_id))
     
     def can_remove_quarantine(self, operator, entity, qtype):
         if self.is_superuser(operator):
             return 1
-        return _query_disk_persmissions(operator, account,
-                                        co.auth_set_password,
-                                        self._get_disk(account.disk_id))
+        return self._query_disk_persmissions(operator, account,
+                                             co.auth_set_password,
+                                             self._get_disk(account.disk_id))
 
     def can_set_quarantine(self, operator, entity, qtype):
         if self.is_superuser(operator):
             return 1
-        return _query_disk_persmissions(operator, account,
-                                        co.auth_set_password,
-                                        self._get_disk(account.disk_id))
+        return self._query_disk_persmissions(operator, account,
+                                             co.auth_set_password,
+                                             self._get_disk(account.disk_id))
 
     def can_show_quarantines(self, operator, entity):
         if self.is_superuser(operator):
             return 1
-        return _query_disk_persmissions(operator, account,
-                                        co.auth_set_password,
-                                        self._get_disk(account.disk_id))
+        return self._query_disk_persmissions(operator, account,
+                                             co.auth_set_password,
+                                             self._get_disk(account.disk_id))
 
     def can_alter_group(self, operator, group):
         if self.is_superuser(operator):
@@ -273,16 +273,16 @@ class BofhdAuth(DatabaseAccessor):
     def can_delete_user(self, operator, account):
         if self.is_superuser(operator):
             return 1
-        return _query_disk_persmissions(operator, account,
-                                        co.auth_set_password,
-                                        self._get_disk(account.disk_id))
+        return self._query_disk_persmissions(operator, account,
+                                             co.auth_set_password,
+                                             self._get_disk(account.disk_id))
     
     def can_set_gecos(self, operator, account):
         if self.is_superuser(operator):
             return 1
-        return _query_disk_persmissions(operator, account,
-                                        co.auth_set_password,
-                                        self._get_disk(account.disk_id))
+        return self._query_disk_persmissions(operator, account,
+                                             co.auth_set_password,
+                                             self._get_disk(account.disk_id))
 
     def can_move_user(self, operator, account, dest_disk):
         if self.is_superuser(operator):
@@ -293,31 +293,31 @@ class BofhdAuth(DatabaseAccessor):
     def can_give_user(self, operator, account):
         if self.is_superuser(operator):
             return 1
-        return _query_disk_persmissions(operator, account,
-                                        co.auth_move_from_disk,
-                                        self._get_disk(account.disk_id))
+        return self._query_disk_persmissions(operator, account,
+                                             co.auth_move_from_disk,
+                                             self._get_disk(account.disk_id))
 
     def can_receive_user(self, operator, account, dest_disk):
         if self.is_superuser(operator):
             return 1
-        return _query_disk_persmissions(operator, account,
-                                        co.auth_move_to_disk,
-                                        self._get_disk(dest_disk))
+        return self._query_disk_persmissions(operator, account,
+                                             co.auth_move_to_disk,
+                                             self._get_disk(dest_disk))
 
     def can_set_password(self, operator, account):
         if self.is_superuser(operator):
             return 1
-        return _query_disk_persmissions(operator, account,
-                                        co.auth_set_password,
-                                        self._get_disk(account.disk_id))
+        return self._query_disk_persmissions(operator, account,
+                                             co.auth_set_password,
+                                             self._get_disk(account.disk_id))
 
     def can_set_shell(self, operator, account, shell):
         # TBD: auth_op_attrs may contain legal shells
         if self.is_superuser(operator):
             return 1
-        return _query_disk_persmissions(operator, account,
-                                        co.auth_set_password,
-                                        self._get_disk(account.disk_id))
+        return self._query_disk_persmissions(operator, account,
+                                             co.auth_set_password,
+                                             self._get_disk(account.disk_id))
 
     def _query_disk_persmissions(self, operator, operation, disk):
         """Permissions on disks may either be granted to a specific
