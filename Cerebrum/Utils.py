@@ -23,6 +23,7 @@
 import sys
 import re
 import cereconf
+import time
 
 def dyn_import(name):
     """Dynamically import python module ``name``."""
@@ -110,6 +111,13 @@ def mangle_name(classname, attr):
         return '_' + classname + attr
     return attr
 
+def make_temp_file(dir="/tmp", only_name=0):
+    # TODO: Assert unique filename, and avoid potential security risks
+    name = "%s/cerebrum_tmp.%s" % (dir, time.time())
+    if only_name:
+        return name
+    f = file(name, "w")
+    return f, name
 
 class auto_super(type):
     """Metaclass adding a private class variable __super, set to super(cls).
