@@ -378,3 +378,19 @@ FROM fs.sted
 WHERE institusjonsnr='%s'
 """ % institusjonsnr
         return (self._get_cols(qry), self.db.query(qry))
+    
+##################################################################
+## E-post adresser i FS:
+##################################################################
+
+    def GetAllPersonsEmail(self):
+        qry = """
+SELECT fodselsdato, personnr, emailadresse
+FROM fs.person"""
+        return (self._get_cols(qry), self.db.query(qry))
+
+    def WriteMailAddr(self, fodselsdato, personnr, email):
+        self.execute("""
+UPDATE fs.person
+SET emailadresse=:email
+WHERE fodselsdato=:fodselsdato AND personnr=:personnr""", locals())
