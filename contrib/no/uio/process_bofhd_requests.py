@@ -412,7 +412,7 @@ def cyrus_create(user_id):
     except CerebrumError, e:
         logger.error("cyrus_create: " + str(e))
         return False
-    for sub in ("", ".spam", ".Sent", ".Drafts", ".Trash"):
+    for sub in ("", ".spam", ".Sent", ".Drafts", ".Trash", ".Templates"):
         res, list = cyradm.m.list ('user.', pattern='%s%s' % (uname, sub))
         if res == 'OK' and list[0]:
             continue
