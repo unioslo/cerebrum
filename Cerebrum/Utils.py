@@ -27,6 +27,8 @@ import cereconf
 import time
 import os
 import smtplib
+import email
+from email.MIMEText import MIMEText
 import string
 import new
 import popen2
@@ -58,11 +60,21 @@ def this_module():
     assert correct_mod is not None
     return correct_mod
 
-def sendmail(fromaddr, toaddr, message):
-    smtphost = cereconf.SMTP_HOST
-    smtp = smtplib.SMTP(smtphost)
-    smtp.set_debuglevel(1)
-    smtp.sendmail(fromaddr, toaddr, message.as_string())
+def sendmail(toaddr, fromaddr, subject, body, cc=None,
+             charset='iso-8859-1', debug=False):
+    """Sends e-mail, mime-encoding the subject.  If debug is set,
+    message won't be send, and the encoded message will be
+    returned."""
+    msg = MIMEText(body, _charset=charset)
+    msg['Subject'] = email.Header.Header(subject, charset)
+    msg['From'] = fromaddr
+    msg['To'] = toaddr
+    if cc:
+        msg['Cc'] = cc
+    if debug:
+        return msg.as_string()
+    smtp = smtplib.SMTP(cereconf.SMTP_HOST)
+    smtp.sendmail(fromaddr, toaddr, msg.as_string())
     smtp.quit()
 
 def separate_entries(rows, *predicates):
