@@ -1,0 +1,8 @@
+Options +Indexes
+SetHandler mod_python
+PythonHandler Cereweb.publisher
+PythonDebug On
+PythonInterpPerDirectory On
+DirectoryIndex index.py
+PythonCleanupHandler Cereweb.cleanup
+
