@@ -3266,11 +3266,11 @@ class BofhdExtension(object):
     all_commands['printer_qpq'] = Command(
         ("print", "qpq"), AccountName(),
         fs=FormatSuggestion("Has quota Quota Pages printed This "+
-                            "term Weekly q. Term q. Max acc.\n"+
-                            "%-9s %5i %13i %9i %9i %7i %8i",
+                            "term Weekly q. Max acc. Term q. \n"+
+                            "%-9s %5i %13i %9i %9i %8i %7i",
                             ('has_printerquota', 'printer_quota',
                             'pages_printed', 'pages_this_semester',
-                            'weekly_quota', 'termin_quota', 'max_quota')))
+                            'weekly_quota', 'max_quota', 'termin_quota')))
     def printer_qpq(self, operator, accountname):
         account = self._get_account(accountname)
         self.ba.can_query_printerquota(operator.get_entity_id(), account)
