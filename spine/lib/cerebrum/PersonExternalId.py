@@ -53,3 +53,4 @@ def get_external_ids(self):
 
 Person.register_method(Method('get_external_ids', [PersonExternalId]), get_external_ids)
 
+# arch-tag: ee7aa1c8-845b-4ead-89e0-4fc7aa7051b6
