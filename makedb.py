@@ -29,9 +29,9 @@ def main():
 
 
 def makedbs(Cerebrum):
-    for f in ('mod_drop_stedkode.sql',
+    for f in ('drop_mod_stedkode.sql',
               'drop_mod_nis.sql',
-              'mod_drop_posix_user.sql',
+              'drop_mod_posix_user.sql',
               'drop_core_tables.sql',
               'core_tables.sql',
               'mod_posix_user.sql',
