@@ -37,11 +37,10 @@ entity2uname = {}
 
 def generate_passwd():
     for row in posix_user.get_all_posix_users():
-        
+
         id = Cerebrum.pythonify_data(row['account_id'])
         posix_user.clear()
         posix_user.find(id)
-        # account.find(id)
 
         # TODO: The value_domain should be fetched from somewhere
         # The array indexes should be replaced with hash-keys
@@ -63,9 +62,6 @@ def generate_passwd():
         except Errors.NotFoundError:
             continue
 
-        # TODO: PosixUser.get_gecos() should default to .gecos.
-        #gecos = posix_user.gecos
-        #if gecos is None:
         gecos = posix_user.get_gecos()
 
         # TODO: Using .description to get the shell's path is ugly.
@@ -88,20 +84,16 @@ def generate_group():
         # their PosixUser usernames.
         gname = posix_group.group_name
         gid = str(posix_group.posix_gid)
-        #members = [entity2uname[id] for id in posix_group.get_members()
-        #           if entity2uname.has_key(id)]
 
         members = []
         for id in posix_group.get_members():
             id = Cerebrum.pythonify_data(id)
             if entity2uname.has_key(id):
                 members.append(entity2uname[id])
-            #if entity2uname.has_key(str(id)):
-            #    members = [entity2uname[id]]
             else:
                 raise ValueError, "Found no id: %s for group: %s" % (
                     id, gname)
-        
+
         gline = join((gname, '*', gid, join(members, ',')))
         if len(gline) <= MAX_LINE_LENGTH:
             print gline
