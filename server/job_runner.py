@@ -38,7 +38,7 @@ import popen2
 import fcntl
 import select
 import getopt
-import thread
+import threading
 
 import cerebrum_path
 import cereconf
@@ -55,18 +55,36 @@ db = Factory.get('Database')()
 
 logging.fileConfig(cereconf.LOGGING_CONFIGFILE)
 logger = logging.getLogger("cronjob")
-#Timeout = 'Timeout'
+ExitProgram = 'ExitProgram'
+
 class JobRunner(object):
     def __init__(self, scheduled_jobs):
         self.scheduled_jobs = scheduled_jobs
+        self.runner_cw = threading.Condition()
+        self.db_qh = DbQueueHandler(db, logger)
+        self.all_jobs = {}
 
     def reload_scheduled_jobs(self):
         reload(self.scheduled_jobs)
-        self.all_jobs = self.scheduled_jobs.get_jobs()
+        # The old all_jobs dict may contain information that we want
+        # to preserve, such as pid
+        new_jobs = self.scheduled_jobs.get_jobs()
         for job in self.all_jobs.keys():
-            if self.all_jobs[job].call is not None:
-                self.all_jobs[job].call.set_id(job)
-                self.all_jobs[job].call.set_logger(logger)
+            if not new_jobs.has_key(job):
+                # TBD: Should we do something if the job is running?
+                del(self.all_jobs[job])
+        for job in new_jobs.keys():
+            if self.all_jobs.has_key(job):     # Replacing an existing job with same name
+                new_jobs[job].copy_runtime_params(self.all_jobs[job])
+                self.all_jobs[job] = new_jobs[job]
+            else:
+                self.all_jobs[job] = new_jobs[job]
+                if self.all_jobs[job].call is not None:
+                    self.all_jobs[job].call.set_id(job)
+                    self.all_jobs[job].call.set_logger(logger)
+        # Also check if last_run values has been changed in the DB (we
+        # don't bother with locking the update to the dict)
+        self.last_run = self.db_qh.get_last_run()
 
     def insert_job(self, job):
         """Recursively add jobb and all its prerequisited jobs.
@@ -105,7 +123,7 @@ class JobRunner(object):
                 min_delta = min(n, min_delta)
         return min_delta
 
-    def handle_completed_jobs(self, db_qh, running_jobs):
+    def handle_completed_jobs(self, running_jobs):
         """Handle any completed jobs (only jobs that has
         call != None).  Will block if any of the jobs has wait=1"""
         for tmp_job in running_jobs:
@@ -125,14 +143,19 @@ class JobRunner(object):
                     self.last_run[tmp_job] = current_time
                 else:
                     self.last_run[tmp_job] = time.time()
-                db_qh.update_last_run(tmp_job, self.last_run[tmp_job])
+                self.db_qh.update_last_run(tmp_job, self.last_run[tmp_job])
+
+    def wake_runner(self):
+        logger.debug("Waking up")
+        self.runner_cw.acquire()
+        self.runner_cw.notify()
+        self.runner_cw.release()
+        self.timer_wait.cancel()
 
     # There is a python supplied sched module, but we don't use it for now...
     def runner(self):
         self.reload_scheduled_jobs()
         self.ready_to_run = []
-        db_qh = DbQueueHandler(db, logger)
-        self.last_run = db_qh.get_last_run()
         running_jobs = []
         prev_loop_time = 0
         n_fast_loops = 0
@@ -149,14 +172,16 @@ class JobRunner(object):
                 n_fast_loops = 0
             prev_loop_time = time.time()
             for job in self.ready_to_run:
-                self.handle_completed_jobs(db_qh, running_jobs)
+                if job == 'quit':
+                    raise ExitProgram
+                self.handle_completed_jobs(running_jobs)
                 # Start the job
                 if self.all_jobs[job].call is not None:
                     if self.all_jobs[job].call.setup():
                         logger.debug("Executing %s" % job)
                         self.all_jobs[job].call.execute()
                         running_jobs.append(job)
-                self.handle_completed_jobs(db_qh, running_jobs)
+                self.handle_completed_jobs(running_jobs)
 
                 # For jobs that has call = None, last_run will be set
                 # after all pre-jobs with wait=1 has completed.  For
@@ -169,7 +194,7 @@ class JobRunner(object):
                         self.last_run[job] = current_time
                     else:
                         self.last_run[job] = time.time()
-                    db_qh.update_last_run(job, self.last_run[job])
+                    self.db_qh.update_last_run(job, self.last_run[job])
 
             # figure out what jobs to run next
             self.ready_to_run = []
@@ -182,28 +207,42 @@ class JobRunner(object):
                     time.sleep(1)
                 else:
                     pre_time = time.time()
-                    time.sleep(min(max_sleep, delta))      # sleep until next job
+                    # sleep until next job, either Timer or SocketHandling will wake us
+                    self.sleep_to = pre_time + min(max_sleep, delta)
+                    self.timer_wait = threading.Timer(min(max_sleep, delta), self.wake_runner)
+                    self.timer_wait.setDaemon(1)
+                    self.timer_wait.start()
+                    self.runner_cw.acquire()
+                    self.runner_cw.wait()
+                    self.runner_cw.release()
+                    self.sleep_to = None
                     if time.time() - pre_time < min(max_sleep, delta):
                         # Work-around for some machines that don't sleep long enough
                         time.sleep(1)
-
+        
 def usage(exitcode=0):
-    print """job_runner.py --reload | --config file"""
+    print """job_runner.py --reload | --config file | --quit | --status"""
     sys.exit(exitcode)
 
 def main():
     try:
         opts, args = getopt.getopt(sys.argv[1:], '',
-                                   ['reload', 'config='])
+                                   ['reload', 'quit', 'status', 'config='])
     except getopt.GetoptError:
         usage(1)
     #global scheduled_jobs
     alt_config = False
     for opt, val in opts:
-        if opt == '--reload':
+        if opt in('--reload', '--quit', '--status'):
+            if opt == '--reload':
+                cmd = 'RELOAD'
+            elif opt == '--quit':
+                cmd = 'QUIT'
+            elif opt == '--status':
+                cmd = 'STATUS'
             sock = SocketHandling()
             try:
-                print "Response: %s" % sock.send_cmd("RELOAD")
+                print "Response: %s" % sock.send_cmd(cmd)
             except SocketHandling.Timeout:
                 print "Timout contacting server, is it running?"
             sys.exit(0)
@@ -222,8 +261,14 @@ def main():
         print "Server already running"
         sys.exit(1)
     jr = JobRunner(scheduled_jobs)
-    thread.start_new(sock.start_listener, (jr,))
-    jr.runner()
+    jr_thread = threading.Thread(target=sock.start_listener, args=(jr,))
+    jr_thread.setDaemon(1)
+    jr_thread.start()
+    try:
+        jr.runner()
+    except ExitProgram:
+        logger.debug("Terminated by Quit")
+    logger.debug("bye")
 
 if __name__ == '__main__':
     main()

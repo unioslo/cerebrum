@@ -3,6 +3,7 @@ import time
 import socket
 import signal
 import os
+import threading
 
 import cereconf
 from Cerebrum import Errors
@@ -109,7 +110,24 @@ class SocketHandling(object):
                 data = conn.recv(1024).strip()
                 if data == 'RELOAD':
                     job_runner.reload_scheduled_jobs()
+                    job_runner.wake_runner()
                     conn.send('OK\n')
+                    break
+                elif data == 'QUIT':
+                    job_runner.ready_to_run = ('quit',)
+                    job_runner.wake_runner()
+                    conn.send('QUIT is now only entry in ready-to-run queue\n')
+                    break
+                elif data == 'STATUS':
+                    ret = 'Run-queue: %s\nThreads: %s\nKnown jobs: %s\n' % (
+                        job_runner.ready_to_run, threading.enumerate(),
+                        job_runner.all_jobs.keys())
+                    if job_runner.sleep_to is None:
+                        ret += 'Status: running\n'
+                    else:
+                        ret += 'Status: sleeping for %f seconds\n' % \
+                               (job_runner.sleep_to - time.time())
+                    conn.send(ret)
                     break
                 elif data == 'PING':
                     conn.send('PONG\n')

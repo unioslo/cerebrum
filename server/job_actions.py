@@ -49,6 +49,11 @@ class Action(object):
         self.post = post
         self.multi_ok = multi_ok
 
+    def copy_runtime_params(self, other):
+        """When reloading the configuration, we must preserve some
+        runtime params when we alter the all_jobs dict"""
+        if self.call is not None and other.call is not None:
+            self.call.copy_runtime_params(other.call)
 
 class CallableAction(object):
     """Abstract class representing the call parameter to Action"""
@@ -103,6 +108,11 @@ class CallableAction(object):
         f.write("%s" % os.getpid())
         f.close()
 
+    def copy_runtime_params(self, other):
+        self.logger = other.logger
+        self.id = other.id
+        self.locfile_name = other.locfile_name
+        
 class System(CallableAction):
     def __init__(self, cmd, params=[], stdout_ok=0):
         super(System, self).__init__()
@@ -170,6 +180,11 @@ class System(CallableAction):
         os.unlink(self.locfile_name)
         os.unlink("%s/stdout.log" % self.run_dir)
         os.unlink("%s/stderr.log" % self.run_dir)
+
+    def copy_runtime_params(self, other):
+        super(System, self).copy_runtime_params(other)
+        self.run_dir = other.run_dir
+        self.pid = other.pid
 
 class AssertRunning(System):
     def __init__(self, cmd, params=[], stdout_ok=0):
