@@ -235,9 +235,9 @@ WHERE  p.fodselsdato=s.fodselsdato AND
     def GetStudinfOpptak(self):
         studierettstatkoder = """'AUTOMATISK', 'AVTALE', 'CANDMAG',
        'DIVERSE', 'EKSPRIV', 'ERASMUS', 'FJERNUND', 'GJEST',
-       'FULBRIGHT', 'HOSPITANT', 'KULTURAVTALE', 'KVOTEPROG',
+       'FULBRIGHT', 'HOSPITANT', 'KULTURAVT', 'KVOTEPROG',
        'LEONARDO', 'OVERGANG', 'NUFU', 'SOKRATES', 'LUBECK', 'NORAD',
-       'ARKHANG', 'NORDPLUS', 'ORDOPPTAK', 'EVU'"""
+       'ARKHANG', 'NORDPLUS', 'ORDOPPTAK', 'EVU', 'UTLOPPTAK'"""
         qry = self._GetOpptakQuery().replace("RELEVANTE_STUDIERETTSTATKODER",
                                              studierettstatkoder)
         return (self._get_cols(qry), self.db.query(qry))
