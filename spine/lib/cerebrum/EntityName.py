@@ -56,7 +56,7 @@ def get_entity_name(self, value_domain):
     (name, ) = s.search()
     return name
 
-m = Method('get_entity_name', EntityName)
+m = Method('get_entity_name', EntityName, args=[('value_domain', ValueDomain)])
 Entity.register_method(m, get_entity_name)
 
 # arch-tag: 7afc3199-1c56-4142-9895-d3c54d9a58af
