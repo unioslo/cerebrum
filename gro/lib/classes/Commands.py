@@ -17,14 +17,16 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+from Cerebrum.Utils import Factory
+
 from GroBuilder import GroBuilder
 from Builder import Attribute, Method
 
+from Group import Group
+from Types import GroupVisibilityType
+
 import Registry
 registry = Registry.get_registry()
-
-Group = registry.Group
-GroupVisibilityType = registry.GroupVisibilityType
 
 __all__ = ['Commands']
 
@@ -32,17 +34,17 @@ class Commands(GroBuilder):
     primary_key = []
     slots = []
     method_slots = [
-        Method('create_group', 'Group', [('name', 'string'), ('visibility', 'GroupVisibilityType')],
-               write=True)]
+        Method('create_group', Group, [('name', str)], write=True)
+    ]
 
     def __init__(self):
         GroBuilder.__init__(self, nocache=True)
 
-    def create_group(self, name, visibility):
+    def create_group(self, name):
         db = self.get_database()
-        group = Group.cerebrum_class(db)
+        group = Factory.get('Group')(db)
         print 'change_by', [db.change_by]
-        group.populate(db.change_by, visibility.get_id(), name)
+        group.populate(db.change_by, GroupVisibilityType(name='A').get_id(), name)
         group.write_db()
 
         id = group.entity_id
