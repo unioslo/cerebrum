@@ -615,8 +615,8 @@ def process_kurs2enhet():
                                          fronter.kurs2navn[kurs_id],
                                          termk.upper(), aar)
             multi_enhet = []
-            termin_suffix = ""
             multi_id = ":".join((Instnr, emnekode, termk, aar))
+            multi_termin = False
             if (# Det finnes flere und.enh. i semesteret angitt av
                 # 'terminkode' og 'arstall' hvor både 'institusjonsnr'
                 # og 'emnekode' er like, men 'terminnr' varierer.
@@ -637,7 +637,7 @@ def process_kurs2enhet():
                 # kursets hovedkorridor, og semester-angivelse i
                 # aktivitetsrommenes titler.
                 multi_enhet.append("%s. termin" % termnr)
-                termin_suffix = " %s %s" % (termk.upper(), aar)
+                multi_termin = True
             if len(fronter.emne_versjon[multi_id]) > 1:
                 multi_enhet.append("v%s" % versjon)
             if multi_enhet:
@@ -659,6 +659,15 @@ def process_kurs2enhet():
                 'CFid': "ROOM/Larer:%s" % struct_id}
 
             for enhet_id in fronter.kurs2enhet[kurs_id]:
+                termin_suffix = ""
+                if multi_termin:
+                    # Finn 'terminkode' og 'arstall' fra enhet_id, og
+                    # bruk dette som tittelsuffiks for enhetens
+                    # aktivitetsrom.
+                    ue_id = enhet_id.split(":")
+                    termin_suffix = " %s %s" % (ue_id[4].upper(), # terminkode
+                                                ue_id[5], # aar
+                                                )
                 enhans = "uio.no:fs:%s:enhetsansvar" % enhet_id.lower()
                 enhstud = "uio.no:fs:%s:student" % enhet_id.lower()
                 # De ansvarlige for undervisningsenhetene som hører til et
