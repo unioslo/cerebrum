@@ -1137,7 +1137,7 @@ def create_account(u, owner_id, owner_type, np_type=None):
         mailforward.find(mt_id)
         for tmp in u.get("forwardaddress", []):
             enable = u.get('forward', False)
-            if isinstance(enable, str) and str.isdigit():
+            if isinstance(enable, str) and enable.isdigit():
                 enable = int(enable)
             mailforward.add_forward(tmp['value'], enable)
 
