@@ -136,25 +136,30 @@ class SocketHandling(object):
             while 1:
                 data = conn.recv(1024).strip()
                 if data == 'RELOAD':
-                    job_runner.reload_scheduled_jobs()
-                    job_runner.wake_runner()
+                    job_runner.job_queue.reload_scheduled_jobs()
+                    job_runner.wake_runner_signal()
                     self.send_response(conn, 'OK')
                     break
                 elif data == 'QUIT':
                     job_runner.ready_to_run = ('quit',)
-                    job_runner.wake_runner()
                     self.send_response(
                         conn, 'QUIT is now only entry in ready-to-run queue')
+                    job_runner.quit()
                     break
                 elif data == 'STATUS':
-                    ret = 'Run-queue: %s\nThreads: %s\nKnown jobs: %s\n' % (
-                        job_runner.ready_to_run, threading.enumerate(),
-                        job_runner.all_jobs.keys())
-                    if job_runner.sleep_to is None:
-                        ret += 'Status: running %s' % job_runner.current_job
-                    else:
-                        ret += 'Status: sleeping for %f seconds' % \
-                               (job_runner.sleep_to - time.time())
+                    ret = ('\nRun-queue: \n  %s\nReady jobs: \n  %s\nThreads: \n  %s'
+                           '\nKnown jobs: \n  %s\n') % (
+                        "\n  ".join([str({'name': x['name'], 'pid': x['pid'],
+                                          'started': time.strftime(
+                        '%H:%M.%S', time.localtime(x['started']))})
+                         for x in job_runner.job_queue.get_running_jobs()]),
+                        "\n  ".join([str(x) for x in job_runner.job_queue.get_run_queue()]),
+                        "\n  ".join([str(x) for x in threading.enumerate()]),
+                        "\n  ".join(job_runner.job_queue.get_known_jobs().keys()))
+                    if job_runner.sleep_to:
+                        ret += 'Sleep to %s (%i seconds)\n' % (
+                            time.strftime('%H:%M.%S', time.localtime(job_runner.sleep_to)),
+                            job_runner.sleep_to - time.time())
                     self.send_response(conn, ret)
                     break
                 elif data == 'PING':
@@ -252,3 +257,205 @@ class DbQueueHandler(object):
         self.db.commit()
 
     
+class JobQueue(object):
+    """Handles the job-queuing in job_runner.
+
+    Supports detecion of jobs that are independent of other jobs in
+    the ready-to-run queue.  A job is independent if no pre/post jobs
+    for the job exists in the queue.  This check is done recursively.
+    Note that the order of pre/post entries for job does not indicate
+    a dependency.
+    """
+
+    def __init__(self, scheduled_jobs, db, logger, debug_time=0):
+        """Initialize the JobQueue.
+        - scheduled_jobs is a reference to the module implementing
+          get_jobs()
+        - debug_time is number of seconds to increase current-time
+          with for each call to get_next_job_time().  Default is to
+          use the system-clock"""
+        self._scheduled_jobs = scheduled_jobs 
+        self.logger = logger
+        self._known_jobs = {}
+        self._run_queue = []
+        self._running_jobs = []
+        self._last_run = {}
+        self._started_at = {}
+        self.db_qh = DbQueueHandler(db, logger)
+        self._debug_time=debug_time
+        self.reload_scheduled_jobs()
+        
+    def reload_scheduled_jobs(self):
+        reload(self._scheduled_jobs)
+        for job_name, job_action in self._scheduled_jobs.get_jobs().items():
+            self._add_known_job(job_name, job_action)
+        # Also check if last_run values has been changed in the DB (we
+        # don't bother with locking the update to the dict)
+        for k, v in self.db_qh.get_last_run().items():
+            self._last_run[k] = v
+
+    def get_known_job(self, job_name):
+        return self._known_jobs[job_name]
+    
+    def get_known_jobs(self):
+        return self._known_jobs
+    
+    def _add_known_job(self, job_name, job_action):
+        """Adds job to list of known jobs, preserving
+        state-information if we already know about the job"""
+        if job_action.call:
+            job_action.call.set_logger(self.logger)
+            job_action.call.set_id(job_name)
+        if self._known_jobs.has_key(job_name):  # Preserve info when reloading
+            job_action.copy_runtime_params(self._known_jobs[job_name])
+        self._known_jobs[job_name] = job_action
+        self._last_run[job_name] = 0
+
+    def has_queued_prerequisite(self, job_name, depth=0):
+        """Recursively check if job_name has a pre-requisite in run_queue."""
+
+        # TBD: if a multi_ok=1 job has pre/post dependencies, it could
+        # be delayed so that the same job is executed several times,
+        # example (conver_ypmap is a post-job for both generate jobs):
+        # ['generate_group', 'convert_ypmap', 'generate_passwd', 'convert_ypmap']
+        # Is this a problem.  If so, how do we handle it?
+
+        #self.logger.debug2("%shas_queued_prerequisite %s (%s) %s" % (
+        #    "  " * depth, job_name, self._run_queue, self._running_jobs))
+
+        # If a pre or post job of the main job is in the queue
+        if depth > 0 and job_name in self._run_queue:
+            return True
+        # Job is currently running
+        if job_name in [x[0] for x in self._running_jobs]:
+            return True
+        # Check any pre jobs for queue existence
+        for tmp_name in self._known_jobs[job_name].pre:
+            if self.has_queued_prerequisite(tmp_name, depth+1):
+                return True
+        # Check any post-jobs (except at depth=0, where the post-jobs
+        # should be executed after us)
+        if depth > 0:
+            for tmp_name in self._known_jobs[job_name].post:
+                if self.has_queued_prerequisite(tmp_name, depth+1):
+                    return True
+        else:
+            # Check if any jobs in the queue has the main-job as a post-job.
+            for tmp_name in self._run_queue:
+                if job_name in self._known_jobs[tmp_name].post:
+                    return True
+            # any running jobs which has main-job as post-job
+            for tmp_name in [x[0] for x in self._running_jobs]:
+                if job_name in self._known_jobs[tmp_name].post:
+                    return True
+        return False
+
+    def get_running_jobs(self):
+        return [ {'name': x[0],
+                  'pid': x[1],
+                  'call': self._known_jobs[x[0]].call,
+                  'started': self._started_at[x[0]]} for x in self._running_jobs ]
+
+    def job_started(self, job_name, pid):
+        self._running_jobs.append((job_name, pid))
+        self._started_at[job_name] = time.time()
+        self._run_queue.remove(job_name)
+
+    def job_done(self, job_name, pid):
+        if pid is not None:
+            self._running_jobs.remove((job_name, pid))
+        self._last_run[job_name] = time.time()
+        self.db_qh.update_last_run(job_name, self._last_run[job_name])
+
+        if self._started_at.has_key(job_name):
+            self.logger.debug("Completed [%s/%i] after %f seconds" % (
+                job_name,  pid, self._last_run[job_name] - self._started_at[job_name]))
+        else:
+            self.logger.debug("Completed [%s/%i] (start not set)" % (
+                job_name,  pid or -1))
+        self.db_qh.update_last_run(job_name, self._last_run[job_name])
+
+    def get_run_queue(self):
+        return self._run_queue
+        
+    def get_next_job_time(self):
+        """find job that should be ran due to the current time, or
+        being a pre-requisit of a ready job.  Returns number of
+        seconds to next event, and stores the queue internaly."""
+
+        global current_time
+        jobs = self._known_jobs
+        queue = []
+        if self._debug_time:
+            current_time += self._debug_time
+        else:
+            current_time = time.time()
+        min_delta = 999999
+        for job_name in jobs.keys():
+            delta = current_time - self._last_run[job_name]
+            if jobs[job_name].when is not None:
+                # TODO: vent med å legge inn jobbene, slik at de som
+                # har when=time kommer før de som har when=freq.                
+                n = jobs[job_name].when.next_delta(
+                    self._last_run[job_name], current_time)
+                if n <= 0:
+                    pre_len = len(queue)
+                    self.insert_job(queue, job_name)
+                    if pre_len == len(queue):
+                        continue     # no jobs was added
+                min_delta = min(n, min_delta)
+        self._run_queue = queue
+        self.logger.debug("Delta=%i, Queue: %s" % (min_delta, str(queue)))
+        return min_delta
+
+    def insert_job(self, queue, job_name):
+        """Recursively add jobb and all its prerequisited jobs.
+
+        We allways process all parents jobs, but they are only added to
+        the queue if it won't violate max_freq."""
+     
+        this_job = self._known_jobs[job_name]
+        for j in this_job.pre or []:
+            self.insert_job(queue, j)
+
+        if job_name not in queue or this_job.multi_ok:
+            if (this_job.max_freq is None or
+                current_time - self._last_run[job_name] > this_job.max_freq):
+                queue.append(job_name)
+
+        for j in this_job.post or []:
+            self.insert_job(queue, j)
+
+    def dump_jobs(scheduled_jobs, details=0):
+        jobs = scheduled_jobs.get_jobs()
+        shown = {}
+
+        def dump(name, indent):
+            info = []
+            if details > 0:
+                if jobs[name].when:
+                    info.append(str(jobs[name].when))
+            if details > 1:
+                if jobs[name].max_freq:
+                    info.append("max_freq=%s" % time.strftime('%H:%M.%S',
+                                                 time.gmtime(jobs[name].max_freq)))
+            if details > 2:
+                if jobs[name].pre:
+                    info.append("pre="+str(jobs[name].pre))
+                if jobs[name].post:
+                    info.append("post="+str(jobs[name].post))
+            print "%-40s %s" % ("   " * indent + name, ", ".join(info))
+            shown[name] = True
+            for k in jobs[name].pre or ():
+                dump(k, indent + 2)
+            for k in jobs[name].post or ():
+                dump(k, indent + 2)
+
+        for k, v in jobs.items():
+            if v.when is None:
+                continue
+            dump(k, 0)
+        print "Never run: \n%s" % "\n".join(
+            ["  %s" % k for k in jobs.keys() if not shown.has_key(k)])
+
+    dump_jobs = staticmethod(dump_jobs)

@@ -8,10 +8,15 @@ import os
 import select
 import sys
 import time
+import random
 
 import cereconf
 
 LockExists = 'LockExists'
+
+debug_dryrun = False  # Debug only: execs "/bin/sleep 2", and not the job
+if debug_dryrun:
+    random.seed()
 
 class Action(object):
     def __init__(self, pre=None, post=None, call=None, max_freq=None, when=None,
@@ -41,11 +46,11 @@ class Action(object):
           None, the job will only run if it is a prerequisite of
           another job."""
 
-        self.pre = pre
+        self.pre = pre or []
         self.call = call
         self.max_freq = max_freq
         self.when = when
-        self.post = post
+        self.post = post or []
         self.multi_ok = multi_ok
 
     def copy_runtime_params(self, other):
@@ -119,7 +124,6 @@ class System(CallableAction):
         self.params = list(params)
         self.stdout_ok = stdout_ok
         self.run_dir = None
-        self.pid = None
 
     def setup(self):
         self.logger.debug("Setup: %s" % self.id)
@@ -131,11 +135,13 @@ class System(CallableAction):
         return 1
         
     def execute(self):
-        self.logger.debug("Execute %s (%s, args=%s)" % (self.id, self.cmd, str(self.params)))
+        self.logger.debug2("Execute %s (%s, args=%s)" % (
+            self.id, self.cmd, str(self.params)))
         self.run_dir = "%s/%s" % (cereconf.JOB_RUNNER_LOG_DIR, self.id)
-        self.pid = os.fork()
-        if self.pid:
-            return
+        child_pid = os.fork()
+        if child_pid:
+            self.logger.debug2("child: %i (p=%i)" % (child_pid, os.getpid()))
+            return child_pid
         self.make_lockfile()
         self.logger.debug("Entering %s" % self.run_dir)
         if not os.path.exists(self.run_dir):
@@ -151,19 +157,19 @@ class System(CallableAction):
         try:
             p = self.params[:]
             p.insert(0, self.cmd)
+            if debug_dryrun:
+                os.execv("/bin/sleep", [self.id, str(5+random.randint(5,10))])
             os.execv(self.cmd, p)
         except OSError, e:
             sys.exit(e.errno)
         logger.error("OOPS!  This code should never be reached")
         sys.exit(1)
 
-    def cond_wait(self):
-        if self.wait:
-            pid, exit_code = os.waitpid(self.pid, 0)
-        else:
-            pid, exit_code = os.waitpid(self.pid, os.WNOHANG)
-        self.logger.debug("Wait (wait=%i) ret: %s/%s" % (self.wait, pid, exit_code))
-        if pid == self.pid:
+    def cond_wait(self, child_pid):
+        pid, exit_code = os.waitpid(child_pid, os.WNOHANG)
+        self.logger.debug2("Wait (wait=%i) ret: %s/%s" % (
+            self.wait, pid, exit_code))
+        if pid == child_pid:
             if ((self.stdout_ok == 0 and 
                  os.path.getsize("%s/stdout.log" % self.run_dir) > 0) or 
                 os.path.getsize("%s/stderr.log" % self.run_dir) > 0 or
@@ -174,7 +180,7 @@ class System(CallableAction):
             self._cleanup()        
             return 1
         else:
-            self.logger.debug("Wait returned %s/%s" % (pid, exit_code))
+            self.logger.debug2("Wait returned %s/%s" % (pid, exit_code))
         return None
 
     def _cleanup(self):
@@ -185,7 +191,6 @@ class System(CallableAction):
     def copy_runtime_params(self, other):
         super(System, self).copy_runtime_params(other)
         self.run_dir = other.run_dir
-        self.pid = other.pid
 
 class AssertRunning(System):
     def __init__(self, cmd, params=[], stdout_ok=0):

@@ -33,6 +33,7 @@ TODO:
 
 import time
 import os
+import signal
 import sys
 import popen2
 import fcntl
@@ -50,236 +51,184 @@ from job_utils import *
 
 debug_time = 0        # increase time by N seconds every second
 max_sleep = 300
+noia_sleep_seconds = 310  # trap missing SIGCHLD (known race-condition,
+                          # see comment in run_job_loop)
 current_time = time.time()
 db = Factory.get('Database')()
 
-logging.fileConfig(cereconf.LOGGING_CONFIGFILE)
-logger = logging.getLogger("cronjob")
-ExitProgram = 'ExitProgram'
+logger = Factory.get_logger("cronjob")
+runner_cw = threading.Condition()
+
+use_thread_lock = False  # don't seem to work
+
+if False:
+    # useful for debugging, and to work-around a wierd case where the
+    # logger would hang
+    ppid = os.getpid()
+    class MyLogger(object):
+        def __init__(self):
+            self.last_msg = time.time()
+            
+        def show_msg(self, lvl, msg):
+            delta = int(time.time() - self.last_msg)
+            self.last_msg = time.time()
+            lvl = "%3i %s" % (delta, lvl)
+            if os.getpid() != ppid:
+                lvl = "      %s" % lvl
+            sys.stdout.write("%s [%i] %s\n" % (lvl, os.getpid(), msg))
+            sys.stdout.flush()
+
+        def debug2(self, msg):
+            self.show_msg("DEBUG2", msg)
+            pass
+        
+        def debug(self, msg):
+            self.show_msg("DEBUG", msg)
+
+        def error(self, msg):
+            self.show_msg("ERROR", msg)
+
+        def fatal(self, msg):
+            self.show_msg("FATAL", msg)
+
+    logger = MyLogger()
+
+def sigchld_handler(signum, frame):
+    """Sigchild-handler that wakes the main-thread when a child exits"""
+    logger.debug2("sigchld_handler(%s, %s)" % (str(signum), str(frame.f_code)))
+    signal.signal(signal.SIGCHLD, sigchld_handler)
+signal.signal(signal.SIGCHLD, sigchld_handler)
 
 class JobRunner(object):
     def __init__(self, scheduled_jobs):
-        self.scheduled_jobs = scheduled_jobs
-        self.runner_cw = threading.Condition()
-        self.db_qh = DbQueueHandler(db, logger)
-        self.all_jobs = {}
+        self.my_pid = os.getpid()
+        self.timer_wait = None
+        signal.signal(signal.SIGUSR1, JobRunner.sig_general_handler)
+        self.job_queue = JobQueue(scheduled_jobs, db, logger)
+        self._should_quit = False
         self.sleep_to = None
-        self.current_job = None
-        
-    def reload_scheduled_jobs(self):
-        reload(self.scheduled_jobs)
-        # The old all_jobs dict may contain information that we want
-        # to preserve, such as pid
-        new_jobs = self.scheduled_jobs.get_jobs()
-        for job in self.all_jobs.keys():
-            if not new_jobs.has_key(job):
-                # TBD: Should we do something if the job is running?
-                del(self.all_jobs[job])
-        for job in new_jobs.keys():
-            if self.all_jobs.has_key(job):     # Replacing an existing job with same name
-                new_jobs[job].copy_runtime_params(self.all_jobs[job])
-                self.all_jobs[job] = new_jobs[job]
-            else:
-                self.all_jobs[job] = new_jobs[job]
-                if self.all_jobs[job].call is not None:
-                    self.all_jobs[job].call.set_id(job)
-                    self.all_jobs[job].call.set_logger(logger)
-        # Also check if last_run values has been changed in the DB (we
-        # don't bother with locking the update to the dict)
-        self.last_run = self.db_qh.get_last_run()
 
-    def insert_job(self, job):
-        """Recursively add jobb and all its prerequisited jobs.
+    def sig_general_handler(signum, frame):
+        """General signal handler, for places where we use signal.pause()"""
+        logger.debug2("siggeneral_handler(%s, %s)" % (str(signum), str(frame.f_code)))
+    sig_general_handler = staticmethod(sig_general_handler)
 
-        We allways process all parents jobs, but they are only added to
-        the ready_to_run queue if it won't violate max_freq."""
-
-        if self.all_jobs[job].pre is not None:
-            for j in self.all_jobs[job].pre:
-                self.insert_job(j)
-
-        if job not in self.ready_to_run or self.all_jobs[job].multi_ok:
-            if (self.all_jobs[job].max_freq is None
-                or current_time - self.last_run.get(job, 0) > self.all_jobs[job].max_freq):
-                self.ready_to_run.append(job)
-
-        if self.all_jobs[job].post is not None:
-            for j in self.all_jobs[job].post:
-                self.insert_job(j)
-
-    def find_ready_jobs(self, jobs):
-        """Populates the ready_to_run queue with jobs.  Returns number of
-        seconds to next event (if positive, ready_to_run will be empty)"""
-        global current_time
-        if debug_time:
-            current_time += debug_time
+    def signal_sleep(self, seconds):
+        # SIGALRM is already used by the SocketThread, se we arrange
+        # for a SIGUSR1 to be delivered instead
+        runner_cw.acquire()
+        if not self.timer_wait:  # Only have one signal-sleep thread
+            self.timer_wait = threading.Timer(seconds, self.wake_runner_signal)
+            self.timer_wait.setDaemon(True)
+            self.timer_wait.start()
+            self.sleep_to = time.time() + seconds
         else:
-            current_time = time.time()
-        min_delta = 999999
-        for k in jobs.keys():
-            delta = current_time - self.last_run.get(k, 0)
-            if jobs[k].when is not None:
-                n = jobs[k].when.next_delta(self.last_run.get(k, 0), current_time)
-                if n <= 0:
-                    pre_len = len(self.ready_to_run)
-                    self.insert_job(k)
-                    # If max_freq or similar prevented a run, don't return a small delta
-                    if pre_len == len(self.ready_to_run):
-                        n = min_delta
-                min_delta = min(n, min_delta)
-        return min_delta
+            logger.debug("already doing a signal sleep")
+        runner_cw.release()
 
-    def handle_completed_jobs(self, running_jobs):
+    def handle_completed_jobs(self):
         """Handle any completed jobs (only jobs that has
         call != None).  Will block if any of the jobs has wait=1"""
-        for tmp_job in running_jobs:
-            ret = self.all_jobs[tmp_job].call.cond_wait()
-            logger.debug("cond_wait(%s) = %s" % (tmp_job, ret))
+        did_wait = False
+
+        logger.debug("handle_completed_jobs: ")
+        for job in self.job_queue.get_running_jobs():
+            try:
+                ret = job['call'].cond_wait(job['pid'])
+            except OSError, msg:
+                if not str(msg).startswith("[Errno 4]"):
+                    # 4 = "Interrupted system call", which we may get
+                    # as we catch SIGCHLD
+                    logger.debug("error (%s): %s" % (job['name'], msg))
+                time.sleep(1)
+                continue
+            logger.debug2("cond_wait(%s) = %s" % (job['name'], ret))
             if ret is None:          # Job not completed
                 pass
             else:
+                did_wait = True
                 if isinstance(ret, tuple):
                     if os.WIFEXITED(ret[0]):
                         msg = "exit_code=%i" % os.WEXITSTATUS(ret[0])
                     else:
                         msg = "exit_status=%i" % ret[0]
-                    logger.error("%s for %s, check %s" % (msg, tmp_job, ret[1]))
-                running_jobs.remove(tmp_job)
-                if debug_time:
-                    self.last_run[tmp_job] = current_time
-                else:
-                    self.last_run[tmp_job] = time.time()
-                logger.debug("Completed [%s] after %f seconds" % (
-                    tmp_job,  self.last_run[tmp_job] - self.started_at[tmp_job]))
-                self.db_qh.update_last_run(tmp_job, self.last_run[tmp_job])
+                    logger.error("%s for %s, check %s" % (msg, job['name'], ret[1]))
+                self.job_queue.job_done(job['name'], job['pid'])
+        return did_wait
 
-    def wake_runner(self):
+    def wake_runner_signal(self):
         logger.debug("Waking up")
-        self.runner_cw.acquire()
-        self.runner_cw.notify()
-        self.runner_cw.release()
-        if hasattr(self, 'timer_wait'):
-            self.timer_wait.cancel()
+        os.kill(self.my_pid, signal.SIGUSR1)
 
-    # There is a python supplied sched module, but we don't use it for now...
-    def runner(self):
-        self.reload_scheduled_jobs()
-        self.ready_to_run = []
-        self.started_at = {}
-        running_jobs = []
-        prev_loop_time = 0
-        n_fast_loops = 0
-        while True:
-            if time.time() - prev_loop_time < 2:
-                logger.debug("Fast loop: %s" % (time.time() - prev_loop_time))
-                n_fast_loops += 1
-                # Allow a moderatly high number of fast loops as
-                # AssertRunning jobs may finish very quickly
-                if n_fast_loops > 20:
-                    logger.critical("Looping too fast.. must be a bug, aborting!")
-                    break
-            else:
-                n_fast_loops = 0
-            prev_loop_time = time.time()
-            for job in self.ready_to_run:
-                self.current_job = job
-                if job == 'quit':
-                    raise ExitProgram
-                self.handle_completed_jobs(running_jobs)
-                # Start the job
-                if self.all_jobs[job].call is not None:
-                    if self.all_jobs[job].call.setup():
-                        logger.debug("Executing %s" % job)
-                        if debug_time:
-                            self.started_at[job] = current_time
-                        else:
-                            self.started_at[job] = time.time()
-                        self.all_jobs[job].call.execute()
-                        running_jobs.append(job)
-                self.handle_completed_jobs(running_jobs)
+    def quit(self):
+        self._should_quit = True
+        self.wake_runner_signal()
 
-                # For jobs that has call = None, last_run will be set
-                # after all pre-jobs with wait=1 has completed.  For
-                # jobs with wait=0 we update last_run immeadeately to
-                # prevent find_ready_jobs from trying to start it on
-                # next loop.
-                if (self.all_jobs[job].call is None or
-                    self.all_jobs[job].call.wait == 0):
-                    if debug_time:
-                        self.last_run[job] = current_time
-                    else:
-                        self.last_run[job] = time.time()
-                    self.db_qh.update_last_run(job, self.last_run[job])
-                self.current_job = None
+    def run_job_loop(self):
+        self.jobs_has_completed = False
 
-            if 'quit' in self.ready_to_run:
-                raise ExitProgram
-            # figure out what jobs to run next
-            self.ready_to_run = []
-            logger.debug("Finding ready jobs (running: %s)" % str(running_jobs))
-            delta = self.find_ready_jobs(self.all_jobs)
-            logger.debug("%s New queue (delta=%s): %s" % (
-                "-" * 20, delta, ", ".join(self.ready_to_run)))
+        while not self._should_quit:
+            self.handle_completed_jobs()
+            # don't re-fill the queue if it still has entries
+            # TBD: or should we simply append to it?  Does it mather?
+            if not self.job_queue.get_run_queue():
+                delta = self.job_queue.get_next_job_time()
+                
+            # Keep track of number of running non-wait jobs
+            num_running = 0
+            for job in self.job_queue.get_running_jobs():
+                job_ref = self.job_queue.get_known_job(job['name'])
+                if job_ref.call and job_ref.call.wait:
+                    num_running += 1
+            logger.debug("Queue: %s" % self.job_queue.get_run_queue())
+            tmp_queue = self.job_queue.get_run_queue()[:]   # loop modifies list
+            for job_name in tmp_queue:
+                if self.job_queue.has_queued_prerequisite(job_name):
+                    logger.debug2("has queued prereq: %s" % job_name)
+                    continue
+                logger.debug2("  ready: %s" % job_name)
+                job_ref = self.job_queue.get_known_job(job_name)
+                
+                if job_ref.call is not None:
+                    logger.debug("  exec: %s, # running_jobs=%i" % (
+                        job_name, len(self.job_queue.get_running_jobs())))
+                    if (job_ref.call.wait and
+                        num_running >= cereconf.JOB_RUNNER_MAX_PARALELL_JOBS):
+                        logger.debug("  too many paralell jobs (%s/%i)" % (
+                            job_name, num_running))
+                        continue
+                    if job_ref.call.setup():
+                        child_pid = job_ref.call.execute()
+                        self.job_queue.job_started(job_name, child_pid)
+                        if job_ref.call.wait:
+                            num_running += 1
+                # Mark jobs that we should not wait for as completed
+                if (job_ref.call is None or not job_ref.call.wait):
+                    self.job_queue.job_done(job_name, None)
+
+            # now sleep for delta seconds, or until XXX wakes us
+            # because a job has completed
+            # TODO: We have a race-condition here if SIGCHLD is
+            # received before we do signal.pause()            
+            if self.handle_completed_jobs():
+                continue     # Check for new jobs immeadeately
             if delta > 0:
-                if debug_time:
-                    time.sleep(1)
-                else:
-                    pre_time = time.time()
-                    # Sleep until next job, either Timer or
-                    # SocketHandling will wake us
-                    self.sleep_to = pre_time + min(max_sleep, delta)
-                    self.runner_cw.acquire()
-                    # We have the lock.  Set up the wake-up call for
-                    # ourselves (but don't release the lock until the
-                    # timer has been activated, as we won't hear it if
-                    # it goes off before we're wait()ing).
-                    self.timer_wait = threading.Timer(min(max_sleep, delta),
-                                                      self.wake_runner)
-                    self.timer_wait.setDaemon(True)
-                    self.timer_wait.start()
-                    # Now, release the lock and wait for the timer to
-                    # wake us.
-                    self.runner_cw.wait()
-                    self.sleep_to = None
-                    # We're awake, and don't need the lock anymore.
-                    self.runner_cw.release()
-                    if time.time() - pre_time < min(max_sleep, delta):
-                        # Work-around for some machines that don't
-                        # sleep long enough
-                        time.sleep(1)
-
-def dump_jobs(scheduled_jobs, details=0):
-    jobs = scheduled_jobs.get_jobs()
-    shown = {}
-
-    def dump(name, indent):
-        info = []
-        if details > 0:
-            if jobs[name].when:
-                info.append(str(jobs[name].when))
-        if details > 1:
-            if jobs[name].max_freq:
-                info.append("max_freq=%s" % time.strftime('%H:%M.%S',
-                                             time.gmtime(jobs[name].max_freq)))
-        if details > 2:
-            if jobs[name].pre:
-                info.append("pre="+str(jobs[name].pre))
-            if jobs[name].post:
-                info.append("post="+str(jobs[name].post))
-        print "%-40s %s" % ("   " * indent + name, ", ".join(info))
-        shown[name] = True
-        for k in jobs[name].pre or ():
-            dump(k, indent + 2)
-        for k in jobs[name].post or ():
-            dump(k, indent + 2)
-
-    for k, v in jobs.items():
-        if v.when is None:
-            continue
-        dump(k, 0)
-    print "Never run: \n%s" % "\n".join(
-        ["  %s" % k for k in jobs.keys() if not shown.has_key(k)])
-
+                self.signal_sleep(min(max_sleep, delta))
+            else:
+                if not self.job_queue.get_running_jobs():
+                    logger.fatal("AIEE! no running jobs and negative delta")
+                    sys.exit()
+                # TODO: if run_queue has a lon-running job, we should
+                # only sleep until next delta.
+                self.signal_sleep(noia_sleep_seconds)  # Trap missing sigchld
+            logger.debug("signal.pause()")
+            signal.pause() # continue on SIGCHLD/SIGALRM.  Won't hurt if we
+                           # get another signal
+            runner_cw.acquire()
+            self.timer_wait.cancel()
+            self.timer_wait = None
+            runner_cw.release()
+            logger.debug("resumed")
     
 def usage(exitcode=0):
     print """job_runner.py [options]:
@@ -322,7 +271,7 @@ def main():
             # sys.path = sys.path[1:] #With this reload(module) loads another file(!)
             alt_config = True
         elif opt in ('--dump',):
-            dump_jobs(scheduled_jobs, int(val))
+            JobQueue.dump_jobs(scheduled_jobs, int(val))
             sys.exit(0)
     if not alt_config:
         import scheduled_jobs
@@ -331,13 +280,13 @@ def main():
         print "Server already running"
         sys.exit(1)
     jr = JobRunner(scheduled_jobs)
-    jr_thread = threading.Thread(target=sock.start_listener, args=(jr,))
-    jr_thread.setDaemon(True)
-    jr_thread.start()
-    try:
-        jr.runner()
-    except ExitProgram:
-        logger.debug("Terminated by Quit")
+    if True:
+        socket_thread = threading.Thread(target=sock.start_listener, args=(jr,))
+        socket_thread.setDaemon(True)
+        socket_thread.setName("socket_thread")
+        socket_thread.start()
+
+    jr.run_job_loop()
     logger.debug("bye")
 
 if __name__ == '__main__':
