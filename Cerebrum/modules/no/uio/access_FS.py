@@ -46,8 +46,56 @@ class FS(object):
         m = re.compile(r'^\s*SELECT\s*(DISTINCT)?(.*)FROM', re.DOTALL | re.IGNORECASE).match(sql)
         if m == None:
             raise InternalError, "Unreconginzable SQL!"
-        return [cols.strip() for cols in m.group(2).split(",")]
 
+        # Simple SQL-parser. Read TODO above.
+        #  Problem: Some statements in a SELECT ... are not colomn-names
+        #  Ad.hoc solution: "TO_CHAR(e.dato_til,'YYYY-MM-DD')" becomes
+        #                   "to_char_e_dato_til_YYYY-MM-DD_"
+        #  Supports '... AS foo'
+        ret = []
+        tmp = ""
+        lpar = rpar = 0
+        patt = re.compile("^.*\s+AS\s+\"?([a-zA-Z0-9_]+)\"?\s*", re.IGNORECASE)
+        for cols in m.group(2).split(","):
+            cols = re.sub('\'', '', cols)
+            cols = cols.strip()
+            chars = list(cols)
+            for c in chars:
+                if c == '(': lpar+=1
+                elif c == ')': rpar+=1
+            if lpar == rpar:
+                if tmp:
+                    tmp = tmp + "," + cols
+                else:
+                    tmp = cols
+                lpar = rpar = 0
+                mobj = patt.match(tmp)
+                if mobj:
+                    ret.append(mobj.group(1))
+                else:
+                    ret.append(re.sub('[().,]', '_', tmp))
+                tmp = ""
+            else:
+                if tmp:
+                    tmp = tmp + "," + cols
+                else:
+                    tmp = cols
+
+        return ret
+        
+        # return [ self._clean_col_name(cols) for cols in m.group(2).split(",")]
+
+    def _clean_col_name(self, col):
+        lpar = re.compile("\(")
+        rpar = re.compile("\)")
+        patt = re.compile("^.*\s+AS\s+\"?([a-zA-Z0-9_]+)\"?\s*")
+        mobj = patt.match(col)
+        if mobj:
+            print "1: %s" % mobj.group(1)
+            return mobj.group(1)
+        print "2: %s" % col.strip()
+        return col.strip()
+    
 
 ##################################################################
 # Metoder for personer:
@@ -223,9 +271,9 @@ WHERE s.fodselsdato=r.fodselsdato AND
       (st.opphortstudierettstatkode IS NULL OR
       st.dato_gyldig_til >= sysdate) AND
       %s
-UNION """ %(self.get_termin_aar(only_current=1)
+UNION """ %(self.get_termin_aar(only_current=1))
 
-	qry = qry + """
+        qry = qry + """
 SELECT DISTINCT
      s.fodselsdato, s.personnr, sp.studieprogramkode
 FROM fs.student s, fs.studierett st,
@@ -241,7 +289,7 @@ WHERE s.fodselsdato=st.fodselsdato AND
       (st.opphortstudierettstatkode IS NULL OR
       st.dato_gyldig_til >= sysdate) AND
       r.dato_bekreftet < SYSDATE
-      """ % 
+      """ 
      	return (self._get_cols(qry), self.db.query(qry))
 
 
@@ -419,10 +467,12 @@ FROM fs.sted
 WHERE institusjonsnr='%s'
 """ % institusjonsnr
         return (self._get_cols(qry), self.db.query(qry))
+
     
 ##################################################################
 ## E-post adresser i FS:
 ##################################################################
+
 
     def GetAllPersonsEmail(self):
         qry = """
@@ -430,8 +480,98 @@ SELECT fodselsdato, personnr, emailadresse
 FROM fs.person"""
         return (self._get_cols(qry), self.db.query(qry))
 
+
     def WriteMailAddr(self, fodselsdato, personnr, email):
         self.execute("""
 UPDATE fs.person
 SET emailadresse=:email
 WHERE fodselsdato=:fodselsdato AND personnr=:personnr""", locals())
+
+
+##################################################################
+## Metoder for grupper:
+##################################################################
+
+    def get_curr_semester(self):
+        mon = time.localtime()[1]
+        # Months January - June == Spring semester
+        if mon <= 6:
+            return 'V_R'
+        # Months July - December == Autumn semester
+        return 'H_ST' 
+
+
+    def GetUndervEnhetAll(self, yr=time.localtime()[0], sem=None):
+        if sem == None:
+            sem=self.get_curr_semester()
+            
+        qry = """
+SELECT
+  ue.institusjonsnr, ue.emnekode, ue.versjonskode, ue.terminkode,
+  ue.arstall, ue.terminnr, e.institusjonsnr_kontroll, e.faknr_kontroll,
+  e.instituttnr_kontroll, e.gruppenr_kontroll, e.emnenavn_bokmal
+FROM
+  fs.undervisningsenhet ue, fs.emne e, fs.arstermin t
+WHERE
+  ue.institusjonsnr = e.institusjonsnr AND
+  ue.emnekode       = e.emnekode AND
+  ue.versjonskode   = e.versjonskode AND
+  ue.terminkode IN ('VÅR', 'HØST') AND
+  ue.terminkode = t.terminkode AND
+  (ue.arstall > %s OR
+   (ue.arstall = %s AND
+    EXISTS(SELECT 'x' FROM fs.arstermin tt
+           WHERE tt.terminkode = '%s' AND
+                 t.sorteringsnokkel >= tt.sorteringsnokkel)))
+  """ % (yr, yr, sem)
+        
+        return (self._get_cols(qry), self.db.query(qry))
+
+
+    def GetUndAktivitet(self, yr=time.localtime()[0], sem=None):
+        if sem == None:
+            sem=self.get_curr_semester()
+            
+        qry = """
+SELECT
+  ua.institusjonsnr, ua.emnekode, ua.versjonskode,
+  ua.terminkode, ua.arstall, ua.terminnr, ua.aktivitetkode,
+  ua.undpartilopenr, ua.disiplinkode, ua.undformkode, ua.aktivitetsnavn
+FROM
+  fs.undaktivitet ua
+WHERE
+  ua.arstall    = %s AND
+  ua.terminkode = '%s' AND
+  ua.undpartilopenr IS NOT NULL AND
+  ua.disiplinkode IS NOT NULL AND
+  ua.undformkode IS NOT NULL
+  """ % (yr, sem)
+        
+        return (self._get_cols(qry), self.db.query(qry))
+
+    
+    def GetEvuKurs(self, date=time.localtime()):
+        d = time.strftime("%Y-%m-%d", date)
+        qry = """
+SELECT e.etterutdkurskode, e.kurstidsangivelsekode, e.etterutdkursnavn,
+       e.institusjonsnr_adm_ansvar, e.faknr_adm_ansvar, e.instituttnr_adm_ansvar,
+       e.gruppenr_adm_ansvar, TO_CHAR(e.dato_til,'YYYY-MM-DD') AS dato_til
+FROM fs.etterutdkurs e
+WHERE NVL(TO_DATE('%s', 'YYYY-MM-DD'), SYSDATE)
+        BETWEEN (e.dato_fra-14) AND (e.dato_til+14)
+        """ % d
+        
+        return (self._get_cols(qry), self.db.query(qry))
+
+
+    def GetAktivitetEvuKurs(self, kurs, tid):
+        qry = """
+SELECT k.etterutdkurskode, k.kurstidsangivelsekode, k.aktivitetskode,
+       k.aktivitetsnavn
+FROM fs.kursaktivitet k
+WHERE k.etterutdkurskode='%s' AND
+      k.kurstidsangivelsekode='%s'
+      """ % (kurs, tid)
+
+        return (self._get_cols(qry), self.db.query(qry)) 
+
