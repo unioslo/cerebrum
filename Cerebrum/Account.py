@@ -170,6 +170,13 @@ class Account(AccountType, EntityName, EntityQuarantine, Entity):
             enc = enc(plaintext)
             self.populate_authentication_type(getattr(self.const, method), enc)
 
+        # We store the plaintext password in the changelog so that
+        # other systens that need it may get it.  The changelog
+        # handler should remove the plaintext password using some
+        # criteria.
+        self._db.log_change(self.entity_id, self.const.a_password,
+                            None, change_params={'password': plaintext})
+
     def enc_auth_type_md5(self, plaintext):
         saltchars = string.uppercase + string.lowercase + string.digits + "./"
         s = []
