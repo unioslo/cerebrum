@@ -13,7 +13,6 @@ import java.io.EOFException;
 import org.apache.log4j.Category;
 import java.io.IOException;
 import java.text.ParseException;
-import javax.swing.JOptionPane;
 
 
 /**
@@ -23,7 +22,6 @@ import javax.swing.JOptionPane;
 public class CommandLine {
     Category logger;
     JBofh jbofh;
-    boolean isBlocking = false;
 
     /** Creates a new instance of CommandLine */
     public CommandLine(Category logger, JBofh jbofh) {
@@ -99,27 +97,7 @@ public class CommandLine {
     
     String promptArg(String prompt, boolean addHist) throws IOException {
 	if(jbofh.guiEnabled) {
-	    /* We lock the current thread so that execution does not
-	     * continue until JBofh.actionPerformed releases the
-	     * lock  */
-	    jbofh.lbPrompt.setText(prompt);
-	    jbofh.tfCmdLine.requestFocusInWindow();
-	    synchronized (jbofh.tfCmdLine.getTreeLock()) {
-		while (true) {
-		    try {
-			isBlocking = true;
-			jbofh.tfCmdLine.getTreeLock().wait();
-			String text = jbofh.tfCmdLine.getText();
-			jbofh.showMessage(prompt+text, true);
-			jbofh.tfCmdLine.setText("");
-			// If we don't set the caret position, requestFocus failes
-			jbofh.tfCmdLine.setCaretPosition(0);
-			return text;
-		    } catch (InterruptedException e) {
-			return null;
-		    }
-		}
-	    }
+            return jbofh.mainFrame.promptArg(prompt, addHist);
 	}
         while (true) {
 	    Vector oldHist = new Vector();

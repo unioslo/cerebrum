@@ -6,23 +6,6 @@
 
 package no.uio.jbofh;
 
-import java.awt.BorderLayout;
-import java.awt.GridBagConstraints;
-import java.awt.GridBagLayout;
-import java.awt.Dimension;
-import java.awt.event.WindowAdapter;
-import java.awt.event.WindowEvent;
-import java.awt.event.ActionListener;
-import java.awt.event.ActionEvent;
-import java.awt.EventQueue;
-import javax.swing.JPanel;
-import javax.swing.JFrame;
-import javax.swing.JLabel;
-import javax.swing.JOptionPane;
-import javax.swing.JTextField;
-import javax.swing.JScrollPane;
-import javax.swing.JTextArea;
-
 import java.io.*;
 import java.text.ParseException;
 import java.net.URL;
@@ -37,6 +20,7 @@ import org.apache.log4j.PropertyConfigurator;
 import org.apache.xmlrpc.XmlRpcClient;
 import org.apache.xmlrpc.XmlRpcException;
 import org.gnu.readline.*;
+import javax.swing.JOptionPane;
 
 import com.sun.java.text.PrintfFormat;
 
@@ -216,7 +200,7 @@ class BofhdCompleter implements org.gnu.readline.ReadlineCompleter {
  *
  * @author  runefro
  */
-public class JBofh implements ActionListener {
+public class JBofh {
     Properties props;
     CommandLine cLine;
     BofhdConnection bc;
@@ -224,18 +208,14 @@ public class JBofh implements ActionListener {
     BofhdCompleter bcompleter;
     Hashtable knownFormats;
     String version = "unknown";
-
-    JTextArea tfOutput;
-    JTextField tfCmdLine;
     boolean guiEnabled;
-    JLabel lbPrompt;
-    JFrame mainFrame;
+    JBofhFrame mainFrame;
 
     /** Creates a new instance of JBofh */
     public JBofh(String def_uname, String def_password, boolean gui, String log4jPropertyFile) 
         throws BofhdException {
 	guiEnabled = gui;
-	if(gui) makeGUI();
+	if(gui) mainFrame = new JBofhFrame();
         try {
 	    URL url = ResourceLocator.getResource(this, log4jPropertyFile);
             if(url == null) throw new IOException();
@@ -282,7 +262,7 @@ public class JBofh implements ActionListener {
                 ConsolePassword cp = new ConsolePassword();
 		if(guiEnabled) {
 		    try {
-			password = cp.getPasswordByJDialog("Password:", mainFrame);
+			password = cp.getPasswordByJDialog("Password:", mainFrame.frame);
 		    } catch (ConsolePassword.MethodFailedException e) {
 			return;
 		    }
@@ -304,50 +284,9 @@ public class JBofh implements ActionListener {
         enterLoop();
     }
 
-    void makeGUI() {
-	JPanel np = new JPanel();
-	JScrollPane sp = new JScrollPane(tfOutput = new JTextArea());
-	mainFrame = new JFrame("JBofh");
-	
-	tfOutput.setEditable(false);
-	np.setLayout(new GridBagLayout());
-	GridBagConstraints gbc = new GridBagConstraints();
-	gbc.anchor = GridBagConstraints.WEST;
-	np.add(lbPrompt = new JLabel(), gbc);
-        gbc.fill = GridBagConstraints.HORIZONTAL;
-	gbc.gridwidth = GridBagConstraints.REMAINDER;
-	gbc.weightx = 1.0;
-	np.add(tfCmdLine = new JTextField(), gbc);
-	tfCmdLine.addActionListener(this);
-	mainFrame.getContentPane().add(sp, BorderLayout.CENTER);
-	mainFrame.getContentPane().add(np, BorderLayout.SOUTH);
-
-        mainFrame.addWindowListener(new WindowAdapter() {
-            public void windowClosing(WindowEvent e) {
-                System.exit(0);
-            }
-        });
-	mainFrame.pack();
-	mainFrame.setSize(new Dimension(700,400));
-        mainFrame.setVisible(true);
-    }
-
-    public void actionPerformed(ActionEvent evt) {
-        if(evt.getSource() == tfCmdLine) {
-	    if(! cLine.isBlocking) return;
-	    synchronized (tfCmdLine.getTreeLock()) {
-		cLine.isBlocking = false;
-                EventQueue.invokeLater(new Runnable(){ public void run() {} });
-		tfCmdLine.getTreeLock().notifyAll();
-	    }
-	}
-    }    
-
     void showMessage(String msg, boolean crlf) {
 	if(guiEnabled) {
-	    tfOutput.append(msg);
-	    if(crlf) tfOutput.append("\n");
-	    tfOutput.setCaretPosition(tfOutput.getText().length());
+	    mainFrame.showMessage(msg, crlf);
 	} else {
 	    if(crlf) {
 		System.out.println(msg);
@@ -392,6 +331,8 @@ public class JBofh implements ActionListener {
             try {
                 args = cLine.getSplittedCommand();
             } catch (IOException io) {
+                if(guiEnabled && (! mainFrame.confirmExit()))
+                    continue;
                 break;
             } catch (ParseException pe) {
                 showMessage("Error parsing command: "+pe, true);
@@ -496,7 +437,7 @@ public class JBofh implements ActionListener {
 
 		    if(guiEnabled) {
 			try {
-			    s = cp.getPasswordByJDialog(prompt + ">", mainFrame);
+			    s = cp.getPasswordByJDialog(prompt + ">", mainFrame.frame);
 			} catch (ConsolePassword.MethodFailedException e) {
 			    s = "";
 			}
