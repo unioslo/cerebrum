@@ -1108,14 +1108,23 @@ GRANT INSERT, UPDATE, DELETE ON person_affiliation_code TO change_code;
 
 /*	person_affiliation
 
+  This table is a "source_system"-indifferent/slightly simplified copy
+  of the data in person_affiliation_source.  Even though all the data
+  in this table is really redundant, it's needed to allow
+  ("source_system"-indifferent) foreign keys from account_type to
+  persons' affiliations -- as foreign keys must refer set of parent
+  table columns that are guaranteed to be unique.
+
   As (personal) user accounts are connected to a person's
   affiliations, deletion of rows in this table can be cumbersome.  To
-  alleviate this problem, the deleted_date column is set non-NULL in
-  rows corresponding to no longer existing affiliations.
+  alleviate this problem, the deleted_date column in
+  person_affiliation_source is set non-NULL in rows corresponding to
+  no longer existing affiliations.
 
   Once an affiliation with non-NULL deleted_date no longer have any
   user accounts associated with it, that row can (and should) be
-  removed.
+  removed -- from both person_affiliation_source and
+  person_affiliation.
 
 */
 category:main;
@@ -1185,7 +1194,13 @@ GRANT INSERT, UPDATE, DELETE ON person_aff_status_code TO change_code;
 
 /*	person_affiliation_source
 
+  last_date: The most recent date this affiliation was seen in the
+        data from source_system.
 
+  deleted_date: When an affiliation does not appear in the data from
+        source_system, this column is set to the current date.  See
+        description of table person_affiliation for why such
+        affiliations can't be removed right away.
 
 */
 category:main;
