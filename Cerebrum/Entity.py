@@ -205,13 +205,13 @@ class EntityContactInfo(object):
            contact_value, description)
         VALUES (:e_id, :src, :type, :pref, :value, :desc)""",
                      {'e_id': self.entity_id,
-                      'src': source,
-                      'type': type,
+                      'src': int(source),
+                      'type': int(type),
                       'pref': pref,
                       'value': value,
                       'desc': description})
 
-    def get_contact_info(self, source=None, contact=None):
+    def get_contact_info(self, source=None, type=None):
         return Utils.keep_entries(
             self.query("""
             SELECT * FROM [:table schema=cerebrum name=entity_contact_info]
@@ -221,17 +221,17 @@ class EntityContactInfo(object):
 
     def populate_contact_info(self, type, value, contact_pref=50,
                               description=None):
+        # TBD: I think this method should be deleted
         pass
 
-    def delete_contact_info(self, source, type, pref):
+    def delete_contact_info(self, source, type):
         self.execute("""
         DELETE FROM [:table schema=cerebrum name=entity_contact_info]
         WHERE entity_id=:e_id AND source_system=:src AND
-          contact_type=:c_type AND contact_pref=:c_pref""",
+          contact_type=:c_type""",
                      {'e_id': self.entity_id,
-                      'src': source,
-                      'c_type': type,
-                      'c_pref': pref})
+                      'src': int(source),
+                      'c_type': int(type)})
 
 
 class EntityAddress(object):
