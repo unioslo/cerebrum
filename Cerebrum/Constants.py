@@ -50,10 +50,20 @@ class _CerebrumCode(DatabaseAccessor):
             self.str = code
         else:
             raise ValueError
-        
+
     def __str__(self):
         return self.str
-    
+
+    def __repr__(self):
+        int = ""
+        if self.int is not None:
+            int = " int=%d" % self.int
+        return "<%(class)s instance code_str='%(str)s'%(int)s at %(id)s>" % {
+            'class': self.__class__.__name__,
+            'str': self.str,
+            'int': int,
+            'id': hex(id(self))}
+
     def _get_description(self):
         if self._desc is None:
             self._desc = self.sql.query_1("SELECT %s FROM %s WHERE %s=:str" %
@@ -75,7 +85,10 @@ class _CerebrumCode(DatabaseAccessor):
         return self.int
 
     def __eq__(self, other):
-        if (# It should be OK to compare _CerebrumCode instances with
+        if other is None:
+            return False
+        elif (
+            # It should be OK to compare _CerebrumCode instances with
             # themselves or ints.
             isinstance(other, (int, _CerebrumCode))
             # The following test might catch a few more cases than we
@@ -93,42 +106,42 @@ class _CerebrumCode(DatabaseAccessor):
         raise NotImplementedError, "Don't know how to compare %s to %s" % \
               (repr(type(self).__name__), repr(other))
 
-    def __ne__(self, other): return self.__eq__(other)
+    def __ne__(self, other): return not self.__eq__(other)
 
 
 class _EntityTypeCode(_CerebrumCode):
     "Mappings stored in the entity_type_code table"
-    _lookup_table = 'entity_type_code'
+    _lookup_table = '[:table schema=cerebrum name=entity_type_code]'
     pass
 
 class _ContactInfoCode(_CerebrumCode):
     "Mappings stored in the contact_info_code table"
-    _lookup_table = 'contact_info_code'
+    _lookup_table = '[:table schema=cerebrum name=contact_info_code]'
     pass
 
 class _AddressCode(_CerebrumCode):
     "Mappings stored in the address_code table"
-    _lookup_table = 'address_code'
+    _lookup_table = '[:table schema=cerebrum name=address_code]'
     pass
 
 class _GenderCode(_CerebrumCode):
     "Mappings stored in the gender_code table"
-    _lookup_table = 'gender_code'
+    _lookup_table = '[:table schema=cerebrum name=gender_code]'
     pass
 
 class _PersonExternalIdCode(_CerebrumCode):
     "Mappings stored in the person_external_id_code table"
-    _lookup_table = 'person_external_id_code'
+    _lookup_table = '[:table schema=cerebrum name=person_external_id_code]'
     pass
 
 class _PersonNameCode(_CerebrumCode):
     "Mappings stored in the person_name_code table"
-    _lookup_table = 'person_name_code'
+    _lookup_table = '[:table schema=cerebrum name=person_name_code]'
     pass
 
 class _PersonAffiliationCode(_CerebrumCode):
     "Mappings stored in the person_affiliation_code table"
-    _lookup_table = 'person_affiliation_code'
+    _lookup_table = '[:table schema=cerebrum name=person_affiliation_code]'
     pass
 
 class _PersonAffStatusCode(_CerebrumCode):
@@ -136,7 +149,7 @@ class _PersonAffStatusCode(_CerebrumCode):
     # TODO: tror ikke dette er riktig?  I.E, pk=affiliation+status?
     _lookup_code_column = 'status'
     _lookup_str_column = 'status_str'
-    _lookup_table = 'person_aff_status_code'
+    _lookup_table = '[:table schema=cerebrum name=person_aff_status_code]'
 
     def __init__(self, affiliation, status):
         self.affiliation = affiliation
@@ -158,40 +171,44 @@ class _PersonAffStatusCode(_CerebrumCode):
 
 class _AuthoritativeSystemCode(_CerebrumCode):
     "Mappings stored in the authoritative_system_code table"
-    _lookup_table = 'authoritative_system_code'
+    _lookup_table = '[:table schema=cerebrum name=authoritative_system_code]'
     pass
 
 class _OUPerspectiveCode(_CerebrumCode):
     "Mappings stored in the ou_perspective_code table"
-    _lookup_table = 'ou_perspective_code'
+    _lookup_table = '[:table schema=cerebrum name=ou_perspective_code]'
     pass
 
 class _AccountCode(_CerebrumCode):
     "Mappings stored in the ou_perspective_code table"
-    _lookup_table = 'account_code'
+    _lookup_table = '[:table schema=cerebrum name=account_code]'
     pass
 
 class _ValueDomainCode(_CerebrumCode):
     "Mappings stored in the value_domain_code table"
-    _lookup_table = 'value_domain_code'
+    _lookup_table = '[:table schema=cerebrum name=value_domain_code]'
     pass
 
 class _AuthenticationCode(_CerebrumCode):
     "Mappings stored in the value_domain_code table"
-    _lookup_table = 'authentication_code'
+    _lookup_table = '[:table schema=cerebrum name=authentication_code]'
     pass
 
 ## Module spesific constant.  Belongs somewhere else
 class _PosixShellCode(_CerebrumCode):
     "Mappings stored in the posix_shell_code table"
-    _lookup_table = 'posix_shell_code'
+    _lookup_table = '[:table schema=cerebrum name=posix_shell_code]'
     _lookup_desc_column = 'shell'
     pass
 
 class _GroupMembershipOpCode(_CerebrumCode):
     "Mappings stored in the ou_perspective_code table"
-    _lookup_table = 'group_membership_op_code'
+    _lookup_table = '[:table schema=cerebrum name=group_membership_op_code]'
     pass
+
+class _GroupVisibilityCode(_CerebrumCode):
+    "Code values for groups' visibilities."
+    _lookup_table = '[:table schema=cerebrum name=group_visibility_code]'
 
 
 class Constants(DatabaseAccessor):
@@ -220,7 +237,7 @@ class Constants(DatabaseAccessor):
     name_first = _PersonNameCode('FIRST')
     name_last = _PersonNameCode('LAST')
     name_full = _PersonNameCode('FULL')
-    
+
     affiliation_student = _PersonAffiliationCode('STUDENT')
     affiliation_employee = _PersonAffiliationCode('EMPLOYEE')
 
@@ -245,10 +262,12 @@ class Constants(DatabaseAccessor):
     account_namespace = _ValueDomainCode(cereconf.DEFAULT_ACCOUNT_NAMESPACE)
 
     auth_type_md5 = _AuthenticationCode("md5")
-    
+
     group_memberop_union = _GroupMembershipOpCode('union')
     group_memberop_intersection = _GroupMembershipOpCode('intersection')
     group_memberop_difference = _GroupMembershipOpCode('difference')
+
+    group_visibility_all = _GroupVisibilityCode('A')
 
     def __init__(self, database):
         super(Constants, self).__init__(database)
