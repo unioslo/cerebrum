@@ -455,7 +455,7 @@ def main():
     # Populer dicter for "emnekode -> emnenavn" og "fakultet ->
     # [emnekode ...]".
     emne_info = {}
-    fak_emner = {}
+    fakulteter = []
     def finn_emne_info(element, attrs):
         if element <> 'undenhet':
             return
@@ -463,23 +463,27 @@ def main():
         faknr = int(attrs['faknr_kontroll'])
         emne_info[emnekode] = {'navn': attrs['emnenavn_bokmal'],
                                'fak': faknr}
-        fak_emner.setdefault(faknr, []).append(emnekode)
+        if faknr not in fakulteter:
+            fakulteter.append(faknr)
     access_FS.underv_enhet_xml_parser('/cerebrum/dumps/FS/underv_enhet.xml',
                                       finn_emne_info)
 
     stprog_info = {}
     def finn_stprog_info(element, attrs):
-        if element == 'studprog':
-            stprog = attrs['studieprogramkode'].lower()
-            faknr = int(attrs['faknr_studieansv'])
-            stprog_info[stprog] = {'fak': faknr}
+        if element <> 'studprog':
+            return
+        stprog = attrs['studieprogramkode'].lower()
+        faknr = int(attrs['faknr_studieansv'])
+        stprog_info[stprog] = {'fak': faknr}
+        if faknr not in fakulteter:
+            fakulteter.append(faknr)
     access_FS.studieprog_xml_parser('/cerebrum/dumps/FS/studieprog.xml',
                                     finn_stprog_info)
     # Henter ut ansatte per fakultet
-    ans_dict = get_ans_fak(fak_emner.keys(),acc2names)
+    ans_dict = get_ans_fak(fakulteter, acc2names)
     # Opprett de forskjellige stedkode-korridorene.
     ou = Stedkode.Stedkode(db)
-    for faknr in fak_emner.iterkeys():
+    for faknr in fakulteter:
         fak_sko = "%02d0000" % faknr
         ou.clear()
         try:
