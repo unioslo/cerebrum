@@ -954,6 +954,7 @@ def get_account(account_id, type='Account', spread=None):
         host, home = get_disk(home['disk_id'])
     else:
         host = None  # TODO:  How should we handle this?
+        home = home['home']
     return account, uname, host, home
 
 def get_username(account_id):
