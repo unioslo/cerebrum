@@ -45,11 +45,17 @@ class SearchClass(Builder):
     def __init__(self, search_id=None):
         Builder.__init__(self)
 
+    def save(self):
+        pass
+
+    def reset(self):
+        pass
+
     def create_primary_key(cls, search_id=None):
         if search_id is None:
             search_id = cls.search_id_iterator.next()
 
-        return search_id
+        return (search_id, )
 
     create_primary_key = classmethod(create_primary_key)
 
@@ -71,6 +77,8 @@ class SearchClass(Builder):
         return self._result
 
 class Searchable(object):
+    search_slots = []
+
     def create_search_class(cls):
         search_class_name = '%sSearch' % cls.__name__
         
@@ -85,7 +93,7 @@ class Searchable(object):
         import Registry
         registry = Registry.get_registry()
         
-        for attr in cls.slots:
+        for attr in cls.slots + cls.search_slots:
             get = create_get_method(attr.name)
 
             new_attr = registry.Attribute(attr.name, attr.data_type, write=True)
@@ -93,6 +101,7 @@ class Searchable(object):
             
         # FIXME: this should use register_method
         search_class._search = cls.create_search_method()
+        assert search_class._search
         search_class.method_slots.append(registry.Method('search', '%sSeq' % cls.__name__))
 
         return search_class
