@@ -435,7 +435,8 @@ class CommonConstants(ConstantsBase):
     name_first = _PersonNameCode('FIRST', 'First name')
     name_last = _PersonNameCode('LAST', 'Last name')
     name_full = _PersonNameCode('FULL', 'Full name')
-    name_title = _PersonNameCode('TITLE', 'Persons title')
+    name_personal_title = _PersonNameCode('PERSONALTITLE', 'Persons personal title')
+    name_work_title = _PersonNameCode('WORKTITLE', 'Persons work title')
 
     system_manual = _AuthoritativeSystemCode('Manual', 'Manual registration')
 
