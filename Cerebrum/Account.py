@@ -40,11 +40,14 @@ class AccountType(object):
     """The AccountType class does not use populate logic as the only
     data stored represent a PK in the database"""
 
-    def get_account_types(self, all_persons_types=False):
+    def get_account_types(self, all_persons_types=False, owner_id=None):
         """Return dbrows of account_types for the given account"""
-        if all_persons_types:
+        if all_persons_types or owner_id is not None:
             col = 'person_id'
-            val = self.owner_id
+            if owner_id is not None:
+                val = owner_id
+            else:
+                val = self.owner_id
         else:
             col = 'account_id'
             val = self.entity_id
