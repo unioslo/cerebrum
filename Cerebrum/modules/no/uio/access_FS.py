@@ -456,6 +456,15 @@ FROM   fs.person p
 WHERE  p.status_dod = 'J'"""
         return (self._get_cols(qry), self.db.query(qry))
 
+    def GetFnrEndringer(self):
+        """Hent informasjon om alle registrerte fødselsnummerendringer"""
+        qry = """
+SELECT fodselsdato_naverende, personnr_naverende,
+       fodselsdato_tidligere, personnr_tidligere,
+       TO_CHAR(dato_foretatt, 'YYYY-MM-DD HH24:MI:SS') AS dato_foretatt
+FROM fs.fnr_endring
+ORDER BY dato_foretatt"""
+        return (self._get_cols(qry), self.db.query(qry))
 
     def GetAlleEksamener(self):
 	"""Hent ut alle eksamensmeldinger i nåværende sem.
