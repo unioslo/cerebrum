@@ -63,7 +63,7 @@ class EntityName(Parameter):
     _prompt = "Enter entity name"
 
 class GroupName(Parameter):
-    _prompt_func = 'prompt_foobar'
+    # _prompt_func = 'prompt_foobar'
     _type = 'groupName'
     _prompt = "Enter %s groupname"
 
@@ -121,7 +121,10 @@ class Command(object):
         self._format_suggestion = kw.get('fs', None)
 
     def get_fs(self):
-        return self._format_suggestion.get_format()
+        if self._format_suggestion is not None:
+            return self._format_suggestion.get_format()
+        else:
+            return None
 
     def get_struct(self):
         return (self._cmd, [k.get_struct() for k in self._params])
