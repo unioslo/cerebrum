@@ -729,7 +729,7 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
             SELECT
               DISTINCT eei.external_id, en.entity_name
             FROM
-              [:table schema=cerebrum name=enity_external_id] eei,
+              [:table schema=cerebrum name=entity_external_id] eei,
               [:table schema=cerebrum name=account_type] at,
               [:table schema=cerebrum name=entity_name] en
             WHERE
