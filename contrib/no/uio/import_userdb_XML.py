@@ -1090,7 +1090,10 @@ def create_account(u, owner_id, owner_type, np_type=None):
                 spam_act = spamact2const.get(data.get('spam_action'),
                                              spamact2const['*default*'])
                 mailspam.clear()
-                mailspam.find(mt_id)
+                try:
+                    mailspam.find(mt_id)
+                except Errors.NotFoundError:
+                    pass
                 mailspam.populate_spam_filter(spam_lvl, spam_act)
                 mailspam.write_db()
 
@@ -1105,12 +1108,18 @@ def create_account(u, owner_id, owner_type, np_type=None):
 
         if u.get('mail_hardquota') and u.get('mail_softquota'):
             mailquota.clear()
-            mailquota.find(mt_id)
+            try:
+                mailquota.find(mt_id)
+            except Errors.NotFoundError:
+                pass
             mailquota.populate_quota(int(u['mail_softquota']),
                                      int(u['mail_hardquota']))
         mailserver.clear()
-        mailserver.find(mt_id)
-        mailserver.populate(get_server_id(u['mailhost']))
+        try:
+            mailserver.find(mt_id)
+        except Errors.NotFoundError:
+            pass
+        mailserver.populate(get_server_id(u['mailhost']), parent=mt_id)
         mailserver.write_db()
                 
     # Assign account affiliaitons by checking the
