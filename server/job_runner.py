@@ -4,6 +4,32 @@
 # TBD: Paralellitet: dersom det er flere jobber i ready_to_run køen
 # som ikke har noen ukjørte pre-requisites, kan de startes samtidig.
 
+"""job_runner is a scheduler that runs specific commands at certain
+times.  Each command is represended by an Action class that may have
+information about when and how often a job should be ran, as well as
+information about jobs that should be ran before or after itself; see
+the class documentation for details.
+
+job_runner has a ready_to_run queue, which is populated by
+find_ready_jobs().  The queue is recursively populated so that pre and
+post requisites are added in the correct order.  This could lead to
+the same job being listed multiple times in the queue, therefore we
+check for this before adding the job (unless overridden in the
+constructor).
+
+TODO:
+- should we do anything more than simply logging an error message when
+  a job failes?
+- locking
+- start specific actions from the commandline, optionally with
+  verbosity or dryrun arguments (should add job, ignoring max_freq)
+- Support jobs represented by a call to a specific method in given
+  python module
+- commandline option to start job_runner if it is not already running
+- running multiple jobs in paralell, in particular manually added jobs
+  should normally start imeadeately
+"""
+
 import time
 import os
 import sys
@@ -13,6 +39,7 @@ import select
 
 import cerebrum_path
 import cereconf
+import scheduled_jobs
 
 from Cerebrum.extlib import logging
 from Cerebrum.Utils import Factory
@@ -25,51 +52,6 @@ db = Factory.get('Database')()
 
 logging.fileConfig(cereconf.LOGGING_CONFIGFILE)
 logger = logging.getLogger("cronjob")
-
-def get_jobs():
-    sbin = '/cerebrum/sbin'  # TODO: Ny cereconf setting
-    ypsrc = '/cerebrum/yp/src'
-    return {
-        'import_from_lt':  Action(call=System('%s/import_from_LT.py' % sbin),
-                                  max_freq=6*60*60),
-        'import_ou':  Action(pre=['import_from_lt'],
-                             call=System('%s/import_OU.py' % sbin),
-                             max_freq=6*60*60),
-        'import_lt':  Action(pre=['import_ou', 'import_from_lt'],
-                             call=System('%s/import_LT.py' % sbin),
-                             max_freq=6*60*60),
-        'import_from_fs':  Action(call=System('%s/import_from_FS.py' % sbin),
-                                  max_freq=6*60*60),
-        'import_fs':  Action(pre=['import_from_fs'],
-                             call=System('%s/import_FS.py' % sbin),
-                             max_freq=6*60*60),
-        'process_students': Action(pre=['import_fs'],
-                                   call=System('%s/process_students.py' % sbin),
-                                   max_freq=5*60),
-        'backup': Action(call=System('%s/backup.py' % sbin),
-                         max_freq=23*60*60),
-        'rotate_logs': Action(call=System('%s/rotate_logs.py' % sbin),
-                              max_freq=23*60*60),
-        'daily': Action(pre=['import_lt', 'import_fs', 'process_students'],
-                        call=None,
-                        when=When(time=[Time(min=[10], hour=[1])]),
-                        post=['backup', 'rotate_logs']),
-        'generate_passwd': Action(call=System('%s/generate_nismaps.py' % sbin,
-                                              params=['-p', '%s/passwd' % ypsrc]),
-                                  max_freq=5*60),
-        'generate_group': Action(call=System('%s/generate_nismaps.py' % sbin,
-                                              params=['-g', '%s/group' % ypsrc]),
-                                  max_freq=15*60),
-        'convert_ypmap': Action(call=System('make',
-                                            params=['-s', '-C', '/var/yp'],
-                                            stdout_ok=1), multi_ok=1),
-        'dist_passwords': Action(pre=['generate_passwd', 'convert_ypmap'],
-                                 call=System('%s/passdist.pl' % sbin),
-                                 max_freq=5*60, when=When(freq=10*60)),
-        'dist_groups': Action(pre=['generate_group', 'convert_ypmap'],
-                              call=System('%s/passdist.pl' % sbin),
-                              max_freq=5*60, when=When(freq=30*60))
-        }
 
 class Action(object):
     def __init__(self, pre=None, post=None, call=None, max_freq=None, when=None,
@@ -192,37 +174,34 @@ def makeNonBlocking(fd):
     except AttributeError:
 	fcntl.fcntl(fd, fcntl.F_SETFL, fl | os.FNDELAY)
 
-class System(object):
-    """Run a command with the specified parameters.
+class CallableAction(object):
+    """Abstract class representing the call parameter to Action"""
 
-    TODO: Tentative spec. for jobs started by this class:
+    def setup(self):
+        pass
 
-    - no output should be written on STDOUT/STDERR during normal run.
-      Output may be enabled with -v, which optionaly may be repeated
-      for more verbosity, the -v option should be recongnized.
-    -d dryrun
-    """
-    n = 1
+    def execute(self):
+        raise RuntimeError, "Override CallableAction.execute"
+
+    def cleanup(self):
+        pass
+
+class System(CallableAction):
+    """Run a command with the specified parameters.  Return values
+    other than 0, as well as any data on stdout/stderr is considered
+    an error"""
+
     def __init__(self, cmd, params=[], stdout_ok=0):
         self.cmd = cmd
         self.params = list(params)
         self.stdout_ok = stdout_ok
 
-    # TODO: simple versions of these methods should be in a superclass
-    def setup(self):
-        pass
-
-    def tmpfilename(self):
-        self.n += 1
-        return "/tmp/out.%i" % self.n
-
     def execute(self):
         # TODO: We will use a lot of mem if lots is written on stdout/stderr
-        # print "Executing: %s" % self.cmd
+
         p = self.params[:]
         # For debug
         p.insert(0, self.cmd)
-        # p.insert(0, "/bin/echo")
         logger.debug("Run: %s" % p)
         # Redirect stdout/stderr
         # From http://aspn.activestate.com/ASPN/Cookbook/Python/Recipe/52296
@@ -253,18 +232,6 @@ class System(object):
             # TODO: What shall we do here?
             logger.error("Error running command %s, ret=%d/%s, stdout=%s, stderr=%s" %
                          (p, err, os.strerror(err), outdata, errdata))
-
-    def cleanup(self):
-        pass
-
-class StdXCatcher(object):
-    """May be used to redirect sys.stdout, however that only handles
-    python printed data"""
-    # TODO:  If stdX get a lot of data, we waste a lot of memory...
-    def __init__(self):
-        self.data = ''
-    def write(self, stuff):
-        self.data = self.data + stuff
 
 def insert_job(job):
     """Recursively add jobb and all its prerequisited jobs.
@@ -307,7 +274,7 @@ def find_ready_jobs(jobs):
 # There is a python supplied sched module, but we don't use it for now...
 def runner():
     global all_jobs, ready_to_run, last_run
-    all_jobs = get_jobs()
+    all_jobs = scheduled_jobs.get_jobs()
     ready_to_run = []
     last_run = get_last_run()
     while 1:
