@@ -1,0 +1,16 @@
+Index: Cerebrum/default_config.py
+===================================================================
+RCS file: /cvsroot/cerebrum/cerebrum/Cerebrum/default_config.py,v
+retrieving revision 1.79
+diff -u -r1.79 default_config.py
+--- Cerebrum/default_config.py	14 Sep 2004 18:56:54 -0000	1.79
++++ Cerebrum/default_config.py	21 Oct 2004 10:09:58 -0000
+@@ -183,7 +183,7 @@
+ #   'system': {'lock': 1, 'shell': '/local/etc/shells/nologin.system'}
+ # }
+ 
+-CEREBRUM_DDL_DIR="../share/doc/cerebrum/design"
++CEREBRUM_DDL_DIR="../share/cerebrum/design"
+ BOFHD_SUPERUSER_GROUP=INITIAL_GROUPNAME
+ BOFHD_STUDADM_GROUP=BOFHD_SUPERUSER_GROUP
+ # Should contain mapping lang: [('template-prefix', 'tpl-type)...]
