@@ -29,14 +29,16 @@ def main():
 
 
 def makedbs(Cerebrum):
-    for f in ('drop_core_tables.sql',
-              'core_tables.sql',
+    for f in ('mod_drop_stedkode.sql',
+              'drop_mod_nis.sql',
               'mod_drop_posix_user.sql',
+              'drop_core_tables.sql',
+              'core_tables.sql',
               'mod_posix_user.sql',
+              'mod_nis.sql',
               'core_data.sql',
-              #'pop.sql',
-              'mod_drop_stedkode.sql',
-              'mod_stedkode.sql'):
+              'mod_stedkode.sql'
+              ):
         runfile("design/%s" % f, Cerebrum)
 
 def runfile(fname, Cerebrum):
