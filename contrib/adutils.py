@@ -158,7 +158,7 @@ def chk_quarantine(account_id):
     # Check against quarantine.
     quarantine.clear()
     quarantine.find(account_id)
-    quarantines = quarantine.get_entity_quarantine()
+    quarantines = quarantine.get_entity_quarantine(only_active=True)
     qua = []
     for row in quarantines:
         qua.append(row['quarantine_type']) 
