@@ -76,6 +76,6 @@ category:main;
 CREATE TABLE change_handler_data
 (
   evthdlr_key    CHAR VARYING(20) NOT NULL, 
-  first_id       NUMERIC(6,0) NOT NULL,
-  last_id        NUMERIC(6,0) NOT NULL
+  first_id       NUMERIC(12,0) NOT NULL,
+  last_id        NUMERIC(12,0) NOT NULL
 );
