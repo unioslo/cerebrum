@@ -44,6 +44,9 @@ class Person(Entity):
                             CerebrumAttr('deceased', 'boolean', write=True),
                             CerebrumTypeAttr('gender', 'GenderType', GenderType, write=True),
                             CerebrumAttr('description', 'string', write=True)]
+    method_slots = Entity.method_slots + [
+        Method('get_accounts','AccountSeq'),
+        Method('get_names','PersonNameSeq')]
 
     cerebrum_class = Cerebrum.Person.Person
 
