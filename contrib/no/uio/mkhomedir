@@ -1,0 +1,29 @@
+#!/bin/sh
+
+# Create homedir for new users, and copy files to the directory.
+# Optionally sourcing pre and post scripts
+
+PATH=/bin:/usr/bin:/local/bin:/etc:/usr/ucb:/usr/etc:/usr/bsd
+export PATH
+umask 066			# drwx--x--x
+
+uname=$1
+homedir=$2
+uid=$3
+gid=$4
+tpldir=$5
+scriptdir=$6
+fullname=$7
+
+if [ -f $scriptdir/mkhomedir.pre ]; then
+   . $scriptdir/mkhomedir.pre
+fi
+
+mkdir $homedir
+cp -rp $tpldir $homedir
+chown -R $uid $homedir
+chgrp -R $gid $homedir
+
+if [ -f $scriptdir/mkhomedir.pre ]; then
+   . $scriptdir/mkhomedir.post
+fi
