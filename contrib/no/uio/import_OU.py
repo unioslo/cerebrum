@@ -168,6 +168,8 @@ def import_org_units(sources):
         kat_merke = 'F'
         if k.get('opprettetmerke_for_oppf_i_kat'):
             kat_merke = 'T'
+	if def_kat_merke:
+	    kat_merke = 'T'
         ou.populate(k['stednavn'], k['fakultetnr'],
                     k['instituttnr'], k['gruppenr'],
                     institusjon=k.get('institusjonsnr',
@@ -412,6 +414,7 @@ import from UoOs LT system.
     -o | --ou-file FILE         file to read stedinfo from
     -p | --perspective NAME     name of perspective to use
     -s | --source-spec SPEC     colon-separated (source-system, filename) pair
+    -l | --ldap-visibility
     --dump-perspective          view the hierarchy of the ou-file
 
 For backward compatibility, there still is some support for the
@@ -423,14 +426,15 @@ following (deprecated) option; note, however, that the new option
     sys.exit(exitcode)
 
 def main():
-    global verbose, perspective, cer_ou_tab, clean_obsolete_ous
+    global verbose, perspective, cer_ou_tab, clean_obsolete_ous, def_kat_merke
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'vcp:s:o:',
+        opts, args = getopt.getopt(sys.argv[1:], 'vcp:s:o:l',
                                    ['verbose',
 				    'clean',
                                     'perspective=',
                                     'source-spec=',
                                     'dump-perspective',
+				    'ldap-visibility',
                                     # Deprecated:
                                     'ou-file=', 'source-system='])
     except getopt.GetoptError:
@@ -441,6 +445,7 @@ def main():
     source_file = None
     source_system = None
     clean_obsolete_ous = False
+    def_kat_merke = False
     cer_ou_tab = {}
     for opt, val in opts:
         if opt in ('-v', '--verbose'):
@@ -451,6 +456,8 @@ def main():
             perspective = getattr(co, val)
         elif opt in ('-s', '--source-spec'):
             sources.append(val)
+	elif opt in ('-l', '--ldap-visibility',):
+	    def_kat_merke = True
         elif opt in ('-o', '--ou-file'):
             # This option is deprecated; use --source-spec instead.
             source_file = val
