@@ -220,8 +220,8 @@ CREATE TABLE account_info
 (
   /* Dummy column, needed for type check against `entity_id'. */
   entity_type	CHAR VARYING(16)
-		NOT NULL
 		DEFAULT 'u'
+		NOT NULL
 		CONSTRAINT account_info_entity_type_chk
 		  CHECK (entity_type = 'u'),
 
@@ -256,7 +256,7 @@ CREATE TABLE account_info
 	   (owner_type = 'g' AND np_type IS NOT NULL)),
 /* The next constraint is needed to allow `account_type' to have a
    foreign key agains these two columns. */
-  CONSTRAINT account_info_id_plus_owner_unique
+  CONSTRAINT account_info_id_owner_unique
     UNIQUE (account_id, owner_id)
 );
 
@@ -311,7 +311,7 @@ CREATE TABLE account_type
 CREATE TABLE account_authentication
 (
   account_id	NUMERIC(12,0)
-		CONSTRAINT account_authentication_account_id
+		CONSTRAINT account_authentication_acc_id
 		  REFERENCES account_info(account_id),
   method	CHAR VARYING(16)
 		CONSTRAINT account_authentication_method
