@@ -157,10 +157,12 @@ def match_external_ids(person, sap_id, no_ssn, const):
         return False
     # fi
 
+    #
+    # A mismatch in SSN means that Cerebrum's data has to be updated.
+    # 
     if (cerebrum_no_ssn and cerebrum_no_ssn != no_ssn):
-        logger.error("NO_SSN in Cerebrum != NO_SSN in datafile "
-                     "«%s» != «%s»", cerebrum_no_ssn, no_ssn)
-        return False
+        logger.info("NO_SSN in Cerebrum != NO_SSN in datafile. Updating "
+                     "«%s» -> «%s»", cerebrum_no_ssn, no_ssn)
     # fi
 
     return True
