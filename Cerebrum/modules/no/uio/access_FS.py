@@ -64,11 +64,20 @@ WHERE r.fodselsdato = fp.fodselsdato AND
         """ % self.get_termin_aar()
         return (self._get_cols(qry), self.db.query(qry))
 
+    def GetStudinfAktiv(self):
+        """Hent fødselsnummer+studieprogram for alle aktive studenter"""
+        # TODO
+        qry = """
+SELECT DISTINCT
+        p.fodselsdato, p.personnr, sp.studieprogramkode
+"""
+        return (self._get_cols(qry), self.db.query(qry))
+
     def GetStudinfTilbud(self):
         """Hent personer som har fått tilbud om opptak"""
         qry = """
 SELECT DISTINCT
-        p.fodselsdato, p.personnr, p.etternavn, p.fornavn
+        p.fodselsdato, p.personnr, p.etternavn, p.fornavn, osp.studieprogramkode
 FROM fs.soknadsalternativ sa, fs.person p, fs.opptakstudieprogram osp,
      fs.studieprogram sp
 WHERE p.fodselsdato=sa.fodselsdato AND
