@@ -69,7 +69,7 @@ def read_OU():
 def read_people():
     pers = Person.Person(Cerebrum)
 
-    list = pers.get_all_person_ids()
+    list = pers.list_persons()
 
     for p in list:
         id = Cerebrum.pythonify_data(p['person_id'])

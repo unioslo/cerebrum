@@ -471,7 +471,7 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
         return acc.list_accounts_by_owner_id(self.entity_id)
 
 
-    def get_all_person_ids(self):
+    def list_persons(self):
         """Return all person ids."""
         return self.query("""
         SELECT person_id
