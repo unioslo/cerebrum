@@ -212,6 +212,9 @@ class Entity(DatabaseAccessor):
 
     def add_spread(self, spread):
         """Add ``spread`` to this entity."""
+        self._db.cl_init(change_by=None, change_program='add_spread')
+        self._db.log_change(self.entity_id, self.clconst.s_add,
+                            None, change_params={'spread': int(spread)})
         return self.execute("""
         INSERT INTO [:table schema=cerebrum name=entity_spread]
           (entity_id, entity_type, spread)
@@ -221,10 +224,13 @@ class Entity(DatabaseAccessor):
 
     def delete_spread(self, spread):
         """Remove ``spread`` from this entity."""
+        self._db.cl_init(change_by=None, change_program='delete_spread')
+        self._db.log_change(self.entity_id, self.clconst.s_del,
+                                None, change_params={'spread': int(spread)})
         return self.execute("""
         DELETE FROM [:table schema=cerebrum name=entity_spread]
         WHERE entity_id=:e_id AND spread=:spread""", {'e_id': self.entity_id,
-                                                      'spread': int(spread)})
+                                                      'spread': int(spread)},change_program='test')
 
     def list_all_with_spread(self, spread):
         """Return sequence of all 'entity_id's that has ``spread``."""
@@ -233,6 +239,14 @@ class Entity(DatabaseAccessor):
         FROM [:table schema=cerebrum name=entity_spread]
         WHERE spread=:spread""", {'spread': spread})
 
+    def got_spread(self, spread):
+        """Return true if entity has spread.""" 
+        ent_spread = self.get_spread()
+        for row in ent_spread:
+            if spread in row:
+                return 1
+        return 0
+        
     def list_all_with_type(self, entity_type):
         """Return sequence of all 'entity_id's that has ``type``."""
         return self.query("""
