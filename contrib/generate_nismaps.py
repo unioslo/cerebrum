@@ -20,62 +20,67 @@
 
 import time
 
+import getopt
+import sys
+import os
 import cerebrum_path
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import PosixUser
 from Cerebrum.modules import PosixGroup
+from Cerebrum import Disk
+from Cerebrum.Entity import EntityName
 
-Cerebrum = Factory.get('Database')()
-co = Factory.get('Constants')(Cerebrum)
-posix_user = PosixUser.PosixUser(Cerebrum)
-posix_group = PosixGroup.PosixGroup(Cerebrum)
+db = Factory.get('Database')()
+co = Factory.get('Constants')(db)
+posix_user = PosixUser.PosixUser(db)
+posix_group = PosixGroup.PosixGroup(db)
 MAX_LINE_LENGTH = 512
 
 entity2uname = {}
+debug = 0
 
-
-def generate_passwd():
-    for row in posix_user.list_posix_users():
-
-        id = Cerebrum.pythonify_data(row['account_id'])
-        posix_user.clear()
-        posix_user.find(id)
-
-        # TODO: The value_domain should be fetched from somewhere
-        # The array indexes should be replaced with hash-keys
-        uname = posix_user.get_name(co.account_namespace)['entity_name']
-        if entity2uname.has_key(id):
-            raise ValueError, "Entity %d has multiple unames: (%s, %s)" % (
-                entity2uname[id], uname)
-        else:
-            entity2uname[id] = uname
-        # TODO: Something should set which auth_type to use for this map
-        try:
-            passwd = posix_user.get_account_authentication(
-                co.auth_type_md5_crypt)
-        except Errors.NotFoundError:
+def generate_passwd(filename):
+    shells = {}
+    for s in posix_user.list_shells():
+        shells[int(s['code'])] = s['shell']
+    f = file("%s.new" % filename, "w")
+    n = 0
+    diskid2path = {}
+    disk = Disk.Disk(db)
+    for d in disk.list():
+        diskid2path[int(d['disk_id'])] = d['path']
+    for row in posix_user.list_extended_posix_users(auth_method=co.auth_type_md5_crypt):
+        uname = row['entity_name']
+        passwd = row['auth_data']
+        if passwd is None:
             passwd = '*'
-
-        try:
-            posix_group.clear()
-            posix_group.find(posix_user.gid)
-        except Errors.NotFoundError:
-            continue
-
-        gecos = posix_user.get_gecos()
-
-        # TODO: Using .description to get the shell's path is ugly.
-        shell = PosixUser._PosixShellCode(int(posix_user.shell))
-        shell = shell.description
-        print join((uname, passwd, str(posix_user.posix_uid),
+        posix_group.posix_gid = row['posix_gid']
+        gecos = "posix_user.get_gecos()"
+        home = row['home'] 
+        if home is None:
+            home = diskid2path[int(row['disk_id'])] + "/" + uname
+            
+        shell = shells[int(row['shell'])]
+        line = join((uname, passwd, str(row['posix_uid']),
                     str(posix_group.posix_gid), gecos,
-                    str(posix_user.get_home()), shell))
+                    str(home), shell))
+        if debug:
+            print line
+        f.write(line+"\n")
         # convert to 7-bit
+        n += 1
+        #if n > 100:
+        #    break
+    f.close()
+    os.rename("%s.new" % filename, filename)
 
-
-def generate_group():
+def generate_group(filename):
     groups = {}
+    f = file("%s.new" % filename, "w")
+    en = EntityName(db)
+    for row in en.list_names(int(co.account_namespace)):
+        entity2uname[int(row['entity_id'])] = row['entity_name']
     for row in posix_group.list_all():
         posix_group.clear()
         posix_group.find(row.group_id)
@@ -88,7 +93,7 @@ def generate_group():
 
         members = []
         for id in posix_group.get_members():
-            id = Cerebrum.pythonify_data(id)
+            id = db.pythonify_data(id)
             if entity2uname.has_key(id):
                 members.append(entity2uname[id])
             else:
@@ -97,7 +102,7 @@ def generate_group():
 
         gline = join((gname, '*', gid, join(members, ',')))
         if len(gline) <= MAX_LINE_LENGTH:
-            print gline
+            f.write(gline+"\n")
             groups[gname] = None
         else:
             groups[gname] = (gid, members)
@@ -136,11 +141,12 @@ def generate_group():
                                         (len(gname) + len(gid) + 4))
             if memb_str is None:
                 break
-            print join((gname, '*', gid, memb_str))
+            f.write(join((gname, '*', gid, memb_str))+"\n")
             groups.setdefault(gname, None)
             gname = make_name(g)
         groups[g] = None
-
+    f.close()
+    os.rename("%s.new" % filename, filename)
 
 def join(fields, sep=':'):
     for f in fields:
@@ -168,9 +174,24 @@ def maxjoin(elems, maxlen, sep=','):
 
 
 def main():
-    generate_passwd()
-    generate_group()
+    global debug
+    opts, args = getopt.getopt(sys.argv[1:], 'dg:p:',
+                               ['debug', 'group=', 'passwd='])
+    for opt, val in opts:
+        if opt in ('-d', '--debug'):
+            debug += 1
+        elif opt in ('-g', '--group'):
+            generate_group(val)
+        elif opt in ('-p', '--passwd'):
+            generate_passwd(val)
+        else:
+            usage()
+    if len(opts) == 0:
+        usage()
 
+def usage():
+    print """Usage: [-d] {-p outfile | -g outfile}"""
+    sys.exit(0)
 
 if __name__ == '__main__':
     main()
