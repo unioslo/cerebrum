@@ -75,15 +75,6 @@ class Caching(object):
         """ Returns the primary key for the object. """
         return self.__key[1]
 
-    def invalidate_object(cls, obj):
-        """Remove the node from the cache.
-        
-        Will not prevent this object from futher use.
-        """
-        del cls.cache[obj.__key]
-
-    invalidate_object = classmethod(invalidate_object)
-
     def get_minimum_lifetime(self):
         # FIXME: where should we put this default variable?
         return 10
@@ -103,9 +94,11 @@ class Caching(object):
             scheduler.addTimer(minimum_lifetime, holder)
 
     def invalidate(self):
-        """ Remove the node from the cache. """
-        self.invalidate_object(self)
-
+        """ Remove the node from the cache.
+        
+        Will not prevent this object from futher use.
+        """
+        del self.cache[self.__key]
 
     def create_primary_key(*args, **vargs):
         return None # this will make it a singleton
