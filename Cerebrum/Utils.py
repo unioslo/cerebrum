@@ -22,6 +22,7 @@
 
 import sys
 import re
+import cereconf
 
 def dyn_import(name):
     """Dynamically import python module ``name``."""
@@ -360,3 +361,19 @@ class XMLHelper(object):
         a = a.replace('<', "&lt;")
         a = a.replace('>', "&gt;")
         return '"%s"' % a
+
+class Factory(object):
+    def getConstants():
+        try:
+            mod = dyn_import(cereconf.CONSTANTS_MODULE)
+            return mod.Constants
+        except AttributeError:
+            mod = dyn_import("Cerebrum.Constants")
+            return mod.Constants
+            # return Constants.Constants
+
+    getConstants = staticmethod(getConstants)
+
+    def getOU():
+        # return OU
+        pass
