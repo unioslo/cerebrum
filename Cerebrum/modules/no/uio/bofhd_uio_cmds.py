@@ -1953,7 +1953,7 @@ class BofhdExtension(object):
                 if row['operation'] == int(self.const.group_memberop_union):
                     entities.append(row['group_id'])
         else:
-            if not entities.isdigit():
+            if not entity_id.isdigit():
                 raise CerebrumError("Expected entity-id")
             entities = [entity_id]
         bar = BofhdAuthRole(self.db)
@@ -2043,6 +2043,64 @@ class BofhdExtension(object):
             ret.append({'account_id': r['account_id'],
                         'name': account.account_name})
         return ret
+
+    def _person_affiliation_add_helper(self, operator, person, ou, aff, aff_status):
+        """Helper-function for adding an affiliation to a person with
+        permission checking.  person is expected to be a person
+        object, while ou, aff and aff_status should be the textual
+        representation from the client"""
+        aff = self._get_affiliationid(aff)
+        aff_status = self._get_affiliation_statusid(aff, aff_status)
+        ou = self._get_ou(stedkode=ou)
+
+        # Assert that the person already have the affiliation
+        has_aff = False
+        for a in person.get_affiliations():
+            if a['ou_id'] == ou.entity_id and a['affiliation'] == aff:
+                if a['status'] <> aff_status:
+                    raise CerebrumError, \
+                          "Person has conflicting aff_status for this ou/affiliation combination"
+                has_aff = True
+                break
+        if not has_aff:
+            self.ba.can_add_affiliation(operator.get_entity_id(), person, ou, aff, aff_status)
+            if (aff == self.const.affiliation_ansatt or
+                aff == self.const.affiliation_student):
+                raise PermissionDenied(
+                    "Student/Ansatt affiliation can only be set by FS/LT")
+            person.add_affiliation(ou.entity_id, aff,
+                                   self.const.system_manual, aff_status)
+            person.write_db()
+        return ou, aff, aff_status
+
+    # person affilation_add
+    all_commands['person_affiliation_add'] = Command(
+        ("person", "affiliation_add"), PersonId(), OU(), Affiliation(), AffiliationStatus(),
+        perm_filter='can_add_affiliation')
+    def person_affiliation_add(self, operator, person_id, ou, aff, aff_status):
+        try:
+            person = self._get_person(*self._map_person_id(person_id))
+        except Errors.TooManyRowsError:
+            raise CerebrumError("Unexpectedly found more than one person")
+        ou, aff, aff_status = self._person_affiliation_add_helper(
+            operator, person, ou, aff, aff_status)
+        return "OK, added %s@%s to %s" % (aff, self._format_ou_name(ou), person.entity_id)
+
+    # person affilation_remove
+    all_commands['person_affiliation_remove'] = Command(
+        ("person", "affiliation_remove"), PersonId(), OU(), Affiliation(),
+        perm_filter='can_remove_affiliation')
+    def person_affiliation_remove(self, operator, person_id, ou, aff):
+        try:
+            person = self._get_person(*self._map_person_id(person_id))
+        except Errors.TooManyRowsError:
+            raise CerebrumError("Unexpectedly found more than one person")
+        aff = self._get_affiliationid(aff)
+        ou = self._get_ou(stedkode=ou)
+        self.ba.can_remove_affiliation(operator.get_entity_id(), person, ou, aff)
+        person.delete_affiliation(ou.entity_id, aff,
+                                  self.const.system_manual)
+        return "OK, removed %s@%s from %s" % (aff, self._format_ou_name(ou), person.entity_id)
 
     # person create
     all_commands['person_create'] = Command(
@@ -2530,28 +2588,10 @@ class BofhdExtension(object):
         perm_filter='can_add_affiliation')
     def user_affiliation_add(self, operator, accountname, ou, aff, aff_status):
         account = self._get_account(accountname)
-        aff = self._get_affiliationid(aff)
-        aff_status = self._get_affiliation_statusid(aff, aff_status)
-        ou = self._get_ou(stedkode=ou)
         person = self._get_person('entity_id', account.owner_id)
-        self.ba.can_add_affiliation(operator.get_entity_id(), person, ou, aff, aff_status)
-
-        # Assert that the person already have the affiliation
-        has_aff = False
-        for a in person.get_affiliations():
-            if a['ou_id'] == ou.entity_id and a['affiliation'] == aff:
-                if a['status'] <> aff_status:
-                    raise CerebrumError, "Person has conflicting aff_status for this ou/affiliation combination"
-                has_aff = True
-                break
-        if not has_aff:
-            if (aff == self.const.affiliation_ansatt or
-                aff == self.const.affiliation_student):
-                raise PermissionDenied(
-                    "Student/Ansatt affiliation can only be set by FS/LT")
-            person.add_affiliation(ou.entity_id, aff,
-                                   self.const.system_manual, aff_status)
-            person.write_db()
+        ou, aff, aff_status = self._person_affiliation_add_helper(
+            operator, person, ou, aff, aff_status)
+        self.ba.can_add_account_type(operator.get_entity_id(), account, ou, aff, aff_status)
         account.set_account_type(ou.entity_id, aff)
         account.write_db()
         return "OK, added %s@%s to %s" % (aff, self._format_ou_name(ou), account.owner_id)
@@ -2565,7 +2605,7 @@ class BofhdExtension(object):
         aff = self._get_affiliationid(aff)
         ou = self._get_ou(stedkode=ou)
         person = self._get_person('entity_id', account.owner_id)
-        self.ba.can_remove_affiliation(operator.get_entity_id(), person, ou, aff)
+        self.ba.can_remove_account_type(operator.get_entity_id(), account, ou, aff)
         account.del_account_type(ou.entity_id, aff)
         account.write_db()
         return "OK"
@@ -2616,12 +2656,16 @@ class BofhdExtension(object):
                     if aff['affiliation'] == int(self.const.affiliation_ansatt):
                         map.append((("%s", str(self.const.affiliation_ansatt)),
                                     int(self.const.affiliation_ansatt)))
-                    if aff['affiliation'] == int(self.const.affiliation_student):
+                    elif aff['affiliation'] == int(self.const.affiliation_student):
                         map.append((("%s", str(self.const.affiliation_student)),
                                     int(self.const.affiliation_student)))
-                tmp = self.person_affiliation_statusids[str(self.const.affiliation_manuell)]
-                for k in tmp.keys():
-                    map.append((("MANUELL:%s", str(tmp[k])), int(tmp[k])))
+                    else:
+                        ou = self._get_ou(ou_id=aff['ou_id'])
+                        name = "%s/%s@%s" % (
+                            self.num2const[int(aff['affiliation'])],
+                            self.num2const[int(aff['status'])],
+                            self._format_ou_name(ou))
+                        map.append((("%s", name), int(aff['affiliation'])))
                 return {'prompt': "Choose affiliation from list", 'map': map}
             affiliation = all_args.pop(0)
         else:
@@ -2660,29 +2704,11 @@ class BofhdExtension(object):
         return self._user_create_prompt_func_helper('PosixUser', session, *args)
 
     def _user_create_set_account_type(self, account, owner_id, affiliation):
-        ou = self._get_ou(stedkode=cereconf.DEFAULT_OU)
         person = self._get_person('entity_id', owner_id)
-        if not (affiliation == self.const.affiliation_ansatt or
-                affiliation == self.const.affiliation_student):
-            tmp = self.person_affiliation_statusids[str(self.const.affiliation_manuell)]
-            for k in tmp.keys():
-                if affiliation == int(tmp[k]):
-                    break
-            affiliation = tmp[k].affiliation
-            has_affiliation = False
-            for a in person.get_affiliations():
-                if (a['ou_id'] == ou.entity_id and
-                    a['affiliation'] == int(tmp[k].affiliation)):
-                    has_affiliation = True
-            if not has_affiliation:
-                person.add_affiliation(ou.entity_id, tmp[k].affiliation,
-                                       self.const.system_manual, tmp[k])
-        else:
-            for aff in person.get_affiliations():
-                if aff['affiliation'] == int(self.const.affiliation_ansatt):
-                    ou = self._get_ou(aff['ou_id'])
-                if aff['affiliation'] == int(self.const.affiliation_student):
-                    ou = self._get_ou(aff['ou_id'])
+        for aff in person.get_affiliations():
+            if aff['affiliation'] == int(affiliation):
+                ou = self._get_ou(aff['ou_id'])
+                break
         account.set_account_type(ou.entity_id, affiliation)
         
     # user create
