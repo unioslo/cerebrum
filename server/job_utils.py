@@ -29,6 +29,12 @@ class When(object):
                 times.append(d + last_time - current_time)
             return min(times)
 
+    def __str__(self):
+        if self.time:
+            return "time=(%s)" % ",".join([str(t) for t in self.time])
+        return "freq=%s" % time.strftime('%H:%M.%S',
+                                         time.gmtime(self.freq))
+
 class Time(object):
     def __init__(self, min=None, hour=None, wday=None):
         """Emulate time part of crontab(5), None=*"""
@@ -98,6 +104,16 @@ class Time(object):
             return ret
         raise ValueError, "Programming error for %i" % prev_time
 
+    def __str__(self):
+        ret = []
+        if self.wday:
+            ret.append("d="+":".join(["%i" % w for w in self.wday]))
+        if self.hour:
+            ret.append("h="+":".join(["%i" % w for w in self.hour]))
+        if self.hour:
+            ret.append("m="+":".join(["%i" % w for w in self.min]))
+        return ",".join(ret)
+    
 class SocketHandling(object):
     """Simple class for handling client and server communication to
     job_runner"""

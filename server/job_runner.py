@@ -248,14 +248,53 @@ class JobRunner(object):
                         # sleep long enough
                         time.sleep(1)
 
+def dump_jobs(scheduled_jobs, details=0):
+    jobs = scheduled_jobs.get_jobs()
+    shown = {}
+
+    def dump(name, indent):
+        info = []
+        if details > 0:
+            if jobs[name].when:
+                info.append(str(jobs[name].when))
+        if details > 1:
+            if jobs[name].max_freq:
+                info.append("max_freq=%s" % time.strftime('%H:%M.%S',
+                                             time.gmtime(jobs[name].max_freq)))
+        if details > 2:
+            if jobs[name].pre:
+                info.append("pre="+str(jobs[name].pre))
+            if jobs[name].post:
+                info.append("post="+str(jobs[name].post))
+        print "%-40s %s" % ("   " * indent + name, ", ".join(info))
+        shown[name] = True
+        for k in jobs[name].pre or ():
+            dump(k, indent + 2)
+        for k in jobs[name].post or ():
+            dump(k, indent + 2)
+
+    for k, v in jobs.items():
+        if v.when is None:
+            continue
+        dump(k, 0)
+    print "Never run: \n%s" % "\n".join(
+        ["  %s" % k for k in jobs.keys() if not shown.has_key(k)])
+
+    
 def usage(exitcode=0):
-    print """job_runner.py --reload | --config file | --quit | --status"""
+    print """job_runner.py [options]:
+      --reload: re-read the config file
+      --config file : use alternative config-file
+      --quit : exit gracefully (allowing current job to complete)
+      --status : show status for a running job-runner
+      --dump level : shows dependency graph, level must be in the range 0-3"""
     sys.exit(exitcode)
 
 def main():
     try:
         opts, args = getopt.getopt(sys.argv[1:], '',
-                                   ['reload', 'quit', 'status', 'config='])
+                                   ['reload', 'quit', 'status', 'config=',
+                                    'dump='])
     except getopt.GetoptError:
         usage(1)
     #global scheduled_jobs
@@ -282,6 +321,9 @@ def main():
             scheduled_jobs = tmp
             # sys.path = sys.path[1:] #With this reload(module) loads another file(!)
             alt_config = True
+        elif opt in ('--dump',):
+            dump_jobs(scheduled_jobs, int(val))
+            sys.exit(0)
     if not alt_config:
         import scheduled_jobs
     sock = SocketHandling()
