@@ -108,7 +108,7 @@ def main():
         if(year < 1970 and getattr(cereconf, "ENABLE_MKTIME_WORKAROUND", 0) == 1):
             year = 1970   # Seems to be a bug in time.mktime on some machines
         try:
-            new_person.find_by_external_id(co.externalid_fodselsnr, person['fnr'])
+            new_person.find_by_external_id(co.externalid_fodselsnr, person['fnr'], co.system_lt)
         except Errors.NotFoundError:
             pass
 
@@ -150,9 +150,9 @@ def main():
         if len(faxer) == 0:
             pass            # TODO: Hente fax fra stedkode
         for tlf in telefoner:
-            new_person.populate_contact_info(co.contact_phone, tlf)
+            new_person.populate_contact_info(co.system_lt, co.contact_phone, tlf)
         for fax in faxer:
-            new_person.populate_contact_info(co.contact_fax, fax)
+            new_person.populate_contact_info(co.system_lt, co.contact_fax, fax)
 
         if person.has_key('adresselinje1_privatadresse'):
             new_person.populate_address(co.system_lt, co.address_post, address_text="%s\n%s" %
@@ -165,8 +165,7 @@ def main():
                 fak, inst, gruppe = stedkode[0:2], stedkode[2:4], stedkode[4:6]
                 ou.clear()
                 ou.find_stedkode(int(fak), int(inst), int(gruppe))
-                new_person.affect_affiliations(co.system_lt, co.affiliation_employee)
-                new_person.populate_affiliation(ou.ou_id, co.affiliation_employee,
+                new_person.populate_affiliation(co.system_lt, ou.ou_id, co.affiliation_employee,
                                                 co.affiliation_status_employee_valid)
             except Errors.NotFoundError:
                 print "Error setting stedkode"

@@ -32,7 +32,7 @@ import cereconf
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.Utils import Factory
 
-default_personfile = "/u2/dumps/FS/persons.dat.2"
+default_personfile = "/cerebrum/dumps/FS/persons.xml"
 
 class FSData(object):
     """This class is used to iterate over FS students in the XML dump."""

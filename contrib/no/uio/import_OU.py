@@ -67,7 +67,7 @@ def main():
     opts, args = getopt.getopt(sys.argv[1:], 'v', ['verbose'])
 
     verbose = 0
-    stedfile = "/u2/dumps/LT/sted.xml"
+    stedfile = "/cerebrum/dumps/LT/sted.xml"
 
     for opt, val in opts:
         if opt in ('-v', '--verbose'):

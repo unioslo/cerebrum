@@ -35,7 +35,7 @@ default_topics_file = "/cerebrum/dumps/FS/topics.xml"
 default_studprog_file = "/cerebrum/dumps/FS/studprog.xml"
 
 cereconf.DATABASE_DRIVER='Oracle'
-Cerebrum = Database.connect(user="ureg2000", service="FSDEMO.uio.no")
+Cerebrum = Database.connect(user="ureg2000", service="FSPROD.uio.no")
 FSP = FSPerson(Cerebrum)
 xml = XMLHelper()
 

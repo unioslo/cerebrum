@@ -186,7 +186,7 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
         if hasattr(self, '_affil_source'):
             source = self._affil_source
             db_affil = {}
-            for t_ou_id, t_affiliation, t_source, t_status in \
+            for t_person_id, t_ou_id, t_affiliation, t_source, t_status in \
                     self.get_affiliations():
                 if source == t_source:
                     idx = "%d:%d:%d" % (t_ou_id, t_affiliation, t_status)
@@ -505,6 +505,11 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
                          binds)
 
     def delete_affiliation(self, ou_id, affiliation, source, status):
+        binds = {'ou_id': int(ou_id),
+                 'affiliation': int(affiliation),
+                 'source': int(source),
+                 'p_id': self.entity_id,
+                 }
         self.execute("""
         UPDATE [:table schema=cerebrum name=person_affiliation_source]
         SET deleted_date=[:now]
@@ -512,7 +517,7 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
           person_id=:p_id AND
           ou_id=:ou_id AND
           affiliation=:affiliation AND
-          source_system=:source""", locals())
+          source_system=:source""", binds)
         # This method doesn't touch table 'person_affiliation', nor
         # does it try to do any actual deletion of rows from table
         # 'person_affiliation_source'; these tasks are in the domain

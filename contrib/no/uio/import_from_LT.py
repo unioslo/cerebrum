@@ -25,15 +25,15 @@ import os
 import sys
 import cereconf
 
-from modules.no.uio.access_LT import LT
+from Cerebrum.modules.no.uio.access_LT import LT
 from Cerebrum import Database,Errors
-from Utils import XMLHelper
+from Cerebrum.Utils import XMLHelper
 
 default_stedfile = "/cerebrum/dumps/LT/sted.xml"
 default_personfile = "/cerebrum/dumps/LT/person.xml"
 
 cereconf.DATABASE_DRIVER='Oracle'
-Cerebrum = Database.connect(user="ureg2000", service="LTKURS.uio.no")
+Cerebrum = Database.connect(user="ureg2000", service="LTPROD.uio.no")
 LT = LT(Cerebrum)
 xml = XMLHelper()
 
