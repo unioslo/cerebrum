@@ -86,6 +86,10 @@ class AccountUiOMixin(Account.Account):
             # server; try generating email addresses connected to the
             # target.
             self.update_email_addresses()
+            # Make sure that Cyrus is told about the quota, the
+            # previous call probably didn't change the database value
+            # and therefore didn't add a request.
+            self.update_email_quota(force=True)
         return ret
 
     def _UiO_update_email_server(self, server_type):
@@ -118,8 +122,15 @@ class AccountUiOMixin(Account.Account):
                 email_servs.append(svr['server_id'])
             svr_id = random.choice(email_servs)
             if old_server is None:
-                et = Email.EmailTarget(self._db)
-                et.find_by_email_target_attrs(entity_id = self.entity_id)
+                try:
+                    et = Email.EmailTarget(self._db)
+                    et.find_by_email_target_attrs(entity_id = self.entity_id)
+                except Errors.NotFoundError:
+                    et.clear()
+                    et.populate(self.const.email_target_account,
+                                self.entity_id,
+                                self.const.entity_account)
+                    et.write_db()
                 est.clear()
                 est.populate(svr_id, parent = et)
             else:
@@ -203,6 +214,11 @@ class AccountUiOMixin(Account.Account):
         return ret
 
     def update_email_quota(self, force=False):
+        """Set e-mail quota according to affiliation.  If any change
+        is made and user's e-mail is on a Cyrus server, add a request
+        to have Cyrus updated accordingly.  If force is true, such a
+        request is always made for Cyrus users."""
+        change = force
         quota = 100
         if self.is_employee():
             quota = 200
@@ -210,15 +226,17 @@ class AccountUiOMixin(Account.Account):
         try:
             eq.find_by_entity(self.entity_id)
         except Errors.NotFoundError:
+            change = True
             eq.populate(90, quota)
             eq.write_db()
         else:
             # We never decrease the quota, to allow for manual overrides
-            if quota <= eq.email_quota_hard and not force:
-                return
             if quota > eq.email_quota_hard:
+                change = True
                 eq.email_quota_hard = quota
                 eq.write_db()
+        if not change:
+            return
         est = Email.EmailServerTarget(self._db)
         try:
             est.find_by_entity(self.entity_id)
@@ -228,6 +246,13 @@ class AccountUiOMixin(Account.Account):
         es.find(est.email_server_id)
         if es.email_server_type == self.const.email_server_type_cyrus:
             br = BofhdRequests(self._db, self.const)
+            # The call graph is too complex when creating new users or
+            # migrating old users.  So to avoid problems with this
+            # function being called more than once, we just remove any
+            # conflicting requests, so that the last request added
+            # wins.
+            br.delete_request(entity_id=self.entity_id,
+                              operation=self.const.bofh_email_hquota)
             br.add_request(None, br.now, self.const.bofh_email_hquota, 
                            self.entity_id, None)
 
