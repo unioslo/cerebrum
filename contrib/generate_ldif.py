@@ -49,13 +49,6 @@ normalize_trans = maketrans(
     "abcdefghijklmnopqrstuvwxyz     ")
 
 
-#def conv_gecos(s):
-#        xlate = {'Æ' : '[', 'æ' : '{', 'Å' : ']', 'å' : '}','Ø' : '\\','ø' : '|' }
-#        s = string.join(map(lambda x:xlate.get(x, x), s), '')
-#        return s
-
-
-
 def load_code_tables():
     person = Person.Person(Cerebrum)
     affili_codes = person.list_person_affiliation_codes()
@@ -142,7 +135,6 @@ def init_ldap_dump(ou_org,filename=None):
 	org = string.upper(org)
 	org_name = str(getattr(cereconf,(string.join((string.join(('LDAP',org),'_'),'DN'),'_'))))
 	init_str = "dn: %s=%s,%s\n" % (cereconf.LDAP_ORG_ATTR,org_name,cereconf.LDAP_BASE)
-	#init_str = "dn: %s=%s,%s\n" % (cereconf.ORG_ATTR,getattr(cereconf,(string.join((org,'DN'),'_'))),cereconf.LDAP_BASE)
 	init_str += "objectClass: top\n"
 	for obj in cereconf.LDAP_ORG_OBJECTCLASS:
 	    init_str += "objectClass: %s\n" % obj
@@ -176,7 +168,9 @@ def root_OU():
 	    ou.find(root_org)
 	    text2 = "Organization: %s   ou_id= %s \n" % (ou.sort_name, ou.ou_id)
 	    sys.stdout.write(text2)
-	text3 = "Fill in the right organization-root(ou_id) in cerebrum/design/ldapconf.py!\n"
+	text3 = """
+Fill in the right organization-root in cereconf!
+Set LDAP_ORG_ROOT_AUTO='Disable' and LDAP_ORG_ROOT to the correct ou_id number!"""
 	sys.stdout.write(text3)
 	org_root = None
 	return(org_root)
@@ -330,6 +324,7 @@ def print_OU(id, par_ou, stedkodestr,par, filename=None):
 def trav_list(par, ou_list, par_ou,filename=None):
     stedkode = Stedkode.Stedkode(Cerebrum)
     for c,p in ou_list:
+	# Check if it is child of parent and not cyclic
 	if (p == par) and (c <> par):
 	    stedkode.clear()
 	    try:
@@ -372,10 +367,8 @@ def generate_person(filename=None):
     except: pass
     try:
 	group.find_by_name(str(cereconf.PERSON_NOT_PUBLIC_GR))
-	#res_gr = group.list_members(member_type=co.entity_person)[0]
 	for entries in group.list_members(member_type=co.entity_person)[0]:
 	    aci_empl_gr.append(entries[1])
-	    #print entries[1]
     except: pass
     group.clear()
     try: 
@@ -386,7 +379,6 @@ def generate_person(filename=None):
     try:  person_spread = int(getattr(co,cereconf.PERSON_SPREAD))
     except:  pass
     try:  acl_spread = int(cereconf.LDAP_PERSON_ACL_SPREAD) 
-    # When change to co -> int(getattr(co,cereconf.PERSON_..)
     except:  pass
     try:
 	email_domains = {}  
@@ -398,7 +390,6 @@ def generate_person(filename=None):
 	name,entity_name,ou_id,affili,status = row['name'],row['entity_name'],row['ou_id'],row['affiliation'],int(row['status'])
 	person.clear()
         person.entity_id = row['person_id']
-	#p_affiliations = person.list_affiliation(row['person_id'])
 	p_affiliations = person.get_affiliations()
 	aci_person = print_person = 'F'
 	for pr_status in p_affiliations:
@@ -467,7 +458,6 @@ def generate_person(filename=None):
 			pers_string += "street: %s\n" % some2utf(ou_struct[int(ou_id)][2])
 		except: pass
 		#pers_string += "title: "
-		#phone = row['contact_value']
 		if row['contact_value']:
 		    phone_str = []
 		    for phones in string.split(row['contact_value'],'$'):
@@ -525,12 +515,10 @@ def generate_person(filename=None):
 	    f.write(pers_string)
 	else:
 	    pass
-    #ou_struct = None
     f.close()
 
 def generate_alias(filename=None):
     person = Person.Person(Cerebrum)
-    #ou_struct = None
     dn_string = "%s=%s,%s" % (cereconf.LDAP_ORG_ATTR,cereconf.LDAP_PERSON_DN,cereconf.LDAP_BASE)
     if filename:
 	f = file(filename,'a')
@@ -558,8 +546,8 @@ def generate_alias(filename=None):
     f.close()
 
 def generate_users(spread=None,filename=None):
-    shells = {}	
-    disks = {}
+    shells = disks = {}
+    prev_userid = 0
     posix_user = PosixUser.PosixUser(Cerebrum)
     posix_group = PosixGroup.PosixGroup(Cerebrum)
     disk = Disk.Disk(Cerebrum)
@@ -630,7 +618,9 @@ loginShell: %s
 gecos: %s\n""" % (posix_dn_string, uname, posix_dn, obj_string, gecos, 
 		uname,str(row['posix_uid']), str(row['posix_gid']),
 		home, passwd,shell, gecos)
-	f.write(posix_text)
+	if int(acc_id) <> prev_userid:
+	    f.write(posix_text)
+	prev_userid = int(acc_id)
     f.close()
 
 def generate_posixgroup():
@@ -699,7 +689,6 @@ def generate_netgroup(spread=None, filename=None):
     else:
 	for spread in cereconf.LDAP_NETGROUP_SPREAD:
 	    spreads.append(int(getattr(co,spread)))
-	#spreads = "%s" % cereconf.NETGROUP_SPREAD
     f.write("\n")
     dn_str = "%s=%s,%s" % (cereconf.LDAP_ORG_ATTR,cereconf.LDAP_NETGROUP_DN,cereconf.LDAP_BASE)
     obj_str = "objectClass: top\n"
@@ -726,14 +715,10 @@ def generate_netgroup(spread=None, filename=None):
 	    for id in members:
                 uname_id = int(id[1])
                 if entity2uname.has_key(uname_id):
-                    #netgrp_str += "nisNetgroupTriple: (,%s,)\n" % re.sub('\W','',
-		    #					entity2uname[uname_id]).replace('_','')
 		    netgrp_str += "nisNetgroupTriple: (,%s,)\n" % entity2uname[uname_id].replace('_','')
                 else:
                     pos_netgrp.clear()
                     pos_netgrp.entity_id = uname_id
-                    #netgrp_str += "nisNetgroupTriple: (,%s,)\n" % re.sub('\W','',
-		    #					pos_netgrp.get_name(co.account_namespace)).replace('_','')
 		    netgrp_str += "nisNetgroupTriple: (,%s,)\n" % entity2uname[uname_id].replace('_','')
 #	    for host in hosts:
 #		host_id = int(host[1])
