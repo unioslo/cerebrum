@@ -111,7 +111,7 @@ WHERE s.fodselsdato=r.fodselsdato AND
       r.regformkode IN ('STUDWEB','DOKTORREG','MANUELL') AND
       NVL(sps.dato_studierett_gyldig_til,SYSDATE) >= sysdate AND
       %s
-UNION """ %(self.get_termin_aar(only_current=1))
+UNION """ %(self._get_termin_aar(only_current=1))
 
         qry = qry + """
 SELECT DISTINCT
@@ -131,7 +131,7 @@ WHERE sps.studieprogramkode = 'ENKELTEMNE' AND
       r.regformkode IN ('STUDWEB','DOKTORREG','MANUELL') AND
       NVL(sps.dato_studierett_gyldig_til,SYSDATE) >= sysdate AND
       %s
-UNION """ %(self.get_termin_aar(only_current=1))
+UNION """ %(self._get_termin_aar(only_current=1))
 
         qry = qry + """
 SELECT DISTINCT
@@ -204,7 +204,7 @@ WHERE s.fodselsdato=r.fodselsdato AND
       r.regformkode IN ('STUDWEB','DOKTORREG','MANUELL') AND
       NVL(st.dato_gyldig_til,SYSDATE) >= sysdate AND
       %s
-UNION """ %(self.get_termin_aar(only_current=1))
+UNION """ %(self._get_termin_aar(only_current=1))
 
         qry = qry + """
 SELECT DISTINCT
@@ -297,7 +297,7 @@ class UiOPortal(access_FS.FSObject):
             m.emnekode = es.emnekode AND
             es.studieprogramkode = sps.studieprogramkode AND
             es.studieprogramkode = sprg.studieprogramkode
-        """ % self.get_termin_aar()
+        """ % self._get_termin_aar()
 
         # Velg ut studentens avlagte UiO eksamener i inneværende
         # semester (studenten er fortsatt gyldig student ut
@@ -425,7 +425,7 @@ class UiOPortal40(access_FS.FSObject):
             m.emnekode = es.emnekode AND
             es.studieprogramkode = st.studieprogramkode AND
             es.studieprogramkode = sprg.studieprogramkode
-        """ % self.get_termin_aar()
+        """ % self._get_termin_aar()
 
         # Velg ut studentens avlagte UiO eksamener i inneværende
         # semester (studenten er fortsatt gyldig student ut
