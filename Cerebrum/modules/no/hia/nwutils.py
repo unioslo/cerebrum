@@ -50,11 +50,19 @@ ent_name = Entity.EntityName(db)
 
 class LDAPConnection:
     __port = 0
-    def __init__( self, host, port, binddn, password, scope ):
-        self.__host = host
-        self.__port = port
-        self.__binddn = binddn
-        self.__password = password
+    def __init__( self, host=None, port=None, binddn=None, 
+				password=None, scope= 'SUB'):
+	self.db = db
+	self.co = co
+        self.__host = host or cereconf.NW_LDAPHOST
+        self.__port = port or cereconf.NW_LDAPPORT or 389
+        self.__binddn = binddn or cereconf.NW_ADMINUSER
+	if not password:
+	    user = cereconf.NW_ADMINUSER.split(',')[:1][0]
+	    self.__password = self.db._read_password(cereconf.NW_LDAPHOST,
+								user)
+	else:
+	    self.__password = password
         if scope.upper() == "SUB":
             self.__scope = ldap.SCOPE_SUBTREE
         elif scope.upper() == "ONE":
@@ -99,10 +107,11 @@ class LDAPConnection:
 	self.__ldap_connection_handle.unbind()
 	self.__ldap_connection_handle = None
 
-    def __search( self, handle, basedn, filter, scope=ldap.SCOPE_SUBTREE):
+    def __search( self, handle, basedn, filter, scope=ldap.SCOPE_SUBTREE,
+						attr_l = None):
         if not handle:
             return False
-        return handle.search_s( basedn, scope, filter )
+        return handle.search_s( basedn, scope, filter, attrlist=attr_l)
     
     def __create( self, handle, dn, attrs ):
         if not handle:
@@ -137,12 +146,12 @@ class LDAPConnection:
             return False
         return len( self.__search( self.__ldap_connection_handle, basedn, filter, self.__scope ) ) != 0
     
-    def GetObjects( self, basedn, filter ):
+    def GetObjects( self, basedn, filter, attrlist = None ):
         if not self.__ldap_connection_handle:
             self.__ldap_connection_handle = self.__connect( self.__host, self.__binddn, self.__password, self.__port )
             if not self.__ldap_connection_handle:
                 return False
-        return self.__search( self.__ldap_connection_handle, basedn, filter, self.__scope )
+        return self.__search( self.__ldap_connection_handle, basedn, filter, self.__scope,attrlist )
     
     def CreateObject( self, dn, attrs ):
         if not self.__ldap_connection_handle:
@@ -215,10 +224,47 @@ class LDAPConnection:
             self.__ldap_connection_handle = self.__connect( self.__host, self.__binddn, self.__password, self.__port )
             if not self.__ldap_connection_handle:
                 return False
-        self.__modify( self.__ldap_connection_handle, dn, attrs )        
-            
-            
-            
+        self.__modify( self.__ldap_connection_handle, dn, attrs ) 
+
+    def get_pq(self, acc_id, uname):
+        pq_valid = False
+        pq_quota = False
+        if get_primary_affiliation(acc_id, self.co.account_namespace) ==\
+                        self.co.affiliation_student:
+            pq_valid = True
+            search_str = "(&(cn=%s)(objectClass=inetOrgPerson))" % uname
+            res = self.GetObjects(cereconf.NW_LDAP_ROOT,
+                                        search_str,
+                                        attrlist = ['accountBalance',
+                                        'allowUnlimitedCredit'])
+            if not res:
+                return(False,False)
+	    res_val = res[0][1]
+	    if res_val.has_key('accountBalance'):
+		pq_quota = int(res_val.get('accountBalance')[0])
+	    else: 
+		pq_quota = 0
+	    unlimit = res_val.get('allowUnlimitedCredit')
+            if res_val.has_key('allowUnlimitedCredit'):
+		if 'TRUE' in res_val.get('allowUnlimitedCredit'):
+                    pq_valid = False
+        return(pq_valid, pq_quota)
+
+
+    def set_pq(self, quota, uname):
+	search_str = "(&(cn=%s)(objectClass=inetOrgPerson))" % uname
+	res = self.GetObjects(cereconf.NW_LDAP_ROOT,
+					search_str,
+					attrlist = ['accountBalance',])
+	if not res:
+	    return(False)
+	(ldap_user, ldap_res) = res[0]
+	if ldap_res.has_key('accountBalance'):
+	    self.ModifyAttributes(ldap_user,[('accountBalance',str(quota))])
+	else:
+	    self.AddAttributes(ldap_user,[('accountBalance',str(quota))])
+	return(True)
+	    
 
 def op_check(attrs, value_name, new_value):
     op = None
@@ -293,20 +339,26 @@ def get_account_info(account_id, spread, site_callback):
 	ldap_ou = "%s,%s" % (unicode(cereconf.NW_LDAP_STUDOU, 'iso-8859-1').encode('utf-8'),
                         unicode(cereconf.NW_LDAP_ROOT, 'iso-8859-1').encode('utf-8'))
 	ldap_dn = unicode('cn=%s,' % name, 'iso-8859-1').encode('utf-8') + ldap_ou
-    try:
-	if cereconf.NW_PRINTER_QUOTAS.lower() == 'enable': 
-	    from Cerebrum.modules.no import PrinterQuotas 
-	    pq = PrinterQuotas.PrinterQuotas(db)
-            pq.clear();
-    	    pq.find(account_id)
-	    print_quota = pq.printer_quota
-    except Errors.NotFoundError:
-        print_quota = None  # User has no quota
-    except:
-        if affiliation == co.affiliation_student:
-            print_quota = '11000'
+#    try:
+#	if cereconf.NW_PRINTER_QUOTAS.lower() == 'enable': 
+#	    from Cerebrum.modules.no import PrinterQuotas 
+#	    pq = PrinterQuotas.PrinterQuotas(db)
+#            pq.clear();
+#    	    pq.find(account_id)
+#	    print_quota = pq.printer_quota
+#    except Errors.NotFoundError:
+#	print_quota = None  # User has no quota
+#    except:
+    if affiliation == co.affiliation_student:
+	try:
+	    print_quota = int(cereconf.NW_PR_QUOTA)
+        except AttributeError, e:
+	    logger.debug(str(e))
+	except ValueError, e:
+	    raise Errors.PoliteException((str(e) + '\n' +\
+			"cereconf's NW_PR_QUOTA is not number"))
         else:
-            print_quota = None
+            print_quota = 0
     time_now = time.strftime("%H:%M:%S %d/%m/%Y",time.localtime()) 
     attrs = []
     attrs.append( ("ObjectClass", "user" ) )
