@@ -24,7 +24,6 @@ import re
 import os
 import sys
 import getopt
-import pprint
 
 import xml.sax
 
@@ -33,79 +32,16 @@ from Cerebrum import Person
 import cereconf
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.Utils import Factory
+from Cerebrum.modules.no.uio.AutoStud import StudentInfo
+from Cerebrum.modules.no.uio import AutoStud
 
-default_personfile = "/cerebrum/dumps/FS/person_file.xml"
+default_personfile = "/cerebrum/dumps/FS/merged_persons.xml"
 default_studieprogramfile = "/cerebrum/dumps/FS/studieprogrammer.xml"
-pp = pprint.PrettyPrinter(indent=4)
 
 studieprog2sko = {}
 ou_cache = {}
 
-"""Importerer personer fra FS iht. fs_import.txt.  Rekkefølgen på
-personer i XML dumpen er: fagperson, opptak, evu, perm, tilbud."""
-
-class FSData(object):
-    """This class is used to iterate over FS students in the XML dump."""
-
-    def __init__(self, filename):
-        self.tp = TrivialParser()
-        xml.sax.parse(filename, self.tp)
-
-    def __iter__(self):
-        return self
-
-    def next(self):
-        """Returns a dict with data about the next person in FS."""
-        try:
-            return self.tp.personer.popitem()
-        except KeyError:
-            raise StopIteration, "End of file"
-
-class TrivialParser(xml.sax.ContentHandler):
-    """We gather all information known about the person so that we can
-    provide all information about a person in one go.  This is
-    currently done in memory, but this should not be a problem for
-    current hardware."""
-
-    def __init__(self):
-        self.personer = {}
-
-    def startElement(self, name, attrs):
-        if name in ('fagperson', 'opptak', 'evu', 'perm', 'tilbud'):
-            tmp = {'type': name}
-            for k in attrs.keys():
-                tmp[k] = attrs[k].encode('iso8859-1')
-            fnr = "%06d%05d" % (int(tmp['fodselsdato']), int(tmp['personnr']))
-            self.personer.setdefault(fnr, []).append(tmp)
-        elif name == 'data':
-            pass
-        else:
-            print "WARNING: unknown element: %s" % name
-
-    def endElement(self, name):
-        pass
-
-class StudieprogramData(xml.sax.ContentHandler):
-    def __init__(self, filename):
-        self.entries = []
-        xml.sax.parse(filename, self)
-
-
-    def startElement(self, name, attrs):
-        if name == 'studprog':
-            tmp = {}
-            for k in attrs.keys():
-                tmp[k] = attrs[k].encode('iso8859-1')
-            self.entries.append(tmp)
-    
-    def __iter__(self):
-        return self
-
-    def next(self):
-        try:
-            return self.entries.pop()
-        except IndexError:
-            raise StopIteration, "End of file"
+"""Importerer personer fra FS iht. fs_import.txt."""
 
 def _get_sko(a_dict, kfak, kinst, kgr, kinstitusjon=None):
     key = "-".join((a_dict[kfak], a_dict[kinst], a_dict[kgr]))
@@ -115,7 +51,7 @@ def _get_sko(a_dict, kfak, kinst, kgr, kinstitusjon=None):
             ou.find_stedkode(int(a_dict[kfak]), int(a_dict[kinst]), int(a_dict[kgr]))
             ou_cache[key] = ou.ou_id
         except Errors.NotFoundError:
-            print "WARNING: bad stedkode: %s" % key
+            logger.warn("bad stedkode: %s" % key)
             ou_cache[key] = None
     return ou_cache[key]
 
@@ -134,23 +70,23 @@ def _ext_address_info(a_dict, kline1, kline2, kline3, kpost, kland):
         return None
     return ret
 
-def process_person(db, dta):
+def process_person_callback(person_info):
     """Called when we have fetched all data on a person from the xml
     file.  Updates/inserts name, address and affiliation
     information."""
     
-    fnr, persondta = dta
     try:
+        fnr = fodselsnr.personnr_ok("%06d%05d" % (int(person_info['fodselsdato']),
+                                                  int(person_info['personnr'])))
         fnr = fodselsnr.personnr_ok(fnr)
-        if verbose:
-            print "Process %s" % (fnr),
+        logger.info2("Process %s " % (fnr), append_newline=0)
         (year, mon, day) = fodselsnr.fodt_dato(fnr)
         if (year < 1970
             and getattr(cereconf, "ENABLE_MKTIME_WORKAROUND", 0) == 1):
             # Seems to be a bug in time.mktime on some machines
             year = 1970
     except fodselsnr.InvalidFnrError:
-        print "Ugyldig fødselsnr: %s" % fnr
+        logger.warn("Ugyldig fødselsnr: %s" % fnr)
         return
 
     gender = co.gender_male
@@ -161,17 +97,20 @@ def process_person(db, dta):
     studentnr = None
     affiliations = []
     address_info = None
-    # Iterate over all persondta entries and extract relevant data    
-    for p in persondta:
+    # Iterate over all person_info entries and extract relevant data    
+    for dta_type in person_info.keys():
+        p = person_info[dta_type][0]
+        if isinstance(p, str):
+            continue
         # Get name
-        if p['type'] in ('fagperson', 'opptak', 'tilbud', 'evu'):
+        if dta_type in ('fagperson', 'opptak', 'tilbud', 'evu'):
             etternavn = p['etternavn']
             fornavn = p['fornavn']
         if p.has_key('studentnr_tildelt'):
             studentnr = p['studentnr_tildelt']
         # Get address
         if address_info is None:
-            if p['type'] in ('fagperson',):
+            if dta_type in ('fagperson',):
                 address_info = _ext_address_info(p, 'adrlin1_arbeide',
                     'adrlin2_arbeide', 'adrlin3_arbeide',
                     'postnr_arbeide', 'adresseland_arbeide')
@@ -180,7 +119,7 @@ def process_person(db, dta):
                     'adrlin1_hjemsted', 'adrlin2_hjemsted',
                     'adrlin3_hjemsted', 'postnr_hjemsted',
                     'adresseland_hjemsted')
-            elif p['type'] in ('opptak',):
+            elif dta_type in ('opptak',):
                 address_info = _ext_address_info(p, 'adrlin1_semadr',
                     'adrlin2_semadr', 'adrlin3_semadr',
                     'postnr_semadr', 'adresseland_semadr')
@@ -189,7 +128,7 @@ def process_person(db, dta):
                         'adrlin1_hjemsted', 'adrlin2_hjemsted',
                         'adrlin3_hjemsted', 'postnr_hjemsted',
                         'adresseland_hjemsted')
-            elif p['type'] in ('evu',):
+            elif dta_type in ('evu',):
                 address_info = _ext_address_info(p, 'adrlin1_hjem',
                     'adrlin2_hjem', 'adrlin3_hjem', 'postnr_hjem',
                     'adresseland_hjem')
@@ -198,22 +137,22 @@ def process_person(db, dta):
                         'adrlin1_hjemsted', 'adrlin2_hjemsted',
                         'adrlin3_hjemsted', 'postnr_hjemsted',
                         'adresseland_hjemsted')
-            elif p['type'] in ('tilbud',):
+            elif dta_type in ('tilbud',):
                 # TODO: adresse informasjon mangler i xml fila
                 pass
 
         # Get affiliations
-        if p['type'] in ('fagperson',):
+        if dta_type in ('fagperson',):
             _process_affiliation(co.affiliation_ansatt,
                                  co.affiliation_status_ansatt_vit,
                                  affiliations, _get_sko(p, 'faknr',
                                  'instituttnr', 'gruppenr', 'institusjonsnr'))
-        elif p['type'] in ('aktiv', ):
+        elif dta_type in ('aktiv', ):
             # TODO: Ikke noe som genererer disse entriene foreløbig.
             # Skal kanskje leses fra topics, men det er uvvist hvilket
             # format topic fila vil få
             pass
-        elif p['type'] in ('opptak', ):
+        elif dta_type in ('opptak', ):
             subtype = co.affiliation_status_student_opptak
             if p['studierettstatkode'] == 'EVU':
                 subtype = co.affiliation_status_student_evu
@@ -224,22 +163,22 @@ def process_person(db, dta):
             _process_affiliation(co.affiliation_student,
                                  subtype,
                                  affiliations, studieprog2sko[p['studieprogramkode']])
-        elif p['type'] in ('perm',):
+        elif dta_type in ('perm',):
             _process_affiliation(co.affiliation_student,
                                  co.affiliation_status_student_aktiv,
                                  affiliations, studieprog2sko[p['studieprogramkode']])
-        elif p['type'] in ('tilbud',):
+        elif dta_type in ('tilbud',):
             _process_affiliation(co.affiliation_student,
                                  co.affiliation_status_student_tilbud,
                                  affiliations, studieprog2sko[p['studieprogramkode']])
-        elif p['type'] in ('evu', ):
+        elif dta_type in ('evu', ):
             _process_affiliation(co.affiliation_student,
                                  co.affiliation_status_student_evu,
                                  affiliations, _get_sko(p, 'faknr_adm_ansvar',
                                  'instituttnr_adm_ansvar', 'gruppenr_adm_ansvar'))
             
     if etternavn is None:
-        print "WARNING: Ikke noe navn på %s" % fnr
+        logger.warn("Ikke noe navn på %s" % fnr)
         return
 
     # TODO: If the person already exist and has conflicting data from
@@ -284,14 +223,14 @@ def process_person(db, dta):
     op = new_person.write_db()
     if verbose:
         if op is None:
-            print "**** EQUAL ****"
+            logger.info2("**** EQUAL ****")
         elif op == True:
-            print "**** NEW ****"
+            logger.info2("**** NEW ****")
         elif op == False:
-            print "**** UPDATE ****"
+            logger.info2("**** UPDATE ****")
 
 def main():
-    global verbose, ou, db, co
+    global verbose, ou, db, co, logger
     verbose = 0
     opts, args = getopt.getopt(sys.argv[1:], 'vp:s:', ['verbose', 'person-file=',
                                                        'studieprogram-file='])
@@ -304,22 +243,26 @@ def main():
             personfile = val
         elif opt in ('-s', '--studieprogram-file'):
             studieprogramfile = val
-
+    if "system_fs" not in cereconf.SYSTEM_LOOKUP_ORDER:
+        print "Check your config, SYSTEM_LOOKUP_ORDER is wrong!"
+        sys.exit(1)
+    logger = AutoStud.Util.ProgressReporter("./fsi-run.log.%i" % os.getpid(),
+                                            stdout=verbose)
+    logger.info("Started")
     db = Factory.get('Database')()
     db.cl_init(change_program='import_FS')
     ou = Factory.get('OU')(db)
     co = Factory.get('Constants')(db)
     if getattr(cereconf, "ENABLE_MKTIME_WORKAROUND", 0) == 1:
-        print "Warning: ENABLE_MKTIME_WORKAROUND is set"
+        logger.warn("Warning: ENABLE_MKTIME_WORKAROUND is set")
 
-    for s in StudieprogramData(studieprogramfile):
+    for s in StudentInfo.StudieprogDefParser(studieprogramfile):
         studieprog2sko[s['studieprogramkode']] = \
             _get_sko(s, 'faknr_studieansv', 'instituttnr_studieansv',
                      'gruppenr_studieansv')
-    for persondta in FSData(personfile):
-        print persondta
-        process_person(db, persondta)
+    StudentInfo.StudentInfoParser(personfile, process_person_callback, logger)
     db.commit()
+    logger.info("Completed")
 
 if __name__ == '__main__':
     main()
