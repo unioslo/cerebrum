@@ -19,6 +19,8 @@
 
 """."""
 
+import re
+
 from Cerebrum import Utils
 from Cerebrum import Constants
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
@@ -26,6 +28,7 @@ from Cerebrum.Entity import Entity
 from Cerebrum.Disk import Host
 from Cerebrum import Person
 from Cerebrum import Account
+from Cerebrum import Errors
 
 import cereconf
 
@@ -555,21 +558,26 @@ class EntityEmailDomain(Entity):
         if not self.__updated:
             return
         is_new = not self.__in_db
+        affiliation = self.entity_email_affiliation
+        if affiliation is not None:
+            affiliation = int(affiliation)
         if is_new:
             self.execute("""
             INSERT INTO [:table schema=cerebrum name=email_entity_domain]
               (entity_id, affiliation, domain_id)
             VALUES (:e_id, :aff, :dom_id)""",
                          {'e_id': self.entity_id,
-                          'aff': int(self.entity_email_affiliation),
+                          'aff': affiliation,
                           'dom_id': self.entity_email_domain_id})
         else:
             # TBD: What about DELETEs?
             self.execute("""
             UPDATE [:table schema=cerebrum name=email_entity_domain]
-            SET affiliation=:aff, domain_id=:dom_id
-            WHERE entity_id=:e_id""", {'e_id': self.entity_id,
-                                       'aff': self.entity_email_affiliation,
+            SET affiliation = :aff, domain_id = :dom_id
+            WHERE entity_id = :e_id AND
+              ((:aff IS NULL AND affiliation IS NULL) OR
+               affiliation = :aff)""", {'e_id': self.entity_id,
+                                       'aff': affiliation,
                                        'dom_id': self.entity_email_domain_id})
         del self.__in_db
         self.__in_db = True
@@ -578,22 +586,19 @@ class EntityEmailDomain(Entity):
 
     def find(self, entity_id, affiliation=None):
         self.__super.find(entity_id)
-        try:
-            (self.entity_email_domain_id,
-             self.entity_email_affiliation) = self.query_1("""
-            SELECT domain_id, affiliation
-            FROM [:table schema=cerebrum name=email_entity_domain]
-            WHERE entity_id=:e_id AND
-                  affiliation=:aff""", {'e_id': entity_id,
-                                        'aff': affiliation})
-            in_db = True
-        except Errors.NotFoundError:
-            in_db = False
+        (self.entity_email_domain_id,
+         self.entity_email_affiliation) = self.query_1("""
+        SELECT domain_id, affiliation
+        FROM [:table schema=cerebrum name=email_entity_domain]
+        WHERE entity_id=:e_id AND
+          ((:aff IS NULL AND affiliation IS NULL) OR
+           affiliation=:aff)""", {'e_id': entity_id,
+                                  'aff': affiliation})
         try:
             del self.__in_db
         except AttributeError:
             pass
-        self.__in_db = in_db
+        self.__in_db = True
         self.__updated = []
 
     def delete(self, affiliation=None):
@@ -1277,6 +1282,23 @@ class AccountEmailMixin(Account.Account):
         # Finally, allocate an addresses in EMAIL_DEFAULT_DOMAIN.
 
     def get_email_cn_local_part(self):
+        try:
+            full = self.get_fullname()
+        except Errors.NotFoundError:
+            full = self.account_name
+##         full = wash_to_rfc2821(full)
+        names = [x.lower() for x in re.split(r'\s+', full)]
+        print "DEBUG1: %r" % names
+        last = names.pop(-1)
+        print "DEBUG2: %r + %r" % (names, last)
+        names = [x for x in '-'.join(names).split('-') if x]
+        print "DEBUG3: %r" % names
+        if len(names) > 1:
+            names = [x[0] for x in names]
+        names.append(last)
+        return ".".join(names)
+
+    def get_fullname(self):
         if self.owner_type <> self.const.entity_person:
             # In the Cerebrum core, there is only one place the "full
             # name" of an account can be registered: As the full name
@@ -1290,10 +1312,12 @@ class AccountEmailMixin(Account.Account):
             # specialisations into account (for *all* your users),
             # override this method in an appropriate subclass, and set
             # cereconf.CLASS_ACCOUNT accordingly.
-            return self.account_name
-        p = Factory.get("Person")(self._db)
+            raise Errors.NotFoundError, \
+                  "No full name for non-personal account."
+        p = Utils.Factory.get("Person")(self._db)
         p.find(self.owner_id)
-##        full = p.get_name(self.const.source
+        full = p.get_name(self.const.system_cached, self.const.name_full)
+        return full
 
     def get_primary_maildomain(self):
         """Return correct `domain_id' for account's primary address."""
