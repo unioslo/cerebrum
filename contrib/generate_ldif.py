@@ -46,6 +46,7 @@ alias_list = {}
 org_root = None
 global dn_dict
 dn_dict = {}
+disablesync_cn = 'disablesync'
 
 normalize_trans = string.maketrans(
     "ABCDEFGHIJKLMNOPQRSTUVWXYZ\t\n\r\f\v",
@@ -857,11 +858,13 @@ def spread_code(spr_str):
 
 
 def iso2utf(s):
+    """Not in use for the moment, remove this line if used """
     """Convert iso8859-1 to utf-8"""
     utf_str = unicode(s,'iso-8859-1').encode('utf-8')
     return utf_str
 
 def utf2iso(s):
+    """Not in use for the moment, remove this line if used """
     """Convert utf-8 to iso8859-1"""
     iso_str = unicode(s,'utf-8').encode('iso-8859-1')
     return iso_str
@@ -908,6 +911,7 @@ def make_ou_for_rdn(ou):
 
 
 def verify_printableString(str):
+    """Not in use for the moment, remove this line if used """
     """Return true if STR is valid for the LDAP syntax printableString"""
     return printablestring_re.match(str)
 
@@ -944,6 +948,7 @@ def get_contacts(entity_id=None,source_system=None,contact_type=None,email=0):
 need_base64_re = re.compile('^\\s|[\0\r\n]|\\s$')
 
 def make_attr(name, strings, normalize = None, verify = None, raw = False):
+    """ Not in use for the moment, remove this line if used """
     ret = []
     done = {}
 
@@ -973,23 +978,28 @@ def make_attr(name, strings, normalize = None, verify = None, raw = False):
                                              .replace("\n", ''))))
         else:
             ret.append("%s: %s\n" % (name, s))
-
     return ''.join(ret)
 
+
 def disable_ldapsync_mode():
-    try: 
+    try:
+	ldap_servers = cereconf.LDAP_SERVER
 	from Cerebrum.modules import LdapCall
-	ldap_servers = cereconf.LDAP_SERVER 
-    except: 
-	logger.debug('No active LDAP-sync severs or missing python-LDAP module')
+    except AttributeError:
+	logger.info('No active LDAP-sync severs configured')
+    except ImportError: 
+	logger.info('LDAP modules missing. Probably python-LDAP')
     else:
 	s_list = LdapCall.ldap_connect()
-	#ldif_list = modlist.addModlist(LdapCall.ldap_update_tag[1])
-	LdapCall.add_disable_sync(s_list)
+	LdapCall.add_disable_sync(s_list,disablesync_cn)
 	LdapCall.end_session(s_list)
-	
-	
-
+	logg_dir = cereconf.LDAP_DUMP_DIR + '/log'
+	if os.path.isdir(logg_dir):  
+	    rotate_file = '/'.join((logg_dir,'rotate_ldif.tmp'))
+	    if not os.path.isfile(rotate_file):
+		f = file(rotate_file,'w')
+		f.write(time.strftime("%d %b %Y %H:%M:%S", time.localtime())) 
+		f.close()
 
 def main():
     try:
@@ -1033,6 +1043,7 @@ def main():
 	    [m_val.append(str(x)) for x in val.split(',')]
             p['n_spr'] = eval_spread_codes(m_val)
 	elif opt in ('--posix',):
+	    disable_ldapsync_mode()
             generate_users()
             generate_posixgroup()
             generate_netgroup()
@@ -1090,6 +1101,7 @@ def config():
 	    if (cereconf.LDAP_ALIAS == 'Enable'):
 		generate_alias()
 	    if (cereconf.LDAP_USER == 'Enable'):
+		disable_ldapsync_mode()
 		generate_users()
 	    if (cereconf.LDAP_GROUP == 'Enable'):
 		generate_posixgroup()
