@@ -120,7 +120,7 @@ def process_email_requests():
     for r in br.get_requests(operation=const.bofh_email_create):
         logger.debug("Req: email_create %d at %d",
                      r['request_id'],r['run_at'])
-	if r['run_at'] < br.now:
+        if r['run_at'] < br.now:
             hq = get_email_hardquota(r['entity_id'])
             if (cyrus_create(r['entity_id']) and
                 cyrus_set_quota(r['entity_id'], hq)):
@@ -147,37 +147,59 @@ def process_email_requests():
 	    try:
                 uname = get_account(r['entity_id'])[1]
             except Errors.NotFoundError:
-                logger.error("bofh_email_delete: %d: " % r['entity_id'] +
-                             "user not found")
+                logger.error("bofh_email_delete: %d: user not found",
+                             r['entity_id'])
+                br.delay_request(request_id=r['request_id'])
+                db.commit()
                 continue
-            # we can't use get_imaphost(), since the database contains
-            # the new host.
-            host = r['state_data']['imaphost']
+            
+            # The database contains the new host, so the id of the server
+            # to remove from is passed in state_data.
+            server = Email.EmailServer(db)
+            try:
+                server.find(r['state_data'])
+            except Errors.NotFoundError:
+                logger.error("bofh_email_delete: %d: target server not found",
+                             r['state_data'])
+                br.delay_request(request_id=r['request_id'])
+                db.commit()
+                continue
+            host = server.name
+            logger.debug("will delete %s from %s", uname, host)
             try:
                 cyradm = connect_cyrus(host = host)
             except CerebrumError, e:
                 logger.error("bofh_email_delete: %s: %s" % (host, str(e)))
                 continue
-            res, boxes = cyradm.m.list("*", "user.%s" % uname)
-            if not res == 'OK':
+            res, list = cyradm.m.list("user.%s" % uname)
+            if res <> 'OK' or list[0] == None:
+                # TBD: is this an error we need to keep around?
                 db.rollback()
-                logger.error("bofh_email_delete: %s: " % uname +
-                             "couldn't enumerate mailboxes")
+                logger.error("bofh_email_delete: %s: no mailboxes", uname)
                 br.delay_request(r['request_id'])
                 db.commit()
                 continue
-            # make sure the subfolders are deleted first by reversing
-            # the sort.
-            boxes.sort().reverse()
+            folders = ["user.%s" % uname]
+            res, list = cyradm.m.list("user.%s.*" % uname)
+            if res == 'OK' and list[0]:
+                for line in list:
+                    folder = line.split(' ')[2]
+                    folders += [ folder[1:-1] ]
+            # Make sure the subfolders are deleted first by reversing
+            # the sorted list.
+            folders.sort()
+            folders.reverse()
             allok = True
-            for box in boxes:
-                res = cyradm.m.delete(box)
-                if (not res[0] == 'OK'):
-                    logger.error("IMAP delete %s failed: %s", (mbox, res[1]))
+            for folder in folders:
+                logger.debug("deleting %s ... ", folder)
+                cyradm.m.setacl(folder, cereconf.CYRUS_ADMIN, 'c')
+                res = cyradm.m.delete(folder)
+                if res[0] <> 'OK':
+                    logger.error("IMAP delete %s failed: %s", folder, res[1])
                     allok = False
             if allok:
                 cyrus_subscribe(uname, host, action="delete")
-                br.delete_request(r['request_id'])
+                br.delete_request(request_id=r['request_id'])
             else:
                 db.rollback()
                 br.delay_request(r['request_id'])
@@ -211,17 +233,20 @@ def process_email_requests():
     for r in br.get_requests(operation=const.bofh_email_move):
         logger.debug("Req: email_move %d", r['run_at'])
 	if r['run_at'] < br.now:
+            # state_data is a request-id which must complete first,
+            # typically a email_create request.
             # TBD: make it a general feature in BofhdRequests?
-            if "depend_req" in r['state_data']:
+            if r['state_data']:
                 try:
-                    if br.getquests(entity_id = r['state_data']['depend_req']):
-                        br.delay_request(r['request_id'])
-                        continue
-                except:
+                    br.get_requests(request_id=r['state_data'])
+                    br.delay_request(r['request_id'])
+                    continue
+                except Errors.NotFoundError:
                     pass
+            em = Email.EmailServerTarget(db)
+            em.find(get_email_target_id(r['entity_id']))
             if move_email(r['entity_id'], r['requestee_id'],
-                          r['state_data']['source_server'],
-                          r['destination_id']):
+                          em.get_server_id(), r['destination_id']):
                 br.delete_request(request_id=r['request_id'])
                 br.add_request(r['requestee_id'], r['run_at'],
                                const.bofh_email_convert,
@@ -303,15 +328,14 @@ def cyrus_create(user_id):
     except CerebrumError, e:
         logger.error("cyrus_create: " + str(e))
         return False
-    boxes = ["user.%s%s" % (uname, sub)
-             for sub in "", ".spam", ".Sent", ".Drafts", ".Trash"]
-    for box in boxes:
-        res = cyradm.m.list(box)
-        if res[0] == 'OK':
+    for folder in ["user.%s%s" % (uname, sub)
+                   for sub in "", ".spam", ".Sent", ".Drafts", ".Trash"]:
+        res, list = cyradm.m.list(folder)
+        if res == 'OK' and list[0]:
             continue
-        res = cyradm.m.create(box)
+        res = cyradm.m.create(folder)
         if res[0] <> 'OK':
-            logger.error("IMAP create %s failed: %s", box, res[1])
+            logger.error("IMAP create %s failed: %s", folder, res[1])
             return False
 
     # restrict access to INBOX.spam.  the user can change the
@@ -334,7 +358,8 @@ def cyrus_set_quota(user_id, hq):
     except CerebrumError, e:
         logger.error("cyrus_set_quota: " + str(e))
         return False
-    res = cyradm.sq("user", uname, hq * 1024)
+    res, msg = cyradm.m.setquota("user.%s" % uname, 'STORAGE', hq * 1024)
+    logger.debug("return %s", repr(res))
     return res == 'OK'
 
 def cyrus_subscribe(uname, server, action="create"):
@@ -346,9 +371,9 @@ def cyrus_subscribe(uname, server, action="create"):
     else:
         errnum = 0
     if not errnum:
-        return 1
-    logger.error("%s returned %i" % (cmd, errnum))
-    return 0
+        return True
+    logger.error("%s returned %i", cmd, errnum)
+    return False
 
 def move_email(user_id, mailto_id, from_host, to_host):
     try:
