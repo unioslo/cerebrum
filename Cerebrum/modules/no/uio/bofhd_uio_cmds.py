@@ -4155,7 +4155,7 @@ class BofhdExtension(object):
         if move_type in ("immediate", "batch", "nofile"):
             disk_id, home = self._get_disk_or_home(args[0])
             self.ba.can_move_user(operator.get_entity_id(), account, disk_id)
-            if disk_id is None and move_type != "nofile":
+            if disk_id is None:
                 raise CerebrumError, "Bad destination disk"
             if move_type == "immediate":
                 br.add_request(operator.get_entity_id(), br.now,
@@ -4176,8 +4176,8 @@ class BofhdExtension(object):
         elif move_type in ("hard_nofile",):
             if not self.ba.is_superuser(operator.get_entity_id()):
                 raise PermissionDenied("only superusers may use hard_nofile")
-            account.home = args[0]
-            account.disk_id = None
+            account.set_home(spread, disk_id=None, home=args[0],
+                             status=self.const.home_status_on_disk)
             account.write_db()
             return "OK, user moved to hardcoded homedir"
         elif move_type in ("student", "student_immediate", "confirm", "cancel"):
