@@ -115,7 +115,7 @@ class SocketCom(object):
 
 
     def close(self):
-        logger.info("Finished, ending session %s', now()") 
+        logger.info("Finished, ending session %s", now()) 
         self.sockobj.send("QUIT\n")
         self.sockobj.close()
 
