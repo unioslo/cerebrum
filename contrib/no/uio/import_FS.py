@@ -97,11 +97,9 @@ def process_person(Cerebrum, persondta):
         atype = 'semadr'  # Evt. hjemsted
     elif persondta['type'] == 'evu':
         atype = 'hjem'   # Evt. hjemsted
-    if persondta['adrlin2_%s' % atype] is None:   # None is inserted in the string for some reason
-        persondta['adrlin2_%s' % atype] = ''
     new_person.populate_address(co.address_post, addr="%s\n%s" %
                                 (persondta['adrlin1_%s' % atype],
-                                 persondta['adrlin2_%s' % atype]),
+                                 persondta.get('adrlin2_%s' % atype, '')),
                                 zip=persondta['postnr_%s' % atype],
                                 city=persondta['adrlin3_%s' % atype])
 
