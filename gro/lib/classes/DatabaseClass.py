@@ -51,8 +51,8 @@ class DatabaseAttr(Attribute):
             return self.data_type(value)
 
 class DatabaseClass(GroBuilder, Searchable):
-    db_aliases = {}
-    db_extra = {}
+    db_attr_aliases = {}
+    db_table_order = []
 
     def _load_all_db(self):
         db = self.get_database()
@@ -73,8 +73,6 @@ class DatabaseClass(GroBuilder, Searchable):
         tmp = []
         for table in tables:
             tmp.append(' AND '.join(['%s.%s = :%s' % (table, self._get_real_name(attr, table), attr.name) for attr in self.primary]))
-            if table in self.db_extra:
-                tmp.append(self.db_extra[table])
         sql += ' AND '.join(tmp)
 
         keys = {}
@@ -86,20 +84,6 @@ class DatabaseClass(GroBuilder, Searchable):
         for i in attributes:
             value = i.from_db(row[i.name])
             setattr(self, i.get_name_private(), value)
-
-    def _get_sql_tables(self):
-        tables = {}
-
-        for attr in self.slots:
-            if not isinstance(attr, DatabaseAttr):
-                continue
-
-            if attr.table not in tables:
-                tables[attr.table] = []
-
-            tables[attr.table].append(attr)
-
-        return tables
 
     def _save_all_db(self):
         db = self.get_database()
@@ -117,8 +101,6 @@ class DatabaseClass(GroBuilder, Searchable):
             tmp = []
             for attr in self.primary:
                 tmp.append('%s.%s = :%s' % (table, self._get_real_name(attr, table), attr.name))
-            if table in self.db_extra:
-                tmp.append(self.db_extra[table])
             sql += ' AND '.join(tmp)
 
             keys = {}
@@ -127,11 +109,70 @@ class DatabaseClass(GroBuilder, Searchable):
 
             db.execute(sql, keys)
 
+    def _delete(self):
+        db = self.get_database()
+        table_order = self.db_table_order[:].reverse()
+
+        tables = {}
+        for attr in self.primary:
+            if not ininstance(attr, DatabaseClass):
+                continue
+            if attr.table not in tables:
+                tables[attr.table] = {}
+            tables[attr.table][self._get_real_name(attr)] = getattr(self, 'get_'+attr.name)
+        
+        for table in table_order or tables.keys():
+            sql = "DELETE FROM %s WHERE " % table
+            tmp = []
+            for attr in tables[table].keys():
+                tmp.append("%s = :%s" % (attr, attr))
+            sql += " AND ".join(tmp)
+            db.execute(sql, tables[table])
+
+    def _create(cls, db, *args, **vargs):
+        map = cls.map_args(*args, **vargs)
+        tables = cls._get_sql_tables()
+
+        primary_keys = {}
+        for attr in cls.primary:
+            if not isinstance(attr, DatabaseClass):
+                continue
+            primary_keys[attr.name] = map[attr.name]
+        
+        for table in cls.db_table_order or tables.keys():
+            tmp = {}
+            for i, attr in tables.items():
+                if i == table and attr.name in map:
+                    tmp[cls._get_real_name(attr)] = map[attr.name]
+            sql = "INSERT INTO %s (%s) VALUES (:%s)" %
+                    (table, ", ".join(tmp.keys()), ", :".join(tmp.keys()))
+            db.execute(sql, tmp)
+
+        new_obj = cls(**primary_keys)
+        return new_obj
+
+    _create = classmethod(_create)
+
+    def _get_sql_tables(cls):
+        tables = {}
+        
+        for attr in cls.slots:
+            if not isinstance(attr, DatabaseAttr):
+                continue
+            
+            if attr.table not in tables:
+                tables[attr.table] = []
+            tables[attr.table].append(attr)
+            
+        return tables
+
+    _get_sql_tables = classmethod(_get_sql_tables)
+
     def _get_real_name(cls, attr, table=None):
         if table is None:
             table = attr.table
-        if table in cls.db_aliases and attr.dbattr_name in cls.db_aliases[table]:
-            return cls.db_aliases[table][attr.dbattr_name]
+        if table in cls.db_attr_aliases and attr.dbattr_name in cls.db_attr_aliases[table]:
+            return cls.db_attr_aliases[table][attr.dbattr_name]
         else:
             return attr.dbattr_name
 
@@ -169,9 +210,6 @@ class DatabaseClass(GroBuilder, Searchable):
                     value = attr.to_db(value)
                 values[key] = value
 
-            for table in tables.keys():
-                if table in cls.db_extra: where.append(self.db_extra[table])
-            
             sql = 'SELECT '
             sql += ', '.join(['%s.%s AS %s' % (attr.table, cls._get_real_name(attr), attr.name) for attr in main_attrs])
             sql += ' FROM '
