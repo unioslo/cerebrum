@@ -33,11 +33,44 @@ class HiAFS(FS):
     metodene returnerer en tuple med kolonnenavn fulgt av en tuple med
     dbrows. """
 
+
+################################################################
+#       Fagpersoner                                            #
+################################################################
+
+    def GetFagperson(self):
+	"""Disse skal gis affiliation tilknyttet med kode fagperson 
+        til stedskoden faknr+instituttnr+gruppenr
+        Hent ut fagpersoner som har undervisning i inneværende
+        eller forrige kalenderår"""
+
+        qry = """
+SELECT DISTINCT 
+      fp.fodselsdato, fp.personnr, p.etternavn, p.fornavn,
+      fp.adrlin1_arbeide, fp.adrlin2_arbeide, fp.postnr_arbeide,
+      fp.adrlin3_arbeide, fp.adresseland_arbeide,
+      fp.telefonnr_arbeide, fp.telefonnr_fax_arb,
+      p.adrlin1_hjemsted, p.adrlin2_hjemsted, p.postnr_hjemsted,
+      p.adrlin3_hjemsted, p.adresseland_hjemsted, 
+      p.telefonnr_hjemsted, fp.stillingstittel_engelsk, 
+      r.institusjonsnr, r.faknr, r.instituttnr, r.gruppenr,
+      r.status_aktiv, r.status_publiseres, r.terminkode, r.arstall,
+      p.kjonn, p.status_dod
+select count(*)
+FROM fs.person p, fs.fagperson fp,
+     fs.fagpersonundsemester r
+WHERE r.fodselsdato = fp.fodselsdato AND
+      r.personnr = fp.personnr AND
+      fp.fodselsdato = p.fodselsdato AND
+      fp.personnr = p.personnr AND 
+      %s
+        """ % (self.get_termin_aar(only_current=0))
+        return (self._get_cols(qry), self.db.query(qry))
+
+
 ################################################################
 #       Studenter                                              #
 ################################################################
-
-# Påvirkes ikke av endringene ved overgang til FS 5.0
 
     def GetTilbud(self, institusjonsnr=0):
 	"""Hent data om studenter med tilbud til opptak på
@@ -63,7 +96,6 @@ WHERE p.fodselsdato=sa.fodselsdato AND
       """ % (institusjonsnr, self.is_alive())
         return (self._get_cols(qry),self.db.query(qry))
 
-
     def GetAktive(self):
 	""" Hent opplysninger om studenter definert som aktive 
 	ved HiA. En aktiv student er enten med i et aktivt kull og
@@ -79,7 +111,8 @@ SELECT DISTINCT s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
        p.adresseland_hjemsted, p.status_reserv_nettpubl,
        p.sprakkode_malform, sps.studieprogramkode, sps.studieretningkode,
        sps.studierettstatkode, sps.studentstatkode, sps.terminkode_kull,
-       sps.arstall_kull, p.kjonn, p.status_dod, p.telefonnr_mobil
+       sps.arstall_kull, p.kjonn, p.status_dod, p.telefonnr_mobil,
+       s.studentnr_tildelt
 FROM fs.kull k, fs.studieprogramstudent sps, fs.person p, fs.student s
 WHERE p.fodselsdato = sps.fodselsdato AND
       p.personnr = sps.personnr AND
@@ -99,7 +132,7 @@ SELECT DISTINCT s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
        p.adresseland_hjemsted, p.status_reserv_nettpubl,
        p.sprakkode_malform, sps.studieprogramkode, sps.studieretningkode,
        sps.studierettstatkode, sps.studentstatkode, sps.terminkode_kull,
-       sps.arstall_kull, p.kjonn, p.status_dod, p.telefonnr_mobil
+       sps.arstall_kull, p.kjonn, p.status_dod, p.telefonnr_mobil, s.studentnr_tildelt
 FROM fs.registerkort r, fs.studieprogramstudent sps, fs.person p, fs.student s
 WHERE p.fodselsdato = sps.fodselsdato AND
       p.personnr = sps.personnr AND
@@ -513,17 +546,51 @@ WHERE emnekode = :emne
     def get_next_termin_aar(self):
 	"""en fin metode som henter neste semesters terminkode og årstal."""
 	yr, mon, md = time.localtime()[0:3]
-	if mon <= 6:
+	# This is an ogly hack and will have to go shortly. The purpose is
+	# to pick out UNDERVISNINGSENHETER and such from last semester so that 
+	# they may be accessed by the students and teachers at HiA
+	# The proper solution to the problem is an implementation of Fronters
+	# import script which can deal with this
+	if mon == 1:
+	    next = "(r.terminkode LIKE 'V_R' AND r.arstall=%s)\n" % yr
+	# fi
+	elif mon <= 6:
 	    next = "(r.terminkode LIKE 'H_ST' AND r.arstall=%s)\n" % yr
 	else:
 	    next = "(r.terminkode LIKE 'V_R' AND r.arstall=%s)\n" % (yr + 1)
 	return next
 
+##    def get_termin_aar(self, only_current=0):
+##         yr, mon, md = time.localtime()[0:3]
+##         if mon <= 6:
+##             # Months January - June == Spring semester
+##             current = "(r.terminkode LIKE 'V_R' AND r.arstall=%s)\n" % yr;
+##             if only_current or mon >= 3 or (mon == 2 and md > 15):
+##                 return current
+##             return "(%s OR (r.terminkode LIKE 'H_ST' AND r.arstall=%d))\n" % (
+##                 current, yr-1)
+##         # Months July - December == Autumn semester
+##         current = "(r.terminkode LIKE 'H_ST' AND r.arstall=%d)\n" % yr
+##         if only_current or mon >= 10 or (mon == 9 and md > 15):
+##             return current
+##         return "(%s OR (r.terminkode LIKE 'V_R' AND r.arstall=%d))\n" % (current, yr)
+
+# This is an ogly hack and will have to go shortly. The purpose is
+# to pick out UNDERVISNINGSENHETER and such from last semester so that 
+# they may be accessed by the students and teachers at HiA
+# The proper solution to the problem is an implementation of Fronters
+# import script which can deal with this
+
     def get_termin_aar(self, only_current=0):
         yr, mon, md = time.localtime()[0:3]
+	if mon == 1:
+	    current = "(r.terminkode LIKE 'H_ST' AND r.arstall=%d)\n" % (yr-1)
+	    if only_current:
+		return current
+	    return "(%s OR (r.terminkode LIKE 'V_R' AND r.arstall=%d))\n" % (current, yr)
         if mon <= 6:
             # Months January - June == Spring semester
-            current = "(r.terminkode LIKE 'V_R' AND r.arstall=%s)\n" % yr;
+            current = "(r.terminkode LIKE 'V_R' AND r.arstall=%s)\n" % yr
             if only_current or mon >= 3 or (mon == 2 and md > 15):
                 return current
             return "(%s OR (r.terminkode LIKE 'H_ST' AND r.arstall=%d))\n" % (
