@@ -53,10 +53,12 @@ class Constants(Constants.Constants):
     auth_target_type_host = "host"
     auth_target_type_maildomain = "maildom"
     auth_target_type_spread = "spread"
+    auth_target_type_ou = "ou"
     # These are wildcards, allowing access to _all_ objects of that type
     auth_target_type_global_group = "global_group"
     auth_target_type_global_host = "global_host" # also "disk"
     auth_target_type_global_maildomain = "global_maildom"
+    auth_target_type_global_ou = "global_ou"
 
     bofh_move_user = _BofhdRequestOpCode('br_move_user', 'Move user')
     bofh_move_student = _BofhdRequestOpCode('br_move_student', 'Move student')
