@@ -30,6 +30,11 @@ if (not pfx) or pfx == \"NONE\":
 else:
    path = sysconfig.get_python_lib(prefix=pfx)
 print path'`"
+
+if test -z "$PYTHONDIR" ; then
+   AC_ERROR(unable to calculate Python module installation prefix.)
+fi
+
 AC_MSG_RESULT([$PYTHONDIR])
 AC_SUBST(PYTHONDIR)
 
