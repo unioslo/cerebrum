@@ -66,7 +66,7 @@ WHERE p.fodselsdato = sps.fodselsdato AND
       NVL(k.status_aktiv,'J') = 'J' AND
       NVL(sps.dato_studierett_gyldig_til,SYSDATE)>= SYSDATE
       """ % (self.is_alive())
-        return (self._get_cols(qry),self.db.query(qry))
+	return self.db.query(qry)
 
 
 
@@ -100,7 +100,7 @@ WHERE p.fodselsdato = s.fodselsdato AND
     (sps.studierettstatkode = 'PRIVATIST' OR
     sps.status_privatist = 'J') AND
     sps.dato_studierett_gyldig_til >= sysdate """
-        return (self._get_cols(qry), self.db.query(qry))
+	return self.db.query(qry)        
 
 
 
@@ -132,7 +132,7 @@ WHERE p.fodselsdato=d.fodselsdato AND
        NVL(e.status_nettbasert_und,'J')='J') AND
       k.kurstidsangivelsekode = e.kurstidsangivelsekode AND
       NVL(e.dato_til, SYSDATE) >= SYSDATE - 30"""
-        return (self._get_cols(qry), self.db.query(qry))
+	return self.db.query(qry)
 
 
 ##################################################################
@@ -196,7 +196,8 @@ SELECT studieprogramkode, studieprognavn, studienivakode,
        faknr_studieansv, instituttnr_studieansv, gruppenr_studieansv,
        status_utgatt
 FROM fs.studieprogram"""
-        return (self._get_cols(qry), self.db.query(qry))
+	return self.db.query(qry)
+
 # Det er en del studenter på HiA som har opptak til inaktive studieprogrammer
 # derfor må vi fjerne dette kravet fram til det er ryddet opp i dette
 # Kravet burde settes inn permanent siden man bygger felles-rom for studieprogrammer
@@ -221,7 +222,7 @@ SELECT DISTINCT
    studienivakode, emnetypekode, fjernundstatkode, terminkode_und_forste,
    arstall_und_forste, terminkode_und_siste, arstall_und_siste
 FROM fs.emne """
-        return (self._get_cols(qry),self.db.query(qry))
+	return self.db.query(qry)        
 
 
 
@@ -243,7 +244,7 @@ WHERE p.fodselsdato=e.fodselsdato AND
       AND %s
 ORDER BY fodselsdato, personnr
       """ %(aar[0],self.is_alive())                            
-      	return (self._get_cols(qry), self.db.query(qry))
+	return self.db.query(qry)
 
 
 
@@ -265,7 +266,7 @@ SELECT DISTINCT
 FROM fs.sted  
 WHERE institusjonsnr='%s'
          """ % institusjonsnr 
-        return (self._get_cols(qry),self.db.query(qry))   
+	return self.db.query(qry)
         
 
 ##################################################################
@@ -297,9 +298,8 @@ WHERE
     NVL(sps.dato_studierett_gyldig_til,SYSDATE)>= SYSDATE
 ORDER BY sps.studieprogramkode
     """
-        return (self._get_cols(qry),self.db.query(qry))
+	return self.db.query(qry)
 
 
 #   
 
-# arch-tag: 9a4a15f0-7e16-41b3-9c15-a7b324bb6f6a

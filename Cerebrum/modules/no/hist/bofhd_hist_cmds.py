@@ -3456,9 +3456,9 @@ class BofhdExtension(object):
         fodselsdato, pnum = fodselsnr.del_fnr(fnr[0]['external_id'])
         har_opptak = {}
         ret = []
-        db = Database.connect(user="cerebrum", service="FSHIA.uio.no",
+        db = Database.connect(user="cerebrum", service="FSHIST.uio.no",
                               DB_driver='Oracle')
-        fs = HiAFS(db)
+        fs = HiSTFS(db)
         for row in fs.GetStudentStudierett(fodselsdato, pnum)[1]:
             har_opptak["%s" % row['studieprogramkode']] = \
 			    row['status_privatist']

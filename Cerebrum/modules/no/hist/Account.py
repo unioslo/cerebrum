@@ -33,6 +33,9 @@ class AccountHiSTMixin(Email.AccountEmailMixin):
         DELETE FROM [:table schema=cerebrum name=account_authentication]
         WHERE account_id=:acc_id""", {'acc_id' : self.entity_id})
         self.execute("""
+        DELETE FROM [:table schema=cerebrum name=homedir]
+        WHERE account_id=:acc_id""", {'acc_id' : self.entity_id})
+        self.execute("""
         DELETE FROM [:table schema=cerebrum name=account_home]
         WHERE account_id=:acc_id""", {'acc_id' : self.entity_id})
         self.execute("""
@@ -138,4 +141,3 @@ class AccountHiSTMixin(Email.AccountEmailMixin):
             else:
               return False
 
-# arch-tag: d6b34409-5983-4ae7-bee8-a1d949e4bf94
