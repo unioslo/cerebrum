@@ -239,6 +239,21 @@ _command_help = {
 _arg_help = {
     'account_name':
         ['uname', 'Enter accountname'],
+    'auth_attribute':
+        ['attribute', 'Enter attribute value',
+"""Possible values depend on the target's entity type.  For hosts, it
+is a regular expression matching the last component of a disk path ('mn-l.*').
+For OU's, it is an affiliation ('STUDENT')."""],
+    'auth_entity_type':
+        ['auth type', 'Authentication entity type',
+         'Possible values:\n'
+         ' - disk\n - group\n - host\n - maildom\n - ou\n - spread'],
+    'auth_target_entity':
+        ['entity', 'Enter name of target entity',
+         'The object to which access should be given'],
+    'auth_group':
+        ['group', 'Enter group name',
+         'The name of the group which should be given access'],
     'email_address':
         ['address', 'Enter e-mail address'],
     'entity_type':
@@ -253,6 +268,9 @@ _arg_help = {
     'group_search_type':
         ['search_type', 'Enter group search type', 
          'This should be a hash, so just forget it'],
+    'opset':
+        ['operation set', 'Enter name of operation set',
+         'Use "access list_opsets" to view a list of valid values'],
     'person_search_type':
         ['search_type', 'Enter person search type',
          """Possible values:
