@@ -63,3 +63,5 @@ def connect(args=[]):
         raise Exception("Could not narrow the spine object")
 
     return spine
+
+# arch-tag: 2e2f1f7a-4582-4ef7-a4e8-0b538df047c1

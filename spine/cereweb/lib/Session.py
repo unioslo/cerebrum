@@ -51,3 +51,5 @@ class Session(object):
 
     def set_spine_session(self, obj):
         self['spine_session'] = SpineClient.orb.object_to_string(obj)
+
+# arch-tag: dbefe1f3-848c-4192-b0f1-75f5435b5887
