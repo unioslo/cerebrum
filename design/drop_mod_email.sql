@@ -1,0 +1,17 @@
+DROP TABLE email_primary_address;
+DROP INDEX email_address_target_unique;
+DROP TABLE email_vacation;
+DROP TABLE email_forward;
+DROP TABLE email_virus_scan;
+DROP TABLE email_virus_removed_code;
+DROP TABLE email_virus_found_code;
+DROP TABLE email_spam_filter;
+DROP TABLE email_spam_action_code;
+DROP TABLE email_spam_level_code;
+DROP TABLE email_quota;
+DROP TABLE email_entity_domain;
+DROP TABLE email_address;
+DROP TABLE email_domain;
+DROP TABLE email_domain_cat_code;
+DROP TABLE email_target;
+DROP TABLE email_target_code;
