@@ -209,6 +209,23 @@ SELECT DISTINCT s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
        p.adresseland_hjemsted, p.status_reserv_nettpubl, 
        p.sprakkode_malform,st.studieprogramkode, st.studierettstatkode,
        p.kjonn
+FROM fs.student s, fs.person p, fs.studierett st, fs.studieprogram sp
+WHERE  p.fodselsdato=s.fodselsdato AND
+       p.personnr=s.personnr AND
+       p.fodselsdato=st.fodselsdato AND
+       p.personnr=st.personnr AND 
+       st.studieprogramkode = sp.studieprogramkode AND
+       st.opphortstudierettstatkode IS NULL AND
+       st.studierettstatkode IN (RELEVANTE_STUDIERETTSTATKODER) AND
+       st.dato_tildelt >= to_date('2003-01-01', 'yyyy-mm-dd'))
+UNION
+SELECT DISTINCT s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
+       s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
+       s.adrlin3_semadr, s.adresseland_semadr, p.adrlin1_hjemsted,
+       p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
+       p.adresseland_hjemsted, p.status_reserv_nettpubl, 
+       p.sprakkode_malform,st.studieprogramkode, st.studierettstatkode,
+       p.kjonn
 FROM fs.student s, fs.person p, fs.studierett st, fs.registerkort r,
      fs.studieprogram sp
 WHERE  p.fodselsdato=s.fodselsdato AND
@@ -219,10 +236,8 @@ WHERE  p.fodselsdato=s.fodselsdato AND
        p.fodselsdato=r.fodselsdato AND
        p.personnr=r.personnr AND
        st.opphortstudierettstatkode IS NULL AND
-       st.studierettstatkode IN (RELEVANTE_STUDIERETTSTATKODER)
-       AND
-       (r.arstall >= (%s - 1) OR
-       st.dato_tildelt >= to_date('2003-01-01', 'yyyy-mm-dd'))
+       st.studierettstatkode IN (RELEVANTE_STUDIERETTSTATKODER) AND
+       r.arstall >= (%s - 1)
        """ % (aar)
         return qry
     
