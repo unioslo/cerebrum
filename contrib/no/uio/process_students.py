@@ -44,6 +44,8 @@ def bootstrap():
     default_shell = const.posix_shell_bash
 
 def create_user(fnr, profile):
+    # dryruning this method is unfortunately a bit tricky
+    assert not dryrun
     logger.info2("CREATE")
     person = Person.Person(db)
     try:
@@ -65,7 +67,7 @@ def create_user(fnr, profile):
     password = account.make_passwd(uname)
     account.set_password(password)
     tmp = account.write_db()
-    logger.debug2("new Account, write_db=%s" % tmp)
+    logger.debug("new Account, write_db=%s" % tmp)
     all_passwords[int(account.entity_id)] = [password, profile.get_brev()]
     update_account(profile, [account.entity_id])
     return account.entity_id
@@ -75,6 +77,9 @@ def update_account(profile, account_ids, do_move=False, rem_grp=False,
     """Update the account by checking that group, disk and
     affiliations are correct.  For existing accounts, account_info
     should be filled with affiliation info """
+
+    # dryruning this method is unfortunately a bit tricky
+    assert not dryrun
     
     group = Group.Group(db)
     # TODO.  This value must be gotten from somewhere
@@ -101,7 +106,7 @@ def update_account(profile, account_ids, do_move=False, rem_grp=False,
             if as_posix:
                 user.gid = profile.get_dfg()
             tmp = user.write_db()
-            logger.debug2("old User, write_db=%s" % tmp)
+            logger.debug("old User, write_db=%s" % tmp)
         except Errors.NotFoundError:
             try:
                 disk_id=profile.get_disk()
@@ -117,7 +122,7 @@ def update_account(profile, account_ids, do_move=False, rem_grp=False,
             else:
                 raise ValueError, "This is a bug, the Account object should exist"
             tmp = user.write_db()
-            logger.debug2("new User, write_db=%s" % tmp)
+            logger.debug("new User, write_db=%s" % tmp)
         # Populate groups
         already_member = {}
         for r in group.list_groups_with_entity(account_id):
@@ -340,13 +345,38 @@ def make_barcode(account_id):
     if ret:
         logger.warn("Bardode returned %s" % ret)
 
+def _filter_person_info(person_info):
+    """Makes debugging easier by removing some of the irrelevant
+    person-information."""
+    ret = {}
+    filter = {
+        'opptak': ['studieprogramkode', 'studierettstatkode'],
+        'privatist_emne': ['emnekode'],
+        'privatist_studieprogram': ['studieprogramkode'],
+        'fagperson': [],
+        'alumni': ['studieprogramkode', 'studierettstatkode'],
+        'evu': ['etterutdkurskode'],
+        'tilbud': ['studieprogramkode']
+        }
+    for info_type in person_info.keys():
+        if info_type in ('fodselsdato', 'personnr'):
+            continue
+        for f in filter:
+            if info_type == f:
+                for dta in person_info[info_type]:
+                    ret.setdefault(info_type, []).append(
+                        dict([(k, dta[k]) for k in filter[info_type]]))
+        if not ret.has_key(info_type):
+            ret[info_type] = person_info[info_type]
+    return ret
+
 def recalc_quota_callback(person_info):
     fnr = fodselsnr.personnr_ok("%06d%05d" % (int(person_info['fodselsdato']),
                                               int(person_info['personnr'])))
     logger.set_indent(0)
     logger.debug("Callback for %s" % fnr)
     logger.set_indent(3)
-    logger.debug2(logger.pformat(person_info))
+    logger.debug(logger.pformat(_filter_person_info(person_info)))
     try:
         profile = autostud.get_profile(person_info)
         quota = profile.get_pquota()
@@ -358,10 +388,12 @@ def recalc_quota_callback(person_info):
         logger.warn("Error for %s: %s" %  (fnr, msg))
         logger.set_indent(0)
         return
-    logger.debug2("Setting %s as pquotas for %s" % (
+    logger.debug("Setting %s as pquotas for %s" % (
         quota, str(students.get(fnr, {}).keys())))
     pq = PrinterQuotas.PrinterQuotas(db)
     for account_id in students.get(fnr, {}).keys():
+        if dryrun:
+            continue
         pq.clear()
         try:
             pq.find(account_id)
@@ -397,7 +429,7 @@ def process_student(person_info):
         logger.debug("Has active non-student account, skipping")
         return
     logger.set_indent(3)
-    logger.debug2(logger.pformat(person_info))
+    logger.debug(logger.pformat(_filter_person_info(person_info)))
     try:
         profile = autostud.get_profile(person_info)
     except ValueError, msg:
@@ -410,16 +442,17 @@ def process_student(person_info):
         return
     if fast_test:
         logger.debug(profile.debug_dump())
+        logger.debug("Disk: %s" % profile.get_disk())
         logger.set_indent(0)
         return
     try:
-        try:
-            logger.debug("disk=%s, dfg=%s, fg=%s sko=%s" % \
-                         (profile.get_disk(), profile.get_dfg(),
-                          profile.get_grupper(),
-                          profile.get_stedkoder()))
-        except ValueError:
-            pass
+        logger.debug("disk=%s, dfg=%s, fg=%s sko=%s" % \
+                     (profile.get_disk(), profile.get_dfg(),
+                      profile.get_grupper(),
+                      profile.get_stedkoder()))
+        if dryrun:
+            logger.set_indent(0)
+            return
         if create_users and not students.has_key(fnr):
             if alternative_account_id != -1:  # has a reserved account
                 logger.debug("using reserved: %i" % alternative_account_id)
@@ -452,19 +485,26 @@ def process_students():
     if recalc_pq:
         autostud.start_student_callbacks(student_info_file,
                                          recalc_quota_callback)
+        if not dryrun:
+            db.commit()
+        else:
+            db.rollback()
     else:
         autostud.start_student_callbacks(student_info_file,
                                          process_students_callback)
         logger.set_indent(0)
         logger.info("student_info_file processed")
-        db.commit()
-        logger.info("making letters")
-        if only_dump_to is not None:
-            f = open(only_dump_to, 'w')
-            pickle.dump(all_passwords, f)
-            f.close()
+        if not dryrun:
+            db.commit()
+            logger.info("making letters")
+            if only_dump_to is not None:
+                f = open(only_dump_to, 'w')
+                pickle.dump(all_passwords, f)
+                f.close()
+            else:
+                make_letters()
         else:
-            make_letters()
+            db.rollback()
     logger.info("process_students finished")
 
 def main():
@@ -474,16 +514,16 @@ def main():
                                     'student-info-file=', 'only-dump-results=',
                                     'studconfig-file=', 'fast-test', 'with-lpr',
                                     'workdir=', 'type=', 'reprint=',
-                                    'recalc-pq',
-                                    'studie-progs-file='])
+                                    'recalc-pq', 'studie-progs-file=',
+                                    'dryrun'])
     except getopt.GetoptError:
         usage()
     global debug, fast_test, create_users, update_accounts, logger, skip_lpr
     global student_info_file, studconfig_file, only_dump_to, studieprogs_file, \
-           recalc_pq
+           recalc_pq, dryrun
 
     skip_lpr = True       # Must explicitly tell that we want lpr
-    update_accounts = create_users = recalc_pq = False
+    update_accounts = create_users = recalc_pq = dryrun = False
     fast_test = False
     workdir = None
     range = None
@@ -509,6 +549,8 @@ def main():
             fast_test = True
         elif opt in ('--only-dump-results',):
             only_dump_to = val
+        elif opt in ('--dryrun',):
+            dryrun = True
         elif opt in ('--with-lpr',):
             skip_lpr = False
         elif opt in ('--workdir',):
@@ -533,7 +575,8 @@ def main():
                                    os.getpid())
         os.mkdir(workdir)
     logger = AutoStud.Util.ProgressReporter(
-        "%s/run.log.%i" % (workdir, os.getpid()), stdout=to_stdout)
+        "%s/run.log.%i" % (workdir, os.getpid()), stdout=to_stdout,
+        loglevel=AutoStud.Util.ProgressReporter.DEBUG)
     bootstrap()
     if range is not None:
         make_letters("letters.info", type=type, range=val)
@@ -548,6 +591,9 @@ def usage():
     -s | --student-info-file file:
     -C | --studconfig-file file:
     -S | --studie-progs-file file:
+    --dryrun: don't do any changes to the database.  This can be used
+      to get an idea of what changes a normal run would do.  TODO:
+      also dryrun some parts of update/create user.
     --recalc-pq : recalculate printerquota settings (does not update
       quota).  Cannot be combined with -c/-u
     --only-dump-results file: just dump results with pickle without
