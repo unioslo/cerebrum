@@ -215,6 +215,8 @@ class AccountUiOMixin(Account.Account):
         # Pre-remove checks
         #
         spreads = [int(r['spread']) for r in self.get_spread()]
+        if not spread in spreads:  # user doesn't have this spread
+            return
         # All users in the 'ifi' NIS domain must also exist in the
         # 'uio' NIS domain.
         if spread == self.const.spread_uio_nis_user \
