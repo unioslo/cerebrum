@@ -39,6 +39,7 @@ OU_class = Factory.get('OU')
 db = Factory.get('Database')()
 db.cl_init(change_program='import_OU')
 co = Factory.get('Constants')(db)
+logger = Factory.get_logger("cronjob")
 
 
 # <data>
@@ -123,28 +124,32 @@ def rec_make_ou(stedkode, ou, existing_ou_mappings, org_units,
     """Recursively create the ou_id -> parent_id mapping"""
     ou_data = org_units[stedkode]
     org_stedkode = get_stedkode_str(ou_data, suffix='_for_org_sted')
+    logger.debug("Place %s under %s" % (stedkode, org_stedkode))
     if not stedkode2ou.has_key(org_stedkode):
-        print "Error in dataset:"\
-              " %s references missing STEDKODE: %s, using None" % (
-            stedkode, org_stedkode)
+        logger.warn("Error in dataset:"
+                    " %s references missing STEDKODE: %s, using None" % (
+            stedkode, org_stedkode))
         org_stedkode = None
         org_stedkode_ou = None
     elif stedkode == org_stedkode:
-        print "Warning: %s has self as parent, using None" % stedkode
+        logger.warn("Warning: %s has self as parent, using None" % stedkode)
         org_stedkode = None
         org_stedkode_ou = None
     else:
         org_stedkode_ou = stedkode2ou[org_stedkode]
 
     if existing_ou_mappings.has_key(stedkode2ou[stedkode]):
+        logger.debug("Exist: %s (%s)" % (
+            existing_ou_mappings[stedkode2ou[stedkode]],
+            org_stedkode_ou
+            ))
         if existing_ou_mappings[stedkode2ou[stedkode]] != org_stedkode_ou:
-            # TODO: Update ou_structure
-            print "Mapping for %s changed (%s != %s)" % (
+            logger.warn("Mapping for %s changed (%s != %s)" % (
                 stedkode, existing_ou_mappings[stedkode2ou[stedkode]],
-                org_stedkode_ou)
-        return
-
-    if (org_stedkode_ou is not None
+                org_stedkode_ou))
+        else:
+            return
+    elif (org_stedkode_ou is not None
         and (stedkode != org_stedkode)
         and (not existing_ou_mappings.has_key(org_stedkode_ou))):
         rec_make_ou(org_stedkode, ou, existing_ou_mappings, org_units,
@@ -167,8 +172,8 @@ def import_org_units(sources):
         i += 1
         org_units[get_stedkode_str(k)] = k
         if verbose:
-            print "Processing %s '%s'" % (get_stedkode_str(k),
-                                          k['forkstednavn']),
+            logger.debug("Processing %s '%s'" % (get_stedkode_str(k),
+                                                 k['forkstednavn']))
         ou.clear()
         try:
             ou.find_stedkode(k['fakultetnr'], k['instituttnr'], k['gruppenr'],
@@ -246,7 +251,7 @@ def import_org_units(sources):
             if nrtypes.has_key(t['kommtypekode']):
                 nr = t.get('telefonnr', t.get('kommnrverdi', None))
                 if nr is None:
-                    print "Warning: unknown contact: %s" % str(t)
+                    logger.warn("Warning: unknown contact: %s" % str(t))
                     continue
                 ou.populate_contact_info(source_system, nrtypes[t['kommtypekode']],
                                          nr, contact_pref=n)
@@ -266,11 +271,11 @@ def import_org_units(sources):
         op = ou.write_db()
         if verbose:
             if op is None:
-                print "**** EQUAL ****"
+                logger.debug("**** EQUAL ****")
             elif op:
-                print "**** NEW ****"
+                logger.debug("**** NEW ****")
             else:
-                print "**** UPDATE ****"
+                logger.debug("**** UPDATE ****")
 
         stedkode = get_stedkode_str(k)
         # Not sure why this casting to int is required for PostgreSQL
@@ -282,8 +287,7 @@ def import_org_units(sources):
         existing_ou_mappings[int(node.ou_id)] = node.parent_id
 
     # Now populate ou_structure
-    if verbose:
-        print "Populate ou_structure"
+    logger.info("Populate ou_structure")
     for stedkode in org_units.keys():
         rec_make_ou(stedkode, ou, existing_ou_mappings, org_units,
                     stedkode2ou, co)
