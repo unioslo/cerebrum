@@ -9,6 +9,7 @@
 <h1>$_("Group") $group.name</h1>
 $groupInfo($group)
 $groupMembers($group)
+$add_member($group)
 #end def
 
 #def groupMembers(group)
@@ -68,5 +69,11 @@ $SortedTableTemplate().sorted_table($table, $headers, $url("blapp=%s"), $url("bl
     <dd>$spreads</dd>
 
 </dl>
+</div>
+#end def
+
+#def add_member(group)
+<div class="add_member">
+Add a member (..)
 </div>
 #end def
