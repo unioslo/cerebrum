@@ -4,10 +4,12 @@ import re
 import os
 import sys
 
-from Cerebrum import Database, Person, Constants, Errors
+from Cerebrum import Database, Person, Errors
 from Cerebrum import cereconf
 from Cerebrum.modules.no.uio import OU
 from Cerebrum.modules.no import fodselsnr
+from Cerebrum.Utils import Factory
+
 import xml.sax
 import pprint
 
@@ -59,7 +61,7 @@ def main():
     Cerebrum = Database.connect()
     ou = OU.OU(Cerebrum)
     personObj = Person.Person(Cerebrum)
-    co = Constants.Constants(Cerebrum)
+    co = Factory.getConstants()(Cerebrum)
 
     pp = pprint.PrettyPrinter(indent=4)
     new_person = Person.Person(Cerebrum)

@@ -6,7 +6,8 @@ import sys
 
 import xml.sax
 
-from Cerebrum import Database,Constants,Errors
+from Cerebrum import Database,Errors
+from Cerebrum.Utils import Factory
 from Cerebrum.modules.no.uio import OU
 
 class StedData(xml.sax.ContentHandler):
@@ -47,7 +48,7 @@ class TrivialParser(xml.sax.ContentHandler):
         pass
 
 verbose = 1
-stedfile = "/u2/dumps/LT/sted.dat.2"
+stedfile = "/u2/dumps/LT/sted.xml"
 
 if len(sys.argv) == 2:
     stedfile = sys.argv[1]
@@ -55,7 +56,7 @@ if len(sys.argv) == 2:
 def main():
     Cerebrum = Database.connect()
     steder = {}
-    co = Constants.Constants(Cerebrum)
+    co = Factory.getConstants()(Cerebrum)
     ou = OU.OU(Cerebrum)
     new_ou = OU.OU(Cerebrum)
     i = 1
@@ -63,7 +64,6 @@ def main():
     ou.clear()
     for k in StedData(stedfile):
         i = i + 1
-
         steder[get_stedkode_str(k['fakultetnr'],
                                 k['instituttnr'],
                                 k['gruppenr'])] = k
