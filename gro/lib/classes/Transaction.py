@@ -18,26 +18,17 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-from classes import Database
-from Cerebrum_core import Errors
+import Database
+from Cerebrum.gro.Cerebrum_core import Errors
 
-from classes.LockHolder import LockHolder
+from LockHolder import LockHolder
 
 class Transaction(LockHolder):
     def __init__(self, client):
         LockHolder.__init__(self)
-        self.client = client
-        self._refs = None
-        self._db = None
-        self.transaction_started = False
-
-    def begin(self):
-        if self.transaction_started:
-            raise Errors.TransactionError('Transaction has already started')
-        else:
-            self._refs = []
-            self._db = Database.GroDatabase(self.client.get_entity_id())
-            self.transaction_started = True
+        self._refs = []
+        self._db = Database.GroDatabase(client.get_id())
+        self.transaction_started = True
 
     def add_ref(self, obj):
         """ Add a new object to this transaction.

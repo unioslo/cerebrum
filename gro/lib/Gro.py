@@ -21,11 +21,12 @@
 import sys
 
 import Communication
-import LOHandler
-import APHandler
 
 import Cerebrum_core__POA
 import Cerebrum_core
+
+import CorbaSession
+import LOHandler
 
 import classes.Registry
 registry = classes.Registry.get_registry()
@@ -44,11 +45,10 @@ class GroImpl(Cerebrum_core__POA.Gro):
     def __init__(self):
         com = Communication.get_communication()
 
-        self.ap_handler_class = APHandler.get_ap_handler_class()
         self.lo_handler_class = LOHandler.LOHandler
 
     def get_idl(self):
-        return self.ap_handler_class.create_idl()
+        return CorbaSession.idl_source
 
     def get_version(self):
         return Cerebrum_core.Version(GRO_MAJOR_VERSION, GRO_MINOR_VERSION)
@@ -66,10 +66,11 @@ class GroImpl(Cerebrum_core__POA.Gro):
         return com.servant_to_reference(lo)
 
     def get_ap_handler(self, username, password):
+        # FIXME: lagre sesjoner
         client = self.login(username, password)
-        ap = self.ap_handler_class(client)
+        session = CorbaSession.CorbaSessionImpl(client)
         com = Communication.get_communication()
-        return com.servant_to_reference(ap)
+        return com.servant_to_reference(session)
 
     def login(self, username, password):
         """Login the user with the username and password.
