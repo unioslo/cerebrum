@@ -19,6 +19,8 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 import pyPgSQL.PgSQL
+import Cerebrum
+import Cerebrum.Errors
 from Cerebrum.extlib import sets
 
 from Builder import Attribute
@@ -27,7 +29,9 @@ from Dumpable import Dumpable
 from SpineClass import SpineClass
 from SpineExceptions import SpineException
 
-__all__ = ['DatabaseAttr', 'DatabaseClass', 'ConvertableAttribute']
+__all__ = [
+    'DatabaseAttr', 'DatabaseClass', 'ConvertableAttribute', 'DatabaseError',
+]
 
 class DatabaseError(SpineException):
     pass
@@ -145,7 +149,13 @@ class DatabaseClass(SpineClass, Searchable, Dumpable):
         for i in self.primary:
             keys[i.name] = i.convert_to(getattr(self, i.get_name_private()))
 
-        row = db.query_1(sql, keys)
+        try:
+            row = db.query_1(sql, keys)
+        except Cerebrum.Errors.DatabaseConnectionError, e:
+            raise DatabaseError("Connection to the db failed: %s" % str(e.args))
+        except Cerebrum.Errors.DatabaseException, e:
+            raise DatabaseError(*e.args)
+        
         if len(attributes) == 1:
             row = {attributes[0].name:row}
 
@@ -188,8 +198,12 @@ class DatabaseClass(SpineClass, Searchable, Dumpable):
             keys = {}
             for i in self.primary + attributes:
                 keys[i.name] = attr.convert_to(getattr(self, i.get_name_private()))
-
-            db.execute(sql, keys)
+            try:
+                db.execute(sql, keys)
+            except Cerebrum.Errors.DatabaseConnectionError, e:
+                raise DatabaseError("Connection to the db failed: %s" % str(e.args))
+            except Cerebrum.Errors.DatabaseException, e:
+                raise DatabaseError(*e.args)
 
     def _delete(self):
         """Generic method for deleting this instance from the database.
@@ -215,7 +229,12 @@ class DatabaseClass(SpineClass, Searchable, Dumpable):
         for table in (table_order or tables.keys()):
             sql = "DELETE FROM %s WHERE " % table
             sql += " AND ".join(['%s = :%s' % (a, a) for a in tables[table].keys()])
-            db.execute(sql, tables[table])
+            try:
+                db.execute(sql, tables[table])
+            except Cerebrum.Errors.DatabaseConnectionError, e:
+                raise DatabaseError("Connection to the db failed: %s" % str(e.args))
+            except Cerebrum.Errors.DatabaseException, e:
+                raise DatabaseError(*e.args)
 
     def _create(cls, db, *args, **vargs):
         """Generic method for creating instances in the database.
@@ -244,7 +263,12 @@ class DatabaseClass(SpineClass, Searchable, Dumpable):
                 tmp[cls._get_real_name(attr, table)] = attr.convert_to(map[attr])
             sql = "INSERT INTO %s (%s) VALUES (:%s)" % (
                     table, ", ".join(tmp.keys()), ", :".join(tmp.keys()))
-            db.execute(sql, tmp)
+            try:
+                db.execute(sql, tmp)
+            except Cerebrum.Errors.DatabaseConnectionError, e:
+                raise DatabaseError("Connection to the db failed: %s" % str(e.args))
+            except Cerebrum.Errors.DatabaseException, e:
+                raise DatabaseError(*e.args)
 
     _create = classmethod(_create)
 
@@ -354,8 +378,15 @@ class DatabaseClass(SpineClass, Searchable, Dumpable):
                 sql += ' AND '.join(where)
 
             # Build objects from the query result, and return them in a list.
+            try:
+                rows = self.get_database().query(sql, values)
+            except Cerebrum.Errors.DatabaseConnectionError, e:
+                raise DatabaseError("Connection to the db failed: %s" % str(e.args))
+            except Cerebrum.Errors.DatabaseException, e:
+                raise DatabaseError(*e.args)
+
             objects = []
-            for row in self.get_database().query(sql, values):
+            for row in rows:
                 tmp = {}
                 for attr in originals:
                     value = row[attr.name]
