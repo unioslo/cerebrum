@@ -84,13 +84,18 @@ class Constants(Constants.Constants):
 
 # SPREAD DEFINISJONER FRA STUDCONFIG
     spread_HiST_nds_stud_aft= _SpreadCode('nds-stu-aft@hist', Constants.Constants.entity_account, 'Novell system studenter AFT')
+    spread_HiST_nds_stud_aft_group= _SpreadCode('nds-s-aft_g@hist', Constants.Constants.entity_group, 'Novell student grupper AFT')
     spread_HiST_nds_stud_aoa= _SpreadCode('nds-stu-aoa@hist', Constants.Constants.entity_account, 'Novell system studenter AØA')
+    spread_HiST_nds_stud_aoa_group= _SpreadCode('nds-s-aoa_g@hist', Constants.Constants.entity_group, 'Novell student grupper AØA')
     spread_HiST_AD_stud= _SpreadCode('ad-stud@hist', Constants.Constants.entity_account, 'ActiveDirectory HiST 2003')
-    spread_HiST_Hist_epost= _SpreadCode('Hist-epost@hist', Constants.Constants.entity_account, 'UNIX epost ansatte')
+    spread_HiST_AD_stud_group= _SpreadCode('ad-s_g@hist', Constants.Constants.entity_group, 'ActiveDirectory student grupper HiST 2003')
+    spread_HiST_Hist_epost= _SpreadCode('epost@hist', Constants.Constants.entity_account, 'UNIX epost ansatte')
+    spread_HiST_Hist_epost_group= _SpreadCode('epost_g@hist', Constants.Constants.entity_group, 'UNIX epost grupper ansatte')
     spread_HiST_AK_Kalvskinnet = _SpreadCode('AK-Kalvskin@hist', Constants.Constants.entity_person, 'Adgangskontroll AFT/AITeL')
     spread_HiST_AK_Moholt = _SpreadCode('AK-Moholt@hist', Constants.Constants.entity_person, 'Adgangskontroll AØA/HA')
     spread_HiST_AK_Radmann = _SpreadCode('AK-Radmann@hist', Constants.Constants.entity_person, 'Adgangskontroll AHS')
     spread_HiST_AK_Rotvoll = _SpreadCode('AK-Rotvoll@hist', Constants.Constants.entity_person, 'Adgangskontroll ALT')
+    
 
 
 
