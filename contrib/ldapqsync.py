@@ -18,22 +18,15 @@ from Cerebrum.modules import ChangeLog
 from Cerebrum.Utils import Factory
 
 db = Factory.get('Database')()
-#db.commit = db.rollback
 const = Factory.get('CLConstants')(db)
 co = Factory.get('Constants')(db)
-are_test = """1
-2
-3
-113"""
 cltype = {}
 cl_entry = {'group_mod' : 'pass', 				
 	'group_add' : 'group_mod(cll.change_type_id,cll.subject_entity,\
 					cll.dest_entity,cll.change_id)',
 	'group_rem' : 'group_mod(cll.change_type_id,cll.subject_entity,\
 					cll.dest_entity,cll.change_id)',
-	#'account_mod' : 'mod_account(cll.subject_entity,i)',
-	#'account_mod' : 'group_mod(45,1154,2273,15)', #test purpose
-	'account_mod' : 'change_spread(18337,70,are_test)',
+	'account_mod' : 'mod_account(cll.subject_entity,i)',
 	'spread_add' : 'change_spread(cll.subject_entity,cll.change_type_id,\
 							cll.change_params)',
 	'spread_del' : 'change_spread(cll.subject_entity,cll.change_type_id,\
@@ -44,7 +37,6 @@ cl_entry = {'group_mod' : 'pass',
 							cll.change_type_id)',
 	'quarantine_del' : 'change_quarantine(cll.subject_entity,\
 							cll.change_type_id)'}
-#ldapfiles = []
 global user_dn, person_dn, group_dn, ngroup_dn
 bas = cereconf.LDAP_BASE
 org_att = cereconf.LDAP_ORG_ATTR
@@ -108,7 +100,6 @@ def get_ldap_value(search_id,dn,retrieveAttributes=None):
     for serv,l in s_list.items():
         try:
             ldap_result_id = l[1].search(search_id,searchScope,dn,retrieveAttributes)
-            #result_set = []
             while 1:
                 result_type, result_data = l[1].result(ldap_result_id, 0)
                 if (result_data == []):
@@ -117,23 +108,20 @@ def get_ldap_value(search_id,dn,retrieveAttributes=None):
                     if result_type == ldap.RES_SEARCH_ENTRY:
                         result_data.append(serv)
                         result_set.append(result_data)
-                        #print result_data
                     else:
                         pass
         except ldap.LDAPError, e:
-            print e #log problem in problem-file
+            print e # Do some spec logging of server-messages
             return(None)
     return(result_set)
 
 
 
 def mod_ldap(ldap_mod,attr,attr_value,dn_value,list=None):
-    print "in mod_ldap"
     if list:
 	ldif_list = [(ldap_mod,attr,attr_value)]
     else:
     	ldif_list = [(ldap_mod,attr,(attr_value,))]
-    print ldif_list
     for serv,l in s_list.items():
 	result_ldap_mod = l[1].modify(dn_value,ldif_list)
 	log_str = '\n' + ldif.CreateLDIF(dn_value,ldif_list)
@@ -144,7 +132,6 @@ def mod_ldap(ldap_mod,attr,attr_value,dn_value,list=None):
 	    log_fail.write(log_str)
 
 def mod_ldap_serv(ldap_mod,attr,attr_value,dn_value,k,list=None):
-    print "in mod_ldap_serv"
     if list:
 	ldif_list = [(ldap_mod,attr,attr_value)]
     else:
@@ -158,7 +145,6 @@ def mod_ldap_serv(ldap_mod,attr,attr_value,dn_value,k,list=None):
 	log_fail.write(log_str)
 
 def add_ldap(dn_value,ldif_list):
-    print "in add ldap %s %s" % (dn_value,ldif_list)
     for serv,l in s_list.items():
 	result_add_ldap = l[1].add(dn_value,ldif_list)
 	log_str = '\n' + ldif.CreateLDIF(dn_value,ldif_list)
@@ -179,7 +165,6 @@ def add_ldap_serv(dn_value,ldif_list,k):
 
 
 def delete_ldap(dn_value):
-    print "in delete ldap"
     for serv,l in s_list.items():
 	result_del_ldap = l[1].delete(dn_value)
 	log_str = '\n' + ldif.CreateLDIF(dn_value,{'changetype': ('delete',)})
@@ -190,7 +175,6 @@ def delete_ldap(dn_value):
 	    log_fail.write(log_str)
 
 def delete_ldap_serv(dn_value,k):
-    print "in delete ldap serv"
     result_del_ldap = s_list[k][1].delete(dn_value)
     log_str = '\n' + ldif.CreateLDIF(dn_value,{'changetype': ('delete',)})
     if result_del_ldap:
@@ -200,7 +184,6 @@ def delete_ldap_serv(dn_value,k):
         log_fail.write(log_str)
 
 def modrdn_ldap(dn_value,new_value,delete_old=True):
-    print "in delete ldap"
     for serv,l in s_list.items():
         result_del_ldap = l[1].modrdn(dn_value,new_value,delete_old)
         log_str = '\n' + ldif.CreateLDIF(dn_value,{'changetype': ('modrdn',),\
@@ -214,28 +197,20 @@ def modrdn_ldap(dn_value,new_value,delete_old=True):
 
 def mod_account(dn_id,i):
     j = i + 1
-    print "In account mod" 
     account = Account.Account(db)
     account.clear()
     account.find(dn_id)
-    print account.account_name
     if (j < len(ch_log_list)):
-	print "test1"
 	try:
-	    print "test2"
 	    if ((ch_log_list[j]['change_type_id']) == \
 			int(const.account_password)):
-		print "test3"
 		change_passwd(dn_id)
 	except: pass 
     else:
-	print "test4"
 	if True in [account.has_spread(x) for x in u_spreads]:
-	    print "test5"
 	    search_str = "%s=%s" % (cereconf.LDAP_USER_ATTR,
 					account.account_name)
 	    ldap_entry = get_ldap_value(user_dn,search_str,None)
-	    print ldap_entry
 	    dn_str,ldap_entry_u = ldap_entry[0][0]
 	    base_entry = get_user_info_dict(dn_id)
 	    for entry in base_entry.keys():
@@ -251,7 +226,6 @@ def get_user_info_dict(dn_id):
 
 
 def change_passwd(dn_id):
-    print "in passwd"
     acc = Account.Account(db)
     acc.find(int(dn_id))
     search_str = "%s=%s" % (cereconf.LDAP_USER_ATTR,acc.account_name)
@@ -276,8 +250,6 @@ def change_passwd(dn_id):
 	mod_ldap(ldap.MOD_REPLACE,passwd_attr,new_passwd,pers_dn)	
 
 def change_quarantine(dn_id,ch_type):
-    print "in change quarantine"
-    #acc = Account.Account(db)
     posusr = PosixUser.PosixUser(db)
     try:
 	posusr.find(dn_id)
@@ -287,14 +259,7 @@ def change_quarantine(dn_id,ch_type):
 	spread_u = True
     else: spread_u = False
     search_str = "%s=%s" % (cereconf.LDAP_USER_ATTR,posusr.account_name)
-    # posusr.account_name -> posusr.get_name(account_namespace)
     search_dn = "%s,%s" % (search_str,user_dn)
-#    try:
-#	for spreads in cereconf.LDAP_USER_SPREAD:
-#	    if acc.has_spread(getattr(co,spreads)):
-#		posixuser.find(dn_id)
-#		valid_spread = True
-#    except Errors.NotFoundError: pass
     user = {}
     passwd = 'userPassword'
     shells = 'loginShell'
@@ -360,7 +325,6 @@ def change_spread(dn_id,ch_type,ch_params):
     """Spread can be users, filegroup or netgroup. Since e_account.create 
     not necesary include spread to posix, creation of user-,filegroup- and
     netgroup-record will be based on add/mod/del spread"""
-    print "In change spread"
     entity = Entity.Entity(db)
     entity.find(int(dn_id))
     """What to do with ch_param"""
@@ -373,7 +337,6 @@ def change_spread(dn_id,ch_type,ch_params):
 					% (dn_id,ch_type)) 
 
 def change_user_spread(dn_id, ch_type, ch_params):
-    print "in user spread change"
     account = Account.Account(db)
     group = Group.Group(db)
     param_list = []
@@ -384,21 +347,14 @@ def change_user_spread(dn_id, ch_type, ch_params):
 	search_str = "%s=%s" % (cereconf.LDAP_USER_ATTR,account.account_name)
 	search_dn = "%s,%s" % (search_str,user_dn)
 	if (ch_type == int(const.spread_del)):
-	    #print "in user-delete loop"
 	    for entry in  get_ldap_value(user_dn,search_str,None):
-		#print "parameters to ldap_del: %s %s" % (search_dn,entry[1])
 		delete_ldap_serv(search_dn,entry[1])
-	    # Remove all entries in netgroups and filegroups
 	    for grp in group.list_groups_with_entity(dn_id):
 		user_add_del_grp(const.group_rem,dn_id,grp['group_id'])
 	elif (ch_type == int(const.spread_add)):
-	    #print "in user add part"
 	    usr_list = get_user_info(dn_id)
-	    #print usr_list
 	    ldap_res = get_ldap_value(user_dn,search_str,None)
-	    #print ldap_res
 	    if (ldap_res == []):
-		#print "in correct rutine"
 		add_ldap(search_dn,usr_list)
 	    else:
 		for serv in s_list.keys():
@@ -567,19 +523,15 @@ def get_netgroup_mem(netgrp_id,members,groups):
  
 
 def group_mod(ch_type,dn_id,dn_dest,log_id):
-    print "in group_mod"
     entity = Entity.Entity(db)
     entity.clear()
     entity.find(dn_id)
     if True in ([entity.has_spread(x) for x in u_spreads]):
 	user_add_del_grp(ch_type,dn_id,dn_dest)
     elif (int(entity.entity_type) == int(co.entity_group)): 
-	print "riktig sted"
 	if True in [entity.has_spread(x) for x in n_spreads]:
-	    print "feil sted"
 	    add_netg2netg(ch_type,dn_id,dn_dest)
 	if True in [entity.has_spread(x) for x in g_spreads]:
-	    print "enda mere riktig"
 	    group = Group.Group(db)
 	    group.entity_id = int(dn_id)
 	    for mem in group.get_members(spread=u_spreads[0]):
@@ -635,28 +587,18 @@ def user_add_del_grp(ch_type,user_id,dn_dest):
     group.entity_id = int(dn_dest)
     if True in ([group.has_spread(x) for x in g_spreads]):
 	grp_list = [int(dn_dest),]
-	#print grp_list
     else: grp_list = []
-    test = get_groups(group.entity_id,g_spreads,grp_list,fg=True)
-    print "list av grupper %s" % test
-    #for grp in get_groups(group.entity_id,g_spreads,grp_list,fg=True):
-    for grp in test:
+    for grp in get_groups(group.entity_id,g_spreads,grp_list,fg=True):
 	group.clear()
 	group.entity_id = int(grp)
-	print "Grp: %d" % grp
 	dn = "%s=%s,%s" % (cereconf.LDAP_GROUP_ATTR,\
                                 group.get_name(co.group_namespace),group_dn)
 	memb_attr = 'memberUid'
-	#print "dn: %s" % dn
 	user = account.get_name(co.account_namespace)
 	memb_id = '%s=%s' % (memb_attr,user)
-	#print " Soke-krit: %s %s" % (dn,memb_id)
 	ldap_value = get_ldap_value(dn,memb_id)
-	#print ldap_value
 	if (ch_type == const.group_add):
-	    #print "in add_user_to_group"
 	    if (ldap_value == []):
-		#print "ldap_value = []"
 		mod_ldap(ldap.MOD_ADD,memb_attr,user,dn)
 	    else:
 		mod_s = []
@@ -668,16 +610,12 @@ def user_add_del_grp(ch_type,user_id,dn_dest):
 								%(serv,user,dn))
 		    else: ldap_mod_serv(ldap.MOD_ADD,memb_attr,user,dn,serv)
 	elif (ch_type == const.group_rem):
-	    #mem_list = []
 	    mem_list = [(mem[1]) for mem in group.get_members(spread=\
 					u_spreads[0],get_entity_name=True)]
-	    print mem_list
 	    if user not in mem_list:
-		print "in correct place de"
 		for ldap_entry in ldap_value:
-		    print (memb_attr,user,dn,ldap_entry[1])
 		    mod_ldap_serv(ldap.MOD_DELETE,memb_attr,user,dn,\
-							ldap_entry[1]) # (sjekk entry 2) 
+							ldap_entry[1])  
 	else: log_fail.write("\n# Uknown command at log ")
     group.clear()
     group.entity_id = int(dn_dest)
@@ -686,29 +624,23 @@ def user_add_del_grp(ch_type,user_id,dn_dest):
     else: 
 	ng_list = []
 	grp_list = get_groups(group.entity_id,n_spreads,ng_list,fg=False)
-    print "Gruppe av net_grupper : %s" % grp_list
     for grp in grp_list:
 	group.clear()
         group.entity_id = int(grp)
         cn = "%s=%s" % (cereconf.LDAP_GROUP_ATTR,\
 			 group.get_name(co.group_namespace))
 	dn = "%s,%s" % (cn,ngroup_dn)
-	print dn
         mem_attr = 'nisNetgroupTriple'
 	acc_name = account.get_name(co.account_namespace)
         user = '(,%s,)' % acc_name
         mem_id = '%s=%s' % (mem_attr,user)
         ldap_value = get_ldap_value(ngroup_dn,cn)
-	print ldap_value
 	if (ch_type == const.group_add) and (ldap_value <> None) and \
 							(ldap_value <> []):
 	    for entry in ldap_value:
 		if entry[0][1].has_key('nisNetgroupTriple'):
 		    pres_value = entry[0][1]['nisNetgroupTriple']
-		    print "user:%s gruppe: %s" % (user,pres_value)
 		    if user not in pres_value:
-			#mod_ldap_serv(ldap.MOD_DELETE,mem_attr,pres_value,dn,\
-                        #                                entry[1],list=True)
 			pres_value.append(user)
 			mod_ldap_serv(ldap.MOD_REPLACE,mem_attr,pres_value,dn,\
                                                         entry[1],list=True)
@@ -719,24 +651,14 @@ def user_add_del_grp(ch_type,user_id,dn_dest):
 						(ldap_value <> None):
 	    cer_mem = [x[2] for x in group.list_members(spread=u_spreads[0],\
 			member_type=co.entity_account,get_entity_name= True)[0]]
-	    print "member in net_group: %s" % cer_mem
 	    if acc_name not in cer_mem:
-		print "user: %s not in group" % acc_name
 	    	for entry in ldap_value:
 		    if entry[0][1].has_key('nisNetgroupTriple'):
 			pres_value = entry[0][1]['nisNetgroupTriple']
-			print "present value: %s" % pres_value
 			if user in pres_value:
-			    #mod_ldap_serv(ldap.MOD_DELETE,mem_attr,pres_value,dn,\
-                            #                            entry[1],list=True)			    
 			    pres_value.remove(user)
-			    print "net_group after removal: %s" % pres_value
 			    mod_ldap_serv(ldap.MOD_REPLACE,mem_attr,pres_value,dn,\
                                                         	entry[1],list=True)
-			    #if (pres_value <> []):
-				#mod_ldap_serv(ldap.MOD_ADD,mem_attr,pres_value,\
-				#		dn,entry[1],list=True)
-		
 
 		    
 	
@@ -753,12 +675,10 @@ def get_groups(grp_id,spreads,grp_list,fg=False):
     # må disse nye medlemene  knyttes til § 
     # 
     group = Group.Group(db)
-    print "in get_group"
     for entry in group.list_groups_with_entity(grp_id):
 	if (int(entry['member_type']) == int(co.entity_group)):
 	    group.clear()
 	    group.entity_id = int(entry['group_id'])
-	    #print entry['group_id']
 	    if (fg and True in [group.has_spread(x) for x in spreads]):
 		grp_list.append(int(entry['group_id']))
 	    	get_groups(group.entity_id,spreads,grp_list,fg)
@@ -812,28 +732,22 @@ def main():
     else:
 	log_fail = file(file_path_str + cereconf.LDAP_SYNC_FAULT,'w')
     start_tls_and_log()
-    print s_list
     if valid_sync_mode and log_fail:
 	i = 0
-	#ch_log_list = clh.get_events('ldap',(const.account_mod,\
-	#	const.account_password,const.group_add,const.group_rem,\
-	#	const.group_mod,const.spread_add,const.spread_del,\
-	#	const.quarantine_add,const.quarantine_mod,\
-	#	const.quarantine_del))
-	#print "jalla 1 len: %d" % len(ch_log_list)
-	#for cll in ch_log_list:
-	#    print cll.change_id,cll.change_type_id,cll.subject_entity,cll.change_type_id
-	#    try:
-	#	print cltype[int(cll.change_type_id)]
-	#	exec cltype[int(cll.change_type_id)]
-	#	clh.confirm_event(cll)
-	#    except: pass 
-	#    i += 1
-	#    clh.confirm_event(cll)
-	exec cltype[24]
-    #clh.commit_confirmations()
+	ch_log_list = clh.get_events('ldap',(const.account_mod,\
+		const.account_password,const.group_add,const.group_rem,\
+		const.group_mod,const.spread_add,const.spread_del,\
+		const.quarantine_add,const.quarantine_mod,\
+		const.quarantine_del))
+	for cll in ch_log_list:
+	    try:
+		exec cltype[int(cll.change_type_id)]
+		clh.confirm_event(cll)
+	    except: pass 
+	    i += 1
+	    clh.confirm_event(cll)
+    clh.commit_confirmations()
     end_session(s_list)
-    #time.sleep(120)
     
 
 
