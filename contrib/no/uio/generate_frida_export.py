@@ -676,11 +676,15 @@ def output_person(writer, person_id, db_person, db_account,
                    "sn")
 
     # first name
-    first_name = db_person.get_name(constants.system_lt,
-                                    constants.name_first)
-    if first_name:
-        output_element(writer, first_name, "givenName")
-    # fi
+    try:
+        first_name = db_person.get_name(constants.system_lt,
+                                        constants.name_first)
+        if first_name:
+            output_element(writer, first_name, "givenName")
+        # fi
+    except Cerebrum.Errors.NotFoundError:
+        pass
+    # yrt
 
     # uname && email for the *primary* account.
     primary_account = db_person.get_primary_account()
