@@ -23,10 +23,11 @@
 
 import cereconf
 from Cerebrum import Utils
-from Cerebrum.Entity import Entity, EntityContactInfo, EntityAddress, EntityQuarantine
+from Cerebrum.Entity import \
+     Entity, EntityContactInfo, EntityAddress, EntityQuarantine
 
 
-class OU(EntityContactInfo, EntityAddress, Entity, EntityQuarantine):
+class OU(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
 
     __read_attr__ = ('__in_db',)
     __write_attr__ = ('name', 'acronym', 'short_name', 'display_name',
@@ -275,8 +276,8 @@ class OU(EntityContactInfo, EntityAddress, Entity, EntityQuarantine):
         WHERE ou_id=:e_id AND perspective=:perspective""",
                      {'e_id': self.entity_id,
                       'perspective': int(perspective)})
-        self._db.log_change(self.entity_id, self.const.ou_unset_parent,
-                            None, change_params={'perspective': int(perspective)})
+        self._db.log_change(self.entity_id, self.const.ou_unset_parent, None,
+                            change_params={'perspective': int(perspective)})
 
     def set_parent(self, perspective, parent_id):
         """Set the parent of this OU to ``parent_id`` in ``perspective``."""
@@ -303,7 +304,8 @@ class OU(EntityContactInfo, EntityAddress, Entity, EntityQuarantine):
         ret.extend(tmp)
         if recursive:
             for r in tmp:
-                ret.extend(self.list_children(perspective, r['ou_id'], recursive))
+                ret.extend(self.list_children(perspective, r['ou_id'],
+                                              recursive))
         return ret
 
     def list_all(self):
