@@ -146,7 +146,7 @@ def process_person_callback(person_info):
         if isinstance(p, str):
             continue
         # Get name
-        if dta_type in ('fagperson', 'opptak', 'tilbud', 'evu'):
+        if dta_type in ('fagperson', 'opptak', 'tilbud', 'evu', 'privatist_emne'):
             etternavn = p['etternavn']
             fornavn = p['fornavn']
         if p.has_key('studentnr_tildelt'):
@@ -162,7 +162,7 @@ def process_person_callback(person_info):
                     'adrlin1_hjemsted', 'adrlin2_hjemsted',
                     'adrlin3_hjemsted', 'postnr_hjemsted',
                     'adresseland_hjemsted')
-            elif dta_type in ('opptak',):
+            elif dta_type in ('opptak', 'privatist_emne'):
                 address_info = _ext_address_info(p, 'adrlin1_semadr',
                     'adrlin2_semadr', 'adrlin3_semadr',
                     'postnr_semadr', 'adresseland_semadr')
