@@ -6,7 +6,7 @@ from Cerebrum.Utils import Factory
 
 class SQLDriverTestCase(unittest.TestCase):
     def setUp(self):
-        self.db = Factory.get('Database').connect()
+        self.db = Factory.get('Database')()
         try:
             self.db.execute("CREATE TABLE test_db_dict (value NUMERIC(6,0))")
             self.db.execute("INSERT INTO test_db_dict (value) VALUES (1)")

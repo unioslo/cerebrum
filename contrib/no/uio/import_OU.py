@@ -57,7 +57,7 @@ if len(sys.argv) == 2:
     stedfile = sys.argv[1]
 
 def main():
-    Cerebrum = Factory.get('Database').connect()
+    Cerebrum = Factory.get('Database')()
     steder = {}
     co = Factory.get('Constants')(Cerebrum)
     ou = OU_class(Cerebrum)

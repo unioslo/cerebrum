@@ -7,7 +7,8 @@ import os
 import sys
 
 import cereconf
-from Cerebrum import Person, Errors
+from Cerebrum import Person
+from Cerebrum import Errors
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.Utils import Factory
 
@@ -59,7 +60,7 @@ def conv_name(fullname):
     return fullname.split(None, 1)
 
 def main():
-    Cerebrum = Factory.get('Database').connect()
+    Cerebrum = Factory.get('Database')()
     ou = Factory.get('OU')(Cerebrum)
     personObj = Person.Person(Cerebrum)
     co = Factory.get('Constants')(Cerebrum)

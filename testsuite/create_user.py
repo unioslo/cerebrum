@@ -33,7 +33,7 @@ def main():
     else:
         external_id = "41023468172"
 
-    Cerebrum = Factory.get('Database').connect()
+    Cerebrum = Factory.get('Database')()
 
     create_user(Cerebrum, external_id)
 

@@ -49,7 +49,7 @@ class TrivialParser(xml.sax.ContentHandler):
         pass
 
 def main():
-    Cerebrum = Factory.get('Database').connect()
+    Cerebrum = Factory.get('Database')()
 
     if getattr(cereconf, "ENABLE_MKTIME_WORKAROUND", 0) == 1:
         print "Warning: ENABLE_MKTIME_WORKAROUND is set"

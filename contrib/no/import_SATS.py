@@ -13,7 +13,7 @@ from Cerebrum.modules.no import fodselsnr
 
 pp = pprint.PrettyPrinter(indent=4)
 
-Cerebrum = Factory.get('Database').connect()
+Cerebrum = Factory.get('Database')()
 co = Factory.get('Constants')(Cerebrum)
 OU_class = Factory.get('OU')
 

@@ -17,7 +17,7 @@ import traceback
 # subclass's base class list.
 class Entity_createTestCase(unittest.TestCase, object):
 
-    Cerebrum = Factory.get('Database').connect()
+    Cerebrum = Factory.get('Database')()
     co = Constants.Constants(Cerebrum)
     entity_class = Entity
 

@@ -24,14 +24,13 @@ from Cerebrum.Utils import Factory
 
 from cmd_param import Command,Id
 
-OU_class = Factory.get('OU')
 
 class BofhdExtension(object):
     def __init__(self, Cerebrum):
         self.all_commands = {
             'get_stedkode_info': Command(('ou', 'stedkode'), Id())
             }
-        self.ou = OU_class(Cerebrum)
+        self.ou = Factory.get('OU')(Cerebrum)
 
     def get_commands(self, uname):
         # TODO: Do some filtering on uname to remove commands
@@ -60,6 +59,6 @@ class BofhdExtension(object):
         return suggestions.get(cmd)
 
 if __name__ == '__main__':
-    Cerebrum = Factory.get('Database').connect()
+    Cerebrum = Factory.get('Database')()
     sm = BofhdExtension(Cerebrum)
     print "Ret: %s" % sm.get_stedkode_info('user', '900547')

@@ -15,7 +15,7 @@ from Cerebrum.utils import Factory
 # class, and we want to be allowed to call super.
 class OU_createTestCase(unittest.TestCase, object):
 
-    Cerebrum = Factory.get('Database').connect()
+    Cerebrum = Factory.get('Database')()
     co = Constants.Constants(Cerebrum)
 
     ou_dta = {

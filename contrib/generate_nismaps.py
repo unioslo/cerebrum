@@ -5,16 +5,12 @@ import time
 import cerebrum_path
 from Cerebrum import Constants
 from Cerebrum import Errors
-from Cerebrum import Person
-from Cerebrum import Account
-from Cerebrum.utils import Factory
+from Cerebrum.Utils import Factory
 from Cerebrum.modules import PosixUser
 from Cerebrum.modules import PosixGroup
 
-Cerebrum = Factory.get('Database').connect()
-person = Person.Person(Cerebrum)
-co = Constants.Constants(Cerebrum)
-account = Account.Account(Cerebrum)
+Cerebrum = Factory.get('Database')()
+co = Factory.get('Constants')(Cerebrum)
 posix_user = PosixUser.PosixUser(Cerebrum)
 posix_group = PosixGroup.PosixGroup(Cerebrum)
 

@@ -25,9 +25,9 @@ from Cerebrum.Utils import Factory
 
 default_personfile = '/local2/home/runefro/usit/cerebrum/contrib/no/uio/users.xml'
 default_groupfile = '/local2/home/runefro/usit/cerebrum/contrib/no/uio/filegroups.xml'
-Cerebrum = Factory.get('Database').connect()
-personObj = Person.Person(Cerebrum)
-co = Factory.getConstants()(Cerebrum)
+Cerebrum = Factory.get('Database')()
+personObj = Factory.get('Person')(Cerebrum)
+co = Factory.get('Constants')(Cerebrum)
 pp = pprint.PrettyPrinter(indent=4)
 
 class PersonUserData(object):

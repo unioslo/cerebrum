@@ -288,7 +288,7 @@ def main():
     from Cerebrum.Utils import Factory
     from Cerebrum import Errors
 
-    Cerebrum = Factory.get('Database').connect()
+    Cerebrum = Factory.get('Database')()
     co = Constants(Cerebrum)
 
     skip = dir(Cerebrum)
