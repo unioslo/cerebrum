@@ -36,10 +36,13 @@ central_Constants = Constants
 class Constants(central_Constants):
 
     externalid_fodselsnr = _EntityExternalIdCode('NO_BIRTHNO',
+                                                 central_Constants.entity_person,
                                                  'Norwegian birth number')
     externalid_studentnr = _EntityExternalIdCode('NO_STUDNO',
+                                                 central_Constants.entity_person,
                                                  'Norwegian student number')
     externalid_sap_ansattnr = _EntityExternalIdCode('HiA_SAP_EMP#',
+                                                    central_Constants.entity_person,
                                                     'HiA SAP employee number')
 
     system_fs = _AuthoritativeSystemCode('FS', 'FS')

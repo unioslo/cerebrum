@@ -43,6 +43,7 @@ class DebianEduConstants(Constants.Constants):
 
     externalid_sas_id = _EntityExternalIdCode(
         'SASID',
+        Constants.Constants.entity_person,
         'SAS internal id-number')
 
     affiliation_admin = _PersonAffiliationCode(
@@ -155,6 +156,7 @@ class DebianEduConstants(Constants.Constants):
 
     externalid_fodselsnr = _EntityExternalIdCode(
         'NO_BIRTHNO',
+        Constants.Constants.entity_person,
         'Norwegian birth number')
 
 

@@ -33,8 +33,10 @@ from Cerebrum.modules.Email import _EmailServerTypeCode
 class Constants(Constants.Constants):
 
     externalid_fodselsnr = _EntityExternalIdCode('NO_BIRTHNO',
+                                                 Constants.Constants.entity_person,
                                                  'Norwegian birth number')
     externalid_studentnr = _EntityExternalIdCode('NO_STUDNO',
+                                                 Constants.Constants.entity_person,
                                                  'Norwegian student number')
 
     system_fs = _AuthoritativeSystemCode('FS', 'FS')

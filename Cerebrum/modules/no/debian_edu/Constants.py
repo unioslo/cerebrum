@@ -10,6 +10,7 @@ central_Constants = Constants
 class Constants(central_Constants):
 
     externalid_studentnr = _EntityExternalIdCode('NO_STUDNO',
+                                                 central_Constants.entity_person,
                                                  'Norwegian student number')
 
     
