@@ -134,14 +134,17 @@ class Disk(Entity):
                                   'host_id': host_id})
         self.find(entity_id)
 
-    def list(self):
+    def list(self, host_id=None):
+        where = ""
+        if host_id is not None:
+            where = "WHERE host_id=:host_id"
         # Note: This syntax requires Oracle >= 9
         return self.query("""
         SELECT count(account_id), di.disk_id, di.host_id, di.path
         FROM [:table schema=cerebrum name=disk_info] di
           LEFT JOIN [:table schema=cerebrum name=account_info] ai
-            ON di.disk_id=ai.disk_id
-        GROUP BY di.disk_id, di.host_id, di.path""")
+            ON di.disk_id=ai.disk_id %s
+        GROUP BY di.disk_id, di.host_id, di.path""" % where, {'host_id': host_id})
 
 class Host(Entity):
     __read_attr__ = ('__in_db',)
