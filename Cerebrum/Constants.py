@@ -412,6 +412,9 @@ class _PersonAffStatusCode(_CerebrumCode):
     def __str__(self):
         return "%s/%s" % (self.affiliation, self.str)
 
+    def _get_status(self):
+        return self.str
+
     def insert(self):
         self.sql.execute("""
         INSERT INTO %(code_table)s
