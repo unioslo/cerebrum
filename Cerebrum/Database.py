@@ -690,9 +690,9 @@ class PostgreSQL(Database):
 
     def _sql_port_sequence(self, schema, name, op):
         if op == 'next':
-            return ['nextval(%s)' % name]
+            return ["nextval('%s')" % name]
         elif op == 'current':
-            return ['currval(%s)' % name]
+            return ["currval('%s')" % name]
         else:
             raise ValueError, 'Invalid sequnce operation: %s' % op
 
