@@ -54,7 +54,7 @@ class ExportedFuncs(object):
         self.THIS_CFU = 'this'
         self.modules = {}
         self.command2module = {}
-        self.Cerebrum = Database.connect(user="cerebrum")
+        self.Cerebrum = Database.connect()
         self.person = Person.Person(self.Cerebrum)
         self.const = self.person.const
         self.cfu = CallableFuncs(self)
