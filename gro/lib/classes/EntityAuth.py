@@ -75,7 +75,7 @@ class EntityAuth(object): # Mixin for Entity
         # jeg er litt forvirret av intersection/difference.. kanskje vi skal bestemme at
         # grupper entitenen er union-medlem i skal få lov til å brukes til auth?
         for entity in self.get_groups():
-            if self.check_permission(entity, operation, check_groups=False):
+            if self.check_permission(entity, operation_type, check_groups=False):
                 return True
 
         return False
