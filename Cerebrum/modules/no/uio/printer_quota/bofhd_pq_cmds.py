@@ -1,6 +1,7 @@
 # -*- coding: iso-8859-1 -*-
 
 import time
+import cereconf
 
 from Cerebrum import Account
 from Cerebrum import Cache
@@ -21,6 +22,8 @@ from Cerebrum.modules.bofhd.utils import _AuthRoleOpCode
 class Constants(Constants.Constants):
     auth_pquota_list_history = _AuthRoleOpCode(
         'pq_list_hist', 'List printer quota history')
+    auth_pquota_list_extended_history = _AuthRoleOpCode(
+        'pq_list_ext_hist', 'List printer quota history')
     auth_pquota_off = _AuthRoleOpCode(
         'pq_off', 'Turn off printerquota')
     auth_pquota_undo = _AuthRoleOpCode(
@@ -49,16 +52,26 @@ class PQBofhdAuth(auth.BofhdAuth):
             return False
         raise PermissionDenied("permission denied")
 
-    def can_pquota_list_history(self, operator, person=None, query_run_any=False):
+    def _can_pquota_list_history(self, operator, person=None, query_run_any=False,
+                                 perm_type=None):
         if query_run_any:
             return True
         if operator.get_owner_id() == person:
             # Everyone can list their own history
             return True
         return self._query_person_permission(operator,
-                                             self.const.auth_pquota_list_history,
+                                             perm_type,
                                              person,
                                              query_run_any)
+
+    def can_pquota_list_history(self, operator, person=None, query_run_any=False):
+        return self._can_pquota_list_history(
+            operator, person, query_run_any, self.const.auth_pquota_list_history)
+
+    def can_pquota_list_extended_history(
+        self, operator, person=None, query_run_any=False):
+        return self._can_pquota_list_history(
+            operator, person, query_run_any, self.const.auth_pquota_list_extended_history)
 
     def can_pquota_off(self, operator, person=None, query_run_any=False):
         if query_run_any:
@@ -183,10 +196,20 @@ The currently defined id-types are:
     # for scripts
     def _pquota_history(self, operator, person_id, when):
         # when is number of days in the past
-        self.ba.can_pquota_list_history(operator, person_id)
-        ppq_info = self.bu.get_pquota_status(person_id)
         if when:
+            try:
+                when = int(when)
+            except ValueError:
+                raise CerebrumError, "When must be a number"
+
+        if when > cereconf.PQ_MAX_LIGHT_HISTORY_WHEN:
+            self.ba.can_pquota_list_extended_history(operator, person_id)
+        else:
+            self.ba.can_pquota_list_history(operator, person_id)
+        if when is not None:
             when = self.db.Date(*( time.localtime(time.time()-3600*24*when)[:3]))
+            
+        ppq_info = self.bu.get_pquota_status(person_id)
 
         ret = []
         ppq = PaidPrinterQuotas.PaidPrinterQuotas(self.db)
@@ -216,16 +239,9 @@ The currently defined id-types are:
                              "#Paid")),
         perm_filter='can_pquota_list_history')
     def jbofh_pquota_history(self, operator, person_id, when=None):
-        if when is None:
-            when = 7              # Max days for cmd-client
-        else:
-            if not self.ba.is_superuser(operator.get_entity_id()):
-                raise PermissionDenied("Only superusers may use when")
-            try:
-                when = int(when)
-            except ValueError:
-                raise CerebrumError, "When must be a number"
         ret = []
+        if when is None:
+            when = cereconf.PQ_MAX_LIGHT_HISTORY_WHEN
         for r in self._pquota_history(
             operator, self.bu.find_person(person_id), when):
             tmp = {
