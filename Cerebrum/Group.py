@@ -273,7 +273,7 @@ class Group(EntityName, Entity):
         FROM [:table schema=cerebrum name=group_member]
         WHERE member_id=:member_id""", {'member_id': entity_id})
 
-    def list_members(self, spread=None):
+    def list_members(self, spread=None, member_type=None):
         """Return a list of lists indicating the members of the group.
 
         The top-level list returned is on the form
@@ -285,6 +285,9 @@ class Group(EntityName, Entity):
 
         """
         extfrom = extwhere = ""
+        if member_type is not None:
+            extwhere = "member_type=:member_type AND "
+            member_type = int(member_type)
         if spread is not None:
             extfrom = "gm, [:table schema=cerebrum name=entity_spread] es"
             extwhere = """gm.member_id=es.entity_id AND es.spread=:spread AND """
@@ -298,7 +301,8 @@ class Group(EntityName, Entity):
         FROM [:table schema=cerebrum name=group_member] %s
         WHERE %sgroup_id=:g_id""" % (extfrom, extwhere), {
             'g_id': self.entity_id,
-            'spread': spread}):
+            'spread': spread,
+            'member_type': member_type}):
             op2set[int(op)].append((mtype, mid))
         return members
 
