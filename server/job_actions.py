@@ -163,7 +163,8 @@ class System(CallableAction):
                 os.execv(self.cmd, p)
             except OSError, e:
                 self.logger.debug("Will do SystemExit")
-                sys.exit(e.errno)
+                # avoid cleanup handlers, seems to mess with logging
+                sys._exit(e.errno)
         except SystemExit:
             #self.logger.debug("not trapping exit")
             raise   # Don't stop the above sys.exit()

@@ -61,7 +61,7 @@ runner_cw = threading.Condition()
 
 use_thread_lock = False  # don't seem to work
 
-if False:
+if True:
     # useful for debugging, and to work-around a wierd case where the
     # logger would hang
     ppid = os.getpid()
@@ -95,7 +95,7 @@ if False:
 
 def sigchld_handler(signum, frame):
     """Sigchild-handler that wakes the main-thread when a child exits"""
-    logger.debug2("sigchld_handler(%s, %s)" % (str(signum), str(frame.f_code)))
+    logger.debug2("sigchld_handler(%s)" % (str(signum)))
     signal.signal(signal.SIGCHLD, sigchld_handler)
 signal.signal(signal.SIGCHLD, sigchld_handler)
 
@@ -110,7 +110,7 @@ class JobRunner(object):
 
     def sig_general_handler(signum, frame):
         """General signal handler, for places where we use signal.pause()"""
-        logger.debug2("siggeneral_handler(%s, %s)" % (str(signum), str(frame.f_code)))
+        logger.debug2("siggeneral_handler(%s)" % (str(signum)))
     sig_general_handler = staticmethod(sig_general_handler)
 
     def signal_sleep(self, seconds):
@@ -192,11 +192,17 @@ class JobRunner(object):
             tmp_queue = self.job_queue.get_run_queue()[:]   # loop modifies list
             completed_nowait_job = False
             for job_name in tmp_queue:
+                job_ref = self.job_queue.get_known_job(job_name)
+                if (job_ref.call and job_ref.call.wait and
+                    num_running >= cereconf.JOB_RUNNER_MAX_PARALELL_JOBS):
+                    # This is a minor optimalization that may be
+                    # skipped.  Hopefully it makes the log easier to
+                    # read
+                    continue
                 if self.job_queue.has_queued_prerequisite(job_name):
                     logger.debug2("has queued prereq: %s" % job_name)
                     continue
                 logger.debug2("  ready: %s" % job_name)
-                job_ref = self.job_queue.get_known_job(job_name)
                 
                 if job_ref.call is not None:
                     logger.debug("  exec: %s, # running_jobs=%i" % (
