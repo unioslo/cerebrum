@@ -29,11 +29,12 @@ class _ChangeTypeCode(_CerebrumCode):
     _lookup_desc_column = 'msg_string'
     
     def __init__(self, category, type, msg_string):
+        super(_ChangeTypeCode, self).__init__(category)
         self.category = category
         self.type = type
         self.int = None
         self.msg_string = msg_string
-
+        
     def __str__(self):
         return "%s:%s" % (self.category, self.type)
 
