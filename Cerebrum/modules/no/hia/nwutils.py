@@ -25,6 +25,7 @@ import sys
 import time
 import ldap
 import pickle
+import re
 import cereconf
  
 from Cerebrum.Utils import Factory
@@ -352,28 +353,32 @@ def get_user_info(account_id, spread):
         person.clear()
         person.find(person_id)
         affiliation = get_primary_affiliation(account_id, co.account_namespace)
-            
-        full_name = ' '
         ext_id = 0
-        for ss in cereconf.SYSTEM_LOOKUP_ORDER:
-            try:
-                if full_name is ' ':
-                    first_n = person.get_name(int(getattr(co, ss)), int(co.name_first))
-                    last_n = person.get_name(int(getattr(co, ss)), int(co.name_last))
-                    full_name = first_n +' '+ last_n
-            except Errors.NotFoundError:
-                pass
-            try:
-                if affiliation == co.affiliation_student:
-                    ext_id = int(person.get_external_id(co.system_fs, co.externalid_studentnr)[0]['external_id'])
-                else: 
-                    ext_id = int(person.get_external_id(int(getattr(co, ss)))[0]['external_id'])
-            except:
-                pass
+	names = {'name_last':None,'name_first':None,'name_full':None}
+	for name_var in names:
 	    try:
-		email = account.get_primary_mailaddress()
-	    except:
-		email = None
+		names[name_var] = person.get_name(int(co.system_cached), int(getattr(co,name_var)))
+	    except Errors.NotFoundError:
+		name[name_var] = None
+	if not names['name_last'] or not names['name_first']:
+	    if names['name_full']:
+		name_l = names['name_full'].split(' ')
+		names['name_last'] = name_l[len(name_l)-1]
+		names['name_first'] = ' '.join(name_l[:len(name_l)-1])
+	    else:
+		for name_var in names:
+		    names[name_var] = account.account_name
+	try:
+	    if affiliation == co.affiliation_student:
+		ext_id = int(person.get_external_id(co.system_fs, co.externalid_studentnr)[0]['external_id'])
+	    else: 
+		ext_id = int(person.get_external_id(int(getattr(co, ss)))[0]['external_id'])
+	except:
+	    pass
+	try:
+	    email = account.get_primary_mailaddress()
+	except:
+	    email = None
         if full_name == ' ':
             logger.info("WARNING: getting persons name failed, account.owner_id:",person_id)
     except Errors.NotFoundError:
