@@ -66,7 +66,15 @@ def quick_user_sync():
 		print 'WARNING: failed changing password for ',ans['subject_entity']
         elif chg_type == clco.group_add or chg_type == clco.group_rem:
             entity.clear()
-            entity.find(ans['subject_entity'])
+            try:
+                entity.find(ans['subject_entity'])
+            except Errors.NotFoundError:
+                # Ignore this change; as the member entity it refers
+                # to no longer seems to exists in Cerebrum, we're
+                # unable to find a username for it (outside of the
+                # changelog, and we'll process this entity's deletion
+                # changelog entry later).
+                continue
             #TBD:A group added to a group should be expanded and its members added. 
             if entity.has_spread(int(co.spread_uio_ad_account)):
                 group.clear()
