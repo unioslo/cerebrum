@@ -222,7 +222,7 @@ def generate_group(filename, group_spread, user_spread):
         posix_group.clear()
         try:
             posix_group.find(row.group_id)
-        except Cerebrum.Errors.NotFoundError:
+        except Errors.NotFoundError:
             print "Group %s, spread %s has no GID"%(row.group_id,group_spread)
             continue
         # Group.get_members will flatten the member set, but returns
