@@ -795,8 +795,12 @@ if __name__ == '__main__':
             # command.
             server = BofhdServer(Utils.Factory.get('Database')(), conffile)
             commands = {}
+            db = Utils.Factory.get('Database')()
+            group = Utils.Factory.get('Group')(db)
+            group.find_by_name(cereconf.BOFHD_SUPERUSER_GROUP)
+            some_superuser = [int(i) for i in group.get_members()][0]
             for inst in server.cmd_instances:
-                newcmd = inst.get_commands(None)
+                newcmd = inst.get_commands(some_superuser)
                 for k in newcmd.keys():
                     if inst is not server.cmd2instance[k]:
                         print "Skipping:", k
