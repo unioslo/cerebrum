@@ -68,20 +68,9 @@ class AccountUiOMixin(Account.Account):
             est = self._UiO_update_email_server(
                 self.const.email_server_type_cyrus)
 
-            br = BofhdRequests(self._db, self.const)
-
-            # Set quota.
-            eq = Email.EmailQuota(self._db)
-            try:
-                eq.find_by_entity(self.entity_id)
-            except Errors.NotFoundError:
-                eq.populate(90, 100)
-                eq.write_db()
-                br.add_request(None, br.now, self.const.bofh_email_hquota, 
-                               self.entity_id, old_server)
-
             if old_server == est.email_server_id:
                 return ret
+            br = BofhdRequests(self._db, self.const)
             # Register a BofhdRequest to create the mailbox
             reqid = br.add_request(None,        # Requestor
                                    br.now, self.const.bofh_email_create,
@@ -187,9 +176,46 @@ class AccountUiOMixin(Account.Account):
         ret = self.__super.update_email_addresses()
         # Make sure the email target of this account is associated
         # with an appropriate email server.
-        spreads = [int(r['spread']) for r in self.get_spread()]
-        srv_type = self.const.email_server_type_nfsmbox
-        if int(self.const.spread_uio_imap) in spreads:
-            srv_type = self.const.email_server_type_cyrus
-        self._UiO_update_email_server(srv_type)
+        if not (self.is_reserved() or self.is_deleted()):
+            spreads = [int(r['spread']) for r in self.get_spread()]
+            srv_type = self.const.email_server_type_nfsmbox
+            if int(self.const.spread_uio_imap) in spreads:
+                srv_type = self.const.email_server_type_cyrus
+            self._UiO_update_email_server(srv_type)
+            self.update_email_quota()
         return ret
+
+    def update_email_quota(self, force=False):
+        quota = 100
+        if self.is_employee():
+            quota = 200
+        eq = Email.EmailQuota(self._db)
+        try:
+            eq.find_by_entity(self.entity_id)
+        except Errors.NotFoundError:
+            eq.populate(90, quota)
+            eq.write_db()
+        else:
+            # We never decrease the quota, to allow for manual overrides
+            if quota <= eq.email_quota_hard and not force:
+                return
+            if quota > eq.email_quota_hard:
+                eq.email_quota_hard = quota
+                eq.write_db()
+        est = Email.EmailServerTarget(self._db)
+        try:
+            est.find_by_entity(self.entity_id)
+        except:
+            return
+        es = Email.EmailServer(self._db)
+        es.find(est.email_server_id)
+        if es.email_server_type == self.const.email_server_type_cyrus:
+            br = BofhdRequests(self._db, self.const)
+            br.add_request(None, br.now, self.const.bofh_email_hquota, 
+                           self.entity_id, None)
+
+    def is_employee(self):
+        for r in self.get_account_types():
+            if r['affiliation'] == self.const.affiliation_ansatt:
+                return True
+        return False
