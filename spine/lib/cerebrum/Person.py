@@ -78,7 +78,7 @@ class Person(Entity):
     def get_primary_account(self):
         account_id = self._get_cerebrum_obj().get_primary_account()
         if account_id is None:
-            raise Exception('no primary account found for %s' % self)
+            return None
         return Account(account_id)
 
 registry.register_class(Person)
