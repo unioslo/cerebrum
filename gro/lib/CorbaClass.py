@@ -9,7 +9,11 @@ object_cache = {}
 corba_types = [int, str, bool, None]
 
 def convert_to_corba(obj, transaction, data_type, sequence):
-    def convert(obj):
+    def convert(obj, data_type):
+        # ugly hack to make casting work with Entity
+        if data_type.__name__ == 'Entity':
+            data_type = obj.__class__
+
         if obj is None and data_type is not None:
             raise TypeError('cant convert None')
         elif data_type in corba_types:
@@ -28,9 +32,9 @@ def convert_to_corba(obj, transaction, data_type, sequence):
             raise TypeError('unknown data_type', data_type)
 
     if sequence:
-        return [convert(i) for i in obj]
+        return [convert(i, data_type) for i in obj]
     else:
-        return convert(obj)
+        return convert(obj, data_type)
 
 def convert_from_corba(corba_obj, data_type, sequence):
     def convert(obj):

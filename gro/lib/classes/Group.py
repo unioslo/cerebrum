@@ -31,6 +31,7 @@ registry = Registry.get_registry()
 __all__ = ['Group']
 
 class Group(Entity):
+    corba_parents = [Entity]
     slots = Entity.slots + [
         CerebrumAttr('name', str, 'group_name', write=True),
         CerebrumAttr('description', str, write=True),

@@ -32,6 +32,7 @@ from Entity import Entity
 __all__ = ['Account']
 
 class Account(Entity):
+    corba_parents = [Entity]
     slots = Entity.slots + [
         CerebrumAttr('name', str, 'account_name', write=True),
         CerebrumAttr('owner', Entity, 'owner_id'),

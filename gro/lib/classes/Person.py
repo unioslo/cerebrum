@@ -32,9 +32,7 @@ registry = Registry.get_registry()
 __all__ = ['Person']
 
 class Person(Entity):
-    # primaryAccount gir ingen mening
-    # name gir bare navnet blant names som er fult navn (:P)
-    # affiliations, quarantine med venner må implementeres
+    corba_parents = []
     slots = Entity.slots + [
         CerebrumAttr('export_id', str),
         CerebrumAttr('birth_date', str, write=True),
