@@ -127,6 +127,8 @@ def migrate_to_rel_0_9_2():
         FROM [:table schema=cerebrum name=account_info]""", fetchall=False):
         if processed.has_key(int(row['account_id'])):
             continue
+        if not row['disk_id'] and not row['home']:
+            continue
         ac.clear()
         ac.find(row['account_id'])
         status = co.home_status_on_disk
