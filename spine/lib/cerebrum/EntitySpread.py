@@ -49,6 +49,6 @@ def get_spreads(self):
     s.set_entity(self)
     return s.search()
 
-Entity.register_method(Method('get_spreads', [EntitySpread]), get_spreads)
+Entity.register_method(Method('get_spreads', [Spread]), get_spreads)
 
 # arch-tag: 225423b6-e786-4494-90a1-2b33ba481a92
