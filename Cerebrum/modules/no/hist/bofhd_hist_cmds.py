@@ -1154,6 +1154,104 @@ class BofhdExtension(object):
                                                     'password': passwd})
         return {'password': passwd, 'uid': uid}
 
+    def user_rcreate_prompt_func(self, session, *args):
+        """A prompt_func on the command level should return
+        {'prompt': message_string, 'map': dict_mapping}
+        - prompt is simply shown.
+        - map (optional) maps the user-entered value to a value that
+          is returned to the server, typically when user selects from
+          a list."""
+        all_args = list(args[:])
+        if(len(all_args) == 0):
+            return {'prompt': "Enter bdate, fnr or idtype"}
+        arg = all_args.pop(0)
+        if(len(all_args) == 0):
+            person = self.person
+            person.clear()
+            if arg.isdigit() and len(arg) > 10:  # finn personer fra fnr
+                try:
+                    person.find_by_external_id(self.const.externalid_fodselsnr, arg)
+                except Errors.NotFoundError:
+                    raise CerebrumError, "Could not find that person"
+                c = [{'person_id': person.entity_id}]
+            elif arg.find("-") != -1:
+                # finn personer på fødselsdato
+                c = person.find_persons_by_bdate(arg)
+            else:
+                raise NotImplementedError, "idtype not implemented"
+            map = [(("%-8s %s", "Id", "Name"), None)]
+            for i in range(len(c)):
+                person = self._get_person("entity_id", c[i]['person_id'])
+                # TODO: We should show the persons name in the list
+                map.append((
+                    ("%8i %s", int(c[i]['person_id']),
+                     person.get_name(self.const.system_cached, self.const.name_full)),
+                    int(c[i]['person_id'])))
+            return {'prompt': "Velg person fra listen", 'map': map}
+        person_id = all_args.pop(0)
+#        if(len(all_args) == 0):
+#            return {'prompt': "Default filgruppe"}
+#        filgruppe = all_args.pop(0)
+#        if(len(all_args) == 0):
+#            return {'prompt': "Shell", 'default': 'bash'}
+#        shell = all_args.pop(0)
+        if(len(all_args) == 0):
+            return {'prompt': "Disk", 'help_ref': 'disk'}
+        disk = all_args.pop(0)
+        if(len(all_args) == 0):
+            ret = {'prompt': "Brukernavn", 'last_arg': 1}
+            user = PosixUser.PosixUser(self.db)
+            try:
+                person = self._get_person("entity_id", person_id)
+                # TODO: this requires that cereconf.DEFAULT_GECOS_NAME is name_full.  fix
+                full = person.get_name(self.const.system_cached, self.const.name_full)
+                fname, lname = full.split(" ", 1)
+                sugg = user.suggest_unames(self.const.account_namespace, fname, lname)
+                if len(sugg) > 0:
+                    ret['default'] = sugg[0]
+            except ValueError:
+                pass    # Failed to generate a default username
+            return ret
+        raise CerebrumError, "Client called prompt func with too many arguments"
+
+
+
+    # user rcreate
+    all_commands['user_rcreate'] = Command(
+        ('user', 'reserve'), prompt_func=user_rcreate_prompt_func,
+        fs=FormatSuggestion("Created uid=%i, password=%s", ("uname", "password")))
+    def user_rcreate(self, operator, idtype, person_id, home, uname):
+        person = self._get_person("entity_id", person_id)
+        #group=self._get_group(filegroup)
+        user = Account.Account(self.db)
+        #uid = posix_user.get_free_uid()
+        #shell = self._get_shell(shell)
+        disk_id, home = self._get_disk(home)
+        if home is not None:
+            if home[0] == ':':
+                home = home[1:]
+            else:
+                raise CerebrumError, "Invalid disk"
+        user.clear()
+        #gecos = None
+        expire_date = None
+        self.ba.can_create_user(operator.get_entity_id(), person, disk_id)
+
+        user.populate(name=uname, owner_type=self.const.entity_person,
+                      owner_id=person.entity_id, np_type=None,
+                      creator_id=operator.get_entity_id(),
+                      expire_date=expire_date, home=home, disk_id=disk_id)
+                              
+        passwd = user.make_passwd(uname)
+        user.set_password(passwd)
+        try:
+            user.write_db()
+        except self.db.DatabaseError, m:
+            raise CerebrumError, "Database error: %s" % m
+        operator.store_state("new_account_passwd", {'account_id': int(user.entity_id),
+                                                    'password': passwd})
+        return {'password': passwd, 'uname': uname}
+
     # user delete
     all_commands['user_delete'] = Command(
         ("user", "delete"), AccountName())
