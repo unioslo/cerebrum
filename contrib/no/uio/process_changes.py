@@ -131,6 +131,7 @@ def process_changes():
                 else:
                     status = const.home_status_create_failed
             except Errors.NotFoundError:
+                ei.confirm_event(evt)
                 continue  # A reserved user or similar that don't get a homedir
             # posix_user was set by get_make_user_data
             home = posix_user.get_home(home_spread)
