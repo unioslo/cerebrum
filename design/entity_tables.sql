@@ -1,10 +1,9 @@
-/*	entity_id
+/*	entity_info
 
   When an entity is to be created within an installation, it is given
   a numeric ID -- an `entity_id'.  These IDs are generated using a
-  single, entity-type-independent sequence.  These IDs are purely
-  internal, i.e. they should never in any way be exported outside this
-  system.
+  single, entity-type-independent sequence.  They are purely internal,
+  i.e. they should never in any way be exported outside this system.
 
   This table keeps track of which entity IDs are in use, and what type
   of entity each `entity_id' is connected to.
@@ -12,20 +11,25 @@
   Garbage collection: The data model can not ensure that there will
     actually exist an entry in the `entity_type'-specific table for
     all the `entity_id's in this table.  To reduce the amount of
-    `entity_id' rows with no corresponding entity we need some kind of
-    garbage collector.
+    `entity_info' rows with no corresponding entity we need some kind
+    of garbage collector.
+
+  TBD: Need separate `entity_type's for
+	* name reservations (to be kept in the `entity_name' table)
+	* ldap DNs (to allow these to members of groups)
 
 */
 CREATE SEQUENCE entity_id_seq;
-CREATE TABLE entity_id
+CREATE TABLE entity_info
 (
-  id		NUMERIC(12,0)
-		CONSTRAINT entity_id_pk PRIMARY KEY,
+  entity_id	NUMERIC(12,0)
+		CONSTRAINT entity_info_pk PRIMARY KEY,
   entity_type	CHAR VARYING(16)
 		NOT NULL
-		CONSTRAINT entity_id_entity_type
+		CONSTRAINT entity_info_entity_type
 		  REFERENCES entity_type_code(code),
-  CONSTRAINT entity_id_type_unique UNIQUE (entity_type, id)
+  CONSTRAINT entity_info_type_unique
+    UNIQUE (entity_type, entity_id)
 );
 
 
@@ -38,14 +42,16 @@ CREATE TABLE entity_name
 (
   entity_id	NUMERIC(12,0)
 		CONSTRAINT entity_name_entity_id
-		  REFERENCES entity_id(id),
+		  REFERENCES entity_info(entity_id),
   value_domain	CHAR VARYING(16)
 		CONSTRAINT entity_name_value_domain
 		  REFERENCES value_domain_code(code),
-  name		CHAR VARYING(256)
+  entity_name	CHAR VARYING(256)
 		NOT NULL,
-  PRIMARY KEY (entity_id, value_domain),
-  UNIQUE (value_domain, name)
+  CONSTRAINT entity_name_pk
+    PRIMARY KEY (entity_id, value_domain),
+  CONSTRAINT entity_name_unique_per_domain
+    UNIQUE (value_domain, entity_name)
 );
 
 
@@ -58,7 +64,8 @@ CREATE TABLE entity_name
 CREATE TABLE entity_address
 (
   entity_id	NUMERIC(12,0)
-		CONSTRAINT entity_address_entity_id REFERENCES entity_id(id),
+		CONSTRAINT entity_address_entity_id
+		  REFERENCES entity_info(entity_id),
   source_system	CHAR VARYING(16)
 		CONSTRAINT entity_address_source_system
 		  REFERENCES authoritative_system_code(code),
@@ -72,7 +79,7 @@ CREATE TABLE entity_address
   country	CHAR VARYING(16)
 		CONSTRAINT entity_address_country
 		  REFERENCES country_code(code),
-  CONSTRAINT ou_address_pk
+  CONSTRAINT entity_address_pk
     PRIMARY KEY (entity_id, source_system, address_type)
 );
 
@@ -91,7 +98,8 @@ CREATE TABLE entity_address
 CREATE TABLE entity_phone
 (
   entity_id	NUMERIC(12,0)
-		CONSTRAINT entity_phone_entity_id REFERENCES entity_id(id),
+		CONSTRAINT entity_phone_entity_id
+		  REFERENCES entity_info(entity_id),
   source_system	CHAR VARYING(16)
 		CONSTRAINT entity_phone_source_system
 		  REFERENCES authoritative_system_code(code),
@@ -119,7 +127,8 @@ CREATE TABLE entity_phone
 CREATE TABLE entity_contact_info
 (
   entity_id	NUMERIC(12,0)
-		CONSTRAINT entity_contact_info_ou_id REFERENCES entity_id(id),
+		CONSTRAINT entity_contact_info_entity_id
+		 REFERENCES entity_info(entity_id),
   source_system	CHAR VARYING(16)
 		CONSTRAINT entity_contact_info_source_system
 		  REFERENCES authoritative_system_code(code),
@@ -156,22 +165,23 @@ CREATE TABLE entity_quarantine
 (
   entity_id	NUMERIC(12,0)
 		CONSTRAINT entity_quarantine_entity_id
-		  REFERENCES entity_id(id),
+		  REFERENCES entity_info(entity_id),
   quarantine_type
 		CHAR VARYING(16)
 		CONSTRAINT entity_quarantine_quarantine_type
 		  REFERENCES quarantine_code(code),
-  creator	NUMERIC(12,0)
+  creator_id	NUMERIC(12,0)
 		NOT NULL
-		CONSTRAINT person_quarantine_creator
-		  REFERENCES account(account_id),
+		CONSTRAINT entity_quarantine_creator_id
+		  REFERENCES account_info(account_id),
   comment	CHAR VARYING(512),
   create_date	DATE
-		NOT NULL
-		DEFAULT SYSDATE,
+		DEFAULT SYSDATE
+		NOT NULL,
   start_date	DATE
 		NOT NULL,
   disable_until DATE,
   end_date	DATE,
-  CONSTRAINT entity_quarantine_pk PRIMARY KEY (entity_id, quarantine_type)
+  CONSTRAINT entity_quarantine_pk
+    PRIMARY KEY (entity_id, quarantine_type)
 );
