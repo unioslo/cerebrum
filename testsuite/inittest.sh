@@ -11,11 +11,9 @@ export PYTHONPATH
 
 cd $SRCDIR
 
-chmod u+x ./makedb.py ./contrib/no/uio/import_OU.py 
+chmod u+x ./contrib/no/uio/import_OU.py 
 chmod u+x ./contrib/no/uio/import_LT.py ./contrib/no/uio/import_FS.py
 chmod u+x $TESTDIR/create_user.py ./contrib/generate_nismaps.py
-
-./makedb.py
 
 echo "***** First time import *****"
 

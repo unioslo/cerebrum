@@ -11,8 +11,11 @@ dist:
 
 distcheck: dist
 
-init:
-	make -C testsuite check 2>&1 | tee testsuite/log-init.out
+bootstrap:
+	make -C testsuite bootstrap 2>&1 | tee testsuite/log-bootstrap.out
+
+testrun:
+	make -C testsuite testrun 2>&1 | tee testsuite/log-testrun.out
 
 
 check:
@@ -20,7 +23,7 @@ check:
 	    PYTHONPATH=`pwd` python2.2 testsuite/Run.py  -v ; \
 	) 2>&1 | tee testsuite/log-check.out
 
-fullcheck: init check
+fullcheck: bootstrap check testrun
 
 clean:
 
