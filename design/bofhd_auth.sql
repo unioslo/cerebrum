@@ -71,12 +71,15 @@ CREATE TABLE auth_op_attrs (
 Examples:
 
   Users on a disk:
-    op_target_type = 'disk' op_entity_id=<disk.entity_id>
+    op_target_type = 'disk'     entity_id=<disk.entity_id>
   Users on a host:
-    op_target_type = 'host' op_entity_id=<host.entity_id>
+    op_target_type = 'host'     entity_id=<host.entity_id>
   Users on a host:/path/foo/sv-l*
-    op_target_type = 'host' op_entity_id=<host.entity_id> 
+    op_target_type = 'host'     entity_id=<host.entity_id> 
     has_attrs=1, then fill auth_op_target_attrs with one or more regexps
+  Allowed to set/clear spread X
+    op_target_type = 'spread'   entity_id = <spread_code.code>
+
 */
 
 category:main;
