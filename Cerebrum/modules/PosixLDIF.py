@@ -308,7 +308,9 @@ class PosixLDIF(object):
             #    self.id2uname[uname_id] = id[1]
 	    if not self.id2uname.has_key(uname_id) or self.get_name:
 		# Have find a way to resolve this problem later
-		self.logger.warn("Could not resolve name on account-id: %s" % uname_id)
+                # Change this to .warn when various _list() functions do
+                # not list expired accounts.
+		self.logger.info("Could not resolve name on account-id: %s" % uname_id)
 		continue
 	    members.append(self.id2uname[uname_id])
 	    #members.append(uname)		
@@ -383,8 +385,9 @@ class PosixLDIF(object):
 		try:
 		    uname = self.id2uname[uname_id]
 		except:
-                    # Probably an expired user, don't include it.
-		    self.logger.warn('Cache enabled but user:%s not found' %
+                    # Change this to .warn when various _list() functions do
+                    # not list expired accounts.
+		    self.logger.info('Cache enabled but user:%s not found' %
                                      uname_id)
                     continue
 	    if uname_id in self._gmemb or "_" in uname:
