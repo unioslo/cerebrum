@@ -86,7 +86,7 @@ class ProfileDefinition(object):
                 elif map_data[0] == StudconfigParser.SPECIAL_MAPPING:
                     if select_type == 'aktivt_sted':
                         tmp = ":".join((s_criteria['stedkode'],
-                                        s_criteria['institusjonsnr'],
+                                        s_criteria['institusjon'],
                                         s_criteria['scope'],
                                         s_criteria.get('nivaa_min', ''),
                                         s_criteria.get('nivaa_max', '')))
@@ -95,7 +95,7 @@ class ProfileDefinition(object):
                         tmp.setdefault('profiles', []).append(self)
                         if not tmp.has_key('steder'):
                             tmp['steder'] = self._get_steder(
-                                s_criteria['institusjonsnr'],
+                                s_criteria['institusjon'],
                                 s_criteria['stedkode'],
                                 s_criteria['scope'])
                         tmp['nivaa_min'] = s_criteria.get('nivaa_min', None)
@@ -103,9 +103,9 @@ class ProfileDefinition(object):
                     else:
                         self._logger.warn("Unknown special mapping %s" % select_type)
 
-    def _get_steder(self, institusjonsnr, stedkode, scope):
+    def _get_steder(self, institusjon, stedkode, scope):
         ret = []
-        sko = self.config.lookup_helper.get_stedkode(stedkode, institusjonsnr)
+        sko = self.config.lookup_helper.get_stedkode(stedkode, institusjon)
         if scope == 'sub':
             ret.extend(self.config.lookup_helper.get_all_child_sko(sko))
         else:
@@ -250,6 +250,8 @@ class StudconfigParser(xml.sax.ContentHandler):
             elif ename == 'disk_oversikt':
                 self._in_disk_oversikt = 1
                 self._default_disk_max = tmp['default_max']
+            elif ename == 'default_values':
+                pass   # Not supported yet
         elif self._in_gruppe_oversikt:
             if ename == 'gruppedef':
                 self._config.group_defs[tmp['navn']] = {
@@ -275,12 +277,14 @@ class StudconfigParser(xml.sax.ContentHandler):
                     raise SyntaxWarning, "Unexpected tag %s on in profil" % ename
             elif self._in_select and ename in self.select_map_defs:
                 self._in_profil.add_selection_criteria(ename, tmp)
+            elif ename == 'medlem_av_gruppe':
+                pass  # Not supported yet
             else:
                 raise SyntaxWarning, "Unexpected tag %s on in profil" % ename
         elif ename == 'studconfig':
             pass
-        elif ename in ('spreaddef',):
-            pass
+        elif ename in ('spreaddef', 'print', 'mailkvote', 'diskkvote'):
+            pass   # Not supported yet
         else:
             raise SyntaxWarning, "Unexpected tag %s on in profil" % ename
 
