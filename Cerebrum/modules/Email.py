@@ -1284,11 +1284,12 @@ class AccountEmailMixin(Account.Account):
             # Check for 'cnaddr' category before 'uidaddr', to prefer
             # 'cnaddr'-style primary addresses for users in
             # maildomains that have both categories.
-            ctgs = ed.get_categories()
+            ctgs = [int(r['category']) for r in ed.get_categories()]
             local_parts = []
             if int(self.const.email_domain_category_cnaddr) in ctgs:
                 local_parts.append(self.get_email_cn_local_part())
-            if int(self.const.email_domain_category_uidaddr) in ctgs:
+                local_parts.append(self.account_name)
+            elif int(self.const.email_domain_category_uidaddr) in ctgs:
                 local_parts.append(self.account_name)
             for lp in local_parts:
                 lp = self.wash_email_local_part(lp)
@@ -1305,18 +1306,17 @@ class AccountEmailMixin(Account.Account):
                     ea.email_addr_expire_date = None
                 except Errors.NotFoundError:
                     # Address doesn't exist; create it.
-                    ea.populate(lp, ed.email_domain_id, self.entity_id,
+                    ea.populate(lp, ed.email_domain_id, et.email_target_id,
                                 expire=None)
                 ea.write_db()
                 if not primary_set:
                     epat.clear()
                     try:
                         epat.find(ea.email_addr_target_id)
+                        epat.populate(ea.email_addr_id)
                     except Errors.NotFoundError:
-                        # Object is in sync with 'email_target' row, but
-                        # has no 'email_primary_address' data.
-                        pass
-                    epat.populate(ea.email_addr_id)
+                        epat.clear()
+                        epat.populate(ea.email_addr_id, parent = et)
                     epat.write_db()
                     primary_set = True
 
