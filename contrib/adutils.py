@@ -48,10 +48,6 @@ host = Disk.Host(db)
 quarantine = Entity.EntityQuarantine(db)
 ou = OU.OU(db)
 
-
-#div constants.
-
-
 class SocketCom(object):
     """Class for Basic socket communication to connect to the ADserver"""
 
@@ -93,10 +89,29 @@ class SocketCom(object):
         received.append(data)
         #process data
         for i in received:
-            rec.append(i.strip())
+	    rec.append(i.strip())		   	
         if out:     
             for elem in rec:
                  print '>>', elem
+        return rec    
+
+    def readgrp(self,out=1):
+        received = []
+        rec = ''
+        while 1:
+            data = self.sockobj.recv(8192)
+            m=self.p.search(data)
+            if m: 
+		break
+	    else:
+            	received.append(data)
+        received.append(data)
+        #process data
+        for i in received:
+	    i.strip()
+	    rec = '%s%s' % (rec,i)		   	
+        if out:     
+            print '>>', rec
         return rec    
 
 
@@ -161,7 +176,7 @@ def chk_quarantine(account_id):
         if qh.is_locked():           
             account_disable += 1
     except KeyError:        
-        print "WARNING: missing QUARANTINE_RULE"    
+        print "INFO: missing QUARANTINE_RULE"    
     if account_disable:		
 	return True
 

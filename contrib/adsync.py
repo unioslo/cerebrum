@@ -50,7 +50,7 @@ delete_users = 0
 delete_groups = 0
 domainusers = []
 #For test,
-max_nmbr_users = 200
+max_nmbr_users = 60000
 
 def full_ou_sync():
 
@@ -107,6 +107,8 @@ def full_user_sync():
     print 'INFO: Starting full_user_sync at', adutils.now()
     adusers = {}
     adusers = get_ad_objects('user')
+    # Initialize socket at this point, because socket timeout. 	
+    sock = adutils.SocketCom()    	
     sock.send('LUSERS&LDAP://%s&1\n' % (cereconf.AD_LDAP))
     receive = sock.read(out=0)
     
@@ -135,7 +137,7 @@ def full_user_sync():
                     
                     if sock.read() != ['210 OK']:
                         print 'WARNING: Error updating fields for', fields[3]
-                else:
+                #else:
                     print "INFO:Bruker ",fields[3]," OK"
             except IndexError:
                 print "WARNING: list index out of range, fields:", full_name, account_disable, cereconf.AD_HOME_DRIVE, home_dir, login_script, cereconf.AD_PASSWORD_EXPIRE 
@@ -177,7 +179,7 @@ def full_user_sync():
                     print 'FATAL: Error deleting account after failed alteration of new user:', user, ', probably unsecure password.'                    
         else:
             print 'WARNING: create user failed, ', user, ' in ',user_id[1]
-
+    sock.close()
 
 #For testing of Group sync..
 def gen_domain_users():
@@ -198,6 +200,8 @@ def full_group_sync():
     global domainusers
     adgroups = {}
     adgroups = get_ad_objects(int(co.entity_group))
+    # Initialize socket at this point, because socket timeout. 	
+    sock = adutils.SocketCom()    	
     sock.send('LGROUPS&LDAP://%s\n' % (cereconf.AD_LDAP))
     receive = sock.read(out=0)
     for line in receive[1:-1]:
@@ -229,17 +233,16 @@ def full_group_sync():
                     print "WARNING: Could not find groupmemb,", grpmemb
 
             sock.send('LGROUP&%s/%s\n' % (cereconf.AD_DOMAIN, fields[3]))
-            result = sock.read()
-            for line in result:
-                for l in line.splitlines():
-                    if l != '210 OK':
-                        mem = l.split('&')
-                        if mem[1] in memblist:
-                            memblist.remove(mem[1])
-                        else:
-                            sock.send('DELUSRGR&%s/%s&%s/%s\n' % (cereconf.AD_DOMAIN, mem[1], cereconf.AD_DOMAIN, fields[3]))
-                            if sock.read() != ['210 OK']:
-                                print 'WARNING: Failed delete', member, 'from', fields[1]
+            result = sock.readgrp()
+            for line in result.splitlines():
+                if line != '210 OK':
+                    mem = line.split('&')
+                    if mem[1] in memblist:
+                        memblist.remove(mem[1])
+                    else:
+                        sock.send('DELUSRGR&%s/%s&%s/%s\n' % (cereconf.AD_DOMAIN, mem[1], cereconf.AD_DOMAIN, fields[3]))
+                        if sock.read() != ['210 OK']:
+                            print 'WARNING: Failed delete', mem[1] , 'from', fields[1]
                                   
             for memb in memblist:
                 if memb in domainusers:
@@ -289,7 +292,8 @@ def full_group_sync():
                     print "WARNING: Could not find group member ",grpmemb," in db"
         else:
             print 'WARNING: create group failed ', grp,'in Users'
-
+    
+    sock.close()
 
 def get_args():
     global delete_users
@@ -324,52 +328,55 @@ def get_ad_objects(entity_type):
         count = count+1
         if count > max_nmbr_users: break
         id = row['entity_id']
-        try:
-            ad_object.clear()
-            ad_object.find(id)
-            ou_path = adutils.id_to_ou_path(ad_object.ou_id,ourootname)
-            id_and_ou = id, ou_path 
-            name = ad_object.get_name(namespace)            
+# removed because it's obsolite.
+#        try:
+#            ad_object.clear()
+#            ad_object.find(id)
+#            ou_path = adutils.id_to_ou_path(ad_object.ou_id,ourootname)
+#            id_and_ou = id, ou_path 
+#            name = ad_object.get_name(namespace)            
+#            obj_name = '%s%s' % (name,grp_postfix)
+#            ulist[obj_name]=id_and_ou
+#        except Errors.NotFoundError:
+	ent_name.clear()
+        ent_name.find(id)
+        name = ent_name.get_name(namespace)
+        if entity_type == 'user':
+	    if cereconf.AD_DEFAULT_OU == '0':
+      		crbrm_ou = 'CN=Users,%s' % cereconf.AD_LDAP
+	    else:
+	        pri_ou = adutils.get_primary_ou(id,namespace)              
+		if not pri_ou:
+		    count = count - 1
+		    print "WARNING: No account_type information for object ", id
+            	else:    
+                    crbrm_ou = adutils.id_to_ou_path( pri_ou ,ourootname)
+ 
+            id_and_ou = id, crbrm_ou
+            obj_name = '%s' % (name)
+            ulist[obj_name]=id_and_ou    
+
+        else:
+            if cereconf.AD_DEFAULT_OU == '0':
+      		crbrm_ou = 'CN=Users,%s' % cereconf.AD_LDAP
+            else:
+                crbrm_ou = adutils.get_crbrm_ou(adutils.AD_DEFAULT_OU)
+            
+	    id_and_ou = id, crbrm_ou
             obj_name = '%s%s' % (name,grp_postfix)
             ulist[obj_name]=id_and_ou
-        except Errors.NotFoundError:
-            ent_name.clear()
-            ent_name.find(id)
-            name = ent_name.get_name(namespace)
-            if entity_type == 'user':
-                pri_ou = adutils.get_primary_ou(id,namespace)                    
-                if not pri_ou:
-                    count = count - 1
-                    print "WARNING: No account_type information for object ", id
-                else:    
-                    crbrm_ou = adutils.id_to_ou_path( pri_ou ,ourootname)
-                    id_and_ou = id, crbrm_ou
-                    obj_name = '%s' % (name)
-                    ulist[obj_name]=id_and_ou    
-
-            else:
-                #Group not registered in ad_object table.
-                if cereconf.AD_DEFAULT_OU == '0':
-                    crbrm_ou = 'CN=Users,%s' % cereconf.AD_LDAP
-                else:
-                    crbrm_ou = adutils.get_crbrm_ou(adutils.AD_DEFAULT_OU)
-                id_and_ou = id, crbrm_ou
-                obj_name = '%s%s' % (name,grp_postfix)
-                ulist[obj_name]=id_and_ou
                 
     print "INFO: Found %s nmbr of objects" % (count)
     return ulist
 
-
-
                     
 if __name__ == '__main__':
 
-    sock = adutils.SocketCom()    
+#    sock = adutils.SocketCom()    
     arg = get_args()
 #    full_ou_sync()
     full_user_sync()
 #    gen_domain_users()
     full_group_sync()
-    sock.close()
+
 
