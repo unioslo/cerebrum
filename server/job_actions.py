@@ -152,7 +152,8 @@ class System(CallableAction):
             pid, exit_code = os.waitpid(self.pid, os.WNOHANG)
         self.logger.debug("Wait (wait=%i) ret: %s/%s" % (self.wait, pid, exit_code))
         if pid == self.pid:
-            if (os.stat("%s/stdout.log" % self.run_dir)[stat.ST_SIZE] > 0 or 
+            if (self.stdout_ok == 0 and
+                os.stat("%s/stdout.log" % self.run_dir)[stat.ST_SIZE] > 0) or 
                 os.stat("%s/stderr.log" % self.run_dir)[stat.ST_SIZE] > 0 or
                 exit_code != 0):
                 newdir = "%s.%s" % (self.run_dir, time.time())
