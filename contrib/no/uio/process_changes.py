@@ -10,6 +10,7 @@ import cerebrum_path
 import cereconf
 from Cerebrum.modules import CLHandler
 from Cerebrum.Utils import Factory
+from Cerebrum import Disk
 from Cerebrum.modules import PosixUser
 from Cerebrum.modules import PosixGroup
 
@@ -52,11 +53,17 @@ def make_user(entity_id):
     # TODO: find out which machine to connect to.
     # send more info like full-name (used for eudora ini files), but
     # find a safe way to quote it that is parseable by /bin/sh (STDIN)?
+    host = Disk.Host(db)
+    disk = Disk.Disk(db)
+    disk.clear()
+    disk.find(posix_user.disk_id)
+    host.clear()
+    host.find(disk.host_id)
     
-    machine = "foobar"
-    cmd = ['echo', '/local/etc/reguser/newuser', uname, home,
+    homedir = "%s/%s" % (disk.path, posix_user.account_name)
+    cmd = ['/local/etc/reguser/mkhomedir', uname, homedir,
            user_uid, default_group, cereconf.POSIX_HOME_TEMPLATE_DIR]
-    cmd = (rsh, '-n', machine) + ("'"+quote_list(cmd)+"'",)
+    cmd = (rsh, '-n', host.name) + ("'"+quote_list(cmd)+"'",)
 
     print "DO: %s" % str(cmd)
     
