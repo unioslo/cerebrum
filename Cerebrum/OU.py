@@ -29,7 +29,7 @@ class OUStructure(object):
     def set_parent(self, perspective, parent_id):
         "Set the parent of this OU to `parent_id' in `perspective'."
         self.execute("""
-        INSERT INTO cerebrum.ou_structure (ou_id, perspective, parent_id)
+        INSERT INTO [:table schema=cerebrum name=ou_structure] (ou_id, perspective, parent_id)
         VALUES (:e_id, :perspective, :parent_id)""",
                      {'e_id' : self.entity_id, 'perspective' : int(perspective),
                       'parent_id' : parent_id})
@@ -37,7 +37,7 @@ class OUStructure(object):
     def get_structure_mappings(self, perspective):
         "Return a list of ou_id -> parent_id mappings reperesenting the ou structure."
         return self.query("""
-        SELECT ou_id, parent_id FROM cerebrum.ou_structure
+        SELECT ou_id, parent_id FROM [:table schema=cerebrum name=ou_structure]
         WHERE perspective=:perspective""", {'perspective' : int(perspective)})
 
 class OU(Entity, EntityContactInfo, EntityAddress, OUStructure):
@@ -114,7 +114,7 @@ class OU(Entity, EntityContactInfo, EntityAddress, OUStructure):
         if as_object is None:
             # ou_id = super(OU, self).new(int(self.const.entity_ou))
             self.execute("""
-            INSERT INTO cerebrum.ou_info (entity_type, ou_id, name, acronym,
+            INSERT INTO [:table schema=cerebrum name=ou_info] (entity_type, ou_id, name, acronym,
                    short_name, display_name, sort_name)
             VALUES (:e_type, :ou_id, :name, :acronym, :short_name, :disp_name, :sort_name)""",
                          {'e_type' : int(self.const.entity_ou), 'ou_id' : ou_id,
@@ -125,7 +125,7 @@ class OU(Entity, EntityContactInfo, EntityAddress, OUStructure):
             ou_id = as_object.ou_id
             
             self.execute("""
-            UPDATE cerebrum.ou_info SET name=:name, acronym=:acronym,
+            UPDATE [:table schema=cerebrum name=ou_info] SET name=:name, acronym=:acronym,
                    short_name=:short_name, display_name=:disp_name, sort_name=:sort_name
             WHERE ou_id=:ou_id""", 
                          {'name' : self.name, 'acronym' : self.acronym,
@@ -162,6 +162,6 @@ class OU(Entity, EntityContactInfo, EntityAddress, OUStructure):
         """
         self.ou_id, self.name, self.acronym, self.short_name, self.display_name, self.sort_name = self.query_1("""
         SELECT ou_id, name, acronym, short_name, display_name, sort_name
-        FROM cerebrum.ou_info
+        FROM [:table schema=cerebrum name=ou_info]
         WHERE ou_id=:ou_id""", {'ou_id' : ou_id})
         super(OU, self).find(ou_id)

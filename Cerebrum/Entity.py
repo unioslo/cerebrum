@@ -100,7 +100,7 @@ class Entity(DatabaseAccessor):
         if as_object is None:
             entity_id = self.nextval('entity_id_seq')
             self.execute("""
-            INSERT INTO cerebrum.entity_info(entity_id, entity_type)
+            INSERT INTO [:table schema=cerebrum name=entity_info] (entity_id, entity_type)
             VALUES (:e_id, :e_type)""", {'e_id' : entity_id, 'e_type': int(self.entity_type)})
         else:
             entity_id = as_object.entity_id
@@ -129,7 +129,7 @@ class Entity(DatabaseAccessor):
         """
         self.entity_id, self.entity_type = self.query_1("""
         SELECT entity_id, entity_type
-        FROM cerebrum.entity_info
+        FROM [:table schema=cerebrum name=entity_info]
         WHERE entity_id=:e_id""", {'e_id' : entity_id})
 
     def delete(self):
@@ -138,7 +138,7 @@ class Entity(DatabaseAccessor):
             raise Errors.NoEntityAssociationError, \
                   "Unable to determine which entity to delete."
         self.execute("""
-        DELETE cerebrum.entity_info WHERE entity_id=:e_id""", {'e_id' : self.entity_id})
+        DELETE [:table schema=cerebrum name=entity_info] WHERE entity_id=:e_id""", {'e_id' : self.entity_id})
         self.clear()
         return
 
@@ -147,21 +147,21 @@ class EntityName(object):
     "Mixin class, usable alongside Entity for entities having names."
     def get_name(self, domain):
         return self.query("""
-            SELECT * FROM cerebrum.entity_name
+            SELECT * FROM [:table schema=cerebrum name=entity_name]
             WHERE entity_id=:e_id AND value_domain=:domain""",
                           {'e_id' : self.entity_id,
                           'domain' : int(domain)})
 
     def add_name(self, domain, name):
         return self.execute("""
-        INSERT INTO cerebrum.entity_name
+        INSERT INTO [:table schema=cerebrum name=entity_name]
           (entity_id, value_domain, entity_name)
         VALUES (:e_id, :domain, :name)""", {'e_id' : self.entity_id,
                                             'domain' : int(domain), 'name' : name})
 
     def delete_name(self, domain):
         return self.execute("""
-        DELETE cerebrum.entity_name
+        DELETE [:table schema=cerebrum name=entity_name]
         WHERE entity_id=:e_id AND value_domain=:domain""",
                             {'e_id' : self.entity_id, 'domain' : int(domain)})
 
@@ -169,7 +169,7 @@ class EntityName(object):
         "Associate instance with the entity having NAME in DOMAIN."
         entity_id = self.query_1("""
         SELECT entity_id
-        FROM cerebrum.entity_name
+        FROM [:table schema=cerebrum name=entity_name]
         WHERE value_domain=:domain AND entity_name=:name""",
                                  {'domain' : int(domain), 'name' : name})
         Entity.find(self, entity_id)
@@ -183,7 +183,7 @@ class EntityContactInfo(object):
         if pref is None:
             pref = 1
         self.execute("""
-        INSERT INTO cerebrum.entity_contact_info
+        INSERT INTO [:table schema=cerebrum name=entity_contact_info]
           (entity_id, source_system, contact_type, contact_pref,
            contact_value, description)
         VALUES (:e_id, :source, :type, :pref, :value, :descript)""",
@@ -193,7 +193,7 @@ class EntityContactInfo(object):
     def get_contact_info(self, source=None, contact=None):
         return Utils.keep_entries(
             self.query("""
-            SELECT * FROM cerebrum.entity_contact_info
+            SELECT * FROM [:table schema=cerebrum name=entity_contact_info]
             WHERE entity_id=:e_id""", {'e_id' : self.entity_id}),
             ('source_system', source),
             ('contact_type', type))
@@ -203,7 +203,7 @@ class EntityContactInfo(object):
 
     def delete_contact_info(self, source, type, pref):
         self.execute("""
-        DELETE cerebrum.entity_contact_info
+        DELETE [:table schema=cerebrum name=entity_contact_info]
         WHERE entity_id=:e_id AND source_system=:s_system AND
           contact_type=:c_type AND contact_pref=:c_pref""",
                      {'e_id' : self.entity_id,
@@ -286,7 +286,7 @@ class EntityAddress(object):
                 if not self._compare_addresses(type, as_object):
                     ai = self._address_info.get(type)
                     self.execute("""
-                    UPDATE cerebrum.entity_address
+                    UPDATE [:table schema=cerebrum name=entity_address]
                     SET address_text=:a_text, p_o_box=:p_box, postal_number=:p_num,
                         city=:city, country=:country
                     WHERE entity_id=:e_id AND source_system=:s_system AND
@@ -300,7 +300,7 @@ class EntityAddress(object):
                 if str(msg) == "MissingOther":
                     self._add_entity_address(self._affect_source, type, **self._address_info[type])
                 elif str(msg) == "MissingSelf":
-                    self.execute("""DELETE cerebrum.entity_address
+                    self.execute("""DELETE [:table schema=cerebrum name=entity_address]
                                     WHERE entity_id=:e_id AND source_system=:s_system
                                           AND address_type=:a_type""",
                                  {'e_id' : as_object.entity_id,
@@ -319,7 +319,7 @@ class EntityAddress(object):
         #print "%s, %s, %s, %s, %s, %s, %s, %s, " % (self.entity_id, int(source), int(type),
         #             address_text, p_o_box, postal_number, city, country)
         self.execute("""
-        INSERT INTO cerebrum.entity_address
+        INSERT INTO [:table schema=cerebrum name=entity_address]
           (entity_id, source_system, address_type,
            address_text, p_o_box, postal_number, city, country)
         VALUES (:e_id, :s_system, :a_type, :a_text, :p_box, :p_num, :city, :country)""",
@@ -334,14 +334,14 @@ class EntityAddress(object):
 
         return Utils.keep_entries(
             self.query("""
-            SELECT * FROM cerebrum.entity_address
+            SELECT * FROM [:table schema=cerebrum name=entity_address]
             WHERE entity_id=:e_id""", {'e_id' : self.entity_id}),
             ('source_system', int(source)),
             ('address_type', int(type)))
 
     def delete_entity_address(self, source, type):
         self.execute("""
-        DELETE cerebrum.entity_address
+        DELETE [:table schema=cerebrum name=entity_address]
         WHERE
           entity_id=:e_id AND
           source_system=:s_system AND
@@ -353,7 +353,7 @@ class EntityQuarantine(object):
     def add_entity_quarantine(self, type, creator, comment=None,
                               start=None, end=None):
         self.execute("""
-        INSERT INTO cerebrum.entity_quarantine
+        INSERT INTO [:table schema=cerebrum name=entity_quarantine]
           (entity_id, quarantine_type,
            creator_id, comment, start_date, end_date)
         VALUES (:e_id, :q_type, :c_id, :comment, :start_date, :end_date)""",
@@ -364,19 +364,19 @@ class EntityQuarantine(object):
     def get_entity_quarantine(self, type=None):
         return Utils.keep_entries(
             self.query("""
-            SELECT * FROM cerebrum.entity_quarantine
+            SELECT * FROM [:table schema=cerebrum name=entity_quarantine]
             WHERE entity_id=:e_id""", {'e_id' : self.entity_id}),
             ('quarantine_type', type))
 
     def disable_entity_quarantine(self, type, until):
         self.execute("""
-        UPDATE cerebrum.entity_quarantine
+        UPDATE [:table schema=cerebrum name=entity_quarantine]
         SET disable_until=:d_until
         WHERE entity_id=:e_id AND quarantine_type=:q_type""",
                      {'e_id' : self.entity_id, 'q_type' : type, 'd_until' : until})
 
     def delete_entity_quarantine(self, type):
         self.execute("""
-        DELETE cerebrum.entity_quarantine
+        DELETE [:table schema=cerebrum name=entity_quarantine]
         WHERE entity_id=:e_id AND quarantine_type=:q_type""",
                      {'e_id' : self.entity_id, 'q_type' : type})

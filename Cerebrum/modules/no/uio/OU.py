@@ -104,7 +104,7 @@ class OU(OU):
 
         if as_object is None:
             self.execute("""
-            INSERT INTO cerebrum.stedkode
+            INSERT INTO [:table schema=cerebrum name=stedkode]
                 (ou_id, institusjon, fakultet, institutt, avdeling, katalog_merke)
             VALUES (:ou_id, :institusjon, :fak, :institutt, :avd, :kat_merke)""",
                          {'ou_id' : self.ou_id, 'institusjon' : self.institusjon,
@@ -113,7 +113,7 @@ class OU(OU):
         else:
             ou_id = as_object.ou_id
             self.execute("""
-            UPDATE cerebrum.stedkode SET institusjon=:institusjon, fakultet=:fak,
+            UPDATE [:table schema=cerebrum name=stedkode] SET institusjon=:institusjon, fakultet=:fak,
                  institutt=:institutt, avdeling=:avd, katalog_merke=:kat_merke
             WHERE ou_id=:ou_id""",
                          {'institusjon' : self.institusjon, 'fak' : self.fakultet,
@@ -131,7 +131,7 @@ class OU(OU):
          self.avdeling, self.katalog_merke) = \
         self.query_1("""
         SELECT ou_id, institusjon, fakultet, institutt, avdeling, katalog_merke
-        FROM cerebrum.stedkode
+        FROM [:table schema=cerebrum name=stedkode]
         WHERE institusjon = :institusjon AND fakultet = :fak AND
               institutt = :institutt AND avdeling = :avd""",
                      {'institusjon' : institusjon, 'fak' : fakultet,
@@ -140,7 +140,7 @@ class OU(OU):
     def add_stedkode(self, fakultet, institutt, avdeling, institusjon=185,
                      katalog_merke='T'):
         return self.execute("""
-        INSERT INTO cerebrum.stedkode
+        INSERT INTO [:table schema=cerebrum name=stedkode]
           (ou_id, institusjon, fakultet, institutt, avdeling, katalog_merke)
         VALUES (:ou_id, :institusjon, :fak, :institutt, :avd, :kat_merke)""",
                             {'ou_id' : self.ou_id, 'institusjon' : institusjon,
