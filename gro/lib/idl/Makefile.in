@@ -8,8 +8,7 @@ pythondir = @PYTHONDIR@
 
 sources = $(wildcard *.idl)
 objdir = Cerebrum/gro
-objects = $(objdir)/__init__.py \
-		  $(objdir)/errors_idl.py \
+objects = $(objdir)/errors_idl.py \
 		  $(objdir)/gro_idl.py \
 		  $(objdir)/Cerebrum_core/__init__.py \
 		  $(objdir)/Cerebrum_core/Errors/__init__.py \
