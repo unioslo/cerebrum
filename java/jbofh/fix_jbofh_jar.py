@@ -27,29 +27,30 @@ import time
 
 def fix_file(jar_file, cert_file, property_file):
     zip = 'zip'
+    jar = 'jar'
     unzip = 'unzip'
     new_file = 'jbofh_new.jar'
     tmp_dir = 'tmp_%s' % time.time()
     os.mkdir(tmp_dir)
-    os.chdir(tmp_dir)
-    cmd = [unzip, jar_file]
+    cmd = [unzip, '-d', tmp_dir, jar_file]
     ret = os.spawnvp(os.P_WAIT, unzip, cmd)
     if ret != 0:
         raise IOError, "Error running %s" % unzip
     if property_file is not None:
-        shutil.copyfile(property_file, 'jbofh.properties')
+        shutil.copyfile(property_file, tmp_dir + '/jbofh.properties')
     if cert_file is not None:
-        shutil.copyfile(cert_file, 'cacert.pem')
-    cmd = [zip, '-r', '../%s' % new_file, '.']
-    ret = os.spawnvp(os.P_WAIT, zip, cmd)
+        shutil.copyfile(cert_file, tmp_dir + '/cacert.pem')
+    os.chdir(tmp_dir)
+    cmd = [jar, '-c', '-f', '../%s' % new_file, '.']
+    ret = os.spawnvp(os.P_WAIT, jar, cmd)
     if ret != 0:
-        raise IOError, "Error running %s" % zip
+        raise IOError, "Error running %s" % jar
     print "New file: %s" % new_file
     os.chdir('..')
     shutil.rmtree(tmp_dir)
 
 def usage():
-    print """Usage: fx_jbofh_jar.py [-c cert_file | -p property_file] jar_file
+    print """Usage: fix_jbofh_jar.py [-c cert_file | -p property_file] jar_file
 
 This utility is for people who want to update the JBofh.jar file
 without running ant.  It can replace the cacert.pem and
