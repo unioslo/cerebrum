@@ -274,7 +274,8 @@ def get_bet_fritak_utv_data(lt_person_file):
             if g['gjestetypekode'] in ('PCVAKT', 'GRP-LÆRER', 'ST-POL FRI',
                                        'ST-ORG FRI', 'EF-FORSKER', 'EF-STIP',
                                        'EMERITUS', 'GJ-FORSKER', 'REG-ANSV',
-                                       'EKST. KONS', 'SENIORFORS'):
+                                       'EKST. KONS', 'SENIORFORS',
+                                       'EKST. PART', 'SIVILARB'):
                 if not fnr2pid.has_key(fnr):
                     logger.warn("Unknown LT-person %s" % fnr)
                     return
