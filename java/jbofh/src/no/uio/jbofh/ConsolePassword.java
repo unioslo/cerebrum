@@ -4,6 +4,7 @@ import java.io.*;
 import javax.swing.JOptionPane;
 import javax.swing.JPasswordField;
 import javax.swing.JDialog;
+import java.awt.Frame;
 
 /**
  * <code>ConsolePassword</code> is an attempt to create a pure java
@@ -64,13 +65,13 @@ class ConsolePassword {
         }
     }
 
-    public String getPasswordByJDialog(String prompt) 
+    public String getPasswordByJDialog(String prompt, Frame parent) 
         throws MethodFailedException {
         try {
             JPasswordField pf = new JPasswordField(10);
             JOptionPane pane = new JOptionPane(pf, JOptionPane.QUESTION_MESSAGE, 
                 JOptionPane.OK_CANCEL_OPTION);
-            JDialog dialog = pane.createDialog(null, prompt);
+            JDialog dialog = pane.createDialog(parent, prompt);
             pf.requestFocus();
             dialog.show();
             dialog.dispose();
@@ -125,7 +126,7 @@ class ConsolePassword {
             return getPasswordByStty(prompt);
         } catch (MethodFailedException e) {}
         try {
-            return getPasswordByJDialog(prompt);
+            return getPasswordByJDialog(prompt, null);
         } catch (MethodFailedException e) {}
         try {
             return getPasswordByBusyLoop(prompt);
