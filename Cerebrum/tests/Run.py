@@ -20,6 +20,7 @@
 
 import unittest
 
+import cerebrum_path
 from Cerebrum.tests import EntityTestCase
 from Cerebrum.tests.OUTestCase import OUTestCase
 from Cerebrum.tests.PersonTestCase import PersonTestCase

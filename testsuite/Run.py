@@ -4,6 +4,7 @@
 
 import unittest
 
+import cerebrum_path
 import Cerebrum.tests.Run
 import Cerebrum.modules.no.tests.Run
 
