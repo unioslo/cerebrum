@@ -38,3 +38,5 @@ build:
 	$(PWD)/doc/scripts/build.py --build-contents contents.rst
 	$(PWD)/doc/scripts/build.py --xml book.xml
 	(cd build; db2pdf book.xml)
+
+# arch-tag: b7c792a8-bc44-4fcf-a88c-3dd56ed3ca73
