@@ -96,10 +96,24 @@ def get_real_name(map, attr, table=None):
         return attr.name
 
 class DatabaseClass(SpineClass, Searchable, Dumpable):
+    """Mixin class which adds support for the database.
+
+    This class adds support for working directly against the database,
+    with generic load/save for attributes, generic create/delete for
+    classes, and generic searching.
+    
+    All SQL-calls in Spine/cerebrum should be implementet here.
+    """
+    
     db_attr_aliases = {}
     db_table_order = []
 
     def _load_db_attributes(self, attributes=None):
+        """Load 'attributes' from the database.
+
+        This method load attributes in 'attributes' from the database
+        through one SQL call.
+        """
         if attributes is None:
             attributes = self._db_load_attributes
 
@@ -132,6 +146,12 @@ class DatabaseClass(SpineClass, Searchable, Dumpable):
             setattr(self, i.get_name_private(), value)
 
     def _save_all_db(self):
+        """Save all attributes to the database.
+        
+        This method will save all attributes in this class which have
+        been updated, and is a subclass of DatabaseAttr, through one
+        SQL-call for each db-table.
+        """
         db = self.get_database()
 
         for table, attributes in self._get_sql_tables().items():
@@ -339,6 +359,7 @@ class DatabaseClass(SpineClass, Searchable, Dumpable):
     create_search_method = classmethod(create_search_method)
     
     def build_methods(cls):
+        """Create get/set methods for slots."""
         if '_db_load_attributes' not in cls.__dict__:
             cls._db_load_attributes = []
             cls._db_save_attributes = []

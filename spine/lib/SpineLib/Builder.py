@@ -23,9 +23,29 @@ from Cerebrum.spine.server.Cerebrum_core import Errors
 
 __all__ = ['Attribute', 'Method', 'Builder']
 
-
 class Attribute(object):
+    """Representation of an attribute in Spine.
+
+    Attributes are used to collect metainfo about attributes which Spine
+    should provide to clients and internally for Spine-classes.
+
+    After Spine-classes are build, Spine will generate get/load-methods
+    for attributes of this class, or subclass, which are listed, in a
+    class or subclass of Builder, in primary and slots. Attributes which
+    are writeable, will also get set/save-methods.
+    """
+    
     def __init__(self, name, data_type, exceptions=(), write=False, optional=False):
+        """Initiate the attribute.
+
+        name        - the name of the attribute in a string.
+        data_type   - should be a class or a type, like Entity, list, str, None.
+        exceptions  - list with all exceptions accessing this attribute might raise.
+        write       - should be True if the clients are allowed to change this attribute.
+        optional    - for attributes which is not mandatory to be set.
+
+        optional attributes have exists-comparisation in searchobjects.
+        """
         self.name = name
         assert type(data_type) != str
         assert type(exceptions) in (list, tuple)
@@ -38,25 +58,51 @@ class Attribute(object):
         self.optional = optional
 
     def get_name_get(self):
+        """The name provided to clients for reading the attribute value."""
         return 'get_' + self.name
 
     def get_name_set(self):
+        """The name provided to clients for storing the attribute value."""
         return 'set_' + self.name
 
     def get_name_private(self):
+        """Internal name for storing the value of the attribute."""
         return '_' + self.name
 
     def get_name_load(self):
+        """Internal method for loading the value of the attribute."""
         return 'load_' + self.name
 
     def get_name_save(self):
+        """Internal method for saving the value of the attriute."""
         return 'save_' + self.name
 
     def __repr__(self):
         return '%s(%s, %s)' % (self.__class__.__name__, `self.name`, `self.data_type`)
 
 class Method(object):
+    """Representation of a method in Spine.
+
+    Methods are used to collect metainfo about methods which should be
+    provided to clients. Information like arguments and return-tyoe is
+    used when generating idl for use in corba.
+
+    The methods will be wrapped to allow for authentication and access
+    control.
+
+    If the method is "write", the object will be locked for writing
+    before the method is called.
+    """
+    
     def __init__(self, name, data_type, args=(), exceptions=(), write=False):
+        """Initiate the method.
+
+        name        - the name of the method as a string.
+        data_type   - the return type, should be a class or type: str, list, Entity.
+        args        - a list with lists of arguments, like (("name", str), ("blipp", list")).
+        exceptions  - list with all exceptions accessing this attribute might raise.
+        write       - should be True for methods which should requiere writelocks.
+        """
         self.name = name
         assert type(data_type) != str
         assert type(exceptions) in (list, tuple)
@@ -72,6 +118,7 @@ class Method(object):
         return '%s(%s, %s)' % (self.__class__.__name__, `self.name`, `self.data_type`)
 
 def create_lazy_get_method(attr):
+    """Returns a method which will load the attribute if not already loaded."""
     def lazy_get(self):
         lazy = object() # a unique object.
         value = getattr(self, attr.get_name_private(), lazy)
@@ -86,6 +133,7 @@ def create_lazy_get_method(attr):
     return lazy_get
 
 def create_set_method(attr):
+    """Returns a method which will save the value, if its updated."""
     def set(self, value):
         # make sure the variable has been loaded
         orig = getattr(self, attr.get_name_get())
@@ -98,11 +146,27 @@ def create_set_method(attr):
     return set
 
 def create_readonly_set_method(attr):
+    """Returns a method which will raise and exception if called."""
     def readonly_set(self, *args, **vargs):
         raise Errors.ReadOnlyAttributeError('attribute %s is read only' % attr.name)
     return readonly_set
 
 class Builder(object):
+    """Core class for Spine for providing building functionality.
+    
+    Provides functionality for building methods for attributes, and for
+    registering methods and attributes to the class.
+
+    Attributes which subclasses should implement:
+    'primary' should contain attributes which are unique for objects.
+    'slots' should contain the rest of the attributes for the class.
+    'method_slots' should containt methods which are implementet with
+    the same name in the class.
+
+    'builder_parents' and 'builder_children' are used for inheritance
+    in corba.
+    """
+    
     primary = []
     slots = []
     method_slots = []
@@ -124,6 +188,7 @@ class Builder(object):
             self.updated = sets.Set()
 
     def map_args(cls, *args, **vargs):
+        """Returns a dict with attribute:value."""
         slotMap = dict([(i.name, i) for i in cls.slots])
 
         map = dict(zip(cls.slots, args))
@@ -139,6 +204,7 @@ class Builder(object):
     map_args = classmethod(map_args)
 
     def get_attr(cls, name):
+        """Get the attribute in slots with name 'name'."""
         for attr in cls.slots:
             if attr.name == name:
                 return attr
@@ -184,7 +250,8 @@ class Builder(object):
 
     create_primary_key = classmethod(create_primary_key)
  
-    def register_attribute(cls, attribute, load=None, save=None, get=None, set=None, overwrite=False, register=True):
+    def register_attribute(cls, attribute, load=None, save=None, get=None,
+                           set=None, overwrite=False, register=True):
         """Registers an attribute.
 
         attribute contains the name and data_type as it will be in the API
@@ -240,7 +307,11 @@ class Builder(object):
     register_attribute = classmethod(register_attribute)
 
     def register_method(cls, method, method_func, overwrite=False):
-        """Registers a method."""
+        """Registers a method.
+        
+        Registers the method 'method', and points it towards the method
+        'method_func'.
+        """
         if hasattr(cls, method.name) and not overwrite:
             raise AttributeError('%s already exists in %s' % (method.name, cls.__name__))
         setattr(cls, method.name, method_func)
@@ -250,6 +321,7 @@ class Builder(object):
     register_method = classmethod(register_method)
 
     def build_methods(cls):
+        """Create get/set methods for slots."""
         if cls.primary != cls.slots[:len(cls.primary)]:
             cls.slots = cls.primary + cls.slots
         for attr in cls.slots:

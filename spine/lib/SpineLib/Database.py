@@ -30,6 +30,7 @@ class SpineDatabase(Database):
     to include locking. Using this scheme, only one transaction can
     commit at a time.
     """
+    
     def __init__(self, entity_id=None):
         self._lock = Lock()
         Database.__init__(self)
@@ -44,7 +45,7 @@ class SpineDatabase(Database):
     def release(self):
         self.rollback_log() # just in case
         self.rollback() # will this break the database?
-        self.lock.release()
+        self._lock.release()
 
 db = None
 

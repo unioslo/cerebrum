@@ -18,20 +18,22 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import time
-
-from Cerebrum.extlib import sets
-from Cerebrum.spine.server.Cerebrum_core import Errors
-
+import Database
 from Caching import Caching
 from Locking import Locking
 from Builder import Builder
 
-import Database
-
 __all__ = ['SpineClass']
 
 class SpineClass(Builder, Caching, Locking):
+    """Base class for Spine.
+
+    This class adds support for caching and locking. All external
+    classes in spine (classes which is not only for internal use) should
+    inherit from this class, to get Caching and Locking, and access to
+    the database-cursor.
+    """
+    
     def __init__(self, *args, **vargs):
         write_lock = vargs.get('write_lock', None)
         if 'write_lock' in vargs:
@@ -50,13 +52,17 @@ class SpineClass(Builder, Caching, Locking):
         Locking.__init__(self, write_lock)
 
     def get_database(self):
+        """Returns the database cursor.
+
+        If a client has a writelock, the transaction-cursor is returned.
+        """
         if self.is_writelocked():
             return self.get_writelock_holder().get_database() # The lockholder has get_database()
         else:
             return Database.get_database()
 
     def save(self):
-        """ Save all changed attributes """
+        """Save all changed attributes."""
         # make sure there is a writelock
         assert self.get_writelock_holder() is not None
 
