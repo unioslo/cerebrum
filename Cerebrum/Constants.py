@@ -82,10 +82,10 @@ class Constants(DatabaseAccessor):
     """Defines a number of variables that are used to get access to the
     string/int value of the corresponding database key."""
 
-    person_entity = _EntityTypeCode('p')
-    ou_entity = _EntityTypeCode('o')
-    account_entity = _EntityTypeCode('a')
-    group_entity = _EntityTypeCode('g')
+    entity_person = _EntityTypeCode('p')
+    entity_ou = _EntityTypeCode('o')
+    entity_account = _EntityTypeCode('a')
+    entity_group = _EntityTypeCode('g')
 
     contact_phone = _ContactInfoCode('PHONE')
     contact_fax = _ContactInfoCode('FAX')
