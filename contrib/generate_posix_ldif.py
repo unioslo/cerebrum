@@ -32,6 +32,25 @@ posix_user = PosixUser.PosixUser(Cerebrum)
 posix_group = PosixGroup.PosixGroup(Cerebrum)
 
 entity2uname = {}
+# TODO: Make this a config-file option.
+base_dn = "dc=uio,dc=no"
+
+def print_user_root_node():
+    print "dn: ou=users,%s\n" % base_dn, \
+          "objectClass: top\n", \
+          "objectClass: norOrganizationalUnit\n", \
+          "ou: users\n", \
+          "ou: Users at %s\n" % base_dn, \
+          "description: All users at %s\n\n" % base_dn
+
+def print_filegroup_root_node():
+    print "dn: ou=filegroups,%s\n" % base_dn, \
+          "objectClass: top\n", \
+          "objectClass: norOrganizationalUnit\n", \
+          "ou: filegroups\n", \
+          "ou: Filegroups at %s\n" % base_dn, \
+          "description: All filegroups at %s\n\n" %base_dn
+
 
 def generate_users():
     for row in posix_user.list_posix_users():
@@ -68,7 +87,7 @@ def generate_users():
         shell = PosixUser._PosixShellCode(int(posix_user.shell))
         shell = shell.description
 
-        print "dn: uid=%s,ou=users,dc=uio,dc=no" % uname
+        print "dn: uid=%s,ou=users," % (uname, base_dn)
         print "objectClass: top"
         print "objectClass: account"
         print "objectClass: posixAccount"
@@ -104,7 +123,7 @@ def generate_group():
                 raise ValueError, "Found no id: %s for group: %s" % (
                     id, gname)
 
-        print "dn: cn=%s,ou=filegroups,dc=uio,dc=no" % gname
+        print "dn: cn=%s,ou=filegroups,%s" % (gname, base_dn)
         print "objectClass: top"
         print "objectClass: posixGroup"
         print "cn: %s" % gname
@@ -117,7 +136,9 @@ def generate_group():
 
 
 def main():
+    print_user_root_node()
     generate_users()
+    print_filegroup_root_node()
     generate_group()
 
 if __name__ == '__main__':
