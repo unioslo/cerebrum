@@ -152,11 +152,11 @@ def connect_cyrus(host=None, user_id=None):
         assert user_id is not None
         try:
             host = get_imaphost(user_id)
-            if host is None:
-                raise CerebrumError("connect_cyrus: not an IMAP user " +
-                                    "(user id = %d)" % user_id)
         except:
             raise CerebrumError("connect_cyrus: unknown user " +
+                                "(user id = %d)" % user_id)
+        if host is None:
+            raise CerebrumError("connect_cyrus: not an IMAP user " +
                                 "(user id = %d)" % user_id)
     if imapconn is not None:
         if not imaphost == host:
@@ -309,9 +309,19 @@ def process_email_requests():
                 db.commit()
                 continue
 
+            try:
+                posix_group = PosixGroup.PosixGroup(db)
+                posix_group.find(posix.gid_id)
+            except Errors.NotFoundErrors:
+                logger.debug("bofh_email_convert: %s: " % acc.account_name +
+                             "missing primary fg, skipping")
+                br.delete_request(request_id=r['request_id'])
+                db.commit()
+                continue
+
             cmd = [SUDO_CMD, cereconf.WRAPPER_CMD, '-c', 'convertmail',
                    acc.account_name, get_home(acc),
-                   posix.posix_uid, posix.gid_id]
+                   posix.posix_uid, posix_group.posix_gid]
             cmd = ["%s" % x for x in cmd]
             unsafe = False
             for word in cmd:
