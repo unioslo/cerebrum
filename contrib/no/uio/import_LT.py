@@ -243,8 +243,7 @@ def process_person(person):
             if sted is not None and sted['fax'] is not None:
                 # Add fax of the first affiliation with a non-NULL fax
                 # to person's contact info.
-                contact.append((const.contact_fax,
-                                get_sted(affiliations[0][0])['fax']))
+                contact.append((const.contact_fax, sted['fax']))
                 added_ou_fax = True
 	if include_del:
 	    key1 = str(new_person.entity_id) + 'a' + str(ou_id) 
@@ -333,7 +332,7 @@ def main():
     group = Group.Group(db)
     try:
 	group.find_by_name(group_name)
-    except Errors,NotFoundError:
+    except Errors.NotFoundError:
 	group.clear()
         ac = Account.Account(db)
         ac.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
