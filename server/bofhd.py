@@ -177,10 +177,12 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler):
             else:
                 raise ValueError, "Unrecognized parameter type: '%r'" % obj
 
-        def wash_response(obj):
+        def wash_response(obj, no_unicodify=0):
             if obj is None:
                 return ':None'
             elif isinstance(obj, (str, unicode)):
+                if isinstance(obj, str) and not no_unicodify:
+                    obj = unicode(obj, 'iso8859-1')
                 if obj.startswith(":"):
                     return ":" + obj
                 return obj
@@ -189,7 +191,7 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler):
                 return obj_type([wash_response(x) for x in obj])
             elif isinstance(obj, dict):
                 obj_type = type(obj)
-                return obj_type([(wash_response(x), wash_response(obj[x]))
+                return obj_type([(wash_response(x, no_unicodify=1), wash_response(obj[x]))
                                  for x in obj])
             elif isinstance(obj, (int, long, float)):
                 return obj
@@ -337,7 +339,7 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler):
             ret = server.help.get_cmd_help(commands, *group)
         else:
             raise CerebrumError, "Unexpected help request"
-        return unicode(ret, 'iso8859-1')
+        return ret
 
     def bofhd_run_command(self, sessionid, cmd, *args):
         """Execute the callable function (in the correct module) with
