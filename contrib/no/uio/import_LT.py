@@ -208,7 +208,7 @@ def determine_contact(person):
             ret.append((const.contact_phone,
                         "%i%05i" % (int(t['innvalgnr']), int(t['linjenr']))))
     for k in person.get('komm', ()):
-        if k['kommtypekode'] in ('EKSTRA TLF', 'JOBBTLFUTL'):
+        if k['kommtypekode'] in ('ARBTLF', 'EKSTRA TLF', 'JOBBTLFUTL'):
             if k.has_key('kommnrverdi'):
                 val = k['kommnrverdi']
             elif k.has_key('telefonnr'):
