@@ -1098,7 +1098,7 @@ class BofhdAuth(DatabaseAccessor):
             return self._any_perm_cache[key]
         except KeyError:
             sql = """
-            SELECT 'foo'
+            SELECT 'foo' AS foo
             FROM [:table schema=cerebrum name=auth_operation] ao,
                  [:table schema=cerebrum name=auth_operation_set] aos,
                  [:table schema=cerebrum name=auth_role] ar

@@ -718,7 +718,7 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
         # If needed, add to table 'person_affiliation'.
         try:
             self.query_1("""
-            SELECT 'yes'
+            SELECT 'yes' AS yes
             FROM [:table schema=cerebrum name=person_affiliation]
             WHERE
               person_id=:p_id AND
@@ -733,7 +733,7 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
                                 self.const.person_aff_add, None)
         try:
             self.query_1("""
-            SELECT 'yes'
+            SELECT 'yes' AS yes
             FROM [:table schema=cerebrum name=person_affiliation_source]
             WHERE
               person_id=:p_id AND
@@ -794,7 +794,7 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
         self._db.log_change(self.entity_id,
                             self.const.person_aff_src_del, None)
         remaining_affiliations = self.query("""
-        SELECT 'yes'
+        SELECT 'yes' AS yes
         FROM [:table schema=cerebrum name=person_affiliation_source]
         WHERE
           person_id=:p_id AND
