@@ -17,9 +17,9 @@ binary-post-install/%::
 
 clean::
 	-find -name '*.py[co]' | xargs rm  
-	-rm rf debian/cerebrum debian/cerebrum-doc debian/cerebrum_path.py #debian/tmp 
+	-rm -rf debian/cerebrum debian/cerebrum-doc debian/cerebrum_path.py #debian/tmp 
+	-rm -rf java/jbofh/{tmpdist,build,dist}
 
 common-binary-indep::
-#       No java just now
-#	cd java/jbofh
-#	JAVA_HOME=/usr/lib/kaffe ant -Dbuild.compiler=jikes dist build
+	(cd java/jbofh; \
+	 JAVACMD=/usr/lib/kaffe/bin/kaffe ant -Dbuild.compiler=kjc -Dnogui dist)

@@ -14,7 +14,7 @@ PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
 DAEMON=/usr/sbin/bofhd.py
 NAME=cerebrum
 DESC=cerebrum
-DAEMON_OPTS="--config-file /etc/cerebrum/cereconf.py"
+DAEMON_OPTS="--config-file /etc/cerebrum/config.dat"
 
 test -x $DAEMON || exit 0
 

@@ -31,4 +31,4 @@ CLASS_CONSTANTS = (
 	'Cerebrum.modules.PosixUser/Constants', 
 	'Cerebrum.modules.CLConstants/CLConstants' 
 ) 
-CLASS_OU = ('Cerebrum.modules.no.Stedkode/Stedkode')
+CLASS_OU = ('Cerebrum.modules.no.Stedkode/Stedkode',)
