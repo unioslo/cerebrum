@@ -24,6 +24,7 @@ See Cerebrum/default_config.py:LDAP_MAIL_DNS_* for configuration."""
 
 import os
 import re
+import sys
 
 import cerebrum_path
 import cereconf
@@ -71,12 +72,34 @@ def get_hosts_and_cnames():
     host2mx           = {}              # host  -> {MX priority: MX name, ...}
     lower2host        = {}              # lowercase hostname -> hostname
 
+    save = getattr(cereconf, 'LDAP_MAIL_DNS_SAVE_DIG_OUTPUT', 0)
+    if save:
+        # Save and rotate dig output, so unexpected output can be inspected.
+        savename = os.path.join(cereconf.LDAP_DUMP_DIR, "dig.out")
+        rotate = [(savename, savename + ".1")]
+        for i in xrange(2, save+1):
+            rotate.insert(0, (rotate[0][1], "%s.%d" % (savename, i)))
+        for r in rotate:
+            try:
+                os.rename(*r)
+            except OSError:
+                pass
+        try:
+            save = open(savename, "w")
+        except IOError, e:
+            print >>sys.stderr, "Warning: %s: %s" % (savename, e.strerror)
+            save = False
+
     # Read in the above variables from Dig
     use_types = {"A": True, "MX": True, "CNAME": True}
     for args in cereconf.LDAP_MAIL_DNS_DIG_ARGS:
+        if save:
+            print >>save, "## %s ##" % (cereconf.LDAP_MAIL_DNS_DIG_CMD % args)
         check_lines = []
         f = os.popen(cereconf.LDAP_MAIL_DNS_DIG_CMD % args, 'r')
         for line in f:
+            if save:
+                save.write(line)
             match = match_dig_line(line)
             if match:
                 name, type, info = match.groups()
@@ -113,6 +136,9 @@ def get_hosts_and_cnames():
         if match.group(1) != expect_dig_version:
             raise SystemExit(
                 "Dig version changed.  Check if its output format changed.")
+
+    if save:
+        save.close()
 
     # Add fake Dig records
     for host in cereconf.LDAP_MAIL_DNS_EXTRA_A_HOSTS:
