@@ -46,6 +46,8 @@ entity2uname = {}
 affiliation_code = {}
 alias_list = {}
 org_root = None
+global dn_dict
+dn_dict = {}
 
 normalize_trans = maketrans(
     "ABCDEFGHIJKLMNOPQRSTUVWXYZ\t\n\r\f\v",
@@ -245,6 +247,9 @@ def print_OU(id, par_ou, stedkodestr,par, filename=None):
     else:
 	ou_dn = make_ou_for_rdn(some2utf(ou.short_name))
     str_ou = "%s=%s,%s" % (cereconf.LDAP_ORG_ATTR,ou_dn,par_ou)
+    if dn_dict.has_key(str_ou):
+        str_ou = "%s=%s+norOrgUnitNumber=%s,%s" % (cereconf.LDAP_ORG_ATTR,ou_dn,stedkodestr,par_ou)
+    dn_dict[str_ou] = stedkodestr
     ou_str = "dn: %s\n" % str_ou
     ou_str += "objectClass: top\n"
     for ss in cereconf.LDAP_ORG_OBJECTCLASS:
@@ -505,7 +510,7 @@ def generate_person(filename=None):
 		pers_string += "sn: %s\n" % some2utf(lastname)
 	    if print_phaddr:
 		if ((row['post_text']) or (row['post_postal'])):
-		    post_string = make_address(", ",
+		    post_string = make_address("$",
 					row['post_box'],
 					row['post_text'],
 					row['post_postal'],
@@ -913,17 +918,18 @@ def get_contacts(entity_id=None,source_system=None,contact_type=None,email=0):
 	ph_list = []
 	if '$' in str(x['contact_value']):
 	    ph_list = [str(y) for y in str(x['contact_value']).split('$')]
-	elif '/' in str(x['contact_value']):
+	elif ('/' in str(x['contact_value']) and not email):
 	    ph_list = [str(y) for y in str(x['contact_value']).split('/')]
 	else: ph_list.append(str(x['contact_value']))
 	key = int(x['entity_id'])
 	for ph in ph_list:
 	    if (ph <> '0'):
 		if not email:
-		    ph = normalize_phone(ph)
-		if cont_tab.has_key(key):
-		    if ph not in cont_tab[key]: cont_tab[key].append(ph)
-		else: cont_tab[key] = [ph,]
+		    ph = re.sub('\s','',normalize_phone(ph))
+		if ph:
+		    if cont_tab.has_key(key):
+			if ph not in cont_tab[key]: cont_tab[key].append(ph)
+		    else: cont_tab[key] = [ph,]
     if ((len(cont_tab) == 1) or entity_id):
 	for k,v in cont_tab.items():
 	    return(v)
