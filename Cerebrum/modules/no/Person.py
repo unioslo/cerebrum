@@ -43,8 +43,8 @@ class PersonFnrMixin(Person.Person):
         (unless self._fnr_sources is overridden)."""
         selected = None
         select = "SELECT external_id, source_system" \
-                 " FROM [:table schema=cerebrum name=person_external_id]" \
-                 " WHERE person_id = %d AND id_type = %d"
+                 " FROM [:table schema=cerebrum name=entity_external_id]" \
+                 " WHERE entity_id = %d AND id_type = %d"
         if nums is None:
             selected = self.query(select %
                                   (person_id, self.const.externalid_fodselsnr))
