@@ -25,15 +25,17 @@ from Cerebrum.gro.Cerebrum_core import Errors
 from Caching import Caching
 from Locking import Locking
 
+import Database
+
 __all__ = ['Attribute', 'Method', 'Builder', 'CorbaBuilder']
 
 
 class Attribute:
-    def __init__(self, name, data_type, writable=False):
+    def __init__(self, name, data_type, write=False):
         self.type = 'Attribute'
         self.name = name
         self.data_type = data_type
-        self.writable = writable
+        self.write = write
 
         self.get = None
         self.set = None
@@ -42,12 +44,13 @@ class Attribute:
         return '%s(%s, %s)' % (self.__class__.__name__, `self.name`, `self.data_type`)
 
 class Method:
-    def __init__(self, name, data_type, args=[], exceptions=[], apHandler=False):
+    def __init__(self, name, data_type, args=[], exceptions=[], write=False):
         self.type = 'Method'
         self.name = name
         self.data_type = data_type
         self.args = args
-        self.apHandler = apHandler
+        self.exceptions = exceptions
+        self.write = write
 
     def __repr__(self):
         return '%s(%s, %s)' % (self.__class__.__name__, `self.name`, `self.data_type`)
@@ -156,7 +159,7 @@ class CorbaBuilder:
         txt += '\n\t//get and set methods for attributes\n'
         for attr in cls.slots:
             txt += '\t%s get_%s();\n' % (attr.data_type, attr.name)
-            if attr.writable:
+            if attr.write:
                 txt += '\tvoid set_%s(in %s new_%s);\n' % (attr.name, attr.data_type, attr.name)
             txt += '\n'
 
@@ -204,6 +207,12 @@ class Builder(Caching, Locking, CorbaBuilder):
         # mark the object as old
         setattr(self, mark, time.time())
 
+    def get_database(self):
+        if self.writeLock is not None:
+            return self.writeLock().get_database() # writeLock *should* have get_database :p
+        else:
+            return Database.get_database()
+
     def load(self):
         # vil vi ha dette?
         # load kan laste _alle_ attributter vel å iterere gjennom slots...
@@ -223,8 +232,12 @@ class Builder(Caching, Locking, CorbaBuilder):
     def reload(self):
         """ Reload all changed attributes """
 
+        loaded = sets.Set()
         for var in self.updated:
-            getattr(self, 'load_' + var)()
+            load_method = getattr(self, 'load_' + var)
+            if load_method not in loaded:
+                load_method()
+                loaded.add(load_method)
         self.updated.clear()
 
     # class methods
@@ -269,7 +282,7 @@ class Builder(Caching, Locking, CorbaBuilder):
         self._`attribute.name`. load will then be run automatically by get if the
         attribute has not yet been loaded.
 
-        If attribute is not writable, save will not be used.
+        If attribute is not write, save will not be used.
         """
 
         var_private = '_' + attribute.name
@@ -282,7 +295,7 @@ class Builder(Caching, Locking, CorbaBuilder):
             get = create_lazy_get_method(var_private, var_load)
 
         if set is None:
-            if attribute.writable:
+            if attribute.write:
                 set = create_set_method(attribute.name)
             else:
                 set = create_readonly_set_method(attribute.name)
