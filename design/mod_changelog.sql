@@ -1,9 +1,11 @@
 category:drop;
+drop TABLE change_handler_data;
+category:drop;
+drop TABLE change_log;
+category:drop;
 drop table change_type;
 category:drop;
 drop SEQUENCE change_log_seq;
-category:drop;
-drop TABLE change_log;
 
 category:code;
 CREATE TABLE change_type
@@ -43,7 +45,7 @@ CREATE TABLE change_type
 
 category:code;
 CREATE SEQUENCE change_log_seq;
-category:code;
+category:main;
 CREATE TABLE change_log
 (
   tstamp          DATE
@@ -62,7 +64,7 @@ CREATE TABLE change_log
   change_program  CHAR VARYING(16),
   comment         CHAR VARYING(255)
 );
-category:code;
+category:main;
 CREATE TABLE change_handler_data
 (
   evthdlr_key    CHAR VARYING(20), 
