@@ -298,7 +298,7 @@ class PosixLDIF(object):
             # latin1_to_iso646_60 later
             entry['description'] = (LDIFutils.iso2utf(self.posgrp.description),)
         for id in self.posgrp.get_members(spread=self.spread_d['user'][0], 
-						get_entity_name=self.get_name):
+                                          get_entity_name=self.get_name):
 	    if self.get_name:
 		uname_id = int(id[0])
 		uname = id[1]
@@ -373,9 +373,9 @@ class PosixLDIF(object):
 	"""
 	Recursive method to get members and groups in netgroup.
 	"""
-	for union  in self.grp.list_members(self.spread_d['user'][0],\
-					int(self.const.entity_account),\
-                                        get_entity_name= self.get_name)[0]:
+	for union in self.grp.list_members(self.spread_d['user'][0],
+                                           int(self.const.entity_account),
+                                           get_entity_name=self.get_name)[0]:
 	    if self.get_name:
 		uname_id,uname = int(union[1]),union[2]
 	    else:
@@ -383,15 +383,14 @@ class PosixLDIF(object):
 		try:
 		    uname = self.id2uname[uname_id]
 		except:
-		    self.logger.warn('Cache enabled but user:%s not found' % \
-								uname_id)
-		    self._gmemb[uname_id] = True
-	    if ("_" not in uname) and not self._gmemb.has_key(uname_id):
+                    # Probably an expired user, don't include it.
+		    self.logger.warn('Cache enabled but user:%s not found' %
+                                     uname_id)
+	    if uname_id in self._gmemb and "_" not in uname:
 		triples.append("(,%s,)" % uname)
 		self._gmemb[uname_id] = True
-	for union in self.grp.list_members(None,\
-						int(self.const.entity_group),\
-                                                get_entity_name=True)[0]:
+	for union in self.grp.list_members(None, int(self.const.entity_group),
+                                           get_entity_name=True)[0]:
 	    self.grp.clear()
 	    self.grp.entity_id = int(union[1])
 	    if filter(self.grp.has_spread,self.spread_d['netgroup']):
