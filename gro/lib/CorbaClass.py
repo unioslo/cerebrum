@@ -131,3 +131,5 @@ def register_gro_class(gro_class, idl_class):
         setattr(corba_class, method.name, create_corba_method(method))
 
     class_cache[gro_class] = corba_class
+
+# arch-tag: 0503a6a6-0d9f-4a47-9299-1763270ff257

@@ -65,3 +65,5 @@ for name, gro_class in registry.classes.items():
 
 class CorbaSessionImpl(CorbaSession, generated__POA.CorbaSession):
     pass
+
+# arch-tag: f285d04a-698c-40a1-a442-40438bc3ee37

@@ -37,3 +37,5 @@ for name, gro_class in registry.classes.items():
     APHandler.register_method(method, gro_class)
 
 registry.register_class(APHandler)
+
+# arch-tag: 042e8f2b-e0fa-4277-9c43-f434f0b3015c
