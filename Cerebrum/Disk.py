@@ -139,7 +139,7 @@ class Disk(Entity):
         if host_id is not None:
             where = "WHERE host_id=:host_id"
         if filter_expired:
-            ai_where = "AND (ai.expire_date IS NULL OR ai.expire_date < [:now])"
+            ai_where = "AND (ai.expire_date IS NULL OR ai.expire_date > [:now])"
         # Note: This syntax requires Oracle >= 9
         return self.query("""
         SELECT count(account_id), di.disk_id, di.host_id, di.path
