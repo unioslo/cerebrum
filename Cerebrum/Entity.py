@@ -323,11 +323,7 @@ class EntityContactInfo(Entity):
     def clear(self):
         "Clear all attributes associating instance with a DB entity."
         self.__super.clear()
-        for attr in EntityContactInfo.__read_attr__:
-            if hasattr(self, attr):
-                delattr(self, attr)
-        for attr in EntityContactInfo.__write_attr__:
-            setattr(self, attr, None)
+        self.clear_class(EntityContactInfo)
         self.__updated = []
 
     def add_contact_info(self, source, type, value, pref=None,
@@ -437,6 +433,7 @@ class EntityAddress(Entity):
     def clear(self):
         super(EntityAddress, self).clear()
         self.__updated = []
+        self.clear_class(EntityAddress)
 
     def populate_address(self, source_system, type=None,
                          address_text=None, p_o_box=None,
