@@ -207,22 +207,14 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
         # If affect_names has not been called, we don't care about
         # names
         if self._pn_affect_source is not None:
+            updated_name = False
             for type in self._pn_affect_types:
                 try:
                     if not self._compare_names(type, self):
                         n = self._name_info.get(type)
-                        self.execute("""
-                        UPDATE [:table schema=cerebrum name=person_name]
-                        SET name=:name
-                        WHERE
-                          person_id=:p_id AND
-                          source_system=:src AND
-                          name_variant=:n_variant""",
-                                     {'name': self._name_info[type],
-                                      'p_id': self.entity_id,
-                                      'src': int(self._pn_affect_source),
-                                      'n_variant': int(type)})
+                        self._update_name(self._pn_affect_source, type, self._name_info[type])
                         is_new = False
+                        updated_name = True
                 except KeyError, msg:
                     # Note: the arg to a python exception must be
                     # casted to str :-(
@@ -231,6 +223,7 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
                             self._set_name(self._pn_affect_source, type,
                                            self._name_info[type])
                             is_new = False
+                            updated_name = True
                     elif str(msg) == "MissingSelf":
                         self.execute("""
                         DELETE FROM [:table schema=cerebrum name=person_name]
@@ -242,9 +235,11 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
                                       'src': int(self._pn_affect_source),
                                       'n_variant': int(type)})
                         is_new = False
+                        updated_name = True
                     else:
                         raise
-
+            if updated_name:
+                self._update_cached_fullname()
         # TODO: Handle external_id
         del self.__in_db
         self.__in_db = True
@@ -352,6 +347,7 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
         return tmp == myname
 
     def _set_name(self, source_system, variant, name):
+        # Class-internal use only
         self.execute("""
         INSERT INTO [:table schema=cerebrum name=person_name]
           (person_id, name_variant, source_system, name)
@@ -360,6 +356,44 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
                       'n_variant': int(variant),
                       'src': int(source_system),
                       'name': name})
+
+    def _update_name(self, source_system, variant, name):
+        # Class-internal use only
+        self.execute("""
+        UPDATE [:table schema=cerebrum name=person_name]
+        SET name=:name
+        WHERE
+          person_id=:p_id AND
+          source_system=:src AND
+          name_variant=:n_variant""",
+                     {'name': name,
+                      'p_id': self.entity_id,
+                      'src': int(source_system),
+                      'n_variant': int(variant)})
+
+
+    def _update_cached_fullname(self):
+        p = Person(self._db)
+        p.find(self.entity_id)
+        # TODO: This behavious should be changed, atleast the variable names
+        for ss in cereconf.POSIX_GECOS_SOURCE_ORDER:
+            try:
+               ret = p.get_name(getattr(self.const, ss),
+                                getattr(self.const,
+                                        cereconf.DEFAULT_GECOS_NAME))
+               try:
+                   self.get_name(self.const.system_cached,
+                                 self.const.name_full)
+               except Errors.NotFoundError:
+                   self._set_name(self.const.system_cached,
+                                  self.const.name_full, ret)
+               else:
+                   self._update_name(self.const.system_cached,
+                                     self.const.name_full, ret)                   
+               return
+            except Errors.NotFoundError:
+                pass
+        # TBD: Is it an error if we get here?
 
     def list_person_name_codes(self):
         return self.query("""
