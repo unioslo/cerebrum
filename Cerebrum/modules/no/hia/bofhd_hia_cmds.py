@@ -3732,12 +3732,17 @@ class BofhdExtension(object):
             for spread in cereconf.BOFHD_NEW_USER_SPREADS:
                 posix_user.add_spread(self._get_constant(spread,
                                                          "No such spread"))
-            posix_user.set_home(self.const.spread_nis_user,
-                                disk_id=disk_id, home=home,
-                                status=self.const.home_status_not_created)
-            posix_user.set_home(self.const.spread_hia_novell_user,
-                                disk_id=ndisk_id, home=nhome,
-                                status=self.const.home_status_not_created)
+            homedir_nis_id = posix_user.set_homedir(
+                disk_id=disk_id, home=home,
+                status=self.const.home_status_not_created)
+
+            posix_user.set_home(self.const.spread_nis_user, homedir_nis_id)
+
+            homedir_nov_id = posix_user.set_homedir(
+                disk_id=ndisk_id, home=nhome,
+                status=self.const.home_status_not_created)
+
+            posix_user.set_home(self.const.spread_hia_novell_user, homedir_nov_id)
 
             # For correct ordering of ChangeLog events, new users
             # should be signalled as "exported to" a certain system
