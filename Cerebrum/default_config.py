@@ -112,3 +112,8 @@ AD_PASSWORD_EXPIRE = '0'
 AD_CANT_CHANGE_PW = '0'
 # You should set this variable to the location of your logging ini file
 LOGGING_CONFIGFILE = None
+
+QUARANTINE_RULES = {}
+# QUARANTINE_RULES = {
+#   'system': {'lock': 1, 'shell': '/local/etc/shells/nologin.system'}
+# }
