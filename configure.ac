@@ -72,6 +72,10 @@ AC_CONFIG_FILES([
     web/htdocs/css/Makefile
     web/htdocs/login/Makefile
     web/htdocs/img/Makefile
+    gro/Makefile
+    gro/bin/Makefile
+    gro/lib/Makefile
+    gro/lib/idl/Makefile
 	cerebrum_path.py
 	])
 AC_OUTPUT
