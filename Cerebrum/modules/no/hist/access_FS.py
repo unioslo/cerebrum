@@ -124,6 +124,8 @@ SELECT DISTINCT
 FROM fs.sted
 WHERE institusjonsnr='%s'
 	 """ % institusjonsnr
+	 return (self._get_cols(qry), self.db.query(qry))
+
 
 ##################################################################
 # Hjelpemetoder  
