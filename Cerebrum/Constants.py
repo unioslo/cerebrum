@@ -136,7 +136,6 @@ class _CerebrumCode(DatabaseAccessor):
             pass
 
     def insert(self):
-        self._pre_insert_check()
         self.sql.execute("""
         INSERT INTO %(code_table)s
           (%(code_col)s, %(str_col)s, %(desc_col)s)
@@ -166,7 +165,6 @@ class _SpreadCode(_CerebrumCode):
         super(_SpreadCode, self).__init__(code, description)
 
     def insert(self):
-        self._pre_insert_check()
         self.sql.execute("""
         INSERT INTO %(code_table)s
           (entity_type, %(code_col)s, %(str_col)s, %(desc_col)s)
@@ -245,7 +243,6 @@ class _PersonAffStatusCode(_CerebrumCode):
     ## affiliation and status?
 
     def insert(self):
-        self._pre_insert_check()
         self.sql.execute("""
         INSERT INTO %(code_table)s
           (affiliation, %(code_col)s, %(str_col)s, %(desc_col)s)
@@ -303,7 +300,6 @@ class _QuarantineCode(_CerebrumCode):
         super(_QuarantineCode, self).__init__(code, description)
 
     def insert(self):
-        self._pre_insert_check()
         self.sql.execute("""
         INSERT INTO %(code_table)s
           (duration, %(code_col)s, %(str_col)s, %(desc_col)s)
@@ -405,7 +401,7 @@ class Constants(DatabaseAccessor):
                 return v
         return None
 
-    def initialize(self):
+    def initialize(self, update=0):
         # {dependency1: {class: [object1, ...]},
         #  ...}
         order = {}
@@ -421,15 +417,22 @@ class Constants(DatabaseAccessor):
                 order[dep][cls].append(attr)
         if not order.has_key(None):
             raise ValueError, "All code values have circular dependencies."
-        def insert(root):
+        def insert(root, update=0):
             for cls in order[root].keys():
                 for code in order[root][cls]:
+                    if update:
+                        try:
+                            code._pre_insert_check()
+                        except CodeValuePresentError:
+                            continue
+                    else:
+                        code._pre_insert_check()
                     code.insert()
                 del order[root][cls]
                 if order.has_key(cls):
-                    insert(cls)
+                    insert(cls, update=update)
             del order[root]
-        insert(None)
+        insert(None, update=update)
         if order:
             raise ValueError, "Some code values have circular dependencies."
 

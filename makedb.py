@@ -30,7 +30,7 @@ from Cerebrum.Utils import Factory
 def main():
     opts, args = getopt.getopt(sys.argv[1:], 'dc:',
                                ['debug', 'drop', 'insert-codes',
-                                'extra-file='])
+                                'only-insert-codes', 'extra-file='])
 
     debug = 0
     do_drop = False
@@ -48,6 +48,9 @@ def main():
             do_drop = True
         elif opt == '--insert-codes':
             do_insert = True
+        elif opt == '--only-insert-codes':
+            insert_code_values(Cerebrum, update=1)
+            sys.exit()
         elif opt == '--extra-file':
             extra_files.append(val)
         elif opt == '-c':
@@ -98,10 +101,10 @@ def read_country_file(fname, db):
                                                    cols.keys()])), cols)
     db.commit()
 
-def insert_code_values(Cerebrum):
+def insert_code_values(Cerebrum, update=0):
     const = Factory.get('Constants')(Cerebrum)
     print "Inserting code values."
-    const.initialize()
+    const.initialize(update)
     Cerebrum.commit()
 
 def makeInitialUsers(Cerebrum):
