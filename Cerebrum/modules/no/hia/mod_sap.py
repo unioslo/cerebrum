@@ -79,13 +79,13 @@ class PersonSAPMixin(Person.Person):
     This clas provides a HiA-specific extension to the core Person class.
     """
 
-    __singlevalued_attr__ = ("fo_kode",
-                             "sprak",
-                             "permisjonskode",
-                             "permisjonsandel",)
-    __multivalued_attr__ = ("tilsetting",
-                            "rolle",)
-    __write_attr__ = __singlevalued_attr__ + __multivalued_attr__
+    __singlevalued_attr = ("fo_kode",
+                           "sprak",
+                           "permisjonskode",
+                           "permisjonsandel",)
+    __multivalued_attr = ("tilsetting",
+                          "rolle",)
+    __write_attr__ = __singlevalued_attr + __multivalued_attr
 
     
     def clear(self):
@@ -114,12 +114,12 @@ class PersonSAPMixin(Person.Person):
 
         local_updates = self._write_singlevalued_attributes()
             
-        for name in self.__multivalued_attr__:
-            if name in self.__updated:
-                tmp = getattr(self, "_write_" + name)()
-                if tmp is not None:
-                    local_updates = local_updates or tmp
-                # fi
+        for attribute_name in filter( lambda name: name in self.__updated,
+                                      PersonSAPMixin.__multivalued_attr ):
+            bound_method = getattr(self, "_write_" + attribute_name)
+            tmp = bound_method()
+            if tmp is not None:
+                local_updates = local_updates or tmp
             # fi
         # od
 
@@ -486,7 +486,7 @@ class PersonSAPMixin(Person.Person):
 
         sql_params = { "person_id" : self.entity_id }
         attr_list = list()
-        for attr_name in self.__singlevalued_attr__:
+        for attr_name in PersonSAPMixin.__singlevalued_attr:
             if attr_name in self.__updated:
                 db_name = attr_to_db[attr_name]
                 attr_list.append((attr_name, db_name))
@@ -538,9 +538,10 @@ class PersonSAPMixin(Person.Person):
         attribute.
         """
 
-        if name not in PersonSAPMixin.__write_attr__:
+        if name not in PersonSAPMixin.__singlevalued_attr:
             raise AttributeError, \
-                  "Unknown attribute %s in %s" % (name, self.__class__.__name__)
+                  "Unknown single valued attribute %s in PersonSAPMixin" % \
+                  name
         # fi
 
         if hasattr(self, name) and getattr(self, name) is not None:
@@ -555,7 +556,7 @@ class PersonSAPMixin(Person.Person):
 
 
     def _write_multivalued_attribute(self, old_state, new_state,
-                                      update_sql, insert_sql, delete_sql):
+                                     update_sql, insert_sql, delete_sql):
         """
         This function performs a generic synchronization of one of the
         multivalued attributes (call it A) in SELF with Cerebrum.
@@ -572,8 +573,8 @@ class PersonSAPMixin(Person.Person):
 
         The update is performed through the following stages:
 
-        old_state = OS
-        new_state = NS
+        OS = old_state
+        NS = new_state
 
         * For each item I in NS:
           - If I exists in OS and OS[I] == I, then skip I. Remove OS[I].
