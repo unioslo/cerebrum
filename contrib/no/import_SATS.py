@@ -28,17 +28,25 @@ import cereconf
 from Cerebrum import Errors
 from Cerebrum import Account
 from Cerebrum import Group
+from Cerebrum import Disk
 from Cerebrum.Utils import Factory
+from Cerebrum.modules import PosixUser
+from Cerebrum.modules import PosixGroup
 from Cerebrum.modules.no import fodselsnr
 
 pp = pprint.PrettyPrinter(indent=4)
 
 Cerebrum = Factory.get('Database')()
+Cerebrum.cl_init(change_program='import_SATS.py')
 co = Factory.get('Constants')(Cerebrum)
 account = Account.Account(Cerebrum)
 account.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
 
 school2ouid = {}
+user_disks = {}
+group_cache = {}
+max_person_lines = 999999
+default_creator_id = None
 show_warnings = False
 verbose = 0
 BASE_DUMPDIR = os.path.join(os.environ['HOME'], 'project/private/fiberskolen')
@@ -247,7 +255,7 @@ IFS = ";"
 def split_line(line, sep=IFS):
     return [x.strip() for x in line.split(sep)]
 
-def read_file(fname, cls):
+def read_file(fname, cls, max_lines=9999999):
     """Generate objects of class ``cls`` from file ``fname``."""
     if cls.data_source is None:
         cls.data_source = [fname]
@@ -256,9 +264,13 @@ def read_file(fname, cls):
     f = file(fname)
     cls().check_file_format(f.readline())
     ret = []
+    n = 0
     while True:
+        n += 1
         line = f.readline()
         if not line:
+            break
+        if n > max_lines:
             break
         ret.append(cls(*(split_line(line))))
     f.close()
@@ -290,6 +302,7 @@ def import_all():
         'VG': {'datakilde': co.system_sats_oslo_vg,
                'skoler': ('ELV', )},
         }
+    bootstrap_disks((('bas', '/home'), ('foo', '/bar'))) # TODO: proper values
     for level, spec in import_spec.items():
         skoler = spec['skoler']
         src_sys = spec['datakilde']
@@ -310,19 +323,19 @@ def import_all():
         # Importer 'elev'.
         fname = os.path.join(dumpdir, "elev_%s.txt" % level)
         person2row = {}
-        for row in read_file(fname, ElevRow):
+        for row in read_file(fname, ElevRow, max_lines=max_person_lines):
             if row.skole in skoler and row.skolear == dette_skolear:
                 person2row.setdefault(row.person_oid, []).append(row)
 
         # Importer 'foreldre'.
         fname = os.path.join(dumpdir, "foreldre_%s.txt" % level)
-        for row in read_file(fname, ForesattRow):
+        for row in read_file(fname, ForesattRow, max_lines=max_person_lines):
             if row.skole in skoler and row.skolear == dette_skolear:
                 person2row.setdefault(row.person_oid, []).append(row)
 
         # Importer 'ansatt'.
         fname = os.path.join(dumpdir, "ansatt_%s.txt" % level)
-        for row in read_file(fname, AnsattRow):
+        for row in read_file(fname, AnsattRow, max_lines=max_person_lines):
             if row.skole in skoler:
                 person2row.setdefault(row.person_oid, []).append(row)
 
@@ -332,6 +345,7 @@ def import_all():
         groups = {}
 
         poid2person_id = {}
+        poid2account_id = {}
         progress.write("Person/%s: " % level, raw=True)
         for oid, rows in person2row.items():
             person_id = write_person(rows, skole2ou_id, src_sys)
@@ -345,6 +359,10 @@ def import_all():
                     # Gruppe med foresatte per kombinasjon (skole, klasse)
                     gname = '%s_%s_foresatt' % (row.skole, row.klasse)
                     groups.setdefault(gname, []).append(person_id)
+                elif isinstance(row, AnsattRow):
+                    gname = "%s_ansatt" % row.skole
+            account_id = write_account(rows, person_id, gname)
+            poid2account_id[oid] = account_id
         progress.write("\n")
         Cerebrum.commit()
 
@@ -383,6 +401,7 @@ def import_all():
     return
     Cerebrum.commit()
 
+# Obsolete method, kept here for reference until rewrite is complete
 def read_inputfile(filename, separator="\t"):
     print "Processing %s" % filename
     f = file(filename, 'rb')
@@ -418,6 +437,7 @@ def read_inputfile(filename, separator="\t"):
     print "Result: %i / %i" % (nlegal, nillegal)
     return (spec, ret)
 
+# Obsolete method, kept here for reference until rewrite is complete
 def save_outputfile(filename, hdr, lst):
     """Save outputfile in a sorted format without duplicates or
     errenous lines """
@@ -431,6 +451,7 @@ def save_outputfile(filename, hdr, lst):
         prev = t
     f.close()
 
+# Obsolete method, kept here for reference until rewrite is complete
 def read_extra_person_info(ptype, level, schools):
     """Returns dict {oid: [person_object, ...]}."""
     config = {'elev': ('elev_%(level)s.txt', Elev, 'person_oid'),
@@ -448,6 +469,7 @@ def read_extra_person_info(ptype, level, schools):
         ret.setdefault(oid, []).append(obj)
     return ret
 
+# Obsolete method, kept here for reference until rewrite is complete
 def populate_people(level, type, pspec, pinfo):
     print "Populating %i entries of type %s" % (len(pinfo), type)
     if type == 'elev':
@@ -503,6 +525,7 @@ def populate_people(level, type, pspec, pinfo):
 
 
 
+# Obsolete method, kept here for reference until rewrite is complete
 def update_person(p, spec, type, affiliations, groupnames):
     """Create or update the persons name, address and contact info.
 
@@ -596,6 +619,7 @@ def update_person(p, spec, type, affiliations, groupnames):
         group.add_member(person, co.group_memberop_union)
     return person.entity_id
 
+# Obsolete method, kept here for reference until rewrite is complete
 def import_OU(import_spec):
     """Registers or updates information about all schools listed in the
     'schools' dict."""
@@ -633,6 +657,28 @@ def import_OU(import_spec):
     Cerebrum.commit()
     return ret
 
+def bootstrap_disks(disks):
+    global user_disks, default_creator_id
+    host = Disk.Host(Cerebrum)
+    disk = Disk.Disk(Cerebrum)
+    for hostname, diskname in disks:
+        try:
+            host.clear()
+            host.find_by_name(hostname)
+        except Errors.NotFoundError:
+            host.populate(hostname, 'sats host')
+            host.write_db()
+        try:
+            disk.clear()
+            disk.find_by_path(diskname, host_id=host.entity_id)
+        except Errors.NotFoundError:
+            disk.populate(host.entity_id, diskname, 'sats disk')
+            disk.write_db()
+        user_disks[":".join((hostname, diskname))] = disk.entity_id
+
+    account = Factory.get('Account')(Cerebrum)
+    account.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
+    default_creator_id = account.entity_id
 
 def bootstrap_ou(level, src_sys):
     root_ou = write_ou(SkoleRow(
@@ -810,6 +856,43 @@ def write_person(rows, skole2ou_id, src_sys):
 ##     # TODO: Add affiliations.
     return person.entity_id
 
+def write_account(rows, person_id, gname):
+    # TODO:
+    # - bare bygge konto hvis ikke har fra før
+    # - account affiliations
+    gid = group_cache.get(gname)
+    if gid is None:
+        group = PosixGroup.PosixGroup(Cerebrum)
+        try:
+            group.find_by_name(gname)
+        except Errors.NotFoundError:
+            group.populate(default_creator_id, co.group_visibility_all,
+                           gname, "autogenerated import group %s" % gname)
+            group.write_db()
+        gid = group.entity_id
+        group_cache[gname] = gid
+    disk_id = user_disks['bas:/home']
+    creator_id = default_creator_id
+
+    posix_user = PosixUser.PosixUser(Cerebrum)
+    if verbose > 1:
+        print "bygger: "+".".join([str(x) for x in rows])
+    try:
+        uname = posix_user.suggest_unames(co.account_namespace, 
+                                          multi_getattr_uniq(rows, 'fornavn'),
+                                          multi_getattr_uniq(rows, 'etternavn'))[0]
+    except ValueError, m:
+        print "Warning for %s: %s" % (multi_getattr_uniq(rows, 'person_oid'), m)
+        return
+    shell = co.posix_shell_bash
+    uid = posix_user.get_free_uid()
+    posix_user.populate(uid, gid, None, shell, disk_id=disk_id,
+                        name=uname, owner_type=co.entity_person,
+                        owner_id=person_id, np_type=None, creator_id=creator_id,
+                        expire_date=None)
+    posix_user.write_db()
+    progress.write("a")
+    
 def write_group(name, members):
     group = Factory.get('Group')(Cerebrum)
     try:
@@ -817,7 +900,7 @@ def write_group(name, members):
     except Errors.NotFoundError:
         # TBD: Not sure that it's right to use
         # cereconf.INITIAL_ACCOUNTNAME as creator for these groups.
-        group.new(account, co.group_visibility_all, gname,
+        group.new(account, co.group_visibility_all, name,
                   # TODO: Add more *descriptive* group descriptions.
                   "SATS auto-derived group.")
     for m in members:
@@ -825,6 +908,7 @@ def write_group(name, members):
     return group.entity_id
 
 
+# Obsolete method, kept here for reference until rewrite is complete
 def convert_all():
     files = ("sted_vg.txt", "klasse_fag_emne_gs.txt",
              "klasse_fag_emne_vg.txt", "person_ansatt_gs.txt",
@@ -858,14 +942,14 @@ def main():
     import getopt
 
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "wvic",
+        opts, args = getopt.getopt(sys.argv[1:], "wvicb:m:",
                                    ["warn", "verbose", "import", "convert",
-                                    "help"])
+                                    "help", "base=", "max="])
     except getopt.GetoptError:
         usage(exitcode=2)
     if len(opts) == 0:
         usage(exitcode=1)
-    global show_warnings, verbose
+    global show_warnings, verbose, BASE_DUMPDIR, max_person_lines
     for o, a in opts:
         if o in ('-w', '--warn'):
             show_warnings = True
@@ -877,6 +961,10 @@ def main():
 ##             convert_all()
         elif o == '--help':
             usage()
+        elif o in('-b', '--base'):
+            BASE_DUMPDIR = a
+        elif o in('-m', '--max'):
+            max_person_lines = int(a)
         else:
             usage(exitcode=1)
 
