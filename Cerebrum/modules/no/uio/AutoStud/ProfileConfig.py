@@ -33,7 +33,6 @@ class Config(object):
         self.autostud = autostud
         self._logger = logger
         
-        sp = StudconfigParser(self)
         self.disk_defs = {}
         self.disk_spreads = {}  # defined <disk_spread> tags
         self.group_defs = {}
@@ -41,7 +40,12 @@ class Config(object):
         self.profiles = []
         self.required_spread_order = []
         self.lookup_helper = LookupHelper(autostud.db, logger, autostud.ou_perspective)
-        xml.sax.parse(cfg_file, sp)
+        sp = StudconfigParser(self)
+        parser = xml.sax.make_parser()
+        parser.setContentHandler(sp)
+        # Don't resolve external entities
+        parser.setFeature(xml.sax.handler.feature_external_ges, 0)
+        parser.parse(cfg_file)
 
         # Generate select_mapping dict and expand super profiles
         profilename2profile = {}
