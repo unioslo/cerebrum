@@ -25,13 +25,12 @@ import string
 import sys
 import getopt
 import base64
-from string import maketrans
+import os
 
 import cerebrum_path
 import cereconf  
 from Cerebrum import Errors
 from Cerebrum import Entity
-from Cerebrum import Group
 from Cerebrum.Utils import Factory, latin1_to_iso646_60, SimilarSizeWriter
 from Cerebrum.modules.no import Stedkode
 from Cerebrum.modules import PosixUser
@@ -49,7 +48,7 @@ org_root = None
 global dn_dict
 dn_dict = {}
 
-normalize_trans = maketrans(
+normalize_trans = string.maketrans(
     "ABCDEFGHIJKLMNOPQRSTUVWXYZ\t\n\r\f\v",
     "abcdefghijklmnopqrstuvwxyz     ")
 
@@ -609,15 +608,14 @@ def generate_alias(filename=None):
     f.close()
 
 def generate_users(spread=None,filename=None):
-    shells = disks = {}
-    prev_userid = 0
     posix_user = PosixUser.PosixUser(Cerebrum)
-    posix_group = PosixGroup.PosixGroup(Cerebrum)
     disk = Factory.get('Disk')(Cerebrum)
     if spread: spreads = eval_spread_codes(spread)
     else: spreads = eval_spread_codes(cereconf.LDAP_USER_SPREAD)
+    shells = {}
     for sh in posix_user.list_shells():
 	shells[int(sh['code'])] = sh['shell']
+    disks = {}
     for hd in disk.list():
 	disks[int(hd['disk_id'])] = hd['path']  
     posix_dn = ",%s=%s,%s" % (cereconf.LDAP_ORG_ATTR,cereconf.LDAP_USER_DN,cereconf.LDAP_BASE)
@@ -625,60 +623,76 @@ def generate_users(spread=None,filename=None):
     obj_string = "objectClass: top\n"
     for obj in cereconf.LDAP_USER_OBJECTCLASS:
 	obj_string += "objectClass: %s\n" % obj
-    if filename: 
-	f = file(filename, 'w')
-    else: 
-	f = SimilarSizeWriter(string.join((cereconf.LDAP_DUMP_DIR,cereconf.LDAP_USER_FILE),'/'), 'w')
-	f.set_size_change_limit(10)
-    pos_user = posix_user.list_extended_posix_users(co.auth_type_md5_crypt,
-                                                    spreads,
-                                                    include_quarantines = True)
-    for row in pos_user:
-	acc_id,shell,gecos,uname = row['account_id'],row['shell'],row['gecos'],row['entity_name']
-	entity2uname[int(acc_id)] = uname
-	if not row['auth_data']:
-	    passwd = '{crypt}*Invalid'
-	else:
-	    passwd = "{crypt}%s" % row['auth_data']
-	if row['name']:
-	    cn = some2utf(row['name'])
-	elif gecos:
-	    cn = some2utf(gecos)
-	else:
-	    cn = uname
-	if gecos:
-	    gecos = latin1_to_iso646_60(some2iso(gecos))
-	else:
-	    gecos = latin1_to_iso646_60(some2iso(cn))
-	if not row['home']:
-	    home = "%s/%s" % (disks[int(row['disk_id'])],uname)
-	else:
-	    home = row['home']
-        shell = shells[int(shell)]
-	if row['quarantine_type'] is not None:
-	    qh = QuarantineHandler.QuarantineHandler(Cerebrum, [row['quarantine_type']])
-            if qh.should_skip():
+    if filename is None:
+        filename = os.path.join(cereconf.LDAP_DUMP_DIR,
+                                cereconf.LDAP_USER_FILE)
+    f = SimilarSizeWriter(filename)
+    f.set_size_change_limit(10)
+    done_users = {}
+    # When all authentication-needing accounts possess an 'md5_crypt'
+    # password hash, the below code can be fixed to call
+    # list_extended_posix_users() only once.  Until then, we fall back
+    # to using 'crypt3_des' hashes.
+    #
+    # We already favour the stronger 'md5_crypt' hash over any
+    # 'crypt3_des', though.
+    for auth_method in (co.auth_type_md5_crypt, co.auth_type_crypt3_des):
+        prev_userid = 0
+        for row in posix_user.list_extended_posix_users(
+            auth_method, spreads, include_quarantines = True):
+            (acc_id, shell, gecos, uname) = (
+                row['account_id'], row['shell'], row['gecos'],
+                row['entity_name'])
+            acc_id = int(acc_id)
+            if done_users.has_key(acc_id):
                 continue
-            if qh.is_locked():
-                passwd = '{crypt}*Locked'
-            qshell = qh.get_shell()
-            if qshell is not None:
-                shell = qshell
-	posix_text = """
-dn: %s%s%s
-%scn: %s
-uid: %s
-uidNumber: %s
-gidNumber: %s
-homeDirectory: %s
-userPassword: %s
-loginShell: %s
-gecos: %s\n""" % (posix_dn_string, uname, posix_dn, obj_string, gecos, 
-		uname,str(row['posix_uid']), str(row['posix_gid']),
-		home, passwd,shell, gecos)
-	if int(acc_id) <> prev_userid:
-	    f.write(posix_text)
-	prev_userid = int(acc_id)
+            entity2uname[acc_id] = uname
+            if row['auth_data'] is None:
+                if auth_method == co.auth_type_crypt3_des:
+                    # Neither md5_crypt nor crypt3_des hash found.
+                    passwd = '{crypt}*Invalid'
+                else:
+                    continue
+            else:
+                passwd = "{crypt}%s" % row['auth_data']
+            shell = shells[int(shell)]
+            if row['quarantine_type'] is not None:
+                qh = QuarantineHandler.QuarantineHandler(
+                    Cerebrum, [row['quarantine_type']])
+                if qh.should_skip():
+                    continue
+                if qh.is_locked():
+                    passwd = '{crypt}*Locked'
+                qshell = qh.get_shell()
+                if qshell is not None:
+                    shell = qshell
+            if row['name']:
+                cn = some2utf(row['name'])
+            elif gecos:
+                cn = some2utf(gecos)
+            else:
+                cn = uname
+            if gecos:
+                gecos = latin1_to_iso646_60(some2iso(gecos))
+            else:
+                gecos = latin1_to_iso646_60(some2iso(cn))
+            if not row['home']:
+                home = "%s/%s" % (disks[int(row['disk_id'])],uname)
+            else:
+                home = row['home']
+            if acc_id <> prev_userid:
+                f.write('dn: %s%s%s\n' % (posix_dn_string, uname, posix_dn))
+                f.write('%scn: %s\n' % (obj_string, gecos))
+                f.write('uid: %s\n' % uname)
+                f.write('uidNumber: %s\n' % str(row['posix_uid']))
+                f.write('gidNumber: %s\n' % str(row['posix_gid']))
+                f.write('homeDirectory: %s\n' % home)
+                f.write('userPassword: %s\n' % passwd)
+                f.write('loginShell: %s\n' % shell)
+                f.write('gecos: %s\n' % gecos)
+                f.write('\n')
+                done_users[acc_id] = True
+                prev_userid = acc_id
     f.write("\n")
     f.close()
 
@@ -765,7 +779,7 @@ def generate_netgroup(spread=None, filename=None):
     f.close()
 
 def get_netgrp(netgrp_id,spreads,f):
-    pos_netgrp = Group.Group(Cerebrum)
+    pos_netgrp = Factory.get('Group')(Cerebrum)
     pos_user = PosixUser.PosixUser(Cerebrum)
     pos_netgrp.clear()
     pos_netgrp.find(int(netgrp_id))
