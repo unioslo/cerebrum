@@ -170,10 +170,21 @@
          "setter"-konflikter. -->
     <nivå verdi="1000"/>
     <printer_kvote start="0" uke="50" max_akk="200" max_sem="500"/>
-    <brev type="ny"
+    <!-- Brev styrer hvordan brev med brukernavn og passord vil se ut.
+         brev_type er typisk 'tex'.
+         Lovlige verdier for order_by er bla. zip, uname, fullname,
+            birthdate and birthno. Nyttig hvis man manuellt skal dele ut
+            brukernavn/passord. Nåværende implementasjon støtter kun en
+            felles order_by verdi for alle brev.
+         Printer is printer som skal brukes for denne typen mal. mal+type er
+            nøkkel for hvilken printer osm blir brukt.  
+         TODO: Gjøre order_by og printer mer privat til hver brev tag. -->
+    <brev type="tex"
 	  distributør="Seksjon for internasjonale programmer$Boks 10xx Blindern"
           adresse_type="semester"
-	  mal="ny_bruker_opprettet"/>
+	  mal="ny_bruker_opprettet"
+          order_by="fullname"
+          printer="cere-prn"/>
     <brev type="reservering"
 	  distributør="Seksjon for internasjonale programmer$Boks 10xx Blindern"
           adresse_type="semester"
