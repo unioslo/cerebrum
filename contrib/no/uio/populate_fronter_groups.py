@@ -19,18 +19,23 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+"""Populate Cerebrum with FS-derived groups.
+
+These groups are later used when exporting data to ClassFronter.
+
+"""
+
 import sys
 import getopt
 import re
 
 import cerebrum_path
 import cereconf
-from Cerebrum import Database
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no.uio.access_FS import FS
 from Cerebrum.modules.no.uio.fronter_lib import FronterUtils
-from Cerebrum.extlib import logging
+from Cerebrum import Logging
 
 def prefetch_primaryusers():
     # TBD: This code is used to get account_id for both students and
@@ -65,7 +70,7 @@ def process_kursdata():
     get_undervisningsenheter()    # Utvider UndervEnhet med mer data
     get_undervisningsaktiviteter()
     get_evukurs_aktiviteter()
-    logging.debug(UndervEnhet)
+    logger.debug(UndervEnhet)
 
     for k in UndervEnhet.keys():
         # Legger inn brukere i gruppene på nivå 3.
@@ -289,7 +294,7 @@ def populate_enhet_groups(enhet_id):
                 fs.GetAnsvUndAktivitet(Instnr, emnekode, versjon, termk,
                                        aar, termnr, aktkode)[1]):
                 akt_ansv[account_id] = 1
-                
+
             sync_group(kurs_id, "%s:aktivitetsansvar:%s" % (enhet_id, aktkode),
                        "Ansvarlige %s %s %s%s %s" % (
                 emnekode, termk, aar, enhet_suffix,
@@ -472,15 +477,12 @@ def main():
             db_user = val
         elif o in ('--db-service',):
             db_service = val
-    fs_db = Database.connect(user=db_user, service=db_service,
-                             DB_driver='Oracle')
-    fs = FS(fs_db)
+    fs = FS(user = db_user, database = db_service)
 
     db = Factory.get('Database')()
     db.cl_init(change_program='CF_gen_groups')
     co = Factory.get('Constants')(db)
-    logging.fileConfig(cereconf.LOGGING_CONFIGFILE)
-    logger = logging.getLogger("console")
+    logger = Logging.getLogger("console")
     emne_versjon = {}
     emne_termnr = {}
     account_id2fnr = {}
