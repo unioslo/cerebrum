@@ -14,7 +14,9 @@ class Caching(object):
         cls.cache[key] = self
         return self 
 
-    def invalidate(cls, obj):
+    def invalidateObject(cls, obj):
         del cls.cache[obj]
+    invalidateObject = classmethod(invalidateObject)
 
-    invalidate = classmethod(invalidate)
+    def invalidate(self):
+        self.invalidateObject(self)

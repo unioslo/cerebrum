@@ -1,8 +1,8 @@
 import Cerebrum.Entity
 
+from Clever import Clever, LazyMethod, Lazy
 from Node import Node
-
-from Cerebrum.gro.Utils import Lazy, LazyMethod, Clever
+from Cerebrum.gro.Cerebrum_core import Errors
 
 from db import db
 
@@ -12,6 +12,9 @@ __all__ = ['AddressType', 'ContactInfoType', 'GenderType', 'EntityType',
 
 class CodeType(Node):
     slots = ['id', 'name', 'description']
+    readSlots = Node.readSlots + slots
+    writeSlots = Node.writeSlots + []
+
     def __init__(self, id, parents=Lazy, children=Lazy, *args, **vargs):
         assert type(id) == int
         Node.__init__(self, parents, children)
@@ -24,7 +27,7 @@ class CodeType(Node):
         rows = db.query('''SELECT code, description
                            FROM %s WHERE code_str = %s''' % (cls._tableName, `name`)) # ugh. stygg escaping
         if not rows:
-            raise KeyError('%s %s not found' % (cls.__name__, name))
+            raise Errors.NoSuchNodeError('%s %s not found' % (cls.__name__, name))
         row = rows[0]
 
         id = int(row['code'])
@@ -39,7 +42,7 @@ class CodeType(Node):
         rows = db.query('''SELECT code_str, description
                            FROM %s WHERE code = %s''' % (self._tableName, self.id))
         if not rows:
-            raise KeyError('%s %s not found' % (self.__class__.__name__, self.id))
+            raise Errors.NoSuchNodeError('%s %s not found' % (self.__class__.__name__, self.id))
         row = rows[0]
 
         self._name = row['code_str']
@@ -50,18 +53,17 @@ Clever.prepare(CodeType, 'load')
 class AddressType(CodeType):
     _tableName = 'address_code'
 
-class ContactInfoType(CodeType): # fjern contactInfoName
+class ContactInfoType(CodeType):
     _tableName = 'contact_info_code'
 
     def loadChildren(self):
         import Entity
 
         CodeType.loadChildren(self)
-        for row in db.query('''SELECT entity_id, source_system, contact_type, contact_pref, contact_value, description
+        for row in db.query('''SELECT entity_id, source_system, contact_type,
+                                      contact_pref, contact_value, description
                                FROM entity_contact_info WHERE contact_type = %s''' % self.id):
             self._children.add(Entity.ContactInfo.getByRow(row))
-
-Clever.prepare(ContactInfoType)
 
 class GenderType(CodeType):
     _tableName = 'gender_code'
@@ -78,6 +80,8 @@ Clever.prepare(GenderType, 'load')
 
 class EntityType(CodeType):
     _tableName = 'entity_type_code'
+
+    slots = []
 
     def loadChildren(self):
         import Entity
@@ -124,14 +128,21 @@ class AuthenticationType(CodeType):
                                WHERE method = %s''' % self.id):
             self._children.add(Account.AccountAuthentication.getByRow(row))
 
-Clever.prepare(AuthenticationType)
-
 class GroupMemberOperationType(CodeType):
     _tableName = 'group_membership_op_code'
 
+class GroupVisibilityType(CodeType):
+    _tableName = 'group_visibility_code'
+
+class QuarantineType(CodeType):
+    # her driter jeg i feltet duration inntil videre....
+    _tableName = 'quarantine_code'
+
 class Spread(CodeType):
     _tableName = 'spread_code'
-    slots = CodeType.slots + ['entityType']
+    slots = CodeType.slots + ['entityType'] # skjønner ikke hvorfor de har med entityType egentlig...
+    readSlots = [] + slots
+    writeSlots = CodeType.writeSlots + []
 
     def __init__(self, id, parents=Lazy, children=Lazy, *args, **vargs):
         Clever.__init__(self, Spread, id, *args, **vargs)
@@ -140,7 +151,7 @@ class Spread(CodeType):
         rows = db.query('''SELECT code_str, entity_type, description
                            FROM spread_code WHERE code = %s''' % self.id)
         if not rows:      
-            raise KeyError('spread %s not found' % self.id)
+            raise Errors.NoSuchNodeError('spread %s not found' % self.id)
         row = rows[0]     
                           
         self._entityType = EntityType(int(row['entity_type']))

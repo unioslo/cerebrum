@@ -1,8 +1,8 @@
 import Cerebrum.Person
 
 from Cerebrum.extlib import sets
-from Cerebrum.gro.Utils import Lazy, LazyMethod, Clever
 
+from Clever import Clever, LazyMethod, Lazy
 from Node import Node
 from Entity import Entity
 
@@ -12,6 +12,9 @@ __all__ = ['Person', 'PersonName']
 
 class PersonName(Node):
     slots = ['person', 'nameType', 'sourceSystem', 'name']
+    readSlots = Node.readSlots + slots
+    writeSlots = Node.writeSlots + ['name']
+
     def __init__(self, parents=Lazy, children=Lazy, *args, **vargs):
         Node.__init__(self, parents, children)
         Clever.__init__(self, PersonName, *args, **vargs)
@@ -37,8 +40,13 @@ class PersonName(Node):
 Clever.prepare(PersonName, 'load')
 
 class Person(Entity):
+    # primaryAccount gir ingen mening
+    # name gir bare navnet blant names som er fult navn (:P)
     slots = ['exportId', 'deceased', 'gender', 'contactInfo', 'accounts', 'affiliations',
-             'address', 'quarantine', 'name', 'names', 'primaryAccount']
+             'address', 'quarantine', 'name', 'names']
+    readSlots = Entity.readSlots + slots
+    writeSlots = Entity.writeSlots + ['exportId', 'deceased', 'gender']
+
     def __init__(self, id, parents=Lazy, children=Lazy, *args, **vargs):
         Entity.__init__(self, id, parents, children)
         Clever.__init__(self, Person, *args, **vargs)
@@ -65,16 +73,8 @@ class Person(Entity):
         e = Cerebrum.Person.Person(db)
         e.entity_id = self.id
         
-        # tihi. unødvendige mye kode. 
         for row in e.get_accounts():
-            account = Account.Account(int(row['account_id']))
-            if self._primaryAccount is Lazy:
-                self._primaryAccount = account
-
-            self._accounts.add(account)
-
-        if self._primaryAccount is Lazy:
-            self._primaryAccount = None
+            self._accounts.add(Account.Account(int(row['account_id'])))
 
     def loadNames(self):
         import Types
@@ -99,8 +99,6 @@ class Person(Entity):
     getName = LazyMethod('_name', 'loadNames')
     getAccounts = LazyMethod('_accounts', 'loadAccounts')
     getPrimaryAccount = LazyMethod('_primaryAccount', 'loadAccounts')
-
-    primaryAccount = property(getPrimaryAccount)
 
 Clever.prepare(Person, 'load')
 

@@ -1,8 +1,9 @@
 import Cerebrum.Account
 
 from Cerebrum.extlib import sets
-from Cerebrum.gro.Utils import Lazy, LazyMethod, Clever
+from Cerebrum.gro.Cerebrum_core import Errors
 
+from Clever import Clever, LazyMethod, Lazy
 from Node import Node
 from Entity import Entity
 
@@ -13,6 +14,8 @@ __all__ = ['Account', 'AccountAuthentication']
 class Account(Entity):
     # hmm.. skipper np_type inntil videre. og konseptet rundt home/disk er litt føkka
     slots = ['name', 'owner', 'createDate', 'creator', 'home', 'disk', 'expireDate', 'authentications']
+    readSlots = Entity.readSlots + slots
+    writeSlots = Entity.writeSlots + ['name', 'home', 'disk', 'expireDate']
     
     def __init__(self, id, parents=Lazy, children=Lazy, *args, **vargs):
         Entity.__init__(self, id, parents, children)
@@ -47,6 +50,8 @@ Clever.prepare(Account, 'load')
 
 class AccountAuthentication(Node):
     slots = ['account', 'authenticationType', 'data']
+    readSlots = Node.readSlots + slots
+    writeSlots = Node.writeSlots + ['data']
 
     def __init__(self, parents=Lazy, children=Lazy, *args, **vargs):
         Node.__init__(self, parents, children)
@@ -71,7 +76,7 @@ class AccountAuthentication(Node):
                            WHERE account_id = %s
                            AND   method = %s''' % (self.account.id, self.authenticationType))
         if not rows:
-            raise KeyError('%s %s not found' % (cls.__name__, name))
+            raise Errors.NoSuchNodeError('%s %s not found' % (cls.__name__, name))
 
         self._data = row['auth_data']
 

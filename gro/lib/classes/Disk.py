@@ -1,7 +1,6 @@
 import Cerebrum.Disk # er det ikke logisk at Host ligger i Disk? :p
 
-from Cerebrum.gro.Utils import Lazy, LazyMethod, Clever
-
+from Clever import Clever, Lazy
 from Entity import Entity
 
 from db import db
@@ -10,6 +9,9 @@ __all__ = ['Disk']
 
 class Disk(Entity):
     slots = ['host', 'path', 'description']
+    readSlots = Entity.readSlots + slots
+    writeSlots = Entity.writeSlots + ['path', 'description']
+
     def __init__(self, id, parents=Lazy, children=Lazy, *args, **vargs):
         Entity.__init__(self, id, parents, children)
         Clever.__init__(self, Disk, *args, **vargs)

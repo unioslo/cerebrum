@@ -22,8 +22,6 @@ install-lib: $(sources)
 
 clean:
 	rm -f *~ 
-	$(MAKE) -C idl $@
 
 distclean: clean
 	rm -f Makefile
-	$(MAKE) -C idl $@

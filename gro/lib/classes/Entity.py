@@ -2,8 +2,9 @@ import Cerebrum.Entity
 import Cerebrum.modules.Note
 
 from Cerebrum.extlib import sets
-from Cerebrum.gro.Utils import Lazy, LazyMethod, Clever
+from Cerebrum.gro.Cerebrum_core import Errors
 
+from Clever import Clever, LazyMethod, Lazy
 from Node import Node
 
 from db import db
@@ -12,6 +13,9 @@ __all__ = ['Entity', 'Note']
 
 class Entity(Node):
     slots = ['id', 'entityType', 'spreads', 'notes', 'contactInfo']
+    readSlots = Node.readSlots + slots
+    writeSlots = Node.writeSlots + []
+
     def __new__(cls, *args, **vargs):
         key = Entity, cls.getKey(*args, **vargs)
         
@@ -104,6 +108,9 @@ Clever.prepare(Entity, 'load')
 
 class ContactInfo(Node):
     slots = ['entity', 'sourceSystem', 'contactInfoType', 'contactPref', 'contactValue', 'description']
+    readSlots = Node.readSlots + slots
+    writeSlots = Node.writeSlots + ['contactPref', 'contactValue', 'description']
+
     def __init__(self, parents=Lazy, children=Lazy, *args, **vargs):
         Node.__init__(self, parents, children)
         Clever.__init__(self, ContactInfo, *args, **vargs)
@@ -145,7 +152,7 @@ class ContactInfo(Node):
                            AND   contact_type = %s
                            AND   contact_pref = %s''' % (`self.entity`,`self.sourceSystem`,`self.contactType`,`self.contactPref`))
         if not rows:
-            raise KeyError('ContactInfoType %s not found' % self.id)
+            raise Errors.NoSuchNodeError('ContactInfoType %s not found' % self.id)
         row = rows[0]
 
         self._contactValue = row['contaact_value']
@@ -156,6 +163,9 @@ Clever.prepare(ContactInfo, 'load')
 
 class Note(Node):
     slots = ['id', 'createDate', 'creator', 'entity', 'subject', 'description']
+    readSlots = Node.readSlots + slots
+    writeSlots = Node.writeSlots + ['subject', 'description'] # hmm. Note er kanskje immutable?
+    
     def __init__(self, id, parents=Lazy, children=Lazy, *args, **vargs):
         Node.__init__(self, parents, children)
         Clever.__init__(self, Note, id, *args, **vargs)
@@ -173,7 +183,7 @@ class Note(Node):
         rows = db.query('''SELECT create_date, creator_id, entity_id, subject, description
                            FROM note WHERE note_id = %s''' % self.id)
         if not rows:
-            raise KeyError('Note %s not found' % self.id)
+            raise Errors.NoSuchNodeError('Note %s not found' % self.id)
         row = rows[0]
 
         self._createDate = row['create_date']

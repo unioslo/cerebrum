@@ -1,8 +1,8 @@
 import Cerebrum.Entity
 
 from Cerebrum.extlib import sets
-from Cerebrum.gro.Utils import Lazy, LazyMethod, Clever
 
+from Clever import Clever, LazyMethod, Lazy
 from Node import Node
 from Entity import Entity
 
@@ -11,7 +11,9 @@ from db import db
 __all__ = ['Group', 'GroupMember']
 
 class Group(Entity):
-    slots = ['name', 'description', 'expireDate', 'members', 'posixGid']
+    slots = ['name', 'description', 'visibility', 'expireDate', 'members', 'posixGid']
+    readSlots = Entity.readSlots + slots
+    writeSlots = Entity.writeSlots + ['name', 'description', 'visibility', 'expireDate', 'posixGid']
 
     def __init__(self, id, parents=Lazy, children=Lazy, *args, **vargs):
         Entity.__init__(self, id, parents, children)
@@ -44,11 +46,14 @@ class Group(Entity):
     getByPosixGid = classmethod(getByPosixGid)
 
     def load(self):
+        import Types
+
         e = Cerebrum.Group.Group(db)
         e.find(self.id)
 
         self._name = e.group_name
         self._description = e.description
+        self._visibility = Types.GroupVisibilityType(int(e.visibility))
         self._expireDate = e.expire_date
 
     def loadChildren(self):
@@ -88,6 +93,8 @@ Clever.prepare(Group, 'load')
 
 class GroupMember(Node):
     slots = ['group', 'operation', 'member']
+    readSlots = Node.readSlots + slots
+    writeSlots = Node.writeSlots + ['operation']
 
     def __init__(self, parents=Lazy, children=Lazy, *args, **vargs):
         Node.__init__(self, parents, children)

@@ -1,16 +1,21 @@
 from Cerebrum.extlib import sets
 
-from Cerebrum.gro.Utils import Lazy, LazyMethod, Clever
-
-import Caching
+from Caching import Caching
+from Locking import Locking
+from Clever import Clever, LazyMethod, Lazy
 
 __all__ = ['Node']
 
-class Node(Caching.Caching, Clever):
+class Node(Caching, Locking, Clever):
     slots = ['parents', 'children']
+    readSlots = [] + slots
+    writeSlots = []
+
     def __init__(self, parents=Lazy, children=Lazy):
-        Caching.Caching.__init__(self)
-        Clever.__init__(self, Node, parents=parents, children=children)
+        Caching.__init__(self)
+        if Clever.__init__(self, Node, parents=parents, children=children):
+            return
+        Locking.__init__(self)
 
     # internal cache
 
@@ -29,6 +34,16 @@ class Node(Caching.Caching, Clever):
     
     getParents = LazyMethod('_parents', 'loadParents')
     getChildren = LazyMethod('_children', 'loadChildren')
+
+    def rollback(self):
+        for var in self.updated:
+            setattr(self, '_' + var, Lazy)
+
+    def commit(self):
+        updated = self.updated
+        print 'updating', updated
+        self.updated = sets.Set()
+        return updated
 
     def __repr__(self):
         return '%s(%s)' % (self.__class__.__name__, getattr(self, 'id', ''))
