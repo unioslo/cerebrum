@@ -18,48 +18,39 @@ class StudconfigParser(xml.sax.ContentHandler):
     """
     Parses the XML file.  The XML file consists of the following
     elements:
-      - profildef: defines a profile (a list of settings)
-      - kurs_elements: also defines a list of settings, but for a
-        given kurs
-      - bruk_profil: apply one or more profiles, as well as other
-        settings to a list of kurs_elements.  Any settings in a
-        kurs_element overrides previous settings.
+      - profil: defines a profile (a list of settings)
+      - select: selects the entries which the profil will be applied to
 
-    All profildef's are stored in a dict; they are not resolved by the
-    parser (hvis vi skal bruke profiler i kurs_element overrides, må
-    vi gjøre det).
+    Creates two dicts:
+    - profiles: contains profile definition data which should be
+      post-processed by _MapStudconfigData
+    - selection2profile: maps selection data to profile data
 
-    For each type of kurs_element, the setting for the corresponding
-    ke is stored in self.ke like:
-
-      'annetprogram': {   'home': [ { 'value': '/uio/hume/YYY'}],
-                          'profil': [   { 'name': 'dummy-profil'}]}
-
-    Conflict resolving: When several values are set for the same
-    datatype, they are sorted by precedense.  Thus for the example
-    below, ['foo', 'bar'] is returned for home
-      <bruk_profil>
-        <home value="foo"/>
-        <studieprogram ...>
-          <home value="bar"/>
-        </studieprogram>
-      </bruk_profil>
-
-    """
+    Any profiles used as super must have been previously defined, and
+    are applied after the profile with the super attribute has been
+    applied, thus values from the current profile will appear before
+    values from the super."""
 
     # The way this is currently used, we could also add profildef to
     # the kurs_elements list, however, this would complicate things if
     # we later decide to expand profiles when they are encountered.
-    kurs_elements = ("studieprogram", "evu", "emne", "group")
-    # singular_elements = ("home", )
+    select_elements = ("studieprogram", "evu", "emne", "group")
 
-    def __init__(self):
+    profil_settings = ("stedkode", "gruppe", "spread", "disk",
+                       "printer_kvote", "disk_kvote", "nivå", "brev")
+
+    def __init__(self, db):
         self.elementstack = []
-        self.profiles = {}      # stores profildef's
-        self.ke = {}            # stores settings for this kurs_element
-        for k in self.kurs_elements:
-            self.ke[k] = {}
-        self.prdefname = None
+        self.profiles = {}             # stores profildef's
+        self.selection2profile = {}
+        self._in_profil = None
+        self._in_select = None
+        self._in_gruppe_oversikt = None
+        self._in_disk_oversikt = None
+        self.group_defs = {}
+        self.disk_defs = []
+        self.db = db
+        self._super = None
 
     def _apply_profile(self, profile, dest):
         for ename in profile.keys():
@@ -72,56 +63,67 @@ class StudconfigParser(xml.sax.ContentHandler):
         ename = ename.encode('iso8859-1')
         self.elementstack.append(ename)
 
-        if (len(self.elementstack) > 1 and   # Overrides for a given kurs_element
-            self.elementstack[-2] in self.kurs_elements):
-            # store data like: self.ke['emne']['dummyemne']['home'].append(tmp)
-            t = self.ke[self.elementstack[-2]]
+        if len(self.elementstack) == 2:
             if ename == 'profil':
-                self._apply_profile(self.profiles[tmp['name']], t[self.current_ke])
+                self._in_profil = tmp['navn']
+                assert not self.profiles.has_key(self._in_profil)
+                self.profiles[self._in_profil] = {}
+                self._super = tmp.get('super', None)
+            elif ename == 'gruppe_oversikt':
+                self._in_gruppe_oversikt = 1
+                self.default_group_auto = tmp['default_auto']
+            elif ename == 'disk_oversikt':
+                self._in_disk_oversikt = 1
+                self.default_disk_max = tmp['default_max']
+        elif self._in_gruppe_oversikt:
+            if ename == 'gruppedef':
+                self.group_defs[tmp['navn']] = {
+                    'auto': tmp.get('auto', self.default_group_auto)}
             else:
-                t[self.current_ke].setdefault(ename, []).append(tmp)
-        elif ename in self.kurs_elements:
-            self.current_ke = tmp['id']
-            self.ke[ename].setdefault(self.current_ke, {})
-            if self.elementstack[-2] == "bruk_profil":
-                self.current_bp_users.append((ename, tmp['id']))
-        elif len(self.elementstack) == 2:  # At the 2nd level of tag nesting
-            if ename == "profildef":
-                self.prdefname = tmp['name']
-                self.profiles[tmp['name']] = {}
-            elif ename == "bruk_profil":
-                # delay application of settings until the tag is closed
-                self.current_bp_users = []
-                self.current_bp = {}
+                raise SyntaxWarning, "Unexpected tag %s in gruppedef" % ename
+        elif self._in_disk_oversikt:
+            if ename == 'diskdef':
+                tmp['max'] = tmp.get('max', self.default_disk_max)
+                self.disk_defs.append(tmp)
             else:
-                print "Unknown tag: %s" % ename
-        elif len(self.elementstack) == 3:
-            if self.elementstack[-2] == "profildef":
-                self.profiles[self.prdefname].setdefault(ename, []).append(tmp)
-            elif self.elementstack[-2] == "bruk_profil":
-                # We remember what kurs/emner uses this profileset,
-                # and set the data in endElement
-                self.current_bp.setdefault(ename, []).append(tmp)
-        elif ename == "config":
+                raise SyntaxWarning, "Unexpected tag %s in diskdef" % ename
+        elif self._in_profil:
+            if len(self.elementstack) == 3:
+                if ename == 'select':
+                    self._in_select = 1
+                elif ename in self.profil_settings:
+                    self.profiles[self._in_profil].setdefault(ename, []).append(tmp)
+                else:
+                    raise SyntaxWarning, "Unexpected tag %s on in profil" % ename
+            elif self._in_select and ename in self.select_elements:
+                self.selection2profile.setdefault(
+                    ename, {}).setdefault(tmp['id'], []).append(self._in_profil)
+            else:
+                raise SyntaxWarning, "Unexpected tag %s on in profil" % ename
+        elif ename == 'config':
             pass
         else:
-            print "Unexpected tag=%s level=%i" % (ename, len(self.elementstack))
+            raise SyntaxWarning, "Unexpected tag %s on in profil" % ename
 
     def endElement(self, ename):
-        if ename == "profildef":
-            self.prdefname = None
-        elif ename == "bruk_profil":
-            for d in self.current_bp.keys():
-                self.current_bp[d].reverse()
-            for ktype, kid in self.current_bp_users:
-                t = self.ke.setdefault(ktype, {}).setdefault(kid, {})
-                for d in self.current_bp.keys():
-                    if d == 'profil':
-                        for p in self.current_bp['profil']:
-                            self._apply_profile(self.profiles[p['name']], t)
-                    else:
-                        t.setdefault(d, []).extend(self.current_bp[d])
         self.elementstack.pop()
+        if self._in_select and ename == 'select':
+            self._in_select = None
+        elif self._in_profil and ename == 'profil':
+            if self._super is not None:
+                # Add data from super after data in the profile
+                for k in self.profiles[self._super].keys():
+                    self.profiles[self._in_profil].setdefault(
+                        k, []).extend(self.profiles[self._super][k])
+            self._in_profil = None
+        elif self._in_gruppe_oversikt and ename == 'gruppe_oversikt':
+            self._in_gruppe_oversikt = None
+        elif self._in_disk_oversikt and ename == 'disk_oversikt':
+            self._in_disk_oversikt = None
+        elif len(self.elementstack) == 0 and ename == 'config':
+            m = _MapStudconfigData(self.db)
+            m.mapData(self.profiles)
+
 
 class _MapStudconfigData(object):
     """Map data from StudconfigParser to cerebrum object ids etc."""
@@ -134,25 +136,45 @@ class _MapStudconfigData(object):
         self._group = Group.Group(self.db)
 
     def mapData(self, dta):
+        # pp.pprint(dta)
         for dtatype in dta.keys():
             for dtakey in dta[dtatype].keys():
-                if dta[dtatype][dtakey].has_key('SKO'):
+                # print "%s" % dtakey
+                if dtakey == 'spread':
+                    nyspread = []
+                    for s in dta[dtatype][dtakey]:
+                        nyspread.append(self._get_spread(s['system']))
+                    dta[dtatype][dtakey] = nyspread
+                elif dtakey == 'stedkode':
                     nyesko = []
-                    for s in dta[dtatype][dtakey]['SKO']:
-                          n = self._get_sko(s['value'])
+                    for s in dta[dtatype][dtakey]:
+                          n = self._get_sko(s['verdi'])
                           if n is not None:
                               nyesko.append(n)
-                    dta[dtatype][dtakey]['SKO'] = nyesko
-                for t in ('Filgruppe', 'Primærgruppe'):
+                    dta[dtatype][dtakey] = nyesko
+                elif dtakey == 'gruppe':
                     nyegrupper = []
-                    for f in dta[dtatype][dtakey].get(t, []):
-                        n = self._get_group(f['value'])
+                    primargruppe = []
+                    for f in dta[dtatype][dtakey]:
+                        n = self._get_group(f['navn'])
                         if n is not None:
                             nyegrupper.append(n)
-                    dta[dtatype][dtakey][t] = nyegrupper 
-                if dta[dtatype][dtakey].has_key('Nettgruppe'):
+                            if f.get('type', '') == 'primary':
+                                primargruppe.append(n)
+                    dta[dtatype][dtakey] = nyegrupper 
+                    dta[dtatype].setdefault('primargruppe',
+                                            []).extend(primargruppe)
+                elif dtakey == 'disk':
                     pass
+                else:
+                    # print "skip %s" % dtakey
+                    pass
+        pp.pprint(dta)
 
+    def _get_spread(self, name):
+        # TODO: Map2const
+        return name
+                
     def _get_group(self, name):
         if self._group_cache.has_key(name):
             return self._group_cache[name]
@@ -293,85 +315,98 @@ class Profile(object):
     """
 
     def __init__(self, autostud, topics, groups=None):
+        """The logic for resolving conflicts and enumerating settings
+        is similar for most attributes, thus we resolve the settings
+        applicatble for this profile in the constructor
+        """
+
         # topics may contain data from get_studieprog_list
-        self._topics = topics
         self._groups = groups
         self._autostud = autostud
-        self._stedkoder = {}
-        self._filgrupper = {}
-        self._nettgrupper = {}
-        self.autogroups = []
 
-        self._matches = []
+        match_profiles = []
         topics.sort(self._topics_sort)
         if self._autostud.debug > 1:
             print " topics=%s" % ["%s:%s@%s" %
                                    (x.get('emnekode', ""), x['studienivakode'],
                                     x['studieprogramkode']) for x in topics]
+        # First find the name of applicable profiles and their level
         for t in topics:
             if t.has_key('emnekode'):
-                k = autostud.sp.ke['emne'].get(t['emnekode'], None)
+                k = autostud.sp.selection2profile['emnekode'].get(t['emnekode'], None)
                 if k is not None:
                     # TODO: sett nivåkode til nivåkode + 50 for å
                     #   implementere emne > studieprogram på samme nivåkode
-                    self._matches.append((k, 'emne'))
-            k = autostud.sp.ke['studieprogram'].get(t['studieprogramkode'], None)
+                    match_profiles.append((k, 'emne'))
+            k = autostud.sp.selection2profile['studieprogram'].get(
+                t['studieprogramkode'], None)
             if k is not None:
-                self._matches.append((k, self._normalize_nivakode(t['studienivakode'])))
-
-        singular = ('home', 'SKO', 'Primærgruppe')
-        found = {}
-        home_conflict = 0
+                match_profiles.append((k, self._normalize_nivakode(t['studienivakode'])))
         if self._autostud.debug > 2:
-            print " matches= %s" % self._matches
-        for m in self._matches:
-            spec, level = m
-            for t in spec.get('SKO', []):
-                self._stedkoder[t] = 1
-            for t in spec.get('Primærgruppe', []):
-                self._filgrupper[t] = 1
-            for t in spec.get('Filgruppe', []):
-                self._filgrupper[t] = 1
-            for t in spec.get('Netgruppe', []):
-                self._nettgrupper[t['value']] = 1
+            print " matches= %s" % match_profiles
+
+        # Flatten settings, and group by level
+        grouped_settings = {}           
+        for m in match_profiles:
+            profiles, level = m
+            for profilname in profiles:
+                profil = autostud.sp.profiles[profilname]
+                # TODO: Only append if not already in list
+                for k in profil.keys():
+                    grouped_settings.setdefault(
+                        level, {}).setdefault(k, []).extend(profil[k])
+
+        # Detect conflicts for singular values
+        singular = ('disk', 'primargruppe', 'stedkode')
+        levels = grouped_settings.keys()
+        levels.sort(lambda a,b: cmp(b,a))
+        singular_settings = {}
+        self._flat_settings = {}           
+        for lvl in levels:
+            for k in profil.keys():
+                self._flat_settings.setdefault(k, []).extend(
+                    grouped_settings[lvl].get(k, []))
             for s in singular:
-                if spec.has_key(s):
-                    if found.has_key(s):
-                        if found[s][0] <> spec[s]:
-                            # conflict, has multiple values for single-value attribute
-                            if found[s][1] > level:
-                                pass
-                            elif found[s][1] < level:
-                                found[s] = (spec[s], level)
-                            else:     # Same studienivåkode
-                                if s == 'home':
-                                    home_conflict = level
-                                else:
-                                    # Use the first in the alphabet
-                                    if found[s][0] > spec[s]:
-                                        found[s] = (spec[s], level)
-                    else:
-                        found[s] = (spec[s], level)
+                if singular_settings.has_key(s):
+                    continue
+                # TODO: filter for <diskdef ... bygg="ja/nei"/>
+                if len(grouped_settings[lvl].get(s, [])) > 1:
+                    singular_settings[s] = lvl      # Conflict
+                else:
+                    singular_settings[s] = [lvl, grouped_settings[lvl][s]]
+
         try:
-            self._dfg = found['Primærgruppe'][0][0]
+            # If there is a conflict, we choose the first
+            self._dfg = self._flat_settings['primargruppe'][0]
         except (KeyError, IndexError):
             raise Errors.NotFoundError, "ingen primærgruppe"
+
         try:
-            self._email_sko = found['SKO'][0][0]
+            if type(singular_settings['stedkode']) is int:
+                # TODO: Conflict for stedcode, what is correct behaviour?
+                self._email_sko = self._flat_settings['stedkode'][0]
+            else:
+                self._email_sko = singular_settings['stedkode'][1][0]
         except (KeyError, IndexError):
             raise Errors.NotFoundError, "ingen primærsko"
-        self.max_on_disk = 4000  # TODO: set this properly
-        try:
-            # TODO:
-            cereconf.DEFAULT_HIGH_DISK, cereconf.DEFAULT_LOW_DISK = "/uio/platon/div-h","/uio/platon/div-l"
-            if home_conflict >= 300:
-                self._disk = cereconf.DEFAULT_HIGH_DISK
-            elif home_conflict > 1:
-                self._disk = cereconf.DEFAULT_LOW_DISK
-            else:
-                self._disk = found['home'][0][0]['value']
-        except KeyError:
+
+        if not singular_settings.has_key('disk'):
             raise Errors.NotFoundError, "ingen disk"
+        if type(singular_settings['disk']) is int:
+            conflict_level = singular_settings['disk']
+            if conflict_level >= 300:
+                self._disk = cereconf.DEFAULT_HIGH_DISK
+            else:
+                self._disk = cereconf.DEFAULT_LOW_DISK
+        else:
+             self._disk = singular_settings['disk'][1][0]
+
+        self.max_on_disk = 4000  # TODO: set this properly
+        # autostud.sp.disk_defs, se etter disk med samme prefix eller
+        # path for å hente ut max
+        #print "dfg: %s" % self._dfg
+        #print "sko: %s" % self._email_sko
+        #print "disk: %s" % self._disk
 
     def _normalize_nivakode(self, niva):
         niva = int(niva)
@@ -409,7 +444,7 @@ class Profile(object):
             self._autostud._disks[new][1] += 1
 
     def get_stedkoder(self):
-        return self._stedkoder.keys()
+        return self._flat_settings['stedkode']
 
     def get_dfg(self):
         return self._dfg
@@ -417,37 +452,31 @@ class Profile(object):
     def get_email_sko(self):
         return self._email_sko
     
-    def get_filgrupper(self):
-        return self._filgrupper.keys()
+    def get_grupper(self):
+        return self._flat_settings['gruppe']
 
-    def get_nettgrupper(self):
-        return self._nettgruper.keys()
 
     def get_pquota(self):
         assert self._groups is not None
-        for m in self._matches:
-            spec, level = m
-            for t in spec.get('pquota', []):
-                pass # TODO
+        for m in self._flat_settings.get('printer_kvote', []):
+            pass # TODO
         raise NotImplementedError, "TODO"
         
 class AutoStud(object):
     """This is the only class that should be directly accessed within
     this package"""
     
-    def __init__(self, db, debug=0):
+    def __init__(self, db, cfg_file=STUDCONFIG_FILE, debug=0):
         self.debug = debug
         self._disks = {}
         disk = Disk.Disk(db)
         for d in disk.list():
             self._disks[int(d['disk_id'])] = [d['path'], int(d['count'])]
-        self.sp = StudconfigParser()
-        xml.sax.parse(STUDCONFIG_FILE, self.sp)
-        m = _MapStudconfigData(db)
-        m.mapData(self.sp.ke)
+        self.sp = StudconfigParser(db)
+        xml.sax.parse(cfg_file, self.sp)
         if debug > 2:
             print "Parsed studconfig.xml expanded to: "
-            pp.pprint(self.sp.ke)
+            pp.pprint(self.sp.selection2profile)
 
     def get_topics_list(self, history=None, fnr=None, topics_file=None):
         """Use like:
