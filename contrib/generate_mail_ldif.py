@@ -70,7 +70,7 @@ def read_addr():
         glob_addr[dom_code] = {}
         # Fill glob_addr[numeric code value][local_part]
         for row in mail_addr.list_email_addresses_ext(domain):
-            glob_addr[dom_code][row['local_part']] = row
+            glob_addr[dom_code][row['local_part']] = row
         # Alias glob_addr[domain name] to glob_addr[numeric code value]
         for row in mail_dom.list_email_domain_with_category(dom_catg):
             glob_addr[row['domain']] = glob_addr[dom_code]
@@ -106,9 +106,10 @@ def read_spam():
     curr = now()
     mail_spam = Email.EmailSpamFilter(db)
     for row in mail_spam.list_email_spam_filters_ext():
-        if counter == 0:
-            print "  done list_email_spam_filters_ext(): %d sec." % (now() - curr)
-            counter = 1
+        counter += 1
+        if  verbose and (counter % 10000) == 0:
+            print "  done %d list_email_spam_filters_ext(): %d sec." % (
+                counter, now() - curr)
         targ2spam[int(row['target_id'])] = [row['level'], row['code_str']]
 
 def read_quota():
@@ -116,9 +117,10 @@ def read_quota():
     curr = now()
     mail_quota = Email.EmailQuota(db)
     for row in mail_quota.list_email_quota_ext():
-        if counter == 0:
-            print "  done list_email_quota_ext(): %d sec." % (now() - curr)
-            counter = 1
+        counter += 1
+        if  verbose and (counter % 10000) == 0:
+            print "  done %d list_email_quota_ext(): %d sec." % (
+                counter, now() - curr)
         targ2quota[int(row['target_id'])] = [row['quota_soft'],
                                              row['quota_hard']]
         
@@ -127,14 +129,15 @@ def read_virus():
     curr = now()
     mail_virus = Email.EmailVirusScan(db)
     for row in mail_virus.list_email_virus_ext():
-        if counter == 0:
-            print "  done list_email_virus_ext(): %d sec." % (now() - curr)
-            counter = 1
+        counter += 1
+        if  verbose and (counter % 10000) == 0:
+            print "  done %d list_email_virus_ext(): %d sec." % (
+                counter, now() - curr)
         targ2virus[int(row['target_id'])] = [row['found_str'],
                                              row['removed_str'],
                                              row['enable']]
 
-def read_IMAP_server():
+def read_server():
     mail_serv = Email.EmailServer(db)
     for row in mail_serv.list_email_server_ext():
         serv_id2server[int(row['server_id'])] = [row['server_type'],
@@ -146,8 +149,9 @@ def read_IMAP_server():
 def read_forward():
     mail_forw = Email.EmailForward(db)
     for row in mail_forw.list_email_forwards():
-        targ2forward.setdefault(int(row['target_id']), []).append([row['forward_to'],
-                                                                   row['enable']])
+        targ2forward.setdefault(int(row['target_id']),
+                                []).append([row['forward_to'],
+                                            row['enable']])
 
 def read_vacation():
     mail_vaca = Email.EmailVacation(db)
@@ -159,13 +163,22 @@ def read_vacation():
 
 def read_accounts():
     acc = Account.Account(db)
-    for row in acc.list_account_names():
-        acc2name[int(row['account_id'])] = row['entity_name']
+    for row in acc.list_account_name_home():
+        acc2name[int(row['account_id'])] = [row['entity_name'],
+                                            row['home']]
 
 def write_ldif():
     counter = 0
     curr = now()
 
+    f.write("""
+dn: ou=mail,%s
+objectClass: top
+objectClass: norOrganizationalUnit
+ou: mail
+description: mail-config ved UiO.\n
+""" % base_dn)
+    
     for row in mail_targ.list_email_targets_ext():
         t = int(row['target_id'])
         tt = int(row['target_type'])
@@ -191,9 +204,11 @@ def write_ldif():
         if tt == co.email_target_account:
             # Target is the local delivery defined for the Account whose
             # account_id == email_target.entity_id.
+            target = ""
+            home = ""
             if et == co.entity_account:
                 if acc2name.has_key(ei):
-                    target = acc2name[ei]
+                    target,home = acc2name[ei]
                 else:
                     txt = "Target: %s(account) no user found: %s\n"% (t,ei)
                     sys.stderr.write(txt)
@@ -217,21 +232,13 @@ def write_ldif():
                     if start and end and start <= cur and end >= cur:
                         rest += "tripnote:: %s\n" %  base64.encodestring(txt)
 
-            # Find spam-settings:
-            if targ2spam.has_key(t):
-                level, action = targ2spam[t]
-                rest += "spamLevel: %s\n" % level
-                rest += "spamAction: %s\n" % action
-
-            # Find virus-setting:
-            if targ2virus.has_key(t):
-                found, rem, enable = targ2virus[t]
-                rest += "virusFound: %s\n" % found
-                rest += "virusRemoved: %s\n" % rem
-                if enable == 'T':
-                    rest += "virusScanning: TRUE\n"
-                else:
-                    rest += "virusScanning: FALSE\n"
+            # Find mail-server settings:
+            if targ2server_id.has_key(t):
+                type, name = serv_id2server[int(targ2server_id[t])]
+                if type == co.email_server_type_nfsmbox:
+                    rest += "spoolInfo: home=%s\n" % home
+                elif type == co.email_server_type_cyrus:
+                    rest += "IMAPserver: %s\n" % name
 
         elif tt == co.email_target_deleted:
             # Target type for addresses that are no longer working, but
@@ -240,7 +247,7 @@ def write_ldif():
             # is taken from email_target.alias_value
             if et == co.entity_account:
                 if acc2name.has_key(ei):
-                    target = acc2name[ei]
+                    target = acc2name[ei][0]
             if alias:
                 rest += "forwardDestination: :fail: %s\n" % alias
 
@@ -282,7 +289,7 @@ def write_ldif():
 
             if et == co.entity_account:
                 if acc2name.has_key(ei):
-                    uid = acc2name[ei]
+                    uid = acc2name[ei][0]
                 else:
                     txt = "Target: %s(%s) no user found: %s\n" % (t, tt, ei)
                     sys.stderr.write(txt)
@@ -336,20 +343,38 @@ def write_ldif():
             for a in targ2addr[t]:
                 f.write("mail: %s\n" % a)
 
-        # Find mail-server settings:
-        if targ2server_id.has_key(t):
-            type, name = serv_id2server[int(targ2server_id[t])]
-            if type == co.email_server_type_nfsmbox:
-                f.write("spoolInfo: %s\n" % name)
-            elif type == co.email_server_type_cyrus:
-                f.write("IMAPserver: %s\n" % name)
-
         # Find forward-settings:
         if targ2forward.has_key(t):
             for addr,enable in targ2forward[t]:
                 if enable == 'T':
                     f.write("forwardDestination: %s\n" % addr)
-                
+
+        # Find spam-settings:
+        if targ2spam.has_key(t):
+            level, action = targ2spam[t]
+            rest += "spamLevel: %s\n" % level
+            rest += "spamAction: %s\n" % action
+        else:
+            # Set default-settings.
+            rest += "spamLevel: 9999\n"
+            rest += "spamAction: 0\n"
+
+        # Find virus-setting:
+        if targ2virus.has_key(t):
+            found, rem, enable = targ2virus[t]
+            rest += "virusFound: %s\n" % found
+            rest += "virusRemoved: %s\n" % rem
+            if enable == 'T':
+                rest += "virusScanning: TRUE\n"
+            else:
+                rest += "virusScanning: FALSE\n"
+        else:
+            # Set default-settings.
+            rest += "virusScanning: TRUE\n"
+            rest += "virusFound: 1\n"
+            rest += "virusRemoved: 1\n"
+
+            
         f.write("\n")
 
 def usage():
@@ -405,9 +430,9 @@ def main():
     read_addr()
     if verbose:
         print "  done in %d sec." % (now() - curr)
-        print "Starting read_IMAP_server()..."
+        print "Starting read_server()..."
         curr = now()    
-    read_IMAP_server()
+    read_server()
     if verbose:
         print "  done in %d sec." % (now() - curr)
         print "Starting read_vacation()..."
