@@ -253,6 +253,14 @@ PGP_DEC_OPTS = ['--batch', '--passphrase-fd', "0", '--decrypt', '--quiet']
 # ['--recipient', id, '--default-key', id] is appended to PGP_ENC_OPTS
 PGP_ENC_OPTS = ['--encrypt', '--armor', '--batch', '--quiet']
 
+# List of systems for Cerebrum.modules.AuthPGP
+# keys = systemname (max 12 chars [a-z_])
+# values = PGP key id string, "0x98f382f1"
+# Example: AUTH_PGP = {
+#    "offline": "0x8f382f1",
+#    "ad_ntnu_no": "0x82f1821d",
+# }
+AUTH_PGP = {}
 
 #
 # LDAP stuff
