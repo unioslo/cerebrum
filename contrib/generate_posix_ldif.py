@@ -39,7 +39,10 @@ With none of the above options, do the same as --posix.
 
 The spread options accept multiple spread-values (<value1>,<value2>,...)."""
 
-import time, sys, getopt, os
+import time
+import sys
+import getopt
+import os
 
 import cerebrum_path
 import cereconf  
@@ -106,20 +109,20 @@ def generate_users(spread=None,filename=None):
             if entity2name.has_key(acc_id):
                 continue
             if row['auth_data']:
-                passwd = '{crypt}' + row['auth_data']
+                passwd = "{crypt}" + row['auth_data']
             elif auth_method != co.auth_type_crypt3_des:
                 # Get the password in the next pass.
                 continue
             else:
                 # Final pass - neither md5_crypt nor crypt3_des hash found.
-                passwd = '{crypt}*Invalid'
+                passwd = "{crypt}*Invalid"
             shell = shells[int(shell)]
             if row['quarantine_type'] is not None:
                 qh = QuarantineHandler(db, (row['quarantine_type'],))
                 if qh.should_skip():
                     continue
                 if qh.is_locked():
-                    passwd = '{crypt}*Locked'
+                    passwd = "{crypt}*Locked"
                 qshell = qh.get_shell()
                 if qshell is not None:
                     shell = qshell
@@ -129,21 +132,22 @@ def generate_users(spread=None,filename=None):
                 home = row['home']
 	    else:
                 continue
-            cn    = row['name'] or gecos or uname
+            cn = row['name'] or gecos or uname
             gecos = latin1_to_iso646_60(gecos or cn)
             f.write("".join((
-                'dn: '              'uid=', uname, posix_dn, '\n'
-                'objectClass: '     'top'           '\n'
-                'objectClass: '     'account'       '\n'
-                'objectClass: '     'posixAccount'  '\n'
-                'cn: ',             iso2utf(cn),    '\n'
-                'uid: ',            uname,          '\n'
-                'uidNumber: ',      str(int(row['posix_uid'])), '\n'
-                'gidNumber: ',      str(int(row['posix_gid'])), '\n'
-                'homeDirectory: ',  home,           '\n'
-                'userPassword: ',   passwd,         '\n'
-                'loginShell: ',     shell,          '\n'
-                'gecos: ',          gecos,          '\n\n')))
+                "dn: "              "uid=", uname, posix_dn, "\n"
+                "objectClass: "     "top"           "\n"
+                "objectClass: "     "account"       "\n"
+                "objectClass: "     "posixAccount"  "\n"
+                "cn: ",             iso2utf(cn),    "\n"
+                "uid: ",            uname,          "\n"
+                "uidNumber: ",      str(int(row['posix_uid'])), "\n"
+                "gidNumber: ",      str(int(row['posix_gid'])), "\n"
+                "homeDirectory: ",  home,           "\n"
+                "userPassword: ",   passwd,         "\n"
+                "loginShell: ",     shell,          "\n"
+                "gecos: ",          gecos,          "\n"
+                "\n")))
             entity2name[acc_id] = uname
     if filename:
 	f.close()
@@ -224,11 +228,12 @@ def generate_netgroup(spread=None,u_spread=None,filename=None):
     if filename:
 	f.close()
 
+
 def get_netgrp(pos_netgrp, spreads, u_spreads, triples, members):
     for id in pos_netgrp.list_members(u_spreads[0], int(co.entity_account),\
 						get_entity_name= True)[0]:
         uname_id,uname = int(id[1]),id[2]
-        if ('_' not in uname) and not grp_memb.has_key(uname_id):
+        if ("_" not in uname) and not grp_memb.has_key(uname_id):
             triples.append("(,%s,)" % uname)
             grp_memb[uname_id] = True
     for group in pos_netgrp.list_members(None, int(co.entity_group),
@@ -248,6 +253,7 @@ def eval_spread_codes(spread):
         return filter(None, map(spread_code, spread))
     return None
 
+
 def spread_code(spr_str):
     try: return int(spr_str)
     except:
@@ -263,9 +269,9 @@ def disable_ldapsync_mode():
 	ldap_servers = cereconf.LDAP_SERVER
 	from Cerebrum.modules import LdapCall
     except AttributeError:
-	logger.info('No active LDAP-sync severs configured')
+	logger.info("No active LDAP-sync severs configured")
     except ImportError: 
-	logger.info('LDAP modules missing. Probably python-LDAP')
+	logger.info("LDAP modules missing. Probably python-LDAP")
     else:
 	s_list = LdapCall.ldap_connect()
 	LdapCall.add_disable_sync(s_list,disablesync_cn)
@@ -280,31 +286,31 @@ def disable_ldapsync_mode():
 
 
 def main():
-    short2long_opts = (('u:', 'U:', 'f:', 'F:', 'n:', 'N:'),
-                       ('user=',      'user_spread=',
-                        'filegroup=', 'filegroup_spread=',
-                        'netgroup=',  'netgroup_spread='))
+    short2long_opts = (("u:", "U:", "f:", "F:", "n:", "N:"),
+                       ("user=",      "user_spread=",
+                        "filegroup=", "filegroup_spread=",
+                        "netgroup=",  "netgroup_spread="))
     try:
         opts, args = getopt.getopt(sys.argv[1:],
                                    "".join(short2long_opts[0]),
-                                   ('help', 'posix') + short2long_opts[1])
+                                   ("help", "posix") + short2long_opts[1])
         opts = dict(opts)
     except getopt.GetoptError, e:
         usage(str(e))
     if args:
         usage("Invalid arguments: " + " ".join(args))
-    if '--help' in opts:
+    if "--help" in opts:
         usage()
     # Copy long options into short options
     for short, long in zip(*short2long_opts):
-        val = opts.get('--' + long.replace('=',''))
+        val = opts.get("--" + long.replace("=", ""))
         if val is not None:
-            opts['-' + short.replace(':','')] = val
+            opts["-" + short.replace(":", "")] = val
 
-    got_file = filter(opts.has_key, ('-u', '-f', '-n'))
-    for opt in filter(opts.has_key, ('-U', '-F', '-N')):
-        opts[opt] = eval_spread_codes(opts[opt].split(','))
-    do_all = '--posix' in opts or not got_file
+    got_file = filter(opts.has_key, ("-u", "-f", "-n"))
+    for opt in filter(opts.has_key, ("-U", "-F", "-N")):
+        opts[opt] = eval_spread_codes(opts[opt].split(","))
+    do_all = "--posix" in opts or not got_file
 
     global glob_fd
     glob_fd = None
@@ -315,9 +321,9 @@ def main():
         disable_ldapsync_mode()
         init_ldap_dump()
     for conf_var, func, args in \
-            (('LDAP_USER_DN',      generate_users,            ('-U', '-u')),
-             ('LDAP_FILEGROUP_DN', generate_posixgroup, ('-F', '-U', '-f')),
-             ('LDAP_NETGROUP_DN',  generate_netgroup,   ('-N', '-U', '-n'))):
+            (('LDAP_USER_DN',      generate_users,            ("-U", "-u")),
+             ('LDAP_FILEGROUP_DN', generate_posixgroup, ("-F", "-U", "-f")),
+             ('LDAP_NETGROUP_DN',  generate_netgroup,   ("-N", "-U", "-n"))):
         if (do_all or args[-1] in opts) and getattr(cereconf, conf_var, False):
             func(*map(opts.get, args))
         elif args[-1] in opts:
@@ -325,11 +331,13 @@ def main():
     if glob_fd:
         glob_fd.close()
 
+
 def usage(err=0):
     if err:
         print >>sys.stderr, err
     print >>sys.stderr, __doc__
     sys.exit(bool(err))
+
 
 if __name__ == '__main__':
     	main()

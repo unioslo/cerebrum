@@ -32,35 +32,39 @@ If --omit-mail-module, mail addresses are read from the contact_info
 table instead of from Cerebrum's e-mail tables.  That's useful for
 installations without the mod_email module."""
 
-import getopt, sys
-import cerebrum_path, cereconf
+import getopt
+import sys
+
+import cerebrum_path
+import cereconf
 from Cerebrum.Utils   import Factory, SimilarSizeWriter
 from Cerebrum.modules import LDIFutils
+
 
 def main():
     # The script is designed to use the mail-module.
     use_mail_module = True
     ofile = None
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'ho:m',
-                                   ('help', 'org=', 'omit-mail-module'))
+        opts, args = getopt.getopt(sys.argv[1:], "ho:m",
+                                   ("help", "org=", "omit-mail-module"))
     except getopt.GetoptError, e:
         usage(str(e))
     if args:
         usage("Invalid arguments: " + " ".join(args))
     for opt, val in opts:
-        if opt in ('-o', '--org'):
+        if opt in ("-o", "--org"):
             ofile = val
-        elif opt in ('-m', '--omit-mail-module'):
+        elif opt in ("-m", "--omit-mail-module"):
             use_mail_module = False
             sys.stderr.write(
                 "Warning: Option --omit-mail-module (-m) is untested.\n")
         else:
             usage()
 
-    logger  = Factory.get_logger("console")
-    ldif    = Factory.get('OrgLDIF')(Factory.get('Database')(), logger)
-    timer   = ldif.make_timer("Starting dump.")
+    logger = Factory.get_logger("console")
+    ldif = Factory.get('OrgLDIF')(Factory.get('Database')(), logger)
+    timer = ldif.make_timer("Starting dump.")
     outfile = SimilarSizeWriter(ofile or (cereconf.LDAP_DUMP_DIR + '/'
                                           + cereconf.LDAP_ORG_FILE    ))
     outfile.set_size_change_limit(10)
@@ -71,11 +75,13 @@ def main():
     outfile.close()
     timer("Dump done.")
 
+
 def usage(err=0):
     if err:
         print >>sys.stderr, err
     print >>sys.stderr, __doc__
     sys.exit(bool(err))
+
 
 if __name__ == '__main__':
     	main()

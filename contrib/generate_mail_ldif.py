@@ -35,6 +35,7 @@ Options:
 import sys
 import base64
 import getopt
+from time import time as now
 
 import cerebrum_path
 import cereconf
@@ -43,7 +44,6 @@ from Cerebrum.Utils import Factory, SimilarSizeWriter
 from Cerebrum.modules import Email
 from Cerebrum.modules.LDIFutils import container_entry_string
 from Cerebrum.Constants import _SpreadCode
-from time import time as now
 
 default_mail_file = "mail-db.ldif"
 default_spam_level = 9999
@@ -126,7 +126,7 @@ def write_ldif():
             if ldap.targ2vacation.has_key(t):
                 txt, start, end, enable = ldap.targ2vacation[t]
                 rest += "tripnote:: %s\n" % \
-                        base64.encodestring(txt).replace('\n', '')
+                        base64.encodestring(txt).replace("\n", "")
                 if enable:
                     rest += "tripnoteActive: TRUE\n"
 
@@ -150,7 +150,6 @@ def write_ldif():
             if alias:
                 rest += "forwardDestination: %s\n" % alias
 
-        
         elif tt == co.email_target_forward:
             # Target is a pure forwarding mechanism; local deliveries will
             # only occur as indirect deliveries to the addresses forwarded
@@ -363,9 +362,9 @@ def main():
     global verbose, f, db, co, ldap
     
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'vm:s:ih',
-                                   ('verbose', 'mail-file=', 'spread=',
-                                    'ignore-size', 'help'))
+        opts, args = getopt.getopt(sys.argv[1:], "vm:s:ih",
+                                   ("verbose", "mail-file=", "spread=",
+                                    "ignore-size", "help"))
     except getopt.GetoptError, e:
         usage(str(e))
     if args:
@@ -376,15 +375,15 @@ def main():
     spread = None
     ignore = False
     for opt, val in opts:
-        if opt in ('-v', '--verbose'):
+        if opt in ("-v", "--verbose"):
             verbose += 1
-        elif opt in ('-m', '--mail-file'):
+        elif opt in ("-m", "--mail-file"):
             mail_file = val
-        elif opt in ('-s', '--spread'):
+        elif opt in ("-s", "--spread"):
             spread = val
-        elif opt in ('-i', '--ignore-size'):
+        elif opt in ("-i", "--ignore-size"):
             ignore = True
-        elif opt in ('-h', '--help'):
+        elif opt in ("-h", "--help"):
             usage()
     if mail_file is None:
         mail_file = "/".join((cereconf.LDAP_DUMP_DIR, default_mail_file))
@@ -405,11 +404,13 @@ def main():
     get_data(spread)
     f.close()
 
+
 def usage(err=0):
     if err:
         print >>sys.stderr, err
     print >>sys.stderr, __doc__
     sys.exit(bool(err))
+
 
 if __name__ == '__main__':
     main()
