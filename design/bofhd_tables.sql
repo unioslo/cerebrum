@@ -12,6 +12,11 @@
   TBD:  do we also want a "last-seen" entry?
 */
 
+category:drop;
+DROP TABLE bofhd_session_state;
+category:drop;
+DROP TABLE bofhd_session;
+
 category:main;
 CREATE TABLE bofhd_session
 (

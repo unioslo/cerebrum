@@ -1,3 +1,5 @@
+category:drop;
+DROP TABLE printerquotas;
 category:main;
 CREATE TABLE printerquotas (
  account_id           NUMERIC(12,0)
