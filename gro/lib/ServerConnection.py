@@ -2,7 +2,6 @@ from omniORB import CORBA, sslTP
 import CosNaming
 
 import cereconf
-from Constants import *
 import Cerebrum_core
 
 def connect(args=[]):
@@ -12,33 +11,26 @@ def connect(args=[]):
     SSL connections.
     """
     # Set up the SSL context
-    d = cereconf.SSL_DIR
-    sslTP.certificate_authority_file( d + "/CA.crt" )
-    sslTP.key_file( d + "/client.pem" )
-    sslTP.key_file_password( "client" )
+    sslTP.certificate_authority_file(cereconf.SSL_CA_FILE)
+    sslTP.key_file(cereconf.SSL_KEY_FILE)
+    sslTP.key_file_password(cereconf.SSL_KEY_FILE_PASSWORD)
 
     # Initialize the ORB
-    orb = CORBA.ORB_init( args, CORBA.ORB_ID )
+    orb = CORBA.ORB_init(args, CORBA.ORB_ID)
     # Get the name service and narrow the root context
     obj = orb.resolve_initial_references("NameService")
     rootContext = obj._narrow(CosNaming.NamingContext)
 
     if rootContext is None:
-        print "Error while trying to narrow root naming context"
-        sys.exit(1)
+        raise Exception("Could not narrow the root naming context")
 
     # Fetch gro using the name service
-    name = [CosNaming.NameComponent( CONTEXT_NAME,
-                                     GRO_SERVICE_NAME),
-            CosNaming.NameComponent( GRO_OBJECT_NAME, "")]
-    try:
-        obj = rootContext.resolve( name )
-    except CosNaming.NamingContext.NotFound:
-        print "Could not find context(s)"
-        sys.exit(1)
+    name = [CosNaming.NameComponent(cereconf.GRO_CONTEXT_NAME, cereconf.GRO_SERVICE_NAME),
+            CosNaming.NameComponent(cereconf.GRO_OBJECT_NAME, "")]
+
+    obj = rootContext.resolve(name)
 
     gro = obj._narrow(Cerebrum_core.Gro)
     if gro is None:
-        print "Could not narrow the gro object"
-        sys.exit(1)
+        raise Exception("Could not narrow the gro object")
     return gro
