@@ -94,7 +94,7 @@ import locale
 import cerebrum_path
 import cereconf
 from Cerebrum import Errors
-from Cerebrum.Utils import Factory
+from Cerebrum.Utils import Factory, latin1_wash
 from Cerebrum.modules import Email
 from Cerebrum.modules.no.uio.access_FS import FS
 from Cerebrum.modules.no.uio.fronter_lib import FronterUtils
@@ -290,8 +290,9 @@ def get_undervisningsenheter():
         if UndervEnhet.has_key(enhet_id):
             raise ValueError, "Duplikat undervisningsenhet: <%s>" % enhet_id
         UndervEnhet[enhet_id] = {'aktivitet': {}}
-        multi_id = "%s.%s.%s.%s" % (enhet['institusjonsnr'], enhet['emnekode'],
-                                    enhet['terminkode'], enhet['arstall'])
+        multi_id = ":".join([str(x).lower() for x in
+                             (enhet['institusjonsnr'], enhet['emnekode'],
+                              enhet['terminkode'], enhet['arstall'])])
         # Finnes det flere enn en undervisningsenhet tilknyttet denne
         # emnekoden i inneværende semester?
         emne_versjon.setdefault(multi_id, {})[enhet['versjonskode']] = 1
@@ -358,7 +359,7 @@ def populate_enhet_groups(enhet_id):
         # så fall bør gruppene få beskrivelser som gjør det mulig å
         # knytte dem til riktig undervisningsenhet.
         multi_enhet = []
-        multi_id = "%s:%s:%s:%s" % (Instnr, emnekode, termk, aar)
+        multi_id = ":".join((Instnr, emnekode, termk, aar))
         if len(emne_termnr.get(multi_id, {})) > 1:
             multi_enhet.append("%s. termin" % termnr)
         if len(emne_versjon.get(multi_id, {})) > 1:
@@ -477,7 +478,6 @@ def populate_enhet_groups(enhet_id):
         # som er eksamens- eller undervisningsmeldt uten å være meldt
         # til noen aktiviteter.
         student_med_akt = {}
-        account = Factory.get("Account")(db)
 
         for aktkode in UndervEnhet[enhet_id].get('aktivitet', {}).keys():
             #
@@ -529,7 +529,8 @@ def populate_enhet_groups(enhet_id):
                     aktnavn = m.group(1)
                 else:
                     aktnavn = aktnavn.replace(" ", "-")
-                    aktnavn = account.simplify_name(aktnavn, alt=1)
+                    aktnavn = latin1_wash(aktnavn, target_charset='POSIXname',
+                                          expand_chars=True).lower()
                 logger.debug("Aktivitetsnavn '%s' -> '%s'" %
                              (UndervEnhet[enhet_id]['aktivitet'][aktkode],
                               aktnavn))
