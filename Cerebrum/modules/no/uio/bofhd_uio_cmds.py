@@ -1049,11 +1049,7 @@ class BofhdExtension(object):
         # 4. make user a member of his personal group
         self._group_add(operator, uname, uname, type="account")
         # 5. add spreads corresponding to its owning user
-        for s in acc.get_spread():
-            if self.const.spread_uio_nis_user in s:
-                group.add_spread(self.const.spread_uio_nis_fg)
-            elif self.const.spread_ifi_nis_user in s:
-                group.add_spread(self.const.spread_ifi_nis_fg)
+        self.__spread_sync_group(acc, group)
         return {'group_id': int(pg.posix_gid)}
 
     # group posix_create
@@ -2082,6 +2078,8 @@ class BofhdExtension(object):
         spread = int(self._get_constant(spread, "No such spread"))
         self.ba.can_add_spread(operator.get_entity_id(), entity, spread)
         entity.add_spread(spread)
+        if entity_type == 'account':
+            self.__spread_sync_group(entity)
         return "OK"
 
     # spread list
@@ -2106,7 +2104,44 @@ class BofhdExtension(object):
         spread = int(self._get_constant(spread, "No such spread"))
         self.ba.can_add_spread(operator.get_entity_id(), entity, spread)
         entity.delete_spread(spread)
+        if entity_type == 'account':
+            self.__spread_sync_group(entity)
         return "OK"
+
+    def __spread_sync_group(self, account, group=None):
+        """Make sure the group has the NIS spreads corresponding to
+        the NIS spreads of the account.  The account and group
+        arguments may be passed as Entity objects.  If group is None,
+        the group with the same name as account is modified, if it
+        exists."""
+        if group is None:
+            print "DEBUG:", repr(account), account.account_name
+            name = account.get_name(self.const.account_namespace)
+            try:
+                group = self._get_group(name)
+            except CerebrumError:
+                return
+        mapping = { int(self.const.spread_uio_nis_user):
+                    int(self.const.spread_uio_nis_fg),
+                    int(self.const.spread_uio_ad_account):
+                    int(self.const.spread_uio_ad_group),
+                    int(self.const.spread_ifi_nis_user):
+                    int(self.const.spread_ifi_nis_fg) }
+        wanted = []
+        for r in account.get_spread():
+            spread = int(r['spread'])
+            if spread in mapping:
+                wanted.append(mapping[spread])
+        for r in group.get_spread():
+            spread = int(r['spread'])
+            if not spread in mapping.values():
+                pass
+            elif spread in wanted:
+                wanted.remove(spread)
+            else:
+                group.delete_spread(spread)
+        for spread in wanted:
+            group.add_spread(spread)
 
     #
     # user commands
