@@ -22,7 +22,8 @@ from Cerebrum.Utils import Factory
 from templates.letters import TemplateHandler
 from server.bofhd_errors import CerebrumError
 from Cerebrum.modules.no.uio import bofhd_uio_help
-from Cerebrum.Constants import _CerebrumCode, _QuarantineCode, _SpreadCode
+from Cerebrum.Constants import _CerebrumCode, _QuarantineCode, _SpreadCode,\
+     _PersonAffiliationCode, _PersonAffStatusCode
 import cereconf
 from Cerebrum.modules import PosixUser
 import re
@@ -269,17 +270,33 @@ class BofhdExtension(object):
     # misc commands
     #
 
-    # misc aff_status_codes
-    all_commands['misc_aff_status_codes'] = Command(
-        ("misc", "aff_status_codes"), )
-    def misc_aff_status_codes(self, operator):
-        # TODO: Define aff_status_codes for UiO
-        raise NotImplementedError, "Feel free to implement this function"
-
     # misc affiliations
     all_commands['misc_affiliations'] = Command(
-        ("misc", "affiliations"), )
+        ("misc", "affiliations"),
+        fs=FormatSuggestion("%-14s %-14s %s", ('aff', 'status', 'desc'),
+                            hdr="%-14s %-14s %s" % ('Affiliation', 'Status',
+                                                    'Description')))
     def misc_affiliations(self, operator):
+        tmp = {}
+        for c in dir(self.const):
+            const = getattr(self.const, c)
+            if isinstance(const, _PersonAffStatusCode):
+                if not tmp.has_key(str(const.affiliation)):
+                    tmp[str(const.affiliation)] = [
+                        {'aff': str(const.affiliation), 'status': '',
+                         'desc': unicode(const.affiliation._get_description(), 'iso8859-1')}]
+                else:
+                    tmp[str(const.affiliation)].append(
+                        {'aff': '', 'status': "%s" % const,
+                         'desc': unicode(const._get_description(), 'iso8859-1')})
+        keys = tmp.keys()
+        keys.sort()
+        ret = []
+        for k in keys:
+            for r in tmp[k]:
+                ret.append(r)
+        return ret
+
         # TODO: Defile affiliations for UiO
         raise NotImplementedError, "Feel free to implement this function"
 
