@@ -16,19 +16,16 @@ class PasswordHistory(DatabaseAccessor):
     """PasswordHistory does not enfoce that Entity is an Account as
     other things also may have passwords"""
 
-    def add_history(self, entity_id, password, entity_name=None, _csum=None):
-        """Add an entry to the password history.
+    def encode_for_history(self, account, password):
+        m = md5.md5("%s%s" % (account.account_name, password))
+        return base64.encodestring(m.digest())[:22]
 
-        entity_name may be used to emulate the old ureg2000 behaviour
-        where the password history was encoded as
-        md5base64(uname:plaintextpassword)"""
-        if entity_name is not None:
-            m = md5.md5("%i:%s" % (entity_name, password))
-        else:
-            m = md5.md5("%i:%s" % (entity_id, password))
-        csum = base64.encodestring(m.digest())[:22]
+    def add_history(self, account, password, _csum=None):
+        """Add an entry to the password history."""
         if _csum is not None:
             csum = _csum
+        else:
+            csum = encode_for_history(account, password)
         self.execute("""
         INSERT INTO [:table schema=cerebrum name=password_history]
           (entity_id, md5base64) VALUES (:e_id, :md5)""",
