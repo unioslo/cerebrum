@@ -1,0 +1,3 @@
+recursive-include contrib *.py
+recursive-include design *.sql
+# prune etc
