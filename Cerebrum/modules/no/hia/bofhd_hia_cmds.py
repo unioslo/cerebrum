@@ -169,6 +169,7 @@ class BofhdExtension(object):
         return self.all_commands[cmd].get_fs()
 
 
+
     #
     # access commands
     #
@@ -307,7 +308,24 @@ class BofhdExtension(object):
 
     # def _get_access_id_maildom(self, target_name):
         
-    # def _get_access_id_ou(self, target_name):
+    def _get_access_id_ou(self, target_name):
+	ou = self._get_ou(stedkode=ou)
+	return ou.entity_id, self.const.auth_target_type_ou
+
+    def _validate_access_ou(self, ou, attr):
+	# TODO: check if the opset is relevant for an ou
+	if attr is not None:
+	    raise CerebrumError, "Can't specify attribute for ou access"
+
+    def _get_access_id_global_ou(self, ou):
+	if ou != '':
+	    raise CerebrumError, "Cannot set OU for global access"
+	return None, self.const.auth_target_type_global_ou
+
+    def _validate_access_global_ou(self, ou, attr):
+	# TODO: check if the opset is relevant for an ou
+	if attr is not None:
+	    raise CerebrumError, "Can't specify attribute for ou access"
 
     # def _get_access_id_spread(self, target_name):
 
@@ -365,7 +383,6 @@ class BofhdExtension(object):
         if len(rows) == 0:
             ar.grant_auth(entity_id, opset.op_set_id, op_target_id)
             return "OK"
-        print "DEBUG", "hei"
         return "%s already has %s access to %s" % (entity_name, opset.name,
                                                    target_name)
 
@@ -380,8 +397,6 @@ class BofhdExtension(object):
         if len(rows) == 0:
             return "%s don't have %s access to %s" % (entity_name, opset.name,
                                                       target_name)
-        print ["%r" % x for x in (entity_id, opset, target_id, target_type,
-                                  attr, entity_name, target_name)]
         ar.revoke_auth(entity_id, opset.op_set_id, op_target_id)
         # See if the op_target has any references left, delete it if not.
         rows = ar.list(op_target_id=op_target_id)
