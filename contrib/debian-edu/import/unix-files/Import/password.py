@@ -128,9 +128,9 @@ class PasswdImport(ImportBase):
         try:
             self.account.clear()
             self.account.find_by_name(user_name)
-            print("User %s exists in Cerebrum", user_name)
+            print "User %s exists in Cerebrum" % user_name
         except Errors.NotFoundError:
-            print("User %s not found. Skipping.", user_name)
+            print "User %s not found. Skipping." % user_name
             return
         # yrt
 
@@ -138,10 +138,10 @@ class PasswdImport(ImportBase):
             self.posixuser.clear()
             self.posixuser.find_by_uid(int(uid))
             if self.posixuser.account_name == user_name:
-                print("User %s exists as PosixUser in Cerebrum", user_name)
+                print "User %s exists as PosixUser in Cerebrum"% user_name
             else:
-                print("User %s exists with uid: %s. We have: %s.",
-                            self.posixuser.account_name, self.posixuser.posix_uid, uid)
+                print "User %s exists with uid: %s. We have: %s." % \
+                            (self.posixuser.account_name, self.posixuser.posix_uid, uid)
             return
         except Errors.NotFoundError:
             pass
@@ -159,7 +159,7 @@ class PasswdImport(ImportBase):
             self.posixuser.clear()
             self.posixuser.populate(uid, self.posixgroup.entity_id, None, constants.posix_shell_tcsh, parent=account)
             self.posixuser.write_db()
-            print("User %s promoted with uid: %s", user_name, uid)
+            print "User %s promoted with uid: %s" % (user_name, uid)
         # yrt
     # end process_user
 

@@ -128,7 +128,7 @@ class GroupImport(ImportBase):
         try:
             self.posixgroup.clear()
             self.posixgroup.find_by_name(name)
-            print("Group |%s| exists.", name)
+            print "Group |%s| exists." % name
         except Errors.NotFoundError:
             self.posixgroup.populate(self.default_creator_id,
                                      self.constants.group_visibility_all,
@@ -139,7 +139,7 @@ class GroupImport(ImportBase):
                                      None,
                                      int(gid))
             self.posixgroup.write_db()
-            print("Created group |%s|.", name)
+            print "Created group |%s|." % name
 
             try:
                 self.group.clear()
@@ -147,11 +147,11 @@ class GroupImport(ImportBase):
                 if self.spread:
                     if not group.has_spread(self.spread):
                         self.group.add_spread(self.spread)
-                        print("Added spread |%s| to group |%s|.", self.spread, name)
+                        print "Added spread |%s| to group |%s|." ( self.spread, name)
                 self.group.write_db()
 
             except Errors.NotFoundError:
-                print("Group |%s| not found!", name)
+                print "Group |%s| not found!"% ( name)
 
     def addMembersToGroups(self, groups):
         """
@@ -168,7 +168,7 @@ class GroupImport(ImportBase):
             member_list = group_data['members']
 
             if member_list:
-                print("Adding members to group |%s|" % (group_name) )
+                print "Adding members to group |%s|" % (group_name) 
                 self.processMembers( group_name, member_list )
 
             if commit_count % commit_limit == 0:
