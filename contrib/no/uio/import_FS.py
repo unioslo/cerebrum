@@ -183,9 +183,9 @@ def process_person_callback(person_info):
                     'adresseland_job')
                 if address_info is None:
                     address_info = _ext_address_info(p,
-                        'adrlin1_hjemsted', 'adrlin2_hjemsted',
-                        'adrlin3_hjemsted', 'postnr_hjemsted',
-                        'adresseland_hjemsted')
+                        'adrlin1_hjem', 'adrlin2_hjem',
+                        'adrlin3_hjem', 'postnr_hjem',
+                        'adresseland_hjem')
             elif dta_type in ('tilbud',):
                 # TODO: adresse informasjon mangler i xml fila
                 pass
