@@ -123,15 +123,14 @@ class PosixUser(Account.Account):
         else:
             self.execute("""
             UPDATE [:table schema=cerebrum name=posix_user]
-            SET account_id=:a_id, posix_uid=:u_id, gid=:gid, gecos=:gecos,
+            SET posix_uid=:u_id, gid=:gid, gecos=:gecos,
                 shell=:shell
-            WHERE account_id=:orig_account_id""",
+            WHERE account_id=:a_id""",
                          {'a_id': self.entity_id,
                           'u_id': self.posix_uid,
                           'gid': self.gid,
                           'gecos': self.gecos,
-                          'shell': int(self.shell),
-                          'orig_account_id': as_object.account_id})
+                          'shell': int(self.shell)})
         del self.__in_db
         self.__in_db = True
         self.__updated = False
