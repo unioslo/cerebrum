@@ -29,6 +29,7 @@ from Cerebrum.modules import Email
 from Cerebrum.Utils import Factory, mark_update
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum.modules.bofhd.utils import BofhdRequests
+from Cerebrum.modules.LDIFutils import iso2utf
 
 class EmailLDAP(DatabaseAccessor):
     """The EmailLDAP class is used to gather methodes used to generate
@@ -188,7 +189,7 @@ class EmailLDAP(DatabaseAccessor):
                 if row['start_date'] <= cur and (row['end_date'] is None
                                                  or row['end_date'] >= cur):
                     enable = (row['enable'] == 'T')
-                self.targ2vacation[t_id] = (row['vacation_text'],
+                self.targ2vacation[t_id] = (iso2utf(row['vacation_text']),
                                             row['start_date'],
                                             row['end_date'],
                                             enable)

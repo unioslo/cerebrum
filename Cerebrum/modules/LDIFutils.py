@@ -90,7 +90,6 @@ def add_ldif_file(outfile, filename):
 
 
 def iso2utf(s):
-    """Not in use for the moment, remove this line if used """
     """Convert iso8859-1 to utf-8"""
     utf_str = unicode(s,'iso-8859-1').encode('utf-8')
     return utf_str
