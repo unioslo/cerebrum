@@ -138,6 +138,8 @@ def update_account(profile, account_ids, do_move=0, rem_grp=0, account_info={}):
         # TODO: spread
 
 def get_student_accounts():
+    if fast_test:
+        return {}
     account = Account.Account(db)
     person = Person.Person(db)
     for p in person.list_affiliations(source_system=const.system_fs,
@@ -153,6 +155,8 @@ def get_student_accounts():
                                       id_type=const.externalid_fodselsnr):
         pid2fnr[int(p['person_id'])] = p['external_id']
     for a in account.list_accounts_by_type(affiliation=const.affiliation_student):
+        if not pid2fnr.has_key(int(a['person_id'])):
+            continue
         ret.setdefault(pid2fnr[int(a['person_id'])], {}).setdefault(
             int(a['account_id']), []).append([ int(a['ou_id']), int(a['affiliation']) ])
     if debug:
@@ -226,51 +230,51 @@ def make_letters():
         out.write(th._footer)
         out.close()
 
+def process_students_callback(person_info):
+    fnr = fodselsnr.personnr_ok("%06d%05d" % (int(person_info['fodselsdato']),
+                                              int(person_info['personnr'])))
+    if debug > 1:
+        print "x" * 60
+        pp.pprint(person_info)
+    elif debug:
+        print "%s" % fnr,
+    try:
+        profile = autostud.get_profile(person_info)
+    except Errors.NotFoundError, msg:
+        print "  Error for %s: %s" %  (fnr, msg)
+        return
+    if fast_test:
+        print profile.debug_dump()
+        return
+    if debug:
+        print " disk=%s, dfg=%s, def_sko=%s, fg=%s sko=%s" % \
+              (profile._disk, profile.get_dfg(),
+              profile.get_grupper(),
+              profile.get_stedkoder())
+    try:
+        if create_users and not students.has_key(fnr):
+            students.setdefault(fnr, []).append(
+                create_user(fnr, profile))
+        if update_accounts and students.has_key(fnr):
+            update_account(profile, students[fnr].keys(),
+                           account_info=students[fnr])
+        if debug:
+            print
+    except ValueError, msg:  # TODO: Bad disk should throw a spesific class
+        print "  Error for %s: %s" % (fnr, msg)
+    
+
 def process_students(update_accounts=0, create_users=0):
     showtime("process_students started")
     students = get_student_accounts()
     showtime("got student accounts")
     
     global autostud
-    autostud = AutoStud.AutoStud(db, debug=debug)
+    autostud = AutoStud.AutoStud(db, debug=debug, cfg_file=studconfig_file)
     showtime("config processed")
-
-    for run_no in range(2):
-        if run_no == 0:
-            # First process active students
-            lst = autostud.get_topics_list(topics_file=topics_file) 
-        else:
-            # Deretter de som bare har et gyldig opptak
-            lst = autostud.get_studieprog_list(studieprogs_file=studieprogs_file)
-        showtime("topic xml parsed (%i)" % run_no)
-        for t in lst:
-            fnr = fodselsnr.personnr_ok("%06d%05d" % (int(t[0]['fodselsdato']),
-                                                      int(t[0]['personnr'])))
-            if run_no == 1 and students.has_key(fnr):
-                continue    # don't need to reserve if person already has an account
-            if debug:
-                print "%s" % fnr,
-            try:
-                profile = autostud.get_profile(t)
-            except Errors.NotFoundError, msg:
-                print "  Error for %s: %s" %  (fnr, msg)
-                continue
-            if debug:
-                print " disk=%s, dfg=%s, def_sko=%s, fg=%s sko=%s" % \
-                      (profile._disk, profile.get_dfg(),
-                      profile.get_email_sko(), profile.get_grupper(),
-                      profile.get_stedkoder())
-            try:
-                if create_users and not students.has_key(fnr):
-                    students.setdefault(fnr, []).append(create_user(fnr, profile, reserve=run_no))
-                elif update_accounts and run_no == 0 and students.has_key(fnr):
-                    # update_account must only be done on run_no = 0
-                    update_account(profile, students[fnr].keys(), account_info=students[fnr])
-                if debug:
-                    print
-            except ValueError, msg:  # TODO: Bad disk should throw a spesific class
-                print "  Error for %s: %s" % (fnr, msg)
-        showtime("topics processed")
+    autostud.start_student_callbacks(student_info_file,
+                                     process_students_callback)
+    showtime("student_info_file processed")
     db.commit()  # TBD: should we commit more frequently?
     showtime("making letters")
     make_letters()
@@ -282,12 +286,14 @@ def showtime(msg):
     prev_msgtime = time()
     
 def main():
-    opts, args = getopt.getopt(sys.argv[1:], 'dcut:s:',
+    opts, args = getopt.getopt(sys.argv[1:], 'dcut:s:C:',
                                ['debug', 'create-users', 'update-accounts',
-                                'topics-file=', 'studieprogs-file='])
-    global debug, topics_file, studieprogs_file
+                                'topics-file=', 'student-info-file=',
+                                'studconfig-file=', 'fast-test'])
+    global debug, topics_file, student_info_file, studconfig_file, fast_test
     update_accounts = create_users = 0
     studieprogs_file = topics_file = None
+    fast_test = False
     bootstrap()
     for opt, val in opts:
         if opt in ('-d', '--debug'):
@@ -298,8 +304,12 @@ def main():
             update_accounts = 1
         elif opt in ('-t', '--topics-file'):
             topics_file = val
-        elif opt in ('-s', '--studieprogs-file'):
-            studieprogs_file = val
+        elif opt in ('-s', '--student-info-file'):
+            student_info_file = val
+        elif opt in ('-C', '--studconfig-file'):
+            studconfig_file = val
+        elif opt in ('--fast-test',):  # Internal debug use ONLY!
+            fast_test = True
         else:
             usage()
     if(not update_accounts and not create_users):
@@ -311,8 +321,16 @@ def usage():
     -d | --debug: increases debug verbosity
     -c | -create-use : create new users
     -u | --update-accounts : update existing accounts
+    -t | --topics-file file:
+    -s | --student-info-file file:
+    -C | --studconfig-file file:
+
+./contrib/no/uio/process_students.py --fast-test -d -d -C ../uiocerebrum/etc/config/studconfig.xml -s ~/.usit.cerebrum.etc/fsprod/merged_info.xml -c
+
     """
     sys.exit(0)
 
 if __name__ == '__main__':
+    # AutoStud.AutoStud(db, debug=3, cfg_file="/home/runefro/usit/uiocerebrum/etc/config/studconfig.xml")
+
     main()

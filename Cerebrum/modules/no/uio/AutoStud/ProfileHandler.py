@@ -22,13 +22,43 @@ class Profile(object):
         full_account = 0
 
         self.matches = []
+        self.settings = {}
+        self.toplevel_settings = {}
         self._get_profile_matches(student_info)
+        self._resolve_matches()
 
-        # TODO: Sort matches and resolve singular attributes etc.
+    def _matches_sort(self, x, y):
+        if(x[1] == y[1]):
+            return cmp(x[0], y[0])
+        return cmp(y[1], x[1])
+
+    def _resolve_matches(self):
+        """Determine most significant value for singular values, and
+        fetch all other settings."""
+        self.matches.sort(self._matches_sort)
+        set_at = {}
+        for match in self.matches:
+            profile, nivaakode = match
+            for k in profile.settings.keys():
+                self._unique_extend(self.settings.setdefault(k, []),
+                                    profile.settings[k])
+                if set_at.get(k, nivaakode) == nivaakode:
+                    set_at[k] = nivaakode
+                    self._unique_extend(self.toplevel_settings.setdefault(k, []),
+                                        profile.settings[k])
+
+    def _unique_extend(self, list, values):
+        for item in values:
+            if item not in list:
+                list.append(item)
 
     def debug_dump(self):
         print "Dumping %i match entries" % len(self.matches)
         pp.pprint(self.matches)
+        print "Settings: "
+        pp.pprint(self.settings)
+        print "Toplevel: "
+        pp.pprint(self.toplevel_settings)
 
     def _get_profile_matches(self, student_info):
         """Check if student_info contains data of the type identified
@@ -73,63 +103,56 @@ class Profile(object):
             niva = 300
         return niva
 
-    def _topics_sort(self, x, y):
-        x = self._normalize_nivakode(x['studienivakode'])
-        y = self._normalize_nivakode(y['studienivakode'])
-        return cmp(y, x)
-        
     def get_disk(self, current_disk=None):
         """Return a disk_id matching the current profile.  If the
         account already exists, current_disk should be set to assert
         that the user is not moved to a new disk with the same
         prefix. (i.e from /foo/bar/u11 to /foo/bar/u12)"""
 
+        disks = self.toplevel_settings.get("disk", [])
         if current_disk is not None:
-            if self._disk.has_key('path'):
-                if self._disk['path'] == current_disk:
-                    return current_disk
-            else:
-                disk_path = self._autostud._disks[int(current_disk)][0]
-                if self._disk['prefix'] == disk_path[0:len(self._disk['prefix'])]:
-                    return current_disk
-        
-        if self._disk.has_key('path'):
+            for d in disks:
+                if d.has_key('path'):
+                    if d['path'] == current_disk:
+                        return current_disk
+                else:
+                    disk_path = self._autostud._disks[int(current_disk)][0]
+                    if d['prefix'] == disk_path[0:len(d['prefix'])]:
+                        return current_disk
+        disk = disks[0]
+        if disk.has_key('path'):
             # TBD: Should we ignore max_on_disk when path is explisitly set?
-            return self._disk['path']
+            return disk['path']
 
-        dest_pfix = self._disk['prefix']
-        max_on_disk = self._autostud.sp.disk_defs['prefix'][dest_pfix]['max']
+        dest_pfix = disk['prefix']
+        max_on_disk = self._autostud.pc.disk_defs['prefix'][dest_pfix]['max']
         if max_on_disk == -1:
             max_on_disk = 999999
-        for d in self._autostud._disks_order:
-            tmp_path, tmp_count = self._autostud._disks[d]
+        for d in self._autostud.disks_order:
+            tmp_path, tmp_count = self._autostud.disks[d]
             if (dest_pfix == tmp_path[0:len(dest_pfix)]
                 and tmp_count < max_on_disk):
                 return d
-        raise ValueError, "Bad disk %s" % self._disk
+        raise ValueError, "Bad disk %s" % disk
 
     def notify_used_disk(self, old=None, new=None):
         if old is not None:
-            self._autostud._disks[int(old)][1] -= 1
+            self._autostud.disks[int(old)][1] -= 1
         if new is not None:
-            self._autostud._disks[new][1] += 1
+            self._autostud.disks[new][1] += 1
 
     def get_stedkoder(self):
-        return self._flat_settings['stedkode']
+        return self.settings.get("stedkode", [])
 
     def get_dfg(self):
-        return self._dfg
+        return self.toplevel_settings['primarygroup'][0]
 
-    def get_email_sko(self):
-        return self._email_sko
-    
     def get_grupper(self):
-        return self._flat_settings['gruppe']
-
+        return self.settings.get('gruppe', [])
 
     def get_pquota(self):
         assert self._groups is not None
-        for m in self._flat_settings.get('printer_kvote', []):
+        for m in self.settings.get('printer_kvote', []):
             pass # TODO
         raise NotImplementedError, "TODO"
         

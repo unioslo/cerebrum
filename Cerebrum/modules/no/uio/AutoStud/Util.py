@@ -1,15 +1,13 @@
 # Copyright 2002, 2003 University of Oslo, Norway
 
 import xml.sax
-import re
-from Cerebrum import Group
-from Cerebrum.Constants import _SpreadCode
 
 import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
+from Cerebrum.Constants import _SpreadCode
+from Cerebrum import Group
 
-from Cerebrum import Disk
 import pprint
 pp = pprint.PrettyPrinter(indent=4)
 

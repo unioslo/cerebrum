@@ -8,8 +8,9 @@ from Cerebrum.modules.no.uio.AutoStud.Util import LookupHelper
 pp = pprint.PrettyPrinter(indent=4)
 
 class Config(object):
-    def __init__(self, db, cfg_file, debug=0):
+    def __init__(self, autostud, cfg_file, debug=0):
         self.debug = debug
+        self.autostud = autostud
         sp = StudconfigParser(self)
         self.disk_defs = {}
         self.group_defs = {}
@@ -17,7 +18,7 @@ class Config(object):
         xml.sax.parse(cfg_file, sp)
 
         # Generate select_mapping dict and expand super profiles
-        lookup_helper = LookupHelper(db)
+        lookup_helper = LookupHelper(autostud.db)
         profilename2profile = {}
         self.select_mapping = {}
         for p in self.profiles:
@@ -88,6 +89,8 @@ class ProfileDefinition(object):
                             use_id, {}).setdefault(tmp, []).append(self)
 
     def add_setting(self, name, attribs):
+        if name == "gruppe" and attribs.get("type", None) == "primary":
+            self.settings.setdefault("primarygroup", []).append(attribs)
         self.settings.setdefault(name, []).append(attribs)
 
     def add_selection_criteria(self, name, attribs):
@@ -108,7 +111,7 @@ class ProfileDefinition(object):
             self.spreads.append(lookup_helper.get_spread(spread['system']))
         self.groups = []
         for group in self.settings.get("gruppe", []):
-            # TODO: Should assert tthat entry is in group_defs
+            # TODO: Should assert that entry is in group_defs
             self.groups.append(lookup_helper.get_group(group['navn']))
         self.stedkoder = []
         for stedkode in self.settings.get("stedkode", []):
@@ -116,12 +119,16 @@ class ProfileDefinition(object):
         self.disk = None
         for disk in self.settings.get("disk", []):
             self.disk = disk
-            if disk.has_key('prefix'): # Assert that disk is in disk_defs
-                # TODO: Get max for disk
-                try:
-                    config.disk_defs['prefix'][disk['prefix']]
-                except KeyError:
-                    print "Warning: bad disk: %s" % disk['prefix']
+            for t in ('prefix', 'path'):
+                if disk.has_key(t): # Assert that disk is in disk_defs
+                    try:
+                        config.disk_defs[t][disk[t]]
+                    except KeyError:
+                        print "Warning: bad disk: %s=%s" % (t, disk[t])
+            if disk.has_key('path'):    # Store disk-id as path
+                for d in config.autostud.disks.keys():
+                    if config.autostud.disks[d][0] == disk['path']:
+                        disk['path'] = d
             break   # Only interested in the first disk
                 
 class StudconfigParser(xml.sax.ContentHandler):
