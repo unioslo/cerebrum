@@ -53,6 +53,8 @@ class LTData(object):
                     return self.info
                 self.prev_data = data
             elif what == 'KOMM':
+                if data[1] == '0': data[1] = ''
+                if len(data[2]) == 5 and not data[1]: data[1] = "228"
                 self.info['komm'] = self.info.get('komm', []) + [data]
             elif what == 'TILS':
                 self.info['tils'] = self.info.get('tils', []) + [data]
@@ -76,14 +78,38 @@ def main():
     pp = pprint.PrettyPrinter(indent=4)
     
     for person in LTData(personfile):
-        print "Got %s" % person['fnr']
-        pp.pprint(person)
+        print "Got %s" % person['fnr'],
+        # pp.pprint(person)
 
         if(fodselsnr.er_kvinne(person['fnr'])):
             gender = FEMALE
         else:
             gender = MALE
 
+        # Gå gjennom tils+bil for å finne riktig STEDKODE, og bruk denne
+        bigpros = 0
+        bigtitle = stedkode = ''
+        if person.has_key('tils'):
+            for tils in person['tils']:
+                t_stedkode, snr, skode, pros, t_title = tils[0:5]
+                if pros > bigpros:
+                    bigpros = pros
+                    bigtitle = t_title
+                    if t_stedkode[0] != 0: stedkode = t_stedkode
+        if stedkode == '' and person.has_key('bil'):
+            stedkode = person['bil'][0][0]
+        if stedkode == '':
+            stedkode = "%02d%02d%02d" % (int(person['faknr']), int(person['instnr']),
+                                    int(person['gruppenr']))
+
+        telefoner = faxer = []
+        if person.has_key("komm"):
+            telefoner = ["%s%s" % (t[1], t[2]) for t in person['komm'] if t[0] == 'ARBTLF']
+            telefoner = telefoner + [t[2] or t[1] for t in person['komm'] if t[0] == 'TLF']
+            faxer = [t[2] or t[1] for t in person['komm'] if t[0] == 'FAX']
+        if len(faxer) == 0:
+            pass            # TODO: Hente fax fra stedkode 
+            
         try:
             personObj.find_by_external_id('fodselsnr', person['fnr'])
             print " Already exists"
@@ -106,12 +132,16 @@ def main():
                                        person['adr2']),
                                       zip=person['poststednr'],
                                       city=person['poststednavn'])
-            if 0 and person['tlf_arb'].strip() != '':
-                personObj.add_entity_phone('LT', FAST_TELEFON, person['tlf_arb'])
+
+            for tlf in telefoner:
+                personObj.add_entity_phone('LT', FAST_TELEFON, tlf)
+            for fax in faxer:
+                pass   # Hvor skal fax lagres?  entity_contact_info?
                 
+
             if(person.has_key('faknr')):
                 try:
-                    ou.get_stedkode(int(person['faknr']), int(person['instnr']), int(person['gruppenr']))
+                    ou.get_stedkode(int(stedkode[0:2]), int(stedkode[2:4]), int(stedkode[4:6]))
                     # TODO: Not sure how status/code is supposed to be used
                     personObj.set_affiliation(ou.ou_id, 'valid')
                 except:
