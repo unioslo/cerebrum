@@ -531,7 +531,7 @@ class BofhdAuth(DatabaseAccessor):
         return self._query_disk_permissions(operator,
                                             self.const.auth_remove_user,
                                             self._get_disk(account.disk_id),
-                                            account.entiy_id)
+                                            account.entity_id)
     
     def can_set_gecos(self, operator, account=None,
                       query_run_any=False):
