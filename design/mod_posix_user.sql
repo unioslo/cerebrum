@@ -59,10 +59,10 @@ CREATE TABLE posix_user (
 		CONSTRAINT posix_user_pk PRIMARY KEY
                 CONSTRAINT posix_user_account_id
                   REFERENCES account_info(account_id),
-  uid           NUMERIC(12,0)
+  posix_uid     NUMERIC(12,0)
 		NOT NULL
                 CONSTRAINT posix_user_uid_chk
-                  CHECK (uid >= 0 AND uid <= 2147483647)
+                  CHECK (posix_uid >= 0 AND posix_uid <= 2147483647)
 		CONSTRAINT posix_user_uid_unique UNIQUE,
   gid           NUMERIC(12,0)
 		NOT NULL
