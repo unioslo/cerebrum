@@ -13,6 +13,8 @@ import java.io.EOFException;
 import org.apache.log4j.Category;
 import java.io.IOException;
 import java.text.ParseException;
+import javax.swing.JOptionPane;
+
 
 /**
  *
@@ -20,16 +22,21 @@ import java.text.ParseException;
  */
 public class CommandLine {
     Category logger;
-    
+    JBofh jbofh;
+    boolean isBlocking = false;
+
     /** Creates a new instance of CommandLine */
-    public CommandLine(Category logger) {
-        Readline.initReadline("myapp");
-        this.logger = logger;
-        Runtime.getRuntime().addShutdownHook(new Thread() {
-            public void run() {
-                Readline.cleanup();
-            }
-        });
+    public CommandLine(Category logger, JBofh jbofh) {
+	this.jbofh = jbofh;
+	if(! (jbofh != null && jbofh.guiEnabled)) {
+	    Readline.initReadline("myapp");
+	    this.logger = logger;
+	    Runtime.getRuntime().addShutdownHook(new Thread() {
+		    public void run() {
+			Readline.cleanup();
+		    }
+		});
+	}
     }
 
     /**
@@ -91,6 +98,29 @@ public class CommandLine {
     }
     
     String promptArg(String prompt, boolean addHist) throws IOException {
+	if(jbofh.guiEnabled) {
+	    /* We lock the current thread so that execution does not
+	     * continue until JBofh.actionPerformed releases the
+	     * lock  */
+	    jbofh.lbPrompt.setText(prompt);
+	    jbofh.tfCmdLine.requestFocusInWindow();
+	    synchronized (jbofh.tfCmdLine.getTreeLock()) {
+		while (true) {
+		    try {
+			isBlocking = true;
+			jbofh.tfCmdLine.getTreeLock().wait();
+			String text = jbofh.tfCmdLine.getText();
+			jbofh.showMessage(prompt+text, true);
+			jbofh.tfCmdLine.setText("");
+			// If we don't set the caret position, requestFocus failes
+			jbofh.tfCmdLine.setCaretPosition(0);
+			return text;
+		    } catch (InterruptedException e) {
+			return null;
+		    }
+		}
+	    }
+	}
         while (true) {
 	    Vector oldHist = new Vector();
 	    // A readline thingy where methods were non-static would have helped a lot.
@@ -119,7 +149,7 @@ public class CommandLine {
 	    "en liten (test av) dette) her",
 	    "mer (enn du(skulle tro))"
 	};
-        CommandLine cLine = new CommandLine(Category.getInstance(CommandLine.class));
+        CommandLine cLine = new CommandLine(Category.getInstance(CommandLine.class), null);
 	for(int j = 0; j < tests.length; j++) {
 	    System.out.println("split: --------"+tests[j]+"-----------");
 	    try {
