@@ -150,9 +150,9 @@ def now():
 
 #Shared procedures for adsync and adquicksync.
 
-def get_user_info(account_id, account_name):
+def get_user_info(account_id, account_name, spread):
 
-    home_dir = find_home_dir(account_id, account_name)
+    home_dir = find_home_dir(account_id, account_name, spread)
     login_script = find_login_script(account_name)
         
     account.clear()
