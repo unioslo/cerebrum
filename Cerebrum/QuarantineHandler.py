@@ -35,6 +35,8 @@ import cereconf
 from Cerebrum.Constants import _QuarantineCode
 
 class QuarantineHandler(object):
+    __slots__ = 'quarantines'
+
     rules = {}
     def __init__(self, database, quarantines):
         if len(self.rules) == 0:
