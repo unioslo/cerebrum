@@ -102,8 +102,8 @@ class Constants(Constants.Constants):
     # should be before PosixUser in cereconf.CLASS_CONSTANTS
 
 # DEFINISJON AV SHELL 
-    posix_shell_bash = _PosixShellCode('bash', '/local/gnu/bin/bash')
-    posix_shell_tcsh = _PosixShellCode('tcsh', '/bin/bash')
+    posix_shell_bash = _PosixShellCode('bash', '/bin/bash')
+    posix_shell_tcsh = _PosixShellCode('tcsh', '/bin/tcsh')
     posix_shell_csh = _PosixShellCode('csh', '/bin/csh')
     posix_shell_sh = _PosixShellCode('sh', '/bin/sh')
 
