@@ -9,6 +9,22 @@
 Configuration
 =============
 
+TODO: we need to read through table descriptions in design/core_tables.sql
+TODO: This section needs a re-write. The file should look something like this:
+
+* The ``Cerebrum.default_config`` module - general description, shorter
+* The ``cereconf`` module - general description, shorter
+* Common configuration parameters:
+  
+   - examples of use of configuration parameters in configuration of own
+     Cerebrum instalation
+   - description/illustration of usage of default values/overriding of
+     parameters to gain flexibility/change the behavior of Cerebrum
+   - detailed description of the most important parameters and their
+     function
+   - a reference to default_config.py for more information on other 
+     parameters.
+
 The ``Cerebrum.default_config`` module
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Cerebrum has fairly large number of configurable parameters that may
