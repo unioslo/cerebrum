@@ -188,13 +188,22 @@ class BofhdExtension(object):
     #
 
     # access disk <path>
-    # access email_domain <address>
+    all_commands['access_disk'] = Command(
+        ('access', 'disk'),
+        DiskId(),
+        fs=FormatSuggestion("%-16s %-9s %s",
+                            ("opset", "type", "name"),
+                            hdr="%-16s %-9s %s" %
+                            ("Operation set", "Type", "Name")))
+    def access_disk(self, operator, host):
+        return self._list_access("disk", host)
+
     # access group <group>
     all_commands['access_group'] = Command(
         ('access', 'group'),
         GroupName(),
-        fs=FormatSuggestion("%13s  %-9s %s", ("opset", "type", "name"),
-                            hdr="%13s  %-9s %s" %
+        fs=FormatSuggestion("%-16s %-9s %s", ("opset", "type", "name"),
+                            hdr="%-16s %-9s %s" %
                             ("Operation set", "Type", "Name")))
     def access_group(self, operator, group):
         return self._list_access("group", group)
@@ -203,19 +212,135 @@ class BofhdExtension(object):
     all_commands['access_host'] = Command(
         ('access', 'host'),
         SimpleString(help_ref="string_host"),
-        fs=FormatSuggestion("%13s  %-10s %-9s %-20s",
+        fs=FormatSuggestion("%-16s %-16s %-9s %s",
                             ("opset", "attr", "type", "name"),
-                            hdr="%13s  %-10s %-9s %-20s" %
+                            hdr="-%16s %-16s %-9s %s" %
                             ("Operation set", "Pattern", "Type", "Name")))
     def access_host(self, operator, host):
         return self._list_access("host", host)
 
-    # access ou <ou>
-    # access person <account>
-    # access spread <spread>
-    # access user <account>
+    # access maildom <maildom>
+    all_commands['access_maildom'] = Command(
+        ('access', 'maildom'),
+        SimpleString(help_ref="email_domain"),
+        fs=FormatSuggestion("%-16s %-9s %s",
+                            ("opset", "type", "name"),
+                            hdr="%-16s %-9s %s" %
+                            ("Operation set", "Type", "Name")))
+    def access_maildom(self, operator, maildom):
+        return self._list_access("maildom", maildom)
 
-    def _list_access(self, target_type, target_name, decode_attr=str):
+    # access person <account>
+    
+    # access ou <ou>
+    all_commands['access_ou'] = Command(
+        ('access', 'ou'),
+        OU(),
+        fs=FormatSuggestion("%-16s %-16s %-9s %s",
+                            ("opset", "attr", "type", "name"),
+                            hdr="%-16s %-16s %-9s %s" %
+                            ("Operation set", "Affiliation", "Type", "Name")))
+    def access_ou(self, operator, ou):
+        return self._list_access("ou", ou)
+
+    # access user <account>
+    #
+    # This is more tricky, we want to show anyone with access, through
+    # OU, host or disk.  (not global_XXX, though.)
+    #
+    # Note that there is no auth-type "account", so you can't be
+    # granted direct access to a specific user.
+    #
+    all_commands['access_user'] = Command(
+        ('access', 'user'),
+        AccountName(),
+        fs=FormatSuggestion("%-14s %-5s %-20s %-7s %-9s %s",
+                            ("opset", "target_type", "target", "attr",
+                             "type", "name"),
+                            hdr="%-14s %-5s %-20s %-7s %-9s %s" %
+                            ("Operation set", "TType", "Target", "Attr",
+                             "Type", "Name")))
+    def access_user(self, operator, user):
+        acc = self._get_account(user)
+        # Make lists of the disks and hosts associated with the user
+        disks = {}
+        hosts = {}
+        disk = Utils.Factory.get("Disk")(self.db)
+        for r in acc.get_homes():
+            disk_id = int(r['disk_id'])
+            if not disk_id in disks:
+                disk.find(disk_id)
+                disks[disk_id] = disk.path
+                host_id = int(disk.host_id)
+                if host_id is not None:
+                    basename = disk.path.split("/")[-1]
+                    hosts.setdefault(host_id, []).append(basename)
+        # Look through disks
+        ret = []
+        for d in disks.keys():
+            for entry in self._list_access("disk", d, empty_result=[]):
+                entry['target_type'] = "disk"
+                entry['target'] = disks[d]
+                ret.append(entry)
+        # Look through hosts:
+        for h in hosts.keys():
+            for candidate in self._list_access("host", h, empty_result=[]):
+                candidate['target_type'] = "host"
+                candidate['target'] = self._get_host(h).name
+                if candidate['attr'] == "":
+                    ret.append(candidate)
+                    continue
+                for dir in hosts[h]:
+                    if re.match(candidate['attr'], dir):
+                        ret.append(candidate)
+                        break
+        # TODO: check user's ou(s)
+        ret.sort(lambda x,y: (cmp(x['opset'].lower(), y['opset'].lower()) or
+                              cmp(x['name'], y['name'])))
+        return ret
+
+    # access global_group
+    all_commands['access_global_group'] = Command(
+        ('access', 'global_group'),
+        fs=FormatSuggestion("%-16s %-9s %s", ("opset", "type", "name"),
+                            hdr="%-16s %-9s %s" %
+                            ("Operation set", "Type", "Name")))
+    def access_global_group(self, operator):
+        return self._list_access("global_group")
+
+    # access global_host
+    all_commands['access_global_host'] = Command(
+        ('access', 'global_host'),
+        fs=FormatSuggestion("%-16s %-9s %s",
+                            ("opset", "type", "name"),
+                            hdr="%-16s %-9s %s" %
+                            ("Operation set", "Type", "Name")))
+    def access_global_host(self, operator):
+        return self._list_access("global_host")
+    
+    # access global_maildom
+    all_commands['access_global_maildom'] = Command(
+        ('access', 'global_maildom'),
+        fs=FormatSuggestion("%-16s %-9s %s",
+                            ("opset", "type", "name"),
+                            hdr="%-16s %-9s %s" %
+                            ("Operation set", "Type", "Name")))
+    def access_global_maildom(self, operator):
+        return self._list_access("global_maildom")
+
+    # access global_ou
+    all_commands['access_global_ou'] = Command(
+        ('access', 'global_ou'),
+        fs=FormatSuggestion("%-16s %-16s %-9s %s",
+                            ("opset", "attr", "type", "name"),
+                            hdr="%-16s %-16s %-9s %s" %
+                            ("Operation set", "Affiliation", "Type", "Name")))
+    def access_global_ou(self, operator):
+        return self._list_access("global_ou")
+
+
+    def _list_access(self, target_type, target_name=None, decode_attr=str,
+                     empty_result="None"):
         target_id, target_type = self._get_access_id(target_type, target_name)
         ret = []
         ar = BofhdAuthRole(self.db)
@@ -237,7 +362,7 @@ class BofhdExtension(object):
                             'name': self._get_name_from_object(ety)})
         ret.sort(lambda a,b: (cmp(a['attr'], b['attr']) or
                               cmp(a['name'], b['name'])))
-        return ret or "None"
+        return ret or empty_result
 
 
     # access grant <opset name> <who> <type> <on what> [<attr>]
@@ -270,6 +395,17 @@ class BofhdExtension(object):
 
     def _manipulate_access(self, change_func, operator, opset, group,
                            entity_type, target_name, attr):
+        
+        """This function does no validation of types itself.  It uses
+        _get_access_id() to get a (target_type, entity_id) suitable for
+        insertion in auth_op_target.  Additional checking for validity
+        is done by _validate_access().
+
+        Those helper functions look for a function matching the
+        target_type, and call it.  There should be one
+        _get_access_id_XXX and one _validate_access_XXX for each known
+        target_type."""
+        
         if not self.ba.is_superuser(operator.get_entity_id()):
             raise PermissionDenied("Currently limited to superusers")
         opset = self._get_opset(opset)
@@ -278,6 +414,7 @@ class BofhdExtension(object):
         self._validate_access(entity_type, opset, attr)
         return change_func(gr.entity_id, opset, target_id, target_type, attr,
                            group, target_name)
+
 
     def _get_access_id(self, target_type, target_name):
         func_name = "_get_access_id_%s" % target_type
@@ -306,6 +443,14 @@ class BofhdExtension(object):
         if attr is not None:
             raise CerebrumError, "Can't specify attribute for group access"
 
+    def _get_access_id_global_group(self, group):
+        if group is not None and group <> "":
+            raise CerebrumError, "Cannot set domain for global access"
+        return None, self.const.auth_target_type_global_group
+    def _validate_access_global_group(self, opset, attr):
+        if attr is not None:
+            raise CerebrumError, "Can't specify attribute for global group"
+
     def _get_access_id_host(self, target_name):
         target = self._get_host(target_name)
         return target.entity_id, self.const.auth_target_type_host
@@ -319,33 +464,98 @@ class BofhdExtension(object):
             except re.error, e:
                 raise CerebrumError, ("Syntax error in regexp: %s" % e)
 
+    def _get_access_id_global_host(self, target_name):
+        if target_name is not None and target_name <> "":
+            raise CerebrumError, ("You can't specify a hostname")
+        return None, self.const.auth_target_type_global_host
+    def _validate_access_global_host(self, opset, attr):
+        if attr is not None:
+            raise CerebrumError, ("You can't specify a pattern with "
+                                  "global_host.")
+
+    def _get_access_id_maildom(self, dom):
+        ed = self._get_email_domain(dom)
+        return ed.email_domain_id, self.const.auth_target_type_maildomain
+    def _validate_access_maildom(self, opset, attr):
+        if attr is not None:
+            raise CerebrumError, ("No attribute with maildom.")
+
+    def _get_access_id_global_maildom(self, dom):
+        if dom is not None and dom <> '':
+            raise CerebrumError, "Cannot set domain for global access"
+        return None, self.const.auth_target_type_global_maildomain
+    def _validate_access_global_maildom(self, opset, attr):
+        if attr is not None:
+            raise CerebrumError, ("No attribute with global maildom.")
+
     def _get_access_id_ou(self, ou):
         ou = self._get_ou(stedkode=ou)
         return ou.entity_id, self.const.auth_target_type_ou
-    def _validate_access_ou(self, ou, attr):
-        try:
-            int(self.const.PersonAffiliation(attr))
-        except Errors.NotFoundError:
-            raise CerebrumError, "Must specify affiliation for ou access"
+    def _validate_access_ou(self, opset, attr):
+        if attr is not None:
+            try:
+                int(self.const.PersonAffiliation(attr))
+            except Errors.NotFoundError:
+                raise CerebrumError, "Unknown affiliation '%s'" % attr
 
     def _get_access_id_global_ou(self, ou):
         if ou is not None and ou != '':
             raise CerebrumError, "Cannot set OU for global access"
         return None, self.const.auth_target_type_global_ou
-    def _validate_access_global_ou(self, ou, attr):
+    def _validate_access_global_ou(self, opset, attr):
         try:
             int(self.const.PersonAffiliation(attr))
         except Errors.NotFoundError:
+            # This is a policy decision, and should probably be
+            # elsewhere.
             raise CerebrumError, "Must specify affiliation for global ou access"
 
-    # def _get_access_id_maildom(self, target_name):
-        
-    # def _get_access_id_ou(self, target_name):
-
-    # def _get_access_id_spread(self, target_name):
-
+    # access list entity
+    # list the permissions entity has.
 
     # access list_opsets
+    all_commands['access_list_opsets'] = Command(
+        ('access', 'list_opsets'),
+        fs=FormatSuggestion("%s", ("opset",),
+                            hdr="Operation set"))
+    def access_list_opsets(self, operator):
+        baos = BofhdAuthOpSet(self.db)
+        ret = []
+        for r in baos.list():
+            ret.append({'opset': r['name']})
+        ret.sort(lambda x, y: cmp(x['opset'].lower(), y['opset'].lower()))
+        return ret
+
+    # access show_opset <opset name>
+    all_commands['access_show_opset'] = Command(
+        ('access', 'show_opset'),
+        OpSet(),
+        fs=FormatSuggestion("%-16s %-16s %s",
+                            ("op", "attr", "desc"),
+                            hdr="%-16s %-16s %s" %
+                            ("Operation", "Attribute", "Description")))
+    def access_show_opset(self, operator, opset=None):
+        baos = BofhdAuthOpSet(self.db)
+        try:
+            baos.find_by_name(opset)
+        except Errors.NotFoundError:
+            raise CerebrumError, "Unknown operation set: '%s'" % opset
+        ret = []
+        for r in baos.list_operations():
+            entry = {'op': str(self.const.AuthRoleOp(r['op_code'])),
+                     'desc': self.const.AuthRoleOp(r['op_code']).description}
+            attrs = []
+            for r2 in baos.list_operation_attrs(r['op_id']):
+                attrs += [r2['attr']]
+            if not attrs:
+                attrs = [""]
+            for a in attrs:
+                entry_with_attr = entry.copy()
+                entry_with_attr['attr'] = a
+                ret += [entry_with_attr]
+        ret.sort(lambda x,y: cmp(x['op'], y['op']) or cmp(x['attr'], y['attr']))
+        return ret
+
 
     # for phase 2, something like:
     # access create_opset <opset name> <op>+
@@ -4757,7 +4967,10 @@ class BofhdExtension(object):
     def _get_host(self, name):
         host = Utils.Factory.get('Host')(self.db)
         try:
-            host.find_by_name(name)
+            if isinstance(name, int):
+                host.find(name)
+            else:
+                host.find_by_name(name)
             return host
         except Errors.NotFoundError:
             raise CerebrumError, "Unknown host: %s" % name
@@ -4957,12 +5170,19 @@ class BofhdExtension(object):
 
     def _get_disk_or_home(self, home):
         host = None
+        disk = Utils.Factory.get('Disk')(self.db)
+        if isinstance(home, int):
+            try:
+                disk.find(home)
+                return home, None
+            except Errors.NotFoundError:
+                return None, None
+
         if home.find(":") != -1:
             host, path = home.split(":")
             return None, ':'+path   # We currently don't use the host part
         else:
             path = home
-        disk = Utils.Factory.get('Disk')(self.db)
         try:
             disk.find_by_path(path, host)
             disk_id = disk.entity_id

@@ -38,12 +38,32 @@ command_help = {
        "Grant authorisation to perform the operations in opset "
        "<set> on <entity> of type <type> to the members of group <group>.  "
        "The meaning of <attr> depends on <type>.",
+    'access_disk':
+       "List who's authorised to operate on disk <disk>",
+    'access_global_group':
+       "List who's authorised to operate on all groups",
+    'access_global_host':
+       "List who's authorised to operate on all hosts",
+    'access_global_maildom':
+       "List who's authorised to operate on all e-mail domains",
+    'access_global_ou':
+       "List who's authorised to operate on all OUs",
     'access_group':
        "List who's authorised to operate on group <gname>",
     'access_host':
        "List who's authorised to operate on host <hostname>",
+    'access_list_opsets':
+       "List all operation sets",
+    'access_maildom':
+       "List who's authorised to operate on e-mail domain <domain>",
+    'access_ou':
+       "List who's authorised to operate on OU <ou>",
     'access_revoke':
        "Revoke authorisation",
+    'access_show_opset':
+       "List the operations included in the operation set",
+    'access_user':
+       "List who's authorised to operate on account <uname>",
     },
     'email': {
     "email_add_address":
