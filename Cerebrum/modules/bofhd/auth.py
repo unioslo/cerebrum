@@ -454,6 +454,14 @@ class BofhdAuth(DatabaseAccessor):
         if query_run_any:
             return False
         raise PermissionDenied("Currently limited to superusers")
+    
+    def can_search_group(self, operator, query_run_any=False):
+        if self.is_superuser(operator):
+            return True
+        if query_run_any:
+            # What !"#!"# does this mean..?
+            return False
+        raise PermissionDenied("Currently limited to superusers")
 
     
     # TODO: spread perms should be stored in auth_op_attrs for legal
