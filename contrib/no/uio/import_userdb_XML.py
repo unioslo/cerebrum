@@ -208,10 +208,10 @@ def import_groups(groupfile, fill=0):
         tmpg2.clear()
         tmpg2.find(g['group_id'])
         u, i, d = tmpg2.list_members()
-        group_has_member[g['group_id']] = {}
+        group_has_member[int(g['group_id'])] = {}
         for t, rows in ('union', u), ('inters.', i), ('diff', d):
             for r in rows:
-                group_has_member[g['group_id']][r[1]] = 1
+                group_has_member[int(g['group_id'])][int(r[1])] = 1
 
     # Note: File and netgroups are merged
     for group in GroupData(groupfile):
@@ -267,12 +267,12 @@ def import_groups(groupfile, fill=0):
                         group_group.setdefault(groupObj.entity_id, []).append(m['name'])
                         continue
 
-                    if not group_has_member.get(destination.entity_id, {}
-                                                ).has_key(account.entity_id):
+                    if not group_has_member.get(int(destination.entity_id), {}
+                                                ).has_key(int(account.entity_id)):
                         destination.add_member(account.entity_id, account.entity_type,
                                                co.group_memberop_union);
-                        group_has_member.setdefault(destination.entity_id, {}
-                                                    )[account.entity_id] = 1
+                        group_has_member.setdefault(int(destination.entity_id), {}
+                                                    )[int(account.entity_id)] = 1
                     print "A",
                 except Errors.NotFoundError:
                     print "n",
