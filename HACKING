@@ -1,0 +1,4 @@
+Run this on the CVS source to get a compilable version:
+
+  aclocal; autoconf
+  ./configure
