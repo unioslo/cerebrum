@@ -255,6 +255,7 @@ def write_betalt_papir_info(outfile):
     f.write(xml.xml_hdr + "<data>\n")
     cols, dta = fs.GetStudBetPapir()
     for t in dta:
+        fix_float(t)
         f.write(xml.xmlify_dbrow(t, xml.conv_colnames(cols), 'betalt') + "\n")
     f.write("</data>\n")
 
