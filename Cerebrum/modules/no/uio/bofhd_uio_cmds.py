@@ -269,7 +269,8 @@ class BofhdExtension(object):
                 ttype = et.email_target_type
                 if (ttype == self.const.email_target_Mailman):
                     return self._email_info_mailman(uname, et)
-                elif (ttype == self.const.email_target_account):
+                elif (ttype == self.const.email_target_account or
+                      ttype == self.const.email_target_deleted):
                     acc = self._get_account(et.email_target_entity_id,
                                             idtype = 'id')
                 else:
@@ -291,16 +292,21 @@ class BofhdExtension(object):
     def _email_info_basic(self, acc):
         info = {}
         info["account"] = acc.account_name
-        est = Email.EmailServerTarget(self.db)
-        est.find_by_entity(acc.entity_id)
-        es = Email.EmailServer(self.db)
-        es.find(est.email_server_id)
-        info["server"] = es.name
-        type = int(es.email_server_type)
-        info["server_type"] = str(Email._EmailServerTypeCode(type))
-        info["def_addr"] = acc.get_primary_mailaddress()
         et = Email.EmailTarget(self.db)
         et.find_by_entity(acc.entity_id)
+        if et.email_target_type == self.const.email_target_deleted:
+            info["server"] = "<none>"
+            info["server_type"] = "N/A"
+            info["def_addr"] = "<deleted>"
+        else:
+            est = Email.EmailServerTarget(self.db)
+            est.find_by_entity(acc.entity_id)
+            es = Email.EmailServer(self.db)
+            es.find(est.email_server_id)
+            info["server"] = es.name
+            type = int(es.email_server_type)
+            info["server_type"] = str(Email._EmailServerTypeCode(type))
+            info["def_addr"] = acc.get_primary_mailaddress()
         addrs = []
         for r in et.get_addresses(special=False):
             addrs.append(r['local_part'] + '@' + r['domain'])
@@ -351,7 +357,10 @@ class BofhdExtension(object):
         local_copy = ""
         ef = Email.EmailForward(self.db)
         ef.find_by_entity(acc.entity_id)
-        prim = acc.get_primary_mailaddress()
+        if ef.email_target_type == self.const.email_target_deleted:
+            prim = "<deleted>"
+        else:
+            prim = acc.get_primary_mailaddress()
         for r in ef.get_forward():
             if r['enable'] == 'T':
                 enabled = "on"
@@ -620,13 +629,13 @@ class BofhdExtension(object):
         change = False
         try:
             eq.find_by_entity(acc.entity_id)
-            if eq.get_quota_hard() <> hquota:
+            if eq.email_quota_hard <> hquota:
                 change = True
             eq.email_quota_hard = hquota
             eq.email_quota_soft = squota
         except Errors.NotFoundError:
-            # not sure if this can happen, but...
-            eq.populate(squota, hquota, parent=et.email_target_id)
+            eq.clear()
+            eq.populate(squota, hquota, parent=et)
             change = True
         eq.write_db()
         if change:
