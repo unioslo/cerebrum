@@ -25,6 +25,31 @@
 This file is a HiA-specific extension of Cerebrum. It contains code which
 imports person SAP-specific information into Cerebrum.
 
+Import file format.  The files are semicolon (;) separated, counting
+from 0 to 36.
+
+ Field  Description
+    0   SAP person ID
+    3   Name initials
+    4   SSN / norwegian fødselsnr
+    5   Birth date
+    6   First name
+    7   Middle name
+    8   Last name
+   12   Contact phone private
+   13   Contact phone
+   14   Contact phone cellular
+   15   Contact phone cellular - private
+   18   Bostedsadr. C/O
+   19   Bostedsadr. Gate
+   20   Bostedsadr. husnr.
+   21   Bostedsadr. Tillegg
+   22   Bostedsadr. Poststed
+   23   Bostedsadr. postnr.
+   24   Bostedsadr. Land
+   25   Forretningsområde ID
+   28   Work title
+
 FIXME: I wonder if the ID lookup/population logic might fail in a subtle
 way, should an update process (touching IDs) run concurrently with this
 import.
