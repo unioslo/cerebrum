@@ -94,9 +94,10 @@ WHERE  p.fodselsdato=s.fodselsdato AND
         qry = """
 SELECT DISTINCT
       s.fodselsdato, s.personnr, sp.studieprogramkode,
-      sps.studieretningkode, sps.terminkode_kull, sps.arstall_kull
+      sps.studieretningkode, sps.terminkode_kull, sps.arstall_kull, 
+      e.faknr_reglement, e.instituttnr_reglement, e.gruppenr_reglement
 FROM fs.studieprogram sp, fs.studieprogramstudent sps, fs.student s,
-     fs.registerkort r, fs.eksamensmelding em,
+     fs.registerkort r, fs.eksamensmelding em, fs.emne e,
      fs.emne_i_studieprogram es
 WHERE s.fodselsdato=r.fodselsdato AND
       s.personnr=r.personnr AND
@@ -106,6 +107,8 @@ WHERE s.fodselsdato=r.fodselsdato AND
       s.personnr=em.personnr AND
       es.studieprogramkode=sp.studieprogramkode AND
       em.emnekode=es.emnekode AND
+      em.emnekode=e.emnekode AND
+      em.versjonskode=e.versjonskode AND
       sps.status_privatist='N' AND 
       sps.studieprogramkode=sp.studieprogramkode AND
       r.regformkode IN ('STUDWEB','DOKTORREG','MANUELL') AND
@@ -116,15 +119,18 @@ UNION """ %(self._get_termin_aar(only_current=1))
         qry = qry + """
 SELECT DISTINCT
       s.fodselsdato, s.personnr, sp.studieprogramkode,
-      sps.studieretningkode, sps.terminkode_kull, sps.arstall_kull
+      sps.studieretningkode, sps.terminkode_kull, sps.arstall_kull,
+      e.faknr_reglement, e.instituttnr_reglement, e.gruppenr_reglement
 FROM fs.studieprogram sp, fs.studieprogramstudent sps, fs.student s,
-     fs.registerkort r, fs.eksamensmelding em
+     fs.registerkort r, fs.eksamensmelding em, fs.emne e
 WHERE sps.studieprogramkode = 'ENKELTEMNE' AND
       s.fodselsdato=r.fodselsdato AND
       s.personnr=r.personnr AND
       s.fodselsdato=sps.fodselsdato AND
       s.personnr=sps.personnr AND
       s.fodselsdato=em.fodselsdato AND
+      em.emnekode=e.emnekode AND
+      em.versjonskode=e.versjonskode AND     
       s.personnr=em.personnr AND
       sps.status_privatist='N' AND 
       sps.studieprogramkode=sp.studieprogramkode AND
@@ -136,16 +142,21 @@ UNION """ %(self._get_termin_aar(only_current=1))
         qry = qry + """
 SELECT DISTINCT
      s.fodselsdato, s.personnr, sp.studieprogramkode,
-     sps.studieretningkode, sps.terminkode_kull, sps.arstall_kull
-FROM fs.student s, fs.studieprogramstudent sps,
-     fs.studprogstud_planbekreft r, fs.studieprogram sp
+     sps.studieretningkode, sps.terminkode_kull, sps.arstall_kull,
+     e.faknr_reglement, e.instituttnr_reglement, e.gruppenr_reglement
+FROM fs.student s, fs.studieprogramstudent sps, fs.eksamensmelding em, 
+     fs.emne e, fs.studprogstud_planbekreft r, fs.studieprogram sp
 WHERE s.fodselsdato=sps.fodselsdato AND
       s.personnr=sps.personnr AND
       s.fodselsdato=r.fodselsdato AND
       s.personnr=r.personnr AND
+      s.fodselsdato=em.fodselsdato AND
+      s.personnr=em.personnr AND
       sps.studieprogramkode=sp.studieprogramkode AND
       sp.status_utdplan='J' AND
-      sps.status_privatist='N' AND     
+      sps.status_privatist='N' AND
+      em.emnekode=e.emnekode AND
+      em.versjonskode=e.versjonskode AND        
       r.studieprogramkode=sps.studieprogramkode AND
       NVL(sps.dato_studierett_gyldig_til,SYSDATE) >= sysdate AND
       r.dato_bekreftet < SYSDATE AND
@@ -155,15 +166,18 @@ UNION""" %(self.year, self.semester)
 
         qry = qry + """
 SELECT DISTINCT sp.fodselsdato, sp.personnr, sps.studieprogramkode,
-      sps.studieretningkode, sps.terminkode_kull, sps.arstall_kull
+      sps.studieretningkode, sps.terminkode_kull, sps.arstall_kull,
+      e.faknr_reglement, e.instituttnr_reglement, e.gruppenr_reglement
 FROM fs.studentseksprotokoll sp, fs.studieprogramstudent sps,
-     fs.emne_i_studieprogram es
+     fs.emne_i_studieprogram es, fs.emne e
 WHERE sp.arstall >= %s AND
       (%s <= 6 OR sp.manednr > 6 ) AND
       sp.fodselsdato = sps.fodselsdato AND
       sp.personnr    = sps.personnr AND
       sp.institusjonsnr = '185' AND
       sp.emnekode = es.emnekode AND
+      sp.emnekode=e.emnekode AND
+      sp.versjonskode=e.versjonskode AND 
       es.studieprogramkode = sps.studieprogramkode AND
       NVL(sps.DATO_studierett_GYLDIG_TIL,SYSDATE) >= sysdate AND
       sps.status_privatist = 'N'
