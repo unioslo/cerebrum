@@ -45,6 +45,7 @@ _SpreadCode.sql = db
 
 entity2uname = {}
 debug = 0
+e_o_f = False
 
 def generate_passwd(filename, spread=None):
     if spread is None:
@@ -101,6 +102,8 @@ def generate_passwd(filename, spread=None):
         n += 1
         #if n > 100:
         #    break
+    if e_o_f:
+	f.write('E_O_F\n')
     f.close()
 
 def generate_netgroup(filename, group_spread, user_spread):
@@ -141,6 +144,8 @@ def generate_netgroup(filename, group_spread, user_spread):
             line = "%s %s" % (tmp_gname, line[:pos])
             num += 1
         f.write("%s %s\n" % (group.group_name, line))
+    if e_o_f:
+	f.write('E_O_F\n')
     f.close()
 
 def generate_group(filename, group_spread, user_spread):
@@ -220,6 +225,8 @@ def generate_group(filename, group_spread, user_spread):
             groups.setdefault(gname, None)
             gname = make_name(g)
         groups[g] = None
+    if e_o_f:
+	f.write('E_O_F\n')
     f.close()
 
 def join(fields, sep=':'):
@@ -257,7 +264,7 @@ def main():
     global debug
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'dg:p:n:',
-                                   ['debug', 'help', 'group=',
+                                   ['debug', 'help', 'eof', 'group=',
                                     'passwd=', 'group_spread=',
                                     'user_spread=', 'netgroup='])
     except getopt.GetoptError:
@@ -269,6 +276,8 @@ def main():
             usage()
         elif opt in ('-d', '--debug'):
             debug += 1
+        elif opt in ('--eof'):
+            e_o_f = True
         elif opt in ('-g', '--group'):
             generate_group(val, group_spread, user_spread)
         elif opt in ('-p', '--passwd'):
@@ -292,6 +301,8 @@ def usage(exitcode=0):
       Filter by group_spread
     --user_spread value
       Filter by user_spread
+    --eof
+      End dump file with E_O_F to mark successful completion
     -p | --passwd outfile
       Write password map to outfile
     -g | --group outfile
