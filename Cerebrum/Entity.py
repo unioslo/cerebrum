@@ -502,17 +502,17 @@ class EntityAddress(Entity):
 
 class EntityQuarantine(Entity):
     "Mixin class, usable alongside Entity for entities we can quarantine."
-    def add_entity_quarantine(self, type, creator, comment=None,
+    def add_entity_quarantine(self, type, creator, description=None,
                               start=None, end=None):
         self.execute("""
         INSERT INTO [:table schema=cerebrum name=entity_quarantine]
           (entity_id, quarantine_type,
-           creator_id, comment, start_date, end_date)
-        VALUES (:e_id, :q_type, :c_id, :comment, :start_date, :end_date)""",
+           creator_id, description, start_date, end_date)
+        VALUES (:e_id, :q_type, :c_id, :description, :start_date, :end_date)""",
                      {'e_id': self.entity_id,
                       'q_type': type,
                       'c_id': creator,
-                      'comment': comment,
+                      'description': description,
                       'start_date': start,
                       'end_date': end})
 
