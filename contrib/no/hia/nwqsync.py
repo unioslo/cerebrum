@@ -41,8 +41,6 @@ group_done = {}
 db = Factory.get('Database')()
 const = Factory.get('CLConstants')(db)
 co = Factory.get('Constants')(db)
-#logging.fileConfig(cereconf.LOGGING_CONFIGFILE)
-#logger = logging.getLogger("console")
 logger = Factory.get_logger("cronjob")
 cl_events = (
 		const.account_mod, \
@@ -57,14 +55,6 @@ cl_events = (
 		const.quarantine_mod, \
 		const.quarantine_del
 		)
-
-dbg_level = -1
-NONE = 0
-ERROR = 1
-WARN = 2
-INFO = 3
-DEBUG = 4
-
 
 cltype = {}
 cl_entry = {'group_mod' : 'pass', 	
@@ -111,6 +101,7 @@ def nwqsync(spreads,g_spread):
 	    domain = re.sub('\D','',param_list[3])
             ent_name = param_list[6].split('\'')[1]
 	    ent_name_cache[cll.subject_entity] = {'name':ent_name,'value_domain':domain}
+	    clh.confirm_event(cll)
 	    continue
         try:
             func = cltype[int(cll.change_type_id)]
@@ -119,50 +110,11 @@ def nwqsync(spreads,g_spread):
             #int_log.write("#event_type %d not handled\n" % cll.change_type_id)
         else:
             exec cltype[int(cll.change_type_id)]
-            clh.confirm_event(cll)
+            #clh.confirm_event(cll)
         i += 1
         clh.confirm_event(cll)
     clh.commit_confirmations()
 
-def ldap_connect(serv_l=None):
-    global con
-    con = None
-    if not serv_l:
-	serv_l = []
-	serv_l.append('%s:%s' % (cereconf.NW_LDAPHOST,
-					cereconf.NW_ADMINUSER))
-    for server in serv_l:
-	try:
-	    serv,user = [str(y) for y in server.split(':')]
-	    con = ldap.open(serv)
-	    con.protocol_version = ldap.VERSION3
-	except ldap.LDAPError, e:
-	    logger.warn(e)
-	    con = None
-
-def get_ldap_value(search_id,dn,retrieveAttributes=None):
-    searchScope = ldap.SCOPE_SUBTREE
-    result_set = []
-    try:
-	ldap_result_id = con.search(search_id,searchScope,dn,retrieveAttributes)
-	while 1:
-	    result_type, result_data = con.result(ldap_result_id, 0)
-	    if (result_data == []):
-		break
-	    else:
-		if result_type == ldap.RES_SEARCH_ENTRY:
-		    result_set.append(result_data)
-		else:
-		    pass
-    except ldap.LDAPError, e:
-	logger.warn(e)
-	return(None)
-    return(result_set)
-
-
-#def dbg_print(lvl, str):
-#    if dbg_level >= lvl:
-#        print str
     
 
 
@@ -231,13 +183,15 @@ def attr_mod_ldap(obj_dn, attrs):
 
 def evaluate_grp_name(grp_name):
     try:
-	grp_name  = '-'.join((cereconf.NW_GROUP_PREFIX, grp_name))
+	if re.match('\w',cereconf.NW_GROUP_PREFIX):
+	    grp_name  = '-'.join((cereconf.NW_GROUP_PREFIX, grp_name))
     except AttributeError:
 	pass
     except TypeError:
 	logger.warn('Cereconf variabel NW_GROUP_PREFIX is not a string')
     try:
-	grp_name  = '-'.join((grp_name,cereconf.NW_GROUP_POSTFIX))
+	if re.match('\w',cereconf.NW_GROUP_POSTFIX):
+	    grp_name  = '-'.join((grp_name,cereconf.NW_GROUP_POSTFIX))
     except AttributeError:
         pass
     except TypeError:
@@ -251,7 +205,7 @@ def user_add_del_grp(ch_type,dn_user,dn_dest,ch_id=None):
     account = Account.Account(db)
     group.entity_id = int(dn_dest)
     if [spr for spr in spread_grp if group.has_spread(spr)]:
-	grp_list = [group.entiy_id,]
+	grp_list = [group.entity_id,]
     elif group.list_member_groups(dn_dest, spread_grp):
 	grp_list = group.list_member_groups(dn_dest, spread_grp)
     else:
@@ -265,6 +219,9 @@ def user_add_del_grp(ch_type,dn_user,dn_dest,ch_id=None):
 	search_str = "(&(cn=%s)(objectclass=group))" % group_name
 	search_dn = "%s" % cereconf.NW_LDAP_ROOT
 	ldap_obj = ldap_handle.GetObjects(search_dn,search_str)
+	if not isinstance(ldap_obj,list):
+	    logger.warn("Lost TLS-connection to server.")
+	    sys.exit(0)
 	if ldap_obj == []:
 	    # Group not in LDAP (yet)
 	    logger.warn("WARNING: Group %s not found in LDAP" % search_str)
@@ -333,6 +290,9 @@ def path2edir(attrs):
     search_str = "cn=%s_%s" % (srv,vol)
     search_dn = "%s" % cereconf.NW_LDAP_ROOT
     ldap_disk = ldap_handle.GetObjects(search_dn,search_str)
+    if not isinstance(ldap_disk,list):
+	logger.warn("Lost TLS-connection to server.")
+	sys.exit(0)
     if ldap_disk == []:
       del attrs[idx]
     else:
@@ -356,7 +316,9 @@ def change_user_spread(dn_id,ch_type,spread,uname=None):
     search_str = "(&(cn=%s)(objectClass=inetOrgPerson))" % acc_name
     search_dn = "%s" % cereconf.NW_LDAP_ROOT
     ldap_obj = ldap_handle.GetObjects(search_dn,search_str)
-    #ldap_obj = get_ldap_value(search_dn,search_str)
+    if not isinstance(ldap_obj,list):
+	logger.warn("Lost TLS-connection to server.")
+	sys.exit(0)
     if (ch_type == int(const.spread_del)):
 	#if not nwutils.touchable(ldap_attrs):
 	#    return
@@ -404,12 +366,13 @@ def change_group_spread(dn_id,ch_type,spread,gname=None):
 	    logger.error('Group-entity can not be found: ch-id:%s subj-id:%s' % (ch_id,dn_id))
     else: grp_name = gname	
     group_name = evaluate_grp_name(grp_name)
-    #utf8_ou = nwutils.get_ldap_group_ou(group_name)
-    utf8_dn = unicode('cn=%s' % group_name, 'iso-8859-1').encode('utf-8') #+ utf8_ou
+    utf8_dn = unicode('cn=%s' % group_name, 'iso-8859-1').encode('utf-8')
     search_cn = "(&(%s)(objectclass=group))" % utf8_dn
     search_dn = "%s" % cereconf.NW_LDAP_ROOT
-    #ldap_obj = get_ldap_value(search_dn, utf8_dn)
     ldap_obj = ldap_handle.GetObjects(search_dn, search_cn)
+    if not isinstance(ldap_obj,list):
+	logger.warn("Lost TLS-connection to server.")
+	sys.exit(0)
     if ch_type==int(const.spread_del) and ldap_obj <> []:
 	(ldap_group, ldap_attrs) = ldap_obj[0]
 	if not nwutils.touchable(ldap_attrs):
@@ -422,7 +385,6 @@ def change_group_spread(dn_id,ch_type,spread,gname=None):
 	    attrs.append(("ObjectClass", "group"))
 	    attrs.append(("description", "Cerebrum;%d;%s" % (dn_id,
 							nwutils.now())))
-	    #add_ldap(utf8_dn, attrs)
 	    student_grp = False
 	    for mem in group.get_members(spread = spread_ids[0],get_entity_name=True):
 		if  (co.affiliation_student == \
@@ -446,7 +408,10 @@ def change_group_spread(dn_id,ch_type,spread,gname=None):
 	except:
 	    logger.error('Error occured while creating group %s' % dn_id)
     else:
-	logger.warn('Group_add/del could not solve log_entry: %s' % ch_id)
+	if ldap_obj <> []:
+	    logger.debug('Group already exist: %s' % ldap_obj[0][0])
+	else:
+	    logger.warn('Group_add/del could not solve subject_id: %s' % dn_id)
 	
 
 
@@ -494,8 +459,10 @@ def mod_account(dn_id,i):
     if True in [account.has_spread(x) for x in spread_ids]:
         search_str = "(&(cn=%s)(objectClass=inetOrgPerson))" % account.account_name
         search_dn = "%s" % cereconf.NW_LDAP_ROOT
-        #ldap_entry = get_ldap_value(search_dn,search_str)
 	ldap_obj = ldap_handle.GetObjects(search_dn,search_str)
+	if not isinstance(ldap_obj,list):
+	    logger.warn("Lost TLS-connection to server.")
+	    sys.exit(0)
         (cerebrm_dn, base_entry) = nwutils.get_account_dict(dn_id, spread_ids[0], None)
         if ldap_obj <> []:
             (dn_str,ldap_attr) = ldap_obj[0]
@@ -528,22 +495,22 @@ def change_passwd(dn_id, ch_params):
     if True in [account.has_spread(x) for x in spread_ids]:
 	search_str = "(&(cn=%s)(objectClass=inetOrgPerson))" % account.account_name
 	search_dn = "%s" % cereconf.NW_LDAP_ROOT
-	#ldap_obj = get_ldap_value(search_dn,search_str,retrieveAttributes=['dn',])
 	ldap_obj = ldap_handle.GetObjects(search_dn,search_str)
+	if not isinstance(ldap_obj,list):
+	    logger.warn("Lost TLS-connection to server.")
+	    sys.exit(0)
     	if ldap_obj == []:
 	    logger.info("User could not be found on server: %s\n " % search_str)
             return
     	try:
 	    (ldap_user,ldap_attr) = ldap_obj[0]
-	    # Because of some strange attributes on some users in eDir, 
-	    # we have to change passwordAllowChange to True -> change passwd -> False
-	    attrs = []
-	    attrs.append(('passwordAllowChange',['TRUE']))
-	    attr_mod_ldap(ldap_user,attrs)
+	    #attrs = []
+	    #attrs.append(('passwordAllowChange',['TRUE']))
+	    #attr_mod_ldap(ldap_user,attrs)
 	    attrs = []
             pwd = pickle.loads(ch_params)['password']
             attrs.append( ("userPassword", [unicode(pwd, 'iso-8859-1').encode('utf-8')]) )
-	    attrs.append(('passwordAllowChange',['FALSE']))
+	    #attrs.append(('passwordAllowChange',['FALSE']))
 	    for attr in attrs:
 		attr_l = [attr ,]
 		attr_mod_ldap(ldap_user,attr_l)
@@ -635,10 +602,15 @@ def main():
 	elif opt == '-g':
 	    g_spread = [x for x in val.split(',')]
     if spread is not None:
-        if host is None:
-            host = cereconf.NW_LDAPHOST
-        if port is None:
-            port = cereconf.NW_LDAPPORT
+	host = host or cereconf.NW_LDAPHOST
+	if not host:
+	    logger.error("No valid server in arg or config")
+	    sys.exit(0)
+        port = port or cereconf.NW_LDAPPORT
+	if not port:
+	    logger.info("No port in arg or config. Port set to default(389)!")
+	    port = 389
+	# TODO fix with som default and cereconf values
 	default_dir = '/cerebrum/dumps/eDir/'
 	default_file = 'edir.ldif'
 	if not os.path.isdir(default_dir):
@@ -653,10 +625,11 @@ def main():
         ldap_handle = nwutils.LDAPConnection(host, port,
 					binddn=cereconf.NW_ADMINUSER, 
 					password=passwd, scope='sub')
-	#ldap_connect()
-	#if con:
-	load_cltype_table(cltype)
-	nwqsync(spread, g_spread)
+	if ldap_handle:
+	    load_cltype_table(cltype)
+	    nwqsync(spread, g_spread)
+	else:
+	    logger.error("Could not create TLS-channel to server %s." % host)
 	int_log.write("\n# End at  %s \n" % time.strftime("%a, %d %b %Y %H:%M:%S +0000", time.localtime()))
 	#else:
 	#    int_log.write("\n # Could not connect to server!")
