@@ -110,3 +110,5 @@ QUARANTINE_RULES = {}
 # QUARANTINE_RULES = {
 #   'system': {'lock': 1, 'shell': '/local/etc/shells/nologin.system'}
 # }
+
+CEREBRUM_DDL_DIR="../share/doc/cerebrum/design"
