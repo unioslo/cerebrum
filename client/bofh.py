@@ -53,7 +53,7 @@ def run_command(sessid, cmd):
                 return
                 #                print dir(sys.exc_info()[2])
     if not ok_cmd:
-        print "Unkown command: %s" % cmd
+        print "Unknown command: %s" % cmd
         return
 
     # Check ret, it may indicate:
