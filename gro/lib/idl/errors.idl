@@ -66,5 +66,14 @@ module Cerebrum_core{
         exception NoSuchAttributeError {
             string explanation;
         };
+
+        exception ReadOnlyAttributeError {
+            string explanation;
+        };
+
+        exception ServerError {
+            string explanation;
+        };
+
     };
 };
