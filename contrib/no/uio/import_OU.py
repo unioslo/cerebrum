@@ -14,8 +14,11 @@ from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 
 OU_class = Factory.get('OU')
+db = Factory.get('Database')()
+db.cl_init(change_program='import_OU')
+co = Factory.get('Constants')(db)
 
-class StedData(xml.sax.ContentHandler):
+class OUData(xml.sax.ContentHandler):
     def __init__(self, filename):
         self.tp = TrivialParser()
         xml.sax.parse(filename, self.tp)
@@ -25,13 +28,13 @@ class StedData(xml.sax.ContentHandler):
 
     def next(self):
         try:
-            return self.tp.steder.pop(0)
+            return self.tp.org_units.pop(0)
         except IndexError:
             raise StopIteration, "End of file"
 
 class TrivialParser(xml.sax.ContentHandler):
     def __init__(self):
-        self.steder = []
+        self.org_units = []
 
     def startElement(self, name, attrs):
         tmp = {}
@@ -40,43 +43,69 @@ class TrivialParser(xml.sax.ContentHandler):
         if name == 'data':
             pass
         elif name == "sted":
-            self.steder.append(tmp)
+            self.org_units.append(tmp)
         elif name == "komm":
-            self.steder[-1].setdefault("komm", []).append(tmp)
+            self.org_units[-1].setdefault("komm", []).append(tmp)
         else:
             raise ValueError, "Unknown XML element %s" % name
 
     def endElement(self, name):
         pass
 
+def get_stedkode_str(row, suffix=""):
+    elems = []
+    for key in ('fakultetnr', 'instituttnr', 'gruppenr'):
+        elems.append("%02d" % int(row[key+suffix]))
+    return "-".join(elems)
 
-if len(sys.argv) == 2:
-    stedfile = sys.argv[1]
+def rec_make_ou(stedkode, ou, existing_ou_mappings, org_units,
+                stedkode2ou, co):
+    """Recursively create the ou_id -> parent_id mapping"""
+    ou_data = org_units[stedkode]
+    org_stedkode = get_stedkode_str(ou_data, suffix='_for_org_sted')
+    if not stedkode2ou.has_key(org_stedkode):
+        print "Error in dataset:"\
+              " %s references missing STEDKODE: %s, using None" % (
+            stedkode, org_stedkode)
+        org_stedkode = None
+        org_stedkode_ou = None
+    elif stedkode == org_stedkode:
+        print "Warning: %s has self as parent, using None" % stedkode
+        org_stedkode = None
+        org_stedkode_ou = None
+    else:
+        org_stedkode_ou = stedkode2ou[org_stedkode]
 
+    if existing_ou_mappings.has_key(stedkode2ou[stedkode]):
+        if existing_ou_mappings[stedkode2ou[stedkode]] != org_stedkode_ou:
+            # TODO: Update ou_structure
+            print "Mapping for %s changed (%s != %s)" % (
+                stedkode, existing_ou_mappings[stedkode2ou[stedkode]],
+                org_stedkode_ou)
+        return
 
-def main():
-    # Parse command line options and arguments
-    opts, args = getopt.getopt(sys.argv[1:], 'vs:', ['verbose', 'sted-file'])
+    if (org_stedkode_ou is not None
+        and (stedkode != org_stedkode)
+        and (not existing_ou_mappings.has_key(org_stedkode_ou))):
+        rec_make_ou(org_stedkode, ou, existing_ou_mappings, org_units,
+                          stedkode2ou, co)
 
-    verbose = 0
-    stedfile = "/cerebrum/dumps/LT/sted.xml"
+    ou.clear()
+    ou.find(stedkode2ou[stedkode])
+    if stedkode2ou.has_key(org_stedkode):
+        ou.set_parent(co.perspective_lt, stedkode2ou[org_stedkode])
+    else:
+        ou.set_parent(co.perspective_lt, None)
+    existing_ou_mappings[stedkode2ou[stedkode]] = org_stedkode_ou
 
-    for opt, val in opts:
-        if opt in ('-v', '--verbose'):
-            verbose += 1
-        elif opt in ('-s', '--sted-file'):
-            stedfile = val
-
-    db = Factory.get('Database')()
-    db.cl_init(change_program='import_FS')
-    steder = {}
-    co = Factory.get('Constants')(db)
+def import_org_units(oufile):
+    org_units = {}
     ou = OU_class(db)
     i = 1
     stedkode2ou = {}
-    for k in StedData(stedfile):
+    for k in OUData(oufile):
         i += 1
-        steder[get_stedkode_str(k)] = k
+        org_units[get_stedkode_str(k)] = k
         if verbose:
             print "Processing %s '%s'" % (get_stedkode_str(k),
                                           k['forkstednavn']),
@@ -92,7 +121,7 @@ def main():
                     display_name=k['stednavn'],
                     sort_name=k['stednavn'])
         if k.has_key('adresselinje1_intern_adr'):
-            ou.populate_address(co.system_lt, co.address_post,
+            ou.populate_address(source_system, co.address_post,
                                 address_text="%s\n%s" %
                                 (k['adresselinje1_intern_adr'],
                                  k.get('adresselinje2_intern_adr', '')),
@@ -100,7 +129,7 @@ def main():
                                                     ''),
                                 city=k.get('poststednavn_intern_adr', ''))
         if k.has_key('adresselinje1_besok_adr'):
-            ou.populate_address(co.system_lt, co.address_street,
+            ou.populate_address(source_system, co.address_street,
                                 address_text="%s\n%s" %
                                 (k['adresselinje1_besok_adr'],
                                  k.get('adresselinje2_besok_adr', '')),
@@ -110,20 +139,19 @@ def main():
         n = 0
         for t in k.get('komm', []):
             n += 1       # TODO: set contact_pref properly
-            if t['kommtypekode'] == 'FAX':
+            nrtypes = {'EKSTRA TLF': co.contact_phone,
+                       'FAX': co.contact_fax,
+                       'FAXUTLAND': co.contact_fax,
+                       'JOBBTLFUTL': co.contact_phone}
+            if nrtypes.has_key(t['kommtypekode']):
                 nr = t.get('telefonnr', t.get('kommnrverdi', None))
                 if nr is None:
                     print "Warning: unknown contact: %s" % str(t)
                     continue
-                ou.populate_contact_info(co.system_lt, co.contact_fax,
+                ou.populate_contact_info(source_system, nrtypes[t['kommtypekode']],
                                          nr, contact_pref=n)
-            elif t['kommtypekode'] == 'TLF':
-                if len(t['telefonnr']) == 5:
-                    t['telefonnr'] = "228%s" % t['telefonnr']
-                ou.populate_contact_info(co.system_lt, co.contact_phone,
-                                         t['telefonnr'], contact_pref=n)
             elif t['kommtypekode'] == 'EPOST':
-                ou.populate_contact_info(co.system_lt, co.contact_email,
+                ou.populate_contact_info(source_system, co.contact_email,
                                          t['kommnrverdi'], contact_pref=n)
         op = ou.write_db()
         if verbose:
@@ -146,55 +174,40 @@ def main():
     # Now populate ou_structure
     if verbose:
         print "Populate ou_structure"
-    for stedkode in steder.keys():
-        rec_make_stedkode(stedkode, ou, existing_ou_mappings, steder,
-                          stedkode2ou, co)
+    for stedkode in org_units.keys():
+        rec_make_ou(stedkode, ou, existing_ou_mappings, org_units,
+                    stedkode2ou, co)
     db.commit()
 
-def rec_make_stedkode(stedkode, ou, existing_ou_mappings, steder,
-                      stedkode2ou, co):
-    """Recursively create the ou_id -> parent_id mapping"""
-    sted = steder[stedkode]
-    org_stedkode = get_stedkode_str(sted, suffix='_for_org_sted')
-    if not stedkode2ou.has_key(org_stedkode):
-        print "Error in dataset:"\
-              " %s references missing STEDKODE: %s, using None" % (
-            stedkode, org_stedkode)
-        org_stedkode = None
-        org_stedkode_ou = None
-    elif stedkode == org_stedkode:
-        print "Warning: %s has self as parent, using None" % stedkode
-        org_stedkode = None
-        org_stedkode_ou = None
-    else:
-        org_stedkode_ou = stedkode2ou[org_stedkode]
+def usage(exitcode=0):
+    print """Usage: [options]
+    -v | --verbose: increase verbosity
+    -o | --ou-file file: file to read stedinfo from
+    --source-system name: name of source-system to use
 
-    if existing_ou_mappings.has_key(stedkode2ou[stedkode]):
-        if existing_ou_mappings[stedkode2ou[stedkode]] != org_stedkode_ou:
-            print "Mapping for %s changed TODO (%s != %s)" % (
-                stedkode, existing_ou_mappings[stedkode2ou[stedkode]],
-                org_stedkode_ou)
-        return
-
-    if (org_stedkode_ou is not None
-        and (stedkode != org_stedkode)
-        and (not existing_ou_mappings.has_key(org_stedkode_ou))):
-        rec_make_stedkode(org_stedkode, ou, existing_ou_mappings, steder,
-                          stedkode2ou, co)
-
-    ou.clear()
-    ou.find(stedkode2ou[stedkode])
-    if stedkode2ou.has_key(org_stedkode):
-        ou.set_parent(co.perspective_lt, stedkode2ou[org_stedkode])
-    else:
-        ou.set_parent(co.perspective_lt, None)
-    existing_ou_mappings[stedkode2ou[stedkode]] = org_stedkode_ou
-
-def get_stedkode_str(row, suffix=""):
-    elems = []
-    for key in ('fakultetnr', 'instituttnr', 'gruppenr'):
-        elems.append("%02d" % int(row[key+suffix]))
-    return "-".join(elems)
+    Imports OU data from systems that use 'stedkoder', primarily used
+    to import from UoOs LT system"""
+    sys.exit(exitcode)
+    
+def main():
+    global source_system, verbose
+    try:
+        opts, args = getopt.getopt(sys.argv[1:], 'vo:',
+                                   ['verbose', 'ou-file=', 'source-system='])
+    except getopt.GetoptError:
+        usage(1)
+    verbose = 0
+    oufile = None
+    source_system = None
+    for opt, val in opts:
+        if opt in ('-v', '--verbose'):
+            verbose += 1
+        elif opt in ('-o', '--ou-file'):
+            oufile = val
+        elif opt in ('--source-system',):
+            source_system = getattr(co, val)
+    if oufile is not None:
+        import_org_units(oufile)
 
 if __name__ == '__main__':
     main()
