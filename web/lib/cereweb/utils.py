@@ -1,6 +1,7 @@
 import cereconf
 import os.path
 from Cerebrum.client import AbstractModel
+from Cerebrum.Errors import ProgrammingError
 import forgetHTML
 
 def url(path):
@@ -57,7 +58,10 @@ def redirect(req, url, temporary=False, seeOther=False):
     """
     from mod_python import apache
 
-    if seeOther:
+    if temporary and seeOther:
+        raise ProgrammingError, \
+              "cannot set both temporary and seeOther"
+    elif seeOther:
         status = apache.HTTP_SEE_OTHER
     elif temporary:
         status = apache.HTTP_TEMPORARY_REDIRECT
