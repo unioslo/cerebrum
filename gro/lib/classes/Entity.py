@@ -152,10 +152,9 @@ class Entity(CerebrumClass, GroBuilder, EntityAuth):
         # FIXME. ta hensyn til intersection/difference
 
         groups = []
-        for i in searcher.search():
-            groups.append(i.group)
+        for groupmember in searcher.search():
+            groups.append(groupmember.get_group())
         return groups
-
 
 
 class ContactInfo(GroBuilder):
