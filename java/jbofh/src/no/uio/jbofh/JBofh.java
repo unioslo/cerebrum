@@ -341,14 +341,21 @@ public class JBofh {
         String sample[] = {};
         Vector ret = (Vector) args.clone();
         Vector cmd_def = (Vector) commands.get(cmd);
-        Vector pspec = (Vector) cmd_def.get(1);
-        for(int i = args.size(); i < pspec.size(); i++) {
-            logger.debug("ps: "+i+" -> "+pspec.get(i));
+	Object pspec = cmd_def.get(1);
+	if (pspec instanceof String) {
+	    if(! "prompt_func".equals(pspec)) {
+		throw new BofhdException("Bad param spec");
+	    }
+	    return processServerCommandPromptFunction(cmd, ret);
+	}
+        for(int i = args.size(); i < ((Vector) pspec).size(); i++) {
+	    Hashtable param = (Hashtable) ((Vector) pspec).get(i);
+            logger.debug("ps: "+i+" -> "+param);
             /* TODO:  I'm not sure how to handle the diff between optional and default */
-            Integer opt = (Integer) ((Hashtable)pspec.get(i)).get("optional");
+            Integer opt = (Integer) param.get("optional");
             if(opt != null && opt.intValue() == 1) 
                 break;
-	    Object tmp = ((Hashtable)pspec.get(i)).get("default");
+	    Object tmp = param.get("default");
 	    String defval = null;
 	    if(tmp != null) {
 		if(tmp instanceof String){
@@ -361,7 +368,7 @@ public class JBofh {
 		    ret.remove(0);
 		}
 	    }
-	    String prompt = (String)((Hashtable)pspec.get(i)).get("prompt");
+	    String prompt = (String) param.get("prompt");
             try {
 		String s = 
 		    cLine.promptArg(prompt+
@@ -379,6 +386,41 @@ public class JBofh {
         return ret;
     }
     
+    Vector processServerCommandPromptFunction(String cmd, Vector ret)  throws BofhdException {
+	while(true) {
+	    ret.add(0, bc.sessid);
+	    ret.add(1, cmd);
+	    Hashtable arginfo = (Hashtable) bc.sendRawCommand("call_prompt_func", ret);
+	    ret.remove(0);
+	    ret.remove(0);
+	    try {
+		String defval = (String) arginfo.get("default");
+		String s = cLine.promptArg((String) arginfo.get("prompt") +
+					   (defval == null ? "" : " ["+defval+"]")+" >", 
+					   false);
+		if(s.equals("") && defval == null) continue;
+		if(! s.equals("")) {
+		    Hashtable h = (Hashtable) arginfo.get("map");
+		    if(h != null) {
+			if(h.get(s) == null) {
+			    System.out.println("Value not in list");
+			} else {
+			    ret.add(h.get(s));
+			}
+		    } else {
+			ret.add(s);
+		    }
+		} else {
+		    if(defval != null) ret.add(defval);
+		}
+		if(arginfo.get("last_arg") != null) break;
+	    } catch (IOException io) {
+                return null;
+            }
+	}
+	return ret;
+    }
+
     void showResponse(String cmd, Object resp) throws BofhdException {
         Vector args = new Vector();
         args.add(cmd);

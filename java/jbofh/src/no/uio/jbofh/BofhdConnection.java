@@ -98,7 +98,9 @@ public class BofhdConnection {
     Object sendRawCommand(String cmd, Vector args) throws BofhdException {
         try {
             logger.debug("sendCommand("+cmd+", "+args);
-            return washResponse(xmlrpc.execute(cmd, args));
+	    Object r = washResponse(xmlrpc.execute(cmd, args));
+	    logger.debug("<-"+r);
+            return r;
         } catch (XmlRpcException e) {
 	    logger.debug("exception-message: "+e.getMessage());
 	    String match = "server.bofhd_errors.CerebrumError:";
