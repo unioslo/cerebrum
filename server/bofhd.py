@@ -32,6 +32,7 @@ import re
 import socket
 # import xmlrpclib
 from Cerebrum import Database,Person,Utils,Account,Errors,cereconf
+from Cerebrum.modules import PosixUser
 import sys
 import traceback
 # import dumputil
@@ -298,8 +299,10 @@ class CallableFuncs(object):
         try:
             account = Account.Account(self.ef.Cerebrum)  # TODO: Flytt denne
             account.clear()
+            posix_user = PosixUser.PosixUser(self.ef.Cerebrum)  # TODO: Flytt denne
+            posix_user.clear()
             if(uid is None):
-                uid = account.get_free_uid()
+                uid = posix_user.get_free_uid()
 
             if(uname is None):                  # Find a suitable username
                 person = self.ef.person
@@ -314,7 +317,7 @@ class CallableFuncs(object):
                 if name is None:
                     raise "No name for person!"  #TODO: errror-class
                 name = name.split()
-                uname = account.suggest_unames(self.const.entity_accname_default,
+                uname = posix_user.suggest_unames(self.const.account_namespace,
                                                name[0], name[1])
                 uname = uname[0]
 
@@ -322,24 +325,25 @@ class CallableFuncs(object):
             if home != "/":           
                 home = home + "/" + uname
 
-            account.populate(self.const.entity_person,
+            account.populate(uname, self.const.entity_person,
                              person_id,
                              np_type, 
                              creator_id, expire_date)
+            account.write_db()
 
             # populate_posix_user(user_uid, gid, gecos, home, shell):
-            account.populate_posix_user(uid, gid, gecos,
+            posix_user.populate(account.account_id, uid, gid, gecos,
                                         home, shell)
             
-            account.affect_domains(self.const.entity_accname_default)
-            account.populate_name(self.const.entity_accname_default, uname)
+            # account.affect_domains(self.const.entity_accname_default)
+            # account.populate_name(self.const.entity_accname_default, uname)
             
-            passwd = account.make_passwd(uname)
+            passwd = posix_user.make_passwd(uname)
             account.affect_auth_types(self.const.auth_type_md5)
             # account.populate_authentication_type(self.const.auth_type_md5, passwd)
             account.set_password(passwd)
+            posix_user.write_db()
             
-            account.write_db()
             self.ef.Cerebrum.commit()
             return {'password' : passwd, 'uname' : uname}
         except Database.DatabaseError:
