@@ -545,7 +545,7 @@ def usage(exitcode=0):
 
 
 def main():
-    global ldap_handle, dbg_level, int_log
+    global ldap_handle, dbg_level, int_log, spread_grp
     port = host = spread = None
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'S:s:p:d:', ['help'])
@@ -580,6 +580,11 @@ def main():
 	    int_log = file((default_dir + default_file),'a')
 	int_log.write("\n# %s \n" % time.strftime("%a, %d %b %Y %H:%M:%S +0000", 
 							time.localtime()))
+	try:
+	    spread_grp = [int(getattr(co,x)) for x in cereconf.NW_GROUP_SPREAD]
+	except:
+	    logger.error("No Novell group-spread id defined")
+	    sys.exit()
 	passwd = db._read_password(host,cereconf.NW_ADMINUSER.split(',')[:1][0])
         ldap_handle = nwutils.LDAPConnection(host, port,
 					binddn=cereconf.NW_ADMINUSER, 
