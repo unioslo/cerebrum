@@ -8,6 +8,6 @@
 #set $headers = {'timestamp': $_("Timestamp"), 'icon': $_("Icon"), 'who': $_("Who"), 'message': $_("Message")}
 <div class="historylog">
 <h2>History log</h2>
-$SortedTableTemplate().sorted_table($table, $headers, $url("ting=%s"), $url("dings=%s"))
+$SortedTableTemplate().sorted_table($table, $headers, $url("sortpri=%s"), $url("sortorder=%s"), "history")
 </div>
 #end def
