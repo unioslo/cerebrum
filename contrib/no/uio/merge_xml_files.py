@@ -1,5 +1,7 @@
 #!/usr/bin/env python2.2
 
+import cerebrum_path
+
 import getopt
 import xml.sax
 import sys
