@@ -258,9 +258,14 @@ def gen_export(fs_db):
 def list_users_for_fronter_export():  # TODO: rewrite this
     ret = []
     posix_user = PosixUser.PosixUser(db)
+    email_addrs = posix_user.getdict_uname2mailaddr()
+    logger.debug("list_users_for_fronter_export got %d emailaddrs" %
+                 len(email_addrs))
     for row in posix_user.list_extended_posix_users(
         const.auth_type_md5_crypt):
-        tmp = {'email': '@'.join((row['entity_name'], 'ulrik.uio.no')),
+        tmp = {'email': email_addrs.get(row['entity_name'],
+                                        '@'.join((row['entity_name'],
+                                                  'ulrik.uio.no'))),
                'uname': row['entity_name']}
         if row['gecos'] is None:
             tmp['fullname'] = row['name']
@@ -577,7 +582,7 @@ def process_kurs2enhet():
             undervisning_node = "STRUCTURE/Studentkorridor:%s" % struct_id
 
             tittel = "%s - %s, %s %s" % (emnekode, fronter.kurs2navn[kurs_id], termk, aar)
-            multi_enhet = ()
+            multi_enhet = []
             multi_id = ":".join((Instnr, emnekode, termk, aar))
             if len(fronter.emne_termnr[multi_id]) > 1:
                 multi_enhet.append("%s. termin" % termnr)
