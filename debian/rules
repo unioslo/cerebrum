@@ -34,3 +34,5 @@ common-binary-indep::
 	 CLASSPATH=$$CLASSPATH:/usr/share/java:/usr/share/classpath/glibj.zip JAVACMD=/usr/bin/jamvm ant -Dbuild.compiler=jikes dist)
 #	(cd java/jbofh; \
 	 JAVACMD=/usr/lib/kaffe/bin/kaffe ANT_OPTS="-ss 512k" ant -Dbuild.compiler=kjc -Dnogui dist)
+	 #/debian/cerebrum-doc/usr/share/doc/cerebrum-doc
+	DESTDIR=$(PWD)/debian/tmp make -C doc install

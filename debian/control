@@ -2,7 +2,7 @@ Source: cerebrum
 Section: admin
 Priority: optional
 Maintainer: Andreas Schuldei <andreas@debian.org>
-Build-Depends: debhelper (>= 4.1.16), python, cdbs, jamvm, jikes, ant
+Build-Depends: debhelper (>= 4.1.16), python, cdbs, jamvm, jikes, ant, docbook-utils
 Standards-Version: 3.6.1.0
 
 Package: cerebrum-doc
