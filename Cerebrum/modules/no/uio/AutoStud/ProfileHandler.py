@@ -283,7 +283,7 @@ class ProfileMatcher(object):
     def _check_group_membership(self, groups):
         if not groups:
             return
-        for g in self.pc.select_mapping['medlem_av_gruppe'].keys():
+        for g in self.pc.select_mapping.get('medlem_av_gruppe', {}).keys():
             if g in groups:
                 self._append_match(
                     'medlem_av_gruppe', 'gruppe',
@@ -293,7 +293,7 @@ class ProfileMatcher(object):
         if not persons_affiliations:
             return
         persons_affiliations = [(x['affiliation'], x['status']) for x in persons_affiliations]
-        for p_aff in self.pc.select_mapping['person_affiliation'].keys():
+        for p_aff in self.pc.select_mapping.get('person_affiliation', {}).keys():
             if p_aff in persons_affiliations:
                 self._append_match(
                     'person_affiliation', 'affiliation',
