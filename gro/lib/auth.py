@@ -3,21 +3,63 @@ import cereconf
 from Cerebrum.modules.bofhd.auth import AuthConstants, BofhdAuthOpSet, \
             BofhdAuthOpTarget, BofhdAuthRole, BofhdAuth
 
-class AuthOpSet( BofhdAuthOpSet ):
+class OperationSet( BofhdAuthOpSet ):
     """Wrapper for BofhdAuthOpSet
     
-    More to come when i know what im gonna use this class for.
+    Methods for updating auth_operation_set, auth_operation, auth_op_attrs and
+    auth_op_code wich specifies what operations may be performed.
+    BofhdAuthOpSet does not have support for updating auth_op_code, therefor we
+    have to extend this class with support for it.
     """
 
     def __init__(self, db):
         BofhdAuthOpSet.__init__(self, db)
         self._db = db
 
+    def add_op_code(self, code_str, description=""):
+        """Add an operation code.
+        
+        Adds an operation code_str and its description into the database.
+        """
+        op_code = int(self.nextval('entity_id_seq')) # how does nextval work???
+        self.execute("""
+        INSERT INTO [:table schema=cerebrum name=auth_op_code]
+            (code, code_str, description)
+        VALUES (:code, :code_str, :description)""",
+            { 'code': op_code, 'code_str': code_str, 'description': description})
+        return op_code
 
-class AuthOpTarget( BofhdAuthOpTarget ):
+    def del_op_code(self, op_code):
+        """Delete an operation code.
+
+        Removes an operation code from the database.
+        """
+        self.execute("""
+        DELETE FROM [:table schema=cerebrum name=auth_op_code]
+        WHERE code=:code""", {'code': op_code})
+
+    def list_op_codes(self, op_id=None):
+        """Retrieves a list with code, code_str and description.
+        
+        Filtered by op_id if included, else all operation codes are returned.
+        """
+        sql = """SELECT aoc.code AS code, aoc.code_str AS code_str,
+                        aoc.description AS description FROM"""
+        tables = "[:table schema=cerebrum name=auth_op_code] aoc"
+        where = ""
+
+        if op_id is not None:
+            tables += ", [:table schema=cerebrum name=auth_operation] ao"
+            where += "WHERE aoc.code=ao.op_code AND ao.op_id=:op_id"
+
+        return self.query("""%s %s %s""" %
+                            (sql, tables, where), {'op_id': op_id})
+
+class Target( BofhdAuthOpTarget ):
     """Wrapper for BofhdAuthOpTarget
 
-    More to come when i know what im gonna use this class for.
+    Methods for updating auth_op_target with information identifying targets
+    wich operations may be performed on.
     """
 
     def __init__(self, db):
@@ -25,10 +67,11 @@ class AuthOpTarget( BofhdAuthOpTarget ):
         self._db = db
 
 
-class AuthRole( BofhdAuthRole ):
+class Role( BofhdAuthRole ):
     """Wrapper for BofhdAuthRole
 
-    More to come when i know what im gonna use this class for.
+    Methods for updating the auth_role table with information about who has
+    certain permissions to certain targets.
     """
 
     def __inti__(self, db):
@@ -39,8 +82,7 @@ class AuthRole( BofhdAuthRole ):
 class Auth( BofhdAuth ):
     """Authentication for the gro module.
 
-    Used to authenticate if a operator is allowed to perform commands wich
-    makes changes to the database.
+    Used to authenticate if a operator is allowed to perform commands.
     """
 
     def __init__(self, db):
@@ -61,45 +103,42 @@ class Auth( BofhdAuth ):
         """Operator is the entity_id for the operator."""
         return self.is_superuser(operator)
 
-    def check_permission(self, operator, operation, target_id, attr):
+    def check_permission(self, operator, operation, target_id):
         """Check if operator has permission to do operation.
         
         ``operator`` is the entity_id of the operator. ``operation`` is either
-        "add attr", "remove attr", "change attr" or "read attr". ``target_id``
-        is the entity_id of the target. ``attr`` is a attribute in the target_id.
+        a string matching "auth_op_code.code_str" or a int matching 
+        "auth_operation.op_id". ``target_id`` is the entity_id of the target.
         If one of the following returns true, he has permission to perform
         the given operation:
             1: Is he a superuser?
-            2: He got access to the target, regardless of the attr?
-            3: He got access to the target and its attribute?
-            4: He is member of a group wich got acces to the target?
+            2: He got access to perform the operation on the target?
+            3: He is member of a group wich got access to the target?
         """
         # 1
         if self.is_superuser(operator):
             return True
-        
-        # 2, 4
-        if self._gro_query_target_permissions(operator, operation, target_id):
+
+        # 2 & 3
+        query = self._query_permissions(operator, operation, target_id)
+        if len(query):
             return True
 
-        # 3
-        if self._gro_query_target_permissions(operator, operation, target_id, attr):
-            return True
         return False
 
-    def _gro_query_target_permissions(self, operator, operation, target_id, attr=None):
+    def _query_permissions(self, operator, operation, target_id):
         where = ""
         try:
             operation = int(operation)
         except (TypeError, ValueError):
             where = """LOWER(aoc.code_str) LIKE LOWER(:operation) AND
-                       aoc.op_code=ao.op_code"""
+                       aoc.code=ao.op_code"""
         else:
             where = "ao.op_id=:operation"
         sql = """
         SELECT aot.attr, ao.op_id, aot.op_target_id
         FROM [:table schema=cerebrum name=auth_op_code] aoc,
-             [:table schema=cerebrum name=auth_operaton] ao,
+             [:table schema=cerebrum name=auth_operation] ao,
              [:table schema=cerebrum name=auth_operation_set] aos,
              [:table schema=cerebrum name=auth_role] ar,
              [:table schema=cerebrum name=auth_op_target] aot
@@ -109,8 +148,7 @@ class Auth( BofhdAuth ):
             aos.op_set_id=ar.op_set_id AND
             ar.entity_id IN (%s) AND
             ar.op_target_id=aot.op_target_id AND
-            aot.entity_id=:target_id
-            """ % (where, ", ".join(
-            ["%i" % x for x in self._get_users_auth_entities(operator)]))
-        return self.query(sql, {'operation': operation, 'target_id': target_id})
+            aot.entity_id=:target_id""" % (where, ", ".join(
+                ["%i" % x for x in self._get_users_auth_entities(operator)]))
+        return self.query(sql, {'operation': operation,'target_id': target_id})
 
