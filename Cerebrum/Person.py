@@ -563,11 +563,11 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
         self._pn_affect_source = source
         if variants is None:
             raise NotImplementedError
-        self._pn_affect_variants = ["%s" % v for v in variants]
+        self._pn_affect_variants = variants
 
     def populate_name(self, variant, name):
         if (not self._pn_affect_source or
-            str(variant) not in self._pn_affect_variants):
+            str(variant) not in ["%s" % v for v in self._pn_affect_variants]):
             raise ValueError, "Improper API usage, must call affect_names()"
         self._name_info[variant] = name
 
