@@ -155,6 +155,12 @@ class BofhdExtension(object):
             'host_name':
             ['host_name', 'Enter host name',
              'Enter the host name for this operation'],
+            'host_name_exist':
+            ['existing_host', 'Enter existing host name',
+             'Enter the host name for this operation'],
+            'host_name_alias':
+            ['alias_name', 'Enter new alias',
+             'Enter the host name for this operation'],
             'host_name_repeat':
             ['host_name_repeat', 'Enter host name(s)',
              'Multiple hostnames may be entered like pcusit[01..30]'],
@@ -169,9 +175,9 @@ class BofhdExtension(object):
             'hinfo':
             ['hinfo', 'Enter HINFO code',
              'Use "ip hinfo_list" to get a list of legal values, some examples are:\n'
-             "- unix\n",
-             "- windows\n",
-             "- mac\n",
+             "- unix\n"
+             "- windows\n"
+             "- mac\n"
              "- nettboks"],
             'mx_set':
             ['mx_set', 'Enter mx_set',
@@ -270,7 +276,8 @@ class BofhdExtension(object):
 
     # ip cname_add
     all_commands['ip_cname_add'] = Command(
-        ("ip", "cname_add"), HostName(), HostName(), Force(optional=True))
+        ("ip", "cname_add"), HostName(help_ref="host_name_alias"),
+        HostName(help_ref="host_name_exist"), Force(optional=True))
     def ip_cname_add(self, operator, cname_name, target_name, force=False):
         force = self.mb_utils.parse_force(force)
         self.mb_utils.alloc_cname(cname_name, target_name, force)
