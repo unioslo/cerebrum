@@ -457,7 +457,11 @@ def recalc_quota_callback(person_info):
         try:
             profile = autostud.get_profile(person_info, member_groups=groups)
             quota = profile.get_pquota()
-        except ValueError, msg:
+        except AutoStud.ProfileHandler.NoMatchingQuotaSettings, msg:
+            logger.warn("Error for %s: %s" %  (fnr, msg))
+            logger.set_indent(0)
+            return
+        except AutoStud.ProfileHandler.NoMatchingProfiles, msg:
             logger.warn("Error for %s: %s" %  (fnr, msg))
             logger.set_indent(0)
             return
@@ -473,12 +477,15 @@ def recalc_quota_callback(person_info):
             pq.find(account_id)
         except Errors.NotFoundError:
             # The quota update script should be ran just after this script
-            pq.populate(account_id, quota['initial_quota'] - quota['weekly_quota'],
-                        0, 0, 0, 0, 0, 0)
+            if quota['weekly_quota'] == 'UL':
+                init_quota = 0
+            else:
+                init_quota = int(quota['initial_quota']) - int(quota['weekly_quota'])
+            pq.populate(account_id, init_quota, 0, 0, 0, 0, 0, 0)
         if quota['weekly_quota'] == 'UL':
-            pq.has_printerquota = 0
+            pq.has_printerquota = 'F'
         else:
-            pq.has_printerquota = 1
+            pq.has_printerquota = 'T'
             pq.weekly_quota = quota['weekly_quota']
             pq.max_quota = quota['max_quota']
             pq.termin_quota = quota['termin_quota']
@@ -507,7 +514,7 @@ def process_student(person_info):
     logger.debug(logger.pformat(_filter_person_info(person_info)))
     try:
         profile = autostud.get_profile(person_info)
-    except ValueError, msg:
+    except AutoStud.ProfileHandler.NoMatchingProfiles, msg:
         logger.warn("Error for %s: %s" %  (fnr, msg))
         logger.set_indent(0)
         return
