@@ -175,6 +175,14 @@ def determine_affiliations(person):
             aff_stat = const.affiliation_tilknyttet_emeritus
 	elif g['gjestetypekode'] == 'EF-STIP':
 	    aff_stat = const.affiliation_tilknyttet_ekst_stip
+	elif g['gjestetypekode'] == 'BILAGSLØN':
+	    aff_stat = const.affiliation_tilknyttet_bilag
+	elif (g['gjestetypekode'] == 'EF-FORSKER' or g['gjestetypekode'] == 'SENIORFORS'):
+	    aff_stat = const.affiliation_tilknyttet_ekst_forsker
+	elif g['gjestetypekode'] == 'GJ-FORSKER':
+	    aff_stat = const.affiliation_tilknyttet_gjesteforsker
+	elif (g['gjestetypekode'] == 'REGANSV' or g['gjestetypekode'] == 'REG-ANSV'):
+	    aff_stat = const.affiliation_tilknyttet_frida_reg
         else:
             logger.warn("Unknown gjestetypekode: %s" % g['gjestetypekode'])
             continue
