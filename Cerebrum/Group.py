@@ -27,9 +27,16 @@ name when constructing a Group object."""
 
 from Cerebrum import Utils
 from Cerebrum import Errors
-from Cerebrum.Entity import Entity, EntityName
+from Cerebrum.Entity import Entity, EntityName, EntityQuarantine
+try:
+    from sets import Set
+except ImportError:
+    # It's the same module taken from python 2.3, it should
+    # work fine in 2.2  
+    from Cerebrum.extlib.sets import Set
 
-class Group(EntityName, Entity):
+
+class Group(EntityQuarantine, EntityName, Entity):
 
     __read_attr__ = ('__in_db',)
     __write_attr__ = ('description', 'visibility', 'creator_id',
@@ -331,62 +338,62 @@ class Group(EntityName, Entity):
         members in this group and its subgroups.  If spread is set,
         only include accounts with that spread.  If get_entity_name is
         set, return a list [id, name] for each account."""
-        my_id = self.entity_id
-        if my_id in _trace:
+        
+        if self.entity_id in _trace:
             # TODO: Circular list definition, log value of _trace.
-            return ()
-        u, i, d = self.list_members(get_entity_name=get_entity_name,
+            return Set()
+        else:
+            _trace = _trace + (self.entity_id,)
+       
+        # Some small utility functions 
+        def format_accounts(accounts):
+            """Select wanted fields from list of accounts as returned by list_members"""
+            if get_entity_name:
+                filter = lambda account: (account[1], account[2])
+            else:
+                filter = lambda account: account[1]    
+            return Set(map(filter, accounts))
+        
+        # A temporary object for expanding groups, used by expand_groups
+        group = Group(self._db)
+        def expand_groups(groups):
+            """Expands a list of groups as returned by Group.list_members."""
+            accounts = Set()
+            for (t, group_id) in groups:
+                group.clear()
+                group.find(group_id)
+                group_members = group.get_members(_trace,
+                                            spread=spread,
+                                            get_entity_name=get_entity_name)
+                accounts.update(group_members)
+            return accounts
+            
+        member_accounts = self.list_members(get_entity_name=get_entity_name,
                                     spread=spread,
                                     member_type=self.const.entity_account)
-        ug, ig, dg = self.list_members(member_type=self.const.entity_group)
-        if not u and not ug:
-            # The only "positive" members are unions; if there are
-            # none of those, the resulting set must be empty.
-            return ()
-        # The code originally used temp = self.__class__(self._db), but
-        # this doesn't work since self may be subclassed (e.g.,
-        # PosixGroup), and the member group isn't necessarily a valid
-        # instance of the subclass.
-        temp = Group(self._db)
-        def expand(accounts, groups):
-            ret = []
-            for row in accounts:
-                m_id = row[1]
-                if get_entity_name:
-                    ret.append([m_id, row[2]])
-                else:
-                    ret.append(m_id)
-            for row in groups:
-                m_id = row[1]
-                temp.clear()
-                temp.find(m_id)
-                ret.extend(temp.get_members(_trace + (my_id,),
-                                            spread=spread,
-                                            get_entity_name=get_entity_name))
-            return ret
-        # Expand u to get a set of account_ids.
-        res = expand(u, ug)
-        if i or ig:
-            res = intersect(res, expand(i, ig))
-        if d or dg:
-            res = difference(res, expand(d, dg))
-        if not (i or ig or d or dg):
-            # The list may contain duplicates.  We use a dict to get
-            # rid of them, but a set would have been more appropriate
-            # if we used Python 2.3 (TODO).
-            # We only check for duplicates if there was only union
-            # members since the intersect and difference operations
-            # will remove duplicates implicitly.
-            uniq = {}
-            if get_entity_name:
-                for m in res:
-                    uniq[m[0]] = m
-            else:
-                for m in res:
-                    uniq[m] = m
-            res = uniq.values()
-        return res
+        # select wanted fields
+        member_accounts = [format_accounts(accounts) for accounts in member_accounts]
+        member_groups = self.list_members(member_type=self.const.entity_group)
 
+        # Expand and get all member-accounts
+        member_groups = map(expand_groups, member_groups)
+
+        # merge group accounts into account sets
+        map(lambda (accounts, groups): accounts.update(groups),  
+            zip(member_accounts, member_groups))
+
+        # And unpack direct members
+        (unions, intersects, differences) = member_accounts
+
+        # we begin with all the union people
+        all_accounts = Set(unions)
+        # and if anything intersects - intersect it
+        if intersects:
+            all_accounts.intersection_update(intersects)
+        # same for difference - only apply it if there's anyone   
+        if differences:
+            all_accounts.difference_update(differences)
+        return all_accounts
 
     def list_all(self, spread=None):
         """Lists all groups (of given ``spread``).
@@ -475,21 +482,3 @@ class Group(EntityName, Entity):
         FROM [:table schema=cerebrum name=group_info] %s""" % where,
                           {'etype': int(self.const.entity_group)})
 
-try:
-    import sets
-    def intersect(a, b):
-        a = sets.ImmutableSet(a)
-        return a.intersection(b)
-
-    def difference(a, b):
-        a = sets.ImmutableSet(a)
-        return a.difference(b)
-except ImportError:
-    # The 'sets' module didn't appear as part of standard Python until
-    # 2.3; as we're only requiring Python 2.2.1, we're rolling our
-    # own.
-    def intersect(a, b):
-        return [x for x in a if x in b]
-
-    def difference(a, b):
-        return [x for x in a if x not in b]
