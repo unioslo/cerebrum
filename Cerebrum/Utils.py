@@ -146,7 +146,7 @@ def make_temp_file(dir="/tmp", only_name=0, ext="", prefix="cerebrum_tmp"):
     name = "%s/%s.%s%s" % (dir, prefix, time.time(), ext)
     if only_name:
         return name
-    f = file(name, "w")
+    f = open(name, "w")
     return f, name
 
 def make_temp_dir(dir="/tmp", prefix="cerebrum_tmp"):
@@ -691,7 +691,7 @@ class AtomicFileWriter(object):
     def __init__(self, name, mode='w', buffering=-1, replace_equal=False):
         self._name = name
         self._tmpname = self.make_tmpname(name)
-        self.__file = file(self._tmpname, mode, buffering)
+        self.__file = open(self._tmpname, mode, buffering)
         self.closed = False
         self._replace_equal = replace_equal
 
@@ -788,6 +788,10 @@ class MinimumSizeWriter(AtomicFileWriter):
 class RecursiveDict(dict):
     """A variant of dict supporting recursive updates"""
     # This dict is useful for combining complex configuration dicts
+    def __init__(self, values={}):
+        # Make sure our __setitem__ is called.
+        for (key, value) in values.items():
+            self[key] = value
     def update(self, other):
         """D.update(E) -> None. Update D from E recursive.
            Any dicts that exists in both D and E are updated recursive
