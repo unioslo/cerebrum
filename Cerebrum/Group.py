@@ -282,6 +282,15 @@ class Group(EntityName, Entity):
                                'op': int(op),
                                'm_id': member_id})
 
+    def list_groups_with_entity(self, entity_id, include_indirect_members=0):
+        """Return a list where entity_id is a direct member"""
+        if include_indirect_members:
+            raise NotImplementedError
+        return self.query("""
+        SELECT group_id, operation, member_type
+        FROM [:table schema=cerebrum name=group_member]
+        WHERE member_id=:member_id""", {'member_id': entity_id})
+
     def list_members(self):
         """Return a list of lists indicating the members of the group.
 
