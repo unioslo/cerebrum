@@ -88,7 +88,9 @@ class AccountUtil(object):
             # This can happen if the person has no first name and no
             # authoritative system has set an explicit name_first variant.
             first_name = ""
-
+        if not persons[fnr]['affs']:
+            logger.error("The person %s has no student affiliations" % fnr)
+            return None
         try:
             last_name = person.get_name(const.system_cached, const.name_last)
         except Errors.NotFoundError:
