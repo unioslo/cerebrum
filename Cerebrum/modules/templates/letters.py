@@ -88,7 +88,8 @@ tag is present, hdr and footer will be empty.
         if ret:
             raise IOError("Bardode returned %s" % ret)
 
-    def spool_job(self, filename, type, printer, skip_lpr=False, logfile=None):
+    def spool_job(self, filename, type, printer, skip_lpr=False, logfile=None,
+                  lpr_user='unknown'):
         if logfile is None:
             logfile = Utils.make_temp_file(only_name=True)
         base_filename = filename[:filename.rindex('.')]
@@ -103,7 +104,9 @@ tag is present, hdr and footer will be empty.
             if re.search(r'[^a-z0-9\-_]', printer):
                 raise IOError("Bad printer name")
             lpr_cmd = cereconf.PRINT_LPR_CMD.replace("<printer>", printer)
-            status = os.system("%s %s.ps >> %s.zz 2>&1" % (
+            lpr_cmd = lpr_cmd.replace("<uname>", lpr_user)
+            lpr_cmd = lpr_cmd.replace("<hostname>", os.uname()[1])
+            status = os.system("%s %s.ps >> %s 2>&1" % (
                 lpr_cmd, base_filename, logfile))
             if status:
                 raise IOError("Error spooling job, see %s for details" % logfile)
