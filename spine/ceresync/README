@@ -70,3 +70,123 @@ abort() doesn't need to rollback changes done since begin() -
 but each backend need to document what will happen. The preferred
 behaviour is that no changes is submitted to the backend database unless
 close() is called, and that an abort() avoids committing such changes. 
+
+
+Windows sync client installation
+--------------------------------
+
+There are several dependencies that must be installed before running the
+Sync client.
+
+Python with win32 extensions 
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+From www.python.org, download and install Python 2.3 for Windows by
+running the .exe file.
+
+From http://starship.python.net/crew/mhammond/win32/Downloads.html 
+download the win32all extensions for your selected Python version and
+install by running .exe.  This will enable binding to COM objects and
+thereby Active Directory.
+
+
+omniORB (Corba library)
+~~~~~~~~~~~~~~~~~~~~~~~
+
+From http://omniorb.sourceforge.net/download.html download the binary
+versions of omniORB and omniORBpy, for instance:
+  omniORB-4.0.5-win32-vc6.zip
+  omniORBpy-2.5-win32-python2.3.zip
+
+omniORB is used to connect to the Spine Corba interface and convert the
+IDL specifications received to generated Python modules.
+
+Note that both win32 extensions and omniORBpy binaries must match the
+main Python version, ie 2.3 in these examples. 
+
+Unpack omniORB and omniORBpy to c:\temp or something, and copy the
+content of each folder to a new directory c:\omniORB. In c:\omniORB you
+should have the directories bin, lib, etc, containing binaries from both
+packages.
+
+OpenSSL
+~~~~~~~
+
+From http://www.openssl.org/related/binaries.html download OpenSSL
+binaries for Windows. Currently, omniORB seems to be linked to OpenSSL
+v.0.9.6 and not 0.9.7, so download OpenSSL v0.9.6m or whatever latest
+0.9.6 release.
+
+The OpenSSL installation will install several files to C:\openssl which
+you really don't need, the one you do need is these DLLs that are
+installed into c:\windows\system32::
+
+  libeay32.dll
+  ssleay32.dll
+  libssl32.dll
+
+
+Environment settings
+~~~~~~~~~~~~~~~~~~~~
+
+Sadly enough, several environment settings must be set.
+
+Go to Control panel -> System -> Advanced -> Environment Variables  
+We will modify the System variables, as they are global to all users on
+the server.
+
+Modify PATH and add::
+
+  ;c:\python23;c:\omniORB\bin\x86_win32
+
+This will make sure both Python and onniORB binaries and libraries like
+omniidl are available. Note that in Windows, PATH is used even to search
+for DLLs.
+
+Add a new System variable named PYTHONPATH and set it to::
+  
+  c:\omniORB\lib\python;c:\omniorb\lib\x86_win32
+
+This will make sure that Python will locate omniORB modules.
+
+
+Check the installation
+~~~~~~~~~~~~~~~~~~~~~~
+
+System environments are effective for any new programs started. 
+Do Start->Run and start cmd (the command prompt)
+
+Run python. The Python prompt ">>> " should appear. Try::
+
+    >>> from omniORB import CORBA
+    >>>
+
+This means that omniORB was installed correctly. Type Ctrl-Z and Enter
+to exit.
+
+Check if omniidl (the IDL -> Python converter) is available and works.
+You don't need a IDL file to test this, we'll just check that the
+backend for Python generation is available. Run:
+
+    C:\> omniidl -b python fisk.idl
+    omniidlk: 'fisk.idl' does not exist
+
+This is the expected error message. If the omniORBpy package was not
+installed, you would instead get an error message like:
+
+    C:\> omniidl -b python fisk.idl
+    omniidl: Could not import back-end 'python'
+    omniidl: Maybe you need to use the -p option?
+    omniidl: (The error was 'No module named python')
+    
+If you get this, make sure you copy the "bin" and "lib" libraries from
+omniORBpy package top c:\omniORB, and that your omniORBpy package
+matches the Python version. Also see omniORBpy README.txt for which
+version of omniORB is required.  In our example, omniORBpy 2.5 requires    
+omniORB 4.0.x.
+
+Now all Spine sync client dependencies should be installed. Edit 
+the paths in client.conf and sync.conf so that they are Windows
+compatible, ie.  cache_dir: c:\temp instead of /tmp
+
+Run python sync.py to run the server connection tests.
