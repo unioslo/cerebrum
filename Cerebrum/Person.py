@@ -848,6 +848,28 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
         """ % locals(),
                           {'con': int(var),})
 
+    def getdict_persons_names(self, source_system=None, name_types=None):
+        if name_types is None:
+            name_types = self.const.name_full
+        if isinstance(name_types, (list, tuple)):
+            selection = "IN (%s)" % ", ".join(map(str, map(int, name_types)))
+        else:
+            selection = "= %d" % int(name_types)
+        if source_system is not None:
+            selection += " AND source_system = %d" % int(source_system)
+        result = {}
+        for id, variant, name in self.query("""
+        SELECT DISTINCT person_id, name_variant, name
+        FROM [:table schema=cerebrum name=person_name]
+        WHERE name_variant %s""" % selection):
+            id   = int(id)
+            info = result.get(id)
+            if info is None:
+                result[id] = {int(variant): name}
+            else:
+                info[int(variant)] = name
+        return result
+
     def list_extended_person(self, spread=None, include_quarantines=False,
                              include_mail=False):
         """Multiple join to increase performance on LDAP-dump."""
