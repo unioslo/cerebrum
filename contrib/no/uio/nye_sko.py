@@ -49,15 +49,19 @@ def usage():
     print """Bruk: nye_sko.py [flagg]
     -f fakultet      tosifra talkode for fakultet
     -i institutt     tosifra talkode for institutt
-    -a affiliation   namn på affiliation ("STUDENT", "ANSATT" osv.)
+    -a affiliation   namn på affiliation til brukar ("STUDENT", "ANSATT" osv.)
+    -p affiliation   namn på affiliation til person (default: same som -a)
 
     fakultet er obligatorisk."""
     sys.exit(64)
 
-def reorganise_users(fac, inst=None, aff=None):
+def reorganise_users(fac, inst=None, aff=None, persaff=None):
     done = {}
     for ou_id in list_ous(fac, inst):
-        logger.debug("Doing OU %d" % ou_id)
+        ou.clear()
+        ou.find(ou_id)
+        logger.debug("Doing OU %02d%02d%02d" % (ou.fakultet, ou.institutt,
+                                                ou.avdeling))
         for r in acc.list_accounts_by_type(ou_id=ou_id,
                                            affiliation=aff,
                                            filter_expired=True):
@@ -66,26 +70,27 @@ def reorganise_users(fac, inst=None, aff=None):
             done[r.account_id] = 1
             user.clear()
             user.find(r.account_id)
-            logger.debug("... account %s" % user.account_name)
             got_aff = {}
             for r2 in user.get_account_types():
-                if aff and r2.affiliation <> aff:
+                if persaff and r2.affiliation <> persaff:
                     continue
                 got_aff[(r2.ou_id,r2.affiliation)] = 1
             for r2 in person.list_affiliations(person_id=r.person_id,
-                                               affiliation=aff):
+                                               affiliation=persaff):
+                assert r2.affiliation == persaff
                 if (int(r2.ou_id), int(r2.affiliation)) in got_aff:
                     continue
                 ou.clear()
-                ou.find(r.ou_id)
+                ou.find(r2.ou_id)
                 # perhaps we should allow this fac to be different from
                 # the source fac.  (likewise for inst below)
                 if ou.fakultet <> fac:
                     continue
                 if inst and ou.institutt <> inst:
                     continue
-                logger.info("...... adding %d %d %d" %
-                            (r2.ou_id, r2.affiliation, r.priority))
+                logger.info("...... %-8s adding %02d%02d%02d %d %d" %
+                            (user.account_name, ou.fakultet, ou.institutt,
+                             ou.avdeling, r2.affiliation, r.priority))
                 user.set_account_type(r2.ou_id, r2.affiliation, r.priority)
             db.commit()
 
@@ -105,14 +110,16 @@ person = Factory.get("Person")(db)
 logger = Factory.get_logger("cronjob")
 
 try:
-    opts, args = getopt.getopt(sys.argv[1:], "f:i:a:",
-                               ["fakultet=", "institutt=", "affiliation="])
+    opts, args = getopt.getopt(sys.argv[1:], "f:i:a:p:",
+                               ["fakultet=", "institutt=", "affiliation=",
+                                "person-affiliation="])
 except getopt.GetoptError:
     usage()
 
 fac = None
 inst = None
 aff = None
+persaff = None
 for o, val in opts:
     if o in ('-f', '--fakultet'):
         fac = int(val)
@@ -120,10 +127,15 @@ for o, val in opts:
         inst = int(val)
     elif o in ('-a', '--affiliation'):
         aff = int(co.PersonAffiliation(val))
+    elif o in ('-p', '--person-affiliation'):
+        persaff = int(co.PersonAffiliation(val))
     else:
         usage()
+
+if not persaff:
+    persaff = aff
 
 if not fac:
     usage()
 
-reorganise_users(fac, inst, aff)
+reorganise_users(fac, inst, aff, persaff)
