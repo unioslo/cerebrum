@@ -1,7 +1,7 @@
 #!/usr/bin/env python2.2
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2003 University of Oslo, Norway
+# Copyright 2003, 2004 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -61,21 +61,19 @@ default_spread = const.spread_uio_nis_user
 
 def email_delivery_stopped(user):
     global ldapconn
-    # Delayed import so that the script can be ran on machines without
-    # the module
-    import ldap
+    # Delayed import so that the script can be run on machines without
+    # the ldap module
+    import ldap, ldap.filter, ldap.ldapobject
     if ldapconn is None:
-        ldapconn = ldap.open("ldap.uio.no")
+        ldapconn = ldap.ldapobject.ReconnectLDAPObject("ldap://ldap.uio.no/")
         ldapconn.set_option(ldap.OPT_PROTOCOL_VERSION, 3)
-        try:
-            ldapconn.simple_bind_s("","")
-        except ldap.LDAPError, e:
-            logger.error("Connect to LDAP failed: %s", e)
-            return False
+        ldapconn.set_option(ldap.OPT_DEREF, ldap.DEREF_NEVER)
     try:
         res = ldapconn.search_s("ou=mail,dc=uio,dc=no",
-                                ldap.SCOPE_SUBTREE,
-                                "(&(target=%s)(mailPause=TRUE))" % user)
+                                ldap.SCOPE_ONELEVEL,
+                                ("(&(target=%s)(mailPause=TRUE))" %
+                                 ldap.filter.escape_filter_chars(user)),
+                                ["1.1"])
     except ldap.LDAPError, e:
         logger.error("LDAP search failed: %s", e)
         return False
