@@ -88,7 +88,7 @@ def init_ldap_dump(ou_org,filename=None):
     init_str = "dn: %s\n" % (cereconf.LDAP_BASE)    
     for oc in ('top', 'organization', 'eduOrg', 'norEduOrg'):
 	init_str += "objectClass: %s\n" % oc
-    homepage = cereconf.getattr(LDAP_BASE_URL, None)
+    homepage = getattr(cereconf, 'LDAP_BASE_URL', None)
     if homepage:
         init_str += """objectClass: labeledURIObject
 labeledURI: %s
@@ -171,8 +171,7 @@ eduOrgHomePageURI: %s
         except:
             pass
         else:
-	    f.write(lfile.read().strip()) 
-	    f.write('\n')
+	    f.write(lfile.read().strip() + '\n\n') 
 	    lfile.close()
 
     if True:
@@ -181,8 +180,8 @@ eduOrgHomePageURI: %s
         stedkodestr = "%02d%02d%02d" % (
             stedkode.fakultet, stedkode.institutt, stedkode.avdeling)
 
-	init_str = "dn: ou=%s,%s" % (cereconf.LDAP_NON_ROOT_ATTR,
-                                     get_tree_dn('ORG'))
+	init_str = "dn: ou=%s,%s\n" % (cereconf.LDAP_NON_ROOT_ATTR,
+                                       get_tree_dn('ORG'))
         for ss in ('top', 'organizationalUnit', 'norEduOrgUnit'):
             init_str += "objectClass: %s\n" % ss
         init_str += "ou: %s\n" % cereconf.LDAP_NON_ROOT_ATTR
@@ -684,16 +683,8 @@ def generate_users(spread=None,filename=None):
                 qshell = qh.get_shell()
                 if qshell is not None:
                     shell = qshell
-            if row['name']:
-                cn = some2utf(row['name'])
-            elif gecos:
-                cn = some2utf(gecos)
-            else:
-                cn = uname
-            if gecos:
-                gecos = latin1_to_iso646_60(some2iso(gecos))
-            else:
-                gecos = latin1_to_iso646_60(some2iso(cn))
+            cn    = some2utf(row['name'] or gecos or uname)
+            gecos = latin1_to_iso646_60(some2iso(gecos or cn))
             if row['disk_id']:
                 home = "%s/%s" % (disks[int(row['disk_id'])],uname)
             elif row['home']:
@@ -702,7 +693,7 @@ def generate_users(spread=None,filename=None):
                 continue
             if acc_id <> prev_userid:
                 f.write('dn: uid=%s%s\n' % (uname, posix_dn))
-                f.write('%scn: %s\n' % (obj_string, gecos))
+                f.write('%scn: %s\n' % (obj_string, cn))
                 f.write('uid: %s\n' % uname)
                 f.write('uidNumber: %s\n' % str(row['posix_uid']))
                 f.write('gidNumber: %s\n' % str(row['posix_gid']))
