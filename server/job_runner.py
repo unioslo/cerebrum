@@ -36,10 +36,13 @@ import sys
 import popen2
 import fcntl
 import select
+import getopt
+import socket
+import thread
+import signal
 
 import cerebrum_path
 import cereconf
-import scheduled_jobs
 
 from Cerebrum.extlib import logging
 from Cerebrum.Utils import Factory
@@ -52,6 +55,7 @@ db = Factory.get('Database')()
 
 logging.fileConfig(cereconf.LOGGING_CONFIGFILE)
 logger = logging.getLogger("cronjob")
+Timeout = 'Timeout'
 
 class Action(object):
     def __init__(self, pre=None, post=None, call=None, max_freq=None, when=None,
@@ -335,5 +339,89 @@ def update_last_run(id, timestamp):
 ##                NOT NULL
 ##   );
 
-if __name__ == '__main__':
+def timeout(sig, frame) :
+    raise Timeout
+
+def start_listener():
+    s = socket.socket(socket.AF_UNIX)
+    s.bind(cereconf.JOB_RUNNER_SOCKET)
+    s.listen(1)
+    while True:
+        conn, addr = s.accept()
+        while 1:
+            data = conn.recv(1024).strip()
+            if data == 'RELOAD':
+                global all_jobs
+                reload(scheduled_jobs)
+                all_jobs = scheduled_jobs.get_jobs()
+                conn.send('OK\n')
+                break
+            elif data == 'PING':
+                conn.send('PONG\n')
+                break
+            else:
+                print "Unkown command: %s" % data
+            if not data: break
+        conn.close()    
+
+def send_cmd(cmd, timeout=2):
+    signal.alarm(timeout)
+    s = socket.socket(socket.AF_UNIX)
+    s.connect(cereconf.JOB_RUNNER_SOCKET)
+    s.send("%s\n" % cmd)
+    ret = s.recv(1024).strip()
+    s.close()
+    signal.alarm(0)
+    return ret
+
+def __del__():
+    os.unlink(cereconf.JOB_RUNNER_SOCKET)
+
+def usage(exitcode=0):
+    print """job_runner.py --reload | --config file"""
+    sys.exit(exitcode)
+
+def main():
+    try:
+        opts, args = getopt.getopt(sys.argv[1:], '',
+                                   ['reload', 'config='])
+    except getopt.GetoptError:
+        usage(1)
+    global scheduled_jobs
+    alt_config = False
+    signal.signal(signal.SIGALRM, timeout)
+    for opt, val in opts:
+        if opt == '--reload':
+            try:
+                print "Response: %s" % send_cmd("RELOAD")
+            except Timeout:
+                print "Timout contacting server, is it running?"
+            sys.exit(0)
+        elif opt in ('--config',):
+            sys.path.insert(0, val[:val.rindex("/")])
+            name = val[val.rindex("/")+1:]
+            name = name[:name.rindex(".")]
+            exec("import %s as tmp" % name)
+            scheduled_jobs = tmp
+            # sys.path = sys.path[1:]  # With this reload(module) loads another file(!)
+            alt_config = True
+    if not alt_config:
+        import scheduled_jobs
+
+    try:
+        os.stat(cereconf.JOB_RUNNER_SOCKET)
+        if send_cmd("PING") == 'PONG':
+            print "Server already running"
+            sys.exit(1)
+    except socket.error:   # No server seems to be running
+        print "WARNING: Removing stale socket"
+        os.unlink(cereconf.JOB_RUNNER_SOCKET)
+        pass
+    except OSError:        # File didn't exist
+        pass
+    signal.alarm(0)
+    thread.start_new(start_listener, ())
     runner()
+
+if __name__ == '__main__':
+    main()
