@@ -159,7 +159,7 @@ class Entity(DatabaseAccessor):
 class EntityName(object):
     "Mixin class, usable alongside Entity for entities having names."
     def get_name(self, domain):
-        return self.query("""
+        return self.query_1("""
         SELECT * FROM [:table schema=cerebrum name=entity_name]
         WHERE entity_id=:e_id AND value_domain=:domain""",
                           {'e_id': self.entity_id,
