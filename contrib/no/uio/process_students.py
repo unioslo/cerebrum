@@ -5,6 +5,7 @@ import getopt
 import sys
 import os
 import pickle
+import traceback
 from time import gmtime, strftime, time
 
 import cerebrum_path
@@ -26,6 +27,7 @@ const = Factory.get('Constants')(db)
 all_passwords = {}
 person_affiliations = {}
 debug = 0
+max_errors = 10          # Max number of errors to accept in person-callback
 
 def bootstrap():
     global default_creator_id, default_expire_date, default_shell
@@ -296,6 +298,17 @@ def make_barcode(account_id):
         logger.warn("Bardode returned %s" % ret)
 
 def process_students_callback(person_info):
+    try:
+        process_student(person_info)
+    except:
+        max_errors -= 1
+        if max_errs < 0:
+            raise
+        trace = "".join(traceback.format_exception(
+            sys.exc_type, sys.exc_value, sys.exc_traceback))
+        logger.error("Unexpected error: %s" % trace)
+
+def process_student(person_info):
     fnr = fodselsnr.personnr_ok("%06d%05d" % (int(person_info['fodselsdato']),
                                               int(person_info['personnr'])))
     logger.set_indent(0)
