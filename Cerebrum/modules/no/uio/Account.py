@@ -58,39 +58,14 @@ class AccountUiOMixin(Account.Account):
             # Unless this account already has been associated with an
             # Cyrus EmailServerTarget, we need to do so.
             est = Email.EmailServerTarget(self._db)
-            es = Email.EmailServer(self._db)
-            is_on_cyrus = False
             old_server = None
             try:
                 est.find_by_entity(self.entity_id)
                 old_server = est.email_server_id
-                es.find(est.email_server_id)
-                if es.email_server_type == self.const.email_server_type_cyrus:
-                    is_on_cyrus = True
             except Errors.NotFoundError:
                 pass
-            if not is_on_cyrus:
-                # Randomly choose which IMAP server the user should
-                # reside on.
-                imap_servs = []
-                for svr in es.list_email_server_ext():
-                    if (svr['server_type']
-                        <> self.const.email_server_type_cyrus):
-                        continue
-                    if svr['name'] == 'mail-sg0':
-                        # Reserved for test users.
-                        continue
-                    imap_servs.append(svr['server_id'])
-                svr_id = random.choice(imap_servs)
-                est.email_server_id = svr_id
-                if old_server is None:
-                    et = Email.EmailTarget(self._db)
-                    et.find_by_email_target_attrs(entity_id = self.entity_id)
-                    est.clear()
-                    est.populate(svr_id, parent = et)
-                else:
-                    est.populate(svr_id)
-                est.write_db()
+            est = self._UiO_update_email_server(
+                self.const.email_server_type_cyrus)
 
             # Set quota.
             eq = Email.EmailQuota(self._db)
@@ -118,6 +93,48 @@ class AccountUiOMixin(Account.Account):
             self.update_email_addresses()
         return ret
 
+    def _UiO_update_email_server(self, server_type):
+        est = Email.EmailServerTarget(self._db)
+        es = Email.EmailServer(self._db)
+        old_server = None
+        is_on_cyrus = False
+        try:
+            est.find_by_entity(self.entity_id)
+            old_server = est.email_server_id
+            es.find(est.email_server_id)
+            if es.email_server_type == server_type:
+                # All is well
+                return est
+            if es.email_server_type == self.const.email_server_type_cyrus:
+                is_on_cyrus = True
+        except Errors.NotFoundError:
+            pass
+        if old_server is None \
+           or (server_type == self.const.email_server_type_cyrus
+               and not is_on_cyrus):
+            email_servs = []
+            for svr in es.list_email_server_ext():
+                if svr['server_type'] <> server_type:
+                    continue
+                if (server_type == self.const.email_server_type_cyrus
+                    and svr['name'] == 'mail-sg0'):
+                    # Reserved for test users.
+                    continue
+                email_servs.append(svr['server_id'])
+            svr_id = random.choice(email_servs)
+            if old_server is None:
+                et = Email.EmailTarget(self._db)
+                et.find_by_email_target_attrs(entity_id = self.entity_id)
+                est.clear()
+                est.populate(svr_id, parent = et)
+            else:
+                est.populate(svr_id)
+            est.write_db()
+            return est
+        elif is_on_cyrus:
+            raise RuntimeError, \
+                  "Can't move email target away from Cyrus."
+
     def delete_spread(self, spread):
         #
         # Pre-remove checks
@@ -132,4 +149,15 @@ class AccountUiOMixin(Account.Account):
         #
         # (Try to) perform the actual spread removal.
         ret = self.__super.delete_spread(spread)
+        return ret
+
+    def update_email_addresses(self):
+        ret = self.__super.update_email_addresses()
+        # Make sure the email target of this account is associated
+        # with an appropriate email server.
+        spreads = [int(r['spread']) for r in self.get_spread()]
+        srv_type = self.const.email_server_type_nfsmbox
+        if int(self.const.spread_uio_imap) in spreads:
+            srv_type = self.const.email_server_type_cyrus
+        self._UiO_update_email_server(srv_type)
         return ret
