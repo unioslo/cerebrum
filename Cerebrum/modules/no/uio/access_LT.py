@@ -69,11 +69,12 @@ class LT(object):
           poststednr_intern_adr, poststednavn_intern_adr, landnavn_intern_adr,
           adrtypekode_alternativ_adr, adresselinje1_alternativ_adr,
           adresselinje2_alternativ_adr, poststednr_alternativ_adr,
-          poststednavn_alternativ_adr, landnavn_alternativ_adr
+          poststednavn_alternativ_adr, landnavn_alternativ_adr,
+          dato_opprettet, dato_nedlagt
         FROM
           lt.sted
         WHERE
-          dato_opprettet <= SYSDATE AND dato_nedlagt > SYSDATE
+          NVL(dato_nedlagt,SYSDATE) > SYSDATE - 365
         ORDER BY
           fakultetnr, instituttnr, gruppenr
         """
