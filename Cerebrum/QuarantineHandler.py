@@ -50,7 +50,7 @@ class QuarantineHandler(object):
 #    __slots__ = 'quarantines'
 
     qc2rules = {}
-    _explicit_sort = None
+    _explicit_sort = False
     
     def __init__(self, database, quarantines, spreads=None):
         """Constructs a QuarantineHandler.  quarantines should point
@@ -92,7 +92,8 @@ class QuarantineHandler(object):
                                    if t is not None]).keys()
             if len(used_sort_nums) != 0 and orig_len != len(used_sort_nums):
                 raise ValueError, "sort_num in QUARANTINE_RULES illegal"
-                    
+            if used_sort_nums:
+                QuarantineHandler._explicit_sort = True
         if quarantines is None:
             quarantines = []
         self.quarantines = quarantines
@@ -159,7 +160,7 @@ def _test():
     # constants (which we currently don't have for spreads)    
     cereconf.QUARANTINE_RULES = {
         'nologin': {'lock': 1, 'shell': 'nologin-shell', 'sort_num': 10},
-        'system': [{'lock': 1, 'shell': 'nologin-shell', 'sort_num': 2},
+        'system': [{'lock': 1, 'shell': 'nologin-shell2', 'sort_num': 2},
                    {'spread': 'AD_account', 'shell': 'ad-shell', 'sort_num': 3}]
         }
     from Cerebrum.Utils import Factory
