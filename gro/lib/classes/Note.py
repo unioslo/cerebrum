@@ -34,12 +34,20 @@ class Note(DatabaseClass):
         DatabaseAttr('id', 'note', int)
     ]
     slots = [
-        DatabaseAttr('create_date', 'note', str),
+        DatabaseAttr('create_date', 'note', Date),
         DatabaseAttr('creator', 'note', Entity),
         DatabaseAttr('entity', 'note', Entity),
         DatabaseAttr('subject', 'note', str),
         DatabaseAttr('description', 'note', str)
     ]
+    db_attr_aliases = {
+        'note': {
+            'id': 'note_id',
+            'creator': 'creator_id',
+            'entity': 'entity_id'
+        }
+    }
+
 
 registry.register_class(Note)
 

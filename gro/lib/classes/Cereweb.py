@@ -83,17 +83,13 @@ class CerewebCommands(GroBuilder):
         id = int(db.nextval('cereweb_seq'))
         creator = self.get_writelock_holder().get_client()
         CerewebMotd._create(db, id, creator=creator, subject=subject, message=message)
-        new_obj = CerewebMotd(id)
-        new_obj.lock_for_writing(self.get_writelock_holder())
-        return new_obj
+        return CerewebMotd(id, write_lock=self.get_writelock_holder())
 
     def create_cereweb_option(self, entity, key, value):
         db = self.get_database()
         id = int(db.nextval('cereweb_seq'))
         CerewebOption._create(db, id, entity, key, value)
-        new_obj = CerewebOption(id)
-        new_obj.lock_for_writing(self.get_writelock_holder())
-        return new_obj
+        return CerewebOption(id, write_lock=self.get_writelock_holder())
 
 registry.register_class(CerewebCommands)
 
