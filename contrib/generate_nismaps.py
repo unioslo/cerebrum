@@ -15,23 +15,25 @@ person = Person.Person(Cerebrum)
 def generate_passwd():
     pp = pprint.PrettyPrinter(indent=4)
     count = 0
-    timestamp = time.strftime("%FT%H:%m %z", time.gmtime(time.time()))
     for id in account.get_all_posix_users():
         id = id[0]
         account.find_posixuser(id)
-        account.find(id)
+        # account.find(id)
 
         # TODO: The value_domain should be fetched from somewhere
         # The array indexes should be replaced with hash-keys
         uname = account.get_name(co.entity_accname_default)[0][2]
         # TODO: Something should set which auth_type to use for this map
-        passwd = account.get_account_authentication(co.auth_type_md5)
+        try:
+            passwd = account.get_account_authentication(co.auth_type_md5)
+        except Errors.NotFoundError:
+            passwd = '*'
         
         default_group = "posix_group.find(%s)" % account.gid
         gecos = account.gecos
         if gecos == None:
             gecos = account.get_gecos()
-        shell = Constants._PosixShellCode(int(account.shell)).desc()
+        shell = Constants._PosixShellCode(int(account.shell)).description
         print "%s:%s:%s:%s:%s:%s:%s" %(
             uname,
             passwd,
@@ -41,9 +43,6 @@ def generate_passwd():
             account.home,
             shell)
 	# convert to 7-bit
-    # Hm, not sure if -1 is accepted as user/group id.  Need to check
-    print "DUMMYUSER:*:-1:-1:Generated %d users %s::/bin/false" % (count,
-                                                                   timestamp)
 
 def main():
     generate_passwd()
