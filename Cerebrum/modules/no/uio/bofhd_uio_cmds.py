@@ -1448,6 +1448,52 @@ class BofhdExtension(object):
         raise NotImplementedError, "Feel free to implement this function"
 
     #
+    # commands that are noe available in jbofh, but used by other clients
+    #
+
+    all_commands['get_persdata'] = None
+
+    def get_persdata(self, operator, uname):
+        ac = self._get_account(uname)
+        person_id = "entity_id:%i" % ac.owner_id
+        person = self._get_person(*self._map_person_id(person_id))
+        ret = {
+            'is_personal': len(ac.get_account_types()),
+            'fnr': [{'id': r['external_id'],
+                     'source': "%s" % self.num2const[r['source_system']]}
+                    for r in person.get_external_id(id_type=self.const.externalid_fodselsnr)]
+            }
+        ac_types = ac.get_account_types(all_persons_types=True)        
+        if ret['is_personal']:
+            ac_types.sort(lambda x,y: int(x['priority']-y['priority']))
+            for at in ac_types:
+                ac2 = self._get_account(at['account_id'], idtype='id')
+                ret.setdefault('users', []).append(
+                    (ac2.account_name, '%s@UIO_HOST' % ac2.account_name,
+                     at['priority'], at['ou_id'], "%s" % self.num2const[int(at['affiliation'])]))
+            # TODO: kall ac.list_accounts_by_owner_id(ac.owner_id) for
+            # å hente ikke-personlige konti?
+        if ac.home is not None:
+            ret['home'] = ac.home
+        else:
+            disk = Disk.Disk(self.db)
+            disk.find(ac.disk_id)
+            ret['home'] = '%s/%s' % (disk.path, ac.account_name)
+        ret['navn'] = {'cached': person.get_name(
+            self.const.system_cached, self.const.name_full)}
+        try:
+            ret['work_title'] = person.get_name(
+                self.const.system_lt, self.const.name_work_title)
+        except Errors.NotFoundError:
+            pass
+        try:
+            ret['personal_title'] = person.get_name(
+                self.const.system_lt, self.const.name_personal_title)
+        except Errors.NotFoundError:
+            pass
+        return ret
+
+    #
     # misc helper functions.
     # TODO: These should be protected so that they are not remotely callable
     #
