@@ -35,9 +35,10 @@ class Account(EntityName, EntityQuarantine, Entity):
 
     __read_attr__ = ('__in_db',
                      # TODO: Get rid of these.
-                     '_auth_info', '_acc_affect_auth_types')
+                     )
     __write_attr__ = ('account_name', 'owner_type', 'owner_id',
-                      'np_type', 'creator_id', 'expire_date', 'create_date')
+                      'np_type', 'creator_id', 'expire_date', 'create_date',
+                      '_auth_info', '_acc_affect_auth_types')
 
     def clear(self):
         super(Account, self).clear()
@@ -53,7 +54,7 @@ class Account(EntityName, EntityQuarantine, Entity):
         #       once all Entity classes have been ported to use the
         #       mark_update metaclass.
         self._auth_info = {}
-        self._acc_affect_auth_types = ()
+        self._acc_affect_auth_types = []
 
     def __eq__(self, other):
         assert isinstance(other, Account)
@@ -91,7 +92,7 @@ class Account(EntityName, EntityQuarantine, Entity):
         self.account_name = name
 
     def affect_auth_types(self, *authtypes):
-        self._acc_affect_auth_types = authtypes
+        self._acc_affect_auth_types = list(authtypes)
 
     def populate_authentication_type(self, type, value):
         self._auth_info[int(type)] = value
@@ -107,8 +108,7 @@ class Account(EntityName, EntityQuarantine, Entity):
         for method in cereconf.AUTH_CRYPT_METHODS:
             method_const = getattr(self.const, method)
             if not method_const in self._acc_affect_auth_types:
-                self._acc_affect_auth_types = self._acc_affect_auth_types + \
-                                              (method_const,)
+                self._acc_affect_auth_types.append(method_const)
             enc = getattr(self, "enc_%s" % method)
             enc = enc(plaintext)
             self.populate_authentication_type(getattr(self.const, method), enc)
