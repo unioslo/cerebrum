@@ -83,7 +83,6 @@ def main():
             gender = co.gender_female
 
         (year, mon, day) = fodselsnr.fodt_dato(person['fnr'])
-        if(year < 1970): year = 1970   # Seems to be a bug in time.mktime on some machines
         if(year < 1970 and getattr(cereconf, "ENABLE_MKTIME_WORKAROUND", 0) == 1):
             year = 1970   # Seems to be a bug in time.mktime on some machines
         new_person.populate(Cerebrum.Date(year, mon, day), gender)
@@ -130,11 +129,12 @@ def main():
             new_person.populate_contact_info(co.contact_fax, fax)
 
         new_person.affect_addresses(co.system_lt, co.address_post)
-        new_person.populate_address(co.address_post, addr="%s\n%s" %
-                                    (person['adresselinje1_privatadresse'],
-                                     person.get('adresselinje2_privatadresse', '')),
-                                    zip=person['poststednr_privatadresse'],
-                                    city=person['poststednavn_privatadresse'])
+       if person.has_key('adresselinje1_privatadresse'):
+            new_person.populate_address(co.address_post, addr="%s\n%s" %
+                                       (person['adresselinje1_privatadresse'],
+                                        person.get('adresselinje2_privatadresse', '')),
+                                       zip=person.get('poststednr_privatadresse', None),
+                                       city=person.get('poststednavn_privatadresse', None))
         if stedkode <> '':
             try:
                 fak, inst, gruppe = stedkode[0:2], stedkode[2:4], stedkode[4:6]
