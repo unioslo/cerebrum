@@ -4,7 +4,7 @@
    whatever might be neccessary. """
 
 
-class Address:
+class Address(object):
 
     def set_info(cls, entity_id, source_system, address_type, 
                 address_text=None, p_o_box=None, city=None, 
@@ -21,7 +21,7 @@ class Address:
 
     get_info = classmethod(get_info)
 
-class ChangeType:
+class ChangeType(object):
     """A type of change in the history log"""
     def __init__(self, change_type_id, category, change_type, msg):
         self.id = change_type_id
@@ -38,8 +38,8 @@ class ChangeType:
     def __str__(self):
         return "%s %s" % (self.category, self.type)    
 
-class Change:
-    """A change entry in the history log"""
+class Change(object):
+    """A change entry in the history log. A Change is of a given ChangeType."""
     def __init__(self, type, date, subject, dest, params, change_by):
         self.type = type # a ChangeType
         self.date = date # mx.DateTime
@@ -68,7 +68,7 @@ class Change:
         date = self.date.strftime("%Y-%m-%d")    
         return "%s %s" % (date, msg)
 
-class ContactInfo:
+class ContactInfo(object):
 
     def set_info(cls, entitiy_id, source_system, contact_type,
                 contact_pref=None, contact_value=None, 
@@ -86,7 +86,7 @@ class ContactInfo:
     get_info = classmethod(get_info)
         
 
-class Entity:
+class Entity(object):
     
     def __init__(self, server):
         # Holds a list of all names for each valuedomain
@@ -137,16 +137,17 @@ class Entity:
         
     def add_quarantine(self, quarantine_type, description, start_date=None, 
                        disable_until=None, end_date='default'):
-        """Adds the enitity to a defined ``quarantine_type`` with ``description``.
+        """Adds the enitity to a defined ``quarantine_type`` with
+           ``description``.
            
            Quarantine starts at ``start_date``, defaults to None which is now.
            
-           Quarantine ends at ``end_date``, defaults to 'default' which uses the 
-           duration field from the defined quarantine-type. Setting this parameter
-           to None means indefinitely.
+           Quarantine ends at ``end_date``, defaults to 'default' which uses
+           the duration field from the defined quarantine-type. Setting this
+           parameter to None means indefinitely.
            
-           Setting ``disable_until`` indicates that the quarantine is lifted until
-           given date. This is useful e.g. for giving users who have been
+           Setting ``disable_until`` indicates that the quarantine is lifted
+           until given date. This is useful e.g. for giving users who have been
            quarantined for having too old passwords a limited time to change
            their password; in order to change their password they must use
            their old password, and this won't work when they're quarantined.
@@ -160,6 +161,7 @@ class Entity:
         pass
     
     def get_history(self):
+        """Returns a list of Change objects for recent changes"""
         pass    
 
 
@@ -235,14 +237,14 @@ class Account(Entity):
     fetch_by_name = classmethod(fetch_by_name)
 
 
-class Quarantine:
+class Quarantine(object):
     def __init__ (self, start_date, end_date, quarantine_type, reason):
         self.start_date = start_date
         self.end_date = end_date
         self.type = quarantine_type
         self.reason = reason
 
-class Constants:
+class Constants(object):
     JOIN = 1
     INTERSECTION = 2
     DIFFERENCE = 3
