@@ -35,6 +35,7 @@ class Config(object):
         
         sp = StudconfigParser(self)
         self.disk_defs = {}
+        self.disk_spreads = {}  # defined <disk_spread> tags
         self.group_defs = {}
         self.default_values = {}
         self.profiles = []
@@ -155,6 +156,10 @@ class ProfileDefinition(object):
                     elif select_type == 'medlem_av_gruppe':
                         mapping.setdefault(
                             select_type, {}).setdefault(s_criteria['group_id'], []).append(self)
+                    elif select_type == 'person_affiliation':
+                        mapping.setdefault(
+                            select_type, {}).setdefault((
+                            s_criteria['affiliation_id'], s_criteria['status_id']), []).append(self)
                     else:
                         self._logger.warn("Unknown special mapping %s" % select_type)
 
@@ -235,6 +240,17 @@ class ProfileDefinition(object):
                 tmp.append({'group_id': id })
         self.selection_criterias["medlem_av_gruppe"] = tmp  
 
+        tmp = []
+        for aff_info in self.selection_criterias.get("person_affiliation", []):
+            affiliation = config.autostud.co.PersonAffiliation(aff_info['affiliation'])
+            if not aff_info.has_key('status'):
+                for aff_status in config.autostud.co.fetch_constants(config.autostud.co.PersonAffStatus):
+                    tmp.append({'affiliation_id': int(affiliation), 'status_id': int(aff_status)})
+            else:
+                aff_status = config.autostud.co.PersonAffStatus(affiliation, aff_info['status'])
+                tmp.append({'affiliation_id': int(affiliation), 'status_id': int(aff_status)})
+        self.selection_criterias["person_affiliation"] = tmp
+
         # Find all student disks from disk_defs
         for k in ('path', 'prefix'):
             for ddef in config.disk_defs.get(k, {}).keys():
@@ -273,33 +289,36 @@ class StudconfigParser(xml.sax.ContentHandler):
     select_map_defs = {
         ## SX = studconfig.xml, MX = merged_persons.xml
         ## <SX:select-tag>: [MAPPING_TYPE, <SX:match-attribute>,
-        ##                   <MX:studinfo-tag>, <MX:match-attribute>]
+        ##                   <MX:studinfo-tag>, [<MX:match-attribute>]]
+        ## match-attributes are OR'ed
         ##
         ## When MAPPING_TYPE != NORMAL_MAPPING, the rest of the
         ## corresponding values may depend on the specific
         ## implemetation for the SPECIAL_MAPPING
 
         "tilbud": [NORMAL_MAPPING, 'studieprogram', 'tilbud',
-                   'studieprogramkode'],
+                   ['studieprogramkode']],
         "studierett": [NORMAL_MAPPING, 'studieprogram', 'opptak',
-                       'studieprogramkode'],
+                       ['studieprogramkode', 'status']],
         "aktiv": [NORMAL_MAPPING, 'studieprogram', 'aktiv',
-                  'studieprogramkode'],
+                  ['studieprogramkode']],
         "privatist_studieprogram": [NORMAL_MAPPING, 'studieprogram',
                                     'privatist_studieprogram',
-                                    'studieprogramkode'],
-        "emne": [NORMAL_MAPPING, 'emnekode', 'eksamen', 'emnekode'],
+                                    ['studieprogramkode']],
+        "emne": [NORMAL_MAPPING, 'emnekode', 'eksamen', ['emnekode']],
         "privatist_emne": [NORMAL_MAPPING, 'emnekode',
-                           'privatist_emne', 'emnekode'],
+                           'privatist_emne', ['emnekode']],
         "aktivt_sted": [SPECIAL_MAPPING, 'stedkode', 'aktiv',
                         'studieprogramkode'],
         "evu_sted": [SPECIAL_MAPPING, 'stedkode', 'evu',
                         'studieprogramkode'],
-        "medlem_av_gruppe": [SPECIAL_MAPPING]
+        "medlem_av_gruppe": [SPECIAL_MAPPING],
+        "person_affiliation": [SPECIAL_MAPPING],
         }
 
     profil_settings = ("stedkode", "gruppe", "spread", "disk", "mail",
-                       "printer_kvote", "disk_kvote", "nivå", "brev", "build")
+                       "printer_kvote", "disk_kvote", "brev", "build",
+                       "print_kvote_fritak", "print_betaling_fritak")
 
     def __init__(self, config):
         self.elementstack = []
@@ -327,6 +346,7 @@ class StudconfigParser(xml.sax.ContentHandler):
                 self._default_group_auto = tmp['default_auto']
             elif ename == 'disk_oversikt':
                 self._default_disk_max = tmp['default_max']
+                self._tmp_disk_spreads = []
             elif ename == 'default_values':
                 pass
         elif len(self.elementstack) == 3 and self.elementstack[1] == 'default_values':
@@ -348,8 +368,15 @@ class StudconfigParser(xml.sax.ContentHandler):
             else:
                 raise SyntaxWarning, "Unexpected tag %s in gruppe_oversikt" % ename
         elif len(self.elementstack) == 3 and self.elementstack[1] == 'disk_oversikt':
-            if ename == 'diskdef':
+            if ename == 'disk_spread':
+                s = int(self._config.lookup_helper.get_spread(tmp['kode']))
+                self._tmp_disk_spreads.append(s)
+                self._config.disk_spreads[s] = 1
+            elif ename == 'diskdef':
+                if not self._tmp_disk_spreads:
+                    raise ValueError, "DTD-violation: no disk_spread defined"
                 tmp['max'] = tmp.get('max', self._default_disk_max)
+                tmp['spreads'] = self._tmp_disk_spreads
                 if tmp.has_key('path'):
                     self._config.disk_defs.setdefault('path', {})[tmp['path']] = tmp
                 else:
@@ -365,6 +392,11 @@ class StudconfigParser(xml.sax.ContentHandler):
                         raise SyntaxWarning, "Not in groupdef: %s" % tmp['navn']
                     elif ename == 'spread' and not self._legal_spreads.has_key(tmp['system']):
                         raise SyntaxWarning, "Not in spreaddef: %s" % tmp['system']
+                    elif ename == 'disk':
+                        if tmp.has_key('path'):
+                            tmp['spreads'] = self._config.disk_defs['path'][tmp['path']]['spreads']
+                        else:
+                            tmp['spreads'] = self._config.disk_defs['prefix'][tmp['prefix']]['spreads']
                     self._in_profil.add_setting(ename, tmp)
                 else:
                     raise SyntaxWarning, "Unexpected tag %s in %s" % (

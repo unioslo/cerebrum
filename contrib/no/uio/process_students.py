@@ -140,34 +140,39 @@ def update_account(profile, fnr, account_ids, account_info={}):
             user.expire_date = default_expire_date
 
         # Set/change homedir
-        try:
-            current_disk_id = user.get_home(user_spread)['disk_id']
-        except Errors.NotFoundError:
-            current_disk_id = None
-        if keep_account_home[fnr] and (move_users or current_disk_id is None):
+        user_spreads = [int(s) for s in profile.get_spreads()]
+        for disk_spread in profile.get_disk_spreads():
+            if not disk_spread in user_spreads:
+                # The disk-spread in disk-defs was not one of the users spread
+                continue 
             try:
-                new_disk = profile.get_disk(current_disk_id)
-            except ValueError, msg:  # TODO: get_disk should raise DiskError
-                raise
-            if current_disk_id != new_disk:
-                profile.notify_used_disk(old=current_disk_id, new=new_disk)
-                changes.append("disk %s->%s" % (
-                    autostud.disks.get(current_disk_id, ['None'])[0],
-                    autostud.disks.get(new_disk, ['None'])[0]))
-                if current_disk_id is None:
-                    logger.debug("Set home: %s" % new_disk)
-                    user.set_home(user_spread, disk_id = new_disk,
-                                  status=const.home_status_not_created)
-                else:
-                    br = BofhdRequests(db, const)
-                    # TBD: Is it correct to set requestee_id=None?
-                    try:
-                        br.add_request(None, br.batch_time,
-                                       const.bofh_move_user, account_id,
-                                       new_disk, state_data=int(user_spread))
-                    except errors.CerebrumError, e:
-                        # Conflicting request or similiar
-                        logger.warn(e)
+                current_disk_id = user.get_home(disk_spread)['disk_id']
+            except Errors.NotFoundError:
+                current_disk_id = None
+            if keep_account_home[fnr] and (move_users or current_disk_id is None):
+                try:
+                    new_disk = profile.get_disk(current_disk_id)
+                except ValueError, msg:
+                    raise
+                if current_disk_id != new_disk:
+                    profile.notify_used_disk(old=current_disk_id, new=new_disk)
+                    changes.append("disk %s->%s" % (
+                        autostud.disks.get(current_disk_id, ['None'])[0],
+                        autostud.disks.get(new_disk, ['None'])[0]))
+                    if current_disk_id is None:
+                        logger.debug("Set home: %s" % new_disk)
+                        user.set_home(disk_spread, disk_id = new_disk,
+                                      status=const.home_status_not_created)
+                    else:
+                        br = BofhdRequests(db, const)
+                        # TBD: Is it correct to set requestee_id=None?
+                        try:
+                            br.add_request(None, br.batch_time,
+                                           const.bofh_move_user, account_id,
+                                           new_disk, state_data=int(disk_spread))
+                        except errors.CerebrumError, e:
+                            # Conflicting request or similiar
+                            logger.warn(e)
 
         tmp = user.write_db()
         logger.debug("write_db=%s" % tmp)
@@ -488,7 +493,7 @@ def recalc_quota_callback(person_info):
             else:
                 init_quota = int(quota['initial_quota']) - int(quota['weekly_quota'])
             pq.populate(account_id, init_quota, 0, 0, 0, 0, 0, 0)
-        if quota['weekly_quota'] == 'UL':
+        if quota['weekly_quota'] == 'UL' or profile.get_printer_kvote_fritak():
             pq.has_printerquota = 'F'
         else:
             pq.has_printerquota = 'T'
@@ -496,7 +501,8 @@ def recalc_quota_callback(person_info):
             pq.max_quota = quota['max_quota']
             pq.termin_quota = quota['termin_quota']
         if paper_money_file:
-            if not paid_paper_money.get(fnr, False) and quota['weekly_quota'] != 'UL':
+            if (not profile.get_printer_betaling_fritak() and
+                not paid_paper_money.get(fnr, False)):
                 logger.debug("didn't pay, max_quota=0 for %s " % fnr)
                 pq.max_quota = 0
                 pq.printer_quota = 0
@@ -544,7 +550,7 @@ def process_student(person_info):
     keep_account_home[fnr] = profile.get_build()['home']
     if fast_test:
         logger.debug(profile.debug_dump())
-        logger.debug("Disk: %s" % profile.get_disk())
+        # logger.debug("Disk: %s" % profile.get_disk())
         logger.set_indent(0)
         return
     try:
@@ -558,11 +564,17 @@ def process_student(person_info):
         if keep_account_home[fnr]:
             # This will throw an exception if <build home="true">, and
             # we can't get a disk.  This is what we want
-            disk = profile.get_disk()
+            disk = []
+            spreads = [int(s) for s in profile.get_spreads()]
+            for s in profile.get_disk_spreads():
+                if s in spreads:
+                    disk.append((profile.get_disk(s), s))
+            if not disk:
+                raise ValueError, "No disk matches profiles"
         else:
             disk = "<no_home>"
         logger.debug("disk=%s, dfg=%s, fg=%s sko=%s" % \
-                     (disk, dfg,
+                     (str(disk), dfg,
                       profile.get_grupper(),
                       profile.get_stedkoder()))
         if dryrun:
@@ -674,17 +686,22 @@ def process_unprocessed_students():
         if not processed_students.has_key(fnr):
             logger.debug("%s has student accounts, but has not been processed" % fnr)
         if not keep_account_home.get(fnr, False):
-            # If this student 
+            # List accounts that the student has, and that lies on a
+            # student-disk
             accounts = []
             for account_id in students[fnr].keys():
                 user.clear()
                 user.find(account_id)
-                try:
-                    disk_id=user.get_home(user_spread)['disk_id']
-                except (Errors.NotFoundError, TypeError):
-                    pass
-                accounts.append("%s:%i" % (user.account_name,
-                                           autostud.student_disk.has_key(disk_id)))
+                disk_ids = []
+                for disk_spread in autostud.pc.disk_spreads.keys():
+                    try:
+                        tmp=user.get_home(disk_spread)['disk_id']
+                        if autostud.student_disk.has_key(tmp):
+                            disk_ids.append((int(tmp), int(disk_spread)))
+                    except (Errors.NotFoundError, TypeError):
+                        pass
+                accounts.append("%s:%s" % (user.account_name,
+                                           str(disk_ids)))
             logger.debug("%s didn't set keep_account_home: %s" % (fnr, str(accounts)))
 
 def main():
@@ -697,14 +714,14 @@ def main():
                                     'emne-info-file=', 'move-users',
                                     'recalc-pq', 'studie-progs-file=',
                                     'paper-file=',
-                                    'user-spread=', 'remove-groupmembers'
+                                    'remove-groupmembers'
                                     'dryrun', 'validate'])
     except getopt.GetoptError:
         usage()
     global debug, fast_test, create_users, update_accounts, logger, skip_lpr
     global student_info_file, studconfig_file, only_dump_to, studieprogs_file, \
            recalc_pq, dryrun, emne_info_file, move_users, remove_groupmembers, \
-           workdir, user_spread, paper_money_file
+           workdir, paper_money_file
 
     skip_lpr = True       # Must explicitly tell that we want lpr
     update_accounts = create_users = recalc_pq = dryrun = move_users = False
@@ -713,7 +730,6 @@ def main():
     workdir = None
     range = None
     only_dump_to = None
-    user_spread = None
     paper_money_file = None         # Default: don't check for paid paper money
     to_stdout = False
     log_level = AutoStud.Util.ProgressReporter.DEBUG
@@ -744,8 +760,6 @@ def main():
             studconfig_file = val
         elif opt in ('--fast-test',):  # Internal debug use ONLY!
             fast_test = True
-        elif opt in ('--user-spread',):
-            user_spread = getattr(const, val)
         elif opt in ('--only-dump-results',):
             only_dump_to = val
         elif opt in ('--dryrun',):
@@ -767,9 +781,7 @@ def main():
         else:
             usage()
 
-    if user_spread is None:
-        usage()
-    elif (not update_accounts and not create_users and not validate and
+    if (not update_accounts and not create_users and not validate and
           range is None):
         if not recalc_pq:
             usage()
@@ -805,7 +817,6 @@ def usage():
     -C | --studconfig-file file:
     -S | --studie-progs-file file:
     -p | --paper-file file: check for paid-quota only done if set
-    --user-spread spread: (mandatory) spread for users 
     --dryrun: don't do any changes to the database.  This can be used
       to get an idea of what changes a normal run would do.  TODO:
       also dryrun some parts of update/create user.

@@ -41,6 +41,7 @@ class LookupHelper(object):
             const = getattr(self.const, c)
             if isinstance(const, _SpreadCode):
                 self.spread_name2const[str(const)] = const
+        self._cached_affiliations = [None]
 
     def get_spread(self, name):
         try:
@@ -91,6 +92,21 @@ class LookupHelper(object):
             ret.append("%02i%02i%02i" % (
                 ou.fakultet, ou.institutt, ou.avdeling))
         return ret
+
+    def get_person_affiliations(self, fnr):
+        # We only need to cache the last entry as input is sorted by fnr
+        if self._cached_affiliations[0] != fnr:
+            person = Factory.get('Person')(self._db)
+            person.find_by_external_id(self.const.externalid_fodselsnr,
+                                       fnr, source_system=self.const.system_fs)
+            ret = []
+            for row in person.get_affiliations():
+                ret.append({
+                    'ou_id': int(row['ou_id']),
+                    'affiliation': int(row['affiliation']),
+                    'status': int(row['status'])})
+            self._cached_affiliations = (fnr, ret)
+        return self._cached_affiliations[1]
 
 class ProgressReporter(object):
     """Logging framework the makes log-files somewhat easier to read

@@ -18,6 +18,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.uio.AutoStud.ProfileConfig import StudconfigParser
 
 class NoMatchingQuotaSettings(Exception): pass
@@ -50,36 +51,52 @@ class Profile(object):
         ret = "Dumping %i match entries\n" % len(self.matcher.matches)
         ret += self._logger.pformat(self.matcher.matches)
         ret += "\nSettings: "
-        ret += self._logger.pformat(self.matcher.settings)
-        ret += "\nToplevel: "
-        ret += self._logger.pformat(self.matcher.toplevel_settings)
+        ret += self._logger.pformat(self.matcher.matched_settings)
         return ret
+
+    def get_disk_spreads(self):
+        tmp = {}
+        for disk in self.matcher.get_match("disk"):
+            for spread in disk['spreads']:
+                tmp[int(spread)] = 1
+        return tmp.keys()
     
-    def get_disk(self, current_disk=None):
+    def get_disk(self, disk_spread, current_disk=None):
         """Return a disk_id matching the current profile.  If the
         account already exists, current_disk should be set to assert
         that the user is not moved to a new disk with the same
         prefix. (i.e from /foo/bar/u11 to /foo/bar/u12)"""
 
-        disks = self.matcher.toplevel_settings.get("disk", [])
-        if len(disks) == 0:
-            raise ValueError, "No disk matches profiles"
+        # TBD: The above statement is incorrect; we will only move a
+        # user if it no longer matches a profile with the users
+        # current disk.  Is this the correct behaviour?
+
         # Detect conflicting disks at same 'nivåkode'
-        tmp = disks[0]
-        for d in disks:
-            if d != tmp:
-                for tmp in self.matcher.matches:
-                    profile, nivaakode = tmp
-                    if profile.settings.has_key("disk"):
-                        if nivaakode < 300:  # TODO: don't hardcode these
-                            disks = [{'prefix': '/uio/kant/div-l'}]
-                        else:
-                            disks = [{'prefix': '/uio/kant/div-h'}]
+        new_disk, tmp_nivaakode = None, None
+        for d, n in self.matcher.matched_settings.get("disk", []):
+            if int(disk_spread) not in d['spreads']:
+                continue            # Incorrect spread for this disk
+            if not new_disk:
+                new_disk, tmp_nivaakode = d, n
+            if n != tmp_nivaakode:  # This disk is at a lower nivåkode
                 break
+            if d != new_disk:
+                if n < 300:  # TODO: don't hardcode these
+                    new_disk = {'prefix': '/uio/kant/div-l'}
+                else:
+                    new_disk = {'prefix': '/uio/kant/div-h'}
+                break
+        if not new_disk:
+            raise ValueError, "No disk matches profiles"
+
+        # Check if one of the matching disks matches the disk that the
+        # user currently is on
         if current_disk is not None:
             if not self.pc.autostud.student_disk.has_key(int(current_disk)):
                 return current_disk
-            for d in disks:
+            for d in self.matcher.get_match("disk"):
+                if int(disk_spread) not in d['spreads']:
+                    continue            # Incorrect spread for this disk
                 if d.has_key('path'):
                     if d['path'] == current_disk:
                         return current_disk
@@ -87,12 +104,12 @@ class Profile(object):
                     disk_path = self.pc.autostud.disks[int(current_disk)][0]
                     if d['prefix'] == disk_path[0:len(d['prefix'])]:
                         return current_disk
-        disk = disks[0]
-        if disk.has_key('path'):
-            # TBD: Should we ignore max_on_disk when path is explisitly set?
-            return disk['path']
 
-        dest_pfix = disk['prefix']
+        if new_disk.has_key('path'):
+            # TBD: Should we ignore max_on_disk when path is explisitly set?
+            return new_disk['path']
+
+        dest_pfix = new_disk['prefix']
         max_on_disk = int(self.pc.disk_defs['prefix'][dest_pfix]['max'])
         if max_on_disk == -1:
             max_on_disk = 999999
@@ -101,7 +118,7 @@ class Profile(object):
             if (dest_pfix == tmp_path[0:len(dest_pfix)]
                 and tmp_count < max_on_disk):
                  return d
-        raise ValueError, "Bad disk %s" % disk
+        raise ValueError, "No disks with free space matches %s" % new_disk
 
     def notify_used_disk(self, old=None, new=None):
         if old is not None:
@@ -110,47 +127,49 @@ class Profile(object):
             self.pc.autostud.disks[new][1] += 1
 
     def get_brev(self):
-        return self.matcher.settings.get("brev", [None])[0]
+        return self.matcher.get_match("brev") or None  # TBD: Raise error?
         
+    def get_printer_kvote_fritak(self):
+        return self.matcher.get_match("print_kvote_fritak") and 1 or 0
+
+    def get_printer_betaling_fritak(self):
+        return self.matcher.get_match("print_betaling_fritak") and 1 or 0
+
     def get_build(self):
         home = False
         action = False
-        for m in self.matcher.settings.get("build", []):
-            if m.get('action', '') == 'true':
+        for build in self.matcher.get_match("build"):
+            if build.get('action', '') == 'true':
                 action = True
-            if m.get('home', '') == 'true':
+            if build.get('home', '') == 'true':
                 home = True
         return {'home': home, 'action': action}
 
     def get_stedkoder(self):
-        return self.matcher.settings.get("stedkode", [])
+        return self.matcher.get_match("stedkode")
 
     def get_dfg(self):
-        for t in self.matcher.toplevel_settings.get('primarygroup', []):
+        for t in self.matcher.get_match('primarygroup'):
             if self.pc.group_defs[t]['is_posix']:
                 return t
-        for t in self.matcher.toplevel_settings.get('gruppe', []):
-            if self.pc.group_defs[t]['is_posix']:
-                return t
-        for t in self.matcher.settings.get('gruppe', []):
+        for t in self.matcher.get_match('gruppe'):
             if self.pc.group_defs[t]['is_posix']:
                 return t
         raise ValueError, "No dfg is a PosixGroup"
 
     def get_grupper(self):
-        return self.matcher.settings.get('gruppe', [])
+        return self.matcher.get_match('gruppe')
 
     def get_spreads(self):
-        return self.matcher.settings.get('spread', [])
+        return self.matcher.get_match('spread')
 
     def get_pquota(self):
-        """Return information about printerquota.  Throws a NoMatchingQuotaSettings
-        if profile has no quota information"""
+        """Return information about printerquota.  Throws a
+        NoMatchingQuotaSettings if profile has no quota information"""
         ret = {}
-        if not self.matcher.settings.has_key('printer_kvote'):
+        if not self.matcher.get_match('printer_kvote'):
             raise NoMatchingQuotaSettings, "No matching quota settings"
-        for m in self.matcher.settings.get('printer_kvote', []):
-            self._logger.debug("q: %s" % str(m))
+        for m in self.matcher.get_match('printer_kvote', []):
             for k in ('start', 'uke', 'max_akk', 'max_sem'):
                 if ret.get(k, '') == 'UL':
                     continue
@@ -181,9 +200,12 @@ class ProfileMatcher(object):
         self.logger.debug("Matching profiles: %s" % self.matches)
         if len(self.matches) == 0:
             raise NoMatchingProfiles, "No matching profiles"
-        self.settings = {}
-        self.toplevel_settings = {}
+        self.matched_settings = {}
+        # type: [(value_from_profile, nivaakode_where_first_set)]
         self._resolve_matches()
+
+    def get_match(self, match_type):
+        return [x[0] for x in self.matched_settings.get(match_type, [])]
 
     def _process_person_info(self, student_info, member_groups=[]):
         """Check if student_info contains data of the type identified
@@ -195,8 +217,12 @@ class ProfileMatcher(object):
             map_data = StudconfigParser.select_map_defs[select_type]
             if map_data[0] == StudconfigParser.NORMAL_MAPPING:
                 for entry in student_info.get(map_data[2], []):
-                    value = entry[map_data[3]]
-                    self._check_match(select_type, value)
+                    for match_attr in map_data[3]:
+                        value = entry.get(match_attr, None)
+                        if not value:
+                            continue
+                        if self._check_match(select_type, value):
+                            continue  # No point in matching twice to same profile
             else:
                 if select_type == 'aktivt_sted':
                     self._check_aktivt_sted(student_info)
@@ -204,6 +230,12 @@ class ProfileMatcher(object):
                     self._check_evu_sted(student_info)
                 elif select_type == 'medlem_av_gruppe':
                     self._check_group_membership(member_groups)
+                elif select_type == 'person_affiliation':
+                    fnr = fodselsnr.personnr_ok(
+                        "%06d%05d" % (int(student_info['fodselsdato']),
+                                      int(student_info['personnr'])))
+                    self._check_person_affiliation(
+                        self.pc.lookup_helper.get_person_affiliations(fnr))
 
     def _check_aktivt_sted(self, student_info):
         """Resolve all aktivt_sted criterias for this student."""
@@ -212,23 +244,6 @@ class ProfileMatcher(object):
         for k in as_dict.keys():
             v = as_dict[k]
             had_eksamen = False
-#             # Does this aktivt_sted criteria match an 'eksamen'?
-#             for entry in student_info.get('eksamen', []):
-#                 d = self.pc.autostud.emnekode2info[
-#                     entry['emnekode']]
-#                 if ((v['nivaa_min'] and
-#                      int(d['studienivakode']) < int(v['nivaa_min'])) or
-#                     (v['nivaa_max'] and
-#                      int(d['studienivakode']) > int(v['nivaa_max']))):
-#                     continue
-#                 sko = "%02i%02i%02i" % (int(d['faknr_reglement']),
-#                                         int(d['instituttnr_reglement']),
-#                                         int(d['gruppenr_reglement']))
-#                 if sko in v['steder']:
-#                     self._append_match(
-#                         'aktivt_sted', 'emnekode',
-#                         entry['emnekode'], v['profiles'])
-#                     had_eksamen = True
             if had_eksamen:
                 continue
             # Does this aktivt_sted criteria match a 'studieprogram'?
@@ -272,10 +287,20 @@ class ProfileMatcher(object):
                     'medlem_av_gruppe', 'gruppe',
                     g, self.pc.select_mapping['medlem_av_gruppe'][g])
 
+    def _check_person_affiliation(self, persons_affiliations):
+        if not persons_affiliations:
+            return
+        persons_affiliations = [(x['affiliation'], x['status']) for x in persons_affiliations]
+        for p_aff in self.pc.select_mapping['person_affiliation'].keys():
+            if p_aff in persons_affiliations:
+                self._append_match(
+                    'person_affiliation', 'affiliation',
+                    p_aff, self.pc.select_mapping['person_affiliation'][p_aff])
+
     def _check_match(self, select_type, value):
         # If studconfig.xml don't use this mapping: return
         if not self.pc.select_mapping.has_key(select_type):
-            return
+            return False
 
         # Check if this value matches any <select> criterias
         map_data = StudconfigParser.select_map_defs[select_type]
@@ -287,6 +312,9 @@ class ProfileMatcher(object):
             else:
                 matches = tmp_map.get('*', None)
                 self._append_match(select_type, map_data[1], value, matches)
+            if matches:
+                return True
+        return False
 
     def _append_match(self, select_type, sx_match_attr, value, matches):
         """Calculate the significance of this match, and append to
@@ -312,31 +340,22 @@ class ProfileMatcher(object):
         return niva
 
     def _matches_sort(self, x, y):
-        """Sort by nivaakode, then by profile"""
+        """Sort by nivaakode (highest first), then by profile"""
         if(x[1] == y[1]):
             return cmp(x[0], y[0])
         return cmp(y[1], x[1])
 
     def _resolve_matches(self):
-        """Determine most significant value for singular values, and
-        fetch all other settings."""
+        """Fill self.settings with settings from the matched profiles,
+        highest nivaakode first."""
         self.matches.sort(self._matches_sort)
-        set_at = {}
         for match in self.matches:
             profile, nivaakode = match
             for k in profile.settings.keys():
                 if not profile.settings[k]:
                     continue      # This profile had no setting of this type
-                self._unique_extend(self.settings.setdefault(k, []),
+                self._unique_extend(self.matched_settings.setdefault(k, []),
                                     profile.settings[k])
-                if set_at.get(k, nivaakode) == nivaakode:
-                    set_at[k] = nivaakode
-                    # NOTE: By using :1 we assert that disks inherited
-                    # from a parent profile won't move us to a
-                    # div-disk.  However, this also means that we
-                    # won't be member of all default_groups
-                    self._unique_extend(self.toplevel_settings.setdefault(
-                        k, []), profile.settings[k][:1])
 
         # Automatically add the stedkode from the studieprogram that matched
         for p in self.matching_selectors.get('studieprogram', {}).keys():
@@ -348,10 +367,11 @@ class ProfileMatcher(object):
                                   int(d['instituttnr_studieansv']),
                                   int(d['gruppenr_studieansv'])),
                                   int(d['institusjonsnr_studieansv']))
-            self._unique_extend(self.settings.setdefault("stedkode", []), [sko])
+            self._unique_extend(self.matched_settings.setdefault(
+                "stedkode", []), [sko])
 
-    def _unique_extend(self, list, values):
+    def _unique_extend(self, list, values, nivaakode=0):
         for item in values:
-            if item not in list:
-                list.append(item)
+            if item not in [x[0] for x in list]:
+                list.append((item, nivaakode))
 
