@@ -727,6 +727,9 @@ class Database(object):
         Constants = Utils.Factory.get('Constants')(self)
         return ["%d" % int(getattr(Constants, name))]
 
+    def _sql_port_boolean(self, default=None):
+        pass
+
     def _read_password(self, database, user):
         import os
         filename = os.path.join(cereconf.DB_AUTH_DIR,
@@ -741,7 +744,39 @@ class Database(object):
         finally:
             f.close()
 
-class PostgreSQL(Database):
+class PostgreSQLBase(Database):
+    """PostgreSQL driver base class."""
+
+    rdbms_id = "PostgreSQL"
+
+    def __init__(self, *args, **kws):
+        for cls in self.__class__.__mro__:
+            if issubclass(cls, PostgreSQLBase):
+                return super(PostgreSQLBase, self).__init__(*args, **kws)
+        raise NotImplementedError, \
+              "Can't instantiate abstract class <PostgreSQLBase>."
+
+    def _sql_port_table(self, schema, name):
+        return [name]
+
+    def _sql_port_sequence(self, schema, name, op):
+        if op == 'next':
+            return ["nextval('%s')" % name]
+        elif op == 'current':
+            return ["currval('%s')" % name]
+        else:
+            raise ValueError, 'Invalid sequnce operation: %s' % op
+
+    def _sql_port_sequence_start(self, value):
+        return ['START', value]
+
+    def _sql_port_from_dual(self):
+        return []
+
+    def _sql_port_now(self):
+        return ['NOW()']
+
+class PgSQL(PostgreSQLBase):
     """PostgreSQL driver class."""
 
     _db_mod = "pyPgSQL.PgSQL"
@@ -753,11 +788,11 @@ class PostgreSQL(Database):
                 # This might not be the correct default for Cerebrum,
                 # but seems to work OK in the shorter term.
                 unicode_results=False):
+        call_args = vars()
+        del call_args['self']
         cdata = self._connect_data
         cdata.clear()
-        cdata['arg_user'] = user
-        cdata['arg_password'] = password
-        cdata['arg_service'] = service
+        cdata['call_args'] = call_args
         if service is None:
             service = cereconf.CEREBRUM_DATABASE_NAME
         if user is None:
@@ -768,11 +803,11 @@ class PostgreSQL(Database):
         cdata['real_password'] = password
         cdata['real_service'] = service
 
-        super(PostgreSQL, self).connect(user = user,
-                                        password = password,
-                                        database = service,
-                                        client_encoding = client_encoding,
-                                        unicode_results = unicode_results)
+        super(PgSQL, self).connect(user = user,
+                                   password = password,
+                                   database = service,
+                                   client_encoding = client_encoding,
+                                   unicode_results = unicode_results)
 
         # Ensure that pyPgSQL and PostgreSQL client agrees on what
         # encoding to use.
@@ -815,31 +850,69 @@ class PostgreSQL(Database):
                 data = long(data)
             # Short circuit, no need to involve super here.
             return data
-        return super(PostgreSQL, self).pythonify_data(data)
+        return super(PgSQL, self).pythonify_data(data)
+
+class PsycoPG(PostgreSQLBase):
+    """PostgreSQL driver class using psycopg."""
+
+    _db_mod = 'psycopg'
+
+    def connect(self, user=None, password=None, service=None):
+        call_args = vars()
+        del call_args['self']
+        cdata = self._connect_data
+        cdata.clear()
+        cdata['call_args'] = call_args
+        if service is None:
+            service = cereconf.CEREBRUM_DATABASE_NAME
+        if user is None:
+            user = cereconf.CEREBRUM_DATABASE_CONNECT_DATA.get('user')
+        if password is None and user is not None:
+            password = self._read_password(service, user)
+        dsn_string = "dbname=%(service)s user=%(user)s password=%(password)s"\
+                     % locals()
+        cdata['real_user'] = user
+        cdata['real_password'] = password
+        cdata['real_service'] = service
+        cdata['dsn_string'] = dsn_string
+
+        super(PsycoPG, self).connect(dsn_string)
+
+
+class OracleBase(Database):
+    """Oracle database driver class."""
+
+    rdbms_id = "Oracle"
+
+    def __init__(self, *args, **kws):
+        for cls in self.__class__.__mro__:
+            if issubclass(cls, OracleBase):
+               return super(OracleBase, self).__init__(*args, **kws)
+        raise NotImplementedError, \
+              "Can't instantiate abstract class <OracleBase>."
 
     def _sql_port_table(self, schema, name):
-        return [name]
+        return ['%(schema)s.%(name)s' % locals()]
 
     def _sql_port_sequence(self, schema, name, op):
         if op == 'next':
-            return ["nextval('%s')" % name]
+            return ['%(schema)s.%(name)s.nextval' % locals()]
         elif op == 'current':
-            return ["currval('%s')" % name]
+            return ['%(schema)s.%(name)s.currval' % locals()]
         else:
-            raise ValueError, 'Invalid sequnce operation: %s' % op
+            raise self.ProgrammingError, 'Invalid sequence operation: %s' % op
 
     def _sql_port_sequence_start(self, value):
-        return ['START', value]
+        return ['START', 'WITH', value]
 
     def _sql_port_from_dual(self):
-        return []
+        return ["FROM", "DUAL"]
 
     def _sql_port_now(self):
-        return ['NOW()']
+        return ['SYSDATE']
 
 
-class Oracle(Database):
-    """Oracle database driver class."""
+class DCOracle2(OracleBase):
 
     _db_mod = "DCOracle2"
 
@@ -870,26 +943,9 @@ class Oracle(Database):
         # Short circuit; no conversion is necessary for DCOracle2.
         return data
 
-    def _sql_port_table(self, schema, name):
-        return ['%(schema)s.%(name)s' % locals()]
-
-    def _sql_port_sequence(self, schema, name, op):
-        if op == 'next':
-            return ['%(schema)s.%(name)s.nextval' % locals()]
-        elif op == 'current':
-            return ['%(schema)s.%(name)s.currval' % locals()]
-        else:
-            raise self.ProgrammingError, 'Invalid sequence operation: %s' % op
-
-    def _sql_port_sequence_start(self, value):
-        return ['START', 'WITH', value]
-
-    def _sql_port_from_dual(self):
-        return ["FROM", "DUAL"]
-
-    def _sql_port_now(self):
-        return ['SYSDATE']
-
+# Define some aliases for driver class names that are already in use.
+PostgreSQL = PgSQL
+Oracle = DCOracle2
 
 def connect(*args, **kws):
     """Return a new instance of this installation's Database subclass."""
