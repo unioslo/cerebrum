@@ -72,6 +72,8 @@ class AccountType(object):
         if priority is None:
             priority = max_pri + 5
         if orig_pri is None:
+            if all_pris.has_key(priority):
+                self._set_account_type_priority(all_pris, priority, priority+1)
             cols = {'person_id': int(self.owner_id),
                     'ou_id': int(ou_id),
                     'affiliation': int(affiliation),
