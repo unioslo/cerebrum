@@ -22,6 +22,17 @@
 
 import os
 
+from sync import SyncError
+from doc_exception import ProgrammingError
+
+class WrongModeError(ProgrammingError, SyncError):
+    """Not supported in this mode of operation"""
+
+class NotSupportedError(SyncError):
+    """Object not supported"""
+
+class NotPosixError(NotSupportedError):
+    """Not POSIX user/group"""    
 
 # Need to handle exceptions better?
 class MultiHandler:
@@ -60,9 +71,16 @@ class FileBack:
         if filename: 
             self.filename=filename
         self.mode=mode
+        self.incr = None
+        self.tempname = None
+        self.f = None
 
-    def begin(self, incremental=False):
-        self.incr=incremental
+    def begin(self, incr=False):
+        """Begin operation on file. 
+        If incr is true, updates will be incremental, ie. the
+        original content will be preserved, and can be updated by
+        update() and delete()."""
+        self.incr=incr
         if self.incr: 
             self.readin(self.filename)
         # use tempfile or something    
@@ -90,13 +108,18 @@ class FileBack:
             
     def update(self, obj):
         if not self.incr: 
-            raise "not supported in this mode of operation"
+            raise WrongModeError, "update"
         self.records[obj.name]=self.format(obj)
 
     def delete(self, obj):
         if not self.incr: 
-            raise "not supported in this mode of operation"
+            raise WrongModeError, "delete"
         del self.records[obj.name]
+    
+    def format(self, obj):
+        """Returns the formatted string to be added to the file based on
+        the given object. Must include any ending linefeeds."""    
+        raise NotImplementedError, "format"
 
 class CLFileBack(FileBack):
     """Line-based files, colon separated, primary key in first column"""
@@ -110,29 +133,35 @@ class CLFileBack(FileBack):
         for l in self.records.values():
             self.f.write(l)
 
-# classic: name:crypt:uid:gid:gcos:dir:shell
+# classic: name:crypt:uid:gid:gcos:home:shell
 # shadow:  name:crypt:lastchg:min:max:warn:inactive:expire
-# bsd:     name:crypt:uid:gid:class:change:expire:gcos:dir:shell
+# bsd:     name:crypt:uid:gid:class:change:expire:gcos:home:shell
 
 class PasswdFile(CLFileBack):
     filename="/etc/ceresync/passwd"
     def format(self, account):
-        return "%s:%s:%d:%d:%s:%s:%s\n" % (
+        if account.uid is None:
+            raise NotPosixError, account.name
+        return "%s:%s:%s:%s:%s:%s:%s\n" % (
             account.name, "x", account.uid, account.gid,
-            account.fullname, account.dir, account.shell )
+            account.fullname, account.home, account.shell )
 
 
 class GroupFile(CLFileBack):
     filename="/etc/ceresync/group"
     def format(self, group):
+        if group.gid is None:
+            raise NotPosixError, group.name
         return "%s:*:%d:%s\n" % (
-            group.name, group.gid, ",".join(group.members) )
+            group.name, group.gid, ",".join(group.membernames) )
 
 
 class ShadowFile(CLFileBack):
     filename="/etc/ceresync/shadow"
     def format(self, account):
-        return "%s:%s:::::::" % ( account.name, account.cryptpasswd )
+        if account.uid is None:
+            raise NotPosixError, account.name
+        return "%s:%s:::::::\n" % ( account.name, account.password )
 
 class AliasFile(CLFileBack):
     filename="/etc/ceresync/aliases"
@@ -143,6 +172,6 @@ class AliasFile(CLFileBack):
         else:
             to=addr.primary
             mod=">>"
-        return "%s: %s %s" % ( addr.name, mod, to)
+        return "%s: %s %s\n" % ( addr.name, mod, to)
 
 # arch-tag: 15c0dab6-50e3-4093-ba64-5be1b5789d90
