@@ -70,6 +70,10 @@ FS.FAGPERSON
            aff_status=vitenskapelig, sekundært en vilkårlig annen
            ansatt affiliation.
 
+         - dersom sted ikke finnes i FS brukes overordnet sted fra LT
+           i stede.  Dette gjøres rekursivt inntil et sted som er
+           kjent i FS finnes.
+
   Der skal kun gjøres update på telefon og fax.
 
   Det foretas ingen sletting fra fs.fagperson.
