@@ -945,7 +945,18 @@ class PsycoPGCursor(Cursor):
                 parameters[k] = self._db._db_mod.TimestampFromMx(parameters[k])
         return super(PsycoPGCursor, self).execute(operation, parameters)
 
-
+    def query(self, query, params=(), fetchall=True):
+        # The PsycoPG driver returns floats for all columns of type
+        # numeric.  The PyPgSQL driver only does this if the column is
+        # defined to have digits.  This method makes PsycoPG behave
+        # the same way
+        ret = super(PsycoPGCursor, self).query(query, params=params, fetchall=fetchall)
+        for n in range(len(self.description)):
+            if self.description[n][5] == 0:  # pos 5 = scale in DB-API spec
+                for r in range(len(ret)):
+                    ret[r][n] = long(ret[r][n] )
+        return ret
+ 
 class OracleBase(Database):
     """Oracle database driver class."""
 
