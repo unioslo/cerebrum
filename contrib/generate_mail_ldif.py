@@ -396,12 +396,11 @@ def read_accounts():
 def read_pending_moves():
     br = BofhdRequests(db, co)
     pending = {}
-    for r in br.get_requests(operation=co.bofh_email_create):
-        pending[int(r['entity_id'])] = True
-    for r in br.get_requests(operation=co.bofh_email_will_move):
-        pending[int(r['entity_id'])] = True
-    for r in br.get_requests(operation=co.bofh_email_move):
-        pending[int(r['entity_id'])] = True
+    for op in (co.bofh_email_create,
+               co.bofh_email_move,
+               co.bofh_email_convert):
+        for r in br.get_requests(operation=op):
+            pending[int(r['entity_id'])] = True
     return pending
 
 def read_multi_target(group_id):
