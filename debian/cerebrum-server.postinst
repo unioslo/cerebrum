@@ -14,7 +14,11 @@ DEBUG="debug"
 ##
 ## Some Postgresql stuff
 ##
-db_get postgresql/initdb/location
+
+DEBIAN_VERSION=$(cat /etc/debian_version)
+if [ "$DEBIAN_VERSION" == "3.1" ]; then
+    db_get postgresql/initdb/location
+fi
 PGDATA=${POSTGRES_DATA:=${RET:-/var/lib/postgres/data}}
 PGBASE=/usr/lib/postgresql
 PGLIB=${PGBASE}/lib
