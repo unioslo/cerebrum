@@ -42,7 +42,7 @@ SELECT DISTINCT
    faknr_org_under, instituttnr_org_under, gruppenr_org_under,
    adrlin1, adrlin2, postnr, telefonnr, faxnr,
    adrlin1_besok, adrlin2_besok, postnr_besok, url,
-   bibsysbeststedkode
+   bibsysbeststedkode, stedkode_konv
 FROM fs.sted
 WHERE institusjonsnr='%s'
 	 """ % institusjonsnr
