@@ -47,6 +47,7 @@ derived_person_affiliations = {}
 has_quota = {}
 processed_students = {}
 keep_account_home = {}
+paid_paper_money = {}
 debug = 0
 max_errors = 50          # Max number of errors to accept in person-callback
 
@@ -494,6 +495,10 @@ def recalc_quota_callback(person_info):
             pq.weekly_quota = quota['weekly_quota']
             pq.max_quota = quota['max_quota']
             pq.termin_quota = quota['termin_quota']
+        if paper_money_file:
+            if not paid_paper_money.get(fnr, False) and quota['weekly_quota'] != 'UL':
+                logger.debug("didn't pay, max_quota=0 for %s " % fnr)
+                pq.max_quota = 0
         pq.write_db()
         has_quota[int(account_id)] = True
     logger.set_indent(0)
@@ -605,6 +610,11 @@ def process_students():
                                  emne_info_file=emne_info_file)
     logger.info("config processed")
     if recalc_pq:
+        if paper_money_file:
+            for p in AutoStud.StudentInfo.GeneralDataParser(paper_money_file, 'betalt'):
+                fnr = fodselsnr.personnr_ok("%06d%05d" % (int(p['fodselsdato']),
+                                                          int(p['personnr'])))
+                paid_paper_money[fnr] = True
         autostud.start_student_callbacks(student_info_file,
                                          recalc_quota_callback)
         # Set default_quota for the rest that already has quota
@@ -624,6 +634,10 @@ def process_students():
             pq.weekly_quota = dv['print_uke']
             pq.max_quota = dv['print_max_akk']
             pq.termin_quota = dv['print_max_sem']
+            if paper_money_file:
+                if not paid_paper_money.get(fnr, False):
+                    logger.debug("didn't pay, max_quota=0 for %i " % account_id)
+                    pq.max_quota = 0
             pq.write_db()
         if not dryrun:
             db.commit()
@@ -673,13 +687,14 @@ def process_unprocessed_students():
 
 def main():
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'dcus:C:S:e:',
+        opts, args = getopt.getopt(sys.argv[1:], 'dcus:C:S:e:p:',
                                    ['debug', 'create-users', 'update-accounts',
                                     'student-info-file=', 'only-dump-results=',
                                     'studconfig-file=', 'fast-test', 'with-lpr',
                                     'workdir=', 'type=', 'reprint=',
                                     'emne-info-file=', 'move-users',
                                     'recalc-pq', 'studie-progs-file=',
+                                    'paper-file=',
                                     'user-spread=', 'remove-groupmembers'
                                     'dryrun', 'validate'])
     except getopt.GetoptError:
@@ -687,7 +702,7 @@ def main():
     global debug, fast_test, create_users, update_accounts, logger, skip_lpr
     global student_info_file, studconfig_file, only_dump_to, studieprogs_file, \
            recalc_pq, dryrun, emne_info_file, move_users, remove_groupmembers, \
-           workdir, user_spread
+           workdir, user_spread, paper_money_file
 
     skip_lpr = True       # Must explicitly tell that we want lpr
     update_accounts = create_users = recalc_pq = dryrun = move_users = False
@@ -697,6 +712,7 @@ def main():
     range = None
     only_dump_to = None
     user_spread = None
+    paper_money_file = None         # Default: don't check for paid paper money
     to_stdout = False
     log_level = AutoStud.Util.ProgressReporter.DEBUG
     for opt, val in opts:
@@ -712,6 +728,8 @@ def main():
             student_info_file = val
         elif opt in ('-e', '--emne-info-file'):
             emne_info_file = val
+        elif opt in ('-p', '--paper-file'):
+            paper_money_file = val
         elif opt in ('-S', '--studie-progs-file'):
             studieprogs_file = val
         elif opt in ('--recalc-pq',):
@@ -784,6 +802,7 @@ def usage():
     -e | --emne-info-file file:
     -C | --studconfig-file file:
     -S | --studie-progs-file file:
+    -p | --paper-file file: check for paid-quota only done if set
     --user-spread spread: (mandatory) spread for users 
     --dryrun: don't do any changes to the database.  This can be used
       to get an idea of what changes a normal run would do.  TODO:
