@@ -646,12 +646,12 @@ def process_move_requests():
                                  status=const.home_status_on_disk)
                 account.write_db()
                 br.delete_request(request_id=r['request_id'])
-                db.commit()
             else:
                 if new_disk == old_disk:
                     br.delete_request(request_id=r['request_id'])
                 else:
                     br.delay_request(r['request_id'], minutes=24*60)
+            db.commit()
 
     return # We want to test the API changes before putting this in production
 
