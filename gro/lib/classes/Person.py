@@ -52,49 +52,53 @@ class Person(Entity):
         self._gender = GenderType(int(e.gender))
 
     def loadChildren(self):
+        Entity.loadChildren(self)
+
+        self._children.update(self.accounts)
+        self._children.update(self.names)
+
+    def loadAccounts(self):
         import Account
 
-        Entity.loadChildren(self)
+        self._accounts = sets.Set()
 
         e = Cerebrum.Person.Person(db)
         e.entity_id = self.id
         
-        # tihi. unødvendige mye kode
+        # tihi. unødvendige mye kode. 
         for row in e.get_accounts():
             account = Account.Account(int(row['account_id']))
             if self._primaryAccount is Lazy:
                 self._primaryAccount = account
-            self._children.add(account)
+
+            self._accounts.add(account)
+
         if self._primaryAccount is Lazy:
             self._primaryAccount = None
 
-        self._children.update(self.names)
-
     def loadNames(self):
+        import Types
+
         e = Cerebrum.Person.Person(db)
         e.entity_id = self.id
 
         self._names = sets.Set()
         for row in e.get_all_names():
-            nameType = NameType(int(row['name_variant']))
-            sourceSystem = SourceSystem(int(row['source_system']))
+            nameType = Types.NameType(int(row['name_variant']))
+            sourceSystem = Types.SourceSystem(int(row['source_system']))
             name = row['name']
             self._names.add(PersonName(person=self, nameType=nameType, sourceSystem=sourceSystem, name=name))
 
-        self._name = None
+        self._name = ''
         for i in self._names:
-            if i.nameType == NameType.getByName('FULL'):
+            if i.nameType == Types.NameType.getByName('FULL'):
                 self._name = i.name
                 break
 
-    def getAccounts(self):
-        import Account
-
-        return sets.Set(filter(lambda a:isinstance(a, Account.Account), self.children))
-
     getNames = LazyMethod('_names', 'loadNames')
     getName = LazyMethod('_name', 'loadNames')
-    getPrimaryAccount = LazyMethod('_primaryAccount', 'loadChildren')
+    getAccounts = LazyMethod('_accounts', 'loadAccounts')
+    getPrimaryAccount = LazyMethod('_primaryAccount', 'loadAccounts')
 
     primaryAccount = property(getPrimaryAccount)
 
