@@ -19,6 +19,7 @@
 
 import re
 import cereconf
+import time
 
 from Cerebrum import Account
 from Cerebrum.modules import Email
