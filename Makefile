@@ -6,6 +6,7 @@ pythonprefix=$(prefix)/lib/site-python
 all:
 
 install:
+	./setup.py install --prefix=$(prefix)
 
 dist:
 
