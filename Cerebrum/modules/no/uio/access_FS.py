@@ -214,7 +214,7 @@ WHERE  p.fodselsdato=s.fodselsdato AND
        p.fodselsdato=st.fodselsdato AND
        p.personnr=st.personnr AND 
        st.studieprogramkode = sp.studieprogramkode AND
-       st.opphortstudierettstatkode IS NULL AND
+       NVL(st.dato_gyldig_til,SYSDATE) >= sysdate AND
        st.studierettstatkode IN (RELEVANTE_STUDIERETTSTATKODER) AND
        st.dato_tildelt >= to_date('2003-01-01', 'yyyy-mm-dd')
        """
@@ -235,7 +235,7 @@ WHERE  p.fodselsdato=s.fodselsdato AND
        st.studieprogramkode = sp.studieprogramkode AND
        p.fodselsdato=r.fodselsdato AND
        p.personnr=r.personnr AND
-       st.opphortstudierettstatkode IS NULL AND
+       NVL(st.dato_gyldig_til,SYSDATE) >= sysdate AND
        st.studierettstatkode IN (RELEVANTE_STUDIERETTSTATKODER) AND
        r.arstall >= (%s - 1)
        """ % (aar)
@@ -381,8 +381,7 @@ WHERE s.fodselsdato=p.fodselsdato AND
              p.personnr=st.personnr AND
              es.emnekode=em.emnekode AND
              es.studieprogramkode = st.studieprogramkode AND
-             (st.opphortstudierettstatkode IS NULL OR
-              st.dato_gyldig_til >= SYSDATE))
+             NVL(st.dato_gyldig_til,SYSDATE) >= SYSDATE)
       """ % (self.get_termin_aar(only_current=1),self.is_alive())
         return (self._get_cols(qry), self.db.query(qry))
 
