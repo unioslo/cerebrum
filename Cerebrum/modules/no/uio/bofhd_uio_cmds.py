@@ -3105,8 +3105,8 @@ class BofhdExtension(object):
     all_commands['person_student_info'] = Command(
         ("person", "student_info"), PersonId(),
         fs=FormatSuggestion([
-        ("Studieprogrammer: %s, %s, tildelt=%s->%s privatist: %s",
-         ("studprogkode", "studierettstatkode", format_day("dato_tildelt"),
+        ("Studieprogrammer: %s, %s, %s, tildelt=%s->%s privatist: %s",
+         ("studprogkode", "studierettstatkode", "opphortstatus", format_day("dato_tildelt"),
           format_day("dato_gyldig_til"), "privatist")),
         ("Eksamensmeldinger: %s (%s), %s",
          ("ekskode", "programmer", format_day("dato"))),
@@ -3136,6 +3136,7 @@ class BofhdExtension(object):
                             row['status_privatist']
             ret.append({'studprogkode': row['studieprogramkode'],
                         'studierettstatkode': row['studierettstatkode'],
+                        'opphortstatus': row['opphortstudierettstatkode'],
                         'dato_tildelt': DateTime.DateTimeFromTicks(row['dato_tildelt']),
                         'dato_gyldig_til': DateTime.DateTimeFromTicks(row['dato_gyldig_til']),
                         'privatist': row['status_privatist']})
