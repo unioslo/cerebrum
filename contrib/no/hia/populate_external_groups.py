@@ -765,7 +765,7 @@ def init_globals():
     db = Factory.get("Database")()
     db.cl_init(change_program='pop_extern_grps')
     const = Factory.get("Constants")(db)
-    logger = Factory.get_logger("console")
+    logger = Factory.get_logger("cronjob")
 
     fnr2account_id = {}
     prefetch_primaryusers()
