@@ -4267,7 +4267,7 @@ class BofhdExtension(object):
                                              'password': password})
         if account.get_entity_quarantine():
             return "OK.  Warning: user has quarantine"
-        return "OK"
+        return "Password altered. Please use misc list_password to print or view the new password."
     
     # user promote_posix
     all_commands['user_promote_posix'] = Command(
