@@ -41,6 +41,8 @@ class Constants(Constants.Constants):
     system_ureg = _AuthoritativeSystemCode('Ureg', 'Imported from ureg')
     system_fs_derived = _AuthoritativeSystemCode('FS-auto',
                                                  'Utledet av FS data')
+    system_folk_uio_no = _AuthoritativeSystemCode('folk.uio.no',
+                                                  'http://folk.uio.no/')
 
     perspective_lt = _OUPerspectiveCode('LT', 'LT')
     perspective_fs = _OUPerspectiveCode('FS', 'FS')
