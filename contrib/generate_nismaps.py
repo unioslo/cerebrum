@@ -276,7 +276,7 @@ def main():
             usage()
         elif opt in ('-d', '--debug'):
             debug += 1
-        elif opt in ('--eof'):
+        elif opt in ('--eof',):
             e_o_f = True
         elif opt in ('-g', '--group'):
             generate_group(val, group_spread, user_spread)
