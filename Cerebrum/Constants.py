@@ -160,8 +160,9 @@ class _SpreadCode(_CerebrumCode):
     _lookup_table = '[:table schema=cerebrum name=spread_code]'
     _insert_dependency = _EntityTypeCode
 
-    def __init__(self, code, entity_type, description=None):
-        self.entity_type = entity_type
+    def __init__(self, code, entity_type=None, description=None):
+        if entity_type is not None:
+            self.entity_type = entity_type
         super(_SpreadCode, self).__init__(code, description)
 
     def insert(self):
