@@ -192,46 +192,43 @@ def get_person_info(outfile):
         # od
 
         permisjoner = persondta[p].get("permisjon", {})
-        for t in persondta[p].get('tils', ()):
-            attr = string.join(["%s=%s" % (name,
-                                           xml.escape_xml_attr(t[name]))
-                                for name in
-                                ["fakultetnr_utgift",
-                                 "instituttnr_utgift",
-                                 "gruppenr_utgift",
-                                 "prosent_tilsetting",
-                                 "dato_fra", "dato_til",
-                                 "tilsnr"]])
+        for t in persondta[p].get("tils", ()):
+            attr = dict([(key, t[key]) for key in ("fakultetnr_utgift",
+                                                   "instituttnr_utgift",
+                                                   "gruppenr_utgift",
+                                                   "prosent_tilsetting",
+                                                   "dato_fra", "dato_til",
+                                                   "tilsnr")])
             key = "stillingkodenr_beregnet_sist"
-            attr = attr + (" %s=%s " % (key,
-                                        xml.escape_xml_attr(int(t[key])))) 
-            
-            sk = skode2tittel[t['stillingkodenr_beregnet_sist']]
-            attr += ' hovedkat=%s' % xml.escape_xml_attr(
-                                       kate2hovedkat[sk[1]])
-            attr += ' tittel=%s' % xml.escape_xml_attr(sk[0])
-            f.write("  <tils " + attr + " >\n" )
+            attr[key] = int(t[key])
+            sk = skode2tittel[t[key]]
+            attr["hovedkat"] = kate2hovedkat[sk[1]]
+            attr["tittel"] = sk[0]
+            f.write("  " +
+                    xml.xmlify_dbrow(attr.values(), attr.keys(),
+                                     "tils", close_tag=0) +
+                    "\n")
 
             formatted_leaves = output_leaves(t, permisjoner)
             for leave in formatted_leaves:
-                pattr = string.join( ["%s=%s" %
-                                      (x[0], xml.escape_xml_attr(x[1]))
-                                      for x in leave] )
-                f.write("    <permisjon " + pattr + " />\n")
+                attr = dict(leave)
+                f.write("  " +
+                        xml.xmlify_dbrow(attr.values(),
+                                         attr.keys(), "permisjon")
+                        + "\n")
             # od
-                
-            f.write( "  </tils>\n" )
+            
+            f.write("</tils>\n" )
         # od
 
         if reservasjoner.has_key(p): 
             for r in reservasjoner[p].get('res', ()):
-                attr = string.join(["%s=%s" % (name,
-                                               xml.escape_xml_attr(r[name]))
-                                    for name in
-                                      ["katalogkode",
-                                       "felttypekode",
-                                       "resnivakode",]])
-                f.write("  <res "+attr+"/>\n")
+                attr = dict([(key, r[key]) for key in ("katalogkode",
+                                                       "felttypekode",
+                                                       "resnivakode",)])
+                f.write("  " +
+                        xml.xmlify_dbrow(attr.values(), attr.keys(),
+                                         "res") + "\n")
             # od
         # fi
             
@@ -246,28 +243,26 @@ def get_person_info(outfile):
                 continue
             # fi
 
-            attr = string.join(["%s=%s" % (name,
-                                           xml.escape_xml_attr(t[name]))
-                                for name in
-                                  ["dato_oppgjor",
-                                   "fakultetnr_kontering",
-                                   "instituttnr_kontering",
-                                   "gruppenr_kontering",]])
-            f.write("  <bilag " + attr + "/>\n")
+            attr = dict([(key, t[key]) for key in ("dato_oppgjor",
+                                                   "fakultetnr_kontering",
+                                                   "instituttnr_kontering",
+                                                   "gruppenr_kontering",)])
+            f.write("  " +
+                    xml.xmlify_dbrow(attr.values(), attr.keys(),
+                                     "res") + "\n")
             prev = t
         # od
 
         for g in persondta[p].get('gjest', ()):
-            attr = string.join(["%s=%s" % (name,
-                                           xml.escape_xml_attr(g[name]))
-                                for name in
-                                  ["fakultetnr",
-                                   "instituttnr",
-                                   "gruppenr",
-                                   "gjestetypekode",
-                                   "dato_fra",
-                                   "dato_til",]]) 
-            f.write("  <gjest "+attr+"/>\n")
+            attr = dict([(key, g[key]) for key in ("fakultetnr",
+                                                   "instituttnr",
+                                                   "gruppenr",
+                                                   "gjestetypekode",
+                                                   "dato_fra",
+                                                   "dato_til",)])
+            f.write("  "
+                    + xml.xmlify_dbrow(attr.values(), attr.keys(), "gjest")
+                    + "\n")
         # od
  
         f.write("</person>\n")
