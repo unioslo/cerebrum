@@ -47,7 +47,7 @@ from Cerebrum.modules import PasswordHistory
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no import Stedkode
 from Cerebrum.modules.no.uio import PrinterQuotas
-from server.bofhd_auth import BofhdAuthOpSet, BofhdAuthRole, BofhdAuthOpTarget
+from Cerebrum.modules.bofhd.auth import BofhdAuthOpSet, BofhdAuthRole, BofhdAuthOpTarget
 from Cerebrum.Utils import Factory
 
 default_personfile = ''
