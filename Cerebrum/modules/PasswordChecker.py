@@ -193,7 +193,7 @@ class PasswordChecker(DatabaseAccessor):
                 two = two[:-1] + chr(ord(two[-1])+1)
                 while 1:
                     line = f.readline()
-                    if line is None:
+                    if not line:
                         break
                     line = line.rstrip().lower()
                     line = re.sub('\t.*', '', line)
