@@ -2,7 +2,7 @@
 # Copyright 2002, 2003 University of Oslo, Norway
 
 import xml.sax
-from time import gmtime, strftime, time
+from time import localtime, strftime, time
 import pprint
 import sys
 
@@ -75,7 +75,7 @@ class ProgressReporter(object):
     (set_indent method).  A future version might make this a wrapper
     to the standard logging module."""
 
-    def __init__(self, logfile, stdout=0):
+    def __init__(self, logfile, stdout=False):
         self.stdout = stdout
         if stdout:
             self.out = sys.stdout
@@ -98,24 +98,26 @@ class ProgressReporter(object):
         self.out.write(out)
         self.out.flush()
 
-    def debug(self, msg, append_newline=1):
+    def debug(self, msg, append_newline=True):
         self._log(msg, append_newline)
 
-    def debug2(self, msg, append_newline=1):
+    def debug2(self, msg, append_newline=True):
         self._log(msg, append_newline)
 
-    def info(self, msg, append_newline=1):
-        self._log("[%s] %s (delta: %i)" % (strftime("%H:%M:%S", gmtime()), msg,
-                                           (time()-self.prev_msgtime)), append_newline)
-        self.prev_msgtime = time()
+    def info(self, msg, append_newline=True):
+        now = time()
+        self._log("[%s] %s (delta: %i)" % (strftime("%H:%M:%S", localtime()),
+                                           msg, now - self.prev_msgtime),
+                  append_newline)
+        self.prev_msgtime = now
 
-    def info2(self, msg, append_newline=1):
+    def info2(self, msg, append_newline=True):
         self._log(msg, append_newline)
 
-    def warn(self, msg, append_newline=1):
+    def warn(self, msg, append_newline=True):
         self._log("WARNING: %s" % msg, append_newline)
 
-    def error(self, msg, append_newline=1):
+    def error(self, msg, append_newline=True):
         self._log(msg, append_newline)
 
     def pformat(self, obj):
