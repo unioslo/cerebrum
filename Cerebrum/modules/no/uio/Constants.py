@@ -118,6 +118,9 @@ class Constants(Constants.Constants):
     affiliation_tilknyttet_grlaerer = _PersonAffStatusCode(
         affiliation_tilknyttet, 'grlaerer',
         'Personer registrert i LT med gjestetypekode=GRUPPELÆRER')
+    affiliation_tilknyttet_ekst_partner = _PersonAffStatusCode(
+        affiliation_tilknyttet, 'ekst_partner',
+        'Personer registrert i LT med gjestetypekode=EKST. PART')
     affiliation_tilknyttet_studpol = _PersonAffStatusCode(
         affiliation_tilknyttet, 'studpol',
         'Personer registrert i LT med gjestetypekode=ST-POL FRI eller ST-POL UTV')
@@ -303,6 +306,8 @@ automatically generated from FS.''')
     quarantine_svakt_passord = _QuarantineCode('svakt_passord', 'For dårlig passord')
     quarantine_autopassord = _QuarantineCode('autopassord',
                                             'Passord ikke skiftet trass pålegg')
+    quarantine_autostud = _QuarantineCode('autostud',
+                                            'Ikke aktiv student')
     quarantine_auto_emailonly = _QuarantineCode('auto_emailonly', 
                                                'Ikke ordinær student, tilgang til bare e-post')
     quarantine_auto_inaktiv = _QuarantineCode('auto_inaktiv', 
