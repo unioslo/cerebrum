@@ -23,6 +23,8 @@ import getopt
 import sys
 import pickle
 import time
+import pprint
+import re
 
 import cerebrum_path
 import cereconf
@@ -31,6 +33,7 @@ from Cerebrum import Utils
 from Cerebrum.Constants import _SpreadCode
 from Cerebrum.modules import ChangeLog
 from Cerebrum.extlib import logging
+from Cerebrum.modules.bofhd.auth import BofhdAuthOpTarget, BofhdAuthRole
 
 Factory = Utils.Factory
 db = Factory.get('Database')()
@@ -265,8 +268,9 @@ def remove_plaintext_passwords():
         db.rollback()   # noia rollback just in case
 
 def format_as_int(i):
+    """Get rid of PgNumeric while preserving NULL values"""
     if i is not None:
-        return "%i" % i
+        return int(i)
     return i
 
 def process_log():
@@ -329,16 +333,98 @@ def process_log():
     else:
         db.rollback()   # noia rollback just in case
 
+def merge_bofh_auth():
+    pp = pprint.PrettyPrinter(indent=4)
+    ba = BofhdAuthOpTarget(db)
+    ar = BofhdAuthRole(db)
+    disk = Utils.Factory.get('Disk')(db)
+    attr_map = {}
+    logger.debug("Reading auth_op_target table...")
+    for row in ba.list():
+        key = (format_as_int(row['entity_id']),row['target_type'], row['attr'])
+        attr_map.setdefault(key, []).append(int(row['op_target_id']))
+
+    #logger.debug("Map of auth_op_targets: ")
+    #logger.debug(pp.pformat(attr_map))
+    disk_regexp = re.compile(r"(.*/\D+)(\d+)$")
+    paths = {}
+    for k in attr_map.keys():
+        if len(attr_map[k]) > 1:
+            # Multiple rows point to a syntactically identical auth_op_target
+            logger.debug("Owners of %s [move to %i]" % (
+                str(attr_map[k][1:]), attr_map[k][0]))
+            # Move grants to the first auth_op_target
+            for row in ar.list_owners(attr_map[k][1:]):
+                logger.debug((int(row['entity_id']), int(row['op_set_id']),
+                              int(row['op_target_id'])))
+                if not dryrun:
+                    ar.revoke_auth(row['entity_id'], row['op_set_id'],
+                                   row['op_target_id'])
+                    ar.grant_auth(row['entity_id'], row['op_set_id'],
+                                  attr_map[k][0])
+            # Remove the now empty auth_op_targets
+            for op_target_id in attr_map[k][1:]:
+                ba.find(op_target_id)
+                if not dryrun:
+                    ba.delete()
+        else: 
+            # This check is a bit slow when we have many entries,
+            # consider disabling when debugging.
+            
+            # Check for empty auth_op_targets
+            if not ar.list_owners(attr_map[k][0]):
+                ba.find(attr_map[k][0])
+                if not dryrun:
+                    ba.delete()
+        if k[1] == 'disk':     # determine path for disk
+            disk.clear()
+            disk.find(k[0])
+            m = disk_regexp.match(disk.path)
+            if m is None:
+                logger.warn("Unexpected disk: %s" % disk.path)
+            else:
+                paths.setdefault(m.group(1), []).append((m.group(2), attr_map[k][0]))
+
+    # TBD: Could we process any of these data automagically, or
+    # present them in a more readable way?
+    logger.debug(
+        "The following disks could be merged into a host target with "
+        "regexp for disk matching.  The first line is the path, "
+        "followed by the numeric part of the part and the corresponding "
+        "target_id.  The owners are listed below in the format "
+        " (owner_entity_id, ): [op_target_id]"
+        )
+    order = paths.keys()
+    order.sort()
+    for base in order:
+        if len(paths[base]) == 1:
+            continue
+        logger.debug((base, paths[base]))
+        owners = {}
+        # Make mapping target_id:[entity_ids]
+        for row in ar.list_owners([k[1] for k in paths[base]]):
+            owners.setdefault(int(row['op_target_id']), []).append(
+                int(row['entity_id']))
+        # Make mapping [entity_ids]:[target_ids]
+        tmp = {}
+        for op_target_id in owners.keys():
+            tmp.setdefault(tuple(owners[op_target_id]), []).append(op_target_id)
+        logger.debug(pp.pformat(tmp))
+    if not dryrun:
+        db.commit()
+    else:
+        db.rollback()   # noia rollback just in case
+
 def main():
     global dryrun
     try:
         opts, args = getopt.getopt(
             sys.argv[1:], '', ['help', 'dryrun', 'plain',
-                               'changelog'])
+                               'changelog', 'bofh'])
 
     except getopt.GetoptError:
         usage(1)
-    do_remove_plain = do_process_log = dryrun = False
+    do_remove_bofh = do_remove_plain = do_process_log = dryrun = False
     for opt, val in opts:
         if opt in ('--help',):
             usage()
@@ -346,6 +432,8 @@ def main():
             dryrun = True
         elif opt in ('--plain',):
             do_remove_plain = True
+        elif opt in ('--bofh',):
+            do_remove_bofh = True
         elif opt in ('--changelog',):
             do_process_log = True
         else:
@@ -356,12 +444,15 @@ def main():
         remove_plaintext_passwords()
     if do_process_log:
         process_log()
+    if do_remove_bofh:
+        merge_bofh_auth()
 
 def usage(exitcode=0):
     print """Usage: [options]
     --help : this text
     --dryrun : don't do any changes to the db
     --plain : delete plaintext passwords
+    --bofh : merge equal targets in auth_op_target
     --changelog : delete 'irrelevant' changelog entries
     """
     sys.exit(exitcode)
