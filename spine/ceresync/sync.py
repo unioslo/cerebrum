@@ -199,6 +199,13 @@ class Person:
     def __init__(self, person):
         # Internal Cerebrum ID 
         self.id = person.get_id()
+
+        # .name is always the "readable primary key"
+        # as the backends should expect, and it happens to
+        # to be that export_id is designed for just this purpose.
+        # See self.full_name for full name of person. 
+        self.name = person.get_export_id()
+
         self.type = person.get_type().get_name()
         self.description = person.get_description()
         # FIXME: Might get_b_date() and get_gender() return None or fail?
@@ -221,7 +228,7 @@ class Person:
             name = name.get_name()
             self.names[variant] = name
             # Could also get source system of name variant, but why?
-        self.name = self.names.get("FULL") # Could be None (when?)    
+        self.full_name = self.names.get("FULL") # Could be None (when?)    
         
         # FIXME:  add: addresses, contact_info 
    
@@ -336,10 +343,12 @@ class TestSync(unittest.TestCase):
     def testGetPersons(self):
         persons = self.s.get_persons()
         assert persons
-        soilands = [p for p in persons if p.name=="Stian Soiland"]
+        soilands = [p for p in persons if p.full_name=="Stian Soiland"]
         assert soilands   # There's no other default person we can rely on..
         soiland = soilands[0]
         self.assertEqual(soiland.type, "person")
+        # Can we trust the export ID to be on this format?
+        self.assertEqual(soiland.name, "exp-%s" % soiland.id)
         # FIXME: Could contain more names
         self.assertEqual(soiland.names, { 'FULL': "Stian Soiland" })
         # FIXME: Should be 1979-02-15   =) 
