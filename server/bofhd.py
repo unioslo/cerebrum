@@ -53,7 +53,8 @@ import cereconf
 from Cerebrum import Errors
 from Cerebrum import Utils
 from Cerebrum.extlib import logging
-from Cerebrum.modules.bofhd.errors import CerebrumError, ServerRestartedError
+from Cerebrum.modules.bofhd.errors import CerebrumError, \
+     ServerRestartedError, SessionExpiredError
 from Cerebrum.modules.bofhd.help import Help
 from Cerebrum.modules.bofhd.xmlutils import \
      xmlrpc_to_native, native_to_xmlrpc
@@ -149,7 +150,7 @@ class BofhdSession(object):
                 SET last_seen=[:now]
                 WHERE session_id=:session_id""", {'session_id': self._id})
         except Errors.NotFoundError:
-            raise CerebrumError, "Authentication failure: session expired. You must login again"
+            raise SessionExpiredError, "Authentication failure: session expired. You must login again"
         return self._entity_id
 
     def store_state(self, state_type, state_data, entity_id=None):
