@@ -36,7 +36,7 @@ class CodeType(Builder):
 
     def get_by_id(cls, id):
         rows = Database.get_database().query('''SELECT code_str, description
-                           FROM %s WHERE code = %s''' % (cls._tableName, id)) # ugh. stygg escaping
+                           FROM %s WHERE code = %s''' % (cls._tableName, id))
         if not rows:
             raise Errors.NoSuchNodeError('%s(%s) not found' % (cls.__name__, id))
         row = rows[0]
@@ -49,16 +49,16 @@ class CodeType(Builder):
     get_by_id = classmethod(get_by_id)
 
     def _load(self):
-        rows = Database.get_database().query('''SELECT code_str, description
-                           FROM %s WHERE code = %s''' % (self._tableName, self._id))
+        rows = Database.get_database().query('''SELECT code, description
+                           FROM %s WHERE code_str = %s''' % (self._tableName, `self._name`)) # ugh. stygg escaping
         if not rows:
-            raise Errors.NoSuchNodeError('%s %s not found' % (self.__class__.__name__, self._id))
+            raise Errors.NoSuchNodeError('%s %s not found' % (self.__class__.__name__, self._name))
         row = rows[0]
 
-        self._name = row['code_str']
+        self._id = int(row['code'])
         self._description = row['description']
 
-    load_name = load_description = _load
+    load_id = load_description = _load
 
 class AddressType(CodeType):
     _tableName = 'address_code'
@@ -87,7 +87,7 @@ class EntityType(CodeType):
             return Host.Host
         elif self.get_name() == 'ou':
             return OU.OU
-        elif self.get_name('person'):
+        elif self.get_name() == 'person':
             return Person.Person
 
 class SourceSystem(CodeType):
