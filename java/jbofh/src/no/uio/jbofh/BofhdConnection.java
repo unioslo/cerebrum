@@ -260,7 +260,7 @@ public class BofhdConnection {
 	    logger.debug("exception-message: "+e.getMessage());
 	    String match = "Cerebrum.modules.bofhd.errors.";
 	    if(e.getMessage().startsWith(match)) {
-		throw new BofhdException("User error: "+e.getMessage().substring(e.getMessage().indexOf(":")+1));
+		throw new BofhdException("Error: "+e.getMessage().substring(e.getMessage().indexOf(":")+1));
 	    } else {
 		logger.error("err: code="+e.code, e);
 		throw new BofhdException("Error: "+e.getMessage());
