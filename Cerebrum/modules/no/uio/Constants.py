@@ -24,16 +24,50 @@ Address, Gender etc. type."""
 
 from Cerebrum import Constants
 from Cerebrum.Constants import _AuthoritativeSystemCode,_OUPerspectiveCode, \
-     _SpreadCode, _QuarantineCode
+     _SpreadCode, _QuarantineCode, _PersonExternalIdCode
 from Cerebrum.modules.PosixUser import _PosixShellCode
 
 class Constants(Constants.Constants):
+
+    externalid_fodselsnr = _PersonExternalIdCode('NO_BIRTHNO',
+                                                 'Norwegian birth number')
+
     system_lt = _AuthoritativeSystemCode('LT', 'LT')
     system_fs = _AuthoritativeSystemCode('FS', 'FS')
     system_ureg = _AuthoritativeSystemCode('Ureg', 'Imported from ureg')
 
     perspective_lt = _OUPerspectiveCode('LT', 'LT')
     perspective_fs = _OUPerspectiveCode('FS', 'FS')
+
+    affiliation_ansatt = _PersonAffiliationCode('ANSATT',
+                                                'Ansatt ved UiO (i følge LT)')
+    affiliation_status_ansatt_vit = _PersonAffStatusCode(
+        affiliation_ensatt, 'vitenskapelig', 'Vitenskapelig ansatt')
+    affiliation_status_ansatt_bil = _PersonAffStatusCode(
+        affiliation_ensatt, 'bilag', 'Bilagslønnet')
+    affiliation_status_ansatt_tekadm = _PersonAffStatusCode(
+        affiliation_ensatt, 'tekadm', 'Teknisk/administrativt ansatt')
+    affiliation_status_ansatt_perm = _PersonAffStatusCode(
+        affiliation_ensatt, 'permisjon', 'Ansatt, men med aktiv permisjon')
+
+    affiliation_student = _PersonAffiliationCode(
+        'STUDENT', 'Student ved UiO (i følge FS)')
+    affiliation_status_student_soker = _PersonAffStatusCode(
+        affiliation_student, 'soker', 'Registrert søker i FS')
+    affiliation_status_student_tilbud = _PersonAffStatusCode(
+        affiliation_student, 'tilbud', 'Har fått tilbud om opptak')
+    affiliation_status_student_opptak = _PersonAffStatusCode(
+        affiliation_student, 'opptak', 'Har studierett ved studieprogram')
+    affiliation_status_student_aktiv = _PersonAffStatusCode(
+        affiliation_student, 'aktiv', 'Aktiv student')
+    affiliation_status_student_privatist = _PersonAffStatusCode(
+        affiliation_student, 'privatist', 'Registrert som privatist i FS')
+    affiliation_status_student_evu = _PersonAffStatusCode(
+        affiliation_student, 'evu', 'Registrert som EVU-student i FS')
+    affiliation_status_student_perm = _PersonAffStatusCode(
+        affiliation_student, 'permisjon', 'Har gyldig permisjonstatus i FS')
+    affiliation_status_student_alumni = _PersonAffStatusCode(
+        affiliation_student, 'alumni', 'Har fullført studieprogram i FS')
 
     # We override the default settings for shells, thus this file
     # should be before PosixUser in cereconf.CLASS_CONSTANTS
@@ -77,7 +111,7 @@ class Constants(Constants.Constants):
     posix_shell_tcsh = _PosixShellCode('tcsh', '/local/bin/tcsh')
     posix_shell_true = _PosixShellCode('true', '/bin/true')
     posix_shell_zsh = _PosixShellCode('zsh', '/local/bin/zsh')
-    
+
     spread_uio_nis_user = _SpreadCode('NIS_user@uio', Constants.Constants.entity_account,
                                       'User in NIS domain "uio"')
     spread_uio_nis_fg = _SpreadCode('NIS_fg@uio', Constants.Constants.entity_group,
@@ -94,6 +128,15 @@ class Constants(Constants.Constants):
                                          'Person included in LDAP directory')
     spread_uio_ldap_ou = _SpreadCode('LDAP_OU', Constants.Constants.entity_ou,
                                      'OU included in LDAP directory')
+
+    # LDAP: Brukere, grupper
+
+    # AD: OU, brukere, grupper, security groups
+
+    # Notes: OU, brukere, ACL-grupper, andre grupper
+
+    # TODO: Kunne begrense tillatte spreads for spesielt priviligerte
+    # brukere.
 
     quarantine_generell = _QuarantineCode('generell', 'Generell splatt')
     quarantine_teppe = _QuarantineCode('teppe', 'Kallt inn på teppet til drift')
