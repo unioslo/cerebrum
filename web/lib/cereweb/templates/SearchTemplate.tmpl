@@ -1,0 +1,30 @@
+#extends InitTemplate
+
+## List of tuples (name, label)
+#attr $fields = []
+#attr $formvalues = {}
+
+#def getAction
+/some/where#slurp
+#end def
+
+#def input($name, $label)
+    #set $value = $formvalues.get($name, "")
+    <label for='$name'>$label</label>
+    <input type='text' name='$name' id='$name' value='$value' />
+#end def
+
+#def form
+<form action="$getAction()" method="POST">
+    <div class='help'>
+        $_("Use wildcards * and ? to extend the search.")
+    </div>
+    <div class='help'>
+        $_("Supply several search parameters to limit the search.")
+    </div>
+#for $name, $label in $fields #
+    #echo $input($name, $label) #
+#end for  
+    <input type="submit" value="Search" />
+</form>
+#end def
