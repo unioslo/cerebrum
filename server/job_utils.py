@@ -87,7 +87,7 @@ class Time(object):
             ret = add_week*7*24*3600 + wday*24*3600 + hour*3600 + min*60 - week_start_delta
 
             # Assert that the time we find is after the previous time
-            if ret == 0:
+            if ret <= 0:
                 if self.min is not None:
                     min += 1
                 elif self.hour is not None:
