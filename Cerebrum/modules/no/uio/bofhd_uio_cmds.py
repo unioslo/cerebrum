@@ -48,7 +48,7 @@ def format_day(field):
 
 def format_time(field):
     fmt = "yyyy-MM-dd HH:mm"            # 16 characters wide
-    return '.'.join((field, "date", fmt))
+    return ':'.join((field, "date", fmt))
 
 class BofhdExtension(object):
     """All CallableFuncs take user as first arg, and are responsible
