@@ -299,7 +299,6 @@ class Group(EntityName, Entity):
 
         """
         extfrom = extwhere = extcols = ""
-        ncols = 3
         if member_type is not None:
             extwhere = "member_type=:member_type AND "
             member_type = int(member_type)
@@ -307,7 +306,6 @@ class Group(EntityName, Entity):
             extfrom = ", [:table schema=cerebrum name=entity_spread] es"
             extwhere = """gm.member_id=es.entity_id AND es.spread=:spread AND """
         if get_entity_name:
-            ncols = 4
             extcols += ", entity_name"
             extfrom += ", [:table schema=cerebrum name=entity_name] en"
             # TBD: Is the value_domain check really neccesary?
@@ -330,7 +328,12 @@ class Group(EntityName, Entity):
             'account_dom': int(self.const.account_namespace),
             'entity_group': int(self.const.entity_group),
             'entity_account': int(self.const.entity_account)}):
-            op2set[int(row[0])].append(row[1:ncols])
+            op2set[int(row[0])].append(row[1:])
+            # Could have been, but some way breaks mr. internet
+            # in auth
+            #op2set[int(row[0])].append(row)
+            # don't confuse legacy code by including operation
+            #del row[0]
         return members
 
     def get_members(self, _trace=(), spread=None, get_entity_name=False):
