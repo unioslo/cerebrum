@@ -198,11 +198,13 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
                 else:
                     ou_id, affil, status = [int(x) for x in idx.split(":")]
                     self.add_affiliation(ou_id, affil, source, status)
-                    is_new = False
+                    if is_new <> 1:
+                        is_new = False
             for idx in db_affil.keys():
                 ou_id, affil, status = [int(x) for x in idx.split(":")]
                 self.delete_affiliation(ou_id, affil, source, status)
-                is_new = False
+                if is_new <> 1:
+                    is_new = False
 
         # If affect_names has not been called, we don't care about
         # names
@@ -222,7 +224,8 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
                         if self._name_info.has_key(type):
                             self._set_name(self._pn_affect_source, type,
                                            self._name_info[type])
-                            is_new = False
+                            if is_new <> 1:
+                                is_new = False
                             updated_name = True
                     elif str(msg) == "MissingSelf":
                         self.execute("""
@@ -389,7 +392,7 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
                                   self.const.name_full, ret)
                else:
                    self._update_name(self.const.system_cached,
-                                     self.const.name_full, ret)                   
+                                     self.const.name_full, ret)
                return
             except Errors.NotFoundError:
                 pass
@@ -559,4 +562,3 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
         return self.query("""
         SELECT person_id
         FROM [:table schema=cerebrum name=person_info]""")
-        
