@@ -269,11 +269,17 @@ class EntityAddress(object):
 
         try:
             tmp = other.get_entity_address(self._affect_source, type)
+            if self._debug_eq:
+                print "Comparing, got tmp=%s" % tmp
             if len(tmp) == 0:
                 raise KeyError
         except:
+            if self._debug_eq:
+                print "Comparing address - missingOther"
             raise KeyError, "MissingOther"
 
+        if self._debug_eq:
+            print "Comparing address"
         other_addr = {'address_text': tmp[0][3],
                       'p_o_box': tmp[0][4],
                       'postal_number': tmp[0][5],
@@ -284,10 +290,12 @@ class EntityAddress(object):
         except:
             raise KeyError, "MissingSelf"
 
-        # print "Compare: %s AND %s" % (ai, other_addr)
+        if self._debug_eq:
+            print "Compare: %s AND %s" % (ai, other_addr)
         for k in ('address_text', 'p_o_box', 'postal_number', 'city',
                   'country'):
-            # print "compare: '%s' '%s'" % (ai[k], other_addr[k])
+            if self._debug_eq:
+                print "compare: '%s' '%s'" % (ai[k], other_addr[k])
             if(ai[k] != other_addr[k]):
                 return False
         return True
@@ -363,9 +371,10 @@ class EntityAddress(object):
     def _add_entity_address(self, source, type, address_text=None,
                             p_o_box=None, postal_number=None, city=None,
                             country=None):
-##         print "%s, %s, %s, %s, %s, %s, %s, %s, " % (
-##             self.entity_id, int(source), int(type), address_text, p_o_box,
-##             postal_number, city, country)
+        if self._debug_eq:
+            print "adding entity_address: %s, %s, %s, %s, %s, %s, %s, %s, " % (
+                  self.entity_id, int(source), int(type), address_text,
+                  p_o_box, postal_number, city, country)
         self.execute("""
         INSERT INTO [:table schema=cerebrum name=entity_address]
           (entity_id, source_system, address_type,
