@@ -285,10 +285,10 @@ class Constants(DatabaseAccessor):
         _CerebrumCode.sql = database
 
 def main():
-    from Cerebrum import Database
+    from Cerebrum.Utils import Factory
     from Cerebrum import Errors
 
-    Cerebrum = Database.connect()
+    Cerebrum = Factory.get('Database').connect()
     co = Constants(Cerebrum)
 
     skip = dir(Cerebrum)

@@ -4,10 +4,10 @@
 
 import unittest
 import cereconf
-from Cerebrum import Database
 from Cerebrum import Errors
 from Cerebrum.Entity import \
      Entity, EntityName, EntityContactInfo, EntityAddress
+from Cerebrum.Utils import Factory
 from Cerebrum import Constants
 import traceback
 
@@ -17,7 +17,7 @@ import traceback
 # subclass's base class list.
 class Entity_createTestCase(unittest.TestCase, object):
 
-    Cerebrum = Database.connect()
+    Cerebrum = Factory.get('Database').connect()
     co = Constants.Constants(Cerebrum)
     entity_class = Entity
 

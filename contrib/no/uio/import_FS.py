@@ -8,7 +8,7 @@ import sys
 
 import xml.sax
 
-from Cerebrum import Database,Errors
+from Cerebrum import Errors
 from Cerebrum import Person
 import cereconf
 from Cerebrum.modules.no import fodselsnr
@@ -49,7 +49,7 @@ class TrivialParser(xml.sax.ContentHandler):
         pass
 
 def main():
-    Cerebrum = Database.connect()
+    Cerebrum = Factory.get('Database').connect()
 
     if getattr(cereconf, "ENABLE_MKTIME_WORKAROUND", 0) == 1:
         print "Warning: ENABLE_MKTIME_WORKAROUND is set"
@@ -78,7 +78,7 @@ def process_person(Cerebrum, persondta):
         return
 
     new_person = Person.Person(Cerebrum)
-    co = Factory.getConstants()(Cerebrum)
+    co = Factory.get('Constants')(Cerebrum)
     try:
         new_person.find_by_external_id(co.externalid_fodselsnr, fnr)
     except Errors.NotFoundError:

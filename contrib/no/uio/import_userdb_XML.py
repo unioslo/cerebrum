@@ -15,7 +15,6 @@ import xml.sax
 import sys
 import getopt
 import cereconf
-from Cerebrum import Database
 from Cerebrum import Account
 from Cerebrum import Group
 from Cerebrum import Person
@@ -26,7 +25,7 @@ from Cerebrum.Utils import Factory
 
 default_personfile = '/local2/home/runefro/usit/cerebrum/contrib/no/uio/users.xml'
 default_groupfile = '/local2/home/runefro/usit/cerebrum/contrib/no/uio/filegroups.xml'
-Cerebrum = Database.connect()
+Cerebrum = Factory.get('Database').connect()
 personObj = Person.Person(Cerebrum)
 co = Factory.getConstants()(Cerebrum)
 pp = pprint.PrettyPrinter(indent=4)

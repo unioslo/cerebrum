@@ -371,7 +371,9 @@ class Factory(object):
         components = {'OU': 'CLASS_OU',
                       'Person': 'CLASS_PERSON',
                       'Account': 'CLASS_ACCOUNT',
-                      'Group': 'CLASS_GROUP'}
+                      'Group': 'CLASS_GROUP',
+                      'Database': 'CLASS_DATABASE',
+                      'Constants': 'CLASS_CONSTANTS'}
         try:
             conf_var = components[comp]
         except KeyError:
@@ -391,17 +393,3 @@ class Factory(object):
                                                                 import_spec)
     get = staticmethod(get)
 
-    def getConstants():
-        try:
-            mod = dyn_import(cereconf.CONSTANTS_MODULE)
-            return mod.Constants
-        except AttributeError:
-            mod = dyn_import("Cerebrum.Constants")
-            return mod.Constants
-            # return Constants.Constants
-
-    getConstants = staticmethod(getConstants)
-
-    def getOU():
-        # return OU
-        pass

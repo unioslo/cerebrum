@@ -8,7 +8,6 @@ import sys
 
 import xml.sax
 
-from Cerebrum import Database
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 
@@ -58,9 +57,9 @@ if len(sys.argv) == 2:
     stedfile = sys.argv[1]
 
 def main():
-    Cerebrum = Database.connect()
+    Cerebrum = Factory.get('Database').connect()
     steder = {}
-    co = Factory.getConstants()(Cerebrum)
+    co = Factory.get('Constants')(Cerebrum)
     ou = OU_class(Cerebrum)
     if getattr(ou, 'find_stedkode', None) is None:
         raise ValueError, "Wrong OU class, override CLASS_OU in cereconf.py"

@@ -6,7 +6,6 @@ import pprint
 import string
 import sys
 
-from Cerebrum import Database
 from Cerebrum import Errors
 from Cerebrum import Person
 from Cerebrum.Utils import Factory
@@ -14,8 +13,8 @@ from Cerebrum.modules.no import fodselsnr
 
 pp = pprint.PrettyPrinter(indent=4)
 
-Cerebrum = Database.connect()
-co = Factory.getConstants()(Cerebrum)
+Cerebrum = Factory.get('Database').connect()
+co = Factory.get('Constants')(Cerebrum)
 OU_class = Factory.get('OU')
 
 source_system = co.system_sats
@@ -127,10 +126,13 @@ def import_elever(gs_vg):
         n += 1
 
     # Note: mange records har ikke fnr.
-
+    n = 0
     for elev in dta:
         sys.stdout.write('.')
         sys.stdout.flush()
+        if n > 1000:
+            break
+        n += 1
         gender = co.gender_female
         if elev[loc['sex']] == '1':
             gender = co.gender_male
@@ -191,7 +193,7 @@ def import_elever(gs_vg):
     
 def main():
     # convert_all()
-    # import_OU('vg')
+    import_OU('vg')
     import_elever('vg')
 
 if __name__ == '__main__':

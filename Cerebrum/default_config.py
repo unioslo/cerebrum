@@ -59,9 +59,6 @@ ENABLE_BOFHD_CRYPTO=0
 INITIAL_GROUPNAME = "bootstrap_group"
 INITIAL_ACCOUNTNAME = "bootstrap_account"
 
-# To use site-specific constants:
-CONSTANTS_MODULE = "Cerebrum.Constants"
-
 # Specify the class this installation should use when working with
 # various entities.
 #
@@ -72,6 +69,8 @@ CLASS_OU = ('Cerebrum.OU', 'OU')
 CLASS_PERSON = ('Cerebrum.Person', 'Person')
 CLASS_ACCOUNT = ('Cerebrum.Account', 'Account')
 CLASS_GROUP = ('Cerebrum.Group', 'Group')
+CLASS_CONSTANTS = ('Cerebrum.Constants', 'Constants')
+CLASS_DATABASE = ('Cerebrum', 'Database')
 
 # Path to templates for passweb.py et. al.
 TEMPLATE_DIR='/path'

@@ -33,7 +33,8 @@ import re
 import socket
 # import xmlrpclib
 import cereconf
-from Cerebrum import Database,Person,Utils,Account,Errors
+from Cerebrum import Person,Utils,Account,Errors
+from Cerebrum.Utils import Factory
 from Cerebrum.modules import PosixUser
 import sys
 import traceback
@@ -268,7 +269,7 @@ if __name__ == '__main__':
                 ctx.set_tmp_dh('dh1024.pem')
                 server = MySimpleXMLRPCServer.SimpleXMLRPCServer(('',port),ctx)
 
-            server.register_instance(ExportedFuncs(Database.connect(),
+            server.register_instance(ExportedFuncs(Factory.get('Database').connect(),
                                                    conffile))
             server.serve_forever()
         except socket.error:

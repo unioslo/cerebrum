@@ -2,9 +2,9 @@
 
 import sys
 
-from Cerebrum import Database
 from Cerebrum import Constants
 from Cerebrum import Person
+from Cerebrum.Utils import Factory
 from server.bofhd import ExportedFuncs
 from server.bofhd import CallableFuncs
 
@@ -33,7 +33,7 @@ def main():
     else:
         external_id = "41023468172"
 
-    Cerebrum = Database.connect()
+    Cerebrum = Factory.get('Database').connect()
 
     create_user(Cerebrum, external_id)
 

@@ -20,7 +20,6 @@
 
 # Sample module that extends bofhd with a set of commands
 
-from Cerebrum import Database
 from Cerebrum.Utils import Factory
 
 from cmd_param import Command,Id
@@ -61,6 +60,6 @@ class BofhdExtension(object):
         return suggestions.get(cmd)
 
 if __name__ == '__main__':
-    Cerebrum = Database.connect()
+    Cerebrum = Factory.get('Database').connect()
     sm = BofhdExtension(Cerebrum)
     print "Ret: %s" % sm.get_stedkode_info('user', '900547')

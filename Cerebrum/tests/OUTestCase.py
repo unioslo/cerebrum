@@ -4,19 +4,18 @@
 
 import unittest
 import traceback
-from Cerebrum import Database
 from Cerebrum import Errors
 from Cerebrum import OU
 from Cerebrum import Person
 from Cerebrum import Account
 from Cerebrum import Constants
-
+from Cerebrum.utils import Factory
 
 # Explicitly inherit from `object` because unittest isn't a new-style
 # class, and we want to be allowed to call super.
 class OU_createTestCase(unittest.TestCase, object):
 
-    Cerebrum = Database.connect()
+    Cerebrum = Factory.get('Database').connect()
     co = Constants.Constants(Cerebrum)
 
     ou_dta = {

@@ -55,7 +55,7 @@ class Entity(DatabaseAccessor):
         """
         super(Entity, self).__init__(database)
         self.clear()
-        self.const = Factory.getConstants()(database)
+        self.const = Factory.get('Constants')(database)
 
     def clear(self):
         "Clear all attributes associating instance with a DB entity."
