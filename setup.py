@@ -220,6 +220,7 @@ setup (name = "Cerebrum", version = Cerebrum.__version__,
                    'Cerebrum/modules/bofhd',
                    'Cerebrum/modules/no',
                    'Cerebrum/modules/no/uio',
+                   'Cerebrum/modules/no/uio/AutoStud',
                    'Cerebrum/modules/templates'],
 
        # options override --prefix
