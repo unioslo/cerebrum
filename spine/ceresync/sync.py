@@ -185,15 +185,26 @@ class Sync:
 
     def close(self):
         self._rollback()
+        self._handler.logout()
 
     def get_accounts(self):
         """Get all accounts from Spine. Returns a list of Account objects."""
         t = self._connection
+        spread = "NIS_user@ifi"
+        spread = t.get_spread(spread)
 
         # create a search
         account_search = t.get_account_searcher()
+
+        entity_spread_search = t.get_entity_spread_searcher()
+        entity_spread_search.set_spread(spread)
+        entity_spread_search.mark_entity()
+        intersections = [entity_spread_search]
+
         if self._changes:
-            account_search.set_intersections([self._changes])
+            intersections.append(self._changes)
+
+        account_search.set_intersections(intersections)
 
         # create a dumper and mark what we want to dump
         dumper = account_search.get_dumper()
@@ -221,6 +232,21 @@ class Sync:
         shells = {}
         for i in shell_dumper.dump():
             shells[i.reference] = i
+
+        # map all homedirs
+        """
+        account_home_search = t.get_account_home_searcher()
+        account_home_search.set_spread(spread)
+        account_home_search.mark_account()
+        account_home_search.set_intersections([account_search])
+        home_dumper = account_home_search.get_dumper()
+        home_dumper.mark_home()
+        home_dumper.mark_disk()
+        homes = home_dumper.dump()
+
+
+        disks = home_dumper.dump_disks()
+        """
 
         # map all authentications
         auths = []
