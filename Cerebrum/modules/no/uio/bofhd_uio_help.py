@@ -345,6 +345,7 @@ You may also use entity_id:id."""],
     'person_search_type':
         ['search_type', 'Enter person search type',
          """Possible values:
+  - 'fnr'
   - 'name'
   - 'date' of birth, on format YYYY-MM-DD
   - 'person_id'
