@@ -190,7 +190,7 @@ class Group(EntityName, Entity):
                  or other.expire_date is None
                  or self.expire_date == other.expire_date)):
             # TBD: Should this compare member sets as well?
-            return True
+            return self.__super.__eq__(other)
         return False
 
     def new(self, creator, visibility, name,
