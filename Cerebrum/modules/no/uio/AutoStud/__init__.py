@@ -22,6 +22,7 @@
 this package"""
 
 import re
+import pprint
 
 import cereconf
 from Cerebrum.Utils import Factory
@@ -29,6 +30,8 @@ from Cerebrum.Utils import Factory
 from Cerebrum.modules.no.uio.AutoStud import ProfileConfig
 from Cerebrum.modules.no.uio.AutoStud import ProfileHandler
 from Cerebrum.modules.no.uio.AutoStud import StudentInfo
+
+pp = pprint.PrettyPrinter(indent=4)
 
 class AutoStud(object):
     def __init__(self, db, logger, cfg_file=None, debug=0,
@@ -51,7 +54,7 @@ class AutoStud(object):
                 self.disks[int(d['disk_id'])] = [d['path'], int(d['count'])]
             self.disks_order = self.disks.keys()
             self.disks_order.sort(self._disk_sort)
-            logger.debug("Disks: "+logger.pformat(self.disks))
+            logger.debug("Disks: "+pp.pformat(self.disks))
         self.pc = ProfileConfig.Config(self, logger, debug=debug, cfg_file=cfg_file)
         logger.debug(self.pc.debug_dump())
         self.studieprogramkode2info = {}

@@ -28,6 +28,8 @@ from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.Constants import _SpreadCode
 
+class AutostudError(Exception): pass
+
 class LookupHelper(object):
     def __init__(self, db, logger, ou_perspective):
         self._db = db

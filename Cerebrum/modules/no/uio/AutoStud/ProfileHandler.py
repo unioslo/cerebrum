@@ -18,11 +18,18 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+import pprint
+
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.uio.AutoStud.ProfileConfig import StudconfigParser
+from Cerebrum.modules.no.uio.AutoStud.Util import AutostudError
 
-class NoMatchingQuotaSettings(Exception): pass
-class NoMatchingProfiles(Exception): pass
+pp = pprint.PrettyPrinter(indent=4)
+
+class NoMatchingQuotaSettings(AutostudError): pass
+class NoMatchingProfiles(AutostudError): pass
+class NoAvailableDisk(AutostudError): pass
+class NoDefaultGroup(AutostudError): pass
 
 class Profile(object):
     """Profile implements the logic that maps a persons student_info
@@ -48,9 +55,9 @@ class Profile(object):
 
     def debug_dump(self):
         ret = "Dumping %i match entries\n" % len(self.matcher.matches)
-        ret += self._logger.pformat(self.matcher.matches)
+        ret += pp.pformat(self.matcher.matches)
         ret += "\nSettings: "
-        ret += self._logger.pformat(self.matcher.matched_settings)
+        ret += pp.pformat(self.matcher.matched_settings)
         return ret
 
     def get_disk_spreads(self):
@@ -87,7 +94,7 @@ class Profile(object):
                     new_disk = {'prefix': '/uio/kant/div-h'}
                 break
         if not new_disk:
-            raise ValueError, "No disk matches profiles"
+            raise NoAvailableDisk, "No disk matches profiles"
 
         # Check if one of the matching disks matches the disk that the
         # user currently is on
@@ -119,7 +126,7 @@ class Profile(object):
             if (dest_pfix == tmp_path[0:len(dest_pfix)]
                 and tmp_count < max_on_disk):
                  return d
-        raise ValueError, "No disks with free space matches %s" % new_disk
+        raise NoAvailableDisk, "No disks with free space matches %s" % new_disk
 
     def notify_used_disk(self, old=None, new=None):
         if old is not None:
@@ -158,7 +165,7 @@ class Profile(object):
         for t in self.matcher.get_match('gruppe'):
             if self.pc.group_defs[t]['is_posix']:
                 return t
-        raise ValueError, "No dfg is a PosixGroup"
+        raise NoDefaultGroup, "No dfg is a PosixGroup"
 
     def get_grupper(self):
         return self.matcher.get_match('gruppe')
@@ -336,7 +343,7 @@ class ProfileMatcher(object):
         to the list of matches"""
         if matches is None:
             return
-        self.logger.debug2("_append_match: "+self.logger.pformat((select_type, sx_match_attr, value, matches)))
+        self.logger.debug2("_append_match: "+pp.pformat((select_type, sx_match_attr, value, matches)))
         nivakode = 0
         if sx_match_attr == 'studieprogram':
             nivakode = self._normalize_nivakode(

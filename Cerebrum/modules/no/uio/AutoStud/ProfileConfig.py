@@ -27,6 +27,8 @@ from Cerebrum.modules.no.uio.AutoStud.Util import LookupHelper
 from Cerebrum.modules import PosixGroup
 from Cerebrum import Errors
 
+pp = pprint.PrettyPrinter(indent=4)
+
 class Config(object):
     def __init__(self, autostud, logger, cfg_file=None, debug=0):
         self.debug = debug
@@ -84,7 +86,7 @@ class Config(object):
 
     def debug_dump(self):
         ret = "Mapping of select-criteria to profile:\n"
-        ret += self._logger.pformat(self.select_mapping)
+        ret += pp.pformat(self.select_mapping)
         ret += "Profile definitions:"
         for p in self.profiles:
             ret += p.debug_dump()+"\n"
@@ -194,7 +196,7 @@ class ProfileDefinition(object):
 
     def debug_dump(self):
         return "Profile name: '%s', settings:\n%s" % (
-            self.name, self._logger.pformat(self.settings))
+            self.name, pp.pformat(self.settings))
 
     #
     # methods for converting the XML entries to values from the database
