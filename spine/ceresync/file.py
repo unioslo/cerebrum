@@ -165,7 +165,7 @@ class AliasFile(CLFileBack):
         return "%s: %s %s\n" % ( addr.name, mod, to)
 
 class SambaFile(CLFileBack):
-    """One entry in a samba passwordfile lookes like this:
+    """An entry in a samba passwordfile lookes like this:
     <username>:<uid>:<lanman-hash>:<nt-hash>:<Long Name>:<homedir>:<user shell>"""
     filename="/etc/cerecync/smbpasswd"
     def format(self,account):
