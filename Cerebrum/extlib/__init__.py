@@ -1,3 +1,4 @@
+# -*- coding: iso-8859-1 -*-
 # This directory contains various modules that Cerebrum makes use of,
 # but that have been developed independently of Cerebrum.
 #

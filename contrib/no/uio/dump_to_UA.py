@@ -1,4 +1,5 @@
 #!/usr/bin/env python2.2
+# -*- coding: iso-8859-1 -*-
 
 # Generate dump files for exporting to UA.  The files contains
 # information about people known in Cerebrum.  Documentation for the

@@ -1,3 +1,4 @@
+# -*- coding: iso-8859-1 -*-
 LDAP_BASE = 'dc=uio,dc=no'
 BASE_OBJECTCLASS = ('top','organization','norOrganization','labeledURIObject')
 BASE_BUSINESSCATEGORY = ('University','Universitet','Education','Utdanning')

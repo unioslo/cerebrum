@@ -1,3 +1,4 @@
+# -*- coding: iso-8859-1 -*-
 from Cerebrum.modules.no.uio.AutoStud.ProfileConfig import StudconfigParser
 
 class Profile(object):

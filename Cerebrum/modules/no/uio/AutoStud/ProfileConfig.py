@@ -1,3 +1,4 @@
+# -*- coding: iso-8859-1 -*-
 """This module provides method for parsing the studconfig.xml file and
 translating it to an internal datastructure"""
 

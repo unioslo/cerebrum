@@ -1,4 +1,5 @@
 #!/usr/bin/env python2.2
+# -*- coding: iso-8859-1 -*-
 
 # The help is stored in three dicts, which makes it possible to only
 # display a subset of the total help-text.

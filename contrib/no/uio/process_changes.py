@@ -1,4 +1,5 @@
 #!/usr/bin/env python2.2
+# -*- coding: iso-8859-1 -*-
 
 # This script should be ran regularly.  It process the changelog, and
 # performs a number of tasks:

@@ -1,4 +1,5 @@
 #!/usr/bin/env python2.2
+# -*- coding: iso-8859-1 -*-
 #
 # Author: Petter Reinholdtsen <pere@hungry.com>
 # Date:   2002-11-06

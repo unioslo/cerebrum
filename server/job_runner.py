@@ -1,4 +1,5 @@
 #!/usr/bin/env python2.2
+# -*- coding: iso-8859-1 -*-
 
 # $Id$
 # TBD: Paralellitet: dersom det er flere jobber i ready_to_run køen

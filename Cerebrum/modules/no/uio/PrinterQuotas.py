@@ -1,3 +1,4 @@
+# -*- coding: iso-8859-1 -*-
 from Cerebrum.Entity import Entity
 
 # TBD: Should this inherit from Entity or object?

@@ -1,3 +1,4 @@
+# -*- coding: iso-8859-1 -*-
 """This is the only class that should be directly accessed within
 this package"""
 TOPICS_FILE="/cerebrum/dumps/FS/topics.xml"   # TODO: cereconf

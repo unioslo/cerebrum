@@ -1,3 +1,4 @@
+# -*- coding: iso-8859-1 -*-
 # $Id$
 
 # This is an example of scheduling settings that can be used in a

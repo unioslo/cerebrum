@@ -1,3 +1,4 @@
+# -*- coding: iso-8859-1 -*-
 import xml.sax
 
 class StudentInfoParser(xml.sax.ContentHandler):

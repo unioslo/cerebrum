@@ -1,4 +1,5 @@
 #! /usr/bin/env python
+# -*- coding: iso-8859-1 -*-
 #
 # Copyright 2001-2002 by Vinay Sajip. All Rights Reserved.
 #

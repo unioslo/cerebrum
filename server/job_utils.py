@@ -1,3 +1,4 @@
+# -*- coding: iso-8859-1 -*-
 import time
 import socket
 import signal

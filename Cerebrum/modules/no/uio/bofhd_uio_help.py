@@ -1,3 +1,4 @@
+# -*- coding: iso-8859-1 -*-
 group_help = {
     'group': "Gruppe-kommando",
     'misc': 'Diverse kommandoer',
