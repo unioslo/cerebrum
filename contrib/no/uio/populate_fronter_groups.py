@@ -19,24 +19,59 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-"""Populate Cerebrum with FS-derived groups.
+"""Populer Cerebrum med FS-avledede grupper.
 
-These groups are later used when exporting data to ClassFronter.
+Disse gruppene blir så brukt ved eksport av data til ClassFronter.
 
  Navngiving:
-   Grupper (med personmedlemmer):
+   Gruppene er organisert i en tre-struktur.  Øverst finnes en
+   supergruppe; denne brukes for å holde orden på hvilke grupper som
+   er automatisk opprettet av dette scriptet, og dermed hvilke grupper
+   som skal slettes i det dataene de bygger på ikke lenger finnes i
+   FS.  Supergruppen har navnet
+
+     internal:uio.no:fs:{supergroup}
+
+   Denne supergruppen har så medlemmer som også er grupper.
+   Medlemsgruppene har navn på følgende format:
+
+     internal:uio.no:kurs:<emnekode>
+     internal:uio.no:evu:<kurskode>
+
+   Hver av disse "kurs-supergruppene" har medlemmer som er grupper med
+   navn på følgende format:
+
+     internal:uio.no:fs:kurs:<institusjonsnr>:<emnekode>:<versjon>:<sem>:<år>
+     internal:uio.no:fs:evu:<kurskode>:<tidsangivelse>
+
+   Det er disse "undervisningsenhet"-gruppene som brukes til å markere
+   eksport til ClassFronter (ved at de tildeles passende spread).
+
+   Merk at en undervisningsenhetsgruppe ikke er *helt* ekvivalent med
+   begrepet undervisningsenhet slik det brukes i FS.  Gruppen
+   representerer semesteret et gitt kurs startet i (terminnr == 1).
+   For kurs som strekker seg over mer enn ett semester vil det derfor
+   i FS finnes multiple undervisningsenheter, mens gruppen som
+   representerer kurset vil beholde navnet sitt i hele kurstiden.
+
+   Undervisningsenhetgruppene har igjen grupper som medlemmer; disse
+   kan deles i to kategorier:
+
+     Grupper (med primærbrukermedlemmer) som brukes ved eksport til
+     ClassFronter, har navn på følgende format:
    
-     Ansvar und.enh:       uio.no:fs:<enhetid>:enhetsansvar
-     Ansvar und.akt:       uio.no:fs:<enhetid>:aktivitetsansvar:<aktkode>
-     Alle stud. v/enh:     uio.no:fs:<enhetid>:student
-     Alle stud. v/akt:     uio.no:fs:<enhetid>:student:<aktkode>
+       Ansvar und.enh:       uio.no:fs:<enhetid>:enhetsansvar
+       Ansvar und.akt:       uio.no:fs:<enhetid>:aktivitetsansvar:<aktkode>
+       Alle stud. v/enh:     uio.no:fs:<enhetid>:student
+       Alle stud. v/akt:     uio.no:fs:<enhetid>:student:<aktkode>
 
- For informatikk-emner blir disse gruppene med ikke-primære
- ("sekundære") konti laget:
+     Ytterligere grupper hvis medlemmer kun er ikke-primære
+     ("sekundære") konti.  Genereres kun for informatikk-emner, og har
+     navn på formen:
 
-     Ansvar und.enh:       uio.no:fs:<enhetid>:enhetsansvar-sek
-     Ansvar und.akt:       uio.no:fs:<enhetid>:aktivitetsansvar-sek:<aktkode>
-     Alle stud. v/enh:     uio.no:fs:<enhetid>:student-sek
+       Ansvar und.enh:       uio.no:fs:<enhetid>:enhetsansvar-sek
+       Ansvar und.akt:       uio.no:fs:<enhetid>:aktivitetsansvar-sek:<aktkode>
+       Alle stud. v/enh:     uio.no:fs:<enhetid>:student-sek
 
  I tillegg blir disse nettgruppene laget med spread til Ifi:
  
@@ -348,8 +383,9 @@ def populate_enhet_groups(enhet_id):
             enhet_ansv[account_id] = 1
 
         # TODO: generaliser ifi-hack seinare
-        if (re.match(r"(dig|inf|med-inf|tool)", emnekode.lower()) and
-            termk == 'VÅR' and aar == "2004"):
+        if (re.match(r"(dig|inf|med-inf|tool)\d", emnekode.lower())
+            and termk == fs.get_curr_semester()
+            and aar == str(fs.year)):
             logger.debug(" (ta med Ifi-spesifikke grupper)")
             ifi_hack = True
             netgr_emne = emnekode.lower().replace("-", "")
@@ -391,6 +427,10 @@ def populate_enhet_groups(enhet_id):
             gmem = { gname: 1,
                      "%s-sek" % gname: 1 }
             netgr_navn = "g%s-0" % netgr_emne
+            # TBD: Dette betyr at en og samme 'enhetsansvar'-grupper
+            # kan opptre som bladnode flere steder i treet.  Vil det
+            # føre til problemer i det en slik gruppe skal slettes
+            # (når semesteret er ferdig)?
             sync_group(auto_supergroup, netgr_navn,
                        "Ansvarlige %s %s %s%s" % (emnekode, termk, aar,
                                                   enhet_suffix),
@@ -485,8 +525,11 @@ def populate_enhet_groups(enhet_id):
                 # bruke hele navnet med blanke erstattet av
                 # bindestreker.
                 
-                aktnavn = UndervEnhet[enhet_id]['aktivitet'][aktkode].\
-                          split(" ")[1]
+                aktnavn = UndervEnhet[enhet_id]['aktivitet'][aktkode]
+                if aktnavn.lower().startswith("aktivitet "):
+                    aktnavn = aktnavn.split(" ")[1]
+                else:
+                    aktnavn = aktnavn.replace(" ", "-")
                 sync_group(kurs_id, "%s-sek:%s" % (gname, aktkode),
                            ("Ansvarlige %s %s %s%s %s (sekundærkonti)" %
                             (emnekode, termk, aar, enhet_suffix, aktnavn)),
