@@ -110,7 +110,7 @@ class Searchable(object):
 
         search_class._search = cls.create_search_method()
         assert search_class._search
-        search_class.method_slots.append(Method('search', [cls]))
+        search_class.method_slots.append(Method('search', [cls], write=True))
 
         cls.search_class = search_class
 
