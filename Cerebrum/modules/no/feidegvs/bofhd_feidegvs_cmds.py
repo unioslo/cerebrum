@@ -821,6 +821,7 @@ class BofhdExtension(object):
                 map = [(("%-8s %s", "Num", "Affiliation"), None)]
                 person = self._get_person("entity_id", owner_id)
 		for aff in person.get_affiliations():
+		    print "%s %s" % (aff['affiliation'],type(aff['affiliation']))
 		    if aff['affiliation'] == int(self.const.affiliation_admin):
 			map.append((("%s", str(self.const.affiliation_admin)),
 				    int(self.const.affiliation_admin)))
@@ -832,7 +833,10 @@ class BofhdExtension(object):
 				    int(self.const.affiliation_teacher)))
 		    if aff['affiliation'] == int(self.const.affiliation_pupil):
 			map.append((("%s", str(self.const.affiliation_pupil)),
-				    int(self.const.affiliation_pupil)))	
+				    int(self.const.affiliation_pupil)))
+		    if aff['affiliation'] == int(self.const.affiliation_employee):
+			map.append((("%s", str(self.const.affiliation_employee)),
+				    int(self.const.affiliation_employee)))
 		return {'prompt': "Choose affiliation from list", 'map': map}
 	    affiliation = all_args.pop(0)
 	else:
