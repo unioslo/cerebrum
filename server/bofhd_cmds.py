@@ -151,8 +151,10 @@ class BofhdExtension(object):
         # uname = posix_user.get_name(co.account_namespace)[0][2]
         passwd = posix_user.make_passwd(None)
         posix_user.set_password(passwd)
-        posix_user.write_db()
-            
+        try: 
+            posix_user.write_db()
+        except DatabaseError, m:
+            raise CerebrumError, "Database error: %s" % m
         return {'password': passwd}
 
     ## bofh> account type <accountname>
@@ -180,33 +182,42 @@ class BofhdExtension(object):
                "Group needs a method to list the groups where an"
                " entity is a member")
 
-    ## bofh> group add <entityname+> <groupname+> [<op>]
+    ## bofh> group add <accountname+> <groupname+> [<op>]
     all_commands['group_add'] = Command(("group", "add"),
-                                        EntityName(ptype="source", repeat=True),
+                                        AccountName(ptype="source", repeat=True),
                                         GroupName(ptype="destination", repeat=True),
                                         GroupOperation(optional=True))
     def group_add(self, user, src_name, dest_group,
                   operator=None):
+        self._group_add(self, user, src_name, dest_group,operator=None , type="account")
+
+    ## bofh> group gadd <groupname+> <groupname+> [<op>]
+    all_commands['group_gadd'] = Command(("group", "gadd"),
+                                        GroupName(ptype="source", repeat=True),
+                                        GroupName(ptype="destination", repeat=True),
+                                        GroupOperation(optional=True))
+    def group_gadd(self, user, src_name, dest_group,
+                  operator=None):
+        self._group_add(self, user, src_name, dest_group,operator=None , type="group")
+
+    def _group_add(self, user, src_name, dest_group,
+                  operator=None, type=None):
         """Add entity named src to group named dest using specified
         operator"""
         operator = self._get_group_opcode(operator)
         group_s = account_s = None
-        try:
-            group_s = self._get_group(src_name)
-        except Errors.NotFoundError:
-            pass
-        try:
-            account_s = self._get_account(src_name)
-        except Errors.NotFoundError:
-            pass
-        if group_s is None:
-            if account_s is None:
-                raise CerebrumError, "Unkown source: %s" % src_name
-            group_s = account_s
-        elif account_s is not None:
-            raise CerebrumError, "Ambigious source: %s" % src_name
+        if type == "group":
+            try:
+                src_entity = self._get_group(src_name)
+            except Errors.NotFoundError:
+                raise CerebrumError, "No such group: %s" % src_name
+        elif type == "account":
+            try:
+                src_entity = self._get_account(src_name)
+            except Errors.NotFoundError:
+                raise CerebrumError, "No such account: %s" % src_name
         group_d = self._get_group(dest_group)
-        group_d.add_member(group_s, operator)
+        group_d.add_member(src_entity, operator)
         return "OK"
 
     ## bofh> group create <name> [<description>]
@@ -342,13 +353,24 @@ class BofhdExtension(object):
         """Add 'affiliation'@'ou' with 'status' to person with 'idtype'='id'"""
         raise NotImplementedError, "Feel free to implement this function"
 
-    ## bofh> person create <display_name> \
-    ##         {<birth_date (yyyy-mm-dd)> | <id_type> <id>}
+    ## bofh> person create <display_name> <id_type> <id>
     all_commands['person_create'] = Command(
         ("person", "create"),
-        PersonName(), Date(optional=True), PersonIdType(), PersonId(),
+        PersonName(), PersonIdType(), PersonId(),
         fs=FormatSuggestion("Created: %i", ("person_id",)))
-    def person_create(self, user, display_name, birth_date=None,
+    def person_create(self, user, display_name, 
+                      id_type=None, id=None):
+        self.person_create(self, user, display_name, id_type=id_type, id=id)
+        
+    ## bofh> person bcreate <display_name> <birth_date (yyyy-mm-dd)>
+    all_commands['person_bcreate'] = Command(
+        ("person", "bcreate"),
+        PersonName(), Date(),
+        fs=FormatSuggestion("Created: %i", ("person_id",)))
+    def person_bcreate(self, user, display_name, birth_date=None):
+        self.person_create(self, user, display_name, birth_date=birth_date)
+
+    def _person_create(self, user, display_name, birth_date=None,
                       id_type=None, id=None):
         """Call to manually add a person to the database.  Created
         person-id is returned"""
