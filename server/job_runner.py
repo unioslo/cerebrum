@@ -149,6 +149,8 @@ class JobRunner(object):
                     self.last_run[tmp_job] = current_time
                 else:
                     self.last_run[tmp_job] = time.time()
+                logger.debug("Completed [%s] after %f seconds" % (
+                    tmp_job,  self.last_run[tmp_job] - self.started_at[tmp_job]))
                 self.db_qh.update_last_run(tmp_job, self.last_run[tmp_job])
 
     def wake_runner(self):
@@ -163,6 +165,7 @@ class JobRunner(object):
     def runner(self):
         self.reload_scheduled_jobs()
         self.ready_to_run = []
+        self.started_at = {}
         running_jobs = []
         prev_loop_time = 0
         n_fast_loops = 0
@@ -187,6 +190,10 @@ class JobRunner(object):
                 if self.all_jobs[job].call is not None:
                     if self.all_jobs[job].call.setup():
                         logger.debug("Executing %s" % job)
+                        if debug_time:
+                            self.started_at[job] = current_time
+                        else:
+                            self.started_at[job] = time.time()
                         self.all_jobs[job].call.execute()
                         running_jobs.append(job)
                 self.handle_completed_jobs(running_jobs)
