@@ -34,12 +34,14 @@ CREATE TABLE posix_group
 		CONSTRAINT posix_group_pk PRIMARY KEY
 		CONSTRAINT posix_group_group_id
 		  REFERENCES group_info(group_id),
-  gid		NUMERIC(12,0)
+  posix_gid	NUMERIC(12,0)
+		NOT NULL
                 CONSTRAINT posix_group_gid_chk
                   CHECK (gid >= 0 AND gid <= 2147483647)
 		CONSTRAINT posix_group_gid UNIQUE
 );
 
+CREATE SEQUENCE posix_gid_seq [:sequence_start value=1000];
 
 /*	posix_user
 
