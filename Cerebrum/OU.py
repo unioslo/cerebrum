@@ -107,7 +107,6 @@ class OU(Entity, EntityContactInfo, EntityAddress, OUStructure):
         Cerebrum database, use the .find() method."""
         assert self.__write_db
         super(OU, self).write_db(as_object)
-        self.commit()
         ou_id = self.entity_id
         if as_object is None:
             # ou_id = super(OU, self).new(int(self.const.entity_ou))
