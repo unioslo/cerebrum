@@ -181,12 +181,11 @@ class PosixUser(Account_class):
             ecols += """, eq.quarantine_type, eq.start_date,
             eq.disable_until, eq.end_date"""
         if spread is not None:
-	    if isinstance(spread,str):
-		spreads = []
-		spreads.append(spread)
-	    else: spreads = spread 
-	    esprd = ' AND (' + ' OR '.join(['es.spread:='+str(x) for x \
-			in spreads]) + ')'
+	    if isinstance(spread, list):
+                esprd = ' AND (' + ' OR '.join(['es.spread=%d' % x
+                                                for x in spread]) + ')'
+	    else:
+                esprd = ' AND es.spread=%d' % spread 
             efrom += """  JOIN [:table schema=cerebrum name=entity_spread] es
             ON pu.account_id=es.entity_id %s""" % esprd
         # TBD: should we LEFT JOIN with account_authentication so that
