@@ -24,12 +24,19 @@ Usernames are stored in the table entity_name.  The domain that the
 default username is stored in is yet to be determined.
 """
 
+import os
+import crypt,random,string
+import re
+
 from Cerebrum import Utils
 from Cerebrum.Entity import \
      Entity, EntityName, EntityQuarantine
 from Cerebrum.Database import Errors
 import cereconf
-import crypt,random,string
+
+class PasswordGoodEnoughException(Exception):
+    """Exception raised by Account.goodenough() for insufficiently strong passwds."""
+    pass
 
 class AccountType(object):
     """The AccountType class does not use populate logic as the only
@@ -185,7 +192,7 @@ class Account(AccountType, EntityName, EntityQuarantine, Entity):
             s = []
             for i in range(8):
                 s.append(random.choice(saltchars))
-            salt = "$1$" + string.join(s, "")
+            salt = "$1$" + "".join(s)
         return crypt.crypt(plaintext, salt)
 
     def write_db(self):
@@ -382,3 +389,168 @@ class Account(AccountType, EntityName, EntityQuarantine, Entity):
 
     def get_account_name(self):
         return self.account_name
+
+    def make_passwd(self, uname):
+        """Generate a random password with 8 characters"""
+        pot = ('-+?=*()/&%#\'_!,;.:'
+               'abcdefghijklmnopqrstuvwxyABCDEFGHIJKLMNOPQRSTUVWXY0123456789')
+        while 1:
+            r = ''
+            while(len(r) < 8):
+                r += pot[random.randint(0, len(pot)-1)]
+            try:
+                if self.goodenough(uname, r): break
+            except PasswordGoodEnoughException:
+                pass  # Wasn't good enough
+        return r
+
+    def look(self, FH, key, dict, fold):
+        """Quick port of look.pl (distributed with perl)"""
+        blksize = os.statvfs(FH.name)[0]
+        if blksize < 1 or blksize > 65536: blksize = 8192
+        if dict: key = re.sub(r'[^\w\s]', '', key)
+        if fold: key = key.lower()
+        max = int(os.path.getsize(FH.name) / blksize)
+        min = 0
+        while (max - min > 1):
+            mid = int((max + min) / 2)
+            FH.seek(mid * blksize, 0)
+            if mid: line = FH.readline()  # probably a partial line
+            line = FH.readline()
+            line.strip()
+            if dict: line = re.sub(r'[^\w\s]', '', line)
+            if fold: line = line.lower()
+            if line < key:
+                min = mid
+            else:
+                max = mid
+        min = min * blksize
+        FH.seek(min, 0)
+        if min: FH.readline()
+        while 1:
+            line = FH.readline()
+            if not line: break
+            line.strip()
+            if dict: line = re.sub(r'[^\w\s]', '', line)
+            if fold: line = line.lower()
+            if line >= key: break
+            min = FH.tell()
+        FH.seek(min, 0)
+        return min
+
+    # TODO: These don't belong here
+    msgs = {
+        'not_null_char': ("Please don't use the null character in your"
+                          " password."),
+        'atleast8': "The password must be at least 8 characters long.",
+        '8bit': ("Don't use 8-bit characters in your password (זרו),"
+                 " it creates problems when using some keyboards."),
+        'space': ("Don't use a space in the password.  It creates"
+                  " problems for the POP3-protocol (Eudora and other"
+                  " e-mail readers)."),
+        'mix_needed8': ("A valid password must contain characters from at"
+                        " least three of these four character groups:"
+                        " Uppercase letters, lowercase letters, numbers and"
+                        " special characters.  If the password only contains"
+                        " one uppercase letter, this must not be at the start"
+                        " of the password.  If the first 8 characters only"
+                        " contains one number or special character, this must"
+                        " not be in position 8."),
+        'mix_needed': ("A valid password must contain characters from at"
+                       " least three of these four character groups:"
+                       " Uppercase letters, lowercase letters, numbers and"
+                       " special characters."),
+
+        'was_like_old': ("That was to close to an old password.  You must"
+                         " select a new one."),
+        'dict_hit': "Don't use words in a dictionary."
+        }
+    words = ("dummy",)
+    dir = "/tmp"
+
+    def check_password_history(self, uname, passwd):
+        """Check wether uname had this passwd earlier.  Raises a
+        TODOError if this is true"""
+        if 0:
+            raise PasswordGoodEnoughException(msgs['was_like_old'])
+        return 1
+
+    def goodenough(self, uname, passwd):
+        """Perform a number of checks on a password to see if it is
+        random enough.  This is done by checking the mix of
+        upper/lowercase letters and special characers, as well as
+        checking a database."""
+        # TODO:  This needs more work.
+        msgs = self.msgs
+        passwd = passwd[0:8]
+
+        if re.search(r'\0', passwd):
+            raise PasswordGoodEnoughException(msgs['not_null_char'])
+
+        if len(passwd) < 8:
+            raise PasswordGoodEnoughException(msgs['atleast8'])
+
+
+        if re.search(r'[\200-\376]', passwd):
+            raise PasswordGoodEnoughException(msgs['8bit'])
+
+        if re.search(r' ', passwd):
+            raise PasswordGoodEnoughException(msgs['space'])
+
+        # I'm not sure that the below is very smart.  If this rule
+        # causes most users to include a digit in their password, one
+        # has managed to reduce the password space by 26*2/10 provided
+        # that a hacker performs a bruteforce attack
+
+        good_try = variation = 0
+        if re.search(r'[a-z]', passwd): variation += 1
+        if re.search(r'[A-Z][^A-Z]{7}', passwd): good_try += 1
+        if re.search(r'[A-Z]', passwd[1:8]): variation += 1
+        if re.search(r'[^0-9]{7}[0-9]', passwd): good_try += 1
+
+        if re.search(r'[0-9]', passwd[0:7]): variation += 1
+        if re.search(r'[A-Za-z0-9]{7}[^A-Za-z0-9]', passwd): good_try += 1
+        if re.search(r'[^A-Za-z0-9]', passwd[0:7]): variation += 1
+
+        if variation < 3:
+            if good_try:
+                raise PasswordGoodEnoughException(msgs['mix_needed8'])
+            else:
+                raise PasswordGoodEnoughException(msgs['mix_needed'])
+
+        # Too much like the old password?
+
+        self.check_password_history(uname, passwd)   # Will raise on error
+
+        # Is it in one of the dictionaries?
+
+        if re.search(r'^[a-zA-Z]', passwd):
+            chk = passwd.lower()
+            # Truncate common suffixes before searching dict.
+
+            even = ''
+            chk = re.sub(r'\d+$', '', chk)
+            chk = re.sub(r'\(', '', chk)
+
+            chk = re.sub('s$', '', chk)
+            chk = re.sub('ed$', '', chk)
+            chk = re.sub('er$', '', chk)
+            chk = re.sub('ly$', '', chk)
+            chk = re.sub('ing$', '', chk)
+
+            # We'll iterate over several dictionaries.
+
+            for d in self.words:
+                f = file("%s/%s" % (self.dir, d))
+                self.look(f, chk, 1, 1)
+
+                # Do the lookup (dictionary order, case folded)
+                while (1):
+                    line = f.readline()
+                    print "r: %s" % line
+                    if line is None: break
+                    line = line.lower()
+                    if line[0:len(chk)] != chk: break
+                    raise PasswordGoodEnoughException(msgs['dict_hit'])
+        return 1
+
