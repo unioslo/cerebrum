@@ -170,14 +170,27 @@ class _MapStudconfigData(object):
                     dta[dtatype].setdefault('primargruppe',
                                             []).extend(primargruppe)
                 elif dtakey == 'disk':
-                    for d in dta[dtatype][dtakey]:
-                        if d.has_key('path'):
-                            for d in self._autostud._disks.keys():
-                                if self._autostud._disks[d][0] == self._disk['path']:
-                                    self._autostud.sp.disk_defs['path'][d] = self._autostud.sp.disk_defs[self._disk['path']]
-                                    self._disk['path'] = d
+                    self._process_disks(dta[dtatype][dtakey])
                 else:
                     pass
+
+    def _process_disks(self, disks):
+        """Map path entries to disk id, and assert that all used disks
+        are defined in defdisk"""
+        for d in disks:
+            if d.has_key('path'):
+                for d in self._autostud._disks.keys():
+                    if self._autostud._disks[d][0] == self._disk['path']:
+                        self._autostud.sp.disk_defs[
+                            'path'][d] = self._autostud.sp.disk_defs[self._disk['path']]
+                        self._disk['path'] = d
+                    else:
+                        self._autostud.sp.disk_defs[
+                            'prefix'][d['prefix']]['max']
+                self._autostud.sp.disk_defs[
+                    'prefix'][cereconf.DEFAULT_HIGH_DISK['prefix']]['max']
+                self._autostud.sp.disk_defs[
+                    'prefix'][cereconf.DEFAULT_LOW_DISK['prefix']]['max']
 
     def _get_spread(self, name):
         # TODO: Map2const
@@ -373,8 +386,10 @@ class Profile(object):
         self._flat_settings = {}           
         for lvl in levels:
             for k in profil.keys():
-                self._flat_settings.setdefault(k, []).extend(
-                    grouped_settings[lvl].get(k, []))
+                lst = self._flat_settings.setdefault(k, [])
+                for s in grouped_settings[lvl].get(k, []):
+                    if s not in lst:
+                        lst.append(s)
             for s in singular:
                 if singular_settings.has_key(s):
                     continue
