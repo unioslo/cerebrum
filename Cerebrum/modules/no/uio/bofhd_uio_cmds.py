@@ -929,7 +929,10 @@ class BofhdExtension(object):
         person.clear()
         if bdate is not None:
             bdate = self._parse_date(bdate)
-        id_type, id = self._map_person_id(person_id)
+        if person_id:
+            id_type, id = self._map_person_id(person_id)
+        else:
+            id_type = None
         gender = self.const.gender_unknown
         if id_type is not None and id:
             if id_type == self.const.externalid_fodselsnr:
@@ -940,6 +943,14 @@ class BofhdExtension(object):
                         gender = self.const.gender_female
                 except fodselsnr.InvalidFnrError, msg:
                     raise CerebrumError("Invalid birth-no")
+                try:
+                    person.find_by_external_id(self.const.externalid_fodselsnr, id)
+                    raise CerebrumError("A person with that fnr already exists")
+                except Errors.TooManyRowsError:
+                    raise CerebrumError("A person with that fnr already exists")
+                except Errors.NotFoundError:
+                    pass
+                person.clear()
                 person.affect_external_id(self.const.system_manual,
                                           self.const.externalid_fodselsnr)
                 person.populate_external_id(self.const.system_manual,
@@ -998,7 +1009,10 @@ class BofhdExtension(object):
         fs=FormatSuggestion("Name: %s\nExport ID: %s\nBirth: %s\nAffiliations: %s",
                             ("name", "export_id", "birth:%s" % format_day, "affiliations")))
     def person_info(self, operator, person_id):
-        person = self._get_person(*self._map_person_id(person_id))
+        try:
+            perseon = self._get_person(*self._map_person_id(person_id))
+        except Errors.TooManyRowsError:
+            raise CerebrumError("Unexpectedly found more than one person")
         affiliations = []
         for row in person.get_affiliations():
             ou = self._get_ou(ou_id=row['ou_id'])
