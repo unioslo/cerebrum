@@ -246,6 +246,13 @@ class AccountHome(object):
                             {'account_id': self.entity_id,
                              'spread': int(spread)})
 
+    def get_homes(self):
+        return self.query("""
+        SELECT disk_id, home, status, spread
+        FROM [:table schema=cerebrum name=account_home]
+        WHERE account_id=:account_id""",
+                            {'account_id': self.entity_id})
+
 class Account(AccountType, AccountHome, EntityName, EntityQuarantine, Entity):
 
     __read_attr__ = ('__in_db', '__plaintext_password'
