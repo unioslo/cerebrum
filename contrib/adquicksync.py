@@ -73,11 +73,18 @@ def quick_user_sync():
                 # changelog, and we'll process this entity's deletion
                 # changelog entry later).
                 continue
-            #TBD:A group added to a group should be expanded and its members added. 
             if entity.has_spread(int(co.spread_uio_ad_account)):
                 group.clear()
-                g_obj = group.find(ans['dest_entity'])
-                if group.has_spread(int(co.spread_uio_ad_group)):
+		try:
+		    g_obj = group.find(ans['dest_entity'])
+		except Errors.NotFoundError:
+		    # Ignore this change; as the member entity it refers
+		    # to no longer seems to exists in Cerebrum, we're
+		    # unable to find a username for it (outside of the
+		    # changelog, and we'll process this entity's deletion
+		    # changelog entry later).
+		    continue
+	        if group.has_spread(int(co.spread_uio_ad_group)):
                     account_name = id_to_name(ans['subject_entity'],'user')
 		    if not account_name:
 	    		return False         
