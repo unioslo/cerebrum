@@ -51,12 +51,14 @@ class Entity(DatabaseAccessor):
         self.clear()
         self.__write_db = False
         self.constants = Constants.Constants(database)
+        self._debug_eq = False
 
     def clear(self):
         "Clear all attributes associating instance with a DB entity."
-        print "Entity.clear()"
+        # print "Entity.clear()"
         self.entity_id = None
         self.entity_type = None
+        self._is_populated = False
 
         EntityAddress.clear(self)
 
@@ -67,11 +69,19 @@ class Entity(DatabaseAccessor):
     def populate(self, entity_type):
         "Set instance's attributes without referring to the Cerebrum DB."
         self.entity_type = entity_type
+        self._is_populated = True
         self.__write_db = True
 
     def __eq__(self, other):
         assert isinstance(other, Entity)
-        return other.entity_type == self.entity_type
+        identical = EntityAddress.__eq__(self, other)
+        if identical:
+            identical = (int(other.entity_type) == int(self.entity_type))
+        else:
+            if self._debug_eq: print "EntityAddress.__eq__ = %s" % identical
+
+        if self._debug_eq: print "Entity.__eq__ = %s" % identical
+        return identical
 
     def write_db(self, as_object=None):
         """Sync instance with Cerebrum database.
@@ -260,6 +270,53 @@ class EntityAddress(object):
         assert isinstance(Entity, self)
         self.clear()
 
+    def __eq__(self, other):
+        """Note: The object that affect_addresses has been called on
+        must be on the left side of the equal sign, otherwise we don't
+        really know what to compare."""
+        
+        if self._affect_source == None:
+            return True
+        assert isinstance(other, EntityAddress)
+
+        for type in self._affect_types:
+            try:
+                if not self._compare_addresses(type, other):
+                    return False
+            except KeyError, msg:
+                return False
+        return True
+
+    def _compare_addresses(self, type, other):
+        """Returns True if addresses are equal.
+
+        Raises KeyError with msg=MissingOther/MissingSelf if the
+        corresponding object doesn't have this object type.
+
+        self must be a populated object."""
+
+        try:
+            tmp = other.get_entity_address(self._affect_source, type)
+            if len(tmp) == 0:
+                raise KeyError
+        except:
+            raise KeyError, "MissingOther"
+
+        other_addr = {'address_text' : tmp[0][3], 'p_o_box' : tmp[0][4],
+                      'postal_number' : tmp[0][5], 'city' : tmp[0][6],
+                      'country' : tmp[0][7]}
+        try:
+            ai = self._address_info[type]
+        except:
+            raise KeyError, "MissingSelf"
+        
+        # print "Compare: %s AND %s" % (ai, other_addr)
+        for k in ('address_text', 'p_o_box', 'postal_number', 'city', 'country'):
+            # print "compare: %s %s" % (ai[k], other_addr[k])
+            if(ai[k] != other_addr[k]):
+                return False
+        return True
+
     def affect_addresses(self, source, *types):
         self._affect_source = source
         if types == None: raise "Not implemented"
@@ -267,58 +324,68 @@ class EntityAddress(object):
 
     def populate_address(self, type, addr=None, pobox=None,
                          zip=None, city=None, country=None):
-        self._address_info[type] = (addr, pobox, zip, city, country)
+        self._address_info[type] = {'address_text' : addr, 'p_o_box' : pobox,
+                                    'postal_number': zip, 'city' : city, 'country' : country}
         pass
 
     def write_db(self, as_object=None):
         # If affect_addresses has not been called, we don't care about
         # addresses
         if self._affect_source == None: return
-        print "EntityAddress.write_db()"
 
         for type in self._affect_types:
             insert = False
-            if as_object == None:
-                if self._address_info.has_key(type):
-                    insert = True
-            else:
-                try:
-                    as_object.get_entity_address(self._affect_source, type)
-                    if not self._address_info.has_key(type):
-                        # Delete
-                        pass
-                    else:
-                        # Update (compare first?)
-                        pass
-                except:
-                    insert = True
-            if insert:
-                self._add_entity_address(self._affect_source, type, *self._address_info[type])
-
+            try:
+                if not self._compare_addresses(type, as_object):
+                    ai = self._address_info.get(type)
+                    self.execute("""
+                    UPDATE cerebrum.entity_address
+                    SET address_text=:1, p_o_box=:2, postal_number=:3, city=:4, country=:5
+                    WHERE entity_id=:6 AND source_system=:7 AND address_type=:8""",
+                                 ai['address_text'], ai['p_o_box'], ai['postal_number'],
+                                 ai['city'], ai['country'],
+                                 as_object.entity_id, int(self._affect_source),
+                                 int(type))
+            except KeyError, msg:
+                # Note: the arg to a python exception must be casted to str :-(
+                if str(msg) == "MissingOther":
+                    self._add_entity_address(self._affect_source, type, **self._address_info[type])
+                elif str(msg) == "MissingSelf":
+                    self.execute("""DELETE cerebrum.entity_address
+                                    WHERE entity_id=:1 AND source_system=:2
+                                          AND address_type=:3""",
+                                 as_object.entity_id, int(self._affect_source), int(type))
+                else:
+                    raise
 
     def clear(self):
-        # print "EntityAddress.clear()"
         self._affect_source = None
         self._affect_types = None
         self._address_info = {}
 
-    def _add_entity_address(self, source, type, addr=None, pobox=None,
-                           zip=None, city=None, country=None):
+    def _add_entity_address(self, source, type, address_text=None, p_o_box=None,
+                           postal_number=None, city=None, country=None):
+        #print "%s, %s, %s, %s, %s, %s, %s, %s, " % (self.entity_id, int(source), int(type),
+        #             address_text, p_o_box, postal_number, city, country)
         self.execute("""
         INSERT INTO cerebrum.entity_address
           (entity_id, source_system, address_type,
            address_text, p_o_box, postal_number, city, country)
         VALUES (:1, :2, :3, :4, :5, :6, :7, :8)""",
                      self.entity_id, int(source), int(type),
-                     addr, pobox, zip, city, country)
+                     address_text, p_o_box, postal_number, city, country)
 
     def get_entity_address(self, source=None, type=None):
+        # TODO: Select * gives positional args, which is error-prone: fix
+        if self._is_populated:
+            raise "is populated... Not implemented, and probably should not(?)"
+
         return Utils.keep_entries(
             self.query("""
             SELECT * FROM cerebrum.entity_address
             WHERE entity_id=:1""", self.entity_id),
-            ('source_system', source),
-            ('address_type', type))
+            ('source_system', int(source)),
+            ('address_type', int(type)))
 
     def delete_entity_address(self, source, type):
         self.execute("""
