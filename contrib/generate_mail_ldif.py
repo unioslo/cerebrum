@@ -37,7 +37,7 @@ mail_targ = Email.EmailTarget(Cerebrum)
 
 targ2addr = {}
 targets = []
-
+base_dn = "dc=uio,dc=no"
 
 def read_addr():
     for row in mail_addr.list_email_addresses():
@@ -199,10 +199,11 @@ def write_ldif():
             sys.stderr.write("Wrong target-type in target: %s: %s" % ( t, tt ))
             continue
 
-        print "dn: cn=a%s,ou=mail,dc=uio,dc=no" % t
-        print "objectClass: top"
-        print "objectClass: mailAddr"
-        print "targetType: %s" % tt
+        print "dn: cn=%s,ou=mail,%s\n" % (t, base_dn), \
+              "objectClass: top\n", \
+              "objectClass: mailAddr\n", \
+              "cn: %s\n" % t, \
+              "targetType: %s" % tt
         #print "target:: %s" % base64.encodestring(target)
         print "target: %s" % target
         if uid:
