@@ -96,8 +96,9 @@ class Account(Entity, EntityName, EntityQuarantine, PosixUser):
         Note: affect_auth_types is automatically extended to contain
         these methods."""
         for method in cereconf.AUTH_CRYPT_METHODS:
-            if not method in self._acc_affect_auth_types:
-                self._acc_affect_auth_types = self._acc_affect_auth_types + (method,)
+            method_const = getattr(self.const, method)
+            if not method_const in self._acc_affect_auth_types:
+                self._acc_affect_auth_types = self._acc_affect_auth_types + (method_const,)
             enc = getattr(self, "enc_%s" % method)
             enc = enc(plaintext)
             self.populate_authentication_type(getattr(self.const, method), enc)
