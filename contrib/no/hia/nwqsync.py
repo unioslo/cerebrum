@@ -41,8 +41,7 @@ group_done = {}
 db = Factory.get('Database')()
 const = Factory.get('CLConstants')(db)
 co = Factory.get('Constants')(db)
-logging.fileConfig(cereconf.LOGGING_CONFIGFILE)
-logger = logging.getLogger("console")
+logger = Factory.get_logger("console")
 cl_events = (
 		const.account_mod, \
 		const.account_password, \

@@ -39,8 +39,7 @@ from ldap import modlist
 db = Factory.get('Database')()
 co = Factory.get('Constants')(db)
 db.cl_init(change_program='add_disk')
-logging.fileConfig(cereconf.LOGGING_CONFIGFILE)
-logger = logging.getLogger("cronjob")
+logger = Factory.get_logger("cronjob")
 
 
 account = Factory.get('Account')(db)

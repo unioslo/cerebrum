@@ -368,8 +368,7 @@ def main(argv):
     Start method for this script. 
     """
     global logger
-    logging.fileConfig(cereconf.LOGGING_CONFIGFILE)
-    logger = logging.getLogger("console")
+    logger = Factory.get_logger("console")
     logger.setLevel(logging.INFO)
     logger.info("Performing employement group updates")
     

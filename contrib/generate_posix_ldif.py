@@ -59,8 +59,7 @@ from Cerebrum.modules.LDIFutils import *
 db = Factory.get('Database')()
 co = Factory.get('Constants')(db)
 
-logging.fileConfig(cereconf.LOGGING_CONFIGFILE)
-logger = logging.getLogger("cronjob")
+logger = Factory.get_logger("cronjob")
 
 entity2name = {}
 disablesync_cn = 'disablesync'

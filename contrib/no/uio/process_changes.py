@@ -46,8 +46,7 @@ from Cerebrum import Errors
 from Cerebrum.modules import PosixUser
 from Cerebrum.modules import PosixGroup
 
-logging.fileConfig(cereconf.LOGGING_CONFIGFILE)
-logger = logging.getLogger("cronjob")
+logger = Factory.get_logger("cronjob")
 db = Factory.get('Database')()
 db.cl_init(change_program="process_changes")
 cl_const = Factory.get('CLConstants')(db)

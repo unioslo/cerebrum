@@ -37,8 +37,7 @@ from Cerebrum.modules.LDIFutils import *
 Cerebrum = Factory.get('Database')()
 co = Factory.get('Constants')(Cerebrum)
 
-logging.fileConfig(cereconf.LOGGING_CONFIGFILE)
-logger = logging.getLogger("cronjob")
+logger = Factory.get_logger("cronjob")
 
 ou_struct = {}
 entity2uname = {}

@@ -260,8 +260,7 @@ def main():
     else:
         db.commit()
 
-logging.fileConfig(cereconf.LOGGING_CONFIGFILE)
-logger = logging.getLogger("console")
+logger = Factory.get_logger("console")
 db = Factory.get('Database')()
 db.cl_init(change_program="join_persons")
 co = Factory.get('Constants')(db)

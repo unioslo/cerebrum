@@ -10,9 +10,8 @@ from Cerebrum.Utils import Factory
  
 db = Factory.get('Database')()
  
-logging.fileConfig(cereconf.LOGGING_CONFIGFILE)
-logger = logging.getLogger("console")
- 
+logger = Factory.get_logger("console")
+
 ldap_update_str = ','.join(('ou=services', cereconf.LDAP_BASE_DN))
 
 

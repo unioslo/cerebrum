@@ -584,8 +584,7 @@ def main():
     logg_dir = cereconf.LDAP_DUMP_DIR + '/log'
     if not os.path.isdir(logg_dir):
 	os.makedirs(logg_dir, mode = 0770)
-    logging.fileConfig(cereconf.LOGGING_CONFIGFILE)
-    logger = logging.getLogger("console")
+    logger = Factory.get_logger("console")
     if os.path.exists(logg_dir + '/' + 'rotate_ldif.tmp'):
 	args = ['-f','-f','-s','',logg_dir +'/log.conf']
 	os.spawnvp(os.P_WAIT,'/usr/sbin/logrotate',args)
