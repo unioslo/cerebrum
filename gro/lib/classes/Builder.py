@@ -31,12 +31,16 @@ __all__ = ['Attribute', 'Method', 'Builder', 'CorbaBuilder']
 
 
 class Attribute:
-    def __init__(self, name, data_type, write=False):
+    def __init__(self, name, data_type, exceptions=None, write=False):
         self.type = 'Attribute'
         self.name = name
         self.data_type = data_type
+        if exceptions is None:
+            exceptions = []
+        self.exceptions = exceptions
         self.write = write
 
+        #FIXME: disse _må_ bort
         self.get = None
         self.set = None
 
@@ -44,11 +48,15 @@ class Attribute:
         return '%s(%s, %s)' % (self.__class__.__name__, `self.name`, `self.data_type`)
 
 class Method:
-    def __init__(self, name, data_type, args=[], exceptions=[], write=False):
+    def __init__(self, name, data_type, args=None, exceptions=None, write=False):
         self.type = 'Method'
         self.name = name
         self.data_type = data_type
+        if args is None:
+            args = []
         self.args = args
+        if exceptions is None:
+            exceptions = []
         self.exceptions = exceptions
         self.write = write
 
@@ -71,8 +79,7 @@ def create_lazy_get_method(var, load):
                 raise NotImplementedError('load for this attribute is not implemented')
             loadmethod()
             value = getattr(self, var, lazy)
-            if value is lazy:
-                raise Exception('%s was not initialized during load' % var)
+            assert value is not lazy
         return value
     return lazy_get
 
@@ -97,19 +104,10 @@ def create_readonly_set_method(var):
 
 class CorbaBuilder:
     corba_parents = []
-#    def create_idl_class(cls):
-#        # TODO: bør vi legge CorbaBuilder i en egen fil?
-#        idl_string = cls.create_idl('generated') # TODO: hvor skal generert idl havne?
-#        import sys
-#        import omniORB
-#        omniORB.importIDLString(idl_string)
-#
-#        idl_class = getattr(sys.modules['generated'], cls.__name__)
-#        return idl_class
 
-    def create_idl(cls, module_name=None):
+    def create_idl(cls, module_name=None, exceptions=()):
         txt = cls.create_idl_header()
-        txt += cls.create_idl_interface()
+        txt += cls.create_idl_interface(exceptions=exceptions)
 
         if module_name is not None:
             return 'module %s {\n\t%s\n};' % (module_name, txt.replace('\n', '\n\t'))
@@ -144,7 +142,7 @@ class CorbaBuilder:
 
         return txt
 
-    def create_idl_interface(cls):
+    def create_idl_interface(cls, exceptions=()):
         txt = 'interface %s {\n' % cls.__name__
 
         txt = 'interface ' + cls.__name__
@@ -155,18 +153,28 @@ class CorbaBuilder:
 
         txt += '\t//constructors\n'
 #        txt += '\t%s get_object(%s);\n' % (cls.__name__, ', '.join(['in %s %s' % (attr.data_type, attr.name) for attr in cls.primary]))
+        
+        def get_exceptions(exceptions):
+            # FIXME: hente ut navnerom fra cereconf? err.. stygt :/
+            if not exceptions:
+                return ''
+            else:
+                return '\n\t\traises(%s)' % ', '.join(['Cerebrum_core::Errors::' + i for i in exceptions])
+                
 
         txt += '\n\t//get and set methods for attributes\n'
         for attr in cls.slots:
-            txt += '\t%s get_%s();\n' % (attr.data_type, attr.name)
+            exception = get_exceptions(tuple(attr.exceptions) + tuple(exceptions))
+            txt += '\t%s get_%s()%s;\n' % (attr.data_type, attr.name, exception)
             if attr.write:
-                txt += '\tvoid set_%s(in %s new_%s);\n' % (attr.name, attr.data_type, attr.name)
+                txt += '\tvoid set_%s(in %s new_%s)%s;\n' % (attr.name, attr.data_type, attr.name, exception)
             txt += '\n'
 
         txt += '\n\t//other methods\n'
         for method in cls.method_slots:
+            exception = get_exceptions(tuple(method.exceptions) + tuple(exceptions))
             args = ['in %s in_%s' % (data_type, name) for name, data_type in method.args]
-            txt += '\t%s %s(%s);\n' % (method.data_type, method.name, ', '.join(args))
+            txt += '\t%s %s(%s)%s;\n' % (method.data_type, method.name, ', '.join(args), exception)
 
         txt += '};\n'
 
@@ -180,12 +188,12 @@ class CorbaBuilder:
 class Builder(Caching, Locking, CorbaBuilder):
     primary = []
     slots = []
-    method_slots = [Method('reload', 'void', write=True), Method('save', 'void', write=True)]
+    method_slots = []
 
     def __init__(self, *args, **vargs):
         if len(args) + len(vargs) > len(self.slots):
-            raise TypeError('__init__() takes at most %s argument%s (%s given)' % (len(self.slots),
-                            len(self.slots)>1 and 's' or '', len(args) + len(vargs)))
+            raise TypeError('__init__() takes at most %s argument%s (%s given)' % (len(self.slots) + 1,
+                            len(self.slots)>0 and 's' or '', len(args) + len(vargs) + 1))
 
         cls = self.__class__
         mark = '_%s%s' % (cls.__name__, id(self))

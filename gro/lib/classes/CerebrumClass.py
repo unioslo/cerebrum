@@ -29,7 +29,7 @@ __all__ = ['CerebrumAttr', 'CerebrumEntityAttr', 'CerebrumClass']
 class CerebrumAttr(Attribute):
     def __init__(self, name, data_type, cerebrum_name=None,
                  write=False, from_cerebrum=None, to_cerebrum=None):
-        Attribute.__init__(self, name, data_type, write)
+        Attribute.__init__(self, name, data_type, write=write)
 
         self.cerebrum_name = cerebrum_name or name
         if to_cerebrum is not None:
