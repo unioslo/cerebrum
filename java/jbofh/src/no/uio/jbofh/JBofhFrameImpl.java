@@ -136,15 +136,14 @@ public class JBofhFrameImpl implements ActionListener, JBofhFrame {
                     }
                 }
             } else if("up".equals(getValue(Action.NAME))) {
-                if(historyLocation >= 0 && cmdLineHistory.size() > 0) {
-                    if (historyLocation < cmdLineHistory.size())
-                        tfCmdLine.setText(""+cmdLineHistory.get(historyLocation));
-                    if(historyLocation > 0) historyLocation--;
+                if(historyLocation > 0 && cmdLineHistory.size() > 0) {
+                    tfCmdLine.setText(""+cmdLineHistory.get(--historyLocation));
                 }
             } else if("down".equals(getValue(Action.NAME))) {
-                if(historyLocation >= 0 && historyLocation < cmdLineHistory.size()-1) {
+                if(historyLocation < cmdLineHistory.size()-1) {
                     tfCmdLine.setText(""+cmdLineHistory.get(++historyLocation));
-                } else {
+                } else if (historyLocation == cmdLineHistory.size()-1){
+                    ++historyLocation;
                     tfCmdLine.setText("");
                 }
             }
@@ -276,8 +275,12 @@ public class JBofhFrameImpl implements ActionListener, JBofhFrame {
                     }
                     String text = getCmdLineText();
                     if(addHist){
-                        cmdLineHistory.add(text);
-                        historyLocation = cmdLineHistory.size()-1;
+                        if((text.length() > 0) &&
+                            ! (cmdLineHistory.size() > 0 &&
+                                text.equals(cmdLineHistory.get(cmdLineHistory.size()-1)))) {
+                            cmdLineHistory.add(text);
+                        }
+                        historyLocation = cmdLineHistory.size();
                     }
                     showMessage(prompt+text, true);
                     tfCmdLine.setText("");
