@@ -233,7 +233,7 @@ def process_person(person):
 
     if (person.get('fornavn', ' ').isspace() or
         person.get('etternavn', ' ').isspace()):
-        logger.warn("Ikke noe navn for %s" % fnr
+        logger.warn("Ikke noe navn for %s" % fnr)
         return
     new_person.populate(db.Date(year, mon, day), gender)
 
