@@ -134,12 +134,16 @@ class DiskQuota(DatabaseAccessor):
              [:table schema=cerebrum name=homedir] hi,
              [:table schema=cerebrum name=disk_info] di,
              [:table schema=cerebrum name=account_home] ah,
+             [:table schema=cerebrum name=account_info] ai,
              [:table schema=cerebrum name=entity_name] en
         WHERE dq.homedir_id=hi.homedir_id AND
               hi.disk_id=di.disk_id AND
               hi.homedir_id=ah.homedir_id AND
               ah.account_id=en.entity_id AND
-              en.value_domain=:value_domain %s""" % where, {
+              ai.account_id=en.entity_id AND
+              en.value_domain=:value_domain AND
+              (ai.expire_date IS NULL OR
+               ai.expire_date > [:now]) %s""" % where, {
             'value_domain': int(self.co.account_namespace),
             'spread': spread})
     
