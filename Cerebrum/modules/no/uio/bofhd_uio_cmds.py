@@ -976,6 +976,9 @@ class BofhdExtension(object):
             person = self.person
             person.clear()
             if search_type == 'name':
+                if '%' not in value:
+                    # Add wildcards to start and end of value.
+                    value = '%' + value + '%'
                 matches = person.find_persons_by_name(value)
             elif search_type == 'date':
                 matches = person.find_persons_by_bdate(self._parse_date(value))
@@ -1781,10 +1784,11 @@ class BofhdExtension(object):
         account = self._get_account(accountname)
         self.ba.can_set_password(operator.get_entity_id(), account)
         if password is None:
+            password = account.make_passwd(accountname)
+        else:
             if operator.get_entity_id() <> account.entity_id:
                 raise CerebrumError, \
                       "Cannot specify password for another user."
-            password = account.make_passwd(accountname)
         try:
             pc = PasswordChecker.PasswordChecker(self.db)
             pc.goodenough(account, password)
