@@ -38,7 +38,7 @@ class Disk(Entity):
             setattr(self, attr, None)
         self.__updated = False
 
-    def populate(self, host_id, path, description):
+    def populate(self, host_id, path, description, parent=None):
         """Set instance's attributes without referring to the Cerebrum DB."""
         if parent is not None:
             self.__xerox__(parent)
@@ -84,9 +84,10 @@ class Disk(Entity):
         else:
             self.execute("""
             UPDATE [:table schema=cerebrum name=disk_info]
-            SET path=:path, descripiption=:description
+            SET path=:path, description=:description
             WHERE disk_id=:disk_id""",
                          {'path': self.path,
+                          'disk_id': self.entity_id,
                           'description': self.description})
         del self.__in_db
         self.__in_db = True
@@ -148,7 +149,7 @@ class Host(Entity):
             setattr(self, attr, None)
         self.__updated = False
 
-    def populate(self, name, description):
+    def populate(self, name, description, parent=None):
         """Set instance's attributes without referring to the Cerebrum DB."""
         if parent is not None:
             self.__xerox__(parent)
@@ -186,15 +187,16 @@ class Host(Entity):
             VALUES (:e_type, :host_id, :name, :description)
                     """,
                          {'e_type': int(self.const.entity_host),
-                          'host_id': self.host_id,
+                          'host_id': self.entity_id,
                           'name': self.name,
                           'description': self.description})
         else:
             self.execute("""
             UPDATE [:table schema=cerebrum name=host_info]
-            SET name=:name, descripiption=:description
+            SET name=:name, description=:description
             WHERE host_id=:host_id""",
                          {'name': self.name,
+                          'host_id': self.entity_id,
                           'description': self.description})
         del self.__in_db
         self.__in_db = True
@@ -228,3 +230,15 @@ class Host(Entity):
             pass
         self.__in_db = True
         self.__updated = False
+
+    def find_by_name(self, name):
+        """Associate the object with the Host whose name is name.
+
+        If name isn't an existing Host identifier,
+        NotFoundError is raised."""
+        entity_id = self.query_1("""
+        SELECT host_id
+        FROM [:table schema=cerebrum name=host_info]
+        WHERE name=:name""", {'name': name})
+        self.find(entity_id)
+
