@@ -25,6 +25,7 @@ that fashion.  Hence, this module **requires** the caller to supply a
 name when constructing a Group object."""
 
 from Cerebrum import Utils
+from Cerebrum import Errors
 from Cerebrum.Entity import Entity, EntityName
 
 class Group(EntityName, Entity):
@@ -255,7 +256,23 @@ class Group(EntityName, Entity):
                       'op': int(op),
                       'm_type': int(member.entity_type),
                       'm_id': member.entity_id})
-        self._db.log_change(member.entity_id, self.clconst.g_add, self.entity_id)
+        self._db.log_change(member.entity_id, self.clconst.g_add,
+                            self.entity_id)
+
+    def has_member(self, member, op):
+        try:
+            self.query_1("""
+            SELECT 'x' FROM [:table schema=cerebrum name=group_member]
+            WHERE group_id=:g_id AND
+                  operation=:op AND
+                  member_type=:m_type AND
+                  member_id=:m_id""", {'g_id': self.entity_id,
+                                       'op': int(op),
+                                       'm_id': member.entity_id,
+                                       'm_type': member.entity_type})
+            return True
+        except Errors.NotFoundError:
+            return False
 
     def remove_member(self, member, op):
         """Remove ``member``'s membership of operation type ``op`` in group."""

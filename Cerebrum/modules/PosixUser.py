@@ -35,6 +35,7 @@ from Cerebrum import Person
 from Cerebrum import Errors
 from Cerebrum import Account
 from Cerebrum import Constants
+from Cerebrum.modules import PosixGroup
 
 
 ## Module spesific constant.  Belongs somewhere else
@@ -97,6 +98,10 @@ class PosixUser(Account.Account):
         if not self.__updated:
             return
         is_new = not self.__in_db
+        primary_group = PosixGroup.PosixGroup(self._db)
+        primary_group.find(self.gid)
+        if not primary_group.has_member(self, self.const.group_memberop_union):
+            primary_group.add_member(self, self.const.group_memberop_union)
         if is_new:
             self.execute("""
             INSERT INTO [:table schema=cerebrum name=posix_user]
@@ -128,8 +133,7 @@ class PosixUser(Account.Account):
 
     def find(self, account_id):
         """Connect object to PosixUser with ``account_id`` in database."""
-        super(PosixUser, self).find(account_id)
-
+        self.__super.find(account_id)
         (self.account_id, self.posix_uid, self.gid, self.gecos,
          self.home, self.shell) = self.query_1("""
          SELECT account_id, posix_uid, gid, gecos, home, shell
