@@ -34,7 +34,7 @@ posix_group = PosixGroup.PosixGroup(Cerebrum)
 entity2uname = {}
 
 def generate_users():
-    for row in posix_user.get_all_posix_users():
+    for row in posix_user.list_posix_users():
 
         id = Cerebrum.pythonify_data(row['account_id'])
         posix_user.clear()

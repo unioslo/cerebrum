@@ -29,7 +29,10 @@ the name variant DEFAULT_GECOS_NAME (what about non-person accounts?).
 SourceSystems are evaluated in the order defined by
 POSIX_GECOS_SOURCE_ORDER"""
 
-import random,re,string
+import random
+import re
+import string
+
 import cereconf
 from Cerebrum import Person
 from Cerebrum import Errors
@@ -139,7 +142,7 @@ class PosixUser(Account.Account):
         self.__in_db = True
         self.__updated = False
 
-    def get_all_posix_users(self):
+    def list_posix_users(self):
         """Return account_id of all PosixUsers in database"""
         return self.query("""
         SELECT account_id
