@@ -41,13 +41,6 @@ from Cerebrum.modules.no.uio.mod_lt_codes import StillingsKode
 from Cerebrum.modules.no.uio.mod_lt_codes import GjestetypeKode
 from Cerebrum.modules.no.uio.mod_lt_codes import Lonnsstatus
 
-# FIXME: As of python 2.3, this module is part of the standard distribution
-if sys.version >= (2, 3):
-    import logging
-else:
-    from Cerebrum.extlib import logging
-# fi
-
 
 
 
@@ -195,34 +188,22 @@ def get_reservation(pxml, person):
     unknown = None
     now = time.strftime("%Y%m%d")
 
-    # We take the most restrictive version first (it matters for people who
-    # are both guests and employees
-    if person.get_gjest(now):
-        # guests are different
-        if has_reservation(pxml,
-                           katalogkode="ELKAT",
-                           felttypekode="GJESTEOPPL",
-                           resnivakode="SAMTYKKE"):
-            logger.info("%s has a guest permit (NO res)", person.entity_id)
-            return not_reserved
-        else:
-            logger.info("%s is a guest and is reserved", person.entity_id)
-            return reserved
-        # fi
-    elif person.get_tilsetting(now):
+    # If a person is an employee and a guest, (s)he should be treated as an
+    # employee with regard to reservations.
+    if person.get_tilsetting(now):
         # None means "don't care"
-        for felttypekode, resnivakode in [ ("BESØKSADR", None),
-                                           ("BRNAVN", None),
-                                           ("EMAIL", None),
-                                           ("JOBBADR", None),
-                                           ("JOBBFAX", "TOTAL"),
-                                           ("JOBBTLF", "TOTAL"),
-                                           ("TOTAL", None) ]:
-            tmp = { "felttypekode" : felttypekode,
-                    "katalogkode" : "ELKAT" }
-            if resnivakode: tmp[ "resnivakode" ] = resnivakode
+        for felttypekode, resnivakode in [("BESØKSADR", None),
+                                          ("BRNAVN", None),
+                                          ("EMAIL", None),
+                                          ("JOBBADR", None),
+                                          ("JOBBFAX", "TOTAL"),
+                                          ("JOBBTLF", "TOTAL"),
+                                          ("TOTAL", None)]:
+            tmp = {"felttypekode" : felttypekode,
+                   "katalogkode" : "ELKAT"}
+            if resnivakode: tmp["resnivakode"] = resnivakode
 
-            if has_reservation(pxml, **tmp ):
+            if has_reservation(pxml, **tmp):
                 logger.info("%s has an employee reservation; criteria: %s %s",
                             person.entity_id, str(felttypekode),
                             str(resnivakode))
@@ -235,6 +216,18 @@ def get_reservation(pxml, person):
         logger.info("%s has NO reservations. All tests failed",
                     person.entity_id)
         return not_reserved
+    elif person.get_gjest(now):
+        # guests are different
+        if has_reservation(pxml,
+                           katalogkode="ELKAT",
+                           felttypekode="GJESTEOPPL",
+                           resnivakode="SAMTYKKE"):
+            logger.info("%s has a guest permit (NO res)", person.entity_id)
+            return not_reserved
+        else:
+            logger.info("%s is a guest and is reserved", person.entity_id)
+            return reserved
+        # fi
     else:
         logger.info("%s has neither guest nor employment information. " +
                     "No reservation information can be calculated",
@@ -294,10 +287,8 @@ def import_gjest(pxml, person, ou, constants):
     # od
     person.write_db()
     
-    # No commit here just yet
-    if len(pxml["gjest"]) > 0:
-        logger.debug("%s -> %d", person.entity_id, len(pxml["gjest"]))
-    # fi
+    logger.debug("%s has %d <gjest> records",
+                 person.entity_id, len(pxml["gjest"]))
 # end import_gjest
 
 
@@ -320,10 +311,8 @@ def import_bilag(pxml, person, ou, constants):
     # od
     person.write_db()
     
-    # No commit here just yet
-    if len(pxml["bilag"]) > 0:
-        logger.debug("%s -> %d", person.entity_id, len(pxml["bilag"]))
-    # fi
+    logger.debug("%s has %d <bilag> records",
+                 person.entity_id, len(pxml["bilag"]))
 # end import_bilag
 
 
@@ -370,9 +359,8 @@ def import_tilsetting(pxml, person, ou, constants):
     # od
     person.write_db()
 
-    if len(pxml["tils"]) > 0:
-        logger.debug("%s -> %d", person.entity_id, len(pxml["tils"]))
-    # fi
+    logger.debug("%s has %d <tils> records",
+                 person.entity_id, len(pxml["tils"]))
 # end import_tilsetting
 
 
@@ -428,9 +416,8 @@ def import_rolle(pxml, person, ou, constants):
     # od
     person.write_db()
 
-    if len(pxml["rolle"]) > 0:
-        logger.debug("%s -> %d", person.entity_id, len(pxml["rolle"]))
-    # fi
+    logger.debug("%s has %d <rolle> records",
+                 person.entity_id, len(pxml["rolle"]))
 # end import_rolle
 
 
@@ -487,16 +474,14 @@ The following options are supported:
 
 
 
-def main(argv):
+def main():
     global logger
-    logging.fileConfig(cereconf.LOGGING_CONFIGFILE)
-    logger = logging.getLogger("console")
-    logger.setLevel(logging.INFO)
-    logger.info("test run")
+    logger = Factory.get_logger("cronjob")
+    logger.info("Starting import mod_lt")
 
     try:
-        options, rest = getopt.getopt(argv,
-                                      "tbgrlhp:v",
+        options, rest = getopt.getopt(sys.argv[1:],
+                                      "tbgrlhp:",
                                       ["tilsetting",
                                        "bilag",
                                        "gjest",
@@ -504,7 +489,6 @@ def main(argv):
                                        "rolle",
                                        "help",
                                        "person-file=",
-                                       "verbose",
                                        "with-remove"])
     except getopt.GetoptError:
         usage()
@@ -531,8 +515,6 @@ def main(argv):
             sys.exit(2)
         elif option in ("-p", "--person-file"):
             person_file = value
-        elif option in ("-v", "--verbose"):
-            logger.setLevel(logging.DEBUG)
         elif option in ("--with-remove",):
             do_remove = True
         # fi
@@ -556,7 +538,7 @@ def main(argv):
         # Do *NOT*, I repeat, do *NOT* commit/rollback before *all* new data
         # has been loaded. Otherwise we risk having a bit of the old dataset
         # and a bit of the new dataset, or no data at all.
-        logger.warn("Erasing everything in mod_lt before loading new data")
+        logger.info("Erasing everything in mod_lt before loading new data")
         person.wipe_mod_lt()
     # fi
 
@@ -571,5 +553,5 @@ def main(argv):
 
 
 if __name__ == '__main__':
-    main(sys.argv[1:])
+    main()
 # fi
