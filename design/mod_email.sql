@@ -325,9 +325,11 @@ CREATE TABLE email_spam_filter
 		CONSTRAINT email_spam_filter_target_id
 		  REFERENCES email_target(target_id),
   grade		NUMERIC(6,0)
+		NOT NULL
 		CONSTRAINT email_spam_filter_grade
 		  REFERENCES email_spam_level_code(code),
   action	NUMERIC(6,0)
+		NOT NULL
 		CONSTRAINT email_spam_filter_action
 		  REFERENCES email_spam_action_code(code)
 );
@@ -394,9 +396,11 @@ CREATE TABLE email_virus_scan
 		CONSTRAINT email_virus_scan_target_id
 		  REFERENCES email_target(target_id),
   found_action	NUMERIC(6,0)
+		NOT NULL
 		CONSTRAINT email_virus_scan_found_action
 		  REFERENCES email_virus_found_code(code),
   rem_action	NUMERIC(6,0)
+		NOT NULL
 		CONSTRAINT email_virus_scan_rem_action
 		  REFERENCES email_virus_removed_code(code),
   enable	CHAR(1)
