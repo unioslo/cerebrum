@@ -211,8 +211,8 @@ class AccountUiOMixin(Account.Account):
         # TBD: It is currently a bit uncertain who and when we should
         # allow this.  Currently it should only be used when deleting
         # a user.
-        if (spread == self.const.spread_uio_imap and :
-            int(self.const.spread_uio_imap) in spreads:
+        if (spread == self.const.spread_uio_imap and 
+            int(self.const.spread_uio_imap) in spreads):
             est = Email.EmailServerTarget(self._db)
             est.find_by_entity(self.entity_id)            
             br = BofhdRequests(self._db, self.const)
