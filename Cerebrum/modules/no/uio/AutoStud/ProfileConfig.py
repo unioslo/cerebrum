@@ -21,6 +21,7 @@
 """This module provides method for parsing the studconfig.xml file and
 translating it to an internal datastructure"""
 
+import sys
 import xml.sax
 import pprint
 from Cerebrum.modules.no.uio.AutoStud.Util import LookupHelper
@@ -34,6 +35,7 @@ class Config(object):
         self.debug = debug
         self.autostud = autostud
         self._logger = logger
+        self._errors = []
         
         self.disk_defs = {}
         self.disk_spreads = {}  # defined <disk_spread> tags
@@ -53,22 +55,34 @@ class Config(object):
         except xml.sax._exceptions.SAXNotRecognizedException:
             # Older API versions don't try to handle external entities
             pass
-        parser.parse(cfg_file)
+        try:
+            parser.parse(cfg_file)
+        except:
+            if self._errors:
+                logger.fatal("Got the following errors, and a stack trace: \n"
+                             "%s" % "\n".join(self._errors))
+            raise
         self.spread_defs = [int(autostud.co.Spread(x)) for x in sp.legal_spreads.keys()]
 
         # Generate select_mapping dict and expand super profiles
         profilename2profile = {}
         self.select_mapping = {}
+        self.using_priority = False
         for p in self.profiles:
             if profilename2profile.has_key(p.name):
-                self._logger.warn("Duplicate profile-name %s" % p.name)
+                self.add_error("Duplicate profile-name %s" % p.name)
             profilename2profile[p.name] = p
             p.expand_profile_settings()
             p.convertToDatabaseRefs(self.lookup_helper, self)
             p.set_select_mapping(self.select_mapping)
+            if p.priority is not None:
+                self.using_priority=True
         for p in self.profiles:
             p.expand_super(profilename2profile)
             p.settings["spread"] = self._sort_spreads(p.settings["spread"])
+            if self.using_priority and p.priority is None:
+                self.add_error("Priority used, but not defined for %s" % \
+                               p.name)
         # Change keys in group_defs from name to entity_id
         pg = PosixGroup.PosixGroup(autostud.db)
         tmp = {}
@@ -83,7 +97,10 @@ class Config(object):
                 t['is_posix'] = False
             tmp[id] = t
         self.group_defs = tmp
-            
+        if self._errors:
+            logger.fatal("The configuration file has errors, refusing to "
+                         "continue: \n%s" % "\n".join(self._errors))
+            sys.exit(1)
 
     def debug_dump(self):
         ret = "Mapping of select-criteria to profile:\n"
@@ -102,6 +119,9 @@ class Config(object):
                 ret.append(s)
         return ret
 
+    def add_error(self, msg):
+        self._errors.append(msg)
+
 class ProfileDefinition(object):
     """Represents a profile as defined in the studconfig.xml file"""
     
@@ -112,6 +132,7 @@ class ProfileDefinition(object):
         self._logger = logger
         self.settings = {}
         self.selection_criterias = {}
+        self.priority = None
 
     def __repr__(self):
         return "Profile object(%s)" % self.name
@@ -124,13 +145,20 @@ class ProfileDefinition(object):
         we can remove the reference to super."""
         if self.super is not None:
             if not name2profile.has_key(self.super):
-                raise KeyError, "Illegal super '%s' for '%s'" % (self.super, self.name)
+                self.config.add_error("Illegal super '%s' for '%s'" % (
+                    self.super, self.name))
             tmp_super = name2profile[self.super]
             tmp_super.expand_super(name2profile)
             for k in tmp_super.settings.keys():
                 if k == 'disk' and self.settings.has_key(k):
                     break  # We're not interested in disks from super
                 self.settings.setdefault(k, []).extend(tmp_super.settings[k])
+            if self.priority is None and tmp_super.priority is not None:
+                self.priority = tmp_super.priority
+            if self.priority != tmp_super.priority:
+                self.config.add_error("priority diff in %s vs %s (%s/%s)" % (
+                    self.name, tmp_super.name, self.priority,
+                    tmp_super.priority))
             self.super = None
 
     def set_select_mapping(self, mapping):
@@ -175,8 +203,12 @@ class ProfileDefinition(object):
                         mapping.setdefault(
                             select_type, {}).setdefault((
                             s_criteria['affiliation_id'], s_criteria['status_id']), []).append(self)
+                    elif select_type == 'match_any':
+                        mapping.setdefault(
+                            select_type, []).append(self)
                     else:
-                        self._logger.warn("Unknown special mapping %s" % select_type)
+                        self.config.add_error(
+                            "Unknown special mapping %s" % select_type)
 
     def _get_steder(self, institusjon, stedkode, scope):
         ret = []
@@ -196,8 +228,8 @@ class ProfileDefinition(object):
         self.selection_criterias.setdefault(name, []).append(attribs)
 
     def debug_dump(self):
-        return "Profile name: '%s', settings:\n%s" % (
-            self.name, pp.pformat(self.settings))
+        return "Profile name: '%s', p=%s, settings:\n%s" % (
+            self.name, self.priority, pp.pformat(self.settings))
 
     #
     # methods for converting the XML entries to values from the database
@@ -217,7 +249,8 @@ class ProfileDefinition(object):
                         try:
                             config.disk_defs[t][disk[t]]
                         except KeyError:
-                            self._logger.warn("bad disk: %s=%s" % (t, disk[t]))
+                            self.config.add_error(
+                                "bad disk: %s=%s" % (t, disk[t]))
                             self.settings['disk'].remove(disk)
                             raise  # python should have labeled break/continue
             except KeyError:
@@ -230,7 +263,7 @@ class ProfileDefinition(object):
                         disk['path'] = d
                         ok = True
                 if not ok:
-                    self._logger.warn("bad disk: %s" % disk)
+                    self.config.add_error("bad disk: %s" % disk)
                     self.settings['disk'].remove(disk)
                     continue
 
@@ -250,6 +283,13 @@ class ProfileDefinition(object):
             self.settings["disk"] = [tmp]
 
     def convertToDatabaseRefs(self, lookup_helper, config):
+        for p in self.settings.get("priority", []):
+            if self.priority is not None and self.priority != int(p['level']):
+                self.config.add_error(
+                    "Conflicting priorities in %s" % self.name)
+            self.priority = int(p['level'])
+        if self.priority is not None:
+            del(self.settings['priority'])
         tmp = []
         for spread in self.settings.get("spread", []):
             tmp.append(lookup_helper.get_spread(spread['system']))
@@ -270,6 +310,11 @@ class ProfileDefinition(object):
             if tmp2 is not None:
                 tmp.append(tmp2)
         self.settings["stedkode"] = tmp
+        tmp = []
+        for q in self.settings.get("quarantine", []):
+            tmp.append({'quarantine': config.autostud.co.Quarantine(q['navn']),
+                        'start_at': int(q.get('start_at', 0)) * 3600 * 24})
+        self.settings["quarantine"] = tmp  
 
         self._convert_disk_settings(config)
 
@@ -283,13 +328,18 @@ class ProfileDefinition(object):
         
         tmp = []
         for aff_info in self.selection_criterias.get("person_affiliation", []):
-            affiliation = config.autostud.co.PersonAffiliation(aff_info['affiliation'])
+            affiliation = config.autostud.co.PersonAffiliation(
+                aff_info['affiliation'])
             if not aff_info.has_key('status'):
-                for aff_status in config.autostud.co.fetch_constants(config.autostud.co.PersonAffStatus):
-                    tmp.append({'affiliation_id': int(affiliation), 'status_id': int(aff_status)})
+                for aff_status in config.autostud.co.fetch_constants(
+                    config.autostud.co.PersonAffStatus):
+                    tmp.append({'affiliation_id': int(affiliation),
+                                'status_id': int(aff_status)})
             else:
-                aff_status = config.autostud.co.PersonAffStatus(affiliation, aff_info['status'])
-                tmp.append({'affiliation_id': int(affiliation), 'status_id': int(aff_status)})
+                aff_status = config.autostud.co.PersonAffStatus(affiliation,
+                                                                aff_info['status'])
+                tmp.append({'affiliation_id': int(affiliation), 
+                            'status_id': int(aff_status)})
         self.selection_criterias["person_affiliation"] = tmp
         for t in tmp:
             config.known_select_criterias['person_affiliation'][
@@ -308,6 +358,9 @@ class ProfileDefinition(object):
                     else:
                         if v[0][:len(prefix)] == prefix:
                             config.autostud.student_disk[d] = 1
+
+        for m in lookup_helper.get_lookup_errors():
+            self.config.add_error(m)
                 
 class StudconfigParser(xml.sax.ContentHandler):
     """
@@ -358,11 +411,13 @@ class StudconfigParser(xml.sax.ContentHandler):
                         'studieprogramkode'],
         "medlem_av_gruppe": [SPECIAL_MAPPING],
         "person_affiliation": [SPECIAL_MAPPING],
+        "match_any": [SPECIAL_MAPPING],
         }
 
     profil_settings = ("stedkode", "gruppe", "spread", "disk", "mail",
                        "printer_kvote", "disk_kvote", "brev", "build",
-                       "print_kvote_fritak", "print_betaling_fritak")
+                       "print_kvote_fritak", "print_betaling_fritak",
+                       "priority", "quarantine")
 
     def __init__(self, config):
         self.elementstack = []
@@ -403,14 +458,16 @@ class StudconfigParser(xml.sax.ContentHandler):
                     self._config.lookup_helper.get_spread(tmp['kode']))
                 self.legal_spreads[tmp['kode']] = 1
             else:
-                raise SyntaxWarning, "Unexpected tag %s in spread_oversikt" % ename
+                self._config.add_error(
+                    "Unexpected tag %s in spread_oversikt" % ename)
         elif len(self.elementstack) == 3 and self.elementstack[1] == 'gruppe_oversikt':
             if ename == 'gruppedef':
                 self._legal_groups[tmp['navn']] = 1
                 self._config.group_defs[tmp['navn']] = {
                     'auto': tmp.get('auto', self._default_group_auto)}
             else:
-                raise SyntaxWarning, "Unexpected tag %s in gruppe_oversikt" % ename
+                self._config.add_error(
+                    "Unexpected tag %s in gruppe_oversikt" % ename)
         elif len(self.elementstack) == 3 and self.elementstack[1] == 'disk_oversikt':
             if ename == 'disk_spread':
                 s = int(self._config.lookup_helper.get_spread(tmp['kode']))
@@ -426,34 +483,44 @@ class StudconfigParser(xml.sax.ContentHandler):
                 else:
                     self._config.disk_defs.setdefault('prefix', {})[tmp['prefix']] = tmp
             else:
-                raise SyntaxWarning, "Unexpected tag %s in disk_oversikt" % ename
+                self._config.add_error(
+                    "Unexpected tag %s in disk_oversikt" % ename)
         elif self._in_profil:
             if len(self.elementstack) == 3:
                 if ename == 'select':
                     pass
                 elif ename in self.profil_settings:
                     if ename == 'gruppe' and not self._legal_groups.has_key(tmp['navn']):
-                        raise SyntaxWarning, "Not in groupdef: %s" % tmp['navn']
+                        self._config.add_error("Not in groupdef: %s" % \
+                                               tmp['navn'])
                     elif ename == 'spread' and not self.legal_spreads.has_key(tmp['system']):
-                        raise SyntaxWarning, "Not in spreaddef: %s" % tmp['system']
+                        self._config.add_error("Not in spreaddef: %s" % \
+                                               tmp['system'])
                     elif ename == 'disk':
-                        if tmp.has_key('path'):
-                            tmp['spreads'] = self._config.disk_defs['path'][tmp['path']]['spreads']
-                        else:
-                            tmp['spreads'] = self._config.disk_defs['prefix'][tmp['prefix']]['spreads']
+                        try:
+                            if tmp.has_key('path'):
+                                tmp['spreads'] = self._config.disk_defs[
+                                    'path'][tmp['path']]['spreads']
+                            else:
+                                tmp['spreads'] = self._config.disk_defs[
+                                    'prefix'][tmp['prefix']]['spreads']
+                        except KeyError:
+                            self._config.add_error(
+                                "Tried to use not-defined disk: %s" % tmp)
                     self._in_profil.add_setting(ename, tmp)
                 else:
-                    raise SyntaxWarning, "Unexpected tag %s in %s" % (
-                        ename, repr(self.elementstack))
+                    self._config.add_error("Unexpected tag %s in %s" % (
+                        ename, repr(self.elementstack)))
             elif (len(self.elementstack) == 4 and
                   self.elementstack[2] == 'select' and
                   ename in self.select_map_defs):
                 self._in_profil.add_selection_criteria(ename, tmp)
             else:
-                raise SyntaxWarning, "Unexpected tag '%s', attr=%s in %s" % (
-                    ename, str(tmp), repr(self.elementstack))
+                self._config.add_error("Unexpected tag '%s', attr=%s in %s" % (
+                    ename, str(tmp), repr(self.elementstack)))
         else:
-            raise SyntaxWarning, "Unexpected tag %s in %s" % (ename, repr(self.elementstack))
+            self._config.add_error("Unexpected tag %s in %s" % (
+                ename, repr(self.elementstack)))
 
     def endElement(self, ename):
         self.elementstack.pop()

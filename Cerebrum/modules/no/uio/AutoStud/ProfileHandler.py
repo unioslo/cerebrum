@@ -178,6 +178,10 @@ class Profile(object):
     def get_spreads(self):
         return self.matcher.get_match('spread')
 
+    def get_quarantines(self):
+        """Returns [{'quarantine': QuarantineCode, 'start_at': seconds}]"""
+        return self.matcher.get_match("quarantine")
+
     def get_pquota(self, as_list=False):
         """Return information about printerquota.  Throws a
         NoMatchingQuotaSettings if profile has no quota information
@@ -218,6 +222,19 @@ class ProfileMatcher(object):
         self.matching_selectors = {}
         self._process_person_info(student_info, member_groups=member_groups,
                                   person_affs=person_affs)
+        if self.pc.using_priority:
+            # Only use matches at prioritylevel with lowest value
+            tmp = []
+            min_pri = None
+            for m in self.matches:
+                if min_pri is None or m[0].priority < min_pri:
+                    min_pri = m[0].priority
+            for m in self.matches:
+                if m[0].priority == min_pri:
+                    tmp.append(m)
+            self.logger.debug2("Priority filter gave %i -> %i entries" % (
+                len(self.matches), len(tmp)))
+            self.matches = tmp
         self.logger.debug("Matching profiles: %s" % self.matches)
         if len(self.matches) == 0:
             raise NoMatchingProfiles, "No matching profiles"
@@ -257,6 +274,12 @@ class ProfileMatcher(object):
                         # Small speedup when this criteria is not used by studconfig.xml
                         continue
                     self._check_person_affiliation(person_affs)
+                elif select_type == 'match_any':
+                    self._append_match(
+                        select_type, None,
+                        None, self.pc.select_mapping[select_type])
+                else:
+                    raise ValueError, "Unknown select-type: %s" % select_type
 
     def _check_aktivt_sted(self, student_info):
         """Resolve all aktivt_sted criterias for this student."""

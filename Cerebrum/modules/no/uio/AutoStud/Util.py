@@ -45,12 +45,19 @@ class LookupHelper(object):
             if isinstance(const, _SpreadCode):
                 self.spread_name2const[str(const)] = const
         self._cached_affiliations = [None]
+        self._lookup_errors = []
+
+    def _add_error(self, msg):
+        self._lookup_errors.append(msg)
+
+    def get_lookup_errors(self):
+        return self._lookup_errors
 
     def get_spread(self, name):
         try:
             return self.spread_name2const[name]
         except KeyError:
-            self._logger.warn("bad spread: %s" % name)
+            self._add_error("bad spread: %s" % name)
             return None
 
     def get_group(self, name):
@@ -63,7 +70,7 @@ class LookupHelper(object):
             self._group_cache[name] = int(group.entity_id)
         except (Errors.NotFoundError, ValueError):
             self._group_cache[name] = None
-            self._logger.warn("ukjent gruppe: %s" % name)
+            self._add_error("ukjent gruppe: %s" % name)
         return self._group_cache[name] 
 
     def get_stedkode(self, name, institusjon):
@@ -79,7 +86,7 @@ class LookupHelper(object):
             self._sko_cache[name] = int(ou.entity_id)
         except (Errors.NotFoundError, ValueError):
             self._sko_cache[name] = None
-            self._logger.warn("ukjent sko: %s" % name)
+            self._add_error("ukjent sko: %s" % name)
         return self._sko_cache[name]
 
     def get_all_child_sko(self, sko):
@@ -128,7 +135,8 @@ class ProgressReporter(object):
     INFO2=4
     WARN=3
     ERROR=2
-    
+    FATAL=1
+
     def __init__(self, logfile, stdout=False, loglevel=DEBUG2):
         self.stdout = stdout
         if stdout:
@@ -180,6 +188,10 @@ class ProgressReporter(object):
 
     def error(self, msg, append_newline=True):
         if self.ERROR <= self.loglevel:
+            self._log(msg, append_newline)
+
+    def fatal(self, msg, append_newline=True):
+        if self.FATAL <= self.loglevel:
             self._log(msg, append_newline)
 
     def pformat(self, obj):

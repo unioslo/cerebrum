@@ -203,8 +203,12 @@ class AccountUtil(object):
                 user.set_account_type(dta[0], dta[1])
             elif c_id == 'del_ac_type':
                 user.del_account_type(dta[0], dta[1])
+            elif c_id == 'add_quarantine':
+                start_at = strftime('%Y-%m-%d', localtime(dta[1] + time()))
+                user.add_entity_quarantine(
+                    dta[0], default_creator_id, 'automatic', start_at)
             else:
-                raise ValueError, "Unknown change: %s" % c
+                raise ValueError, "Unknown change: %s" % c_id
         tmp = user.write_db()
         logger.debug("write_db=%s" % tmp)
     _handle_user_changes=staticmethod(_handle_user_changes)
@@ -266,8 +270,13 @@ class AccountUtil(object):
                     profile.notify_used_disk(old=current_disk_id, new=new_disk)
                     changes.append(('disk', (current_disk_id, disk_spread, new_disk)))
         # Check quarantines
-        if ac.get('autostud_quarantine', False):
+        if int(const.quarantine_autostud) in ac['quarantines']:
             changes.append(("remove_autostud_quarantine", None))
+        # TBD: Is it OK to ignore date on existing quarantines when
+        # determining if it should be added?
+        for q in profile.get_quarantines():
+            if not int(q['quarantine']) in ac['quarantines']:
+                changes.append(('add_quarantine', (q['quarantine'], q['start_at'])))
 
         # Populate spreads
         has_acount_spreads = ac['spreads']
@@ -576,7 +585,7 @@ def get_existing_accounts():
                        'spreads': [spread_id],
                        'groups': [group_id]}}
     accounts = {'account_id': {'owner: fnr, 'reserved': boolean,
-                               'gid': group_id, 'autostud_quarantine': boolean
+                               'gid': group_id, 'quarantines': [quarantine_id],
                                'spreads': [spread_id], 'groups': [group_id],
                                'affs': [(aff, ou)],
                                'expire_date': expire_date,
@@ -623,7 +632,8 @@ def get_existing_accounts():
             'reserved': False,
             'home': {},
             'groups': [],
-            'affs': []}
+            'affs': [],
+            'quarantines': []}
     # PosixGid
     for row in posix_user_obj.list_posix_users():
         tmp = accounts.get(int(row['account_id']), None)
@@ -634,14 +644,12 @@ def get_existing_accounts():
         tmp = accounts.get(int(row['account_id']), None)
         if tmp is not None:
             tmp['reserved'] = True
-    # Autostud quarantine
+    # quarantines
     for row in account_obj.list_entity_quarantines(
         entity_types=const.entity_account):
-        if row['quarantine_type'] != int(const.quarantine_autostud):
-            continue
         tmp = accounts.get(int(row['entity_id']), None)
         if tmp is not None:
-            tmp['autostud_quarantine'] = True
+            tmp['quarantines'].append(int(row['quarantine_type']))
     # Spreads
     for spread_id in autostud.pc.spread_defs:
         spread = const.Spread(spread_id)
