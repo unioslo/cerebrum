@@ -173,6 +173,14 @@ class PosixUser(Account_class):
         self.__in_db = True
         self.__updated = []
 
+    def find_by_uid(self, uid):
+        account_id = self.query_1("""
+        SELECT account_id
+        FROM [:table schema=cerebrum name=posix_user]
+        WHERE posix_uid=:uid""", locals())
+        self.find(account_id)
+
+
     def list_posix_users(self):
         """Return account_id of all PosixUsers in database"""
         return self.query("""
