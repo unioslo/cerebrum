@@ -139,10 +139,10 @@ def update_account(profile, account_ids, account_info={}):
                             # Conflicting request or similiar
                             logger.warn(e)
             if as_posix:
-                old_gid = user.gid
+                old_gid = user.gid_id
                 user.gid = profile.get_dfg()
-                if user.gid != old_gid:
-                    changes.append("dfg %s->%s" % (user.gid, old_gid))
+                if user.gid_id != old_gid:
+                    changes.append("dfg %s->%s" % (user.gid_id, old_gid))
             if user.expire_date:
                 user.expire_date = default_expire_date
             tmp = user.write_db()
