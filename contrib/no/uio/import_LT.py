@@ -5,11 +5,12 @@ import os
 import sys
 
 from Cerebrum import Database, Person, Constants, Errors
+from Cerebrum import cereconf
 from Cerebrum.modules.no.uio import OU
 from Cerebrum.modules.no import fodselsnr
 import pprint
 
-personfile = "/u2/dumps/LT/persons.dat";
+default_personfile = "/u2/dumps/LT/persons.dat"
 
 class LTData(object):
     """This class is used to iterate over all users in LT. """
@@ -76,9 +77,13 @@ def main():
     pp = pprint.PrettyPrinter(indent=4)
     new_person = Person.Person(Cerebrum)
             
+    if getattr(cereconf, "ENABLE_MKTIME_WORKAROUND", 0) == 1:
+        print "Warning: ENABLE_MKTIME_WORKAROUND is set"
     if len(sys.argv) == 2:
         personfile = sys.argv[1]
-
+    else:
+        personfile = default_personfile
+        
     for person in LTData(personfile):
         print "Got %s" % person['fnr'],
         # pp.pprint(person)
@@ -89,6 +94,8 @@ def main():
 
         (year, mon, day) = fodselsnr.fodt_dato(person['fnr'])
         if(year < 1970): year = 1970   # Seems to be a bug in time.mktime on some machines
+        if(year < 1970 and getattr(cereconf, "ENABLE_MKTIME_WORKAROUND", 0) == 1):
+            year = 1970   # Seems to be a bug in time.mktime on some machines
         new_person.populate(Cerebrum.Date(year, mon, day), gender)
 
         new_person.affect_names(co.system_lt, co.name_full)
