@@ -62,6 +62,7 @@ Each of the updates can be turned on/off from the command line.
 import sys
 import string
 import getopt
+import time
 
 import cerebrum_path
 import cereconf
@@ -389,6 +390,34 @@ def perform_synchronization(user, services):
 
 
 
+def _check_owner_status(person, owner_id, username, stream):
+    """
+    A help function for report_expired_users.
+    """
+
+    try:
+        person.clear()
+        person.find(owner_id)
+    except Cerebrum.Errors.NotFoundError:
+        stream.write("Username %s has no owner\n" % username)
+        return
+    # yrt
+
+    now = time.strftime("%Y%m%d", time.gmtime(time.time()))
+    if not (person.get_tilsetting(now) or
+            person.get_bilag() or
+            person.get_gjest(now)):
+        stream.write("Owner of account %s has no records in LT\n" % username)
+    # fi
+
+    if person.get_permisjon(now):
+        stream.write("Owner of account %s has active leaves (permisjon)\n" %
+                     username)
+    # fi
+# end _check_owner_status
+    
+
+
 import StringIO
 def report_expired_users(user, filename):
     """
@@ -402,6 +431,7 @@ def report_expired_users(user, filename):
 
     db_cerebrum = Factory.get("Database")()
     account = Factory.get("Account")(db_cerebrum)
+    person = Factory.get("Person")(db_cerebrum)
     constants = Factory.get("Constants")(db_cerebrum)
     report_stream = AtomicFileWriter(filename, "w")
 
@@ -437,6 +467,8 @@ def report_expired_users(user, filename):
             if not is_nis:
                 stream.write("No spread NIS_user@uio for %s\n" % username)
             # fi
+
+            _check_owner_status(person, account.owner_id, username, stream)
         # od
 
         report_data = stream.getvalue()

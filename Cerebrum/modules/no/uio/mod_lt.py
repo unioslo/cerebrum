@@ -438,14 +438,14 @@ class PersonLTMixin(Person.Person):
 
 
 
-    def get_tilsetting(self):
-        return self.list_tilsetting(self.entity_id)
+    def get_tilsetting(self, timestamp = None):
+        return self.list_tilsetting(self.entity_id, timestamp)
     # end get_tilsetting
 
 
 
-    def get_gjest(self):
-        return self.list_gjest(self.entity_id)
+    def get_gjest(self, timestamp = None):
+        return self.list_gjest(self.entity_id, timestamp)
     # end get_gjest
 
     
@@ -457,21 +457,21 @@ class PersonLTMixin(Person.Person):
 
 
 
-    def get_permisjon(self):
-        return self.list_permisjon(self.entity_id)
+    def get_permisjon(self, timestamp=None):
+        return self.list_permisjon(self.entity_id, timestamp)
     # end get_permisjon
     
 
 
-    def get_rolle(self):
-        return self.list_rolle(self.entity_id)
+    def get_rolle(self, timestamp=None):
+        return self.list_rolle(self.entity_id, timestamp)
     # end get_rolle
     
 
 
     def list_bilag(self, person_id):
         """
-        List all temporary employment (bilag) records for PERSON_ID
+        List all temporary employment (bilag) records for PERSON_ID.
         """
 
         return self.query("""
@@ -484,10 +484,41 @@ class PersonLTMixin(Person.Person):
     
 
 
-    def list_tilsetting(self, person_id):
+    def _make_timestamp_clause(self, timestamp):
         """
-        List all employment (tilsetting) records for PERSON_ID
+        A help function for several list_* methods operating with dates
+        around TIMESTAMP.
+
+        This function returns a tuple (SQL, bind-params), where SQL is an
+        addition to an sql where-clause and bind-params is a dictionary with
+        bind parameters for such a clause
         """
+
+        if timestamp is None:
+            return "", {}
+        # fi
+
+        time_clause = """
+                      AND dato_fra <= :timestamp
+                      AND :timestamp <= dato_til
+                      """
+        return time_clause, {"timestamp" : strptime(timestamp, "%Y%m%d")}
+    # end _make_timestamp_clause
+
+        
+
+    def list_tilsetting(self, person_id, timestamp = None):
+        """
+        List all employment (tilsetting) records for PERSON_ID.
+
+        If TIMESTAMP is not None (it must be a string in the format
+        'YYYYMMDD'), report employment records with dato_fra <= TIMESTAMP <=
+        dato_til only.
+        """
+
+        values = {"person_id" : int(person_id)}
+        time_clause, extra_vars = self._make_timestamp_clause(timestamp)
+        values.update(extra_vars)
 
         return self.query("""
                           SELECT tilsettings_id, person_id,
@@ -496,24 +527,34 @@ class PersonLTMixin(Person.Person):
                                  andel
                           FROM %s
                           WHERE person_id = :person_id
-                          """ % _TILSETTINGS_SCHEMA,
-                          {"person_id" : int(person_id)})
+                                %s
+                          """ % (_TILSETTINGS_SCHEMA, time_clause),
+                          values)
     # end list_tilsetting
 
 
 
-    def list_gjest(self, person_id):
+    def list_gjest(self, person_id, timestamp = None):
         """
         List all guest (gjest) records for PERSON_ID
+
+        If TIMESTAMP is not None (it must be a string in the format
+        'YYYYMMDD'), report guest records with dato_fra <= TIMESTAMP <=
+        dato_til only.
         """
+
+        values = {"person_id" : int(person_id)}
+        time_clause, extra_vars = self._make_timestamp_clause(timestamp)
+        values.update(extra_vars)
 
         return self.query("""
                           SELECT person_id, ou_id, dato_fra,
                                  gjestetypekode, dato_til
                           FROM %s
                           WHERE person_id = :person_id
-                          """ % _GJEST_SCHEMA,
-                          {"person_id" : person_id})
+                                %s
+                          """ % (_GJEST_SCHEMA, time_clause),
+                          values)
     # end list_gjest
 
 
@@ -534,10 +575,18 @@ class PersonLTMixin(Person.Person):
 
 
 
-    def list_permisjon(self, person_id):
+    def list_permisjon(self, person_id, timestamp = None):
         """
         List all leaves of absence (permisjon) records for PERSON_ID
+
+        If TIMESTAMP is not None (it must be a string in the format
+        'YYYYMMDD'), report leave records with dato_fra <= TIMESTAMP <=
+        dato_til only.
         """
+
+        values = {"person_id" : int(person_id)}
+        time_clause, extra_vars = self._make_timestamp_clause(timestamp)
+        values.update(extra_vars)
 
         return self.query("""
                           SELECT tilsettings_id, person_id,
@@ -545,24 +594,34 @@ class PersonLTMixin(Person.Person):
                                  lonstatuskode
                           FROM %s
                           WHERE person_id = :person_id
-                          """ % _PERMISJONS_SCHEMA,
-                          {"person_id" : person_id})
+                                %s
+                          """ % (_PERMISJONS_SCHEMA, time_clause),
+                          values)
     # end list_permisjon
 
 
 
-    def list_rolle(self, person_id):
+    def list_rolle(self, person_id, timestamp = None):
         """
         List all role records for PERSON_ID.
+
+        If TIMESTAMP is not None (it must be a string in the format
+        'YYYYMMDD'), report role records with dato_fra <= TIMESTAMP <=
+        dato_til only.
         """
+
+        values = {"person_id" : int(person_id)}
+        time_clause, extra_vars = self._make_timestamp_clause(timestamp)
+        values.update(extra_vars)
 
         return self.query("""
                           SELECT person_id, ou_id, rollekode,
                                  dato_fra, dato_til
                           FROM %s
                           WHERE person_id = :person_id
-                          """ % _ROLLE_SCHEMA,
-                          {"person_id" : person_id})
+                                %s
+                          """ % (_ROLLE_SCHEMA, time_clause),
+                          values)
     # end list_rolle
 
 
