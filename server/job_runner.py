@@ -89,8 +89,22 @@ class When(object):
     def __init__(self, freq=None, time=None):
         """Indicates that a job should be ran either with a specified
         frequency, or at the specified time"""
+        assert freq is not None or time is not None
+        assert not (freq is not None and time is not None)
         self.freq = freq
         self.time = time
+
+    def next_delta(self, last_time, current_time):
+        """Returns # seconds til the next time this job should run
+        """
+        if self.freq is not None:
+            return last_time + self.freq - current_time
+        else:
+            # TODO: Check jobs[k].when.time
+            if run_once:
+                return 0
+            else:
+                return 999999
 
 class Time(object):
     def __init__(self, sek=0, min=None, hour=None, day=None, mon=None, weekday=None):
@@ -120,7 +134,7 @@ class System(object):
 def insert_job(job):
     """Recursively add jobb and all its prerequisited jobs.
 
-    We allways proecss all parents jobs, but they are only added to
+    We allways process all parents jobs, but they are only added to
     the ready_to_run queue if it won't violate max_freq."""
     
     if all_jobs[job].pre is not None:
@@ -136,37 +150,25 @@ def insert_job(job):
         for j in all_jobs[job].post:
             insert_job(j)
 
-def is_when_ok(job, current_time):
-    """Check if this jobs When object indicates that is should run now
-    """
-
-    # TBD: It is probably better to return # seconds to next when,
-    # then we would know how long to sleep for the action to succeed.
-
-    if job.when is not None:
-        if job.when.freq is not None:
-            return 1
-        else:
-            # TODO: Check jobs[k].when.time
-            if run_once:
-                return 1
-
 def find_ready_jobs(jobs):
+    """Populates the ready_to_run queue with jobs.  Returns number of
+    seconds to next event (if positive, ready_to_run will be empty)"""
     global current_time, run_once
-    ret = []
     if debug_time:
         current_time += debug_time
     else:
         current_time = time.time()
+    min_delta = 999999
     for k in jobs.keys():
         delta = current_time - last_run.get(k, 0)
-        print "  %d for %s / %s" % (delta, k, jobs[k].when)
-
-        if is_when_ok(jobs[k], current_time):
-            insert_job(k)
+        # print "  %d for %s / %s" % (delta, k, jobs[k].when)
+        if jobs[k].when is not None:
+            n = jobs[k].when.next_delta(last_run.get(k, 0), current_time)
+            if n <= 0:
+                insert_job(k)
+            min_delta = min(n, min_delta)
     run_once = 0
-    print "r: %i" % len(ret)
-    return ret
+    return min_delta
 
 # There is a python supplied sched module, but we don't use it for now...
 def runner():
@@ -175,8 +177,6 @@ def runner():
     ready_to_run = []
     last_run = {}
     while 1:
-        # sleep until next job
-        time.sleep(1)
         for job in ready_to_run:
             all_jobs[job].setup()
             all_jobs[job].execute()
@@ -185,11 +185,15 @@ def runner():
                 last_run[job] = current_time
             else:
                 last_run[job] = time.time()
-            print "LR: %s" % job
         # figure out what jobs to run next
         ready_to_run = []
-        find_ready_jobs(all_jobs)
-        print "New queue:\n   %s" % "\n   ".join(ready_to_run)
+        delta = find_ready_jobs(all_jobs)
+        print "New queue (delta=%s):\n   %s" % (delta, "\n   ".join(ready_to_run))
+        if(delta > 0):
+            if debug_time:
+                time.sleep(1)
+            else:
+                time.sleep(min(max_sleep, delta))      # sleep until next job
 
 if __name__ == '__main__':
     runner()
