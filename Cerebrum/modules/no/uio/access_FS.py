@@ -691,9 +691,9 @@ ORDER BY fodselsdato, personnr
         SELECT DISTINCT r.fodselsdato, r.personnr
         FROM fs.registerkort r
         WHERE
-        r.TERMINKODE = : semester and r.arstall = :year AND
+        r.TERMINKODE = :semester and r.arstall = :year AND
         r.betformkode='FRITATT'"""
-	
+
 #Ved senere anledning (når studierettstatuskoder som skal brukes er bekreftet
 # skal denne delen av søket også taes i bruk
 #	qry += """ UNION
