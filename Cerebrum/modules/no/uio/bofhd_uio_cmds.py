@@ -16,7 +16,6 @@ import os
 from mx import DateTime
 
 import cereconf
-from Cerebrum import Account
 from Cerebrum import Cache
 from Cerebrum import Database
 from Cerebrum import Disk
@@ -924,7 +923,7 @@ class BofhdExtension(object):
             ac = self._get_account(id)
             id = "entity_id:%i" % ac.owner_id
         person = self._get_person(*self._map_person_id(id))
-        account = Account.Account(self.db)
+        account = Utils.Factory.get('Account')(self.db)
         ret = []
         for r in account.list_accounts_by_owner_id(person.entity_id):
             account = self._get_account(r['account_id'], idtype='id')
@@ -1157,7 +1156,7 @@ class BofhdExtension(object):
         "%8s %8i %s", ('uname', 'priority', 'affiliation'),
         hdr="%8s %8s %s" % ("Uname", "Priority", "Affiliation")))
     def person_list_user_priorities(self, operator, person_id):
-        ac = Account.Account(self.db)
+        ac = Utils.Factory.get('Account')(self.db)
         person = self._get_person(*self._map_person_id(person_id))
         ret = []
         for row in ac.get_account_types(all_persons_types=True,
@@ -1895,7 +1894,7 @@ class BofhdExtension(object):
         perm_filter='can_create_user')
     def user_reserve(self, operator, idtype, person_id, affiliation, uname):
         person = self._get_person("entity_id", person_id)
-        account = Account.Account(self.db)
+        account = Utils.Factory.get('Account')(self.db)
         account.clear()
         if not self.ba.is_superuser(operator.get_entity_id()):
             raise PermissionDenied("only superusers may reserve users")
@@ -2024,7 +2023,7 @@ class BofhdExtension(object):
 
     def _get_account(self, id, idtype=None, actype="Account"):
         if actype == 'Account':
-            account = Account.Account(self.db)
+            account = Utils.Factory.get('Account')(self.db)
         elif actype == 'PosixUser':
             account = PosixUser.PosixUser(self.db)
         account.clear()
