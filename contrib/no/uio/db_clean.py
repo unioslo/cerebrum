@@ -234,6 +234,10 @@ keep_togglers = [
     # TBD: The CL data could preferably contain more data
     {'columns': ('subject_entity', ),
      'triggers': (co.entity_addr_add, co.entity_addr_del)},
+    # Disk quota
+    {'columns': ('subject_entity', ),
+     'change_params': ('homedir_id', ),
+     'triggers': (co.disk_quota_set, co.disk_quota_clear)},
     ]
 
 if never_forget_homedir:
@@ -251,7 +255,12 @@ keep_togglers.extend([
      'toggleable': toggleable,
      'change_params': ('spread', ),
      'triggers': (co.account_home_updated, co.account_home_added,
-                  co.account_home_removed)}
+                  co.account_home_removed)},
+    # Set/update homedir
+    {'columns': ('subject_entity', ),
+     'toggleable': toggleable,
+     'change_params': ('homedir_id', ),
+     'triggers': (co.homedir_add, co.homedir_update)}
     ])
 
 def setup():
