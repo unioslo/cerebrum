@@ -68,6 +68,7 @@ class Entity(DatabaseAccessor):
         self.execute("""
         INSERT INTO cerebrum.entity_info(entity_id, entity_type)
         VALUES (:1, :2)""", new_id, entity_type)
+        self.find(new_id)
         return new_id
 
     def find(self, entity_id):
