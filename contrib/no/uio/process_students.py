@@ -83,9 +83,9 @@ def create_user(fnr, profile):
                      default_creator_id, default_expire_date)
     password = account.make_passwd(uname)
     account.set_password(password)
+    tmp = account.write_db()
     # Temporary hack until all students should have imap spread
     account.add_spread(const.spread_uio_imap)
-    tmp = account.write_db()
     logger.debug("new Account, write_db=%s" % tmp)
     all_passwords[int(account.entity_id)] = [password, profile.get_brev()]
     update_account(profile, [account.entity_id])
