@@ -1046,21 +1046,15 @@ def config():
 	    init_ldap_dump(org_root)
 	    generate_org(org_root)
 	    if (cereconf.LDAP_PERSON == 'Enable'):
-    		print "Person generate" 
 		generate_person()
 	    if (cereconf.LDAP_ALIAS == 'Enable'):
-		print "Alias generate"
 		generate_alias()
 	    if (cereconf.LDAP_USER == 'Enable'):
-		print "User generate"
 		generate_users()
 	    if (cereconf.LDAP_GROUP == 'Enable'):
-		print "Group generate"
 		generate_posixgroup()
 	    if (cereconf.LDAP_NETGROUP == 'Enable'):
-		print "Netgroup generate"
 		generate_netgroup()
-	    #files_
 	else:
 	    pass
 	
