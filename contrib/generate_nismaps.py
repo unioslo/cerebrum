@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python2.2
 
 from Cerebrum import Database,Constants,Errors
 from Cerebrum import Person

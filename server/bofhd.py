@@ -1,5 +1,5 @@
 #!/local/python-2.2.1/bin/python2.2
-# #!/usr/bin/env python
+# #!/usr/bin/env python2.2
 
 # Copyright 2002 University of Oslo, Norway
 #

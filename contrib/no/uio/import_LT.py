@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python2.2
 
 import re
 import os
