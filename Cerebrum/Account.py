@@ -152,7 +152,8 @@ class AccountType(object):
         WHERE at.person_id=pas.person_id AND
               at.ou_id=pas.ou_id AND
               at.affiliation=pas.affiliation
-              %s""" % extra,
+              %s
+        ORDER BY at.person_id, at.priority""" % extra,
                           {'ou_id': ou_id,
                            'affiliation': affiliation,
                            'status': status})
