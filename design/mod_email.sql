@@ -100,10 +100,11 @@ CREATE TABLE email_target
   entity_type	NUMERIC(6,0),
   entity_id	NUMERIC(12,0),
   alias_value	CHAR VARYING(512),
-  CONSTRAINT email_destination_entity FOREIGN KEY (entity_type, entity_id)
+  CONSTRAINT email_target_entity FOREIGN KEY (entity_type, entity_id)
     REFERENCES entity_info(entity_type, entity_id),
-  CONSTRAINT email_destination_entity_type
-    CHECK (entity_type IN ([:get_constant name=entity_account],
+  CONSTRAINT email_target_entity_type
+    CHECK (entity_type IS NULL OR
+	   entity_type IN ([:get_constant name=entity_account],
 			   [:get_constant name=entity_group])),
   CONSTRAINT email_target_unique UNIQUE (entity_id, alias_value)
 );
@@ -540,7 +541,68 @@ category:main/Oracle;
 GRANT INSERT, UPDATE, DELETE ON email_primary_address TO read_mod_email;
 
 
+/*	email_server_type_code
 
+  Define the categories of (user retrieval/local delivery) email
+  servers.
+
+*/
+category:code;
+CREATE TABLE email_server_type_code
+(
+  code		NUMERIC(6,0)
+		CONSTRAINT email_server_type_code_pk PRIMARY KEY,
+  code_str	CHAR VARYING(16)
+		NOT NULL
+		CONSTRAINT email_server_type_codestr_u UNIQUE,
+  description	CHAR VARYING(512)
+		NOT NULL
+);
+
+
+/*	email_server
+
+  Define the actual (user retrieval/local delivery) email servers.
+
+*/
+category:main;
+CREATE TABLE email_server
+(
+  server_id	NUMERIC(12,0)
+		CONSTRAINT email_server_host_id REFERENCES host_info(host_id)
+		CONSTRAINT email_server_pk PRIMARY KEY,
+  server_type	NUMERIC(6,0)
+		NOT NULL
+		CONSTRAINT email_server_server_type
+		  REFERENCES email_server_type_code(code)
+);
+
+
+/*
+
+  Define which email server should be responsible for which email
+  targets.
+
+*/
+category:main;
+CREATE TABLE email_target_server
+(
+  target_id	NUMERIC(12,0)
+		CONSTRAINT email_target_server_target_id
+		  REFERENCES email_target(target_id),
+  server_id	NUMERIC(12,0)
+		CONSTRAINT email_target_server_server_id
+		  REFERENCES email_server(server_id),
+  CONSTRAINT email_target_server_pk PRIMARY KEY (target_id, server_id)
+);
+
+
+category:drop;
+DROP TABLE email_target_server;
+category:drop;
+DROP TABLE email_server;
+category:drop;
+DROP TABLE email_server_type_code;
 category:drop;
 DROP TABLE email_primary_address;
 category:drop/PostgreSQL;
