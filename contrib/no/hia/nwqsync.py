@@ -36,7 +36,7 @@ from Cerebrum.modules import CLHandler
 from Cerebrum.modules.no.hia import nwutils
 
 
-global ldap_handle, group_done, logger, int_log
+global group_done, logger
 group_done = {}
 int_log = None
 db = Factory.get('Database')()
@@ -78,7 +78,7 @@ cl_entry = {'group_mod' : 'pass',
 	}
 									
 def main():
-    global int_log
+    global int_log, ldap_handle
     int_log = port = host = spread = g_spread =None
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'S:s:p:g', ['help'])
@@ -291,18 +291,18 @@ def user_add_del_grp(ch_type,dn_user,dn_dest):
 	# This might be "over the egde" with verifying,
 	# and maybe it should be removed because CPU and time
 	for user in dn_user: 
-	    account.clear()
-	    account.find(int(user))
-	    search_str = "(&(cn=%s)(objectClass=inetOrgPerson))" % \
-						account.account_name
-	    search_dn = "%s" % cereconf.NW_LDAP_ROOT
-	    ldap_obj = ldap_handle.GetObjects(search_dn,search_str)
-	    if ldap_obj == []:
-		logger.warn("#del/add member:%s to group %s, failed." & \
+            account.clear()
+            account.find(int(user))
+            search_str = "(&(cn=%s)(objectClass=inetOrgPerson))" % \
+                         account.account_name
+            search_dn = "%s" % cereconf.NW_LDAP_ROOT
+            ldap_obj = ldap_handle.GetObjects(search_dn,search_str)
+            if ldap_obj == []:
+                logger.warn("#del/add member:%s to group %s, failed." & \
 						(search_str,group_name))
-		dn_user.remove(user)
-	    else:
-		ldap_users[int(user)] = ldap_obj[0][0]
+                dn_user.remove(user)
+            else:
+                ldap_users[int(user)] = ldap_obj[0][0]
 	if ch_type == const.group_add:
 	    # Check if user already a member of the p
 	    if ldap_attrs.has_key('member'):
@@ -397,9 +397,6 @@ def change_user_spread(dn_id,ch_type,spread,uname=None):
 	    (ldap_user, ldap_attrs) = nwutils.get_account_info(dn_id, \
 							spread, None)
             path2edir(ldap_attrs)
-                #ldap_user = ldap_user.replace('ou=HIST', 'o=HiST')
-		#if input.lower() == 'y':
-		#print ldap_user,ldap_attrs
 	    add_ldap(ldap_user,ldap_attrs)
 	    for grp in group.list_groups_with_entity(dn_id):
                 user_add_del_grp(const.group_add, dn_id, grp['group_id'])
