@@ -36,7 +36,8 @@ class Profile(object):
     (and optionaly groups) to the apropriate home, default group etc
     using rules read by the StudconfigParser."""
 
-    def __init__(self, student_info, logger, pc, member_groups=None):
+    def __init__(self, student_info, logger, pc, member_groups=None,
+                 person_affs=None):
         """The logic for resolving conflicts and enumerating settings
         is similar for most attributes, thus we resolve the settings
         applicatble for this profile in the constructor
@@ -51,7 +52,8 @@ class Profile(object):
         full_account = 0
         
         self.matcher = ProfileMatcher(pc, student_info, logger,
-                                      member_groups=member_groups)
+                                      member_groups=member_groups,
+                                      person_affs=None)
 
     def debug_dump(self):
         ret = "Dumping %i match entries\n" % len(self.matcher.matches)
@@ -208,12 +210,14 @@ class ProfileMatcher(object):
     """Methods for determining which profiles matches a given
     person."""
 
-    def __init__(self, pc, student_info, logger, member_groups=None):
+    def __init__(self, pc, student_info, logger, member_groups=None,
+                 person_affs=None):
         self.pc = pc
         self.matches = []
         self.logger = logger
         self.matching_selectors = {}
-        self._process_person_info(student_info, member_groups=member_groups)
+        self._process_person_info(student_info, member_groups=member_groups,
+                                  person_affs=person_affs)
         self.logger.debug("Matching profiles: %s" % self.matches)
         if len(self.matches) == 0:
             raise NoMatchingProfiles, "No matching profiles"
@@ -224,7 +228,8 @@ class ProfileMatcher(object):
     def get_match(self, match_type):
         return [x[0] for x in self.matched_settings.get(match_type, [])]
 
-    def _process_person_info(self, student_info, member_groups=[]):
+    def _process_person_info(self, student_info, member_groups=None,
+                             person_affs=None):
         """Check if student_info contains data of the type identified
         by StudconfigParser.select_elements.  If yes, check if the
         corresponding value matches a profile."""
@@ -251,16 +256,7 @@ class ProfileMatcher(object):
                     if len(self.pc.known_select_criterias['person_affiliation']) == 0:
                         # Small speedup when this criteria is not used by studconfig.xml
                         continue
-                    if student_info.has_key('person_id'):
-                        self._check_person_affiliation(
-                            self.pc.lookup_helper.get_person_affiliations(
-                            person_id=student_info['person_id']))
-                    else:
-                        fnr = fodselsnr.personnr_ok(
-                            "%06d%05d" % (int(student_info['fodselsdato']),
-                                          int(student_info['personnr'])))
-                        self._check_person_affiliation(
-                            self.pc.lookup_helper.get_person_affiliations(fnr=fnr))
+                    self._check_person_affiliation(person_affs)
 
     def _check_aktivt_sted(self, student_info):
         """Resolve all aktivt_sted criterias for this student."""

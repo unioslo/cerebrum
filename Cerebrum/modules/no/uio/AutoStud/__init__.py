@@ -82,10 +82,11 @@ class AutoStud(object):
     def start_student_callbacks(self, student_file, callback_func):
         StudentInfo.StudentInfoParser(student_file, callback_func, self._logger)
 
-    def get_profile(self, student_info, member_groups=None):
+    def get_profile(self, student_info, member_groups=None, person_affs=None):
         """Returns a Profile object matching the topics, to check
         quotas, groups must also be set."""
         return ProfileHandler.Profile(student_info, self._logger, self.pc,
-                                      member_groups=member_groups)
+                                      member_groups=member_groups,
+                                      person_affs=person_affs)
 
 # arch-tag: 0e864798-ed01-4eca-a57d-4a7654072b46
