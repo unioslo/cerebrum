@@ -325,6 +325,11 @@ class EmailTarget(EmailEntity):
         self.__in_db = True
         self.__updated = []
 
+    def delete(self):
+        return self.execute("""
+        DELETE FROM [:table schema=cerebrum name=email_target]
+        WHERE target_id=:e_id""", {'e_id': self.email_target_id})
+        
     def find_by_email_target_attrs(self, **kwargs):
         if not kwargs:
             raise ProgrammingError, \
@@ -494,6 +499,11 @@ class EmailAddress(EmailEntity):
             pass
         self.__in_db = True
         self.__updated = []
+        
+    def delete(self):
+        return self.execute("""
+        DELETE FROM [:table schema=cerebrum name=email_address]
+        WHERE address_id=:e_id""", {'e_id': self.email_addr_id})
 
     def find_by_local_part_and_domain(self, local_part, domain_id):
         address_id = self._db.query_1("""
