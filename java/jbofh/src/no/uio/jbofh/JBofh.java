@@ -580,8 +580,9 @@ public class JBofh {
 	    Hashtable param = (Hashtable) ((Vector) pspec).get(i);
             logger.debug("ps: "+i+" -> "+param);
             /* TODO:  I'm not sure how to handle the diff between optional and default */
-            Integer opt = (Integer) param.get("optional");
-            if(opt != null && opt.intValue() == 1) 
+            Object opt = param.get("optional");
+            if((opt instanceof Boolean && ((Boolean) opt).booleanValue()) ||
+                (opt instanceof Integer && ((Integer) opt).intValue() == 1))
                 break;
 	    Object tmp = param.get("default");
 	    String defval = null;
