@@ -152,12 +152,15 @@ class Entity(Builder, CerebrumClass, EntityAuth):
         return False
 
     def get_groups(self):
-        cgroup = registry.Group.cerebrum_class(self.get_database())
-        groups = []
+        searcher = registry.GroupMemberSearch(self)
+        searcher.set_member(self)
+        searcher.set_include_parentgroups(True)
 
-        # FIXME: sett include_indirect_members=True når dette blir implementert
-        for row in cgroup.list_groups_with_entity(self.get_entity_id(), include_indirect_members=False):
-            groups.append(registry.Group(int(row[0])))
+        # FIXME. ta hensyn til intersection/difference
+
+        groups = []
+        for i in searcher.search():
+            groups.append(i.group)
         return groups
 
 
@@ -179,14 +182,6 @@ class ContactInfo(Builder):
                           description=row['description'])
         return contactInfo
     getByRow = classmethod(getByRow)
-
-    # hat. hvorfor kan ikke cerebrum ha en unik id pr entitet? (ja. en
-    # kontaktinfo burde være en entitet).
-    # hadde det ikke vært mer fornuftig å hatt entity, contactPref som
-    # primær-nøkkel? nå blir det jo bare rot.
-    def create_primary_key(entity_id, source_system, contact_type, *args, **vargs):
-        return entity_id, source_system, contact_type
-    create_primary_key = staticmethod(create_primary_key)
 
 class Note(Builder):
     primary = [Attribute('note_id', 'long')]
