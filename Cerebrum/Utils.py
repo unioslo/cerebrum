@@ -168,11 +168,12 @@ class mark_update(auto_super):
     with this metaclass:
 
     ``__updated`` (class private variable):
-      Set to ``False`` initially; see description of ``__setattr__``.
+      Set to the empty list initially; see description of ``__setattr__``.
 
     ``__setattr__`` (Python magic for customizing attribute assignment):
-      * When a 'write' attribute gets assigned to, the appropriate
-        class's ``__updated`` attribute gets set.
+      * When a 'write' attribute has its value changed, the attribute
+        name is appended to the list in the appropriate class's
+        ``__updated`` attribute.
 
       * 'Read' attributes can only be assigned to if there hasn't
         already been defined any attribute by that name on the
@@ -189,6 +190,12 @@ class mark_update(auto_super):
       instance's class and for all of its base classes.
       NOTE: If a class has an explicit definition of ``__new__``,
             that class will retain that definition.
+
+    ``clear'':
+      Reset all the ``mark_update''-relevant attributes of an object
+      to their default values.
+      NOTE: If a class has an explicit definition of ``clear'', that
+            class will retain that definition.
 
     ``__read_attr__`` and ``__write_attr__``:
       Gets overwritten with tuples holding the name-mangled versions
@@ -290,7 +297,7 @@ class mark_update(auto_super):
 ##            print "%s.__setattr__: setting %s = %s" % (self, attr, val)
             object.__setattr__(self, attr, val)
             if attr in write:
-                setattr(self, mupdated, True)
+                getattr(self, mupdated).append(attr)
         dict.setdefault('__setattr__', __setattr__)
 
         def __new__(cls, *args, **kws):
@@ -300,9 +307,21 @@ class mark_update(auto_super):
             # and get an instance of this class.
             obj = sup.__new__(cls, *args, **kws)
             # Add a default for this class's __updated attribute.
-            setattr(obj, mupdated, False)
+            setattr(obj, mupdated, [])
             return obj
         dict.setdefault('__new__', __new__)
+
+        dont_clear = dict.get('dontclear', ())
+        def clear(self):
+            getattr(self, msuper).clear()
+            for attr in read:
+                if hasattr(self, attr) and attr not in dont_clear:
+                    delattr(self, attr)
+            for attr in write:
+                if attr not in dont_clear:
+                    setattr(self, attr, None)
+            setattr(self, mupdated, [])
+        dict.setdefault('clear', clear)
 
         def __xerox__(self, from_obj, reached_common=False):
             """Copy attributes of ``from_obj`` to self (shallowly).
@@ -376,7 +395,7 @@ class XMLHelper(object):
         # x9 | #xA | #xD | [#x20-#xD7FF] | [#xE000-#xFFFD] |
         # [#x10000-#x10FFFF] /* any Unicode character, excluding the
         # surrogate blocks, FFFE, and FFFF. */
-        a = re.sub('[^\011\012\015\040-\377]', '.', a)
+        a = re.sub('[^\x09\x0a\x0d\x20-\xff]', '.', a)
         return '"%s"' % a
 
 class Factory(object):
