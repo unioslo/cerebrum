@@ -2753,7 +2753,7 @@ class BofhdExtension(object):
 	    opr=acc.account_name
         except Errors.NotFoundError:
 	    raise CerebrumError, ("Could not find the operator id!")
-	time_temp = strftime("%Y-%m-%d-%H%M%S", localtime())
+	time_temp = time.strftime("%Y-%m-%d-%H%M%S", time.localtime())
 	selection = args.pop(0)
         cache = self._get_cached_passwords(operator)
         th = TemplateHandler(tpl_lang, tpl_name, tpl_type)
@@ -2785,15 +2785,15 @@ class BofhdExtension(object):
             mapping['fullname'] =  fullname
             if tpl_lang.endswith("letter"):
                 try:
-                    address = person.get_entity_address(source=self.const.system_fs,
+                    address = person.get_entity_address(source=self.const.system_sap,
                                                         type=self.const.address_post)
                 except Errors.NotFoundError:
-                    try:
-                        address = person.get_entity_address(source=self.const.system_sap,
+		    try:
+			address = person.get_entity_address(source=self.const.system_fs,
                                                             type=self.const.address_post)
-                    except Errors.NotFoundError:
-                        ret.append("Error: Couldn't get authoritative address for %s" % account.account_name)
-                        continue
+		    except Errors.NotFoundError:
+			ret.append("Error: Couldn't get authoritative address for %s" % account.account_name)
+			continue
                 if not address:
                     ret.append("Error: Couldn't get authoritative address for %s" % account.account_name)
                     continue
@@ -3880,7 +3880,8 @@ class BofhdExtension(object):
                         self.num2const[int(aff['affiliation'])],
                         self.num2const[int(aff['status'])],
                         self._format_ou_name(ou))
-                    map.append((("%s", name), int(aff['affiliation'])))
+                    map.append((("%s", name),
+                                {'ou_id': int(aff['ou_id']), 'aff': int(aff['affiliation'])}))
                 if not len(map) > 1:
                     raise CerebrumError(
                         "Person has no affiliations. Try person affiliation_add")
@@ -3924,7 +3925,7 @@ class BofhdExtension(object):
     def user_create_prompt_func(self, session, *args):
         return self._user_create_prompt_func_helper('PosixUser', session, *args)
 
-    def _user_create_set_account_type(self, account, owner_id, affiliation):
+    def _user_create_set_account_type(self, account, owner_id, ou_id, affiliation):
         person = self._get_person('entity_id', owner_id)
         try:
             affiliation=self.const.PersonAffiliation(affiliation)
@@ -3933,13 +3934,12 @@ class BofhdExtension(object):
         except Errors.NotFoundError:
             raise CerebrumError, "Invalid affiliation %s" % affiliation
         for aff in person.get_affiliations():
-            if aff['affiliation'] == affiliation:
-                ou = self._get_ou(aff['ou_id'])
+            if aff['ou_id'] == ou_id and aff['affiliation'] == affiliation:
                 break
         else:
             raise CerebrumError, \
                 "Owner did not have any affiliation %s" % affiliation        
-        account.set_account_type(ou.entity_id, affiliation)
+        account.set_account_type(ou_id, affiliation)
         
     # user create
     all_commands['user_create'] = Command(
