@@ -268,7 +268,7 @@ class mark_update(auto_super):
                           "Attribute '%s' is read-only." % attr
             elif attr in write:
                 if hasattr(self, attr) and val == getattr(self, attr):
-                    # No change, don't set __updated.
+                    # No change, don't set __updated.
                     return
             elif attr <> mupdated:
                 # This attribute doesn't belong in this class; try the
@@ -395,4 +395,3 @@ class Factory(object):
                   "Invalid import spec for component %s: %r" % (comp,
                                                                 import_spec)
     get = staticmethod(get)
-
