@@ -220,7 +220,7 @@ class LT(object):
           fodtdag=:fodtdag AND fodtmnd=:fodtmnd AND fodtar=:fodtar AND
           personnr=:personnr AND
           dato_fra <= SYSDATE AND
-          NVL(dato_til, SYSDATE) > SYSDATE
+          NVL(dato_til, SYSDATE + 1) > SYSDATE
         """
 
         return self.db.query(qry, locals())
