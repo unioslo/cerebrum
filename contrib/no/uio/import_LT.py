@@ -227,11 +227,14 @@ def process_person(person):
         return
     new_person.populate(db.Date(year, mon, day), gender)
     new_person.affect_names(const.system_lt, const.name_first, const.name_last,
-							const.name_work_title)
+						const.name_work_title,
+						const.name_personal_title)
     new_person.affect_external_id(const.system_lt, const.externalid_fodselsnr)
     new_person.populate_name(const.name_first, person['fornavn'])
     new_person.populate_name(const.name_last, person['etternavn'])
-
+    if person.get('tittel_personlig',''):
+	new_person.populate_name(const.name_personal_title,\
+					 	person['tittel_personlig'])
     new_person.populate_external_id(
         const.system_lt, const.externalid_fodselsnr, fnr)
 
