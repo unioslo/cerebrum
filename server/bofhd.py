@@ -39,8 +39,8 @@ from Cerebrum import Errors
 from Cerebrum import Account
 from Cerebrum.Utils import Factory
 from Cerebrum import Utils
-from bofhd_errors import CerebrumError
-
+from server.bofhd_errors import CerebrumError
+import traceback
 
 # TBD: Is a BofhdSession class a good idea?  It could (optionally)
 # take a session_id argument when instantiated, and should have
@@ -131,7 +131,7 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler):
         # but then the Java client would have trouble
         # encoding/decoding requests/responses.
         def wash_params(obj):
-            if isinstance(obj, str):
+            if isinstance(obj, (str, unicode)):
                 if obj == ':None':
                     return None
                 elif obj.startswith(":"):
@@ -152,7 +152,7 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler):
         def wash_response(obj):
             if obj is None:
                 return ':None'
-            elif isinstance(obj, str):
+            elif isinstance(obj, (str, unicode)):
                 if obj.startswith(":"):
                     return ":" + obj
                 return obj
@@ -174,12 +174,14 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler):
         try:
             ret = apply(func, wash_params(params))
         except CerebrumError, e:
-            ret = ":".join((":Exception", type(e).__name__, str(e)))
-            raise
+            ret = ":".join((":Exception:", type(e).__name__, str(e)))
+            raise sys.exc_info()[0], ret
         except Exception, e:
+            print "Caught: %s" % sys.exc_info()[0]
+            traceback.print_exc()
 ##            self.log_traceback()
-            ret = ":".join((":Exception" + type(e).__name__, "Unknown error."))
-            raise
+            ret = ":".join((":Exception:" + type(e).__name__, "Unknown error."))
+            raise sys.exc_info()[0], ret
         return wash_response(ret)
 
     def bofhd_login(self, uname, password):
@@ -398,6 +400,11 @@ class BofhdServer(SimpleXMLRPCServer.SimpleXMLRPCServer, object):
                   "Too many args (%d) for command '%s'." % (nargs, cmd)
         return (None, inst, cmdspec._params[nargs])
 
+    def server_bind(self):
+        import socket
+        import SocketServer
+        self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        SocketServer.TCPServer.server_bind(self)
 
 def find_config_dat():
     # XXX This should get the path from configure
