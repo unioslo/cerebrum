@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 #
 # Check Norwegian Social security numbers
 #
@@ -9,48 +9,58 @@
 # resten for at det skal være et gyldig nummer.  Modulen inneholder også
 # funksjoner for å bestemme personens kjønn og personens fødselsdato.
 #
-# Ved ugyldig fødselsnummer reises en BAD_FNR feil
+# Ved ugyldig fødselsnummer reises en InvalidFnrError.
 #
 # Ported from the perl version written by  Gisle Aas <aas@sn.no>
 
 import re
 
-BAD_FNR="IllegalValueError"
+class InvalidFnrError(ValueError):
+    "Exception som indikerer ugyldig norsk fødselsnummer."
+    pass
 
 def personnr_ok(nr, _retDate=0):
-    """Returnerer fødselsnummeret dersom det er lovlig.  _retDate skal
-    ikke brukes utenfor modulen"""
+    """Returnerer 11-sifret fødselsnummer so string dersom det er gyldig.
+
+    Første argument kan være enten en (long) int eller en string.
+
+    Andre argument, `_retDate', skal kun brukes internt i denne
+    modulen.
+
+    """
     re_strip = re.compile(r"[\s\-]", re.DOTALL)
-    nr =  re.sub(re_strip, "", nr)
-    if len(nr) != 11:
+    nr = re.sub(re_strip, "", str(nr))
+    if len(nr) == 10:
         nr = "0" + nr
     if len(nr) != 11:
-        raise BAD_FNR, "ugyldig lengde"
+        raise InvalidFnrError, \
+              "Ugyldig lengde for fødselsnummer <%s>." % nr
 
-    for vekt in ([ 3, 7, 6, 1, 8, 9, 4, 5, 2, 1, 0 ],
-                 [ 5, 4, 3, 2, 7, 6, 5, 4, 3, 2, 1 ]):
+    for vekt in ((3, 7, 6, 1, 8, 9, 4, 5, 2, 1, 0),
+                 (5, 4, 3, 2, 7, 6, 5, 4, 3, 2, 1)):
         sum = 0
         for x in range(11):
             sum = sum + int(nr[x]) * int(vekt[x])
         if sum % 11:
-            raise BAD_FNR, "sjekksum feil"
+            raise InvalidFnrError, \
+                  "Feil sjekksum for fødselsnummer <%s>." % nr
 
-    # Extract the date part
-    date = [int(nr[4:6]), int(nr[2:4]), int(nr[0:2])]
-    pnr = int(nr[6:9])
- 
+    # Del opp fødselsnummeret i dets enkelte komponenter.
+    day, month, year, pnr = \
+         int(nr[0:2]), int(nr[2:4]), int(nr[4:6]), int(nr[6:9])
+
     # B-nummer -- midlertidig (max 6 mnd) personnr
-    if date[2] > 40:
-        date[2] = date[2] - 40 
+    if day > 40:
+        day -= 40
 
     # FS/SO hack for midlertidige nummer.  Urk.
-    if date[1] > 50:
-        date[1] = date[1] - 50 
+    if month > 50:
+        month -= 50
 
     # Så var det det å kjenne igjen hvilket hundreår som er det riktige.
-    if (pnr < 500) :
-        date[0] = date[0] + 1900
-    elif (pnr >= 900):
+    if pnr < 500:
+        year += 1900
+    elif pnr >= 900:
         # Nok et FS/SO hack.  Dobbelturk, dette får ting til å gå i
         # stykker når noen født i år 2000 eller senere dukker opp i
         # våre systemer...
@@ -58,23 +68,22 @@ def personnr_ok(nr, _retDate=0):
         # Hacket er ikke lenger (siden høst 1999) i bruk for
         # _opprettelse_ av nye student-personnummer, men allerede
         # opprettede nummer vil finnes en stund enda.
-        date[0] = date[0] + 1900
-    elif (date[0] >= 55):
+        year += 1900
+    elif date[0] >= 55:
         # eldste person tildelt fødelsnummer er født i 1855.
-        date[0] = date[0] + 1800
+        year += 1800
     else:
         # vi har et problem igjen etter år 2054.  Det er ikke helt
         # avklart hva løsningen da vil være.
-        date[0] = date[0] + 2000
-    if(not _is_legal_date(date)):
-        raise BAD_FNR, "ugyldig dato"
-    if(not _retDate):
+        year += 2000
+    if not _is_legal_date(year, month, day):
+        raise InvalidFnrError, "ugyldig dato"
+    if not _retDate:
         return nr
-    return (date)
+    return (year, month, day)
 
-def _is_legal_date(date):
+def _is_legal_date(y, m, d):
     """Returnerer 1 hvis dato er lovlig"""
-    (y, m, d) = date
     if d < 1:
         return
     if m < 1 or m > 12:
@@ -102,13 +111,13 @@ def er_kvinne(nr):
     return not er_mann(nr)
 
 def fodt_dato(nr):
-    '''Vil returnere personens fødselsdato på formen ().  Rutinen
-    returnerer C<""> hvis nummeret er ugyldig.'''
+    'Returner personens fødselsdato på formen (år, måned, dag).'
     return personnr_ok(nr, _retDate=1)
 
 if __name__ == '__main__':
     import sys
-    print "personnr_ok: %s" % personnr_ok(sys.argv[1])
-    print "er_mann: %s" % er_mann(sys.argv[1])
-    print "er_kvinne: %s" % er_kvinne(sys.argv[1])
-    print "fodt_dato: %s" % fodt_dato(sys.argv[1])
+    fnr = sys.argv[1]
+    print "personnr_ok: %s" % `personnr_ok(fnr)`
+    print "er_mann: %s" % `er_mann(fnr)`
+    print "er_kvinne: %s" % `er_kvinne(fnr)`
+    print "fodt_dato: %s" % `fodt_dato(fnr)`
