@@ -395,10 +395,12 @@ def main():
     workdir = None
     range = None
     only_dump_to = None
+    to_stdout = False
     bootstrap()
     for opt, val in opts:
         if opt in ('-d', '--debug'):
             debug += 1
+            to_stdout = True
         elif opt in ('-c', '--create-users'):
             create_users = True
         elif opt in ('-u', '--update-accounts'):
@@ -432,7 +434,7 @@ def main():
         os.mkdir(workdir)
     os.chdir(workdir)
     logger = AutoStud.Util.ProgressReporter(
-        "%s/run.log.%i" % (workdir, os.getpid()), stdout=True)
+        "%s/run.log.%i" % (workdir, os.getpid()), stdout=to_stdout)
     if range is not None:
         make_letters("letters.info", type=type, range=val)
     else:
@@ -446,6 +448,8 @@ def usage():
     -s | --student-info-file file:
     -C | --studconfig-file file:
     -S | --studie-progs-file file:
+    --only-dump-results file: just dump results with pickle without
+      entering make_letters
     --workdir dir:  set workdir for --reprint
     --type type: set type for --reprint
     --reprint range:  Re-print letters in case of paper-jam etc.
