@@ -155,6 +155,9 @@ class Constants(Constants.Constants):
     affiliation_manuell_sivilarb = _PersonAffStatusCode(
         affiliation_manuell, 'sivilarb',
         'Sivilarbeider (under utfasing)')
+    affiliation_manuell_iss = _PersonAffStatusCode(
+        affiliation_manuell, 'iss',
+        'International summer school')
     affiliation_manuell_kaja_kontrakt = _PersonAffStatusCode(
         affiliation_manuell, 'kaja_kontrakt',
         'Kaja kontrakt (under utfasing)')
