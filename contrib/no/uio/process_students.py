@@ -545,11 +545,11 @@ def process_student(person_info):
     try:
         profile = autostud.get_profile(person_info)
     except AutoStud.ProfileHandler.NoMatchingProfiles, msg:
-        logger.warn("Error for %s: %s" %  (fnr, msg))
+        logger.warn("No matching profile error for %s: %s" %  (fnr, msg))
         logger.set_indent(0)
         return
     except Errors.NotFoundError, msg:
-        logger.warn("Error for %s: %s" %  (fnr, msg))
+        logger.warn("(person) not found error for %s: %s" %  (fnr, msg))
         logger.set_indent(0)
         return
     
