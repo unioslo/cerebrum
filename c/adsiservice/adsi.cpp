@@ -38,7 +38,10 @@ HRESULT ConvName(WCHAR *from, WCHAR *to, char *ret){
 		hr =pNto->Set(ADS_NAME_TYPE_1779, fp);
 		BAIL_ON_FAILURE(hr);
 		hr = pNto->Get(ADS_NAME_TYPE_NT4, &bstr);
-		BAIL_ON_FAILURE(hr);
+		BAIL_ON_FAILURE(hr); 
+		while((ch = wcschr(bstr, L'\\')) != NULL){
+			*ch = L'/';
+		}
 		wcscpy(to, L"WinNT://");
 		wcscat(to, bstr);
 		SysFreeString(bstr);
@@ -85,9 +88,15 @@ HRESULT ProcessUser(LPTSTR pszPath, IADsUser *pUser, LPTSTR line, char *ret){
 	HRESULT hr;
 	BSTR bt;
 	VARIANT var;
+	WCHAR pszNewPath[255];
 
 	if(pUser == NULL){
-		hr = ADsGetObject(pszPath, IID_IADsUser, (void **) &pUser);	
+		if(!wcsncmp(L"LDAP://", pszPath, 7)){
+		    ConvName(pszPath, pszNewPath, ret);
+		} else {
+			wcscpy(pszNewPath, pszPath); 		
+		}
+		hr = ADsGetObject(pszNewPath, IID_IADsUser, (void **) &pUser);	
 		BAIL_ON_FAILURE(hr);
 	}
 
@@ -207,11 +216,11 @@ HRESULT ListObjectsWin(int sock2, WCHAR *pszPath, char *type, BOOL expand, char 
 				BAIL_ON_FAILURE(hr);
 				hr = pObject->get_ADsPath(&bt);
 				BAIL_ON_FAILURE(hr);
-				wcscat(line, L"up="); wcscat(line, bt);
+				wcscat(line, L"up&"); wcscat(line, bt);
 				SysFreeString(bt);
 				hr = pObject->get_Name(&bt);
 				BAIL_ON_FAILURE(hr);
-				wcscat(line, L"&name="); wcscat(line, bt); wcscat(line, L"\n");
+				wcscat(line, L"&name&"); wcscat(line, bt); wcscat(line, L"\n");
 				SysFreeString(bt);
 				FREE_INTERFACE(pObject);
 				send_data(sock2, line);
@@ -649,7 +658,6 @@ HRESULT AddRemoveMemberToGroup(LPWSTR member, LPWSTR grp, BOOL remove, char *ret
 	BAIL_ON_FAILURE(hr);
 	
 	hr = pIADsNewMember->get_ADsPath(&bsNewMemberPath); 
-	printf("memberPath: %s",pIADsNewMember); 
 	BAIL_ON_FAILURE(hr);
 
 	hr = ADsGetObject(grp, IID_IADsGroup, (void**)&pGroup);

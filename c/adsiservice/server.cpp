@@ -111,7 +111,7 @@ DWORD AcceptThreadProc( LPDWORD lpdwParam ){
 	}else if(!wcscmp(par[0], L"LORGS")){
 		if(nargs != 1) strcpy(errmsg, errmsgs[BAD_NUMBER_OF_ARGS]);
 		else hr = ListObjectsWrap(sock2, par[1], "org", FALSE, (char *)&retb);
-    }else if(!wcscmp(par[0], L"LUSER")){
+    }else if(!wcscmp(par[0], L"LUSER")){		
 		TCHAR line[255];
 		wcscpy(line, L"210 ");
 		hr = ProcessUser(par[1], NULL, line, retb);
@@ -189,7 +189,6 @@ VOID ServiceStart (DWORD dwArgc, LPTSTR *lpszArgv)
   TCHAR szBuff[200];
   DWORD lpd;
   FILE *f;
-  TCHAR iniPath[512];
    	
 
   if (!ReportStatusToSCMgr(SERVICE_START_PENDING, NO_ERROR, 3000)) return;
