@@ -40,7 +40,6 @@ class Constants(Constants.Constants):
 
     # state_data:
     #    source_server
-    #    dest_server
     #    depend_req (request_id: wait while it's in queue)
     bofh_email_will_move = _BofhdRequestOpCode('br_em_will_move',
                                                'Will move user e-mail')
@@ -88,7 +87,7 @@ class BofhdRequests(object):
             for r in rows:
                 if r['operation'] != self.const.bofh_move_give:
                     raise CerebrumError, "Conflicting request exists"
-
+        reqid = int(self._db.nextval('request_id_seq'))
         cols = {
             'requestee_id': operator,
             'run_at': when,
@@ -96,7 +95,7 @@ class BofhdRequests(object):
             'entity_id': entity_id,
             'destination_id': destination_id,
             'state_data': state_data,
-            'request_id': int(self._db.nextval('request_id_seq'))
+            'request_id': reqid
             }
         
         self._db.execute("""
@@ -105,6 +104,7 @@ class BofhdRequests(object):
             'tcols': ", ".join(cols.keys()),
             'binds': ", ".join([":%s" % t for t in cols.keys()])},
                          cols)
+        return reqid
 
     def delay_request(self, request_id, seconds=600):
 	cols = self.get_requests(request_id)
