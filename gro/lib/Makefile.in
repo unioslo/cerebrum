@@ -11,9 +11,11 @@ sources = $(wildcard *.py)
 
 all: 
 	$(MAKE) -C idl $@
+	$(MAKE) -C classes $@
 
 install: install-lib
 	$(MAKE) -C idl $@
+	$(MAKE) -C classes $@
 
 install-lib: $(sources)
 	@for file in $(sources); do \
