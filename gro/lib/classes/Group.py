@@ -34,7 +34,7 @@ class Group(Entity):
                             Attribute('description', 'string', writable=True),
                             Attribute('visibility', 'GroupVisibilityType', writable=True),
                             Attribute('expire_date', 'Date', writable=True)]
-    methodSlots = Entity.methodSlots + [Method('get_group_members', 'GroupMemberSeq')]
+    method_slots = Entity.method_slots + [Method('get_group_members', 'GroupMemberSeq')]
 
     cerebrum_class = Cerebrum.Group.Group
 

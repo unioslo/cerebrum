@@ -31,16 +31,16 @@ from Searchable import Searchable
 
 from db import db
 
-__all__ = ['Entity', 'Note']
+__all__ = ['Entity', 'Note', 'Address', 'ContactInfo']
 
 class Entity(Builder, Searchable):
     primary = [Attribute('entity_id', 'long')]
     slots = [Attribute('entity_id', 'long'),
              Attribute('entity_type', 'EntityType')]
-    methodSlots = [Method('get_spreads', 'SpreadSeq'),
-                   Method('get_notes', 'NoteSeq'),
-                   Method('get_contact_info', 'ContactInfoSeq'),
-                   Method('get_addresses', 'AddressSeq')]
+    method_slots = [Method('get_spreads', 'SpreadSeq'),
+                    Method('get_notes', 'NoteSeq'),
+                    Method('get_contact_info', 'ContactInfoSeq'),
+                    Method('get_addresses', 'AddressSeq')]
 
 #    primary = [Attribute('entity_id', 'long')]
 #    slots = primary + [Attribute('entity_type', 'long'),
@@ -147,9 +147,9 @@ class ContactInfo(Builder):
     # kontaktinfo burde være en entitet).
     # hadde det ikke vært mer fornuftig å hatt entity, contactPref som
     # primær-nøkkel? nå blir det jo bare rot.
-    def getKey(entity_id, source_system, contact_type, *args, **vargs):
+    def get_key(entity_id, source_system, contact_type, *args, **vargs):
         return entity_id, source_system, contact_type
-    getKey = staticmethod(getKey)
+    get_key = staticmethod(get_key)
 
 class Note(Builder):
     primary = [Attribute('note_id', 'long')]

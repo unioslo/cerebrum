@@ -37,7 +37,7 @@ class Account(Entity):
                             Attribute('create_date', 'Date'),
                             Attribute('creator_id', 'long'),
                             Attribute('expire_date', 'Date', writable=True)]
-    methodSlots = Entity.methodSlots + [Method('get_authentications', 'AccountAuthentication')]
+    method_slots = Entity.method_slots + [Method('get_authentications', 'AccountAuthentication')]
 
     cerebrum_class = Cerebrum.Account.Account
     
