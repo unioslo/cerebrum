@@ -63,16 +63,11 @@ $table.html(type=$_("Type"),
 ##    </tr>
 ###end for
 ##</table>
-#else
-    <tr>
-        <td>None</td>
-    </tr>
 #end if
 #set $addurl = $url('quarantine/add?entity_id=%s' % $entity_id)
-    <p>
-    <tr>
-        <td><a href="$addurl">[Add new quarantine]</a></td>
-    </tr>
+    <div>
+        <a href="$addurl">[Add new quarantine]</a>
+    </div>    
 </div>
 
 #end def
