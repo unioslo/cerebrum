@@ -42,7 +42,7 @@ class Attribute:
         return '%s(%s, %s)' % (self.__class__.__name__, `self.name`, `self.data_type`)
 
 class Method:
-    def __init__(self, name, data_type, args=[], apHandler=False):
+    def __init__(self, name, data_type, args=[], exceptions=[], apHandler=False):
         self.type = 'Method'
         self.name = name
         self.data_type = data_type
@@ -117,6 +117,7 @@ class CorbaBuilder:
             defined = []
 
         txt = ''
+
 #        txt = 'interface %s;\n' % cls.__name__
 #        txt += 'typedef sequence<%s> %sSeq;\n' % (cls.__name__, cls.__name__)
 
@@ -153,7 +154,7 @@ class CorbaBuilder:
             txt += '\n'
 
         txt += '\n\t//other methods\n'
-        for method in cls.method_slots: # args blir ignorert for øyeblikket...
+        for method in cls.method_slots:
             args = ['in %s %s' % (attr.data_type, attr.name) for attr in method.args]
             txt += '\t%s %s(%s);\n' % (method.data_type, method.name, ', '.join(args))
 
