@@ -198,6 +198,17 @@ ORDER BY fodtdag, fodtmnd, fodtar, personnr, tlfpreftegn""", {
                 ret.setdefault(fnr, []).append(row['kommnrverdi'])
         return fnr2komm
 
+    def GetReservasjoner(self):
+        "Finn reservasjoner i LT."
+        qry = """
+SELECT
+  fodtdag, fodtmnd, fodtar, personnr, katalogkode, felttypekode, 
+  resnivakode
+FROM
+  lt.reservasjon
+ORDER BY fodtdag, fodtmnd, fodtar, personnr"""
+        return (self._get_cols(qry), self.db.query(qry))
+    
     def GetAllPersonsUregEmail(self):
         return self._GetAllPersonsKommType('UREG-EMAIL')
 
