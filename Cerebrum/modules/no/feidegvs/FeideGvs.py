@@ -48,6 +48,10 @@ class FeideGvsConstants(Constants.Constants):
         'ADMIN',
         'person in tha administration')
 
+    affiliation_employee = _PersonAffiliationCode(
+        'EMPLOYEE',
+        'employee at school')
+
     affiliation_guardian = _PersonAffiliationCode(
         'GUARDIAN',
         'guardian for a pupil')
@@ -69,6 +73,16 @@ class FeideGvsConstants(Constants.Constants):
         affiliation_admin,
         'inactive',
         'Inactive member of administration')
+
+    affiliation_status_employee_active = _PersonAffStatusCode(
+        affiliation_employee,
+        'active',
+        'Active employee')
+    
+    affiliation_status_employee_inactive = _PersonAffStatusCode(
+        affiliation_employee,
+        'inactive',
+        'Inactive employee')
 
     affiliation_status_guardian_active = _PersonAffStatusCode(
         affiliation_guardian,
@@ -160,7 +174,7 @@ class FeideGvsGuardian(FeideGvsEntity):
     __write_attr__ = ('guardian_id','pupil_id', 'relation')
 
     def clear(self):
-        self.__super.clear()
+        #self.__super.clear()
         self.clear_class(FeideGvsGuardian)
         self.__updated = []
 
@@ -175,7 +189,6 @@ class FeideGvsGuardian(FeideGvsEntity):
         self.relation = relation
 
     def write_db(self):
-        self.__super.write_db()
         if not self.__updated:
             return
         is_new = not self.__in_db
@@ -184,17 +197,17 @@ class FeideGvsGuardian(FeideGvsEntity):
             INSERT INTO [:table schema=cerebrum name=feide_gvs_guardian_pupil]
               (guardian_id, pupil_id, relation)
             VALUES (:g_id, :p_id, :rel)""",
-                         {'g_id': self.guardian_id,
-                          'p_id': self.pupil_id,
-                          'rel': self.relation})
+                         {'g_id': int(self.guardian_id),
+                          'p_id': int(self.pupil_id),
+                          'rel': int(self.relation)})
         else:
             self.execute("""
             UPDATE [:table schema=cerebrum name=feide_gvs_guardian_pupil]
             SET relatian=:rel
             WHERE guardian_id=:g_id AND pupil_id=:p_id""",
-                         {'g_id': self.guardian_id,
-                          'p_id': self.pupil_id,
-                          'rel': self.relation})
+                         {'g_id': int(self.guardian_id),
+                          'p_id': int(self.pupil_id),
+                          'rel': int(self.relation)})
         del self.__in_db
         self.__in_db = True
         self.__updated = []
@@ -205,8 +218,9 @@ class FeideGvsGuardian(FeideGvsEntity):
          self.relation) = self.query_1("""
         SELECT guardian_id, pupil_id, relation
         FROM [:table schema=cerebrum name=feide_gvs_guardian_pupil]
-        WHERE target_id=:g_id""", {'t_id': guardian_id,
-                                   'p_id': pupil_id})
+        WHERE guardian_id=:g_id AND pupil_id=:p_id""",
+                                       {'g_id': int(guardian_id),
+                                        'p_id': int(pupil_id)})
         try:
             del self.__in_db
         except AttributeError:
