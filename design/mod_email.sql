@@ -100,19 +100,40 @@ CREATE TABLE email_target
   entity_type	NUMERIC(6,0),
   entity_id	NUMERIC(12,0),
   alias_value	CHAR VARYING(512),
+  using_uid	NUMERIC(12,0)
+		CONSTRAINT email_target_using_uid
+		  REFERENCES posix_user(account_id),
   CONSTRAINT email_target_entity FOREIGN KEY (entity_type, entity_id)
     REFERENCES entity_info(entity_type, entity_id),
   CONSTRAINT email_target_entity_type
     CHECK (entity_type IS NULL OR
 	   entity_type IN ([:get_constant name=entity_account],
 			   [:get_constant name=entity_group])),
-  CONSTRAINT email_target_unique UNIQUE (entity_id, alias_value)
+  CONSTRAINT email_target_entity_u UNIQUE (entity_id),
+  CONSTRAINT email_target_alias_u UNIQUE (using_uid, alias_value)
 );
 category:main/Oracle;
 GRANT SELECT ON email_target TO read_mod_email;
 category:main/Oracle;
 GRANT INSERT, UPDATE, DELETE ON email_target TO read_mod_email;
 
+/*
+category:upgrade;
+ALTER TABLE email_target ADD COLUMN
+  using_uid	NUMERIC(12,0)
+		CONSTRAINT email_target_using_uid
+		  REFERENCES posix_user(account_id);
+ALTER TABLE email_target DROP CONSTRAINT email_target_unique;
+UPDATE email_target
+  SET using_uid = entity_id, entity_id = NULL
+  WHERE target_type NOT IN
+    (SELECT code FROM email_target_code
+     WHERE code_str IN ('account', 'deleted'));
+ALTER TABLE email_target
+  ADD CONSTRAINT email_target_entity_u UNIQUE (entity_id);
+ALTER TABLE email_target
+  ADD CONSTRAINT email_target_alias_u UNIQUE (using_uid, alias_value);
+*/
 
 /*	email_domain
 

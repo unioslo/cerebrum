@@ -67,8 +67,8 @@ class EmailConstants(Constants.Constants):
 
     email_target_account = _EmailTargetCode(
         'account',
-        "Target is the local delivery defined for the Account whose"
-        " account_id == email_target.entity_id.")
+        "Target is the local delivery defined for the PosixUser whose"
+        " account_id == email_target.using_uid.")
 
     email_target_deleted = _EmailTargetCode(
         'deleted',
@@ -81,31 +81,31 @@ class EmailConstants(Constants.Constants):
         'forward',
         "Target is a pure forwarding mechanism; local deliveries will"
         " only occur as indirect deliveries to the addresses forwarded"
-        " to.  Both email_target.entity_id and email_target.alias_value"
-        " should be NULL, as they are ignored.  The email address(es)"
-        " to forward to is taken from table email_forward.")
+        " to.  Both email_target.entity_id, email_target.using_uid and"
+        " email_target.alias_value should be NULL, as they are ignored."
+        "  The email address(es) to forward to is taken from table"
+        " email_forward.")
 
     email_target_file = _EmailTargetCode(
         'file',
         "Target is a file.  The absolute path of the file is gathered"
-        " from email_target.alias_value.  Iff email_target.entity_id"
-        " is set and belongs to an Account, deliveries to this target"
-        " will be run as that account.")
+        " from email_target.alias_value.  Iff email_target.using_uid"
+        " is set, deliveries to this target will be run as that"
+        " PosixUser.")
 
     email_target_pipe = _EmailTargetCode(
         'pipe',
         "Target is a shell pipe.  The command (and args) to pipe mail"
         " into is gathered from email_target.alias_value.  Iff"
-        " email_target.entity_id is set and belongs to an Account,"
-        " deliveries to this target will be run as that account.")
+        " email_target.using_uid is set, deliveries to this target"
+        " will be run as that PosixUser.")
 
     email_target_Mailman = _EmailTargetCode(
         'Mailman',
         "Target is a Mailman mailing list.  The command (and args) to"
         " pipe mail into is gathered from email_target.alias_value."
-        "  Iff email_target.entity_id is set and belongs to an"
-        " Account, deliveries to this target will be run as that"
-        " account.")
+        "  Iff email_target.using_uid is set, deliveries to this target"
+        " will be run as that PosixUser.")
 
     email_target_multi = _EmailTargetCode(
         'multi',
@@ -241,13 +241,15 @@ class EmailDomain(EmailEntity):
 class EmailTarget(EmailEntity):
     __read_attr__ = ('__in_db', 'email_target_id')
     __write_attr__ = ('email_target_type', 'email_target_entity_id',
-                      'email_target_entity_type', 'email_target_alias')
+                      'email_target_entity_type', 'email_target_alias',
+                      'email_target_using_uid')
 
     def clear(self):
         self.clear_class(EmailTarget)
         self.__updated = []
 
-    def populate(self, type, entity_id=None, entity_type=None, alias=None):
+    def populate(self, type, entity_id=None, entity_type=None, alias=None,
+                 using_uid=None):
         try:
             if not self.__in_db:
                 raise RuntimeError, "populate() called multiple times."
@@ -255,6 +257,7 @@ class EmailTarget(EmailEntity):
             self.__in_db = False
         self.email_target_type = type
         self.email_target_alias = alias
+        self.email_target_using_uid = using_uid
         if entity_id is None and entity_type is None:
             self.email_target_entity_id = self.email_target_entity_type = None
         elif entity_id is not None and entity_type is not None:
@@ -275,24 +278,27 @@ class EmailTarget(EmailEntity):
             self.email_target_id = int(self.nextval("email_id_seq"))
             self.execute("""
             INSERT INTO [:table schema=cerebrum name=email_target]
-              (target_id, target_type, entity_id, entity_type, alias_value)
-            VALUES (:t_id, :t_type, :e_id, :e_type, :alias)""",
+              (target_id, target_type, entity_id, entity_type, alias_value,
+               using_uid)
+            VALUES (:t_id, :t_type, :e_id, :e_type, :alias, :uid)""",
                          {'t_id': self.email_target_id,
                           't_type': int(self.email_target_type),
                           'e_id': self.email_target_entity_id,
                           'e_type': entity_type,
-                          'alias': self.email_target_alias})
+                          'alias': self.email_target_alias,
+                          'uid': self.email_target_using_uid})
         else:
             self.execute("""
             UPDATE [:table schema=cerebrum name=email_target]
             SET target_type=:t_type, entity_id=:e_id, entity_type=:e_type,
-                alias_value=:alias
+                alias_value=:alias, using_uid=:uid
             WHERE target_id=:t_id""",
                          {'t_id': self.email_target_id,
                           't_type': self.email_target_type,
                           'e_id': self.email_target_entity_id,
                           'e_type': entity_type,
-                          'alias': self.email_target_alias})
+                          'alias': self.email_target_alias,
+                          'uid': self.email_target_using_uid})
         del self.__in_db
         self.__in_db = True
         self.__updated = []
@@ -301,8 +307,10 @@ class EmailTarget(EmailEntity):
     def find(self, target_id):
         (self.email_target_id, self.email_target_type,
          self.email_target_entity_id, self.email_target_entity_type,
-         self.email_target_alias) = self.query_1("""
-        SELECT target_id, target_type, entity_id, entity_type, alias_value
+         self.email_target_alias,
+         self.email_target_using_uid) = self.query_1("""
+        SELECT target_id, target_type, entity_id, entity_type, alias_value,
+               using_uid
         FROM [:table schema=cerebrum name=email_target]
         WHERE target_id=:t_id""", {'t_id': target_id})
         try:
@@ -312,9 +320,33 @@ class EmailTarget(EmailEntity):
         self.__in_db = True
         self.__updated = []
 
-    def find_by_entity(self, entity_id):
+    def find_by_email_target_attrs(self, **kwargs):
+        if not kwargs:
+            raise ProgrammingError, \
+                  "Need at least one column argument to find target"
+        where = []
+        binds = {}
+        for column in ('target_type', 'entity_id', 'alias_value',
+                       'using_uid'):
+            if column in kwargs:
+                where.append("%s = :%s" % (column, column))
+                binds[column] = kwargs[column]
+                del kwargs[column]
+        if kwargs:
+            raise ProgrammingError, \
+                  "Unrecognized argument(s): %r" % kwargs
+        where = " AND ".join(where)
         # This might find no rows, and it might find more than one
         # row.  In those cases, query_1() will raise an exception.
+        target_id = self.query_1("""
+        SELECT target_id
+        FROM [:table schema=cerebrum name=email_target]
+        WHERE %s""" % where, binds)
+        self.find(target_id)
+
+    def find_by_entity(self, entity_id):
+        # This might find no rows.  In those cases, query_1() will
+        # raise an exception.
         target_id = self.query_1("""
         SELECT target_id
         FROM [:table schema=cerebrum name=email_target]
@@ -330,16 +362,16 @@ class EmailTarget(EmailEntity):
         WHERE alias_value=:alias""", {'alias': alias})
         self.find(target_id)
 
-    def find_by_entity_and_alias(self, entity_id, alias):
+    def find_by_alias_and_account(self, alias, using_uid):
         # Due to the UNIQUE constraint in table email_target, this can
         # only find more than one row if both entity_id and alias are
         # None.
         target_id = self.query_1("""
         SELECT target_id
         FROM [:table schema=cerebrum name=email_target]
-        WHERE (entity_id=:e_id OR :e_id IS NULL)
-          AND (alias_value=:alias OR :alias IS NULL)""",
-                                 {'e_id': entity_id,
+        WHERE (alias_value=:alias OR :alias IS NULL)
+          AND (using_uid=:uid OR :uid IS NULL)""",
+                                 {'uid': using_uid,
                                   'alias': alias})
         self.find(target_id)
 
@@ -350,10 +382,16 @@ class EmailTarget(EmailEntity):
         FROM [:table schema=cerebrum name=email_target]""", fetchall=False)
 
     def list_email_targets_ext(self):
-        """Returns target_id, target_type, entity_type, entity_id and
-        alias_value"""
+        """Return an iterator over all email_target rows.
+
+        For each row, the following columns are included:
+          target_id, target_type, entity_type, entity_id, alias_value
+          and using_uid.
+
+        """
         return self.query("""
-        SELECT target_id, target_type, entity_type, entity_id, alias_value
+        SELECT target_id, target_type, entity_type, entity_id, alias_value,
+               using_uid
         FROM [:table schema=cerebrum name=email_target]
         """, fetchall=False)
         
@@ -1162,12 +1200,22 @@ class AccountEmailMixin(Account.Account):
 
     def write_db(self):
         # Make sure Account is present in database.
-        ret = super(AccountEmailMixin, self).write_db()
+        ret = self.__super.write_db()
         if ret is not None:
             # Account.write_db() seems to have made changes.  Verify
             # that this Account has the email addresses it should,
             # creating those not present.
             self.update_email_addresses()
+        return ret
+
+    def set_account_type(self, *param, **kw):
+        ret = self.__super.set_account_type(*param, **kw)
+        self.update_email_addresses()
+        return ret
+
+    def del_account_type(self, *param, **kw):
+        ret = self.__super.del_account_type(*param, **kw)
+        self.update_email_addresses()
         return ret
 
     def update_email_addresses(self):
@@ -1179,12 +1227,17 @@ class AccountEmailMixin(Account.Account):
             et.populate(self.const.email_target_account,
                         self.entity_id, self.const.entity_account)
             et.write_db()
-
+        # Figure out which domain(s) the user should have addresses
+        # in.  Primary domain should be at the front of the resulting
+        # list.
         ed = EmailDomain(self._db)
         ed.find(self.get_primary_maildomain())
         domains = [ed.email_domain_name]
         if cereconf.EMAIL_DEFAULT_DOMAIN not in domains:
             domains.append(cereconf.EMAIL_DEFAULT_DOMAIN)
+        # Iterate over the available domains, testing various
+        # local_parts for availability.  Set user's primary address to
+        # the first one found to be available.
         ea = EmailAddress(self._db)
         primary_set = False
         epta = EmailPrimaryAddressTarget(self._db)
@@ -1192,6 +1245,7 @@ class AccountEmailMixin(Account.Account):
             if ed.email_domain_name <> domain:
                 ed.clear()
                 ed.find_by_domain(domain)
+            # Always try 'username' as local_part; for some domains
             local_parts = [self.account_name]
             if self.const.email_domain_category_cnaddr in ed.get_categories():
                 local_parts.insert(0, self.get_email_cn_local_part())
