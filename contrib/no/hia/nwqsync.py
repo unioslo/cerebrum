@@ -192,7 +192,7 @@ def delete_ldap(obj_dn):
                                                         ('delete',)})
 	int_log.write(log_str)
     except ldap.LDAPError, e:
-        logger.warn("delete_ldap() ERROR: ", e)
+        logger.warn("delete_ldap() ERROR: %s " % str(e))
     
     
 def add_ldap(obj_dn, attrs):
@@ -206,7 +206,7 @@ def add_ldap(obj_dn, attrs):
 	log_str = '\n' + ldif.CreateLDIF(obj_dn,attr)
 	int_log.write(log_str)
     except ldap.LDAPError, e:
-        logger.warn("add_ldap() ERROR: ", e, obj_dn, attrs)
+        logger.warn("add_ldap() ERROR: %s ,%s ,%s " % (str(e),obj_dn, attrs))
         
     
     
@@ -218,7 +218,8 @@ def attr_add_ldap(obj_dn, attrs):
 	log_str = '\n' + ldif.CreateLDIF(obj_dn,attr)
         int_log.write(log_str)
     except ldap.LDAPError, e:
-        logger.warn("attr_add_ldap() ERROR: ", e, obj_dn, attrs)
+        logger.warn("attr_add_ldap() ERROR: %s, %s ,%s" % (str(e), obj_dn,\
+								attrs))
     
     
 def attr_del_ldap(obj_dn, attrs):
@@ -230,7 +231,7 @@ def attr_del_ldap(obj_dn, attrs):
 	log_str = '\n' + ldif.CreateLDIF(obj_dn,attr)
         int_log.write(log_str)
     except ldap.LDAPError, e:
-        logger.warn("attr_del_ldap() ERROR: ", e, obj_dn, attrs)
+        logger.warn("attr_del_ldap() ERROR: %s, %s, %s" % (str(e), obj_dn, attrs))
     
     
 def attr_mod_ldap(obj_dn, attrs):
@@ -244,7 +245,8 @@ def attr_mod_ldap(obj_dn, attrs):
 	log_str = '\n' + ldif.CreateLDIF(obj_dn,attr)
 	int_log.write(log_str)
     except ldap.LDAPError, e:
-        logger.warn("attr_mod_ldap() ERROR: ", e, obj_dn, attrs)
+        logger.warn("attr_mod_ldap() ERROR: %s, %s, %s" % (str(e), obj_dn,\
+									attrs))
     
 
 
