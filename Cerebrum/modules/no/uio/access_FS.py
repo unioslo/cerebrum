@@ -749,13 +749,11 @@ SELECT fodselsdato, personnr, emailadresse
 FROM fs.person"""
         return self.db.query(qry, fetchall = fetchall)
 
-
     def WriteMailAddr(self, fodselsdato, personnr, email):
-        qry = """
+        self.db.execute("""
 UPDATE fs.person
 SET emailadresse=:email
-WHERE fodselsdato=:fodselsdato AND personnr=:personnr"""
-        self.db.execute(qry)
+WHERE fodselsdato=:fodselsdato AND personnr=:personnr""",locals())
 
 ##################################################################
 ## Metoder for grupper:
