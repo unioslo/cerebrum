@@ -19,13 +19,16 @@
 #extends SearchTemplate
 #from Cerebrum.web.utils import url
 
-###attr $action = "/feil/url"
-#attr $fields = [ ("name", "Name"),
-                  ("accountid", "Account name"),
-                  ("birthdate", "Date of birth (YYYY-MM-DD, exact match)"),
-                ]
+#attr $fields = [("fullname", "Full name"),
+                 ("firstname", "First name"),
+                 ("lastname", "Last name"),
+                 ("accountname", "Account name"),
+                 ("birthdate", "Date of birth *")]
+
+#attr $help = ["* Date of birth: (YYYY-MM-DD), exact match",
+               "A person may have several types of names, and therefor a search for a name will only be testet on that specific type of name."]
+
 #def getAction
 $url("person/search")#slurp
-#end def                             
-
+#end def 
 

@@ -18,29 +18,27 @@
 
 #from Cerebrum.web.InitTemplate import InitTemplate
 #from Cerebrum.web.utils import url
-#from Cerebrum.web import ServerConnection
 #extends InitTemplate
 
-#def viewNotes($entity, $req)
-#set $notes = $entity.get_notes()
-#if $notes
-#set $server = ServerConnection.get_server($req)
-<h2>$_("Notes:")</h2>
-#for $note in $notes
-    #set $id = $note.get_creator_id()
-    #set $creator = $server.get_account($id).get_name()
-    #set $creator = '<a href="%s">%s</a>' % ($url('account/view?id=%s' % $id), $_($creator))
-    #set $delete = $url('note/delete?id=%s&entity=%s' %
-                        ($note.get_note_id(), $entity.get_entity_id()))
-    <div class="note">
-        <div>
-            <em>Todo: dato!$note.get_create_date()</em>&nbsp;
-            <em>Creator: $creator</em>&nbsp;
-            <a href="$delete" class="actions">$_("delete")</a>
+## TODO: sort names. Full Name->First Name->Last Name-> Titles->Others?
+
+## Lists all names for a person, with the sourcesystem if set.
+#def personNames($person)
+    #set $person_names = $person.get_names()
+    <h2>$_("Names:")</h2>
+    #for $name in $person_names
+    <div class="name">
+        #set $name_variant = $name.get_name_variant()
+        #set $ss = $name.get_source_system()
+        <div class="actions">
+            <em>$name_variant.get_description():</em> $name.get_name()
+            #set $delete = $url('person/remove_name?id=%i&name=na') % ($person.get_entity_id())
+            <a href="$delete">$_("delete")</a>
         </div>
-        <div>$note.get_subject()</div>
-        <div>$note.get_description()</div>
-  </div>
-#end for
-#end if
+        #if $ss
+        <div><em>$_("Source system"):</em> $ss.get_name() ($ss.get_description())</div>
+        #end if
+    </div>
+    #end for
 #end def
+

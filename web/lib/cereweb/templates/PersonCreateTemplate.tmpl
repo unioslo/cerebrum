@@ -18,34 +18,41 @@
 
 #from Cerebrum.web.InitTemplate import InitTemplate
 #from Cerebrum.web.utils import url
+#from PersonEditTemplate import PersonEditTemplate
 #extends InitTemplate
 
-## List of tuples (name, label)
-#attr $fields = [ ("name", "Name"),
-                  ("birthno", "Birth number"),
-                  ("birthdate", "Date of birth"),
-                  ("ou", "OU (6 digits)"),
-                  ("affiliation", "Affiliation"),
-                  ("aff_status", "Affiliation status"),
-                ]
+#attr $formvalues = {}
+#attr $help = ["* Birthnumber: 11 digits",
+               "* Date of birth: YYYY-MM-DD",
+               "* Others: not sure yet.."]
+
+## Url to go to when the form for creating the person is submittet.
 #def getAction
 $url("person/create")#slurp
 #end def
 
-#attr $formvalues = {}
-
-#def input($name, $label)
-    #set $value = $formvalues.get($name, "")
-    <label for='$name'>$label</label>
-    <input type='text' name='$name' id='$name' value='$value' /><br />
+## The main method for creating the form for the person create page.
+#def form($req)
+#set $edit = PersonEditTemplate()
+<div class="create">
+    <form action="$getAction()" method="POST">
+        <div class="createform">
+            $edit.input("birthnr", "Birthnumber *", $formvalues.get("birthnr", ""))
+            $edit.gender($req)
+            $edit.input("birthdate", "Birthdate *", $formvalues.get("birthdate", ""))
+            $edit.input("ou", "Organization unit *", $formvalues.get("ou", ""))
+            $edit.input("affiliation", "Affiliation *", $formvalues.get("affiliation", ""))
+            $edit.input("aff_status", "Affilation status", $formvalues.get("aff_status", ""))
+            $edit.input("description", "Description", $formvalues.get("description", ""))
+        </div>
+        $edit.showHelp($help)
+        <div>
+            <center>
+                <input type="submit" value="$_('Create')" />&nbsp;
+                <input type="reset" value="$_('Clear')" />
+            </center>
+        </div>
+    </form>
+</div>
 #end def
 
-#def form($id=-1)
-<form action="$getAction()" method="POST">
-#for $name, $label in $fields #
-    #echo $input($name, $label) #
-#end for  
-    <input type="hidden" name="id" value="$id" />
-    <input type="submit" value="Create" />
-</form>
-#end def

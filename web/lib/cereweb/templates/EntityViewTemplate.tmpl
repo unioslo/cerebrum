@@ -17,39 +17,41 @@
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 #from Cerebrum.web.InitTemplate import InitTemplate
-#extends InitTemplate
-#from Cerebrum.web.TableView import TableView
 #from Cerebrum.web.utils import url
 #from Cerebrum.web import HistoryLog
-#from QuarantineViewTemplate import QuarantineViewTemplate
 #from NoteViewTemplate import NoteViewTemplate
 #from NoteAddTemplate import NoteAddTemplate
+#from QuarantineViewTemplate import QuarantineViewTemplate
+#extends InitTemplate
 
-#def view_entity($entity)
-    #set $title = str($entity)
+## Main method for creating a view of the entity.
+#def view_entity($entity, $req)
+<div class="entityview">
+    $notes($entity, $req)
 ##    $quarantines($entity)
-##    $add_note($entity)
 ##    $history($entity)
+</div>
 #end def
 
+## Shows the history of the entity. Not ready yet..
 #def history($entity)
     $HistoryLog.view_history_short($entity)
 #end def
 
+## Shows all quarantines on the object, and the form for creating a new.
+## Not ready yet..
 #def quarantines($entity)
     #set q = QuarantineViewTemplate()
     $q.view_quarantines($entity)
 #end def
 
-#def add_note($entity)
+## Shows all notes the entity has, and form for creating a new note.
+#def notes($entity, $req)
 <div class="notes">
-    #set notetitle = $_("Notes")
-    <h2>$notetitle</h2>
     #set t = NoteViewTemplate()
-    $t.viewNotes($entity)
+    $t.viewNotes($entity, $req)
     #set t = NoteAddTemplate()
     $t.addForm($entity)
 </div>
 #end def
-
 

@@ -1,0 +1,107 @@
+## Copyright 2004 University of Oslo, Norway
+##
+## This file is part of Cerebrum.
+##
+## Cerebrum is free software; you can redistribute it and/or modify it
+## under the terms of the GNU General Public License as published by
+## the Free Software Foundation; either version 2 of the License, or
+## (at your option) any later version.
+##
+## Cerebrum is distributed in the hope that it will be useful, but
+## WITHOUT ANY WARRANTY; without even the implied warranty of
+## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+## General Public License for more details.
+##
+## You should have received a copy of the GNU General Public License
+## along with Cerebrum; if not, write to the Free Software Foundation,
+## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
+#from Cerebrum.web import ServerConnection
+#from Cerebrum.web.utils import url
+#extends PersonViewTemplate
+
+## Overloads page_url in PersonViewTemplate, so personNames() has the right url.
+#attr $page_url = "person/edit"
+
+## Lines with info about the form, used with the function showHelp().
+#attr $help = ["some help will come here"]
+
+## Creates the content on the person edit page.
+#def editPerson($req, $person, $addName)
+<div class="person">
+    $form($person, $req)
+    $personNames($person, $req, $addName)
+    $personAccounts($person, $req)
+</div>
+$view_entity($person, $req)
+#end def
+
+## Action to go to when the form is submitted.
+#def getAction
+$url("person/edit")#slurp
+#end def
+
+## Creates inputs and labes from given values.
+#def input($name, $label, $value="")
+    <label for="$name">$label:</label>
+    <input type="text" name="$name" id="$name" value="$value" /><br />
+#end def
+
+## Creates a box with info about the form, from the attribute help.
+#def showHelp($lines)
+#if $lines
+    <div class="help">
+        #for $line in $lines
+        <div class="extra">
+            $_($line)
+        </div>
+        #end for
+    </div>
+#end if
+#end def
+
+## Creates a drop-down list with diffrent genders.
+## The current gender is first in the list if supplied.
+#def gender($req, $gender=None)
+    #set $server = ServerConnection.get_server($req)
+    #set $genders = []
+    #if $gender
+        $genders.append(($gender.get_name(), $gender.get_description()))
+    #end if
+    #for $g in $server.get_gender_type_search().search()
+        #if $gender is None or $g.get_name() != $gender.get_name()
+            $genders.append(($g.get_name(), $g.get_description()))
+        #end if
+    #end for
+    <label for="gender">$_('Gender'):</label>
+    <select name="gender">
+    #for $name, $desc in $genders
+        <option id="$name">$desc</option>
+    #end for
+    </select><br />
+#end def
+
+## Creates the form for the main person info.
+#def form($person, $req)
+<div class="edit">
+    <div class="subtitle">
+        <h3>$_("Personinfo"):</h3>
+    </div>
+    <form action="$getAction()" method="POST">
+        <div class="editform">
+            $gender($req, $person.get_gender())
+            $input("desc","Description", $person.get_description())
+            <input type="hidden" name="id" value="$person.get_entity_id()" />
+        </div>
+        $showHelp($help)
+        <div>
+            <center>
+                <input type="submit" name="save" value="Save" />&nbsp;
+                <input type="submit" name="delete" value="Delete" />&nbsp;
+                <input type="submit" name="remember" value="Remember" />&nbsp;
+            </center>
+        </div>
+    </form>
+</div>
+#end def
+

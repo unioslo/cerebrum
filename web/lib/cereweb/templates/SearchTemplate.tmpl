@@ -19,31 +19,57 @@
 #from Cerebrum.web.InitTemplate import InitTemplate
 #extends InitTemplate
 
-## List of tuples (name, label)
+## fields should contain a list of tuples with (name, label)
 #attr $fields = []
+
+## formvalues should include the values for the names in field (otpional)
 #attr $formvalues = {}
 
+## help is a list with more lines to print, with help about the search
+#attr $help = []
+
+## Overloaded by search-pages like person search, should
+## contain the url for where to go when the form is submittet.
 #def getAction
 /some/where#slurp
 #end def
 
+## Creates html-code for each inputfield.
 #def input($name, $label)
     #set $value = $formvalues.get($name, "")
-    <label for='$name'>$label</label>
-    <input type='text' name='$name' id='$name' value='$value' />
+    <label for='$name'>$_($label):</label>
+    <input type='text' name='$name' id='$name' value='$value' /><br />
 #end def
 
+## Creates the form for searching.
 #def form
-<form action="$getAction()" method="POST">
-    <div class='help'>
-        $_("Use wildcards * and ? to extend the search.")
-    </div>
-    <div class='help'>
-        $_("Supply several search parameters to limit the search.")
-    </div>
-#for $name, $label in $fields #
-    #echo $input($name, $label) #
-#end for  
-    <input type="submit" value="Search" />
-</form>
+<div class="search">
+    <form action="$getAction()" method="POST">
+        <div class="searchform">
+            #for $name, $label in $fields
+                $input($name, $label)
+            #end for
+        </div>
+        <div class="help">
+            #for $line in $help
+            <div class="extra">
+                $_($line)
+            </div>
+            #end for
+            <div>
+                $_("Use wildcards * and ? to extend the search.")
+            </div>
+            <div>
+                $_("Supply several search parameters to limit the search.")
+            </div>
+        </div>
+        <div>
+            <center>
+                <input type="submit" value="$_('Search')" />&nbsp;
+                <input type="reset" value="$_('Clear')" />
+            </center>
+        </div>
+    </form>
+</div>
 #end def
+
