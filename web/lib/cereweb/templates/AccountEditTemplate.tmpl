@@ -1,0 +1,36 @@
+#from Cerebrum.web.InitTemplate import InitTemplate
+#from Cerebrum.web.utils import url
+#extends InitTemplate
+
+## List of tuples (name, label)
+#attr $fields = [ ("affiliation", "Affiliation"),
+                  ("expire_date", "Expire date"),
+                ]
+#def getAction
+$url("account/save")#slurp
+#end def
+
+#attr $formvalues = {}
+
+#def input($name, $label)
+    #set $value = $formvalues.get($name, "")
+    <label for="$name">$label</label>
+    <input type="text" name="$name" id="$name" value="$value" /><br />
+#end def
+
+#def edit($account)
+<div class="editaccount">
+
+#set $heading = $_("Edit account %s") % ($account)
+<h1>$heading</h1>
+
+<form action="$getAction()" method="POST">
+#for $name, $label in $fields
+    #echo $input($name, $label)
+#end for
+    <input type="hidden" name="id" value="$account.id" />
+    <input type="submit" name="save" value="$_('Save')" />
+    <input type="submit" name="abort" value="$_('Abort')" />
+</form>
+</div>
+#end def
