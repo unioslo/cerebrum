@@ -7,8 +7,8 @@
 #from Cerebrum.web.utils import url
 
 #def viewActivityLog(self)
-#set $headers = {'timestamp': $_("Timestamp"), 'who': $_("Who"), 'type': $_("Type"), 'message': $_("Message")}
-#set $table = $TableView("timestamp", "who", "type", "message")
+#set $headers = {'message': $_("Message")}
+#set $table = $TableView("message")
 <div class="activitylog">
 <h2>Activity log</h2>
 $SortedTableTemplate().sorted_table($table, $headers, $url("ting=%s"), $url("dings=%s"))
