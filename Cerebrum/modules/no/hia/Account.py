@@ -137,6 +137,7 @@ class AccountHiAMixin(Account.Account):
                         epat.populate(ea.email_addr_id, parent = et)
                     epat.write_db()
                     primary_set = True
+		self.update_email_quota()
 
     def write_db(self):
         try:
@@ -155,5 +156,23 @@ class AccountHiAMixin(Account.Account):
         year = str(t[0])[2:]
         return self.__super.suggest_unames(domain, fname, lname, maxlen,
                                            suffix=year)
+
+    def update_email_quota(self, force=False):
+        """Set e-mail quota in Cerebrum"""
+        change = force
+        quota = 300
+        eq = Email.EmailQuota(self._db)
+        try:
+            eq.find_by_entity(self.entity_id)
+        except Errors.NotFoundError:
+            change = True
+            eq.populate(270, quota)
+            eq.write_db()
+        else:
+            # We never decrease the quota, to allow for manual overrides
+            if quota > eq.email_quota_hard:
+                change = True
+                eq.email_quota_hard = quota
+                eq.write_db()
 
 # arch-tag: e0828813-9221-4e43-96f0-0194d131e683
