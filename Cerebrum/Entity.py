@@ -338,6 +338,12 @@ class EntityContactInfo(Entity):
         self.clear_class(EntityContactInfo)
         self.__updated = []
 
+    def delete(self):
+        """Delete all contact info for this entity"""
+        for r in self.get_contact_info():
+            self.delete_contact_info(r['source_system'], r['contact_type'])
+        self.__super.delete()
+
     def add_contact_info(self, source, type, value, pref=None,
                          description=None):
         # TBD: Should pref=None imply use of the default pref from the
@@ -458,6 +464,12 @@ class EntityAddress(Entity):
         self.__updated = []
         self.clear_class(EntityAddress)
 
+    def delete(self):
+        """Delete all address info for this entity"""
+        for r in self.get_entity_address():
+            self.delete_entity_address(r['source_system'], r['address_type'])
+        self.__super.delete()
+
     def populate_address(self, source_system, type=None,
                          address_text=None, p_o_box=None,
                          postal_number=None, city=None, country=None):
@@ -561,6 +573,13 @@ class EntityAddress(Entity):
 
 class EntityQuarantine(Entity):
     "Mixin class, usable alongside Entity for entities we can quarantine."
+
+    def delete(self):
+        """Delete all address info for this entity"""
+        for r in self.get_entity_quarantine():
+            self.delete_entity_quarantine(r['quarantine_type'])
+        self.__super.delete()
+
     def add_entity_quarantine(self, type, creator, description=None,
                               start=None, end=None):
         self.execute("""
