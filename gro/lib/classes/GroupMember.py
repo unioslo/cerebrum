@@ -17,6 +17,8 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+from Cerebrum.extlib import sets
+
 from Builder import Method
 from DatabaseClass import DatabaseClass, DatabaseAttr
 
@@ -38,18 +40,84 @@ class GroupMember(DatabaseClass):
 
 registry.register_class(GroupMember)
 
-def get_groups(self):
-    s = registry.GroupMemberSearch(self)
-    s.set_member(self)
-    return s.search()
-
-
-def get_members(self):
-    s = registry.GroupMemberSearch(self)
+def get_group_members(self):
+    s = registry.GroupMemberSearch((self, 'get_group_members'))
     s.set_group(self)
     return s.search()
 
-Entity.register_method(Method('get_groups', GroupMember, sequence=True), get_members)
-Group.register_method(Method('get_members', GroupMember, sequence=True), get_members)
+Group.register_method(Method('get_group_members', GroupMember, sequence=True), get_group_members)
+
+UnionType = GroupMemberOperationType(name='union')
+IntersectionType = GroupMemberOperationType(name='intersection')
+DifferenceType = GroupMemberOperationType(name='difference')
+
+GroupType = EntityType(name='group')
+
+def _get_members(group, group_members):
+    unions = sets.Set()
+    intersects = sets.Set()
+    differences = sets.Set()
+
+    for entity, operation in group_members[group]:
+        if entity.get_type() is GroupType:
+            members = get_members(entity)
+        else:
+            members = sets.Set([entity])
+
+        if operation is UnionType:
+            unions.update(members)
+        elif operation is IntersectionType:
+            intersects.update(members)
+        elif operation is DifferenceType:
+            differences.update(members)
+
+    if intersects:
+        unions.intersection_update(intersects)
+    if differences:
+        unions.difference_update(differences)
+
+    return unions
+
+# FIXME: burde kanskje sjekke for sykler?
+
+def get_groups(self):
+    group_members = {}
+
+    def get(entity):
+        s = registry.GroupMemberSearch(('get_groups', entity))
+        s.set_member(entity)
+        for i in s.search():
+            group = i.get_group()
+            if group not in group_members:
+                group_members[group] = []
+            group_members[group].append((entity, i.get_operation()))
+            get(group)
+    get(self)
+
+    return [i for i in group_members if _get_members(i, group_members)]
+
+Entity.register_method(Method('get_groups', GroupMember, sequence=True), get_groups)
+
+def get_members(self):
+    """
+    Return a flattened list of all entities in this group and its subgroups.
+    """
+
+    group_members = {}
+
+    def get(group):
+        if group not in group_members:
+            group_members[group] = []
+        for i in get_group_members(group):
+            member = i.get_member()
+            group_members[group].append((member, i.get_operation()))
+
+            if member.get_type() is GroupType:
+                get(member)
+    get(self)
+
+    return list(_get_members(self, group_members))
+
+Group.register_method(Method('get_members', Entity, sequence=True), get_members)
 
 # arch-tag: db95a633-1591-4f72-91e4-fcb6ab6981e6
