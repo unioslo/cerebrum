@@ -205,8 +205,9 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
         if hasattr(self, '_affil_source'):
             source = self._affil_source
             db_affil = {}
-            for t_person_id, t_ou_id, t_affiliation, t_source, t_status, \
-                    deleted_date in self.get_affiliations():
+            for t_person_id, t_ou_id, t_affiliation, t_source, \
+                t_status, deleted_date \
+                in self.get_affiliations(include_deleted = True):
                 if source == t_source:
                     idx = "%d:%d:%d" % (t_ou_id, t_affiliation, t_status)
                     db_affil[idx] = [True, deleted_date]
@@ -530,17 +531,22 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
         idx = "%d:%d:%d" % (ou_id, affiliation, status)
         self.__affil_data[idx] = True
 
-    def get_affiliations(self):
-        return self.list_affiliations(self.entity_id)
+    def get_affiliations(self, include_deleted=False):
+        return self.list_affiliations(self.entity_id,
+                                      include_deleted = include_deleted)
 
     def list_affiliations(self, person_id=None, source_system=None,
-                          affiliation=None, status=None):
+                          affiliation=None, status=None,
+                          include_deleted=False):
         cols = {}
         for t in ('person_id', 'affiliation', 'source_system', 'status'):
             if locals()[t] is not None:
                 cols[t] = int(locals()[t])
-        where = " AND ".join(["%s=:%s" % (x, x)
-                             for x in cols.keys() if cols[x] is not None])
+        tests = ["%s=:%s" % (x, x) for x in cols.keys()
+                 if cols[x] is not None]
+        if not include_deleted:
+            tests.append("(deleted_date IS NULL OR deleted_date > [:now])")
+        where = " AND ".join(tests)
         if len(where) > 0:
             where = "WHERE %s" % where
         return self.query("""
