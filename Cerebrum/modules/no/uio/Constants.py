@@ -98,6 +98,12 @@ class Constants(Constants.Constants):
     affiliation_tilknyttet_ekst_stip = _PersonAffStatusCode(
         affiliation_tilknyttet, 'ekst_stip',
         'Personer registrert i LT med gjestetypekode=EF-STIP')
+    affiliation_tilknyttet_sivilarbeider = _PersonAffStatusCode(
+        affiliation_tilknyttet, 'sivilarbeider',
+        'Personer registrert i LT med gjestetypekode=SIVILARB')
+    affiliation_tilknyttet_diverse = _PersonAffStatusCode(
+        affiliation_tilknyttet, 'diverse',
+        'Personer registrert i LT med gjestetypekode=IKKE ANGIT')
 
     affiliation_manuell = _PersonAffiliationCode(
         'MANUELL', 'Tilknyttet enheter/instutusjoner som USIT har avtale med')
