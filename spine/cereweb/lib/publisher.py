@@ -26,8 +26,6 @@ from mod_python import publisher
 from mod_python.Session import Session
 from utils import url, no_cache, redirect
 
-import ServerConnection
-
 def logg(tekst):
     """Write text to a logfile for debuging."""
     file = open("tmp/cleanup", "a")
