@@ -264,9 +264,10 @@ class PosixUser(Account.Account):
         complete_name = re.sub(r'-', '', complete_name)
 
         m = re.search(r'(\S+)?(.*\s+(\S)\S*)?\s+(\S+)?$', complete_name)
-        fname = m.group(1)[0:8]
-        initial = m.group(3)
-        lname = m.group(4)[0:8]
+        # Avoid any None values returned by m.group(N).
+        fname = (m.group(1) or "")[0:8]
+        initial = (m.group(3) or "")
+        lname = (m.group(4) or "")[0:8]
 
         if lname == '': lname = fname	# Sane behaviour if only one name.
 
