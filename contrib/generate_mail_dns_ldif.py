@@ -130,7 +130,7 @@ def get_hosts_and_cnames():
 
 def write_mail_dns():
     f = SimilarSizeWriter(filename,'w')
-    f.set_size_change_limit(10)
+    f.set_size_change_limit(cereconf.LDAP_MAIL_DNS_MAX_CHANGE)
 
     hosts, cnames, lower2host = get_hosts_and_cnames()
 
