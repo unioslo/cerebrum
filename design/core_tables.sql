@@ -504,7 +504,7 @@ category:code/Oracle;
 GRANT INSERT, UPDATE, DELETE ON quarantine_code TO change_code;
 
 
-/*  host_info
+/*	host_info
 
    name is the DNS name that one must log into to get access to the
    machines disks.
@@ -531,7 +531,7 @@ CREATE TABLE host_info
 );
 
 
-/* disk_info
+/*	disk_info
 
   path is the name of the directory that users are placed in and that
        will ocour in the NIS map, excluding trailing slash.  
@@ -589,7 +589,7 @@ category:code/Oracle;
 GRANT INSERT, UPDATE, DELETE ON account_code TO change_code;
 
 
-/*	account
+/*	account_info
 
 Konto kan være tilknyttet en person.  Kontoens type indikerer hvorvidt
 kontoen kan være upersonlig; integriteten av dette tas hånd om utenfor
@@ -1141,9 +1141,24 @@ GRANT INSERT, UPDATE, DELETE ON person_affiliation TO change_person;
 
 /*	person_aff_status_code
 
-  , and what kinds of
-  "status" (employee on leave, retired faculty, inactive student,
-  etc.) each of these "affiliation" types can have.
+  This table defines the valid ('person_affiliation_code.code',
+  'status') tuples for this installation.  Any 'affiliation' code (as
+  defined in person_affiliation_code) must have at least one valid
+  'status' to be usable.
+
+  Persons can be associated with multiple (affiliation, status)
+  combinations (e.g. both employee and student), but cannot have more
+  than one 'status' per 'affiliation'; see table
+  person_affiliation_source.
+
+  As an example, here are some believed-to-be-common entries:
+    affiliation  status  status_str  description
+    <employee>   57      'active'    'Employee not on leave'
+    <employee>   58      'on_leave'  'Employee currently on leave'
+    <faculty>    60      'active'    'Active faculty'
+    <faculty>    61      'retired'   'Retired faculty'
+    <student>    65      'active'    'Currently active student'
+    <student>    66      'inactive'  'Student not currently active'
 
 */
 category:code;
@@ -1168,6 +1183,11 @@ category:code/Oracle;
 GRANT INSERT, UPDATE, DELETE ON person_aff_status_code TO change_code;
 
 
+/*	person_affiliation_source
+
+
+
+*/
 category:main;
 CREATE TABLE person_affiliation_source
 (
@@ -1302,6 +1322,11 @@ GRANT INSERT, UPDATE, DELETE ON account_authentication
   TO change_account;
 
 
+/*	group_visibility_code
+
+
+
+*/
 category:code;
 CREATE TABLE group_visibility_code
 (
@@ -1374,6 +1399,11 @@ category:main/Oracle;
 GRANT INSERT, UPDATE, DELETE ON group_info TO change_group;
 
 
+/*	group_membership_op_code
+
+
+
+*/
 category:code;
 CREATE TABLE group_membership_op_code
 (
@@ -1641,92 +1671,6 @@ Data assosiert direkte med en enkelt konto:
  * Struktur for tildeling av ymse rettigheter til (IT-)grupper.
 */
 
-/***********************************************************************
-   Generalized group tables
- ***********************************************************************/
-
-
-/*
-
-TBD: Er de følgende to tabellene nødvendige i det hele tatt, eller bør
-     de erstattes med modul-spesifikke export-tabeller m/ tilhørende
-     hooks?
-
-In what fashions/to what systems can a group be exported?
-
-This is split into the group type and, for lack of a better name, the
-target system's "owner".  This means that the same code can easily be
-used to perform an export for all exports with the same gtype
-(e.g. the code to expand subgroups etc. for exporting as NIS
-filegroups needs only be written once).
-
- */
-
-/*
-CREATE TABLE group_export_type
-(
-  gtype		 CHAR VARYING(32),
-  system_owner	 CHAR VARYING(32),
-  description	 CHAR VARYING(512),
-  PRIMARY KEY (gtype, system_owner) 
-);
-*/
-
-
-/* Define how a specific group should be exported. */
-/*
-CREATE TABLE group_export
-(
-  gkey		NUMERIC(12,0)
-		CONSTRAINT group_export_gkey REFERENCES group_info(group_id),
-  gtype		CHAR VARYING(32),
-  system_owner	CHAR VARYING(32),
-  create_date	DATE
-		DEFAULT [:now]
-		NOT NULL,
-  create_by	NUMERIC(12,0)
-		NOT NULL
-		CONSTRAINT group_export_create_by
-		  REFERENCES account(account_id),
-  delete_date	DATE
-		DEFAULT NULL,
-  delete_by	NUMERIC(12,0)
-		DEFAULT NULL
-		CONSTRAINT group_export_delete_by
-		  REFERENCES account(account_id),
-  CONSTRAINT group_export_pk PRIMARY KEY (gkey, gtype, system_owner),
-  CONSTRAINT group_export_gtype FOREIGN KEY (gtype, system_owner)
-    REFERENCES group_export_type(gtype, system_owner)
-);
-*/
-
-
-/* TBD: Må tenke mer på om spread skal skilles fra grupper, og
-   evt. hvordan.  Skal spread være i kjernen i det hele tatt? */
-
-/*
-spread
-(
-  to_system
-  entity_type
-  user
-  group
-  person
-  ...
-  start_date
-  end_date
-);
-*/
-
-/* Bør man kunne override gruppenavn pr. system ved eksport?  Det vil tillate
-
-   Internt i u2k	System X	System Y	System Z
-   -------------------------------------------------------------
-   A			A		foo		bar
-   B			B		bar		foo
-   C			C		C		A
-
-, men *vil* vi egentlig det? */
 
 category:drop;
 DROP TABLE group_member;
