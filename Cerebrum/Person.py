@@ -304,6 +304,20 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
         WHERE %s""" % " AND ".join(["%s=:%s" % (x, x)
                                    for x in cols.keys()]), cols)
 
+    def list_external_ids(self, source_system=None, id_type=None):
+        cols = {}
+        for t in ('source_system', 'id_type'):
+            if locals()[t] is not None:
+                cols[t] = int(locals()[t])
+        where = " AND ".join(["%s=:%s" % (x, x)
+                             for x in cols.keys() if cols[x] is not None])
+        if len(where) > 0:
+            where = "WHERE %s" % where
+        return self.query("""
+        SELECT person_id, id_type, source_system, external_id
+        FROM [:table schema=cerebrum name=person_external_id]
+        %s""" % where, cols)
+
     def find_persons_by_bdate(self, bdate):
         return self.query("""
         SELECT person_id FROM [:table schema=cerebrum name=person_info]
@@ -394,10 +408,22 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
         self.__affil_data[idx] = True
 
     def get_affiliations(self):
+        return self.list_affiliations(self.entity_id)
+
+    def list_affiliations(self, person_id=None, source_system=None,
+                          affiliation=None, status=None):
+        cols = {}
+        for t in ('person_id', 'affiliation', 'source_system', 'status'):
+            if locals()[t] is not None:
+                cols[t] = int(locals()[t])
+        where = " AND ".join(["%s=:%s" % (x, x)
+                             for x in cols.keys() if cols[x] is not None])
+        if len(where) > 0:
+            where = "WHERE %s" % where
         return self.query("""
-        SELECT ou_id, affiliation, source_system, status
+        SELECT person_id, ou_id, affiliation, source_system, status
         FROM [:table schema=cerebrum name=person_affiliation_source]
-        WHERE person_id=:p_id""", {'p_id': self.entity_id})
+        %s""" % where, cols)
 
     def add_affiliation(self, ou_id, affiliation, source, status):
         binds = {'ou_id': int(ou_id),
