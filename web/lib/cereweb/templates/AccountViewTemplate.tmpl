@@ -10,11 +10,15 @@
 <div class="info">
 <dl>
     <dt>$_("Date created")</dt>
-    <dd>$account.create_date</dd>
+    <dd>$account.create_date.Format('%Y-%m-%d')</dd>
 
     <dt>$_("Expire date")</dt>
-    <dd>$account.expire_date</dd>
-    
+#if $account.expire_date
+    <dd>$account.expire_date.Format('%Y-%m-%d')</dd>
+#else
+    <dd>$_("No expire date set")</dd>
+#end if
+
 #set $creator = $account.get_creator_object()
 #set $creatorurl = $url("%s/view?id=%d" % ($creator.type, $creator.id))
     
