@@ -7,7 +7,7 @@ from db import db
 
 __all__ = ['AddressType', 'ContactInfoType', 'GenderType', 'EntityType',
            'SourceSystem', 'NameType', 'AuthenticationType', 'Spread',
-           'GroupMemberOperationType', 'GroupVisibilityType']
+           'GroupMemberOperationType', 'GroupVisibilityType', 'QuarantineType']
 
 class CodeType(Builder):
     primary = [Attribute('id', 'long')]
@@ -28,15 +28,17 @@ class CodeType(Builder):
 
     getByName = classmethod(getByName)
 
-    def load(self):
+    def _load(self):
         rows = db.query('''SELECT code_str, description
-                           FROM %s WHERE code = %s''' % (self._tableName, self.id))
+                           FROM %s WHERE code = %s''' % (self._tableName, self._id))
         if not rows:
-            raise Errors.NoSuchNodeError('%s %s not found' % (self.__class__.__name__, self.id))
+            raise Errors.NoSuchNodeError('%s %s not found' % (self.__class__.__name__, self._id))
         row = rows[0]
 
         self._name = row['code_str']
         self._description = row['description']
+
+    load_name = load_description = _load
 
 class AddressType(CodeType):
     _tableName = 'address_code'
