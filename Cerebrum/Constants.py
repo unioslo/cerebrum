@@ -122,8 +122,7 @@ class _CerebrumCode(DatabaseAccessor):
     # some kind of currying in Constants to avoid having to pass the
     # Database arg every time?
     def __init__(self, code, description=None):
-        # self may be an already initialised singleton, but we only
-        # attempt to avoid work in the integer constructor case.
+        # self may be an already initialised singleton.
         if isinstance(description, str):
             description = description.strip()
         self._desc = description
@@ -132,7 +131,8 @@ class _CerebrumCode(DatabaseAccessor):
             # unavailable while all the constants are defined, nor
             # would we want to, since we often never need the
             # information.
-            self.int = None
+            if not hasattr(self, "int"):
+                self.int = None
             self.str = code
         elif not hasattr(self, "int"):
             self.int = code
