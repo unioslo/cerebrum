@@ -430,8 +430,9 @@ def main():
         if port is None:
             port = cereconf.NW_LDAPPORT
         dbg_print(INFO, 'INFO: Novell eDirectory quicksync starting at %s' % nwutils.now())
+	passwd = db._read_password(host,cereconf.NW_ADMINUSER.split(',')[:1][0])
         ldap_handle = nwutils.LDAPConnection(host, port,
-                                    binddn=cereconf.NW_ADMINUSER, password=cereconf.NW_PASSWORD, scope='sub')
+                                    binddn=cereconf.NW_ADMINUSER, password=passwd, scope='sub')
         load_cltype_table(cltype)                            
         nwqsync(spread)
         dbg_print(INFO, 'INFO: Novell eDirectory quicksync done at %s' % nwutils.now())
