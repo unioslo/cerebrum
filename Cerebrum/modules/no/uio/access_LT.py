@@ -50,34 +50,40 @@ class LT(object):
         "Henter informasjon om alle ikke-nedlagte steder"
         qry = """
         SELECT
-          fakultetnr, instituttnr, gruppenr,
-          forkstednavn,
-          NVL(stednavnfullt, stednavn) as stednavn,
-          akronym,
-          stedkortnavn_bokmal, stedkortnavn_nynorsk, stedkortnavn_engelsk,
-          stedlangnavn_bokmal, stedlangnavn_nynorsk, stedlangnavn_engelsk,
-          fakultetnr_for_org_sted, instituttnr_for_org_sted,
-                                   gruppenr_for_org_sted,
-          opprettetmerke_for_oppf_i_kat,
-          telefonnr, innvalgnr, linjenr,
-          stedpostboks,
-          adrtypekode_besok_adr, adresselinje1_besok_adr,
-                                 adresselinje2_besok_adr,
-          poststednr_besok_adr, poststednavn_besok_adr, landnavn_besok_adr,
-          adrtypekode_intern_adr, adresselinje1_intern_adr,
-                                  adresselinje2_intern_adr,
-          poststednr_intern_adr, poststednavn_intern_adr, landnavn_intern_adr,
-          adrtypekode_alternativ_adr, adresselinje1_alternativ_adr,
-          adresselinje2_alternativ_adr, poststednr_alternativ_adr,
-          poststednavn_alternativ_adr, landnavn_alternativ_adr,
-          TO_CHAR(dato_opprettet, 'YYYYMMDD') as dato_opprettet,
-          TO_CHAR(dato_nedlagt, 'YYYYMMDD') as dato_nedlagt
+          sk.fakultetnr, sk.instituttnr, sk.gruppenr,
+          sk.forkstednavn,
+          NVL(sk.stednavnfullt, sk.stednavn) as stednavn,
+          sk.akronym, sk.stedkortnavn_bokmal, sk.stedkortnavn_nynorsk,
+          sk.stedkortnavn_engelsk, sk.stedlangnavn_bokmal,
+          sk.stedlangnavn_nynorsk, sk.stedlangnavn_engelsk,
+          sk.fakultetnr_for_org_sted, sk.instituttnr_for_org_sted,
+          sk.gruppenr_for_org_sted, sk.opprettetmerke_for_oppf_i_kat,
+          sk.telefonnr, sk.innvalgnr, sk.linjenr,
+          sk.stedpostboks,
+          sk.adrtypekode_besok_adr, sk.adresselinje1_besok_adr,
+                                    sk.adresselinje2_besok_adr,
+          sk.poststednr_besok_adr, sk.poststednavn_besok_adr,
+                                   sk.landnavn_besok_adr,
+          sk.adrtypekode_intern_adr, sk.adresselinje1_intern_adr,
+                                     sk.adresselinje2_intern_adr,
+          sk.poststednr_intern_adr, sk.poststednavn_intern_adr,
+                                    sk.landnavn_intern_adr,
+          sk.adrtypekode_alternativ_adr, sk.adresselinje1_alternativ_adr,
+          sk.adresselinje2_alternativ_adr, sk.poststednr_alternativ_adr,
+          sk.poststednavn_alternativ_adr, sk.landnavn_alternativ_adr,
+          TO_CHAR(sk.dato_opprettet, 'YYYYMMDD') as dato_opprettet,
+          TO_CHAR(sk.dato_nedlagt, 'YYYYMMDD') as dato_nedlagt,
+          skk.konvtilverdi as nsd_kode
         FROM
-          lt.sted
+          lt.sted sk, lt.stedkodekonv skk 
         WHERE
-          NVL(dato_nedlagt,SYSDATE) >= ADD_MONTHS(SYSDATE, -12)
+          sk.fakultetnr = skk.fakultetnr (+) AND
+          sk.instituttnr = skk.instituttnr (+) AND
+          sk.gruppenr = skk.gruppenr (+) AND
+          'DBH' = skk.KONVTYPEKODE (+) AND
+          NVL(sk.dato_nedlagt,SYSDATE) >= ADD_MONTHS(SYSDATE, -12)
         ORDER BY
-          fakultetnr, instituttnr, gruppenr
+          sk.fakultetnr, sk.instituttnr, sk.gruppenr
         """
 
         return self.db.query(qry)
