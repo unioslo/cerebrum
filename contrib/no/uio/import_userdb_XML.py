@@ -35,6 +35,7 @@ import xml.sax
 import sys
 import getopt
 import cereconf
+import os
 from time import gmtime, strftime, time, localtime
 
 from Cerebrum import Account
@@ -55,6 +56,8 @@ from Cerebrum.Utils import Factory
 from Cerebrum.modules import Email
 
 
+users_minute=0
+prev_time=''
 default_personfile = ''
 default_groupfile = ''
 default_itpermfile = ''
@@ -809,11 +812,25 @@ def person_callback(person):
     # Etter at hele filen er prosessert, gå gjennom alle som har
     # deleted_date, og bygg PosixUser til de, men sett
     # expire_date=deleted_date
-    global max_cb
+    global max_cb, users_minute, prev_time
     if max_cb is not None:
         max_cb -= 1
         if max_cb < 0:
             raise StopIteration()
+    tmp_time = strftime("%H:%M", localtime())
+    if tmp_time > prev_time:
+        tmp = '?'
+        try:
+            tmp = os.popen("ps u %i" % os.getpid())
+            tmp.readline()
+            tmp = tmp.readline()
+            tmp = tmp.split()[4]
+        except:
+            pass
+        print "[%s] person_callbacks last minute: %i (%s)" % (strftime("%H:%M:%S", localtime()), users_minute, tmp)
+        users_minute = 0
+        prev_time = tmp_time
+    users_minute += 1
     personObj.clear()
     fnr = None
     for e in person.get('extid', []):
