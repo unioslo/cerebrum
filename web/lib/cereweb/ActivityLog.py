@@ -1,16 +1,31 @@
-from gettext import gettext as _
-import forgetHTML as html
-from time import strftime
+from Cerebrum.web.templates.ActivityLogTemplate import ActivityLogTemplate
 
+import forgetHTML as html
+
+# subclass Division to be included in a division..
 class ActivityLog(html.Division):
     def __init__(self):
-        html.Division.__init__(self)
-        self['class'] = "activitylog"
-        self.append(html.Header(_("Activity log"), level=2))
+        self.remembered = []
+        self.selected = []
+    def addEntity(self, id):
+        object = APImannen.getEntity(id)
+        self.remembered.append(object)
+    def output(self):
+        template = ActivityLogTemplate()
+        objects = []
+        for object in self.remembered:
+            view = str(object)
+            key = object.getEntityID()
+            objects.append( (key, view) )
+        selected = [object.getEntityID() for object in self.selected]       
+        actions = self.getActions()
+        return template.viewActivityLog()
+    def getActions(self):
+        actions = []
+        actions.append(("view", "View"))
+        actions.append(("edit", "Edit"))
+        actions.append(("delete", "Delete"))
+        actions.append(("fix", "Fix it"))
+        return actions
+            
 
-    def add(self, entryline):
-        entry = html.Division()
-        entry.append(strftime("%Y-%m-%d %H:%M:%S"))
-        entry.append(entryline)
-        entry['class'] = 'entry'
-        self._content.insert(1, entry)
