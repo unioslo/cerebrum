@@ -475,7 +475,140 @@ WHERE p.fodselsdato=e.fodselsdato AND
 ORDER BY fodselsdato, personnr
       """ %(aar[0],self.is_alive())                            
       	return (self._get_cols(qry), self.db.query(qry))
-    
+
+
+    def GetPortalInfo(self):
+        """
+        Hent ut alle eksamensmeldinger i nåværende semester med all
+        interessant informasjon for portaldumpgenerering.
+
+        SQL-spørringen er dyp magi. Spørsmål rettes til baardj.
+        """
+
+        #
+        # NB! Det er ikke meningen at vanlige dødelige skal kunne forstå
+        # denne SQL-spørringen. Lurer du på noe, plag baardj
+        # 
+
+        # Velg ut studentens eksamensmeldinger for inneværende og
+        # fremtidige semestre.  Søket sjekker at studenten har
+        # rett til å følge kurset, og at vedkommende er
+        # semesterregistrert i inneværende semester (eller,
+        # dersom fristen for semesterregistrering dette
+        # semesteret ennå ikke er utløpt, hadde
+        # semesterregistrert seg i forrige semester)
+
+        query = """
+        SELECT m.fodselsdato, m.personnr,
+               m.emnekode, m.arstall, m.manednr,
+               sprg.studienivakode,
+               e.institusjonsnr_reglement, e.faknr_reglement,
+               e.instituttnr_reglement, e.gruppenr_reglement,
+               es.studieprogramkode
+        FROM fs.eksamensmelding m, fs.emne e, fs.studierett st,
+             fs.emne_i_studieprogram es, fs.registerkort r,
+             fs.studieprogram sprg, fs.person p
+        WHERE
+            m.arstall >= :aar1 AND
+            m.fodselsdato = st.fodselsdato AND
+            m.personnr = st.personnr AND
+            m.fodselsdato = r.fodselsdato AND
+            m.personnr = r.personnr AND
+            m.fodselsdato = p.fodselsdato AND
+            m.personnr = p.personnr AND
+            NVL(p.status_dod, 'N') = 'N' AND
+            %s AND
+            (st.opphortstudierettstatkode IS NULL OR 
+             st.dato_gyldig_til >= sysdate) AND
+            st.status_privatist = 'N' AND
+            m.institusjonsnr = e.institusjonsnr AND
+            m.emnekode = e.emnekode AND
+            m.versjonskode = e.versjonskode AND
+            m.institusjonsnr = es.institusjonsnr AND
+            m.emnekode = es.emnekode AND
+            es.studieprogramkode = st.studieprogramkode AND
+            es.studieprogramkode = sprg.studieprogramkode
+        """ % self.get_termin_aar(True)
+
+        # Velg ut studentens avlagte UiO eksamener i inneværende
+        # semester (studenten er fortsatt gyldig student ut
+        # semesteret, selv om alle eksamensmeldinger har gått
+        # over til å bli eksamensresultater).
+        #
+        # Søket sjekker _ikke_ at det finnes noen
+        # semesterregistrering for inneværende registrering
+        # (fordi dette skal være implisitt garantert av FS)
+        query += """ UNION
+        SELECT sp.fodselsdato, sp.personnr,
+               sp.emnekode, sp.arstall, sp.manednr,
+               sprg.studienivakode,
+               e.institusjonsnr_reglement, e.faknr_reglement,
+               e.instituttnr_reglement, e.gruppenr_reglement,
+               st.studieprogramkode
+        FROM fs.studentseksprotokoll sp, fs.emne e, fs.studierett st,
+             fs.emne_i_studieprogram es, fs.studieprogram sprg, fs.person p
+        WHERE
+            sp.arstall >= :aar2 AND
+            sp.fodselsdato = st.fodselsdato AND
+            sp.personnr = st.personnr AND
+            sp.fodselsdato = p.fodselsdato AND
+            sp.personnr = p.personnr AND
+            NVL(p.status_dod, 'N') = 'N' AND
+            (st.opphortstudierettstatkode IS NULL OR
+             st.DATO_GYLDIG_TIL >= sysdate) AND
+            st.status_privatist = 'N' AND
+            sp.emnekode = e.emnekode AND
+            sp.versjonskode = e.versjonskode AND
+            sp.institusjonsnr = e.institusjonsnr AND
+            sp.institusjonsnr = '185' AND
+            sp.emnekode = es.emnekode AND
+            es.studieprogramkode = st.studieprogramkode AND
+            es.studieprogramkode = sprg.studieprogramkode
+        """
+
+        # Velg ut alle studenter som har opptak til et studieprogram
+        # som krever utdanningsplan og som har bekreftet utdannings-
+        # planen dette semesteret.
+        #
+        # NB! TO_*-konverteringene er påkrevd
+        query += """ UNION
+        SELECT stup.fodselsdato, stup.personnr,
+               TO_CHAR(NULL) as emnekode, TO_NUMBER(NULL) as arstall,
+               TO_NUMBER(NULL) as manednr,
+               sprg.studienivakode,
+               sprg.institusjonsnr_studieansv, sprg.faknr_studieansv,
+               sprg.instituttnr_studieansv, sprg.gruppenr_studieansv,
+               st.studieprogramkode
+        FROM fs.studprogstud_planbekreft stup,fs.studierett st,
+             fs.studieprogram sprg, fs.person p
+        WHERE
+              stup.arstall_bekreft=:aar3 AND
+              stup.terminkode_bekreft=:semester AND
+              stup.fodselsdato = st.fodselsdato AND
+              stup.personnr = st.personnr AND
+              stup.fodselsdato = p.fodselsdato AND
+              stup.personnr = p.personnr AND
+              NVL(p.status_dod, 'N') = 'N' AND
+              (st.opphortstudierettstatkode IS NULL OR
+               st.DATO_GYLDIG_TIL >= sysdate) AND
+              st.status_privatist = 'N' AND
+              stup.studieprogramkode = st.studieprogramkode AND
+              stup.studieprogramkode = sprg.studieprogramkode AND
+              sprg.status_utdplan = 'J'
+        """
+
+        semester = "%s" % self.get_curr_semester()
+        # FIXME! Herregud da, hvorfor må de ha hver sitt navn?
+        return (self._get_cols(query), self.db.query(query,
+                                                     {"aar1" : self.year,
+                                                      "aar2" : self.year,
+                                                      "aar3" : self.year,
+                                                      "semester": semester},
+                                                     False))
+    # end GetPortalInfo
+
+
+
     def get_termin_aar(self, only_current=0):
         yr, mon, md = t = time.localtime()[0:3]
         if mon <= 6:
