@@ -624,7 +624,7 @@ class BofhdAuth(DatabaseAccessor):
         if operator == account.entity_id:
             return True
         return self._query_disk_permissions(operator,
-                                            self.const.auth_remove_user,
+                                            self.const.auth_set_password,
                                             self._get_disk(account.disk_id),
                                             account.entity_id)
 
@@ -643,16 +643,19 @@ class BofhdAuth(DatabaseAccessor):
     # the user's local sysadmin
     def can_email_info_detail(self, operator, account=None,
                               query_run_any=False):
-        return self.can_email_migrate(operator, account, query_run_any)
+        return self._query_disk_permissions(operator,
+                                            self.const.auth_create_user,
+                                            self._get_disk(account.disk_id),
+                                            account.entity_id)
 
     # the local sysadmin is allowed to turn forwarding and tripnote on/off
     def can_email_forward_toggle(self, operator, account=None,
                                  query_run_any=False):
-        return self.can_email_migrate(operator, account, query_run_any)
+        return self.can_email_info_detail(operator, account, query_run_any)
 
     def can_email_tripnote_toggle(self, operator, account=None,
                                   query_run_any=False):
-        return self.can_email_migrate(operator, account, query_run_any)
+        return self.can_email_info_detail(operator, account, query_run_any)
 
     # the local sysadmin may not add or remove forward addresses.
     def can_email_forward_edit(self, operator, account=None,
