@@ -2,6 +2,7 @@ import Communication
 
 from classes.Builder import Method
 from classes.Dumpable import Struct
+from classes.Auth import AuthOperationType
 
 # FIXME: weakref her?
 class_cache = {}
@@ -72,9 +73,6 @@ def convert_from_corba(obj, data_type):
         com = Communication.get_communication()
         return com.reference_to_servant(obj).gro_object
 
-from classes import Registry
-registry = Registry.get_registry()
-
 def create_corba_method(method):
     args_table = {}
     for name, data_type in method.args:
@@ -86,32 +84,39 @@ def create_corba_method(method):
 
         # Auth
 
-        # FIXME: avhengighet til registry er teit her.
-        # må lage en metode som gjør jobbe i GroBuilder.
-#        class_name = self.gro_class.__name__
-#        operation_type = registry.AuthOperationType(name='%s.%s' % (class_name, method.name))
-#        operator = self.transaction.get_client()
-#        try:
-#            if self.gro_object.check_permission(operator, operation_type):
-#                print 'access granted'
-#            else:
-#                print 'access denied'
-#        except Exception, e:
-#            print 'warning check_permission(', operator , ', ', operation_type, ') failed:', e
-#            print 'access denied'
+        class_name = self.gro_class.__name__
+        operator = self.transaction.get_client()
+        operation_name = '%s.%s' % (class_name, method.name)
+        try:
+            operation_type = AuthOperationType(name=operation_name)
+        except Exception, e:
+            # FIXME: kaste en exception
+            # print 'no operation_type defined for %s' % operation_name
+            operation_type = None
+
+        # FIXME: bruk isinstance eller issubclass
+        if hasattr(self.gro_object, 'check_permission'):
+            if self.gro_object.check_permission(operator, operation_type):
+                print operation_name, 'access granted'
+            else:
+                # FIXME: kaste en exception
+                # print operation_name, 'access denied' 
+                pass
+        else:
+            # FIXME: kaste en exception
+            pass
 
         # Transaction
-        object = self.gro_object
         if self.transaction is not None:
             if method.write:
-                object.lock_for_writing(self.transaction)
+                self.gro_object.lock_for_writing(self.transaction)
             else:
-                object.lock_for_reading(self.transaction)
-            self.transaction.add_ref(object)
+                self.gro_object.lock_for_reading(self.transaction)
+            self.transaction.add_ref(self.gro_object)
 
         elif not method.write:
-            if object.get_writelock_holder() is not None:
-                object = self.gro_class(*self.gro_object.get_primary_key(), **{'nocache':True})
+            if self.gro_object.get_writelock_holder() is not None:
+                self.gro_object = self.gro_class(*self.gro_object.get_primary_key(), **{'nocache':True})
 
         else:
             raise Exception('Trying to access write-method outside a transaction: %s' % method)
@@ -128,9 +133,9 @@ def create_corba_method(method):
             vargs[name] = convert_from_corba(value, data_type)
 
         # run the real method
-        value = getattr(object, method.name)(*args, **vargs)
+        value = getattr(self.gro_object, method.name)(*args, **vargs)
         if method.write:
-            object.save()
+            self.gro_object.save()
 
         return convert_to_corba(value, self.transaction, method.data_type)
 
