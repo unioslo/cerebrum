@@ -1,5 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 group_help = {
+    'email': "E-mail commands",
     'group': "Group commands",
     'misc': 'Miscellaneous commands',
     'person': 'Person related commands',
@@ -13,6 +14,17 @@ group_help = {
 # The texts in command_help are automatically line-wrapped, and should
 # not contain \n
 command_help = {
+    'email': {
+    'email_forward': 'Turn e-mail forwarding for a user on/off',
+    'email_add_forward': 'Add a forward address',
+    'email_remove_forward': 'Remove a forward address',
+    'email_info': 'View e-mail information about a user or address',
+    'email_migrate': 'Migrate users from old to new e-mail service',
+    'email_move': 'Move a user\'s e-mail to another server',
+    'email_tripnote': 'Turn vacation messages on/off',
+    'email_add_tripnote': 'Add vacation message',
+    'email_remove_tripnote': 'Remove vacation message',
+    },
     'group': {
     'group_add': 'Let an account join a group',
     'group_create': 'Create a new Cerebrum group',
@@ -21,7 +33,7 @@ command_help = {
     'group_gadd': 'Let another group join a group',
     'group_gremove': 'Remove member-groups from a given group',
     'group_info': 'View information about a spesific group',
-    'group_list': 'List account mebmers of a group',
+    'group_list': 'List account members of a group',
     'group_list_all': 'List all existing groups',
     'group_list_expanded': 'List all members of a group, direct og indirect',
     'group_promote_posix': 'Make en existing group into a POSIX-group',
@@ -107,6 +119,8 @@ command_help = {
     }
 
 arg_help = {
+    'account_name': ['uname', 'Enter account name',
+                     'Enter the name of the account for this operation'],
     'account_name_member': ['uname', 'Enter members accountname',
                             "Enter the name of an account that already is a member"],
     'account_name_src': ['uname', 'Enter source accountname',
@@ -129,6 +143,12 @@ affiliation status codes"""],
  """Enter the path to the disc without trailing slash or username.
  Example: /usit/sauron/u1
  For non-cerebrum disks, prepend the path with a :"""],
+    'email_address': ['address', 'Enter e-mail address'],
+    'email_forward_action': ['action', 'Enter action',
+"""Legal forward actions:
+ - on
+ - off
+ - local"""],
     'group_name': ['gname', 'Enter groupname'],
     'group_name_dest': ['gname', 'Enter the destination group'],
     'group_name_new': ['gname', 'Enter the new group name'],
@@ -190,11 +210,13 @@ printer."""],
     'string_attribute': ['attr', 'Enter attribute',
                          "Experts only.  See the documentation for details"],
     'string_description': ['description', 'Enter description'],
+    'string_email_host': ['hostname',
+                          'Enter e-mail server.  Example: mail-sg2'],
     'string_filename': ['filename', 'Enter filename'],
     'string_group_filter': ['filter', 'Enter filter'],
     'string_host': ['hostname', 'Enter hostname.  Example: ulrik'],
     'string_new_priority': ['new_priority', 'Enter value new priority value',
-                            'Enter a ositive integer (1..999), lower integers give higher priority'],
+                            'Enter a positive integer (1..999), lower integers give higher priority'],
     'string_np_type': ['np_type', 'Enter np_type',
                        """Valid values include:
 'P' - Programvarekonto
