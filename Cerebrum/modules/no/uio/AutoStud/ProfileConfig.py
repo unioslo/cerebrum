@@ -35,10 +35,11 @@ class Config(object):
         self.disk_defs = {}
         self.group_defs = {}
         self.profiles = []
+        self.required_spread_order = []
+        self.lookup_helper = LookupHelper(autostud.db, logger)
         xml.sax.parse(cfg_file, sp)
 
         # Generate select_mapping dict and expand super profiles
-        self.lookup_helper = LookupHelper(autostud.db, logger)
         profilename2profile = {}
         self.select_mapping = {}
         for p in self.profiles:
@@ -50,6 +51,7 @@ class Config(object):
             p.set_select_mapping(self.select_mapping)
         for p in self.profiles:
             p.expand_super(profilename2profile)
+            p.settings["spread"] = self._sort_spreads(p.settings["spread"])
         # Change keys in group_defs from name to entity_id
         tmp = {}
         for k in self.group_defs.keys():
@@ -63,6 +65,15 @@ class Config(object):
         ret += "Profile definitions:"
         for p in self.profiles:
             ret += p.debug_dump()+"\n"
+        return ret
+
+    def _sort_spreads(self, spreads):
+        """On some sites certain spreads requires other spreads, thus
+        we must sort them """
+        ret = []
+        for s in self.required_spread_order:
+            if s in spreads:
+                ret.append(s)
         return ret
 
 class ProfileDefinition(object):
@@ -306,6 +317,8 @@ class StudconfigParser(xml.sax.ContentHandler):
             pass  # deprecated?
         elif len(self.elementstack) == 3 and self.elementstack[1] == 'spread_oversikt':
             if ename == 'spreaddef':
+                self._config.required_spread_order.append(
+                    self._config.lookup_helper.get_spread(tmp['kode']))
                 self._legal_spreads[tmp['kode']] = 1
             else:
                 raise SyntaxWarning, "Unexpected tag %s in spread_oversikt" % ename
