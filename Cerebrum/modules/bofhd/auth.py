@@ -227,11 +227,15 @@ class BofhdAuthOpTarget(DatabaseAccessor):
             ewhere.append("op_target_id=:target_id")
         if target_type is not None:
             ewhere.append("target_type=:target_type")
+        if ewhere:
+            ewhere = "WHERE %s" % " AND ".join(ewhere)
+        else:
+            ewhere = ""
         return self.query("""
         SELECT op_target_id, entity_id, target_type, attr
         FROM [:table schema=cerebrum name=auth_op_target]
-        WHERE %s
-        ORDER BY entity_id""" % " AND ".join(ewhere), {
+        %s
+        ORDER BY entity_id""" % ewhere, {
             'target_type': target_type, 'entity_id': entity_id,
             'target_id': target_id})
 
