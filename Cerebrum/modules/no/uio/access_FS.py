@@ -342,21 +342,21 @@ SELECT s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
        s.adrlin3_semadr, s.adresseland_semadr, p.adrlin1_hjemsted,
        p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
        p.adresseland_hjemsted, p.status_reserv_nettpubl, 
-       p.sprakkode_malform, sp.studieprogramkode, p.kjonn, em.emnekode
-FROM fs.student s, fs. person p, fs.studieprogram sp, fs.registerkort r,
-     fs.eksamensmelding em, fs.emne_i_studieprogram es 
+       p.sprakkode_malform, p.kjonn, em.emnekode
+FROM fs.student s, fs. person p, fs.registerkort r,
+     fs.eksamensmelding em
 WHERE s.fodselsdato=p.fodselsdato AND
       s.personnr=p.personnr AND
       p.fodselsdato=r.fodselsdato AND
       p.personnr=r.personnr AND
       p.fodselsdato=em.fodselsdato AND
       p.personnr=em.personnr AND
-      em.emnekode = es.emnekode AND
        %s AND %s AND
       NOT EXISTS
-      (SELECT 'x' FROM fs.studierett st
+      (SELECT 'x' FROM fs.studierett st, fs.emne_i_studieprogram es
        WHERE p.fodselsdato=st.fodselsdato AND
              p.personnr=st.personnr AND
+             es.emnekode=em.emnekode AND
              es.studieprogramkode = st.studieprogramkode AND
              (st.opphortstudierettstatkode IS NULL OR
               st.dato_gyldig_til >= SYSDATE))
