@@ -454,7 +454,8 @@ class BofhdExtension(object):
             raise CerebrumError, "Bad password: %s" % m
         ac = Utils.Factory.get("Account")(self.db)
         crypt = ac.enc_auth_type_crypt3_des(password)
-        return "OK, crypt == %s" % (crypt,)
+        md5 = ac.enc_auth_type_md5_crypt(password)
+        return "OK.  crypt3-DES: %s   MD5-crypt: %s" % (crypt, md5)
 
     # misc clear_passwords
     all_commands['misc_clear_passwords'] = Command(
