@@ -184,6 +184,35 @@ class Entity(DatabaseAccessor):
         WHERE entity_id=:e_id""", {'e_id': self.entity_id})
         self.clear()
 
+    def get_spread(self):
+        """Return all 'spread's given to this entity."""
+        return self.query("""
+        SELECT spread
+        FROM [:table schema=cerebrum name=entity_spread]
+        WHERE entity_id=:e_id""", {'e_id': self.entity_id})
+
+    def add_spread(self, spread):
+        """Add ``spread`` to this entity."""
+        return self.execute("""
+        INSERT INTO [:table schema=cerebrum name=entity_spread]
+          (entity_id, entity_type, spread)
+        VALUES (:e_id, :e_type, :spread)""", {'e_id': self.entity_id,
+                                              'e_type': int(self.entity_type),
+                                              'spread': int(spread)})
+
+    def delete_spread(self, spread):
+        """Remove ``spread`` from this entity."""
+        return self.execute("""
+        DELETE FROM [:table schema=cerebrum name=entity_spread]
+        WHERE entity_id=:e_id""", {'e_id': self.entity_id})
+
+    def list_all_with_spread(self, spread):
+        """Return sequence of all 'entity_id's that has ``spread``."""
+        return self.query("""
+        SELECT entity_id
+        FROM [:table schema=cerebrum name=entity_spread]
+        WHERE spread=:spread""", {'spread': spread})
+
 
 class EntityName(Entity):
     "Mixin class, usable alongside Entity for entities having names."

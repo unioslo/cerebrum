@@ -31,6 +31,8 @@ DROP TABLE address_code;
 DROP TABLE country_code;
 DROP TABLE entity_name;
 DROP TABLE value_domain_code;
+DROP TABLE entity_spread;
+DROP TABLE spread_code;
 DROP TABLE entity_info;
 DROP SEQUENCE entity_id_seq;
 DROP TABLE entity_type_code;

@@ -21,13 +21,13 @@
 
 */
 
+CREATE SEQUENCE code_seq;
 
 /*	authoritative_system_code
 
 
 
 */
-CREATE SEQUENCE code_seq;
 CREATE TABLE authoritative_system_code
 (
   code		NUMERIC(6,0)
@@ -91,6 +91,74 @@ CREATE TABLE entity_info
 		  REFERENCES entity_type_code(code),
   CONSTRAINT entity_info_type_unique
     UNIQUE (entity_type, entity_id)
+);
+
+
+/*	spread_code
+
+  `code` is the numeric code for a spread type.  New rows should take
+      the value of this column the `code_seq` sequence. The primary
+      intended use for this is in foreign key constraints.
+
+  `code_str` is a short, textual description of a spread type,
+      suitable for terse user presentation.
+
+  `entity_type` denotes the entity type that it is possible to give
+      spread of type `code` to.  Note that this implies that any
+      single spread type can only be given to a single type of
+      entities, so you'll need several spread `code`s for
+      e.g. exporting to a NIS domain that can handle e.g. both
+      `account` and `group` entities.
+
+  `description` is a longer textual description of a spread type.
+
+  Some possible uses:
+  code  code_str        entity_type  description
+  1     'NIS_user@uio'  <account>    'User in NIS domain "uio"'
+  42    'NIS_fg@uio'    <group>      'File group in NIS domain "uio"'
+  43    'NIS_ng@uio'    <group>      'Net group in NIS domain "uio"'
+  45    'LDAP_person'   <person>     'Person included in LDAP directory'
+  47    'LDAP_OU'       <ou>         'OU included in LDAP directory'
+
+*/
+CREATE TABLE spread_code
+(
+  code		NUMERIC(6,0),
+		CONSTRAINT spread_code_pk PRIMARY KEY,
+  code_str	CHAR VARYING(16)
+		NOT NULL
+		CONSTRAINT spread_codestr_u UNIQUE,
+  entity_type	NUMERIC(6,0)
+		NOT NULL
+		CONSTRAINT spread_code_entity_type
+		  REFERENCES entity_type_code(code),
+  description	CHAR VARYING(512)
+		NOT NULL
+);
+
+
+/*	entity_spread
+
+  `entity_id` identifies the entity which is given spread type
+      `spread`.
+
+  `entity_type` is needed to make sure that `entity_id` is of the
+      proper entity type for receiving spread type `spread`.
+
+  `spread` denotes the type of spread that `entity_id` is to receive;
+      see table `spread_code` for how spread types are defined.
+
+*/
+CREATE TABLE entity_spread
+(
+  entity_id	NUMERIC(12,0),
+  entity_type	NUMERIC(6,0),
+  spread	NUMERIC(6,0),
+  CONSTRAINT entity_spread_pk PRIMARY KEY (entity_id, spread)
+  CONSTRAINT entity_spread_entity_id FOREIGN KEY (entity_id, entity_type)
+    REFERENCES entity_info(entity_id, entity_type)
+  CONSTRAINT entity_spread_spread FOREIGN KEY (spread, entity_type)
+    REFERENCES spread_code(code, entity_type)
 );
 
 

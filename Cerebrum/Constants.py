@@ -114,6 +114,17 @@ class _EntityTypeCode(_CerebrumCode):
     _lookup_table = '[:table schema=cerebrum name=entity_type_code]'
     pass
 
+class _SpreadCode(_CerebrumCode):
+    """Code values for entity `spread`; table `entity_spread`."""
+    _lookup_table = '[:table schema=cerebrum name=spread_code]'
+
+    def entity_type(self):
+        return _EntityTypeCode(self.sql.query_1("""
+        SELECT entity_type
+        FROM [:table schema=cerebrum name=%s]
+        WHERE %s=:code""" % (self._lookup_table, self._lookup_code_column),
+                                                {'code': int(self)})
+
 class _ContactInfoCode(_CerebrumCode):
     "Mappings stored in the contact_info_code table"
     _lookup_table = '[:table schema=cerebrum name=contact_info_code]'
