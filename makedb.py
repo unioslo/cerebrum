@@ -28,11 +28,39 @@ import cerebrum_path
 import cereconf
 from Cerebrum.Utils import Factory
 
+def usage(exitcode=0):
+    print """makedb.py [options] [sql-file ...]
+
+  --extra-file=file
+        For each phase, do SQL statements for core Cerebrum first,
+        then SQL from 'file'.  This option can be specified more than
+        once; for each phase, the additional 'file's will then be run
+        in the order they're specified.
+  --only-insert-codes
+        Make sure all code values for the current configuration of
+        cereconf.CLASS_CONSTANTS have been inserted into the database.
+  --drop
+        Perform only the 'drop' phase.
+        WARNING: This will remove tables and the data they're holding
+                 from your database.
+  -d | --debug
+  -c file | --country-file=file
+
+If one or more 'sql-file' arguments are given, each phase will include
+only statements from those files.  The statements for core Cerebrum
+won't be included.
+
+"""
+    sys.exit(exitcode)
+
 def main():
-    opts, args = getopt.getopt(sys.argv[1:], 'dc:',
-                               ['debug', 'drop',
-                                'only-insert-codes', 'country-file=',
-                                'extra-file='])
+    try:
+        opts, args = getopt.getopt(sys.argv[1:], 'dc:',
+                                   ['debug', 'help', 'drop',
+                                    'only-insert-codes', 'country-file=',
+                                    'extra-file='])
+    except getopt.GetoptError:
+        usage(1)
 
     debug = 0
     do_drop = False
@@ -46,6 +74,8 @@ def main():
     Cerebrum = Factory.get('Database')(user=db_user)
 
     for opt, val in opts:
+        if opt == '--help':
+            usage()
         if opt in ('-d', '--debug'):
             debug += 1
         elif opt == '--drop':
