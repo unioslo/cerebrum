@@ -105,9 +105,8 @@ def main():
     logger = Factory.get_logger("cronjob")
 
     options, rest = getopt.getopt(sys.argv[1:],
-                                  "s:l",
-                                  ["sap-file=",
-				   "logger-name=",])
+                                  "s",
+                                  ["sap-file=",])
     input_name = None
     for option, value in options:
         if option in ("-s", "--sap-file"):
