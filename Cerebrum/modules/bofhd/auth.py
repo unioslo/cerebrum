@@ -609,17 +609,18 @@ class BofhdAuth(DatabaseAccessor):
         try:
             return self._any_perm_cache[key]
         except KeyError:
-            r = self.query("""
+            sql = """
             SELECT 'foo'
             FROM [:table schema=cerebrum name=auth_operation] ao,
                  [:table schema=cerebrum name=auth_operation_set] aos,
                  [:table schema=cerebrum name=auth_role] ar
             WHERE     
-               ao.op_id=:operation AND
+               ao.op_code=:operation AND
                ao.op_set_id=aos.op_set_id AND
                aos.op_set_id=ar.op_set_id AND
-               ar.entity_id=:operator""", {'operation': int(operation),
-                                       'operator': int(operator)})
+               ar.entity_id IN (%s)""" % (", ".join(
+                ["%i" % x for x in self._get_users_auth_entities(operator)]))
+            r = self.query(sql, {'operation': int(operation) })
             if r:
                 self._any_perm_cache[key] = True
             else:
