@@ -41,7 +41,7 @@ Disks with members that has homedirectory:
 """
 from __future__ import generators
 
-import sre, sys, locale, getopt
+import sys, locale, getopt
 
 import cerebrum_path
 import cereconf
@@ -50,22 +50,22 @@ from Cerebrum.Utils import Factory
 from Cerebrum import Errors
 from Cerebrum import Disk
 from Cerebrum import Constants
-#from __future__ import generators
 
 # Hent ut spread 
 # Hent host og samle antall disker bak host_id.
-
+#global del_grp
+u_spread = account = logger = db = const = None
 
 
 def init_module():
-    global db, const, account, del_grp ,logger
+    global db, const, account, logger #, del_grp
     db = Factory.get('Database')()
     db.cl_init(change_program='pop_server_grps')
     const = Factory.get('Constants')(db)
     account = Factory.get('Account')(db)
     logger = Factory.get_logger("cronjob")
     locale.setlocale(locale.LC_CTYPE, ('en_US', 'iso88591'))
-    del_grp = None
+    #del_grp = None
 
 
 def get_account(name):
@@ -94,13 +94,11 @@ def get_host(host_id):
 
 def get_disk(disk_id):
     dsk = Factory.get('Disk')(db)
-    if isinstance(disk_id,str):
-         dsk.find_by_path(disk_id)
-    elif isinstance(disk_id, int):
-        dsk.find(disk_id)
-    else:
-        logger.warn("Host-id colud not be resolved %s" % host_id)
-        dsk = None
+    try:
+	dsk.find(disk_id)
+    except Errors.NotFoundError:
+	logger.warn("Disk-id could not be resolved %s" % disk_id)
+	dsk = None
     return(dsk)
 
 def safe_join(elements, sep=' '):
