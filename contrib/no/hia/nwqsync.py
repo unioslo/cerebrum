@@ -407,7 +407,13 @@ def change_group_spread(dn_id,ch_type,spread,gname=None):
 	    else:
 		grp_dn = utf8_dn + ',ou=grp,ou=ans,' + cereconf.NW_LDAP_ROOT
 	    add_ldap(grp_dn, attrs)
-	    user_add_del_grp(const.group_add, grp_mem, dn_id)
+	    for delay in range(6):
+		if ldap_handle.GetObjects(search_dn, search_cn):
+		    user_add_del_grp(const.group_add, grp_mem, dn_id)
+		    return
+		time.sleep(delay)
+	    logger.warn("Group not found on server: %s (%s)" %\
+							(group_name,dn_id))
 	except:
 	    logger.error('Error occured while creating group %s' % dn_id)
     else:
