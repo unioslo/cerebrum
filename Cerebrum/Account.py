@@ -40,6 +40,8 @@ from Cerebrum.modules import PasswordChecker
 from Cerebrum.Database import Errors
 import cereconf
 
+class NotSet(object): pass
+
 class AccountType(object):
     """The AccountType class does not use populate logic as the only
     data stored represent a PK in the database"""
@@ -197,8 +199,6 @@ class AccountHome(object):
     may a different home dir for each spread.  A home is identified
     either by a disk_id, or by the string represented by home"""
 
-    NotSet = '*No*tSet'
-    
     def clear_home(self, spread):
         ah = self.get_home(spread)
         self.execute("""
@@ -218,24 +218,24 @@ class AccountHome(object):
         if count < 1:
             self.clear_homedir(ah['homedir_id'])
 
-    def set_homedir(self, current_id=NotSet,
-                    home=NotSet, disk_id=NotSet, status=NotSet):
+    def set_homedir(self, current_id=NotSet(),
+                    home=NotSet(), disk_id=NotSet(), status=NotSet()):
         """If current_id=NotSet, insert a new entry.  Otherwise update
         the values != NotSet for the given homedir_id=current_id"""
-        if not isinstance(status, AccountHome.NotSet.__class__):
+        if not isinstance(status, NotSet):
             status = int(status)   # Constants.__eq__ don't like strings
         tmp = [['account_id', self.entity_id],
                ['home', home],
                ['disk_id', disk_id],
                ['status', status]]
-        if current_id == AccountHome.NotSet:
+        if isinstance(current_id, NotSet):
             tmp.append(('homedir_id', long(self.nextval('homedir_id_seq'))))
             for t in tmp:
-                if t[1] == AccountHome.NotSet:
+                if isinstance(t[1], NotSet):
                     t[1] = None
         else:
             tmp.append(('homedir_id', current_id))
-        if current_id == AccountHome.NotSet:
+        if isinstance(current_id, NotSet):
             self.execute("""
             INSERT INTO [:table schema=cerebrum name=homedir]
               (%s)
@@ -247,7 +247,7 @@ class AccountHome(object):
                 self.entity_id, self.const.homedir_add, None,
                 change_params={'homedir_id': tmp[-1][1]})
         else:
-            tmp = filter(lambda k: str(k[1]) != AccountHome.NotSet, tmp)
+            tmp = filter(lambda k: not isinstance(k[1], NotSet), tmp)
             self.execute("""
             UPDATE [:table schema=cerebrum name=homedir]
               SET %s
@@ -267,6 +267,13 @@ class AccountHome(object):
         self._db.log_change(
             self.entity_id, self.const.homedir_remove, None,
             change_params={'homedir_id': homedir_id})
+
+    def get_homedir(self, homedir_id):
+        return self.query_1("""
+        SELECT homedir_id, account_id, home, disk_id, status
+        FROM [:table schema=cerebrum name=homedir]
+        WHERE homedir_id=:homedir_id""",
+                            {'homedir_id': homedir_id})
 
     def set_home(self, spread, homedir_id):
         binds = {'account_id': self.entity_id,
