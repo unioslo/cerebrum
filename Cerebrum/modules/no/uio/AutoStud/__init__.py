@@ -47,4 +47,5 @@ class AutoStud(object):
     def get_profile(self, student_info, groups=None):
         """Returns a Profile object matching the topics, to check
         quotas, groups must also be set."""
-        return ProfileHandler.Profile(self, student_info, groups)
+        return ProfileHandler.Profile(self, student_info, self._logger,
+                                      groups=groups)
