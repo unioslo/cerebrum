@@ -428,6 +428,14 @@ class XMLHelper(object):
 class Factory(object):
     class_cache = {}
     module_cache = {}
+    # mapping between entity type codes and Factory.get() components
+    # (user by Entity.object_by_entityid)
+    type_component_map = {
+        'ou': 'OU',
+        'person': 'Person',
+        'account': 'Account',
+        'group': 'Group',
+    }
 
     def get(comp):
         components = {'OU': 'CLASS_OU',
