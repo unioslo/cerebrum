@@ -66,10 +66,11 @@ def main():
         elif opt in ('-s', '--sted-file'):
             stedfile = val
 
-    Cerebrum = Factory.get('Database')()
+    db = Factory.get('Database')()
+    db.cl_init(change_program='import_FS')
     steder = {}
-    co = Factory.get('Constants')(Cerebrum)
-    ou = OU_class(Cerebrum)
+    co = Factory.get('Constants')(db)
+    ou = OU_class(db)
     i = 1
     stedkode2ou = {}
     for k in StedData(stedfile):
@@ -135,7 +136,7 @@ def main():
         stedkode = get_stedkode_str(k)
         # Not sure why this casting to int is required for PostgreSQL
         stedkode2ou[stedkode] = int(ou.entity_id)
-        Cerebrum.commit()
+        db.commit()
 
     existing_ou_mappings = {}
     for node in ou.get_structure_mappings(co.perspective_lt):
@@ -147,7 +148,7 @@ def main():
     for stedkode in steder.keys():
         rec_make_stedkode(stedkode, ou, existing_ou_mappings, steder,
                           stedkode2ou, co)
-    Cerebrum.commit()
+    db.commit()
 
 def rec_make_stedkode(stedkode, ou, existing_ou_mappings, steder,
                       stedkode2ou, co):
