@@ -76,3 +76,6 @@ category:post;
 DROP TABLE person_external_id;
 category:post;
 DROP TABLE person_external_id_code;
+
+/* arch-tag: c3e14dc4-0751-467f-b340-c1c7cffad890
+   (do not change this comment) */
