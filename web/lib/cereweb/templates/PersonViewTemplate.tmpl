@@ -3,47 +3,31 @@
 #import forgetHTML
 #from Cerebrum.web.TableView import TableView
 #from AccountViewTemplate import AccountViewTemplate
+#from AccountCreateTemplate import AccountCreateTemplate
 #from Cerebrum.web.utils import url
 #from Cerebrum.web import HistoryLog
 
-#def viewPerson($person)
+#def viewPerson($person, $profile)
 <h1>$_("Person") $person.name</h1>
 $personInfo($person)
-$personAccounts($person)
+$personAccounts($person, $profile)
 $HistoryLog.view_history_short($person)
 #end def
 
-#def personAccounts($person)
-#set $allaccounts = $person.get_accounts()
-#if $allaccounts
+#def personAccounts($person, $profile)
 <div class="accounts">
 <h2>$_("Accounts")</h2>
+#set t = $AccountCreateTemplate()
+$t.form($person, show_create_form=$profile['person']['edit']['show_account_create'])
+#set $allaccounts = $person.get_accounts()
+#if $allaccounts
 #for $account in $allaccounts
 #set t = $AccountViewTemplate()
 $t.viewAccount($account, False, False)
 #end for
+#end if
 </div>
 #end def
-
-#*
-#def accountList($operation, $members, $group)
-#set $operations = {'union': $_('Union'), 'intersection': $_('Intersection'), 'difference': $_('Difference')}
-#set $headers = {'type': $_("Type"), 'name': $_("Name")}
-<div class="memberlist">
-<h3>$operations[$operation]</h3>
-#set $table = $TableView("type", "name")
-#for $member in $members
-$table.add($member['type'], $member['name'], 
-           id=$member['id'], groupid=$group.id, operation=$operation)
-#end for
-$MemberTableTemplate().sorted_table($table, $headers, $url("blapp=%s"), $url("blupp=%s"))
-<input type="submit" value="Remember checked" />
-<input type="submit" value="Remove checked" />
-<input type="submit" value="Check all" />
-<input type="submit" value="Uncheck all" />
-</div>
-#end def
-*#
 
 #def personInfo($person)
 <div class="info">
