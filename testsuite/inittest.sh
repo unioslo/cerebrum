@@ -39,6 +39,7 @@ echo "***** Second time import, ie update *****"
 
 $TESTDIR/create_user.py
 $TESTDIR/create_user.py 20067647972
+$TESTDIR/create_user.py 01013638728
 
 ./contrib/generate_nismaps.py
 
