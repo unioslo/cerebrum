@@ -91,6 +91,7 @@ class TableView:
             headers.append(header)
         table.add(*headers)       
         for row in self.sorted():
+            row = map(row.get, self.columns)
             # Prepare values to be HTML-able
             row = map(_prepareForHTML, row)
             table.add(*row)
