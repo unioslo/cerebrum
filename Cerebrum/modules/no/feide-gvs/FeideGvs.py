@@ -24,26 +24,54 @@
 from Cerebrum import Utils
 from Cerebrum import Constants
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
+from Cerebrum.Constants import _AuthoritativeSystemCode,_PersonAffiliationCode, \
+     _PersonExternalIdCode, _PersonAffStatusCode, _SpreadCode, _OUPerspectiveCode
+
 
 import cereconf
 
 class FeideGvsConstants(Constants.Constants):
 
     system_sas = _AuthoritativeSystemCode(
-        'SAS'.
+        'SAS',
         'Skole Administrativt System')
     
     affiliation_pupil = _PersonAffiliationCode(
-        'PUPIL'
+        'PUPIL',
         'pupil in school')
 
     affiliation_guardian = _PersonAffiliationCode(
-        'GUARDIAN'
+        'GUARDIAN',
         'guardian for a pupil')
 
-    affiliation_guardian = _PersonAffiliationCode(
-        'TEACHER'
+    affiliation_teacher = _PersonAffiliationCode(
+        'TEACHER',
         'teacher in a school')
+
+    externalid_sas_id = _PersonExternalIdCode(
+        'SASID',
+        'SAS internal id-number')
+
+    affiliation_status_pupil_active = _PersonAffStatusCode(
+        affiliation_pupil,
+        'active',
+        'Active pupil')
+
+    affiliation_status_teacher_active = _PersonAffStatusCode(
+        affiliation_teacher,
+        'active',
+        'Active teacher')
+
+    spread_cerebrum_user = _SpreadCode(
+        'cerebrum_user',
+        Constants.Constants.entity_account,
+        'User which exists in Cerebrum')
+
+    perspective_sas = _OUPerspectiveCode(
+        'SAS',
+        'Perspective: SAS')
+
+    
 
 class FeideGvsEntity(DatabaseAccessor):
     def clear_class(self, cls):
