@@ -33,7 +33,6 @@ echo "***** Second time import, ie update *****"
 
 # FIXME: Add script to make new posix accounts from all existing persons
 
-./makedb.py $TESTDIR/posix_testuser.sql
 
 $TESTDIR/create_user.py || true
 $TESTDIR/create_user.py 41023468091 || true
