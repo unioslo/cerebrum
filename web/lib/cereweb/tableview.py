@@ -1,5 +1,92 @@
 import forgetHTML as html
-from nav.web import sci_exp
+import sci_exp
+
+class TableView:
+    """Selects columns and sorts by several columns from a given dataset."""
+    def __init__(self, *columns):
+        """Defines the initial set of columns to be selected. 
+           Other columns might be defined by changing self.columns. Columns is
+           a list of strings. See add()."""
+        self.columns = columns
+        # sort is a list of column names, prepended with + and - to
+        # denote ascending or descending sorting. + or - IS required.
+        # by default, sorted left to right ascending
+        self.sort = ["+" + field for field in self.columns]
+        self._width = len(self.columns)
+        self._rows = []
+        
+    def add(self, *data, **fields):
+        """Adds a data row with field=value. 
+        If positional arguments are given, their value are 
+        associated according to fields in self.columns
+        
+        Example:
+        
+        >>> t.add(name="stain", fullname="Stian Soiland", tel="92019694")
+        >>> t.columns = ("name", "tel")
+
+        t.sorted() will then return a table contaning data from fields 
+        'name' and 'tel' from each row.
+        """
+        myfields = dict(zip(self.columns, data))
+        myfields.update(fields)
+        self._rows.append(myfields)
+    
+    def _sorter(self, a, b):
+        """Sorts according to rules in self.sort. This is called for each
+           elements that needs to be compared."""
+        for column in self.sort:
+            way = column[0]
+            if way == "+":
+                way = 1    
+            elif way == "-":
+                way = -1
+            else:        
+                raise "Invalid sort order %s - should start with + or -" % column
+            column = column[1:]
+            diff = cmp(a.get(column), b.get(column))
+            if diff:
+                return way * diff
+        return diff        
+        
+    def sorted(self):
+        """Returns a two dimensional sorted list. 
+           Rows are taken from self._rows with the columns selected from
+           self.columns, and sorted by the rules in self.sort."""
+        self._rows.sort(self._sorter)
+        return [[row.get(column) for column in self.columns] for row in self._rows] 
+
+    def html(self, **titles):
+        """Returns a HTML version of the sorted table. Keyword arguments
+           defines headers for the columns, only titles which names are
+           in self.columns will be output."""
+        table = html.SimpleTable(header="row")
+        headers = []
+        for column in self.columns:
+            # header defined as keyword argument
+            header = titles.get(column)
+            if header is None:
+                # select header from self.columns
+                header = column.capitalize()
+            headers.append(header)
+        table.add(*headers)       
+        for row in self.sorted():
+            # Prepare values to be HTML-able
+            row = map(prepareForHTML, row)
+            table.add(*row)
+        return table    
+
+def _prepareForHTML(value):
+    """Returns a forgetHTML-compatible value"""
+    if isinstance(value, html.Element):
+        return value
+    if type(value) in (int, long):
+        return Value(value, decimals=0)
+    if type(value) == float:
+        return Value(value)
+    if value is None:
+        return ""        
+    return str(value)
 
 class Value(html.Text):
     """A special html-text containing a number.
@@ -33,79 +120,4 @@ class Value(html.Text):
             return cmp(self.value, other.value)
         else:
             return cmp(self.value, other)
-
-
-class TableView(html.SimpleTable):
-    def __init__(self, *headers, **kwargs):
-        html.SimpleTable.__init__(self, header=None)
-        self['class'] = "tableView"
-        self.headers = headers
-        self._width = len(headers)
-        self.__kwargs = kwargs
-        try:
-            self.sortBy = int(kwargs.get('sortBy', 0)) # default: nosort
-        except:
-            self.sortBy = 0
-        self.baseurl = kwargs.get('baseurl', '')
-        
-    def sort(self):
-        def _getColumns(column, a, b):
-            try:
-                aValue = a[column]
-            except IndexError:
-                aValue = None
-            try:
-                bValue = b[column]
-            except IndexError:
-                bValue = None
-            return (aValue, bValue)    
-
-        def _sorter(a, b):
-            # the column to check
-            column = abs(sortBy) # remember, the first
-                                 # one is kwargs..
-            # find the reverse-effect
-            comp = lambda x,y: sortBy/abs(sortBy) * cmp(x,y)
-            # If the column is empty, it is None
-            (aValue, bValue) = _getColumns(column, a, b)
-            # the compared value    
-            res = comp(aValue, bValue)
-            if res:
-                return res
-            for col in range(1,len(self._items)+1):
-                if col == column:
-                    continue
-                res = comp(*_getColumns(col, a,b))
-                if res:
-                    return res
-            return 0            
-                        
-        self._content = [] # reset html version
-        if self.sortBy:
-            sortBy = self.sortBy
-            self._items.sort(_sorter)
-    def _generateContent(self):
-        row = html.TableRow(**self.__kwargs)
-        self.append(row)
-        count = 0
-        for header in self.headers:
-            count += 1
-            link = html.Anchor(header)
-            headerCell = html.TableHeader(link)
-            headerCell['class'] = "sort col%s" % count
-            row.append(headerCell)
-            if abs(self.sortBy) == count:
-                # reverse the current
-                link['href'] = '%s?sort=%s' % (self.baseurl, -self.sortBy)
-                headerCell['id'] = "activeSort"
-                if self.sortBy < 0:
-                    headerCell['class'] = "reverseSort"
-            else:
-                link['href']='%s?sort=%s' % (self.baseurl, count)
-        # make sure width is correct.        
-        for extra in range(self._width - len(self.headers)):
-            row.append(html.TableHeader(''))
-        html.SimpleTable._generateContent(self)        
-    def output(self, *args, **kwargs):
-        return html.SimpleTable.output(self, *args, **kwargs)
 
