@@ -1,11 +1,18 @@
 """Abstract superclasses for the model, ie. the business data.
    Implementation modules should subclass all of these classes
    providing network communication, updating the database or
-   whatever might be neccessary."""
+   whatever might be neccessary.
+"""
+
+
 class Address:
     pass
+
+
 class ContactInfo:
     pass
+
+
 class Entity:
     
     def __init__(self):
@@ -19,17 +26,23 @@ class Entity:
         """ Retrieves an instance with given id """
         # entity_info og entity_type_code
         pass
-    getByID = classmethod(getByID)    
+        
+    getByID = classmethod(getByID)
+    
     def delete(self):
         """ Deletes this entity from the database.
         """
         pass
+        
     def getAddressInfo(self):
         pass
+        
     def getContactInfo(self):
         pass
+        
     def getSpreadInfo(self):
         pass
+        
     def addQuarantine(self, quarantineType, description, startDate=None, 
                       disableUntil=None, endDate='default'):
         """ Adds the enitity to a defined <quarantineType> with <description>.
@@ -47,12 +60,22 @@ class Entity:
             their old password, and this won't work when they're quarantined.
         """
         pass
+        
     def listQuarantines(self):
         """ Returns a list of quarantine-objects, if the entity has any quarantines
             set.
         """
         pass
+
+
 class Group(Entity):
+    
+    def create(cls, name, description):
+        """ Creates a new group with given name and description.
+        """
+        pass
+
+    create = classmetod(create)
     
     def findByName(cls, name):
         """ Retrieves an instance with given name.
@@ -92,6 +115,21 @@ class Group(Entity):
         """ Deletes the group.
         """
         pass
+
+
+class Account(Entity):
+
+    def create(cls, name):
+        """ Creates an account with given name.
+        """
+        pass
+
+    def findByName(cls, name):
+        """ Retrieves an instace with given name.
+        """
+        pass
+
+    findByName = classmethod(findByName)
 
 class Quarantine:
     def __init__ (self, startDate, endDate, quarantineType, reason):

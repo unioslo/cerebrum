@@ -46,12 +46,16 @@ class Entity(Abstract.Entity):
         """ Deletes this entity from the database.
         """
         pass
+        
     def getAddressInfo(self):
         pass
+        
     def getContactInfo(self):
         pass
+        
     def getSpreadInfo(self):
         pass
+        
     def addQuarantine(self, quarantineType, description, startDate=None, 
                       disableUntil=None, endDate='default'):
         """ Adds the enitity to a defined <quarantineType> with <description>.
@@ -69,6 +73,7 @@ class Entity(Abstract.Entity):
             their old password, and this won't work when they're quarantined.
         """
         pass
+        
     def listQuarantines(self):
         """ Returns a list of quarantine-objects, if the entity has any quarantines
             set.
@@ -80,6 +85,23 @@ class Group(Entity, Abstract.Group):
     
     def __init__(self, server):
         Entity.__init__(self, server)
+    
+    def create(cls, name, description, server):
+        """ Creates a new group with given name and description.
+        """
+        group = Group(server)
+        group.name = name
+        group.description = description
+
+        # FIXME: Check for errors...
+        info = server.group_create(name, description)
+        group.loadEntityInfo(info['group_id'])
+        group.expire = info['expire']
+        group.gid = info.get('gid')
+        group.spreads = info['spread'].split(",")
+        return group
+        
+    create = classmetod(create)
     
     def findByName(cls, name, server):
         """ Retrieves an instance with given name.
