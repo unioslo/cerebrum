@@ -92,6 +92,7 @@ def update_account(profile, account_ids, do_move=False, rem_grp=False,
 
     for account_id in account_ids:
         logger.info2(" UPDATE:%s" % account_id)
+        changes = []
         try:
             user.clear()
             user.find(account_id)
@@ -100,11 +101,17 @@ def update_account(profile, account_ids, do_move=False, rem_grp=False,
                 disk = profile.get_disk(user.disk_id)
             except ValueError, msg:  # TODO: get_disk should raise DiskError
                 disk = None
-            if user.disk_id <> disk:
+            if user.disk_id != disk:
                 profile.notify_used_disk(old=user.disk_id, new=disk)
+                changes.append("disk %s->%s" % (
+                    autostud.disks.get(user.disk_id, ['None'])[0],
+                    autostud.disks.get(disk, ['None'])[0]))
                 user.disk_id = disk
             if as_posix:
+                old_gid = user.gid
                 user.gid = profile.get_dfg()
+                if user.gid != old_gid:
+                    changes.append("dfg %s->%s" % (user.gid, old_gid))
             tmp = user.write_db()
             logger.debug("old User, write_db=%s" % tmp)
         except Errors.NotFoundError:
@@ -134,6 +141,7 @@ def update_account(profile, account_ids, do_move=False, rem_grp=False,
                 group.find(g)
                 group.add_member(account_id, const.entity_account,
                                  const.group_memberop_union)
+                changes.append("g_add: %s" % group.group_name)
             else:
                 del already_member[g]
         if rem_grp:
@@ -177,10 +185,12 @@ def update_account(profile, account_ids, do_move=False, rem_grp=False,
             if spread.entity_type == const.entity_account:
                 if not int(spread) in has_acount_spreads:
                     user.add_spread(spread)
+                    changes.append("Add spread: %s" % str(spread))
             elif spread.entity_type == const.entity_person:
                 if not int(spread) in has_person_spreads:
                     person.add_spread(spread)
-            
+        if changes:
+            logger.debug("Changes: %s" % ", ".join(changes))
         # TODO: update default e-mail address
 
 def get_existing_accounts():
@@ -405,10 +415,13 @@ def recalc_quota_callback(person_info):
             # The quota update script should be ran just after this script
             pq.populate(account_id, quota['initial_quota'] - quota['weekly_quota'],
                         0, 0, 0, 0, 0, 0)
-        pq.has_printerquota = 1
-        pq.weekly_quota = quota['weekly_quota']
-        pq.max_quota = quota['max_quota']
-        pq.termin_quota = quota['termin_quota']
+        if quota['weekly_quota'] == 'UL':
+            pq.has_printerquota = 0
+        else:
+            pq.has_printerquota = 1
+            pq.weekly_quota = quota['weekly_quota']
+            pq.max_quota = quota['max_quota']
+            pq.termin_quota = quota['termin_quota']
         pq.write_db()
     logger.set_indent(0)
 
