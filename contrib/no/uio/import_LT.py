@@ -83,17 +83,32 @@ def get_sted(stedkode):
             fak, inst, gruppe = stedkode[0:2], stedkode[2:4], stedkode[4:6]
             ou.find_stedkode(int(fak), int(inst), int(gruppe),
                              institusjon=cereconf.DEFAULT_INSTITUSJONSNR)
-            addr = ou.get_entity_address(source=const.system_lt,
-                                         type=const.address_street)
-            if len(addr) > 0:
-                addr = addr[0]
-                addr = {'address_text': addr['address_text'],
-                        'p_o_box': addr['p_o_box'],
-                        'postal_number': addr['postal_number'],
-                        'city': addr['city'],
-                        'country': addr['country']}
+            addr_street = ou.get_entity_address(source=const.system_lt,
+                                                type=const.address_street)
+            if len(addr_street) > 0:
+                addr_street = addr_street[0]
+                address_text = addr_street['address_text']
+                if not addr_street['country']:
+                    address_text = "\n".join(
+                        filter(None, (ou.short_name, address_text)))
+                addr_street = {'address_text': address_text,
+                               'p_o_box': addr_street['p_o_box'],
+                               'postal_number': addr_street['postal_number'],
+                               'city': addr_street['city'],
+                               'country': addr_street['country']}
             else:
-                addr = None
+                addr_street = None
+            addr_post = ou.get_entity_address(source=const.system_lt,
+                                                type=const.address_post)
+            if len(addr_post) > 0:
+                addr_post = addr_post[0]
+                addr_post = {'address_text': addr_post['address_text'],
+                             'p_o_box': addr_post['p_o_box'],
+                             'postal_number': addr_post['postal_number'],
+                             'city': addr_post['city'],
+                             'country': addr_post['country']}
+            else:
+                addr_post = None
             fax = ou.get_contact_info(source=const.system_lt,
                                       type=const.contact_fax)
             if len(fax) > 0:
@@ -102,7 +117,8 @@ def get_sted(stedkode):
                 fax = None
             ou_cache[stedkode] = {'id': int(ou.ou_id),
                                   'fax': fax,
-                                  'addr': addr}
+                                  'addr_street': addr_street,
+                                  'addr_post': addr_post}
             ou_cache[int(ou.ou_id)] = ou_cache[stedkode]
         except Errors.NotFoundError:
             logger.warn("bad stedkode: %s" % stedkode)
@@ -253,18 +269,37 @@ def process_person(person):
     affiliations = determine_affiliations(person)
     new_person.populate_affiliation(const.system_lt)
     contact = determine_contact(person)
-    added_ou_fax = False
+    got_fax = filter(lambda x: x[0] == const.contact_fax, contact)
+    if person.has_key('fakultetnr_for_lonnsslip'):
+        sko = "%02i%02i%02i" % tuple([int(
+            person["%s_for_lonnsslip" % x]) for x in (
+            'fakultetnr', 'instituttnr', 'gruppenr')])
+        sted = get_sted(sko)
+        if sted is not None:
+            if sted['addr_street'] is not None:
+                new_person.populate_address(
+                    const.system_lt, type=const.address_street,
+                    **sted['addr_street'])
+            if sted['addr_post'] is not None:
+                new_person.populate_address(
+                    const.system_lt, type=const.address_post,
+                    **sted['addr_post'])
+            if not got_fax and sted['fax'] is not None:
+                # Add fax number for work place with a non-NULL fax
+                # to person's contact info.
+                contact.append((const.contact_fax, sted['fax']))
+                got_fax = True
     for k,v in affiliations.items():
 	ou_id, aff, aff_stat = v
         new_person.populate_affiliation(const.system_lt, ou_id,\
 						int(aff), int(aff_stat))
-        if not added_ou_fax:
-            sted = get_sted(ou_id)
-            if sted is not None and sted['fax'] is not None:
-                # Add fax of the first affiliation with a non-NULL fax
-                # to person's contact info.
-                contact.append((const.contact_fax, sted['fax']))
-                added_ou_fax = True
+#       if not got_fax:
+#           sted = get_sted(ou_id)
+#           if sted is not None and sted['fax'] is not None:
+#               # Add fax of the first affiliation with a non-NULL fax
+#               # to person's contact info.
+#               contact.append((const.contact_fax, sted['fax']))
+#               got_fax = True
 	if include_del:
 	    if cere_list.has_key(k):
 		cere_list[k] = False
@@ -275,15 +310,6 @@ def process_person(person):
         pref = c_prefs.get(c_type, 0)
         new_person.populate_contact_info(const.system_lt, c_type, value, pref)
         c_prefs[c_type] = pref + 1
-    if person.has_key('fakultetnr_for_lonnsslip'):
-        sko = "%02i%02i%02i" % tuple([int(
-            person["%s_for_lonnsslip" % x]) for x in (
-            'fakultetnr', 'instituttnr', 'gruppenr')])
-        sted = get_sted(sko)
-        if sted is not None and sted['addr'] is not None:
-            new_person.populate_address(
-                const.system_lt, type=const.address_street,
-                **sted['addr'])
     op2 = new_person.write_db()
     if gen_groups == 1:
         # determine_reservation() needs new_person.entity_id to be
