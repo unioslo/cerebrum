@@ -2,7 +2,8 @@
 
 import sys
 
-from Cerebrum import Database,Constants
+from Cerebrum import Database
+from Cerebrum import Constants
 from Cerebrum import Person
 from server.bofhd import ExportedFuncs
 from server.bofhd import CallableFuncs
