@@ -832,18 +832,19 @@ def eval_spread_codes(spread):
 
 
 def spread_code(spr_str):
-    spread = None
-    if isinstance(spr_str,int):
-        spread = spr_str
-    else:
-        try: spread = int(_SpreadCode(spr_str))
-        except (TypeError, ValueError):
-            try: spread = int(getattr(co,spr_str))
-            except(TypeError, ValueError):
-                try: spread = int(spr_str)
-                except(TypeError, ValueError): 
-		    print "Not valid spread code: '%s'" % spr_str
-    return(spread)
+    if isinstance(spr_str, _SpreadCode):
+        return int(spr_str)
+    if isinstance(spr_str, (str, int)):
+        try:
+            return int(_SpreadCode(spr_str))
+        except Errors.NotFoundError:
+            pass
+    if isinstance(spr_str, str):
+        try:
+            return int(getattr(co, spr_str))
+        except AttributeError:
+            pass
+    print "Not valid spread code: '%s'" % spr_str
 
 
 def iso2utf(s):
@@ -969,7 +970,7 @@ def make_attr(name, strings, normalize = None, verify = None, raw = False):
 
 def main():
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'g:p:n:a:b:c:o',
+        opts, args = getopt.getopt(sys.argv[1:], 'u:g:n:a:b:c:po',
                                    ['help', 'group=','org=','user=','netgroup_spread=',
                                     'group_spread=','user_spread=', 'netgroup=','posix'])
     except getopt.GetoptError:
@@ -978,7 +979,6 @@ def main():
     user_spread = group_spread = None
     p = {}
     for opt, val in opts:
-	print opt
         if opt in ('--help',):
             usage()
 	elif opt in ('-o','--org'):
@@ -1013,14 +1013,11 @@ def main():
     if len(opts) == 0:
         config()
     if p.has_key('n_file'):
-        try: generate_netgroup(p['n_spr'],p['u_spr'],p['n_file'])
-        except: usage()
+        generate_netgroup(p.get('n_spr'), p.get('u_spr'), p.get('n_file'))
     if p.has_key('g_file'):
-        try: generate_posixgroup(p['g_spr'],p['u_spr'],p['g_file'])
-        except: usage()
+        generate_posixgroup(p.get('g_spr'), p.get('u_spr'), p.get('g_file'))
     if p.has_key('u_file'):
-        try: generate_users(p['u_spr'],p['u_file'])
-        except: usage()
+        generate_users(p.get('u_spr'), p.get('u_file'))
 
 def usage(exitcode=0):
     print """Usage: [options]
