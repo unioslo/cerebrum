@@ -779,10 +779,17 @@ def make_letters(data_file=None, type=None, range=None):
             logger.warn("NotFoundError for account_id=%s" % account_id)
             continue
         tpl = {}
-        address = person.get_entity_address(source=const.system_fs,
-                                            type=const.address_post)
-        if not address:
-            logger.warn("Bad address for %s" % account_id)
+        address = None
+	for source, kind in ((const.system_fs, const.address_post),
+			     (const.system_fs, const.address_post_private)):
+	    try:
+		address = person.get_entity_address(source=source,
+						    type=kind)
+		break
+	    except Errors.NotFoundError:
+		pass
+	if not address:
+            logger.warn("Could not find authoritative address for %s" % account_id)
             continue
         address = address[0]
         alines = address['address_text'].split("\n")+[""]
