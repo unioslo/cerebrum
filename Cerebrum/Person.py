@@ -35,13 +35,13 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
 
     def clear(self):
         "Clear all attributes associating instance with a DB entity."
-        super(Person, self).clear()
+        self.__super.clear()
         for attr in Person.__read_attr__:
             if hasattr(self, attr):
                 delattr(self, attr)
         for attr in Person.__write_attr__:
             setattr(self, attr, None)
-            self.__updated = False
+        self.__updated = False
 
         self._external_id= ()
         # Person names:
@@ -66,7 +66,7 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
     def __eq__(self, other):
         """Define == operator for Person objects."""
         assert isinstance(other, Person)
-        identical = super(Person, self).__eq__(other)
+        identical = self.__super.__eq__(other)
         if not identical:
             if self._debug_eq: print "Person.super.__eq__ = %s" % identical
             return False
@@ -219,7 +219,7 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
                                       'n_variant': int(type)})
                     else:
                         raise
-        
+
         # TODO: Handle external_id
         del self.__in_db
         self.__in_db = True
@@ -251,7 +251,7 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
                       deceased, description
                FROM [:table schema=cerebrum name=person_info]
                WHERE person_id=:p_id""", {'p_id': person_id})
-        super(Person, self).find(person_id)
+        self.__super.find(person_id)
         self.__in_db = True
         self.__updated = False
 
