@@ -127,3 +127,6 @@ Groups
 Like for users, one would probably want one or two e-mail reminders.
 Some time after expiration, one would remove the group-members, and
 some time after that one would probably delete the ``Entity``.
+
+..
+   arch-tag: fbac9bb3-9061-49bf-8fda-bac32db03726
