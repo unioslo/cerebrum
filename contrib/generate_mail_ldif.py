@@ -222,7 +222,13 @@ def make_home2spool():
             continue
         home2spool["/%s/%s" % (faculty, host)] = "/%s/%s/mail" % (
             faculty, spoolhost[host])
-        
+
+_translate_domains = {'UIO_HOST': 'ulrik.uio.no',
+                      }
+def _build_addr(local_part, domain):
+    domain = _translate_domains.get(domain, domain)
+    return '@'.join((local_part, domain))
+
 def read_addr():
     counter = 0
     curr = now()
@@ -250,7 +256,7 @@ def read_addr():
             for lp, row2 in lp_dict.items():
                 # Use 'row', and not 'row2', for domain.  Using 'dom2'
                 # would give us 'UIO_GLOBALS'.
-                addr = "%s@%s" % (lp, row['domain'])
+                addr = _build_addr(lp, row['domain'])
                 a_id, t_id = [int(row2[x])
                               for x in ('address_id', 'target_id')]
                 targ2addr.setdefault(t_id, []).append(addr)
@@ -266,7 +272,7 @@ def read_addr():
         if verbose and (counter % 10000) == 0:
             print "  done %d list_email_addresses_ext(): %d sec." % (
                 counter, now() - curr)
-        addr = "%s@%s" % (lp, dom)
+        addr = _build_addr(lp, dom)
         a_id, t_id = [int(row[x]) for x in ('address_id', 'target_id')]
         targ2addr.setdefault(t_id, []).append(addr)
         aid2addr[a_id] = addr
