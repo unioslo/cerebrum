@@ -752,10 +752,10 @@ from None and LDAP_PERSON['dn'].""")
                 if affiliation == True:  # wildcard
                     aff_id = None
                 else:
-                    aff_id = int(self.const.PersonAffiliation(affiliation))
+                    aff_id = self.const.PersonAffiliation(affiliation)
                 for status, ssel in status_ssels:
                     if status == True:   # wildcard
-                        key = aff_id
+                        key = int(aff_id)
                     elif affiliation == True:
                         raise ValueError("Selector[True][not True: %s] illegal"
                                          % repr(status))
@@ -763,7 +763,7 @@ from None and LDAP_PERSON['dn'].""")
                         status_id = self.const.PersonAffStatus(aff_id, status)
                         if status_id is not None:
                             status_id = int(status_id)
-                        key = (aff_id, status_id)
+                        key = (int(aff_id), status_id)
                     if mapping.has_key(key):
                         raise ValueError("Duplicate selector[%s][%s]" % tuple(
                             [val == True and "True" or repr(val)
