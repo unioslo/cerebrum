@@ -1,16 +1,28 @@
 # Gro connection details
 [gro]
-# context: something weird
+# Cerebrum login for this LO (Local Organizer). This
+# System Account must have the appropriate rights in Cerebrum
 login: user
 password: password
 
+# if incremental, updates target, adds new changes, 
+# if not, generate new target from blank every time
+incremental: yes
+# Where to store our incremental status
+last_change: /var/run/cerebrum/sync.last_change
+
 # Where to place generated files for file-sync
 [file]
+# Seperate file so you can join in your header stub
 passwd: /etc/passwd.cerebrum
-shadow: /etc/shadow.cerebrum
 group: /etc/group.cerebrum
+shadow: /etc/shadow.cerebrum
+use_shadow: true
+# Hash method to use for password
+hash: md5
 
 # Connection details for ldap sync
+# (preliminary example)
 [ldap]
 host: at.ntnu.no
 base: dc=ntnu,dc=no
