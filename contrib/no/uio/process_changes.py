@@ -24,6 +24,14 @@
 #
 # - when a user has been creted: create users homedir
 
+# TBD: If this script is only going to be used for creating users, it
+# should probably be renamed.  There are already other scrits, like
+# nt/notes sync that process the changelog themselves.  We need to
+# determine wheter it is a good idea to have multiple small scripts
+# doing this, or if there is an advantage into merging all of them
+# into a bigger script, perhaps with some plugin-like structure for
+# subscribing to certain event types.
+
 import os
 import sys
 import getopt
@@ -40,12 +48,18 @@ from Cerebrum.modules import PosixGroup
 logging.fileConfig(cereconf.LOGGING_CONFIGFILE)
 logger = logging.getLogger("cronjob")
 db = Factory.get('Database')()
-const = Factory.get('CLConstants')(db)
+db.cl_init(change_program="process_changes")
+cl_const = Factory.get('CLConstants')(db)
+const = Factory.get('Constants')(db)
 posix_user = PosixUser.PosixUser(db)
 posix_group = PosixGroup.PosixGroup(db)
 host = Factory.get('Host')(db)
 disk = Factory.get('Disk')(db)
 debug_hostlist = None
+SUDO_CMD = "/usr/bin/sudo"     # TODO: move to cereconf
+
+# TODO: change if we decide to allow different homedirs for same user
+home_spread = const.spread_uio_nis_user   
 
 def insert_account_in_cl(account_name):
     """Add an account_create event to the ChangeLog.  Useful for
@@ -53,7 +67,7 @@ def insert_account_in_cl(account_name):
     db.cl_init(change_by=None, change_program='process_changes')
     posix_user.clear()
     posix_user.find_by_name(account_name)
-    db.log_change(posix_user.entity_id, const.account_create, None)
+    db.log_change(posix_user.entity_id, cl_const.account_create, None)
     db.commit()
 
 def get_make_user_data(entity_id):
@@ -62,27 +76,18 @@ def get_make_user_data(entity_id):
     posix_group.clear()
     posix_group.find(posix_user.gid_id)
     disk.clear()
-    disk.find(posix_user.disk_id)
+    home = posix_user.get_home(home_spread)
+    disk.find(home['disk_id'])
     host.clear()
     host.find(disk.host_id)
+
     return {'uname': posix_user.account_name,
-            'disk': disk.path,
+            'home': posix_user.get_posix_home(home_spread),
             'uid': str(posix_user.posix_uid),
             'gid': str(posix_group.posix_gid),
             'gecos': posix_user.get_gecos(),
-            'host': host.name}
-
-# TODO: remove this method iff we dont need to quote rsh cmd
-def quote_list(lst):  # TODO: check that input is in [a-zA-Z0-9-_ '"]
-    ret = ""
-    for n in range(len(lst)):
-        t = str(lst[n])
-        t.replace('"', '\"')
-        t.replace('\\', '\\\\')
-        if t.find(" ") >= 0:
-            t = '"'+t+'"'
-        lst[n] = t
-    return " ".join(lst)
+            'host': host.name,
+            'home': home}
 
 def make_user(entity_id):
     try:
@@ -90,30 +95,43 @@ def make_user(entity_id):
     except Errors.NotFoundError:
         logger.warn("NotFound error for entity_id %s" % entity_id)
         return
-    cmd = [cereconf.CREATE_USER_SCRIPT, info['uname'],
-           "%s/%s" % (info['disk'], info['uname']),
-           info['uid'], info['gid'], cereconf.POSIX_HOME_TEMPLATE_DIR,
-           cereconf.POSIX_USERMOD_SCRIPTDIR, info['gecos']]
+    if int(info['home']['status']) == const.home_status_on_disk:
+        logger.warn("User already on disk? %s" % entity_id)
+        return
 
-    # TODO: It seems that ssh properly handles the arguments to the
-    # remote command, but this must be investigated further to prevent
-    # malicious abuse.
-    cmd = (cereconf.RSH_CMD, '-n', info['host']) + tuple(cmd)
+    cmd = [SUDO_CMD, cereconf.WRAPPER_CMD, '-c', 'mkhome',
+           # info['host'],  # the mkhome script figures out the host
+           info['uname'], info['home'], info['uid'], info['gid'],
+           info['gecos']]
+
+    #cmd = cmd[1:]  # DEBUG
 
     logger.debug("Doing: %s" % str(cmd))
     if debug_hostlist is None or info['host'] in debug_hostlist:
-        os.spawnv(os.P_WAIT, cereconf.RSH_CMD, cmd)
+        errnum = os.spawnv(os.P_WAIT, cmd[0], cmd)
+    if not errnum:
+        return 1
+    logger.error("%s returned %i" % (cmd, errnum))
+    return 0
 
 def process_changes():
     # Note that CLHandler gets its own database handle
     ei = CLHandler.CLHandler(Factory.get('Database')())
-    for evt in ei.get_events('uio_ch', [const.account_create]):
-        if evt.change_type_id == int(const.account_create):
+    for evt in ei.get_events('uio_ch', [cl_const.account_create]):
+        if evt.change_type_id == int(cl_const.account_create):
             logger.debug("Creating entity_id=%s" % (evt.subject_entity))
-            make_user(evt.subject_entity)
+            if make_user(evt.subject_entity):
+                status = const.home_status_on_disk
+            else:
+                status = const.home_status_create_failed
+            # posix_user was set by get_make_user_data
+            home = posix_user.get_home(home_spread)
+            posix_user.set_home(home_spread, disk_id=home['disk_id'],
+                                home=home['home'], status=status)
+
         ei.confirm_event(evt)
     ei.commit_confirmations()
-    #db.commit()
+    db.commit()
 
 def usage(exitcode=0):
     print """process_changes.py [options]
