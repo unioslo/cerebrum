@@ -26,9 +26,9 @@ import cereconf
 
 def dyn_import(name):
     """Dynamically import python module ``name``."""
+    mod = __import__(name)
+    components = name.split(".")
     try:
-        mod = __import__(name)
-        components = name.split(".")
         for comp in components[1:]:
             mod = getattr(mod, comp)
         return mod
