@@ -242,7 +242,7 @@ class SelectMapPersonAffiliation(SelectMapSuper):
                 self._select_map.setdefault(key, []).append(profile)
             else:
                 aff_status = self._pc.autostud.co.PersonAffStatus(
-                    affiliation, aff_info['status'])
+                    affiliation, s_attr['status'])
                 key = (int(affiliation), int(aff_status))
                 self._select_map.setdefault(key, []).append(profile)
     
