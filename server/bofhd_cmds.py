@@ -5,6 +5,7 @@ from Cerebrum import Account
 from Cerebrum import Errors
 from Cerebrum import Group
 from Cerebrum import Person
+from Cerebrum import cereconf
 from Cerebrum.modules import PosixUser
 
 class BofhdExtension(object):
@@ -237,7 +238,7 @@ class BofhdExtension(object):
     
     def group_expire(self, user, groupname, date):
         """Set group expiration date for 'groupname' to 'date'"""
-        group = _get_group(groupname)
+        group = self._get_group(groupname)
         group.expire_date = self.Cerebrum.Date(*([int(x) for x in date.split('-')]))
         group.write_db()
     
@@ -254,7 +255,7 @@ class BofhdExtension(object):
     def group_list(self, user, groupname):
         """List direct members of group (with their entity types), in
         categories coresponding to the three membership ops.  """
-        group = _get_group(groupname)
+        group = self._get_group(groupname)
         return group.get_members()
     
     def group_person(self, user, personid):
@@ -271,7 +272,7 @@ class BofhdExtension(object):
     def group_visibility(self, user, groupname, visibility):
         """Change 'groupname's visibility to 'visibility'"""
         raise NotImplemetedError, "What format should visibility have?"
-        group = _get_group(groupname)
+        group = self._get_group(groupname)
         group.visibility = visibility
         group.write_db()
     
@@ -340,7 +341,7 @@ class BofhdExtension(object):
     # TBD:  Should add a generic _get_person(idtype, id) method
     def person_info(self, user, idtype, id):
         """Returns some info on person with 'idtype'='id'"""
-        person = _get_person(id, idtype)
+        person = self._get_person(id, idtype)
         name = None
         for ss in cereconf.PERSON_NAME_SS_ORDER:
             try:
@@ -357,7 +358,7 @@ class BofhdExtension(object):
     def person_name(self, user, idtype, id, nametype, name):
         """Set name of 'nametype' to 'name' for person with 'idtype'='id'"""
         # TODO: Map nametype to Constant
-        person = _get_person(id, idtype)
+        person = self._get_person(id, idtype)
         person.affect_names(self.const.system_manual, nametype)
         person.populate_name(nametype, name)
         person.write_db()
