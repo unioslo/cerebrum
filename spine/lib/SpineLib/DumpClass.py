@@ -32,11 +32,8 @@ class DumpClass(SpineClass):
     slots = []
     method_slots = []
 
-    def create_primary_key(cls, objects):
-        l = [] + objects
-        l.sort()
-        return (tuple(l), )
-    create_primary_key = classmethod(create_primary_key)
+    def __new__(cls, objects):
+        return SpineClass.__new__(cls, objects, cache=None)
 
     def __init__(self, objects):
         self.structs = []
