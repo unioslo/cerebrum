@@ -107,7 +107,7 @@ class Group(Entity):
         """
         pass
 
-    create = classmetod(create)
+    create = classmethod(create)
     
     def findByName(cls, name):
         """ Retrieves an instance with given name.

@@ -8,7 +8,6 @@ import AbstractModel as Abstract
 import ServerConnection
 from warnings import warn
 
-
 class Address(Abstract.Address):
     pass
 
@@ -101,7 +100,7 @@ class Group(Entity, Abstract.Group):
         group.spreads = info['spread'].split(",")
         return group
         
-    create = classmetod(create)
+    create = classmethod(create)
     
     def findByName(cls, name, server):
         """ Retrieves an instance with given name.
