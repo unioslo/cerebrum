@@ -101,3 +101,5 @@ class CorbaBuilder:
         return txt
 
     create_idl_interface = classmethod(create_idl_interface)
+
+# arch-tag: bddbc6e7-fa76-4a6e-a7be-c890c537b54c
