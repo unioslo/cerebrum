@@ -3,7 +3,7 @@
 
 import time
 from Cerebrum import Constants
-from Cerebrum import Group
+from Cerebrum.Utils import Factory
 from Cerebrum.modules.bofhd.errors import CerebrumError
 import xmlrpclib
 
@@ -195,7 +195,7 @@ class BofhdRequests(object):
         FROM [:table schema=cerebrum name=bofhd_request]"""
         ret = self._db.query("%s WHERE %s" % (qry, " AND ".join(["%s=:%s" % (x, x) for x in cols.keys()])), cols)
         if given:
-            group = Group.Group(self._db)
+            group = Factory.get('Group')(self._db)
             tmp = []
             # TODO: include_indirect_members=1 when Group supports it
             for r in group.list_groups_with_entity(operator_id):

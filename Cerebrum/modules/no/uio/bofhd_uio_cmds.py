@@ -19,11 +19,8 @@ from mx import DateTime
 import cereconf
 from Cerebrum import Cache
 from Cerebrum import Database
-from Cerebrum import Disk
 from Cerebrum import Entity
 from Cerebrum import Errors
-from Cerebrum import Group
-from Cerebrum import Person
 from Cerebrum.Constants import _CerebrumCode, _QuarantineCode, _SpreadCode,\
      _PersonAffiliationCode, _PersonAffStatusCode
 from Cerebrum import Utils
@@ -35,7 +32,8 @@ from Cerebrum.modules import PosixUser
 from Cerebrum.modules.bofhd.cmd_param import *
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd.utils import BofhdRequests
-from Cerebrum.modules.bofhd.auth import BofhdAuth, BofhdAuthOpSet, AuthConstants, BofhdAuthOpTarget, BofhdAuthRole
+from Cerebrum.modules.bofhd.auth import BofhdAuth, BofhdAuthOpSet, \
+     AuthConstants, BofhdAuthOpTarget, BofhdAuthRole
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.uio import PrinterQuotas
 from Cerebrum.modules.no.uio import bofhd_uio_help
@@ -64,7 +62,7 @@ class BofhdExtension(object):
         self.server = server
         self.logger = server.logger
         self.db = server.db
-        self.person = Person.Person(self.db)
+        self.person = Utils.Factory.get('Person')(self.db)
         self.const = self.person.const
         self.name_codes = {}
         for t in self.person.list_person_name_codes():
@@ -848,7 +846,7 @@ class BofhdExtension(object):
         perm_filter='can_create_group')
     def group_create(self, operator, groupname, description):
         self.ba.can_create_group(operator.get_entity_id())
-        g = Group.Group(self.db)
+        g = Utils.Factory.get('Group')(self.db)
         g.populate(creator_id=operator.get_entity_id(),
                    visibility=self.const.group_visibility_all,
                    name=groupname, description=description)
@@ -1040,7 +1038,7 @@ class BofhdExtension(object):
         perm_filter='can_search_group')
     def group_search(self, operator, filter={}):
         # FIXME: Check filters to avoid "Search all" for all
-        group = Group.Group(self.db)
+        group = Utils.Factory.get('Group')(self.db)
         ret = []
         # unpack filters (security.. hehe) 
         filter_name = filter.get('name', None)
@@ -1084,7 +1082,7 @@ class BofhdExtension(object):
         hdr="%-9s %-18s %s" % ("Operation", "Group", "Spreads")))
     def group_user(self, operator, accountname):
         account = self._get_account(accountname)
-        group = Group.Group(self.db)
+        group = Utils.Factory.get('Group')(self.db)
         ret = []
         for row in group.list_groups_with_entity(account.entity_id):
             grp = self._get_group(row['group_id'], idtype="id")
@@ -1153,7 +1151,7 @@ class BofhdExtension(object):
             pc.goodenough(None, password, uname="foobar")
         except PasswordChecker.PasswordGoodEnoughException, m:
             raise CerebrumError, "Bad password: %s" % m
-        ac = Utils.Factory.get("Account")(self.db)
+        ac = Utils.Factory.get('Account')(self.db)
         crypt = ac.enc_auth_type_crypt3_des(password)
         md5 = ac.enc_auth_type_md5_crypt(password)
         return "OK.  crypt3-DES: %s   MD5-crypt: %s" % (crypt, md5)
@@ -1173,7 +1171,7 @@ class BofhdExtension(object):
         if not self.ba.is_superuser(operator.get_entity_id()):
             raise PermissionDenied("Currently limited to superusers")
         host = self._get_host(hostname)
-        disk = Disk.Disk(self.db)
+        disk = Utils.Factory.get('Disk')(self.db)
         disk.populate(host.entity_id, diskname, 'uio disk')
         disk.write_db()
         return "OK"
@@ -1184,7 +1182,7 @@ class BofhdExtension(object):
                             hdr="DiskId   HostId   Path"))
     def misc_dls(self, operator, hostname):
         host = self._get_host(hostname)
-        disk = Disk.Disk(self.db)
+        disk = Utils.Factory.get('Disk')(self.db)
         ret = []
         for row in disk.list(host.host_id):
             ret.append({'disk_id': row['disk_id'],
@@ -1199,7 +1197,7 @@ class BofhdExtension(object):
         if not self.ba.is_superuser(operator.get_entity_id()):
             raise PermissionDenied("Currently limited to superusers")
         host = self._get_host(hostname)
-        disk = Disk.Disk(self.db)
+        disk = Utils.Factory.get('Disk')(self.db)
         disk.find_by_path(diskname, host_id=host.entity_id)
         raise NotImplementedError, "API does not support disk removal"
 
@@ -1209,7 +1207,7 @@ class BofhdExtension(object):
     def misc_hadd(self, operator, hostname):
         if not self.ba.is_superuser(operator.get_entity_id()):
             raise PermissionDenied("Currently limited to superusers")
-        host = Disk.Host(self.db)
+        host = Utils.Factory.get('Host')(self.db)
         host.populate(hostname, 'uio host')
         host.write_db()
         return "OK"
@@ -1371,7 +1369,7 @@ class BofhdExtension(object):
             op = self.num2const[int(r['operation'])]
             dest = None
             if op in (self.const.bofh_move_user, self.const.bofh_move_request):
-                disk = Disk.Disk(self.db)
+                disk = Utils.Factory.get('Disk')(self.db)
                 disk.find(r['destination_id'])
                 dest = disk.path
             elif op in (self.const.bofh_move_give,):
@@ -1540,7 +1538,7 @@ class BofhdExtension(object):
             entities = [ self._get_group(entity_id.split(":")[-1]).entity_id ]
         elif entity_id.startswith("account:"):
             account = self._get_account(entity_id.split(":")[-1])
-            group = Group.Group(self.db)
+            group = Utils.Factory.get('Group')(self.db)
             entities = [account.entity_id]
             for row in group.list_groups_with_entity(account.entity_id):
                 if row['operation'] == int(self.const.group_memberop_union):
@@ -2357,7 +2355,7 @@ class BofhdExtension(object):
                'expire': account.expire_date,
                'home': account.home}
         if account.disk_id is not None:
-            disk = Disk.Disk(self.db)
+            disk = Utils.Factory.get('Disk')(self.db)
             disk.find(account.disk_id)
             ret['home'] = "%s/%s" % (disk.path, account.account_name)
 
@@ -2698,7 +2696,7 @@ class BofhdExtension(object):
         if ac.home is not None:
             ret['home'] = ac.home
         else:
-            disk = Disk.Disk(self.db)
+            disk = Utils.Factory.get('Disk')(self.db)
             disk.find(ac.disk_id)
             ret['home'] = '%s/%s' % (disk.path, ac.account_name)
         ret['navn'] = {'cached': person.get_name(
@@ -2743,7 +2741,7 @@ class BofhdExtension(object):
         return account
 
     def _get_host(self, name):
-        host = Disk.Host(self.db)
+        host = Utils.Factory.get('Host')(self.db)
         try:
             host.find_by_name(name)
             return host
@@ -2752,7 +2750,7 @@ class BofhdExtension(object):
 
     def _get_group(self, id, idtype=None, grtype="Group"):
         if grtype == "Group":
-            group = Group.Group(self.db)
+            group = Utils.Factory.get('Group')(self.db)
         elif grtype == "PosixGroup":
             group = PosixGroup.PosixGroup(self.db)
         try:
@@ -2918,11 +2916,11 @@ class BofhdExtension(object):
             group = self._get_group(id, idtype='id')
             return group.get_name(self.const.group_namespace)
         elif type == self.const.entity_disk:
-            disk = Disk.Disk(self.db)
+            disk = Utils.Factory.get('Disk')(self.db)
             disk.find(id)
             return disk.path
         elif type == self.const.entity_host:
-            host = Disk.Host(self.db)
+            host = Utils.Factory.get('Host')(self.db)
             host.find(id)
             return host.name
         else:
@@ -2936,7 +2934,7 @@ class BofhdExtension(object):
                 host, path = home.split(":")
             else:
                 path = home
-            disk = Disk.Disk(self.db)
+            disk = Utils.Factory.get('Disk')(self.db)
             disk.find_by_path(path, host)
             home = None
             disk_id = disk.entity_id

@@ -8,22 +8,20 @@ import cereconf
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum import Constants
 from Cerebrum import Cache
-from Cerebrum import Group
-from Cerebrum import Account
-from Cerebrum.Utils import Factory
-from Cerebrum import Utils
-from Cerebrum import Disk
+from Cerebrum.Utils import Factory, mark_update
 from Cerebrum.modules.bofhd.errors import PermissionDenied
+
 
 class AuthConstants(Constants._CerebrumCode):
     _lookup_table = '[:table schema=cerebrum name=auth_op_code]'
     pass
 
+
 class BofhdAuthOpSet(DatabaseAccessor):
     """Methods for updating auth_operation_set, auth_operation and
     auth_op_attrs which specifies what operations may be performed."""
 
-    __metaclass__ = Utils.mark_update
+    __metaclass__ = mark_update
     __read_attr__ = ('__in_db', 'const')
     __write_attr__ = ('op_set_id', 'name')
     dontclear = ('const',)
@@ -131,7 +129,7 @@ class BofhdAuthOpTarget(DatabaseAccessor):
     with information identifying targets which operations may be
     performed on."""
 
-    __metaclass__ = Utils.mark_update
+    __metaclass__ = mark_update
     __read_attr__ = ('__in_db', 'const')
     __write_attr__ = ('entity_id', 'target_type', 'has_attr', 'op_target_id')
     dontclear = ('const',)
@@ -234,6 +232,7 @@ class BofhdAuthOpTarget(DatabaseAccessor):
         FROM [:table schema=cerebrum name=auth_op_target_attrs]
         WHERE op_target_id=:op_target_id""", {'op_target_id': op_target_id})
 
+
 class BofhdAuthRole(DatabaseAccessor):
     """Methods for updating the auth_role table with information
     about who has certain permissions to certain targets."""
@@ -272,7 +271,7 @@ class BofhdAuthRole(DatabaseAccessor):
         SELECT DISTINCT entity_id, op_set_id, op_target_id
         FROM [:table schema=cerebrum name=auth_role]
         WHERE op_target_id IN (%s)""" % ", ".join(["%i" % i for i in target_ids]))
-        
+
 
 class BofhdAuth(DatabaseAccessor):
     """Defines methods that are used by bofhd to determine wheter
@@ -288,7 +287,7 @@ class BofhdAuth(DatabaseAccessor):
         self.const = Factory.get('Constants')(database)
         self._group_member_cache = Cache.Cache(mixins = [Cache.cache_timeout],
                                                timeout = 60)
-        group = Group.Group(self._db)
+        group = Factory.get('Group')(self._db)
         group.find_by_name(cereconf.BOFHD_SUPERUSER_GROUP)
         self._superuser_group = group.entity_id
         self._any_perm_cache = Cache.Cache(mixins=[Cache.cache_mru,
@@ -353,7 +352,7 @@ class BofhdAuth(DatabaseAccessor):
             return True
         if person.get_external_id(id_type=idtype):
             raise PermissionDenied("Already has a value for that idtype")
-        account = Account.Account(self._db)
+        account = Factory.get('Account')(self._db)
         account.find(operator)
         if person.entity_id == account.owner_id:
             return True
@@ -388,7 +387,7 @@ class BofhdAuth(DatabaseAccessor):
             return self._has_operation_perm_somewhere(
                 operator, self.const.auth_set_password)
         # TODO 2003-07-04: Bård is going to comment this
-        if not(isinstance(entity, Account.Account)):
+        if not(isinstance(entity, Factory.get('Account'))):
             raise PermissionDenied("No access")
         return self._query_disk_permissions(operator,
                                             self.const.auth_set_password,
@@ -403,7 +402,7 @@ class BofhdAuth(DatabaseAccessor):
             return self._has_operation_perm_somewhere(
                 operator, self.const.auth_set_password)
         # TODO 2003-07-04: Bård is going to comment this
-        if not(isinstance(entity, Account.Account)):
+        if not(isinstance(entity, Factory.get('Account'))):
             raise PermissionDenied("No access")
         return self._query_disk_permissions(operator,
                                             self.const.auth_set_password,
@@ -418,7 +417,7 @@ class BofhdAuth(DatabaseAccessor):
             return self._has_operation_perm_somewhere(
                 operator, self.const.auth_set_password)
         # TODO 2003-07-04: Bård is going to comment this
-        if not(isinstance(entity, Account.Account)):
+        if not(isinstance(entity, Factory.get('Account'))):
             raise PermissionDenied("No access")
         return self._query_disk_permissions(operator,
                                             self.const.auth_set_password,
@@ -433,7 +432,7 @@ class BofhdAuth(DatabaseAccessor):
             return self._has_operation_perm_somewhere(
                 operator, self.const.auth_set_password)
         # TODO 2003-07-04: Bård is going to comment this
-        if not(isinstance(entity, Account.Account)):
+        if not(isinstance(entity, Factory.get('Account'))):
             raise PermissionDenied("No access")
         return self._query_disk_permissions(operator,
                                             self.const.auth_set_password,
@@ -851,7 +850,7 @@ class BofhdAuth(DatabaseAccessor):
     def _get_users_auth_entities(self, entity_id):
         """Return all entity_ids that may be relevant in auth_role for
         this user"""
-        group = Group.Group(self._db)
+        group = Factory.get('Group')(self._db)
         ret = [entity_id]
         # TODO: Assert that user is a union member
         for r in group.list_groups_with_entity(entity_id):
@@ -863,13 +862,13 @@ class BofhdAuth(DatabaseAccessor):
             return self._group_member_cache[groupname]
         except KeyError:
             pass
-        group = Group.Group(self._db)
+        group = Factory.get('Group')(self._db)
         group.find_by_name(groupname)
         members = [int(id) for id in group.get_members()]
         self._group_member_cache[groupname] = members
         return members
 
     def _get_disk(self, disk_id):
-        disk = Disk.Disk(self._db)
+        disk = Factory.get('Disk')(self._db)
         disk.find(disk_id)
         return disk

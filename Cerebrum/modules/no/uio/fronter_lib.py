@@ -4,7 +4,7 @@
 import re
 import time
 
-from Cerebrum import Group
+from Cerebrum.Utils import Factory
 from Cerebrum.modules.no.uio.access_FS import FS
 from Cerebrum import Database
 from Cerebrum.extlib import xmlprinter
@@ -204,7 +204,7 @@ class Fronter(object):
 
     def GetSuperGroupnames(self):
         if 'FS' in self.export:
-            group = Group.Group(self.db)
+            group = Factory.get('Group')(self.db)
             ret = []
             for e in group.list_all_with_spread(
                 int(getattr(self.const, self.spread))):

@@ -26,7 +26,6 @@ from Cerebrum.Entity import \
      Entity, EntityContactInfo, EntityAddress, EntityQuarantine
 from Cerebrum import Utils
 from Cerebrum import Errors
-from Cerebrum import Account
 
 
 class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
@@ -653,7 +652,7 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
                                 self.const.person_aff_del, None)
 
     def get_accounts(self):
-        acc = Account.Account(self._db)
+        acc = Utils.Factory.get('Account')(self._db)
         return acc.list_accounts_by_owner_id(self.entity_id)
 
 

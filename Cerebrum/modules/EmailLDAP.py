@@ -24,13 +24,9 @@ import re
 import time
 import string
 
-from Cerebrum import Utils
-from Cerebrum import Disk
-from Cerebrum import Account
 from Cerebrum import Errors
-from Cerebrum import Utils
 from Cerebrum.modules import Email
-from Cerebrum.Utils import Factory
+from Cerebrum.Utils import Factory, mark_update
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum.modules.bofhd.utils import BofhdRequests
 
@@ -38,7 +34,7 @@ class EmailLDAP(DatabaseAccessor):
     """The EmailLDAP class is used to gather methodes used to generate
     an ldif for mail-backneds."""
     
-    __metaclass__ = Utils.mark_update
+    __metaclass__ = mark_update
 
     __write_attr__ = ('aid2addr', 'targ2addr', 'targ2prim', 'targ2spam',
                       'targ2quota', 'targ2virus', 'serv_id2server',
@@ -197,7 +193,7 @@ class EmailLDAP(DatabaseAccessor):
 
 
     def read_accounts(self):
-        acc = Account.Account(self._db)
+        acc = Factory.get('Account')(self._db)
         for row in acc.list_account_name_home():
             self.acc2name[int(row['account_id'])] = [row['entity_name'],
                                                      row['home'],

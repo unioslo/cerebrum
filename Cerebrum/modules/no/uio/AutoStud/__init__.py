@@ -5,11 +5,11 @@ this package"""
 import re
 
 import cereconf
+from Cerebrum.Utils import Factory
 
 from Cerebrum.modules.no.uio.AutoStud import ProfileConfig
 from Cerebrum.modules.no.uio.AutoStud import ProfileHandler
 from Cerebrum.modules.no.uio.AutoStud import StudentInfo
-from Cerebrum import Disk
 
 class AutoStud(object):
     def __init__(self, db, logger, cfg_file=None, debug=0,
@@ -21,7 +21,7 @@ class AutoStud(object):
         self.disks_order = []
         self.student_disk = {}
         if True:
-            disk = Disk.Disk(db)
+            disk = Factory.get('Disk')(db)
             for d in disk.list(filter_expired=True):
                 self.disks[int(d['disk_id'])] = [d['path'], int(d['count'])]
             self.disks_order = self.disks.keys()

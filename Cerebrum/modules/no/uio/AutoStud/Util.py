@@ -10,7 +10,6 @@ import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.Constants import _SpreadCode
-from Cerebrum import Group
 
 class LookupHelper(object):
     def __init__(self, db, logger):
@@ -36,7 +35,7 @@ class LookupHelper(object):
     def get_group(self, name):
         if self._group_cache.has_key(name):
             return self._group_cache[name] 
-        group = Group.Group(self._db)
+        group = Factory.get('Group')(self._db)
         group.clear()
         try:
             group.find_by_name(name)

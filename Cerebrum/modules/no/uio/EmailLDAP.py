@@ -23,7 +23,7 @@ import os
 import re
 import string
 
-from Cerebrum import Disk
+from Cerebrum.Utils import Factory
 from Cerebrum.modules import Email
 from Cerebrum.modules.EmailLDAP import EmailLDAP
 
@@ -83,7 +83,7 @@ class EmailLDAPUiOMixin(EmailLDAP):
         
   
     def list_machines(self):
-        disk = Disk.Disk(self._db)
+        disk = Factory.get('Disk')(self._db)
         res = []
         path_pattern = re.compile(r'/(?P<department>[^/]+)/(?P<host>[^/]+)/[^/]+')
         for d in disk.list():
