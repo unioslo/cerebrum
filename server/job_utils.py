@@ -147,15 +147,36 @@ class SocketHandling(object):
                     job_runner.quit()
                     break
                 elif data == 'STATUS':
-                    ret = ('\nRun-queue: \n  %s\nReady jobs: \n  %s\nThreads: \n  %s'
-                           '\nKnown jobs: \n  %s\n') % (
-                        "\n  ".join([str({'name': x['name'], 'pid': x['pid'],
-                                          'started': time.strftime(
+                    ret = "Run-queue: \n  %s\n" % "\n  ".join(
+                        [str({'name': x['name'], 'pid': x['pid'],
+                              'started': time.strftime(
                         '%H:%M.%S', time.localtime(x['started']))})
-                         for x in job_runner.job_queue.get_running_jobs()]),
-                        "\n  ".join([str(x) for x in job_runner.job_queue.get_run_queue()]),
-                        "\n  ".join([str(x) for x in threading.enumerate()]),
-                        "\n  ".join(job_runner.job_queue.get_known_jobs().keys()))
+                         for x in job_runner.job_queue.get_running_jobs()])
+
+                    
+                    ret += 'Ready jobs: \n  %s\n' % "\n  ".join(
+                        [str(x) for x in job_runner.job_queue.get_run_queue()])
+                    ret += 'Threads: \n  %s' % "\n  ".join(
+                        [str(x) for x in threading.enumerate()])
+                    tmp = job_runner.job_queue.get_known_jobs().keys()
+                    tmp.sort()
+                    ret += '\n%-35s %s\n' % ('Known jobs', '  Last run  Last duration')
+                    for k in tmp:
+                        t2 = job_runner.job_queue._last_run[k]
+                        if t2:
+                            t = time.strftime('%H:%M.%S', time.localtime(t2))
+                            days = int((time.time()-t2)/(3600*24))
+                        else:
+                            t = 'unknown '
+                            days = 0
+                        t2 = job_runner.job_queue._last_duration[k]
+                        if t2:
+                            t += '  '+time.strftime('%H:%M.%S', time.gmtime(t2))
+                        else:
+                            t += '  unknown'
+                        if days:
+                            t += " (%i days ago)" % days
+                        ret += "  %-35s %s\n" % (k, t)
                     if job_runner.sleep_to:
                         ret += 'Sleep to %s (%i seconds)\n' % (
                             time.strftime('%H:%M.%S', time.localtime(job_runner.sleep_to)),
@@ -281,6 +302,7 @@ class JobQueue(object):
         self._running_jobs = []
         self._last_run = {}
         self._started_at = {}
+        self._last_duration = {}         # For statistics in --status
         self.db_qh = DbQueueHandler(db, logger)
         self._debug_time=debug_time
         self.reload_scheduled_jobs()
@@ -309,7 +331,15 @@ class JobQueue(object):
         if self._known_jobs.has_key(job_name):  # Preserve info when reloading
             job_action.copy_runtime_params(self._known_jobs[job_name])
         self._known_jobs[job_name] = job_action
-        self._last_run[job_name] = 0
+        # By setting _last_run to the current time we prevent jobs
+        # with a time-based When from being ran imeadeately (note that
+        # reload_scheduled_jobs will overwrite this value if an entry
+        # exists in the db)
+        if job_action.when and job_action.when.time:
+            self._last_run[job_name] = time.time()
+        else:
+            self._last_run[job_name] = 0
+        self._last_duration[job_name] = 0
 
     def has_queued_prerequisite(self, job_name, depth=0):
         """Recursively check if job_name has a pre-requisite in run_queue."""
@@ -369,7 +399,9 @@ class JobQueue(object):
 
         if self._started_at.has_key(job_name):
             self.logger.debug("Completed [%s/%i] after %f seconds" % (
-                job_name,  pid, self._last_run[job_name] - self._started_at[job_name]))
+                job_name,  pid, self._last_duration[job_name]))
+            self._last_duration[job_name] = (
+                self._last_run[job_name] - self._started_at[job_name])
         else:
             self._run_queue.remove(job_name)
             self.logger.debug("Completed [%s/%i] (start not set)" % (
