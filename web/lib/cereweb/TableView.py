@@ -14,6 +14,20 @@ class TableView:
         self.sort = ["+" + field for field in self.columns]
         self._width = len(self.columns)
         self._rows = []
+
+    def column_order(self, columnname):
+        """Returns the current column order for the given column"""
+        for column in self.sort:
+            if not columnname == column[1:]:
+                continue
+            way = column[0]
+            if way == "+":
+                return 1
+            elif way == "-":
+                return -1
+            else:        
+                raise "Invalid sort order %s - should start with + or -" % column
+        return 0          
         
     def add(self, *data, **fields):
         """Adds a data row with field=value. 
@@ -36,17 +50,10 @@ class TableView:
         """Sorts according to rules in self.sort. This is called for each
            elements that needs to be compared."""
         for column in self.sort:
-            way = column[0]
-            if way == "+":
-                way = 1    
-            elif way == "-":
-                way = -1
-            else:        
-                raise "Invalid sort order %s - should start with + or -" % column
             column = column[1:]
             diff = cmp(a.get(column), b.get(column))
             if diff:
-                return way * diff
+                return self.column_order(column) * diff
         return diff        
         
     def sorted(self):
@@ -72,7 +79,7 @@ class TableView:
         table.add(*headers)       
         for row in self.sorted():
             # Prepare values to be HTML-able
-            row = map(prepareForHTML, row)
+            row = map(_prepareForHTML, row)
             table.add(*row)
         return table    
 
