@@ -58,6 +58,9 @@ def read_targ():
 
 
 def write_ldif():
+    mail_quota = Email.EmailQuota(Cerebrum)
+    mail_spam = Email.EmailSpamFilter(Cerebrum)
+    mail_virus = Email.EmailVirusScan(Cerebrum)
     for t in targets:
         mail_targ.clear()
         mail_targ.find(t)
@@ -65,6 +68,7 @@ def write_ldif():
         print "dn: cn=a%s,ou=mail,dc=uio,dc=no" % t
         print "objectClass: top"
 
+        # Find addresses for target:
         if targ2addr.has_key(t):
             for a in targ2addr[t]:
                 mail_addr.clear()
@@ -74,6 +78,36 @@ def write_ldif():
                 mail_dom.find(dom_id)
                 print "mail: %s@%s" % ( mail_addr.get_localpart(),
                                         mail_dom.get_domain_name() )
+
+        # Find quota-info for target:
+        try:
+            mail_quota.clear()
+            mail_quota.find(t)
+            print "softQuota: %d" % mail_quota.get_quota_soft()
+            print "hardQuota: %d" % mail_quota.get_quota_hard()
+        except Errors.NotFoundError:
+            pass
+
+        # Find SPAM-info for target:
+        try:
+            mail_spam.clear()
+            mail_spam.find(t)
+            print "spamLevel: %d" % mail_spam.get_spam_level()
+            print "spamAction: %d" % mail_spam.get_spam_action()
+        except Errors.NotFoundError:
+            pass
+
+        # Find virus-info for target:
+        try:
+            mail_virus.clear()
+            mail_virus.find(t)
+            if mail_virus.is_enabled():
+                print "virusFound: %d" % mail_virus.get_virus_found_act()
+                print "virusRemoved: %d" % mail_virus.get_virus_removed_act()
+        except Errors.NotFoundError:
+            pass
+
+           
         print "\n"
 
 def main():
