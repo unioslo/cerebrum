@@ -1,58 +1,74 @@
 #from Cerebrum.web.InitTemplate import InitTemplate
 #extends InitTemplate
-#import forgetHTML
 #from Cerebrum.web.TableView import TableView
 #from MemberTableTemplate import MemberTableTemplate
 #from SortedTableTemplate import SortedTableTemplate
 #from Cerebrum.web.utils import url
+## I don't like involving ClientAPI from the templates..
+#from Cerebrum.Utils import Factory 
+#set ClientAPI = Factory.get_module("ClientAPI")
 
-#def view_quarantines_form($entity_id, $quarantines, $uri)
+#def view_quarantines($entity)
+
+#set $entity_id = $entity.id 
+#set $quarantines = $entity.get_quarantines()
+
 <div class="quarantines">
 <h2>$_("Quarantines")</h2>
 #if quarantines
-#set $table=$TableView("type","start","end","disable_until","who","why")
+#set $table=$TableView("type","start","end","disable_until","who","why", "edit", "remove")
+
 #for $quarantine in $quarantines
-#if $quarantine.start
-#set $quarantine.start = $quarantine.start.strftime("%Y-%m-%d")
-#end if
-#if $quarantine.end
-#set $quarantine.end = $quarantine.end.strftime("%Y-%m-%d")
-#end if
-#if $quarantine.disable_until
-#set $quarantine.disable_until = $quarantine.disable_until.strftime("%Y-%m-%d")
-#end if
-$table.add($quarantine.type.name,$quarantine.start,$quarantine.end,$quarantine.disable_until,$quarantine.who,$quarantine.why)
+    ## Get string values
+    #set $start = $quarantine.start and $quarantine.start.strftime("%Y-%m-%d")
+    #set $end = $quarantine.end and $quarantine.end.strftime("%Y-%m-%d")
+    #set $disable_until = $quarantine.disable_until and $quarantine.disable_until.strftime("%Y-%m-%d")
+    #set $qtype = $quarantine.type.name
+    #set $editurl = $url('quarantine/edit?entity_id=%s&amp;type=%s' % ($entity_id, $qtype))
+    #set $removeurl = $url('quarantine/remove?entity_id=%s&amp;type=%s' % ($entity_id, $qtype))
+    #set $edit = "<a href='%s'>[%s]</a>" % ($editurl, $_("Edit"))
+    #set $remove= "<a href='%s'>[%s]</a>" % ($removeurl, $_("Remove"))
+    $table.add($qtype, $start, $end, $disable_until,
+               $quarantine.who, $quarantine.why,
+               $edit, $remove)
 #end for
-#set $headers = {'type': $_("Type"), 'start': $_("Start"), 'end': $_("End"), 'disable_until': $_("Disabled until"), 'who': $_("Registered by"), 'why': $_("Description")}
-#set $bgcolors=[" bgcolor=#9ab",""," bgcolor=#9ab",""," bgcolor=#9ab",""]
-<table>
-    <tr>
-#for $column in $table.columns
-#set $header = $headers.get($column, "")
-        <th>$header</th>
-#end for
-    </tr>
-#for $row, $rowdata in $table.sorted(includeData=True)
-#set $qtype = $rowdata.get("type","")
-    <tr>
-#set $i = 0
-#for $col in $row
-        <td$bgcolors[$i]>$col</td>
-#set $i +=1
-#end for
-#set $editurl = $url('quarantine/edit?entity_id=%s&amp;type=%s&amp;uri=%s' % ($entity_id, $qtype, $uri))
-#set $removeurl = $url('quarantine/remove?entity_id=%s&amp;type=%s&amp;uri=%s' % ($entity_id, $qtype, $uri))
-        <td><a href="$removeurl">[Remove] </a></td>
-        <td><a href="$editurl">[Edit]</a></td>
-    </tr>
-#end for
-</table>
+
+## and output the table
+$table.html(type=$_("Type"),
+            start=$_("Start"),
+            end=$_("End"),
+            disable_until=$_("Disabled until"),
+            who=$_("Registered by"),
+            why=$_("Description"), edit="", remove="")
+                
+##<table>
+##    <tr>
+###for $column in $table.columns
+###set $header = $headers.get($column, "")
+##        <th>$header</th>
+###end for
+##    </tr>
+###for $row, $rowdata in $table.sorted(includeData=True)
+###
+##    <tr>
+###set $i = 0
+###for $col in $row
+##        <td>$col</td>
+###set $i +=1
+###end for
+##
+##
+##        <td><a href="$removeurl">[Remove] </a></td>
+##        <td><a href="$editurl">[Edit]</a></td>
+##    </tr>
+###end for
+##</table>
 #else
     <tr>
         <td>None</td>
     </tr>
 #end if
-#set $addurl = $url('quarantine/add?entity_id=%s&amp;uri=%s' % ($entity_id, uri))
+#set $addurl = $url('quarantine/add?entity_id=%s' % $entity_id)
     <p>
     <tr>
         <td><a href="$addurl">[Add new quarantine]</a></td>
