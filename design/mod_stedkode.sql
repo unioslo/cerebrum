@@ -17,7 +17,7 @@ CREATE TABLE stedkode
 (
   ou_id		NUMERIC(12,0)
 		CONSTRAINT stedkode_pk PRIMARY KEY
-		CONSTRAINT stedkode_ou_id REFERENCES ou(ou_id),
+		CONSTRAINT stedkode_ou_id REFERENCES ou_info(ou_id),
   institusjon	NUMERIC(4,0)
 		NOT NULL,
   fakultet	NUMERIC(2,0)
