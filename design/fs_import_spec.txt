@@ -1,11 +1,15 @@
 [ This documentation is in Norwegian as the system in question is only
   used in Norway ]
 
+# Trenger vi dette? Eller er alle enige i at vi skal passe på å holde 
+# dokumentet oppdatert til enhver tid :)?
+************************************************************************
 Dette dokumentet beskriver hvordan data skal importeres fra FS til
 Cerebrum, men ikke ned til minste detalj.  Jeg regner med at noen
 kommer til å skrive det om en gang i tiden, med mindre det blir
 oppgitt til fordel for "the spec is the source"; hvis så skjer bør vel
 dokumentet slettes.
+************************************************************************
 
 1.0 Import av personinformasjon fra FS til Cerebrum.
 ====================================================
@@ -21,10 +25,12 @@ For alle importerer vi:
   - etternavn
   - fødselsnummer
   - kjønn
+
 Fagpersoner:
   - arbeidsadresse fra fs.fagperson	(som co.address_post)
     Hvis denne ikke finnes, brukes hjemstedsadresse fra FS.person
   - alle stedkoder	(fs.fagpersonundsemester)
+
 Studenter:
   - semesteradresse, fra FS.student	(som co.address_post)
     Hvis denne ikke finnes, brukes hjemstedsadresse fra FS.person
@@ -37,120 +43,215 @@ EVU-studenter:
   - Job-adresse, fra FS.deltaker	(som co.address_post)
     Hvis denne ikke finnes, brukes hjemstedsadresse fra FS.deltaker
     Hvis denne ikke finnes, brukes hjemstedsadresse fra FS.person
-  - Stedkode(r) (*_Adm_ansvar) for kurs.
+  - Stedkode(r) (???) for kurs.
 
-
-Når skal de med i importen:
+En person skal med i importen fra FS dersom følgende er oppfylt:
 
  - Fagpersoner:
    - Hvis de har en postering for inneværende semester i fs.fagpersonundsemester
 
  - Student:
-   - Hvis de har en 'lovlig' (dvs. <> 'PRIVATIST') studierett til et studieprogram.
+   - Hvis de har en "lovlig" opptak til et studieprogram.
+     En "lovlig" opptak til et studieprogram betyr at student er registrert til 
+     et studieprogram samt at studirettstatkode er en av de godkjente 
+     (vi får forhåpentligvis vite hvilke det er snart :)).
 
-   Merk: Disse blir aktive/ekte når de får et aktivt studieprogram
-         (dvs. et studieprogram med studierett (dvs. <> 'PRIVATIST'),
-         semesterregistrert (Regform: 'MANUELL' eller 'STUDWEB'), og
-         meldt til eksamen i et emne som kan inngå i studieprogramet).
-         Inntil dette er de kun 'passive' studenter.
-
- - EVU-studenter
+ - EVU-student:
    - Meldt til et kurs som har startdato senest om 14 dager, eller som
-     avsluttes tidligst for 14 dager siden
-
+     avsluttes tidligst for 14 dager siden. 
 
 
 2.0 Regler for automatisk bygging av kontoer o.l.
 =================================================
+Det bygges kontoer til alle studenter. 
 
-Vi bygger konto til alle studenter med eksamensmelding i et aktivt
-studieprogram (GetAlleEksamener), med mindre personen allerede har en
+ - En student er definert som en person som:
+
+	 1) Enten har opptak til et studieprogram og er semesterregistrert for 
+	    inneværende semester (regformkode skal være enten 'DOKTORREG', 
+            'MANUELL' eller 'STUDWEB', terminkode og arstall må også stemme) 
+            og meldt til eksamen i et emne som kan inngå det studieprogrammet 
+            personen har opptak til. 
+
+	 2) Eller har bekreftet og godkjent utdanningsplan (utdanningsplan kan ikke 
+            bekreftes av studenten dersom den ikke er godkjent så vi trenger 
+	    bare å se på bekreftelse). Dette hentes fra 
+	    fs.studprogstud_planbekreft (terminkode_bekreft og arstall_bekreft
+            skal være for inneværende semester, dato_bekreftet < dato )
+   
+   Til hvert studieprogram er det knyttet et felt som heter status_utdplan 
+   (J/N). Dette bestemmer om et studieprogram er slik at studenter med 
+   opptak til studieprogrammet skal ha en utdanningsplan eller ikke og 
+   kan således brukes til å bestemme hvilken av de ovennevnte krav en 
+   peronen må oppfylle for å bli regnet som student.
+   Feltet kan ikke være NULL og default verdien er (foreløpig) 'N'.
+
+# Hvordan skal vi løse dette? Bør vi definere de som en tredje lovlig gruppe
+# studenter?
+*************************************************************************
+   Mulige spesialtilfeller: studenter med det som kalles studierett på 
+   emne og studierett på fag. Disse vil bli 'ekte' bare dersom de er 
+   eksamensmeldt i det emnet de har fått studierett til.
+   (feltene studieprogramkode i emnebegrenset_studierett og 
+   studieprogramkode i fagbegrenset_studierett inneholder informasjon
+   om dette)
+*************************************************************************
+Kontoer bygges til alle studenter med mindre personen allerede har en
 konto med _PersonAffiliationCode('STUDENT') (må denne affiliation være
-valid?).
+# valid? - kan noen si om dette er tilfelle eller ikke please :)?).
 
-For alle med student-konto gjelder følgende:
+ - En EVU-student er en person som:
+   
+   1) Er meldt til et EVU-kurs (kurs registrert i EVU-modulen i FS)
+      som har startdato om cirka to uker.
+      Kurset skal være "godkjent" for kontobygging ved at 
+      fs.etterutdanningskurs.status_nettbasert_und = 'J'
+
+For alle med studentbrukere gjelder følgende:
 
 - Personen får affiliation('STUDENT') mot stedkodene til alle dens
-  studieprogram
-- For EVU-studenter hentes stedkodene fra fs.etterutdkurs.*_Adm_ansvar
-- Kontoen meldes inn i alle primær-/grupper angitt i studconfig.xml.
+  aktive studieprogrammer
+
+- Det bygges personlig filgruppe til alle studenter
+
+- For EVU-studenter hentes stedkodene fra fs.etterutdkurs.???
+
+- Brukeren meldes inn i alle grupper angitt i studconfig.xml.
   Den meldes også ut av alle øvrige grupper listet som "auto-grupper".
-- Kontoen gis alle spread som matcher i studconfig.xml
-- Kontoen gis et hjemmeområde, primær e-postadresse og primærgruppe
-  (se under)
+
+- Brukeren gis alle spread som matcher i studconfig.xml
+
+- Brukeren gis et hjemmeområde, primær e-postadresse (se 2.1 for forklaring 
+  på valg av disse) og primærgruppe (primærgruppen vil alltid være den 
+  personlige filgruppen)
 
 
 2.1 Order-of-precedence for attributter man bare kan ha ett av
 --------------------------------------------------------------
 
-En konto kan bare ha ett hjemmeområde, primær e-postadresse og
-primærgruppe.  Når studconfig.xml forteller at brukeren har multiple
-verdier for disse gjelder følgende regler:
+En bruker kan bare ha ett hjemmeområde og en primær e-postadresse.  
+Når studconfig.xml forteller at brukeren har multiple verdier for 
+disse gjelder følgende regler:
 
-- Studienivåkode [100-300> leses som 100 og [300-400> leses som 300.
-  Hvis verdien(e) for det høyeste nivået er unik, velges denne.
+Vi bruker fs.studieprogram.studienivakode til å bestemme hvor
+hjemmeområde skal befinne seg, hvilken primær e-post addresse en 
+bruker skal ha.
 
-(reglene under gjelder bare for emner/studieprogram på høyeste nivå)
+De nye studienivåkodene er: 280 for bachelorprogrammer, 350 for 
+masterprogrammer og ett-tall-større-enn-350 for doktorgradsprogrammer.
+	 
 
-- Hvis den ene verdien er satt fra et emne, og den andre fra et
-  studieprogram, velges verdien for emne.
-- Home settes til /uio/platon/div-{h|l}\d+
-- Primærgruppe og primær e-postadresse settes til det av alternativene
-  som kommer først alfabetisk.
+Det vil fortsatt være mulig å ha studierett på flere studieprogrammer 
+samtidig. 
+
+Følgende regler vil gjelde for slike studenter:
+
+    1) Brukeren får de egenskapene som er definert for 
+       studieprogram med høyest studienivåkode.
+    2) Dersom det er flere programmer som har lik studienivåkode
+       bør brukeren få hjemmeområde og primær e-post adresse 
+       definert for det studieprogrammet hvor emne med høyest 
+       nivå tas (det kommer en forklaring på hvilke tallkoder kommer
+       til å bli brukt her så snart vi har fått svar på dette fra SFA)
+    3) Dersom både studienivåkodene og emnenivåkodene er like
+       flyttes brukeren til /uio/platon/div-{h|l}\d+. 
+       Primær e-postadresse settes som definert for det studieprogrammet 
+       studenten har hatt opptak til lengst 
+       (fs.studprogstud_planbekreft.terminkode_start) for de 
+       studieprogrammene som har en utdanningsplan tilknyttet. 
+    4) Dersom studenten har opptak til et studieprogram med 
+       utdanningsplan og et uten så settes hjemmeområdet og 
+       primær e-post adresse som definert for studieprogrammet 
+       med utdplan.
+    5) Dersom ingen av studieprogrammene har en utdanningsplan
+       tilknyttet så skal emne med høyeste nivå bestemme hvilke
+       egenskaper brukeren skal få.
 
 
 2.2 Reservering av brukernavn
 -----------------------------
 
-Alle personer med opptak til et studieprogram (FinnAlleStudprogSko)
-får et brukernavn og passord, men de får ikke noen PosixUser eller
-spread.
+Alle personer som får tilbud om opptak til et studieprogram 
+får reservert brukernavn. Det sendes ut brev til disse i slutten
+av juli (helst sammen med tilbudet om opptak). 
 
 
 2.3 Tilordning av skriverkvoter
 -------------------------------
 
-TODO: Her må det skrives noe.  Det er fint om studconfig.xml bestemmer
-hvem som skal ha kvoter.
+Ved tilordning av skriverkvoter vil følgende gjelde:
+
+-bare de studentene som har betalt papiravgiften får utskriftskvote
+-alle ande får nullkvote
+
+Betalingene vil bli registrert på omtrent samme måte som 
+semesteravgift. Følgende koder er blitt opprettet for å registrere
+betalingene:
+
+- PAPIRHEL (heltidsstudenter)
+- PAPIRDEL (deltidsstudenter)
+- PAPIRPPU (pedagogistudenter)
+
+Siden det ikke finnes noe som tilsvarer registerkort-tabell for 
+disse innbetalingene (som brukes for å sjekke semesterregistreringen 
+i dag) må man sjekke betalingen i tabellene fakturareskontro og 
+fakturareskontrodetalj:
+
+- fs.fakturareskontrodetalj.fakturadetaljtypekode ='PAPIRHEL' OR
+  fs.fakturareskontrodetalj.fakturadetaljtypekode ='PAPIRDEL' OR
+  fs.fakturareskontrodetalj.fakturadetaljtypekode ='PAPIRPPU'
+- fakturareskontro.status_betalt = 'J',  
+- fakturareskontro.terminkode AND fakturareskontro.arstall = nåværende semester 
+- fakturareskontro.fakturastatuskode = 'OPPGJORT' 
+
+Dersom ovennevnte krav er oppfylt er betalingen i orden
+og studenten skal ha utskriftskvote.
 
 
 2.4 Utsending av papirbrev
 --------------------------
 
-Det sendes brev for alle automatisk byggede brukere.  Brevet sendes
+Det sendes brev til alle automatisk byggede brukere.  Brevet sendes
 til semesteradressen hvis denne finnes.  Hvis ikke, sendes det til
-hjemstedsadressen.  Brev sendes ikke ut av landet.  Alle brev er på
-norsk.
+hjemstedsadressen. Brev sendes ikke ut av landet.
+ 
+fs.person.sprakkode_malform populeres ved registrering av
+en person i FS. Det kan dette feltet brukes til å bestemme 
+om brevet som skal sendes skal være på engelsk eller norsk. 
+Kodene her er 'NYNORSK', 'BOKMÅL', 'UKJENT' osv. Dvs. at
+de personene hvis sprakkode_malform <> (BOKMÅL || NYNORSK) 
+får brev på engelsk. Brev på nynorsk vil bli laget før semesterstart.
 
 
 2.5 Tidspunkt for automatiske handlinger
-----------------------------------------
+-----------------------------------------
 
+- Reservering av brukernavn på grunnlag av tilbud om
+  opptak til studieprogram skjer i hele juli og august 
+  samt januar og februar  
 - Skriverkvoter oppdateres natt til fredag
 - Innmelding i grupper skjer hver natt
-- Endring av primærgruppe skjer en gang i semesteret (dato?)
 - Primær e-postadresse settes hver onsdag
 - Brukere bygges hver natt
 - Brukere flyttes hver natt forutsatt at det er > 7 dager siden
   forrige flytting
-- Brukere meldes ut av grupper: når da?
+# - Brukere meldes ut av grupper: når da? (fint om Noen sier noe om dette :))
 
-2.5.1 Sperring:
----------------
-1. Studentbrukere til studenter som ikke er semesterregistrert innen 20.
-   februar eller 20. september sperres (en gang i semesteret, eller i
-   forbindelse med jobben som skal utføre sperring i punkt. 2).
-2. Studentbrukere til studenter som ikke har eksamensmelding i minst ett
-   emne sperres (hver natt etter 20. februar/20. september)
-3. Studentbrukere til studenter som kun er eksamensmeldt til emner som ikke
-   kan inngå i minst et av de studieprogrammene studenten har opptak til
-   sperres etter 15. mars/15. oktober ("privatister", her venter vi på at
-   fakultetene skal gjennomføre overgangsopptak)
+
+# Trenger vi noen flere definisjoner på sperring av studentbrukere enn
+# dette nå?
+*************************************************************************
+2.5.1 Sperring av studentbrukere:
+---------------------------------
+
+Studentbrukere til studenter som ikke oppfyller krav fra 2.0 per
+1. oktober/1. mars sperres.
+*************************************************************************
 
 2.5.2 Sletting:
 ---------------
 1. Studentbrukere til studenter som har vært inaktive forrige semester
-   slettes 20. februar/20. september (en gang i semesteret).
+   slettes 15. februar/15. september (en gang i semesteret).
 2. Etter 15. mars/15. oktober slettes alle brukere som har vært sperret i
-   tre måneder (90 dager :))
-3. EVU-studenter slettes ca. to uker etter at kurset er gjennomført
+   tre måneder.
+3. EVU-studenter slettes ca. to uker etter at kurset er avsluttet.
