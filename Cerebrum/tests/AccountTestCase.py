@@ -23,8 +23,6 @@ class Account_createTestCase(Person_createTestCase):
         }
 
     def setUp(self):
-        # print "Person_createTestCase.setUp()"
-        # print "Type1: %s, type2: %s" % (type(Person_createTestCase), str(self))
         super(Account_createTestCase, self).setUp()
 
         account = Account.Account(self.Cerebrum)
@@ -38,17 +36,18 @@ class Account_createTestCase(Person_createTestCase):
         ad = self.account_dta
         ad['owner_id'] = self.person_id
         account.clear()
-        account.populate(ad['name'], ad['owner_type'], ad['owner_id'], ad['np_type'],
+        Account.Account.populate(account, ad['name'], ad['owner_type'], ad['owner_id'], ad['np_type'],
                          ad['creator_id'], ad['expire_date'])
 
     def tearDown(self):
-        super(Person_createTestCase, self).tearDown()
+        # print "Account_createTestCase.tearDown()"
         self.Cerebrum.execute(
             """DELETE FROM [:table schema=cerebrum name=entity_name]
                WHERE entity_id=:id""", {'id': self.account_id})
         self.Cerebrum.execute(
             """DELETE FROM [:table schema=cerebrum name=account_info]
                WHERE account_id=:id""", {'id': self.account_id})
+        super(Person_createTestCase, self).tearDown()
 
 
 class AccountTestCase(Account_createTestCase):
