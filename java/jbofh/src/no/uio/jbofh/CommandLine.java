@@ -8,6 +8,8 @@ package no.uio.jbofh;
 
 import java.util.Vector;
 import java.util.Enumeration;
+import java.util.Timer;
+import java.util.TimerTask;
 import org.gnu.readline.*;
 import java.io.EOFException;
 import org.apache.log4j.Category;
@@ -22,10 +24,58 @@ import java.text.ParseException;
 public class CommandLine {
     Category logger;
     JBofh jbofh;
+    Timer timer;
+    IdleTerminatorTask terminatorTask;
+
+    /**
+     * <code>IdleTerminatorTask</code> is used to terminate the
+     * program when no command is entered for a time.  A warning is
+     * issued after warnDelay seconds.  Unless stopWaiting() is called
+     * terminateDelay seconds after that, the program will exit.
+     * Setting warnDelay = 0 disables this feature.
+     *
+     */
+    class IdleTerminatorTask extends TimerTask {
+        long period;            // frequency with which we are called (in ms)
+        int warnDelay, terminateDelay;  // seconds to wait
+        long waited = -1;
+        boolean has_warned = false;
+
+        IdleTerminatorTask(long period, int warnDelay, int terminateDelay) {
+            this.period = period;
+            this.warnDelay = warnDelay;
+            this.terminateDelay = terminateDelay;
+        }
+        
+        public void startWaiting() {
+            waited = 0;
+            has_warned = false;
+        }
+        public void run() {
+            if (waited == -1) return;
+            if (warnDelay == 0) return;
+            waited += period;
+            if (waited > (warnDelay + terminateDelay) * 1000) {
+                jbofh.showMessage("Terminating program due to inactivity", true);
+                jbofh.bye();
+            } else if (waited > (warnDelay) * 1000) {
+                if (! has_warned)
+                    jbofh.showMessage("Session about to timeout, press enter to cancel", true);
+                has_warned = true;
+            }
+        }
+        public void stopWaiting() {
+            waited = -1;
+        }
+    }
 
     /** Creates a new instance of CommandLine */
-    public CommandLine(Category logger, JBofh jbofh) {
+    public CommandLine(Category logger, JBofh jbofh, int warnDelay, int terminateDelay) {
 	this.jbofh = jbofh;
+        terminatorTask = new IdleTerminatorTask(60*1000, warnDelay, terminateDelay);
+        timer = new Timer(false);
+        timer.schedule(terminatorTask, 1000, 60*1000);
+
 	if(! (jbofh != null && jbofh.guiEnabled)) {
 	    Readline.initReadline("myapp");
 	    this.logger = logger;
@@ -103,7 +153,9 @@ public class CommandLine {
 	    Vector oldHist = new Vector();
 	    // A readline thingy where methods were non-static would have helped a lot.
 	    if(! addHist) Readline.getHistory(oldHist);
-	    String ret = Readline.readline(prompt);
+            terminatorTask.startWaiting();
+            String ret =  Readline.readline(prompt);
+            terminatorTask.stopWaiting();
 	    if(! addHist) {
 		Readline.clearHistory();
 		for (Enumeration e = oldHist.elements() ; e.hasMoreElements() ;) 
@@ -129,7 +181,7 @@ public class CommandLine {
 	    "mer (enn du(skulle tro))",
             "test empty \"\" quote"
 	};
-        CommandLine cLine = new CommandLine(Category.getInstance(CommandLine.class), null);
+        CommandLine cLine = new CommandLine(Category.getInstance(CommandLine.class), null, 0, 0);
 	for(int j = 0; j < tests.length; j++) {
 	    System.out.println("split: --------"+tests[j]+"-----------");
 	    try {

@@ -268,7 +268,20 @@ public class JBofh {
         catch (UnsatisfiedLinkError ignore_me) {
             showMessage("couldn't load readline lib. Using simple stdin.", true);
         }
-        cLine = new CommandLine(logger, this);
+        int idleWarnDelay = 0;
+        int idleTerminateDelay = 0;
+        try {
+            String tmp;
+            tmp = System.getProperty("JBOFH_IDLE_WARN_DELAY", null);
+            if (tmp == null) tmp = (String) props.get("IdleWarnDelay");
+            if (tmp != null) idleWarnDelay = Integer.parseInt(tmp);
+            tmp = (String) props.get("IdleTerminateDelay");
+            if (tmp != null) idleTerminateDelay = Integer.parseInt(tmp);
+        } catch (NumberFormatException ex) {
+            showMessage("Configure error, Idle*Delay must be a number", true);
+            System.exit(1);
+        }
+        cLine = new CommandLine(logger, this, idleWarnDelay, idleTerminateDelay);
     }
 
     public void initialLogin(String uname, String password) 
