@@ -38,6 +38,7 @@ default_undenh_student_file = "/cerebrum/dumps/FS/student_undenh.xml"
 default_studieprogram_file = "/cerebrum/dumps/FS/studieprog.xml"
 default_ou_file = "/cerebrum/dumps/FS/ou.xml"
 default_emne_file = "/cerebrum/dumps/FS/emner.xml"
+default_fnr_update_file = "/cerebrum/dumps/FS/fnr_update.xml"
 
 xml = XMLHelper()
 fs = None
@@ -179,6 +180,7 @@ def write_studprog_info(outfile):
                 + "\n")
     f.write("</data>\n")
     f.close()
+
 def write_emne_info(outfile):
     """Lager fil med informasjon om alle definerte emner"""
     f=open(outfile, 'w')
@@ -187,7 +189,42 @@ def write_emne_info(outfile):
     for t in dta:
         f.write(xml.xmlify_dbrow(t, xml.conv_colnames(cols), 'emne') + "\n")
     f.write("</data>\n")
- 
+
+def write_fnrupdate_info(outfile):
+    """Lager fil med informasjon om alle fødselsnummerendringer"""
+    stream = AtomicFileWriter(outfile, 'w')
+    writer = xmlprinter.xmlprinter(stream,
+                                   indent_level = 2,
+                                   # Human-readable output
+                                   data_mode = True,
+                                   input_encoding = "latin1")
+    writer.startDocument(encoding = "iso8859-1")
+
+    db = Factory.get("Database")()
+    const = Factory.get("Constants")(db)
+
+    writer.startElement("data", {"source_system" : str(const.system_fs)})
+
+    junk, data = fs.GetFnrEndringer()
+    for row in data:
+        # Make the format resemble the corresponding FS output as close as
+        # possible.
+        attributes = { "type" : str(const.externalid_fodselsnr), 
+                       "new"  : "%06d%05d" % (row["fodselsdato_naverende"],
+                                              row["personnr_naverende"]),
+                       "old"  : "%06d%05d" % (row["fodselsdato_tidligere"],
+                                              row["personnr_tidligere"]),
+                       "date" : str(row["dato_foretatt"]),
+                     }
+        
+        writer.emptyElement("external_id", attributes)
+    # od
+
+    writer.endElement("data")
+    writer.endDocument()
+    stream.close()
+# end get_fnr_update_info
+
 def fix_float(row):
     for n in range(len(row)):
         if isinstance(row[n], float):
@@ -201,13 +238,15 @@ def usage(exitcode=0):
     --hia-undenh-file: override 'topics' file
     --hia-emneinfo-file: override emne info
     --hia-student-undenh-file: override student on UE file
+    --hia-fnr-update-file: override fnr_update file
     --ou-file name: override ou xml filename
     --db-user name: connect with given database username
     --db-service name: connect to given database
     -s: generate studprog xml file
     -o: generate ou xml (sted.xml) file
     -p: generate person file
-    -r: genereta role file
+    -r: generate role file
+    -f: generate fnr_update file
     -e: generate emne info file
     -u: generate undervisningsenhet xml file
     -U: generate student on UE xml file
@@ -223,11 +262,12 @@ def assert_connected(user="CEREBRUM", service="FSHIA.uio.no"):
 
 def main():
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "psruUoe",
+        opts, args = getopt.getopt(sys.argv[1:], "fpsruUoe",
                                    ["hia-personinfo-file=", "studprog-file=", 
 				    "hia-roleinfo-file=", "hia-undenh-file=",
                                     "hia-student-undenh-file=",
-				    "--hia-emneinfo-file=",
+				    "hia-emneinfo-file=",
+				    "hia-fnr-update-file=",
                                     "ou-file=", "db-user=", "db-service="])
     except getopt.GetoptError:
         usage()
@@ -239,6 +279,7 @@ def main():
     role_file = default_role_file
     undervenh_file = default_undvenh_file
     emne_info_file = default_emne_file 
+    fnr_update_file = default_fnr_update_file
     undenh_student_file = default_undenh_student_file
     db_user = None         # TBD: cereconf value?
     db_service = None      # TBD: cereconf value?
@@ -253,6 +294,8 @@ def main():
 	    undervenh_file = val
         elif o in ('--hia-student-undenh-file',):
             undenh_student_file = val
+	elif o in ('--hia-fnr-update-file',):
+	    fnr_update_file = val
         elif o in ('--ou-file',):
             ou_file = val
         elif o in ('--db-user',):
@@ -273,6 +316,8 @@ def main():
             write_undenh_student(undenh_student_file)
         elif o in ('-e',):
 	    write_emne_info(emne_info_file)
+	elif o in ('-f',):
+	    write_fnrupdate_info(fnr_update_file)
         elif o in ('-o',):
             write_ou_info(ou_file)
 
