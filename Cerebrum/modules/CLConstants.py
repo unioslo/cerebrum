@@ -157,6 +157,9 @@ class CLConstants(Constants.Constants):
                                       'add entity_addr for %(subject)s')
     entity_addr_del = _ChangeTypeCode('entity_addr', 'del',
                                       'del entity_addr for %(subject)s')
+    # TBD: Is it correct to have posix_demote in this module?
+    posix_demote =  _ChangeTypeCode('posix', 'demote',
+                                    'demote posix %(subject)s')
 
     def __init__(self, database):
         super(CLConstants, self).__init__(database)
