@@ -2,7 +2,7 @@ Source: cerebrum
 Section: admin
 Priority: optional
 Maintainer: Andreas Schuldei <andreas@debian.org>
-Build-Depends: debhelper (>= 4.1.16), python-dev, cdbs, jamvm, jikes-classpath, libant1.6-java
+Build-Depends: debhelper (>= 4.1.16), python-dev, cdbs, kaffe, jikes-classpath, libant1.6-java
 Standards-Version: 3.6.1.0
 
 Package: cerebrum-doc
@@ -33,7 +33,7 @@ Description: common files for cerebrum systems
  can be Oracle or PostgreSQL.
 
 
-Package: cerebrum-server 
+Package: cerebrum-server
 Architecture: any 
 Depends: ${misc:Depends}, python, python-pgsql, postgresql, cerebrum-common (= ${Source-Version})
 Description: cerebrum server 
