@@ -4,6 +4,7 @@ import xml.sax
 from Cerebrum import Group
 
 TOPICS_FILE="/cerebrum/dumps/FS/topics.xml"   # TODO: cereconf
+STUDIEPROGS_FILE="/cerebrum/dumps/FS/studprog.xml"   # TODO: cereconf
 STUDCONFIG_FILE="/cerebrum/uiocerebrum/etc/config/studconfig.xml"
 
 import cereconf
@@ -236,6 +237,55 @@ class TopicsParser(xml.sax.ContentHandler):
                 return ret
             raise StopIteration, "End of file"
 
+class StudieprogsParser(xml.sax.ContentHandler):
+    """Parses the studieprogs file, storing data in an internal list.  The
+    topics file is sorted by fødselsnummer"""
+
+    # TBD: This code is very similar to the TopicsParser.  Unless the
+    # format is likely to be changed, the classes should be merged
+    # into one
+    def startElement(self, name, attrs):
+        self.t_data = {}
+        for k in attrs.keys():
+            self.t_data[k.encode('iso8859-1')] = attrs[k.encode('iso8859-1')].encode('iso8859-1')
+
+    def endElement(self, name):
+        if name == "studprog":
+            self.studieprogs.append(self.t_data)
+
+    def __init__(self, history=None, fnr=None, studieprogs_file=STUDIEPROGS_FILE):
+        self.studieprogs = []
+        # Ugly memory-wasting, inflexible way:
+        self.sp = self
+        self.history = history
+        self.fnr = fnr
+        xml.sax.parse(studieprogs_file, self.sp)
+
+    def __iter__(self):
+        return self
+
+    def next(self):
+        """Returns a dict with data about all studieprogs for the next person."""
+        ret = []
+        try:
+            # TODO: etter gitte dato kriterier skal noen rader kastes
+            # hvis fnr er satt, skal vi filtrere
+            prev_fodselsdato = prev_personnr = None
+            while 1:
+                if (prev_fodselsdato is None or
+                    (self.sp.studieprogs[0]['fodselsdato'] == prev_fodselsdato and
+                    self.sp.studieprogs[0]['personnr'] == prev_personnr)):
+                    prev_fodselsdato = self.sp.studieprogs[0]['fodselsdato']
+                    prev_personnr = self.sp.studieprogs[0]['personnr']
+                    ret.append(self.sp.studieprogs.pop(0))
+                else:
+                    return ret
+            return ret
+        except IndexError:
+            if len(ret) > 0:
+                return ret
+            raise StopIteration, "End of file"
+
 class Profile(object):
     """Profile implements the logic that maps a persons topics (and
     optionaly groups) to the apropriate home, default group etc using
@@ -243,6 +293,7 @@ class Profile(object):
     """
 
     def __init__(self, autostud, topics, groups=None):
+        # topics may contain data from get_studieprog_list
         self._topics = topics
         self._groups = groups
         self._autostud = autostud
@@ -255,14 +306,15 @@ class Profile(object):
         topics.sort(self._topics_sort)
         if self._autostud.debug > 1:
             print " topics=%s" % ["%s:%s@%s" %
-                                   (x['emnekode'], x['studienivakode'],
+                                   (x.get('emnekode', ""), x['studienivakode'],
                                     x['studieprogramkode']) for x in topics]
         for t in topics:
-            k = autostud.sp.ke['emne'].get(t['emnekode'], None)
-            if k is not None:
-                # TODO: sett nivåkode til nivåkode + 50 for å
-                #   implementere emne > studieprogram på samme nivåkode
-                self._matches.append((k, 'emne'))
+            if t.has_key('emnekode'):
+                k = autostud.sp.ke['emne'].get(t['emnekode'], None)
+                if k is not None:
+                    # TODO: sett nivåkode til nivåkode + 50 for å
+                    #   implementere emne > studieprogram på samme nivåkode
+                    self._matches.append((k, 'emne'))
             k = autostud.sp.ke['studieprogram'].get(t['studieprogramkode'], None)
             if k is not None:
                 self._matches.append((k, self._normalize_nivakode(t['studienivakode'])))
@@ -401,6 +453,11 @@ class AutoStud(object):
         if topics_file is None:
             return TopicsParser(fnr=fnr, history=history)
         return TopicsParser(fnr=fnr, history=history, topics_file=topics_file)
+
+    def get_studieprog_list(self, studieprogs_file=None):
+        if studieprogs_file is None:
+            return StudieprogsParser()
+        return StudieprosParser(studieprogs_file=studieprogs_file)
 
     def get_profile(self, topics, groups=None):
         """Returns a Profile object matching the topics, to check
