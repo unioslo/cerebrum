@@ -127,7 +127,7 @@ WHERE p.fodselsdato=sa.fodselsdato AND
         sp.gruppenr_studieansv""" 
 
         qry = """
-SELECT s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
+SELECT DISTINCT s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
        s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
        s.adrlin3_semadr, s.adresseland_semadr, p.adrlin1_hjemsted,
        p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
@@ -140,6 +140,8 @@ WHERE  p.fodselsdato=s.fodselsdato AND
        p.fodselsdato=st.fodselsdato AND
        p.personnr=st.personnr AND 
        st.studieprogramkode = sp.studieprogramkode AND
+       p.fodselsdato=el.fodselsdato AND
+       p.personnr=el.personnr AND 
        st.studierettstatkode IN (
        'AUTOMATISK', 'AVTALE', 'CANDMAG', 'DIVERSE', 'EKSPRIV',
        'ERASMUS', 'FJERNUND', 'GJEST', 'FULBRIGHT', 'HOSPITANT',
@@ -151,6 +153,8 @@ WHERE  p.fodselsdato=s.fodselsdato AND
        (el.arstall = %s and el.manednr >= %s))
        %s	
        """ % (aar, maned, aar-1, aar-2, maned, self.is_alive())
+        # Man kan ikke sjekke el.aarstall >= i fjor ettersom tabellen
+        # også inneholder fremtidige meldinger.
 
         return (self._get_cols(qry), self.db.query(qry))
 
@@ -202,20 +206,23 @@ SELECT DISTINCT
      p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
      p.adresseland_hjemsted, p.status_reserv_nettpubl,
      p.sprakkode_malform, sp.studieprogramkode
-FROM fs.studieprogram sp, fs.studierett st, fs.person p,
-     fs.studprogstud_planbekreft r
-WHERE s.fodselsdato=p.fodselsdato AND
-      s.personnr=p.personnr AND
+FROM fs.person p, fs.student s, fs.studierett st,
+     fs.studprogstud_planbekreft r, fs.studieprogram sp
+WHERE p.fodselsdato=s.fodselsdato AND
+      p.personnr=s.personnr AND
       p.fodselsdato=st.fodselsdato AND
       p.personnr=st.personnr AND
+      p.fodselsdato=r.fodselsdato AND
+      p.personnr=r.personnr AND
       sp.status_utdplan='J' AND
       st.status_privatist='N' AND     
+      r.studieprogramkode=st.studieprogramkode AND
       st.studieprogramkode=sp.studieprogramkode AND
       (st.opphortstudierettstatkode IS NULL OR
       st.dato_gyldig_til >= sysdate) AND
-      r.dato_bekreftet < SYSDATE AND
-      %s %s
-      """ % (self.get_termin_aar(only_current=1),self.is_alive())   
+      r.dato_bekreftet < SYSDATE
+      %s
+      """ % (self.is_alive())   
      	return (self._get_cols(qry), self.db.query(qry))
 
 
@@ -252,25 +259,26 @@ SELECT s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
        p.adresseland_hjemsted, p.status_reserv_nettpubl, 
        p.sprakkode_malform, sp.studieprogramkode
 FROM fs.student s, fs. person p, fs.studierett st, 
-     fs.studieprogram sp, fs.registerkort rk,
+     fs.studieprogram sp, fs.registerkort r,
      fs.eksamensmelding em, fs.emne_i_studieprogram es 
 WHERE s.fodselsdato=p.fodselsdato AND
       s.personnr=p.personnr AND
       p.fodselsdato=st.fodselsdato AND
       p.personnr=st.personnr AND
-      p.fodselsdato=rk.fodselsdato AND
-      p.personnr=rk.personnr AND
+      p.fodselsdato=r.fodselsdato AND
+      p.personnr=r.personnr AND
       p.fodselsdato=em.fodselsdato AND
       p.personnr=em.personnr AND
       st.status_privatist='J' AND
       es.studieprogramkode=sp.studieprogramkode AND
       em.emnekode <> es.emnekode AND
       st.studieprogramkode=sp.studieprogramkode AND      
-      rk.regformkode IN ('STUDWEB','DOKTORREG','MANUELL') AND
+      r.regformkode IN ('STUDWEB','DOKTORREG','MANUELL') AND
       (st.opphortstudierettstatkode IS NULL OR
       st.dato_gyldig_til >= sysdate) AND
       %s %s
-      """ % (self.get_aar_termin(only_current=1),self.is_alive())
+      """ % (self.get_termin_aar(only_current=1),self.is_alive())
+        return (self._get_cols(qry), self.db.query(qry))
 
 
     def GetStudinfEvu(self):
