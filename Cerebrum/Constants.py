@@ -71,6 +71,12 @@ class _CerebrumCode(DatabaseAccessor):
                                             self.__dict__))
         return self.int
 
+    def __coerce__(self, other):
+        """Support mixed-mode integer arithmetic."""
+        if isinstance(other, int):
+            return self.__int__(), other
+        return None
+
 class _EntityTypeCode(_CerebrumCode):
     "Mappings stored in the entity_type_code table"
     _lookup_table = 'entity_type_code'
