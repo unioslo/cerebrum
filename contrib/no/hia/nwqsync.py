@@ -140,9 +140,9 @@ def get_ldap_value(search_id,dn,retrieveAttributes=None):
     return(result_set)
 
 
-#def dbg_print(lvl, str):
-#    if dbg_level >= lvl:
-#        print str
+def dbg_print(lvl, str):
+    if dbg_level >= lvl:
+        print str
     
 
 
@@ -250,7 +250,6 @@ def path2edir(attrs):
       idx=idx+1
     if attr != 'ndsHomeDirectory':
       return None
-    print attr, value
     try:
       (foo,srv,vol,path) = value.split("/", 3)
     except:
@@ -290,7 +289,6 @@ def change_user_spread(dn_id,ch_type,ch_params):
                 (ldap_user, ldap_attrs) = nwutils.get_account_info(dn_id, cl_spread, None)
                 path2edir(ldap_attrs)
                 #ldap_user = ldap_user.replace('ou=HIST', 'o=HiST')
-		print ldap_user,ldap_attrs
 		input = sys.stdin.readline()
 		if input.lower() == 'y':
                     add_ldap(ldap_user,ldap_attrs)
@@ -344,7 +342,7 @@ def change_spread(dn_id,ch_type,ch_params):
     elif entity.entity_type == int(co.entity_group):
         change_group_spread(dn_id,ch_type,ch_params)
     else:
-        print("\n# Change_spread did not resolve request (%s,%s)" 
+        int_log.write("\n# Change_spread did not resolve request (%s,%s)" 
 					% (dn_id,ch_type)) 
 
 
@@ -399,10 +397,11 @@ def change_passwd(dn_id, ch_params):
 	# we have to change passwordAllowChange to True -> change passwd -> False
 	attrs = []
 	attrs.append(('passwordAllowChange',['TRUE']))
+	attr_mod_ldap(ldap_entry[0][0],attrs)
+	attrs = []
         pwd = pickle.loads(ch_params)['password']
         attrs.append( ("userPassword", [unicode(pwd, 'iso-8859-1').encode('utf-8')]) )
 	attrs.append(('passwordAllowChange',['FALSE']))
-	print attrs
 	attr_mod_ldap(ldap_entry[0][0],attrs)
     except:
         logger.warn('Could not update password on user:%s\n' % account.account_name)  
