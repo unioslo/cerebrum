@@ -69,9 +69,10 @@ class xmlprinter(object):
     xml_version = '1.0'
     
     __slots__ = ['fp', '_elstack', '_inroot',
-                 '_past_doctype', '_past_decl', '_finished']
+                 '_past_doctype', '_past_decl', '_finished',
+                 '_indent_level', '_data_mode', '_has_data']
 
-    def __init__(self, fp):
+    def __init__(self, fp, indent_level=0, data_mode=0):
         """fp is a file-like object, needing only a write() method"""
         self._finished     = False
         self._past_doctype = False
@@ -79,7 +80,8 @@ class xmlprinter(object):
         self._elstack      = []
         self._inroot       = True
         self.fp           = fp
-
+        self._indent_level = indent_level
+        self._data_mode = data_mode
 
     def startDocument(self, encoding='UTF-8'):
         """Begin writing out a document, including the XML declaration.
@@ -127,7 +129,10 @@ class xmlprinter(object):
         if self._finished:
             raise WellFormedError, "attempt to add second root element"
 
-        self.fp.write("<%s" % name)
+        if self._data_mode:
+            self.fp.write("\n")
+        self.fp.write(" " * (self._indent_level * len(self._elstack)) +
+                      "<%s" % name)
         
         for attr, val in attrs.items():
             self.fp.write(" %s=%s" % (attr, quoteattr(val)))
@@ -135,22 +140,29 @@ class xmlprinter(object):
         self.fp.write(">")
         self._elstack.append(name)
         self._inroot = True
-
+        self._has_data = 0
 
     def data(self, data):
         """Add text 'data'."""
         if not self._inroot:
             raise WellFormedError, "attempt to add data outside of root"
-
+        self._has_data = 1
         self.fp.write(escape(data).encode('UTF-8'))
 
+    def dataElement(self, name, data, attrs={}):
+        self.startElement(name, attrs)
+        self.data(data)
+        self.endElement(name)        
 
     def emptyElement(self, name, attrs={}):
         """Add an empty element (<example />)"""
         if not self._inroot:
             raise WellFormedError, "attempt to add element outside of root"
 
-        self.fp.write("<%s" % name)
+        if self._data_mode:
+            self.fp.write("\n")
+        self.fp.write(" " * (self._indent_level * len(self._elstack)) +
+                      "<%s" % name)
         for attr, val in attrs.items():
             self.fp.write(" %s=%s" % (attr, quoteattr(val)))
         self.fp.write(" />")
@@ -171,13 +183,17 @@ class xmlprinter(object):
 
         if name is None:
             name = popel
+        if not self._has_data:
+            if self._data_mode:
+                self.fp.write("\n")
+            self.fp.write(" " * (self._indent_level * len(self._elstack)))
         self.fp.write("</%s>" % name)
 
         if len(self._elstack) == 0:
             self._inroot = False
             # ensures a newline at the end of a text file
             self.fp.write("\n")
-
+        self._has_data = 0
 
     def endDocument(self, autoclose=True):
         """Finish up a document.
