@@ -24,7 +24,8 @@ Address, Gender etc. type."""
 
 from Cerebrum import Constants
 from Cerebrum.Constants import _AuthoritativeSystemCode,_OUPerspectiveCode, \
-     _SpreadCode, _QuarantineCode, _PersonExternalIdCode
+     _SpreadCode, _QuarantineCode, _PersonExternalIdCode, \
+     _PersonAffiliationCode, _PersonAffStatusCode
 from Cerebrum.modules.PosixUser import _PosixShellCode
 
 class Constants(Constants.Constants):
@@ -42,13 +43,13 @@ class Constants(Constants.Constants):
     affiliation_ansatt = _PersonAffiliationCode('ANSATT',
                                                 'Ansatt ved UiO (i følge LT)')
     affiliation_status_ansatt_vit = _PersonAffStatusCode(
-        affiliation_ensatt, 'vitenskapelig', 'Vitenskapelig ansatt')
+        affiliation_ansatt, 'vitenskapelig', 'Vitenskapelig ansatt')
     affiliation_status_ansatt_bil = _PersonAffStatusCode(
-        affiliation_ensatt, 'bilag', 'Bilagslønnet')
+        affiliation_ansatt, 'bilag', 'Bilagslønnet')
     affiliation_status_ansatt_tekadm = _PersonAffStatusCode(
-        affiliation_ensatt, 'tekadm', 'Teknisk/administrativt ansatt')
+        affiliation_ansatt, 'tekadm', 'Teknisk/administrativt ansatt')
     affiliation_status_ansatt_perm = _PersonAffStatusCode(
-        affiliation_ensatt, 'permisjon', 'Ansatt, men med aktiv permisjon')
+        affiliation_ansatt, 'permisjon', 'Ansatt, men med aktiv permisjon')
 
     affiliation_student = _PersonAffiliationCode(
         'STUDENT', 'Student ved UiO (i følge FS)')
@@ -68,6 +69,73 @@ class Constants(Constants.Constants):
         affiliation_student, 'permisjon', 'Har gyldig permisjonstatus i FS')
     affiliation_status_student_alumni = _PersonAffStatusCode(
         affiliation_student, 'alumni', 'Har fullført studieprogram i FS')
+
+    affiliation_tilknyttet = _PersonAffiliationCode(
+        'TILKNYTTET', 'Tilknyttet UiO uten å være student eller ansatt')
+    affiliation_tilknyttet_fagperson = _PersonAffStatusCode(
+        affiliation_tilknyttet, 'fagperson', 'Registrert som fagperson i FS')
+    affiliation_tilknyttet_emeritus = _PersonAffStatusCode(
+        affiliation_tilknyttet, 'emeritus',
+        'Registrert i LT med gjestetypekode EMERITUS')
+    affiliation_tilknyttet_ekst_stip = _PersonAffStatusCode(
+        affiliation_tilknyttet, 'ekst_stip',
+        'Personer registrert i LT med gjestetypekode=EF-STIP')
+
+    affiliation_manuell = _PersonAffiliationCode(
+        'MANUELL', 'Tilknyttet enheter/instutusjoner som USIT har avtale med')
+    affiliation_manuell_sio = _PersonAffStatusCode(
+        affiliation_manuell, 'sio', 'Sio')
+    affiliation_manuell_radium = _PersonAffStatusCode(
+        affiliation_manuell, 'radium', 'Radium')
+    affiliation_manuell_rikshospital = _PersonAffStatusCode(
+        affiliation_manuell, 'rikshospital', 'Rikshospital')
+    affiliation_manuell_ulleval = _PersonAffStatusCode(
+        affiliation_manuell, 'ulleval', 'Ullevål')
+    affiliation_manuell_ahus = _PersonAffStatusCode(
+        affiliation_manuell, 'ahus', 'Ahus')
+    affiliation_manuell_notam2 = _PersonAffStatusCode(
+        affiliation_manuell, 'notam2', 'Notam2')
+    affiliation_manuell_biotech = _PersonAffStatusCode(
+        affiliation_manuell, 'biotech', 'Biotech')
+    affiliation_manuell_cicero = _PersonAffStatusCode(
+        affiliation_manuell, 'cicero', 'Cicero')
+    affiliation_manuell_notur = _PersonAffStatusCode(
+        affiliation_manuell, 'notur', 'Notur')
+    affiliation_manuell_gjest = _PersonAffStatusCode(
+        affiliation_manuell, 'gjest', 'Gjest')
+    affiliation_manuell_ekst_person = _PersonAffStatusCode(
+        affiliation_manuell, 'ekst_person',
+        'Ekstern person (under utfasing)')
+    affiliation_manuell_spes_avt = _PersonAffStatusCode(
+        affiliation_manuell, 'spes_avt',
+        'Spesialavtale (under utfasing)')
+    affiliation_manuell_gjesteforsker = _PersonAffStatusCode(
+        affiliation_manuell, 'gjesteforsker',
+        'Gjesteforsker (under utfasing)')
+    affiliation_manuell_sivilarb = _PersonAffStatusCode(
+        affiliation_manuell, 'sivilarb',
+        'Sivilarbeider (under utfasing)')
+    affiliation_manuell_kaja_kontrakt = _PersonAffStatusCode(
+        affiliation_manuell, 'kaja_kontrakt',
+        'Kaja kontrakt (under utfasing)')
+    affiliation_manuell_konsulent = _PersonAffStatusCode(
+        affiliation_manuell, 'konsulent',
+        'Konsulent (under utfasing)')
+
+    affiliation_upersonlig = _PersonAffiliationCode(
+        'UPERSONLIG', 'Fellesbrukere, samt andre brukere uten eier')
+    affiliation_upersonlig_felles = _PersonAffStatusCode(
+        affiliation_upersonlig, 'felles', 'Felles konti')
+    affiliation_upersonlig_kurs = _PersonAffStatusCode(
+        affiliation_upersonlig, 'kurs', 'Kurs konti')
+    affiliation_upersonlig_pvare = _PersonAffStatusCode(
+        affiliation_upersonlig, 'pvare', 'Programvare konti')
+    affiliation_upersonlig_term_maskin = _PersonAffStatusCode(
+        affiliation_upersonlig, 'term_maskin', 'Terminalstue maskin')
+    affiliation_upersonlig_bib_felles = _PersonAffStatusCode(
+        affiliation_upersonlig, 'bib_felles', 'Bibliotek felles')
+    affiliation_upersonlig_uio_forening = _PersonAffStatusCode(
+        affiliation_upersonlig, 'uio_forening', 'UiO forening')
 
     # We override the default settings for shells, thus this file
     # should be before PosixUser in cereconf.CLASS_CONSTANTS
