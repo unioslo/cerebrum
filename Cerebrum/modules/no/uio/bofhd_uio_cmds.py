@@ -26,6 +26,7 @@ from Cerebrum import Person
 from Cerebrum.Constants import _CerebrumCode, _QuarantineCode, _SpreadCode,\
      _PersonAffiliationCode, _PersonAffStatusCode
 from Cerebrum import Utils
+from Cerebrum.modules import Email
 from Cerebrum.modules import PasswordChecker
 from Cerebrum.modules import PosixGroup
 from Cerebrum.modules import PosixUser
@@ -118,6 +119,303 @@ class BofhdExtension(object):
 
     def get_format_suggestion(self, cmd):
         return self.all_commands[cmd].get_fs()
+
+
+    #
+    # email commands
+    #
+
+    # email forward "on"|"off"|"local" <account>+ [<address>+]
+    all_commands['email_forward'] = Command(
+        ('email', 'forward'),
+        AccountName(help_ref='account_name', repeat=True),
+        SimpleString(help_ref='email_forward_action'),
+        EmailAddressString(help_ref='email_address',
+                           repeat=True, optional=True),
+        perm_filter='can_email_forward_toggle')
+    def email_forward(self, operator, uname, action, addr=None):
+        acc = Utils.Factory.get('Account')(self.db)
+        acc.find_by_name(uname)
+        self.ba.can_email_forward_toggle(operator.get_entity_id(), acc)
+        fw = Email.EmailForward(self.db)
+        fw.find_by_entity(acc.entity_id)
+        matches = []
+        for r in fw.get_forward():
+            if not addr or r['forward_to'].find(addr):
+                matches.append(r['forward_to'])
+        if addr and not matches:
+            raise CerebrumError, "No such forward address: %s" % addr
+        elif addr and len(matches) > 1:
+            raise CerebrumError, "More than one address matches %s" % addr
+        elif not addr and not matches:
+            raise (CerebrumError,
+                   "No forward addresses for %s" % uname)
+        for a in matches:
+            if action == 'on':
+                fw.enable_forward(addr)
+            elif action == 'off':
+                fw.disable_forward(addr)
+            elif action == 'local':
+                fw.enable_forward(addr)
+                try:
+                    fw.add_forward(acc.get_primary_mailaddress())
+                except Errors.TooManyRowsError:
+                    fw.enable_forward(acc.get_primary_mailaddress())
+            else:
+                raise CerebrumError, ("Unknown action (%s), " +
+                                      "choose one of on, off or local") % action
+        fw.write_db()
+        self.db.commit()
+        return 'OK'
+
+    # email add_forward <account>+ <address>+
+    all_commands['email_add_forward'] = Command(
+        ('email', 'add_forward'),
+        AccountName(help_ref='account_name', repeat=True),
+        EmailAddressString(help_ref='email_address', repeat=True),
+        perm_filter='can_email_forward_edit')
+    def email_add_forward(self, operator, uname, address):
+        acc = Utils.Factory.get('Account')(self.db)
+        acc.find_by_name(uname)
+        self.ba.can_email_forward_edit(operator.get_entity_id(), acc)
+        fw = Email.EmailForward(db)
+        fw.find_by_entity(acc.entity_id)
+        addr = self._check_email_address(address)
+        try:
+            fw.add_forward(addr)
+        except Errors.TooManyRowsError:
+            raise CerebrumError, "Forward address added already (%s)" % addr
+        fw.write_db()
+        self.db.commit()
+        return "OK"
+
+    # email remove_forward <account>+ <address>+
+    all_commands['email_remove_forward'] = Command(
+        ("email", "remove_forward"),
+        AccountName(help_ref="account_name", repeat=True),
+        EmailAddressString(help_ref='email_address', repeat=True),
+        perm_filter='can_email_forward_edit')
+    def email_remove_forward(self, operator, uname, address):
+        acc = Utils.Factory.get('Account')(self.db)
+        acc.find_by_name(uname)
+        self.ba.can_email_forward_edit(operator.get_entity_id(), acc)
+        fw = Email.EmailForward(db)
+        fw.find_by_entity(acc.entity_id)
+        addr = self._check_email_address(address)
+        if self._forward_exists(fw, addr):
+            fw.delete_forward(addr)
+        else:
+            raise CerebrumError, "No such forward address (%s)" % addr
+        fw.write_db()
+        self.db.commit()
+        return "OK"
+
+    def _check_email_address(address):
+        # To stop some typoes, we require the address consists of a
+        # local part and a domain, and the domain must contain at
+        # least one period.  We also remove leading and trailing
+        # whitespace.  We do an unanchored search as well so that an
+        # address in angle brackets is accepted, e.g. either of
+        # "jdoe@example.com" or "Jane Doe <jdoe@example.com>" is OK.
+        address = address.strip()
+        if address.find("@") == -1:
+            raise CerebrumError, "E-mail addresses must include the domain name"
+        if not (re.match('^[^@]+@[^@.]+\.[^@]+$', address) or
+                re.match('<[^@]+@[^@.]+\.[^@]+>$', address)):
+            raise CerebrumError, "Invalid e-mail address (%s)" % address
+        return address
+
+    def _forward_exists(fw, addr):
+        for r in fw.get_forward():
+            if r['forward_to'] == addr:
+                return True
+        return False
+
+    # email info <account>+
+    all_commands['email_info'] = Command(
+        ("email", "info"),
+        AccountName(help_ref="account_name", repeat=True),
+        perm_filter='can_email_info',
+        fs=FormatSuggestion([
+        ("Account:          %s\nMail server:      %s (%s)\n"+
+         "Default address:  %s\nValid addresses:  %s",
+         ("account", "server", "server_type", "def_addr", "valid_addr")),
+        ("Spam level:       %s\nSpam action:      %s",
+         ("spam_level", "spam_action")),
+        ("Quota:            %d MiB, warn at %d%% (not enforced)",
+         ("dis_quota_hard", "dis_quota_soft")),
+        ("Quota:            %d MiB, warn at %d%% (%d MiB used)",
+         ("quota_hard", "quota_soft", "quota_used")),
+        ("Forwarding:       %s",
+         ("forward", ))]))
+    def email_info(self, operator, uname):
+        acc = Utils.Factory.get('Account')(self.db)
+        acc.find_by_name(uname)
+        self.ba.can_email_info(operator.get_entity_id(), acc)
+        ret = self._email_info_basic(acc)
+        try:
+            self.ba.can_email_info_detail(operator.get_entity_id(), acc)
+            ret += self._email_info_detail(acc)
+        except PermissionDenied:
+            pass
+        return ret
+    
+    def _email_info_basic(self, acc):
+        info = {}
+        info["account"] = acc.account_name
+        est = Email.EmailServerTarget(self.db)
+        est.find_by_entity(acc.entity_id)
+        es = Email.EmailServer(self.db)
+        es.find(est.email_server_id)
+        info["server"] = es.name
+        type = int(es.email_server_type)
+        info["server_type"] = str(Email._EmailServerTypeCode(type))
+        info["def_addr"] = acc.get_primary_mailaddress()
+        et = Email.EmailTarget(self.db)
+        et.find_by_entity(acc.entity_id)
+        addrs = []
+        for r in et.get_addresses():
+            dom = r['domain']
+            if dom in cereconf.LDAP_REWRITE_EMAIL_DOMAIN:
+                dom = cereconf.LDAP_REWRITE_EMAIL_DOMAIN[dom]
+            addrs.append(r['local_part'] + '@' + dom)
+        info["valid_addr"] = "\n                  ".join(addrs)
+        return [ info ]
+
+    def _email_info_detail(self, acc):
+        info = []
+        esf = Email.EmailSpamFilter(self.db)
+        try:
+            esf.find_by_entity(acc.entity_id)
+            spaml = esf.email_spam_level
+            spama = esf.email_spam_action
+            # TODO: make look up English names for the numeric values
+            info.append({'spam_level': str(spaml),
+                         'spam_action': str(spama)})
+        except Errors.NotFoundError:
+            pass
+        eq = Email.EmailQuota(self.db)
+        try:
+            eq.find_by_entity(acc.entity_id)
+            est = Email.EmailServerTarget(self.db)
+            est.find_by_entity(acc.entity_id)
+            es = Email.EmailServer(self.db)
+            es.find(est.email_server_id)
+            if es.email_server_type == self.const.email_server_type_cyrus:
+                # TODO: connect to Cyrus and check used quota.
+                info.append({'quota_hard': eq.email_quota_hard,
+                             'quota_soft': eq.email_quota_soft,
+                             'quota_used': 0})
+            else:
+                info.append({'dis_quota_hard': eq.email_quota_hard,
+                             'dis_quota_soft': eq.email_quota_soft})
+        except Errors.NotFoundError:
+            pass
+        forw = []
+        ef = Email.EmailForward(self.db)
+        ef.find_by_entity(acc.entity_id)
+        prim = acc.get_primary_mailaddress()
+        for r in ef.get_forward():
+            if r['forward_to'] == prim:
+                dest = "+ local delivery"
+            else:
+                dest = r['forward_to']
+            if r['enable'] == 'T':
+                enabled = "on"
+            else:
+                enabled = "off"
+            forw.append("%s (%s)" % (dest, enabled))
+        if forw:
+            info.append({'forward': "\n                  ".join(forw)})
+        return info
+
+    # email mailman
+    
+    # email migrate
+    all_commands['email_migrate'] = Command(
+        ("email", "migrate"),
+        AccountName(help_ref="account_name", repeat=True),
+        perm_filter='can_email_migrate')
+    def email_migrate(self, operator, uname):
+        acc = Utils.Factory.get('Account')(self.db)
+        acc.find_by_name(uname)
+        op = operator.get_entity_id()
+        self.ba.can_email_migrate(op, acc)
+        for r in acc.get_spread():
+            if r['spread'] == int(self.const.spread_uio_imap):
+                raise CerebrumError, "%s is already an IMAP user" % uname
+        acc.add_spread(self.const.spread_uio_imap)
+        if op <> acc.entity_id:
+            # the local sysadmin should get a report as well, if
+            # possible, so change the request add_spread() put in so
+            # that he is named as the requestee.  the list of requests
+            # may turn out to be empty, ie. processed already, but this
+            # unlikely race condition is too hard to fix.
+            br = BofhdRequests(self.db, self.const)
+            for r in br.get_requests(operation=self.const.bofh_email_move,
+                                     entity_id=acc.entity_id):
+                br.delete_request(request_id=r['request_id'])
+                br.add_request(op, r['run_at'], r['operation'], r['entity_id'],
+                               r['destination_id'], r['state_data'])
+        self.db.commit()
+        return 'OK'
+
+    # email move
+    all_commands['email_move'] = Command(
+        ("email", "move"),
+        AccountName(help_ref="account_name", repeat=True),
+        SimpleString(help_ref='string_email_host'),
+        perm_filter='can_email_move')
+    def email_move(self, operator, uname, server):
+        acc = Utils.Factory.get('Account')(self.db)
+        acc.find_by_name(uname)
+        self.ba.can_email_move(operator.get_entity_id(), acc)
+        est = Email.EmailServerTarget(self.db)
+        est.find_by_entity(acc.entity_id)
+        old_server = est.email_server_id
+        es = Email.EmailServer(self.db)
+        es.find_by_name(server)
+        if old_server == es.entity_id:
+            raise CerebrumError, "User is already at %s" % server
+        est.populate(es.entity_id)
+        est.write_db()
+        if es.email_server_type == self.const.email_server_type_cyrus:
+            spreads = [int(r['spread']) for r in acc.get_spread()]
+            br = BofhdRequests(self.db, self.const)
+            if not self.const.spread_uio_imap in spreads:
+                acc.add_spread(self.const.spread_uio_imap)
+                # Since server was chosen already, add_spread() has
+                # only queued a create request, not a move request.
+                # Look up the create request so we get the dependency
+                # right.
+                for r in br.get_requests(operation=self.const.bofh_email_create,
+                                         entity_id=acc.entity_id):
+                    req = r['request_id']
+            else:
+                # We need to create the new e-mail account ourselves.
+                req = br.add_request(operator.get_entity_id(), br.now,
+                                     self.const.bofh_email_create,
+                                     acc.entity_id, est.email_server_id)
+
+            # Now add a move request.
+            br.add_request(operator.get_entity_id(), br.now,
+                           self.const.bofh_email_move,
+                           acc.entity_id, old_server, state_data=req)
+        else:
+            # TBD: should we remove spread_uio_imap ?
+            # It does not do much good to add to a bofh request, mvmail
+            # can't handle this anyway.
+            raise NotImplementedError, "can't move to non-IMAP server" 
+        self.db.commit()
+        return "OK"
+
+    # email quota
+    
+    # email spam
+
+    # email tripnote
+
+    # (email virus)
 
     #
     # group commands
