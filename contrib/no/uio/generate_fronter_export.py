@@ -62,10 +62,23 @@
 
 import getopt
 import sys
-import cf_lib
+import re
+
+from Cerebrum.modules.no.uio import fronter_lib
+import cereconf
 
 from Cerebrum.Utils import Factory
 from Cerebrum import Database
+from Cerebrum.modules import PosixUser
+from Cerebrum.extlib import logging
+
+cf_dir = '/cerebrum/dumps/Fronter'
+debug_file = "%s/x-import.log" % cf_dir  # cmd-line
+debug_level = 4                          # cmd-line
+root_sko = '900199'
+root_struct_id = 'UiO root node'
+group_struct_id = "UREG2000@uio.no imported groups"
+group_struct_title = 'Automatisk importerte grupper'
 
 def main():
     try:
@@ -74,47 +87,67 @@ def main():
     except getopt.GetoptError:
         usage(1)
     host = 'kladdebok.uio.no'
-    db_user = 'ureg2000'
-    db_service = 'FSPROD.uio.no'
+    fs_db_user = 'ureg2000'
+    fs_db_service = 'FSPROD.uio.no'
     for opt, val in opts:
         if opt in ('-h', '--host'):
             host = val
-    fs_db = Database.connect(user=db_user, service=db_service,
+    fs_db = Database.connect(user=fs_db_user, service=fs_db_service,
                              DB_driver='Oracle')
+    global xml, logger
+    logging.fileConfig(cereconf.LOGGING_CONFIGFILE)
+    logger = logging.getLogger("console")
+    xml = fronter_lib.FronterXML('%s/outfile.xml' % cf_dir,   # cmd-line
+                                 debug_file=debug_file,
+                                 debug_level=debug_level)
     gen_export(host, fs_db)
     
 def gen_export(fronterHost, fs_db):
-    global fronter
+    global fronter, const, db
+    # TODO: grisete med disse globale variablene, fjern dem
+    global new_group, old_group, group_updates, new_users, old_users, \
+           user_updates, new_rooms, old_rooms, room_updates
+
     db = Factory.get('Database')()
     const = Factory.get('Constants')(db)
-
-    fronter = cf_lib.Fronter(fronterHost, db, const, fs_db)
-
+    fronter = fronter_lib.Fronter(fronterHost, db, const, fs_db,
+                                  logger=logger)
+    xml.fronter = fronter
+    
     if 'FS' in [x[0:2] for x in fronter.export]:
         # Fyller %kurs, %emne_versjon, %emne_termnr, %enhet2sko,
         # %kurs2navn, %enhet2akt
         fronter.read_kurs_data()
 
-    global xml
-    xml = cf_lib.FronterXML()
-    xml.start_xml_file(kurs2enhet)
+    xml.start_xml_file(fronter.kurs2enhet)
 
+    logger.info("get_fronter_users()")
     users = fronter.get_fronter_users()
-    new_users = get_new_users()
+    logger.info("get_new_users()")
+    new_users = {}
+    old_users = {}
+    user_updates = {fronter.STATUS_ADD: {},
+                    fronter.STATUS_UPDATE: {},
+                    fronter.STATUS_DELETE: {}}
+    get_new_users()
 
-    old_group = get_fronter_group()
+    logger.info("get_fronter_groups()")
+    old_group = fronter.get_fronter_groups()
     new_group = {}
     group_updates = {}
 
-    old_rooms = get_fronter_rooms()
+    logger.info("get_fronter_rooms()")
+    old_rooms = fronter.get_fronter_rooms()
     new_rooms = {}
     room_updates = {}
 
     # 608-650: legger inn brukermedlemer i %new_groupmembers på
     # cf-gruppenivå 3
+    logger.info("reg_supergroups()")
     reg_supergroups()
 
     # 651-694:  Lag xml for insert/update/delete basert på %user_updates
+    logger.info("gen_user_xml()")
     gen_user_xml()
 
     # 737-1050:
@@ -123,53 +156,71 @@ def gen_export(fronterHost, fs_db):
     # - evu og "vanlig kurs" delen kan trolig gjenbruke kode
     # - lager noen rom for det aktuelle kurset
     # - setter acl'er
+    logger.info("process_kurs2enhet()")
     process_kurs2enhet()
 
     # 1242-1348:
     # - div kall til register_group_update, register_room_update,
     #   group_to_XML og room_to_XML
+    logger.info("process_room_group_updates()")
     process_room_group_updates()
 
+    logger.info("get_fronter_groupmembers()")
     old_groupmembers = fronter.get_fronter_groupmembers()
     groupmember_updates = {}
 
     # 1435-1462:
     # - div. kall til register_groupmember_update og personmembers_to_XML
+    logger.info("process_groupmembers()")
     process_groupmembers()
 
+    logger.info("get_fronter_acl()")
     old_acl = fronter.get_fronter_acl()
     acl_updates = {}
 
     # 1677-1723:
     # - div kall til acl_to_XML og register_acl_update
+    logger.info("process_acls()")
     process_acls()
+    logger.info("end")
     xml.end()
-    
+
+def list_users_for_fronter_export():  # TODO: rewrite this
+    ret = []
+    posix_user = PosixUser.PosixUser(db)
+    for row in posix_user.list_extended_posix_users(
+        const.auth_type_md5_crypt):
+        tmp = {'email': 'todo@email',
+               'uname': row['entity_name']}
+        if row['gecos'] is None:
+            tmp['fullname'] = row['name']
+        else:
+            tmp['fullname'] = row['gecos']            
+        ret.append(tmp)
+    return ret
+
 def get_new_users():  # ca 345-374
     # Hent info om brukere i cerebrum
-    fix_email = r'\@UIO_HOST$'
-    # $u2k->list_users_for_fronter_export
-    new_users = {}
-    for user in xxx:
-        email = fix_email.sub('@ulrik.uio.no', email)
-        names = re.split('\s+', fullname)
-        new_users[uname] = {'FAMILY': names.pop(0),
-                            'GIVEN': " ".join(names),
-                            'EMAIL': email,
-                            'USERACCESS': 0
-                            }
+    fix_email = re.compile(r'\@UIO_HOST$')
+    for user in list_users_for_fronter_export():
+        email = fix_email.sub('@ulrik.uio.no', user['email'])
+        names = re.split('\s+', user['fullname'])
+        new_users[user['uname']] = {'FAMILY': names.pop(0),
+                                    'GIVEN': " ".join(names),
+                                    'EMAIL': email,
+                                    'USERACCESS': 0
+                                    }
 
         if 'All_users' in fronter.export:
             new_groupmembers['All_users'][uname] = 1
-            new_users[uname]['USERACCESS'] = 'allowlogin'
+            new_users[user['uname']]['USERACCESS'] = 'allowlogin'
 
-        if uname in fronter.admins:
-            new_users[uname]['USERACCESS'] = 'administrator'
+        if user['uname'] in fronter.admins:
+            new_users[user['uname']]['USERACCESS'] = 'administrator'
 
-        new_users[uname]['PASSWORD'] = 'unix:'
-        if uname in fronter.plain_users:
-            new_users[uname]['PASSWORD'] = "plain:%s" % uname
-    return new_users
+        new_users[user['uname']]['PASSWORD'] = 'unix:'
+        if user['uname'] in fronter.plain_users:
+            new_users[user['uname']]['PASSWORD'] = "plain:%s" % user['uname']
 
 def register_user_update(operation, uname):
     """Update user_updates with info about changes that should be done
@@ -187,7 +238,7 @@ def register_user_update(operation, uname):
         if (not new_users.has_key(uname)) and (not old_users.has_key(uname)):
             return
 	user_updates[operation][uname] = {
-            'PASSWORD': fronter_pwd(new_users[uname]['PASSWORD']),
+            'PASSWORD': fronter.pwd(new_users[uname]['PASSWORD']),
             'GIVEN': new_users[uname]['GIVEN'],
             'FAMILY': new_users[uname]['FAMILY'],
             'EMAIL': new_users[uname]['EMAIL'],
@@ -212,9 +263,9 @@ def register_group(title, id, parentid, allow_room=0, allow_contact=0):
         rest = id.split(":")
         corr_type = rest.pop(0)
 
-        if not rest[0] in (EMNE_PREFIX, EVU_PREFIX):
-            rest.insert(0, EMNE_PREFIX)
-        id = "%s:%s" % (corr_type, UE2KursID(rest))
+        if not rest[0] in (fronter.EMNE_PREFIX, fronter.EVU_PREFIX):
+            rest.insert(0, fronter.EMNE_PREFIX)
+        id = "%s:%s" % (corr_type, fronter_lib.FronterUtils.UE2KursID(rest))
     new_group[id] = { 'title': title,
                       'parent': parentid,
                       'allow_room': allow_room,
@@ -318,7 +369,7 @@ def build_structure(sko, allow_room=0, allow_contact=0):
 def process_single_enhet_id(enhet_id):
     # I tillegg kommer så evt. rom knyttet til de
     # undervisningsaktivitetene studenter kan melde seg på.
-    for akt in enhet2akt[enhet_id]:
+    for akt in fronter.enhet2akt[enhet_id]:
         aktkode, aktnavn = akt
 
         aktans = "uio.no:fs:%s:aktivitetsansvar:%s" % (
@@ -386,143 +437,143 @@ def process_kurs2enhet():
     # TODO: some code-duplication has been reduced by adding
     # process_single_enhet_id.  Recheck that the reduction is correct.
     # It should be possible to move more code to that subroutine.
-    for kurs_id in kurs2enhet.keys():
+    for kurs_id in fronter.kurs2enhet.keys():
         type = kurs_id.split(":")[0].lower()
-    if type == EMNE_PREFIX:
-        enhet_sorted = kurs2enhet[kurs_id][:].sort(fronter._date_sort)
-	# Bruk eldste enhet som $enh_id
-	enh_id = enhet_sorted[0]
-	enhet = enh_id.split(":")[1]
-	struct_id = enh_id.upper()	# Default, for korridorer som
-                                        # ikke finnes i CF.
-	if old_group.has-key("STRUCTURE/Enhet:%s" % kurs_id):
-	    # Struktur-ID må forbli uforandret i hele kursets levetid,
-	    # slik at innhold lagt inn i eksisterende rom blir værende
-	    # der.
-	    #
-	    # Så, dersom det allerede finnes en
-	    # "STRUCTURE/Enhet"-korridor for denne kurs-IDen i
-	    # ClassFronter, kan vi plukke eksisterende $struct_id
-	    # derfra.
-	    CFid = old_group["STRUCTURE/Enhet:%s" % kurs_id]['CFid']
-	    # Stripp vekk "STRUCTURE/Enhet:" fra starten for å få
-	    # eksisterende $struct_id.
-	    struct_id = CFid.split(":")[1]
+        if type == fronter.EMNE_PREFIX:
+            enhet_sorted = fronter.kurs2enhet[kurs_id][:].sort(fronter._date_sort)
+            # Bruk eldste enhet som $enh_id
+            enh_id = enhet_sorted[0]
+            enhet = enh_id.split(":")[1]
+            struct_id = enh_id.upper()	# Default, for korridorer som
+                # ikke finnes i CF.
+            if old_group.has-key("STRUCTURE/Enhet:%s" % kurs_id):
+                # Struktur-ID må forbli uforandret i hele kursets levetid,
+                # slik at innhold lagt inn i eksisterende rom blir værende
+                # der.
+                #
+                # Så, dersom det allerede finnes en
+                # "STRUCTURE/Enhet"-korridor for denne kurs-IDen i
+                # ClassFronter, kan vi plukke eksisterende $struct_id
+                # derfra.
+                CFid = old_group["STRUCTURE/Enhet:%s" % kurs_id]['CFid']
+                # Stripp vekk "STRUCTURE/Enhet:" fra starten for å få
+                # eksisterende $struct_id.
+                struct_id = CFid.split(":")[1]
 
-        Instnr, emnekode, versjon, termk, aar, termnr = enhet.split(":")
-	# Opprett strukturnoder som tillater å ha rom direkte under
-	# seg.
-	sko_node = build_structure(enhet2sko[enh_id])
-	enhet_node = "STRUCTURE/Enhet:%s" % struct_id
-	undervisning_node = "STRUCTURE/Studentkorridor:%s" % struct_id
+            Instnr, emnekode, versjon, termk, aar, termnr = enhet.split(":")
+            # Opprett strukturnoder som tillater å ha rom direkte under
+            # seg.
+            sko_node = build_structure(fronter.enhet2sko[enh_id])
+            enhet_node = "STRUCTURE/Enhet:%s" % struct_id
+            undervisning_node = "STRUCTURE/Studentkorridor:%s" % struct_id
 
-	tittel = "%s - %s, %s %s" % (emnekode, kurs2navn[kurs_id], termk, aar)
-	multi_enhet = ()
-	multi_id = ":".join((Instnr, emnekode, termk, aar))
-        if len(emne_termnr[multi_id]) > 1:
-            multi_enhet.append("%s. termin" % termnr)
-        if len(emne_versjon[multi_id]) > 1:
-            multi_enhet.append("v%s" % versjon)
-        if multi_enhet:
-            tittel += ", %s" % ", ".join(multi_enhet)
+            tittel = "%s - %s, %s %s" % (emnekode, fronter.kurs2navn[kurs_id], termk, aar)
+            multi_enhet = ()
+            multi_id = ":".join((Instnr, emnekode, termk, aar))
+            if len(emne_termnr[multi_id]) > 1:
+                multi_enhet.append("%s. termin" % termnr)
+            if len(emne_versjon[multi_id]) > 1:
+                multi_enhet.append("v%s" % versjon)
+            if multi_enhet:
+                tittel += ", %s" % ", ".join(multi_enhet)
 
-	register_group(tittel, enhet_node, sko_node, 1)
-	register_group("%s - Undervisningsrom" % emnekode,
-		       undervisning_node, enhet_node, 1);
+            register_group(tittel, enhet_node, sko_node, 1)
+            register_group("%s - Undervisningsrom" % emnekode,
+                           undervisning_node, enhet_node, 1);
 
-	# Alle eksporterte kurs skal i alle fall ha ett fellesrom og
-	# ett lærerrom.
-	new_rooms["ROOM/Felles:%s" % kurs_id] = {
-            'title': "%s - Fellesrom" % emnekode,
-            'parent': enhet_node,
-            'CFid': "ROOM/Felles:%s" % struct_id}
-	new_rooms["ROOM/Larer:%s" % kurs_id] = {
-            'title': "%s - Lærerrom" % emnekode,
-            'parent': enhet_node,
-            'CFid': "ROOM/Larer:%s" % struct_id}
-
-        for enhet_id in kurs2enhet[kurs_id]:
-	    enhans = "uio.no:fs:%s:enhetsansvar" % enhet_id.lower()
-	    enhstud = "uio.no:fs:%s:student" % enhet_id.lower()
-	    # De ansvarlige for undervisningsenhetene som hører til et
-	    # kurs skal ha tilgang til kursets undv.rom-korridor.
-	    new_acl[undervisning_node][enhans] = {
-                'gacc': '250',		# Admin Lite
-                'racc': '100'}		# Room Creator
-
-	    # Alle enhetsansvarlige skal ha "View Contacts" på gruppen
-	    # All_users dersom det eksporteres en slik.
-            if 'All_users' in fronter.export:
-                new_acl['All_users'][enhans] = {'gacc': '100',
-                                                'racc': '0'}
-
-	    # Gi studenter+lærere i alle undervisningsenhetene som
-	    # hører til kurset passende rettigheter i felles- og
-	    # lærerrom.
-	    new_acl["ROOM/Felles:%s" % struct_id][enhans] = {
-                'role': fronter.ROLE_CHANGE}
-	    new_acl["ROOM/Felles:%s" % struct_id][enhstud] = {
-                'role': fronter.ROLE_WRITE}
-	    new_acl["ROOM/Larer:%s" % struct_id][enhans] = {
-                'role': fronter.ROLE_CHANGE}
-
-	    groups = {'enhansv': enhans,
-                      'enhstud': enhstud,
-                      'aktansv': [],
-                      'aktstud': [],
-		     }
-            process_single_enhet_id(enhet_id)
-    elif type == EVU_PREFIX:
-	# EVU-kurs er modellert helt uavhengig av semester-inndeling i
-	# FS, slik at det alltid vil være nøyaktig en enhet-ID for
-	# hver EVU-kurs-ID.  Det gjør en del ting nokså mye greiere...
-        for enhet_id in kurs2enhet[kurs_id]:
-	    kurskode, tidskode = enhet_id.split(":")[1,2]
-	    # Opprett strukturnoder som tillater å ha rom direkte under
-	    # seg.
-	    sko_node = build_structure(enhet2sko[enhet_id])
-	    enhet_node = "STRUCTURE/Enhet:%s" % enhet_id
-	    undervisning_node = "STRUCTURE/Studentkorridor:%s" % enhet_id
-	    tittel = "%s - %s, %s" % (kurskode, kurs2navn[kurs_id], tidskode)
-	    register_group(tittel, enhet_node, sko_node, 1)
-	    register_group("%s  - Undervisningsrom" % kurskode,
-			   undervisning_node, enhet_node, 1)
-	    enhans = "uio.no:fs:%s:enhetsansvar" % enhet_id.lower()
-	    enhstud = "uio.no:fs:%s:student" % enhet_id.lower()
-	    new_acl[undervisning_node][enhans] = {
-                'gacc': '250',		# Admin Lite
-                'racc': '100'}		# Room Creator
-
-	    # Alle enhetsansvarlige skal ha "View Contacts" på gruppen
-	    # All_users dersom det eksporteres en slik.
-            if 'All_users' in fronter.export:
-                new_acl['All_users'][enhans] = {'gacc': '100',
-                                                'racc': '0'}
-
-	    # Alle eksporterte emner skal i alle fall ha ett
-	    # fellesrom og ett lærerrom.
-	    new_rooms["ROOM/Felles:%s" % kurs_id] = {
-                'title': "%s - Fellesrom" % kurskode,
+            # Alle eksporterte kurs skal i alle fall ha ett fellesrom og
+            # ett lærerrom.
+            new_rooms["ROOM/Felles:%s" % kurs_id] = {
+                'title': "%s - Fellesrom" % emnekode,
                 'parent': enhet_node,
-                'CFid': "ROOM/Felles:%s" % enhet_id}
-	    new_acl["ROOM/Felles:%s" % enhet_id][enhans] = {
-                'role': fronter.ROLE_CHANGE}
-	    new_acl["ROOM/Felles:%s" % enhet_id][enhstud] = {
-                'role': fronter.ROLE_WRITE}
-	    new_rooms["ROOM/Larer:%s" % kurs_id] = {
-                'title': "%s - Lærerrom" % kurskode,
+                'CFid': "ROOM/Felles:%s" % struct_id}
+            new_rooms["ROOM/Larer:%s" % kurs_id] = {
+                'title': "%s - Lærerrom" % emnekode,
                 'parent': enhet_node,
-                'CFid': "ROOM/Larer:%s" % enhet_id}
-	    new_acl["ROOM/Larer:%s" % enhet_id][enhans] = {
-                'role': fronter.ROLE_CHANGE}
-	    groups = {'enhansv': enhans,
-                      'enhstud': enhstud,
-                      'aktansv': [],
-                      'aktstud': [],
-                      }
-            process_single_enhet_id(enhet_id)
-    else:
-        raise ValueError, "Unknown type <%s> for course <%s>" % (type, kurs_id)
+                'CFid': "ROOM/Larer:%s" % struct_id}
+
+            for enhet_id in fronter.kurs2enhet[kurs_id]:
+                enhans = "uio.no:fs:%s:enhetsansvar" % enhet_id.lower()
+                enhstud = "uio.no:fs:%s:student" % enhet_id.lower()
+                # De ansvarlige for undervisningsenhetene som hører til et
+                # kurs skal ha tilgang til kursets undv.rom-korridor.
+                new_acl[undervisning_node][enhans] = {
+                    'gacc': '250',		# Admin Lite
+                    'racc': '100'}		# Room Creator
+
+                # Alle enhetsansvarlige skal ha "View Contacts" på gruppen
+                # All_users dersom det eksporteres en slik.
+                if 'All_users' in fronter.export:
+                    new_acl['All_users'][enhans] = {'gacc': '100',
+                                                    'racc': '0'}
+
+                # Gi studenter+lærere i alle undervisningsenhetene som
+                # hører til kurset passende rettigheter i felles- og
+                # lærerrom.
+                new_acl["ROOM/Felles:%s" % struct_id][enhans] = {
+                    'role': fronter.ROLE_CHANGE}
+                new_acl["ROOM/Felles:%s" % struct_id][enhstud] = {
+                    'role': fronter.ROLE_WRITE}
+                new_acl["ROOM/Larer:%s" % struct_id][enhans] = {
+                    'role': fronter.ROLE_CHANGE}
+
+                groups = {'enhansv': enhans,
+                          'enhstud': enhstud,
+                          'aktansv': [],
+                          'aktstud': [],
+                         }
+                process_single_enhet_id(enhet_id)
+        elif type == fronter.EVU_PREFIX:
+            # EVU-kurs er modellert helt uavhengig av semester-inndeling i
+            # FS, slik at det alltid vil være nøyaktig en enhet-ID for
+            # hver EVU-kurs-ID.  Det gjør en del ting nokså mye greiere...
+            for enhet_id in fronter.kurs2enhet[kurs_id]:
+                kurskode, tidskode = enhet_id.split(":")[1,2]
+                # Opprett strukturnoder som tillater å ha rom direkte under
+                # seg.
+                sko_node = build_structure(fronter.enhet2sko[enhet_id])
+                enhet_node = "STRUCTURE/Enhet:%s" % enhet_id
+                undervisning_node = "STRUCTURE/Studentkorridor:%s" % enhet_id
+                tittel = "%s - %s, %s" % (kurskode, fronter.kurs2navn[kurs_id], tidskode)
+                register_group(tittel, enhet_node, sko_node, 1)
+                register_group("%s  - Undervisningsrom" % kurskode,
+                               undervisning_node, enhet_node, 1)
+                enhans = "uio.no:fs:%s:enhetsansvar" % enhet_id.lower()
+                enhstud = "uio.no:fs:%s:student" % enhet_id.lower()
+                new_acl[undervisning_node][enhans] = {
+                    'gacc': '250',		# Admin Lite
+                    'racc': '100'}		# Room Creator
+
+                # Alle enhetsansvarlige skal ha "View Contacts" på gruppen
+                # All_users dersom det eksporteres en slik.
+                if 'All_users' in fronter.export:
+                    new_acl['All_users'][enhans] = {'gacc': '100',
+                                                    'racc': '0'}
+
+                # Alle eksporterte emner skal i alle fall ha ett
+                # fellesrom og ett lærerrom.
+                new_rooms["ROOM/Felles:%s" % kurs_id] = {
+                    'title': "%s - Fellesrom" % kurskode,
+                    'parent': enhet_node,
+                    'CFid': "ROOM/Felles:%s" % enhet_id}
+                new_acl["ROOM/Felles:%s" % enhet_id][enhans] = {
+                    'role': fronter.ROLE_CHANGE}
+                new_acl["ROOM/Felles:%s" % enhet_id][enhstud] = {
+                    'role': fronter.ROLE_WRITE}
+                new_rooms["ROOM/Larer:%s" % kurs_id] = {
+                    'title': "%s - Lærerrom" % kurskode,
+                    'parent': enhet_node,
+                    'CFid': "ROOM/Larer:%s" % enhet_id}
+                new_acl["ROOM/Larer:%s" % enhet_id][enhans] = {
+                    'role': fronter.ROLE_CHANGE}
+                groups = {'enhansv': enhans,
+                          'enhstud': enhstud,
+                          'aktansv': [],
+                          'aktstud': [],
+                          }
+                process_single_enhet_id(enhet_id)
+        else:
+            raise ValueError, "Unknown type <%s> for course <%s>" % (type, kurs_id)
 
 def register_group_update(operation, id):
     """populerer %group_updates"""
