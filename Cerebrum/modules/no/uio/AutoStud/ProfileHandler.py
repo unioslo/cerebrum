@@ -232,7 +232,7 @@ class ProfileMatcher(object):
     def _check_evu_sted(self, student_info):
         """Resolve all evu_sted criterias for this student."""
 
-        as_dict = self.pc.select_mapping['evu_sted']
+        as_dict = self.pc.select_mapping.get('evu_sted', {})
         for k in as_dict.keys():
             v = as_dict[k]
             # Does this aktivt_sted criteria match a 'evu' entry?
