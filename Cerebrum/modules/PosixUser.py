@@ -82,6 +82,8 @@ class PosixUser(Account.Account):
         """Populate PosixUser instance's attributes without database access."""
         if parent is not None:
             self.__xerox__(parent)
+            self.home=home
+            self.disk_id=disk_id
         else:
             # super(PosixUser, self).populate(name, owner_type,
             # owner_id, np_type, creator_id, expire_date)
