@@ -73,7 +73,7 @@ class FS(object):
                 if mobj:
                     ret.append(mobj.group(1))
                 else:
-                    ret.append(re.sub('[().,]', '_', tmp))
+                    ret.append(re.sub('[(),]', '_', tmp))
                 tmp = ""
             else:
                 if tmp:
