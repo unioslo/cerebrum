@@ -3220,7 +3220,7 @@ class BofhdExtension(object):
         pq = self._get_printerquota(account.entity_id)
         if pq is None:
             return "User has no quota"
-        pq.has_printerquota = False
+        pq.has_printerquota = 'F'
         pq.write_db()
         return "Quota disabled"
 
