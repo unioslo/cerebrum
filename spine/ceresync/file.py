@@ -151,8 +151,9 @@ class PasswdFile(CLFileBack):
         if account.posix_uid is None:
             raise errors.NotPosixError, account.name
         return "%s:%s:%s:%s:%s:%s:%s\n" % (
-            account.name, "x", account.posix_uid, account.primary_group.posix_gid,
-            account.gecos, account.home, account.shell)
+            account.name, "x", account.posix_uid,
+            account.primary_group.posix_gid, account.gecos,
+            account.homedir, account.shell)
 
 
 class GroupFile(CLFileBack):
@@ -169,7 +170,8 @@ class ShadowFile(CLFileBack):
     def format(self, account):
         if account.posix_uid is None:
             raise errors.NotPosixError, account.name
-        return "%s:%s:::::::\n" % ( account.name, account.passwords.get('MD5-crypt', '*'))
+        return "%s:%s:::::::\n" % ( account.name,
+                account.passwords.get('MD5-crypt', '*'))
 
 class AliasFile(CLFileBack):
     filename="/etc/ceresync/aliases"
@@ -189,8 +191,10 @@ class SambaFile(CLFileBack):
     def format(self,account):
         if account.uid is None:
             raise errors.NotPosixError, account.name
-        return "%s:%s:%s:%s:%s:%s:%s\n" % ( account.name,account.uid,account.lmhash,\
-            account.nthash,account.fullname,account.homedir,account.shell)
+        return "%s:%s:%s:%s:%s:%s:%s\n" % ( account.name, account.uid,
+                account.passwords.get('lmhash', '*'),
+                account.passwords.get('nthash', '*'),
+                account.gecos, account.homedir, account.shell)
 
 
 # When using the file backend the user will want to save the id of the
