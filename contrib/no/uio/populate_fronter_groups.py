@@ -280,7 +280,7 @@ def process_kursdata():
 
 def get_undervisningsenheter():
     # TODO: Dumpe alle unervisningsenheter til fil
-    for enhet in fs.GetUndervEnhetAll():
+    for enhet in fs.undervisning.list_enheter():
         # Prefikser alle nøkler i %UndervEnhet som stammer fra
         # undervisningsenheter med "kurs:".
         enhet_id = "kurs:%s:%s:%s:%s:%s:%s" % (
@@ -299,7 +299,7 @@ def get_undervisningsenheter():
         emne_termnr.setdefault(multi_id, {})[enhet['terminnr']] = 1
 
 def get_undervisningsaktiviteter():
-    for akt in fs.list_undervisningsaktiviteter():
+    for akt in fs.undervisning.list_aktiviteter():
         enhet_id = "kurs:%s:%s:%s:%s:%s:%s" % (
             akt['institusjonsnr'], akt['emnekode'],
             akt['versjonskode'], akt['terminkode'],
@@ -314,25 +314,25 @@ def get_undervisningsaktiviteter():
             'aktivitet'][akt['aktivitetkode']] = akt['aktivitetsnavn']
 
 def get_evukurs_aktiviteter():
-    for kurs in fs.GetEvuKurs()[1]:
+    for kurs in fs.evu.list_kurs():
         kurs_id = "evu:%s:%s" % (kurs['etterutdkurskode'],
                                  kurs['kurstidsangivelsekode'])
         UndervEnhet[kurs_id] = {}
-        for aktivitet in fs.GetAktivitetEvuKurs(
-            kurs['etterutdkurskode'], kurs['kurstidsangivelsekode'])[1]:
+        for aktivitet in fs.evu.get_kurs_aktivitet(
+            kurs['etterutdkurskode'], kurs['kurstidsangivelsekode']):
             UndervEnhet[kurs_id].setdefault('aktivitet', {})[
                 aktivitet['aktivitetskode']] = aktivitet['aktivitetsnavn']
         tmp = {}
-        for evuansv in fs.GetAnsvEvuKurs(kurs['etterutdkurskode'],
-                                         kurs['kurstidsangivelsekode'])[1]:
+        for evuansv in fs.evu.get_kurs_ansv(kurs['etterutdkurskode'],
+                                            kurs['kurstidsangivelsekode']):
             fnr = "%06d%05d" % (
                 int(evuansv['fodselsdato']), int(evuansv['personnr']))
             if fnr2account_id.has_key(fnr):
                 tmp[fnr2account_id[fnr][0]] = 1
         UndervEnhet[kurs_id]['fagansv'] = tmp.copy()
         tmp = {}
-        for student in fs.GetStudEvuKurs(kurs['etterutdkurskode'],
-                                         kurs['kurstidsangivelsekode'])[1]:
+        for student in fs.evu.list_kurs_stud(kurs['etterutdkurskode'],
+                                             kurs['kurstidsangivelsekode']):
             fnr = "%06d%05d" % (
                 int(student['fodselsdato']), int(student['personnr']))
             if fnr2account_id.has_key(fnr):
@@ -375,17 +375,18 @@ def populate_enhet_groups(enhet_id):
         # Ansvarlige for undervisningsenheten.
         logger.debug(" enhetsansvar")
         enhet_ansv = {}
-        prim, sec = fnrs2account_ids(fs.GetAnsvUndervEnhet(Instnr, emnekode,
-                                                           versjon, termk,
-                                                           aar, termnr)[1],
-                                     primary_only = False)
+        prim, sec = fnrs2account_ids(
+            fs.undervisning.list_ansvarlig_for_enhet(Instnr, emnekode,
+                                                     versjon, termk,
+                                                     aar, termnr),
+            primary_only = False)
         for account_id in prim:
             enhet_ansv[account_id] = 1
 
         # TODO: generaliser ifi-hack seinare
         if (re.match(r"(dig|inf|med-inf|tool)", emnekode.lower())
-            and termk == fs.get_curr_semester()
-            and aar == str(fs.year)):
+            and termk == fs.info.semester()
+            and aar == str(fs.info.year)):
             logger.debug(" (ta med Ifi-spesifikke grupper)")
             ifi_hack = True
             netgr_emne = emnekode.lower().replace("-", "")
@@ -438,9 +439,10 @@ def populate_enhet_groups(enhet_id):
         # eksamensmeldte studenter.
         logger.debug(" student")
         alle_stud = {}
-        prim, sec = fnrs2account_ids(fs.GetStudUndervEnhet(Instnr, emnekode,
-                                                           versjon, termk,
-                                                           aar, termnr)[1],
+        prim, sec = fnrs2account_ids(
+            fs.student.list_undervisningsenhet(Instnr, emnekode,
+                                               versjon, termk,
+                                               aar, termnr),
                                      primary_only=False)
         for account_id in prim:
             alle_stud[account_id] = 1
@@ -485,8 +487,9 @@ def populate_enhet_groups(enhet_id):
             logger.debug(" aktivitetsansvar:%s" % aktkode)
             akt_ansv = {}
             prim, sec = fnrs2account_ids(
-                fs.GetAnsvUndAktivitet(Instnr, emnekode, versjon, termk,
-                                       aar, termnr, aktkode)[1],
+                fs.undervisning.get_ansvarlig_for_enhet(
+                Instnr, emnekode, versjon, termk, aar, termnr,
+                aktkode),
                 primary_only=False)
             
             for account_id in prim:
@@ -561,8 +564,9 @@ def populate_enhet_groups(enhet_id):
             logger.debug(" student:%s" % aktkode)
             akt_stud = {}
             for account_id in fnrs2account_ids(
-                fs.GetStudUndAktivitet(Instnr, emnekode, versjon, termk,
-                                       aar, termnr, aktkode)[1]):
+                fs.undervisning.list_aktivitet(
+                Instnr, emnekode, versjon, termk, aar, termnr,
+                aktkode)):
                 if not alle_stud.has_key(account_id):
                     logger.warn("OBS: Bruker <%s> (fnr <%s>) er med i"
                                 " undaktivitet <%s>, men ikke i"
@@ -674,7 +678,7 @@ def populate_enhet_groups(enhet_id):
             logger.debug(" aktivitetsansvar:%s" % aktkode)
             evu_akt_ansv = {}
             for account_id in fnrs2account_ids(
-                fs.GetAnsvEvuAktivitet(kurskode, tidsrom, aktkode)[1]):
+                fs.evu.list_aktivitet_ansv(kurskode, tidsrom, aktkode)):
                 evu_akt_ansv[account_id] = 1
 
             sync_group(kurs_id, "%s:aktivitetsansvar:%s" % (enhet_id, aktkode),
@@ -687,7 +691,7 @@ def populate_enhet_groups(enhet_id):
             logger.debug(" student:%s" % aktkode)
             evu_akt_stud = {}
             for account_id in fnrs2account_ids(
-                fs.GetStudEvuAktivitet(kurskode, tidsrom, aktkode)[1]):
+                fs.evu.list_aktivitet_stud(kurskode, tidsrom, aktkode)):
                 if not evustud.has_key(account_id):
                     logger.warn("""OBS: Bruker <%s> (fnr <%s>) er med i aktivitet <%s>, men ikke i kurset <%s>.""" % (
                         account_id, account_id2fnr[account_id],

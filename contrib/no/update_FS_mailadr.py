@@ -60,7 +60,7 @@ import cereconf
 from Cerebrum import Database
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-from Cerebrum.modules.no.uio.access_FS import FS
+from Cerebrum.modules.no.access_FS import FS
 
 
 
@@ -244,15 +244,15 @@ def main():
 
     if email:
         synchronize_attribute(person.getdict_external_id2mailaddr,
-                              fs.GetAllPersonsEmail,
-                              fs.WriteMailAddr,
+                              fs.person.list_email,
+                              fs.person.write_email,
                               "emailadresse", const)
     # fi
 
     if account:
         synchronize_attribute(person.getdict_external_id2primary_account,
-                              fs.GetAllPersonsUname,
-                              fs.WriteUname,
+                              fs.person.list_uname,
+                              fs.person.write_uname,
                               "brukernavn", const)
     # fi
 # end main

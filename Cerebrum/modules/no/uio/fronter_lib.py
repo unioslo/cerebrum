@@ -298,7 +298,7 @@ class Fronter(object):
         # aktuelle undervisningsenhetene/EVU-kursene (og tilhørende
         # aktiviteter) fra ymse dumpfiler.
         #
-        for enhet in self._fs.GetUndervEnhetAll():
+        for enhet in self._fs.undervisning.list_enheter():
             id_seq = (self.EMNE_PREFIX, enhet['institusjonsnr'],
                       enhet['emnekode'], enhet['versjonskode'],
                       enhet['terminkode'], enhet['arstall'],
@@ -344,7 +344,7 @@ class Fronter(object):
             # pga. utplukket som finnes i dumpfila.
             self.kurs2navn[kurs_id] = navn_sorted[0][2]
 
-        for akt in self._fs.list_undervisningsaktiviteter():
+        for akt in self._fs.undervisning.list_aktiviteter():
             id_seq = (self.EMNE_PREFIX, akt['institusjonsnr'],
                       akt['emnekode'], akt['versjonskode'],
                       akt['terminkode'], akt['arstall'],
@@ -360,7 +360,7 @@ class Fronter(object):
 		self.enhet2akt.setdefault(enhet_id, []).append(
                 [akt['aktivitetkode'], akt['aktivitetsnavn']])
 
-        for evu in self._fs.GetEvuKurs()[1]:
+        for evu in self._fs.evu.list_kurs():
             id_seq = (self.EVU_PREFIX, evu['etterutdkurskode'],
                       evu['kurstidsangivelsekode'])
             kurs_id = FronterUtils.UE2KursID(*id_seq)
@@ -377,7 +377,7 @@ class Fronter(object):
                 # "ordentlige" undervisningsenheter).
                 self.kurs2navn[kurs_id] = evu['etterutdkursnavn']
 
-                for akt in self._fs.GetAktivitetEvuKurs(
+                for akt in self._fs.evu.get_kurs_aktivitet(
                     evu['etterutdkurskode'], evu['kurstidsangivelsekode'])[1]:
                     self.enhet2akt.setdefault(enhet_id, []).append(
                         (akt['etterutdkurskode'], akt['aktivitetsnavn']))

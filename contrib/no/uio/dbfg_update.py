@@ -204,7 +204,7 @@ def synchronize_group(external_group, cerebrum_group_name):
     external_count = 0
 
     current = construct_group(cerebrum_group)
-    for row in external_group.list_dbfg_usernames():
+    for row in external_group():
         external_count += 1
 
         # FIXME: Ugh! Username cases are different here and there. This
@@ -374,7 +374,11 @@ def perform_synchronization(user, services):
         try:
             db = Database.connect(user = user, service = service,
                                   DB_driver = "Oracle")
-            accessor = accessor_class(db)
+            if isinstance(accessor_class, dict):
+                tmp = accessor_class['class'](db)
+                accessor = getattr(tmp, accessor_class['list_users'])
+            else:
+                accessor = accessor_class(db).list_dbfg_usernames
         except:
             type, value, tb = sys.exc_info()
             logger.error("Aiee! Failed to connect to %s: %s, %s, %s",
@@ -539,7 +543,10 @@ def main():
         elif option in ("-o", "--ofprod"):
             services.append(("OFPROD.uio.no", OF, "ofprod"))
         elif option in ("-f", "--fsprod"):
-            services.append(("FSPROD.uio.no", FS, "fsprod"))
+            services.append(("FSPROD.uio.no", 
+                             {'class': FS,
+                              'list_users': 'list_dbfg_usernames'},
+                             "fsprod"))
         elif option in ("-l", "--ltprod"):
             services.append(("LTPROD.uio.no", LT, "ltprod"))
         elif option in ("-a", "--ajprod"):

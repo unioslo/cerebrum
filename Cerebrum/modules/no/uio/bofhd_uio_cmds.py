@@ -3947,7 +3947,7 @@ class BofhdExtension(object):
         db = Database.connect(user="ureg2000", service="FSPROD.uio.no",
                               DB_driver='Oracle')
         fs = FS(db)
-        for row in fs.GetStudentStudierett_50(fodselsdato, pnum)[1]:
+        for row in fs.student.get_studierett(fodselsdato, pnum):
             har_opptak["%s" % row['studieprogramkode']] = \
                             row['status_privatist']
             ret.append({'studprogkode': row['studieprogramkode'],
@@ -3958,22 +3958,22 @@ class BofhdExtension(object):
                         'dato_gyldig_til': DateTime.DateTimeFromTicks(row['dato_studierett_gyldig_til']),
                         'privatist': row['status_privatist']})
 
-        for row in fs.GetStudentEksamen(fodselsdato, pnum)[1]:
+        for row in fs.student.get_eksamensmeldinger(fodselsdato, pnum):
             programmer = []
-            for row2 in fs.GetEmneIStudProg(row['emnekode'])[1]:
+            for row2 in fs.info.get_emne_i_studieprogram(row['emnekode']):
                 if har_opptak.has_key("%s" % row2['studieprogramkode']):
                     programmer.append(row2['studieprogramkode'])
             ret.append({'ekskode': row['emnekode'],
                         'programmer': ",".join(programmer),
                         'dato': DateTime.DateTimeFromTicks(row['dato_opprettet'])})
                       
-        for row in fs.GetStudentUtdPlan(fodselsdato, pnum)[1]:
+        for row in fs.student.get_utdanningsplan(fodselsdato, pnum):
             ret.append({'studieprogramkode': row['studieprogramkode'],
                         'terminkode_bekreft': row['terminkode_bekreft'],
                         'arstall_bekreft': row['arstall_bekreft'],
                         'dato_bekreftet': DateTime.DateTimeFromTicks(row['dato_bekreftet'])})
 
-        for row in fs.GetStudentSemReg(fodselsdato, pnum)[1]:
+        for row in fs.student.get_semreg(fodselsdato, pnum):
             ret.append({'regformkode': row['regformkode'],
                         'betformkode': row['betformkode'],
                         'dato_betaling': DateTime.DateTimeFromTicks(row['dato_betaling']),

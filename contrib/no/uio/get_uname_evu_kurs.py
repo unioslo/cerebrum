@@ -86,7 +86,7 @@ def main():
     
     evukode = sys.argv[1]
     tidskode = sys.argv[2]
-    for row in fs.GetEvuKursPameldte(evukode, tidskode):
+    for row in fs.evu.list_kurs_pameldte(evukode, tidskode):
         uname = fetch_primary_uname(row, person, account, constants)
         
         print "%06d %05d %-20s%-30s --> %-10s" % (row.fodselsdato,

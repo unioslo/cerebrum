@@ -90,7 +90,7 @@ def main():
     constants = Factory.get("Constants")(db_cerebrum)
     
     emnekode = sys.argv[1]
-    for row in fs.GetEmneinformasjon(emnekode):
+    for row in fs.student.get_emne_eksamensmeldinger(emnekode):
         uname = fetch_primary_uname(row, person, account, constants)
         
         print "%06d %05d %-20s%-30s --> %-10s" % (row.fodselsdato,

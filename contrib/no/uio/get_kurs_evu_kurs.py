@@ -45,7 +45,7 @@ def main():
     print "%-20s%-10s%20s%20s" % ("kurskode", "tidskode", "fra", "til")
     print "-" * 70            
     for code in sys.argv[1:]:
-        for row in fs.GetEvuKursInformasjon(code):
+        for row in fs.evu.get_kurs_informasjon(code):
             print "%-20s%-10s%20s%20s" % (row.etterutdkurskode,
                                          row.kurstidsangivelsekode,
                                          row.dato_fra, row.dato_til)

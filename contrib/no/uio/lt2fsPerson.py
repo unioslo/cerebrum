@@ -282,7 +282,6 @@ def process_person(pdata):
     fagperson = fs.person.get_fagperson(pdata.fnr, pdata.pnr)
     logger.debug2("... er fp?: %s" % fagperson)
     if not fagperson:
-        print "Add", pdata.fnr11, pdata.fnr
         logger.debug("...add fagperson (%s)" % (repr((pdata.fnr11, pdata.fnr, pdata.pnr, new_data))))
         fs.person.add_fagperson(pdata.fnr, pdata.pnr, *new_data)
         fs.db.commit()

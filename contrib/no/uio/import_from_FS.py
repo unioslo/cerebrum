@@ -35,10 +35,6 @@ from Cerebrum.extlib import xmlprinter
 from Cerebrum.Utils import AtomicFileWriter
 from Cerebrum.Utils import Factory
 
-
-
-
-
 default_person_file = "/cerebrum/dumps/FS/persons.xml"
 default_emne_file = "/cerebrum/dumps/FS/emner.xml"
 default_topics_file = "/cerebrum/dumps/FS/topics.xml"
@@ -50,6 +46,13 @@ default_betalt_papir_file = "/cerebrum/dumps/FS/betalt_papir.xml"
 
 xml = XMLHelper()
 fs = None
+
+def _ext_cols(db_rows):
+    # TBD: One might consider letting xmlify_dbrow handle this
+    cols = None
+    if db_rows:
+        cols = list(db_rows[0]._keys())
+    return cols, db_rows
 
 def write_person_info(outfile):
     """Lager fil med informasjon om alle personer registrert i FS som
@@ -63,62 +66,62 @@ def write_person_info(outfile):
     f=open(outfile, 'w')
     f.write(xml.xml_hdr + "<data>\n")
     # Fagpersoner
-    cols, fagpersoner = fs.GetFagperson_50()
+    cols, fagpersoner = _ext_cols(fs.undervisning.list_fagperson_semester())
     for p in fagpersoner:
         f.write(xml.xmlify_dbrow(p, xml.conv_colnames(cols), 'fagperson') + "\n")
 
     # Studenter med opptak, privatister (=opptak i studiepgraommet
     # privatist) og Alumni
-    cols, students = fs.GetStudent_50()
+    cols, students = _ext_cols(fs.student.list())
     for s in students:
 	# The Oracle driver thinks the result of a union of ints is float
         fix_float(s)
         f.write(xml.xmlify_dbrow(s, xml.conv_colnames(cols), 'opptak') + "\n")
     # Studenter med alumni opptak til et studieprogram
-    cols, students = fs.GetAlumni_50()
+    cols, students = _ext_cols(fs.alumni.list())
     for s in students:
         f.write(xml.xmlify_dbrow(s, xml.conv_colnames(cols), 'alumni') + "\n")
 
     # Privatister, privatistopptak til studieprogram eller emne-privatist
-    cols, students = fs.GetStudentPrivatist_50()
+    cols, students = _ext_cols(fs.student.list_privatist())
     for s in students:
         fix_float(s)
         f.write(xml.xmlify_dbrow(s, xml.conv_colnames(cols), 'privatist_studieprogram') + "\n")
-    cols, students = fs.GetStudentPrivatistEmne_50()
+    cols, students = _ext_cols(fs.student.list_privatist_emne())
     for s in students:
         f.write(xml.xmlify_dbrow(s, xml.conv_colnames(cols), 'privatist_emne') + "\n")
 
     # Aktive studenter
-    cols, students = fs.GetStudentAktiv_50()
+    cols, students = _ext_cols(fs.student.list_aktiv())
     for s in students:
         # The Oracle driver thinks the result of a union of ints is float
         fix_float(s)
         f.write(xml.xmlify_dbrow(s, xml.conv_colnames(cols), 'aktiv') + "\n")
 
     # Semester-registrering
-    cols, students = fs.GetStudinfRegkort()
+    cols, students = _ext_cols(fs.student.list_semreg())
     for s in students:
         f.write(xml.xmlify_dbrow(s, xml.conv_colnames(cols), 'regkort') + "\n")
 
     # Eksamensmeldinger
-    cols, students = fs.GetAlleEksamener()
+    cols, students = _ext_cols(fs.student.list_eksamensmeldinger())
     for s in students:
         f.write(xml.xmlify_dbrow(s, xml.conv_colnames(cols), 'eksamen') + "\n")
 
     # EVU students
     # En del EVU studenter vil være gitt av søket over
 
-    cols, evustud = fs.GetDeltaker_50()
+    cols, evustud = _ext_cols(fs.evu.list())
     for e in evustud:
         f.write(xml.xmlify_dbrow(e, xml.conv_colnames(cols), 'evu') + "\n")
 
     # Studenter i permisjon (også dekket av GetStudinfOpptak)
-    cols, permstud = fs.GetStudinfPermisjon()
+    cols, permstud = _ext_cols(fs.student.list_permisjon())
     for p in permstud:
         f.write(xml.xmlify_dbrow(p, xml.conv_colnames(cols), 'permisjon') + "\n")
 
     # Personer som har fått tilbud
-    cols, tilbudstud = fs.GetStudentTilbud_50()
+    cols, tilbudstud = _ext_cols(fs.student.list_tilbud())
     for t in tilbudstud:
         f.write(xml.xmlify_dbrow(t, xml.conv_colnames(cols), 'tilbud') + "\n")
     
@@ -128,7 +131,7 @@ def write_ou_info(outfile):
     """Lager fil med informasjon om alle OU-er"""
     f=open(outfile, 'w')
     f.write(xml.xml_hdr + "<data>\n")
-    cols, ouer = fs.GetAlleOUer(cereconf.DEFAULT_INSTITUSJONSNR)  # TODO
+    cols, ouer = _ext_cols(fs.info.list_ou(cereconf.DEFAULT_INSTITUSJONSNR))  # TODO
     for o in ouer:
         sted = {}
         for fs_col, xml_attr in (
@@ -173,7 +176,7 @@ def write_topic_info(outfile):
     # TODO: Denne filen blir endret med det nye opplegget :-(
     f=open(outfile, 'w')
     f.write(xml.xml_hdr + "<data>\n")
-    cols, topics = fs.GetAlleEksamener()
+    cols, topics = _ext_cols(fs.student.list_eksamensmeldinger())
     for t in topics:
         # The Oracle driver thinks the result of a union of ints is float
         fix_float(t)
@@ -185,7 +188,7 @@ def write_regkort_info(outfile):
     inneværende semester"""
     f=open(outfile, 'w')
     f.write(xml.xml_hdr + "<data>\n")
-    cols, regkort = fs.GetStudinfRegkort()
+    cols, regkort = _ext_cols(fs.student.list_semreg())
     for r in regkort:
         f.write(xml.xmlify_dbrow(r, xml.conv_colnames(cols), 'regkort') + "\n")
     f.write("</data>\n")
@@ -194,7 +197,7 @@ def write_studprog_info(outfile):
     """Lager fil med informasjon om alle definerte studieprogrammer"""
     f=open(outfile, 'w')
     f.write(xml.xml_hdr + "<data>\n")
-    cols, dta = fs.GetStudieproginf()
+    cols, dta = _ext_cols(fs.info.list_studieprogrammer())
     for t in dta:
         f.write(xml.xmlify_dbrow(t, xml.conv_colnames(cols), 'studprog') + "\n")
     f.write("</data>\n")
@@ -203,7 +206,7 @@ def write_emne_info(outfile):
     """Lager fil med informasjon om alle definerte emner"""
     f=open(outfile, 'w')
     f.write(xml.xml_hdr + "<data>\n")
-    cols, dta = fs.GetEmneinf()
+    cols, dta = _ext_cols(fs.info.list_emner())
     for t in dta:
         f.write(xml.xmlify_dbrow(t, xml.conv_colnames(cols), 'emne') + "\n")
     f.write("</data>\n")
@@ -212,7 +215,7 @@ def write_misc_info(outfile, tag, func_name):
     """Lager fil med data fra gitt funksjon i access_FS"""
     f=open(outfile, 'w')
     f.write(xml.xml_hdr + "<data>\n")
-    cols, dta = getattr(fs, func_name)()
+    cols, dta = _ext_cols(eval("fs.%s" % func_name)())
     for t in dta:
         fix_float(t)
         f.write(xml.xmlify_dbrow(t, xml.conv_colnames(cols), tag) + "\n")
@@ -233,7 +236,7 @@ def write_fnrupdate_info(outfile):
 
     writer.startElement("data", {"source_system" : str(const.system_fs)})
 
-    junk, data = fs.GetFnrEndringer()
+    data = fs.person.list_fnr_endringer()
     for row in data:
         # Make the format resemble the corresponding FS output as close as
         # possible.
@@ -259,7 +262,7 @@ def write_betalt_papir_info(outfile):
     """Lager fil med informasjon om alle som har betalt papirpenger"""
     f=open(outfile, 'w')
     f.write(xml.xml_hdr + "<data>\n")
-    cols, dta = fs.GetStudBetPapir()
+    cols, dta = _ext_cols(fs.betaling.list_betalt_papiravgift())
     for t in dta:
         fix_float(t)
         f.write(xml.xmlify_dbrow(t, xml.conv_colnames(cols), 'betalt') + "\n")
