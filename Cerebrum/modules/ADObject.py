@@ -34,9 +34,6 @@ from Cerebrum.Utils import Factory
 Cerebrum = Factory.get('Database')()
 co = Factory.get('Constants')(Cerebrum)
 
-#print 'hei:',int(co.entity_account)
-
-
 class ADObject(EntityName, EntityQuarantine, Entity):
 # Bare arve egenskaper fra Entity?
 
@@ -58,35 +55,15 @@ class ADObject(EntityName, EntityQuarantine, Entity):
             return self.__super.__eq__(other)
         return False
 
-    def get_all_ad_users(self):
+    def get_all_ad_objects(self,e_type):
         "get all users in the ad table"
         return self.query("""
         SELECT entity_id,ou_id
         FROM [:table schema=cerebrum name=ad_entity]
-        WHERE entity_type=2003""")
+        WHERE entity_type=:e_type""",
+                          {'e_type': int(e_type)})
 
-
-
-#
-# Andre metoder.
-# def find
-# def find_ad_groups
-# def find_ad_ous
-# def find_ad_users finnes i aduser modulen.
-# def populate.
-#
-# Antar alle skal til ad inntil spread er ferdig.
-# har ingen quick sync funksjoner enda....
-#
-# Finne en Account sin Person, hører til ADUser
-# Finne account locked status, hentes fra quarantine? 
-#
-#TODO: diverse metoder: find, populate?, write_db,
-#      get_ad_users- finne alle ad brukere med status, skal hente verdier som
-#      account locked, default verdi for hjemmeområde og loginscript,
-#      full name og user_name. 
-#      get_ad_user- samme som over, men for en account, til bruk i quick sync.
-#          
+                          
 
 
 
