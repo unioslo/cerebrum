@@ -116,7 +116,7 @@ def runfile(fname, Cerebrum, debug, phase):
     print "Reading file (phase=%s): <%s>" % (phase, fname)
     # Run both the generic (e.g. 'main') and driver-specific
     # (e.g. 'main/Oracle' categories for this phase in one run.
-    phase_driver = "/".join((phase, Cerebrum.__class__.__name__))
+    phase_driver = "/".join((phase, Cerebrum.__class__.__base__.__name__))
     f = file(fname)
     text = "".join(f.readlines())
     long_comment = re.compile(r"/\*.*?\*/", re.DOTALL)
