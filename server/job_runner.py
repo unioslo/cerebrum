@@ -69,7 +69,7 @@ if True:
         def __init__(self):
             self.last_msg = time.time()
             
-        def show_msg(self, lvl, msg):
+        def show_msg(self, lvl, msg, exc_info=None):
             delta = int(time.time() - self.last_msg)
             self.last_msg = time.time()
             lvl = "%3i %s" % (delta, lvl)
@@ -78,21 +78,20 @@ if True:
             sys.stdout.write("%s [%i] %s\n" % (lvl, os.getpid(), msg))
             sys.stdout.flush()
 
-        def debug2(self, msg):
-            self.show_msg("DEBUG2", msg)
-            pass
+        def debug2(self, msg, **kwargs):
+            self.show_msg("DEBUG2", msg, **kwargs)
         
-        def debug(self, msg):
-            self.show_msg("DEBUG", msg)
+        def debug(self, msg, **kwargs):
+            self.show_msg("DEBUG", msg, **kwargs)
 
-        def error(self, msg):
-            self.show_msg("ERROR", msg)
+        def error(self, msg, **kwargs):
+            self.show_msg("ERROR", msg, **kwargs)
 
-        def fatal(self, msg):
-            self.show_msg("FATAL", msg)
+        def fatal(self, msg, **kwargs):
+            self.show_msg("FATAL", msg, **kwargs)
 
-        def critical(self, msg):
-            self.show_msg("CRITICAL", msg)
+        def critical(self, msg, **kwargs):
+            self.show_msg("CRITICAL", msg, **kwargs)
 
     logger = MyLogger()
 
