@@ -1,50 +1,24 @@
-## $Id$
-## Main template
-## Gives a 'frames style' left menu and a bottom area
-## 
-#attr $title = "Cereweb"
-##
-<?xml version='1.0' ?>
-<!DOCTYPE HTML PUBLIC
-"-//W3C//DTD HTML 4.01//EN"
-><html lang="en">
-<head>
-<title>Cereweb $title</title>
-    <link rel="stylesheet" type="text/css" href="css/fixed.css" >
-    <!--[if IE]>
-      <link rel="stylesheet" type="text/css" href="css/fixed_ie5.css">
-    <![endif]-->
-    <link rel="stylesheet" type="text/css" href="css/default.css" >
-</head><body>
-<div class="content">
-<h1>$title</h1>
+#extends FramesTemplate 
 
-#def content
-Her er mr. Content
-#end def content
-$content()
-
-</div>
-
-
-<div class="menu">
-#def menu
-Dette er menyen <br />
-[Viktig] <br />
-[Uviktig] <br />
-[Hjelp] <br />
-#end def menu
-$menu()
-</div>
-
-
-<div class="bottom">
 #def bottom
-Dette er bunnen!!!11
+$worklist()
+$activitylog()
 #end def bottom
-$bottom()
-</div>
 
+#def worklist
+<div class="worklist" name="worklist">
+  <h2>Work list</h2>
+  bla<br />
+  blupp<br />
 </div>
-</body>
-</html>
+#end def worklist
+
+#def activitylog
+<div class="activitylog">
+  <div class="entry">Line 1</div>
+  <div class="entry">Line 2</div>
+  <div class="entry">Line 3</div>
+</div>
+#end def activitylog
+
+
