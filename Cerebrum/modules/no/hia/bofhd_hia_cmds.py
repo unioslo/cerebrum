@@ -2739,7 +2739,7 @@ class BofhdExtension(object):
 	    opr=acc.account_name
         except Errors.NotFoundError:
 	    raise CerebrumError, ("Could not find the operator id!")
-	time_temp = strftime("%Y-%m-%d-%H%M", localtime())
+	time_temp = strftime("%Y-%m-%d-%H%M%S", localtime())
 	selection = args.pop(0)
         cache = self._get_cached_passwords(operator)
         th = TemplateHandler(tpl_lang, tpl_name, tpl_type)
@@ -3690,6 +3690,9 @@ class BofhdExtension(object):
     def spread_add(self, operator, entity_type, id, spread):
         entity = self._get_entity(entity_type, id)
         spread = int(self._get_constant(spread, "No such spread"))
+	# TODO probably not the most optimal solution, 
+	if self._get_constant(spread) == self.const.spread_hia_novell:
+	    return "Please use the command 'user home_create' to assign an extra homedir to the user!"
         self.ba.can_add_spread(operator.get_entity_id(), entity, spread)
         try:
             entity.add_spread(spread)
@@ -3882,6 +3885,9 @@ class BofhdExtension(object):
             if not all_args:
                 return {'prompt': "Disk", 'help_ref': 'disk'}
             disk = all_args.pop(0)
+	    if not all_args:
+		return {'prompt': "Novell disk", 'help_ref': 'disk'}
+	    ndisk = all_args.pop(0)
         if not all_args:
             ret = {'prompt': "Username", 'last_arg': True}
             posix_user = PosixUser.PosixUser(self.db)
@@ -3931,10 +3937,10 @@ class BofhdExtension(object):
             owner_id = self._get_group(group_id.split(":")[1]).entity_id
             np_type = int(self._get_constant(np_type, "Unknown account type"))
         else:
-            if len(args) == 7:
-                idtype, person_id, affiliation, filegroup, shell, home, uname = args
+            if len(args) == 8:
+                idtype, person_id, affiliation, filegroup, shell, home, nhome, uname = args
             else:
-                idtype, person_id, yes_no, affiliation, filegroup, shell, home, uname = args
+                idtype, person_id, yes_no, affiliation, filegroup, shell, home, nhome, uname = args
             owner_type = self.const.entity_person
             owner_id = self._get_person("entity_id", person_id).entity_id
             np_type = None
@@ -3947,6 +3953,12 @@ class BofhdExtension(object):
         if home is not None:
             if home[0] == ':':
                 home = home[1:]
+            else:
+                raise CerebrumError, "Invalid disk"
+        ndisk_id, nhome = self._get_disk_or_home(nhome)
+        if nhome is not None:
+            if nhome[0] == ':':
+                nhome = nhome[1:]
             else:
                 raise CerebrumError, "Invalid disk"
         posix_user.clear()
@@ -3967,6 +3979,10 @@ class BofhdExtension(object):
             posix_user.set_home(self.const.spread_nis_user,
                                 disk_id=disk_id, home=home,
                                 status=self.const.home_status_not_created)
+            posix_user.set_home(self.const.spread_hia_novell_user,
+                                disk_id=ndisk_id, home=nhome,
+                                status=self.const.home_status_not_created)
+
             # For correct ordering of ChangeLog events, new users
             # should be signalled as "exported to" a certain system
             # before the new user's password is set.  Such systems are
