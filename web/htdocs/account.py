@@ -19,7 +19,14 @@ def index(req):
     page.content = accountsearch.form
     return page
 
+def list(req):
+    (name, owner, expire_date, create_date) = 
+        req.session.get('account_lastsearch', ("", "", "", ""))
+    return search(req, name, accountid, birthno, birthdate)
+
 def search(req, name, owner, expire_date, create_date):
+    req.session['account_lastsearch'] = (name, owner,
+                                         expire_date, create_date)
     page = Main(req)
     page.title = "Account search"
     page.setFocus("account/list")

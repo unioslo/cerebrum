@@ -59,7 +59,15 @@ def create(req, name="", birthno="", birthdate="", ou="", affiliation="", aff_st
     page.content = lambda: result.output().encode("utf8")
     return page
 
+def list(req):
+    (name, accountid, birthno, birthdate) = \
+        req.session.get('person_lastsearch', ("", "", "", ""))
+    return search(req, name, accountid, birthno, birthdate)
+
+
 def search(req, name="", accountid="", birthno="", birthdate=""):
+    req.session['person_lastsearch'] = (name, accountid, 
+                                         birthno, birthdate)
     page = Main(req)
     page.title = "Person search"
     page.setFocus("person/list")
@@ -93,7 +101,7 @@ def search(req, name="", accountid="", birthno="", birthdate=""):
             page.add_message(_("Sorry, no person(s) found matching the given criteria."))
 
     except xmlrpclib.Fault, e:
-        page.add_message(e.faultString.split("CerebrumError: ")[-1]), True)
+        page.add_message(e.faultString.split("CerebrumError: ")[-1], True)
         
     result.append(html.Header(_("Search for other persons"), level=2))
     result.append(personsearch.form())
