@@ -597,7 +597,7 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
 
     def list_affiliations(self, person_id=None, source_system=None,
                           affiliation=None, status=None, ou_id=None,
-                          include_deleted=False):
+                          include_deleted=False, fetchall = True):
         cols = {}
         for t in ('person_id', 'affiliation', 'source_system', 'status', \
 								'ou_id'):
@@ -610,11 +610,12 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
         where = " AND ".join(tests)
         if len(where) > 0:
             where = "WHERE %s" % where
+
         return self.query("""
         SELECT person_id, ou_id, affiliation, source_system, status,
           deleted_date
         FROM [:table schema=cerebrum name=person_affiliation_source]
-        %s""" % where, cols)
+        %s""" % where, cols, fetchall = fetchall)
 
     def add_affiliation(self, ou_id, affiliation, source, status):
         binds = {'ou_id': int(ou_id),

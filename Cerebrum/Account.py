@@ -132,7 +132,8 @@ class AccountType(object):
                                                  'affiliation': int(affiliation)})
 
     def list_accounts_by_type(self, ou_id=None, affiliation=None,
-                              status=None, filter_expired=False):
+                              status=None, filter_expired=False,
+                              fetchall=True):
         """Return ``account_id``s of the matching accounts."""
         extra=""
         if affiliation is not None:
@@ -161,7 +162,7 @@ class AccountType(object):
         ORDER BY at.person_id, at.priority""" % extra,
                           {'ou_id': ou_id,
                            'affiliation': affiliation,
-                           'status': status})
+                           'status': status}, fetchall = fetchall)
 
 class AccountHome(object):
     """AccountHome keeps track of where the users home dir is.  There
