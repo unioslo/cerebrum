@@ -17,9 +17,12 @@ from Cerebrum import Errors
 from Cerebrum import Person
 from Cerebrum import Account
 from Cerebrum import Constants
+from Cerebrum.modules.no.uio.AutoStud import StudentInfo
+from Cerebrum.modules.no.uio import AutoStud
+
 
 def usage(exitcode=0):
-    print """Usage: report_new_users.py [-s spread1 | -f fnrfile]"""
+    print """Usage: report_new_users.py [-s spread | -f fnrfile]"""
     sys.exit(exitcode)
 
 def main():
@@ -31,15 +34,18 @@ def main():
     db = Factory.get("Database")()
     const = Factory.get("Constants")(db)
 
+    studnr2data = read_student_data("/cerebrum/dumps/FS/merged_persons.xml")
+
     for opt, val in opts:
         if opt == '--help':
             usage()
         elif opt == '-s':
-            dump_new_users(db, const, spread=val)
+            dump_new_users(db, const, studnr2data, spread=val)
         elif opt == '-f':
-            dump_new_users(db, const, fnr_file=val)
+            dump_new_users(db, const, studnr2data, fnr_file=val)
 
-def dump_new_users(db, const, spread=None, fnr_file=None, start_date=None):
+def dump_new_users(db, const, studnr2data, spread=None, fnr_file=None,
+                   start_date=None):
     entity = Entity.Entity(db)
     if start_date is None:
         start_date = yesterday(db)
@@ -110,23 +116,45 @@ def dump_new_users(db, const, spread=None, fnr_file=None, start_date=None):
             pass
 
         # Finn brukerens eiers for- og etternavn (fra FS)
-        fname = lname = ''
+        fname = lname = fullname = ''
         try:
             fname = person.get_name(const.system_fs,
                                     const.name_first)
             lname = person.get_name(const.system_fs,
                                     const.name_last)
+            fullname = person.get_name(const.system_cached,
+                                       const.name_full)
         except:
             pass
-        sys.stdout.write("%(brukernavn)s:%(pwd)s:%(sko)s:%(fname)s:%(lname)s:%(aff)s:%(affstatus)s\n" %
-                 {'brukernavn': account.account_name,
-                  'pwd': pwd,
-                  'sko': stedkode,
-                  'fname': fname,
-                  'lname': lname,
-                  'aff': aff,
-                  'affstatus': affstatus
-                  })
+
+        # Finn student-nummer for brukerens eier.
+        try:
+            studnr = person.get_external_id(
+                const.system_fs, const.externalid_studentnr)[0]['external_id']
+        except:
+            studnr = ''
+
+        # Nyeste kullkode studenten er med i, samt studieprogrammet og
+        # studieretningen knyttet til denne kullkoden.
+        kull, stprog, stretn = studnr2data.get(studnr, ('','',''))
+
+        sys.stdout.write(
+            "%(brukernavn)s:%(pwd)s:%(sko)s:%(studentnr)s"
+            ":%(fullname)s:%(fname)s:%(lname)s:%(aff)s"
+            ":%(affstatus)s:%(kull)s:%(stprog)s:%(stretn)s\n" %
+            {'brukernavn': account.account_name,
+             'pwd': pwd,
+             'sko': stedkode,
+             'studentnr': studnr,
+             'fullname': fullname,
+             'fname': fname,
+             'lname': lname,
+             'aff': aff,
+             'affstatus': affstatus,
+             'kull': kull,
+             'stprog': stprog,
+             'stretn': stretn,
+             })
 
 
 def _get_ou(db, e_id):
@@ -148,6 +176,31 @@ def yesterday(db):
     now = time.time()
     return db.DateFromTicks(now - 60*60*24)
 
+def read_student_data(fname):
+    studnr2data = {}
+    def callback(data):
+        if not data.has_key('aktiv'):
+            return
+        for info in data['aktiv']:
+            studnr = info['studentnr_tildelt']
+            kull = info['kullkode']
+            studretn = info['studieretningkode']
+            studprog = info['studieprogramkode']
+            if not studnr2data.has_key(studnr):
+                studnr2data[studnr] = (kull, studretn, studprog)
+            else:
+                present_kull = studnr2data[studnr][0]
+                if kull > present_kull:
+                    studnr2data[studnr] = (kull, studretn, studprog)
+
+    # Trenger strengt tatt ikke logging her, men må ha et
+    # logger-objekt å sende til StudentInfoParser -- så da logger vi
+    # til /dev/null.
+    logger = AutoStud.Util.ProgressReporter("/dev/null", stdout=False)
+    logger.info("Started")
+    StudentInfo.StudentInfoParser(fname, callback, logger)
+    logger.info("Completed")
+    return studnr2data
 
 if __name__ == '__main__':
     main()
