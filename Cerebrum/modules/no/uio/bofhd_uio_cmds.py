@@ -13,6 +13,7 @@ import re
 import sys
 import time
 import os
+import cyruslib
 from mx import DateTime
 
 import cereconf
@@ -27,6 +28,7 @@ from Cerebrum.Constants import _CerebrumCode, _QuarantineCode, _SpreadCode,\
      _PersonAffiliationCode, _PersonAffStatusCode
 from Cerebrum import Utils
 from Cerebrum.modules import Email
+from Cerebrum.modules.Email import _EmailSpamLevelCode, _EmailSpamActionCode
 from Cerebrum.modules import PasswordChecker
 from Cerebrum.modules import PosixGroup
 from Cerebrum.modules import PosixUser
@@ -128,20 +130,19 @@ class BofhdExtension(object):
     # email forward "on"|"off"|"local" <account>+ [<address>+]
     all_commands['email_forward'] = Command(
         ('email', 'forward'),
-        AccountName(help_ref='account_name', repeat=True),
         SimpleString(help_ref='email_forward_action'),
+        AccountName(help_ref='account_name', repeat=True),
         EmailAddressString(help_ref='email_address',
                            repeat=True, optional=True),
         perm_filter='can_email_forward_toggle')
-    def email_forward(self, operator, uname, action, addr=None):
-        acc = Utils.Factory.get('Account')(self.db)
-        acc.find_by_name(uname)
+    def email_forward(self, operator, action, uname, addr=None):
+        acc = self._get_account(uname)
         self.ba.can_email_forward_toggle(operator.get_entity_id(), acc)
         fw = Email.EmailForward(self.db)
         fw.find_by_entity(acc.entity_id)
         matches = []
         for r in fw.get_forward():
-            if not addr or r['forward_to'].find(addr):
+            if not addr or r['forward_to'].find(addr) <> -1:
                 matches.append(r['forward_to'])
         if addr and not matches:
             raise CerebrumError, "No such forward address: %s" % addr
@@ -150,17 +151,18 @@ class BofhdExtension(object):
         elif not addr and not matches:
             raise (CerebrumError,
                    "No forward addresses for %s" % uname)
+        prim = acc.get_primary_mailaddress()
+        if action == 'local':
+            action = 'on'
+            if self._forward_exists(fw, prim):
+                matches.append(prim)
+            else:
+                fw.add_forward(prim)
         for a in matches:
             if action == 'on':
-                fw.enable_forward(addr)
+                fw.enable_forward(a)
             elif action == 'off':
-                fw.disable_forward(addr)
-            elif action == 'local':
-                fw.enable_forward(addr)
-                try:
-                    fw.add_forward(acc.get_primary_mailaddress())
-                except Errors.TooManyRowsError:
-                    fw.enable_forward(acc.get_primary_mailaddress())
+                fw.disable_forward(a)
             else:
                 raise CerebrumError, ("Unknown action (%s), " +
                                       "choose one of on, off or local") % action
@@ -175,10 +177,9 @@ class BofhdExtension(object):
         EmailAddressString(help_ref='email_address', repeat=True),
         perm_filter='can_email_forward_edit')
     def email_add_forward(self, operator, uname, address):
-        acc = Utils.Factory.get('Account')(self.db)
-        acc.find_by_name(uname)
+        acc = self._get_account(uname)
         self.ba.can_email_forward_edit(operator.get_entity_id(), acc)
-        fw = Email.EmailForward(db)
+        fw = Email.EmailForward(self.db)
         fw.find_by_entity(acc.entity_id)
         addr = self._check_email_address(address)
         try:
@@ -196,11 +197,12 @@ class BofhdExtension(object):
         EmailAddressString(help_ref='email_address', repeat=True),
         perm_filter='can_email_forward_edit')
     def email_remove_forward(self, operator, uname, address):
-        acc = Utils.Factory.get('Account')(self.db)
-        acc.find_by_name(uname)
+        acc = self._get_account(uname)
         self.ba.can_email_forward_edit(operator.get_entity_id(), acc)
-        fw = Email.EmailForward(db)
+        fw = Email.EmailForward(self.db)
         fw.find_by_entity(acc.entity_id)
+        if address == 'local':
+            address = acc.get_primary_mailaddress()
         addr = self._check_email_address(address)
         if self._forward_exists(fw, addr):
             fw.delete_forward(addr)
@@ -210,9 +212,9 @@ class BofhdExtension(object):
         self.db.commit()
         return "OK"
 
-    def _check_email_address(address):
-        # To stop some typoes, we require the address consists of a
-        # local part and a domain, and the domain must contain at
+    def _check_email_address(self, address):
+        # To stop some typoes, we require that the address consists of
+        # a local part and a domain, and the domain must contain at
         # least one period.  We also remove leading and trailing
         # whitespace.  We do an unanchored search as well so that an
         # address in angle brackets is accepted, e.g. either of
@@ -220,12 +222,12 @@ class BofhdExtension(object):
         address = address.strip()
         if address.find("@") == -1:
             raise CerebrumError, "E-mail addresses must include the domain name"
-        if not (re.match('^[^@]+@[^@.]+\.[^@]+$', address) or
-                re.match('<[^@]+@[^@.]+\.[^@]+>$', address)):
+        if not (re.match('^[^@\s]+@[^@\s.]+\.[^@\s]+$', address) or
+                re.search('<[^@\s]+@[^@\s.]+\.[^@\s]+>$', address)):
             raise CerebrumError, "Invalid e-mail address (%s)" % address
         return address
 
-    def _forward_exists(fw, addr):
+    def _forward_exists(self, fw, addr):
         for r in fw.get_forward():
             if r['forward_to'] == addr:
                 return True
@@ -244,13 +246,23 @@ class BofhdExtension(object):
          ("spam_level", "spam_action")),
         ("Quota:            %d MiB, warn at %d%% (not enforced)",
          ("dis_quota_hard", "dis_quota_soft")),
-        ("Quota:            %d MiB, warn at %d%% (%d MiB used)",
+        ("Quota:            %d MiB, warn at %d%% (%s MiB used)",
          ("quota_hard", "quota_soft", "quota_used")),
         ("Forwarding:       %s",
          ("forward", ))]))
     def email_info(self, operator, uname):
-        acc = Utils.Factory.get('Account')(self.db)
-        acc.find_by_name(uname)
+        if uname.find('@') <> -1:
+            try:
+                acc = Utils.Factory.get('Account')(self.db)
+                ea = Email.EmailAddress(self.db)
+                ea.find_by_address(uname)
+                et = Email.EmailTarget(self.db)
+                et.find(ea.get_target_id())
+                acc.find(et.email_target_entity_id)
+            except Errors.NotFoundError:
+                raise CerebrumError, "No such e-mail address (%s)" % uname
+        else:
+            acc = self._get_account(uname)
         self.ba.can_email_info(operator.get_entity_id(), acc)
         ret = self._email_info_basic(acc)
         try:
@@ -287,11 +299,10 @@ class BofhdExtension(object):
         esf = Email.EmailSpamFilter(self.db)
         try:
             esf.find_by_entity(acc.entity_id)
-            spaml = esf.email_spam_level
-            spama = esf.email_spam_action
-            # TODO: make look up English names for the numeric values
-            info.append({'spam_level': str(spaml),
-                         'spam_action': str(spama)})
+            slev = _EmailSpamLevelCode(int(esf.email_spam_level))
+            sact = _EmailSpamActionCode(int(esf.email_spam_action))
+            info.append({'spam_level': slev._get_description(),
+                         'spam_action': sact._get_description()})
         except Errors.NotFoundError:
             pass
         eq = Email.EmailQuota(self.db)
@@ -302,29 +313,44 @@ class BofhdExtension(object):
             es = Email.EmailServer(self.db)
             es.find(est.email_server_id)
             if es.email_server_type == self.const.email_server_type_cyrus:
-                # TODO: connect to Cyrus and check used quota.
+                pw = self.db._read_password(cereconf.CYRUS_HOST,
+                                            cereconf.CYRUS_ADMIN)
+                try:
+                    cyrus = cyruslib.CYRUS(es.name)
+                    cyrus.login(cereconf.CYRUS_ADMIN, pw)
+                    # TODO: use imaplib instead of cyruslib, and do
+                    # quotatrees properly.  cyruslib doesn't check to
+                    # see if it's a STORAGE quota or something else.
+                    # not very important for us, though.
+                    used, limit = cyrus.lq("user", acc.account_name)
+                    used = str(used/1024)
+                except:
+                    used = 'N/A'
                 info.append({'quota_hard': eq.email_quota_hard,
                              'quota_soft': eq.email_quota_soft,
-                             'quota_used': 0})
+                             'quota_used': used})
             else:
                 info.append({'dis_quota_hard': eq.email_quota_hard,
                              'dis_quota_soft': eq.email_quota_soft})
         except Errors.NotFoundError:
             pass
         forw = []
+        local_copy = ""
         ef = Email.EmailForward(self.db)
         ef.find_by_entity(acc.entity_id)
         prim = acc.get_primary_mailaddress()
         for r in ef.get_forward():
-            if r['forward_to'] == prim:
-                dest = "+ local delivery"
-            else:
-                dest = r['forward_to']
             if r['enable'] == 'T':
                 enabled = "on"
             else:
                 enabled = "off"
-            forw.append("%s (%s)" % (dest, enabled))
+            if r['forward_to'] == prim:
+                local_copy = "+ local delivery (%s)" % enabled
+            else:
+                forw.append("%s (%s) " % (r['forward_to'], enabled))
+        # for aesthetic reasons, print "+ local delivery" last
+        if local_copy:
+            forw.append(local_copy)
         if forw:
             info.append({'forward': "\n                  ".join(forw)})
         return info
@@ -337,8 +363,7 @@ class BofhdExtension(object):
         AccountName(help_ref="account_name", repeat=True),
         perm_filter='can_email_migrate')
     def email_migrate(self, operator, uname):
-        acc = Utils.Factory.get('Account')(self.db)
-        acc.find_by_name(uname)
+        acc = self._get_account(uname)
         op = operator.get_entity_id()
         self.ba.can_email_migrate(op, acc)
         for r in acc.get_spread():
@@ -367,8 +392,7 @@ class BofhdExtension(object):
         SimpleString(help_ref='string_email_host'),
         perm_filter='can_email_move')
     def email_move(self, operator, uname, server):
-        acc = Utils.Factory.get('Account')(self.db)
-        acc.find_by_name(uname)
+        acc = self._get_account(uname)
         self.ba.can_email_move(operator.get_entity_id(), acc)
         est = Email.EmailServerTarget(self.db)
         est.find_by_entity(acc.entity_id)
@@ -413,8 +437,186 @@ class BofhdExtension(object):
     
     # email spam
 
-    # email tripnote
+    # email tripnote on|off <uname> [<begin-date>]
+    all_commands['email_tripnote'] = Command(
+        ('email', 'tripnote'),
+        SimpleString(help_ref='email_tripnote_action'),
+        AccountName(help_ref='account_name'),
+        SimpleString(help_ref='date', optional=True),
+        perm_filter='can_email_tripnote_toggle')
+    def email_tripnote(self, operator, action, uname, when=None):
+        if action == 'on':
+            enable = True
+        elif action == 'off':
+            enable = False
+        else:
+            raise CerebrumError, ("Unknown tripnote action '%s', choose one "+
+                                  "of on or off") % action
+        acc = self._get_account(uname)
+        self.ba.can_email_tripnote_toggle(operator.get_entity_id(), acc)
+        ev = Email.EmailVacation(self.db)
+        ev.find_by_entity(acc.entity_id)
+        if enable is not None:
+            opposite_status = not enable
+        date = self._find_tripnote(uname, ev, when, opposite_status)
+        ev.enable_vacation(date, enable)
+        ev.write_db()
+        self.db.commit()
+        return "OK"
 
+    all_commands['email_list_tripnotes'] = Command(
+        ('email', 'list_tripnotes'),
+        AccountName(help_ref='account_name'),
+        perm_filter='can_email_tripnote_toggle',
+        fs=FormatSuggestion([
+        ('%s%s -- %s: %s\n%s\n',
+         ("dummy", format_day('start_date'), format_day('end_date'),
+          "enable", "text"))]))
+    def email_list_tripnotes(self, operator, uname):
+        acc = self._get_account(uname)
+        self.ba.can_email_tripnote_toggle(operator.get_entity_id(), acc)
+        try:
+            self.ba.can_email_tripnote_edit(operator.get_entity_id(), acc)
+            hide = False
+        except:
+            hide = True
+        ev = Email.EmailVacation(self.db)
+        ev.find_by_entity(acc.entity_id)
+        now = self._today()
+        act_date = None
+        for r in ev.get_vacation():
+            if r['start_date'] > r['end_date']:
+                # TODO: should use logger -- but how to access it?
+                # logger.warn("bogus tripnote for %s, start at %s, end at %s",
+                #             uname, r['start_date'], r['end_date'])
+                print ("WARNING: bogus tripnote for %s, start at %s, end at %s"
+                       % (uname, r['start_date'], r['end_date']))
+                ev.delete_vacation(r['start_date'])
+                ev.write_db()
+                self.db.commit()
+                continue
+            if r['enable'] == 'F':
+                continue
+            if r['end_date'] < now:
+                continue
+            if r['start_date'] > now:
+                break
+            # get_vacation() returns a list ordered by start_date, so
+            # we know this one is newer.
+            act_date = r['start_date']
+        result = []
+        for r in ev.get_vacation():
+            text = r['vacation_text']
+            if r['enable'] == 'F':
+                enable = "OFF"
+            elif r['end_date'] < now:
+                enable = "OLD"
+            elif r['start_date'] > now:
+                enable = "PENDING"
+            else:
+                enable = "ON"
+            if r['start_date'] == act_date:
+                enable = "ACTIVE"
+            elif hide:
+                text = "<text is hidden>"
+            lines = text.split('\n')
+            if len(lines) > 3:
+                lines[2] += "[...]"
+            text = '\n'.join(lines[:3])
+            # TODO: FormatSuggestion won't work with a format_day()
+            # coming first, so we use an empty dummy string as a
+            # workaround.
+            result.append({'dummy': "",
+                           'start_date': r['start_date'],
+                           'end_date': r['end_date'],
+                           'enable': enable,
+                           'text': text})
+        if result:
+            return result
+        else:
+            return "No tripnotes for %s" % uname
+    
+    # email add_tripnote <uname> <text> <begin-date>[-<end-date>]
+    all_commands['email_add_tripnote'] = Command(
+        ('email', 'add_tripnote'),
+        AccountName(help_ref='account_name'),
+        SimpleString(help_ref='tripnote_text'),
+        SimpleString(help_ref='string_from_to'),
+        perm_filter='can_email_tripnote_edit')
+    def email_add_tripnote(self, operator, uname, text, when=None):
+        acc = self._get_account(uname)
+        self.ba.can_email_tripnote_edit(operator.get_entity_id(), acc)
+        date_start, date_end = self._parse_date_from_to(when)
+        now = self._today()
+        if date_end < now:
+            raise CerebrumError, "Won't add already obsolete tripnotes"
+        ev = Email.EmailVacation(self.db)
+        ev.find_by_entity(acc.entity_id)
+        for v in ev.get_vacation():
+            print "DEBUG:", date_start, v['start_date']
+            if v['start_date'] == date_start:
+                raise CerebrumError, ("There's a tripnote starting on %s "+
+                                      "already") % str(date_start)[:10]
+        text = text.replace('\\n', '\n')
+        ev.add_vacation(date_start, text, date_end, enable=True)
+        ev.write_db()
+        self.db.commit()
+        return "OK"
+
+    # email remove_tripnote <uname> [<when>]
+    all_commands['email_remove_tripnote'] = Command(
+        ('email', 'remove_tripnote'),
+        AccountName(help_ref='account_name'),
+        SimpleString(help_ref='date', optional=True),
+        perm_filter='can_email_tripnote_edit')
+    def email_remove_tripnote(self, operator, uname, when=None):
+        acc = self._get_account(uname)
+        self.ba.can_email_tripnote_edit(operator.get_entity_id(), acc)
+        start = self._parse_date(when)
+        ev = Email.EmailVacation(self.db)
+        ev.find_by_entity(acc.entity_id)
+        date = self._find_tripnote(uname, ev, when)
+        ev.delete_vacation(date)
+        ev.write_db()
+        self.db.commit()
+        return "OK"
+
+    def _find_tripnote(self, uname, ev, when=None, enabled=None):
+        vacs = ev.get_vacation()
+        if enabled is not None:
+            nv = []
+            for v in vacs:
+                if (v['enable'] == 'T') == enabled:
+                    nv.append(v)
+            vacs = nv
+        if len(vacs) == 0:
+            if enabled is None:
+                raise CerebrumError, "User %s has no stored tripnotes" % uname
+            elif enabled:
+                raise CerebrumError, "User %s has no enabled tripnotes" % uname
+            else:
+                raise CerebrumError, "User %s has no disabled tripnotes" % uname
+        elif len(vacs) == 1:
+            return vacs[0]['start_date']
+        elif when is None:
+            raise CerebrumError, ("User %s has more than one tripnote, "+
+                                  "specify which one by adding the "+
+                                  "start date to command") % uname
+        start = self._parse_date(when)
+        best = None
+        for r in vacs:
+            delta = abs (r['start_date'] - start)
+            if best is None or delta < best_delta:
+                best = r['start_date']
+                best_delta = delta
+        # TODO: in PgSQL, date arithmetic is in days, but casting
+        # it to int returns seconds.  The behaviour is undefined
+        # in the DB-API.
+        if abs(int(best_delta)) > 1.5*86400:
+            raise CerebrumError, ("There are no tripnotes starting "+
+                                  "at %s") % when
+        return best
+            
     # (email virus)
 
     #
@@ -1611,17 +1813,7 @@ class BofhdExtension(object):
         QuarantineType(), SimpleString(help_ref="string_why"),
         SimpleString(help_ref="string_from_to"), perm_filter='can_set_quarantine')
     def quarantine_set(self, operator, entity_type, id, qtype, why, date):
-        date_start = self.db.TimestampFromTicks(time.time())
-        date_end = None
-        if date:
-            tmp = date.split("--")
-            if len(tmp) == 2:
-                date_start = self._parse_date(tmp[0])
-                date_end = self._parse_date(tmp[1])
-            elif len(tmp) == 1:
-                date_end = self._parse_date(date)
-            else:
-                raise CerebrumError, "Incorrect date specification: %s." % date
+        date_start, date_end = self._parse_date_from_to(date)
         entity = self._get_entity(entity_type, id)
         qtype = int(self.str2const[qtype])
         self.ba.can_set_quarantine(operator.get_entity_id(), entity, qtype)
@@ -2608,6 +2800,20 @@ class BofhdExtension(object):
                 return self.person_affiliation_statusids[str(affiliation)][k]
         raise CerebrumError("Unknown affiliation status")
 
+    def _parse_date_from_to(self, date):
+        date_start = self._today()
+        date_end = None
+        if date:
+            tmp = date.split("--")
+            if len(tmp) == 2:
+                date_start = self._parse_date(tmp[0])
+                date_end = self._parse_date(tmp[1])
+            elif len(tmp) == 1:
+                date_end = self._parse_date(date)
+            else:
+                raise CerebrumError, "Incorrect date specification: %s." % date
+        return (date_start, date_end)
+
     def _parse_date(self, date):
         if not date:
             return None
@@ -2615,6 +2821,9 @@ class BofhdExtension(object):
             return self.db.Date(*([ int(x) for x in date.split('-')]))
         except:
             raise CerebrumError, "Illegal date: %s" % date
+
+    def _today(self):
+        return self._parse_date("%d-%d-%d" % time.localtime()[:3])
 
     def _parse_range(self, selection):
         lst = []
