@@ -26,13 +26,13 @@ def prefetch_primaryusers():
     personid2accountid = {}
     for a in account.list_accounts_by_type():
         # TODO: Also look at account_type.priority
-        personid2accountid[a['person_id']] = a['account_id']
+        personid2accountid[int(a['person_id'])] = int(a['account_id'])
 
     person = Person.Person(db)
     for row in person.list_external_ids(
         source_system=co.system_fs, id_type=co.externalid_fodselsnr):
-        if personid2accountid.has_key(row['person_id']):
-            account_id = personid2accountid[row['person_id']]
+        if personid2accountid.has_key(int(row['person_id'])):
+            account_id = personid2accountid[int(row['person_id'])]
             account_id2fnr[account_id] = row['external_id']
             fnr2account_id[row['external_id']] = account_id
 
@@ -149,7 +149,7 @@ def get_undervisningsenheter():
             enhet['arstall'], enhet['terminnr'])
         if UndervEnhet.has_key(enhet_id):
             raise ValueError, "Duplikat undervisningsenhet: <%s>" % enhet_id
-        UndervEnhet[enhet_id] = {}
+        UndervEnhet[enhet_id] = {'aktivitet': {}}
         multi_id = "%s.%s.%s.%s" % (enhet['institusjonsnr'], enhet['emnekode'],
                                     enhet['terminkode'], enhet['arstall'])
         # Finnes det flere enn en undervisningsenhet tilknyttet denne
@@ -160,17 +160,17 @@ def get_undervisningsenheter():
 def get_undervisningsaktiviteter():
     for akt in fs.GetUndAktivitet()[1]:
         enhet_id = "kurs:%s:%s:%s:%s:%s:%s" % (
-            enhet['institusjonsnr'], enhet['emnekode'],
-            enhet['versjonskode'], enhet['terminkode'],
-            enhet['arstall'], enhet['terminnr'])
+            akt['institusjonsnr'], akt['emnekode'],
+            akt['versjonskode'], akt['terminkode'],
+            akt['arstall'], akt['terminnr'])
         if not UndervEnhet.has_key(enhet_id):
             raise ValueError, "Ikke-eksisterende enhet <%s> har aktiviteter" %\
                   enhet_id
-        if UndervEnhet[enhet_id]['aktivitet'].has_key(akt['aktkode']):
+        if UndervEnhet[enhet_id]['aktivitet'].has_key(akt['aktivitetkode']):
             raise ValueError, "Duplikat undervisningsaktivitet <%s:%s>" % (
-                enhet_id, akt['aktkode'])
+                enhet_id, akt['aktivitetkode'])
         UndervEnhet[enhet_id][
-            'aktivitet'][akt['aktkode']] = akt['aktivitetsnavn']
+            'aktivitet'][akt['aktivitetkode']] = akt['aktivitetsnavn']
 
 def get_evukurs_aktiviteter():
     for kurs in fs.GetEvuKurs()[1]:
@@ -290,12 +290,9 @@ def populate_enhet_groups(enhet_id):
                 fs.GetStudUndAktivitet(Instnr, emnekode, versjon, termk,
                                        aar, termnr, aktkode)[1]):
                 if not alle_stud.has_key(account_id):
-                    warn_msg += (
-                        "OBS: Bruker <%s> (fnr <%s>) er med i"+
-                        " undaktivitet <%s>, men ikke i"+
-                        " undervisningsenhet <%s>.\n" % (
+                    logger.warn("""OBS: Bruker <%s> (fnr <%s>) er med i undaktivitet <%s>, men ikke i undervisningsenhet <%s>.\n""" % (
                         account_id, account_id2fnr[account_id],
-                              "%s:%s" % (enhet_id, aktkode), enhet_id))
+                        "%s:%s" % (enhet_id, aktkode), enhet_id))
                 akt_stud[account_id] = 1
 
             sync_group(kurs_id, "%s:student:%s" % (enhet_id, aktkode),
@@ -344,11 +341,9 @@ def populate_enhet_groups(enhet_id):
             for account_id in fnrs2account_ids(
                 fs.GetStudEvuAktivitet(kurskode, tidsrom, aktkode)[1]):
                 if not evustud.has_key(account_id):
-                    warn_msg += (
-                        "OBS: Bruker <%s> (fnr <%s>) er med i" +
-                        " aktivitet <%s>, men ikke i kurset <%s>.\n" % (
+                    logger.warn("""OBS: Bruker <%s> (fnr <%s>) er med i aktivitet <%s>, men ikke i kurset <%s>.""" % (
                         account_id, account_id2fnr[account_id],
-                              "%s:%s" % (enhet_id, aktkode), enhet_id))
+                        "%s:%s" % (enhet_id, aktkode), enhet_id))
                 evu_akt_stud[account_id] = 1
             sync_group(kurs_id, "%s:student:%s" % (enhet_id, aktkode),
                        "Studenter EVU-kurs %s, %s: %s" % (
@@ -484,7 +479,9 @@ def main():
     fs_supergroup = "{supergroup}"
     group_creator = get_account(cereconf.INITIAL_ACCOUNTNAME).entity_id
     process_kursdata()
+    logger.debug("commit...")
     db.commit()
+    logger.info("All done")
 
 if __name__ == '__main__':
     main()
