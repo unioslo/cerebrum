@@ -28,7 +28,11 @@ class FSData(object):
         if(type == 'F'):
             colnames = self.cols_f
         else:   # S || E
+            # Not really handle yet.  The fak, inst and gruppe fields
+            # are missing
             colnames = self.cols_n
+            return None
+
         re_cols = re.compile(r"\s+", re.DOTALL)
         colnames = re.sub(re_cols, "", colnames)
         colnames = colnames.split(",")
@@ -56,7 +60,10 @@ def main():
     dta = FSData()
     for line in f.readlines():
         persondta = dta.parse_line(line)
-        process_person(persondta)
+        if None != persondta:
+            process_person(persondta)
+        else:
+            print "Unhandled format: ",line
     Cerebrum.commit()
 
 def process_person(persondta):
