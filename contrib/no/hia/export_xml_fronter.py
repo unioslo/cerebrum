@@ -34,6 +34,7 @@ from Cerebrum.modules.no.hia import access_FS
 from Cerebrum import Database
 from Cerebrum import Person
 from Cerebrum import Group
+from Cerebrum import Account
 from Cerebrum.modules.no import Stedkode
 from Cerebrum.modules.no.hia import fronter_lib
 
@@ -119,57 +120,50 @@ def get_semester():
     return ((str(this_year), this_sem), (str(next_year), next_sem))
 
 def load_acc2name():
+    account = Factory.get('Account')(db)
+    person = Factory.get('Person')(db)
     logger.debug('Loading person/user-to-names table')
+    """	Get uname2mailaddr is a module in modules/Email.py and 
+	it is an AccountMixinClass """
+    uname2mail = account.getdict_uname2mailaddr()
+
+    """	Get person_name_dict based on cached values"""
+    person_name = person.getdict_persons_names(source_system=const.system_cached,
+		name_types= [const.name_first,const.name_last,const.name_full])
+
+    ext2puname = person.getdict_external_id2primary_account(const.externalid_fodselsnr)
     ret = {}
-    front = fronter_lib.hiafronter(db)
-    """	Followin field in fronter_lib.hiafronter.list_cf_persons
-	person_id, account_id, external_id, name, entity_name,
-	fs_l_name, fs_f_name, local_part, domain """
-    for pers in front.list_cf_persons():
+    for pers in person.list_persons_atype_extid():
 	#logger.debug("Loading person: %s" % pers['name'])
-	if not (pers['fs_f_name'] and pers['fs_l_name']):
-	    l_name, f_name = get_names(pers['person_id'])
+	if ext2puname.has_key(pers['external_id']):
+	    ent_name = ext2puname[pers['external_id']]
 	else:
-	    l_name, f_name = pers['fs_l_name'],pers['fs_f_name']
-        if (isinstance(pers['local_part'], str)
-            and isinstance(pers['domain'], str)):
-            email = '@'.join((pers['local_part'], pers['domain']))
+	    #logger.debug("Person has no account: %d" % pers['person_id']) 
+	    continue
+	if person_name.has_key(int(pers['person_id'])):
+	    if len(person_name[int(pers['person_id'])]) <> 3:
+		#logger.debug("Person name fault, person_id: %s" % ent_name)
+		continue
+	    else: 
+		names = person_name[int(pers['person_id'])]
+	else:
+	    #logger.debug("Person name fault, person_id: %s" % ent_name)
+	    continue
+        if uname2mail.has_key(ent_name):
+            email = uname2mail[ent_name]
         else:
             email = ""
-	ret[pers['account_id']] = {
-            'NAME': pers['entity_name'],
-            'FN': pers['name'],
-            'GIVEN': f_name,
-            'FAMILY': l_name,
+	ret[int(pers['account_id'])] = {
+            'NAME': ent_name,
+            'FN': names[int(const.name_full)],
+            'GIVEN': names[int(const.name_first)],
+            'FAMILY': names[int(const.name_last)],
             'EMAIL': email,
             'USERACCESS': 2,
             'PASSWORD': 5,
             'EMAILCLIENT': 1}
     return ret
 
-def get_names(person_id):
-    name_tmp = {}
-    person = Factory.get('Person')(db)
-    person.find(person_id)
-    for names in person.get_all_names():
-	if int(names['source_system']) <> int(const.system_cached):
-	    sys_key = int(names['source_system'])
-            sys_names = name_tmp.setdefault(sys_key, [])
-	    name_li = "%s:%s" % (names['name_variant'], names['name'])
-            sys_names.append(name_li)
-    last_n = first_n = None
-    for a_sys in cereconf.SYSTEM_LOOKUP_ORDER:
-	sys_key = int(getattr(const, a_sys))
-        for p_name in name_tmp.get(sys_key, []):
-            var_n, nam_n = p_name.split(':')
-            if (int(var_n) == int(const.name_last)):
-                last_n = nam_n
-            elif (int(var_n) == int(const.name_first)):
-                first_n = nam_n
-            else: pass
-            if first_n is not None and last_n is not None:
-                return (last_n, first_n)
-    return ("*Ukjent etternavn*", "*Ukjent fornavn*")
 
 def get_ans_fak(fak_list, ent2uname):
     fak_res = {}
