@@ -260,15 +260,19 @@ The currently defined id-types are:
         SimpleString(help_ref='undo_why'),
         perm_filter='can_pquota_update')
     def pquota_update(self, operator, person_id, new_value, why):
+        try:
+            new_value = int(new_value)
+        except ValueError:
+            raise CerebrumError, "%s is not a number" % new_value
         person_id = self.bu.find_person(person_id)
         self.ba.can_pquota_update(operator, person_id)
         self.bu.get_pquota_status(person_id)
         pu = PPQUtil.PPQUtil(self.db)
         # Throws subclass for CerebrumError, which bofhd.py will handle
-        pu.set_free_pages(person_id, int(new_value), why,
+        pu.set_free_pages(person_id, new_value, why,
                           update_by=operator.get_entity_id())
         self.logger.info("pquota_update for %i -> %i by %i (%s)" % (
-            person_id, int(new_value), operator.get_entity_id(), repr(why)))
+            person_id, new_value, operator.get_entity_id(), repr(why)))
         return "OK, set free quota for %i to %s" % (person_id, new_value)
 
     all_commands['pquota_undo'] = Command(
@@ -280,10 +284,10 @@ The currently defined id-types are:
         self.ba.can_pquota_undo(operator, person_id)
         pu = PPQUtil.PPQUtil(self.db)
         # Throws subclass for CerebrumError, which bofhd.py will handle
-        pu.undo_transaction(person_id, job_id, int(num_pages),
+        pu.undo_transaction(person_id, job_id, num_pages,
                             why, update_by=operator.get_entity_id())
-        self.logger.info("pquota_undo for %i, job %i with %i pages by %i (%s)" % (
-            person_id, int(job_id), int(num_pages), operator.get_entity_id(), repr(why)))
+        self.logger.info("pquota_undo for %i, job %s with %s pages by %i (%s)" % (
+            person_id, job_id, num_pages, operator.get_entity_id(), repr(why)))
         return "OK"
 
 
