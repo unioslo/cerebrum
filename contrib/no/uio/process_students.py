@@ -196,7 +196,7 @@ def update_account(profile, account_ids, do_move=False, rem_grp=False,
                 if not int(spread) in has_person_spreads:
                     person.add_spread(spread)
         if changes:
-            logger.debug("Changes: %s" % ", ".join(changes))
+            logger.debug("Changes [%s]: %s" % (user.account_name, ", ".join(changes)))
         # TODO: update default e-mail address
 
 def get_existing_accounts():
