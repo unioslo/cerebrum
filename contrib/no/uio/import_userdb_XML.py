@@ -308,16 +308,17 @@ def import_person_users(personfile):
                              person_id,
                              None,
                              acc_creator_id, expire_date)
-            account.affect_auth_types(co.auth_type_md5, co.auth_type_crypt)
+            account.affect_auth_types(co.auth_type_md5_crypt,
+                                      co.auth_type_crypt3_des)
             for au in u.get('auth', []):
                 if au['type'] == 'plaintext':   # TODO: Should be called last?
                     account.set_password(au['val'])
                 elif au['type'] == 'md5':
-                    account.populate_authentication_type(co.auth_type_md5,
-                                                            au['val'])
+                    account.populate_authentication_type(
+                        co.auth_type_md5_crypt, au['val'])
                 elif au['type'] == 'crypt':
-                    account.populate_authentication_type(co.auth_type_crypt,
-                                                            au['val'])
+                    account.populate_authentication_type(
+                        co.auth_type_crypt3_des, au['val'])
             account.write_db()
 
             posix_user = PosixUser.PosixUser(Cerebrum)

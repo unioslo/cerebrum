@@ -52,7 +52,8 @@ def generate_passwd():
             entity2uname[id] = uname
         # TODO: Something should set which auth_type to use for this map
         try:
-            passwd = posix_user.get_account_authentication(co.auth_type_md5)
+            passwd = posix_user.get_account_authentication(
+                co.auth_type_md5_crypt)
         except Errors.NotFoundError:
             passwd = '*'
 

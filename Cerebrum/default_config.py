@@ -36,7 +36,7 @@ CEREBRUM_DATABASE_CONNECT_DATA = {'user': None,
                                   'table_owner': None}
 
 DEFAULT_GECOS_NAME="name_full"
-AUTH_CRYPT_METHODS = ("auth_type_md5",)
+AUTH_CRYPT_METHODS = ("auth_type_md5_crypt",)
 PERSON_NAME_SS_ORDER = ("system_lt", "system_fs")
 
 LOG_CONFIG_FILE = "/etc/cerebrum/logconfig.ini"
@@ -109,4 +109,3 @@ AD_GROUP_POSTFIX = '-gruppe'
 AD_HOME_DRIVE = 'M'
 AD_PASSWORD_EXPIRE = '0'
 AD_CANT_CHANGE_PW = '0'
-

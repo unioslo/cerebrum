@@ -214,7 +214,7 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler):
         try:
             account.find_by_name(uname)
             enc_pass = account.get_account_authentication(
-                self.server.const.auth_type_md5)
+                self.server.const.auth_type_md5_crypt)
         except Errors.NotFoundError:
             raise CerebrumError, "Invalid user"
         # TODO: Add API for credential verification to Account.py.
@@ -324,7 +324,7 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler):
         """
         session = BofhdSession(self.server.db, sessionid)
         instance, cmdObj = self.server.get_cmd_info(cmd)
-        
+
         # If the client calls this method when no default function is defined,
         # it is a bug in the client.
         if cmdObj._default is not None:

@@ -35,7 +35,7 @@ entity2uname = {}
 
 def generate_users():
     for row in posix_user.get_all_posix_users():
-        
+
         id = Cerebrum.pythonify_data(row['account_id'])
         posix_user.clear()
         posix_user.find(id)
@@ -50,7 +50,8 @@ def generate_users():
             entity2uname[id] = uname
         # TODO: Something should set which auth_type to use for this map
         try:
-            passwd = posix_user.get_account_authentication(co.auth_type_md5)
+            passwd = posix_user.get_account_authentication(
+                co.auth_type_md5_crypt)
         except Errors.NotFoundError:
             passwd = '*'
 
@@ -102,7 +103,7 @@ def generate_group():
             else:
                 raise ValueError, "Found no id: %s for group: %s" % (
                     id, gname)
-        
+
         print "dn: cn=%s,ou=filegroups,dc=uio,dc=no" % gname
         print "objectClass: top"
         print "objectClass: posixGroup"
@@ -113,8 +114,8 @@ def generate_group():
         for m in members:
             print "memberUid: %s" % m
         print "\n"
-        
-        
+
+
 def main():
     generate_users()
     generate_group()

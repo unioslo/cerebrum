@@ -333,8 +333,16 @@ class Constants(DatabaseAccessor):
     account_namespace = _ValueDomainCode(cereconf.DEFAULT_ACCOUNT_NAMESPACE,
                                          'Default domain for account names')
 
-    auth_type_md5 = _AuthenticationCode("md5", 'MD5 password')
-    auth_type_crypt = _AuthenticationCode("crypt", 'crypt(3) password')
+    auth_type_md5_crypt = _AuthenticationCode(
+        'MD5-crypt',
+        "MD5-derived password hash as implemented by crypt(3) on some Unix"
+        " variants passed a `salt` that starts with '$1$'.  See <URL:http:"
+        "//www.users.zetnet.co.uk/hopwood/crypto/scan/algs/md5crypt.txt>.")
+    auth_type_crypt3_des = _AuthenticationCode(
+        'crypt3-DES',
+        "Password hash generated with the 'traditional' Unix crypt(3)"
+        " algorithm, based on DES.  See <URL:http://www.users.zetnet.co.uk"
+        "/hopwood/crypto/scan/ph.html#Traditional-crypt3>.")
 
     group_memberop_union = _GroupMembershipOpCode('union', 'Union')
     group_memberop_intersection = _GroupMembershipOpCode(
