@@ -672,7 +672,9 @@ class EmailSpamFilter(EmailTarget):
         self.clear_class(EmailSpamFilter)
         self.__updated = []
 
-    def populate_spam_filter(self, level, action):
+    def populate(self, level, action, parent=None):
+        if parent is not None:
+            self.__xerox__(parent)
         try:
             if not self.__in_db:
                 raise RuntimeError, "populate() called multiple times."

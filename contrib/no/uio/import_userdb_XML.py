@@ -1090,11 +1090,7 @@ def create_account(u, owner_id, owner_type, np_type=None):
                 spam_act = spamact2const.get(data.get('spam_action'),
                                              spamact2const['*default*'])
                 mailspam.clear()
-                try:
-                    mailspam.find(mt_id)
-                except Errors.NotFoundError:
-                    pass
-                mailspam.populate_spam_filter(spam_lvl, spam_act)
+                mailspam.populate(spam_lvl, spam_act, parent=mailtarg)
                 mailspam.write_db()
 
             if (data.has_key('virus_scan')
