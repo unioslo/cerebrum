@@ -87,7 +87,7 @@ public class BofhdConnection {
         this.logger = log;
     }
 
-    void connect(String host_url) {
+    void connect(String host_url, boolean use_int_trust) {
 	//XmlRpc.setDebug(true);
 	/*
 	  The SecurityTool overrides the default key_store and
@@ -104,7 +104,7 @@ public class BofhdConnection {
 	    e.printStackTrace();
 	}
 	*/
-	if(host_url.startsWith("https:")) {
+	if(use_int_trust && host_url.startsWith("https:")) {
 	    try {
 		InternalTrustManager tm = new InternalTrustManager();
 		TrustManager []tma = {tm};

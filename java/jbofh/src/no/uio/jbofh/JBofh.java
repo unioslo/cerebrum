@@ -255,8 +255,9 @@ public class JBofh implements ActionListener {
 	} catch (IOException e) {}  // ignore failure
 
         bc = new BofhdConnection(logger);
-        bc.connect((String) props.get("bofhd_url"));
-        
+        String intTrust = (String) props.get("InternalTrustManager.enable");
+        bc.connect((String) props.get("bofhd_url"), 
+            (intTrust != null && intTrust.equals("true")) ? true : false);
         // Setup ReadLine routines
         try {
             Readline.load(ReadlineLibrary.GnuReadline);
