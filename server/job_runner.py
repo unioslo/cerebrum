@@ -5,9 +5,23 @@
 # som ikke har noen ukjørte pre-requisites, kan de startes samtidig.
 
 import time
+import os
+import sys
+import popen2
+import fcntl
+import select
+
+from Cerebrum.extlib import logging
+from Cerebrum.Utils import Factory
+from Cerebrum import Errors
+
 debug_time = 60
 current_time = time.time()
-run_once = 1  # Only for debugging
+run_once = 0  # Only for debugging
+db = Factory.get('Database')()
+
+logging.fileConfig("cerebrum.ini")
+logger = logging.getLogger("cronjob")
 
 def get_jobs():
     return {
@@ -80,7 +94,7 @@ class Action(object):
     def execute(self):
         if self.call is not None:
             self.call.execute()
-
+            
     def cleanup(self):
         if self.call is not None:
             self.call.cleanup()
@@ -115,7 +129,15 @@ class Time(object):
         self.mon = mon
         self.weekday = weekday
 
+def makeNonBlocking(fd):
+    fl = fcntl.fcntl(fd, fcntl.F_GETFL)
+    try:
+	fcntl.fcntl(fd, fcntl.F_SETFL, fl | os.O_NDELAY)
+    except AttributeError:
+	fcntl.fcntl(fd, fcntl.F_SETFL, fl | os.FNDELAY)
+    
 class System(object):
+    n = 1
     def __init__(self, cmd, params=None):
         self.cmd = cmd
         self.params = params
@@ -124,12 +146,59 @@ class System(object):
     def setup(self):
         pass
 
+    def tmpfilename(self):
+        self.n += 1
+        return "/tmp/out.%i" % self.n
+
     def execute(self):
+        # TODO: We will use a lot of mem if lots is written on stdout/stderr
         # print "Executing: %s" % self.cmd
-        pass
+        p = self.params[:]
+        # For debug
+        p.insert(0, self.cmd)
+        p.insert(0, "/bin/echo")
+        logger.debug("Run: %s" % p)
+        # Redirect stdout/stderr
+        # From http://aspn.activestate.com/ASPN/Cookbook/Python/Recipe/52296
+        child = popen2.Popen3(p, 1)
+        child.tochild.close()
+        outfile = child.fromchild 
+        outfd = outfile.fileno()
+        errfile = child.childerr
+        errfd = errfile.fileno()
+        makeNonBlocking(outfd)
+        makeNonBlocking(errfd)
+        outdata = errdata = ''
+        outeof = erreof = 0
+        while 1:
+            ready = select.select([outfd,errfd],[],[]) # wait for input
+            if outfd in ready[0]:
+                outchunk = outfile.read()
+                if outchunk == '': outeof = 1
+                outdata += outchunk
+            if errfd in ready[0]:
+                errchunk = errfile.read()
+                if errchunk == '': erreof = 1
+                errdata += errchunk
+            if outeof and erreof: break
+            select.select([],[],[],.1) # give a little time for buffers to fill
+        err = child.wait()
+        if err != 0 or len(outdata) != 0 or len(errdata) != 0:
+            # TODO: What shall we do here?
+            logger.error("Error running command, ret=%d, stdout=%s, stderr=%s" % 
+                         (err, outdata, errdata))
     
     def cleanup(self):
         pass
+
+class StdXCatcher(object):
+    """May be used to redirect sys.stdout, however that only handles
+    python printed data"""
+    # TODO:  If stdX get a lot of data, we waste a lot of memory...
+    def __init__(self):
+        self.data = ''
+    def write(self, stuff):
+        self.data = self.data + stuff
 
 def insert_job(job):
     """Recursively add jobb and all its prerequisited jobs.
@@ -175,7 +244,7 @@ def runner():
     global all_jobs, ready_to_run, last_run
     all_jobs = get_jobs()
     ready_to_run = []
-    last_run = {}
+    last_run = get_last_run()
     while 1:
         for job in ready_to_run:
             all_jobs[job].setup()
@@ -185,15 +254,53 @@ def runner():
                 last_run[job] = current_time
             else:
                 last_run[job] = time.time()
+            update_last_run(job, last_run[job])
         # figure out what jobs to run next
         ready_to_run = []
         delta = find_ready_jobs(all_jobs)
-        print "New queue (delta=%s):\n   %s" % (delta, "\n   ".join(ready_to_run))
+        logger.debug("New queue (delta=%s): %s" % (delta, ", ".join(ready_to_run)))
         if(delta > 0):
             if debug_time:
                 time.sleep(1)
             else:
                 time.sleep(min(max_sleep, delta))      # sleep until next job
+
+def get_last_run():
+    ret = {}
+    for r in db.query(
+        """SELECT id, timestamp
+        FROM [:table schema=cerebrum name=job_ran]"""):
+        ret[r['id']] = r['timestamp'].ticks()
+    logger.debug("get_last_run: %s" % ret)
+    return ret
+
+def update_last_run(id, timestamp):
+    timestamp = db.TimestampFromTicks(timestamp)
+    logger.debug("update_last_run(%s, %s)" % (id, timestamp))
+
+    try:
+        db.query_1("""
+        SELECT 'yes'
+        FROM [:table schema=cerebrum name=job_ran]
+        WHERE id=:id""", locals())
+    except Errors.NotFoundError:
+        db.execute("""
+        INSERT INTO [:table schema=cerebrum name=job_ran]
+        (id, timestamp)
+        VALUES (:id, :timestamp)""", locals())
+    else:
+        db.execute("""UPDATE [:table schema=cerebrum name=job_ran]
+        SET timestamp=:timestamp
+        WHERE id=:id""", locals())
+    db.commit()
+## CREATE TABLE job_ran
+## (
+##   id           CHAR VARYING(32)
+##                CONSTRAINT job_ran_pk
+##                PRIMARY KEY,
+##   timestamp    TIMESTAMP  # datetime doesn't work with pyPgSQL
+##                NOT NULL
+##   );
 
 if __name__ == '__main__':
     runner()
