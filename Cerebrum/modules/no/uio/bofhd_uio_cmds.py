@@ -1044,7 +1044,11 @@ class BofhdExtension(object):
     def group_def(self, operator, accountname, groupname):
         account = self._get_account(accountname, actype="PosixUser")
         grp = self._get_group(groupname, grtype="PosixGroup")
-        self.ba.can_alter_group(operator.get_entity_id(), grp)
+        op = operator.get_entity_id()
+        if accountname == groupname:
+            self.ba.can_create_personal_group(op, account)
+        else:
+            self.ba.can_alter_group(op, grp)
         account.gid_id = grp.entity_id
         account.write_db()
         return "OK"
