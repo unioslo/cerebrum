@@ -359,7 +359,8 @@ def import_all():
                 # Gruppe med lærere per kombinasjon (skole, elevgruppekode)
                 gname = '%s_%s_larer' % (row.skole, row.elevgruppekode)
                 groups.setdefault(gname, []).append(person_id)
-
+        for gname, members in groups.items():
+            group_id = write_group(gname, members)
         progress.write("\n")
 
         continue
@@ -604,7 +605,8 @@ def import_OU(import_spec):
         source_system = spec['datakilde']
         # Ingen av disse første tre OUene er vel egentlig "Skoler"...
         top_ou = create_OU(Skole(
-            skole='{UFD}', skolenavn='Utdannings- og forskningsdepartementet',
+            skole='{FIBSKO}',
+            skolenavn='Utdannings- og forskningsdepartementet',
             postadr='0000 Norge'),
                            None,
                            source_system)
@@ -807,6 +809,21 @@ def write_person(rows, skole2ou_id, src_sys):
 
 ##     # TODO: Add affiliations.
     return person.entity_id
+
+def write_group(name, members):
+    group = Factory.get('Group')(Cerebrum)
+    try:
+        group.find_by_name(name)
+    except Errors.NotFoundError:
+        # TBD: Not sure that it's right to use
+        # cereconf.INITIAL_ACCOUNTNAME as creator for these groups.
+        group.new(account, co.group_visibility_all, gname,
+                  # TODO: Add more *descriptive* group descriptions.
+                  "SATS auto-derived group.")
+    for m in members:
+        group.add_member(m, co.group_memberop_union)
+    return group.entity_id
+
 
 def convert_all():
     files = ("sted_vg.txt", "klasse_fag_emne_gs.txt",
