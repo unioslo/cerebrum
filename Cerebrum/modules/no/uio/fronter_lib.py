@@ -316,9 +316,18 @@ class Fronter(object):
                     multi_id, {})["v%s" % enhet['versjonskode']] = 1
                 self.emne_termnr.setdefault(
                     multi_id, {})[enhet['terminnr']] = 1
-                self.enhet2sko[enhet_id] = "%02d%02d00" % (
-                    enhet['faknr_kontroll'],
-                    enhet['instituttnr_kontroll'])
+                full_sko = "%02d%02d%02d" % (enhet['faknr_kontroll'],
+                                             enhet['instituttnr_kontroll'],
+                                             enhet['gruppenr_kontroll'])
+                if full_sko in ("150030",):
+                    # Spesialbehandling av UNIK; til tross for at
+                    # dette stedkode-messig bare er en gruppe, skal de
+                    # ha en egen korridor.
+                    self.enhet2sko[enhet_id] = full_sko
+                else:
+                    self.enhet2sko[enhet_id] = "%02d%02d00" % (
+                        enhet['faknr_kontroll'],
+                        enhet['instituttnr_kontroll'])
                 self.kurs2navn.setdefault(kurs_id, []).append(
                     [enhet['arstall'], enhet['terminkode'],
                      enhet['emnenavn_bokmal']])

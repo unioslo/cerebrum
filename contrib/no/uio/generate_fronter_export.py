@@ -450,6 +450,11 @@ def get_sted(stedkode=None, entity_id=None):
     # return None.
     if sted.katalog_merke == 'T':
         return sted
+    elif (sted.fakultet, sted.institutt, sted.avdeling) == (15, 0, 30):
+        # Special treatment of UNIK; even though katalog_merke isn't
+        # set for this OU, return it, so that they get their own
+        # corridor.
+        return sted
     parent_id = sted.get_parent(const.perspective_lt)
     if parent_id is not None and parent_id <> sted.entity_id:
         return get_sted(entity_id = parent_id)
