@@ -48,9 +48,9 @@ class Time(object):
                 return n, 0
         return min(list), 1
 
-    def next_time(self, num):
+    def next_time(self, prev_time):
         """Return the number of seconds until next time after num"""
-        hour, min, sec, wday = (time.localtime(num))[3:7]
+        hour, min, sec, wday = (time.localtime(prev_time))[3:7]
 
         add_week = 0
         for i in range(10):
@@ -81,11 +81,22 @@ class Time(object):
                     continue
 
             # Now calculate the diff
-            old_hour, old_min, old_sec, old_wday = (time.localtime(num))[3:7]
+            old_hour, old_min, old_sec, old_wday = (time.localtime(prev_time))[3:7]
             week_start_delta = (old_wday*24*3600 + old_hour*3600 + old_min*60 + old_sec)
 
-            return add_week*7*24*3600 + wday*24*3600 + hour*3600 + min*60 - week_start_delta
-        raise ValueError, "Programming error for %i" % num
+            ret = add_week*7*24*3600 + wday*24*3600 + hour*3600 + min*60 - week_start_delta
+
+            # Assert that the time we find is after the previous time
+            if ret == 0:
+                if self.min is not None:
+                    min += 1
+                elif self.hour is not None:
+                    hour += 1
+                elif self.wday is not None:
+                    wday += 1
+                continue
+            return ret
+        raise ValueError, "Programming error for %i" % prev_time
 
 class SocketHandling(object):
     """Simple class for handling client and server communication to
