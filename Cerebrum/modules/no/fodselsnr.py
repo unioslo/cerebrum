@@ -132,11 +132,11 @@ def beregn_sjekksum(fnr):
         # opp i 11.
         kontroll = (11 - (sum % 11)) % 11
         #
-        # Det skal ikke skade å være litt ekstra paranoid her; vi vil
-        # definitivt kun ha ikke-negative, en-sifrede kontrollsiffer:
+        # For noen kombinasjoner av 'DDMMYY' og 'PPP' eksisterer det
+        # ingen gyldig sjekksum.
         if kontroll < 0 or kontroll >= 10:
-            raise ValueError, \
-                  "Klarte ikke å beregne kontrollsiffer for %s." % fnr
+            raise InvalidFnrError, \
+                  "Gyldig sjekksum for %s eksisterer ikke." % fnr
         # Vi har funnet riktig siffer; sett det inn og gå videre til
         # neste.
         nr[idx] = kontroll
