@@ -36,6 +36,7 @@ class Entity_createTestCase(unittest.TestCase, Entity):
         self.Cerebrum.execute(
             """DELETE FROM [:table schema=cerebrum name=entity_info]
                WHERE entity_id=:id""", {'id': self.entity_id})
+        self.Cerebrum.commit()
 
 class EntityTestCase(Entity_createTestCase):
     def testCreateEntity(self):
@@ -54,7 +55,7 @@ class EntityTestCase(Entity_createTestCase):
         self.failIf(new_entity == entity, "Error: should be different if it is legal to change entity_type")
 
     def testDeleteEntity(self):
-        "Delete the person"
+        "Delete the Entity"
         # This is actually a clean-up method, as we don't support deletion of Entities
         self.tearDown()
         entity = Entity(self.Cerebrum)
