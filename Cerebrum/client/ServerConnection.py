@@ -11,7 +11,26 @@ XMLRPC_METHODS = """login logout get_commands get_format_suggestion
 # argument
 WITHOUT_SESSION = "login get_format_suggestion".split()
 
+class functionWrapper:
+    def __init__(self, serverconn, methodname):
+        # Stores the ServerConnection for back-calling
+        self.serverconn = serverconn
+        self.methodname = methodname
+    def __call__(self, *args):
+        return self.serverconn._runMethod(self.methodname, *args)
+    def getName(self):
+        return self.methodname    
+    __name__ = property(getName)
+        
+class commandWrapper(functionWrapper):
+    def __call__(self, *args):
+        return self.serverconn.run_command(self.methodname, *args)
+    def doc(self):
+        return self.serverconn._helpMethod(self.methodname)
+    __doc__ = property(doc)    
+
 class ServerConnection:
+
     _url = "http://localhost:8000/"
     _encoding = "iso-8859-1"
     _server = None
@@ -24,7 +43,7 @@ class ServerConnection:
         self._registerRPCCommands()
         self._login(user, password)
         self._registerRunCommands()
-
+    
     def _checkConnection(cls):    
         cls._acquire()
         try:
@@ -108,14 +127,6 @@ class ServerConnection:
             ##func.__doc__ = command + "\n"
 
             # Prepare the fake function
-            class functionWrapper(staticmethod):
-                def __init__(self, serverconn, methodname):
-                    # Stores the ServerConnection for back-calling
-                    self.serverconn = serverconn
-                    self.methodname = methodname
-                def __call__(self, *args):
-                    return self.serverconn._runMethod(self.methodname, *args)
-                __name__ = command        
             func = functionWrapper(self, command)        
             setattr(self, command, func)
 
@@ -132,17 +143,6 @@ class ServerConnection:
                 continue
 
             # Prepare the fake function
-            class functionWrapper(staticmethod):
-                def __init__(self, serverconn, methodname):
-                    # Stores the ServerConnection for back-calling
-                    self.serverconn = serverconn
-                    self.methodname = methodname
-                def __call__(self, *args):
-                    return self.serverconn.run_command(self.methodname, *args)
-                def doc(self):
-                    return self.serverconn._helpMethod(self.methodname)
-                __doc__ = property(doc)    
-                __name__ = command
-            func = functionWrapper(self, command)        
+            func = commandWrapper(self, command)        
             setattr(self, command, func)
 
