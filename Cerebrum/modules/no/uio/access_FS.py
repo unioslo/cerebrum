@@ -223,7 +223,7 @@ SELECT DISTINCT s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
        s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
        s.adrlin3_semadr, s.adresseland_semadr, p.adrlin1_hjemsted,
        p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
-       p.adresseland_hjemsted, p.status_reserv_nettpubl, 
+       p.adresseland_hjemsted, p.status_reserv_nettpubl,
        p.sprakkode_malform,st.studieprogramkode, st.studierettstatkode,
        p.kjonn
 FROM fs.student s, fs.person p, fs.studierett st, fs.registerkort r,
@@ -231,7 +231,7 @@ FROM fs.student s, fs.person p, fs.studierett st, fs.registerkort r,
 WHERE  p.fodselsdato=s.fodselsdato AND
        p.personnr=s.personnr AND
        p.fodselsdato=st.fodselsdato AND
-       p.personnr=st.personnr AND 
+       p.personnr=st.personnr AND
        st.studieprogramkode = sp.studieprogramkode AND
        p.fodselsdato=r.fodselsdato AND
        p.personnr=r.personnr AND
@@ -248,6 +248,7 @@ WHERE  p.fodselsdato=s.fodselsdato AND
 	'NORAD','ARKHANG','NORDPLUS','ORDOPPTAK','EVU','UTLOPPTAK'"""
         qry = self._GetOpptakQuery().replace("RELEVANTE_STUDIERETTSTATKODER",
                                              studierettstatkoder)
+	print qry
         return (self._get_cols(qry), self.db.query(qry))
         
     def GetAlumni(self):
@@ -651,7 +652,7 @@ ORDER BY fodselsdato, personnr
            semester"""
         qry = """
 SELECT DISTINCT
-  em.emnekode, em.dato_opprettet
+  em.emnekode, em.dato_opprettet, em.status_er_kandidat
 FROM fs.eksamensmelding em, fs.person p
 WHERE em.fodselsdato=:fnr AND
       em.personnr=:pnr AND
@@ -742,19 +743,19 @@ WHERE institusjonsnr='%s'
 ##################################################################
 
 
-    def GetAllPersonsEmail(self):
+    def GetAllPersonsEmail(self, fetchall = False):
         qry = """
 SELECT fodselsdato, personnr, emailadresse
 FROM fs.person"""
-        return (self._get_cols(qry), self.db.query(qry))
+        return self.db.query(qry, fetchall = fetchall)
 
- 
+
     def WriteMailAddr(self, fodselsdato, personnr, email):
-        self.execute("""
+        qry = """
 UPDATE fs.person
 SET emailadresse=:email
-WHERE fodselsdato=:fodselsdato AND personnr=:personnr""", locals())
-
+WHERE fodselsdato=:fodselsdato AND personnr=:personnr"""
+        self.db.execute(qry)
 
 ##################################################################
 ## Metoder for grupper:
