@@ -737,6 +737,35 @@
   Due date:
   Priority: 2.1
  
+*** Implementering av utvidet DTD for eksport til FRIDA
+
+  Description: FRIDA-folket ønsket å få med NSD-kode for institusjon
+               og organisasjonsenhet.  Dette må hentes fra LT.  For
+               spesifikasjon av DTD se
+               URL:http://www.usit.uio.no/prosjekter/frida/dok/import/institusjonsdata/
+
+  Dependencies:
+  Assigned to: igorr
+  Resources: baardj
+  Cost: 
+  Status: 
+  Due date: 
+  Priority: 
+
+*** Implementereing av FRIDA-eksport efter etablering av POLS
+
+  Description: Når nytt personalsystem er på plass vil dette få
+               konsekvenser for en rekke eksportmoduler som i dag er
+               nært knyttet til formater og relasjoner definert i LT.
+               En omskriving/reskriving av eksporten er da nødvendig.
+
+  Dependencies: SAP/POLS
+  Assigned to: igorr
+  Resources: baardj
+  Cost: 
+  Status: 
+  Due date: 
+  Priority: 
 
 * UiO: UA
 ** UiO: Vet vi hva UA vil ha?
