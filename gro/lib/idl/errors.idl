@@ -89,7 +89,7 @@ module Cerebrum_core{
         * explanation string
         */
         exception TransactionError{
-            string exception;
+            string explanation;
         };
 
     };
