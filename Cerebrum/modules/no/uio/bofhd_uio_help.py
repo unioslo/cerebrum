@@ -57,7 +57,7 @@ command_help = {
     'misc_hadd': 'Register a new host in the Cerebrum database',
     'misc_hrem': 'Remove a host entry from Cerebrum',
     'misc_list_passwords': 'View/print all the password altered during a session',
-    'misc_list_requests': 'View pending jobs the current BOFH user has requestet/may confirm',
+    'misc_list_requests': 'View pending jobs the current BOFH user has requested/may confirm',
     'misc_user_passwd': 'Check whether an account has a given password',
     },
     'perm': {
@@ -78,9 +78,9 @@ command_help = {
     'person_create': 'Register a new person in Cerebrum',
     'person_find': 'Search for a person in Cerebrum',
     'person_info': 'View information about a person',
-    'person_list_user_priorities': 'view an ordered list of all the account owned by the person person and their priorities',
+    'person_list_user_priorities': 'View a list ordered by priority of all the accounts owned by a person',
     'person_set_id': 'Set a new id for a person',
-    'person_student_info': 'View student information for a give person',
+    'person_student_info': 'View student information for a person',
     'person_set_user_priority': 'Change account priorities for a person',
     },
     'print': {
@@ -90,13 +90,13 @@ command_help = {
     },
     'quarantine': {
     'quarantine_disable': 'Temporarily remove a quarantine',
-    'quarantine_list': 'List definen quarantine types',
+    'quarantine_list': 'List defined quarantine types',
     'quarantine_remove': 'Remove a quarantine from a Cerebrum entity',
     'quarantine_set': 'Quarantine a given entity',
     'quarantine_show': 'View active quarantines for a given entity',
     },
     'spread': {
-    'spread_add': 'Assing a new spread for an entity',
+    'spread_add': 'Assign a new spread for an entity',
     'spread_list': 'List all defined spreads',
     'spread_remove': 'Remove a spread from an entity',
     },
@@ -115,7 +115,7 @@ command_help = {
     'user_reserve': 'Reserve a user name in the database',
     'user_set_expire': 'Set expire date for an account',
     'user_set_np_type': 'Set/remove np-type for an account (i.e. program, system etc)',
-    'user_set_owner': 'Assing ownership of an account',
+    'user_set_owner': 'Assign ownership for an account',
     'user_shell': 'Set login-shell for a POSIX user account',
     'user_student_create': 'Create a user for a student'
     },
