@@ -70,7 +70,7 @@ def main():
     else:    
         groupfile.close()
 
-    last_update.set(s.get_last_change())
+    last_update.set(s.last_change)
     s.close()
 
 if __name__ == "__main__":
