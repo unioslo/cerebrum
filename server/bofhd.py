@@ -261,10 +261,22 @@ if __name__ == '__main__':
     for port in range(8000,8005):
         try:
             print "Server starting at port: %d" % port
-            server = SimpleXMLRPCServer(("0.0.0.0", port))
-            server.register_instance(ExportedFuncs(Database.connect(),
-                                                   "config.dat"))
-            server.serve_forever()
+            if not cereconf.ENABLE_BOFHD_CRYPTO:
+                server = SimpleXMLRPCServer(("0.0.0.0", port))
+                server.register_instance(ExportedFuncs(Database.connect(),
+                                                       "config.dat"))
+                server.serve_forever()
+            else:
+                from server import MySimpleXMLRPCServer
+                from M2Crypto import SSL
+
+                ctx = MySimpleXMLRPCServer.init_context('sslv23', 'server.pem', 'ca.pem', \
+                                                      SSL.verify_none)
+                ctx.set_tmp_dh('dh1024.pem')
+                httpsd = MySimpleXMLRPCServer.SimpleXMLRPCServer(('', port), ctx)
+                httpsd.register_instance(ExportedFuncs(Database.connect(),
+                                                       "config.dat"))
+                httpsd.serve_forever()
         except socket.error:
             print "Failed, trying another port"
             pass
