@@ -853,12 +853,14 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine, Entity):
             s = string.join(map(lambda x:xlate.get(x, x), s), '')
 
         tr = string.maketrans(
-           'ÆØÅæø¿åÀÁÂÃÄÇÈÉÊËÌÍÎÏÑÒÓÔÕÖÙÚÛÜİàáâãäçèéêëìíîïñòóôõöùúûüı{[}]|¦\\',
-           'AOAaooaAAAAACEEEEIIIINOOOOOUUUUYaaaaaceeeeiiiinooooouuuuyaAaAooO')
+           'ÆØÅæø¿åÀÁÂÃÄÇÈÉÊËÌÍÎÏÑÒÓÔÕÖÙÚÛÜİàáâãäçèéêëìíîïñòóôõöùúûüıÿ'
+           '{[}]|¦\\¨­¯´',
+           'AOAaooaAAAAACEEEEIIIINOOOOOUUUUYaaaaaceeeeiiiinooooouuuuyy'
+           'aAaAooO"--\'')
         s = string.translate(s, tr)
 
         xlate = {}
-        for y in range(0200, 0377): xlate[chr(y)] = 'x'
+        for y in range(0200, 0400): xlate[chr(y)] = 'x'
         xlate['Ğ'] = 'Dh'
         xlate['ğ'] = 'dh'
         xlate['Ş'] = 'Th'
@@ -868,7 +870,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine, Entity):
         s = re.sub(r'[^a-zA-Z0-9 -]', '', s)
         if not as_gecos:
             s = s.lower()
-        return s
+        return s.strip()
 
     def search(self, spread=None, name=None, owner_id=None, owner_type=None,
                exclude_expired=False):
