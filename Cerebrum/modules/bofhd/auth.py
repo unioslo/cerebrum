@@ -120,11 +120,23 @@ class BofhdAuthOpSet(DatabaseAccessor):
             'code': int(op_code), 'op_id': op_id, 'op_set_id': self.op_set_id})
         return op_id
 
+    def del_operation(self, op_code):
+        self.execute("""
+        DELETE FROM [:table schema=cerebrum name=auth_operation]
+        WHERE op_code=:op_code AND op_set_id=:op_set_id""", {
+            'op_code': int(op_code), 'op_set_id': self.op_set_id})
+
     def add_op_attrs(self, op_id, attr):
         self.execute("""
         INSERT INTO [:table schema=cerebrum name=auth_op_attrs] (op_id, attr)
         VALUES (:op_id, :attr)""", {
             'op_id': op_id, 'attr': attr})
+
+    def del_op_attrs(self, op_id, attr):
+        self.execute("""
+        DELETE FROM [:table schema=cerebrum name=auth_op_attrs]
+        WHERE op_id=:op_id AND attr=:attr""", {
+            'op_id': int(op_id), 'attr': attr})
 
     def list(self):
         return self.query("""
