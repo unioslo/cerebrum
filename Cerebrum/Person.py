@@ -727,7 +727,8 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
         SELECT DISTINCT pi.person_id, pi.birth_date, pei.external_id,
           pn.name, en.entity_name, eci.contact_value, aa.auth_data,
           at.ou_id, at.affiliation, pas.status, eci3.contact_value AS fax,
-          pn2.name AS title, pn3.name AS personal_title %(ecols)s
+          pn2.name AS title, pn3.name AS personal_title, ead.address_text, 
+	  ead.postal_number, ead.city, ead.country %(ecols)s
 	FROM
           [:table schema=cerebrum name=person_info] pi
           JOIN [:table schema=cerebrum name=account_type] at
@@ -781,8 +782,16 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
                   FROM [:table schema=cerebrum name=person_affiliation_source]
                        pas2
                   WHERE pi.person_id = pas2.person_id AND
-                        at.affiliation = pas2.affiliation AND
-                        at.ou_id = pas2.ou_id)""" % locals(),
+                        at.affiliation = pas2.affiliation AND 
+			at.ou_id = pas2.ou_id)
+	  LEFT JOIN [:table schema=cerebrum name=entity_address] ead
+	     ON ead.entity_id=pi.person_id AND
+                ead.address_type=[:get_constant name=address_street] AND
+                ead.source_system=(SELECT MIN(source_system)
+                FROM [:table schema=cerebrum name=entity_address] ead2
+                WHERE ead2.entity_id=pi.person_id AND
+                ead2.address_type=[:get_constant name=address_street]) 
+	  """ % locals(),
                           {'vd': int(self.const.account_namespace),
                            'spread': spread,
                            'pn_ss': int(self.const.system_cached),
