@@ -138,26 +138,27 @@ class SocketHandling(object):
                 if data == 'RELOAD':
                     job_runner.reload_scheduled_jobs()
                     job_runner.wake_runner()
-                    conn.send('OK\n')
+                    self.send_response(conn, 'OK')
                     break
                 elif data == 'QUIT':
                     job_runner.ready_to_run = ('quit',)
                     job_runner.wake_runner()
-                    conn.send('QUIT is now only entry in ready-to-run queue\n')
+                    self.send_response(
+                        conn, 'QUIT is now only entry in ready-to-run queue')
                     break
                 elif data == 'STATUS':
                     ret = 'Run-queue: %s\nThreads: %s\nKnown jobs: %s\n' % (
                         job_runner.ready_to_run, threading.enumerate(),
                         job_runner.all_jobs.keys())
                     if job_runner.sleep_to is None:
-                        ret += 'Status: running %s\n' % job_runner.current_job
+                        ret += 'Status: running %s' % job_runner.current_job
                     else:
-                        ret += 'Status: sleeping for %f seconds\n' % \
+                        ret += 'Status: sleeping for %f seconds' % \
                                (job_runner.sleep_to - time.time())
-                    conn.send(ret)
+                    self.send_response(conn, ret)
                     break
                 elif data == 'PING':
-                    conn.send('PONG\n')
+                    self.send_response(conn, 'PONG')
                     break
                 else:
                     print "Unkown command: %s" % data
@@ -177,13 +178,32 @@ class SocketHandling(object):
             pass
         return 0
 
+    def send_response(self, sock, msg):
+        """Send response, including .\n response terminator"""
+        if msg == ".\n":
+            msg = "..\n"
+        msg = msg.replace("\n.\n", "\n..\n")
+        sock.send("%s\n.\n" % msg)
+
     def send_cmd(self, cmd, timeout=2):
+        """Send command, decode and return response"""
         signal.alarm(timeout)
         try:
             self.socket = socket.socket(socket.AF_UNIX)
             self.socket.connect(cereconf.JOB_RUNNER_SOCKET)
             self.socket.send("%s\n" % cmd)
-            ret = self.socket.recv(1024).strip()
+
+            ret = ''
+            while 1:
+                tmp = self.socket.recv(1024)
+                if not tmp:
+                    break
+                if tmp == ".\n" or tmp.find("\n.\n") != -1:
+                    tmp = tmp.replace("\n..\n", "\n.\n")
+                    ret += tmp[:-2]
+                    break
+                ret += tmp.replace("\n..\n", "\n.\n")
+            ret = ret.strip()
             self.socket.close()
         except:
             signal.alarm(0)
