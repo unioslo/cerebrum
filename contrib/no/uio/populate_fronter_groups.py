@@ -23,6 +23,32 @@
 
 These groups are later used when exporting data to ClassFronter.
 
+ Navngiving:
+   Grupper (med personmedlemmer):
+   
+     Ansvar und.enh:       uio.no:fs:<enhetid>:enhetsansvar
+     Ansvar und.akt:       uio.no:fs:<enhetid>:aktivitetsansvar:<aktkode>
+     Alle stud. v/enh:     uio.no:fs:<enhetid>:student
+     Alle stud. v/akt:     uio.no:fs:<enhetid>:student:<aktkode>
+
+ For informatikk-emner blir disse gruppene med ikke-primære
+ ("sekundære") konti laget:
+
+     Ansvar und.enh:       uio.no:fs:<enhetid>:enhetsansvar-sek
+     Ansvar und.akt:       uio.no:fs:<enhetid>:aktivitetsansvar-sek:<aktkode>
+     Alle stud. v/enh:     uio.no:fs:<enhetid>:student-sek
+
+ I tillegg blir disse nettgruppene laget med spread til Ifi:
+ 
+    Ansvar und.enh:        g<enhetid>-0          (alle konti)
+    Ansvar und.akt:        g<enhetid>-<aktkode>  (alle konti)
+    Ansvar enh. og akt.:   g<enhetid>            (alle konti)
+    Alle stud. v/enh:      s<enhetid>            (alle konti)
+    Alle stud. v/akt:      s<enhetid>-<aktkode>  (primærkonti)
+    Alle stud. kun eks:    s<enhetid>-e          (primærkonti)
+    Alle akt-ansv:         ifi-g                 (alle konti)
+    Alle akt- og enh-ansv: lkurs                 (alle konti)
+
 """
 
 import sys
@@ -44,8 +70,9 @@ def prefetch_primaryusers():
     account = Factory.get('Account')(db)
     personid2accountid = {}
     for a in account.list_accounts_by_type():
-        personid2accountid.setdefault(int(a['person_id']),
-                                      int(a['account_id']))
+        p_id = int(a['person_id'])
+        a_id = int(a['account_id'])
+        personid2accountid.setdefault(p_id, []).append(a_id)
 
     person = Factory.get('Person')(db)
     fnr_source = {}
@@ -73,19 +100,26 @@ def prefetch_primaryusers():
                 del fnr2account_id[fnr]
         fnr_source[fnr] = (p_id, src_sys)
         if personid2accountid.has_key(p_id):
-            account_id = personid2accountid[p_id]
-            account_id2fnr[account_id] = fnr
-            fnr2account_id[fnr] = account_id
+            account_ids = personid2accountid[p_id]
+            for acc in account_ids:
+                account_id2fnr[acc] = fnr
+            fnr2account_id[fnr] = account_ids
     del fnr_source
 
-def fnrs2account_ids(rows):
+def fnrs2account_ids(rows, primary_only=True):
     ret = []
+    sec = []
     for r in rows:
         fnr = "%06d%05d" % (
             int(r['fodselsdato']), int(r['personnr']))
         if fnr2account_id.has_key(fnr):
-            ret.append(fnr2account_id[fnr])
-    return ret
+            ret.append(fnr2account_id[fnr][0])
+            if not primary_only:
+                sec += fnr2account_id[fnr][1:]
+    if primary_only:
+        return ret
+    else:
+        return (ret, sec)
 
 def process_kursdata():
     logger.debug("Getting all primaryusers")
@@ -94,7 +128,7 @@ def process_kursdata():
     get_undervisningsenheter()    # Utvider UndervEnhet med mer data
     get_undervisningsaktiviteter()
     get_evukurs_aktiviteter()
-    logger.debug(UndervEnhet)
+    # logger.debug(UndervEnhet)
 
     for k in UndervEnhet.keys():
         # Legger inn brukere i gruppene på nivå 3.
@@ -104,6 +138,9 @@ def process_kursdata():
         # populate_enhet_groups å behandle forskjellige type enheter på
         # passende vis.
         populate_enhet_groups(k)
+
+    # Nettgrupper for Ifi med data på tvers av enheter
+    populate_ifi_groups()
 
     # Oppdaterer gruppene på nivå 2.
     #
@@ -229,7 +266,7 @@ def get_evukurs_aktiviteter():
             fnr = "%06d%05d" % (
                 int(evuansv['fodselsdato']), int(evuansv['personnr']))
             if fnr2account_id.has_key(fnr):
-                tmp[fnr2account_id[fnr]] = 1
+                tmp[fnr2account_id[fnr][0]] = 1
         UndervEnhet[kurs_id]['fagansv'] = tmp.copy()
         tmp = {}
         for student in fs.GetStudEvuKurs(kurs['etterutdkurskode'],
@@ -237,7 +274,7 @@ def get_evukurs_aktiviteter():
             fnr = "%06d%05d" % (
                 int(student['fodselsdato']), int(student['personnr']))
             if fnr2account_id.has_key(fnr):
-                tmp[fnr2account_id[fnr]] = 1
+                tmp[fnr2account_id[fnr][0]] = 1
         UndervEnhet[kurs_id]['students'] = tmp.copy()
 
 def get_evu_ansv(kurskode, tidsrom):
@@ -276,15 +313,30 @@ def populate_enhet_groups(enhet_id):
         # Ansvarlige for undervisningsenheten.
         logger.debug(" enhetsansvar")
         enhet_ansv = {}
-        for account_id in fnrs2account_ids(
-            fs.GetAnsvUndervEnhet(Instnr, emnekode, versjon, termk,
-                                  aar, termnr)[1]):
+        prim, sec = fnrs2account_ids(fs.GetAnsvUndervEnhet(Instnr, emnekode,
+                                                           versjon, termk,
+                                                           aar, termnr)[1],
+                                     primary_only = False)
+        for account_id in prim:
             enhet_ansv[account_id] = 1
+
+        # TODO: generaliser ifi-hack seinare
+        if (re.match(r"(dig|inf|med-inf|tool)", emnekode.lower()) and
+            termk == 'VÅR' and aar == "2004"):
+            logger.debug(" (ta med Ifi-spesifikke grupper)")
+            ifi_hack = True
+            netgr_emne = emnekode.lower().replace("-", "")
+            alle_ansv = {}	# for gKURS: alle grl og kursledelse
+            empty = {}
+            if re.search(r'[0123]\d\d\d', emnekode):
+                ifi_netgr_lkurs["g%s" % netgr_emne] = 1
+        else:
+            ifi_hack = False
 
         # Finnes kurs som går over mer enn et semester, samtidig som
         # at kurset/emnet starter hvert semester.  Utvider strukturen
         # til å ta høyde for at det til enhver tid kan finnes flere
-        # kurs av samme type til en hver tid.
+        # kurs av samme type til enhver tid.
         kurs_id = FronterUtils.UE2KursID('kurs', Instnr, emnekode,
                                          versjon, termk, aar, termnr)
 
@@ -294,36 +346,141 @@ def populate_enhet_groups(enhet_id):
                    "Ansvarlige %s %s %s%s" % (emnekode, termk,
                                               aar, enhet_suffix),
                    co.entity_account, enhet_ansv);
+        
+        # Ifi vil ha at alle konti til en gruppelærer skal listes opp
+        # på lik linje.  Alle ikke-primære konti blir derfor lagt inn i
+        # en egen interngruppe, og de to interngruppene blir medlemmer
+        # i Ifis nettgruppe.
+        if ifi_hack:
+            enhet_ansv = {}
+            for account_id in sec:
+                enhet_ansv[account_id] = 1
+            sync_group(kurs_id, "%s:enhetsansvar-sek" % enhet_id,
+                       ("Ansvarlige %s %s %s%s (sekundærkonti)" %
+                        (emnekode, termk, aar, enhet_suffix)),
+                       co.entity_account, enhet_ansv);
+            gname = mkgname("%s:enhetsansvar" % enhet_id,
+                            prefix = 'uio.no:fs:')
+            gmem = { gname: 1,
+                     "%s-sek" % gname: 1 }
+            netgr_navn = "g%s-0" % netgr_emne
+            sync_group(fs_supergroup, netgr_navn,
+                       "Ansvarlige %s %s %s%s" % (emnekode, termk, aar,
+                                                  enhet_suffix),
+                       co.entity_group, gmem, visible=True);
+            # midlertidig, for å bli kvitt medlemmer som stammer fra
+            # UREG-importen.
+            sync_group(fs_supergroup, netgr_navn,
+                       "Ansvarlige %s %s %s%s" % (emnekode, termk, aar,
+                                                  enhet_suffix),
+                       co.entity_account, empty, visible=True);
+            add_spread_to_group(netgr_navn, co.spread_ifi_nis_ng)
+            alle_ansv[netgr_navn] = 1
         #
         # Alle nåværende undervisningsmeldte samt nåværende+fremtidige
         # eksamensmeldte studenter.
         logger.debug(" student")
         alle_stud = {}
-        for account_id in fnrs2account_ids(
-            fs.GetStudUndervEnhet(Instnr, emnekode, versjon, termk,
-                                  aar, termnr)[1]):
+        prim, sec = fnrs2account_ids(fs.GetStudUndervEnhet(Instnr, emnekode,
+                                                           versjon, termk,
+                                                           aar, termnr)[1],
+                                     primary_only=False)
+        for account_id in prim:
             alle_stud[account_id] = 1
 
         sync_group(kurs_id, "%s:student" % enhet_id,
                    "Studenter %s %s %s%s" % (emnekode, termk,
                                              aar, enhet_suffix),
                    co.entity_account, alle_stud);
+        if ifi_hack:
+            alle_stud_sek = {}
+            alle_aktkoder = {}
+            for account_id in sec:
+                alle_stud_sek[int(account_id)] = 1
+            gname = mkgname("%s:student-sek" % enhet_id, prefix = 'uio.no:fs:')
+            sync_group(kurs_id, gname,
+                       ("Studenter %s %s %s%s (sekundærkonti)" %
+                        (emnekode, termk, aar, enhet_suffix)),
+                       co.entity_account, alle_stud_sek);
+            # Vi legger sekundærkontoene inn i sKURS, slik at alle
+            # kontoene får privelegier knyttet til kurset.  Dette
+            # innebærer at alle kontoene får e-post til
+            # studenter.KURS, men bare primærkontoen får e-post til
+            # studenter.KURS-GRUPPE.  Vi må kanskje revurdere dette
+            # senere basert på tilbakemeldinger fra brukerene.
+            #
+            # TODO: ifi-l, ifi-prof, ifi-h, kullkoder,
+            # ifi-mnm5infps-mel ifi-mnm2eld-mel ifi-mnm2infis
+            # ifi-mnm5infps ifi-mnm2inf ifi-mnm2eld-sig
+            alle_aktkoder[gname] = 1
 
         for aktkode in UndervEnhet[enhet_id].get('aktivitet', {}).keys():
             #
             # Ansvarlige for denne undervisningsaktiviteten.
             logger.debug(" aktivitetsansvar:%s" % aktkode)
             akt_ansv = {}
-            for account_id in fnrs2account_ids(
+            prim, sec = fnrs2account_ids(
                 fs.GetAnsvUndAktivitet(Instnr, emnekode, versjon, termk,
-                                       aar, termnr, aktkode)[1]):
+                                       aar, termnr, aktkode)[1],
+                primary_only=False)
+            
+            for account_id in prim:
                 akt_ansv[account_id] = 1
 
-            sync_group(kurs_id, "%s:aktivitetsansvar:%s" % (enhet_id, aktkode),
+            gname = mkgname("%s:aktivitetsansvar" % enhet_id,
+                            prefix = 'uio.no:fs:')
+            sync_group(kurs_id, "%s:%s" % (gname, aktkode),
                        "Ansvarlige %s %s %s%s %s" % (
                 emnekode, termk, aar, enhet_suffix,
                 UndervEnhet[enhet_id]['aktivitet'][aktkode]),
                        co.entity_account, akt_ansv);
+
+            if ifi_hack:
+                akt_ansv = {}
+                for account_id in sec:
+                    akt_ansv[account_id] = 1
+                    
+                # Sammenhengen mellom aktivitetskode og -navn er
+                # uklar.  Hva folk forventer som navn er like vanskelig
+                #
+                # Noen eksempel:
+                #   1   -> "Arbeidslivspedagogikk 2"
+                #   3-1 -> "Gruppe 1"
+                #   2-2 -> "Øvelser 102"
+                #   1-1 -> "Forelesning"
+                #
+                # På Ifi forutsetter vi formen "Aktivitet N", og
+                # plukker derfor ut det andre ordet i strengen for
+                # bruk i nettgruppenavnet brukerne vil se.
+                # 
+                # Det kan hende en bedre heuristikk ville være å se
+                # etter et tall i navnet og bruke dette, hvis ikke,
+                # bruke hele navnet med blanke erstattet av
+                # bindestreker.
+                
+                aktnavn = UndervEnhet[enhet_id]['aktivitet'][aktkode].\
+                          split(" ")[1]
+                sync_group(kurs_id, "%s-sek:%s" % (gname, aktkode),
+                           ("Ansvarlige %s %s %s%s %s (sekundærkonti)" %
+                            (emnekode, termk, aar, enhet_suffix, aktnavn)),
+                           co.entity_account, akt_ansv)
+                gmem = { "%s:%s" % (gname, aktkode) : 1,
+                         "%s-sek:%s" % (gname, aktkode): 1 }
+                netgr_navn = "g%s-%s" % (netgr_emne, aktnavn)
+                sync_group(fs_supergroup, netgr_navn,
+                           "Ansvarlige %s-%s %s %s%s" % (emnekode, aktnavn,
+                                                         termk, aar,
+                                                         enhet_suffix),
+                           co.entity_group, gmem, visible=True)
+                # midlertidig
+                sync_group(fs_supergroup, netgr_navn,
+                           "Ansvarlige %s-%s %s %s%s" % (emnekode, aktnavn,
+                                                         termk, aar,
+                                                         enhet_suffix),
+                           co.entity_account, empty, visible=True)
+                add_spread_to_group(netgr_navn, co.spread_ifi_nis_ng)
+                alle_ansv[netgr_navn] = 1
+                ifi_netgr_g[netgr_navn] = 1
 
             # Studenter meldt på denne undervisningsaktiviteten.
             logger.debug(" student:%s" % aktkode)
@@ -335,6 +492,10 @@ def populate_enhet_groups(enhet_id):
                     logger.warn("""OBS: Bruker <%s> (fnr <%s>) er med i undaktivitet <%s>, men ikke i undervisningsenhet <%s>.\n""" % (
                         account_id, account_id2fnr[account_id],
                         "%s:%s" % (enhet_id, aktkode), enhet_id))
+                else:
+                    # ved å fjerne alle på aktiviteter, ender vi opp
+                    # med en liste over de som er meldt til kun eksamen
+                    del alle_stud[account_id]
                 akt_stud[account_id] = 1
 
             sync_group(kurs_id, "%s:student:%s" % (enhet_id, aktkode),
@@ -342,6 +503,70 @@ def populate_enhet_groups(enhet_id):
                 emnekode, termk, aar, enhet_suffix,
                 UndervEnhet[enhet_id]['aktivitet'][aktkode]),
                        co.entity_account, akt_stud)
+            if ifi_hack:
+                gname = mkgname("%s:student:%s" % (enhet_id, aktkode),
+                                prefix = 'uio.no:fs:')
+                gmem = { gname: 1 }
+                netgr_navn = "s%s-%s" % (netgr_emne, aktnavn)
+                sync_group(fs_supergroup, netgr_navn,
+                           "Studenter %s-%s %s %s%s" % (emnekode, aktnavn,
+                                                        termk, aar,
+                                                        enhet_suffix),
+                           co.entity_group, gmem, visible=True);
+                # midlertidig
+                sync_group(fs_supergroup, netgr_navn,
+                           "Studenter %s-%s %s %s%s" % (emnekode, aktnavn,
+                                                        termk, aar,
+                                                        enhet_suffix),
+                           co.entity_account, empty, visible=True);
+                add_spread_to_group(netgr_navn, co.spread_ifi_nis_ng)
+                alle_aktkoder[netgr_navn] = 1
+
+        # ferdig med alle aktiviteter, bare noen få hack igjen ...
+        if ifi_hack:
+            gname = mkgname("%s:student:%s" % (enhet_id, "kuneksamen"),
+                            prefix = 'uio.no:fs:')
+            sync_group(kurs_id, gname,
+                       ("Studenter %s %s %s%s %s" %
+                        (emnekode, termk, aar, enhet_suffix, "kun eksamen")),
+                       co.entity_account, alle_stud)
+            gmem = { gname: 1 }
+            netgr_navn = "s%s-e" % netgr_emne
+            sync_group(fs_supergroup, netgr_navn,
+                       "Studenter %s-e %s %s%s" % (emnekode, termk, aar,
+                                                   enhet_suffix),
+                       co.entity_group, gmem, visible=True);
+            # midlertidig
+            sync_group(fs_supergroup, netgr_navn,
+                       "Studenter %s-e %s %s%s" % (emnekode, termk, aar,
+                                                   enhet_suffix),
+                       co.entity_account, empty, visible=True);
+            add_spread_to_group(netgr_navn, co.spread_ifi_nis_ng)
+            alle_aktkoder[netgr_navn] = 1
+            # alle studenter på kurset
+            netgr_navn = "s%s" % netgr_emne
+            sync_group(fs_supergroup, netgr_navn,
+                       "Studenter %s %s %s%s" % (emnekode, termk, aar,
+                                                 enhet_suffix),
+                       co.entity_group, alle_aktkoder, visible=True);
+            # midlertidig
+            sync_group(fs_supergroup, netgr_navn,
+                       "Studenter %s %s %s%s" % (emnekode, termk, aar,
+                                                 enhet_suffix),
+                       co.entity_account, empty, visible=True);
+            add_spread_to_group(netgr_navn, co.spread_ifi_nis_ng)
+            # alle gruppelærere og kursledelsen
+            netgr_navn = "g%s" % netgr_emne
+            sync_group(fs_supergroup, netgr_navn,
+                       "Ansvarlige %s %s %s%s" % (emnekode, termk, aar,
+                                                  enhet_suffix),
+                       co.entity_group, alle_ansv, visible=True);
+            # midlertidig
+            sync_group(fs_supergroup, netgr_navn,
+                       "Ansvarlige %s %s %s%s" % (emnekode, termk, aar,
+                                                  enhet_suffix),
+                       co.entity_account, empty, visible=True);
+            add_spread_to_group(netgr_navn, co.spread_ifi_nis_ng)
 
     elif type == 'evu':
         kurskode, tidsrom = type_id
@@ -394,8 +619,15 @@ def populate_enhet_groups(enhet_id):
                        co.entity_account, evu_akt_stud)
     logger.debug(" done")
 
+def populate_ifi_groups():
+    sync_group(fs_supergroup, "ifi-g", "Alle gruppelærere for Ifi-kurs",
+               co.entity_group, ifi_netgr_g, visible=True)
+    add_spread_to_group("ifi-g", co.spread_ifi_nis_ng)
+    sync_group(fs_supergroup, "lkurs", "Alle laveregradskurs ved Ifi",
+               co.entity_group, ifi_netgr_lkurs, visible=True)
+    add_spread_to_group("lkurs", co.spread_ifi_nis_ng)
 
-def sync_group(affil, gname, descr, mtype, memb):
+def sync_group(affil, gname, descr, mtype, memb, visible=False):
     logger.debug("sync_group(%s; %s; %s; %s; %s" % (affil, gname, descr, mtype, memb))
     if mtype == co.entity_group:   # memb has group_name as keys
         members = {}
@@ -404,15 +636,21 @@ def sync_group(affil, gname, descr, mtype, memb):
             members[int(grp.entity_id)] = 1
     else:                          # memb has account_id as keys
         members = memb.copy()
-    gname = mkgname(gname, 'uio.no:fs:')
-    correct_visib = co.group_visibility_none
-    if (affil is None or               # Nivå 0; $gname er supergruppen
-        affil == fs_supergroup or         # $gname er på nivå 1
-        re.search(r'^(evu|kurs):[^:]+$', affil, re.I)): # $gname er på nivå 2
-        # Grupper så langt oppe i strukturen skal være rent interne;
-        # de brukes kun til kontroll av hierarki og eksport.
-        gname = mkgname(gname)
-        correct_visib = co.group_visibility_internal
+    if visible:
+        # visibility implies that the group name should be used as is.
+        correct_visib = co.group_visibility_all
+        if not affil == fs_supergroup:
+            raise ValueError, "all visible groups must be members of supergroup"
+    else:
+        gname = mkgname(gname, 'uio.no:fs:')
+        correct_visib = co.group_visibility_none
+        if (affil is None or               # Nivå 0; $gname er supergruppen
+            affil == fs_supergroup or         # $gname er på nivå 1
+            re.search(r'^(evu|kurs):[^:]+$', affil, re.I)): # $gname er på nivå 2
+            # Grupper så langt oppe i strukturen skal være rent interne;
+            # de brukes kun til kontroll av hierarki og eksport.
+            gname = mkgname(gname)
+            correct_visib = co.group_visibility_internal
     if affil is not None:
         AffiliatedGroups.setdefault(affil, {})[gname] = 1
     known_FS_groups[gname] = 1
@@ -479,6 +717,13 @@ def destroy_group(gname, max_recurse):
     for subg in u:
         destroy_group(subg[1], max_recurse - 1)
 
+
+def add_spread_to_group(group, spread):
+    gr = get_group(group)
+    if not gr.has_spread(spread):
+        gr.add_spread(spread)
+        logger.debug("Adding spread %s to %s\n" % (spread, group))
+
 def get_group(id):
     gr = Factory.get('Group')(db)
     if isinstance(id, str):
@@ -506,7 +751,8 @@ def usage(exitcode=0):
 def main():
     global fs, db, co, logger, emne_versjon, emne_termnr, \
            account_id2fnr, fnr2account_id, AffiliatedGroups, \
-           known_FS_groups, fs_supergroup, group_creator, UndervEnhet
+           known_FS_groups, fs_supergroup, group_creator, UndervEnhet, \
+           ifi_netgr_g, ifi_netgr_lkurs
 
     # Håndter upper- og lowercasing av strenger som inneholder norske
     # tegn.
@@ -537,6 +783,9 @@ def main():
     AffiliatedGroups = {}
     known_FS_groups = {}
     UndervEnhet = {}
+    # these keep state across calls to populate_enhet_groups()
+    ifi_netgr_g = {}
+    ifi_netgr_lkurs = {}
 
     fs_supergroup = "{supergroup}"
     group_creator = get_account(cereconf.INITIAL_ACCOUNTNAME).entity_id
