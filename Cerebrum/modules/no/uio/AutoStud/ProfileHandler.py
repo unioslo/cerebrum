@@ -237,15 +237,12 @@ class ProfileMatcher(object):
             v = as_dict[k]
             # Does this aktivt_sted criteria match a 'evu' entry?
             for entry in student_info.get('evu', []):
-                d = self.pc.autostud.studieprogramkode2info[
-                    entry['studieprogramkode']]
-                sko = "%02i%02i%02i" % (int(d['faknr_studieansv']),
-                                        int(d['instituttnr_studieansv']),
-                                        int(d['gruppenr_studieansv']))
+                sko = "%02i%02i%02i" % (int(entry['faknr_adm_ansvar']),
+                                        int(entry['instituttnr_adm_ansvar']),
+                                        int(entry['gruppenr_adm_ansvar']))
                 if sko in v['steder']:
                     self._append_match(
-                        'evu_sted', 'studieproram',
-                        entry['studieprogramkode'], v['profiles'])
+                        'evu_sted', 'sted', sko, v['profiles'])
 
     def _check_group_membership(self, groups):
         if not groups:
