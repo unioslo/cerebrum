@@ -43,7 +43,7 @@ SELECT DISTINCT
       p.adrlin1_hjemsted, p.adrlin2_hjemsted,p.postnr_hjemsted,
       p.adrlin3_hjemsted, p.adresseland_hjemsted, s.studentnr_tildelt,
       sp.studieprogramkode, sp.faknr_studieansv, sp.instituttnr_studieansv,
-      sp.gruppenr_studieansv, sk.kullkode, nk.studieretningkode
+      sp.gruppenr_studieansv, sk.kullkode, nk.studieretningkode, nk.klassekode
 FROM fs.person p, fs.studieprogram sp, fs.naverende_klasse nk,
      fs.studierett st, fs.studiekull sk, fs.klasse kl, fs.student s
 WHERE nk.studieprogramkode = sk.studieprogramkode AND
@@ -124,8 +124,8 @@ SELECT DISTINCT
 FROM fs.sted
 WHERE institusjonsnr='%s'
 	 """ % institusjonsnr
-	 return (self._get_cols(qry), self.db.query(qry))
-
+        return (self._get_cols(qry), self.db.query(qry))
+        
 
 ##################################################################
 # Hjelpemetoder  
