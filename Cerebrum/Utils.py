@@ -692,6 +692,7 @@ class MinimumSizeWriter(AtomicFileWriter):
 
 class RecursiveDict(dict):
     """A variant of dict supporting recursive updates"""
+    # This dict is useful for combining complex configuration dicts
     def update(self, other):
         """D.update(E) -> None. Update D from E recursive.
            Any dicts that exists in both D and E are updated recursive
