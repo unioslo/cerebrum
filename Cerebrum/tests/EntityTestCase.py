@@ -5,14 +5,14 @@
 import unittest
 from Cerebrum import Database
 from Cerebrum.Entity import \
-     Entity, EntityName, EntityContactInfo
+     Entity, EntityName, EntityContactInfo, EntityAddress
 from Cerebrum import Constants
 from Cerebrum import cereconf
 import traceback
 
 from Cerebrum.tests.PersonTestCase import Person_createTestCase
 
-class Entity_createTestCase(unittest.TestCase, object, Entity):
+class Entity_createTestCase(unittest.TestCase, Entity):
     Cerebrum = Database.connect()
     co = Constants.Constants(Cerebrum)
 
@@ -20,8 +20,7 @@ class Entity_createTestCase(unittest.TestCase, object, Entity):
         e.populate(self.co.entity_ou)
     
     def setUp(self):
-        super(Entity, self).__init__(self.Cerebrum)  # EntityName needs this
-        
+        Entity.__init__(self, self.Cerebrum)  # EntityName needs this
         entity = None
         try:
             entity = Entity(self.Cerebrum)
@@ -168,6 +167,65 @@ class EntityContactInfoTestCase(EntityContactInfo_createTestCase):
         return suite
     suite = staticmethod(suite)
 
+class EntityAddress_createTestCase(Entity_createTestCase, EntityAddress):
+    test_a = {'src': 'system_manual',
+              'type': 'address_post',
+              'address_text': 'some address',
+              'p_o_box': 'some pb',
+              'postal_number': 'some pn',
+              'city': 'some city',
+              'country': None}
+
+    def setUp(self):
+        super(EntityAddress_createTestCase, self).setUp()
+        try:
+            for k in ('src', 'type'):
+                if isinstance(self.test_a[k], str):
+                    self.test_a[k] = getattr(self.co, self.test_a[k])
+            self.add_entity_address(self.test_a['src'],
+                                    self.test_a['type'],
+                                    self.test_a['address_text'],
+                                    self.test_a['p_o_box'],
+                                    self.test_a['postal_number'],
+                                    self.test_a['city'],
+                                    self.test_a['country'])
+        except:
+            print "Error: unable to create EntityAddress"
+            traceback.print_exc()
+
+    def tearDown(self):
+        self.delete_entity_address(self.test_a['src'], self.test_a['type'])
+        super(EntityAddress_createTestCase, self).tearDown()
+
+class EntityAddressTestCase(EntityAddress_createTestCase):
+    def testEntityGetAddress(self):
+        "Test that one can get the created EntityAddress"
+
+        addr = self.get_entity_address(self.test_a['src'], self.test_a['type'])
+        addr = addr[0]
+        self.failIf(addr['address_text'] <> self.test_a['address_text'] or 
+                    addr['p_o_box'] <> self.test_a['p_o_box'] or 
+                    addr['postal_number'] <> self.test_a['postal_number'] or 
+                    addr['city'] <> self.test_a['city'],
+                    "EntityAddress should be equal")
+
+    def testEntityDeleteAddress(self):
+        "Test that the EntityAddress can be deleted"
+        
+        self.delete_entity_address(self.test_a['src'], self.test_a['type'])
+        try:
+            addr = self.get_entity_address(self.test_a['src'], self.test_a['type'])
+            fail("Error: should no longer exist")
+        except:
+            pass
+
+    def suite():
+        suite = unittest.TestSuite()
+        suite.addTest(EntityAddressTestCase("testEntityGetAddress"))
+        suite.addTest(EntityAddressTestCase("testEntityDeleteAddress"))
+        return suite
+    suite = staticmethod(suite)
+
 def suite():
     """Returns a suite containing all the test cases in this module.
        It can be a good idea to put an identically named factory function
@@ -178,8 +236,9 @@ def suite():
     suite1 = EntityTestCase.suite()
     suite2 = EntityNameTestCase.suite()
     suite3 = EntityContactInfoTestCase.suite()
+    suite4 = EntityAddressTestCase.suite()
 
-    return unittest.TestSuite((suite1, suite2, suite3))
+    return unittest.TestSuite((suite1, suite2, suite3, suite4))
 
 
 if __name__ == '__main__':
