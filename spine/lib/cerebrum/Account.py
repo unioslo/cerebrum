@@ -44,7 +44,7 @@ class Account(Entity):
         CerebrumDbAttr('create_date', table, Date),
         CerebrumDbAttr('creator', table, Entity),
         CerebrumDbAttr('expire_date', table, Date, write=True),
-        CerebrumDbAttr('description', table, Date, write=True),
+        CerebrumDbAttr('description', table, str, write=True),
         CerebrumAttr('name', str, write=True)
     ]
     method_slots = Entity.method_slots + [
@@ -75,7 +75,7 @@ registry.register_class(Account)
 def create_account(self, name, owner, expire_date):
     db = self.get_database()
     account = Factory.get('Account')(db)
-    account.populate(name, owner.get_type(), owner.get_id(), None, db.change_by, expire_date.get_date())
+    account.populate(name, owner.get_type().get_id(), owner.get_id(), None, db.change_by, expire_date._value)
     account.write_db()
     return Account(account.entity_id, write_lock=self.get_writelock_holder())
 
