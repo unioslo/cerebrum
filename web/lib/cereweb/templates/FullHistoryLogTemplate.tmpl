@@ -1,0 +1,13 @@
+#from Cerebrum.web.InitTemplate import InitTemplate
+#extends InitTemplate
+#import forgetHTML
+#from Cerebrum.web.TableView import TableView
+#from HistoryLogTemplate import HistoryLogTemplate
+#from Cerebrum.web.utils import url
+#from Cerebrum.web import HistoryLog
+
+#def viewFullHistoryLog($entity)
+<h1>$_("Entity") $entity.name</h1>
+$HistoryLog.view_history($entity)
+#end def
+
