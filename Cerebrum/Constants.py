@@ -564,13 +564,16 @@ class ConstantsBase(DatabaseAccessor):
         # other purposes; should be cleaned up.
         _CerebrumCode.sql = database
 
-    def fetch_constants(self, wanted_class):
+    def fetch_constants(self, wanted_class, prefix_match=""):
         """Return all constant instances of wanted_class.  The list is
-        sorted by the name of the constants."""
+        sorted by the name of the constants.  If prefix_match is set,
+        only return constants whose string representation starts with
+        the given substring."""
         clist = []
         for name in dir(self):
             const = getattr(self, name)
-            if isinstance(const, wanted_class):
+            if (isinstance(const, wanted_class) and
+                str(const).startswith(prefix_match)):
                 clist.append(const)
         return clist
 
