@@ -67,6 +67,9 @@ class Person_createTestCase(OU_createTestCase):
     def tearDown(self):
         # print "Person_createTestCase.tearDown()"
         self.Cerebrum.execute("""
+        DELETE FROM [:table schema=cerebrum name=person_affiliation_source]
+        WHERE person_id=:id""", {'id': self.person_id})
+        self.Cerebrum.execute("""
         DELETE FROM [:table schema=cerebrum name=person_affiliation]
         WHERE person_id=:id""", {'id': self.person_id})
         self.Cerebrum.execute("""

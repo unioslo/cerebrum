@@ -117,7 +117,7 @@ class EntityNameTestCase(EntityName_createTestCase):
     def testEntityGetName(self):
         "Test that one can get the created EntityName"
         name = self.entity.get_name(self.co.account_namespace)
-        self.failIf(name.entity_name <> self.test_name,
+        self.failIf(name <> self.test_name,
                     "EntityNames should be equal")
 
     def testEntityFindByName(self):
