@@ -103,12 +103,18 @@ command_help = {
        "-owner and -request addresses.",
     "email_create_multi":
         "Make an e-mail target which expands to the members of a group",
+    "email_create_pipe":
+        "Make an e-mail target which points to a pipe",
     "email_delete_archive":
         "Remove address for a Mailman archive",
     "email_delete_list":
         "Remove a Mailman list's addresses",
     "email_delete_multi":
         "Remove a multi target and all its addresses",
+    "email_edit_pipe_command":
+        "Change the command the pipe target runs",
+    "email_edit_pipe_user":
+        "Change the account the pipe target runs as",
     "email_migrate":
         "Migrate users from old to new e-mail service",
     "email_move":
@@ -267,6 +273,8 @@ possible affiliations"""],
 defined organizational unit (e.a. whether the person is an active
 student or an employee on leave).  'misc affiliations' lists
 affiliation status codes"""],
+    'command_line':
+        ['command', 'Enter command line'],
     'date':
         ['date', 'Enter date (YYYY-MM-DD)',
          "The legal date format is 2003-12-31"],

@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2002-2004 University of Oslo, Norway
+# Copyright 2002-2005 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -1336,7 +1336,7 @@ class BofhdExtension(object):
     # email delete_archive <address>
     all_commands['email_delete_archive'] = Command(
         ("email", "delete_archive"),
-        EmailAddress(help_ref="email_address"),
+        EmailAddress(),
         fs=FormatSuggestion([("Deleted address: %s", ("address", ))]),
         perm_filter="can_email_archive_delete")
     def email_delete_archive(self, operator, addr):
@@ -1359,9 +1359,79 @@ class BofhdExtension(object):
         et.delete()
         return result
 
-    # TODO: commands for creating arbitrary pipe deliveries
     # email create_pipe <address> <uname> <command>
-    # email delete_pipe <address>
+    all_commands['email_create_pipe'] = Command(
+        ("email", "create_pipe"),
+        EmailAddress(help_ref="email_address"),
+        AccountName(),
+        SimpleString(help_ref="command_line"),
+        perm_filter="can_email_pipe_create")
+    def email_create_pipe(self, operator, addr, uname, cmd):
+        lp, dom = self._split_email_address(addr)
+        ed = self._get_email_domain(dom)
+        self.ba.can_email_pipe_create(operator.get_entity_id(), ed)
+        acc = self._get_account(uname)
+        ea = Email.EmailAddress(self.db)
+        try:
+            ea.find_by_local_part_and_domain(lp, ed.email_domain_id)
+        except Errors.NotFoundError:
+            pass
+        else:
+            raise CerebrumError, "%s already exists" % addr
+        et = Email.EmailTarget(self.db)
+        et.populate(self.const.email_target_pipe, alias="|"+cmd,
+                    using_uid=acc.entity_id)
+        et.write_db()
+        ea.clear()
+        ea.populate(lp, ed.email_domain_id, et.email_target_id)
+        ea.write_db()
+        return "OK, created pipe address %s" % addr
+
+    # email edit_pipe_command <address> <command>
+    all_commands['email_edit_pipe_command'] = Command(
+        ("email", "edit_pipe_command"),
+        EmailAddress(),
+        SimpleString(help_ref="command_line"),
+        perm_filter="can_email_pipe_edit")
+    def email_edit_pipe_command(self, operator, addr, cmd):
+        lp, dom = self._split_email_address(addr)
+        ed = self._get_email_domain(dom)
+        self.ba.can_email_pipe_edit(operator.get_entity_id(), ed)
+        ea = Email.EmailAddress(self.db)
+        try:
+            ea.find_by_local_part_and_domain(lp, ed.email_domain_id)
+        except Errors.NotFoundError:
+            raise CerebrumError, "%s: No such address exists" % addr
+        et = Email.EmailTarget(self.db)
+        et.find(ea.email_addr_target_id)
+        if et.email_target_type != self.const.email_target_pipe:
+            raise CerebrumError, "%s is not connected to a pipe target" % addr
+        et.email_target_alias = cmd
+        et.write_db()
+        return "OK, edited %s" % addr
+
+    # email edit_pipe_user <address> <uname>
+    all_commands['email_edit_pipe_user'] = Command(
+        ("email", "edit_pipe_user"),
+        EmailAddress(),
+        AccountName(),
+        perm_filter="can_email_pipe_edit")
+    def email_edit_pipe_user(self, operator, addr, uname):
+        lp, dom = self._split_email_address(addr)
+        ed = self._get_email_domain(dom)
+        self.ba.can_email_pipe_edit(operator.get_entity_id(), ed)
+        ea = Email.EmailAddress(self.db)
+        try:
+            ea.find_by_local_part_and_domain(lp, ed.email_domain_id)
+        except Errors.NotFoundError:
+            raise CerebrumError, "%s: No such address exists" % addr
+        et = Email.EmailTarget(self.db)
+        et.find(ea.email_addr_target_id)
+        if et.email_target_type != self.const.email_target_pipe:
+            raise CerebrumError, "%s is not connected to a pipe target" % addr
+        et.email_target_using_uid = self._get_account(uname).entity_id
+        et.write_db()
+        return "OK, edited %s" % addr
 
     # email create_domain <domainname> <description>
     all_commands['email_create_domain'] = Command(
