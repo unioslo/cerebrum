@@ -259,6 +259,51 @@ def import_org_units(sources):
                     stedkode2ou, co)
     db.commit()
 
+def dump_perspective(sources):
+    """Displays the OU hierarchy in a fairly readable way"""
+
+    tree_info = {}
+    org_units = {}
+
+    class Node(object):
+        def __init__(self, name, parent):
+            self.name = name
+            self.parent = parent
+            self.children = []
+
+    def dump_part(parent, indent):
+        print " " * indent + "%s (%s)" % (
+            str(parent),
+            org_units.get(parent, {'forkstednavn': 'n/a'})['forkstednavn'])
+        for t in tree_info.keys():
+            if tree_info[t].parent == parent:
+                if t == parent:
+                    print "WARNING: circular for %s" % t
+                else:
+                    dump_part(t, indent + 3)
+
+    # Read data source
+    for k in OUData(sources):
+        org_units[get_stedkode_str(k)] = k
+
+    # Fill tree_info with parent/child relationships
+    for k in org_units.keys():
+        sjef = get_stedkode_str(org_units[k], '_for_org_sted')
+        if not tree_info.has_key(sjef):
+            if not org_units.has_key(sjef):
+                sjef_sjef = None
+            else:
+                sjef_sjef = get_stedkode_str(org_units[sjef], '_for_org_sted')
+            tree_info[sjef] = Node(sjef, sjef_sjef)
+        tree_info[k] = Node(k, sjef)
+        tree_info[sjef].children.append(k)
+
+    # Display structure
+    dump_part(None, 0)
+    for t in tree_info.keys():
+        if tree_info[t].parent == tree_info[t].name:
+            dump_part(t, 0)
+
 def usage(exitcode=0):
     print """Usage: [options] [file ...]
 Imports OU data from systems that use 'stedkoder', primarily used to
@@ -268,6 +313,7 @@ import from UoOs LT system.
     -o | --ou-file FILE         file to read stedinfo from
     -p | --perspective NAME     name of perspective to use
     -s | --source-spec SPEC     colon-separated (source-system, filename) pair
+    --dump-perspective          view the herarchy of the sted.xml file
 
 For backward compatibility, there still is some support for the
 following (deprecated) option; note, however, that the new option
@@ -284,6 +330,7 @@ def main():
                                    ['verbose',
                                     'perspective=',
                                     'source-spec=',
+                                    'dump-perspective',
                                     # Deprecated:
                                     'ou-file=', 'source-system='])
     except getopt.GetoptError:
@@ -306,6 +353,9 @@ def main():
         elif opt in ('--source-system',):
             # This option is deprecated; use --source-spec instead.
             source_system = val
+        elif opt in ('--dump-perspective',):
+            dump_perspective(sources)
+            sys.exit(0)
     if perspective is None:
         usage(2)
     if sources:
