@@ -48,3 +48,6 @@ POSIX_GECOS_SOURCE_ORDER = ("system_lt", "system_fs")
 # with year < 1970 on some systems.  Must NOT be set on production
 # systems.
 ENABLE_MKTIME_WORKAROUND=0
+
+# If m2crypto is installed, set this to 1 to use ssl
+ENABLE_BOFHD_CRYPTO=0
