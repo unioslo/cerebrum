@@ -851,7 +851,7 @@ class BofhdExtension(object):
             affname = "<any>"
             if r['affiliation']:
                 affname = str(self.num2const[int(r['affiliation'])])
-            affiliations[self._format_ou_name(ou)] = affname
+            affiliations[ou] = affname
         aff_list = affiliations.keys()
         aff_list.sort()
         for ou in aff_list:
@@ -1605,8 +1605,10 @@ class BofhdExtension(object):
         ("person_id",)), perm_filter='can_create_person')
     def person_create(self, operator, person_id, bdate, person_name_first,
 		      person_name_last, ou, affiliation, aff_status):
+	print ou
         try:
-            ou = self._get_ou(ou)
+            ou = self._get_ou(int(ou))
+	    print ou.entity_id
         except Errors.NotFoundError:
             raise CerebrumError, "Unknown OU (%s)" % ou
         try:
@@ -1656,7 +1658,7 @@ class BofhdExtension(object):
         try:
             person.write_db()
             self._person_affiliation_add_helper(
-                operator, person, stedkode, str(aff), aff_status)
+                operator, person, ou, str(aff), aff_status)
         except self.db.DatabaseError, m:
             raise CerebrumError, "Database error: %s" % m
         return {'person_id': person.entity_id}
@@ -1722,7 +1724,7 @@ class BofhdExtension(object):
             raise CerebrumError("Unexpectedly found more than one person")
         ou, aff, aff_status = self._person_affiliation_add_helper(
             operator, person, ou, aff, aff_status)
-        return "OK, added %s@%s to %s" % (aff, self._format_ou_name(ou), person.entity_id)
+        return "OK, added %s@%s to %s" % (aff, ou), person.entity_id)
 
     # person affilation_remove
     all_commands['person_affiliation_remove'] = Command(
@@ -1744,7 +1746,7 @@ class BofhdExtension(object):
                    in [int(self.const.system_fs), int(self.const.system_lt)]:
                 person.delete_affiliation(ou.entity_id, aff,
                                           row['source_system'])
-        return "OK, removed %s@%s from %s" % (aff, self._format_ou_name(ou), person.entity_id)
+        return "OK, removed %s@%s from %s" % (aff, ou), person.entity_id)
 
     # person find
     all_commands['person_find'] = Command(
@@ -1818,7 +1820,7 @@ class BofhdExtension(object):
             affiliations.append("%s/%s@%s" % (
                 self.num2const[int(row['affiliation'])],
                 self.num2const[int(row['status'])],
-                self._format_ou_name(ou)))
+                ou))
         return {'name': person.get_name(self.const.system_cached,
                                         getattr(self.const,
                                                 cereconf.DEFAULT_GECOS_NAME)),
@@ -1868,9 +1870,9 @@ class BofhdExtension(object):
             ret.append({'uname': ac2.account_name,
                         'priority': row['priority'],
                         'affiliation': '%s@%s' % (
-                self.num2const[int(row['affiliation'])], self._format_ou_name(ou))})
+                self.num2const[int(row['affiliation'])], ou)})
             ## This seems to trigger a wierd python bug:
-            ## self.num2const[int(row['affiliation'], self._format_ou_name(ou))])})
+            ## self.num2const[int(row['affiliation'], ou)])})
         return ret
 
     #
@@ -2187,7 +2189,7 @@ class BofhdExtension(object):
                     name = "%s/%s@%s" % (
                         self.num2const[int(aff['affiliation'])],
                         self.num2const[int(aff['status'])],
-                        self._format_ou_name(ou))
+                        ou)
                     map.append((("%s", name),
                                 (int(aff['ou_id']), int(aff['affiliation']))))
                 if not len(map) > 1:
@@ -2338,7 +2340,7 @@ class BofhdExtension(object):
         for row in account.get_account_types():
             ou = self._get_ou(ou_id=row['ou_id'])
             affiliations.append("%s@%s" % (self.num2const[int(row['affiliation'])],
-                                           self._format_ou_name(ou)))
+                                           ou))
         ret = {'entity_id': account.entity_id,
                'spread': ",".join(["%s" % self.num2const[int(a['spread'])]
                                    for a in account.get_spread()]),
@@ -2480,18 +2482,15 @@ class BofhdExtension(object):
             return self.const.posix_shell_bash
         return int(self._get_constant(shell, "Unknown shell"))
     
-    def _format_ou_name(self, ou):
-        return "%s (%02i)" % (ou.name, ou.ou_id)
-
     def _get_ou(self, ou_id=None):
-        ou = self.OU_class(self.db)
+	ou = self.OU_class(self.db)
         ou.clear()
         if ou_id is not None:
             ou.find(ou_id)
         else:
             if not ou_id.isdigit():
                 raise CerebrumError("Expected a digit")
-        return ou
+	return ou
 
     def _get_group_opcode(self, operator):
         if operator is None:
@@ -2514,7 +2513,12 @@ class BofhdExtension(object):
         if idtype == 'group':
             return self._get_group(id)
         if idtype is None:
-            return Entity.object_by_entityid(id, self.db)
+            try:
+                int(id)
+            except ValueError:
+                raise CerebrumError, "Expected int as id"
+            ety = Entity.Entity(self.db)
+            return ety.get_subclassed_object(id)
         raise CerebrumError, "Invalid idtype"
 
     def _find_persons(self, arg):
