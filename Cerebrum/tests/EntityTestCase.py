@@ -34,6 +34,7 @@ import traceback
 class Entity_createTestCase(unittest.TestCase, object):
 
     Cerebrum = Factory.get('Database')()
+    Cerebrum.cl_init(change_program="EntityTestCase")
     co = Constants.Constants(Cerebrum)
     entity_class = Entity
 

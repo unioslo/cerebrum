@@ -32,6 +32,7 @@ from Cerebrum.Utils import Factory
 class OU_createTestCase(unittest.TestCase, object):
 
     Cerebrum = Factory.get('Database')()
+    Cerebrum.cl_init(change_program="OUTestCase")
     co = Constants.Constants(Cerebrum)
 
     ou_dta = {

@@ -95,12 +95,12 @@ class GroupTestCase(Group_createTestCase):
         self.failIf((self.co.entity_account, self.account_id) in u,
                     "About to add account member; already in group.")
         self.failIf(u or i or d, "Fresh group should have no members.")
-        self.group.add_member(self.account,
+        self.group.add_member(self.account.entity_id, self.account.entity_type,
                               self.co.group_memberop_union)
         u, i, d = self.group.list_members()
         self.failUnless((self.co.entity_account, self.account_id) in u,
                         "Added account member; not in group.")
-        self.group.remove_member(self.account,
+        self.group.remove_member(self.account.entity_id,
                                  self.co.group_memberop_union)
         u, i, d = self.group.list_members()
         self.failIf((self.co.entity_account, self.account_id) in u,
@@ -139,7 +139,7 @@ class GroupTestCase(Group_createTestCase):
             account.account_name += "_%s" % i
             account.write_db()
             self.members += (account.entity_id, )
-            self.group.add_member(account,
+            self.group.add_member(account.entity_id, account.entity_type,
                                   Group_createTestCase.co.group_memberop_union)
 
         pp = pprint.PrettyPrinter(indent=4)
