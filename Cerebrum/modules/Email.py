@@ -968,6 +968,10 @@ class EmailVacation(EmailTarget):
     def add_vacation(self, start, text, end=None, enable=False):
         # TODO: Should use DDL-imposed default values if not
         # instructed otherwise.
+        if enable:
+            enable = 'T'
+        else:
+            enable = 'F'
         return self.execute("""
         INSERT INTO [:table schema=cerebrum name=email_vacation]
           (target_id, start_date, vacation_text, end_date, enable)
@@ -978,7 +982,11 @@ class EmailVacation(EmailTarget):
                              'end': end,
                              'enable': enable})
 
-    def _set_vacation_enable(self, start, enable):
+    def enable_vacation(self, start, enable=True):
+        if enable:
+            enable = 'T'
+        else:
+            enable = 'F'
         return self.execute("""
         UPDATE [:table schema=cerebrum name=email_vacation]
         SET enable=:enable
@@ -987,11 +995,8 @@ class EmailVacation(EmailTarget):
                              'start': start,
                              'enable': enable})
 
-    def enable_vacation(self, start):
-        return self._set_vacation_enable(start, True)
-
     def disable_vacation(self, start):
-        return self._set_vacation_enable(start, False)
+        return self.enable_vacation(start, False)
 
     def get_vacation(self):
         return self.query("""
