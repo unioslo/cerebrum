@@ -92,6 +92,8 @@ maildom = Email.EmailDomain(db)
 mailtarg = Email.EmailTarget(db)
 mailaddr = Email.EmailAddress(db)
 mailprimaddr = Email.EmailPrimaryAddressTarget(db)
+mailforward = Email.EmailForward(db)
+mailvacation = Email.EmailVacation(db)
 
 class AutoFlushStream(object):
     __slots__ = ('_stream',)
@@ -1020,6 +1022,28 @@ def create_account(u, owner_id, owner_type, np_type=None):
                 mailprimaddr.clear()
                 mailprimaddr.populate(ma_id, parent=mailtarg)
                 mailprimaddr.write_db()
+
+        mailforward.clear()
+        mailforward.find(mt_id)
+        for tmp in u.get("forwardaddress", []):
+            mailforward.add_forward(tmp['value'],
+                                    enable=u.get('forward', False))
+
+        mailvacation.clear()
+        mailvacation.find(mt_id)
+        none_enabled = True
+        for tmp in u.get("tripnote", []):
+            startdate = parse_date(tmp['startdate'])
+            enddate = None
+            if tmp.has_key('enddate'):
+                enddate = parse_date(tmp['enddate'])
+            now = db.DateFromTicks(time())
+            enable = 'F'
+            if none_enabled and startdate <= now and \
+                   (enddate is None or enddate > now):
+                none_enabled = False
+                enable = 'T'
+            mailvacation.add_vacation(startdate, tmp['text'], enddate, enable)
 
     # Assign account affiliaitons by checking the
     # user_aff_mapping.  if subtype = '*unset*, try to find a
