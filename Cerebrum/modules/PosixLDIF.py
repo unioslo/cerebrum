@@ -210,7 +210,7 @@ class PosixLDIF(object):
 		except KeyError:
 		    pass
 	if not row['shell']:
-	    self.logger.warn("User % have no posix-shell!" % uname)
+	    self.logger.warn("User %s have no posix-shell!" % uname)
 	    return None, None
 	else:
 	    shell = self.shell_tab[int(row['shell'])] 
@@ -228,7 +228,7 @@ class PosixLDIF(object):
 	elif row['home']:
 	    home = row['home']
 	else:
-	    self.logger.warn("User % has no home-directory!" % uname)
+	    self.logger.warn("User %s has no home-directory!" % uname)
 	    return None,None
 	cn = row['name'] or row['gecos'] or uname
 	gecos = latin1_to_iso646_60(row['gecos'] or cn)
