@@ -170,7 +170,6 @@ class BofhdExtension(object):
                 raise CerebrumError, ("Unknown action (%s), " +
                                       "choose one of on, off or local") % action
         fw.write_db()
-        self.db.commit()
         return 'OK'
 
     # email add_forward <account>+ <address>+
@@ -190,7 +189,6 @@ class BofhdExtension(object):
         except Errors.TooManyRowsError:
             raise CerebrumError, "Forward address added already (%s)" % addr
         fw.write_db()
-        self.db.commit()
         return "OK"
 
     # email remove_forward <account>+ <address>+
@@ -212,7 +210,6 @@ class BofhdExtension(object):
         else:
             raise CerebrumError, "No such forward address (%s)" % addr
         fw.write_db()
-        self.db.commit()
         return "OK"
 
     def _check_email_address(self, address):
@@ -476,7 +473,6 @@ class BofhdExtension(object):
                 ea.clear()
                 ea.populate(addr_lp, ed.email_domain_id, et.email_target_id)
                 ea.write_db()
-        self.db.commit()
         return "OK"
 
     # email delete_list <list-address>
@@ -518,7 +514,6 @@ class BofhdExtension(object):
             # won't try to catch this, should always exist
             et.find_by_alias_and_account(targ, mailman.entity_id)
             et.delete()
-        self.db.commit()
         return "OK"
 
     # email migrate
@@ -546,7 +541,6 @@ class BofhdExtension(object):
                 br.delete_request(request_id=r['request_id'])
                 br.add_request(op, r['run_at'], r['operation'], r['entity_id'],
                                r['destination_id'], r['state_data'])
-        self.db.commit()
         return 'OK'
 
     # email move
@@ -594,7 +588,6 @@ class BofhdExtension(object):
             # It does not do much good to add to a bofh request, mvmail
             # can't handle this anyway.
             raise NotImplementedError, "can't move to non-IMAP server" 
-        self.db.commit()
         return "OK"
 
     # email quota
@@ -625,7 +618,6 @@ class BofhdExtension(object):
         date = self._find_tripnote(uname, ev, when, opposite_status)
         ev.enable_vacation(date, enable)
         ev.write_db()
-        self.db.commit()
         return "OK"
 
     all_commands['email_list_tripnotes'] = Command(
@@ -657,7 +649,6 @@ class BofhdExtension(object):
                        % (uname, r['start_date'], r['end_date']))
                 ev.delete_vacation(r['start_date'])
                 ev.write_db()
-                self.db.commit()
                 continue
             if r['enable'] == 'F':
                 continue
@@ -724,7 +715,6 @@ class BofhdExtension(object):
         text = text.replace('\\n', '\n')
         ev.add_vacation(date_start, text, date_end, enable=True)
         ev.write_db()
-        self.db.commit()
         return "OK"
 
     # email remove_tripnote <uname> [<when>]
@@ -742,7 +732,6 @@ class BofhdExtension(object):
         date = self._find_tripnote(uname, ev, when)
         ev.delete_vacation(date)
         ev.write_db()
-        self.db.commit()
         return "OK"
 
     def _find_tripnote(self, uname, ev, when=None, enabled=None):
