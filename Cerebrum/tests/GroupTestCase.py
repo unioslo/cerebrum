@@ -21,7 +21,7 @@ class Group_createTestCase(Account_createTestCase):
     def _populate_group(self, group, **group_args):
         if not group_args:
             account = Account.Account(self.Cerebrum)
-            account.find(self.account_id)
+            account.find(self.entity_id)
             group_args = {
                 'creator': account,
                 'visibility': Group_createTestCase.co.group_visibility_all,
