@@ -195,6 +195,7 @@ class BofhdExtension(object):
         ttype = et.email_target_type
         if ttype not in (self.const.email_target_Mailman,
                          self.const.email_target_account,
+                         self.const.email_target_forward,
                          self.const.email_target_pipe,
                          self.const.email_target_multi,
                          self.const.email_target_deleted):
@@ -218,6 +219,12 @@ class BofhdExtension(object):
         for r in et.get_addresses():
             # there is at least one address left
             return "OK"
+        # clean up and remove the target.  we remove any forward
+        # addresses first.
+        ef = Email.EmailForward(self.db)
+        ef.find(et.email_target_id)
+        for r in ef.get_forward():
+            ef.delete_forward(r['forward_to'])
         et.delete()
         return "OK, also deleted e-mail target"
 
@@ -270,39 +277,57 @@ class BofhdExtension(object):
         return 'OK'
 
     # email add_forward <account>+ <address>+
+    # account can also be an e-mail address for pure forwardtargets
     all_commands['email_add_forward'] = Command(
         ('email', 'add_forward'),
         AccountName(help_ref='account_name', repeat=True),
         EmailAddress(help_ref='email_address', repeat=True),
         perm_filter='can_email_forward_edit')
     def email_add_forward(self, operator, uname, address):
-        acc = self._get_account(uname)
-        self.ba.can_email_forward_edit(operator.get_entity_id(), acc)
+        et, acc = self.__get_email_target_and_account(uname)
+        if uname.count('@') and not acc:
+            lp, dom = uname.split('@')
+            ed = Email.EmailDomain(self.db)
+            ed.find_by_domain(dom)
+            self.ba.can_email_forward_edit(operator.get_entity_id(),
+                                           domain=ed)
+        else:
+            self.ba.can_email_forward_edit(operator.get_entity_id(), acc)
         fw = Email.EmailForward(self.db)
-        fw.find_by_entity(acc.entity_id)
+        fw.find(et.email_target_id)
         addr = self._check_email_address(address)
         if addr == 'local':
-            addr = acc.get_primary_mailaddress()
-        try:
-            fw.add_forward(addr)
-        except Errors.TooManyRowsError:
+            if acc:
+                addr = acc.get_primary_mailaddress()
+            else:
+                raise CerebrumError, ("Forward address '%s' does not make sense"
+                                      % addr)
+        if self._forward_exists(fw, addr):
             raise CerebrumError, "Forward address added already (%s)" % addr
-        fw.write_db()
+        fw.add_forward(addr)
         return "OK"
 
     # email remove_forward <account>+ <address>+
+    # account can also be an e-mail address for pure forwardtargets
     all_commands['email_remove_forward'] = Command(
         ("email", "remove_forward"),
         AccountName(help_ref="account_name", repeat=True),
         EmailAddress(help_ref='email_address', repeat=True),
         perm_filter='can_email_forward_edit')
     def email_remove_forward(self, operator, uname, address):
-        acc = self._get_account(uname)
-        self.ba.can_email_forward_edit(operator.get_entity_id(), acc)
+        et, acc = self.__get_email_target_and_account(uname)
+        if uname.count('@') and not acc:
+            lp, dom = uname.split('@')
+            ed = Email.EmailDomain(self.db)
+            ed.find_by_domain(dom)
+            self.ba.can_email_forward_edit(operator.get_entity_id(),
+                                           domain=ed)
+        else:
+            self.ba.can_email_forward_edit(operator.get_entity_id(), acc)
         fw = Email.EmailForward(self.db)
-        fw.find_by_entity(acc.entity_id)
+        fw.find(et.email_target_id)
         addr = self._check_email_address(address)
-        if addr == 'local':
+        if addr == 'local' and acc:
             locals = self.__get_valid_email_addrs(fw)
         else:
             locals = [addr]
@@ -359,6 +384,8 @@ class BofhdExtension(object):
          ("dis_quota_hard", "dis_quota_soft")),
         ("Quota:            %d MiB, warn at %d%% (%s MiB used)",
          ("quota_hard", "quota_soft", "quota_used")),
+        # TODO: change format so that ON/OFF is passed as separate value.
+        # this must be coordinated with webmail code.
         ("Forwarding:       %s",
          ("forward_1", )),
         ("                  %s",
@@ -400,6 +427,19 @@ class BofhdExtension(object):
          ("pipe_cmd", "pipe_runas", "pipe_addr_1")),
         ("                  %s",
          ("pipe_addr",)),
+        # target_type == forward
+        ("Address:          %s",
+         ("fw_target",)),
+        # TODO: all these valid-addresses should share code and
+        # FormatSuggestion
+        ("Valid addresses:  %s",
+         ("fw_valid_1",)),
+        ("                  %s",
+         ("fw_valid",)),
+        ("Forwarding:       %s (%s)",
+         ("fw_addr_1", "fw_enable_1")),
+        ("                  %s (%s)",
+         ("fw_addr", "fw_enable")),
         #
         # both account and Mailman
         #
@@ -415,6 +455,8 @@ class BofhdExtension(object):
             return self._email_info_multi(uname, et)
         elif ttype == self.const.email_target_pipe:
             return self._email_info_pipe(uname, et)
+        elif ttype == self.const.email_target_forward:
+            return self._email_info_forward(uname, et)
         elif ttype not in (self.const.email_target_account,
                            self.const.email_target_deleted):
             raise CerebrumError, ("email info for target type %s isn't "
@@ -554,7 +596,11 @@ class BofhdExtension(object):
         # We extract the official list name from the pipe command.
         interface, listname = m.groups()
         ret = [{'mailman_list': listname}]
-        lp, dom = listname.split('@')
+        if listname.count('@') == 0:
+            lp = listname
+            dom = addr.split('@')[1]
+        else:
+            lp, dom = listname.split('@')
         ed = Email.EmailDomain(self.db)
         ed.find_by_domain(dom)
         ea = Email.EmailAddress(self.db)
@@ -652,6 +698,31 @@ class BofhdExtension(object):
                  'pipe_runas': acc.account_name}]
         for idx in range(1, len(addrs)):
             data.append({'pipe_addr': addrs[idx]})
+        return data
+
+    def _email_info_forward(self, addr, et):
+        data = []
+        addrs = self.__get_valid_email_addrs(et)
+        if addrs:
+            data.append({'fw_valid_1': addrs[0]})
+        for idx in range(1, len(addrs)):
+            data.append({'fw_valid': addrs[idx]})
+        # et.email_target_alias isn't used for anything, it's often
+        # a copy of one of the forward addresses, but that's just a
+        # waste of bytes, really.
+        ef = Email.EmailForward(self.db)
+        try:
+            ef.find(et.email_target_id)
+        except Errors.NotFoundError:
+            data.append({'fw_addr_1': '<none>', 'fw_enable': 'off'})
+        else:
+            forw = ef.get_forward()
+            if forw:
+                data.append({'fw_addr_1': forw[0].forward_to,
+                             'fw_enable_1': self._onoff(forw[0].enable)})
+            for idx in range(1, len(forw)):
+                data.append({'fw_addr': forw[idx].forward_to,
+                             'fw_enable': self._onoff(forw[idx].enable)})
         return data
 
     # email create_archive <list-address>
@@ -775,6 +846,12 @@ class BofhdExtension(object):
             return False
         raise CerebrumError, "Enter one of ON or OFF"
 
+    def _onoff(self, enable):
+        if enable:
+            return 'on'
+        else:
+            return 'off'
+
     def _has_category(self, domain, category):
         ccode = int(category)
         for r in domain.get_categories():
@@ -885,7 +962,44 @@ class BofhdExtension(object):
             eed.find(ou.entity_id, aff_id)
         except Errors.NotFoundError:
             raise CerebrumError, "No such affiliation for domain"
+        if eed.entity_email_domain_id <> ed.email_domain_id:
+            raise CerebrumError, "No such affiliation for domain"
         eed.delete()
+        return "OK"
+
+    # email create_forward <local-address> <remote-address>
+    all_commands['email_create_forward'] = Command(
+        ("email", "create_forward"),
+        EmailAddress(),
+        EmailAddress(),
+        perm_filter="can_email_forward_create")
+    def email_create_forward(self, operator, localaddr, remoteaddr):
+        """Create a forward target, add localaddr as an address
+        associated with that target, and add remoteaddr as a forward
+        addresses."""
+        lp, dom = localaddr.split('@')
+        ed = self._get_email_domain(dom)
+        self.ba.can_email_forward_create(operator.get_entity_id(), ed)
+        ea = Email.EmailAddress(self.db)
+        try:
+            ea.find_by_local_part_and_domain(lp, ed.email_domain_id)
+        except Errors.NotFoundError:
+            pass
+        else:
+            raise CerebrumError, "Address %s already exists" % localaddr
+        et = Email.EmailTarget(self.db)
+        et.populate(self.const.email_target_forward)
+        et.write_db()
+        ea.clear()
+        ea.populate(lp, ed.email_domain_id, et.email_target_id)
+        ea.write_db()
+        ef = Email.EmailForward(self.db)
+        ef.find(et.email_target_id)
+        addr = self._check_email_address(remoteaddr)
+        try:
+            ef.add_forward(addr)
+        except Errors.TooManyRowsError:
+            raise CerebrumError, "Forward address added already (%s)" % addr
         return "OK"
 
     # email create_list <list-address> [admin,admin,admin]
