@@ -1,5 +1,7 @@
 # Process this with config.status to get Makefile
 
+PACKAGE_VERSION = @PACKAGE_VERSION@
+
 prefix     = @prefix@
 sbindir    = @sbindir@
 bindir     = @bindir@
@@ -17,8 +19,20 @@ install: Makefile
 	./setup.py install --prefix=/tmp/cerebrum
 
 .PHONY: dist
-dist: Makefile
+dist: dist/Cerebrum-$(PACKAGE_VERSION).tar.gz
+
+dist/Cerebrum-$(PACKAGE_VERSION).tar.gz: Makefile
 	./setup.py sdist
+
+distcheck: dist/Cerebrum-$(PACKAGE_VERSION).tar.gz
+	rm -rf dist-test && mkdir dist-test
+	cd dist-test; \
+		tar zxvf ../dist/Cerebrum-$(PACKAGE_VERSION).tar.gz
+	cd dist-test/Cerebrum-$(PACKAGE_VERSION); \
+		./configure --prefix=`pwd`/=install && \
+		make && \
+		make install
+
 
 bootstrap: all
 	$(MAKE) -C testsuite bootstrap 2>&1 | tee testsuite/log-bootstrap.out
