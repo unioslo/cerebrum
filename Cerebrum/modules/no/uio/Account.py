@@ -33,7 +33,7 @@ class AccountUiOMixin(Account.Account):
     The methods of the core Account class that are overridden here,
     ensure that any Account objects generated through
     Cerebrum.Utils.Factory.get() provide functionality that reflects
-    the policies of The University of Oslo.
+    the policies of the University of Oslo.
 
     """
 
@@ -52,9 +52,11 @@ class AccountUiOMixin(Account.Account):
                     is_on_cyrus = True
             except Errors.NotFoundError:
                 pass
+            old_server = None
             if not is_on_cyrus:
                 # Randomly choose which IMAP server the user should
                 # reside on.
+                old_server = est.email_server_id
                 imap_servs = []
                 for svr in es.list_email_server_ext():
                     if (svr['server_type']
@@ -78,6 +80,15 @@ class AccountUiOMixin(Account.Account):
 
             # Register self.const.bofh_email_create BofhdRequest
             br = BofhdRequests(self._db, self.const)
-            br.add_request(None,        # Requestor
-                           br.now, self.const.bofh_email_create,
-                           self.entity_id, est.email_server_id)
+            reqid = br.add_request(None,        # Requestor
+                                   br.now, self.const.bofh_email_create,
+                                   self.entity_id, est.email_server_id)
+            if old_server:
+                # Move user iff we chose a new server.  Add a
+                # dependency on the create above.
+                br.add_request(None,	# Requestor
+                               br.now, self.const.bofh_email_will_move,
+                               self.entity_id, est.email_server_id,
+                               state_data = {'depend_req': reqid,
+                                             'source_server': old_server})
+
