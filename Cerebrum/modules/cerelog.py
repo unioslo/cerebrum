@@ -603,7 +603,7 @@ class CerebrumRotatingHandler(logging.FileHandler, object):
             try:
                 os.makedirs(directory, 0770)
             except OSError, e:    
-                if e[0] != 17:
+                if e.errno != 17:
                     # the error is not 'file exists', which we ignore
                     raise e
         # fi
