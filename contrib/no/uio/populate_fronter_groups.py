@@ -98,7 +98,6 @@ from Cerebrum.Utils import Factory
 from Cerebrum.modules import Email
 from Cerebrum.modules.no.uio.access_FS import FS
 from Cerebrum.modules.no.uio.fronter_lib import FronterUtils
-from Cerebrum import Logging
 
 def prefetch_primaryusers():
     # TBD: This code is used to get account_id for both students and
@@ -427,20 +426,10 @@ def populate_enhet_groups(enhet_id):
             gmem = { gname: 1,
                      "%s-sek" % gname: 1 }
             netgr_navn = "g%s-0" % netgr_emne
-            # TBD: Dette betyr at en og samme 'enhetsansvar'-grupper
-            # kan opptre som bladnode flere steder i treet.  Vil det
-            # føre til problemer i det en slik gruppe skal slettes
-            # (når semesteret er ferdig)?
             sync_group(auto_supergroup, netgr_navn,
                        "Ansvarlige %s %s %s%s" % (emnekode, termk, aar,
                                                   enhet_suffix),
                        co.entity_group, gmem, visible=True);
-            # midlertidig, for å bli kvitt medlemmer som stammer fra
-            # UREG-importen.
-            sync_group(auto_supergroup, netgr_navn,
-                       "Ansvarlige %s %s %s%s" % (emnekode, termk, aar,
-                                                  enhet_suffix),
-                       co.entity_account, empty, visible=True);
             add_spread_to_group(netgr_navn, co.spread_ifi_nis_ng)
             alle_ansv[netgr_navn] = 1
         #
@@ -525,8 +514,8 @@ def populate_enhet_groups(enhet_id):
                 # bruke hele navnet med blanke erstattet av
                 # bindestreker.
                 
-                aktnavn = UndervEnhet[enhet_id]['aktivitet'][aktkode]
-                if aktnavn.lower().startswith("aktivitet "):
+                aktnavn = UndervEnhet[enhet_id]['aktivitet'][aktkode].lower()
+                if aktnavn.startswith("aktivitet "):
                     aktnavn = aktnavn.split(" ")[1]
                 else:
                     aktnavn = aktnavn.replace(" ", "-")
@@ -773,6 +762,15 @@ def destroy_group(gname, max_recurse):
     if max_recurse < 0:
         logger.fatal("destroy_group(%s): Recursion too deep" % gr.group_name)
         sys.exit(3)
+        
+    # If this group is a member of other groups, remove those
+    # memberships.
+    for r in gr.list_groups_with_entity(gr.entity_id):
+        parent = get_group(r['group_id'])
+        logger.info("removing %s from group %s" % (gr.group_name,
+                                                   parent.group_name))
+        parent.remove_member(r['group_id'], r['operation'])
+
     # If a e-mail target is of type multi and has this group as its
     # destination, delete the e-mail target and any associated
     # addresses.  There can only be one target per group.
@@ -833,7 +831,7 @@ def mkgname(id, prefix='internal:'):
     return (prefix + id).lower()
 
 def usage(exitcode=0):
-    print """Usage: [optons]
+    print """Usage: [options]
     --db-user name: connect with given database username
     --db-service name: connect to given database"""
     sys.exit(exitcode)
@@ -845,6 +843,8 @@ def main():
            group_creator, UndervEnhet, \
            ifi_netgr_g, ifi_netgr_lkurs
 
+    logger = Factory.get_logger("cronjob")
+    
     # Håndter upper- og lowercasing av strenger som inneholder norske
     # tegn.
     locale.setlocale(locale.LC_CTYPE, ('en_US', 'iso88591'))
@@ -866,7 +866,6 @@ def main():
     db = Factory.get('Database')()
     db.cl_init(change_program='CF_gen_groups')
     co = Factory.get('Constants')(db)
-    logger = Logging.getLogger("console")
     emne_versjon = {}
     emne_termnr = {}
     account_id2fnr = {}
