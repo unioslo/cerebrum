@@ -247,7 +247,7 @@ public class BofhdConnection {
         for (int i = args.size()-1; i >= 0; i--) {
             Object tmp = args.get(i);
             if (tmp instanceof String) {
-                if (((String) tmp).charAt(0) == ':') {
+                if (((String) tmp).length() > 0 && ((String) tmp).charAt(0) == ':') {
                     tmp = ":"+((String) tmp);
                     args.setElementAt(tmp, i);
                 }
