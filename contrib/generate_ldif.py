@@ -733,7 +733,7 @@ def generate_posixgroup(spread=None,u_spread=None,filename=None):
         # set to [0]
         for id in group.get_members(spread=u_spreads[0], get_entity_name=True):
             uname_id = int(id[0])
-            if uname_id not in entity2uname:
+            if not entity2uname.has_key(uname_id):
                 entity2uname[uname_id] = id[1]
             pos_grp += "memberUid: %s\n" % entity2uname[uname_id]
 	f.write("\n")
@@ -742,6 +742,7 @@ def generate_posixgroup(spread=None,u_spread=None,filename=None):
     f.close()
 
 def generate_netgroup(spread=None,u_spread=None,filename=None):
+    global grp_memb
     pos_netgrp = Factory.get('Group')(Cerebrum)
     if filename:
         f = file(filename, 'w')
@@ -761,6 +762,7 @@ def generate_netgroup(spread=None,u_spread=None,filename=None):
     for obj in cereconf.LDAP_NETGROUP_OBJECTCLASS:
         obj_str += "objectClass: %s\n" % obj
     for row in pos_netgrp.list_all_grp(spreads):
+	grp_memb = {}
         pos_netgrp.clear()
         pos_netgrp.find(row.group_id)
         netgrp_name = pos_netgrp.group_name
@@ -774,39 +776,27 @@ def generate_netgroup(spread=None,u_spread=None,filename=None):
             netgrp_str += "description: %s\n" % \
                           latin1_to_iso646_60(pos_netgrp.description)
         f.write(netgrp_str)
-        get_netgrp(row.group_id, spreads, u_spreads, f)
+        get_netgrp(int(row.group_id), spreads, u_spreads, f)
         f.write("\n")
     f.close()
 
-def get_netgrp(netgrp_id, spreads, u_spreads, f, grp_memb = {}):
+def get_netgrp(netgrp_id, spreads, u_spreads, f):
     pos_netgrp = Factory.get('Group')(Cerebrum)
-    pos_user = PosixUser.PosixUser(Cerebrum)
     pos_netgrp.clear()
-    pos_netgrp.find(int(netgrp_id))
-    for id in pos_netgrp.list_members(u_spreads[0], int(co.entity_account))[0]:
-        uname_id = int(id[1])
-        if uname_id not in entity2uname:
-            pos_user.clear()
-            pos_user.find(uname_id)
-            entity2uname[uname_id] = pos_user.account_name
-        uname = entity2uname[uname_id]
-        # The LDAP schema for NIS netgroups doesn't allow
-        # usernames with '_' in.
+    pos_netgrp.entity_id = int(netgrp_id)
+    for id in pos_netgrp.list_members(u_spreads[0], int(co.entity_account),\
+						get_entity_name= True)[0]:
+        uname_id,uname = int(id[1]),id[2]
         if ('_' not in uname) and not grp_memb.has_key(uname_id):
             f.write("nisNetgroupTriple: (,%s,)\n" % uname)
             grp_memb[uname_id] = True
-    for group in pos_netgrp.list_members(None, int(co.entity_group))[0]:
-        valid_spread = False
+    for group in pos_netgrp.list_members(None, int(co.entity_group),get_entity_name=True)[0]:
         pos_netgrp.clear()
-        group_id = int(group[1])
-        pos_netgrp.find(group_id)
-        for spread_search in spreads:
-            if pos_netgrp.has_spread(spread_search):
-                valid_spread = True
-        if valid_spread:
-            f.write("memberNisNetgroup: %s\n" % pos_netgrp.group_name)
+        pos_netgrp.entity_id = int(group[1])
+	if True in ([pos_netgrp.has_spread(x) for x in spreads]):
+            f.write("memberNisNetgroup: %s\n" % group[2])
         else:
-            get_netgrp(group_id, spreads, u_spreads, f, grp_memb)
+            get_netgrp(int(group[1]), spreads, u_spreads, f)
 
 
 def eval_spread_codes(spread):
@@ -824,19 +814,18 @@ def eval_spread_codes(spread):
 
 
 def spread_code(spr_str):
-    if isinstance(spr_str, _SpreadCode):
-        return int(spr_str)
-    if isinstance(spr_str, (str, int)):
-        try:
-            return int(_SpreadCode(spr_str))
-        except Errors.NotFoundError:
-            pass
-    if isinstance(spr_str, str):
-        try:
-            return int(getattr(co, spr_str))
-        except AttributeError:
-            pass
-    print "Not valid spread code: '%s'" % spr_str
+    spread=""
+    #if isinstance(spr_str, _SpreadCode):
+    #    return int(_SpreadCode(spr_str))
+    try: spread = int(spr_str)
+    except:
+	try: spread = int(getattr(co, spr_str))
+        except: 
+	    try: spread = int(_SpreadCode(spr_str)) 
+	    except:
+		print "Not valid Spread-Code"
+		spread = None
+    return(spread)
 
 
 def iso2utf(s):
@@ -1023,13 +1012,13 @@ def usage(exitcode=0):
     --org=<outfile>
         Write organization, person and alias to a LDIF-file
 
-    --user=<outfile>| -u=<outfile> --user_spread=<value>|-U=<value>
+    --user=<outfile>| -u <outfile> --user_spread=<value>|-U <value>
         Write users to a LDIF-file
 
-    --group=<outfile>  --group_spread=<value>|-G=<value> --user_spread=<value>
+    --group=<outfile>| -g <outfile>  --group_spread=<value>|-G <value> -U <value>
         Write posix groups to a LDIF-file
 
-    --netgroup=<outfile> --netgroup_spread=<value>|-N=<value> --user_spread=<value>
+    --netgroup=<outfile>| -n <outfile> --netgroup_spread=<value>|-N <value> -U <value>
         Write netgroup map to a LDIF-file
 
     --posix
@@ -1037,7 +1026,7 @@ def usage(exitcode=0):
         from default cereconf parameters
 
     Both --user_spread, --netgroup_spread  and --group_spread can handle
-    multiple spread-values (<value>|<value1>,<value2>,,,)"""
+    multiple spread-values (<value> | <value1>,<value2>,,,)"""
     sys.exit(exitcode)
 
 def config():
