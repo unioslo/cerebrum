@@ -4,6 +4,7 @@
 import time
 from Cerebrum import Constants
 from Cerebrum import Group
+from Cerebrum.modules.bofhd.errors import CerebrumError
 
 class _BofhdRequestOpCode(Constants._CerebrumCode):
     "Mappings stored in the auth_role_op_code table"
