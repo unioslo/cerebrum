@@ -819,9 +819,11 @@ class EmailVirusScan(EmailTarget):
 
     def list_email_virus_ext(self):
         """Join between email_virus_scan, email_virus_found_code and
-        email_virus_removed_code. Returns """
+        email_virus_removed_code. Returns target_id, found_str(code from
+        email_virus_found_code), removed_str(code from email_virus_removed_code)
+        and enable."""
         return self.query("""
-        SELECT s.target_id, f.code_str, r.code_str, s.enable
+        SELECT s.target_id, f.code_str AS found_str, r.code_str AS removed_str, s.enable
         FROM [:table schema=cerebrum name=email_virus_scan] s,
              [:table schema=cerebrum name=email_virus_found_code] f,
              [:table schema=cerebrum name=email_virus_removed_code] r
@@ -970,6 +972,12 @@ class EmailPrimaryAddressTarget(EmailTarget):
             pass
         self.__in_db = True
         self.__updated = []
+
+    def list_email_primary_address_targets(self):
+        return self.query("""
+        SELECT target_id, address_id
+        FROM [:table schema=cerebrum name=email_primary_address]
+        """)
 
     def get_address_id(self):
         return self.email_primaddr_id
