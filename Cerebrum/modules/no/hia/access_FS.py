@@ -547,12 +547,12 @@ WHERE emnekode = :emne
     def get_next_termin_aar(self):
 	"""en fin metode som henter neste semesters terminkode og årstal."""
 	yr, mon, md = time.localtime()[0:3]
-	# This is an ogly hack and will have to go shortly. The purpose is
+	# This is an ugly hack and will have to go shortly. The purpose is
 	# to pick out UNDERVISNINGSENHETER and such from last semester so that 
 	# they may be accessed by the students and teachers at HiA
 	# The proper solution to the problem is an implementation of Fronters
 	# import script which can deal with this
-	if mon == 1:
+	if (mon <= 3 and md <= 15):
 	    next = "(r.terminkode LIKE 'V_R' AND r.arstall=%s)\n" % yr
 	# fi
 	elif mon <= 6:
@@ -581,10 +581,12 @@ WHERE emnekode = :emne
 # they may be accessed by the students and teachers at HiA
 # The proper solution to the problem is an implementation of Fronters
 # import script which can deal with this
+# The hack actually tricks the fetch-methods into believing that we are in
+# the autumn semester 2004 until march 15-th 2005
 
     def get_termin_aar(self, only_current=0):
         yr, mon, md = time.localtime()[0:3]
-	if mon == 1:
+	if (mon < 3 or (mon == 3 and md < 15)):
 	    current = "(r.terminkode LIKE 'H_ST' AND r.arstall=%d)\n" % (yr-1)
 	    if only_current:
 		return current
