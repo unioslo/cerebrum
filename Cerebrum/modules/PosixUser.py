@@ -38,7 +38,7 @@ from Cerebrum import Constants
 
 
 ## Module spesific constant.  Belongs somewhere else
-class _PosixShellCode(_CerebrumCode):
+class _PosixShellCode(Constants._CerebrumCode):
     "Mappings stored in the posix_shell_code table"
     _lookup_table = '[:table schema=cerebrum name=posix_shell_code]'
     _lookup_desc_column = 'shell'
