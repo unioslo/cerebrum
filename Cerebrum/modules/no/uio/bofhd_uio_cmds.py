@@ -2926,6 +2926,7 @@ class BofhdExtension(object):
         ("person_id",)), perm_filter='can_create_person')
     def person_create(self, operator, person_id, bdate, person_name,
                       ou, affiliation, aff_status):
+        stedkode = ou
         try:
             ou = self._get_ou(stedkode=ou)
         except Errors.NotFoundError:
@@ -2934,10 +2935,6 @@ class BofhdExtension(object):
             aff = self._get_affiliationid(affiliation)
         except Errors.NotFoundError:
             raise CerebrumError, "Unknown affiliation type (%s)" % affiliation
-        try:
-            aff_status = self._get_affiliation_statusid(aff, aff_status)
-        except Errors.NotFoundError:
-            raise CerebrumError, "Unknown affiliation status (%s)" % aff_status
         self.ba.can_create_person(operator.get_entity_id(), ou, aff)
         person = self.person
         person.clear()
@@ -2977,8 +2974,8 @@ class BofhdExtension(object):
                              person_name.encode('iso8859-1'))
         try:
             person.write_db()
-            person.add_affiliation(ou.entity_id, aff,
-                                   self.const.system_manual, aff_status)
+            self._person_affiliation_add_helper(
+                operator, person, stedkode, str(aff), aff_status)
         except self.db.DatabaseError, m:
             raise CerebrumError, "Database error: %s" % m
         return {'person_id': person.entity_id}
@@ -3085,9 +3082,8 @@ class BofhdExtension(object):
 	self.ba.is_superuser(operator.get_entity_id())
 
 	for a in person.get_affiliations():
-	    if (a['affiliation'] in \
-		[self.const.affiliation_ansatt, self.const.affiliation_student,\
-		 self.const.affiliation_tilknyttet]):
+	    if (int(a['source_system']) in \
+		[int(self.const.system_fs), int(self.const.system_lt)]):
 		raise CerebrumError, "You can't alter name of a person registered in an authorative source system!"
 	    else:
 		pass
