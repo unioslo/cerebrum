@@ -6,9 +6,9 @@
 # som ikke har noen ukjørte pre-requisites, kan de startes samtidig.
 
 """job_runner is a scheduler that runs specific commands at certain
-times.  Each command is represended by an Action class that may have
-information about when and how often a job should be ran, as well as
-information about jobs that should be ran before or after itself; see
+times.  Each command is represented by an Action class that may have
+information about when and how often a job should be run, as well as
+information about jobs that should be run before or after itself; see
 the class documentation for details.
 
 job_runner has a ready_to_run queue, which is populated by
@@ -27,8 +27,8 @@ TODO:
 - Support jobs represented by a call to a specific method in given
   python module
 - commandline option to start job_runner if it is not already running
-- running multiple jobs in paralell, in particular manually added jobs
-  should normally start imeadeately
+- running multiple jobs in parallel, in particular manually added jobs
+  should normally start immediately
 """
 
 import time
