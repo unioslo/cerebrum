@@ -60,19 +60,25 @@ def create_ap_method(class_name, method_name, data_type, write, method_arguments
         elif write:
             raise Errors.TransactionError('No transaction started')
         else:
-            pass # FIXME: nå må vi hindre at ap_handler får lov til å starte en transaksjon
+            # no transaction, so we need to check for writelock
+            writelock_holder = self.gro_object.get_writelock_holder()
+            if writelock_holder is not None: # if there is a writelock, we need to return a fresh object
+                new = self.gro_object.__class__(nocache=True, *self.gro_object.get_primary_key())
+                self.gro_object = new
 
         # convert corba arguments to real arguments
         args = []
         for value, arg in zip(corba_args, method_arguments):
             args.append(APHandler.convert_from_corba(value, arg[1]))
 
-        # run the real method
         vargs = {}
         for name, value in corba_vargs.items():
             vargs[name] = APHandler.convert_from_corba(value, args_table[name])
 
+        # run the real method
         value = getattr(self.gro_object, method_name)(*args, **vargs)
+        if write:
+            self.gro_object.save()
 
         return APHandler.convert_to_corba(value, data_type, self.ap_handler)
     return method
@@ -207,7 +213,7 @@ class APHandler(CorbaBuilder, Transaction):
         txt += 'typedef sequence<float> floatSeq;\n'
         txt += 'typedef sequence<boolean> booleanSeq;\n'
 
-        exceptions = ('TransactionError', )
+        exceptions = ('TransactionError', 'AlreadyLockedError')
 
         defined = []
         for gro_class in cls.gro_classes.values():
