@@ -146,7 +146,7 @@ class Profile(object):
             self._autostud.disks[new][1] += 1
 
     def get_brev(self):
-        return self.settings.get("brev")[0]
+        return self.settings.get("brev", [None])[0]
         
     def get_stedkoder(self):
         return self.settings.get("stedkode", [])
