@@ -55,6 +55,7 @@ import cerebrum_path
 import cereconf
 from Cerebrum import Errors
 from Cerebrum import Utils
+from Cerebrum import QuarantineHandler
 from Cerebrum.modules.bofhd.errors import CerebrumError, \
      ServerRestartedError, SessionExpiredError
 from Cerebrum.modules.bofhd.help import Help
@@ -324,6 +325,24 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
             logger.info("Failed login for %s from %s" % (
                 uname, ":".join([str(x) for x in self.client_address])))
             raise CerebrumError, "Unknown username or password"
+
+        # Check quarantines
+        quarantines = []      # TBD: Should the quarantine-check have a utility-API function?
+        now = server.db.DateFromTicks(time.time())
+        for qrow in account.get_entity_quarantine():
+            if (qrow['start_date'] <= now
+                and (qrow['end_date'] is None or qrow['end_date'] >= now)
+                and (qrow['disable_until'] is None
+                     or qrow['disable_until'] < now)):
+                # The quarantine found in this row is currently
+                # active.
+                quarantines.append(qrow['quarantine_type'])            
+        qh = QuarantineHandler.QuarantineHandler(
+            self.server.db, quarantines)
+        if qh.should_skip() or qh.is_locked():
+            raise CerebrumError, "User has active lock/skip quarantines, login denied"
+
+        # Check password
         enc_pass = None
         for auth in (self.server.const.auth_type_md5_crypt,
                      self.server.const.auth_type_crypt3_des):
