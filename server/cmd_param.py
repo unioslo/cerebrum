@@ -21,11 +21,17 @@ class Parameter(object):
     the __init__ constructor are None, they may be overridden in a
     subclass's definition."""
 
-    # TODO: Document what the various keyword arguments signify.
-    def __init__(self, name=None,
-                 optional=False, default=False, repeat=False,
-                 ptype=None, prompt_func=None, tab_func=None, prompt=None):
-        self._name = name
+    def __init__(self, optional=False, default=None, repeat=False,
+                 ptype=None, prompt=None):
+        """
+        optional   : boolean if argument is optional
+        default    : string or callable method to get the default value
+                     for this parameter.  If None, the value has no default
+                     value
+        repeat     : boolean if object is repeatable
+        prompt     : to override the prompt string defined in the class
+        ptype      : 'prompt type', string inserted in the prompt
+        """
 
         for k, v in locals().items():
             attr = '_' + k
@@ -42,11 +48,17 @@ class Parameter(object):
 
     def get_struct(self):
         ret = {}
-        for k in ('_name', '_optional', '_default', '_repeat', '_type',
-                  # '_prompt', '_prompt_func', '_tab_func'
+        for k in ('_optional', '_repeat', '_type',
+                  # '_prompt',
                   ):
             if getattr(self, k) is not None and getattr(self, k) != 0:
                 ret[k[1:]] = getattr(self, k)
+        ret['prompt'] = self.getPrompt()
+        if self._default is not None:
+            if isinstance(self._default, str):
+                ret['default'] = self._default
+            else:
+                ret['default'] = 1  # = call get_default_param
         return ret
 
     def getPrompt(self):
@@ -145,6 +157,7 @@ class Command(object):
         self._cmd = cmd
         self._params = params
         self._format_suggestion = kw.get('fs', None)
+        self._default = None
 
     def get_fs(self):
         if self._format_suggestion is not None:
