@@ -1,6 +1,7 @@
 #from Cerebrum.web.InitTemplate import InitTemplate
 #extends InitTemplate
 #from Cerebrum.web.utils import url
+#from Cerebrum.web.utils import object_url
 
 #attr $fields = []
 #attr $formvalues = {}
@@ -17,7 +18,7 @@
     </select>
 #end def
 
-#def quarantine_form($entity_id, $action, $uri, $types = None)
+#def quarantine_form($entity, $action, $types = None)
 <div class="quarantine">
 <form action="$url($action)" method="POST">
     <h2>$_("Add new/edit quarantine for: ") <i>$formvalues['entity_type'] $formvalues['entity_name']</i></h2>
@@ -67,9 +68,11 @@ $generate_option("type", $types, $type)
             <td><input type="submit" value="$_("Save")" name="submit" /></td>
         </tr>
     </table>
-    <input type=hidden name="entity_id" value="$entity_id" />
-    <input type=hidden name="uri" value="$uri" />
-    <a href="$uri">[Previous form]</a>
+    <input type=hidden name="entity_id" value="$entity.id" />
 </form>
+<form action="$object_url($entity)" method="POST">
+  <input type="submit" value="$_('Cancel')" name="cancel" />
+</form>
+    
 </div>
 #end def
