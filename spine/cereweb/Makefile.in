@@ -2,7 +2,12 @@
 ## Makefile for Cereweb
 ##
 
+INSTALL = @INSTALL@
+pythondir = @PYTHONDIR@
+
 .PHONY: all install install-lib clean distclean
+
+sources = $(wildcard *.py)
 
 all: 
 	$(MAKE) -C htdocs $@
@@ -13,6 +18,8 @@ install: install-lib
 	$(MAKE) -C lib $@
 
 install-lib: $(sources)
+	$(INSTALL) -d $(pythondir)
+	$(INSTALL) -v -m 755 $(sources) $(pythondir)
 	$(MAKE) -C htdocs $@
 	$(MAKE) -C lib $@
 
