@@ -19,229 +19,314 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+"""
+This file is a HiA-specific extension of Cerebrum. It contains code which
+import historical account and e-mail data from HiA into Cerebrum. Normally,
+it should be run only once (about right after the database has been
+created).
+
+The input format for this job is a file with one line per
+account/e-mail. Each line has four fields separated by ':'.
+
+<no_ssn>:<uname>:<keyword>:<e-mail address>
+
+... where
+
+no_ssn  -- 11-digit Norwegian social security number (personnummer)
+uname   -- account name
+keyword -- 'defaultmail' or 'mail'
+"""
+
 import getopt
 import sys
-import os
-import re
-
-import xml.sax
+import string
 
 import cerebrum_path
 import cereconf
+
 from Cerebrum import Errors
-from Cerebrum import Person
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import Email
-from Cerebrum.modules import PosixUser
 from Cerebrum.modules.no import fodselsnr
 
+
+
+
+
+def attempt_commit():
+    if dryrun:
+        db.rollback()
+        logger.debug("Rolled back all changes")
+    else:
+        db.commit()
+        logger.debug("Committed all changes")
+    # fi
+# end attempt_commit
+
+
+
 def process_line(infile):
-    f = file(infile, 'r')
+    """
+    Scan all lines in INFILE and create corresponding account/e-mail entries
+    in Cerebrum.
+    """
+
+    stream = open(infile, 'r')
+    commit_count = 0
+    commit_limit = 1000
 
     # Iterate over all persons:
-    l = f.readline().strip()
-    i = 1
-    while l:
-        if verbose > 1:
-            print "Processing line: %s" % l
-        fld = l.split(':')
-        if len(fld) <> 4:
-            sys.stderr.write("Bad line: %s. Skipping\n" % l)
+    for line in stream:
+        commit_count += 1
+        logger.debug5("Processing line: |%s|", line)
+
+        fields = string.split(line.strip(), ":")
+        if len(fields) != 4:
+            logger.error("Bad line: %s. Skipping" % l)
             continue
-        fnr, uname, type, addr = fld
+        # fi
+        
+        fnr, uname, type, addr = fields
         if not fnr == "":
-            if verbose > 1:
-                print "Processing person: %s" % fnr
-            p = process_person(fnr)
-            if p:
-                if verbose > 1:
-                    print "Processing user(w. person): %s" % uname
-                a = process_user(p, uname)
+            person_id = process_person(fnr)
+            if person_id:
+                logger.debug4("Processing user with person: %s", uname)
+                account_id = process_user(person_id, uname)
             else:
-                sys.stderr.write("Bad fnr: %s Skipping\n" % l)
+                logger.error("Bad fnr: %s Skipping", line)
                 continue
+            # fi
         else:
-            if verbose > 1:
-                print "Processing user(wo. person): %s" % uname
-            a = process_user(None, uname)
-        if a:
-            if verbose > 1:
-                print "Processing mail: %s %s" % (type, addr)
-            process_mail(a, type, addr)
+            logger.debug4("Processing user without person: %s", uname)
+            account_id = process_user(None, uname)
+        # fi
+        
+        if account_id:
+            process_mail(account_id, type, addr)
         else:
-            sys.stderr.write("Bad uname: %s Skipping\n" % l)
-        l = f.readline().strip()
-        # Commit every 1000 lines.
-        if i % 1000:
-            db.commit()
-        i = i + 1
+            logger.error("Bad uname: %s Skipping", line)
+        # fi
+
+        if commit_count % commit_limit == 0:
+            attempt_commit()
+        # fi
+    # od
+# end process_line
+
+
 
 def process_person(fnr):
+    """
+    Find (or create, if necessary) and return the person_id corresponding to
+    FNR.
+    """
+
+    logger.debug("Processing person %s", fnr)
+    
     if not fodselsnr.personnr_ok(fnr):
-        if verbose > 0:
-            "Person exsists: %s" % fnr
+        logger.warn("Bad no_ssn |%s|", fnr)
         return None
+    # fi
+    
     if fnr2person_id.has_key(fnr):
+        logger.debug("Person with fnr %s exists in Cerebrum", fnr)
         return fnr2person_id[fnr]
-    new_person = Person.Person(db)
-    gender = co.gender_male
+    # fi
+    
+    # ... otherwise, create a new person
+    person.clear()
+    gender = constants.gender_male
     if fodselsnr.er_kvinne(fnr):
-        gender = co.gender_female
+        gender = constants.gender_female
+    # fi
     year, mon, day = fodselsnr.fodt_dato(fnr)
-    new_person.populate(db.Date(year, mon, day), gender)
-    new_person.affect_external_id(co.system_migrate,
-                                  co.externalid_fodselsnr)
-    new_person.populate_external_id(co.system_migrate,
-                                    co.externalid_fodselsnr,
-                                    fnr)
-    new_person.write_db()
-    if verbose > 0:
-        print "Person created: %s" % fnr
-    #db.commit()
-    e_id = new_person.entity_id
-    new_person.clear()
+    person.populate(db.Date(year, mon, day), gender)
+    person.affect_external_id(constants.system_migrate,
+                              constants.externalid_fodselsnr)
+    person.populate_external_id(constants.system_migrate,
+                                constants.externalid_fodselsnr,
+                                fnr)
+    person.write_db()
+    logger.debug("Created new person with fnr %s", fnr)
+    e_id = person.entity_id
     fnr2person_id[fnr] = e_id
     return e_id
+# end process_person
+
+
     
 def process_user(owner_id, uname):
+    """
+    Locate account_id of account UNAME owned by OWNER_ID.
+    """
+    
     if uname == "":
         return None
-    owner_type = co.entity_person
+    # fi
+    
+    owner_type = constants.entity_person
     np_type = None
-    if owner_id == None:
-        owner_type = co.entity_group
+    if owner_id is None:
+        owner_type = constants.entity_group
         owner_id = default_group_id
-        np_type = int(co.account_program)
+        np_type = int(constants.account_program)
+    # fi
+    
     try:
-        ac.find_by_name(uname)
-        if verbose > 0:
-            print "User found: %s" % uname
+        account.clear()
+        account.find_by_name(uname)
+        logger.debug3("User %s exists in Cerebrum", uname)
     except Errors.NotFoundError:
-        ac.populate(uname,
-                    owner_type,
-                    owner_id,
-                    np_type,
-                    default_creator_id,
-                    None)
-        ac.write_db()
-        #db.commit()
-        if verbose > 0:
-            print "User created: %s" % uname
-    a_id = ac.entity_id
-    ac.clear()
-    return a_id
+        account.populate(uname,
+                         owner_type,
+                         owner_id,
+                         np_type,
+                         default_creator_id,
+                         None)
+        account.write_db()
+        logger.debug3("User %s created", uname)
+    # yrt
 
-def process_mail(acc_id, type, addr):
+    a_id = account.entity_id
+    return a_id
+# end process_user
+
+
+
+def process_mail(account_id, type, addr):
     et = Email.EmailTarget(db)
     ea = Email.EmailAddress(db)
     edom = Email.EmailDomain(db)
     epat = Email.EmailPrimaryAddressTarget(db)
 
     fld = addr.split('@')
-    if len(fld) <> 2:
-        sys.stderr.write("Bad address: %s. Skipping\n" % addr)
+    if len(fld) != 2:
+        logger.error("Bad address: %s. Skipping", addr)
         return None
+    # fi
+    
     lp, dom = fld
     try:
         edom.find_by_domain(dom)
-        if verbose > 0:
-            print "Domain found: %s: %d" % (dom, edom.email_domain_id)
+        logger.debug("Domain found: %s: %d", dom, edom.email_domain_id)
     except Errors.NotFoundError:
         edom.populate(dom, "Generated by import_uname_mail.")
         edom.write_db()
-        #db.commit()
-        if verbose > 0:
-            print "Domain created: %s: %d" % (dom, edom.email_domain_id)        
+        logger.debug("Domain created: %s: %d", dom, edom.email_domain_id)
+    # yrt
+
     try:
-        et.find_by_entity(int(acc_id))
-        if verbose > 0:
-            print "EmailTarget found(account): %s: %d" % (acc_id, et.email_target_id)  
+        et.find_by_entity(int(account_id))
+        logger.debug("EmailTarget found(accound): %s: %d",
+                     account_id, et.email_target_id)
     except Errors.NotFoundError:
-        et.populate(co.email_target_account, entity_id=int(acc_id),
-                    entity_type=co.entity_account)
+        et.populate(constants.email_target_account, entity_id=int(account_id),
+                    entity_type=constants.entity_account)
         et.write_db()
-        #db.commit()
-        if verbose > 0:
-            print "EmailTarget created: %s: %d" % (acc_id, et.email_target_id) 
+        logger.debug("EmailTarget created: %s: %d",
+                     account_id, et.email_target_id)
+    # yrt
+
     try:
         ea.find_by_address(addr)
-        if verbose > 0:
-            print "EmailAddress found: %s: %d" % (addr, ea.email_addr_id) 
+        logger.debug("EmailAddress found: %s: %d", addr, ea.email_addr_id)
     except Errors.NotFoundError:
         ea.populate(lp, edom.email_domain_id, et.email_target_id)
         ea.write_db()
-        #db.commit()
-        if verbose > 0:
-            print "EmailAddress created: %s: %d" % (addr, ea.email_addr_id) 
+        logger.debug("EmailAddress created: %s: %d", addr, ea.email_addr_id)
+    # yrt
+
     if type == "defaultmail":
         try:
             epat.find(et.email_target_id)
-            if verbose > 0:
-                print "EmailPrimary found: %s: %d" % (addr, epat.email_target_id)
+            logger.debug("EmailPrimary found: %s: %d",
+                         addr, epat.email_target_id)
         except Errors.NotFoundError:
             if ea.email_addr_target_id == et.email_target_id:
                 epat.clear()
                 epat.populate(ea.email_addr_id, parent=et)
                 epat.write_db()
-                #db.commit()
-                if verbose > 0:
-                    print "EmailPrimary created: %s: %d" % (addr, epat.email_target_id)
+                logger.debug("EmailPrimary created: %s: %d",
+                             addr, epat.email_target_id)
             else:
-                sys.stderr.write("EmailTarget mismatch: ea: %d, et: %d\n" % ( 
-                    ea.email_addr_target_id, et.email_target_id))
+                logger.error("EmailTarget mismatch: ea: %d, et: %d", 
+                             ea.email_addr_target_id, et.email_target_id)
+            # fi
+        # yrt
+    # fi
+    
     et.clear()
     ea.clear()
     edom.clear()
     epat.clear()
-        
+# end process_mail
+
+
+
 def usage():
     print """Usage: import_uname_mail.py
     -v, --verbose : Show extra information. Multiple -v's are allowed
                     (more info).
     -f, --file    : File to parse.
     """
+# end usage
+
 
 
 def main():
-    global verbose, db, co, ac, person, fnr2person_id
+    global db, constants, account, person, fnr2person_id
     global default_creator_id, default_group_id
+    global dryrun, logger
+
+    logger = Factory.get_logger("console")
     
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'vf:', ['verbose','file'])
+        opts, args = getopt.getopt(sys.argv[1:],
+                                   'f:d',
+                                   ['file=',
+                                    'dryrun'])
     except getopt.GetoptError:
         usage()
+    # yrt
 
-    verbose = 0
-
+    dryrun = False
     for opt, val in opts:
-        if opt in ('-v', '--verbose'):
-            verbose += 1
+        if opt in ('-d', '--dryrun'):
+            dryrun = True
         elif opt in ('-f', '--file'):
             infile = val
+        # fi
+    # od
 
     if infile is None:
         usage()
+    # fi
 
     db = Factory.get('Database')()
     db.cl_init(change_program='import_uname_mail')
-    co = Factory.get('Constants')(db)
-    ac = Factory.get('Account')(db)
-    gr = Factory.get('Group')(db)
-    person = Person.Person(db)
+    constants = Factory.get('Constants')(db)
+    account = Factory.get('Account')(db)
+    group = Factory.get('Group')(db)
+    person = Factory.get('Person')(db)
 
-    fnr2person_id = {}
-
-    for p in person.list_external_ids(id_type=co.externalid_fodselsnr):
+    fnr2person_id = dict()
+    for p in person.list_external_ids(id_type=constants.externalid_fodselsnr):
         fnr2person_id[p['external_id']] = p['person_id']
+    # od
 
-    ac.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
-    default_creator_id = ac.entity_id
-    gr.find_by_name(cereconf.INITIAL_GROUPNAME)
-    default_group_id = gr.entity_id
-    ac.clear()
-    gr.clear()
+    account.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
+    default_creator_id = account.entity_id
+    group.find_by_name(cereconf.INITIAL_GROUPNAME)
+    default_group_id = group.entity_id
     process_line(infile)
-    db.commit()
+
+    attempt_commit()
+# end main
+
+
+
+
 
 if __name__ == '__main__':
     main()
+# fi
