@@ -30,17 +30,11 @@ from Builder import Builder, Attribute, Method
 from Searchable import Searchable
 from CerebrumClass import CerebrumClass, CerebrumAttr, CerebrumTypeAttr
 from Types import *
+from Auth import EntityAuth
 
 __all__ = ['Entity', 'Note', 'Address', 'ContactInfo']
 
-def entity_type_to_cerebrum(value):
-    return value.get_id()
-
-def entity_type_from_cerebrum(value):
-    import Types
-    return Types.EntityType.get_by_id(value)
-
-class Entity(Builder, Searchable, CerebrumClass):
+class Entity(Builder, CerebrumClass, EntityAuth):
     primary = [CerebrumAttr('entity_id', 'long')]
     slots = primary + [CerebrumTypeAttr('entity_type', 'EntityType', type_class=EntityType)]
     method_slots = [Method('get_spreads', 'SpreadSeq'),
@@ -70,16 +64,16 @@ class Entity(Builder, Searchable, CerebrumClass):
         entity_type = obj.get_entity_type()
         entity_class = entity_type.get_class()
 
-        if obj.__class__ is Entity:
-            obj.__class__ = entity_class
-        elif cls is not entity_class and cls is not Entity:
+        if cls is not entity_class and cls is not Entity:
             raise Exception('wrong class. Asked for %s, but found %s' % (cls, entity_class))
+        else:
+            obj.__class__ = entity_class
 
         return obj
 
     def build_methods(cls):
         super(Entity, cls).build_methods()
-        super(Searchable, cls).build_methods()
+        super(Builder, cls).build_methods()
 
     build_methods = classmethod(build_methods)
 
