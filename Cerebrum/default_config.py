@@ -300,8 +300,8 @@ LDAP_POSIX_FILE = 'posix.ldif'
 # {'attribute type': (value, value, ...), ...}:
 #LDAP_<BASE/ORG/PERSON/POSIX/...>_ATTRS = {'description': ('nice text',), ...}
 #
-# Attributes used by default in all the above objects except BASE.  Each
-# attribute is added if the object does not already have that attribute:
+# May be set to default attributes for all LDAP_*_DN objects except BASE.
+# Each attribute is added if the object does not already have that attribute:
 #LDAP_CONTAINER_ATTRS= {'objectClass': ('top', 'uioUntypedObject')}
 # (uioUntypedObject is an object class which allows the 'cn' in the RDNs.)
 #
