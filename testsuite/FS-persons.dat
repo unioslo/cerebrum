@@ -1,7 +1,26 @@
-F','10136','38728','Normann','En','','Filleveien 32','100','0100 OSLO','','22850001','22850011','','','185','13','6','16
-F','710571','7345','Normann','To','','Slogvær 4','200','0200 OSLO','','','22850002','22850022','','185','13','1','80
-F','200676','47972','Normann','Tre','','Bobveien 20','300','0300 OSLO','','22850003','22850033','','','185','12','4','0
-S','305358','90168','Normann','Fire','','Inversibelstien 3','400','0400 OSLO','','','','','4400 Skomvær','Norge','J
-S','10154','49256','Normann','Fema','','Solskogen 43','500','0500 OSLO','','','','','5500 Månedalen','Norge','J
-E','200353','22052','Normann','Seksa','','','','','','','','','','','
-E','190554','30813','Normann','Syva','','Slangeheia  42','700','0700 OSLO','','','','','7700 Fjernvik','','N
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<data>
+<fagperson fodselsdato="410234" personnr="67893" etternavn="Normann" fornavn="En" 
+ adrlin1_arbeide="En gate 1" postnr_arbeide="1313" adrlin3_arbeide="1313 Andeby" 
+ institusjonsnr="185" faknr="33" instituttnr="15" gruppenr="10"/>
+
+<fagperson fodselsdato="410234" personnr="67974" etternavn="Normann" fornavn="To" 
+ adrlin1_arbeide="Gata 2" postnr_arbeide="1313" adrlin3_arbeide="1313 Andeby" 
+ institusjonsnr="185" faknr="33" instituttnr="15" gruppenr="10"/>
+
+<fagperson fodselsdato="410234" personnr="68091" etternavn="Normann" fornavn="Tre" 
+ adrlin1_arbeide="Gata 3" postnr_arbeide="1313" adrlin3_arbeide="1313 Andeby" 
+ institusjonsnr="185" faknr="33" instituttnr="15" gruppenr="10"/>
+
+<student fodselsdato="410234" personnr="68172" etternavn="Normann" fornavn="Fire" 
+ adrlin1_semadr="En gate 1" postnr_semadr="1313" adrlin3_semadr="1313 Andeby"/>
+
+<student fodselsdato="410234" personnr="68253" etternavn="Normann" fornavn="Fema" 
+ adrlin1_semadr="Gata 2" postnr_semadr="1313" adrlin3_semadr="1313 Andeby"/>
+
+<evu fodselsdato="410234" personnr="68334" etternavn="Norman" fornavn="Seksa" 
+ adrlin1_hjem="Gata 3" postnr_hjem="1313" adrlin3_hjem="1313 Andeby"/>
+
+<evu fodselsdato="410234" personnr="68415" etternavn="Norman" fornavn="Syva" 
+ adrlin1_hjem="Gata 4" postnr_hjem="1313" adrlin3_hjem="1313 Andeby"/>
+</data>
