@@ -366,6 +366,21 @@ class Group(EntityName, Entity):
         FROM [:table schema=cerebrum name=group_info] %s""" % where,
                           {'spread': spread, 'etype': int(self.const.entity_group)})
 
+    def list_all_test(self, spread=None):
+        where = spreads = ""
+        if spread is not None:
+            spread1 = int(spread[0])
+            spread.remove(spread1)
+            if spread:
+                for entry in spread:
+                    spreads += " OR es.spread=%s" % int(entry)
+            where = """gi, [:table schema=cerebrum name=entity_spread] es
+            WHERE gi.group_id=es.entity_id AND es.entity_type=:etype AND (es.spread=%s %s)""" % (spread1,spreads)
+        return self.query("""
+        SELECT DISTINCT group_id
+        FROM [:table schema=cerebrum name=group_info] %s""" % where,
+                          {'etype': int(self.const.entity_group)})
+
 # Python 2.3 has a 'set' module in the standard library; for now we'll
 # roll our own.
 def intersect(a, b):
