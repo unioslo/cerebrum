@@ -19,18 +19,13 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import time
-import re
-import string
-import sys
-import getopt
-import base64
-import os
+import time, re, string, sys, getopt, base64, os
 
 import cerebrum_path
 import cereconf  
 from Cerebrum import Errors
 from Cerebrum import Entity
+from Cerebrum.extlib import logging
 from Cerebrum.Utils import Factory, latin1_to_iso646_60, SimilarSizeWriter
 from Cerebrum.modules.no import Stedkode
 from Cerebrum.modules import PosixUser
@@ -40,6 +35,10 @@ from Cerebrum.Constants import _SpreadCode
 
 Cerebrum = Factory.get('Database')()
 co = Factory.get('Constants')(Cerebrum)
+
+logging.fileConfig(cereconf.LOGGING_CONFIGFILE)
+logger = logging.getLogger("cronjob")
+
 ou_struct = {}
 entity2uname = {}
 affiliation_code = {}
@@ -88,7 +87,6 @@ def init_ldap_dump(ou_org,filename=None):
 	f = file(filename, 'w')
     else:
 	f = file(cereconf.LDAP_DUMP_DIR + "/" + cereconf.LDAP_ORG_FILE, 'w')
-    print "Generate organization"
     init_str = "dn: %s\n" % (cereconf.LDAP_BASE)    
     init_str += "objectClass: top\n"
     for oc in cereconf.LDAP_BASE_OBJECTCLASS:
@@ -190,7 +188,9 @@ def root_OU():
     ou = Factory.get('OU')(Cerebrum)
     root_id=ou.root()
     if len(root_id) > 1:
-	text1 = "You have %d roots in your organization-tree. Cerebrum only support 1.\n" % (len(root_id))
+	text1 = """
+You have %d roots in your organization-tree. Cerebrum only support 1.\n""" % \
+								(len(root_id))
         sys.stdout.write(text1)
     	for p in root_id:
             root_org = Cerebrum.pythonify_data(p['ou_id'])
@@ -200,7 +200,7 @@ def root_OU():
 	    sys.stdout.write(text2)
 	text3 = """
 Fill in the right organization-root in cereconf!
-Set LDAP_ORG_ROOT_AUTO='Disable' and LDAP_ORG_ROOT to the correct ou_id number!"""
+Set LDAP_ORG_ROOT_AUTO='Disable' and LDAP_ORG_ROOT to the correct ou_id no.!"""
 	sys.stdout.write(text3)
 	org_root = None
 	return(org_root)
@@ -211,7 +211,8 @@ Set LDAP_ORG_ROOT_AUTO='Disable' and LDAP_ORG_ROOT to the correct ou_id number!"
 def generate_org(ou_id,filename=None):
     ou = Factory.get('OU')(Cerebrum)
     ou_list = ou.get_structure_mappings(co.perspective_lt)
-    ou_string = "%s=%s,%s" % (cereconf.LDAP_ORG_ATTR,cereconf.LDAP_ORG_DN, cereconf.LDAP_BASE)
+    ou_string = "%s=%s,%s" % (cereconf.LDAP_ORG_ATTR,cereconf.LDAP_ORG_DN, 
+						cereconf.LDAP_BASE)
     trav_list(ou_id, ou_list, ou_string, filename)
     stedkode = Stedkode.Stedkode(Cerebrum)
     if (cereconf.LDAP_PRINT_NONE_ROOT == 'Enable'):
@@ -226,7 +227,9 @@ def generate_org(ou_id,filename=None):
 			stedkodestr = "%02d%02d%02d" % (stedkode.fakultet,
                                                         stedkode.institutt,
                                                         stedkode.avdeling)
-			par_ou = "%s=%s,%s" % (cereconf.LDAP_ORG_ATTR,cereconf.LDAP_NON_ROOT_ATTR,ou_string)
+			par_ou = "%s=%s,%s" % (cereconf.LDAP_ORG_ATTR,
+						cereconf.LDAP_NON_ROOT_ATTR,
+						ou_string)
 			str_ou = print_OU(non_org, par_ou, stedkodestr, filename)
     
 def print_OU(id, par_ou, stedkodestr,par, filename=None):
@@ -247,7 +250,8 @@ def print_OU(id, par_ou, stedkodestr,par, filename=None):
 	ou_dn = make_ou_for_rdn(some2utf(ou.short_name))
     str_ou = "%s=%s,%s" % (cereconf.LDAP_ORG_ATTR,ou_dn,par_ou)
     if dn_dict.has_key(str_ou):
-        str_ou = "%s=%s+norOrgUnitNumber=%s,%s" % (cereconf.LDAP_ORG_ATTR,ou_dn,stedkodestr,par_ou)
+        str_ou = "%s=%s+norOrgUnitNumber=%s,%s" % (cereconf.LDAP_ORG_ATTR,
+						ou_dn,stedkodestr,par_ou)
     dn_dict[str_ou] = stedkodestr
     ou_str = "dn: %s\n" % str_ou
     ou_str += "objectClass: top\n"
@@ -257,7 +261,8 @@ def print_OU(id, par_ou, stedkodestr,par, filename=None):
 	for ou_fax in fax_tab[id]:
 	    ou_str += "facsimileTelephoneNumber: %s\n" % ou_fax
     try: 
-	ou_email = get_contacts(entity_id=id,contact_type=int(co.contact_email),email=1)
+	ou_email = get_contacts(entity_id=id,contact_type=int(co.contact_email),
+									email=1)
     except:
         pass
     else:
@@ -315,7 +320,8 @@ def print_OU(id, par_ou, stedkodestr,par, filename=None):
 		break
     for dd in cereconf.SYSTEM_LOOKUP_ORDER:
 	try:
-            street_addr = ou.get_entity_address(int(getattr(co, dd)), co.address_street)
+            street_addr = ou.get_entity_address(int(getattr(co, dd)), 
+							co.address_street)
 	except:
             pass
         else:
@@ -386,7 +392,8 @@ def generate_person(filename=None):
 	objclass_string += "objectclass: %s\n" % objclass
     dn_attr = cereconf.LDAP_PERSON_ATTR
     dn_base = "%s" % cereconf.LDAP_BASE
-    dn_string = "%s=%s,%s" % (cereconf.LDAP_ORG_ATTR,cereconf.LDAP_PERSON_DN,dn_base) 
+    dn_string = "%s=%s,%s" % (cereconf.LDAP_ORG_ATTR,
+				cereconf.LDAP_PERSON_DN,dn_base) 
     person_spread = acl_spread = None
     valid_print_affi = []
     valid_phaddr_affi = []
@@ -432,8 +439,9 @@ def generate_person(filename=None):
     affili_stu = "student"
     affili_em = "employee"
     for row in person.list_extended_person(person_spread,
-				include_quarantines = True, include_mail = email_enable):
-	name,entity_name,ou_id,affili,status = row['name'],row['entity_name'],row['ou_id'],row['affiliation'],int(row['status'])
+			include_quarantines=True, include_mail=email_enable):
+	name,entity_name,ou_id,affili,status = row['name'],row['entity_name'],\
+			row['ou_id'],row['affiliation'],int(row['status'])
 	person.clear()
         person.entity_id = row['person_id']
 	p_affiliations = person.get_affiliations()
@@ -460,8 +468,9 @@ def generate_person(filename=None):
   	    utf_name = some2utf(name)
 	    pers_string += "cn: %s\n" % utf_name
 	    if row['birth_date']:
-		pers_string += "birthDate: %s\n" % (time.strftime("%d%m%y",time.strptime(str(row['birth_date']),
-									"%Y-%m-%d %H:%M:%S.00")))
+		pers_string += "birthDate: %s\n" % (time.strftime("%d%m%y",
+					time.strptime(str(row['birth_date']),
+					"%Y-%m-%d %H:%M:%S.00")))
 	    pers_string += "norSSN: %s\n" % re.sub('\D','',row['external_id'])
 	    pers_string += "eduPersonOrgDN: %s\n" % dn_base
 	    try:
@@ -473,7 +482,9 @@ def generate_person(filename=None):
 			par = int(ou_struct[int(par)][5])
 		    prim_org = (ou_struct[par][0])
 	    except:
-		prim_org = "%s=%s,%s" % (cereconf.LDAP_ORG_ATTR,cereconf.LDAP_DUMMY_DN,cereconf.LDAP_BASE)
+		prim_org = "%s=%s,%s" % (cereconf.LDAP_ORG_ATTR,
+					cereconf.LDAP_DUMMY_DN,
+					cereconf.LDAP_BASE)
 	    if (prim_org.find(cereconf.LDAP_ORG_DN) == -1):
 		prim_org = "%s=%s,%s" % (cereconf.LDAP_ORG_ATTR,
                                          cereconf.LDAP_DUMMY_DN,
@@ -485,15 +496,18 @@ def generate_person(filename=None):
 	    for edu_org in p_affiliations:
 		try:
 		    org = ou_struct[int(edu_org['ou_id'])][0]
-		    if org not in org_printed and (ou_struct[int(edu_org['ou_id'])][5] == None):
+		    if org not in org_printed and \
+				(ou_struct[int(edu_org['ou_id'])][5]==None):
 			pers_string += "eduPersonOrgUnitDN: %s\n" % org
 			org_printed.append(org)
 		except: pass
-	    pers_string += "eduPersonPrincipalName: %s@%s\n" % (entity_name, cereconf.LDAP_BASE_DOMAIN)
+	    pers_string += "eduPersonPrincipalName: %s@%s\n" % (entity_name, 
+						cereconf.LDAP_BASE_DOMAIN)
 	    lastname = name
 	    for sys in cereconf.SYSTEM_LOOKUP_ORDER:
 		try:
-		    pers_string += "givenName: %s\n" % some2utf(person.get_name(getattr(co,sys),co.name_first))
+		    pers_string += "givenName: %s\n" % \
+			some2utf(person.get_name(getattr(co,sys),co.name_first))
 		    lastname = person.get_name(getattr(co,sys),co.name_last)
 		    break
 		except:
@@ -502,11 +516,14 @@ def generate_person(filename=None):
 	    	if row['local_part'] and row['domain']:
 		    domain = row['domain']
 		    if email_domains and email_domains.has_key(domain):
-			pers_string += "mail: %s@%s\n" % (row['local_part'],email_domains[domain])
+			pers_string += "mail: %s@%s\n" % (row['local_part'],
+							email_domains[domain])
 		    else:
-			pers_string += "mail: %s@%s\n" % (row['local_part'],domain)
+			pers_string += "mail: %s@%s\n" % (row['local_part'],
+									domain)
 	    else:
-		pers_string += "mail: %s\n" % person.get_contact_info(source=None,type=co.contact_email)
+		pers_string += "mail: %s\n" % person.get_contact_info(source=None,
+							type=co.contact_email)
 	    if lastname:
 		pers_string += "sn: %s\n" % some2utf(lastname)
 	    if print_phaddr:
@@ -527,7 +544,8 @@ def generate_person(filename=None):
 					row['country'])
 		    pers_string += "street: %s\n" % street_string
 		if row['personal_title']:
-		    pers_string += "title: %s\n" % some2utf(row['personal_title'])
+		    pers_string += "title: %s\n" % \
+				some2utf(row['personal_title'])
 		else:
      		    if row['title']:
 			pers_string += "title: %s\n" % some2utf(row['title'])
@@ -553,13 +571,14 @@ def generate_person(filename=None):
 			affili_str += 'faculty'
                 if (int(affi['affiliation']) == int(co.affiliation_student)):
                     if (affili_str.find(affili_stu) == -1):
-                        pers_string += "eduPersonAffiliation: %s\n" % affili_stu
+                        pers_string +="eduPersonAffiliation: %s\n" % affili_stu
                         affili_str += affili_stu
 	    pers_string += "uid: %s\n" % entity_name
 	    passwd = row['auth_data']
 	    if passwd:
 		if row['quarantine_type'] is not None:
-            	    qh = QuarantineHandler.QuarantineHandler(Cerebrum, [row['quarantine_type']])
+            	    qh = QuarantineHandler.QuarantineHandler(Cerebrum, 
+						[row['quarantine_type']])
             	    if qh.should_skip():
 			continue
             	    if qh.is_locked():
@@ -570,9 +589,11 @@ def generate_person(filename=None):
 	    #if aci_person  and (int(person.entity_id)  not in aci_empl_gr):
 	    if aci_person  and not aci_empl_gr.has_key(int(person.entity_id)):
 		pers_string += "%s\n" % cereconf.LDAP_PERSON_ACI
-	    elif (aci_student_gr.has_key(int(person.entity_id))) and not aci_person:
+	    elif (aci_student_gr.has_key(int(person.entity_id))) and \
+							not aci_person:
 		pers_string += "%s\n" % cereconf.LDAP_PERSON_ACI
-	    alias_list[int(person.entity_id)] = entity_name,prim_org,name,lastname
+	    alias_list[int(person.entity_id)] = entity_name, prim_org,\
+							name, lastname
 	    f.write("\n")
 	    f.write(pers_string)
 	else:
@@ -581,7 +602,8 @@ def generate_person(filename=None):
 
 def generate_alias(filename=None):
     person = Factory.get('Person')(Cerebrum)
-    dn_string = "%s=%s,%s" % (cereconf.LDAP_ORG_ATTR,cereconf.LDAP_PERSON_DN,cereconf.LDAP_BASE)
+    dn_string = "%s=%s,%s" % (cereconf.LDAP_ORG_ATTR,cereconf.LDAP_PERSON_DN,
+							cereconf.LDAP_BASE)
     if filename:
 	f = file(filename,'a')
     else:
@@ -603,7 +625,8 @@ def generate_alias(filename=None):
 		alias_str += "\ncn: %s" % some2utf(name)
 	    if lastname:
 		alias_str += "\nsn: %s" % some2utf(lastname)
-	    alias_str += "\naliasedObjectName: uid=%s,%s" % (entity_name,dn_string)
+	    alias_str += "\naliasedObjectName: uid=%s,%s" % (entity_name,
+								dn_string)
 	    f.write("\n")
 	    f.write(alias_str)
     f.close()
@@ -619,7 +642,8 @@ def generate_users(spread=None,filename=None):
     disks = {}
     for hd in disk.list(spread=spreads[0]):
 	disks[int(hd['disk_id'])] = hd['path']  
-    posix_dn = ",%s=%s,%s" % (cereconf.LDAP_ORG_ATTR,cereconf.LDAP_USER_DN,cereconf.LDAP_BASE)
+    posix_dn = ",%s=%s,%s" % (cereconf.LDAP_ORG_ATTR,cereconf.LDAP_USER_DN,
+							cereconf.LDAP_BASE)
     posix_dn_string = "%s=" % cereconf.LDAP_USER_ATTR
     obj_string = "objectClass: top\n"
     for obj in cereconf.LDAP_USER_OBJECTCLASS:
@@ -793,7 +817,8 @@ def get_netgrp(netgrp_id, spreads, u_spreads, f):
         if ('_' not in uname) and not grp_memb.has_key(uname_id):
             f.write("nisNetgroupTriple: (,%s,)\n" % uname)
             grp_memb[uname_id] = True
-    for group in pos_netgrp.list_members(None, int(co.entity_group),get_entity_name=True)[0]:
+    for group in pos_netgrp.list_members(None, int(co.entity_group),
+						get_entity_name=True)[0]:
         pos_netgrp.clear()
         pos_netgrp.entity_id = int(group[1])
 	if True in ([pos_netgrp.has_spread(x) for x in spreads]):
@@ -951,12 +976,27 @@ def make_attr(name, strings, normalize = None, verify = None, raw = False):
 
     return ''.join(ret)
 
+def disable_ldapsync_mode():
+    try: 
+	from Cerebrum.modules import LdapCall
+	ldap_servers = cereconf.LDAP_SERVER 
+    except: 
+	logger.debug('No active LDAP-sync severs or missing python-LDAP module')
+    else:
+	s_list = LdapCall.ldap_connect()
+	#ldif_list = modlist.addModlist(LdapCall.ldap_update_tag[1])
+	LdapCall.add_disable_sync(s_list)
+	LdapCall.end_session(s_list)
+	
+	
+
 
 def main():
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'u:g:n:U:G:N:po',
-                                   ['help', 'group=','org=','user=','netgroup_spread=',
-                                    'group_spread=','user_spread=', 'netgroup=','posix'])
+					['help', 'group=','org=','user=',
+					'netgroup_spread=', 'group_spread=',
+					'user_spread=', 'netgroup=','posix'])
     except getopt.GetoptError:
         usage(1)
 
@@ -1010,26 +1050,26 @@ def main():
 def usage(exitcode=0):
     print """Usage: [options]
 
-   No option will generate a full dump with default values from cereconf.
+ No option will generate a full dump with default values from cereconf.
 
-    --org=<outfile>
-        Write organization, person and alias to a LDIF-file
+  --org=<outfile>
+      Write organization, person and alias to a LDIF-file
 
-    --user=<outfile>| -u <outfile> --user_spread=<value>|-U <value>
-        Write users to a LDIF-file
+  --user=<outfile>| -u <outfile> --user_spread=<value>|-U <value>
+      Write users to a LDIF-file
 
-    --group=<outfile>| -g <outfile>  --group_spread=<value>|-G <value> -U <value>
-        Write posix groups to a LDIF-file
+  --group=<outfile>| -g <outfile>  --group_spread=<value>|-G <value> -U <value>
+      Write posix groups to a LDIF-file
 
-    --netgroup=<outfile>| -n <outfile> --netgroup_spread=<value>|-N <value> -U <value>
-        Write netgroup map to a LDIF-file
+  --netgroup=<outfile>| -n <outfile> --netgroup_spread=<value>|-N <val> -U <val>
+      Write netgroup map to a LDIF-file
 
-    --posix
-        write all posix-user,-group and -netgroup
-        from default cereconf parameters
+  --posix
+      write all posix-user,-group and -netgroup
+      from default cereconf parameters
 
-    Both --user_spread, --netgroup_spread  and --group_spread can handle
-    multiple spread-values (<value> | <value1>,<value2>,,,)"""
+  Both --user_spread, --netgroup_spread  and --group_spread can handle
+  multiple spread-values (<value> | <value1>,<value2>,,,)"""
     sys.exit(exitcode)
 
 def config():
