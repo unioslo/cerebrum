@@ -188,7 +188,7 @@ class EntityName(object):
                                  {'domain': int(domain),
                                   'name': name})
         # Populate all of self's class (and base class) attributes.
-        self.find(self, entity_id)
+        self.find(entity_id)
 
 class EntityContactInfo(object):
     "Mixin class, usable alongside Entity for entities having contact info."
