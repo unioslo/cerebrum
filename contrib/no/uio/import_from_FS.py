@@ -37,6 +37,7 @@ from Cerebrum.Utils import Factory
 
 default_person_file = "/cerebrum/dumps/FS/persons.xml"
 default_emne_file = "/cerebrum/dumps/FS/emner.xml"
+default_role_file = "/cerebrum/dumps/FS/roles.xml"
 default_topics_file = "/cerebrum/dumps/FS/topics.xml"
 default_studieprogram_file = "/cerebrum/dumps/FS/studieprogrammer.xml"
 default_regkort_file = "/cerebrum/dumps/FS/regkort.xml"
@@ -211,6 +212,15 @@ def write_emne_info(outfile):
         f.write(xml.xmlify_dbrow(t, xml.conv_colnames(cols), 'emne') + "\n")
     f.write("</data>\n")
 
+def write_personrole_info(outfile):
+    """Lager fil med informasjon om alle roller definer i FS.PERSONROLLE"""
+    f=open(outfile, 'w')
+    f.write(xml.xml_hdr + "<data>\n")
+    cols, dta = _ext_cols(fs.undervisning.list_alle_personroller())
+    for t in dta:
+        f.write(xml.xmlify_dbrow(t, xml.conv_colnames(cols), 'rolle') + "\n")
+    f.write("</data>\n")
+
 def write_misc_info(outfile, tag, func_name):
     """Lager fil med data fra gitt funksjon i access_FS"""
     f=open(outfile, 'w')
@@ -288,6 +298,7 @@ def usage(exitcode=0):
     --ou-file name: override ou xml filename
     --db-user name: connect with given database username
     --db-service name: connect to given database
+    --role-file name: override person role xml filename
     -p: generate person xml file
     -t: generate topics xml file
     -e: generate emne xml file
@@ -295,7 +306,9 @@ def usage(exitcode=0):
     -f: generate fnr xml update file
     -s: generate studprog xml file
     -r: generate regkort xml file
+    -k: generate person role xml file
     -o: generate ou xml file
+
     """
     sys.exit(exitcode)
 
@@ -308,13 +321,13 @@ def assert_connected(user="ureg2000", service="FSPROD.uio.no"):
 
 def main():
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "ptsroefb",
+        opts, args = getopt.getopt(sys.argv[1:], "ptsroefbk",
                                    ["person-file=", "topics-file=",
                                     "studprog-file=", "regkort-file=",
                                     'emne-file=', "ou-file=", "db-user=",
                                     'fnr-update-file=', 'betalt-papir-file=',
-                                    "db-service=", "misc-func=", "misc-file=",
-                                    "misc-tag="])
+				    'role-file=', "db-service=", "misc-func=", 
+                                    "misc-file=", "misc-tag="])
     except getopt.GetoptError:
         usage()
         sys.exit(2)
@@ -325,6 +338,7 @@ def main():
     regkort_file = default_regkort_file
     emne_file = default_emne_file
     ou_file = default_ou_file
+    role_file = default_role_file
     fnrupdate_file = default_fnrupdate_file
     betalt_papir_file = default_betalt_papir_file
     db_user = None         # TBD: cereconf value?
@@ -346,6 +360,8 @@ def main():
             fnrupdate_file = val
         elif o in ('--betalt-papir-file',):
             betalt_papir_file = val
+	elif o in('--role-file',):
+	    role_file = val
         elif o in ('--db-user',):
             db_user = val
         elif o in ('--db-service',):
@@ -368,6 +384,8 @@ def main():
             write_regkort_info(regkort_file)
         elif o in ('-o',):
             write_ou_info(ou_file)
+	elif o in ('-k',):
+	    write_personrole_info(role_file)
         # We want misc-* to be able to produce multiple file in one script-run
         elif o in ('--misc-func',):
             misc_func = val
