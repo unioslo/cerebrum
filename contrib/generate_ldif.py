@@ -187,7 +187,7 @@ def root_OU():
 
 def generate_org(ou_id,filename=None):
     ou = OU.OU(Cerebrum)
-    ou_list = ou.get_structure_mappings(int(getattr(co, cereconf.ORG_PERSPECTIVE)))
+    ou_list = ou.get_structure_mappings(co.perspective_lt)
     ou_string = "%s=%s,%s" % (cereconf.ORG_ATTR,cereconf.ORG_DN, cereconf.LDAP_BASE)
     trav_list(ou_id, ou_list, ou_string, filename)
     stedkode = Stedkode.Stedkode(Cerebrum)
@@ -318,7 +318,7 @@ def print_OU(id, par_ou, stedkodestr,par, filename=None):
 	        ou_phones += phone + '$'
     except: pass
     if par:
-	ou_struct[int(id)]= str_ou,post_string,street_string,ou_phones,ou_faxs,int(par),int(id)
+	ou_struct[int(id)]= str_ou,post_string,street_string,ou_phones,ou_faxs,int(par)
 	f.close()
 	return par_ou
     else:
@@ -351,6 +351,7 @@ def trav_list(par, ou_list, par_ou,filename=None):
 
 def generate_person(filename=None):
     person = Person.Person(Cerebrum)
+    group = Group.Group(Cerebrum)
     if filename:
 	f = file(filename, 'a')
     else:
@@ -363,6 +364,25 @@ def generate_person(filename=None):
     dn_base = "%s" % cereconf.LDAP_BASE
     dn_string = "%s=%s,%s" % (cereconf.ORG_ATTR,cereconf.PERSON_DN,dn_base) 
     person_spread = acl_spread = None
+    aci_empl_gr = valid_print_affi = []
+    aci_student_gr = {}
+    try: 
+	for status in cereconf.PERSON_LIST_AFFI:
+	    valid_print_affi.append(int(getattr(co,status)))
+    except: pass
+    try:
+	group.find_by_name(str(cereconf.PERSON_LT_NOT_PUBLIC))
+	#res_gr = group.list_members(member_type=co.entity_person)[0]
+	for entries in group.list_members(member_type=co.entity_person)[0]:
+	    aci_empl_gr.append(entries[1])
+	    #print entries[1]
+    except: pass
+    group.clear()
+    try: 
+	group.find_by_name(str(cereconf.PERSON_FS_PUBLIC))
+	for entries in group.list_members(member_type=co.entity_person)[0]:
+	    aci_student_gr[int(entries[1])] = '1'
+    except Errors.NotFoundError: pass
     try:  person_spread = int(getattr(co,cereconf.PERSON_SPREAD))
     except:  pass
     try:  acl_spread = int(cereconf.PERSON_ACL_SPREAD) 
@@ -374,11 +394,19 @@ def generate_person(filename=None):
     except: pass
     affili_stu = "student"
     affili_em = "employee"
-    for row in person.list_extended_person(person_spread,
-                                           include_quarantines=1,
-                                           incl_mail=cereconf.PERSON_LIST_MAIL):
-	name,entity_name,ou_id,affili = row['name'],row['entity_name'],row['ou_id'],row['affiliation']
-	if row['external_id'] and (affili == int(co.affiliation_ansatt) or affili == int(co.affiliation_student)): # and not alias_list[int(row['person_id'])]; # Sjekker for en entry
+    for row in person.list_extended_person(person_spread, include_quarantines=1):
+	name,entity_name,ou_id,affili,status = row['name'],row['entity_name'],row['ou_id'],row['affiliation'],int(row['status'])
+	person.clear()
+        person.entity_id = row['person_id']
+	p_affiliations = person.get_affiliations()
+	aci_person = print_person = 'F'
+	for pr_status in p_affiliations:
+	    if (int(pr_status['status'])) in valid_print_affi:
+		print_person = 'T'
+		if (int(pr_status['affiliation']) == int(co.affiliation_ansatt)):
+		    aci_person = 'T' 
+		    break
+	if print_person == 'T':
 	    person.clear()
 	    person.entity_id = row['person_id']
 	    pers_string = "dn: %s=%s,%s\n" % (dn_attr,entity_name,dn_string)
@@ -395,11 +423,8 @@ def generate_person(filename=None):
 	    	    prim_org = (ou_struct[int(ou_id)][0])
 		else:
 		    par = int(ou_struct[int(ou_id)][5])
-		    tt = par
-		    xx = ou_id
 		    while ou_struct[par][5] <> None:
 			par = int(ou_struct[int(par)][5])
-			print "Par2: %s %s %s %s" % (par,int(ou_struct[int(par)][6]),tt,xx)
 		    prim_org = (ou_struct[par][0])
 	    except:
 		prim_org = "%s=%s,%s" % (cereconf.ORG_ATTR,cereconf.DUMMY_DN,cereconf.LDAP_BASE)
@@ -407,13 +432,15 @@ def generate_person(filename=None):
 		prim_org = "%s=%s,%s" % (cereconf.ORG_ATTR,cereconf.DUMMY_DN,cereconf.LDAP_BASE)
 	    pers_string += "eduPersonPrimaryOrgUnitDN: %s\n" % prim_org
             p_affiliations = person.get_affiliations()
-	    org_printed = str('')
+	    org_printed = []
+	    pers_string += "eduPersonOrgUnitDN: %s\n" % prim_org
+	    org_printed.append(prim_org)
 	    for edu_org in p_affiliations:
 		try:
 		    org = ou_struct[int(edu_org['ou_id'])][0]
-		    if (string.find(org_printed,org) == -1):
+		    if org not in org_printed and (ou_struct[int(edu_org['ou_id'])][5] == None):
 			pers_string += "eduPersonOrgUnitDN: %s\n" % org
-			org_printed += org 
+			org_printed.append(org)
 		except: pass
 	    pers_string += "eduPersonPrincipalName: %s@%s\n" % (entity_name, cereconf.BASE_DOMAIN)
 	    lastname = name
@@ -424,7 +451,7 @@ def generate_person(filename=None):
 		    break
 		except:
 		    pass
-	    if cereconf.PERSON_LIST_MAIL and row['local_part'] and row['domain']:
+	    if row['local_part'] and row['domain']:
 		domain = row['domain']
 		if email_domains and email_domains.has_key(domain):
 		    pers_string += "mail: %s@%s\n" % (row['local_part'],email_domains[domain])
@@ -489,7 +516,9 @@ def generate_person(filename=None):
 		pers_string += "userPassword: {crypt}%s\n" % passwd
 	    else:
 		pers_string += "userPassword: {crypt}*Invalid\n"
-	    if acl_spread and person.has_spread(acl_spread):
+	    if (aci_person == 'T') and (int(person.entity_id)  not in aci_empl_gr):
+		pers_string += "%s\n" % cereconf.PERSON_LDAP_ACL
+	    elif  aci_student_gr.has_key(int(person.entity_id)): # (aci_student_gr[int(person.entity_id)]):
 		pers_string += "%s\n" % cereconf.PERSON_LDAP_ACL
 	    alias_list[int(person.entity_id)] = entity_name,prim_org,name,lastname
 	    f.write("\n")
@@ -501,6 +530,7 @@ def generate_person(filename=None):
 
 def generate_alias(filename=None):
     person = Person.Person(Cerebrum)
+    ou_struct = None
     dn_string = "%s=%s,%s" % (cereconf.ORG_ATTR,cereconf.PERSON_DN,cereconf.LDAP_BASE)
     if filename:
 	f = file(filename,'a')
@@ -535,7 +565,7 @@ def generate_users(spread=None,filename=None):
     spreads = []
     if spread:
 	#for entry in spread:
-        spreads.append(int(spread))
+ 	    spreads.append(int(spread))
     else:
 	for entry in cereconf.USER_SPREAD:
 	    spreads.append(int(getattr(co,entry)))
@@ -562,7 +592,12 @@ def generate_users(spread=None,filename=None):
 	    passwd = '{crypt}*Invalid'
 	else:
 	    passwd = "{crypt}%s" % row['auth_data']
-	cn = some2utf(row['name'])
+	if row['name']:
+	    cn = some2utf(row['name'])
+	elif gecos:
+	    cn = some2utf(gecos)
+	else:
+	    cn = uname
 	if gecos:
 	    gecos = latin1_to_iso646_60(some2iso(gecos))
 	else:
@@ -607,7 +642,7 @@ def generate_group(spread=None, filename=None):
     group = Group.Group(Cerebrum)
     pos_usr = PosixUser.PosixUser(Cerebrum)
     user_spread = int(getattr(co,cereconf.USER_SPREAD[0]))
-    print "user_spread: %s" % user_spread
+    #print "user_spread: %s" % user_spread
     if filename:
 	f = file(filename, 'w')
     else:
@@ -636,6 +671,7 @@ def generate_group(spread=None, filename=None):
 		if entity2uname.has_key(uname_id):
 		    pos_grp += "memberUid: %s\n" % entity2uname[uname_id]
 		else:
+		    print "ID ikke funnet i tab: %s" % uname_id
  		    posix_group.clear()
 		    posix_group.entity_id = uname_id
 		    mem_name = posix_group.get_name(co.account_namespace)
@@ -687,15 +723,15 @@ def generate_netgroup(spread=None, filename=None):
 	    for id in members:
                 uname_id = int(id[1])
                 if entity2uname.has_key(uname_id):
-                    netgrp_str += "nisNetgroupTriple: (,%s,)\n" % re.sub('\W','',
-							entity2uname[uname_id]).replace('_','')
+                    #netgrp_str += "nisNetgroupTriple: (,%s,)\n" % re.sub('\W','',
+		    #					entity2uname[uname_id]).replace('_','')
+		    netgrp_str += "nisNetgroupTriple: (,%s,)\n" % entity2uname[uname_id].replace('_','')
                 else:
                     pos_netgrp.clear()
-		    #posix_user.clear()
                     pos_netgrp.entity_id = uname_id
-		    #posix_user.entity_id = uname_id
-                    netgrp_str += "nisNetgroupTriple: (,%s,)\n" % re.sub('\W','',
-							pos_netgrp.get_name(co.account_namespace)).replace('_','')
+                    #netgrp_str += "nisNetgroupTriple: (,%s,)\n" % re.sub('\W','',
+		    #					pos_netgrp.get_name(co.account_namespace)).replace('_','')
+		    netgrp_str += "nisNetgroupTriple: (,%s,)\n" % entity2uname[uname_id].replace('_','')
 #	    for host in hosts:
 #		host_id = int(host[1])
 #		if entity2uname.has_key(host_id):
@@ -854,14 +890,16 @@ def main():
 	elif opt in ('-p', '--person'):
             generate_person(val)
 	elif opt in ('-u', '--user'):
-            generate_users(user_spread, val)
+            #generate_users(user_spread, val)
+	    generate_users()
 	elif opt in ('-g', '--group'):
 	    #load_entity2uname()
 	    #generate_posixgroup()
 	    generate_group(group_spread, val)
 	elif opt in ('-n', '--netgroup'):
 	    #load_entity2uname()
-	    generate_netgroup(group_spread, val)
+	    #generate_netgroup(group_spread, val)
+	    generate_netgroup()
 	elif opt in ('--user_spread',):
 	    user_spread = map_spread(val)
 	elif opt in ('--group_spread',):
