@@ -31,6 +31,7 @@ import sys
 import crypt
 import md5
 import socket
+import time
 import pickle
 import SimpleXMLRPCServer
 import xmlrpclib
@@ -69,6 +70,30 @@ class BofhdSession(object):
         self._id = id
         self._entity_id = None
 
+
+    def _remove_old_sessions(self):
+        """We remove any authenticated session-ids that was
+        authenticated more than 1 week ago, or hasn't been used
+        frequently enough to have last_seen < 1 day"""
+        auth_threshold = time.time() - 3600*24*7
+        seen_threshold = time.time() - 3600*24
+        auth_threshold = self._db.TimestampFromTicks(auth_threshold)
+        seen_threshold = self._db.TimestampFromTicks(seen_threshold)
+        self._db.execute("""
+        DELETE FROM [:table schema=cerebrum name=bofhd_session_state]
+        WHERE exists (SELECT 'foo'
+                      FROM[:table schema=cerebrum name=bofhd_session]
+                      WHERE bofhd_session.session_id = bofhd_session_state.session_id AND
+                            (bofhd_session.auth_time < :auth OR
+                             bofhd_session.last_seen < :last))""",
+                         {'auth': auth_threshold,
+                          'last': seen_threshold})
+        self._db.execute("""
+        DELETE FROM [:table schema=cerebrum name=bofhd_session]
+        WHERE auth_time < :auth OR last_seen < :last""",
+                         {'auth': auth_threshold,
+                          'last': seen_threshold})
+        
     # TODO: we should remove all state information older than N
     # seconds
     def set_authenticated_entity(self, entity_id):
@@ -79,7 +104,11 @@ class BofhdSession(object):
         authentication must be done before calling this method.
 
         """
-        r = Random().random()           # TODO: strong-random
+        try:
+            f = open('/dev/random')
+            r = f.read(48)
+        except IOError:
+            r = Random().random()
         # TBD: We might want to assert that `entity_id` does in fact
         # exist (if that isn't taken care of by constraints on table
         # 'bofhd_session').
@@ -89,8 +118,8 @@ class BofhdSession(object):
         # rows for the same `entity_id`?
         self._db.execute("""
         INSERT INTO [:table schema=cerebrum name=bofhd_session]
-          (session_id, account_id, auth_time)
-        VALUES (:session_id, :account_id, [:now])""", {
+          (session_id, account_id, auth_time, last_seen)
+        VALUES (:session_id, :account_id, [:now], [:now])""", {
             'session_id': session_id,
             'account_id': entity_id
             })
@@ -110,8 +139,13 @@ class BofhdSession(object):
             SELECT account_id
             FROM [:table schema=cerebrum name=bofhd_session]
             WHERE session_id=:session_id""", {'session_id': self._id})
+            if (int(time.time()*10) % 10) == 0:   # about 10% propability of update
+                self._db.execute("""
+                UPDATE [:table schema=cerebrum name=bofhd_session]
+                SET last_seen=[:now]
+                WHERE session_id=:session_id""", {'session_id': self._id})
         except Errors.NotFoundError:
-            raise CerebrumError, "Authentication failure"
+            raise CerebrumError, "Authentication failure: session expired"
         return self._entity_id
 
     def store_state(self, state_type, state_data, entity_id=None):
@@ -157,6 +191,7 @@ class BofhdSession(object):
                 DELETE FROM [:table schema=cerebrum name=bofhd_session]
                 WHERE session_id=:session_id
                 """, {'session_id': self._id})
+        self._remove_old_sessions()
 
 class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
                           object):
