@@ -62,7 +62,12 @@ class AutoStud(object):
         pre_y, num_y = m_y.group(1), m_y.group(2)
         if pre_x <> pre_y:
             return cmp(pre_x, pre_y)
-        return cmp(int(num_x), int(num_y))
+        try:
+            return cmp(int(num_x), int(num_y))
+        except ValueError:
+            self._logger.warn("Unexpected disk name %s or %s" % (
+                              self.disks[x][0], self.disks[y][0]))
+            return cmp(pre_x, pre_y)
 
     def start_student_callbacks(self, student_file, callback_func):
         StudentInfo.StudentInfoParser(student_file, callback_func, self._logger)
