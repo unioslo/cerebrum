@@ -65,7 +65,7 @@ def generate_passwd(filename, spread=None):
     for s in posix_user.list_shells():
         shells[int(s['code'])] = s['shell']
     f = Utils.SimilarSizeWriter(filename, "w")
-    f.set_size_change_limit(5)
+    f.set_size_change_limit(10)
     n = 0
     diskid2path = {}
     disk = Factory.get('Disk')(db)
@@ -213,7 +213,10 @@ def generate_netgroup(filename, group_spread, user_spread):
                 if tmp_gname not in exported_groups:
                     break
             maxlen = MAX_LINE_LENGTH - (len(tmp_gname) + 1)
-            pos = line.index(" ", len(line) - maxlen)
+            if len(line) <= maxlen:
+                pos = 0
+            else:
+                pos = line.index(" ", len(line) - maxlen)
             f.write("%s %s\n" % (tmp_gname, line[pos+1:]))
             line = "%s %s" % (tmp_gname, line[:pos])
         f.write("%s %s\n" % (exported_groups[group_id], line))
@@ -268,7 +271,8 @@ def generate_group(filename, group_spread, user_spread):
                     else:
                         user_membership_count[id] = user_membership_count.get(id, 0) + 1
                         if user_membership_count[id] > max_group_memberships:
-                            print "Too many groups for %s" % entity2uname[id]
+                            print ("Too many groups for %s (%s)" %
+                                   (entity2uname[id], gname))
                         else:
                             members.append(entity2uname[id])
             else:
