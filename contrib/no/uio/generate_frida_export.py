@@ -165,10 +165,12 @@ class LTPersonRepresentation(object):
                   "Missing critical data for person: " + str(attributes))
         # fi
 
-        self.fnr = "%02d%02d%02d%5d" % (int(attributes["fodtdag"]),
-                                        int(attributes["fodtmnd"]),
-                                        int(attributes["fodtar"]),
-                                        int(attributes["personnr"]))
+        # NB! We 0-fill the 'personnr', as data from LT looks a bit funny
+        # every now and then
+        self.fnr = "%02d%02d%02d%05d" % (int(attributes["fodtdag"]),
+                                         int(attributes["fodtmnd"]),
+                                         int(attributes["fodtar"]),
+                                         int(attributes["personnr"]))
 
 
         # NB! This code might raise fodselsnr.InvalidFnrError
