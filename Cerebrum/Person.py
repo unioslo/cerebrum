@@ -70,7 +70,7 @@ class PersonName(object):
 
     def _set_name(self, source_system, variant, name):
         self.execute("""
-        INSERT INTO cerebrum.person_name (person_id, name_variant, source_system, name)
+        INSERT INTO [:table schema=cerebrum name=person_name] (person_id, name_variant, source_system, name)
         VALUES (:p_id, :n_variant, :s_system, :name)""",
                      {'p_id' : self.person_id, 'n_variant' : int(variant),
                       's_system' : int(source_system), 'name' : name})
@@ -105,7 +105,7 @@ class PersonName(object):
                 if not self._compare_names(type, as_object):
                     n = self._name_info.get(type)
                     self.execute("""
-                    UPDATE cerebrum.person_name
+                    UPDATE [:table schema=cerebrum name=person_name]
                     SET name=:name
                     WHERE person_id=:p_id AND source_system=:s_system AND
                        name_variant=:n_variant""",
@@ -118,7 +118,7 @@ class PersonName(object):
                     if self._name_info.has_key(type):
                         self._set_name(self._pn_affect_source, type, self._name_info[type])
                 elif str(msg) == "MissingSelf":
-                    self.execute("""DELETE cerebrum.person_name
+                    self.execute("""DELETE [:table schema=cerebrum name=person_name]
                                     WHERE person_id=:p_id AND source_system=:s_system
                                           AND name_variant=:n_variant""",
                                  {'p_id' : as_object.person_id,
@@ -174,10 +174,10 @@ class PersonAffiliation(object):
                 key = "%d-%d" % (ou_id, affect_type)
                 if not other.has_key(key):
                     self.execute("""
-                    INSERT INTO cerebrum.person_affiliation (person_id, ou_id, affiliation,
+                    INSERT INTO [:table schema=cerebrum name=person_affiliation] (person_id, ou_id, affiliation,
                        source_system, status, create_date, last_date)
                     VALUES (:p_id, :ou_id, :affiliation, :s_system, :status,
-                            SYSDATE, SYSDATE)""",
+                            [:now], [:now])""",
                                  {'p_id' : self.person_id, 'ou_id' : ou_id,
                                   'affiliation' : int(affect_type),
                                   's_system' : int(self._pa_affect_source),
@@ -185,7 +185,7 @@ class PersonAffiliation(object):
 
                 elif other[key] != int(status):
                     self.execute("""
-                    UPDATE cerebrum.person_affiliation SET status=:status
+                    UPDATE [:table schema=cerebrum name=person_affiliation] SET status=:status
                     WHERE person_id=:p_id AND ou_id=:ou_id AND affiliation=:affiliation
                           AND source_system=:s_system""",
                                  {'status' : int(status), 'p_id' : self.person_id,
@@ -196,7 +196,7 @@ class PersonAffiliation(object):
                 # TODO: We don't delete affiliations, we mark them as deleted
                 ou_id, affect_type = k.split('-')
                 self.execute("""
-                   DELETE cerebrum.person_affiliation
+                   DELETE [:table schema=cerebrum name=person_affiliation]
                    WHERE person_id=:p_id AND ou_id=:ou_id AND affiliation=:affiliation
                          AND source_system=:s_system""",
                              {'p_id' : self.person_id, 'ou_id' : int(ou_id),
@@ -205,7 +205,7 @@ class PersonAffiliation(object):
 
     def get_affiliations(self, source_system=None, affiliation=None, ou_id=None):
         qry = """SELECT source_system, ou_id, affiliation, status
-                 FROM cerebrum.person_affiliation WHERE person_id=:p_id"""
+                 FROM [:table schema=cerebrum name=person_affiliation] WHERE person_id=:p_id"""
         params = {'p_id' : self.person_id}
         for v in ('source_system', 'affiliation', 'ou_id'):
             val = locals().get(v, None)
@@ -295,7 +295,7 @@ class Person(Entity, EntityContactInfo, EntityAddress,
             self.person_id = super(Person, self).new(int(self.const.entity_person))
 
             self.execute("""
-            INSERT INTO cerebrum.person_info (entity_type, person_id,
+            INSERT INTO [:table schema=cerebrum name=person_info] (entity_type, person_id,
                export_id, birth_date, gender, deceased, description)
             VALUES (:e_type, :p_id, :exp_id, :b_date, :gender, :deceased, :desc)""",
                          {'e_type' : int(self.const.entity_person),
@@ -309,7 +309,7 @@ class Person(Entity, EntityContactInfo, EntityAddress,
             self.person_id = as_object.person_id
             
             self.execute("""
-            UPDATE cerebrum.person_info SET export_id=:exp_id, birth_date=:b_date,
+            UPDATE [:table schema=cerebrum name=person_info] SET export_id=:exp_id, birth_date=:b_date,
                gender=:gender, deceased=:deceased, description=:desc
             WHERE person_id=:p_id""",
                          {'exp_id' : 'exp-'+str(self.person_id), 'b_date' : self.birth_date,
@@ -347,7 +347,7 @@ class Person(Entity, EntityContactInfo, EntityAddress,
          self.deceased, self.description) = self.query_1(
             """SELECT person_id, export_id, birth_date, gender,
                       deceased, description
-               FROM cerebrum.person_info
+               FROM [:table schema=cerebrum name=person_info]
                WHERE person_id=:p_id""", {'p_id' : person_id})
         super(Person, self).find(person_id)
 
@@ -357,7 +357,7 @@ class Person(Entity, EntityContactInfo, EntityAddress,
 
     def _set_external_id(self, source_system, id_type, external_id):
         self.execute("""
-        INSERT INTO cerebrum.person_external_id(person_id, id_type, source_system, external_id)
+        INSERT INTO [:table schema=cerebrum name=person_external_id] (person_id, id_type, source_system, external_id)
         VALUES (:p_id, :id_type, :s_system, :ext_id)""",
                      {'p_id' : self.person_id, 'id_type' : int(id_type),
                       's_system' : int(source_system), 'ext_id' : external_id})
@@ -366,13 +366,13 @@ class Person(Entity, EntityContactInfo, EntityAddress,
 
     def find_persons_by_bdate(self, bdate):
         return Utils.keep_entries(self.query(
-            """SELECT person_id FROM cerebrum.person_info
+            """SELECT person_id FROM [:table schema=cerebrum name=person_info]
                WHERE to_char(birth_date, 'YYYY-MM-DD')=:bdate""", {'bdate' : bdate}))
 
     def find_by_external_id(self, id_type, external_id):
         person_id = self.query_1("""
         SELECT person_id
-        FROM cerebrum.person_external_id
+        FROM [:table schema=cerebrum name=person_external_id]
         WHERE id_type=:id_type AND external_id=:ext_id""",
                                  {'id_type' : int(id_type), 'ext_id' : external_id})
         self.find(person_id)
