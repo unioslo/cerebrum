@@ -56,7 +56,6 @@ from Cerebrum.modules.Email import _EmailSpamLevelCode, _EmailSpamActionCode,\
 from Cerebrum.modules import PasswordChecker
 from Cerebrum.modules import PosixGroup
 from Cerebrum.modules import PosixUser
-from Cerebrum.modules import Note
 from Cerebrum.modules.bofhd.cmd_param import *
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd.utils import BofhdRequests
@@ -1833,45 +1832,6 @@ class BofhdExtension(object):
         change_types = dict([(str(t), self.change_type2details.get(t))
                         for t in change_types])
         return events, entities, change_types
-
-    #
-    # Note commands
-    # Notes are simply small messages attached to entities. 
-    # 
-    # note show
-    all_commands['note_show'] = None
-    def note_show(self, operator, entity_id):
-        entity = Note.EntityNote(self.db)
-        entity.find(entity_id)
-        #self.ba.can_show_notes(operator.get_entity_id(), entity)
-        notes = entity.get_notes()
-        result = []
-        for note_row in notes:
-            note = {}
-            # transfer simple values blindly 
-            for key in 'note_id creator_id create_date subject description'.split():
-                note[key] = note_row[key]
-            # translate creator_id into username    
-            acc = self._get_account(note_row['creator_id'], idtype='id')
-            note['creator'] = acc.account_name
-            result.append(note)
-        return result    
-    
-    # note add
-    all_commands['note_add'] = None
-    def note_add(self, operator, entity_id, subject, description):
-        entity = Note.EntityNote(self.db)
-        entity.find(entity_id)
-        #self.ba.can_add_notes(operator.get_entity_id(), entity)
-        entity.add_note(operator.get_entity_id(), subject, description)
-        
-    # note remove
-    all_commands['note_remove'] = None
-    def note_remove(self, operator, entity_id, note_id):
-        entity = Note.EntityNote(self.db)
-        entity.find(entity_id)
-        #self.ba.can_remove_notes(operator.get_entity_id(), entity)
-        entity.delete_note(operator.get_entity_id(), note_id)
 
     #
     # group commands
