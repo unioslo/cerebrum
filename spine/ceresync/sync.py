@@ -333,7 +333,7 @@ class Sync:
 
         s.mark_type()
         s.mark_subject()
-        s.mark_subject_entity()
+        #s.mark_subject_entity()
         changes = []
         for i in s.dump():
             changes.append((i.id, types[i.type], i))
@@ -349,6 +349,7 @@ class Sync:
             entities[i.id] = i
 
         for id, change, log in changes:
+            print log.subject_entity
             if change.category == 'entity' and change.type == 'del':
                 yield 'del', log.subject_entity
                 continue
