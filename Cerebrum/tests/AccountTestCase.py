@@ -61,7 +61,7 @@ class AccountTestCase(Account_createTestCase):
         self.failIf(getattr(self, "account_id", None) is None)
 
     def testCompareAccount(self):
-        "Check that created database object has correct values"
+        "Check that created database Account object has correct values"
         account = Account.Account(self.Cerebrum)
         account.clear()
         account.find(self.account_id)
@@ -74,7 +74,7 @@ class AccountTestCase(Account_createTestCase):
         self.failIf(new_account == account, "Error: should be different")
 
     def testDeleteAccount(self):
-        "Delete the person"
+        "Delete the Account"
         # This is actually a clean-up method, as we don't support deletion of Persons
         old_id = self.account_id
         self.tearDown()
