@@ -4567,8 +4567,22 @@ class BofhdExtension(object):
             ret['gecos'] = account.gecos
             ret['shell'] = str(self.num2const[int(account.shell)])
         # TODO: Return more info about account
-        if account.get_entity_quarantine():
-            ret['quarantined'] = 'Yes'
+        quarantined = None
+        now = DateTime.now()
+        for q in account.get_entity_quarantine():
+            if q['start_date'] <= now:
+                if q['end_date'] < now:
+                    quarantined = 'expired'
+                elif (q['disable_until'] is not None and
+                    q['disable_until'] > now):
+                    quarantined = 'disabled'
+                else:
+                    quarantined = 'active'
+                    break
+            else:
+                quarantined = 'pending'
+        if quarantined:
+            ret['quarantined'] = quarantined
         return ret
 
 
