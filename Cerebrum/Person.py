@@ -726,7 +726,8 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
         return self.query("""
         SELECT DISTINCT pi.person_id, pi.birth_date, pei.external_id, pn.name,
          en.entity_name, eci.contact_value, aa.auth_data, at.ou_id, at.affiliation,
-         pas.status, eci3.contact_value AS fax, pn2.name AS title %(ecols)s 
+         pas.status, eci3.contact_value AS fax, pn2.name AS title,
+	 pn3.name AS per_title %(ecols)s 
 	FROM
           [:table schema=cerebrum name=person_info] pi
           JOIN [:table schema=cerebrum name=account_type] at
@@ -746,6 +747,8 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
                 where at.account_id=aa2.account_id)
 	  LEFT JOIN [:table schema=cerebrum name=person_name] pn2
             ON pn2.person_id=pi.person_id AND pn2.name_variant=:pn_ti
+	  LEFT JOIN [:table schema=cerebrum name=person_name] pn3
+            ON pn3.person_id=pi.person_id AND pn3.name_variant=:pn_pti
           LEFT JOIN [:table schema=cerebrum name=entity_name] en
             ON en.entity_id=at.account_id AND en.value_domain=:vd
           LEFT JOIN [:table schema=cerebrum name=entity_contact_info] eci
@@ -771,6 +774,7 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
                            'pn_ss': int(self.const.system_cached),
                            'pn_nv': int(self.const.name_full),
 			   'pn_ti': int(self.const.name_work_title),
+			   'pn_pti': int(self.const.name_personal_title),
 			   'eci_phone': int(self.const.contact_phone),
                            'et_type': int(self.const.entity_account),
                            'aa_method': int(self.const.auth_type_md5_crypt),
