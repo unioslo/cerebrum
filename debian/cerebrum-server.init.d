@@ -10,7 +10,7 @@
 # Version:	@(#)skeleton  1.9  26-Feb-2001  miquels@cistron.nl
 #
 #DEBUG="debug"
-#[ -n $DEBUG ] && set -x
+[[ -n $DEBUG ]] && set -x
 
 PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
 DAEMON_BOFHD=/usr/sbin/bofhd.py
