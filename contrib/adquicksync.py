@@ -71,7 +71,11 @@ def quick_user_sync():
             logger.debug("change_id: %s" % ans['change_id'])
         cl.confirm_event(ans)
         if chg_type == clco.account_password:
-            change_params = pickle.loads(ans['change_params'])
+	    try:	
+            	change_params = pickle.loads(ans['change_params'])
+	    except EOFError:
+		logger.warn('picle.load EOFError on change_id: %s' % ans['change_id'])
+		continue
             if change_pw(ans['subject_entity'],change_params):
 		cl.confirm_event(ans)
 	    else:
@@ -248,7 +252,7 @@ def build_user(entity_id):
 
 def add_spread(entity_id, spread):
     if spread == co.spread_uio_ad_account:
-        account_name =id_to_name(entity_id,'user')
+        account_name = id_to_name(entity_id,'user')
 	if not account_name:
 	    return False
 	ou.clear()
@@ -440,7 +444,7 @@ def change_pw(account_id,pw_params):
     account.clear()
     account.find(account_id)
     if account.is_expired():
-	logger.debug('change_pw:Account %s is expired' % entity_id)
+	logger.debug('change_pw:Account %s is expired' % account_id)
 	return False
     user = id_to_name(account_id,'user')
     if not user:
@@ -456,6 +460,8 @@ def change_pw(account_id,pw_params):
 
 def set_pw(account_id,pw_params,user):
 
+    if not pw_params.has_key('password'):
+	return False
     pw=pw_params['password']
     #Convert password so that it don't mess up the communication protocol.
     pw=pw.replace('%','%25')
