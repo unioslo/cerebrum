@@ -678,6 +678,8 @@ CREATE TABLE account_info
   CONSTRAINT account_info_id_owner_unique
     UNIQUE (account_id, owner_id)
 );
+category:main;
+CREATE INDEX account_info_owner_idx ON account_info(owner_type, owner_id);
 category:main/Oracle;
 GRANT SELECT ON account_info TO read_account;
 category:main/Oracle;
