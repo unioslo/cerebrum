@@ -667,21 +667,19 @@ class BofhdAuth(DatabaseAccessor):
     # the user's local sysadmin and helpdesk operators.
     def can_email_info_detail(self, operator, account=None,
                               query_run_any=False):
-        if self.is_superuser(operator):
+        if account and operator == account.entity_id:
             return True
-        if self.is_postmaster(operator):
-            return True
-        if query_run_any:
-            return self._has_operation_perm_somewhere(
-                operator, self.const.auth_set_password)
-        if operator == account.entity_id:
-            return True
-        return self.is_account_owner(operator, self.const.auth_set_password,
-                                     account)
+        return self._is_local_postmaster(operator,
+                                         self.const.auth_set_password,
+                                         account, None, query_run_any)
 
     # the user, local sysadmin, and helpdesk can ask for migration
     def can_email_migrate(self, operator, account=None, query_run_any=False):
-        return self.can_email_info_detail(operator, account, query_run_any)
+        if account and operator == account.entity_id:
+            return True
+        return self._is_local_postmaster(operator,
+                                         self.const.auth_email_migrate,
+                                         account, None, query_run_any)
 
     # not even the user is allowed this operation
     def can_email_move(self, operator, account=None, query_run_any=False):
@@ -706,6 +704,18 @@ class BofhdAuth(DatabaseAccessor):
                                          self.const.auth_email_forward_off,
                                          account, None, query_run_any)
 
+    def can_email_spam_settings(self, operator, account=None, target=None,
+                                query_run_any=False):
+        if query_run_any or account:
+            return self.can_email_forward_toggle(operator, account,
+                                                 query_run_any)
+        # typically Mailman lists
+        if self.is_superuser(operator):
+            return True
+        if self.is_postmaster(operator):
+            return True
+        raise PermissionDenied("Currently limited to superusers")
+
     def can_email_tripnote_toggle(self, operator, account=None,
                                   query_run_any=False):
         if account and operator == account.entity_id:
@@ -717,11 +727,11 @@ class BofhdAuth(DatabaseAccessor):
     # only the user may add or remove forward addresses.
     def can_email_forward_edit(self, operator, account=None,
                                 query_run_any=False):
+        if query_run_any:
+            return True
         if self.is_superuser(operator):
             return True
         if self.is_postmaster(operator):
-            return True
-        if query_run_any:
             return True
         if operator == account.entity_id:
             return True
