@@ -62,6 +62,9 @@ command_help = {
     'email_info': 'View e-mail information about a user or address',
     'email_create_archive': 'Add address feeding an archive of a list',
     'email_create_list': 'Add addresses needed for a Mailman list',
+    'email_create_list_alias':
+       "Add an alias for a Mailman list.  This also adds additional "\
+       "-owner and -request addresses.",
     'email_create_multi': 'Make an e-mail target which expands to the members of a group',
     'email_delete_archive': 'Remove address for a Mailman archive',
     'email_delete_list': "Remove a Mailman list's addresses",
@@ -134,6 +137,7 @@ command_help = {
     'person_info': 'View information about a person',
     'person_list_user_priorities': 'View a list ordered by priority of all the accounts owned by a person',
     'person_set_id': 'Set a new id for a person',
+    'person_set_name': 'Change the full name of a manually registered person',
     'person_student_info': 'View student information for a person',
     'person_set_user_priority': 'Change account priorities for a person',
     },
