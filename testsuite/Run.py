@@ -4,10 +4,8 @@
 
 import unittest
 
-from Cerebrum.tests.OUTestCase import OUTestCase
-from Cerebrum.tests.PersonTestCase import PersonTestCase
-from Cerebrum.tests.AccountTestCase import AccountTestCase
-from Cerebrum.tests.SQLDriverTestCase import SQLDriverTestCase
+import Cerebrum.tests.Run
+import Cerebrum.modules.no.tests.Run
 
 def suite():
     """Returns a suite containing all the test cases in this module.
@@ -16,11 +14,9 @@ def suite():
        automation of test discovery.
     """
 
-    suite1 = SQLDriverTestCase.suite()
-    suite2 = OUTestCase.suite()
-    suite3 = PersonTestCase.suite()
-    suite4 = AccountTestCase.suite()
-    return unittest.TestSuite((suite1, suite2, suite3, suite4))
+    suite1 = Cerebrum.tests.Run.suite()
+    suite2 = Cerebrum.modules.no.tests.Run.suite()
+    return unittest.TestSuite((suite1, suite2))
 
 
 if __name__ == '__main__':
