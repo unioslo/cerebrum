@@ -1,6 +1,7 @@
 # Copyright 2002, 2003 University of Oslo, Norway
 
 import xml.sax
+import re
 from Cerebrum import Group
 
 TOPICS_FILE="/cerebrum/dumps/FS/topics.xml"   # TODO: cereconf
@@ -43,6 +44,8 @@ class StudconfigParser(xml.sax.ContentHandler):
         self.elementstack = []
         self.profiles = {}             # stores profildef's
         self.selection2profile = {}
+        for e in self.select_elements:
+            self.selection2profile[e] = {}
         self._in_profil = None
         self._in_select = None
         self._in_gruppe_oversikt = None
@@ -99,8 +102,8 @@ class StudconfigParser(xml.sax.ContentHandler):
                 else:
                     raise SyntaxWarning, "Unexpected tag %s on in profil" % ename
             elif self._in_select and ename in self.select_elements:
-                self.selection2profile.setdefault(
-                    ename, {}).setdefault(tmp['id'], []).append(self._in_profil)
+                self.selection2profile[ename].setdefault(
+                    tmp['id'], []).append(self._in_profil)
             else:
                 raise SyntaxWarning, "Unexpected tag %s on in profil" % ename
         elif ename == 'config':
@@ -338,7 +341,7 @@ class Profile(object):
         # First find the name of applicable profiles and their level
         for t in topics:
             if t.has_key('emnekode'):
-                k = autostud.sp.selection2profile['emnekode'].get(t['emnekode'], None)
+                k = autostud.sp.selection2profile['emne'].get(t['emnekode'], None)
                 if k is not None:
                     # TODO: sett nivåkode til nivåkode + 50 for å
                     #   implementere emne > studieprogram på samme nivåkode
@@ -356,10 +359,11 @@ class Profile(object):
             profiles, level = m
             for profilname in profiles:
                 profil = autostud.sp.profiles[profilname]
-                # TODO: Only append if not already in list
                 for k in profil.keys():
-                    grouped_settings.setdefault(
-                        level, {}).setdefault(k, []).extend(profil[k])
+                    lst = grouped_settings.setdefault(level, {}).setdefault(k, [])
+                    for p in profil[k]:
+                        if p not in lst:
+                            lst.append(p)
 
         # Detect conflicts for singular values
         singular = ('disk', 'primargruppe', 'stedkode')
@@ -442,7 +446,7 @@ class Profile(object):
         max_on_disk = self._autostud.sp.disk_defs['prefix'][dest_pfix]['max']
         if max_on_disk == -1:
             max_on_disk = 999999
-        for d in self._autostud._disks.keys():
+        for d in self._autostud._disks_order:
             tmp_path, tmp_count = self._autostud._disks[d]
             if (dest_pfix == tmp_path[0:len(dest_pfix)]
                 and tmp_count < max_on_disk):
@@ -484,6 +488,8 @@ class AutoStud(object):
         disk = Disk.Disk(db)
         for d in disk.list():
             self._disks[int(d['disk_id'])] = [d['path'], int(d['count'])]
+        self._disks_order = self._disks.keys()
+        self._disks_order.sort(self._disk_sort)
         self.sp = StudconfigParser(db)
         xml.sax.parse(cfg_file, self.sp)
         m = _MapStudconfigData(db, self)
@@ -492,6 +498,16 @@ class AutoStud(object):
         if debug > 2:
             print "Parsed studconfig.xml expanded to: "
             pp.pprint(self.sp.selection2profile)
+
+    def _disk_sort(self, x, y):
+        regexp = re.compile(r"^(\D+)(\d*)")
+        m_x = regexp.match(self._disks[x][0])
+        m_y = regexp.match(self._disks[y][0])
+        pre_x, num_x = m_x.group(1), m_x.group(2)
+        pre_y, num_y = m_y.group(1), m_y.group(2)
+        if pre_x <> pre_y:
+            return cmp(pre_x, pre_y)
+        return cmp(int(num_x), int(num_y))
 
     def get_topics_list(self, history=None, fnr=None, topics_file=None):
         """Use like:
