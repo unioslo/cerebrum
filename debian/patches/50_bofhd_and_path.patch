@@ -1,0 +1,64 @@
+Index: design/logging.ini
+===================================================================
+RCS file: /cvsroot/cerebrum/cerebrum/design/logging.ini,v
+retrieving revision 1.4
+diff -u -r1.4 logging.ini
+--- design/logging.ini	15 Oct 2004 10:25:23 -0000	1.4
++++ design/logging.ini	22 Oct 2004 22:29:50 -0000
+@@ -22,10 +22,10 @@
+ # the console logger can be used.  It doesn't propagate log messages.
+ 
+ [loggers]
+-keys=root,cronjob,console
++keys=root,cronjob,console,bofhd
+ 
+ [handlers]
+-keys=hand_root,hand_cronjob,hand_console
++keys=hand_root,hand_cronjob,hand_console,hand_bofhd
+ 
+ [formatters]
+ keys=form_root,form_cronjob,form_console
+@@ -33,6 +33,12 @@
+ # Note: When propagating messages to other loggers, the handler level
+ # is used to determine wheter to log or not.
+ 
++[logger_bofhd]
++level=DEBUG
++propagate=1
++qualname=bofhd
++handlers=hand_bofhd
++
+ [logger_root]
+ level=WARN
+ propagate=1
+@@ -57,6 +63,12 @@
+ qualname=console
+ handlers=hand_console
+ 
++[handler_hand_bofhd]
++class=CerebrumSubstituteHandler
++level=ALL
++formatter=form_cronjob
++args=("/var/log/cerebrum", 50*1024*1024, 5, 0644, '', '')
++
+ [handler_hand_root]
+ class=FileHandler
+ level=WARN
+@@ -65,7 +77,7 @@
+ mode=a+
+ maxsize=0
+ backcount=1
+-args=('root.log', 'a+')
++args=('/var/log/cerebrum/root.log', 'a+')
+ 
+ [handler_hand_cronjob]
+ class=FileHandler
+@@ -75,7 +87,7 @@
+ mode=a+
+ maxsize=0
+ backcount=1
+-args=('cronjob.log', 'a+')
++args=('/var/log/cerebrum/cronjob.log', 'a+')
+ 
+ [handler_hand_console]
+ class=StreamHandler
