@@ -245,7 +245,6 @@ def user_add_del_grp(ch_type,dn_user,dn_dest,ch_id=None):
 						(search_str,group_name))
 		dn_user.remove(user)
 	    else:
-		#ldap_users.append(account.account_name)
 		ldap_users[int(user)] = ldap_obj[0][0]
 	if ch_type == const.group_add:
 	    # Check if user already a member of the p
@@ -386,24 +385,29 @@ def change_group_spread(dn_id,ch_type,spread,gname=None):
 	    attrs.append(("description", "Cerebrum;%d;%s" % (dn_id,
 							nwutils.now())))
 	    student_grp = False
+	    grp_mem = []
 	    for mem in group.get_members(spread = spread_ids[0],get_entity_name=True):
 		if  (co.affiliation_student == \
 				nwutils.get_primary_affiliation(mem[0],co.account_namespace)):
 		    student_grp = True
-		    attrs.append(('member',','.join((('cn='+mem[1]),
-						cereconf.NW_LDAP_STUDOU,
-						search_dn))))
-		else:
-		    attrs.append(('member',','.join((('cn='+mem[1]),
-                                                cereconf.NW_LDAP_ANSOU,
-                                                search_dn))))
+		grp_mem.append(int(mem[0]))
+		# If any of this members does not exist on eDirectory server,
+		# it will only give you a LDAP-protocl message "NDS error".
+		# While using  method user_add_del_group, it will do a LDAP-search
+		# to verify that user exist on server.  				
+		#    attrs.append(('member',','.join((('cn='+mem[1]),
+		#				cereconf.NW_LDAP_STUDOU,
+		#				search_dn))))
+		#else:
+		#    attrs.append(('member',','.join((('cn='+mem[1]),
+		#				cereconf.NW_LDAP_ANSOU,
+		#				search_dn))))
 	    if student_grp:
 		grp_dn = utf8_dn + ',ou=grp,ou=stud,' + cereconf.NW_LDAP_ROOT
 	    else:
 		grp_dn = utf8_dn + ',ou=grp,ou=ans,' + cereconf.NW_LDAP_ROOT
 	    add_ldap(grp_dn, attrs)
-	    #for mem in members:
-		#user_add_del_grp(const.group_add,mem,dn_id)
+	    user_add_del_grp(const.group_add, grp_mem, dn_id)
             group_done[dn_id] = ch_type
 	except:
 	    logger.error('Error occured while creating group %s' % dn_id)
