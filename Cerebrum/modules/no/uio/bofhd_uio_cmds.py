@@ -99,14 +99,6 @@ class BofhdExtension(object):
         self.name_codes = {}
         for t in self.person.list_person_name_codes():
             self.name_codes[int(t.code)] = t.description
-        self.person_affiliation_codes = {}
-        self.person_affiliation_statusids = {}
-        for c in dir(self.const):
-            const = getattr(self.const, c)
-            if isinstance(const, _PersonAffStatusCode):
-                self.person_affiliation_statusids.setdefault(str(const.affiliation), {})[str(const)] = const
-            elif isinstance(const, _PersonAffiliationCode):
-                self.person_affiliation_codes[str(const)] = const
         self.external_id_mappings['fnr'] = self.const.externalid_fodselsnr
         # TODO: str2const is not guaranteed to be unique (OK for now, though)
         self.num2const = {}
@@ -192,8 +184,8 @@ class BofhdExtension(object):
     all_commands['access_group'] = Command(
         ('access', 'group'),
         GroupName(),
-        fs=FormatSuggestion("%16s  %-9s %s", ("opset", "type", "name"),
-                            hdr="%16s  %-9s %s" %
+        fs=FormatSuggestion("%13s  %-9s %s", ("opset", "type", "name"),
+                            hdr="%13s  %-9s %s" %
                             ("Operation set", "Type", "Name")))
     def access_group(self, operator, group):
         return self._list_access("group", group)
@@ -205,7 +197,7 @@ class BofhdExtension(object):
         fs=FormatSuggestion("%13s  %-10s %-9s %-20s",
                             ("opset", "attr", "type", "name"),
                             hdr="%13s  %-10s %-9s %-20s" %
-                            ("Operation set", "Attribute", "Type", "Name")))
+                            ("Operation set", "Pattern", "Type", "Name")))
     def access_host(self, operator, host):
         return self._list_access("host", host)
 
@@ -2561,14 +2553,14 @@ class BofhdExtension(object):
                                                     'Description')))
     def misc_affiliations(self, operator):
         tmp = {}
-        for co in self.const.fetch_constants(_PersonAffStatusCode):
+        for co in self.const.fetch_constants(self.const.PersonAffStatus):
             aff = str(co.affiliation)
             if aff not in tmp:
                 tmp[aff] = [{'aff': aff,
                              'status': '',
                              'desc': co.affiliation._get_description()}]
             tmp[aff].append({'aff': '',
-                             'status': "%s" % co,
+                             'status': "%s" % co._get_status(),
                              'desc': co._get_description()})
         # fetch_constants returns a list sorted according to the name
         # of the constant.  Since the name of the constant and the
@@ -4749,18 +4741,26 @@ class BofhdExtension(object):
         if isinstance(val, str) and val.lower() in ('y', 'yes', 'ja', 'j'):
             return True
         return False
-        
+
+    # The next two functions require all affiliations to be in upper case,
+    # and all affiliation statuses to be in lower case.  If this changes,
+    # the user will have to type exact case.
     def _get_affiliationid(self, code_str):
-        for k in self.person_affiliation_codes.keys():
-            if k.lower() == code_str.lower():
-                return self.person_affiliation_codes[k]
-        raise CerebrumError("Unknown affiliation")
+        try:
+            c = self.const.PersonAffiliation(code_str.upper())
+            # force a database lookup to see if it's a valid code
+            int(c)
+            return c
+        except Errors.NotFoundError:
+            raise CerebrumError("Unknown affiliation")
 
     def _get_affiliation_statusid(self, affiliation, code_str):
-        for k in self.person_affiliation_statusids[str(affiliation)].keys():
-            if k.lower() == code_str.lower():
-                return self.person_affiliation_statusids[str(affiliation)][k]
-        raise CerebrumError("Unknown affiliation status")
+        try:
+            c = self.const.PersonAffStatus(affiliation, code_str.lower())
+            int(c)
+            return c
+        except Errors.NotFoundError:
+            raise CerebrumError("Unknown affiliation status")
 
     def _get_constant(self, const_str, err_msg="Could not find constant"):
         if self.str2const.has_key(const_str):
