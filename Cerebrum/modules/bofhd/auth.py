@@ -349,6 +349,19 @@ class BofhdAuth(DatabaseAccessor):
                                               self.const.auth_target_type_global_maildomain,
                                               None, None)
 
+    def is_group_owner(self, operator, operation, entity, operation_attr=None):
+        if self._query_target_permissions(operator, operation,
+                                          self.const.auth_target_type_group,
+                                          int(entity.entity_id), None,
+                                          operation_attr=operation_attr):
+            return True
+        if self._has_global_access(operator, operation,
+                                   self.const.auth_target_type_global_group,
+                                   entity.entity_id,
+                                   operation_attr=operation_attr):
+            return True
+        raise PermissionDenied("No access to group")
+        
     def is_account_owner(self, operator, operation, entity, operation_attr=None):
         """See if operator has access to entity.  entity can be either
         a Person or Account object.  First check if operator is
@@ -634,8 +647,13 @@ class BofhdAuth(DatabaseAccessor):
         if query_run_any:
             return self._has_operation_perm_somewhere(
                 operator, self.const.auth_modify_spread)
-        return self.is_account_owner(operator, self.const.auth_modify_spread,
-                                     entity, operation_attr=spread)
+        if entity.entity_type == self.const.entity_group:
+            self.is_group_owner(operator, self.const.auth_modify_spread,
+                                entity, spread)
+        else:
+            self.is_account_owner(operator, self.const.auth_modify_spread,
+                                  entity, operation_attr=spread)
+        return True
 
     def can_remove_spread(self, operator, entity=None, spread=None,
                           query_run_any=False):
