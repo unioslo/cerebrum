@@ -8,6 +8,8 @@ from Cerebrum import OU
 from Cerebrum import Person
 from Cerebrum import Account
 from Cerebrum import Constants
+from Cerebrum import cereconf
+
 
 from Cerebrum.tests.PersonTestCase import Person_createTestCase
 
@@ -34,7 +36,10 @@ class Account_createTestCase(Person_createTestCase):
 
     def _myPopulateAccount(self, account):
         ad = self.account_dta
-        ad['owner_id'] = self.person_id
+        ad['owner_id'] = self.entity_id
+        account.clear()
+        account.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
+        ad['creator_id'] = account.entity_id
         account.clear()
         account.populate(ad['name'], ad['owner_type'], ad['owner_id'],
                          ad['np_type'], ad['creator_id'], ad['expire_date'])
