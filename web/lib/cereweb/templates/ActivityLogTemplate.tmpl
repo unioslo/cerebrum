@@ -6,11 +6,11 @@
 #from SortedTableTemplate import SortedTableTemplate
 #from Cerebrum.web.utils import url
 
-#def viewActivityLog(self)
-#set $headers = {'message': $_("Message")}
-#set $table = $TableView("message")
+#def viewActivityLog($table)
+#set $headers = {'icon': $_("Icon"), 'message': $_("Message")}
 <div class="activitylog">
 <h2>Activity log</h2>
-$SortedTableTemplate().sorted_table($table, $headers, $url("ting=%s"), $url("dings=%s"))
+$SortedTableTemplate().sorted_table($table, $headers, $url("sortpri=%s"), $url("sortby=%s"), "history")
 </div>
 #end def
+
