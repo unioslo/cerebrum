@@ -467,18 +467,21 @@ class Group(EntityName, Entity):
              'filtername': filter_name, 'filterdesc': filter_desc,
              'vdomain': int(self.const.group_namespace)})
 
+
     def list_all_test(self, spread=None):
-        where = spreads = ""
-        if spread is not None:
-            spread1 = int(spread[0])
-            rest = spread[1:]
-            if rest:
-                for entry in rest:
-                    spreads += " OR es.spread=%s" % int(entry)
-            where = """gi, [:table schema=cerebrum name=entity_spread] es
-            WHERE gi.group_id=es.entity_id AND es.entity_type=:etype AND (es.spread=%s %s)""" % (spread1,spreads)
-        return self.query("""
-        SELECT DISTINCT group_id
-        FROM [:table schema=cerebrum name=group_info] %s""" % where,
-                          {'etype': int(self.const.entity_group)})
+	""" Will be removed """
+        return self.list_all_grp(spread=spread)
+
+    def list_all_grp(self, spread=None):
+	where = ""
+	if spread is not None:
+	    spreads = '(' + ' OR '.join(['es.spread=' + str(x) for x in spread]) + ')'
+	    where = """gi, [:table schema=cerebrum name=entity_spread] es
+	    WHERE gi.group_id=es.entity_id AND es.entity_type=[:get_constant name=entity_group] 
+		AND %s""" % spreads
+	return self.query("""
+	SELECT DISTINCT group_id
+	FROM [:table schema=cerebrum name=group_info]
+	%s""" % where)
+
 
