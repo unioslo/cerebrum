@@ -362,8 +362,11 @@ class BofhdAuth(DatabaseAccessor):
                                          self._get_disk(disk['disk_id']),
                                          entity.entity_id)
         else:
+            if self._has_global_access(operator, operation,
+                                       self.const.auth_target_type_global_host,
+                                       entity.entity_id):
+                return True
             raise PermissionDenied("No access to account")
-
 
     def can_set_person_user_priority(self, operator, account=None,
                                      query_run_any=False):
