@@ -2742,6 +2742,7 @@ class BofhdExtension(object):
             out.write(th._hdr)
         ret = []
         
+        num_ok = 0
         for n in self._parse_range(selection):
             n -= 1
             account = self._get_account(cache[n]['account_id'])
@@ -2784,8 +2785,10 @@ class BofhdExtension(object):
 
                 mapping['birthdate'] = person.birth_date.strftime('%Y-%m-%d')
                 mapping['emailadr'] =  "TODO"  # We probably don't need to support this...
-
+	    num_ok += 1	
             out.write(th.apply_template('body', mapping, no_quote=('barcode',)))
+        if not (num_ok > 0):
+            raise CerebrumError("Errors extracting required information: %s" % "+n".join(ret))
         if th._footer is not None:
             out.write(th._footer)
         out.close()
