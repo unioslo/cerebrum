@@ -91,6 +91,8 @@ class Constants(Constants.Constants):
     bofh_move_request = _BofhdRequestOpCode('br_move_request', 'Move request')
     bofh_move_give = _BofhdRequestOpCode('br_move_give', 'Give away user')
     bofh_delete_user = _BofhdRequestOpCode('br_delete_user', 'Delete user')
+    bofh_quarantine_refresh = _BofhdRequestOpCode('br_quara_refresh',
+                                                  'Refresh quarantine')
     
     # br_email_move stays in queue until delivery has stopped.
     # generate_mail_ldif.py will set the mailPause attribute based on
@@ -182,6 +184,7 @@ class BofhdRequests(object):
             int(c.bofh_mailman_add_admin):  None,
             int(c.bofh_mailman_remove):  [ c.bofh_mailman_create,
                                            c.bofh_mailman_add_admin ],
+            int(c.bofh_quarantine_refresh): None,
             }[int(op)]
 
         if conflicts is None:
