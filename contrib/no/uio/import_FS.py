@@ -356,7 +356,7 @@ def main():
     global verbose, ou, db, co, logger, fnr2person_id, gen_groups, group, \
 							old_aff, include_delete
     verbose = 0
-    include_delete = False
+    include_delete = do_update_fnr = False
     opts, args = getopt.getopt(sys.argv[1:], 'vp:s:gdf', [
         'verbose', 'person-file=', 'studieprogram-file=',
         'generate-groups','include-delete', 'fnrupdate-file='])
