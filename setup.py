@@ -199,6 +199,8 @@ setup (name = "Cerebrum", version = "0.1",
                        ('server/bofhd_cmds.py', 0644),   # WRONG!
                        ('server/cmd_param.py', 0644),    # WRONG!
                        ('contrib/generate_nismaps.py', 0755),
+                       ('contrib/no/import_SATS.py', 0755),
+                       ('contrib/no/import_from_MSTAS.py', 0755),
                        ('contrib/no/uio/import_OU.py', 0755),  # TODO: These should not allways be installed?
                        ('contrib/no/uio/import_FS.py', 0755),
                        ('contrib/no/uio/import_LT.py', 0755),
