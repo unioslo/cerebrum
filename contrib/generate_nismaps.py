@@ -23,6 +23,7 @@ import time
 import getopt
 import sys
 import os
+import mx
 
 import cerebrum_path
 from Cerebrum import Errors
@@ -98,7 +99,7 @@ def generate_passwd(filename, shadow_file, spread=None):
         shell = shells[int(row['shell'])]
         if row['quarantine_type'] is not None:
             quara_rows = [row] + extra_rows
-            now = db.DateFromTicks(time.time())
+            now = mx.DateTime.now()
             quarantines = []
             for qrow in quara_rows:
                 if (qrow['start_date'] <= now
