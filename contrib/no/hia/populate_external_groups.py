@@ -25,6 +25,7 @@ from __future__ import generators
 
 import sys
 import os
+import locale
 
 if True:
     import cerebrum_path
@@ -105,9 +106,6 @@ db = logger = fnr2account_id = const = None
 
 def safe_join(elements, sep=' '):
     """As string.join(), but ensures `sep` isn't part of any element."""
-##     import traceback
-##     traceback.print_stack()
-    print ".",
     for i in range(len(elements)):
         if elements[i].find(sep) <> -1:
             raise ValueError, \
@@ -144,8 +142,8 @@ def destroy_group(group_id, max_recurse):
     # memberships.
     for r in gr.list_groups_with_entity(gr.entity_id):
         parent = get_group(r['group_id'])
-        logger.info("removing %s from group %s" % (gr.group_name,
-                                                   parent.group_name))
+        logger.debug("removing %s from group %s" % (gr.group_name,
+                                                    parent.group_name))
         parent.remove_member(gr.entity_id, r['operation'])
 
     # If a e-mail target is of type multi and has this group as its
@@ -189,6 +187,10 @@ class group_tree(object):
     # programmet.
     max_recurse = None
 
+    # De fleste automatisk opprettede gruppene skal ikke ha noen
+    # spread.
+    spreads = ()
+
     def __init__(self):
         self.subnodes = {}
         self.users = {}
@@ -204,7 +206,7 @@ class group_tree(object):
     def name(self):
         name_elements = self.name_prefix()
         name_elements += getattr(self, '_name', ())
-        return safe_join(name_elements, ':')
+        return safe_join(name_elements, ':').lower()
 
     def description(self):
         pass
@@ -213,7 +215,7 @@ class group_tree(object):
         pass
 
     def list_matches_1(self, *args, **kws):
-        ret = self.list_matches(*args, **kws)
+        ret = [x for x in self.list_matches(*args, **kws)]
         if len(ret) == 1:
             return ret
         logger.error("Matchet for mange: self=%r, args=%r, kws=%r, ret=%r",
@@ -221,9 +223,13 @@ class group_tree(object):
         return ()
 
     def sync(self):
+        logger.debug("Start: group_tree.sync(), name = %s", self.name())
         db_group = self.maybe_create()
         sub_ids = {}
         if self.users:
+            # Gruppa inneholder minst en person, og skal dermed
+            # populeres med *kun* primærbrukermedlemmer.  Bygg opp
+            # oversikt over primærkonto-id'er i 'sub_ids'.
             for fnr in self.users.iterkeys():
                 a_ids = fnr2account_id.get(fnr)
                 if a_ids is not None:
@@ -232,10 +238,15 @@ class group_tree(object):
                 else:
                     logger.warn("Fant ingen bruker for fnr=%r", fnr)
         else:
-            # Sørg for at alle subgrupper er synkronisert, og samle
-            # samtidig inn entity_id'ene deres.
+            # Gruppa har ikke noen personmedlemmer, og skal dermed
+            # populeres med *kun* evt. subgruppemedlemmer.  Vi sørger
+            # for at alle subgrupper synkroniseres først (rekursivt),
+            # og samler samtidig inn entity_id'ene deres i 'sub_ids'.
             for subg in self.subnodes:
                 sub_ids[int(subg.sync())] = const.entity_group
+        # I 'sub_ids' har vi nå en oversikt over hvilke entity_id'er
+        # som skal bli gruppens medlemmer.  Foreta nødvendige inn- og
+        # utmeldinger.
         membership_ops = (const.group_memberop_union,
                           const.group_memberop_intersection,
                           const.group_memberop_difference)
@@ -252,6 +263,20 @@ class group_tree(object):
         for member_id in sub_ids.iterkeys():
             db_group.add_member(member_id, sub_ids[member_id],
                                 const.group_memberop_union)
+        # Synkroniser gruppens spreads med lista angitt i
+        # self.spreads.
+        want_spreads = {}
+        for s in self.spreads:
+            want_spreads[int(s)] = 1
+        for row in db_group.get_spread():
+            spread = int(row['spread'])
+            if spread in want_spreads:
+                del want_spreads[spread]
+            else:
+                db_group.delete_spread(spread)
+        for new_spread in want_spreads.iterkeys():
+            db_group.add_spread(new_spread)
+        logger.debug("Ferdig: group_tree.sync(), name = %s", self.name())
         return db_group.entity_id
 
     def maybe_create(self):
@@ -269,6 +294,14 @@ class group_tree(object):
     def group_creator(self):
         acc = get_account(cereconf.INITIAL_ACCOUNTNAME)
         return acc.entity_id
+
+    def __eq__(self, other):
+        if type(other) is type(self):
+            return (self.name() == other.name())
+        return False
+
+    def __ne__(self, other):
+        return (not self.__eq__(other))
 
     def __hash__(self):
         return hash(self.name())
@@ -386,6 +419,7 @@ class fs_undenh_3(fs_undenh_group):
         self.ue_versjon.setdefault(multi_id, {})[ue['versjonskode']] = 1
         self.ue_termin.setdefault(multi_id, {})[ue['terminnr']] = 1
         self._multi_id = multi_id
+        self.spreads = (const.spread_hia_fronter,)
 
     def multi_suffix(self):
         multi_suffix = []
@@ -418,9 +452,9 @@ class fs_undenh_3(fs_undenh_group):
         for category in ('student', 'foreleser', 'studieleder'):
             gr = fs_undenh_users(self, ue, category)
             if gr in children:
-                logger.error('Undervisningsenhet %r forekommer flere ganger.',
-                             ue)
-                return
+                logger.warn('Undervisningsenhet %r forekommer flere ganger.',
+                            ue)
+                continue
             children[gr] = gr
 
 
@@ -440,7 +474,7 @@ class fs_undenh_users(fs_undenh_group):
             return "Studenter på %s" % (emne,)
         elif ctg == 'foreleser':
             return "Forelesere på %s" % (emne,)
-        elif ctg == 'studieledere':
+        elif ctg == 'studieleder':
             return "Studieledere på %s" % (emne,)
         else:
             raise ValueError, "Ukjent UE-bruker-gruppe: %r" % (ctg,)
@@ -450,11 +484,12 @@ class fs_undenh_users(fs_undenh_group):
             yield self
 
     def add(self, user):
-        fnr = "%06d%05d" % (user['fodselsdato'], user['personnr'])
+        fnr = "%06d%05d" % (int(user['fodselsdato']), int(user['personnr']))
         # TBD: Key on account_id (of primary user) instead?
         if fnr in self.users:
-            logger.error("Bruker %r forsøkt meldt inn i gruppe flere ganger.",
-                         user)
+            logger.warn("Bruker %r forsøkt meldt inn i gruppe %r"
+                        " flere ganger (XML = %r).",
+                        fnr, self.name(), user)
             return
         self.users[fnr] = user
 
@@ -482,11 +517,17 @@ class fs_stprog_1(fs_stprog_group):
 
     def __init__(self, parent, stprog):
         super(fs_stprog_1, self).__init__(parent)
-        self._prefix = (stprog['institusjonsnr'], 'studieprogram')
+        self._prefix = (stprog['institusjonsnr_studieansv'],
+                        'studieprogram')
         self.child_class = fs_stprog_2
 
+    def description(self):
+        return ("Supergruppe for alle grupper relatert til"
+                " studieprogram i %s sin FS" %
+                (cereconf.INSTITUTION_DOMAIN_NAME,))
+
     def list_matches(self, gtype, data, category):
-        if gtype <> 'undenh':
+        if gtype <> 'studieprogram':
             return
         if data.get('institusjonsnr', self._prefix[0]) <> self._prefix[0]:
             return
@@ -504,6 +545,10 @@ class fs_stprog_2(fs_stprog_group):
         self._prefix = (stprog['studieprogramkode'],)
         self.child_class = fs_stprog_3
 
+    def description(self):
+        return ("Supergruppe for alle grupper knyttet til"
+                " studieprogrammet %r" % (self._prefix[0],))
+
     def list_matches(self, gtype, data, category):
         if data.get('studieprogramkode', self._prefix[0]) <> self._prefix[0]:
             return
@@ -519,21 +564,44 @@ class fs_stprog_3(fs_stprog_group):
     def __init__(self, parent, stprog):
         super(fs_stprog_3, self).__init__(parent)
         self._prefix = ('studiekull',)
+        self._studieprog = stprog['studieprogramkode']
         self.child_class = fs_stprog_users
+        self.spreads = (const.spread_hia_fronter,)
+
+    def description(self):
+        return ("Supergruppe for studiekull-grupper knyttet til"
+                " studieprogrammet %r" % (self._studieprog,))
 
     def list_matches(self, gtype, data, category):
+        # Denne metoden er litt annerledes enn de andre
+        # list_matches()-metodene, da den også gjør opprettelse av
+        # kullkode-spesifikke subgrupper når det er nødvendig.
+        ret = []
         for subg in self.subnodes.itervalues():
-            for match in subg.list_matches(gtype, data, category):
-                yield match
+            ret.extend([m for m in subg.list_matches(gtype, data, category)])
+        if (not ret) and data.has_key('kullkode'):
+            ret.extend(self.add(data))
+        return ret
 
     def add(self, stprog):
         children = self.subnodes
+        ret = []
         for category in ('student',):
-            gr = fs_stprog_users(self, stprog, category)
-            if gr in children:
-                logger.error("Kull %r forekommer flere ganger.", stprog)
-                return
-            children[gr] = gr
+            # Fila studieprog.xml inneholder ikke noen angivelse av
+            # hvilke studiekull som finnes; den lister bare opp
+            # studieprogrammene.
+            #
+            # Opprettelse av grupper for de enkelte studiekullene
+            # utsettes derfor til senere (i.e. ved parsing av
+            # person.xml); se metoden list_matches over.
+            if stprog.has_key('kullkode'):
+                gr = fs_stprog_users(self, stprog, category)
+                if gr in children:
+                    logger.warn("Kull %r forekommer flere ganger.", stprog)
+                    continue
+                children[gr] = gr
+                ret.append(gr)
+        return ret
 
 
 class fs_stprog_users(fs_stprog_group):
@@ -543,7 +611,16 @@ class fs_stprog_users(fs_stprog_group):
     def __init__(self, parent, stprog, category):
         super(fs_stprog_users, self).__init__(parent)
         self._prefix = (stprog['kullkode'],)
+        self._studieprog = stprog['studieprogramkode']
         self._name = (category,)
+
+    def description(self):
+        category = self._name[0]
+        if category == 'student':
+            return ("Studenter på studiekullet %r i"
+                    " studieprogrammet %r" % (self._prefix[0],
+                                              self._studieprog))
+        raise ValueError("Ugyldig kategori: %r" % category)
 
     def list_matches(self, gtype, data, category):
         if (data.get('kullkode', self._prefix[0]) == self._prefix[0]
@@ -551,16 +628,17 @@ class fs_stprog_users(fs_stprog_group):
             yield self
 
     def add(self, user):
-        fnr = "%06d%05d" % (user['fodselsdato'], user['personnr'])
+        fnr = "%06d%05d" % (int(user['fodselsdato']), int(user['personnr']))
         # TBD: Key on account_id (of primary user) instead?
         if fnr in self.users:
-            logger.error("Bruker %r forsøkt meldt inn i gruppe flere ganger.",
-                         user)
+            logger.warn("Bruker %r forsøkt meldt inn i gruppe flere ganger.",
+                        user)
             return
         self.users[fnr] = user
 
 
 def prefetch_primaryusers():
+    logger.debug("Start: prefetch_primaryusers()")
     # TBD: This code is used to get account_id for both students and
     # fagansv.  Should we look at affiliation here?
     account = Factory.get('Account')(db)
@@ -601,10 +679,12 @@ def prefetch_primaryusers():
 ##                 account_id2fnr[acc] = fnr
             fnr2account_id[fnr] = account_ids
     del fnr_source
+    logger.debug("Ferdig: prefetch_primaryusers()")
 
 def init_globals():
     global db, const, logger, fnr2account_id
     db = Factory.get("Database")()
+    db.cl_init(change_program='pop_extern_grps')
     const = Factory.get("Constants")(db)
     logger = Factory.get_logger("console")
 
@@ -614,6 +694,10 @@ def init_globals():
 def main():
     init_globals()
     dump_dir = '/cerebrum/dumps/FS'
+
+    # Håndter upper- og lowercasing av strenger som inneholder norske
+    # tegn.
+    locale.setlocale(locale.LC_CTYPE, ('en_US', 'iso88591'))
 
     # Opprett objekt for "internal:hia.no:fs:{supergroup}"
     fs_super = fs_supergroup()
@@ -628,6 +712,7 @@ def main():
         if el_name == 'undenhet':
             fs_super.add('undenh', attrs)
 
+    logger.info("Leser XML-fil: underv_enhet.xml")
     access_FS.underv_enhet_xml_parser(
         os.path.join(dump_dir, 'underv_enhet.xml'),
         create_UE_helper)
@@ -639,7 +724,8 @@ def main():
                                                   'student'):
                 undenh.add(attrs)
 
-    access_FS.person_xml_parser(
+    logger.info("Leser XML-fil: student_undenh.xml")
+    access_FS.student_undenh_xml_parser(
         os.path.join(dump_dir, 'student_undenh.xml'),
         student_UE_helper)
 
@@ -657,6 +743,7 @@ def main():
                                                         'studieleder'):
                 ue_studieleder.add(attrs)
 
+    logger.info("Leser XML-fil: roles.xml")
     access_FS.roles_xml_parser(
         os.path.join(dump_dir, 'roles.xml'),
         rolle_UE_helper)
@@ -671,6 +758,7 @@ def main():
         if el_name == 'studprog':
             fs_super.add('studieprogram', attrs)
 
+    logger.info("Leser XML-fil: studieprog.xml")
     access_FS.studieprog_xml_parser(
         os.path.join(dump_dir, 'studieprog.xml'),
         create_studieprog_helper)
@@ -682,11 +770,13 @@ def main():
                                                 'student'):
                 stpr.add(attrs)
 
+    logger.info("Leser XML-fil: person.xml")
     access_FS.person_xml_parser(
         os.path.join(dump_dir, 'person.xml'),
         student_studieprog_helper)
 
-    fs_super.sync(db)
+    fs_super.sync()
+    db.commit()
 
 if __name__ == '__main__':
     main()
