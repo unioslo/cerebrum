@@ -19,6 +19,8 @@
  *
  */
 
+category:drop;
+DROP TABLE password_history;
 category:main;
 CREATE TABLE password_history
 (
