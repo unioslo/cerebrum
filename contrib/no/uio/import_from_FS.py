@@ -9,7 +9,7 @@ from Cerebrum.modules.no.uio.access_FS import FSPerson
 from Cerebrum import Database,Errors
 from Utils import XMLHelper
 
-default_personfile = "/u2/dumps/FS/persons.dat.2"
+default_personfile = "/cerebrum/dumps/FS/persons.xml"
 
 cereconf.DATABASE_DRIVER='Oracle'
 Cerebrum = Database.connect(user="ureg2000", service="FSDEMO.uio.no")
