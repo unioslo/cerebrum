@@ -1,26 +1,3 @@
-#!/usr/bin/env python2.2
-# -*- coding: iso-8859-1 -*-
- 
-# Copyright 2004 University of Oslo, Norway
-#
-# This file is part of Cerebrum.
-#
-# Cerebrum is free software; you can redistribute it and/or modify it
-# under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
-#
-# Cerebrum is distributed in the hope that it will be useful, but
-# WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-# General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with Cerebrum; if not, write to the Free Software Foundation,
-# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
- 
-
-
 import re, string, os, getopt, sys
  
 import cerebrum_path
@@ -41,6 +18,7 @@ co = Factory.get('Constants')(db)
 
 
 def get_user_from_file(file_name):
+    #f = file('/usit/saruman/gt-u2/areen/cerebrum/hia/data/ansatte-edir-kol.txt','r')
     try:
 	f = file(file_name,'r')
     except:
@@ -51,12 +29,16 @@ def get_user_from_file(file_name):
     user_tab = {}
     for x in blokk.split('\n'):
 	if x:
-	    key,user,home = x.split(':')
-	    value = "%s:%s" % (user,home)
-	    if user_tab.has_key(key):
-		user_tab[key].append(value)
-	    else:
-		user_tab[key] = [value,]
+	    entr = x.split(':')
+	    if (len(entr) >> 2):
+		value = "%s:%s" % (entr[1],entr[2])
+		key = entr[0]
+		if user_tab.has_key(key):
+		    user_tab[key].append(value)
+		else:
+		    user_tab[key] = [value,]
+	else:
+	    print "Could not process: %s" % x
     return(user_tab)
 
 def procces_users(user_tab):
