@@ -288,7 +288,12 @@ class BofhdAuth(DatabaseAccessor):
         self.const = Factory.get('Constants')(database)
         self._superusers = self._get_group_members(
             cereconf.BOFHD_SUPERUSER_GROUP)
-        # TODO: should not be hardcoded, but what do we call the cereconf variable?
+        group = Group.Group(self._db)
+        group.find_by_name(cereconf.BOFHD_SUPERUSER_GROUP)
+        self._superuser_group = group.entity_id
+
+        # TODO: Change can_get_student_info so that the old studit
+        # group may be grantet auth_view_studentinfo to global_host
         self._student_info_users = self._get_group_members(
             cereconf.BOFHD_STUDADM_GROUP)
         self._any_perm_cache = Cache.Cache(mixins=[Cache.cache_mru,
@@ -308,7 +313,8 @@ class BofhdAuth(DatabaseAccessor):
             return True
         return self._query_disk_permissions(operator,
                                             self.const.auth_set_password,
-                                            self._get_disk(account.disk_id))
+                                            self._get_disk(account.disk_id),
+                                            account.entity_id)
 
     def can_get_student_info(self, operator, person=None, query_run_any=False):
         if self.is_superuser(operator) or operator in self._student_info_users:
@@ -321,10 +327,10 @@ class BofhdAuth(DatabaseAccessor):
         if (self.is_superuser(operator) or
             self._query_target_permissions(operator,
                                            self.const.auth_create_user,
-                                           'host', None) or
+                                           'host', None, None) or
             self._query_target_permissions(operator,
                                            self.const.auth_create_user,
-                                           'disk', None)):
+                                           'disk', None, None)):
             return True
         if query_run_any:
             return False
@@ -344,7 +350,8 @@ class BofhdAuth(DatabaseAccessor):
             return True
         return self._query_disk_permissions(operator,
                                             self.const.auth_create_user,
-                                            self._get_disk(account.disk_id))
+                                            self._get_disk(account.disk_id),
+                                            None)
 
     def can_alter_printerquota(self, operator, account=None,
                                query_run_any=False):
@@ -355,7 +362,8 @@ class BofhdAuth(DatabaseAccessor):
                 operator, self.const.auth_alter_printerquota)
         return self._query_disk_permissions(operator,
                                             self.const.auth_alter_printerquota,
-                                            self._get_disk(account.disk_id))
+                                            self._get_disk(account.disk_id),
+                                            account.entity_id)
     
     def can_query_printerquota(self, operator, account=None,
                               query_run_any=False):
@@ -375,7 +383,8 @@ class BofhdAuth(DatabaseAccessor):
             raise PermissionDenied("No access")
         return self._query_disk_permissions(operator,
                                             self.const.auth_set_password,
-                                            self._get_disk(entity.disk_id))
+                                            self._get_disk(entity.disk_id),
+                                            entity.entity_id)
     
     def can_remove_quarantine(self, operator, entity=None, qtype=None,
                               query_run_any=False):
@@ -389,7 +398,8 @@ class BofhdAuth(DatabaseAccessor):
             raise PermissionDenied("No access")
         return self._query_disk_permissions(operator,
                                             self.const.auth_set_password,
-                                            self._get_disk(entity.disk_id))
+                                            self._get_disk(entity.disk_id),
+                                            entity.entity_id)
 
     def can_set_quarantine(self, operator, entity=None, qtype=None,
                            query_run_any=False):
@@ -403,7 +413,8 @@ class BofhdAuth(DatabaseAccessor):
             raise PermissionDenied("No access")
         return self._query_disk_permissions(operator,
                                             self.const.auth_set_password,
-                                            self._get_disk(entity.disk_id))
+                                            self._get_disk(entity.disk_id),
+                                            entity.entity_id)
 
     def can_show_quarantines(self, operator, entity=None,
                              query_run_any=False):
@@ -417,7 +428,8 @@ class BofhdAuth(DatabaseAccessor):
             raise PermissionDenied("No access")
         return self._query_disk_permissions(operator,
                                             self.const.auth_set_password,
-                                            self._get_disk(entity.disk_id))
+                                            self._get_disk(entity.disk_id),
+                                            entity.entity_id)
 
     def can_alter_group(self, operator, group=None, query_run_any=False):
         if self.is_superuser(operator):
@@ -427,7 +439,7 @@ class BofhdAuth(DatabaseAccessor):
                 operator, self.const.auth_alter_group_membership)
         if self._query_target_permissions(
             operator, self.const.auth_alter_group_membership,
-            'group', group.entity_id):
+            'group', group.entity_id, group.entity_id):
             return True
         raise PermissionDenied("No access to group")
 
@@ -446,6 +458,9 @@ class BofhdAuth(DatabaseAccessor):
             return False
         raise PermissionDenied("Currently limited to superusers")
 
+    
+    # TODO: spread perms should be stored in auth_op_attrs for legal
+    # spreads, that may be set on disk/host in auth_op_target
     def can_add_spread(self, operator, entity=None, spread=None,
                        query_run_any=False):
         """The list of spreads that an operator may modify are stored
@@ -458,7 +473,7 @@ class BofhdAuth(DatabaseAccessor):
                 operator, self.const.auth_modify_spread)
         for r in self._query_target_permissions(operator,
                                                 self.const.auth_modify_spread,
-                                                'spread', None) :
+                                                'spread', None, None) :
             if not int(r['has_attr']):
                 continue
             if self.query("""
@@ -503,7 +518,8 @@ class BofhdAuth(DatabaseAccessor):
                 operator, self.const.auth_create_user)
         return self._query_disk_permissions(operator,
                                             self.const.auth_create_user,
-                                            self._get_disk(disk))
+                                            self._get_disk(disk),
+                                            None)
 
     def can_delete_user(self, operator, account=None,
                         query_run_any=False):
@@ -514,7 +530,8 @@ class BofhdAuth(DatabaseAccessor):
                 operator, self.const.auth_remove_user)
         return self._query_disk_permissions(operator,
                                             self.const.auth_remove_user,
-                                            self._get_disk(account.disk_id))
+                                            self._get_disk(account.disk_id),
+                                            account.entiy_id)
     
     def can_set_gecos(self, operator, account=None,
                       query_run_any=False):
@@ -542,7 +559,8 @@ class BofhdAuth(DatabaseAccessor):
                 operator, self.const.auth_move_from_disk)
         return self._query_disk_permissions(operator,
                                             self.const.auth_move_from_disk,
-                                            self._get_disk(account.disk_id))
+                                            self._get_disk(account.disk_id),
+                                            account.entity_id)
 
     def can_receive_user(self, operator, account=None, dest_disk=None,
                          query_run_any=False):
@@ -553,7 +571,8 @@ class BofhdAuth(DatabaseAccessor):
                 operator, self.const.auth_move_to_disk)
         return self._query_disk_permissions(operator,
                                             self.const.auth_move_to_disk,
-                                            self._get_disk(dest_disk))
+                                            self._get_disk(dest_disk),
+                                            account.entity_id)
 
     def can_set_password(self, operator, account=None,
                          query_run_any=False):
@@ -568,7 +587,8 @@ class BofhdAuth(DatabaseAccessor):
                 "Only superusers can set passwords for users with no homedir")
         return self._query_disk_permissions(operator,
                                             self.const.auth_set_password,
-                                            self._get_disk(account.disk_id))
+                                            self._get_disk(account.disk_id),
+                                            account.entity_id)
 
     def can_set_shell(self, operator, account=None, shell=None,
                       query_run_any=False):
@@ -580,7 +600,8 @@ class BofhdAuth(DatabaseAccessor):
         # TODO 2003-07-04: Bård is going to comment this
         return self._query_disk_permissions(operator,
                                             self.const.auth_set_password,
-                                            self._get_disk(account.disk_id))
+                                            self._get_disk(account.disk_id),
+                                            account.entity_id)
 
     def can_show_history(self, operator, entity=None,
                          query_run_any=False):
@@ -592,18 +613,21 @@ class BofhdAuth(DatabaseAccessor):
         if entity.entity_type == self.const.entity_account:
             return self._query_disk_permissions(operator,
                                                 self.const.auth_create_user,
-                                                self._get_disk(entity.disk_id))
+                                                self._get_disk(entity.disk_id),
+                                                entity.entity_id)
         raise PermissionDenied("no access for that entity_type")
 
-    def _query_disk_permissions(self, operator, operation, disk):
+    def _query_disk_permissions(self, operator, operation, disk, victim_id):
         """Permissions on disks may either be granted to a specific
         disk, a complete host, or a set of disks matching a regexp"""
         
         if self._query_target_permissions(operator, operation, 'disk',
-                                          disk.entity_id):
+                                          disk.entity_id, victim_id):
+            return True
+        if self._has_global_access(operator, operation, 'global_host', victim_id):
             return True
         for r in self._query_target_permissions(operator, operation, 'host',
-                                                disk.host_id):
+                                                disk.host_id, victim_id):
             if not int(r['has_attr']):
                 return True
             for r2 in self.query("""
@@ -641,13 +665,23 @@ class BofhdAuth(DatabaseAccessor):
         return self._any_perm_cache[key] 
 
     def _query_target_permissions(self, operator, operation, target_type,
-                                  target_id):
+                                  target_id, victim_id):
         """Query any permissions that operator, or any of the groups
         where operator is a member has been grantet operation on
         target_type:target_id"""
         ewhere = ""
+
         if target_id is not None:
             ewhere = "AND aot.entity_id=:target_id"
+            if target_type in ('host', 'disk'):
+                if self._has_global_access(operator, operation,
+                                           'global_host', victim_id):
+                    return True
+            elif target_type == 'group':
+                if self._has_global_access(operator, operation,
+                                           'global_group', victim_id):
+                    return True
+
         # Connect auth_operation and auth_op_target
         sql = """
         SELECT aot.has_attr, ao.op_id, aot.op_target_id
@@ -670,6 +704,19 @@ class BofhdAuth(DatabaseAccessor):
                            'target_type': target_type,
                            'target_id': target_id})
     
+    def _has_global_access(self, operator, operation, global_type, victim_id):
+        """global_host and global_group should not be allowed to
+        operate on BOFHD_SUPERUSER_GROUP"""
+        if global_type == 'global_group':
+            if victim_id == self._superuser_group:
+                return False
+        elif victim_id in self._superusers:
+            return False
+        for k in self._query_target_permissions(operator, operation,
+                                                global_type, None, None):
+            return True
+        return False
+
     def _get_users_auth_entities(self, entity_id):
         """Return all entity_ids that may be relevant in auth_role for
         this user"""
