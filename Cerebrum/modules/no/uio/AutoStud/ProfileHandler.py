@@ -69,9 +69,9 @@ class Profile(object):
                     profile, nivaakode = tmp
                     if profile.settings.has_key("disk"):
                         if nivaakode < 300:  # TODO: don't hardcode these
-                            disks = [{'prefix': '/uio/platon/div-l'}]
+                            disks = [{'prefix': '/uio/kant/div-l'}]
                         else:
-                            disks = [{'prefix': '/uio/platon/div-h'}]
+                            disks = [{'prefix': '/uio/kant/div-h'}]
                 break
         if current_disk is not None:
             if not self.pc.autostud.student_disk.has_key(int(current_disk)):
