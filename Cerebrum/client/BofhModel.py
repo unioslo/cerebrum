@@ -41,8 +41,6 @@ class Entity(Abstract.Entity):
     get_by_id = classmethod(get_by_id)    
     
     def delete(self):
-        """ Deletes this entity from the database.
-        """
         pass
         
     def get_address_info(self):
@@ -68,8 +66,6 @@ class Group(Entity, Abstract.Group):
         Entity.__init__(self, server)
     
     def create(cls, name, description, server):
-        """ Creates a new group with given name and description.
-        """
         group = Group(server)
         group.name = name
         group.description = description
@@ -85,8 +81,6 @@ class Group(Entity, Abstract.Group):
     create = classmethod(create)
     
     def find_by_name(cls, name, server):
-        """ Retrieves an instance with given name.
-        """
         group = Group(server)
         # FIXME: Check for errors: not found, etc.
         info = server.group_info(name)
@@ -105,9 +99,6 @@ class Group(Entity, Abstract.Group):
     find_by_name = classmethod(find_by_name)
 
     def get_members(self):
-        """ Retrieves members of the group, does _not_ recurse, ie.
-            groups that's a member of the group will be listed.
-        """
         # FIXME: Check for errors...
         info = self.server.group_list(self.name)
         
@@ -125,8 +116,6 @@ class Group(Entity, Abstract.Group):
         return members
         
     def get_all_accounts(self):
-        """ Retrieves members of the group, _with_ recursion.
-        """
         pass
         
     def add_member(self, member, operation="union"):
@@ -138,13 +127,9 @@ class Group(Entity, Abstract.Group):
         self.server.group_gadd(member.name, self.name, operation)
 
     def remove_member(self, member):
-        """ Removes ``member`` from group.
-        """
         # FIXME: Make this use the soon-to-be-universiall group_remove
         self.server.group_gremove(member.name, self.name)
 
     def delete_group(self):
-        """ Deletes the group.
-        """
         self.server.group_delete(self.name)
 
