@@ -11,10 +11,7 @@ from time import localtime, strftime, time
 import cerebrum_path
 import cereconf
 
-from Cerebrum import Account
 from Cerebrum import Errors
-from Cerebrum import Group
-from Cerebrum import Person
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import PosixUser
 from Cerebrum.modules.bofhd.utils import BofhdRequests
@@ -48,7 +45,7 @@ def create_user(fnr, profile):
     # dryruning this method is unfortunately a bit tricky
     assert not dryrun
     logger.info2("CREATE")
-    person = Person.Person(db)
+    person = Factory.get('Person')(db)
     try:
         person.find_by_external_id(const.externalid_fodselsnr, fnr, const.system_fs)
     except Errors.NotFoundError:
@@ -82,14 +79,14 @@ def update_account(profile, account_ids, rem_grp=False,
     # dryruning this method is unfortunately a bit tricky
     assert not dryrun
     
-    group = Group.Group(db)
+    group = Factory.get('Group')(db)
     # TODO.  This value must be gotten from somewhere
     as_posix = False
     if as_posix:
         user = PosixUser.PosixUser(db)
     else:
-        user = Account.Account(db)
-    person = Person.Person(db)
+        user = Factory.get('Account')(db)
+    person = Factory.get('Person')(db)
 
     for account_id in account_ids:
         logger.info2(" UPDATE:%s" % account_id)
@@ -208,8 +205,8 @@ def get_existing_accounts():
     
     if fast_test:
         return {}, {}
-    account = Account.Account(db)
-    person = Person.Person(db)
+    account = Factory.get('Account')(db)
+    person = Factory.get('Person')(db)
     for p in person.list_affiliations(source_system=const.system_fs,
                                       affiliation=const.affiliation_student):
         person_affiliations.setdefault(int(p['person_id']), []).append(
@@ -266,8 +263,8 @@ def make_letters(data_file=None, type=None, range=None):
             tmp = tmp_passwords["%s-%i" % (type, r)]
             tmp.append(r)
             all_passwords[tmp[0]] = tmp[1]
-    person = Person.Person(db)
-    account = Account.Account(db)
+    person = Factory.get('Person')(db)
+    account = Factory.get('Account')(db)
     dta = {}
     logger.debug("Making %i letters" % len(all_passwords))
     for account_id in all_passwords.keys():
@@ -396,7 +393,7 @@ def recalc_quota_callback(person_info):
     logger.set_indent(3)
     logger.debug(logger.pformat(_filter_person_info(person_info)))
     pq = PrinterQuotas.PrinterQuotas(db)
-    group = Group.Group(db)
+    group = Factory.get('Group')(db)
 
     for account_id in students.get(fnr, {}).keys():
         groups = []
