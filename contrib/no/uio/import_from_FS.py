@@ -32,6 +32,7 @@ from Cerebrum.modules.no.uio.access_FS import FSPerson
 
 default_person_file = "/cerebrum/dumps/FS/persons.xml"
 default_topics_file = "/cerebrum/dumps/FS/topics.xml"
+default_studprog_file = "/cerebrum/dumps/FS/studprog.xml"
 
 cereconf.DATABASE_DRIVER='Oracle'
 Cerebrum = Database.connect(user="ureg2000", service="FSDEMO.uio.no")
@@ -86,6 +87,15 @@ def write_topic_info(outfile):
         f.write(xml.xmlify_dbrow(t, xml.conv_colnames(cols), 'topic') + "\n")
     f.write("</data>\n")
 
+def write_studprog_info(outfile):
+    f=open(outfile, 'w')
+    f.write(xml.xml_hdr + "<data>\n")
+    cols, dta = FSP.FinnAlleStudprogSko()
+    for t in dta:
+        # The Oracle driver thinks the result of a union of ints is float
+        f.write(xml.xmlify_dbrow(t, xml.conv_colnames(cols), 'studprog') + "\n")
+    f.write("</data>\n")
+
 def fix_float(row):
     for n in range(len(row)):
         if isinstance(row[n], float):
@@ -94,6 +104,7 @@ def fix_float(row):
 def main():
     write_person_info(default_person_file)
     write_topic_info(default_topics_file)
+    write_studprog_info(default_studprog_file)
 
 if __name__ == '__main__':
     main()
