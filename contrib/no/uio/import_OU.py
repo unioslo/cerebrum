@@ -87,11 +87,13 @@ def main():
             ou.find(ou.ou_id)
 
             if not (new_ou == ou):
-                if verbose: print " is changed"
+                if verbose: print "**** UPDATE ****"
                 new_ou.write_db(ou)
+            else:
+                if verbose: print "**** EQUAL ****"
             new_ou.ou_id = ou.ou_id
         except Errors.NotFoundError:
-            if verbose: print " is new"
+            if verbose: print "**** NEW ****"
             new_ou.write_db()
             
         stedkode = get_stedkode_str(k['fakultetnr'], k['instituttnr'],

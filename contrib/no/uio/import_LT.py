@@ -148,7 +148,7 @@ def main():
                 print "**** UPDATE ****"
                 new_person.write_db(personObj)
             else:
-                print "-"
+                print "**** EQUAL ****"
         except Errors.NotFoundError:
             print "**** NEW ****"
             new_person.write_db()

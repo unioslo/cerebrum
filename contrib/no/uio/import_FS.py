@@ -113,7 +113,7 @@ def process_person(persondta):
             print "**** UPDATE ****"
             new_person.write_db(person)
         else:
-            print "-"
+            print "**** EQUAL ****"
     except Errors.NotFoundError:
         print "**** NEW ****"
         new_person.write_db()
