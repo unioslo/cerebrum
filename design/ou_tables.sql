@@ -3,12 +3,24 @@
  *** the tables found here.
  ***/
 
+/* TBD: Dersom alle entitets-IDer har lik datatype (som
+	f.eks. "NUMERIC(12,0)"), kan man benytte en og samme sekvens
+	til å hente ny ID, uavhengig av hvilken type entitet IDen skal
+	representere.  På denne måten vil man ende opp med at en gitt
+	ID kun finnes for _en_ entitet i hele systemet.
+
+	Er dette lurt/nødvendig/ønskelig? */
+
+
 /*	ou
 
-  TBD: Are the name variants below sufficient/too many?
+  This table defines what Organizational Units (OUs) the institution
+  is made up of.  It does not say anything about how these OUs relate
+  to each other (i.e. the organizational structure); see the table
+  ou_structure below for that.
 
-  TBD: Is there a need for keeping a history of OU's names?  If yes,
-       should this be part of the core or put into a module?
+  The names kept in this table should be in the default language for
+  this installation.
 
  */
 CREATE TABLE ou
@@ -18,45 +30,44 @@ CREATE TABLE ou
   name		CHAR VARYING(512) NOT NULL,
   acronym	CHAR VARYING(15),
   short_name	CHAR VARYING(30),
-  display_name	CHAR VARYING(80)
+  display_name	CHAR VARYING(80),
+  sort_name	CHAR VARYING(80)
 );
 
 
 /*	ou_structure
 
-  What the organization structure (or structures, if more than one
-  structure view is in use) looks like is defined by the data in this
+  What the organization structure (or structures, if there exists more
+  than one "perspective") looks like is defined by the data in this
   table.
 
-  Note that the structure(s) are independently of the "OU identifiers"
-  as they appear in the authoritative data sources.
+  Note that the structure(s) are built using nothing but the numeric,
+  strictly internal ID for OUs, and therefore are independent of
+  whatever "OU identifiers" the authoritative data sources use.
 
-  parent_id is NULL for root nodes.
+  Root nodes are identified by NULL parent_id.
 
 */
 CREATE TABLE ou_structure
 (
   ou_id		NUMERIC(12,0)
 		CONSTRAINT ou_structure_ou_id REFERENCES ou(ou_id),
-  structure_view
-		CHAR VARYING(16)
-		CONSTRAINT ou_structure_structure_view
-		  REFERENCES ou_structure_view_code(code),
+  perspective	CHAR VARYING(16)
+		CONSTRAINT ou_structure_perspective
+		  REFERENCES ou_perspective_code(code),
   parent_id	NUMERIC(12,0)
 		CONSTRAINT ou_structure_parent_id REFERENCES ou(ou_id),
-  CONSTRAINT ou_structure_pk PRIMARY KEY (ou_id, structure_view),
-/* TBD: Should there be a `parent_structure_view', or is it okay to
-        use just one `structure_view' for defining both this node and
-        its parent? */
+  CONSTRAINT ou_structure_pk PRIMARY KEY (ou_id, perspective),
   CONSTRAINT ou_structure_parent_node
-    FOREIGN KEY (parent_id, structure_view)
-    REFERENCES ou_structure(ou_id, structure_view)
+    FOREIGN KEY (parent_id, perspective)
+    REFERENCES ou_structure(ou_id, perspective)
 );
 
 
 /*	ou_name_language
 
-
+  Use this table to define the names of OUs in languages other than
+  the default language of this installation.
 
 */
 CREATE TABLE ou_name_language
@@ -71,6 +82,7 @@ CREATE TABLE ou_name_language
   acronym	CHAR VARYING(15),
   short_name	CHAR VARYING(30),
   display_name	CHAR VARYING(80),
+  sort_name	CHAR VARYING(80),
   CONSTRAINT ou_name_language_pk PRIMARY KEY (ou_id, language_code)
 );
 
@@ -148,7 +160,10 @@ CREATE TABLE ou_contact_info
 
 
 /***
- *** Module `stedkode' -- specific to Norway.
+
+ *** Module `stedkode' -- specific to the higher education sector in
+ *** Norway.
+
  ***/
 
 /*	stedkode
@@ -167,9 +182,11 @@ CREATE TABLE stedkode
 		NOT NULL,
   institutt	NUMERIC(2,0)
 		NOT NULL,
-/* TBD: Heter det "avdeling" eller "gruppe"? */
   avdeling	NUMERIC(2,0)
 		NOT NULL,
-  katalog_merke	BOOLEAN,
+  katalog_merke	CHAR(1)
+		NOT NULL
+		CONSTRAINT stedkode_katalog_merke_bool
+		  CHECK (katalog_merke IN ('T', 'F')),
   CONSTRAINT stedkode_kode UNIQUE (institusjon, fakultet, institutt, avdeling)
 );
