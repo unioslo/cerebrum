@@ -161,23 +161,25 @@ def get_user_info(account_id, account_name):
     home_dir = find_home_dir(account_id, account_name)
     login_script = find_login_script(account_name)
         
+    account.clear()
+    account.find(account_id)
     try:
-        account.clear()
-        account.find(account_id)
         person_id = account.owner_id
         person.clear()
         person.find(person_id)
         full_name = person.get_name(int(co.system_cached), int(co.name_full)) 
         if not full_name:
             print "WARNING: getting persons name failed, account.owner_id:",person_id
-    except Errors.NotFoundError:
-        print "WARNING: find on person or account failed, aduser_id:", account_id        
-    
+    except Errors.NotFoundError:        
+        #This account is missing a person_id.
+        full_name = account.account_name
+        
     account_disable = '0'	
     if chk_quarantine(account_id):
-	account_disable = '1'	
+        account_disable = '1'	
 
     return (full_name, account_disable, home_dir, cereconf.AD_HOME_DRIVE, login_script)
+
 
 def chk_quarantine(account_id):
     # Check against quarantine.
