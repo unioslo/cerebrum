@@ -248,9 +248,14 @@ class Fronter(object):
                 ret.append(group.group_name)
             return ret
         elif 'FS_all' in self.export:
+            # Ser ikke ut til å være i bruk.
             raise ValueError, "didn't think this was in use"
-            # Ser ikke ut til å være i bruk
-            return # alle direktemedlem grupper under INTERNAL_PREFIX}uio.no:fs:{supergroup}
+            # [ Skulle egentlig ha returnert alle grupper som er
+            #   direktemedlemmer under
+            #   INTERNAL_PREFIX}uio.no:fs:{supergroup} ]
+        else:
+            # Ingen synkronisering av FS-emner; returner tom liste.
+            return ()
 
     def _date_sort(self, x, y):
         """Sort by year, then by semester"""
