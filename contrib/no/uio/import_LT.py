@@ -23,6 +23,7 @@ import cerebrum_path
 import re
 import os
 import sys
+import getopt
 
 import cereconf
 from Cerebrum import Person
@@ -78,6 +79,15 @@ def conv_name(fullname):
     return fullname.split(None, 1)
 
 def main():
+    opts, args = getopt.getopt(sys.argv[1:], 'vp', ['verbose', 'person-file'])
+    verbose = 0
+    personfile = default_personfile
+    for opt, val in opts:
+        if opt in ('-v', '--verbose'):
+            verbose += 1
+        elif opt in ('p', '--person-file'):
+            personfile = val
+            
     Cerebrum = Factory.get('Database')()
     ou = Factory.get('OU')(Cerebrum)
     personObj = Person.Person(Cerebrum)
@@ -88,16 +98,13 @@ def main():
 
     if getattr(cereconf, "ENABLE_MKTIME_WORKAROUND", 0) == 1:
         print "Warning: ENABLE_MKTIME_WORKAROUND is set"
-    if len(sys.argv) == 2:
-        personfile = sys.argv[1]
-    else:
-        personfile = default_personfile
 
     for person in LTData(personfile):
         person['fnr'] = fodselsnr.personnr_ok(
             "%02d%02d%02d%05d" % (int(person['fodtdag']), int(person['fodtmnd']),
                                   int(person['fodtar']), int(person['personnr'])))
-        print "Got %s" % person['fnr'],
+        if verbose:
+            print "Got %s" % person['fnr'],
         # pp.pprint(person)
         new_person.clear()
         gender = co.gender_male
@@ -168,15 +175,16 @@ def main():
                 new_person.populate_affiliation(co.system_lt, ou.ou_id, co.affiliation_employee,
                                                 co.affiliation_status_employee_valid)
             except Errors.NotFoundError:
-                print "Error setting stedkode"
+                print "Error setting stedkode %s" % stedkode
 
         op = new_person.write_db()
-        if op is None:
-            print "**** EQUAL ****"
-        elif op == True:
-            print "**** NEW ****"
-        elif op == False:
-            print "**** UPDATE ****"
+        if verbose:
+            if op is None:
+                print "**** EQUAL ****"
+            elif op == True:
+                print "**** NEW ****"
+            elif op == False:
+                print "**** UPDATE ****"
         Cerebrum.commit()
 
 if __name__ == '__main__':
