@@ -46,10 +46,12 @@ from Cerebrum.modules import PosixUser
 from Cerebrum.modules import PasswordHistory
 from Cerebrum.modules.no import Stedkode
 from Cerebrum.modules.no.uio import PrinterQuotas
+from server.bofhd_auth import BofhdAuthOpSet, BofhdAuthRole, BofhdAuthOpTarget
 from Cerebrum.Utils import Factory
 
 default_personfile = ''
 default_groupfile = ''
+default_itpermfile = ''
 db = Factory.get('Database')()
 db.cl_init(change_program='migrate_iux')
 co = Factory.get('Constants')(db)
@@ -61,6 +63,7 @@ user_creators = {}     # Store post-processing info for users
 uname2entity_id = {}
 deleted_users = {}
 uid_taken = {}
+group2entity_id = {}
 
 namestr2const = {'lname': co.name_last, 'fname': co.name_first}
 personObj = Factory.get('Person')(db)
@@ -192,6 +195,154 @@ class GroupParser(xml.sax.ContentHandler):
         if name == "group":
             self.groups.append(self.group)
         self.elementstack.pop()
+
+class ITPermData(xml.sax.ContentHandler):
+    def __init__(self, filename):
+        self.perms = []
+        xml.sax.parse(filename, self)
+
+    def __iter__(self):
+        return self
+
+    def next(self):
+        """Returns a dict with data about the next group in ureg."""
+        try:
+            return self.perms.pop(0)
+        except IndexError:
+            raise StopIteration, "End of file"
+
+    def startElement(self, name, attrs):
+        tmp = {}
+        for k in attrs.keys():
+            tmp[k.encode('iso8859-1')] = attrs[k].encode('iso8859-1')
+        name = name.encode('iso8859-1')
+        if name in ('group', 'disk'):
+            tmp['type'] = name
+            self.perms.append(tmp)
+
+    def endElement(self, name):
+        pass
+
+def import_itperms(filename):
+    # Create wanted BofhdAuthOpSet(s)
+    baos = BofhdAuthOpSet(db)
+    # - ureg_O
+    baos.clear()
+    baos.populate('ureg_O')
+    baos.write_db()
+    baos.add_operation(co.auth_set_password)
+    baos.add_operation(co.auth_move_from_disk)
+    ureg_O = baos.op_set_id
+    # - ureg_P
+    baos.clear()
+    baos.populate('ureg_P')
+    baos.write_db()
+    baos.add_operation(co.auth_set_password)
+    ureg_P = baos.op_set_id
+    # - ureg_Y
+    baos.clear()
+    baos.populate('ureg_Y')
+    baos.write_db()
+    baos.add_operation(co.auth_set_password)
+    baos.add_operation(co.auth_move_from_disk)
+    baos.add_operation(co.auth_move_to_disk)
+    ureg_Y = baos.op_set_id
+    # - ureg_group
+    baos.clear()
+    baos.populate('ureg_group')
+    baos.write_db()
+    baos.add_operation(co.auth_alter_group_membership)
+    ureg_group = baos.op_set_id
+
+    role = BofhdAuthRole(db)
+    ao_target = BofhdAuthOpTarget(db)
+    # Cache some lookup data
+    disk = Disk.Disk(db)
+    hostname2id = {}
+    diskname2diskid = {}
+    for row in disk.list():
+        parts = row['path'].split("/")
+        hostname2id[parts[2]] = row['host_id']
+        diskname2diskid[parts[2]+":"+parts[3]] = row['disk_id']
+
+    # Process XML file
+    for perm in ITPermData(filename):
+        itg = None
+        try:
+            itg = _get_group(perm['itgroupname'])
+        except Errors.NotFoundError:
+            print "WARNING: missing itgroup: %s" % perm['itgroupname']
+            continue
+        if perm['type'] == 'group':
+            dest_group = None
+            try:
+                dest_group = _get_group(perm['group'])
+            except Errors.NotFoundError:
+                print "WARNING: missing group: %s" % perm['group']
+                continue
+
+            # Even though target is a single entity, we have to create
+            # a target for it.  One may argue that one should allow
+            # auth_role.op_target_id to point to an entity_id
+            owner = None
+            if perm['personlig'] == '1':
+                try:
+                    owner = _get_account(perm['group'])
+                except Errors.NotFoundError:
+                    print "WARNING: missing user: %s" % perm['group']
+                    continue
+            else:
+                owner = itg
+            ao_target.clear()
+            ao_target.populate(dest_group, 'group')
+            ao_target.write_db()
+            role.grant_auth(owner, ureg_group, ao_target.op_target_id)
+        elif perm['type'] == 'disk':
+            host = None
+            try:
+                host = hostname2id[perm['machine']]
+            except KeyError:
+                print "WARNING: unknown host: %s" % perm['machine'] 
+                continue
+            if perm['reg_ok'] == 'O':
+                set = ureg_O
+            elif  perm['reg_ok'] == 'Y':
+                set = ureg_Y
+            elif  perm['reg_ok'] == 'P':
+                set = ureg_P
+            try:
+                idx = perm['disk'].index('*')
+                ao_target.clear()
+                ao_target.populate(host, 'host')
+                ao_target.write_db()
+                if perm['disk'] != '*':
+                    perm['disk'] = perm['disk'].replace('*', '.*')
+                    ao_target.add_op_target_attr(perm['disk'])
+                    ao_target.write_db()
+            except ValueError:
+                disk = perm['machine']+":"+perm['disk']
+                try:
+                    disk = diskname2diskid[disk]
+                except KeyError:
+                    print "WARNING: unknown disk: %s" % disk
+                    continue
+                ao_target.clear()
+                ao_target.populate(disk, 'disk')
+                ao_target.write_db()                
+            role.grant_auth(itg, set, ao_target.op_target_id)
+    db.commit()
+
+def _get_group(name):
+    if not group2entity_id.has_key('name'):
+        tmpg = Group.Group(db)
+        tmpg.find_by_name(name)
+        group2entity_id[name] = tmpg.entity_id
+    return group2entity_id[name]
+
+def _get_account(name):
+    tmpa = Account.Account(db)
+    tmpa.find_by_name(name)
+    return tmpa.entity_id
 
 def import_groups(groupfile, fill=0):
     account = Account.Account(db)
@@ -593,11 +744,12 @@ def showtime(msg):
     prev_msgtime = time()
 
 def usage():
-    print """import_userdb_XML.py [-p file | -g file | -m num] {-P | -G | -M}
+    print """import_userdb_XML.py [-p file | -g file | -m num | -i file] {-P | -G | -M -I}
 
 -G : generate the groups
 -P : generate persons and accounts
 -M : populate the groups with members
+-I : import it-group permissions
 
 Normaly first run with -G, then -P and finally with -M.  The program
 is not designed to be ran multiple times.
@@ -610,7 +762,7 @@ located by their extid (currently only fnr is supported).
 
 if __name__ == '__main__':
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "dp:g:m:PGM",
+        opts, args = getopt.getopt(sys.argv[1:], "dp:g:m:i:PGMI",
                                    ["pfile=", "gfile=", "persons", "groups",
                                     "groupmembers", "max_cb="])
     except getopt.GetoptError:
@@ -621,16 +773,21 @@ if __name__ == '__main__':
     max_cb = None
     pfile = default_personfile
     gfile = default_groupfile
+    ifile = default_itpermfile
     showtime("Started")
     for o, a in opts:
         if o in ('-p', '--pfile'):
             pfile = a
         elif o in ('-g', '--gfile'):
             gfile = a
+        elif o in ('-i',):
+            ifile = a
         elif o in ('-P', '--persons'):
             import_person_users(pfile)
         elif o in ('-G', '--groups'):
             import_groups(gfile, 0)
+        elif o in ('-I',):
+            import_itperms(ifile)
         elif o in ('-m', '--max_cb'):
             max_cb = int(a)
         elif o in ('-d',):
