@@ -1,4 +1,4 @@
-# Copyright 2002 University of Oslo, Norway
+# Copyright 2002, 2003 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -60,7 +60,7 @@ class _CerebrumCode(DatabaseAccessor):
                                         (self._lookup_str_column,
                                          self._lookup_table,
                                          self._lookup_code_column),
-                                        locals())
+                                        {'code': code})
         elif type(code) is str:
             self.str = code
         else:
