@@ -798,6 +798,20 @@ def move_student_callback(person_info):
                                account_id, disk, state_data=spread)
                 db.commit()
 
+def process_quarantine_refresh_requests():
+    """process_changes.py has added bofh_quarantine_refresh for the
+    start/disable/end dates for the quarantines.  Register a
+    quarantine_refresh change-log event so that changelog-based
+    quicksync script can revalidate the quarantines."""
+
+    br = BofhdRequests(db, const)
+    for r in br.get_requests(operation=const.bofh_quarantine_refresh):
+        if r['run_at'] > br.now:
+            continue
+        db.log_change(r['entity_id'], const.quarantine_refresh, None)
+        br.delete_request(request_id=r['request_id'])
+        db.commit()
+
 def process_delete_requests():
     br = BofhdRequests(db, const)
     group = Factory.get('Group')(db)
@@ -1002,6 +1016,14 @@ def usage(exitcode=0):
     -t | --type type: performe queued operations of this type.  May be
          repeated, and must be preceeded by -p
     -m | --max val: perform up to this number of requests
+
+    Legal values for --type:
+      email
+      mailman
+      move
+      move_student
+      quarantine_refresh
+      delete
 
     Needed for move_student requests:
     --ou-perspective code_str: set ou_perspective (default: perspective_fs)
