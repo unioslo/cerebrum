@@ -123,7 +123,7 @@ def write_ldif():
                 rest += "mailPause: TRUE\n"
 
             # Get server-attributes if any.
-            rest += ldap.get_server_info(t, ei, home)
+            rest += ldap.get_server_info(t, ei, home, path)
 
         elif tt == co.email_target_deleted:
             # Target type for addresses that are no longer working, but

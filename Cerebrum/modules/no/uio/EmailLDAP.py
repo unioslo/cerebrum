@@ -45,26 +45,33 @@ class EmailLDAPUiOMixin(EmailLDAP):
                      'forward': 'forwardAddress'}         
     _translate_domains = {'UIO_HOST': 'ulrik.uio.no',
                           }
+    maildrop = "/uio/mailspool/mail"
 
 
     def get_targettype(self, targettype):
         return self.db_tt2ldif_tt.get(str(targettype), str(targettype))
 
 
-    def get_server_info(self, target, entity, home):
+    def get_server_info(self, target, entity, home, path):
         # Find mail-server settings:
         uname = self.acc2name[entity][0]
         sinfo = ""
         if self.targ2server_id.has_key(target):
             type, name = self.serv_id2server[int(self.targ2server_id[target])]
             if type == self.const.email_server_type_nfsmbox:
-                maildrop = "/uio/mailspool/mail"
-                tmphome = "/hom/%s" % uname
-                r = re.search(r'^(/[^/]+/[^/]+)/', home)
-                if r:
-                    tmphome = r.group(1)
-                if self.home2spool.has_key(tmphome):
-                    maildrop = self.home2spool[tmphome]
+                # If no path; do not verify.
+                if path:
+                    r = re.search(r'^(/[^/]+)(/[^/]+)/', path)
+                if (not path) or (r.group(1) in ("/local", "/ifi")):
+                    maildrop = self.maildrop
+                else:
+                    if r:
+                        path = "%s%s" % (r.group(1),r.group(2))
+                    if self.home2spool.has_key(path):
+                        maildrop = self.home2spool[path]
+                    else:
+                        raise RuntimeError, \
+                              "No '%s' in home2spool. Error in DNS" % path
                 sinfo += "spoolInfo: home=%s maildrop=%s/%s\n" % (
                     home, maildrop, uname)
             elif type == self.const.email_server_type_cyrus:
@@ -186,7 +193,7 @@ class EmailLDAPUiOMixin(EmailLDAP):
                     lowpri, primary = pri, mx
                 if int(pri) == 33:
                     spoolhost[dom] = mx
-
+                    
         if curdom and primary:
             self._validate_primary(curdom, primary, self.local_uio_domain)
 
@@ -216,44 +223,49 @@ class EmailLDAPUiOMixin(EmailLDAP):
         # Define domains in zone ifi.uio.no whose primary MX is one of our
         # mail servers as "local domains".  Cache CNAMEs at the same time.
 
-        cmd = "/local/bin/dig @bestemor.ifi.uio.no ifi.uio.no. axfr"
-        out = os.popen(cmd)
-        res = out.readlines()
-        err = out.close()
-        if err:
-            raise RuntimeError, '%s: failed with exit code %d' % (cmd, err)
+        # NB: ifi-kode tatt vekk. DNS-parsing er noe herk siden det ikke stemmer
+        #     med hva ifi har av hjemmeområder.
 
-        pat = r'^(\S+)\.\s+\d+\s+IN\s+MX\s+(\d+)\s+(\S+)\.'
-        pat2 = r'^(\S+)\.\s+\d+\s+IN\s+CNAME\s+(\S+)\.'
-        for line in res:
-            m = re.search(pat, line)
-            if m:
-                dom = string.lower(m.group(1))
-                pri = int(m.group(2))
-                mx = string.lower(m.group(3))
-                dom = re.sub(no_uio, '', dom)
-                mx = re.sub(no_uio, '', mx)
-                if not curdom:
-                    curdom = dom
-                if curdom and curdom != dom:
-                    self._validate_primary(curdom, primary, self.local_uio_domain)
-                    curdom = dom
-                    lowpri, primary = "", ""
-                if (not lowpri) or (pri < lowpri):
-                    lowpri, primary = pri, mx
-                if pri == 33:
-                    spoolhost[dom] = mx
-            else:
-                m = re.search(pat2, line)
-                if m:
-                    alias = string.lower(m.group(1))
-                    real = string.lower(m.group(2))
-                    alias = re.sub(no_uio, '', alias)
-                    real = re.sub(no_uio, '', real)
-                    cname_cache[alias] = real
 
-        if curdom and primary:
-            self._validate_primary(curdom, primary, self.local_uio_domain)
+        #no_uio_ifi = r'\.ifi\.uio\.no'
+        #cmd = "/local/bin/dig @bestemor.ifi.uio.no ifi.uio.no. axfr"
+        #out = os.popen(cmd)
+        #res = out.readlines()
+        #err = out.close()
+        #if err:
+        #    raise RuntimeError, '%s: failed with exit code %d' % (cmd, err)
+
+        #pat = r'^(\S+)\.\s+\d+\s+IN\s+MX\s+(\d+)\s+(\S+)\.'
+        #pat2 = r'^(\S+)\.\s+\d+\s+IN\s+CNAME\s+(\S+)\.'
+        #for line in res:
+        #    m = re.search(pat, line)
+        #    if m:
+        #        dom = string.lower(m.group(1))
+        #        pri = int(m.group(2))
+        #        mx = string.lower(m.group(3))
+        #        dom = re.sub(no_uio_ifi, '', dom)
+        #        mx = re.sub(no_uio, '', mx)
+        #        if not curdom:
+        #            curdom = dom
+        #        if curdom and curdom != dom:
+        #            self._validate_primary(curdom, primary, self.local_uio_domain)
+        #            curdom = dom
+        #            lowpri, primary = "", ""
+        #        if (not lowpri) or (pri < lowpri):
+        #            lowpri, primary = pri, mx
+        #        if pri == 33:
+        #            spoolhost[dom] = mx
+        #    else:
+        #        m = re.search(pat2, line)
+        #        if m:
+        #            alias = string.lower(m.group(1))
+        #            real = string.lower(m.group(2))
+        #            alias = re.sub(no_uio, '', alias)
+        #            real = re.sub(no_uio, '', real)
+        #            cname_cache[alias] = real
+
+        #if curdom and primary:
+        #    self._validate_primary(curdom, primary, self.local_uio_domain)
 
         # Define CNAMEs for domains whose primary MX is one of our mail
         # servers as "local domains".
@@ -269,12 +281,10 @@ class EmailLDAPUiOMixin(EmailLDAP):
             host = string.lower(host)
             if host == '*':
                 continue
-            if faculty == "ifi":
-                spoolhost[host] = "ulrik"
-                continue
             elif not spoolhost.has_key(host):
                 continue
             if spoolhost[host] == "ulrik":
+                self.home2spool["/%s/%s" % (faculty, host)] = self.maildrop
                 continue
             self.home2spool["/%s/%s" % (faculty, host)] = "/%s/%s/mail" % (
                 faculty, spoolhost[host])

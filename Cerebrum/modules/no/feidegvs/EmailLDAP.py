@@ -45,7 +45,7 @@ class EmailLDAPFeideGvsMixin(EmailLDAP):
         for row in p.list_persons_name():
             p_id2name[int(row['person_id'])] = row['name']
         a = Factory.get('Account')(self._db)
-        for row in a.list_accounts_owner():
+        for row in a.list():
             a_id = row['account_id']
             o_id = row['owner_id']
             if p_id2name.has_key(o_id):

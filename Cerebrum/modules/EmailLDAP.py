@@ -70,14 +70,14 @@ class EmailLDAP(DatabaseAccessor):
     def get_target(self, entity_id, target_id):
         return self.acc2name[entity_id][0]
 
-    def get_server_info(self, target, entity, home):
+    def get_server_info(self, target, entity, home, path):
         # Find mail-server settings:
         uname = self.acc2name[entity][0]
         sinfo = ""
         if self.targ2server_id.has_key(target):
             type, name = self.serv_id2server[int(self.targ2server_id[target])]
             if type == self.const.email_server_type_nfsmbox:
-                if home:
+                if not home:
                     home = "/home/%s" % uname
                 maildrop = "/var/spool/mail"
                 sinfo += "spoolInfo: home=%s maildrop=%s/%s\n" % (
@@ -196,7 +196,7 @@ class EmailLDAP(DatabaseAccessor):
 
     def read_accounts(self, spread):
         acc = Factory.get('Account')(self._db)
-        for row in acc.list_account_name_home(spread):
+        for row in acc.list_account_name_home(spread, filter_home=True):
             self.acc2name[int(row['account_id'])] = [row['entity_name'],
                                                      row['home'],
                                                      row['path']]
