@@ -221,7 +221,9 @@ setup (name = "Cerebrum", version = Cerebrum.__version__,
                    'Cerebrum/modules/no',
                    'Cerebrum/modules/no/uio',
                    'Cerebrum/modules/no/uio/AutoStud',
-                   'Cerebrum/modules/templates'],
+                   'Cerebrum/modules/templates',
+                   'Cerebrum/client',
+                   ],
 
        # options override --prefix
        #options = {'install_data': {'root' : '/foo/bar',  # prefix on slash
