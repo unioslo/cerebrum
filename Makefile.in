@@ -16,7 +16,7 @@ all: Makefile
 .PHONY: install
 install: Makefile
 	#./setup.py install install_data --install-dir=$(prefix)
-	./setup.py install --prefix=/tmp/cerebrum
+	./setup.py install --prefix=$(prefix)
 
 .PHONY: dist
 dist: dist/Cerebrum-$(PACKAGE_VERSION).tar.gz
