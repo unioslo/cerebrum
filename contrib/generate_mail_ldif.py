@@ -22,86 +22,113 @@
 import time
 import sys
 import base64
+import getopt
 
 import cerebrum_path
+import cereconf
 from Cerebrum import Errors
 from Cerebrum import Account
 from Cerebrum import Group
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import Email
+from time import time as now
 
-Cerebrum = Factory.get('Database')()
-co = Factory.get('Constants')(Cerebrum)
-mail_addr = Email.EmailAddress(Cerebrum)
-mail_dom = Email.EmailDomain(Cerebrum)
-mail_targ = Email.EmailTarget(Cerebrum)
+db = Factory.get('Database')()
+co = Factory.get('Constants')(db)
+mail_addr = Email.EmailAddress(db)
+mail_dom = Email.EmailDomain(db)
+mail_targ = Email.EmailTarget(db)
+default_mail_file = "/cerebrum/dumps/LDAP/mail.ldif"
 
+aid2addr = {}
 targ2addr = {}
-targets = []
+targ2spam = {}
+targ2quota = {}
+targ2virus = {}
+targ2prim = {}
 base_dn = "dc=uio,dc=no"
 
 def read_addr():
-    for row in mail_addr.list_email_addresses():
+    counter = 0
+    curr = now()
+    for row in mail_addr.list_email_addresses_ext():
+        if counter == 0:
+            print "  done list_email_addresses_ext(): %d sec." % (now() - curr)
+            counter = 1
+        a_id = db.pythonify_data(row['address_id'])
+        t_id = db.pythonify_data(row['target_id'])
+        lpart = db.pythonify_data(row['local_part'])
+        domain = db.pythonify_data(row['domain'])
 
-        id = Cerebrum.pythonify_data(row['address_id'])
-        mail_addr.clear()
-        mail_addr.find(id)
-        targ_id = mail_addr.get_target_id()
+        addr = "%s@%s" % ( lpart, domain )
+        targ2addr.setdefault(int(t_id), []).append(addr)
+        aid2addr[a_id] = addr
+        if verbose > 1:
+            print "     Id: %d found targ: %d, address: %s"\
+                  % (a_id, t_id, addr)
 
-        targ2addr.setdefault(int(targ_id), []).append(id)
+def read_prim():
+    counter = 0
+    curr = now()
+    mail_prim = Email.EmailPrimaryAddressTarget(db)
+    for row in mail_prim.list_email_primary_address_targets():
+        if counter == 0:
+            print "  done list_email_primary_address_targets(): %d sec." % (now() - curr)
+            counter = 1
+        t_id = db.pythonify_data(row['target_id'])
+        a_id = db.pythonify_data(row['address_id'])
+        targ2prim[t_id] = a_id
 
+def read_spam():
+    counter = 0
+    curr = now()
+    mail_spam = Email.EmailSpamFilter(db)
+    for row in mail_spam.list_email_spam_filters_ext():
+        if counter == 0:
+            print "  done list_email_spam_filters_ext(): %d sec." % (now() - curr)
+            counter = 1
+        t_id = db.pythonify_data(row['target_id'])
+        grade = db.pythonify_data(row['grade'])
+        action = db.pythonify_data(row['action'])
+        targ2addr[t_id] = [grade, action]
 
-def read_targ():
-    for row in mail_targ.list_email_targets():
-
-        id = Cerebrum.pythonify_data(row['target_id'])
-        mail_targ.clear()
-        mail_targ.find(id)
-
-        targets.append(id)
-
-def write_misc(t):
-    mail_quota = Email.EmailQuota(Cerebrum)
-    mail_spam = Email.EmailSpamFilter(Cerebrum)
-    mail_virus = Email.EmailVirusScan(Cerebrum)
-
-    # Find quota-info for target:
-    try:
-        mail_quota.clear()
-        mail_quota.find(t)
-        print "softQuota: %d" % mail_quota.get_quota_soft()
-        print "hardQuota: %d" % mail_quota.get_quota_hard()
-    except Errors.NotFoundError:
-        pass
-
-    # Find SPAM-info for target:
-    try:
-        mail_spam.clear()
-        mail_spam.find(t)
-        print "spamLevel: %d" % mail_spam.get_spam_level()
-        print "spamAction: %s" % mail_spam.get_spam_action()
-    except Errors.NotFoundError:
-        pass
-
-    # Find virus-info for target:
-    try:
-        mail_virus.clear()
-        mail_virus.find(t)
-        # TODO: somthing smart, but if .. else for now.
-        if mail_virus.get_enable():
-            print "virusScanning: True"
-        else:
-            print "virusScanning: Flase"
-        print "virusFound: %s" % mail_virus.get_virus_found_act()
-        print "virusRemoved: %s" % mail_virus.get_virus_removed_act()
-    except Errors.NotFoundError:
-        pass
-
+def read_quota():
+    counter = 0
+    curr = now()
+    mail_quota = Email.EmailQuota(db)
+    for row in mail_quota.list_email_quota_ext():
+        if counter == 0:
+            print "  done list_email_quota_ext(): %d sec." % (now() - curr)
+            counter = 1
+        t_id = db.pythonify_data(row['target_id'])
+        q_s = db.pythonify_data(row['quota_soft'])
+        q_h = db.pythonify_data(row['quota_hard'])
+        targ2quota[t_id] = [q_s, q_h]
+        
+def read_virus():
+    counter = 0
+    curr = now()
+    mail_virus = Email.EmailVirusScan(db)
+    for row in mail_virus.list_email_virus_ext():
+        if counter == 0:
+            print "  done list_email_virus_ext(): %d sec." % (now() - curr)
+            counter = 1
+        t_id = db.pythonify_data(row['target_id'])
+        f_act = db.pythonify_data(row['found_action'])
+        r_act = db.pythonify_data(row['rem_action'])
+        en = db.pythonify_data(row['enable'])
+        targ2virus[t_id] = [f_act, r_act, en]
 
 def write_ldif():
-    mail_prim = Email.EmailPrimaryAddressTarget(Cerebrum)
+    counter = 0
+    curr = now()
 
-    for t in targets:
+    for row in mail_targ.list_email_targets():
+        if counter == 0:
+            print "  done list_email_targets(): %d sec." % (now() - curr)
+            counter = 1
+            
+        t = db.pythonify_data(row['target_id'])
         mail_targ.clear()
         mail_targ.find(t)
 
@@ -112,25 +139,26 @@ def write_ldif():
         # target is (class EmailConstants in Email.py):
         tt = mail_targ.get_target_type()
         tt = Email._EmailTargetCode(int(tt))
-
+        tt_name = mail_targ.get_target_type_name()
+        
         if tt == co.email_target_account:
             # Target is the local delivery defined for the Account whose
             # account_id == email_target.entity_id.
             ent_type = mail_targ.get_entity_type()
             ent_id = mail_targ.get_entity_id()
-            # TODO: Get string "account" out of EmailTarget, not a number.
+
             if ent_type == co.entity_account:
                 try:
-                    acc = Account.Account(Cerebrum)
+                    acc = Account.Account(db)
                     acc.clear()
                     acc.find(ent_id)
                     target = acc.account_name
                 except Errors.NotFoundError:
-                    txt = "Target: %s(account) no user found: %s"% (t,ent_id)
+                    txt = "Target: %s(account) no user found: %s\n"% (t,ent_id)
                     sys.stderr.write(txt)
                     continue
             else:
-                txt = "Target: %s(account) wrong entity type: %s"% (t,ent_id)
+                txt = "Target: %s(account) wrong entity type: %s\n"% (t,ent_id)
                 sys.stderr.write(txt)
                 continue
             
@@ -164,88 +192,128 @@ def write_ldif():
             # TODO: Get "account" out of EmailTarget, not a number.
             if ent_type == co.entity_account:
                 try:
-                    acc = Account.Account(Cerebrum)
+                    acc = Account.Account(db)
                     acc.clear()
                     acc.find(ent_id)
                     uid = acc.account_name
                 except Errors.NotFoundError:
-                    txt = "Target: %s(%s) no user found: %s" % (t, tt, ent_id)
+                    txt = "Target: %s(%s) no user found: %s\n" % (t, tt, ent_id)
                     sys.stderr.write(txt)
                     continue
             elif ent_type == None and ent_id == None:
                 # Catch valid targets with no user bound to it.
                 pass
             else:
-                txt = "Target: %s (%s) has invalid entities: %s, %s" \
+                txt = "Target: %s (%s) has invalid entities: %s, %s\n" \
                       % (t, tt, ent_type, ent_id)
-                stderr.write(txt)
+                sys.stderr.write(txt)
                 continue
 
         elif tt == co.email_target_multi:
             # Target is not set; forwardAddress is the set of
             # addresses that should receive mail for this target.
-            mail_fwd = Email.EmailForward(Cerebrum)
+            mail_fwd = Email.EmailForward(db)
             try:
                 mail_fwd.find(t)
                 forwards = [x.forward_to for x in mail_fwd.get_forward()
                             if x.enable <> 'T']
             except Errors.NotFoundError:
                 # A 'multi' target with no forwarding; seems odd.
-                txt = "Target: %s (%s) no forwarding found." % (t, tt)
+                txt = "Target: %s (%s) no forwarding found.\n" % (t, tt)
                 sys.stderr.write(txt)
                 continue
 
         else:
             # The target-type isn't known to this script.
-            sys.stderr.write("Wrong target-type in target: %s: %s" % ( t, tt ))
+            sys.stderr.write("Wrong target-type in target: %s: %s\n" % ( t, tt ))
             continue
 
-        print "dn: cn=%s,ou=mail,%s\n" % (t, base_dn), \
-              "objectClass: top\n", \
-              "objectClass: mailAddr\n", \
-              "cn: %s\n" % t, \
-              "targetType: %s" % tt
-        #print "target:: %s" % base64.encodestring(target)
-        print "target: %s" % target
+        f.write("dn: cn=%s,ou=mail,%s\n" % (t, base_dn))
+        f.write("objectClass: top\n")
+        f.write("objectClass: mailAddr\n")
+        f.write("cn: %s\n" % t)
+        f.write("targetType: %s\n" % tt_name)
+        #f.write("target:: %s" % base64.encodestring(target)
+        f.write("target: %s\n" % target)
         if uid:
-            print "uid: %s" % uid
+            f.write("uid: %s\n" % uid)
         
         # Find primary mail-address:
-        try:
-            mail_prim.clear()
-            mail_prim.find(t)
-            a = mail_prim.get_address_id()
-            mail_addr.clear()
-            mail_addr.find(a)
-            dom_id = mail_addr.get_domain_id()
-            mail_dom.clear()
-            mail_dom.find(dom_id)
-            print "defaultMailAddress: %s@%s" % ( mail_addr.get_localpart(),
-                                                  mail_dom.get_domain_name() )
-        except Errors.NotFoundError:
-            pass
+        if targ2prim.has_key(t):
+            f.write("defaultMailAddress: %s\n" % aid2addr[targ2prim[t]])
 
         # Find addresses for target:
         if targ2addr.has_key(t):
             for a in targ2addr[t]:
-                mail_addr.clear()
-                mail_addr.find(a)
-                dom_id = mail_addr.get_domain_id()
-                mail_dom.clear()
-                mail_dom.find(dom_id)
-                print "mail: %s@%s" % ( mail_addr.get_localpart(),
-                                        mail_dom.get_domain_name() )
+                f.write("mail: %s\n" % a)
 
+        # Find spam-settings:
+        if targ2spam.has_key(t):
+            pass
 
-        write_misc(t)
-        print "\n"
+        # Find quota-settings:
+        if targ2quota.has_key(t):
+            pass
+
+        # Find virus-setting:
+        if targ2virus.has_key(t):
+            pass
+
+        #write_misc(t)
+        f.write("\n")
 
 
 def main():
-    read_addr()
-    read_targ()
-    write_ldif()
+    global verbose, f
+    try:
+        opts, args = getopt.getopt(sys.argv[1:], 'vm:', ['verbose', 'mail-file'])
+    except getopt.GetoptError:
+        usage(1)
 
+    verbose = 0
+    mail_file = default_mail_file
+        
+    for opt, val in opts:
+        if opt in ('-v', '--verbose'):
+            verbose += 1
+        elif opt in ('-m', '--mail-file'):
+             mail_file = val
+
+    f = file(mail_file,'w')
+    start = now()
+
+    if verbose:
+        print "Starting read_prim()..."
+        curr = now()
+    read_prim()
+    if verbose:
+        print "  done in %d sec." % (now() - curr)       
+        print "Starting read_addr()..."
+        curr = now()
+    read_addr()
+    if verbose:
+        print "  done in %d sec." % (now() - curr)
+        print "Starting read_spam()..."
+        curr = now()
+#    read_spam()
+    if verbose:
+        print "  done in %d sec." % (now() - curr)
+        print "Starting read_quota()..."
+        curr = now()
+#    read_quota()
+    if verbose:
+        print "  done in %d sec." % (now() - curr)
+        print "Starting read_virus()..."
+        curr = now()
+#    read_virus()
+    if verbose:
+        print "  done in %d sec." % (now() - curr)
+        print "Starting write_ldif()..."
+        curr = now()
+    write_ldif()
+    if verbose:
+        print "  done in %d sec." % (now() - curr)
+        print "Total time: %d" % (now() - start)
 
 if __name__ == '__main__':
     main()
