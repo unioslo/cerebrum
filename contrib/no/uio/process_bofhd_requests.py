@@ -420,15 +420,19 @@ def cyrus_subscribe(uname, server, action="create"):
 
 def move_email(user_id, mailto_id, from_host, to_host):
     acc = Factory.get("Account")(db)
-    try:
-        acc.find(mailto_id)
-    except Errors.NotFoundError:
-        logger.error("move_email: operator %d not found" % mailto_id)
-        return False
-    try:
-        mailto = acc.get_primary_mailaddress()
-    except Errors.NotFoundError:
-        mailto = ""
+    # bofh_move_email requests that are "magically" added by giving a
+    # user spread 'spread_uio_imap' will have mailto_id == None.
+    mailto = ""
+    if mailto_id is not None:
+        try:
+            acc.find(mailto_id)
+        except Errors.NotFoundError:
+            logger.error("move_email: operator %d not found" % mailto_id)
+            return False
+        try:
+            mailto = acc.get_primary_mailaddress()
+        except Errors.NotFoundError:
+            mailto = ""
     try:
         acc.clear()
         acc.find(user_id)
