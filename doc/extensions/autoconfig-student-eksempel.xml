@@ -1,0 +1,200 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+
+<config>
+
+  <!-- $Id$
+
+  Denne konfigurasjons-filen er ment å styre de aller fleste regler
+  for automagisk håndtering av studentbrukere.
+
+  Den vil erstatte ureg2000-filene "kontoBygging.profil",
+  "quota_settings.dat" og "EVU-student.profil", samt legge på noen
+  ekstra features.
+
+  Det er antagelig en fordel at filen inneholder et sett med eksempler
+  og forklaringer.  Ihvertfall inntil ting er rimelig spikret, og vi
+  kan dokumentere det en annen plass.
+
+  -->
+
+
+  <!-- Det har vært diskutert om denne konfigurasjonsfila bør foreta en
+       beskrivelse av forskjellige "setter"-elementers oppførsel.
+       Inntil videre har man valgt å prioritere ned dette
+       (i.e. oppførselen defineres av Python-koden som behandler
+       konfigurasjonsfila), men en slik beskrivelse ville det være
+       naturlig å plassere her.
+
+       Med "oppførsel" av setter-elementer tenker man bl.a. på hvilken
+       type verdien som settes har (e.g. string, int eller boolean),
+       er verdien single- eller multi-valued, skal automatikken
+       forsøke å være konservativ (slik at en single-valued setting
+       beholder sin verdi dersom den nåværende verdien finnes blant
+       alternativene til ny verdi), etc. -->
+
+
+
+  <!-- Alle grupper som tillates rørt av automatikken må deklareres her,
+       med både gruppens navn og hvorvidt det automatisk skal gjøres
+       inn- og/eller ut-meldinger.
+
+         auto="inn"  : Automatisk innmelding
+         auto="ut"   : Automatisk utmelding
+         auto="full" : Automatisk inn- og utmelding -->
+  <gruppe_oversikt default_auto="full">
+    <!-- Denne XML-kommentaren kan f.eks. inneholde beskrivelse av hva
+         gruppen 'tf-users' brukes til. -->
+    <gruppedef navn="tf-users"/> <!-- Implisitt auto=default_auto. -->
+    <gruppedef navn="hf-spct" auto="inn"/>
+  </gruppe_oversikt>
+
+
+
+  <!-- For at en <disk prefix="sti"> eller <disk path="sti"> skal
+       kunne brukes i en <profil> lenger ned, må disken deklareres her
+       (og matche minst en disk som finnes i Cerebrum-databasen).
+       Både attributt-navn ("path" eller "prefix") og verdi ("sti" i
+       eksemplene) må matche eksakt mellom <diskdef>- og
+       <disk>-elementene.
+
+       En disk-deklarasjon kan foruten prefix/path også spesifisere
+
+         "max"  : Maksimalt antall brukere automatikken tillates å
+	          plassere på denne disken; verdien -1 betyr ingen
+	          grense.
+
+         "bygg" : Tillates automatikken å bygge nye brukere på denne
+                  disken?  Gyldige verdier er "ja" (default) eller
+                  "nei". Merk at pga. automatisk flytting kan antallet
+                  brukere som holder til på en disk godt stige selv om
+                  det ikke tillates nybygging på denne. -->
+  <disk_oversikt default_max="400">
+    <diskdef prefix="/uio/hume/tf-l"/>
+    <diskdef path="/uio/platon/pending1" max="-1" bygg="nei"/>
+    <!-- Hva med brukere uten gyldig student-affiliation som bor på en
+         auto-stud-disk?  Skal disse automatisk sperres, eller kanskje
+         flyttes noe annet sted?  Bør dette modelleres inn her? -->
+  </disk_oversikt>
+
+  <!-- Ny <disk_oversikt> for ny gruppe med disker som har annen verdi
+       for default_max. -->
+  <disk_oversikt default_max="100">
+    <diskdef prefix="/uio/hume/tf-h"/>
+  </disk_oversikt>
+
+
+
+  <profil navn="*topp*">
+    <!-- Tildeling av minimums-printer-kvote til alle studenter.  Skal
+         denne denne grunnlag for ytterligere akkumulasjon av kvote,
+         eller skal den kun anvendes som default-verdi? -->
+    <printer_kvote start="0" uke="10" max_akk="20" max_sem="50"/>
+    <!-- Hva med på- og av-skruing av kvoter, bør det modelleres
+         eksplisitt eller er det tilstrekkelig å gjøre implisitt
+         på-skruing i det kvote forsøkes juster for en bruker? -->
+    <select>
+      <!-- Hvordan skriver man selector(s) som fanger inn *alle*
+           brukere som skal omfattes av automatikken?
+
+	   Og, er en slik selector nødvendig, eller kan vi helle løse
+	   problemet ved å la alle andre profiler (hvis selectors i
+	   sum utgjør den mengden vi er ute etter) arve fra denne? -->
+
+      <!-- Mulige selectors:
+
+        <emne />
+	Skal denne bindes til hele primærnøkkelen for emne i FS, eller
+	er emnekode tilstrekkelig?
+
+	<eksmeld />
+	Tror vi snakket litt om denne på et møte, men jeg husker ikke
+	hva vi kom frem til - trengs den?  Hvis ja, hvilke personer
+	er det meningen at den skal plukke ut?
+
+	<evu />
+	Tilsvarende usikker på hvilken identfikator man bør bruke for
+	å referere til disse.
+
+	<studieprogram />
+	Antar dette angis med STUDIEPROGRAMKODE; bør det tas med flere
+	attributter?
+
+	<studierett />
+	Er dette noe annet enn <studieprogram>-elementet?
+
+	<registerkort />
+	Usikker på mye rundt denne.
+
+        <medlem_av_gruppe navn="foobar"/>
+	Denne kan avhenge av hvilken rekkefølge man evaluerer de
+	forskjellige profilene i.
+
+      -->
+
+    </select>
+  </profil>
+
+
+
+  <!-- I eksempel-profilen "Teologi" er alle lovlige
+       "setter"-elementer listet opp. -->
+  <profil navn="Teologi" super="*topp*">
+    <!-- Elementet <stedkode> er akkumulerende for alle matchende
+         profiler, da Cerebrum-kjernen ikke har noe begrep om *en*
+         stedkode pr. bruker.
+
+	 For Active Directory, derimot, må alle brukere knyttes til
+	 *en* OU.  Trenger dette modellering her? -->
+    <!-- Skal stedkoder spesifiseres med institusjonskode, eller er
+         den implisitt/hentet fra cereconf.py? -->
+    <stedkode verdi="110000"/>
+    <!-- Vi forholder oss til grupper generelt, og ser følgelig ikke
+         forskjell på f.eks. "NIS filgrupper" og "NT-grupper"... -->
+    <gruppe navn="tf-users"/>
+    <!-- ... men ett lite unntak: type="primary" forutsetter at den
+         aktuelle gruppa finnes som NIS filgruppe. -->
+    <gruppe navn="teologi" type="primary"/>
+    <gruppe navn="hf-spct"/>
+    <spread system="uio_NIS"/>
+    <!-- Angivelse av hvilken disk brukere som matcher denne profilen
+         skal legges på.  Disken må være deklarert lenger i en
+         <disk_oversikt>, med både attributtnavn ("path" eller
+         "prefix") og -verdi lik det som angis i profilen. -->
+    <disk prefix="/uio/hume/tf-l"/>
+    <!-- Trenger vi mulighet for å profil-bestemme disk-kvote
+         pr. bruker, eller er det tilstrekkelig å regulere dette med
+         hvor mange brukere som bor på hver disk? -->
+    <disk_kvote max="30000"/>  <!-- I kb? -->
+    <!-- Det er kanskje nødvendig å vekte forskjellige profiler i
+         forhold til hverandre, slik at man klarer å løse opp i
+         "setter"-konflikter. -->
+    <nivå verdi="1000"/>
+    <printer_kvote start="0" uke="50" max_akk="200" max_sem="500"/>
+    <brev type="ny"
+	  distributør="Seksjon for internasjonale programmer$Boks 10xx Blindern"
+          adresse_type="semester"
+	  mal="ny_bruker_opprettet"/>
+    <brev type="reservering"
+	  distributør="Seksjon for internasjonale programmer$Boks 10xx Blindern"
+          adresse_type="semester"
+	  mal="reservering_av_brukernavn"/>
+    <!-- kontotype? andre ting? -->
+
+    <buld action="true"/>
+    <select>
+      <aktiv studieprogram="TEOPROF" name="PROFESJONSSTUDIET I TEOLOGI"/> <!-- GetStudinfAktiv --> 
+      <fagperson stedkode="absolutt_stedkode"/> <!-- GetKursFagpersonundsemester -->
+      <tilbud studieprogram="program"/> <!-- GetStudinfTilbud -->
+      <opptak studieprogram="program"/> <!-- GetStudinfOpptak --> 
+      <permisjon fraverskode="kode"/> <!-- GetStudinfPermisjon -->
+      <privatist_emne studieprogram="studieprogram" XOR emne="emnekode"/> <!-- GetStudinfPrivatist -->
+      <alumni studieprogram="TEOPROF"> <!-- GetAlumni -->
+      <privatist_studieprogram studieprogram="studieprogram"/> <!-- GetPrivatistStudieprogram -->
+      <evu stedkode="absolutt"/> <!-- GetStudinfEvu -->
+      <regkort /> <!-- GetStudinfRegkort -->
+      <eksamen emne="emnekode"/> <!-- GetAlleEksamener -->
+    </select>
+  </profil>
+
+
+</config>

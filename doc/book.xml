@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE book PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+"/usr/share/sgml/docbook/xml-dtd-4.2-1.0-17.2/docbookx.dtd"
+[
+<!ENTITY index-chapter SYSTEM "index.rst">
+<!ENTITY admin-bofh-chapter SYSTEM "admin/bofh.rst">
+<!ENTITY admin-install-chapter SYSTEM "admin/install.rst">
+<!ENTITY admin-index-chapter SYSTEM "admin/index.rst">
+<!ENTITY spec-index-chapter SYSTEM "spec/index.rst">
+<!ENTITY devel-index-chapter SYSTEM "devel/index.rst">
+<!ENTITY devel-bofh-chapter SYSTEM "devel/bofh.rst">
+<!ENTITY devel-database-schema-chapter SYSTEM "devel/database-schema.rst">
+<!ENTITY devel-cerebrum-core-chapter SYSTEM "devel/cerebrum-core.rst">
+<!ENTITY devel-codestyle-chapter SYSTEM "devel/codestyle.rst">
+<!ENTITY devel-extensions-chapter SYSTEM "devel/extensions.rst">
+<!ENTITY devel-hacking-chapter SYSTEM "devel/hacking.rst">
+<!ENTITY extensions-index-chapter SYSTEM "extensions/index.rst">
+<!ENTITY extensions-generate-nismaps-chapter SYSTEM "extensions/generate_nismaps.rst">
+<!ENTITY extensions-autostud-chapter SYSTEM "extensions/AutoStud.rst">
+<!ENTITY overview-index-chapter SYSTEM "overview/index.rst">
+<!ENTITY user-bofh-chapter SYSTEM "user/bofh.rst">
+<!ENTITY user-index-chapter SYSTEM "user/index.rst">
+]>
+<!-- Usage: -->
+<!--  1. add file with an ENTITY line -->
+<!--  2. insert corresponding tag at the apropriate location below -->
+<!--   -->
+<!--  If refered file ends with .rst, it will atuomatically be translated to xml -->
+<!--   -->
+<!-- .rst files that should be ignored should be marked like this: -->
+<!-- RST-Build-Ignore: contents.rst -->
+
+<book>
+  <title>Cerebrum</title>
+  <bookinfo>
+
+    <legalnotice><para>This book is distributed undet the terms of the
+    GPL, which is included in an appendix</para></legalnotice>
+
+    <authorgroup>
+      <author><firstname>Harald</firstname><surname>Meland</surname></author>
+      <author><firstname>Rune</firstname><surname>Frøysa</surname></author>
+      <author><firstname>Et</firstname><surname>Al</surname></author>
+    </authorgroup>
+  </bookinfo>
+  <preface><title>Foreword</title>
+    <para>
+Cerebrum is still under development, while simple versions of it has
+been deployed, more work is still required for sites that requires
+larg-scale automation.
+</para>
+<para>
+The Cerebrum documentation is available as both PDF and HTML, which is
+generated from multiple RestructuredText templates.
+</para>
+<para>
+This paper-version has some limitations compared to the HTML version
+of the document in that some long lines ends up outside the paper.
+This will probably be fixed sometime in the future.  In the mean time,
+please refer to the HTML version if you need to read that part of the
+text.
+</para>
+<para>
+Each chapter ends with a Notes section that summaries the various
+references used in the chapter.  Currently some of these referes to a
+html file.  The content of this file has been inserted into this
+document in a chapter with a similar name.  Fixing the reference to
+refer to the actual chapter rather than a file is on the TODO list.
+</para>
+  </preface>
+
+  <chapter>
+    <title>Index</title>
+    &index-chapter;
+  </chapter>
+
+  <chapter>
+    <title>overview-index-chapter</title>
+    &overview-index-chapter;
+  </chapter>
+
+  <chapter>
+    <title>admin-index-chapter</title>
+    &admin-index-chapter;
+  </chapter>
+  <chapter>
+    <title>admin-install-chapter</title>
+    &admin-install-chapter;
+  </chapter>
+  <chapter>
+    <title>admin-bofh-chapter</title>
+    &admin-bofh-chapter;
+  </chapter>
+
+  <!-- TODO: Is there any point in including the specs in the PDF doc?
+  <chapter>
+    <title>spec-index-chapter</title>
+    &spec-index-chapter;
+  </chapter>
+  -->
+
+  <chapter>
+    <title>devel-index-chapter</title>
+    &devel-index-chapter;
+  </chapter>
+  <chapter>
+    <title>devel-bofh-chapter</title>
+    &devel-bofh-chapter;
+  </chapter>
+  <chapter>
+    <title>devel-database-schema-chapter</title>
+    &devel-database-schema-chapter;
+  </chapter>
+  <chapter>
+    <title>devel-cerebrum-core-chapter</title>
+    &devel-cerebrum-core-chapter;
+  </chapter>
+  <chapter>
+    <title>devel-codestyle-chapter</title>
+    &devel-codestyle-chapter;
+  </chapter>
+  <chapter>
+    <title>devel-extensions-chapter</title>
+    &devel-extensions-chapter;
+  </chapter>
+  <chapter>
+    <title>devel-hacking-chapter</title>
+    &devel-hacking-chapter;
+  </chapter>
+  <chapter>
+    <title>extensions-index-chapter</title>
+    &extensions-index-chapter;
+  </chapter>
+  <chapter>
+    <title>extensions-generate-nismaps-chapter</title>
+    &extensions-generate-nismaps-chapter;
+  </chapter>
+  <chapter>
+    <title>extensions-autostud-chapter</title>
+    &extensions-autostud-chapter;
+  </chapter>
+  <chapter>
+    <title>user-index-chapter</title>
+    &user-index-chapter;
+  </chapter>
+  <chapter>
+    <title>user-bofh-chapter</title>
+    &user-bofh-chapter;
+  </chapter>
+</book>

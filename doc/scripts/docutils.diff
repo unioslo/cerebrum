@@ -1,0 +1,42 @@
+===================================================================
+RCS file: /cvsroot/docutils/docutils/docutils/nodes.py,v
+retrieving revision 1.63
+diff -u -r1.63 nodes.py
+--- docutils/nodes.py   5 Oct 2004 01:21:33 -0000       1.63
++++ docutils/nodes.py   19 Oct 2004 13:24:17 -0000
+@@ -715,6 +715,11 @@
+ 
+         self.document = self
+ 
++        self._namespace = None
++
++    def set_namespace(self, namespace):
++        self._namespace = namespace
++
+     def asdom(self, dom=xml.dom.minidom):
+         """Return a DOM representation of this document."""
+         domroot = dom.Document()
+@@ -723,6 +728,8 @@
+ 
+     def set_id(self, node, msgnode=None):
+         if node.has_key('id'):
++            if self._namespace:
++                node['id'] = ".".join((self._namespace, node['id']))
+             id = node['id']
+             if self.ids.has_key(id) and self.ids[id] is not node:
+                 msg = self.reporter.severe('Duplicate ID: "%s".' % id)
+@@ -733,8 +740,13 @@
+                 id = make_id(node['name'])
+             else:
+                 id = ''
++            if id and self._namespace:
++                id = '%s.id%s' % (self._namespace, self.id_start)
+             while not id or self.ids.has_key(id):
+-                id = 'id%s' % self.id_start
++                if self._namespace:
++                    id = '%s.id%s' % (self._namespace, self.id_start)
++                else:
++                    id = 'id%s' % self.id_start
+                 self.id_start += 1
+             node['id'] = id
+         self.ids[id] = node
