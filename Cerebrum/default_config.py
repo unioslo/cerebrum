@@ -60,7 +60,18 @@ INITIAL_GROUPNAME = "bootstrap_group"
 INITIAL_ACCOUNTNAME = "bootstrap_account"
 
 # To use site-specific constants:
-# CONSTANTS_MODULE="Cerebrum.modules.no.uio.Constants"
+CONSTANTS_MODULE = "Cerebrum.Constants"
+
+# Specify the class this installation should use when working with
+# various entities.
+#
+# The specification must be a two-element tuple; the first element
+# specifies the module, and the second the name of the class to use in
+# that module.
+CLASS_OU = ('Cerebrum.OU', 'OU')
+CLASS_PERSON = ('Cerebrum.Person', 'Person')
+CLASS_ACCOUNT = ('Cerebrum.Account', 'Account')
+CLASS_GROUP = ('Cerebrum.Group', 'Group')
 
 # Path to templates for passweb.py et. al.
 TEMPLATE_DIR='/path'
