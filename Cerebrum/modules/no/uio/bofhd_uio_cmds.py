@@ -2320,6 +2320,15 @@ class BofhdExtension(object):
                         })
         return ret
 
+    all_commands['misc_reload'] = Command(
+        ("misc", "reload"), 
+        perm_filter='is_superuser')
+    def misc_reload(self, operator):
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            raise PermissionDenied("Currently limited to superusers")
+        self.server.read_config()
+        return "OK"
+
     # misc stedkode <pattern>
     all_commands['misc_stedkode'] = Command(
         ("misc", "stedkode"), SimpleString(),
