@@ -1513,13 +1513,17 @@ class BofhdExtension(object):
                             owner_id=owner_id, np_type=np_type,
                             creator_id=operator.get_entity_id(),
                             expire_date=expire_date)
-
-        for spread in cereconf.BOFHD_NEW_USER_SPREADS:
-            posix_user.add_spread(self.str2const[spread])
-            
-        passwd = posix_user.make_passwd(uname)
-        posix_user.set_password(passwd)
         try:
+            posix_user.write_db()
+            for spread in cereconf.BOFHD_NEW_USER_SPREADS:
+                posix_user.add_spread(self.str2const[spread])
+            # For correct ordering of ChangeLog events, new users
+            # should be signalled as "exported to" a certain system
+            # before the new user's password is set.
+            passwd = posix_user.make_passwd(uname)
+            posix_user.set_password(passwd)
+            # And, to write the new password to the database, we have
+            # to .write_db() one more time...
             posix_user.write_db()
             if len(args) != 6:
                 self._user_create_set_account_type(posix_user, owner_id, affiliation)
