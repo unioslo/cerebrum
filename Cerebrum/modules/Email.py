@@ -96,7 +96,7 @@ class EmailEntity(DatabaseAccessor):
             if attr not in getattr(cls, 'dontclear', ()):
                 setattr(self, attr, None)
 
-                
+
     __metaclass__ = Utils.mark_update
     pass
 
@@ -348,7 +348,7 @@ class EmailAddress(EmailEntity):
                                       {'lp': lp,
                                        'd_id': domain.email_domain_id})
         self.find(address_id)
-    
+
     def get_all_email_addresses(self):
         """Return address_id of all EmailAddress in database"""
         return self.query("""
@@ -595,7 +595,14 @@ class EmailSpamFilter(EmailTarget):
         self.__updated = False
 
     def get_spam_level(self):
-        return self.email_spam_level
+        foo = self.email_spam_level
+        if isinstance(foo, int):
+            foo = _EmailSpamLevelCode(self.email_spam_level)
+        elif isinstance(foo, _EmailSpamLevelCode):
+            pass
+        else:
+            raise TypeError
+        return foo.get_level()
 
     def get_spam_action(self):
         return self.email_spam_action
