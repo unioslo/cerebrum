@@ -20,6 +20,8 @@
 """"""
 
 import re
+import cereconf
+
 from Cerebrum import Group
 from Cerebrum.Database import Errors
 
@@ -35,17 +37,24 @@ class GroupUiOMixin(Group.Group):
         from Cerebrum.modules import PosixGroup
 
         # TODO: we should look at op, and include_indirect_members
-        spreads = [int(s['spread']) for s in self.get_spread()]
+
+        group_spreads = [int(s['spread']) for s in self.get_spread()]
+        relevant_spreads = []
+        for name in cereconf.NIS_SPREADS:
+            c = getattr(self.const, name)
+            if int(c) in group_spreads:
+                relevant_spreads.append(int(c))
         counts = {}
-        for s in spreads:
+        for s in relevant_spreads:
             counts[s] = 0
+
         pg = PosixGroup.PosixGroup(self._db)
         for g in self.list_groups_with_entity(member_id):
             try:
                 pg.clear()
                 pg.find(g['group_id'])
                 for s in pg.get_spread():
-                    if int(s['spread']) in spreads:
+                    if int(s['spread']) in relevant_spreads:
                         counts[int(s['spread'])] += 1
             except Errors.NotFoundError:
                 pass
