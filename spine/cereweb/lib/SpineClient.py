@@ -32,7 +32,7 @@ import ConfigParser
 
 from omniORB import CORBA, sslTP
 
-import Cerebrum_core
+import SpineCore
 import SpineIDL
 
 #Configuration of the connection to the server.
@@ -58,7 +58,7 @@ def connect(args=[]):
     """
     ior = urllib.urlopen(ior_url).read()
     obj = orb.string_to_object(ior)
-    spine = obj._narrow(Cerebrum_core.Spine)
+    spine = obj._narrow(SpineCore.Spine)
     if spine is None:
         raise Exception("Could not narrow the spine object")
 
