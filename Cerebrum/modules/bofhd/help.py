@@ -225,9 +225,9 @@ _arg_help = {
     'string': ['string', 'Enter value'],
     'person_search_type': ['search_type', 'Enter person search type',
                            """Possible values:
-  - name
-  - birth date (YYYY-MM-DD)
-  - person_id"""]
+  - 'name'
+  - 'date' of birth, on format YYYY-MM-DD
+  - 'person_id'"""]
       }
 
 import pprint
