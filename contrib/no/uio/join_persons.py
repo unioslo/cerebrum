@@ -130,13 +130,24 @@ def person_join(old_person, new_person):
         logger.debug("person_affiliation: %s" % ss)
         new_person.clear()      
         new_person.find(new_id)
-        for aff in old_person.list_affiliations(old_person.entity_id, ss):
+        do_del = []
+        for aff in old_person.list_affiliations(old_person.entity_id, ss, include_deleted=True):
             new_person.populate_affiliation(
                 aff['source_system'], aff['ou_id'], aff['affiliation'], aff['status'])
+            if aff['deleted_date']:
+                do_del.append((int(aff['ou_id']), int(aff['affiliation']),
+                               int(aff['source_system'])))
         for aff in new_person.list_affiliations(new_person.entity_id, ss):
             new_person.populate_affiliation(
                 aff['source_system'], aff['ou_id'], aff['affiliation'], aff['status'])
+            try:
+                do_del.remove((int(aff['ou_id']), int(aff['affiliation']),
+                               int(aff['source_system'])))
+            except ValueError:
+                pass
         new_person.write_db()
+        for d in do_del:
+            new_person.delete_affiliation(*d)
         
     # account_type
     account = Factory.get('Account')(db)
