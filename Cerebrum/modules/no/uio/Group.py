@@ -64,6 +64,24 @@ class GroupUiOMixin(Group.Group):
                     "Member of too many groups (%i)" % counts[k])
         super(GroupUiOMixin, self).add_member(member_id, type, op)
 
+    def add_spread(self, spread):
+        # Avoid circular import dependency
+        from Cerebrum.modules import PosixGroup
+
+        # When adding a NIS-spread, assert that group is a PosixGroup
+        if int(spread) in (self.const.spread_uio_nis_fg,
+                           self.const.spread_ifi_nis_fg):
+            pg = PosixGroup.PosixGroup(self._db)
+            try:
+                pg.clear()
+                pg.find(self.entity_id)
+            except Errors.NotFoundError:
+                raise self._db.IntegrityError, \
+                      "Can't add NIS-spread to non-posix group."
+        #
+        # (Try to) perform the actual spread addition.
+        ret = self.__super.add_spread(spread)
+
     def illegal_name(self, name):
         # Avoid circular import dependency
         from Cerebrum.modules import PosixGroup
