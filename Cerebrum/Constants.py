@@ -9,14 +9,29 @@ from Cerebrum.DatabaseAccessor import DatabaseAccessor
 class _CerebrumCode(DatabaseAccessor):
     _lookup_code_column = 'code'
     _lookup_str_column = 'code_str'
+    _lookup_desc_column = 'description'
 
     def __init__(self, str):
-        self.str = str
+        if(type(str) == int):
+            self.int = str
+            self.str = self.sql.query_1("SELECT %s FROM %s WHERE %s=:int" %
+                                        (self._lookup_str_column, self._lookup_table,
+                                         self._lookup_code_column), {'int': str})
+        else:
+            self.str = str
         self.int = None
+        self._desc = None
         
     def __str__(self):
         return self.str
     
+    def desc(self):
+        if self._desc is None:
+            self._desc = self.sql.query_1("SELECT %s FROM %s WHERE %s=:str" %
+                                   (self._lookup_desc_column, self._lookup_table,
+                                    self._lookup_str_column), {'str': self.str})
+        return self._desc
+
     def __int__(self):
         if self.int is None:
             self.int = self.sql.query_1("SELECT %s FROM %s WHERE %s=:str" %
@@ -107,6 +122,7 @@ class _AuthenticationCode(_CerebrumCode):
 class _PosixShellCode(_CerebrumCode):
     "Mappings stored in the posix_shell_code table"
     _lookup_table = 'posix_shell_code'
+    _lookup_desc_column = 'shell'
     pass
 
 
