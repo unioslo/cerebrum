@@ -264,14 +264,21 @@ def process_person_callback(person_info):
             p = person_info[dta_type][0]
             if isinstance(p, str):
                 continue
-            # If !not fagperson and has_key('status_reserv_nettpubl'): add to group
-            if not dta_type in ('fagperson',):
-                if p.has_key('status_reserv_nettpubl'):
-                    # If tatus_reserv_nettpubl == N the student isn't reserved.
-                    if p['status_reserv_nettpubl'] == "N":
-                        _add_res(new_person.entity_id)
-                    else:
-                        _rem_res(new_person.entity_id)
+            # Presence of 'fagperson' elements for a person should not
+            # affect that person's reservation status.
+            if dta_type in ('fagperson',):
+                continue
+            # If 'status_reserv_nettpubl' == "N": add to group
+            if p.get('status_reserv_nettpubl', "") == "N":
+                # The student has explicitly given us permission to be
+                # published in the directory.
+                _add_res(new_person.entity_id)
+            else:
+                # The student either hasn't registered an answer to
+                # the "Can we publish info about you in the directory"
+                # question at all, or has given an explicit "I don't
+                # want to appear in the directory" answer.
+                _rem_res(new_person.entity_id)
 
 
 def main():
