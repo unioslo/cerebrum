@@ -179,12 +179,13 @@ class Account(AccountType, EntityName, EntityQuarantine, Entity):
             self.populate_authentication_type(getattr(self.const, method), enc)
         self.__plaintext_password = plaintext
 
-    def enc_auth_type_md5_crypt(self, plaintext):
-        saltchars = string.uppercase + string.lowercase + string.digits + "./"
-        s = []
-        for i in range(8):
-            s.append(random.choice(saltchars))
-        salt = "$1$" + string.join(s, "")
+    def enc_auth_type_md5_crypt(self, plaintext, salt=None):
+        if salt is None:
+            saltchars = string.uppercase + string.lowercase + string.digits + "./"
+            s = []
+            for i in range(8):
+                s.append(random.choice(saltchars))
+            salt = "$1$" + string.join(s, "")
         return crypt.crypt(plaintext, salt)
 
     def write_db(self):
