@@ -43,10 +43,8 @@ db = Factory.get('Database')()
 db.cl_init(change_program='process_bofhd_r')
 cl_const = Factory.get('CLConstants')(db)
 const = Factory.get('Constants')(db)
-logging.fileConfig(cereconf.LOGGING_CONFIGFILE)
-logger = logging.getLogger("cronjob")
-# for debug:
-# logger = logging.getLogger("console")
+logger = Factory.get_logger("cronjob")
+
 # Hosts to connect to, set to None in a production environment:
 debug_hostlist = None
 SUDO_CMD = "/usr/bin/sudo"
