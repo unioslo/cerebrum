@@ -74,6 +74,7 @@ def write_person_info(outfile):
     # Studenter med privatist opptak til et studieprogram
     cols, students = fs.GetPrivatistStudieprogram()
     for s in students:
+        fix_float(s)
         f.write(xml.xmlify_dbrow(s, xml.conv_colnames(cols), 'privatist_studieprogram') + "\n")
 
     # Aktive studenter
