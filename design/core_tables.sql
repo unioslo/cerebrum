@@ -1249,6 +1249,10 @@ GRANT INSERT, UPDATE, DELETE ON person_affiliation_source TO change_person;
   against `person') ensures that all affiliations connected to a
   specific (personal) user_account belongs to the same person.
 
+  priority indicates an order of priorities, where the lowest number
+  indicates the primary account for a person.  As the number is unique
+  for a person, this also gives us the primary account with respect to
+  an affiliation or ou.
 */
 category:main;
 CREATE TABLE account_type
@@ -1257,11 +1261,14 @@ CREATE TABLE account_type
   ou_id		NUMERIC(12,0),
   affiliation	NUMERIC(6,0),
   account_id	NUMERIC(12,0),
+  priority      NUMERIC(3,0) NOT NULL,
   CONSTRAINT account_type_pk
     PRIMARY KEY (person_id, ou_id, affiliation, account_id),
   CONSTRAINT account_type_affiliation
     FOREIGN KEY (person_id, ou_id, affiliation)
     REFERENCES person_affiliation(person_id, ou_id, affiliation),
+  CONSTRAINT account_type_priority_u
+    UNIQUE (person_id, priority),
   CONSTRAINT account_type_account
     FOREIGN KEY (account_id, person_id)
     REFERENCES account_info(account_id, owner_id)

@@ -42,27 +42,68 @@ class AccountType(object):
     """The AccountType class does not use populate logic as the only
     data stored represent a PK in the database"""
 
-    def get_account_types(self):
+    def get_account_types(self, all_persons_types=False):
         """Return dbrows of account_types for the given account"""
+        if all_persons_types:
+            col = 'person_id'
+            val = self.owner_id
+        else:
+            col = 'account_id'
+            val = self.entity_id
         return self.query("""
         SELECT *
         FROM [:table schema=cerebrum name=account_type]
-        WHERE account_id=:account_id""",
-                          {'account_id': self.entity_id})
+        WHERE %s=:%s""" % (col, col), {col: val})
 
-    def add_account_type(self, person_id, ou_id, affiliation):
-        cols = {'person_id': int(person_id),
-                'ou_id': int(ou_id),
-                'affiliation': int(affiliation),
-                'account_id': int(self.entity_id)}
+    def set_account_type(self, ou_id, affiliation, priority=None):
+        """Insert of update the new account type, with the given
+        priority increasing priority for conflicting elements.  If
+        priority is None, insert priority=max+5"""
+        all_pris = {}
+        orig_pri = None
+        max_pri = 0
+        for row in self.get_account_types(all_persons_types=True):
+            all_pris[int(row['priority'])] = row
+            if(ou_id == row['ou_id'] and affiliation == row['affiliation'] and
+               self.entity_id == row['account_id']):
+                orig_pri = row['priority']
+            if row['priority'] > max_pri:
+                max_pri = row['priority']
+        if priority is None:
+            priority = max_pri + 5
+        if orig_pri is None:
+            cols = {'person_id': int(self.owner_id),
+                    'ou_id': int(ou_id),
+                    'affiliation': int(affiliation),
+                    'account_id': int(self.entity_id),
+                    'priority': priority}
+            self.execute("""
+            INSERT INTO [:table schema=cerebrum name=account_type] (%(tcols)s)
+            VALUES (%(binds)s)""" % {'tcols': ", ".join(cols.keys()),
+                                     'binds': ", ".join([":%s" % t for t in cols.keys()])},
+                         cols)
+        else:
+            if orig_pri <> priority:
+                self._set_account_type_priority(all_pris, orig_pri, priority)
+
+    def _set_account_type_priority(self, all_pris, orig_pri, new_pri):
+        """Recursively insert the new priority, increasing parent
+        priority with one if there is a conflict"""
+        if all_pris.has_key(new_pri):
+            self._set_account_type_priority(all_pris, new_pri, new_pri + 1)
+        cols = {'person_id': all_pris[orig_pri]['person_id'],
+                'ou_id': all_pris[orig_pri]['ou_id'],
+                'affiliation': all_pris[orig_pri]['affiliation'],
+                'account_id': all_pris[orig_pri]['account_id'],
+                'priority': new_pri}
         self.execute("""
-        INSERT INTO [:table schema=cerebrum name=account_type] (%(tcols)s)
-        VALUES (%(binds)s)""" % {'tcols': ", ".join(cols.keys()),
-                                 'binds': ", ".join([":%s" % t for t in cols.keys()])},
-                     cols)
-
-    def del_account_type(self, person_id, ou_id, affiliation):
-        cols = {'person_id': person_id,
+        UPDATE [:table schema=cerebrum name=account_type]
+        SET priority=:priority
+        WHERE %s""" % " AND ".join(["%s=:%s" % (x, x)
+                                   for x in cols.keys() if x != "priority"]), cols)
+        
+    def del_account_type(self, ou_id, affiliation):
+        cols = {'person_id': self.owner_id,
                 'ou_id': ou_id,
                 'affiliation': int(affiliation),
                 'account_id': self.entity_id}
