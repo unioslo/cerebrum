@@ -1,0 +1,14 @@
+Index: server/config.dat
+===================================================================
+RCS file: /cvsroot/cerebrum/cerebrum/server/config.dat,v
+retrieving revision 1.4
+diff -u -r1.4 config.dat
+--- server/config.dat	19 Aug 2004 17:14:24 -0000	1.4
++++ server/config.dat	5 Jan 2005 15:06:18 -0000
+@@ -4,4 +4,5 @@
+ #
+ # This file specifies which plugins should be used for this installation
+ # of bofhd.  The current format is just a list of files to be imported.
+-Cerebrum.modules.no.bofhd_module_example/BofhdExtension
++# Cerebrum.modules.no.bofhd_module_example/BofhdExtension
++Cerebrum.modules.no.feidegvs.bofhd_debian_edu_cmds/BofhdExtension
