@@ -40,7 +40,7 @@ class APHandler(Cerebrum_core__POA.APHandler, Locker):
         pass
 
         # Check password
-        if password != password # CRYPTERING!! != account.password!
+        if password != password: # CRYPTERING!! != account.password!
             raise Exception, "Unknown username or password" # GRO-exceptions!
 
         # Log successfull login..
