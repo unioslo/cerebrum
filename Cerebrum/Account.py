@@ -52,9 +52,11 @@ class AccountType(object):
             col = 'account_id'
             val = self.entity_id
         return self.query("""
-        SELECT *
+        SELECT person_id, ou_id, affiliation, account_id, priority
         FROM [:table schema=cerebrum name=account_type]
-        WHERE %s=:%s""" % (col, col), {col: val})
+        WHERE %(col)s=:%(col)s
+        ORDER BY priority""" % {'col': col},
+                          {col: val})
 
     def set_account_type(self, ou_id, affiliation, priority=None):
         """Insert of update the new account type, with the given
@@ -465,4 +467,3 @@ class Account(AccountType, EntityName, EntityQuarantine, Entity):
                 return r
             except PasswordChecker.PasswordGoodEnoughException:
                 pass  # Wasn't good enough
-
