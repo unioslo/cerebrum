@@ -75,22 +75,24 @@ def main():
         new_ou.clear()
 
         new_ou.populate(k['stednavn'], k['fakultetnr'],
-                        k['instituttnr'], k['gruppenr'], acronym=k['akronym'],
+                        k['instituttnr'], k['gruppenr'], acronym=k.get('akronym', None),
                         short_name=k['forkstednavn'],
                         display_name=k['stednavn'],
                         sort_name=k['stednavn'])
         new_ou.affect_addresses(co.system_lt, co.address_street,
                                 co.address_post)
-        new_ou.populate_address(co.address_post, addr="%s\n%s" %
-                                (k['adresselinje1_intern_adr'],
-                                 k['adresselinje2_intern_adr']),
-                                zip=k['poststednr_intern_adr'],
-                                city=k['poststednavn_intern_adr'])
-        new_ou.populate_address(co.address_street, addr="%s\n%s" %
-                                (k['adresselinje1_besok_adr'],
-                                 k['adresselinje2_besok_adr']),
-                                zip=k['poststednr_besok_adr'],
-                                city=k['poststednavn_besok_adr'])
+        if k.has_key('adresselinje1_intern_adr'):
+            new_ou.populate_address(co.address_post, addr="%s\n%s" %
+                                    (k['adresselinje1_intern_adr'],
+                                     k.get('adresselinje2_intern_adr', '')),
+                                    zip=k.get('poststednr_intern_adr', ''),
+                                    city=k.get('poststednavn_intern_adr', ''))
+        if k.has_key('adresselinje1_besok_adr'):
+            new_ou.populate_address(co.address_street, addr="%s\n%s" %
+                                    (k['adresselinje1_besok_adr'],
+                                     k.get('adresselinje2_besok_adr', '')),
+                                    zip=k.get('poststednr_besok_adr', None),
+                                    city=k.get('poststednavn_besok_adr', None))
         try:
             ou.find_stedkode(k['fakultetnr'], k['instituttnr'], k['gruppenr'])
             ou.find(ou.ou_id)
