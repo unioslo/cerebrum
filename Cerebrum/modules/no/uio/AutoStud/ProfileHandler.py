@@ -56,7 +56,7 @@ class Profile(object):
     def get_disk_spreads(self):
         tmp = {}
         for disk in self.matcher.get_match("disk"):
-            for spread in disk['spreads']:
+            for spread in disk.keys():
                 tmp[int(spread)] = 1
         return tmp.keys()
     
@@ -71,15 +71,16 @@ class Profile(object):
         # current disk.  Is this the correct behaviour?
 
         # Detect conflicting disks at same 'nivåkode'
+        disk_spread = int(disk_spread)
         new_disk, tmp_nivaakode = None, None
         for d, n in self.matcher.matched_settings.get("disk", []):
-            if int(disk_spread) not in d['spreads']:
+            if disk_spread not in d.keys():
                 continue            # Incorrect spread for this disk
             if not new_disk:
-                new_disk, tmp_nivaakode = d, n
+                new_disk, tmp_nivaakode = d[disk_spread], n
             if n != tmp_nivaakode:  # This disk is at a lower nivåkode
                 break
-            if d != new_disk:
+            if d[disk_spread] != new_disk:
                 if n < 300:  # TODO: don't hardcode these
                     new_disk = {'prefix': '/uio/kant/div-l'}
                 else:
@@ -94,8 +95,9 @@ class Profile(object):
             if not self.pc.autostud.student_disk.has_key(int(current_disk)):
                 return current_disk
             for d in self.matcher.get_match("disk"):
-                if int(disk_spread) not in d['spreads']:
+                if disk_spread not in d.keys():
                     continue            # Incorrect spread for this disk
+                d = d[disk_spread]
                 if d.has_key('path'):
                     if d['path'] == current_disk:
                         return current_disk
@@ -359,7 +361,7 @@ class ProfileMatcher(object):
         return cmp(y[1], x[1])
 
     def _resolve_matches(self):
-        """Fill self.settings with settings from the matched profiles,
+        """Fill self.matched_settings with settings from the matched profiles,
         highest nivaakode first."""
         self.matches.sort(self._matches_sort)
         for match in self.matches:

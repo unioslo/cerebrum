@@ -200,6 +200,52 @@ class ProfileDefinition(object):
     # methods for converting the XML entries to values from the database
     #
 
+    def _convert_disk_settings(self, config):
+        """Update self.settings["disk"] so that it looks like:
+        [{spread1: {Either:  'path': int(disk_id),
+                    Or:      'prefix': 'prefix'}},
+          spread2: {....}]"""
+
+        tmp = {}
+        for disk in self.settings.get("disk", []):
+            try:
+                for t in ('prefix', 'path'):
+                    if disk.has_key(t): # Assert that disk is in disk_defs
+                        try:
+                            config.disk_defs[t][disk[t]]
+                        except KeyError:
+                            self._logger.warn("bad disk: %s=%s" % (t, disk[t]))
+                            self.settings['disk'].remove(disk)
+                            raise  # python should have labeled break/continue
+            except KeyError:
+                continue
+                    
+            if disk.has_key('path'):    # Store disk-id as path
+                ok = False
+                for d in config.autostud.disks.keys():
+                    if config.autostud.disks[d][0] == disk['path']:
+                        disk['path'] = d
+                        ok = True
+                if not ok:
+                    self._logger.warn("bad disk: %s" % disk)
+                    self.settings['disk'].remove(disk)
+                    continue
+
+            # We're only interested in the first disk for each single
+            # spread.  This allows a sub-profile to override the home
+            # in its super without interpreting the target as a 'div
+            # disk'
+
+            for s in disk['spreads']:
+                if not tmp.has_key(s):
+                    for t in ('prefix', 'path'):
+                        if disk.has_key(t):
+                            tmp[s] = {t: disk[t]}
+        if not tmp:
+            tmp = []
+        else:
+            self.settings["disk"] = [tmp]
+
     def convertToDatabaseRefs(self, lookup_helper, config):
         tmp = []
         for spread in self.settings.get("spread", []):
@@ -221,30 +267,9 @@ class ProfileDefinition(object):
             if tmp2 is not None:
                 tmp.append(tmp2)
         self.settings["stedkode"] = tmp
-        tmp = []
-        for disk in self.settings.get("disk", []):
-            tmp = [disk]
-            for t in ('prefix', 'path'):
-                if disk.has_key(t): # Assert that disk is in disk_defs
-                    try:
-                        config.disk_defs[t][disk[t]]
-                    except KeyError:
-                        self._logger.warn("bad disk: %s=%s" % (t, disk[t]))
-                        self.settings['disk'].remove(disk)
-                        tmp = []
-            if disk.has_key('path'):    # Store disk-id as path
-                ok = False
-                for d in config.autostud.disks.keys():
-                    if config.autostud.disks[d][0] == disk['path']:
-                        disk['path'] = d
-                        ok = True
-                if not ok:
-                    self._logger.warn("bad disk: %s" % disk)
-                    self.settings['disk'].remove(disk)
-                    tmp = []
-            if tmp:
-                break   # Only interested in the first disk
-        self.settings["disk"] = tmp
+
+        self._convert_disk_settings(config)
+
         tmp = []
         for group in self.selection_criterias.get("medlem_av_gruppe", []):
             id = lookup_helper.get_group(group['navn'])
