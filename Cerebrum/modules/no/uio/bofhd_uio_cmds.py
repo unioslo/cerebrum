@@ -605,7 +605,10 @@ class BofhdExtension(object):
             if tpl_lang.endswith("letter"):
                 mapping['barcode'] = '%s/barcode_%s.eps' % (
                     tmp_dir, account.entity_id)
-                th.make_barcode(account.entity_id, mapping['barcode'])
+                try:
+                    th.make_barcode(account.entity_id, mapping['barcode'])
+                except IOError, msg:
+                    raise CerebrumError(msg)
             person = self._get_person('entity_id', account.owner_id)
             fullname = person.get_name(self.const.system_cached, self.const.name_full)
             mapping['fullname'] =  fullname
