@@ -349,7 +349,7 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
                     # verify that the module in
                     # self.command2module[command] matches the module
                     # whose .get_commands() we're processing.
-                    print "Skipping:", k
+                    logger.info("Skipping: %s" % k)
                     continue
                 commands[k] = newcmd[k]
         return commands
@@ -369,7 +369,7 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
 ##         pass
 
     def bofhd_help(self, sessionid, *group):
-        print "Help: %s" % str(group)
+        logger.debug("Help: %s" % str(group))
         commands = self.bofhd_get_commands(sessionid)
         if len(group) == 0:
             ret = self.server.help.get_general_help(commands)
@@ -403,7 +403,7 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
         session = BofhdSession(self.server.db, sessionid)
         entity_id = session.get_entity_id()
         self.server.db.cl_init(change_by=entity_id)
-        print "Run command: %s (%s)" % (cmd, args)
+        logger.debug("Run command: %s (%s)" % (cmd, args))
         func = getattr(self.server.cmd2instance[cmd], cmd)
 
         try:
@@ -450,7 +450,7 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
         session = BofhdSession(self.server.db, sessionid)
         instance, cmdObj = self.server.get_cmd_info(cmd)
         if cmdObj._prompt_func is not None:
-            # TODO: er dette rett syntax?
+            logger.debug("prompt_func: %s" % str(args))
             return getattr(instance, cmdObj._prompt_func.__name__)(session, *args)
         raise CerebrumError, "Command has no prompt func"
         
@@ -505,7 +505,7 @@ class BofhdServer(object):
         t.sort()
         for k in t:
             if not hasattr(self.cmd2instance[k], k):
-                print "Warning, function '%s' is not implemented" % k
+                logger.warn("Warning, function '%s' is not implemented" % k)
         self.help = Help(self.cmd_instances)
 
     def get_cmd_info(self, cmd):
