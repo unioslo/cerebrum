@@ -81,6 +81,21 @@ class SAPLonnsTittelKode(Constants._CerebrumCode):
               })  
     # end insert
 
+
+    def get_kategori(self):
+        if self.kategori is not None:
+            return self.kategori
+        # fi
+
+        return self.sql.query_1("""
+                                SELECT 
+                                  kategori
+                                FROM
+                                  %s
+                                WHERE
+                                  code = :code""" % self._lookup_table,
+                                {'code': int(self)})
+    # end get_kategori
 # end SAPLonnsTittelKode
 
 
