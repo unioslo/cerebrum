@@ -476,7 +476,7 @@ def main():
     access_FS.studieprog_xml_parser('/cerebrum/dumps/FS/studieprog.xml',
                                     finn_stprog_info)
     # Henter ut ansatte per fakultet
-    ans_dict = get_ans_fak(fak_emner.keys(),acc2names) 
+    ans_dict = get_ans_fak(fak_emner.keys(),acc2names)
     # Opprett de forskjellige stedkode-korridorene.
     ou = Stedkode.Stedkode(db)
     for faknr in fak_emner.iterkeys():
@@ -485,8 +485,8 @@ def main():
         try:
 	    ou.find_stedkode(faknr, 0, 0,
                              institusjon = cereconf.DEFAULT_INSTITUSJONSNR)
-	except Errors.NotFoundError:
-	    logger.error("Finner ikke stedkode for fakultet %d", faknr)
+        except Errors.NotFoundError:
+            logger.error("Finner ikke stedkode for fakultet %d", faknr)
             faknavn = '*Ikke registrert som fakultet i FS*'
         else:
             if ou.acronym:
@@ -502,12 +502,12 @@ def main():
                        allow_contact=True)
         ans_memb = ans_dict[int(faknr)]
         register_members(fak_ans_id, ans_memb)
-        for sem_node_id in (emnerom_this_sem_id,
-                            emnerom_next_sem_id):
-            fak_node_id = sem_node_id + \
+        for id_prefix, parent_id in ((emner_this_sem_id, emnerom_this_sem_id),
+                                     (emner_next_sem_id, emnerom_next_sem_id)):
+            fak_node_id = id_prefix + \
                           ":%s:%s" % (cereconf.DEFAULT_INSTITUSJONSNR,
                                       fak_sko)
-            register_group(faknavn, fak_node_id, sem_node_id,
+            register_group(faknavn, fak_node_id, parent_id,
                            allow_room=True)
         brukere_sted_id = brukere_id + \
                           ":%s:%s" % (cereconf.DEFAULT_INSTITUSJONSNR,
