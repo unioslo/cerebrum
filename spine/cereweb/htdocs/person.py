@@ -24,7 +24,7 @@ from gettext import gettext as _
 from Cerebrum.extlib import sets
 from Cereweb.Main import Main
 from Cereweb.utils import url, queue_message, redirect, redirect_object
-from Cereweb.utils import new_transaction, snapshot
+from Cereweb.utils import transaction_decorator
 from Cereweb.templates.PersonSearchTemplate import PersonSearchTemplate
 from Cereweb.templates.PersonViewTemplate import PersonViewTemplate
 from Cereweb.templates.PersonEditTemplate import PersonEditTemplate
@@ -46,7 +46,8 @@ def list(req):
         req.session.get('person_lastsearch', ("", "", "", "", ""))
     return search(req, fullname, firstname, lastname, accountname, birthdate)
 
-def search(req, fullname="", firstname="", lastname="", accountname="", birthdate=""):
+@transaction_decorator
+def search(req, fullname="", firstname="", lastname="", accountname="", birthdate="", transaction=None):
     """Creates a page with a list of persons matching the given criterias."""
     req.session['person_lastsearch'] = (fullname, firstname, lastname,
                                          accountname, birthdate)
@@ -64,7 +65,7 @@ def search(req, fullname="", firstname="", lastname="", accountname="", birthdat
     form = PersonSearchTemplate(searchList=[{'formvalues': values}])
     
     if fullname or firstname or lastname or accountname or birthdate:
-        server = snapshot(req)
+        server = transaction
         
         personsearcher = server.get_person_searcher()
         intersections = []
@@ -157,41 +158,44 @@ def _primary_name(person):
             return names[type]
     return "unknown name"
 
-def _get_person(req, id):
+def _get_person(req, transaction, id):
     """Returns a Person-object from the database with the specific id."""
-    server = req.session.get("active")
     try:
-        return server.get_person(int(id))
+        return transaction.get_person(int(id))
     except Exception, e:
         queue_message(req, _("Could not load person with id=%s") % id,
                       error=True)
         queue_message(req, str(e), error=True)
         redirect(req, url("person"), temporary=True)
 
-def view(req, id, addName=False):
+@transaction_decorator
+def view(req, transaction, id, addName=False):
     """Creates a page with a view of the person given by id.
 
     If addName is True or "True", the form for adding a name is shown.
     """
-    person = _get_person(req, id)
+    person = _get_person(req, transaction, id)
     page = Main(req)
     page.title = _("Person %s:" % _primary_name(person))
     page.setFocus("person/view", str(person.get_id()))
     view = PersonViewTemplate()
-    page.content = lambda: view.viewPerson(req, person, addName)
+    content = view.viewPerson(req, person, addName)
+    page.content = lambda: content
     return page
 
-def edit(req, id, addName=False):
+@transaction_decorator
+def edit(req, transaction, id, addName=False):
     """Creates a page with the form for editing a person.
     
     If addName is True or "True", the form for adding a name is shown.
     """
-    person = _get_person(req, id)
+    person = _get_person(req, transaction, id)
     page = Main(req)
     page.title = _("Edit %s:" % _primary_name(person))
     page.setFocus("person/edit", str(person.get_id()))
     edit = PersonEditTemplate()
-    page.content = lambda: edit.editPerson(req, person, addName)
+    content = edit.editPerson(req, person, addName)
+    page.content = lambda: content
     return page
 
 def create(req, birthnr="", gender="", birthdate="", ou="", affiliation="", aff_status=""):
@@ -207,60 +211,74 @@ def create(req, birthnr="", gender="", birthdate="", ou="", affiliation="", aff_
     values['affiliation'] = affiliation
     values['aff_status'] = aff_status
     create = PersonCreateTemplate(searchList=[{'formvalues': values}])
-    page.content = lambda: create.form(req)
+    content = create.form(req)
+    page.content = lambda: content
     return page
 
-def save(req, id, gender, birthdate, description, deceased, save):
+@transaction_decorator
+def save(req, transaction, id, gender, birthdate, description, deceased, save):
     """Store the form for editing a person into the database."""
-    server = req.session.get("active")
-    person = _get_person(req, id)
+    person = _get_person(req, transaction, id)
     
     if deceased == "True":
         deceased = True
     else:
         deceased = False
     
-    person.set_gender(server.get_gender_type(gender))
-    person.set_birth_date(server.get_commands().strptime(birthdate, "%Y-%m-%d"))
+    person.set_gender(transaction.get_gender_type(gender))
+    person.set_birth_date(transaction.get_commands().strptime(birthdate, "%Y-%m-%d"))
     person.set_description(description)
     person.set_deceased(deceased)
     
     queue_message(req, _("Person successfully updated."))
     redirect_object(req, person, seeOther=True)
 
-def make(req, gender, birthdate, description=""):
+    transaction.commit()
+
+@transaction_decorator
+def make(req, transaction, name, gender, birthdate, description="Created with cereweb"):
     """Create a new person with the given values."""
-    server = req.session.get("active")
-    gender = server.get_gender_type(gender)
-    birthdate = server.get_commands().strptime(birthdate, "%Y-%m-%d")
-    person = server.get_commands().create_person(gender, birthdate)
+    birthdate = transaction.get_commands().strptime(birthdate, "%Y-%m-%d")
+    gender = transaction.get_gender_type(gender)
+    person = transaction.get_commands().create_person(birthdate, gender)
     
+    name_type = transaction.get_name_type('FULL')
+    source_system = transaction.get_source_system('Manual')
+    person.add_name(name, name_type, source_system)
+
     if description:
         person.set_description(description)
     
     queue_message(req, _("Person successfully created."))
     redirect_object(req, person, seeOther=True)
+    transaction.commit()
 
-def delete(req, id):
+@transaction_decorator
+def delete(req, transaction, id):
     """Delete the person from the server."""
-    person = _get_person(req, id)
+    person = _get_person(req, transaction, id)
     person.delete()
 
     queue_message(req, "Person successfully deleted.")
     redirect(req, url("person"), seeOther=True)
+    
+    transaction.commit()
 
-def add_name(req, id, name, name_type, source_system):
+@transaction_decorator
+def add_name(req, transaction, id, name, name_type):
     """Add a new name to the person with the given id."""
-    server = req.session.get("active")
-    person = _get_person(req, id)
+    person = _get_person(req, transaction, id)
 
-    name_type = server.get_name_type(name_type)
-    source_system = server.get_source_system(source_system)
+    name_type = transaction.get_name_type(name_type)
+    source_system = transaction.get_source_system('Manual')
     person.add_name(name, name_type, source_system)
 
     queue_message(req, _("Name successfully added.."))
     redirect_object(req, person, seeOther=True)
 
+    transaction.commit()
+
+# remove_name ser ikke ut til å være støttet av cerebrum-core
 def remove_name(req, id, name, variant, ss):
     """Remove the name with the given values."""
     server = req.session.get("active")
@@ -277,5 +295,12 @@ def remove_name(req, id, name, variant, ss):
 
     queue_message(req, _("Name successfully removed."))
     redirect_object(req, person, seeOther=True)
+
+@transaction_decorator
+def remember(req, transaction, id):
+    person = _get_person(req, transaction, int(id))
+    obj = ('person', _primary_name(person), id)
+    req.session['remembered'].append(obj)
+    redirect_object(req, person)
  
 # arch-tag: bef096b9-0d9d-4708-a620-32f0dbf42fe6
