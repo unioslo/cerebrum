@@ -653,6 +653,7 @@ def process_move_requests():
                 br.delete_request(request_id=r['request_id'])
                 db.commit()
                 continue
+            set_operator(r['requestee_id'])
             try:
                 operator = get_account(r['requestee_id'])[0].account_name
             except Errors.NotFoundError:
@@ -814,6 +815,7 @@ def process_quarantine_refresh_requests():
     for r in br.get_requests(operation=const.bofh_quarantine_refresh):
         if r['run_at'] > now:
             continue
+        set_operator(r['requestee_id'])
         db.log_change(r['entity_id'], const.quarantine_refresh, None)
         br.delete_request(request_id=r['request_id'])
         db.commit()
@@ -841,6 +843,7 @@ def process_delete_requests():
             br.delete_request(request_id=r['request_id'])
             db.commit()
             continue
+        set_operator(r['requestee_id'])
         operator = get_account(r['requestee_id'])[0].account_name
         est = Email.EmailServerTarget(db)
         try:
@@ -911,6 +914,12 @@ def move_user(uname, uid, gid, old_host, old_disk, new_host, new_disk, spread,
         return 1
     logger.error("%s returned %i" % (cmd, errnum))
     return 0
+
+def set_operator(entity_id=None):
+    if entity_id:
+        db.cl_init(change_py=entity_id)
+    else:
+        db.cl_init(change_program='process_bofhd_r')
 
 def get_disk(disk_id):
     disk = Factory.get('Disk')(db)
@@ -1003,6 +1012,7 @@ def main():
             for t in types:
                 start_time = time.time()
                 func = globals()["process_%s_requests" % t]
+                set_operator()
                 apply(func)
         elif opt in ('--ou-perspective',):
             ou_perspective = const.OUPerspective(val)
