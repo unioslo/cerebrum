@@ -136,9 +136,13 @@ class Disk(Entity):
         self.find(entity_id)
 
     def list(self):
+        # Note: This syntax requires Oracle >= 9
         return self.query("""
-        SELECT disk_id
-        FROM [:table schema=cerebrum name=disk_info]""")
+        SELECT count(account_id), di.disk_id, di.host_id, di.path
+        FROM [:table schema=cerebrum name=disk_info] di
+          LEFT JOIN [:table schema=cerebrum name=account_info] ai
+            ON di.disk_id=ai.disk_id
+        GROUP BY di.disk_id, di.host_id, di.path""")
 
 class Host(Entity):
     __read_attr__ = ('__in_db',)
