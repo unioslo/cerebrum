@@ -25,12 +25,41 @@ ou_rdn2space_re = re.compile('[#\"+,;<>\\\\=\0\\s]+')
 class OrgLDIFUiOMixin(norEduLDIFMixin):
     """Mixin class for norEduLDIFMixin(OrgLDIF) with UiO modifications."""
 
+    def __init__(self, db, logger):
+        self.__super.__init__(db, logger)
+        # Used by make_ou_dn() for for migration to ny-ldap.uio.no:
+        self.used_new_DNs = {}
+        self.dn2new_structure = {'ou=organization,dc=uio,dc=no':
+                                 'cn=organization,dc=uio,dc=no',
+                                 'ou=--,ou=organization,dc=uio,dc=no':
+                                 'cn=organization,dc=uio,dc=no'}
+
     def make_ou_dn(self, entry, parent_dn):
         # Change from superclass:
         # Replace special characters with spaces instead of escaping them.
         # Replace multiple whitespace with a single space.  strip() the result.
-        entry['ou'].insert(0, ou_rdn2space_re.sub(' ', entry['ou'][0]).strip())
-        return self.__super.make_ou_dn(entry, parent_dn)
+        # Add fake attributes as info to migration scripts at ny-ldap.uio.no,
+        # which needs to undo the above hacks: '#dn' with the new DN, and
+        # '#remove: ou' for OU values that are added by this method.
+        new_structure_dn = self.__super.make_ou_dn(
+            entry, self.dn2new_structure[parent_dn])
+        norm_new_dn = normalize_string(new_structure_dn)
+        if norm_new_dn in self.used_new_DNs:
+            new_structure_dn = "norEduOrgUnitUniqueNumber=%s+%s" % (
+                entry['norEduOrgUnitUniqueNumber'][0],
+                new_structure_dn)
+        self.used_new_DNs[norm_new_dn] = True
+        entry['#dn'] = (new_structure_dn,)
+        rdn_ou = ou_rdn2space_re.sub(' ', entry['ou'][0]).strip()
+        entry['ou'] = self.attr_unique(entry['ou'], normalize_string)
+        ou_count = len(entry['ou'])
+        entry['ou'].insert(0, rdn_ou)
+        entry['ou'] = self.attr_unique(entry['ou'], normalize_string)
+        if len(self.attr_unique(entry['ou'], normalize_string)) > ou_count:
+            entry['#remove: ou'] = (rdn_ou,)
+        dn = self.__super.make_ou_dn(entry, parent_dn)
+        self.dn2new_structure.setdefault(dn, new_structure_dn)
+        return dn
 
     def make_address(sep, p_o_box, address_text, postal_number, city, country):
         # Changes from superclass:
