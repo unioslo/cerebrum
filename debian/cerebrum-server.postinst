@@ -7,7 +7,7 @@
 # commands before this
 . /usr/share/debconf/confmodule
 
-set -x
+#set -x
 
 ##
 ## Some Postgresql stuff

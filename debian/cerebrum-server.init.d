@@ -1,4 +1,4 @@
-#! /bin/sh
+#! /bin/sh -x
 #
 # skeleton	example file to build /etc/init.d/ scripts.
 #		This file should be used to construct scripts for /etc/init.d.
@@ -11,9 +11,10 @@
 #
 
 PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
-DAEMON=/usr/sbin/bofhd
+DAEMON=/usr/sbin/bofhd.py
 NAME=cerebrum
 DESC=cerebrum
+DAEMON_OPTS="--config-file /etc/cerebrum/cereconf.py"
 
 test -x $DAEMON || exit 0
 
