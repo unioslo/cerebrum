@@ -40,7 +40,7 @@ Account.register_attribute(DatabaseAttr('primary_group', table, Group, optional=
 Account.register_attribute(DatabaseAttr('pg_member_op', table, GroupMemberOperationType, optional=True))
 Account.register_attribute(DatabaseAttr('gecos', table, str, optional=True), get=get_gecos)
 Account.register_attribute(DatabaseAttr('shell', table, PosixShell, optional=True))
-Account.db_attr_aliases[table] = {'id':'account_id'}
+Account.db_attr_aliases[table] = {'id':'account_id', 'primary_group':'gid'}
 
 Account.build_methods()
 Account.search_class.build_methods()
