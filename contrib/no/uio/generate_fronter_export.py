@@ -617,7 +617,25 @@ def process_kurs2enhet():
             multi_enhet = []
             termin_suffix = ""
             multi_id = ":".join((Instnr, emnekode, termk, aar))
-            if len(fronter.emne_termnr[multi_id]) > 1:
+            if (# Det finnes flere und.enh. i semesteret angitt av
+                # 'terminkode' og 'arstall' hvor både 'institusjonsnr'
+                # og 'emnekode' er like, men 'terminnr' varierer.
+                len(fronter.emne_termnr[multi_id]) > 1
+                # Det finnes mer enn en und.enh. som svarer til samme
+                # "kurs", e.g. både 'høst 2004, terminnr=1' og 'vår
+                # 2005, terminnr=2' finnes.
+                or len(enhet_sorted) > 1
+                # Denne und.enh. har terminnr større enn 1, slik at
+                # det er sannsynlig at det finnes und.enh. fra
+                # tidligere semester som hører til samme "kurs".
+                or int(termnr) > 1):
+                #
+                # Dersom minst en av testene over slår til, er det her
+                # snakk om et "flersemesteremne" (eller i alle fall et
+                # emne som i noen varianter undervises over flere
+                # semestere).  Ta med terminnr-angivelse i tittelen på
+                # kursets hovedkorridor, og semester-angivelse i
+                # aktivitetsrommenes titler.
                 multi_enhet.append("%s. termin" % termnr)
                 termin_suffix = " %s %s" % (termk.upper(), aar)
             if len(fronter.emne_versjon[multi_id]) > 1:
