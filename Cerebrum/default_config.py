@@ -53,7 +53,6 @@ CREATE_USER_SCRIPT= '/local/etc/reguser/mkhomedir'
 MVUSER_SCRIPT = '/cerebrum/sbin/mvuser'
 RMUSER_SCRIPT = '/cerebrum/sbin/aruser'
 RSH_CMD = '/local/bin/ssh'
-WRAPPER_CMD='/cerebrum/sbin/run_privileged_command.py'
 
 # Temporary switch until someone can figure out why mktime won't work
 # with year < 1970 on some systems.  Must NOT be set on production
@@ -107,12 +106,24 @@ AD_LDAP= 'DC=wintest,DC=uio,DC=no'
 AD_SOURCE_SEARCH_ORDER = ('system_ureg','system_lt','system_fs')
 AD_PASSWORD = 'hallo\n'
 AD_LOST_AND_FOUND = 'lost-n-found'
+#A value og '0' represents cn=Users,value -1 uses OU in AD_LDAP_PATH.
+AD_DEFAULT_OU = '0'
+AD_CERE_ROOT_OU_ID = '682'
 AD_DONT_TOUCH = ('Group Policy Creator Owners','DnsUpdateProxy','Tivoli_Admin_Privileges','Domain Guests','Domain Admins','Domain Users','Cert Publishers','Domain Controllers','Domain Computers','Administrator','Guest','tmersrvd','krbtgt','TsInternetUser')
 #Necesary if groups and users have different namespaces in Cerebrum.
 AD_GROUP_POSTFIX = '-gruppe'
 AD_HOME_DRIVE = 'M'
 AD_PASSWORD_EXPIRE = '0'
 AD_CANT_CHANGE_PW = '0'
+
+
+#Notes spesifikke variable.
+NOTES_SERVER_HOST = 'devel01.uio.no'
+NOTES_SERVER_PORT = 2000
+NOTES_PASSWORD = 'test\n'
+NOTES_DEFAULT_OU = 'andre'
+NOTES_SOURCE_SEARCH_ORDER = ('system_ureg','system_lt','system_fs')
+
 # You should set this variable to the location of your logging ini file
 LOGGING_CONFIGFILE = None
 
