@@ -1111,7 +1111,10 @@ def create_account(u, owner_id, owner_type, np_type=None):
     if u.has_key("useremail"):
         # Create EmailTarget
         mailtarg.clear()
-        mailtarg.populate(co.email_target_account,
+        target_type = co.email_target_account
+        if u.has_key('deleted_date'):
+            target_type = co.email_target_deleted
+        mailtarg.populate(target_type,
                           accountObj.entity_id, co.entity_account,
                           alias=u['useremail'].get('alias', None))
         mailtarg.write_db()
