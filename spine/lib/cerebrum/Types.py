@@ -54,6 +54,7 @@ for name, table in [('AccountType', 'account_code'),
                     ('OUPerspectiveType', 'ou_perspective_code'),
                     ('AuthOperationType', 'auth_op_code'),
                     ('HomeStatus', 'home_status_code'),
+                    ('PersonExternalIdType', 'person_external_id_code'),
                     ('ValueDomain', 'value_domain_code')]:
 
     exec 'class %s(CodeType):\n pass\ncls=%s' % (name, name)

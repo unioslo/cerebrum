@@ -38,6 +38,7 @@ import GroupMember
 # Person
 import Person
 import PersonName
+import PersonExternalId
 
 # Account
 import Account
