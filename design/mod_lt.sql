@@ -156,6 +156,9 @@ CREATE TABLE lt_tilsetting
 
 	CONSTRAINT lt_tilsetting_pk PRIMARY KEY (tilsettings_id, person_id)
 );
+category:main;
+CREATE INDEX lt_tilsetting_person_id_index ON lt_tilsetting(person_id) ;
+
 
 
 /* Bilag -- information about temporary employments */
@@ -174,6 +177,8 @@ CREATE TABLE lt_bilag
                         NOT NULL,
         CONSTRAINT lt_bilag_pk PRIMARY KEY (person_id, ou_id)
 );
+category:main;
+CREATE INDEX lt_bilag_person_id_index ON lt_bilag(person_id) ;
 
 
 /* Gjest -- information about guests at UiO */
@@ -199,6 +204,8 @@ CREATE TABLE lt_gjest
 
         CONSTRAINT lt_gjest_pk PRIMARY KEY (person_id, ou_id, dato_fra)
 );
+category:main;
+CREATE INDEX lt_gjest_person_id_index ON lt_gjest(person_id) ;
 
 
 /* Rolle -- information about roles played by various people */
@@ -224,6 +231,8 @@ CREATE TABLE lt_rolle
 
         CONSTRAINT lt_rolle_pk PRIMARY KEY (person_id, ou_id, rollekode)
 );      
+category:main;
+CREATE INDEX lt_rolle_person_id_index ON lt_rolle(person_id) ;
 
 
 /* Reservasjon -- information about reservations against catalogue
@@ -241,6 +250,8 @@ CREATE TABLE lt_reservasjon
                         CONSTRAINT lt_reservasjon_reservert_bool
                           CHECK (reservert IN ('T', 'F'))
 );
+category:main;
+CREATE INDEX lt_reservasjon_person_id_index ON lt_reservasjon(person_id) ;
 
 
 /* Permisjon -- information about leaves of absence */
@@ -276,4 +287,9 @@ CREATE TABLE lt_permisjon
         CONSTRAINT lt_permisjon_tilsetting_fk FOREIGN KEY (tilsettings_id, person_id)
           REFERENCES lt_tilsetting(tilsettings_id, person_id)
 );
+category:main;
+CREATE INDEX lt_permisjon_person_id_index ON lt_permisjon(person_id) ;
 
+category:main;
+CREATE INDEX lt_permisjon_person_tilsetting_index 
+  ON lt_permisjon(tilsettings_id, person_id) ;
