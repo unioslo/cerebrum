@@ -301,22 +301,20 @@ def get_existing_accounts():
     others = {}
     # We only register the reserved account if the user doesn't
     # have another active account
-    for a in account.list_reserved_users(fetchall=False):
-        fnr = pid2fnr.get(int(a['owner_id']), None)
-        if (fnr is not None) and (not students.has_key(fnr)):
-            others[fnr] = int(a['account_id'])
-
-    # If the user has no student or reserved account, we check for
-    # other active accounts
-
     for a in account.list(filter_expired=True, fetchall=False):
         # Also populate account_id -> fnr mapping
         account_id2fnr[int(a['account_id'])] = pid2fnr.get(
             int(a['owner_id'] or 0), None)
         fnr = pid2fnr.get(int(a['owner_id']), None)
-        if (fnr is not None) and (not students.has_key(fnr) and
+        if (fnr is not None) and not students.has_key(fnr):
+            others[fnr] = None   # TODO: a bit ugly, use an extra dict instead
+
+    for a in account.list_reserved_users(fetchall=False):
+        fnr = pid2fnr.get(int(a['owner_id']), None)
+        if (fnr is not None) and (not students.has_key(fnr)  and
                                   not others.has_key(fnr)):
-            others[fnr] = None
+            others[fnr] = int(a['account_id'])
+
     logger.info(" found %i + %i entires" % (len(students), len(others)))
     return students, others
 
@@ -543,6 +541,7 @@ def process_student(person_info):
     logger.debug(logger.pformat(_filter_person_info(person_info)))
     try:
         profile = autostud.get_profile(person_info)
+        logger.debug(profile.debug_dump())
     except AutoStud.ProfileHandler.NoMatchingProfiles, msg:
         logger.warn("No matching profile error for %s: %s" %  (fnr, msg))
         logger.set_indent(0)
