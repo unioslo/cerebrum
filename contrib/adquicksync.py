@@ -23,6 +23,7 @@ import sys
 import re
 import pickle
 
+import cerebrum_path
 import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
@@ -53,24 +54,6 @@ delete_groups = 0
 
 def quick_user_sync():
 
-#
-# Cases when updates is done in ad-domain. 
-#
-# OK:account added spread ad, but missing adding user to relevant groups.
-# OK:account delete spread ad, ad takes care of removing user from groups.
-# OK:account changed password
-# NOT NEEDED IN V.1.0: account changed value in ad tables
-# account_mod
-# CAN WAIT FOR HIST:account_move
-# NOT NEEDED IN V.1.0: ou set parent
-# OK:group added spread ad
-# OK:group deleted spread ad
-# OK:account added to group with spread ad
-# OK:account deleted from group with spread ad
-# quarantine_add for account.
-# quarantine_del for account.
-
-
     answer=cl.get_events('ad',(clco.group_add,clco.group_rem,clco.account_password,clco.spread_add,clco.spread_del,clco.quarantine_add,clco.quarantine_del,clco.quarantine_mod))
 
     for ans in answer:
@@ -81,7 +64,7 @@ def quick_user_sync():
             if change_pw(ans['subject_entity'],change_params):
 		cl.confirm_event(ans)            
 	    else:	            
-		print 'WARNING: failed changing password for ',user
+		print 'WARNING: failed changing password for ',ans['subject_entity']
         elif chg_type == clco.group_add or chg_type == clco.group_rem:
             account.clear()
             a_obj = account.find(ans['subject_entity'])
