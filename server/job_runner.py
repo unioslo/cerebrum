@@ -114,7 +114,11 @@ class JobRunner(object):
                 pass
             else:
                 if isinstance(ret, tuple):
-                    logger.error("exit_code=%s for %s, check %s" % (ret[0], tmp_job, ret[1]))
+                    if os.WIFEXITED(ret[0]):
+                        msg = "exit_code=%i" % os.WEXITSTATUS(ret[0])
+                    else:
+                        msg = "exit_status=%i" % ret[0]
+                    logger.error("%s for %s, check %s" % (msg, tmp_job, ret[1]))
                 running_jobs.remove(tmp_job)
                 if debug_time:
                     self.last_run[tmp_job] = current_time
