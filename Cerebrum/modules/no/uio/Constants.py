@@ -28,7 +28,8 @@ from Cerebrum.Constants import _AuthoritativeSystemCode,_OUPerspectiveCode, \
      _SpreadCode, _QuarantineCode, _PersonExternalIdCode, \
      _PersonAffiliationCode, _PersonAffStatusCode, _AccountCode
 from Cerebrum.modules.PosixUser import _PosixShellCode
-from Cerebrum.modules.Email import _EmailSpamLevelCode, _EmailSpamActionCode
+from Cerebrum.modules.Email import \
+     _EmailSpamLevelCode, _EmailSpamActionCode, _EmailDomainCategoryCode
 
 class Constants(Constants.Constants):
 
@@ -248,7 +249,7 @@ class Constants(Constants.Constants):
     quarantine_nologin_stengt = _QuarantineCode('nologin_stengt',
                                                 'Gammel ureg karantene nologin_stengt')
 
-    email_domain_category_uio_globals = _EmailSpamActionCode(
+    email_domain_category_uio_globals = _EmailDomainCategoryCode(
         'UIO_GLOBALS',
         "All local_parts defined in domain 'UIO_GLOBALS' are treated"
         " as overrides for all domains posessing this category.")
