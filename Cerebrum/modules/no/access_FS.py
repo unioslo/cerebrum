@@ -196,11 +196,11 @@ class Person(FSObject):
     def list_uname(self, fetchall = False): # GetAllPersonsUname
         return self.db.query("""
         SELECT fodselsdato, personnr, brukernavn
-        FROM fs.personreg""", fetchall = fetchall)
+        FROM fs.person""", fetchall = fetchall)
 
     def write_uname(self, fodselsdato, personnr, uname): # WriteUname
         self.db.execute("""
-        UPDATE fs.personreg
+        UPDATE fs.person
         SET brukernavn = :uname
         WHERE fodselsdato = :fodselsdato AND personnr = :personnr""",
                         {'fodselsdato': fodselsdato,
