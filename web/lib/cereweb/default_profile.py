@@ -4,8 +4,8 @@ profile = {
         'members': {
             'sort': {
                 'union': ('+type', '+name'),
-                'inters.': ('+type', '+name'),
-                'diff': ('+type', '+name'),
+                'intersection': ('+type', '+name'),
+                'difference': ('+type', '+name'),
             }
         },
         'list': {
