@@ -15,6 +15,11 @@ class _AuthRoleOpCode(Constants._CerebrumCode):
     _lookup_table = '[:table schema=cerebrum name=auth_op_code]'
 
 class Constants(Constants.Constants):
+    auth_add_disks = _AuthRoleOpCode('add_disks', 'add userdisks to hosts')
+    auth_create_hosts = _AuthRoleOpCode('create_host',
+                                        'Can add hosts for userdisks')
+    auth_view_studentinfo = _AuthRoleOpCode('view_studinfo',
+                                            'Can view student info')
     auth_alter_printerquota = _AuthRoleOpCode('alter_printerquo', 'desc')
     auth_modify_spread = _AuthRoleOpCode('modify_spread', 'modify spread')
     auth_create_user = _AuthRoleOpCode('create_user', 'create user')
