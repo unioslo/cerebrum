@@ -60,6 +60,7 @@ class SocketCom(object):
 	    logger.debug("<< Authenticating")
 	    self.sockobj.send(cereconf.AD_PASSWORD)
 	    self.read()
+	    logger.debug("Connecting to:%s %s" % (cereconf.AD_SERVER_HOST, cereconf.AD_SERVER_PORT))	
         except:
 	    logger.fatal("Failed connecting to:%s %s" % (cereconf.AD_SERVER_HOST, cereconf.AD_SERVER_PORT))
             raise 
@@ -141,7 +142,7 @@ def get_user_info(account_id, account_name, spread):
         person.find(person_id)
         full_name = person.get_name(int(co.system_cached), int(co.name_full)) 
         if not full_name:
-            logger.warn('getting persons full_name failed, account.owner_id: %s' % person_id)
+            logger.debug('getting persons full_name failed, account.owner_id: %s' % person_id)
     except Errors.NotFoundError:        
         #This account is missing a person_id.
         full_name = account.account_name
@@ -213,7 +214,7 @@ def get_crbrm_ou(ou_id):
 #        #TBD: Utvide med spread sjekk, OUer uten acronym, problem?
 #        return 'OU=%s' % path.replace('/',',OU=')
 #    except Errors.NotFoundError:
-#        logger.warn("Could not find OU with id: %s" % ou_id)
+#        logger.debug("Could not find OU with id: %s" % ou_id)
 
 
 def id_to_ou_path(ou_id,ourootname):
@@ -246,7 +247,7 @@ def find_home_dir(account_id, account_name, disk_spread):
             home_srv = host.name
 	return "\\\\%s\\%s" % (home_srv,account_name)
     except Errors.NotFoundError:
-        logger.warn("Failure finding the disk of account: %s" % account_id)
+        logger.debug("Failure finding the disk of account: %s" % account_id)
         
 
 def find_login_script(account):

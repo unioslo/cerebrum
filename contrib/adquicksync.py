@@ -108,12 +108,12 @@ def quick_user_sync():
                         if group_add(account_name,group_name):
 			    cl.confirm_event(ans)
 			else:
-		            logger.warn('Failed adding %s to group %s' % (account_name,group_name))
+		            logger.debug('Failed adding %s to group %s' % (account_name,group_name))
                     else:
 			if group_rem(account_name,group_name):
 			    cl.confirm_event(ans)
 			else:
-			    logger.warn('Failed removing %s from group %s' % (account_name,group_name))
+			    logger.debug('Failed removing %s from group %s' % (account_name,group_name))
 		else:
                     if debug:
                         logger.debug('%s add/rem group: missing spread_uio_ad_group' % ans['dest_entity'])
@@ -151,7 +151,7 @@ def move_account(entity_id):
        	sock.send('ALTRUSR&%s/%s&hdir&%s\n' % (cereconf.AD_DOMAIN,
                                                account_name, home))
 	if sock.read() != ['210 OK']:
-	    logger.warn('Failed update home directory %s' % account_name)
+	    logger.debug('Failed update home directory %s' % account_name)
 
 
 def change_quarantine(entity_id):
@@ -183,11 +183,11 @@ def change_quarantine(entity_id):
                                                cereconf.AD_PASSWORD_EXPIRE,
                                                cereconf.AD_CANT_CHANGE_PW))
 		    if sock.read() != ['210 OK']:
-			logger.warn("Failed enabling account %s" % account_name)
+			logger.debug("Failed enabling account %s" % account_name)
                 else:
-                    logger.warn("Failed move user %s" % account_name)
+                    logger.debug("Failed move user %s" % account_name)
             else:
-                logger.warn("Failed getting AD_OU, %s, creating..." %  account_name)
+                logger.debug("Failed getting AD_OU, %s, creating..." %  account_name)
                 add_spread(entity_id, co.spread_uio_ad_account)
 
 def build_user(entity_id):
@@ -228,7 +228,7 @@ def build_user(entity_id):
             if sock.read() == ['210 OK']:
 		logger.debug('Builded user:%s' % account_name)
         else:
-            logger.fatal('Failed replacing password or Move account: %s' % account_name)
+            logger.warn('Failed replacing password or Move account: %s' % account_name)
 
 
 
@@ -274,7 +274,7 @@ def add_spread(entity_id, spread):
                     pw=pw.replace('&','%26')
                 sock.send('ALTRUSR&%s/%s&pass&%s\n' % (cereconf.AD_DOMAIN,account_name,pw))
             else:
-                logger.warn('Failed creating new user %s' % account_name)
+                logger.debug('Failed creating new user %s' % account_name)
 
         if sock.read() == ['210 OK']:
             (full_name, account_disable, home_dir, cereconf.AD_HOME_DRIVE,
@@ -299,10 +299,10 @@ def add_spread(entity_id, spread):
                     if group.has_spread(int(co.spread_uio_ad_group)):
                         grp_name = '%s-gruppe' % (group.group_name)
                         if not group_add(account_name,grp_name):
-                            logger.warn('Add user %s to group %s failed' % (account_name,grp_name))
+                            logger.debug('Add user %s to group %s failed' % (account_name,grp_name))
 
         else:
-            logger.fatal('Failed replacing password or Move account: %s' % account_name)
+            logger.warn('Failed replacing password or Move account: %s' % account_name)
             return False
 
     elif spread == co.spread_uio_ad_group:
@@ -335,9 +335,9 @@ def add_spread(entity_id, spread):
                     logger.debug('Add %s to %s' % (name,grp))
                     sock.send('ADDUSRGR&%s/%s&%s/%s\n' % (cereconf.AD_DOMAIN, name, cereconf.AD_DOMAIN, grp))
                     if sock.read() != ['210 OK']:
-                        logger.warn('Failed add %s to %s' % (name, grp))
+                        logger.debug('Failed add %s to %s' % (name, grp))
 	    return True
-        logger.warn('Failed create group %s in OU Users' % grp)
+        logger.debug('Failed create group %s in OU Users' % grp)
     else:
         if debug:
             logger.debug('Add spread: %s not an ad_spread' %  spread) 
@@ -353,22 +353,22 @@ def del_spread(entity_id, spread, delete=delete_users):
         if delete:
             sock.send('DELUSR&%s/%s\n' % (cereconf.AD_DOMAIN, user))
             if sock.read() != ['210 OK']:
-                logger.warn('Error deleting %s' %  user)
+                logger.debug('Error deleting %s' %  user)
         else:
             sock.send('ALTRUSR&%s/%s&dis&1\n' % ( cereconf.AD_DOMAIN, user))
             if sock.read() != ['210 OK']:
-                logger.warn('Error disabling account %s' % user)
+                logger.debug('Error disabling account %s' % user)
 
             sock.send('TRANS&%s/%s\n' % ( cereconf.AD_DOMAIN, user))
             ldap = sock.read()[0]
             if ldap[0:3] != "210":
-                logger.warn('Error getting WinNT from LDAP path for %s' %  user)
+                logger.debug('Error getting WinNT from LDAP path for %s' %  user)
             else:
                 if cereconf.AD_LOST_AND_FOUND not in adutils.get_ad_ou(ldap[4:]):
                     sock.send('MOVEOBJ&%s&LDAP://OU=%s,%s\n' % (
                         ldap[4:], cereconf.AD_LOST_AND_FOUND, cereconf.AD_LDAP))
                     if sock.read() != ['210 OK']:
-                        logger.warn('Error moving: %s to %s' % (ldap[4:], cereconf.AD_LOST_AND_FOUND))
+                        logger.debug('Error moving: %s to %s' % (ldap[4:], cereconf.AD_LOST_AND_FOUND))
 
     elif spread == co.spread_uio_ad_group:
         group_n=id_to_name(entity_id,'group')
@@ -377,12 +377,12 @@ def del_spread(entity_id, spread, delete=delete_users):
         if delete_groups:
             sock.send('DELGR&%s/%s\n' % (cereconf.AD_DOMAIN, group_n))
             if sock.read() != ['210 OK']:
-                logger.warn('Error deleting %s' % group_n)
+                logger.debug('Error deleting %s' % group_n)
         else:
             sock.send('TRANS&%s/%s\n' % ( cereconf.AD_DOMAIN, group_n))
             ldap = sock.read()
             if ldap[0][0:3] != "210":
-                logger.warn('Error Transforming WinNT to LDAP for %s' % group_n)
+                logger.debug('Error Transforming WinNT to LDAP for %s' % group_n)
             else:
                 if cereconf.AD_LOST_AND_FOUND not in adutils.get_ad_ou(ldap[0]):
                     sock.send('MOVEOBJ&%s&LDAP://OU=%s,%s\n' % (
@@ -397,9 +397,9 @@ def del_spread(entity_id, spread, delete=delete_users):
                                     mem = l.split('&')
                                     sock.send('DELUSRGR&%s/%s&%s/%s\n' % (cereconf.AD_DOMAIN, mem[1], cereconf.AD_DOMAIN, group_n))
                                     if sock.read() != ['210 OK']:
-                                        logger.warn('Failed delete %s from %s') % (member, group_n)
+                                        logger.debug('Failed delete %s from %s') % (member, group_n)
                     else:
-                        logger.warn('Error moving: %s to %s' % (ldap[0], cereconf.AD_LOST_AND_FOUND))
+                        logger.debug('Error moving: %s to %s' % (ldap[0], cereconf.AD_LOST_AND_FOUND))
 
     else:
         if debug:
@@ -428,14 +428,12 @@ def change_pw(account_id,pw_params):
     if not user:
 	return False
     if account.has_spread(int(co.spread_uio_ad_account)):
-        set_pw(account_id,pw_params,user)
-    else:
         sock.send('TRANS&%s/%s\n' % (cereconf.AD_DOMAIN, user))
         ou_in_ad = sock.read()[0]
         if ou_in_ad[0:3] != '210':
 	    build_user(account_id)	
-	set_pw(account_id,pw_params,user)
-    return True
+	set_pw(account_id,pw_params,user)	
+        return True
 
 
 def set_pw(account_id,pw_params,user):
@@ -467,7 +465,7 @@ def id_to_name(id,entity_type):
         name = entityname.get_name(namespace)
         obj_name = "%s%s" % (name,grp_postfix)
     except Errors.NotFoundError:
-	logger.warn('id %s missing, probably deleted' % id)
+	logger.debug('id %s missing, probably deleted' % id)
 	return False
     return obj_name
 
