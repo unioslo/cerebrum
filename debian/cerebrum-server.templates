@@ -1,3 +1,13 @@
+Template: cerebrum-server/initial_accountname_password
+Type: string
+Default: change_on_install
+Description: Initial password to the automatically created account
+ I need to set some initial password for the automatically
+ created account which you will need to create other accounts and
+ structures. You should change that password later.
+ .
+ Please enter a password.
+
 Template: cerebrum-server/db-auto-config
 Type: boolean
 Default: true
@@ -6,3 +16,4 @@ Description: Automatic handling of the database backend for cerebrum
  automatically for you now.
  .
  Should i attempt automatic database configuration?
+ 
