@@ -25,28 +25,7 @@ from Cerebrum import Utils
 from Cerebrum.Entity import Entity, EntityContactInfo, EntityAddress
 
 
-class OUStructure(object):
-    """Mixin class, used by OU for OUs with structure."""
-
-    def set_parent(self, perspective, parent_id):
-        """Set the parent of this OU to ``parent_id`` in ``perspective``."""
-        self.execute("""
-        INSERT INTO [:table schema=cerebrum name=ou_structure]
-          (ou_id, perspective, parent_id)
-        VALUES (:e_id, :perspective, :parent_id)""",
-                     {'e_id': self.entity_id,
-                      'perspective': int(perspective),
-                      'parent_id': parent_id})
-
-    def get_structure_mappings(self, perspective):
-        """Return list of ou_id -> parent_id connections in ``perspective``."""
-        return self.query("""
-        SELECT ou_id, parent_id
-        FROM [:table schema=cerebrum name=ou_structure]
-        WHERE perspective=:perspective""", {'perspective': int(perspective)})
-
-
-class OU(OUStructure, EntityContactInfo, EntityAddress, Entity):
+class OU(EntityContactInfo, EntityAddress, Entity):
 
     __read_attr__ = ('__in_db',)
     __write_attr__ = ('name', 'acronym', 'short_name', 'display_name',
@@ -169,3 +148,20 @@ class OU(OUStructure, EntityContactInfo, EntityAddress, Entity):
             pass
         self.__in_db = True
         self.__updated = False
+
+    def set_parent(self, perspective, parent_id):
+        """Set the parent of this OU to ``parent_id`` in ``perspective``."""
+        self.execute("""
+        INSERT INTO [:table schema=cerebrum name=ou_structure]
+          (ou_id, perspective, parent_id)
+        VALUES (:e_id, :perspective, :parent_id)""",
+                     {'e_id': self.entity_id,
+                      'perspective': int(perspective),
+                      'parent_id': parent_id})
+
+    def get_structure_mappings(self, perspective):
+        """Return list of ou_id -> parent_id connections in ``perspective``."""
+        return self.query("""
+        SELECT ou_id, parent_id
+        FROM [:table schema=cerebrum name=ou_structure]
+        WHERE perspective=:perspective""", {'perspective': int(perspective)})
