@@ -510,7 +510,6 @@ GRANT INSERT, UPDATE, DELETE ON quarantine_code TO change_code;
    machines disks.
 
 */
-
 category:main;
 CREATE TABLE host_info
 (
@@ -520,10 +519,10 @@ CREATE TABLE host_info
 		CONSTRAINT host_info_entity_type_chk
 		  CHECK (entity_type = [:get_constant name=entity_host]),
   host_id	NUMERIC(6,0) 
-                CONSTRAINT host_host_id_pk PRIMARY KEY,
+                CONSTRAINT host_info_pk PRIMARY KEY,
   name		CHAR VARYING(80)
 		NOT NULL
-		CONSTRAINT host_name_u UNIQUE,
+		CONSTRAINT host_info_name_u UNIQUE,
   description	CHAR VARYING(512)
 		NOT NULL,
   CONSTRAINT host_info_entity_id 
@@ -531,12 +530,12 @@ CREATE TABLE host_info
     REFERENCES entity_info(entity_type, entity_id)
 );
 
+
 /* disk_info
 
   path is the name of the directory that users are placed in and that
        will ocour in the NIS map, excluding trailing slash.  
 */
-
 category:main;
 CREATE TABLE disk_info
 (
@@ -549,7 +548,7 @@ CREATE TABLE disk_info
                 CONSTRAINT disk_info_pk PRIMARY KEY,
   host_id	NUMERIC(6,0)
 		NOT NULL
-		CONSTRAINT disk_host_id
+		CONSTRAINT disk_info_host_id
 		  REFERENCES host_info(host_id),
   path		CHAR VARYING(80)
 		NOT NULL
@@ -561,10 +560,6 @@ CREATE TABLE disk_info
     REFERENCES entity_info(entity_type, entity_id)
 );
 
-category:drop;
-DROP TABLE disk_info;
-category:drop;
-DROP TABLE host_info;
 
 /*	account_code
 
@@ -644,7 +639,7 @@ CREATE TABLE account_info
 		  REFERENCES account_info(account_id),
   home		CHAR VARYING(512) NULL,
   disk_id       NUMERIC(6,0) NULL
-                CONSTRAINT posix_user_disk_id REFERENCES disk_info(disk_id),
+                CONSTRAINT account_info_disk_id REFERENCES disk_info(disk_id),
   expire_date	DATE
 		DEFAULT NULL,
   CONSTRAINT account_info_entity_id
@@ -1781,6 +1776,10 @@ category:drop;
 DROP TABLE account_info;
 category:drop;
 DROP TABLE account_code;
+category:drop;
+DROP TABLE disk_info;
+category:drop;
+DROP TABLE host_info;
 category:drop;
 DROP TABLE quarantine_code;
 category:drop;
