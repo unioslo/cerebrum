@@ -390,7 +390,7 @@ class Factory(object):
 ##             # module it lives in.
 ##             cls = import_spec.split(".")[-1]
 ##             import_spec = (import_spec, cls)
-        if isinstance(import_spec, tuple):
+        if isinstance(import_spec, tuple) or isinstance(import_spec, list) :
             bases = ()
             for c in import_spec:
                 (mod_name, class_name) = c.split("/", 2)
