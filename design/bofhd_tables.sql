@@ -8,8 +8,6 @@
   account_id : associated authenticated session.  If it was
       FK(account), extra code would be needed in delete_account
   auth_time : time-stamp for last authentication
-
-  TBD:  do we also want a "last-seen" entry?
 */
 
 
@@ -21,8 +19,9 @@ CREATE TABLE bofhd_session
                NOT NULL,
   account_id   NUMERIC(12,0)
                NOT NULL,
-  auth_time    DATE
-               NOT NULL
+  auth_time    TIMESTAMP
+               NOT NULL,
+  last_seen    TIMESTAMP
 );
 
 /* bofhd_session_state
@@ -49,7 +48,7 @@ CREATE TABLE bofhd_session_state
                NULL,
   state_data   CHAR VARYING(80)
                NULL,
-  set_time     DATE
+  set_time     TIMESTAMP
                NOT NULL
 );
 
