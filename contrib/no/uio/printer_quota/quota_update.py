@@ -275,8 +275,15 @@ def get_students():
             tmp_gyldige.setdefault(int(row['person_id']), []).append(aff)
 
     logger.debug("listed all affilations, calculating")
+
+    fritak_tilknyttet = (int(const.affiliation_tilknyttet_pcvakt),
+                         int(const.affiliation_tilknyttet_grlaerer),
+                         int(const.affiliation_tilknyttet_bilag))
     for pid in tmp_gyldige.keys():
-        if (int(const.affiliation_student),
+        if [x for x in tmp_gyldige[pid] if x[1] in fritak_tilknyttet]:
+            # Fritak via TILKNYTTET affiliation
+            continue
+        elif (int(const.affiliation_student),
             int(const.affiliation_status_student_aktiv)) in tmp_gyldige[pid]:
             # Har minst en gyldig STUDENT/aktiv affiliation
             ret.append(pid)
@@ -322,7 +329,7 @@ def fetch_data(drgrad_file, fritak_kopiavg_file, betalt_papir_file, lt_person_fi
     logger.debug("Prefetching data")
 
     betaling_fritak = get_bet_fritak_data(lt_person_file)
-    
+    logger.debug("Fritak for: %s" % betaling_fritak)
     # Finn alle som skal rammes av kvoteregimet
     quota_victim = {}
 
@@ -342,6 +349,7 @@ def fetch_data(drgrad_file, fritak_kopiavg_file, betalt_papir_file, lt_person_fi
     logger.debug("after removing non-account people: %i" % len(quota_victim))
 
     # Ansatte har fritak
+    # TODO: sparer litt ytelse ved å gjøre dette i get_students()
     for row in person.list_affiliations(affiliation=const.affiliation_ansatt,
                                         include_deleted=False, fetchall=False):
         if int(row['status']) not in (
