@@ -112,9 +112,9 @@ class ExportedFuncs(object):
         modfile = self.command2module[cmd]
         suggestion = self.modules[modfile].get_format_suggestion(cmd)
         if suggestion is not None:
-            return unicode(suggestion, 'iso8859-1')
-        else:
-            return ''
+            
+            suggestion['str'] = unicode(suggestion['str'], 'iso8859-1')
+        return suggestion
 
     def validate(self, argtype, arg):
         """Check if arg is a legal value for the given argtype"""
@@ -344,7 +344,10 @@ class CallableFuncs(object):
                                PersonIdType(optional=1)),
         ## bofh> person info <idtype> <id>
         'person_info': Command(("person", "info"), PersonIdType(),
-                               PersonId()),
+                               PersonId(), fs=FormatSuggestion(
+        "Navn     : %20s\nFødt     : %20s\nKjønn    : %20s\n"
+        "person id: %20s\nExport-id: %20s",
+        ("name", "birth", "gender", "pid", "expid"))),
         ## bofh> person name <id_type> {<export_id> | <fnr>} <name_type> <name>
         'person_name': Command(("person", "name"), PersonIdType(),
                                PersonId(), PersonNameType(), PersonName())
@@ -371,12 +374,7 @@ class CallableFuncs(object):
         return commands
 
     def get_format_suggestion(self, cmd):
-        suggestions = {
-            'get_person' : "Navn     : %20s\nFødt     : %20s\nKjønn    : %20s\nperson id: %20s\nExport-id: %20s¤name;birth;gender;pid;expid",
-            'user_lbdate' : 'Fødselsnr(todo, currently person_id) : %10s    Navn: %s¤p_id;name',
-            'user_create' : 'Username: %8s   Passord: %s¤uname;password'
-            }
-        return suggestions.get(cmd)
+        return self.all_commands[cmd].get_fs()
 
     #
     # account commands

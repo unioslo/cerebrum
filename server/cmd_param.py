@@ -115,12 +115,24 @@ class PosixGecos(Parameter):
     _prompt = "Enter gecos"
 
 class Command(object):
-    def __init__(self, cmd, *params):
+    def __init__(self, cmd, *params, **kw):
         self._cmd = cmd
         self._params = params
+        self._format_suggestion = kw.get('fs', None)
+
+    def get_fs(self):
+        return self._format_suggestion.get_format()
 
     def get_struct(self):
         return (self._cmd, [k.get_struct() for k in self._params])
+
+class FormatSuggestion(object):
+    def __init__(self, string, vars):
+        self._string = string
+        self._vars = vars
+
+    def get_format(self):
+        return {'str': self._string, 'var': self._vars}
 
 if __name__ == '__main__':
     all_commands = {
