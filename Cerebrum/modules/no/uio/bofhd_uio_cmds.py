@@ -2180,7 +2180,7 @@ class BofhdExtension(object):
         if affiliations:
             data[0]['affiliation_1'] = affiliations[0]
             data[0]['source_system_1'] = sources[0]
-        for i in range(len(affiliations)):
+        for i in range(1, len(affiliations)):
             data.append({'affiliation': affiliations[i],
                          'source_system': sources[i]})
         return data
