@@ -317,11 +317,14 @@ class BofhdExtension(object):
                             ("group_id",)), perm_filter='can_create_group')
     def group_promote_posix(self, operator, group, description=None):
         self.ba.can_create_group(operator.get_entity_id())
+        is_posix = False
         try:
             self._get_group(group, grtype="PosixGroup")
-            raise CerebrumError("%s is already a PosixGroup" % group)
+            is_posix = True
         except CerebrumError:
             pass
+        if is_posix:
+            raise CerebrumError("%s is already a PosixGroup" % group)
 
         group=self._get_group(group)
         pg = PosixGroup.PosixGroup(self.db)
