@@ -60,6 +60,7 @@ from Cerebrum.modules.no.uio import PrinterQuotas
 from Cerebrum.modules.no.hia import bofhd_hia_help
 from Cerebrum.modules.no.hia.access_FS import HiAFS
 from Cerebrum.modules.templates.letters import TemplateHandler
+from time import localtime, strftime, time
 
 # TBD: It would probably be cleaner if our time formats were specified
 # in a non-Java-SimpleDateTime-specific way.
@@ -2730,13 +2731,21 @@ class BofhdExtension(object):
         if not tpl_lang.endswith("letter"):
             skriver = args.pop(0)
         else:
-            skriver = cereconf.PRINT_PRINTER
+            skriver = cereconf.PRINT_LPR_COMMAND
         selection = args.pop(0)
         cache = self._get_cached_passwords(operator)
+	try:
+            acc = self._get_account(operator.get_entity_id(), idtype='id')
+	    opr=account.account_name
+        except NotFoundError:
+	    raise CerebrumError, ("Could not find the operator id!")
+
         th = TemplateHandler(tpl_lang, tpl_name, tpl_type)
         tmp_dir = Utils.make_temp_dir(dir=cereconf.JOB_RUNNER_LOG_DIR,
                                       prefix="bofh_spool")
-        out_name = "%s/%s.%s" % (tmp_dir, "job", tpl_type)
+        out_name_temp = "%s/%s.%s" % (tmp_dir, "job", tpl_type)
+	time_temp = strftime("%Y-%m-%d-%H-%M", localtime())
+	out_name = "%s%s%s" % (out_name_temp, time_temp, opr)
         out = file(out_name, "w")
         if th._hdr is not None:
             out.write(th._hdr)
