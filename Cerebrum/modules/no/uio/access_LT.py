@@ -1,4 +1,20 @@
-#!/usr/bin/env python2.2
+# Copyright 2002, 2003 University of Oslo, Norway
+#
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 import re
 import os
@@ -67,23 +83,23 @@ ORDER BY tlfpreftegn"""
         FROM lt.belkodespesielle WHERE belkodeomradekode='LT35UREG' """
         koder = [str(k['belopskodenr']) for k in self.db.query(qry)]
 
-        qry = ("""SELECT TO_CHAR(dato_oppgjor, 'YYYYMMDD'), p.fodtdag, p.fodtmnd, p.fodtar, p.personnr, 
-               fakultetnr_kontering, instituttnr_kontering, gruppenr_kontering 
+        qry = ("""SELECT TO_CHAR(dato_oppgjor, 'YYYYMMDD'), p.fodtdag, p.fodtmnd, p.fodtar, p.personnr,
+               fakultetnr_kontering, instituttnr_kontering, gruppenr_kontering
             FROM lt.lonnspostering p, lt.delpostering d
 	    WHERE p.posteringsnr=d.posteringsnr AND p.aarnr_termin=d.aarnr AND p.mndnr_termin=d.mndnr
-               AND p.fodtdag=d.fodtdag AND p.fodtmnd=d.fodtmnd AND p.fodtar=d.fodtar AND p.personnr=d.personnr 
+               AND p.fodtdag=d.fodtdag AND p.fodtmnd=d.fodtmnd AND p.fodtar=d.fodtar AND p.personnr=d.personnr
                AND dato_oppgjor > TO_DATE(%s, 'YYYYMMDD') AND (d.belopskodenr=""" % tid +
         " OR d.belopskodenr=".join(koder) + ")")
         return (self._get_cols(qry), self.db.query(qry))
 
     def GetPersonInfo(self, fodtdag, fodtmnd, fodtar, personnr):
-        qry = """SELECT 
+        qry = """SELECT
   navn, tittel_personlig, fakultetnr_for_lonnsslip,
   instituttnr_for_lonnsslip, gruppenr_for_lonnsslip,
   adresselinje1_privatadresse, adresselinje2_privatadresse,
   poststednr_privatadresse, poststednavn_privatadresse,
   landnavn_privatadresse, telefonnr_privattelefon
-FROM 
+FROM
   lt.person
 WHERE
   fodtdag=:fodtdag AND fodtmnd=:fodtmnd AND fodtar=:fodtar AND personnr=:personnr"""
@@ -91,7 +107,7 @@ WHERE
 
     def GetTelefon(self, fodtdag, fodtmnd, fodtar, personnr):
         qry = """SELECT
-  innvalgnr, linjenr 
+  innvalgnr, linjenr
 FROM
   lt.arbstedtelefon
 WHERE
@@ -101,9 +117,9 @@ ORDER BY tlfpreftegn"""
 
     def GetKomm(self, fodtdag, fodtmnd, fodtar, personnr):
         qry = """SELECT
-  kommtypekode, kommnrverdi, telefonnr 
-FROM 
-  lt.perskomm 
+  kommtypekode, kommnrverdi, telefonnr
+FROM
+  lt.perskomm
 WHERE
   fodtdag=:fodtdag AND fodtmnd=:fodtmnd AND fodtar=:fodtar AND personnr=:personnr
 ORDER BY tlfpreftegn"""

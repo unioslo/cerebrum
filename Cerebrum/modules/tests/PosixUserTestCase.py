@@ -1,6 +1,22 @@
 #!/usr/bin/env python2.2
+
+# Copyright 2002, 2003 University of Oslo, Norway
 #
-# $Id$
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 import unittest
 from Cerebrum import Database
@@ -27,7 +43,7 @@ class PosixUser_createTestCase(Account_createTestCase):
         posix_user = PosixUser.PosixUser(self.Cerebrum)
         posix_user.clear()
         self._myPopulatePosixUser(posix_user)
-        
+
         posix_user.write_db()
 
     def _myPopulatePosixUser(self, posix_user):
@@ -40,7 +56,7 @@ class PosixUser_createTestCase(Account_createTestCase):
 
         posix_user.populate(pd['posix_uid'], pd['gid'],
                             pd['gecos'], pd['home'], pd['shell'], parent=account)
-        self.posix_uid = pd['posix_uid'] 
+        self.posix_uid = pd['posix_uid']
 
     def tearDown(self):
         # print "PosixUser_createTestCase.tearDown()"
@@ -65,7 +81,7 @@ class PosixUserTestCase(PosixUser_createTestCase):
 
         self.failIf(new_posix_user <> posix_user, "Error: should be equal")
         new_posix_user.posix_uid = 42
-        self.failIf(new_posix_user == posix_user, "Error: should be different") 
+        self.failIf(new_posix_user == posix_user, "Error: should be different")
 
     def testDeletePosixUser(self):
         "Delete the posix user"

@@ -1,5 +1,23 @@
 #!/usr/bin/env python2.2
 
+# Copyright 2002, 2003 University of Oslo, Norway
+#
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
 import unittest
 
 from Cerebrum.Utils import Factory
@@ -7,17 +25,10 @@ from Cerebrum.Utils import Factory
 class SQLDriverTestCase(unittest.TestCase):
     def setUp(self):
         self.db = Factory.get('Database')()
-        try:
-            self.db.execute("CREATE TABLE test_db_dict (value NUMERIC(6,0))")
-            self.db.execute("INSERT INTO test_db_dict (value) VALUES (1)")
-        except:
-            pass
-
-        try:
-            self.db.execute("CREATE TABLE test_db_utf8 (value CHAR VARYING(128))")
-        except:
-            pass
-
+        self.db.execute("CREATE TABLE test_db_dict (value NUMERIC(6,0))")
+        self.db.execute("INSERT INTO test_db_dict (value) VALUES (1)")
+        self.db.execute("""
+        CREATE TABLE test_db_utf8 (value CHAR VARYING(128))""")
         # Calling commit() to make sure it is possible to continue
         # testing even if the SQL call fails.
         self.db.commit()
@@ -62,14 +73,8 @@ class SQLDriverTestCase(unittest.TestCase):
               value = :key2""", {'key1': 100, 'key2': 200})
 
     def tearDown(self):
-        try:
-            self.db.execute("DROP TABLE test_db_utf8")
-        except:
-            pass
-        try:
-            self.db.execute("DROP TABLE test_db_dict");
-        except:
-            pass
+        self.db.execute("DROP TABLE test_db_utf8")
+        self.db.execute("DROP TABLE test_db_dict");
         self.db.commit()
         self.db.close()
 

@@ -1,3 +1,21 @@
+# Copyright 2003 University of Oslo, Norway
+#
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
 import pickle
 
 class ChangeLog(object):
@@ -6,7 +24,7 @@ class ChangeLog(object):
         self.change_by = change_by
         self.change_program = change_program
         self.messages = []
-        
+
     def log_change(self, subject_entity, change_type_id,
                    destination_entity, change_params=None,
                    change_by=None, change_program=None):
@@ -34,7 +52,7 @@ class ChangeLog(object):
             m['id'] = int(self.nextval('change_log_seq'))
             self.execute("""
             INSERT INTO [:table schema=cerebrum name=change_log]
-               (change_id, subject_entity, 
+               (change_id, subject_entity,
                 change_type_id, dest_entity, change_params, change_by, change_program)
             VALUES (:id, :subject_entity, :change_type_id,
                 :destination_entity, :change_params, :change_by, :change_program)""", m)

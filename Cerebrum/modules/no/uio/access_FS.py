@@ -1,4 +1,20 @@
-#!/usr/bin/env python2.2
+# Copyright 2002, 2003 University of Oslo, Norway
+#
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 import re
 import os
@@ -21,7 +37,7 @@ class FSPerson(object):
         else:
             self.sem = 'H'
         self.YY = str(t[0])[2:]
-        
+
     def GetKursFagpersonundsemester(self):
         qry = """
 SELECT DISTINCT
@@ -132,7 +148,7 @@ WHERE  p.fodselsdato=d.fodselsdato and
        NVL(ek.dato_fra, SYSDATE+1) < SYSDATE + 14 and
        ek.dato_til > SYSDATE - 14"""
         return (self._get_cols(qry), self.db.query(qry))
- 
+
     def get_termin_aar(self, only_current=0):
         yr, mon, md = t = time.localtime()[0:3]
         if mon <= 6:
@@ -147,7 +163,7 @@ WHERE  p.fodselsdato=d.fodselsdato and
         if only_current or mon >= 10 or (mon == 9 and md > 15):
             return current
         return "(%s OR (r.terminkode LIKE 'V_R' AND r.arstall=%d))\n" % (current, yr)
-    
+
     # TODO: Belongs in a separate file, and should consider using row description
     def _get_cols(self, sql):
         m = re.compile(r'^\s*SELECT\s*(DISTINCT)?(.*)FROM', re.DOTALL | re.IGNORECASE).match(sql)

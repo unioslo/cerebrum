@@ -1,4 +1,4 @@
-# Copyright 2002 University of Oslo, Norway
+# Copyright 2002, 2003 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
