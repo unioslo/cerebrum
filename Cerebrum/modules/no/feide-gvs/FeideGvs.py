@@ -65,20 +65,40 @@ class FeideGvsConstants(Constants.Constants):
         'active',
         'Active member of administration')
 
+    affiliation_status_admin_inactive = _PersonAffStatusCode(
+        affiliation_admin,
+        'inactive',
+        'Inactive member of administration')
+
     affiliation_status_guardian_active = _PersonAffStatusCode(
         affiliation_guardian,
         'active',
-        'Active member of administration')
+        'Active guardian')
+
+    affiliation_status_guardian_inactive = _PersonAffStatusCode(
+        affiliation_guardian,
+        'inactive',
+        'Inactive guardian')
 
     affiliation_status_pupil_active = _PersonAffStatusCode(
         affiliation_pupil,
         'active',
         'Active pupil')
+    
+    affiliation_status_pupil_inactive = _PersonAffStatusCode(
+        affiliation_pupil,
+        'inactive',
+        'Inactive pupil')
 
     affiliation_status_teacher_active = _PersonAffStatusCode(
         affiliation_teacher,
         'active',
         'Active teacher')
+
+    affiliation_status_teacher_inactive = _PersonAffStatusCode(
+        affiliation_teacher,
+        'inactive',
+        'Inactive teacher')
 
     spread_cerebrum_user = _SpreadCode(
         'cerebrum_user',
