@@ -78,7 +78,6 @@ class Constants(Constants.Constants):
     auth_target_type_group = "group"
     auth_target_type_host = "host"
     auth_target_type_maildomain = "maildom"
-    auth_target_type_spread = "spread"
     auth_target_type_ou = "ou"
     # These are wildcards, allowing access to _all_ objects of that type
     auth_target_type_global_group = "global_group"
