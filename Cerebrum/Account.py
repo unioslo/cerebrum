@@ -506,7 +506,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine, Entity):
             return False
         return True
 
-    def list(self, filter_expired=False):
+    def list(self, filter_expired=False, fetchall=True):
         """Returns all accounts"""
         where = []
         if filter_expired:
@@ -517,7 +517,8 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine, Entity):
             where = ""
         return self.query("""
         SELECT *
-        FROM [:table schema=cerebrum name=account_info] ai %s""" % where)
+        FROM [:table schema=cerebrum name=account_info] ai %s""" % where,
+                          fetchall = fetchall)
 
     def list_account_name_home(self, spread, filter_home=False):
         """Returns a list of account_id, name, home and path.
@@ -549,14 +550,15 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine, Entity):
                   AND es.spread=:spread""", {'spread': int(spread)})
 
     
-    def list_reserved_users(self):
+    def list_reserved_users(self, fetchall=True):
         """Return all reserved users"""
         return self.query("""
         SELECT *
         FROM [:table schema=cerebrum name=account_info] ai
         WHERE ai.expire_date IS NULL AND NOT EXISTS (
           SELECT 'foo' FROM [:table schema=cerebrum name=entity_spread] es
-          WHERE es.entity_id=ai.account_id)""")
+          WHERE es.entity_id=ai.account_id)""",
+                          fetchall = fetchall)
 
     def list_deleted_users(self):
         """Return all deleted users"""
