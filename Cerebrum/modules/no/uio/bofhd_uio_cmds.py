@@ -3672,7 +3672,10 @@ class BofhdExtension(object):
         for r in self.db.get_log_events(0, subject_entity=account.entity_id):
             dest = r['dest_entity']
             if dest is not None:
-                self._get_entity_name(None, dest)
+                try:
+                    dest = self._get_entity_name(None, dest)
+                except Errors.NotFoundError:
+                    pass
             msg = self.change_type2details[int(r['change_type_id'])][2] % {
                 'subject': self._get_entity_name(None, r['subject_entity']),
                 'dest': dest}
@@ -4040,8 +4043,8 @@ class BofhdExtension(object):
         ("user", "shell"), AccountName(), PosixShell(default="bash"))
     def user_shell(self, operator, accountname, shell=None):
         account = self._get_account(accountname, actype="PosixUser")
-        self.ba.can_set_shell(operator.get_entity_id(), account, shell)
         shell = self._get_shell(shell)
+        self.ba.can_set_shell(operator.get_entity_id(), account, shell)
         account.shell = shell
         account.write_db()
         return "OK"
@@ -4165,7 +4168,7 @@ class BofhdExtension(object):
     def _get_shell(self, shell):
         if shell == 'bash':
             return self.const.posix_shell_bash
-        return int(self._get_constant(shell, "Unknown shell"))
+        return self._get_constant(shell, "Unknown shell")
     
     def _format_ou_name(self, ou):
         return "%02i%02i%02i (%s)" % (ou.fakultet, ou.institutt, ou.avdeling,
