@@ -21,7 +21,7 @@ class AutoStud(object):
         self.disks_order = []
         if True:
             disk = Disk.Disk(db)
-            for d in disk.list():
+            for d in disk.list(filter_expired=True):
                 self.disks[int(d['disk_id'])] = [d['path'], int(d['count'])]
             self.disks_order = self.disks.keys()
             self.disks_order.sort(self._disk_sort)
