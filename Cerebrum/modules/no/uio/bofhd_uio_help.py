@@ -146,7 +146,7 @@ possible affiliations"""],
         ['aff_status', 'Enter affiliation status',
 """Affiliation status describes a persons current status within a
 defined organizational unit (e.a. whether the person is an active
-student or an employee on leave).  'misc aff_status_codes' lists
+student or an employee on leave).  'misc affiliations' lists
 affiliation status codes"""],
     'date':
         ['date', 'Enter date (YYYY-MM-DD)',
