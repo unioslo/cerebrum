@@ -123,6 +123,8 @@ class RequestHandler(SocketServer.StreamRequestHandler):
         #                 for logging purposes.
         #
         # Possible &send() feedback: ok, no, edbdown, badpage
+        if not self.printer_quota.has_printerquota:
+            return ok
         pageunits = int(pageunits)
         self.log('TRACE', 'check_quota: %s@%s %s' % (pageunits, printer, self.printer_quota))
         if pageunits <= 0:
