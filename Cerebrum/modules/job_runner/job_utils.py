@@ -447,10 +447,10 @@ class JobQueue(object):
             self._running_jobs.remove((job_name, pid))
 
         if self._started_at.has_key(job_name):
-            self.logger.debug("Completed [%s/%i] after %f seconds" % (
-                job_name,  pid or -1, self._last_duration[job_name]))
             self._last_duration[job_name] = (
                 time.time() - self._started_at[job_name])
+            self.logger.debug("Completed [%s/%i] after %f seconds" % (
+                job_name,  pid or -1, self._last_duration[job_name]))
         else:
             self._run_queue.remove(job_name)
             self.logger.debug("Completed [%s/%i] (start not set)" % (
