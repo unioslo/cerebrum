@@ -120,7 +120,9 @@ possible affiliations"""],
 defined organizational unit (e.a. whether the person is an active
 student or an employee on leave).  'misc aff_status_codes' lists
 affiliation status codes"""],
-    'date': ['date', 'Enter date of birth(YYYY-MM-DD)',
+    'date': ['date', 'Enter date (YYYY-MM-DD)',
+             "The legal date format is 2003-12-31"],
+    'date_birth': ['date', 'Enter date of birth(YYYY-MM-DD)',
              "The legal date format is 2003-12-31"],
     'disk': ['disk', 'Enter disk',
  """Enter the path to the disc without trailing slash or username.
