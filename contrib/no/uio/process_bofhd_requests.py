@@ -531,8 +531,6 @@ def move_email(user_id, mailto_id, from_host, to_host):
     else:
         logger.error('mvmail failed, returned %d' % errnum)
         return False
-    if es_fr.email_server_type == const.email_server_type_cyrus:
-        return cyrus_delete(es_fr.name, acc.account_name)
     return True
 
 def process_mailman_requests():
