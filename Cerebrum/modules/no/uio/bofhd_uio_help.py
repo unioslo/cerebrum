@@ -149,7 +149,7 @@ The currently defined id-types are:
     'person_id_other':['person_id','Enter person id',
     """Enter person id as idtype:id.
 If idtype=fnr, the idtype does not have to be specified.
-You may also use entity_id:id."""]
+You may also use entity_id:id."""],
     'person_id:current': ['[id_type:]current_id', 'Enter current person id'],
     'person_id:new': ['[id_type:]new_id', 'Enter newperson id'],
     'person_name': ['name', 'Enter person name'],
