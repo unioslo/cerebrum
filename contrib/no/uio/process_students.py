@@ -220,7 +220,7 @@ def make_letters(data_file=None, type=None, range=None):
         tpl = {}
         address = person.get_entity_address(source=const.system_fs,
                                             type=const.address_post)
-        if address is None:
+        if not address:
             logger.warn("Bad address for %s" % account_id)
             continue
         address = address[0]
