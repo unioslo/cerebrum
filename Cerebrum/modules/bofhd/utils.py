@@ -22,6 +22,7 @@ import time
 from Cerebrum import Constants
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.bofhd.errors import CerebrumError
+from Cerebrum import Errors
 import xmlrpclib
 
 class _BofhdRequestOpCode(Constants._CerebrumCode):
@@ -33,6 +34,10 @@ class _AuthRoleOpCode(Constants._CerebrumCode):
     _lookup_table = '[:table schema=cerebrum name=auth_op_code]'
 
 class Constants(Constants.Constants):
+
+    BofhdRequestOp = _BofhdRequestOpCode
+    AuthRoleOp = _AuthRoleOpCode
+
     auth_add_disks = _AuthRoleOpCode('add_disks', 'add userdisks to hosts')
     auth_create_hosts = _AuthRoleOpCode('create_host',
                                         'Can add hosts for userdisks')
@@ -207,6 +212,8 @@ class BofhdRequests(object):
 		UPDATE [:table schema=cerebrum name=bofhd_request]
 		SET run_at=:when WHERE request_id=:id""",
                              {'when': when, 'id': request_id})
+            return
+        raise Errors.NotFoundError, "No such request %d" % request_id
 
     def delete_request(self, entity_id=None, request_id=None,
                        operator_id=None, operation=None):
