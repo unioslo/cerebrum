@@ -174,8 +174,8 @@ def main():
                 fak, inst, gruppe = stedkode[0:2], stedkode[2:4], stedkode[4:6]
                 ou.clear()
                 ou.find_stedkode(int(fak), int(inst), int(gruppe))
-                new_person.populate_affiliation(co.system_lt, ou.ou_id, co.affiliation_employee,
-                                                co.affiliation_status_employee_valid)
+                new_person.populate_affiliation(co.system_lt, ou.ou_id, co.affiliation_ansatt,
+                                                co.affiliation_status_ansatt_bil)
             except Errors.NotFoundError:
                 print "Error setting stedkode %s" % stedkode
 
