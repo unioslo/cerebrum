@@ -720,7 +720,8 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine, Entity):
         # We ignore hyphens in the last name, but extract the
         # initials from the first name(s).
         fname = self.simplify_name(fname, alt=1)
-        lname = self.simplify_name(lname.replace('-', ''), alt=1)
+        lname = self.simplify_name(lname, alt=1)
+        lname = lname.replace('-', '').replace(' ', '')
 
         initials = [n[0] for n in re.split(r'[ -]', fname)]
         
