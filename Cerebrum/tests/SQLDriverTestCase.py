@@ -9,6 +9,9 @@ class SQLDriverTestCase(unittest.TestCase):
         self.db = Database.connect()
         self.db.execute("CREATE TABLE test_db_dict (value NUMERIC(6,0))")
         self.db.execute("INSERT INTO test_db_dict (value) VALUES (1)")
+        # Calling commit() to make sure it is possible to continue
+        # testing even if the SQL call fails.
+        self.db.commit()
         
     def testSQLIntComparable1(self):
         "Check if SQL Integer is comparable to Python Integer"
@@ -27,6 +30,14 @@ class SQLDriverTestCase(unittest.TestCase):
         hash[value] = 1
         assert(1 == hash[value], 'Unable to compare Integer to SQL Integer')
 
+    def testUTF8Text(self):
+        "Check if CHAR VARYING() can store UTF8 text"
+        self.db.execute("CREATE TABLE test_db_utf8 (value CHAR VARYING(128))")
+        self.db.execute("INSERT INTO test_db_utf8 (value) VALUES (:text)",
+                        {'text': u"unicodeTest"})
+        self.db.execute("DROP TABLE test_db_utf8")
+        self.db.commit()
+
     def testBrokenDateBefore1901(self):
         "Check if the Date class handle dates before 1901 (1900-01-01)"
         date = self.db.Date(1900, 1, 1)
@@ -39,6 +50,7 @@ class SQLDriverTestCase(unittest.TestCase):
 
     def tearDown(self):
         self.db.execute("DROP TABLE test_db_dict");
+        self.db.commit()
         self.db.close()
 
     def suite():
@@ -48,6 +60,7 @@ class SQLDriverTestCase(unittest.TestCase):
         suite.addTest(SQLDriverTestCase("testSQLIntHashable"))
         suite.addTest(SQLDriverTestCase("testBrokenDateBefore1901"))
         suite.addTest(SQLDriverTestCase("testBrokenDateBefore1970"))
+        suite.addTest(SQLDriverTestCase("testUTF8Text"))
         return suite
     suite=staticmethod(suite)
 
