@@ -261,8 +261,10 @@ class DatabaseClass(SpineClass, Searchable, Dumpable):
             where = []
             values = {}
             for attr, value in map.items():
-                if not isinstance(attr, DatabaseAttr) or attr.optional:
+                if not isinstance(attr, DatabaseAttr):
                     continue
+                if attr.optional:
+                    tables.add(attr.table)
                 whr, val = convert_value(attr, value)
                 where.append(whr)
                 values[attr.name] = val
