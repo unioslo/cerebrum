@@ -46,7 +46,8 @@ class AccountType(object):
     """The AccountType class does not use populate logic as the only
     data stored represent a PK in the database"""
 
-    def get_account_types(self, all_persons_types=False, owner_id=None):
+    def get_account_types(self, all_persons_types=False, owner_id=None,
+                          filter_expired=True):
         """Return dbrows of account_types for the given account"""
         if all_persons_types or owner_id is not None:
             col = 'person_id'
@@ -57,11 +58,18 @@ class AccountType(object):
         else:
             col = 'account_id'
             val = self.entity_id
+        tables = ["[:table schema=cerebrum name=account_type] at"]
+        where = ["at.%s = :%s" % (col, col)]
+        if filter_expired:
+            tables.append("[:table schema=cerebrum name=account_info] ai")
+            where.append("""(ai.account_id = at.account_id AND
+                             (ai.expire_date IS NULL OR
+                              ai.expire_date > [:now]))""")
         return self.query("""
-        SELECT person_id, ou_id, affiliation, account_id, priority
-        FROM [:table schema=cerebrum name=account_type]
-        WHERE %(col)s=:%(col)s
-        ORDER BY priority""" % {'col': col},
+        SELECT person_id, ou_id, affiliation, at.account_id, priority
+        FROM """ + ", ".join(tables) + """
+        WHERE """ + " AND ".join(where) + """
+        ORDER BY priority""",
                           {col: val})
 
     def set_account_type(self, ou_id, affiliation, priority=None):
