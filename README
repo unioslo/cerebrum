@@ -8,7 +8,7 @@ Requirements
 ------------
 
   Python 2.2
-  Python xmlrpclib v?
+  SQL Database (PostgreSQL, Oracle)
 
 Mailing lists
 -------------
