@@ -31,6 +31,8 @@ import sys
 import crypt
 import md5
 import socket
+import thread
+import threading
 import time
 import pickle
 import SocketServer
@@ -38,6 +40,7 @@ import SimpleXMLRPCServer
 import xmlrpclib
 import getopt
 import traceback
+import random
 from random import Random
 
 try:
@@ -262,6 +265,9 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
 
             # generate response
             try:
+                logger.debug(
+                    "[%s] dispatch %s" % (threading.currentThread().getName(), method))
+
                 response = self._dispatch(method, params)
                 # wrap response in a singleton tuple
                 response = (response,)
@@ -293,7 +299,8 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
             # shut down the connection
             self.wfile.flush()
             self.connection.shutdown(1)
-
+        logger.debug("End of" + threading.currentThread().getName())
+        
     def finish(self):
         if self.use_encryption:
             self.request.set_shutdown(SSL.SSL_RECEIVED_SHUTDOWN |
@@ -586,23 +593,86 @@ if CRYPTO_AVAILABLE:
             BofhdServer.__init__(self, database, config_fname)
             self.logRequests = 0
 
+    # TODO: Check if it is sufficient to do something like:
+    # class ThreadingSSLBofhdServer(SSL.ThreadingSSLServer, SSLBofhdServer)
+    class ThreadingSSLBofhdServer(SSL.ThreadingSSLServer, BofhdServer):
+
+        def __init__(self, database, config_fname, addr, requestHandler,
+                     ssl_context):
+            super(SSLBofhdServer, self).__init__(addr, requestHandler,
+                                                 ssl_context)
+            BofhdServer.__init__(self, database, config_fname)
+            self.logRequests = 0
+
+_db_pool_lock = thread.allocate_lock()
+
+class ProxyDBConnection(object):
+
+    """ProxyDBConnection asserts that each thread gets its own
+    instance of the class specified in __init__.  We maintain a pool
+    of such class-objects, so that we may re-use the object when the
+    thread it belonged to has terminated.
+
+    The class works by overriding __getattr__.  Thus, when one says
+    db.<anything>, this method is called.
+    """
+
+    def __init__(self, obj_class):
+        self._obj_class = obj_class
+        self.active_connections = {}
+        self.free_pool = []
+
+    def __getattr__(self, attrib):
+        try:
+            obj = self.active_connections[threading.currentThread().getName()]
+        except KeyError:
+            # TODO: 
+            # - limit max # of simultaneously used db-connections
+            # - reduce size of free_pool when size > N
+            _db_pool_lock.acquire()
+            logger.debug("Alloc new db-handle for " +
+                         threading.currentThread().getName())
+            running_threads = []
+            for t in threading.enumerate():
+                running_threads.append(t.getName())
+            logger.debug("  Threads: " + str(running_threads))
+            for p in self.active_connections.keys():
+                if p not in running_threads:
+                    logger.debug("  Close " + p)
+                    #self.active_connections[p].close()
+                    self.free_pool.append(self.active_connections[p])
+                    del(self.active_connections[p])
+            if not self.free_pool:
+                obj = self._obj_class()
+            else:
+                obj = self.free_pool.pop(0)
+            self.active_connections[threading.currentThread().getName()] = obj
+            logger.debug("  Open: " + str(self.active_connections.keys()))
+            _db_pool_lock.release()
+        return getattr(obj, attrib)
+
 def usage():
     print """Usage: bofhd.py -c filename [-t keyword]
   -c | --config-file <filename>: use as config file
   -t | --test-help <keyword>: check help consistency
+  -m : run multithreaded (experimental)
   --unencrypted: don't use https
 """
 
 if __name__ == '__main__':
-    opts, args = getopt.getopt(sys.argv[1:], 'c:t:p:',
+    opts, args = getopt.getopt(sys.argv[1:], 'c:t:p:m',
                                ['config-file=', 'test-help=',
-                                'port=', 'unencrypted'])
+                                'port=', 'unencrypted',
+                                'multi-threaded'])
     use_encryption = CRYPTO_AVAILABLE
     conffile = None
     port = 8000
+    multi_threaded = False
     for opt, val in opts:
         if opt in ('-c', '--config-file'):
             conffile = val
+        elif opt in ('-m', '--multi-threaded'):
+            multi_threaded = True
         elif opt in ('-p', '--port'):
             port = int(val)
         elif opt in ('-t', '--test-help'):
@@ -637,7 +707,10 @@ if __name__ == '__main__':
         sys.exit()
         
     print "Server starting at port: %d" % port
-    db = Utils.Factory.get('Database')()
+    if multi_threaded:
+        db = ProxyDBConnection(Utils.Factory.get('Database'))
+    else:
+        db = Utils.Factory.get('Database')()
     if use_encryption:
         # from echod_lib import init_context
         def init_context(protocol, certfile, cafile, verify, verify_depth=10):
@@ -656,9 +729,19 @@ if __name__ == '__main__':
                            '%s/ca.pem' % cereconf.DB_AUTH_DIR,
                            SSL.verify_none)
         ctx.set_tmp_dh('%s/dh1024.pem' % cereconf.DB_AUTH_DIR)
-        server = SSLBofhdServer(db, conffile,
-                                ("0.0.0.0", port), BofhdRequestHandler, ctx)
+        if multi_threaded:
+            server = ThreadingSSLBofhdServer(db, conffile,
+                                    ("0.0.0.0", port), BofhdRequestHandler, ctx)
+        else:
+            server = SSLBofhdServer(db, conffile,
+                                    ("0.0.0.0", port), BofhdRequestHandler, ctx)
     else:
-        server = StandardBofhdServer(db, conffile,
-                                ("0.0.0.0", port), BofhdRequestHandler)
+        if multi_threaded:
+            new_class = type('ThreadingBofhdServer',
+                             (SocketServer.ThreadingMixIn, StandardBofhdServer), {})
+            server = new_class(db, conffile,
+                               ("0.0.0.0", port), BofhdRequestHandler)
+        else:
+            server = StandardBofhdServer(db, conffile,
+                                         ("0.0.0.0", port), BofhdRequestHandler)
     server.serve_forever()
