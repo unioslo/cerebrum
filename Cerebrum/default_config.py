@@ -112,3 +112,5 @@ QUARANTINE_RULES = {}
 # }
 
 CEREBRUM_DDL_DIR="../share/doc/cerebrum/design"
+# Should contain mapping lang: [('template-prefix', 'tpl-type)...]
+BOFHD_TEMPLATES={}
