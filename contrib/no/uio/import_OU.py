@@ -115,7 +115,7 @@ def main():
 
     existing_ou_mappings = {}
     for node in ou.get_structure_mappings(co.perspective_lt):
-        existing_ou_mappings[node.ou_id] = node.parent_id
+        existing_ou_mappings[int(node.ou_id)] = node.parent_id
 
     # Now populate ou_structure
     if verbose:
@@ -123,6 +123,7 @@ def main():
     for stedkode in steder.keys():
         rec_make_stedkode(stedkode, ou, existing_ou_mappings, steder,
                           stedkode2ou, co)
+    Cerebrum.commit()
 
 def rec_make_stedkode(stedkode, ou, existing_ou_mappings, steder,
                       stedkode2ou, co):
