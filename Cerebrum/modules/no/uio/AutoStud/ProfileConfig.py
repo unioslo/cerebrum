@@ -36,6 +36,7 @@ class Config(object):
         sp = StudconfigParser(self)
         self.disk_defs = {}
         self.group_defs = {}
+        self.default_values = {}
         self.profiles = []
         self.required_spread_order = []
         self.lookup_helper = LookupHelper(autostud.db, logger)
@@ -327,9 +328,11 @@ class StudconfigParser(xml.sax.ContentHandler):
             elif ename == 'disk_oversikt':
                 self._default_disk_max = tmp['default_max']
             elif ename == 'default_values':
-                pass   # Not supported yet, deprecated?
+                pass
         elif len(self.elementstack) == 3 and self.elementstack[1] == 'default_values':
-            pass  # deprecated?
+            for k in tmp.keys():
+                self._config.default_values['%s_%s' % (ename, k)] = tmp[k]
+            pass
         elif len(self.elementstack) == 3 and self.elementstack[1] == 'spread_oversikt':
             if ename == 'spreaddef':
                 self._config.required_spread_order.append(
