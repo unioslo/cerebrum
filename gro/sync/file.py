@@ -174,4 +174,19 @@ class AliasFile(CLFileBack):
             mod=">>"
         return "%s: %s %s\n" % ( addr.name, mod, to)
 
+
+# When using the file backend the user will want to save the id of the
+# last recorded update to a file. (But will the users of other backends
+# like LDAP and AD also want to use a file?)
+class LastUpdate:
+    filename="/etc/ceresync/lastupdate"
+    def __init__(self, filename=None):
+        if filename:
+            self.filename=filename
+    def get(self):
+        return int(open(self.filename).read().strip())
+    def set(self, id):
+        open(self.filename,'w').write("%d\n" % id)
+
+
 # arch-tag: 15c0dab6-50e3-4093-ba64-5be1b5789d90
