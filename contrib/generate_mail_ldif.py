@@ -67,17 +67,15 @@ def read_addr():
     # domains.
     glob_addr = {}
     for dom_catg in (co.email_domain_category_uio_globals,):
-        dom_code = int(dom_catg)
         domain = str(dom_catg)
-        glob_addr[dom_code] = {}
-        lp_dict = glob_addr[dom_code]
-        # Fill glob_addr[numeric code value][local_part]
+        glob_addr[domain] = {}
+        lp_dict = glob_addr[domain]
+        # Fill glob_addr[magic domain][local_part]
         for row in mail_addr.list_email_addresses_ext(domain):
             lp_dict[row['local_part']] = row
         for row in mail_dom.list_email_domains_with_category(dom_catg):
-            # Alias glob_addr[domain name] to glob_addr[numeric code
-            # value], for later "was local_part@domain overridden"
-            # check.
+            # Alias glob_addr[domain name] to glob_addr[magic domain],
+            # for later "was local_part@domain overridden" check.
             glob_addr[row['domain']] = lp_dict
             # Update dicts 'targ2addr' and 'aid2addr' with the
             # override addresses.
