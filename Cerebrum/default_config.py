@@ -18,13 +18,6 @@
 
 """Default Cerebrum installation settings.  Overrides go in cereconf.py."""
 
-# The name of the DB-API 2.0 driver class.  Supported values is
-# "Oracle" and "PostgreSQL"
-# TBD: Having both 'DATABASE_DRIVER' and 'CLASS_DATABASE' seems to
-#      invite confusion; we should choose one.
-DATABASE_DRIVER = "PostgreSQL"
-
-
 # Files containing the authentication data needed for database access
 # are kept in this directory.
 DB_AUTH_DIR = '/etc/cerebrum'

@@ -865,12 +865,13 @@ class Oracle(Database):
 
 def connect(*args, **kws):
     """Return a new instance of this installation's Database subclass."""
-    mod = sys.modules.get(__name__)
-    db_driver = cereconf.DATABASE_DRIVER
     if kws.has_key('DB_driver'):
+        mod = sys.modules.get(__name__)
         db_driver = kws['DB_driver']
         del kws['DB_driver']
-    cls = getattr(mod, db_driver)
+        cls = getattr(mod, db_driver)
+    else:
+        cls = Utils.Factory.get('DBDriver')
     return cls(*args, **kws)
 
 if __name__ == '__main__':

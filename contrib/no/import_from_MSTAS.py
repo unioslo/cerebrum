@@ -30,8 +30,8 @@ from Utils import XMLHelper
 
 default_personfile = "/cerebrum/dumps/MSTAS/persons.dat"
 
-cereconf.DATABASE_DRIVER='Oracle'
-Cerebrum = Database.connect(user="cerebrum", service="MSTAS.hiof.no")
+Cerebrum = Database.connect(user="cerebrum", service="MSTAS.hiof.no",
+                            DB_driver='Oracle')
 xml = XMLHelper()
 
 LIMIT="rownum < 100"       # Vært snill mot db under testing

@@ -33,8 +33,6 @@ from Cerebrum.Utils import XMLHelper
 default_stedfile = "/cerebrum/dumps/LT/sted.xml"
 default_personfile = "/cerebrum/dumps/LT/person.xml"
 
-cereconf.DATABASE_DRIVER='Oracle'
-
 def get_sted_info():
     f=open(default_stedfile, 'w')
     f.write(xml.xml_hdr + "<data>\n")
@@ -132,7 +130,8 @@ def main():
             pass  # not currently used
         elif opt in ('s', '--sid'):
             sid = val
-    db = Database.connect(user="ureg2000", service=sid)
+    db = Database.connect(user="ureg2000", service=sid,
+                          DB_driver='Oracle')
     LT = LT(db)
     xml = XMLHelper()
 

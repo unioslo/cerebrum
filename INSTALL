@@ -30,6 +30,9 @@ Instructions for creating the PostgreSQL database and user:
   % createuser cerebrum
   % createdb -E unicode cerebrum
 
+Make sure that the database user 'cerebrum' has proper access to the
+new database.
+
 Get the sources
 ---------------
 You can either download a stable version, or use the CVS version.
@@ -50,8 +53,8 @@ Testing the distribution
 
 Set PYTHONPATH to point to the directory where you extracted the
 sources.  Edit cereconf.py and set DB_AUTH_DIR,
-CEREBRUM_DATABASE_CONNECT_DATA['user'], DATABASE_DRIVER and
-CEREBRUM_DATABASE_NAME. 
+CEREBRUM_DATABASE_CONNECT_DATA['user'], CEREBRUM_DATABASE_NAME and
+CLASS_DBDRIVER.
 
 Warning: the target datbases cerebrum tables will be dropped and
 recreated when running this script!
