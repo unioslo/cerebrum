@@ -2,6 +2,8 @@ from Cerebrum.extlib import sets
 
 from Cerebrum.gro.Utils import Cached, Lazy, LazyMethod, Clever
 
+__all__ = ['Node']
+
 class Node(Cached, Clever):
     slots = ['parents', 'children']
     def __init__(self, parents=Lazy, children=Lazy):

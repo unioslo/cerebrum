@@ -5,7 +5,9 @@ from Cerebrum.gro.Utils import Cached, Lazy, LazyMethod, Clever
 
 from Entity import Entity
 
-db = Cerebrum.Utils.Factory.get('Database')()
+from db import db
+
+__all__ = ['Group']
 
 class Group(Entity):
     slots = ['name', 'description', 'expireDate', 'members', 'posixGid']

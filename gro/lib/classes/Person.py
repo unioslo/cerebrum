@@ -6,7 +6,9 @@ from Cerebrum.gro.Utils import Cached, Lazy, LazyMethod, Clever
 from Node import Node
 from Entity import Entity
 
-db = Cerebrum.Utils.Factory.get('Database')()
+from db import db
+
+__all__ = ['Person', 'PersonName']
 
 class PersonName(Node):
     slots = ['person', 'nameType', 'sourceSystem', 'name']

@@ -3,8 +3,11 @@ import Cerebrum.Entity
 from Node import Node
 
 from Cerebrum.gro.Utils import Cached, Lazy, LazyMethod, Clever
-db = Cerebrum.Utils.Factory.get('Database')()
 
+from db import db
+
+__all__ = ['AddressType', 'ContactInfoType', 'GenderType', 'EntityType',
+           'SourceSystem', 'NameType', 'AuthenticationType']
 
 class CodeType(Node):
     slots = ['id', 'name', 'description']

@@ -4,7 +4,9 @@ from Cerebrum.gro.Utils import Cached, Lazy, LazyMethod, Clever
 
 from Entity import Entity
 
-db = Cerebrum.Utils.Factory.get('Database')()
+from db import db
+
+__all__ = ['Disk']
 
 class Disk(Entity):
     slots = ['host', 'path', 'description']
