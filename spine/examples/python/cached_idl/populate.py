@@ -75,3 +75,5 @@ def create_many(n):
 if __name__=="__main__":
     create_many(100)
     t.commit()
+
+# arch-tag: c05b814d-9d58-4b63-b467-25f3bb4b4307
