@@ -271,7 +271,7 @@ WHERE r.emnekode = e.emnekode AND
 				terminnr, terminkode, arstall):
 	"""Finn fødselsnumrene til alle studenter på et gitt 
 	undervisningsenhet. Skal brukes til å generere grupper for
-	adgang til CF."
+	adgang til CF."""
 	qry = """
 SELECT DISTINCT
   fodselsdato, personnr
@@ -283,7 +283,7 @@ WHERE
   terminnr = :terminnr AND
   terminkode = :terminkode AND
   arstall = :arstall"""
-       return (self._get_cols(qry), self.db.query(qry))
+        return (self._get_cols(qry), self.db.query(qry))
 
     def StudprogAlleStud(self, faknr, studprogkode):
 	"""Henter data om alle studenter på et gitt studieprogram og 
