@@ -38,6 +38,7 @@ PERSON_NAME_SS_ORDER = ("system_lt", "system_fs")
 LOG_CONFIG_FILE = "/etc/cerebrum/logconfig.ini"
 
 DEFAULT_GROUP_NAMESPACE = 'group_names'
+DEFAULT_ACCOUNT_NAMESPACE = 'account_names'
 
 # When gecos for a posix user is None, we look for the person name by
 # evaluating source systems in in this order
