@@ -203,11 +203,11 @@ class Group(EntityName, Entity):
     def new(self, creator, visibility, name,
             description=None, create_date=None, expire_date=None):
         """Insert a new group into the database."""
-        Group.populate(self, creator, visibility, name, description,
-                       create_date, expire_date)
-        Group.write_db()
+        self.populate(creator, visibility, name, description,
+                      create_date, expire_date)
+        self.write_db()
         # TBD: What is the following call meant to do?
-        Group.find(self, self.entity_id)
+        self.find(self.entity_id)
 
     def find(self, group_id):
         """Connect object to group with ``group_id`` in database."""

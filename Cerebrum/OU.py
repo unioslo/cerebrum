@@ -123,13 +123,10 @@ class OU(EntityContactInfo, EntityAddress, Entity):
 
     def new(self, name, acronym=None, short_name=None, display_name=None,
             sort_name=None):
-        """Register a new entity of ENTITY_TYPE.  Return new entity_id.
-
-        Note that the object is not automatically associated with the
-        new entity."""
-        OU.populate(self, name, acronym, short_name, display_name, sort_name)
-        OU.write_db()
-        return self.entity_id
+        """Register a new OU."""
+        self.populate(name, acronym, short_name, display_name, sort_name)
+        self.write_db()
+        self.find(self.entity_id)
 
     def find(self, ou_id):
         """Associate the object with the OU whose identifier is OU_ID.

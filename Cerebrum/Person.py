@@ -248,16 +248,10 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
         return is_new
 
     def new(self, birth_date, gender, description=None, deceased='F'):
-        """Register a new person.  Return new entity_id.
-
-        Note that the object is not automatically associated with the
-        new entity.
-
-        """
-        Person.populate(self, birth_date, gender, description, deceased)
-        Person.write_db(self)
-        Person.find(self, self.entity_id)
-        return self.entity_id
+        """Register a new person."""
+        self.populate(birth_date, gender, description, deceased)
+        self.write_db()
+        self.find(self.entity_id)
 
     def find(self, person_id):
         """Associate the object with the person whose identifier is person_id.
