@@ -7,10 +7,15 @@ include /usr/share/cdbs/1/class/python-distutils.mk
 binary-post-install/%::
 	-mv debian/tmp/usr/var debian/tmp/
 	-mv debian/tmp/usr/etc debian/tmp/
-
+	cp debian/tmp/usr/lib/python2.3/site-packages/cerebrum_path.py debian
+	sed -e 's:$(PWD)/debian/tmp::; s:/usr/etc/:/etc/:' \
+		< debian/cerebrum_path.py \
+		> debian/tmp/usr/lib/python2.3/site-packages/cerebrum_path.py
 clean::
 	-find -name '*.py[co]' | xargs rm  
+	-rm rf debian/cerebrum debian/cerebrum-doc debian/cerebrum_path.py #debian/tmp 
 
+	
 common-binary-indep::
 #       No java just now
 #	cd java/jbofh
