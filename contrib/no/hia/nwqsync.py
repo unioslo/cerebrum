@@ -108,7 +108,7 @@ def nwqsync(spreads,g_spread):
         except KeyError:
 	    pass
             #int_log.write("#event_type %d not handled\n" % cll.change_type_id)
-        else:
+	else:
             exec cltype[int(cll.change_type_id)]
             #clh.confirm_event(cll)
         i += 1
@@ -204,11 +204,9 @@ def user_add_del_grp(ch_type,dn_user,dn_dest,ch_id=None):
     group.clear()
     account = Account.Account(db)
     group.entity_id = int(dn_dest)
-    if [spr for spr in spread_grp if group.has_spread(spr)]:
-	grp_list = [group.entity_id,]
-    elif group.list_member_groups(dn_dest, spread_grp):
-	grp_list = group.list_member_groups(dn_dest, spread_grp)
-    else:
+    grp_list = [int(group.entity_id) for s in spread_grp if group.has_spread(s)]
+    grp_list += group.list_member_groups(dn_dest, spread_grp)
+    if not grp_list:
 	return
     # Sjekk om gruppa har riktig spread eller om den er indirecte medlem
     # i andre grupper som har spread 
@@ -377,7 +375,8 @@ def change_group_spread(dn_id,ch_type,spread,gname=None):
 	if not nwutils.touchable(ldap_attrs):
 	    logger.info("ERROR: LDAP object %s not managed by Cerebrum." % ldap_group)
 	    return
-	else: delete_ldap(ldap_group)
+	else:
+	    delete_ldap(ldap_group)
     elif ch_type==int(co.spread_add) and ldap_obj == []:
 	try:
 	    attrs = []
@@ -386,15 +385,16 @@ def change_group_spread(dn_id,ch_type,spread,gname=None):
 							nwutils.now())))
 	    student_grp = False
 	    grp_mem = []
-	    for mem in group.get_members(spread = spread_ids[0],get_entity_name=True):
+	    for mem in group.get_members(spread = spread_ids[0],get_entity_name=False):
 		if  (co.affiliation_student == \
-				nwutils.get_primary_affiliation(mem[0],co.account_namespace)):
+				nwutils.get_primary_affiliation(mem,co.account_namespace)):
 		    student_grp = True
-		grp_mem.append(int(mem[0]))
+		grp_mem.append(int(mem))
 		# If any of this members does not exist on eDirectory server,
 		# it will only give you a LDAP-protocl message "NDS error".
 		# While using  method user_add_del_group, it will do a LDAP-search
-		# to verify that user exist on server.  				
+		# to verify that user exist on server.
+		# Do: get_entity_name=True and mem -> mem[0]
 		#    attrs.append(('member',','.join((('cn='+mem[1]),
 		#				cereconf.NW_LDAP_STUDOU,
 		#				search_dn))))
@@ -408,7 +408,6 @@ def change_group_spread(dn_id,ch_type,spread,gname=None):
 		grp_dn = utf8_dn + ',ou=grp,ou=ans,' + cereconf.NW_LDAP_ROOT
 	    add_ldap(grp_dn, attrs)
 	    user_add_del_grp(const.group_add, grp_mem, dn_id)
-            group_done[dn_id] = ch_type
 	except:
 	    logger.error('Error occured while creating group %s' % dn_id)
     else:
@@ -421,7 +420,8 @@ def change_group_spread(dn_id,ch_type,spread,gname=None):
 
 def change_spread(dn_id,ch_type,ch_params,ch_id):
     spread = int(re.sub('\D','',(string.split(ch_params,'\n')[3])))
-    if spread not in (spread_ids + spread_grp): return
+    if spread not in (spread_ids + spread_grp): 
+	return
     entity = Entity.Entity(db)
     try:
 	entity.find(int(dn_id))
@@ -436,7 +436,7 @@ def change_spread(dn_id,ch_type,ch_params,ch_id):
 	    log_txt = "Could not resolve account/group name for entity-id: "
             logger.error(log_txt + dn_id)
 	    return
-	if ent_name_cache.has_key(dn_id):
+	if ent_name_cache.has_key(dn_id) or get_cl_event(dn_id):
 	    if (ent_name_cache[dn_id]['domain'] == const.group_namespace) \
 						and spread in spread_grp:
 		change_group_spread(dn_id,ch_type, spread,\
@@ -470,21 +470,21 @@ def mod_account(dn_id,i):
         (cerebrm_dn, base_entry) = nwutils.get_account_dict(dn_id, spread_ids[0], None)
         if ldap_obj <> []:
             (dn_str,ldap_attr) = ldap_obj[0]
-        else:
+	else:
             logger.info("WARNING: CL Modify on object not in LDAP")
             return
         if base_entry.has_key('ndsHomeDirectory'):
             newpath = path2edir([('ndsHomeDirectory', base_entry['ndsHomeDirectory'])])
             if newpath != None:
             	base_entry['ndsHomeDirectory'] = newpath[1]
-            else:
+	    else:
 		del base_entry['ndsHomeDirectory']
         for entry in base_entry.keys():
             try:
                 if (ldap_attr[entry] <> base_entry[entry]):
                     if entry in ('userPassword',):
                         pass
-                    else:
+		    else:
                         value = (entry, base_entry[entry]),
                         attr_mod_ldap(dn_str, value)
             except KeyError:
@@ -570,6 +570,23 @@ def group_mod(ch_type,dn_id,dest_id,log_id):
 	user_add_del_grp(ch_type,user_list,grp,ch_id=log_id)		
 
 
+def get_cl_event(subject_id, change_type=[const.entity_name_del,],
+					param=6, dest_id=None):
+    """
+    Used to fetch deleted entity-names if not prefected earlier
+    in same session.
+    """
+    cl_val =  db.get_log_events(subject_entity=subject_id,
+					types=change_type,
+					dest_entity= dest_id)
+    for row in cl_val:
+	param_list = string.split(row['change_params'],'\n')
+	domain = re.sub('\D','',param_list[3])
+	ent_name = param_list[int(param)].split('\'')[1]
+	ent_name_cache[subject_id] = {'name':ent_name,'value_domain':domain}
+	return(True)
+    else:
+	return(False)
 
 def load_cltype_table(cltype):
     for clt,proc in cl_entry.items():
