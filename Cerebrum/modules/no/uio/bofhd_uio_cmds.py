@@ -3879,10 +3879,19 @@ class BofhdExtension(object):
 
     def _user_create_set_account_type(self, account, owner_id, affiliation):
         person = self._get_person('entity_id', owner_id)
+        try:
+            affiliation=self.const.PersonAffiliation(affiliation)
+            # make sure exist
+            int(affiliation)
+        except Errors.NotFoundError:
+            raise CerebrumError, "Invalid affiliation %s" % affiliation
         for aff in person.get_affiliations():
-            if aff['affiliation'] == int(affiliation):
+            if aff['affiliation'] == affiliation:
                 ou = self._get_ou(aff['ou_id'])
                 break
+        else:
+            raise CerebrumError, \
+                "Owner did not have any affiliation %s" % affiliation        
         account.set_account_type(ou.entity_id, affiliation)
         
     # user create
