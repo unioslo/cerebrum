@@ -32,7 +32,7 @@ class OU_createTestCase(unittest.TestCase, object): # 'object' because
                             city=self.ou_dta['city'])
         
     def setUp(self):
-        print "OU_createTestCase.setUp()"
+        # print "OU_createTestCase.setUp()"
         new_ou = OU.OU(self.Cerebrum)
         new_ou.clear()
         self._myPopulateOU(new_ou)
@@ -40,10 +40,16 @@ class OU_createTestCase(unittest.TestCase, object): # 'object' because
         self.ou_id = new_ou.ou_id
 
     def tearDown(self):
-        print "OU_createTestCase.tearDown()"
+        # print "OU_createTestCase.tearDown()"
+        pass
 
 class OUTestCase(OU_createTestCase):
+    def testCreateOU(self):
+        "Test that one can create an OU"
+        self.failIf(getattr(self, "ou_id", None) is None)
+        
     def testCompareOU(self):
+        "Compare created OU from database with set values"
         ou = OU.OU(self.Cerebrum)
         ou.find(self.ou_id)
         new_ou = OU.OU(self.Cerebrum)
@@ -53,9 +59,25 @@ class OUTestCase(OU_createTestCase):
         ou.populate('test')
         self.failIf(new_ou == ou, "Error: should be different")
 
+    def testDeleteOU(self):
+        "Delete the OU"
+        # This is actually a clean-up method, as we don't support deletion of OUs
+        self.Cerebrum.execute(
+            """DELETE FROM [:table schema=cerebrum name=ou_info]
+               WHERE ou_id=:id""", {'id': self.ou_id})
+        ou = OU.OU(self.Cerebrum)
+        try:
+            ou.find(self.ou_id)
+            fail("Error: Should no longer exist")
+        except:
+            # OK
+            pass
+
     def suite():
         suite = unittest.TestSuite()
+        suite.addTest(OUTestCase("testCreateOU"))
         suite.addTest(OUTestCase("testCompareOU"))
+        suite.addTest(OUTestCase("testDeleteOU"))
         return suite
     suite = staticmethod(suite)
 
