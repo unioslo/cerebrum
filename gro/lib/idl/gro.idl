@@ -258,63 +258,40 @@ module Cerebrum_core {
         StringSeq getWriteAttributes();
 
         /**
-        * Lock the node so no other client can put a writelock on it.
-        * \exception Raises an exception if someone already got a writelock.
-        */
-        void lockForReading() 
-            raises( Errors::AlreadyLockedError );
-
-        /**
-        * Obtain access to make changes to this node.
-        * \exception Raises an exception if someone else than you got an
-        * readlock or an writelock on the node.
-        */
-        void lockForWriting()
-            raises( Errors::AlreadyLockedError );
-
-        /**
-        * Remove your locks on this node. Will remove both read and write
-        * locks if you got them.
-        * \exception Raises an exception if the node was not locked.
-        */
-        void unlock()
-            raises( Errors::NotLockedError );
-
-        /**
         * Check if the node is locked for reading by me.
         * \return True if the node is locked for reading by this client.
         */
-        boolean isReadLockedByMe();
+        boolean is_readlocked_by_me();
 
         /**
         * Check if the node is locked for reading by someone else than me.
         * \return True if someone else got a readlock on the node.
         */
-        boolean isReadLockedByOther();
+        boolean is_readlocked_by_other();
 
         /**
         * Check if this client got a writelock on this node.
         * \return True if the node is locked for writing by me.
         */
-        boolean isWriteLockedByMe();
+        boolean is_writelocked_by_me();
 
         /**
         * Check if someone else got a writelock on this node.
         * \return True if the node is locked for writing by someone else.
         */
-        boolean isWriteLockedByOther();
+        boolean is_writelocked_by_other();
 
         /**
         * Get a list over all wich has a readlock on this node.
         * \return A list with usernames.
         */
-        string getReadLockers();
+        string get_readlockers();
 
         /**
         * Get the username of the person holding a writeloc on this node.
         * \return The username if exists, empty string if not.
         */
-        string getWriteLocker();
+        string get_writelocker();
 
         /**
         * Begins a transaction. It will lock the node for reading for you.
