@@ -1072,6 +1072,25 @@
   Due date:
   Priority: 2
 
+** Bygge rom for kursaktivitet under et EVU-kurs
+
+  Description: FS har en tilsvarende ordning som
+               undervisningsaktivitet knyttet til EVU-kurs.  Disse
+               kalles kursaktiviteter.  Det skal opprettes rom i
+               EVU-kursets korridor for hvert av disse
+               kursaktivitetene med romprofil gitt ut i fra formkoden
+               til aktiviteten (jmf tidl. TODO-punkt).
+  Dependencies:
+  Assigned to: igorr
+  Resources: baardj, hmeland
+  Cost:
+  Status: Det opprettes grupper i Cerebrum for disse, men det skjer
+          ikke noe opprettelse av rom eller eksport av disse
+          gruppene til ClassFronter enda.
+  Due date:
+  Priority: 2
+
+
 * Hjemmeområdeadministrering
 
 ** Lagre hvert fysiske hjemmeområde for bruker kun en gang i databasen
