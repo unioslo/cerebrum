@@ -82,7 +82,7 @@ _startTime = time.time()
 #raiseExceptions is used to see if exceptions during handling should be
 #propagated
 #
-raiseExceptions = 0
+raiseExceptions = 1
 
 
 #
@@ -219,6 +219,10 @@ class LogRecord:
         self.created = ct
         self.msecs = (ct - long(ct)) * 1000
         self.relativeCreated = (self.created - _startTime) * 1000
+        if hasattr(os, 'getpid'):
+            self.process = os.getpid()
+        else:
+            self.process = None
         if thread:
             self.thread = thread.get_ident()
         else:
