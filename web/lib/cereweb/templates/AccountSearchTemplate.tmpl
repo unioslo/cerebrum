@@ -1,0 +1,15 @@
+#extends SearchTemplate
+#from Cerebrum.web.utils import url
+
+###attr $action = "/feil/url"
+#attr $fields = [ ("name", "Account name"),
+                  ("create_date", "Created date (YYYY-MM-DD, exact match)"),
+                  ("expire_date", "Expired date (YYYY-MM-DD, exact match)"),
+                  ("ownedby", "Owned by"),
+                  ("createdby", "Created by")
+                ]
+#def getAction
+$url("account/search")#slurp
+#end def                             
+
+
