@@ -192,9 +192,9 @@ class EmailLDAP(DatabaseAccessor):
                                             enable)
 
 
-    def read_accounts(self):
+    def read_accounts(self, spread):
         acc = Factory.get('Account')(self._db)
-        for row in acc.list_account_name_home():
+        for row in acc.list_account_name_home(spread):
             self.acc2name[int(row['account_id'])] = [row['entity_name'],
                                                      row['home'],
                                                      row['path']]
