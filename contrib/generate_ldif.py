@@ -512,10 +512,7 @@ def generate_person(filename=None):
 					row['post_city'],
 					row['post_country'])
 		if post_string:
-		    pers_string += "street: %s\n" % post_string
-		else:
-		    if ou_struct[int(ou_id)][1]:
-			pers_string += "postalAddress: %s\n" % some2utf(ou_struct[int(ou_id)][1])
+		    pers_string += "postalAddress: %s\n" % post_string
 		if ((row['address_text']) or (row['postal_number'])):
 		    street_string = make_address(", ",
 					None,
@@ -525,9 +522,6 @@ def generate_person(filename=None):
 					row['country'])
 		if street_string:
 		    pers_string += "street: %s\n" % street_string
-		else:
-		    if ou_struct[int(ou_id)][2]:
-			pers_string += "street: %s\n" % some2utf(ou_struct[int(ou_id)][2])
 		if row['personal_title']:
 		    pers_string += "title: %s\n" % some2utf(row['personal_title'])
 		else:
