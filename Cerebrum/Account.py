@@ -733,8 +733,11 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine, Entity):
     def validate_new_uname(self, domain, uname):
         """Check that the requested username is legal and free"""
         try:
-            acc = self.__class__(self._db)
-            acc.find_by_name(uname, domain=domain)
+            # We instanciate EntityName directly because find_by_name
+            # calls self.find() whose result may depend on the class
+            # of self
+            en = EntityName(self._db)
+            en.find_by_name(uname, domain)
             return 0
         except Errors.NotFoundError:
             return 1
