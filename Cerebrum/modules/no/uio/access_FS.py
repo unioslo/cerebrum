@@ -83,7 +83,7 @@ class FS(object):
                     tmp = cols
 
         return ret
-        
+
         # return [ self._clean_col_name(cols) for cols in m.group(2).split(",")]
 
     def _clean_col_name(self, col):
@@ -96,7 +96,7 @@ class FS(object):
             return mobj.group(1)
         print "2: %s" % col.strip()
         return col.strip()
-    
+
 
 ##################################################################
 # Metoder for personer:
@@ -163,7 +163,8 @@ SELECT DISTINCT
       p.fodselsdato, p.personnr, p.etternavn, p.fornavn, 
       p.adrlin1_hjemsted, p.adrlin2_hjemsted,
       p.postnr_hjemsted, p.adrlin3_hjemsted, p.adresseland_hjemsted,
-      p.sprakkode_malform, osp.studieprogramkode, p.kjonn
+      p.sprakkode_malform, osp.studieprogramkode, p.kjonn,
+      p.status_reserv_nettpubl
 FROM fs.soknadsalternativ sa, fs.person p, fs.opptakstudieprogram osp,
      fs.studieprogram sp
 WHERE p.fodselsdato=sa.fodselsdato AND
@@ -195,7 +196,7 @@ SELECT DISTINCT s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
        p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
        p.adresseland_hjemsted, p.status_reserv_nettpubl, 
        p.sprakkode_malform,st.studieprogramkode, st.studierettstatkode,
-       p.kjonn
+       p.kjonn, p.status_reserv_nettpubl
 FROM fs.student s, fs.person p, fs.studierett st, fs.eksmeldinglogg el,
      fs.studieprogram sp
 WHERE  p.fodselsdato=s.fodselsdato AND
@@ -233,7 +234,7 @@ SELECT DISTINCT s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
        p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
        p.adresseland_hjemsted, p.status_reserv_nettpubl, 
        p.sprakkode_malform,st.studieprogramkode, st.studierettstatkode,
-       p.kjonn
+       p.kjonn, p.status_reserv_nettpubl
 FROM fs.student s, fs.person p, fs.studierett st, fs.eksmeldinglogg el,
      fs.studieprogram sp
 WHERE  p.fodselsdato=s.fodselsdato AND
@@ -342,7 +343,8 @@ SELECT s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
        s.adrlin3_semadr, s.adresseland_semadr, p.adrlin1_hjemsted,
        p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
        p.adresseland_hjemsted, p.status_reserv_nettpubl, 
-       p.sprakkode_malform, p.kjonn, em.emnekode
+       p.sprakkode_malform, p.kjonn, em.emnekode,
+       p.status_reserv_nettpubl
 FROM fs.student s, fs. person p, fs.registerkort r,
      fs.eksamensmelding em
 WHERE s.fodselsdato=p.fodselsdato AND
@@ -380,7 +382,7 @@ SELECT DISTINCT
        p.adresseland_hjemsted, d.deltakernr, d.emailadresse,
        k.etterutdkurskode, e.studieprogramkode, 
        e.faknr_adm_ansvar, e.instituttnr_adm_ansvar, 
-       e.gruppenr_adm_ansvar
+       e.gruppenr_adm_ansvar, p.status_reserv_nettpubl
 FROM fs.deltaker d, fs.person p, fs.kursdeltakelse k,
      fs.etterutdkurs e
 WHERE p.fodselsdato=d.fodselsdato AND
@@ -498,7 +500,7 @@ SELECT fodselsdato, personnr, emailadresse
 FROM fs.person"""
         return (self._get_cols(qry), self.db.query(qry))
 
-
+ 
     def WriteMailAddr(self, fodselsdato, personnr, email):
         self.execute("""
 UPDATE fs.person
