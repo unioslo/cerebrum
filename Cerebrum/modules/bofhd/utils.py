@@ -76,36 +76,37 @@ class BofhdRequests(object):
 
     def add_request(self, operator, when, op_code, entity_id,
                     destination_id, state_data=None):
-        # bofh_move_give is the only place where multiple entries are legal
+        # "None" means _no_ conflicts, there can even be several of
+        # that op pending.  All other ops implicitly conflict with
+        # themselves, so there can only be one of each op.
         c = self.const
-        conflicts = { c.bofh_move_user: [ c.bofh_move_student ],
-                      c.bofh_move_student: [ c.bofh_move_user ],
-                      c.bofh_move_request: None,	# what is this?
-                      c.bofh_move_give: None,
-                      c.bofh_delete_user: [ c.bofh_move_user,
-                                            c.bofh_move_student ],
-                      c.bofh_email_will_move: [ c.bofh_email_move,
-                                                c.bofh_delete_user ],
-                      c.bofh_email_move: [ c.bofh_email_will_move,
-                                           c.bofh_delete_user ],
-                      c.bofh_email_create: [ c.bofh_email_delete,
-                                             c.bofh_delete_user ],
-                      c.bofh_email_delete: [ c.bofh_email_create ],
-                      c.bofh_email_hquota: [ c.bofh_email_delete ],
-                      c.bofh_email_convert: [ c.bofh_email_delete ],
+        conflicts = { int(c.bofh_move_user):       [ c.bofh_move_student ],
+                      int(c.bofh_move_student):    [ c.bofh_move_user ],
+                      int(c.bofh_move_request):    None,	# what is this?
+                      int(c.bofh_move_give):       None,
+                      int(c.bofh_delete_user):     [ c.bofh_move_user,
+                                                     c.bofh_move_student ],
+                      int(c.bofh_email_will_move): [ c.bofh_email_move,
+                                                     c.bofh_delete_user ],
+                      int(c.bofh_email_move):      [ c.bofh_email_will_move,
+                                                     c.bofh_delete_user ],
+                      int(c.bofh_email_create):    [ c.bofh_email_delete,
+                                                     c.bofh_delete_user ],
+                      int(c.bofh_email_delete):    [ c.bofh_email_create ],
+                      int(c.bofh_email_hquota):    [ c.bofh_email_delete ],
+                      int(c.bofh_email_convert):   [ c.bofh_email_delete ],
                       }
 
-        conf = conflicts[op_code]
+        conf = conflicts[int(op_code)]
         if conf is None:
             conf = []
         else:
-            # every op with conflicts implicitly conflicts with itself
-            conf += [ op_code ]
+            conf.append(op_code)
 
         for op in conf:
             for r in self.get_requests(entity_id=entity_id,
                                        operation=op):
-                raise CerebrumError, "Conflicting request exists (%d)" % op
+                raise CerebrumError, "Conflicting request exists (%s)" % op
         reqid = int(self._db.nextval('request_id_seq'))
         cols = {
             'requestee_id': operator,
@@ -127,8 +128,11 @@ class BofhdRequests(object):
 
     def delay_request(self, request_id, minutes=10):
         for r in self.get_requests(request_id):
-            t = r['run_at']
-            # don't use self.time, it's a DateTime object
+            # Note: the semantics of time objects is DB driver
+            # dependent, and not standardised in PEP 249.
+            # PgSQL will convert to ticks when forced into int().
+            t = int(r['run_at'])
+            # don't use self.now, it's a DateTime object.
             now = time.time()
             if t < now:
                 t = now
