@@ -556,10 +556,8 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
             # TBD: What should be returned if `args' contains tuple,
             # indicating that `func` should be called multiple times?
             return self.server.db.pythonify_data(ret)
-        except self.server.db.IntegrityError, m:
-            # TODO: Sometimes we also get an OperationalError, we
-            # should trap this as well, probably with a more
-            # user-friendly message
+        except (self.server.db.IntegrityError,
+                self.server.db.OperationalError), m:
             self.server.db.rollback()
             raise CerebrumError, "DatabaseError: %s" % m
         except Exception:
