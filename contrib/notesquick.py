@@ -146,19 +146,22 @@ def get_names(account_id):
         person.clear()
         person.find(person_id)
     except Errors.NotFoundError:
-        print "WARNING: find on person or account failed:", account_id        
+        print "WARNING: find on person or account failed:", account_id
+        return False
 
-    try:	
-    	for ss in cereconf.NOTES_SOURCE_SEARCH_ORDER:
-            frstname = person.get_name(int(getattr(co, ss)), int(co.name_first))
-            lstname = person.get_name(int(getattr(co, ss)), int(co.name_last))
-    	if frstname == '' or lstname == '':
-    	    print "WARNING: getting persons name failed, account.owner_id:",person_id
-            return False
-    except Errors.NotFoundError:
-	pass	
-	
-    return (frstname,lstname)		
+    firstname = lastname = None
+    for ss in cereconf.NOTES_SOURCE_SEARCH_ORDER:
+        try:
+            firstname = person.get_name(int(getattr(co, ss)), int(co.name_first))
+            lastname = person.get_name(int(getattr(co, ss)), int(co.name_last))
+        except Errors.NotFoundError:
+            pass
+        if firstname and lastname:
+            return (firstname, lastname)
+
+    print "WARNING: getting persons name failed, account.owner_id:", person_id
+    return False
+
 
 
 
