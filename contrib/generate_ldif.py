@@ -430,7 +430,9 @@ def generate_person(filename=None):
     except: pass
     affili_stu = "student"
     affili_em = "employee"
-    for row in person.list_extended_person(person_spread, include_quarantines=1,incl_mail=False):
+    for row in person.list_extended_person(person_spread,
+                                           include_quarantines = True,
+                                           include_mail = False):
 	name,entity_name,ou_id,affili,status = row['name'],row['entity_name'],row['ou_id'],row['affiliation'],int(row['status'])
 	person.clear()
         person.entity_id = row['person_id']
@@ -504,8 +506,8 @@ def generate_person(filename=None):
 		    if ou_struct[int(ou_id)][2]:
 			pers_string += "street: %s\n" % some2utf(ou_struct[int(ou_id)][2])
 		except: pass
-		if row['per_title']:
-		    pers_string += "title: %s\n" % row['per_title']
+		if row['personal_title']:
+		    pers_string += "title: %s\n" % row['personal_title']
 		else:
      		    if row['title']:
 			pers_string += "title: %s\n" % row['title']
@@ -623,8 +625,8 @@ def generate_users(spread=None,filename=None):
     else: 
 	f = SimilarSizeWriter(string.join((cereconf.LDAP_DUMP_DIR,cereconf.LDAP_USER_FILE),'/'), 'w')
 	f.set_size_change_limit(10)
-    pos_user = posix_user.list_extended_posix_users_test(getattr(co,'auth_type_md5_crypt'),
-								spreads,include_quarantines=1)
+    pos_user = posix_user.list_extended_posix_users_test(
+        co.auth_type_md5_crypt, spreads, include_quarantines = True)
     for row in pos_user:
 	acc_id,shell,gecos,uname = row['account_id'],row['shell'],row['gecos'],row['entity_name']
 	entity2uname[int(acc_id)] = uname
