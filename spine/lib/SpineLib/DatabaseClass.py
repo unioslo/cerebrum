@@ -26,35 +26,10 @@ from Searchable import Searchable
 from Dumpable import Dumpable
 from SpineClass import SpineClass
 
-__all__ = ['DatabaseAttr', 'DatabaseClass']
+__all__ = ['DatabaseAttr', 'DatabaseClass', 'ConvertableAttribute']
 
-class DatabaseAttr(Attribute):
-    """Ojbect attribute from the database.
-
-    Used to represent an attribute which can be found in the database.
-    The value of this attribute will be loaded and saved from/to the
-    database.
-
-    You can include your own methods for converting to and from the
-    database with the attr 'to_db' and 'from_db'.
-
-    Since this attribute has knowledge of the database, you can use it
-    with the generic search/create/delete-methods found in DatabaseClass
-    and CerebrumDbClass.
-    """
-    
-    def __init__(self, name, table, data_type,
-                 write=False, from_db=None, to_db=None, optional=False):
-        Attribute.__init__(self, name, data_type, write=write, optional=optional)
-
-        self.table = table
-
-        if to_db is not None:
-            self.to_db = to_db
-        if from_db is not None:
-            self.from_db = from_db
-
-    def to_db(self, value):
+class ConvertableAttribute(object):
+    def convert_to(self, value):
         if isinstance(value, SpineClass):
             key = value.get_primary_key()
             assert len(key) == 1
@@ -62,13 +37,40 @@ class DatabaseAttr(Attribute):
         else:
             return value
 
-    def from_db(self, value):
+    def convert_from(self, value):
         if value is None:
             return None
         # Depends on the db-driver, should be done in a cleaner way.
         if isinstance(value, pyPgSQL.PgSQL.PgNumeric):
             value = int(value)
         return self.data_type(value)
+
+
+class DatabaseAttr(Attribute, ConvertableAttribute):
+    """Ojbect attribute from the database.
+
+    Used to represent an attribute which can be found in the database.
+    The value of this attribute will be loaded and saved from/to the
+    database.
+
+    You can include your own methods for converting to and from the
+    database with the attr 'convert_to' and 'convert_from'.
+
+    Since this attribute has knowledge of the database, you can use it
+    with the generic search/create/delete-methods found in DatabaseClass
+    and CerebrumDbClass.
+    """
+    
+    def __init__(self, name, table, data_type,
+                 write=False, convert_to=None, convert_from=None, optional=False):
+        Attribute.__init__(self, name, data_type, write=write, optional=optional)
+
+        self.table = table
+
+        if convert_to is not None:
+            self.convert_to = convert_to
+        if convert_from is not None:
+            self.convert_from = convert_from
 
 def get_real_name(map, attr, table=None):
     """Finds the real name from map.
@@ -111,7 +113,7 @@ class DatabaseClass(SpineClass, Searchable, Dumpable):
 
         keys = {}
         for i in self.primary:
-            keys[i.name] = i.to_db(getattr(self, i.get_name_private()))
+            keys[i.name] = i.convert_to(getattr(self, i.get_name_private()))
 
         row = db.query_1(sql, keys)
         if len(attributes) == 1:
@@ -119,7 +121,7 @@ class DatabaseClass(SpineClass, Searchable, Dumpable):
 
         for i in attributes:
             value = row[i.name]
-            value = i.from_db(value)
+            value = i.convert_from(value)
             setattr(self, i.get_name_private(), value)
 
     def _save_all_db(self):
@@ -149,7 +151,7 @@ class DatabaseClass(SpineClass, Searchable, Dumpable):
 
             keys = {}
             for i in self.primary + attributes:
-                keys[i.name] = attr.to_db(getattr(self, i.get_name_private()))
+                keys[i.name] = attr.convert_to(getattr(self, i.get_name_private()))
 
             db.execute(sql, keys)
 
@@ -170,7 +172,7 @@ class DatabaseClass(SpineClass, Searchable, Dumpable):
                 continue
             if attr.table not in tables:
                 tables[attr.table] = {}
-            value = attr.to_db(getattr(self, attr.get_name_get())())
+            value = attr.convert_to(getattr(self, attr.get_name_get())())
             tables[attr.table][self._get_real_name(attr)] = value
         
         # If db_table_order is set, we delete in the opposite order.
@@ -203,7 +205,7 @@ class DatabaseClass(SpineClass, Searchable, Dumpable):
         for table in (cls.db_table_order or tables.keys()):
             tmp = {}
             for attr in [attr for attr in tables[table] if attr in map.keys()]:
-                tmp[cls._get_real_name(attr, table)] = attr.to_db(map[attr])
+                tmp[cls._get_real_name(attr, table)] = attr.convert_to(map[attr])
             sql = "INSERT INTO %s (%s) VALUES (:%s)" % (
                     table, ", ".join(tmp.keys()), ", :".join(tmp.keys()))
             db.execute(sql, tmp)
@@ -266,7 +268,7 @@ class DatabaseClass(SpineClass, Searchable, Dumpable):
                 and returns the where clause for the query.
                 """
                 args = (attr.table, _get_real_name(attr), attr.name)
-                value = attr.to_db(value)
+                value = attr.convert_to(value)
                 if getattr(attr, 'like', False):
                     whr = 'LOWER(%s.%s) LIKE :%s' % args
                     value = value.replace("*","%").replace("?", "_")
@@ -321,7 +323,7 @@ class DatabaseClass(SpineClass, Searchable, Dumpable):
                 tmp = {}
                 for attr in originals:
                     value = row[attr.name]
-                    tmp[attr.name] = attr.from_db(value)
+                    tmp[attr.name] = attr.convert_from(value)
                 objects.append(cls(**tmp))
             
             return objects

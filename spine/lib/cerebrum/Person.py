@@ -34,14 +34,14 @@ registry = Registry.get_registry()
 __all__ = ['Person']
 
 # Convert deceased to be inserted into db.
-def to_db(value):
+def convert_to(value):
     if value:
         return 'T'
     else:
         return 'F'
 
 # Convert deceased into boolean from a string.
-def from_db(value):
+def convert_from(value):
     if value == 'T':
         return True
     else:
@@ -53,7 +53,7 @@ class Person(Entity):
         DatabaseAttr('export_id', table, str, write=True),
         DatabaseAttr('birth_date', table, Date, write=True),
         DatabaseAttr('gender', table, GenderType, write=True),
-        DatabaseAttr('deceased', table, bool, to_db=to_db, from_db=from_db, write=True),
+        DatabaseAttr('deceased', table, bool, convert_from=convert_from, convert_to=convert_to, write=True),
         DatabaseAttr('description', table, str, write=True)
     ]
 
