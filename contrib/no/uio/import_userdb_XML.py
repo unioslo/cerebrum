@@ -265,22 +265,19 @@ class MailDataParser(xml.sax.ContentHandler):
     def endElement(self, name):
         self.elementstack.pop()
 
-
-def import_email(filename):
+def import_email(filename, callback):
     try:
-        xml.sax.parse(filename, MailDataParser(create_email))
+        xml.sax.parse(filename, MailDataParser(callback))
     except StopIteration:
         pass
+    db.commit()
 
 
-maildomain2eid = {}
-
-def create_email(otype, data):
+def create_email_base(otype, data):
     if otype == 'emaildomain':
         maildom.clear()
         maildom.populate(data['domain'], data['description'])
         maildom.write_db()
-        maildomain2eid[data['domain']] = maildom.email_domain_id
         progress.write('E')
         domtyp = data.get('addr_format', None)
         if ureg_domtyp2catgs.has_key(domtyp):
@@ -314,78 +311,134 @@ def create_email(otype, data):
         # TODO: How should we process these?
         pass
     elif otype == 'emailalias':
-        # Find or create target of correct type
-        mailtarg.clear()
-        dt = data['desttype']
-        dest = data['dest']
-        typ = None
-        e_id = None
-        e_typ = None
-        alias = None
-        if dt == 'u':
-            raise ValueError, \
-                  "Destination of type 'u' found in non-personal email dump."
-        elif dt == 'a':
-            if dest.startswith('/') or dest.startswith('|'):
-                if data.has_key('run_as'):
-                    account.clear()
-                    try:
-                        account.find_by_name(data['run_as'])
-                        e_id, e_typ = account.entity_id, account.entity_type
-                    except Errors.NotFoundError:
-                        # TODO: Rekkefølge-problem, run_as virker ikke
-                        # med mindre man har importert brukere, mens
-                        # bruker-import ikke virker med mindre
-                        # maildomener etc. er ferdig opprettet.
-                        pass
-                typ = {'/': co.email_target_file,
-                       '|': co.email_target_pipe}[dest[0]]
-                alias = dest
-            elif dest.startswith(":fail:"):
-                typ = co.email_target_deleted
-                alias = dest[6:].strip() or None
-            elif dest.startswith(':include:'):
-                # TODO: Usikker på hvordan dette bør gjøres; kanskje
-                # med et 'multi' target.  Er også usikker på om
-                # 'multi'-targets implementeres som grupper eller som
-                # forward-adresser.
-                print "WARNING: Not implemented: import of :include: targets"
-                return
-            elif '@' in dest and " " not in dest:
-                typ = co.email_target_forward
-                # TBD: Skal forward lagres i alias_value, eller skal
-                # EmailTarget utvides til å også være EmailForward?
-                alias = dest
-            else:
-                raise ValueError, \
-                      "Don't know how to convert emailalias:" + repr(data)
-            try:
-                mailtarg.find_by_entity_and_alias(e_id, alias)
-            except Errors.NotFoundError:
-                mailtarg.populate(typ, e_id, e_typ, alias)
-                mailtarg.write_db()
-            progress.write('T')
-        elif dt == 'l':
-            return
-        else:
-            raise ValueError, "Unknown desttype: " + dt
-        # Create address connected to target
-        mailaddr.clear()
-        lp, dom = data['addr'].split('@', 1)
-        expire = None
-        if data.has_key('exp_date'):
-            expire = db.Date(*([int(x) for x in data['exp_date'].split('-')]))
-        if not hasattr(mailtarg, 'email_target_id'):
-            print repr(data)
-        mailaddr.populate(lp, maildomain2eid[dom], mailtarg.email_target_id,
-                          expire)
-        mailaddr.write_db()
-        progress.write('A')
-                                  
-        # Possibly state that address is primary for this target
-        
+        # These are handled in pass 2, by create_email_aliases().
+        pass
     else:
-        print "Warning: Unimplemented tag <%s> found." % otype
+        print "WARNING: Unimplemented tag <%s> found." % otype
+
+maildomain2eid = {}
+def get_domain_id(domain):
+    if not maildomain2eid.has_key(domain):
+        mdom = Email.EmailDomain(db)
+        mdom.find_by_domain(domain)     # May throw NotFoundError
+        maildomain2eid[domain] = int(mdom.email_domain_id)
+    return maildomain2eid[domain]
+
+def create_email_alias(otype, data):
+    if otype in ('emaildomain', 'emailhost', 'emailaddresstype'):
+        return
+    elif otype <> 'emailalias':
+        print "WARNING: Unimplemented tag <%s> found." % otype
+        return
+    # Find or create target of correct type
+    mailtarg.clear()
+    dt = data['desttype']
+    dest = data['dest']
+    typ = None
+    e_id = None
+    e_typ = None
+    alias = None
+    if dt == 'u':
+        raise ValueError, \
+              "Destination of type 'u' found in non-personal email dump."
+    elif dt == 'a':
+        if dest.startswith('/') or dest.startswith('|'):
+            if data.has_key('run_as'):
+                account.clear()
+                try:
+                    account.find_by_name(data['run_as'])
+                    e_id, e_typ = account.entity_id, account.entity_type
+                except Errors.NotFoundError:
+                    # Alias is set to run as user, but user can't be
+                    # found.  This probably means we're just
+                    # test-importing; issue a warning about it, and
+                    # move on.
+                    print"WARNING: Alias %s running as unknown user: %s" % (
+                        dest, data['run_as'])
+            typ = {'/': co.email_target_file,
+                   '|': co.email_target_pipe}[dest[0]]
+            alias = dest
+        elif dest.startswith(":fail:"):
+            typ = co.email_target_deleted
+            alias = dest[6:].strip() or None
+        elif dest.startswith(':include:'):
+            # TODO: Usikker på hvordan dette bør gjøres; kanskje
+            # med et 'multi' target.  Er også usikker på om
+            # 'multi'-targets implementeres som grupper eller som
+            # forward-adresser.
+            print "WARNING: Not implemented: import of :include: targets"
+            return
+        elif '@' in dest and " " not in dest:
+            typ = co.email_target_forward
+            # TBD: Skal forward lagres i alias_value, eller skal
+            # EmailTarget utvides til å også være EmailForward?
+            alias = dest
+        else:
+            raise ValueError, \
+                  "Don't know how to convert emailalias:" + repr(data)
+        try:
+            mailtarg.find_by_entity_and_alias(e_id, alias)
+        except Errors.NotFoundError:
+            mailtarg.populate(typ, e_id, e_typ, alias)
+            mailtarg.write_db()
+            progress.write('T')
+    elif dt == 'l':
+        typ = co.email_target_Mailman
+        # Mailman list; all these aliases should run as user
+        # 'mailman'.
+        account.clear()
+        try:
+            account.find_by_name("mailman")
+            e_id, e_typ = account.entity_id, account.entity_type
+        except Errors.NotFoundError:
+            # User 'mailman' has apparently not been imported.  This
+            # probably means we're just test-importing, so a warning
+            # should do.
+            print "WARNING: Could not find user 'mailman'."
+        # Translate Ureg2000-style prefix ":mailman:" to actual pipe
+        # command.
+        prefix = ":mailman:"
+        if dest.startswith(prefix):
+            alias = "|/local/Mailman/bin/wrapper " + \
+                    dest[len(prefix):].lstrip()
+        elif dest.startswith("|"):
+            alias = dest
+        else:
+            raise ValueError, "Mailman alias not pipe: %s" % dest
+        try:
+            mailtarg.find_by_entity_and_alias(e_id, alias)
+            progress.write('t')
+        except Errors.NotFoundError:
+            mailtarg.populate(typ, e_id, e_typ, alias)
+            mailtarg.write_db()
+            progress.write('T')
+    else:
+        raise ValueError, "Unknown desttype: " + dt
+    # Create address connected to target
+    mailaddr.clear()
+    try:
+        mailaddr.find_by_address(data['addr'])
+        print "WARNING: Duplicate target for address %s" % data['addr']
+        return
+    except Errors.NotFoundError:
+        pass
+    lp, dom = data['addr'].split('@', 1)
+    expire = None
+    if data.has_key('exp_date'):
+        expire = parse_date(data['exp_date'])
+    if not hasattr(mailtarg, 'email_target_id'):
+        raise ValueError, "No target for address %s" % data['addr']
+    mailaddr.populate(lp, get_domain_id(dom), mailtarg.email_target_id,
+                      expire)
+    mailaddr.write_db()
+    progress.write('A')
+
+    # Is this the primary address for this target?
+    if data.get('primary', 'no') == 'yes':
+        mailprimaddr.clear()
+        mailprimaddr.populate(mailaddr.email_addr_id, parent=mailtarg)
+        mailprimaddr.write_db()
+
 
 class ITPermData(xml.sax.ContentHandler):
     def __init__(self, filename):
@@ -537,7 +590,7 @@ def _get_account(name):
         account2entity_id[name] = int(tmpa.entity_id)
     return account2entity_id[name]
 
-def import_groups(groupfile, fill=0):
+def import_groups(groupfile, fill=False):
     account = Account.Account(db)
     account.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
 
@@ -558,13 +611,12 @@ def import_groups(groupfile, fill=0):
         group_has_member[int(g['group_id'])] = {}
         for t, rows in ('union', u), ('inters.', i), ('diff', d):
             for r in rows:
-                group_has_member[int(g['group_id'])][int(r[1])] = 1
+                group_has_member[int(g['group_id'])][int(r[1])] = True
 
     # Note: File and netgroups are merged
     for group in GroupData(groupfile):
         # pp.pprint(group)
-        print ".",
-        sys.stdout.flush()
+        progress.write(".")
         if group['type'] == 'fg' and int(group['gid']) < 1:
             continue   # TODO: failes database constraint
         groupObj = Group.Group(db)
@@ -603,7 +655,7 @@ def import_groups(groupfile, fill=0):
                     groupObj.find_by_name(group['name'])
                     destination = groupObj
             except Errors.NotFoundError:
-                print "G",
+                progress.write("G")
                 continue
             for m in group.get('member', []):
                 try:
@@ -617,11 +669,11 @@ def import_groups(groupfile, fill=0):
                                                 ).has_key(account_id):
                         destination.add_member(account_id, co.entity_account,
                                                co.group_memberop_union);
-                        group_has_member.setdefault(int(destination.entity_id), {}
-                                                    )[account_id] = 1
-                    print "A",
+                        group_has_member.setdefault(
+                            int(destination.entity_id), {})[account_id] = True
+                    progress.write("A")
                 except Errors.NotFoundError:
-                    print "n",
+                    progress.write("n")
                     continue
 
     groupObj = Group.Group(db)
@@ -635,7 +687,7 @@ def import_groups(groupfile, fill=0):
                 print "E:%i/%s" % (group, m)
                 continue
             if int(group) == tmp:
-                print "Warning group memember of itself, skipping %s" % m
+                print "WARNING: Group memember of itself, skipping %s" % m
                 continue
             groupObj.add_member(tmp, co.entity_group, co.group_memberop_union)
     db.commit()
@@ -691,14 +743,17 @@ def import_person_users(personfile):
     # Populate person affiliations
     showtime("Populate person affiliations")
     for p_id in person_id2affs.keys():
-        print "a",
+        progress.write("a")
         personObj.clear()
         personObj.find(p_id)
         for ou_id, aff, affstat in person_id2affs[p_id]:
             if verbose:
                 print "  person.pop_aff (%s): %s, %s, %s" % (
                     p_id, ou_id, aff, affstat)
-            personObj.__updated = True
+            # TODO: Clean up this nasty hack, e.g. by ading a method
+            # in class Person.
+            personObj._Person__updated.append((source_system, ou_id,
+                                               aff, affstat))
             personObj.populate_affiliation(source_system, ou_id, aff, affstat)
         tmp = personObj.write_db()
         if verbose:
@@ -707,7 +762,7 @@ def import_person_users(personfile):
     # user_creators and account_id2aff have atleast all keys in account_id2aff
     showtime("Setting user_creators")
     for uc in user_creators.keys():
-        print "c",
+        progress.write("c")
         creator_id = uname2entity_id.get(user_creators[uc], None)
         account.clear()
         account.find(uc)
@@ -716,8 +771,8 @@ def import_person_users(personfile):
             account.write_db()
         else:
             if not warned_uc.has_key(user_creators[uc]):
-                print "Warning: Unknown creator: %s" % user_creators[uc]
-                warned_uc[user_creators[uc]] = 1
+                print "WARNING: Unknown creator: %s" % user_creators[uc]
+                warned_uc[user_creators[uc]] = True
         if account_id2aff.has_key(uc):
             ou_id, aff, affstat = account_id2aff[uc]
             priority = primary_users.get(int(account.entity_id), None)
@@ -762,7 +817,7 @@ def person_callback(person):
             if e['val'] <> '00000000000':
                 fnr = e['val']
     person_id = None
-    if 1:    # This script is only intended to be ran on an empty database
+    if True: # This script is only intended to be ran on an empty database
         if fnr is not None:
             try:
                 print "Fnr: %s" % fnr,
@@ -785,7 +840,7 @@ def person_callback(person):
                 bdate = [int(x) for x in person['bdate'].split('-')]
                 bdate = db.Date(*bdate)
             except:
-                print "Warning, %s is an illegal date" % person['bdate']
+                print "WARNING: Illegal birthdate: %s" % person['bdate']
                 bdate = None
         try:
             fodselsnr.personnr_ok(fnr)
@@ -807,7 +862,7 @@ def person_callback(person):
             personObj.populate_external_id(source_system,
                                            co.externalid_fodselsnr, fnr)
         for c in person.get('contact', []):
-            if(len(c['val']) == 0):
+            if not c['val']:
                 continue
             if c['type'] == 'workphone':
                 personObj.populate_contact_info(source_system,
@@ -855,23 +910,23 @@ def create_account(u, owner_id, owner_type, np_type=None):
     if uname_exists.has_key(u['uname']):
         print "User %s already exists, skipping" % u['uname']
         return None
-    is_posix = 0
+    is_posix = False
     if u.has_key('deleted_date'):
         expire_date = [int(x) for x in u['deleted_date'].split('-')]
         expire_date = db.Date(*expire_date)
         if int(u['dfg']) > 0 and not uid_taken.has_key(int(u['uid'])):
-            is_posix = 1
+            is_posix = True
     else:
         expire_date = None  # TBD: what is the correct value for existing users?
 
         for tmp in u.get('spread', []):
             if tmp['domain'] in ('u', 'i'):
-                is_posix = 1
+                is_posix = True
 
     home = disk_id = None
     if is_posix:
         if not gid2entity_id.has_key(int(u['dfg'])):
-            is_posix = 0
+            is_posix = False
         else:
             gecos = None        # TODO
             shell = shell2shellconst[u['shell']]
@@ -897,12 +952,12 @@ def create_account(u, owner_id, owner_type, np_type=None):
         print "%s: home=%s, disk_id=%s" % (u['uname'], home, disk_id)
     accountObj.affect_auth_types(co.auth_type_md5_crypt,
                                  co.auth_type_crypt3_des)
-    had_splat = 0
+    had_splat = False
     for au in u.get('auth', []):
-        if len(au['val']) == 0:
+        if not au['val']:
             continue
         if au['type'] in ('md5', 'crypt') and au['val'][0] == '*':
-            had_splat = 1
+            had_splat = True
             if au['val'] == '*invalid':
                 continue
             au['val'] = au['val'][1:]
@@ -915,7 +970,7 @@ def create_account(u, owner_id, owner_type, np_type=None):
             accountObj.populate_authentication_type(
                 co.auth_type_crypt3_des, au['val'])
     if is_posix:
-        uid_taken[int(u['uid'])] = 1
+        uid_taken[int(u['uid'])] = True
         accountObj.populate(u['uid'],
                             gid2entity_id[int(u['dfg'])],
                             gecos,
@@ -942,20 +997,22 @@ def create_account(u, owner_id, owner_type, np_type=None):
     if u.has_key("useremail"):
         # Create EmailTarget
         mailtarg.clear()
-        mailtarg.populate(co.email_target_account, accountObj.entity_id,
+        mailtarg.populate(co.email_target_account,
+                          accountObj.entity_id, co.entity_account,
                           alias=u['useremail'].get('alias', None))
-        mt_id = mailtarg.write_db()
+        mailtarg.write_db()
+        mt_id = mailtarg.email_target_id
 
         for tmp in u.get("emailaddress", []):
             lp, dom = tmp['addr'].split("@")
-            dom_id = maildomain2id[dom]
+            dom_id = get_domain_id(dom)
             mailaddr.clear()
             expire_date = None
             if tmp.has_key("expire_date"):
-                expire_date = [int(x) for x in tmp['expire_date'].split('-')]
-                expire_date = db.Date(*expire_date)
+                expire_date = parse_date(tmp['expire_date'])
             mailaddr.populate(lp, dom_id, mt_id, expire_date)
-            ma_id = mailaddr.write_db()
+            mailaddr.write_db()
+            ma_id = mailaddr.email_addr_id
 
             if tmp.get("primary", "no") == "yes":
                 mailprimaddr.clear()
@@ -996,13 +1053,14 @@ def create_account(u, owner_id, owner_type, np_type=None):
                 if not (ou_id, aff, affstat) in person_id2affs[owner_id]:
                     person_id2affs[owner_id].append((ou_id, aff, affstat))
             else:
-                print "Warning: error mapping affiliation %s: %s/%s@%s" % (
+                print "WARNING: error mapping affiliation %s: %s/%s@%s" % (
                     u['uname'], aff, affstat, u['uio']['usko'])
         
     if u.has_key('quarantine') or had_splat:
         if not u.has_key('quarantine'):
             if not u.has_key('deleted_date'):
-                print "Warning, user %s had splat, but no quatantine" % u['uname']
+                print "WARNING: User %s had splat, but no quarantine" % \
+                      u['uname']
             when = db.TimestampFromTicks(time())
             why = "Had splat on import from ureg2000"
         else:
@@ -1022,8 +1080,8 @@ def create_account(u, owner_id, owner_type, np_type=None):
                          p['weekly_quota'], p['max_quota'])
         pquotas.write_db()
 
-    if u.get('is_primary', 0) and int(u['is_primary']):
-        primary_users[int(accountObj.entity_id)] = 1
+    if u.get('is_primary', False) and int(u['is_primary']):
+        primary_users[int(accountObj.entity_id)] = True
  
     for tmp in u.get('spread', []):
         if tmp['domain'] == 'u':
@@ -1069,19 +1127,24 @@ def read_config(fname):
     shell2shellconst = locs.get('shell2shellconst')
     ureg_domtyp2catgs = locs.get('ureg_domtyp2catgs')
 
+def parse_date(d):
+    elems = [int(x) for x in d.split("-")]
+    return db.Date(*elems)
+
 def usage():
-    print """import_userdb_XML.py -c file -s system [{-g|-e|-p|-m|-i} file] [ -m num ] {-G|-E|-P|-M|-I}
+    print """import_userdb_XML.py -c file -s system [{-g|-e|-p|-m|-i} file] [ -m num ] {-G|-E|-P|-A|-M|-I}
 
 -c file: manadatory configurationfile
+-s system: mandatory source-system
 -G : generate the groups
--E : import email domains and non-user email addresses
+-E : import email domains, servers and other email metadata
 -P : generate persons, accounts and user email addresses
+-A : import non-user email addresses
 -M : populate the groups with members
 -I : import it-group permissions
--s system: mandatory source-system
 
-This program is normally run first with -G, then -E, -P, -M and
-finally with -M.  It is not designed allow import multiple times to
+This program is normally run first with -G, then -E, -P, -A, -M and
+finally with -I.  It is not designed allow import multiple times to
 the same database.
 
 This script is designed import to a database that contains no users or
@@ -1094,17 +1157,18 @@ persons will be created iff they cannot be located by their extid
 
 if __name__ == '__main__':
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "c:dp:g:m:vi:e:s:PGMIE",
+        opts, args = getopt.getopt(sys.argv[1:], "c:dp:g:m:vi:e:s:PGMIEA",
                                    ["pfile=", "gfile=", "persons", "groups",
                                     "groupmembers", "verbose", "quick-test",
-                                    "max_cb=", "emailfile=", "email", "config=",
+                                    "max_cb=", "emailfile=", "email-meta",
+                                    "email-aliases", "config=",
                                     "source-system="])
     except getopt.GetoptError:
         usage()
         sys.exit(2)
     global max_cb, verbose, quick_test, source_system
     verbose = 0
-    quick_test = 0
+    quick_test = False
     # global debug
     max_cb = None
     pfile = default_personfile
@@ -1118,7 +1182,7 @@ if __name__ == '__main__':
         elif o in ('-v', '--verbose'):
             verbose += 1
         elif o in ('--quick-test',):
-            quick_test = 1
+            quick_test = True
         elif o in ('-g', '--gfile'):
             gfile = a
         elif o in ('-i',):
@@ -1126,7 +1190,7 @@ if __name__ == '__main__':
         elif o in ('-P', '--persons'):
             import_person_users(pfile)
         elif o in ('-G', '--groups'):
-            import_groups(gfile, 0)
+            import_groups(gfile, fill=False)
         elif o in ('-I',):
             import_itperms(ifile)
         elif o in ('-m', '--max_cb'):
@@ -1134,16 +1198,18 @@ if __name__ == '__main__':
         elif o in ('-d',):
             debug += 1
         elif o in ('-M', '--groupmembers'):
-            import_groups(gfile, 1)
+            import_groups(gfile, fill=True)
         elif o in ('-c', '--config',):
             read_config(a)
         elif o in ('-e', '--emailfile',):
             emfile = a
-        elif o in ('-E', '--email',):
-            import_email(emfile)
+        elif o in ('-E', '--email-meta',):
+            import_email(emfile, create_email_base)
+        elif o in ('-A', '--email-aliases'):
+            import_email(emfile, create_email_alias)
         elif o in ('-s', '--source-system',):
             source_system = getattr(co, a)
-    if(len(opts) == 0):
+    if not opts:
         usage()
     else:
         showtime("all done")
