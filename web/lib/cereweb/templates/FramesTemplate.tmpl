@@ -17,14 +17,16 @@
 ><html lang="en">
 <head>
 <title>Cereweb $title</title>
-#set css = url("css/fixed.css")
+#def css($name)
+#set css = url("css/" + $name)
     <link rel="stylesheet" type="text/css" href="$css" />
+#end def
+$css("fixed.css")    
     <!--[if IE]>
-#set css = url("css/fixed_ie5.css")
-      <link rel="stylesheet" type="text/css" href="$css" />
+$css("fixed_ie5.css")    
     <![endif]-->
-#set css = url("css/default.css")
-    <link rel="stylesheet" type="text/css" href="$css" />
+$css("default.css")    
+$css("style.css")    
 </head><body>
 <div class="content">
 <h1>$title</h1>
