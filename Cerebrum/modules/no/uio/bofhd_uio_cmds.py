@@ -2030,40 +2030,66 @@ class BofhdExtension(object):
                               "Spreads:      %s\n" +
                               "Description:  %s\n" +
                               "Expire:       %s\n" +
-                              "Entity id:    %i""", ("name", "spread", "description",
-                                                     format_day("expire_date"),
-                                                     "entity_id")),
-                             ("Gid:          %i", ('gid',))]))
+                              "Entity id:    %i""",
+                              ("name", "spread", "description",
+                               format_day("expire_date"),
+                               "entity_id")),
+                             ("Moderator:    %s %s (%s)",
+                              ('owner_type', 'owner', 'opset')),
+                             ("Gid:          %i",
+                              ('gid',))]))
     def group_info(self, operator, groupname):
         # TODO: Group visibility should probably be checked against
         # operator for a number of commands
         grp = self._get_group(groupname)
-        ret = self.entity_info(operator, grp.entity_id)
-        
-        # FIXME: compatibility mode for old FormatSuggestion that might
-        # be cached on clients 
-        ret['desc'] = ret['description']
-        ret['expire'] = ret['expire_date']
+        ret = [ self.entity_info(operator, grp.entity_id) ]
+        # find owners
+        aot = BofhdAuthOpTarget(self.db)
+        targets = []
+        for row in aot.list(target_type='group', entity_id=grp.entity_id):
+            targets.append(int(row['op_target_id']))
+        ar = BofhdAuthRole(self.db)
+        aos = BofhdAuthOpSet(self.db)
+        en = Entity.EntityName(self.db)
+        for row in ar.list_owners(targets):
+            aos.clear()
+            aos.find(row['op_set_id'])
+            en.clear()
+            id = int(row['entity_id'])
+            en.find(id)
+            if en.entity_type == self.const.entity_account:
+                owner = self._get_account(id, idtype='id').account_name
+            elif en.entity_type == self.const.entity_group:
+                owner = self._get_group(id, idtype='id').group_name
+            else:
+                owner = '#%d' % id
+            ret.append({'owner_type': str(self.num2const[int(en.entity_type)]),
+                        'owner': owner,
+                        'opset': aos.name})
         return ret
 
     # group list
     all_commands['group_list'] = Command(
         ("group", "list"), GroupName(),
-        fs=FormatSuggestion("%-8s %-12s %6i %s", ("op", "type", "id", "name"),
-                            hdr="MemberOp Type    Id     Name"))
+        fs=FormatSuggestion("%-9s %-10s %s", ("op", "type", "name"),
+                            hdr="%-9s %-10s %s" % ("MemberOp","Type","Name")))
     def group_list(self, operator, groupname):
         """List direct members of group"""
+        def compare(a, b):
+            return cmp(a['type'], b['type']) or cmp(a['name'], b['name'])
         group = self._get_group(groupname)
         ret = []
         u, i, d = group.list_members(get_entity_name=True)
         for t, rows in ((str(self.const.group_memberop_union), u),
                         (str(self.const.group_memberop_intersection), i),
                         (str(self.const.group_memberop_difference), d)):
+            unsorted = []
             for r in rows:
-                ret.append({'op': t,
-                            'type': str(self.num2const[int(r[0])]),
-                            'id': r[1],
-                            'name': r[2]})
+                unsorted.append({'op': t,
+                                 'type': str(self.num2const[int(r[0])]),
+                                 'name': r[2]})
+            unsorted.sort(compare)
+            ret.extend(unsorted)
         return ret
 
     # group list_all
@@ -2687,16 +2713,16 @@ class BofhdExtension(object):
                         'entity_id': r['entity_id'],
                         'name': name,
                         'target_type': r['target_type'],
-                        'attrs': ", ".join(
-                ["%s" % r2['attr'] for r2 in aot.list_target_attrs(r['op_target_id'])])})
+                        'attrs': r['attr'] or '<none>'})
         return ret
 
     # perm add_target
     all_commands['perm_add_target'] = Command(
         ("perm", "add_target"),
         SimpleString(help_ref="string_perm_target_type"), Id(),
+        SimpleString(help_ref="string_attribute", optional=True),
         perm_filter='is_superuser')
-    def perm_add_target(self, operator, target_type, entity_id):
+    def perm_add_target(self, operator, target_type, entity_id, attr=None):
         if not self.ba.is_superuser(operator.get_entity_id()):
             raise PermissionDenied("Currently limited to superusers")
         if entity_id.isdigit():
@@ -2705,45 +2731,20 @@ class BofhdExtension(object):
             raise CerebrumError("Integer entity_id expected; got %r" %
                                 (entity_id,))
         aot = BofhdAuthOpTarget(self.db)
-        aot.populate(entity_id, target_type)
+        aot.populate(entity_id, target_type, attr)
         aot.write_db()
         return "OK, target id=%d" % aot.op_target_id
-
-    # perm add_target_attr
-    all_commands['perm_add_target_attr'] = Command(
-        ("perm", "add_target_attr"), Id(help_ref="id:op_target"),
-        SimpleString(help_ref="string_attribute"),
-        perm_filter='is_superuser')
-    def perm_add_target_attr(self, operator, op_target_id, attr):
-        if not self.ba.is_superuser(operator.get_entity_id()):
-            raise PermissionDenied("Currently limited to superusers")
-        aot = BofhdAuthOpTarget(self.db)
-        aot.find(op_target_id)
-        aot.add_op_target_attr(attr)
-        return "OK"
 
     # perm del_target
     all_commands['perm_del_target'] = Command(
         ("perm", "del_target"), Id(help_ref="id:op_target"),
         perm_filter='is_superuser')
-    def perm_del_target(self, operator, op_target_id):
+    def perm_del_target(self, operator, op_target_id, attr):
         if not self.ba.is_superuser(operator.get_entity_id()):
             raise PermissionDenied("Currently limited to superusers")
         aot = BofhdAuthOpTarget(self.db)
         aot.find(op_target_id)
         aot.delete()
-        return "OK"
-
-    # perm del_target_attr
-    all_commands['perm_del_target_attr'] = Command(
-        ("perm", "del_target_attr"), Id(help_ref="id:op_target"),
-        SimpleString(help_ref="string_attribute"), perm_filter='is_superuser')
-    def perm_del_target_attr(self, operator, op_target_id, attr):
-        if not self.ba.is_superuser(operator.get_entity_id()):
-            raise PermissionDenied("Currently limited to superusers")
-        aot = BofhdAuthOpTarget(self.db)
-        aot.find(op_target_id)
-        aot.del_op_target_attr(attr)
         return "OK"
 
     # perm list
