@@ -23,7 +23,9 @@
 It will be rewritten later.  Maybe it should use the ldif module."""
 
 
-import re, string
+import re
+import string
+import os.path
 from binascii import \
      b2a_hex as _str2hex, a2b_hex as _hex2str, b2a_base64 as _base64encode
 import cereconf
@@ -133,9 +135,11 @@ def container_entry_string(tree_name, attrs = {}):
 def add_ldif_file(outfile, filename):
     """Write to OUTFILE the LDIF file FILENAME, unless FILENAME is false."""
     if filename:
-        # Removed 'try: / except IOError: pass / else:' around file()
-        if not re.match(r'\.*/', filename):
-            filename = cereconf.LDAP_DUMP_DIR + '/' + filename
+        # Test for isabs() so cereconf.LDAP_DUMP_DIR is not required to
+        # be set.  (It is a poor variable name for where to fetch an input
+        # file.  However, so far we have no need for yet another variable.)
+        if not os.path.isabs(filename):
+            filename = os.path.join(cereconf.LDAP_DUMP_DIR, filename)
         outfile.write(file(filename, 'r').read().strip("\n") + "\n\n")
 
 

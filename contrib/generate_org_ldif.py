@@ -34,6 +34,7 @@ installations without the mod_email module."""
 
 import getopt
 import sys
+import os.path
 
 import cerebrum_path
 import cereconf
@@ -65,8 +66,8 @@ def main():
     logger = Factory.get_logger("console")
     ldif = Factory.get('OrgLDIF')(Factory.get('Database')(), logger)
     timer = ldif.make_timer("Starting dump.")
-    outfile = SimilarSizeWriter(ofile or (cereconf.LDAP_DUMP_DIR + '/'
-                                          + cereconf.LDAP_ORG_FILE    ))
+    outfile = SimilarSizeWriter(ofile or os.path.join(cereconf.LDAP_DUMP_DIR,
+                                                      cereconf.LDAP_ORG_FILE))
     outfile.set_size_change_limit(10)
     ldif.generate_base_object(outfile)
     ldif.generate_org(outfile)

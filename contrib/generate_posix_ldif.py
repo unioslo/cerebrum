@@ -42,7 +42,7 @@ The spread options accept multiple spread-values (<value1>,<value2>,...)."""
 import time
 import sys
 import getopt
-import os
+import os.path
 
 import cerebrum_path
 import cereconf  
@@ -276,9 +276,9 @@ def disable_ldapsync_mode():
 	s_list = LdapCall.ldap_connect()
 	LdapCall.add_disable_sync(s_list,disablesync_cn)
 	LdapCall.end_session(s_list)
-	logg_dir = cereconf.LDAP_DUMP_DIR + '/log'
-	if os.path.isdir(logg_dir):  
-	    rotate_file = '/'.join((logg_dir,'rotate_ldif.tmp'))
+	log_dir = os.path.join(cereconf.LDAP_DUMP_DIR, "log")
+	if os.path.isdir(log_dir):  
+	    rotate_file = os.path.join(log_dir, "rotate_ldif.tmp")
 	    if not os.path.isfile(rotate_file):
 		f = file(rotate_file,'w')
 		f.write(time.strftime("%d %b %Y %H:%M:%S", time.localtime())) 
@@ -315,8 +315,8 @@ def main():
     global glob_fd
     glob_fd = None
     if do_all:
-        glob_fd = SimilarSizeWriter(cereconf.LDAP_DUMP_DIR + "/" +
-                                    cereconf.LDAP_POSIX_FILE)
+        glob_fd = SimilarSizeWriter(os.path.join(cereconf.LDAP_DUMP_DIR,
+                                                 cereconf.LDAP_POSIX_FILE))
         glob_fd.set_size_change_limit(10)
         disable_ldapsync_mode()
         init_ldap_dump()

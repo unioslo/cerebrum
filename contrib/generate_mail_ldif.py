@@ -35,6 +35,7 @@ Options:
 import sys
 import base64
 import getopt
+import os.path
 from time import time as now
 
 import cerebrum_path
@@ -386,7 +387,7 @@ def main():
         elif opt in ("-h", "--help"):
             usage()
     if mail_file is None:
-        mail_file = "/".join((cereconf.LDAP_DUMP_DIR, default_mail_file))
+        mail_file = os.path.join(cereconf.LDAP_DUMP_DIR, default_mail_file)
     if spread is None:
         sys.exit("Must set spread.")
 
