@@ -145,11 +145,12 @@ def main():
         if stedkode <> '':
             try:
                 fak, inst, gruppe = stedkode[0:2], stedkode[2:4], stedkode[4:6]
+                ou.clear()
                 ou.find_stedkode(int(fak), int(inst), int(gruppe))
                 new_person.affect_affiliations(co.system_lt, co.affiliation_employee)
                 new_person.populate_affiliation(ou.ou_id, co.affiliation_employee,
                                                 co.affiliation_status_employee_valid)
-            except:
+            except Errors.NotFoundError:
                 print "Error setting stedkode"
 
         op = new_person.write_db()
