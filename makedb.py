@@ -48,7 +48,7 @@ def main():
             runfile(f, Cerebrum, debug)
     else:
         makedbs(Cerebrum, debug)
-    makeInitialUsers()
+        makeInitialUsers()
 
 def makeInitialUsers():
     co = Constants.Constants(Cerebrum)
