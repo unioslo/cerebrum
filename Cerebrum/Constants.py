@@ -325,6 +325,7 @@ class Constants(DatabaseAccessor):
     # UIO specific constants, belong in UiOConstants once we get the
     # CerebrumFactory up and running
     system_manual = _AuthoritativeSystemCode('Manual', 'Manual registration')
+    system_cached = _AuthoritativeSystemCode('Cached', 'Internally cached data')
 
     account_program = _AccountCode('P', 'Programvarekonto')
 
