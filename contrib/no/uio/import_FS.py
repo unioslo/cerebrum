@@ -23,6 +23,7 @@ import cerebrum_path
 import re
 import os
 import sys
+import getopt
 
 import xml.sax
 
@@ -67,14 +68,19 @@ class TrivialParser(xml.sax.ContentHandler):
         pass
 
 def main():
-    Cerebrum = Factory.get('Database')()
+    global verbose
+    verbose = 0
+    opts, args = getopt.getopt(sys.argv[1:], 'vp', ['verbose', 'person-file'])
+    personfile = default_personfile
+    for opt, val in opts:
+        if opt in ('-v', '--verbose'):
+            verbose += 1
+        elif opt in ('p', '--person-file'):
+            personfile = val
 
+    Cerebrum = Factory.get('Database')()
     if getattr(cereconf, "ENABLE_MKTIME_WORKAROUND", 0) == 1:
         print "Warning: ENABLE_MKTIME_WORKAROUND is set"
-    if len(sys.argv) == 2:
-        personfile = sys.argv[1]
-    else:
-        personfile = default_personfile
     for persondta in FSData(personfile):
         process_person(Cerebrum, persondta)
     Cerebrum.commit()
@@ -83,8 +89,9 @@ def process_person(Cerebrum, persondta):
     try:
         fnr = fodselsnr.personnr_ok("%06d%05d" % (
             int(persondta['fodselsdato']), int(persondta['personnr'])))
-        print "Process %s %s %s " % (fnr, persondta['fornavn'],
-                                     persondta['etternavn']),
+        if verbose:
+            print "Process %s %s %s " % (fnr, persondta['fornavn'],
+                                         persondta['etternavn']),
         (year, mon, day) = fodselsnr.fodt_dato(fnr)
         if (year < 1970
             and getattr(cereconf, "ENABLE_MKTIME_WORKAROUND", 0) == 1):
@@ -143,12 +150,13 @@ def process_person(Cerebrum, persondta):
         new_person.populate_affiliation(co.system_fs, ou.ou_id, aff_type, aff_status)
 
     op = new_person.write_db()
-    if op is None:
-        print "**** EQUAL ****"
-    elif op == True:
-        print "**** NEW ****"
-    elif op == False:
-        print "**** UPDATE ****"
+    if verbose:
+        if op is None:
+            print "**** EQUAL ****"
+        elif op == True:
+            print "**** NEW ****"
+        elif op == False:
+            print "**** UPDATE ****"
 
 if __name__ == '__main__':
     main()
