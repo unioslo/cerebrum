@@ -43,6 +43,10 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
             setattr(self, attr, None)
         self.__updated = False
 
+        # TODO: The following attributes are currently not in
+        #       Person.__slots__, which means they will stop working
+        #       once all Entity classes have been ported to use the
+        #       mark_update metaclass.
         self._external_id= ()
         # Person names:
         self._pn_affect_source = None
@@ -53,15 +57,27 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
         self._pa_affiliations = {}
         self._pa_affected_affiliations = ()
 
-    def populate(self, birth_date, gender, description=None, deceased='F'):
-        "Set instance's attributes without referring to the Cerebrum DB."
+    def populate(self, birth_date, gender, description=None, deceased='F',
+                 parent=None):
+        """Set instance's attributes without referring to the Cerebrum DB."""
+        if parent is not None:
+            self.__xerox__(parent)
+        else:
+            Entity.populate(self, self.const.entity_person)
+        # If __in_db is present, it must be True; calling populate on
+        # an object where __in_db is present and False is very likely
+        # a programming error.
+        #
+        # If __in_db in not present, we'll set it to False.
+        try:
+            if not self.__in_db:
+                raise RuntimeError, "populate() called multiple times."
+        except AttributeError:
+            self.__in_db = False
         self.birth_date = birth_date
         self.gender = gender
         self.description = description
         self.deceased = deceased
-
-        Entity.populate(self, self.const.entity_person)
-        self.__in_db = False
 
     def __eq__(self, other):
         """Define == operator for Person objects."""
@@ -131,7 +147,8 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
         if not self.__updated:
             print "not updated"
             return
-        if not self.__in_db:
+        is_new = not self.__in_db
+        if is_new:
             self.execute("""
             INSERT INTO [:table schema=cerebrum name=person_info]
               (entity_type, person_id, export_id, birth_date, gender,
@@ -224,7 +241,7 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
         del self.__in_db
         self.__in_db = True
         self.__updated = False
-
+        return is_new
 
     def new(self, birth_date, gender, description=None, deceased='F'):
         """Register a new person.  Return new entity_id.
@@ -245,13 +262,17 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
         NotFoundError is raised.
 
         """
+        self.__super.find(person_id)
         (self.export_id, self.birth_date, self.gender,
          self.deceased, self.description) = self.query_1(
             """SELECT export_id, birth_date, gender,
                       deceased, description
                FROM [:table schema=cerebrum name=person_info]
                WHERE person_id=:p_id""", {'p_id': person_id})
-        self.__super.find(person_id)
+        try:
+            del self.__in_db
+        except AttributeError:
+            pass
         self.__in_db = True
         self.__updated = False
 
@@ -282,7 +303,6 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
                                  {'id_type': int(id_type),
                                   'ext_id': external_id})
         self.find(person_id)
-        return person_id
 
     def _compare_names(self, type, other):
         """Returns True if names are equal.
