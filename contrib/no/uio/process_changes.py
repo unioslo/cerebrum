@@ -77,6 +77,7 @@ def get_make_user_data(entity_id):
     posix_group.find(posix_user.gid_id)
     disk.clear()
     home = posix_user.get_home(home_spread)
+    homedir = posix_user.get_posix_home(home_spread)
     disk.find(home['disk_id'])
     host.clear()
     host.find(disk.host_id)
@@ -87,7 +88,8 @@ def get_make_user_data(entity_id):
             'gid': str(posix_group.posix_gid),
             'gecos': posix_user.get_gecos(),
             'host': host.name,
-            'home': home}
+            'home': home,
+            'homedir': homedir}
 
 def make_user(entity_id):
     try:
@@ -98,10 +100,13 @@ def make_user(entity_id):
     if int(info['home']['status']) == const.home_status_on_disk:
         logger.warn("User already on disk? %s" % entity_id)
         return
+    if info['homedir'] is None:
+        logger.warn("No home for %s" % entity_id)
+        return
 
     cmd = [SUDO_CMD, cereconf.WRAPPER_CMD, '-c', 'mkhome',
            # info['host'],  # the mkhome script figures out the host
-           info['uname'], info['home'], info['uid'], info['gid'],
+           info['uname'], info['homedir'], info['uid'], info['gid'],
            info['gecos']]
 
     #cmd = cmd[1:]  # DEBUG
