@@ -43,14 +43,19 @@ def _deep_text2utf(obj):
     return obj
 
 
-def get_tree_dn(tree_name, *default_arg):
-    """Get DN of TREE_NAME (cereconf.LDAP_<TREE_NAME>_DN).
-    The cereconf variable should be a DN, but may (so far) also be
-    just the value of an OU, for backwards compatibility."""
+_tree_dn_re = re.compile(r'\A[-.\w]+=')
 
-    dn = cereconf2utf('LDAP_%s_DN' % tree_name, *default_arg)
-    if dn and not re.match(r'^[-.\w]+=', dn):
-        dn = "ou=%s,%s" % (dn, cereconf.LDAP_BASE_DN)
+def get_tree_dn(tree_name, *default_arg):
+    """Get dn of tree_name (cereconf.LDAP_<tree_name>_DN).
+
+    Will be abolished in favor of simply using cereconf.LDAP_<tree_name>_DN.
+    The function is used for backwards compatibility because the cereconf
+    variable could previously be just the value of an OU."""
+    dn = getattr(cereconf, 'LDAP_%s_DN' % tree_name, *default_arg)
+    if dn and not _tree_dn_re.match(dn):
+        dn = "ou=%s,%s" % (dn, (getattr(cereconf, 'LDAP_BASE_DN', None)
+                                # Previous name of LDAP_BASE_DN variable
+                                or cereconf.LDAP_BASE))
     return dn
 
 # Match an escaped character in a DN
