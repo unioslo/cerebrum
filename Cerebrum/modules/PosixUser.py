@@ -70,7 +70,7 @@ class Constants(Constants.Constants):
 
 Account_class = Factory.get("Account")
 class PosixUser(Account_class):
-    """'POSIX user' specialisation of core class `Account'.
+"" "'POSIX user' specialisation of core class `Account'.
 
     This class is not meant to be a transparent mixin class
     (i.e. included in the return value of Utils.Factory.get()) for
@@ -167,8 +167,9 @@ class PosixUser(Account_class):
         SELECT account_id
         FROM [:table schema=cerebrum name=posix_user]""")
 
-    def list_extended_posix_users(self, auth_method, spread=None,
-                                  include_quarantines=0):
+    def list_extended_posix_users(self, 
+				  auth_method=Constants.auth_type_crypt3_des, 
+				  spread=None, include_quarantines=0):
         """Returns data required for building a password map.  It is
         not recommended to use this method.  If you do, be prepared to
         update your code when the API changes"""
