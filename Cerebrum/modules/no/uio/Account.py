@@ -107,6 +107,10 @@ class AccountUiOMixin(Account.Account):
             other_home_spread = self.const.spread_uio_nis_user
         elif spread == self.const.spread_uio_nis_user:
             other_home_spread = self.const.spread_ifi_nis_user
+            try:
+                self.get_home(other_home_spread)
+            except Errors.NotFoundError:
+                return
         else:
             raise ValueError, "Unexpected spread %s in set_home" % spread
         ret = self.__super.set_home(other_home_spread, disk_id=disk_id,
