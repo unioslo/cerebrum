@@ -123,8 +123,8 @@ def read_IMAP_server():
 def read_forward():
     mail_forw = Email.EmailForward(db)
     for row in mail_forw.list_email_forwards():
-        targ2forward[int(row['target_id'])] = [row['forward_to'],
-                                               row['enable']]
+        targ2forward.setdefault(int(row['target_id']), []).append([row['forward_to'],
+                                                                   row['enable']])
 
 def read_vacation():
     mail_vaca = Email.EmailVacation(db)
@@ -150,7 +150,7 @@ def write_ldif():
             et = int(row['entity_type'])
         if row['entity_id']:
             ei = int(row['entity_id'])
-        alias = row['target_id']
+        alias = row['alias_value']
         
         counter += 1
         if verbose and (counter % 5000) == 0:
@@ -159,6 +159,7 @@ def write_ldif():
             
         target = ""
         uid = ""
+        rest = ""
 
         # The structure is decided by what target-type the
         # target is (class EmailConstants in Email.py):
@@ -179,6 +180,56 @@ def write_ldif():
                 sys.stderr.write(txt)
                 continue
             
+            # Find quota-settings:
+            if targ2quota.has_key(t):
+                soft, hard = targ2quota[t]
+                rest += "softQuota: %s\n" % soft
+                rest += "hardQuota: %s\n" % hard
+
+            # Find vacations-settings:
+            if targ2vacation.has_key(t):
+                txt, start, end, enable = targ2vacation[t]
+                if enable == 'T':
+                    cur = db.DateFromTicks(time.time())
+                    if start and end and start <= cur and end >= cur:
+                        rest += "tripnote:: %s\n" %  base64.encodestring(txt)
+
+            # Find spam-settings:
+            if targ2spam.has_key(t):
+                grade, action = targ2spam[t]
+                rest += "spamLevel: %s\n" % grade
+                rest += "spamAction: %s\n" % action
+
+            # Find virus-setting:
+            if targ2virus.has_key(t):
+                found, rem, enable = targ2virus[t]
+                rest += "virusFound: %s\n" % found
+                rest += "virusRemoved: %s\n" % rem
+                if enable == 'T':
+                    rest += "virusScanning: TRUE\n"
+                else:
+                    rest += "virusScanning: FALSE\n"
+
+        elif tt == co.email_target_deleted:
+            # Target type for addresses that are no longer working, but
+            # for which it is useful to include of a short custom text in
+            # the error message returned to the sender.  The text
+            # is taken from email_target.alias_value
+            if et == co.entity_account:
+                if acc2name.has_key(ei):
+                    target = acc2name[ei]
+            if alias:
+                rest += "forwardDestination: :fail: %s\n" % alias
+
+        
+        elif tt == co.email_target_forward:
+            # Target is a pure forwarding mechanism; local deliveries will
+            # only occur as indirect deliveries to the addresses forwarded
+            # to.  Both email_target.entity_id and email_target.alias_value
+            # should be NULL, as they are ignored.  The email address(es)
+            # to forward to is taken from table email_forward.
+            pass
+        
         elif tt == co.email_target_pipe or \
              tt == co.email_target_file or \
              tt == co.email_target_Mailman:
@@ -204,6 +255,8 @@ def write_ldif():
                 sys.stderr.write(txt)
                 continue
 
+            rest += "target: %s\n" % alias
+
             if et == co.entity_account:
                 if acc2name.has_key(ei):
                     uid = acc2name[ei]
@@ -221,33 +274,35 @@ def write_ldif():
                 continue
 
         elif tt == co.email_target_multi:
-            # Target is not set; forwardAddress is the set of
-            # addresses that should receive mail for this target.
-            mail_fwd = Email.EmailForward(db)
-            try:
-                mail_fwd.find(t)
-                forwards = [x.forward_to for x in mail_fwd.get_forward()
-                            if x.enable <> 'T']
-            except Errors.NotFoundError:
+            # Target is the set of `account`-type targets corresponding to
+            # the Accounts that are first-level members of the Group that
+            # has group_id == email_target.entity_id.
+            if targ2forward.has_key(t):
+                for forw, enable in targ2forward[t]:
+                    if enable == 'T':
+                        rest += "forwardDestination: %s\n" % targ2addr[int(forw)]
+            else:
                 # A 'multi' target with no forwarding; seems odd.
                 txt = "Target: %s (%s) no forwarding found.\n" % (t, tt)
                 sys.stderr.write(txt)
-                continue
+                continue 
 
         else:
             # The target-type isn't known to this script.
             sys.stderr.write("Wrong target-type in target: %s: %s\n" % ( t, tt ))
             continue
 
-        f.write("dn: cn=%s,ou=mail,%s\n" % (t, base_dn))
+        f.write("dn: cn=d%s,ou=mail,%s\n" % (t, base_dn))
         f.write("objectClass: top\n")
         f.write("objectClass: mailAddr\n")
-        f.write("cn: %s\n" % t)
+        f.write("cn: d%s\n" % t)
         f.write("targetType: %s\n" % tt)
-        #f.write("target:: %s" % base64.encodestring(target)
-        f.write("target: %s\n" % target)
+        if target:
+            f.write("target: %s\n" % target)
         if uid:
             f.write("uid: %s\n" % uid)
+        if rest:
+            f.write(rest)
         
         # Find primary mail-address:
         if targ2prim.has_key(t):
@@ -257,28 +312,6 @@ def write_ldif():
         if targ2addr.has_key(t):
             for a in targ2addr[t]:
                 f.write("mail: %s\n" % a)
-
-        # Find spam-settings:
-        if targ2spam.has_key(t):
-            grade, action = targ2spam[t]
-            f.write("spamLevel: %s\n" % grade)
-            f.write("spamAction: %s\n" % action)
-
-        # Find quota-settings:
-        if targ2quota.has_key(t):
-            soft, hard = targ2quota[t]
-            f.write("softQuota: %s\n" % soft)
-            f.write("hardQuota: %s\n" % hard)
-
-        # Find virus-setting:
-        if targ2virus.has_key(t):
-            found, rem, enable = targ2virus[t]
-            f.write("virusFound: %s\n" % found)
-            f.write("virusRemoved: %s\n" % rem)
-            if enable == 'T':
-                f.write("virusScanning: TRUE\n")
-            else:
-                f.write("virusScanning: FALSE\n")
 
         # Find mail-server settings:
         if targ2server_id.has_key(t):
@@ -290,17 +323,9 @@ def write_ldif():
 
         # Find forward-settings:
         if targ2forward.has_key(t):
-            addr, enable = targ2forward[t]
-            if enable == 'T':
-                f.write("forwardAddress: %s\n" % addr)
-
-        # Find vacations-settings:
-        if targ2vacation.has_key(t):
-            txt, start, end, enable = targ2vacation[t]
-            if enable == 'T':
-                f.write("vacationMsg: %s\n" % txt)
-                if start: f.write("vacationStart: %s\n" % start)
-                if end: f.write("vacationEnd: %s\n" % end)
+            for addr,enable in targ2forward[t]:
+                if enable == 'T':
+                    f.write("forwardAddress: %s\n" % addr)
                 
         f.write("\n")
 
@@ -316,7 +341,7 @@ def main():
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'vm:', ['verbose', 'mail-file'])
     except getopt.GetoptError:
-        usage(1)
+        usage()
 
     verbose = 0
     mail_file = default_mail_file
@@ -325,7 +350,7 @@ def main():
         if opt in ('-v', '--verbose'):
             verbose += 1
         elif opt in ('-m', '--mail-file'):
-             mail_file = val
+            mail_file = val
         elif opt in ('-h', '--help'):
             usage()
     f = file(mail_file,'w')
