@@ -9,3 +9,8 @@ include /usr/share/cdbs/1/class/python-distutils.mk
 
 clean::
 	-rm Cerebrum/__init__.pyc
+
+common-binary-indep::
+#       No java just now
+#	cd java/jbofh
+#	ant dist build
