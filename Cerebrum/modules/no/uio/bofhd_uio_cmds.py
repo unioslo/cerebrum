@@ -1886,15 +1886,10 @@ class BofhdExtension(object):
     # Currently send email to brukerreg@usit.uio.no
     all_commands['group_request'] = Command(
         ("group", "request"), GroupName(help_ref="group_name_new"),
-        SimpleString(help_ref="string_description"), SimpleString(),
-	#Spread(help_ref="spread",repeat=True), 
-	GroupName(), fs=FormatSuggestion("Group requested as a normal group"),
-        perm_filter='can_create_person')    
+        SimpleString(help_ref="string_description"), SimpleString(help_ref="string_spread"),
+	GroupName(help_ref="group_name_moderator"))    
 
     def group_request(self, operator, groupname, description, spread, moderator):
-        self.ba.can_create_person(operator.get_entity_id())
-        # Get email from AccountEmailMixin.get_primary_mailaddress() or
-        # process_bofhd_requests.get_primary_mailaddress()
 	opr = operator.get_entity_id()
         acc = Utils.Factory.get("Account")(self.db)
 	acc.find(opr)
