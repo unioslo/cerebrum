@@ -546,7 +546,7 @@ def import_itperms(filename):
             try:
                 host = hostname2id[perm['machine']]
             except KeyError:
-                print "WARNING: unknown host: %s" % perm['machine'] 
+                print "WARNING: unknown host: %s" % perm['machine']
                 continue
             if perm['reg_ok'] == 'O':
                 set = ureg_O
@@ -572,7 +572,7 @@ def import_itperms(filename):
                     continue
                 ao_target.clear()
                 ao_target.populate(disk, 'disk')
-                ao_target.write_db()                
+                ao_target.write_db()
             role.grant_auth(itg, set, ao_target.op_target_id)
     db.commit()
 
@@ -635,6 +635,8 @@ def import_groups(groupfile, fill=False):
             if group['type'] == 'fg':
                 pg.populate(parent=groupObj, gid=group['gid'])
                 pg.write_db()
+                if group['uiospread'] in ('n', 'u', 'b'):
+                    groupObj.add_spread(co.spread_uio_ad_group)
                 if group['uiospread'] in ('u', 'b'):
                     groupObj.add_spread(co.spread_uio_nis_fg)
                 if group['uiospread'] in ('i', 'b'):
@@ -739,7 +741,7 @@ def import_person_users(personfile):
         pass
     showtime("Post-processing")
     warned_uc = {}
-    
+
     # Populate person affiliations
     showtime("Populate person affiliations")
     for p_id in person_id2affs.keys():
@@ -847,7 +849,7 @@ def person_callback(person):
             if fodselsnr.er_mann(fnr):
                 gender = co.gender_male
             else:
-                gender = co.gender_female                
+                gender = co.gender_female
         except fodselsnr.InvalidFnrError:
             gender = co.gender_unknown
 
@@ -905,7 +907,7 @@ def person_callback(person):
                 if not u.has_key('reserved'):
                     user_creators[account_id] = u.get('created_by', 'bootstrap_account')
                 uname2entity_id[u['uname']] = account_id
-            
+
 def create_account(u, owner_id, owner_type, np_type=None):
     if uname_exists.has_key(u['uname']):
         print "User %s already exists, skipping" % u['uname']
@@ -1055,7 +1057,7 @@ def create_account(u, owner_id, owner_type, np_type=None):
             else:
                 print "WARNING: error mapping affiliation %s: %s/%s@%s" % (
                     u['uname'], aff, affstat, u['uio']['usko'])
-        
+
     if u.has_key('quarantine') or had_splat:
         if not u.has_key('quarantine'):
             if not u.has_key('deleted_date'):
@@ -1082,10 +1084,11 @@ def create_account(u, owner_id, owner_type, np_type=None):
 
     if u.get('is_primary', False) and int(u['is_primary']):
         primary_users[int(accountObj.entity_id)] = True
- 
+
     for tmp in u.get('spread', []):
         if tmp['domain'] == 'u':
             accountObj.add_spread(co.spread_uio_nis_user)
+            accountObj.add_spread(co.spread_uio_ad_account)
         elif tmp['domain'] == 'i':
             accountObj.add_spread(co.spread_ifi_nis_user)
     for tmp in u.get('pwdhist', []):
