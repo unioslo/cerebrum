@@ -77,11 +77,35 @@ class BofhdRequests(object):
     def add_request(self, operator, when, op_code, entity_id,
                     destination_id, state_data=None):
         # bofh_move_give is the only place where multiple entries are legal
-        if op_code != self.const.bofh_move_give:
-            rows = self.get_requests(entity_id=entity_id)
-            for r in rows:
-                if r['operation'] != self.const.bofh_move_give:
-                    raise CerebrumError, "Conflicting request exists"
+        c = self.const
+        conflicts = { c.bofh_move_user: [ c.bofh_move_student ],
+                      c.bofh_move_student: [ c.bofh_move_user ],
+                      c.bofh_move_request: None,	# what is this?
+                      c.bofh_move_give: None,
+                      c.bofh_delete_user: [ c.bofh_move_user,
+                                            c.bofh_move_student ],
+                      c.bofh_email_will_move: [ c.bofh_email_move,
+                                                c.bofh_delete_user ],
+                      c.bofh_email_move: [ c.bofh_email_will_move,
+                                           c.bofh_delete_user ],
+                      c.bofh_email_create: [ c.bofh_email_delete,
+                                             c.bofh_delete_user ],
+                      c.bofh_email_delete: [ c.bofh_email_create ],
+                      c.bofh_email_hquota: [ c.bofh_email_delete ],
+                      c.bofh_email_convert: [ c.bofh_email_delete ],
+                      }
+
+        conf = conflicts[op_code]
+        if conf is None:
+            conf = []
+        else:
+            # every op with conflicts implicitly conflicts with itself
+            conf += [ op_code ]
+
+        for op in conf:
+            for r in self.get_requests(entity_id=entity_id,
+                                       operation=op):
+                raise CerebrumError, "Conflicting request exists (%d)" % op
         reqid = int(self._db.nextval('request_id_seq'))
         cols = {
             'requestee_id': operator,
@@ -103,8 +127,10 @@ class BofhdRequests(object):
 
     def delay_request(self, request_id, minutes=10):
         for r in self.get_requests(request_id):
-            when = self._db.TimestampFromTicks(r['run_at'] +
-                                               minutes/24.0/60.0)
+            t = r['run_at']
+            if t < self.now:
+                t = self.now
+            when = self._db.TimestampFromTicks(t + minutes/24.0/60.0)
             self._db.execute("""
 		UPDATE [:table schema=cerebrum name=bofhd_request]
 		SET run_at=:when WHERE request_id=:id""",
