@@ -87,6 +87,7 @@ co = Factory.get('Constants')(db)
 person = Factory.get('Person')(db)
 logger = Factory.get_logger("cronjob")
 
+ou_id2stedkode = {}
 
 def get_fs_stedkoder():
     """Returnere en mapping fra ou_id til data om stedet fra FS. """
@@ -97,9 +98,10 @@ def get_fs_stedkoder():
         stedkode = tuple([int(row[c]) for c in (
             'institusjon', 'fakultet', 'institutt', 'avdeling')])
         stedkode2ou_id[stedkode] = long(row['ou_id'])
+        ou_id2stedkode[long(row['ou_id'])] = stedkode
 
     sted_info = {}
-    for row in fs.GetAlleOUer(institusjonsnr=185)[1]:
+    for row in fs.info.list_ou(institusjonsnr=185):
         stedkode = tuple([int(row[c]) for c in (
             'institusjonsnr', 'faknr', 'instituttnr', 'gruppenr')])
         if not stedkode2ou_id.has_key(stedkode):
@@ -131,9 +133,10 @@ class SimplePerson(object):
         self.fax = None
         self.fnr_mismatch = None
 
-    def is_vitenskapelig_ansatt(self):
+    def should_reg_fagperson(self):
         for aff in self.affiliations:
-            if aff['status'] == int(co.affiliation_status_ansatt_vit):
+            if aff['status'] in (int(co.affiliation_status_ansatt_vit),
+                                 int(co.affiliation_tilknyttet_grlaerer)):
                 return True
         return False
 
@@ -179,10 +182,13 @@ def prefetch_person_info():
     logger.debug("Prefetch affiliations...")
     pid2person = {}
     # Finn alle personenes ansatt-affiliations
-    for row in person.list_affiliations(source_system=co.system_lt,
-                                        affiliation=co.affiliation_ansatt):
-        sp = pid2person.setdefault(long(row['person_id']), SimplePerson())
-        sp.affiliations.append(row)
+    for row in person.list_affiliations(
+        source_system=co.system_lt,
+        affiliation=(co.affiliation_ansatt, co.affiliation_tilknyttet)):
+        if (int(row['affiliation']) == int(co.affiliation_ansatt) or
+            int(row['status']) == int(co.affiliation_tilknyttet_grlaerer)):
+            sp = pid2person.setdefault(long(row['person_id']), SimplePerson())
+            sp.affiliations.append(row)
 
     logger.debug("Prefetch account_type (priority)...")
     for row in ac.list_accounts_by_type(affiliation=co.affiliation_ansatt):
@@ -249,14 +255,14 @@ def process_person(pdata):
 
     logger.debug("Process %s" % pdata.fnr11)
     logger.debug2("pdata=%s" % pdata)
-    if not fs.get_person(pdata.fnr, pdata.pnr):
+    if not fs.person.get_person(pdata.fnr, pdata.pnr):
         logger.debug("...add person")
-        fs.add_person(pdata.fnr, pdata.pnr, pdata.name_first,
-                      pdata.name_last, pdata.email, pdata.gender,
-                      "%4i-%02i-%02i" % pdata.birth_date)
+        fs.person.add_person(pdata.fnr, pdata.pnr, pdata.name_first,
+                             pdata.name_last, pdata.email, pdata.gender,
+                             "%4i-%02i-%02i" % pdata.birth_date)
         fs.db.commit()
 
-    if not pdata.is_vitenskapelig_ansatt():
+    if not pdata.should_reg_fagperson():
         return
 
     # Fra sted: $adr1, $adr2, $postnr, $adr3, $arbsted, $instinr,
@@ -264,54 +270,32 @@ def process_person(pdata):
     # Fra uio_info: $tlf, $title, $fax
     # Statisk: $status
 
-    stedkode = pdata.get_primary_sted()
-    if not fs_stedinfo.has_key(stedkode):
-        logger.warn("Sted %s er ukjent i FS" % stedkode)
+    ou_id = pdata.get_primary_sted()
+    if not fs_stedinfo.has_key(ou_id):
+        logger.warn("Sted %s (%s) er ukjent i FS" % (ou_id, ou_id2stedkode[ou_id]))
         return
-    new_data = [fs_stedinfo[stedkode][c] for c in (
-        'adrlin1', 'adrlin2', 'postnr', 'adrlin3', 'stedkortnavn',
-        'institusjonsnr', 'faknr', 'instituttnr', 'gruppenr')]
+    new_data = [None, None, None, None, None]  # SFA didn't want address
+    new_data.extend([fs_stedinfo[ou_id][c] for c in (
+        'institusjonsnr', 'faknr', 'instituttnr', 'gruppenr')])
     new_data.extend([pdata.phone, pdata.work_title, pdata.fax, status])
 
-    fagperson = fs.get_fagperson(pdata.fnr, pdata.pnr)
+    fagperson = fs.person.get_fagperson(pdata.fnr, pdata.pnr)
     logger.debug2("... er fp?: %s" % fagperson)
     if not fagperson:
         print "Add", pdata.fnr11, pdata.fnr
         logger.debug("...add fagperson (%s)" % (repr((pdata.fnr11, pdata.fnr, pdata.pnr, new_data))))
-        fs.add_fagperson(pdata.fnr, pdata.pnr, *new_data)
+        fs.person.add_fagperson(pdata.fnr, pdata.pnr, *new_data)
         fs.db.commit()
     else:
-        # Note:  column-order must be same as for new_data
+        # Only update fax/tlf columns
         fs_data = [str(fagperson[0][c]) for c in (
-            'adrlin1_arbeide', 'adrlin2_arbeide', 'postnr_arbeide',
-            'adrlin3_arbeide', 'arbeidssted', 'institusjonsnr_ansatt',
-            'faknr_ansatt', 'instituttnr_ansatt', 'gruppenr_ansatt',
-
-            'telefonnr_arbeide', 'stillingstittel_norsk',
-            'telefonnr_fax_arb', 'status_aktiv'
-            )]
+            'telefonnr_arbeide', 'telefonnr_fax_arb')]
+        new_data = (new_data[-4], new_data[-2])
         if [str(t) for t in new_data] != fs_data:
             logger.debug("...update fagperson")
-            fs.update_fagperson(pdata.fnr, pdata.pnr, *new_data)
+            fs.person.update_fagperson(pdata.fnr, pdata.pnr, tlf=new_data[0],
+                                       fax=new_data[1])
             fs.db.commit()
-
-    # $termin, $arstall, $instinr, $fak, $inst, $gruppe, $status,
-    # $status_publ
-
-    new_data = [fs_stedinfo[stedkode][c] for c in (
-        'institusjonsnr', 'faknr', 'instituttnr', 'gruppenr')]
-    new_data.extend([termin, arstall, status, status_publ])
-
-    fagpersonundsem = fs.get_fagpersonundsem(
-        pdata.fnr, pdata.pnr, *new_data[0:6])
-    logger.debug2("... undsem?: %s -> %s" % (fagpersonundsem, repr((new_data))))
-    if not fagpersonundsem:
-        logger.debug("...add fagpersonundsem")
-        fs.add_fagpersonundsem(pdata.fnr, pdata.pnr, *new_data)
-        fs.db.commit()
-    else:
-        # Oppdatering ikke nødvendig
-        pass
 
 def update_lt():
     global fs_stedinfo, arstall, termin
@@ -331,12 +315,14 @@ def update_lt():
 def main():
     global fs
     try:
-        opts, args = getopt.getopt(sys.argv[1:], '', ['help', 'db-service='])
+        opts, args = getopt.getopt(sys.argv[1:], '', ['help', 'db-service=',
+                                                      'db-user='])
     except getopt.GetoptError:
         usage(1)
 
     database = "FSDEMO.uio.no"
     user = "ureg2000"
+    dryrun = False
     for opt, val in opts:
         if opt in ('--help',):
             usage()
@@ -344,16 +330,21 @@ def main():
             user = val
         elif opt in ('--db-service',):
             database = val
-    if not opts:
+        elif opt in ('--dryrun',):
+            dryrun = True
+    if not opts:  # enforce atleast one argument to avoid accidential runs
         usage(1)
 
     fs = FS(user=user, database=database)
+    if dryrun:
+        fs.db.commit = fs.db.rollback
     update_lt()
 
 def usage(exitcode=0):
     print """Usage: lt2fsPerson [opsjoner]
     --db-user name: connect with given database username (FS)
     --db-service name: connect to given database (FS)
+    --dryrun : rollback changes to db
     """
     sys.exit(exitcode)
 
