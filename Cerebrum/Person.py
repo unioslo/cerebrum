@@ -49,8 +49,24 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
         self._external_id= {}
         # Person names:
         self._pn_affect_source = None
-        self._pn_affect_types = None
+        self._pn_affect_variants = None
         self._name_info = {}
+
+    def delete(self):
+        # Remove person from person_external_id, person_name,
+        # person_affiliation, person_affiliation_source, person_info.
+        # Super will remove the entity from the mix-in classes
+        for r in self.get_external_id():
+            self._delete_external_id(r['source_system'], r['id_type'])
+        for r in self.get_all_names():
+            self._delete_name(r['source_system'], r['name_variant'])
+        for r in self.get_affiliations(include_deleted=True):
+            self.nuke_affiliation(r['ou_id'], r['affiliation'],
+                                  r['source_system'], r['status'])
+        self.execute("""
+        DELETE FROM [:table schema=cerebrum name=person_info]
+        WHERE person_id=:e_id""", {'e_id': self.entity_id})
+        self.__super.delete()
 
     def populate(self, birth_date, gender, description=None, deceased='F',
                  parent=None):
@@ -117,7 +133,7 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
             return False
 
         if self._pn_affect_source is not None:
-            for type in self._pn_affect_types:
+            for type in self._pn_affect_variants:
                 other_name = other.get_name(self._pn_affect_source, type)
                 my_name = self._name_info.get(type, None)
                 if my_name != other_name:
@@ -255,34 +271,22 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
         # names
         if self._pn_affect_source is not None:
             updated_name = False
-            for type in self._pn_affect_types:
+            for variant in self._pn_affect_variants:
                 try:
-                    if not self._compare_names(type, self):
-                        n = self._name_info.get(type)
-                        self._update_name(self._pn_affect_source, type, self._name_info[type])
+                    if not self._compare_names(variant, self):
+                        n = self._name_info.get(variant)
+                        self._update_name(self._pn_affect_source, variant, self._name_info[variant])
                         is_new = False
                         updated_name = True
                 except MissingOtherException:
-                    if self._name_info.has_key(type):
-                        self._set_name(self._pn_affect_source, type,
-                                       self._name_info[type])
+                    if self._name_info.has_key(variant):
+                        self._set_name(self._pn_affect_source, variant,
+                                       self._name_info[variant])
                         if is_new <> 1:
                             is_new = False
                         updated_name = True
                 except MissingSelfException:
-                    self.execute("""
-                    DELETE FROM [:table schema=cerebrum name=person_name]
-                    WHERE
-                      person_id=:p_id AND
-                      source_system=:src AND
-                      name_variant=:n_variant""",
-                                 {'p_id': self.entity_id,
-                                  'src': int(self._pn_affect_source),
-                                  'n_variant': int(type)})
-                    self._db.log_change(self.entity_id,
-                                        self.const.person_name_del, None,
-                                        change_params={'src': int(self._pn_affect_source),
-                                        'name_variant': int(type)})
+                    self._delete_name(self._pn_affect_source, variant)
                     is_new = False
                     updated_name = True
             if updated_name:
@@ -325,6 +329,7 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
         self._extid_types = [int(x) for x in types]
 
     def populate_external_id(self, source_system, id_type, external_id):
+        print "populate_external_id", source_system, id_type, external_id
         if not hasattr(self, '_extid_source'):
             raise ValueError, \
                   "Must call affect_external_id"
@@ -450,6 +455,21 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
                                            'name': name,
                                            'name_variant': int(variant)})
 
+    def _delete_name(self, source, variant):
+        self.execute("""
+        DELETE FROM [:table schema=cerebrum name=person_name]
+        WHERE
+          person_id=:p_id AND
+          source_system=:src AND
+          name_variant=:n_variant""",
+                     {'p_id': self.entity_id,
+                      'src': int(source),
+                      'n_variant': int(variant)})
+        self._db.log_change(self.entity_id,
+                            self.const.person_name_del, None,
+                            change_params={'src': int(source),
+                            'name_variant': int(variant)})
+
     def _update_name(self, source_system, variant, name):
         # Class-internal use only
         self.execute("""
@@ -525,14 +545,24 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
                              'n_variant': int(variant),
                              'src': int(source_system)})
 
-    def affect_names(self, source, *types):
-        self._pn_affect_source = source
-        if types is None:
-            raise NotImplementedError
-        self._pn_affect_types = types
+    def get_all_names(self):
+        # TBD: It may be a miss-design that we have the get_name
+        # method as well.  Could use optional keyword args to this
+        # method for the same effect (like get_external_id).
+        return self.query("""
+        SELECT *
+        FROM [:table schema=cerebrum name=person_name]
+        WHERE person_id=:p_id""",
+                            {'p_id': self.entity_id})
 
-    def populate_name(self, type, name):
-        self._name_info[type] = name
+    def affect_names(self, source, *variants):
+        self._pn_affect_source = source
+        if variants is None:
+            raise NotImplementedError
+        self._pn_affect_variants = variants
+
+    def populate_name(self, variant, name):
+        self._name_info[variant] = name
 
     def populate_affiliation(self, source_system, ou_id=None,
                              affiliation=None, status=None):
