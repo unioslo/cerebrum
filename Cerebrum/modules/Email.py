@@ -1466,6 +1466,33 @@ class AccountEmailMixin(Account.Account):
         return (r['local_part'] + '@' +
                 ed.rewrite_special_domains(r['domain']))
 
+    def getdict_uname2mailaddr(self):
+        ret = {}
+        target_type = int(self.const.email_target_account)
+        namespace = int(self.const.account_namespace)
+        ed = EmailDomain(self._db)
+        for row in self.query("""
+        SELECT en.entity_name, ea.local_part, ed.domain
+        FROM [:table schema=cerebrum name=account_info] ai
+        JOIN [:table schema=cerebrum name=entity_name] en
+          ON en.entity_id = ai.account_id
+        JOIN [:table schema=cerebrum name=email_target] et
+          ON et.target_type = :targ_type AND
+             et.entity_id = ai.account_id
+        JOIN [:table schema=cerebrum name=email_primary_address] epa
+          ON epa.target_id = et.target_id
+        JOIN [:table schema=cerebrum name=email_address] ea
+          ON ea.address_id = epa.address_id
+        JOIN [:table schema=cerebrum name=email_domain] ed
+          ON ed.domain_id = ea.domain_id
+        WHERE en.value_domain = :namespace""",
+                              {'targ_type': target_type,
+                               'namespace': namespace}):
+            ret[row['entity_name']] = '@'.join((
+                row['local_part'],
+                ed.rewrite_special_domains(row['domain'])))
+        return ret
+
     def wash_email_local_part(self, local_part):
         lp = Utils.latin1_to_iso646_60(local_part)
         # Translate ISO 646-60 representation of Norwegian characters
@@ -1502,6 +1529,7 @@ class PersonEmailMixin(Person.Person):
         # TODO: How should multiple external_id entries, only
         # differing in person_external_id.source_system, be treated?
         target_type = int(self.const.email_target_account)
+        ed = EmailDomain(self._db)
         for row in self.query("""
         SELECT pei.external_id, ea.local_part, ed.domain
         FROM [:table schema=cerebrum name=person_external_id] pei
@@ -1524,5 +1552,5 @@ class PersonEmailMixin(Person.Person):
                                'targ_type': target_type}):
             ret[row['external_id']] = '@'.join((
                 row['local_part'],
-                self.rewrite_special_domains(row['domain'])))
+                ed.rewrite_special_domains(row['domain'])))
         return ret
