@@ -190,12 +190,12 @@ WHERE
       p.fodtar = k.fodtar)
 ORDER BY fodtdag, fodtmnd, fodtar, personnr, tlfpreftegn""", {
         'kommtype': kommtype}):
-        fnr = fodselsnr.personnr_ok(
-            "%02d%02s%02d%05d" % (tuple([int(row[x]) for x in (
-            'fodtdag', 'fodtmnd', 'fodtar', 'personnr')])))
-        fnr = fodselsnr.personnr_ok(fnr)
-        if row['kommnrverdi'] is not None:
-            ret.setdefault(fnr, []).append(row['kommnrverdi'])
+            fnr = fodselsnr.personnr_ok(
+                "%02d%02s%02d%05d" % (tuple([int(row[x]) for x in (
+                'fodtdag', 'fodtmnd', 'fodtar', 'personnr')])))
+            fnr = fodselsnr.personnr_ok(fnr)
+            if row['kommnrverdi'] is not None:
+                ret.setdefault(fnr, []).append(row['kommnrverdi'])
         return fnr2komm
 
     def GetAllPersonsUregEmail(self):
