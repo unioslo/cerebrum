@@ -487,7 +487,7 @@ class EntityContactInfo(Entity):
         if len(where) > 0:
             where = "WHERE %s" % where
         return self.query("""
-        SELECT ec.entity_id, ec. contact_type, ec.contact_value
+        SELECT ec.entity_id, ec.contact_type, ec.contact_value
         FROM [:table schema=cerebrum name=entity_contact_info] ec
         %s %s order by ec.contact_pref""" % (join, where), cols)
 
