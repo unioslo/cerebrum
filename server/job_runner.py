@@ -11,53 +11,69 @@ import popen2
 import fcntl
 import select
 
+import cerebrum_path
+import cereconf
+
 from Cerebrum.extlib import logging
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors
 
-debug_time = 60
+debug_time = 0        # increase time by N seconds every second
+max_sleep = 300
 current_time = time.time()
-run_once = 0  # Only for debugging
 db = Factory.get('Database')()
 
-logging.fileConfig("cerebrum.ini")
+logging.fileConfig(cereconf.LOGGING_CONFIGFILE)
 logger = logging.getLogger("cronjob")
 
 def get_jobs():
+    sbin = '/cerebrum/sbin'  # TODO: Ny cereconf setting
+    ypsrc = '/cerebrum/yp/src'
     return {
-        'import_from_lt':  Action(call=System('contrib/no/uio/import_from_LT.py', []),
+        'import_from_lt':  Action(call=System('%s/import_from_LT.py' % sbin),
                                   max_freq=6*60*60),
         'import_ou':  Action(pre=['import_from_lt'],
-                             call=System('contrib/no/uio/import_OU.py', []),
+                             call=System('%s/import_OU.py' % sbin),
                              max_freq=6*60*60),
         'import_lt':  Action(pre=['import_ou', 'import_from_lt'],
-                             call=System('contrib/no/uio/import_LT.py', []),
+                             call=System('%s/import_LT.py' % sbin),
                              max_freq=6*60*60),
-        'import_from_fs':  Action(call=System('contrib/no/uio/import_from_FS.py', []),
+        'import_from_fs':  Action(call=System('%s/import_from_FS.py' % sbin),
                                   max_freq=6*60*60),
         'import_fs':  Action(pre=['import_from_fs'],
-                             call=System('contrib/no/uio/import_FS.py', []),
+                             call=System('%s/import_FS.py' % sbin),
                              max_freq=6*60*60),
         'process_students': Action(pre=['import_fs'],
-                                   call=System('contrib/no/uio/process_students.py', []),
+                                   call=System('%s/process_students.py' % sbin),
                                    max_freq=5*60),
-        'backup': Action(call=System('contrib/backup.py', []),
+        'backup': Action(call=System('%s/backup.py' % sbin),
                          max_freq=23*60*60),
-        'rotate_logs': Action(call=System('contrib/rotate_logs.py'),
+        'rotate_logs': Action(call=System('%s/rotate_logs.py' % sbin),
                               max_freq=23*60*60),
         'daily': Action(pre=['import_lt', 'import_fs', 'process_students'],
                         call=None,
                         when=When(time=[Time(min=[10], hour=[1])]),
                         post=['backup', 'rotate_logs']),
-        'generate_passwd': Action(call=System('contrib/generate_nismaps', []),
+        'generate_passwd': Action(call=System('%s/generate_nismaps.py' % sbin,
+                                              params=['-p', '%s/passwd' % ypsrc]),
                                   max_freq=5*60),
-        'dist_passwords': Action(pre=['generate_passwd'],
-                                 call=System('.../passdist.pl', []),
-                                 max_freq=5*60, when=When(freq=10*60))
+        'generate_group': Action(call=System('%s/generate_nismaps.py' % sbin,
+                                              params=['-g', '%s/group' % ypsrc]),
+                                  max_freq=15*60),
+        'convert_ypmap': Action(call=System('make',
+                                            params=['-s', '-C', '/var/yp'],
+                                            stdout_ok=1), multi_ok=1),
+        'dist_passwords': Action(pre=['generate_passwd', 'convert_ypmap'],
+                                 call=System('%s/passdist.pl' % sbin),
+                                 max_freq=5*60, when=When(freq=10*60)),
+        'dist_groups': Action(pre=['generate_group', 'convert_ypmap'],
+                              call=System('%s/passdist.pl' % sbin),
+                              max_freq=5*60, when=When(freq=30*60))
         }
 
 class Action(object):
-    def __init__(self, pre=None, post=None, call=None, max_freq=None, when=None):
+    def __init__(self, pre=None, post=None, call=None, max_freq=None, when=None,
+                 multi_ok=0):
         # TBD: Trenger vi engentlig post?  Dersom man setter en jobb
         # til å kjøre 1 sek etter en annen vil den automatisk havne
         # bakerst i ready_to_run køen, og man oppnår dermed det samme.
@@ -76,6 +92,8 @@ class Action(object):
         - when indicates when the job should be ran.  None indicates
           that the job should not run directly (normally ran as a
           prerequisite for another job).
+        - multi_ok indicates if multiple instances of this job may
+          appear in the ready_to_run queue
 
           If max_freq is None, the job will allways run.  If when is
           None, the job will only run if it is a prerequisite of
@@ -86,6 +104,7 @@ class Action(object):
         self.max_freq = max_freq
         self.when = when
         self.post = post
+        self.multi_ok = multi_ok
 
 class When(object):
     def __init__(self, freq=None, time=None):
@@ -174,10 +193,20 @@ def makeNonBlocking(fd):
 	fcntl.fcntl(fd, fcntl.F_SETFL, fl | os.FNDELAY)
 
 class System(object):
+    """Run a command with the specified parameters.
+
+    TODO: Tentative spec. for jobs started by this class:
+
+    - no output should be written on STDOUT/STDERR during normal run.
+      Output may be enabled with -v, which optionaly may be repeated
+      for more verbosity, the -v option should be recongnized.
+    -d dryrun
+    """
     n = 1
-    def __init__(self, cmd, *params):
+    def __init__(self, cmd, params=[], stdout_ok=0):
         self.cmd = cmd
-        self.params = list(*params)
+        self.params = list(params)
+        self.stdout_ok = stdout_ok
 
     # TODO: simple versions of these methods should be in a superclass
     def setup(self):
@@ -193,7 +222,7 @@ class System(object):
         p = self.params[:]
         # For debug
         p.insert(0, self.cmd)
-        p.insert(0, "/bin/echo")
+        # p.insert(0, "/bin/echo")
         logger.debug("Run: %s" % p)
         # Redirect stdout/stderr
         # From http://aspn.activestate.com/ASPN/Cookbook/Python/Recipe/52296
@@ -220,10 +249,10 @@ class System(object):
             if outeof and erreof: break
             select.select([],[],[],.1) # give a little time for buffers to fill
         err = child.wait()
-        if err != 0 or len(outdata) != 0 or len(errdata) != 0:
+        if err != 0 or (len(outdata) != 0 and self.stdout_ok == 0) or len(errdata) != 0:
             # TODO: What shall we do here?
-            logger.error("Error running command, ret=%d, stdout=%s, stderr=%s" %
-                         (err, outdata, errdata))
+            logger.error("Error running command %s, ret=%d/%s, stdout=%s, stderr=%s" %
+                         (p, err, os.strerror(err), outdata, errdata))
 
     def cleanup(self):
         pass
@@ -247,7 +276,7 @@ def insert_job(job):
         for j in all_jobs[job].pre:
             insert_job(j)
 
-    if job not in ready_to_run:
+    if job not in ready_to_run or all_jobs[job].multi_ok:
         if (all_jobs[job].max_freq is None
             or current_time - last_run.get(job, 0) > all_jobs[job].max_freq):
             ready_to_run.append(job)
@@ -259,7 +288,7 @@ def insert_job(job):
 def find_ready_jobs(jobs):
     """Populates the ready_to_run queue with jobs.  Returns number of
     seconds to next event (if positive, ready_to_run will be empty)"""
-    global current_time, run_once
+    global current_time
     if debug_time:
         current_time += debug_time
     else:
@@ -273,7 +302,6 @@ def find_ready_jobs(jobs):
             if n <= 0:
                 insert_job(k)
             min_delta = min(n, min_delta)
-    run_once = 0
     return min_delta
 
 # There is a python supplied sched module, but we don't use it for now...
