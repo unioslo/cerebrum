@@ -174,37 +174,10 @@ class Entity(Abstract.Entity):
             entries = self.server.entity_history(self.id, max_entries)
         else:
             entries = self.server.entity_history(self.id)
-                
-        (history, entities, change_types) = entries
+        
+        return _history_to_changes(self.server, entries)    
 
-        # Use entity info-dicts to create all entities that are referred to
-        # within history
-        entity_map = {}
-        for (id,info) in entities.items():
-            entity = fetch_object_by_id(self.server, id, info=info)
-            entity_map[int(id)] = entity
 
-        # And vice versa for the change types    
-        change_map = {}
-        for (change_type_id, change_details) in change_types.items():
-            (category, change_type, msg) = change_details
-            change_type = ChangeType(change_type_id, category, change_type, msg)
-            change_map[int(change_type_id)] = change_type
-
-        # resolve all references to entities and change_types    
-        changes = []
-        for entry in history:
-            change = Change(type = change_map.get(entry['type']),
-                            date = entry['date'],
-                            subject = entity_map.get(entry['subject']),
-                            dest = entity_map.get(entry['dest']),
-                            params = entry['params'],
-                            # change_by might be a program name 
-                            # instead of entity, just include that string
-                            change_by = entity_map.get(entry['change_by']) or entry['change_by'])
-            changes.append(change)
-        return changes       
-    
     def add_note(self, subject, description):
         self.server.note_add(self.id,  subject, description)
     
@@ -424,6 +397,43 @@ class OU(Entity, Abstract.OU):
 
     def delete(self):
         pass
+
+def operator_history(server, start_id=0):
+    entries = server.operator_history(start_id)
+    return _history_to_changes(server, entries)
+
+def _history_to_changes(server, entries):        
+    """Unwrap change objects from the database to Change objects"""
+    (history, entities, change_types) = entries
+
+    # Use entity info-dicts to create all entities that are referred to
+    # within history
+    entity_map = {}
+    for (id,info) in entities.items():
+        entity = fetch_object_by_id(server, id, info=info)
+        entity_map[int(id)] = entity
+
+    # And vice versa for the change types    
+    change_map = {}
+    for (change_type_id, change_details) in change_types.items():
+        (category, change_type, msg) = change_details
+        change_type = ChangeType(change_type_id, category, change_type, msg)
+        change_map[int(change_type_id)] = change_type
+
+    # resolve all references to entities and change_types    
+    changes = []
+    for entry in history:
+        change = Change(type = change_map.get(entry['type']),
+                        date = entry['date'],
+                        subject = entity_map.get(entry['subject']),
+                        dest = entity_map.get(entry['dest']),
+                        params = entry['params'],
+                        # change_by might be a program name 
+                        # instead of entity, just include that string
+                        change_by = entity_map.get(entry['change_by']) or entry['change_by'])
+        changes.append(change)
+    return changes       
+    
 
 
 def fetch_object_by_id(server, id, info=None):
