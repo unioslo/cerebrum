@@ -116,7 +116,8 @@ def populate_tilsetting(person, ou, fields, const):
 
     # fo_kode == 9999 means external project/people/whatever. They are not
     # supposed to be in Cerebrum.
-    if fo_kode == "9999":
+    fo_kode_internal = int(SAPForretningsOmradeKode(fo_kode))
+    if fo_kode_internal == int(const.sap_eksterne_tilfeldige):
         logger.debug("External employment, ignored")
         return True
     # fi
