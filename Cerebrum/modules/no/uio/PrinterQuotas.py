@@ -32,14 +32,15 @@ class PrinterQuotas(Entity):
     def find(self, entity_id):
         self.__super.find(entity_id)
 
-        (self.account_id, self.printer_quota, self.pages_printed,
-         self.pages_this_semester, self.termin_quota,
-         self.has_printerquota, self.weekly_quota, self.max_quota) = self.query_1("""
+        row = self.query_1("""
         SELECT account_id, printer_quota, pages_printed,
           pages_this_semester, termin_quota, has_printerquota,
           weekly_quota, max_quota
         FROM [:table schema=cerebrum name=printerquotas]
         WHERE account_id=:entity_id""", {'entity_id': entity_id})
+        (self.account_id, self.printer_quota, self.pages_printed,
+         self.pages_this_semester, self.termin_quota,
+         self.has_printerquota, self.weekly_quota, self.max_quota) = self._db.pythonify_data(row)
         try:
             del self.__in_db
         except AttributeError:
@@ -49,8 +50,7 @@ class PrinterQuotas(Entity):
 
     def write_db(self):
         # self.__super.write_db()
-        # TODO: Due to a bug somewhere, self.__updated is not set by pq.py SUBP
-        if 1 or self.__updated:
+        if self.__updated:
             is_new = not self.__in_db
             cols = {
                 'account_id': self.account_id,
