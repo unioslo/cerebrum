@@ -32,6 +32,10 @@ module Cerebrum_core{
             string explanation;
         };
 
+        exception NoSuchNodeError {
+            string explanation;
+        };
+
         /**
         * Error raised when trying to lock a node wich is already locked
         * for reading or for writing.
@@ -47,6 +51,10 @@ module Cerebrum_core{
         * \param explanation A string containing a short explanation.
         */
         exception NotLockedError{
+            string explanation;
+        };
+
+        exception NoSuchAttributeError {
             string explanation;
         };
     };
