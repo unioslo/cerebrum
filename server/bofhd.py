@@ -263,7 +263,7 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
                 response = (response,)
             except CerebrumError, e:
                 response = xmlrpclib.dumps(
-                    xmlrpclib.Fault(1, "%s" % e)
+                    xmlrpclib.Fault(1, "%s:%s" % (sys.exc_type, sys.exc_value))
                     )                
             except:
                 logger.warn("Unexpected exception 1", exc_info=1)
