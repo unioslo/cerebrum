@@ -23,13 +23,13 @@ class SQLDriverTestCase(unittest.TestCase):
         self.db.commit()
         
     def testSQLIntHashable(self):
-        "Check if SQL Integer is hashable"
+        "Check if SQL NUMERIC is hashable"
         # This test fails with Debian package python2.2-pgsql version
         # 2.2-1, but works with version 2.0-3.1
         value = self.db.query_1("SELECT max(value) FROM test_db_dict")
         hash = {}
-        hash[value] = 1
-        assert(1 == hash[value], 'Unable to compare Integer to SQL Integer')
+        hash[value] = 1 # This one fails
+        assert(1 == hash[value], 'Unable to compare Integer to SQL NUMERIC')
 
     def testUTF8TextParam(self):
         "Check if CHAR VARYING() can store Unicode/UTF8 text"
