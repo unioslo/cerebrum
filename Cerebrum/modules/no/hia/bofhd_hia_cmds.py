@@ -2731,21 +2731,13 @@ class BofhdExtension(object):
         if not tpl_lang.endswith("letter"):
             skriver = args.pop(0)
         else:
-            skriver = cereconf.PRINT_LPR_COMMAND
+            skriver = cereconf.PRINT_PRINTER
         selection = args.pop(0)
         cache = self._get_cached_passwords(operator)
-	try:
-            acc = self._get_account(operator.get_entity_id(), idtype='id')
-	    opr=account.account_name
-        except NotFoundError:
-	    raise CerebrumError, ("Could not find the operator id!")
-
         th = TemplateHandler(tpl_lang, tpl_name, tpl_type)
         tmp_dir = Utils.make_temp_dir(dir=cereconf.JOB_RUNNER_LOG_DIR,
                                       prefix="bofh_spool")
-        out_name_temp = "%s/%s.%s" % (tmp_dir, "job", tpl_type)
-	time_temp = strftime("%Y-%m-%d-%H-%M", localtime())
-	out_name = "%s%s%s" % (out_name_temp, time_temp, opr)
+	out_name = "%s/%s.%s" % (tmp_dir, "job", tpl_type)
         out = file(out_name, "w")
         if th._hdr is not None:
             out.write(th._hdr)
