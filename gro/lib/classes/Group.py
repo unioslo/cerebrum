@@ -15,7 +15,7 @@ class Group(Entity):
                             Attribute('description', 'string', writable=True),
                             Attribute('visibility', 'GroupVisibilityType', writable=True),
                             Attribute('expire_date', 'Date', writable=True)]
-    methodSlots = Entity.methodSlots + [Method('get_members', 'MemberList')]
+    methodSlots = Entity.methodSlots + [Method('get_group_members', 'GroupMemberSeq')]
 
     cerebrum_class = Cerebrum.Group.Group
 
@@ -29,7 +29,7 @@ class Group(Entity):
 
     _getByCerebrumGroup = classmethod(_getByCerebrumGroup)
     
-    def load(self):
+    def _load_group(self):
         import Types
 
         e = Cerebrum.Group.Group(db)
@@ -40,25 +40,33 @@ class Group(Entity):
         self._visibility = Types.GroupVisibilityType(int(e.visibility))
         self._expire_date = e.expire_date
 
-    def get_members(self): # jada.. denne skal også fikses...
+    load_name = load_description = load_visibility = load_expire_date = _load_group
+
+    def get_group_members(self):
         import Types, Entity
 
         members = []
         e = Cerebrum.Group.Group(db)
         e.entity_id = self._entity_id
 
-        for row in db.query('''SELECT operation, member_id, member_type
-                               FROM group_member
-                               WHERE group_id = %s''' % self._entity_id):
-            operation = Types.GroupMemberOperationType(int(row['operation']))
-            member_id = int(row['member_id'])
-            members.append(GroupMember(group_id=self._entity_id, operation=operation, member_id=member_id))
+        union, intersection, difference = e.list_members()
+
+        unionType = Types.GroupMemberOperationType.getByName('union')
+        intersectionType = Types.GroupMemberOperationType.getByName('intersection')
+        differenceType = Types.GroupMemberOperationType.getByName('difference')
+
+        for rows, operation in ((union, unionType),
+                                (intersection, intersectionType),
+                                (difference, differenceType)):
+            for member_type, member_id in rows:
+                members.append(GroupMember(group_id=self._entity_id,
+                                           operation=operation,
+                                           member_id=int(member_id),
+                                           member_type=int(member_type)))
         return members
 
 class GroupMember(Builder):
-    slots = [Attribute('group_id', 'long'),
-             Attribute('operation', 'GroupMemberOperationType'),
-             Attribute('member_id', 'long')]
-
-    def __repr__(self):
-        return '%s(group=%s, operation=%s, member=%s)' % (self.__class__.__name__, self._group_id, self._operation, self._member_id)
+    primary = [Attribute('group_id', 'long'),
+               Attribute('operation', 'GroupMemberOperationType'),
+               Attribute('member_id', 'long')]
+    slots = primary + [Attribute('member_type', 'long')]
