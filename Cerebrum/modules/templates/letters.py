@@ -2,6 +2,7 @@
 # -*- coding: iso-8859-1 -*-
 
 import os
+import re
 import cereconf
 from Cerebrum import Utils
 
@@ -81,9 +82,15 @@ tag is present, hdr and footer will be empty.
             template = template.replace("<%s>" % k, v)
         return template
 
-    def spool_job(self, filename, type, printer, skip_lpr=False):
-        logfile = Utils.make_temp_file(only_name=True)
-        self.logfile = logfile
+    def make_barcode(self, account_id, filename):
+        ret = os.system("%s -e EAN -E -n -b %012i > %s" % (
+            cereconf.PRINT_BARCODE, account_id, filename))
+        if ret:
+            raise IOError("Bardode returned %s" % ret)
+
+    def spool_job(self, filename, type, printer, skip_lpr=False, logfile=None):
+        if logfile is None:
+            logfile = Utils.make_temp_file(only_name=True)
         base_filename = filename[:filename.rindex('.')]
         if type == 'tex':
             status = (os.system("%s --interaction nonstopmode %s >> %s 2>&1" % (
@@ -93,6 +100,8 @@ tag is present, hdr and footer will be empty.
             if status:
                 raise IOError("Error spooling job, see %s for details" % logfile)
         if not skip_lpr:
+            if re.search(r'[^a-z0-9\-]', printer):
+                raise IOError("Bad printer name")
             lpr_cmd = cereconf.PRINT_LPR_CMD.replace("<printer>", printer)
             status = os.system("%s %s.ps >> %s.zz 2>&1" % (
                 lpr_cmd, base_filename, logfile))
