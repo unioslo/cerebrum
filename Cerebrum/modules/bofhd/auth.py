@@ -711,10 +711,18 @@ class BofhdAuth(DatabaseAccessor):
         if self.is_superuser(operator):
             return True
         if query_run_any:
-            return self._has_operation_perm_somewhere(
-                operator, self.const.auth_create_user)
+            return (self._has_operation_perm_somewhere(operator,
+                               self.const.auth_create_user) or
+                    self._has_operation_perm_somewhere(operator,
+                               self.const.auth_view_history))
         if entity.entity_type == self.const.entity_account:
-            return self.is_account_owner(operator, self.const.auth_create_user,
+            try:
+                return self.is_account_owner(operator,
+                                             self.const.auth_create_user,
+                                             entity)
+            except:
+                pass
+            return self.is_account_owner(operator, self.const.auth_view_history,
                                          entity)
         raise PermissionDenied("no access for that entity_type")
 

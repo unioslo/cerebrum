@@ -42,6 +42,7 @@ class Constants(Constants.Constants):
     auth_modify_spread = _AuthRoleOpCode('modify_spread', 'modify spread')
     auth_create_user = _AuthRoleOpCode('create_user', 'create user')
     auth_remove_user = _AuthRoleOpCode('remove_user', 'remove user')
+    auth_view_history = _AuthRoleOpCode('view_history', 'view history')
     auth_set_password = _AuthRoleOpCode('set_password', 'desc')
     auth_move_from_disk = _AuthRoleOpCode('move_from_disk',
                                          'can move from disk')
