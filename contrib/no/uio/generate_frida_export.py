@@ -222,7 +222,19 @@ class LTPersonRepresentation(object):
         """
         return self.elements.get(name, [])
     # end get_element
-        
+
+
+
+    def set_element(self, name, value):
+        """
+        The opposite of get_element().
+
+        NB! This function will overwrite all previous values under key NAME.
+        """
+
+        self.elements[name] = value
+    # end set_element
+
 
 
     def is_frida(self):
@@ -553,10 +565,52 @@ def output_OU_parent(writer, child_ou, parent_stedkode, constants):
                        element_name)
     # od
 # end output_OU_parent
-        
 
 
-def output_OU(writer, id, db_ou, stedkode, parent_stedkode, constants):
+
+def _find_suitable_OU(stedkode, id, constants):
+    """
+    Return ou_id for an OU x that:
+
+    * x.entity_id = id or x is a parent of the OU with id 'id'.
+    * x.katalog_merke = 'T'
+
+    ... or None if no such id is found.
+
+    While walking upward the organization tree, we consider LT perspective
+    only.
+    """
+
+    try:
+        stedkode.clear()
+        stedkode.find(id)
+
+        if stedkode.katalog_merke == 'T':
+            return id
+        # fi
+
+        parent_id = stedkode.get_parent(constants.perspective_lt)
+        logger.debug("parent search: %s -> %s",
+                     stedkode.entity_id, parent_id)
+                 
+        if (parent_id is not None and 
+            parent_id != stedkode.entity_id):
+            return _find_suitable_OU(stedkode, parent_id, constants)
+        # fi
+    except Cerebrum.Errors.NotFoundError, value:
+        logger.error("AIEE! Looking up an OU failed: %s", value)
+        return None
+    # yrt
+
+    return None
+# end _find_suitable_OU
+
+
+from Cerebrum.extlib.sets import Set
+_ou_cache = Set()
+
+
+def output_OU(writer, start_id, db_ou, stedkode, parent_stedkode, constants):
     """
     Output all information pertinent to a specific OU
 
@@ -570,12 +624,18 @@ def output_OU(writer, id, db_ou, stedkode, parent_stedkode, constants):
                           Addressline, Telephon*, Fax*, URL*)>
     """
 
-    stedkode.clear()
-    stedkode.find(id)
-    # This entry is not supposed to be published
-    if stedkode.katalog_merke != 'T':
-        logger.debug("Skipping ou_id == %s", id)
+    id = _find_suitable_OU(stedkode, start_id, constants)
+    if id is None:
+        logger.warn("No suitable ids for (start) id = %s", start_id)
         return
+    # fi
+    # Skip duplicates
+    if int(id) in _ou_cache:
+        return
+    # fi
+    _ou_cache.add(int(id))
+    if int(id) != int(start_id):
+        logger.info("ID %s converted to %s", id, start_id)
     # fi
 
     db_ou.clear()
@@ -760,17 +820,23 @@ def get_reservation(pobj):
 
 
 
-def construct_person_attributes(writer, pobj, db_person, constants):
+def construct_person_attributes(writer, pobj, db_person, constants, stedkode):
     """
     Construct a dictionary containing all attributes for the FRIDA <person>
     element represented by pobj.
 
+    Furthermore, we convert OU information in POBJ 'tils' and 'gjest' to OUs
+    that are guaranteed to have katalog_merke (this is similar to what
+    output_OU does).
+
     This function assumes that db_person is already associated to the
     appropriate database row(s) (via a suitable find*-call).
+
+    This function returns True, if POBJ has at least one suitable
+    gjest/tilsetting, and False otherwise.
     """
 
     attributes = {}
-
     # This *cannot* fail or return more than one entry
     # NB! Although pobj.fnr is the same as row.extenal_id below, looking it
     #     up is an extra check for data validity
@@ -803,12 +869,114 @@ def construct_person_attributes(writer, pobj, db_person, constants):
     # And now the reservations
     attributes["Reservation"] = get_reservation(pobj)
 
-    return attributes
+    # NB! make sure that this key does not overwrite something useful
+    pobj.set_element("attributes", attributes)
+
+    return _update_attributes(pobj, constants, stedkode)
 # end construct_person_attributes
 
 
 
-def output_employment_information(writer, pobj):
+def _update_attributes(pobj, constants, stedkode):
+    """
+    This function processes information in <tils> and <gjest> elements
+    represented by POBJ. It ensures that all OUs references in these
+    elements can be published in a catalogue.
+
+    Specifically, if there is an OU that does not have katalog_merke = 'T',
+    a suitable parent OU is located in a manner similar to that of
+    output_OU().
+
+    This function returns True, if there is at least one <tils>/<gjest> with
+    a 'publishable' OU, and False otherwise. A person represented by POBJ
+    will not end up in FRIDA export, if this function returns False.
+
+    NB! This function operates *destructively* on POBJ.
+    """
+
+    # First, employments -- tilsettinger
+    original_tils = pobj.get_element("tils")
+    new_tils = filter( lambda tilsetting:
+                       _update_stedkode(tilsetting,
+                                        "fakultetnr_utgift",
+                                        "instituttnr_utgift",
+                                        "gruppenr_utgift",
+                                        constants, stedkode),
+                       original_tils )
+    if len(new_tils) != len(original_tils):
+        logger.info("<tils> shrank for %s", pobj.fnr)
+    # fi
+
+    # ... then guests -- gjest
+    original_gjest = pobj.get_element("gjest")
+    new_gjest = filter( lambda gjest:
+                        _update_stedkode(gjest,
+                                         "fakultetnr",
+                                         "instituttnr",
+                                         "gruppenr",
+                                         constants, stedkode),
+                        original_gjest )
+    if len(new_gjest) != len(original_gjest):
+        logger.info("<gjest> shrank for %s", pobj.fnr)
+    # fi
+
+    # Record the updates
+    pobj.set_element("tils", new_tils)
+    pobj.set_element("gjest", new_gjest)
+
+    # If at least one suitable OU exists, the person is "publishable" :)
+    return bool(new_tils or new_gjest)
+# end _update_stedkode
+
+
+
+def _update_stedkode(dictionary, fakultet, institutt, avdeling,
+                     constants, stedkode):
+    """
+    Check whether the OU identified by 
+
+    DICTIONARY[FAKULTET], DICTIONARY[FAKULTET], DICTIONARY[FAKULTET]
+
+    ... is 'publishable', and if it is not, find its parent that is.
+
+    NB! DICTIONARY is processed destructively.
+    """
+
+    try:
+        stedkode.clear()
+        stedkode.find_stedkode(dictionary[fakultet],
+                               dictionary[institutt],
+                               dictionary[avdeling],
+                               cereconf.DEFAULT_INSTITUSJONSNR)
+        start_id = stedkode.entity_id
+        # It updates stedkode
+        new_id = _find_suitable_OU(stedkode, start_id, constants)
+
+        if int(start_id) != int(new_id):
+            logger.info("FORCED OU id update: %s -> %s", start_id, new_id)
+        # fi
+
+        if new_id is not None:
+            (dictionary[fakultet], 
+             dictionary[institutt],
+             dictionary[avdeling]) = (stedkode.fakultet,
+                                      stedkode.institutt,
+                                      stedkode.avdeling)
+            return True
+        else:
+            return False
+        # fi
+    except Cerebrum.Errors.NotFoundError:
+        return False
+    # yrt
+
+    # NOTREACHED
+    return False
+# end _update_stedkode
+        
+
+
+def output_employment_information(writer, pobj, stedkode, constants):
     """
     Output all employment information pertinent to a particular person
     (POBJ). I.e. convert from <tils>-elements in LT dump to <Tilsetting>
@@ -840,7 +1008,7 @@ def output_employment_information(writer, pobj):
                          pobj.fnr, str(element))
             continue
         # fi
-        
+
         writer.startElement("Tilsetting", attributes)
         for output, index in [("Stillingskode", "stillingkodenr_beregnet_sist"),
                               ("StillingsTitle", "tittel"),
@@ -861,7 +1029,7 @@ def output_employment_information(writer, pobj):
 
 
 
-def output_guest_information(writer, pobj):
+def output_guest_information(writer, pobj, stedkode, constants):
     """
     Output all guest information pertinent to a particular person (POBJ).
     I.e. convert from <gjest>-elements in LT dump to <Gjest> elements in
@@ -884,7 +1052,6 @@ def output_guest_information(writer, pobj):
         # fi
 
         writer.startElement("Gjest", attributes)
-
         for output, index in [("guestFak", "fakultetnr"),
                               ("guestInstitutt", "instituttnr"),
                               ("guestGroup", "gruppenr"),
@@ -895,14 +1062,13 @@ def output_guest_information(writer, pobj):
                 output_element(writer, element[index], output)
             # fi
         # od
-
         writer.endElement("Gjest")
     # od
 # end output_guest_information
 
 
 
-def output_person(writer, pobj, db_person, db_account, constants):
+def output_person(writer, pobj, db_person, db_account, constants, stedkode):
     """
     Output all information pertinent to a particular person (POBJ).
 
@@ -936,12 +1102,19 @@ def output_person(writer, pobj, db_person, db_account, constants):
                      pobj.fnr)
         return 
     # yrt
-        
-    writer.startElement("Person",
-                        construct_person_attributes(writer,
+
+    employment_status = construct_person_attributes(writer,
                                                     pobj,
                                                     db_person,
-                                                    constants))
+                                                    constants,
+                                                    stedkode)
+    if not employment_status:
+        logger.error("Aiee! Person %s (%s) has no suitable <tils>/<gjest>",
+                     pobj.fnr, db_person.entity_id)
+        return
+    # fi
+        
+    writer.startElement("Person", pobj.get_element("attributes"))
     # surname
     output_element(writer,
                    db_person.get_name(constants.system_lt,
@@ -982,9 +1155,9 @@ def output_person(writer, pobj, db_person, db_account, constants):
         output_element(writer, contact[0].contact_value, "Telephone")
     # od
 
-    output_employment_information(writer, pobj)
+    output_employment_information(writer, pobj, stedkode, constants)
 
-    output_guest_information(writer, pobj)
+    output_guest_information(writer, pobj, stedkode, constants)
     
     writer.endElement("Person")
 # end 
@@ -1001,6 +1174,7 @@ def output_people(writer, db, person_file):
     db_person = Factory.get("Person")(db)
     constants = Factory.get("Constants")(db)
     db_account = Factory.get("Account")(db)
+    stedkode = Stedkode.Stedkode(db)    
 
     #
     # Sanity-checking
@@ -1013,15 +1187,13 @@ def output_people(writer, db, person_file):
                      c, getattr(constants,c), getattr(constants,c))
     # od
 
-    # NB! The callable object (2nd argument) is invoked each time the parser
-    # sees a </person> tag.
-    # 
     parser = LTPersonParser(person_file,
                             lambda p: output_person(writer = writer,
                                                     pobj = p,
                                                     db_person = db_person,
                                                     db_account = db_account,
-                                                    constants = constants))
+                                                    constants = constants,
+                                                    stedkode = stedkode))
     parser.parse()
 # end output_people    
 
