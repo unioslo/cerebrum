@@ -21,6 +21,7 @@
 
 import getopt
 import sys
+import time
 import os
 import re
 import ldap
@@ -46,7 +47,7 @@ const = Factory.get('Constants')(db)
 logging.fileConfig(cereconf.LOGGING_CONFIGFILE)
 logger = logging.getLogger("cronjob")
 # for debug:
-# logger = logging.getLogger("console")
+logger = logging.getLogger("console")
 # Hosts to connect to, set to None in a production environment:
 debug_hostlist = None
 SUDO_CMD = "/usr/bin/sudo"
@@ -187,7 +188,7 @@ def process_email_requests():
     for r in br.get_requests(operation=const.bofh_email_create):
         logger.debug("Req: email_create %d at %s",
                      r['request_id'], r['run_at'])
-        if r['run_at'] < br.now:
+        if keep_running() and r['run_at'] < br.now:
             hq = get_email_hardquota(r['entity_id'])
             if (cyrus_create(r['entity_id']) and
                 cyrus_set_quota(r['entity_id'], hq)):
@@ -199,7 +200,7 @@ def process_email_requests():
 
     for r in br.get_requests(operation=const.bofh_email_hquota):
         logger.debug("Req: email_hquota %s", r['run_at'])
-	if r['run_at'] < br.now:
+	if keep_running() and r['run_at'] < br.now:
             hq = get_email_hardquota(r['entity_id'])
             if cyrus_set_quota(r['entity_id'], hq):
                 br.delete_request(request_id=r['request_id'])
@@ -210,7 +211,7 @@ def process_email_requests():
 
     for r in br.get_requests(operation=const.bofh_email_delete):
         logger.debug("Req: email_delete %s", r['run_at'])
-	if r['run_at'] < br.now:
+	if keep_running() and r['run_at'] < br.now:
 	    try:
                 acc.clear()
                 acc.find(r['entity_id'])
@@ -242,7 +243,7 @@ def process_email_requests():
 
     for r in br.get_requests(operation=const.bofh_email_move):
         logger.debug("Req: email_move %s %d", r['run_at'], int(r['state_data']))
-	if r['run_at'] < br.now:
+	if keep_running() and r['run_at'] < br.now:
             # state_data is a request-id which must complete first,
             # typically an email_create request.
             if dependency_pending(r['state_data']):
@@ -292,7 +293,7 @@ def process_email_requests():
 
     for r in br.get_requests(operation=const.bofh_email_convert):
         logger.debug("Req: email_convert %s", r['run_at'])
-	if r['run_at'] < br.now:
+	if keep_running() and r['run_at'] < br.now:
             user_id = r['entity_id']
             try:
                 acc.clear()
@@ -520,7 +521,7 @@ def process_mailman_requests():
     for r in br.get_requests(operation=const.bofh_mailman_create):
         logger.debug("Req: mailman_create %d at %s",
                      r['request_id'], r['run_at'])
-        if r['run_at'] < br.now:
+        if keep_running() and r['run_at'] < br.now:
             try:
                 listname = get_address(r['entity_id'])
             except Errors.NotFoundError:
@@ -551,7 +552,7 @@ def process_mailman_requests():
     for r in br.get_requests(operation=const.bofh_mailman_add_admin):
         logger.debug("Req: mailman_add_admin %d at %s",
                      r['request_id'], r['run_at'])
-        if r['run_at'] < br.now:
+        if keep_running() and r['run_at'] < br.now:
             if dependency_pending(r['state_data']):
                 br.delay_request(r['request_id'])
                 continue 
@@ -570,7 +571,7 @@ def process_mailman_requests():
     for r in br.get_requests(operation=const.bofh_mailman_remove):
         logger.debug("Req: mailman_remove %d at %s",
                      r['request_id'], r['run_at'])
-        if r['run_at'] < br.now:
+        if keep_running() and r['run_at'] < br.now:
             listname = r['state_data']
             cmd = [SUDO_CMD, cereconf.WRAPPER_CMD, '-c',
                    'mailman', 'rmlist', listname, "dummy" ];
@@ -594,7 +595,7 @@ def get_address(address_id):
 def process_move_requests():
     br = BofhdRequests(db, const)
     for r in br.get_requests(operation=const.bofh_move_user):
-        if r['run_at'] < br.now:
+        if keep_running() and r['run_at'] < br.now:
             logger.debug("Req %d: bofh_move_user %d",
                          r['request_id'], r['entity_id'])
             try:
@@ -609,7 +610,12 @@ def process_move_requests():
                             account.account_name)
                 br.delete_request(request_id=r['request_id'])
                 continue
-            operator = get_account(r['requestee_id'])[0].account_name
+            try:
+                operator = get_account(r['requestee_id'])[0].account_name
+            except Errors.NotFoundError:
+                # The mvuser script requires a valid address here.  We
+                # may want to change this later.
+                operator = "cerebrum"
             group = get_group(account.gid_id, grtype='PosixGroup')
 
             spread = ",".join(["%s" % Constants._SpreadCode(int(a['spread']))
@@ -641,6 +647,8 @@ def process_move_requests():
         # student-auomatikken mangler foreløbig støtte for det.
         pass
     for r in br.get_requests(operation=const.bofh_delete_user):
+        if not keep_running():
+            break
         spread = r['state_data']
         account, uname, old_host, old_disk = get_account(
             r['entity_id'], spread=spread)
@@ -722,7 +730,15 @@ def get_group(id, grtype="Group"):
     group.find(id)
     return group
 
+def keep_running():
+    # If we've run for more than half an hour, it's time to go on to
+    # the next task.  This check is necessary since job_runner is
+    # single-threaded, and so this job will block LDAP updates
+    # etc. while it is running.
+    return time.time() - start_time < 30 * 60
+
 def main():
+    global start_time
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'dp',
                                    ['debug', 'process'])
@@ -730,13 +746,21 @@ def main():
         usage(1)
     if not opts:
         usage(1)
-    global debug
     for opt, val in opts:
         if opt in ('-d', '--debug'):
-            debug += 1
+            print "debug mode has not been implemented"
+            sys.exit(1)
         elif opt in ('-p', '--process'):
+            # We set start_time for each type of requests, so that a
+            # lot of home directory moves won't stop e-mail requests
+            # from being processed in a timely manner.
+            start_time = time.time()
             process_move_requests()
+            
+            start_time = time.time()
             process_email_requests()
+            
+            start_time = time.time()
             process_mailman_requests()
 
 def usage(exitcode=0):
