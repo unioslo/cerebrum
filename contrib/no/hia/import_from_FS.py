@@ -53,6 +53,10 @@ def write_hia_person_info(outfile):
     for a in hiaaktiv:
 	fix_float(a)
         f.write(xml.xmlify_dbrow(a,xml.conv_colnames(cols),'aktiv') + "\n")
+    #Studenter med opptak til studieprogram ved HiA
+    cols, hiaopptak = fs.GetOpptak()
+    for o in hiaopptak:
+	f.write(xml.xmlify_dbrow(o,xml.conv_colnames(cols),'opptak') + "\n")
     #Privatister ved HiA
     cols, hiaprivatist = fs.GetPrivatist()
     for p in hiaprivatist:
