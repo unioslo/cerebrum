@@ -26,99 +26,100 @@ __all__ = ['Attribute', 'Method', 'Builder']
 
 
 class Attribute(object):
-    def __init__(self, name, data_type, exceptions=None, write=False):
-        self.type = 'Attribute'
+    def __init__(self, name, data_type, sequence=False, exceptions=(), write=False):
         self.name = name
+        assert type(data_type) != str
         self.data_type = data_type
-        if exceptions is None:
-            exceptions = []
+        self.sequence = sequence
         self.exceptions = exceptions
         self.write = write
 
-        #FIXME: disse _må_ bort
-        self.get = None
-        self.set = None
+    def get_name_get(self):
+        return 'get_' + self.name
+
+    def get_name_set(self):
+        return 'set_' + self.name
+
+    def get_name_private(self):
+        return '_' + self.name
+
+    def get_name_load(self):
+        return 'load_' + self.name
+
+    def get_name_save(self):
+        return 'save_' + self.name
 
     def __repr__(self):
         return '%s(%s, %s)' % (self.__class__.__name__, `self.name`, `self.data_type`)
 
 class Method(object):
-    def __init__(self, name, data_type, args=None, exceptions=None, write=False):
-        self.type = 'Method'
+    def __init__(self, name, data_type, sequence=False, args=(), exceptions=(), write=False):
         self.name = name
+        assert type(data_type) != str
         self.data_type = data_type
-        if args is None:
-            args = []
-        self.args = args
-        if exceptions is None:
-            exceptions = []
+        self.sequence = sequence
+        self.args = []
+        for i in args:
+            if len(i) == 2:
+                name, data_type = i
+                sequence = False
+            else:
+                name, data_type, sequence = i
+            self.args.append((name, data_type, sequence))
         self.exceptions = exceptions
         self.write = write
 
     def __repr__(self):
         return '%s(%s, %s)' % (self.__class__.__name__, `self.name`, `self.data_type`)
 
-def create_lazy_get_method(var, load):
-    assert type(var) == str
-    assert type(load) == str
-
+def create_lazy_get_method(attr):
     def lazy_get(self):
-        lazy = object()
-        value = getattr(self, var, lazy)
+        lazy = object() # a unique object.
+        value = getattr(self, attr.get_name_private(), lazy)
         if value is lazy:
-            loadmethod = getattr(self, load, None)
+            loadmethod = getattr(self, attr.get_name_load(), None)
             if loadmethod is None:
                 raise NotImplementedError('load for this attribute is not implemented')
             loadmethod()
-            value = getattr(self, var, lazy)
-            assert value is not lazy
+            value = getattr(self, attr.get_name_private(), lazy)
+            assert value is not lazy # fails if loadmethod didnt load a new value
         return value
     return lazy_get
 
-def create_set_method(var):
-    assert type(var) == str
-
+def create_set_method(attr):
     def set(self, value):
         # make sure the variable has been loaded
-        orig = getattr(self, 'get_' + var)
+        orig = getattr(self, attr.get_name_get())
 
         if orig is not value: # we only set a new value if it is different
             # set the variable
-            setattr(self, '_' + var, value)
+            setattr(self,attr.get_name_private(), value)
             # mark it as updated
-            self.updated.add(var)
+            self.updated.add(attr)
     return set
 
-def create_readonly_set_method(var):
+def create_readonly_set_method(attr):
     def readonly_set(self, *args, **vargs):
-        raise Errors.ReadOnlyAttributeError('attribute %s is read only' % var)
+        raise Errors.ReadOnlyAttributeError('attribute %s is read only' % attr.name)
     return readonly_set
 
 class Builder(object):
+    cls_name = None
     primary = []
     slots = []
     method_slots = []
 
     def __init__(self, *args, **vargs):
-        if len(args) + len(vargs) > len(self.slots):
-            raise TypeError('__init__() takes at most %s argument%s (%s given)' % (len(self.slots) + 1,
-                            len(self.slots)>0 and 's' or '', len(args) + len(vargs) + 1))
-
-        cls = self.__class__
-        mark = '_%s%s' % (cls.__name__, id(self))
+        mark = '_%s%s' % (self.cls_name, id(self))
         # check if the object is old
         if hasattr(self, mark):
             return getattr(self, mark)
+
+        map = self.map_args(*args, **vargs)
         
-        slotNames = [i.name for i in cls.slots]
-
-        for key in vargs.keys():
-            if key not in slotNames:
-                raise TypeError("__init__() got an unexpected keyword argument '%s'" % key)
-
         # set all variables give in args and vargs
-        for var, value in zip(slotNames, args) + vargs.items():
-            setattr(self, '_' + var, value)
+        for attr, value in map.items():
+            setattr(self, attr.get_name_private(), value)
 
         # used to track changes
         if not hasattr(self, 'updated'):
@@ -127,12 +128,31 @@ class Builder(object):
         # mark the object as old
         setattr(self, mark, time.time())
 
+    def map_args(cls, *args, **vargs):
+        length = len(args) + len(vargs)
+        if length > len(cls.slots):
+            raise TypeError('takes at most %s argument%s (%s given)' % (
+                len(cls.slots) + 1,
+                cls.slots and 's' or '', length + 1))
+
+        slotMap = dict([(i.name, i) for i in cls.slots])
+
+        map = dict(zip(cls.slots, args))
+
+        for key, value in vargs.items():
+            attr = slotMap.get(key)
+            if attr is None:
+                raise TypeError("got an unexpected keyword argument '%s'" % key)
+            map[attr] = value
+
+        return map
+
     def save(self):
         """ Save all changed attributes """
 
         saved = sets.Set()
-        for var in self.updated:
-            save_method = getattr(self, 'save_' + var)
+        for attr in self.updated:
+            save_method = getattr(self, 'save_' + attr.name)
             if save_method not in saved:
                 save_method()
                 saved.add(save_method)
@@ -181,12 +201,9 @@ class Builder(object):
         load/save/get/set must take self as first argument.
 
         overwrite - decides whether to overwrite existing definitions
-        override  - decides whether to raise an exception when a definition of this
-                    attribute allready exists
 
         If the attribute does not exist, it will be added to the class
         If overwrite=True load/save/get/set will be overwritten if they allready exists.
-        If override=False and load/save/get/set exists, an exception will be raised.
 
         If get and set is None, the default behavior is for set and get to use
         self._`attribute.name`. load will then be run automatically by get if the
@@ -195,36 +212,31 @@ class Builder(object):
         If attribute is not write, save will not be used.
         """
 
-        var_private = '_' + attribute.name
-        var_get = 'get_' + attribute.name
-        var_set = 'set_' + attribute.name
-        var_load = 'load_' + attribute.name
-        var_save = 'save_' + attribute.name
+        var_private = attribute.get_name_private()
+        var_get = attribute.get_name_get()
+        var_set = attribute.get_name_set()
+        var_load = attribute.get_name_load()
+        var_save = attribute.get_name_save()
 
         if get is None:
-            get = create_lazy_get_method(var_private, var_load)
+            get = create_lazy_get_method(attribute)
 
         if set is None:
             if attribute.write:
-                set = create_set_method(attribute.name)
+                set = create_set_method(attribute)
             else:
-                set = create_readonly_set_method(attribute.name)
+                set = create_readonly_set_method(attribute)
 
         def quick_register(var, method):
-            if hasattr(cls, var) and not overwrite:
-                if not override:
+            if method is not None: # no use setting a to None
+                if hasattr(cls, var) and not overwrite:
                     raise AttributeError('%s already exists in %s' % (var, cls.__name__))
-            elif method is not None: # no use setting a to None
                 setattr(cls, var, method)
 
         quick_register(var_load, load)
         quick_register(var_save, save)
         quick_register(var_get, get)
         quick_register(var_set, set)
-
-        # save get/set to attribute for easy access
-        attribute.get = get
-        attribute.set = set
 
         if register:
             cls.slots.append(attribute)
@@ -236,23 +248,19 @@ class Builder(object):
         """
         if hasattr(cls, method.name) and not overwrite:
             raise AttributeError('%s already exists in %s' % (method.name, cls.__name__))
-        setattr(cls, method.name, meth_func)
-        # TODO: This needs work
+        setattr(cls, method.name, method_func)
+        cls.method_slots.append(method)
 
     register_method = classmethod(register_method)
 
     def build_methods(cls):
-        for attribute in cls.slots:
-            cls.register_attribute(attribute, get=attribute.get, set=attribute.set, override=True, register=False)
+        if cls.primary != cls.slots[:len(cls.primary)]:
+            cls.slots = cls.primary + cls.slots
+        for attr in cls.slots:
+            get = getattr(cls, attr.get_name_get(), None)
+            set = getattr(cls, attr.get_name_set(), None)
+            cls.register_attribute(attr, get=get, set=set, overwrite=True, register=False)
 
     build_methods = classmethod(build_methods)
-
-    def __repr__(self):
-        key = self._key[1]
-        if type(key) in (tuple, list):
-            key = [repr(i) for i in key]
-        else:
-            key = [repr(key)]
-        return '%s(%s)' % (self.__class__.__name__, ', '.join(key))
 
 # arch-tag: 246ee465-24a3-4541-a55a-7548356aebfb
