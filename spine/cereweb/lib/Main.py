@@ -22,7 +22,6 @@ from SideMenu import SideMenu
 from WorkList import WorkList
 #from ActivityLog import ActivityLog
 from templates.MainTemplate import MainTemplate
-from templates.TransactionsTemplate import TransactionsTemplate
 
 class Main(MainTemplate):
     """Creates the main page without any content.
@@ -45,7 +44,6 @@ class Main(MainTemplate):
         Creates worklist, and activitylog.
         Also prepares and displays any messages stored in the session.
         """
-        self.transactionbox = lambda: TransactionsTemplate().smallbox(req)
         self.menu = SideMenu()
         self.worklist = WorkList(req)
 #        self.activitylog = ActivityLog()

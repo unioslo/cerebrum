@@ -119,4 +119,5 @@ def transaction_decorator(method):
             except:
                 pass
     return transaction_decorator
+
 # arch-tag: 046d3f6d-3e27-4e00-8ae5-4721aaf7add6

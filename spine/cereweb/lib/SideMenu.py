@@ -44,7 +44,6 @@ class SideMenu(FixUrlMixin, Menu.Menu):
         self.makeGroup()
         #self.makeRoles()
         #self.makeSpread()
-        self.makeTransactions()
         self.makeOptions()
 
     def makeMain(self):
@@ -85,13 +84,6 @@ class SideMenu(FixUrlMixin, Menu.Menu):
         self.group.addItem("list", "List", "spread/list")
         self.group.addItem("view", "View", "spread/view?id=%s")
         self.group.addItem("edit", "Edit", "spread/edit?id=%s")
-
-    def makeTransactions(self):
-        self.transactions = self.addItem("transactions", "Transactions", "transactions")
-        self.transactions.addItem("list", "List", "transactions/list")
-        self.transactions.addItem("view", "View", "transactions/view?id=%s")
-        self.transactions.addItem("edit", "Edit", "transactions/edit?id=%s")
-        self.transactions.addItem("history", "History", "transactions/history?id=%s")
 
     def makeOptions(self):
         self.group = self.addItem("options", "Options", "options")
