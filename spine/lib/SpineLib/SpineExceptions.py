@@ -47,4 +47,7 @@ class AccessDeniedError(SpineException):
 class ClientProgrammingError(SpineException):
     """Raised when the client does something illegal."""
 
+class DebugException(SpineException):
+    """Exceptions sent to the client for debbuging purposes."""
+
 # arch-tag: 7c3b53d8-649b-4dfc-8582-1664e52b6e0e

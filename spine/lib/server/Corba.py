@@ -206,7 +206,12 @@ def _create_corba_method(method):
             import SpineIDL, types
 
             if getattr(e, '__class__', e) not in method.exceptions:
-                raise
+                #temp throw unknown exceptions to the client.
+                #remember to remove this, and in Builder.py before production.
+                exception = SpineIDL.Errors.DebugException
+                name = getattr(e, '__class__',str(e))
+                raise exception("Unkown error '%s': %s" % (name, str(e.args)))
+                #raise
 
             if len(e.args) > 0 and type(e.args[0]) is str:
                 explanation = e.args[0]
