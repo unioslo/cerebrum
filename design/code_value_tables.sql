@@ -1,3 +1,10 @@
+/* TBD: It might be a good idea to convert the type of all '_code'
+        columns from CHAR VARYING to NUMERIC.  Code values should not
+        in themselves carry any meaning; if there's a need for a
+        "short-name" corresponding to the various code values of a
+        specific type, this can be kept in another column than the one
+        used in FOREIGN KEYs. */
+
 /*	entity_type_code
 
   This table holds one entry per type of entity the system can collect
@@ -357,10 +364,10 @@ CREATE TABLE group_visibility_code
 );
 
 
-CREATE TABLE group_membership_operation_code
+CREATE TABLE group_membership_op_code
 (
   code		CHAR VARYING(16)
-		CONSTRAINT group_membership_operation_pk PRIMARY KEY,
+		CONSTRAINT group_membership_op_pk PRIMARY KEY,
   description	CHAR VARYING(512)
 		NOT NULL
 );
