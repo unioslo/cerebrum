@@ -16,3 +16,5 @@ fi
 
 rsync -avzL --delete --delete-excluded --exclude 'CVS/' --include  "*/" --include '*.css' --include '*.html' --include '*.png' --exclude "*" ${SRC_DIR}/ ${DEST_DIR}/html/
 rsync -avz ${SRC_DIR}/book.pdf $DEST_DIR
+
+# arch-tag: 63e9af1f-20fa-4b13-877f-081b24b1e671
