@@ -931,6 +931,19 @@ class PsycoPG(PostgreSQLBase):
         cdata['dsn_string'] = dsn_string
 
         super(PsycoPG, self).connect(dsn_string)
+        self.execute("SET CLIENT_ENCODING TO '%s'" % 'ISO_8859_1')
+        self.commit()
+
+    def cursor(self):
+        return PsycoPGCursor(self)
+
+class PsycoPGCursor(Cursor):
+    def execute(self, operation, parameters=()):
+        from mx import DateTime
+        for k in parameters:
+            if type(parameters[k]) is DateTime.DateTimeType:
+                parameters[k] = self._db._db_mod.TimestampFromMx(parameters[k])
+        return super(PsycoPGCursor, self).execute(operation, parameters)
 
 
 class OracleBase(Database):
