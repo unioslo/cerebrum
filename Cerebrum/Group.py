@@ -342,6 +342,12 @@ class Group(EntityName, Entity):
             res = difference(res, expand(d))
         return res
 
+
+    def list_all(self):
+        return self.query("""
+        SELECT group_id
+        FROM [:table schema=cerebrum name=group_info]""")
+
 # Python 2.3 has a 'set' module in the standard library; for now we'll
 # roll our own.
 def intersect(a, b):
