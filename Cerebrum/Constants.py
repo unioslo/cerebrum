@@ -241,6 +241,12 @@ class _CerebrumCode(DatabaseAccessor):
                           'desc': self._desc})
 
 
+    def delete(self):
+        self.sql.execute("""
+        DELETE FROM %s
+        WHERE %s=:code""" % (self._lookup_table, self._lookup_code_column),
+                         {'code': int(self)})
+
 class _EntityTypeCode(_CerebrumCode):
     "Mappings stored in the entity_type_code table"
     _lookup_table = '[:table schema=cerebrum name=entity_type_code]'
@@ -504,7 +510,7 @@ class ConstantsBase(DatabaseAccessor):
                 return v
         return None
 
-    def initialize(self, update=True):
+    def initialize(self, update=True, delete=False):
         # {dependency1: {class: [object1, ...]},
         #  ...}
         order = {}
@@ -520,7 +526,7 @@ class ConstantsBase(DatabaseAccessor):
                 order[dep][cls].append(attr)
         if not order.has_key(None):
             raise ValueError, "All code values have circular dependencies."
-        stats = {'total': 0, 'inserted': 0, 'updated': 0}
+        stats = {'total': 0, 'inserted': 0, 'updated': 0, 'deleted': 0}
         def insert(root, update, stats=stats):
             for cls in order[root].keys():
                 cls_code_count = 0
@@ -543,14 +549,20 @@ class ConstantsBase(DatabaseAccessor):
                     code_vals = [str(x) for x in order[root][cls]]
                     table_vals.sort()
                     code_vals.sort()
-                    raise RuntimeError, \
-                          ("Number of %s code attributes (%d)"
-                           " differs from number of %s rows (%d)\n"
-                           "In table: %s\nIn class def:%s\n") % (
-                        cls.__name__, cls_code_count,
-                        cls._lookup_table, len(rows),
-                        ",".join(table_vals),
-                        ",".join(code_vals))
+                    if delete:
+                        for c in table_vals:
+                            if c not in code_vals:
+                                cls(c).delete()
+                                stats['deleted'] += 1
+                    else:
+                        raise RuntimeError, \
+                              ("Number of %s code attributes (%d)"
+                               " differs from number of %s rows (%d)\n"
+                               "In table: %s\nIn class def:%s\n") % (
+                            cls.__name__, cls_code_count,
+                            cls._lookup_table, len(rows),
+                            ",".join(table_vals),
+                            ",".join(code_vals))
                 del order[root][cls]
                 if order.has_key(cls):
                     insert(cls, update)
@@ -558,7 +570,8 @@ class ConstantsBase(DatabaseAccessor):
         insert(None, update)
         if order:
             raise ValueError, "Some code values have circular dependencies."
-        return (stats['inserted'], stats['total'], stats['updated'])
+        return (stats['inserted'], stats['total'], stats['updated'],
+                stats['deleted'])
 
     def __init__(self, database):
         super(ConstantsBase, self).__init__(database)

@@ -44,6 +44,10 @@ def usage(exitcode=0):
         Make sure all code values for the current configuration of
         cereconf.CLASS_CONSTANTS have been inserted into the database.
         Does not create tables.
+  --update-constants
+        Like --only-insert-codes, but will remove constants that
+        exists in the database, but not in CLASS_CONSTANTS (subject to
+        FK constraints).
   --drop
         Perform only the 'drop' phase.
         WARNING: This will remove tables and the data they're holding
@@ -64,7 +68,7 @@ def main():
     global meta
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'dc:',
-                                   ['debug', 'help', 'drop',
+                                   ['debug', 'help', 'drop', 'update-codes',
                                     'only-insert-codes', 'country-file=',
                                     'extra-file=', 'stage='])
     except getopt.GetoptError:
@@ -94,6 +98,9 @@ def main():
             do_drop = True
         elif opt == '--only-insert-codes':
             insert_code_values(db)
+            sys.exit()
+        elif opt == '--update-codes':
+            insert_code_values(db, delete_extra_codes=True)
             sys.exit()
         elif opt == '--stage':
             stage = val
@@ -163,18 +170,18 @@ def read_country_file(fname, db):
             code_obj.insert()
     db.commit()
 
-def insert_code_values(db):
+def insert_code_values(db, delete_extra_codes=False):
     const = Factory.get('Constants')(db)
     print "Inserting code values."
     try:
-        new, total, updated = const.initialize()
+        new, total, updated, deleted = const.initialize(delete=delete_extra_codes)
     except db.DatabaseError:
         traceback.print_exc(file=sys.stdout)
         print "Error initializing constants, check that you include "+\
               "the sql files referenced by CLASS_CONSTANTS"
         sys.exit(1)
-    print "  Inserted %d new codes (new total: %d), updated %d" % (new, total,
-                                                                   updated)
+    print "  Inserted %d new codes (new total: %d), updated %d, deleted %d" % (
+        new, total, updated, deleted)
     db.commit()
 
 def makeInitialUsers(db):
