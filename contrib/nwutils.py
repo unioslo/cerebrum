@@ -24,12 +24,14 @@ import os
 import sys
 import time
 import ldap
+import pickle
 import cereconf
  
 from Cerebrum.Utils import Factory
 from Cerebrum import Entity
 from Cerebrum import Errors
 from Cerebrum import QuarantineHandler
+from ldap import modlist
  
 # Set up the basics.
 db = Factory.get('Database')()
@@ -42,6 +44,7 @@ disk = Factory.get('Disk')(db)
 host = Factory.get('Host')(db)
 quarantine = Entity.EntityQuarantine(db)
 ou = Factory.get('OU')(db)
+ent_name = Entity.EntityName(db)
 
 class LDAPConnection:
     __port = 0
@@ -58,11 +61,37 @@ class LDAPConnection:
             self.__scope = ldap.SCOPE_BASE
         self.__ldap_connection_handle = 0
     
+    
     def __connect( self, host, binddn, password, port=389 ):
-        handle = ldap.open( host, port )
+        handle = ldap.open( host )
+        handle.protocol_version = ldap.VERSION3
+        l_bind = 0
+        crypted = 0
         if handle:
-            handle.simple_bind_s( binddn, password )
-            print "Connected ok\n"
+            try:
+                if cereconf.TLS_CACERT_FILE is not None:
+                    handle.OPT_X_TLS_CACERTFILE = cereconf.TLS_CACERT_FILE
+                    crypted = 1
+            except:  pass
+            try:
+                if cereconf.TLS_CACERT_DIR is not None:
+                    handle.OPT_X_TLS_CACERTDIR = cereconf.TLS_CACERT_DIR
+                    crypted = 1
+            except:  pass
+            if crypted:
+                try:
+                    handle.start_tls_s()
+                    l_bind = handle.simple_bind(binddn,password)
+                    print "TLS connection established to %s" % host
+                except:
+                    print "Could not open TLS-connection to %s" % host
+            else:
+                try:
+                    l_bind = handle.simple_bind( binddn, password )
+                    print "Unencrypted connection to %s" % host
+                except:
+                    print "Could not open unencrypted connection to %s" % host
+        if l_bind:
             return handle
         return False
     
@@ -183,6 +212,8 @@ class LDAPConnection:
                 return False
         self.__modify( self.__ldap_connection_handle, dn, attrs )        
             
+            
+            
 
 def op_check(attrs, value_name, new_value):
     op = None
@@ -200,11 +231,88 @@ def now():
     return time.ctime(time.time())
 
 
-def get_user_info(account_id, account_name):
 
+def get_primary_affiliation(account_id, namespace):
     account.clear()
     account.find(account_id)
-    home_dir = find_home_dir(account_id, account_name)
+    name = account.get_name(namespace)
+    acc_types = account.get_account_types()
+    c = 0
+    current = 0
+    pri = 9999
+    for acc in acc_types:
+        if acc['priority'] < pri:
+            current = c
+            pri = acc['priority']
+            c = c+1
+    if acc_types:
+        return acc_types[current]['affiliation']
+    else:
+        return None
+
+
+
+# Creates the array we can feed directly to ldap, key'ed on full dn like the return value from ldap.search"
+def get_account_info(account_id, spread):
+    usr_attr = {}
+    ent_name.clear()
+    ent_name.find(account_id)
+    name = ent_name.get_name(co.account_namespace)
+    (first_n, last_n, account_disable, home_dir, affiliation, ext_id) = get_user_info(account_id, spread)
+    passwords = db.get_log_events(types=(int(co.account_password),), subject_entity=account_id)
+
+    pwd_rows = [row for row in passwords]
+    try:
+        pwd = pickle.loads(pwd_rows[-1].change_params)['password']
+    except:
+        type, value, tb = sys.exc_info()
+        print "Aiee! %s %s" % (str(type), str(value))
+        pwd = ''
+    try:
+        pri_ou = get_primary_ou(account_id, co.account_namespace)
+    except Errors.NotFoundError:
+        print "Unexpected error /me thinks"
+    if not pri_ou:
+        print "WARNING: no primary OU found for",name,"in namespace", co.account_namespace
+        pri_ou = cereconf.NW_DEFAULT_OU_ID
+    crbrm_ou = id_to_ou_path(pri_ou , cereconf.NW_LDAP_ROOT)
+    ldap_ou = get_ldap_usr_ou(crbrm_ou, affiliation)
+    ldap_dn = unicode('cn=%s,' % name, 'iso-8859-1').encode('utf-8') + ldap_ou
+
+    attrs = []
+    attrs.append( ("ObjectClass", "user" ) )
+    attrs.append( ("givenName", unicode(first_n, 'iso-8859-1').encode('utf-8') ) )
+    attrs.append( ("sn", unicode(last_n, 'iso-8859-1').encode('utf-8') ) )
+    fullName = unicode(first_n, 'iso-8859-1').encode('utf-8') +" "+ unicode(last_n, 'iso-8859-1').encode('utf-8')
+    attrs.append( ("fullName",  fullName) )
+    if home_dir is not None:
+        utf8_home = unicode(home_dir, 'iso-8859-1').encode('utf-8')
+        attrs.append( ("ndsHomeDirectory",  utf8_home) )
+    attrs.append( ("description","Cerebrum;%d;%s" % (ext_id, now()) ) )
+    attrs.append( ("passwordAllowChange", cereconf.NW_CAN_CHANGE_PW) )
+    attrs.append( ("loginDisabled", account_disable) )
+    passwd = unicode(pwd, 'iso-8859-1').encode('utf-8')
+    attrs.append( ("userPassword", passwd) )
+    return (ldap_dn,attrs)
+
+
+
+def get_account_dict(dn_id, spread):
+    return_dict = {}
+    (ldap_dn, entry) = get_account_info(dn_id, spread)
+    for attr in entry:
+        return_dict[attr[0]] = attr[1]
+    print return_dict
+    return(return_dict)
+
+
+
+def get_user_info(account_id, spread):
+
+    affiliation = None
+    account.clear()
+    account.find(account_id)
+    home_dir = find_home_dir(account_id, account.account_name, spread)
         
     try:
         account.clear()
@@ -212,20 +320,32 @@ def get_user_info(account_id, account_name):
         person_id = account.owner_id
         person.clear()
         person.find(person_id)
+        affiliation = get_primary_affiliation(account_id, co.account_namespace)
+            
+        full_name = ' '
+        ext_id = 0
         for ss in cereconf.NW_SOURCE_SEARCH_ORDER:
             try:
-                first_n = person.get_name(int(getattr(co, ss)), int(co.name_first))
-                last_n = person.get_name(int(getattr(co, ss)), int(co.name_last))
-                full_name = first_n +' '+ last_n
+                if full_name is ' ':
+                    first_n = person.get_name(int(getattr(co, ss)), int(co.name_first))
+                    last_n = person.get_name(int(getattr(co, ss)), int(co.name_last))
+                    full_name = first_n +' '+ last_n
             except Errors.NotFoundError:
                 pass
-        if full_name == '':
+            try:
+                if affiliation == co.affiliation_student:
+                    ext_id = int(person.get_external_id(co.system_fs, co.externalid_studentnr)[0]['external_id'])
+                else: 
+                    ext_id = int(person.get_external_id(int(getattr(co, ss)))[0]['external_id'])
+            except Errors.NotFoundError:
+                pass
+        if full_name == ' ':
             print "WARNING: getting persons name failed, account.owner_id:",person_id
     except Errors.NotFoundError:
-        print "WARNING: find on person or account failed, aduser_id:", account_id        
+        print "WARNING: find on person or account failed, user_id:", account_id        
     
 
-    account_disable = '0'
+    account_disable = 'FALSE'
     # Check against quarantine.
     quarantine.clear()
     quarantine.find(account_id)
@@ -238,11 +358,12 @@ def get_user_info(account_id, account_name):
         try:
             qh = QuarantineHandler.QuarantineHandler(db, qua)
             if qh.is_locked():           
-                account_disable = '1'
+                account_disable = 'TRUE'
         except KeyError:        
             print "WARNING: missing QUARANTINE_RULE"    
-
-    return (first_n, last_n, account_disable, home_dir)
+    if (account.is_expired()):
+        account_disable = 'TRUE'
+    return (first_n, last_n, account_disable, home_dir, affiliation, ext_id)
 
 
 def get_primary_ou(account_id,namespace):
@@ -274,6 +395,33 @@ def get_nw_ou(ldap_path):
     return ou_list
 
 
+
+def get_ldap_group_ou(grp_name):
+    # Default
+    utf8_ou = unicode("ou=%s,%s" % (cereconf.NW_LOST_AND_FOUND, cereconf.NW_LDAP_ROOT), 'iso-8859-1').encode('utf-8')
+    if grp_name.find('stud') != -1:
+        if cereconf.NW_LDAP_STUDGRPOU != None:
+            utf8_ou = unicode(cereconf.NW_LDAP_STUDGRPOU, 'iso-8859-1').encode('utf-8')
+    elif grp_name.find('ans') != -1:
+        if cereconf.NW_LDAP_ANSGRPOU != None:
+            utf8_ou = unicode(cereconf.NW_LDAP_ANSGRPOU, 'iso-8859-1').encode('utf-8')
+    return utf8_ou
+
+
+def get_ldap_usr_ou(crbm_ou, aff):
+
+    if cereconf.NW_LDAP_STUDOU != None and aff == co.affiliation_student:
+        utf8_ou = unicode(cereconf.NW_LDAP_STUDOU, 'iso-8859-1').encode('utf-8')
+    elif cereconf.NW_LDAP_ANSOU != None and aff != co.affiliation_student:
+        utf8_ou = unicode(cereconf.NW_LDAP_ANSOU, 'iso-8859-1').encode('utf-8')
+    elif crbm_ou != None:
+        utf8_ou = unicode(crbm_ou, 'iso-8859-1').encode('utf-8')
+    else:
+        utf8_ou = unicode("ou=%s,%s" % (cereconf.NW_LOST_AND_FOUND, cereconf.NW_LDAP_ROOT), 'iso-8859-1').encode('utf-8')
+    return utf8_ou
+
+
+
 def get_crbrm_ou(ou_id):
 
     try:        
@@ -297,23 +445,37 @@ def id_to_ou_path(ou_id,ourootname):
     return crbrm_ou
 
 
-def find_home_dir(account_id, account_name):
+
+
+
+
+def find_home_dir(account_id, account_name, spread):
     try:
         account.clear()
         account.find(account_id)
+        tmp = account.get_home(spread=spread)
+        if tmp['home'] is not None:
+            return tmp['home']
         disk.clear()
-        disk.find(account.disk_id)
-        host.clear()
-        host.find(disk.host_id)
-        home_srv = host.name
-        return "%s" % disk.name
+        disk.find(tmp['disk_id'])
     except Errors.NotFoundError:
-        print "WARNING: Failure finding the disk of account ",account_id
+         return None
+    return "%s/%s" % (disk.path, account_name)
         
 
 def find_login_script(account):
     #This value is a specific UIO standard.
     return "users\%s.bat" % (account)
+
+
+def touchable(attrs):
+    """Given attributes and their values we determine if we are allowed to
+       modify this object"""
+    if attrs.has_key('description'):
+        if attrs['description'][0][0:8] == 'Cerebrum':
+           return True
+    return False
+
 
 
 if __name__ == '__main__':
