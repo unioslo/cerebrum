@@ -575,7 +575,12 @@ def generate_person(filename=None):
                         pers_string +="eduPersonAffiliation: %s\n" % affili_stu
                         affili_str += affili_stu
 	    pers_string += "uid: %s\n" % entity_name
-	    passwd = row['auth_data']
+	    if row['auth_data'] is not None:
+		passwd = row['auth_data']
+	    elif row['auth_crypt'] is not None:
+		passwd = row['auth_crypt']
+	    else:
+		pass
 	    if passwd:
 		if row['quarantine_type'] is not None:
             	    qh = QuarantineHandler.QuarantineHandler(Cerebrum, 
