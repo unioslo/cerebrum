@@ -24,11 +24,13 @@ dersom man skal ha kode for en spesifik FS-versjon.
 Disse klassene er ment brukt ved å instansiere klassen FS
 """
 
-import re
 import time
+import xml.sax
 
 from Cerebrum import Database
 from Cerebrum import Errors
+from Cerebrum.Utils import Factory
+from Cerebrum.extlib import sets
 
 # TODO: En del funksjoner finnes både som get_ og list_ variant.  Det
 # kunne være en fordel om man etablerte en mekanisme for å slå sammen
@@ -1005,7 +1007,7 @@ class Undervisning(FSObject):
         WHERE fp.fodselsdato = p.fodselsdato AND
               fp.personnr = p.personnr AND
               fp.status_aktiv = 'J'
-        """ % (self.termin, self.year)
+        """ % (self.semester, self.year)
         return self.db.query(qry)
 
     def get_fagperson_semester(self, fnr, pnr, institusjonsnr, fakultetnr,
