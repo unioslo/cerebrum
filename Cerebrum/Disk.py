@@ -135,6 +135,11 @@ class Disk(Entity):
                                   'host_id': host_id})
         self.find(entity_id)
 
+    def list(self):
+        return self.query("""
+        SELECT disk_id
+        FROM [:table schema=cerebrum name=disk_info]""")
+
 class Host(Entity):
     __read_attr__ = ('__in_db',)
     __write_attr__ = ('name', 'description')
