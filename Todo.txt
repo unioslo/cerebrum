@@ -81,11 +81,11 @@
                defaultadressen til brukeren.
   Dependencies:
   Assigned to: 
-  Resources:
-  Cost:
-  Status: Ikke påbegynt, punktet må flyttes fra NIS.
+  Resources: Hvem som helst
+  Cost: (ikke mye)
+  Status: Trenger kort diskusjon
   Due date:
-  Priority: 2
+  Priority: 2.1
 
 * AD
 ** OU-struktur på grupper
@@ -186,10 +186,10 @@
   Dependencies:
   Assigned to: fredrivo
   Resources: pcadm
-  Cost:
-  Status:
+  Cost: (lite)
+  Status: Er testet på dummy. Testmiljø for windows er i ferd med å bli etablert
   Due date: 2004-12-01
-  Priority: 1
+  Priority: 1.5
 ** Fjerne krav om å oppbevare klartekstpassord i Cerebrum
   Description:
   Dependencies:
@@ -334,15 +334,15 @@
                registreres at de er aktive som fagpersoner ved den
                enheten de er tilsatt.
   Dependencies:
-  Assigned to: baardj
-  Resources:
-  Cost:
+  Assigned to: runefro
+  Resources: baardj
+  Cost: (lite)
   Due date: 2004-11-15
 	    (Hvor kommer denne datoen fra? Er det realistisk?  Hvis
 	    nei, bør ikke dette dokumentet publiseres med denne
 	    fristen.)
-  Priority: 1
-  Status: Ukjent
+  Priority: 1.1
+  Status: Pending et par administrative avgjørelser
 
 ** Synkronisere steddata fra HR til FS via Cerebrum
   Description: Ved UiO er HR autoritativ for OU-informasjon, og FS er
@@ -517,7 +517,7 @@
   Assigned to: hmeland
   Resources: baardj
   Cost:
-  Status:
+  Status: Done
   Due date: 2004-12-31
   Priority: 1
 
@@ -649,12 +649,12 @@
                dette, slik at denne må skrives om.
   Dependencies: Avhengig av endringer i den import vi gjør fra LT
                 (senere SAP/POLS).
-  Assigned to: igorr
-  Resources: igorr, baardj, runefro, jazz
+  Assigned to: Roger
+  Resources: igorr, baardj
   Cost: 200
-  Status:
+  Status: Venter på Rogers ansettelse 1.2.2005
   Due date:
-  Priority: 2
+  Priority: 2.1
  
 
 * UiO: UA
@@ -754,7 +754,7 @@
   Due date: 2005-02-01
   Priority: 1
 
-** HiA: Bør CF-eksport oppdateres?
+** HiA: Bør CF-eksport oppdateres? JA. Den må generaliseres.
 
   Description: I dag er HiAs CF-eksport skreddersydd for HiA.  Dersom
 	       en generalisert eksport lages, bør man vurdere hvorvidt
@@ -765,8 +765,8 @@
 	       kontraktene sier og hvem som har ansvaret for dagens
 	       situasjon. :-)
   Dependencies: Studieprogrammer, studieretning, kull og klasse
-  Assigned to:
-  Resources:
+  Assigned to: Margrete
+  Resources: Igor, Kjetil, Harald, Bård
   Cost:
   Status:
   Due date:
@@ -785,7 +785,7 @@
   Cost:
   Status:
   Due date:
-  Priority:
+  Priority: 3
 
 ** IMS enterprise (+extensions?)
   Description: Det må etableres en generisk eksport-modul som gitt ett
@@ -805,7 +805,7 @@
   Assigned to: hmeland
   Resources: LMS-tjenestegruppen, baardj
   Cost:
-  Status:
+  Status: Må diskuteres på eget møte om IMS
   Due date:
   Priority: 2
 
@@ -867,12 +867,12 @@
 ** Restore av bruker
   Description: Hvordan gjenopplives en slettet bruker?
   Dependencies:
-  Assigned to:
-  Resources:
+  Assigned to: Bård
+  Resources: (Jazz), Rune
   Cost:
-  Status:
+  Status: Må spesifiseres
   Due date:
-  Priority: 2
+  Priority: 2.1
 *** Gjenoppliving av Cerebrum-database-data for bruker
 *** Restore av hjemmeområdedata
 *** Restore av maildata
@@ -903,7 +903,7 @@
   Cost:
   Status:
   Due date:
-  Priority: 2
+  Priority: 2.9
 
 ** Flytting av personer/brukere ved avvikling av steder
   Description: Lage script for å avhjelpe omorganisering; oppdatere
@@ -924,10 +924,10 @@
 	       featuren (med input-data som ofte er fritekst) må
 	       lages.
   Dependencies:
-  Assigned to:
-  Resources:
-  Cost:
-  Status:
+  Assigned to: Rune
+  Resources: Hvem som helst
+  Cost: (ikke mye)
+  Status: Fordrer et par avgjørelser i forkant
   Due date:
   Priority: 2
 
@@ -993,11 +993,11 @@
 	       changelogges, slik at bl.a. quicksync blir umulig.
   Dependencies:
   Assigned to: hmeland
-  Resources:
-  Cost:
-  Status:
+  Resources: 
+  Cost: (lite)
+  Status: Påbegynnes over nyttår
   Due date: 2004-12-01
-  Priority: 1
+  Priority: 1.2
 
 ** Quicksync av epostdata
   Description: Merk at manglende ChangeLog-støtte ekskluderer mulighet
@@ -1014,12 +1014,12 @@
   Description: Etablere eksport av grupper på format som kan brukes av
 	       Mailman.  Hvilken Mailman-versjon sikter vi på?
   Dependencies:
-  Assigned to:
+  Assigned to: Kjetil
   Resources:
   Cost:
-  Status:
+  Status: Utredning av om KTHs ting kan brukes må gjøres først
   Due date:
-  Priority: 2
+  Priority: 2.8
 
 
 * Karantener
@@ -1032,7 +1032,7 @@
   Assigned to:
   Resources:
   Cost:
-  Status: Design påbegynt
+  Status: Done
   Due date:
   Priority: 2
 
@@ -1043,12 +1043,12 @@
 	       blir vanskelig å holde oversikt/plukke ut signifikante
 	       feil.
   Dependencies:
-  Assigned to:
-  Resources:
+  Assigned to: Igor
+  Resources: Harald, Rune, Kjetil/Mathias
   Cost:
-  Status:
+  Status: Møte avholdt, forsøkt utredet. Nytt møte må til for forståelse.
   Due date: (Skal være spesifisert 2004-11-15, implementert 2005-02-01)
-  Priority: 1 
+  Priority: 1.5
 
 ** Generalisert XML-import 
   Description: Finne/definere format(er) for import-scriptene våre
@@ -1056,9 +1056,10 @@
                hvilket autoritativt system de kommer fra.  Hvilke
                skjemaer trenger vi, hvor rike skal de være, må vi lage
                helt nye...
+               Denne er todelt: Bård Entreprise og IMS. Se IMS-punkt.
   Dependencies:
-  Assigned to:
-  Resources:
+  Assigned to: Bård
+  Resources: Mathias, Rune
   Cost:
   Status:
   Due date:
@@ -1084,11 +1085,12 @@
 	       rutiner som tar tak i denne og sender ut
 	       varsel/påminnelse/bestiller sletting/etc. automatisk.
 	       Andre ting som har expire_date må også håndteres.
+               Alias: rydd&vask av gamle data.
   Dependencies:
-  Assigned to:
-  Resources:
+  Assigned to: Rune 
+  Resources:  Bård
   Cost:
-  Status:
+  Status: Bård skal utrede intensjonen, og hva som må ryddes i før det påbegynnes.
   Due date:
   Priority: 2
 
@@ -1116,8 +1118,10 @@
   Due date:
   Priority: 3 (evt. 2 dersom bofhd ikke skal gå via metaserver)
 
-** UiO: Få på plass webgrensesnitt for flere tjenester
-*** UiO: Lage liste over hvilke tjenester som trengs
+** Få på plass webgrensesnitt for flere tjenester (ønsket er også
+   infoside som it-personell kan få opp.
+
+*** Lage liste over hvilke tjenester som trengs
   Description:
   Dependencies:
   Assigned to:
@@ -1125,8 +1129,8 @@
   Cost:
   Status:
   Due date:
-  Priority:
-*** UiO: Implementere nødvendige tjenester
+  Priority: 2.5
+*** Implementere nødvendige tjenester
   Description:
   Dependencies:
   Assigned to:
@@ -1134,7 +1138,8 @@
   Cost:
   Status:
   Due date:
-  Priority:
+  Priority: 2.5
+
 
 ** BOFH-forbedringer, f.eks. alias.
   Description: Hvilke andre ting enn "alias"-eksempelet omfattes av
@@ -1301,10 +1306,10 @@
 	       psycopg-driveren, men da denne har et annet type-begrep
 	       må det antagelig litt mer kode inn i Database.py.
   Dependencies:
-  Assigned to:
-  Resources: runefro, hmeland
+  Assigned to: runefro
+  Resources:  kjetilth, hmeland
   Cost:
-  Status:
+  Status: Klart, lite møte før prodsetting
   Due date:
   Priority: 2
 
@@ -1314,10 +1319,10 @@
 	       Python 2.2.1, da tidligere releases ikke er verifisert
 	       å fungere med noen nyere Python.
   Dependencies:
-  Assigned to:
-  Resources:
+  Assigned to: runefro
+  Resources: Kjetil, hmeland
   Cost:
-  Status:
+  Status: Klart, lite møte før prodsetting
   Due date:
   Priority: 2
 
@@ -1338,9 +1343,9 @@
 	       men vi vet for lite om detaljer.
   Dependencies:
   Assigned to: mraaum
-  Resources:
+  Resources: Roger, Bård, kjetilo
   Cost:
-  Status:
+  Status: venter på ansettelse, trenger møte
   Due date:
   Priority:
 
