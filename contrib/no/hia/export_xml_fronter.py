@@ -131,12 +131,17 @@ def load_acc2name():
 	    l_name, f_name = get_names(pers['person_id'])
 	else:
 	    l_name, f_name = pers['fs_l_name'],pers['fs_f_name']
+        if (isinstance(pers.get('local_part'), str)
+            and isinstance(pers.get('domain'), str)):
+            email = '@'.join((pers['local_part'], pers['domain']))
+        else:
+            email = ""
 	ret[pers['account_id']] = {
             'NAME': pers['entity_name'],
             'FN': pers['name'],
             'GIVEN': f_name,
             'FAMILY': l_name,
-            'EMAIL': '@'.join((pers['local_part'], pers['domain'])),
+            'EMAIL': email,
             'USERACCESS': 2,
             'PASSWORD': 5,
             'EMAILCLIENT': 1}
