@@ -114,13 +114,13 @@ class DatabaseClass(GroBuilder, Searchable):
 
         tables = {}
         for attr in self.primary:
-            if not ininstance(attr, DatabaseClass):
+            if not isinstance(attr, DatabaseAttr):
                 continue
             if attr.table not in tables:
                 tables[attr.table] = {}
-            tables[attr.table][self._get_real_name(attr)] = getattr(self, 'get_'+attr.name)
+            tables[attr.table][self._get_real_name(attr)] = attr.to_db(getattr(self, 'get_'+attr.name)())
         
-        for table in table_order or tables.keys():
+        for table in (table_order or tables.keys()):
             sql = "DELETE FROM %s WHERE " % table
             tmp = []
             for attr in tables[table].keys():
@@ -132,23 +132,13 @@ class DatabaseClass(GroBuilder, Searchable):
         map = cls.map_args(*args, **vargs)
         tables = cls._get_sql_tables()
 
-        primary_keys = {}
-        for attr in cls.primary:
-            if not isinstance(attr, DatabaseClass):
-                continue
-            primary_keys[attr.name] = map[attr.name]
-        
-        for table in cls.db_table_order or tables.keys():
+        for table in (cls.db_table_order or tables.keys()):
             tmp = {}
-            for i, attr in tables.items():
-                if i == table and attr.name in map:
-                    tmp[cls._get_real_name(attr)] = map[attr.name]
+            for attr in [attr for attr in tables[table] if attr in map.keys()]:
+                tmp[cls._get_real_name(attr, table)] = attr.to_db(map[attr])
             sql = "INSERT INTO %s (%s) VALUES (:%s)" % (
-                table, ", ".join(tmp.keys()), ", :".join(tmp.keys()))
+                    table, ", ".join(tmp.keys()), ", :".join(tmp.keys()))
             db.execute(sql, tmp)
-
-        new_obj = cls(**primary_keys)
-        return new_obj
 
     _create = classmethod(_create)
 

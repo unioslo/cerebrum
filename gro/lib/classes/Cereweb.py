@@ -17,36 +17,84 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+from Builder import Method
 from GroBuilder import GroBuilder
 from DatabaseClass import DatabaseAttr, DatabaseClass
+from Entity import Entity
+from Date import Date
+
+import Registry
+registry = Registry.get_registry()
 
 __all__ = ['CerewebOption','CerewebMotd']
 
-class CerewebOption(DatabaseClass, GroBuilder):
-    table = "[:table schema=cerebrum name=cereweb_option]"
-    primary = [DatabaseAttr('option_id', 'long', table, from_db=long)]
-    slots = primary + [DatabaseAttr('entity_id', 'long', table, from_db=long),
-                       DatabaseAttr('key', 'string', table, write=True),
-                       DatabaseAttr('value', 'string', table, write=True)]
+option_table = "cereweb_option"
 
-    def build_methods(cls):
-        super(CerewebOption, cls).build_methods()
-        super(DatabaseClass, cls).build_methods()
+class CerewebOption(DatabaseClass):
+    primary = [DatabaseAttr('id', option_table, int)]
+    slots = [
+        DatabaseAttr('entity', option_table, Entity),
+        DatabaseAttr('key', option_table, str, write=True),
+        DatabaseAttr('value', option_table, str, write=True)
+    ]
+    db_attr_aliases = {
+        str(option_table): {'id': 'option_id', 'entity': 'entity_id'}
+    }
+    method_slots = [Method('delete', None)]
 
-    build_methods = classmethod(build_methods)
+    def delete(self):
+        self._delete()
 
-class CerewebMotd(DatabaseClass, GroBuilder):
-    table = "cereweb_motd"
-    primary = [DatabaseAttr('motd_id','long', table, from_db=long)]
-    slots = primary + [DatabaseAttr('create_date', 'string', table),
-                       DatabaseAttr('creator', 'long', table, from_db=long),
-                       DatabaseAttr('subject', 'string', table),
-                       DatabaseAttr('message','string', table)]
+registry.register_class(CerewebOption)
 
-    def build_methods(cls):
-        super(CerewebMotd, cls).build_methods()
-        super(DatabaseClass, cls).build_methods()
+motd_table = "cereweb_motd"
 
-    build_methods = classmethod(build_methods)
+class CerewebMotd(DatabaseClass):
+    primary = [DatabaseAttr('id', motd_table, int)]
+    slots = [
+        DatabaseAttr('create_date', motd_table, Date),
+        DatabaseAttr('creator', motd_table, Entity),
+        DatabaseAttr('subject', motd_table, str),
+        DatabaseAttr('message', motd_table, str)
+    ]
+    db_attr_aliases = {
+        str(motd_table): {'id': 'motd_id'}
+    }
+    method_slots = [Method('delete', None)]
+
+    def delete(self):
+        self._delete()
+
+registry.register_class(CerewebMotd)
+
+class CerewebCommands(GroBuilder):
+    method_slots = [
+        Method('create_cereweb_motd', CerewebMotd, write=True,
+                    args=[('subject', str), ('message', str)]),
+        Method('create_cereweb_option', CerewebOption, write=True,
+                    args=[('entity', Entity), ('key', str), ('value', str)])
+    ]
+
+    def __init__(self):
+        GroBuilder.__init__(self, nocache=True)
+
+    def create_cereweb_motd(self, subject, message):
+        db = self.get_database()
+        id = int(db.nextval('cereweb_seq'))
+        creator = self.get_writelock_holder().get_client()
+        CerewebMotd._create(db, id, creator=creator, subject=subject, message=message)
+        new_obj = CerewebMotd(id)
+        new_obj.lock_for_writing(self.get_writelock_holder())
+        return new_obj
+
+    def create_cereweb_option(self, entity, key, value):
+        db = self.get_database()
+        id = int(db.nextval('cereweb_seq'))
+        CerewebOption._create(db, id, entity, key, value)
+        new_obj = CerewebOption(id)
+        new_obj.lock_for_writing(self.get_writelock_holder())
+        return new_obj
+
+registry.register_class(CerewebCommands)
 
 # arch-tag: b89d1172-fbfc-4b63-959b-4689ce1ff025
