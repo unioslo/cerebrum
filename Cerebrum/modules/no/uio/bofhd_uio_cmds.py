@@ -14,10 +14,12 @@ import re
 import sys
 import time
 import os
+from mx import DateTime
 
 import cereconf
 from Cerebrum import Account
 from Cerebrum import Cache
+from Cerebrum import Database
 from Cerebrum import Disk
 from Cerebrum import Entity
 from Cerebrum import Errors
@@ -36,6 +38,7 @@ from Cerebrum.modules.bofhd.auth import BofhdAuth, BofhdAuthOpSet, AuthConstants
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.uio import PrinterQuotas
 from Cerebrum.modules.no.uio import bofhd_uio_help
+from Cerebrum.modules.no.uio.access_FS import FS
 from Cerebrum.modules.templates.letters import TemplateHandler
 
 class BofhdExtension(object):
@@ -1012,12 +1015,64 @@ class BofhdExtension(object):
     
     # person student_info
     all_commands['person_student_info'] = Command(
-        ("person", "student_info"), PersonId(), perm_filter='can_get_student_info')
+        ("person", "student_info"), PersonId(),
+        fs=FormatSuggestion([
+        ("Studieprogrammer: %s, %s, tildelt=%s->%s privatist: %s", (
+        "studprogkode", "studierettstatkode", "dato_tildelt:%s" % format_day,
+        "dato_gyldig_til:%s" % format_day, "privatist")),
+        ("Eksamensmeldinger: %s (%s), %s", ("ekskode", "programmer", "dato:%s" % format_day)),
+        ("Utd. plan: %s, %s, %s, %s", (
+        "studieprogramkode", "terminkode_bekreft", "arstall_bekreft",
+        "dato_bekreftet:%s" % format_day)),
+        ("Semesterreg: %s, %s, betalt: %s, endret: %s", (
+        "regformkode", "betformkode", "dato_betaling:%s" % format_day,
+        "dato_regform_endret:%s" % format_day))
+        ]),
+        perm_filter='can_get_student_info')
     def person_student_info(self, operator, person_id):
         person = self._get_person(*self._map_person_id(person_id))
         self.ba.can_get_student_info(operator.get_entity_id(), person)
-        # TODO: We don't have an API for this yet
-        raise NotImplementedError, "Feel free to implement this function"
+        fnr = person.get_external_id(id_type=self.const.externalid_fodselsnr,
+                                     source_system=self.const.system_fs)
+        if not fnr:
+            raise CerebrumError("No matching fnr from FS")
+        fodselsdato, pnum = fodselsnr.del_fnr(fnr[0]['external_id'])
+        har_opptak = {}
+        ret = []
+        db = Database.connect(user="ureg2000", service="FSPROD.uio.no",
+                              DB_driver='Oracle')
+        fs = FS(db)
+        for row in fs.GetStudentStudierett(fodselsdato, pnum)[1]:
+            har_opptak["%s" % row['studieprogramkode']] = \
+                            row['status_privatist']
+            ret.append({'studprogkode': row['studieprogramkode'],
+                        'studierettstatkode': row['studierettstatkode'],
+                        'dato_tildelt': DateTime.DateTimeFromTicks(row['dato_tildelt']),
+                        'dato_gyldig_til': DateTime.DateTimeFromTicks(row['dato_gyldig_til']),
+                        'privatist': row['status_privatist']})
+
+        for row in fs.GetStudentEksamen(fodselsdato, pnum)[1]:
+            programmer = []
+            for row2 in fs.GetEmneIStudProg(row['emnekode'])[1]:
+                if har_opptak.has_key("%s" % row2['studieprogramkode']):
+                    programmer.append(row2['studieprogramkode'])
+            ret.append({'ekskode': row['emnekode'],
+                        'programmer': ",".join(programmer),
+                        'dato': DateTime.DateTimeFromTicks(row['dato_opprettet'])})
+                      
+        for row in fs.GetStudentUtdPlan(fodselsdato, pnum)[1]:
+            ret.append({'studieprogramkode': row['studieprogramkode'],
+                        'terminkode_bekreft': row['terminkode_bekreft'],
+                        'arstall_bekreft': row['arstall_bekreft'],
+                        'dato_bekreftet': DateTime.DateTimeFromTicks(row['dato_bekreftet'])})
+
+        for row in fs.GetStudentSemReg(fodselsdato, pnum)[1]:
+            ret.append({'regformkode': row['regformkode'],
+                        'betformkode': row['betformkode'],
+                        'dato_betaling': DateTime.DateTimeFromTicks(row['dato_betaling']),
+                        'dato_regform_endret': DateTime.DateTimeFromTicks(row['dato_regform_endret'])})
+        db.close()
+        return ret
 
     # person user_priority
     all_commands['person_set_user_priority'] = Command(
