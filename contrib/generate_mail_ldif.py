@@ -57,11 +57,34 @@ def read_addr():
     counter = 0
     curr = now()
     mail_addr = Email.EmailAddress(db)
+    # Handle "magic" domains.
+    #   local_part@magic_domain
+    # defines
+    #   local_part@[all domains with category magic_domains],
+    # overriding any entry for that local_part in any of those
+    # domains.
+    glob_addr = {}
+    for dom_catg in (co.email_domain_category_uio_globals,):
+        dom_code = int(dom_catg)
+        domain = str(dom_catg)
+        glob_addr[dom_code] = {}
+        # Fill glob_addr[numeric code value][local_part]
+        for row in mail_addr.list_email_addresses_ext(domain):
+            glob_addr[dom_code][row['local_part']] = row
+        # Alias glob_addr[domain name] to glob_addr[numeric code value]
+        for row in mail_dom.list_email_domain_with_category(dom_catg):
+            glob_addr[row['domain']] = glob_addr[dom_code]
     for row in mail_addr.list_email_addresses_ext():
         counter += 1
         if verbose and (counter % 10000) == 0:
             print "  done %d list_email_addresses_ext(): %d sec." % (
                 counter, now() - curr)
+        # If this address is in a domain that is subject to overrides
+        # from "magic" domains, and the local_part is overridden, get
+        # 'row' from the override-domain and use that.
+        if glob_addr.has_key(row['domain']) and \
+           glob_addr[row['domain']].has_key(row['local_part']):
+            row = glob_addr[row['domain']][row['local_part']]
         a_id, t_id = [int(row[x]) for x in ('address_id', 'target_id')]
         addr = "%s@%s" % (row['local_part'], row['domain'])
         targ2addr.setdefault(t_id, []).append(addr)
