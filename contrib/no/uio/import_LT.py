@@ -307,7 +307,7 @@ def main():
     global db, new_person, const, ou, logger, gen_groups, group, cere_list,\
 							 include_del, test_list
     try:
-        opts,args = getopt.getopt(sys.argv[1:], 'vp:g:d', ['verbose', 'person-file',
+        opts,args = getopt.getopt(sys.argv[1:], 'vp:gd', ['verbose', 'person-file',
                                                           'group','include_delete'])
     except getopt.GetoptError:
         usage(1)

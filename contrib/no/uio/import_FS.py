@@ -293,7 +293,7 @@ def main():
 							old_aff, include_delete
     verbose = 0
     include_delete = False
-    opts, args = getopt.getopt(sys.argv[1:], 'vp:s:g:d', ['verbose', 'person-file=',
+    opts, args = getopt.getopt(sys.argv[1:], 'vp:s:gd', ['verbose', 'person-file=',
                                                        'studieprogram-file=',
                                                         'generate-groups','include-delete'])
     personfile = default_personfile
