@@ -427,18 +427,26 @@ class JobQueue(object):
     def job_done(self, job_name, pid):
         if pid is not None:
             self._running_jobs.remove((job_name, pid))
-        self._last_run[job_name] = time.time()
 
         if self._started_at.has_key(job_name):
             self.logger.debug("Completed [%s/%i] after %f seconds" % (
                 job_name,  pid or -1, self._last_duration[job_name]))
             self._last_duration[job_name] = (
-                self._last_run[job_name] - self._started_at[job_name])
+                time.time() - self._started_at[job_name])
         else:
             self._run_queue.remove(job_name)
             self.logger.debug("Completed [%s/%i] (start not set)" % (
                 job_name,  pid or -1))
-        self.db_qh.update_last_run(job_name, self._last_run[job_name])
+        if (pid is None or
+            (self._known_jobs[job_name].call and
+             self._known_jobs[job_name].call.wait)):
+            self.db_qh.update_last_run(job_name, self._last_run[job_name])
+            self._last_run[job_name] = time.time()
+        else:
+            # This means that an assertRunning job has terminated.
+            # Don't update last_run as this would delay an attempt to
+            # restart the job.
+            pass
 
     def get_run_queue(self):
         return self._run_queue

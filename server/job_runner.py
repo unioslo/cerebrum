@@ -216,8 +216,8 @@ class JobRunner(object):
                         continue
                     if job_ref.call.setup():
                         child_pid = job_ref.call.execute()
+                        self.job_queue.job_started(job_name, child_pid)
                         if job_ref.call.wait:
-                            self.job_queue.job_started(job_name, child_pid)
                             num_running += 1
                 # Mark jobs that we should not wait for as completed
                 if (job_ref.call is None or not job_ref.call.wait):
