@@ -2925,7 +2925,9 @@ class BofhdExtension(object):
                               "gecos:         %s\n" +
                               "shell:         %s",
                               ('uid', 'dfg_posix_gid', 'dfg_name', 'gecos',
-                               'shell'))]))
+                               'shell')),
+                             ("Quarantined:   %s",
+                              ("quarantined",))]))
     def user_info(self, operator, accountname):
         is_posix = False
         try: 
@@ -2959,6 +2961,8 @@ class BofhdExtension(object):
             ret['gecos'] = account.gecos
             ret['shell'] = str(self.num2const[int(account.shell)])
         # TODO: Return more info about account
+        if account.get_entity_quarantine():
+            ret['quarantined'] = 'Yes'
         return ret
 
 
@@ -3143,6 +3147,8 @@ class BofhdExtension(object):
             raise CerebrumError, "Database error: %s" % m
         operator.store_state("user_passwd", {'account_id': int(account.entity_id),
                                              'password': password})
+        if account.get_entity_quarantine():
+            return "OK.  Warning: user has quarantine"
         return "OK"
     
     # user posix_create
