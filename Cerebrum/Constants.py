@@ -141,7 +141,6 @@ class _CerebrumCode(DatabaseAccessor):
                                          self._lookup_table,
                                          self._lookup_code_column),
                                         {'code': code})
-        return self.str
 
     def __str__(self):
         return self.str
