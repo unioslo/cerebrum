@@ -12,12 +12,13 @@ from SimpleXMLRPCServer import SimpleXMLRPCServer
 import re
 import socket
 # import xmlrpclib
-from Cerebrum import Database
-from Cerebrum import Person
-from Cerebrum import Utils
+from Cerebrum import Database,Person,Utils,Account
 import sys
 import traceback
-import dumputil
+# import dumputil
+import pprint
+
+pp = pprint.PrettyPrinter(indent=4)
 
 class ExportedFuncs:
 
@@ -49,7 +50,7 @@ class ExportedFuncs:
             # Import module, create an instance of it, and update
             # mapping between command and the module implementing it.
             # Sub-modules may override functions.
-            modfile = line
+            modfile = line.strip()
             mod = Utils.dyn_import(modfile)
             modref = mod.BofhdExtention(self.Cerebrum)
             self.modules[modfile] = modref
@@ -132,7 +133,15 @@ class ExportedFuncs:
         modfile = self.command2module[args[0]]
         func = getattr(self.modules[modfile], args[0])
         try:
-            ret = func(user, *args[1:])
+            new_args = ()
+            for n in range(1, len(args)):            # TODO: Don't do this this way
+                if args[n] == 'XNone':
+                    new_args += (None,)
+                else:
+                    new_args += (args[n],)
+            ret = func(user, *new_args)
+            print "process ret: "
+            pp.pprint(ret)
             return self.process_returndata(ret)
         except Exception:
             # ret = "Feil: %s" % sys.exc_info()[0]
@@ -222,7 +231,9 @@ class CallableFuncs:
         self.ef = exportedFuncs
         # The format of this dict is documented in adminprotocol.html
         self.all_commands = {
-            'get_person' : ('person', 'info', 'number', 1)
+            'get_person' : ('person', 'info', 'number', 1),
+            'user_lbdate' : ('user', 'lbdate', 'number', 1),
+            'user_create' : ('user', 'create', 'person_id', 'np_type', 'expire_date', 'uname', 'uid', 'gid', 'gecos', 'home', 'shell', 0)
             }
         self.name_codes = {}
         for t in self.ef.person.get_person_name_codes():
@@ -237,9 +248,53 @@ class CallableFuncs:
 
     def get_format_suggestion(self, cmd):
         suggestions = {
-            'get_person' : "Navn     : %20s\nFødt     : %20s\nKjønn    : %20s\nperson id: %20s\nExport-id: %20s¤name;birth;gender;pid;expid" 
+            'get_person' : "Navn     : %20s\nFødt     : %20s\nKjønn    : %20s\nperson id: %20s\nExport-id: %20s¤name;birth;gender;pid;expid",
+            'user_lbdate' : 'Fødselsnr(todo, currently person_id) : %10s    Navn: %s¤p_id;name',
+            'user_create' : 'Passord: %s¤password'
             }
         return suggestions.get(cmd)
+
+    def user_lbdate(self, user, date):
+        ret = ()
+        person = self.ef.person
+        for p_id in person.find_persons_by_bdate(date):
+            print "Looking for %s" % p_id.person_id
+            person.find(p_id.person_id)
+            name = person.get_name(person.const.system_lt, person.const.name_full)  # TODO: SourceSystem
+            ret = ret + ({'p_id' : p_id.person_id, 'name' : name},)
+        if len(ret) == 0:
+            return ()
+        return ret
+
+    def user_create(self, user, person_id, np_type, expire_date, uname, uid, gid, gecos, home, shell):
+        creator_id = 888888    # TODO: Set this
+        # person.find(person_id)
+        try:
+            account = Account.Account(self.ef.Cerebrum)  # TODO: Flytt denne
+            account.clear()
+            account.populate(self.ef.person.const.entity_person,  # TODO: definer egen e.l
+                             person_id,
+                             np_type, 
+                             creator_id, expire_date)
+
+            # populate_posix_user(user_uid, gid, gecos, home, shell):
+            account.populate_posix_user(uid, gid, gecos,
+                                        home, shell)
+            
+            account.affect_domains(self.ef.person.const.entity_accname_default)
+            account.populate_name(self.ef.person.const.entity_accname_default, uname)
+            
+            passwd = "dette er et MD5 passord"
+            account.affect_auth_types(self.ef.person.const.auth_type_md5)
+            account.populate_authentication_type(self.ef.person.const.auth_type_md5, passwd)
+            
+            account.write_db()
+            self.ef.Cerebrum.commit()
+            return {'password' : passwd}
+        except Database.DatabaseError:
+            self.ef.Cerebrum.rollback()
+            # TODO: Log something here
+        raise "Something went wrong"
 
     def get_person(self, user, fnr):
         person = self.ef.person
