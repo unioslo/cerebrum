@@ -144,7 +144,7 @@ public class CommandLine {
 	    throw new ParseException("Missing end )", i);
         return ret;
     }
-    
+
     String promptArg(String prompt, boolean addHist) throws IOException {
 	if(jbofh.guiEnabled) {
             return jbofh.mainFrame.promptArg(prompt, addHist);
@@ -152,15 +152,9 @@ public class CommandLine {
         while (true) {
 	    Vector oldHist = new Vector();
 	    // A readline thingy where methods were non-static would have helped a lot.
-	    if(! addHist) Readline.getHistory(oldHist);
             terminatorTask.startWaiting();
-            String ret =  Readline.readline(prompt);
+            String ret =  Readline.readline(prompt, addHist);
             terminatorTask.stopWaiting();
-	    if(! addHist) {
-		Readline.clearHistory();
-		for (Enumeration e = oldHist.elements() ; e.hasMoreElements() ;) 
-		    Readline.addToHistory((String) e.nextElement());
-	    }
 	    if(ret == null) ret = "";
 	    return ret;
         }
