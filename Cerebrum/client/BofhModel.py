@@ -161,10 +161,15 @@ class Entity(Abstract.Entity):
                                        qtype, until)
 
     
-    def get_history(self):
+    def get_history(self, max_entries=None):
         # get the history log, and some helping information on entities and
         # chang he types
-        (history, entities, change_types) = self.server.entity_history(self.id)
+        if max_entries:
+            entries = self.server.entity_history(self.id, max_entries)
+        else:
+            entries = self.server.entity_history(self.id)
+                
+        (history, entities, change_types) = entries
 
         # Use entity info-dicts to create all entities that are referred to
         # within history
