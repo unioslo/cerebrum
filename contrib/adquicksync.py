@@ -22,6 +22,7 @@
 import sys
 import re
 import pickle
+import getopt
 
 import cerebrum_path
 import cereconf
@@ -126,7 +127,7 @@ def move_account(entity_id,params):
 	    account_name = id_to_name(entity_id,'user')
 	    if not account_name:
 	        return False         	
-	    new_home = adutils.find_home_dir(entity_id, account_name)
+	    new_home = adutils.find_home_dir(entity_id, account_name, disk_spread)
        	    sock.send('ALTRUSR&%s/%s&hdir&%s\n' % ( cereconf.AD_DOMAIN, account_name, new_home ))  
             if sock.read() != ['210 OK']:
                 print 'WARNING: Failed update home directory ', account_name
@@ -359,19 +360,32 @@ def id_to_name(id,entity_type):
     return obj_name
     
         
-def get_args():
-    global delete_users
-    global delete_groups
-    for arrrgh in sys.argv:
-        if arrrgh == '--delete_users':
-            delete_users = 1
-        elif arrrgh == '--delete_groups':
-            delete_groups = 1
-
+def usage(exitcode=0):
+    print """Usage: [options]
+    --delete_users
+    --delete_groups
+    --disk_spread spread (mandatory)
+    """
+    sys.exit(exitcode)
 
 if __name__ == '__main__':
+    try:
+        opts, args = getopt.getopt(sys.argv[1:], '',
+                                   ['delete_users', 'delete_groups',
+                                    'disk_spread='])
+    except getopt.GetoptError:
+        usage(1)
+    disk_spread = None
+    for opt, val in opts:
+        if opt == '--delete_users':
+            delete_users = True
+        elif opt == '--delete_groups':
+            delete_groups = True
+        elif opt == '--disk_spread':
+            disk_spread = getattr(co, val)  # TODO: Need support in Util.py
+    if not disk_spread:
+        usage(1)
     sock = adutils.SocketCom()  
-    arg = get_args()    
     quick_user_sync()
     sock.close()
     
