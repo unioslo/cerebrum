@@ -22,11 +22,12 @@
 
 """
 This file is a HiA-specific extension of Cerebrum. It contains code which
-assigns affiliations to people, based on their employments records from SAP.
+assigns affiliations/affiliation stati to people, based on their employments
+records from SAP.
 
-Please not that this script is guessing when it comes to populating account
-types based on affiliations. It is a crude first approximation until
-baardj/HiA can specify the task better.
+Furthermore, we have to consider the SAP data file containing person
+information. If a person's end date is in the past, we remove all
+ANSATT affiliations pertaining to that person. 
 """
 
 import cerebrum_path
@@ -41,9 +42,11 @@ from Cerebrum.modules.no import fodselsnr
 import sys
 import getopt
 import string
+import time
 
 FIELDS_IN_ROW_PERSON = 36
 FIELDS_IN_ROW_EMPLOYMENT = 9
+NOW = time.strftime("%Y%m%d")
 
 
 
@@ -96,56 +99,140 @@ def locate_person(person, sap_id, const):
 
 
 
-def _internal_process(stream, ou, person, const, **keys):
+def locate_name(person, const):
     """
-    An help function for dealing affiliations.
-
-    Keyword arguments are:
-
-    fields_in_row      -- the number of columns per line in STREAM.
-    orgeh_index        -- the column number (0 indexed) of a column containing
-                          ORGEH part of SAP OU id.
-    fo_kode_index      -- Similar to orgeh_index, except it's for GSBER part.
-    person_id_index    -- Similar to orgeh_index, except it's for person id
-    affiliation_status -- Person affiliation status for affiliation 'ansatt'.
-
-    All keyword arguments are required.
+    Try to find a suitable SAP name for the person.
     """
+
+    name = "n/a"
+    for variant in (const.name_full, const.name_last):
+        try:
+            name = person.get_name(const.system_sap, variant)
+        except Errors.NotFoundError:
+            pass
+        # yrt
+    # od
+
+    return name
+# end locate_name
+
+
+
+def remove_affiliations(expired_employees, person, const):
+    """
+    Go through all records in EXPIRED_EMPLOYEES and 
+    """
+
+    for sap_person_id in expired_employees:
+        # delete all ANSATT affiliations.
+        # FIXME: HOW??
+
+        if not locate_person(person, sap_person_id, const):
+            logger.warn("Person with SAP id %s expired, but it does not " +
+                        "exist in Cerebrum", sap_person_id)
+            continue
+        # fi
+
+        name = locate_name(person, const)
+        fnr = person.get_external_id(const.system_sap,
+                                     const.externalid_fodselsnr)
+        if fnr:
+            fnr = fnr[0]["external_id"]
+        else:
+            fnr = "n/a"
+        # fi
+
+        # Now we fetch all affiliations for this person and explicitely
+        # delete all affiliation_ansatt entries.
+        for row in person.get_affiliations():
+            db_aff = row["affiliation"]
+            db_deleted = row["deleted_date"]
+
+            # It's not an ANSATT affiliation
+            if int(db_aff) != int(const.affiliation_ansatt):
+                continue
+            # fi
+
+            # It has already been deleted
+            if db_deleted:
+                continue
+            # fi
+
+            try:
+                person.delete_affiliation(row["ou_id"], row["affiliation"],
+                                          row["source_system"])
+            except:
+                logger.error("Deleting ANSATT affiliation for ... failed")
+            else:
+
+                logger.info("Removed ANSATT affiliation (status %s) for "
+                            "person (sap id: %s, fnr: %s, name: %s) : " +
+                            "end date: %s",
+                            row["status"], sap_person_id, fnr, name,
+                            expired_employees[sap_person_id])
+            # yrt
+        # od
+
+        person.write_db()
+    # od
+# end remove_affiliations
+    
+
+
+def adjust_affiliations(stream, ou, person, const, expired):
+    """
+    Adjust affiliations for all employees.
+
+    STREAM  -- SAP data file with employment information
+    EXPIRED -- dictionary mapping SAP person ids to termination dates.
+    """
+
+    orgeh_index = 1
+    fo_kode_index = 4
+    person_id_index = 0
+    aff_index = 3
 
     for row in stream:
         fields = sap_row_to_tuple(row)
 
-        assert len(fields) == keys["fields_in_row"], \
-               "Aiee! Wrong number of fields: %d != %d" % (len(fields),
-                                                           keys["fields_in_row"])
+        assert len(fields) == FIELDS_IN_ROW_EMPLOYMENT, \
+               ("Aiee! Wrong number of fields: %d != %d (row %s)" %
+                (len(fields), FIELDS_IN_ROW_EMPLOYMENT), row)
 
-        if not locate_ou(ou, fields[keys["orgeh_index"]],
-                         fields[keys["fo_kode_index"]], const):
+        if not locate_ou(ou, fields[orgeh_index],
+                         fields[fo_kode_index], const):
             continue
         # fi
 
-        if not locate_person(person, fields[keys["person_id_index"]], const):
+        if not locate_person(person, fields[person_id_index], const):
             continue
         # fi
 
         # At this point, we have an ou and a person and we can create an
         # affiliation.
-        affiliation_status = keys["affiliation_status"](fields)
+        affiliation_status = get_affiliation_status(fields, aff_index, const)
         if affiliation_status is None:
             continue
         # fi
         
-        person.add_affiliation(ou.entity_id,
-                               const.affiliation_ansatt,
-                               const.system_sap, 
-                               affiliation_status)
+        if (fields[person_id_index] not in expired or
+            expired[fields[person_id_index]] >= NOW):
+            person.add_affiliation(ou.entity_id,
+                                   const.affiliation_ansatt,
+                                   const.system_sap, 
+                                   affiliation_status)
+            logger.debug("Added affiliation %s (status %s) to person %s",
+                         const.affiliation_ansatt,
+                         affiliation_status,
+                         person.entity_id)
+        # fi
+
         person.write_db()
-        logger.debug("Added affiliation %s (status %s) to person %s",
-                     const.affiliation_ansatt,
-                     keys["affiliation_status"](fields),
-                     person.entity_id)
     # od
-# end 
+
+    # Process expired employees
+    remove_affiliations(expired, person, const)
+# end adjust_affiliations
 
 
 
@@ -171,51 +258,99 @@ def get_affiliation_status(fields, index, const):
 
 
 
+def build_expired_employees(person_file, person, const):
+    """
+    Scan PERSON_FILE and build a dictionary mapping SAP person id's to
+    termination dates (formatted as a string, YYYYMMDD) for people whose
+    termination date is in the past.
+
+    Returns the dictionary on success and None on failure. 
+    """
+    
+    person_id_index = 0
+    date_index = 32
+    fo_kode = 25
+
+    result = dict()
+
+    try:
+        stream = open(person_file, "r")
+    except IOError:
+        logger.warn("Cannot open file '%s'", person_file)
+        return None
+    # yrt
+
+    for row in stream:
+        fields = sap_row_to_tuple(row)
+
+        assert len(fields) == FIELDS_IN_ROW_PERSON, \
+               ("Aiee! Wrong number of fields: %d != %d (row: %s)" %
+                (len(fields), FIELDS_IN_ROW_PERSON, row))
+
+        person_id, expire_date = fields[person_id_index], fields[date_index]
+
+        if (fields[fo_kode] and 
+            int(SAPForretningsOmradeKode(fields[fo_kode])) ==
+            int(const.sap_eksterne_tilfeldige)):
+            logger.debug("Ignored external person: «%s»", person_id)
+            continue 
+        # fi
+
+        if expire_date < NOW:
+            result[ person_id ] = expire_date
+
+            name = "n/a"
+            if locate_person(person, person_id, const):
+                name = locate_name(person, const)
+            # fi
+            
+            logger.info("Person %s (sap id: %s) has expired: %s < %s (now)",
+                        name, person_id, expire_date, NOW)
+        # fi
+    # od
+
+    stream.close()
+    return result
+# end build_valid_employees
+
+
+
 def process_affiliations(db, person_file, employment_file):
     """
-    Scan PERSON and EMPLOYMENT files and assign respective affiliations to
+    Scan PERSON and EMPLOYMENT files and adjust respective affiliations of
     their owners:
 
-    -> PERSON => affiliation_ansatt, affiliation_status_ansatt_primaer
+    -> PERSON => Used to decide when to remove affiliations from people
     -> EMPLOYMENT => affiliation_ansatt,
                      affiliation_status_ansatt_{tekadm, vitenskaplig}
+
+    The idea is to create a mapping of which person records are still valid
+    based on their 'expiration date' in PERSON_FILE. Those that are valid
+    get affiliations from EMPLOYMENT_FILE. Those that are not, get all their
+    SAP affiliations removed.
     """
 
     ou = Factory.get("OU")(db)
     person = Factory.get("Person")(db)
     const = Factory.get("Constants")(db)
 
-    try:
-        stream = open(person_file, "r")
-    except IOError:
-        logger.warn("Cannot open file '%s'", person_file)
-    else:
-        _internal_process(stream, ou, person, const,
-                          fields_in_row = FIELDS_IN_ROW_PERSON,
-                          orgeh_index = 11,
-                          fo_kode_index = 25,
-                          person_id_index = 0,
-                          affiliation_status =
-                            lambda x: const.affiliation_status_ansatt_primaer)
-        stream.close()
-    # yrt
+    expire_information = build_expired_employees(person_file, person, const)
 
+    if expire_information is None:
+        logger.error("Cannot create employees' SAP end dates. Aborting")
+        return
+    # fi
+    
     try:
         stream = open(employment_file, "r")
     except IOError:
         logger.warn("Cannot open file '%s'", employment_file)
-    else:
-        _internal_process(stream, ou, person, const,
-                          fields_in_row = FIELDS_IN_ROW_EMPLOYMENT,
-                          orgeh_index = 1,
-                          fo_kode_index = 4,
-                          person_id_index = 0,
-                          affiliation_status =
-                            # 4th field (index 3) contains SAP.STELL, which can
-                            # be used to determine the affiliation status
-                            lambda x: get_affiliation_status(x, 3, const))
-        stream.close()
+        return
     # yrt
+
+    adjust_affiliations(stream, ou, person, const, expire_information)
+
+    stream.close()
 # end process_affiliations
 
 
@@ -235,7 +370,14 @@ def deal_account_types(db):
 
     affiliation = affiliation_ansatt,
     status = affiliation_status_ansatt_primaer
+
+    NB! This function is no longer used.
     """
+
+    logger.error( "deal_account_types functionality is no longer available" )
+    return
+
+    # NOTREACHED
 
     person = Factory.get("Person")(db)
     account = Factory.get("Account")(db)
