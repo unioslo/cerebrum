@@ -117,6 +117,8 @@ class ProfileMatcher(object):
         self.matching_selectors = {}
         self._process_person_info(student_info)
         self.logger.debug("Matching profiles: %s" % self.matches)
+        if len(self.matches) == 0:
+            raise ValueError, "No matching profiles"
         self.settings = {}
         self.toplevel_settings = {}
         self._resolve_matches()
