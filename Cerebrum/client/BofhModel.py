@@ -310,11 +310,11 @@ class Account(Entity, Abstract.Account):
     def _load_entity_info(self, info):
         super(Account, self)._load_entity_info(info)
         self.name = info['name']
-        self.owner_id = info['owner_id']
-        self.creator_id = info['creator_id']
         self.create_date = info['create_date']
         self.expire_date = info['expire_date']
         self.spread = info['spread']
+        self.owner_id = info['owner_id']
+        self.creator_id = info['creator_id']
 
     def fetch_by_name(cls, name):
         pass
@@ -331,6 +331,12 @@ class Account(Entity, Abstract.Account):
     def set_expire_date(self, expire_date):
         pass
 
+    def get_owner_object(self):
+        return fetch_object_by_id(self.server, self.owner_id)
+
+    def get_creator_object(self):
+        return fetch_object_by_id(self.server, self.creator_id)
+    
     def get_auth_data(self, method=None):
         pass
 
