@@ -60,3 +60,15 @@ class OU(Entity, EntityContactInfo, EntityPhone, EntityAddress, OUStructure):
         VALUES (:1, :2, :3, :4, :5, :6, :7)""", ENTITY_TYPE_OU, new_id,
                      name, acronym, short_name, display_name, sort_name)
         return new_id
+
+    def find(self, ou_id):
+        """Associate the object with the OU whose identifier is OU_ID.
+
+        If OU_ID isn't an existing OU identifier,
+        NotFoundError is raised.
+
+        """
+        self.ou_id, self.name, self.acronym, self.short_name, self.display_name, self.sort_name = self.query_1("""
+        SELECT ou_id, name, acronym, short_name, display_name, sort_name
+        FROM cerebrum.ou_info
+        WHERE ou_id=:1""", ou_id)
