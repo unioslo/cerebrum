@@ -76,8 +76,8 @@ def create_user(fnr, profile):
     except Errors.NotFoundError:
         logger.warn("OUCH! person %s not found" % fnr)
         return None
-    full_name = person.get_name(const.system_cached, const.name_full)
-    first_name, last_name = full_name.split(" ", 1)
+    first_name = person.get_name(const.system_cached, const.name_first)
+    last_name = person.get_name(const.system_cached, const.name_last)
     account = Factory.get('Account')(db)
     uname = account.suggest_unames(const.account_namespace,
                                    first_name, last_name)[0]
