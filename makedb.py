@@ -1,4 +1,4 @@
-#!/usr/bin/env python2.2
+#!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 
 # Copyright 2002, 2003 University of Oslo, Norway
@@ -257,7 +257,7 @@ def runfile(fname, db, debug, phase):
             (type_id, for_phase) = stmt.split(":", 1)
             if type_id <> 'category':
                 raise ValueError, \
-                      "Illegal type_id in file %s: %s" % (fname, i)
+                      "Illegal type_id in file %s: %s" % (fname, type_id)
             for_rdbms = None
             if for_phase == 'metainfo':
                 state = SET_METAINFO

@@ -1,4 +1,4 @@
-#!/usr/bin/python2.2
+#!/usr/bin/python
 # -*- coding: iso-8859-1 -*-
 
 # Copyright 2003 University of Oslo, Norway
