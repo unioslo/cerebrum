@@ -1750,10 +1750,10 @@ class PersonEmailMixin(Person.Person):
         target_type = int(self.const.email_target_account)
         if id_type is not None:
             id_type = int(id_type)
-            select_col = "pei.external_id"
-            main_table = "[:table schema=cerebrum name=person_external_id] pei"
-            primary_col = "pei.person_id"
-            where = "pei.id_type = :id_type"
+            select_col = "eei.external_id"
+            main_table = "[:table schema=cerebrum name=entity_external_id] eei"
+            primary_col = "eei.entity_id"
+            where = "eei.id_type = :id_type"
             key_col = 'external_id'
         else:
             entity_type = int(entity_type)
