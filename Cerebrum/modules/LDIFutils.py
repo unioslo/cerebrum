@@ -186,42 +186,51 @@ def end_ldif_outfile(tree, outfile, default_file=None):
 
 
 def map_spreads(spreads, return_type=None):
-    """Convert a spread name/code or sequence of spreads to an int or list.
+    """Convert a spread-name/code or sequence of such to an int or list.
 
-    The input spreads may be Constants.py names or Cerebrum spread names/codes.
-    If return_type is int or list, return that type.
-    if return_type is None, return an int if 1 spread, a list otherwise.
+    See Cerebrum.modules.LDIFutils.map_constants() for further details.
     """
-    arg = spreads
-    if spreads is not None:
-        if not isinstance(spreads, (list, tuple)):
-            spreads = (spreads,)
-        spreads = map(_spread_code, spreads)
-        if return_type is not list and len(spreads) == 1:
-            spreads = spreads[0]
-    if return_type is int and not isinstance(spreads, (int, long)):
-        raise _Errors.PoliteException("Expected 1 spread: %r" % (arg,))
-    return spreads
+    return map_constants('_SpreadCode', spreads, return_type)
 
-_const = _SpreadCode = None
+def map_constants(constname, values, return_type=None):
+    """Convert a constant-name/code or sequence of such to an int or list.
 
-def _spread_code(spread):
-    global _const, _SpreadCode
+    constname is a Constants.py subclass of _CerebrumCode, e.g. '_SpreadCode'.
+    The input values may be Constants.py names or Cerebrum names/codes.
+    if return_type is None, return an int if 1 value, a list otherwise.
+    If return_type is int or list, return that type, but fail if
+    return_type is int and there is not exactly one input value.
+    """
+    arg = values
+    if values is not None:
+        if not isinstance(values, (list, tuple)):
+            values = (values,)
+        values = map(_decode_const, (constname,) * len(values), values)
+        if return_type is not list and len(values) == 1:
+            values = values[0]
+    if return_type is int and not isinstance(values, (int, long)):
+        raise _Errors.PoliteException("Expected 1 %s: %r" % (constname, arg))
+    return values
+
+_const = _Constants = None
+
+def _decode_const(constname, value):
+    global _const, _Constants
     try:
-        return int(spread)
+        return int(value)
     except ValueError:
         if not _const:
-            from Cerebrum.Constants import _SpreadCode
+            from Cerebrum import Constants as _Constants
             _const = _Utils.Factory.get('Constants')(
                 _Utils.Factory.get('Database')())
         try:
-            return int(getattr(_const, spread))
+            return int(getattr(_const, value))
         except AttributeError:
             try:
-                return int(_SpreadCode(spread))
+                return int(getattr(_Constants, constname)(value))
             except _Errors.NotFoundError:
-                raise _Errors.PoliteException("Invalid spread code: %r"
-                                              % (spread,))
+                raise _Errors.PoliteException("Invalid %s: %r"
+                                              % (constname, value))
 
 
 # Match an 8-bit string
