@@ -53,10 +53,18 @@ normalize_trans = maketrans(
 
 
 def load_code_tables():
+    global ph_tab, fax_tab
+    ph_tab = {}
+    fax_tab = {}
     person = Factory.get('Person')(Cerebrum)
     affili_codes = person.list_person_affiliation_codes()
     for aff in affili_codes:
-        affiliation_code[int(Cerebrum.pythonify_data(aff['code']))] = Cerebrum.pythonify_data(aff['code_str'])
+        affiliation_code[int(Cerebrum.pythonify_data(aff['code']))] = \
+				Cerebrum.pythonify_data(aff['code_str'])
+    ph_tab = get_contacts(source_system=int(co.system_lt),\
+                                contact_type=int(co.contact_phone))
+    fax_tab = get_contacts(source_system=int(co.system_lt),\
+                                contact_type=int(co.contact_fax))
     
 
 def make_address(sep, p_o_box, address_text, postal_number, city, country):
@@ -92,18 +100,9 @@ def init_ldap_dump(ou_org,filename=None):
 	init_str += "description: %s\n" % des
     ou = Factory.get('OU')(Cerebrum)
     ou.find(ou_org)
-    ou_fax = None
-    ou_faxs = ''
-    try:
-	ou_fax_numbers = get_contacts(int(ou_org),int(co.contact_fax))
-    except:
-        pass
-    else:
-        if ou_fax_numbers:
-            for fax in ou_fax_numbers:
-                if verify_printableString(fax):
-                    init_str += "facsimileTelephoneNumber: %s\n" % fax
-                    ou_faxs += fax + '$'
+    if fax_tab.has_key(int(ou_org)):
+	for fax in fax_tab[int(ou_org)]:
+	    init_str += "facsimileTelephoneNumber: %s\n" % fax
     try:
 	stedkode = Stedkode.Stedkode(Cerebrum)
 	stedkode.find(ou_org)
@@ -144,17 +143,10 @@ def init_ldap_dump(ou_org,filename=None):
                                      street_addr['country'])
         if street_string:
             init_str += "street: %s\n" % street_string
-    ou_phone = None
-    ou_phones = ''
-    try:
-	phones = get_contacts(int(ou_org),co.contact_phone)
-	if phones is not None:
-	    for phone in phones:
-                if verify_printableString(phone):
-		    init_str += "telephoneNumber: %s\n" % phone
-		    ou_phones += phone + '$'
-    except:
-        pass
+    if ph_tab.has_key(int(ou_org)):
+        for phone in ph_tab[int(ou_org)]:
+            init_str += "telephoneNumber: %s\n" % phone
+
     try:
         init_str += "labeledURI: %s\n" % cereconf.LDAP_BASE_URL
     except:
@@ -257,17 +249,11 @@ def print_OU(id, par_ou, stedkodestr,par, filename=None):
     ou_str += "objectClass: top\n"
     for ss in cereconf.LDAP_ORG_OBJECTCLASS:
         ou_str += "objectClass: %s\n" % ss
-    try:
-	ou_fax_numbers = get_contacts(id, co.contact_fax)
-    except:
-        pass
-    else:
-	if ou_fax_numbers is not None:
-	    for ou_fax in ou_fax_numbers:
-		ou_str += "facsimileTelephoneNumber: %s\n" % ou_fax
-		ou_faxs += ou_fax + '$'
+    if fax_tab.has_key(id):
+	for ou_fax in fax_tab[id]:
+	    ou_str += "facsimileTelephoneNumber: %s\n" % ou_fax
     try: 
-	ou_email = get_contacts(id,co.contact_email,email=1)
+	ou_email = get_contacts(entity_id=id,contact_type=int(co.contact_email),email=1)
     except:
         pass
     else:
@@ -339,16 +325,9 @@ def print_OU(id, par_ou, stedkodestr,par, filename=None):
                 if street_string:
                     ou_str += "street: %s\n" % street_string
                 break
-    try:
-	ou_phnumber = get_contacts(ou.ou_id, co.contact_phone)
-    except:
-        pass
-    else:
-        if ou_phnumber:
-            for phone in ou_phnumber:
-                if verify_printableString(phone):
-                    ou_str += "telephoneNumber: %s\n" % phone
-                    ou_phones += phone + '$'
+    if ph_tab.has_key(ou.ou_id):
+	for phone in ph_tab[ou.ou_id]:
+	    ou_str += "telephoneNumber: %s\n" % phone
     if par:
 	ou_struct[int(id)] = (str_ou, post_string,
                               ", ".join(filter(None, (ou.short_name,
@@ -438,7 +417,6 @@ def generate_person(filename=None):
 	except:  pass
 	try:  acl_spread = int(cereconf.LDAP_PERSON_ACL_SPREAD) 
 	except:  pass
-    
     if (cereconf.LDAP_CEREMAIL == 'Enable'):
 	email_enable = True
 	email_domains = {}
@@ -526,49 +504,55 @@ def generate_person(filename=None):
 	    if lastname:
 		pers_string += "sn: %s\n" % some2utf(lastname)
 	    if print_phaddr:
-		try:
+		if ((row['post_text']) or (row['post_postal'])):
+		    post_string = make_address(", ",
+					row['post_box'],
+					row['post_text'],
+					row['post_postal'],
+					row['post_city'],
+					row['post_country'])
+		if post_string:
+		    pers_string += "street: %s\n" % post_string
+		else:
 		    if ou_struct[int(ou_id)][1]:
 			pers_string += "postalAddress: %s\n" % some2utf(ou_struct[int(ou_id)][1])
+		if ((row['address_text']) or (row['postal_number'])):
+		    street_string = make_address(", ",
+					None,
+					row['address_text'],
+					row['postal_number'],
+					row['city'],
+					row['country'])
+		if street_string:
+		    pers_string += "street: %s\n" % street_string
+		else:
 		    if ou_struct[int(ou_id)][2]:
 			pers_string += "street: %s\n" % some2utf(ou_struct[int(ou_id)][2])
-		except: pass
 		if row['personal_title']:
-		    pers_string += "title: %s\n" % row['personal_title']
+		    pers_string += "title: %s\n" % some2utf(row['personal_title'])
 		else:
      		    if row['title']:
-			pers_string += "title: %s\n" % row['title']
-		if row['contact_value']:
-		    phone_str = []
-		    for phones in string.split(row['contact_value'],'$'):
- 	               if verify_printableString(phones):
-			    phone_nr = normalize_phone(phones)
-			    if phone_nr not in phone_str: 
-		    	        pers_string += "telephoneNumber: %s\n" % phones
-			        phone_str.append(phone_nr)
-		faxes = []
-		if row['fax']:
-		    for fax in string.split(row['fax'],'$'):
- 	               if verify_printableString(fax):
-			    fax_n = normalize_phone(fax)
-			    if fax_n not in faxes:
-			    	pers_string += "facsimileTelephoneNumber: %s\n" % fax
-				faxes.append(fax_n)
-		else:
-		    try:
-			for fax in string.split(ou_struct[int(ou_id)][4],'$'):
-			    if fax is not '':
-			    	pers_string += "facsimileTelephoneNumber: %s\n" % fax
-		    except: pass
+			pers_string += "title: %s\n" % some2utf(row['title'])
+		if ph_tab.has_key(person.entity_id):
+		    for phone in ph_tab[person.entity_id]:
+			pers_string += "telephoneNumber: %s\n" % phone
+		if fax_tab.has_key(person.entity_id):
+                    for fax in fax_tab[person.entity_id]:
+                        pers_string += "facsimileTelephoneNumber: %s\n" % fax
 	    affili_str = str('')
 	    for affi in p_affiliations:
                 if (int(affi['affiliation']) == int(co.affiliation_ansatt)):
                     if (string.find(affili_str,affili_em) == -1):
                         pers_string += "eduPersonAffiliation: %s\n" % affili_em
-			if row['status'] == co.affiliation_status_ansatt_tekadm:
-			    pers_string += "eduPersonAffiliation: staff\n" 
-			elif row['status'] == co.affiliation_status_ansatt_vit:
-			    pers_string += "eduPersonAffiliation: faculty\n"
-                        affili_str += affili_em
+			affili_str += affili_em
+		    if (affi['status'] == co.affiliation_status_ansatt_tekadm) and \
+					(string.find(affili_str,'staff') == -1):
+			pers_string += "eduPersonAffiliation: staff\n"
+			affili_str += 'staff' 
+		    if (affi['status'] == co.affiliation_status_ansatt_vit) and \
+					(string.find(affili_str,'faculty') == -1):
+			pers_string += "eduPersonAffiliation: faculty\n"
+			affili_str += 'faculty'
                 if (int(affi['affiliation']) == int(co.affiliation_student)):
                     if (string.find(affili_str,affili_stu) == -1):
                         pers_string += "eduPersonAffiliation: %s\n" % affili_stu
@@ -588,7 +572,7 @@ def generate_person(filename=None):
 	    #if aci_person  and (int(person.entity_id)  not in aci_empl_gr):
 	    if aci_person  and not aci_empl_gr.has_key(int(person.entity_id)):
 		pers_string += "%s\n" % cereconf.LDAP_PERSON_ACI
-	    elif  aci_student_gr.has_key(int(person.entity_id)): # (aci_student_gr[int(person.entity_id)]):
+	    elif (aci_student_gr.has_key(int(person.entity_id))) and not aci_person:
 		pers_string += "%s\n" % cereconf.LDAP_PERSON_ACI
 	    alias_list[int(person.entity_id)] = entity_name,prim_org,name,lastname
 	    f.write("\n")
@@ -716,6 +700,7 @@ def generate_posixgroup(spread=None, filename=None):
     for obj in cereconf.LDAP_GROUP_OBJECTCLASS:
 	obj_str += "objectClass: %s\n" % obj
     for row in posix_group.list_all_test(spreads):
+	distinct_mem = {}
 	posix_group.clear()
 	try:
 	    posix_group.find(row.group_id)
@@ -728,14 +713,16 @@ def generate_posixgroup(spread=None, filename=None):
 		pos_grp += "description: %s\n" % some2utf(posix_group.description) #latin1_to_iso646_60 later
 	    group.clear()
 	    group.find(row.group_id)
-	    for id in group.get_members(spread=int(user_spread),get_entity_name=True):
+	    for id in group.get_members(spread=user_spread,get_entity_name=True):
 		uname_id = int(id[0])
-		if entity2uname.has_key(uname_id):
-		    pos_grp += "memberUid: %s\n" % entity2uname[uname_id]
-		else:
-		    mem_name = id[1]
-		    entity2uname[int(uname_id)] = mem_name
-		    pos_grp += "memberUid: %s\n" % mem_name
+		if not distinct_mem.has_key(uname_id):
+		    distinct_mem[uname_id] = True
+		    if entity2uname.has_key(uname_id):
+			pos_grp += "memberUid: %s\n" % entity2uname[uname_id]
+		    else:
+			mem_name = id[1]
+			entity2uname[uname_id] = mem_name 
+			pos_grp += "memberUid: %s\n" % mem_name
 	    f.write("\n")
             f.write(pos_grp)
 	except:  pass
@@ -899,31 +886,58 @@ def verify_printableString(str):
     """Return true if STR is valid for the LDAP syntax printableString"""
     return printablestring_re.match(str)
 
-def get_contacts(id,contact_type,email=0):
-    """ Process infomation in entity_contact_info into a list.
-        Splits string in to entities, nomalize and remove duplicats"""
-    entity = Entity.EntityContactInfo(Cerebrum)
-    entity.clear()
-    entity.entity_id = int(id)
-    list_contact_entry = []
-    contact_entries = entity.get_contact_info(None, int(contact_type))
-    if len(contact_entries) == 1:
-    	for contact in string.split((Cerebrum.pythonify_data(contact_entries[0]['contact_value'])),'$'):
-	    if normalize_phone(contact) not in list_contact_entry and email == 0:
-		list_contact_entry.append(normalize_phone(contact))
-	    elif contact not in list_contact_entry and email == 1:
-		list_contact_entry.append(contact)  
-    elif len(contact_entries) >> 1:
-	for contact_entry in contact_entries:
-	    for contact in  string.split((Cerebrum.pythonify_data(contact_entry['contact_value'])),'$'):
-		if normalize_phone(contact) not in list_contact_entry and email == 0:
-                    list_contact_entry.append(normalize_phone(contact))
-		elif contact not in list_contact_entry and email == 1:
-		     list_contact_entry.append(contact)
-    else:
-	list_contact_entry = None
-    return(list_contact_entry)
+#def get_contacts(id,contact_type,email=0):
+#    """ Process infomation in entity_contact_info into a list.
+#        Splits string in to entities, nomalize and remove duplicats"""
+#    entity = Entity.EntityContactInfo(Cerebrum)
+#    entity.clear()
+#    entity.entity_id = int(id)
+#    list_contact_entry = []
+#    contact_entries = entity.get_contact_info(co.system_lt, int(contact_type))
+#    if len(contact_entries) == 1:
+#    	for contact in string.split((Cerebrum.pythonify_data(contact_entries[0]['contact_value'])),'$'):
+#	    if normalize_phone(contact) not in list_contact_entry and email == 0:
+#		list_contact_entry.append(normalize_phone(contact))
+#	    elif contact not in list_contact_entry and email == 1:
+#		list_contact_entry.append(contact)  
+#    elif len(contact_entries) >> 1:
+#	for contact_entry in contact_entries:
+#	    for contact in  string.split((Cerebrum.pythonify_data(contact_entry['contact_value'])),'$'):
+#		if normalize_phone(contact) not in list_contact_entry and email == 0:
+#                    list_contact_entry.append(normalize_phone(contact))
+#		elif contact not in list_contact_entry and email == 1:
+#		     list_contact_entry.append(contact)
+#    else:
+#	list_contact_entry = None
+#    return(list_contact_entry)
 	
+def get_contacts(entity_id=None,source_system=None,contact_type=None,email=0):
+    entity = Entity.EntityContactInfo(Cerebrum)
+    cont_tab = {}
+    for x in entity.list_contact_info(entity_id=entity_id, \
+		source_system=source_system,contact_type=contact_type):
+	ph_list = []
+	if '$' in str(x['contact_value']):
+	    ph_list = [str(y) for y in str(x['contact_value']).split('$')]
+	elif '/' in str(x['contact_value']):
+	    ph_list = [str(y) for y in str(x['contact_value']).split('/')]
+	else: ph_list.append(str(x['contact_value']))
+	key = int(x['entity_id'])
+	for ph in ph_list:
+	    if (ph <> '0'):
+		if not email:
+		    ph = normalize_phone(ph)
+		if cont_tab.has_key(key):
+		    if ph not in cont_tab[key]: cont_tab[key].append(ph)
+		else: cont_tab[key] = [ph,]
+    if ((len(cont_tab) == 1) or entity_id):
+	for k,v in cont_tab.items():
+	    return(v)
+    else:
+	return(cont_tab)
+
+
+
 
 need_base64_re = re.compile('^\\s|[\0\r\n]|\\s$')
 
@@ -971,7 +985,7 @@ def main():
         usage(1)
 
     user_spread = group_spread = None
-
+    
     for opt, val in opts:
         if opt in ('--help',):
             usage()
