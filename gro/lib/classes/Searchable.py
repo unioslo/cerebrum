@@ -61,7 +61,7 @@ class SearchClass(Builder):
 
         return self._result
 
-class Searchable:
+class Searchable(object):
     def create_search_class(cls):
         search_class_name = '%sSearch' % cls.__name__
         
