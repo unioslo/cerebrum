@@ -645,6 +645,8 @@ CREATE TABLE account_info
 		CONSTRAINT account_info_disk_id REFERENCES disk_info(disk_id),
   expire_date	DATE
 		DEFAULT NULL,
+  description	CHAR VARYING(512)
+		DEFAULT NULL,
   CONSTRAINT account_info_entity_id
     FOREIGN KEY (entity_type, account_id)
     REFERENCES entity_info(entity_type, entity_id),
@@ -1226,6 +1228,8 @@ CREATE TABLE person_affiliation_source
 		DEFAULT [:now]
 		NOT NULL,
   deleted_date	DATE
+		DEFAULT NULL,
+  description	CHAR VARYING(512)
 		DEFAULT NULL,
   CONSTRAINT person_aff_src_pk
     PRIMARY KEY (person_id, ou_id, affiliation, source_system),
