@@ -4,11 +4,12 @@
 include /usr/share/cdbs/1/rules/debhelper.mk
 include /usr/share/cdbs/1/class/python-distutils.mk
 
-#binary-post-install/%::
-#	find examples -mindepth 1 -maxdepth 1 -name SCCS -prune -o -print0 | xargs -0 dh_installexamples -p$(cdbs_curpkg)
+binary-post-install/%::
+	-mv debian/tmp/usr/var debian/tmp/
+	-mv debian/tmp/usr/etc debian/tmp/
 
 clean::
-	-rm Cerebrum/__init__.pyc
+	-find -name '*.py[co]' | xargs rm  
 
 common-binary-indep::
 #       No java just now
