@@ -257,21 +257,21 @@ class BofhdAuthRole(DatabaseAccessor):
     def list(self, entity_ids):
         """Return info about where entity_id has permissions.
         entity_id may be a list of entities """
-        if not isinstance(entity_id, (list, tuple)):
-            entity_id = [entity_id]
+        if not isinstance(entity_ids, (list, tuple)):
+            entity_ids = [entity_ids]
         return self.query("""
         SELECT DISTINCT entity_id, op_set_id, op_target_id
         FROM [:table schema=cerebrum name=auth_role]
-        WHERE entity_id IN (%s)""" % ", ".join(["%i" % i for i in entity_id]))
+        WHERE entity_id IN (%s)""" % ", ".join(["%i" % i for i in entity_ids]))
 
     def list_owners(self, target_ids):
         """Return info about who owns the given target_ids"""
-        if not isinstance(target_id, (list, tuple)):
-            target_id = [target_id]
+        if not isinstance(target_ids, (list, tuple)):
+            target_ids = [target_ids]
         return self.query("""
         SELECT DISTINCT entity_id, op_set_id, op_target_id
         FROM [:table schema=cerebrum name=auth_role]
-        WHERE op_target_id IN (%s)""" % ", ".join(["%i" % i for i in target_id]))
+        WHERE op_target_id IN (%s)""" % ", ".join(["%i" % i for i in target_ids]))
         
 
 class BofhdAuth(DatabaseAccessor):
