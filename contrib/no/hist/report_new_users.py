@@ -9,6 +9,7 @@ import time
 import pickle
 import os
 
+import cerebrum_path
 from Cerebrum.Utils import Factory
 from Cerebrum import Entity
 from Cerebrum import OU
