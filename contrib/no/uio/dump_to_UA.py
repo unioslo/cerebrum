@@ -1,98 +1,55 @@
 #!/usr/bin/env python2.2
 # -*- coding: iso-8859-1 -*-
 
-# Generate dump files for exporting to UA.  The files contains
-# information about people known in Cerebrum.  Documentation for the
-# dump format apears to be non-existent.
-
+import cerebrum_path
+import cereconf
 import getopt
 import sys
 import time
 import os
+import ftplib
+from xml.sax import parse, SAXParseException, ContentHandler
 
-import cereconf
-import pprint
-from Cerebrum import Person
-from Cerebrum.Utils import Factory
-from Cerebrum.Constants import _PersonAffiliationCode, _PersonAffStatusCode, \
-     _SpreadCode
-
-db = Factory.get('Database')()
-const = Factory.get('Constants')(db)
-debug = 0
-pp = pprint.PrettyPrinter(indent=4)
-
-# TODO: Move this class to Cerebrum.Utils
-class ConstantMappings(object):
-    def __init__(self, const):
-        self.const = const
-        
-    def get_affiliation_mapping(self):
-        ret = {}
-        for c in dir(self.const):
-            c2 = getattr(self.const, c)
-            if isinstance(c2, _PersonAffiliationCode):
-                ret[str(c2)] = {'': c2}
-        for c in dir(self.const):
-            c2 = getattr(self.const, c)
-            if isinstance(c2, _PersonAffStatusCode):
-                ret[str(c2.affiliation)][str(c2)] = c2
-        return ret
-
-    def get_spread_mapping(self):
-        ret = {}
-        for c in dir(self.const):
-            c2 = getattr(self.const, c)
-            if isinstance(c2, _SpreadCode):
-                ret[str(c2)] = c2
-        return ret
-
-def dump_persons(out_dir, spread=None, affiliations=None):
-    person = Person.Person(db)
-    matches = {}
-    if ((spread is not None and affiliations is not None) or
-        (spread is None and affiliations is None)):
-        print "Cannot set both or none of affiliations and spread"
-        sys.exit(1)
-
-    if spread is not None:
-        for e in person.list_all_with_spread(int(spread)):
-            matches[int(e['entity_id'])] = 1
-    else:
-        for tmp in affiliations:
-            aff, statuses = tmp
-            for p in person.list_affiliations(affiliation=aff):
-                if isinstance(statuses, str) or int(p['status']) in statuses:
-                    matches[int(p['person_id'])] = 1
-    lines = []
-    for id in matches.keys():
-        person.clear()
-        person.find(id)
-        full_name = person.get_name(const.system_cached, const.name_full)
-        first_name, last_name = full_name.split(" ", 1)
-        fnr = person.get_external_id(id_type=const.externalid_fodselsnr)
-        if len(fnr) > 0:
-            fnr = fnr[0]['external_id']
-        else:
-            fnr = ''
-        # TODO: Old script had a file adgkonv.dta to convert sko to adgsko
-        lines.append(format_person({'systemnr': systemnr, 'korttype': korttype,
-                                    'fnr': fnr, 'lname': last_name,
-                                    'fname': first_name,
-##                                  'arbsted': $sko,
-##                                  'adgsko': $sko2sted{$sko},
-##                                  'startdato': $start,
-##                                  'sluttdato': $slutt,
-##                                  'interntlf': $telefoner[0]
-                                    }
-                                   ))
-    out = file("%s/uadata.new" % out_dir, 'w')
-    lines.sort()
-    for t in lines:
-        out.write(t+"\n")
-    out.close()
+class LTParser( ContentHandler ):
+    """This class is used to iterate over all users in LT, and get personnr,and map to tils:dato_fra and tils:dato_til """
     
-def format_person(dta):
+    persons = {}
+    current_p = None
+    
+    def __init__(self, filename):        
+        parse(filename, self)
+        
+    def startElement(self, name, attrs):
+        if name == "tils":
+            if attrs.getValue('prosent_tilsetting').encode('iso8859-1') > self.persons[self.current_p]['tilsetting']:
+                start=attrs.getValue('dato_fra').encode('iso8859-1')
+                end=attrs.getValue('dato_til').encode('iso8859-1')
+                self.persons[self.current_p]['startdato'] = "%s.%s.%s" % (start[6:],start[4:6],start[:4])
+                self.persons[self.current_p]['sluttdato'] = "%s.%s.%s" % (end[6:],end[4:6],end[:4])
+                self.persons[self.current_p]['arbsted'] = sko_format((attrs.getValue('fakultetnr_utgift').encode('iso8859-1'),attrs.getValue('instituttnr_utgift').encode('iso8859-1'),attrs.getValue('gruppenr_utgift').encode('iso8859-1')))
+                self.persons[self.current_p]['tilsetting'] = attrs.getValue('prosent_tilsetting').encode('iso8859-1')
+        elif name == "person":             
+            try:
+                fnavn = attrs.getValue('fornavn').upper().encode('iso8859-1')
+                enavn = attrs.getValue('etternavn').upper().encode('iso8859-1')
+                self.current_p = fnr_format(attrs.getValue('fodtdag').encode('iso8859-1'), attrs.getValue('fodtmnd').encode('iso8859-1'), attrs.getValue('fodtar').encode('iso8859-1'), attrs.getValue('personnr').encode('iso8859-1'))
+                self.persons[self.current_p] = {'fname':fnavn,'lname':enavn,'tilsetting':'0'}
+            except KeyError:
+                pass
+        else:
+            pass     
+
+def fnr_format(fdag,fmnd,faar,pnr): 
+    return '%s%s%s%s' % (fdag.zfill(2),fmnd.zfill(2),faar.zfill(2),pnr.zfill(5))
+
+def sko_format(tupl):
+    sko = ''
+    for t in tupl:
+        sko = '%s%s' % (sko,t.zfill(2))
+    return sko
+
+    
+def format_person(fnr,dta):
 
 ## Format: 
 ## 0: fødselsnummer, 1: systemnummer, 2: korttype, 3: fornavn, 4: etternavn
@@ -102,162 +59,132 @@ def format_person(dta):
 ## 20..23: tilhørighet hjemmeaddr[1..4], 24..27: semesteraddr[1..4])
 ## 28..29: Ukjent.
 
+    global korttype, systemnr
+    
     felter = ['systemnr', 'korttype', 'fname', 'lname', 'adg1',
               'adg2', 'adg3', 'adg4', 'adg5', 'adg6', 'sistbetsem',
               'betdato', 'startdato', 'sluttdato', 'privtlf',
               'interntlf', 'avdnr', 'arbsted', 'tilhorighet',
               'hjemadr1', 'hjemadr2', 'hjemadr3', 'hjemadr4',
               'semadr1', 'semadr2', 'semadr3', 'semadr4']
-    ret = ['%s%s' % (dta['fnr'], dta['systemnr'])]
+    ret = ["%s%s" % (fnr,systemnr)]
     for f in felter:
-        ret.append(dta.get(f, ''))
+        if f == 'systemnr':
+            ret.append(systemnr)
+        elif f == 'korttype':
+            ret.append(korttype)
+        else:
+            ret.append(dta.get(f, ''))
     ret.append('')
     ret.append('')
     return ";".join(ret)
 
+
 def do_sillydiff(dirname, oldfile, newfile, outfile):
-    old = ''
+    today = time.strftime("%d.%m.%Y")
     try:
-        oldin = file("%s/%s" % (dirname, oldfile))
-        old = oldin.readline()
+        oldfile = file("%s/%s" % (dirname, oldfile))
+        line = oldfile.readline()
+        line.rstrip()
     except IOError:
         print "Warning, old file did not exist, assuming first run ever"
-        pass
-    newin = file("%s/%s" % (dirname, newfile))
-    out = file("%s/%s" % (dirname, outfile), 'w')
-    new = newin.readline()
-    while 1:
-        if len(new) == 0 or len(old) == 0:
-            break
-        if(old == new):
-            new = newin.readline()
-            old = oldin.readline()
-            new.rstrip()
-            old.rstrip()
-            continue
-        if old[0:11] == new[0:11]:
-            # Lag endrings-record for denne personen. fnr, systemnr,
-            # korttype, fname, lname skal altid med.
-            olddta = old.split(";")
-            newdta = new.split(";")
-            gen = newdta[0:5]
-            for i in range(5, len(olddta)):
-                if olddta[i] != newdta[i]:
-                    gen.append(newdta[i])
-                else:
-                    gen.append('#')
-            out.write(";".join(gen)+"\n")
-            new = newin.readline()
-            old = oldin.readline()
-            new.rstrip()
-            old.rstrip()
-            continue
-        if old < new:
-            # Denne ser ut til å oppdatere informasjon for personar som har 
-            # slutta.  Viss sluttdato (14) er seinare enn i dag, vil sluttdato bli 
-            # sett til i dag.  Andre felt enn 0-4 og 14 vert sett tomme.
-            olddta = old.split(";")
-            gen = olddta[0:4]
-            for foo in range(25):
-                gen.append("")
-            if olddta[14] > today:
-                gen[14] = today
-            else:
-                gen[14] = olddta[14]
-            out.write(";".join(gen)+"\n")
-            old = oldin.readline()
-            old.rstrip()
-        else:
-            out.write(new)
-            new = newin.readline()
-            new.rstrip()
-    if len(new):
-	# Flere nye.  Oppdater som over.
-        while 1:
-            out.write(new)
-            new = newin.readline()
-            new.rstrip()
-            if len(new) == 0:
-                break
-    if len(old):
-	# Flere som har slutta.  Oppdater som over.
-        while 1:
-            olddta = old.split(";")
-            gen = olddta[0:4]
-            for foo in range(25):
-                gen.append("")
-            if olddta[14] > today:
-                gen[14] = today
-            else:
-                gen[14] = olddta[14]
-            out.write(";".join(gen)+"\n")
-            old = oldin.readline()
-            old.rstrip()
-            if len(old) == 0:
-                break
-    out.close()
+        os.link("%s/%s" % (dirname,newfile),"%s/%s" % (dirname, outfile))
+        return
 
+    old_dict = {}
+    while line != "":
+        old_dict[line[0:12]] = line[13:]
+        line = oldfile.readline()        
+        line.rstrip()           
+    oldfile.close()
+
+
+    out = file("%s/%s" % (dirname, outfile), 'w')
+    newin = file("%s/%s" % (dirname, newfile))
+    
+    newline = newin.readline()        
+    newline.rstrip()           
+    while newline != "":
+        pnr = newline[0:12]
+        dta = newline[13:]
+        if pnr in old_dict:
+            if old_dict[pnr] != dta:
+                #Some change, want to update with new values.
+                out.write(newline)            
+            del old_dict[pnr]
+        else:
+            out.write(newline)
+        newline = newin.readline()        
+        newline.rstrip()           
+
+    for leftpnr in old_dict:
+        vals = old_dict[leftpnr].split(";")
+        vals[13] = today
+        vals[17] = ""
+        out.write("%s;%s" % (leftpnr,";".join(vals)))
+
+    out.close()    
+    newin.close()
+
+
+def ftpput(host,uname,password,local_dir,file,dir):
+    ftp=ftplib.FTP(host,uname,password)
+    ftp.cwd(dir)
+    ftp.storlines("STOR %s" % (file),open("%s/%s" % (local_dir,file)))
+    ftp.quit()
+
+        
 def main():
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'o:s:a:k:S:',
-                                   ['out-dir=', 'spread=', 'affiliation=',
-                                    'kort-type=', 'system-nr='])
+        opts, args = getopt.getopt(sys.argv[1:], 'f:k:S:o:',
+                                   ['sql-file=', 'kort-type=', 'system-nr=', 'out-dir='])
     except getopt.GetoptError:
         usage(1)
 
     global korttype, systemnr
-    affiliations = None
     out_dir = None
-    spread = None
     korttype = None
     systemnr = None
-    cm = ConstantMappings(const)
-    aff_mapping = cm.get_affiliation_mapping()
-    spread_mapping = cm.get_spread_mapping()
-    #pp.pprint( aff_mapping)
-    #pp.pprint( spread_mapping)
+    sqlfile = None
     for opt, val in opts:
-        if opt in ('-o', '--out-dir'):
-            out_dir = val
-        elif opt in ('-s', '--spread'):
-            spread = spread_mapping[val]
+        if opt in ('-f', '--sql-file'):
+            sqlfile = val
         elif opt in ('-k', '--kort-type'):
             korttype = val
         elif opt in ('-S', '--system-nr'):
             systemnr = val
-        elif opt in ('-a', '--affiliation'):
-            if affiliations is None:
-                affiliations = []
-            aff, status = val.split(":")
-            tmp = []
-            if status <> '':
-                for s in status.split(","):
-                    tmp.append(aff_mapping[aff][s])
-                status = tmp
-            affiliations.append((aff_mapping[aff][''], status))
+        elif opt in ('-o', '--out-dir'):
+            out_dir = val
+    print out_dir    
+    print sqlfile    
+
     if korttype is None or systemnr is None:
         print "Must set korttype and systemnr"
         sys.exit(1)
-    dump_persons(out_dir, spread, affiliations)
-    do_sillydiff(out_dir, "uadata.old", "uadata.new",
-                 "uadata.%s" % (time.strftime("%Y-%m-%d")))
+    LTParser(sqlfile)
+    outfile = file("%s/%s" % (out_dir, "uadata.new"), 'w')
+    for pers in LTParser.persons:
+        if len(LTParser.persons[pers].items()) >= 4:
+            form = format_person(pers.encode('iso8859-1'),LTParser.persons[pers])
+            outfile.write(form+'\n')
+    outfile.close()
+    diff_file = "uadata.%s" % (time.strftime("%Y-%m-%d"))
+    do_sillydiff(out_dir, "uadata.old", "uadata.new", diff_file)
     os.rename("%s/uadata.new" % out_dir, "%s/uadata.old" % out_dir)
+    ftpput("heimdall.ua.uio.no","ltimport","nOureg289337",out_dir,diff_file,"ua-lt")    
+
     
 def usage(exitcode=0):
     print """Usage: dump_to_UA.py [options]
     -o | --out-dir name: dump to this directory
-    -s | --spread code:  dump all persons with this spread
     -S | --system-nr nr: systemnr (UA begrep)
     -k | --kort-type kt: kort type (UA begrep)
-    -a | --affiliation aff: dump all persons with this affiliation.
-       May be repeated.  Format:
-       person_affiliation_code:comma_separated_person_aff_status_code.
-       empty string after the colon may be ued to match any status_code.
 
-    Example: dump_to_UA.py -o /tmp  -a MANUELL: -S 2 -k 'Tilsatt UiO'
+    Example: dump_to_UA.py -o /tmp -S 2 -k 'Tilsatt UiO'
 
     """
     sys.exit(exitcode)
+
 
 if __name__ == '__main__':
     main()
