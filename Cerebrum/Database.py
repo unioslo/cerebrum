@@ -175,9 +175,9 @@ class Cursor(object):
 
     # .callproc() is optional, hence not implemented here.
 
-    # .close() has already been used for the connection-closing
-    # method.  A method that closes the default cursor while leaving
-    # the connection up is probably not very useful.
+    def close(self):
+        """Do DB-API 2.0 .close()."""
+        return self._cursor.close()
 
     def execute(self, operation, parameters=()):
         """Do DB-API 2.0 .execute()."""
