@@ -141,7 +141,7 @@ def update_account(profile, account_ids, account_info={}):
                         try:
                             br.add_request(None, br.batch_time,
                                            const.bofh_move_user, account_id,
-                                           disk)
+                                           disk, state_data=int(user_spread))
                         except errors.CerebrumError, e:
                             # Conflicting request or similiar
                             logger.warn(e)
