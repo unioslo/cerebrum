@@ -24,7 +24,8 @@ from Cerebrum.extlib import sets
 from Cerebrum.extlib import sets
 from GroBuilder import GroBuilder
 from Builder import Attribute, Method
-from CerebrumClass import CerebrumAttr, CerebrumTypeAttr, CerebrumDateAttr
+from CerebrumClass import CerebrumAttr, CerebrumTypeAttr, \
+                          CerebrumDateAttr, CerebrumBooleanAttr
 
 import Registry
 registry = Registry.get_registry()
@@ -41,7 +42,7 @@ class Person(Entity):
     # affiliations, quarantine med venner må implementeres
     slots = Entity.slots + [CerebrumAttr('export_id', 'string'),
                             CerebrumDateAttr('birth_date', 'Date', write=True),
-                            CerebrumAttr('deceased', 'boolean', write=True),
+                            CerebrumBooleanAttr('deceased', 'boolean', write=True),
                             CerebrumTypeAttr('gender', 'GenderType', GenderType, write=True),
                             CerebrumAttr('description', 'string', write=True)]
     method_slots = Entity.method_slots + [
@@ -49,8 +50,6 @@ class Person(Entity):
         Method('get_names','PersonNameSeq')]
 
     cerebrum_class = Cerebrum.Person.Person
-
-    # FIXME: deceased == 'T' and True or False
 
     def get_accounts(self):
         accounts = []
