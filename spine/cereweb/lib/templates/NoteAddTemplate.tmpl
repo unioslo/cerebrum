@@ -16,15 +16,15 @@
 ## along with Cerebrum; if not, write to the Free Software Foundation,
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-#from Cerebrum.web.InitTemplate import InitTemplate
-#from Cerebrum.web.utils import url
+#from Cereweb.InitTemplate import InitTemplate
+#from Cereweb.utils import url
 #extends InitTemplate
 
 #def addForm($entity)
 <form action="$url('note/add')" type="post">
     #set $title = $_("Add a note:")
     <h2>$title</h2>
-    <input type="hidden" name="entity" value="$entity.get_entity_id()" />
+    <input type="hidden" name="entity" value="$entity.get_id()" />
     <label for="subject">$_("Subject"):</label>
     <input type="text" size="40" name="subject" /> <br />
     <label for="description">$_("Optional details"):</label>
@@ -32,3 +32,4 @@
     <input type="submit" value="$_('Add')" />
 </form>
 #end def
+

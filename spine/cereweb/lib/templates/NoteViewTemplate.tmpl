@@ -16,26 +16,24 @@
 ## along with Cerebrum; if not, write to the Free Software Foundation,
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-#from Cerebrum.web.InitTemplate import InitTemplate
-#from Cerebrum.web.utils import url
-#from Cerebrum.web import ServerConnection
+#from Cereweb.InitTemplate import InitTemplate
+#from Cereweb.utils import url
 #extends InitTemplate
 
 #def viewNotes($entity, $req)
-#set $notes = $entity.get_notes()
+##set $notes = $entity.get_notes()
+#set $notes = []
 #if $notes
-#set $server = ServerConnection.get_server($req)
 <h2>$_("Notes:")</h2>
 #for $note in $notes
-    #set $id = $note.get_creator_id()
-    #set $creator = $server.get_account($id).get_name()
-    #set $creator = '<a href="%s">%s</a>' % ($url('account/view?id=%s' % $id), $_($creator))
-    #set $delete = $url('note/delete?id=%s&entity=%s' %
-                        ($note.get_note_id(), $entity.get_entity_id()))
+    #set $creator = $note.get_creator()
+    #set $creator_url  = $url("account/view?id=%s" % $creator.get_id())
+    #set $creator_name = $_($creator.get_name())
+    #set $delete = $url('note/delete?id=%s&entity=%s' % ($note.get_id(), $entity.get_id()))
     <div class="note">
         <div>
-            <em>Todo: dato!$note.get_create_date()</em>&nbsp;
-            <em>Creator: $creator</em>&nbsp;
+            <em>$note.get_create_date().strftime("%Y-%m-%d")</em>&nbsp;
+            <em>Creator: <a href="$creator_url">$create_name</a></em>&nbsp;
             <a href="$delete" class="actions">$_("delete")</a>
         </div>
         <div>$note.get_subject()</div>
@@ -44,3 +42,4 @@
 #end for
 #end if
 #end def
+

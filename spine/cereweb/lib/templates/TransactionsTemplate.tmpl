@@ -16,8 +16,8 @@
 ## along with Cerebrum; if not, write to the Free Software Foundation,
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-#from Cerebrum.web.InitTemplate import InitTemplate
-#from Cerebrum.web.utils import url
+#from Cereweb.InitTemplate import InitTemplate
+#from Cereweb.utils import url
 #extends InitTemplate
 
 #attr $formvalues = {}
@@ -157,20 +157,16 @@ show a full history for this transaction: $transaction.get_name()
 ## Main method for creating the box with transactions in the left corner.
 #def smallbox($req)
 #set $active = $get_active($req)
+##echo $active.name
+#set $active.name = ""
 #set $transactions = $get_transactions($req)
-#if $active
-    #set $activeid = $active.get_id()
-#else
-    #set $activeid = 0
-#end if
+#set $activeid = 0
 <span class="transbox">
     <h2>$_("Transactions"):</h2>
     <div class="header">
-        #if $active
-        <em>Active:</em> $active.get_name()
+    #if $active
+        <strong>$active.name</strong>
         <br />
-        <em>Objects:</em> <strong>$active.get_objects_num()</strong>&nbsp;
-        <em>Changed:</em> <strong>$active.get_objects_changed_num()</strong>&nbsp;
         <br />
         #set $view = $url("transactions/view?id=%i" % $activeid)
         #set $edit = $url("transactions/edit?id=%i" % $activeid)
@@ -178,29 +174,33 @@ show a full history for this transaction: $transaction.get_name()
         <a href="$view" class="actions">view</a>&nbsp;
         <a href="$edit" class="actions">edit</a>&nbsp;
         <a href="$history" class="actions">full history</a>
-        #else
+    #else
         <strong>$_("No active transactions!")</strong>
-        #end if
+    #end if
     </div>
     <form action="$url('transactions/select')" method="POST">
         <div class="select">
             <center>
                 <select name="transaction">
                 #if $active
-                    <option value="$activeid">$active.get_name()</option>
+                    <option value="$activeid">$active.name</option>
                 #end if
                 #for $tran in $transactions
-                    #if not $active or $activeid != $tran.get_id()
-                    <option value="$tran.get_id()">$tran.get_name()</option>
+                    #if $tran != $active
+                    <option value="0">$tran.name</option>
                     #end if
                 #end for
                 </select>
-                <input type="submit" name="submit" value="Select" />
             </center>
+        </div>
+        <div>
+            <center>
+                <input type="submit" name="submit" value="Select" />&nbsp;
+                <input type="submit" name="submit" value="New" />
+            <center>
         </div>
         <div class="commmit">
             <center>
-                <input type="submit" name="submit" value="New" />&nbsp;
                 <input type="submit" name="submit" value="Commit" />&nbsp;
                 <input type="submit" name="submit" value="Rollback" />
             </center>

@@ -16,8 +16,8 @@
 ## along with Cerebrum; if not, write to the Free Software Foundation,
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-#from Cerebrum.web.InitTemplate import InitTemplate
-#from Cerebrum.web.utils import url
+#from Cereweb.InitTemplate import InitTemplate
+#from Cereweb.utils import url
 #extends InitTemplate
 
 ## TODO: sort names. Full Name->First Name->Last Name-> Titles->Others?
@@ -30,16 +30,12 @@
     <div class="name">
         #set $name_variant = $name.get_name_variant()
         #set $ss = $name.get_source_system()
-        #set $ss_name = ""
-        #if $ss
-            #set $ss_name = $ss.get_name()
-        #end if
+        #set $ss_name = $ss and $ss.get_name() or ""
+        #set $delete = $url('person/remove_name?id=%i&name=%s&variant=%s&ss=%s') % (
+                                            $person.get_id(), $name.get_name(),
+                                            $name_variant.get_description(), $ss_name)
         <div class="actions">
             <em>$name_variant.get_description():</em> $name.get_name()
-            #set $ss_name = "" or  $ss.get_name()
-            #set $delete = $url('person/remove_name?id=%i&name=%s&variant=%s&ss=%s') % (
-                                                $person.get_entity_id(), $name.get_name(),
-                                                $name_variant.get_description(), $ss_name)
             <a href="$delete">$_("delete")</a>
         </div>
         #if $ss

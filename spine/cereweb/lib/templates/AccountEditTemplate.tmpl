@@ -16,8 +16,8 @@
 ## along with Cerebrum; if not, write to the Free Software Foundation,
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-#from Cerebrum.web.InitTemplate import InitTemplate
-#from Cerebrum.web.utils import url
+#from Cereweb.InitTemplate import InitTemplate
+#from Cereweb.utils import url
 #extends InitTemplate
 
 
@@ -51,7 +51,7 @@ $url("account/save")#slurp
 #for $name, $label in $fields
     #echo $input($name, $label)
 #end for
-    <input type="hidden" name="id" value="$account.get_entity_id()" />
+    <input type="hidden" name="id" value="$account.get_id()" />
     <input type="submit" name="save" value="$_('Save')" />
     <input type="submit" name="abort" value="$_('Abort')" />
 </form>

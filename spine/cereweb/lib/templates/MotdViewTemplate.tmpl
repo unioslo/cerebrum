@@ -16,16 +16,16 @@
 ## along with Cerebrum; if not, write to the Free Software Foundation,
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-#from Cerebrum.web.InitTemplate import InitTemplate
-#from Cerebrum.web.utils import url
-#from Cerebrum.web import ServerConnection
+#from Cereweb.InitTemplate import InitTemplate
 #extends InitTemplate
 
 #def viewMotds($req)
 <div class="motds">
-    #set $server = ServerConnection.get_server($req)
-    #set $motd = $server.get_cereweb_motd(1)
-    $motd.get_subject()
+    #set $server = $req.session.get("active")
+    #set $motds = $server.get_cereweb_motd_searcher()
+    #for $motd in $motds.search()
+        $motd.get_subject() - $motd.get_description() <br />
+    #end for
 </div>
 #end def
 

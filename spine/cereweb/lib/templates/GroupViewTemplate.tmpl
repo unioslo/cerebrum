@@ -17,8 +17,8 @@
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 #extends EntityViewTemplate
-#from Cerebrum.web.TableView import TableView
-#from Cerebrum.web.utils import url
+#from Cereweb.TableView import TableView
+#from Cereweb.utils import url
 #from MemberTableTemplate import MemberTableTemplate
 
 
@@ -80,9 +80,9 @@ $MemberTableTemplate().sorted_table($table, $headers, $url("blapp=%s"), $url("bl
     <dt>$_("Name")</dt>
     <dd>$group.get_name()</dd>
 
-#if $group.get_entity_id()
+#if $group.get_id()
     <dt>$_("Gid")</dt>
-    <dd>$group.get_entity_id()</dd>
+    <dd>$group.get_id()</dd>
 #end if
 
     <dt>$_("Description")</dt>
@@ -98,7 +98,7 @@ $MemberTableTemplate().sorted_table($table, $headers, $url("blapp=%s"), $url("bl
 ##if $spreads
 ##    <dt>$_("Spreads")</dt>
 ##    <dd>$spreads</dd>
-##end if    
+##end if
 
 </dl>
 </div>

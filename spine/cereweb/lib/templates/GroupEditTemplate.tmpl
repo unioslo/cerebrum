@@ -16,8 +16,7 @@
 ## along with Cerebrum; if not, write to the Free Software Foundation,
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-#import time
-#from Cerebrum.web.utils import url
+#from Cereweb.utils import url
 #extends EntityViewTemplate
 
 ## List of strings wich describes the form.
@@ -69,10 +68,9 @@ $url("group/edit")#slurp
             <label for="desc">$_('Description'):</label>
             <textarea rows="3" cols="40" name="desc">$group.get_description()</textarea>
             <br />
-            #set $date = $group.get_expire_date().get_date()
-            #set $date = time.strftime("%Y-%m-%d", time.gmtime($date))
+            #set $date = $group.get_expire_date().strftime("%Y-%m-%d")
             $input("expire_date", "Expire date", $date)
-            <input type="hidden" name="id" value="$group.get_entity_id()" />
+            <input type="hidden" name="id" value="$group.get_id()" />
         </div>
         $showHelp($help)
         <div>

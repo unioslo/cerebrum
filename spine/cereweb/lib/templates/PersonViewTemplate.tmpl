@@ -16,9 +16,7 @@
 ## along with Cerebrum; if not, write to the Free Software Foundation,
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-#import time
-#from Cerebrum.web.utils import url
-#from Cerebrum.web import ServerConnection
+#from Cereweb.utils import url
 #from AccountViewTemplate import AccountViewTemplate
 #from PersonNameViewTemplate import PersonNameViewTemplate
 #from PersonNameAddTemplate import PersonNameAddTemplate
@@ -32,7 +30,7 @@
 <div class="person">
     $personInfo($person)
     $personNames($person, $req, $addName)
-    $personAccounts($person, $req)
+    ##$personAccounts($person, $req)
 </div>
 $view_entity($person, $req)
 #end def
@@ -52,18 +50,17 @@ $view_entity($person, $req)
         <div class="info">
             <em>$_("Gender"):</em> $person.get_gender().get_description()
         </div>
-        #set $dob = $person.get_birth_date().get_date()
-        #set $dob = time.strftime("%Y-%m-%d", time.gmtime($dob))
+        #set $dob = $person.get_birth_date().strftime("%Y-%m-%d")
         <div class="info"><em>$_("Date of birth"):</em> $dob</div>
         <div class="info"><em>$_("Description"):</em> $person.get_description()</div>
         <div class="info"><em>$_("Affilitations"):</em> none!</div>
     </div>
     <div class="actions">
-        #set $edit = $url("person/edit?id=%s" % $person.get_entity_id())
-        #set $delete = $url("person/delete?id=%s" % $person.get_entity_id())
-        #set $remember = $url("person/remember?id=%s" % $person.get_entity_id())
+        #set $edit = $url("person/edit?id=%s" % $person.get_id())
+        #set $delete = $url("person/delete?id=%s" % $person.get_id())
+        #set $remember = $url("person/remember?id=%s" % $person.get_id())
         <a href="$edit">$_("edit person")</a>
-        <a href="$delete">$_("remove person")</a>
+        <a href="$delete">$_("delete person")</a>
         <a href="$remember">$_("remember")</a>
     </div>
 </div>
@@ -79,7 +76,7 @@ $view_entity($person, $req)
     #if $addName == "True" or $addName == True
         $a.addForm($person, $req)
     #else
-    #set $tmp_url = "%s?id=%i&addName=True#names" % ($page_url, $person.get_entity_id())
+    #set $tmp_url = "%s?id=%i&addName=True#names" % ($page_url, $person.get_id())
     <div class="actions">
         <a href="$url(tmp_url)">$_("add a name")</a>
     </div>
@@ -89,7 +86,6 @@ $view_entity($person, $req)
 
 ## List accounts and groups those accounts belong to.
 #def personAccounts($person, $req)
-#set $server = ServerConnection.get_server($req)
 #set $allaccounts = $person.get_accounts()
 #if $allaccounts
     #set $t = $AccountViewTemplate()
@@ -100,21 +96,21 @@ $view_entity($person, $req)
         <form action="$url('person/accounts')" type="post">
             #for $account in $allaccounts
             <div class="personaccount">
-                <input type="checkbox" name="account_$account.get_entity_id()" />
+                <input type="checkbox" name="account_$account.get_id()" />
                 <em>$_('Account'):</em> $_($account.get_name())
-                #set $view = $url("account/view?id=%i" % $account.get_entity_id())
-                #set $edit = $url("account/edit?id=%i" % $account.get_entity_id())
+                #set $view = $url("account/view?id=%i" % $account.get_id())
+                #set $edit = $url("account/edit?id=%i" % $account.get_id())
                 <a href="$view" class="actions">$_("view")</a>
                 <a href="$edit" class="actions">$_("edit")</a>
             </div>
             #for $group in $account.get_groups()
             <div class="persongroup">
-                <input type="checkbox" name="group_$group.get_entity_id()" />
+                <input type="checkbox" name="group_$group.get_id()" />
                 <em>$_('Group'):</em> $_($group.get_name()+' - '+$group.get_description())
-                #set $view = $url("group/view?id=%i" % $group.get_entity_id())
-                #set $edit = $url("group/edit?id=%i" % $group.get_entity_id())
+                #set $view = $url("group/view?id=%i" % $group.get_id())
+                #set $edit = $url("group/edit?id=%i" % $group.get_id())
                 #set $leave = $url("person/leavegroup?id=%i&group=%i" % \
-                                ($person.get_entity_id(), $group.get_entity_id()))
+                                ($person.get_id(), $group.get_id()))
                 <a href="$view" class="actions">$_("view")</a>
                 <a href="$edit" class="actions">$_("edit")</a>
                 <a href="$leave" class="actions">$_("leave group")</a>
@@ -132,4 +128,3 @@ $view_entity($person, $req)
     </div>
 #end if
 #end def
-

@@ -16,9 +16,7 @@
 ## along with Cerebrum; if not, write to the Free Software Foundation,
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-#import time
-#from Cerebrum.web import ServerConnection
-#from Cerebrum.web.utils import url
+#from Cereweb.utils import url, snapshot
 #extends PersonViewTemplate
 
 ## Overloads page_url in PersonViewTemplate, so personNames() has the right url.
@@ -32,7 +30,7 @@
 <div class="person">
     $form($person, $req)
     $personNames($person, $req, $addName)
-    $personAccounts($person, $req)
+    ##$personAccounts($person, $req)
 </div>
 $view_entity($person, $req)
 #end def
@@ -64,12 +62,12 @@ $view_entity($person, $req)
 ## Creates a drop-down list with diffrent genders.
 ## The current gender is first in the list if supplied.
 #def gender($req, $gender=None)
-    #set $server = ServerConnection.get_server($req)
+    #set $server = $snapshot($req)
     #set $genders = []
     #if $gender
         $genders.append(($gender.get_name(), $gender.get_description()))
     #end if
-    #for $g in $server.get_gender_type_search().search()
+    #for $g in $server.get_gender_type_searcher().search()
         #if $gender is None or $g.get_name() != $gender.get_name()
             $genders.append(($g.get_name(), $g.get_description()))
         #end if
@@ -91,11 +89,10 @@ $view_entity($person, $req)
     <form action="$getAction()" method="POST">
         <div class="editform">
             $gender($req, $person.get_gender())
-            #set $date = $person.get_birth_date().get_date()
-            #set $date = time.strftime("%Y-%m-%d", time.gmtime($date))
-            $input("birthdate", "Birthdate *",$date)
-            $input("desc","Description", $person.get_description())
-            <input type="hidden" name="id" value="$person.get_entity_id()" />
+            #set $date = $person.get_birth_date().strftime("%Y-%m-%d")
+            $input("birthdate", "Birthdate *", $date)
+            $input("desc", "Description", $person.get_description())
+            <input type="hidden" name="id" value="$person.get_id()" />
         </div>
         $showHelp($help)
         <div>
