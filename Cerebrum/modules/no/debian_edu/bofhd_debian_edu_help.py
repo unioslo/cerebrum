@@ -461,4 +461,3 @@ number.  If the person is not registered, you must create an instance with
         ['force', 'Force the operation?']
     }
 
-# arch-tag: e1076d5e-2c7b-43fc-85ce-6b9d81481c2d

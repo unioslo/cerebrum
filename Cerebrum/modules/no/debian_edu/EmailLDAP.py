@@ -86,4 +86,3 @@ class EmailLDAPDebianEduMixin(EmailLDAP):
                 txt = "No auth-data for user: %s\n" % entity_id
                 sys.stderr.write(txt)
         return txt
-# arch-tag: 26ce1aea-d940-4e0d-83b5-78b4e0e7b822
