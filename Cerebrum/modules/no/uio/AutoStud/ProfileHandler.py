@@ -150,8 +150,11 @@ class Profile(object):
         if not self.matcher.settings.has_key('printer_kvote'):
             raise NoMatchingQuotaSettings, "No matching quota settings"
         for m in self.matcher.settings.get('printer_kvote', []):
+            self._logger.debug("q: %s" % str(m))
             for k in ('start', 'uke', 'max_akk', 'max_sem'):
-                if m[k] == 'UL' or ret.get(k, '') == 'UL':
+                if ret.get(k, '') == 'UL':
+                    continue
+                if m[k] == 'UL':
                     ret[k] = m[k]
                 else:
                     try:
