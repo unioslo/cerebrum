@@ -47,7 +47,7 @@
                     'Cerebrum/modules/no/uio/printer_quota',
                     'Cerebrum/modules/no/uio/AutoStud',
                     'Cerebrum/modules/no/feidegvs',
-+                   'Cerebrum/modules/no/debian-edu',
++                   'Cerebrum/modules/no/debian_edu',
                     'Cerebrum/modules/no/hia',
                     'Cerebrum/modules/templates',
                     'Cerebrum/client',
