@@ -153,3 +153,6 @@ AUTOADMIN_LOG_DIR='.'     # Set to a place where only 'cerebrum' has write acces
 JOB_RUNNER_SOCKET="/tmp/jr-socket"
 
 JOB_RUNNER_LOG_DIR='.'   # Set to a place where only 'cerebrum' has write access
+
+# Used by Cerebrum/no/Stedkode.py
+DEFAULT_INSTITUSJONSNR=None
