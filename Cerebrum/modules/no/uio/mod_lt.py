@@ -684,6 +684,11 @@ class PersonLTMixin(Person.Person):
         * For each item J that is left in OS:
           - Remove J from the database, since this item does no longer exist
             in LT.
+
+        Various *_sql contain sql statements to run in case of update,
+        insert or delete. NB! delete_sql can contain an ordered sequence of
+        SQL staments to run (this comes in handy when certain rows have to
+        be removed before others due to foreign key constraints)
         """
 
         #
@@ -711,7 +716,13 @@ class PersonLTMixin(Person.Person):
         # old_state is the information from Cerebrum that no longer exists
         # in LT. It should be deleted.
         for key, value in old_state.items():
-            self.execute( delete_sql, value )
+            if type(delete_sql) is types.StringType:
+                delete_sql = [ delete_sql ]
+            # fi
+
+            for statement in delete_sql:
+                self.execute( statement, value )
+            # od
             db_update = True
         # od
 
@@ -758,6 +769,13 @@ class PersonLTMixin(Person.Person):
                         :stillingskode, :dato_fra, :dato_til, :andel)
                      """ % _TILSETTINGS_SCHEMA
 
+        delete_prerequisite = """
+                              DELETE FROM %s
+                              WHERE
+                                tilsettings_id = :tilsettings_id AND
+                                person_id = :person_id
+                              """ % _PERMISJONS_SCHEMA  
+
         delete_sql = """
                      DELETE FROM %s
                      WHERE
@@ -769,7 +787,7 @@ class PersonLTMixin(Person.Person):
                                       self.tilsetting,
                                       update_sql,
                                       insert_sql,
-                                      delete_sql )
+                                      [ delete_prerequisite, delete_sql ] )
     # end _write_tilsetting
 
 
@@ -1070,11 +1088,3 @@ class PersonLTMixin(Person.Person):
     # end list_frida_persons
     
 # end PersonLTMixin
-
-
-
-    
-
-    
-        
-        
