@@ -130,7 +130,7 @@ class Constants(Constants.Constants):
 class BofhdRequests(object):
     def __init__(self, db, const, id=None):
         self._db = db
-        self.const = const
+        self.co = const
         now = time.time()
         tmp = list(time.localtime(now))
         for i in range(-6,-1):
@@ -142,45 +142,67 @@ class BofhdRequests(object):
             self.batch_time = self._db.TimestampFromTicks(midnight + 3600 * 22)
         self.now = self._db.TimestampFromTicks(time.time())
 
-    def add_request(self, operator, when, op_code, entity_id,
-                    destination_id, state_data=None):
+    def get_conflicts(self, op):
+        """Returns a list of conflicting operation types.  op can be
+        an integer or a constant."""
+
         # "None" means _no_ conflicts, there can even be several of
         # that op pending.  All other ops implicitly conflict with
         # themselves, so there can only be one of each op.
-        c = self.const
-        conflicts = { int(c.bofh_move_user):       [ c.bofh_move_student,
-                                                     c.bofh_move_user_now],
-                      int(c.bofh_move_student):    [ c.bofh_move_user,
-                                                     c.bofh_move_user_now],
-                      int(c.bofh_move_user_now):   [ c.bofh_move_student,
-                                                     c.bofh_move_user_now],
-                      int(c.bofh_move_request):    None,	# what is this?
-                      int(c.bofh_move_give):       None,
-                      int(c.bofh_delete_user):     [ c.bofh_move_user,
-                                                     c.bofh_move_student ],
-                      int(c.bofh_email_move):      [ c.bofh_delete_user ],
-                      int(c.bofh_email_create):    [ c.bofh_email_delete,
-                                                     c.bofh_delete_user ],
-                      int(c.bofh_email_delete):    [ c.bofh_email_create,
-                                                     c.bofh_email_move ],
-                      int(c.bofh_email_hquota):    [ c.bofh_email_delete ],
-                      int(c.bofh_email_convert):   [ c.bofh_email_delete ],
-                      int(c.bofh_mailman_create):  [ c.bofh_mailman_remove ],
-                      int(c.bofh_mailman_add_admin):  None,
-                      int(c.bofh_mailman_remove):  [ c.bofh_mailman_create,
-                                                     c.bofh_mailman_add_admin ],
-                      }
+        c = self.co
+        conflicts = {
+            int(c.bofh_move_user):       [ c.bofh_move_student,
+                                           c.bofh_move_user_now,
+                                           c.bofh_move_request,
+                                           c.bofh_delete_user ],
+            int(c.bofh_move_student):    [ c.bofh_move_user,
+                                           c.bofh_move_user_now,
+                                           c.bofh_move_request,
+                                           c.bofh_delete_user ],
+            int(c.bofh_move_user_now):   [ c.bofh_move_student,
+                                           c.bofh_move_user,
+                                           c.bofh_move_request,
+                                           c.bofh_delete_user ],
+            int(c.bofh_move_request):    [ c.bofh_move_user,
+                                           c.bofh_move_user_now,
+                                           c.bofh_move_student,
+                                           c.bofh_delete_user ],
+            int(c.bofh_move_give):       None,
+            int(c.bofh_delete_user):     [ c.bofh_move_user,
+                                           c.bofh_move_user_now,
+                                           c.bofh_move_student ],
+            int(c.bofh_email_move):      [ c.bofh_delete_user ],
+            int(c.bofh_email_create):    [ c.bofh_email_delete,
+                                           c.bofh_delete_user ],
+            int(c.bofh_email_delete):    [ c.bofh_email_create,
+                                           c.bofh_email_move ],
+            int(c.bofh_email_hquota):    [ c.bofh_email_delete ],
+            int(c.bofh_email_convert):   [ c.bofh_email_delete ],
+            int(c.bofh_mailman_create):  [ c.bofh_mailman_remove ],
+            int(c.bofh_mailman_add_admin):  None,
+            int(c.bofh_mailman_remove):  [ c.bofh_mailman_create,
+                                           c.bofh_mailman_add_admin ],
+            }[int(op)]
 
-        conf = conflicts[int(op_code)]
-        if conf is None:
-            conf = []
+        if conflicts is None:
+            conflicts = []
         else:
-            conf.append(op_code)
+            conflicts.append(op)
+        # Make sure all elements in the list are integers
+        for i in range(len(conflicts)):
+            conflicts[i] = int(conflicts[i])
+        return conflicts
 
-        for op in conf:
-            for r in self.get_requests(entity_id=entity_id,
-                                       operation=op):
-                raise CerebrumError, "Conflicting request exists (%s)" % op
+    def add_request(self, operator, when, op_code, entity_id,
+                    destination_id, state_data=None):
+
+        conflicts = self.get_conflicts(op_code)
+
+        for r in self.get_requests(entity_id=entity_id):
+            if int(r['operation']) in conflicts:
+                raise CerebrumError, ("Conflicting request exists (%s)" %
+                                      self.co.BofhdRequestOp(r['operation']).
+                                      description)
         reqid = int(self._db.nextval('request_id_seq'))
         cols = {
             'requestee_id': operator,
@@ -263,7 +285,7 @@ class BofhdRequests(object):
             if len(tmp) > 0:
                 extra_where = "AND destination_id IN (%s)" % ", ".join(tmp)
             ret.extend(self._db.query(qry + "operation=:op %s" % extra_where,
-                                      {'op': int(self.const.bofh_move_give)}))
+                                      {'op': int(self.co.bofh_move_give)}))
         return ret
 
 # arch-tag: d6650fa6-6a9b-459f-be7e-80c9e6cbba52
