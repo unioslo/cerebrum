@@ -25,6 +25,7 @@ import sys
 import re
 import cereconf
 import time
+import os
 
 def dyn_import(name):
     """Dynamically import python module ``name``."""
@@ -454,3 +455,71 @@ class fool_auto_super(object):
 ##         # auto_super's .__super attribute should never continue beyond
 ##         # this class.
 ##         self.__super = fool_auto_super()
+
+
+def random_string(length, population='abcdefghijklmnopqrstuvwxyz0123456789'):
+    import random
+    random.seed()
+    return ''.join([random.choice(population) for i in range(length)])
+
+
+class AtomicFileWriter(object):
+    def __init__(self, name, mode='w', buffering=-1):
+        self._name = name
+        self._tmpname = self.make_tmpname(name)
+        self.__file = file(self._tmpname, mode, buffering)
+        self.closed = False
+
+    def close(self):
+        if self.closed: return
+        ret = self.__file.close()
+        self.closed = True
+        if ret is None:
+            # close() didn't encounter any problems.  Do validation of
+            # the temporary file's contents.  If that doesn't raise
+            # any exceptions rename() to the real file name.
+            self.validate_output()
+            os.rename(self._tmpname, self._name)
+        return ret
+
+    def validate_output(self):
+        """Validate output (i.e. the temporary file) prior to renaming it.
+
+        This method is intended to be overridden in subclasses.  If
+        the content fails to meet the method's expectations, it should
+        raise an exception.
+
+        """
+        pass
+
+    def make_tmpname(self, realname):
+        for i in range(10):
+            name = realname + '.' + random_string(5)
+            if not os.path.exists(name):
+                break
+        else:
+            raise IOError, "Unable to find available temporary filename"
+        return name
+
+    def flush(self):
+        return self.__file.flush()
+
+    def write(self, data):
+        return self.__file.write(data)
+
+class SimilarSizeWriter(AtomicFileWriter):
+    def set_size_change_limit(self, percentage):
+        self.__percentage = percentage
+
+    def validate_output(self):
+        super(SimilarSizeWriter, self).validate_output()
+        if not os.path.exists(self._name):
+            return
+        import stat
+        old = os.stat(self._name)[stat.ST_SIZE]
+        new = os.stat(self._tmpname)[stat.ST_SIZE]
+        change_percentage = 100 * (float(new)/old) - 100
+        if abs(change_percentage) > self.__percentage:
+            raise RuntimeError, \
+                  "File size changed more than %d%%: %d -> %d (%+.1f)" % (
+                self.__percentage, old, new, change_percentage)
