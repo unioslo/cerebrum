@@ -3,6 +3,7 @@
 
 import getopt
 import sys
+import time
 
 import cerebrum_path
 import cereconf
@@ -20,7 +21,7 @@ def get_constants_by_type(co, class_type):
             ret.append(c)
     return ret
 
-def person_join(old_person, new_person):
+def person_join(old_person, new_person, with_pq):
     old_id = old_person.entity_id
     new_id = new_person.entity_id
 
@@ -149,67 +150,8 @@ def person_join(old_person, new_person):
         for d in do_del:
             new_person.delete_affiliation(*d)
     
-    #Printer quota. Added "if" for future use since pq may be optional 
-    if True:
-	from Cerebrum.modules.no.uio.printer_quota import PaidPrinterQuotas
-	pq_join = {'old':{'id':int(old_id)},'new':{'id':int(new_id)}}
-	pq = PaidPrinterQuotas.PaidPrinterQuotas(db)
-	logger.debug("In printer-qoutas.")
-	# If new doesnt have any entry, we must create default pq for this person
-	try:
-	    pq.find(new_id)
-	except Errors.NotFoundError:
-	    # default: no_quota -> Have to find out if all student get quota.
-	    pq.new_quota(new_id)
-	    logger.debug("Create printer-quota for new person!")
-	for person,id in pq_join.items():
-	    try:
-		tab_val = pq.find(id['id'])
-		pq_join[person]['exist'] = True
-		# insert values
-		for col in ('has_quota','has_blocked_quota','weekly_quota',
-					'max_quota','total_pages','paid_quota','free_quota'):
-		    # There is a difference between None, 0, 'F'
-		    # No clue about what to do with weekly_quota and max_quota.
-		    # Will create a warning message and do exit.
-		    if col in ('max_quota','weekly_quota'):
-			if tab_val[col] != None:
-			    print "Warning! No logic to solve printer quota. Please update manually"
-			    sys.exit(0)
-			else: pass	
-		    elif tab_val[col] == None or isinstance(tab_val[col],str):
-			pq_join[person][col] = tab_val[col]
-		    else:
-			try: 
-			    pq_join[person][col] = int(tab_val[col])
-			except: 
-			    logger.warn("Unexpected value in print-qouta table, person-id:%s" % id['id'])
-	    except Errors.NotFoundError:
-		pq_join[id]['exist'] = False
-		logger.debug("Person did not have printer-quota on old-person.")
-	
-	if pq_join['old']['exist'] != False:
-	    if ([id for id in pq_join.values() if (id['has_quota'] == 'F')]):
-		pq_join['new']['has_quota'] = False
-		pq_join['new']['free_quota'] = 0
-	    else:
-		pq_join['new']['has_quota'] = True
-		pq_join['new']['free_quota'] += pq_join['old']['free_quota'] 
-	    # Maybe we should do some more testing
-	    if [id for id in pq_join.values() if id['has_blocked_quota'] == 'T']:
-		pq_join['new']['has_blocked_quota'] = True
-		logger.info("One or both has a blocked printer quota! New printer-quot blocked!")
-	    else:
-		pq_join['new']['has_blocked_quota'] = False 
-	    pq_join['new']['total_pages'] += pq_join['old']['total_pages']
-	    pq_join['new']['paid_quota'] += pq_join['old']['paid_quota']
-	    del pq_join['new']['id']
-	    del pq_join['new']['exist']
-	    pq.set_status_attr(int(new_id), pq_join['new'])
-	    pq.rem_person_status(old_id)
-	    pq.change_history_owner(new_id,old_id)
-	
-
+    if with_pq:
+        join_printerquotas(old_id, new_id)
 
     # account_type
     account = Factory.get('Account')(db)
@@ -243,10 +185,39 @@ def person_join(old_person, new_person):
             group.add_member(new_person.entity_id, g['member_type'], g['operation'])
         group.remove_member(old_person.entity_id, g['operation'])
 
+def join_printerquotas(old_id, new_id):
+    # Delayed import in case module is not installed
+    from Cerebrum.modules.no.uio.printer_quota import PaidPrinterQuotas
+    from Cerebrum.modules.no.uio.printer_quota import PPQUtil
+
+    pq_util = PPQUtil.PPQUtil(db)
+    if not pq_util.join_persons(old_id, new_id):
+        return  # No changes done, so no more work needed
+
+    ppq = PaidPrinterQuotas.PaidPrinterQuotas(db)
+    # Assert that user hasn't received a free quota more than once
+    term_init_prefix = PPQUtil.get_term_init_prefix(*time.localtime()[0:3])
+    free_this_term = {}
+    
+    for row in ppq.get_history_payments(
+        transaction_type=co.pqtt_quota_fill_free,
+        desc_mask=term_init_prefix+'%%',
+        person_id=new_id, order_by_job_id=True):
+        free_id = row['description'][len(term_init_prefix):]
+        if free_this_term.has_key(free_id):
+            logger.debug("Undoing pq_job_id %i" % row['job_id'])
+            pq_util.undo_transaction(
+                new_id, row['job_id'], '',
+                'Join-persons resulted in duplicate free quota',
+                update_program='join_persons',
+                ignore_transaction_type=True)
+        free_this_term[free_id] = True
+
 def usage(exitcode=0):
     print """join_persons.py [options] 
   --old entity_id
   --new entity_id
+  --pq  also join printerquotas
   --dryrun
 
 Merges all person about person identified by entity_id into the new
@@ -259,15 +230,18 @@ is permanently removed from the database.
 def main():
     try:
         opts, args = getopt.getopt(sys.argv[1:], '',
-                                   ['old=', 'new=', 'dryrun'])
+                                   ['old=', 'new=', 'dryrun',
+                                    'pq'])
     except getopt.GetoptError:
         usage(1)
 
-    dryrun = False
+    dryrun = with_pq = False
     old = new = 0
     for opt, val in opts:
         if opt == '--old':
             old = int(val)
+        elif opt == '--pq':
+            with_pq = True
         elif opt == '--new':
             new = int(val)
         elif opt == '--dryrun':
@@ -278,7 +252,7 @@ def main():
     old_person.find(old)
     new_person = Factory.get('Person')(db)
     new_person.find(new)
-    person_join(old_person, new_person)
+    person_join(old_person, new_person, with_pq)
     old_person.delete()
 
     if dryrun:

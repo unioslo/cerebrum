@@ -2,6 +2,11 @@ from Cerebrum import Constants
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum.Utils import Factory
 
+"""PaidPrinterQuotas and PPQUtil contains routines for updating the
+paid_quota_* tables.  They should not provide any public methods that
+makes it possible to violate the invariant stating that
+paid_quota_status can be calculated from paid_quota_history."""
+
 class _PaidQuotaTransactionTypeCode(Constants._CerebrumCode):
     "Mappings stored in the paid_quota_transaction_type_code table"
     _lookup_table = '[:table schema=cerebrum name=paid_quota_transaction_type_code]'
@@ -20,6 +25,17 @@ class Constants(Constants.Constants):
         'undo', 'Undo of a previous job')
     PaidQuotaTransactionTypeCode = _PaidQuotaTransactionTypeCode
 
+def parse_bool(val):
+    """Parse boolean value as T/F or 1/0.
+    TODO: find a proper way to deal with booleans in Cerebrum"""
+    if isinstance(val, str):
+        if val == 'T':
+            return True
+        return False
+    if val:
+        return True
+    return False
+
 class PaidPrinterQuotas(DatabaseAccessor):
     # Because multiple sources may attempt to update the quota_status
     # at the same time, we do not want to use the populate framework
@@ -36,7 +52,7 @@ class PaidPrinterQuotas(DatabaseAccessor):
     def find(self, person_id):
         return self.query_1(
             """SELECT has_quota, has_blocked_quota, weekly_quota,
-                      total_pages, max_quota, paid_quota, free_quota
+                      max_quota, paid_quota, free_quota, total_pages
             FROM [:table schema=cerebrum name=paid_quota_status]
             WHERE person_id=:person_id""", {'person_id': person_id})
 
@@ -45,8 +61,8 @@ class PaidPrinterQuotas(DatabaseAccessor):
         """Register person in the paid_quota_status table"""
         binds = {
             'person_id': person_id,
-            'has_quota': has_quota and 'T' or 'F',
-            'has_blocked_quota': has_blocked_quota and 'T' or 'F',
+            'has_quota': parse_bool(has_quota) and 'T' or 'F',
+            'has_blocked_quota': parse_bool(has_blocked_quota) and 'T' or 'F',
             'paid_quota': 0,
             'free_quota': 0,
             'total_pages': 0}
@@ -57,20 +73,29 @@ class PaidPrinterQuotas(DatabaseAccessor):
                                  ", ".join([":%s" % k for k in binds.keys()])),
                                  binds)
 
-    def set_status_attr(self, person_id, attrs):
+    def _set_status_attr(self, person_id, attrs):
         set = []
         binds = {'person_id': person_id}
         for k in attrs.keys():
             set.append("%s=:%s" % (k, k))
             if k in ('has_quota', 'has_blocked_quota'):
-                binds[k] = attrs[k] and 'T' or 'F'
+                binds[k] = parse_bool(attrs[k]) and 'T' or 'F'
             else:
-                binds[k] = attrs[k]                
+                binds[k] = attrs[k]
         set = ", ".join(set)
         self.execute("""
         UPDATE [:table schema=cerebrum name=paid_quota_status]
         SET %s
         WHERE person_id=:person_id""" % set, binds)
+
+    def set_status_attr(self, person_id, attrs):
+        """Update attrs in paid_quota_status directly.  Direct access
+        to counting attrs is denied."""
+        for k in attrs.keys():
+            if k not in ('has_quota', 'has_blocked_quota',
+                         'weekly_quota', 'max_quota'):
+                raise ValueError, "Access to attr %s denied" % k
+        self._set_status_attr(person_id, attrs)
 
     # We could get update_by, update_program from the changelog, but
     # then usage of this class would be required.
@@ -208,8 +233,27 @@ class PaidPrinterQuotas(DatabaseAccessor):
             'pageunits_paid': int(pageunits_paid),
             'pageunits_total': int(pageunits_total)})
 
-    def delete_history(self, job_id):
-        pass
+    def _change_history_owner(self, old_id, new_id):
+	self.execute("""
+        UPDATE [:table schema=cerebrum name=paid_quota_history]
+        SET person_id=:new_id
+        WHERE person_id=:old_id""", {
+            'old_id': old_id,
+	    'new_id': new_id})
+
+    def _change_status_owner(self, old_id, new_id):
+	self.execute("""
+        UPDATE [:table schema=cerebrum name=paid_quota_status]
+        SET person_id=:new_id
+        WHERE person_id=:old_id""", {
+            'old_id': old_id,
+	    'new_id': new_id})
+
+    def _delete_status(self, person_id):
+	self.execute("""
+	DELETE FROM [:table schema=cerebrum name=paid_quota_status]
+	WHERE person_id=:person_id""",{
+	    'person_id': int(person_id)})
 
     def get_quoata_status(self, has_quota_filter=None):
         if has_quota_filter is not None:
@@ -225,28 +269,37 @@ class PaidPrinterQuotas(DatabaseAccessor):
             FROM [:table schema=cerebrum name=paid_quota_status] %s""" % where)
 
     def get_history_payments(self, transaction_type=None, desc_mask=None,
-                             bank_id_mask=None, fetchall=False):
+                             bank_id_mask=None, fetchall=False,
+                             person_id=None, order_by_job_id=False):
         binds = {
             'transaction_type': int(transaction_type or 0),
             'description': desc_mask,
-            'bank_id': bank_id_mask
+            'bank_id': bank_id_mask,
+            'person_id': person_id
             }
         where = []
-        if transaction_type:
+        if transaction_type is not None:
             where.append("transaction_type=:transaction_type")
-        if desc_mask:
+        if desc_mask is not None:
             where.append("description LIKE :description")
-        if bank_id_mask:
+        if bank_id_mask is not None:
             where.append("bank_id LIKE :bank_id")
+        if person_id is not None:
+            where.append("person_id=:person_id")
+        order_by = ""
+        if order_by_job_id:
+            order_by = "ORDER BY pqh.job_id"
         if where:
             where = "AND "+" AND ".join(where)
         else:
             where = ""
         return self.query(
-            """SELECT transaction_type, person_id, description, bank_id
+            """SELECT pqh.job_id, transaction_type, person_id, description,
+               bank_id
             FROM [:table schema=cerebrum name=paid_quota_transaction] pqt,
                  [:table schema=cerebrum name=paid_quota_history] pqh
-            WHERE pqh.job_id=pqt.job_id %s""" % where, binds, fetchall=fetchall)
+            WHERE pqh.job_id=pqt.job_id %s %s""" % (where, order_by),
+            binds, fetchall=fetchall)
 
     def get_history(self, job_id=None, person_id=None, tstamp=None,
                     target_job_id=None):
@@ -274,8 +327,8 @@ class PaidPrinterQuotas(DatabaseAccessor):
         ret = [r for r in self.query(
             """SELECT pqh.job_id, transaction_type, person_id, tstamp,
                   update_by, update_program, pageunits_free,
-                  pageunits_paid, target_job_id, description, bank_id,
-                  kroner
+                  pageunits_paid, pageunits_total, target_job_id, description,
+                  bank_id, kroner
             FROM [:table schema=cerebrum name=paid_quota_history] pqh,
                  [:table schema=cerebrum name=paid_quota_transaction] pqt
             WHERE pqh.job_id=pqt.job_id %s""" % where, binds,
@@ -297,7 +350,8 @@ class PaidPrinterQuotas(DatabaseAccessor):
 
         return ret
 
-    def get_pagecount_stats(self, tstamp_from, tstamp_to, group_by=('stedkode',)):
+    def get_pagecount_stats(self, tstamp_from, tstamp_to,
+                            group_by=('stedkode',)):
         binds = {'tstamp_from': tstamp_from,
                  'tstamp_to': tstamp_to}
         if group_by:
@@ -309,7 +363,8 @@ class PaidPrinterQuotas(DatabaseAccessor):
                   sum(pageunits_paid) AS paid, sum(pageunits_total) AS total %s
         FROM [:table schema=cerebrum name=paid_quota_history] pqh,
              [:table schema=cerebrum name=paid_quota_printjob] pqp
-        WHERE pqh.job_id=pqp.job_id AND tstamp >= :tstamp_from AND tstamp < :tstamp_to
+        WHERE pqh.job_id=pqp.job_id AND tstamp >= :tstamp_from AND
+              tstamp < :tstamp_to
         %s""" % (extra_cols, group_by)
         return self.query(qry, binds)
 
@@ -317,26 +372,14 @@ class PaidPrinterQuotas(DatabaseAccessor):
         binds = {'tstamp_from': tstamp_from,
                  'tstamp_to': tstamp_to}
         qry = """SELECT count(*) AS jobs, sum(pageunits_free) AS free,
-            sum(pageunits_paid) AS paid, sum(kroner) AS kroner, transaction_type
+            sum(pageunits_paid) AS paid, sum(kroner) AS kroner,
+            transaction_type
         FROM [:table schema=cerebrum name=paid_quota_history] pqh,
              [:table schema=cerebrum name=paid_quota_transaction] pqt
-        WHERE pqh.job_id=pqt.job_id AND tstamp >= :tstamp_from AND tstamp < :tstamp_to
+        WHERE pqh.job_id=pqt.job_id AND tstamp >= :tstamp_from AND
+              tstamp < :tstamp_to
         GROUP BY transaction_type"""
         return self.query(qry, binds)
-
-    def change_history_owner(self,person_id,duplicate_id):
-	self.execute("""
-        UPDATE [:table schema=cerebrum name=paid_quota_history]
-        SET person_id=:person_id
-        WHERE person_id=:duplicate_id""", {
-            'duplicate_id': int(duplicate_id),
-	    'person_id': int(person_id)})
-
-    def rem_person_status(self,person_id):
-	self.execute("""
-	DELETE FROM [:table schema=cerebrum name=paid_quota_status]
-	WHERE person_id=:person_id""",{
-	    'person_id': int(person_id)})
 
     
 # arch-tag: 3e72fdb7-3f9f-41ca-bc3e-6d626b02ed45

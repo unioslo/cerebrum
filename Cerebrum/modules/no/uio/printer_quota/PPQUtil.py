@@ -1,5 +1,7 @@
 # -*- coding: iso-8859-1 -*-
 
+import cereconf
+
 from Cerebrum import Errors
 from Cerebrum import Person
 from Cerebrum import Utils
@@ -11,6 +13,20 @@ PAGE_COST = {
     'fs': 0.30,
     'epay': 0.30
     }
+
+def get_term_init_prefix(year, month, mday):
+    if ((month, mday) >= cereconf.PQ_SPRING_START and
+        (month, mday) < cereconf.PQ_FALL_START):
+        term = 'V'
+        if ((month, mday) >= cereconf.PQ_SPRING_FREE[0] and
+            (month, mday) <= cereconf.PQ_SPRING_FREE[1]):
+            require_kopipenger = False
+    else:
+        term = 'H'
+        if ((month, mday) >= cereconf.PQ_FALL_FREE[0] and
+            (month, mday) <= cereconf.PQ_FALL_FREE[1]):
+            require_kopipenger = False
+    return '%i-%s:init:' % (year, term)
 
 class PPQUtil(object):
     FS = 'fs'
@@ -87,10 +103,15 @@ class PPQUtil(object):
 
     def undo_transaction(
         self, person_id, target_job_id, page_units, description,
-        update_by=None, update_program=None):
+        update_by=None, update_program=None,
+        ignore_transaction_type=False):
         """Undo a transaction.  If page_units='', undo all pages in
-        given job"""
-        if page_units != '':
+        given job.
+
+        ignore_transaction_type should be set if job is not a
+        printjob."""
+
+        if str(page_units) != '':
             try:
                 page_units = int(page_units)
             except ValueError:
@@ -105,38 +126,106 @@ class PPQUtil(object):
             job_id=target_job_id)
         if len(rows) == 0:
             raise errors.IllegalUndoRequest, "Unknown target_job_id"
-        if rows[0]['transaction_type'] != int(self.const.pqtt_printout):
+        if ((not ignore_transaction_type) and
+            rows[0]['transaction_type'] != int(self.const.pqtt_printout)):
             raise errors.IllegalUndoRequest, "Can only undo print jobs"
 
         # Calculate change
-        old_free, old_pay = (int(rows[0]['pageunits_free']),
-                             int(rows[0]['pageunits_paid']))
+        old_free, old_paid, old_total = [int(rows[0][x]) for x in (
+            'pageunits_free', 'pageunits_paid', 'pageunits_total')]
         if page_units == '':
-            page_units = int(-old_free + -old_pay)
+            delta_free, delta_paid, delta_total = (
+                -old_free, -old_paid, -old_total)
+        else:
+            if ignore_transaction_type:
+                # Don't know why we would need this
+                raise errors.IllegalUndoRequest, "Not implemented"
+            if page_units > -old_free + -old_pay:
+                raise errors.IllegalUndoRequest, \
+                      "Cannot undo more pages than was in the job"
 
-        if page_units > -old_free + -old_pay:
-            raise errors.IllegalUndoRequest, "Cannot undo more pages than was in the job"
-
-        pageunits_free = pageunits_paid = 0
-        if old_pay < 0:                  # Paid for refered print-job
-            delta = min(abs(old_pay), page_units)
-            pageunits_paid = delta
-            page_units -= delta
-        if page_units and old_free < 0:  # old job had free pages
-            delta = min(abs(old_free), page_units)
-            pageunits_free = delta
-            page_units -= delta
-        if page_units != 0:
-            raise ValueError, "oops, page_units=%i" % page_units
+            delta_total = -page_units
+            delta_free = delta_paid = 0
+            if old_pay < 0:                  # Paid for refered print-job
+                delta = min(abs(old_pay), page_units)
+                delta_paid = delta
+                page_units -= delta
+            if page_units and old_free < 0:  # old job had free pages
+                delta = min(abs(old_free), page_units)
+                delta_free = delta
+                page_units -= delta
+            if page_units != 0:
+                raise ValueError, "oops, page_units=%i" % page_units
 
         self.ppq._add_transaction(
             self.const.pqtt_undo,
             person_id,
-            pageunits_free=pageunits_free,
-            pageunits_paid=pageunits_paid,
+            pageunits_free=delta_free,
+            pageunits_paid=delta_paid,
             target_job_id=target_job_id,
             description=description,
             update_by=update_by,
             update_program=update_program)
+
+    def join_persons(self, old_id, new_id):
+        """Join printjobs performed by old and new person, updating
+        quota history and status.
+
+        Returns True if changes were done."""
+
+        # Note: this method has a race-condition if the old or new
+        # person_id has its quota updated while we are executing.
+        # Since this operation rarely should be used, we ignore this
+        # problem for now.
+
+        try:
+            old_ppq = self.ppq.find(old_id)
+        except Errors.NotFoundError:
+            return False      # No data to convert
+        try:
+            new_ppq = self.ppq.find(new_id)
+        except Errors.NotFoundError:
+            self.ppq._change_history_owner(old_id, new_id)
+            self.ppq._change_status_owner(old_id, new_id)
+            return False
+
+        had_quota = []
+        if old_ppq['has_quota'] == 'T':
+            had_quota.append(old_ppq)
+        if new_ppq['has_quota'] == 'T':
+            had_quota.append(new_ppq)
+
+        tmp = {}
+        # User has some quota information for old and new id
+        if len(had_quota) == 1:
+            # One had quota, and the other did not.  Keep the entry
+            # with quota.
+            #
+            # A free/paid value != 0 for the person without quota
+            # means that the once had has_quota=T, and thus has a
+            # debt/credit.  Therefore we can sum the status columns
+            # for these persons.
+            #
+            # Avoiding giving a person the same free-pages more than
+            # once is not the responsibility of this method.
+            
+            # Keep these values from the entry that had quota
+            for k in ('has_quota', 'has_blocked_quota', 'weekly_quota',
+                      'max_quota'):
+                tmp[k] = had_quota[0][k]
+        else:
+            # None or both of the persons had quota.  Simply change
+            # owner and update status by using the sum of the printed
+            # pages.  We ignore the weekly/max columns, leaving
+            # updating of them to whatever magic set them in the first
+            # place.
+            pass  # Don't need to do anything special for this case
+            
+        self.ppq._change_history_owner(old_id, new_id)
+        self.ppq._delete_status(old_id)
+        for k in ('paid_quota', 'free_quota', 'total_pages'):
+            tmp[k] = int(old_ppq[k] + new_ppq[k])
+        self.ppq._set_status_attr(new_id, tmp)
+        return True
 
 # arch-tag: 46f32b24-2441-4162-be3e-d7392874318a

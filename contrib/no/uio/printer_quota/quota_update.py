@@ -49,19 +49,7 @@ processed_pids = {}
 # All PQ_DATES has the format month, day.  Date is inclusive
 
 require_kopipenger = True
-year, month, mday = time.localtime()[0:3]
-if ((month, mday) >= cereconf.PQ_SPRING_START and
-    (month, mday) < cereconf.PQ_FALL_START):
-    term = 'V'
-    if ((month, mday) >= cereconf.PQ_SPRING_FREE[0] and
-        (month, mday) <= cereconf.PQ_SPRING_FREE[1]):
-        require_kopipenger = False
-else:
-    term = 'H'
-    if ((month, mday) >= cereconf.PQ_FALL_FREE[0] and
-        (month, mday) <= cereconf.PQ_FALL_FREE[1]):
-        require_kopipenger = False
-term_init_prefix = '%i-%s:init:' % (year, term)
+term_init_prefix = PPQUtil.get_term_init_prefix(*time.localtime()[0:3])
 
 class ThreeLevelDataParser(xml.sax.ContentHandler):
     """General parser for processing files like:
@@ -240,7 +228,6 @@ def get_bet_fritak_data(lt_person_file):
     for p in person.list_external_ids(source_system=const.system_lt,
                                       id_type=const.externalid_fodselsnr):
         fnr2pid[p['external_id']] = int(p['person_id'])
-    fnr_bet_fritak = []
     def lt_callback(data):
         person = data['person'][0]
         fnr = fodselsnr.personnr_ok(
@@ -249,11 +236,11 @@ def get_bet_fritak_data(lt_person_file):
         for g in data.get('gjest', []):
             if g['gjestetypekode'] in ('PCVAKT', 'GRP-LÆRER', 'ST-POL FRI',
                                        'ST-ORG FRI'):
+                print "%s: %s" % (fnr,  g['gjestetypekode'])
                 if not fnr2pid.has_key(fnr):
                     logger.warn("Unknown LT-person %s" % fnr)
                     return
                 ret[fnr2pid[fnr]] = True
-                fnr_bet_fritak.append(fnr)
                 return
     ThreeLevelDataParser(lt_person_file, lt_callback, "person", ["gjest"])
     return ret
