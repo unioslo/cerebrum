@@ -44,6 +44,7 @@ db.cl_init(change_program='process_students')
 const = Factory.get('Constants')(db)
 all_passwords = {}
 person_affiliations = {}
+processed_students = {}
 debug = 0
 max_errors = 50          # Max number of errors to accept in person-callback
 
@@ -164,7 +165,7 @@ def update_account(profile, account_ids, account_info={}):
                 uid = user.get_free_uid()
                 gid = profile.get_dfg()
                 shell = default_shell
-                user.populate(uid, gid, None, shell, disk_id=disk_id,
+                user.populate(uid, gid, None, shell, 
                               parent=account_id, expire_date=default_expire_date)
             else:
                 raise ValueError, "This is a bug, the Account object should exist"
@@ -267,6 +268,10 @@ def get_existing_accounts():
     # has only account_types with affiliation=student.  We're
     # currently only interested in active accounts, thus we filter on
     # expired (which also includes filtering on deleted)
+
+    # TBD: skal vi implementere en cereconf.STUDENT_DISKS som benyttes
+    # istedet dersom den er != None?
+
     students = {}
     for a in account.list_accounts_by_type(
         affiliation=const.affiliation_student, filter_expired=True):
@@ -522,6 +527,8 @@ def process_student(person_info):
         logger.warn("Error for %s: %s" %  (fnr, msg))
         logger.set_indent(0)
         return
+    
+    processed_students[fnr] = 1
     if fast_test:
         logger.debug(profile.debug_dump())
         logger.debug("Disk: %s" % profile.get_disk())
@@ -602,7 +609,17 @@ def process_students():
                 make_letters()
         else:
             db.rollback()
+        process_unprocessed_students()
     logger.info("process_students finished")
+
+def process_unprocessed_students():
+    """Unprocessed students didn't match a profile, or didn't get a
+    callback at all"""
+    # TBD: trenger vi skille på de?
+    
+    for fnr in students.keys(): 
+        if not processed_students.has_key(fnr):
+            logger.debug("%s has student accounts, but has not been processed" % fnr)
 
 def main():
     try:
