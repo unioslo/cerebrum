@@ -26,6 +26,8 @@ command_help = {
     'email_migrate': 'Migrate users from old to new e-mail service',
     'email_move': 'Move a user\'s e-mail to another server',
     'email_quota': "Change a user's storage quota for e-mail",
+    'email_spam_action': "How to handle user's spam",
+    'email_spam_level': "Change user's tolerance for spam",
     'email_tripnote': 'Turn vacation messages on/off',
     'email_add_tripnote': 'Add vacation message',
     'email_list_tripnotes': "List user's vacation messages",
@@ -255,6 +257,19 @@ printer."""],
     'quarantine_type':
         ['qtype', 'Enter quarantine type',
           "'quarantine list' lists defined quarantines"],
+    'spam_action':
+        ['spam action', 'Enter spam action',
+          """Choose one of
+          'dropspam'    Messages classified as spam won't be delivered at all
+          'spamfolder'  Deliver spam to a separate IMAP folder
+          'noaction'    Deliver spam just like legitimate email"""],
+    'spam_level':
+        ['spam level', 'Enter spam level',
+          """Choose one of
+          'aggressive_spam' Filter everything that resembles spam
+          'most_spam'       Filter most emails that looks like spam
+          'standard_spam'   Only filter email that obviously is spam
+          'no_filter'       No email will be filtered as spam"""],
     'spread':
         ['spread', 'Enter spread',
          "'spread list' lists possible values"],
