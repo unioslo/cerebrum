@@ -1,0 +1,69 @@
+/*
+ * Copyright 2004, 2005 University of Oslo, Norway
+ *
+ * This file is part of Cerebrum.
+ *
+ * Cerebrum is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * Cerebrum is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with Cerebrum; if not, write to the Free Software Foundation,
+ * Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+ */
+
+#include "errors.idl"
+
+/**
+* Module containing all interfaces defined as the core of the server.
+*/
+module Cerebrum_core {    
+    /**
+    * Structure/object used to hold the Spine version.
+    * If a client shares the major version number of Spine, then
+    * Spine should be able to handle it's requests. This promise
+    * cannot be made if their major version numbers differ.
+    * A client developer should use this to specify which version
+    * of Spine his or her client is developed for.
+    *
+    * \param major The major version number.
+    * \param minor The minor version number.
+    */
+    struct Version{
+        octet major;
+        octet minor;
+    };
+
+
+    /**
+    * The interface representing Spine, and thus the entry point to the server.
+    */
+    interface Spine {
+        /**
+        * Method for fetching the version. It is recommended that all clients
+        * verify compatibility through this method before proceeding.
+        * \return A Version object representing the version.
+        */
+        Version get_version();
+
+        string test();
+
+        string get_idl();
+        string get_idl_md5();
+
+        /**
+        * Login
+        * \param username
+        * \param password
+        * \return A session object 
+        */
+        Object login(in string username, in string password)
+            raises(Errors::LoginError);
+    };
+};
