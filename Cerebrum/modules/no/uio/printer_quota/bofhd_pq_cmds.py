@@ -245,7 +245,7 @@ The currently defined id-types are:
         for r in self._pquota_history(
             operator, self.bu.find_person(person_id), when):
             tstamp = r['tstamp']
-            trace = r['trace'] or ""
+            trace = r.get('trace', '') or ""
             # Only consider the last hop of the trace.
             if trace.count(","):
                 trace = trace.split(",")[-1]
@@ -273,7 +273,8 @@ The currently defined id-types are:
             elif r['transaction_type'] == str(self.const.pqtt_quota_fill_free):
                 tmp['data'] = r['description']
             elif r['transaction_type'] == str(self.const.pqtt_undo):
-                tmp['data'] = "undo %s: %s" % (r['target_job_id'], r['description'])
+                tmp['data'] = ("undo %s: %s" % (r['target_job_id'],
+                                                r['description']))[:20]
             elif r['transaction_type'] == str(self.const.pqtt_quota_balance):
                 tmp['data'] = "balance"
             ret.append(tmp)
@@ -331,7 +332,8 @@ The currently defined id-types are:
         rows = ppq.get_history(job_id=job_id)
         if len(rows) == 0:
             raise errors.IllegalUndoRequest, "Unknown target_job_id"
-        if rows[0]['tstamp'].ticks() < time.time() - 3600*24*3:
+        if (not (self.ba.is_superuser(operator) or
+                 rows[0]['tstamp'].ticks() < time.time() - 3600*24*3)):
             raise PermissionDenied, "Job is too old"
         # Throws subclass for CerebrumError, which bofhd.py will handle
         pu.undo_transaction(person_id, job_id, num_pages,
