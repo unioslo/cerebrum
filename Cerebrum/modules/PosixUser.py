@@ -1,5 +1,5 @@
 # -*- coding: iso-8859-1 -*-
-# Copyright 2002, 2003 University of Oslo, Norway
+# Copyright 2002, 2003, 2004 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -261,7 +261,7 @@ class PosixUser(Account_class):
         if self.gecos is not None:
             return self.gecos
         if self.owner_type == int(self.const.entity_group):
-            return self._conv_name(
+            return self.simplify_name(
                 "%s user" % self.account_name, as_gecos=1)
         assert self.owner_type == int(self.const.entity_person)
         p = Factory.get("Person")(self._db)
@@ -269,7 +269,7 @@ class PosixUser(Account_class):
         try:
             ret = p.get_name(self.const.system_cached,
                              self.const.name_full)
-            return self._conv_name(ret, as_gecos=1)
+            return self.simplify_name(ret, as_gecos=1)
         except Errors.NotFoundError:
             pass
         return "Unknown"  # Raise error?
@@ -298,147 +298,3 @@ class PosixUser(Account_class):
         return self.query("""
         SELECT code, shell
         FROM [:table schema=cerebrum name=posix_shell_code]""")
-
-    def suggest_unames(self, domain, fname, lname):
-        """Returns a tuple with 15 (unused) username suggestions based
-        on the persons first and last name"""
-        goal = 15
-        potuname = ()
-        if re.search(r'^\s*$', fname) is not None or re.search(r'^\s*$', lname) is not None:
-            raise ValueError,\
-                  "Currently only fullname supported, got '%s', '%s'" % (fname, lname)
-        complete_name = self._conv_name("%s %s" % (fname, lname), 1)
-
-        # Remember just the first initials.
-        m = re.search('^(.*)[ -]+(\S+)\s+(\S+)$', complete_name)
-        firstinit = None
-        if m is not None:
-            # at least three names
-            firstinit = m.group(1)
-            firstinit = re.sub(r'([- ])(\S)[^- ]*', r'\1\2', firstinit)
-            firstinit = re.sub(r'^(\S).*?($|[- ])', r'\1', firstinit)
-            firstinit = re.sub(r'[- ]', '', firstinit)
-
-        # Remove hyphens.  People called "Geir-Ove Johnsen Hansen" generally
-        # prefer "geirove" to just "geir".
-
-        complete_name = re.sub(r'-', '', complete_name)
-
-        m = re.search(r'(\S+)?(.*\s+(\S)\S*)?\s+(\S+)?$', complete_name)
-        # Avoid any None values returned by m.group(N).
-        fname = (m.group(1) or "")[0:8]
-        initial = (m.group(3) or "")
-        lname = (m.group(4) or "")[0:8]
-
-        if lname == '': lname = fname	# Sane behaviour if only one name.
-
-        # For people with many names, we prefer to use all initials:
-        # Example:  Geir-Ove Johnsen Hansen
-        #           ffff fff i       llllll
-        # Here, firstinit is "GO" and initial is "J".
-        #
-        # gohansen gojhanse gohanse gojhans ... gojh goh
-        # ssllllll ssilllll sslllll ssillll     ssil ssl
-        #
-        # ("ss" means firstinit, "i" means initial, "l" means last name)
-
-        if firstinit and len(firstinit) > 1:
-            i = len (firstinit)
-            llen = len (lname)
-            if llen > 8 - i: llen = 8 - i
-            for j in range(llen, 0, -1):
-                un = firstinit + lname[0:j]
-                if self.validate_new_uname(domain, un): potuname += (un, )
-
-                if j > 1 and initial:
-                    un = firstinit + initial + lname[0:j-1]
-                    if self.validate_new_uname(domain, un): potuname += (un, )
-                    if len(potuname) >= goal: break
-
-
-        # Now try different substrings from first and last name.
-        #
-        # geiroveh,
-        # fffffffl
-        # geirovh geirovha geirovjh,
-        # ffffffl ffffffll ffffffil
-        # geiroh geirojh geiroha geirojha geirohan,
-        # fffffl fffffil fffffll fffffill ffffflll
-        # geirh geirjh geirha geirjha geirhan geirjhan geirhans
-        # ffffl ffffil ffffll ffffill fffflll ffffilll ffffllll
-        # ...
-        # gjh gh gjha gha gjhan ghan ... gjhansen ghansen
-        # fil fl fill fll filll flll     fillllll fllllll
-
-        flen = len(fname)
-        if flen > 7: flen = 7
-
-        for i in range(flen, 0, -1):
-            llim = len(lname)
-            if llim > 8 - i: llim = 8 - i
-            for j in range(1, llim):
-                if initial:
-		# Is there room for an initial?
-                    if j == llim and i + llim < 8:
-                        un = fname[0:i] + initial + lname[0:j]
-                        if self.validate_new_uname(domain, un):
-                            potuname += (un, )
-		# Is there room for an initial if we chop a letter off
-		# last name?
-                    if j > 1:
-                        un = fname[0:i] + initial + lname[0:j-1]
-                        if self.validate_new_uname(domain, un):
-                            potuname += (un, )
-                un = fname[0:i] + lname[0:j]
-                if self.validate_new_uname(domain, un): potuname += (un, )
-            if len(potuname) >= goal: break
-
-        # Absolutely last ditch effort:  geirov1, geirov2 etc.
-
-        i = 1
-        if flen > 6: flen = 6
-
-        while len(potuname) < goal and i < 100:
-            un = "%s%d" % (fname[0:flen], i)
-            i += 1
-            if self.validate_new_uname(domain, un): potuname += (un, )
-
-        return potuname
-
-    def validate_new_uname(self, domain, uname):
-        """Check that the requested username is legal and free"""
-        try:
-            acc = Account_class(self._db)
-            acc.find_by_name(uname, domain=domain)
-            return 0
-        except Errors.NotFoundError:
-            return 1
-
-    def _conv_name(self, s, alt=0, as_gecos=0):
-        """Convert string so that it only contains characters that are
-        legal in a posix username.  If as_gecos=1, it may also be
-        used for the gecos field"""
-
-        xlate = {'Æ' : 'ae', 'æ' : 'ae', 'Å' : 'aa', 'å' : 'aa'}
-        if alt:
-            s = string.join(map(lambda x:xlate.get(x, x), s), '')
-
-        tr = string.maketrans(
-           'ÆØÅæø¿åÀÁÂÃÄÇÈÉÊËÌÍÎÏÑÒÓÔÕÖÙÚÛÜÝàáâãäçèéêëìíîïñòóôõöùúûüý{[}]|¦\\',
-           'AOAaooaAAAAACEEEEIIIINOOOOOUUUUYaaaaaceeeeiiiinooooouuuuyaAaAooO')
-        s = string.translate(s, tr)
-
-        xlate = {}
-        for y in range(0200, 0377): xlate[chr(y)] = 'x'
-        xlate['Ð'] = 'Dh'
-        xlate['ð'] = 'dh'
-        xlate['Þ'] = 'Th'
-        xlate['þ'] = 'th'
-        xlate['ß'] = 'ss'
-        s = string.join(map(lambda x:xlate.get(x, x), s), '')
-        if as_gecos:
-            s = re.sub(r'[^a-zA-Z0-9 ]', '', s)
-            return s
-        s = s.lower()
-        s = re.sub(r'[^a-z0-9 ]', '', s)
-        return s

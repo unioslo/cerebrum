@@ -1,7 +1,7 @@
 #!/usr/bin/env python2.2
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2003 University of Oslo, Norway
+# Copyright 2003, 2004 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -76,12 +76,11 @@ def create_user(fnr, profile):
     except Errors.NotFoundError:
         logger.warn("OUCH! person %s not found" % fnr)
         return None
-    posix_user = PosixUser.PosixUser(db)
     full_name = person.get_name(const.system_cached, const.name_full)
     first_name, last_name = full_name.split(" ", 1)
-    uname = posix_user.suggest_unames(const.account_namespace,
-                                      first_name, last_name)[0]
     account = Factory.get('Account')(db)
+    uname = account.suggest_unames(const.account_namespace,
+                                   first_name, last_name)[0]
     account.populate(uname,
                      const.entity_person,
                      person.entity_id,

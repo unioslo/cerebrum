@@ -393,8 +393,7 @@ def import_all():
                     fullt_navn = "%s %s" % (
                         multi_getattr_uniq(rows, 'fornavn'),
                         multi_getattr_uniq(rows, 'etternavn'))
-                    pu = PosixUser.PosixUser(Cerebrum)
-                    fullt_navn = pu._conv_name(fullt_navn)
+                    fullt_navn = account.simplify_name(fullt_navn)
                     local_part = ".".join(fullt_navn.split()).lower()
                     for domain in ('elvebakken.vgs.no', "fibsko.oslo.no"):
                         mailadr.setdefault("%s@%s" % (local_part, domain),

@@ -393,9 +393,7 @@ def process_user(owner_id, ou_id, aff, fname, lname):
                 ac.set_account_type(ou_id, aff)
         return (row['account_id'],ou_id)
             
-    posix_user = PosixUser.PosixUser(db)
-    unames = posix_user.suggest_unames(co.account_namespace,
-                                      fname, lname)
+    unames = ac.suggest_unames(co.account_namespace, fname, lname)
     # Dirty hack for getting free unames.
     uname = None
     for u in unames:
