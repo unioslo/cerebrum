@@ -199,3 +199,29 @@ class OU(EntityContactInfo, EntityAddress, Entity):
         SELECT ou_id, parent_id
         FROM [:table schema=cerebrum name=ou_structure]
         WHERE perspective=:perspective""", {'perspective': int(perspective)})
+
+    def root(self):
+	return self.query("""
+        SELECT ou_id
+        FROM [:table schema=cerebrum name=ou_structure]
+        WHERE parent_id ISNULL""")
+
+    def get_saddr(self,pouid,a_type):
+        return self.query_1("""
+        SELECT p_o_box, address_text, postal_number, city
+        FROM [:table schema=cerebrum name=entity_address]
+        WHERE
+          address_type=:a_type AND
+          entity_id=:p_ou_id""",
+                            {'p_ou_id': int(pouid),
+                             'a_type': int(a_type)})
+
+    def get_contact_info(self,ou_id,type):
+        return self.query_1("""
+        SELECT contact_value
+        FROM [:table schema=cerebrum name=entity_contact_info]
+        WHERE entity_id=:u_id AND contact_type=:i_type""",
+	                    {'u_id': int(ou_id),
+                             'i_type': int(type)})
+
+
