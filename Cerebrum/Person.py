@@ -148,38 +148,39 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
 
         """
         self.__super.write_db()
-        if not self.__updated:
-            return
-        is_new = not self.__in_db
-        if is_new:
-            self.execute("""
-            INSERT INTO [:table schema=cerebrum name=person_info]
-              (entity_type, person_id, export_id, birth_date, gender,
-               deceased, description)
-            VALUES
-              (:e_type, :p_id, :exp_id, :b_date, :gender, :deceased, :desc)""",
-                         {'e_type': int(self.const.entity_person),
-                          'p_id': self.entity_id,
-                          'exp_id': 'exp-'+str(self.entity_id),
-                          'b_date': self.birth_date,
-                          'gender': int(self.gender),
-                          'deceased': 'F',
-                          'desc': self.description})
-            # print "X: %s" % str(self._external_id)
-            for t_ss, t_type, t_id in self._external_id:
-                self._set_external_id(t_ss, t_type, t_id)
+        if self.__updated:
+            is_new = not self.__in_db
+            if is_new:
+                self.execute("""
+                INSERT INTO [:table schema=cerebrum name=person_info]
+                  (entity_type, person_id, export_id, birth_date, gender,
+                   deceased, description)
+                VALUES
+                  (:e_type, :p_id, :exp_id, :b_date, :gender, :deceased, :desc)""",
+                             {'e_type': int(self.const.entity_person),
+                              'p_id': self.entity_id,
+                              'exp_id': 'exp-'+str(self.entity_id),
+                              'b_date': self.birth_date,
+                              'gender': int(self.gender),
+                              'deceased': 'F',
+                              'desc': self.description})
+                # print "X: %s" % str(self._external_id)
+                for t_ss, t_type, t_id in self._external_id:
+                    self._set_external_id(t_ss, t_type, t_id)
+            else:
+                self.execute("""
+                UPDATE [:table schema=cerebrum name=person_info]
+                SET export_id=:exp_id, birth_date=:b_date, gender=:gender,
+                    deceased=:deceased, description=:desc
+                WHERE person_id=:p_id""",
+                             {'exp_id': 'exp-'+str(self.entity_id),
+                              'b_date': self.birth_date,
+                              'gender': int(self.gender),
+                              'deceased': 'F',
+                              'desc': self.description,
+                              'p_id': self.entity_id})
         else:
-            self.execute("""
-            UPDATE [:table schema=cerebrum name=person_info]
-            SET export_id=:exp_id, birth_date=:b_date, gender=:gender,
-                deceased=:deceased, description=:desc
-            WHERE person_id=:p_id""",
-                         {'exp_id': 'exp-'+str(self.entity_id),
-                          'b_date': self.birth_date,
-                          'gender': int(self.gender),
-                          'deceased': 'F',
-                          'desc': self.description,
-                          'p_id': self.entity_id})
+            is_new = None
 
         # Handle PersonAffiliations
         if hasattr(self, '_affil_source'):
@@ -197,9 +198,11 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
                 else:
                     ou_id, affil, status = [int(x) for x in idx.split(":")]
                     self.add_affiliation(ou_id, affil, source, status)
+                    is_new = False
             for idx in db_affil.keys():
                 ou_id, affil, status = [int(x) for x in idx.split(":")]
                 self.delete_affiliation(ou_id, affil, source, status)
+                is_new = False
 
         # If affect_names has not been called, we don't care about
         # names
@@ -219,6 +222,7 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
                                       'p_id': self.entity_id,
                                       'src': int(self._pn_affect_source),
                                       'n_variant': int(type)})
+                        is_new = False
                 except KeyError, msg:
                     # Note: the arg to a python exception must be
                     # casted to str :-(
@@ -226,6 +230,7 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
                         if self._name_info.has_key(type):
                             self._set_name(self._pn_affect_source, type,
                                            self._name_info[type])
+                            is_new = False
                     elif str(msg) == "MissingSelf":
                         self.execute("""
                         DELETE FROM [:table schema=cerebrum name=person_name]
@@ -236,6 +241,7 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
                                      {'p_id': self.entity_id,
                                       'src': int(self._pn_affect_source),
                                       'n_variant': int(type)})
+                        is_new = False
                     else:
                         raise
 
