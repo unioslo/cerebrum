@@ -672,8 +672,9 @@ def process_kurs2enhet():
                 # Opprett strukturnoder som tillater å ha rom direkte under
                 # seg.
                 sko_node = build_structure(fronter.enhet2sko[enhet_id])
-                enhet_node = "STRUCTURE/Enhet:%s" % enhet_id
-                undervisning_node = "STRUCTURE/Studentkorridor:%s" % enhet_id
+                struct_id = enhet_id.upper()
+                enhet_node = "STRUCTURE/Enhet:%s" % struct_id
+                undervisning_node = "STRUCTURE/Studentkorridor:%s" % struct_id
                 tittel = "%s - %s, %s" % (kurskode, fronter.kurs2navn[kurs_id], tidskode)
                 register_group(tittel, enhet_node, sko_node, 1)
                 register_group("%s  - Undervisningsrom" % kurskode,
