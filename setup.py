@@ -137,6 +137,8 @@ prefix="."  # Should preferably be initialized from the command-line argument
 sharedir="%s/share" % prefix
 sbindir="%s/sbin" % prefix
 bindir="%s/bin" % prefix
+sysconfdir = "%s/etc/cerebrum" % prefix # Should be /etc/cerebrum/
+logdir = "%s/var/log/cerebrum" % prefix # Should be /var/log/cerebrum/
 
 setup (name = "Cerebrum", version = "0.1",
        url = "http://cerebrum.sourceforge.net",
@@ -208,13 +210,13 @@ setup (name = "Cerebrum", version = "0.1",
                        'owner': cerebrum_user,
                        'mode': 0750},
                       [('java/jbofh/lib/libJavaReadline.so', 0644)]),
-                     ({'path': "/etc/cerebrum",
+                     ({'path': sysconfdir,
                        'owner': cerebrum_user,
                        'mode': 0750},
                       [('Cerebrum/cereconf.py', 0644),
                        ('server/config.dat', 0644)
                        ]),
-                     ({'path': "/var/log/cerebrum",
+                     ({'path': logdir,
                        'owner': cerebrum_user,
                        'mode': 0750},
                       []),
