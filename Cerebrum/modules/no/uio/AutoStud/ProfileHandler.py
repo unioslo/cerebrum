@@ -357,9 +357,10 @@ class ProfileMatcher(object):
                 if not profile.settings[k]:
                     continue      # This profile had no setting of this type
                 self._unique_extend(self.matched_settings.setdefault(k, []),
-                                    profile.settings[k])
+                                    profile.settings[k], nivaakode=nivaakode)
 
         # Automatically add the stedkode from the studieprogram that matched
+        tmp = []
         for p in self.matching_selectors.get('studieprogram', {}).keys():
             if not self.pc.autostud.studieprogramkode2info.has_key(p):
                 continue
@@ -369,8 +370,13 @@ class ProfileMatcher(object):
                                   int(d['instituttnr_studieansv']),
                                   int(d['gruppenr_studieansv'])),
                                   int(d['institusjonsnr_studieansv']))
+            tmp.append([sko,
+                        self._normalize_nivakode(int(d['studienivakode']))])
+        tmp.sort(self._matches_sort)
+        for sko, nivaa in tmp:
             self._unique_extend(self.matched_settings.setdefault(
-                "stedkode", []), [sko])
+                "stedkode", []), [sko], nivaakode=nivaa)
+            
 
     def _unique_extend(self, list, values, nivaakode=0):
         for item in values:

@@ -123,6 +123,8 @@ class ProfileDefinition(object):
             tmp_super = name2profile[self.super]
             tmp_super.expand_super(name2profile)
             for k in tmp_super.settings.keys():
+                if k == 'disk' and self.settings.has_key(k):
+                    break  # We're not interested in disks from super
                 self.settings.setdefault(k, []).extend(tmp_super.settings[k])
             self.super = None
 
