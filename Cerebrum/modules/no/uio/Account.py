@@ -216,9 +216,23 @@ class AccountUiOMixin(Account.Account):
 
 
     def update_email_addresses(self):
+        # The "cast" into PosixUser causes this function to be called
+        # twice in the typical case, so the "pre" code must be idempotent.
+
+        # Make sure the email target of this account is associated
+        # with an appropriate email server.  We must do this before
+        # super, since without an email server, no target or address
+        # will be created.
+        if not (self.is_reserved() or self.is_deleted()):
+            spreads = [int(r['spread']) for r in self.get_spread()]
+            srv_type = self.const.email_server_type_nfsmbox
+            if int(self.const.spread_uio_imap) in spreads:
+                srv_type = self.const.email_server_type_cyrus
+            self._UiO_update_email_server(srv_type)
+            self.update_email_quota()
+
         # Avoid circular import dependency
         from Cerebrum.modules.PosixUser import PosixUser
-
         if isinstance(self, PosixUser):
             ret = self.__super.update_email_addresses()
         else:
@@ -230,19 +244,11 @@ class AccountUiOMixin(Account.Account):
                 # in the UiO specific code.
                 posixuser = PosixUser(self._db)
                 posixuser.find(self.entity_id)
-                ret = posixuser.__super.update_email_addresses()
+                # Return immediately, any post code will be executed
+                # on the second run of this function.
+                return posixuser.__super.update_email_addresses()
             except Errors.NotFoundError:
                 ret = self.__super.update_email_addresses()
-
-        # Make sure the email target of this account is associated
-        # with an appropriate email server.
-        if not (self.is_reserved() or self.is_deleted()):
-            spreads = [int(r['spread']) for r in self.get_spread()]
-            srv_type = self.const.email_server_type_nfsmbox
-            if int(self.const.spread_uio_imap) in spreads:
-                srv_type = self.const.email_server_type_cyrus
-            self._UiO_update_email_server(srv_type)
-            self.update_email_quota()
         return ret
 
     def update_email_quota(self, force=False):
