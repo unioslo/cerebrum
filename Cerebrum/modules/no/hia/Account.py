@@ -98,7 +98,7 @@ class AccountHiAMixin(Account.Account):
             ctgs = [int(r['category']) for r in ed.get_categories()]
             local_parts = []
             if int(self.const.email_domain_category_cnaddr) in ctgs:
-                local_parts.append(self.get_email_cn_local_part())
+                local_parts.append(self.get_email_cn_local_part(given_names=1, max_initials=1))
                 local_parts.append(self.account_name)
             elif int(self.const.email_domain_category_uidaddr) in ctgs:
                 local_parts.append(self.account_name)
@@ -130,26 +130,6 @@ class AccountHiAMixin(Account.Account):
                         epat.populate(ea.email_addr_id, parent = et)
                     epat.write_db()
                     primary_set = True
-
-    def get_email_cn_local_part(self):
-	lp = []
-        try:
-            full = self.get_fullname()
-        except Errors.NotFoundError:
-            full = self.account_name
-        names = [x.lower() for x in re.split(r'\s+', full)]
-##        print "DEBUG1: %r" % names
-        last = names.pop(-1)
-##        print "DEBUG2: %r + %r" % (names, last)
-        names = [x for x in '-'.join(names).split('-') if x]
-##        print "DEBUG3: %r" % names
-        if len(names) > 1:
-	    lp.append(names.pop(0))
-            names = [x[0] for x in names]
-	if len(names) > 0:
-	    lp.append(names[0])
-	lp.append(last)
-	return self.wash_email_local_part(".".join(lp))
 
     def write_db(self):
         try:
