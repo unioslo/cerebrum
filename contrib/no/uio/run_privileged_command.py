@@ -18,12 +18,12 @@ commands = {
     'mvuser': [cereconf.MVUSER_SCRIPT, 8],
     # uname, operator, old_home
     #'rmuser': [cereconf.RMUSER_SCRIPT, 3],
-    # disk, old uname, new uname
-    #'subscribeimap': [cereconf.SUBSCRIBE_SCRIPT, 2],
+    # action, server, uname
+    'subscribeimap': [cereconf.SUBSCRIBE_SCRIPT, 3],
     # uname, mailto, hquota, from_host, from_type, to_host, to_type
-    #'mvmail': [cereconf.MVMAIL_SCRIPT, 7],
+    'mvmail': [cereconf.MVMAIL_SCRIPT, 7],
     # uname, home, uid, dfg
-    #'convertmail': [cereconf.CONVERT_MAILCONFIG_SCRIPT, 4],
+    'convertmail': [cereconf.CONVERT_MAILCONFIG_SCRIPT, 4],
     }
 
 def usage(exitcode=0):
