@@ -23,13 +23,16 @@ import cPickle
 import SpineClient
 
 class Session(dict):
-    def __init__(self, id):
+    def __init__(self, id, create=False):
         self.id = id
         self.filename = '/tmp/cereweb_%s' % id
-        if os.path.exists(self.filename):
-            fd = open(self.filename)
-            self.update(cPickle.load(fd))
-            fd.close()
+        if not create:
+            if os.path.exists(self.filename):
+                fd = open(self.filename)
+                self.update(cPickle.load(fd))
+                fd.close()
+            else:
+                raise KeyError, 'not found'
 
     def save(self):
         tmpname = self.filename + ".tmp." + str(os.getpid())
@@ -37,11 +40,5 @@ class Session(dict):
         cPickle.dump(self.items(), fd)
         fd.close()
         os.rename(tmpname, self.filename)
-
-    def get_spine_session(self):
-        return SpineClient.orb.string_to_object(self['spine_session'])
-
-    def set_spine_session(self, obj):
-        self['spine_session'] = SpineClient.orb.object_to_string(obj)
 
 # arch-tag: dbefe1f3-848c-4192-b0f1-75f5435b5887
