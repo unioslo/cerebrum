@@ -80,7 +80,7 @@ SELECT DISTINCT s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
        p.sprakkode_malform, sps.studieprogramkode, sps.studieretningkode,
        sps.studierettstatkode, sps.studentstatkode, sps.terminkode_kull,
        sps.arstall_kull, p.kjonn, p.status_dod, p.telefonnr_mobil
-FROM fs.kull k, fs.studieprogramstudent sps
+FROM fs.kull k, fs.studieprogramstudent sps, fs.person p
 WHERE p.fodselsdato = sps.fodselsdato AND
       p.personnr = sps.personnr AND
       %s AND
@@ -90,7 +90,14 @@ WHERE p.fodselsdato = sps.fodselsdato AND
       NVL(k.status_aktiv,'J') = 'J' AND
       NVL(sps.dato_studierett_gyldig_til,SYSDATE)>= SYSDATE AND
 UNION
-SELECT DISTINCT sps.fodselsdato, sps.personnr 
+SELECT DISTINCT s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
+       s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
+       s.adrlin3_semadr, s.adresseland_semadr, p.adrlin1_hjemsted,
+       p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
+       p.adresseland_hjemsted, p.status_reserv_nettpubl,
+       p.sprakkode_malform, sps.studieprogramkode, sps.studieretningkode,
+       sps.studierettstatkode, sps.studentstatkode, sps.terminkode_kull,
+       sps.arstall_kull, p.kjonn, p.status_dod, p.telefonnr_mobil
 FROM fs.registerkort r, fs.studieprogramstudent sps, fs.person p
 WHERE p.fodselsdato = sps.fodselsdato AND
       p.personnr = sps.personnr AND
