@@ -1,0 +1,128 @@
+[This documentation is in norwegian as the system in question is only
+used in norway]
+
+Dette dokumentet beskriver hvordan data skal importeres fra FS til
+Cerebrum, men ikke ned til minste detalj.  Jeg regner med at noen
+kommer til å skrive det om en gang i tiden, medmindre det blir
+abandoned til fordel for "the spec is the source"; hvis så skjer bør
+vel dokumentet slettes.
+
+1.0 Import av person informasjon fra FS til Cerebrum.
+=====================================================
+
+Scriptet import_FS.py skal importere data om personer fra.  Det
+importeres informasjon om for alle fagpersoner
+(GetKursFagpersonundsemester), studenter (GetStudinfRegkort,
+GetStudinfNaaKlasse, GetStudinfStudierett) og evu-studenter
+(GetStudinfEvuKurs).  
+
+For alle importerer vi:
+  - fornavn
+  - etternavn
+  - fødselsnummer
+  - kjønn
+Fagpersoner:
+  - arbeids adresse   (som co.address_post)
+  - alle sko (fs.fagpersonundsemester)
+Studenter:
+  - semesteradresse  (som co.address_post)
+Evu studenter:
+  - hjemstedsadresse  (som co.address_post)
+
+(Merk at evu-/studenter ikke får noen sko)
+
+
+2.0 Regler for automatisk bygging av kontoer o.l.
+=================================================
+
+Vi bygger konto til alle studenter med eksamensmelding i et aktivt
+studieprogram (GetAlleEksamener), medmindre personen allerede har en
+konto med _PersonAffiliationCode('STUDENT') (må denne affiliation være
+valid?).
+
+For alle med student-konto gjelder følgende:
+
+- Personen får affiliation('STUDENT') mot stedkodene til alle dens
+  studieprogram
+- For evu studenter hentes stedkodene fra fakultetsnummeret i
+  'etterutdkurskode' (= de to første sifrene)
+- kontoen meldes inn i alle primær-/grupper angitt i studconfig.xml.
+  Den meldes også ut av alle øvrige grupper listet som "auto-grupper".
+- kontoen gis alle spread som matcher i studconfig.xml
+- kontoen gis et hjemmeområde, default e-post adresse og primærgruppe
+  (se under)
+
+
+2.1 Order-of-precedence for atributter man bare kan ha ett av
+-------------------------------------------------------------
+
+En konto kan bare ha ett hjemmeområde, default-epost adresse og
+primærgruppe.  Når studconfig.xml forteller at brukeren har multiple
+verdier for disse gjelder følgende regler:
+
+- studienivåkode 100-300 settes til 100 og 300-400 settes til 300.
+  Hvis verdien for det høyeste nivået er unik, velges denne.
+
+(reglene under gjelder bare for emner/studieprogram på høyeste nivå)
+
+- Hvis den ene verdien er satt fra et emne, og den andre fra et
+  studieprogram, velges verdien for emne.
+- home settes til /uio/platon/div-{h|l}\d+
+- primærgruppe og default-epost settes til det som ligger først i alfabetet.
+
+
+2.2 Reservering av brukernavn
+-----------------------------
+
+Alle personer med opptak til et studieprogram (FinnAlleStudprogSko)
+får et brukernavn og passord, men de får ikke noen PosixUser eller
+spread.
+
+
+2.3 Tilordning av skriverkvoter
+-------------------------------
+
+TODO: Her må det skrives noe.  Det er fint om studconfig.xml bestemmer
+hvem som skal ha kvoter.
+
+
+2.4 Utsending av papirbrev
+--------------------------
+
+Det sendes brev for alle automatisk byggede brukere.  Brevet sendes
+til semesteradressen hvis denne finnes.  Hvis ikke, sendes det til
+hjemstedsadressen.  Brev sendes ikke ut av landet.  Alle brev er på
+norsk.
+
+
+2.5 Tidspunkt for automatiske handlinger
+----------------------------------------
+
+- Skriverkvoter oppdateres natt til fredag
+- Innmelding i grupper skjer hver natt
+- Endring av primærgruppe skjer en gang i semesteret (dato?)
+- primær e-post adresse settes hver onsdag
+- Brukere bygges hver natt
+- Brukere flyttes hver natt forutsatt at det er < 7 dager siden
+  forrige flytting
+- Brukere meldes ut av grupper: når da?
+
+2.5.1 Sperring:
+---------------
+1. Studentbrukere til studenter som ikke er semesterregistrert etter 20.
+   februar eller 20. september sperres (en gang i semesteret, eller i
+   forbindelse med jobben som skal utføre sperring i punkt. 2.
+2. Studentbrukere til studenter som ikke har eksamensmelding i minst ett
+   emne sperres (hver natt etter 20. februar/20. september)
+3. Studentbrukere til studenter som er eksamensmeldt til et emne som ikke
+   kan inngå i minst et av de studieprogrammene studenten har opptak til
+   sperres etter 15. mars/15. oktober ("privatister", her venter vi på at
+   fakultetene skal gjennomføre overgangsopptak)
+
+2.5.2 Sletting:
+---------------
+1. Studentbrukere til studenter som har vært inaktive forrige semester
+   slettes 20. februar/20. september (en gang i semesteret).
+2. Etter 15. mars/15. oktober slettes alle brukere som har vært sperret i
+   tre måneder (90 dager :))
+3. ENU-studenter slettes ca to uker etter at kurset er gjennomført
