@@ -21,8 +21,13 @@ import omniORB
 
 from Cerebrum_core import Errors
 from Transaction import Transaction
-from classes.Builder import CorbaBuilder, Method, Attribute
-from classes.Account import Account # FIXME: midlertidig. bruker denne til å lage søkeklasse. GroRegistry noen?
+
+import classes.Registry
+registry = classes.Registry.get_registry()
+
+CorbaBuilder = registry.CorbaBuilder
+Method = registry.Method
+Attribute = registry.Attribute
 
 def create_ap_method(method_name, data_type, write, method_arguments):
     args_table = dict(method_arguments)
@@ -34,11 +39,14 @@ def create_ap_method(method_name, data_type, write, method_arguments):
         # TODO: fungerer ikke uten at man har startet en transaksjon
 
         if write:
+            if not self.ap_handler.transaction_started:
+                raise Errors.TransactionError('No transaction started')
             self.gro_object.lock_for_writing(self.ap_handler)
         else:
             self.gro_object.lock_for_reading(self.ap_handler)
 
-        self.ap_handler.add_ref(self.gro_object)
+        if self.ap_handler.transaction_started:
+            self.ap_handler.add_ref(self.gro_object)
 
         args = []
         for value, arg in zip(corba_args, method_arguments):
@@ -49,6 +57,9 @@ def create_ap_method(method_name, data_type, write, method_arguments):
             vargs[name] = APHandler.convert_from_corba(value, args_table[name])
 
         value = getattr(self.gro_object, method_name)(*args, **vargs)
+
+        if not self.ap_handler.transaction_started:
+            self.gro_object.unlock(self.ap_handler)
 
         return APHandler.convert_to_corba(value, data_type, self.ap_handler)
     return method
@@ -99,6 +110,8 @@ class APClass:
 
 def create_ap_handler_get_method(data_type):
     def get(self, *args, **vargs):
+        if not self.transaction_started:
+            self.transaction_disabled = True
         obj = APHandler.gro_classes[data_type](*args, **vargs)
         return APHandler.convert_to_corba(obj, data_type, self)
     return get
@@ -168,7 +181,7 @@ class APHandler(CorbaBuilder, Transaction):
             if char in username or char in password:
                 raise exception
 
-        search = Account.create_search_class()() # FIXME: midlertidig. hente ut fra GroRegistry
+        search = registry.AccountSearch()
         search.set_name(username)
         unames = search.search()
         if len(unames) != 1:
@@ -196,7 +209,12 @@ class APHandler(CorbaBuilder, Transaction):
         gro_class.build_methods()
         name = gro_class.__name__
 
-        method_name = 'get_%s' % name.lower()
+        method_name = 'get'
+        for i in name:
+            if i.isupper():
+                method_name += '_' + i.lower()
+            else:
+                method_name += i
         method_impl = create_ap_handler_get_method(name)
         method = Method(method_name, name, [(i.name, i.data_type) for i in gro_class.primary])
 
@@ -222,7 +240,7 @@ class APHandler(CorbaBuilder, Transaction):
         tmp = cls.create_idl_interface()
         txt += tmp
         
-        return 'module %s {\n\t%s\n};' % ('generated', txt)
+        return 'module %s {\n\t%s\n};\n' % ('generated', txt.replace('\n', '\n\t'))
 
     create_idl = classmethod(create_idl)
 
@@ -239,8 +257,18 @@ class APHandler(CorbaBuilder, Transaction):
 
     def create_ap_handler_impl(cls):
         import generated__POA
-        class APHandlerImpl(cls, generated__POA.APHandler):
+        class APHandler(cls, generated__POA.APHandler):
             pass
-        return APHandlerImpl
+        return APHandler
 
     create_ap_handler_impl = classmethod(create_ap_handler_impl)
+
+_ap_handler_class = None
+def get_ap_handler_class():
+    global _ap_handler_class
+    if _ap_handler_class is None:
+        for cls in registry.get_gro_classes().values():
+            APHandler.register_gro_class(cls)
+        APHandler.build_classes()
+        _ap_handler_class = APHandler.create_ap_handler_impl()
+    return _ap_handler_class

@@ -6,16 +6,15 @@ class Transaction:
         self.client = client
         self._refs = None
         self._db = None
-
-    def transaction_started(self):
-        return self._refs is None and False or True
+        self.transaction_started = False
 
     def begin(self):
-        if self._refs is None:
+        if self.transaction_started:
+            raise Errors.TransactionError('Transaction has already started')
+        else:
             self._refs = []
             self._db = Database.GroDatabase(self.client.get_entity_id())
-        else:
-            Errors.TransactionError('Transaction has already begun')
+            self.transaction_started = True
 
     def add_ref(self, obj):
         """ Add a new object to this transaction.
@@ -23,7 +22,7 @@ class Transaction:
         if the transaction is commited and rolled back if the transaction
         is aborted."""
 
-        if self._refs is None:
+        if not self.transaction_started:
             raise Errors.TransactionError('No transaction started')
 
         self._refs.append(obj)
@@ -33,6 +32,9 @@ class Transaction:
         changed.
 
         This transaction object cannot be used again."""
+
+        if not self.transaction_started:
+            raise Errors.TransactionError('No transaction started')
 
         try:
             for item in self._refs:
@@ -46,6 +48,7 @@ class Transaction:
 
         self._db.commit()
         self._refs = None
+        self.transaction_started = False
         
 
     def rollback(self):
@@ -53,6 +56,10 @@ class Transaction:
         by the client in question.
 
         This transaction object cannot be used again."""
+
+        if not self.transaction_started:
+            raise Errors.TransactionError('No transaction started')
+
         for item in self._refs:
             if item.updated and item.is_writelocked_by_me(self):
                 item.reload()
@@ -61,6 +68,7 @@ class Transaction:
         self._db.rollback()
         self._db = None
         self._refs = None
+        self.transaction_started = False
 
     def get_database(self):
         if self._db is None:
