@@ -1,17 +1,11 @@
-TBD:
+/* TBD:
  * Struktur for tildeling av ymse rettigheter til (IT-)grupper.
+*/
 
 /***********************************************************************
    Generalized group tables
  ***********************************************************************/
 
-group_visibility_code
-(
-  code		CHAR VARYING(16)
-		CONSTRAINT group_visibility_code_pk PRIMARY KEY,
-  description	CHAR VARYING(512)
-		NOT NULL
-);
 
 /*	group_info
 
@@ -26,94 +20,85 @@ group_visibility_code
 	     the access delegation structure?
 
 */
-CREATE SEQUENCE group_id;
 CREATE TABLE group_info
 (
+  /* Dummy column, needed for type check against `entity_id'. */
+  entity_type	CHAR VARYING(16)
+		NOT NULL
+		DEFAULT 'g'
+		CONSTRAINT group_info_entity_type_chk
+		  CHECK (entity_type = 'g'),
+
   group_id	NUMERIC(12,0)
 		CONSTRAINT group_info_pk PRIMARY KEY,
-  gname		CHAR VARYING(256)
-		NOT NULL
-		CONSTRAINT group_info_gname_lc CHECK (gname = LOWER(gname)),
   description	CHAR VARYING(512),
   visibility	CHAR VARYING(16)
 		NOT NULL
 		CONSTRAINT group_info_visibility
 		  REFERENCES group_visibility_code(code),
-  creator	NUMERIC(12,0)
+  creator_id	NUMERIC(12,0)
 		NOT NULL
-		CONSTRAINT group_info_creator REFERENCES account(account_id),
+		CONSTRAINT group_info_creator_id
+		  REFERENCES account_info(account_id),
   create_date	DATE
 		DEFAULT SYSDATE
-		NOT NULL
-/* created_by_system ? (kanskje nyttig for ad-hoc-grupper) */
-/* expire_date ? */
+		NOT NULL,
+/* expire_date kan brukes for å slette grupper, f.eks. ved at gruppen
+   ikke lenger eksporteres etter at datoen er passert, men først
+   slettes fra tabellen N måneder senere.  Det innebærer at man ikke
+   får opprettet noen ny gruppe med samme navn før gruppa har vært
+   borte fra eksporten i N måneder (med mindre man endrer på
+   expire_date). */
+  expire_date	DATE
+		DEFAULT NULL,
+  CONSTRAINT group_info_entity_id
+    FOREIGN KEY (entity_type, group_id)
+    REFERENCES entity_info(entity_type, entity_id)
 );
 
-
-CREATE TABLE group_membership_operation_code
-(
-  code		CHAR VARYING(16)
-		CONSTRAINT group_membership_operation_pk PRIMARY KEY,
-  description	CHAR VARYING(512)
-		NOT NULL
-);
 
 /* group_member:
 
   group_id
 	Reference to the (super-)group this membership pertains to.
 
-  priority
-	Determines the order of the various members of this
-	(super-)group.
-
-	TBD: When adding a member with a ordering between two previous
-	     members, it would be nice if we didn't have to update the
-	     ordering of any other members of the group; is there any
-	     way to make that possible?
-
   operation
 
 	Indicate whether this membership is a (set) 'U'nion,
-	'I'ntersection or 'D'ifference.
+	'I'ntersection or 'D'ifference.  When determining the members
+	of a group, the member types are processed in this order:
 
-	TBD: Is it really a good idea to allow the Intersection
-	     operation for non-subgroup memberships?
+	  Add all members from Union type members
+	  Limit the member set using all Intersection type members
+	  Reduce the member set by removing all Difference type members
 
  */
 CREATE TABLE group_member
 (
   group_id	NUMERIC(12,0)
-		NOT NULL
-		CONSTRAINT group_member_gkey REFERENCES group_info(group_id),
-  priority	NUMERIC(9,0)
-		NOT NULL,
+		CONSTRAINT group_member_group_id
+		  REFERENCES group_info(group_id),
   operation	CHAR VARYING(16)
-		NOT NULL
 		CONSTRAINT group_member_operation
 		  REFERENCES group_membership_operation_code(code),
-  person	NUMERIC(12,0)
-		CONSTRAINT group_member_person
-		  REFERENCES person(person_id),
-  account	NUMERIC(12,0)
-		CONSTRAINT group_member_account
-		  REFERENCES account(account_id),
-  subgroup	NUMERIC(12,0)
-		CONSTRAINT group_member_subgroup
-		  REFERENCES group_info(group_id),
-/* ldap_dn  CHAR VARYING(256)
-  DN må være "dc"-navngitt, jf RFC xxx. */
-  CONSTRAINT group_member_pk PRIMARY KEY (group_id, priority),
-  CONSTRAINT group_member_onetype CHECK
-    (DECODE(NVL(person, 'NO SUCH PERSON'), 'NO SUCH PERSON', 0, 1)
-   + DECODE(NVL(account, 'NO SUCH ACCOUNT'), 'NO SUCH ACCOUNT', 0, 1)
-   + DECODE(NVL(subgroup, 'NO SUCH GROUP'), 'NO SUCH GROUP', 0, 1)
-   = 1),
-  CONSTRAINT group_member_subgroup_not_self CHECK (NVL(subgroup, '?') <> gkey)
+  member_type	CHAR VARYING(16)
+		NOT NULL,
+  member_id	NUMERIC(12,0),
+  CONSTRAINT group_member_pk
+    PRIMARY KEY (group_id, operation, member_id),
+  CONSTRAINT group_member_exists
+    FOREIGN KEY (member_type, member_id)
+    REFERENCES entity_info(entity_type, entity_id),
+  CONSTRAINT group_member_not_self
+    CHECK (group_id <> member_id)
 );
 
 
 /*
+
+TBD: Er de følgende to tabellene nødvendige i det hele tatt, eller bør
+     de erstattes med modul-spesifikke export-tabeller m/ tilhørende
+     hooks?
 
 In what fashions/to what systems can a group be exported?
 
@@ -161,35 +146,10 @@ CREATE TABLE group_export
 );
 
 
-
-/***********************************************************************
-   NIS module
- ***********************************************************************/
-
-/*
-
-Extra information for groups exported as NIS filegroups.
-
-Note that the names of NIS filegroups can't be longer than 8
-character; if a group with too long a name is referenced in this
-table, it should be ignored by the export machinery.
-
-   gid
-	Unix numeric filegroup ID.
- */
-CREATE TABLE nis_filegroup
-(
-  gkey		NUMERIC(12,0)
-		CONSTRAINT nis_filegroup_pk PRIMARY KEY
-		CONSTRAINT nis_filegroup_gkey REFERENCES group_info(group_id),
-  gid		NUMERIC(5,0)
-		CONSTRAINT nis_filegroup_gid UNIQUE
-);
-
-
 /* TBD: Må tenke mer på om spread skal skilles fra grupper, og
    evt. hvordan.  Skal spread være i kjernen i det hele tatt? */
 
+/*
 spread
 (
   to_system
@@ -201,7 +161,7 @@ spread
   start_date
   end_date
 );
-
+*/
 
 /* Bør man kunne override gruppenavn pr. system ved eksport?  Det vil tillate
 
