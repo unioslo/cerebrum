@@ -58,6 +58,8 @@ _GJEST_SCHEMA = "[:table schema=cerebrum name=lt_gjest]"
 _RESERVASJONS_SCHEMA = "[:table schema=cerebrum name=lt_reservasjon]"
 _PERMISJONS_SCHEMA = "[:table schema=cerebrum name=lt_permisjon]"
 _ROLLE_SCHEMA = "[:table schema=cerebrum name=lt_rolle]"
+_STILLINGSKODE_SCHEMA = "[:table schema=cerebrum name=lt_stillingskode]"
+_GJESTETYPEKODE_SCHEMA = "[:table schema=cerebrum name=lt_gjestetypekode]"
 
 
 
@@ -500,7 +502,8 @@ class PersonLTMixin(Person.Person):
 
         time_clause = """
                       AND dato_fra <= :timestamp
-                      AND :timestamp <= dato_til
+                      AND ((dato_til is null) OR
+                           (:timestamp <= dato_til))
                       """
         return time_clause, {"timestamp" : strptime(timestamp, "%Y%m%d")}
     # end _make_timestamp_clause
@@ -521,14 +524,22 @@ class PersonLTMixin(Person.Person):
         values.update(extra_vars)
 
         return self.query("""
-                          SELECT tilsettings_id, person_id,
-                                 ou_id, stillingskode,
-                                 dato_fra, dato_til,
-                                 andel
-                          FROM %s
-                          WHERE person_id = :person_id
-                                %s
-                          """ % (_TILSETTINGS_SCHEMA, time_clause),
+                          SELECT
+                            t.tilsettings_id, t.person_id,
+                            t.ou_id, t.stillingskode,
+                            t.dato_fra, t.dato_til,
+                            t.andel,
+                            s.code_str, s.hovedkategori, s.tittel
+                          FROM
+                            %s t,
+                            %s s
+                          WHERE
+                            t.person_id = :person_id AND
+                            t.stillingskode = s.code
+                            %s
+                          """ % (_TILSETTINGS_SCHEMA,
+                                 _STILLINGSKODE_SCHEMA,
+                                 time_clause),
                           values)
     # end list_tilsetting
 
@@ -548,12 +559,20 @@ class PersonLTMixin(Person.Person):
         values.update(extra_vars)
 
         return self.query("""
-                          SELECT person_id, ou_id, dato_fra,
-                                 gjestetypekode, dato_til
-                          FROM %s
-                          WHERE person_id = :person_id
-                                %s
-                          """ % (_GJEST_SCHEMA, time_clause),
+                          SELECT
+                            g.person_id, g.ou_id, g.dato_fra,
+                            g.gjestetypekode, g.dato_til,
+                            c.code_str, c.tittel
+                          FROM
+                            %s g,
+                            %s c
+                          WHERE
+                            g.person_id = :person_id AND
+                            g.gjestetypekode = c.code
+                            %s
+                          """ % (_GJEST_SCHEMA,
+                                 _GJESTETYPEKODE_SCHEMA,
+                                 time_clause),
                           values)
     # end list_gjest
 
