@@ -1045,6 +1045,29 @@ class PersonLTMixin(Person.Person):
 
 
 
+    def wipe_mod_lt(self):
+        """
+        This function deletes all data from non-code tables in mod_lt.
+
+        Since we sync with LT on daily basis, the easiest way to drop all
+        stale records, is by dropping *all* the records in mod_lt. It is
+        safe to do that, provided that the session looks like this:
+
+        transaction start
+        wipe_mod_lt
+        <load all new data>
+        commit / rollback
+        """
+
+        for schema in (_PERMISJONS_SCHEMA, _RESERVASJONS_SCHEMA,
+                       _ROLLE_SCHEMA, _GJEST_SCHEMA, _BILAGS_SCHEMA,
+                       _TILSETTINGS_SCHEMA):
+            self.execute("DELETE FROM %s" % schema)
+        # od 
+    # end wipe_mod_lt
+
+
+
     def list_frida_persons(self):
         """
         Return a list of person_ids eligible for FRIDA output.

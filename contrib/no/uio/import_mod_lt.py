@@ -438,8 +438,8 @@ def import_rolle(pxml, person, stedkode, constants):
     # fi
 # end import_rolle
 
-    
 
+    
 def import_person(pxml, person, stedkode, constants, import_list):
     """
     Synchronize Cerebrum with information on person represented by
@@ -509,7 +509,8 @@ def main(argv):
                                        "rolle",
                                        "help",
                                        "person-file=",
-                                       "verbose"])
+                                       "verbose",
+                                       "with-remove"])
     except getopt.GetoptError:
         usage()
         sys.exit(1)
@@ -517,6 +518,7 @@ def main(argv):
 
     imports = []
     person_file = None
+    do_remove = False
     # Why does this look _so_ ugly?
     for option, value in options:
         if option in ("-t", "--tilsetting"):
@@ -536,6 +538,8 @@ def main(argv):
             person_file = value
         elif option in ("-v", "--verbose"):
             logger.setLevel(logging.DEBUG)
+        elif option in ("--with-remove",):
+            do_remove = True
         # fi
     # od
 
@@ -553,8 +557,17 @@ def main(argv):
     const = Factory.get("Constants")(db)
     stedkode = Stedkode.Stedkode(db)
 
+    if do_remove:
+        # Do *NOT*, I repeat, do *NOT* commit/rollback before *all* new data
+        # has been loaded. Otherwise we risk having a bit of the old dataset
+        # and a bit of the new dataset, or no data at all.
+        logger.warn("Erasing everything in mod_lt before loading new data")
+        person.wipe_mod_lt()
+    # fi
+
     func = lambda x: import_person(x, person, stedkode, const, imports)
     p = PersonParser(person_file, func)
+
     db.commit()
 # end 
 
