@@ -332,9 +332,18 @@ def main():
     if not alt_config:
         import scheduled_jobs
     sock = SocketHandling()
-    if(sock.ping_server()):
-        print "Server already running"
-        sys.exit(1)
+    try:
+        if(sock.ping_server()):
+            print "Server already running"
+            sys.exit(1)
+    except SocketHandling.Timeout:
+        # Assuming that previous run aborted without removing socket
+        logger.warn("Socket timeout, assuming server is dead")
+        try:
+            os.unlink(cereconf.JOB_RUNNER_SOCKET)
+        except OSError:
+            pass
+        pass
     jr = JobRunner(scheduled_jobs)
     if True:
         socket_thread = threading.Thread(target=sock.start_listener, args=(jr,))
