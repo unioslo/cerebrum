@@ -63,39 +63,37 @@ def write_person_info(outfile):
     f=open(outfile, 'w')
     f.write(xml.xml_hdr + "<data>\n")
     # Fagpersoner
-    cols, fagpersoner = fs.GetKursFagpersonundsemester()
+    cols, fagpersoner = fs.GetFagperson_50()
     for p in fagpersoner:
         f.write(xml.xmlify_dbrow(p, xml.conv_colnames(cols), 'fagperson') + "\n")
 
     # Studenter med opptak, privatister (=opptak i studiepgraommet
     # privatist) og Alumni
-    cols, students = fs.GetStudinfOpptak()
+    cols, students = fs.GetStudent_50()
     for s in students:
 	# The Oracle driver thinks the result of a union of ints is float
         fix_float(s)
         f.write(xml.xmlify_dbrow(s, xml.conv_colnames(cols), 'opptak') + "\n")
     # Studenter med alumni opptak til et studieprogram
-    cols, students = fs.GetAlumni()
+    cols, students = fs.GetAlumni_50()
     for s in students:
         f.write(xml.xmlify_dbrow(s, xml.conv_colnames(cols), 'alumni') + "\n")
 
-    # Studenter med privatist opptak til et studieprogram
-    cols, students = fs.GetPrivatistStudieprogram()
+    # Privatister, privatistopptak til studieprogram eller emne-privatist
+    cols, students = fs.GetStudentPrivatist_50()
     for s in students:
         fix_float(s)
         f.write(xml.xmlify_dbrow(s, xml.conv_colnames(cols), 'privatist_studieprogram') + "\n")
+    cols, students = fs.GetStudentPrivatistEmne_50()
+    for s in students:
+        f.write(xml.xmlify_dbrow(s, xml.conv_colnames(cols), 'privatist_emne') + "\n")
 
     # Aktive studenter
-    cols, students = fs.GetStudinfAktiv()
+    cols, students = fs.GetStudentAktiv_50()
     for s in students:
         # The Oracle driver thinks the result of a union of ints is float
         fix_float(s)
         f.write(xml.xmlify_dbrow(s, xml.conv_colnames(cols), 'aktiv') + "\n")
-
-    # Privatister (=eksamensmeldt i emne de ikke har opptak til)
-    cols, students = fs.GetStudinfPrivatist()
-    for s in students:
-        f.write(xml.xmlify_dbrow(s, xml.conv_colnames(cols), 'privatist_emne') + "\n")
 
     # Semester-registrering
     cols, students = fs.GetStudinfRegkort()
@@ -110,7 +108,7 @@ def write_person_info(outfile):
     # EVU students
     # En del EVU studenter vil være gitt av søket over
 
-    cols, evustud = fs.GetStudinfEvu()
+    cols, evustud = fs.GetDeltaker_50()
     for e in evustud:
         f.write(xml.xmlify_dbrow(e, xml.conv_colnames(cols), 'evu') + "\n")
 
@@ -120,7 +118,7 @@ def write_person_info(outfile):
         f.write(xml.xmlify_dbrow(p, xml.conv_colnames(cols), 'permisjon') + "\n")
 
     # Personer som har fått tilbud
-    cols, tilbudstud = fs.GetStudinfTilbud()
+    cols, tilbudstud = fs.GetStudentTilbud_50()
     for t in tilbudstud:
         f.write(xml.xmlify_dbrow(t, xml.conv_colnames(cols), 'tilbud') + "\n")
     
