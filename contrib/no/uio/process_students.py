@@ -339,10 +339,9 @@ class RecalcQuota(object):
 
         for account_id in students.get(fnr, {}).keys():
             groups = []
-            for r in group_obj.list_groups_with_entity(account_id):
-                groups.append(int(r['group_id']))
             try:
-                profile = autostud.get_profile(person_info, member_groups=groups)
+                profile = autostud.get_profile(
+                    person_info, member_groups=persons[fnr]['groups'])
                 quota = profile.get_pquota()
             except AutoStud.ProfileHandler.NoMatchingQuotaSettings, msg:
                 logger.warn("Error for %s: %s" %  (fnr, msg))
