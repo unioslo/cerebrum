@@ -449,8 +449,7 @@ def generate_person(filename=None):
     affili_stu = "student"
     affili_em = "employee"
     for row in person.list_extended_person(person_spread,
-                                           include_quarantines = True,
-                                           include_mail = email_enable):
+				include_quarantines = True, include_mail = email_enable):
 	name,entity_name,ou_id,affili,status = row['name'],row['entity_name'],row['ou_id'],row['affiliation'],int(row['status'])
 	person.clear()
         person.entity_id = row['person_id']
@@ -632,13 +631,8 @@ def generate_users(spread=None,filename=None):
     posix_user = PosixUser.PosixUser(Cerebrum)
     posix_group = PosixGroup.PosixGroup(Cerebrum)
     disk = Factory.get('Disk')(Cerebrum)
-    spreads = []
-    if spread:
-	#for entry in spread:
- 	    spreads.append(int(spread))
-    else:
-	for entry in cereconf.LDAP_USER_SPREAD:
-	    spreads.append(int(getattr(co,entry)))
+    if spread: spreads = eval_spread_codes(spread)
+    else: spreads = eval_spread_codes(cereconf.LDAP_USER_SPREAD)
     for sh in posix_user.list_shells():
 	shells[int(sh['code'])] = sh['shell']
     for hd in disk.list():
@@ -704,16 +698,12 @@ gecos: %s\n""" % (posix_dn_string, uname, posix_dn, obj_string, gecos,
     f.write("\n")
     f.close()
 
-def generate_posixgroup():
-    spreads = []
-    for spread in cereconf.LDAP_GROUP_SPREAD:
-	spreads.append(int(getattr(co,spread)))
-    generate_group(spreads)
 
-def generate_group(spread=None, filename=None):
+def generate_posixgroup(spread=None, filename=None):
     posix_group = PosixGroup.PosixGroup(Cerebrum)
     group = Factory.get('Group')(Cerebrum)
-    pos_usr = PosixUser.PosixUser(Cerebrum)
+    if spread: spreads = eval_spread_codes(spread)
+    else: spreads = eval_spread_codes(cereconf.LDAP_GROUP_SPREAD)
     user_spread = int(getattr(co,cereconf.LDAP_USER_SPREAD[0]))
     if filename:
 	f = file(filename, 'w')
@@ -725,7 +715,7 @@ def generate_group(spread=None, filename=None):
     obj_str = "objectClass: top\n"
     for obj in cereconf.LDAP_GROUP_OBJECTCLASS:
 	obj_str += "objectClass: %s\n" % obj
-    for row in posix_group.list_all_test(spread):
+    for row in posix_group.list_all_test(spreads):
 	posix_group.clear()
 	try:
 	    posix_group.find(row.group_id)
@@ -738,14 +728,12 @@ def generate_group(spread=None, filename=None):
 		pos_grp += "description: %s\n" % some2utf(posix_group.description) #latin1_to_iso646_60 later
 	    group.clear()
 	    group.find(row.group_id)
-	    for id in group.get_members(spread=int(user_spread)):
-		uname_id = int(Cerebrum.pythonify_data(id))
+	    for id in group.get_members(spread=int(user_spread),get_entity_name=True):
+		uname_id = int(id[0])
 		if entity2uname.has_key(uname_id):
 		    pos_grp += "memberUid: %s\n" % entity2uname[uname_id]
 		else:
- 		    posix_group.clear()
-		    posix_group.entity_id = uname_id
-		    mem_name = posix_group.get_name(co.account_namespace)
+		    mem_name = id[1]
 		    entity2uname[int(uname_id)] = mem_name
 		    pos_grp += "memberUid: %s\n" % mem_name
 	    f.write("\n")
@@ -755,24 +743,22 @@ def generate_group(spread=None, filename=None):
     f.close()
 
 def generate_netgroup(spread=None, filename=None):
+    global grp_memb
     pos_netgrp = Factory.get('Group')(Cerebrum)
     if filename:
         f = file(filename, 'w')
     else:
         f = SimilarSizeWriter(string.join((cereconf.LDAP_DUMP_DIR,cereconf.LDAP_NETGROUP_FILE),'/'), 'w')
         f.set_size_change_limit(10)
-    spreads = []
-    if spread:
-        spreads.append(int(getattr(co,spread)))
-    else:
-        for spread in cereconf.LDAP_NETGROUP_SPREAD:
-            spreads.append(int(getattr(co,spread)))
+    if spread: spreads = eval_spread_codes(spread)
+    else: spreads = eval_spread_codes(cereconf.LDAP_NETGROUP_SPREAD)
     f.write("\n")
     dn_str = "%s=%s,%s" % (cereconf.LDAP_ORG_ATTR,cereconf.LDAP_NETGROUP_DN,cereconf.LDAP_BASE)
     obj_str = "objectClass: top\n"
     for obj in cereconf.LDAP_NETGROUP_OBJECTCLASS:
         obj_str += "objectClass: %s\n" % obj
     for row in pos_netgrp.list_all_test(spreads):
+	grp_memb = {}
         pos_netgrp.clear()
         try:
             pos_netgrp.find(row.group_id)
@@ -809,8 +795,9 @@ def get_netgrp(netgrp_id,spreads,f):
 		    uname = pos_user.account_name
             # The LDAP schema for NIS netgroups doesn't allow
             # usernames with '_' in.
-		if '_' not in uname:
+		if ('_' not in uname) and not grp_memb.has_key(uname_id):
 		    f.write("nisNetgroupTriple: (,%s,)\n" % uname)
+		    grp_memb[uname_id] = True
 	    except: print "LDAP:netgroup: User not valid (%d)" % uname_id
         for group in pos_netgrp.list_members(None,int(co.entity_group))[0]:
             valid_spread = False
@@ -825,6 +812,36 @@ def get_netgrp(netgrp_id,spreads,f):
             else:
                 get_netgrp(group_id,spreads,f)
     except: print "Fault with group: %s" % netgrp_id
+
+
+def eval_spread_codes(spread):
+    spreads = []
+    if (type(spread) == type(0) or type(spread) == type('')):
+        if (spread_code(spread)):
+            spreads.append(spread_code(spread))
+    elif (type(spread) == type([]) or type(spread) == type(())):
+        for entry in spread:
+            if (spread_code(entry)):
+                spreads.append(spread_code(entry))
+    else:
+        spreads = None
+    return(spreads)
+
+
+def spread_code(spr_str):
+    spread = None
+    if (type(spr_str) == type(0)):
+        spread = spr_str
+    elif (type(spr_str) == type('')):
+        if (len(spr_str) > 1):
+            try: spread = int(getattr(co,spr_str))
+            except:
+                try: spread = int(spr_str)
+                except: print "Not valid spread code: '%s'" % spr_str # Change to logger
+        else:
+            try: spread = int(spr_str)
+            except: print "Not valid spread code: '%s'" % spr_str # Change to logger
+    return(spread)
 
 
 def iso2utf(s):
@@ -978,8 +995,7 @@ def main():
 	    generate_users()
 	elif opt in ('-g', '--group'):
 	    #load_entity2uname()
-	    #generate_posixgroup()
-	    generate_group(group_spread, val)
+	    generate_posixgroup(group_spread, val)
 	elif opt in ('-n', '--netgroup'):
 	    #load_entity2uname()
 	    #generate_netgroup(group_spread, val)
