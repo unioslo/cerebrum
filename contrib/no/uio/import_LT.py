@@ -66,12 +66,13 @@ def conv_name(fullname):
     return fullname.split(None, 1)
 
 ou_cache = {}
-def get_sted(stedkode, kinstitusjon=None):
+def get_sted(stedkode):
     if not ou_cache.has_key(stedkode):
         ou = Factory.get('OU')(db)
         try:
             fak, inst, gruppe = stedkode[0:2], stedkode[2:4], stedkode[4:6]
-            ou.find_stedkode(int(fak), int(inst), int(gruppe))
+            ou.find_stedkode(int(fak), int(inst), int(gruppe),
+                             institusjon=cereconf.DEFAULT_INSTITUSJONSNR)
             addr = ou.get_entity_address(source=const.system_lt,
                                          type=const.address_street)
             if len(addr) > 0:
