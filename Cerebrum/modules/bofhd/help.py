@@ -17,6 +17,11 @@ brukere.  Detaljert hjelp kan finnes på http://.....
 For hjelp om en enkelt hovedgruppe, skriv "help <hovedgruppe>".
 Tilgjengelige hovedgrupper:
 """,
+               'glossary': """Common terms in Cerebrum and their meaning:
+- ou: Organizational Unit
+               """,
+               'intro': """Need some intro text here...
+               """
               }
 
 # Help for all commands.  Format:
@@ -136,6 +141,8 @@ class Help(object):
     # command-defs and help data
     def get_group_help(self, all_commands, group, no_filter=0):
         if not self.command_help.has_key(group):
+            if self.group_help.has_key(group):
+                return self.group_help[group]
             return "Unkown command group: %s" % group
         ret = "   %-10s - %s\n" % (group, self.group_help[group])
         known_commands = self._map_all_commands(all_commands)
