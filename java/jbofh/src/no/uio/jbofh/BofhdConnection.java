@@ -156,7 +156,7 @@ public class BofhdConnection {
         Vector args = new Vector();
         args.add(uname);
         args.add(password);
-        String sessid = (String) sendRawCommand("login", args);
+        String sessid = (String) sendRawCommand("login", args, -1);
         logger.debug("Login ret: "+sessid);
         this.sessid = sessid;
         return sessid;
@@ -166,31 +166,31 @@ public class BofhdConnection {
         Vector args = new Vector();
         args.add("jbofh");
         args.add(version);
-        String msg = (String) sendRawCommand("get_motd", args);
+        String msg = (String) sendRawCommand("get_motd", args, -1);
         return msg;
     }
     
     String logout() throws BofhdException {
         Vector args = new Vector();
         args.add(sessid);
-        return (String) sendRawCommand("logout", args);
+        return (String) sendRawCommand("logout", args, 0);
     }
 
     void updateCommands() throws BofhdException {
         Vector args = new Vector();
         args.add(sessid);
-        commands = (Hashtable) sendRawCommand("get_commands", args);
+        commands = (Hashtable) sendRawCommand("get_commands", args, 0);
     }
     
     String getHelp(Vector args) throws BofhdException {
         args.add(0, sessid);
-        return (String) sendRawCommand("help", args);
+        return (String) sendRawCommand("help", args, 0);
     }
     
     Object sendCommand(String cmd, Vector args) throws BofhdException {
         args.add(0, sessid);
         args.add(1, cmd);
-        return sendRawCommand("run_command", args);
+        return sendRawCommand("run_command", args, 0);
     }
 
     private String washSingleObject(String str) {
@@ -204,6 +204,13 @@ public class BofhdConnection {
 	return str;
     }
 
+    /**
+     * We have extended XML-rpc by allowing NULL values to be
+     * returned.  <code>washResponse</code> handles this.
+     *
+     * @param o the object to wash
+     * @return the washed object
+     */
     Object washResponse(Object o) {
 	if(o instanceof Vector) {
 	    Vector ret = new Vector();
@@ -225,12 +232,22 @@ public class BofhdConnection {
 	}
     }
 
-    Object sendRawCommand(String cmd, Vector args) throws BofhdException {
-        return sendRawCommand(cmd, args, false);
+    Object sendRawCommand(String cmd, Vector args, int sessid_loc) throws BofhdException {
+        return sendRawCommand(cmd, args, false, sessid_loc);
     }
 
-    Object sendRawCommand(String cmd, Vector args, boolean gotRestart)
-        throws BofhdException {
+    /**
+     * Sends a raw command to the server.
+     *
+     * @param cmd a <code>String</code> with the name of the command
+     * @param args a <code>Vector</code> of arguments
+     * @param sessid_loc an <code>int</code> the location of the
+     * sessionid.  Needed if the command triggers a re-authentication
+     * @return an XML-rpc <code>Object</code>
+     * @exception BofhdException if an error occurs
+     */
+    Object sendRawCommand(String cmd, Vector args, boolean gotRestart,
+        int sessid_loc) throws BofhdException {
         try {
             if(cmd.equals("login")) {
                 logger.debug("sendCommand("+cmd+", ********");
@@ -269,9 +286,13 @@ public class BofhdConnection {
 	    if(! gotRestart && 
                 e.getMessage().startsWith(match+"ServerRestartedError")) {
                 jbofh.initCommands();
-                return sendRawCommand(cmd, args, true);
-            }
-	    if(e.getMessage().startsWith(match)) {
+                return sendRawCommand(cmd, args, true, sessid_loc);
+            } else if (e.getMessage().startsWith(match+"SessionExpiredError")) {
+                jbofh.showMessage("Session expired, you must re-authenticate", true);
+                jbofh.login(jbofh.uname, null);
+                if (sessid_loc != -1) args.set(sessid_loc, sessid);
+                return sendRawCommand(cmd, args, true, sessid_loc);
+            } else if(e.getMessage().startsWith(match)) {
 		throw new BofhdException("Error: "+e.getMessage().substring(e.getMessage().indexOf(":")+1));
 	    } else {
 		logger.error("err: code="+e.code, e);

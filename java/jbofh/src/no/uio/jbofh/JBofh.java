@@ -220,17 +220,50 @@ public class JBofh {
     String version = "unknown";
     boolean guiEnabled;
     JBofhFrame mainFrame;
+    String uname;
 
     /** Creates a new instance of JBofh 
+     */
 
-    TODO: do less work in the constructor so that we don't have to
-    pass so many parameters to it */
-
-    public JBofh(String def_uname, String def_password, boolean gui, 
-        String log4jPropertyFile, String bofhd_url, String uname) throws BofhdException {
+    public JBofh(boolean gui, String log4jPropertyFile, String bofhd_url) 
+        throws BofhdException {
 	guiEnabled = gui;
+	if(gui) mainFrame = new JBofhFrame(this);
+        loadPropertyFiles(log4jPropertyFile);
+
+        bc = new BofhdConnection(logger, this);
+        String intTrust = (String) props.get("InternalTrustManager.enable");
+        if(bofhd_url == null) bofhd_url = (String) props.get("bofhd_url");
+        showMessage("Bofhd server is at "+bofhd_url, true);
+        bc.connect(bofhd_url, 
+            (intTrust != null && intTrust.equals("true")) ? true : false);
+
+        // Setup ReadLine routines
         try {
-	    URL url = ResourceLocator.getResource(this, log4jPropertyFile);
+            Readline.load(ReadlineLibrary.GnuReadline);
+        }
+        catch (UnsatisfiedLinkError ignore_me) {
+            showMessage("couldn't load readline lib. Using simple stdin.", true);
+        }
+        cLine = new CommandLine(logger, this);
+    }
+
+    public void initialLogin(String uname, String password) 
+        throws BofhdException {
+        if(! login(uname, password)) {
+	    System.exit(0);
+        }
+        String msg = bc.getMotd(version);
+        if(msg.length() > 0)
+            showMessage(msg, true);
+
+        initCommands();
+	showMessage("Welcome to jbofh, v "+getVersion()+", type \"help\" for help", true);
+    }
+    
+    protected void loadPropertyFiles(String fname) {
+        try {
+	    URL url = ResourceLocator.getResource(this, fname);
             if(url == null) throw new IOException();
 	    props = new Properties();
 	    props.load(url.openStream());
@@ -242,67 +275,46 @@ public class JBofh {
 	    showMessage("Error reading property files", true);
 	    System.exit(1);
 	}
-	if(gui) mainFrame = new JBofhFrame(this);
+    }
+
+    public String getVersion() {
+        String version = "Error reading version file";
 	URL url = ResourceLocator.getResource(this, "/version.txt");
-        if(url == null) {
-            version = "Error reading version file";
-        } else {
+        if(url != null) {
             try {
                 BufferedReader br = new BufferedReader(new InputStreamReader(url.openStream()));
                 version = br.readLine();
                 br.close();
             } catch (IOException e) {}  // ignore failure
         }
+        return version;
+    }
 
-        bc = new BofhdConnection(logger, this);
-        String intTrust = (String) props.get("InternalTrustManager.enable");
-        if(bofhd_url == null) bofhd_url = (String) props.get("bofhd_url");
-        showMessage("Bofhd server is at "+bofhd_url, true);
-        bc.connect(bofhd_url, 
-            (intTrust != null && intTrust.equals("true")) ? true : false);
-        // Setup ReadLine routines
-        try {
-            Readline.load(ReadlineLibrary.GnuReadline);
-        }
-        catch (UnsatisfiedLinkError ignore_me) {
-            showMessage("couldn't load readline lib. Using simple stdin.", true);
-        }
-        
-        cLine = new CommandLine(logger, this);
-	String password;
+    public boolean login(String uname, String password) throws BofhdException {
 	try {
-	    if(def_password != null) {  // Shortcut wile debugging (-q param)
-		bc.login(def_uname, def_password);
-	    } else {
-                if(uname == null) {
-                    uname = cLine.promptArg("Username " + 
-                        (def_uname == null ? "" : "["+def_uname+"]") +": ", 
-                        false);
-                    if(uname.equals("")) uname = def_uname;
-                }
+            if(uname == null) {
+                uname = cLine.promptArg("Username: ", false);
+            }
+
+	    if(password == null) {
                 ConsolePassword cp = new ConsolePassword();
                 String prompt = "Password for "+uname+":";
 		if(guiEnabled) {
 		    try {
 			password = cp.getPasswordByJDialog(prompt, mainFrame.frame);
 		    } catch (ConsolePassword.MethodFailedException e) {
-			return;
+			return false;
 		    }
 		} else {
 		    password = cp.getPassword(prompt);
 		}
-		bc.login(uname, password);
-	    }
+            }
+            bc.login(uname, password);
+            this.uname = uname;
 	} catch (IOException io) {
-	    System.exit(0);
+	    return false;
 	}
-        String msg = bc.getMotd(version);
-        if(msg.length() > 0)
-            showMessage(msg, true);
-
-        initCommands();
-	showMessage("Welcome to jbofh, v "+version+", type \"help\" for help", true);
-        enterLoop();
+        return true;
     }
 
     void initCommands() throws BofhdException {
@@ -505,7 +517,7 @@ public class JBofh {
 		} else {
 		    ret.add(0, bc.sessid);
 		    ret.add(1, cmd);
-		    defval = (String) bc.sendRawCommand("get_default_param", ret);
+		    defval = (String) bc.sendRawCommand("get_default_param", ret, 0);
 		    ret.remove(0);
 		    ret.remove(0);
 		}
@@ -553,7 +565,7 @@ public class JBofh {
 	while(true) {
 	    ret.add(0, bc.sessid);
 	    ret.add(1, cmd);
-            Object obj =  bc.sendRawCommand("call_prompt_func", ret);
+            Object obj =  bc.sendRawCommand("call_prompt_func", ret, 0);
             if (! (obj instanceof Hashtable))
                 throw new BofhdException("Server bug: prompt_func returned " + obj);
 	    Hashtable arginfo = (Hashtable) obj;
@@ -638,7 +650,7 @@ public class JBofh {
         args.add(cmd);
         Hashtable format = (Hashtable) knownFormats.get(cmd);
         if(format == null) {
-	    Object f = bc.sendRawCommand("get_format_suggestion", args);
+	    Object f = bc.sendRawCommand("get_format_suggestion", args, -1);
 	    if(f instanceof String && ((String)f).equals(""))
 		f = null;
 	    if(f != null) {
@@ -739,14 +751,15 @@ public class JBofh {
                     System.exit(1);
                 }
 	    }
+            JBofh jb = new JBofh(gui, log4jPropertyFile, bofhd_url);
 	    if(test_login) {
-		new JBofh("bootstrap_account", "test", gui, 
-                    log4jPropertyFile, bofhd_url, uname);
-	    } else {    // "test" md5: $1$F9feZuRT$hNAtCcCIHry4HKgGkkkFF/
+		jb.initialLogin("bootstrap_account", "test");
+                // "test" md5: $1$F9feZuRT$hNAtCcCIHry4HKgGkkkFF/
                 // insert into account_authentication values((select entity_id from entity_name where entity_name='bootstrap_account'), (select code from authentication_code where code_str='MD5-crypt'), '$1$F9feZuRT$hNAtCcCIHry4HKgGkkkFF/');
-		new JBofh(System.getProperty("user.name"), null, gui, 
-                    log4jPropertyFile, bofhd_url, uname);
-	    }
+	    } else {
+                jb.initialLogin(uname, null);
+            }
+            jb.enterLoop();
 	} catch (BofhdException be) {
 	    String msg = "Caught error during init, terminating: \n"+ be.getMessage();
 	    if(gui) {
