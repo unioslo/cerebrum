@@ -51,15 +51,15 @@ class AuthOperation(DatabaseClass):
         DatabaseAttr('id', table, int)
     ]
     slots = [
-        DatabaseAttr('type', table, AuthOperationType),
-        DatabaseAttr('set', table, AuthOperationSet)
+        DatabaseAttr('operation_type', table, AuthOperationType),
+        DatabaseAttr('operation_set', table, AuthOperationSet)
     ]
 
     db_attr_aliases = {
         table: {
             'id':'op_id',
-            'type':'op_code',
-            'set':'op_set_id'
+            'operation_type':'op_code',
+            'operation_set':'op_set_id'
         }
     }
 registry.register_class(AuthOperation)
@@ -85,14 +85,14 @@ table = 'auth_role'
 class AuthRole(DatabaseClass):
     primary = [
         DatabaseAttr('entity', table, Entity),
-        DatabaseAttr('set', table, AuthOperationSet),
+        DatabaseAttr('operation_set', table, AuthOperationSet),
         DatabaseAttr('target', table, Entity)
     ]
 
     db_attr_aliases = {
         table: {
             'entity':'entity_id',
-            'set':'op_set_id',
+            'operation_set':'op_set_id',
             'target':'op_target_id'
         }
     }

@@ -85,7 +85,10 @@ def create_corba_method(method):
         # Auth
 
         class_name = self.gro_class.__name__
-        operator = self.transaction.get_client()
+        if self.transaction is not None:
+            operator = self.transaction.get_client()
+        else:
+            operator = None
         operation_name = '%s.%s' % (class_name, method.name)
         try:
             operation_type = AuthOperationType(name=operation_name)
@@ -95,7 +98,7 @@ def create_corba_method(method):
             operation_type = None
 
         # FIXME: bruk isinstance eller issubclass
-        if hasattr(self.gro_object, 'check_permission'):
+        if operator is not None and hasattr(self.gro_object, 'check_permission'):
             if self.gro_object.check_permission(operator, operation_type):
                 print operation_name, 'access granted'
             else:
