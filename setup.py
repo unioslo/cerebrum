@@ -201,7 +201,12 @@ setup (name = "Cerebrum", version = Cerebrum.__version__,
        url = "http://cerebrum.sourceforge.net",
        maintainer = "Cerebrum Developers",
        maintainer_email = "do.we@want.this.here",
-       description = "Cerebrum...",
+       description = "Cerebrum is a user-administration system",
+       license = "GPL",
+       long_description = ("System for user semi-automatic user "+
+                           "administration in a heterogenous "+
+                           "environment"),
+       platforms = "UNIX",
        # NOTE: all scripts ends up in the same dir!
        # scripts = ['contrib/no/uio/import_FS.py', 'contrib/generate_nismaps.py'],
        packages = ['Cerebrum',
