@@ -87,6 +87,16 @@ class EmailConstants(Constants.Constants):
 
 
 class EmailEntity(DatabaseAccessor):
+    def clear_class(self, cls):
+        for attr in cls.__read_attr__:
+            if hasattr(self, attr):
+                if attr not in getattr(cls, 'dontclear', ()):
+                    delattr(self, attr)
+        for attr in cls.__write_attr__:
+            if attr not in getattr(cls, 'dontclear', ()):
+                setattr(self, attr, None)
+
+                
     __metaclass__ = Utils.mark_update
     pass
 
@@ -160,6 +170,9 @@ class EmailDomain(EmailEntity):
         FROM [:table schema=cerebrum name=email_domain]
         WHERE domain=:name""", {'name': domain})
         self.find(domain_id)
+
+    def get_domain_name(self):
+        return self.email_domain_name
 
 
 class EmailTarget(EmailEntity):
@@ -253,6 +266,12 @@ class EmailTarget(EmailEntity):
         WHERE alias_value=:alias""", {'alias': alias})
         self.find(target_id)
 
+    def get_all_email_targets(self):
+        """Return target_id of all EmailTarget in database"""
+        return self.query("""
+        SELECT target_id
+        FROM [:table schema=cerebrum name=email_target]""")
+
 
 class EmailAddress(EmailEntity):
     __read_attr__ = ('__in_db', 'email_addr_id')
@@ -329,7 +348,24 @@ class EmailAddress(EmailEntity):
                                       {'lp': lp,
                                        'd_id': domain.email_domain_id})
         self.find(address_id)
+    
+    def get_all_email_addresses(self):
+        """Return address_id of all EmailAddress in database"""
+        return self.query("""
+        SELECT address_id
+        FROM [:table schema=cerebrum name=email_address]""")
 
+    def get_target_id(self):
+        """Return target_id of this EmailAddress in database"""
+        return self.email_addr_target_id
+
+    def get_domain_id(self):
+        """Return domain_id of this EmailAddress in database"""
+        return self.email_addr_domain_id
+
+    def get_localpart(self):
+        """Return domain_id of this EmailAddress in database"""
+        return self.email_addr_local_part
 
 ########################################################################
 ########################################################################
