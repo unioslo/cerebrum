@@ -15,7 +15,6 @@ CREATE TABLE ad_entity
 			   [:get_constant name=entity_group]))
 );
 
-
 /*
 
   'login_script'   NULL => Don't run any login script for this user;
@@ -48,3 +47,8 @@ Ekstra-informasjon som ikke finnes i Cerebrum:
         OU=Laveregrad,OU=Ifi,OU=MNF,dc=uio,dc=no
         OU=Labkurs,OU=Laveregrad,OU=KI,OU=MNF,dc=uio,dc=no
 */
+
+category:drop;
+DROP TABLE ad_account;
+category:drop;
+DROP TABLE ad_entity;

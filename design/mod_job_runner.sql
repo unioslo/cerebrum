@@ -7,3 +7,6 @@ CREATE TABLE job_ran
   timestamp    TIMESTAMP
                NOT NULL
 );
+
+category:drop;
+DROP TABLE job_ran;
