@@ -3,8 +3,7 @@ import Cerebrum.Account
 from Cerebrum.extlib import sets
 from Cerebrum.gro.Cerebrum_core import Errors
 
-from Clever import Clever, LazyMethod, Lazy
-from Node import Node
+from Builder import Builder, Attribute, Method
 from Entity import Entity
 
 from db import db
@@ -13,74 +12,48 @@ __all__ = ['Account', 'AccountAuthentication']
 
 class Account(Entity):
     # hmm.. skipper np_type inntil videre. og konseptet rundt home/disk er litt føkka
-    slots = ['name', 'owner', 'createDate', 'creator', 'expireDate', 'authentications']
-    readSlots = Entity.readSlots + slots
-    writeSlots = Entity.writeSlots + ['name', 'expireDate']
+    slots = Entity.slots + [Attribute('name', 'string', writable=True),
+                            Attribute('owner_id', 'long'),
+                            Attribute('create_date', 'Date'),
+                            Attribute('creator_id', 'long'),
+                            Attribute('expire_date', 'Date', writable=True)]
+    methodSlots = [Method('get_authentications', 'AccountAuthentication')]
     
-    def __init__(self, id, parents=Lazy, children=Lazy, *args, **vargs):
-        Entity.__init__(self, id, parents, children)
-        Clever.__init__(self, Account, *args, **vargs)
-
-    def load(self):
-        import Disk
+    def _load_account(self):
         e = Cerebrum.Account.Account(db)
-        e.find(self.id)
+        e.find(self._entity_id)
 
         self._name = e.account_name
-        self._owner = Entity(int(e.owner_id))
-        self._creator = Entity(int(e.creator_id))
-        self._createDate = e.create_date
-        self._expireDate = e.expire_date
+        self._owner_id = int(e.owner_id)
+        self._creator_id = int(e.creator_id)
+        self._creator_date = e.create_date
+        self._expire_date = e.expire_date
 
-    def loadParents(self):
-        Entity.loadParents(self)
+    load_name = load_owner_id = load_creator_id = load_create_date = load_expire_date = _load_account
 
-        self._parents.add(self.owner)
-
-    def loadAuthentications(self):
-        self._authentications = sets.Set()
+    def get_authentications(self): # jada... dette skal bort/gjøres på en annen måte
+        authentications = []
         for row in db.query('''SELECT account_id, method, auth_data
                                FROM account_authentication
-                               WHERE account_id = %s''' % self.id):
-            self._authentications.add(AccountAuthentication.getByRow(row))
+                               WHERE account_id = %s''' % self._entity_id):
+            authentications.append(AccountAuthentication.getByRow(row))
+        return authentications
 
-    getAuthentications = LazyMethod('_authentications', 'loadAuthentications')
-
-Clever.prepare(Account, 'load')
-
-class AccountAuthentication(Node):
-    slots = ['account', 'authenticationType', 'data']
-    readSlots = Node.readSlots + slots
-    writeSlots = Node.writeSlots + ['data']
-
-    def __init__(self, parents=Lazy, children=Lazy, *args, **vargs):
-        Node.__init__(self, parents, children)
-        Clever.__init__(self, AccountAuthentication, *args, **vargs)
+class AccountAuthentication(Builder):
+    slots = [Attribute('account_id', 'Account'),
+             Attribute('method', 'AuthenticationType'),
+             Attribute('auth_data', 'string', writable=True)]
 
     def getByRow(cls, row):
         import Types
-        account = Account(int(row['account_id']))
-        authenticationType = Types.AuthenticationType(int(row['method']))
-        data = row['auth_data']
+        account_id = int(row['account_id'])
+        method = Types.AuthenticationType(int(row['method']))
+        auth_data = row['auth_data']
 
-        return cls(account=account, authenticationType=authenticationType, data=data)
+        return cls(account_id=account_id,
+                   method=method,
+                   auth_data=auth_data)
     getByRow = classmethod(getByRow)
 
-    def getKey(account, authenticationType, *args, **vargs):
-        return account, authenticationType
-    getKey = staticmethod(getKey)
-
-    def load(self):
-        rows = db.query('''SELECT auth_data
-                           FROM account_authentication
-                           WHERE account_id = %s
-                           AND   method = %s''' % (self.account.id, self.authenticationType))
-        if not rows:
-            raise Errors.NoSuchNodeError('%s %s not found' % (cls.__name__, name))
-
-        self._data = row['auth_data']
-
     def __repr__(self):
-        return 'AccountAuthentication(account=%s, authenticationType=%s)' % (self.account, self.authenticationType)
-
-Clever.prepare(AccountAuthentication, 'load')
+        return 'AccountAuthentication(account_id=%s, method=%s)' % (self._account_id, self._method)

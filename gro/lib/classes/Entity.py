@@ -4,261 +4,148 @@ import Cerebrum.modules.Note
 from Cerebrum.extlib import sets
 from Cerebrum.gro.Cerebrum_core import Errors
 
-from Clever import Clever, LazyMethod, Lazy
-from Node import Node
+from Builder import Builder, Attribute, Method
 
 from db import db
 
 __all__ = ['Entity', 'Note']
 
-class Entity(Node):
-    slots = ['id', 'entityType', 'spreads', 'notes', 'contactInfo', 'addresses']
-    readSlots = Node.readSlots + slots
-    writeSlots = Node.writeSlots + []
+class Entity(Builder):
+    primary = [Attribute('entity_id', 'long')]
+    slots = [Attribute('entity_id', 'long'),
+             Attribute('entity_type', 'EntityType')]
+    methodSlots = [Method('get_spreads', 'SpreadSeq'),
+                   Method('get_notes', 'NoteSeq'),
+                   Method('get_contact_info', 'ContactInfoSeq'),
+                   Method('get_addresses', 'AddressSeq')]
 
-    def __new__(cls, *args, **vargs):
-        key = Entity, cls.getKey(*args, **vargs)
-        
-        if key in cls.cache:
-            self = cls.cache[key]
-            if not (issubclass(self.__class__, cls) or issubclass(cls, self.__class__)):
-                raise Exception('Wrong class. Asked for %s, but found %s' % (cls, self.__class__))
-            return self
+#    primary = [Attribute('entity_id', 'long')]
+#    slots = primary + [Attribute('entity_type', 'long'),
+#                       Method('get_notes', 'NoteSeq'),
+#                       Method('add_note',
+#                              'void',
+#                              (('subject', 'string'), ('description', 'string')),
+#                              apNode=True)]
 
-        self = object.__new__(Entity)
-        Entity.__init__(self, *args, **vargs)
+#    def add_note(self, creator_id, subject, description):
+#        e = Cerebrum.modules.Note.EntityNote(db)
+#        e.entity_id = self.get_entity_id()
+#
+#        e.add_note(creator_id, subject, description)
 
-        try:
-            real = self.entityType.getClass()
-            if not (issubclass(real, cls) or issubclass(cls, real)):
-                raise Exception('Wrong class. Asked for %s, but found %s' % (cls, real))
-        except NotImplementedError:
-            real = Entity
-        self.__class__ = real
-        self._key = key
-        cls.cache[key] = self
-        return self
-
-    def getKey(id, *args, **vargs):
-        return id
-    getKey = staticmethod(getKey)
-
-    def __init__(self, id, parents=Lazy, children=Lazy, *args, **vargs):
-        Node.__init__(self, parents, children)
-        Clever.__init__(self, Entity, id, *args, **vargs)
-
-    def create(entityType):
-# Det funker ikke pga log_change.
-#        e = Cerebrum.Entity.Entity(db)
-#        e.populate(entityType.id)
-#        e.write_db()
-#        id = e.entity_id
-
-        id = int(db.nextval('entity_id_seq'))
-        db.execute('''INSERT INTO entity_info
-                        (entity_id, entity_type)
-                        VALUES (%s, %s)''' % (id, entityType.id))
-        # changelog her...
-
-        return Entity(id, entityType=entityType)
-    create = staticmethod(create)
-
-    # load methods
-    
-    def load(self):
-        e = Cerebrum.Entity.Entity(db)
-        e.find(self.id)
-        
-        from Types import EntityType
-        self._entityType = EntityType(int(e.entity_type))
-
-    def loadParents(self):
-        Node.loadParents(self)
-
-        self._parents.update(self.spreads)
-        self._parents.add(self.entityType)
-
-    def loadSpreads(self):
+    def get_spreads(self):
         import Types
-        self._spreads = sets.Set()
         e = Cerebrum.Entity.Entity(db)
-        e.entity_id = self.id
+        e.entity_id = self.get_entity_id()
+        
+        spreads = []
+        for i in e.get_spread():
+            spreads.append(Types.Spread(int[0]))
+            
+        return spreads
 
-        self._spreads.update(sets.Set([Types.Spread(int(i[0])) for i in e.get_spread()]))
-
-    def loadChildren(self):
-        Node.loadChildren(self)
-
-        self._children.update(self.notes)
-        self._children.update(self.contactInfo)
-
-    def loadNotes(self):
-        self._notes = sets.Set()
+    def get_notes(self):
+        notes = []
 
         e = Cerebrum.modules.Note.EntityNote(db)
-        e.entity_id = self.id
+        e.entity_id = self.get_entity_id()
 
         for row in e.get_notes():
-            self._notes.add(Note(id = int(row['note_id']),
-                                    createDate = row['create_date'],
-                                    creator = Entity(int(row['creator_id'])),
-                                    subject = row['subject'],
-                                    description = row['description']))
+            notes.append(Note.getByRow(row))
 
-    def loadAddresses(self):
-        self._addresses = sets.Set()
+        return notes
+           
+    def get_addresses(self):
+        addresses = []
         e = Cerebrum.Entity.EntityAddress(db)
-        e.entity_id = self.id
+        e.entity_id = self.get_entity_id()
 
         for row in e.get_entity_address():
-            self._addresses.add(Address.getByRow(row))
+            addresses.append(Address.getByRow(row))
 
-    def loadContactInfo(self):
-        self._contactInfo = sets.Set()
+        return addresses
+
+    def get_contact_info(self):
+        contact_info = []
 
         e = Cerebrum.Entity.EntityContactInfo(db)
-        e.entity_id = self.id
+        e.entity_id = self.get_entity_id
 
         for row in e.get_contact_info():
-            self._contactInfo.add(ContactInfo.getByRow(row))
+            contact_info.append(ContactInfo.getByRow(row))
+
+        return contact_info
+
+    def __repr__(self):
+        return '%s(entity_id=%s)' % (self.__class__.__name__, self._entity_id)
     
-    # properties
-
-    getNotes = LazyMethod('_notes', 'loadNotes')
-    getSpreads = LazyMethod('_spreads', 'loadSpreads')
-    getContactInfo = LazyMethod('_contactInfo', 'loadContactInfo')
-    getAddresses = LazyMethod('_addresses', 'loadAddresses')
-
-
-Clever.prepare(Entity, 'load')
-
-class ContactInfo(Node):
-    slots = ['entity', 'sourceSystem', 'contactInfoType', 'contactPref', 'contactValue', 'description']
-    readSlots = Node.readSlots + slots
-    writeSlots = Node.writeSlots + ['contactPref', 'contactValue', 'description']
-
-    def __init__(self, parents=Lazy, children=Lazy, *args, **vargs):
-        Node.__init__(self, parents, children)
-        Clever.__init__(self, ContactInfo, *args, **vargs)
+class ContactInfo(Builder):
+    primary = [Attribute('entity_id', 'long'),
+               Attribute('source_system', 'SourceSystem'),
+               Attribute('contact_type', 'ContactInfoType'),
+               Attribute('contact_pref', 'long')]
+    slots = primary + [Attribute('contact_value', 'string', writable=True),
+                       Attribute('description', 'string', writable=True)]
 
     def getByRow(cls, row):
         import Types
 
-        entity = Entity(int(row['entity_id']))
-        sourceSystem = Types.SourceSystem(int(row['source_system']))
-        contactInfoType = Types.ContactInfoType(int(row['contact_type']))
-        contactPref = int(row['contact_pref'])
-        contactValue = row['contact_value']
-        description  = row['description']
-
-        contactInfo = cls(entity=entity,
-                          sourceSystem=sourceSystem,
-                          contactInfoType=contactInfoType,
-                          contactPref=contactPref,
-                          contactValue=contactValue,
-                          description=description)
+        contactInfo = cls(entity_id=int(row['entity_id']),
+                          source_system=Types.SourceSystem(int(row['source_system'])),
+                          contact_type=Types.ContactInfoType(int(row['contact_type'])),
+                          contact_pref=int(row['contact_pref']),
+                          contact_value=row['contact_value'],
+                          description=row['description'])
         return contactInfo
     getByRow = classmethod(getByRow)
 
-    # hat. hvorfor kan ikke cerebrum ha en unik id pr entitet? (ja. en kontaktinfo er en entitet).
-    # hadde det ikke vært mer fornuftig å hatt entity, contactPref som primær-nøkkel?
-    # nå blir det jo bare rot.
-    def getKey(entity, sourceSystem, contactInfoType, contactPref, *args, **vargs):
-        return entity, sourceSystem, contactInfoType, contactPref
+    # hat. hvorfor kan ikke cerebrum ha en unik id pr entitet? (ja. en
+    # kontaktinfo burde være en entitet).
+    # hadde det ikke vært mer fornuftig å hatt entity, contactPref som
+    # primær-nøkkel? nå blir det jo bare rot.
+    def getKey(entity_id, source_system, contact_type, *args, **vargs):
+        return entity_id, source_system, contact_type
     getKey = staticmethod(getKey)
 
     def __repr__(self):
-        return 'ContactInfo(entity=%s, sourceSystem=%s, contactInfoType=%s, contactPref=%s)' % (self.entity, self.sourceSystem, self.contactInfoType, self.contactPref)
+        return 'ContactInfo(entity_id=%s, source_system=%s, contact_type=%s)' % (self._entity_id, self._source_system, self._contact_type)
 
-    def load(self):
-        rows = db.query('''SELECT contact_value, description
-                           FROM entity_contact_info
-                           WHERE entity_id = %s
-                           AND   source_system = %s
-                           AND   contact_type = %s
-                           AND   contact_pref = %s''' % (`self.entity`,`self.sourceSystem`,`self.contactType`,`self.contactPref`))
-        if not rows:
-            raise Errors.NoSuchNodeError('ContactInfoType %s not found' % self.id)
-        row = rows[0]
-
-        self._contactValue = row['contaact_value']
-        self._description = row['description']
-
-Clever.prepare(ContactInfo, 'load')
-
-
-class Note(Node):
-    slots = ['id', 'createDate', 'creator', 'entity', 'subject', 'description']
-    readSlots = Node.readSlots + slots
-    writeSlots = Node.writeSlots + ['subject', 'description'] # hmm. Note er kanskje immutable?
+class Note(Builder):
+    primary = [Attribute('note_id', 'long')]
+    slots = primary + [Attribute('create_date', 'Date'),
+                       Attribute('creator_id', 'long'),
+                       Attribute('entity_id', 'long'),
+                       Attribute('subject', 'string'),
+                       Attribute('description', 'string')]
     
-    def __init__(self, id, parents=Lazy, children=Lazy, *args, **vargs):
-        Node.__init__(self, parents, children)
-        Clever.__init__(self, Note, id, *args, **vargs)
+    def getByRow(cls, row):
+        return cls(entity_id=int(row['note_id']),
+                   create_date=row['create_date'],
+                   creator_id=int(row['creator_id']),
+                   subject=row['subject'],
+                   description=row['description'])
 
-    def create(creator, entity, subject, description):
-        id = int(db.nextval('note_seq'))
-        db.execute('''INSERT INTO note
-                      (note_id, creator_id, entity_id, subject, description)
-                      VALUES (%s, %s, %s, %s, %s)''' % (id, creator.id, entity.id, `subject`, `description`))
-        db.commit()
-        return Note(id, creator=creator, entity=entity, subject=subject, description=description)
-    create = staticmethod(create)
-    db.commit()
+    getByRow = classmethod(getByRow)
 
-    def getKey(id, *args, **vargs):
-        return id
-    getKey = staticmethod(getKey)
-
-    def loadParents(self):
-        Node.loadParents(self)
-
-        self._parents.add(self.entity)
-
-    def load(self):
-        rows = db.query('''SELECT create_date, creator_id, entity_id, subject, description
-                           FROM note WHERE note_id = %s''' % self.id)
-        if not rows:
-            raise Errors.NoSuchNodeError('Note %s not found' % self.id)
-        row = rows[0]
-
-        self._createDate = row['create_date']
-        self._creator = Entity(int(row['creator_id']))
-        self._entity = Entity(int(row['entity_id']))
-        self._subject = row['subject']
-        self._description = row['description']
-
-Clever.prepare(Note, 'load')
-
-class Address(Node):
-    # country må fikses..
-    slots = ['entity', 'sourceSystem', 'addressType', 'text', 'poBox', 'postalNumber', 'city', 'country']
-    readSlots = Node.readSlots + slots
-    writeSlots = Node.writeSlots + ['text', 'poBox', 'postalNumber', 'city', 'country']
-
-    def __init__(self, parents, children, *args, **vargs):
-        Node.__init__(self, parents, children)
-        Clever.__init__(self, Address, *args, **vargs)
+class Address(Builder):
+    # country må fikses.. Lage en egen Node for det i Types kanskje..
+    slots = [Attribute('entity_id', 'long'),
+             Attribute('source_system', 'SourceSystem'),
+             Attribute('address_type', 'AddressType'),
+             Attribute('address_text', 'string', writable=True), 
+             Attribute('p_o_box', 'string', writable=True),
+             Attribute('postal_number', 'string', writable=True),
+             Attribute('city', 'string', writable=True),
+             Attribute('country', 'long', writable=True)]
 
     def getByRow(cls, row):
         import Types
 
-        entity = Entity(int(row['entity_id']))
-        sourceSystem = Types.SourceSystem(int(row['source_system']))
-        addressType = Types.AddressType(int(row['address_type']))
-        text = row['address_text']
-        poBox = row['p_o_box']
-        postalNumber = row['postal_number']
-        city = row['city']
-        country = int(row['country'])
-
-        return cls(entity=entity, sourceSystem=sourceSystem, addressType=addressType, text=text,
-                   poBox=poBox, postalNumber=postalNumber, city=city, country=county)
-
-    def getKey(entity, sourceSystem, addressType, *args, **vargs):
-        return entity, sourceSystem, addressType
-
-    def load(self):
-        raise Exception('FU')
-
-Clever.prepare(Address, 'load')
+        return cls(entity_id=int(row['entity_id']),
+                   source_system=Types.SourceSystem(int(row['source_system'])),
+                   address_type=Types.AddressType(int(row['address_type'])),
+                   address_text=row['address_text'],
+                   p_o_box=row['p_o_box'],
+                   postal_number=row['postal_number'],
+                   city=row['city'],
+                   country=int(row['country']))
