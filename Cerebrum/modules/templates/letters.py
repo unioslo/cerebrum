@@ -74,7 +74,7 @@ tag is present, hdr and footer will be empty.
                 if len(v) == 0:
                     v = '\ '
                 else:
-                    for c in '#$%&~_^\{}':
+                    for c in '\#$%&~_^{}':
                         v = v.replace(c, '\%s' % c)
                     v = v.replace('-', '{-}')
             template = template.replace("<%s>" % k, v)
