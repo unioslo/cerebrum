@@ -51,3 +51,9 @@ ENABLE_MKTIME_WORKAROUND=0
 
 # If m2crypto is installed, set this to 1 to use ssl
 ENABLE_BOFHD_CRYPTO=0
+
+# Makedb will create an initial Group and an Account.  These are
+# needed for initial population of the database, as the database model
+# requires that accounts and groups have creator_ids/owner_ids.
+INITIAL_GROUPNAME = "bootstrap_group"
+INITIAL_ACCOUNTNAME = "bootstrap_account"
