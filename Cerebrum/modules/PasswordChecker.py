@@ -66,7 +66,7 @@ one.""",
     'repetitive_sequence':
 """Don't use repeating sequences of the same characters""",
     'uname_backwards': "Don't use your username backwards",
-    'used_paranthesis': "\nDon't enclose password in parantheses."}
+    'used_parentheses': "\nDon't enclose password in parentheses."}
 
 class PasswordGoodEnoughException(Exception):
     """Exception raised for insufficiently strong passwds."""
@@ -340,7 +340,7 @@ class PasswordChecker(DatabaseAccessor):
         extra_msg = ''
         if passwd[0] in '([{<':     # Detect passwords like [Secret]
             passwd = passwd[1:]
-            extra_msg = msgs['used_paranthesis']
+            extra_msg = msgs['used_parentheses']
             if passwd[-1] in ')]}>':
                 passwd = passwd[:-1]
         if len(passwd) < 8:
