@@ -200,8 +200,8 @@ def process_person_callback(person_info):
     new_person.populate(db.Date(year, mon, day), gender)
 
     new_person.affect_names(co.system_fs, co.name_first, co.name_last)
-    new_person.populate_name(co.name_first, etternavn)
-    new_person.populate_name(co.name_last, fornavn)
+    new_person.populate_name(co.name_first, fornavn)
+    new_person.populate_name(co.name_last, etternavn)
 
     if studentnr is not None:
         new_person.affect_external_id(co.system_fs,
