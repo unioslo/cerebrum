@@ -210,6 +210,9 @@ class Constants(central_Constants):
     quarantine_generell = _QuarantineCode('generell', 'Generell splatt')
     quarantine_teppe = _QuarantineCode('teppe',
                                        'Kalt inn på teppet til drift')
+    quarantine_auto_inaktiv = _QuarantineCode('auto_inaktiv', 'Ikke aktiv student, utestengt')
+    quarantine_auto_emailonly = _QuarantineCode('auto_emailonly',
+                                                'Ikke ordinær student, tilgang til bare e-post')
     quarantine_slutta = _QuarantineCode('slutta', 'Personen har slutta')
     quarantine_system = _QuarantineCode('system',
                                         'Systembrukar som ikke skal logge inn')
