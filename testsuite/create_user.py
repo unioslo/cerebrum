@@ -123,6 +123,8 @@ def main():
     else:
         external_id = "30535890168"
 
+    print "Creating posix user for person with external id", external_id
+
     person.find_by_external_id(co.externalid_fodselsnr, external_id)
 
     if 1:
