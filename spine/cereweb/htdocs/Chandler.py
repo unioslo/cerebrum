@@ -77,7 +77,7 @@ def cgi_main():
         for key, value in req.headers_out.items():
             print '%s: %s' % (key, value)
         print
-        doc = html.SimpleDocument("unexcepted error")
+        doc = html.SimpleDocument("Unexpected error")
         doc.body.append(html.Paragraph(str(e), style="color: red;"))
         doc.body.append(html.Paragraph("Path: %s; Args: %s;" % (path, args), style="color: red;"))
         print doc
