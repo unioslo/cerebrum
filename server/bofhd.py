@@ -1,5 +1,4 @@
-#!/local/python-2.2.1/bin/python2.2
-# #!/usr/bin/env python2.2
+#!/usr/bin/env python2.2
 
 # Copyright 2002 University of Oslo, Norway
 #
@@ -33,7 +32,8 @@ from SimpleXMLRPCServer import SimpleXMLRPCServer
 import re
 import socket
 # import xmlrpclib
-from Cerebrum import Database,Person,Utils,Account,Errors,cereconf
+import cereconf
+from Cerebrum import Database,Person,Utils,Account,Errors
 from Cerebrum.modules import PosixUser
 import sys
 import traceback
@@ -237,27 +237,40 @@ class ExportedFuncs(object):
             raise "CerebrumError", "Authentication failure"
         return 'runefro'
 
+def find_config_dat():
+    # XXX This should get the path from configure
+    for filename in "config.dat", "/etc/cerebrum/config.dat", \
+            "/tmp/cerebrum/etc/cerebrum/config.dat":
+        try:
+            print "Testing filename ",filename
+            f = file(filename)
+            if (f):
+                return filename
+        except:
+            continue
+    return "config.dat"
+
 if __name__ == '__main__':
+    conffile = find_config_dat()
     # Loop for an available port while testing to avoid already bound error
     for port in range(8000,8005):
         try:
             print "Server starting at port: %d" % port
             if not cereconf.ENABLE_BOFHD_CRYPTO:
                 server = SimpleXMLRPCServer(("0.0.0.0", port))
-                server.register_instance(ExportedFuncs(Database.connect(),
-                                                       "config.dat"))
-                server.serve_forever()
             else:
                 from server import MySimpleXMLRPCServer
                 from M2Crypto import SSL
 
-                ctx = MySimpleXMLRPCServer.init_context('sslv23', 'server.pem', 'ca.pem', \
-                                                      SSL.verify_none)
+                ctx = MySimpleXMLRPCServer.init_context('sslv23', 'server.pem',
+                                                        'ca.pem',
+                                                        SSL.verify_none)
                 ctx.set_tmp_dh('dh1024.pem')
-                httpsd = MySimpleXMLRPCServer.SimpleXMLRPCServer(('', port), ctx)
-                httpsd.register_instance(ExportedFuncs(Database.connect(),
-                                                       "config.dat"))
-                httpsd.serve_forever()
+                server = MySimpleXMLRPCServer.SimpleXMLRPCServer(('',port),ctx)
+
+            server.register_instance(ExportedFuncs(Database.connect(),
+                                                   conffile))
+            server.serve_forever()
         except socket.error:
             print "Failed, trying another port"
             pass
