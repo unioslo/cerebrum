@@ -325,7 +325,7 @@ class ConstantsBase(DatabaseAccessor):
                 return v
         return None
 
-    def initialize(self, update=0):
+    def initialize(self, update=True):
         # {dependency1: {class: [object1, ...]},
         #  ...}
         order = {}
@@ -341,24 +341,27 @@ class ConstantsBase(DatabaseAccessor):
                 order[dep][cls].append(attr)
         if not order.has_key(None):
             raise ValueError, "All code values have circular dependencies."
-        def insert(root, update=0):
+        stats = {'total': 0, 'inserted': 0}
+        def insert(root, update, stats=stats):
             for cls in order[root].keys():
                 for code in order[root][cls]:
-                    if update:
-                        try:
-                            code._pre_insert_check()
-                        except CodeValuePresentError:
-                            continue
-                    else:
+                    stats['total'] += 1
+                    try:
                         code._pre_insert_check()
+                    except CodeValuePresentError:
+                        if update:
+                            continue
+                        raise
                     code.insert()
+                    stats['inserted'] += 1
                 del order[root][cls]
                 if order.has_key(cls):
-                    insert(cls, update=update)
+                    insert(cls, update)
             del order[root]
-        insert(None, update=update)
+        insert(None, update)
         if order:
             raise ValueError, "Some code values have circular dependencies."
+        return (stats['inserted'], stats['total'])
 
     def __init__(self, database):
         super(ConstantsBase, self).__init__(database)
