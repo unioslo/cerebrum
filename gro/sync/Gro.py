@@ -92,3 +92,4 @@ else:
     omniORB.importIDLString(idl, ['-I' + idl_path])
     import generated
 
+# arch-tag: 5d3a6913-5d66-437b-a8e1-89b123047ada
