@@ -211,8 +211,8 @@ SELECT DISTINCT s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
        s.adrlin3_semadr, s.adresseland_semadr, p.adrlin1_hjemsted,
        p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
        p.adresseland_hjemsted, p.status_reserv_nettpubl, 
-       p.sprakkode_malform,st.studieprogramkode, st.studierettstatkode,
-       p.kjonn
+       p.sprakkode_malform, st.studieprogramkode, st.studieretningkode,
+       st.studierettstatkode, p.kjonn
 FROM fs.student s, fs.person p, fs.studierett st, fs.studieprogram sp
 WHERE  p.fodselsdato=s.fodselsdato AND
        p.personnr=s.personnr AND
@@ -230,8 +230,8 @@ SELECT DISTINCT s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
        s.adrlin3_semadr, s.adresseland_semadr, p.adrlin1_hjemsted,
        p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
        p.adresseland_hjemsted, p.status_reserv_nettpubl,
-       p.sprakkode_malform,st.studieprogramkode, st.studierettstatkode,
-       p.kjonn
+       p.sprakkode_malform, st.studieprogramkode, st.studieretningkode,
+       st.studierettstatkode, p.kjonn
 FROM fs.student s, fs.person p, fs.studierett st, fs.registerkort r,
      fs.studieprogram sp
 WHERE  p.fodselsdato=s.fodselsdato AND
