@@ -83,17 +83,29 @@ class Constants(Constants.Constants):
 
 # ANDRE
 
-    affiliation_manuell = _PersonAffiliationCode('MANUELL', 'Tilknyttet HiA uten å være registrert i et av de autoritative kildesystemene')
+    affiliation_manuell = _PersonAffiliationCode('MANUELL', 
+						 'Tilknyttet HiA uten å være registrert i et av de autoritative kildesystemene')
     affiliation_status_manuell_ekstern = _PersonAffStatusCode(
 	affiliation_manuell, 'ekstern', 'Ekstern tilknyttet person')
     affiliation_status_manuell_sia = _PersonAffStatusCode(
 	affiliation_manuell, 'sia', 'Person tilknyttet Samskipnaden i Agder')
+    affiliation_status_manuell_statsbygg = _PersonAffStatusCode(
+	affiliation_manuell, 'statsbygg', 'Person tilknyttet Statsbygg ved Høgskolen i Agder')
+    affiliation_status_manuell_filonova = _PersonAffStatusCode(
+        affiliation_manuell, 'filonova', 'Person tilknyttet Filonova')
+    affiliation_status_manuell_sta = _PersonAffStatusCode(
+        affiliation_manuell, 'sta', 'Person tilknyttet STA - Studentforeningen ved Høgskolen i Agder')
+    affiliation_status_manuell_agderforskning = _PersonAffStatusCode(
+        affiliation_manuell, 'agderforskning', 'Person tilknyttet Agderforskning')
 
     # We override the default settings for shells, thus this file
     # should be before PosixUser in cereconf.CLASS_CONSTANTS
 
 # DEFINISJON AV SHELL 
     posix_shell_bash = _PosixShellCode('bash', '/local/gnu/bin/bash')
+    posix_shell_tcsh = _PosixShellCode('tcsh', '/bin/bash')
+    posix_shell_csh = _PosixShellCode('csh', '/bin/csh')
+    posix_shell_sh = _PosixShellCode('sh', '/bin/sh')
 
 # SPREAD DEFINISJONER
     spread_hia_novell_user = _SpreadCode('account@edir', Constants.Constants.entity_account,
