@@ -260,6 +260,7 @@ def get_bet_fritak_utv_data(lt_person_file):
     # Finn pc-stuevakter/gruppelærere mfl. ved å parse LT-dumpen (3.2)
     ret = {}
     fnr2pid = {}
+    now = "%d%02d%02d" % time.localtime()[:3]
     for p in person.list_external_ids(source_system=const.system_lt,
                                       id_type=const.externalid_fodselsnr):
         fnr2pid[p['external_id']] = int(p['person_id'])
@@ -269,6 +270,9 @@ def get_bet_fritak_utv_data(lt_person_file):
             "%02d%02d%02d%05d" % (int(person['fodtdag']), int(person['fodtmnd']),
                                   int(person['fodtar']), int(person['personnr'])))
         for g in data.get('gjest', []):
+            if ((g.has_key('dato_fra') and g['dato_fra'] > now) or
+                (g.has_key('dato_til') and g['dato_til'] <= now)):
+                continue
             if g['gjestetypekode'] in ('ST-POL UTV','ST-ORG UTV'):
                 if not fnr2pid.has_key(fnr):
                     logger.warn("Unknown LT-person %s" % fnr)
