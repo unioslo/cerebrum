@@ -1024,8 +1024,6 @@ class BofhdExtension(object):
             try:
                 et.find_by_entity(acc.entity_id)
             except Errors.NotFoundError:
-                print ("DEBUG: NOT FOUND",
-                       "Account '%s' has no email target" % address)
                 raise CerebrumError, ("Account '%s' has no email target" %
                                       address)
         return et, acc
@@ -2180,6 +2178,9 @@ class BofhdExtension(object):
         if affiliations:
             data[0]['affiliation_1'] = affiliations[0]
             data[0]['source_system_1'] = sources[0]
+        else:
+            data[0]['affiliation_1'] = "<none>"
+            data[0]['source_system_1'] = "<nowhere>"
         for i in range(1, len(affiliations)):
             data.append({'affiliation': affiliations[i],
                          'source_system': sources[i]})
