@@ -216,44 +216,48 @@ Hvert brukernavn (kontekst?) kan ha tilknyttet et eget hjemmeområde.
           accounts there's a separate user_type table.
 
  */
-CREATE TABLE account
+CREATE TABLE account_info
 (
   /* Dummy column, needed for type check against `entity_id'. */
   entity_type	CHAR VARYING(16)
 		NOT NULL
 		DEFAULT 'u'
-		CONSTRAINT account_entity_type_chk CHECK (entity_type = 'u'),
+		CONSTRAINT account_info_entity_type_chk
+		  CHECK (entity_type = 'u'),
 
   account_id	NUMERIC(12,0)
-		CONSTRAINT account_pk PRIMARY KEY,
+		CONSTRAINT account_info_pk PRIMARY KEY,
   owner_type	CHAR VARYING(16)
 		NOT NULL
-		CONSTRAINT account_owner_type_chk
+		CONSTRAINT account_info_owner_type_chk
 		  CHECK (owner_type IN ('p', 'g')),
-  owner		NUMERIC(12,0)
+  owner_id	NUMERIC(12,0)
 		NOT NULL,
   np_type	CHAR VARYING(16)
-		CONSTRAINT account_np_type REFERENCES account_code(code),
+		CONSTRAINT account_info_np_type
+		  REFERENCES account_code(code),
   create_date	DATE
 		DEFAULT SYSDATE
 		NOT NULL,
-  creator	NUMERIC(12,0)
+  creator_id	NUMERIC(12,0)
 		NOT NULL
-		CONSTRAINT account_creator REFERENCES account(account_id),
+		CONSTRAINT account_info_creator_id
+		  REFERENCES account_info(account_id),
   expire_date	DATE
 		DEFAULT NULL,
-  deleted	CHAR(1)
-		NOT NULL
-		CONSTRAINT account_deleted_bool
-		  CHECK (deleted IN ('T', 'F')),
-  CONSTRAINT account_entity_id FOREIGN KEY (entity_type, account_id)
-    REFERENCES entity_id(entity_type, id),
-  CONSTRAINT account_owner FOREIGN KEY (owner_type, owner)
-    REFERENCES entity_id(entity_type, id),
-  CONSTRAINT account_np_type_chk
+  CONSTRAINT account_info_entity_id
+    FOREIGN KEY (entity_type, account_id)
+    REFERENCES entity_info(entity_type, entity_id),
+  CONSTRAINT account_info_owner
+    FOREIGN KEY (owner_type, owner_id)
+    REFERENCES entity_info(entity_type, entity_id),
+  CONSTRAINT account_info_np_type_chk
     CHECK ((owner_type = 'p' AND np_type IS NULL) OR
 	   (owner_type = 'g' AND np_type IS NOT NULL)),
-  CONSTRAINT account_id_plus_owner_unique UNIQUE (account_id, owner)
+/* The next constraint is needed to allow `account_type' to have a
+   foreign key agains these two columns. */
+  CONSTRAINT account_info_id_plus_owner_unique
+    UNIQUE (account_id, owner_id)
 );
 
 
@@ -273,15 +277,15 @@ CREATE TABLE account_type
   person_id	NUMERIC(12,0),
   ou_id		NUMERIC(12,0),
   affiliation	CHAR VARYING(16),
-  user_id	NUMERIC(12,0),
+  account_id	NUMERIC(12,0),
   CONSTRAINT account_type_pk
-    PRIMARY KEY (person_id, ou_id, affiliation, user_id),
+    PRIMARY KEY (person_id, ou_id, affiliation, account_id),
   CONSTRAINT account_type_affiliation
     FOREIGN KEY (person_id, ou_id, affiliation)
     REFERENCES person_affiliation(person_id, ou_id, affiliation),
-  CONSTRAINT account_type_user
-    FOREIGN KEY (user_id, person_id)
-    REFERENCES account(account_id, owner)
+  CONSTRAINT account_type_account
+    FOREIGN KEY (account_id, person_id)
+    REFERENCES account_info(account_id, owner_id)
 );
 
 
@@ -308,44 +312,12 @@ CREATE TABLE account_authentication
 (
   account_id	NUMERIC(12,0)
 		CONSTRAINT account_authentication_account_id
-		  REFERENCES account(account_id),
+		  REFERENCES account_info(account_id),
   method	CHAR VARYING(16)
 		CONSTRAINT account_authentication_method
 		  REFERENCES authentication_code(code),
   auth_data	CHAR VARYING(4000)
 		NOT NULL,
-  CONSTRAINT account_auth_pk PRIMARY KEY (account_id, method)
-);
-
-
-/*	reserved_name
-
-  Generic name reservation table.  Value_domain can indicate what kind
-  of name (username, groupname, etc.) it is that's being reserved,
-  what kind of system the name is being reserved on (Unix, Windows,
-  Notes, etc.), and so on -- the exact partitioning of value spaces is
-  done in the value_domain_code table.
-
-  TBD: Denne måten å gjøre navne-reservasjon på er såpass generell at
-       det blir vanskelig å skrive constraints som sikrer at et navn
-       ikke kan finnes både i reservasjons- og definisjons-tabellen
-       (altså f.eks. både som reservert og aktivt brukernavn).
-
-       Dersom man skal kunne legge slike skranker i databasen, ender
-       man gjerne opp med å måtte ha både reserverte og aktive navn i
-       samme tabell, og bruke en egen kolonne i denne tabellen for å
-       indikere om det dreier seg om en reservasjon eller
-       registrering.  Dette vil igjen føre til nye problemer dersom
-       man skal lage foreign keys mot en slik tvetydig navne-kolonne.
-
-*/
-CREATE TABLE reserved_name
-(
-  value_domain	CHAR VARYING(16)
-		CONSTRAINT reserved_name_value_domain
-		  REFERENCES value_domain_code(code),
-  name		CHAR VARYING(128),
-  why		CHAR VARYING(512)
-		NOT NULL,
-  CONSTRAINT reserved_name_pk PRIMARY KEY (value_domain, name)
+  CONSTRAINT account_auth_pk
+    PRIMARY KEY (account_id, method)
 );
