@@ -108,7 +108,11 @@ Litt usikker på om bofh auth rydding skal gjøres av samme modul:
 AGE_FOREVER = -1
 default_age = 3600*24*185      # 6 months
 minimum_age = 3600*24
-password_age = 0  # 3600*24
+password_age = 3600*24
+
+# Sometimes we need to know where the users homedirectory was three
+# years ago so that we can restore files the user owned then.
+never_forget_homedir = True
 
 # All entries will be expired after default_age, unless max_ages
 # overrides it.  Data in max_ages may be removed by keep_togglers.
@@ -128,6 +132,11 @@ max_ages = {
     int(co.account_type_del): 3600*24*31,
     }
 
+if never_forget_homedir:
+    max_ages[int(co.account_move)] = AGE_FOREVER 
+    max_ages[int(co.account_home_updated)] = AGE_FOREVER 
+    max_ages[int(co.account_home_added)] = AGE_FOREVER 
+    max_ages[int(co.account_home_removed)] = AGE_FOREVER 
 # The keep_togglers datastructure is a list of entries that has the
 # format:
 #
@@ -139,7 +148,7 @@ max_ages = {
 # database primary-key for events of the type listed in triggers.  We
 # only want to keep the last event of this type.
 
-keep_togglers = (
+keep_togglers = [
     # Spreads
     {'columns': ('subject_entity', ),
      'change_params': ('spread', ),
@@ -159,14 +168,6 @@ keep_togglers = (
     # Account passwords
     {'columns': ('subject_entity', ),
      'triggers': (co.account_password, )},
-    # Account homedir  (obsolete)
-    {'columns': ('subject_entity', ),
-     'triggers': (co.account_move, )},
-    # Account homedir
-    {'columns': ('subject_entity', ),
-     'change_params': ('spread', ),
-     'triggers': (co.account_home_updated, co.account_home_added,
-                  co.account_home_removed)},
     # AccountType
     # TBD:  Hvordan håndtere account_type_mod der vi bare logger old_pri og new_pri
     {'columns': ('subject_entity', ),
@@ -226,7 +227,20 @@ keep_togglers = (
     # TBD: The CL data could preferably contain more data
     {'columns': ('subject_entity', ),
      'triggers': (co.entity_addr_add, co.entity_addr_del)},
-    )
+    ]
+
+if not never_forget_homedir:
+    keep_togglers.extend([
+        # Account homedir  (obsolete)
+        {'columns': ('subject_entity', ),
+         'triggers': (co.account_move, )},
+        # Account homedir
+        {'columns': ('subject_entity', ),
+         'change_params': ('spread', ),
+         'triggers': (co.account_home_updated, co.account_home_added,
+                      co.account_home_removed)}
+        ])
+
 
 def setup():
     # Sanity check: assert that triggers are unique.  Also provides
@@ -314,9 +328,12 @@ def process_log():
         for c in m.get('columns'):
             key.append("%i" % e[c])
         if m.has_key('change_params'):
-            dta = pickle.loads(e['change_params'])
+            if e['change_params']:
+                dta = pickle.loads(e['change_params'])
+            else:
+                dta = {}
             for c in m['change_params']:
-                key.append("%s" % dta[c])
+                key.append("%s" % dta.get(c, None))
         # Not needed if a list may be efficiently/safely used as key in a dict:
         key = "-".join(key)
         logger.debug("Key is: %s" % key)
@@ -420,7 +437,7 @@ def main():
     try:
         opts, args = getopt.getopt(
             sys.argv[1:], '', ['help', 'dryrun', 'plain',
-                               'changelog', 'bofh'])
+                               'changelog', 'bofh', 'password-age='])
 
     except getopt.GetoptError:
         usage(1)
@@ -436,6 +453,9 @@ def main():
             do_remove_bofh = True
         elif opt in ('--changelog',):
             do_process_log = True
+        elif opt in ('password-age',):
+            global password_age
+            password_age = int(val)
         else:
             usage()
 
@@ -454,6 +474,7 @@ def usage(exitcode=0):
     --plain : delete plaintext passwords
     --bofh : merge equal targets in auth_op_target
     --changelog : delete 'irrelevant' changelog entries
+    --password-age seconds: delete passwords older than this (see --plain)
     """
     sys.exit(exitcode)
 
