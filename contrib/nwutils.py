@@ -336,7 +336,7 @@ def get_user_info(account_id, spread):
             
         full_name = ' '
         ext_id = 0
-        for ss in cereconf.NW_SOURCE_SEARCH_ORDER:
+        for ss in cereconf.SYSTEM_LOOKUP_ORDER:
             try:
                 if full_name is ' ':
                     first_n = person.get_name(int(getattr(co, ss)), int(co.name_first))
