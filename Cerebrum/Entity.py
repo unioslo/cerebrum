@@ -28,6 +28,9 @@ from Cerebrum import Errors
 from Cerebrum import Utils
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum import Constants
+import pprint
+
+pp = pprint.PrettyPrinter(indent=4)
 
 class Entity(DatabaseAccessor):
     """Class for generic access to Cerebrum entities.
@@ -51,7 +54,7 @@ class Entity(DatabaseAccessor):
         self.clear()
         self.__write_db = False
         self.constants = Constants.Constants(database)
-        self._debug_eq = False
+        self._debug_eq = True
 
     def clear(self):
         "Clear all attributes associating instance with a DB entity."
@@ -74,14 +77,8 @@ class Entity(DatabaseAccessor):
 
     def __eq__(self, other):
         assert isinstance(other, Entity)
-        identical = EntityAddress.__eq__(self, other)
-        if identical:
-            identical = (int(other.entity_type) == int(self.entity_type))
-        else:
-            if self._debug_eq: print "EntityAddress.__eq__ = %s" % identical
 
-        if self._debug_eq: print "Entity.__eq__ = %s" % identical
-        return identical
+        return True  # Allways true
 
     def write_db(self, as_object=None):
         """Sync instance with Cerebrum database.
@@ -312,7 +309,7 @@ class EntityAddress(object):
         
         # print "Compare: %s AND %s" % (ai, other_addr)
         for k in ('address_text', 'p_o_box', 'postal_number', 'city', 'country'):
-            # print "compare: %s %s" % (ai[k], other_addr[k])
+            # print "compare: '%s' '%s'" % (ai[k], other_addr[k])
             if(ai[k] != other_addr[k]):
                 return False
         return True
