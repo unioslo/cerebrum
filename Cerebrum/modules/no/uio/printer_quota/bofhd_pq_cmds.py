@@ -3,15 +3,83 @@
 import time
 
 from Cerebrum import Account
+from Cerebrum import Cache
 from Cerebrum import Constants
 from Cerebrum import Errors
 from Cerebrum import Person
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.bofhd.cmd_param import Command, PersonId, SimpleString, FormatSuggestion, Integer
-from Cerebrum.modules.bofhd.errors import CerebrumError
+from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.no.uio.printer_quota import PPQUtil
 from Cerebrum.modules.no.uio.printer_quota import PaidPrinterQuotas
 from Cerebrum.modules.no.uio.printer_quota import bofhd_pq_utils
+from Cerebrum.modules.bofhd import auth
+from Cerebrum.modules.bofhd.utils import _AuthRoleOpCode
+
+class Constants(Constants.Constants):
+    auth_pquota_list_history = _AuthRoleOpCode(
+        'pq_list_hist', 'List printer quota history')
+    auth_pquota_off = _AuthRoleOpCode(
+        'pq_off', 'Turn off printerquota')
+    auth_pquota_undo = _AuthRoleOpCode(
+        'pq_undo', 'Undo printjob')
+    auth_pquota_update = _AuthRoleOpCode(
+        'pq_update', 'Update printerquota')
+
+class PQBofhdAuth(auth.BofhdAuth):
+
+    # TBD: the current practice of auth.py to send operator as
+    # entity-id for the authenticated user rather than the session
+    # object should probably be changed to send the session object.
+    # This way we can get access to the person_id of the authenticated
+    # user, and perform checks based on this.
+
+    def _query_person_permission(self, operator, operation, person_id, query_run_any):
+        if not query_run_any:
+            # get_commands (which uses query_run_any=True) is called
+            # with account_id as argument.
+            operator = operator.get_entity_id()
+        if (self.is_superuser(operator) or
+            self._has_operation_perm_somewhere(
+            operator, operation)):
+            return True
+        if query_run_any:
+            return False
+        raise PermissionDenied("permission denied")
+
+    def can_pquota_list_history(self, operator, person=None, query_run_any=False):
+        if query_run_any:
+            return True
+        if operator.get_owner_id() == person:
+            # Everyone can list their own history
+            return True
+        return self._query_person_permission(operator,
+                                             self.const.auth_pquota_list_history,
+                                             person,
+                                             query_run_any)
+
+    def can_pquota_off(self, operator, person=None, query_run_any=False):
+        if query_run_any:
+            # Since our current permission criteria is not tied to a
+            # target, we use the same check for any vs a specific
+            # person
+            pass
+        return self._query_person_permission(operator,
+                                             self.const.auth_pquota_off,
+                                             person,
+                                             query_run_any)
+
+    def can_pquota_undo(self, operator, person=None, query_run_any=False):
+        return self._query_person_permission(operator,
+                                             self.const.auth_pquota_undo,
+                                             person,
+                                             query_run_any)
+
+    def can_pquota_update(self, operator, person=None, query_run_any=False):
+        return self._query_person_permission(operator,
+                                             self.const.auth_pquota_update,
+                                             person,
+                                             query_run_any)
 
 def format_time(field):
     fmt = "yyyy-MM-dd HH:mm"            # 16 characters wide
@@ -30,6 +98,12 @@ class BofhdExtension(object):
             self.const.PaidQuotaTransactionTypeCode):
             self.tt_mapping[int(c)] = "%s" % c
         self.bu = bofhd_pq_utils.BofhdUtils(server)
+        self.ba = PQBofhdAuth(self.db)
+        self._cached_client_commands = Cache.Cache(mixins=[Cache.cache_mru,
+                                                           Cache.cache_slots,
+                                                           Cache.cache_timeout],
+                                                   size=500,
+                                                   timeout=60*30)
         
     def get_help_strings(self):
         group_help = {
@@ -69,13 +143,20 @@ The currently defined id-types are:
     def get_format_suggestion(self, cmd):
         return self.all_commands[cmd].get_fs()
     
-    def get_commands(self, uname):
-        # TODO: Do some filtering on uname to remove commands
+    def get_commands(self, account_id):
+        try:
+            return self._cached_client_commands[int(account_id)]
+        except KeyError:
+            pass
         commands = {}
         for k in self.all_commands.keys():
             tmp = self.all_commands[k]
             if tmp is not None:
+                if tmp.perm_filter:
+                    if not getattr(self.ba, tmp.perm_filter)(account_id, query_run_any=True):
+                        continue
                 commands[k] = tmp.get_struct(self)
+        self._cached_client_commands[int(account_id)] = commands
         return commands
 
     # pquota status
@@ -100,7 +181,7 @@ The currently defined id-types are:
     # for scripts
     def _pquota_history(self, operator, person_id, when):
         # when is number of days in the past
-        # TODO: Permission sjekking
+        self.ba.can_pquota_list_history(operator, person_id)
         ppq_info = self.bu.get_pquota_status(person_id)
         if when:
             when = self.db.Date(*( time.localtime(time.time()-3600*24*when)[:3]))
@@ -130,7 +211,8 @@ The currently defined id-types are:
                              'pageunits_paid'),
                             hdr="%-8s %-7s %-16s %-10s %-20s %-5s %-5s" %
                             ("JobId", "Type", "When", "By", "Data", "#Free",
-                             "#Paid")))
+                             "#Paid")),
+        perm_filter='can_pquota_list_history')
     def jbofh_pquota_history(self, operator, person_id):
         when = 7              # Max days for cmd-client
         ret = []
@@ -160,9 +242,11 @@ The currently defined id-types are:
         return ret
 
     all_commands['pquota_off'] = Command(
-        ("pquota", "off"), PersonId())
+        ("pquota", "off"), PersonId(),
+        perm_filter='can_pquota_off')
     def pquota_off(self, operator, person_id):
         person_id = self.bu.find_person(person_id)
+        self.ba.can_pquota_off(operator, person_id)
         self.bu.get_pquota_status(person_id)
         ppq = PaidPrinterQuotas.PaidPrinterQuotas(self.db)
         ppq.set_status_attr(person_id, {'has_quota': False})
@@ -170,9 +254,11 @@ The currently defined id-types are:
 
     all_commands['pquota_update'] = Command(
         ("pquota", "update"), PersonId(), Integer(help_ref='int_new_quota'),
-        SimpleString(help_ref='undo_why'))
+        SimpleString(help_ref='undo_why'),
+        perm_filter='can_pquota_update')
     def pquota_update(self, operator, person_id, new_value, why):
         person_id = self.bu.find_person(person_id)
+        self.ba.can_pquota_update(operator, person_id)
         self.bu.get_pquota_status(person_id)
         pu = PPQUtil.PPQUtil(self.db)
         # Throws subclass for CerebrumError, which bofhd.py will handle
@@ -182,9 +268,11 @@ The currently defined id-types are:
 
     all_commands['pquota_undo'] = Command(
         ("pquota", "undo"), PersonId(), Integer(help_ref='job_id'),
-        Integer(help_ref='subtr_pages'), SimpleString(help_ref='undo_why'))
+        Integer(help_ref='subtr_pages'), SimpleString(help_ref='undo_why'),
+        perm_filter='can_pquota_undo')
     def pquota_undo(self, operator, person_id, job_id, num_pages, why):
         person_id = self.bu.find_person(person_id)
+        self.ba.can_pquota_undo(operator, person_id)
         pu = PPQUtil.PPQUtil(self.db)
         # Throws subclass for CerebrumError, which bofhd.py will handle
         pu.undo_transaction(person_id, job_id, int(num_pages),
