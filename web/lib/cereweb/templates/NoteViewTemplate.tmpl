@@ -1,0 +1,18 @@
+#from Cerebrum.web.InitTemplate import InitTemplate
+#from Cerebrum.web.utils import url
+#extends InitTemplate
+
+#def viewNotes($entity)
+#set $notes = $entity.show_notes()
+#for $note in $notes
+  <div class="note">
+    <div>
+        <em>$note.create_date.strftime("%Y-%m-%d")</em>
+        <em>$note.creator</em>
+    </div>    
+    <div>$note.subject/<div>
+    <div>$note.description</div>
+    <div><a href="$url('note/delete?id=%s&entity=%s' % ($note.id, $entity.id))">$_("Delete")</a></div>
+  </div>
+#end for
+#end def

@@ -1,0 +1,21 @@
+#from Cerebrum.web.InitTemplate import InitTemplate
+#from Cerebrum.web.utils import url
+#extends InitTemplate
+
+#def addForm($entity)
+<form action="$url('note/add')" type="post">
+
+#set title = $_("Add a comment to %s") % $entity
+    <h2>$title</h2>
+
+    <input type="hidden" name="entity" value="$entity.id" />
+
+    <label for="subject">$_("Subject"):</label>
+    <input type="text" size="60" name="subject" /> <br />
+
+    <label for="description">$_("Optional details"):</label>
+    <textarea cols="60" rows="6" name="description"></textarea> <br />
+
+    <input type="submit" value="$_('Add')" />
+</form>
+#end def
