@@ -1,4 +1,4 @@
-/*	person
+/*	person_info
 
   `export_id'	Unique, constant-over-time identifier for a person.
 		This is the identifier one should use when exporting
@@ -16,31 +16,34 @@
 	støtte dette.
 
 */
-CREATE TABLE person
+CREATE TABLE person_info
 (
   /* Dummy column, needed for type check against `entity_id'. */
   entity_type	CHAR VARYING(16)
 		NOT NULL
 		DEFAULT 'p'
-		CONSTRAINT person_entity_type_chk CHECK (entity_type = 'p'),
+		CONSTRAINT person_info_entity_type_chk
+		  CHECK (entity_type = 'p'),
 
   person_id	NUMERIC(12,0)
-		CONSTRAINT person_pk PRIMARY KEY,
+		CONSTRAINT person_info_pk PRIMARY KEY,
   export_id	CHAR VARYING(16)
 		DEFAULT NULL
-		CONSTRAINT person_export_id_unique UNIQUE,
+		CONSTRAINT person_info_export_id_unique UNIQUE,
   birth_date	DATE
 		NOT NULL,
   gender	CHAR VARYING(16)
 		NOT NULL
-		CONSTRAINT person_gender REFERENCES gender_code(code),
+		CONSTRAINT person_info_gender
+		  REFERENCES gender_code(code),
   deceased	CHAR(1)
 		NOT NULL
-		CONSTRAINT person_deceased_bool
+		CONSTRAINT person_info_deceased_bool
 		  CHECK (deceased IN ('T', 'F')),
   comment	CHAR VARYING(512),
-  CONSTRAINT person_entity_id FOREIGN KEY (entity_type, person_id)
-    REFERENCES entity_id(entity_type, id)
+  CONSTRAINT person_info_entity_id
+    FOREIGN KEY (entity_type, person_id)
+    REFERENCES entity_info(entity_type, entity_id)
 );
 
 
@@ -57,13 +60,15 @@ CREATE TABLE person_external_id
 (
   person_id	NUMERIC(12,0)
 		CONSTRAINT person_external_id_person_id
-		  REFERENCES person(person_id),
+		  REFERENCES person_info(person_id),
   id_type	CHAR VARYING(16)
 		CONSTRAINT person_external_id_id_type
 		  REFERENCES person_external_id_code(code),
   external_id	CHAR VARYING(256),
-  CONSTRAINT person_external_id_pk PRIMARY KEY (person_id, id_type),
-  CONSTRAINT person_external_id_unique UNIQUE (id_type, external_id)
+  CONSTRAINT person_external_id_pk
+    PRIMARY KEY (person_id, id_type),
+  CONSTRAINT person_external_id_unique
+    UNIQUE (id_type, external_id)
 );
 
 
@@ -78,7 +83,7 @@ CREATE TABLE person_name
 (
   person_id	NUMERIC(12,0)
 		CONSTRAINT person_name_person_id
-		  REFERENCES person(person_id),
+		  REFERENCES person_info(person_id),
   name_variant	CHAR VARYING(16)
 		CONSTRAINT person_name_name_variant
 		  REFERENCES person_name_code(code),
@@ -108,20 +113,20 @@ CREATE TABLE person_affiliation
 (
   person_id	NUMERIC(12,0)
 		CONSTRAINT person_affiliation_person_id
-		  REFERENCES person(person_id),
+		  REFERENCES person_info(person_id),
   ou_id		NUMERIC(12,0)
 		CONSTRAINT person_affiliation_ou_id
-		  REFERENCES ou(ou_id),
+		  REFERENCES ou_info(ou_id),
   affiliation	CHAR VARYING(16)
 		CONSTRAINT person_affiliation_affiliation
 		  REFERENCES person_affiliation_code(code),
   status	CHAR VARYING(16),
   create_date	DATE
-		NOT NULL
-		DEFAULT SYSDATE,
+		DEFAULT SYSDATE
+		NOT NULL,
   last_date	DATE
-		NOT NULL
-		DEFAULT SYSDATE,
+		DEFAULT SYSDATE
+		NOT NULL,
   deleted_date	DATE,
   CONSTRAINT person_affiliation_pk
     PRIMARY KEY (person_id, ou_id, affiliation),
