@@ -82,14 +82,16 @@
 import getopt
 import sys
 import re
+import locale
 
-from Cerebrum.modules.no.uio import fronter_lib
+import cerebrum_path
 import cereconf
-
+from Cerebrum.modules.no.uio import fronter_lib
 from Cerebrum.Utils import Factory
 from Cerebrum import Database
 from Cerebrum.modules import PosixUser
-from Cerebrum.extlib import logging
+from Cerebrum import Logging
+from Cerebrum import Errors
 
 cf_dir = '/cerebrum/dumps/Fronter'
 root_sko = '900199'
@@ -99,7 +101,7 @@ group_struct_title = 'Automatisk importerte grupper'
 
 def usage(exitcode=0):
     print """Usage: [options] outfile
-    -h | --host name : fronter host to use
+    -h  --host name : fronter host to use
     --fs-db-user uname : uname when connecting to FS
     --fs-db-service sid: SID to FS instance
     --debug-file name: name of debug file (used by fronter)
@@ -113,6 +115,10 @@ def usage(exitcode=0):
     sys.exit(exitcode)
 
 def main():
+    # Håndter upper- og lowercasing av strenger som inneholder norske
+    # tegn.
+    locale.setlocale(locale.LC_CTYPE, ('en_US', 'iso88591'))
+
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'h:',
                                    ['host=', 'fs-db-user=', 'fs-db-service=',
@@ -141,29 +147,26 @@ def main():
 
     fs_db = Database.connect(user=fs_db_user, service=fs_db_service,
                              DB_driver='Oracle')
-    global xml, logger
-    logging.fileConfig(cereconf.LOGGING_CONFIGFILE)
-    logger = logging.getLogger("console")
+    global db, const, logger, fronter, xml
+    db = Factory.get('Database')()
+    const = Factory.get('Constants')(db)
+    logger = Logging.getLogger("console")
+    fronter = fronter_lib.Fronter(host, db, const, fs_db,
+                                  logger=logger)
     xml = fronter_lib.FronterXML(args[0],
-                                 cf_dir=cf_dir,
-                                 debug_file=debug_file,
-                                 debug_level=debug_level)
-    gen_export(host, fs_db)
+                                 cf_dir = cf_dir,
+                                 debug_file = debug_file,
+                                 debug_level = debug_level,
+                                 fronter = fronter)
+    gen_export(fs_db)
     
-def gen_export(fronterHost, fs_db):
-    global fronter, const, db
+def gen_export(fs_db):
     # TODO: grisete med disse globale variablene, fjern dem
     global new_group, old_group, group_updates, new_users, old_users, \
-           user_updates, new_rooms, old_rooms, room_updates, \
+           deleted_users, user_updates, new_rooms, old_rooms, room_updates, \
            new_groupmembers, old_groupmembers, groupmember_updates, \
            new_acl, old_acl, acl_updates
 
-    db = Factory.get('Database')()
-    const = Factory.get('Constants')(db)
-    fronter = fronter_lib.Fronter(fronterHost, db, const, fs_db,
-                                  logger=logger)
-    xml.fronter = fronter
-    
     if 'FS' in [x[0:2] for x in fronter.export]:
         # Fyller %kurs, %emne_versjon, %emne_termnr, %enhet2sko,
         # %kurs2navn, %enhet2akt
@@ -172,10 +175,14 @@ def gen_export(fronterHost, fs_db):
     xml.start_xml_file(fronter.kurs2enhet)
 
     logger.info("get_fronter_users()")
-    users = fronter.get_fronter_users()
+    old_users = fronter.get_fronter_users()
     logger.info("get_new_users()")
     new_users = {}
-    old_users = {}
+    deleted_users = {}
+    new_groupmembers =  {'All_users': {}}
+    #new_groupmembers = {'admins':{}}
+    #new_groupmembers = {'plain_users':{}}
+
     user_updates = {fronter.STATUS_ADD: {},
                     fronter.STATUS_UPDATE: {},
                     fronter.STATUS_DELETE: {}}
@@ -194,6 +201,8 @@ def gen_export(fronterHost, fs_db):
     room_updates = {fronter.STATUS_ADD: {},
                     fronter.STATUS_UPDATE: {},
                     fronter.STATUS_DELETE: {}}
+
+    new_acl = {}
 
     # 608-650: legger inn brukermedlemer i %new_groupmembers på
     # cf-gruppenivå 3
@@ -222,7 +231,7 @@ def gen_export(fronterHost, fs_db):
     process_room_group_updates(current_groups, current_rooms)
 
     logger.info("get_fronter_groupmembers()")
-    new_groupmembers = {}
+#    new_groupmembers = {}
     old_groupmembers = fronter.get_fronter_groupmembers(current_groups)
     groupmember_updates = {fronter.STATUS_ADD: {},
                            fronter.STATUS_UPDATE: {},
@@ -234,7 +243,6 @@ def gen_export(fronterHost, fs_db):
     process_groupmembers()
 
     logger.info("get_fronter_acl()")
-    new_acl = {}
     old_acl = fronter.get_fronter_acl(current_groups, current_rooms)
     acl_updates = {fronter.STATUS_ADD: {},
                    fronter.STATUS_UPDATE: {},
@@ -252,7 +260,7 @@ def list_users_for_fronter_export():  # TODO: rewrite this
     posix_user = PosixUser.PosixUser(db)
     for row in posix_user.list_extended_posix_users(
         const.auth_type_md5_crypt):
-        tmp = {'email': 'todo@email',
+        tmp = {'email': '@'.join((row['entity_name'], 'ulrik.uio.no')),
                'uname': row['entity_name']}
         if row['gecos'] is None:
             tmp['fullname'] = row['name']
@@ -263,42 +271,43 @@ def list_users_for_fronter_export():  # TODO: rewrite this
 
 def get_new_users():  # ca 345-374
     # Hent info om brukere i cerebrum
+    
     fix_email = re.compile(r'\@UIO_HOST$')
     for user in list_users_for_fronter_export():
         email = fix_email.sub('@ulrik.uio.no', user['email'])
-        names = re.split('\s+', user['fullname'])
-        new_users[user['uname']] = {'FAMILY': names.pop(0),
-                                    'GIVEN': " ".join(names),
-                                    'EMAIL': email,
-                                    'USERACCESS': 0
-                                    }
+#	print user['fullname']
+        # lagt inn denne testen fordi scriptet feilet uten, har en liten
+        # følelse av det burde løses på en annen måte
+        if user['fullname'] is None:
+            continue
+        names = re.split('\s+', user['fullname'].strip())
+        user_params = {'FAMILY': names.pop(),
+                       'GIVEN': " ".join(names),
+                       'EMAIL': email,
+                       'USERACCESS': 0,
+                       'PASSWORD': 'unix:',
+                       }
 
-        if 'All_users' in fronter.export:
-            new_groupmembers['All_users'][uname] = 1
-            new_users[user['uname']]['USERACCESS'] = 'allowlogin'
+	if 'All_users' in fronter.export:
+	    new_groupmembers.setdefault('All_users',
+                                        {})[user['uname']] = 1
+	    user_params['USERACCESS'] = 'allowlogin'
 
-        if user['uname'] in fronter.admins:
-            new_users[user['uname']]['USERACCESS'] = 'administrator'
+	if user['uname'] in fronter.admins:
+	    user_params['USERACCESS'] = 'administrator'
 
-        new_users[user['uname']]['PASSWORD'] = 'unix:'
-        if user['uname'] in fronter.plain_users:
-            new_users[user['uname']]['PASSWORD'] = "plain:%s" % user['uname']
+        # The 'plain_users' setting can be useful for debugging.
+	if user['uname'] in fronter.plain_users:
+	    user_params['PASSWORD'] = "plain:%s" % user['uname']
+        new_users[user['uname']] = user_params
+		
     logger.debug("get_new_users returns %i users" % len(new_users))
 
 def register_user_update(operation, uname):
     """Update user_updates with info about changes that should be done
     in Fronter.  Also modifies old_users and new_users"""
-    update = False
-    if operation == fronter.STATUS_UPDATE:
-        if (old_users[uname]['PASSWORD'] != new_users[uname]['PASSWORD'] or
-	    old_users[uname]['GIVEN'] != new_users[uname]['GIVEN'] or
-	    old_users[uname]['FAMILY'] != new_users[uname]['FAMILY'] or
-	    old_users[uname]['EMAIL'] != new_users[uname]['EMAIL'] or
-            old_users[uname]['USERACCESS'] != new_users[uname]['USERACCESS']):
-            update = True
-
-    if update or operation == fronter.STATUS_ADD:
-        if (not new_users.has_key(uname)) and (not old_users.has_key(uname)):
+    if operation == fronter.STATUS_ADD:
+        if not (new_users.has_key(uname) and not old_users.has_key(uname)):
             return
 	user_updates[operation][uname] = {
             'PASSWORD': fronter.pwd(new_users[uname]['PASSWORD']),
@@ -308,19 +317,36 @@ def register_user_update(operation, uname):
             'EMAILCLIENT': 1,
             'USERACCESS': fronter.useraccess(new_users[uname]['USERACCESS'])
 	    }
-	del(new_users[uname])
-        if update:
-            del(old_users[uname])
+	del new_users[uname]
+    elif operation == fronter.STATUS_UPDATE:
+        if not (new_users.has_key(uname) and old_users.has_key(uname)):
+            return
+        old = old_users[uname]
+        new = new_users[uname]
+        if (old['PASSWORD'] != new['PASSWORD'] or
+	    old['GIVEN'] != new['GIVEN'] or
+	    old['FAMILY'] != new['FAMILY'] or
+	    old['EMAIL'] != new['EMAIL'] or
+            old['USERACCESS'] != new['USERACCESS']):
+            user_updates[operation][uname] = {
+                'PASSWORD': fronter.pwd(new['PASSWORD']),
+                'GIVEN': new['GIVEN'],
+                'FAMILY': new['FAMILY'],
+                'EMAIL': new['EMAIL'],
+                'EMAILCLIENT': 1,
+                'USERACCESS': fronter.useraccess(new['USERACCESS'])
+                }
+        del new_users[uname]
+        del old_users[uname]
     elif operation == fronter.STATUS_DELETE:
-        if (not new_users.has_key(uname)) and (old_users.has_key(uname)):
+        if not (old_users.has_key(uname) and not new_users.has_key(uname)):
             return
 	user_updates[operation][uname] = 1
 	deleted_users[uname] = 1
-	del(old_users[uname])
+	del old_users[uname]
 
 def register_group(title, id, parentid, allow_room=0, allow_contact=0):
-    """Adds info in new_group about group"""
-
+    """Adds info in new_group about group."""
     CFid = id
     if re.search(r'^STRUCTURE/(Enhet|Studentkorridor):', id):
         rest = id.split(":")
@@ -328,13 +354,21 @@ def register_group(title, id, parentid, allow_room=0, allow_contact=0):
 
         if not rest[0] in (fronter.EMNE_PREFIX, fronter.EVU_PREFIX):
             rest.insert(0, fronter.EMNE_PREFIX)
-        id = "%s:%s" % (corr_type, fronter_lib.FronterUtils.UE2KursID(rest))
+        id = "%s:%s" % (corr_type, fronter_lib.FronterUtils.UE2KursID(*rest))
     new_group[id] = { 'title': title,
                       'parent': parentid,
                       'allow_room': allow_room,
                       'allow_contact': allow_contact,
                       'CFid': CFid,
 		      }
+
+def get_group(id):
+    group = Factory.get('Group')(db)
+    if isinstance(id, str):
+        group.find_by_name(id)
+    else:
+        group.find(id)
+    return group
 
 def reg_supergroups():
     register_group("Universitetet i Oslo", root_struct_id, root_struct_id)
@@ -355,7 +389,8 @@ def reg_supergroups():
             group = get_group(sgname)
         except Errors.NotFoundError:
             continue
-        for group_id in group.list_members(mtype=co.entity_group):
+        for member_type, group_id in \
+            group.list_members(member_type = const.entity_group)[0]:
 	    # $gname er på nivå 3 == gruppe med brukere som medlemmer.
 	    # Det er disse gruppene som blir opprettet i ClassFronter
 	    # som følge av eksporten.
@@ -365,17 +400,21 @@ def reg_supergroups():
             #
             # All groups should have "View Contacts"-rights on
             # themselves.
-            new_acl[group.group_name][group.group_name] = {
+            new_acl.setdefault(group.group_name, {})[group.group_name] = {
                 'gacc': '100',   # View Contacts
                 'racc': '0'} 	 # None
             #
             # Groups populated from FS aren't expanded recursively
             # prior to export.
-            for uname in group.list_members(mtype=co.entity_account):
-                if new_users.has_key[uname]:
+            for row in \
+                group.list_members(member_type = const.entity_account,
+                                   get_entity_name = True)[0]:
+                uname = row[2]
+                if new_users.has_key(uname):
                     if new_users[uname]['USERACCESS'] != 'administrator':
                         new_users[uname]['USERACCESS'] = 'allowlogin'
-                    new_groupmembers[group.group_name][uname] = 1
+                    new_groupmembers.setdefault(group.group_name,
+                                                {})[uname] = 1
 
 def gen_user_xml():
     # Nå har vi fått oversikt over hvilke brukere som er medlem i de
@@ -390,12 +429,15 @@ def gen_user_xml():
         for id in user_updates.get(status, {}).keys():
             xml.user_to_XML(id, status,
                             user_updates[status][id])
-        del(user_updates[status])
+        del user_updates[status]
 
 def get_sted(stedkode=None, entity_id=None):
-    sted = Stedkode.Stedkode(db)
+    sted = Factory.get('OU')(db)
     if stedkode is not None:
-        sted.find_stedkode(int(sko[0:2]), int(sko[2:4]), int(sko[4:6]))
+        sted.find_stedkode(int(stedkode[0:2]),
+                           int(stedkode[2:4]),
+                           int(stedkode[4:6]),
+                           cereconf.DEFAULT_INSTITUSJONSNR)
     else:
         sted.find(entity_id)
     return sted
@@ -417,7 +459,7 @@ def build_structure(sko, allow_room=0, allow_contact=0):
 	# tree, we're causing nodes that are created purely as
 	# ancestors to allow neither rooms nor contacts.
         sted = get_sted(stedkode=sko)
-	parent_sted = get_sted(entity_id=sted.get_parent(co.system_fs))
+	parent_sted = get_sted(entity_id=sted.get_parent(const.perspective_lt))
 	parent = build_structure("%02d%02d%02d" % (
             parent_sted.fakultet, parent_sted.institutt, parent_sted.avdeling))
             
@@ -428,10 +470,11 @@ def build_structure(sko, allow_room=0, allow_contact=0):
 	register_group(sted.name, id, parent, allow_room, allow_contact)
     return id
 
-def process_single_enhet_id(enhet_id):
+def process_single_enhet_id(kurs_id, enhet_id, struct_id, emnekode,
+                            groups, enhet_node, undervisning_node):
     # I tillegg kommer så evt. rom knyttet til de
     # undervisningsaktivitetene studenter kan melde seg på.
-    for akt in fronter.enhet2akt[enhet_id]:
+    for akt in fronter.enhet2akt.get(enhet_id, []):
         aktkode, aktnavn = akt
 
         aktans = "uio.no:fs:%s:aktivitetsansvar:%s" % (
@@ -443,36 +486,38 @@ def process_single_enhet_id(enhet_id):
 
         # Aktivitetsansvarlig skal ha View Contacts på studentene i
         # sin aktivitet.
-        new_acl[aktstud][aktans] = {'gacc': '100', 'racc': '0'}
+        new_acl.setdefault(aktstud, {})[aktans] = {'gacc': '100',
+                                                   'racc': '0'}
         # ... og omvendt.
-        new_acl[aktans][aktstud] = {'gacc': '100', 'racc': '0'}
+        new_acl.setdefault(aktans, {})[aktstud] = {'gacc': '100',
+                                                   'racc': '0'}
 
         # Alle med ansvar for (minst) en aktivitet tilknyttet
         # en undv.enhet som hører inn under kurset skal ha
         # tilgang til kursets undervisningsrom-korridor samt
         # lærer- og fellesrom.
-        new_acl[undervisning_node][aktans] = {
+        new_acl.setdefault(undervisning_node, {})[aktans] = {
             'gacc': '250',		# Admin Lite
             'racc': '100'}		# Room Creator
-        new_acl["ROOM/Felles:%s" % struct_id][aktans] = {
+        new_acl.setdefault("ROOM/Felles:%s" % struct_id, {})[aktans] = {
             'role': fronter.ROLE_CHANGE}
-        new_acl["ROOM/Larer:%s" % struct_id][aktans] = {
+        new_acl.setdefault("ROOM/Larer:%s" % struct_id, {})[aktans] = {
             'role': fronter.ROLE_CHANGE}
 
         # Alle aktivitetsansvarlige skal ha "View Contacts" på
         # gruppen All_users dersom det eksporteres en slik.
-        if export_all_users:
-            new_acl['All_users'][aktans] = {'gacc': '100',
-                                            'racc': '0'}
+        if 'All_users' in fronter.export:
+            new_acl.setdefault('All_users', {})[aktans] = {'gacc': '100',
+                                                           'racc': '0'}
 
         aktid = "%s:%s" % (struct_id, aktkode)
         new_rooms["ROOM/Aktivitet:%s:%s" % (kurs_id, aktkode)] = {
             'title': "%s - %s" % (emnekode, aktnavn),
              'parent': enhet_node,
              'CFid': "ROOM/Aktivitet:%s" % aktid}
-        new_acl["ROOM/Aktivitet:%s" % aktid][aktans] = {
+        new_acl.setdefault("ROOM/Aktivitet:%s" % aktid, {})[aktans] = {
             'role': fronter.ROLE_CHANGE}
-        new_acl["ROOM/Aktivitet:%s" % aktid][aktstud] = {
+        new_acl.setdefault("ROOM/Aktivitet:%s" % aktid, {})[aktstud] = {
             'role': fronter.ROLE_WRITE}
 
     # Til slutt deler vi ut "View Contacts"-rettigheter på kryss og
@@ -485,15 +530,16 @@ def process_single_enhet_id(enhet_id):
                    }
         for g in groups[gt]:
             # Alle grupper skal ha View Contacts på seg selv.
-            new_acl[g][g] = {'gacc': '100', 'racc': '0'}
+            new_acl.setdefault(g, {})[g] = {'gacc': '100',
+                                            'racc': '0'}
             #
             # Alle grupper med gruppetype $gt skal ha View
             # Contacts på alle grupper med gruppetype i
             # $other_gt{$gt}.
             for o_gt in other_gt[gt]:
                 for og in groups[o_gt]:
-                    new_acl[og][g] = {'gacc': '100',
-                                      'racc': '0'}
+                    new_acl.setdefault(og, {})[g] = {'gacc': '100',
+                                                     'racc': '0'}
     
 def process_kurs2enhet():
     # TODO: some code-duplication has been reduced by adding
@@ -501,14 +547,15 @@ def process_kurs2enhet():
     # It should be possible to move more code to that subroutine.
     for kurs_id in fronter.kurs2enhet.keys():
         type = kurs_id.split(":")[0].lower()
-        if type == fronter.EMNE_PREFIX:
-            enhet_sorted = fronter.kurs2enhet[kurs_id][:].sort(fronter._date_sort)
+        if type == fronter.EMNE_PREFIX.lower():
+            enhet_sorted = fronter.kurs2enhet[kurs_id][:]
+            enhet_sorted.sort(fronter._date_sort)
             # Bruk eldste enhet som $enh_id
             enh_id = enhet_sorted[0]
-            enhet = enh_id.split(":")[1]
+            enhet = enh_id.split(":", 1)[1]
             struct_id = enh_id.upper()	# Default, for korridorer som
-                # ikke finnes i CF.
-            if old_group.has-key("STRUCTURE/Enhet:%s" % kurs_id):
+                                        # ikke finnes i CF.
+            if old_group.has_key("STRUCTURE/Enhet:%s" % kurs_id):
                 # Struktur-ID må forbli uforandret i hele kursets levetid,
                 # slik at innhold lagt inn i eksisterende rom blir værende
                 # der.
@@ -520,7 +567,7 @@ def process_kurs2enhet():
                 CFid = old_group["STRUCTURE/Enhet:%s" % kurs_id]['CFid']
                 # Stripp vekk "STRUCTURE/Enhet:" fra starten for å få
                 # eksisterende $struct_id.
-                struct_id = CFid.split(":")[1]
+                struct_id = CFid.split(":", 1)[1]
 
             Instnr, emnekode, versjon, termk, aar, termnr = enhet.split(":")
             # Opprett strukturnoder som tillater å ha rom direkte under
@@ -532,9 +579,9 @@ def process_kurs2enhet():
             tittel = "%s - %s, %s %s" % (emnekode, fronter.kurs2navn[kurs_id], termk, aar)
             multi_enhet = ()
             multi_id = ":".join((Instnr, emnekode, termk, aar))
-            if len(emne_termnr[multi_id]) > 1:
+            if len(fronter.emne_termnr[multi_id]) > 1:
                 multi_enhet.append("%s. termin" % termnr)
-            if len(emne_versjon[multi_id]) > 1:
+            if len(fronter.emne_versjon[multi_id]) > 1:
                 multi_enhet.append("v%s" % versjon)
             if multi_enhet:
                 tittel += ", %s" % ", ".join(multi_enhet)
@@ -559,38 +606,43 @@ def process_kurs2enhet():
                 enhstud = "uio.no:fs:%s:student" % enhet_id.lower()
                 # De ansvarlige for undervisningsenhetene som hører til et
                 # kurs skal ha tilgang til kursets undv.rom-korridor.
-                new_acl[undervisning_node][enhans] = {
+                new_acl.setdefault(undervisning_node, {})[enhans] = {
                     'gacc': '250',		# Admin Lite
                     'racc': '100'}		# Room Creator
 
                 # Alle enhetsansvarlige skal ha "View Contacts" på gruppen
                 # All_users dersom det eksporteres en slik.
                 if 'All_users' in fronter.export:
-                    new_acl['All_users'][enhans] = {'gacc': '100',
-                                                    'racc': '0'}
+                    new_acl.setdefault('All_users', {})[enhans] = {
+                        'gacc': '100',
+                        'racc': '0'}
 
                 # Gi studenter+lærere i alle undervisningsenhetene som
                 # hører til kurset passende rettigheter i felles- og
                 # lærerrom.
-                new_acl["ROOM/Felles:%s" % struct_id][enhans] = {
-                    'role': fronter.ROLE_CHANGE}
-                new_acl["ROOM/Felles:%s" % struct_id][enhstud] = {
-                    'role': fronter.ROLE_WRITE}
-                new_acl["ROOM/Larer:%s" % struct_id][enhans] = {
+                new_acl.setdefault("ROOM/Felles:%s" % struct_id,
+                                   {}).update({
+                    enhans: {'role': fronter.ROLE_CHANGE},
+                    enhstud: {'role': fronter.ROLE_WRITE}
+                    })
+                new_acl.setdefault("ROOM/Larer:%s" % struct_id,
+                                   {})[enhans] = {
                     'role': fronter.ROLE_CHANGE}
 
-                groups = {'enhansv': enhans,
-                          'enhstud': enhstud,
+                groups = {'enhansv': [enhans],
+                          'enhstud': [enhstud],
                           'aktansv': [],
                           'aktstud': [],
                          }
-                process_single_enhet_id(enhet_id)
-        elif type == fronter.EVU_PREFIX:
+                process_single_enhet_id(kurs_id, enhet_id, struct_id,
+                                        emnekode, groups,
+                                        enhet_node, undervisning_node)
+        elif type == fronter.EVU_PREFIX.lower():
             # EVU-kurs er modellert helt uavhengig av semester-inndeling i
             # FS, slik at det alltid vil være nøyaktig en enhet-ID for
             # hver EVU-kurs-ID.  Det gjør en del ting nokså mye greiere...
             for enhet_id in fronter.kurs2enhet[kurs_id]:
-                kurskode, tidskode = enhet_id.split(":")[1,2]
+                kurskode, tidskode = enhet_id.split(":")[1:3]
                 # Opprett strukturnoder som tillater å ha rom direkte under
                 # seg.
                 sko_node = build_structure(fronter.enhet2sko[enhet_id])
@@ -602,15 +654,16 @@ def process_kurs2enhet():
                                undervisning_node, enhet_node, 1)
                 enhans = "uio.no:fs:%s:enhetsansvar" % enhet_id.lower()
                 enhstud = "uio.no:fs:%s:student" % enhet_id.lower()
-                new_acl[undervisning_node][enhans] = {
+                new_acl.setdefault(undervisning_node, {})[enhans] = {
                     'gacc': '250',		# Admin Lite
                     'racc': '100'}		# Room Creator
 
                 # Alle enhetsansvarlige skal ha "View Contacts" på gruppen
                 # All_users dersom det eksporteres en slik.
                 if 'All_users' in fronter.export:
-                    new_acl['All_users'][enhans] = {'gacc': '100',
-                                                    'racc': '0'}
+                    new_acl.setdefault('All_users', {})[enhans] = {
+                        'gacc': '100',
+                        'racc': '0'}
 
                 # Alle eksporterte emner skal i alle fall ha ett
                 # fellesrom og ett lærerrom.
@@ -618,22 +671,27 @@ def process_kurs2enhet():
                     'title': "%s - Fellesrom" % kurskode,
                     'parent': enhet_node,
                     'CFid': "ROOM/Felles:%s" % enhet_id}
-                new_acl["ROOM/Felles:%s" % enhet_id][enhans] = {
+                new_acl.setdefault("ROOM/Felles:%s" % enhet_id,
+                                   {})[enhans] = {
                     'role': fronter.ROLE_CHANGE}
-                new_acl["ROOM/Felles:%s" % enhet_id][enhstud] = {
+                new_acl.setdefault("ROOM/Felles:%s" % enhet_id,
+                                   {})[enhstud] = {
                     'role': fronter.ROLE_WRITE}
                 new_rooms["ROOM/Larer:%s" % kurs_id] = {
                     'title': "%s - Lærerrom" % kurskode,
                     'parent': enhet_node,
                     'CFid': "ROOM/Larer:%s" % enhet_id}
-                new_acl["ROOM/Larer:%s" % enhet_id][enhans] = {
+                new_acl.setdefault("ROOM/Larer:%s" % enhet_id,
+                                   {})[enhans] = {
                     'role': fronter.ROLE_CHANGE}
-                groups = {'enhansv': enhans,
-                          'enhstud': enhstud,
+                groups = {'enhansv': [enhans],
+                          'enhstud': [enhstud],
                           'aktansv': [],
                           'aktstud': [],
                           }
-                process_single_enhet_id(enhet_id)
+                process_single_enhet_id(kurs_id, enhet_id, enhet_id,
+                                        kurskode, groups,
+                                        enhet_node, undervisning_node)
         else:
             raise ValueError, "Unknown type <%s> for course <%s>" % (type, kurs_id)
 
@@ -641,7 +699,7 @@ def register_group_update(operation, id):
     """populerer %group_updates"""
 
     if operation != fronter.STATUS_DELETE:
-        parent = new_group[id]['parent']
+        parent = new_group.get(id, {}).get('parent')
         # title = new_group[id]['title']
 
         # This isn't called with $operation = STATUS_UPDATE until all
@@ -654,7 +712,7 @@ def register_group_update(operation, id):
         if not (new_group.has_key(id) and (not old_group.has_key(id))):
             return
 	group_updates[operation][id] = new_group[id]
-	del(new_group[id])
+	del new_group[id]
     elif operation == fronter.STATUS_UPDATE:
         if not(old_group.has_key(id) and new_group.has_key(id)):
             return
@@ -673,13 +731,13 @@ def register_group_update(operation, id):
 	    # korridorer, da det for grupper ikke skal være noen
 	    # forskjell på id og CFid.
 	    group_updates[operation][id]['CFid'] = old_group[id]['CFid']
-	del(old_group[id])
-	del(new_group[id])
+	del old_group[id]
+	del new_group[id]
     elif operation == fronter.STATUS_DELETE:
         if not (old_group.has_key(id) and (not new_group.has_key(id))):
             return
 	group_updates[operation][id] = old_group[id]
-	del(old_group[id])
+	del old_group[id]
 
 def register_room_update(operation, roomid):
     # populerer %room_updates
@@ -687,9 +745,9 @@ def register_room_update(operation, roomid):
         if not (new_rooms.has_key(roomid) and (not old_rooms.has_key(roomid))):
             return
 	room_updates[operation][roomid] = new_rooms[roomid]
-	del(new_rooms[roomid])
+	del new_rooms[roomid]
     elif operation == fronter.STATUS_UPDATE:
-        if not unless (old_rooms.has_key(roomid) and new_rooms.has_key(roomid)):
+        if not (old_rooms.has_key(roomid) and new_rooms.has_key(roomid)):
             return
         if new_rooms[roomid].has_key('profile'):
             new_profile = new_rooms[roomid]['profile']
@@ -704,13 +762,13 @@ def register_room_update(operation, roomid):
 	    # samme import-ID som før; endringer i rom-attributter
 	    # skal ikke føre til opprettelse av noe nytt rom.
 	    room_updates[operation][roomid]['CFid'] = old_rooms[roomid]['CFid']
-	del(old_rooms[roomid])
-	del(new_rooms[roomid])
+	del old_rooms[roomid]
+	del new_rooms[roomid]
     elif operation == fronter.STATUS_DELETE:
         if not (old_rooms.has_key(roomid) and (not new_rooms.has_key(roomid))):
             return
 	room_updates[operation][roomid] = old_rooms[roomid]
-	del(old_rooms[roomid])
+	del old_rooms[roomid]
 
 def process_room_group_updates(current_groups, current_rooms):
     # Vi kan ikke oppdatere medlemskap på grupper vi ikke lenger får data
@@ -730,7 +788,7 @@ def process_room_group_updates(current_groups, current_rooms):
             data = group_updates[status][id]
             xml.group_to_XML(data['CFid'], status, data)
 
-        del(group_updates[status])
+        del group_updates[status]
 
         # Det skal ikke gjøres endringer i rettighetstildeling til rom vi ikke
         # lenger henter data om (rom fra tidligere semestre).
@@ -746,16 +804,16 @@ def process_room_group_updates(current_groups, current_rooms):
             data = room_updates[status][id]
             xml.room_to_XML(data['CFid'], status, data)
 
-        del(room_updates[status])
+        del room_updates[status]
 
 def register_groupmember_update(operation, gname):
     # populererer %groupmember_updates
     if operation == fronter.STATUS_ADD:
-        for uname in new_groupmembers[gname].keys():
-            if old_groupmembers[gname].has_key(uname):
+        for uname in new_groupmembers.get(gname, {}).keys():
+            if old_groupmembers.get(gname, {}).has_key(uname):
                 continue
-	    groupmember_updates[operation][gname].append(uname)
-	    del(new_groupmembers[gname][uname])
+	    groupmember_updates[operation].setdefault(gname, []).append(uname)
+	    del new_groupmembers[gname][uname]
     elif operation == fronter.STATUS_UPDATE:
 	# Vi skiller ikke på rolletype for personmedlemmer i grupper;
 	# "oppdateringer" av medlemskap er derfor alltid enten
@@ -763,12 +821,12 @@ def register_groupmember_update(operation, gname):
 	# medlemmer.
         pass
     elif operation == fronter.STATUS_DELETE:
-        for uname in old_groupmembers[gname].keys():
-	    if (new_groupmembers[gname].has_key(uname) or
+        for uname in old_groupmembers.get(gname, {}).keys():
+            if (new_groupmembers.get(gname, {}).has_key(uname) or
                 deleted_users.has_key(uname)):
                 continue
-	    groupmember_updates[operation][gname].append(uname)
-	    del(old_groupmembers[gname][uname])
+            groupmember_updates[operation].setdefault(gname, []).append(uname)
+            del old_groupmembers[gname][uname]
 
 def process_groupmembers():
     for (status, tmp_dict) in ((fronter.STATUS_ADD, new_groupmembers),
@@ -778,38 +836,41 @@ def process_groupmembers():
         for gname in groupmember_updates.get(status, {}).keys():
             xml.personmembers_to_XML(gname, status,
                                      groupmember_updates[status][gname])
-        del(groupmember_updates[status])
+        del groupmember_updates[status]
 
 def register_acl_update(operation, node):
     if operation == fronter.STATUS_ADD:
-        for gname in new_acl[node].keys():
-            if old_acl[node].has_key(gname):
+        for gname, gdata in new_acl[node].items():
+            if old_acl.get(node, {}).has_key(gname):
                 continue
-	    acl_updates[operation][node][gname] = new_acl[node][gname]
-	    del(new_acl[node][gname])
+	    acl_updates[operation].setdefault(
+                node, {})[gname] = gdata
+	    del new_acl[node][gname]
     elif operation == fronter.STATUS_UPDATE:
         for gname in new_acl[node].keys():
-            if not (old_acl[node].has_key(gname) and
+            if not (old_acl.get(node, {}).has_key(gname) and
                     new_acl[node].has_key(gname)):
                 continue
 	    old = old_acl[node][gname]
 	    new = new_acl[node][gname]
-            if not ((old.has_key['role'] and
+            if not ((old.has_key('role') and
 		     # Room ACL.
 		     old['role'] == new['role']) or
 		    (old.has_key('gacc') and
 		     # Structure ACL
 		     old['gacc'] == new['gacc'] and
                      old['racc'] == new['racc'])):
-		acl_updates[operation][node][gname] = new
-	    del(new_acl[node][gname])
-	    del(old_acl[node][gname])
+		acl_updates[operation].setdefault(
+                    node, {})[gname] = new
+	    del new_acl[node][gname]
+	    del old_acl[node][gname]
     elif operation == fronter.STATUS_DELETE:
         for gname in old_acl[node].keys():
-            if new_acl[node].has_key(gname):
+            if new_acl.get(node, {}).has_key(gname):
                 continue
-	    acl_updates[operation][node][gname] = old_acl[node][gname]
-	    del(old_acl[node][gname])
+	    acl_updates[operation].setdefault(
+                node, {})[gname] = old_acl[node][gname]
+	    del old_acl[node][gname]
 
 def process_acls():
     for (status, tmp_acl) in ((fronter.STATUS_ADD, new_acl),
@@ -820,7 +881,7 @@ def process_acls():
         for id in acl_updates.get(status, {}).keys():
             data = acl_updates[status][id]
             xml.acl_to_XML(id, status, data)
-        del(acl_updates[status])
+        del acl_updates[status]
 
 if __name__ == '__main__':
     main()
