@@ -143,6 +143,11 @@ class FeideGvsConstants(Constants.Constants):
 	'svakt_passord', 
 	'For dårlig passord')
 
+    externalid_fodselsnr = _PersonExternalIdCode(
+        'NO_BIRTHNO',
+        'Norwegian birth number')
+
+
 
 class FeideGvsEntity(DatabaseAccessor):
     def clear_class(self, cls):
