@@ -57,6 +57,7 @@ class ChangeLog(DatabaseClass):
     slots = [
         DatabaseAttr('timestamp', table, Date),
         DatabaseAttr('subject', table, Entity, optional=True),
+        DatabaseAttr('subject_entity', table, int),
         DatabaseAttr('type', table, ChangeType),
         DatabaseAttr('destination', table, str), # Entity
         DatabaseAttr('params', table, str),
