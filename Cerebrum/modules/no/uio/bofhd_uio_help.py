@@ -36,6 +36,11 @@ command_help = {
     'email': {
     'email_add_address': 'Add an alias address',
     'email_remove_address': 'Remove an alias address',
+    'email_create_domain': 'Create a new e-mail domain',
+    'email_domain_info': 'View information about an e-mail domain',
+    'email_add_domain_affiliation': 'Connect a OU to an e-mail domain',
+    'email_remove_domain_affiliation': 'Remove link between OU and e-mail domain',
+    'email_domain_configuration': 'Configure settings for an e-mail domain',
     'email_forward': 'Turn e-mail forwarding for a user on/off',
     'email_add_forward': 'Add a forward address',
     'email_remove_forward': 'Remove a forward address',
@@ -189,6 +194,16 @@ affiliation status codes"""],
  For non-cerebrum disks, prepend the path with a :"""],
     'email_address':
         ['address', 'Enter e-mail address'],
+    'email_category':
+        ['category', 'Enter e-mail category for domain',
+         "Legal categories include:\n"+
+         " - noexport     don't include domain in data exports\n"+
+         " - cnaddr       primary address is firstname.lastname\n"+
+         " - uidaddr      primary address is username\n"+
+         " - all_uids     all usernames are valid e-mail addresses\n"+
+         " - uio_globals  direct Postmaster etc. to USIT"],
+    'email_domain':
+        ['domain', 'Enter e-mail domain'],
     'email_forward_action':
         ['action', 'Enter action',
          "Legal forward actions:\n - on\n - off\n - local"],
@@ -243,6 +258,9 @@ Normally only union is used."""],
     'number_percent':
         ['percent', 'Enter percent',
         'Enter the percentage (without trailing percent sign)'],
+    'on_or_off':
+        ['on/off', 'Enter action',
+         "Legal actions:\n - on\n - off"],
     'ou':
         ['ou', 'Enter OU',
         'Enter the 6-digit code of the organizational unit the person is '+

@@ -51,7 +51,8 @@ from Cerebrum.Constants import _CerebrumCode, _QuarantineCode, _SpreadCode,\
 from Cerebrum.Constants import CoreConstants     
 from Cerebrum import Utils
 from Cerebrum.modules import Email
-from Cerebrum.modules.Email import _EmailSpamLevelCode, _EmailSpamActionCode
+from Cerebrum.modules.Email import _EmailSpamLevelCode, _EmailSpamActionCode,\
+     _EmailDomainCategoryCode
 from Cerebrum.modules import PasswordChecker
 from Cerebrum.modules import PosixGroup
 from Cerebrum.modules import PosixUser
@@ -443,23 +444,28 @@ class BofhdExtension(object):
         info = {}
         data = [ info ]
         info["account"] = acc.account_name
-        if et.email_target_type == self.const.email_target_deleted:
+        est = Email.EmailServerTarget(self.db)
+        try:
+            est.find_by_entity(acc.entity_id)
+        except Errors.NotFoundError:
             info["server"] = "<none>"
             info["server_type"] = "N/A"
-            info["def_addr"] = "<deleted>"
         else:
-            est = Email.EmailServerTarget(self.db)
-            est.find_by_entity(acc.entity_id)
             es = Email.EmailServer(self.db)
             es.find(est.email_server_id)
             info["server"] = es.name
             type = int(es.email_server_type)
             info["server_type"] = str(Email._EmailServerTypeCode(type))
+        if et.email_target_type == self.const.email_target_deleted:
+            info["def_addr"] = "<none>"
+        else:
             info["def_addr"] = acc.get_primary_mailaddress()
         if addrs:
             info["valid_addr_1"] = addrs[0]
             for idx in range(1, len(addrs)):
                 data.append({"valid_addr": addrs[idx]})
+        else:
+            info["valid_addr_1"] = "<none>"
         return data
 
     def _email_info_spam(self, target):
@@ -711,6 +717,174 @@ class BofhdExtension(object):
             ea.delete()
         et.delete()
         return result
+
+    # email create_domain <domainname> <description>
+    all_commands['email_create_domain'] = Command(
+        ("email", "create_domain"),
+        SimpleString(help_ref="email_domain"),
+        SimpleString(help_ref="string_description"),
+        perm_filter="can_email_domain_create")
+    def email_create_domain(self, operator, domainname, desc):
+        """Create e-mail domain."""
+        self.ba.can_email_archive_delete(operator.get_entity_id())
+        ed = Email.EmailDomain(self.db)
+        try:
+            ed.find_by_domain(domainname)
+            raise CerebrumError, "%s: e-mail domain already exists" % name
+        except Errors.NotFoundError:
+            pass
+        if not re.match(r'[a-z][a-z0-9-]*(\.[a-z][a-z0-9-]*)+', domainname):
+            raise CerebrumError, "%s: illegal e-mail domain name" % domainname
+        if len(desc) < 3:
+            raise CerebrumError, "Please supply a better description"
+        ed.populate(domainname, desc)
+        ed.write_db()
+        return "OK"
+
+    # email domain_configuration on|off <domain> <category>+
+    all_commands['email_domain_configuration'] = Command(
+        ("email", "domain_configuration"),
+        SimpleString(help_ref="on_or_off"),
+        SimpleString(help_ref="email_domain"),
+        SimpleString(help_ref="email_category", repeat=True),
+        perm_filter="can_email_domain_create")
+    def email_domain_configuration(self, operator, onoff, domainname, cat):
+        """Change configuration for an e-mail domain."""
+        self.ba.can_email_domain_create(operator.get_entity_id())
+        ed = self._get_email_domain(domainname)
+        on = self._get_boolean(onoff)
+        catcode = None
+        for c in self.const.fetch_constants(_EmailDomainCategoryCode):
+            if str(c).lower().startswith(cat.lower()):
+                if catcode:
+                    raise CerebrumError, ("'%s' does not uniquely identify "+
+                                          "a configuration category") % cat
+                catcode = c
+        if catcode is None:
+            raise CerebrumError, ("'%s' does not match any configuration "+
+                                  "category") % cat
+        if self._sync_category(ed, catcode, on):
+            return "%s is now %s" % (str(catcode), onoff.lower())
+        else:
+            return "%s unchanged" % str(catcode)
+
+    def _get_boolean(self, onoff):
+        if onoff.lower() == 'on':
+            return True
+        elif onoff.lower() == 'off':
+            return False
+        raise CerebrumError, "Enter one of ON or OFF"
+
+    def _has_category(self, domain, category):
+        ccode = int(category)
+        for r in domain.get_categories():
+            if r['category'] == ccode:
+                return True
+        return False
+
+    def _sync_category(self, domain, category, enable):
+        """Enable or disable category with EmailDomain.  Returns False
+        for no change or True for change."""
+        if self._has_category(domain, category) == enable:
+            return False
+        if enable:
+            domain.add_category(category)
+        else:
+            domain.remove_category(category)
+        return True
+
+    # email domain_info <domain>
+    # this command is accessible for all
+    all_commands['email_domain_info'] = Command(
+        ("email", "domain_info"),
+        SimpleString(help_ref="email_domain"),
+        fs=FormatSuggestion([
+        ("E-mail domain:    %s",
+         ("domainname",)),
+        ("Configuration:    %s",
+         ("category",)),
+        ("Affiliation:      %s@%s",
+         ("affil", "ou"))]))
+    def email_domain_info(self, operator, domainname):
+        ed = self._get_email_domain(domainname)
+        ret = []
+        ret.append({'domainname': domainname})
+        for r in ed.get_categories():
+            ret.append({'category': str(self.num2const[r['category']])})
+        eed = Email.EntityEmailDomain(self.db)
+        affiliations = {}
+        for r in eed.list_affiliations(ed.email_domain_id):
+            ou = self._get_ou(r['entity_id'])
+            affname = "<any>"
+            if r['affiliation']:
+                affname = str(self.num2const[int(r['affiliation'])])
+            affiliations[self._format_ou_name(ou)] = affname
+        aff_list = affiliations.keys()
+        aff_list.sort()
+        for ou in aff_list:
+            ret.append({'affil': affiliations[ou], 'ou': ou})
+        return ret
+
+    # email add_domain_affiliation <domain> <stedkode> [<affiliation>]
+    all_commands['email_add_domain_affiliation'] = Command(
+        ("email", "add_domain_affiliation"),
+        SimpleString(help_ref="email_domain"),
+        OU(), Affiliation(optional=True),
+        perm_filter="can_email_domain_create")
+    def email_add_domain_affiliation(self, operator, domainname, sko, aff=None):
+        self.ba.can_email_domain_create(operator.get_entity_id())
+        ed = self._get_email_domain(domainname)
+        try:
+            ou = self._get_ou(stedkode=sko)
+        except Errors.NotFoundError:
+            raise CerebrumError, "Unknown OU (%s)" % sko
+        aff_id = None
+        if aff:
+            aff_id = int(self._get_affiliationid(aff))
+        eed = Email.EntityEmailDomain(self.db)
+        try:
+            eed.find(ou.entity_id, aff_id)
+        except Errors.NotFoundError:
+            # We have a partially initialised object, since
+            # the super() call finding the OU always succeeds.
+            # Therefore we must not call clear()
+            eed.populate_email_domain(ed.email_domain_id, aff_id)
+            eed.write_db()
+            return "OK"
+        else:
+            old_dom = eed.entity_email_domain_id
+            if old_dom <> ed.email_domain_id:
+                eed.entity_email_domain_id = ed.email_domain_id
+                eed.write_db()
+                ed.clear()
+                ed.find(old_dom)
+                return "OK (was %s)" % ed.email_domain_name
+            return "OK (no change)"
+
+    # email remove_domain_affiliation <domain> <stedkode> [<affiliation>]
+    all_commands['email_remove_domain_affiliation'] = Command(
+        ("email", "remove_domain_affiliation"),
+        SimpleString(help_ref="email_domain"),
+        OU(), Affiliation(optional=True),
+        perm_filter="can_email_domain_create")
+    def email_remove_domain_affiliation(self, operator, domainname, sko,
+                                        aff=None):
+        self.ba.can_email_domain_create(operator.get_entity_id())
+        ed = self._get_email_domain(domainname)
+        try:
+            ou = self._get_ou(stedkode=sko)
+        except Errors.NotFoundError:
+            raise CerebrumError, "Unknown OU (%s)" % sko
+        aff_id = None
+        if aff:
+            aff_id = int(self._get_affiliationid(aff))
+        eed = Email.EntityEmailDomain(self.db)
+        try:
+            eed.find(ou.entity_id, aff_id)
+        except Errors.NotFoundError:
+            raise CerebrumError, "No such affiliation for domain"
+        eed.delete()
+        return "OK"
 
     # email create_list <list-address> [admin,admin,admin]
     all_commands['email_create_list'] = Command(
@@ -1321,7 +1495,18 @@ class BofhdExtension(object):
             raise CerebrumError, ("There are no tripnotes starting "+
                                   "at %s") % when
         return best
-            
+
+    # email update <uname>
+    # Anyone can run this command.  Ideally, it should be a no-op,
+    # and we should remove it when that is true.
+    all_commands['email_update'] = Command(
+        ('email', 'update'),
+        AccountName(help_ref='account_name', repeat=True))
+    def email_update(self, operator, uname):
+        acc = self._get_account(uname)
+        acc.update_email_addresses()
+        return "OK"
+
     # (email virus)
 
     def __get_email_target_and_account(self, address):
@@ -2136,8 +2321,12 @@ class BofhdExtension(object):
     # misc stedkode <pattern>
     all_commands['misc_stedkode'] = Command(
         ("misc", "stedkode"), SimpleString(),
-        fs=FormatSuggestion(" %06s    %s", ('stedkode', 'short_name'),
-                            hdr="Stedkode   Organizational unit"))
+        fs=FormatSuggestion([
+        (" %06s    %s",
+         ('stedkode', 'short_name')),
+        ("   affiliation %-7s @%s",
+         ('affiliation', 'domain'))],
+         hdr="Stedkode   Organizational unit"))
     def misc_stedkode(self, operator, pattern):
         output = []
         ou = self.OU_class(self.db)
@@ -2181,6 +2370,21 @@ class BofhdExtension(object):
                                                  ou.institutt,
                                                  ou.avdeling),
                                'short_name': ou.short_name})
+        if len(output) == 1:
+            eed = Email.EntityEmailDomain(self.db)
+            try:
+                eed.find(ou.ou_id)
+            except Errors.NotFoundError:
+                pass
+            ed = Email.EmailDomain(self.db)
+            for r in eed.list_affiliations():
+                affname = "<any>"
+                if r['affiliation']:
+                    affname = str(self.num2const[int(r['affiliation'])])
+                ed.clear()
+                ed.find(r['domain_id'])
+                output.append({'affiliation': affname,
+                               'domain': ed.email_domain_name})
         return output
 
     # misc user_passwd
@@ -3651,7 +3855,6 @@ class BofhdExtension(object):
         except Errors.NotFoundError:
             raise CerebrumError, "Unknown e-mail domain (%s)" % name
         return ed
-
     def _get_host(self, name):
         host = Utils.Factory.get('Host')(self.db)
         try:
