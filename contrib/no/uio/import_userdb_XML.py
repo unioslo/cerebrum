@@ -123,6 +123,8 @@ class PersonUserParser(xml.sax.ContentHandler):
                 self.user[name] = self.user.get(name, []) + [tmp]
             elif name in ("uio", "printerquota", "quarantine"):
                 self.user[name] = tmp
+            elif name in ("useremail", "emailaddress"):
+                pass  # TODO: process these
             else:
                 print "WARNING: unknown user element: %s" % name
         elif self.elementstack[-1] == "person":
@@ -534,6 +536,11 @@ def import_person_users(personfile):
             ou.find(row['ou_id'])
             stedkode2ou_id["%02i%02i%02i" % (
                 ou.fakultet, ou.institutt, ou.avdeling)] = ou.entity_id
+    else:
+        ou.clear()
+        ou.find_stedkode(90, 1, 99)
+        stedkode2ou_id["900199"] = ou.entity_id
+
     default_ou = stedkode2ou_id["900199"]
 
     showtime("Parsing")
@@ -648,6 +655,7 @@ def person_callback(person):
             if namestr2const.has_key(k['type']):
                 personObj.populate_name(namestr2const[k['type']], k['val'])
         if fnr is not None:
+            personObj.affect_external_id(co.system_ureg, co.externalid_fodselsnr)
             personObj.populate_external_id(co.system_ureg,
                                            co.externalid_fodselsnr, fnr)
         for c in person['contact']:
@@ -905,7 +913,7 @@ if __name__ == '__main__':
             pfile = a
         elif o in ('-v', '--verbose'):
             verbose += 1
-        elif o in ('quick-test',):
+        elif o in ('--quick-test',):
             quick_test = 1
         elif o in ('-g', '--gfile'):
             gfile = a
