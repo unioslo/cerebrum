@@ -30,9 +30,7 @@ command_help = {
     'group_user': 'Liste alle gruppene til en bruker',
     },
     'misc': {
-    'misc_aff_status_codes': 'Vis alle mulige affiliation status koder',
     'misc_affiliations': 'Vis alle mulige affiliations',
-    'misc_all_requests': 'vis alle flytte_requests som ikke er confirmet ennå',
     'misc_checkpassw': 'sjekk om et passord er godt nok',
     'misc_dadd': 'Legge til disk',
     'misc_drem': 'Fjerne disk',
@@ -60,6 +58,7 @@ command_help = {
     'person_create': 'bygger en person',
     'person_find': 'søker etter personer',
     'person_info': 'viser informasjon om en person',
+    'person_list_user_priorities': 'viser rangering av primærbrukere',
     'person_set_id': 'setter ekstern id for en person',
     'person_student_info': 'Viser informasjon om studenten',
     'person_user_priority': 'Sett prioritet for bruker',
@@ -84,7 +83,6 @@ command_help = {
     'user': {
     'user_affiliation_add': 'Legg til affiliation for bruker',
     'user_affiliation_remove': 'Fjern affiliation for bruker',
-    'user_affiliations': 'Vis brukerens affiliations',
     'user_bcreate': 'Batch bygging av brukere fra fil',
     'user_clear_created': 'Glem byggede brukere (se list_created)',
     'user_create': 'Bygge bruker',
@@ -92,7 +90,7 @@ command_help = {
     'user_gecos': 'Sette gecos på en bruker',
     'user_history': 'Vis historikk for en bruker',
     'user_info': 'vis info om en bruker',
-    'user_list_created': 'oversikt over byggede brukere',
+    'user_list_passwords': 'oversikt over byggede brukere',
     'user_move': 'Flytter en bruker',
     'user_password': 'Setter passord for en bruker',
     'user_posix_create': 'Gjøre en bruker om til en PosixUser',
@@ -100,7 +98,6 @@ command_help = {
     'user_set_expire': 'Sett ekspireringsdato for en bruker',
     'user_set_np_type': 'Sett/slett np_type for en bruker',
     'user_shell': 'Sette loginshell for en bruker',
-    'user_splatt': 'Sperrer brukers konto',
     'user_student_create': 'Bygg student-bruker'
     },
     }

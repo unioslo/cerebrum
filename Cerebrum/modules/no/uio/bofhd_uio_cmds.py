@@ -84,7 +84,8 @@ class BofhdExtension(object):
         # TBD: Do some filtering on uname to remove commands
         commands = {}
         for k in self.all_commands.keys():
-            commands[k] = self.all_commands[k].get_struct(self)
+            if self.all_commands[k] is not None:
+                commands[k] = self.all_commands[k].get_struct(self)
         return commands
 
     def get_help_strings(self):
@@ -696,9 +697,6 @@ class BofhdExtension(object):
         ("person", "info"), PersonId(),
         fs=FormatSuggestion("Name: %s\nExport ID: %s\nBirth: %s\nAffiliations: %s", ("name", "export_id", "birth", "affiliations")))
     def person_info(self, operator, person_id):
-        if person_id.find(":") == -1 and not person_id.isdigit():
-            ac = self._get_account(person_id)
-            person_id = "entity_id:%i" % ac.owner_id
         person = self._get_person(*self._map_person_id(person_id))
         affiliations = []
         for row in person.get_affiliations():
@@ -746,6 +744,26 @@ class BofhdExtension(object):
         # TODO: The API doesn't support this yet
         raise NotImplementedError, "Feel free to implement this function"
 
+    all_commands['person_list_user_priorities'] = Command(
+        ("person", "list_user_priorities"), PersonId(),
+        fs=FormatSuggestion(
+        "%8s %8i %s", ('uname', 'priority', 'affiliation'),
+        hdr="%8s %8s %s" % ("Uname", "Priority", "Affiliation")))
+    def person_list_user_priorities(self, operator, person_id):
+        ac = Account.Account(self.db)
+        person = self._get_person(*self._map_person_id(person_id))
+        ret = []
+        for row in ac.get_account_types(all_persons_types=True,
+                                        owner_id=person.entity_id):
+            ac2 = self._get_account(row['account_id'], idtype='id')
+            ou = self._get_ou(ou_id=row['ou_id'])
+            ret.append({'uname': ac2.account_name,
+                        'priority': row['priority'],
+                        'affiliation': '%s@%s' % (
+                self.num2const[int(row['affiliation'])], ou.short_name)})
+            ## This seems to trigger a wierd python bug:
+            ## self.num2const[int(row['affiliation'], ou.short_name)])})
+        return ret
     #
     # printer commands
     #
@@ -760,7 +778,6 @@ class BofhdExtension(object):
             return "User has no quota"
         pq.has_printerquota = False
         pq.write_db()
-        return "OK"
 
     all_commands['printer_qpq'] = Command(
         ("print", "qpq"), AccountName(),
@@ -1035,7 +1052,7 @@ class BofhdExtension(object):
     # user create
     all_commands['user_create'] = Command(
         ('user', 'create'), prompt_func=user_create_prompt_func,
-        fs=FormatSuggestion("Created uid=%i, password=%s", ("uid", "password")))
+        fs=FormatSuggestion("Created uid=%i", ("uid",)))
     def user_create(self, operator, idtype, person_id, filegroup, shell, home, uname):
         person = self._get_person("entity_id", person_id)
         group=self._get_group(filegroup)
@@ -1067,7 +1084,7 @@ class BofhdExtension(object):
             raise CerebrumError, "Database error: %s" % m
         operator.store_state("new_account_passwd", {'account_id': int(posix_user.entity_id),
                                                     'password': passwd})
-        return {'password': passwd, 'uid': uid}
+        return {'uid': uid}
 
     # user delete
     all_commands['user_delete'] = Command(
@@ -1116,8 +1133,9 @@ class BofhdExtension(object):
     # user info
     all_commands['user_info'] = Command(
         ("user", "info"), AccountName(),
-        fs=FormatSuggestion([("entity id: %i\nSpreads: %s\nAffiliations: %s",
-                              ("entity_id", "spread", "affiliations")),
+        fs=FormatSuggestion([("entity id: %i\nSpreads: %s\nAffiliations: %s"+
+                              "Expire: %s\n",
+                              ("entity_id", "spread", "affiliations", "expire")),
                              ("uid: %i\ndfg: %i\ngecos: %s\nshell: %s",
                               ('uid', 'dfg', 'gecos', 'shell'))]))
     def user_info(self, operator, accountname):
@@ -1135,7 +1153,8 @@ class BofhdExtension(object):
         ret = {'entity_id': account.entity_id,
                'spread': ",".join(["%s" % self.num2const[int(a['spread'])]
                                    for a in account.get_spread()]),
-               'affiliations': ",".join(affiliations)}
+               'affiliations': ",".join(affiliations),
+               'expire': expire_date}
         if is_posix:
             ret['uid'] = account.posix_uid
             ret['dfg'] = account.gid_id
@@ -1574,6 +1593,10 @@ class BofhdExtension(object):
         person = self.person
         person.clear()
         try:
+            if idtype == 'account_name':
+                ac = self._get_account(id)
+                id = ac.owner_id
+                idtype = "entity_id"
             if isinstance(idtype, _CerebrumCode):
                 person.find_by_external_id(idtype, id)
             elif idtype == 'entity_id':
@@ -1589,6 +1612,9 @@ class BofhdExtension(object):
         fødselsnummer without <idtype>.  Also recognizes entity_id"""
         if id.isdigit() and len(id) >= 10:
             return self.const.externalid_fodselsnr, id
+        if id.find(":") == -1:
+            return "account_name", id
+
         id_type, id = id.split(":", 1)
         if id_type != 'entity_id':
             id_type = self.external_id_mappings.get(id_type, None)
