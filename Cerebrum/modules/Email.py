@@ -17,7 +17,43 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-"""."""
+"""Module for making Cerebrum into a local email address database.
+
+This module contains various classes that enables Cerebrum to act as a
+source of email address/email delivery data, as is needed by any email
+system.
+
+The interface in this module is not designed for any particular email
+system implementation or configuration; depending on the format one
+exports the Cerebrum email data to, the data should be usable by quite
+a few different MTAs.
+
+Some Cerebrum installations might want to use only a subset of the
+classes in this module; the minimal subset consists of EmailDomain,
+EmailAddress and EmailTarget.
+
+The relation between the components in the minimal subset is as
+follows:
+
+ * EmailAddress N-to-1 EmailDomain
+   There are typically many EmailAddresses with the same EmailDomain.
+
+ * EmailAddress N-to-1 EmailTarget
+   All EmailAddresses must point to exactly one EmailTarget.  Multiple
+   EmailAddresses may point at the same EmailTarget.
+
+   [ If there is a need to have a single email address point to
+     multiple delivery targets, one can use either the 'multi'
+     EmailTarget type (if all the targets are local users, make a
+     Cerebrum group whose members are these users, and associate an
+     EmailTarget with that group), or use the EmailForward interface
+     (associate one or more (possibly non-local) email addresses with
+     an EmailTarget. ]
+
+See contrib/generate_mail_ldif.py for an example of a script exporting
+the email data.  Note, though, that this example assumes that your
+Cerebrum instance uses more than the minimal subset of email-related
+classes."""
 
 import re
 import string
@@ -182,6 +218,16 @@ class EmailConstants(Constants.Constants):
 
 
 class EmailEntity(DatabaseAccessor):
+    """Abstract superclass for email 'entities'.
+
+    Email 'entities' (EmailDomain, EmailTarget and EmailAddress)
+    aren't regular Cerebrum entities, as many of the bells and
+    whistles one can attach to regular entities don't make sense for
+    email data.
+
+    This class simulates (convenient parts of) the regular Cerebrum
+    entity interface for email 'entities'."""
+
     def clear_class(self, cls):
         for attr in cls.__read_attr__:
             if hasattr(self, attr):
@@ -197,6 +243,12 @@ class EmailEntity(DatabaseAccessor):
 
 
 class EmailDomain(EmailEntity):
+    """Interface to the email domains your MTA should consider as 'local'.
+
+    Before any email address can be registered in Cerebrum, the domain
+    part of the address must be registered.  A registered email domain
+    can have any number of 'categories' associated with it."""
+
     __read_attr__ = ('__in_db',
                      # Won't be necessary here if we're a subclass of Entity.
                      'email_domain_id')
@@ -303,6 +355,20 @@ class EmailDomain(EmailEntity):
 
 
 class EmailTarget(EmailEntity):
+    """Interface for registering valid email delivery targets.
+
+    Targets can either be associated with a Cerebrum entity, implying
+    delivery to that entity (typically an account or, for the
+    special-case 'multi'-type target, a group of local accounts), or
+    with a free-form text (for e.g. file og pipe deliveries).
+
+    There is also a field where one can specify which POSIX user
+    deliveries to this target should be run under.
+
+    The EmailAddress class is used to register which email addresses
+    that should be connected to a target; each EmailAddress must be
+    connected to a single EmailTarget."""
+
     __read_attr__ = ('__in_db', 'email_target_id')
     __write_attr__ = ('email_target_type', 'email_target_entity_id',
                       'email_target_entity_type', 'email_target_alias',
@@ -526,6 +592,12 @@ class EmailTarget(EmailEntity):
 
 
 class EmailAddress(EmailEntity):
+    """Interface for registering known local email addresses.
+
+    EmailAddresses must have a valid localpart, which must be unique
+    within the EmailDomain of the address.  Each EmailAddress must be
+    connected to a EmailTarget."""
+
     __read_attr__ = ('__in_db', 'email_addr_id')
     __write_attr__ = ('email_addr_local_part', 'email_addr_domain_id',
                       'email_addr_target_id', 'email_addr_expire_date')
