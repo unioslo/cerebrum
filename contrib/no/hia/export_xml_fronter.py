@@ -278,51 +278,65 @@ def register_spread_groups(emne_info, stprog_info):
                 # Fjern "internal:"-prefiks.
                 if subg_name_el[0] == 'internal':
                     subg_name_el.pop(0)
+                fronter_gname = ':'.join(subg_name_el)
+                institusjonsnr = subg_name_el[2]
+                stprog = subg_name_el[4]
+                fak_sko = '%02d0000' % stprog_info[stprog]['fak']
+                # Opprett fellesrom for dette studieprogrammet.
+                fellesrom_sted_id = ':'.join((
+                    'STRUCTURE', cereconf.INSTITUTION_DOMAIN_NAME,
+                    'fs', 'fellesrom', subg_name_el[2], # institusjonsnr
+                    fak_sko))
+                fellesrom_stprog_rom_id = ':'.join((
+                    'ROOM', cereconf.INSTITUTION_DOMAIN_NAME, 'fs',
+                    'fellesrom', 'studieprogram', stprog))
+                register_room(stprog.upper(), fellesrom_stprog_rom_id,
+                              fellesrom_sted_id,
+                              profile=romprofil_id['studieprogram'])
                 if subg_name_el[-1] == 'student':
-                    stprog = subg_name_el[4]
-                    fak_sko = '%02d0000' % stprog_info[stprog]['fak']
                     brukere_studenter_id = ':'.join((
                         'STRUCTURE', cereconf.INSTITUTION_DOMAIN_NAME,
                         'fs', 'brukere', subg_name_el[2], # institusjonsnr
                         fak_sko, 'student'))
                     brukere_stprog_id = brukere_studenter_id + \
                                         ':%s' % stprog
-                    fronter_gname = ':'.join(subg_name_el)
                     register_group(stprog.upper(), brukere_stprog_id,
                                    brukere_studenter_id)
                     register_group(
                         'Studenter på %s' % subg_name_el[6], # kullkode
                         fronter_gname, brukere_stprog_id,
-                        allow_contact=1)
-                    # Synkroniser medlemmer i Cerebrum-gruppa til CF.
-                    group.clear()
-                    group.find(subg_id)
-                    user_members = [
-                        row[2]  # username
-                        for row in group.list_members(None,
-                                                      const.entity_account,
-                                                      get_entity_name=True)[0]]
-                    if user_members:
-                        register_members(fronter_gname, user_members)
-                    fellesrom_sted_id = ':'.join((
-                        'STRUCTURE', cereconf.INSTITUTION_DOMAIN_NAME,
-                        'fs', 'fellesrom', subg_name_el[2], # institusjonsnr
-                        fak_sko))
-                    fellesrom_stprog_rom_id = ':'.join((
-                        'ROOM', cereconf.INSTITUTION_DOMAIN_NAME, 'fs',
-                        'fellesrom', 'studieprogram', stprog))
-                    register_room(stprog.upper(), fellesrom_stprog_rom_id,
-                                  fellesrom_sted_id,
-                                  profile=romprofil_id['studieprogram'])
+                        allow_contact=True)
+                    # Gi denne studiekullgruppen 'skrive'-rettighet i
+                    # studieprogrammets fellesrom.
                     register_room_acl(fellesrom_stprog_rom_id, fronter_gname,
                                       fronter_lib.Fronter.ROLE_WRITE)
                 elif subg_name_el[-1] == 'studieleder':
-                    # TBD: Hvor i CF-strukturen skal disse
-                    # "studieleder på studieprogram" forankres?
-                    pass
+                    fellesrom_studieledere_id = fellesrom_sted_id + \
+                                                ':studieledere'
+                    register_group("Studieledere", fellesrom_studieledere_id,
+                                   fellesrom_sted_id)
+                    register_group(
+                        "Studieledere for program %s" % stprog.upper(),
+                        fronter_gname, fellesrom_studieledere_id,
+                        allow_contact=True)
+                    # Gi studieleder-gruppen 'slette'-rettighet i
+                    # studieprogrammets fellesrom.
+                    register_room_acl(fellesrom_stprog_rom_id, fronter_gname,
+                                       fronter_lib.Fronter.ROLE_DELETE)
                 else:
                     raise RuntimeError, \
                           "Ukjent studieprogram-gruppe: %r" % (gname,)
+
+                # Synkroniser medlemmer i Cerebrum-gruppa til CF.
+                group.clear()
+                group.find(subg_id)
+                user_members = [
+                    row[2]  # username
+                    for row in group.list_members(None,
+                                                  const.entity_account,
+                                                  get_entity_name=True)[0]]
+                if user_members:
+                    register_members(fronter_gname, user_members)
         else:
             raise RuntimeError, \
                   "Ukjent type gruppe eksportert: %r" % (gname,)
@@ -348,7 +362,8 @@ def register_room(title, id, parentid, profile):
         'profile': profile}
 
 new_group = {}
-def register_group(title, id, parentid, allow_room=0, allow_contact=0):
+def register_group(title, id, parentid,
+                   allow_room=False, allow_contact=False):
     """Adds info in new_group about group."""
     new_group[id] = { 'title': title,
                       'parent': parentid,
@@ -394,6 +409,11 @@ def main():
     # Registrer en del semi-statiske strukturnoder.
     root_node_id = "STRUCTURE:ClassFronter structure root node"
     register_group('Høyskolen i Agder', root_node_id, root_node_id)
+
+    manuell_node_id = 'STRUCTURE:%s:manuell' % \
+                      cereconf.INSTITUTION_DOMAIN_NAME
+    register_group('Manuell', manuell_node_id, root_node_id,
+                   allow_room=True)
 
     emner_id = 'STRUCTURE:%s:fs:emner' % cereconf.INSTITUTION_DOMAIN_NAME
     register_group('Emner', emner_id, root_node_id)
@@ -467,38 +487,39 @@ def main():
                              institusjon = cereconf.DEFAULT_INSTITUSJONSNR)
 	except Errors.NotFoundError:
 	    logger.error("Finner ikke stedkode for fakultet %d", faknr)
+            faknavn = '*Ikke registrert som fakultet i FS*'
         else:
             if ou.acronym:
                 faknavn = ou.acronym
             else:
                 faknavn = ou.short_name
-	    fak_ans_id = "%s:sap:gruppe:%s:%s:ansatte" % \
-			(cereconf.INSTITUTION_DOMAIN_NAME,
-			cereconf.DEFAULT_INSTITUSJONSNR,
-			fak_sko)
-	    ans_title = "Ansatte ved %s" % faknavn
-            register_group(ans_title, fak_ans_id, brukere_id,
-                           allow_contact=True)
-	    ans_memb = ans_dict[int(faknr)]
-	    register_members(fak_ans_id, ans_memb)
-            for sem_node_id in (emnerom_this_sem_id,
-                                emnerom_next_sem_id):
-                fak_node_id = sem_node_id + \
-                              ":%s:%s" % (cereconf.DEFAULT_INSTITUSJONSNR,
-                                          fak_sko)
-                register_group(faknavn, fak_node_id, sem_node_id,
-                               allow_room=1)
-            brukere_sted_id = brukere_id + \
-                              ":%s:%s" % (cereconf.DEFAULT_INSTITUSJONSNR,
-                                          fak_sko)
-            register_group(faknavn, brukere_sted_id, brukere_id)
-            brukere_studenter_id = brukere_sted_id + ':student'
-            register_group('Studenter ved %s' % faknavn,
-                           brukere_studenter_id, brukere_sted_id)
-            fellesrom_sted_id = fellesrom_id + ":%s:%s" % (
-                cereconf.DEFAULT_INSTITUSJONSNR, fak_sko)
-            register_group(faknavn, fellesrom_sted_id, fellesrom_id,
-                           allow_room=1)
+        fak_ans_id = "%s:sap:gruppe:%s:%s:ansatte" % \
+                     (cereconf.INSTITUTION_DOMAIN_NAME,
+                      cereconf.DEFAULT_INSTITUSJONSNR,
+                      fak_sko)
+        ans_title = "Ansatte ved %s" % faknavn
+        register_group(ans_title, fak_ans_id, brukere_id,
+                       allow_contact=True)
+        ans_memb = ans_dict[int(faknr)]
+        register_members(fak_ans_id, ans_memb)
+        for sem_node_id in (emnerom_this_sem_id,
+                            emnerom_next_sem_id):
+            fak_node_id = sem_node_id + \
+                          ":%s:%s" % (cereconf.DEFAULT_INSTITUSJONSNR,
+                                      fak_sko)
+            register_group(faknavn, fak_node_id, sem_node_id,
+                           allow_room=True)
+        brukere_sted_id = brukere_id + \
+                          ":%s:%s" % (cereconf.DEFAULT_INSTITUSJONSNR,
+                                      fak_sko)
+        register_group(faknavn, brukere_sted_id, brukere_id)
+        brukere_studenter_id = brukere_sted_id + ':student'
+        register_group('Studenter ved %s' % faknavn,
+                       brukere_studenter_id, brukere_sted_id)
+        fellesrom_sted_id = fellesrom_id + ":%s:%s" % (
+            cereconf.DEFAULT_INSTITUSJONSNR, fak_sko)
+        register_group(faknavn, fellesrom_sted_id, fellesrom_id,
+                       allow_room=True)
 
     register_spread_groups(emne_info, stprog_info)
 
