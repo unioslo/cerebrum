@@ -26,8 +26,15 @@ class PrinterQuotas(Entity):
                 raise RuntimeError, "populate() called multiple times."
         except AttributeError:
             self.__in_db = False
-        for k in locals():
-            setattr(self, k, locals[k])
+
+        self.account_id = account_id
+        self.printer_quota = printer_quota or 0
+        self.pages_printed = pages_printed or 0
+        self.pages_this_semester = pages_this_semester or 0
+        self.termin_quota = termin_quota or 0
+        self.has_printerquota = has_printerquota or 0
+        self.weekly_quota = weekly_quota or 0
+        self.max_quota = max_quota or 0
 
     def find(self, entity_id):
         self.__super.find(entity_id)
