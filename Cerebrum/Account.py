@@ -102,9 +102,9 @@ class Account(Entity, EntityName, EntityQuarantine, PosixUser):
         if type != None: type = int(type)
 
         self.execute("""
-        INSERT INTO cerebrum.account_info (entity_type, account_id, owner_type,
+        INSERT INTO [:table schema=cerebrum name=account_info] (entity_type, account_id, owner_type,
                     owner_id, np_type, create_date, creator_id, expire_date)
-        VALUES (:e_type, :acc_id, :o_type, :o_id, :np_type, SYSDATE, :c_id, :e_date)""",
+        VALUES (:e_type, :acc_id, :o_type, :o_id, :np_type, [:now], :c_id, :e_date)""",
                      {'e_type' : int(self.const.entity_account),
                       'acc_id' : new_id, 'o_type' : int(self.owner_type),
                       'c_id' : self.creator_id,
@@ -128,7 +128,7 @@ class Account(Entity, EntityName, EntityQuarantine, PosixUser):
             k = int(k)
             if self._auth_info.get(k, None) != None:
                 self.execute("""
-                INSERT INTO cerebrum.account_authentication (account_id, method, auth_data)
+                INSERT INTO [:table schema=cerebrum name=account_authentication] (account_id, method, auth_data)
                 VALUES (:acc_id, :method, :auth_data)""",
                              {'acc_id' : self.account_id, 'method' : k,
                               'auth_data' : self._auth_info[k]})
@@ -141,7 +141,7 @@ class Account(Entity, EntityName, EntityQuarantine, PosixUser):
          self.np_type, self.create_date, self.creator_id,
          self.expire_date) = self.query_1(
             """SELECT account_id, owner_type, owner_id, np_type, create_date, creator_id, expire_date
-               FROM cerebrum.account_info
+               FROM [:table schema=cerebrum name=account_info]
                WHERE account_id=:a_id""", {'a_id' : account_id})
 
     def find_account_by_name(self, domain, name):
@@ -151,7 +151,7 @@ class Account(Entity, EntityName, EntityQuarantine, PosixUser):
     def get_account_authentication(self, method):
         """Return the name with the given variant"""
 
-        return self.query_1("""SELECT auth_data FROM cerebrum.account_authentication
+        return self.query_1("""SELECT auth_data FROM [:table schema=cerebrum name=account_authentication]
             WHERE account_id=:a_id AND method=:method""",
                             {'a_id' : self.account_id, 'method' : int(method)})
     
