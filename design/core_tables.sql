@@ -1800,7 +1800,7 @@ DROP TABLE account_home;
 category:drop;
 DROP TABLE home_status_code;
 category:drop;
-DROP TABLE global_constants
+DROP TABLE global_constants;
 category:drop;
 DROP TABLE account_info;
 category:drop;
