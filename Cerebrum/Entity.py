@@ -232,12 +232,19 @@ class Entity(DatabaseAccessor):
         FROM [:table schema=cerebrum name=entity_spread]
         WHERE spread=:spread""", {'spread': spread})
 
+    def list_all_with_type(self, entity_type):
+        """Return sequence of all 'entity_id's that has ``type``."""
+        return self.query("""
+        SELECT entity_id
+        FROM [:table schema=cerebrum name=entity_info]
+        WHERE entity_type=:entity_type""", {'entity_type': int(entity_type)})
+
 
 class EntityName(Entity):
     "Mixin class, usable alongside Entity for entities having names."
     def get_name(self, domain):
         return self.query_1("""
-        SELECT * FROM [:table schema=cerebrum name=entity_name]
+        SELECT entity_name FROM [:table schema=cerebrum name=entity_name]
         WHERE entity_id=:e_id AND value_domain=:domain""",
                           {'e_id': self.entity_id,
                            'domain': int(domain)})
