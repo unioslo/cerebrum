@@ -293,6 +293,8 @@ class Constants(DatabaseAccessor):
     entity_group = _EntityTypeCode(
         'group',
         'Group - see table "cerebrum.group_info" and friends.')
+    entity_host = _EntityTypeCode('host', 'see table host_info')
+    entity_disk = _EntityTypeCode('disk', 'see table disk_info')
 
     contact_phone = _ContactInfoCode('PHONE', 'Phone')
     contact_fax = _ContactInfoCode('FAX', 'Fax')

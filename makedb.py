@@ -106,7 +106,6 @@ CEREBRUM_DDL_DIR = "design"
 
 def get_filelist(Cerebrum):
     files = ['core_tables.sql',
-             'mod_disk.sql',
              'mod_posix_user.sql',
              'mod_nis.sql',
              'mod_stedkode.sql',

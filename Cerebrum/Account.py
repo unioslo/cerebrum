@@ -36,7 +36,7 @@ class Account(EntityName, EntityQuarantine, Entity):
     __read_attr__ = ('__in_db',
                      # TODO: Get rid of these.
                      )
-    __write_attr__ = ('account_name', 'owner_type', 'owner_id',
+    __write_attr__ = ('account_name', 'owner_type', 'owner_id', 'home', 'disk_id',
                       'np_type', 'creator_id', 'expire_date', 'create_date',
                       '_auth_info', '_acc_affect_auth_types')
 
@@ -64,12 +64,14 @@ class Account(EntityName, EntityQuarantine, Entity):
             self.owner_id != other.owner_id or
             self.np_type != other.np_type or
             self.creator_id != other.creator_id or
+            self.home != other.home or
+            self.disk_id != other.disk_id or
             self.expire_date != other.expire_date):
             return False
         return True
 
     def populate(self, name, owner_type, owner_id, np_type, creator_id,
-                 expire_date, parent=None):
+                 expire_date, home=None, disk_id=None, parent=None):
         if parent is not None:
             self.__xerox__(parent)
         else:
@@ -84,12 +86,16 @@ class Account(EntityName, EntityQuarantine, Entity):
                 raise RuntimeError, "populate() called multiple times."
         except AttributeError:
             self.__in_db = False
+        if home is not None and disk_id is not None:
+            raise ValueError, "Cannot set both disk_id and home."
         self.owner_type = owner_type
         self.owner_id = owner_id
         self.np_type = np_type
         self.creator_id = creator_id
         self.expire_date = expire_date
         self.account_name = name
+        self.home = home
+        self.disk_id = disk_id
 
     def affect_auth_types(self, *authtypes):
         self._acc_affect_auth_types = list(authtypes)
@@ -132,6 +138,8 @@ class Account(EntityName, EntityQuarantine, Entity):
                     ('owner_type', ':o_type'),
                     ('owner_id', ':o_id'),
                     ('np_type', ':np_type'),
+                    ('home', ':home'),
+                    ('disk_id', ':disk_id'),
                     ('creator_id', ':c_id')]
             # Columns that have default values through DDL.
             if self.create_date is not None:
@@ -149,6 +157,8 @@ class Account(EntityName, EntityQuarantine, Entity):
                           'o_id' : self.owner_id,
                           'np_type' : self.np_type,
                           'exp_date' : self.expire_date,
+                          'home' : self.home,
+                          'disk_id' : self.disk_id,
                           'create_date': self.create_date})
             # TBD: This is superfluous (and wrong) to do here if
             # there's a write_db() method in EntityName.
@@ -163,6 +173,8 @@ class Account(EntityName, EntityQuarantine, Entity):
             cols = [('owner_type',':o_type'),
                     ('owner_id',':o_id'),
                     ('np_type',':np_type'),
+                    ('home', ':home'),
+                    ('disk_id', ':disk_id'),
                     ('creator_id',':c_id')]
             if self.expire_date is not None:
                 cols.append(('expire_date', ':exp_date'))
@@ -177,6 +189,8 @@ class Account(EntityName, EntityQuarantine, Entity):
                           'o_id' : self.owner_id,
                           'np_type' : self.np_type,
                           'e_date' : self.expire_date,
+                          'home' : self.home,
+                          'disk_id' : self.disk_id,
                           'acc_id' : self.entity_id})
             # TBD: Maybe this is better done in EntityName.write_db()?
             self.execute("""
@@ -228,9 +242,9 @@ class Account(EntityName, EntityQuarantine, Entity):
         return is_new
 
     def new(self, name, owner_type, owner_id, np_type, creator_id,
-            expire_date):
+            expire_date, home=None, disk_id=None):
         self.populate(name, owner_type, owner_id, np_type, creator_id,
-                      expire_date)
+                      expire_date, home=home, disk_id=disk_id)
         self.write_db()
         self.find(self.entity_id)
 
@@ -239,9 +253,9 @@ class Account(EntityName, EntityQuarantine, Entity):
 
         (self.owner_type, self.owner_id,
          self.np_type, self.create_date, self.creator_id,
-         self.expire_date) = self.query_1("""
+         self.expire_date, self.home, self.disk_id) = self.query_1("""
         SELECT owner_type, owner_id, np_type, create_date,
-               creator_id, expire_date
+               creator_id, expire_date, home, disk_id
         FROM [:table schema=cerebrum name=account_info]
         WHERE account_id=:a_id""", {'a_id' : account_id})
         self.account_name = self.get_name(self.const.account_namespace)[2]

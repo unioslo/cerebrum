@@ -129,20 +129,6 @@ CREATE TABLE posix_user (
 			 [:get_constant name=group_memberop_union]),
   /* Longer GECOS strings are possible, but not very likely... */
   gecos		CHAR VARYING(512),
-  /* home is normally not used.  Username is not appended to home
-
-     Longer home dirs are possible, but not very likely...
-
-     Not sure if NULL should should be allowed, but we're allowing it
-     for now; maybe someone needs to keep "home == '/'" and "home not
-     specified" cases separate. */
-  home		CHAR VARYING(512),
-  /* disk_id identifies host+disk to put user on, uname will be
-     appended to disk_info.path.  if home != NULL, disk_id must be
-     NULL, and cerebrum will not attempt to create a homedir for such
-     users */
-  disk_id       NUMERIC(6,0) NULL
-                CONSTRAINT posix_user_disk_id REFERENCES disk_info(disk_id),
   shell		NUMERIC(6,0)
 		NOT NULL
 		CONSTRAINT posix_user_shell REFERENCES posix_shell_code(code),
