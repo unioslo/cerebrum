@@ -319,9 +319,9 @@ CREATE TABLE email_spam_level_code
   code_str	CHAR VARYING(16)
 		NOT NULL
 		CONSTRAINT email_spam_level_codestr_u UNIQUE,
-  grade		NUMERIC(4,0)
+  level		NUMERIC(4,0)
 		NOT NULL
-		CONSTRAINT email_spam_level_grade_u UNIQUE,
+		CONSTRAINT email_spam_level_level_u UNIQUE,
   description	CHAR VARYING(512)
 		NOT NULL
 );
@@ -365,9 +365,9 @@ CREATE TABLE email_spam_filter
 		CONSTRAINT email_spam_filter_pk PRIMARY KEY
 		CONSTRAINT email_spam_filter_target_id
 		  REFERENCES email_target(target_id),
-  grade		NUMERIC(6,0)
+  level		NUMERIC(6,0)
 		NOT NULL
-		CONSTRAINT email_spam_filter_grade
+		CONSTRAINT email_spam_filter_level
 		  REFERENCES email_spam_level_code(code),
   action	NUMERIC(6,0)
 		NOT NULL

@@ -635,7 +635,7 @@ class _EmailSpamLevelCode(Constants._CerebrumCode):
         self._pre_insert_check()
         self.sql.execute("""
         INSERT INTO %(code_table)s
-          (%(code_col)s, %(str_col)s, grade, %(desc_col)s)
+          (%(code_col)s, %(str_col)s, level, %(desc_col)s)
         VALUES
           (%(code_seq)s, :str, :level, :desc)""" % {
             'code_table': self._lookup_table,
@@ -650,7 +650,7 @@ class _EmailSpamLevelCode(Constants._CerebrumCode):
     def get_level(self):
         if self.level is None:
             self.level = int(self.sql.query_1("""
-            SELECT grade
+            SELECT level
             FROM %(code_table)s
             WHERE code=:code""" % {'code_table': self._lookup_table},
                                               {'code': int(self)}))
@@ -690,8 +690,8 @@ class EmailSpamFilter(EmailTarget):
               (target_id, level, action)
             VALUES (:t_id, :level, :action)""",
                          {'t_id': self.email_target_id,
-                          'level': self.email_spam_level,
-                          'action': self.email_spam_action})
+                          'level': int(self.email_spam_level),
+                          'action': int(self.email_spam_action)})
         else:
             # TBD: What about DELETEs?
             self.execute("""
@@ -699,8 +699,8 @@ class EmailSpamFilter(EmailTarget):
             SET level=:level,
                 action=:action
             WHERE target_id=:t_id""", {'t_id': self.email_target_id,
-                                       'level': self.email_spam_level,
-                                       'action': self.email_spam_action})
+                                       'level': int(self.email_spam_level),
+                                       'action': int(self.email_spam_action)})
         del self.__in_db
         self.__in_db = True
         self.__updated = []
@@ -709,7 +709,7 @@ class EmailSpamFilter(EmailTarget):
     def find(self, target_id):
         self.__super.find(target_id)
         self.email_spam_level, self.email_spam_action = self.query_1("""
-        SELECT grade, action
+        SELECT level, action
         FROM [:table schema=cerebrum name=email_spam_filter]
         WHERE target_id=:t_id""",{'t_id': self.email_target_id})
         try:
@@ -736,13 +736,13 @@ class EmailSpamFilter(EmailTarget):
 
     def list_email_spam_filters_ext(self):
         """Join between spam_filter, email_spam_level_code and
-        email_spam_action_code. Returns target_id, grade and code_str."""
+        email_spam_action_code. Returns target_id, level and code_str."""
         return self.query("""
-        SELECT f.target_id, l.grade, a.code_str
+        SELECT f.target_id, l.level, a.code_str
         FROM [:table schema=cerebrum name=email_spam_filter] f,
              [:table schema=cerebrum name=email_spam_level_code] l,
              [:table schema=cerebrum name=email_spam_action_code] a
-        WHERE f.grade = l.code AND f.action = a.code""")
+        WHERE f.level = l.code AND f.action = a.code""")
 
 class _EmailVirusFoundCode(Constants._CerebrumCode):
     _lookup_table = '[:table schema=cerebrum name=email_virus_found_code]'
