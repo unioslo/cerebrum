@@ -3777,11 +3777,12 @@ class BofhdExtension(object):
     # person find
     all_commands['person_find'] = Command(
         ("person", "find"), PersonSearchType(), SimpleString(),
+        SimpleString(optional=True),
         fs=FormatSuggestion("%6i   %10s   %-12s  %s",
                             ('id', format_day('birth'), 'export_id', 'name'),
                             hdr="%6s   %10s   %-12s  %s" % \
                             ('Id', 'Birth', 'Exp-id', 'Name')))
-    def person_find(self, operator, search_type, value):
+    def person_find(self, operator, search_type, value, filter=None):
         # TODO: Need API support for this
         matches = []
         if search_type == 'person_id':
@@ -3810,7 +3811,13 @@ class BofhdExtension(object):
                 matches = person.find_persons_by_bdate(self._parse_date(value))
             elif search_type == 'stedkode':
                 ou = self._get_ou(stedkode=value)
-                matches = person.list_affiliations(ou_id=ou.entity_id)
+                if filter is not None:
+                    try:
+                        filter=self.const.PersonAffiliation(filter)
+                    except Errors.NotFoundError:
+                        raise CerebrumError, "Invalid affiliation %s" % affiliation
+                matches = person.list_affiliations(ou_id=ou.entity_id,
+                                                   affiliation=filter)
             else:
                 raise CerebrumError, "Unknown search type (%s)" % search_type
         ret = []
@@ -4691,6 +4698,48 @@ class BofhdExtension(object):
                     self.const.entity_account, r['state_data']['account_id']),
                             'password': r['state_data']['password'],
                             'operation': r['state_type']})
+        return ret
+
+    all_commands['user_find'] = Command(
+        ("user", "find"), UserSearchType(), SimpleString(), SimpleString(optional=True),
+        YesNo(default='n', help_ref='yes_no_include_expired'),
+        fs=FormatSuggestion("%6i   %-12s %s",
+                            ('entity_id', 'username', format_day("expire")),
+                            hdr="%6s   %-10s   %-12s" % \
+                            ('Id', 'Uname', 'Expire-date')))
+    def user_find(self, operator, search_type, value,
+                  include_expired="n", filter=None,
+                  perm_filter='is_superuser'):
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            raise PermissionDenied("Currently limited to superusers")
+        acc = self.Account_class(self.db)
+        if search_type == 'stedkode':
+            ou = self._get_ou(stedkode=value)
+            if filter is not None:
+                try:
+                    filter=self.const.PersonAffiliation(filter)
+                except Errors.NotFoundError:
+                    raise CerebrumError, "Invalid affiliation %s" % affiliation
+            include_expired = include_expired.lower().startswith("n")
+            rows=acc.list_accounts_by_type(ou_id=ou.entity_id, affiliation=filter,
+                                           filter_expired=not include_expired)
+        elif search_type == 'host':
+            host = self._get_host(value)
+            rows = acc.list_account_home(host_id=int(host.entity_id))
+        elif search_type == 'disk':
+            disk = self._get_disk(value)[0]
+            rows = acc.list_account_home(disk_id=int(disk.entity_id))
+        else:
+            raise CerebrumError, "Unknown search type (%s)" % search_type
+        ac_ids = [int(r['account_id']) for r in rows]
+        ac_ids.sort()
+        ret = []
+        for a in ac_ids:
+            acc.clear()
+            acc.find(a)
+            ret.append({'entity_id': a,
+                        'expire': acc.expire_date,
+                        'username': acc.account_name})
         return ret
 
     # user move
