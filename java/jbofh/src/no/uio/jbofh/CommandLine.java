@@ -7,6 +7,7 @@
 package no.uio.jbofh;
 
 import java.util.Vector;
+import java.util.Enumeration;
 import org.gnu.readline.*;
 import java.io.EOFException;
 import org.apache.log4j.Category;
@@ -65,20 +66,33 @@ public class CommandLine {
         return r; // (String []) ret.toArray();
     }
     
-    String [] getSplittedCommand() {
+    String promptArg(String prompt, boolean addHist) {
         while (true) {
             try {
-                String line = Readline.readline("myprompt> ");
-                if(line != null) 
-                    return splitCommand(line);
+                Vector oldHist = new Vector();
+                // A readline thingy where methods were non-static would have helped a lot.
+                if(! addHist) Readline.getHistory(oldHist);
+                String ret = Readline.readline(prompt);
+                if(! addHist) {
+                    Readline.clearHistory();
+                    for (Enumeration e = oldHist.elements() ; e.hasMoreElements() ;) 
+                        Readline.addToHistory((String) e.nextElement());
+                }
+                return ret;
             } catch (EOFException e) {
                 return null;
             } catch (Exception e) {
                 logger.error("Unexpected exception reading commandline", e);
                 System.out.println("Unexpected error: "+e);
-                String empty[] = {};
-                return empty;
+                return "";
             }
         }
+    }
+    
+    String [] getSplittedCommand() {
+        String line = promptArg("jbofh> ", true);
+        if(line != null) 
+            return splitCommand(line);
+        return null;
     }
 }

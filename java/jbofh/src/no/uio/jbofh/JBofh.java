@@ -268,14 +268,42 @@ public class JBofh {
                 if(r == null) {
                     System.out.println("Error translating command"); continue;
                 }
-                logger.debug("Tra: "+r[0]+" -> ("+((Object [])r[1]).length +") "+r[1]);
-                for(int i = 0; i < ((Object [])r[1]).length; i++)
-                    logger.debug(i+": "+((Object [])r[1])[i]);
-                Object resp = bc.sendCommand((String) r[0], (String [])r[1]);
-                if(resp != null) showResponse((String) r[0], resp);
+                String protoCmd = (String) r[0];
+                Object protoArgs[] = (Object []) r[1];
+                protoArgs = checkArgs(protoCmd, protoArgs);
+                Object resp = bc.sendCommand(protoCmd, (String [])protoArgs);
+                if(resp != null) showResponse(protoCmd, resp);
             }
         }
         System.out.println("I'll be back");
+    }
+
+    Object []checkArgs(String cmd, Object args[]) {
+        /*
+        logger.debug("Tra: "+cmd+" -> ("+args.length +") "+args);
+        for(int i = 0; i < args.length; i++)
+            logger.debug(i+": "+args[i]); */
+        String sample[] = {};
+        Vector ret = new Vector();
+        for(int i = 0; i < args.length; i++) 
+            ret.add(args[i]);        
+        Vector cmd_def = (Vector) commands.get(cmd);
+        Vector pspec = (Vector) cmd_def.get(1);
+        for(int i = args.length; i < pspec.size(); i++) {
+            logger.debug("ps: "+i+" -> "+pspec.get(i));
+            /* TODO:  I'm not sure how to handle the diff between optional and default */
+            Integer opt = (Integer) ((Hashtable)pspec.get(i)).get("optional");
+            if(opt == null) opt = (Integer) ((Hashtable)pspec.get(i)).get("default");
+            if(opt != null && opt.intValue() == 1) 
+                break;
+            ret.add(0, bc.sessid);
+            ret.add(1, cmd);
+            String prompt = (String) bc.sendRawCommand("prompt_next_param", (String [])ret.toArray(sample));            
+            ret.remove(0);
+            ret.remove(0);
+            ret.add(cLine.promptArg(prompt+" >", false));
+        }
+        return ret.toArray(sample);
     }
     
     void showResponse(String cmd, Object resp) {
@@ -296,12 +324,12 @@ public class JBofh {
 	    if(hdr != null) System.out.println(hdr);
 	}
 	for (Enumeration e = ((Vector) resp).elements() ; e.hasMoreElements() ;) {
-	    Hashtable row = (Hashtable) e.nextElement();
+	    Object row = e.nextElement();
 	    try {
 		PrintfFormat pf = new PrintfFormat((String) format.get("str"));
 		Object a[] = new Object[order.size()];
 		for(int i = 0; i < order.size(); i++) 
-		    a[i] = row.get((String) order.get(i));
+		    a[i] = ((Hashtable) row).get((String) order.get(i));
 		System.out.println(pf.sprintf(a));
 	    } catch (IllegalArgumentException ex) {
 		logger.error("Error formatting "+resp+"\n as: "+format, ex);
@@ -313,9 +341,6 @@ public class JBofh {
      * @param args the command line arguments
      */
     public static void main(String[] args) {
-        Object obj[] = {"Mitt navn", "Min født", new Float(1234.0)};
-        System.out.println(new PrintfFormat("Navn: %20s\nFødt: %-20s\nKroner: %08.2f\n").sprintf(obj));
         new JBofh();
-    }
-    
+    }    
 }
