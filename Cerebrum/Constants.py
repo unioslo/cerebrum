@@ -33,6 +33,9 @@ class _CerebrumCode(DatabaseAccessor):
     _lookup_str_column = 'code_str'
     _lookup_desc_column = 'description'
 
+    # TBD: Should this take DatabaseAccessor args as well?  Maybe use
+    # some kind of currying in Constants to avoid having to pass the
+    # Database arg every time?
     def __init__(self, code):
         self.int = None
         self._desc = None
@@ -71,11 +74,27 @@ class _CerebrumCode(DatabaseAccessor):
                                             self.__dict__))
         return self.int
 
-    def __coerce__(self, other):
-        """Support mixed-mode integer arithmetic."""
-        if isinstance(other, int):
-            return self.__int__(), other
-        return None
+    def __eq__(self, other):
+        if (# It should be OK to compare _CerebrumCode instances with
+            # themselves or ints.
+            isinstance(other, (int, _CerebrumCode))
+            # The following test might catch a few more cases than we
+            # really want to, e.g. comparison with floats.
+            #
+            # However, it appears to be the best alternative if we
+            # want to support comparison with e.g. PgNumeric instances
+            # without introducing a dependency on whatever database
+            # driver module is being used.
+            or hasattr(other, '__int__')):
+            return self.__int__() == other.__int__()
+        # We want to allow the reflexive comparison (other.__eq__) a
+        # chance at this, too.  Hopefully NotImplementedError (as
+        # opposed to TypeError) is the correct way to indicate that.
+        raise NotImplementedError, "Don't know how to compare %s to %s" % \
+              (repr(type(self).__name__), repr(other))
+
+    def __ne__(self, other): return self.__eq__(other)
+
 
 class _EntityTypeCode(_CerebrumCode):
     "Mappings stored in the entity_type_code table"
@@ -234,6 +253,9 @@ class Constants(DatabaseAccessor):
     def __init__(self, database):
         super(Constants, self).__init__(database)
 
+        # TBD: Works, but is icky -- _CerebrumCode or one of its
+        # superclasses might use the .sql attribute themselves for
+        # other purposes; should be cleaned up.
         _CerebrumCode.sql = database
 
 def main():
