@@ -29,12 +29,13 @@ from Cerebrum.Utils import Factory
 from Cerebrum.Constants import _SpreadCode
 
 class LookupHelper(object):
-    def __init__(self, db, logger):
+    def __init__(self, db, logger, ou_perspective):
         self._db = db
         self._logger = logger
         self.spread_name2const = {}
         self._group_cache = {}
         self._sko_cache = {}
+        self._ou_perspective = ou_perspective
 
         self.const = Factory.get('Constants')(self._db)
         for c in dir(self.const):
@@ -85,8 +86,7 @@ class LookupHelper(object):
         ou.find(sko)
         ret.append("%02i%02i%02i" % (
             ou.fakultet, ou.institutt, ou.avdeling))
-        for row in ou.list_children(self.const.perspective_lt, recursive=True):
-            # TODO: don't hardcode perspective
+        for row in ou.list_children(self._ou_perspective, recursive=True):
             ou.clear()
             ou.find(row['ou_id'])
             ret.append("%02i%02i%02i" % (

@@ -153,7 +153,7 @@ def update_account(profile, fnr, account_ids, account_info={}):
                 current_disk_id = None
             if keep_account_home[fnr] and (move_users or current_disk_id is None):
                 try:
-                    new_disk = profile.get_disk(current_disk_id)
+                    new_disk = profile.get_disk(disk_spread, current_disk_id)
                 except ValueError, msg:
                     raise
                 if current_disk_id != new_disk:
@@ -627,7 +627,8 @@ def process_students():
     logger.info("got student accounts")
     autostud = AutoStud.AutoStud(db, logger, debug=debug, cfg_file=studconfig_file,
                                  studieprogs_file=studieprogs_file,
-                                 emne_info_file=emne_info_file)
+                                 emne_info_file=emne_info_file,
+                                 ou_perspective=ou_perspective)
     logger.info("config processed")
     if recalc_pq:
         if paper_money_file:
@@ -721,6 +722,7 @@ def main():
                                     'student-info-file=', 'only-dump-results=',
                                     'studconfig-file=', 'fast-test', 'with-lpr',
                                     'workdir=', 'type=', 'reprint=',
+                                    'ou-perspective=',
                                     'emne-info-file=', 'move-users',
                                     'recalc-pq', 'studie-progs-file=',
                                     'paper-file=',
@@ -731,11 +733,12 @@ def main():
     global debug, fast_test, create_users, update_accounts, logger, skip_lpr
     global student_info_file, studconfig_file, only_dump_to, studieprogs_file, \
            recalc_pq, dryrun, emne_info_file, move_users, remove_groupmembers, \
-           workdir, paper_money_file
+           workdir, paper_money_file, ou_perspective
 
     skip_lpr = True       # Must explicitly tell that we want lpr
     update_accounts = create_users = recalc_pq = dryrun = move_users = False
     remove_groupmembers = validate = False
+    ou_perspective = None
     fast_test = False
     workdir = None
     range = None
@@ -770,6 +773,9 @@ def main():
             studconfig_file = val
         elif opt in ('--fast-test',):  # Internal debug use ONLY!
             fast_test = True
+        elif opt in ('--ou-perspective',):
+            ou_perspective = const.OUPerspective(val)
+            int(ou_perspective)   # Assert that it is defined
         elif opt in ('--only-dump-results',):
             only_dump_to = val
         elif opt in ('--dryrun',):
@@ -827,6 +833,7 @@ def usage():
     -C | --studconfig-file file:
     -S | --studie-progs-file file:
     -p | --paper-file file: check for paid-quota only done if set
+    --ou-perspective code_str: set ou_perspective (default: perspective_fs)
     --dryrun: don't do any changes to the database.  This can be used
       to get an idea of what changes a normal run would do.  TODO:
       also dryrun some parts of update/create user.

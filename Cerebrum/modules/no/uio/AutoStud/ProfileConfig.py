@@ -40,7 +40,7 @@ class Config(object):
         self.default_values = {}
         self.profiles = []
         self.required_spread_order = []
-        self.lookup_helper = LookupHelper(autostud.db, logger)
+        self.lookup_helper = LookupHelper(autostud.db, logger, autostud.ou_perspective)
         xml.sax.parse(cfg_file, sp)
 
         # Generate select_mapping dict and expand super profiles

@@ -32,7 +32,8 @@ from Cerebrum.modules.no.uio.AutoStud import StudentInfo
 
 class AutoStud(object):
     def __init__(self, db, logger, cfg_file=None, debug=0,
-                 studieprogs_file=None, emne_info_file=None):
+                 studieprogs_file=None, emne_info_file=None,
+                 ou_perspective=None):
         self._logger = logger
         self.debug = debug
         self.db = db
@@ -40,12 +41,17 @@ class AutoStud(object):
         self.disks_order = []
         self.student_disk = {}
         self.co = Factory.get('Constants')(db)
+        if not ou_perspective:
+            self.ou_perspective = self.co.perspective_fs
+        else:
+            self.ou_perspective = ou_perspective
         if True:
             disk = Factory.get('Disk')(db)
             for d in disk.list(filter_expired=True, spread=getattr(self.co, cereconf.HOME_SPREADS[0])):
                 self.disks[int(d['disk_id'])] = [d['path'], int(d['count'])]
             self.disks_order = self.disks.keys()
             self.disks_order.sort(self._disk_sort)
+            logger.debug("Disks: "+logger.pformat(self.disks))
         self.pc = ProfileConfig.Config(self, logger, debug=debug, cfg_file=cfg_file)
         logger.debug(self.pc.debug_dump())
         self.studieprogramkode2info = {}
