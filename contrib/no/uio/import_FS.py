@@ -23,6 +23,7 @@ import re
 import os
 import sys
 import getopt
+import time
 
 import xml.sax
 
@@ -37,6 +38,7 @@ from Cerebrum.modules.no.uio import AutoStud
 
 default_personfile = "/cerebrum/dumps/FS/merged_persons.xml"
 default_studieprogramfile = "/cerebrum/dumps/FS/studieprogrammer.xml"
+default_fnrupdate_file = "/cerebrum/dumps/FS/fnr_udpate.xml"
 group_name = "FS-aktivt-samtykke"
 group_desc = "Internal group for students which will be shown online."
 
@@ -302,16 +304,65 @@ def process_person_callback(person_info):
             # want to appear in the directory" answer.
             _rem_res(new_person.entity_id)
 
+
+class FnrUpdateParser(StudentInfo.GeneralDataParser):
+    def __init__(self, fnrupdate_file):
+        super(FnrUpdateParser, self).__init__(fnrupdate_file, 'fnr')
+
+def update_fnr(fnrupdate_file):
+    person = Person.Person(db)
+    tmp_person = Person.Person(db)
+
+    # Kun endringer yngre enn 6 måneder forsøkes prosessert, bla. for
+    # å sikre seg mot resirkulæring av temporært fnr (skal vistnok
+    # ikke lenger forekomme)
+    start_time = time.strftime(
+        '%Y-%m-%d', time.localtime(time.time() - (3600*24*30*6)))
+    for f in FnrUpdateParser(fnrupdate_file):
+        if start_time > f['dato_foretatt'][:10]:
+            continue
+        old_fnr = fodselsnr.personnr_ok("%06d%05d" % (int(f['fodselsdato_tidligere']),
+                                                      int(f['personnr_tidligere'])))
+        new_fnr = fodselsnr.personnr_ok("%06d%05d" % (int(f['fodselsdato_naverende']),
+                                                      int(f['personnr_naverende'])))
+
+        if old_fnr == new_fnr:
+            continue   # For some reason some such entries exists
+        try:
+            person.clear()
+            person.find_by_external_id(co.externalid_fodselsnr, old_fnr,
+                                       source_system=co.system_fs)
+        except Errors.NotFoundError:
+            continue
+
+        try:
+            tmp_person.clear()
+            tmp_person.find_by_external_id(co.externalid_fodselsnr, new_fnr,
+                                           source_system=co.system_fs)
+            logger.warn("A person with the new fnr already exists (%s -> %s)" % (
+                old_fnr, new_fnr))
+            continue
+        except Errors.NotFoundError:
+            pass
+        logger.debug("Changed fnr from %s to %s" % (old_fnr, new_fnr))
+        person.affect_external_id(co.system_fs, co.externalid_fodselsnr)
+        person.populate_external_id(co.system_fs, co.externalid_fodselsnr,
+                                    new_fnr)
+        person.write_db()
+
+
 def main():
     global verbose, ou, db, co, logger, fnr2person_id, gen_groups, group, \
 							old_aff, include_delete
     verbose = 0
     include_delete = False
-    opts, args = getopt.getopt(sys.argv[1:], 'vp:s:gd', ['verbose', 'person-file=',
-                                                       'studieprogram-file=',
-                                                        'generate-groups','include-delete'])
+    opts, args = getopt.getopt(sys.argv[1:], 'vp:s:gdf', [
+        'verbose', 'person-file=', 'studieprogram-file=',
+        'generate-groups','include-delete', 'fnrupdate-file='])
+
     personfile = default_personfile
     studieprogramfile = default_studieprogramfile
+    fnrupdate_file = default_fnrupdate_file
     for opt, val in opts:
         if opt in ('-v', '--verbose'):
             verbose += 1
@@ -321,6 +372,10 @@ def main():
             studieprogramfile = val
         elif opt in ('-g', '--generate-groups'):
             gen_groups = True
+        elif opt in ('-f',):
+            do_update_fnr = True
+        elif opt in ('--fnrupdate-file',):
+            fnrupdate_file = val
 	elif opt in ('-d', '--include-delete'):
 	    include_delete = True
     if "system_fs" not in cereconf.SYSTEM_LOOKUP_ORDER:
@@ -333,6 +388,11 @@ def main():
     db.cl_init(change_program='import_FS')
     ou = Factory.get('OU')(db)
     co = Factory.get('Constants')(db)
+    if do_update_fnr:
+        update_fnr(fnrupdate_file)
+        db.rollback()
+        #db.commit()
+        sys.exit(0)
     group = Factory.get('Group')(db)
     try:
 	group.find_by_name(group_name)
