@@ -71,7 +71,7 @@ utv_person = {}
 
 require_kopipenger = True
 term_init_prefix = PPQUtil.get_term_init_prefix(*time.localtime()[0:3])
-require_kopipenger = PPQUtil.is_free_period(*time.localtime()[0:3])
+require_kopipenger = not PPQUtil.is_free_period(*time.localtime()[0:3])
 
 class ThreeLevelDataParser(xml.sax.ContentHandler):
     """General parser for processing files like:
