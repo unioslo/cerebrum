@@ -21,6 +21,7 @@
 
 import os
 import re
+import sys
 import string
 
 from Cerebrum.Utils import Factory
@@ -30,12 +31,13 @@ from Cerebrum.modules.EmailLDAP import EmailLDAP
 class EmailLDAPUiOMixin(EmailLDAP):
     """Methods specific for UiO."""
 
-    __write_attr__ = ('home2spool', 'local_uio_domain')
+    __write_attr__ = ('home2spool', 'local_uio_domain', 'e_id2passwd')
 
     def __init__(self, db):
         self.__super.__init__(db)
         self.local_uio_domain = {}
         self.home2spool = {}
+        self.e_id2passwd = {}
         
 
     spam_act2dig = {'noaction': 0,
@@ -288,3 +290,27 @@ class EmailLDAPUiOMixin(EmailLDAP):
                 continue
             self.home2spool["/%s/%s" % (faculty, host)] = "/%s/%s/mail" % (
                 faculty, spoolhost[host])
+
+    def read_misc_target(self):
+        a = Factory.get('Account')(self._db)
+        for row in a.list_account_authentication():
+            self.e_id2passwd[row['account_id']] = (row['entity_name'],
+                                                   row['auth_data'])
+        for row in a.list_account_authentication(self.const.auth_type_crypt3_des):
+            # No need to check for "special"-cases. l_a_a returns the same for
+            # both queries. Only the passwd-hash differs.
+            if self.e_id2passwd[row['account_id']][1] == None:
+                self.e_id2passwd[row['account_id']] = (row['entity_name'],
+                                                       row['auth_data'])
+
+    def get_misc(self, entity_id, target_id, email_target_type):
+        if email_target_type == self.const.email_target_account:
+            if self.e_id2passwd.has_key(entity_id):
+                uname, passwd = self.e_id2passwd[entity_id]
+                if not passwd:
+                    passwd = "*invalid"
+                txt = "uid: %s \nuserPassword: {crypt}%s" % (uname, passwd)
+                return txt
+            else:
+                txt = "No auth-data for user: %s\n" % entity_id
+                sys.stderr.write(txt)

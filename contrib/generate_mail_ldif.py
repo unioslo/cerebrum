@@ -272,7 +272,7 @@ def write_ldif():
                 f.write("virusFound: 1\n")
                 f.write("virusRemoved: 1\n")        
 
-        misc = ldap.get_misc(ei, t)
+        misc = ldap.get_misc(ei, t, tt)
         if misc:
             f.write("%s\n" % misc)
         f.write("\n")

@@ -245,7 +245,7 @@ class EmailLDAP(DatabaseAccessor):
         # between them.
         pass
 
-    def get_misc(self, entity_id, target_id):
+    def get_misc(self, entity_id, target_id, email_target_type):
         # Return optional strings to the script.
         pass
     

@@ -569,12 +569,11 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine, Entity):
             auth_type = self.const.auth_type_md5_crypt
         return self.query("""
         SELECT ai.account_id, en.entity_name, aa.auth_data
-        FROM [:table schema=cerebrum name=account_info] ai,
-             [:table schema=cerebrum name=entity_name] en,
-             [:table schema=cerebrum name=account_authentication] aa
-        WHERE ai.account_id=en.entity_id AND
-              ai.account_id=aa.account_id AND
-              aa.method=:method""",
+        FROM [:table schema=cerebrum name=entity_name] en,
+             [:table schema=cerebrum name=account_info] ai
+             LEFT JOIN [:table schema=cerebrum name=account_authentication] aa
+               ON ai.account_id=aa.account_id AND aa.method=:method
+        WHERE ai.account_id=en.entity_id""",
                           {'method' : int(auth_type)})
 
     def get_account_name(self):
