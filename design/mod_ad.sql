@@ -1,3 +1,4 @@
+category:main;
 CREATE TABLE ad_entity
 (
   entity_type   NUMERIC(6,0)
@@ -10,8 +11,8 @@ CREATE TABLE ad_entity
   CONSTRAINT ad_entity_entity_id FOREIGN KEY (entity_type, entity_id)
     REFERENCES entity_info(entity_type, entity_id),
   CONSTRAINT ad_entity_entity_type_chk
-    CHECK (entity_type IN ([:get_constant name=account],
-			   [:get_constant name=group]))
+    CHECK (entity_type IN ([:get_constant name=entity_account],
+			   [:get_constant name=entity_group]))
 );
 
 
@@ -24,6 +25,7 @@ CREATE TABLE ad_entity
 		   this user logs in.
 
 */
+category:main;
 CREATE TABLE ad_account
 (
   account_id    NUMERIC(12,0)
