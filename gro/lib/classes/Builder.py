@@ -2,7 +2,6 @@ import time
 
 from Cerebrum.extlib import sets
 from Cerebrum.gro.Cerebrum_core import Errors
-from Cerebrum.gro.classes.db import db
 
 from Caching import Caching
 from Locking import Locking
@@ -58,18 +57,6 @@ def SetWrapper(var):
             # set the variable
             setattr(self, '_' + var, value)
             self.updated.add(var)
-    return set
-
-def SimpleSetWrapper(var):
-    """
-    SimpleSetWrapper creates a simple set method, using only setattr().
-    Methods created with this wrapper are used in search objects.
-    """
-    assert type(var) == str
-
-    def set(self, value):
-        # set the variable
-        setattr(self, '_' + var, value)
     return set
 
 def ReadOnly(var):
@@ -242,48 +229,11 @@ class Builder(Caching, Locking):
 
         return txt
 
-    def build_search_class( cls ):
-        class SearchClass:
-            pass
-        searchcls = SearchClass
-        searchcls._cls = cls
-        searchcls.__name__ = '%sSearch' % cls.__name__
-        searchcls.slots = [i for i in cls.slots if i.writable]
-        for attr in searchcls.slots:
-            if not hasattr(searchcls, attr.name):
-                setattr(searchcls, '_' + attr.name, None)
-            set = SimpleSetWrapper(attr.name)
-            setattr(searchcls, 'set_' + attr.name, set)
-        if not hasattr(cls, 'cerebrum_class'):
-            raise Errors.UnsearchableClassError('Class %s has no cerebrum_class reference' % 
-                                                    cls.__name__)
-        searchcls._cerebrum_class = cls.cerebrum_class
-        def search(searchcls):
-            searchdict = {}
-            for attr in searchcls.slots:
-                val = getattr(searchcls, '_' + attr.name)
-                if val != None:
-                    searchdict[attr.name] = val
-            o = searchcls._cerebrum_class(db) # FIXME: Db-objekter skal deles på annen måte
-            rows = o.search(**searchdict)
-            objects = []
-            for row in rows:
-                try:
-                    entity_id = int(row[0])
-                except TypeError:
-                    raise Errors.SearchError('Could not find the ID of the found %s object' %
-                                                    cls.__name__)
-                objects.append(searchcls._cls(entity_id))
-            return objects
-        searchcls.search = search
-        return searchcls
-            
     getKey = classmethod(getKey)
     register_attribute = classmethod(register_attribute)
     prepare = classmethod(prepare)
     build_idl_header = classmethod(build_idl_header)
     build_idl_interface = classmethod(build_idl_interface)
-    build_search_class = classmethod(build_search_class)
 
     def __repr__(self):
         key = [repr(i) for i in self._key[1]]
