@@ -927,18 +927,20 @@ class EmailForward(EmailTarget):
                                                'forward': forward,
                                                'enable': enable})
 
-    def _set_forward_enable(self, enable):
+    def _set_forward_enable(self, forward, enable):
         return self.execute("""
         UPDATE [:table schema=cerebrum name=email_forward]
         SET enable=:enable
-        WHERE target_id=:t_id""", {'t_id': self.email_target_id,
-                                   'enable': enable})
+        WHERE target_id = :t_id AND
+              forward_to = :fwd""", {'enable': enable,
+                                     'fwd': forward,
+                                     't_id': self.email_target_id})
 
-    def enable_forward(self):
-        return self._set_forward_enable('T')
+    def enable_forward(self, forward):
+        return self._set_forward_enable(forward, 'T')
 
-    def disable_forward(self):
-        return self._set_forward_enable('F')
+    def disable_forward(self, forward):
+        return self._set_forward_enable(forward, 'F')
 
     def get_forward(self):
         return self.query("""
@@ -1373,7 +1375,7 @@ class AccountEmailMixin(Account.Account):
     def get_primary_mailaddress(self):
         """Return account's current primary address, or None."""
         target_type = int(self.const.email_target_account)
-        return self.query("""
+        return self.query_1("""
         SELECT ea.local_part || '@' || ed.domain AS email_primary_address
         FROM [:table schema=cerebrum name=account_type] at
         JOIN [:table schema=cerebrum name=email_target] et
