@@ -43,6 +43,11 @@ def makedb(release, stage):
     r = os.system(" ".join(cmd))
     if r:
         continue_prompt("Exit value was %i, continue? (y/n)[y]" % r)
+    if stage == 'pre':
+        cmd = ['%s/makedb.py' % makedb_path, '--only-insert-codes']
+        r = os.system(" ".join(cmd))
+        if r:
+            continue_prompt("Exit value was %i, continue? (y/n)[y]" % r)
 
 def continue_prompt(message):
     print message
@@ -60,8 +65,12 @@ def migrate_to_rel_0_9_2():
         version = meta.get_metainfo(Metainfo.SCHEMA_VERSION_KEY)
         print "Oops, your database is already at %s, aborting" % str(version)
         sys.exit(1)
-    except Errors.NotFoundError, libq.OperationalError:
+    except Errors.NotFoundError:
         pass
+    except Exception, e:
+        # Not sure how to trap the PgSQL OperationalError
+        if str(e.__class__).find("OperationalError") == -1:
+            raise
 
     # TODO: Assert that the new classes has been installed
     makedb('0_9_2', 'pre')
@@ -70,7 +79,6 @@ def migrate_to_rel_0_9_2():
     for s in cereconf.HOME_SPREADS:
         spreads.append(str(getattr(co, s)))
     assert spreads
- 
 
     # fill the account_home table for the relevant spreads
 
@@ -80,6 +88,10 @@ def migrate_to_rel_0_9_2():
     ac = Account.Account(db)
     count = 0
     print "Populating account_home"
+    processed = {}
+
+    # Add an entry in account_home for each spread in HOME_SPREADS
+    # that the account currently has a spread to
     for row in db.query(
         """SELECT account_id, home, disk_id, spread
         FROM [:table schema=cerebrum name=entity_spread] es,
@@ -90,6 +102,7 @@ def migrate_to_rel_0_9_2():
         if str(spread) in spreads:
             ac.clear()
             ac.find(row['account_id'])
+            processed[int(row['account_id'])] = 1
             status = co.home_status_on_disk
             if ac.is_deleted():
                 status = None
@@ -100,6 +113,27 @@ def migrate_to_rel_0_9_2():
             if (count % 100) == 1:
                 sys.stdout.write('.')
                 sys.stdout.flush()
+
+    # Now include accounts not in HOME_SPREADS.  Their homedir is
+    # bound to the first spread in HOME_SPREADS
+    spread = str2const[spreads[0]]
+    for row in db.query(
+        """SELECT account_id, home, disk_id
+        FROM [:table schema=cerebrum name=account_info]""", fetchall=False):
+        if processed.has_key(int(row['account_id'])):
+            continue
+        ac.clear()
+        ac.find(row['account_id'])
+        status = co.home_status_on_disk
+        if ac.is_deleted():
+            status = None
+        ac.set_home(spread, disk_id=row['disk_id'], home=row['home'],
+                    status=status)
+        ac.write_db()
+        count += 1
+        if (count % 100) == 1:
+            sys.stdout.write('.')
+            sys.stdout.flush()
     print """
     NOTE: all entries added to account_home has status=on_disk unless
     account.is_deleted() returns True, which sets status to None"""
