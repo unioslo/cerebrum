@@ -28,3 +28,21 @@ Fetching the source
 
   The latest source is available from
   <URL:https://sourceforge.net/projects/cerebrum/>.
+
+Documentation
+-------------
+
+  This is a brief summary of the currently existing documentation for
+  Cerebrum:
+
+    README  - this document
+    HACKING - things you should know if you want to develop the core
+       of cerebrum
+    INSTALL - describes the installation procedure
+    design/adminprotocol.html - describes communication between the
+       administration server and its clients
+    design/cerebrum-core.dia - diagram showing the core databasetables
+       in cerebrum.  Can be displayed using http://www.lysator.liu.se/~alla/dia/
+    design/entity_usage.txt - describes how to modify data in the database
+
+  The documentation for the core api can be read using pydoc.
