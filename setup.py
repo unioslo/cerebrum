@@ -268,7 +268,7 @@ setup (name = "Cerebrum", version = Cerebrum.__version__,
                        'owner': cerebrum_user,
                        'mode': 0750},
                       [('cereconf.py', 0644),
-                       ('server/config.dat', 0644)
+                       ('server/config.dat', 0644),
                        ('design/logging.ini', 0644)
                        ]),
                      ({'path': logdir,
