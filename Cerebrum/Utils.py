@@ -137,13 +137,13 @@ def latin1_to_iso646_60(s, substitute=''):
     s = string.translate(s, tr)
 
     xlate = {}
+    for y in range(0x00, 0x1f): xlate[chr(y)] = ''
+    for y in range(0x7f, 0xff): xlate[chr(y)] = ''
     xlate['Ð'] = 'Dh'
     xlate['ð'] = 'dh'
     xlate['Þ'] = 'Th'
     xlate['þ'] = 'th'
     xlate['ß'] = 'ss'
-    for y in range(0x00, 0x1f): xlate[chr(y)] = ''
-    for y in range(0x7f, 0xff): xlate[chr(y)] = ''
     return string.join(map(lambda x:xlate.get(x, x), s), '')
 
 class auto_super(type):
