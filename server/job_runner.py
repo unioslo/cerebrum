@@ -64,6 +64,7 @@ class JobRunner(object):
         self.db_qh = DbQueueHandler(db, logger)
         self.all_jobs = {}
         self.sleep_to = None
+        self.current_job = None
         
     def reload_scheduled_jobs(self):
         reload(self.scheduled_jobs)
@@ -178,6 +179,7 @@ class JobRunner(object):
                 n_fast_loops = 0
             prev_loop_time = time.time()
             for job in self.ready_to_run:
+                self.current_job = job
                 if job == 'quit':
                     raise ExitProgram
                 self.handle_completed_jobs(running_jobs)
@@ -201,6 +203,7 @@ class JobRunner(object):
                     else:
                         self.last_run[job] = time.time()
                     self.db_qh.update_last_run(job, self.last_run[job])
+                self.current_job = None
 
             # figure out what jobs to run next
             self.ready_to_run = []

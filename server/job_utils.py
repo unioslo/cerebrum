@@ -134,7 +134,7 @@ class SocketHandling(object):
                         job_runner.ready_to_run, threading.enumerate(),
                         job_runner.all_jobs.keys())
                     if job_runner.sleep_to is None:
-                        ret += 'Status: running\n'
+                        ret += 'Status: running %s\n' % job_runner.current_job
                     else:
                         ret += 'Status: sleeping for %f seconds\n' % \
                                (job_runner.sleep_to - time.time())
