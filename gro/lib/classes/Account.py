@@ -13,9 +13,9 @@ __all__ = ['Account', 'AccountAuthentication']
 
 class Account(Entity):
     # hmm.. skipper np_type inntil videre. og konseptet rundt home/disk er litt føkka
-    slots = ['name', 'owner', 'createDate', 'creator', 'home', 'disk', 'expireDate', 'authentications']
+    slots = ['name', 'owner', 'createDate', 'creator', 'expireDate', 'authentications']
     readSlots = Entity.readSlots + slots
-    writeSlots = Entity.writeSlots + ['name', 'home', 'disk', 'expireDate']
+    writeSlots = Entity.writeSlots + ['name', 'expireDate']
     
     def __init__(self, id, parents=Lazy, children=Lazy, *args, **vargs):
         Entity.__init__(self, id, parents, children)
