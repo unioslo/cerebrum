@@ -98,19 +98,25 @@ This would probably requiring clients to wrap the calls to the server
 methods so that xmlrpclib.Fault could be converted to something else.
 HOW?
 
-<h2>login(uname, password, clientid)</h2>
+<h2>login(uname, password)</h2>
 
-<pre>sessid = testsvr.login(user, passwd, clientid)</pre>
+<pre>sessid = testsvr.login(user, passwd)</pre>
 
 The login method authenticates the user.  Upon success, a sessionid is
 returned which must be used for future communication with the server.
 
+<h2>helo(clientid)</h2>
+
+All clients must call this function before they do anything else (can
+we enforce this?).
+
+Returns the string <code>OK, NUMBER, server-version</code> where
+NUMBER currently is 1.  This number may be increased at a later time
+if the protocol is changed in an uncompatible way.
+
 <p>
 clientid is a string identifying the client.  By requiring this string
 it is easier to keep track of the number of different clients.
-
-<h2>ping()</h2>
-Returns the string <code>pong</code> to indicate that the server is alive
 
 <h2>get_commands(sessionid)</h2>
 
@@ -195,25 +201,45 @@ rights and one wants to update the list of available commands
 
 <code>config.dat</code> contains a list of the modules that should be
 loaded into bofhd.  It contains a number of lines of the format:
-<pre>module_file classname</pre> module_file does not have a .py
-ending.
+<pre>module_file</pre> module_file does not have a .py ending, and
+must contain a class named BofhdExtention.
 
 <p>
 The following methods must be implemented (see <a
-href="../bin/modules_skeleton.py">modules_skeleton.py</a> for an
-example):
+href="../Cerebrum/modules/no/bofhd_module_example.py">bofhd_module_example.py</a>
+for an example):
 <p>
 <pre>
-    def __init__(self):
-        self.all_commands = {
-            'a_person' : ('person', 'get', 'number', 1)
+def __init__(self):
+
+    # The format of the all_commands dict is as follows:
+    #   function : (clicmd1, clicmd2, param[1..n])
+    #
+    #   - function is the name of the function that will be called
+    #     on the server to execute the command
+    #
+    #   - clicmd1 and clicmd2 is the first and second client
+    #     command that identifies which function to call
+    #
+    # 	NOTE: by design the namespace for the above values is the same
+    # 	for all modules, thus a module may overwrite a previously 
+    # 	defined value by appearing later in the module load sequence.
+    #
+    #   - param[1..n] are the parameters that the user must give
+    #     in the client.  These arguments will be passed, in the
+    #     same order, to the function on the server.  One, and only
+    #     one, parameter may be given a trailing + to indicate that
+    #     the parameter is loopable
+    
+    self.all_commands = {
+        'a_person' : ('person', 'get', 'number+')
 	}
 
-    def get_commands(self, uname):
-        return {'a_command' :  ('person', 'get', 'number', 1)}
+def get_commands(self, uname):
+    return {'a_command' :  ('person', 'get', 'number+')}
 
-    def get_format_suggestion(self, cmd):
-        return { 'a_command' : "Name: %s\nPassword: %s\n" }
+def get_format_suggestion(self, cmd):
+    return { 'a_command' : "Name: %s\nPassword: %s\n" }
 </pre>
 
 The global dict of all commands is built up by first searching the
