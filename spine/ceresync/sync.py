@@ -24,7 +24,22 @@ import Cerebrum_core.Errors as SpineErrors
 import config
 import unittest
 import sys
+import sets
 import errors
+
+## WARNING: HACK ##
+import generated
+for hack in (generated._objref_SpineGroup,
+            generated._objref_SpinePosixShell,
+            generated._objref_SpineAccountAuthentication,
+            generated._objref_SpineAccount):
+    def __eq__(self, other):
+        try:
+            return bool(self._is_equivalent(other))
+        except RuntimeError, e:
+            return False
+    hack.__eq__ = __eq__
+    hack.__hash__ = lambda self:self._hash(2147483647)
 
 class Sync:
     def __init__(self):
@@ -93,29 +108,102 @@ class Sync:
     def get_accounts(self):
         """Get all accounts from Spine. Returns a list of Account objects."""
         t = self._transaction()
-        search = t.get_account_searcher()
-        #dumper = search.get_dumper()
-        #dumper.mark_whatever()
-        #accounts = dumper.dump()
-        # since dumper does not work yet, we'll do it the old way 
-        accounts = search.search()
-        results = []
-        for account in accounts:
-            a = Account(account)
-            results.append(a)
+
+        # create a search
+        account_search = t.get_account_searcher()
+
+        # create a dumper and mark what we want to dump
+        dumper = account_search.get_dumper()
+        dumper.mark_name()
+        dumper.mark_posix_uid()
+        dumper.mark_primary_group()         # reference
+        dumper.mark_shell()                 # reference
+        dumper.mark_gecos()
+        dumper.mark_get_authentications()   # references
+
+        # dump all accounts
+        accounts = dumper.dump()
+
+        # map all groups
+        group_dumper = dumper.dump_primary_group()
+        group_dumper.mark_posix_gid()
+        groups = {}
+        for i in group_dumper.dump():
+            groups[i.reference] = i
+
+        # map all shells
+        shell_dumper = dumper.dump_shell()
+        shell_dumper.mark_name()
+        shell_dumper.mark_shell()
+        shells = {}
+        for i in shell_dumper.dump():
+            shells[i.reference] = i
+
+        # map all authentications
+        auths = []
+        for i in accounts:
+            auths += i.get_authentications
+        auth_dumper = t.get_account_authentication_dumper(auths)
+        auth_dumper.mark_auth_data()
+        auths = {}
+        for i in auth_dumper.dump():
+            auths[i.reference] = i
+
+        # replace corba references with the mappings we have made
+        for i in accounts:
+            i.get_authentications = [auths[j] for j in i.get_authentications]
+            i.password = i.get_authentications[0].auth_data # FIXME: prioritering på type?
+
+            # Should get home directory from server.. must be
+            # related to the active spread or something like that.
+            i.home = "/home/%s" % i.name
+
+            if i.posix_uid_exists:
+                i.primary_group = groups[i.primary_group]
+                i.shell = shells[i.shell].shell
+            else:
+                i.posix_uid = None
+                i.gecos = None
+                i.primary_group = None
+                i.shell = None
+
         t.rollback()
-        return results
+        return accounts
 
     def get_groups(self):
         t = self._transaction()
-        search = t.get_group_searcher()
-        groups = search.search()
-        results = []
+
+        # create a search
+        group_search = t.get_group_searcher()
+
+        # create a dumper and mark what we want to dump
+        dumper = group_search.get_dumper()
+        dumper.mark_name()
+        dumper.mark_get_members()   # references
+        dumper.mark_posix_gid()
+
+        # dump all accounts
+        groups = dumper.dump()
+
+        # map all accounts
+        members = sets.Set()
+        for i in groups:
+            members.union_update(i.get_members)
+        account_dumper = t.get_account_dumper(list(members))
+        account_dumper.mark_name()
+
+        accounts = {}
+        for i in account_dumper.dump():
+            accounts[i.reference] = i
+
         for group in groups:
-            g = Group(group)
-            results.append(g)
+            group.get_members = [accounts[i] for i in group.get_members]
+            group.membernames = [i.name for i in group.get_members]
+            if not group.posix_gid_exists:
+                group.posix_gid = None
+
         t.rollback()
-        return results
+        return groups
 
     def get_persons(self):
         t = self._transaction()
@@ -138,74 +226,6 @@ class Sync:
         t.rollback()
         return results
  
-class Group:           
-    """Stub object for representation of an account"""
-    def __init__(self, group):
-        # Internal Cerebrum ID 
-        self.id = group.get_id()
-        # Username
-        self.name = group.get_name()
-        # Description
-        self.description = group.get_description()
-        # Complete list of members (usernames) 
-        members = group.get_members()
-        # Account objects 
-        self.members = [ Account(a) for a in members ]
-        # Just the usernames
-        self.membernames = [ a.name for a in self.members ]
-        try:
-            # Posix 
-            self.gid = group.get_posix_gid()
-            dir(group)
-        # FIXME: Exception !??    
-        except Exception, e:
-            self.gid = None    
-
-    def __repr__(self):
-        return "<Group %s>" % self.name
-
-class Account:
-    """Stub object for representation of an account"""
-    def __init__(self, account):
-        # Internal Cerebrum ID 
-        self.id = account.get_id()
-        # Username
-        self.name = account.get_name()
-        auths = account.get_authentications()
-        # Dictionary of password hashes, hashmethod as key
-        self.passwords = dict([ (auth.get_method().get_name(), auth.get_auth_data() )
-                            for auth in auths ])
-        # OBSOLETE: Preferred password hash
-        self.password = self.passwords['MD5-crypt'] 
-        # Should get home directory from server.. must be
-        # related to the active spread or something like that.
-        self.home = "/home/%s" % self.name
-        try:
-            # POSIX-enabled features 
-            # Full name
-            self.fullname = account.get_gecos()
-        # FIXME: Exception !??    
-        except Exception, e:
-            #print "Not posix", self.name
-            # owner = account.get_owner() 
-            # Should do owner.get_names() or something.. but that
-            # doesn't work. We'll just write the username as the
-            # fullname instead
-            # Since we don't have POSIX, set to None
-            self.fullname = self.name
-            self.gid = None
-            self.uid = None
-            self.shell = None
-        else:    
-            # Rest of POSIX stuff 
-            group = account.get_primary_group() 
-            self.gid = group.get_posix_gid()
-            self.uid = account.get_posix_uid()
-            self.shell = account.get_shell().get_shell()
-
-    def __repr__(self):
-        return "<Account %s %r>" % (self.name, self.fullname)
-
 class Person:
     """Stub object for representation of a person"""
     def __init__(self, person):
@@ -315,11 +335,11 @@ class TestSync(unittest.TestCase):
         has_bootstrap = [a for a in accounts if a.name == 'bootstrap_account']
         assert has_bootstrap
         bootstrap = has_bootstrap[0]
-        assert bootstrap.fullname == "bootstrap_account"
+        assert bootstrap.name == "bootstrap_account"
         assert bootstrap.password
         # And he doesn't have any of those POSIX stuff 
-        assert not bootstrap.uid 
-        assert not bootstrap.gid
+        assert not bootstrap.posix_uid 
+        assert not bootstrap.primary_group
         assert not bootstrap.shell
 
         # Test for a known POSIX account
@@ -328,10 +348,10 @@ class TestSync(unittest.TestCase):
         stains = [a for a in accounts if a.name == "stain"]
         assert stains
         stain = stains[0]
-        assert stain.uid > 0
+        assert stain.posix_uid > 0
         # Should not be group name, group object, etc.. just gid 
-        assert type(stain.gid) == int
-        assert stain.gid > 0
+        assert type(stain.primary_group.posix_gid) == int
+        assert stain.primary_group.posix_gid > 0
         # HEHEHE 
         self.assertEqual(stain.shell, "/local/gnu/bin/bash")
 
@@ -345,9 +365,9 @@ class TestSync(unittest.TestCase):
         bootstrap = has_bootstrap[0]
         assert "bootstrap_account" in bootstrap.membernames
         # Not a POSIX group
-        assert not bootstrap.gid
+        assert not bootstrap.posix_gid
         # Only member should be bootstrap_account 
-        members = bootstrap.members 
+        members = bootstrap.get_members 
         self.assertEqual(len(members), 1)
         self.assertEqual(members[0].name, "bootstrap_account")
         # FIXME: Should test a posix group 

@@ -23,6 +23,7 @@
 import os
 import errors
 
+
 # Need to handle exceptions better?
 class MultiHandler:
     def __init__(self, *handlers):
@@ -129,26 +130,26 @@ class CLFileBack(FileBack):
 class PasswdFile(CLFileBack):
     filename="/etc/ceresync/passwd"
     def format(self, account):
-        if account.uid is None:
+        if account.posix_uid is None:
             raise errors.NotPosixError, account.name
         return "%s:%s:%s:%s:%s:%s:%s\n" % (
-            account.name, "x", account.uid, account.gid,
-            account.fullname, account.home, account.shell )
+            account.name, "x", account.posix_uid, account.primary_group.posix_gid,
+            account.gecos, account.home, account.shell)
 
 
 class GroupFile(CLFileBack):
     filename="/etc/ceresync/group"
     def format(self, group):
-        if group.gid is None:
+        if group.posix_gid is None:
             raise errors.NotPosixError, group.name
         return "%s:*:%d:%s\n" % (
-            group.name, group.gid, ",".join(group.membernames) )
+            group.name, group.posix_gid, ",".join(group.membernames))
 
 
 class ShadowFile(CLFileBack):
     filename="/etc/ceresync/shadow"
     def format(self, account):
-        if account.uid is None:
+        if account.posix_uid is None:
             raise errors.NotPosixError, account.name
         return "%s:%s:::::::\n" % ( account.name, account.password )
 
