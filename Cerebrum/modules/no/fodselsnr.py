@@ -36,9 +36,9 @@ class InvalidFnrError(ValueError):
     pass
 
 def personnr_ok(nr, _retDate=0):
-    """Returnerer 11-sifret fødselsnummer so string dersom det er gyldig.
+    """Returnerer 11-sifret fødselsnummer som str dersom det er gyldig.
 
-    Første argument kan være enten en (long) int eller en string.
+    Første argument kan være enten en (long) int eller en str.
 
     Andre argument, `_retDate', skal kun brukes internt i denne
     modulen.
@@ -129,6 +129,27 @@ def er_kvinne(nr):
 def fodt_dato(nr):
     'Returner personens fødselsdato på formen (år, måned, dag).'
     return personnr_ok(nr, _retDate=1)
+
+def del_fnr(fnr):
+    """Returner ``fnr`` delt i 2 ints: (dato, personnr).
+
+    Sjekker at ``fnr`` er et gyldig fødselsnummer først; hvis ikke
+    raises en InvalidFnrError.
+
+    """
+    fnr = personnr_ok(fnr)
+    return (int(fnr[:-5]), int(fnr[-5:]))
+
+def del_fnr_4(fnr):
+    """Returner ``fnr`` delt i 4 ints: (dag, måned, 2-sifret år, personnr).
+
+    Sjekker at ``fnr`` er et gyldig fødselsnummer først; hvis ikke
+    raises en InvalidFnrError.
+
+    """
+    fnr = personnr_ok(fnr)
+    return (int(fnr[0:2]), int(fnr[2:4]), int(fnr[4:6]), int(fnr[6:]))
+
 
 if __name__ == '__main__':
     import sys
