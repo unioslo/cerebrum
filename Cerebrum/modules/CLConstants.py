@@ -18,12 +18,21 @@
 
 import cereconf
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
+from Cerebrum import Constants
+from Cerebrum.Constants import _CerebrumCode
 
-class _ChangeTypeCode(DatabaseAccessor):
-    def __init__(self, category, type):
+class _ChangeTypeCode(_CerebrumCode):
+    _lookup_code_column = 'change_type_id'
+    # _lookup_str_column = 'status_str'
+    _lookup_table = '[:table schema=cerebrum name=change_type]'
+    # _insert_dependency = _PersonAffiliationCode
+    _lookup_desc_column = 'msg_string'
+    
+    def __init__(self, category, type, msg_string):
         self.category = category
         self.type = type
         self.int = None
+        self.msg_string = msg_string
 
     def __str__(self):
         return "%s:%s" % (self.category, self.type)
@@ -37,22 +46,46 @@ class _ChangeTypeCode(DatabaseAccessor):
                 'type': self.type}))
         return self.int
 
-class CLConstants(object):
+    def insert(self):
+        self._pre_insert_check()
+        self.sql.execute("""
+        INSERT INTO %(code_table)s
+          (%(code_col)s, category, type ,%(desc_col)s)
+        VALUES
+          ( %(code_seq)s, :category, :type, :desc)""" % {
+            'code_table': self._lookup_table,
+            'code_col': self._lookup_code_column,
+            'desc_col': self._lookup_desc_column,
+            'code_seq': self._code_sequence},
+                         {'category': self.category,
+                          'type': self.type,
+                          'desc': self.msg_string})
+        
+
+class CLConstants(Constants.Constants):
 
     """Singleton whose members make up all needed coding values.
 
     Defines a number of variables that are used to get access to the
     string/int value of the corresponding database key."""
 
-    g_add = _ChangeTypeCode('e_group', 'add')
-    g_rem = _ChangeTypeCode('e_group', 'rem')
-    g_create = _ChangeTypeCode('e_group', 'create')
-    g_destroy = _ChangeTypeCode('e_group', 'destroy')
+    g_add = _ChangeTypeCode('e_group', 'add',
+                            'added %(subject)s to %(dest)s')
+    g_rem = _ChangeTypeCode('e_group', 'rem',
+                            'removed %(subject)s from %(dest)s')
+    g_create = _ChangeTypeCode('e_group', 'create',
+                               'created %(subject)s')
+    g_destroy = _ChangeTypeCode('e_group', 'destroy',
+                                'destroyed %(subject)s')
 
-    a_create =  _ChangeTypeCode('e_account', 'create')
-    a_password =  _ChangeTypeCode('e_account', 'password')
-    p_def_fg =  _ChangeTypeCode('e_account', 'def_fg')
-    p_move =  _ChangeTypeCode('e_account', 'move')
+    a_create =  _ChangeTypeCode('e_account', 'create',
+                                'created %(subject)s')
+    a_password =  _ChangeTypeCode('e_account', 'password',
+                                  'new password for %(subject)s')
+    p_def_fg =  _ChangeTypeCode('e_account', 'def_fg',
+                                'set %(dest)s as default group for %(subject)s')
+    p_move =  _ChangeTypeCode('e_account', 'move',
+                              '%(subject)s moved to %(param_name)s')
 
     def map_const(self, num):
         skip = dir(_ChangeTypeCode.sql)
