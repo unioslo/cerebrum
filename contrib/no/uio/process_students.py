@@ -203,9 +203,10 @@ def make_letters(data_file=None, type=None, range=None):
             continue
         address = address[0]
         alines = address['address_text'].split("\n")+[""]
-        tpl['address_line1'] = alines[0]
-        tpl['address_line2'] = alines[1]
-        tpl['address_line3'] = address['p_o_box']
+        fullname = person.get_name(const.system_cached, const.name_full)
+        tpl['address_line1'] = fullname
+        tpl['address_line2'] = alines[0]
+        tpl['address_line3'] = alines[1]
         tpl['zip'] = address['postal_number']
         tpl['city'] = address['city']
         tpl['country'] = address['country']
@@ -213,11 +214,12 @@ def make_letters(data_file=None, type=None, range=None):
         tpl['uname'] = account.account_name
         tpl['password'] =  all_passwords[account_id][0]
         tpl['birthdate'] = person.birth_date.strftime('%Y-%m-%d')
-        tpl['fullname'] =  person.get_name(const.system_cached, const.name_full)
+        tpl['fullname'] =  fullname
         tmp = person.get_external_id(id_type=const.externalid_fodselsnr,
                                      source_system=const.system_fs)
         tpl['birthno'] =  tmp[0]['external_id']
         tpl['emailadr'] =  "TODO"  # We probably don't need to support this...
+        tpl['account_id'] = account_id
         dta[account_id] = tpl
 
     # Print letters sorted by zip.  Each template type has its own
@@ -228,9 +230,6 @@ def make_letters(data_file=None, type=None, range=None):
     files = {}
     tpls = {}
     counters = {}
-    # TODO: Barcode handling, we need to determine what should be
-    # written in the barcode, and how the template should know that it
-    # needs barcode handling.
     for account_id in keys:
         password, brev_profil = all_passwords[account_id][:2]
         letter_type = "%s.%s" % (brev_profil['mal'], brev_profil['type'])
@@ -247,6 +246,9 @@ def make_letters(data_file=None, type=None, range=None):
             dta[account_id]['lopenr'] = counters[letter_type]
             letter_info["%s-%i" % (brev_profil['mal'], counters[letter_type])] = \
                                 [account_id, [password, brev_profil, counters[letter_type]]]
+            # We allways create a barcode file, this is not strictly
+            # neccesary
+            make_barcode(account_id)
         files[letter_type].write(tpls[letter_type].apply_template(
             'body', dta[account_id]))
         counters[letter_type] += 1
@@ -268,6 +270,12 @@ def make_letters(data_file=None, type=None, range=None):
             os.unlink(tpls[letter_type].logfile)
         except IOError, msg:
             print msg
+
+def make_barcode(account_id):
+    ret = os.system("%s -e EAN -E -n -b %012i > barcode_%s.eps" % (
+        cereconf.PRINT_BARCODE, account_id, account_id))
+    if(ret):
+        logger.warn("Bardode returned %s" % ret)
 
 def process_students_callback(person_info):
     fnr = fodselsnr.personnr_ok("%06d%05d" % (int(person_info['fodselsdato']),
@@ -386,6 +394,7 @@ def usage():
     --workdir dir:  set workdir for --reprint
     --type type: set type for --reprint
     --reprint range:  Re-print letters in case of paper-jam etc.
+    --with-lpr: Spool the file with new user letters to printer
 
 ./contrib/no/uio/process_students.py --fast-test -d -d -C ../uiocerebrum/etc/config/studconfig.xml -s ~/.usit.cerebrum.etc/fsprod/merged_info.xml -c
 
