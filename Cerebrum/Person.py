@@ -229,13 +229,11 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
             # db_prim is used to see if a row with that primary key
             # exists.
 	    db_prim = {}
-            for (t_person_id, t_ou_id, t_affiliation, t_source,
-                 t_status, deleted_date) in \
-                 self.get_affiliations(include_deleted = True):
-                if source == t_source:
-                    idx = "%d:%d:%d" % (t_ou_id, t_affiliation, t_status)
+            for row in self.get_affiliations(include_deleted = True):
+                if source == row['source_system']:
+                    idx = "%d:%d:%d" % (row['ou_id'], row['affiliation'], row['status'])
                     db_affil[idx] = deleted_date
-		    db_prim['%s:%s' % (t_ou_id, t_affiliation)] = idx
+		    db_prim['%s:%s' % (row['ou_id'], row['affiliation']] = idx
             pop_affil = self.__affil_data
             for prim in pop_affil.keys():
                 idx = "%s:%d" % (prim, pop_affil[prim])
@@ -706,7 +704,7 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
 
         return self.query("""
         SELECT person_id, ou_id, affiliation, source_system, status,
-          deleted_date
+          deleted_date, create_date
         FROM [:table schema=cerebrum name=person_affiliation_source]
         %s""" % where, fetchall = fetchall)
 
