@@ -13,3 +13,6 @@ password: client
 [idl]
 path: .
 core: SpineCore.idl
+
+[bootstrap]
+cereweb: .

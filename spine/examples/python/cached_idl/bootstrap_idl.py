@@ -19,8 +19,6 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 import sys
-sys.path.append('/home/evenwiik/install/lib/python2.4/site-packages/')
-
 import os
 import urllib
 
@@ -36,6 +34,8 @@ idl_path = config.conf.get('idl', 'path')
 idl_core = os.path.join(idl_path, config.conf.get('idl', 'core'))
 
 ior_url = config.conf.get('corba', 'url')
+
+sys.path.append(config.conf.get('bootstrap','cereweb'))
 
 def connect(args=[]):
     """Returns the server object.
