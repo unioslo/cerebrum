@@ -32,10 +32,9 @@ following additional properties are defined:
 
 from Cerebrum import Utils
 
-OU_class = Utils.Factory.get("OU")
+from Cerebrum.OU import OU
 
-
-class Stedkode(OU_class):
+class Stedkode(OU):
 
     __read_attr__ = ('__in_db',)
     __write_attr__ = ('landkode', 'institusjon', 'fakultet', 'institutt',
