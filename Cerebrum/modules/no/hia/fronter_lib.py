@@ -117,57 +117,55 @@ host_config = {
 #            return 10
 
 class FronterUtils(object):
-    def UE2KursID(type, *rest):
-        """Lag ureg2000-spesifikk "kurs-ID" av primærnøkkelen til en
-        undervisningsenhet eller et EVU-kurs.  Denne kurs-IDen forblir
-        uforandret så lenge kurset pågår; den endres altså ikke bår man
-        f.eks. kommer til et nytt semester.
+    def UE2RomID(prefix, aar, termk, instnr, sko, romtype,
+                 emnekode, versjon, termnr):
+        """Lag rom-ID for undervisningsenhet.
 
-        Første argument angir hvilken type FS-entitet de resterende
-        argumentene stammer fra; enten 'KURS' (for undervisningsenhet) eller
-        'EVU' (for EVU-kurs)."""
-        type = type.lower()
-        if type != 'kurs':
-            raise ValueError, "ERROR: Ukjent kurstype <%s> (%s)" % (type, rest)
+        Lag Cerebrum-spesifikk 'rom-ID' av elementene i primærnøkkelen
+        til en undervisningsenhet.  Denne rom-IDen forblir uforandret
+        så lenge kurset pågår; for flersemesterkurs vil den altså ikke
+        endres når man f.eks. kommer til ny undervisningsenhet
+        pga. nytt semester.
 
-        # Vi vet her at $type er 'KURS', og vet dermed også hvilke
-        # elementer som er med i @rest:
-        if len(rest) != 6:
-            raise ValueError, "ERROR: Undervisningsenheter skal identifiseres av 6 "+\
-                  "felter, ikke <%s>" % ">, <".join(rest)
+        Første argument angir (case-sensitivt) prefiks for rom-IDen;
+        de resterende argumentene vil alle bli konvertert til
+        lowercase i den endelige IDen."""
 
-        instnr, emnekode, versjon, termk, aar, termnr = rest
         termnr = int(termnr)
         aar = int(aar)
-        tmp_termk = re.sub('[^a-zA-Z0-9]', '_', termk).lower()
-        # Finn $termk og $aar for ($termnr - 1) semestere siden:
-        if (tmp_termk == 'h_st'):
-            if (termnr % 2) == 1:
-                termk = 'høst'
+        termk = termk.lower()
+        # Rusle bakover i tid til vi kommer til undervisningsenheten i
+        # samme kurs som denne, men med terminnr 1.  Pass dog på å
+        # ikke gå lenger tilbake enn høst 2004 (det første semesteret
+        # HiA hadde automatisk synkronisering fra Cerebrum til
+        # ClassFronter).
+        def forrige_semester(termk, aar):
+            if termk == 'høst':
+                return ('vår', aar)
+            elif termk == 'vår':
+                return ('høst', aar - 1)
             else:
-                termk = 'vår'
-            aar -= int((termnr - 1) / 2)
-        elif tmp_termk == 'v_r':
-            if (termnr % 2) == 1:
-                termk = 'vår'
-            else:
-                termk = 'høst'
-            aar -= int(termnr / 2)
-        else:
-            # Vi krysser fingrene og håper at det aldri vil benyttes andre
-            # verdier for $termk enn 'vår' og 'høst', da det i så fall vil
-            # bli vanskelig å vite hvilket semester det var "for 2
-            # semestere siden".
-            raise ValueError, "ERROR: Unknown terminkode <%s> for emnekode <%s>." % (
-                termk, emnekode)
+                # Vi krysser fingrene og håper at det aldri vil
+                # benyttes andre verdier for termk enn 'vår' og
+                # 'høst', da det i så fall vil bli vanskelig å vite
+                # hvilket semester det var "for 2 semestere siden".
+                raise ValueError, \
+                      "ERROR: Unknown terminkode <%s> for emnekode <%s>." % (
+                    termk, emnekode)
 
-        # $termnr er ikke del av den returnerte strengen.  Vi har benyttet
-        # $termnr for å beregne $termk og $aar ved $termnr == 1; det er
-        # altså implisitt i kurs-IDen at $termnr er lik 1 (og dermed
-        # unødvendig å ta med).
-        ret = "%s:%s:%s:%s:%s:%s" % (type, instnr, emnekode, versjon, termk, aar)
-        return ret.lower()
-    UE2KursID = staticmethod(UE2KursID)
+        while termnr > 1 and (termk, aar) <> ('høst', 2004):
+            (termk, aar) = forrige_semester(termk, aar)
+            termnr -= 1
+
+        # I motsetning til ved UiO, må termnr på HiA tas med som en
+        # del av den returnerte kurs-ID-strengen, da vi risikerer å ha
+        # termnr forskjellig fra 1 for kurs med kursid i semesteret
+        # høst 2004.
+        rom_id = ":".join([str(x).lower() for x in
+                           (aar, termk, instnr, sko, romtype,
+                            emnekode, versjon, termnr)])
+        return ':'.join((prefix, rom_id))
+    UE2RomID = staticmethod(UE2RomID)
 
 class Fronter(object):
     STATUS_ADD = 1

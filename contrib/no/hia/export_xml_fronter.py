@@ -244,12 +244,15 @@ def register_spread_groups(emne_info, stprog_info):
             fak_sko = "%02d0000" % emne_info[emnekode]['fak']
 
             # Rom for undervisningsenheten.
-            emne_id_prefix = '%s:fs:emner:%s:%s:%s:%s' % (
-                cereconf.INSTITUTION_DOMAIN_NAME,
-                ar, term, instnr, fak_sko)
-            emne_sted_id = 'STRUCTURE:%s' % emne_id_prefix
-            emne_rom_id = 'ROOM:%s:undenh:%s:%s:%s' % (
-                emne_id_prefix, emnekode, versjon, terminnr)
+            emne_id_prefix = ':'.join((cereconf.INSTITUTION_DOMAIN_NAME,
+                                       'fs', 'emner'))
+            emne_rom_id = fronter_lib.FronterUtils.UE2RomID(
+                'ROOM:%s' % emne_id_prefix,
+                ar, term, instnr, fak_sko, 'undenh',
+                emnekode, versjon, terminnr)
+            emne_id_term_prefix = ':'.join((emne_id_prefix, ar, term,
+                                            instnr, fak_sko))
+            emne_sted_id = 'STRUCTURE:%s' % emne_id_term_prefix
             if int(terminnr) == 1 or (ar, term) == this_sem:
                 # Registrer rom for alle undervisningsenheter som
                 # danner starten på et kurs (terminnr == 1).
