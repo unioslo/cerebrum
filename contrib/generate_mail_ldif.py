@@ -59,6 +59,9 @@ local_uio_domain = {}
 base_dn = "dc=uio,dc=no"
 db_tt2ldif_tt = {'account': 'user',
                  'forward': 'forwardAddress'}
+spam_act2dig = {'noaction': 0,
+                'spamfolder': 1,
+                'dropspam':2}
 
 def validate_primary(dom, prim):
     if prim in ['pat', 'mons', 'goggins', 'miss', 'smtp', 'mail-mx1',
@@ -74,16 +77,6 @@ def validate_primary(dom, prim):
 def list_machines():
     disk = Disk.Disk(db)
     res = []
-    pat = r'\/(\S+)\/(\S+)\/'
-    for d in disk.list():
-        path = d['path']
-        r = re.search(pat, path)
-        res.append([r.group(1), r.group(2)])
-    return res
-
-def list_machines():
-    disk = Disk.Disk(db)
-    res = []
     pat = r'/([^/]+)/([^/]+)/'
     for d in disk.list():
         path = d['path']
@@ -95,6 +88,7 @@ def make_home2spool():
     spoolhost = {}
     cname_cache = {}
     curdom, lowpri, primary = "", "", ""
+    no_uio = r'\.uio\.no'
     
     # Define domains in zone uio.no whose primary MX is one of our
     # mail servers as "local domains".
@@ -242,8 +236,8 @@ def read_addr():
     glob_addr = {}
     for dom_catg in (co.email_domain_category_uio_globals,):
         domain = str(dom_catg)
-        glob_addr[domain] = {}
-        lp_dict = glob_addr[domain]
+        lp_dict = {}
+        glob_addr[domain] = lp_dict
         # Fill glob_addr[magic domain][local_part]
         for row in mail_addr.list_email_addresses_ext(domain):
             lp_dict[row['local_part']] = row
@@ -257,10 +251,11 @@ def read_addr():
                 # Use 'row', and not 'row2', for domain.  Using 'dom2'
                 # would give us 'UIO_GLOBALS'.
                 addr = _build_addr(lp, row['domain'])
-                a_id, t_id = [int(row2[x])
-                              for x in ('address_id', 'target_id')]
+                t_id = int(row2['target_id'])
                 targ2addr.setdefault(t_id, []).append(addr)
-                aid2addr[a_id] = addr
+                # Note: We don't need to update aid2addr here, as
+                # addresses @UIO_GLOBALS aren't allowed to be primary
+                # addresses.
     for row in mail_addr.list_email_addresses_ext():
         lp, dom = row['local_part'], row['domain']
         # If this address is in a domain that is subject to overrides
@@ -297,7 +292,8 @@ def read_spam():
         if  verbose and (counter % 10000) == 0:
             print "  done %d list_email_spam_filters_ext(): %d sec." % (
                 counter, now() - curr)
-        targ2spam[int(row['target_id'])] = [row['level'], row['code_str']]
+        targ2spam[int(row['target_id'])] = [row['level'],
+                                            spam_act2dig.get(row['code_str'], 0)]
 
 def read_quota():
     counter = 0
@@ -342,11 +338,44 @@ def read_forward():
 
 def read_vacation():
     mail_vaca = Email.EmailVacation(db)
+    cur = db.DateFromTicks(time.time())
+    def prefer_row(row, oldval):
+        o_txt, o_sdate, o_edate, o_enable = oldval
+        txt, sdate, edate, enable = [row[x]
+                                     for x in ('vacation_text', 'start_date',
+                                               'end_date', 'enable')]
+        spans_now = (sdate <= cur and (edate is None or edate >= cur))
+        o_spans_now = (o_sdate <= cur and (o_edate is None or o_edate >= cur))
+        row_is_newer = sdate > o_sdate
+        if spans_now:
+            if enable == 'T' and o_enable == 'F': return True
+            elif enable == 'T' and o_enable == 'T':
+                if o_spans_now:
+                    return row_is_newer
+                else: return True
+            elif enable == 'F' and o_enable == 'T':
+                if o_spans_now: return False
+                else: return True
+            else:
+                if o_spans_now: return row_is_newer
+                else: return True
+        else:
+            if o_spans_now: return False
+            else: return row_is_newer
+
     for row in mail_vaca.list_email_vacations():
-        targ2vacation[int(row['target_id'])] = [row['vacation_text'],
-                                                row['start_date'],
-                                                row['end_date'],
-                                                row['enable']]
+        t_id = int(row['target_id'])
+        insert = False
+        if targ2vacation.has_key(t_id):
+            if prefer_row(row, targ2vacation[t_id]):
+                insert = True
+        else:
+            insert = True
+        if insert:
+            targ2vacation[t_id] = (row['vacation_text'],
+                                   row['start_date'],
+                                   row['end_date'],
+                                   row['enable'])
 
 def read_accounts():
     acc = Account.Account(db)
@@ -417,23 +446,22 @@ description: mail-config ved UiO.\n
             # Find vacations-settings:
             if targ2vacation.has_key(t):
                 txt, start, end, enable = targ2vacation[t]
-                if enable == 'T':
-                    cur = db.DateFromTicks(time.time())
-                    if start and end and start <= cur and end >= cur:
-                        tmp = re.sub('\n', '', base64.encodestring(txt))
-                        rest += "tripnote:: %s\n" % tmp
+                tmp = re.sub('\n', '', base64.encodestring(txt))
+                rest += "tripnote:: %s\n" % tmp
+                if enable:
+                    rest += "tripnoteActive: TRUE\n"
 
             # Find mail-server settings:
             if targ2server_id.has_key(t):
                 type, name = serv_id2server[int(targ2server_id[t])]
                 if type == co.email_server_type_nfsmbox:
                     maildrop = "/uio/mailspool/mail"
-                    tmphome = "/home/%s" % target
-                    r = re.search(r'^/([^/]+/[^/]+)/', home)
+                    tmphome = "/hom/%s" % target
+                    r = re.search(r'^(/[^/]+/[^/]+)/', home)
                     if r:
                         tmphome = r.group(1)
                         if home2spool.has_key(tmphome):
-                            maildrop = home2spool(tmphome)
+                            maildrop = home2spool[tmphome]
                     rest += "spoolInfo: home=%s maildrop=%s/%s\n" % (
                         home, maildrop, target)
                 elif type == co.email_server_type_cyrus:
@@ -554,8 +582,8 @@ description: mail-config ved UiO.\n
         # Find spam-settings:
         if targ2spam.has_key(t):
             level, action = targ2spam[t]
-            f.write("spamLevel: %s\n" % level)
-            f.write("spamAction: %s\n" % action)
+            f.write("spamLevel: %d\n" % level)
+            f.write("spamAction: %d\n" % action)
         else:
             # Set default-settings.
             f.write("spamLevel: 9999\n")
