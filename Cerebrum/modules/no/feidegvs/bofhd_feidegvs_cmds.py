@@ -472,43 +472,14 @@ class BofhdExtension(object):
             mapping = {'uname': cache[n]['account_id'],
                        'password': cache[n]['password'],
                        'account_id': account.entity_id}#,
-		       #'emailadr': account.get_primary_mailaddress()}
-#                       'lopenr': ''}
-#            if tpl_lang.endswith("letter"):
-#                mapping['barcode'] = '%s/barcode_%s.eps' % (
-#                    tmp_dir, account.entity_id)
-#                try:
-#                    th.make_barcode(account.entity_id, mapping['barcode'])
-#                except IOError, msg:
-#                    raise CerebrumError(msg)
+
             person = self._get_person('entity_id', account.owner_id)
             fullname = person.get_name(self.const.system_cached, self.const.name_full)
             mapping['fullname'] =  fullname
-#            if tpl_lang.endswith("letter"):
-#                try:
-#                    address = person.get_entity_address(source=self.const.system_fs,
-#                                                        type=self.const.address_post)
-#                except Errors.NotFoundError:
-#                    try:
-#                        address = person.get_entity_address(source=self.const.system_lt,
-#                                                            type=self.const.address_post)
-#                    except Errors.NotFoundError:
-#                        ret.append("Error: Couldn't get authoritative address for %s" % account.account_name)
-#                        continue
-#                if not address:
-#                    ret.append("Error: Couldn't get authoritative address for %s" % account.account_name)
-#                    continue
-#                address = address[0]
-                #alines = address['address_text'].split("\n")+[""]
             mapping['address_line1'] = fullname
 	    mapping['address_line2'] = person.birth_date.strftime('%Y-%m-%d')
-                #mapping['address_line3'] = alines[1]
-                #mapping['zip'] = address['postal_number']
-                #mapping['city'] = address['city']
-                #mapping['country'] = address['country']
-
 	    mapping['birthdate'] = person.birth_date.strftime('%Y-%m-%d')
-	    mapping['emailadr'] =  account.get_primary_mailaddress() #"TODO"  # We probably don't need to support this...
+	    mapping['emailadr'] =  account.get_primary_mailaddress() 
 
             out.write(th.apply_template('body', mapping))
         if th._footer is not None:
@@ -759,6 +730,48 @@ class BofhdExtension(object):
         return ret
 
     # quarantine commands slutt
+
+
+    # group commands start
+
+
+    # group create
+    all_commands['group_create'] = Command(
+        ("group", "create"), GroupName(help_ref="group_name_new"),
+        SimpleString(help_ref="string_description"),
+        fs=FormatSuggestion("Group created as a normal group, internal id: %i", ("group_id",)),
+        perm_filter='can_create_group')
+    def group_create(self, operator, groupname, description):
+        self.ba.can_create_group(operator.get_entity_id())
+        g = Utils.Factory.get('Group')(self.db)
+        g.populate(creator_id=operator.get_entity_id(),
+                   visibility=self.const.group_visibility_all,
+                   name=groupname, description=description)
+        try:
+            g.write_db()
+        except self.db.DatabaseError, m:
+            raise CerebrumError, "Database error: %s" % m
+        return {'group_id': int(g.entity_id)}
+
+    # group add
+    all_commands['group_add'] = Command(
+        ("group", "add"), AccountName(help_ref="account_name_src", repeat=True),
+        GroupName(help_ref="group_name_dest", repeat=True),
+        GroupOperation(optional=True), perm_filter='can_alter_group')
+    def group_add(self, operator, src_name, dest_group,
+                  group_operator=None):
+        return self._group_add(operator, src_name, dest_group,
+                               group_operator, type="account")
+
+    # group remove
+    all_commands['group_remove'] = Command(
+        ("group", "remove"), AccountName(help_ref="account_name_member", repeat=True),
+        GroupName(help_ref="group_name_dest", repeat=True),
+        GroupOperation(optional=True), perm_filter='can_alter_group')
+    def group_remove(self, operator, src_name, dest_group,
+                     group_operator=None):
+        return self._group_remove(operator, src_name, dest_group,
+                               group_operator, type="account")
 
     #
     # user commands start
@@ -1066,52 +1079,7 @@ class BofhdExtension(object):
     def user_create_basic_prompt_func(self, session, *args):
         return self._user_create_prompt_func_helper('Account', session, *args)
 
-    # commands that are noe available in jbofh, but used by other clients
-    #
 
-    all_commands['get_persdata'] = None
-
-    def get_persdata(self, operator, uname):
-        ac = self._get_account(uname)
-        person_id = "entity_id:%i" % ac.owner_id
-        person = self._get_person(*self._map_person_id(person_id))
-        ret = {
-            'is_personal': len(ac.get_account_types()),
-            'fnr': [{'id': r['external_id'],
-                     'source': "%s" % self.num2const[r['source_system']]}
-                    for r in person.get_external_id(id_type=self.const.externalid_fodselsnr)]
-            }
-        ac_types = ac.get_account_types(all_persons_types=True)        
-        if ret['is_personal']:
-            ac_types.sort(lambda x,y: int(x['priority']-y['priority']))
-            for at in ac_types:
-                ac2 = self._get_account(at['account_id'], idtype='id')
-                ret.setdefault('users', []).append(
-                    (ac2.account_name, '%s@UIO_HOST' % ac2.account_name,
-                     at['priority'], at['ou_id'], "%s" % self.num2const[int(at['affiliation'])]))
-            # TODO: kall ac.list_accounts_by_owner_id(ac.owner_id) for
-            # å hente ikke-personlige konti?
-        if ac.home is not None:
-            ret['home'] = ac.home
-        else:
-            disk = Utils.Factory.get('Disk')(self.db)
-            disk.find(ac.disk_id)
-            ret['home'] = '%s/%s' % (disk.path, ac.account_name)
-        ret['navn'] = {'cached': person.get_name(
-            self.const.system_cached, self.const.name_full)}
-        try:
-            ret['work_title'] = person.get_name(
-                self.const.system_lt, self.const.name_work_title)
-        except Errors.NotFoundError:
-            pass
-        try:
-            ret['personal_title'] = person.get_name(
-                self.const.system_lt, self.const.name_personal_title)
-        except Errors.NotFoundError:
-            pass
-        return ret
-
-    #
     # misc helper functions.
     # TODO: These should be protected so that they are not remotely callable
     #
@@ -1226,8 +1194,7 @@ class BofhdExtension(object):
             if idtype == 'exp':
                 raise NotImplementedError, "Lack API support for this"
             elif idtype == 'fnr':
-                for ss in [self.const.system_fs, self.const.system_lt,
-                           self.const.system_manual, self.const.system_ureg]:
+                for ss in [self.const.system_sas, self.const.system_manual]:
                     try:
                         person.clear()
                         person.find_by_external_id(self.const.externalid_fodselsnr, id,
