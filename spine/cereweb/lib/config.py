@@ -26,3 +26,5 @@ path = os.path.dirname(__file__) or '.'
 conf = ConfigParser.ConfigParser()
 conf.read(os.path.join(path, 'cereweb.conf.template'))
 conf.read(os.path.join(path, 'cereweb.conf'))
+
+# arch-tag: 4f424b2f-f6a7-4181-8917-4885cda8799b
