@@ -125,6 +125,52 @@ installed into c:\windows\system32::
   ssleay32.dll
   libssl32.dll
 
+GnuPG
+-----
+
+PGP is used to encrypt cleartext passwords in the database, as Ceresync
+needs the cleartext password to set it in Active Directory. (However, AD
+does not store the password in cleartext, but there is no official way
+to store the 'hash' directly)
+
+Download GnuPG for Win32 from
+http://www.gnupg.org/(en)/download/index.html - for instance
+gnupg-w32cli-1.4.0a.zip. Extract to c:\gnupg
+
+Download libiconv.dll from http://prdownloads.sourceforge.net/gettext/ -
+for instance libiconv-1.9.1.bin.woe32.zip. Extract bin\libiconv.dll to
+c:\gnupg or c:\windows\system32
+
+Start a Command shell (start->run->cmd ) and run these commands:
+
+  c:
+  cd \gnupg
+  gpg --genkey
+
+Use the defaults. Generate a key, name it "Cerebrum win.ntnu.no"
+(the AD domain name) or something. Use a blank password.
+
+The output will be something like:
+
+    pub   1024D/E068C28A 2005-03-12 [expires: 2006-03-12]
+          Key fingerprint = D29C 4171 A980 DE4C 789F  CFB4 E312 D5A7 E068 C28A
+    uid                  Cerebrum twin.itea.ntnu.no
+    sub   2048g/4D791EAD 2005-03-12 [expires: 2006-03-12] 
+
+E068C28A is the key ID to be inserted into cereconf.py AUTH_PGP. You
+will also have to extract the generated public key and import it on the
+Spine server:
+
+  gpg --armor --export 0xE068C28A > twin.itea.ntnu.no.asc
+
+(You might also use the famous cut-and-paste technology =) )
+
+On the Cerebrum server:
+
+  gpg --import twin.itea.ntnu.no.asc
+  gpg --edit-key 0xE068C28A
+     Sign the key so that gpg won't complain about "untrusted key".
+
 
 Environment settings
 ~~~~~~~~~~~~~~~~~~~~
