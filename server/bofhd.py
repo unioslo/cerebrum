@@ -53,7 +53,7 @@ import cereconf
 from Cerebrum import Errors
 from Cerebrum import Utils
 from Cerebrum.extlib import logging
-from Cerebrum.modules.bofhd.errors import CerebrumError
+from Cerebrum.modules.bofhd.errors import CerebrumError, ServerRestartedError
 from Cerebrum.modules.bofhd.help import Help
 from Cerebrum.modules.bofhd.xmlutils import \
      xmlrpc_to_native, native_to_xmlrpc
@@ -96,7 +96,7 @@ class BofhdSession(object):
         WHERE auth_time < :auth OR last_seen < :last""",
                          {'auth': auth_threshold,
                           'last': seen_threshold})
-        
+
     # TODO: we should remove all state information older than N
     # seconds
     def set_authenticated_entity(self, entity_id):
@@ -139,8 +139,8 @@ class BofhdSession(object):
         if self._entity_id is not None:
             return self._entity_id
         try:
-            self._entity_id = self._db.query_1("""
-            SELECT account_id
+            self._entity_id, self.auth_time = self._db.query_1("""
+            SELECT account_id, auth_time
             FROM [:table schema=cerebrum name=bofhd_session]
             WHERE session_id=:session_id""", {'session_id': self._id})
             if int(Random().random()*10) == 0:   # about 10% propability of update
@@ -220,7 +220,10 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
             # Exceptions with unicode characters in the message
             # produce a UnicodeError when cast to str().  Fix by
             # encoding as utf-8
-            ret = "%s: %s"  % (e.__class__.__name__, e.args[0])
+            if e.args:
+                ret = "%s: %s"  % (e.__class__.__name__, e.args[0])
+            else:
+                ret = e.__class__.__name__
             if isinstance(ret, unicode):
                 raise sys.exc_info()[0], ret.encode('utf-8')
             else:
@@ -322,25 +325,28 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
             session = BofhdSession(self.server.db)
             session_id = session.set_authenticated_entity(account.entity_id)
             self.server.db.commit()
+            self.server.known_sessions[session_id] = 1
             return session_id
         except Exception:
             self.server.db.rollback()
             raise
 
-    def bofhd_logout(self, sessionid):
-        session = BofhdSession(self.server.db, sessionid)
+    def bofhd_logout(self, session_id):
+        session = BofhdSession(self.server.db, session_id)
         try:
             session.clear_state()
+            if self.server.known_sessions.has_key(session_id):
+                del(self.server.known_sessions[session_id])
             self.server.db.commit()
         except Exception:
             self.server.db.rollback()
             raise
         return "OK"
 
-    def bofhd_get_commands(self, sessionid):
+    def bofhd_get_commands(self, session_id):
         """Build a dict of the commands available to the client."""
 
-        session = BofhdSession(self.server.db, sessionid)
+        session = BofhdSession(self.server.db, session_id)
         entity_id = session.get_entity_id()
         commands = {}
         for inst in self.server.cmd_instances:
@@ -390,9 +396,9 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
 ##         """Check if arg is a legal value for the given argtype"""
 ##         pass
 
-    def bofhd_help(self, sessionid, *group):
+    def bofhd_help(self, session_id, *group):
         logger.debug("Help: %s" % str(group))
-        commands = self.bofhd_get_commands(sessionid)
+        commands = self.bofhd_get_commands(session_id)
         if len(group) == 0:
             ret = self.server.help.get_general_help(commands)
         elif group[0] == 'arg_help':
@@ -418,12 +424,15 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
                 new_args = args[:next_tuple] + (x,) + args[next_tuple+1:]
                 self._run_command_with_tuples(func, session, new_args, myret)
 
-    def bofhd_run_command(self, sessionid, cmd, *args):
+    def bofhd_run_command(self, session_id, cmd, *args):
         """Execute the callable function (in the correct module) with
-        the given name after mapping sessionid to username"""
+        the given name after mapping session_id to username"""
 
-        session = BofhdSession(self.server.db, sessionid)
+        session = BofhdSession(self.server.db, session_id)
         entity_id = session.get_entity_id()
+        if not self.server.known_sessions.has_key(session_id):
+            self.server.known_sessions[session_id] = 1
+            raise ServerRestartedError()
         self.server.db.cl_init(change_by=entity_id)
         logger.debug("Run command: %s (%s)" % (cmd, args))
         func = getattr(self.server.cmd2instance[cmd], cmd)
@@ -455,7 +464,7 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
             self.server.db.rollback()
             raise
 
-    def bofhd_call_prompt_func(self, sessionid, cmd, *args):
+    def bofhd_call_prompt_func(self, session_id, cmd, *args):
         """Return a dict with information on how to prompt for a
         parameter.  The dict can contain the following keys:
         - prompt : message string
@@ -469,21 +478,21 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
           (("%5s %s", 'foo', 'bar'), return-value).  The first row is
           used as header
         - raw : don't use map after all"""
-        session = BofhdSession(self.server.db, sessionid)
+        session = BofhdSession(self.server.db, session_id)
         instance, cmdObj = self.server.get_cmd_info(cmd)
         if cmdObj._prompt_func is not None:
             logger.debug("prompt_func: %s" % str(args))
             return getattr(instance, cmdObj._prompt_func.__name__)(session, *args)
         raise CerebrumError, "Command has no prompt func"
         
-    def bofhd_get_default_param(self, sessionid, cmd, *args):
+    def bofhd_get_default_param(self, session_id, cmd, *args):
         """Get default value for a parameter.  Returns a string.  The
         client should append '[<returned_string>]: ' to its prompt.
 
         Will either use the function defined in the command object, or
         in the corresponding parameter object.
         """
-        session = BofhdSession(self.server.db, sessionid)
+        session = BofhdSession(self.server.db, session_id)
         instance, cmdObj = self.server.get_cmd_info(cmd)
 
         # If the client calls this method when no default function is defined,
@@ -499,12 +508,21 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
 class BofhdServer(object):
     def __init__(self, database, config_fname):
         self.db = database
-        self.const = Utils.Factory.get('Constants')(database)
+        self.config_fname = config_fname
+        self.read_config()
+        self.known_sessions = {}
+
+    def read_config(self):
+        self.const = Utils.Factory.get('Constants')(self.db)
         self.cmd2instance = {}
+        self.server_start_time = time.time()
+        if hasattr(self, 'cmd_instances'):
+            for i in self.cmd_instances:
+                reload(sys.modules[i.__module__])
         self.cmd_instances = []
         self.logger = logger
 
-        config_file = file(config_fname)
+        config_file = file(self.config_fname)
         while True:
             line = config_file.readline()
             if not line:
