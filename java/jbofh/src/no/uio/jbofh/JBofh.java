@@ -8,6 +8,7 @@ package no.uio.jbofh;
 
 import java.io.*;
 import java.text.ParseException;
+import java.net.URL;
 import java.util.Arrays;
 import java.util.Enumeration;
 import java.util.Hashtable;
@@ -201,11 +202,18 @@ public class JBofh {
 
     /** Creates a new instance of JBofh */
     public JBofh(String def_uname, String def_password) throws BofhdException {
-        PropertyConfigurator.configure("log4j.properties");
-        props = new Properties();
         try {
-            props.load(new FileInputStream("jbofh.properties"));
-        } catch(IOException e) {}
+	    URL url = ResourceLocator.getResource(this, "/log4j.properties");
+	    props = new Properties();
+	    props.load(url.openStream());
+	    PropertyConfigurator.configure(props);
+	    props = new Properties();
+	    url = ResourceLocator.getResource(this, "/jbofh.properties");
+            props.load(url.openStream());
+        } catch(IOException e) {
+	    System.out.println("Error reading property files");
+	    System.exit(1);
+	}
         bc = new BofhdConnection(logger);
         bc.connect((String) props.get("bofhd_url"));
         
