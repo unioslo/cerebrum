@@ -27,7 +27,8 @@
 from Cerebrum import Errors
 from Cerebrum import Utils
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
-from Cerebrum import Constants
+from Cerebrum.Utils import Factory
+
 import pprint
 
 pp = pprint.PrettyPrinter(indent=4)
@@ -48,7 +49,7 @@ class Entity(DatabaseAccessor):
         """
         super(Entity, self).__init__(database)
         self.clear()
-        self.const = Constants.Constants(database)
+        self.const = Factory.getConstants()(database)
         # TBD: Debugging/Logging.  Define in cereconf.py?
         self._debug_eq = False
 
