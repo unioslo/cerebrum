@@ -592,7 +592,7 @@ class BofhdAuth(DatabaseAccessor):
                 operator, self.const.auth_modify_spread)
         if spread is not None:
             if isinstance(spread, str):
-                spread = Constants._SpreadCode(spread)
+                spread = self.const.Spread(spread)
             if self._query_target_permissions(operator,
                                               self.const.auth_modify_spread,
                                               self.const.auth_target_type_spread,
@@ -1151,7 +1151,7 @@ class BofhdAuth(DatabaseAccessor):
             if not r['attr']:
                 return True
             else:
-                aff = str(self.const._PersonAffiliationCode(r['affiliation']))
+                aff = str(self.const.PersonAffiliation(r['affiliation']))
                 if aff == r['attr']:
                     return True
         return False
