@@ -25,7 +25,10 @@ from Cerebrum import Database
 
 def main():
     Cerebrum = Database.connect()
-    makedbs(Cerebrum)
+    if len(sys.argv) == 2:
+        runfile(sys.argv[1], Cerebrum)
+    else:
+        makedbs(Cerebrum)
 
 
 def makedbs(Cerebrum):
