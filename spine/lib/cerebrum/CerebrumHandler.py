@@ -18,12 +18,15 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+import mx.DateTime
+
 from SpineLib.Builder import Attribute, Method
 from SpineLib.SpineClass import SpineClass
 from SpineLib.Transaction import Transaction
 
 from Entity import Entity
 from Types import CodeType
+from Date import Date
 
 from SpineLib import Registry
 registry = Registry.get_registry() 
@@ -33,7 +36,9 @@ class CerebrumHandler(Transaction, SpineClass):
         Attribute('client', Entity),
         Attribute('id', int)
     ]
-    slots = []
+    slots = [
+        Attribute('time_started', Date),
+    ]
     method_slots = [
         Method('rollback', None),
         Method('commit', None)
@@ -42,6 +47,10 @@ class CerebrumHandler(Transaction, SpineClass):
     def __init__(self, *args, **vargs):
         if not SpineClass.__init__(self, *args, **vargs):
             Transaction.__init__(self, self.get_client())
+        
+        # Set the current time to the started Attribute.
+        started = self.get_attr('time_started').get_name_private()
+        setattr(self, started, Date(mx.DateTime.now()))
 
 def convert_name(name):
     name = list(name)
