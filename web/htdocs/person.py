@@ -3,9 +3,7 @@ import forgetHTML as html
 from Cerebrum.Utils import Factory
 ClientAPI = Factory.get_module("ClientAPI")
 from Cerebrum.web.templates.PersonSearchTemplate import PersonSearchTemplate
-#from Cerebrum.web.templates.GroupViewTemplate import GroupViewTemplate
-#from Cerebrum.web.templates.GroupAddMemberTemplate import GroupAddMemberTemplate
-#from Cerebrum.web.templates.EditGroupTemplate import EditGroupTemplate
+from Cerebrum.web.templates.PersonViewTemplate import PersonViewTemplate
 from Cerebrum.web.templates.HistoryLogTemplate import HistoryLogTemplate
 from Cerebrum.web.Main import Main
 from gettext import gettext as _
@@ -52,3 +50,24 @@ def search(req, name, accountid, birthno, birthdate):
     result.append(personsearch.form())
     page.content = result
     return page    
+
+
+def _create_view(req, id):
+    """Creates a page with a view of the person given by id, returns
+       a tuple of a Main-template and a person instance"""
+    server = req.session['server']
+    page = Main(req)
+    try:
+        person = ClientAPI.Person.fetch_by_id(server, id)
+    except:
+        page.add_message(_("Could not load person with id %s") % id)
+        return (page, None)
+
+    page.menu.setFocus("person/view", id)
+    view = PersonViewTemplate()
+    page.content = lambda: view.viewPerson(person)
+    return (page, person)
+
+def view(req, id):
+    (page, person) = _create_view(req, id)
+    return page
