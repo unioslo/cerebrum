@@ -405,46 +405,62 @@ def generate_person(filename=None):
     person_spread = acl_spread = None
     aci_empl_gr = valid_print_affi = []
     aci_student_gr = {}
-    try: 
-	for status in cereconf.LDAP_PERSON_LIST_AFFI:
-	    valid_print_affi.append(int(getattr(co,status)))
-    except: pass
-    try:
-	group.find_by_name(str(cereconf.PERSON_NOT_PUBLIC_GR))
-	for entries in group.list_members(member_type=co.entity_person)[0]:
-	    aci_empl_gr.append(entries[1])
-    except: pass
-    group.clear()
-    try: 
-	group.find_by_name(str(cereconf.PERSON_PUBLIC_GR))
-	for entries in group.list_members(member_type=co.entity_person)[0]:
-	    aci_student_gr[int(entries[1])] = '1'
-    except Errors.NotFoundError: pass
-    try:  person_spread = int(getattr(co,cereconf.PERSON_SPREAD))
-    except:  pass
-    try:  acl_spread = int(cereconf.LDAP_PERSON_ACL_SPREAD) 
-    except:  pass
-    try:
-	email_domains = {}  
-	email_domains = cereconf.LDAP_REWRITE_EMAIL_DOMAIN
-    except: pass
+    if (cereconf.LDAP_PERSON_FILTER == 'Enable'):
+	try: 
+	    for status in cereconf.LDAP_PERSON_LIST_AFFI:
+		valid_print_affi.append(int(getattr(co,status)))
+	except: pass
+	try:
+	    for status in cereconf.LDAP_PERSON_PH_ADDR_AFFI:
+		valid_phaddr_affi.append(int(getattr(co,status)))
+	except: pass
+	try:
+            for status in cereconf.LDAP_PERSON_AFF_ACI:
+                valid_aff_aci.append(int(getattr(co,status)))
+        except: pass
+	try:
+	    group.find_by_name(str(cereconf.PERSON_NOT_PUBLIC_GR))
+	    for entries in group.list_members(member_type=co.entity_person)[0]:
+		aci_empl_gr.append(entries[1])
+	except: pass
+	group.clear()
+	try: 
+	    group.find_by_name(str(cereconf.PERSON_PUBLIC_GR))
+	    for entries in group.list_members(member_type=co.entity_person)[0]:
+		aci_student_gr[int(entries[1])] = True
+	except Errors.NotFoundError: pass
+	try:  person_spread = int(getattr(co,cereconf.PERSON_SPREAD))
+	except:  pass
+	try:  acl_spread = int(cereconf.LDAP_PERSON_ACL_SPREAD) 
+	except:  pass
+    
+    if (cereconf.LDAP_CEREMAIL == 'Enable'):
+	email_enable = True
+	email_domains = {}
+	try:
+	    email_domains = cereconf.LDAP_REWRITE_EMAIL_DOMAIN
+	except: pass
+    else: email_enable = False
     affili_stu = "student"
     affili_em = "employee"
     for row in person.list_extended_person(person_spread,
                                            include_quarantines = True,
-                                           include_mail = False):
+                                           include_mail = email_enable):
 	name,entity_name,ou_id,affili,status = row['name'],row['entity_name'],row['ou_id'],row['affiliation'],int(row['status'])
 	person.clear()
         person.entity_id = row['person_id']
 	p_affiliations = person.get_affiliations()
-	aci_person = print_person = 'F'
-	for pr_status in p_affiliations:
-	    if (int(pr_status['status'])) in valid_print_affi:
-		print_person = 'T'
-		if (int(pr_status['affiliation']) == int(co.affiliation_ansatt)):
-		    aci_person = 'T' 
-		    break
-	if print_person == 'T':
+	aci_person = print_person = False
+	if (cereconf.LDAP_PERSON_FILTER == 'Enable'):
+	    for pr_status in p_affiliations:
+		status = int(pr_status['status'])
+		if status in valid_print_affi: print_person = True
+		    if status in valid_phaddr_affi: print_phaddr = True
+		    if status in valid_aff_aci: aci_person = True 
+	else: 
+	    print_person = True
+	    aci_person = True
+	if print_person:
 	    person.clear()
 	    person.entity_id = row['person_id']
 	    pers_string = "dn: %s=%s,%s\n" % (dn_attr,entity_name,dn_string)
@@ -488,7 +504,7 @@ def generate_person(filename=None):
 		    break
 		except:
 		    pass
-	    if incl_mail:
+	    if :
 	    	if row['local_part'] and row['domain']:
 		    domain = row['domain']
 		    if email_domains and email_domains.has_key(domain):
@@ -499,7 +515,7 @@ def generate_person(filename=None):
 		pers_string += "mail: %s\n" % person.get_contact_info(source=None,type=co.contact_email)
 	    if lastname:
 		pers_string += "sn: %s\n" % some2utf(lastname)
-	    if (int(affili) == int(co.affiliation_ansatt)): 
+	    if print_phaddr:
 		try:
 		    if ou_struct[int(ou_id)][1]:
 			pers_string += "postalAddress: %s\n" % some2utf(ou_struct[int(ou_id)][1])
@@ -559,10 +575,10 @@ def generate_person(filename=None):
 		pers_string += "userPassword: {crypt}%s\n" % passwd
 	    else:
 		pers_string += "userPassword: {crypt}*Invalid\n"
-	    if (aci_person == 'T') and (int(person.entity_id)  not in aci_empl_gr):
-		pers_string += "%s\n" % cereconf.LDAP_PERSON_ACL
+	    if aci_person  and (int(person.entity_id)  not in aci_empl_gr):
+		pers_string += "%s\n" % cereconf.LDAP_PERSON_ACI
 	    elif  aci_student_gr.has_key(int(person.entity_id)): # (aci_student_gr[int(person.entity_id)]):
-		pers_string += "%s\n" % cereconf.LDAP_PERSON_ACL
+		pers_string += "%s\n" % cereconf.LDAP_PERSON_ACI
 	    alias_list[int(person.entity_id)] = entity_name,prim_org,name,lastname
 	    f.write("\n")
 	    f.write(pers_string)
