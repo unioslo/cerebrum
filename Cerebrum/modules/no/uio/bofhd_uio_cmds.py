@@ -1955,6 +1955,8 @@ class BofhdExtension(object):
         acc = self._get_account(uname)
         op = operator.get_entity_id()
         self.ba.can_email_set_quota(op, acc)
+        if not hquota.isdigit() and squota.isdigit():
+            raise CerebrumError, "Quotas must be numeric"
         hquota = int(hquota)
         if hquota < 100:
             raise CerebrumError, "The hard quota can't be less than 100 MiB"
@@ -4222,8 +4224,8 @@ class BofhdExtension(object):
                                         account, ou, aff)
         account.del_account_type(ou.entity_id, aff)
         account.write_db()
-        return "OK, removed %s@%s from %s" (aff, self._format_ou_name(ou),
-                                            account.owner_id)
+        return "OK, removed %s@%s from %s" % (aff, self._format_ou_name(ou),
+                                              account.owner_id)
 
     def _user_create_prompt_func_helper(self, ac_type, session, *args):
         """A prompt_func on the command level should return
