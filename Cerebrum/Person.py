@@ -286,6 +286,16 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
                       'src': int(source_system),
                       'ext_id': external_id})
 
+    def get_external_id(self, source_system=None, id_type=None):
+        cols = {'source_system': source_system,
+                'id_type': id_type,
+                'entity_id': self.entity_id}
+        return self.query("""
+        SELECT id_type, source_system, external_id
+        FROM [:table schema=cerebrum name=person_info]
+        WHERE %s""" % " AND".join(["%s=:%s" % (x, x)
+                                   for x in cols.keys()]), cols)
+
     def find_persons_by_bdate(self, bdate):
         return self.query("""
         SELECT person_id FROM [:table schema=cerebrum name=person_info]
