@@ -383,8 +383,7 @@ class Oracle(Database):
 
     def connect(self, user=None, password=None, service=None):
         if service is None:
-            # TODO: This shouldn't be hardcoded.
-            service = 'SYDRUTV.uio.no'
+            service = cereconf.CEREBRUM_DATABASE_NAME
         if user is None:
             # TODO: This shouldn't be hardcoded.
             user = 'cerebrum_user'
