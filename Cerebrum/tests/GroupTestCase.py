@@ -36,8 +36,9 @@ class Group_createTestCase(Account_createTestCase):
         group = Group.Group(self.Cerebrum)
         group.find(self.group_id)
         group.delete()
-
+        
         super(Group_createTestCase, self).tearDown()
+        self.Cerebrum.commit()
 
 
 
