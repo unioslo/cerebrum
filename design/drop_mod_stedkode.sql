@@ -1,1 +1,1 @@
-Drop Table stedkode;
+DROP TABLE stedkode;
