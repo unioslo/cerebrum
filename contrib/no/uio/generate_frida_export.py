@@ -237,9 +237,7 @@ class LTPersonRepresentation(object):
         """
 
         return (self.has_active("gjest") or
-                self.has_active("tils") or
-                # FIXME: remove this as soon as LT dumps respect the DTD
-                len(self.elements.get("gjest", [])) > 0)
+                self.has_active("tils"))
     # end is_frida
 
 
@@ -684,6 +682,90 @@ def output_OUs(writer, db):
 
 
 
+def get_reservation(pobj):
+    '''
+    Returns the reservation status ( YES | NO ) for a person represented by
+    POBJ.
+
+    The rules are a bit involved. The decision is based on various <res
+    katalogkode="..." felttypekode="..." resnivakode="..."> elements.
+
+    The starting point is that all employees (tilsatte) have no reservations
+    and all guests (gjester) do.  Further refinements of this simple rule
+    are:
+
+    There is only one katalogkode that is of interest -- ELKAT.
+
+    The only guests not reserved are those having
+    <res katalogkode="ELKAT" felttype="gjesteoppl" resnivakode="samtykke">
+
+    For the employees, these are reserved:
+
+    felttype    resniva
+    BESØKSADR - ??      => reserved
+    BRNAVN -    ??      => reserved
+    EMAIL -     ??      => reserved
+    JOBBADR -   ??      => reserved
+    JOBBFAX -   TOTAL   => reserved
+    JOBBTLF -   TOTAL   => reserved
+    TOTAL   -   ??      => reserved
+
+    ?? means "do not care"
+
+    The old rules were:
+    If P is an employee, then			      
+      If P has <res katalogkode = "ELKAT"> too then	      
+        Reservation = "yes"				      
+      Else						      
+        Reservation = "no"				      
+    Else 						      
+      If P has <res katalogkode="ELKAT" 		      
+                    felttypekode="GJESTEOPPL"> then	      
+        Reservation = "no"				      
+      Else						      
+        Reservation = "yes"				      
+    Fi                                                  
+    '''
+    reserved = "yes"
+    not_reserved = "no"
+
+    if pobj.is_employee():
+        # None means "don't care"
+        for felttypekode, resnivakode in [ ("BESØKSADR", None),
+                                           ("BRNAVN", None),
+                                           ("EMAIL", None),
+                                           ("JOBBADR", None),
+                                           ("JOBBFAX", "TOTAL"),
+                                           ("JOBBTLF", "TOTAL"),
+                                           ("TOTAL", None) ]:
+            tmp = { "felttypekode" : felttypekode,
+                    "katalogkode" : "ELKAT" }
+            if resnivakode: tmp[ "resnivakode" ] = resnivakode
+
+            if pobj.has_reservation(**tmp):
+                logger.info("%s has reservation; criteria: %s %s",
+                            pobj.fnr, str(felttypekode), str(resnivakode))
+                return reserved
+            # fi
+        # od
+
+        # None of the reservation were present. This means that the person
+        # is up for grabs
+        return not_reserved
+    else:
+        # guests are different
+        if pobj.has_reservation(katalogkode="ELKAT",
+                                felttypekode="GJESTEOPPL",
+                                resnivakode="SAMTYKKE"):
+            return not_reserved
+        else:
+            return reserved
+        # fi
+    # fi
+# end get_reservation
+
+
+
 def construct_person_attributes(writer, pobj, db_person, constants):
     """
     Construct a dictionary containing all attributes for the FRIDA <person>
@@ -724,34 +806,8 @@ def construct_person_attributes(writer, pobj, db_person, constants):
         attributes["Affiliation"] = "Member"
     # fi
 
-    # The reservations rules are a bit funny:		      
-    #   										      
-    # If P is an employee, then			      
-    #   If P has <res katalogkode = "ELKAT"> too then	      
-    #     Reservation = "yes"				      
-    #   Else						      
-    #     Reservation = "no"				      
-    # Else 						      
-    #   If P has <res katalogkode="ELKAT" 		      
-    #                 felttypekode="GJESTEOPPL"> then	      
-    #     Reservation = "no"				      
-    #   Else						      
-    #     Reservation = "yes"				      
-    # Fi                                                  
-    if pobj.is_employee():
-        if pobj.has_reservation(katalogkode="ELKAT"):
-            attributes["Reservation"] = "yes"
-        else:
-            attributes["Reservation"] = "no"
-        # fi
-    else:
-        if pobj.has_reservation(katalogkode="ELKAT",
-                                felttypekode="GJESTEOPPL"):
-            attributes["Reservation"] = "no"
-        else:
-            attributes["Reservation"] = "yes"
-        # fi
-    # fi
+    # And now the reservations
+    attributes["Reservation"] = get_reservation(pobj)
 
     return attributes
 # end construct_person_attributes
@@ -833,22 +889,15 @@ def output_guest_information(writer, pobj):
 
         writer.startElement("Gjest", attributes)
 
-        # This is *unbelievably* braindead. "Almost atomic" keys with hidden
-        # subkeys are a Wrong Thing[tm]. The LT dump should be modified to
-        # represent this information in the same way as with <tils>
-        key = element["sko"]
-        for output, value in [("guestFak", key[0:2]),
-                              ("guestInstitutt", key[2:4]),
-                              ("guestGroup", key[4:6]),
+        for output, index in [("guestFak", "fakultetnr"),
+                              ("guestInstitutt", "instituttnr"),
+                              ("guestGroup", "gruppenr"),
                               ]:
-            output_element(writer, value, output)
+            output_element(writer, element[index], output)
         # od
 
-        # FIXME: The source has *no* information about dates. It is a DTD
-        # violation but we cannot do anything in FRIDA until it is rectified
-        # in import_LT
-
         writer.endElement("Gjest")
+    # od
 # end output_guest_information
 
 

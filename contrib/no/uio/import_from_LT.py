@@ -27,6 +27,7 @@ import sys
 import getopt
 import cereconf
 import time
+import string
 
 from Cerebrum.modules.no.uio.access_LT import LT
 from Cerebrum import Database,Errors
@@ -102,8 +103,12 @@ def get_person_info(outfile):
         sko = "%02d%02d%02d" % (g['fakultetnr'],
                                 g['instituttnr'],
                                 g['gruppenr'])
-        persondta.setdefault(key, {}).setdefault('gjest', []).append(
-            {'sko': sko, 'gjestetypekode': g['gjestetypekode']})
+        if not persondta.has_key(key):
+            persondta[key] = {}
+        # fi
+
+        persondta[key]['gjest'] = persondta[key].get('gjest', []) + [g]
+    # od
 
     # Skriv ut informasjon om de personer vi allerede har hentet, og
     # hent noe tillegs informasjon om de
@@ -148,7 +153,7 @@ def get_person_info(outfile):
         if reservasjoner.has_key(p): 
             for r in reservasjoner[p].get('res', ()):
                 attr = " ".join(["%s=%s" % (rescols[i], xml.escape_xml_attr(r[i]))
-                                 for i in (4,5, )])
+                                 for i in (4,5,6, )])
                 f.write("  <res "+attr+"/>\n")
             
         prev = ''
@@ -159,9 +164,11 @@ def get_person_info(outfile):
             f.write('  <bilag stedkode="%s"' % t + "/>\n")
             prev = t
         for g in persondta[p].get('gjest', ()):
-            attr = " ".join(["%s=%s" % (k, xml.escape_xml_attr(g[k]))
-                             for k in g.keys()])
+            attr = string.join(["%s=%s" % (gcols[i], xml.escape_xml_attr(g[i]))
+                                for i in range(len(gcols))],
+                               " ")
             f.write("  <gjest "+attr+"/>\n")
+        # od
  
         f.write("</person>\n")
 
