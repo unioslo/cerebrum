@@ -109,6 +109,14 @@ class Group(Entity):
         pass
     fetch_by_name = classmethod(fetch_by_name)
 
+    def search(cls, spread=None, name=None, desc=None):
+        """Retrieve groups that matches the given criteria. 
+           ``name`` and ``desc`` (if given) should be strings. 
+           Wildcards * and ? might be used.
+           Returns tuples of (id, name, description).
+           """
+        pass    
+
     def get_members(self):
         """ Retrieves members of the group, does _not_ recurse, ie.
             groups that's a member of the group will be listed.

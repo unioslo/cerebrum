@@ -99,6 +99,24 @@ class Group(Entity, Abstract.Group):
         
     fetch_by_name = classmethod(fetch_by_name)
 
+    def search(cls, server, spread=None, name=None, desc=None):
+        filter = {}
+        if spread is not None:
+            filter['spread'] = spread
+        if name is not None:    
+            filter['name'] = name
+        if desc is not None:    
+            filter['desc'] = desc
+        rows = server.group_search(filter)
+        # convert to list of tuples
+        groups = []
+        for row in rows:
+            groups.append((row['id'],
+                           row['name'],
+                           row['desc']))
+        return groups    
+    search = classmethod(search)    
+
     def get_members(self):
         # FIXME: Check for errors...
         info = self.server.group_list(self.name)
