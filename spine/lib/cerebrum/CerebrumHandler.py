@@ -43,14 +43,33 @@ class CerebrumHandler(Transaction, SpineClass):
         if not SpineClass.__init__(self, *args, **vargs):
             Transaction.__init__(self, self.get_client())
 
-for name, cls in registry.map.items():
-    method_name = 'get_' + name[0].lower()
+def convert_name(name):
+    name = list(name)
+    name.reverse()
     last = name[0]
+    new_name = name[0].lower()
     for i in name[1:]:
-        if last.islower() and i.isupper():
-            method_name += '_'
-        last = i
-        method_name += i.lower()
+        if last.isupper() and i.islower():
+            new_name += '_'
+            new_name += i.lower()
+            last = '_'
+        elif last.islower() and i.isupper():
+            new_name += i.lower()
+            new_name += '_'
+            last = '_'
+        else:
+            new_name += i.lower()
+            last = i
+
+    name = list(new_name)
+    if name[-1] == '_':
+        del name[-1]
+
+    name.reverse()
+    return ''.join(name)
+
+for name, cls in registry.map.items():
+    method_name = 'get_' + convert_name(name)
 
     if issubclass(cls, CodeType):
         def blipp(cls):
