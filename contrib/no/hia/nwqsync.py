@@ -35,6 +35,7 @@ from Cerebrum.Utils import Factory
 from Cerebrum.modules import CLHandler
 from Cerebrum.modules.no.hia import nwutils
 
+#class UserSkipQuarantine(Exception): pass
 
 global group_done, logger
 group_done = {}
@@ -42,6 +43,7 @@ int_log = None
 db = Factory.get('Database')()
 const = Factory.get('CLConstants')(db)
 co = Factory.get('Constants')(db)
+db.cl_init(change_program='nwqsync')
 logger = Factory.get_logger("cronjob")
 cl_events = (
 		const.account_mod, \
@@ -57,7 +59,6 @@ cl_events = (
 		const.quarantine_del
 		)
 
-cltype = {}
 cl_entry = {'group_mod' : 'pass', 	
 	'group_add' : 'group_mod(cll.change_type_id,cll.subject_entity,\
 					cll.dest_entity,cll.change_id)',
@@ -68,18 +69,22 @@ cl_entry = {'group_mod' : 'pass',
 						cll.change_params)',
 	'spread_del' : 'change_spread(cll.subject_entity,cll.change_type_id,\
 						cll.change_params)',
-	#'quarantine_add' : 'change_quarantine(cll.subject_entity,\
-	#						cll.change_type_id)',
-	#'quarantine_mod' : 'change_quarantine(cll.subject_entity,\
-	#						cll.change_type_id)',
-	#'quarantine_del' : 'change_quarantine(cll.subject_entity,\
-	#						cll.change_type_id)'
+	'quarantine_add' : 'change_quarantine(cll.subject_entity)',
+	'quarantine_mod' : 'change_quarantine(cll.subject_entity)',
+	'quarantine_del' : 'change_quarantine(cll.subject_entity)',
 	'account_password' : 'change_passwd(cll.subject_entity, cll.change_params)'
 	}
-									
+
+# Replace constants-name with database contants integer 
+for clt,proc in cl_entry.items():
+    del cl_entry[clt]
+    cl_entry[int(getattr(co,clt))] = proc
+
+
+								
 def main():
     global int_log, ldap_handle
-    int_log = port = host = spread = g_spread =None
+    int_log = port = host = spread = g_spread = ldap_handle = None
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'S:s:p:g', ['help'])
     except getopt.GetoptError:
@@ -123,7 +128,6 @@ def main():
                                         binddn=cereconf.NW_ADMINUSER,
                                         password=passwd, scope='sub')
         if ldap_handle:
-            load_cltype_table(cltype)
             nwqsync(spread, g_spread)
         else:
             logger.error("Could not create TLS-channel to server %s." % host)
@@ -142,6 +146,7 @@ def nwqsync(spreads,g_spread):
     # Since delete entity_name are done before delete of group and spread
     # we will cache all entity_id/entity_name
     ent_name_cache = {}
+    spread_grp = None
     clh = CLHandler.CLHandler(db)
     ch_log_list = clh.get_events('nwqsync',cl_events)
     for spread in spreads.split(','):
@@ -161,8 +166,7 @@ def nwqsync(spreads,g_spread):
 	    clh.confirm_event(cll)
 	    continue
         try:
-            #func = cltype[int(cll.change_type_id)]
-	    exec cltype[int(cll.change_type_id)]
+	    exec cl_entry[int(cll.change_type_id)]
             clh.confirm_event(cll)
         except KeyError:
 	    pass
@@ -335,6 +339,52 @@ def user_add_del_grp(ch_type,dn_user,dn_dest):
 	    logger.info("WARNING: unhandled group logic")
 
 
+def change_quarantine(dn_id):
+    account = Factory.get('Account')(db)
+    try:
+        account.find(dn_id)
+    except Errors.NotFoundError:
+        logger.info("Could not resolve id:%d ,quarantine not changed" % dn_id)
+        return
+    if not [spr for spr in spread_ids if account.has_spread(spr)]:
+        return
+    try:
+        (ldap_user,ldap_attr) = ldap_handle.GetObjects(cereconf.NW_LDAP_ROOT,\
+					"(&(cn=%s)(objectClass=inetOrgPerson))" \
+					% account.account_name)[0]
+    except ValueError:
+        logger.warn("Could not find user:%s at server" % account.account_name)
+        return
+    nw_stat_login = 1
+    new_login = 'FALSE'
+    try:
+        if ldap_obj[0][1]['loginDisabled'][0] != 'FALSE':
+            nw_stat_login = 2
+    except KeyError:
+        nw_stat_login = False
+    quarantines = account.get_entity_quarantine()
+    if quarantines:
+        from Cerebrum import QuarantineHandler
+        now = db.DateFromTicks(time.time())
+        quarant = []
+        for qua in quarantines:
+            if (qua['start_date'] <= now and (qua['end_date'] or \
+				qua['end_date'] >= now) and \
+				(qua['disable_until'] or \
+				qua['disable_until'] < now)):
+                quarant.append(qua['quarantine_type'])
+            qh = QuarantineHandler.QuarantineHandler(db, quarant)
+            #if qh.should_skip():
+            #    raise UserSkipQuarantine
+            if qh.is_locked():
+                new_login = 'TRUE'
+    if not nw_stat_login or (nw_stat_login == 1 and new_login == 'TRUE') or \
+						(nw_stat_login == 2 and \
+						new_login == 'FALSE'):
+	attr_mod_ldap(ldap_user,[('loginDisabled',[new_login,])])
+        
+
+
 def path2edir(attrs):
     idx = 0
     disk_str = None
@@ -364,14 +414,13 @@ def path2edir(attrs):
 
 
 def change_user_spread(dn_id,ch_type,spread,uname=None):
-    account = Account.Account(db)
+    account = Factory.get('Account')(db)
     group = Group.Group(db)
     if not uname:
-    #if cl_spread in spread_ids:
 	try:
 	    account.find(dn_id)
 	    acc_name = account.account_name
-	except Error.NotFoundError:
+	except Errors.NotFoundError:
 	    logger.error("Account could not be found: %s" % dn_id)
 	    return
     else: acc_name = uname
@@ -382,8 +431,8 @@ def change_user_spread(dn_id,ch_type,spread,uname=None):
 	logger.warn("Lost TLS-connection to server.")
 	sys.exit(0)
     if (ch_type == int(const.spread_del)):
-	#if not nwutils.touchable(ldap_attrs):
-	#    return
+	# Set loginDisable and move user to a specific (rem-user
+	# 
 	if ldap_obj == []:
 	    logger.info('Delete_user %s ,but doesnt exist on eDir-server' % \
 								acc_name)
@@ -398,6 +447,15 @@ def change_user_spread(dn_id,ch_type,spread,uname=None):
 							spread, None)
             path2edir(ldap_attrs)
 	    add_ldap(ldap_user,ldap_attrs)
+            # Check if 
+            for delay in range(3,8):
+                if ldap_handle.GetObjects(search_dn,search_str):
+                    account.set_home(spread,status=co.home_status_on_disk)
+                    break
+                time.sleep(delay)
+            else:
+                logger.warn("Could not verify that user:%s was created on eDir-server"\
+                            % ldap_user)
 	    for grp in group.list_groups_with_entity(dn_id):
                 user_add_del_grp(const.group_add, dn_id, grp['group_id'])
 	elif ldap_obj <> []:
@@ -460,19 +518,12 @@ def change_group_spread(dn_id,ch_type,gname=None):
 		# While using  method user_add_del_group, it will do a LDAP-search
 		# to verify that user exist on server.
 		# Do: get_entity_name=True and mem -> mem[0]
-		#    attrs.append(('member',','.join((('cn='+mem[1]),
-		#				cereconf.NW_LDAP_STUDOU,
-		#				search_dn))))
-		#else:
-		#    attrs.append(('member',','.join((('cn='+mem[1]),
-		#				cereconf.NW_LDAP_ANSOU,
-		#				search_dn))))
 	    if student_grp:
 		grp_dn = utf8_dn + ',ou=grp,ou=stud,' + cereconf.NW_LDAP_ROOT
 	    else:
 		grp_dn = utf8_dn + ',ou=grp,ou=ans,' + cereconf.NW_LDAP_ROOT
 	    add_ldap(grp_dn, attrs)
-	    for delay in range(8):
+	    for delay in range(3,8):
 		if ldap_handle.GetObjects(search_dn, search_cn):
 		    user_add_del_grp(const.group_add, grp_mem, dn_id)
 		    return
@@ -526,7 +577,7 @@ def change_spread(dn_id,ch_type,ch_params):
 	    # group/account: %s name" % dn_id)
 
 
-def mod_account(dn_id,i):
+def mod_account(dn_id):
     account = Account.Account(db)
     account.clear()
     account.find(dn_id)
@@ -658,11 +709,6 @@ def get_cl_event(subject_id, change_type=[const.entity_name_del,],
 	return(True)
     else:
 	return(False)
-
-def load_cltype_table(cltype):
-    for clt,proc in cl_entry.items():
-	# make if-entry to list in cereconf to remove dynamic service
-	cltype[int(getattr(co,clt))] = proc	
 
 
 def usage(exitcode=0):
