@@ -83,8 +83,10 @@ else:
     from Cerebrum.extlib import logging
 # fi
 import os.path
+import os
 import getopt
 import string
+import re
 
 
 
@@ -440,7 +442,7 @@ __formatters = dict()
 def initialize_formatters(config):
     """
     This function initializes all formatters specified in CONFIG
-    (initialization of useless formatters are harmless)
+    (initialization of useless formatters is harmless)
     """
     global __formatters
 
@@ -471,6 +473,11 @@ __logger_instance = None
 def get_logger(config_file, logger_name = None):
     """
     Initialize (if necessary) and return the logger
+    
+    NB! get_logger will actually initialize anything only once. All
+    subsequent calls from the same process (thread?) will return a reference
+    to the same logger *regardless* of the LOGGER_NAME specified (this
+    behavior is intentional).
     """
     global __logger_instance
 
@@ -615,6 +622,8 @@ class CerebrumRotatingHandler(logging.FileHandler, object):
 
         self.maxBytes = maxBytes
         self.backupCount = backupCount
+
+        # FIXME: This can't be right -- changing mode *after* it has been set?
         self.mode = mode
         if maxBytes > 0:
             self.mode = "a+"
@@ -623,35 +632,17 @@ class CerebrumRotatingHandler(logging.FileHandler, object):
 
 
 
-    def doRollover(self):
+    def prepareMessage(self, record):
         """
-        Do a rollover, as described in __init__().
+        This method makes writing subclasses doing something with messages
+        easier.
         """
 
-        self.stream.close()
-        if self.backupCount > 0:
-            for i in range(self.backupCount - 1, 0, -1):
-                sfn = "%s.%d" % (self.baseFilename, i)
-                dfn = "%s.%d" % (self.baseFilename, i + 1)
-                if os.path.exists(sfn):
-                    if os.path.exists(dfn):
-                        os.remove(dfn)
-                    # fi
-                    os.rename(sfn, dfn)
-                # fi
-            # od
-            
-            dfn = self.baseFilename + ".1"
-            if os.path.exists(dfn):
-                os.remove(dfn)
-            # fi
-            os.rename(self.baseFilename, dfn)
-        # fi
-        
-        self.stream = open(self.baseFilename, "w")
-    # end doRollover
+        # Standard processing
+        return self.format(record)
+    # end prepareMessage
 
-    
+
 
     def emit(self, record):
         """
@@ -661,14 +652,97 @@ class CerebrumRotatingHandler(logging.FileHandler, object):
         in setRollover().
         """
 
+        msg = self.prepareMessage(record)
         if self.maxBytes > 0:                   # are we rolling over?
-            msg = "%s\n" % self.format(record)
             self.stream.seek(0, 2)  #due to non-posix-compliant Windows feature
             if self.stream.tell() + len(msg) >= self.maxBytes:
                 self.doRollover()
             # fi
         # fi
-        
-        logging.FileHandler.emit(self, record)
+
+        try:
+            self.stream.write(msg)
+            self.stream.write("\n")
+            self.stream.flush()
+        except IOError:
+            # Let us not make the same mistake as python's logging.py - they
+            # call handleError in every case, and the default action in
+            # handleError is to ignore everything. 
+            self.handleError()
+        # yrt
     # end emit
 # end CerebrumRotatingHandler
+
+
+
+
+
+class CerebrumSubstituteHandler(CerebrumRotatingHandler):
+    """
+    This handler behaves just like CerebrumRotatingHandler, except it
+    performs certain preprosessing of each message.
+
+    Specifically, a substitution is performed on each message before the it
+    is output. Substution is regexp-based (as defined by the module re). If
+    either one is missing (i.e. is an empty string), no substitution will be
+    performed (and the logger would behave exactly like its immediate
+    parent).
+
+    Additionally, since this kind of filtering is likely to be used in
+    conjuction with confidential data (such as passwords), an additional
+    permission parameter controls who has access to logfiles (regardless of
+    the client process' umask).
+    """
+
+
+    def __init__(self, logdir, maxBytes, backupCount,
+                 permissions, substitute, replacement):
+        """
+        LOGDIR       -- which directory the log goes to
+        MAXBYTES     -- maximum file size before it is rotated (0 means no
+                        rotation)
+        BACKUPCOUNTS -- number of rotated files
+        PERMISSIONS  -- UNIX-style permission number for the log file
+        SUBSTITUTE   -- regular expression to perform substitution on
+        REPLACEMENT  -- ... what to replace SUBSTITUTE with.
+        """
+
+        super(self.__class__, self).__init__(logdir, "a",
+                                             maxBytes, backupCount)
+
+        self.substitution = re.compile(substitute)
+        self.replacement = replacement
+        self.permissions = permissions
+
+        print "maxBytes: ", maxBytes
+        print "backup: ", backupCount
+
+        # Force our permissions
+        os.chmod(self.filename, permissions)
+    # end __init__
+
+
+
+    def doRollover(self):
+        super(self.__class__, self).doRollover()
+        os.chmod(self.filename, self.permissions)
+    # end doRollover
+
+
+
+    def prepareMessage(self, record):
+        """
+        We make our regexp substitution in this method.
+        """
+
+        # First, we apply all the formatters (time, date and the like)
+        # FIXME: perhaps we should not touch anything else than the message
+        # and the arguments? regexps could change the information that
+        # formatters merge in.
+        msg = self.format(record)
+        return self.substitution.sub(self.replacement, msg)
+    # end prepareMessage
+
+# end CerebrumSubstituteHandler
+        
+    
