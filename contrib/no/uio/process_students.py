@@ -114,7 +114,7 @@ class AccountUtil(object):
                 as_posix = True
         accounts[int(account.entity_id)] = {'owner': fnr,
                                             'expire_date': None,
-                                            'spreads': [],
+                                            'spreads': [const.spread_uio_imap],
                                             'groups': [],
                                             'affs': [],
                                             'home': {},
@@ -538,12 +538,10 @@ class BuildAccounts(object):
             if not pinfo['stud_ac']:
                 continue
             if not processed_students.has_key(fnr):
-                logger.debug("%s has student accounts, but has not been processed" % fnr)
-            if not keep_account_home.get(fnr, False):
-                tmp = []
-                for a_id in pinfo['stud_ac']:
-                    tmp.append(accounts[a_id]['home'])
-                logger.debug("%s didn't set keep_account_home: %s" % (fnr, repr(tmp)))
+                d, p = fodselsnr.del_fnr(fnr)
+                BuildAccounts._process_students_callback({
+                    'fodselsdato': d,
+                    'personnr': p})
     _process_unprocessed_students=staticmethod(_process_unprocessed_students)
 
 def start_process_students():
