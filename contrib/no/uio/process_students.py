@@ -80,15 +80,22 @@ def update_account(profile, account_ids, do_move=0, rem_grp=0, account_info={}):
         try:
             user.find(account_id)
             # populate logic asserts that db-write is only done if needed
-            disk = profile.get_disk(user.disk_id)
+            try:
+                disk = profile.get_disk(user.disk_id)
+            except ValueError, msg:  # TODO: get_disk should raise DiskError
+                disk = None
             if user.disk_id <> disk:
                 profile.notify_used_disk(old=user.disk_id, new=disk)
                 user.disk_id = disk
-            user.gid = profile.get_dfg()
+            if as_posix:
+                user.gid = profile.get_dfg()
             tmp = user.write_db()
             logger.debug2("old User, write_db=%s" % tmp)
         except Errors.NotFoundError:
-            disk_id=profile.get_disk()
+            try:
+                disk_id=profile.get_disk()
+            except ValueError, msg:  # TODO: get_disk should raise DiskError
+                disk_id = None
             profile.notify_used_disk(old=None, new=disk_id)
             if as_posix:
                 uid = user.get_free_uid()
