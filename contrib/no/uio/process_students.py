@@ -499,6 +499,7 @@ def recalc_quota_callback(person_info):
             if not paid_paper_money.get(fnr, False) and quota['weekly_quota'] != 'UL':
                 logger.debug("didn't pay, max_quota=0 for %s " % fnr)
                 pq.max_quota = 0
+                pq.printer_quota = 0
         pq.write_db()
         has_quota[int(account_id)] = True
     logger.set_indent(0)
@@ -638,6 +639,7 @@ def process_students():
                 if not paid_paper_money.get(fnr, False):
                     logger.debug("didn't pay, max_quota=0 for %i " % account_id)
                     pq.max_quota = 0
+                    pq.printer_quota = 0
             pq.write_db()
         if not dryrun:
             db.commit()
