@@ -27,6 +27,7 @@ import cereconf
 import time
 import os
 import string
+import new
 
 def dyn_import(name):
     """Dynamically import python module ``name``."""
@@ -426,6 +427,7 @@ class XMLHelper(object):
 
 class Factory(object):
     class_cache = {}
+    module_cache = {}
 
     def get(comp):
         components = {'OU': 'CLASS_OU',
@@ -436,6 +438,7 @@ class Factory(object):
                       'Disk': 'CLASS_DISK',
                       'Database': 'CLASS_DATABASE',
                       'Constants': 'CLASS_CONSTANTS',
+                      'ClientAPI': 'CLASS_CLIENTAPI',
                       'CLConstants': 'CLASS_CL_CONSTANTS',
                       'ChangeLog': 'CLASS_CHANGELOG',
                       'DBDriver': 'CLASS_DBDRIVER'}
@@ -470,6 +473,44 @@ class Factory(object):
                                                                 import_spec)
     get = staticmethod(get)
 
+    def get_module(comp):
+        components = {
+            'ClientAPI': 'MODULE_CLIENTAPI',
+        }
+        if Factory.class_cache.has_key(comp):
+            return Factory.class_cache[comp]
+        try:
+            conf_var = components[comp]
+        except KeyError:
+            raise ValueError, "Unknown component %r" % comp
+        import_spec = getattr(cereconf, conf_var)
+        if isinstance(import_spec, (tuple, list)):
+            bases = []
+            for mod_name in import_spec:
+                mod = dyn_import(mod_name)
+                bases.append(mod)
+            if len(bases) == 1:
+                comp_module = bases[0]
+            else:
+                # Dynamically construct a new module that inherits from
+                # all the specified modules.  The name of the created
+                # module is the same as the component name with a
+                # prefix of "_dynamic_"
+                comp_module = new.module('_dynamic_' + comp)
+                # Join namespaces, latest first
+                for module in bases:
+                    for (key, value) in module.__dict__:
+                        # Only set it if it isn't there already
+                        comp_module.setdefault(key, value)
+
+            Factory.class_cache[comp] = comp_module
+            return comp_module
+        else:
+            raise ValueError, \
+                  "Invalid import spec for component %s: %r" % (comp,
+                                                                import_spec)
+    get_module = staticmethod(get_module)          
+        
 
 class fool_auto_super(object):
     def __getattr__(self, attr):
