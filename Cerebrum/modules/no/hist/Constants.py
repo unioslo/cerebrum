@@ -1,5 +1,4 @@
 # -*- coding: iso-8859-1 -*-
-
 # Copyright 2002, 2003 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
@@ -29,6 +28,7 @@ from Cerebrum.Constants import _AuthoritativeSystemCode,_OUPerspectiveCode, \
      _SpreadCode, _QuarantineCode, _PersonExternalIdCode, \
      _PersonAffiliationCode, _PersonAffStatusCode, _AccountCode
 from Cerebrum.modules.PosixUser import _PosixShellCode
+from Cerebrum.modules.Email import _EmailServerTypeCode
 
 class Constants(Constants.Constants):
 
@@ -39,7 +39,6 @@ class Constants(Constants.Constants):
 
     system_fs = _AuthoritativeSystemCode('FS', 'FS')
     system_migrate = _AuthoritativeSystemCode('MIGRATE', 'Migrate from files')
-
     perspective_fs = _OUPerspectiveCode('FS', 'FS')
 
 # ANSATTE
@@ -50,15 +49,20 @@ class Constants(Constants.Constants):
     
 # STUDENTER
     affiliation_student = _PersonAffiliationCode(
-        'STUDENT', 'Student ved HiST (i følge FS)')
+        'STUDENT', 'Student ved HiST (jfr FS)')
     affiliation_status_student_aktiv = _PersonAffStatusCode(
         affiliation_student, 'aktiv', 'Aktiv student')
     affiliation_status_student_valid = _PersonAffStatusCode(
                 affiliation_student, 'valid', 'Valid student')
-    
+    affiliation_status_student_privatist = _PersonAffStatusCode(
+        affiliation_student, 'privatist', 'Student, privatist')
+    affiliation_status_student_evu = _PersonAffStatusCode( 
+        affiliation_student, 'evu', 'Student, etter og videre utdanning')
+  
+  
 # ANDRE
     affiliation_tilknyttet = _PersonAffiliationCode(
-        'TILKNYTTET', 'Tilknyttet HiST uten å være student eller ansatt')
+        'TILKNYTTET', 'Tilknyttet HiST, men ikke student eller ansatt')
     affiliation_status_tilknyttet_AKTIV = _PersonAffStatusCode(
         affiliation_tilknyttet, 'tilknyttet', 'Tilknyttet HiST, men ikke ansatt')
 
@@ -110,17 +114,23 @@ class Constants(Constants.Constants):
 
 # KARANTENE GRUPPER
     quarantine_generell = _QuarantineCode('generell', 'Generell splatt')
-    quarantine_teppe = _QuarantineCode('teppe', 'Kallt inn på teppet til drift')
+    quarantine_teppe = _QuarantineCode('teppe', 'Kallt inn paa teppet til drift')
     quarantine_slutta = _QuarantineCode('slutta', 'Personen har slutta')
     quarantine_system = _QuarantineCode('system', 'Systembrukar som ikke skal logge inn')
     quarantine_permisjon = _QuarantineCode('permisjon', 'Brukeren har permisjon')
     quarantine_svakt_passord = _QuarantineCode('svakt_passord', 'For dårlig passord')
     quarantine_autopassord = _QuarantineCode('autopassord',
-                                            'Passord ikke skiftet trass pålegg')
+                                            'Passord ikke skiftet trass paalegg')
     quarantine_autostud = _QuarantineCode('autostud', 'Ikke aktiv student')
     quarantine_autoekstern = _QuarantineCode('autoekstern',
-                                            'Ekstern konto gått ut på dato')
+                                            'Ekstern konto expired')
     
-    account_test = _AccountCode('T', 'Testkonto')
+    account_test = _AccountCode('testbruker', 'Testkonto')
+    account_kurs = _AccountCode('kursbruker', 'Kurskonto')
+
+# EMAIL TING
+
+    email_server_type_shist = _EmailServerTypeCode(
+        's_hist',
+        "The email server type for students at HiST.")
     
-# arch-tag: c92b130b-6d78-46f3-9e1b-dbc8b0322c9a

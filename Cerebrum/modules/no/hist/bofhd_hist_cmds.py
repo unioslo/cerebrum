@@ -61,7 +61,7 @@ from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.uio import PrinterQuotas
 from Cerebrum.modules.no.hist import bofhd_hist_help
 # from Cerebrum.modules.no.hia.access_FS import HiAFS
-from Cerebrum.modules.no.hist.access_FS import HistFS
+from Cerebrum.modules.no.hist.access_FS import HiSTFS
 from Cerebrum.modules.templates.letters import TemplateHandler
 
 # TBD: It would probably be cleaner if our time formats were specified
@@ -3211,10 +3211,18 @@ class BofhdExtension(object):
                                           row['source_system'])
         return "OK, removed %s@%s from %s" % (aff, self._format_ou_name(ou), person.entity_id)
 
+    def date_from_fnr(self, session, *args):
+        try:
+           f_date = fodselsnr.fodt_dato(args[0])
+           ret = "%d-%02d-%02d" % (f_date[0], f_date[1], f_date[2]) 
+        except fodselsnr.InvalidFnrError, msg:
+            ret = "Invalid fnr"
+        return ret
+
     # person create
     all_commands['person_create'] = Command(
         ("person", "create"), PersonId(),
-        Date(help_ref='date_birth'), PersonName(help_ref='person_name_first'), 
+        Date(help_ref='date_birth', default=date_from_fnr), PersonName(help_ref='person_name_first'), 
 	PersonName(help_ref='person_name_last'), OU(),
         Affiliation(), AffiliationStatus(),
         fs=FormatSuggestion("Created: %i",
@@ -4111,7 +4119,8 @@ class BofhdExtension(object):
 				   for a in account.get_spread()]),
 	       'affiliations': (",\n" + (" " * 15)).join(affiliations),
 	       'expire': account.expire_date,
-	       'home': ("\n" + (" " * 15)).join(hm)}
+	       'home': ("\n" + (" " * 15)).join(hm),
+               'create date': account.create_date}
 	if is_posix:
             group = self._get_group(account.gid_id, idtype='id', grtype='PosixGroup')
             ret['uid'] = account.posix_uid
@@ -4315,6 +4324,24 @@ class BofhdExtension(object):
         if account.get_entity_quarantine():
             return "OK.  Warning: user has quarantine"
         return "Password altered. Please use misc list_password to print or view the new password."
+
+
+    # user showpass
+    all_commands['user_showpass'] = Command(
+        ("user", "showpass"), AccountName(), perm_filter='is_superuser')
+    def user_showpass(self, operator, accountname):
+        account = self._get_account(accountname)
+        self.ba.can_set_password(operator.get_entity_id(), account)
+        passwords = self.db.get_log_events(types=(int(self.const.account_password),),
+                    subject_entity = account.entity_id)
+        pwd_rows = [row for row in passwords]
+        try:
+          pwd = pickle.loads(pwd_rows[-1].change_params)['password']
+        except:
+          type, value, tb = sys.exc_info()
+          print "Error: %s %s" % (str(type), str(value))
+          pwd = ''
+        return ("Password: %s" % pwd)
 	
     # user promote_posix
     all_commands['user_promote_posix'] = Command(
@@ -4377,6 +4404,8 @@ class BofhdExtension(object):
         person = self._get_person("entity_id", person_id)
         account = self.Account_class(self.db)
         account.clear()
+        if not account.validate_new_uname(self.const.account_namespace, uname):
+            raise CerebrumError, "Not valid: %s" % uname
         if not self.ba.is_superuser(operator.get_entity_id()):
             raise PermissionDenied("only superusers may reserve users")
         account.populate(uname,

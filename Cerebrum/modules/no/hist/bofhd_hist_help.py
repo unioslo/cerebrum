@@ -165,6 +165,7 @@ command_help = {
     'user_info': 'View general information about an account',
     'user_move': 'Move a users home directory to another disk',
     'user_password': 'Set a new password for an account',
+    'user_showpass': 'Show password for an account',
     'user_promote_posix': 'Make a Cerebrum account into a POSIX user account',
     'user_reserve': 'Reserve a user name in the database',
     'user_set_expire': 'Set expire date for an account',
