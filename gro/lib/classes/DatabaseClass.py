@@ -79,14 +79,6 @@ class DatabaseClass(Searchable):
             value = i.from_db(row[i.name])
             setattr(self, '_' + i.name, value)
 
-    def _get_real_name(self, attr, table=None):
-        if table is None:
-            table = attr.table
-        if table in self.db_aliases and attr.dbattr_name in self.db_aliases[table]:
-            return self.db_aliases[table][attr.dbattr_name]
-        else:
-            return attr.dbattr_name
-
     def _get_sql_tables(self):
         tables = {}
 
@@ -124,17 +116,28 @@ class DatabaseClass(Searchable):
 
             db.execute(sql, keys)
 
+    def _get_real_name(cls, attr, table=None):
+        if table is None:
+            table = attr.table
+        if table in cls.db_aliases and attr.dbattr_name in cls.db_aliases[table]:
+            return cls.db_aliases[table][attr.dbattr_name]
+        else:
+            return attr.dbattr_name
+
+    _get_real_name = classmethod(_get_real_name)
+
     def create_search_method(cls):
-        def search(self, *args, **vargs): 
+        def search(self, **vargs): 
             db = self.get_database()
             
             tables = {}
             attributes = {}
             main_attrs = []
-            for attr in self.slots + getattr(self, 'search_slots', []):
+            for attr in self.slots:
                 if isinstance(attr, DatabaseAttr):
-                    if attr in self.slots:
-                        main_attrs.append(attr)
+                    for i in cls.slots:
+                        if i.name == attr.name:
+                            main_attrs.append(attr)
                     attributes[attr.name] = attr
                     tables[attr.table] = attr.table
 
@@ -143,15 +146,19 @@ class DatabaseClass(Searchable):
             for key, value in vargs.items():
                 if value is None or key not in attributes.keys():
                     continue
+                real_key = cls._get_real_name(attributes[key])
                 if attributes[key].data_type == 'string':
-                    where.append('LOWER(%s.%s) LIKE :%s' % (attributes[key].table, key, key))
+                    where.append('LOWER(%s.%s) LIKE :%s' % (attributes[key].table, real_key, key))
                     value = value.replace("*","%")
                     value = value.replace("?","_")
                     value = value.lower()
                 else:
-                    where.append('%s.%s = :%s' % (attributes[key].table, key, key))
+                    where.append('%s.%s = :%s' % (attributes[key].table, real_key, key))
                     value = attributes[key].to_db(value)
                 values[key] = value
+
+            for table in tables.keys():
+                if table in cls.db_extra: where.append(self.db_extra[table])
             
             sql = 'SELECT '
             sql += ', '.join(['%s.%s AS %s' % (attr.table, attr.name, attr.name) for attr in main_attrs])
