@@ -7,6 +7,7 @@
 
 import cerebrum_path
 
+import os
 import cereconf
 from Cerebrum.modules import CLHandler
 from Cerebrum.Utils import Factory
@@ -64,10 +65,13 @@ def make_user(entity_id):
     cmd = ['/local/etc/reguser/mkhomedir', uname, homedir,
            user_uid, default_group, cereconf.POSIX_HOME_TEMPLATE_DIR,
            cereconf.POSIX_USERMOD_SCRIPTDIR, posix_user.get_gecos()]
-    cmd = (rsh, '-n', host.name) + ("'"+quote_list(cmd)+"'",)
+    # TODO: It seems that ssh properly handles the arguments to the
+    # remote command, but this must be investigated further to prevent
+    # malicious abuse.
+    cmd = (rsh, '-n', host.name) + tuple(cmd)
 
-    print "DO: %s" % str(cmd)
-    
+    print "Doing: %s" % str(cmd)
+    os.spawnv(os.P_WAIT, rsh, cmd)
 
 for evt in ei.get_events('uio_ch', [const.a_create]):
     if evt.change_type_id == int(const.a_create):
