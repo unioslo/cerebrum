@@ -446,7 +446,7 @@
   Assigned to: runefro
   Resources: jazz, baardj
   Cost:
-  Status:
+  Status: Done
   Due date:
   Priority: 2
 
@@ -517,7 +517,7 @@
   Assigned to: runefro
   Resources: jazz
   Cost: 16t
-  Status:
+  Status: Done
   Due date:
   Priority: 1
 
@@ -573,15 +573,17 @@
   Priority: 2
 
 ** UiO: Studentservere
-   Description: Avvikling av Platon og strukturering av studentservere-
+   Description: Avvikling av Platon og strukturering av studentservere:
 		endring av DTD til studconfig
   Dependencies:
   Assigned to: 
   Resources: 
   Cost:
-  Status:
+  Status: DTD-endring gjort
   Due date:
   Priority: 2
+
+
 
 ** UiO: Brukerflyttinger må på plass
   Description: Mekanismen for flytting av brukeres hjemmeområder må
@@ -616,7 +618,7 @@
   Assigned to: runefro
   Resources: 
   Cost:
-  Status: godt i gang
+  Status: Done
   Due date:
   Priority: 2
 
@@ -1197,8 +1199,7 @@
   Assigned to: runefro
   Resources:   fredrivo
   Cost:
-  Status:      Rune har kommet med forslag, Fredrik skal sjekke om det er
-               spiselig for AD-eksporten.
+  Status:  Done
   Due date:
   Priority: 1
 
@@ -1211,7 +1212,7 @@
   Assigned to: runefro
   Resources:
   Cost:
-  Status: 
+  Status: Done
   Due date:
   Priority: 2
 
