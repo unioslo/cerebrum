@@ -378,7 +378,7 @@ class Fronter(object):
                 self.kurs2navn[kurs_id] = evu['etterutdkursnavn']
 
                 for akt in self._fs.evu.get_kurs_aktivitet(
-                    evu['etterutdkurskode'], evu['kurstidsangivelsekode'])[1]:
+                    evu['etterutdkurskode'], evu['kurstidsangivelsekode']):
                     self.enhet2akt.setdefault(enhet_id, []).append(
                         (akt['etterutdkurskode'], akt['aktivitetsnavn']))
         self.logger.debug("read_kurs_data: len(self.kurs2enhet)=%i" % \
