@@ -21,7 +21,7 @@ class Person_createTestCase(OU_createTestCase):
         }
 
     def setUp(self):
-        print "Person_createTestCase.setUp()"
+        # print "Person_createTestCase.setUp()"
         # print "Type1: %s, type2: %s" % (type(Person_createTestCase), str(self))
         super(Person_createTestCase, self).setUp()
         new_person = Person.Person(self.Cerebrum)
@@ -47,9 +47,14 @@ class Person_createTestCase(OU_createTestCase):
                                         self.co.affiliation_status_student_valid)
 
     def tearDown(self):
-        print "Person_createTestCase.tearDown()"
+        # print "Person_createTestCase.tearDown()"
+        super(Person_createTestCase, self).tearDown()
 
 class PersonTestCase(Person_createTestCase):
+    def testCreatePerson(self):
+        "Test that one can create a Person"
+        self.failIf(getattr(self, "person_id", None) is None)
+
     def testComparePerson(self):
         "Check that created database object has correct values"
         person = Person.Person(self.Cerebrum)
@@ -64,9 +69,31 @@ class PersonTestCase(Person_createTestCase):
         if(new_person == person):
             print "Error: should be different"
 
+    def testDeletePerson(self):
+        "Delete the person"
+        # This is actually a clean-up method, as we don't support deletion of Persons
+        self.Cerebrum.execute(
+            """DELETE FROM [:table schema=cerebrum name=person_affiliation]
+               WHERE person_id=:id""", {'id': self.person_id})
+        self.Cerebrum.execute(
+            """DELETE FROM [:table schema=cerebrum name=person_name]
+               WHERE person_id=:id""", {'id': self.person_id})
+        self.Cerebrum.execute(
+            """DELETE FROM [:table schema=cerebrum name=person_info]
+               WHERE person_id=:id""", {'id': self.person_id})
+        person = Person.Person(self.Cerebrum)
+        try:
+            person.find(self.person_id)
+            fail("Error: Should no longer exist")
+        except:
+            # OK
+            pass
+
     def suite():
         suite = unittest.TestSuite()
+        suite.addTest(PersonTestCase("testCreatePerson"))
         suite.addTest(PersonTestCase("testComparePerson"))
+        suite.addTest(PersonTestCase("testDeletePerson"))
         return suite
     suite = staticmethod(suite)
 
