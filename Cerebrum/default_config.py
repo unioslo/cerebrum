@@ -101,7 +101,9 @@ AD_LDAP= 'DC=wintest,DC=uio,DC=no'
 AD_SOURCE_SEARCH_ORDER = ('system_ureg','system_lt','system_fs')
 AD_PASSWORD = 'hallo\n'
 AD_LOST_AND_FOUND = 'lost-n-found'
-AD_DONT_TOUCH = ('Administrator','Guest','tmersrvd','krbtgt','TsInternetUser')
+AD_DONT_TOUCH = ('Group Policy Creator Owners','DnsUpdateProxy','Tivoli_Admin_Privileges','Domain Guests','Domain Admins','Domain Users','Cert Publishers','Domain Controllers','Domain Computers','Administrator','Guest','tmersrvd','krbtgt','TsInternetUser')
+#Necesary if groups and users have different namespaces in Cerebrum.
+AD_GROUP_POSTFIX = '-gruppe'
 AD_HOME_DRIVE = 'M'
 AD_PASSWORD_EXPIRE = '0'
 AD_CANT_CHANGE_PW = '0'
