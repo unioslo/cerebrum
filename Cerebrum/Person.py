@@ -329,12 +329,12 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
                       'src': int(source_system),
                       'name': name})
 
-    def get_person_name_codes(self):
+    def list_person_name_codes(self):
         return self.query("""
         SELECT code, description
         FROM [:table schema=cerebrum name=person_name_code]""")
 
-    def get_person_affiliation_codes(self):
+    def list_person_affiliation_codes(self):
         return self.query("""
         SELECT code, code_str, description
         FROM [:table schema=cerebrum name=person_affiliation_code]""")

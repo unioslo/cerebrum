@@ -39,10 +39,10 @@ class BofhdExtension(object):
         self.person = Person.Person(self.Cerebrum)
         self.const = self.person.const
         self.name_codes = {}
-        for t in self.person.get_person_name_codes():
+        for t in self.person.list_person_name_codes():
             self.name_codes[int(t.code)] = t.description
         self.person_affiliation_codes = {}
-        for t in self.person.get_person_affiliation_codes():
+        for t in self.person.list_person_affiliation_codes():
             self.person_affiliation_codes[t.code_str] = (int(t.code), t.description)
 
     def get_commands(self, uname):
