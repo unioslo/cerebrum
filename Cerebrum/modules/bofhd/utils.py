@@ -37,16 +37,15 @@ class Constants(Constants.Constants):
     bofh_move_give = _BofhdRequestOpCode('br_move_give', 'Give away user')
     bofh_delete_user = _BofhdRequestOpCode('br_delete_user', 'Delete user')
     
-    # br_email_will_move is left in queue until delivery has stopped.
-    # then a new request, br_email_move is inserted, and left in queue
-    # until the operation has completed.
-    # if either type of request is in the queue, generate_mail_ldif.py
-    # will set the mailPause attribute for that user.
+    # br_email_move stays in queue until delivery has stopped.
+    # generate_mail_ldif.py will set the mailPause attribute based on
+    # entries in the request queue
 
-    # state_data is request_id: wait while that request is in queue
-    bofh_email_will_move = _BofhdRequestOpCode('br_em_will_move',
-                                               'Will move user e-mail')
-    # will insert a bofh_email_convert when done
+    # destination server is value in database, source server is passed
+    # in destination_id (!) -- this way the fresh data is in the
+    # database, and hence LDAP.  state_data is optionally a
+    # request_id: wait if that request is in queue (typically a create
+    # request).  a bofh_email_convert is inserted when done.
     bofh_email_move = _BofhdRequestOpCode('br_email_move',
                                           'Move user among e-mail servers')
     bofh_email_create = _BofhdRequestOpCode('br_email_create',
@@ -86,13 +85,11 @@ class BofhdRequests(object):
                       int(c.bofh_move_give):       None,
                       int(c.bofh_delete_user):     [ c.bofh_move_user,
                                                      c.bofh_move_student ],
-                      int(c.bofh_email_will_move): [ c.bofh_email_move,
-                                                     c.bofh_delete_user ],
-                      int(c.bofh_email_move):      [ c.bofh_email_will_move,
-                                                     c.bofh_delete_user ],
+                      int(c.bofh_email_move):      [ c.bofh_delete_user ],
                       int(c.bofh_email_create):    [ c.bofh_email_delete,
                                                      c.bofh_delete_user ],
-                      int(c.bofh_email_delete):    [ c.bofh_email_create ],
+                      int(c.bofh_email_delete):    [ c.bofh_email_create,
+                                                     c.bofh_email_move ],
                       int(c.bofh_email_hquota):    [ c.bofh_email_delete ],
                       int(c.bofh_email_convert):   [ c.bofh_email_delete ],
                       }
