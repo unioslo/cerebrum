@@ -23,6 +23,7 @@ import cerebrum_path
 import re
 import os
 import sys
+import getopt
 import cereconf
 
 from Cerebrum.modules.no.uio.access_LT import LT
@@ -33,9 +34,6 @@ default_stedfile = "/cerebrum/dumps/LT/sted.xml"
 default_personfile = "/cerebrum/dumps/LT/person.xml"
 
 cereconf.DATABASE_DRIVER='Oracle'
-Cerebrum = Database.connect(user="ureg2000", service="LTPROD.uio.no")
-LT = LT(Cerebrum)
-xml = XMLHelper()
 
 def get_sted_info():
     f=open(default_stedfile, 'w')
@@ -125,6 +123,19 @@ def get_person_info():
     f.write("</data>\n")
 
 def main():
+    global LT, xml, verbose
+
+    sid = "LTPROD.uio.no"
+    opts, args = getopt.getopt(sys.argv[1:], 'vs', ['verbose', 'sid'])
+    for opt, val in opts:
+        if opt in ('-v', '--verbose'):
+            pass  # not currently used
+        elif opt in ('s', '--sid'):
+            sid = val
+    db = Database.connect(user="ureg2000", service=sid)
+    LT = LT(db)
+    xml = XMLHelper()
+
     get_sted_info()
     get_person_info()
 
