@@ -87,7 +87,11 @@ class CLConstants(Constants.Constants):
                                 'set %(dest)s as default group for %(subject)s')
     p_move =  _ChangeTypeCode('e_account', 'move',
                               '%(subject)s moved to %(param_name)s')
-
+    s_add =  _ChangeTypeCode('spread', 'add',
+                             'add spread for %(subject)s')
+    s_del =  _ChangeTypeCode('spread', 'delete',
+                             'delete spread for %(subject)s')
+    
     def __init__(self, database):
         super(CLConstants, self).__init__(database)
 
