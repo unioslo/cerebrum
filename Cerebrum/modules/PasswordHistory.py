@@ -64,3 +64,35 @@ class PasswordHistory(DatabaseAccessor):
         FROM [:table schema=cerebrum name=password_history] WHERE entity_id=:e_id""",
                           {'e_id': entity_id})   
 
+    def find_old_password_accounts(self, date):
+        """Returns account_id for all accounts that has not changed
+        password since before date"""
+
+        # TODO: hva med systemkonti o.l. uten passord?  har alle karantene?
+
+        # Fetch all account_id that:
+        # - has spread
+        # - has expire_date in the future/not set
+        # - doesn't have any quarantines
+        # - newest entry in password_history is older than <date>
+        ret = []
+        for row in self.query(
+            """SELECT account_id 
+            FROM [:table schema=cerebrum name=account_info] ai,
+                 [:table schema=cerebrum name=password_history] ph
+            WHERE (ai.expire_date IS NULL OR
+                   ai.expire_date > [:now]) AND
+                   ai.account_id=ph.entity_id 
+                   AND EXISTS (
+                     SELECT 'foo'
+                     FROM [:table schema=cerebrum name=entity_spread] es
+                     WHERE ai.account_id=es.entity_id)
+                   AND NOT EXISTS (
+                     SELECT 'foo'
+                     FROM [:table schema=cerebrum name=entity_quarantine] eq
+                     WHERE ai.account_id=eq.entity_id)
+            GROUP BY ai.account_id
+            HAVING MAX(set_at) < :date""", {
+            'date': date}):
+            ret.append(int(row['account_id']))
+        return ret
