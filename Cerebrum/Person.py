@@ -329,7 +329,6 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
         self._extid_types = [int(x) for x in types]
 
     def populate_external_id(self, source_system, id_type, external_id):
-        print "populate_external_id", source_system, id_type, external_id
         if not hasattr(self, '_extid_source'):
             raise ValueError, \
                   "Must call affect_external_id"
