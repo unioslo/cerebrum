@@ -379,9 +379,6 @@ def cyrus_create(user_id):
             logger.error("IMAP create user.%s%s failed: %s",
                          uname, sub, res[1])
             return False
-    # restrict access to INBOX.spam.  the user can change the
-    # ACL to override this, though.
-    cyradm.m.setacl("user.%s.spam" % uname, uname, "lrswipd")
     # we don't care to check if the next command runs OK.
     # almost all IMAP clients ignore the file, anyway ...
     cyrus_subscribe(uname, imaphost)
