@@ -104,7 +104,7 @@ def prefetch_primaryusers():
     # fagansv.  Should we look at affiliation here?
     account = Factory.get('Account')(db)
     personid2accountid = {}
-    for a in account.list_accounts_by_type():
+    for a in account.list_accounts_by_type(filter_expired=True):
         p_id = int(a['person_id'])
         a_id = int(a['account_id'])
         personid2accountid.setdefault(p_id, []).append(a_id)
@@ -233,6 +233,8 @@ def process_kursdata():
     # undervisningsenhet.
     logger.info("Oppdaterer emne-supergrupper:")
     for gname in AffiliatedGroups.keys():
+        if gname == auto_supergroup:
+            continue
         sync_group(fs_supergroup, gname,
                    "Ikke-eksporterbar gruppe.  Brukes for å samle kursene"+
                    " knyttet til %s." % gname,
@@ -255,7 +257,7 @@ def process_kursdata():
                "automatisk opprettede grupper som refererer til "+
                "grupper speilet fra FS.",
                co.entity_group,
-               AffiliatedGroups[auto_supergroup])
+               AffiliatedGroups[auto_supergroup], recurse=False)
     logger.info(" ... done")
 
     logger.info("Oppdaterer supergruppe for alle emnekode-supergrupper")
@@ -385,7 +387,7 @@ def populate_enhet_groups(enhet_id):
 
         # TODO: generaliser ifi-hack seinare
         if (re.match(r"(dig|inf|med-inf|tool)", emnekode.lower())
-            and termk == fs.info.semester()
+            and termk == fs.info.semester
             and aar == str(fs.info.year)):
             logger.debug(" (ta med Ifi-spesifikke grupper)")
             ifi_hack = True
@@ -712,8 +714,9 @@ def populate_ifi_groups():
                co.entity_group, ifi_netgr_lkurs, visible=True)
     add_spread_to_group("lkurs", co.spread_ifi_nis_ng)
 
-def sync_group(affil, gname, descr, mtype, memb, visible=False):
-    logger.debug("sync_group(%s; %s; %s; %s; %s" % (affil, gname, descr, mtype, memb))
+def sync_group(affil, gname, descr, mtype, memb, visible=False, recurse=True):
+    logger.debug("sync_group(%s; %s; %s; %s; %s; %s; %s)" %
+                 (affil, gname, descr, mtype, memb.keys(), visible, recurse))
     if mtype == co.entity_group:   # memb has group_name as keys
         members = {}
         for tmp_gname in memb.keys():
@@ -776,14 +779,14 @@ def sync_group(affil, gname, descr, mtype, memb, visible=False):
                 if (mtype == co.entity_group and
                     correct_visib == co.group_visibility_internal and
                     (not known_FS_groups.has_key(member))):
-                    destroy_group(member, 2)
+                    destroy_group(member, recurse=recurse)
 
     for member in members.keys():
         group.add_member(member, mtype, co.group_memberop_union)
 
-def destroy_group(gname, max_recurse):
+def destroy_group(gname, max_recurse=2, recurse=True):
     gr = get_group(gname)
-    if True:
+    if recurse:
         # 2004-07-01: Deletion of groups has been disabled until we've
         # managed to come up with a deletion process that can be
         # committed at multiple checkpoints, rather than having to
@@ -793,7 +796,7 @@ def destroy_group(gname, max_recurse):
         return
     logger.debug("destroy_group(%s/%d, %d) [After get_group]"
                  % (gr.group_name, gr.entity_id, max_recurse))
-    if max_recurse < 0:
+    if recurse and max_recurse < 0:
         logger.fatal("destroy_group(%s): Recursion too deep" % gr.group_name)
         sys.exit(3)
         
@@ -836,8 +839,9 @@ def destroy_group(gname, max_recurse):
     # Destroy any subgroups (down to level max_recurse).  This needs
     # to be done after the parent group has been deleted, in order for
     # the subgroups not to be members of the parent anymore.
-    for subg in u:
-        destroy_group(subg[1], max_recurse - 1)
+    if recurse:
+        for subg in u:
+            destroy_group(subg[1], max_recurse - 1)
 
 
 def add_spread_to_group(group, spread):
