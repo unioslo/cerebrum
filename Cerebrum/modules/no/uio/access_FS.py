@@ -51,6 +51,20 @@ class FS(object):
 
 ##################################################################
 # Metoder for personer:
+#
+# Skal hente et sett med data om personer:
+#  - Fødseldato
+#  - Personnr
+#  - Efternavn
+#  - Fornavn
+#  - Tittel
+#  - Adresse(r)
+#  - Telefonnr/Fax
+#  - Tilhørighet (Sted/Studieprogram)
+#  - Status_publiseres
+#  - Kjønn
+#  - Status_Død
+#
 ##################################################################
 
 
@@ -70,7 +84,7 @@ SELECT DISTINCT
       p.adrlin3_hjemsted, p.adresseland_hjemsted, 
       p.telefonnr_hjemsted, fp.stillingstittel_engelsk, 
       r.institusjonsnr, r.faknr, r.instituttnr, r.gruppenr,
-      r.status_aktiv, r.status_publiseres
+      r.status_aktiv, r.status_publiseres, p.kjonn, p.status_dod
 FROM fs.person p, fs.fagperson fp,
      fs.fagpersonundsemester r
 WHERE r.fodselsdato = fp.fodselsdato AND
@@ -79,7 +93,7 @@ WHERE r.fodselsdato = fp.fodselsdato AND
       fp.personnr = p.personnr AND 
       %s
       %s
-        """ % (self.get_termin_aar(),self.is_alive())
+        """ % (self.get_termin_aar())
 
         return (self._get_cols(qry), self.db.query(qry))
 
