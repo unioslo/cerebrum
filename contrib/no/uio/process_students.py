@@ -5,9 +5,10 @@ import getopt
 import sys
 import os
 import pickle
-
-import cereconf
 from time import gmtime, strftime, time
+
+import cerebrum_path
+import cereconf
 
 from Cerebrum import Account
 from Cerebrum import Errors
