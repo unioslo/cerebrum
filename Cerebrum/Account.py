@@ -642,11 +642,16 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine, Entity):
         lname = self.simplify_name(lname.replace('-', ''), alt=1)
 
         initials = [n[0] for n in re.split(r'[ -]', fname)]
-        firstinit = "".join(initials[:-1])
+        
+        # firstinit is set to the initials of the first two names if
+        # the person has three or more first names, so firstinit and
+        # initial never overlap.
+        firstinit = ""; initial = None
+        if len(initials) >= 3:
+            firstinit = "".join(initials[:2])
+        # initial is taken from the last first name.
         if len(initials) > 1:
             initial = initials[-1]
-        else:
-            initial = None
 
         # Now remove all hyphens and keep just the first name.  People
         # called "Geir-Ove Johnsen Hansen" generally prefer "geirove"
@@ -667,7 +672,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine, Entity):
 
         if len(firstinit) > 1:
             llen = len(lname)
-            if llen + len(firstinit) > maxlen:
+            if len(firstinit) + llen > maxlen:
                 llen = maxlen - len(firstinit)
             for j in range(llen, 0, -1):
                 un = firstinit + lname[0:j] + suffix
