@@ -395,8 +395,10 @@ class ConstantsBase(DatabaseAccessor):
         stats = {'total': 0, 'inserted': 0}
         def insert(root, update, stats=stats):
             for cls in order[root].keys():
+                cls_code_count = 0
                 for code in order[root][cls]:
                     stats['total'] += 1
+                    cls_code_count += 1
                     try:
                         code._pre_insert_check()
                     except CodeValuePresentError:
@@ -406,6 +408,14 @@ class ConstantsBase(DatabaseAccessor):
                     code.insert()
                     stats['inserted'] += 1
                 del order[root][cls]
+                table_code_count = self._db.query_1(
+                    """SELECT count(*) FROM %s""" % cls._lookup_table)
+                if cls_code_count <> table_code_count:
+                    raise RuntimeError, \
+                          ("Number of %s code attributes (%d)"
+                           " differs from number of %s rows (%d)") % (
+                        cls.__name__, cls_code_count,
+                        cls._lookup_table, table_code_count)
                 if order.has_key(cls):
                     insert(cls, update)
             del order[root]
