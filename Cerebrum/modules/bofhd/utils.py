@@ -53,7 +53,7 @@ class Constants(Constants.Constants):
     bofh_email_move = _BofhdRequestOpCode('br_email_move',
                                           'Move user among e-mail servers')
     # state_data:
-    #    hquota (int: quota in mebibytes)
+    #    (nothing)
     bofh_email_create = _BofhdRequestOpCode('br_email_create',
                                             'Create user mailboxes')
     # state_data:
@@ -61,7 +61,7 @@ class Constants(Constants.Constants):
     bofh_email_delete = _BofhdRequestOpCode('br_email_delete',
                                             'Delete all user mailboxes')
     # state_data:
-    #    hquota (int: quota in mebibytes)
+    #    (nothing)
     bofh_email_hquota = _BofhdRequestOpCode('br_email_hquota',
                                             'Set e-mail hard quota')
     # state_data:
@@ -112,9 +112,9 @@ class BofhdRequests(object):
         return reqid
 
     def delay_request(self, request_id, seconds=600):
-	cols = self.get_requests(request_id)
-	when = cols['run_at'] + seconds;
-	self._db.execute("""
+        for r in self.get_requests(request_id):
+            when = r['run_at'] + seconds;
+            self._db.execute("""
 		UPDATE [:table schema=cerebrum name=bofhd_request]
 		SET run_at = %d
 		WHERE request_id = %d
