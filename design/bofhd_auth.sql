@@ -85,14 +85,10 @@ category:main;
 CREATE TABLE auth_op_target (
   op_target_id     NUMERIC(12,0)
                      CONSTRAINT auth_op_target_pk PRIMARY KEY,
-  entity_id        NUMERIC(12,0)
-		     NOT NULL,
+  entity_id        NUMERIC(12,0),
   target_type      CHAR VARYING(16)
 		     NOT NULL,
-  attr             CHAR VARYING(50),
-  CONSTRAINT auth_op_target_unique UNIQUE (entity_id, target_type, attr)
-  /* unfortunately, more than one instance of (id, type, NULL) is
-     allowed, but the constraint will catch some errors. */
+  attr             CHAR VARYING(50)
 );
 category:main;
 CREATE INDEX auth_op_target_entity_id ON auth_op_target(entity_id);
