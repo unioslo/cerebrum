@@ -32,9 +32,8 @@ class CLHandler(DatabaseAccessor):
         ret = []
         last_id = self._get_last_change_id(key)
         max_id = last_id
-        for evt in self._db.get_log_events(last_id+1):
-            if evt.change_type_id in types:
-                ret.append(evt)
+        for evt in self._db.get_log_events(last_id+1, types=types):
+            ret.append(evt)
             max_id = evt.change_id
         if max_id != last_id:
             self._update_last_change_id(key, max_id)

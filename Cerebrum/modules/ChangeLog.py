@@ -59,12 +59,11 @@ class ChangeLog(object):
                 :destination_entity, :change_params, :change_by, :change_program)""", m)
         self.messages = []
 
-    def get_log_events(self, start_id, type=None):
+    def get_log_events(self, start_id, types=None):
         where = ["change_id >= :start_id"]
         bind = {'start_id': int(start_id)}
-        if type is not None:
-            where.append("change_type_id = :type")
-            bind['type'] = type
+        if types is not None:
+            where.append("change_type_id IN("+", ".join(["%i" % x for x in types])+")")
         where = "WHERE "+" AND ".join(where)
         ret = []
         for r in self.query("""
