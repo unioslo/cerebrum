@@ -182,6 +182,7 @@ class JobRunner(object):
                     num_running += 1
             logger.debug("Queue: %s" % self.job_queue.get_run_queue())
             tmp_queue = self.job_queue.get_run_queue()[:]   # loop modifies list
+            completed_nowait_job = False
             for job_name in tmp_queue:
                 if self.job_queue.has_queued_prerequisite(job_name):
                     logger.debug2("has queued prereq: %s" % job_name)
@@ -205,12 +206,13 @@ class JobRunner(object):
                 # Mark jobs that we should not wait for as completed
                 if (job_ref.call is None or not job_ref.call.wait):
                     self.job_queue.job_done(job_name, None)
+                    completed_nowait_job = True
 
             # now sleep for delta seconds, or until XXX wakes us
             # because a job has completed
             # TODO: We have a race-condition here if SIGCHLD is
             # received before we do signal.pause()            
-            if self.handle_completed_jobs():
+            if self.handle_completed_jobs() or completed_nowait_job:
                 continue     # Check for new jobs immeadeately
             if delta > 0:
                 self.signal_sleep(min(max_sleep, delta))
@@ -263,8 +265,12 @@ def main():
                 print "Timout contacting server, is it running?"
             sys.exit(0)
         elif opt in ('--config',):
-            sys.path.insert(0, val[:val.rindex("/")])
-            name = val[val.rindex("/")+1:]
+            if val.find("/") == -1:
+                sys.path.insert(0, '.')
+                name = val
+            else:
+                sys.path.insert(0, val[:val.rindex("/")])
+                name = val[val.rindex("/")+1:]
             name = name[:name.rindex(".")]
             exec("import %s as tmp" % name)
             scheduled_jobs = tmp

@@ -142,38 +142,51 @@ class System(CallableAction):
         if child_pid:
             self.logger.debug2("child: %i (p=%i)" % (child_pid, os.getpid()))
             return child_pid
-        self.make_lockfile()
-        self.logger.debug("Entering %s" % self.run_dir)
-        if not os.path.exists(self.run_dir):
-            os.mkdir(self.run_dir)
-        os.chdir(self.run_dir)
-
-        #saveout = sys.stdout
-        #saveerr = sys.stderr
-        new_stdout = open("stdout.log", 'a', 0)
-        new_stderr = open("stderr.log", 'a', 0)
-        os.dup2(new_stdout.fileno(), sys.stdout.fileno())
-        os.dup2(new_stderr.fileno(), sys.stderr.fileno())
         try:
-            p = self.params[:]
-            p.insert(0, self.cmd)
-            if debug_dryrun:
-                os.execv("/bin/sleep", [self.id, str(5+random.randint(5,10))])
-            os.execv(self.cmd, p)
-        except OSError, e:
-            sys.exit(e.errno)
+            self.make_lockfile()
+            self.logger.debug("Entering %s" % self.run_dir)
+            if not os.path.exists(self.run_dir):
+                os.mkdir(self.run_dir)
+            os.chdir(self.run_dir)
+
+            #saveout = sys.stdout
+            #saveerr = sys.stderr
+            new_stdout = open("stdout.log", 'a', 0)
+            new_stderr = open("stderr.log", 'a', 0)
+            os.dup2(new_stdout.fileno(), sys.stdout.fileno())
+            os.dup2(new_stderr.fileno(), sys.stderr.fileno())
+            try:
+                p = self.params[:]
+                p.insert(0, self.cmd)
+                if debug_dryrun:
+                    os.execv("/bin/sleep", [self.id, str(5+random.randint(5,10))])
+                os.execv(self.cmd, p)
+            except OSError, e:
+                sys.exit(e.errno)
+        except:
+            # Full disk etc. can trigger this
+            self.logger.critical("Caught unexpected exception", exc_info=1)
         logger.error("OOPS!  This code should never be reached")
         sys.exit(1)
 
     def cond_wait(self, child_pid):
+        # May raise OSError: [Errno 4]: Interrupted system call
         pid, exit_code = os.waitpid(child_pid, os.WNOHANG)
         self.logger.debug2("Wait (wait=%i) ret: %s/%s" % (
             self.wait, pid, exit_code))
         if pid == child_pid:
-            if ((self.stdout_ok == 0 and 
+            if not (os.path.exists(self.run_dir) and
+                    os.path.exists("%s/stdout.log" % self.run_dir) and
+                    os.path.exists("%s/stderr.log" % self.run_dir)):
+                # May happen if the exec failes due to full-disk etc.
+                if not exit_code:
+                    self.logger.warn(
+                        "exit_code=0, and %s don't exist!" % self.run_dir)
+                return (exit_code, None)
+            if (exit_code != 0 or
+                (self.stdout_ok == 0 and 
                  os.path.getsize("%s/stdout.log" % self.run_dir) > 0) or 
-                os.path.getsize("%s/stderr.log" % self.run_dir) > 0 or
-                exit_code != 0):
+                os.path.getsize("%s/stderr.log" % self.run_dir) > 0):
                 newdir = "%s.%s" % (self.run_dir, time.time())
                 os.rename(self.run_dir, newdir)
                 return (exit_code, newdir)

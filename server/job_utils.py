@@ -365,12 +365,12 @@ class JobQueue(object):
         if pid is not None:
             self._running_jobs.remove((job_name, pid))
         self._last_run[job_name] = time.time()
-        self.db_qh.update_last_run(job_name, self._last_run[job_name])
 
         if self._started_at.has_key(job_name):
             self.logger.debug("Completed [%s/%i] after %f seconds" % (
                 job_name,  pid, self._last_run[job_name] - self._started_at[job_name]))
         else:
+            self._run_queue.remove(job_name)
             self.logger.debug("Completed [%s/%i] (start not set)" % (
                 job_name,  pid or -1))
         self.db_qh.update_last_run(job_name, self._last_run[job_name])
@@ -421,7 +421,9 @@ class JobQueue(object):
         if job_name not in queue or this_job.multi_ok:
             if (this_job.max_freq is None or
                 current_time - self._last_run[job_name] > this_job.max_freq):
-                queue.append(job_name)
+                if job_name not in [x[0] for x in self._running_jobs]:
+                    # Don't add to queue if job is currently running
+                    queue.append(job_name)
 
         for j in this_job.post or []:
             self.insert_job(queue, j)
