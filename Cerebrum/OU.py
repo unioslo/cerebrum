@@ -161,6 +161,21 @@ class OU(EntityContactInfo, EntityAddress, Entity):
                                   'parent_id': parent_id})
         self.find(ou_id)
 
+    def get_parent(self, perspective):
+        return self.query_1("""
+        SELECT parent_id
+        FROM [:table schema=cerebrum name=ou_structure]
+        WHERE ou_id=:ou_id AND  perspective=:perspective""",
+                            {'ou_id': self.entity_id,
+                             'perspective': int(perspective)})
+
+    def unset_parent(self, perspective):
+        self.execute("""
+        DELETE FROM [:table schema=cerebrum name=ou_structure]
+        WHERE ou_id=:e_id AND perspective=:perspective""",
+                     {'e_id': self.entity_id,
+                      'perspective': int(perspective)})
+
     def set_parent(self, perspective, parent_id):
         """Set the parent of this OU to ``parent_id`` in ``perspective``."""
         self.execute("""
@@ -170,6 +185,13 @@ class OU(EntityContactInfo, EntityAddress, Entity):
                      {'e_id': self.entity_id,
                       'perspective': int(perspective),
                       'parent_id': parent_id})
+
+    def list_children(self, perspective):
+        return self.query("""
+        SELECT ou_id FROM [:table schema=cerebrum name=ou_structure]
+        WHERE parent_id=:e_id AND perspective=:perspective""",
+                          {'e_id': self.entity_id,
+                           'perspective': int(perspective)})
 
     def get_structure_mappings(self, perspective):
         """Return list of ou_id -> parent_id connections in ``perspective``."""
