@@ -75,7 +75,14 @@ class ProgressReporter(object):
     (set_indent method).  A future version might make this a wrapper
     to the standard logging module."""
 
-    def __init__(self, logfile, stdout=False):
+    DEBUG2=7
+    DEBUG=6
+    INFO=5
+    INFO2=4
+    WARN=3
+    ERROR=2
+    
+    def __init__(self, logfile, stdout=False, loglevel=DEBUG2):
         self.stdout = stdout
         if stdout:
             self.out = sys.stdout
@@ -84,6 +91,7 @@ class ProgressReporter(object):
         self.prev_msgtime = time()
         self.pp = pprint.PrettyPrinter(indent=4)
         self.indent = 0
+        self.loglevel = loglevel
 
     def set_indent(self, val):
         self.indent = val
@@ -99,12 +107,16 @@ class ProgressReporter(object):
         self.out.flush()
 
     def debug(self, msg, append_newline=True):
-        self._log(msg, append_newline)
+        if self.DEBUG <= self.loglevel:
+            self._log(msg, append_newline)
 
     def debug2(self, msg, append_newline=True):
-        self._log(msg, append_newline)
+        if self.DEBUG2 <= self.loglevel:
+            self._log(msg, append_newline)
 
     def info(self, msg, append_newline=True):
+        if self.INFO > self.loglevel:
+            return
         now = time()
         self._log("[%s] %s (delta: %i)" % (strftime("%H:%M:%S", localtime()),
                                            msg, now - self.prev_msgtime),
@@ -112,13 +124,16 @@ class ProgressReporter(object):
         self.prev_msgtime = now
 
     def info2(self, msg, append_newline=True):
-        self._log(msg, append_newline)
+        if self.INFO2 <= self.loglevel:
+            self._log(msg, append_newline)
 
     def warn(self, msg, append_newline=True):
-        self._log("WARNING: %s" % msg, append_newline)
+        if self.WARN <= self.loglevel:
+            self._log("WARNING: %s" % msg, append_newline)
 
     def error(self, msg, append_newline=True):
-        self._log(msg, append_newline)
+        if self.ERROR <= self.loglevel:
+            self._log(msg, append_newline)
 
     def pformat(self, obj):
         return self.pp.pformat(obj)
