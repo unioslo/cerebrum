@@ -218,7 +218,7 @@ def output_text(output_file):
     for row in rows:
         output_row(row, output_stream, db_person, db_account, constants)
         count += 1
-        if count % 10000:
+        if count % 10000 == 0:
             logger.debug("Written next 10000 rows")
         # fi
     # od
