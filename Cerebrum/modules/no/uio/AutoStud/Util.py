@@ -92,7 +92,7 @@ class LookupHelper(object):
         ou.find(sko)
         ret.append("%02i%02i%02i" % (
             ou.fakultet, ou.institutt, ou.avdeling))
-        for row in ou.list_children(self.const.perspective_lt):
+        for row in ou.list_children(self.const.perspective_lt, recursive=True):
             # TODO: don't hardcode perspective
             ou.clear()
             ou.find(row['ou_id'])
