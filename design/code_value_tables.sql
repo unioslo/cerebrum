@@ -1,3 +1,19 @@
+/*	entity_type_code
+
+  This table holds one entry per type of entity the system can collect
+  data on, e.g. persons, groups and OUs.
+
+*/
+CREATE TABLE entity_type_code
+(
+  code		CHAR VARYING(16)
+		CONSTRAINT entity_type_code_pk PRIMARY KEY,
+  description	CHAR VARYING(512)
+		NOT NULL
+);
+
+
+
 /*****
  ***** Code values related to at least two different kinds of
  ***** entities.
@@ -13,6 +29,23 @@ CREATE TABLE authoritative_system_code
 (
   code		CHAR VARYING(16)
 		CONSTRAINT authoritative_system_code_pk PRIMARY KEY,
+  description	CHAR VARYING(512)
+		NOT NULL
+);
+
+
+/*	country_code
+
+
+
+*/
+CREATE TABLE country_code
+(
+  code		CHAR VARYING(16)
+		CONSTRAINT country_code_pk PRIMARY KEY,
+  country	CHAR VARYING(64)
+		NOT NULL,
+  phone_prefix	CHAR VARYING(8),
   description	CHAR VARYING(512)
 		NOT NULL
 );
@@ -120,7 +153,11 @@ CREATE TABLE contact_info_code
 
 /*	quarantine_code
 
-  Both persons and users can be quarantined.
+  All kinds of entities can be quarantined.
+
+  If 'duration' is non-NULL, it gives the quarantine's duration as a
+  number of days; this is used to calculate a default value for the
+  entity_quarantine(end_date) column.
 
 */
 CREATE TABLE quarantine_code
@@ -128,8 +165,9 @@ CREATE TABLE quarantine_code
   code		CHAR VARYING(16)
 		CONSTRAINT quarantine_code_pk PRIMARY KEY,
   description	CHAR VARYING(512)
-		NOT NULL
-/* TBD: Should there be any more columns here, e.g. "duration"? */
+		NOT NULL,
+  duration	NUMERIC(4,0)
+		DEFAULT NULL
 );
 
 
@@ -238,16 +276,6 @@ CREATE TABLE person_affiliation_code
 		CONSTRAINT person_affiliation_code_pk PRIMARY KEY,
   description	CHAR VARYING(512)
 		NOT NULL
-/* TBD: Should person affiliation codes be organized in e tree
-	structure, e.g. like this:
-
-,  parent	CHAR VARYING(16)
-		CONSTRAINT person_affiliation_code_parent
-		  REFERENCES person_affiliation_code(code)
-
-	This could be useful if a mapping from person(primary_source)
-	to "primary affiliation" is needed for persons with several
-	affiliations given from their primary_source. */
 );
 
 
