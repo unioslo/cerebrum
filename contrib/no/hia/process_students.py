@@ -36,6 +36,7 @@ from Cerebrum.modules.bofhd.utils import BofhdRequests
 from Cerebrum.modules.bofhd import errors
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.uio import AutoStud
+from Cerebrum.modules.no import Stedkode
 from Cerebrum.modules.no.uio import PrinterQuotas
 from Cerebrum.modules.templates.letters import TemplateHandler
 
@@ -49,7 +50,7 @@ processed_students = {}
 keep_account_home = {}
 paid_paper_money = {}
 account_id2fnr = {}
-
+stedkode_sort = 0
 debug = 0
 max_errors = 50          # Max number of errors to accept in person-callback
 
@@ -69,6 +70,8 @@ def bootstrap():
 def create_user(fnr, profile):
     # dryruning this method is unfortunately a bit tricky
     assert not dryrun
+    t = localtime()[0:2]
+    year = str(t[0])[2:]
     logger.info2("CREATE")
     person = Factory.get('Person')(db)
     try:
@@ -80,7 +83,7 @@ def create_user(fnr, profile):
     first_name, last_name = full_name.split(" ", 1)
     account = Factory.get('Account')(db)
     uname = account.suggest_unames(const.account_namespace,
-                                   first_name, last_name)[0]
+                                   first_name, last_name, maxlen=8, suffix=year)[0]
     account.populate(uname,
                      const.entity_person,
                      person.entity_id,
@@ -331,6 +334,8 @@ def make_letters(data_file=None, type=None, range=None):
             all_passwords[tmp[0]] = tmp[1]
     person = Factory.get('Person')(db)
     account = Factory.get('Account')(db)
+    en_ou = Stedkode.Stedkode(db)
+    tmp_sted =""
     dta = {}
     logger.debug("Making %i letters" % len(all_passwords))
     for account_id in all_passwords.keys():
@@ -343,8 +348,17 @@ def make_letters(data_file=None, type=None, range=None):
             logger.warn("NotFoundError for account_id=%s" % account_id)
             continue
         tpl = {}
+	ou_er = person.get_affiliations()
+	try:
+	    en_ou.clear()
+	    en_ou.find(ou_er[0]['ou_id'])
+	    tmp_sted = en_ou.fakultet
+	except Errors.NotFoundError:
+            logger.warn("NotFoundError, OU not found for account=%s" % account_id)
+            continue
         address = person.get_entity_address(source=const.system_fs,
                                             type=const.address_post)
+	
         if not address:
             logger.warn("Bad address for %s" % account_id)
             continue
@@ -367,12 +381,13 @@ def make_letters(data_file=None, type=None, range=None):
         tpl['birthno'] =  tmp[0]['external_id']
         tpl['emailadr'] =  "TODO"  # We probably don't need to support this...
         tpl['account_id'] = account_id
+	tpl['ou_id'] = tmp_sted
         dta[account_id] = tpl
 
-    # Print letters sorted by zip.  Each template type has its own
+    # Print letters sorted by faknr.  Each template type has its own
     # letter number sequence
     keys = dta.keys()
-    keys.sort(lambda x,y: cmp(dta[x]['zip'], dta[y]['zip']))
+    keys.sort(lambda x,y: cmp(dta[x]['ou_id'], dta[y]['ou_id']))
     letter_info = {}
     files = {}
     tpls = {}
@@ -726,6 +741,7 @@ def main():
     except getopt.GetoptError, e:
         usage(str(e))
     global debug, fast_test, create_users, update_accounts, logger, skip_lpr
+	   #stedkode_sort
     global student_info_file, studconfig_file, only_dump_to, studieprogs_file, \
            recalc_pq, dryrun, emne_info_file, move_users, remove_groupmembers, \
            workdir, paper_money_file, ou_perspective
