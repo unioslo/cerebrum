@@ -22,7 +22,7 @@ import re
 import sys
 import time
 import os
-import cyruslib
+#import cyruslib
 from mx import DateTime
 try:
     from sets import Set
@@ -81,7 +81,7 @@ class BofhdExtension(object):
         self.name_codes = {}
         for t in self.person.list_person_name_codes():
             self.name_codes[int(t.code)] = t.description
-        self.external_id_mappings['fnr'] = self.const.externalid_fodselsnr
+        self.external_id_mappings['fnr'] = self.const.externalid_studentnr
         # TODO: str2const is not guaranteed to be unique (OK for now, though)
         self.num2const = {}
         self.str2const = {}
@@ -564,31 +564,36 @@ class BofhdExtension(object):
             est.find_by_entity(acc.entity_id)
             es = Email.EmailServer(self.db)
             es.find(est.email_server_id)
-            if es.email_server_type == self.const.email_server_type_cyrus:
-                pw = self.db._read_password(cereconf.CYRUS_HOST,
-                                            cereconf.CYRUS_ADMIN)
-                try:
-                    cyrus = cyruslib.CYRUS(es.name)
-                    cyrus.login(cereconf.CYRUS_ADMIN, pw)
-                    # TODO: use imaplib instead of cyruslib, and do
-                    # quotatrees properly.  cyruslib doesn't check to
-                    # see if it's a STORAGE quota or something else.
-                    # not very important for us, though.
-                    used, limit = cyrus.lq("user", acc.account_name)
-                    if used is None:
-                        used = 'N/A'
-                    else:
-                        used = str(used/1024)
-                except TimeoutException:
-                    used = 'DOWN'
-                except ConnectException, e:
-                    used = str(e)
-                info.append({'quota_hard': eq.email_quota_hard,
-                             'quota_soft': eq.email_quota_soft,
-                             'quota_used': used})
-            else:
-                info.append({'dis_quota_hard': eq.email_quota_hard,
-                             'dis_quota_soft': eq.email_quota_soft})
+#  to disable cyrus stuff, so we can remove cyruslib from the imports
+#             if es.email_server_type == self.const.email_server_type_cyrus:
+#                 pw = self.db._read_password(cereconf.CYRUS_HOST,
+#                                             cereconf.CYRUS_ADMIN)
+#                 try:
+#                     cyrus = cyruslib.CYRUS(es.name)
+#                     cyrus.login(cereconf.CYRUS_ADMIN, pw)
+#                     # TODO: use imaplib instead of cyruslib, and do
+#                     # quotatrees properly.  cyruslib doesn't check to
+#                     # see if it's a STORAGE quota or something else.
+#                     # not very important for us, though.
+#                     used, limit = cyrus.lq("user", acc.account_name)
+#                     if used is None:
+#                         used = 'N/A'
+#                     else:
+#                         used = str(used/1024)
+#                 except TimeoutException:
+#                     used = 'DOWN'
+#                 except ConnectException, e:
+#                     used = str(e)
+#                 info.append({'quota_hard': eq.email_quota_hard,
+#                              'quota_soft': eq.email_quota_soft,
+#                              'quota_used': used})
+#             else:
+#                 info.append({'dis_quota_hard': eq.email_quota_hard,
+#                              'dis_quota_soft': eq.email_quota_soft})
+# cyruslib disabled  end 
+            info.append({'dis_quota_hard': eq.email_quota_hard,
+                         'dis_quota_soft': eq.email_quota_soft})
+# cyruslib alternative end
         except Errors.NotFoundError:
             pass
         forw = []
@@ -1620,7 +1625,7 @@ class BofhdExtension(object):
             id_type = None
         gender = self.const.gender_unknown
         if id_type is not None and id:
-            if id_type == self.const.externalid_fodselsnr:
+            if id_type == self.const.externalid_studentnr:
                 try:
                     if fodselsnr.er_mann(id):
                         gender = self.const.gender_male
@@ -1629,7 +1634,7 @@ class BofhdExtension(object):
                 except fodselsnr.InvalidFnrError, msg:
                     raise CerebrumError("Invalid birth-no")
                 try:
-                    person.find_by_external_id(self.const.externalid_fodselsnr, id)
+                    person.find_by_external_id(self.const.externalid_studentnr, id)
                     raise CerebrumError("A person with that fnr already exists")
                 except Errors.TooManyRowsError:
                     raise CerebrumError("A person with that fnr already exists")
@@ -1637,9 +1642,9 @@ class BofhdExtension(object):
                     pass
                 person.clear()
                 person.affect_external_id(self.const.system_manual,
-                                          self.const.externalid_fodselsnr)
+                                          self.const.externalid_studentnr)
                 person.populate_external_id(self.const.system_manual,
-                                            self.const.externalid_fodselsnr,
+                                            self.const.externalid_studentnr,
                                             id)
         person.populate(bdate, gender,
                         description='Manually created')
@@ -2532,7 +2537,7 @@ class BofhdExtension(object):
                 for ss in [self.const.system_sas, self.const.system_manual]:
                     try:
                         person.clear()
-                        person.find_by_external_id(self.const.externalid_fodselsnr, id,
+                        person.find_by_external_id(self.const.externalid_studentnr, id,
                                                    source_system=ss)
                         ret.append({'person_id': person.entity_id})
                     except Errors.NotFoundError:
@@ -2563,7 +2568,7 @@ class BofhdExtension(object):
         """Map <idtype:id> to const.<idtype>, id.  Recognizes
         fødselsnummer without <idtype>.  Also recognizes entity_id"""
         if id.isdigit() and len(id) >= 10:
-            return self.const.externalid_fodselsnr, id
+            return self.const.externalid_studentnr, id
         if id.find(":") == -1:
             self._get_account(id)  # We assume this is an account
             return "account_name", id
