@@ -57,7 +57,7 @@ class Dumpable(object):
 
         for attr in cls.slots:
             get = create_mark_method(attr.name, attr.get_name_get())
-            dumper_class.register_method(Method('mark_' + attr.name, None), get, overwrite=True)
+            dumper_class.register_method(Method('mark_' + attr.name, None, write=True), get, overwrite=True)
 
         for method in [i for i in cls.method_slots if not i.write]:
             get = create_mark_method(method.name, method.name)
