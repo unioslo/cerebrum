@@ -28,7 +28,7 @@ Instructions for creating the Oracle users:
 Instructions for creating the PostgreSQL database and user:
 
   % createuser cerebrum
-  % createdb cerebrum
+  % createdb -E unicode cerebrum
 
 Get the sources
 ---------------
