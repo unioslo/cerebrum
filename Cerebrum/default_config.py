@@ -115,6 +115,8 @@ QUARANTINE_RULES = {}
 # }
 
 CEREBRUM_DDL_DIR="../share/doc/cerebrum/design"
+BOFHD_SUPERUSER_GROUP=INITIAL_GROUPNAME
+
 # Should contain mapping lang: [('template-prefix', 'tpl-type)...]
 BOFHD_TEMPLATES={}
 # Directory for templates
@@ -124,7 +126,8 @@ TEMPLATE_DIR=None
 PRINT_LATEX_CMD=None
 PRINT_DVIPS_CMD=None
 PRINT_LPR_CMD=None
-BOFHD_SUPERUSER_GROUP=INITIAL_GROUPNAME
+PRINT_PRINTER=None
+PRINT_BARCODE=None
 
 # Logdir for AutoStud jobs
 AUTOADMIN_LOG_DIR='.'
