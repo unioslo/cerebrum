@@ -26,6 +26,15 @@ class PosixGroup(Group.Group):
     __read_attr__ = ('__in_db',)
     __write_attr__ = ('posix_gid',)
 
+    def clear(self):
+        self.__super.clear()
+        for attr in PosixGroup.__read_attr__:
+            if hasattr(self, attr):
+                delattr(self, attr)
+        for attr in PosixGroup.__write_attr__:
+            setattr(self, attr, None)
+        self.__updated = False
+
     # We do not allow giving PosixGroups names that differ from the
     # names of the Groups they are based on, as we anticipate that
     # doing so would lead to chaos.
