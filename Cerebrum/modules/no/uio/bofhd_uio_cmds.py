@@ -31,6 +31,7 @@ from Cerebrum.modules.bofhd.cmd_param import *
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd.utils import BofhdRequests
 from Cerebrum.modules.bofhd.auth import BofhdAuth, BofhdAuthOpSet, AuthConstants, BofhdAuthOpTarget, BofhdAuthRole
+from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.uio import PrinterQuotas
 from Cerebrum.modules.no.uio import bofhd_uio_help
 from Cerebrum.modules.templates.letters import TemplateHandler
@@ -161,7 +162,7 @@ class BofhdExtension(object):
         account = self._get_account(accountname, actype="PosixUser")
         grp = self._get_group(groupname, grtype="PosixGroup")
         self.ba.can_alter_group(operator.get_entity_id(), grp)
-        account.gid = grp.entity_id
+        account.gid_id = grp.entity_id
         account.write_db()
         return "OK"
 
@@ -235,7 +236,7 @@ class BofhdExtension(object):
             grp = self._get_group(groupname, grtype="PosixGroup")
             is_posix = True
         except CerebrumError:
-            grp = self._get_group(groupname, idtype="id")
+            grp = self._get_group(groupname)
         ret = {'entity_id': grp.entity_id,
                'spread': ",".join(["%s" % self.num2const[int(a['spread'])]
                                    for a in grp.get_spread()]),
@@ -303,9 +304,9 @@ class BofhdExtension(object):
             raise CerebrumError, "Database error: %s" % m
         return {'group_id': int(pg.posix_gid)}
 
-    # group posix_delete
+    # group posix_demote
     all_commands['group_demote_posix'] = Command(
-        ("group", "posix_demote"), GroupName())
+        ("group", "demote_posix"), GroupName())
     def group_demote_posix(self, operator, group):
         grp = self._get_group(group, grtype="PosixGroup")
         self.ba.can_delete_group(operator.get_entity_id(), grp)
@@ -429,13 +430,16 @@ class BofhdExtension(object):
 
     all_commands['misc_dls'] = Command(
         ("misc", "dls"), SimpleString(help_ref='string_host'),
-        fs=FormatSuggestion("%s", ("path",), hdr="Path"))
+        fs=FormatSuggestion("%-8i %-8i %s", ("disk_id", "host_id", "path",),
+                            hdr="DiskId   HostId   Path"))
     def misc_dls(self, operator, hostname):
         host = self._get_host(hostname)
         disk = Disk.Disk(self.db)
         ret = []
         for row in disk.list(host.host_id):
-            ret.append({'path': row['path']})
+            ret.append({'disk_id': row['disk_id'],
+                        'host_id': row['host_id'],
+                        'path': row['path']})
         return ret
 
     all_commands['misc_drem'] = Command(
@@ -542,12 +546,16 @@ class BofhdExtension(object):
     # misc mmove
     all_commands['misc_list_requests'] = Command(
         ("misc", "list_requests"),
-        fs=FormatSuggestion("%-6s %-10s %-20s %-15s %-10s %-20s %s", ("id", "requestee", "when:%s" % format_day, "op", "entity", "destination", "args"),
-                            hdr="%-6s %-10s %-20s %-15s %-10s %-20s %s" % ("Id", "Requestee", "When", "Op", "Entity", "Destination", "Arguments")))
+        fs=FormatSuggestion("%-6i %-10s %-14s %-15s %-10s %-20s %s",
+                            ("id", "requestee", "when:%s" % format_time,
+                             "op", "entity", "destination", "args"),
+                            hdr="%-6s %-10s %-14s %-15s %-10s %-20s %s" % (
+        "Id", "Requestee", "When", "Op", "Entity", "Destination", "Arguments")))
     def misc_list_requests(self, operator):
         br = BofhdRequests(self.db, self.const)
         ret = []
-        for r in br.get_requests(operator_id=operator.get_entity_id(), given=True):
+        for r in br.get_requests(operator_id=operator.get_entity_id(),
+                                 given=True):
             op = self.num2const[int(r['operation'])]
             dest = None
             if op in (self.const.bofh_move_user, self.const.bofh_move_request):
@@ -557,6 +565,7 @@ class BofhdExtension(object):
             elif op in (self.const.bofh_move_give,):
                 dest = self._get_entity_name(self.const.entity_group,
                                              r['destination_id'])
+            print "R: %s" % r['run_at']
             ret.append({'when': r['run_at'],
                         'requestee': self._get_entity_name(self.const.entity_account, r['requestee_id']),
                         'op': str(op),
@@ -646,6 +655,16 @@ class BofhdExtension(object):
                 ["%s" % r2['attr'] for r2 in aot.list_target_attrs(r['op_target_id'])])})
         return ret
 
+    # perm add_target
+    all_commands['perm_add_target'] = Command(
+        ("perm", "add_target"), SimpleString(help_ref="string_perm_target_type"),
+        Id())
+    def perm_add_target(self, operator, target_type, op_target_id):
+        aot = BofhdAuthOpTarget(self.db)
+        aot.populate(op_target_id, target_type)
+        aot.write_db()
+        return "OK"
+
     # perm add_target_attr
     all_commands['perm_add_target_attr'] = Command(
         ("perm", "add_target_attr"), Id(help_ref="id:op_target"),
@@ -654,6 +673,15 @@ class BofhdExtension(object):
         aot = BofhdAuthOpTarget(self.db)
         aot.find(op_target_id)
         aot.add_op_target_attr(attr)
+        return "OK"
+
+    # perm del_target
+    all_commands['perm_del_target'] = Command(
+        ("perm", "del_target"), Id(help_ref="id:op_target"))
+    def perm_del_target(self, operator, op_target_id):
+        aot = BofhdAuthOpTarget(self.db)
+        aot.find(op_target_id)
+        aot.delete()
         return "OK"
 
     # perm del_target_attr
@@ -731,30 +759,36 @@ class BofhdExtension(object):
         ("person_id",)))
     def person_create(self, operator, person_id, bdate, person_name,
                       ou, affiliation, aff_status):
-        id_type, id = self._map_person_id(person_id)
-        return self._person_create(operator, person_name, bdate, id_type, id)
-
-    def _person_create(self, operator, display_name, birth_date=None,
-                      id_type=None, id=None):
         self.ba.can_create_person(operator.get_entity_id())
         person = self.person
         person.clear()
-        if birth_date is not None:
-            birth_date = self._parse_date(birth_date)
-        person.populate(birth_date, self.const.gender_male,
+        if bdate is not None:
+            bdate = self._parse_date(bdate)
+        id_type, id = self._map_person_id(person_id)
+        gender = self.const.gender_unknown
+        if id_type is not None:
+            if id_type == self.const.externalid_fodselsnr:
+                if fodselsnr.er_mann(id):
+                    gender = self.const.gender_male
+                else:
+                    gender = self.const.gender_female
+                person.affect_external_id(self.const.system_manual,
+                                          self.const.externalid_fodselsnr)
+                person.populate_external_id(self.const.system_manual,
+                                            self.const.externalid_fodselsnr,
+                                            id)
+        person.populate(bdate, gender,
                         description='Manualy created')
         person.affect_names(self.const.system_manual, self.const.name_full)
         person.populate_name(self.const.name_full,
-                             display_name.encode('iso8859-1'))
+                             person_name.encode('iso8859-1'))
+        ou = self._get_ou(stedkode=ou)
+        aff = self._get_affiliationid(affiliation)
+        aff_status = self._get_affiliation_statusid(aff, aff_status)
         try:
-            if id_type is not None:
-                if id_type == self.const.externalid_fodselsnr:
-                    person.affect_external_id(self.const.system_manual,
-                                              self.const.externalid_fodselsnr)
-                    person.populate_external_id(self.const.system_manual,
-                                                self.const.externalid_fodselsnr,
-                                                id)
             person.write_db()
+            person.add_affiliation(ou.entity_id, aff,
+                                   self.const.system_manual, aff_status)
         except self.db.DatabaseError, m:
             raise CerebrumError, "Database error: %s" % m
         return {'person_id': person.entity_id}
@@ -762,8 +796,8 @@ class BofhdExtension(object):
     # person find
     all_commands['person_find'] = Command(
         ("person", "find"), PersonSearchType(), SimpleString(),
-        fs=FormatSuggestion("%6i %-28s %10s %s", ('id', 'birth:%s' % format_day, 'export_id', 'name'),
-                            hdr="%6s %-28s %10s %s" % ('Id', 'Birth', 'Exp-id', 'Name')))
+        fs=FormatSuggestion("%6i %-8s %10s %s", ('id', 'birth:%s' % format_day, 'export_id', 'name'),
+                            hdr="%6s %-8s %10s %s" % ('Id', 'Birth', 'Exp-id', 'Name')))
     def person_find(self, operator, search_type, value):
         # TODO: Need API support for this
         matches = []
@@ -790,7 +824,8 @@ class BofhdExtension(object):
     # person info
     all_commands['person_info'] = Command(
         ("person", "info"), PersonId(),
-        fs=FormatSuggestion("Name: %s\nExport ID: %s\nBirth: %s\nAffiliations: %s", ("name", "export_id", "birth:%s" % format_day, "affiliations")))
+        fs=FormatSuggestion("Name: %s\nExport ID: %s\nBirth: %s\nAffiliations: %s",
+                            ("name", "export_id", "birth:%s" % format_day, "affiliations")))
     def person_info(self, operator, person_id):
         person = self._get_person(*self._map_person_id(person_id))
         affiliations = []
@@ -919,7 +954,13 @@ class BofhdExtension(object):
         pq = self._get_printerquota(account.entity_id)
         if pq is None:
             return "User has no quota"
-        # TBD: Should we check that pages is not > pq.max_quota?
+        try:
+            pages = int(pages)
+        except ValueError:
+            raise CerebrumError("Enter an integer")
+        if pages > pq.max_quota:
+            raise CerebrumError("Quota too high, max is %i" % (
+                pq.max_quota or 0))
         pq.printer_quota = pages
         pq.write_db()
         return "OK"
@@ -930,7 +971,8 @@ class BofhdExtension(object):
 
     # quarantine disable
     all_commands['quarantine_disable'] = Command(
-        ("quarantine", "disable"), EntityType(default="account"), Id(), QuarantineType(), Date())
+        ("quarantine", "disable"), EntityType(default="account"), Id(),
+        QuarantineType(), Date())
     def quarantine_disable(self, operator, entity_type, id, qtype, date):
         entity = self._get_entity(entity_type, id)
         date = self._parse_date(date)
@@ -949,7 +991,8 @@ class BofhdExtension(object):
         for c in dir(self.const):
             tmp = getattr(self.const, c)
             if isinstance(tmp, _QuarantineCode):
-                ret.append({'name': "%s" % tmp, 'desc': unicode(tmp._get_description(), 'iso8859-1')})
+                ret.append({'name': "%s" % tmp,
+                            'desc': unicode(tmp._get_description(), 'iso8859-1')})
         return ret
 
     # quarantine remove
@@ -964,8 +1007,8 @@ class BofhdExtension(object):
 
     # quarantine set
     all_commands['quarantine_set'] = Command(
-        ("quarantine", "set"), EntityType(default="account"), Id(repeat=True), QuarantineType(),
-        SimpleString(help_ref="string_why"),
+        ("quarantine", "set"), EntityType(default="account"), Id(repeat=True),
+        QuarantineType(), SimpleString(help_ref="string_why"),
         SimpleString(help_ref="string_from_to"))
     def quarantine_set(self, operator, entity_type, id, qtype, why, date):
         date_start = self.db.TimestampFromTicks(time.time())
@@ -988,11 +1031,11 @@ class BofhdExtension(object):
     # quarantine show
     all_commands['quarantine_show'] = Command(
         ("quarantine", "show"), EntityType(default="account"), Id(),
-        fs=FormatSuggestion("%-14s %-20s %-20s %-20s %-8s %s",
+        fs=FormatSuggestion("%-14s %-14s %-14s %-14s %-8s %s",
                             ('type', 'start:%s' % format_time,
                              'end:%s' % format_time,
                              'disable_until:%s' % format_day, 'who', 'why'),
-                            hdr="%-14s %-20s %-20s %-20s %-8s %s" % \
+                            hdr="%-14s %-14s %-14s %-14s %-8s %s" % \
                             ('Type', 'Start', 'End', 'Disable until', 'Who', 'Why')))
     def quarantine_show(self, operator, entity_type, id):
         ret = []
@@ -1177,7 +1220,6 @@ class BofhdExtension(object):
         ('user', 'create'), prompt_func=user_create_prompt_func,
         fs=FormatSuggestion("Created uid=%i", ("uid",)))
     def user_create(self, operator, *args):
-        print args
         if len(args) == 6:
             group_id, np_type, filegroup, shell, home, uname = args
             owner_type = self.const.entity_group
@@ -1214,6 +1256,25 @@ class BofhdExtension(object):
         posix_user.set_password(passwd)
         try:
             posix_user.write_db()
+            if len(args) != 6:
+                ou = self._get_ou(stedkode=cereconf.DEFAULT_OU)
+                if not (affiliation == self.const.affiliation_ansatt or
+                        affiliation == self.const.affiliation_student):
+                    tmp = self.person_affiliation_statusids[str(self.const.affiliation_manuell)]
+                    for k in tmp.keys():
+                        if affiliation == int(tmp[k]):
+                            break
+                    affiliation = tmp[k].affiliation
+                    person = self._get_person('entity_id', owner_id)
+                    has_affiliation = False
+                    for a in person.get_affiliations():
+                        if (a['ou_id'] == ou.entity_id and
+                            a['affiliation'] == int(tmp[k].affiliation)):
+                            has_affiliation = True
+                    if not has_affiliation:
+                        person.add_affiliation(ou.entity_id, tmp[k].affiliation,
+                                               self.const.system_manual, tmp[k])
+                posix_user.set_account_type(ou.entity_id, affiliation)
         except self.db.DatabaseError, m:
             raise CerebrumError, "Database error: %s" % m
         operator.store_state("new_account_passwd", {'account_id': int(posix_user.entity_id),
@@ -1647,7 +1708,7 @@ class BofhdExtension(object):
             else:
                 raise NotImplementedError, "unknown idtype: '%s'" % idtype
         except Errors.NotFoundError:
-            raise CerebrumError, "Could not find account with %s=%s" % (idtype, id)
+            raise CerebrumError, "Could not find %s with %s=%s" % (actype, idtype, id)
         return account
 
     def _get_host(self, name):
@@ -1658,13 +1719,18 @@ class BofhdExtension(object):
         except Errors.NotFoundError:
             raise CerebrumError, "Unkown host: %s" % name
 
-    def _get_group(self, id, idtype='name', grtype="Group"):
+    def _get_group(self, id, idtype=None, grtype="Group"):
         if grtype == "Group":
             group = Group.Group(self.db)
         elif grtype == "PosixGroup":
             group = PosixGroup.PosixGroup(self.db)
         try:
             group.clear()
+            if idtype is None:
+                if id.isdigit():
+                    idtype='id'
+                else:
+                    idtype='name'
             if idtype == 'name':
                 group.find_by_name(id)
             elif idtype == 'id':
@@ -1672,7 +1738,7 @@ class BofhdExtension(object):
             else:
                 raise NotImplementedError, "unknown idtype: '%s'" % idtype
         except Errors.NotFoundError:
-            raise CerebrumError, "Could not find group with %s=%s" % (idtype, id)
+            raise CerebrumError, "Could not find %s with %s=%s" % (grtype, idtype, id)
         return group
 
     def _get_shell(self, shell):
@@ -1686,7 +1752,8 @@ class BofhdExtension(object):
         if ou_id is not None:
             ou.find(ou_id)
         else:
-            ou.find_stedkode(stedkode[0:2], stedkode[2:4], stedkode[4:6])
+            ou.find_stedkode(stedkode[0:2], stedkode[2:4], stedkode[4:6],
+                             institusjon=cereconf.DEFAULT_INSTITUSJONSNR)
         return ou
 
     def _get_group_opcode(self, operator):
