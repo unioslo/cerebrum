@@ -145,7 +145,8 @@ def process_person_callback(person_info):
         if isinstance(p, str):
             continue
         # Get name
-        if dta_type in ('fagperson', 'opptak', 'tilbud', 'evu', 'privatist_emne'):
+        if dta_type in ('fagperson', 'opptak', 'tilbud', 'evu', 'privatist_emne',
+                        'alumni'):
             etternavn = p['etternavn']
             fornavn = p['fornavn']
         if p.has_key('studentnr_tildelt'):
