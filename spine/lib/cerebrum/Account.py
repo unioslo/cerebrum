@@ -36,7 +36,7 @@ registry = Registry.get_registry()
 __all__ = ['Account']
 
 table = 'account_info'
-class Account(CerebrumClass, Entity):
+class Account(Entity):
     slots = Entity.slots + [
         CerebrumDbAttr('owner', table, Entity),
         CerebrumDbAttr('owner_type', table, EntityType),
@@ -89,5 +89,12 @@ def get_account_by_name(name):
 
     account, = s.search()
     return account.get_entity()
+
+def get_accounts(self):
+    s = registry.AccountSearcher()
+    s.set_owner(self)
+    return s.search()
+
+Entity.register_method(Method('get_accounts', [Account]), get_accounts)
 
 # arch-tag: 166fa5e9-de27-4bb9-ad37-79f73fc4e102
