@@ -354,6 +354,12 @@ public class JBofh {
                 } else if(((String) args.get(0)).equals("quit") || 
                     ((String) args.get(0)).equals("q")) {
                     bye();
+		} else if(((String) args.get(0)).equals("source")) {
+                    if(args.size() == 0) {
+                        showMessage("Must specify filename to source", true);
+                    } else {
+                        sourceFile((String) args.get(1));
+                    }
 		} else if(((String) args.get(0)).equals("help")) {
 		    args.remove(0);
 		    showMessage(bc.getHelp(args), true);
@@ -395,6 +401,50 @@ public class JBofh {
 	    }
 	}
         bye();
+    }
+
+    void sourceFile(String filename) {
+        if(guiEnabled) mainFrame.showWait(true);
+        Vector cmds = new Vector();  // For convenience we read the whole file in one go
+        try {
+            BufferedReader in = new BufferedReader(
+                new InputStreamReader(new FileInputStream(filename)));
+            String sin;
+            while((sin = in.readLine()) != null) {
+                cmds.add(sin);
+            }
+        } catch (IOException io) {
+            showMessage("Error reading file: "+io.getMessage(), true);
+            if(guiEnabled) mainFrame.showWait(false);
+            return;
+        }
+        
+        for (Enumeration e = ((Vector) cmds).elements() ; e.hasMoreElements() ;) {
+            String cmd = (String) e.nextElement();
+            Vector args;
+            try {
+                args = cLine.splitCommand(cmd);
+            } catch (ParseException ex) {
+                showMessage("Error translating command: "+cmd, true); continue;
+             }
+            Object r[] = translateCommand(args);
+            if(r == null) {
+                showMessage("Error translating command: "+cmd, true); continue;
+            }
+            String protoCmd = (String) r[0];
+            Vector protoArgs = (Vector) r[1];
+            try {
+                showMessage("jbofh >"+cmd, true);
+                Object resp = bc.sendCommand(protoCmd, protoArgs);
+                if(resp != null) showResponse(protoCmd, resp, false);
+            } catch (BofhdException ex) {
+                showMessage(ex.getMessage(), true);
+            } catch (Exception ex) {
+                showMessage("Unexpected error (bug, true): "+ex, true);
+                ex.printStackTrace();
+            }
+        }
+        if(guiEnabled) mainFrame.showWait(false);
     }
 
     void bye() {
@@ -527,6 +577,7 @@ public class JBofh {
 		    if(map != null && arginfo.get("raw") == null) {
                         try {
                             int i = Integer.parseInt(s);
+                            if(i == 0) throw new Exception("");
 			    ret.add(((Vector)map.get(i)).get(1));
                         } catch (Exception e) {
 			    showMessage("Value not in list", true);
