@@ -1,4 +1,4 @@
-Template: cerebrum-server/autodb
+Template: cerebrum-server/db-auto-config
 Type: boolean
 Default: true
 Description: Automatic handling of the database backend for cerebrum

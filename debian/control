@@ -2,24 +2,21 @@ Source: cerebrum
 Section: admin
 Priority: optional
 Maintainer: Andreas Schuldei <andreas@debian.org>
-Build-Depends: debhelper (>= 4.0.0), ant, python, cdbs
+Build-Depends-Indep: debhelper (>= 4.1.16), python, cdbs, kaffe, jikes, ant
 Standards-Version: 3.6.1.0
 
-Package: cerebrum
-Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}
-Description: advanced automated user administration and management system
- Cerebrum is a Meta-directory, made to administer information
+Package: cerebrum-doc
+Architecture: all
+Description: Documentation for cerebrum
+ Cerebrums design and operation manuals
+ .
+  Cerebrum is a meta-directory, made to administer information
  about mainly people, users, groups and organizations. It has
  modules for integration with other authoritative system an
  organization has (HR, SR, SAS) and exports user-data to numerous
  systems/front-ends like NIS, AD, LDAP. It has an backend which
  can be Oracle or PostgreSQL.
 
-Package: cerebrum-doc
-Architecture: all
-Description: Documentation for cerebrum
- Cerebrums design and operation manuals
 
 Package: cerebrum-common
 Architecture: any
@@ -27,13 +24,27 @@ Depends: ${shlibs:Depends}, ${misc:Depends}
 Description: common files for cerebrum systems
  common python files for the advanced automated user
  administration and management system "cerebrum" on debian.
+ .
+ Cerebrum is a meta-directory, made to administer information
+ about mainly people, users, groups and organizations. It has
+ modules for integration with other authoritative system an
+ organization has (HR, SR, SAS) and exports user-data to numerous
+ systems/front-ends like NIS, AD, LDAP. It has an backend which
+ can be Oracle or PostgreSQL.
 
 
 Package: cerebrum-server 
 Architecture: any 
-Depends: ${shlibs:Depends}, ${misc:Depends} 
+Depends: ${shlibs:Depends}, ${misc:Depends}, python-pgsql, cerebrum-common				 
 Description: cerebrum server 
  files needed for the server of the advanced automated user
  administration and management system "cerebrum" on debian.
+ .
+ Cerebrum is a meta-directory, made to administer information
+ about mainly people, users, groups and organizations. It has
+ modules for integration with other authoritative system an
+ organization has (HR, SR, SAS) and exports user-data to numerous
+ systems/front-ends like NIS, AD, LDAP. It has an backend which
+ can be Oracle or PostgreSQL.
 
 
