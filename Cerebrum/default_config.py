@@ -61,6 +61,7 @@ ENABLE_BOFHD_CRYPTO=0
 # requires that accounts and groups have creator_ids/owner_ids.
 INITIAL_GROUPNAME = "bootstrap_group"
 INITIAL_ACCOUNTNAME = "bootstrap_account"
+INITIAL_ACCOUNTNAME_PASSWORD = "change_on_install"
 
 # Specify the class this installation should use when working with
 # various entities.
