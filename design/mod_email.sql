@@ -239,6 +239,9 @@ GRANT INSERT, UPDATE, DELETE ON email_address TO read_mod_email;
   maildomain to use for persons living in the same OU; students and
   employees could go in separate domains.
 
+  TODO: Disallow registration of multiple domains on the same entity
+        with NULL affiliation.
+
   As an example of how this table can be used, the below pseudocode
   illustrates the algorithm used to map from a user to that user's
   "official" maildomain at the University of Oslo:
@@ -261,7 +264,7 @@ category:main;
 CREATE TABLE email_entity_domain
 (
   entity_id	NUMERIC(12,0)
-		CONSTRAINT email_entity_domain_pk PRIMARY KEY
+		NOT NULL
 		CONSTRAINT email_entity_domain_entity_id
 		  REFERENCES entity_info(entity_id),
   affiliation	NUMERIC(6,0)
@@ -270,7 +273,8 @@ CREATE TABLE email_entity_domain
   domain_id	NUMERIC(12,0)
 		NOT NULL
 		CONSTRAINT email_entity_domain_domain_id
-		  REFERENCES email_domain(domain_id)
+		  REFERENCES email_domain(domain_id),
+  CONSTRAINT email_entity_domain_u UNIQUE (entity_id, affiliation)
 );
 category:main/Oracle;
 GRANT SELECT ON email_entity_domain TO read_mod_email;
