@@ -44,6 +44,7 @@ check_mandatory_files_are_there() {
 	local files_exist="true"
 	for i in $(seq 0  $((${#MANDATORY_FILES[@]} - 1))) ; do
 		if [ ! -f "${MANDATORY_FILES[$i]}" ] ; then
+		echo "ERROR: The mandatory configuration file ${MANDATORY_FILES[$i]} is missing."
 		return 1
 		fi
 	done
