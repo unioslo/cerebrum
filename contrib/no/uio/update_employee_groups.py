@@ -134,7 +134,6 @@ def fetch_primary_account(no_ssn, db_person, constants):
     Fetch primary account id of a person with NO_SSN
     """
 
-    
     account, hit = cached_value(no_ssn)
     # 
     # Note that account might still be None, meaning that this no_ssn had
@@ -145,17 +144,33 @@ def fetch_primary_account(no_ssn, db_person, constants):
 
     # Now, this is the first time we see this NO_SSN
     # Locate the person in the Cerebrum db
-    try:
-        db_person.clear()
-        db_person.find_by_external_id(constants.externalid_fodselsnr,
-                                      no_ssn,
-                                      constants.system_lt)
-    except Cerebrum.Errors.NotFoundError:
+
+    # NB! This is a pretty dangerous stunt -- in worst case, we ignore the
+    # source of the external id. While this would work fine for NO_SSNs, it
+    # might fail miserably as soon as we start inserting other external ids
+    # similar in 'shape' to NO_SSNs.
+    # Also, should cereconf.SYSTEM_LOOKUP_ORDER matter?
+    person_exists = False
+    for source in [ constants.system_lt, None ]:
+        try:
+            db_person.clear()
+            db_person.find_by_external_id(constants.externalid_fodselsnr,
+                                          no_ssn,
+                                          source)
+            person_exists = True
+            break
+        except Cerebrum.Errors.NotFoundError:
+            # We hope to get a match later
+            pass
+        # yrt
+    # od
+
+    if not person_exists:
         logger.error("Aiee! NO_SSN %s has an employment record but no " +
                      "registration in Cerebrum", no_ssn)
         cache_value(no_ssn, None)
         return None
-    # yrt
+    # fi
 
     # Locate the primary account
     account = db_person.get_primary_account()
