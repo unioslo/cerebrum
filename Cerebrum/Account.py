@@ -249,6 +249,12 @@ class Account(AccountType, EntityName, EntityQuarantine, Entity):
             salt = "$1$" + "".join(s)
         return crypt.crypt(plaintext, salt)
 
+    def enc_auth_type_crypt3_des(self, plaintext, salt=None):
+        if salt is None:
+            saltchars = string.uppercase + string.lowercase + string.digits + "./"
+            salt = Utils.random_string(2, saltchars)
+        return crypt.crypt(plaintext, salt)
+
     def write_db(self):
         self.__super.write_db()
         if not self.__updated:
