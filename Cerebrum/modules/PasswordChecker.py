@@ -242,7 +242,7 @@ class PasswordChecker(DatabaseAccessor):
                     elif (len(key) == 1 and
                           re.search(r'^.[a-z]+.$', npass)):
                         raise PasswordGoodEnoughException(msgs['combo']
-                                                          (line, key))
+                                                          % (line, key))
 
     def _check_dict(self, passwd):
         """Check if the password, or simple variants of it is in the
