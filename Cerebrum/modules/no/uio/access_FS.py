@@ -1123,3 +1123,20 @@ WHERE k.etterutdkurskode=:kurs AND
             'kurs': kurs,
             'tid': tid,
             'aktkode': aktkode}))
+
+
+    def list_dbfg_usernames(self, fetchall = False):
+        """
+        Get all usernames and return them as a sequence of db_rows.
+
+        NB! This function does *not* return a 2-tuple. Only a sequence of
+        all usernames (the column names can be obtains from db_row objects)
+        """
+
+        query = """
+                SELECT username as username
+                FROM all_users
+                """
+        return self.db.query(query, fetchall = fetchall)
+    # end list_usernames
+
