@@ -107,19 +107,16 @@ def no_cache(req):
     req.headers_out.add("Cache-Control:","no-cache")
     req.headers_out.add("Pragma:","no-cache")
 
-def new_transaction(req, name="", description=""):
-    """Creates a new transaction."""
-    trans = req.session.get("session").new_transaction()
-    trans.set_name(name or "DefaultTransaction%i" % trans.get_id())
-    trans.set_description(description)
-    if not req.session.has_key("transactions"):
-        req.session["transactions"] = []
-    req.session["transactions"].append(trans)
-    return trans
-
-def snapshot(req):
-    """Creates a new snapshot."""
-    snap = req.session['session'].snapshot()
-    return snap
-
+def transaction_decorator(method):
+    def transaction_decorator(req, *args, **vargs):
+        tr = req.session.get("session").new_transaction()
+        commited = False
+        try:
+            return method(req, transaction=tr, *args, **vargs)
+        finally:
+            try:
+                tr.rollback()
+            except:
+                pass
+    return transaction_decorator
 # arch-tag: 046d3f6d-3e27-4e00-8ae5-4721aaf7add6
