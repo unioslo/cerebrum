@@ -783,23 +783,33 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
         return result
     # end getdict_external_id2primary_account
 
+
     def list_persons(self):
         """Return all person ids."""
         return self.query("""
         SELECT person_id
         FROM [:table schema=cerebrum name=person_info]""")
 
-    def list_persons_name(self, var=None):
-        if var == None:
-            var = int(self.const.name_full)
+
+    def list_persons_name(self, source_system=None, name_type=None):
+        str = ""
+        if name_type == None:
+            str = "= %d" % int(self.const.name_full)
+        elif isinstance(name_type, list):
+            str = "IN (%d" % int(name_type[0])
+            for tuple in name_type[1:]:
+                str += ", %d" % int(tuple)
+            str += ")"
+        else:
+            str = "= %d" % int(name_type)
+        if source_system:
+            str += " AND source_system = %d" % int(source_system)
+
         return self.query("""
-        SELECT DISTINCT pi.person_id, pn.name
-        FROM [:table schema=cerebrum name=person_info] pi
-             LEFT JOIN [:table schema=cerebrum name=person_name] pn
-               ON pi.person_id=pn.person_id AND
-                  pn.name_variant=:con
-        """ % locals(),
-                          {'con': int(var),})
+        SELECT DISTINCT person_id, name_variant, name
+        FROM [:table schema=cerebrum name=person_name]
+        WHERE name_variant %s""" % str)
+
 
     def getdict_persons_names(self, source_system=None, name_types=None):
         if name_types is None:
@@ -822,6 +832,40 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
             else:
                 info[int(variant)] = name
         return result
+
+
+    def list_persons_atype_extid(self, spread=None, include_quarantines=False):
+        """Multiple join to increase performance on LDAP-dump.
+
+        TBD: Maybe this should be nuked in favor of pure dumps like
+             list_persons."""
+        efrom = ecols = ""
+        if include_quarantines:
+            efrom = """
+            LEFT JOIN [:table schema=cerebrum name=entity_quarantine] eq
+              ON at.account_id=eq.entity_id"""
+            ecols = ", eq.quarantine_type"
+        if spread is not None:
+            efrom += """
+            JOIN [:table schema=cerebrum name=entity_spread] es
+              ON pi.person_id=es.entity_id AND es.spread=:spread"""
+
+        return self.query("""
+        SELECT DISTINCT pi.person_id, pi.birth_date, at.account_id, pei.external_id,
+          at.ou_id, at.affiliation %(ecols)s
+	FROM
+          [:table schema=cerebrum name=person_info] pi
+          JOIN [:table schema=cerebrum name=account_type] at
+            ON at.person_id = pi.person_id AND
+               at.priority = (
+                 SELECT MIN(priority)
+                 FROM [:table schema=cerebrum name=account_type] at2
+                 WHERE at2.person_id = pi.person_id)
+	  %(efrom)s
+          JOIN [:table schema=cerebrum name=person_external_id] pei
+            ON pi.person_id = pei.person_id
+          """ % locals(), {'spread': spread,}, fetchall=False)
+
 
     def list_extended_person(self, spread=None, include_quarantines=False,
                              include_mail=False):
@@ -848,18 +892,18 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
             LEFT JOIN [:table schema=cerebrum name=email_address] ea
               ON epa.address_id=ea.address_id
             LEFT JOIN [:table schema=cerebrum name=email_domain] ed
-              ON ea.domain_id=ed.domain_id""" 
+              ON ea.domain_id=ed.domain_id"""
 
         return self.query("""
         SELECT DISTINCT pi.person_id, pi.birth_date, pei.external_id,
           pn.name, en.entity_name, eci.contact_value, aa.auth_data,
           at.ou_id, at.affiliation, pas.status, eci3.contact_value AS fax,
-          pn2.name AS title, pn3.name AS personal_title, ead.address_text, 
-	  ead.postal_number, ead.city, ead.country,
-	  ead1.address_text AS post_text, ead1.postal_number AS post_postal,
+          pn2.name AS title, pn3.name AS personal_title, ead.address_text,
+          ead.postal_number, ead.city, ead.country,
+          ead1.address_text AS post_text, ead1.postal_number AS post_postal,
           ead1.city AS post_city, ead1.country AS post_country ,
-	  aa1.auth_data AS auth_crypt, ead1.p_o_box AS post_box %(ecols)s
-	FROM
+          aa1.auth_data AS auth_crypt, ead1.p_o_box AS post_box %(ecols)s
+        FROM
           [:table schema=cerebrum name=person_info] pi
           JOIN [:table schema=cerebrum name=account_type] at
             ON at.person_id = pi.person_id AND
@@ -867,7 +911,7 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
                  SELECT MIN(priority)
                  FROM [:table schema=cerebrum name=account_type] at2
                  WHERE at2.person_id = pi.person_id)
-	  %(efrom)s
+          %(efrom)s
           JOIN  [:table schema=cerebrum name=person_name] pn
             ON pn.person_id = pi.person_id AND
                pn.source_system = :pn_ss AND
@@ -877,13 +921,13 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
           LEFT JOIN [:table schema=cerebrum name=account_authentication] aa
             ON aa.account_id = at.account_id AND
                aa.method = [:get_constant name=auth_type_md5_crypt]
-	  LEFT JOIN [:table schema=cerebrum name=account_authentication] aa1
+          LEFT JOIN [:table schema=cerebrum name=account_authentication] aa1
             ON aa1.account_id = at.account_id AND
                aa1.method = [:get_constant name=auth_type_crypt3_des]
-	  LEFT JOIN [:table schema=cerebrum name=person_name] pn2
+          LEFT JOIN [:table schema=cerebrum name=person_name] pn2
             ON pn2.person_id = pi.person_id AND
                pn2.name_variant = :pn_ti
-	  LEFT JOIN [:table schema=cerebrum name=person_name] pn3
+          LEFT JOIN [:table schema=cerebrum name=person_name] pn3
             ON pn3.person_id = pi.person_id AND
                pn3.name_variant = :pn_pti
           LEFT JOIN [:table schema=cerebrum name=entity_name] en
@@ -912,9 +956,9 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
                   FROM [:table schema=cerebrum name=person_affiliation_source]
                        pas2
                   WHERE pi.person_id = pas2.person_id AND
-                        at.affiliation = pas2.affiliation AND 
-			at.ou_id = pas2.ou_id)
-	  LEFT JOIN [:table schema=cerebrum name=entity_address] ead
+                        at.affiliation = pas2.affiliation AND
+                        at.ou_id = pas2.ou_id)
+          LEFT JOIN [:table schema=cerebrum name=entity_address] ead
              ON ead.entity_id=pi.person_id AND
                 ead.address_type=[:get_constant name=address_street] AND
                 ead.source_system=[:get_constant name=system_lt]
@@ -927,11 +971,11 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
                            'spread': spread,
                            'pn_ss': int(self.const.system_cached),
                            'pn_nv': int(self.const.name_full),
-			   'pn_ti': int(self.const.name_work_title),
-			   'pn_pti': int(self.const.name_personal_title),
-			   'eci_phone': int(self.const.contact_phone),
+                           'pn_ti': int(self.const.name_work_title),
+                           'pn_pti': int(self.const.name_personal_title),
+                           'eci_phone': int(self.const.contact_phone),
                            'et_type': int(self.const.entity_account),
                            'aa_method': int(self.const.auth_type_md5_crypt),
-			   'em_type' : int(self.const.email_target_account),
-             		   'et_type': int(self.const.entity_account)})
+                           'em_type' : int(self.const.email_target_account),
+                           'et_type': int(self.const.entity_account)})
 
