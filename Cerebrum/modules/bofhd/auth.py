@@ -435,6 +435,8 @@ class BofhdAuth(DatabaseAccessor):
     def can_set_password(self, operator, account):
         if self.is_superuser(operator):
             return True
+        if operator == account.entity_id:
+            return True
         return self._query_disk_permissions(operator,
                                             self.const.auth_set_password,
                                             self._get_disk(account.disk_id))
