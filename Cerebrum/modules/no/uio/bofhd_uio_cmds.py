@@ -911,7 +911,7 @@ class BofhdExtension(object):
         # TODO: Need API support for this
         matches = []
         if search_type == 'person_id':
-            person = self._get_person(*self._map_person_id(person_id))
+            person = self._get_person(*self._map_person_id(value))
             matches = [{'person_id': person.entity_id}]
         else:
             person = self.person
@@ -1025,7 +1025,7 @@ class BofhdExtension(object):
         ("print", "qoff"), AccountName(), perm_filter='can_alter_printerquota')
     def printer_qoff(self, operator, accountname):
         account = self._get_account(accountname)
-        self.ba.can_alter_printerquta(operator.get_entity_id(), account)
+        self.ba.can_alter_printerquota(operator.get_entity_id(), account)
         pq = self._get_printerquota(account.entity_id)
         if pq is None:
             return "User has no quota"
