@@ -8,6 +8,8 @@ import cereconf
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum import Constants
 from Cerebrum import Cache
+from Cerebrum import Errors
+from Cerebrum.modules import PosixGroup
 from Cerebrum.Utils import Factory, mark_update
 from Cerebrum.modules.bofhd.errors import PermissionDenied
 
@@ -458,7 +460,38 @@ class BofhdAuth(DatabaseAccessor):
         if query_run_any:
             return False
         raise PermissionDenied("Currently limited to superusers")
-    
+
+    def can_create_personal_group(self, operator, account=None,
+                                  query_run_any=False):
+        if self.is_superuser(operator):
+            return True
+        if query_run_any:
+            if self._has_operation_perm_somewhere(operator,
+                                                  self.const.auth_create_user):
+                return True
+            account = Factory.get('Account')(self._db)
+            account.find(operator)
+        # No need to add this command if the operator has a personal
+        # file group already.
+        lacks_group = False
+        try:
+            pg = PosixGroup.PosixGroup(self._db)
+            pg.find_by_name(account.account_name)
+        except Errors.NotFoundError:
+            lacks_group = True
+        if query_run_any:
+            return lacks_group
+        if operator == account.entity_id:
+            if lacks_group:
+                return True
+            raise PermissionDenied("Already has personal file group")
+        if self._query_disk_permissions(operator,
+                                        self.const.auth_create_user,
+                                        self._get_disk(account.disk_id),
+                                        account.entity_id):
+            return True
+        raise PermissionDenied("No access to user")
+
     def can_delete_group(self, operator, group=None, query_run_any=False):
         if self.is_superuser(operator):
             return True
@@ -473,10 +506,7 @@ class BofhdAuth(DatabaseAccessor):
             # What !"#!"# does this mean..?
             return False
         raise PermissionDenied("Currently limited to superusers")
-
     
-    # TODO: spread perms should be stored in auth_op_attrs for legal
-    # spreads, that may be set on disk/host in auth_op_target
     def can_add_spread(self, operator, entity=None, spread=None,
                        query_run_any=False):
         """The list of spreads that an operator may modify are stored
