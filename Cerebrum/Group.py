@@ -434,9 +434,9 @@ class Group(EntityName, Entity):
         where = spreads = ""
         if spread is not None:
             spread1 = int(spread[0])
-            spread.remove(spread1)
-            if spread:
-                for entry in spread:
+            rest = spread[1:]
+            if rest:
+                for entry in rest:
                     spreads += " OR es.spread=%s" % int(entry)
             where = """gi, [:table schema=cerebrum name=entity_spread] es
             WHERE gi.group_id=es.entity_id AND es.entity_type=:etype AND (es.spread=%s %s)""" % (spread1,spreads)
