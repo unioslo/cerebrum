@@ -465,8 +465,6 @@ class Account(AccountType, EntityName, EntityQuarantine, Entity):
                          " select a new one."),
         'dict_hit': "Don't use words in a dictionary."
         }
-    words = ("dummy",)
-    dir = "/tmp"
 
     def check_password_history(self, uname, passwd):
         """Check wether uname had this passwd earlier.  Raises a
@@ -540,8 +538,8 @@ class Account(AccountType, EntityName, EntityQuarantine, Entity):
 
             # We'll iterate over several dictionaries.
 
-            for d in self.words:
-                f = file("%s/%s" % (self.dir, d))
+            for fname in cereconf.PASSWORD_DICTIONARIES:
+                f = file(fname)
                 self.look(f, chk, 1, 1)
 
                 # Do the lookup (dictionary order, case folded)

@@ -30,6 +30,10 @@ CEREBRUM_DATABASE_CONNECT_DATA = {'user': None,
 
 AUTH_CRYPT_METHODS = ("auth_type_md5_crypt",)
 
+# List of full path filenames to files containing non-allowed
+# passwords.
+PASSWORD_DICTIONARIES = ()
+
 # Look for things like person name by evaluating source systems in in
 # this order
 SYSTEM_LOOKUP_ORDER = ("system_manual",)
