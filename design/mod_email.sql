@@ -434,7 +434,7 @@ CREATE TABLE email_forward
 		NOT NULL
 		CONSTRAINT email_forward_enable_bool
 		  CHECK (enable IN ('T', 'F')),
-  CONSTRAINT email_forward_pk PRIMARY KEY (account_id, forward_to)
+  CONSTRAINT email_forward_pk PRIMARY KEY (target_id, forward_to)
 );
 category:main/Oracle;
 GRANT SELECT ON email_forward TO read_mod_email;
