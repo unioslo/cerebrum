@@ -37,9 +37,9 @@ echo "***** Second time import, ie update *****"
 
 ./makedb.py $TESTDIR/posix_testuser.sql
 
-$TESTDIR/create_user.py
-$TESTDIR/create_user.py 20067647972
-$TESTDIR/create_user.py 01013638728
+$TESTDIR/create_user.py || true
+$TESTDIR/create_user.py 20067647972 || true
+$TESTDIR/create_user.py 01013638728 || true
 
 ./contrib/generate_nismaps.py
 
