@@ -110,3 +110,5 @@ AD_GROUP_POSTFIX = '-gruppe'
 AD_HOME_DRIVE = 'M'
 AD_PASSWORD_EXPIRE = '0'
 AD_CANT_CHANGE_PW = '0'
+# You should set this variable to the location of your logging ini file
+LOGGING_CONFIGFILE = None
