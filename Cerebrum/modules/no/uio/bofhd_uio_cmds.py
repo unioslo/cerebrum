@@ -48,8 +48,13 @@ class BofhdExtension(object):
         for t in self.person.list_person_name_codes():
             self.name_codes[int(t.code)] = t.description
         self.person_affiliation_codes = {}
-        for t in self.person.list_person_affiliation_codes():
-            self.person_affiliation_codes[t.code_str] = (int(t.code), t.description)
+        self.person_affiliation_statusids = {}
+        for c in dir(self.const):
+            const = getattr(self.const, c)
+            if isinstance(const, _PersonAffStatusCode):
+                self.person_affiliation_statusids.setdefault(str(const.affiliation), {})[str(const)] = const
+            elif isinstance(const, _PersonAffiliationCode):
+                self.person_affiliation_codes[str(const)] = const
         self.external_id_mappings['fnr'] = self.const.externalid_fodselsnr
         # TODO: str2const is not guaranteed to be unique (OK for now, though)
         self.num2const = {}
@@ -141,11 +146,21 @@ class BofhdExtension(object):
 
     # group delete
     all_commands['group_delete'] = Command(
-        ("group", "delete"), GroupName(), YesNo(help_ref="yes_no_force", optional=True, default="No"))
+        ("group", "delete"), GroupName(), YesNo(help_ref="yes_no_force", default="No"))
     def group_delete(self, operator, groupname, force=None):
-        if self._is_yes(force):
-            raise NotImplementedError, "Force not implemented"
         grp = self._get_group(groupname)
+        if self._is_yes(force):
+##             u, i, d = grp.list_members()
+##             for op, tmp in ((self.const.group_memberop_union, u),
+##                             (self.const.group_memberop_intersection, i),
+##                             (self.const.group_memberop_difference, d)):
+##                 for m in tmp:
+##                     grp.remove_member(m[1], op)
+            try:
+                pg = self._get_group(groupname, grtype="PosixGroup")
+                pg.delete()
+            except CerebrumError:
+                pass   # Not a PosixGroup
         grp.delete()
         return "OK"
 
@@ -186,16 +201,24 @@ class BofhdExtension(object):
     # group info
     all_commands['group_info'] = Command(
         ("group", "info"), GroupName(),
-        fs=FormatSuggestion("id: %i\nSpreads: %s", ("entity_id", "spread")))
+        fs=FormatSuggestion([("id: %i\nSpreads: %s\nDescription: %s\nExpire: %s",
+                              ("entity_id", "spread", "desc", "expire")),
+                             ("Gid: %i", ('gid',))]))
     def group_info(self, operator, groupname):
-        grp = self._get_group(groupname)
-        
-        # TODO: Return more info about groups
-        # TODO: We need a method for formating lists (here: spreads)
-        #       as part of the result
-        return {'entity_id': grp.entity_id,
-                'spread': ",".join(["%s" % self.num2const[int(a['spread'])]
-                                    for a in grp.get_spread()])}
+        is_posix = 0
+        try:
+            grp = self._get_group(groupname, grtype="PosixGroup")
+            is_posix = 1
+        except CerebrumError:
+            grp = self._get_group(groupname)
+        ret = {'entity_id': grp.entity_id,
+               'spread': ",".join(["%s" % self.num2const[int(a['spread'])]
+                                   for a in grp.get_spread()]),
+               'desc': grp.description,
+               'expire': grp.expire_date}
+        if is_posix:
+            ret['gid'] = grp.posix_gid
+        return ret
 
     # group list
     all_commands['group_list'] = Command(
@@ -210,16 +233,21 @@ class BofhdExtension(object):
         for t, rows in ('union', u), ('inters.', i), ('diff', d):
             for r in rows:
                 ret.append({'op': t,
-                            'type': str(self.num2const[r[0]]),
+                            'type': str(self.num2const[int(r[0])]),
                             'id': r[1],
                             'name': self._get_entity_name(r[0], r[1])})
         return ret
 
     # group list_all
     all_commands['group_list_all'] = Command(
-        ("group", "list_all"), SimpleString(help_ref="string_group_filter", optional=True))
+        ("group", "list_all"), SimpleString(help_ref="string_group_filter", optional=True),
+        fs=FormatSuggestion("%8i", ("id", ), hdr="Id"))
     def group_list_all(self, operator, filter=None):
-        raise NotImplementedError, "Feel free to implement this function"
+        group = Group.Group(self.db)
+        ret = []
+        for r in group.list_all():
+            ret.append({'id': r[0]})
+        return ret
 
     # group list_expanded
     all_commands['group_list_expanded'] = Command(
@@ -235,27 +263,43 @@ class BofhdExtension(object):
     # group posix_create
     all_commands['group_posix_create'] = Command(
         ("group", "posix_create"), GroupName(),
-        SimpleString(help_ref="string_description", optional=True))
+        SimpleString(help_ref="string_description", optional=True),
+        fs=FormatSuggestion("Group created, posix gid: %i", ("group_id",)))
     def group_posix_create(self, operator, group, description=None):
-        raise NotImplementedError, "Feel free to implement this function"
+        group=self._get_group(group)
+        pg = PosixGroup.PosixGroup(self.db)
+        pg.populate(parent=group)
+        try:
+            pg.write_db()
+        except self.db.DatabaseError, m:
+            raise CerebrumError, "Database error: %s" % m
+        return {'group_id': int(pg.posix_gid)}
 
     # group posix_delete
     all_commands['group_posix_delete'] = Command(
         ("group", "posix_delete"), GroupName())
     def group_posix_delete(self, operator, group):
-        raise NotImplementedError, "Feel free to implement this function"
-
+        grp = self._get_group(group, grtype="PosixGroup")
+        grp.delete()
+        return "OK"
+    
     # group set_expire
     all_commands['group_set_expire'] = Command(
         ("group", "set_expire"), GroupName(), Date())
     def group_set_expire(self, operator, group, expire):
-        raise NotImplementedError, "Feel free to implement this function"
+        grp = self._get_group(group)
+        grp.expire_date = self._parse_date(expire)
+        grp.write_db()
+        return "OK"
 
     # group set_visibility
     all_commands['group_set_visibility'] = Command(
         ("group", "set_visibility"), GroupName(), GroupVisibility())
     def group_set_visibility(self, operator, group, visibility):
-        raise NotImplementedError, "Feel free to implement this function"
+        grp = self._get_group(group)
+        grp.visibility = self._map_visibility_id(visibility)
+        grp.write_db()
+        return "OK"
 
     # group user
     all_commands['group_user'] = Command(
@@ -316,8 +360,8 @@ class BofhdExtension(object):
         posix_user = PosixUser.PosixUser(self.db)
         try:
             posix_user.goodenough("foobar", password)
-        except:
-            raise CerebrumError, "Bad password: %s" % sys.exc_info()[0]
+        except Account.PasswordGoodEnoughException, m:
+            raise CerebrumError, "Bad password: %s" % m
         return "OK"
 
     # misc lmy
@@ -384,7 +428,9 @@ class BofhdExtension(object):
         ("person", "accounts"), PersonId(),
         fs=FormatSuggestion("%6i %s", ("account_id", "name"), hdr="Id     Name"))
     def person_accounts(self, operator, id):
-        # TODO (haster ikke): allow id to be an accountname
+        if id.find(":") == -1 and not id.isdigit():
+            ac = self._get_account(id)
+            id = "entity_id:%i" % ac.owner_id
         person = self._get_person(*self._map_person_id(id))
         account = Account.Account(self.db)
         ret = []
@@ -415,7 +461,6 @@ class BofhdExtension(object):
             birth_date = self._parse_date(birth_date)
         person.populate(birth_date, self.const.gender_male,
                         description='Manualy created')
-        # TDB: new constants
         person.affect_names(self.const.system_manual, self.const.name_full)
         person.populate_name(self.const.name_full,
                              display_name.encode('iso8859-1'))
@@ -446,14 +491,24 @@ class BofhdExtension(object):
     # person info
     all_commands['person_info'] = Command(
         ("person", "info"), PersonId(),
-        fs=FormatSuggestion("Name: %s\nExport ID: %s\n", ("name", "export_id")))
+        fs=FormatSuggestion("Name: %s\nExport ID: %s\nBirth: %s\nAffiliations: %s", ("name", "export_id", "birth", "affiliations")))
     def person_info(self, operator, person_id):
+        if person_id.find(":") == -1 and not person_id.isdigit():
+            ac = self._get_account(person_id)
+            person_id = "entity_id:%i" % ac.owner_id
         person = self._get_person(*self._map_person_id(person_id))
-        # TODO: also return all affiliations for the person
-        # TODO: remove """ when we get a correctly populated database
+        affiliations = []
+        for row in person.get_affiliations():
+            ou = self._get_ou(ou_id=row['ou_id'])
+            affiliations.append("%s/%s@%s" % (
+                self.num2const[int(row['affiliation'])],
+                self.num2const[int(row['status'])],
+                ou.short_name))
         return {'name': person.get_name(self.const.system_cached,
                                         getattr(self.const, cereconf.DEFAULT_GECOS_NAME)),
-                'export_id': person.export_id}
+                'affiliations': ", ".join(affiliations),
+                'export_id': person.export_id,
+                'birth': person.birth_date}
 
     # person set_id
     all_commands['person_set_id'] = Command(
@@ -461,11 +516,11 @@ class BofhdExtension(object):
         PersonId(help_ref="person_id:new"))
     def person_set_id(self, operator, current_id, new_id):
         person = self._get_person(*self._map_person_id(current_id))
-        idtype, id = self._map_person_id(current_id)
+        idtype, id = self._map_person_id(new_id)
+        person.affect_external_id(self.const.system_manual, idtype)
         person.populate_external_id(self.const.system_manual,
                                     idtype, id)
         person.write_db()
-        # TODO:  This currently does not work as it is not implemented in Person
         return "OK"
     
     # person student_info
@@ -664,20 +719,53 @@ class BofhdExtension(object):
     # user affiliation_add
     all_commands['user_affiliation_add'] = Command(
         ("user", "affiliation_add"), AccountName(), OU(), Affiliation(), AffiliationStatus())
-    def user_affiliation_add(self, operator, accountname):
-        raise NotImplementedError, "Feel free to implement this function"
+    def user_affiliation_add(self, operator, accountname, ou, aff, aff_status):
+        account = self._get_account(accountname)
+        aff = self._get_affiliationid(aff)
+        aff_status = self._get_affiliation_statusid(aff, aff_status)
+        ou = self._get_ou(stedkode=ou)
+        person = self._get_person('entity_id', account.owner_id)
 
+        # Assert that the person already have the affiliation
+        has_aff = 0
+        for a in person.get_affiliations():
+            if a['ou_id'] == ou.entity_id and a['affiliation'] == aff:
+                if a['status'] <> aff_status:
+                    raise CerebrumError, "Person has conflicting aff_status for this ou/affiliation combination"
+                has_aff = 1
+                break
+        if not has_aff:
+            person.add_affiliation(ou.entity_id, aff,
+                                   self.const.system_manual, aff_status)
+            person.write_db()
+        account.add_account_type(account.owner_id, ou.entity_id, aff)
+        account.write_db()
+        return "OK, added %s@%s to %s" % (aff, ou.entity_id, account.owner_id)
+    
     # user affiliation_remove
     all_commands['user_affiliation_remove'] = Command(
-        ("user", "affiliation_remove"), AccountName(), OU())
-    def user_affiliation_remove(self, operator, accountname):
-        raise NotImplementedError, "Feel free to implement this function"
+        ("user", "affiliation_remove"), AccountName(), OU(), Affiliation())
+    def user_affiliation_remove(self, operator, accountname, ou, aff): 
+        account = self._get_account(accountname)
+        aff = self._get_affiliationid(aff)
+        ou = self._get_ou(stedkode=ou)
+        account.del_account_type(account.owner_id, ou.entity_id, aff)
+        account.write_db()
+        return "OK"
 
     # user affiliations
     all_commands['user_affiliations'] = Command(
-        ("user", "affiliations"), AccountName())
+        ("user", "affiliations"), AccountName(),
+        fs=FormatSuggestion("%-14s %s", ('affiliation', 'ou_id'),
+                            hdr="%-14s %s" % ('Affiliation', 'OU_id')))
     def user_affiliations(self, operator, accountname):
-        raise NotImplementedError, "Feel free to implement this function"
+        account = self._get_account(accountname)
+        ret = []
+        for row in account.get_account_types():
+            ou = self._get_ou(ou_id=row['ou_id'])
+            ret.append({'ou_id': ou.short_name,
+                        'affiliation': str(self.num2const[int(row['affiliation'])])})
+        return ret
 
     # user bcreate
     all_commands['user_bcreate'] = Command(
@@ -739,7 +827,7 @@ class BofhdExtension(object):
                 person = self._get_person("entity_id", person_id)
                 # TODO: this requires that cereconf.DEFAULT_GECOS_NAME is name_full.  fix
                 full = person.get_name(self.const.system_cached, self.const.name_full)
-                lname, fname = full.split(" ", 1)
+                fname, lname = full.split(" ", 1)
                 sugg = posix_user.suggest_unames(self.const.account_namespace, fname, lname)
                 if len(sugg) > 0:
                     ret['default'] = sugg[0]
@@ -758,19 +846,7 @@ class BofhdExtension(object):
         posix_user = PosixUser.PosixUser(self.db)
         uid = posix_user.get_free_uid()
         shell = self._get_shell(shell)
-        disk_id = None
-        try:
-            host = None
-            if home.find(":") != -1:
-                host, path = home.split(":")
-            else:
-                path = home
-            disk = Disk.Disk(self.db)
-            disk.find_by_path(path, host)
-            home = None
-            disk_id = disk.entity_id
-        except Errors.NotFoundError:
-            pass
+        disk_id, home = self._get_disk(home)
         posix_user.clear()
         gecos = None
         expire_date = None
@@ -867,6 +943,10 @@ class BofhdExtension(object):
         account = self._get_account(accountname)
         if password is None:
             password = account.make_passwd(accountname)
+        try:
+            account.goodenough(accountname, password)
+        except Account.PasswordGoodEnoughException, m:
+            raise CerebrumError, "Bad password: %s" % m
         account.set_password(password)
         try:
             account.write_db()
@@ -878,9 +958,20 @@ class BofhdExtension(object):
     
     # user posix_create
     all_commands['user_posix_create'] = Command(
-        ('user', 'posix_create'), AccountName(), GroupName(), PosixShell(default="bash"), DiskId())
-    def user_posix_create(self, operator, accountname, dfg=None, shell=None, home=None):
-        raise NotImplementedError, "Feel free to implement this function"
+        ('user', 'posix_create'), AccountName(), GroupName(),
+        PosixShell(default="bash"), DiskId())
+    def user_posix_create(self, operator, accountname, dfg=None, shell=None,
+                          home=None):
+        account = self._get_account(accountname)
+        pu = PosixUser.PosixUser(self.db)
+        uid = pu.get_free_uid()
+        group = self._get_group(dfg, grtype='PosixGroup')
+        shell = self._get_shell(shell)
+        disk_id, home = self._get_disk(home)
+        pu.populate(uid, group.entity_id, None, shell, home=home,
+                    disk_id=disk_id, parent=account)
+        pu.write_db()
+        return "OK"
 
     # user posix_delete
     all_commands['user_posix_delete'] = Command(
@@ -958,13 +1049,16 @@ class BofhdExtension(object):
     def _get_shell(self, shell):
         if shell == 'bash':
             return self.const.posix_shell_bash
-        raise CerebrumError, "unknown shell: %s" % shell
+        return int(self.str2const[shell])
     
-    def _get_ou(self, ou_id):  # TBD: ou_id should be a string, how to encode?
-        ou = OU_class(Cerebrum)
+    def _get_ou(self, ou_id=None, stedkode=None):
+        ou = self.OU_class(self.db)
         ou.clear()
-        ou.find(ou_id)
-        return ou.entity_id
+        if ou_id is not None:
+            ou.find(ou_id)
+        else:
+            ou.find_stedkode(stedkode[0:2], stedkode[2:4], stedkode[4:6])
+        return ou
 
     def _get_group_opcode(self, operator):
         if operator is None:
@@ -1059,15 +1153,37 @@ class BofhdExtension(object):
         else:
             return "%s:%s" % (type, id)
 
+    def _get_disk(self, home):
+        disk_id = None
+        try:
+            host = None
+            if home.find(":") != -1:
+                host, path = home.split(":")
+            else:
+                path = home
+            disk = Disk.Disk(self.db)
+            disk.find_by_path(path, host)
+            home = None
+            disk_id = disk.entity_id
+        except Errors.NotFoundError:
+            pass
+        return disk_id, home
+
+    def _map_visibility_id(self, visibility):
+        # TODO: Assert _VisibilityCode
+        return int(self.str2const[visibility])
+
+
     def _is_yes(self, val):
         if isinstance(val, str) and val.lower() in ('y', 'yes', 'ja', 'j'):
             return True
         return False
         
-    # TODO: the mapping of user typed description to numeric db-id for
-    # codes, and from id -> description should be done in an elegant way
     def _get_affiliationid(self, code_str):
-        return self.person_affiliation_codes(code_str)[0]
+        return self.person_affiliation_codes[code_str]
+
+    def _get_affiliation_statusid(self, affiliation, code_str):
+        return self.person_affiliation_statusids[str(affiliation)][code_str]
 
     def _parse_date(self, date):
         if not date:
