@@ -63,7 +63,7 @@ def main():
         else:
             usage()
 
-    logger = Factory.get_logger("console")
+    logger = Factory.get_logger("cronjob")
     ldif = Factory.get('OrgLDIF')(Factory.get('Database')(), logger)
     timer = ldif.make_timer("Starting dump.")
     outfile = SimilarSizeWriter(ofile or os.path.join(cereconf.LDAP_DUMP_DIR,
