@@ -36,6 +36,7 @@ def main():
     except getopt.GetoptError:
         usage(1)
 
+    fname = spread = None
     for opt, val in opts:
         if opt in ('--help',):
             usage()
@@ -44,18 +45,22 @@ def main():
         elif opt in ('-s',):
             spread = val
         elif opt in ('-l',):
+            if fname is None or spread is None:
+                usage(2)
             list_disk_quotas(fname, co.Spread(spread))
     if not opts:
         usage(1)
 
 def usage(exitcode=0):
     print """Usage: [options]
-    List disk quotas for all users.
+List disk quotas for all users.
+Options:
+    -t target_file  (required)
+    -s spread       (required)
 
-    -t target_file
-    -s spread
-    -l : list disk quotas
-    """
+Operation modes (all required options must precede operation mode specifier):
+    -l: list disk quotas
+"""
     sys.exit(exitcode)
 
 if __name__ == '__main__':
