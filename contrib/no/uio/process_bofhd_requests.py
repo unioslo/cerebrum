@@ -451,10 +451,10 @@ def cyrus_set_quota(user_id, hq):
     try:
         cyradm = connect_cyrus(user_id = user_id)
     except CerebrumError, e:
-        logger.error("cyrus_set_quota: " + str(e))
+        logger.error("cyrus_set_quota(%s, %d): %s" % (uname, hq, e))
         return False
     res, msg = cyradm.m.setquota("user.%s" % uname, 'STORAGE', hq * 1024)
-    logger.debug("return %s", repr(res))
+    logger.debug("cyrus_set_quota(%s, %d): %s" % (uname, hq, repr(res)))
     return res == 'OK'
 
 def cyrus_subscribe(uname, server, action="create"):
@@ -725,6 +725,10 @@ def process_delete_requests():
                 group.find(g['group_id'])
                 group.remove_member(account.entity_id, g['operation'])
             br.delete_request(request_id=r['request_id'])
+            db.commit()
+        else:
+            db.rollback()
+            br.delay_request(r['request_id'], minutes=120)
             db.commit()
 
 def delete_user(uname, old_host, old_home, operator, mail_server):
