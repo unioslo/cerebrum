@@ -151,6 +151,24 @@ class BofhdAuthOpTarget(DatabaseAccessor):
         self.clear_class(BofhdAuthOpTarget)
         self.__updated = []
 
+    def delete(self):
+        self.execute("""
+        DELETE FROM [:table schema=cerebrum name=auth_op_target]
+        WHERE op_target_id=:id""", {'id': self.op_target_id})
+        self.clear()
+
+    def find(self, id):
+        self.op_target_id, self.entity_id, self.target_type, self.has_attr = self.query_1("""
+        SELECT op_target_id, entity_id, target_type, has_attr
+        FROM [:table schema=cerebrum name=auth_op_target]
+        WHERE op_target_id=:id""", {'id': id})
+        try:
+            del self.__in_db
+        except AttributeError:
+            pass
+        self.__in_db = True
+        self.__updated = []
+
     def populate(self, entity_id, target_type):
         self.__in_db = False
         self.entity_id = entity_id
