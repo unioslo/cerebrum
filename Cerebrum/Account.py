@@ -197,61 +197,109 @@ class AccountHome(object):
     may a different home dir for each spread.  A home is identified
     either by a disk_id, or by the string represented by home"""
 
+    NotSet = '*No*tSet'
+    
     def clear_home(self, spread):
-            self.execute("""
-            DELETE FROM [:table schema=cerebrum name=account_home]
-            WHERE account_id=:account_id AND spread=:spread""", {
-                'account_id': self.entity_id,
-                'spread': int(spread)})
-            self._db.log_change(
-                self.entity_id, self.const.account_home_removed, None,
-                change_params={'spread': int(spread)})
+        ah = self.get_home(spread)
+        self.execute("""
+        DELETE FROM [:table schema=cerebrum name=account_home]
+        WHERE account_id=:account_id AND spread=:spread""", {
+            'account_id': self.entity_id,
+            'spread': int(spread)})
+        self._db.log_change(
+            self.entity_id, self.const.account_home_removed, None,
+            change_params={'spread': int(spread)})
 
-    def set_home(self, spread, disk_id=None, home=None, status=None):
+        # If no other account_home.homedir_id points to this
+        # homedir.homedir_id, remove it to avoid dangling unused data
+        count = self.query_1("""SELECT count(*) AS count
+        FROM [:table schema=cerebrum name=account_home]
+        WHERE homedir_id=:homedir_id""", {'homedir_id': ah['homedir_id']})
+        if count < 1:
+            self.clear_homedir(ah['homedir_id'])
+
+    def set_homedir(self, current_id=NotSet,
+                    home=NotSet, disk_id=NotSet, status=NotSet):
+        """If current_id=NotSet, insert a new entry.  Otherwise update
+        the values != NotSet for the given homedir_id=current_id"""
+        tmp = [['account_id', self.entity_id],
+               ['home', home],
+               ['disk_id', disk_id],
+               ['status', status]]
+        if current_id == AccountHome.NotSet:
+            tmp.append(('homedir_id', long(self.nextval('homedir_id_seq'))))
+            for t in tmp:
+                if t[1] == AccountHome.NotSet:
+                    t[1] = None
+        else:
+            tmp.append(('homedir_id', current_id))
+        if current_id == AccountHome.NotSet:
+            self.execute("""
+            INSERT INTO [:table schema=cerebrum name=homedir]
+              (%s)
+            VALUES (%s)""" % (
+                ", ".join([t[0] for t in tmp]),
+                ", ".join([":%s" % t[0] for t in tmp])),
+                       dict([(t[0], t[1]) for t in tmp]))
+        else:
+            tmp = filter(lambda k: k[1] != AccountHome.NotSet, tmp)
+            self.execute("""
+            UPDATE [:table schema=cerebrum name=homedir]
+              SET %s
+            WHERE homedir_id=:homedir_id""" % (
+                ", ".join(["%s=:%s" % (t[0], t[0]) for t in tmp])),
+                       dict([(t[0], t[1]) for t in tmp]))
+        return tmp[-1][1]
+
+    def clear_homedir(self, homedir_id):
+        self.execute("""
+        DELETE FROM [:table schema=cerebrum name=homedir]
+        WHERE homedir_id=:homedir_id""",
+                     {'homedir_id' : homedir_id})
+
+    def set_home(self, spread, homedir_id):
         binds = {'account_id': self.entity_id,
                  'spread': int(spread),
-                 'disk_id': disk_id,
-                 'home': home,
-                 'status': status
+                 'homedir_id': homedir_id
             }
-        if status:
-            binds['status'] = int(status)
-        if home and disk_id:
-            raise ValueError, "Cannot set both disk_id and home."
         try:
             old = self.get_home(spread)
             self.execute("""
             UPDATE [:table schema=cerebrum name=account_home]
-            SET home=:home, disk_id=:disk_id, status=:status
+            SET homedir_id=:homedir_id
             WHERE account_id=:account_id AND spread=:spread""", binds)
             self._db.log_change(
                 self.entity_id, self.const.account_home_updated, None,
-                change_params={'spread': int(spread),
-                               'old_disk_id': Utils.format_as_int(old['disk_id']),
-                               'old_home': old['home']})
+                change_params={
+                'spread': int(spread),
+                'old_homedir_id': Utils.format_as_int(old['homedir_id'])
+                })
         except Errors.NotFoundError:
             self.execute("""
             INSERT INTO [:table schema=cerebrum name=account_home]
-              (account_id, spread, home, disk_id, status)
+              (account_id, spread, homedir_id)
             VALUES
-              (:account_id, :spread, :home, :disk_id, :status)""", binds)
+              (:account_id, :spread, :homedir_id)""", binds)
             self._db.log_change(
                 self.entity_id, self.const.account_home_added, None,
                 change_params={'spread': int(spread)})
 
     def get_home(self, spread):
         return self.query_1("""
-        SELECT disk_id, home, status
-        FROM [:table schema=cerebrum name=account_home]
-        WHERE account_id=:account_id AND spread=:spread""",
+        SELECT ah.homedir_id, disk_id, home, status, spread
+        FROM [:table schema=cerebrum name=account_home] ah,
+             [:table schema=cerebrum name=homedir] ahd
+        WHERE ah.homedir_id=ahd.homedir_id AND ah.account_id=:account_id
+          AND spread=:spread""",
                             {'account_id': self.entity_id,
                              'spread': int(spread)})
 
     def get_homes(self):
         return self.query("""
-        SELECT disk_id, home, status, spread
-        FROM [:table schema=cerebrum name=account_home]
-        WHERE account_id=:account_id""",
+        SELECT ah.homedir_id, disk_id, home, status, spread
+        FROM [:table schema=cerebrum name=account_home] ah,
+             [:table schema=cerebrum name=homedir] ahd
+        WHERE ah.homedir_id=ahd.homedir_id AND ah.account_id=:account_id""",
                             {'account_id': self.entity_id})
 
 class Account(AccountType, AccountHome, EntityName, EntityQuarantine, Entity):
