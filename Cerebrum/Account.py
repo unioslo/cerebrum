@@ -713,10 +713,18 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine, Entity):
         goal = 15	# We may return more than this
         maxlen -= len(suffix)
         potuname = ()
-        if fname.strip() == "" or lname.strip() == "":
+        if lname.strip() == "":
             raise ValueError,\
-                  "Currently only fullname supported, got '%s', '%s'" % \
-                  (fname, lname)
+                  "Must supply last name, got '%s', '%s'" % (fname, lname)
+        if fname.strip() == "":
+            # This is a person with no first name.  We "fool" the
+            # algorithm below by switching the names around.  This
+            # will always lead to suggesting names with numerals added
+            # to the end since there are only 8 possible usernames for
+            # a name of length 8 or more.  (assuming maxlen=8)
+            fname = lname
+            lname = ""
+            
         # We ignore hyphens in the last name, but extract the
         # initials from the first name(s).
         fname = self.simplify_name(fname, alt=1)
@@ -753,9 +761,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine, Entity):
         # ("ss" means firstinit, "i" means initial, "l" means last name)
 
         if len(firstinit) > 1:
-            llen = len(lname)
-            if len(firstinit) + llen > maxlen:
-                llen = maxlen - len(firstinit)
+            llen = min(len(lname), maxlen - len(firstinit))
             for j in range(llen, 0, -1):
                 un = firstinit + lname[0:j] + suffix
                 if self.validate_new_uname(domain, un):
@@ -783,14 +789,9 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine, Entity):
         # gjh gh gjha gha gjhan ghan ... gjhansen ghansen
         # fil fl fill fll filll flll     fillllll fllllll
 
-        flen = len(fname)
-        if flen > maxlen - 1:
-            flen = maxlen - 1
-
+        flen = min(len(fname), maxlen - 1)
         for i in range(flen, 0, -1):
-            llim = len(lname)
-            if llim > maxlen - i:
-                llim = maxlen - i
+            llim = min(len(lname), maxlen - i)
             for j in range(1, llim + 1):
                 if initial:
                     # Is there room for an initial?
@@ -801,6 +802,20 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine, Entity):
                 un = fname[0:i] + lname[0:j] + suffix
                 if self.validate_new_uname(domain, un):
                     potuname += (un, )
+            if len(potuname) >= goal:
+                break
+
+        # Try prefixes of the first name with nothing added.  This is
+        # the only rule which generates usernames for persons with no
+        # _first_ name.
+        #
+        # geirove, geirov, geiro, geir, gei, ge
+        
+        flen = min(len(fname), maxlen)
+        for i in range(flen, 1, -1):
+            un = fname[0:i] + suffix
+            if self.validate_new_uname(domain, un):
+                potuname += (un, )
             if len(potuname) >= goal:
                 break
 
@@ -819,14 +834,14 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine, Entity):
     def validate_new_uname(self, domain, uname):
         """Check that the requested username is legal and free"""
         try:
-            # We instanciate EntityName directly because find_by_name
+            # We instantiate EntityName directly because find_by_name
             # calls self.find() whose result may depend on the class
             # of self
             en = EntityName(self._db)
             en.find_by_name(uname, domain)
-            return 0
+            return False
         except Errors.NotFoundError:
-            return 1
+            return True
 
     def simplify_name(self, s, alt=0, as_gecos=0):
         """Convert string so that it only contains characters that are
