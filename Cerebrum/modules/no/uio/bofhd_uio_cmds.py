@@ -3630,7 +3630,7 @@ class BofhdExtension(object):
 
 	for a in person.get_affiliations():
 	    if (int(a['source_system']) in \
-		[int(self.const.system_fs), int(self.const.system_lt)]):
+                [int(self.const.system_fs), int(self.const.system_lt)]):
 		raise CerebrumError, "You can't alter name of a person registered in an authorative source system!"
 	    else:
 		pass
@@ -4026,7 +4026,7 @@ class BofhdExtension(object):
                         self.num2const[int(aff['status'])],
                         self._format_ou_name(ou))
                     map.append((("%s", name),
-                                (int(aff['ou_id']), int(aff['affiliation']))))
+                                {'ou_id': int(aff['ou_id']), 'aff': int(aff['affiliation'])}))
                 if not len(map) > 1:
                     raise CerebrumError(
                         "Person has no affiliations. Try person affiliation_add")
@@ -4142,7 +4142,7 @@ class BofhdExtension(object):
             # to .write_db() one more time...
             posix_user.write_db()
             if len(args) != 6:
-                ou_id, affiliation = affiliation
+                ou_id, affiliation = affiliation['ou_id'], affiliation['aff']
                 self._user_create_set_account_type(posix_user, owner_id,
                                                    ou_id, affiliation)
         except self.db.DatabaseError, m:
@@ -4557,7 +4557,7 @@ class BofhdExtension(object):
         try:
             account.write_db()
             if affiliation is not None:
-                ou_id, affiliation = affiliation
+                ou_id, affiliation = affiliation['ou_id'], affiliation['aff']
                 self._user_create_set_account_type(
                     account, person.entity_id, ou_id, affiliation)
         except self.db.DatabaseError, m:
@@ -4610,7 +4610,7 @@ class BofhdExtension(object):
                         self.const.PersonAffStatus(aff['status']),
                         self._format_ou_name(ou))
                     map.append((("%s", name),
-                                (int(aff['ou_id']), int(aff['affiliation']))))
+                                {'ou_id': int(aff['ou_id']), 'aff': int(aff['affiliation'])}))
                 if not len(map) > 1:
                     raise CerebrumError(
                         "Person has no affiliations. Try person affiliation_add")
@@ -4649,7 +4649,7 @@ class BofhdExtension(object):
             account.np_type = np_type
         account.write_db()
         if new_owner.entity_type == self.const.entity_person:
-            ou_id, affiliation = affiliation
+            ou_id, affiliation = affiliation['ou_id'], affiliation['aff']
             self._user_create_set_account_type(account, account.owner_id,
                                                ou_id, affiliation)
         return "OK"
