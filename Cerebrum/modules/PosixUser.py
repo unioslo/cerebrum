@@ -198,7 +198,7 @@ class PosixUser(Account.Account):
         on the persons first and last name"""
         goal = 15
         potuname = ()
-        if fname == "" or lname == "":
+        if re.search(r'^\s*$', fname) is None or re.search(r'^\s*$', lname) is None:
             raise ValueError,\
                   "Currently only fullname supported, got %s, %s" % (fname, lname)
         complete_name = self._conv_name("%s %s" % (fname, lname), 1)
