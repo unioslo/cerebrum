@@ -171,7 +171,7 @@ def process_email_requests():
             except CerebrumError, e:
                 logger.error("bofh_email_delete: %s: %s" % (host, str(e)))
                 continue
-            res, list = cyradm.m.list("user.%s" % uname)
+            res, list = cyradm.m.list("user.", pattern=uname)
             if res <> 'OK' or list[0] == None:
                 # TBD: is this an error we need to keep around?
                 db.rollback()
@@ -180,7 +180,7 @@ def process_email_requests():
                 db.commit()
                 continue
             folders = ["user.%s" % uname]
-            res, list = cyradm.m.list("user.%s.*" % uname)
+            res, list = cyradm.m.list("user.%s." % uname)
             if res == 'OK' and list[0]:
                 for line in list:
                     folder = line.split(' ')[2]
@@ -328,20 +328,20 @@ def cyrus_create(user_id):
     except CerebrumError, e:
         logger.error("cyrus_create: " + str(e))
         return False
-    for folder in ["user.%s%s" % (uname, sub)
-                   for sub in "", ".spam", ".Sent", ".Drafts", ".Trash"]:
-        res, list = cyradm.m.list(folder)
+    for sub in ("", ".spam", ".Sent", ".Drafts", ".Trash"):
+        res, list = cyradm.m.list ('user.', pattern='%s%s' % (uname, sub))
         if res == 'OK' and list[0]:
             continue
         res = cyradm.m.create(folder)
         if res[0] <> 'OK':
-            logger.error("IMAP create %s failed: %s", folder, res[1])
+            logger.error("IMAP create user.%s%s failed: %s",
+                         uname, sub, res[1])
             return False
 
     # restrict access to INBOX.spam.  the user can change the
     # ACL to override this, though.
-    res = cyradm.m.setacl("user.%s.spam" % uname, uname, "lrswipd")
-            
+    cyradm.m.setacl("user.%s.spam" % uname, uname, "lrswipd")
+
     # we don't care to check if the next command runs OK.
     # almost all IMAP clients ignore the file, anyway ...
     cyrus_subscribe(uname, imaphost)
