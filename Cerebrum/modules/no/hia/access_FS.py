@@ -427,7 +427,7 @@ FROM fs.emne """
         return "(%s OR (r.terminkode LIKE 'V_R' AND r.arstall=%d))\n" % (current, yr)
 
 
-class element_attribute_xml_parser(xml.sax.ContentHandler):
+class element_attribute_xml_parser(xml.sax.ContentHandler, object):
 
     elements = {}
     """A dict containing all valid element names for this parser.
@@ -454,7 +454,7 @@ class element_attribute_xml_parser(xml.sax.ContentHandler):
         # Only set self._in_element etc. for interesting elements.
         if self.elements[name]:
             data = {}
-            for k, v in attrs.iteritems():
+            for k, v in attrs.items():
                 data[k] = v.encode(self._encoding)
             self._callback(name, data)
 
@@ -478,7 +478,7 @@ class non_nested_xml_parser(element_attribute_xml_parser):
         if self.elements[name]:
             self._in_element = name
             self._data = {}
-            for k, v in attrs.iteritems():
+            for k, v in attrs.items():
                 self._data[k] = v.encode(self._encoding)
 
     def endElement(self, name):
