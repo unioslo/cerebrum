@@ -204,7 +204,7 @@ class RequestHandler(SocketServer.StreamRequestHandler):
         if (self.pq_data is None or
             self.pq_data['has_quota'] == 'F'):
             return ok
-        if self.pq_data['has_blocked_quota'] == 'F':
+        if self.pq_data['has_blocked_quota'] == 'T':
             return no
         pageunits = float(pageunits)
         self.log('TRACE', 'check_quota: %s@%s %s' % (
