@@ -324,7 +324,7 @@ public class BofhdConnection {
             } else if(e.getMessage().startsWith(match)) {
 		throw new BofhdException("Error: "+e.getMessage().substring(e.getMessage().indexOf(":")+1));
 	    } else {
-		logger.error("err: code="+e.code, e);
+		logger.debug("err: code="+e.code, e);
 		throw new BofhdException("Error: "+e.getMessage());
 	    }
         } catch (IOException e) {
