@@ -566,9 +566,9 @@ class BofhdExtension(object):
         person.affect_names(self.const.system_manual, self.const.name_full)
         person.populate_name(self.const.name_full,
                              person_name.encode('iso8859-1'))
-#        ou = self._get_ou(ou)
-#        aff = self._get_affiliationid(affiliation)
-#        aff_status = self._get_affiliation_statusid(aff, aff_status)
+        ou = self._get_ou(ou)
+        aff = self._get_affiliationid(affiliation)
+        aff_status = self._get_affiliation_statusid(aff, aff_status)
         try:
             person.write_db()
             person.add_affiliation(ou.entity_id, aff,
