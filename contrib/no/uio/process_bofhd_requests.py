@@ -2,28 +2,36 @@
 
 import getopt
 import sys
+
+import cerebrum_path
 import cereconf
 
 from Cerebrum import Account
 from Cerebrum import Disk
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.bofhd.utils import BofhdRequests
+from Cerebrum.extlib import logging
 
 db = Factory.get('Database')()
-db.cl_init(change_program='process_students')
+db.cl_init(change_program='process_bofhd_r')
 const = Factory.get('Constants')(db)
+logging.fileConfig(cereconf.LOGGING_CONFIGFILE)
+logger = logging.getLogger("cronjob")
+# Hosts to connect to, set to None in a production environment:
+debug_hostlist = ['cerebellum']
 
 def process_move_requests():
     br = BofhdRequests(db, const)
     for r in br.get_requests(operation=const.bofh_move_user):
         if r['run_at'] < br.now:
             try:
-                account, uname, old_host, old_home = get_account(r['entity_id'])
-                new_host, new_home_disk  = get_disk(r['destination_id'])
+                account, uname, old_host, old_disk = get_account(r['entity_id'])
+                new_host, new_disk  = get_disk(r['destination_id'])
             except Errors.NotFoundError:
-                print "ERROR for %i" % r['entity_id']
+                logging.error("%i not found" % r['entity_id'])
                 continue
-            if move_user(uname, old_host, old_home, new_host, new_home_disk):
+            operator = get_account_name(r['requestee_id'])
+            if move_user(uname, old_host, old_disk, new_host, new_disk, operator):
                 account.disk_id =  r['destination_id']
                 account.write_db()
                 br.delete_request(r['entity_id'], r['requestee_id'], r['operation'])
@@ -33,20 +41,41 @@ def process_move_requests():
         # student-auomatikken mangler foreløbig støtte for det.
         pass
     for r in br.get_requests(operation=const.bofh_delete_user):
-        account, uname, old_host, old_home = get_account(r['entity_id'])
-        if delete_user(uname, old_host, old_home):
+        account, uname, old_host, old_disk = get_account(r['entity_id'])
+        operator = get_account_name(r['requestee_id'])
+        if delete_user(uname, old_host, '%s/%s' % (old_disk, uname), operator):
             account.expire_date = br.now
             account.write_db()
             br.delete_request(r['entity_id'], r['requestee_id'], r['operation'])
             db.commit()
+    
+def delete_user(uname, old_host, old_home, operator):
+    cmd = [cereconf.ARUSER_SCRIPT, uname, operator, old_home]
+    logging.debug("doing %s" % cmd)
+    if debug_hostlist is None or old_host in debug_hostlist:
+        errnum = os.spawnv(os.P_WAIT, cmd)
+    else:
+        errnum = 0
+    if not errnum:
+        return 1
+    logging.error("%s returned %i" % (cereconf.ARUSER_SCRIPT, errnum))
+    return 0
 
-def delete_user(uname, old_host, old_home):
-    print "delete: %s@%s:%s" % (uname, old_host, old_home)
-    return 1
-
-def move_user(uname, old_host, old_home, new_host, new_home_disk):
-    print "%s@%s:%s -> %s:%s" % (uname, old_host, old_home, new_host, new_home_disk)
-    return 1
+def move_user(uname, old_host, old_disk, new_host, new_disk, operator):
+    mailto = operator
+    receipt = 1
+    cmd = [cereconf.MVUSER_SCRIPT, uname, uid, gid, old_disk,
+           new_disk, mailto, receipt]
+    logging.debug("doing %s" % cmd)
+    if debug_hostlist is None or (old_host in debug_hostlist and
+                                  new_host in debug_hostlist):
+        errnum = os.spawnv(os.P_WAIT, cmd)
+    else:
+        errnum = 0
+    if not errnum:
+        return 1
+    logging.error("%s returned %i" % (cereconf.ARUSER_SCRIPT, errnum))
+    return 0
 
 def get_disk(disk_id):
     disk = Disk.Disk(db)
@@ -56,6 +85,12 @@ def get_disk(disk_id):
     host.clear()
     host.find(disk.host_id)
     return host.name, disk.path
+
+def get_account_name(account_id):
+    account = Account.Account(db)
+    account.clear()
+    account.find(account_id)
+    return account.account_name
 
 def get_account(account_id):
     account = Account.Account(db)
@@ -67,27 +102,29 @@ def get_account(account_id):
         if account.disk_id is None:
             raise Errors.NotFoundError, "Bad disk for %s" % uname
         host, home = get_disk(account.disk_id)
-        home += "/"+uname
     else:
         host = None  # TODO:  How should we handle this?
     return account, uname, host, home
 
 def main():
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'd',
-                                   ['debug'])
+        opts, args = getopt.getopt(sys.argv[1:], 'dp',
+                                   ['debug', 'process'])
     except getopt.GetoptError:
+        usage(1)
+    if not opts:
         usage(1)
     global debug
     for opt, val in opts:
         if opt in ('-d', '--debug'):
             debug += 1
-        else:
-            usage()
-    process_move_requests()
+        elif opt in ('-p', '--process'):
+            process_move_requests()
     
 def usage(exitcode=0):
-    print """Usage:     """
+    print """Usage: process_bofhd_requests.py
+    -d | --debug: turn on debugging
+    -p | --process: perform the queued operations"""
     sys.exit(exitcode)
 
 if __name__ == '__main__':
