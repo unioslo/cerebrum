@@ -40,6 +40,7 @@ default_undvenh_file = "/cerebrum/dumps/FS/underv_enhet.xml"
 default_undenh_student_file = "/cerebrum/dumps/FS/student_undenh.xml"
 default_studieprogram_file = "/cerebrum/dumps/FS/studieprog.xml"
 default_ou_file = "/cerebrum/dumps/FS/ou.xml"
+default_emne_file = "/cerebrum/dumps/FS/emner.xml"
 
 xml = XMLHelper()
 fs = None
@@ -187,7 +188,15 @@ def write_studprog_info(outfile):
                 + "\n")
     f.write("</data>\n")
     f.close()
-
+def write_emne_info(outfile):
+    """Lager fil med informasjon om alle definerte emner"""
+    f=open(outfile, 'w')
+    f.write(xml.xml_hdr + "<data>\n")
+    cols, dta = fs.GetAlleEmner()
+    for t in dta:
+        f.write(xml.xmlify_dbrow(t, xml.conv_colnames(cols), 'emne') + "\n")
+    f.write("</data>\n")
+ 
 def fix_float(row):
     for n in range(len(row)):
         if isinstance(row[n], float):
@@ -199,6 +208,7 @@ def usage(exitcode=0):
     --hia-personinfo-file: override hia person xml filename
     --hia-roleinfo-file: override role xml filename
     --hia-undenh-file: override 'topics' file
+    --hia-emneinfo-file: override emne info
     --hia-student-undenh-file: override student on UE file
     --ou-file name: override ou xml filename
     --db-user name: connect with given database username
@@ -207,6 +217,7 @@ def usage(exitcode=0):
     -o: generate ou xml (sted.xml) file
     -p: generate person file
     -r: genereta role file
+    -e: generate emne info file
     -u: generate undervisningsenhet xml file
     -U: generate student on UE xml file
     """
@@ -221,10 +232,11 @@ def assert_connected(user="CEREBRUM", service="FSHIA.uio.no"):
 
 def main():
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "psruUo",
+        opts, args = getopt.getopt(sys.argv[1:], "psruUoe",
                                    ["hia-personinfo-file=", "studprog-file=", 
 				    "hia-roleinfo-file=", "hia-undenh-file=",
                                     "hia-student-undenh-file=",
+				    "--hia-emneinfo-file=",
                                     "ou-file=", "db-user=", "db-service="])
     except getopt.GetoptError:
         usage()
@@ -235,6 +247,7 @@ def main():
     ou_file = default_ou_file
     role_file = default_role_file
     undervenh_file = default_undvenh_file
+    emne_info_file = default_emne_file 
     undenh_student_file = default_undenh_student_file
     db_user = None         # TBD: cereconf value?
     db_service = None      # TBD: cereconf value?
@@ -267,8 +280,24 @@ def main():
 	    write_undenh_metainfo(undervenh_file)
         elif o in ('-U',):
             write_undenh_student(undenh_student_file)
+        elif o in ('-e',):
+	    write_emne_info(emne_info_file)
         elif o in ('-o',):
             write_ou_info(ou_file)
 
 if __name__ == '__main__':
     main()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
