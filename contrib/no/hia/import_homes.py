@@ -82,35 +82,35 @@ def process_line(infile):
         
         uname = fields[1]
         home = fields[6]
-        if not uname == "":
-            account.clear()
-            try:
-                account.find_by_name(uname)
-                logger.debug3("User %s exists in Cerebrum", uname)
-            except Errors.NotFoundError:
-                logger.warn("User %s does not exists in Cerebrum", uname)
-                continue
-            disk_id = process_home(home)
-            if disk_id == None:
-                logger.warn("User %s got strange home %s.", uname, home)
-                account.set_home(co.spread_nis_user, home=home,
-                                 status=co.home_status_on_disk)
-                logger.debug("User %s got home %s, %s.", uname, home, status)
-		account.write_db()                
-                
-                continue
-            try:
-                disk_id, home, status = account.get_home(co.spread_nis_user)
-                logger.debug("User %s got home %s, %s, %s.", uname, disk_id,
-                              home, status)
-            except Errors.NotFoundError:
-                account.set_home(co.spread_nis_user, disk_id=disk_id,
-                                 status=co.home_status_on_disk)
-                account.write_db()
-                logger.debug3("User %s got new home %s", uname, home)
-        else:
+        if uname == "":
             logger.warn("No username: %s. Skipping", line)
-        # fi
+            continue
+        
+        account.clear()
+        try:
+            account.find_by_name(uname)
+            logger.debug3("User %s exists in Cerebrum", uname)
+        except Errors.NotFoundError:
+            logger.warn("User %s does not exists in Cerebrum", uname)
+            continue
+        disk_id = process_home(home)
+        if disk_id == None:
+            logger.warn("User %s got strange home %s.", uname, home)
+            account.set_home(co.spread_nis_user, home=home,
+                             status=co.home_status_on_disk)
+            logger.debug("User %s got home %s.", uname, home)
+            account.write_db()                
+            continue
+        try:
+            disk_id, home, status = account.get_home(co.spread_nis_user)
+            logger.debug("User %s got home %s, %s, %s.", uname, disk_id,
+                         home, status)
+        except Errors.NotFoundError:
+            account.set_home(co.spread_nis_user, disk_id=disk_id,
+                             status=co.home_status_on_disk)
+            account.write_db()
+            logger.debug3("User %s got new home %s", uname, home)
+            
         if commit_count % commit_limit == 0:
             attempt_commit()
         # fi

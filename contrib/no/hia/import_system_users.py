@@ -21,20 +21,19 @@
 
 """
 This file is a HiA-specific extension of Cerebrum. It contains code which
-import historical account and e-mail data from HiA into Cerebrum. Normally,
+import historical account data from HiA into Cerebrum. Normally,
 it should be run only once (about right after the database has been
 created).
 
 The input format for this job is a file with one line per
-account/e-mail. Each line has four fields separated by ':'.
+account. Each line has four fields separated by ':'.
 
-<fnr>:<uname>:<fname>:<lname>
+<uname>
 """
 
 import getopt
 import sys
 import string
-import re
 
 import cerebrum_path
 import cereconf
@@ -62,7 +61,8 @@ def attempt_commit():
 
 def process_line(infile):
     """
-    Scan all lines in INFILE and set password for user in Cerebrum.
+    Scan all lines in INFILE and create corresponding account/e-mail entries
+    in Cerebrum.
     """
 
     stream = open(infile, 'r')
@@ -74,53 +74,43 @@ def process_line(infile):
         commit_count += 1
         logger.debug5("Processing line: |%s|", line)
 
-        fields = string.split(line.strip(), ":")
-        if len(fields) != 4:
-            logger.error("Bad line: %s. Skipping", line)
+        uname = string.strip(line)
+
+        if uname == "":
+            logger.error("Empty uname: |%s|. Skipping", uname)
             continue
-        # fi
-        fnr = fields[0]
-        fname = fields[2]
-        lname = fields[3]
-        if (not fname == "") or (not lname == ""):
-            person.clear()
-            try:
-                person.find_by_external_id(co.externalid_fodselsnr,
-                                           fnr)
-                logger.debug3("Person %s exists in Cerebrum", fnr)
-            except Errors.NotFoundError:
-                logger.warn("Person %s does not exists in Cerebrum", fnr)
-                continue
-            
-            person.affect_names(co.system_migrate, co.name_first, co.name_last)
-            person.populate_name(co.name_first, fname)
-            person.populate_name(co.name_last, lname)
-            logger.debug3("Person %s updated with name %s, %s.", fnr, fname,
-                          lname)
-            person.write_db()
-        else:
-            logger.warn("Nameproblem: %s. Skipping", line)
-        # fi
-        if commit_count % commit_limit == 0:
-            attempt_commit()
-        # fi
+
+        try:
+            account.clear()
+            account.find_by_name(uname)
+            logger.debug3("User %s exists in Cerebrum", uname)
+        except Errors.NotFoundError:
+            account.populate(uname,
+                             constants.entity_group,
+                             default_group_id,
+                             int(constants.account_program),
+                             default_creator_id,
+                             None)
+            account.write_db()
+            logger.debug3("User %s created", uname)
+        # yrt
+        
     # od
 # end process_line
 
-
 def usage():
-    print """Usage: import_ext_names.py
-    -d, --dryrun  : Dryrun. No commit to database.
+    print """Usage: import_uname_mail.py
+    -d, --dryrun  : Run a fake import. Rollback after run.
     -f, --file    : File to parse.
     """
-    sys.exit(0)
 # end usage
 
 
 
 def main():
-    global db, co, default_creator_id
-    global person, dryrun, logger
+    global db, constants, account
+    global default_creator_id, default_group_id
+    global dryrun, logger
 
     logger = Factory.get_logger("console")
     
@@ -134,7 +124,6 @@ def main():
     # yrt
 
     dryrun = False
-    rm_str = None
     for opt, val in opts:
         if opt in ('-d', '--dryrun'):
             dryrun = True
@@ -148,13 +137,14 @@ def main():
     # fi
 
     db = Factory.get('Database')()
-    db.cl_init(change_program='import_homes')
-    co = Factory.get('Constants')(db)
+    db.cl_init(change_program='import_uname')
+    constants = Factory.get('Constants')(db)
     account = Factory.get('Account')(db)
-    person = Factory.get('Person')(db)
-
+    group = Factory.get('Group')(db)
     account.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
     default_creator_id = account.entity_id
+    group.find_by_name(cereconf.INITIAL_GROUPNAME)
+    default_group_id = group.entity_id
     process_line(infile)
 
     attempt_commit()
