@@ -75,6 +75,7 @@ def init_ldap_dump():
 
 def generate_users(spread=None,filename=None):
     posix_user = PosixUser.PosixUser(db)
+    account = Factory.get('Account')(db)
     disk = Factory.get('Disk')(db)
     spreads = eval_spread_codes(spread or cereconf.LDAP_USER_SPREAD)
     shells = {}
@@ -83,6 +84,16 @@ def generate_users(spread=None,filename=None):
     disks = {}
     for hd in disk.list(spread=spreads[0]):
 	disks[int(hd['disk_id'])] = hd['path']  
+    quarantines = {}
+    now = db.DateFromTicks(time.time())
+    for row in account.list_entity_quarantines(
+            entity_types = co.entity_account):
+        if (row['start_date'] <= now
+            and (row['end_date'] is None or row['end_date'] >= now)
+            and (row['disable_until'] is None or row['disable_until'] < now)):
+            # The quarantine in this row is currently active.
+            quarantines.setdefault(int(row['entity_id']), []).append(
+                int(row['quarantine_type']))
     posix_dn = "," + get_tree_dn('USER')
     if filename:
 	f = file(filename,'w')
@@ -101,7 +112,7 @@ def generate_users(spread=None,filename=None):
     # 'crypt3_des', though.
     for auth_method in (co.auth_type_md5_crypt, co.auth_type_crypt3_des):
         for row in posix_user.list_extended_posix_users(auth_method, spreads, 
-						include_quarantines = True):
+						include_quarantines = False):
             (acc_id, shell, gecos, uname) = (
                 row['account_id'], row['shell'], row['gecos'],
                 row['entity_name'])
@@ -117,8 +128,8 @@ def generate_users(spread=None,filename=None):
                 # Final pass - neither md5_crypt nor crypt3_des hash found.
                 passwd = "{crypt}*Invalid"
             shell = shells[int(shell)]
-            if row['quarantine_type'] is not None:
-                qh = QuarantineHandler(db, (row['quarantine_type'],))
+            if acc_id in quarantines:
+                qh = QuarantineHandler(db, quarantines[acc_id])
                 if qh.should_skip():
                     continue
                 if qh.is_locked():
