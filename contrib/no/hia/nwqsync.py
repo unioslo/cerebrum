@@ -56,6 +56,8 @@ cl_events = (
 		const.spread_del, \
 		const.quarantine_add, \
 		const.quarantine_mod, \
+		const.person_name_add,\
+		const.person_name_mod,\
 		const.quarantine_del
 		)
 
