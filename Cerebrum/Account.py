@@ -146,7 +146,8 @@ class AccountType(object):
         if ou_id is not None:
             extra += " AND at.ou_id=:ou_id"
         return self.query("""
-        SELECT DISTINCT at.person_id, at.ou_id, at.affiliation, at.account_id
+        SELECT DISTINCT at.person_id, at.ou_id, at.affiliation, at.account_id,
+                        at.priority
         FROM [:table schema=cerebrum name=account_type] at,
              [:table schema=cerebrum name=person_affiliation_source] pas
         WHERE at.person_id=pas.person_id AND
