@@ -2,7 +2,7 @@
 
 DATE=`date +%Y%m%d`
 
-trap { mv cerebrum-0.0.$DATE cerebrum } 0
+trap "mv cerebrum-0.0.$DATE cerebrum " 0
 
 if [ -f cerebrum_0.0.$DATE.orig.tar.gz ] ; then
   rm -f cerebrum_0.0.$DATE.orig.tar.gz
