@@ -189,6 +189,8 @@ class ProfileMatcher(object):
                         entry['studieprogramkode'], v['profiles'])
 
     def _check_group_membership(self, groups):
+        if not groups:
+            return
         for g in self.pc.select_mapping['medlem_av_gruppe'].keys():
             if g in groups:
                 self._append_match(
