@@ -39,8 +39,12 @@ from Cerebrum import Errors
 from Cerebrum import Account
 from Cerebrum.Utils import Factory
 from Cerebrum import Utils
+from Cerebrum.extlib import logging
 from server.bofhd_errors import CerebrumError
 import traceback
+
+logging.fileConfig("cerebrum.ini")
+logger = logging.getLogger("console")  # The import modules use the "import" logger
 
 # TBD: Is a BofhdSession class a good idea?  It could (optionally)
 # take a session_id argument when instantiated, and should have
@@ -174,13 +178,13 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler):
         try:
             ret = apply(func, wash_params(params))
         except CerebrumError, e:
-            ret = ":".join((":Exception:", type(e).__name__, str(e)))
+            # ret = ":".join((":Exception:", type(e).__name__, str(e)))
+            ret = str(e)
             raise sys.exc_info()[0], ret
         except Exception, e:
-            print "Caught: %s" % sys.exc_info()[0]
-            traceback.print_exc()
-##            self.log_traceback()
-            ret = ":".join((":Exception:" + type(e).__name__, "Unknown error."))
+            logger.warn("Unexpected exception", exc_info=1)
+            # ret = ":".join((":Exception:" + type(e).__name__, "Unknown error."))
+            ret = "Unknown error (a server error has been logged)."
             raise sys.exc_info()[0], ret
         return wash_response(ret)
 
@@ -270,7 +274,7 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler):
 
         session = BofhdSession(self.server.db, sessionid)
         entity_id = session.get_entity_id()
-
+        self.server.db.cl_init(change_by=entity_id)
         print "Run command: %s (%s)" % (cmd, args)
         func = getattr(self.server.cmd2instance[cmd], cmd)
 
