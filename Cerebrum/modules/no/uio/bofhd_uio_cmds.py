@@ -4290,6 +4290,11 @@ class BofhdExtension(object):
         group = self._get_group(dfg, grtype='PosixGroup')
         shell = self._get_shell(shell)
         disk_id, home = self._get_disk_or_home(home)
+        if home is not None:
+            if home[0] == ':':
+                home = home[1:]
+            else:
+                raise CerebrumError, "Invalid disk"
         person = self._get_person("entity_id", account.owner_id)
         self.ba.can_create_user(operator.get_entity_id(), person, disk_id)
         pu.populate(uid, group.entity_id, None, shell, parent=account)
