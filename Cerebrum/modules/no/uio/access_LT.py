@@ -64,7 +64,8 @@ WHERE
   fakultetnr=:fak AND
   instituttnr=:inst AND
   gruppenr=:gr AND
-  kommtypekode IN ('EKSTRA TLF', 'FAX', 'FAXUTLAND', 'JOBBTLFUTL')
+  kommtypekode IN ('EKSTRA TLF', 'FAX', 'FAXUTLAND', 'TLF', 'TLFUTL',
+                   'EPOST', 'URL')
 ORDER BY tlfpreftegn"""
         return (self._get_cols(qry),
                 self.db.query(qry, {'fak': fak, 'inst': inst, 'gr': gr}))

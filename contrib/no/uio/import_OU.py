@@ -46,8 +46,8 @@ co = Factory.get('Constants')(db)
 #         poststednr_alternativ_adr="postnr_alt"
 #         poststednavn_alternativ_adr="postnavn_alt"
 #         landnavn_alternativ_adr="ITALIA">
-#     <komm kommtypekode=("EKSTRA TLF" | "FAX" | "FAXUTLAND" | "JOBBTLFUTL" |
-#                         "EPOST")
+#     <komm kommtypekode=("EKSTRA TLF" | "TLF" | "TLFUTL" |
+#                         "FAX" | "FAXUTLAND" | "EPOST" | "URL")
 #           telefonnr="foo" kommnrverdi="bar">
 #     </komm>
 #   </sted>
@@ -204,12 +204,15 @@ def import_org_units(sources):
                                 city = city,
                                 country = country)
         n = 0
+        nrtypes = {'EKSTRA TLF': co.contact_phone,
+                   'TLF': co.contact_phone,
+                   'TLFUTL': co.contact_phone,
+                   'FAX': co.contact_fax,
+                   'FAXUTLAND': co.contact_fax}
+        txttypes = {'EPOST': co.contact_email,
+                    'URL': co.contact_url}
         for t in k.get('komm', []):
             n += 1       # TODO: set contact_pref properly
-            nrtypes = {'EKSTRA TLF': co.contact_phone,
-                       'FAX': co.contact_fax,
-                       'FAXUTLAND': co.contact_fax,
-                       'JOBBTLFUTL': co.contact_phone}
             if nrtypes.has_key(t['kommtypekode']):
                 nr = t.get('telefonnr', t.get('kommnrverdi', None))
                 if nr is None:
@@ -217,8 +220,9 @@ def import_org_units(sources):
                     continue
                 ou.populate_contact_info(source_system, nrtypes[t['kommtypekode']],
                                          nr, contact_pref=n)
-            elif t['kommtypekode'] == 'EPOST':
-                ou.populate_contact_info(source_system, co.contact_email,
+            elif txttypes.has_key(t['kommtypekode']):
+                ou.populate_contact_info(source_system,
+                                         txttypes[t['kommtypekode']],
                                          t['kommnrverdi'], contact_pref=n)
 	n += 1
 	if k.has_key('innvalgnr') and k.has_key('linjenr'):
