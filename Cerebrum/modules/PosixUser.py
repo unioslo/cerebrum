@@ -31,8 +31,22 @@ POSIX_GECOS_SOURCE_ORDER"""
 
 import random,re,string
 import cereconf
-from Cerebrum import Person,Constants,Errors
+from Cerebrum import Person
+from Cerebrum import Errors
 from Cerebrum import Account
+from Cerebrum import Constants
+
+
+## Module spesific constant.  Belongs somewhere else
+class _PosixShellCode(_CerebrumCode):
+    "Mappings stored in the posix_shell_code table"
+    _lookup_table = '[:table schema=cerebrum name=posix_shell_code]'
+    _lookup_desc_column = 'shell'
+    pass
+
+class Constants(Constants.Constants):
+    posix_shell_bash = _PosixShellCode('bash', '/bin/bash')
+
 
 class PosixUser(Account.Account):
     """Posix..."""
