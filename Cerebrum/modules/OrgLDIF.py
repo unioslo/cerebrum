@@ -388,10 +388,16 @@ Set cereconf.LDAP_ORG_ROOT to the organization's root ou_id or to None."""
             if method:
                 fill_passwd[int(method)](account_id, row['auth_data'])
         timer2("...account quarantines...")
-        for entity_id, quarantine_type in self.account.list_entity_quarantines(
+        now = self.db.DateFromTicks(time.time())
+        for row in self.account.list_entity_quarantines(
                 entity_types = self.const.entity_account):
-            acc_quarantines.setdefault(int(entity_id), []).append(
-                int(quarantine_type))
+            if (row['start_date'] <= now
+                and (row['end_date'] is None or row['end_date'] >= now)
+                and (row['disable_until'] is None
+                     or row['disable_until'] < now)):
+                # The quarantine in this row is currently active.
+                acc_quarantines.setdefault(int(row['entity_id']), []).append(
+                    int(row['quarantine_type']))
         timer("...account information done.")
 
     def init_account_mail(self, use_mail_module):
