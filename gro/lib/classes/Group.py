@@ -1,9 +1,9 @@
 import Cerebrum.Entity
+import Cerebrum.Group
 
 from Cerebrum.extlib import sets
 
-from Clever import Clever, LazyMethod, Lazy
-from Node import Node
+from Builder import Builder, Attribute, Method
 from Entity import Entity
 
 from db import db
@@ -11,103 +11,52 @@ from db import db
 __all__ = ['Group', 'GroupMember']
 
 class Group(Entity):
-    slots = ['name', 'description', 'visibility', 'expireDate', 'members', 'posixGid']
-    readSlots = Entity.readSlots + slots
-    writeSlots = Entity.writeSlots + ['name', 'description', 'visibility', 'expireDate', 'posixGid']
-
-    def __init__(self, id, parents=Lazy, children=Lazy, *args, **vargs):
-        Entity.__init__(self, id, parents, children)
-        Clever.__init__(self, Group, *args, **vargs)
+    slots = Entity.slots + [Attribute('name', 'string', writable=True),
+                            Attribute('description', 'string', writable=True),
+                            Attribute('visibility', 'GroupVisibilityType', writable=True),
+                            Attribute('expire_date', 'Date', writable=True)]
+    methodSlots = Entity.methodSlots + [Method('get_members', 'MemberList')]
 
     def _getByCerebrumGroup(cls, e):
-        id = int(e.entity_id)
+        entity_id = int(e.entity_id)
         name = e.group_name
         description = e.description
-        expireDate = e.expire_date
-        return Group(id, name=name, description=description, expireDate=expireDate)
-
-    def getByName(cls, name):
-        e = Cerebrum.Group.Group(db)
-        e.find_by_name(name)
-
-        return cls._getByCerebrumGroup(e)
-
-    def getByPosixGid(cls, posixGid):
-        e = Cerebrum.modules.PosixGroup.PosixGroup(db)
-        e.find_by_gid(posixGid)
-        
-        g = cls._getByCerebrumGroup(e)
-        g._posixGid = int(e.posix_gid)
-
-        return g
+        visibility = Types.GroupVisibilityType(int(e.visibility))
+        expire_date = e.expire_date
+        return Group(entity_id, name=name, visibility=visibility, description=description, expire_date=expire_date)
 
     _getByCerebrumGroup = classmethod(_getByCerebrumGroup)
-    getByName = classmethod(getByName)
-    getByPosixGid = classmethod(getByPosixGid)
-
+    
     def load(self):
         import Types
 
         e = Cerebrum.Group.Group(db)
-        e.find(self.id)
+        e.find(self._entity_id)
 
         self._name = e.group_name
         self._description = e.description
         self._visibility = Types.GroupVisibilityType(int(e.visibility))
-        self._expireDate = e.expire_date
+        self._expire_date = e.expire_date
 
-    def loadChildren(self):
-        Entity.loadChildren(self)
-
-        self._children.update(self.members)
-    
-    def loadMembers(self):
+    def get_members(self): # jada.. denne skal også fikses...
         import Types, Entity
 
-        self._members = sets.Set()
+        members = []
         e = Cerebrum.Group.Group(db)
-        e.entity_id = self.id
+        e.entity_id = self._entity_id
 
         for row in db.query('''SELECT operation, member_id, member_type
                                FROM group_member
-                               WHERE group_id = %s''' % self.id):
+                               WHERE group_id = %s''' % self._entity_id):
             operation = Types.GroupMemberOperationType(int(row['operation']))
-            member = Entity.Entity(int(row['member_id']),
-                                   entityType=Types.EntityType(int(row['member_type'])))
-            self._members.add(GroupMember(group=self, operation=operation, member=member))
+            member_id = int(row['member_id'])
+            members.append(GroupMember(group_id=self._entity_id, operation=operation, member_id=member_id))
+        return members
 
-    def loadPosixGid(self):
-        try: # sukk.. Cerebrum er så teit..
-            e = Cerebrum.modules.PosixGroup.PosixGroup(db)
-            e.find(self.id)
-
-            self._posixGid = int(e.posix_gid)
-
-        except Cerebrum.Errors.NotFoundError:
-            self._posixGid = None
-
-    getMembers= LazyMethod('_members', 'loadMembers')
-    getPosixGid = LazyMethod('_posixGid', 'loadPosixGid')
-
-Clever.prepare(Group, 'load')
-
-class GroupMember(Node):
-    slots = ['group', 'operation', 'member']
-    readSlots = Node.readSlots + slots
-    writeSlots = Node.writeSlots + ['operation']
-
-    def __init__(self, parents=Lazy, children=Lazy, *args, **vargs):
-        Node.__init__(self, parents, children)
-        Clever.__init__(self, GroupMember, *args, **vargs)
-
-    def getKey(group, operation, member, *args, **vargs):
-        return group, operation, member
-    getKey = staticmethod(getKey)
+class GroupMember(Builder):
+    slots = [Attribute('group_id', 'long'),
+             Attribute('operation', 'GroupMemberOperationType'),
+             Attribute('member_id', 'long')]
 
     def __repr__(self):
-        return '%s(group=%s, operation=%s, member=%s)' % (self.__class__.__name__, self.group, self.operation, self.member)
-    
-    def load(self):
-        raise Exception('FU')
-
-Clever.prepare(GroupMember, 'load')
+        return '%s(group=%s, operation=%s, member=%s)' % (self.__class__.__name__, self._group_id, self._operation, self._member_id)
