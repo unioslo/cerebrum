@@ -163,12 +163,67 @@ class AccountType(object):
                            'affiliation': affiliation,
                            'status': status})
 
-class Account(AccountType, EntityName, EntityQuarantine, Entity):
+class AccountHome(object):
+    """AccountHome keeps track of where the users home dir is.  There
+    may a different home dir for each spread.  A home is identified
+    either by a disk_id, or by the string represented by home"""
+
+    def clear_home(self, spread):
+            self.execute("""
+            DELETE FROM [:table schema=cerebrum name=account_home]
+            WHERE account_id=:account_id AND spread=:spread""", {
+                'account_id': self.entity_id,
+                'spread': int(spread)})
+            self._db.log_change(
+                self.entity_id, self.const.account_home_removed, None,
+                change_params={'spread': int(spread)})
+
+    def set_home(self, spread, disk_id=None, home=None, status=None):
+        binds = {'account_id': self.entity_id,
+                 'spread': int(spread),
+                 'disk_id': disk_id,
+                 'home': home,
+                 'status': status
+            }
+        if status:
+            binds['status'] = int(status)
+        if home and disk_id:
+            raise ValueError, "Cannot set both disk_id and home."
+        try:
+            old = self.get_home(spread)
+            self.execute("""
+            UPDATE [:table schema=cerebrum name=account_home]
+            SET home=:home, disk_id=:disk_id, status=:status
+            WHERE account_id=:account_id AND spread=:spread""", binds)
+            self._db.log_change(
+                self.entity_id, self.const.account_home_updated, None,
+                change_params={'spread': int(spread),
+                               'old_disk_id': old['disk_id'],
+                               'old_home': old['home']})
+        except Errors.NotFoundError:
+            self.execute("""
+            INSERT INTO [:table schema=cerebrum name=account_home]
+              (account_id, spread, home, disk_id, status)
+            VALUES
+              (:account_id, :spread, :home, :disk_id, :status)""", binds)
+            self._db.log_change(
+                self.entity_id, self.const.account_home_added, None,
+                change_params={'spread': int(spread)})
+
+    def get_home(self, spread):
+        return self.query_1("""
+        SELECT disk_id, home, status
+        FROM [:table schema=cerebrum name=account_home]
+        WHERE account_id=:account_id AND spread=:spread""",
+                            {'account_id': self.entity_id,
+                             'spread': int(spread)})
+
+class Account(AccountType, AccountHome, EntityName, EntityQuarantine, Entity):
 
     __read_attr__ = ('__in_db', '__plaintext_password'
                      # TODO: Get rid of these.
                      )
-    __write_attr__ = ('account_name', 'owner_type', 'owner_id', 'home', 'disk_id',
+    __write_attr__ = ('account_name', 'owner_type', 'owner_id',
                       'np_type', 'creator_id', 'expire_date', 'create_date',
                       '_auth_info', '_acc_affect_auth_types')
 
@@ -192,14 +247,12 @@ class Account(AccountType, EntityName, EntityQuarantine, Entity):
             self.owner_id != other.owner_id or
             self.np_type != other.np_type or
             self.creator_id != other.creator_id or
-            self.home != other.home or
-            self.disk_id != other.disk_id or
             self.expire_date != other.expire_date):
             return False
         return True
 
     def populate(self, name, owner_type, owner_id, np_type, creator_id,
-                 expire_date, home=None, disk_id=None, parent=None):
+                 expire_date, parent=None):
         if parent is not None:
             self.__xerox__(parent)
         else:
@@ -214,16 +267,12 @@ class Account(AccountType, EntityName, EntityQuarantine, Entity):
                 raise RuntimeError, "populate() called multiple times."
         except AttributeError:
             self.__in_db = False
-        if home is not None and disk_id is not None:
-            raise ValueError, "Cannot set both disk_id and home."
         self.owner_type = owner_type
         self.owner_id = owner_id
         self.np_type = np_type
         self.creator_id = creator_id
         self.expire_date = expire_date
         self.account_name = name
-        self.home = home
-        self.disk_id = disk_id
 
     def affect_auth_types(self, *authtypes):
         self._acc_affect_auth_types = list(authtypes)
@@ -282,8 +331,6 @@ class Account(AccountType, EntityName, EntityQuarantine, Entity):
                     ('owner_type', ':o_type'),
                     ('owner_id', ':o_id'),
                     ('np_type', ':np_type'),
-                    ('home', ':home'),
-                    ('disk_id', ':disk_id'),
                     ('creator_id', ':c_id')]
             # Columns that have default values through DDL.
             if self.create_date is not None:
@@ -301,8 +348,6 @@ class Account(AccountType, EntityName, EntityQuarantine, Entity):
                           'o_id' : self.owner_id,
                           'np_type' : self.np_type,
                           'exp_date' : self.expire_date,
-                          'home' : self.home,
-                          'disk_id' : self.disk_id,
                           'create_date': self.create_date})
             self._db.log_change(self.entity_id, self.const.account_create, None)
             self.add_entity_name(self.const.account_namespace, self.account_name)
@@ -310,8 +355,6 @@ class Account(AccountType, EntityName, EntityQuarantine, Entity):
             cols = [('owner_type',':o_type'),
                     ('owner_id',':o_id'),
                     ('np_type',':np_type'),
-                    ('home', ':home'),
-                    ('disk_id', ':disk_id'),
                     ('creator_id',':c_id')]
             if self.expire_date is not None:
                 cols.append(('expire_date', ':exp_date'))
@@ -326,8 +369,6 @@ class Account(AccountType, EntityName, EntityQuarantine, Entity):
                           'o_id' : self.owner_id,
                           'np_type' : self.np_type,
                           'exp_date' : self.expire_date,
-                          'home' : self.home,
-                          'disk_id' : self.disk_id,
                           'acc_id' : self.entity_id})
             self._db.log_change(self.entity_id, self.const.account_mod, None)
             if 'account_name' in self.__updated:
@@ -389,9 +430,9 @@ class Account(AccountType, EntityName, EntityQuarantine, Entity):
         return is_new
 
     def new(self, name, owner_type, owner_id, np_type, creator_id,
-            expire_date, home=None, disk_id=None):
+            expire_date):
         self.populate(name, owner_type, owner_id, np_type, creator_id,
-                      expire_date, home=home, disk_id=disk_id)
+                      expire_date)
         self.write_db()
         self.find(self.entity_id)
 
@@ -400,9 +441,9 @@ class Account(AccountType, EntityName, EntityQuarantine, Entity):
 
         (self.owner_type, self.owner_id,
          self.np_type, self.create_date, self.creator_id,
-         self.expire_date, self.home, self.disk_id) = self.query_1("""
+         self.expire_date) = self.query_1("""
         SELECT owner_type, owner_id, np_type, create_date,
-               creator_id, expire_date, home, disk_id
+               creator_id, expire_date
         FROM [:table schema=cerebrum name=account_info]
         WHERE account_id=:a_id""", {'a_id' : account_id})
         self.account_name = self.get_name(self.const.account_namespace)
@@ -474,15 +515,17 @@ class Account(AccountType, EntityName, EntityQuarantine, Entity):
         SELECT *
         FROM [:table schema=cerebrum name=account_info] ai %s""" % where)
 
-    def list_account_name_home(self):
+    def list_account_name_home(self, spread):
         """Returns a list of account_id, name, home and path."""
+        # TODO: Include spread in query
         return self.query("""
         SELECT a.account_id, e.entity_name, a.home, d.path
         FROM [:table schema=cerebrum name=entity_name] e,
-             [:table schema=cerebrum name=account_info] a
+             [:table schema=cerebrum name=account_home] a
              LEFT JOIN [:table schema=cerebrum name=disk_info] d
                ON d.disk_id = a.disk_id
-        WHERE a.account_id=e.entity_id""")
+        WHERE a.account_id=e.entity_id AND a.spread=:spread""",
+                          {'spread': int(spread)})
 
     def list_reserved_users(self):
         """Return all reserved users"""
