@@ -122,7 +122,7 @@ GRANT INSERT, UPDATE, DELETE ON email_target TO read_mod_email;
 category:main;
 CREATE TABLE email_domain
 (
-  domain_id	NUMERIC(6,0)
+  domain_id	NUMERIC(12,0)
 		CONSTRAINT email_domain_pk PRIMARY KEY,
   domain	CHAR VARYING(128)
 		NOT NULL
@@ -178,7 +178,7 @@ GRANT INSERT, UPDATE, DELETE ON email_domain_cat_code TO read_mod_email;
 category:main;
 CREATE TABLE email_domain_category
 (
-  domain_id	NUMERIC(6,0)
+  domain_id	NUMERIC(12,0)
 		CONSTRAINT email_domain_category_dom_id
 		  REFERENCES email_domain(domain_id),
   category	NUMERIC(6,0)
@@ -204,7 +204,7 @@ CREATE TABLE email_address
 		CONSTRAINT email_address_pk PRIMARY KEY,
   local_part	CHAR VARYING(128)
 		NOT NULL,
-  domain_id	NUMERIC(6,0)
+  domain_id	NUMERIC(12,0)
 		NOT NULL
 		CONSTRAINT email_address_domain_id
 		  REFERENCES email_domain(domain_id),
@@ -267,7 +267,7 @@ CREATE TABLE email_entity_domain
   affiliation	NUMERIC(6,0)
 		CONSTRAINT email_entity_domain_affil
 		  REFERENCES person_affiliation_code(code),
-  domain_id	NUMERIC(6,0)
+  domain_id	NUMERIC(12,0)
 		NOT NULL
 		CONSTRAINT email_entity_domain_domain_id
 		  REFERENCES email_domain(domain_id)
