@@ -13,6 +13,7 @@ cd $SRCDIR
 
 chmod u+x ./makedb.py ./contrib/no/uio/import_OU.py 
 chmod u+x ./contrib/no/uio/import_LT.py ./contrib/no/uio/import_FS.py
+chmod u+x $TESTDIR/create_user.py ./contrib/generate_nismaps.py
 
 ./makedb.py
 
@@ -32,6 +33,12 @@ echo "***** Second time import, ie update *****"
 
 ./contrib/no/uio/import_FS.py $TESTDIR/FS-persons.dat
 
-# FIXME: Add script to make new posix accounts from existing persons
+# FIXME: Add script to make new posix accounts from all existing persons
 
-./contrib/generate_nismaps.py > $TESTDIR/nis-passwd.out
+./makedb.py $TESTDIR/posix_testuser.sql
+
+$TESTDIR/create_user.py
+
+./contrib/generate_nismaps.py
+
+exit 0
