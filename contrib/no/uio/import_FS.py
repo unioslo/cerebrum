@@ -108,7 +108,7 @@ def rem_old_aff():
 	    ent_id,ou,affi = k.split(':')
             person.clear()
 	    person.entity_id = int(ent_id)
-            person.delete_affiliation(ou, affi, const.system_fs)
+            person.delete_affiliation(ou, affi, co.system_fs)
 
 def process_person_callback(person_info):
     """Called when we have fetched all data on a person from the xml
@@ -248,21 +248,23 @@ def process_person_callback(person_info):
 
     if address_info is not None:
         new_person.populate_address(co.system_fs, co.address_post, **address_info)
-
+    # if this is a new Person, there is no entity_id assigned to it
+    # until written to the database.
+    op = new_person.write_db()
     for a in affiliations:
         ou, aff, aff_status = a
         new_person.populate_affiliation(co.system_fs, ou, aff, aff_status)
-	if include_delete: 
+	if include_delete:
 	    key_a = "%s:%s:%s" % (new_person.entity_id,ou,int(aff))
 	    if old_aff.has_key(key_a):
 	    	old_aff[key_a] = False
 
-    op = new_person.write_db()
-    if op is None:
+    op2 = new_person.write_db()
+    if op is None and op2 is None:
         logger.info2("**** EQUAL ****")
     elif op == True:
         logger.info2("**** NEW ****")
-    elif op == False:
+    else:
         logger.info2("**** UPDATE ****")
 
     # Reservations    
