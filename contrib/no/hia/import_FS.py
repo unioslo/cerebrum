@@ -154,29 +154,30 @@ def process_person_callback(person_info):
 	    logger.info("\n%s mangler studentnr!" % fnr)
         # Get address
         if address_info is None:
-	    if dta_type in ('privatist_studieprogram',):
-            	address_info = _ext_address_info(p, 'adrlin1_semadr',
-            	'adrlin2_semadr', 'adrlin3_semadr',
-            	'postnr_semadr', 'adresseland_semadr')
+	    if dta_type in ('aktiv','privatist_studieprogram',):
+		address_info = _ext_address_info(p, 
+		'adrlin1_semadr', 'adrlin2_semadr', 
+                'adrlin3_semadr', 'postnr_semadr', 
+                'adresseland_semadr')
             	if address_info is None:
-               		address_info = _ext_address_info( p,
-                    	'adrlin1_hjemsted', 'adrlin2_hjemsted',
-                    	'adrlin3_hjemsted', 'postnr_hjemsted',
-                    	'adresseland_hjemsted')
+		    address_info = _ext_address_info( p,
+                    'adrlin1_hjemsted', 'adrlin2_hjemsted',
+                    'adrlin3_hjemsted', 'postnr_hjemsted',
+                    'adresseland_hjemsted')
             elif dta_type in ('evu',):
                 address_info = _ext_address_info(p, 'adrlin1_hjem',
                 'adrlin2_hjem', 'adrlin3_hjem', 'postnr_hjem',
                 'adresseland_hjem')
                 if address_info is None:
-                	address_info = _ext_address_info(p,
-                    	'adrlin1_hjemsted', 'adrlin2_hjemsted',
-                    	'adrlin3_hjemsted', 'postnr_hjemsted',
-                    	'adresseland_hjemsted')
+		    address_info = _ext_address_info(p,
+		    'adrlin1_hjemsted', 'adrlin2_hjemsted',
+                    'adrlin3_hjemsted', 'postnr_hjemsted',
+                    'adresseland_hjemsted')
             elif dta_type in ('tilbud',):
-                	address_info = _ext_address_info(p,
-                    	'adrlin1_hjemsted', 'adrlin2_hjemsted',
-                    	'adrlin3_hjemsted', 'postnr_hjemsted',
-                    	'adresseland_hjemsted')
+		address_info = _ext_address_info(p,
+		'adrlin1_hjemsted', 'adrlin2_hjemsted',
+                'adrlin3_hjemsted', 'postnr_hjemsted',
+                'adresseland_hjemsted')
 
         # Get affiliations
         # Lots of changes here compared to import_FS.py @ uio
