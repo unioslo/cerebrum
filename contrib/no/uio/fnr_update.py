@@ -180,7 +180,7 @@ def process_file(filename, db, const, person_old, person_new):
         try:
             person_new.clear()
             person_new.find_by_external_id(id_type, new, source_system)
-            logger.warn("%s: Both '%s/%s' (old) and '%s/%s' (new) exist "
+            logger.warn("%s: Both %s (%s) (old) and %s (%s) (new) exist "
                         " in Cerebrum. Manual intervention required. "
                         "No changes in Cerebrum.",
                         prefix, old, person_old.entity_id,
