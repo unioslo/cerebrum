@@ -42,6 +42,7 @@ from Cerebrum.extlib import logging
 from Cerebrum.modules import CLHandler
 from Cerebrum.modules import ChangeLog
 from Cerebrum.Utils import Factory
+from Cerebrum.modules.LDIFutils import get_tree_dn
 
 db = Factory.get('Database')()
 const = Factory.get('CLConstants')(db)
