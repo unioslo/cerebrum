@@ -1437,23 +1437,22 @@ class AccountEmailMixin(Account.Account):
 
     def get_primary_maildomain(self):
         """Return correct `domain_id' for account's primary address."""
-        class UseDefaultDomainException(StandardError):
-            pass
-        try:
-            # Find OU and affiliation for this user's best-priority
-            # account_type entry.
-            typs = self.get_account_types()
-            if not typs:
-                # If no appropriate account_type entries were found,
-                # return the default maildomain.
-                raise UseDefaultDomainException
-            row = typs[0]
+        dom = EmailDomain(self._db)
+        dom.find_by_domain(cereconf.EMAIL_DEFAULT_DOMAIN)
+        entdom = EntityEmailDomain(self._db)
+        # Find OU and affiliation for this user's best-priority
+        # account_type entry.
+        for row in self.get_account_types():
             ou, aff = row['ou_id'], row['affiliation']
             # If a maildomain is associated with this (ou, aff)
             # combination, then that is the user's default maildomain.
-            entdom = EntityEmailDomain(self._db)
+            entdom.clear()
             try:
                 entdom.find(ou, affiliation=aff)
+                # If the default domain is specified, ignore this
+                # affiliation.
+                if entdom.entity_email_domain_id == dom.email_domain_id:
+                    continue
                 return entdom.entity_email_domain_id
             except Errors.NotFoundError:
                 pass
@@ -1462,16 +1461,13 @@ class AccountEmailMixin(Account.Account):
             entdom.clear()
             try:
                 entdom.find(ou)
+                if entdom.entity_email_domain_id == dom.email_domain_id:
+                    continue
                 return entdom.entity_email_domain_id
             except Errors.NotFoundError:
                 pass
-            # Still no proper maildomain association has been found;
-            # fall back to default maildomain.
-            raise UseDefaultDomainException
-        except UseDefaultDomainException:
-            pass
-        dom = EmailDomain(self._db)
-        dom.find_by_domain(cereconf.EMAIL_DEFAULT_DOMAIN)
+        # Still no proper maildomain association has been found; fall
+        # back to default maildomain.
         return dom.email_domain_id
 
     def get_primary_mailaddress(self):
