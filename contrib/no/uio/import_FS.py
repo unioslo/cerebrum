@@ -44,6 +44,7 @@ group_desc = "Internal group for students which will be shown online."
 
 studieprog2sko = {}
 ou_cache = {}
+ou_adr_cache = {}
 gen_groups = False
 
 """Importerer personer fra FS iht. fs_import.txt."""
@@ -79,6 +80,27 @@ def _process_affiliation(aff, aff_status, new_affs, ou):
     if ou is not None:
         new_affs.append((ou, aff, aff_status))
 
+def _get_sted_address(a_dict, k_institusjon, k_fak, k_inst, k_gruppe):
+    ou_id = _get_sko(a_dict, k_fak, k_inst, k_gruppe,
+                     kinstitusjon=k_institusjon)
+    if not ou_id:
+        return None
+    ou_id = int(ou_id)
+    if not ou_adr_cache.has_key(ou_id):
+        ou = Factory.get('OU')(db)
+        ou.find(ou_id)
+        rows = ou.get_entity_address(source=co.system_lt, type=co.address_street)
+        if rows:
+            ou_adr_cache[ou_id] = {
+                'address_text': rows[0]['address_text'],
+                'postal_number': rows[0]['postal_number'],
+                'city': rows[0]['city']
+                }
+        else:
+            ou_adr_cache[ou_id] = None
+            logger.warn("No address for %i" % ou_id)
+    return ou_adr_cache[ou_id]
+    
 def _ext_address_info(a_dict, kline1, kline2, kline3, kpost, kland):
     ret = {}
     ret['address_text'] = "\n".join([a_dict.get(f, None)
@@ -91,6 +113,57 @@ def _ext_address_info(a_dict, kline1, kline2, kline3, kpost, kland):
     ret['city'] =  a_dict.get(kline3, '')
     if len(ret['address_text']) < 2:
         return None
+    return ret
+
+def _calc_address(person_info):
+    """Evaluerer personens adresser iht. til flereadresser_spek.txt og
+    returnerer en tuple (address_post, address_post_private,
+    address_street)"""
+
+    # FS.PERSON     *_hjemsted (1)
+    # FS.STUDENT    *_semadr (2)
+    # FS.FAGPERSON  *_arbeide (3)
+    # FS.DELTAKER   *_job (4)
+    # FS.DELTAKER   *_hjem (5) 
+    rules = [
+        ('fagperson', ('_arbeide', '_hjemsted', '_besok_adr')),
+        ('aktiv', ('_semadr', '_hjemsted', None)),
+        ('evu', ('_job', '_hjem', None)),
+        ('privatist', ('_semadr', '_hjemsted', None)),
+        ('opptak', (None, '_hjemsted', None)),
+        ]
+    adr_map = {
+        '_arbeide': ('adrlin1_arbeide', 'adrlin2_arbeide', 'adrlin3_arbeide',
+                     'postnr_arbeide', 'adresseland_arbeide'),
+        '_hjemsted': ('adrlin1_hjemsted', 'adrlin2_hjemsted',
+                      'adrlin3_hjemsted', 'postnr_hjemsted',
+                      'adresseland_hjemsted'),
+        '_semadr': ('adrlin1_semadr', 'adrlin2_semadr', 'adrlin3_semadr',
+                    'postnr_semadr', 'adresseland_semadr'),
+        '_job': ('adrlin1_job', 'adrlin2_job', 'adrlin3_job', 'postnr_job',
+                 'adresseland_job'),
+        '_hjem': ('adrlin1_hjem', 'adrlin2_hjem', 'adrlin3_hjem',
+                  'postnr_hjem', 'adresseland_hjem'),
+        '_besok_adr': ('institusjonsnr', 'faknr', 'instituttnr', 'gruppenr')
+        }
+
+    ret = [None, None, None]
+    for key, addr_src in rules:
+        if not person_info.has_key(key):
+            continue
+        tmp = person_info[key][0].copy()
+        if key == 'aktiv':
+            # Henter ikke adresseinformasjon for aktiv, men vi vil
+            # alltid ha minst et opptak når noen er aktiv.
+            tmp = person_info['opptak'][0].copy()
+        for i in range(len(addr_src)):
+            addr_cols = adr_map.get(addr_src[i], None)
+            if (ret[i] is not None) or not addr_cols:
+                continue
+            if len(addr_cols) == 4:
+                ret[i] = _get_sted_address(tmp, *addr_cols)
+            else:
+                ret[i] = _ext_address_info(tmp, *addr_cols)
     return ret
 
 def _load_cere_aff():
@@ -119,7 +192,7 @@ def process_person_callback(person_info):
         fnr = fodselsnr.personnr_ok("%06d%05d" % (int(person_info['fodselsdato']),
                                                   int(person_info['personnr'])))
         fnr = fodselsnr.personnr_ok(fnr)
-        logger.info2("Process %s " % (fnr), append_newline=0)
+        logger.info("Process %s " % (fnr))
         (year, mon, day) = fodselsnr.fodt_dato(fnr)
         if (year < 1970
             and getattr(cereconf, "ENABLE_MKTIME_WORKAROUND", 0) == 1):
@@ -157,38 +230,6 @@ def process_person_callback(person_info):
             fornavn = p['fornavn']
         if p.has_key('studentnr_tildelt'):
             studentnr = p['studentnr_tildelt']
-        # Get address
-        if address_info is None:
-            if dta_type in ('fagperson',):
-                address_info = _ext_address_info(p, 'adrlin1_arbeide',
-                    'adrlin2_arbeide', 'adrlin3_arbeide',
-                    'postnr_arbeide', 'adresseland_arbeide')
-                if address_info is None:
-                    address_info = _ext_address_info(p,
-                    'adrlin1_hjemsted', 'adrlin2_hjemsted',
-                    'adrlin3_hjemsted', 'postnr_hjemsted',
-                    'adresseland_hjemsted')
-            elif dta_type in ('opptak', 'privatist_emne', 'privatis_studieprogram',):
-                address_info = _ext_address_info(p, 'adrlin1_semadr',
-                    'adrlin2_semadr', 'adrlin3_semadr',
-                    'postnr_semadr', 'adresseland_semadr')
-                if address_info is None:
-                    address_info = _ext_address_info( p,
-                        'adrlin1_hjemsted', 'adrlin2_hjemsted',
-                        'adrlin3_hjemsted', 'postnr_hjemsted',
-                        'adresseland_hjemsted')
-            elif dta_type in ('evu',):
-                address_info = _ext_address_info(p, 'adrlin1_job',
-                    'adrlin2_job', 'adrlin3_job', 'postnr_job',
-                    'adresseland_job')
-                if address_info is None:
-                    address_info = _ext_address_info(p,
-                        'adrlin1_hjem', 'adrlin2_hjem',
-                        'adrlin3_hjem', 'postnr_hjem',
-                        'adresseland_hjem')
-            elif dta_type in ('tilbud',):
-                # TODO: adresse informasjon mangler i xml fila
-                pass
 
         # Get affiliations
         if dta_type in ('fagperson',):
@@ -257,8 +298,13 @@ def process_person_callback(person_info):
                                       co.externalid_fodselsnr)
     new_person.populate_external_id(co.system_fs, co.externalid_fodselsnr, fnr)
 
-    if address_info is not None:
-        new_person.populate_address(co.system_fs, co.address_post, **address_info)
+    ad_post, ad_post_private, ad_street = _calc_address(person_info)
+    for address_info, ad_const in ((ad_post, co.address_post),
+                                   (ad_post_private, co.address_post_private),
+                                   (ad_street, co.address_street)):
+        # TBD: Skal vi slette evt. eksisterende adresse v/None?
+        if address_info is not None:
+            new_person.populate_address(co.system_fs, ad_const, **address_info)
     # if this is a new Person, there is no entity_id assigned to it
     # until written to the database.
     op = new_person.write_db()
@@ -272,11 +318,11 @@ def process_person_callback(person_info):
 
     op2 = new_person.write_db()
     if op is None and op2 is None:
-        logger.info2("**** EQUAL ****")
+        logger.info("**** EQUAL ****")
     elif op == True:
-        logger.info2("**** NEW ****")
+        logger.info("**** NEW ****")
     else:
-        logger.info2("**** UPDATE ****")
+        logger.info("**** UPDATE ****")
 
     # Reservations    
     if gen_groups:
@@ -318,6 +364,7 @@ def main():
 							old_aff, include_delete
     verbose = 0
     include_delete = False
+    logger = Factory.get_logger("cronjob")
     opts, args = getopt.getopt(sys.argv[1:], 'vp:s:gdf', [
         'verbose', 'person-file=', 'studieprogram-file=',
         'generate-groups','include-delete', ])
@@ -338,8 +385,6 @@ def main():
     if "system_fs" not in cereconf.SYSTEM_LOOKUP_ORDER:
         print "Check your config, SYSTEM_LOOKUP_ORDER is wrong!"
         sys.exit(1)
-    logger = AutoStud.Util.ProgressReporter("./fsi-run.log.%i" % os.getpid(),
-                                            stdout=verbose)
     logger.info("Started")
     db = Factory.get('Database')()
     db.cl_init(change_program='import_FS')
