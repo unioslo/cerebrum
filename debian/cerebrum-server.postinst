@@ -149,6 +149,7 @@ case "$1" in
 	if [ -z $(getent passwd cerebrum) ]; then
 	    adduser --home /nonexistent --system --no-create-home cerebrum
 	fi
+	chown -R cerebrum.root /var/log/cerebrum
 
 
 	db_get cerebrum-server/db-auto-config
