@@ -6,9 +6,11 @@ import sys
 
 import xml.sax
 
-from Cerebrum import Database,Errors
+from Cerebrum import Database
+from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-from Cerebrum.modules.no.uio import OU
+
+OU_class = Factory.get('OU')
 
 class StedData(xml.sax.ContentHandler):
     def __init__(self, filename):
@@ -57,8 +59,8 @@ def main():
     Cerebrum = Database.connect()
     steder = {}
     co = Factory.getConstants()(Cerebrum)
-    ou = OU.OU(Cerebrum)
-    new_ou = OU.OU(Cerebrum)
+    ou = OU_class(Cerebrum)
+    new_ou = OU_class(Cerebrum)
     i = 1
     stedkode2ou = {}
     ou.clear()
@@ -95,14 +97,13 @@ def main():
                                     city=k.get('poststednavn_besok_adr', None))
         try:
             ou.find_stedkode(k['fakultetnr'], k['instituttnr'], k['gruppenr'])
-            ou.find(ou.ou_id)
 
             if not (new_ou == ou):
                 if verbose: print "**** UPDATE ****"
                 new_ou.write_db(ou)
             else:
                 if verbose: print "**** EQUAL ****"
-            new_ou.ou_id = ou.ou_id
+            new_ou.entity_id = ou.entity_id
         except Errors.NotFoundError:
             if verbose: print "**** NEW ****"
             new_ou.write_db()
@@ -110,7 +111,7 @@ def main():
         stedkode = get_stedkode_str(k['fakultetnr'], k['instituttnr'],
                                     k['gruppenr'])
         # Not sure why this casting to int is required for PostgreSQL
-        stedkode2ou[stedkode] = int(new_ou.ou_id)
+        stedkode2ou[stedkode] = int(new_ou.entity_id)
         Cerebrum.commit()
 
     existing_ou_mappings = {}

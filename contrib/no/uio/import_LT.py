@@ -6,7 +6,6 @@ import sys
 
 from Cerebrum import Database, Person, Errors
 from Cerebrum import cereconf
-from Cerebrum.modules.no.uio import OU
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.Utils import Factory
 
@@ -59,7 +58,7 @@ def conv_name(fullname):
 
 def main():
     Cerebrum = Database.connect()
-    ou = OU.OU(Cerebrum)
+    ou = Factory.get('OU')(Cerebrum)
     personObj = Person.Person(Cerebrum)
     co = Factory.getConstants()(Cerebrum)
 
