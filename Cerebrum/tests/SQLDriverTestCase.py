@@ -21,7 +21,7 @@ class SQLDriverTestCase(unittest.TestCase):
         # Calling commit() to make sure it is possible to continue
         # testing even if the SQL call fails.
         self.db.commit()
-        
+
     def testSQLIntHashable(self):
         "Check if SQL NUMERIC is hashable"
         # This test fails with Debian package python2.2-pgsql version
@@ -52,6 +52,15 @@ class SQLDriverTestCase(unittest.TestCase):
         date = self.db.Date(1969, 1, 1)
         date = None
 
+    def testRepeatedParam(self):
+        "Check driver support for repeated bind params"
+        self.db.query("""
+        SELECT value
+        FROM test_db_dict
+        WHERE value = :key1 AND
+              value = :key1 AND
+              value = :key2""", {'key1': 100, 'key2': 200})
+
     def tearDown(self):
         try:
             self.db.execute("DROP TABLE test_db_utf8")
@@ -71,6 +80,7 @@ class SQLDriverTestCase(unittest.TestCase):
         suite.addTest(SQLDriverTestCase("testBrokenDateBefore1970"))
         suite.addTest(SQLDriverTestCase("testUTF8TextParam"))
         suite.addTest(SQLDriverTestCase("testUTF8TextStatement"))
+        suite.addTest(SQLDriverTestCase("testRepeatedParam"))
         return suite
     suite=staticmethod(suite)
 
