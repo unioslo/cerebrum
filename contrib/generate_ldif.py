@@ -176,7 +176,7 @@ def init_ldap_dump(ou_org,filename=None):
 	f.write(init_str)
     if cereconf.LDAP_MAN_LDIF_ADD_FILE:
         try:
-	    lfile = file((string.join(('/usit/cerebellum/u1/areen/cerebrum',cereconf.LDAP_MAN_LDIF_ADD_FILE),'/')),'r')
+	    lfile = file((string.join((cereconf.LDAP_DUMP_DIR,cereconf.LDAP_MAN_LDIF_ADD_FILE)),'/'), 'r')
         except:
             pass
         else:
