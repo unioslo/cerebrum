@@ -200,7 +200,7 @@ class FormatSuggestion(object):
         if vars is None:
             self._string_vars = string
         else:
-            self._string_vars = [string, vars]
+            self._string_vars = [(string, vars)]
         self._hdr = hdr
 
     def get_format(self):
