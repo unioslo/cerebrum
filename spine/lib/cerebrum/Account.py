@@ -18,8 +18,10 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-from SpineLib.Builder import Method
+from SpineLib.Builder import Method, Attribute
 from SpineLib.DatabaseClass import DatabaseAttr
+
+import CereUtils
 
 from Entity import Entity
 from Types import EntityType, AccountType
@@ -39,10 +41,8 @@ class Account(Entity):
         DatabaseAttr('create_date', table, Date),
         DatabaseAttr('creator', table, Entity),
         DatabaseAttr('expire_date', table, Date),
-        DatabaseAttr('description', table, Date)
-    ]
-    method_slots = Entity.method_slots + [
-        Method('get_name', str)
+        DatabaseAttr('description', table, Date),
+        Attribute('name', str, write=True)
     ]
 
     db_attr_aliases = Entity.db_attr_aliases.copy()
@@ -54,10 +54,16 @@ class Account(Entity):
 
     entity_type = EntityType(name='account')
 
-    def get_name(self):
-        return registry.EntityName(self, registry.ValueDomain(name='account_names')).get_name()
+    def load_name(self):
+        entityName = registry.EntityName(self, registry.ValueDomain(name='account_names'))
+        self._name = entityName.get_name()
+
+cls = CereUtils.Factory.get('Account')
+Account.save_name = CereUtils.create_save(Account.get_attr('name'), cls, 'account_name')
+Account.save_expire_date = CereUtils.create_save(Account.get_attr('expire_date'), cls, 'description')
 
 registry.register_class(Account)
+
 
 def get_account_by_name(name):
     s = registry.EntityNameSearcher(name)
