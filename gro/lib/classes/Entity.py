@@ -8,12 +8,13 @@ from Cerebrum.extlib import sets
 from Cerebrum.gro.Cerebrum_core import Errors
 
 from Builder import Builder, Attribute, Method
+from Searchable import Searchable
 
 from db import db
 
 __all__ = ['Entity', 'Note']
 
-class Entity(Builder):
+class Entity(Builder, Searchable):
     primary = [Attribute('entity_id', 'long')]
     slots = [Attribute('entity_id', 'long'),
              Attribute('entity_type', 'EntityType')]
