@@ -224,6 +224,11 @@ class EmailDomain(EmailEntity):
         DELETE FROM [:table schema=cerebrum name=email_domain_category]
         WHERE domain_id=:d_id""", {'d_id': self.email_domain_id})
 
+    def list_email_domains(self):
+        return self.query("""
+        SELECT domain_id, domain
+        FROM [:table schema=cerebrum name=email_domain]""")
+
 
 class EmailTarget(EmailEntity):
     __read_attr__ = ('__in_db', 'email_target_id')
@@ -334,7 +339,7 @@ class EmailTarget(EmailEntity):
         """Return target_id of all EmailTarget in database"""
         return self.query("""
         SELECT target_id
-        FROM [:table schema=cerebrum name=email_target]""")
+        FROM [:table schema=cerebrum name=email_target]""", fetchall=False)
 
     def get_target_type(self):
         return self.email_target_type
@@ -438,7 +443,7 @@ class EmailAddress(EmailEntity):
         """Return address_id of all EmailAddress in database"""
         return self.query("""
         SELECT address_id
-        FROM [:table schema=cerebrum name=email_address]""")
+        FROM [:table schema=cerebrum name=email_address]""", fetchall=False)
 
     def list_email_addresses_ext(self):
         """Return address_id, target_id, local_part and domainof all
@@ -447,7 +452,7 @@ class EmailAddress(EmailEntity):
         SELECT a.address_id, a.target_id, a.local_part, d.domain
         FROM [:table schema=cerebrum name=email_address] a,
              [:table schema=cerebrum name=email_domain] d
-        WHERE a.domain_id = d.domain_id""")
+        WHERE a.domain_id = d.domain_id""", fetchall=False)
 
     def get_target_id(self):
         """Return target_id of this EmailAddress in database"""
@@ -606,7 +611,7 @@ class EmailQuota(EmailTarget):
         return self.email_quota_hard
 
     def list_email_quota_ext(self):
-        """Return all quotas in database. target_id, quota_soft and quota_hard"""
+        """Return all defined quotas; target_id, quota_soft and quota_hard."""
         return self.query("""
         SELECT target_id, quota_soft, quota_hard
         FROM [:table schema=cerebrum name=email_quota]""")
@@ -723,7 +728,7 @@ class EmailSpamFilter(EmailTarget):
 
     def list_email_spam_filters_ext(self):
         """Join between spam_filter, email_spam_level_code and
-        email_spam_action_code. Returns target_id, gradeand code_str."""        
+        email_spam_action_code. Returns target_id, grade and code_str."""
         return self.query("""
         SELECT f.target_id, l.grade, a.code_str
         FROM [:table schema=cerebrum name=email_spam_filter] f,
@@ -976,8 +981,8 @@ class EmailPrimaryAddressTarget(EmailTarget):
     def list_email_primary_address_targets(self):
         return self.query("""
         SELECT target_id, address_id
-        FROM [:table schema=cerebrum name=email_primary_address]
-        """)
+        FROM [:table schema=cerebrum name=email_primary_address]""",
+                          fetchall=False)
 
     def get_address_id(self):
         return self.email_primaddr_id
@@ -1041,7 +1046,7 @@ class EmailServer(Host):
         self.__in_db = True
         self.__updated = []
 
-def EmailServerTarget(EmailTarget):
+class EmailServerTarget(EmailTarget):
     __read_attr__ = ('__in_db',)
     __write_attr__ = ('email_server_id',)
 
@@ -1106,7 +1111,44 @@ def EmailServerTarget(EmailTarget):
 class AccountEmailMixin(Account.Account):
     """Email-module mixin for core class ``Account''."""
 
-    def get_default_maildomain(self):
+    def write_db(self):
+        # Make sure Account is present in database.
+        ret = super(AccountEmailMixin, self).write_db()
+        # Verify that Account has the email addresses it should,
+        # creating those not present.
+        self.update_email_addresses()
+        return ret
+
+    def update_email_addresses(self):
+        ed = EmailDomain(self._db)
+        ed.find(self.get_primary_domain())
+        local_parts = [self.account_name]
+        ea = EmailAddress(self._db)
+        if self.const.email_domain_category_cnaddr in ed.get_categories():
+            local_parts.insert(0, self.get_email_cn_local_part())
+
+
+    def get_email_cn_local_part(self):
+        if self.owner_type <> self.const.entity_person:
+            # In the Cerebrum core, there is only one place the "full
+            # name" of an account can be registered: As the full name
+            # of the person owner.  Hence, for non-personal accounts,
+            # we just use the account name.
+            #
+            # Note that the situation may change for specialisations
+            # of the core Account class; e.g. the PosixUser class
+            # allows full name to be registered directly on the
+            # account, in the `gecos' attribute.  To take such
+            # specialisations into account (for *all* your users),
+            # override this method in an appropriate subclass, and set
+            # cereconf.CLASS_ACCOUNT accordingly.
+            return self.account_name
+        p = Factory.get("Person")(self._db)
+        p.find(self.owner_id)
+##        full = p.get_name(self.const.source
+
+    def get_primary_maildomain(self):
+        """Return correct `domain_id' for account's primary address."""
         class UseDefaultDomainException(StandardError):
             pass
         try:
@@ -1144,8 +1186,27 @@ class AccountEmailMixin(Account.Account):
         dom.find_by_domain(cereconf.EMAIL_DEFAULT_DOMAIN)
         return dom.email_domain_id
 
-    def get_default_mailaddress(self):
-        dom_id = self.get_default_maildomain()
+    def get_primary_mailaddress(self):
+        """Return account's current primary address, or None."""
+        target_type = int(self.const.email_target_account)
+        return self.query("""
+        SELECT ea.local_part || '@' || ed.domain AS email_primary_address
+        FROM [:table schema=cerebrum name=account_type] at
+        JOIN [:table schema=cerebrum name=email_target] et
+          ON et.target_type = :targ_type AND
+             et.entity_id = at.account_id
+        JOIN [:table schema=cerebrum name=email_primary_address] epa
+          ON epa.target_id = et.target_id
+        JOIN [:table schema=cerebrum name=email_address] ea
+          ON ea.address_id = epa.address_id
+        JOIN [:table schema=cerebrum name=email_domain] ed
+          ON ed.domain_id = ea.domain_id
+        WHERE at.account_id = :e_id""",
+                              {'e_id': int(self.entity_id),
+                               'targ_type': target_type})
+
+    def _calc_new_primary_mailaddress(self):
+        dom_id = self.get_primary_maildomain()
         dom = EmailDomain(self._db)
         dom.find(dom_id)
         ctgs = dom.get_categories()
@@ -1176,7 +1237,7 @@ class AccountEmailMixin(Account.Account):
 
         # Validate that value of local_part is proper for use as an
         # email address local part.
-        
+
 
 class PersonEmailMixin(Person.Person):
 
