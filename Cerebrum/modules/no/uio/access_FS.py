@@ -644,16 +644,16 @@ ORDER BY fodselsdato, personnr
         yr, mon, md = t = time.localtime()[0:3]
         if mon <= 6:
             # Months January - June == Spring semester
-            current = "(r.terminkode LIKE 'V_R' AND r.arstall=%s)\n" % yr;
+            current = "(r.terminkode = 'VÅR' AND r.arstall=%s)\n" % yr;
             if only_current or mon >= 3 or (mon == 2 and md > 15):
                 return current
-            return "(%s OR (r.terminkode LIKE 'H_ST' AND r.arstall=%d))\n" % (
+            return "(%s OR (r.terminkode = 'HØST' AND r.arstall=%d))\n" % (
                 current, yr-1)
         # Months July - December == Autumn semester
-        current = "(r.terminkode LIKE 'H_ST' AND r.arstall=%d)\n" % yr
+        current = "(r.terminkode = 'HØST' AND r.arstall=%d)\n" % yr
         if only_current or mon >= 10 or (mon == 9 and md > 15):
             return current
-        return "(%s OR (r.terminkode LIKE 'V_R' AND r.arstall=%d))\n" % (current, yr)
+        return "(%s OR (r.terminkode = 'VÅR' AND r.arstall=%d))\n" % (current, yr)
 
 
     def is_alive(self):
