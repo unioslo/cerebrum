@@ -24,15 +24,17 @@ import re
 from Cerebrum import Database
 
 def main():
+    ignoreerror = False
+    
     Cerebrum = Database.connect()
     if len(sys.argv) >= 2:
         for f in sys.argv[1:]:
-            runfile(f, Cerebrum)
+            runfile(f, Cerebrum, ignoreerror)
     else:
-        makedbs(Cerebrum)
+        makedbs(Cerebrum, ignoreerror)
 
 
-def makedbs(Cerebrum):
+def makedbs(Cerebrum, ignoreerror):
     for f in ('drop_mod_stedkode.sql',
               'drop_mod_nis.sql',
               'drop_mod_posix_user.sql',
@@ -43,9 +45,9 @@ def makedbs(Cerebrum):
               'core_data.sql',
               'mod_stedkode.sql'
               ):
-        runfile("design/%s" % f, Cerebrum)
+        runfile("design/%s" % f, Cerebrum, ignoreerror)
 
-def runfile(fname, Cerebrum):
+def runfile(fname, Cerebrum, ignoreerror):
     print "Reading file: <%s>" % fname
     f = file(fname)
     text = "".join(f.readlines())
@@ -60,12 +62,15 @@ def runfile(fname, Cerebrum):
             continue
         try:
             res = Cerebrum.execute(ddl)
+            if ignoreerror:
+                Cerebrum.commit()
         except:
             print "  CMD: [%s] -> " % ddl
             print "    database error:", sys.exc_info()[1]
         else:
             print "  ret: "+str(res)
-    Cerebrum.commit()
+    if not ignoreerror:
+        Cerebrum.commit()
 
 if __name__ == '__main__':
     main()
