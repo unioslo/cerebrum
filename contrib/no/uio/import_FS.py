@@ -40,7 +40,8 @@ class FSData(object):
         return persondta
 
 personfile = "/u2/dumps/FS/persons.dat";
-Cerebrum = Database.connect(user="cerebrum")
+
+Cerebrum = Database.connect()
 ou = OU.OU(Cerebrum)
 person = Person.Person(Cerebrum)
 new_person = Person.Person(Cerebrum)

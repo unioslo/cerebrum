@@ -67,7 +67,7 @@ def conv_name(fullname):
     fullname = fullname.strip()
     return fullname.split(None, 1)
 
-Cerebrum = Database.connect(user="cerebrum")
+Cerebrum = Database.connect()
 ou = OU.OU(Cerebrum)
 personObj = Person.Person(Cerebrum)
 co = Constants.Constants(Cerebrum)
