@@ -161,46 +161,56 @@ def generate_netgroup(filename, group_spread, user_spread):
     # generate_group, currently separate as a number of things differ
     # and limited available time.
     group = Factory.get('Group')(db)
-    gid2gname = {}
     en = EntityName(db)
     for row in en.list_names(int(co.account_namespace)):
         entity2uname[int(row['entity_id'])] = row['entity_name']
-    entity2gname = {}
-    for row in en.list_names(int(co.group_namespace)):
-        entity2gname[int(row['entity_id'])] = row['entity_name']
     f = Utils.SimilarSizeWriter(filename, "w")
     f.set_size_change_limit(5)
     num = 0
+    exported_groups = {}
     for row in group.list_all(spread=group_spread):
-        group.clear()
-        group.find(row.group_id)
-        gid2gname[int(row.group_id)] = group.group_name
+        exported_groups[int(row['group_id'])] = row['name']
+    for group_id in exported_groups.keys():
         group_members = []
         account_members = []
-        for spread in (group_spread, user_spread):
-            u, i, d = group.list_members(spread=spread)
-            for row2 in u:
-                if int(row2[0]) == co.entity_account:
-                    uname = entity2uname[int(row2[1])]
-                    if len(uname) > 8:
-                        print "Bad username %s in %s" %(uname,group.group_name)
-                    else:
-                        account_members.append("(,%s,)" % uname)
-                elif int(row2[0]) == co.entity_group:
-                    group_members.append(entity2gname[int(row2[1])])
+        incl_group = [ group_id ]
+        while incl_group:
+            gid = incl_group.pop()
+            group.clear()
+            group.find(gid)
+            u, i, d = group.list_members(spread=user_spread,
+                                         member_type=co.entity_account)
+            for row in u:
+                uname = entity2uname[int(row[1])]
+                if len(uname) > 8:
+                    print ("Bad username %s in %s" %
+                           (uname, group.group_name))
+                else:
+                    account_members.append("(,%s,)" % uname)
+            # we include subgroups regardless of their spread, but
+            # if they're from a different spread we need to include
+            # their members explicitly.
+            u, i, d = group.list_members(member_type=co.entity_group)
+            for row in u:
+                gid = int(row[1])
+                if gid in exported_groups:
+                    group_members.append(exported_groups[gid])
+                else:
+                    incl_group.append(gid)
         # TODO: Also process intersection and difference members.
         line = " ".join((join(group_members, ' '), join(account_members, ' ')))
-        maxlen = MAX_LINE_LENGTH - (len(group.group_name) + 1)
+        maxlen = MAX_LINE_LENGTH - (len(exported_groups[group_id]) + 1)
         while len(line) > maxlen:
-            # TODO: Make sure that these automatically generated xNN
-            # netgroups won't collide with the name of any real group.
-            tmp_gname = "x%02x" % num
-            num += 1
+            while True:
+                tmp_gname = "x%02x" % num
+                num += 1
+                if tmp_gname not in exported_groups:
+                    break
             maxlen = MAX_LINE_LENGTH - (len(tmp_gname) + 1)
             pos = line.index(" ", len(line) - maxlen)
             f.write("%s %s\n" % (tmp_gname, line[pos+1:]))
             line = "%s %s" % (tmp_gname, line[:pos])
-        f.write("%s %s\n" % (group.group_name, line))
+        f.write("%s %s\n" % (exported_groups[group_id], line))
     if e_o_f:
 	f.write('E_O_F\n')
     f.close()
