@@ -705,8 +705,6 @@ def group_mod(ch_type,dn_id,dest_id,log_id):
 	else:
 	    return
     else:
-	logger.warn("Could not solve entity-id:%s. Changelog_id:%s" % \
-							 (dn_id,log_id))
 	return
     group.clear()
     group.entity_id = int(dest_id)	
