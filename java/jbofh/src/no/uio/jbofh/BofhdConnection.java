@@ -251,7 +251,7 @@ public class BofhdConnection {
                     tmp = ":"+((String) tmp);
                     args.setElementAt(tmp, i);
                 }
-            } else {
+            } else if (tmp instanceof Vector) {
                 Vector v = (Vector) tmp;
                 for (int j = v.size()-1; j >= 0; j--) {
                     tmp = v.get(j);
