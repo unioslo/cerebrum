@@ -4084,12 +4084,14 @@ class BofhdExtension(object):
     # user info
     all_commands['user_info'] = Command(
         ("user", "info"), AccountName(),
-        fs=FormatSuggestion([("Spreads:       %s\n" +
+        fs=FormatSuggestion([("Username:      %s\n"+
+                              "Spreads:       %s\n" +
                               "Affiliations:  %s\n" +
                               "Expire:        %s\n" +
                               "Home:          %s\n" +
                               "Entity id:     %i",
-                              ("spread", "affiliations", format_day("expire"),
+                              ("username", "spread", "affiliations",
+                               format_day("expire"),
                                "home", "entity_id")),
                              ("UID:           %i\n" +
                               "Default fg:    %i=%s\n" +
@@ -4118,6 +4120,7 @@ class BofhdExtension(object):
         except Errors.NotFoundError:
             tmp = {'disk_id': None, 'home': None}
         ret = {'entity_id': account.entity_id,
+               'username': account.account_name,
                'spread': ",".join(["%s" % self.num2const[int(a['spread'])]
                                    for a in account.get_spread()]),
                'affiliations': (",\n" + (" " * 15)).join(affiliations),
@@ -4594,6 +4597,8 @@ class BofhdExtension(object):
             if idtype is None:
                 if id.find(":") != -1:
                     idtype, id = id.split(":", 1)
+                    if len(id) == 0:
+                        raise CerebrumError, "Must specify id"
                 else:
                     idtype = 'name'
             if idtype == 'name':
@@ -4602,8 +4607,6 @@ class BofhdExtension(object):
                 account.find(id)
             else:
                 raise NotImplementedError, "unknown idtype: '%s'" % idtype
-            if len(id) == 0:
-                raise CerebrumError, "Must specify id"
         except Errors.NotFoundError:
             raise CerebrumError, "Could not find %s with %s=%s" % (actype, idtype, id)
         return account
