@@ -175,9 +175,11 @@ class PosixUser(Account_class):
         update your code when the API changes"""
         efrom = ewhere = ecols = ""
         if include_quarantines:
-            efrom = """ LEFT JOIN [:table schema=cerebrum name=entity_quarantine] eq
-                           ON pu.account_id=eq.entity_id"""
-            ecols = ", eq.quarantine_type"
+            efrom += """\
+            LEFT JOIN [:table schema=cerebrum name=entity_quarantine] eq
+              ON pu.account_id=eq.entity_id"""
+            ecols += """, eq.quarantine_type, eq.start_date,
+            eq.disable_until, eq.end_date"""
         if spread is not None:
             efrom += """  JOIN [:table schema=cerebrum name=entity_spread] es
             ON pu.account_id=es.entity_id AND es.spread=:spread"""
@@ -200,12 +202,13 @@ class PosixUser(Account_class):
             ON aa.account_id=pu.account_id AND aa.method=:auth_method
           JOIN [:table schema=cerebrum name=entity_name] en
             ON en.entity_id=pu.account_id AND en.value_domain=:vd
-          """ % (ecols, efrom),
+          ORDER BY ai.account_id""" % (ecols, efrom),
                           {'vd': int(self.const.account_namespace),
                            'auth_method': int(auth_method),
                            'spread': spread,
                            'pn_ss': int(self.const.system_cached),
-                           'pn_nv': int(self.const.name_full)})
+                           'pn_nv': int(self.const.name_full)},
+                          fetchall = False)
 
     def list_extended_posix_users_test(self, auth_method, spread=None,
                                   a_id=None,include_quarantines=0):
