@@ -431,8 +431,8 @@ def get_primary_ou(account_id,namespace):
     name = account.get_name(namespace)
     try:
         acc_types = account.get_account_types()
-     except Errors.NotFoundError:
-         return(None)
+    except Errors.NotFoundError:
+        return None
     c = 0
     current = 0
     pri = 9999
