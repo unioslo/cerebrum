@@ -50,7 +50,7 @@ div.menu, div.bottom {
   position: absolute;  
   /*margin: 0;*/
   /* Debuglines */
-  border: 2px dashed #aaa;
+  border: 1px dashed #aaa;
   background: white; 
   /* If scrolling is needed: */
   overflow: auto; 
@@ -62,9 +62,7 @@ div.menu {
   left: 0;
   /* Width of menu */
   width: ${menuwidth}em;
-##TODO!! i have changed this to smaller, since the bottom is going all the way to the left.
-## Need to fix this a better way somehow, cant be arsed fixing it now. TODO!!
-    height: 65%;
+  height: 100%;
 }
 
 div.menu div {
@@ -85,9 +83,9 @@ div.bottom {
   right: 0;
   /* Height of bottom part */
   height: ${bottomheight}em;
-  width: 90%;
+  width: 80%;
   /* avoid collission with div.menu */
-  margin-left: 0;
+  margin-left: ${menuwidth}em;
 }
 
 div.bottom div {
