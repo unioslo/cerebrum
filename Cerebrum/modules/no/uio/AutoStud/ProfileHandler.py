@@ -204,7 +204,7 @@ class ProfileMatcher(object):
                 d = self.pc.autostud.emnekode2info[
                     entry['emnekode']]
                 if ((v['nivaa_min'] and
-                     int(v['nivaa_min']) <= int(d['studienivakode'])) or
+                     int(d['studienivakode']) < int(v['nivaa_min'])) or
                     (v['nivaa_max'] and
                      int(d['studienivakode']) > int(v['nivaa_max']))):
                     continue
@@ -280,6 +280,7 @@ class ProfileMatcher(object):
         to the list of matches"""
         if matches is None:
             return
+        self.logger.debug2("_append_match: "+self.logger.pformat((select_type, sx_match_attr, value, matches)))
         nivakode = 0
         if sx_match_attr == 'studieprogram':
             nivakode = self._normalize_nivakode(
