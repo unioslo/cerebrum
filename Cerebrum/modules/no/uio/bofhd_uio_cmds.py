@@ -2951,7 +2951,18 @@ class BofhdExtension(object):
                       })
         return ret
 
-    
+    # group set_description
+    all_commands['group_set_description'] = Command(
+        ("group", "set_description"),
+        GroupName(), SimpleString(help_ref="string_description"),
+        perm_filter='can_delete_group')
+    def group_set_description(self, operator, group, description):
+        grp = self._get_group(group)
+        self.ba.can_delete_group(operator.get_entity_id(), grp)
+        grp.description = description
+        grp.write_db()
+        return "OK, description for group '%s' updated" % group
+
     # group set_expire
     all_commands['group_set_expire'] = Command(
         ("group", "set_expire"), GroupName(), Date(), perm_filter='can_delete_group')
