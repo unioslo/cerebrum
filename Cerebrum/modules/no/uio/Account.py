@@ -38,7 +38,22 @@ class AccountUiOMixin(Account.Account):
     """
 
     def add_spread(self, spread):
-        self.__super.add_spread(spread)
+        #
+        # Pre-add checks
+        #
+        spreads = [int(r['spread']) for r in self.get_spread()]
+        # All users in the 'ifi' NIS domain must also exist in the
+        # 'uio' NIS domain.
+        if spread == self.const.spread_ifi_nis_user \
+               and int(self.const.spread_uio_nis_user) not in spreads:
+            raise self._db.IntegrityError, \
+                  "Can't add ifi spread to an account without uio spread."
+        #
+        # (Try to) perform the actual spread addition.
+        ret = self.__super.add_spread(spread)
+        #
+        # Additional post-add magic
+        #        
         if spread == self.const.spread_uio_imap:
             # Unless this account already has been associated with an
             # Cyrus EmailServerTarget, we need to do so.
@@ -91,4 +106,20 @@ class AccountUiOMixin(Account.Account):
                                self.entity_id, est.email_server_id,
                                state_data = {'depend_req': reqid,
                                              'source_server': old_server})
+        return ret
 
+    def delete_spread(self, spread):
+        #
+        # Pre-remove checks
+        #
+        spreads = [int(r['spread']) for r in self.get_spread()]
+        # All users in the 'ifi' NIS domain must also exist in the
+        # 'uio' NIS domain.
+        if spread == self.const.spread_uio_nis_user \
+               and int(self.const.spread_ifi_nis_user) in spreads:
+            raise self._db.IntegrityError, \
+                  "Can't remove uio spread to an account with ifi spread."
+        #
+        # (Try to) perform the actual spread removal.
+        ret = self.__super.add_spread(spread)
+        return ret
