@@ -147,7 +147,9 @@ setup (name = "Cerebrum", version = "0.1",
        description = "Cerebrum...",
        # NOTE: all scripts ends up in the same dir!
        # scripts = ['contrib/no/uio/import_FS.py', 'contrib/generate_nismaps.py'],
-       packages = ['Cerebrum'],
+       packages = ['Cerebrum', 'Cerebrum/extlib', 'Cerebrum/extlib/Plex',
+                   'Cerebrum/modules', 'Cerebrum/modules/no',
+                   'Cerebrum/modules/no/uio'],
 
        # options override --prefix
        #options = {'install_data': {'root' : '/foo/bar',  # prefix on slash
