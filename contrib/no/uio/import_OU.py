@@ -258,8 +258,12 @@ def main():
             source_system = getattr(co, val)
         elif opt in ('--perspective',):
             perspective = getattr(co, val)
-    if oufile is not None:
+    if not (source_system is None
+            or perspective is None
+            or oufile is None):
         import_org_units(oufile)
+    else:
+        usage(2)
 
 if __name__ == '__main__':
     main()
