@@ -40,3 +40,5 @@ def Transaction():
     """Grabs a new session and returns a new transaction."""
     session = Session()
     return session.new_transaction()
+
+# arch-tag: 55b61b58-f4d8-42c6-afcf-1c3001d96371
