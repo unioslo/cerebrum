@@ -9,11 +9,11 @@ from Cerebrum.web.SideMenu import SideMenu
 def index(req, tag="p"):
     req.content_type="text/html"
     body = MainTemplate()
-    body.title = "Heia du der"
+    body.title = "Cereweb"
     table = html.SimpleTable(header="row")
-    table.add("Hei", "du", "der")
+    table.add("Her", "kommer en", "velkomsthilsen")
     table.add("Dette", "er")
-    table.add("Jævlig", "bra", "altså")
+    table.add("Ganske", "bra", "altså")
     body.content = table
 
     log = ActivityLog()
