@@ -341,8 +341,14 @@ class JobQueue(object):
         
     def reload_scheduled_jobs(self):
         reload(self._scheduled_jobs)
+        old_jobnames = self._known_jobs.keys()
+        new_jobnames = []
         for job_name, job_action in self._scheduled_jobs.get_jobs().items():
             self._add_known_job(job_name, job_action)
+            new_jobnames.append(job_name)
+        for n in old_jobnames:
+            if n not in new_jobnames:
+                del(self._known_jobs[n])
         # Also check if last_run values has been changed in the DB (we
         # don't bother with locking the update to the dict)
         for k, v in self.db_qh.get_last_run().items():
@@ -415,7 +421,8 @@ class JobQueue(object):
     def get_running_jobs(self):
         return [ {'name': x[0],
                   'pid': x[1],
-                  'call': self._known_jobs[x[0]].call,
+                  'call': (self._known_jobs.has_key(x[0]) and
+                           self._known_jobs[x[0]].call or None),
                   'started': self._started_at[x[0]]} for x in self._running_jobs ]
 
     def job_started(self, job_name, pid):
@@ -437,6 +444,9 @@ class JobQueue(object):
             self._run_queue.remove(job_name)
             self.logger.debug("Completed [%s/%i] (start not set)" % (
                 job_name,  pid or -1))
+        if not (self._known_jobs.has_key(job_name)):   # due to reload of config
+            logger.debug("Completed unknown job %s" % job_name)
+            return
         if (pid is None or
             (self._known_jobs[job_name].call and
              self._known_jobs[job_name].call.wait)):
