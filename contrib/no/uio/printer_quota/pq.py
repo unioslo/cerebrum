@@ -32,6 +32,8 @@ import SocketServer
 import socket
 import signal
 import os
+import re
+import nis
 from time import gmtime, strftime, time
 import pwd
 import getopt
@@ -40,6 +42,7 @@ import traceback
 import cStringIO
 
 import cerebrum_path
+import cereconf
 
 from Cerebrum import Errors
 from Cerebrum.modules.no.uio.printer_quota import PaidPrinterQuotas
@@ -62,9 +65,10 @@ enouser  = "513 No such user"
 ecmd     = "514 Unknown command"
 eerror   = "515 Unknown error"
 unknownkey = "516 Unknown key"
+eperm = "517 Permission denied"
 
 # pqdlog = "/u2/log/priss/prissquotad"
-pqdlog = "/cerebrum/var/log/prissquotad"
+pqdlog = "/cerebrum/var/log/prissquotad2"
 db = Factory.get('Database')()
 co = Factory.get('Constants')(db)
 ppq = PaidPrinterQuotas.PaidPrinterQuotas(db)
@@ -94,6 +98,10 @@ def _assert_has_quota(person_id):
 # class RequestHandler(SocketServer.BaseRequestHandler):
 class RequestHandler(SocketServer.StreamRequestHandler):
     def process_commands(self):
+        if not self.client_address in authorized_hosts:
+            self.send(eperm)
+            return
+        
         self.send(helo)
         cmd = self.get()
 
@@ -264,6 +272,27 @@ class RequestHandler(SocketServer.StreamRequestHandler):
             s = s[:-1]
         return s
 
+def expand_netgroup(name, idx=0):  # should perhaps be in Utils.py
+    ret = []
+    r = re.compile(r'\((.*),(.*),(.*)\)')
+    for entry in nis.match(name, 'netgroup').split():
+        m = r.match(entry)
+        if m is not None:
+            ret.append(m.group(idx+1))
+        else:
+            ret.extend(expand_netgroup(entry))
+    return ret
+
+def get_authorized_hosts():
+    x = {}
+    for s in cereconf.PQ_REMOTE_IP:
+        if s[0] == '@':
+            for s2 in expand_netgroup(s[1:]):
+                x[socket.gethostbyname(s2)] = True
+        else:
+            x[socket.gethostbyname(s)] = True
+    return x.keys()
+
 def usage(exitcode=0):
     print """Usage: pq.py [options]
     --port port : run on alternative port
@@ -294,6 +323,8 @@ if __name__ == '__main__':
             port = int(val)
     if not port:
         port = socket.getservbyname("prissquota", "tcp")
+
+    authorized_hosts = get_authorized_hosts()
     server = MyServer(('', port), RequestHandler)
     server.serve_forever()
 
