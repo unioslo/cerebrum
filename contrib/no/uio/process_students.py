@@ -33,6 +33,7 @@ from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import PosixUser
 from Cerebrum.modules.bofhd.utils import BofhdRequests
+from Cerebrum.modules.bofhd import errors
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.uio import AutoStud
 from Cerebrum.modules.no.uio import PrinterQuotas
@@ -97,8 +98,11 @@ def update_account(profile, account_ids, account_info={}):
     assert not dryrun
     
     group = Factory.get('Group')(db)
-    # TODO.  This value must be gotten from somewhere
+
     as_posix = False
+    for spread in profile.get_spreads():  # TBD: Is this check sufficient?
+        if str(spread).startswith('NIS'):
+            as_posix = True
     if as_posix:
         user = PosixUser.PosixUser(db)
     else:
@@ -122,14 +126,16 @@ def update_account(profile, account_ids, account_info={}):
                     changes.append("disk %s->%s" % (
                         autostud.disks.get(user.disk_id, ['None'])[0],
                         autostud.disks.get(disk, ['None'])[0]))
-                    if disk != None:
+                    if user.disk_id is None:
+                        user.disk_id = disk
+                    elif disk != None:
                         br = BofhdRequests(db, const)
                         # TBD: Is it correct to set requestee_id=None?
                         try:
                             br.add_request(None, br.batch_time,
                                            const.bofh_move_user, account_id,
                                            disk)
-                        except Cerebrum.modules.bofhd.errors.CerebrumError, e:
+                        except errors.CerebrumError, e:
                             # Conflicting request or similiar
                             logger.warn(e)
             if as_posix:
