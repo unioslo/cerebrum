@@ -1035,7 +1035,8 @@ class BofhdExtension(object):
             pass
         else:
             ret += self._email_info_spam(et)
-            ret += self._email_info_detail(acc, addrs)
+            ret += self._email_info_detail(acc)
+            ret += self._email_info_forward(et, addrs)
         return ret
 
     def __get_valid_email_addrs(self, et, special=False):
@@ -1090,7 +1091,7 @@ class BofhdExtension(object):
             pass
         return info
 
-    def _email_info_detail(self, acc, addrs):
+    def _email_info_detail(self, acc):
         info = []
         eq = Email.EmailQuota(self.db)
         try:
@@ -1126,10 +1127,14 @@ class BofhdExtension(object):
                              'dis_quota_soft': eq.email_quota_soft})
         except Errors.NotFoundError:
             pass
+        return info
+
+    def _email_info_forward(self, target, addrs):
+        info = []
         forw = []
         local_copy = ""
         ef = Email.EmailForward(self.db)
-        ef.find_by_entity(acc.entity_id)
+        ef.find(target.email_target_id)
         for r in ef.get_forward():
             if r['enable'] == 'T':
                 enabled = "on"
@@ -1147,7 +1152,7 @@ class BofhdExtension(object):
             for idx in range(1, len(forw)):
                 info.append({'forward': forw[idx]})
         return info
-    
+
     _interface2addrs = {
         'post': ["%(local_part)s@%(domain)s"],
         'mailcmd': ["%(local_part)s-request@%(domain)s"],
@@ -1182,7 +1187,9 @@ class BofhdExtension(object):
         # now find all e-mail addresses
         et.clear()
         et.find(ea.email_addr_target_id)
+        addrs = self.__get_valid_email_addrs(et)
         ret += self._email_info_spam(et)
+        ret += self._email_info_forward(et, addrs)
         aliases = []
         for r in et.get_addresses():
             a = "%(local_part)s@%(domain)s" % r
