@@ -25,6 +25,8 @@ from Cerebrum.gro.Cerebrum_core import Errors
 from Caching import Caching
 from Locking import Locking
 
+__all__ = ['Attribute', 'Method', 'Builder']
+
 
 class Attribute:
     def __init__(self, name, data_type, writable=False):
@@ -32,6 +34,12 @@ class Attribute:
         self.name = name
         self.data_type = data_type
         self.writable = writable
+
+        self.get = None
+        self.set = None
+
+    def __repr__(self):
+        return '%s(%s, %s)' % (self.__class__.__name__, `self.name`, `self.data_type`)
 
 class Method:
     def __init__(self, name, data_type, args=[], apHandler=False):
@@ -41,54 +49,53 @@ class Method:
         self.args = args
         self.apHandler = apHandler
 
-class Lazy(object):
-    pass
+    def __repr__(self):
+        return '%s(%s, %s)' % (self.__class__.__name__, `self.name`, `self.data_type`)
 
 # å bruke en klasse med __call__ vil ikke funke, da den ikke vil bli bundet til objektet.
 # mulig det kan jukses til med noen stygge metaklassetriks, men dette blir penere.
 
-def LazyMethod(var, load):
+def create_lazy_get_method(var, load):
     assert type(var) == str
     assert type(load) == str
 
-    def lazy(self):
-        value = getattr(self, var)
-        if value is Lazy:
-            loadmethod = getattr(self, load)
+    def lazy_get(self):
+        lazy = object()
+        value = getattr(self, var, lazy)
+        if value is lazy:
+            loadmethod = getattr(self, load, None)
             if loadmethod is None:
                 raise NotImplementedError('load for this attribute is not implemented')
             loadmethod()
-            value = getattr(self, var)
-            if value is Lazy:
+            value = getattr(self, var, lazy)
+            if value is lazy:
                 raise Exception('%s was not initialized during load' % var)
         return value
-    return lazy
+    return lazy_get
 
-def SetWrapper(var):
+def create_set_method(var):
     assert type(var) == str
 
     def set(self, value):
         # make sure the variable has been loaded
-        orig = getattr(self, 'get_' + var) # farlig...... kan alle variabler hentes ut?
-                                           # men skal jo brukes til rollback....
+        orig = getattr(self, 'get_' + var)
 
-        if orig != value: # we only set a new value if it is different
+        if orig is not value: # we only set a new value if it is different
             # set the variable
             setattr(self, '_' + var, value)
+            # mark it as updated
             self.updated.add(var)
     return set
 
-def ReadOnly(var):
-    def readOnly(self, *args, **vargs):
+def create_readonly_set_method(var):
+    def readonly_set(self, *args, **vargs):
         raise Errors.ReadOnlyAttributeError('attribute %s is read only' % var)
-    return readOnly
-
-# FIXME: slots blir ikke oppdatert hvis register_atttribute blir kjørt og den ikke finnes fra før
+    return readonly_set
 
 class Builder(Caching, Locking):
     primary = []
     slots = []
-    methodSlots = []
+    method_slots = []
 
     def __init__(self, *args, **vargs):
         cls = self.__class__
@@ -100,17 +107,12 @@ class Builder(Caching, Locking):
         Locking.__init__(self)
         Caching.__init__(self)
 
-        self.prepare()
+        self.prepare() # FIXME: finne på noe lurt her
 
         slotNames = [i.name for i in cls.slots]
         # set all variables give in args and vargs
         for var, value in zip(slotNames, args) + vargs.items():
             setattr(self, '_' + var, value)
-
-        # make sure all variables are set
-        for var in slotNames:
-            var = '_' + var
-            hasattr(self, var) or setattr(self, var, Lazy)
 
         # used to track changes
         if not hasattr(self, 'updated'):
@@ -140,7 +142,7 @@ class Builder(Caching, Locking):
 
     # class methods
     
-    def getKey(cls, *args, **vargs):
+    def get_key(cls, *args, **vargs):
         """ Get primary key from args and vargs
 
         Used by the caching facility to identify a unique object
@@ -157,7 +159,7 @@ class Builder(Caching, Locking):
 
 
  
-    def register_attribute(cls, attribute, load=None, save=None, get=None, set=None, overwrite=False, override=False):
+    def register_attribute(cls, attribute, load=None, save=None, get=None, set=None, overwrite=False, override=False, register=True):
         """ Registers an attribute
 
         attribute contains the name and data_type as it will be in the API
@@ -190,25 +192,32 @@ class Builder(Caching, Locking):
         var_save = 'save_' + attribute.name
 
         if get is None:
-            get = LazyMethod(var_private, var_load)
+            get = create_lazy_get_method(var_private, var_load)
 
         if set is None:
             if attribute.writable:
-                set = SetWrapper(attribute.name)
+                set = create_set_method(attribute.name)
             else:
-                set = ReadOnly(attribute.name)
+                set = create_readonly_set_method(attribute.name)
 
-        def register(var, method):
+        def quick_register(var, method):
             if hasattr(cls, var) and not overwrite:
                 if not override:
-                    raise AttributeError('%s already exists in %s' % (attribute.name, cls.__name__))
-            else:
+                    raise AttributeError('%s already exists in %s' % (var, cls.__name__))
+            elif method is not None: # no use setting a to None
                 setattr(cls, var, method)
 
-        register(var_load, load)
-        register(var_save, save)
-        register(var_get, get)
-        register(var_set, set)
+        quick_register(var_load, load)
+        quick_register(var_save, save)
+        quick_register(var_get, get)
+        quick_register(var_set, set)
+
+        # save get/set to attribute for easy access
+        attribute.get = get
+        attribute.set = set
+
+        if register:
+            cls.slots.append(attribute)
 
     def register_method(cls, method, method_func, overwrite=False):
         """ Registers a method
@@ -220,40 +229,44 @@ class Builder(Caching, Locking):
 
     def prepare(cls):
         for attribute in cls.slots:
-            cls.register_attribute(attribute, override=True)
+            cls.register_attribute(attribute, get=attribute.get, set=attribute.set, override=True, register=False)
 
     def build_idl_header( cls ):
         txt = 'interface %s;\n' % cls.__name__
-        txt += 'typedef sequence<%s> %sSeq;' % (cls.__name__, cls.__name__)
+        txt += 'typedef sequence<%s> %sSeq;\n' % (cls.__name__, cls.__name__)
         return txt
 
     def build_idl_interface( cls ):
         txt = 'interface %s {\n' % cls.__name__
 
         txt += '\t//constructors\n'
-        txt += '\t%s(%s)\n' % (cls.__name__, ', '.join(['in %s %s' % (attr.data_type, attr.name) for attr in cls.primary]))
+#        txt += '\t%s get_object(%s);\n' % (cls.__name__, ', '.join(['in %s %s' % (attr.data_type, attr.name) for attr in cls.primary]))
 
         txt += '\n\t//get and set methods for attributes\n'
         for attr in cls.slots:
             txt += '\t%s get_%s();\n' % (attr.data_type, attr.name)
             if attr.writable:
-                txt += '\tvoid set_%s(in %s %s);\n' % (attr.name, attr.data_type, attr.name)
+                txt += '\tvoid set_%s(in %s new_%s);\n' % (attr.name, attr.data_type, attr.name)
             txt += '\n'
 
         txt += '\n\t//other methods\n'
-        for method in cls.methodSlots: # args blir ignorert for øyeblikket...
+        for method in cls.method_slots: # args blir ignorert for øyeblikket...
             txt += '\t%s %s();\n' % (method.data_type, method.name)
 
-        txt += '};'
+        txt += '};\n'
 
         return txt
 
-    getKey = classmethod(getKey)
+    get_key = classmethod(get_key)
     register_attribute = classmethod(register_attribute)
     prepare = classmethod(prepare)
     build_idl_header = classmethod(build_idl_header)
     build_idl_interface = classmethod(build_idl_interface)
 
     def __repr__(self):
-        key = [repr(i) for i in self._key[1]]
+        key = self._key[1]
+        if type(key) in (tuple, list):
+            key = [repr(i) for i in key]
+        else:
+            key = [repr(key)]
         return '%s(%s)' % (self.__class__.__name__, ', '.join(key))
