@@ -62,7 +62,7 @@ class PosixUser(Account.Account):
     """Posix..."""
 
     __read_attr__ = ('__in_db',)
-    __write_attr__ = ('posix_uid', 'gid', 'gecos', 'shell')
+    __write_attr__ = ('posix_uid', 'gid_id', 'gecos', 'shell')
 
     def clear(self):
         super(PosixUser, self).clear()
@@ -76,13 +76,13 @@ class PosixUser(Account.Account):
     def __eq__(self, other):
         assert isinstance(other, PosixUser)
         if (self.posix_uid == other.posix_uid and
-            self.gid   == other.gid and
+            self.gid_id   == other.gid_id and
             self.gecos == other.gecos and
             int(self.shell) == int(other.shell)):
             return self.__super.__eq__(other)
         return False
 
-    def populate(self, posix_uid, gid, gecos, shell, home=None, disk_id=None, name=None,
+    def populate(self, posix_uid, gid_id, gecos, shell, home=None, disk_id=None, name=None,
                  owner_type=None, owner_id=None, np_type=None,
                  creator_id=None, expire_date=None, parent=None):
         """Populate PosixUser instance's attributes without database access."""
@@ -98,7 +98,7 @@ class PosixUser(Account.Account):
                                      home=home, disk_id=disk_id)
         self.__in_db = False
         self.posix_uid = posix_uid
-        self.gid = gid
+        self.gid_id = gid_id
         self.gecos = gecos
         self.shell = shell
 
@@ -109,7 +109,7 @@ class PosixUser(Account.Account):
             return
         is_new = not self.__in_db
         primary_group = PosixGroup.PosixGroup(self._db)
-        primary_group.find(self.gid)
+        primary_group.find(self.gid_id)
         if not primary_group.has_member(self.entity_id, self.entity_type,
                                         self.const.group_memberop_union):
             primary_group.add_member(self.entity_id,
@@ -121,7 +121,7 @@ class PosixUser(Account.Account):
             VALUES (:a_id, :u_id, :gid, :gecos, :shell)""",
                          {'a_id': self.entity_id,
                           'u_id': self.posix_uid,
-                          'gid': self.gid,
+                          'gid': self.gid_id,
                           'gecos': self.gecos,
                           'shell': int(self.shell)})
             self._db.log_change(self.entity_id, self.const.a_create,
@@ -134,7 +134,7 @@ class PosixUser(Account.Account):
             WHERE account_id=:a_id""",
                          {'a_id': self.entity_id,
                           'u_id': self.posix_uid,
-                          'gid': self.gid,
+                          'gid': self.gid_id,
                           'gecos': self.gecos,
                           'shell': int(self.shell)})
         del self.__in_db
@@ -145,7 +145,7 @@ class PosixUser(Account.Account):
     def find(self, account_id):
         """Connect object to PosixUser with ``account_id`` in database."""
         self.__super.find(account_id)
-        (self.account_id, self.posix_uid, self.gid, self.gecos,
+        (self.account_id, self.posix_uid, self.gid_id, self.gecos,
          self.shell) = self.query_1("""
          SELECT account_id, posix_uid, gid, gecos, shell
          FROM [:table schema=cerebrum name=posix_user]
