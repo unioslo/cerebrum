@@ -406,6 +406,8 @@ class Factory(object):
                       'Person': 'CLASS_PERSON',
                       'Account': 'CLASS_ACCOUNT',
                       'Group': 'CLASS_GROUP',
+                      'Host': 'CLASS_HOST',
+                      'Disk': 'CLASS_DISK',
                       'Database': 'CLASS_DATABASE',
                       'Constants': 'CLASS_CONSTANTS',
                       'CLConstants': 'CLASS_CL_CONSTANTS',
@@ -441,3 +443,14 @@ class Factory(object):
                   "Invalid import spec for component %s: %r" % (comp,
                                                                 import_spec)
     get = staticmethod(get)
+
+
+class fool_auto_super(object):
+    def __getattr__(self, attr):
+        def no_op(*args, **kws):
+            pass
+        return no_op
+
+##         # auto_super's .__super attribute should never continue beyond
+##         # this class.
+##         self.__super = fool_auto_super()
