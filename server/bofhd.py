@@ -434,6 +434,19 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
             raise
 
     def bofhd_call_prompt_func(self, sessionid, cmd, *args):
+        """Return a dict with information on how to prompt for a
+        parameter.  The dict can contain the following keys:
+        - prompt : message string
+        - help_ref : reference to help for this argument
+        - last_arg : if this argument is the last.  If only this key
+          is present, the client will send the command as it is.
+        - default : default value
+        - map : maps the user-entered value to a value that
+          is returned to the server, typically when user selects from
+          a list.  It is a list-of lists, where the inner list is like:
+          (("%5s %s", 'foo', 'bar'), return-value).  The first row is
+          used as header
+        - raw : don't use map after all"""
         session = BofhdSession(self.server.db, sessionid)
         instance, cmdObj = self.server.get_cmd_info(cmd)
         if cmdObj._prompt_func is not None:
