@@ -234,7 +234,8 @@ def generate_group(filename, group_spread, user_spread):
     for row in posix_user.list_extended_posix_users():
 	account2def_group[int(row['account_id'])] = int(row['posix_gid'])
     user_membership_count = {}
-    for row in posix_group.list_all(spread=group_spread):
+    for row in posix_group.search(filter_spread=group_spread,
+                                  exclude_expired=True):
         posix_group.clear()
         try:
             posix_group.find(row.group_id)
