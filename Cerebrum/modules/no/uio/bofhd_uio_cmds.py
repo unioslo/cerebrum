@@ -2342,12 +2342,17 @@ class BofhdExtension(object):
                             hdr="DiskId   HostId   Path"))
     def misc_dls(self, operator, hostname):
         host = self._get_host(hostname)
+        disks = {}
         disk = Utils.Factory.get('Disk')(self.db)
-        ret = []
         for row in disk.list(host.host_id):
-            ret.append({'disk_id': row['disk_id'],
-                        'host_id': row['host_id'],
-                        'path': row['path']})
+            disks[row['disk_id']] = {'disk_id': row['disk_id'],
+                                     'host_id': row['host_id'],
+                                     'path': row['path']}
+        disklist = disks.keys()
+        disklist.sort(lambda x, y: cmp(disks[x]['path'], disks[y]['path']))
+        ret = []
+        for d in disklist:
+            ret.append(disks[d])
         return ret
 
     all_commands['misc_drem'] = Command(
