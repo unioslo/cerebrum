@@ -36,7 +36,7 @@ class PaidPrinterQuotas(DatabaseAccessor):
     def find(self, person_id):
         return self.query_1(
             """SELECT has_quota, has_blocked_quota, weekly_quota,
-                      max_quota, paid_quota, free_quota
+                      total_pages, max_quota, paid_quota, free_quota
             FROM [:table schema=cerebrum name=paid_quota_status]
             WHERE person_id=:person_id""", {'person_id': person_id})
 
