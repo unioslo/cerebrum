@@ -22,7 +22,8 @@ from Cerebrum.Utils import Factory
 from SpineLib.Builder import Method, Attribute
 from SpineLib.DatabaseClass import DatabaseAttr
 
-import CereUtils
+from CerebrumClass import CerebrumClass, CerebrumAttr, CerebrumDbAttr
+from Cerebrum.Utils import Factory
 
 from Entity import Entity
 from Types import EntityType, AccountType
@@ -35,16 +36,16 @@ registry = Registry.get_registry()
 __all__ = ['Account']
 
 table = 'account_info'
-class Account(Entity):
+class Account(CerebrumClass, Entity):
     slots = Entity.slots + [
-        DatabaseAttr('owner', table, Entity),
-        DatabaseAttr('owner_type', table, EntityType),
-        DatabaseAttr('np_type', table, AccountType, optional=True, write=True),
-        DatabaseAttr('create_date', table, Date),
-        DatabaseAttr('creator', table, Entity),
-        DatabaseAttr('expire_date', table, Date, write=True),
-        DatabaseAttr('description', table, Date, write=True),
-        Attribute('name', str, write=True)
+        CerebrumDbAttr('owner', table, Entity),
+        CerebrumDbAttr('owner_type', table, EntityType),
+        CerebrumDbAttr('np_type', table, AccountType, write=True),
+        CerebrumDbAttr('create_date', table, Date),
+        CerebrumDbAttr('creator', table, Entity),
+        CerebrumDbAttr('expire_date', table, Date, write=True),
+        CerebrumDbAttr('description', table, Date, write=True),
+        CerebrumAttr('name', str, write=True)
     ]
     method_slots = Entity.method_slots + [
         Method('delete', None, write=True)
@@ -57,11 +58,10 @@ class Account(Entity):
         'creator':'creator_id'
     }
 
-    entity_type = EntityType(name='account')
+    cerebrum_attr_aliases = {'name':'account_name'}
+    cerebrum_class = Factory.get('Account')
 
-    def load_name(self):
-        entityName = registry.EntityName(self, registry.ValueDomain(name='account_names'))
-        self._name = entityName.get_name()
+    entity_type = EntityType(name='account')
 
     def delete(self):
         db = self.get_database()
@@ -69,10 +69,6 @@ class Account(Entity):
         account.find(self.get_id)
         account.delete()
         self.invalidate()
-
-cls = CereUtils.Factory.get('Account')
-Account.save_name = CereUtils.create_save(Account.get_attr('name'), cls, 'account_name')
-Account.save_expire_date = CereUtils.create_save(Account.get_attr('expire_date'), cls, 'description')
 
 registry.register_class(Account)
 
@@ -87,7 +83,7 @@ args = [('name', str), ('owner', Entity), ('expire_date', Date)]
 Commands.register_method(Method('create_account', Account, args=args, write=True), create_account)
 
 def get_account_by_name(name):
-    s = registry.EntityNameSearcher(name)
+    s = registry.EntityNameSearcher()
     s.set_value_domain(registry.ValueDomain(name='account_names'))
     s.set_name(name)
 
