@@ -1,18 +1,18 @@
 /*
  * Copyright 2002, 2003 University of Oslo, Norway
- * 
+ *
  * This file is part of Cerebrum.
- * 
+ *
  * Cerebrum is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
  * (at your option) any later version.
- * 
+ *
  * Cerebrum is distributed in the hope that it will be useful, but
  * WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with Cerebrum; if not, write to the Free Software Foundation,
  * Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
@@ -84,6 +84,22 @@ CREATE SEQUENCE code_seq;
 -- should be defined by the table owner.
 
 
+/*	cerebrum_metainfo
+
+  Various metainformation on this Cerebrum instance, like the version
+  of the currently installed database schema, is kept in this table.
+
+*/
+category:main;
+CREATE TABLE cerebrum_metainfo
+(
+  name		CHAR VARYING(80)
+		CONSTRAINT cerebrum_metainfo_pk PRIMARY KEY,
+  value		CHAR VARYING(1024)
+		NOT NULL
+);
+
+
 /*	authoritative_system_code
 
 
@@ -117,12 +133,12 @@ GRANT INSERT, UPDATE, DELETE ON authoritative_system_code TO change_code;
     the specific entity types are not part of the core setup, hence
     the number used for e.g. a 'person' entity type might vary from
     installation to installation.
- 
+
     This complicates the (entity_type, entity_id) FK constraints from
     e.g. person_info to entity_info, as one needs to know the actual
     code value the installation uses in order to write the CHECK
     constraint (and the DEFAULT value).
- 
+
     The upshot of all this is that code value tables have to be
     created and code values have to be inserted before any data tables
     having code-value-specific constraints can be created.  Data value
@@ -212,12 +228,12 @@ GRANT INSERT, UPDATE, DELETE ON entity_info TO change_entity;
   `description` is a longer textual description of a spread type.
 
   Some possible uses:
-  code  code_str        entity_type  description
-  1     'NIS_user@uio'  <account>    'User in NIS domain "uio"'
-  42    'NIS_fg@uio'    <group>      'File group in NIS domain "uio"'
-  43    'NIS_ng@uio'    <group>      'Net group in NIS domain "uio"'
-  45    'LDAP_person'   <person>     'Person included in LDAP directory'
-  47    'LDAP_OU'       <ou>         'OU included in LDAP directory'
+  code	code_str	entity_type  description
+  1	'NIS_user@uio'	<account>    'User in NIS domain "uio"'
+  42	'NIS_fg@uio'	<group>	     'File group in NIS domain "uio"'
+  43	'NIS_ng@uio'	<group>	     'Net group in NIS domain "uio"'
+  45	'LDAP_person'	<person>     'Person included in LDAP directory'
+  47	'LDAP_OU'	<ou>	     'OU included in LDAP directory'
 
 */
 category:code;
@@ -258,7 +274,8 @@ category:main;
 CREATE TABLE entity_spread
 (
   entity_id	NUMERIC(12,0),
-  entity_type	NUMERIC(6,0),
+  entity_type	NUMERIC(6,0)
+		NOT NULL,
   spread	NUMERIC(6,0),
   CONSTRAINT entity_spread_pk PRIMARY KEY (entity_id, spread),
   CONSTRAINT entity_spread_entity_id FOREIGN KEY (entity_type, entity_id)
@@ -518,14 +535,14 @@ CREATE TABLE host_info
 		NOT NULL
 		CONSTRAINT host_info_entity_type_chk
 		  CHECK (entity_type = [:get_constant name=entity_host]),
-  host_id	NUMERIC(12,0) 
+  host_id	NUMERIC(12,0)
 		CONSTRAINT host_info_pk PRIMARY KEY,
   name		CHAR VARYING(80)
 		NOT NULL
 		CONSTRAINT host_info_name_u UNIQUE,
   description	CHAR VARYING(512)
 		NOT NULL,
-  CONSTRAINT host_info_entity_id 
+  CONSTRAINT host_info_entity_id
     FOREIGN KEY (entity_type, host_id)
     REFERENCES entity_info(entity_type, entity_id)
 );
@@ -535,6 +552,8 @@ CREATE TABLE host_info
 
   path is the name of the directory that users are placed in and that
   will occur in the NIS map, excluding trailing slash.
+
+  TBD: Should there really be a UNIQUE constraint on disk_info.path?
 
 */
 category:main;
@@ -556,7 +575,7 @@ CREATE TABLE disk_info
 		CONSTRAINT disk_info_path_u UNIQUE,
   description	CHAR VARYING(512)
 		NOT NULL,
-  CONSTRAINT disk_info_entity_id 
+  CONSTRAINT disk_info_entity_id
     FOREIGN KEY (entity_type, disk_id)
     REFERENCES entity_info(entity_type, entity_id)
 );
@@ -664,20 +683,31 @@ GRANT SELECT ON account_info TO read_account;
 category:main/Oracle;
 GRANT INSERT, UPDATE, DELETE ON account_info TO change_account;
 
-/* home_status_code may have values like not_created, create_failed,
-   on_disk, on_tape */
-category:code;
-CREATE TABLE home_status_code (
-  code          NUMERIC(6,0)
-                CONSTRAINT home_status_code_pk PRIMARY KEY,
-  code_str      CHAR VARYING(16)
-                NOT NULL
-                CONSTRAINT home_status_codestr_u UNIQUE,
-  description   CHAR VARYING(512)
-                NOT NULL
-);
 
-/*      account_home
+/*	home_status_code
+
+  Code values for status of home dir, e.g. not_created, create_failed,
+  on_disk, on_tape
+
+*/
+category:code;
+CREATE TABLE home_status_code
+(
+  code		NUMERIC(6,0)
+		CONSTRAINT home_status_code_pk PRIMARY KEY,
+  code_str	CHAR VARYING(16)
+		NOT NULL
+		CONSTRAINT home_status_codestr_u UNIQUE,
+  description	CHAR VARYING(512)
+		NOT NULL
+);
+category:code/Oracle;
+GRANT SELECT ON home_status_code TO read_code;
+category:code/Oracle;
+GRANT INSERT, UPDATE, DELETE ON home_status_code TO change_code;
+
+
+/*	account_home
 
   home or disk_id
     Location of the users home directory.
@@ -686,35 +716,34 @@ CREATE TABLE home_status_code (
     asserts that only relevant spreads are used in this column.
   status
     Status indicates the state of the homedir.
-*/
 
+*/
 category:main;
-CREATE TABLE account_home (
-  account_id    NUMERIC(12,0)
-                CONSTRAINT account_home_fk 
-                REFERENCES account_info(account_id),
-  spread        NUMERIC(6,0) NOT NULL
-		CONSTRAINT account_home_spread
-		  REFERENCES spread_code(code),
-  home          CHAR VARYING(512),
-  disk_id       NUMERIC(12,0)
-                CONSTRAINT account_info_disk_id REFERENCES disk_info(disk_id),
-  status        NUMERIC(6,0) NOT NULL
-                CONSTRAINT home_status_code
-                  REFERENCES home_status_code(code),
+CREATE TABLE account_home
+(
+  account_id	NUMERIC(12,0)
+		CONSTRAINT account_home_account_id
+		  REFERENCES account_info(account_id),
+  spread	NUMERIC(6,0)
+		CONSTRAINT account_home_spread REFERENCES spread_code(code),
+  home		CHAR VARYING(512),
+  disk_id	NUMERIC(12,0)
+		CONSTRAINT account_home_disk_id REFERENCES disk_info(disk_id),
+  status	NUMERIC(6,0)
+		NOT NULL
+		CONSTRAINT account_home_status
+		  REFERENCES home_status_code(code),
   CONSTRAINT account_home_pk
-    PRIMARY KEY (account_id, spread)
+    PRIMARY KEY (account_id, spread),
+  CONSTRAINT account_home_chk
+    CHECK ((home IS NOT NULL AND disk_id IS NULL) OR
+	   (home IS NULL AND disk_id IS NOT NULL))
 );
+category:main/Oracle;
+GRANT SELECT ON account_home TO read_account;
+category:main/Oracle;
+GRANT INSERT, UPDATE, DELETE ON account_home TO change_account;
 
-/*      cerebrum_metainfo 
-  Store information like the version of the currently installed database schema.
-*/
-category:main;
-CREATE TABLE cerebrum_metainfo (
-  name		CHAR VARYING(80)
-		CONSTRAINT global_constants_pk PRIMARY KEY,
-  value		CHAR VARYING(1024) NOT NULL
-);
 
 /*	entity_quarantine
 
@@ -787,7 +816,8 @@ CREATE TABLE ou_info
 		  CHECK (entity_type = [:get_constant name=entity_ou]),
   ou_id		NUMERIC(12,0)
 		CONSTRAINT ou_info_pk PRIMARY KEY,
-  name		CHAR VARYING(512) NOT NULL,
+  name		CHAR VARYING(512)
+		NOT NULL,
   acronym	CHAR VARYING(15),
   short_name	CHAR VARYING(30),
   display_name	CHAR VARYING(80),
@@ -1217,13 +1247,13 @@ GRANT INSERT, UPDATE, DELETE ON person_affiliation TO change_person;
   person_affiliation_source.
 
   As an example, here are some believed-to-be-common entries:
-    affiliation  status  status_str  description
-    <employee>   57      'active'    'Employee not on leave'
-    <employee>   58      'on_leave'  'Employee currently on leave'
-    <faculty>    60      'active'    'Active faculty'
-    <faculty>    61      'retired'   'Retired faculty'
-    <student>    65      'active'    'Currently active student'
-    <student>    66      'inactive'  'Student not currently active'
+    affiliation	 status	 status_str  description
+    <employee>	 57	 'active'    'Employee not on leave'
+    <employee>	 58	 'on_leave'  'Employee currently on leave'
+    <faculty>	 60	 'active'    'Active faculty'
+    <faculty>	 61	 'retired'   'Retired faculty'
+    <student>	 65	 'active'    'Currently active student'
+    <student>	 66	 'inactive'  'Student not currently active'
 
 */
 category:code;
@@ -1316,7 +1346,8 @@ CREATE TABLE account_type
   ou_id		NUMERIC(12,0),
   affiliation	NUMERIC(6,0),
   account_id	NUMERIC(12,0),
-  priority      NUMERIC(3,0) NOT NULL,
+  priority	NUMERIC(3,0)
+		NOT NULL,
   CONSTRAINT account_type_pk
     PRIMARY KEY (person_id, ou_id, affiliation, account_id),
   CONSTRAINT account_type_affiliation
