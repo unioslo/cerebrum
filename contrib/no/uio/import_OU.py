@@ -22,17 +22,30 @@ co = Factory.get('Constants')(db)
 
 # <data>
 #   <sted fakultetnr="ff" instituttnr="ii" gruppenr="gg"
+#         forkstednavn="foo" stednavn="foo bar" akronym="fb"
+#         stedkortnavn_bokmal="fooen" stedkortnavn_nynorsk="fooa"
+#         stedkortnavn_engelsk="thefoo"
+#         stedlangnavn_bokmal="foo baren" stedlangnavn_nynorsk="foo bara"
+#         stedlangnavn_engelsk="the foo bar"
 #         fakultetnr_for_org_sted="FF" instituttnr_for_org_sted="II"
 #         gruppenr_for_org_sted="GG"
-#         stednavn="foo bar" forkstednavn="foo" akronym="fb"
-#         adresselinje1_intern_adr="adr1_int"
-#         adresselinje2_intern_adr="adr2_int"
-#         poststednr_intern_adr="postnr_int"
-#         poststednavn_intern_adr="postnavn_int"
-#         adresselinje1_besok_adr="adr1_besok"
+#         opprettetmerke_for_oppf_i_kat="X"
+#         telefonnr="22851234" innvalgnr="228" linjenr="51234"
+#         stedpostboks="1023"
+#         adrtypekode_besok_adr="INT" adresselinje1_besok_adr="adr1_besok"
 #         adresselinje2_besok_adr="adr2_besok"
 #         poststednr_besok_adr="postnr_besok"
-#         poststednavn_besok_adr="postnavn_besok">
+#         poststednavn_besok_adr="postnavn_besok" landnavn_besok_adr="ITALIA"
+#         adrtypekode_intern_adr="INT" adresselinje1_intern_adr="adr1_int"
+#         adresselinje2_intern_adr="adr2_int"
+#         poststednr_intern_adr="postnr_int"
+#         poststednavn_intern_adr="postnavn_int" landnavn_intern_adr="ITALIA"
+#         adrtypekode_alternativ_adr="INT"
+#         adresselinje1_alternativ_adr="adr1_alt"
+#         adresselinje2_alternativ_adr="adr2_alt"
+#         poststednr_alternativ_adr="postnr_alt"
+#         poststednavn_alternativ_adr="postnavn_alt"
+#         landnavn_alternativ_adr="ITALIA">
 #     <komm kommtypekode=("EKSTRA TLF" | "FAX" | "FAXUTLAND" | "JOBBTLFUTL" |
 #                         "EPOST")
 #           telefonnr="foo" kommnrverdi="bar">
@@ -138,9 +151,14 @@ def import_org_units(oufile):
                                                cereconf.DEFAULT_INSTITUSJONSNR))
         except Errors.NotFoundError:
             pass
+        kat_merke = 'F'
+        if k.get('opprettetmerke_for_oppf_i_kat'):
+            kat_merke = 'T'
         ou.populate(k['stednavn'], k['fakultetnr'],
                     k['instituttnr'], k['gruppenr'],
-                    institusjon=k.get('institusjonsnr',cereconf.DEFAULT_INSTITUSJONSNR),
+                    institusjon=k.get('institusjonsnr',
+                                      cereconf.DEFAULT_INSTITUSJONSNR),
+                    katalog_merke=kat_merke,
                     acronym=k.get('akronym', None),
                     short_name=k['forkstednavn'],
                     display_name=k['stednavn'],
