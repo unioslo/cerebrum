@@ -49,7 +49,7 @@ def search(req, name, desc, spread):
         result.append(html.Emphasis(_("Sorry, no groups found matching the given criteria.")))
     result.append(html.Header(_("Search for other groups"), level=2))
     result.append(groupsearch.form())
-    page.content = result.output().encode("utf8")
+    page.content = lambda: result.output().encode("utf8")
     return page    
 
 def list(req):
