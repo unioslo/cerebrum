@@ -32,6 +32,7 @@ class BofhdExtension(object):
     for checking neccesary permissions"""
 
     all_commands = {}
+    OU_class = Factory.get('OU')
 
     def __init__(self, db):
         self.Cerebrum = db
@@ -40,6 +41,9 @@ class BofhdExtension(object):
         self.name_codes = {}
         for t in self.person.get_person_name_codes():
             self.name_codes[int(t.code)] = t.description
+        self.person_affiliation_codes = {}
+        for t in self.person.get_person_affiliation_codes():
+            self.person_affiliation_codes[t.code_str] = (int(t.code), t.description)
 
     def get_commands(self, uname):
         # TBD: Do some filtering on uname to remove commands
@@ -61,8 +65,12 @@ class BofhdExtension(object):
     def account_affadd(self, operator, accountname, affiliation, ou=None):
         """Add 'affiliation'@'ou' to 'accountname'.  If ou is None,
         try cereconf.default_ou """
-        raise NotImplementedError, \
-              "Account hasn't implemented affiliations yet"
+        acc = self._get_account(accountname)
+        if ou is None:
+            ou = cereconf.DEFAULT_OU
+        ou = self._get_ou(ou)
+        aff = self._get_affiliationid(affiliation)
+        acc.add_account_type(self.owner_id, ou.ou_id, aff)
 
     ## bofh> account affrem <accountname> <affiliation> <ou=>
     all_commands['account_affrem'] = Command(
@@ -70,8 +78,12 @@ class BofhdExtension(object):
     def account_affrem(self, operator, accountname, affiliation, ou=None):
         """Remove 'affiliation'@'ou' from 'accountname'.  If ou is None,
         try cereconf.default_ou"""
-        raise NotImplementedError, \
-              "Account hasn't implemented affiliations yet"
+        acc = self._get_account(accountname)
+        if ou is None:
+            ou = cereconf.DEFAULT_OU
+        ou = self._get_ou(ou)
+        aff = self._get_affiliationid(affiliation)
+        acc.del_account_type(self.owner_id, ou.ou_id, aff)
 
     ## bofh> account create <accountname> <idtype> <id> \
     ##         <affiliation=> <ou=> [<expire_date>]
@@ -564,6 +576,12 @@ class BofhdExtension(object):
             raise CerebrumError, "Could not find group with %s=%s" % (idtype, id)
         return group
 
+    def _get_ou(self, ou_id):  # TBD: ou_id should be a string, how to encode?
+        ou = OU_class(Cerebrum)
+        ou.clear()
+        ou.find(ou_id)
+        return ou.entity_id
+
     def _get_group_opcode(self, operator):
         if operator is None:
             return self.const.group_memberop_union
@@ -617,6 +635,11 @@ class BofhdExtension(object):
             return self.const.name_full
         else:
             raise NotImplementedError, "unkown nametype: %s" % nametye
+
+    # TODO: the mapping of user typed description to numeric db-id for
+    # codes, and from id -> description should be done in an elegant way
+    def _get_affiliationid(self, code_str):
+        return self.person_affiliation_codes(code_str)[0]
 
     def _parse_date(self, date):
         try:

@@ -44,10 +44,12 @@ LOG_CONFIG_FILE = "/etc/cerebrum/logconfig.ini"
 DEFAULT_GROUP_NAMESPACE = 'group_names'
 DEFAULT_ACCOUNT_NAMESPACE = 'account_names'
 
+DEFAULT_OU = None   # Used by bofh "account affadd" if OU is not set
+
 # When gecos for a posix user is None, we look for the person name by
 # evaluating source systems in in this order
 POSIX_GECOS_SOURCE_ORDER = ("system_lt", "system_fs")
-
+POSIX_HOME_TEMPLATE_DIR = "/local/etc/newusertemplates"
 # Temporary switch until someone can figure out why mktime won't work
 # with year < 1970 on some systems.  Must NOT be set on production
 # systems.
