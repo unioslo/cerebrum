@@ -78,7 +78,8 @@ def generate_passwd(filename, shadow_file, spread=None):
     static_posix_user = PosixUser.PosixUser(db)
     for d in disk.list(spread=spread):
         diskid2path[int(d['disk_id'])] = d['path']
-    def process_user(row, extra_rows):
+    def process_user(user_rows):
+        row = user_rows[0]
         uname = row['entity_name']
         tmp = posix_user.illegal_name(uname)
         if tmp:
@@ -98,10 +99,9 @@ def generate_passwd(filename, shadow_file, spread=None):
         home = row['home']
         shell = shells[int(row['shell'])]
         if row['quarantine_type'] is not None:
-            quara_rows = [row] + extra_rows
             now = mx.DateTime.now()
             quarantines = []
-            for qrow in quara_rows:
+            for qrow in user_rows:
                 if (qrow['start_date'] <= now
                     and (qrow['end_date'] is None or qrow['end_date'] >= now)
                     and (qrow['disable_until'] is None
@@ -141,30 +141,24 @@ def generate_passwd(filename, shadow_file, spread=None):
     user_iter = posix_user.list_extended_posix_users(
         auth_method=co.auth_type_crypt3_des,
         spread=spread, include_quarantines=True)
-    user_row = None
-    extra_rows = []
+    prev_user = None
+    user_rows = []
     for row in user_iter:
-        if user_row is None:
-            pass
-        elif row['account_id'] == user_row['account_id']:
-            extra_rows.append(row)
-        else:
+        if prev_user != row['account_id'] and prev_user is not None:
             try:
-                process_user(user_row, extra_rows)
-                n += 1
-                # if n > 100:
-                #     break
+                process_user(user_rows)
             except NISMapError, e:
                 logger.error("NISMapError", exc_info=1)
             except NISMapException:
                 pass
-            extra_rows = []
-        user_row = row
+            user_rows = [row]
+        else:
+            user_rows.append(row)
+        prev_user = row['account_id']
     else:
-        if user_row is not None:
+        if user_rows:
             try:
-                process_user(user_row, extra_rows)
-                n += 1
+                process_user(user_rows)
             except NISMapError, e:
                 logger.error("NISMapError", exc_info=1)
             except NISMapException:
