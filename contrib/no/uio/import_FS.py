@@ -98,7 +98,7 @@ def process_person(Cerebrum, persondta):
     new_person = Person.Person(Cerebrum)
     co = Factory.get('Constants')(Cerebrum)
     try:
-        new_person.find_by_external_id(co.externalid_fodselsnr, fnr)
+        new_person.find_by_external_id(co.externalid_fodselsnr, fnr, co.system_fs)
     except Errors.NotFoundError:
         pass
 
@@ -140,8 +140,7 @@ def process_person(Cerebrum, persondta):
         ou.find_stedkode(int(sko_info[i]), int(sko_info[i+1]),
                          int(sko_info[i+2]))
 
-        new_person.affect_affiliations(co.system_fs, aff_type)
-        new_person.populate_affiliation(ou.ou_id, aff_type, aff_status)
+        new_person.populate_affiliation(co.system_fs, ou.ou_id, aff_type, aff_status)
 
     op = new_person.write_db()
     if op is None:
