@@ -219,9 +219,13 @@ public class JBofh {
     boolean guiEnabled;
     JBofhFrame mainFrame;
 
-    /** Creates a new instance of JBofh */
-    public JBofh(String def_uname, String def_password, boolean gui, String log4jPropertyFile) 
-        throws BofhdException {
+    /** Creates a new instance of JBofh 
+
+    TODO: do less work in the constructor so that we don't have to
+    pass so many parameters to it */
+
+    public JBofh(String def_uname, String def_password, boolean gui, 
+        String log4jPropertyFile, String bofhd_url) throws BofhdException {
 	guiEnabled = gui;
         try {
 	    URL url = ResourceLocator.getResource(this, log4jPropertyFile);
@@ -250,8 +254,9 @@ public class JBofh {
 
         bc = new BofhdConnection(logger);
         String intTrust = (String) props.get("InternalTrustManager.enable");
-        showMessage("Bofhd server is at "+props.get("bofhd_url"), true);
-        bc.connect((String) props.get("bofhd_url"), 
+        if(bofhd_url == null) bofhd_url = (String) props.get("bofhd_url");
+        showMessage("Bofhd server is at "+bofhd_url, true);
+        bc.connect(bofhd_url, 
             (intTrust != null && intTrust.equals("true")) ? true : false);
         // Setup ReadLine routines
         try {
@@ -696,24 +701,38 @@ public class JBofh {
     public static void main(String[] args) {
 	boolean gui = JBofh.isMSWindows();
         try {
+            String bofhd_url = null;
 	    boolean test_login = false;
 	    String log4jPropertyFile = "/log4j_normal.properties";
 	    for(int i = 0; i < args.length; i++) {
 		if(args[i].equals("-q")) {
 		    test_login = true;
-		} else if(args[i].equals("-gui")) {
+		} else if(args[i].equals("--url")) {
+                    bofhd_url = args[++i];
+		} else if(args[i].equals("--gui")) {
 		    gui = true;
-		} else if(args[i].equals("-nogui")) {
+		} else if(args[i].equals("--nogui")) {
 		    gui = false;
 		} else if(args[i].equals("-d")) {
                     log4jPropertyFile = "/log4j.properties";
-		}
+		} else {
+                    System.out.println(
+                        "Usage: ... [-q | --url url | --gui | --nogui | -d]\n"+
+                        "-q : internal use only\n"+
+                        "--url url : connect to alternate server\n"+
+                        "--gui : start with primitive java gui\n"+
+                        "--nogui : start in console mode\n"+
+                        "-d : enable debugging");
+                    System.exit(1);
+                }
 	    }
 	    if(test_login) {
-		new JBofh("bootstrap_account", "test", gui, log4jPropertyFile);
+		new JBofh("bootstrap_account", "test", gui, 
+                    log4jPropertyFile, bofhd_url);
 	    } else {    // "test" md5: $1$F9feZuRT$hNAtCcCIHry4HKgGkkkFF/
                 // insert into account_authentication values((select entity_id from entity_name where entity_name='bootstrap_account'), (select code from authentication_code where code_str='MD5-crypt'), '$1$F9feZuRT$hNAtCcCIHry4HKgGkkkFF/');
-		new JBofh(System.getProperty("user.name"), null, gui, log4jPropertyFile);
+		new JBofh(System.getProperty("user.name"), null, gui, 
+                    log4jPropertyFile, bofhd_url);
 	    }
 	} catch (BofhdException be) {
 	    String msg = "Caught error during init, terminating: \n"+ be.getMessage();
