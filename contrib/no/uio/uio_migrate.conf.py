@@ -112,5 +112,5 @@ spamlvl2const = {'0': co.email_spam_level_none,
 spamact2const = {'0': co.email_spam_action_none,
                  '1': co.email_spam_action_folder,
                  '2': co.email_spam_action_delete,
-                 '*default': co.email_spam_action_none
+                 '*default*': co.email_spam_action_none
                  }
