@@ -329,6 +329,9 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
             logger.info("Missing password for %s from %s" % (uname,
                         ":".join([str(x) for x in self.client_address])))
             raise CerebrumError, "Unknown username or password"
+        if isinstance(password, unicode):  # crypt.crypt don't like unicode
+            # TODO: ideally we should not hardcode charset here.
+            password = password.encode('iso8859-1')
         # TODO: Add API for credential verification to Account.py.
         if enc_pass <> crypt.crypt(password, enc_pass):
             # Use same error message as above; un-authenticated
