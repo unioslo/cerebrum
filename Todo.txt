@@ -364,7 +364,7 @@
                uklart hva det betyr.
   Dependencies:
   Assigned to: baardj
-  Resources:
+  Resources: jazz, SFA(UiO)
   Cost:
   Due date: 2004-11-15
 	    (Hvor kommer denne datoen fra? Er det realistisk?  Hvis
