@@ -3939,7 +3939,8 @@ class BofhdExtension(object):
                         self.num2const[int(aff['affiliation'])],
                         self.num2const[int(aff['status'])],
                         self._format_ou_name(ou))
-                    map.append((("%s", name), int(aff['affiliation'])))
+                    map.append((("%s", name),
+                                (int(aff['ou_id']), int(aff['affiliation']))))
                 if not len(map) > 1:
                     raise CerebrumError(
                         "Person has no affiliations. Try person affiliation_add")
@@ -3980,7 +3981,8 @@ class BofhdExtension(object):
     def user_create_prompt_func(self, session, *args):
         return self._user_create_prompt_func_helper('PosixUser', session, *args)
 
-    def _user_create_set_account_type(self, account, owner_id, affiliation):
+    def _user_create_set_account_type(self, account,
+                                      owner_id, ou_id, affiliation):
         person = self._get_person('entity_id', owner_id)
         try:
             affiliation=self.const.PersonAffiliation(affiliation)
@@ -3989,13 +3991,12 @@ class BofhdExtension(object):
         except Errors.NotFoundError:
             raise CerebrumError, "Invalid affiliation %s" % affiliation
         for aff in person.get_affiliations():
-            if aff['affiliation'] == affiliation:
-                ou = self._get_ou(aff['ou_id'])
+            if aff['ou_id'] == ou_id and aff['affiliation'] == affiliation:
                 break
         else:
             raise CerebrumError, \
                 "Owner did not have any affiliation %s" % affiliation        
-        account.set_account_type(ou.entity_id, affiliation)
+        account.set_account_type(ou_id, affiliation)
         
     # user create
     all_commands['user_create'] = Command(
@@ -4055,7 +4056,9 @@ class BofhdExtension(object):
             # to .write_db() one more time...
             posix_user.write_db()
             if len(args) != 6:
-                self._user_create_set_account_type(posix_user, owner_id, affiliation)
+                ou_id, affiliation = affiliation
+                self._user_create_set_account_type(posix_user, owner_id,
+                                                   ou_id, affiliation)
         except self.db.DatabaseError, m:
             raise CerebrumError, "Database error: %s" % m
         operator.store_state("new_account_passwd", {'account_id': int(posix_user.entity_id),
@@ -4462,8 +4465,9 @@ class BofhdExtension(object):
         try:
             account.write_db()
             if affiliation is not None:
+                ou_id, affiliation = affiliation
                 self._user_create_set_account_type(
-                    account, person.entity_id, affiliation)
+                    account, person.entity_id, ou_id, affiliation)
         except self.db.DatabaseError, m:
             raise CerebrumError, "Database error: %s" % m
         operator.store_state("new_account_passwd", {'account_id': int(account.entity_id),
@@ -4513,7 +4517,8 @@ class BofhdExtension(object):
                     name = "%s@%s" % (
                         self.const.PersonAffStatus(aff['status']),
                         self._format_ou_name(ou))
-                    map.append((("%s", name), int(aff['affiliation'])))
+                    map.append((("%s", name),
+                                (int(aff['ou_id']), int(aff['affiliation']))))
                 if not len(map) > 1:
                     raise CerebrumError(
                         "Person has no affiliations. Try person affiliation_add")
@@ -4552,7 +4557,9 @@ class BofhdExtension(object):
             account.np_type = np_type
         account.write_db()
         if new_owner.entity_type == self.const.entity_person:
-            self._user_create_set_account_type(account, account.owner_id, affiliation)
+            ou_id, affiliation = affiliation
+            self._user_create_set_account_type(account, account.owner_id,
+                                               ou_id, affiliation)
         return "OK"
 
     # user shell

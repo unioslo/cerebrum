@@ -255,10 +255,10 @@ public class BofhdConnection {
                 Vector v = (Vector) tmp;
                 for (int j = v.size()-1; j >= 0; j--) {
                     tmp = v.get(j);
-                    if (((String) tmp).charAt(0) == ':') {
-                        tmp = ":"+((String) tmp);
-                        v.setElementAt(tmp, j);
-                    }
+                    if ((tmp instanceof String) && (((String) tmp).charAt(0) == ':')) {
+			tmp = ":"+((String) tmp);
+			v.setElementAt(tmp, j);
+		    }
                 }
             }
         }
