@@ -81,8 +81,6 @@ class PosixLDIF(object):
 	    raise ProgrammingError, "Must specify spread-value as 'arg' or in cereconf"
         self.id2uname	= {} 	   
 
-	ior row in test1:
-
     def user_ldif(self, f, auth_meth = None):
 	"""
 	Generate posix-user. 
