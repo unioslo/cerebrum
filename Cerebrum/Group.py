@@ -366,10 +366,25 @@ class Group(EntityName, Entity):
             return ret
         # Expand u to get a set of account_ids.
         res = expand(u, ug)
-        if i:
+        if i or ig:
             res = intersect(res, expand(i, ig))
-        if d:
+        if d or dg:
             res = difference(res, expand(d, dg))
+        if not (i or ig or d or dg):
+            # The list may contain duplicates.  We use a dict to get
+            # rid of them, but a set would have been more appropriate
+            # if we used Python 2.3 (TODO).
+            # We only check for duplicates if there was only union
+            # members since the intersect and difference operations
+            # will remove duplicates implicitly.
+            uniq = {}
+            if get_entity_name:
+                for m in res:
+                    uniq[m[0]] = m
+            else:
+                for m in res:
+                    uniq[m] = m
+            res = uniq.values()
         return res
 
 
