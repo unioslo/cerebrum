@@ -29,7 +29,7 @@ import pprint
 pp = pprint.PrettyPrinter(indent=4)
 
 def ext_prompt(msg, type, default=None):
-    if(default != None):
+    if(default is not None):
         msg = "%s [%s]" % (msg, default)
     msg = msg + " >"
     ret = ''
@@ -38,7 +38,7 @@ def ext_prompt(msg, type, default=None):
             ret = getpass.getpass(msg)
         elif (type == 'string'):
             ret = raw_input(msg)
-        if(ret == '' and default != None):
+        if(ret == '' and default is not None):
             ret = default
 #    return unicode(ret, 'iso8859-1')
     return ret

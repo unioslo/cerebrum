@@ -30,7 +30,7 @@ class LTData(object):
         while 1:
             line = self.file.readline()
             if not line:
-                if self.prev_data == None:
+                if self.prev_data is None:
                     raise StopIteration, "End of file"
                 else:
                     data = None
@@ -39,7 +39,7 @@ class LTData(object):
                 data = line.split('\034')
                 what, data = data[0], data[1:]
             if not line or what == 'PERSON':
-                if self.prev_data != None:
+                if self.prev_data is not None:
                     pd = self.prev_data
                     #  Dunno the syntax for this: "%02d%02d%02d%05d" %   [int(x) for x in data[0:3]]
                     fnr = fodselsnr.personnr_ok("%02d%02d%02d%05d" % (int(pd[0]), int(pd[1]),

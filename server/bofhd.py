@@ -104,7 +104,7 @@ class ExportedFuncs(object):
     def get_format_suggestion(self, cmd):
         modfile = self.command2module[cmd]
         suggestion = self.modules[modfile].get_format_suggestion(cmd)
-        if suggestion != None:
+        if suggestion is not None:
             return unicode(suggestion, 'iso8859-1')
         else:
             return ''
@@ -131,7 +131,7 @@ class ExportedFuncs(object):
                 continue
             # Find correct section
             pos = re.search(re_section, line)
-            if pos != None:
+            if pos is not None:
                 if group == pos.group(1):
                     correct_section = 1
                 else :
@@ -140,7 +140,7 @@ class ExportedFuncs(object):
             # Process ¤cmd:KEY¤ markers
             if correct_section:
                 pos = re.search(re_cmd, line)
-                if pos != None:
+                if pos is not None:
                     # TODO: Check if command is legal for user
                     line = re.sub(re_cmd, pos.group(1), line)
                     line = re.sub(re_strip, "", line)
@@ -224,14 +224,14 @@ class ExportedFuncs(object):
             for x in range(len(ret)):
                 if isinstance(ret[x], str):
                     ret[x] = unicode(ret[x], 'iso8859-1')
-                elif ret[x] == None:
+                elif ret[x] is None:
                     ret[x] = ''
             return ret
         elif isinstance(ret, dict):
             for x in ret.keys():
                 if isinstance(ret[x], str):
                     ret[x] = unicode(ret[x], 'iso8859-1')
-                elif ret[x] == None:
+                elif ret[x] is None:
                     ret[x] = ''
             return ret
         else:
@@ -298,10 +298,10 @@ class CallableFuncs(object):
         try:
             account = Account.Account(self.ef.Cerebrum)  # TODO: Flytt denne
             account.clear()
-            if(uid == None):
+            if(uid is None):
                 uid = account.get_free_uid()
 
-            if(uname == None):                  # Find a suitable username
+            if(uname is None):                  # Find a suitable username
                 person = self.ef.person
                 person.find(person_id)
                 name = None
@@ -311,7 +311,7 @@ class CallableFuncs(object):
                         break
                     except Errors.NotFoundError:
                         pass
-                if name == None:
+                if name is None:
                     raise "No name for person!"  #TODO: errror-class
                 name = name.split()
                 uname = account.suggest_unames(self.const.entity_accname_default,
@@ -349,8 +349,14 @@ class CallableFuncs(object):
 
     def get_person(self, user, fnr):
         person = self.ef.person
-        person.find_by_external_id('fodselsnr', fnr)
-        name = person.get_name('full')
+        person.find_by_external_id(self.const.externalid_fodselsnr, fnr)
+        name = None
+        for ss in cereconf.PERSON_NAME_SS_ORDER:
+            try:
+                name = person.get_name(getattr(self.const, ss), self.const.name_full)
+                break
+            except Errors.NotFoundError:
+                pass
         
         return {'name' : name, 'pid' : person.person_id,
                 'expid' : person.export_id, 'birth' :str(person.birth_date),
@@ -362,7 +368,7 @@ if __name__ == '__main__':
     for port in range(8000,8005):
         try:
             print "Server starting at port: %d" % port
-            server = SimpleXMLRPCServer(("localhost", port))
+            server = SimpleXMLRPCServer(("0.0.0.0", port))
             server.register_instance(ExportedFuncs("config.dat"))
             server.serve_forever()
         except socket.error:

@@ -60,7 +60,7 @@ def main():
     dta = FSData()
     for line in f.readlines():
         persondta = dta.parse_line(line)
-        if None != persondta:
+        if persondta is not None:
             process_person(persondta)
         else:
             print "Unhandled format: ",line
@@ -94,7 +94,7 @@ def process_person(persondta):
     new_person.populate_external_id(co.system_fs, co.externalid_fodselsnr, fnr)
 
     new_person.affect_addresses(co.system_fs, co.address_post)
-    if persondta['adr2'] == None:   # None is inserted in the string for some reason
+    if persondta['adr2'] is None:   # None is inserted in the string for some reason
         persondta['adr2'] = ''
     new_person.populate_address(co.address_post, addr="%s\n%s" %
                                 (persondta['adr1'],

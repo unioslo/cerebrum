@@ -31,7 +31,7 @@ def generate_passwd():
         
         default_group = "posix_group.find(%s)" % account.gid
         gecos = account.gecos
-        if gecos == None:
+        if gecos is None:
             gecos = account.get_gecos()
         shell = Constants._PosixShellCode(int(account.shell)).description
         print "%s:%s:%s:%s:%s:%s:%s" %(

@@ -187,7 +187,7 @@ class PersonAffiliation(object):
             return
         other = {}
         for affect_type in self._pa_affect_types:
-            if as_object != None:
+            if as_object is not None:
                 t = as_object.get_affiliations(
                     source_system=self._pa_affect_source,
                     affiliation=affect_type)
@@ -247,7 +247,7 @@ class PersonAffiliation(object):
         params = {'p_id': self.person_id}
         for v in ('source_system', 'affiliation', 'ou_id'):
             val = locals().get(v, None)
-            if val != None:
+            if val is not None:
                 qry += " AND %s=:%s" % (v, v)
                 params[v] = int(val)
         return self.query(qry, params)

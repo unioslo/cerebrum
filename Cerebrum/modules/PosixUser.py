@@ -145,7 +145,7 @@ class PosixUser(object):
         # Remember just the first initials.
         m = re.search('^(.*)[ -]+(\S+)\s+(\S+)$', complete_name)
         firstinit = None
-        if m != None:
+        if m is not None:
             # at least three names
             firstinit = m.group(0)
             firstinit = re.sub(r'([- ])(\S)[^- ]*', r'\1\2', firstinit)
@@ -341,7 +341,7 @@ class PosixUser(object):
         if min: FH.readline()
         while 1:
             line = FH.readline()
-            if line == None: break
+            if line is None: break
             line.strip()
             if dict: line = re.sub(r'[^\w\s]', '', line)
             if fold: line = line.lower()
@@ -415,7 +415,7 @@ class PosixUser(object):
                 while (1):
                     line = f.readline()
                     print "r: %s" % line
-                    if line == None: break
+                    if line is None: break
                     line = line.lower()
                     if line[0:len(chk)] != chk: break
                     raise msgs['dict_hit']

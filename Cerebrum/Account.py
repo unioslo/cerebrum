@@ -49,7 +49,7 @@ class Account(Entity, EntityName, EntityQuarantine, PosixUser):
         self._acc_affect_auth_types = None
 
     def __eq__(self, other):
-        if self._pn_affect_source == None:
+        if self._pn_affect_source is None:
             return True
         assert isinstance(other, Account)
         if not PosixUser.__eq__(self, other): return False
@@ -112,7 +112,7 @@ class Account(Entity, EntityName, EntityQuarantine, PosixUser):
     
     def write_db(self, as_object=None):
         type = self.np_type
-        if type != None: type = int(type)
+        if type is not None: type = int(type)
 
         if as_object is None:
             new_id = super(Account, self).new(int(self.const.entity_account))
@@ -130,7 +130,7 @@ class Account(Entity, EntityName, EntityQuarantine, PosixUser):
                           'e_date' : self.expire_date})
             self.account_id = new_id
             for k in self._acc_affect_domains:
-                if self._name_info.get(k, None) != None:
+                if self._name_info.get(k, None) is not None:
                     self.add_name(k, self._name_info[k])
             PosixUser.write_db(self, as_object)
         else:
@@ -160,7 +160,7 @@ class Account(Entity, EntityName, EntityQuarantine, PosixUser):
                 except Errors.NotFoundError:
                      # insert
                      pass
-            if self._auth_info.get(k, None) != None:
+            if self._auth_info.get(k, None) is not None:
                 if what == 'insert':
                     self.execute("""
                     INSERT INTO [:table schema=cerebrum name=account_authentication]

@@ -135,7 +135,7 @@ def rec_make_stedkode(stedkode, ou, existing_ou_mappings, steder,
                 org_stedkode_ou)
         return
 
-    if(org_stedkode_ou != None and (stedkode != org_stedkode) and
+    if(org_stedkode_ou is not None and (stedkode != org_stedkode) and
        (not existing_ou_mappings.has_key(org_stedkode_ou))):
         rec_make_stedkode(org_stedkode, ou, existing_ou_mappings, steder,
                           stedkode2ou, co)

@@ -63,7 +63,7 @@ class OU(OU):
         self.__write_db = True
 
     def __eq__(self, other):
-        if other == None: return False
+        if other is None: return False
         assert isinstance(other, OU)
 
         identical = super(OU, self).__eq__(other)
