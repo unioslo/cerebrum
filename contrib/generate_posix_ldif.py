@@ -43,9 +43,9 @@ import time, sys, getopt, os
 
 import cerebrum_path
 import cereconf  
-from Cerebrum import Errors
 from Cerebrum import Entity
 from Cerebrum.extlib import logging
+from Cerebrum.Errors import PoliteException
 from Cerebrum.Utils import Factory, latin1_to_iso646_60, SimilarSizeWriter
 from Cerebrum.modules import PosixUser
 from Cerebrum.modules import PosixGroup
@@ -89,8 +89,6 @@ def generate_users(spread=None,filename=None):
 
     f.write(container_entry_string('USER'))
 
-    #done_users = {}
-    # Change to uname2id
     # When all authentication-needing accounts possess an 'md5_crypt'
     # password hash, the below code can be fixed to call
     # list_extended_posix_users() only once.  Until then, we fall back
@@ -260,8 +258,7 @@ def spread_code(spr_str):
         except: 
 	    try: return int(_SpreadCode(spr_str)) 
 	    except:
-		print >>sys.stderr, "Not valid Spread-Code: %r" % spr_str
-		return None
+		raise PoliteException("Invalid spread code: %r" % spr_str)
 
 
 def disable_ldapsync_mode():
