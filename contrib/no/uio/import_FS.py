@@ -70,7 +70,9 @@ def process_person(persondta):
         
         fnr = fodselsnr.personnr_ok(persondta['fdato'] + persondta['pnr'])
     except fodselsnr.InvalidFnrError:
-        print "Ugyldig fødselsnr: %s%s" % persondta['fdato'], persondta['pnr']
+        print "Ugyldig fødselsnr: %s%s" % (persondta['fdato'],
+                                           persondta['pnr'])
+        return
 
 
     new_person.clear()
