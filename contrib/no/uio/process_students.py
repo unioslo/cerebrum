@@ -649,6 +649,7 @@ def main():
     for opt, val in opts:
         if opt in ('-d', '--debug'):
             debug += 1
+            log_level += 1
             to_stdout = True
         elif opt in ('-c', '--create-users'):
             create_users = True
