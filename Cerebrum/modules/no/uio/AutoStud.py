@@ -5,6 +5,9 @@ import xml.sax
 TOPICS_FILE="/cerebrum/dumps/FS/topics.xml"   # TODO: cereconf
 STUDCONFIG_FILE="/cerebrum/uiocerebrum/etc/config/studconfig.xml"
 
+import pprint
+pp = pprint.PrettyPrinter(indent=4)
+
 class StudconfigParser(xml.sax.ContentHandler):
     """
     Parses the XML file.  The XML file consists of the following
@@ -163,32 +166,83 @@ class Profile(object):
         self._topics = topics
         self._groups = groups
         self._autostud = autostud
+        self._stedkoder = {}
+        self._filgrupper = {}
+        self._nettgrupper = {}
 
-        matches = []
+        self._matches = []
         topics.sort(self._topics_sort)
         for t in topics:
-            # print "sjekk %s / %s" % (t['emnekode'], t['studieprogramkode'])
             k = autostud.sp.ke['emne'].get(t['emnekode'], None)
             if k is not None:
-                matches.append(k)
+                # TODO: sett nivåkode til nivåkode + 50 for å
+                #   implementere emne > studieprogram på samme nivåkode
+                self._matches.append((k, 'emne'))
             k = autostud.sp.ke['studieprogram'].get(t['studieprogramkode'], None)
             if k is not None:
-                matches.append(k)
+                self._matches.append((k, self._normalize_nivakode(t['studienivakode'])))
 
-        print "All matches: %s" % matches
-        # TODO: Løp gjennom matches, og sett self._dfg++
+        singular = ('home', 'SKO', 'Primærgruppe')
+        found = {}
+        home_conflict = 0
+        for m in self._matches:
+            spec, level = m
+            # TODO: ekspander profiler
+            for t in spec.get('SKO', []):
+                self._stedkoder[t['value']] = 1
+            for t in spec.get('Primærgruppe', []):
+                self._filgrupper[t['value']] = 1
+            for t in spec.get('Filgruppe', []):
+                self._filgrupper[t['value']] = 1
+            for t in spec.get('Netgruppe', []):
+                self._nettgrupper[t['value']] = 1
+            for s in singular:
+                if spec.has_key(s):
+                    if found.has_key(s):
+                        if found[s][0] <> spec[s]:
+                            # conflict, has multiple values for single-value attribute
+                            if found[s][1] > level:
+                                pass
+                            elif found[s][1] < level:
+                                found[s] = (spec[s], level)
+                            else:     # Same studienivåkode
+                                if s == 'home':
+                                    home_conflict = level
+                                else:
+                                    # Use the first in the alphabet
+                                    if found[s][0] > spec[s]:
+                                        found[s] = (spec[s], level)
+                    else:
+                        found[s] = (spec[s], level)
+        try:
+            self._dfg = found['Primærgruppe'][0][0]['value']
+        except KeyError:
+            self._dfg = None
+        try:
+            self._email_sko = found['SKO'][0][0]['value']
+        except KeyError:
+            self._email_sko = None
+        try:
+            if home_conflict >= 300:
+                self._disk = cereconf.DEFAULT_HIGH_DISK
+            elif home_conflict > 1:
+                self._disk = cereconf.DEFAULT_LOW_DISK
+            else:
+                self._disk = found['home'][0][0]['value']
+        except KeyError:
+            self._disk = None
+
+    def _normalize_nivakode(self, niva):
+        niva = int(niva)
+        if niva >= 100 and niva < 300:
+            niva = 100
+        elif niva >= 300 and niva < 400:
+            niva = 300
+        return niva
 
     def _topics_sort(self, x, y):
-        x = x['studienivakode']
-        if x >= 100 and x < 300:
-            x = 100
-        elif x >= 300 and x < 400:
-            x = 300
-        y = y['studienivakode']
-        if y >= 100 and y < 300:
-            y = 100
-        elif y >= 300 and y < 400:
-            y = 300
+        x = self._normalize_nivakode(x['studienivakode'])
+        y = self._normalize_nivakode(y['studienivakode'])
         return cmp(y, x)
         
     def get_disk(self):
@@ -199,20 +253,27 @@ class Profile(object):
         raise ValueError, "Bad disk %s" % disk
 
     def get_stedkoder(self):
-        pass
+        return self._stedkoder.keys()
 
     def get_dfg(self):
-        pass
+        return self._dfg
 
+    def get_email_sko(self):
+        return self._email_sko
+    
     def get_filgrupper(self):
-        pass
+        return self._filgrupper.keys()
 
     def get_nettgrupper(self):
-        pass
-
+        return self._nettgruper.keys()
 
     def get_pquota(self):
         assert self._groups is not None
+        for m in self._matches:
+            spec, level = m
+            for t in spec.get('pquota', []):
+                pass # TODO
+        raise NotImplementedError, "TODO"
         
 class AutoStud(object):
     """This is the only class that should be directly accessed within
