@@ -593,7 +593,7 @@ def get_address(address_id):
                       ed.rewrite_special_domains(ed.email_domain_name))
 
 def is_ok_batch_time(now):
-    times = LEGAL_BATCH_MOVE_TIMES.split('-')
+    times = cereconf.LEGAL_BATCH_MOVE_TIMES.split('-')
     if times[0] > times[1]:   #  Like '20:00-08:00'
         if now > times[0] or now < times[1]:
             return True
