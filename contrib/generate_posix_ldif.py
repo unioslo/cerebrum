@@ -59,7 +59,7 @@ co = Factory.get('Constants')(db)
 logging.fileConfig(cereconf.LOGGING_CONFIGFILE)
 logger = logging.getLogger("cronjob")
 
-entity2uname = {}
+entity2name = {}
 disablesync_cn = 'disablesync'
 
 
@@ -103,7 +103,7 @@ def generate_users(spread=None,filename=None):
                 row['account_id'], row['shell'], row['gecos'],
                 row['entity_name'])
             acc_id = int(acc_id)
-            if entity2uname.has_key(acc_id):
+            if entity2name.has_key(acc_id):
                 continue
             if row['auth_data']:
                 passwd = '{crypt}' + row['auth_data']
@@ -144,7 +144,7 @@ def generate_users(spread=None,filename=None):
                 'userPassword: ',   passwd,         '\n'
                 'loginShell: ',     shell,          '\n'
                 'gecos: ',          gecos,          '\n\n')))
-            entity2uname[acc_id] = uname
+            entity2name[acc_id] = uname
     if filename:
 	f.close()
 
@@ -182,9 +182,9 @@ def generate_posixgroup(spread=None,u_spread=None,filename=None):
         # set to [0]
         for id in group.get_members(spread=u_spreads[0], get_entity_name=True):
             uname_id = int(id[0])
-            if not entity2uname.has_key(uname_id):
-                entity2uname[uname_id] = id[1]
-            members.append(entity2uname[uname_id])
+            if not entity2name.has_key(uname_id):
+                entity2name[uname_id] = id[1]
+            members.append(entity2name[uname_id])
         f.write(entry_string("cn=%s,%s" % (gname, dn_str), entry, False))
     if filename:
 	f.close()
@@ -213,8 +213,8 @@ def generate_netgroup(spread=None,u_spread=None,filename=None):
                  'cn':                (netgrp_name,),
                  'nisNetgroupTriple': [],
                  'memberNisNetgroup': []}
-        if not entity2uname.has_key(int(row.group_id)):
-            entity2uname[int(row.group_id)] = netgrp_name
+        if not entity2name.has_key(int(row.group_id)):
+            entity2name[int(row.group_id)] = netgrp_name
         if pos_netgrp.description:
             entry['description'] = (
                 latin1_to_iso646_60(pos_netgrp.description),)
