@@ -26,6 +26,7 @@ import re
 import cereconf
 import time
 import os
+import string
 
 def dyn_import(name):
     """Dynamically import python module ``name``."""
@@ -126,6 +127,24 @@ def make_temp_dir(dir="/tmp", prefix="cerebrum_tmp"):
     name = make_temp_file(dir=dir, only_name=1, ext="", prefix=prefix)
     os.mkdir(name)
     return name
+
+def latin1_to_iso646_60(s, substitute=''):
+    #
+    # Wash known accented letters and some common charset confusions.
+    tr = string.maketrans(
+        'ÆØÅæø¦¿åÀÁÂÃÄÇÈÉÊËÌÍÎÏÑÒÓÔÕÖÙÚÛÜİàáâãäçèéêëìíîïñòóôõöùúûüıÿ¨­¯´',
+        '[\\]{|||}AAAAACEEEEIIIINOOOOOUUUUYaaaaaceeeeiiiinooooouuuuyy"--\'')
+    s = string.translate(s, tr)
+
+    xlate = {}
+    xlate['Ğ'] = 'Dh'
+    xlate['ğ'] = 'dh'
+    xlate['Ş'] = 'Th'
+    xlate['ş'] = 'th'
+    xlate['ß'] = 'ss'
+    for y in range(0x00, 0x1f): xlate[chr(y)] = ''
+    for y in range(0x7f, 0xff): xlate[chr(y)] = ''
+    return string.join(map(lambda x:xlate.get(x, x), s), '')
 
 class auto_super(type):
     """Metaclass adding a private class variable __super, set to super(cls).
