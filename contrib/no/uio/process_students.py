@@ -347,7 +347,7 @@ def main():
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'dcus:C:',
                                    ['debug', 'create-users', 'update-accounts',
-                                    'student-info-file=',
+                                    'student-info-file=', 'only-dump-results=',
                                     'studconfig-file=', 'fast-test', 'with-lpr',
                                     'workdir=', 'type=', 'reprint='])
     except getopt.GetoptError:
@@ -375,7 +375,7 @@ def main():
             studconfig_file = val
         elif opt in ('--fast-test',):  # Internal debug use ONLY!
             fast_test = True
-        elif opt in ('--only-dum-results',):
+        elif opt in ('--only-dump-results',):
             only_dump_to = val
         elif opt in ('--with-lpr',):
             skip_lpr = False
