@@ -7,30 +7,35 @@ from Cerebrum import Person
 from server.bofhd import ExportedFuncs
 from server.bofhd import CallableFuncs
 
-Cerebrum = Database.connect()
-const = Constants.Constants(Cerebrum)
+def create_user(db, external_id):
+    print "Creating posix user for person with external id", external_id
 
-def user_create_bofhd(db, person_id, home):
+    const = Constants.Constants(db)
+
     ef = ExportedFuncs(db, "config.dat")
+
+    home = "/home/dir"
     posix_gid = 999999
     shell = const.posix_shell_bash
 
-    print "PersonID:", person_id, "Shell:",shell
+    person_info = ef.cfu.get_person(None, external_id)
 
-    ef.cfu.user_create(None, person_id, None, None, None, None, posix_gid,
-                       None, home, shell)
+    print "PersonID:", person_info['pid'], "Name:", person_info['name']
+
+    ef.cfu.user_create(None, person_info['pid'], None, None, None, None,
+                       posix_gid, None, home, shell)
+
+
 def main():
     if len(sys.argv) == 2:
         external_id = sys.argv[1]
     else:
         external_id = "30535890168"
 
-    print "Creating posix user for person with external id", external_id
+    Cerebrum = Database.connect()
 
-    person = Person.Person(Cerebrum)
-    person.find_by_external_id(const.externalid_fodselsnr, external_id)
+    create_user(Cerebrum, external_id)
 
-    user_create_bofhd(Cerebrum, person.person_id, "/home/dir")
     # commit is done in user_create()
     #Cerebrum.commit()
 
