@@ -161,7 +161,7 @@ class Entity(object):
             return self.name
         except AttributeError:
             if hasattr(self, "id"):
-                return self.id
+                return str(self.id)
             else:
                 return repr(self)
     

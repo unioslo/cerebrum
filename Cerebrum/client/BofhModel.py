@@ -368,7 +368,7 @@ class Person(Entity, Abstract.Person):
     def _load_entity_info(self, info):
         self.name = info['name']
         self.birthdate = info['birthdate']
-        self.affiliations = info.get('affilitations')
+        self.affiliations = info['affilitations']
         self.names = info['names']
         self.description = info['description']
         self.gender = info['gender']    
