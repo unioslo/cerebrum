@@ -64,6 +64,8 @@ def get_table_info(fname, want_table):
             if m:
                 tab_comment = line[m.end():]
                 in_tab_comment = True
+                if re_end_table_comment.search(line):
+                    in_tab_comment = False
             else:
                 m = re_start_table.search(line)
                 if m:

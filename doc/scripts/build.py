@@ -28,7 +28,7 @@ if not os.path.exists(
 # TBD: Hvordan bør oversikten over hvilke filer man skal bygge doc for
 # vedlikeholdes?
 src_dirs = ['.', 'admin', 'spec', 'devel', 'extensions', 'overview',
-            'user']
+            'user', 'extensions/dns']
 
 def build_primitive_contents(outfile):
     print "Writing %s" % outfile

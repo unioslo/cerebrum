@@ -1,4 +1,4 @@
-#!/usr/bin/python2.2
+#!/usr/bin/python
 from docutils.parsers.rst import directives
 import re
 import os
