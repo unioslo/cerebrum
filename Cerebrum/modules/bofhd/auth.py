@@ -834,7 +834,7 @@ class BofhdAuth(DatabaseAccessor):
         if self.is_superuser(operator):
             return True
         req_operator = None
-        br = BofhdRequests(self.db, self.const)
+        br = BofhdRequests(self._db, self.const)
         for r in br.get_requests(request_id=req_id):
             if int(r['requestee_id']) == operator:
                 return True
