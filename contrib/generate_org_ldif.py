@@ -31,9 +31,10 @@ from Cerebrum.modules.no import Stedkode
 from Cerebrum import QuarantineHandler
 from Cerebrum.Constants import _SpreadCode
 from Cerebrum.modules.LDIFutils import *
+from time import time as now
 
-Cerebrum = Factory.get('Database')()
-co = Factory.get('Constants')(Cerebrum)
+db = Factory.get('Database')()
+co = Factory.get('Constants')(db)
 
 logging.fileConfig(cereconf.LOGGING_CONFIGFILE)
 logger = logging.getLogger("cronjob")
@@ -50,15 +51,17 @@ def load_code_tables():
     global ph_tab, fax_tab
     ph_tab = {}
     fax_tab = {}
-    person = Factory.get('Person')(Cerebrum)
+    person = Factory.get('Person')(db)
     affili_codes = person.list_person_affiliation_codes()
     for aff in affili_codes:
-        affiliation_code[int(Cerebrum.pythonify_data(aff['code']))] = \
-				Cerebrum.pythonify_data(aff['code_str'])
-    ph_tab = get_contacts(source_system=int(co.system_lt),\
-                                contact_type=int(co.contact_phone))
-    fax_tab = get_contacts(source_system=int(co.system_lt),\
-                                contact_type=int(co.contact_fax))
+        affiliation_code[int(db.pythonify_data(aff['code']))] = \
+				db.pythonify_data(aff['code_str'])
+    ph_tab = get_contacts(source_system=int(
+        getattr(co,cereconf.LDAP_SOURCE_SYSTEM)),\
+                          contact_type=int(co.contact_phone))
+    fax_tab = get_contacts(source_system=int(
+        getattr(co,cereconf.LDAP_SOURCE_SYSTEM)),\
+                           contact_type=int(co.contact_fax))
 
 
 def make_address(sep, p_o_box, address_text, postal_number, city, country):
@@ -80,7 +83,7 @@ def make_address(sep, p_o_box, address_text, postal_number, city, country):
 def init_ldap_dump(ou_org):
     attrs = {
         'norEduOrgUniqueNumber': ("%08d" % cereconf.DEFAULT_INSTITUSJONSNR,) }
-    ou = Factory.get('OU')(Cerebrum)
+    ou = Factory.get('OU')(db)
     ou.find(ou_org)
     if fax_tab.has_key(int(ou_org)):
         attrs['facsimileTelephoneNumber'] = fax_tab[int(ou_org)]
@@ -130,7 +133,7 @@ def init_ldap_dump(ou_org):
 
 
 def root_OU():
-    ou = Factory.get('OU')(Cerebrum)
+    ou = Factory.get('OU')(db)
     root_id=ou.root()
     if len(root_id) > 1:
 	text1 = """
@@ -138,7 +141,7 @@ You have %d roots in your organization-tree. Cerebrum only support 1.\n""" % \
 								(len(root_id))
         sys.stdout.write(text1)
     	for p in root_id:
-            root_org = Cerebrum.pythonify_data(p['ou_id'])
+            root_org = db.pythonify_data(p['ou_id'])
 	    ou.clear()
 	    ou.find(root_org)
 	    text2 = "Organization: %s   ou_id= %s \n" % (ou.sort_name, ou.ou_id)
@@ -150,14 +153,14 @@ Set LDAP_ORG_ROOT_AUTO='Disable' and LDAP_ORG_ROOT to the correct ou_id no.!"""
 	org_root = None
 	return(org_root)
     else:    
-	root_org = Cerebrum.pythonify_data(root_id[0]['ou_id'])	
+	root_org = db.pythonify_data(root_id[0]['ou_id'])	
 	return(root_org)
 
 
 def generate_org(ou_id):
     glob_fd.write(container_entry_string('ORG'))
 
-    stedkode = Stedkode.Stedkode(Cerebrum)
+    stedkode = Stedkode.Stedkode(db)
     if True:
 	stedkode.find(ou_id)
 	stedkodestr = "%02d%02d%02d" % (stedkode.fakultet,
@@ -173,8 +176,9 @@ def generate_org(ou_id):
                                     get_tree_dn('ORG'))
 	glob_fd.write(entry_string(non_root_dn, attrs))
 
-    ou = Factory.get('OU')(Cerebrum)
-    ou_list = ou.get_structure_mappings(co.perspective_lt)
+    ou = Factory.get('OU')(db)
+    ou_list = ou.get_structure_mappings(getattr(co,cereconf.LDAP_PERSPECTIVE))
+    logger.debug("OU-list length: %d", len(ou_list))
     trav_list(ou_id, ou_list, get_tree_dn('ORG'))
     if (cereconf.LDAP_PRINT_NONE_ROOT == 'Enable'):
 	root_ids = ou.root()
@@ -191,7 +195,7 @@ def generate_org(ou_id):
 			dummy = print_OU(non_org, non_root_dn, stedkodestr)
 
 def print_OU(id, par_ou, stedkodestr, par):
-    ou = Factory.get('OU')(Cerebrum)
+    ou = Factory.get('OU')(db)
     ou.clear()
     ou.find(id)
     street_string = None
@@ -303,7 +307,7 @@ def print_OU(id, par_ou, stedkodestr, par):
     	return str_ou
 
 def trav_list(par, ou_list, par_ou):
-    stedkode = Stedkode.Stedkode(Cerebrum)
+    stedkode = Stedkode.Stedkode(db)
     for c,p in ou_list:
 	# Check if it is child of parent and not cyclic
 	if (p == par) and (c <> par):
@@ -329,12 +333,18 @@ def trav_list(par, ou_list, par_ou):
 def generate_person():
     glob_fd.write(container_entry_string('PERSON'))
 
-    person = Factory.get('Person')(Cerebrum)
-    group = Factory.get('Group')(Cerebrum)
+    person = Factory.get('Person')(db)
+    group = Factory.get('Group')(db)
+    account = Factory.get('Account')(db)
     objclass_string = ""
     for objclass in ('top', 'person', 'organizationalPerson',
                      'inetOrgPerson', 'eduPerson', 'norEduPerson'):
 	objclass_string += "objectClass: %s\n" % objclass
+
+    if mail_module:
+        # We don't want to import this if mod_email isn't present.
+        from Cerebrum.modules import Email
+
     dn_base = cereconf.LDAP_BASE
     dn_string = get_tree_dn('PERSON')
     person_spread = acl_spread = None
@@ -381,19 +391,138 @@ def generate_person():
     else: email_enable = False
     affili_stu = "student"
     affili_em = "employee"
-    for row in person.list_extended_person(person_spread,
-			include_quarantines=True, include_mail=email_enable):
-	name,entity_name,ou_id,affili,status = row['name'],row['entity_name'],\
-			row['ou_id'],row['affiliation'],int(row['status'])
-	person.clear()
-        person.entity_id = row['person_id']
-	p_affiliations = person.get_affiliations()
+
+    # Make dict with all affiliations.
+    logger.debug("Starting person.list_affiliations().")
+    start = now()
+    affiliations = {}
+    for row in person.list_affiliations():
+        # 'affiliation', 'source_system', 'status', 'ou_id'
+        dict = {}
+        for x in ('affiliation', 'source_system', 'status', 'ou_id'):
+            dict[x] = row[x]
+        affiliations.setdefault(int(row['person_id']),
+                                []).append(dict)
+    logger.debug("person.list_affiliations() done in '%d' secs.", now()-start)
+
+    # Make dict with all contacts.
+    logger.debug("Starting person.list_contact_info().")
+    start = now()
+    contact_info = {}
+    for row in person.list_contact_info(entity_type=co.entity_person):
+        if not contact_info.has_key(int(row['entity_id'])):
+            contact_info[int(row['entity_id'])] = {}
+        contact_info[int(row['entity_id'])][row['contact_type']] = row['contact_value']
+    logger.debug("person.list_contact_info() done in '%d' secs.", now()-start)
+
+    # Make dict with all person_names.
+    logger.debug("Starting person.list_names_info().")
+    start = now()
+    person_names = {}
+    for row in person.list_persons_name(source_system=co.system_cached,
+                                        name_type=[co.name_full,
+                                                   co.name_first,
+                                                   co.name_last]):
+        if not person_names.has_key(int(row['person_id'])):
+            person_names[int(row['person_id'])] = {}
+        person_names[int(row['person_id'])][int(row['name_variant'])] = row['name']
+    logger.debug("person.list_names() done in '%d' secs.", now()-start)
+
+    # Make dict with all person_names2.
+    logger.debug("Starting person.list_names_info2().")
+    start = now()
+    person_title = {}
+    for row in person.list_persons_name(name_type=[co.name_personal_title,
+						   co.name_work_title]):
+        if not person_title.has_key(int(row['person_id'])):
+            person_title[int(row['person_id'])] = {}
+        person_title[int(row['person_id'])][int(row['name_variant'])] = row['name']
+    logger.debug("person.list_names2() done in '%d' secs.", now()-start)
+
+    # Iff Make dict with all email-addresses.
+    if mail_module:
+        et = Email.EmailTarget(db)
+        logger.debug("Starting et.list_email_target_primary_addresses().")
+        start = now()
+        mail_addresses = {}
+        for row in et.list_email_target_primary_addresses(target_type=\
+                                                          co.email_target_account):
+            if row['entity_id']:
+                # TBD: Should we check for multiple values for primary
+                #      addresses?
+                mail_addresses[int(row['entity_id'])] = [row['local_part'],
+                                                         row['domain']]
+            else:
+                logger.warn("email_target: '%d' got no user.", int(row['target_id']))
+        logger.debug("et.list_email_target_primary_addresses() done in '%d' secs.",
+                     now()-start)
+    else:
+        logger.debug("Mail-module skipped.")
+
+    # Make dict with all auth-data.
+    logger.debug("Starting account.list_account_authentication().")
+    start = now()
+    acc_info = {}
+    auth_info = {}
+    for row in account.list_account_authentication(auth_type=[co.auth_type_md5_crypt,
+                                                              co.auth_type_crypt3_des]):
+        acc_info[int(row['account_id'])] = row['entity_name']            
+        if not auth_info.has_key(int(row['account_id'])):
+            auth_info[int(row['account_id'])] = {}
+        if row['method']:
+            auth_info[int(row['account_id'])][int(row['method'])] = row['auth_data']
+    logger.debug("account.list_account_authentication() done in '%d' secs.",
+                 now()-start)
+
+    # Make dict with all entity_address.
+    logger.debug("Starting person.list_entity_addresses().")
+    start = now()
+    addr_info = {}
+    for row in person.list_entity_addresses(\
+        entity_type=co.entity_person,
+        source_system=getattr(co,cereconf.LDAP_SOURCE_SYSTEM),
+        address_type=[co.address_street, co.address_post]):
+        if not addr_info.has_key(int(row['entity_id'])):
+            addr_info[int(row['entity_id'])] = {}
+        addr_info[int(row['entity_id'])][int(row['address_type'])] = (
+            row['address_text'], row['p_o_box'], row['postal_number'],
+            row['city'], row['country'])
+    logger.debug("person.list_entity_addresses() done in '%d' secs.",
+                 now()-start)
+    
+
+
+    # Start iterating over people:    
+    logger.debug("Starting person.list_extended_person().")
+    round = 0
+    start = now()
+    cur = now()
+    for row in person.list_persons_atype_extid(person_spread,
+                                               include_quarantines=True):
+        if round % 10000 == 0:
+            logger.debug("Rounded '%d' rows in '%d' secs.", round, now()-cur)
+            cur = now()
+
+        round += 1
+        person_id, account_id, ou_id = row['person_id'], row['account_id'],\
+                                       row['ou_id']
+                                                       
+        if affiliations.has_key(person_id):
+            p_affiliations = affiliations[person_id]
+        else:
+            logger.warn("Person %s got no affiliations. Skipping.", person_id)
+            continue
+        if acc_info.has_key(account_id):
+            uname = acc_info[account_id]
+        else:
+            logger.warn("Person %s got no account. Skipping.", person_id)
+            continue
 	aci_person = False 
 	print_person = False
 	print_phaddr = False
 	if (cereconf.LDAP_PERSON_FILTER == 'Enable'):
 	    for pr_status in p_affiliations:
-		status = int(pr_status['status'])
+                status = int(pr_status['status'])                
 		if status in valid_print_affi: 
 		    print_person = True
 		    if status in valid_phaddr_affi: 
@@ -403,146 +532,176 @@ def generate_person():
 	else: 
 	    print_person = True
 	    print_phaddr = True
-	if print_person:
-	    person.clear()
-	    person.entity_id = row['person_id']
-	    pers_string = "dn: uid=%s,%s\n" % (entity_name, dn_string)
-	    pers_string += "%s" % objclass_string
-  	    utf_name = some2utf(name)
-	    pers_string += "cn: %s\n" % utf_name
-	    if row['birth_date']:
-		pers_string += "norEduPersonBirthDate: %s\n" % (
-                    time.strftime("%Y%m%d",
-                                  time.strptime(str(row['birth_date']),
-                                                "%Y-%m-%d %H:%M:%S.00")))
-	    pers_string += ("norEduPersonNIN: %s\n"
-                            % re.sub(r'\D','',row['external_id']))
-	    pers_string += "eduPersonOrgDN: %s\n" % dn_base
-	    try:
-		if (ou_struct[int(ou_id)][5] == None):
-	    	    prim_org = (ou_struct[int(ou_id)][0])
-		else:
-		    par = int(ou_struct[int(ou_id)][5])
-		    while ou_struct[par][5] <> None:
-			par = int(ou_struct[int(par)][5])
-		    prim_org = (ou_struct[par][0])
-	    except:
-		prim_org = ""
-	    if not prim_org.endswith(get_tree_dn('ORG')):
-		prim_org = "ou=%s,%s" % (cereconf.LDAP_NON_ROOT_ATTR,
-                                         get_tree_dn('ORG'))
-	    pers_string += "eduPersonPrimaryOrgUnitDN: %s\n" % prim_org
-	    org_printed = []
-	    pers_string += "eduPersonOrgUnitDN: %s\n" % prim_org
-	    org_printed.append(prim_org)
-	    for edu_org in p_affiliations:
-		try:
-		    org = ou_struct[int(edu_org['ou_id'])][0]
-		    if org not in org_printed and \
-				(ou_struct[int(edu_org['ou_id'])][5]==None):
-			pers_string += "eduPersonOrgUnitDN: %s\n" % org
-			org_printed.append(org)
-		except: pass
-	    pers_string += "eduPersonPrincipalName: %s@%s\n" % (
-                entity_name, cereconf.INSTITUTION_DOMAIN_NAME)
-	    lastname = name
-	    for sys in cereconf.SYSTEM_LOOKUP_ORDER:
-		try:
-		    pers_string += "givenName: %s\n" % \
-			some2utf(person.get_name(getattr(co,sys),co.name_first))
-		    lastname = person.get_name(getattr(co,sys),co.name_last)
-		    break
-		except:
-		    pass
-	    if email_enable:
-	    	if row['local_part'] and row['domain']:
-		    domain = row['domain']
-		    if email_domains and email_domains.has_key(domain):
-			pers_string += "mail: %s@%s\n" % (row['local_part'],
-							email_domains[domain])
-		    else:
-			pers_string += "mail: %s@%s\n" % (row['local_part'],
-									domain)
+	if not print_person: continue
+        
+        pers_string = "dn: uid=%s,%s\n" % (uname, dn_string)
+        pers_string += "%s" % objclass_string
+        if person_names.has_key(person_id):
+            if person_names[person_id].has_key(int(co.name_full)):
+                utf_name = some2utf(person_names[person_id][int(co.name_full)])
+            elif person_names[person_id].has_key(int(co.name_first)) and \
+                     person_names[person_id].has_key(int(co.name_last)):
+                utf_name = some2utf("%s %s" % (
+                    person_names[person_id][int(co.name_first)],
+                    person_names[person_id][int(co.name_last)]))
+            else:
+                logger.warn("Person got no name: %s", person_id)
+                continue
+        pers_string += "cn: %s\n" % utf_name
+        if row['birth_date']:
+            pers_string += "norEduPersonBirthDate: %s\n" % (
+                time.strftime("%Y%m%d",
+                              time.strptime(str(row['birth_date']),
+                                            "%Y-%m-%d %H:%M:%S.00")))
+        pers_string += ("norEduPersonNIN: %s\n"
+                        % re.sub(r'\D','',row['external_id']))
+        pers_string += "eduPersonOrgDN: %s\n" % dn_base
+        try:
+            if (ou_struct[int(ou_id)][5] == None):
+                prim_org = (ou_struct[int(ou_id)][0])
+            else:
+                par = int(ou_struct[int(ou_id)][5])
+                while ou_struct[par][5] <> None:
+                    par = int(ou_struct[int(par)][5])
+                prim_org = (ou_struct[par][0])
+        except:
+            prim_org = ""
+        if not prim_org.endswith(get_tree_dn('ORG')):
+            prim_org = "ou=%s,%s" % (cereconf.LDAP_NON_ROOT_ATTR,
+                                     get_tree_dn('ORG'))
+        pers_string += "eduPersonPrimaryOrgUnitDN: %s\n" % prim_org
+        org_printed = []
+        pers_string += "eduPersonOrgUnitDN: %s\n" % prim_org
+        org_printed.append(prim_org)
+        for edu_org in p_affiliations:
+            try:
+                org = ou_struct[int(edu_org['ou_id'])][0]
+                if org not in org_printed and \
+                       (ou_struct[int(edu_org['ou_id'])][5]==None):
+                    pers_string += "eduPersonOrgUnitDN: %s\n" % org
+                    org_printed.append(org)
+            except: pass
+        pers_string += "eduPersonPrincipalName: %s@%s\n" % (
+            uname, cereconf.INSTITUTION_DOMAIN_NAME)
+        lastname = utf_name
+        if person_names.has_key(person_id):
+            if person_names[person_id].has_key(int(co.name_first)):
+                pers_string += "givenName: %s\n" % \
+                               some2utf(person_names[person_id][int(co.name_first)])
+            else:
+                logger.warn("Person got no firstname: %s", person_id)
+                continue
+            if person_names[person_id].has_key(int(co.name_last)):
+                lastname = person_names[person_id][int(co.name_last)]
+            else:
+                logger.warn("Person got no lastname: %s", person_id)
+                continue
+        else:
+            logger.warn("Person got no names: %s", person_id)
+            continue
+                
+        if mail_module:
+            if mail_addresses.has_key(int(row['account_id'])):
+                lp, dom = mail_addresses[int(row['account_id'])]
+                if email_domains and email_domains.has_key(dom):
+                    pers_string += "mail: %s@%s\n" % (lp,
+                                                      email_domains[dom])
+                else:
+                    pers_string += "mail: %s@%s\n" % (lp,
+                                                      dom)
+        else:
+            pers_string += "mail: %s\n" % person.get_contact_info(source=None,
+                                                                  type=co.contact_email)
+        if lastname:
+            pers_string += "sn: %s\n" % some2utf(lastname)
+        if print_phaddr:
+            # address_post:
+            if addr_info.has_key(person_id) and \
+                   addr_info[person_id].has_key(int(co.address_post)):
+                a_txt, p_o_box, p_num, city, country = \
+                       addr_info[person_id][int(co.address_post)]
+                post_string = make_address("$", p_o_box, a_txt, p_num,
+                                           city, country)
+                pers_string += "postalAddress: %s\n" % post_string
+            # address_street:
+            if addr_info.has_key(person_id) and \
+                   addr_info[person_id].has_key(int(co.address_street)):
+                a_txt, p_o_box, p_num, city, country = \
+                       addr_info[person_id][int(co.address_street)]
+                street_string = make_address(", ", None, a_txt, p_num,
+                                           city, country)
+                pers_string += "street: %s\n" % street_string
+            # titles:
+	    if person_title.has_key(person_id) and \
+		   person_title[person_id].has_key(int(co.name_personal_title)):
+	        pers_string += "title: %s\n" % \
+                               some2utf(person_title[person_id][int( \
+                    co.name_personal_title)])
 	    else:
-		pers_string += "mail: %s\n" % person.get_contact_info(source=None,
-							type=co.contact_email)
-	    if lastname:
-		pers_string += "sn: %s\n" % some2utf(lastname)
-	    if print_phaddr:
-		if ((row['post_text']) or (row['post_postal'])):
-		    post_string = make_address("$",
-					row['post_box'],
-					row['post_text'],
-					row['post_postal'],
-					row['post_city'],
-					row['post_country'])
-		    pers_string += "postalAddress: %s\n" % post_string
-		if ((row['address_text']) or (row['postal_number'])):
-		    street_string = make_address(", ",
-					None,
-					row['address_text'],
-					row['postal_number'],
-					row['city'],
-					row['country'])
-		    pers_string += "street: %s\n" % street_string
-		if row['personal_title']:
+		if person_title.has_key(person_id) and \
+		       person_title[person_id].has_key(int(co.name_work_title)):
 		    pers_string += "title: %s\n" % \
-				some2utf(row['personal_title'])
-		else:
-     		    if row['title']:
-			pers_string += "title: %s\n" % some2utf(row['title'])
-		if ph_tab.has_key(person.entity_id):
-		    for phone in ph_tab[person.entity_id]:
-			pers_string += "telephoneNumber: %s\n" % phone
-		if fax_tab.has_key(person.entity_id):
-                    for fax in fax_tab[person.entity_id]:
-                        pers_string += "facsimileTelephoneNumber: %s\n" % fax
-	    affili_str = str('')
-	    for affi in p_affiliations:
-                if (int(affi['affiliation']) == int(co.affiliation_ansatt)):
-                    if (affili_str.find(affili_em) == -1):
-                        pers_string += "eduPersonAffiliation: %s\n" % affili_em
-			affili_str += affili_em
-		    if (affi['status'] == co.affiliation_status_ansatt_tekadm
-                        and affili_str.find('staff') == -1):
-			pers_string += "eduPersonAffiliation: staff\n"
-			affili_str += 'staff' 
-		    if (affi['status'] == co.affiliation_status_ansatt_vit
-                        and affili_str.find('faculty') == -1):
-			pers_string += "eduPersonAffiliation: faculty\n"
-			affili_str += 'faculty'
-                if (int(affi['affiliation']) == int(co.affiliation_student)):
-                    if (affili_str.find(affili_stu) == -1):
-                        pers_string +="eduPersonAffiliation: %s\n" % affili_stu
-                        affili_str += affili_stu
-	    pers_string += "uid: %s\n" % entity_name
-            passwd = (row['auth_data'] or row['auth_crypt'])
-	    if passwd:
-		if row['quarantine_type'] is not None:
-            	    qh = QuarantineHandler.QuarantineHandler(Cerebrum, 
-						[row['quarantine_type']])
-            	    if qh.should_skip():
-			continue
-            	    if qh.is_locked():
-			passwd = '*Locked'
-            pers_string += "userPassword: {crypt}%s\n" % (passwd or '*Invalid')
+				some2utf(person_title[person_id][int( \
+                        co.name_work_title)])
+            # phone & fax:
+            if ph_tab.has_key(person_id):
+                for phone in ph_tab[person_id]:
+                    pers_string += "telephoneNumber: %s\n" % phone
+            if fax_tab.has_key(person_id):
+                for fax in fax_tab[person_id]:
+                    pers_string += "facsimileTelephoneNumber: %s\n" % fax
+        affili_str = str('')
+        for affi in p_affiliations:
+            if (int(affi['affiliation']) == int(co.affiliation_ansatt)):
+                if (affili_str.find(affili_em) == -1):
+                    pers_string += "eduPersonAffiliation: %s\n" % affili_em
+                    affili_str += affili_em
+                if (affi['status'] == co.affiliation_status_ansatt_tekadm
+                    and affili_str.find('staff') == -1):
+                    pers_string += "eduPersonAffiliation: staff\n"
+                    affili_str += 'staff' 
+                if (affi['status'] == co.affiliation_status_ansatt_vit
+                    and affili_str.find('faculty') == -1):
+                    pers_string += "eduPersonAffiliation: faculty\n"
+                    affili_str += 'faculty'
+            if (int(affi['affiliation']) == int(co.affiliation_student)):
+                if (affili_str.find(affili_stu) == -1):
+                    pers_string +="eduPersonAffiliation: %s\n" % affili_stu
+                    affili_str += affili_stu
+        pers_string += "uid: %s\n" % uname
+        passwd = ""
+        if auth_info.has_key(account_id):
+            passwd = auth_info[account_id].get(int(co.auth_type_md5_crypt))
+            if not passwd:
+                passwd = auth_info[account_id].get(int(co.auth_type_crypt3_des))
+        else:
+            logger.warn("User %s got no password-hash.", uname)
+    
+        if row['quarantine_type'] is not None:
+            qh = QuarantineHandler.QuarantineHandler(db, 
+                                                     [row['quarantine_type']])
+            if qh.should_skip():
+                continue
+            if qh.is_locked():
+                passwd = '*Locked'
+        pers_string += "userPassword: {crypt}%s\n" % (passwd or '*Invalid')
 
-	    #if aci_person  and (int(person.entity_id)  not in aci_empl_gr):
-	    if aci_person  and not aci_empl_gr.has_key(int(person.entity_id)):
-		pers_string += "%s\n" % cereconf.LDAP_PERSON_ACI
-	    elif (aci_student_gr.has_key(int(person.entity_id))) and \
-							not aci_person:
-		pers_string += "%s\n" % cereconf.LDAP_PERSON_ACI
-	    alias_list[int(person.entity_id)] = entity_name, prim_org,\
-							name, lastname
-	    glob_fd.write(pers_string)
-	    glob_fd.write("\n")
-	else:
-	    pass
-
+        #if aci_person  and (int(person.entity_id)  not in aci_empl_gr):
+        if aci_person  and not aci_empl_gr.has_key(int(person_id)):
+            pers_string += "%s\n" % cereconf.LDAP_PERSON_ACI
+        elif (aci_student_gr.has_key(int(person_id))) and \
+                 not aci_person:
+            pers_string += "%s\n" % cereconf.LDAP_PERSON_ACI
+        alias_list[int(person_id)] = uname, prim_org,\
+                                     utf_name, lastname
+        glob_fd.write(pers_string)
+        glob_fd.write("\n")
+	
+    logger.debug("person.list_extended_person done in '%d' sec.", now()-start)
+    
 
 def generate_alias():
-    person = Factory.get('Person')(Cerebrum)
+    person = Factory.get('Person')(db)
     dn_string  = get_tree_dn('PERSON')
     obj_string = "".join(["objectClass: %s\n" % oc for oc in
                           ('top', 'alias', 'extensibleObject')])
@@ -565,12 +724,13 @@ def generate_alias():
 
 ou_rdn_re = re.compile(r'[,+\\ ]+')
 
+
 def make_ou_for_rdn(ou):
     return ou_rdn_re.sub(' ', ou).strip()
 
 
 def get_contacts(entity_id=None,source_system=None,contact_type=None,email=0):
-    entity = Entity.EntityContactInfo(Cerebrum)
+    entity = Entity.EntityContactInfo(db)
     cont_tab = {}
     for x in entity.list_contact_info(entity_id=entity_id, \
 		source_system=source_system,contact_type=contact_type):
@@ -597,37 +757,59 @@ def get_contacts(entity_id=None,source_system=None,contact_type=None,email=0):
 
 
 def main():
+    global logger, mail_module
+
+    logger = Factory.get_logger("console")
+    # The script is designed to use the mail-module.
+    mail_module = True
+    ofile = None
+
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'o:', ['help', 'org='])
-        opts = dict(opts)
+        opts, args = getopt.getopt(sys.argv[1:], 'o:m', ['help',
+                                                         'org=',
+                                                         'omit-mail-module'])
     except getopt.GetoptError:
         usage(1)
-    if args or opts.has_key('--help'):
-        usage(bool(args))
+    for opt, val in opts:
+        if opt in ('-o', '--org'):
+            ofile = val
+        elif opt in ('-m', '--omit-mail-module'):
+            mail_module = False
+        elif opt in ('-h', '--help'):
+            usage(0)
 
     if (cereconf.LDAP_ORG_ROOT_AUTO != 'Enable'):
         try:
             org_root = int(cereconf.LDAP_ORG_ROOT)
         except Errors.NotFoundError:
-            print "ORG_ROOT parameter in ldapconf.py not valid"
+            logger.error("ORG_ROOT parameter in ldapconf.py not valid")
             raise
     else:
         org_root = root_OU()
 
-    if org_root:
-        global glob_fd
-        glob_fd = SimilarSizeWriter(opts.get('--org') or opts.get('-o') or
-                                    cereconf.LDAP_DUMP_DIR + '/'
-                                    + cereconf.LDAP_ORG_FILE)
-        glob_fd.set_size_change_limit(10)
-
-        config(org_root)
-
-        glob_fd.close()
+    if not org_root:
+        logger.error("Noe root-OU found. Exiting.")
+        sys.exit(1)
+        
+    global glob_fd
+    start = now()
+    logger.debug("Opening file and starting dump.")
+    glob_fd = SimilarSizeWriter(ofile or
+                                cereconf.LDAP_DUMP_DIR + '/'
+                                + cereconf.LDAP_ORG_FILE)
+    glob_fd.set_size_change_limit(10)
+    config(org_root)
+    glob_fd.close()
+    logger.debug("Closing file, dump done in %d sec.", now()-start)
 
 def usage(exitcode=0):
-    print """Usage: [--org=<outfile> | -o <outfile>]
- Write organization, person (if enabled) and alias (if enabled) to LDIF-file"""
+    print """Usage: [-h|--help] [-o <outfile>|--org=<outfile>] [-m|--omit-mail-module]
+      -o <outfile> | --org=<outfile> : Set ouput-file. 
+      -m | --omit-mail-module        : Omit the mail-module in Cerebrum.
+      -h | --help                    : This help-text.
+ Write organization, person (if enabled) and alias (if enabled) to LDIF-file.
+ If --omit-mail-module; mail-addresses are read from contact_info. Usefull
+ for instalations without the mod_email-module."""
     sys.exit(exitcode)
 
 def config(org_root):
