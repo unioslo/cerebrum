@@ -1,0 +1,196 @@
+<html><head><title>administration protocol</title></head>
+<body>
+
+<h1>Introduction</h1>
+
+This document describes the protocol used to interact between the
+Cerebrum administration server and its clients.
+
+<p>
+
+The protocol is based on TCP/IP, and servers implementing it are
+listening on port XYZ.
+
+<p>
+
+This is work in progress
+
+<h2>Request -&gt; response protocol</h2>
+
+In this protocol, the client is allowed to send messages, which the
+server replies to.  The server does not explicitly contact the client
+on its own.
+
+<h2>Protocol encoding</h2>
+
+Messages and responses are implemented using <a
+href="http://www.xml-rpc.com/">XML-RPC</a>, an open standard that
+allows clients to call methods on a server.  The method calls and the
+return values are encoded as XML.  All of this is automatically handled
+by xmlrpclib which is included in Python.
+
+<p>
+
+XML-RPC was originally built for HTTP, but can also be used on top of
+other protocols.
+
+<h2>XML-RPC over HTTPS</h2>
+
+The request-&gt;response behavior of a typical bofh client makes HTTP
+a suitable protocol for transfer of the XML-RPC messages.  However,
+for security reasons, <a
+href="http://www.ietf.org/rfc/rfc2818.txt">HTTPS</a> is used.
+
+<p>
+
+In the future, we might decide to use another transfer protocol.  This
+should only require minor changes to clients/servers.
+
+<p>
+
+It is legal for the client to have multiple requests running at the
+same time with the same sessionid.
+
+<h1>Methods</h1>
+
+The return values of XML-RPC callable methods can among other things
+be dictionaries, lists strings and integers.
+
+<p>
+
+As the server is extend-able by modules all methods will not be
+described here.  Use the python help function for a list of callable
+methods in a given module.
+
+<p>
+
+When an error occurs, a xmlrpclib.Fault is raised with the message
+parameter describing the cause of the error.
+
+<h3>TODO</h3>
+
+We might want to do something more fancy to fake various kinds of
+exceptions, useful exceptions could be:
+
+<ul>
+<li>AuthenticationError
+<li>InvalidSessionError (sessions time-out after some time?)
+<li>BadArgError
+</ul>
+
+This would probably requiring clients to wrap the calls to the server
+methods so that xmlrpclib.Fault could be converted to something else.
+HOW?
+
+<h2>login(uname, password</h2>
+
+<pre>sessid = testsvr.login(user, passwd)</pre>
+
+The login method authenticates the user.  Upon success, a sessionid is
+returned which must be used for future communication with the server.
+
+<h2>ping()</h2>
+Returns the string <code>pong</code> to indicate that the server is alive
+
+<h2>get_commands(sessionid)</h2>
+
+This command returns a tuple of tuples describing the commands
+available in the server for the user with the corresponding sessionid.
+The format of the data is as follows:
+
+<pre> 
+#   protocol_command  bofh_cmd1 bofh_cmd2 parameter[1..n] #of_loopable_param
+commands = (
+    ('get_person', 'person', 'get', 'number', 1),
+    ('add_fg', 'filegroup', 'add', 'string', 'string', 1),
+</pre>
+
+Here protocol_command is the name of the function that will be called
+in the server.  bofh_cmd1 and bofh_cmd2 are the keywords that uniqualy
+identifies this command.  parameter[1..n] indicates the expected type
+of the parameter.  Legal types are:
+
+<ul>
+<li>number
+<li>string
+</ul>
+
+The last number is only used by the client to make it able to encode
+multiple server commands from one user command if the user wants to
+perform the same action on multiple targets.  In the example above, if
+the user typed: <code>filegroup add user1 user2 group</code>, the
+client should send:
+<pre>add_fg(user1, group)
+add_fg(user2, group)
+</pre>
+
+<h2>validate(argtype, arg)</h2>
+<pre>if validate('fodselsnr', 12345678901):</pre>
+Validates that arg is legal for the given argtype, and returns 1 on
+success, otherwise raises an error.  The defined argtypes are:
+
+<ul>
+<li>fodselsnr : Norwegian social security number
+</ul>
+
+See the server source code for a complete list.
+
+<h2>help(keyword)</h2>
+
+Returns a string with help for the given keyword
+
+<h2>run_command(sessionid, *args)</h2>
+
+Calls one of the methods returned from get_commands().  See the help
+for the given method for parameters and return values.
+
+<p>
+
+The usage of run_command() as a wrapper for all other functions allows
+centralized handling of some authenticaion logic and any server
+messages (see below).  One might argue that the methods should be exported
+directly, but this will put a greater burden on the server
+implementator not to accidentaly make it possible to call methods
+without being authenticated.
+
+
+<h1>Extension to the run_command() return values</h1>
+
+The server may wish to notify the client of an event.  Since the
+server cannot send messages to the client, all responses to the
+run_command() are prepended with a server_msg.
+
+<pre>server_msg, ret_value = server.function()</pre>
+
+The legal values for server_msg are:
+
+<ul>
+<li>reload: Notifies the client that it should restart itself.
+Typically called when the authenticated user has gotten more/less
+rights and one wants to update the list of available commands
+<li>echo;msg: Echo the given message on the client
+</ul>
+
+<h1>Extending bofhd.py</h1>
+
+<code>config.dat</code> contains a list of the modules that should be
+loaded into bofhd.  It contains a number of lines of the format:
+<pre>module_file classname</pre> module_file does not have a .py
+ending.
+
+classname must implement a method <code>get_commands(self,
+uname)</code> with return values on the same format as described above.
+
+<p>
+Will we do this?:<br> 
+
+The protocol_commands specified will automatically be prepended with
+module_file so that name-clashes for method names will be avoided.  No
+steps are taken to avoid clash of command names.
+
+
+<hr>
+<address>$Revision$</address>
+
+</body>
+</html>
