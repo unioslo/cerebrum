@@ -42,3 +42,4 @@ class SambaMixin(PosixLDIF):
 	    entry['sambaSID'] = entry['uidNumber']
 	return self.__super.update_user_entry(account_id,entry, row)
 
+# arch-tag: e2f10a69-807b-4b18-8893-530a4cae1a38
