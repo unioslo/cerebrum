@@ -435,8 +435,8 @@ def main():
                                           fak_sko)
             register_group(faknavn, brukere_sted_id, brukere_id)
             brukere_studenter_id = brukere_sted_id + ':student'
-            register_group('Studenter', brukere_studenter_id,
-                           brukere_sted_id)
+            register_group('Studenter ved %s' % faknavn,
+                           brukere_studenter_id, brukere_sted_id)
             fellesrom_sted_id = fellesrom_id + ":%s:%s" % (
                 cereconf.DEFAULT_INSTITUSJONSNR, fak_sko)
             register_group(faknavn, fellesrom_sted_id, fellesrom_id,
