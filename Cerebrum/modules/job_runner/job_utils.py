@@ -440,8 +440,8 @@ class JobQueue(object):
         if (pid is None or
             (self._known_jobs[job_name].call and
              self._known_jobs[job_name].call.wait)):
-            self.db_qh.update_last_run(job_name, self._last_run[job_name])
             self._last_run[job_name] = time.time()
+            self.db_qh.update_last_run(job_name, self._last_run[job_name])
         else:
             # This means that an assertRunning job has terminated.
             # Don't update last_run as this would delay an attempt to
