@@ -40,75 +40,146 @@ class FSPerson(object):
         self.YY = str(t[0])[2:]
 
     def GetKursFagpersonundsemester(self):
+        """Hent ut fagpersoner som har undervisning i inneværende
+        eller forrige semester"""
+
         qry = """
 SELECT DISTINCT
-       fp.fodselsdato, fp.personnr,
-       p.etternavn, p.fornavn,
-       fp.adrlin1_arbeide, fp.adrlin2_arbeide,
-       fp.postnr_arbeide, fp.adrlin3_arbeide,
-       fp.adresseland_arbeide,
+       fp.fodselsdato, fp.personnr, p.etternavn, p.fornavn,
+       fp.adrlin1_arbeide, fp.adrlin2_arbeide, fp.postnr_arbeide,
+       fp.adrlin3_arbeide, fp.adresseland_arbeide,
        fp.telefonnr_arbeide, fp.telefonnr_fax_arb,
        p.telefonnr_hjemsted, fp.stillingstittel_engelsk,
-       r.institusjonsnr, r.faknr, r.instituttnr, r.gruppenr
+       r.institusjonsnr, r.faknr, r.instituttnr, r.gruppenr,
+       r.status_aktiv
 FROM fs.person p, fs.fagperson fp,
      fs.fagpersonundsemester r
-WHERE r.fodselsdato = fp.fodselsdato and
-      r.personnr = fp.personnr and
-      fp.fodselsdato = p.fodselsdato and
-      fp.personnr = p.personnr and
+WHERE r.fodselsdato = fp.fodselsdato AND
+      r.personnr = fp.personnr AND
+      fp.fodselsdato = p.fodselsdato AND
+      fp.personnr = p.personnr AND
       %s
         """ % self.get_termin_aar()
         return (self._get_cols(qry), self.db.query(qry))
 
+    def GetStudinfTilbud(self):
+        """Hent personer som har fått tilbud om opptak"""
+        qry = """
+SELECT DISTINCT
+        p.fodselsdato, p.personnr, p.etternavn, p.fornavn
+FROM fs.soknadsalternativ sa, fs.person p, fs.opptakstudieprogram osp,
+     fs.studieprogram sp
+WHERE p.fodselsdato=sa.fodselsdato AND
+      p.personnr=sa.personnr AND
+      sa.tilbudstatkode IN ('I', 'S') AND
+      sa.studietypenr = osp.studietypenr AND
+      osp.studieprogramkode = sp.studieprogramkode
+        """
+        return (self._get_cols(qry), self.db.query(qry))
+
+    def GetStudinfOpptak(self):
+        """Hent personer som har opptak ved et studieprogram"""
+        qry = """
+SELECT s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
+       s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
+       s.adrlin3_semadr, s.adresseland_semadr, p.adrlin1_hjemsted,
+       p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
+       p.adresseland_hjemsted, p.status_reserv_nettpubl, st.studieprogramkode,
+       st.studierettstatkode
+FROM fs.student s, fs.person p, fs.studierett st
+WHERE  p.fodselsdato=s.fodselsdato AND
+       p.personnr=s.personnr AND
+       p.fodselsdato=st.fodselsdato AND
+       p.personnr=st.personnr AND 
+       st.studierettstatkode IN (
+       'AUTOMATISK', 'AVTALE', 'CANDMAG', 'DIVERSE', 'EKSPRIV',
+       'ERASMUS', 'FJERNUND', 'GJEST', 'FULBRIGHT', 'HOSPITANT',
+       'KULTURAVTALE', 'KVOTEPROG', 'LEONARDO', 'OVERGANG', 'NUFU',
+       'SOKRATES', 'LUBECK', 'NORAD', 'ARKHANG', 'NORDPLUS',
+       'ORDOPPTAK', 'PRIVATIST', 'EVU', 'FULLFØRT')"""
+        return (self._get_cols(qry), self.db.query(qry))
+
+    def GetStudinfPerm(self):
+        """Hent personer som har innvilget permisjon.  Disse vil
+        alltid ha opptak, så vi henter bare noen få kolonner"""
+        qry = """
+SELECT  studieprogramkode, fodselsdato, personnr
+FROM fs.innvilget_permisjon
+WHERE dato_fra < SYSDATE AND NVL(dato_til, SYSDATE) >= SYSDATE
+        """
+        return (self._get_cols(qry), self.db.query(qry))
+
+    def GetStudieproginf(self):
+        qry = """
+SELECT studieprogramkode, status_utdplan, faknr_studieansv,
+       instituttnr_studieansv, gruppenr_studieansv
+FROM fs.studieprogram"""
+        return (self._get_cols(qry), self.db.query(qry))
+
     def GetStudinfRegkort(self):
-        qry = """SELECT DISTINCT
-       r.fodselsdato, r.personnr,
-       p.etternavn, p.fornavn,
-       s.adrlin1_semadr,s.adrlin2_semadr,
-       s.postnr_semadr, s.adrlin3_semadr,
-       s.adresseland_semadr,
-       p.adrlin1_hjemsted, p.adrlin2_hjemsted,
-       p.postnr_hjemsted, p.adrlin3_hjemsted,
-       p.adresseland_hjemsted,
-       p.status_reserv_nettpubl
+        """Hent informasjon om semester-registrering og betaling"""
+        qry = """
+SELECT DISTINCT
+       r.fodselsdato, r.personnr, p.etternavn, p.fornavn,
+       s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
+       s.adrlin3_semadr, s.adresseland_semadr, p.adrlin1_hjemsted,
+       p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
+       p.adresseland_hjemsted, p.status_reserv_nettpubl
 FROM fs.registerkort r, fs.student s, fs.person p, fs.studierett st
-WHERE  r.fodselsdato=p.fodselsdato and
-       p.fodselsdato=s.fodselsdato and
-       r.personnr=p.personnr and
-       p.personnr=s.personnr and
-       r.fodselsdato=st.fodselsdato and
-       r.personnr=st.personnr and
-       st.opphortstudierettstatkode is null and
-       st.status_privatist='N' and
+WHERE  r.fodselsdato=p.fodselsdato AND
+       p.fodselsdato=s.fodselsdato AND
+       r.personnr=p.personnr AND
+       p.personnr=s.personnr AND
+       r.fodselsdato=st.fodselsdato AND
+       r.personnr=st.personnr AND
+       st.opphortstudierettstatkode IS NULL AND
+       st.status_privatist='N' AND
        %s
     """ % self.get_termin_aar()
         return (self._get_cols(qry), self.db.query(qry))
 
-    def GetStudinfNaaKlasse(self):
+    def GetStudinfEvu(self):
+        """Hent informasjon om EVU studenter hvor kursets
+        avsluttningsdato er mindre enn 6 mnd. siden"""
         qry = """
-SELECT s.fodselsdato, s.personnr,
-       p.etternavn, p.fornavn,
-       s.adrlin1_semadr,s.adrlin2_semadr,
-       s.postnr_semadr, s.adrlin3_semadr,
-       s.adresseland_semadr,
-       p.adrlin1_hjemsted, p.adrlin2_hjemsted,
-       p.postnr_hjemsted, p.adrlin3_hjemsted,
-       p.adresseland_hjemsted,
-       p.status_reserv_nettpubl
+SELECT d.fodselsdato, d.personnr, p.etternavn, p.fornavn,
+       d.adrlin1_hjem, d.adrlin2_hjem, d.postnr_hjem, d.adrlin3_hjem,
+       d.adresseland_hjem, p.adrlin1_hjemsted, p.adrlin2_hjemsted,
+       p.postnr_hjemsted, p.adrlin3_hjemsted, p.adresseland_hjemsted,
+       p.status_reserv_nettpubl, ek.faknr_adm_ansvar,
+       ek.instituttnr_adm_ansvar, ek.gruppenr_adm_ansvar
+FROM fs.deltaker d, fs.person p, fs.kursdeltakelse kd, fs.etterutdkurs ek
+WHERE  p.fodselsdato=d.fodselsdato AND
+       p.personnr=d.personnr AND
+       d.deltakernr=kd.deltakernr AND
+       kd.etterutdkurskode = ek.etterutdkurskode AND
+       kd.kurstidsangivelsekode = ek.kurstidsangivelsekode AND
+       ek.dato_til > SYSDATE - 180"""
+        return (self._get_cols(qry), self.db.query(qry))
+
+    def GetStudinfNaaKlasse_obsolete(self):
+        """Hent informasjon om klasser med kullkoder dette semester."""
+        qry = """
+SELECT s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
+       s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
+       s.adrlin3_semadr, s.adresseland_semadr, p.adrlin1_hjemsted,
+       p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
+       p.adresseland_hjemsted, p.status_reserv_nettpubl
 FROM fs.student s, fs.person p, fs.studierett st, fs.naverende_klasse kl
-WHERE  p.fodselsdato=s.fodselsdato and
-       p.personnr=s.personnr and
-       p.fodselsdato=st.fodselsdato and
-       p.personnr=st.personnr and
-       st.opphortstudierettstatkode is null and
-       st.status_privatist='N' and
-       kl.personnr = p.personnr and
-       kl.fodselsdato = p.fodselsdato and
-       (kl.kullkode = '%s-%s' or kl.kullkode = '%s%s')""" % (
+WHERE  p.fodselsdato=s.fodselsdato AND
+       p.personnr=s.personnr AND
+       p.fodselsdato=st.fodselsdato AND
+       p.personnr=st.personnr AND
+       st.opphortstudierettstatkode IS NULL AND
+       st.status_privatist='N' AND
+       kl.personnr = p.personnr AND
+       kl.fodselsdato = p.fodselsdato AND
+       (kl.kullkode = '%s-%s' OR kl.kullkode = '%s%s')""" % (
             self.sem, self.YY, self.sem, self.YY)
         return (self._get_cols(qry), self.db.query(qry))
 
-    def GetStudinfStudierett(self):
+    def GetStudinfStudierett_obsolete(self):
+        """Hent informasjon om personer som har fått studierett siste 90 dager"""
         qry = """
 SELECT s.fodselsdato, s.personnr,
        p.etternavn, p.fornavn,
@@ -129,7 +200,9 @@ WHERE  p.fodselsdato=s.fodselsdato and
        NVL(st.dato_tildelt,SYSDATE-365) > SYSDATE - 90"""
         return (self._get_cols(qry), self.db.query(qry))
 
-    def GetStudinfEvuKurs(self):
+    def GetStudinfEvuKurs_obsolete(self):
+        """Hent informasjon om studenter på evu-kurs der kurs starter
+        om < 14 dager, eller var ferdig for < 14 dager siden"""        
         qry = """
 SELECT d.fodselsdato, d.personnr,
        p.etternavn, p.fornavn,
@@ -150,7 +223,7 @@ WHERE  p.fodselsdato=d.fodselsdato and
        ek.dato_til > SYSDATE - 14"""
         return (self._get_cols(qry), self.db.query(qry))
 
-    def GetAlleEksamener(self, fnr=None):
+    def GetAlleEksamener_obsolete(self, fnr=None):
         fodselsdato=None
         personnr=None
         extra=""
@@ -237,7 +310,7 @@ ORDER BY fodselsdato, personnr"""  % extra
                                     'fodselsdato': fodselsdato,
                                     'personnr': personnr}))
 
-    def FinnAlleStudprogSko(self):
+    def FinnAlleStudprogSko_obsolete(self):
         qry = """
 SELECT DISTINCT
   st.fodselsdato, st.personnr, st.studieprogramkode, sprog.studienivakode,
