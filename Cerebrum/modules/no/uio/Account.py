@@ -226,13 +226,21 @@ class AccountUiOMixin(Account.Account):
                 if svr['server_type'] <> server_type:
                     continue
                 if server_type == self.const.email_server_type_cyrus:
-                    if (svr['name'].startswith('cyrus')
-                        and svr['name'][5:].isdigit()
-                        and 1 <= int(svr['name'][5:]) <= 12):
-                        # One among the first 12 ServiceGuard packages
-                        # of our Cyrus cluster; new users should have
-                        # their mailbox placed on one of these.
-                        email_servs.append(svr['server_id'])
+                    if svr['name'].startswith("mail-sg"):
+                        # Old (VA) cluster; no longer in use.
+                        continue
+                    elif (svr['name'].startswith('cyrus')
+                          and svr['name'][5:].isdigit()):
+                        pkgnum = int(svr['name'][5:])
+                        if pkgnum < 1 or pkgnum > 12:
+                            # Only the first 12 ServiceGuard packages
+                            # of our Cyrus cluster are currently in
+                            # use.
+                            continue
+                # Unless explicitly skipped over by one of the if
+                # tests above, add this email server to our list of
+                # alternatives.
+                email_servs.append(svr['server_id'])
             svr_id = random.choice(email_servs)
             if old_server is None:
                 try:
