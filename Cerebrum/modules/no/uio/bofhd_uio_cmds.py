@@ -3185,8 +3185,8 @@ class BofhdExtension(object):
         return int(self._get_constant(shell, "Unknown shell"))
     
     def _format_ou_name(self, ou):
-        return "%s (%02i%02i%02i)" % (ou.short_name, ou.fakultet,
-                                      ou.institutt, ou.avdeling)
+        return "%02i%02i%02i (%s)" % (ou.fakultet, ou.institutt, ou.avdeling,
+                                      ou.short_name)
 
     def _get_ou(self, ou_id=None, stedkode=None):
         ou = self.OU_class(self.db)
