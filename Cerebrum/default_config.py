@@ -20,7 +20,7 @@
 
 # The name of the DB-API 2.0 driver class.  Supported values is
 # "Oracle" and "PostgreSQL"
-DATABASE_DRIVER = "Oracle"
+DATABASE_DRIVER = "PostgreSQL"
 
 # Files containing the authentication data needed for database access
 # are kept in this directory.
