@@ -1,7 +1,26 @@
 #!/local/python-2.2.1/bin/python2.2
 # #!/usr/bin/env python
 
+# Copyright 2002 University of Oslo, Norway
+#
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
 # $Id$
+
 #
 # Server used by clients that wants to access the cerebrum database.
 #
@@ -20,11 +39,15 @@ import pprint
 
 pp = pprint.PrettyPrinter(indent=4)
 
-class ExportedFuncs:
+class ExportedFuncs(object):
 
-    """These funcstions can be called by anyone with access to the
-    port that the server is running on.  Care must be taken to
-    validate input."""
+    """
+
+    These functions can be called by anyone with access to the port
+    that the server is running on.  Care must be taken to validate
+    input.
+
+    """
 
     def __init__(self, fname):
         self.defaultSessionId = 'secret'
@@ -223,7 +246,7 @@ class ExportedFuncs:
         return 'runefro'
 
 
-class CallableFuncs:
+class CallableFuncs(object):
 
     """All CallableFuncs takes user as first arg, and is responsible
     for checking neccesary permissions"""
