@@ -75,9 +75,11 @@ class EmailConstants(Constants.Constants):
 
     email_target_forward = _EmailTargetCode(
         'forward',
-        "Target is a single email address, possibly in a non-local"
-        " domain.  The email address is taken from"
-        " email_target.alias_value.")
+        "Target is a pure forwarding mechanism; local deliveries will"
+        " only occur as indirect deliveries to the addresses forwarded"
+        " to.  Both email_target.entity_id and email_target.alias_value"
+        " should be NULL, as they are ignored.  The email address(es)"
+        " to forward to is taken from table email_forward.")
 
     email_target_file = _EmailTargetCode(
         'file',
