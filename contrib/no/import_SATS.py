@@ -32,6 +32,7 @@ from Cerebrum import Disk
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import PosixUser
 from Cerebrum.modules import PosixGroup
+from Cerebrum.modules import Email
 from Cerebrum.modules.no import fodselsnr
 
 pp = pprint.PrettyPrinter(indent=4)
@@ -343,6 +344,10 @@ def import_all():
             if row.skole in skoler:
                 person2row.setdefault(row.person_oid, []).append(row)
 
+        # Datagrunnlag for automatisk opprettelse av epost-adresser.
+        # {'foo@bar': [account_id, ...], ...}
+        mailadr = {}
+
         # Datagrunnlag for automatisk opprettelse/vedlikehold av
         # grupper.
         # {'group_name': [person_id, ...], ...}
@@ -386,6 +391,30 @@ def import_all():
                 disk_id = user_disks['marius.fibsko.oslo.no:/fibsko/marius/elv-%s' % disk]
                 account_id = write_account(rows, person_id, gname, disk_id)
                 poid2account_id[oid] = account_id
+                # Marker personens navn for opprettelse av epostadresse.
+                if account_id:
+                    fullt_navn = "%s %s" % (
+                        multi_getattr_uniq(rows, 'fornavn'),
+                        multi_getattr_uniq(rows, 'etternavn'))
+                    pu = PosixUser.PosixUser(Cerebrum)
+                    fullt_navn = pu._conv_name(fullt_navn)
+                    local_part = ".".join(fullt_navn.split()).lower()
+                    for domain in ('elvebakken.vgs.no', "fibsko.oslo.no"):
+                        mailadr.setdefault("%s@%s" % (local_part, domain),
+                                           []).append(account_id)
+        progress.write("\n")
+        Cerebrum.commit()
+
+        # Generer mailadresser.
+        progress.write("Email/%s: " % level, raw=True)
+        bootstrap_maildomains(level)
+        for addr, acc_list in mailadr.items():
+            if len(acc_list) == 1:
+                write_email(addr, acc_list[0])
+            elif len(acc_list) > 1:
+                progress.write("\nWARNING: <%s> ->%r\n" % (addr, acc_list),
+                               raw=True)
+                continue
         progress.write("\n")
         Cerebrum.commit()
 
@@ -902,7 +931,7 @@ def write_account(rows, person_id, gname, disk_id):
     if verbose > 1:
         print "bygger: "+".".join([str(x) for x in rows])
     try:
-        uname = posix_user.suggest_unames(co.account_namespace, 
+        uname = posix_user.suggest_unames(co.account_namespace,
                                           multi_getattr_uniq(rows, 'fornavn'),
                                           multi_getattr_uniq(rows, 'etternavn'))[0]
     except ValueError, m:
@@ -916,7 +945,8 @@ def write_account(rows, person_id, gname, disk_id):
                         expire_date=None)
     posix_user.write_db()
     progress.write("a")
-    
+    return posix_user.entity_id
+
 def write_group(name, members):
     group = Factory.get('Group')(Cerebrum)
     try:
@@ -937,6 +967,65 @@ def write_group(name, members):
         group.add_member(m, co.entity_person, co.group_memberop_union)
     return group.entity_id
 
+
+def bootstrap_maildomains(level):
+    maildomains = {
+        # Grunnskoler.
+        'GS': {'JORDAL': 'jordal.gs.oslo.no',
+               'VAHL': 'vahl.gs.oslo.no',
+               },
+        # Videregående skoler
+        'VG': {'ELV': 'elvebakken.vgs.no',
+               }
+        }
+    def create_domain(domain, category, description):
+        d = Email.EmailDomain(Cerebrum)
+        try:
+            d.find_by_domain(domain)
+            progress.write("-")
+        except Errors.NotFoundError:
+            d.populate(domain, category, description)
+            d.write_db()
+            progress.write('D')
+        return d.email_domain_id
+
+    create_domain("fibsko.oslo.no", co.email_domain_category_cnaddr,
+                  "Fiberskole-prosjektet UFD/Skoleetaten i Oslo/USIT.")
+    for skole, dom in maildomains[level].items():
+        create_domain(dom, co.email_domain_category_cnaddr,
+                      "Tilhører skole %s (%s)" % (skole, level))
+
+def write_email(addr, account_id):
+    lp, dom = addr.split("@")
+    domain = Email.EmailDomain(Cerebrum)
+    domain.find_by_domain(dom)
+
+    target = Email.EmailTarget(Cerebrum)
+    try:
+        # TODO: Denne kan også gi MultipleRowsFoundError; bør
+        # find_by_entity kunne ta target_type som argument?
+        target.find_by_entity(account_id, co.entity_account)
+        progress.write('-')
+    except Errors.NotFoundError:
+        target.populate(co.email_target_account,
+                        account_id, co.entity_account)
+        target.write_db()
+        progress.write('T')
+
+    address = Email.EmailAddress(Cerebrum)
+    try:
+        address.find_by_address(addr)
+    except Errors.NotFoundError:
+        address.populate(lp, domain.email_domain_id,
+                         target.email_target_id)
+        address.write_db()
+        progress.write('A')
+    else:
+        if address.email_target_id <> target.email_target_id:
+            progress.write("\nWARNING: <%s>: Wrong target\n" % addr,
+                           raw=True)
+        else:
+            progress.write('-')
 
 # Obsolete method, kept here for reference until rewrite is complete
 def convert_all():
