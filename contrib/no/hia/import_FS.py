@@ -44,6 +44,7 @@ group_desc = "Internal group for students which will be shown online."
 
 studieprog2sko = {}
 ou_cache = {}
+no_name = 0 # count persons for which we do not have any name data from FS
 
 """Importerer personer fra FS iht. fs_import.txt."""
 
@@ -379,7 +380,8 @@ def process_person_callback(person_info):
 
 def main():
     global verbose, ou, db, co, logger, fnr2person_id, gen_groups, group, \
-							old_aff, include_delete
+	                                               old_aff, include_delete, \
+						       no_name
     verbose = 0
     include_delete = False
     opts, args = getopt.getopt(sys.argv[1:], 'vp:s:gdf', [
@@ -442,6 +444,7 @@ def main():
     if include_delete:
 	rem_old_aff()
     db.commit()
+    logger.info("Found %d persons without name." % no_name)
     logger.info("Completed")
 
 if __name__ == '__main__':
