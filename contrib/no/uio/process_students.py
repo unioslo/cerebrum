@@ -48,6 +48,8 @@ has_quota = {}
 processed_students = {}
 keep_account_home = {}
 paid_paper_money = {}
+account_id2fnr = {}
+
 debug = 0
 max_errors = 50          # Max number of errors to accept in person-callback
 
@@ -258,7 +260,8 @@ def get_existing_accounts():
     account = Factory.get('Account')(db)
     person = Factory.get('Person')(db)
     for p in person.list_affiliations(source_system=const.system_fs_derived,
-                                      affiliation=const.affiliation_student):
+                                      affiliation=const.affiliation_student,
+                                      fetchall=False):
         derived_person_affiliations.setdefault(int(p['person_id']), []).append(
             (int(p['source_system']), int(p['ou_id']), int(p['affiliation']), int(p['status'])))
     logger.info("Finding student accounts...")
@@ -280,7 +283,8 @@ def get_existing_accounts():
 
     students = {}
     for a in account.list_accounts_by_type(
-        affiliation=const.affiliation_student, filter_expired=True):
+        affiliation=const.affiliation_student, filter_expired=True,
+        fetchall=False):
         if not pid2fnr.has_key(int(a['person_id'])):
             continue
         student_data = students.setdefault(pid2fnr[int(a['person_id'])], {})
@@ -298,7 +302,7 @@ def get_existing_accounts():
     others = {}
     # We only register the reserved account if the user doesn't
     # have another active account
-    for a in account.list_reserved_users():
+    for a in account.list_reserved_users(fetchall=False):
         fnr = pid2fnr.get(int(a['owner_id']), None)
         if (fnr is not None) and (not students.has_key(fnr)):
             others[fnr] = int(a['account_id'])
@@ -306,7 +310,10 @@ def get_existing_accounts():
     # If the user has no student or reserved account, we check for
     # other active accounts
 
-    for a in account.list(filter_expired=True):
+    for a in account.list(filter_expired=True, fetchall=False):
+        # Also populate account_id -> fnr mapping
+        account_id2fnr[int(a['account_id'])] = pid2fnr.get(
+            int(a['owner_id'] or 0), None)
         fnr = pid2fnr.get(int(a['owner_id']), None)
         if (fnr is not None) and (not students.has_key(fnr) and
                                   not others.has_key(fnr)):
@@ -648,7 +655,10 @@ def process_students():
             pq.max_quota = dv['print_max_akk']
             pq.termin_quota = dv['print_max_sem']
             if paper_money_file:
-                if not paid_paper_money.get(fnr, False):
+                if not account_id2fnr.has_key(account_id):
+                    # probably a deleted user
+                    logger.debug("account_id %i not in account_id2fnr, deleted?" % account_id)
+                elif not paid_paper_money.get(account_id2fnr[account_id], False):
                     logger.debug("didn't pay, max_quota=0 for %i " % account_id)
                     pq.max_quota = 0
                     pq.printer_quota = 0
