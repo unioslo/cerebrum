@@ -26,6 +26,7 @@ import re
 import cereconf
 import time
 import os
+import filecmp
 import smtplib
 import email
 from email.MIMEText import MIMEText
@@ -631,11 +632,12 @@ def random_string(length, population='abcdefghijklmnopqrstuvwxyz0123456789'):
 
 
 class AtomicFileWriter(object):
-    def __init__(self, name, mode='w', buffering=-1):
+    def __init__(self, name, mode='w', buffering=-1, replace_equal=False):
         self._name = name
         self._tmpname = self.make_tmpname(name)
         self.__file = file(self._tmpname, mode, buffering)
         self.closed = False
+        self._replace_equal = replace_equal
 
     def close(self):
         if self.closed: return
@@ -646,7 +648,14 @@ class AtomicFileWriter(object):
             # the temporary file's contents.  If that doesn't raise
             # any exceptions rename() to the real file name.
             self.validate_output()
-            os.rename(self._tmpname, self._name)
+            if not self._replace_equal:
+                if (os.path.exists(self._name) and
+                    filecmp.cmp(self._tmpname, self._name, shallow=0)):
+                    os.unlink(self._tmpname)
+                else:
+                    os.rename(self._tmpname, self._name)
+            else:
+                os.rename(self._tmpname, self._name)
         return ret
 
     def validate_output(self):
