@@ -1136,8 +1136,10 @@ def create_account(u, owner_id, owner_type, np_type=None):
         mailforward.clear()
         mailforward.find(mt_id)
         for tmp in u.get("forwardaddress", []):
-            mailforward.add_forward(tmp['value'],
-                                    enable=u.get('forward', False))
+            enable = u.get('forward', False)
+            if isinstance(enable, str) and str.isdigit():
+                enable = int(enable)
+            mailforward.add_forward(tmp['value'], enable)
 
         mailvacation.clear()
         mailvacation.find(mt_id)
