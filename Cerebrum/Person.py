@@ -21,7 +21,7 @@
 """
 
 from Cerebrum.Entity import \
-     Entity, EntityContactInfo, EntityPhone, EntityAddress, EntityQuarantine
+     Entity, EntityContactInfo, EntityAddress, EntityQuarantine
 from Cerebrum import OU
 
 import pprint
@@ -44,7 +44,7 @@ class PersonName(object):
             return True
         assert isinstance(other, PersonName)
         for type in self._pn_affect_types:
-            other_name = other.get_name(type, self._pn_affect_source)
+            other_name = other.get_name(self._pn_affect_source, type)
             my_name = self._name_info.get(type, None)
             if my_name != other_name:
                 return False
@@ -76,14 +76,12 @@ class PersonName(object):
     def get_person_name_codes(self):
         return self.query("SELECT code, description FROM person_name_code")
 
-    def get_name(self, variant, source_system=None):
-        """TODO: It is uncertain wheter source_system=None is legal"""
-        qry = "SELECT name FROM person_name WHERE person_id=:1 AND name_variant=:2"
-        params = (self.person_id, int(variant))
-        if source_system != None:
-            qry += " AND source_system=:3"
-            params += (int(source_system),)
-        return self.query_1(qry, *params)
+    def get_name(self, source_system, variant):
+        """Return the name with the given variant"""
+
+        return self.query_1("""SELECT name FROM person_name
+            WHERE person_id=:1 AND name_variant=:2 AND source_system=:3""",
+                            self.person_id, int(variant), int(source_system))
 
     def affect_names(self, source, *types):
         self._pn_affect_source = source
@@ -142,7 +140,6 @@ class PersonAffiliation(object):
                         return False
                     del other_dict[t_ou_id]
             if len(other_dict) != 0:
-                print "r1"
                 return False
         return True
 
@@ -206,7 +203,7 @@ class PersonAffiliation(object):
 
         return self.query(qry, *params)
 
-class Person(Entity, EntityContactInfo, EntityPhone, EntityAddress,
+class Person(Entity, EntityContactInfo, EntityAddress,
              EntityQuarantine, PersonName, PersonAffiliation):
     
     def clear(self):
@@ -231,6 +228,9 @@ class Person(Entity, EntityContactInfo, EntityPhone, EntityAddress,
         self.__write_db = True
 
         
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
     def __eq__(self, other):
         """Ovveride the == test for objects.
 
