@@ -67,7 +67,7 @@ class Entity(Builder, Searchable):
         entity_type = obj.get_entity_type()
         entity_class = entity_type.get_class()
 
-        if cls is Entity:
+        if obj.__class__ is Entity:
             obj.__class__ = entity_class
         elif cls is not entity_class:
             raise Exception('wrong class. Asked for %s, but found %s' % (cls, entity_class))
