@@ -49,7 +49,7 @@ Testing the distribution
 ------------------------
 
 Set PYTHONPATH to point to the directory where you extracted the
-sources.  Edit Cerebrum/cereconf.py and set DB_AUTH_DIR,
+sources.  Edit cereconf.py and set DB_AUTH_DIR,
 CEREBRUM_DATABASE_CONNECT_DATA['user'], DATABASE_DRIVER and
 CEREBRUM_DATABASE_NAME. 
 
