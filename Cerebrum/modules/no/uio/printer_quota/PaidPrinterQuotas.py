@@ -323,5 +323,20 @@ class PaidPrinterQuotas(DatabaseAccessor):
         WHERE pqh.job_id=pqt.job_id AND tstamp >= :tstamp_from AND tstamp < :tstamp_to
         GROUP BY transaction_type"""
         return self.query(qry, binds)
+
+    def change_history_owner(self,person_id,duplicate_id):
+	self.execute("""
+        UPDATE [:table schema=cerebrum name=paid_quota_history]
+        SET person_id=:person_id
+        WHERE person_id=:duplicate_id""", {
+            'duplicate_id': int(duplicate_id),
+	    'person_id': int(person_id)})
+
+    def rem_person_status(self,person_id):
+	self.execute("""
+	DELETE FROM [:table schema=cerebrum name=paid_quota_status]
+	WHERE person_id=:person_id""",{
+	    'person_id': int(person_id)})
+
     
 # arch-tag: 3e72fdb7-3f9f-41ca-bc3e-6d626b02ed45
