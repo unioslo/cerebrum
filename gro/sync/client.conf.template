@@ -1,0 +1,18 @@
+[gro]
+cache: false
+cache_dir: /tmp/groo
+
+[corba]
+context: Cerebrum
+service: Gro
+object: GroServer
+
+[ssl]
+ca_file: CA.crt
+key_file: client.pem
+password: client
+
+[idl]
+path: .
+gro: gro.idl
+errors: errors.idl
