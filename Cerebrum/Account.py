@@ -26,7 +26,9 @@ default username is stored in is yet to be determined.
 """
 
 import os
-import crypt,random,string
+import crypt
+import random
+import string
 import time
 import re
 
@@ -242,7 +244,7 @@ class Account(AccountType, EntityName, EntityQuarantine, Entity):
 
     def enc_auth_type_md5_crypt(self, plaintext, salt=None):
         if salt is None:
-            saltchars = string.uppercase + string.lowercase + string.digits + "./"
+            saltchars = string.ascii_letters + string.digits + "./"
             s = []
             for i in range(8):
                 s.append(random.choice(saltchars))
@@ -251,7 +253,7 @@ class Account(AccountType, EntityName, EntityQuarantine, Entity):
 
     def enc_auth_type_crypt3_des(self, plaintext, salt=None):
         if salt is None:
-            saltchars = string.uppercase + string.lowercase + string.digits + "./"
+            saltchars = string.ascii_letters + string.digits + "./"
             salt = Utils.random_string(2, saltchars)
         return crypt.crypt(plaintext, salt)
 
@@ -480,8 +482,7 @@ class Account(AccountType, EntityName, EntityQuarantine, Entity):
 
     def make_passwd(self, uname):
         """Generate a random password with 8 characters"""
-        pot = ('-+?=*()/&%#\'_!,;.:'
-               'abcdefghijklmnopqrstuvwxyABCDEFGHIJKLMNOPQRSTUVWXY0123456789')
+        pot = string.ascii_letters + string.digits + '-+?=*()/&%#"_!,;.:'
         pc = PasswordChecker.PasswordChecker(self._db)
         while True:
             r = ''
