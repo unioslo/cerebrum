@@ -283,8 +283,8 @@ def register_spread_groups(emne_info, stprog_info):
                     fak_sko = '%02d0000' % stprog_info[stprog]['fak']
                     brukere_studenter_id = ':'.join((
                         'STRUCTURE', cereconf.INSTITUTION_DOMAIN_NAME,
-                        'fs', 'brukere', subg_name_el[2], fak_sko,
-                        'student'))
+                        'fs', 'brukere', subg_name_el[2], # institusjonsnr
+                        fak_sko, 'student'))
                     brukere_stprog_id = brukere_studenter_id + \
                                         ':%s' % stprog
                     fronter_gname = ':'.join(subg_name_el)
@@ -304,6 +304,18 @@ def register_spread_groups(emne_info, stprog_info):
                                                       get_entity_name=True)[0]]
                     if user_members:
                         register_members(fronter_gname, user_members)
+                    fellesrom_sted_id = ':'.join(
+                        'STRUCTURE', cereconf.INSTITUTION_DOMAIN_NAME,
+                        'fs', 'fellesrom', subg_name_el[2], # institusjonsnr
+                        fak_sko)
+                    fellesrom_stprog_rom_id = ':'.join(
+                        'ROOM', cereconf.INSTITUTION_DOMAIN_NAME, 'fs',
+                        'fellesrom', 'studieprogram', stprog)
+                    register_room(stprog.upper(), fellesrom_stprog_rom_id,
+                                  fellesrom_sted_id,
+                                  profile=romprofil_id['studieprogram'])
+                    register_room_acl(fellesrom_stprog_rom_id, fronter_gname,
+                                      fronter_lib.Fronter.ROLE_WRITE)
                 elif subg_name_el[-1] == 'studieleder':
                     # TBD: Hvor i CF-strukturen skal disse
                     # "studieleder på studieprogram" forankres?
@@ -344,6 +356,20 @@ def register_group(title, id, parentid, allow_room=0, allow_contact=0):
                       'allow_contact': allow_contact,
                       'CFid': id,
 		      }
+
+def output_group_xml():
+    """Generer GROUP-elementer uten forover-referanser."""
+    done = {}
+    def output(id):
+        if id in done:
+            return
+        data = new_group[id]
+        parent = data['parent']
+        if parent <> id:
+            output(parent)
+        fxml.group_to_XML(data['CFid'], fronter_lib.Fronter.STATUS_ADD, data)
+    for group in new_group.iterkeys():
+        output(group)
 
 def usage(exitcode):
     print "Usage: export_xml_fronter.py OUTPUT_FILENAME"
@@ -475,8 +501,7 @@ def main():
 
     register_spread_groups(emne_info, stprog_info)
 
-    for group, data in new_group.iteritems():
-        fxml.group_to_XML(data['CFid'], fronter_lib.Fronter.STATUS_ADD, data)
+    output_group_xml()
     for room, data in new_rooms.iteritems():
         fxml.room_to_XML(data['CFid'], fronter_lib.Fronter.STATUS_ADD, data)
 
