@@ -6,8 +6,11 @@ import pprint
 import string
 import sys
 
+import cereconf
 from Cerebrum import Errors
 from Cerebrum import Person
+from Cerebrum import Account
+from Cerebrum import Group
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no import fodselsnr
 
@@ -17,6 +20,8 @@ pp = pprint.PrettyPrinter(indent=4)
 Cerebrum = Factory.get('Database')()
 co = Factory.get('Constants')(Cerebrum)
 OU_class = Factory.get('OU')
+account = Account.Account(Cerebrum)
+account.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
 
 source_system = co.system_sats
 school2ouid = {}
@@ -83,14 +88,14 @@ def populate_people(level, type, pspec, pinfo):
     if type == 'elev':
         fname = 'person_elev_%s.txt' % level
         oidname = 'elevoid'
-    elif type == 'admin' or type == 'lærer':
+    elif type == 'ansatt' or type == 'lærer':
         fname = 'person_ansatt_%s.txt' % level
         oidname = 'ansattoid'
     else:
         fname = 'person_foreldre_%s.txt' % level
         oidname = 'parentfid'
-        elevoids2group = pinfo
-        print "# elever %i" % len(elevoids2group.keys())
+        elevoids2info = pinfo
+        print "# elever %i" % len(elevoids2info.keys())
     spec, dta = read_inputfile("sats/%s" % fname)
     # Create mapping of locname to locid
     loc = {}
@@ -107,7 +112,7 @@ def populate_people(level, type, pspec, pinfo):
     # Process all people in the input-file
     for p in dta:
         if type == 'foreldre':
-            if not elevoids2group.has_key(p[loc['childfid']]):
+            if not elevoids2info.has_key(p[loc['childfid']]):
                 continue
         elif not (pinfo.has_key(p[loc[oidname]])):
             continue                          # Skip unknown person
@@ -115,25 +120,26 @@ def populate_people(level, type, pspec, pinfo):
         sys.stdout.flush()
 
         # find all affiliations and groups for this person
-        affiliations = []
+        affiliations = {}
         groups = {}
         if type == 'foreldre':
-            h = elevoids2group[p[loc['childfid']]]
-            for k in h.keys():
-                k.replace('_elev', '_foreldre')
+            (gh, ah) = elevoids2info[p[loc['childfid']]]
+            for k in gh.keys():
+                k = k.replace('_elev', '_foreldre')
                 groups[k] = 1
+            for k in ah.keys():
+                affiliations[k] = 1
         else:
             for extra in pinfo[p[loc[oidname]]]:
                 school = extra[ploc['schoolcode']]
-                affiliations += [school, ]
+                affiliations["%s:%s" % (level, school)] = 1
                 if type == 'elev':
                     groups["%s_%s_%s" % (school, extra[ploc['klassekode']], type)] = 1
                 elif type == 'lærer':
                     groups["%s_%s_%s" % (school, extra[ploc['elevgruppekode']], type)] = 1
-            
         try:
-            p_id = update_person(p, loc, type, affiliations, groups.keys())
-            ret[p[loc[oidname]]] = groups
+            p_id = update_person(p, loc, type, affiliations.keys(), groups.keys())
+            ret[p[loc[oidname]]] = (groups, affiliations)
         except:
             print "WARNING: Error importing %s" % p[loc[oidname]]
             pp.pprint ((p, loc, type, affiliations, groups.keys() ))
@@ -143,23 +149,21 @@ def populate_people(level, type, pspec, pinfo):
 def do_all():
     schools = {'gs': ('VAHL', ), # 'JORDAL'),
                'vg': ('ELV', )}
-
+    global school2ouid
     school2ouid = import_OU(schools)
     for level in schools.keys():
 
         espec, elev_info =  read_extra_person_info('elev', level, schools[level])
-        elevoids2group = populate_people(level, 'elev', espec, elev_info)
+        elevoids2info = populate_people(level, 'elev', espec, elev_info)
 
         # Populate parents for the already imported students
-        elevoid2entity_id = populate_people(level, 'foreldre', [], elevoids2group)
+        elevoid2entity_id = populate_people(level, 'foreldre', [], elevoids2info)
 
         tspec, teacheriod2info = read_extra_person_info('lærer', level, schools[level])
         populate_people(level, 'lærer', tspec, teacheriod2info)
 
         aspec, adminoid2info = read_extra_person_info('admin', level, schools[level])
         populate_people(level, 'ansatt', aspec, adminoid2info)
-
-    # fordel å legge inn åpning for foreldre->barn rolle-mapping
     Cerebrum.commit()
 
 def update_person(p, loc,type, affiliations, groupnames):
@@ -211,6 +215,25 @@ def update_person(p, loc,type, affiliations, groupnames):
     if op <> True:          # TODO: handle update/equal
         return person.entity_id
 
+    for a in affiliations:
+        if type == 'elev':
+            person.add_affiliation(school2ouid[a], co.affiliation_student,
+                                   source_system, co.affiliation_status_student_valid)
+        elif type == 'admin' or type == 'lærer':
+            person.add_affiliation(school2ouid[a], co.affiliation_employee,
+                                   source_system, co.affiliation_status_employee_valid)
+        elif type == 'foreldre':
+            person.add_affiliation(school2ouid[a], co.affiliation_employee,  # TODO: new const
+                                   source_system, co.affiliation_status_employee_valid)            
+    for g in groupnames:
+        group = Group.Group(Cerebrum)
+        try:
+            group.find_by_name(g)
+        except Errors.NotFoundError:
+            group.populate(account, co.group_visibility_all,
+                           g, "autogenerated import group %s" % g)
+            group.write_db()
+        group.add_member(person, co.group_memberop_union)
     try:
         postno, city = string.split(p[loc['address3']], maxsplit=1)
         if postno.isdigit():
