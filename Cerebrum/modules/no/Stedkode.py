@@ -30,12 +30,12 @@ following additional properties are defined:
   - katalog_merke
 """
 
-from Cerebrum.OU import OU
 from Cerebrum import Utils
 
-# Let's hope there's no need to access the module called "OU" further
-# down...
-class Stedkode(OU):
+OU_class = Utils.Factory.get("OU")
+
+
+class Stedkode(OU_class):
 
     __read_attr__ = ('__in_db',)
     __write_attr__ = ('landkode', 'institusjon', 'fakultet', 'institutt',
