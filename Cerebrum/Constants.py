@@ -420,6 +420,8 @@ class CommonConstants(ConstantsBase):
         "/hopwood/crypto/scan/ph.html#Traditional-crypt3>.")
 
     contact_phone = _ContactInfoCode('PHONE', 'Phone')
+    contact_phone_private = _ContactInfoCode('PRIVPHONE',
+                                             "Person's private phone number")
     contact_fax = _ContactInfoCode('FAX', 'Fax')
     contact_email = _ContactInfoCode('EMAIL', 'Email')
 
