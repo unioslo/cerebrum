@@ -3480,9 +3480,9 @@ class BofhdExtension(object):
 			    row['status_privatist']
             ret.append({'studprogkode': row['studieprogramkode'],
                         'studierettstatkode': row['studierettstatkode'],
-                        'opphortstatus': row['opphortstudierettstatkode'],
-                        'dato_tildelt': DateTime.DateTimeFromTicks(row['dato_tildelt']),
-                        'dato_gyldig_til': DateTime.DateTimeFromTicks(row['dato_gyldig_til']),
+                        'status': row['studentstatkode'],
+                        'dato_studierett_tildelt': DateTime.DateTimeFromTicks(row['dato_studierett_tildelt']),
+                        'dato_studierett_gyldig_til': DateTime.DateTimeFromTicks(row['dato_studierett_gyldig_til']),
                         'privatist': row['status_privatist']})
 
         for row in fs.GetStudentEksamen(fodselsdato, pnum)[1]:
@@ -3506,9 +3506,9 @@ class BofhdExtension(object):
                         'dato_betaling': DateTime.DateTimeFromTicks(row['dato_betaling']),
                         'dato_regform_endret': DateTime.DateTimeFromTicks(row['dato_regform_endret'])})
 
-	for row in fs.GetStudentKullOgKlasse(fodselsdato, pnum)[1]:
-	    ret.append({'kullkode': row['kullkode'],
-			'klassekode': row['klassekode']})
+	for row in fs.GetStudentKull(fodselsdato, pnum)[1]:
+	    ret.append({'kullkode': "%s-%s-%s" % (row['studieprogramkode'], row['terminkode_kull'], row['arstall_kull'])
+			'status_aktiv': row['status_aktiv']})
 
         db.close()
         return ret
