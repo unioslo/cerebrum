@@ -87,6 +87,7 @@ CREATE TABLE auth_op_target (
   target_type      CHAR VARYING(16),
   has_attr         NUMERIC(1,0) NOT NULL
 );
+category:main;
 CREATE INDEX auth_op_target_entity_id ON auth_op_target(entity_id);
 
 /* Defines attributes associated with an op_target, such as a regexp for
@@ -122,6 +123,9 @@ CREATE TABLE auth_role (
 );
 category:main;
 CREATE INDEX auth_role_uid ON auth_role(entity_id, op_set_id, op_target_id);
+category:main;
 CREATE INDEX auth_role_eid ON auth_role(entity_id);
+category:main;
 CREATE INDEX auth_role_osid ON auth_role(op_set_id);
+category:main;
 CREATE INDEX auth_role_tid ON auth_role(op_target_id);
