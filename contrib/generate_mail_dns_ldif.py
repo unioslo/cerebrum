@@ -36,11 +36,29 @@ filename = os.path.join(cereconf.LDAP_DUMP_DIR, "mail-dns.ldif")
 
 # Expect /local/bin/dig output like this:
 #   ; <<>> DiG 9.2.1 <<>> uio.no. @nissen.uio.no. axfr
+#   ;; global options:  printcmd
 #   bb.uio.no.              86400   IN      CNAME   beeblebrox.uio.no.
 #   beeblebrox.uio.no.      86400   IN      MX      10 smtp.uio.no.
 #   beeblebrox.uio.no.      86400   IN      A       129.240.10.17
-dig_line_re = re.compile(r'(\S+)\.\s+\d+\s+IN\s+(A|MX|CNAME)\s+(.*[^.\n])\.?$')
-dig_version_re = re.compile(r';[ <>]+DiG 9\.', re.IGNORECASE)
+#   ;; Query time: 318 msec
+#   ;; SERVER: ...
+#   ;; WHEN: ...
+#   ;; XFR size: 6412 records
+match_dig_line=re.compile(r"(\S+)\.\s+\d+\s+IN\s+(\w+)\s+(.*[^.\n])\.?$").match
+# Dig does not return a non-zero exit status on failure,
+# so check if the output matches the above and fail otherwise.
+check_dig_line = re.compile(r"(?:;;? |$)").match
+match_checked_lines = re.compile(r"""
+*; <<>> DiG (\d+)\..+
+(?:;; (?:\w+ )?options: .+
+)*;; Query time: \d+ msec
+;; SERVER: .+
+;; WHEN: .+
+;; XFR size: \d+ records
++$""").match
+# The output format from dig has changed between versions, so
+# this program may have to be changed when dig is upgraded again.
+expect_dig_version = "9"
 
 
 def get_hosts_and_cnames():
@@ -54,13 +72,16 @@ def get_hosts_and_cnames():
     lower2host        = {}              # lowercase hostname -> hostname
 
     # Read in the above variables from Dig
+    use_types = {"A": True, "MX": True, "CNAME": True}
     for args in cereconf.LDAP_MAIL_DNS_DIG_ARGS:
-        dig_version_found = False
+        check_lines = []
         f = os.popen(cereconf.LDAP_MAIL_DNS_DIG_CMD % args, 'r')
         for line in f:
-            match = dig_line_re.match(line)
+            match = match_dig_line(line)
             if match:
                 name, type, info = match.groups()
+                if type not in use_types:
+                    continue
                 lname = name.lower()
                 info = info.lower()
                 lower2host[lname] = name
@@ -76,12 +97,22 @@ def get_hosts_and_cnames():
                     if not host2mx.has_key(lname):
                         host2mx[lname] = {}
                     host2mx[lname][prio] = mx
-            elif dig_version_re.match(line):
-                dig_version_found = True
+            elif check_dig_line(line):
+                check_lines.append(line)
+            else:
+                raise SystemExit("Unexpected output from dig: '%s'"
+                                 % line.rstrip("\n"))
         if f.close() is not None:
             raise SystemExit("Dig failed.")
-        if not dig_version_found:
-            raise SystemExit("Dig version changed.  Check output format.")
+        match = match_checked_lines("".join(check_lines))
+        if not match:
+            if len(check_lines) > 12:
+                check_lines[12:] = ["...\n"]
+            raise SystemExit("Unexpected comments from dig:\n"
+                             + "".join(check_lines).strip("\n"))
+        if match.group(1) != expect_dig_version:
+            raise SystemExit(
+                "Dig version changed.  Check if its output format changed.")
 
     # Add fake Dig records
     for host in cereconf.LDAP_MAIL_DNS_EXTRA_A_HOSTS:
