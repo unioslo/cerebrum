@@ -12,3 +12,5 @@ def create_save(attr, cls, cerebrum_attr):
         obj.write_db()
 
     return save_cerebrum
+
+# arch-tag: c20f1d27-2841-47a4-a487-9d9f4a4840f9
