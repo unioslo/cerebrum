@@ -164,11 +164,31 @@ def change_quarantine(entity_id):
 	    del_spread(entity_id, co.spread_uio_ad_account,
                        delete=False)
     	else:
-	    add_spread(entity_id, co.spread_uio_ad_account,
-                       open_quarantine=True)
+	    account_name = id_to_name(entity_id,'user')
+	    if not account_name:
+	    	return False	
+	    ad_ou='CN=Users,%s' % (cereconf.AD_LDAP)		
+            sock.send('TRANS&%s/%s\n' % (cereconf.AD_DOMAIN, account_name))
+            ou_in_ad = sock.read()[0]
+            if ou_in_ad[0:3] == '210':
+                #Account already in AD, we move to correct OU.
+                sock.send('MOVEOBJ&%s&LDAP://%s\n' % ( ou_in_ad[4:],ad_ou ))
+
+                if sock.read() == ['210 OK']:
+                    sock.send(('ALTRUSR&%s/%s&dis&0&pexp&%s&ccp&%s\n') % (cereconf.AD_DOMAIN,
+                                               account_name,
+                                               cereconf.AD_PASSWORD_EXPIRE,
+                                               cereconf.AD_CANT_CHANGE_PW))
+		    if sock.read() != ['210 OK']:
+			print "WARNING: Failed enabling account ", account_name
+                else:
+                    print "WARNING: Failed move user ", account_name
+            else:
+                print "WARNING: Failed getting AD_OU ", account_name , ", creating..."
+                add_spread(entity_id, co.spread_uio_ad_account)
 
 
-def add_spread(entity_id, spread, open_quarantine=False):
+def add_spread(entity_id, spread):
     if spread == co.spread_uio_ad_account:
         account_name =id_to_name(entity_id,'user')
 	if not account_name:
@@ -214,36 +234,30 @@ def add_spread(entity_id, spread, open_quarantine=False):
             (full_name, account_disable, home_dir, cereconf.AD_HOME_DRIVE,
              login_script) = adutils.get_user_info(entity_id, account_name,
                                                    spread)
-            if open_quarantine:
-                sock.send(('ALTRUSR&%s/%s&dis&%s&pexp&%s&ccp&%s\n') % (cereconf.AD_DOMAIN,
+
+            sock.send(('ALTRUSR&%s/%s&fn&%s&dis&%s&hdir&%s&hdr&%s&ls&%s'+
+                       '&pexp&%s&ccp&%s\n') % (cereconf.AD_DOMAIN,
                                                account_name,
+                                               full_name,
                                                account_disable,
+                                               home_dir,
+                                               cereconf.AD_HOME_DRIVE,
+                                               login_script,
                                                cereconf.AD_PASSWORD_EXPIRE,
                                                cereconf.AD_CANT_CHANGE_PW))
-            else:
-                sock.send(('ALTRUSR&%s/%s&fn&%s&dis&%s&hdir&%s&hdr&%s&ls&%s'+
-                           '&pexp&%s&ccp&%s\n') % (cereconf.AD_DOMAIN,
-                                                   account_name,
-                                                   full_name,
-                                                   account_disable,
-                                                   home_dir,
-                                                   cereconf.AD_HOME_DRIVE,
-                                                   login_script,
-                                                   cereconf.AD_PASSWORD_EXPIRE,
-                                                   cereconf.AD_CANT_CHANGE_PW))
-                if sock.read() == ['210 OK']:
-                    #Make sure that the user is in the groups he should be.
-                    for row in group.list_groups_with_entity(entity_id):
-                        group.clear()
-                        group.find(row['group_id'])
-                        if group.has_spread(int(co.spread_uio_ad_group)):
-                            grp_name = '%s-gruppe' % (group.group_name)
-                            if not group_add(account_name,grp_name):
-                                print 'WARNING: add user %s to group %s failed' % (account_name,grp_name)
+            if sock.read() == ['210 OK']:
+                #Make sure that the user is in the groups he should be.
+                for row in group.list_groups_with_entity(entity_id):
+                    group.clear()
+                    group.find(row['group_id'])
+                    if group.has_spread(int(co.spread_uio_ad_group)):
+                        grp_name = '%s-gruppe' % (group.group_name)
+                        if not group_add(account_name,grp_name):
+                            print 'WARNING: add user %s to group %s failed' % (account_name,grp_name)
 
         else:
             #TBD: This is serious and should write to std.err.
-            print 'CRITICAL: ', account_name ,', failed replacing blank password.'
+            print 'CRITICAL: Failed replacing password or Move account', account_name
             return False
 
     elif spread == co.spread_uio_ad_group:
