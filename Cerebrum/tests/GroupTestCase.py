@@ -91,6 +91,27 @@ class GroupTestCase(Group_createTestCase):
         account = Account.Account(self.Cerebrum)
         # TODO: Here we should add members in a complex way and read them back
         i = 0
+
+        # This datastructure defines a set of groups/accounts to
+        # create, and adds them to their corresponding group using the
+        # indicated membership operation.  A group/account that
+        # occours multiple times will only be created once.
+
+        dta = (
+            ('g', 'group_1',
+             ('a', 'account_1', 'u'),
+             ('a', 'account_2', 'u')),
+            ('g', 'group_2',
+             ('a', 'account_1', 'u')),
+            ('g', 'group_3',
+             ('a', 'account_3', 'u'),
+             ('g', 'group_1', 'u'),
+             ('g', 'group_2', 'i')),
+            ('g', 'group_4',
+             ('g', 'group_3', 'u'),
+             ('g', 'group_2', 'd'))
+            )
+        i = 0
         while i < 5:
             i += 1
             account.clear()
