@@ -34,7 +34,7 @@ import signal
 import os
 import re
 import nis
-from time import gmtime, strftime, time
+from time import gmtime, strftime, time, localtime
 import pwd
 import getopt
 import sys
@@ -165,6 +165,8 @@ class RequestHandler(SocketServer.StreamRequestHandler):
                     else:
                         job_data[cmd[1]] = " ".join(cmd[2:])
                         self.send(ok)
+                elif cmd[0] == 'HISTORY' and len(cmd) == 1:
+                    self.send_history(self.person_id)
                 elif cmd[0] == 'CANP' and len(cmd) == 3:
                     self.send(self.check_quota(cmd[1], cmd[2]))
                 elif cmd[0] == 'SUBP' and len(cmd) == 3:
@@ -244,6 +246,24 @@ class RequestHandler(SocketServer.StreamRequestHandler):
             self.log("INFO", "Job %i by unknown account: %s" % (job_id, str(self._helo)))
         db.commit()
         return ok        
+
+
+    def send_history(self, person_id):
+        """Returns up to 7 days of history, but max 7 entries"""
+        if not self.client_address[0] in authorized_hosts:
+            return self.send(eperm)
+        if not person_id:
+            self.send(enouser)
+            return
+        when = db.Date(*( localtime(time()-3600*24*7)[:3]))
+        rows = ppq.get_history(person_id=person_id, tstamp=when)
+        ok_data = ok[:3] +'-'
+        for r in rows[:7]:
+            if  r['transaction_type'] == int(co.pqtt_printout):
+                self.send(ok_data+":".join(["%s" % x for x in (
+                    r['job_id'], r['tstamp'].ticks(), r['printer_queue'],
+                    r['pageunits_total'])]))
+        self.send(ok)
 
     # send(line) - send a line (terminated by CR NL)
     def send(self, msg):
