@@ -79,14 +79,14 @@ def read_addr():
         if verbose and (counter % 10000) == 0:
             print "  done %d list_email_addresses_ext(): %d sec." % (
                 counter, now() - curr)
+        lp, dom = row['local_part'], row['domain']
+        addr = "%s@%s" % (lp, dom)
         # If this address is in a domain that is subject to overrides
         # from "magic" domains, and the local_part is overridden, get
         # 'row' from the override-domain and use that.
-        if glob_addr.has_key(row['domain']) and \
-           glob_addr[row['domain']].has_key(row['local_part']):
-            row = glob_addr[row['domain']][row['local_part']]
+        if glob_addr.has_key(dom) and glob_addr[dom].has_key(lp):
+            row = glob_addr[dom][lp]
         a_id, t_id = [int(row[x]) for x in ('address_id', 'target_id')]
-        addr = "%s@%s" % (row['local_part'], row['domain'])
         targ2addr.setdefault(t_id, []).append(addr)
         aid2addr[a_id] = addr
 
