@@ -180,7 +180,13 @@ class Cursor(object):
         # .execute() is 'unspecified'; however, for maximum
         # compatibility with the underlying database module, we return
         # this 'unspecified' value anyway.
-        return self._cursor.execute(sql, *binds)
+        try:
+            return self._cursor.execute(sql, *binds)
+        except self.DatabaseError:
+            # TBD: These errors should probably be logged...
+##             print "ERROR:\n\tsql=%s\n\tbinds=%s\n%s", (sql, `binds`,
+##                                                        sys.exc_info())
+            raise
 ##        return self._cursor.execute(operation, *parameters)
 
     def _translate(self, statement, params):
@@ -666,6 +672,13 @@ class Database(object):
             kw_args[k] = v
         return method(**kw_args)
 
+    def _sql_port_get_config(self, var):
+        if not hasattr(cereconf, var):
+            raise ValueError
+        val = getattr(cereconf, var)
+        if type(val) == str:
+            return ["'%s'" % val]
+        raise ValueError
 
 class PostgreSQL(Database):
     """PostgreSQL driver class."""
