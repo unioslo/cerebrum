@@ -22,7 +22,7 @@ from Cerebrum import Group
 from Cerebrum import Person
 from Cerebrum.Constants import _CerebrumCode, _QuarantineCode, _SpreadCode,\
      _PersonAffiliationCode, _PersonAffStatusCode
-from Cerebrum.Utils import Factory
+from Cerebrum import Utils
 from Cerebrum.modules import PosixGroup
 from Cerebrum.modules import PosixUser
 from Cerebrum.modules.bofhd.cmd_param import *
@@ -38,7 +38,7 @@ class BofhdExtension(object):
     for checking neccesary permissions"""
 
     all_commands = {}
-    OU_class = Factory.get('OU')
+    OU_class = Utils.Factory.get('OU')
     external_id_mappings = {}
 
     def __init__(self, server):
@@ -613,6 +613,8 @@ class BofhdExtension(object):
         try:
             if id_type is not None:
                 if id_type == self.const.externalid_fodselsnr:
+                    person.affect_external_id(self.const.system_manual,
+                                              self.const.externalid_fodselsnr)
                     person.populate_external_id(self.const.system_manual,
                                                 self.const.externalid_fodselsnr,
                                                 id)
@@ -1161,7 +1163,7 @@ class BofhdExtension(object):
         selection = args.pop(0)
         cache = self._get_cached_passwords(operator)
         th = TemplateHandler(tpl_lang, tpl_name, tpl_type)
-        out, out_name = self._mktmp_file()
+        out, out_name = Utils.make_temp_file()
         if th._hdr is not None:
             out.write(th._hdr)
         for n in self._parse_range(selection):
@@ -1549,12 +1551,6 @@ class BofhdExtension(object):
             return self.db.Date(*([ int(x) for x in date.split('-')]))
         except:
             raise CerebrumError, "Illegal date: %s" % date
-
-    def _mktmp_file(self):
-        # TODO: Assert unique filename, and avoid potential security risks
-        name = "/tmp/bofhd_tmp.%s" % time.time()
-        f = file(name, "w")
-        return f, name
 
     def _parse_range(self, selection):
         lst = []
