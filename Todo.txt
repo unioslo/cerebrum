@@ -330,7 +330,9 @@
   Cost: 2t
   Due date: 2005-01-15
   Priority: 1.1
-  Status: 
+  Status: Vi får en ny FSDemo i morgen 26/1, scriptet blir kjørt i
+          test mot denne i noen dager før vi går i prod (tentativt
+          31/1).
 
 ** Synkronisere steddata fra HR til FS via Cerebrum
   Description: Ved UiO er HR autoritativ for OU-informasjon, og FS er
@@ -340,9 +342,11 @@
                være mellom disse.
   Dependencies:
   Assigned to:
-  Resources:
+  Resources: baardj
   Cost:
-  Status:
+  Status: Efter samtaler med SFA er det klart at de ikke ønsker en
+          slik synkronisering.  Ønsket er moderert til kun å få en
+          mail om forskjellene.
   Due date:
   Priority: 3
 
@@ -355,9 +359,6 @@
   Resources: jazz, SFA(UiO)
   Cost:
   Due date: 2004-11-15
-	    (Hvor kommer denne datoen fra? Er det realistisk?  Hvis
-	    nei, bør ikke dette dokumentet publiseres med denne
-	    fristen.)
   Priority: 1 (FS 5.0 Settes i prod 2004-11-15)
   Status: Done
 
@@ -442,8 +443,8 @@
   Description: DTD-en støtter filtrering på studieretning, men
                implementasjonen mangler.
   Dependencies:
-  Assigned to:
-  Resources:
+  Assigned to: runefro
+  Resources: jazz, baardj
   Cost:
   Status:
   Due date:
@@ -513,8 +514,8 @@
                  FS.DELTAKER - Jobbadresse
 
   Dependencies:
-  Assigned to: Rune
-  Resources: Jazz
+  Assigned to: runefro
+  Resources: jazz
   Cost: 16t
   Status:
   Due date:
@@ -534,9 +535,11 @@
   Assigned to:
   Resources:
   Cost:
-  Status:
+  Status: Rapporten fra gruppen foreligger, og alt skal outsources.
+          Vi kan derfor i teorien sette prioriteten ned fra 3 til
+	  5 på dette punktet.
   Due date:
-  Priority: 3
+  Priority: 5
 
 ** Brukernavn/passord for EVU-studenter
   Description: Bygging av brukere og utsending av brukernavn/passord
