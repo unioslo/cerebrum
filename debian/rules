@@ -24,7 +24,13 @@ clean::
 	-rm -rf java/jbofh/{tmpdist,build,dist}
 
 common-binary-indep::
-	(cd java/jbofh; echo $$CLASSPATH; \
+	(cd java/jbofh; \
+	JAVA_HOME=/usr/lib/j2se/1.4 \
+	ANT_HOME=/usr/share/ant \
+	DEB_JARS=$(ANT_HOME)/lib/ant-optional.jar \
+	DEB_ANT_COMPILER=modern \
+	ant dist)
+#	(cd java/jbofh; echo $$CLASSPATH; \
 	 CLASSPATH=$$CLASSPATH:/usr/share/java:/usr/share/classpath/glibj.zip JAVACMD=/usr/bin/jamvm ant -Dbuild.compiler=jikes dist)
 #	(cd java/jbofh; \
 	 JAVACMD=/usr/lib/kaffe/bin/kaffe ANT_OPTS="-ss 512k" ant -Dbuild.compiler=kjc -Dnogui dist)
