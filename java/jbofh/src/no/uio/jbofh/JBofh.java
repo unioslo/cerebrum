@@ -699,12 +699,25 @@ public class JBofh {
 	    Vector format_info = (Vector) ef.nextElement();
 	    String format_str = (String) format_info.get(0);
 	    Vector order = (Vector) format_info.get(1);
+            String sub_hdr = null;
+            if(format_info.size() == 3)
+                sub_hdr = (String) format_info.get(2);
 	    for (Enumeration e = ((Vector) resp).elements() ; e.hasMoreElements() ;) {
 		Hashtable row = (Hashtable) e.nextElement();
 		if(! row.containsKey(order.get(0)))
 		    continue;
 		try {
 		    PrintfFormat pf = new PrintfFormat(format_str);
+                    if(sub_hdr != null) {
+                        // This dataset has a sub-header, optionaly %s formatted
+                        if(sub_hdr.indexOf("%") != -1) {
+                            pf = new PrintfFormat(sub_hdr);
+                        } else {
+                            showMessage(sub_hdr, true);
+                        }
+                        sub_hdr = null;
+                    }
+
 		    Object a[] = new Object[order.size()];
 		    for(int i = 0; i < order.size(); i++) {
                         String tmp = (String) order.get(i);
