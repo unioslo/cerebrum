@@ -190,7 +190,7 @@ class AccountUtil(object):
                         # Conflicting request or similiar
                         logger.warn(e)
             elif c_id == 'remove_autostud_quarantine':
-                user.delete_entity_quarantine(const.quarantine_auto_inaktiv)
+                user.delete_entity_quarantine(dta)
             elif c_id == 'add_spread':
                 user.add_spread(dta)
             elif c_id == 'add_person_spread':
@@ -256,6 +256,18 @@ class AccountUtil(object):
 
         # Set/change homedir
         user_spreads = [int(s) for s in profile.get_spreads()]
+
+        # quarantine scope='student_disk' should affect all users with
+        # home on a student-disk, or that doesn't have a home at all
+        may_be_quarantined = False
+        if not ac['home']:
+            may_be_quarantined = True
+        for s in autostud.pc.disk_spreads.keys():
+            tmp = ac['home'].get(s, None)
+            if (tmp and
+                autostud.student_disk.has_key(int(tmp))):
+                may_be_quarantined = True
+
         for disk_spread in profile.get_disk_spreads():
             if not disk_spread in user_spreads:
                 # The disk-spread in disk-defs was not one of the users spread
@@ -269,14 +281,22 @@ class AccountUtil(object):
                 if current_disk_id != new_disk:
                     profile.notify_used_disk(old=current_disk_id, new=new_disk)
                     changes.append(('disk', (current_disk_id, disk_spread, new_disk)))
-        # Check quarantines
-        if int(const.quarantine_auto_inaktiv) in ac['quarantines']:
-            changes.append(("remove_autostud_quarantine", None))
         # TBD: Is it OK to ignore date on existing quarantines when
         # determining if it should be added?
+        tmp = []
         for q in profile.get_quarantines():
-            if not int(q['quarantine']) in ac['quarantines']:
+            if q['scope'] == 'student_disk' and not may_be_quarantined:
+                continue
+            tmp.append(int(q['quarantine']))
+            if with_quarantines and not int(q['quarantine']) in ac['quarantines']:
                 changes.append(('add_quarantine', (q['quarantine'], q['start_at'])))
+
+        # Remove auto quarantines
+        for q in (const.quarantine_auto_inaktiv,
+                  const.quarantine_auto_emailonly):
+            if (int(q) in ac['quarantines'] and
+                int(q) not in tmp):
+                changes.append(("remove_autostud_quarantine", q))
 
         # Populate spreads
         has_acount_spreads = ac['spreads']
@@ -888,17 +908,18 @@ def main():
                                     'recalc-pq', 'studie-progs-file=',
                                     'paper-file=',
                                     'remove-groupmembers'
-                                    'dryrun', 'validate'])
+                                    'dryrun', 'validate',
+                                    'with-quarantines'])
     except getopt.GetoptError, e:
         usage(str(e))
     global debug, fast_test, create_users, update_accounts, logger, skip_lpr
     global student_info_file, studconfig_file, only_dump_to, studieprogs_file, \
            recalc_pq, dryrun, emne_info_file, move_users, remove_groupmembers, \
-           workdir, paper_money_file, ou_perspective
+           workdir, paper_money_file, ou_perspective, with_quarantines
 
     skip_lpr = True       # Must explicitly tell that we want lpr
     update_accounts = create_users = recalc_pq = dryrun = move_users = False
-    remove_groupmembers = validate = False
+    remove_groupmembers = validate = with_quarantines = False
     ou_perspective = None
     fast_test = False
     workdir = None
@@ -928,6 +949,8 @@ def main():
             recalc_pq = True
         elif opt in ('--remove-groupmembers',):
             remove_groupmembers = True
+        elif opt in ('--with-quarantines',):
+            with_quarantines = True
         elif opt in ('--move-users',):
             move_users = True
         elif opt in ('-C', '--studconfig-file'):
@@ -1012,6 +1035,7 @@ def usage(error=None):
     --type type: set type (=the mal attribute to <brev> in studconfig.xml) for --reprint
     --reprint range:  Re-print letters in case of paper-jam etc. (comma separated)
     --with-lpr: Spool the file with new user letters to printer
+    --with-quarantines: Enables quarantine settings
 
 To create new users:
   ./contrib/no/uio/process_students.py -C .../studconfig.xml -S .../studieprogrammer.xml -s .../merged_persons.xml -c
