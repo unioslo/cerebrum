@@ -19,4 +19,6 @@ profile = {
             'mode': 'view' # or edit
         },
     },
+    'menu': {
+    },
 }

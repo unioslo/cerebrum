@@ -4,6 +4,8 @@ from mod_python import publisher
 from mod_python import util
 from mod_python.Session import Session
 from time import strftime
+from Cerebrum.web.utils import url
+from Cerebrum.web.profile import get_profile
 
 def logg(tekst):
     file = open("tmp/cleanup", "a")
@@ -14,13 +16,26 @@ def handler(req):
     logg("Started handler")
     req.session = Session(req)
     logg("Got session - put it in req.session")
-    if not req.session.has_key("server"):
-        logg("Redirecting")
-        util.redirect(req,
-            "http://garbageman.itea.ntnu.no/~stain/login/")
-        # This should never happen, as redirect raises
-        # apache.SERVER_RETURN
-        return apache.HTTP_INTERNAL_SERVER_ERROR
-    
+    check_connection(req)
+    check_profile(req)
     logg("Calling normal handler")
     return publisher.handler(req)
+
+def check_connection(req):
+    if req.session.has_key("server"):
+        # everything ok
+        return
+    # server not found    
+    logg("Redirecting")
+    util.redirect(req, url("login/"))
+    # This should never happen, as redirect raises
+    # apache.SERVER_RETURN
+    raise "RealityError"
+
+def check_profile(req):
+    if req.session.has_key("profile"):
+        # everything ok
+        return
+    req.session['profile'] = get_profile(req)
+        
+    
