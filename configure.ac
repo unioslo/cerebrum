@@ -70,6 +70,7 @@ AC_CONFIG_FILES([
     web/htdocs/htaccess
     web/htdocs/Makefile
     web/htdocs/css/Makefile
+    web/htdocs/login/Makefile
 	cerebrum_path.py
 	])
 AC_OUTPUT
