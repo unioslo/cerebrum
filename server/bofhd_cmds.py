@@ -82,7 +82,7 @@ class BofhdExtension(object):
     all_commands['account_create'] = Command(
         ('account', 'create'),
         AccountName(ptype="new"), PersonIdType(), PersonId(),
-        Affiliation(default=1), OU(default=1), Date(optional=1),
+        Affiliation(default=True), OU(default=True), Date(optional=True),
         fs=FormatSuggestion("Created: %i", ("account_id",)))
     def account_create(self, user, accountname, idtype, id,
                        affiliation=None, ou=None, expire_date=None):
@@ -110,7 +110,7 @@ class BofhdExtension(object):
 
     ## bofh> account password <accountname> [<password>]
     all_commands['account_password'] = Command(
-        ('account', 'password'), AccountName(), AccountPassword(optional=1))
+        ('account', 'password'), AccountName(), AccountPassword(optional=True))
     def account_password(self, user, accountname, password=None):
         """Set account password for 'accountname'.  If password=None,
         set random password.  Returns the set password"""
@@ -127,7 +127,8 @@ class BofhdExtension(object):
     all_commands['account_posix_create'] = Command(
         ('account', 'posix_create'),
         AccountName(ptype="new"), GroupName(ptype="primary"),
-        PosixHome(default=1), PosixShell(default=1), PosixGecos(default=1))
+        PosixHome(default=True), PosixShell(default=True),
+        PosixGecos(default=True))
     # TODO:  Ettersom posix er optional, flytt denne til en egen fil
     def account_posix_create(self, user, accountname, prigroup, home=None,
                              shell=None, gecos=None):
@@ -171,13 +172,14 @@ class BofhdExtension(object):
         or difference)."""
         account = self._get_account(accountname)
         raise (NotImplementedError,
-               "Group needs a method to list the groups where an entity is a member")
+               "Group needs a method to list the groups where an"
+               " entity is a member")
 
     ## bofh> group add <entityname+> <groupname+> [<op>]
     all_commands['group_add'] = Command(("group", "add"),
-                                        GroupName("source", repeat=1),
-                                        GroupName("destination", repeat=1),
-                                        GroupOperation(optional=1))
+                                        GroupName("source", repeat=True),
+                                        GroupName("destination", repeat=True),
+                                        GroupOperation(optional=True))
     def group_add(self, user, src_group, dest_group,
                   operator=None):
         """Add group named src to group named dest using specified
@@ -205,7 +207,8 @@ class BofhdExtension(object):
         the new groups id"""
 
         account = Account.Account(self.Cerebrum)
-        account.find_by_name(cereconf.INITIAL_ACCOUNTNAME)  # TODO: current user
+        # TODO: current user
+        account.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
         group = Group.Group(self.Cerebrum)
         group.populate(account, self.const.group_visibility_all,
                           groupname, description)
@@ -274,9 +277,9 @@ class BofhdExtension(object):
     ## bofh> group remove <entityname+> <groupname+> [<op>]
     # TODO: "entityname" er litt vagt, skal man gjette entitytype?
     all_commands['group_remove'] = Command(("group", "remove"),
-                                           EntityName(repeat=1),
-                                           GroupName("existing", repeat=1),
-                                           GroupOperation(optional=1))
+                                           EntityName(repeat=True),
+                                           GroupName("existing", repeat=True),
+                                           GroupOperation(optional=True))
     def group_remove(self, user, entityname, groupname, op=None):
         """Remove 'entityname' from 'groupname' using specified
         operator"""
@@ -300,9 +303,10 @@ class BofhdExtension(object):
     ## bofh> person affadd <idtype> <id+> <affiliation> [<status> [<ou>]]
     all_commands['person_affadd'] = Command(
         ("person", "affadd"),
-        PersonIdType(), PersonId(repeat=1), Affiliation(),
-        AffiliationStatus(default=1), OU(default=1))
-    def person_affadd(self, user, idtype, id, affiliation, status=None, ou=None):
+        PersonIdType(), PersonId(repeat=True), Affiliation(),
+        AffiliationStatus(default=True), OU(default=True))
+    def person_affadd(self, user, idtype, id, affiliation,
+                      status=None, ou=None):
         """Add 'affiliation'@'ou' with 'status' to person with
         'idtype'='id'.  Changes the affiliationstatus if person
         already has an affiliation at the destination"""
@@ -310,15 +314,16 @@ class BofhdExtension(object):
 
     ## bofh> person afflist <idtype> <id>
     all_commands['person_afflist'] = Command(
-        ("person", "afflist"), PersonIdType(), PersonId(repeat=1))
+        ("person", "afflist"), PersonIdType(), PersonId(repeat=True))
     def person_afflist(self, user, idtype, id):
         """Return all affiliations for person with 'idtype'='id'"""
         raise NotImplementedError, "Feel free to implement this function"
 
     ## bofh> person affrem <idtype> <id> <affiliation> [<ou>]
     all_commands['person_affrem'] = Command(("person", "affrem"),
-                                            PersonIdType(), PersonId(repeat=1),
-                                            Affiliation(), OU(default=1))
+                                            PersonIdType(),
+                                            PersonId(repeat=True),
+                                            Affiliation(), OU(default=True))
     def person_affrem(self, user, idtype, id, affiliation, ou):
         """Add 'affiliation'@'ou' with 'status' to person with 'idtype'='id'"""
         raise NotImplementedError, "Feel free to implement this function"
@@ -327,7 +332,7 @@ class BofhdExtension(object):
     ##         {<birth_date (yyyy-mm-dd)> | <id_type> <id>}
     all_commands['person_create'] = Command(
         ("person", "create"),
-        PersonName(), Date(optional=1), PersonIdType(), PersonId(),
+        PersonName(), Date(optional=True), PersonIdType(), PersonId(),
         fs=FormatSuggestion("Created: %i", ("person_id",)))
     def person_create(self, user, display_name, birth_date=None,
                       id_type=None, id=None):
@@ -355,7 +360,8 @@ class BofhdExtension(object):
 
     ## bofh> person delete <id_type> <id>
     all_commands['person_delete'] = Command(("person", "delete"),
-                                            PersonIdType(), PersonId(repeat=1))
+                                            PersonIdType(),
+                                            PersonId(repeat=True))
     def person_delete(self, user, idtype, id):
         """Remove person.  Don't do anything if there are data
         (accounts, affiliations, etc.) associatied with the person."""
@@ -364,7 +370,7 @@ class BofhdExtension(object):
     ## bofh> person find {<name> | <id> [<id_type>] | <birth_date>}
     all_commands['person_find'] = Command(
         ("person", "find") ,
-        Id(), PersonIdType(optional=1),
+        Id(), PersonIdType(optional=True),
         fs=FormatSuggestion("%-15s%-30s%-10s", ("export_id", "name", "bdate"),
                             hdr="%-15s%-30s%-10s" % ("ExportID", "Name",
                                                      "Birthdate")))
@@ -451,14 +457,17 @@ class BofhdExtension(object):
         name = None
         for ss in cereconf.PERSON_NAME_SS_ORDER:
             try:
-                name = person.get_name(getattr(self.const, ss), self.const.name_full)
+                name = person.get_name(getattr(self.const, ss),
+                                       self.const.name_full)
                 break
             except Errors.NotFoundError:
                 pass
             if name is None:
                 try:
-                    f = person.get_name(getattr(self.const, ss), self.const.name_first)
-                    l = person.get_name(getattr(self.const, ss), self.const.name_last)
+                    f = person.get_name(getattr(self.const, ss),
+                                        self.const.name_first)
+                    l = person.get_name(getattr(self.const, ss),
+                                        self.const.name_last)
                     name = "%s %s" % (f, l)
                 except Errors.NotFoundError:
                     pass
