@@ -9,6 +9,7 @@ install:
 	./setup.py install install_data --install-dir=$(prefix)
 
 dist:
+	./setup.py sdist
 
 distcheck: dist
 
