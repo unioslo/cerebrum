@@ -17,47 +17,54 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import crypt
+from Builder import Method
+from DatabaseClass import DatabaseAttr
 
-import Cerebrum.Account
-
-from Builder import Attribute, Method
-from CerebrumClass import CerebrumAttr
+from Entity import Entity
+from Types import EntityType, AccountType
+from Date import Date
 
 import Registry
 registry = Registry.get_registry()
 
-from Entity import Entity
-
 __all__ = ['Account']
 
+table = 'account_info'
+
 class Account(Entity):
-    corba_parents = [Entity]
     slots = Entity.slots + [
-        CerebrumAttr('name', str, 'account_name', write=True),
-        CerebrumAttr('owner', Entity, 'owner_id'),
-        CerebrumAttr('create_date', str),
-        CerebrumAttr('creator', Entity, 'creator_id'),
-        CerebrumAttr('expire_date', str, write=True)
+        DatabaseAttr('owner', table, Entity),
+        DatabaseAttr('owner_type', table, EntityType),
+        DatabaseAttr('np_type', table, AccountType, optional=True),
+        DatabaseAttr('create_date', table, Date),
+        DatabaseAttr('creator', table, Entity),
+        DatabaseAttr('expire_date', table, Date),
+        DatabaseAttr('description', table, Date)
+    ]
+    method_slots = Entity.method_slots + [
+        Method('get_name', str)
     ]
 
-    cerebrum_class = Cerebrum.Account.Account
+    db_attr_aliases = Entity.db_attr_aliases.copy()
+    db_attr_aliases[table] = {
+        'id':'account_id',
+        'owner':'owner_id',
+        'creator':'creator_id'
+    }
+
+    entity_type = EntityType(name='account')
+
+    def get_name(self):
+        return registry.EntityName(self, registry.ValueDomain(name='account_names')).get_name()
 
 registry.register_class(Account)
 
-#def get_accounts(self):
-#    s = registry.AccountSearch(self)
-#    s.set_owner(self)
-#    return s.search()
+def get_account_by_name(name):
+    s = registry.EntityNameSearch(name)
+    s.set_value_domain(registry.ValueDomain(name='account_names'))
+    s.set_name(name)
 
-def get_accounts(self):
-    e = Account.cerebrum_class(self.get_database())
+    account, = s.search()
+    return account.get_entity()
 
-    accounts = []
-    for row in e.list_accounts_by_owner_id(self.get_id()):
-        accounts.append(registry.Account(int(row['account_id'])))
-    return accounts
-
-Entity.register_method(Method('get_accounts', Account, sequence=True), get_accounts)
-    
 # arch-tag: 96b23dbe-d907-44f6-b6ac-a953ec3034e0

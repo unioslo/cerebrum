@@ -17,21 +17,30 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import Cerebrum.Disk # er det ikke logisk at Host ligger i Disk? :p
+from DatabaseClass import DatabaseClass, DatabaseAttr
 
-from CerebrumClass import CerebrumAttr
+from Entity import Entity
+from Types import EntityType
 
 import Registry
 registry = Registry.get_registry()
 
-Entity = registry.Entity
-
 __all__ = ['Host']
 
+table = 'host_info'
 class Host(Entity):
-    slots = Entity.slots + [CerebrumAttr('name', 'string', write=True), 
-                            CerebrumAttr('description', 'string', write=True)]
+    slots = Entity.slots + [
+        DatabaseAttr('name', table, str),
+        DatabaseAttr('description', table, str)
+    ]
 
-    cerebrum_class = Cerebrum.Disk.Host
+    db_attr_aliases = Entity.db_attr_aliases.copy()
+    db_attr_aliases[table] = {
+        'id':'host_id'
+    }
+
+    entity_type = EntityType(name='host')
+
+registry.register_class(Host)
 
 # arch-tag: 8351c2b3-4238-447d-b168-3e396a9d2646

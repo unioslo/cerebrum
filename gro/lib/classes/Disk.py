@@ -17,23 +17,32 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import Cerebrum.Disk
+from DatabaseClass import DatabaseClass, DatabaseAttr
 
-from CerebrumClass import CerebrumAttr, CerebrumEntityAttr
+from Entity import Entity
+from Host import Host
+from Types import EntityType
 
 import Registry
 registry = Registry.get_registry()
 
-Entity = registry.Entity
-Host = registry.Host
-
 __all__ = ['Disk']
 
+table = 'disk_info'
 class Disk(Entity):
-    slots = Entity.slots + [CerebrumEntityAttr('host', 'Host', Host, 'host_id', write=True),
-                            CerebrumAttr('path', 'string', write=True),
-                            CerebrumAttr('description', 'string', write=True)]
+    slots = Entity.slots + [
+        DatabaseAttr('host', table, Host),
+        DatabaseAttr('path', table, str),
+        DatabaseAttr('description', table, str)
+    ]
 
-    cerebrum_class = Cerebrum.Disk.Disk
+    db_attr_aliases = Entity.db_attr_aliases.copy()
+    db_attr_aliases[table] = {
+        'id':'disk_id',
+        'host':'host_id'
+    }
+
+    entity_type = EntityType(name='disk')
+registry.register_class(Disk)
 
 # arch-tag: 239b4bea-84e4-412d-9158-e1af43362885

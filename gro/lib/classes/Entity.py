@@ -17,21 +17,10 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import time
-
-import Cerebrum.Entity
-import Cerebrum.QuarantineHandler
-import Cerebrum.modules.Note
-
-from Cerebrum.extlib import sets
-
-from GroBuilder import GroBuilder
 from Builder import Attribute, Method
-from CerebrumClass import CerebrumClass, CerebrumAttr
+from DatabaseClass import DatabaseClass, DatabaseAttr
 
-from Types import EntityType, Spread
-from ContactInfo import ContactInfo
-from Address import Address
+from Types import EntityType
 from EntityAuth import EntityAuth
 
 import Registry
@@ -40,26 +29,38 @@ registry = Registry.get_registry()
 
 __all__ = ['Entity']
 
-class Entity(CerebrumClass, EntityAuth):
+class Entity(DatabaseClass, EntityAuth):
     primary = [
-        CerebrumAttr('id', int, 'entity_id')
+        DatabaseAttr('id', 'entity_info', int)
     ]
-    slots = primary + [
-        CerebrumAttr('type', EntityType, 'entity_type')
+    slots = [
+        DatabaseAttr('type', 'entity_info', EntityType)
     ]
-    method_slots = CerebrumClass.method_slots + [
-        Method('get_spreads', Spread, sequence=True),
-    ]
+    method_slots = []
 
-    cerebrum_class = Cerebrum.Entity.Entity
+    db_attr_aliases = {
+        'entity_info': {
+            'id':'entity_id',
+            'type':'entity_type'
+        }
+    }
+
+    entity_type = None
+
     def __new__(cls, *args, **vargs):
-        obj = GroBuilder.__new__(Entity, *args, **vargs)
+        obj = super(Entity, cls).__new__(Entity, *args, **vargs)
 
-        if obj.__class__ is Entity: # this is a fresh object
+        # Check if obj is a fresh object
+        if obj.__class__ is Entity:
             obj.__init__(*args, **vargs)
 
+        # get the correct class for this entity
         entity_type = obj.get_type()
-        entity_class = entity_type.get_class()
+        for entity_class in Entity.builder_children:
+            if entity_class.entity_type is entity_type:
+                break
+        else:
+            raise Exception('unknown or not implemented type %s' % entity_type.get_name())
 
         if cls is not entity_class and cls is not Entity:
             raise Exception('wrong class. Asked for %s, but found %s' % (cls, entity_class))
@@ -67,57 +68,6 @@ class Entity(CerebrumClass, EntityAuth):
             obj.__class__ = entity_class
 
         return obj
-
-    def get_spreads(self):
-        e = Cerebrum.Entity.Entity(self.get_database())
-        e.entity_id = self.get_id()
-        
-        spreads = []
-        for i in e.get_spread():
-            spreads.append(Spread(id=int(i[0])))
-            
-        return spreads
-
-    def get_addresses(self):
-        addresses = []
-        e = Cerebrum.Entity.EntityAddress(self.get_database())
-        e.entity_id = self.get_id()
-
-        for row in e.get_entity_address():
-            addresses.append(Address.getByRow(row))
-
-        return addresses
-
-    def get_contact_info(self):
-        contact_info = []
-
-        e = Cerebrum.Entity.EntityContactInfo(self.get_database())
-        e.entity_id = self.get_id()
-
-        for row in e.get_contact_info():
-            contact_info.append(ContactInfo.getByRow(row))
-
-        return contact_info
-
-    def is_quarantined(self):
-        account = Cerebrum.Entity.EntityQuarantine(self.get_database())
-        account.entity_id = self.get_id()
-
-        # koka fra bofhd
-        quarantines = []      # TBD: Should the quarantine-check have a utility-API function?
-        now = self.get_database().DateFromTicks(time.time())
-        for qrow in account.get_entity_quarantine():
-            if (qrow['start_date'] <= now
-                and (qrow['end_date'] is None or qrow['end_date'] >= now)
-                and (qrow['disable_until'] is None 
-                or qrow['disable_until'] < now)):
-                # The quarantine found in this row is currently
-                # active.
-                quarantines.append(qrow['quarantine_type'])
-        qh = Cerebrum.QuarantineHandler.QuarantineHandler(self.get_database(), quarantines)
-        if qh.should_skip() or qh.is_locked():
-            return True
-        return False
 
 registry.register_class(Entity)
 

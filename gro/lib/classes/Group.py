@@ -17,12 +17,11 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import Cerebrum.Group
-
-from CerebrumClass import CerebrumAttr
+from Builder import Method
+from DatabaseClass import DatabaseAttr
 
 from Entity import Entity
-from Types import GroupVisibilityType
+from Types import EntityType, GroupVisibilityType
 from Date import Date
 
 import Registry
@@ -30,16 +29,30 @@ registry = Registry.get_registry()
 
 __all__ = ['Group']
 
+table = 'group_info'
+
 class Group(Entity):
-    corba_parents = [Entity]
     slots = Entity.slots + [
-        CerebrumAttr('name', str, 'group_name', write=True),
-        CerebrumAttr('description', str, write=True),
-        CerebrumAttr('visibility', GroupVisibilityType, write=True),
-        CerebrumAttr('expire_date', Date, write=True)
+        DatabaseAttr('description', table, str),
+        DatabaseAttr('visibility', table, GroupVisibilityType),
+        DatabaseAttr('creator', table, Entity),
+        DatabaseAttr('create_date', table, Date),
+        DatabaseAttr('expire_date', table, Date)
+    ]
+    method_slots = Entity.method_slots + [
+        Method('get_name', str)
     ]
 
-    cerebrum_class = Cerebrum.Group.Group
+    db_attr_aliases = Entity.db_attr_aliases.copy()
+    db_attr_aliases[table] = {
+        'id':'group_id',
+        'creator':'creator_id'
+    }
+
+    entity_type = EntityType(name='group')
+
+    def get_name(self):
+        return registry.EntityName(self, registry.ValueDomain(name='group_names')).get_name()
 
 registry.register_class(Group)
 

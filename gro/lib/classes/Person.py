@@ -19,29 +19,33 @@
 
 import Cerebrum.Person
 
-from Builder import Attribute, Method
-from CerebrumClass import CerebrumAttr, CerebrumBooleanAttr
+from DatabaseClass import DatabaseAttr
 
 from Entity import Entity
-from Account import Account
-from Types import GenderType
+from Date import Date
+from Types import EntityType, GenderType
 
 import Registry
 registry = Registry.get_registry()
 
 __all__ = ['Person']
 
+table = 'person_info'
 class Person(Entity):
-    corba_parents = []
     slots = Entity.slots + [
-        CerebrumAttr('export_id', str),
-        CerebrumAttr('birth_date', str, write=True),
-        CerebrumBooleanAttr('deceased', bool, write=True),
-        CerebrumAttr('gender', GenderType, write=True),
-        CerebrumAttr('description', str, write=True)
+        DatabaseAttr('export_id', table, str),
+        DatabaseAttr('birth_date', table, Date),
+        DatabaseAttr('gender', table, GenderType),
+        DatabaseAttr('deceased', table, str), # FIXME: gjøre om til bool
+        DatabaseAttr('description', table, str)
     ]
 
-    cerebrum_class = Cerebrum.Person.Person
+    db_attr_aliases = Entity.db_attr_aliases.copy()
+    db_attr_aliases[table] = {
+        'id':'person_id'
+    }
+
+    entity_type = EntityType(name='person')
 
 registry.register_class(Person)
 
