@@ -60,7 +60,6 @@ from Cerebrum.modules.no.uio import PrinterQuotas
 from Cerebrum.modules.no.hia import bofhd_hia_help
 from Cerebrum.modules.no.hia.access_FS import HiAFS
 from Cerebrum.modules.templates.letters import TemplateHandler
-from time import localtime, strftime, time
 
 # TBD: It would probably be cleaner if our time formats were specified
 # in a non-Java-SimpleDateTime-specific way.
@@ -3844,6 +3843,8 @@ class BofhdExtension(object):
                         ("%8i %s", int(c[i]['person_id']),
                          person.get_name(self.const.system_cached, self.const.name_full)),
                         int(c[i]['person_id'])))
+                if not len(map) > 1:
+                    raise CerebrumError, "No persons matched"
                 return {'prompt': "Choose person from list",
                         'map': map,
                         'help_ref': 'user_create_select_person'}
@@ -3947,7 +3948,7 @@ class BofhdExtension(object):
         perm_filter='can_create_user')
     def user_create(self, operator, *args):
         if args[0].startswith('group:'):
-            group_id, np_type, filegroup, shell, home, uname = args
+            group_id, np_type, filegroup, shell, home, nhome, uname = args
             owner_type = self.const.entity_group
             owner_id = self._get_group(group_id.split(":")[1]).entity_id
             np_type = int(self._get_constant(np_type, "Unknown account type"))
@@ -4007,8 +4008,10 @@ class BofhdExtension(object):
             # And, to write the new password to the database, we have
             # to .write_db() one more time...
             posix_user.write_db()
-            if len(args) != 6:
-                self._user_create_set_account_type(posix_user, owner_id, affiliation)
+            if len(args) != 7:
+                ou_id, affiliation = affiliation['ou_id'], affiliation['aff']
+                self._user_create_set_account_type(posix_user, owner_id,
+                                                   ou_id, affiliation)
         except self.db.DatabaseError, m:
             raise CerebrumError, "Database error: %s" % m
         operator.store_state("new_account_passwd", {'account_id': int(posix_user.entity_id),
@@ -4104,13 +4107,15 @@ class BofhdExtension(object):
     # user info
     all_commands['user_info'] = Command(
         ("user", "info"), AccountName(),
-        fs=FormatSuggestion([("Spreads:       %s\n" +
+        fs=FormatSuggestion([("Username:      %s\n" +
+	                      "Spreads:       %s\n" +
                               "Affiliations:  %s\n" +
                               "Expire:        %s\n" +
                               "Home:          %s\n" +
-                              "Entity id:     %i",
-                              ("spread", "affiliations", format_day("expire"),
-                               "home", "entity_id")),
+                              "Entity id:     %i\n" +
+                              "Owner id:      %i (%s: %s)",  
+                              ("username", "spread", "affiliations", format_day("expire"),
+                               "home", "entity_id", "owner_id", "owner_type", "owner_desc")),
                              ("UID:           %i\n" +
                               "Default fg:    %i=%s\n" +
                               "Gecos:         %s\n" +
@@ -4147,11 +4152,23 @@ class BofhdExtension(object):
 	    except Errors.NotFoundError:
 		tmp = {'disk_id': None, 'home': None}
 	ret = {'entity_id': account.entity_id,
+	       'username':  account.account_name,
 	       'spread': ",".join(["%s" % self.num2const[int(a['spread'])]
 				   for a in account.get_spread()]),
 	       'affiliations': (",\n" + (" " * 15)).join(affiliations),
 	       'expire': account.expire_date,
-	       'home': ("\n" + (" " * 15)).join(hm)}
+	       'home': ("\n" + (" " * 15)).join(hm),
+	       'owner_id': account.owner_id,
+	       'owner_type': str(self.num2const[int(account.owner_type)])}
+        if account.owner_type == self.const.entity_person:
+            person = self._get_person('entity_id', account.owner_id)
+            ret['owner_desc'] = person.get_name(self.const.system_cached,
+                                                getattr(self.const,
+                                                        cereconf.DEFAULT_GECOS_NAME))
+        else:
+            grp = self._get_group(account.owner_id, idtype='id')
+            ret['owner_desc'] = grp.group_name
+
 	if is_posix:
             group = self._get_group(account.gid_id, idtype='id', grtype='PosixGroup')
             ret['uid'] = account.posix_uid
@@ -4159,9 +4176,23 @@ class BofhdExtension(object):
             ret['dfg_name'] = group.group_name
             ret['gecos'] = account.gecos
             ret['shell'] = str(self.num2const[int(account.shell)])
-        # TODO: Return more info about account
-        if account.get_entity_quarantine():
-	    ret['quarantined'] = 'Yes'
+        quarantined = None
+        now = DateTime.now()
+        for q in account.get_entity_quarantine():
+            if q['start_date'] <= now:
+                if (q['end_date'] is not None and
+                    q['end_date'] < now):
+                    quarantined = 'expired'
+                elif (q['disable_until'] is not None and
+                    q['disable_until'] > now):
+                    quarantined = 'disabled'
+                else:
+                    quarantined = 'active'
+                    break
+            else:
+                quarantined = 'pending'
+        if quarantined:
+            ret['quarantined'] = quarantined
 	return ret
 
 
@@ -4900,17 +4931,31 @@ class BofhdExtension(object):
 
     def _parse_date(self, date):
         if not date:
+            # TBD: Is this correct behaviour?  mx.DateTime.DateTime
+            # objects allow comparison to None, although that is
+            # hardly what we expect/want.
             return None
         if isinstance(date, DateTime.DateTimeType):
             date = date.Format("%Y-%m-%d")
         try:
-            return self.db.Date(*([ int(x) for x in date.split('-')]))
+            y, m, d = [int(x) for x in date.split('-')]
+        except ValueError:
+            raise CerebrumError, "Dates must be numeric"
+        # TODO: this should be a proper delta, but rather than using
+        # pgSQL specific code, wait until Python has standardised on a
+        # Date-type.
+        if y > 2050:
+            raise CerebrumError, "Too far into the future: %s" % date
+	if y < 1800:
+	    raise CerebrumError, "Too long ago: %s" % date
+        try:
+            return self.db.Date(y, m, d)
         except:
             raise CerebrumError, "Illegal date: %s" % date
 
     def _today(self):
         return self._parse_date("%d-%d-%d" % time.localtime()[:3])
-	    
+
     def _parse_range(self, selection):
         lst = []
         try:
