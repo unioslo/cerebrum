@@ -1,5 +1,6 @@
 category:drop;
 DROP TABLE printerquotas;
+
 category:main;
 CREATE TABLE printerquotas (
  account_id           NUMERIC(12,0)
@@ -10,8 +11,10 @@ CREATE TABLE printerquotas (
  pages_printed        NUMERIC(8),
  pages_this_semester  NUMERIC(8),
  termin_quota         NUMERIC(8),
- has_printerquota     CHAR(1),
+ has_printerquota     CHAR(1)
+		NOT NULL
+		CONSTRAINT printerquotas_has_pq_bool
+		  CHECK (has_printerquota IN ('T', 'F')),
  weekly_quota         NUMERIC(8),
  max_quota            NUMERIC(8)
 );
-
