@@ -231,6 +231,10 @@ def process_person(person):
         except Errors.NotFoundError:
             pass
 
+    if (person.get('fornavn', ' ').isspace() or
+        person.get('etternavn', ' ').isspace()):
+        logger.warn("Ikke noe navn for %s" % fnr
+        return
     new_person.populate(db.Date(year, mon, day), gender)
 
     new_person.affect_names(const.system_lt, const.name_first, const.name_last)
