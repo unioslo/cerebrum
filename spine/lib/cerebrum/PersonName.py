@@ -36,15 +36,6 @@ class PersonName(DatabaseClass):
     slots = [
         DatabaseAttr('name', 'person_name', str, write=True)
     ]
-    #db_attr_aliases = {}
-    db_attr_aliases = {
-        "person_name": {
-            'person':'person_id',
-            'owner':'owner_id',
-            'creator':'creator_id'
-        }
-    }
-
     db_attr_aliases = {
         'person_name':{
             'person':'person_id'
