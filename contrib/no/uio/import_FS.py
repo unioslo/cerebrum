@@ -146,7 +146,7 @@ def process_person_callback(person_info):
             continue
         # Get name
         if dta_type in ('fagperson', 'opptak', 'tilbud', 'evu', 'privatist_emne',
-                        'alumni'):
+			'privatist_studieprogram', 'alumni'):
             etternavn = p['etternavn']
             fornavn = p['fornavn']
         if p.has_key('studentnr_tildelt'):
@@ -162,7 +162,7 @@ def process_person_callback(person_info):
                     'adrlin1_hjemsted', 'adrlin2_hjemsted',
                     'adrlin3_hjemsted', 'postnr_hjemsted',
                     'adresseland_hjemsted')
-            elif dta_type in ('opptak', 'privatist_emne'):
+            elif dta_type in ('opptak', 'privatist_emne', 'privatis_studieprogram',):
                 address_info = _ext_address_info(p, 'adrlin1_semadr',
                     'adrlin2_semadr', 'adrlin3_semadr',
                     'postnr_semadr', 'adresseland_semadr')
@@ -207,6 +207,10 @@ def process_person_callback(person_info):
 		    subtype = co.affiliation_status_student_alumni
 		_process_affiliation(co.affiliation_student, subtype,
                                  affiliations, studieprog2sko[row['studieprogramkode']])
+	elif dta_type in ('privatist_studieprogram',):
+	    _process_affiliation(co.affiliation_student,
+				 co.affiliation_status_student_privatist,
+				 affiliations, studieprog2sko[p['studieprogramkode']])
         elif dta_type in ('perm',):
             _process_affiliation(co.affiliation_student,
                                  co.affiliation_status_student_aktiv,
