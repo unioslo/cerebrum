@@ -1,4 +1,6 @@
-# Copyright 2002, 2003 University of Oslo, Norway
+# -*- coding: iso-8859-1 -*-
+
+# Copyright 2002, 2003, 2004 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
