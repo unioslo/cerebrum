@@ -1,42 +1,73 @@
-"""
+# Copyright 2002 University of Oslo, Norway
+#
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
+"""Access to Cerebrum code values.
+
 The Constants class defines a set of methods that should be used to
 get the actual database code/code_str representing a given Entity,
-Address, Gender etc. type.
-"""
+Address, Gender etc. type."""
 
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
 
 class _CerebrumCode(DatabaseAccessor):
+    """Abstract base class for accessing code tables in Cerebrum."""
+
+    _lookup_table = None                # Abstract class.
     _lookup_code_column = 'code'
     _lookup_str_column = 'code_str'
     _lookup_desc_column = 'description'
 
-    def __init__(self, str):
-        if(type(str) == int):
-            self.int = str
-            self.str = self.sql.query_1("SELECT %s FROM %s WHERE %s=:int" %
-                                        (self._lookup_str_column, self._lookup_table,
-                                         self._lookup_code_column), {'int': str})
-        else:
-            self.str = str
+    def __init__(self, code):
         self.int = None
         self._desc = None
+        if type(code) is int:
+            self.int = code
+            self.str = self.sql.query_1("SELECT %s FROM %s WHERE %s=:code" %
+                                        (self._lookup_str_column,
+                                         self._lookup_table,
+                                         self._lookup_code_column),
+                                        locals())
+        elif type(code) is str:
+            self.str = code
+        else:
+            raise ValueError
         
     def __str__(self):
         return self.str
     
-    def desc(self):
+    def _get_description(self):
         if self._desc is None:
             self._desc = self.sql.query_1("SELECT %s FROM %s WHERE %s=:str" %
-                                   (self._lookup_desc_column, self._lookup_table,
-                                    self._lookup_str_column), {'str': self.str})
+                                          (self._lookup_desc_column,
+                                           self._lookup_table,
+                                           self._lookup_str_column),
+                                          self.__dict__)
         return self._desc
+    description = property(
+        _get_description, None, None, "This code value's description.")
 
     def __int__(self):
         if self.int is None:
-            self.int = self.sql.query_1("SELECT %s FROM %s WHERE %s=:str" %
-                                   (self._lookup_code_column, self._lookup_table,
-                                    self._lookup_str_column), {'str': self.str})
+            self.int = int(self.sql.query_1("SELECT %s FROM %s WHERE %s=:str" %
+                                            (self._lookup_code_column,
+                                             self._lookup_table,
+                                             self._lookup_str_column),
+                                            self.__dict__))
         return self.int
 
 class _EntityTypeCode(_CerebrumCode):
@@ -87,10 +118,17 @@ class _PersonAffStatusCode(_CerebrumCode):
 
     def __int__(self):
         if self.int is None:
-            self.int = self.sql.query_1("SELECT %s FROM %s WHERE %s=:str AND affiliation=:aff" %
-                                   (self._lookup_code_column, self._lookup_table,
-                                    self._lookup_str_column), {'str': self.str, 'aff' : int(self.affiliation)})
+            self.int = int(self.sql.query_1("""
+            SELECT %s FROM %s WHERE affiliation=:aff AND %s=:str""" %
+                                            (self._lookup_code_column,
+                                             self._lookup_table,
+                                             self._lookup_str_column),
+                                            {'str': self.str,
+                                             'aff' : int(self.affiliation)}))
         return self.int
+
+    ## Should __str__ be overriden as well, to indicate both
+    ## affiliation and status?
 
 class _AuthoritativeSystemCode(_CerebrumCode):
     "Mappings stored in the authoritative_system_code table"
@@ -101,7 +139,6 @@ class _OUPerspectiveCode(_CerebrumCode):
     "Mappings stored in the ou_perspective_code table"
     _lookup_table = 'ou_perspective_code'
     pass
-
 
 class _AccountCode(_CerebrumCode):
     "Mappings stored in the ou_perspective_code table"
@@ -125,16 +162,23 @@ class _PosixShellCode(_CerebrumCode):
     _lookup_desc_column = 'shell'
     pass
 
+class _GroupMembershipOpCode(_CerebrumCode):
+    "Mappings stored in the ou_perspective_code table"
+    _lookup_table = 'group_membership_op_code'
+    pass
+
 
 class Constants(DatabaseAccessor):
 
-    """Defines a number of variables that are used to get access to the
+    """Singleton whose members make up all needed coding values.
+
+    Defines a number of variables that are used to get access to the
     string/int value of the corresponding database key."""
 
-    entity_person = _EntityTypeCode('p')
-    entity_ou = _EntityTypeCode('o')
-    entity_account = _EntityTypeCode('a')
-    entity_group = _EntityTypeCode('g')
+    entity_person = _EntityTypeCode('person')
+    entity_ou = _EntityTypeCode('ou')
+    entity_account = _EntityTypeCode('account')
+    entity_group = _EntityTypeCode('group')
 
     contact_phone = _ContactInfoCode('PHONE')
     contact_fax = _ContactInfoCode('FAX')
@@ -154,8 +198,10 @@ class Constants(DatabaseAccessor):
     affiliation_student = _PersonAffiliationCode('STUDENT')
     affiliation_employee = _PersonAffiliationCode('EMPLOYEE')
 
-    affiliation_status_student_valid = _PersonAffStatusCode(affiliation_student, 'VALID')
-    affiliation_status_employee_valid = _PersonAffStatusCode(affiliation_employee, 'VALID')
+    affiliation_status_student_valid = _PersonAffStatusCode(
+        affiliation_student, 'VALID')
+    affiliation_status_employee_valid = _PersonAffStatusCode(
+        affiliation_employee, 'VALID')
 
     # UIO specific constants, belong in UiOConstants once we get the
     # CerebrumFactory up and running
@@ -165,7 +211,6 @@ class Constants(DatabaseAccessor):
     perspective_lt = _OUPerspectiveCode('LT')
     perspective_fs = _OUPerspectiveCode('FS')
 
-    account_person = _AccountCode('U')
     account_program = _AccountCode('P')
 
     posix_shell_bash = _PosixShellCode('bash')
@@ -174,6 +219,10 @@ class Constants(DatabaseAccessor):
 
     auth_type_md5 = _AuthenticationCode("MD5")
     
+    group_memberop_union = _GroupMembershipOpCode('union')
+    group_memberop_intersection = _GroupMembershipOpCode('intersection')
+    group_memberop_difference = _GroupMembershipOpCode('difference')
+
     def __init__(self, database):
         super(Constants, self).__init__(database)
 
@@ -181,13 +230,17 @@ class Constants(DatabaseAccessor):
 
 def main():
     from Cerebrum import Database
+    from Cerebrum import Errors
 
-    Cerebrum = Database.connect(user="cerebrum")
+    Cerebrum = Database.connect()
     co = Constants(Cerebrum)
 
     skip = dir(Cerebrum)
     for x in filter(lambda x: x[0] != '_' and not x in skip, dir(co)):
-        print "co.%s: %s = %d" % (x, getattr(co, x), getattr(co, x))
+        try:
+            print "co.%s: %s = %d" % (x, getattr(co, x), getattr(co, x))
+        except Errors.NotFoundError:
+            print "NOT FOUND: co.%s" % x
 
 if __name__ == '__main__':
     main()
