@@ -132,5 +132,5 @@ class AccountUiOMixin(Account.Account):
                   "Can't remove uio spread to an account with ifi spread."
         #
         # (Try to) perform the actual spread removal.
-        ret = self.__super.add_spread(spread)
+        ret = self.__super.delete_spread(spread)
         return ret
