@@ -52,7 +52,11 @@ class Constants(Constants.Constants):
 
     affiliation_ansatt = _PersonAffiliationCode('ANSATT','Ansatt ved HiA')
     affiliation_status_ansatt_manuell = _PersonAffStatusCode(
-        affiliation_ansatt, 'ansatt', 'Ansatt, manuell import')
+        affiliation_ansatt, 'manuell', 'Ansatt, manuell import')
+    affiliation_status_ansatt_vitenskapelig = _PersonAffStatusCode(
+        affiliation_ansatt, 'vitenskapelig', 'Ansatt, vitenskapelige ansatte')
+    affiliation_status_ansatt_ovrig = _PersonAffStatusCode(
+        affiliation_ansatt, 'ovrig', 'Ansatt, øvrige ansatte')
     
 # STUDENTER
     affiliation_student = _PersonAffiliationCode(
