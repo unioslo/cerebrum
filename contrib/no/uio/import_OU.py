@@ -59,10 +59,10 @@ def main():
         i = i + 1
 
         if verbose:
-            print "Processing %s %s" % (
+            print "Processing %s '%s'" % (
                 get_stedkode_str(k['fakultetnr'], k['instituttnr'],
                                  k['gruppenr']),
-                k['forkstednavn'])
+                k['forkstednavn']),
         new_ou.clear()
 
         new_ou.populate(k['stednavn'], k['fakultetnr'],
@@ -87,11 +87,11 @@ def main():
             ou.find(ou.ou_id)
 
             if not (new_ou == ou):
-                if verbose: print "  is changed"
+                if verbose: print " is changed"
                 new_ou.write_db(ou)
             new_ou.ou_id = ou.ou_id
         except Errors.NotFoundError:
-            if verbose: print "  is new"
+            if verbose: print " is new"
             new_ou.write_db()
             
         stedkode = get_stedkode_str(k['fakultetnr'], k['instituttnr'],
