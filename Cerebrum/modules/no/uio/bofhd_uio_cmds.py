@@ -139,8 +139,25 @@ class BofhdExtension(object):
     all_commands['group_create'] = Command(
         ("group", "create"), GroupName(help_ref="group_name_new"),
         SimpleString(help_ref="string_description"),
-        fs=FormatSuggestion("Group created as a normal group, internal id: %i", ("group_id",)))
+        fs=FormatSuggestion("Group created as a PosixGroup group, posix gid: %i", ("group_id",)))
     def group_create(self, operator, groupname, description):
+        self.ba.can_create_group(operator.get_entity_id())
+        pg = PosixGroup.PosixGroup(self.db)
+        pg.populate(creator_id=operator.get_entity_id(),
+                     visibility=self.const.group_visibility_all,
+                     name=groupname, description=description)
+        try:
+            pg.write_db()
+        except self.db.DatabaseError, m:
+            raise CerebrumError, "Database error: %s" % m
+        return {'group_id': int(pg.posix_gid)}
+
+    # group create
+    all_commands['group_create_basic'] = Command(
+        ("group", "create_basic"), GroupName(help_ref="group_name_new"),
+        SimpleString(help_ref="string_description"),
+        fs=FormatSuggestion("Group created as a normal group, internal id: %i", ("group_id",)))
+    def group_create_basic(self, operator, groupname, description):
         self.ba.can_create_group(operator.get_entity_id())
         g = Group.Group(self.db)
         g.populate(creator_id=operator.get_entity_id(),
@@ -285,11 +302,12 @@ class BofhdExtension(object):
                  } for a in group.get_members()]
 
     # group posix_create
-    all_commands['group_posix_create'] = Command(
-        ("group", "posix_create"), GroupName(),
+    all_commands['group_promote_posix'] = Command(
+        ("group", "promote_posix"), GroupName(),
         SimpleString(help_ref="string_description", optional=True),
-        fs=FormatSuggestion("Group created, posix gid: %i", ("group_id",)))
-    def group_posix_create(self, operator, group, description=None):
+        fs=FormatSuggestion("Group promoted to PosixGroup, posix gid: %i",
+                            ("group_id",)))
+    def group_promote_posix(self, operator, group, description=None):
         self.ba.can_create_group(operator.get_entity_id())
         group=self._get_group(group)
         pg = PosixGroup.PosixGroup(self.db)
@@ -301,9 +319,9 @@ class BofhdExtension(object):
         return {'group_id': int(pg.posix_gid)}
 
     # group posix_delete
-    all_commands['group_posix_delete'] = Command(
-        ("group", "posix_delete"), GroupName())
-    def group_posix_delete(self, operator, group):
+    all_commands['group_demote_posix'] = Command(
+        ("group", "posix_demote"), GroupName())
+    def group_demote_posix(self, operator, group):
         grp = self._get_group(group, grtype="PosixGroup")
         self.ba.can_delete_group(operator.get_entity_id(), grp)
         grp.delete()
@@ -385,6 +403,14 @@ class BofhdExtension(object):
             raise CerebrumError, "Bad password: %s" % m
         return "OK"
 
+    # misc clear_passwords
+    all_commands['misc_clear_passwords'] = Command(
+        ("misc", "clear_passwords"), AccountName(optional=True))
+    def misc_clear_passwords(self, operator, account_name=None):
+        operator.clear_state(state_types=('new_account_passwd', 'user_passwd'))
+        return "OK"
+
+
     all_commands['misc_dadd'] = Command(
         ("misc", "dadd"), SimpleString(help_ref='string_host'), DiskId())
     def misc_dadd(self, operator, hostname, diskname):
@@ -416,19 +442,84 @@ class BofhdExtension(object):
         host = self._get_host(hostname)
         raise NotImplementedError, "API does not support host removal"
 
-    # misc lmy
-    all_commands['misc_lmy'] = Command(
-        ("misc", "lmy"), )
-    def misc_lmy(self, operator):
-        # TODO: Dunno what this command is supposed to do
-        raise NotImplementedError, "Feel free to implement this function"
+    # misc list_passwords
+    def misc_list_passwords_prompt_func(self, session, *args):
+        """  - Går inn i "vis-info-om-oppdaterte-brukere-modus":
+  1 Skriv ut passordark
+  1.1 Lister ut templates, ber bofh'er om å velge en
+  1.1.[0] Spesifiser skriver (for template der dette tillates valgt av
+          bofh'er)
+  1.1.1 Lister ut alle aktuelle brukernavn, ber bofh'er velge hvilke
+        som skal skrives ut ('*' for alle).
+  1.1.2 (skriv ut ark/brev)
+  2 List brukernavn/passord til skjerm
+  """
+        all_args = list(args[:])
+        if not all_args:
+            return {'prompt': "Velg#",
+                    'map': [(("Alternativer",), None),
+                            (("Skriv ut passordark",), "skriv"),
+                            (("List brukernavn/passord til skjerm",), "skjerm")]}
+        arg = all_args.pop(0)
+        if(arg == "skjerm"):
+            return {'last_arg': True}
+        if not all_args:
+            map = [(("Alternativer",), None)]
+            n = 1
+            for t in self._map_template():
+                map.append(((t,), n))
+                n += 1
+            return {'prompt': "Velg template #", 'map': map,
+                    'help_ref': 'print_select_template'}
+        arg = all_args.pop(0)
+        tpl_lang, tpl_name, tpl_type = self._map_template(arg)
+        if not tpl_lang.endswith("-letter"):
+            if not all_args:
+                return {'prompt': 'Oppgi skrivernavn'}
+            skriver = all_args.pop(0)
+        if not all_args:
+            n = 1
+            map = [(("%8s %s", "uname", "operation"), None)]
+            for row in self._get_cached_passwords(session):
+                map.append((("%-12s %s", row['account_id'], row['operation']), n))
+                n += 1
+            if n == 1:
+                raise CerebrumError, "no users"
+            return {'prompt': 'Velg bruker(e)', 'last_arg': True,
+                    'map': map, 'raw': True,
+                    'help_ref': 'print_select_range'}
 
-    # misc lsko
-    all_commands['misc_lsko'] = Command(
-        ("misc", "lsko"), SimpleString())
-    def misc_lsko(self, operator):
-        # TODO: Dunno what this command is supposed to do
-        raise NotImplementedError, "Feel free to implement this function"
+    all_commands['misc_list_passwords'] = Command(
+        ("misc", "list_passwords"), prompt_func=misc_list_passwords_prompt_func,
+        fs=FormatSuggestion("%-8s %-20s %s", ("account_id", "operation", "password"),
+                            hdr="%-8s %-20s %s" % ("Id", "Operation", "Password")))
+    def misc_list_passwords(self, operator, *args):
+        if args[0] == "skjerm":
+            return self._get_cached_passwords(operator)
+        args = list(args[:])
+        args.pop(0)
+        tpl_lang, tpl_name, tpl_type = self._map_template(args.pop(0))
+        skriver = None
+        if not tpl_lang.endswith("-letter"):
+            skriver = args.pop(0)
+        selection = args.pop(0)
+        cache = self._get_cached_passwords(operator)
+        th = TemplateHandler(tpl_lang, tpl_name, tpl_type)
+        out, out_name = Utils.make_temp_file()
+        if th._hdr is not None:
+            out.write(th._hdr)
+        for n in self._parse_range(selection):
+            n -= 1
+            mapping = {'Brukernavn': cache[n]['account_id'],
+                       'Passord': cache[n]['password']}
+            out.write(th.apply_template('body', mapping))
+        if th._footer is not None:
+            out.write(th._footer)
+        out.close()
+        # TODO: pick up out_name and send it to printer, running
+        # through latex if tpl_type == 'tex'
+        return "OK: %s/%s.%s spooled @ %s for %s" % (
+            tpl_lang, tpl_name, tpl_type, skriver, selection)
 
     # misc mmove
     all_commands['misc_mmove'] = Command(
@@ -456,21 +547,6 @@ class BofhdExtension(object):
                         'args': r['state_data']
                         })
         return ret
-
-    # misc profile_download
-    all_commands['misc_profile_download'] = Command(
-        ("misc", "profile_download"), SimpleString(help_ref="string_filename"))
-    def misc_profile_download(self, operator, filename):
-        # TODO: Add support for up/downloading files
-        # TODO: Add support for profile handling
-        raise NotImplementedError, "Feel free to implement this function"
-
-    # misc profile_upload
-    all_commands['misc_profile_upload'] = Command(
-        ("misc", "profile_upload"), SimpleString(help_ref="string_filename"))
-    def misc_profile_upload(self, operator, filename):
-        # TODO: Add support for up/downloading files
-        raise NotImplementedError, "Feel free to implement this function"
 
     # misc user_passwd
     all_commands['misc_user_passwd'] = Command(
@@ -735,14 +811,28 @@ class BofhdExtension(object):
         raise NotImplementedError, "Feel free to implement this function"
 
     # person user_priority
-    all_commands['person_user_priority'] = Command(
-        ("person", "user_priority"), AccountName(), SimpleString())
-    def person_user_priority(self, operator, account_name, priority):
+    all_commands['person_set_user_priority'] = Command(
+        ("person", "set_user_priority"), AccountName(),
+        SimpleString(help_ref='string_old_priority'),
+        SimpleString(help_ref='string_new_priority'))
+    def person_set_user_priority(self, operator, account_name,
+                                 old_priority, new_priority):
         account = self._get_account(account_name)
         person = self._get_person('entity_id', account.owner_id)
         self.ba.can_set_person_user_priority(operator.get_entity_id(), account)
-        # TODO: The API doesn't support this yet
-        raise NotImplementedError, "Feel free to implement this function"
+        old_priority = int(old_priority)
+        new_priority = int(new_priority)
+        ou = None
+        affiliation = None
+        for row in account.get_account_types():
+            if row['priority'] == old_priority:
+                ou = row['ou_id']
+                affiliation = row['affiliation']
+        if ou is None:
+            raise CerebrumError("Must specify an existing priority")
+        account.set_account_type(ou, affiliation, new_priority)
+        account.write_db()
+        return "OK"
 
     all_commands['person_list_user_priorities'] = Command(
         ("person", "list_user_priorities"), PersonId(),
@@ -976,20 +1066,7 @@ class BofhdExtension(object):
         account.write_db()
         return "OK"
 
-    # user bcreate
-    all_commands['user_bcreate'] = Command(
-        ("user", "bcreate"), SimpleString(help_ref="string_filename"))
-    def user_bcreate(self, operator, filename):
-        raise NotImplementedError, "Feel free to implement this function"
-
-    # user clear_created
-    all_commands['user_clear_created'] = Command(
-        ("user", "clear_created"), AccountName(optional=True))
-    def user_clear_created(self, operator, account_name=None):
-        operator.clear_state(state_types=('new_account_passwd', 'user_passwd'))
-        return "OK"
-
-    def user_create_prompt_func(self, session, *args):
+    def _user_create_prompt_func_helper(self, ac_type, session, *args):
         """A prompt_func on the command level should return
         {'prompt': message_string, 'map': dict_mapping}
         - prompt is simply shown.
@@ -1024,15 +1101,16 @@ class BofhdExtension(object):
                     int(c[i]['person_id'])))
             return {'prompt': "Velg person fra listen", 'map': map}
         person_id = all_args.pop(0)
-        if not all_args:
-            return {'prompt': "Default filgruppe"}
-        filgruppe = all_args.pop(0)
-        if not all_args:
-            return {'prompt': "Shell", 'default': 'bash'}
-        shell = all_args.pop(0)
-        if not all_args:
-            return {'prompt': "Disk", 'help_ref': 'disk'}
-        disk = all_args.pop(0)
+        if ac_type == 'PosixUser':
+            if not all_args:
+                return {'prompt': "Default filgruppe"}
+            filgruppe = all_args.pop(0)
+            if not all_args:
+                return {'prompt': "Shell", 'default': 'bash'}
+            shell = all_args.pop(0)
+            if not all_args:
+                return {'prompt': "Disk", 'help_ref': 'disk'}
+            disk = all_args.pop(0)
         if not all_args:
             ret = {'prompt': "Brukernavn", 'last_arg': True}
             posix_user = PosixUser.PosixUser(self.db)
@@ -1049,6 +1127,9 @@ class BofhdExtension(object):
             return ret
         raise CerebrumError, "Client called prompt func with too many arguments"
 
+    def user_create_prompt_func(self, session, *args):
+        return self._user_create_prompt_func_helper('PosixUser', session, *args)
+    
     # user create
     all_commands['user_create'] = Command(
         ('user', 'create'), prompt_func=user_create_prompt_func,
@@ -1085,6 +1166,35 @@ class BofhdExtension(object):
         operator.store_state("new_account_passwd", {'account_id': int(posix_user.entity_id),
                                                     'password': passwd})
         return {'uid': uid}
+
+    def user_create_basic_prompt_func(self, session, *args):
+        return self._user_create_prompt_func_helper('Account', session, *args)
+    
+    # user create
+    all_commands['user_create_basic'] = Command(
+        ('user', 'create_basic'), prompt_func=user_create_basic_prompt_func,
+        fs=FormatSuggestion("Created account_id=%i", ("account_id",)))
+    def user_create_basic(self, operator, idtype, person_id, uname):
+        person = self._get_person("entity_id", person_id)
+        account = Account.Account(self.db)
+        account.clear()
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            raise PermissionDenied("only superusers may reserve users")
+        account.populate(uname,
+                         self.const.entity_person,  # Owner type
+                         person.entity_id,
+                         None,                      # np_type
+                         operator.get_entity_id(),  # creator_id
+                         None)                      # expire_date
+        passwd = account.make_passwd(uname)
+        account.set_password(passwd)
+        try:
+            account.write_db()
+        except self.db.DatabaseError, m:
+            raise CerebrumError, "Database error: %s" % m
+        operator.store_state("new_account_passwd", {'account_id': int(account.entity_id),
+                                                    'password': passwd})
+        return {'account_id': int(account.entity_id)}
 
     # user delete
     all_commands['user_delete'] = Command(
@@ -1133,9 +1243,9 @@ class BofhdExtension(object):
     # user info
     all_commands['user_info'] = Command(
         ("user", "info"), AccountName(),
-        fs=FormatSuggestion([("entity id: %i\nSpreads: %s\nAffiliations: %s"+
-                              "Expire: %s\n",
-                              ("entity_id", "spread", "affiliations", "expire")),
+        fs=FormatSuggestion([("entity id: %i\nSpreads: %s\nAffiliations: %s\n"+
+                              "Expire: %s\nHome: %s",
+                              ("entity_id", "spread", "affiliations", "expire", "home")),
                              ("uid: %i\ndfg: %i\ngecos: %s\nshell: %s",
                               ('uid', 'dfg', 'gecos', 'shell'))]))
     def user_info(self, operator, accountname):
@@ -1154,7 +1264,13 @@ class BofhdExtension(object):
                'spread': ",".join(["%s" % self.num2const[int(a['spread'])]
                                    for a in account.get_spread()]),
                'affiliations': ",".join(affiliations),
-               'expire': expire_date}
+               'expire': account.expire_date,
+               'home': account.home}
+        if account.disk_id is not None:
+            disk = Disk.Disk(self.db)
+            disk.find(account.disk_id)
+            ret['home'] = "%s/%s" % (disk.path, account.account_name)
+
         if is_posix:
             ret['uid'] = account.posix_uid
             ret['dfg'] = account.gid_id
@@ -1190,85 +1306,6 @@ class BofhdExtension(object):
                             'operation': r['state_type']})
         return ret
 
-    # user list_passwords
-    def user_list_passwords_prompt_func(self, session, *args):
-        """  - Går inn i "vis-info-om-oppdaterte-brukere-modus":
-  1 Skriv ut passordark
-  1.1 Lister ut templates, ber bofh'er om å velge en
-  1.1.[0] Spesifiser skriver (for template der dette tillates valgt av
-          bofh'er)
-  1.1.1 Lister ut alle aktuelle brukernavn, ber bofh'er velge hvilke
-        som skal skrives ut ('*' for alle).
-  1.1.2 (skriv ut ark/brev)
-  2 List brukernavn/passord til skjerm
-  """
-        all_args = list(args[:])
-        if not all_args:
-            return {'prompt': "Velg#",
-                    'map': [(("Alternativer",), None),
-                            (("Skriv ut passordark",), "skriv"),
-                            (("List brukernavn/passord til skjerm",), "skjerm")]}
-        arg = all_args.pop(0)
-        if(arg == "skjerm"):
-            return {'last_arg': True}
-        if not all_args:
-            map = [(("Alternativer",), None)]
-            n = 1
-            for t in self._map_template():
-                map.append(((t,), n))
-                n += 1
-            return {'prompt': "Velg template #", 'map': map,
-                    'help_ref': 'print_select_template'}
-        arg = all_args.pop(0)
-        tpl_lang, tpl_name, tpl_type = self._map_template(arg)
-        if not tpl_lang.endswith("-letter"):
-            if not all_args:
-                return {'prompt': 'Oppgi skrivernavn'}
-            skriver = all_args.pop(0)
-        if not all_args:
-            n = 1
-            map = [(("%8s %s", "uname", "operation"), None)]
-            for row in self._get_cached_passwords(session):
-                map.append((("%-12s %s", row['account_id'], row['operation']), n))
-                n += 1
-            if n == 1:
-                raise CerebrumError, "no users"
-            return {'prompt': 'Velg bruker(e)', 'last_arg': True,
-                    'map': map, 'raw': True,
-                    'help_ref': 'print_select_range'}
-
-    all_commands['user_list_passwords'] = Command(
-        ("user", "list_passwords"), prompt_func=user_list_passwords_prompt_func,
-        fs=FormatSuggestion("%-8s %-20s %s", ("account_id", "operation", "password"),
-                            hdr="%-8s %-20s %s" % ("Id", "Operation", "Password")))
-    def user_list_passwords(self, operator, *args):
-        if args[0] == "skjerm":
-            return self._get_cached_passwords(operator)
-        args = list(args[:])
-        args.pop(0)
-        tpl_lang, tpl_name, tpl_type = self._map_template(args.pop(0))
-        skriver = None
-        if not tpl_lang.endswith("-letter"):
-            skriver = args.pop(0)
-        selection = args.pop(0)
-        cache = self._get_cached_passwords(operator)
-        th = TemplateHandler(tpl_lang, tpl_name, tpl_type)
-        out, out_name = Utils.make_temp_file()
-        if th._hdr is not None:
-            out.write(th._hdr)
-        for n in self._parse_range(selection):
-            n -= 1
-            mapping = {'Brukernavn': cache[n]['account_id'],
-                       'Passord': cache[n]['password']}
-            out.write(th.apply_template('body', mapping))
-        if th._footer is not None:
-            out.write(th._footer)
-        out.close()
-        # TODO: pick up out_name and send it to printer, running
-        # through latex if tpl_type == 'tex'
-        return "OK: %s/%s.%s spooled @ %s for %s" % (
-            tpl_lang, tpl_name, tpl_type, skriver, selection)
-
     # user move
     def user_move_prompt_func(self, session, *args):
         all_args = list(args[:])
@@ -1281,7 +1318,7 @@ class BofhdExtension(object):
             an = AccountName()
             return an.get_struct(self)
         ac_name = all_args.pop(0)
-        if mtype in ("immediate", "batch", "nofile"):
+        if mtype in ("immediate", "batch", "nofile", "hard_nofile"):
             if not all_args:
                 di = DiskId()
                 r = di.get_struct(self)
@@ -1340,6 +1377,13 @@ class BofhdExtension(object):
                 account.home = home
                 account.write_db()
                 return "OK, user moved"
+        elif move_type in ("hard_nofile",):
+            if not self.ba.is_superuser(operator.get_entity_id()):
+                raise PermissionDenied("only superusers may use hard_nofile")
+            account.home = args[0]
+            account.disk_id = None
+            account.write_db()
+            return "OK, user moved to hardcoded homedir"
         elif move_type in ("student", "student_immediate", "confirm", "cancel"):
             self.ba.can_give_user(operator.get_entity_id(), account)
             if move_type == "student":
@@ -1407,10 +1451,10 @@ class BofhdExtension(object):
         return "OK"
     
     # user posix_create
-    all_commands['user_posix_create'] = Command(
-        ('user', 'posix_create'), AccountName(), GroupName(),
+    all_commands['user_promote_posix'] = Command(
+        ('user', 'promote_posix'), AccountName(), GroupName(),
         PosixShell(default="bash"), DiskId())
-    def user_posix_create(self, operator, accountname, dfg=None, shell=None,
+    def user_promote_posix(self, operator, accountname, dfg=None, shell=None,
                           home=None):
         account = self._get_account(accountname)
         pu = PosixUser.PosixUser(self.db)
@@ -1426,9 +1470,9 @@ class BofhdExtension(object):
         return "OK"
 
     # user posix_delete
-    all_commands['user_posix_delete'] = Command(
-        ('user', 'posix_delete'), AccountName())
-    def user_posix_delete(self, operator, accountname):
+    all_commands['user_demote_posix'] = Command(
+        ('user', 'demote_posix'), AccountName())
+    def user_demote_posix(self, operator, accountname):
         raise NotImplementedError, "Feel free to implement this function"
 
     # user set_expire
@@ -1448,6 +1492,23 @@ class BofhdExtension(object):
         self.ba.can_delete_user(operator.get_entity_id(), account)
         account.np_type = self._map_np_type(np_type)
         account.write_db()
+        return "OK"
+
+    all_commands['user_set_owner'] = Command(
+        ("user", "set_owner"), AccountName(), EntityType(default='person'),
+        Id())
+    def user_set_owner(self, operator, accountname, entity_type, id):
+        account = self._get_account(accountname)
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            raise PermissionDenied("only superusers may assign account ownership")
+        new_owner = self._get_entity(entity_type, id)
+        if account.owner_type == self.const.entity_person:
+            for row in account.get_account_types():
+                account.del_account_type(row['ou_id'], row['affiliation'])
+        account.owner_type=new_owner.entity_type
+        account.owner_id=new_owner.entity_id
+        account.write_db()
+        return "OK"
 
     # user shell
     all_commands['user_shell'] = Command(
@@ -1675,7 +1736,7 @@ class BofhdExtension(object):
             home = None
             disk_id = disk.entity_id
         except Errors.NotFoundError:
-            pass
+            raise CerebrumError("Unknown disk: %s" % home)
         return disk_id, home
 
     def _map_np_type(self, np_type):

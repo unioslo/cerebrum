@@ -13,7 +13,8 @@ group_help = {
 command_help = {
     'group': {
     'group_add': 'Melde accounts inn i en gruppe',
-    'group_create': 'Byggge en ny gruppe',
+    'group_create': 'Byggge en ny posix filgruppe',
+    'group_create_basic': 'Byggge en ny gruppe',
     'group_def': 'Sett default gruppe',
     'group_delete': 'Sletter gruppen',
     'group_gadd': 'Melde grupper inn',
@@ -22,8 +23,8 @@ command_help = {
     'group_list': 'Liste alle direkte medlemmer i en gruppe',
     'group_list_all': 'Liste alle grupper',
     'group_list_expanded': 'Liste alle ekspanderte medlemmer i en gruppe',
-    'group_posix_create': 'Gjøre en eksisterende gruppe til en PosixGroup',
-    'group_posix_delete': 'Gjøre en PosixGroup til en Group',
+    'group_promote_posix': 'Gjøre en eksisterende gruppe til en PosixGroup',
+    'group_demote_posix': 'Gjøre en PosixGroup til en Group',
     'group_remove': 'Melde accounts ut',
     'group_set_expire': 'Sette expire på en gruppe',
     'group_set_visibility': 'Sette visibility på en gruppe',
@@ -32,15 +33,13 @@ command_help = {
     'misc': {
     'misc_affiliations': 'Vis alle mulige affiliations',
     'misc_checkpassw': 'sjekk om et passord er godt nok',
+    'misc_clear_passwords': 'Glem passord for brukere (se list_passwords)',
     'misc_dadd': 'Legge til disk',
     'misc_drem': 'Fjerne disk',
     'misc_hadd': 'Legge til host',
     'misc_hrem': 'Fjerne host',
-    'misc_lmy': 'I have no idea what this is supposed to do',
-    'misc_lsko': 'I have no idea what this is supposed to do',
+    'misc_list_passwords': 'Vis/skriv ut passord satt i denne bofh-sesjonen',
     'misc_mmove': 'vis alle flyttinger som jeg kan confirme/jeg har requestet',
-    'misc_profile_download': 'hente ned profil fil fra serveren',
-    'misc_profile_upload': 'laste opp ny profil fil til serveren',
     'misc_user_passwd': 'Sjekk om en brukers passord er en gitt streng',
     },
     'perm': {
@@ -61,7 +60,7 @@ command_help = {
     'person_list_user_priorities': 'viser rangering av primærbrukere',
     'person_set_id': 'setter ekstern id for en person',
     'person_student_info': 'Viser informasjon om studenten',
-    'person_user_priority': 'Sett prioritet for bruker',
+    'person_set_user_priority': 'Sett prioritet for bruker',
     },
     'print': {
     'printer_qoff': 'Skru av kvote på en bruker',
@@ -83,20 +82,19 @@ command_help = {
     'user': {
     'user_affiliation_add': 'Legg til affiliation for bruker',
     'user_affiliation_remove': 'Fjern affiliation for bruker',
-    'user_bcreate': 'Batch bygging av brukere fra fil',
-    'user_clear_created': 'Glem byggede brukere (se list_created)',
-    'user_create': 'Bygge bruker',
+    'user_create': 'Bygge vanlig bruker (PosixUser)',
+    'user_create_basic': 'Bygge bruker uten noen egenskaper',
     'user_delete': 'slette en gitt bruker',
+    'user_demote_posix': 'Gjøre en PosixUser om til en Account',
     'user_gecos': 'Sette gecos på en bruker',
     'user_history': 'Vis historikk for en bruker',
     'user_info': 'vis info om en bruker',
-    'user_list_passwords': 'Viser informasjon om alle brukere bygget i løpet av nåværende bofh-sesjon',
     'user_move': 'Flytter en bruker',
     'user_password': 'Setter passord for en bruker',
-    'user_posix_create': 'Gjøre en bruker om til en PosixUser',
-    'user_posix_delete': 'Gjøre en PosixUser om til en Account',
+    'user_promote_posix': 'Gjøre en bruker om til en PosixUser',
     'user_set_expire': 'Sett ekspireringsdato for en bruker',
     'user_set_np_type': 'Sett/slett np_type for en bruker',
+    'user_set_owner': 'Endre eier av en konto',
     'user_shell': 'Sette loginshell for en bruker',
     'user_student_create': 'Bygg student-bruker'
     },
@@ -135,6 +133,7 @@ arg_help = {
  - immediate
  - batch
  - nofile
+ - hard_nofile
  - student
  - student_immediate
  - request
@@ -168,9 +167,12 @@ You may also use entity_id:id."""],
     'string_filename': ['filename', 'Enter filename'],
     'string_group_filter': ['filter', 'Enter filter'],
     'string_host': ['hostname', 'Enter hostname'],
+    'string_new_priority': ['new_priority', 'Enter value new priority value'],
     'string_np_type': ['np_type', 'Enter np_type', """Valid values include:
-'p' - Programvarekonto."""],
+'P' - Programvarekonto
+'T' - Testkonto."""],
     'string_op_set': ['op_set_name', 'Enter name of operation set'],
+    'string_old_priority': ['old_priority', 'Enter value old priority value'],
     'string_perm_target': ['id|type', 'Enter target id or type', 'Legal types: host, disk, group'],
     'string_from_to': ['from_to', 'Enter from and optionally to-date (YYYY-MM-DD-YYYY-MM-DD)'],
     'string_why': ['why', 'Why?'],
