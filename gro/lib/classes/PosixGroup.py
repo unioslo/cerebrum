@@ -9,3 +9,5 @@ Group.register_attribute(DatabaseAttr('posix_gid', 'posix_group', int, optional=
 Group.db_attr_aliases['posix_group'] = {'id':'group_id'}
 Group.build_methods()
 Group.build_search_class()
+
+# arch-tag: 5974dff4-dca2-45c0-8272-de85bde86352

@@ -30,3 +30,5 @@ def get_spreads(self):
     return s.search()
 
 Entity.register_method(Method('get_spreads', EntitySpread, sequence=True), get_spreads)
+
+# arch-tag: 2b120f66-31fc-49db-9b33-6a771be5f96b

@@ -39,3 +39,5 @@ def get_addresses(self):
     return s.search()
 
 Entity.register_method(Method('get_addresses', EntityAddress, sequence=True), get_addresses)
+
+# arch-tag: 28c9c7fa-3191-4c48-b48c-e0f63c796f43

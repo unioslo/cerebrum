@@ -38,3 +38,5 @@ def get_entity_name(self, value_domain):
 
 m = Method('get_entity_name', EntityName)
 Entity.register_method(m, get_entity_name)
+
+# arch-tag: 699f15e6-83ca-4f59-a0e1-ef74a963180e
