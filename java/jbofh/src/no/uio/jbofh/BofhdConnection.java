@@ -191,22 +191,27 @@ public class BofhdConnection {
                 logger.debug("sendCommand("+cmd+", ********");
             } else if(cmd.equals("run_command")){
 		Vector cmdDef = (Vector) commands.get(args.get(1));
-		Vector protoArgs = (Vector) cmdDef.get(1);
-		Vector logArgs = new Vector();
-		logArgs.add(args.get(0));
-		logArgs.add(args.get(1));
-		int i = 2;
-		for (Enumeration e = protoArgs.elements() ; e.hasMoreElements() ;) {
-		    Hashtable h = (Hashtable) e.nextElement();
-		    String type = (String) h.get("type");
-		    if (type != null && type.equals("accountPassword")) {
-			logArgs.add("********");
-		    } else {
-			logArgs.add(args.get(i));
+		if(cmdDef.size() == 1 || (! (cmdDef.get(1) instanceof Vector))) {
+		    logger.debug("sendCommand("+cmd+", "+args);
+		} else {
+		    Vector protoArgs = (Vector) cmdDef.get(1);
+		    Vector logArgs = new Vector();
+		    logArgs.add(args.get(0));
+		    logArgs.add(args.get(1));
+		    int i = 2;
+		    for (Enumeration e = protoArgs.elements() ; e.hasMoreElements() ;) {
+			Hashtable h = (Hashtable) e.nextElement();
+			String type = (String) h.get("type");
+			if (type != null && type.equals("accountPassword")) {
+			    logArgs.add("********");
+			} else {
+			    logArgs.add(args.get(i));
+			}
+			i++;
+			if(i >= args.size()) break;
 		    }
-		    i++;
+		    logger.debug("sendCommand("+cmd+", "+logArgs);
 		}
-		logger.debug("sendCommand("+cmd+", "+logArgs);
 	    } else {
 		logger.debug("sendCommand("+cmd+", "+args);
 	    }
