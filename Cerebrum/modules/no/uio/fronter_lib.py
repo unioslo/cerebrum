@@ -30,6 +30,7 @@ from Cerebrum.extlib import xmlprinter
 SYDRadmins = ['baardj', 'frankjs', 'jazz']
 DMLadmins = ['lindaj', 'hallgerb', 'maskoger', 'jonar', 'helgeu',
              'kaugedal', 'rinos', 'monahst']
+FronterDotComAdmins = ['aleksap', 'oscarh']
 AllAdmins = SYDRadmins + DMLadmins
 host_config = {
     'internkurs.uio.no': { 'DBinst': 'DLOUIO.uio.no',
@@ -41,7 +42,8 @@ host_config = {
                      'export': ['All_users'],
                      },
     'kladdebok.uio.no': { 'DBinst': 'DLOUTV.uio.no',
-                          'admins': AllAdmins + ['hmeland'],
+                          'admins': AllAdmins + FronterDotComAdmins \
+                          + ['hmeland'],
                           'export': ['FS'],
                           'plain_users': ['mgrude', 'gunnarfk'],
                           'spread': 'spread_fronter_kladdebok'
