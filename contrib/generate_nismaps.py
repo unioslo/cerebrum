@@ -184,7 +184,15 @@ def generate_netgroup(filename, group_spread, user_spread):
             u, i, d = group.list_members(spread=user_spread,
                                          member_type=co.entity_account)
             for row in u:
-                uname = entity2uname[int(row[1])] 
+                entity_id = int(row[1])
+                try:
+                    uname = entity2uname[entity_id]
+                except KeyError:
+                    acc = Factory.get('Account')(db)
+                    # This find shouldn't fail, so don't catch the exception
+                    acc.find(entity_id)
+                    entity2uname[entity_id] = acc.account_name
+                    uname = acc.account_name
                 tmp = posix_user.illegal_name(uname)
                 if tmp:
                     print "Bad username %s in %s" % (tmp, group.group_name)
@@ -261,23 +269,28 @@ def generate_group(filename, group_spread, user_spread):
         members = []
         for id in posix_group.get_members(spread=user_spread):
             id = db.pythonify_data(id)
-            if entity2uname.has_key(id):
-                if not account2def_group.get(id,None) == posix_group.posix_gid:
-                    tmp = posix_user.illegal_name(entity2uname[id])
-                    if tmp:
-                        print "Bad username %s" % tmp            
-                    elif len(entity2uname[id]) > 8:
-                        print "Bad username %s in %s"%(entity2uname[id], gname)
+            if not entity2uname.has_key(id):
+                acc = Factory.get('Account')(db)
+                try:
+                    acc.find(id)
+                except Errors.NotFoundError:
+                    raise ValueError, ("Found no id: %s for group: %s" %
+                                       (id, gname))
+                entity2uname[id] = acc.account_name
+
+            if not account2def_group.get(id,None) == posix_group.posix_gid:
+                tmp = posix_user.illegal_name(entity2uname[id])
+                if tmp:
+                    print "Bad username %s" % tmp            
+                elif len(entity2uname[id]) > 8:
+                    print "Bad username %s in %s"%(entity2uname[id], gname)
+                else:
+                    user_membership_count[id] = user_membership_count.get(id, 0) + 1
+                    if user_membership_count[id] > max_group_memberships:
+                        print ("Too many groups for %s (%s)" %
+                               (entity2uname[id], gname))
                     else:
-                        user_membership_count[id] = user_membership_count.get(id, 0) + 1
-                        if user_membership_count[id] > max_group_memberships:
-                            print ("Too many groups for %s (%s)" %
-                                   (entity2uname[id], gname))
-                        else:
-                            members.append(entity2uname[id])
-            else:
-                raise ValueError, "Found no id: %s for group: %s" % (
-                    id, gname)
+                        members.append(entity2uname[id])
 
         gline = join((gname, '*', gid, join(members, ',')))
         # The group name is both the key and the start of the value in
