@@ -25,6 +25,7 @@ import Registry
 registry = Registry.get_registry()
 
 Builder = registry.Builder
+Searchable = registry.Searchable
 Attribute = registry.Attribute
 Method = registry.Method
 
@@ -39,38 +40,88 @@ GroupMemberOperationType = registry.GroupMemberOperationType
 __all__ = ['Group', 'GroupMember']
 
 class Group(Entity):
-    slots = Entity.slots + [CerebrumAttr('name', 'string', 'group_name', write=True),
-                            CerebrumAttr('description', 'string', write=True),
-                            CerebrumTypeAttr('visibility', 'GroupVisibilityType',
-                                             GroupVisibilityType, write=True),
-                            CerebrumAttr('expire_date', 'Date', write=True)]
-    method_slots = Entity.method_slots + [Method('get_members', 'GroupMemberSeq')]
+    slots = Entity.slots + [
+        CerebrumAttr('name', 'string', 'group_name', write=True),
+        CerebrumAttr('description', 'string', write=True),
+        CerebrumTypeAttr('visibility', 'GroupVisibilityType', GroupVisibilityType, write=True),
+        CerebrumAttr('expire_date', 'Date', write=True)]
+    method_slots = Entity.method_slots + [
+        Method('get_members', 'GroupMemberSeq')]
 
     cerebrum_class = Cerebrum.Group.Group
 
     def get_members(self):
-        members = []
-        e = Cerebrum.Group.Group(self.get_database())
-        e.entity_id = self._entity_id
+        searcher = registry.GroupMemberSearch(self)
+        searcher.set_group(self)
+        searcher.include_subgroups(True)
+        return searcher.search()
 
-        union, intersection, difference = e.list_members()
-
-        unionType = GroupMemberOperationType('union')
-        intersectionType = GroupMemberOperationType('intersection')
-        differenceType = GroupMemberOperationType('difference')
-
-        for rows, operation in ((union, unionType),
-                                (intersection, intersectionType),
-                                (difference, differenceType)):
-            for member_type, member_id in rows:
-                member = Entity(int(member_id))
-                members.append(GroupMember(group=self,
-                                           operation=operation,
-                                           member=member))
-        return members
-
-class GroupMember(Builder):
-    primary = [Attribute('group', 'Group'),
-               Attribute('operation', 'GroupMemberOperationType'),
-               Attribute('member', 'Entity')]
+class GroupMember(Builder, Searchable):
+    primary = [
+        Attribute('group', 'Group'),
+        Attribute('operation', 'GroupMemberOperationType'),
+        Attribute('member', 'Entity')]
     slots = primary + []
+    search_slots = [
+        Attribute('member_type', 'EntityType'),
+        Attribute('group_tags', 'SpreadSeq'),
+        Attribute('member_tags', 'SpreadSeq'),
+        Attribute('include_subgroups', 'boolean'),
+        Attribute('include_parentgroups', 'boolean')]
+
+    def create_search_method(cls):
+        def search(self, group=None, operation=None, member=None, member_type=None, group_tags=None,
+                   member_tags=None, include_subgroups=None, include_parentgroups=None, ignore=()):
+            where = []
+            args = {}
+            if group is not None:
+                where.append('group_id = :group_id')
+                args['group_id'] = group.get_entity_id()
+            if operation is not None:
+                where.append('operation = :operation')
+                args['operation'] = operation.get_id()
+            if member is not None:
+                where.append('member_id = :member_id')
+                args['member_id'] = member.get_entity_id()
+            if member_type is not None:
+                where.append('member_type = :member_type')
+                args['member_type'] = member_type.get_id()
+
+            # FIXME: legge til støtte for group_tags og member_tags
+
+            db = self.get_database()
+
+            if where:
+                where = 'WHERE %s' % ' AND '.join(where)
+            else:
+                where = ''
+
+            group_members = sets.Set()
+
+            for row in db.query("""SELECT group_id, operation, member_id, member_type
+                                   FROM [:table schema=cerebrum name=group_member]
+                                   %s""" % where, args):
+                group = Group(int(row['group_id']))
+                member_operation = GroupMemberOperationType(id=int(row['operation']))
+                new_member = Entity(int(row['member_id']),
+                                    registry.EntityType(id=int(row['member_type'])))
+
+                group_member = GroupMember(group, member_operation, new_member)
+
+                if group_member not in ignore:
+                    group_members.add(group_member)
+
+                    group_type = registry.EntityType('group')
+
+                    if include_subgroups and new_member.get_entity_type() == group_type:
+                        group_members.update(search(self, group=new_member, operation=operation,
+                            member_type=member_type, include_subgroups=include_subgroups,
+                            include_parentgroups=include_parentgroups, ignore=group_members))
+                    if include_parentgroups:
+                        group_members.update(search(self, member=group, operation=operation,
+                            member_type=group_type, include_subgroups=include_subgroups,
+                            include_parentgroups=include_parentgroups, ignore=group_members))
+
+            return list(group_members)
+        return search
+    create_search_method = classmethod(create_search_method)
