@@ -11,7 +11,11 @@ AC_ARG_WITH(python,
 	[  --with-python=NAME      which Python binary to use [[python]]],
 	[python="$withval"], [python="python"])
 # Which python binary should we use?
-AC_PATH_PROG([PYTHON], [$python], [AC_MSG_ERROR([no Python binary found])])
+AC_PATH_PROG([PYTHON], [$python], [], [$PATH])
+
+if test -z "$PYTHON" ; then
+   AC_ERROR(no Python binary found.  It is required to run Cerebrum.)
+fi
 
 # Top directory where python library is installed.  TBD: Should this
 # rather be based on $exec_prefix?
