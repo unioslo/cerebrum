@@ -1,5 +1,5 @@
 # -*- coding: iso-8859-1 -*-
-# Copyright 2003 University of Oslo, Norway
+# Copyright 2004 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -21,12 +21,9 @@
  
 """
 
-import time, string
-import cerebrum_path
+import time
 import cereconf
  
-from Cerebrum.extlib import logging
-from Cerebrum.Database import Errors
 from Cerebrum.modules import LDIFutils
 from Cerebrum.QuarantineHandler import QuarantineHandler
 from Cerebrum.Utils import Factory, latin1_to_iso646_60, auto_super
@@ -194,7 +191,7 @@ class PosixLDIF(object):
 	elif row['home']:
 	    home = row['home']
 	else:
-	    self-logger.warn("User % has no home-directory!" % uname)
+	    self.logger.warn("User % has no home-directory!" % uname)
 	    return None,None
 	cn = row['name'] or row['gecos'] or uname
 	gecos = latin1_to_iso646_60(row['gecos'] or cn)
