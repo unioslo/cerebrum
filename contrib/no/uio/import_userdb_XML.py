@@ -981,7 +981,7 @@ def map_quarantine(shell, quarantine, had_splat):
     else:
         if had_splat:
             return co.quarantine_generell
-        print "WARNING: Unable to map quarantine: (%s, %s, %s)", (
+        print "WARNING: Unable to map quarantine: (%s, %s, %s)" % (
             shell, quarantine, had_splat)
         return None
 
