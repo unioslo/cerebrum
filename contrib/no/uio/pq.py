@@ -1,4 +1,4 @@
-#!/usr/bin/env python2.2
+#!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 
 # Copyright 2003 University of Oslo, Norway
@@ -41,11 +41,15 @@ from Cerebrum import Errors
 from Cerebrum.modules.no.uio import PrinterQuotas
 from Cerebrum.Utils import Factory
 
+rev = '$Revision$'
+rev = rev[rev.find(" ")+1:]
+rev = rev[:rev.find(" ")]
 # 2NN answers, meaning last command was a success.
-helo    = "220 PRISS Quota Daemon Vrev ready"
+helo    = "220 PRISS Quota Daemon V%s ready" % rev
 firstok = "250 Nice to meet you,"
 ok      = "250 OK"
 no      = "251 NO"
+quota_values = "252 "
 bye     = "280 Bye"
 #
 # 5NN answers, meaning last command caused problems
@@ -107,6 +111,16 @@ class RequestHandler(SocketServer.StreamRequestHandler):
                     self.log('ERROR', "Connection down? !")
                     self.send(eerror)
                     done = 1
+                elif cmd[0] == 'QUERYPQ':
+                    tmp = "%s;%s;%s;%s;%s;%s;%s" % (
+                        pq.printer_quota,
+                        pq.pages_printed,
+                        pq.pages_this_semester,
+                        pq.termin_quota,
+                        pq.has_printerquota,
+                        pq.weekly_quota,
+                        pq.max_quota)
+                    self.send("%s%s" % (quota_values, tmp))
                 elif cmd[0] == 'QUIT':
                     self.send(bye)
                     done = 1
