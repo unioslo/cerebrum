@@ -1036,7 +1036,7 @@ class BofhdExtension(object):
         else:
             ret += self._email_info_spam(et)
             ret += self._email_info_detail(acc)
-            ret += self._email_info_forward(et, addrs)
+            ret += self._email_info_forwarding(et, addrs)
         return ret
 
     def __get_valid_email_addrs(self, et, special=False):
@@ -1129,7 +1129,7 @@ class BofhdExtension(object):
             pass
         return info
 
-    def _email_info_forward(self, target, addrs):
+    def _email_info_forwarding(self, target, addrs):
         info = []
         forw = []
         local_copy = ""
@@ -1189,7 +1189,7 @@ class BofhdExtension(object):
         et.find(ea.email_addr_target_id)
         addrs = self.__get_valid_email_addrs(et)
         ret += self._email_info_spam(et)
-        ret += self._email_info_forward(et, addrs)
+        ret += self._email_info_forwarding(et, addrs)
         aliases = []
         for r in et.get_addresses():
             a = "%(local_part)s@%(domain)s" % r
