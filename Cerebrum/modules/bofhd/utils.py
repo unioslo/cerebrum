@@ -41,7 +41,7 @@ class Constants(Constants.Constants):
     #    source_server
     #    dest_server
     #    depend_req (request_id: wait while it's in queue)
-    bofh_email_will_move = _BofhdRequestOpCode('br_email_will_move',
+    bofh_email_will_move = _BofhdRequestOpCode('br_em_will_move',
                                                'Will move user e-mail')
     # same as bofh_email_will_move
     # will insert a bofh_email_convert when done
