@@ -20,9 +20,15 @@
 
 import classes.Types
 
+## core
+
 # Entity
 import classes.Entity
-import classes.Note
+import classes.EntityAddress
+import classes.EntityContactInfo
+import classes.EntitySpread
+import classes.EntityQuarantine
+import classes.EntityName
 
 # Group
 import classes.Group
@@ -30,9 +36,21 @@ import classes.GroupMember
 
 # Person
 import classes.Person
+import classes.PersonName
 
 # Account
 import classes.Account
 import classes.AccountAuthentication
+
+# Disk
+import classes.Host
+import classes.Disk
+
+## modules
+import classes.Note
+import classes.PosixGroup
+import classes.PosixUser
+import classes.ChangeLog
+import classes.Auth
 
 # arch-tag: cdf0cb72-2dea-4122-8f02-2546e3b3c03e
