@@ -37,6 +37,8 @@ class HiAFS(FS):
 #       Studenter                                              #
 ################################################################
 
+# Påvirkes ikke av endringene ved overgang til FS 5.0
+
     def GetTilbud(self, institusjonsnr=0):
 	"""Hent data om studenter med tilbud til opptak på
 	et studieprogram ved Høgskolen i Agder som har takket ja
@@ -47,7 +49,7 @@ SELECT DISTINCT
       p.adrlin1_hjemsted, p.adrlin2_hjemsted,
       p.postnr_hjemsted, p.adrlin3_hjemsted, p.adresseland_hjemsted,
       p.sprakkode_malform, osp.studieprogramkode, p.kjonn,
-      p.status_reserv_nettpubl
+      p.status_reserv_nettpubl, p.telefonnr_mobil
 FROM fs.soknadsalternativ sa, fs.person p, fs.opptakstudieprogram osp,
      fs.studieprogram sp
 WHERE p.fodselsdato=sa.fodselsdato AND
@@ -61,159 +63,108 @@ WHERE p.fodselsdato=sa.fodselsdato AND
       """ % (institusjonsnr, self.is_alive())
         return (self._get_cols(qry),self.db.query(qry))
 
-# Datagrunnlaget hos HiA er ikke ryddet ferdig, derfor skal vi ikke bruke dette
-# søket foreløpig. Lar det stå i tilfelle siden vi kan få bruk for 
-# den i fremtiden.
-
-    def GetOpptak(self):
-	"""Hent inn data om alle studenter med opptak til
-	et studieprogram ved HiA (studierett)."""
-        qry = """
-SELECT DISTINCT 
-      p.fodselsdato, p.personnr, p.etternavn, 
-      p.fornavn, p.kjonn, s.adrlin1_semadr,
-      s.adrlin2_semadr, s.postnr_semadr, s.adrlin3_semadr, 
-      s.adresseland_semadr, p.adrlin1_hjemsted,
-      p.sprakkode_malform,st.studieprogramkode, 
-      st.studieretningkode, st.studierettstatkode,
-      s.studentnr_tildelt
-FROM  fs.student s, fs.person p, fs.studierett st
-WHERE p.fodselsdato = s.fodselsdato AND
-      p.personnr = s. personnr AND
-      p.fodselsdato = st.fodselsdato AND
-      p.personnr = st.personnr AND
-      NVL(st.dato_gyldig_til,SYSDATE) >= sysdate 
-      AND %s 
-      """ % self.is_alive()
-        return (self._get_cols(qry), self.db.query(qry))
 
     def GetAktive(self):
-	""" Hent opplysninger om alle aktive studenter. En
-	aktiv student er definert som en student på et aktivt 
-	kull som i tillegg har en forekomst i tabellen 
-	fs.registerkort for inneværende semester. For å få helt riktige 
-	data her burde man også sjekke at studierett er gyldig, men
-	det ser ut til at HiA da mister noe data. Etterhvert (når opprydingen
-	i FSHIA er gjort) bør man legge inn setningen
-	NVL(st.dato_gyldig_til,SYSDATE) >= sysdate i begge delene av søket."""
+	""" Hent opplysninger om studenter definert som aktive 
+	ved HiA. En aktiv student er enten med i et aktivt kull og
+        har et gyldig studierett eller har en forekomst i registerkort 
+        for inneværende semester og har en gyldig studierett"""
+
 	qry = """
-SELECT DISTINCT
-      p.fodselsdato, p.personnr, p.etternavn, p.fornavn, 
-      p.kjonn, s.adrlin1_semadr,
-      s.adrlin2_semadr, s.postnr_semadr, s.adrlin3_semadr,
-      s.adresseland_semadr, p.adrlin1_hjemsted,
-      p.adrlin2_hjemsted, p.postnr_hjemsted, 
-      p.adrlin3_hjemsted, p.adresseland_hjemsted,
-      nk.studieprogramkode, nk.studieretningkode, 
-      nk.kullkode, nk.klassekode, s.studentnr_tildelt
-FROM  fs.person p, fs.student s, fs.naverende_klasse nk, 
-      fs.registerkort r, fs.studierett st
-WHERE p.fodselsdato = s.fodselsdato AND
-      p.personnr = s.personnr AND
-      p.fodselsdato = nk.fodselsdato AND
-      p.personnr = nk.personnr AND
-      nk.fodselsdato = st.fodselsdato AND
-      nk.personnr = st.personnr AND
-      nk.studieprogramkode = st.studieprogramkode AND
-      st.studierettstatkode NOT IN ('PRIVATIST','EVU') AND
+
+SELECT DISTINCT s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
+       s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
+       s.adrlin3_semadr, s.adresseland_semadr, p.adrlin1_hjemsted,
+       p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
+       p.adresseland_hjemsted, p.status_reserv_nettpubl,
+       p.sprakkode_malform, sps.studieprogramkode, sps.studieretningkode,
+       sps.studierettstatkode, sps.studentstatkode, sps.terminkode_kull,
+       sps.arstall_kull, p.kjonn, p.status_dod, p.telefonnr_mobil
+FROM fs.kull k, fs.studieprogramstudent sps
+WHERE p.fodselsdato = sps.fodselsdato AND
+      p.personnr = sps.personnr AND
       %s AND
-      p.fodselsdato = r.fodselsdato AND
-      p.personnr = r.personnr AND
-      %s """ % (self.is_alive(),self.get_termin_aar(only_current=1))
-        qry += """ UNION
-SELECT DISTINCT
-      p.fodselsdato, p.personnr, p.etternavn, p.fornavn, 
-      p.kjonn, s.adrlin1_semadr,
-      s.adrlin2_semadr, s.postnr_semadr, s.adrlin3_semadr,
-      s.adresseland_semadr, p.adrlin1_hjemsted,
-      p.adrlin2_hjemsted, p.postnr_hjemsted, 
-      p.adrlin3_hjemsted, p.adresseland_hjemsted,
-      nk.studieprogramkode, nk.studieretningkode, 
-      nk.kullkode, nk.klassekode, s.studentnr_tildelt
-FROM  fs.person p, fs.student s, fs.naverende_klasse nk, 
-      fs.studiekull sk, fs.studierett st
-WHERE p.fodselsdato = s.fodselsdato AND
-      p.personnr = s.personnr AND
-      p.fodselsdato = nk.fodselsdato AND
-      p.personnr = nk.personnr AND
-      nk.fodselsdato = st.fodselsdato AND
-      nk.personnr = st.personnr AND
-      nk.studieprogramkode = st.studieprogramkode AND
-      st.studierettstatkode NOT IN ('PRIVATIST','EVU') AND
+      k.studieprogramkode = sps.studieprogramkode AND
+      k.terminkode = sps.terminkode_kull AND
+      k.arstall = sps.arstall_kull AND
+      NVL(k.status_aktiv,'J') = 'J' AND
+      NVL(sps.dato_studierett_gyldig_til,SYSDATE)>= SYSDATE AND
+UNION
+SELECT DISTINCT sps.fodselsdato, sps.personnr 
+FROM fs.registerkort r, fs.studieprogramstudent sps, fs.person p
+WHERE p.fodselsdato = sps.fodselsdato AND
+      p.personnr = sps.personnr AND
       %s AND
-      nk.kullkode = sk.kullkode AND
-      nk.studieprogramkode = sk.studieprogramkode AND
-      sk.status_aktiv = 'J' """ % self.is_alive()
-        return (self._get_cols(qry), self.db.query(qry))
+      sps.fodselsdato = r.fodselsdato AND
+      sps.personnr = r.personnr AND
+      NVL(sps.dato_studierett_gyldig_til,SYSDATE)>= SYSDATE AND
+      %s """ % (self.is_alive(), self.is_alive(), self.get_termin_aar(only_current=1))
+        return (self._get_cols(qry),self.db.query(qry))
 
     def GetPrivatist(self):
-	"""Her henter vi informasjon om privatister ved HiA"""
+	"""Her henter vi informasjon om privatister ved HiA
+	Som privatist regnes alle studenter med en forekomst i
+	FS.STUDIEPROGRAMSTUDENT der dato_studierett_gyldig_til
+        er større eller lik dagens dato og studierettstatuskode
+        er PRIVATIST eller status_privatist er satt til 'J'"""
 	qry = """
 SELECT DISTINCT
-     p.fodselsdato, p.personnr, p.etternavn,
-     p.fornavn, p.kjonn, s.adrlin1_semadr,
-     s.adrlin2_semadr, s.postnr_semadr, s.adrlin3_semadr,
-     s.adresseland_semadr, p.adrlin1_hjemsted,
-     p.sprakkode_malform,st.studieprogramkode,
-     st.studieretningkode, st.status_privatist, 
-     s.studentnr_tildelt
-FROM fs.student s, fs.person p, fs.studierett st
+    p.fodselsdato, p.personnr, p.etternavn,
+    p.fornavn, p.kjonn, s.adrlin1_semadr,
+    s.adrlin2_semadr, s.postnr_semadr, s.adrlin3_semadr,
+    s.adresseland_semadr, p.adrlin1_hjemsted,
+    p.sprakkode_malform,sps.studieprogramkode,
+    sps.studieretningkode, sps.status_privatist, 
+    s.studentnr_tildelt, p.telefonnr_mobil
+FROM fs.student s, fs.person p, fs.studieprogramstudent sps
 WHERE p.fodselsdato = s.fodselsdato AND
-      p.personnr = s. personnr AND
-      p.fodselsdato = st.fodselsdato AND
-      p.personnr = st.personnr AND
-      (st.studierettstatkode = 'PRIVATIST' OR
-       st.status_privatist = 'J') AND
-      NVL(st.dato_gyldig_til,SYSDATE) >= sysdate """
-        return (self._get_cols(qry), self.db.query(qry))
-      
-
-    def GetAlleMedEvuStudierett(self):
-	""" Opplysninger om EVU-studenter ved HiA."""
-	qry = """
-SELECT DISTINCT
-      p.fodselsdato, p.personnr, p.etternavn,
-      p.fornavn, p.kjonn, s.adrlin1_semadr,
-      s.adrlin2_semadr, s.postnr_semadr, s.adrlin3_semadr,
-      s.adresseland_semadr, p.adrlin1_hjemsted,
-      p.adrlin2_hjemsted, p.postnr_hjemsted, 
-      p.adrlin3_hjemsted, p.adresseland_hjemsted,
-      s.studentnr_tildelt, st.studieretningkode, 
-      st.studieprogramkode
-FROM  fs.student s, fs.person p, fs.studierett st, fs.studieprogram sp
-WHERE p.fodselsdato = s.fodselsdato AND
-      p.personnr = s. personnr AND
-      p.fodselsdato = st.fodselsdato AND
-      p.personnr = st.personnr AND
-      st.studierettstatkode = 'EVU' AND
-      NVL(st.dato_gyldig_til,SYSDATE) >= sysdate 
-      AND %s
-      """ % self.is_alive()
+    p.personnr = s.personnr AND
+    p.fodselsdato = sps.fodselsdato AND
+    p.personnr = sps.personnr AND
+    (sps.studierettstatkode = 'PRIVATIST' OR
+    sps.status_privatist = 'J') AND
+    sps.dato_studierett_gyldig_til >= sysdate """
         return (self._get_cols(qry), self.db.query(qry))
 
-    def GetEkteEvu(self):
+    def GetDeltaker(self):
+        """Hent info om personer som er ekte EVU-studenter ved
+        HiA, dvs. er registrert i EVU-modulen i tabellen
+        fs.deltaker,  Henter alle som er knyttet til kurs som
+        tidligst ble avsluttet for 30 dager siden."""
         qry = """
 SELECT DISTINCT
-      p.fodselsdato, p.personnr, p.etternavn, p.fornavn,
-      p.kjonn, d.adrlin1_hjem, d.adrlin2_hjem, d.postnr_hjem,
-      d.adrlin3_hjem, d.adresseland_hjem, d.adrlin1_job, 
-      d.adrlin2_job, d.postnr_job, d.adrlin3_job, d.adresseland_job,
-      d.deltakernr, d.emailadresse,
-      k.etterutdkurskode, e.studieprogramkode,
-      e.faknr_adm_ansvar, e.instituttnr_adm_ansvar,
-      e.gruppenr_adm_ansvar
-FROM  fs.deltaker d, fs.person p, fs.kursdeltakelse k,
-      fs.etterutdkurs e
+       p.fodselsdato, p.personnr, p.etternavn, p.fornavn,
+       d.adrlin1_job, d.adrlin2_job, d.postnr_job,
+       d.adrlin3_job, d.adresseland_job, d.adrlin1_hjem,
+       d.adrlin2_hjem, d.postnr_hjem, d.adrlin3_hjem,
+       d.adresseland_hjem, p.adrlin1_hjemsted, p.status_reserv_nettpubl,
+       p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
+       p.adresseland_hjemsted, d.deltakernr, d.emailadresse,
+       k.etterutdkurskode, e.studieprogramkode,
+       e.faknr_adm_ansvar, e.instituttnr_adm_ansvar,
+       e.gruppenr_adm_ansvar, p.kjonn, p.status_dod,
+       p.telefonnr_mobil
+FROM fs.deltaker d, fs.person p, fs.kursdeltakelse k,
+     fs.etterutdkurs e
 WHERE p.fodselsdato=d.fodselsdato AND
       p.personnr=d.personnr AND
       d.deltakernr=k.deltakernr AND
       e.etterutdkurskode=k.etterutdkurskode AND
-      NVL(e.status_nettbasert_und,'J')='J' AND
+      NVL(e.status_kontotildeling,'J')='J' AND
       k.kurstidsangivelsekode = e.kurstidsangivelsekode AND
-      e.dato_til > SYSDATE - 180 
-      AND %s
-      """ % self.is_alive()
+      NVL(e.dato_til, SYSDATE) >= SYSDATE - 30"""
         return (self._get_cols(qry), self.db.query(qry))
+
+    def GetFnrEndringer(self):
+        """Hent informasjon om alle registrerte fødselsnummerendringer"""
+        qry = """
+SELECT fodselsdato_naverende, personnr_naverende,
+       fodselsdato_tidligere, personnr_tidligere,
+       TO_CHAR(dato_foretatt, 'YYYY-MM-DD HH24:MI:SS') AS dato_foretatt
+FROM fs.fnr_endring
+ORDER BY dato_foretatt"""
+        return (self._get_cols(qry), self.db.query(qry))
+
 
 ################################################################
 #	Studieprogrammer				       #
@@ -306,7 +257,14 @@ WHERE r.emnekode = e.emnekode AND
 	qry = """
 SELECT DISTINCT
   fodselsdato, personnr
-FROM fs.undervisningsmelding
+
+# sjekk dette her! 
+# de ønsker å endre slik at det bare skal brukes eksamensmelding 
+# dette høres teit ut, men de har ikke noe kultur for å følge 
+# undervisning eller melde seg til undervisning. de har stort sett
+# masse problemer med dette
+
+FROM fs.undervisningsmelding, fs.eksamenmelding
 WHERE
   institusjonsnr = :institusjonsnr AND
   emnekode = :emnekode AND
@@ -323,6 +281,7 @@ WHERE
                                     'arstall': arstall}
                               ))
 
+# endres
     def StudprogAlleStud(self, faknr, studprogkode):
 	"""Henter data om alle studenter på et gitt studieprogram og 
 	fakultetet denne tilhører. Med alle studenter mener vi her de
@@ -352,10 +311,10 @@ WHERE sp.faknr_studieansv = :faknr AND
 	qry = """
 SELECT DISTINCT
   fodselsdato, personnr, studieprogramkode
-from fs.studierett 
+from fs.studieprogramstudent 
 WHERE
   studieprogramkode = :studprogkode AND
-  NVL(st.dato_gyldig_til,SYSDATE) >= sysdate""" 
+  st.dato_studierett_gyldig_til >= SYSDATE""" 
         return (self._get_cols(qry),
                 self.db.query(qry, {'studprogkode': studprogkode}))
 
@@ -426,13 +385,11 @@ WHERE em.fodselsdato = :fnr AND
 	"""Hent info om alle studierett en student har eller har hatt"""
         qry = """
 SELECT DISTINCT
-  st.studieprogramkode, st.studierettstatkode, st.dato_tildelt,
-  st.dato_gyldig_til, st.status_privatist, st.opphortstudierettstatkode
-FROM fs.studierett st, fs.person p
-WHERE st.fodselsdato=:fnr AND
-      st.personnr=:pnr AND
-      st.fodselsdato=p.fodselsdato AND
-      st.personnr=p.personnr 
+  sps.studieprogramkode, sps.studierettstatkode, sps.dato_studierett_tildelt,
+  sps.dato_studierett_gyldig_til, sps.status_privatist, sps.studentstatkode
+FROM fs.studieprogramstudent sps
+WHERE sps.fodselsdato=:fnr AND
+      sps.personnr=:pnr AND
       AND %s
         """ % self.is_alive()
         return (self._get_cols(qry), self.db.query(qry, {'fnr': fnr, 
@@ -468,17 +425,19 @@ WHERE utdp.fodselsdato = :fnr AND
         """ % self.is_alive()
 	return (self._get_cols(qry), self.db.query(qry, {'fnr': fnr, 'pnr': pnr}))
 
-    def GetStudentKullOgKlasse(self, fnr, pnr):
+    def GetStudentKull(self, fnr, pnr):
 	"""Hent opplysninger om hvilken klasse studenten er en del av og 
 	hvilken kull studentens klasse tilhører."""
 	qry = """
 SELECT DISTINCT
-  nk.kullkode, nk.klassekode 
-FROM fs.naverende_klasse nk, fs.person p
-WHERE nk.fodselsdato = :fnr AND
-      nk.personnr = :pnr AND
-      nk.fodselsdato = p.fodselsdato AND
-      nk.personnr = p.personnr AND
+  sps.studieprogramkode, sps.terminkode_kull, sps.arstall_kull,
+  k.status_aktiv
+FROM fs.studieprogramstudent sps, fs.kull k
+WHERE fodselsdato = :fnr AND
+      personnr = :pnr AND
+      sps.studieprogramkode = k.studieprogramkode AND
+      sps.terminkode_kull = k.terminkode AND
+      sps.arstall_kull = k.arstall
       %s
       """ % self.is_alive()
 	return (self._get_cols(qry), self.db.query(qry, {'fnr': fnr, 'pnr': pnr}))
@@ -516,6 +475,7 @@ WHERE emnekode = :emne
 ## Brukernavn i FS:
 ##################################################################
 
+# oppdatere til fs.person
     def GetAllPersonsUname(self, fetchall = False):
         return self.db.query("""
         SELECT fodselsdato, personnr, brukernavn
