@@ -552,7 +552,7 @@ WHERE emnekode = :emne
 	# they may be accessed by the students and teachers at HiA
 	# The proper solution to the problem is an implementation of Fronters
 	# import script which can deal with this
-	if (mon <= 3 and md <= 15):
+	if (mon < 3 or (mon == 3 and md <= 15)):
 	    next = "(r.terminkode LIKE 'V_R' AND r.arstall=%s)\n" % yr
 	# fi
 	elif mon <= 6:
