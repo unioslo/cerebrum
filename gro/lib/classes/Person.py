@@ -18,13 +18,12 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 import Cerebrum.Person
+import Database
 
 from Cerebrum.extlib import sets
 
 from Builder import Builder, Attribute, Method
 from Entity import Entity
-
-from db import db
 
 __all__ = ['Person', 'PersonName']
 
@@ -43,20 +42,20 @@ class Person(Entity):
     def load(self):
         import Types
 
-        e = Cerebrum.Person.Person(db)
+        e = Cerebrum.Person.Person(Database.get_database())
         e.find(self._entity_id)
 
         self._exportId = e.export_id
         self._birth_date = e.birth_date
         self._deceased = e.deceased == 'T' and True or False
-        self._gender = Types.GenderType(int(e.gender))
+        self._gender = Types.GenderType.get_by_id(int(e.gender))
 
     def get_accounts(self):
         import Account
 
         accounts = []
 
-        e = Cerebrum.Person.Person(db)
+        e = Cerebrum.Person.Person(Database.get_database())
         e.entity_id = self._entity_id
         
         for row in e.get_accounts():
@@ -68,12 +67,12 @@ class Person(Entity):
 
         names = []
 
-        e = Cerebrum.Person.Person(db)
+        e = Cerebrum.Person.Person(Database.get_database())
         e.entity_id = self._entity_id
 
         for row in e.get_all_names():
-            name_variant = Types.NameType(int(row['name_variant']))
-            source_system = Types.SourceSystem(int(row['source_system']))
+            name_variant = Types.NameType.get_by_id(int(row['name_variant']))
+            source_system = Types.SourceSystem.get_by_id(int(row['source_system']))
             name = row['name']
             names.append(PersonName(person_id=self._entity_id, name_variant=name_variant, source_system=source_system, name=name))
 

@@ -18,11 +18,11 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 import Cerebrum.Disk # er det ikke logisk at Host ligger i Disk? :p
+import Database
+
 
 from Entity import Entity
 from Builder import Attribute
-
-from db import db
 
 __all__ = ['Host']
 
@@ -33,14 +33,14 @@ class Host(Entity):
     cerebrum_class = Cerebrum.Disk.Host
 
     def _load_host(self):
-        e = Cerebrum.Disk.Host(db)
+        e = Cerebrum.Disk.Host(Database.get_database())
         e.find(self.get_entity_id())
 
         self._name = e.name
         self._description  = e.description
 
     def _save_host(self):
-        e = Cerebrum.Disk.Host(db)
+        e = Cerebrum.Disk.Host(Database.get_database())
         e.find(self.get_entity_id())
         e.description = self._description
         e.name = self._name

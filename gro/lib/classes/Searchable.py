@@ -19,8 +19,8 @@
 
 from __future__ import generators
 
+import Database
 from Builder import Builder, Attribute, Method
-from Cerebrum.gro.classes.db import db
 
 def create_get_method(var):
     """
@@ -108,7 +108,7 @@ class Searchable:
                 if val is not mine:
                     search_dict[attr.name] = val
 
-            obj = cls.cerebrum_class(db) # FIXME: Db-objekter skal deles på annen måte
+            obj = cls.cerebrum_class(Database.get_database())
             rows = obj.search(**search_dict)
             objects = []
 

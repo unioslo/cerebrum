@@ -22,14 +22,13 @@ import time
 import Cerebrum.Entity
 import Cerebrum.QuarantineHandler
 import Cerebrum.modules.Note
+import Database
 
 from Cerebrum.extlib import sets
 from Cerebrum.gro.Cerebrum_core import Errors
 
 from Builder import Builder, Attribute, Method
 from Searchable import Searchable
-
-from db import db
 
 __all__ = ['Entity', 'Note', 'Address', 'ContactInfo']
 
@@ -76,19 +75,19 @@ class Entity(Builder, Searchable):
 
     def get_spreads(self):
         import Types
-        e = Cerebrum.Entity.Entity(db)
+        e = Cerebrum.Entity.Entity(Database.get_database())
         e.entity_id = self.get_entity_id()
         
         spreads = []
         for i in e.get_spread():
-            spreads.append(Types.Spread(int[0]))
+            spreads.append(Types.Spread.get_by_id(int(i[0])))
             
         return spreads
 
     def get_notes(self):
         notes = []
 
-        e = Cerebrum.modules.Note.EntityNote(db)
+        e = Cerebrum.modules.Note.EntityNote(Database.get_database())
         e.entity_id = self.get_entity_id()
 
         for row in e.get_notes():
@@ -100,7 +99,7 @@ class Entity(Builder, Searchable):
            
     def get_addresses(self):
         addresses = []
-        e = Cerebrum.Entity.EntityAddress(db)
+        e = Cerebrum.Entity.EntityAddress(Database.get_database())
         e.entity_id = self.get_entity_id()
 
         for row in e.get_entity_address():
@@ -111,7 +110,7 @@ class Entity(Builder, Searchable):
     def get_contact_info(self):
         contact_info = []
 
-        e = Cerebrum.Entity.EntityContactInfo(db)
+        e = Cerebrum.Entity.EntityContactInfo(Database.get_database())
         e.entity_id = self._entity_id
 
         for row in e.get_contact_info():
@@ -120,12 +119,12 @@ class Entity(Builder, Searchable):
         return contact_info
 
     def is_quarantined(self):
-        account = Cerebrum.Entity.EntityQuarantine(db)
+        account = Cerebrum.Entity.EntityQuarantine(Database.get_database())
         account.entity_id = self._entity_id
 
         # koka fra bofhd
         quarantines = []      # TBD: Should the quarantine-check have a utility-API function?
-        now = db.DateFromTicks(time.time())
+        now = Database.get_database().DateFromTicks(time.time())
         for qrow in account.get_entity_quarantine():
             if (qrow['start_date'] <= now
                 and (qrow['end_date'] is None or qrow['end_date'] >= now)
@@ -134,7 +133,7 @@ class Entity(Builder, Searchable):
                 # The quarantine found in this row is currently
                 # active.
                 quarantines.append(qrow['quarantine_type'])
-        qh = Cerebrum.QuarantineHandler.QuarantineHandler(db, quarantines)
+        qh = Cerebrum.QuarantineHandler.QuarantineHandler(Database.get_database(), quarantines)
         if qh.should_skip() or qh.is_locked():
             return True
         return False
@@ -142,9 +141,9 @@ class Entity(Builder, Searchable):
     def load_entity_type(self):
         import Types
 
-        e = self.cerebrum_class(db)
+        e = self.cerebrum_class(Database.get_database())
         e.find(self._entity_id)
-        self._entity_type = Types.EntityType(int(e.entity_type))
+        self._entity_type = Types.EntityType.get_by_id(int(e.entity_type))
 
 class ContactInfo(Builder):
     primary = [Attribute('entity_id', 'long'),
@@ -158,8 +157,8 @@ class ContactInfo(Builder):
         import Types
 
         contactInfo = cls(entity_id=int(row['entity_id']),
-                          source_system=Types.SourceSystem(int(row['source_system'])),
-                          contact_type=Types.ContactInfoType(int(row['contact_type'])),
+                          source_system=Types.SourceSystem.get_by_id(int(row['source_system'])),
+                          contact_type=Types.ContactInfoType.get_by_id(int(row['contact_type'])),
                           contact_pref=int(row['contact_pref']),
                           contact_value=row['contact_value'],
                           description=row['description'])
@@ -207,8 +206,8 @@ class Address(Builder):
         import Types
 
         return cls(entity_id=int(row['entity_id']),
-                   source_system=Types.SourceSystem(int(row['source_system'])),
-                   address_type=Types.AddressType(int(row['address_type'])),
+                   source_system=Types.SourceSystem.get_by_id(int(row['source_system'])),
+                   address_type=Types.AddressType.get_by_id(int(row['address_type'])),
                    address_text=row['address_text'],
                    p_o_box=row['p_o_box'],
                    postal_number=row['postal_number'],

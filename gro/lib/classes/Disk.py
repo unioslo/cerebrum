@@ -18,10 +18,10 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 import Cerebrum.Disk
+import Database
 
 from Entity import Entity
 from Builder import Attribute
-from db import db
 
 __all__ = ['Disk']
 
@@ -34,7 +34,7 @@ class Disk(Entity):
 
     def _load_disk(self):
         import Host
-        e = Cerebrum.Disk.Disk(db)
+        e = Cerebrum.Disk.Disk(Database.get_database())
         e.find(self._entity_id)
 
         self._host = Host.Host(int(e.host_id))
@@ -42,7 +42,7 @@ class Disk(Entity):
         self._description  = e.description
 
     def _save_disk(self):
-        e = Cerebrum.Disk.Disk(db)
+        e = Cerebrum.Disk.Disk(Database.get_database())
         e.find(self._entity_id)
 
         e.host_id = self._host.get_entity_id()
