@@ -3,8 +3,13 @@
 # $Id$
 import popen2
 import fcntl
+import stat
 import os
 import select
+import sys
+import time
+
+import cereconf
 
 LockExists = 'LockExists'
 
@@ -49,126 +54,131 @@ class CallableAction(object):
 
     def __init__(self):
         self.id = None
+        self.wait = 1
         
     def setup(self):
-        pass
+        """Must return 1 if it is OK to run job now.  As it may be
+        perfectly OK to return 0, the framework issues no warning
+        based on the return value."""
+        return 1
 
     def execute(self):
         raise RuntimeError, "Override CallableAction.execute"
 
-    def cleanup(self):
+    def cond_wait(self):
+        """Check if process has completed, and report any errors.
+        Clean up temporary files for the completed job.
+
+        If self.wait=1, this operation is blocking.
+
+        Returns:
+        - None: job has not completed
+        - 1: Job completed successfully
+        - (exitcode, dirname_for_output_files): on error"""
         pass
 
     def set_id(self, id):
         self.id = id
-        self.locfile_name = "job-runner-%s.lock" % id
+        self.locfile_name = "%s/job-runner-%s.lock" % (cereconf.JOB_RUNNER_LOG_DIR, id)
 
     def set_logger(self, logger):
         self.logger = logger
 
     def check_lockfile(self):
+        """Flag an error iff the process whos pid is in the lockfile
+        is running."""
         if os.path.isfile(self.locfile_name):
             f = open(self.locfile_name, 'r')
             pid = f.readline()
             if(pid.isdigit()):
-                os.kill(int(pid), 0)
-                raise LockExists
+                try:
+                    os.kill(int(pid), 0)
+                    raise LockExists
+                except OSError:
+                    pass   # Process doesn't exist
 
     def make_lockfile(self):
         f=open(self.locfile_name, 'w')
         f.write("%s" % os.getpid())
         f.close()
 
-class ProcessHelper(object):
-    def execute(cmd, stdout_fname, stderr_fname):
-        """Execute cmd (a list), redirecting stdout and stderr.
-        Returns the pid of the new process."""
-        pid = fork()
-        if pid:
-            return pid
-        os.system(self.cmd)
-        sys.exit(0)
-    execute = staticmethod(execute)
-
-class AssertRunning(CallableAction):
-    """Assert that a program is running, if it is not: start it"""
-    
-    def __init__(self, cmd, params=[], stdout_ok=0, warn_notrunning=0):
-        super(AssertRunning, self).__init__()
-        self.cmd = cmd
-        self.params = list(params)
-        self.stdout_ok = stdout_ok
-        self.warn_notrunning = warn_notrunning
-
-    def execute(self):
-        # TODO: Check if process is running, if not: start it (but
-        # avoid zombies)
-        try:
-            self.check_lockfile()
-        except LockExists:
-            print "NO exec, already running"
-            return  # Process already running, OK
-        if not os.fork():
-            db.close()
-            self.make_lockfile()
-            # TBD: Could we exec here?
-            os.system(self.cmd)
-            os.unlink(self.locfile_name)
-            sys.exit(0)
-            
 class System(CallableAction):
-    """Run a command with the specified parameters.  Return values
-    other than 0, as well as any data on stdout/stderr is considered
-    an error"""
-
     def __init__(self, cmd, params=[], stdout_ok=0):
         super(System, self).__init__()
         self.cmd = cmd
         self.params = list(params)
         self.stdout_ok = stdout_ok
 
-    def makeNonBlocking(fd):
-        fl = fcntl.fcntl(fd, fcntl.F_GETFL)
+    def setup(self):
+        self.logger.debug("Setup: %s" % self.id)
         try:
-            fcntl.fcntl(fd, fcntl.F_SETFL, fl | os.O_NDELAY)
-        except AttributeError:
-            fcntl.fcntl(fd, fcntl.F_SETFL, fl | os.FNDELAY)
-    makeNonBlocking = staticmethod(makeNonBlocking)
-
+            self.check_lockfile()
+        except LockExists:
+            self.logger.error("Lockfile exists, this is unexpected!")
+            return 0
+        return 1
+        
     def execute(self):
-        # TODO: We will use a lot of mem if lots is written on stdout/stderr
+        self.logger.debug("Execute %s (%s, args=%s)" % (self.id, self.cmd, str(self.params)))
+        self.run_dir = "%s/%s" % (cereconf.JOB_RUNNER_LOG_DIR, self.id)
+        self.pid = os.fork()
+        if self.pid:
+            return
+        self.make_lockfile()
+        self.logger.debug("Entering %s" % self.run_dir)
+        if not os.path.exists(self.run_dir):
+            os.mkdir(self.run_dir)
+        os.chdir(self.run_dir)
 
-        p = self.params[:]
-        # For debug
-        p.insert(0, self.cmd)
-        self.logger.debug("Run: %s" % p)
-        # Redirect stdout/stderr
-        # From http://aspn.activestate.com/ASPN/Cookbook/Python/Recipe/52296
-        child = popen2.Popen3(p, 1)
-        child.tochild.close()
-        outfile = child.fromchild
-        outfd = outfile.fileno()
-        errfile = child.childerr
-        errfd = errfile.fileno()
-        System.makeNonBlocking(outfd)
-        System.makeNonBlocking(errfd)
-        outdata = errdata = ''
-        outeof = erreof = 0
-        while 1:
-            ready = select.select([outfd,errfd],[],[]) # wait for input
-            if outfd in ready[0]:
-                outchunk = outfile.read()
-                if outchunk == '': outeof = 1
-                outdata += outchunk
-            if errfd in ready[0]:
-                errchunk = errfile.read()
-                if errchunk == '': erreof = 1
-                errdata += errchunk
-            if outeof and erreof: break
-            select.select([],[],[],.1) # give a little time for buffers to fill
-        err = child.wait()
-        if err != 0 or (len(outdata) != 0 and self.stdout_ok == 0) or len(errdata) != 0:
-            # TODO: What shall we do here?
-            self.logger.error("Error running command %s, ret=%d/%s, stdout=%s, stderr=%s" %
-                              (p, err, os.strerror(err), outdata, errdata))
-            
+        #saveout = sys.stdout
+        #saveerr = sys.stderr
+        new_stdout = open("stdout.log", 'a', 0)
+        new_stderr = open("stderr.log", 'a', 0)
+        os.dup2(new_stdout.fileno(), sys.stdout.fileno())
+        os.dup2(new_stderr.fileno(), sys.stderr.fileno())
+        try:
+            p = self.params[:]
+            p.insert(0, self.cmd)
+            os.execv(self.cmd, p)
+        except OSError, e:
+            sys.exit(e.errno)
+        logger.error("OOPS!  This code should never be reached")
+        sys.exit(1)
+
+    def cond_wait(self):
+        if self.wait:
+            pid, exit_code = os.waitpid(self.pid, 0)
+        else:
+            pid, exit_code = os.waitpid(self.pid, os.WNOHANG)
+        self.logger.debug("Wait (wait=%i) ret: %s/%s" % (self.wait, pid, exit_code))
+        if pid == self.pid:
+            if (os.stat("%s/stdout.log" % self.run_dir)[stat.ST_SIZE] > 0 or 
+                os.stat("%s/stderr.log" % self.run_dir)[stat.ST_SIZE] > 0 or
+                exit_code != 0):
+                newdir = "%s.%s" % (self.run_dir, time.time())
+                os.rename(self.run_dir, newdir)
+                return (exit_code, newdir)
+            self._cleanup()        
+            return 1
+        else:
+            self.logger.debug("Wait returned %s/%s" % (pid, exit_code))
+        return None
+
+    def _cleanup(self):
+        os.unlink(self.locfile_name)
+        os.unlink("%s/stdout.log" % self.run_dir)
+        os.unlink("%s/stderr.log" % self.run_dir)
+
+class AssertRunning(System):
+    def __init__(self, cmd, params=[], stdout_ok=0):
+        super(AssertRunning, self).__init__(cmd, params, stdout_ok)
+        self.wait = 0
+
+    def setup(self):
+        self.logger.debug("setup %s" % self.id)
+        try:
+            self.check_lockfile()
+        except LockExists:
+            self.logger.debug("%s already running" % self.id)
+            return 0
+        return 1
