@@ -1,4 +1,4 @@
 debian/tmp/usr/sbin/
 debian/tmp/etc/cerebrum/
-debian/scheduled_jobs.py			debian/tmp/etc/cerebrum/
+debian/scheduled_jobs.py			etc/cerebrum/
 debian/tmp/usr/share/doc/cerebrum/design/*.sql	usr/share/cerebrum/design/
