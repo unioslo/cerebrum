@@ -16,7 +16,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-'Default Cerebrum installation settings.  Overrides go in cereconf.py.'
+"""Default Cerebrum installation settings.  Overrides go in cereconf.py."""
 
 # The name of the DB-API 2.0 driver class.  Supported values is
 # "Oracle" and "PostgreSQL"
@@ -34,3 +34,7 @@ CEREBRUM_DATABASE_CONNECT_DATA = { 'user' : None }
 DEFAULT_GECOS_NAME="name_full"
 AUTH_CRYPT_METHODS = ("auth_type_md5",)
 PERSON_NAME_SS_ORDER = ("system_lt", "system_fs")
+
+LOG_CONFIG_FILE = "/etc/cerebrum/logconfig.ini"
+
+DEFAULT_GROUP_NAMESPACE = 'group_names'
