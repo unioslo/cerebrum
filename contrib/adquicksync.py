@@ -129,7 +129,7 @@ def quick_user_sync():
 		cl.confirm_event(ans)
 	elif (chg_type == clco.quarantine_add or
               chg_type == clco.quarantine_del or
-              hg_type == clco.quarantine_mod):
+              chg_type == clco.quarantine_mod):
 	    change_quarantine(ans['subject_entity'])
 	elif (chg_type == clco.account_home_updated or
               chg_type == clco.account_home_added):
