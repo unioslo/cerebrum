@@ -53,13 +53,19 @@ class BofhdCompleter implements org.gnu.readline.ReadlineCompleter {
     Iterator iter;
     Category logger;
     Hashtable complete;
+    private boolean enabled;
 
     BofhdCompleter(JBofh jbofh, Category logger) {
         this.jbofh = jbofh;
         this.logger = logger;
+        this.enabled = false;
         buildCompletionHash();
     }
     
+    public void setEnabled(boolean state) {
+        this.enabled = state;
+    }
+
     public void buildCompletionHash() {
         complete = new Hashtable();
         for (Enumeration e = jbofh.bc.commands.keys(); e.hasMoreElements(); ) {
@@ -174,6 +180,8 @@ class BofhdCompleter implements org.gnu.readline.ReadlineCompleter {
         } else {
             cmdLineText = Readline.getLineBuffer();
         }
+        if(! this.enabled) 
+            return null;
         if(param == 0) {  // 0 -> first call to iterator
             Vector args;
 	    try {
@@ -407,6 +415,7 @@ public class JBofh {
         while(true) {
             Vector args;
             try {
+                bcompleter.setEnabled(true);
                 args = cLine.getSplittedCommand();
             } catch (IOException io) {
                 if(guiEnabled && (! mainFrame.confirmExit()))
@@ -579,6 +588,7 @@ public class JBofh {
 			s = cp.getPassword(prompt + ">");
 		    }
 		} else {
+                    bcompleter.setEnabled(false);
 		    s = cLine.promptArg(prompt+
 					(defval == null ? "" : " ["+defval+"]")+" >", false);
 		}
@@ -633,6 +643,7 @@ public class JBofh {
                         showMessage(pf.sprintf(description.toArray()), true);
                     }
                 }
+                bcompleter.setEnabled(false);
 		String s = cLine.promptArg((String) arginfo.get("prompt") +
                     (defval == null ? "" : " ["+defval+"]")+" >", false);
 		if(s.equals("") && defval == null) continue;
