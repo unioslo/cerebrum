@@ -41,7 +41,7 @@ class PosixUser(Account.Account):
     __write_attr__ = ('posix_uid', 'gid', 'gecos', 'home', 'shell')
 
     def clear(self):
-        super(Account.Account, self).clear()
+        super(PosixUser, self).clear()
         for attr in PosixUser.__read_attr__:
             if hasattr(self, attr):
                 delattr(self, attr)
