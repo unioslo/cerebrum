@@ -92,8 +92,10 @@ tag is present, hdr and footer will be empty.
                   lpr_user='unknown'):
         if logfile is None:
             logfile = Utils.make_temp_file(only_name=True)
-        base_filename = filename[:filename.rindex('.')]
-        if type == 'tex':
+        base_filename = filename[:filename.rindex('.')]	
+	dir = re.sub(r'(/[a-z]*\.[a-z]*)',r'/',filename)
+	os.chdir(dir)
+	if type == 'tex':
             status = (os.system("%s --interaction nonstopmode %s >> %s 2>&1" % (
                 cereconf.PRINT_LATEX_CMD, filename, logfile)) or
                       os.system("%s -f < %s.dvi > %s.ps 2>> %s" % (
