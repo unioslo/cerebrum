@@ -61,6 +61,7 @@ group_obj = Factory.get('Group')(db)
 
 debug = 0
 max_errors = 50          # Max number of errors to accept in person-callback
+posix_spreads = [int(const.Spread(s)) for s in cereconf.POSIX_SPREAD_CODES]
 
 class AccountUtil(object):
     """Collection of methods that operate on a single account to make
@@ -107,9 +108,8 @@ class AccountUtil(object):
         logger.debug("new Account, write_db=%s" % tmp)
         all_passwords[int(account.entity_id)] = [password, profile.get_brev()]
         as_posix = False
-        for spread in profile.get_spreads():  # TBD: Is this check sufficient?
-            if str(spread).startswith('NIS'):
-                as_posix = True
+        if int(spread) in posix_spreads:
+            as_posix = True
         accounts[int(account.entity_id)] = {'owner': fnr,
                                             'expire_date': None,
                                             'groups': [],
