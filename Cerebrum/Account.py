@@ -31,7 +31,58 @@ from Cerebrum.Database import Errors
 import cereconf
 import crypt,random,string
 
-class Account(EntityName, EntityQuarantine, Entity):
+class AccountType(object):
+    """The AccountType class does not use populate logic as the only
+    data stored represent a PK in the database"""
+
+    def get_account_types(self):
+        """Return dbrows of account_types for the given account"""
+        return self.query("""
+        SELECT *
+        FROM [:table schema=cerebrum name=account_type]
+        WHERE account_id=:account_id""",
+                          {'account_id': self.entity_id})
+
+    def add_account_type(self, person_id, ou_id, affiliation):
+        cols = {'person_id': person_id,
+                'ou_id': ou_id,
+                'affiliation': affiliation,
+                'account_id': self.entity_id}
+        self.execute("""
+        INSERT INTO [:table schema=cerebrum name=account_type] (%(tcols)s)
+        VALUES (%(binds)s)""" % {'tcols': ", ".join(cols.keys()),
+                                 'binds': ", ".join([":%s" % cols.keys()])},
+                     cols)
+
+    def del_account_type(self, person_id, ou_id, affiliation):
+        cols = {'person_id': person_id,
+                'ou_id': ou_id,
+                'affiliation': affiliation,
+                'account_id': self.entity_id}
+        self.execute("""
+        DELETE FROM [:table schema=cerebrum name=account_type]
+        WHERE %s""" % " AND".join(["%s=:%s" % (x, x)
+                                   for x in cols.keys()]), cols)
+
+    def find_accounts_by_type(self, ou_id, affiliation=None, status=None):
+        """Return the account_id of the matching accounts"""
+        extra=""
+        if affiliation is not None:
+            extra += " AND at.affiliation=:affiliation"
+        if status is not None:
+            extra += " AND pas.status=:status"
+        return self.query("""
+        SELECT DISTINCT account_id
+        FROM [:table schema=cerebrum name=account_type] at,
+             [:table schema=cerebrum name=person_affiliation_source] pas
+        WHERE at.person_id=pas.person_id AND at.ou_id=pas.ou_id
+          AND at.affiliation=pas.affiliation AND
+            at.ou_id=:ou_id %s""" % extra,
+                          {'ou_id': ou_id,
+                           'affiliation': affiliation,
+                           'status': status})
+
+class Account(AccountType, EntityName, EntityQuarantine, Entity):
 
     __read_attr__ = ('__in_db',
                      # TODO: Get rid of these.
