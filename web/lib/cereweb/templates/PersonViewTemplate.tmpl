@@ -2,40 +2,26 @@
 #extends InitTemplate
 #import forgetHTML
 #from Cerebrum.web.TableView import TableView
-#from HistoryLogTemplate import HistoryLogTemplate
+#from AccountViewTemplate import AccountViewTemplate
 #from Cerebrum.web.utils import url
+#from Cerebrum.web import HistoryLog
 
-#def viewPerson(person)
+#def viewPerson($person)
 <h1>$_("Person") $person.name</h1>
-$personInfo($group)
-$personAccounts($group)
-#set $historyLog = HistoryLogTemplate()
-$historyLog.viewHistoryLog()
+$personInfo($person)
+$personAccounts($person)
+$HistoryLog.view_history($person)
 #end def
 
-#def personAccounts(person)
+#def personAccounts($person)
 #set $allaccounts = $person.get_accounts()
 #if $allaccounts
 <div class="accounts">
 <h2>$_("Accounts")</h2>
-#*
-<%
-memberSets = {}
-for member in allmembers:
-    operation = member['operation']
-    # fetch (and possibly create) a list to contain members
-    members = memberSets.setdefault(operation, [])
-    members.append(member)
-    
-## FIXME Dont hardcode operations
-for operation in ('union', 'intersection', 'difference'):
-    members = memberSets.get(operation)
-    if not members:
-        # skip empty members
-        continue
-    write(self.memberList(operation, members, group))
-%>
-*#
+#for $account in $allaccounts
+#set t = $AccountViewTemplate()
+$t.viewAccount($account, False)
+#end for
 </div>
 #end def
 
@@ -59,15 +45,16 @@ $MemberTableTemplate().sorted_table($table, $headers, $url("blapp=%s"), $url("bl
 #end def
 *#
 
-#def personInfo(person)
+#def personInfo($person)
 <div class="info">
 <dl>
+#*
     <dt>$_("First Name")</dt>
     <dd>$person.first_name</dd>
 
     <dt>$_("Last Name")</dt>
     <dd>$person.last_name</dd>
-
+*#
     <dt>$_("Gender")</dt>
     <dd>$person.gender</dd>
 
