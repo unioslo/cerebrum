@@ -451,7 +451,7 @@ def change_spread(dn_id,ch_type,ch_params,ch_id):
             logger.error(log_txt + dn_id)
 	    return
 	if ent_name_cache.has_key(dn_id):
-	    if (ent_name_cache[dn_id]['domain'] == const.group_namespace) \ 
+	    if (ent_name_cache[dn_id]['domain'] == const.group_namespace) \
 						and spread in spread_grp:
 		change_group_spread(dn_id,ch_type, spread,\
 			gname=ent_name_cache[dn_id]['name'])
