@@ -3029,7 +3029,7 @@ class BofhdExtension(object):
             account.clear()
             account.find(row['account_id'])
             account.set_home(row['home_spread'], disk_id=None,
-                             home='%s/%s' % (account.account_name, row['path']),
+                             home='%s/%s' % (row['path'], account.account_name),
                              status=row['status'])
         try:
             disk.delete()
