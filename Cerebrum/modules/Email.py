@@ -22,7 +22,7 @@ from Cerebrum import Utils
 from Cerebrum import Constants
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum.Entity import Entity
-
+from Cerebrum.Disk import Host
 
 
 class _EmailTargetCode(Constants._CerebrumCode):
@@ -31,6 +31,10 @@ class _EmailTargetCode(Constants._CerebrumCode):
 
 class _EmailDomainCategoryCode(Constants._CerebrumCode):
     _lookup_table = '[:table schema=cerebrum name=email_domain_cat_code]'
+
+
+class _EmailServerTypeCode(Constants._CerebrumCode):
+    _lookup_table = '[:table schema=cerebrum name=email_server_type_code]'
 
 
 class EmailConstants(Constants.Constants):
@@ -62,6 +66,19 @@ class EmailConstants(Constants.Constants):
         "Target is the local delivery defined for the Account whose"
         " account_id == email_target.entity_id.")
 
+    email_target_deleted = _EmailTargetCode(
+        'deleted',
+        "Target type for addresses that are no longer working, but"
+        " for which it is useful to include of a short custom text in"
+        " the error message returned to the sender.  The text"
+        " is taken from email_target.alias_value")
+
+    email_target_forward = _EmailTargetCode(
+        'forward',
+        "Target is a single email address, possibly in a non-local"
+        " domain.  The email address is taken from"
+        " email_target.alias_value.")
+
     email_target_file = _EmailTargetCode(
         'file',
         "Target is a file.  The absolute path of the file is gathered"
@@ -89,6 +106,15 @@ class EmailConstants(Constants.Constants):
         "Target is the set of `account`-type targets corresponding to"
         " the Accounts that are first-level members of the Group that"
         " has group_id == email_target.entity_id.")
+
+    email_server_type_nfsmbox = _EmailServerTypeCode(
+        'nfsmbox',
+        "Server delivers mail as mbox-style mailboxes over NFS.")
+
+    email_server_type_cyrus = _EmailServerTypeCode(
+        'cyrus_IMAP',
+        "Server is a Cyrus IMAP server, which keeps mailboxes in a"
+        " Cyrus-specific format.")
 
 
 class EmailEntity(DatabaseAccessor):
@@ -223,6 +249,9 @@ class EmailTarget(EmailEntity):
         if not self.__updated:
             return
         is_new = not self.__in_db
+        entity_type = self.email_target_entity_type
+        if entity_type is not None:
+            entity_type = int(entity_type)
         if is_new:
             self.email_target_id = int(self.nextval("email_id_seq"))
             self.execute("""
@@ -232,7 +261,7 @@ class EmailTarget(EmailEntity):
                          {'t_id': self.email_target_id,
                           't_type': int(self.email_target_type),
                           'e_id': self.email_target_entity_id,
-                          'e_type': int(self.email_target_entity_type),
+                          'e_type': entity_type,
                           'alias': self.email_target_alias})
         else:
             self.execute("""
@@ -243,7 +272,7 @@ class EmailTarget(EmailEntity):
                          {'t_id': self.email_target_id,
                           't_type': self.email_target_type,
                           'e_id': self.email_target_entity_id,
-                          'e_type': self.email_target_entity_type,
+                          'e_type': entity_type,
                           'alias': self.email_target_alias})
         del self.__in_db
         self.__in_db = True
@@ -282,6 +311,17 @@ class EmailTarget(EmailEntity):
         SELECT target_id
         FROM [:table schema=cerebrum name=email_target]
         WHERE alias_value=:alias""", {'alias': alias})
+        self.find(target_id)
+
+    def find_by_entity_and_alias(self, entity_id, alias):
+        # Due to the UNIQUE constraint in table email_target, this
+        # should never find more than one row.
+        target_id = self.query_1("""
+        SELECT target_id
+        FROM [:table schema=cerebrum name=email_target]
+        WHERE entity_id=:e_id AND alias_value=:alias""",
+                                 {'e_id': entity_id,
+                                  'alias': alias})
         self.find(target_id)
 
     def list_email_targets(self):
@@ -888,3 +928,62 @@ class EmailPrimaryAddressTarget(EmailTarget):
 
     def get_address_id(self):
         return self.email_primaddr_id
+
+
+class EmailServer(Host):
+    __read_attr__ = ('__in_db', )
+    __write_attr__ = ('email_server_type', )
+
+    def clear(self):
+        self.__super.clear()
+        self.clear_class(EmailServer)
+        self.__updated = False
+
+    def populate(self, server_type, name=None, description=None, parent=None):
+        if parent is not None:
+            self.__xerox__(parent)
+        else:
+            Host.populate(self, name, description)
+        try:
+            if not self.__in_db:
+                raise RuntimeError, "populate() called multiple times."
+        except AttributeError:
+            self.__in_db = False
+        self.email_server_type = server_type
+
+    def write_db(self):
+        self.__super.write_db()
+        if not self.__updated:
+            return
+        is_new = not self.__in_db
+        if is_new:
+            self.execute("""
+            INSERT INTO [:table schema=cerebrum name=email_server]
+              (server_id, server_type)
+            VALUES (:s_id, :type)""",
+                         {'s_id': self.entity_id,
+                          'type': int(self.email_server_type)})
+        else:
+            # TBD: What about DELETEs?
+            self.execute("""
+            UPDATE [:table schema=cerebrum name=email_server]
+            SET server_type=:type
+            WHERE server_id=:s_id""", {'s_id': self.entity_id,
+                                       'type': int(self.email_server_type)})
+        del self.__in_db
+        self.__in_db = True
+        self.__updated = False
+        return is_new
+
+    def find(self, server_id):
+        self.__super.find(server_id)
+        self.email_server_type = self.query_1("""
+        SELECT server_type
+        FROM [:table schema=cerebrum name=email_server]
+        WHERE server_id=:s_id""", {'t_id': self.entity_id})
+        try:
+            del self.__in_db
+        except AttributeError:
+            pass
+        self.__in_db = True
+        self.__updated = False
