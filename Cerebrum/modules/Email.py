@@ -1514,19 +1514,57 @@ class AccountEmailMixin(Account.Account):
                     epat.write_db()
                     primary_set = True
 
-    def get_email_cn_local_part(self):
+    def get_email_cn_local_part(self, given_names=-1, max_initials=None):
+        """
+        Construct a "pretty" local part.
+
+        If given_names=-1, keep the given name if the person has only
+        one, but reduce them to initials only when the person has more
+        than one.
+           "John"                  -> "john"
+           "John Doe"              -> "john.doe"
+           "John Ronald Doe"       -> "j.r.doe"
+           "John Ronald Reuel Doe" -> "j.r.r.doe"
+
+        If given_names=0, only initials are included
+           "John Ronald Doe"       -> "j.r.doe"
+
+        If given_names=1, the first given name will always be included
+           "John Ronald Doe"       -> "john.r.doe"
+
+        If max_initials is set, no more than this number of initials
+        will be included.  With max_initials=1 and given_names=-1
+           "John Doe"              -> "john.doe"
+           "John Ronald Reuel Doe" -> "j.doe"
+
+        With max_initials=1 and given_names=1
+           "John Ronald Reuel Doe" -> "john.r.doe"
+        """
+
+        assert(given_names >= -1)
+        assert(max_initials is None or max_initials >= 0)
+
         try:
             full = self.get_fullname()
         except Errors.NotFoundError:
             full = self.account_name
         names = [x.lower() for x in re.split(r'\s+', full)]
-##        print "DEBUG1: %r" % names
         last = names.pop(-1)
-##        print "DEBUG2: %r + %r" % (names, last)
         names = [x for x in '-'.join(names).split('-') if x]
-##        print "DEBUG3: %r" % names
-        if len(names) > 1:
-            names = [x[0] for x in names]
+
+        if given_names == -1:
+            if len(names) == 1:
+                # Person has only one name, use it in full
+                given_names = 1
+            else:
+                # Person has more than one name, only use initials
+                given_names = 0
+
+        if len(names) > given_names:
+            initials = [x[0] for x in names[given_names:]]
+            if max_initials is not None:
+                initials = initials[:max_initials]
+            names = names[:given_names] + initials
         names.append(last)
         return self.wash_email_local_part(".".join(names))
 
