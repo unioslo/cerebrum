@@ -293,7 +293,8 @@ def load_all_affi_entry():
     return(affi_list)
 
 def clean_affi_s_list():
-    for ent_id,ou,affi in cere_list.items():
+    for l_key,l_entry in cere_list.items():
+	ent_id,ou,affi = l_entry
 	new_person.clear()
 	#new_person.find(int(ent_id))
 	new_person.entity_id = int(ent_id)
