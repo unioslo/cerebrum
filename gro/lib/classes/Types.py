@@ -74,6 +74,22 @@ class AffiliationType(CodeType):
 class EntityType(CodeType):
     _tableName = 'entity_type_code'
 
+    def get_class(self):
+        # TODO: legg til OU
+        import Account, Disk, Group, Host, Person
+        if self.get_name() == 'account':
+            return Account.Account
+        elif self.get_name() == 'disk':
+            return Disk.Disk
+        elif self.get_name() == 'group':
+            return Group.Group
+        elif self.get_name() == 'host':
+            return Host.Host
+        elif self.get_name() == 'ou':
+            raise NotImplementedError('OU is not implemented')
+        elif self.get_name('person'):
+            return Person.Person
+
 class SourceSystem(CodeType):
     _tableName = 'authoritative_system_code'
 
