@@ -217,7 +217,7 @@ public class JBofh {
     BofhdCompleter bcompleter;
     Hashtable knownFormats;
     String version = "unknown";
-    boolean guiEnabled;
+    boolean guiEnabled, hideRepeatedHeaders;
     JBofhFrame mainFrame;
     String uname;
 
@@ -257,6 +257,9 @@ public class JBofh {
         showMessage("Bofhd server is at "+bofhd_url, true);
         bc.connect(bofhd_url, 
             (intTrust != null && intTrust.equals("true")) ? true : false);
+        String intHide =  (String) props.get("HideRepeatedReponseHeaders");
+        hideRepeatedHeaders = (intHide != null && intHide.equals("true")
+                               ) ? true : false;
 
         // Setup ReadLine routines
         try {
@@ -407,8 +410,7 @@ public class JBofh {
 			Object key = e.nextElement();
 			showMessage(key+" -> "+ bc.commands.get(key), true); 
 		    }
-                } else if(((String) args.get(0)).equals("quit") || 
-                    ((String) args.get(0)).equals("q")) {
+                } else if(((String) args.get(0)).equals("quit")) {
                     bye();
 		} else if(((String) args.get(0)).equals("source")) {
                     if(args.size() == 1) {
@@ -442,7 +444,7 @@ public class JBofh {
 				multiple_cmds = true;
                         if(guiEnabled) mainFrame.showWait(true);
 			Object resp = bc.sendCommand(protoCmd, protoArgs);
-			if(resp != null) showResponse(protoCmd, resp, multiple_cmds);
+			if(resp != null) showResponse(protoCmd, resp, multiple_cmds, true);
 		    } catch (BofhdException ex) {
 			showMessage(ex.getMessage(), true);
 		    } catch (Exception ex) {
@@ -496,7 +498,7 @@ public class JBofh {
                     if(e2.nextElement() instanceof Vector)
                         multiple_cmds = true;
                 Object resp = bc.sendCommand(protoCmd, protoArgs);
-                if(resp != null) showResponse(protoCmd, resp, multiple_cmds);
+                if(resp != null) showResponse(protoCmd, resp, multiple_cmds, true);
             } catch (BofhdException ex) {
                 showMessage(ex.getMessage(), true);
             } catch (Exception ex) {
@@ -656,14 +658,18 @@ public class JBofh {
 	return ret;
     }
 
-    void showResponse(String cmd, Object resp, boolean multiple_cmds) throws BofhdException {
+    void showResponse(String cmd, Object resp, boolean multiple_cmds, 
+        boolean show_hdr) throws BofhdException {
 	if(multiple_cmds) {
 	    /* TBD: Should we try to provide some text indicating
 	     * which command each response belongs to?
 	     */
+            boolean first = true;
 	    for (Enumeration e = ((Vector) resp).elements() ; e.hasMoreElements() ;) {
 		Object next_resp = e.nextElement();
-		showResponse(cmd, next_resp, false);
+		showResponse(cmd, next_resp, false, first);
+                if(hideRepeatedHeaders)
+                    first = false;
 	    }
 	    return;
 	}
@@ -690,10 +696,9 @@ public class JBofh {
 	    Vector tmp = new Vector();    // Pretend that returned value was a Vector
 	    tmp.add(resp);
 	    resp = tmp;
-	} else {   	    // Vector responses may have a header
-	    String hdr = (String) format.get("hdr");
-	    if(hdr != null) showMessage(hdr, true);
-	}
+	} 
+        String hdr = (String) format.get("hdr");
+        if(hdr != null && show_hdr) showMessage(hdr, true);
 	for (Enumeration ef = ((Vector) format.get("str_vars")).elements() ; 
 	     ef.hasMoreElements() ;) {
 	    Vector format_info = (Vector) ef.nextElement();
