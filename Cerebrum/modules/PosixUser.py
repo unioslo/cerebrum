@@ -35,7 +35,7 @@ the name variant DEFAULT_GECOS_NAME (what about non-person accounts?).
 SourceSystems are evaluated in the order defined by
 POSIX_GECOS_SS_ORDER"""
 
-import random
+import random,re,string
 from Cerebrum import Person,Constants,Errors
 from Cerebrum import cereconf
 
@@ -105,8 +105,14 @@ class PosixUser(object):
         return self.query("SELECT account_id FROM posix_user")
 
     def get_free_uid(self):
-        # TODO: This needs an implementation
-        return random.randint(0,1000000)
+        "Returns the next free uid from uid_seq"
+        while 1:
+            uid = self.nextval("uid_seq")
+            try:
+                self.query_1("""SELECT user_uid FROM cerebrum.posix_user
+                       WHERE user_uid=:uid""", {'uid' : uid})
+            except Errors.NotFoundError:
+                return uid
 
     def get_gecos(self):
         assert self.owner_type == int(self.const.entity_person)
@@ -121,10 +127,10 @@ class PosixUser(object):
                 pass
         return "Unknown"  # Raise error?
 
-    def suggest_unames(self, fname, lname):
+    def suggest_unames(self, domain, fname, lname):
         goal = 15
         potuname = ()
-        complete_name = conv_name("%s %s" % (fname, lname), 1)
+        complete_name = self.conv_name("%s %s" % (fname, lname), 1)
 
         # Remember just the first initials.
         m = re.search('^(.*)[ -]+(\S+)\s+(\S+)$', complete_name)
@@ -164,11 +170,11 @@ class PosixUser(object):
             if llen > 8 - i: llen = 8 - i 
             for j in range(llen, 0, -1):
                 un = firstinit + lname[0:j]
-                if self.validate_new_uname(un): potuname += (un, )
+                if self.validate_new_uname(domain, un): potuname += (un, )
 
                 if j > 1 and initial:
                     un = firstinit + initial + lname[0:j-1]
-                    if self.validate_new_uname(un): potuname += (un, )
+                    if self.validate_new_uname(domain, un): potuname += (un, )
                     if len(potuname) >= goal: break
         
 
@@ -197,14 +203,14 @@ class PosixUser(object):
     		# Is there room for an initial?
                     if j == llim and i + llim < 8:
                         un = fname[0:i] + initial + lname[0:j]
-                        if self.validate_new_uname(un): potuname += (un, )
+                        if self.validate_new_uname(domain, un): potuname += (un, )
     		# Is there room for an initial if we chop a letter off
     		# last name?
                     if j > 1:
                         un = fname[0:i] + initial + lname[0:j-1]
-                        if self.validate_new_uname(un): potuname += (un, )
-    	    un = fname[0:i] + lname[0:j]
-            if self.validate_new_uname(un): potuname += (un, )
+                        if self.validate_new_uname(domain, un): potuname += (un, )
+                un = fname[0:i] + lname[0:j]
+                if self.validate_new_uname(domain, un): potuname += (un, )
             if len(potuname) >= goal: break
 
         # Absolutely last ditch effort:  geirov1, geirov2 etc.
@@ -215,13 +221,18 @@ class PosixUser(object):
         while len(potuname) < goal and i < 100:
             un = "%s%d" % (fname[0:flen], i)
             i += 1
-            if self.validate_new_uname(un): potuname += (un, )
+            if self.validate_new_uname(domain, un): potuname += (un, )
 
-        return ()
+        return potuname
 
-    def validate_new_uname(self, uname):
-        print "V: %s" % uname
-        return 1
+    def validate_new_uname(self, domain, uname):
+        try:
+            from Cerebrum import Account     # Delayed import to prevent python from barfing
+            acc = Account.Account(self._db)
+            acc.find_account_by_name(domain, uname)
+            return 0
+        except Errors.NotFoundError:
+            return 1
 
     def make_passwd(self, uname):
         pot = '-+?=*()/&%#\'_!,;.:abcdefghijklmnopqrstuvwxyABCDEFGHIJKLMNOPQRSTUVWXY0123456789'
@@ -229,10 +240,13 @@ class PosixUser(object):
             r = ''
             while(len(r) < 8):
                 r += pot[random.randint(0, len(pot)-1)]
-            if self.goodenough(uname, r): break
+            try:
+                if self.goodenough(uname, r): break
+            except:
+                pass  # Wasn't good enough
         return r
 
-    def conv_name(s, alt=0):
+    def conv_name(self, s, alt=0):
         xlate = {'Æ' : 'ae', 'æ' : 'ae', 'Å' : 'aa', 'å' : 'aa'}
         if(alt):
             s = string.join(map(lambda x:xlate.get(x, x), s), '')
@@ -278,7 +292,7 @@ class PosixUser(object):
     words = ("huge.sorted.txt",)
     dir = "/u2/dicts"
     
-    def check_password_history(uname, passwd):
+    def check_password_history(self, uname, passwd):
         if(0):
             raise msgs['was_like_old']
         return 1
@@ -319,6 +333,7 @@ class PosixUser(object):
 
     def goodenough(self, uname, passwd):
         # TODO:  This needs more work.
+        msgs = self.msgs
         passwd = passwd[0:8]
 
         if re.search(r'\0', passwd):
@@ -352,7 +367,7 @@ class PosixUser(object):
 
         # Too much like the old password?
 
-        check_password_history(uname, passwd)   # Will raise on error
+        self.check_password_history(uname, passwd)   # Will raise on error
 
         # Is it in one of the dictionaries?
 
@@ -372,9 +387,9 @@ class PosixUser(object):
 
             # We'll iterate over several dictionaries.
 
-            for d in words:
+            for d in self.words:
                 print "Check %s in %s" % (chk, d)
-                f = file("%s/%s" % (dir, d))
+                f = file("%s/%s" % (self.dir, d))
                 look(f, chk, 1, 1)
                 
                 # Do the lookup (dictionary order, case folded)
