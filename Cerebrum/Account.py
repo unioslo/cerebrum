@@ -620,109 +620,113 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine, Entity):
             except PasswordChecker.PasswordGoodEnoughException:
                 pass  # Wasn't good enough
 
-    def suggest_unames(self, domain, fname, lname):
+    def suggest_unames(self, domain, fname, lname, maxlen=8, suffix=""):
         """Returns a tuple with 15 (unused) username suggestions based
-        on the persons first and last name"""
-        goal = 15
+        on the person's first and last name.
+
+        domain: value domain code
+        fname:  first name (and any middle names)
+        lname:  last name
+        maxlen: maximum length of a username (incl. the suffix)
+        suffix: string to append to every generated username
+        """
+        goal = 15	# We may return more than this
+        maxlen -= len(suffix)
         potuname = ()
-        if re.search(r'^\s*$', fname) is not None or re.search(r'^\s*$', lname) is not None:
+        if fname.strip() == "" or lname.strip() == "":
             raise ValueError,\
-                  "Currently only fullname supported, got '%s', '%s'" % (fname, lname)
-        complete_name = self.simplify_name("%s %s" % (fname, lname), 1)
+                  "Currently only fullname supported, got '%s', '%s'" % \
+                  (fname, lname)
+        # We ignore hyphens in the last name, but extract the
+        # initials from the first name(s).
+        fname = self.simplify_name(fname, alt=1)
+        lname = self.simplify_name(lname.replace('-', ''), alt=1)
 
-        # Remember just the first initials.
-        m = re.search('^(.*)[ -]+(\S+)\s+(\S+)$', complete_name)
-        firstinit = None
-        if m is not None:
-            # at least three names
-            firstinit = m.group(1)
-            firstinit = re.sub(r'([- ])(\S)[^- ]*', r'\1\2', firstinit)
-            firstinit = re.sub(r'^(\S).*?($|[- ])', r'\1', firstinit)
-            firstinit = re.sub(r'[- ]', '', firstinit)
+        initials = [n[0] for n in re.split(r'[ -]', fname)]
+        firstinit = "".join(initials[:-1])
+        if len(initials) > 1:
+            initial = initials[-1]
+        else:
+            initial = None
 
-        # Remove hyphens.  People called "Geir-Ove Johnsen Hansen" generally
-        # prefer "geirove" to just "geir".
+        # Now remove all hyphens and keep just the first name.  People
+        # called "Geir-Ove Johnsen Hansen" generally prefer "geirove"
+        # to just "geir".
 
-        complete_name = re.sub(r'-', '', complete_name)
+        fname = fname.replace('-', '').split(" ")[0][0:maxlen]
 
-        m = re.search(r'(\S+)?(.*\s+(\S)\S*)?\s+(\S+)?$', complete_name)
-        # Avoid any None values returned by m.group(N).
-        fname = (m.group(1) or "")[0:8]
-        initial = (m.group(3) or "")
-        lname = (m.group(4) or "")[0:8]
-
-        if lname == '': lname = fname	# Sane behaviour if only one name.
-
-        # For people with many names, we prefer to use all initials:
+        # For people with many (more than three) names, we prefer to
+        # use all initials.
         # Example:  Geir-Ove Johnsen Hansen
         #           ffff fff i       llllll
         # Here, firstinit is "GO" and initial is "J".
         #
-        # gohansen gojhanse gohanse gojhans ... gojh goh
-        # ssllllll ssilllll sslllll ssillll     ssil ssl
+        # gohansen gojhanse gohanse gojhanse ... goh gojh
+        # ssllllll ssilllll sslllll ssilllll     ssl ssil
         #
         # ("ss" means firstinit, "i" means initial, "l" means last name)
 
-        if firstinit and len(firstinit) > 1:
-            i = len (firstinit)
-            llen = len (lname)
-            if llen > 8 - i: llen = 8 - i
+        if len(firstinit) > 1:
+            llen = len(lname)
+            if llen + len(firstinit) > maxlen:
+                llen = maxlen - len(firstinit)
             for j in range(llen, 0, -1):
-                un = firstinit + lname[0:j]
-                if self.validate_new_uname(domain, un): potuname += (un, )
+                un = firstinit + lname[0:j] + suffix
+                if self.validate_new_uname(domain, un):
+                    potuname += (un, )
 
-                if j > 1 and initial:
-                    un = firstinit + initial + lname[0:j-1]
-                    if self.validate_new_uname(domain, un): potuname += (un, )
-                    if len(potuname) >= goal: break
+                if initial and len(firstinit) + 1 + j <= maxlen:
+                    un = firstinit + initial + lname[0:j] + suffix
+                    if self.validate_new_uname(domain, un):
+                        potuname += (un, )
 
+                if len(potuname) >= goal:
+                    break
 
         # Now try different substrings from first and last name.
         #
         # geiroveh,
         # fffffffl
-        # geirovh geirovha geirovjh,
-        # ffffffl ffffffll ffffffil
-        # geiroh geirojh geiroha geirojha geirohan,
-        # fffffl fffffil fffffll fffffill ffffflll
-        # geirh geirjh geirha geirjha geirhan geirjhan geirhans
-        # ffffl ffffil ffffll ffffill fffflll ffffilll ffffllll
+        # geirovjh geirovh geirovha,
+        # ffffffil ffffffl ffffffll
+        # geirojh geiroh geirojha geiroha geirohan,
+        # fffffil fffffl fffffill fffffll ffffflll
+        # geirjh geirh geirjha geirha geirjhan geirhan geirhans
+        # ffffil ffffl ffffill ffffll ffffilll fffflll ffffllll
         # ...
         # gjh gh gjha gha gjhan ghan ... gjhansen ghansen
         # fil fl fill fll filll flll     fillllll fllllll
 
         flen = len(fname)
-        if flen > 7: flen = 7
+        if flen > maxlen - 1:
+            flen = maxlen - 1
 
         for i in range(flen, 0, -1):
             llim = len(lname)
-            if llim > 8 - i: llim = 8 - i
-            for j in range(1, llim):
+            if llim > maxlen - i:
+                llim = maxlen - i
+            for j in range(1, llim + 1):
                 if initial:
-		# Is there room for an initial?
-                    if j == llim and i + llim < 8:
-                        un = fname[0:i] + initial + lname[0:j]
+                    # Is there room for an initial?
+                    if j < llim:
+                        un = fname[0:i] + initial + lname[0:j] + suffix
                         if self.validate_new_uname(domain, un):
                             potuname += (un, )
-		# Is there room for an initial if we chop a letter off
-		# last name?
-                    if j > 1:
-                        un = fname[0:i] + initial + lname[0:j-1]
-                        if self.validate_new_uname(domain, un):
-                            potuname += (un, )
-                un = fname[0:i] + lname[0:j]
-                if self.validate_new_uname(domain, un): potuname += (un, )
-            if len(potuname) >= goal: break
+                un = fname[0:i] + lname[0:j] + suffix
+                if self.validate_new_uname(domain, un):
+                    potuname += (un, )
+            if len(potuname) >= goal:
+                break
 
         # Absolutely last ditch effort:  geirov1, geirov2 etc.
-
         i = 1
-        if flen > 6: flen = 6
+        prefix = (fname + lname)[:maxlen - 2]
 
         while len(potuname) < goal and i < 100:
-            un = "%s%d" % (fname[0:flen], i)
+            un = prefix + str(i) + suffix
             i += 1
-            if self.validate_new_uname(domain, un): potuname += (un, )
+            if self.validate_new_uname(domain, un):
+                potuname += (un, )
 
         return potuname
 
@@ -757,9 +761,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine, Entity):
         xlate['þ'] = 'th'
         xlate['ß'] = 'ss'
         s = string.join(map(lambda x:xlate.get(x, x), s), '')
-        if as_gecos:
-            s = re.sub(r'[^a-zA-Z0-9 ]', '', s)
-            return s
-        s = s.lower()
-        s = re.sub(r'[^a-z0-9 ]', '', s)
+        s = re.sub(r'[^a-zA-Z0-9 -]', '', s)
+        if not as_gecos:
+            s = s.lower()
         return s
