@@ -64,6 +64,8 @@ def _create_view(req, id):
     page = Main(req)
     try:
         group = ClientAPI.Group.fetch_by_id(server, id)
+        group.quarantines = group.get_quarantines()
+        group.uri = req.unparsed_uri
     except:
         page.add_message(_("Could not load group with id %s") % id)
         return (page, None)
