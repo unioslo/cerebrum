@@ -590,7 +590,7 @@ class EntityQuarantine(Entity):
         SET disable_until=:d_until
         WHERE entity_id=:e_id AND quarantine_type=:q_type""",
                      {'e_id': self.entity_id,
-                      'q_type': type,
+                      'q_type': int(type),
                       'd_until': until})
         self._db.log_change(self.entity_id, self.const.quarantine_mod,
                             None, change_params={'q_type': type})
@@ -600,7 +600,7 @@ class EntityQuarantine(Entity):
         DELETE FROM [:table schema=cerebrum name=entity_quarantine]
         WHERE entity_id=:e_id AND quarantine_type=:q_type""",
                      {'e_id': self.entity_id,
-                      'q_type': type})
+                      'q_type': int(type)})
         self._db.log_change(self.entity_id, self.const.quarantine_del,
                             None, change_params={'q_type': type})
 
