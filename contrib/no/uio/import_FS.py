@@ -69,8 +69,6 @@ def process_person(Cerebrum, persondta):
     
     try:
         (year, mon, day) = fodselsnr.fodt_dato(persondta['fdato'] + persondta['pnr'])
-        if(year < 1970): year = 1970   # Seems to be a bug in time.mktime on some machines
-        
         fnr = fodselsnr.personnr_ok(persondta['fdato'] + persondta['pnr'])
     except fodselsnr.InvalidFnrError:
         print "Ugyldig fødselsnr: %s%s" % (persondta['fdato'],
