@@ -418,6 +418,21 @@ class BofhdExtension(object):
     # (email virus)
 
     #
+    # entity commands
+    #
+    all_commands['entity_info'] = Command(('entity', 'info'),
+                                            Id())
+    def entity_info(self, operator, entity_id):
+        """Returns a dings"""
+        entity = self._get_general_entity(entity_id)
+        result = {}
+        result['type'] = entity.entity_type
+        result['id'] = entity.entity_id
+        names = entity.get_names()
+        # convert to a python type 
+        result['names'] = [(a,b) for (a,b) in names]
+        return result
+    #
     # group commands
     #
 
@@ -543,7 +558,7 @@ class BofhdExtension(object):
         except self.db.DatabaseError, m:
             raise CerebrumError, "Database error: %s" % m
         return "OK"   # TBD: returns OK if user is not member of group.  correct?
-
+    
     # group info
     all_commands['group_info'] = Command(
         ("group", "info"), GroupName(),
@@ -600,12 +615,9 @@ class BofhdExtension(object):
     def group_list_all(self, operator, filter=None):
         if not self.ba.is_superuser(operator.get_entity_id()):
             raise PermissionDenied("Currently limited to superusers (is is slooow)")
-        group = Group.Group(self.db)
-        ret = []
-        for r in group.list_all():
-            ret.append({'id': r[0],
-                        'name': self._get_entity_name(self.const.entity_group, r[0])})
-        return ret
+        # superseeded by group_search - note that filter (which was never
+        # implemented) is NOT passed on   
+        return self.group_search(self, operator)    
 
     # group list_expanded
     all_commands['group_list_expanded'] = Command(
@@ -652,6 +664,27 @@ class BofhdExtension(object):
         self.ba.can_delete_group(operator.get_entity_id(), grp)
         grp.delete()
         return "OK"
+    
+    # group search
+    all_commands['group_search'] = Command(
+        ("group", "search"), GroupSearchType(optional=True),
+        fs=FormatSuggestion("%8i %s", ("id", "name"), hdr="%8s %s" % ("Id", "Name")),
+        perm_filter='can_search_group')
+    def group_search(self, operator, filter={}):
+        # FIXME: Check filters to avoid "Search all" for all
+        group = Group.Group(self.db)
+        ret = []
+        # unpack filters (security.. hehe) 
+        filter_name = filter.get('name', None)
+        filter_desc = filter.get('desc',  None)
+        filter_spread = filter.get('spread',  None)
+        for r in group.search(filter_spread=filter_spread,  
+                              filter_name=filter_name,
+                              filter_desc=filter_desc)
+            ret.append({'id': r[0],
+                        'name': self._get_entity_name(self.const.entity_group, r[0])})
+        return ret
+
     
     # group set_expire
     all_commands['group_set_expire'] = Command(
@@ -2403,14 +2436,32 @@ class BofhdExtension(object):
             return self.const.group_memberop_union
         raise CerebrumError("unknown group opcode: '%s'" % operator)
 
-    def _get_entity(self, idtype, id):
+    def _get_entity(self, idtype=None, id=None):
+        if id is None:
+            raise CerebrumError, "Invalid id"
         if idtype == 'account':
             return self._get_account(id)
         if idtype == 'person':
             return self._get_person(*self._map_person_id(id))
         if idtype == 'group':
             return self._get_group(id)
+        if idtype is None:
+            return self._get_general_entity(self, id)
         raise CerebrumError, "Invalid idtype"
+
+    def _get_general_entity(self, id):
+        # This is rather dirty...
+        class SuperEntity(Entity.Entity, Entity.EntityName,
+                      Entity.EntityContactInfo, Entity.EntityAddress,
+                      Entity.EntityQuarantine):
+            """A Entity class uniting all mixins"""
+            pass
+        entity = SuperEntity(self.db)
+        try:
+            entity.find(id)
+        except Errors.NotFoundError:
+            raise CerebrumError, "Could not find entity id %s" % id
+        return entity
 
     def _find_persons(self, arg):
         if arg.isdigit() and len(arg) > 10:  # finn personer fra fnr
