@@ -117,6 +117,7 @@ EOI
 	--extra-file=/usr/share/cerebrum/design/mod_stedkode.sql \
 	--extra-file=/usr/share/cerebrum/design/mod_email.sql \
 	--extra-file=/usr/share/cerebrum/design/bofhd_tables.sql \
+	--extra-file=/usr/share/cerebrum/design/mod_job_runner.sql \
 	>> $TMPFILE 2>&1
 EOI
 	   # [ -n $DEBUG ] && cat $SCRIPTFILE
