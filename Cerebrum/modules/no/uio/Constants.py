@@ -83,6 +83,18 @@ class Constants(Constants.Constants):
     affiliation_tilknyttet_emeritus = _PersonAffStatusCode(
         affiliation_tilknyttet, 'emeritus',
         'Registrert i LT med gjestetypekode EMERITUS')
+    affiliation_tilknyttet_bilag = _PersonAffStatusCode(
+        affiliation_tilknyttet, 'bilag',
+        'Registrert i LT med gjestetypekode BILAGSLØN')
+    affiliation_tilknyttet_ekst_forsker = _PersonAffStatusCode(
+        affiliation_tilknyttet, 'ekst_forsker',
+        'Registrert i LT med gjestetypekode EF-FORSKER og SENIORFORS')
+    affiliation_tilknyttet_gjesteforsker = _PersonAffStatusCode(
+        affiliation_tilknyttet, 'gjesteforsker',
+        'Registrert i LT med gjestetypekode GJ-FORSKER')
+    affiliation_tilknyttet_frida_reg = _PersonAffStatusCode(
+        affiliation_tilknyttet, 'frida_reg',
+        'Registrert i LT med gjestetypekode REGANSV og REG-ANSV')
     affiliation_tilknyttet_ekst_stip = _PersonAffStatusCode(
         affiliation_tilknyttet, 'ekst_stip',
         'Personer registrert i LT med gjestetypekode=EF-STIP')
