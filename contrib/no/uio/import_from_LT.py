@@ -99,7 +99,7 @@ def get_person_info(outfile):
         # fi
 
         reservasjoner[key]['res'] = reservasjoner[key].get('res', []) + [r]
-    # fi
+    # od
 
     # Hent alle lønnsposteringer siste 180 dager.
     #
@@ -197,10 +197,12 @@ def get_person_info(outfile):
                                 ["fakultetnr_utgift",
                                  "instituttnr_utgift",
                                  "gruppenr_utgift",
-                                 "stillingkodenr_beregnet_sist",
                                  "prosent_tilsetting",
                                  "dato_fra", "dato_til",
                                  "tilsnr"]])
+            key = "stillingkodenr_beregnet_sist"
+            attr = attr + ("%s=%s" % (key,
+                                      xml.escape_xml_attr(int(t[key])))) 
             
             sk = skode2tittel[t['stillingkodenr_beregnet_sist']]
             attr += ' hovedkat=%s' % xml.escape_xml_attr(
