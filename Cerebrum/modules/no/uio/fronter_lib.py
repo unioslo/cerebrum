@@ -308,12 +308,12 @@ class Fronter(object):
             if kurs.has_key(kurs_id):
                 # Alle kurs-IDer som stammer fra undervisningsenheter
                 # prefikses med EMNE_PREFIX + ':'.
-                enhet_id = ":".join([str(x) for x in id_seq])
+                enhet_id = ":".join([str(x) for x in id_seq]).lower()
 #		self.logger.debug("read_kurs_data: enhet_id=%s" % enhet_id)
                 self.kurs2enhet.setdefault(kurs_id, []).append(enhet_id)
                 multi_id = ":".join([str(x) for x in(
                     enhet['institusjonsnr'], enhet['emnekode'],
-                    enhet['terminkode'], enhet['arstall'])])
+                    enhet['terminkode'], enhet['arstall'])]).lower()
                 self.emne_versjon.setdefault(
                     multi_id, {})["v%s" % enhet['versjonskode']] = 1
                 self.emne_termnr.setdefault(
@@ -355,7 +355,7 @@ class Fronter(object):
             kurs_id = FronterUtils.UE2KursID(*id_seq)
 #	    self.logger.debug("read_kurs_data_getundaktivitet: kurs_id=%s" % kurs_id)
             if kurs.has_key(kurs_id):
-                enhet_id = ":".join([str(x) for x in id_seq])
+                enhet_id = ":".join([str(x) for x in id_seq]).lower()
 #		self.logger.debug("read_kurs_data: enhet_id=%s" % enhet_id)
 		self.enhet2akt.setdefault(enhet_id, []).append(
                 [akt['aktivitetkode'], akt['aktivitetsnavn']])
@@ -366,7 +366,7 @@ class Fronter(object):
             kurs_id = FronterUtils.UE2KursID(*id_seq)
             if kurs.has_key(kurs_id):
                 # Alle kurs-IDer som stammer fra EVU-kurs prefikses med "EVU:".
-                enhet_id = ":".join(id_seq)
+                enhet_id = ":".join(id_seq).lower()
                 self.kurs2enhet.setdefault(kurs_id, []).append(enhet_id)
                 self.enhet2sko[enhet_id] = "%02d%02d00" % (
                     evu['faknr_adm_ansvar'],
