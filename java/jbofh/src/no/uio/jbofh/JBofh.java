@@ -6,6 +6,23 @@
 
 package no.uio.jbofh;
 
+import java.awt.BorderLayout;
+import java.awt.GridBagConstraints;
+import java.awt.GridBagLayout;
+import java.awt.Dimension;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
+import java.awt.event.ActionListener;
+import java.awt.event.ActionEvent;
+import java.awt.EventQueue;
+import javax.swing.JPanel;
+import javax.swing.JFrame;
+import javax.swing.JLabel;
+import javax.swing.JOptionPane;
+import javax.swing.JTextField;
+import javax.swing.JScrollPane;
+import javax.swing.JTextArea;
+
 import java.io.*;
 import java.text.ParseException;
 import java.net.URL;
@@ -199,16 +216,25 @@ class BofhdCompleter implements org.gnu.readline.ReadlineCompleter {
  *
  * @author  runefro
  */
-public class JBofh {
+public class JBofh implements ActionListener {
     Properties props;
     CommandLine cLine;
     BofhdConnection bc;
     static Category logger = Category.getInstance(JBofh.class);
     BofhdCompleter bcompleter;
     Hashtable knownFormats;
+    String version = "unknown";
+
+    JTextArea tfOutput;
+    JTextField tfCmdLine;
+    boolean guiEnabled;
+    JLabel lbPrompt;
+    JFrame mainFrame;
 
     /** Creates a new instance of JBofh */
-    public JBofh(String def_uname, String def_password) throws BofhdException {
+    public JBofh(String def_uname, String def_password, boolean gui) throws BofhdException {
+	guiEnabled = gui;
+	if(gui) makeGUI();
         try {
 	    URL url = ResourceLocator.getResource(this, "/log4j.properties");
 	    props = new Properties();
@@ -218,9 +244,16 @@ public class JBofh {
 	    url = ResourceLocator.getResource(this, "/jbofh.properties");
             props.load(url.openStream());
         } catch(IOException e) {
-	    System.out.println("Error reading property files");
+	    showMessage("Error reading property files", true);
 	    System.exit(1);
 	}
+	URL url = ResourceLocator.getResource(this, "/version.txt");
+	try {
+	    BufferedReader br = new BufferedReader(new InputStreamReader(url.openStream()));
+	    version = br.readLine();
+	    br.close();
+	} catch (IOException e) {}  // ignore failure
+
         bc = new BofhdConnection(logger);
         bc.connect((String) props.get("bofhd_url"));
         
@@ -229,10 +262,10 @@ public class JBofh {
             Readline.load(ReadlineLibrary.GnuReadline);
         }
         catch (UnsatisfiedLinkError ignore_me) {
-            System.err.println("couldn't load readline lib. Using simple stdin.");
+            showMessage("couldn't load readline lib. Using simple stdin.", true);
         }
 
-        cLine = new CommandLine(logger);
+        cLine = new CommandLine(logger, this);
 	String uname, password;
 	try {
 	    if(def_password != null) {  // Shortcut wile debugging (-q param)
@@ -243,7 +276,15 @@ public class JBofh {
                     false);
 		if(uname.equals("")) uname = def_uname;
                 ConsolePassword cp = new ConsolePassword();
-                password = cp.getPassword("Password:");
+		if(guiEnabled) {
+		    try {
+			password = cp.getPasswordByJDialog("Password:", mainFrame);
+		    } catch (ConsolePassword.MethodFailedException e) {
+			return;
+		    }
+		} else {
+		    password = cp.getPassword("Password:");
+		}
 		bc.login(uname, password);
 	    }
 	} catch (IOException io) {
@@ -255,7 +296,61 @@ public class JBofh {
 	Readline.setCompleter(bcompleter);
 
         knownFormats = new Hashtable();
+	showMessage("Welcome to jbofh, v "+version+", type \"help\" for help", true);
         enterLoop();
+    }
+
+    void makeGUI() {
+	JPanel np = new JPanel();
+	JScrollPane sp = new JScrollPane(tfOutput = new JTextArea());
+	mainFrame = new JFrame("JBofh");
+	
+	tfOutput.setEditable(false);
+	np.setLayout(new GridBagLayout());
+	GridBagConstraints gbc = new GridBagConstraints();
+	gbc.anchor = GridBagConstraints.WEST;
+	np.add(lbPrompt = new JLabel(), gbc);
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+	gbc.gridwidth = GridBagConstraints.REMAINDER;
+	gbc.weightx = 1.0;
+	np.add(tfCmdLine = new JTextField(), gbc);
+	tfCmdLine.addActionListener(this);
+	mainFrame.getContentPane().add(sp, BorderLayout.CENTER);
+	mainFrame.getContentPane().add(np, BorderLayout.SOUTH);
+
+        mainFrame.addWindowListener(new WindowAdapter() {
+            public void windowClosing(WindowEvent e) {
+                System.exit(0);
+            }
+        });
+	mainFrame.pack();
+	mainFrame.setSize(new Dimension(700,400));
+        mainFrame.setVisible(true);
+    }
+
+    public void actionPerformed(ActionEvent evt) {
+        if(evt.getSource() == tfCmdLine) {
+	    if(! cLine.isBlocking) return;
+	    synchronized (tfCmdLine.getTreeLock()) {
+		cLine.isBlocking = false;
+                EventQueue.invokeLater(new Runnable(){ public void run() {} });
+		tfCmdLine.getTreeLock().notifyAll();
+	    }
+	}
+    }    
+
+    void showMessage(String msg, boolean crlf) {
+	if(guiEnabled) {
+	    tfOutput.append(msg);
+	    if(crlf) tfOutput.append("\n");
+	    tfOutput.setCaretPosition(tfOutput.getText().length());
+	} else {
+	    if(crlf) {
+		System.out.println(msg);
+	    } else {
+		System.out.print(msg);
+	    }
+	}
     }
 
     /**
@@ -271,7 +366,7 @@ public class JBofh {
             Object key = e.nextElement();
             Vector cmd_def = (Vector) bc.commands.get(key);
             if(cmd_def.get(0) instanceof String) {
-                System.out.println("Warning, "+key+" is old protocol, skipping");
+                showMessage("Warning, "+key+" is old protocol, skipping", true);
                 continue;
             }
             Vector c = (Vector) cmd_def.get(0);
@@ -295,7 +390,7 @@ public class JBofh {
             } catch (IOException io) {
                 break;
             } catch (ParseException pe) {
-                System.out.println("Error parsing command: "+pe);
+                showMessage("Error parsing command: "+pe, true);
                 continue;
             }
             if(args.size() == 0) continue;
@@ -303,42 +398,46 @@ public class JBofh {
 		if(((String) args.get(0)).equals("commands")) {  // Neat while debugging
 		    for (Enumeration e = bc.commands.keys() ; e.hasMoreElements() ;) {
 			Object key = e.nextElement();
-			System.out.println(key+" -> "+ bc.commands.get(key)); 
+			showMessage(key+" -> "+ bc.commands.get(key), true); 
 		    }
 		} else if(((String) args.get(0)).equals("help")) {
 		    args.remove(0);
-		    System.out.println(bc.getHelp(args));
+		    showMessage(bc.getHelp(args), true);
 		} else {
 		    try {
 			Vector lst = bcompleter.analyzeCommand(args, -1);
 			for(int i = 0; i < lst.size(); i++) args.set(i, lst.get(i));
 		    } catch (AnalyzeCommandException e) {
-			System.out.println("Error translating command:"+e); continue;
+			showMessage("Error translating command:"+e, true); continue;
 		    }
                     
 		    Object r[] = translateCommand(args);
 		    if(r == null) {
-			System.out.println("Error translating command"); continue;
+			showMessage("Error translating command", true); continue;
 		    }
 		    String protoCmd = (String) r[0];
 		    Vector protoArgs = (Vector) r[1];
 		    protoArgs = checkArgs(protoCmd, protoArgs);
 		    if(protoArgs == null) continue;
 		    try {
+			boolean multiple_cmds = false;
+			for (Enumeration e = protoArgs.elements() ; e.hasMoreElements() ;) 
+			    if(e.nextElement() instanceof Vector)
+				multiple_cmds = true;
 			Object resp = bc.sendCommand(protoCmd, protoArgs);
-			if(resp != null) showResponse(protoCmd, resp);
+			if(resp != null) showResponse(protoCmd, resp, multiple_cmds);
 		    } catch (BofhdException ex) {
-			System.out.println(ex.getMessage());
+			showMessage(ex.getMessage(), true);
 		    } catch (Exception ex) {
-			System.out.println("Unexpected error (bug): "+ex);
+			showMessage("Unexpected error (bug, true): "+ex, true);
 			ex.printStackTrace();
 		    }
 		}
 	    } catch (BofhdException be) {
-		System.out.println(be.getMessage());
+		showMessage(be.getMessage(), true);
 	    }
 	}
-        System.out.println("I'll be back");
+        showMessage("I'll be back", true);
     }
 
     Vector checkArgs(String cmd, Vector args) throws BofhdException {
@@ -379,7 +478,16 @@ public class JBofh {
 		String s;
 		if (type != null && type.equals("accountPassword")) {
 		    ConsolePassword cp = new ConsolePassword();
-		    s = cp.getPassword(prompt+" >");
+
+		    if(guiEnabled) {
+			try {
+			    s = cp.getPasswordByJDialog(prompt + ">", mainFrame);
+			} catch (ConsolePassword.MethodFailedException e) {
+			    s = "";
+			}
+		    } else {
+			s = cp.getPassword(prompt + ">");
+		    }
 		} else {
 		    s = cLine.promptArg(prompt+
 					(defval == null ? "" : " ["+defval+"]")+" >", false);
@@ -392,7 +500,7 @@ public class JBofh {
                     v.add("arg_help");
                     v.add(param.get("help_ref"));
                     String help = (String) bc.getHelp(v);
-                    System.out.println(help);
+                    showMessage(help, true);
 		} else {
 		    ret.add(s);
 		}
@@ -419,7 +527,7 @@ public class JBofh {
 		    Hashtable h = (Hashtable) arginfo.get("map");
 		    if(h != null) {
 			if(h.get(s) == null) {
-			    System.out.println("Value not in list");
+			    showMessage("Value not in list", true);
 			} else {
 			    ret.add(h.get(s));
 			}
@@ -437,9 +545,19 @@ public class JBofh {
 	return ret;
     }
 
-    void showResponse(String cmd, Object resp) throws BofhdException {
+    void showResponse(String cmd, Object resp, boolean multiple_cmds) throws BofhdException {
+	if(multiple_cmds) {
+	    /* TBD: Should we try to provide some text indicating
+	     * which command each response belongs to?
+	     */
+	    for (Enumeration e = ((Vector) resp).elements() ; e.hasMoreElements() ;) {
+		Object next_resp = e.nextElement();
+		showResponse(cmd, next_resp, false);
+	    }
+	    return;
+	}
 	if(resp instanceof String) {
-	    System.out.println(resp);
+	    showMessage((String) resp, true);
 	    return;
 	}
         Vector args = new Vector();
@@ -463,7 +581,7 @@ public class JBofh {
 	    resp = tmp;
 	} else {   	    // Vector responses may have a header
 	    String hdr = (String) format.get("hdr");
-	    if(hdr != null) System.out.println(hdr);
+	    if(hdr != null) showMessage(hdr, true);
 	}
 	for (Enumeration ef = ((Vector) format.get("str_vars")).elements() ; 
 	     ef.hasMoreElements() ;) {
@@ -479,28 +597,51 @@ public class JBofh {
 		    Object a[] = new Object[order.size()];
 		    for(int i = 0; i < order.size(); i++) 
 			a[i] = row.get(order.get(i));
-		    System.out.println(pf.sprintf(a));
+		    showMessage(pf.sprintf(a), true);
 		} catch (IllegalArgumentException ex) {
 		    logger.error("Error formatting "+resp+"\n as: "+format, ex);
-		    System.out.println("An error occoured formatting the response, see log for details");
+		    showMessage("An error occoured formatting the response, see log for details", true);
 		}
 	    }
 	}
+    }
+
+    static boolean isMSWindows() { 
+	String os = System.getProperty("os.name"); 
+	if (os != null && os.startsWith("Windows")) return true; 
+	return false; 
     }
     /**
      * @param args the command line arguments
      */
     public static void main(String[] args) {
+	boolean gui = JBofh.isMSWindows();
         try {
-	    if(args.length == 1 && args[0].equals("-q")) {
-		new JBofh("bootstrap_account", "test");
+	    boolean test_login = false;
+	    
+	    for(int i = 0; i < args.length; i++) {
+		if(args[i].equals("-q")) {
+		    test_login = true;
+		} else if(args[i].equals("-gui")) {
+		    gui = true;
+		} else if(args[i].equals("-nogui")) {
+		    gui = false;
+		}
+	    }
+	    if(test_login) {
+		new JBofh("bootstrap_account", "test", gui);
 	    } else {    // "test" md5: $1$F9feZuRT$hNAtCcCIHry4HKgGkkkFF/
                 // insert into account_authentication values((select entity_id from entity_name where entity_name='bootstrap_account'), (select code from authentication_code where code_str='MD5-crypt'), '$1$F9feZuRT$hNAtCcCIHry4HKgGkkkFF/');
-		new JBofh(System.getProperty("user.name"), null);
+		new JBofh(System.getProperty("user.name"), null, gui);
 	    }
 	} catch (BofhdException be) {
-	    System.out.println("Caught error during init, terminating: \n"+
-                be.getMessage());
+	    String msg = "Caught error during init, terminating: \n"+ be.getMessage();
+	    if(gui) {
+		JOptionPane.showMessageDialog(null, msg, "Fatal error", 
+					      JOptionPane.ERROR_MESSAGE);
+	    } else {
+		System.out.println(msg);
+	    }
 	}
     }    
 }
