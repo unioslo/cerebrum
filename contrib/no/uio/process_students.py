@@ -190,7 +190,7 @@ class AccountUtil(object):
                         # Conflicting request or similiar
                         logger.warn(e)
             elif c_id == 'remove_autostud_quarantine':
-                user.delete_entity_quarantine(const.quarantine_autostud)
+                user.delete_entity_quarantine(const.quarantine_auto_inaktiv)
             elif c_id == 'add_spread':
                 user.add_spread(dta)
             elif c_id == 'add_person_spread':
