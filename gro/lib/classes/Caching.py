@@ -11,8 +11,12 @@ class Caching(object):
             return cls.cache[key]
         
         self = object.__new__(cls)
+        self._key = key
         cls.cache[key] = self
         return self 
+
+    def getPrimaryKey(self):
+        return self._key
 
     def invalidateObject(cls, obj):
         del cls.cache[obj]
