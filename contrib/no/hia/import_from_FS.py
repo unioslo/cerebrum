@@ -157,7 +157,7 @@ def write_undenh_student(outfile):
     Tar med data for alle undervisingsenheter i inneværende+neste
     semester."""
     f = MinimumSizeWriter(outfile)
-    f.set_minimum_size_limit(1*MiB)
+    f.set_minimum_size_limit(10*KiB)
     f.write(xml.xml_hdr + "<data>\n")
     for semester in ('current', 'next'):
         cols, undenh = fs.GetUndervEnhet(sem=semester)
