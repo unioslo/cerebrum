@@ -843,34 +843,42 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine, Entity):
         except Errors.NotFoundError:
             return True
 
+    _simplify_name_cache = [None] * 4
+
     def simplify_name(self, s, alt=0, as_gecos=0):
         """Convert string so that it only contains characters that are
         legal in a posix username.  If as_gecos=1, it may also be
         used for the gecos field"""
 
-        xlate = {'Æ' : 'ae', 'æ' : 'ae', 'Å' : 'aa', 'å' : 'aa'}
-        if alt:
-            s = string.join(map(lambda x:xlate.get(x, x), s), '')
+        key = bool(alt) + (bool(as_gecos) * 2)
+        try:
+            (tr, xlate_subst, xlate_match) = self._simplify_name_cache[key]
+        except TypeError:
+            xlate = {'Ğ': 'Dh',  'ğ': 'dh',
+                     'Ş': 'Th',  'ş': 'th',
+                     'ß': 'ss'}
+            if alt:
+                xlate.update({'Æ': 'ae',  'æ': 'ae',
+                              'Å': 'aa',  'å': 'aa'})
+            xlate_subst = re.compile(r'[^a-zA-Z0-9 -]').sub
+            def xlate_match(match):
+                return xlate.get(match.group(), "")
+            tr = dict(zip(map(chr, xrange(0200, 0400)), ('x',) * 0200))
+            tr.update(dict(zip(
+                'ÆØÅæø¿åÀÁÂÃÄÇÈÉÊËÌÍÎÏÑÒÓÔÕÖÙÚÛÜİàáâãäçèéêëìíîïñòóôõöùúûüıÿ'
+                '{[}]|¦\\¨­¯´',
+                'AOAaooaAAAAACEEEEIIIINOOOOOUUUUYaaaaaceeeeiiiinooooouuuuyy'
+                'aAaAooO"--\'')))
+            for ch in filter(tr.has_key, xlate):
+                del tr[ch]
+            tr = string.maketrans("".join(tr.keys()), "".join(tr.values()))
+            if not as_gecos:
+                # lowercase the result
+                tr = tr.lower()
+                xlate = dict(zip(xlate.keys(), map(str.lower, xlate.values())))
+            self._simplify_name_cache[key] = (tr, xlate_subst, xlate_match)
 
-        tr = string.maketrans(
-           'ÆØÅæø¿åÀÁÂÃÄÇÈÉÊËÌÍÎÏÑÒÓÔÕÖÙÚÛÜİàáâãäçèéêëìíîïñòóôõöùúûüıÿ'
-           '{[}]|¦\\¨­¯´',
-           'AOAaooaAAAAACEEEEIIIINOOOOOUUUUYaaaaaceeeeiiiinooooouuuuyy'
-           'aAaAooO"--\'')
-        s = string.translate(s, tr)
-
-        xlate = {}
-        for y in range(0200, 0400): xlate[chr(y)] = 'x'
-        xlate['Ğ'] = 'Dh'
-        xlate['ğ'] = 'dh'
-        xlate['Ş'] = 'Th'
-        xlate['ş'] = 'th'
-        xlate['ß'] = 'ss'
-        s = string.join(map(lambda x:xlate.get(x, x), s), '')
-        s = re.sub(r'[^a-zA-Z0-9 -]', '', s)
-        if not as_gecos:
-            s = s.lower()
-        return s.strip()
+        return xlate_subst(xlate_match, s.translate(tr)).strip()
 
     def search(self, spread=None, name=None, owner_id=None, owner_type=None,
                exclude_expired=False):
