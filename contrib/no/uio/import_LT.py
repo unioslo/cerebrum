@@ -118,6 +118,8 @@ def main():
             year = 1970   # Seems to be a bug in time.mktime on some machines
         try:
             new_person.find_by_external_id(co.externalid_fodselsnr, person['fnr'])
+        except Errors.NotFoundError:
+            pass
         except Errors.TooManyRowsError:
             try:
                 new_person.find_by_external_id(co.externalid_fodselsnr, person['fnr'], co.system_lt)
