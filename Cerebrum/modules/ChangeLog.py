@@ -59,15 +59,18 @@ class ChangeLog(object):
                 :destination_entity, :change_params, :change_by, :change_program)""", m)
         self.messages = []
 
-    def get_log_events(self, start_id, types=None):
+    def get_log_events(self, start_id, types=None, subject_entity=None):
         where = ["change_id >= :start_id"]
         bind = {'start_id': int(start_id)}
+        if subject_entity is not None:
+            where.append("subject_entity=:subject_entity")
+            bind['subject_entity'] = int(subject_entity)
         if types is not None:
             where.append("change_type_id IN("+", ".join(["%i" % x for x in types])+")")
         where = "WHERE "+" AND ".join(where)
         ret = []
         for r in self.query("""
-        SELECT change_id, subject_entity, change_type_id, dest_entity,
+        SELECT tstamp, change_id, subject_entity, change_type_id, dest_entity,
                change_params, change_by, change_program
         FROM [:table schema=cerebrum name=change_log] %s
         ORDER BY change_id""" % where, bind):
@@ -97,6 +100,12 @@ class ChangeLog(object):
         ORDER BY change_id""" % where):
             ret.append(r)
         return ret
+
+    def get_changetypes(self):
+        return self.query("""
+        SELECT change_type_id, category, type, msg_string
+        FROM [:table schema=cerebrum name=change_type]""")
+
 
 ##     def rollback(self):
 ##         self.rollback_log()
