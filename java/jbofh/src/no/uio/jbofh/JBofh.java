@@ -232,11 +232,13 @@ public class JBofh implements ActionListener {
     JFrame mainFrame;
 
     /** Creates a new instance of JBofh */
-    public JBofh(String def_uname, String def_password, boolean gui) throws BofhdException {
+    public JBofh(String def_uname, String def_password, boolean gui, String log4jPropertyFile) 
+        throws BofhdException {
 	guiEnabled = gui;
 	if(gui) makeGUI();
         try {
-	    URL url = ResourceLocator.getResource(this, "/log4j.properties");
+	    URL url = ResourceLocator.getResource(this, log4jPropertyFile);
+            if(url == null) throw new IOException();
 	    props = new Properties();
 	    props.load(url.openStream());
 	    PropertyConfigurator.configure(props);
@@ -645,7 +647,7 @@ public class JBofh implements ActionListener {
 	boolean gui = JBofh.isMSWindows();
         try {
 	    boolean test_login = false;
-	    
+	    String log4jPropertyFile = "/log4j_normal.properties";
 	    for(int i = 0; i < args.length; i++) {
 		if(args[i].equals("-q")) {
 		    test_login = true;
@@ -653,13 +655,15 @@ public class JBofh implements ActionListener {
 		    gui = true;
 		} else if(args[i].equals("-nogui")) {
 		    gui = false;
+		} else if(args[i].equals("-d")) {
+                    log4jPropertyFile = "/log4j.properties";
 		}
 	    }
 	    if(test_login) {
-		new JBofh("bootstrap_account", "test", gui);
+		new JBofh("bootstrap_account", "test", gui, log4jPropertyFile);
 	    } else {    // "test" md5: $1$F9feZuRT$hNAtCcCIHry4HKgGkkkFF/
                 // insert into account_authentication values((select entity_id from entity_name where entity_name='bootstrap_account'), (select code from authentication_code where code_str='MD5-crypt'), '$1$F9feZuRT$hNAtCcCIHry4HKgGkkkFF/');
-		new JBofh(System.getProperty("user.name"), null, gui);
+		new JBofh(System.getProperty("user.name"), null, gui, log4jPropertyFile);
 	    }
 	} catch (BofhdException be) {
 	    String msg = "Caught error during init, terminating: \n"+ be.getMessage();
