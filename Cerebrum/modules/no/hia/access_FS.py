@@ -397,6 +397,102 @@ SELECT DISTINCT
 FROM fs.emne """
         return (self._get_cols(qry),self.db.query(qry))
 
+
+##################################################################
+# Metoder brukt av bofh
+##################################################################
+
+    def GetStudentEksamen(self,fnr,pnr):
+	"""Hent alle eksamensmeldinger for en student for nåværende
+	semester"""
+        qry = """
+SELECT DISTINCT
+   em.emnekode, em.dato_opprettet, em.status_er_kandidat
+FROM fs.eksamensmelding em, fs.person p
+WHERE em.fodselsdato = :fnr AND
+      em.personnr = :pnr AND
+      em.fodselsdato = p.fodselsdato AND
+      em.personnr = p.personnr AND
+      em.arstall >= :year AND
+      em.manednr > :mnd - 3
+      AND %s
+        """ % self.is_alive()
+        return (self._get_cols(qry), self.db.query(qry, {'fnr': fnr,
+                                                         'pnr': pnr,
+                                                         'year': self.year,
+                                                         'mnd': self.mndnr}))
+
+    def GetStudentStudierett(self,fnr,pnr):
+	"""Hent info om alle studierett en student har eller har hatt"""
+        qry = """
+SELECT DISTINCT
+  st.studieprogramkode, st.studierettstatkode, st.dato_tildelt,
+  st.dato_gyldig_til, st.status_privatist, st.opphortstudierettstatkode
+FROM fs.studierett st, fs.person p
+WHERE st.fodselsdato=:fnr AND
+      st.personnr=:pnr AND
+      st.fodselsdato=p.fodselsdato AND
+      st.personnr=p.personnr 
+      AND %s
+        """ % self.is_alive()
+        return (self._get_cols(qry), self.db.query(qry, {'fnr': fnr, 
+                                                         'pnr': pnr}))
+
+    def GetStudentSemReg(self,fnr,pnr):
+        """Hent data om semesterregistrering for student i nåværende semester."""
+        qry = """
+SELECT DISTINCT
+  r.regformkode, r.betformkode, r.dato_betaling, r.dato_regform_endret
+FROM fs.registerkort r, fs.person p
+WHERE r.fodselsdato = :fnr AND
+      r.personnr = :pnr AND
+      %s AND
+      r.fodselsdato = p.fodselsdato AND
+      r.personnr = p.personnr AND
+      %s
+        """ %(self.get_termin_aar(only_current=1),self.is_alive())
+	return (self._get_cols(qry), self.db.query(qry, {'fnr': fnr, 'pnr': pnr}))
+
+    def GetStudentUtdPlan(self,fnr,pnr):
+        """Hent opplysninger om utdanningsplan for student"""
+        qry = """
+SELECT DISTINCT
+  utdp.studieprogramkode, utdp.terminkode_bekreft, utdp.arstall_bekreft,
+  utdp.dato_bekreftet
+FROM fs.studprogstud_planbekreft utdp, fs.person p
+WHERE utdp.fodselsdato = :fnr AND
+      utdp.personnr = :pnr AND
+      utdp.fodselsdato = p.fodselsdato AND
+      utdp.personnr = p.personnr AND
+      %s
+        """ % self.is_alive()
+	return (self._get_cols(qry), self.db.query(qry, {'fnr': fnr, 'pnr': pnr}))
+
+    def GetStudentKullOgKlasse(self, fnr, pnr):
+	"""Hent opplysninger om hvilken klasse studenten er en del av og 
+	hvilken kull studentens klasse tilhører."""
+	qry = """
+SELECT DISTINCT
+  nk.kullkode, nk.klassekode 
+FROM fs.naverende_klasse nk, fs.person p
+WHERE nk.fodselsdato = :fnr AND
+      nk.personnr = :pnr AND
+      nk.fodselsdato = p.fodselsdato AND
+      nk.personnr = p.personnr AND
+      %s
+      """ % self.is_alive()
+	return (self._get_cols(qry), self.db.query(qry, {'fnr': fnr, 'pnr': pnr}))
+
+    def GetEmneIStudProg(self,emne):
+	"""Hent alle studieprogrammer et gitt emne kan inngå i."""
+	qry = """
+SELECT DISTINCT 
+  studieprogramkode   
+FROM fs.emne_i_studieprogram
+WHERE emnekode = :emne
+      """ 
+        return (self._get_cols(qry), self.db.query(qry, {'emne': emne}))
+
 ##################################################################
 ## E-post adresser i FS:
 ##################################################################
@@ -436,6 +532,7 @@ FROM fs.emne """
                          'personnr': personnr,
                          'uname': uname})
     # end WriteUname
+
 
 
 ##################################################################
