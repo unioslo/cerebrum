@@ -1102,6 +1102,20 @@
   Priority: 2
 
 ** Bygge/flytte/slette hjemmeområder på andre systemer enn UNIX
+
+  Description: Dagens løsning er noe for spesifikk for UiO, vi trenger
+  en mer generisk.  Det viser seg også at UiO nok har et behov for at
+  denne skrives om.  
+  Dependencies: 
+  Assigned to: runefro
+  Resources:
+  Cost:
+  Status: Det er laget et forslag til spesifikasjon.  Denne må drøftes
+  med BSD
+  Due date:
+  Priority: 2
+
+
 *** Administrere hjemmeområder på Windows
   Description: F2Go
   Dependencies:
@@ -1111,8 +1125,19 @@
   Status:
   Due date:
   Priority: 4
+
 *** Administrere hjemmeområder på Novell
   Description: F2Go
+  Dependencies:
+  Assigned to:
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority: 4
+
+*** Administrere hjemmeområder under unix/NFS.
+  Description: 
   Dependencies:
   Assigned to:
   Resources:
