@@ -1217,7 +1217,8 @@ class BofhdAuth(DatabaseAccessor):
         try:
             account = Factory.get('Account')(self._db)
             account.find(account_id)
-            return account.get_home(self.const.spread_uio_nis_user)
+	    spread = self.const.Spread(cereconf.BOFHD_CHECK_DISK_SPREAD)
+            return account.get_home(int(spread))
         except Errors.NotFoundError:
             return None
 
