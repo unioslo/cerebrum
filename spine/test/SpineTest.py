@@ -257,3 +257,5 @@ class MultipleTransactionTest(unittest.TestCase):
 if __name__ == '__main__':
     test_support.run_unittest(CommunicationTest,
         TransactionTest, LockingTest, MultipleTransactionTest)
+
+# arch-tag: d4e71fa7-90e0-4fd5-8b38-ce5ac0340e2f

@@ -82,3 +82,5 @@ else:
     idl = connect().get_idl()
     omniORB.importIDLString(idl, ['-I' + idl_path])
     import generated
+
+# arch-tag: abe7c858-0c12-4741-b8ca-3d5301f3816a
