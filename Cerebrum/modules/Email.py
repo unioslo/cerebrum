@@ -21,6 +21,7 @@
 
 import re
 import string
+import time
 
 from Cerebrum import Utils
 from Cerebrum import Constants
