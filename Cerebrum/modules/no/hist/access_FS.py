@@ -30,6 +30,10 @@ class HistFS(FS):
     metodene returnerer en tuple med kolonnenavn fulgt av en tuple med
     dbrows."""
 
+################################################################
+#	Aktive studenter				       #
+################################################################	
+
     def GetHistStudent(self):
         """Denne metoden henter data om aktive studenter ved HiST."""
 
@@ -56,7 +60,81 @@ WHERE nk.studieprogramkode = sk.studieprogramkode AND
       nk.studieprogramkode = kl.studieprogramkode AND
       nk.klassekode = kl.klassekode AND
       nk.studieretningkode = kl.studieretningkode AND
-      nk.kullkode = kl.kullkode"""
+      nk.kullkode = kl.kullkode AND
+      %s """ %(self.is_alive())
+	
+	return (self._get_cols(qry), self.db.query(qry))
+
+################################################################
+#	Studieprogrammer				       #
+################################################################	
+
+    def GetStudieproginf(self):
+        """For hvert definerte studieprogram henter vi 
+        informasjon om utd_plan og eier samt studieprogkode"""
+        qry = """
+
+SELECT studieprogramkode, faknr_studieansv,
+instituttnr_studieansv, gruppenr_studieansv, studienivakode
+FROM fs.studieprogram
+"""
+
+# Fjerner dette for nå. Skal tilbake når HiST har ryddet opp.
+# WHERE status_utgatt = 'N'
 
         return (self._get_cols(qry), self.db.query(qry))
+
+
+##################################################################
+# Mer studieinformasjon - testsøk for eksamensmeldinger	         #
+##################################################################
+
+    def GetAlleEksamensmeldinger(self, institusjonsnr=0):
+	"""Hent data om eksamensmeldinger for alle studenter
+           på HiST. Dette er en test-versjon av søket"""
+	aar = time.localtime()[0:1]
+	qry = """
+SELECT p.fodselsdato, p.personnr, e.emnekode, e.arstall, 
+       e.manednr, e.studieprogramkode
+FROM fs.person p, fs.eksamensmelding e
+WHERE p.fodselsdato=e.fodselsdato AND
+      p.personnr=e.personnr AND
+      e.arstall=%s 
+      AND %s
+ORDER BY fodselsdato, personnr
+      """ %(aar[0],self.is_alive())                            
+      	return (self._get_cols(qry), self.db.query(qry))
+
+
+
+##################################################################
+# Metoder for OU-er:
+##################################################################
+
+
+    def GetAlleOUer(self, institusjonsnr=0):
+        """Hent data om stedskoder registrert i FS"""
+        qry = """
+SELECT DISTINCT
+   faknr, instituttnr, gruppenr, stedakronym, stednavn_bokmal,
+   faknr_org_under, instituttnr_org_under, gruppenr_org_under,
+   adrlin1, adrlin2, postnr, telefonnr, faxnr,
+   adrlin1_besok, adrlin2_besok, postnr_besok, url,
+   bibsysbeststedkode
+FROM fs.sted
+WHERE institusjonsnr='%s'
+	 """ % institusjonsnr
+
+##################################################################
+# Hjelpemetoder  
+##################################################################
+
+    def is_alive(self):	
+	return "NVL(p.status_dod, 'N') = 'N'\n"
+
+
+
+
+
+
 
