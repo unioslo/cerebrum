@@ -140,7 +140,12 @@ def move_account(entity_id):
 
 def change_quarantine(entity_id):
     account.clear()
-    account.find(entity_id)
+    try:	
+	account.find(entity_id)
+    except Errors.NotFoundError:
+	# The entity exists, but account information deleted, ignore
+	# further processing.
+	return False         	
     if account.has_spread(int(co.spread_uio_ad_account)):	
     	if adutils.chk_quarantine(entity_id):
 	    del_spread(entity_id,co.spread_uio_ad_account,0)
