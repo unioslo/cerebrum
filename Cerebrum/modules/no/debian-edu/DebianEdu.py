@@ -244,3 +244,4 @@ class DebianEduGuardian(DebianEduEntity):
         self.__updated = []
 
 
+# arch-tag: 293e1bab-bd04-4d2b-9bc0-0d15f614f67c
