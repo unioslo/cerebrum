@@ -410,12 +410,17 @@ description: mail-config ved UiO.\n
     for row in mail_targ.list_email_targets_ext():
         t = int(row['target_id'])
         tt = int(row['target_type'])
-        if row['entity_type']:
-            et = int(row['entity_type'])
-        if row['entity_id']:
-            ei = int(row['entity_id'])
+        et = row['entity_type']
+        if et is not None:
+            et = int(et)
+        ei = row['entity_id']
+        if ei is not None:
+            ei = int(ei)
         alias = row['alias_value']
-        
+        run_as_id = row['using_uid']
+        if run_as_id is not None:
+            run_as_id = int(run_as_id)
+
         counter += 1
         if verbose and (counter % 5000) == 0:
             print "  done %d list_email_targets(): %d sec." % (
@@ -529,21 +534,13 @@ description: mail-config ved UiO.\n
 
             rest += "target: %s\n" % alias
 
-            if et == co.entity_account:
-                if acc2name.has_key(ei):
-                    uid = acc2name[ei][0]
+            if run_as_id is not None:
+                if acc2name.has_key(run_as_id):
+                    uid = acc2name[run_as_id][0]
                 else:
                     txt = "Target: %s(%s) no user found: %s\n" % (t, tt, ei)
                     sys.stderr.write(txt)
                     continue
-            elif et == None and ei == None:
-                # Catch valid targets with no user bound to it.
-                pass
-            else:
-                txt = "Target: %s (%s) has invalid entities: %s, %s\n" \
-                      % (t, tt, et, ei)
-                sys.stderr.write(txt)
-                continue
 
         elif tt == co.email_target_multi:
             # Target is the set of `account`-type targets corresponding to
