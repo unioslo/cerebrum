@@ -97,6 +97,10 @@ mailaddr = Email.EmailAddress(db)
 mailprimaddr = Email.EmailPrimaryAddressTarget(db)
 mailforward = Email.EmailForward(db)
 mailvacation = Email.EmailVacation(db)
+mailspam = Email.EmailSpamFilter(db)
+mailvirus = Email.EmailVirusScan(db)
+mailquota = Email.EmailQuota(db)
+mailserver = Email.EmailServerTarget(db)
 
 class AutoFlushStream(object):
     __slots__ = ('_stream',)
@@ -699,6 +703,14 @@ def import_groups(groupfile, fill=False):
             groupObj.add_member(tmp, co.entity_group, co.group_memberop_union)
     db.commit()
 
+mailserver2eid = {}
+def get_server_id(servername):
+    if not mailserver2eid.has_key(servername):
+        ms = Email.EmailServer(db)
+        ms.find_by_name(servername)     # May throw NotFoundError
+        mailserver2eid[servername] = int(ms.entity_id)
+    return mailserver2eid[servername]
+
 def import_person_users(personfile):
     global gid2entity_id, stedkode2ou_id, default_ou, uname_exists
 
@@ -1066,6 +1078,37 @@ def create_account(u, owner_id, owner_type, np_type=None):
                 enable = 'T'
             mailvacation.add_vacation(startdate, tmp['text'], enddate, enable)
 
+        if u.has_key('emailfilter'):
+            data = u['emailfilter']
+            if data.has_key('spam_level') or data.has_key('spam_action'):
+                spam_lvl = spamlvl2const.get(data.get('spam_level'),
+                                             spamlvl2const['*default*'])
+                spam_act = spamact2const.get(data.get('spam_action'),
+                                             spamact2const['*default*'])
+                mailspam.clear()
+                mailspam.find(mt_id)
+                mailspam.populate_spam_filter(spam_lvl, spam_act)
+                mailspam.write_db()
+
+            if (data.has_key('virus_scan')
+                or data.has_key('virus_found')
+                or data.has_key('virus_removed')):
+                # TODO: Nothing outside Cerebrum uses these settings
+                # at the moment.  Hence, should be able to safely
+                # postpone implementation until this is really needed.
+                pass
+##                mailvirus.clear()
+
+        if u.get('mail_hardquota') and u.get('mail_softquota'):
+            mailquota.clear()
+            mailquota.find(mt_id)
+            mailquota.populate_quota(int(u['mail_softquota']),
+                                     int(u['mail_hardquota']))
+        mailserver.clear()
+        mailserver.find(mt_id)
+        mailserver.populate(get_server_id(u['mailhost']))
+        mailserver.write_db()
+                
     # Assign account affiliaitons by checking the
     # user_aff_mapping.  if subtype = '*unset*, try to find a
     # corresponding person affiliation, first at the same OU, then at

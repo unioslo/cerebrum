@@ -28,6 +28,7 @@ from Cerebrum.Constants import _AuthoritativeSystemCode,_OUPerspectiveCode, \
      _SpreadCode, _QuarantineCode, _PersonExternalIdCode, \
      _PersonAffiliationCode, _PersonAffStatusCode, _AccountCode
 from Cerebrum.modules.PosixUser import _PosixShellCode
+from Cerebrum.modules.Email import _EmailSpamLevelCode, _EmailSpamActionCode
 
 class Constants(Constants.Constants):
 
@@ -235,3 +236,18 @@ class Constants(Constants.Constants):
                                             'Ekstern konto gått ut på dato')
     quarantine_autointsomm = _QuarantineCode('autointsomm',
                                             'Sommerskolen er ferdig for i år')
+
+    email_spam_level_none = _EmailSpamLevelCode(
+        'no_filter', 0, "No email will be filtered as spam")
+    email_spam_level_standard = _EmailSpamLevelCode(
+        'standard_spam', 1, "Only filter email that obviously is spam")
+    email_spam_level_heightened = _EmailSpamLevelCode(
+        'most_spam', 2, "Filter most emails that looks like spam ")
+    email_spam_level_aggressive = _EmailSpamLevelCode(
+        'aggressive_spam', 3, "Filter everything that resembles spam")
+    email_spam_action_none = _EmailSpamActionCode(
+        'noaction', "Deliver spam just like legitimate email")
+    email_spam_action_folder = _EmailSpamActionCode(
+        'spamfolder', "Deliver spam to a separate IMAP folder")
+    email_spam_action_delete = _EmailSpamActionCode(
+        'dropspam', "Messages classified as spam won't be delivered at all")
