@@ -21,12 +21,12 @@ PID_BOFHD="$NAME-bofhd"
 PID_JOB_R="$NAME-job_runner"
 DAEMON_BOFHD_OPTS="--config-file /etc/cerebrum/config.dat"
 DAEMON_JOB_R_OPTS=""
-MANDATORY_FILES=( /etc/cerebrum/config.dat		 \
+MANDATORY_FILES=" /etc/cerebrum/config.dat		 \
 		  /etc/cerebrum/logging.ini		 \
 		  /etc/cerebrum/cereconf.py		 \
-#		  /etc/cerebrum/scheduled_jobs.py	 \
+		  /etc/cerebrum/scheduled_jobs.py	 \
 		  /etc/cerebrum/passwd-cerebrum@cerebrum \
-		)
+		"
 
 #[ -n $DEBUG ] && echo ${#MANDATORY_FILES[@]} ${MANDATORY_FILES[@]}
 test -x $DAEMON_BOFHD || exit 0
@@ -42,9 +42,9 @@ set -e
 
 check_mandatory_files_are_there() {
 	local files_exist="true"
-	for i in $(seq 0  $((${#MANDATORY_FILES[@]} - 1))) ; do
-		if [ ! -f "${MANDATORY_FILES[$i]}" ] ; then
-		echo "ERROR: The mandatory configuration file ${MANDATORY_FILES[$i]} is missing."
+	for i in $MANDATORY_FILES ; do
+		if [ ! -f $i ] ; then
+		echo "ERROR: The mandatory configuration file $i is missing."
 		return 1
 		fi
 	done

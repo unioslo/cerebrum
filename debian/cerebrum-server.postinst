@@ -16,24 +16,24 @@ DEBUG="debug"
 ##
 
 DEBIAN_VERSION=$(cat /etc/debian_version)
-if [ "$DEBIAN_VERSION" == "3.1" ]; then
+if [ "$DEBIAN_VERSION"x = "3.1"x ]; then
     db_get postgresql/initdb/location
 fi
 PGDATA=${POSTGRES_DATA:=${RET:-/var/lib/postgres/data}}
 PGBASE=/usr/lib/postgresql
-PGLIB=${PGBASE}/lib
-PATH=${PATH}:${PGBASE}/bin
+PGLIB=$PGBASE/lib
+PATH=$PATH:$PGBASE/bin
 export PGDATA PGLIB PATH
-PGHOME=${POSTGRES_HOME:=`dirname ${PGDATA}`}
+PGHOME=${POSTGRES_HOME:=`dirname $PGDATA`}
 PGSHELL=`getent passwd postgres | awk -F: '{print $7}'`
 
-if [ -z "${PGSHELL}" ]
+if [ -z "$PGSHELL" ]
 then
     PGSHELL=/bin/sh
 fi
 
-PGSHELL=`basename ${PGSHELL}`
-case ${PGSHELL} in
+PGSHELL=`basename $PGSHELL`
+case $PGSHELL in
 
     bash)
 	PROFILE=.bash_profile
@@ -63,17 +63,17 @@ MAILSUBJECT="cerebrum-server installation"
 
 # arrange to delete the temporary files and mail output to root
 # when this script terminates
-trap "[ -n $DEBUG ] && cat ${TMPFILE}; rm -f ${TMPFILE} ${SCRIPTFILE}; ([ -s $MAILFILE ] && mail -s '$MAILSUBJECT' root < ${MAILFILE}); rm -f $MAILFILE" 0
+trap "[ -n $DEBUG ] && cat $TMPFILE; rm -f $TMPFILE $SCRIPTFILE; ([ -s $MAILFILE ] && mail -s '$MAILSUBJECT' root < $MAILFILE); rm -f $MAILFILE" 0
 
 
-function prepare_db () {
+prepare_db() {
 
     secret=`dd if=/dev/urandom count=20 bs=1 2>/dev/null | md5sum | cut -c1-32`
     
     cat <<EOI > $SCRIPTFILE
 #!/bin/sh -e
-cd ${PGHOME}
-. ./${PROFILE}
+cd $PGHOME
+. ./$PROFILE
 #export PATH=/usr/lib/postgresql/bin:/bin:/usr/bin
 if psql -l | grep -qs cerebrum ; then
     echo "Database exists" > $TMPFILE
