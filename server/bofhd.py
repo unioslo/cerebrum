@@ -33,9 +33,11 @@ import md5
 import socket
 import time
 import pickle
+import SocketServer
 import SimpleXMLRPCServer
 import xmlrpclib
 import getopt
+import traceback
 from random import Random
 
 try:
@@ -49,15 +51,14 @@ except ImportError:
 import cerebrum_path
 import cereconf
 from Cerebrum import Errors
-from Cerebrum import Account
-from Cerebrum.Utils import Factory
 from Cerebrum import Utils
 from Cerebrum.extlib import logging
 from Cerebrum.modules.bofhd.errors import CerebrumError
 from Cerebrum.modules.bofhd.help import Help
-from Cerebrum.modules.bofhd.xmlutils import xmlrpc_to_native
-from Cerebrum.modules.bofhd.xmlutils import native_to_xmlrpc
-import traceback
+from Cerebrum.modules.bofhd.xmlutils import \
+     xmlrpc_to_native, native_to_xmlrpc
+
+Account_class = Utils.Factory.get('Account')
 
 logging.fileConfig(cereconf.LOGGING_CONFIGFILE)
 logger = logging.getLogger("console")  # The import modules use the "import" logger
@@ -293,7 +294,7 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
             super(BofhdRequestHandler, self).finish()
     
     def bofhd_login(self, uname, password):
-        account = Account.Account(self.server.db)
+        account = Account_class(self.server.db)
         try:
             account.find_by_name(uname)
             enc_pass = account.get_account_authentication(
@@ -493,7 +494,7 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
 class BofhdServer(object):
     def __init__(self, database, config_fname):
         self.db = database
-        self.const = Factory.get('Constants')(database)
+        self.const = Utils.Factory.get('Constants')(database)
         self.cmd2instance = {}
         self.cmd_instances = []
         self.logger = logger
@@ -538,8 +539,6 @@ class StandardBofhdServer(SimpleXMLRPCServer.SimpleXMLRPCServer, BofhdServer):
         BofhdServer.__init__(self, database, config_fname)
     
     def server_bind(self):
-        import socket
-        import SocketServer
         self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         SocketServer.TCPServer.server_bind(self)
 
@@ -576,7 +575,7 @@ if __name__ == '__main__':
             # This is a bit icky.  What we want to accomplish is to
             # fetch the results from a bofhd_get_commands client
             # command.
-            server = BofhdServer(Factory.get('Database')(), conffile)
+            server = BofhdServer(Utils.Factory.get('Database')(), conffile)
             commands = {}
             for inst in server.cmd_instances:
                 newcmd = inst.get_commands(None)
@@ -604,6 +603,7 @@ if __name__ == '__main__':
         sys.exit()
         
     print "Server starting at port: %d" % port
+    db = Utils.Factory.get('Database')()
     if use_encryption:
         # from echod_lib import init_context
         def init_context(protocol, certfile, cafile, verify, verify_depth=10):
@@ -622,9 +622,9 @@ if __name__ == '__main__':
                            '%s/ca.pem' % cereconf.DB_AUTH_DIR,
                            SSL.verify_none)
         ctx.set_tmp_dh('%s/dh1024.pem' % cereconf.DB_AUTH_DIR)
-        server = SSLBofhdServer(Factory.get('Database')(), conffile,
+        server = SSLBofhdServer(db, conffile,
                                 ("0.0.0.0", port), BofhdRequestHandler, ctx)
     else:
-        server = StandardBofhdServer(Factory.get('Database')(), conffile,
+        server = StandardBofhdServer(db, conffile,
                                 ("0.0.0.0", port), BofhdRequestHandler)
     server.serve_forever()
