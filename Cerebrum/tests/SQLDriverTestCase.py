@@ -25,10 +25,15 @@ from Cerebrum.Utils import Factory
 class SQLDriverTestCase(unittest.TestCase):
     def setUp(self):
         self.db = Factory.get('Database')()
-        self.db.execute("CREATE TABLE test_db_dict (value NUMERIC(6,0))")
-        self.db.execute("INSERT INTO test_db_dict (value) VALUES (1)")
-        self.db.execute("""
-        CREATE TABLE test_db_utf8 (value CHAR VARYING(128))""")
+        try:
+            self.db.execute("CREATE TABLE test_db_dict (value NUMERIC(6,0))")
+            self.db.execute("INSERT INTO test_db_dict (value) VALUES (1)")
+            self.db.execute("""
+            CREATE TABLE test_db_utf8 (value CHAR VARYING(128), key NUMERIC(1,0))""")
+        except:
+            # unittest won't call tearDown when setUp throws exception
+            self.tearDown()
+            raise
         # Calling commit() to make sure it is possible to continue
         # testing even if the SQL call fails.
         self.db.commit()
@@ -44,13 +49,22 @@ class SQLDriverTestCase(unittest.TestCase):
 
     def testUTF8TextParam(self):
         "Check if CHAR VARYING() can store Unicode/UTF8 text"
-        self.db.execute("INSERT INTO test_db_utf8 (value) VALUES (:text)",
+        self.db.execute("INSERT INTO test_db_utf8 (value, key) VALUES (:text, 1)",
                         {'text': u"unicodeTest"})
         self.db.commit()
 
     def testUTF8TextStatement(self):
         "Check if SQL driver accept Unicode/UTF8 statements"
-        self.db.execute(u"INSERT INTO test_db_utf8 (value) VALUES ('foobar')")
+        self.db.execute(u"INSERT INTO test_db_utf8 (value, key) VALUES ('foobar', 1)")
+        self.db.commit()
+
+    def testIsolatinTextParam(self):
+        "Check if CHAR VARYING() can store Isolatin characterst"
+        teststring = "Ê¯Â∆ÿ≈"
+        self.db.execute("INSERT INTO test_db_utf8 (value, key) VALUES (:text, 2)",
+                        {'text': teststring})
+        text = self.db.query_1("SELECT value FROM test_db_utf8 WHERE key=2")
+        assert(text == teststring)
         self.db.commit()
 
     def testBrokenDateBefore1901(self):
@@ -73,6 +87,7 @@ class SQLDriverTestCase(unittest.TestCase):
               value = :key2""", {'key1': 100, 'key2': 200})
 
     def tearDown(self):
+        self.db.commit()  # Prevents RelationForgetRelation
         self.db.execute("DROP TABLE test_db_utf8")
         self.db.execute("DROP TABLE test_db_dict");
         self.db.commit()
@@ -83,6 +98,7 @@ class SQLDriverTestCase(unittest.TestCase):
         suite.addTest(SQLDriverTestCase("testSQLIntHashable"))
         suite.addTest(SQLDriverTestCase("testBrokenDateBefore1901"))
         suite.addTest(SQLDriverTestCase("testBrokenDateBefore1970"))
+        suite.addTest(SQLDriverTestCase("testIsolatinTextParam"))
         suite.addTest(SQLDriverTestCase("testUTF8TextParam"))
         suite.addTest(SQLDriverTestCase("testUTF8TextStatement"))
         suite.addTest(SQLDriverTestCase("testRepeatedParam"))
