@@ -630,8 +630,9 @@ def generate_users(spread=None,filename=None):
     else: 
 	f = SimilarSizeWriter(string.join((cereconf.LDAP_DUMP_DIR,cereconf.LDAP_USER_FILE),'/'), 'w')
 	f.set_size_change_limit(10)
-    pos_user = posix_user.list_extended_posix_users_test(
-        co.auth_type_md5_crypt, spreads, include_quarantines = True)
+    pos_user = posix_user.list_extended_posix_users(co.auth_type_md5_crypt,
+                                                    spreads,
+                                                    include_quarantines = True)
     for row in pos_user:
 	acc_id,shell,gecos,uname = row['account_id'],row['shell'],row['gecos'],row['entity_name']
 	entity2uname[int(acc_id)] = uname
