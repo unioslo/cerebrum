@@ -42,9 +42,10 @@ class GroImpl(Cerebrum_core__POA.Gro):
     These are provided to remote clients"""
 
     def __init__(self):
-        self.ap_handler_class = APHandler.get_ap_handler_class()
         com = Communication.get_communication()
-        self.loHandler = com.servant_to_reference(LOHandler.LOHandler())
+
+        self.ap_handler_class = APHandler.get_ap_handler_class()
+        self.lo_handler_class = LOHandler.LOHandler
 
     def get_idl(self):
         return self.ap_handler_class.create_idl()
@@ -58,8 +59,11 @@ class GroImpl(Cerebrum_core__POA.Gro):
         print "server: %s"% (txt)
         return txt
     
-    def get_lo_handler(self):
-        return self.loHandler
+    def get_lo_handler(self, username, password):
+        client = self.login(username, password)
+        lo = self.lo_handler_class(client)
+        com = Communication.get_communication()
+        return com.servant_to_reference(lo)
 
     def get_ap_handler(self, username, password):
         client = self.login(username, password)
