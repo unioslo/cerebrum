@@ -181,6 +181,9 @@ PRINT_LPR_CMD=None
 PRINT_PRINTER=None
 PRINT_BARCODE=None
 
+# Used for sending e-mail
+SMTP_HOST='localhost'
+
 # Logdir for AutoStud jobs
 AUTOADMIN_LOG_DIR='.'     # Set to a place where only 'cerebrum' has write access
 # Socket used to query the job-runner server, should not be writeable by untrusted users
