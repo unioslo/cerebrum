@@ -29,6 +29,7 @@ from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum import Entity
 from Cerebrum.modules import CLHandler
+from Cerebrum import OU
 import adutils
 
 db = Factory.get('Database')()
@@ -36,7 +37,8 @@ co = Factory.get('Constants')(db)
 clco = Factory.get('CLConstants')(db)
 entity = Entity.Entity(db)
 entityname = Entity.EntityName(db)
-ou = Factory.get('OU')(db)
+ou = OU.OU(db)
+#ou = Factory.get('OU')(db)
 group = Factory.get('Group')(db)
 account = Factory.get('Account')(db)
 cl = CLHandler.CLHandler(db)
@@ -51,7 +53,7 @@ def quick_user_sync():
 #TBD: Will fail if remove spread is run on an entity that also is
 #     removed from Cerebrum database.
 
-    answer=cl.get_events('ad',(clco.group_add,clco.group_rem,clco.account_password,clco.spread_add,clco.spread_del,clco.quarantine_add,clco.quarantine_del,clco.quarantine_mod))
+    answer=cl.get_events('ad',(clco.group_add,clco.group_rem,clco.account_password,clco.spread_add,clco.spread_del,clco.quarantine_add,clco.quarantine_del,clco.quarantine_mod,clco.account_move))
 
     for ans in answer:
         chg_type = ans['change_type_id']
@@ -61,7 +63,7 @@ def quick_user_sync():
         if chg_type == clco.account_password:
             change_params = pickle.loads(ans['change_params'])
             if change_pw(ans['subject_entity'],change_params):
-		cl.confirm_event(ans)            
+		cl.confirm_event(ans)
 	    else:	            
 		print 'WARNING: failed changing password for ',ans['subject_entity']
         elif chg_type == clco.group_add or chg_type == clco.group_rem:
@@ -101,11 +103,22 @@ def quick_user_sync():
             change_params = pickle.loads(ans['change_params'])
             if del_spread(ans['subject_entity'],change_params['spread']):
 		cl.confirm_event(ans)
-	elif chg_type == clco.quarantine_add or chg_type == clco.quarantine_del or chg_type == clco.quarantine_mod:
-	
+	elif chg_type == clco.quarantine_add or chg_type == clco.quarantine_del or chg_type == clco.quarantine_mod:	
 	    change_quarantine(ans['subject_entity']) 
+	elif chg_type == clco.account_move:
+   	    change_params = pickle.loads(ans['change_params'])
+	    move_account(ans['subject_entity'],change_params)
     cl.commit_confirmations()    
 
+
+def move_account(entity_id,params):
+    account.clear()
+    account.find(entity_id)
+    print params['old_host']
+    if account.has_spread(int(co.spread_uio_ad_account)):		
+	account_name = id_to_name(entity_id,'user')	
+	if params['old_host'] != params['new_host']:
+       	    sock.send('ALTRUSR&%s/%s&hdir&\\\\%s\\%s&hdr&%s\n' % ( cereconf.AD_DOMAIN, account_name, params['new_host'], account_name, cereconf.AD_HOME_DRIVE ))  
 
 def change_quarantine(entity_id):
     account.clear()
@@ -329,4 +342,4 @@ if __name__ == '__main__':
     arg = get_args()    
     quick_user_sync()
     sock.close()
-
+    
