@@ -9,6 +9,14 @@ from mx import DateTime
 from warnings import warn
 import types
 
+def date_string(date):
+    """Formats the date as a iso8601-string if it is a DateTime object,
+       or else, just return unchanged."""
+    if isinstance(date, DateTime.DateTimeType):
+        return date.strftime("%Y-%m-%d")
+    else:
+        return date    
+
 class Constants(Abstract.Constants):
     UNION = "union"
     INTERSECTION = "intersection"
@@ -25,6 +33,9 @@ class ChangeType(Abstract.ChangeType):
     pass
 
 class Change(Abstract.Change):
+    pass
+
+class Note(Abstract.Note):
     pass
 
 class QuarantineType(Abstract.QuarantineType):
@@ -59,19 +70,6 @@ class Quarantine(Abstract.Quarantine):
         super(Quarantine, self).__init__(entity, quarantine_type, 
                                          start, end, who, why, disable_until)
     
-    def remove(self):
-        self.server.quarantine_remove(self.entity.type,
-                                      "id:%s" % self.entity.id,
-                                      self.type.name)
-   
-    def disable(self, until=None):
-        if isinstance(until, DateTime.DateTimeType):
-            until = until.strftime("%Y-%m-%d")
-        self.server.quarantine_disable(self.entity.type,
-                                       "id:%s" % self.entity.id,
-                                       self.type.name,
-                                       until)    
-
 class Entity(Abstract.Entity):
     
     def __init__(self, server):
@@ -114,13 +112,12 @@ class Entity(Abstract.Entity):
         # we only need the type name
         if isinstance(quarantine_type, QuarantineType):
             quarantine_type = quarantine_type.name
-            
-        fix_date = lambda date: (isinstance(date, DateTime.DateTimeType) and 
-                                date.strftime("%Y-%m-%d") or date)
-        (start, stop) = map(fix_date, (start, stop))
+        
+        # Make sure start-end are strings so we can concatinate them
+        (start, end) = map(date_string, (start, end))
                          
-        if start and stop:
-            from_to = "%s--%s" % (start, stop)
+        if start and end:
+            from_to = "%s--%s" % (start, end)
         else:
             from_to = start    
         self.server.quarantine_set(self.type, "id:%s" % self.id, 
@@ -135,6 +132,33 @@ class Entity(Abstract.Entity):
                          q.end, q.who, q.why, q.disable_until)
             result.append(quarantine)
         return result    
+ 
+    def _get_qtype(self, quarantine_type, quarantine):
+        """Retrieve the quarantine type string from either
+           a quarantine type or a quarantine"""
+        if (not(quarantine_type or quarantine) or 
+               (quarantine_type and quarantine)):
+              raise ValueError, "quarantine_type OR quarantine must be given"
+        if quarantine:
+            quarantine_type = quarantine.type
+            assert self == quarantine.entity
+        if not isinstance(quarantine_type, types.StringTypes):    
+            # get string
+            quarantine_type = quarantine_type.type
+        return quarantine_type
+
+    def remove_quarantine(self, quarantine=None, quarantine_type=None):
+        qtype = self._get_quarantine_type(quarantine, quarantine_type)
+        self.server.quarantine_remove(self.type,
+                                      "id:%s" % self.id,
+                                      qtype)
+   
+    def disable_quarantine(self, quarantine=None, quarantine_type=None,
+                                 until=None):
+        qtype = self._get_quarantine_type(quarantine, quarantine_type)
+        self.server.quarantine_disable(self.type,
+                                       "id:%s" % self.id,
+                                       qtype, until)
 
     
     def get_history(self):
@@ -169,7 +193,27 @@ class Entity(Abstract.Entity):
                             change_by = entity_map.get(entry['change_by']) or entry['change_by'])
             changes.append(change)
         return changes       
-
+    
+    def add_note(self, subject, description):
+        self.server.note_add(self.id,  subject, description)
+    
+    def show_notes(self):
+        notes_server = self.server.note_show(self.id)    
+        notes = []
+        for note_server in notes_server:
+            note = Note(note_server.note_id,
+                        self.id,
+                        note_server.create_date,
+                        note_server.creator,
+                        note_server.subject,
+                        note_server.description)
+            notes.append(note)
+        return notes       
+    
+    def remove_note(self, note):
+        if isinstance(note, Note):
+            note = note.id
+        self.server.note_remove(self.id, note)    
 
 class Group(Entity, Abstract.Group):
     
