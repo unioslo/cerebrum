@@ -223,7 +223,7 @@ def recalc_quota_callback(person_info):
     logger.set_indent(0)
 
 def get_bet_fritak_data(lt_person_file):
-    # Finn pc-stuevakter/gruppelærere ved å parse LT-dumpen (3.2.1)
+    # Finn pc-stuevakter/gruppelærere mfl. ved å parse LT-dumpen (3.2)
     ret = {}
     fnr2pid = {}
     for p in person.list_external_ids(source_system=const.system_lt,
@@ -236,7 +236,9 @@ def get_bet_fritak_data(lt_person_file):
                                   int(person['fodtar']), int(person['personnr'])))
         for g in data.get('gjest', []):
             if g['gjestetypekode'] in ('PCVAKT', 'GRP-LÆRER', 'ST-POL FRI',
-                                       'ST-ORG FRI'):
+                                       'ST-ORG FRI', 'EF-FORSKER', 'EF-STIP'
+                                       'EMERITUS', 'GJ-FORSKER', 'REG-ANSV'
+                                       'EKST. KONS', 'SENIORFORS'):
                 if not fnr2pid.has_key(fnr):
                     logger.warn("Unknown LT-person %s" % fnr)
                     return
