@@ -131,9 +131,11 @@ def register_spread_groups(emne_info, stprog_info):
             emne_sted_id = 'STRUCTURE:%s' % emne_id_prefix
             emne_rom_id = 'ROOM:%s:undenh:%s:%s:%s' % (
                 emne_id_prefix, emnekode, versjon, terminnr)
-            register_room('%s: %s' % (emnekode.upper(),
-                                      emne_info[emnekode]['navn']),
-                          emne_rom_id, emne_sted_id)
+            register_room('%s (ver %s, %d. termin): %s' %
+                          (emnekode.upper(), versjon, int(terminnr),
+                           emne_info[emnekode]['navn']),
+                          emne_rom_id, emne_sted_id,
+                          profile='BAS-emnerom04h')
 
             # Grupper for studenter, forelesere og studieveileder på
             # undervisningsenheten.
@@ -166,7 +168,10 @@ def register_spread_groups(emne_info, stprog_info):
                     rettighet = fronter_lib.Fronter.ROLE_DELETE
                 else:
                     raise RuntimeError, "Ukjent kategori: %r" % (kategori,)
-                title += subg_name_el[6].upper() # EMNEKODE
+                title += '%s (ver %s, %d. termin)' % (
+                    subg_name_el[6].upper(), # EMNEKODE
+                    subg_name_el[7],    # VERSJONSKODE
+                    int(subg_name_el[8])) # TERMINNR
                 fronter_gname = ':'.join(subg_name_el)
                 register_group(title, fronter_gname, parent_id,
                                allow_contact=True)
@@ -242,11 +247,12 @@ def register_members(gname, members):
     new_groupmembers[gname] = members
 
 new_rooms = {}
-def register_room(title, id, parentid):
+def register_room(title, id, parentid, profile):
     new_rooms[id] = {
         'title': title,
         'parent': parentid,
-        'CFid': id}
+        'CFid': id,
+        'profile': profile}
 
 new_group = {}
 def register_group(title, id, parentid, allow_room=0, allow_contact=0):
@@ -374,29 +380,31 @@ def main():
                 faknavn = ou.acronym
             else:
                 faknavn = ou.short_name
-                for sem_node_id in (emner_this_sem_id,
-                                    emner_next_sem_id):
-                    fak_node_id = sem_node_id + \
-                                  ":%s:%s" % (cereconf.DEFAULT_INSTITUSJONSNR,
-                                              fak_sko)
-                    register_group(faknavn, fak_node_id, sem_node_id,
-                                   allow_room=1)
-                brukere_sted_id = brukere_id + \
-                                  ":%s:%s" % (cereconf.DEFAULT_INSTITUSJONSNR,
-                                              fak_sko)
-                register_group(faknavn, brukere_sted_id, brukere_id)
-                brukere_studenter_id = brukere_sted_id + ':student'
-                register_group('Studenter', brukere_studenter_id,
-                               brukere_sted_id)
-                fellesrom_sted_id = fellesrom_id + ":%s:%s" % (
-                    cereconf.DEFAULT_INSTITUSJONSNR, fak_sko)
-                register_group(faknavn, fellesrom_sted_id, fellesrom_id,
+            for sem_node_id in (emner_this_sem_id,
+                                emner_next_sem_id):
+                fak_node_id = sem_node_id + \
+                              ":%s:%s" % (cereconf.DEFAULT_INSTITUSJONSNR,
+                                          fak_sko)
+                register_group(faknavn, fak_node_id, sem_node_id,
                                allow_room=1)
+            brukere_sted_id = brukere_id + \
+                              ":%s:%s" % (cereconf.DEFAULT_INSTITUSJONSNR,
+                                          fak_sko)
+            register_group(faknavn, brukere_sted_id, brukere_id)
+            brukere_studenter_id = brukere_sted_id + ':student'
+            register_group('Studenter', brukere_studenter_id,
+                           brukere_sted_id)
+            fellesrom_sted_id = fellesrom_id + ":%s:%s" % (
+                cereconf.DEFAULT_INSTITUSJONSNR, fak_sko)
+            register_group(faknavn, fellesrom_sted_id, fellesrom_id,
+                           allow_room=1)
 
     register_spread_groups(emne_info, stprog_info)
 
     for group, data in new_group.iteritems():
         fxml.group_to_XML(data['CFid'], fronter_lib.Fronter.STATUS_ADD, data)
+    for room, data in new_rooms.iteritems():
+        fxml.room_to_XML(data['CFid'], fronter_lib.Fronter.STATUS_ADD, data)
 
     for node, data in new_acl.iteritems():
         fxml.acl_to_XML(node, fronter_lib.Fronter.STATUS_ADD, data)
