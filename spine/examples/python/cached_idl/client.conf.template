@@ -1,0 +1,16 @@
+[spine]
+cache: false
+cache_dir: /tmp/spine
+
+[corba]
+url: http://localhost/spine.ior
+
+[ssl]
+ca_file: CA.crt
+key_file: client.pem
+password: client
+
+[idl]
+path: .
+server: server.idl
+errors: errors.idl
