@@ -345,16 +345,11 @@ def get_user_info(account_id, spread):
     account.clear()
     account.find(account_id)
     home_dir = find_home_dir(account_id, account.account_name, spread)
-        
+    names = {'name_last':None,'name_first':None,'name_full':None}    
     try:
-        account.clear()
-        account.find(account_id)
         person_id = account.owner_id
         person.clear()
         person.find(person_id)
-        affiliation = get_primary_affiliation(account_id, co.account_namespace)
-        ext_id = 0
-	names = {'name_last':None,'name_first':None,'name_full':None}
 	for name_var in names:
 	    try:
 		names[name_var] = person.get_name(int(co.system_cached), int(getattr(co,name_var)))
@@ -368,22 +363,21 @@ def get_user_info(account_id, spread):
 	    else:
 		for name_var in names:
 		    names[name_var] = account.account_name
-	try:
-	    if affiliation == co.affiliation_student:
-		ext_id = int(person.get_external_id(co.system_fs, co.externalid_studentnr)[0]['external_id'])
-	    else: 
-		ext_id = int(person.get_external_id(int(getattr(co, ss)))[0]['external_id'])
-	except:
-	    pass
-	try:
-	    email = account.get_primary_mailaddress()
-	except:
-	    email = None
-        if full_name == ' ':
-            logger.info("WARNING: getting persons name failed, account.owner_id:",person_id)
     except Errors.NotFoundError:
-        logger.info("WARNING: find on person or account failed, user_id:", account_id)        
-    
+        logger.info("WARNING: find on person or account failed, user_id:", account_id)
+    ext_id = 0
+    try:
+	affiliation = get_primary_affiliation(account_id, co.account_namespace)
+	if affiliation == co.affiliation_student:
+	    ext_id = int(person.get_external_id(co.system_fs, co.externalid_studentnr)[0]['external_id'])
+	else: 
+	    ext_id = int(person.get_external_id(int(getattr(co, ss)))[0]['external_id'])
+    except:
+	pass
+    try:
+	email = account.get_primary_mailaddress()
+    except:
+	email = None
 
     account_disable = 'FALSE'
     # Check against quarantine.
