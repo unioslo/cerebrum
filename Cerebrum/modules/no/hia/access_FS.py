@@ -310,7 +310,7 @@ WHERE
   terminnr = :terminnr AND
   terminkode = :terminkode AND
   arstall = :arstall"""
-        return (self._get_cols(qry), self.db.query(qry))
+        return (self._get_cols(qry), self.db.query(qry, locals()))
 
     def StudprogAlleStud(self, faknr, studprogkode):
 	"""Henter data om alle studenter på et gitt studieprogram og 
