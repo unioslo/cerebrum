@@ -232,6 +232,11 @@ class group_tree(object):
         ret = [x for x in self.list_matches(*args, **kws)]
         if len(ret) == 1:
             return ret
+	elif len(ret) == 0:
+	    # To many users are not registrated correct and flooding 
+	    # the error-log.  
+	    logger.debug("Ikke gyldig kull eller studieprog: args=%r" % args)
+	    return () 
         logger.error("Matchet for mange: self=%r, args=%r, kws=%r, ret=%r",
                      self, args, kws, ret)
         return ()
