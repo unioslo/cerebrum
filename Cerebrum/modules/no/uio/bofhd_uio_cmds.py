@@ -3673,6 +3673,8 @@ class BofhdExtension(object):
         person.clear()
         if bdate is not None:
             bdate = self._parse_date(bdate)
+            if bdate > self._today():
+                raise CerebrumError, "Planning ahead, eh? *nudge* *nudge*"
         if person_id:
             id_type, id = self._map_person_id(person_id)
         else:
@@ -5281,8 +5283,14 @@ class BofhdExtension(object):
             return None
         if isinstance(date, DateTime.DateTimeType):
             date = date.Format("%Y-%m-%d")
+        y, m, d = [int(x) for x in date.split('-')]
+        # TODO: this should be a proper delta, but rather than using
+        # pgSQL specific code, wait until Python has standardised on a
+        # Date-type.
+        if y > 2050:
+            raise CerebrumError, "Too far into the future: %s" % date
         try:
-            return self.db.Date(*([ int(x) for x in date.split('-')]))
+            return self.db.Date(y, m, d)
         except:
             raise CerebrumError, "Illegal date: %s" % date
 
