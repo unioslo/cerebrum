@@ -22,30 +22,34 @@
 # Use for HiA:
 # python2.2 ~./import_from_FS.py --db-user cerebrum --db-service FSHIA.uio.no
 #                                -o -a -s
-import cerebrum_path
 
 import re
-import os
 import sys
 import getopt
-import cereconf
 
+import cerebrum_path
+import cereconf
 from Cerebrum import Database
 from Cerebrum import Errors
-from Cerebrum.Utils import XMLHelper
+from Cerebrum.Utils import XMLHelper, MinimumSizeWriter
 from Cerebrum.modules.no.hia.access_FS import HiAFS
 
 default_person_file = "/cerebrum/dumps/FS/person.xml"
 default_role_file = "/cerebrum/dumps/FS/roles.xml"
 default_undvenh_file = "/cerebrum/dumps/FS/underv_enhet.xml"
+default_undenh_student_file = "/cerebrum/dumps/FS/student_undenh.xml"
 default_studieprogram_file = "/cerebrum/dumps/FS/studieprog.xml"
 default_ou_file = "/cerebrum/dumps/FS/ou.xml"
 
 xml = XMLHelper()
 fs = None
 
+KiB = 1024
+MiB = KiB**2
+
 def write_hia_person_info(outfile):
-    f=open(outfile, 'w')
+    f = MinimumSizeWriter(outfile)
+    f.set_minimum_size_limit(1*MiB)
     f.write(xml.xml_hdr + "<data>\n")
 
     #Aktive ordinære studenter ved HiA
@@ -73,11 +77,12 @@ def write_hia_person_info(outfile):
         f.write(xml.xmlify_dbrow(e,xml.conv_colnames(cols),'evu') + "\n")
 
     f.write("</data>\n")
-
+    f.close()
 
 def write_ou_info(outfile):
     """Lager fil med informasjon om alle OU-er"""
-    f=open(outfile, 'w')
+    f = MinimumSizeWriter(outfile)
+    f.set_minimum_size_limit(5*KiB)
     f.write(xml.xml_hdr + "<data>\n")
     cols, ouer = fs.GetAlleOUer(cereconf.DEFAULT_INSTITUSJONSNR)  # TODO
     for o in ouer:
@@ -120,18 +125,22 @@ def write_ou_info(outfile):
                     ' />\n')
         f.write('</sted>\n')
     f.write("</data>\n")
+    f.close()
 
 def write_role_info(outfile):
-    f=open(outfile,'w')
+    f = MinimumSizeWriter(outfile)
+    f.set_minimum_size_limit(5*KiB)
     f.write(xml.xml_hdr + "<data>\n")
     cols, role = fs.GetAllePersonRoller(cereconf.DEFAULT_INSTITUSJONSNR)
     for r in role:
 	f.write(xml.xmlify_dbrow(r, xml.conv_colnames(cols), 'role') + "\n")
     f.write("</data>\n")
+    f.close()
 
-def write_undenh_file(outfile):
+def write_undenh_metainfo(outfile):
     "Skriv metadata om undervisningsenheter for inneværende+neste semester."
-    f = open(outfile, 'w')
+    f = MinimumSizeWriter(outfile)
+    f.set_minimum_size_limit(100*KiB)
     f.write(xml.xml_hdr + "<undervenhet>\n")
     for semester in ('current', 'next'):
         cols, undenh = fs.GetUndervEnhet(sem=semester)
@@ -139,16 +148,45 @@ def write_undenh_file(outfile):
             f.write(xml.xmlify_dbrow(u, xml.conv_colnames(cols), 'undenhet')
                     + "\n")
     f.write("</undervenhet>\n")
+    f.close()
+
+def write_undenh_student(outfile):
+    """Skriv oversikt over personer oppmeldt til undervisningsenheter.
+
+    Tar med data for alle undervisingsenheter i inneværende+neste
+    semester."""
+    f = MinimumSizeWriter(outfile)
+    f.set_minimum_size_limit(1*MiB)
+    f.write(xml.xml_hdr + "<data>\n")
+    for semester in ('current', 'next'):
+        cols, undenh = fs.GetUndervEnhet(sem=semester)
+        for u in undenh:
+            u_attr = {}
+            for k in ('institusjonsnr', 'emnekode', 'versjonskode',
+                      'terminnr', 'terminkode', 'arstall'):
+                u_attr[k] = u[k]
+            student_cols, student = fs.GetStudenterUndervEnhet(**u_attr)
+            for s in student:
+                s_attr = u_attr.copy()
+                for k in ('fodselsdato', 'personnr'):
+                    s_attr[k] = s[k]
+                f.write(xml.xmlify_dbrow({}, (), 'student',
+                                         extra_attr=s_attr)
+                        + "\n")
+    f.write("</data>\n")
+    f.close()
 
 def write_studprog_info(outfile):
     """Lager fil med informasjon om alle definerte studieprogrammer"""
-    f=open(outfile, 'w')
+    f = MinimumSizeWriter(outfile)
+    f.set_minimum_size_limit(50*KiB)
     f.write(xml.xml_hdr + "<data>\n")
     cols, dta = fs.GetStudieproginf()
     for t in dta:
-        f.write(xml.xmlify_dbrow(t, xml.conv_colnames(cols), 'studprog') + "\n")
+        f.write(xml.xmlify_dbrow(t, xml.conv_colnames(cols), 'studprog')
+                + "\n")
     f.write("</data>\n")
-
+    f.close()
 
 def fix_float(row):
     for n in range(len(row)):
@@ -161,6 +199,7 @@ def usage(exitcode=0):
     --hia-personinfo-file: override hia person xml filename
     --hia-roleinfo-file: override role xml filename
     --hia-undenh-file: override 'topics' file
+    --hia-student-undenh-file: override student on UE file
     --ou-file name: override ou xml filename
     --db-user name: connect with given database username
     --db-service name: connect to given database
@@ -169,6 +208,7 @@ def usage(exitcode=0):
     -p: generate person file
     -r: genereta role file
     -u: generate undervisningsenhet xml file
+    -U: generate student on UE xml file
     """
     sys.exit(exitcode)
 
@@ -181,9 +221,10 @@ def assert_connected(user="CEREBRUM", service="FSHIA.uio.no"):
 
 def main():
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "psruo",
+        opts, args = getopt.getopt(sys.argv[1:], "psruUo",
                                    ["hia-personinfo-file=", "studprog-file=", 
 				    "hia-roleinfo-file=", "hia-undenh-file=",
+                                    "hia-student-undenh-file=",
                                     "ou-file=", "db-user=", "db-service="])
     except getopt.GetoptError:
         usage()
@@ -194,6 +235,7 @@ def main():
     ou_file = default_ou_file
     role_file = default_role_file
     undervenh_file = default_undvenh_file
+    undenh_student_file = default_undenh_student_file
     db_user = None         # TBD: cereconf value?
     db_service = None      # TBD: cereconf value?
     for o, val in opts:
@@ -205,6 +247,8 @@ def main():
 	    role_file = val
 	elif o in ('--hia-undenh-file',):
 	    undervenh_file = val
+        elif o in ('--hia-student-undenh-file',):
+            undenh_student_file = val
         elif o in ('--ou-file',):
             ou_file = val
         elif o in ('--db-user',):
@@ -220,7 +264,9 @@ def main():
 	elif o in ('-r',):
 	    write_role_info(role_file)
 	elif o in ('-u',):
-	    write_undenh_file(undervenh_file)
+	    write_undenh_metainfo(undervenh_file)
+        elif o in ('-U',):
+            write_undenh_student(undenh_student_file)
         elif o in ('-o',):
             write_ou_info(ou_file)
 
