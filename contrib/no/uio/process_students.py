@@ -13,7 +13,7 @@ from Cerebrum.Utils import Factory
 from Cerebrum.modules import PosixUser
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.uio import AutoStud
-from server.templates.letters import TemplateHandler
+from Cerebrum.modules.templates.letters import TemplateHandler
 
 import pprint
 pp = pprint.PrettyPrinter(indent=4)
