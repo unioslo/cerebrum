@@ -21,14 +21,8 @@ contains additional parameters that are required for building password
 maps used in Unix.  This includes UID, GID, Shell, gecos and home
 directory.
 
-The module in itself does not define which domain the entity_name
-representing the username is stored in, as the module cannot know
-which domain is currently being processed.  The routines generating
-the password map, and building new users have this information.
-
-If no posix username is defined for a given domain, the user is
-considered to not be a member of the given domain.  That is, the
-default username from Account is NOT used.
+Like the PosixGroup module, the user name is inherited from the
+superclass, which here is Account.
 
 When the gecos field is not set, it is automatically extracted from
 the name variant DEFAULT_GECOS_NAME (what about non-person accounts?).
@@ -38,12 +32,14 @@ POSIX_GECOS_SOURCE_ORDER"""
 import random,re,string
 from Cerebrum import Person,Constants,Errors
 from Cerebrum import cereconf
+from Cerebrum import Account
 
-class PosixUser(object):
-    "Mixin class for Account"
+class PosixUser(Account.Account):
+    """Posix..."""
 
     def clear(self):
         super(PosixUser, self).clear()
+        self.account_id = None
         self.posix_uid = None
         self.gid = None
         self.gecos = None
@@ -53,17 +49,23 @@ class PosixUser(object):
     def __eq__(self, other):
         assert isinstance(other, PosixUser)
 
-        if (self.posix_uid != other.posix_uid or
+        identical = super(PosixUser, self).__eq__(other)
+        if not identical:
+            return identical
+        
+        if (self.account_id != other.account_id or
+            self.posix_uid != other.posix_uid or
             self.gid   != other.gid or
             self.gecos != other.gecos or
             self.home  != other.home or
-            self.shell != other.shell):
+            int(self.shell) != int(other.shell)):
             return False
 
         return True
 
-    def populate_posix_user(self, posix_uid, gid, gecos, home, shell):
+    def populate(self, account_id, posix_uid, gid, gecos, home, shell):
         """Populate PosixUser instance's attributes without database access."""
+        self.account_id = account_id
         self.posix_uid = posix_uid
         self.gid = gid
         self.gecos = gecos
@@ -108,11 +110,12 @@ class PosixUser(object):
                           'orig_account_id': as_object.account_id})
         self.__write_db = False
 
-    def find_posixuser(self, account_id):
+    def find(self, account_id):
         """Connect object to PosixUser with ``account_id`` in database."""
-        self.find(account_id)
+        super(PosixUser, self).find(account_id)
+        # self.find(account_id)
 
-        (self.account_id, self.user_id, self.gid, self.gecos,
+        (self.account_id, self.posix_uid, self.gid, self.gecos,
          self.home, self.shell) = self.query_1("""
          SELECT account_id, posix_uid, gid, gecos, home, shell
          FROM [:table schema=cerebrum name=posix_user]
@@ -132,7 +135,7 @@ class PosixUser(object):
                 FROM [:table schema=cerebrum name=posix_user]
                 WHERE posix_uid=:uid""", locals())
             except Errors.NotFoundError:
-                return uid
+                return int(uid)
 
     def get_gecos(self):
         """Returns the gecos string of this object.  If self.gecos is
