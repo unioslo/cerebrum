@@ -102,6 +102,9 @@ if True:
         def debug(self, msg, **kwargs):
             self.show_msg("DEBUG", msg, **kwargs)
 
+        def warn(self, msg, **kwargs):
+            self.show_msg("WARNING", msg, **kwargs)
+
         def error(self, msg, **kwargs):
             self.show_msg("ERROR", msg, **kwargs)
 
@@ -353,7 +356,8 @@ def main():
 
     jr.run_job_loop()
     logger.debug("bye")
-
+    sock.cleanup()
+    
 if __name__ == '__main__':
     main()
 

@@ -167,12 +167,14 @@ class SocketHandling(object):
     timeout = staticmethod(timeout)
 
     def __init__(self):
+        self._is_listening = False
         signal.signal(signal.SIGALRM, SocketHandling.timeout)
 
     def start_listener(self, job_runner):
         self.socket = socket.socket(socket.AF_UNIX)
         self.socket.bind(cereconf.JOB_RUNNER_SOCKET)
         self.socket.listen(1)
+        self._is_listening = True
         while True:
             conn, addr = self.socket.accept()
             while 1:
@@ -299,11 +301,16 @@ class SocketHandling(object):
         signal.alarm(0)
         return ret
 
-    def __del__(self):
+    def cleanup(self):
+        if not self._is_listening:
+            return
         try:
             os.unlink(cereconf.JOB_RUNNER_SOCKET)
         except OSError:
             pass
+
+    def __del__(self):
+        self.cleanup()
 
 class DbQueueHandler(object):
     def __init__(self, db, logger):
