@@ -27,6 +27,7 @@
 
 
 */
+CREATE SEQUENCE code_seq;
 CREATE TABLE authoritative_system_code
 (
   code		NUMERIC(6,0)
