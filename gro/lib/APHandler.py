@@ -17,10 +17,81 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+import omniORB
+
 from Cerebrum.gro.Cerebrum_core import Errors
-from Cerebrum.gro import Account, Builder, Transaction
-from Cerebrum.gro.registry import APRegistry
-from Builder import CorbaBuilder, Attribute, Method
+from Cerebrum.gro import Transaction
+from Cerebrum.gro import Account, Builder, CorbaBuilder, Attribute, Method
+
+def create_ap_get_method(attribute):
+    def get(self):
+        # TODO: hooks til transaksjon/låsing må fikses her
+
+        value = attribute.get(self.gro_object)
+
+        ap_object = APHandler.convert(value, attribute.data_type, self.ap_handler)
+        if ap_object is value:
+            print 'returning:', [value]
+            return value
+        else:
+            print 'returning:', [ap_object]
+            return self.ap_handler.com.get_corba_representation(ap_object)
+    return get
+
+def create_ap_set_method(attribute):
+    def set(self, corbaValue):
+        # hooks til transaksjon/låsing må fikses her
+        
+        # så må value konverteres....
+        
+        value = corbaValue
+        
+        attribute.set(self.gro_object, value)
+    return set
+
+class APClass:
+    """ Creator of Access point proxy object.
+
+    The APOBject contains the APHandler and an object. It acts as a proxy for the object.
+    This is to give us a sort of automatic session handling that will solve two problems:
+    1 - The client does not have to deal with a session id
+    2 - GRO can perform locking on objects requested by an client,
+        using the APHandler to identify it.
+    """
+
+    def __init__(self, gro_object, ap_handler):
+        self.gro_object = gro_object
+        self.ap_handler = ap_handler
+
+    def create_ap_class(cls, gro_class, idl_class):
+        name = gro_class.__name__
+        ap_class_name = 'AP' + name
+        
+        exec 'class %s(cls, idl_class):\n\tpass\nap_class = %s' % (
+             ap_class_name, ap_class_name)
+
+        for attribute in gro_class.slots:
+            get = create_ap_get_method(attribute)
+            setattr(ap_class, 'get_' + attribute.name, get)
+
+            if attribute.writable:
+                set = create_ap_set_method(attribute)
+                setattr(ap_class, 'set_' + attribute.name, set)
+
+        ap_class.gro_class = gro_class
+
+        # TODO: legge til support for gro_class.method_slots
+
+        return ap_class
+
+    create_ap_class = classmethod(create_ap_class)
+
+def create_ap_handler_get_method(name):
+    def get(self, *args, **vargs):
+        print args, vargs, name, self
+        obj = APHandler.gro_classes[name](*args, **vargs)
+        return self.com.get_corba_representation(APHandler.classes[name](obj, self))
+    return get
 
 class APHandler(CorbaBuilder):
     """Access point handler.
@@ -32,7 +103,22 @@ class APHandler(CorbaBuilder):
     this object.
     """
 
+    classes = {} # Access Point classes
+    gro_classes = {} # gro classes to be used
+    slots = []
     method_slots = [Method('begin','void'), Method('rollback', 'void'), Method('commit', 'void')]
+
+    def convert(cls, value, data_type, ap_handler):
+        # TODO: skummel navnekonvesjon
+        if data_type.endswith('Seq'):
+            return [cls.convert(i) for i in value]
+        elif data_type[0].isupper():
+            ap_class = cls.classes[data_type]
+            return ap_class(value, ap_handler)
+        else:
+            return value
+
+    convert = classmethod(convert)
 
     def __init__(self, com, username, password):
         # Login raises exception if it fails, or returns entity_id if not.
@@ -40,12 +126,6 @@ class APHandler(CorbaBuilder):
         self.username = username
         self.com = com
         self.transaction = None
-        for name, cls in APRegistry.classes.items():
-            def get(*args, **vargs):
-                return com.get_corba_representation(cls(*args, **vargs))
-            method_name = 'get_%s' % name.lower()
-            setattr(self, method_name, get)
-            method_slots.append(Method(method_name, name))
 
     def login(self, username, password):
         """Login the user with the username and password.
@@ -55,7 +135,7 @@ class APHandler(CorbaBuilder):
             if char in username:
                 raise Errors.LoginError('Username contains invalid characters.')
 
-        search = Account.build_search_class()()
+        search = Account.create_search_class()()
         search.set_name(username)
         unames = search.search()
         if len(unames) != 1:
@@ -100,3 +180,51 @@ class APHandler(CorbaBuilder):
         Tries first to commit all nodes, then unlocks them.
         """
         self.transaction.commit()
+
+    def register_gro_class(cls, gro_class):
+        name = gro_class.__name__
+
+        method_name = 'get_%s' % name.lower()
+        method_impl = create_ap_handler_get_method(name)
+        method = Method(method_name, name, gro_class.primary)
+
+        cls.method_slots.append(method)
+        cls.gro_classes[name] = gro_class
+        setattr(cls, method_name, method_impl)
+
+    register_gro_class = classmethod(register_gro_class)
+
+    def create_idl(cls):
+        txt = ''
+
+        defined = []
+        for gro_class in cls.gro_classes.values():
+            txt += gro_class.create_idl_header(defined)
+            
+        for gro_class in cls.gro_classes.values():
+            txt += gro_class.create_idl_interface()
+
+        tmp = cls.create_idl_interface()
+        txt += tmp
+        
+        return 'module %s {\n\t%s\n};' % ('generated', txt)
+
+    create_idl = classmethod(create_idl)
+
+    def build_classes(cls):
+        idl_string = cls.create_idl()
+        omniORB.importIDLString(idl_string)
+        import generated__POA
+        for name, gro_class in cls.gro_classes.items():
+            idl_class = getattr(generated__POA, name)
+            ap_class = APClass.create_ap_class(gro_class, idl_class)
+            cls.classes[name] = ap_class
+
+    build_classes = classmethod(build_classes)
+
+    def create_ap_handler_impl(cls):
+        import generated__POA
+        exec 'class APHandlerImpl(cls, generated__POA.APHandler):\n\tpass\n'
+        return APHandlerImpl
+
+    create_ap_handler_impl = classmethod(create_ap_handler_impl)
