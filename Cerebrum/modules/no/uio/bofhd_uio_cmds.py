@@ -42,6 +42,8 @@ class BofhdExtension(object):
     all_commands = {}
     OU_class = Utils.Factory.get('OU')
     external_id_mappings = {}
+    format_time = "date:dd.MM.yy HH:mm"
+    format_day = "date:dd.MM.yy"
 
     def __init__(self, server):
         self.server = server
@@ -223,7 +225,7 @@ class BofhdExtension(object):
     all_commands['group_info'] = Command(
         ("group", "info"), GroupName(),
         fs=FormatSuggestion([("Spreads: %s\nDescription: %s\nExpire: %s\nentity id: %i",
-                              ("spread", "desc", "expire", "entity_id")),
+                              ("spread", "desc", "expire:%s" % format_day, "entity_id")),
                              ("Gid: %i", ('gid',))]))
     def group_info(self, operator, groupname):
         # TODO: Group visibility should probably be checked against
@@ -540,8 +542,8 @@ class BofhdExtension(object):
     # misc mmove
     all_commands['misc_list_requests'] = Command(
         ("misc", "list_requests"),
-        fs=FormatSuggestion("%-6s %-10s %-30s %-15s %-10s %-20s %s", ("id", "requestee", "when", "op", "entity", "destination", "args"),
-                            hdr="%-6s %-10s %-30s %-15s %-10s %-20s %s" % ("Id", "Requestee", "When", "Op", "Entity", "Destination", "Arguments")))
+        fs=FormatSuggestion("%-6s %-10s %-20s %-15s %-10s %-20s %s", ("id", "requestee", "when:%s" % format_day, "op", "entity", "destination", "args"),
+                            hdr="%-6s %-10s %-20s %-15s %-10s %-20s %s" % ("Id", "Requestee", "When", "Op", "Entity", "Destination", "Arguments")))
     def misc_list_requests(self, operator):
         br = BofhdRequests(self.db, self.const)
         ret = []
@@ -760,7 +762,7 @@ class BofhdExtension(object):
     # person find
     all_commands['person_find'] = Command(
         ("person", "find"), PersonSearchType(), SimpleString(),
-        fs=FormatSuggestion("%6i %-28s %10s %s", ('id', 'birth', 'export_id', 'name'),
+        fs=FormatSuggestion("%6i %-28s %10s %s", ('id', 'birth:%s' % format_day, 'export_id', 'name'),
                             hdr="%6s %-28s %10s %s" % ('Id', 'Birth', 'Exp-id', 'Name')))
     def person_find(self, operator, search_type, value):
         # TODO: Need API support for this
@@ -788,7 +790,7 @@ class BofhdExtension(object):
     # person info
     all_commands['person_info'] = Command(
         ("person", "info"), PersonId(),
-        fs=FormatSuggestion("Name: %s\nExport ID: %s\nBirth: %s\nAffiliations: %s", ("name", "export_id", "birth", "affiliations")))
+        fs=FormatSuggestion("Name: %s\nExport ID: %s\nBirth: %s\nAffiliations: %s", ("name", "export_id", "birth:%s" % format_day, "affiliations")))
     def person_info(self, operator, person_id):
         person = self._get_person(*self._map_person_id(person_id))
         affiliations = []
@@ -986,9 +988,11 @@ class BofhdExtension(object):
     # quarantine show
     all_commands['quarantine_show'] = Command(
         ("quarantine", "show"), EntityType(default="account"), Id(),
-        fs=FormatSuggestion("%-14s %-30s %-30s %-30s %-8s %s",
-                            ('type', 'start', 'end', 'disable_until', 'who', 'why'),
-                            hdr="%-14s %-30s %-30s %-30s %-8s %s" % \
+        fs=FormatSuggestion("%-14s %-20s %-20s %-20s %-8s %s",
+                            ('type', 'start:%s' % format_time,
+                             'end:%s' % format_time,
+                             'disable_until:%s' % format_day, 'who', 'why'),
+                            hdr="%-14s %-20s %-20s %-20s %-8s %s" % \
                             ('Type', 'Start', 'End', 'Disable until', 'Who', 'Why')))
     def quarantine_show(self, operator, entity_type, id):
         ret = []
@@ -1265,7 +1269,7 @@ class BofhdExtension(object):
         ("user", "info"), AccountName(),
         fs=FormatSuggestion([("Spreads: %s\nAffiliations: %s\n"+
                               "Expire: %s\nHome: %s\nentity id: %i",
-                              ("spread", "affiliations", "expire", "home", "entity_id")),
+                              ("spread", "affiliations", "expire:%s" % format_day, "home", "entity_id")),
                              ("uid: %i\ndefault fg: %i=%s\ngecos: %s\nshell: %s",
                               ('uid', 'dfg_posix_gid', 'dfg_name', 'gecos', 'shell'))]))
     def user_info(self, operator, accountname):
