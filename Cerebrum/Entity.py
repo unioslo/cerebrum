@@ -24,6 +24,7 @@
 #       "cerebrum." prefix to table names should only be used on
 #       Oracle; currently, this is hardcoded.
 
+import cereconf
 from Cerebrum import Errors
 from Cerebrum import Utils
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
@@ -43,6 +44,14 @@ class Entity(DatabaseAccessor):
 
     """
 
+    __metaclass__ = Utils.mark_update
+
+    __read_attr__ = ('__in_db', 'const',
+                     # TBD: HM *thinks* these attributes should be
+                     # write-once...
+                     'entity_id', 'entity_type')
+    __write_attr__ = ()
+
     def __init__(self, database):
         """
 
@@ -50,15 +59,15 @@ class Entity(DatabaseAccessor):
         super(Entity, self).__init__(database)
         self.clear()
         self.const = Factory.getConstants()(database)
-        # TBD: Debugging/Logging.  Define in cereconf.py?
-        self._debug_eq = False
 
     def clear(self):
         "Clear all attributes associating instance with a DB entity."
-        # print "Entity.clear()"
-        self.entity_id = None
-        self.entity_type = None
-        self._is_populated = False
+        for attr in Entity.__read_attr__:
+            if hasattr(self, attr):
+                delattr(self, attr)
+        for attr in Entity.__write_attr__:
+            setattr(self, attr, None)
+        self.__updated = False
 
     ###
     ###   Methods dealing with the `cerebrum.entity_info' table
@@ -66,8 +75,17 @@ class Entity(DatabaseAccessor):
 
     def populate(self, entity_type):
         "Set instance's attributes without referring to the Cerebrum DB."
+        # If __in_db is present, it must be True; calling populate on
+        # an object where __in_db is present and False is very likely
+        # a programming error.
+        #
+        # If __in_db in not present, we'll set it to False.
+        try:
+            if not self.__in_db:
+                raise RuntimeError, "populate() called multiple times."
+        except AttributeError:
+            self.__in_db = False
         self.entity_type = entity_type
-        self._is_populated = True
 
     def __xerox__(self, from_obj, reached_common=False):
         if isinstance(from_obj, Entity):
@@ -77,10 +95,11 @@ class Entity(DatabaseAccessor):
 
     def __eq__(self, other):
         assert isinstance(other, Entity)
-        # TBD: Should two entities having different entity_types
-        # compare equally or not?
-        # return self.entity_type == other.entity_type
-        return True  # Always true
+        identical = (self.entity_type == other.entity_type)
+        if (identical and
+            hasattr(self, 'entity_id') and hasattr(other, 'entity_id')):
+            identical = (self.entity_id == other.entity_id)
+        return identical
 
     def __ne__(self, other):
         """Define != (aka <>) operator as inverse of the == operator.
@@ -90,7 +109,7 @@ class Entity(DatabaseAccessor):
         over and over again."""
         return not self.__eq__(other)
 
-    def write_db(self, as_object=None):
+    def write_db(self):
         """Sync instance with Cerebrum database.
 
         After an instance's attributes has been set using .populate(),
@@ -105,19 +124,23 @@ class Entity(DatabaseAccessor):
         Cerebrum database, use the .find() method.
 
         """
-        if self.entity_id is not None:
+        if not self.__updated:
             return
-        if as_object is None:
-            entity_id = int(self.nextval('entity_id_seq'))
+        is_new = not self.__in_db
+        if is_new:
+            self.entity_id = int(self.nextval('entity_id_seq'))
             self.execute("""
             INSERT INTO [:table schema=cerebrum name=entity_info]
               (entity_id, entity_type)
-            VALUES (:e_id, :e_type)""", {'e_id': entity_id,
+            VALUES (:e_id, :e_type)""", {'e_id': self.entity_id,
                                          'e_type': int(self.entity_type)})
         else:
-            entity_id = int(as_object.entity_id)
             # Don't need to do anything as entity type can't change
-        self.entity_id = entity_id
+            pass
+        del self.__in_db
+        self.__in_db = True
+        self.__updated = False
+        return is_new
 
     def new(self, entity_type):
         """Register a new entity of ENTITY_TYPE.  Return new entity_id.
@@ -127,9 +150,10 @@ class Entity(DatabaseAccessor):
 
         """
         Entity.populate(self, entity_type)
-        Entity.write_db(self)
+        Entity.write_db()
+        # TBD: Is this necessary?  Should it be removed, or maybe
+        # exchanged with self.find()?
         Entity.find(self, self.entity_id)
-        return self.entity_id
 
     def find(self, entity_id):
         """Associate the object with the entity whose identifier is ENTITY_ID.
@@ -142,7 +166,6 @@ class Entity(DatabaseAccessor):
         SELECT entity_id, entity_type
         FROM [:table schema=cerebrum name=entity_info]
         WHERE entity_id=:e_id""", {'e_id': entity_id})
-        self.entity_id = int(self.entity_id)
 
     def delete(self):
         "Completely remove an entity."
@@ -153,7 +176,6 @@ class Entity(DatabaseAccessor):
         DELETE FROM [:table schema=cerebrum name=entity_info]
         WHERE entity_id=:e_id""", {'e_id': self.entity_id})
         self.clear()
-        return
 
 
 class EntityName(object):
@@ -269,16 +291,16 @@ class EntityAddress(object):
 
         try:
             tmp = other.get_entity_address(self._affect_source, type)
-            if self._debug_eq:
+            if cereconf.DEBUG_COMPARE:
                 print "Comparing, got tmp=%s" % tmp
             if len(tmp) == 0:
                 raise KeyError
         except:
-            if self._debug_eq:
+            if cereconf.DEBUG_COMPARE:
                 print "Comparing address - missingOther"
             raise KeyError, "MissingOther"
 
-        if self._debug_eq:
+        if cereconf.DEBUG_COMPARE:
             print "Comparing address"
         other_addr = {'address_text': tmp[0][3],
                       'p_o_box': tmp[0][4],
@@ -290,11 +312,11 @@ class EntityAddress(object):
         except:
             raise KeyError, "MissingSelf"
 
-        if self._debug_eq:
+        if cereconf.DEBUG_COMPARE:
             print "Compare: %s AND %s" % (ai, other_addr)
         for k in ('address_text', 'p_o_box', 'postal_number', 'city',
                   'country'):
-            if self._debug_eq:
+            if cereconf.DEBUG_COMPARE:
                 print "compare: '%s' '%s'" % (ai[k], other_addr[k])
             if(ai[k] != other_addr[k]):
                 return False
@@ -363,7 +385,7 @@ class EntityAddress(object):
     def add_entity_address(self, source, type, address_text=None,
                             p_o_box=None, postal_number=None, city=None,
                             country=None):
-        if self._debug_eq:
+        if cereconf.DEBUG_COMPARE:
             print "adding entity_address: %s, %s, %s, %s, %s, %s, %s, %s, " % (
                   self.entity_id, int(source), int(type), address_text,
                   p_o_box, postal_number, city, country)
