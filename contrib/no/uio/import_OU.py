@@ -120,7 +120,7 @@ def main():
             elif t['kommtypekode'] == 'TLF':
                 if len(t['telefonnr']) == 5:
                     t['telefonnr'] = "228%s" % t['telefonnr']
-                ou.populate_contact_info(co.system_lt, co.contact_fax,
+                ou.populate_contact_info(co.system_lt, co.contact_phone,
                                          t['telefonnr'], contact_pref=n)
             elif t['kommtypekode'] == 'EPOST':
                 ou.populate_contact_info(co.system_lt, co.contact_email,
