@@ -1487,16 +1487,42 @@ class BofhdExtension(object):
             # Therefore we must not call clear()
             eed.populate_email_domain(ed.email_domain_id, aff_id)
             eed.write_db()
-            return "OK"
+            count = self._update_email_for_ou(ou.entity_id, aff_id)
+            # Perhaps we should return the values with a format
+            # suggestion instead, but the message is informational,
+            # and we have three different formats so it would be
+            # awkward to do "right".
+            return "OK, %d accounts updated" % count
         else:
             old_dom = eed.entity_email_domain_id
             if old_dom <> ed.email_domain_id:
                 eed.entity_email_domain_id = ed.email_domain_id
                 eed.write_db()
+                count = self._update_email_for_ou(ou.entity_id, aff_id)
                 ed.clear()
                 ed.find(old_dom)
-                return "OK (was %s)" % ed.email_domain_name
+                return "OK (was %s), %d accounts updated" % \
+                       (ed.email_domain_name, count)
             return "OK (no change)"
+
+    def _update_email_for_ou(self, ou_id, aff_id):
+        """Updates the e-mail addresses for all accounts where the
+        given affiliation is their primary, and returns the number of
+        modified accounts."""
+
+        count = 0
+        acc = self.Account_class(self.db)
+        acc2 = self.Account_class(self.db)
+        for r in acc.list_accounts_by_type(ou_id=ou_id, affiliation=aff_id,
+                                           filter_expired=True):
+            acc2.clear()
+            acc2.find(r['account_id'])
+            primary = acc2.get_account_types()[0]
+            if (ou_id == primary['ou_id'] and
+                (aff_id is None or aff_id == primary['affiliation'])):
+                acc2.update_email_addresses()
+                count += 1
+        return count
 
     # email remove_domain_affiliation <domain> <stedkode> [<affiliation>]
     all_commands['email_remove_domain_affiliation'] = Command(
