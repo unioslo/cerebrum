@@ -184,29 +184,42 @@ class BofhdExtension(object):
         # not contain \n
         command_help = {
             'pquota': {
-            'pquota_status': 'Returnerer status for skriverkvoten',
-            'jbofh_pquota_history': 'Returnerer 7 dagers historikk for utskrifter',
-            'pquota_off': 'Turns off quota for a person',
-            'pquota_update': 'Updates a persons free quota',
-            'pquota_undo': 'Undo a whole, or part of a job',
-            'pquota_job_info': 'Show details about a job'
-            },
+                'pquota_status':
+                    'Returnerer status for skriverkvoten',
+                'jbofh_pquota_history':
+                    'Returnerer 7 dagers historikk for utskrifter',
+                'pquota_off':
+                    'Turns off quota for a person',
+                'pquota_update':
+                    'Updates a persons free quota',
+                'pquota_undo':
+                    'Undo a whole, or part of a job',
+                'pquota_job_info':
+                    'Show details about a job'
+                },
             }
-        
+
         arg_help = {
             'person_id':
-            ['person_id', 'Enter person id',
-             """Enter person id as idtype:id.
+                ['person_id', 'Enter person id',
+                 """Enter person id as idtype:id.
 If idtype=fnr, the idtype does not have to be specified.
 The currently defined id-types are:
   - fnr : norwegian fødselsnummer."""],
-            'quota_date': ['from_date', 'Enter from date'],
-            'int_new_quota': ['new_quota', 'Enter new value for free_pages.'],
-            'job_id': ['job_id', 'Enter job_id of job to undo'],
-            'subtr_pages': ['num_pages', 'Number of pages to undo',
-                            'To undo the entire job, leave blank'],
-            'undo_why': ['why', 'Why', 'Why do you want to undo this job?'],
-            'int_when': ['when', 'Number of past days']
+            'quota_date':
+                ['from_date', 'Enter from date'],
+            'int_new_quota':
+                ['new_quota', 'Enter new value for free_pages.'],
+            'job_id':
+                ['job_id', 'Enter id of printer job'],
+            'subtr_pages':
+                ['num_pages', 'Number of pages to undo',
+                 'To undo the entire job, leave blank'],
+            'undo_why':
+                ['why', 'Why',
+                 'Why do you want to undo this job?'],
+            'int_when':
+                ['when', 'Number of past days']
             }
         return (group_help, command_help,
                 arg_help)
