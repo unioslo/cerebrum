@@ -452,6 +452,22 @@ class EntityContactInfo(Entity):
                                   'c_type': int(type),
                                   'pref': pref})
 
+    def list_contact_info(self, entity_id=None, source_system=None,\
+                                                 contact_type=None):
+        cols = {}
+        for t in ('entity_id', 'source_system', 'contact_type'):
+            if locals()[t] is not None:
+                cols[t] = int(locals()[t])
+        where = " AND ".join(["%s=:%s" % (x, x)
+                             for x in cols.keys() if cols[x] is not None])
+        if len(where) > 0:
+            where = "WHERE %s" % where
+        return self.query("""
+        SELECT entity_id, contact_value
+        FROM [:table schema=cerebrum name=entity_contact_info]
+        %s order by contact_pref""" % where, cols)
+
+
 
 class EntityAddress(Entity):
     "Mixin class, usable alongside Entity for entities having addresses."
