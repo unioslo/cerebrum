@@ -56,11 +56,11 @@ def write_hia_person_info(outfile):
     #Privatister ved HiA
     cols, hiaprivatist = fs.GetPrivatist()
     for p in hiaprivatist:
-	f.write(xml.xmlify_dbrow(p,xml.conv_colnames(cols),'privatist') + "\n")
+	f.write(xml.xmlify_dbrow(p,xml.conv_colnames(cols),'privatist_studieprogram') + "\n")
     #Personer som har tilbud om opptak ved HiA
-    #cols, hiatilbud = fs.GetTilbud(cereconf.DEFAULT_INSTITUSJONSNR)
-    #for t in hiatilbud:
-    #    f.write(xml.xmlify_dbrow(t,xml.conv_colnames(cols),'tilbud') + "\n")
+    cols, hiatilbud = fs.GetTilbud(cereconf.DEFAULT_INSTITUSJONSNR)
+    for t in hiatilbud:
+        f.write(xml.xmlify_dbrow(t,xml.conv_colnames(cols),'tilbud') + "\n")
 
     #Studenter med EVU-opptak ved HiA
     cols, hiaevuopt = fs.GetAlleMedEvuStudierett()
