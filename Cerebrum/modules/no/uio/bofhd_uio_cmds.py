@@ -4340,6 +4340,9 @@ class BofhdExtension(object):
         elif move_type in ("request",):
             disk, why = args[0], args[1]
             disk_id = self._get_disk(disk)
+            if len(why) > 80:
+                raise CerebrumError, \
+                      "Too long explanation, maximum length is 80"
             self.ba.can_receive_user(operator.get_entity_id(), account, disk_id)
             br.add_request(operator.get_entity_id(), br.now,
                            self.const.bofh_move_request,
@@ -4349,6 +4352,9 @@ class BofhdExtension(object):
             self.ba.can_give_user(operator.get_entity_id(), account)
             group, why = args[0], args[1]
             group = self._get_group(group)
+            if len(why) > 80:
+                raise CerebrumError, \
+                      "Too long explanation, maximum length is 80"
             br.add_request(operator.get_entity_id(), br.now,
                            self.const.bofh_move_give,
                            account.entity_id, group.entity_id, why)
