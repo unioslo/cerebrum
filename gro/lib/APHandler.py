@@ -78,33 +78,91 @@ class APNode(Cerebrum_core__POA.Node):
     def getClassName(self):
         return self.node.__class__.__name__
 
-    def isReadLockedByMe(self):
-        return self.node.isReadLockedByMe(self.ap)
 
-    def isWriteLockedByMe(self):
-        return self.node.isWriteLockedByMe(self.ap)
+    """ Prevent other from locking the node for writing.
 
-    def lockForReading(self):
-        self.node.lockForReading(self.ap)
+    Lock the node so no other client can put a writelock on it.
+    Raises an AlreadyLockedError if its already writelocked by someone else"""
+    def lockForReading( self ):
+        self.node.lockForReading( self.ap )
 
-    def unlock(self):
-        self.node.unlock(self.ap)
 
-    def begin(self):
+    """ Obtain access to make changes to the node.
+
+    Before you can change a changeable attribute you must lock it for writing.
+    Raises an AlreadyLockedError if its already locked by someone else."""
+    def lockForWriting( self ):
+        self.node.lockForWriting( self.ap )
+
+
+    """ Remove all your locks on the node.
+
+    Raises an NotLockedError if you dont got any locks on the node."""
+    def unlock( self ):
+        self.node.unlock( self.ap )
+
+
+    """ Check if the node is locked for reading for me. """
+    def isReadLockedByMe( self ):
+        return self.node.isReadLockedByMe( self.ap )
+
+
+    """ Check if the node is locked for reading by others. """
+    def isReadLockedByOther( self ):
+        return self.node.isReadLockedByOther( self.ap )
+
+
+    """ Check if the node is locked for writing by me. """
+    def isWriteLockedByMe( self ):
+        return self.node.isWriteLockedByMe( self.ap )
+
+    
+    """ Check if someone else got a writelock on the node. """
+    def isWriteLockedByOther( self ):
+        return self.node.isWriteLockedByother( self.ap )
+
+
+    """ Get a list over all wich has a readlock on the node. """
+    def getReadLockers( self ):
+        return self.node.getReadLockers( self.ap )
+
+
+    """ Get the username of the client wich has a writelock on this node. """
+    def getWriteLocker( self ):
+        return self.node.getWriteLocker( self.ap )
+
+
+    """ Begins a transaction.
+    
+    It will lock the node for reading for you.
+    Raises an AlreadyLockedError if the node is already locked."""
+    def begin( self ):
         self.lockForReading()
 
+
+    """ Remove/drop changes done to the node.
+    
+    Rollbacks changes done to the node, and unlocks all locks on the node.
+    Raises an NotLockedError if the node isnt locked for writing."""
     def rollback(self):
         if self.isWriteLockedByMe():
             self.node.rollback()
         self.unlock()
 
+
+    """ Save changes to the database.
+    
+    Commits the changes in the node to the database. Returns a list over
+    changed atrributes. Raises an NotLockedError if the node isnt locked
+    for writing. """
     def commit(self):
         if not self.updated:
             return []
         if not self.isWriteLockedByMe():
-            raise Errors.NotLockedError('Trying to commit withough a lock')
+            raise Errors.NotLockedError('Trying to commit without a lock')
 
         updated = self.node.updated
         changed = self.node.commit()
         assert updated.issubset(changed)
         return updated
+
