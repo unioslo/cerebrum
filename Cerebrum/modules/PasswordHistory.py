@@ -36,16 +36,22 @@ class PasswordHistory(DatabaseAccessor):
         m = md5.md5("%s%s" % (account.account_name, password))
         return base64.encodestring(m.digest())[:22]
 
-    def add_history(self, account, password, _csum=None):
+    def add_history(self, account, password, _csum=None, _when=None):
         """Add an entry to the password history."""
         if _csum is not None:
             csum = _csum
         else:
-            csum = encode_for_history(account, password)
+            csum = self.encode_for_history(account, password)
+        if _when is not None:
+            col_when = ", set_at"
+            val_when = ", :when"
+        else:
+            col_when = val_when = ""
         self.execute("""
         INSERT INTO [:table schema=cerebrum name=password_history]
-          (entity_id, md5base64) VALUES (:e_id, :md5)""",
-                     {'e_id': account.entity_id, 'md5': csum})
+          (entity_id, md5base64 %s) VALUES (:e_id, :md5 %s)""" % (
+            col_when, val_when),
+                     {'e_id': account.entity_id, 'md5': csum, 'when': _when})
 
     def del_history(self, entity_id):
         self.execute("""
