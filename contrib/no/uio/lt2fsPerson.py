@@ -39,6 +39,10 @@ FS.PERSON
   medmindre personen er kjent i FS fra før.  Ingen update eller
   delete, kun insert.
 
+  *MERK*: Dette gjelder ikke de personer som i LT er utstyrt med
+          midlertidige fødselsnummer der har '9' som første siffer i
+          personnummer delen.
+  
 
 FS.FAGPERSON
 
