@@ -22,12 +22,11 @@
 
 import re,string,sys
 
-import ldap,ldif
-#import dsml
+import ldap,ldif,dsml
 import urllib
 from ldap import modlist
 from ldif import LDIFParser,LDIFWriter
-#from dsml import DSMLParser,DSMLWriter 
+from dsml import DSMLParser,DSMLWriter 
 
 import unittest
 from errors import ServerError
@@ -37,9 +36,8 @@ import config
 
 
 class LdapConnectionError(ServerError):
-    print "Could not connect to LDAP server"
+    pass
 
-'''
 class DsmlHandler(DSMLParser):
     """Class for a DSMLv1 parser. Overrides method handle from class dsml.DSMLParser"""
 
@@ -99,7 +97,6 @@ class LdifBack( object ):
         for entry in self.records:
             self.outfile.write(ldif.CreateLDIF(entry[0],entry[1],self.base64_attrs,self.cols))
         self.outfile.close()
-'''
         
 class LdapBack:
     """
@@ -133,17 +130,17 @@ class LdapBack:
         """
         self.incr = incr
         if uri == None:
-            uri = config.sync.get("ldap","uri")
+            self.uri = config.sync.get("ldap","uri")
         if binddn == None:
-            binddn = config.sync.get("ldap","binddn")
+            self.binddn = config.sync.get("ldap","binddn")
         if bindpw == None:
-            bindpw = config.sync.get("ldap","bindpw")
+            self.bindpw = config.sync.get("ldap","bindpw")
         try:
-            self.l.initialize(uri)
-            self.l.simple_bind_s(binddn,bindpw)
+            self.l = ldap.initialize(self.uri)
+            self.l.simple_bind_s(self.binddn,self.bindpw)
         except ldap.LDAPError,e:
+            #raise LdapConnectionError
             print "Error connecting to server: %s" % (e)
-            raise LdapConnectionError
 
     def close(self):
         """
@@ -163,22 +160,26 @@ class LdapBack:
         except ldap.LDAPError,e:
             print "Error occured while closing LDAPConnection: %s" % (e)
 
-    def add(self,dn,attrs,ignore_attr_types=[]):
+    def add(self, obj, ignore_attr_types=[]):
         """
         Add object into LDAP. If the object exist, we update all attributes given.
         """
+        dn=self.get_dn(obj)
+        attrs=self.get_attributes(obj)
         try:
             self.l.add_s(dn,modlist.addModlist(attrs,ignore_attr_types))
         except ldap.ALREADY_EXIST,e:
             print "%s already exist. Trying update instead..." % (dn)
-            self.update(dn,attrs,ignore_attr_types)
+            self.update(obj,ignore_attr_types)
         except ldap.LDAPError,e:
             print "An error occured while adding %s: e" % (dn,e)
 
-    def update(self,dn,attrs,old=None,ignore_attr_types=[], ignore_oldexistent=0):
+    def update(self,obj,old=None,ignore_attr_types=[], ignore_oldexistent=0):
         """
         Update object in LDAP. If the object does not exist, we add the object. 
         """
+        dn=self.get_dn(obj)
+        attrs=self.get_attributes(obj)
         if old == None:
             # Fetch old values from LDAP
             res = search(dn) # using dn as base, and fetch first record
@@ -188,14 +189,15 @@ class LdapBack:
             self.l.modify_s(dn,mod_attrs)
         except ldap.NO_SUCH_OBJECT,e:
             # Object does not exist.. add it instead
-            self.add(dn,attrs)
+            self.add(obj)
         except ldap.LDAPError,e:
             print "An error occured while modifying %s" % (dn)
 
-    def delete(self,dn):
+    def delete(self,obj):
         """
         Delete object from LDAP. 
         """
+        dn=self.get_dn(obj)
         try:
             self.l.delete_s(dn)
         except ldap.NO_SUCH_OBJECT,e:
