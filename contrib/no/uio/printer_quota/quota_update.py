@@ -236,8 +236,8 @@ def get_bet_fritak_data(lt_person_file):
                                   int(person['fodtar']), int(person['personnr'])))
         for g in data.get('gjest', []):
             if g['gjestetypekode'] in ('PCVAKT', 'GRP-LÆRER', 'ST-POL FRI',
-                                       'ST-ORG FRI', 'EF-FORSKER', 'EF-STIP'
-                                       'EMERITUS', 'GJ-FORSKER', 'REG-ANSV'
+                                       'ST-ORG FRI', 'EF-FORSKER', 'EF-STIP',
+                                       'EMERITUS', 'GJ-FORSKER', 'REG-ANSV',
                                        'EKST. KONS', 'SENIORFORS'):
                 if not fnr2pid.has_key(fnr):
                     logger.warn("Unknown LT-person %s" % fnr)
