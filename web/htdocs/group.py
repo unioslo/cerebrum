@@ -3,6 +3,7 @@ import forgetHTML as html
 from Cerebrum.Utils import Factory
 ClientAPI = Factory.get_module("ClientAPI")
 from Cerebrum.web.templates.GroupSearchTemplate import GroupSearchTemplate
+from Cerebrum.web.templates.GroupViewTemplate import GroupViewTemplate
 from Cerebrum.web.Main import Main
 from gettext import gettext as _
 from Cerebrum.web.utils import url
@@ -47,5 +48,12 @@ def search(req, name, desc, spread):
     return page    
 
 def view(req, name="test74"):
-    return name + " er fint .."
+    page = Main(req)
+    page.menu.setFocus("group/view", name)
+    server = req.session['server']
+    group = ClientAPI.Group.fetch_by_name(name, server)
+    view = GroupViewTemplate()
+    page.content = lambda: view.viewGroup(group)
+    return page
+    
 
