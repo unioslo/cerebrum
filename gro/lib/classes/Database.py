@@ -29,19 +29,20 @@ class GroDatabase(Database):
     to include locking. Using this scheme, only one transaction can
     commit at a time.
     """
-    def __init__(self):
+    def __init__(self, entity_id=None):
         self._lock = Lock()
         Database.__init__(self)
-        Database.cl_init(self, change_program='GRO')
+        if entity_id is None:
+            self.cl_init(change_program='GRO')
+        else:
+            self.cl_init(change_by=entity_id)
 
-    def lock(self, entity_id):
+    def lock(self):
         self._lock.acquire()
-        self.cl_init(change_by=entity_id)
 
     def release(self):
         self.rollback_log() # just in case
         self.rollback() # will this break the database?
-        Database.cl_init(self, change_program='GRO')
         self.lock.release()
 
 db = None
