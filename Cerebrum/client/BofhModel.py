@@ -366,9 +366,10 @@ class Person(Entity, Abstract.Person):
     search = classmethod(search)
 
     def _load_entity_info(self, info):
+        super(Person, self)._load_entity_info(info)
         self.name = info['name']
         self.birthdate = info['birthdate']
-        self.affiliations = info['affilitations']
+        self.affiliations = info['affiliations']
         self.names = info['names']
         self.description = info['description']
         self.gender = info['gender']    
