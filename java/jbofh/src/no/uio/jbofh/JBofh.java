@@ -165,17 +165,23 @@ class BofhdCompleter implements org.gnu.readline.ReadlineCompleter {
          * within a line.
          * 
          **/
+        String cmdLineText;
+        if(jbofh.guiEnabled) {
+            cmdLineText = jbofh.mainFrame.getCmdLineText();
+        } else {
+            cmdLineText = Readline.getLineBuffer();
+        }
         if(param == 0) {  // 0 -> first call to iterator
             Vector args;
 	    try {
-		args = jbofh.cLine.splitCommand(Readline.getLineBuffer());
+		args = jbofh.cLine.splitCommand(cmdLineText);
 	    } catch (ParseException pe) {
 		iter = null;
 		return null;
 	    }
-            logger.debug("len="+args.size()+", trail_space="+(Readline.getLineBuffer().endsWith(" ") ? "true" : "false"));
+            logger.debug("len="+args.size()+", trail_space="+(cmdLineText.endsWith(" ") ? "true" : "false"));
             int len = args.size();
-            if(! Readline.getLineBuffer().endsWith(" ")) len--;
+            if(! cmdLineText.endsWith(" ")) len--;
             if(len < 0) len = 0;
             logger.debug("new len: "+len);
             if(len >= 2) {
@@ -215,7 +221,6 @@ public class JBofh {
     public JBofh(String def_uname, String def_password, boolean gui, String log4jPropertyFile) 
         throws BofhdException {
 	guiEnabled = gui;
-	if(gui) mainFrame = new JBofhFrame();
         try {
 	    URL url = ResourceLocator.getResource(this, log4jPropertyFile);
             if(url == null) throw new IOException();
@@ -229,6 +234,7 @@ public class JBofh {
 	    showMessage("Error reading property files", true);
 	    System.exit(1);
 	}
+	if(gui) mainFrame = new JBofhFrame(this);
 	URL url = ResourceLocator.getResource(this, "/version.txt");
 	try {
 	    BufferedReader br = new BufferedReader(new InputStreamReader(url.openStream()));
@@ -372,6 +378,7 @@ public class JBofh {
 			for (Enumeration e = protoArgs.elements() ; e.hasMoreElements() ;) 
 			    if(e.nextElement() instanceof Vector)
 				multiple_cmds = true;
+                        if(guiEnabled) mainFrame.showWait(true);
 			Object resp = bc.sendCommand(protoCmd, protoArgs);
 			if(resp != null) showResponse(protoCmd, resp, multiple_cmds);
 		    } catch (BofhdException ex) {
@@ -379,7 +386,9 @@ public class JBofh {
 		    } catch (Exception ex) {
 			showMessage("Unexpected error (bug, true): "+ex, true);
 			ex.printStackTrace();
-		    }
+		    } finally {
+                        if(guiEnabled) mainFrame.showWait(false);
+                    }
 		}
 	    } catch (BofhdException be) {
 		showMessage(be.getMessage(), true);
@@ -611,6 +620,7 @@ public class JBofh {
 	    if(gui) {
 		JOptionPane.showMessageDialog(null, msg, "Fatal error", 
 					      JOptionPane.ERROR_MESSAGE);
+                System.exit(0);
 	    } else {
 		System.out.println(msg);
 	    }
