@@ -20,20 +20,26 @@
 
 """ Directory-based backend - in this case LDAP """
 
-import ldap,ldif,dsml
+import re,string,sys
+
+import ldap,ldif
+#import dsml
 import urllib
 from ldap import modlist
 from ldif import LDIFParser,LDIFWriter
-from dsml import DSMLParser,DSMLWriter 
+#from dsml import DSMLParser,DSMLWriter 
 
 import unittest
 from errors import ServerError
 
 import config
 
+
+
 class LdapConnectionError(ServerError):
     print "Could not connect to LDAP server"
 
+'''
 class DsmlHandler(DSMLParser):
     """Class for a DSMLv1 parser. Overrides method handle from class dsml.DSMLParser"""
 
@@ -93,6 +99,7 @@ class LdifBack( object ):
         for entry in self.records:
             self.outfile.write(ldif.CreateLDIF(entry[0],entry[1],self.base64_attrs,self.cols))
         self.outfile.close()
+'''
         
 class LdapBack:
     """
@@ -107,7 +114,15 @@ class LdapBack:
     def __init__(self):
         self.l = None # Holds the authenticated ldapConnection object
 
-    def begin(self,incr=False,uri="ldaps://localhost:636",binddn="",bindpw=""):
+    def utf8_encode(str):
+        """ Return utf8-encoded string """
+        return unicode(str, "iso-8859-1").encode("utf-8")
+        
+    def utf8_decode(str):
+        "Return decoded utf8-string"
+        return unicode(str,"utf-8").encode("iso-8859-1")
+
+    def begin(self,incr=False,uri=None,binddn=None,bindpw=None):
         """
         If incr is true, updates will be incremental, ie the 
         original content will be preserved, and can be updated by
@@ -117,14 +132,18 @@ class LdapBack:
         tries to authenticate
         """
         self.incr = incr
+        if uri == None:
+            uri = config.sync.get("ldap","uri")
+        if binddn == None:
+            binddn = config.sync.get("ldap","binddn")
+        if bindpw == None:
+            bindpw = config.sync.get("ldap","bindpw")
         try:
-            self.l.open(hostname)
+            self.l.initialize(uri)
             self.l.simple_bind_s(binddn,bindpw)
         except ldap.LDAPError,e:
+            print "Error connecting to server: %s" % (e)
             raise LdapConnectionError
-
-    def get_connection(self):
-        return self.l
 
     def close(self):
         """
@@ -139,45 +158,54 @@ class LdapBack:
         """
         Close ongoing operations and disconnect from server
         """
-        self.l.close()
+        try:
+            self.l.close()
+        except ldap.LDAPError,e:
+            print "Error occured while closing LDAPConnection: %s" % (e)
 
-    def _add(self,obj):
+    def add(self,dn,attrs,ignore_attr_types=[]):
         """
         Add object into LDAP. If the object exist, we update all attributes given.
         """
         try:
-            self.l.add_s(obj[0],obj[1])
+            self.l.add_s(dn,modlist.addModlist(attrs,ignore_attr_types))
         except ldap.ALREADY_EXIST,e:
-            print "%s already exist. Trying update instead..." % (obj[0])
-            _update(obj)
+            print "%s already exist. Trying update instead..." % (dn)
+            self.update(dn,attrs,ignore_attr_types)
         except ldap.LDAPError,e:
-            print "An error occured while adding %s" % (obj[0])
-            print e
+            print "An error occured while adding %s: e" % (dn,e)
 
-    def _update(self,obj,old=None):
+    def update(self,dn,attrs,old=None,ignore_attr_types=[], ignore_oldexistent=0):
         """
         Update object in LDAP. If the object does not exist, we add the object. 
         """
-        (dn,attrs) = (obj[0],obj[1])
         if old == None:
             # Fetch old values from LDAP
             res = search(dn) # using dn as base, and fetch first record
             old_attrs = res[1]
-        mod_attrs = modlist.modifyModlist(old_attrs,attrs)
+        mod_attrs = modlist.modifyModlist(old_attrs,attrs,ignore_attr_types,ignore_oldexistent)
         try:
             self.l.modify_s(dn,mod_attrs)
+        except ldap.NO_SUCH_OBJECT,e:
+            # Object does not exist.. add it instead
+            self.add(dn,attrs)
         except ldap.LDAPError,e:
             print "An error occured while modifying %s" % (dn)
 
-    def _delete(self,obj):
+    def delete(self,dn):
         """
         Delete object from LDAP. 
         """
-        pass
+        try:
+            self.l.delete_s(dn)
+        except ldap.NO_SUCH_OBJECT,e:
+            print "%s not found when trying to remove from database" % (dn)
+        except ldap.LDAPError,e:
+            print "Error occured while trying to remove %s from database: %s" % (dn,e)
 
     def search(self,conn,base="dc=example,dc=com",scope=ldap.SCOPE_SUBTREE,filterstr='(objectClass=*)',attrslist=None,attrsonly=0):
         try:
-            result = conn.search_s(base,scope,filterstr,attrslist,attrsonly)
+            result = self.l.search_s(base,scope,filterstr,attrslist,attrsonly)
         except ldap.LDAPError,e:
             print "Error occured while searching with filter: %s" % (filterstr)
             return [] # Consider raise exception later
@@ -189,107 +217,72 @@ class LdapBack:
 
 class PosixUser(LdapBack):
     """Stub object for representation of an account."""
-    def __init__(self,conn=None,base="ou=users,dc=ntnu,dc=no"):
-        self.conn = conn
-        self.base = base
+    def __init__(self,conn=None,base=None):
+        if base == None:
+            self.base = config.sync.get("ldap","user_base")
+        else:
+            self.base = base
         self.obj_class = ['top','person','posixAccount','shadowAccount'] # Need 'person' for structural-objectclass
 
     def get_attributes(self,obj):
         """Convert Account-object to map ldap-attributes"""
         s = {}
         s['objectClass'] = self.obj_class
-        s['cn'] = obj.gecos
-        s['sn'] = obj.gecos.split()[len(obj.gecos)-1] # presume last name, is surname
+        s['cn'] = obj.fullname
+        s['sn'] = obj.fullname.split()[len(obj.fullname.split())-1] # presume last name, is surname
         s['uid'] = obj.name
         s['uidNumber'] = obj.uid
         s['userPassword'] = '{MD5}' + obj.password # until further notice, presume md5-hash
         s['gidNumber'] = obj.gid
-        s['gecos'] = obj.gecos
+        s['gecos'] = self.gecos(obj.fullname)
         s['homeDirectory'] = obj.home
         s['loginShell'] = obj.shell
         return s
 
+    def gecos(self,s,default=1):
+        # Taken from cerebrum/contrib/generate_ldif.py and then modified.
+        """  Convert special chars to 7bit ascii for gecos-attribute. """
+        if default == 1:
+            translate = {'Æ' : 'Ae', 'æ' : 'ae', 'Å' : 'Aa', 'å' : 'aa','Ø' : 'Oe','ø' : 'oe' }
+        elif default == 2:
+            translate = {'Æ' : 'A', 'æ' : 'a', 'Å' : 'A', 'å' : 'a','Ø' : 'O','ø' : 'o' }
+        elif default == 3:
+            translate = {'Æ' : '[', 'æ' : '{', 'Å' : ']', 'å' : '}','Ø' : '\\','ø' : '|' }
+        s = string.join(map(lambda x:translate.get(x, x), s), '')
+        return s
+
     def get_dn(self,obj):
         # Maybe generalize this to LdapBack instead
-        return "uid=" + obj.name + "," + config.sync.get('ldap','user_base')
-
-
-    def add(self,obj,conn):
-        # Convert obj into a useful LDAPObject
-        self.dn = self.get_dn(obj)
-        self.attrs = self.get_attributes(obj)
-        try:
-            self._add(self.dn,self.attrs,conn)
-        except ldap.LDAPError,e:
-            print "Error adding %s: %s" % (self.dn,e)
-
-    def delete(self,obj):
-        # Convert obj into something more usefule...
-        self.dn = self.get_dn(obj)
-        try:
-            self._delete(self.dn)
-        except ldap.LDAPError,e:
-            print "Error removing %s: %s" % (self.dn,e)
-
-    def update(self,obj):
-        # Convert obj into something more usefule...
-        self.dn = self.get_dn(obj)
-        self.old_attrs = self.get_attributes(obj)
-        self.new_attrs = self.search(base=dn)[0][1] # Only interested in the first record returned.. ('dn','dict_of_attributes')
-
+        return "uid=" + obj.name + "," + self.base
 
 class PosixGroup(LdapBack):
     '''Abstraction of a group of accounts'''
-    def __init__(self,base="ou=groups,dc=ntnu,dc=no"):
-        self.base = base
+    def __init__(self,base=None):
+        if base == None:
+            self.base = config.sync.get("ldap","user_base")
+        else:
+            self.base = base
         self.obj_class = ['top','posixGroup']
+        # posixGroup supports attribute memberUid, which is multivalued (i.e. can be a list, or string)
 
     def get_attributes(self,obj):
         s = {}
         s['objectClass'] = self.obj_class
         s['cn'] = obj.name
-        s['memberUid'] = obj.membernames
+        try:
+            s['memberUid'] = obj.membernames
+        except:
+            #group might not have any members at first add
+            pass
         s['description'] = obj.description
         s['gidNumber'] = obj.gid
         return s
 
     def get_dn(self,obj):
-        return "cn=" + obj.name + "," + config.sync.get('ldap','group_base')
+        return "cn=" + obj.name + "," + self.base
 
-    def add(self,obj,conn):
-        self.dn = self.get_dn(obj)
-        self.attrs = self.get_attributes(obj)
-        try:
-            self._add(dn,attrs,conn)
-        except ldap.ALREADY_EXIST,e:
-            # Log error, and run update instead
-            self.update(obj,conn)
-        except ldap.LDAPError,e:
-            print "Error adding %s: %s" % (self.dn,e)
 
-    def update(self,obj,conn):
-        self.dn = self.get_dn(obj)
-        self.old_attrs = self.get_attributes(obj)
-        self.new_attrs = self.search(base=dn)[0][1] # Only interested in the first record returned.. ('dn','dict_of_attributes')
-        try:
-            self._update(self.dn,self.old_attributes,self.new_attributes)
-        except ldap.NO_SUCH_OBJECT,e:
-            # If object, does not exist - add it, and log the event...
-            self.add(obj,conn)
-        except ldap.LDAPError,e:
-            print "Error modifying %s: %s" % (self.dn,e)
-
-    def delete(self,obj,conn):
-        self.dn = self.get_dn(obj)
-        try:
-            self._delete(self.dn,conn)
-        except ldap.NO_SUCH_OBJECT,e:
-            # if object does not exist, log the event
-            print "Object not found trying to delete %s: %s" % (self.dn,e)
-        except ldap.LDAPError,e:
-            print "Error modifying %s: %s" % (self.dn,e)
-
-class EduPerson:
+class Person:
     def __init__(self,base="ou=People,dc=ntnu,dc=no"):
         self.base = base
         self.obj_class = ['top','person','organizationalPerson','inetorgperson','eduperson','noreduperson']
@@ -300,8 +293,8 @@ class EduPerson:
     def get_attributes(self,obj):
         s = {}
         s['objectClass'] = self.obj_class
-        s['cn'] = obj.full_name
-        s['sn'] = obj.full_name.split()[len(obj.full_name)-1] # presume last name, is surname
+        s['cn'] = obj.fullname
+        s['sn'] = obj.fullname.split()[len(obj.fullname)-1] # presume last name, is surname
         s['uid'] = obj.name
         s['userPassword'] = '{MD5}' + obj.password # until further notice, presume md5-hash
         s['eduPersonPrincipalName'] = obj.name + "@" + config.sync.get('ldap','eduperson_realm')
@@ -309,33 +302,16 @@ class EduPerson:
         s['mail'] = self.email
         return s
 
-    def add(self,obj,conn):
-        self.dn = self.get_dn(obj)
-        self.attrs = self.get_attributes(obj)
-        try:
-            self._add(self.dn,self.attrs,conn)
-        except ldap.ALREADY_EXIST,e:
-            # Log error, and run update instead
-            self.update(obj,conn)
-        except ldap.LDAPError,e:
-            print "Error adding %s: %s" % (self.dn,e)
-
-    def update(self,obj,conn):
-        self.dn = self.get_dn(obj)
-        self.old_attrs = self.get_attributes(obj)
-        self.new_attrs = self.search(base=dn)[0][1] # Only interested in the first record returned.. ('dn','dict_of_attributes')
-        try:
-            self._update(self.dn,self.old_attributes,self.new_attributes)
-        except ldap.NO_SUCH_OBJECT,e:
-            # If object, does not exist - add it, and log the event...
-            self.add(obj,conn)
-        except ldap.LDAPError,e:
-            print "Error modifying %s: %s" % (self.dn,e)
-
 class Alias:
     """ Mail aliases, for setups that store additional mailinglists and personal aliases in ldap."""
     def __init__(self,base=""):
         self.base = base
+
+    def get_dn(self,obj):
+        pass
+
+    def get_attributes(self,obj):
+        pass
 
 class OU:
     """ OrganizationalUnit, where people work or students follow studyprograms.
@@ -344,6 +320,16 @@ class OU:
     def __init__(self,base="ou=organization,dc=ntnu,dc=no"):
         self.base = base
         self.obj_class = ['top','organizationalUnit']
+
+    def get_dn(self,obj):
+        pass
+
+    def get_attributes(self,obj):
+        s = {}
+        s['objectClass'] = ('top','organizationalUnit')
+        s['ou'] = obj.name
+        s['description'] = obj.description
+        return s
 
 
 
@@ -355,9 +341,6 @@ class testLdapBack(unittest.TestCase):
     def setUp(self):
         self.lback = LdapBack()
 
-    def testBegin(self):
-        self.lback.begin()
-
     def testBeginFails(self):
         self.assertRaises(LdapConnectionError, self.lback.begin, hostname='doesnotexist.bizz')
 
@@ -365,8 +348,6 @@ class testLdapBack(unittest.TestCase):
         self.lback.close()
 
 if __name__ == "__main__":
-    print "Run unittesting..."
     unittest.main()
-    print "Finished unittesting"
 
 # arch-tag: ec6c9186-9e3a-4c18-b467-a72d0d8861fc
