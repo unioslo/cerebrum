@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2002, 2003 University of Oslo, Norway
+# Copyright 2003 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,11 +19,11 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 group_help = {
+    'access': "Access (authorisation) related commands",
     'email': "E-mail commands",
     'group': "Group commands",
     'misc': 'Miscellaneous commands',
     'person': 'Person related commands',
-    'print': 'Printer quota manipulation',
     'quarantine': 'Quarantine related commands',
     'spread': 'Spread related commands',
     'user': 'Account building and manipulation',
@@ -33,26 +33,85 @@ group_help = {
 # The texts in command_help are automatically line-wrapped, and should
 # not contain \n
 command_help = {
+    'access': {
+    'access_grant':
+       "Grant authorisation to perform the operations in opset "
+       "<set> on <entity> of type <type> to the members of group <group>.  "
+       "The meaning of <attr> depends on <type>.",
+    'access_group':
+       "List who's authorised to operate on group <gname>",
+    'access_host':
+       "List who's authorised to operate on host <hostname>",
+    'access_revoke':
+       "Revoke authorisation",
+    },
     'email': {
-    'email_add_address': 'Add an alias address',
-    'email_remove_address': 'Remove an alias address',
-    'email_forward': 'Turn e-mail forwarding for a user on/off',
-    'email_add_forward': 'Add a forward address',
-    'email_remove_forward': 'Remove a forward address',
-    'email_info': 'View e-mail information about a user or address',
-    'email_create_list': 'Add addresses needed for a Mailman list',
-    'email_delete_list': "Remove a Mailman list's addresses",
-    'email_migrate': 'Migrate users from old to new e-mail service',
-    'email_move': 'Move a user\'s e-mail to another server',
-    'email_quota': "Change a user's storage quota for e-mail",
-    'email_tripnote': 'Turn vacation messages on/off',
-    'email_add_tripnote': 'Add vacation message',
-    'email_list_tripnotes': "List user's vacation messages",
-    'email_remove_tripnote': 'Remove vacation message',
+    "email_add_address":
+        "Add an alias address",
+    "email_remove_address":
+        "Remove an alias address",
+    "email_reassign_address":
+        "Move an address from one account to another",
+    "email_update":
+        "Update default address and aliases associated with account",
+    "email_create_domain":
+        "Create a new e-mail domain",
+    "email_create_forward":
+        "Create a new e-mail forward target",
+    "email_domain_info":
+        "View information about an e-mail domain",
+    "email_add_domain_affiliation":
+        "Connect a OU to an e-mail domain",
+    "email_remove_domain_affiliation":
+        "Remove link between OU and e-mail domain",
+    "email_domain_configuration":
+        "Configure settings for an e-mail domain",
+    "email_forward":
+        "Turn e-mail forwarding for a user on/off",
+    "email_add_forward":
+        "Add a forward address",
+    "email_remove_forward":
+        "Remove a forward address",
+    "email_info":
+        "View e-mail information about a user or address",
+    "email_create_archive":
+        "Add address feeding an archive of a list",
+    "email_create_list":
+        "Add addresses needed for a Mailman list",
+    "email_create_list_alias":
+       "Add an alias for a Mailman list.  This also adds additional "\
+       "-owner and -request addresses.",
+    "email_create_multi":
+        "Make an e-mail target which expands to the members of a group",
+    "email_delete_archive":
+        "Remove address for a Mailman archive",
+    "email_delete_list":
+        "Remove a Mailman list's addresses",
+    "email_delete_multi":
+        "Remove a multi target and all its addresses",
+    "email_migrate":
+        "Migrate users from old to new e-mail service",
+    "email_move":
+        "Move a user's e-mail to another server",
+    "email_quota":
+        "Change a user's storage quota for e-mail",
+    "email_spam_action":
+        "How to handle user's spam",
+    "email_spam_level":
+        "Change user's tolerance for spam",
+    "email_tripnote":
+        "Turn vacation messages on/off",
+    "email_add_tripnote":
+        "Add vacation message",
+    "email_list_tripnotes":
+        "List user's vacation messages",
+    "email_remove_tripnote":
+        "Remove vacation message",
     },
     'group': {
     'group_add': 'Let an account join a group',
     'group_create': 'Create a new Cerebrum group',
+    'group_request': 'Send in request for a new Cerebrum group',
     'group_def': 'Set default filegroup for an account',
     'group_delete': 'Delete a group from Cerebrum',
     'group_gadd': 'Let another group join a group',
@@ -80,7 +139,9 @@ command_help = {
     'misc_hadd': 'Register a new host in the Cerebrum database',
     'misc_hrem': 'Remove a host entry from Cerebrum',
     'misc_list_passwords': 'View/print all the password altered during a session',
+    'misc_reload': 'Re-read server config file (use with care)',
     'misc_list_requests': 'View pending jobs the current BOFH user has requested/may confirm',
+    'misc_stedkode': 'Look up OU by stedkode or name',
     'misc_user_passwd': 'Check whether an account has a given password',
     },
     'perm': {
@@ -95,21 +156,20 @@ command_help = {
     'perm_grant': 'Add an entry to auth_role',
     'perm_revoke': 'Remove an entry from auth_role',
     'perm_who_owns': 'Show owner of a target',
+    'perm_who_has_perm': 'Show who has the given op_set permission somewhere',
     },
     'person': {
     'person_accounts': 'View account a person is owner of',
+    'person_affiliation_add': 'Add an affiliation to a person',
+    'person_affiliation_remove': 'Remove an affiliation from a person',
     'person_create': 'Register a new person in Cerebrum',
     'person_find': 'Search for a person in Cerebrum',
     'person_info': 'View information about a person',
     'person_list_user_priorities': 'View a list ordered by priority of all the accounts owned by a person',
     'person_set_id': 'Set a new id for a person',
+    'person_set_name': 'Change the full name of a manually registered person',
     'person_student_info': 'View student information for a person',
     'person_set_user_priority': 'Change account priorities for a person',
-    },
-    'print': {
-    'printer_qoff': 'Turn off the printer quota for an account',
-    'printer_qpq': 'View the printer quota information for an account',
-    'printer_upq': 'Manually update printer quota for an account',
     },
     'quarantine': {
     'quarantine_disable': 'Temporarily remove a quarantine',
@@ -165,7 +225,7 @@ possible affiliations"""],
         ['aff_status', 'Enter affiliation status',
 """Affiliation status describes a persons current status within a
 defined organizational unit (e.a. whether the person is an active
-student or an employee on leave).  'misc aff_status_codes' lists
+student or an employee on leave).  'misc affiliations' lists
 affiliation status codes"""],
     'date':
         ['date', 'Enter date (YYYY-MM-DD)',
@@ -175,11 +235,24 @@ affiliation status codes"""],
          "The legal date format is 2003-12-31"],
     'disk':
         ['disk', 'Enter disk',
-         """Enter the path to the disc without trailing slash or username.
- Example: /usit/sauron/u1
- For non-cerebrum disks, prepend the path with a :"""],
+         "Enter the path to the disk without trailing slash or username.  "
+         "Example:\n"
+         "  /usit/sauron/u1\n\n"
+         "If the disk isn't registered in Cerebrum and never should be, "
+         "enter the whole path verbatim, prepended by a colon.  Example:\n"
+         "  :/usr/local/oracle"],
     'email_address':
         ['address', 'Enter e-mail address'],
+    'email_category':
+        ['category', 'Enter e-mail category for domain',
+         "Legal categories include:\n"+
+         " - noexport     don't include domain in data exports\n"+
+         " - cnaddr       primary address is firstname.lastname\n"+
+         " - uidaddr      primary address is username\n"+
+         " - all_uids     all usernames are valid e-mail addresses\n"+
+         " - uio_globals  direct Postmaster etc. to USIT"],
+    'email_domain':
+        ['domain', 'Enter e-mail domain'],
     'email_forward_action':
         ['action', 'Enter action',
          "Legal forward actions:\n - on\n - off\n - local"],
@@ -194,6 +267,8 @@ affiliation status codes"""],
         ['gname', 'Enter the new group name'],
     'group_name_src':
         ['gname', 'Enter the source group'],
+    'group_name_moderator':
+	['gname', 'Enter the name of the moderator group'],
     'group_operation':
         ['op', 'Enter group operation',
          """Three values are legal: union, intersection and difference.
@@ -210,6 +285,9 @@ Normally only union is used."""],
         ['op_target_id', 'Enter op_target_id'],
     'id:request_id':
         ['request_id', 'Enter request_id', '"misc list_requests" returns legal values'],
+    'mailman_admins':
+        ['addresses', 'Enter comma separated list of administrators for '+
+         'the Mailman list'],
     'mailman_list':
         ['address', 'Enter address for Mailman list'],
     'mailman_list_exist':
@@ -233,6 +311,9 @@ Normally only union is used."""],
     'number_percent':
         ['percent', 'Enter percent',
         'Enter the percentage (without trailing percent sign)'],
+    'on_or_off':
+        ['on/off', 'Enter action',
+         "Legal actions:\n - on\n - off"],
     'ou':
         ['ou', 'Enter OU',
         'Enter the 6-digit code of the organizational unit the person is '+
@@ -258,8 +339,20 @@ You may also use entity_id:id."""],
         ['name', 'Enter person name'],
     'person_name_full':
         ['fullname', 'Enter persons fullname'],
+    'person_name_first':
+        ['firstname', 'Enter all persons given names'],
+    'person_name_last':
+        ['lastname', 'Enter persons family name'],
     'person_name_type':
         ['nametype', 'Enter person name type'],
+    # this is also in help.py, but without the search type "stedkode"
+    'person_search_type':
+        ['search_type', 'Enter person search type',
+         """Possible values:
+  - 'name'
+  - 'date' of birth, on format YYYY-MM-DD
+  - 'person_id'
+  - 'stedkode'"""],
     'posix_shell':
         ['shell', 'Enter shell',
          'Enter the required shell without path.  Example: bash'],
@@ -276,14 +369,40 @@ printer."""],
     'quarantine_type':
         ['qtype', 'Enter quarantine type',
           "'quarantine list' lists defined quarantines"],
+    'spam_action':
+        ['spam action', 'Enter spam action',
+          """Choose one of
+          'dropspam'    Messages classified as spam won't be delivered at all
+          'spamfolder'  Deliver spam to a separate IMAP folder
+          'noaction'    Deliver spam just like legitimate email"""],
+    'spam_level':
+        ['spam level', 'Enter spam level',
+          """Choose one of
+          'aggressive_spam' Filter everything that resembles spam
+          'most_spam'       Filter most emails that looks like spam
+          'standard_spam'   Only filter email that obviously is spam
+          'no_filter'       No email will be filtered as spam"""],
     'spread':
         ['spread', 'Enter spread',
          "'spread list' lists possible values"],
     'string_attribute':
         ['attr', 'Enter attribute',
          "Experts only.  See the documentation for details"],
+    'string_bofh_request_target':
+        ['target', 'Enter target',
+         'Enter a target id corresponding to the previously specified type'],
+    'string_bofh_request_search_by':
+        ['search_by', 'Enter type to search by',
+         """Enter the operation that you want to search for.  Legal values:
+'requestee' username : the user that requested the operation
+'operation' type : the type of operation (move_user, move_user_now,
+    move_student, move_request, delete_user etc.)
+'disk' path: a disk used as target
+'account' username: the user affected by the operation"""],
     'string_description':
         ['description', 'Enter description'],
+    'string_spread':
+	['spread', 'Enter spread. Example: AD_group NIS_fg@uio'],
     'string_email_host':
         ['hostname', 'Enter e-mail server.  Example: mail-sg2'],
     'string_filename':
@@ -329,6 +448,7 @@ printer."""],
   Norwegian fødselsnummer (11 digits)
   Export-ID (exp:exportid)
   External ID (idtype:idvalue)
+  Entity ID (entity_id:value)
   Group name (group:name)"""],
     'user_create_select_person':
         ['<not displayed>', '<not displayed>',
@@ -341,4 +461,4 @@ number.  If the person is not registered, you must create an instance with
         ['force', 'Force the operation?']
     }
 
-# arch-tag: 6981ed71-c680-4180-80b8-348494024709
+# arch-tag: 9a914c2f-f0bd-472e-9f1b-bfb3aa757dc7
