@@ -46,6 +46,9 @@ INSERT INTO [:table schema=cerebrum name=gender_code]
 INSERT INTO [:table schema=cerebrum name=gender_code]
   (code, code_str, description) VALUES
   ([:sequence schema=cerebrum name=code_seq op=next], 'M', 'Male');
+INSERT INTO [:table schema=cerebrum name=gender_code]
+  (code, code_str, description) VALUES
+  ([:sequence schema=cerebrum name=code_seq op=next], 'X', 'Unknown');
 
 INSERT INTO [:table schema=cerebrum name=person_external_id_code]
   (code, code_str, description) VALUES
@@ -129,6 +132,10 @@ INSERT INTO [:table schema=cerebrum name=authentication_code]
   (code, code_str, description) VALUES
   ([:sequence schema=cerebrum name=code_seq op=next], 'md5', 'MD5 password');
 
+INSERT INTO [:table schema=cerebrum name=authentication_code]
+  (code, code_str, description) VALUES
+  ([:sequence schema=cerebrum name=code_seq op=next], 'crypt', 'crypt(3) password');
+
 /*
   UIO specific systems, will be moved to a separate file later
 */
@@ -142,6 +149,9 @@ INSERT INTO [:table schema=cerebrum name=authoritative_system_code]
 INSERT INTO [:table schema=cerebrum name=authoritative_system_code]
   (code, code_str, description) VALUES
   ([:sequence schema=cerebrum name=code_seq op=next], 'Manual', 'Manual registration');
+INSERT INTO [:table schema=cerebrum name=authoritative_system_code]
+  (code, code_str, description) VALUES
+  ([:sequence schema=cerebrum name=code_seq op=next], 'Ureg', 'Imported from ureg');
 
 INSERT INTO [:table schema=cerebrum name=ou_perspective_code]
   (code, code_str, description) VALUES
