@@ -803,11 +803,11 @@ WHERE
           ua.undformkode IS NOT NULL AND
           ua.terminkode IN ('VÅR', 'HØST') AND
           ua.terminkode = t.terminkode AND
-          (ua.arstall > :aar OR
-           (ua.arstall = :aar AND
+          ((ua.arstall = :aar AND
             EXISTS (SELECT 'x' FROM fs.arstermin tt
                     WHERE tt.terminkode = :semester AND
-                          t.sorteringsnokkel >= tt.sorteringsnokkel)))""",
+                          t.sorteringsnokkel >= tt.sorteringsnokkel)) OR
+           ua.arstall > :aar)""",
                              {'aar': start_aar,
                               'semester': start_semester})
 
