@@ -422,21 +422,23 @@ class Fronter(object):
         # Additionally, the <GROUP> element is (ab)used for creating "rooms".
         group = {}
         for gi in self._accessFronter.ListGroupInfo():
-            if re.search(r'^STRUCTURE/(Enhet|Studentkorridor):', gi['importid']):
+            id = gi['importid']
+            if re.search(r'^STRUCTURE/(Enhet|Studentkorridor):', id):
                 #     Hovedkorr. enh:     STRUCTURE/Enhet:<ENHETID>
                 #     Undv.korr. enh:     STRUCTURE/Studentkorridor:<ENHETID>
                 rest = gi['importid'].split(":")
                 corr_type = rest.pop(0)
-                if not (rest[0].startswith(self.EMNE_PREFIX) or rest[0].startswith(self.EVU_PREFIX)):
+                if not (rest[0] == self.EMNE_PREFIX or
+                        rest[0] == self.EVU_PREFIX):
                     rest.insert(0, self.EMNE_PREFIX)
 		id = "%s:%s" % (corr_type, FronterUtils.UE2KursID(*rest))
-		group[id] = {'title': gi['title'],
-			     'parent': gi['parent_importid'],
-			     'allow_room': (int(gi['allowsflag']) & 1),
-			     'allow_contact': (int(gi['allowsflag']) & 2),
-			     'CFid': gi['importid'],
-			     }
-		self.logger.debug("get_fronter_groups ret %i groups" % len(group))
+            group[id] = {'title': gi['title'],
+                         'parent': gi['parent_importid'],
+                         'allow_room': (int(gi['allowsflag']) & 1),
+                         'allow_contact': (int(gi['allowsflag']) & 2),
+                         'CFid': gi['importid'],
+                         }
+        self.logger.debug("get_fronter_groups ret %i groups" % len(group))
         return group
 
     def get_fronter_rooms(self):
@@ -587,8 +589,9 @@ class FronterXML(object):
         self.xml.endTag('SOURCEDID')
         if (recstatus == Fronter.STATUS_ADD or recstatus == Fronter.STATUS_UPDATE):
             self.xml.startTag('NAME')
-            self.xml.dataElement('FN', " ".join((data['GIVEN'],
-                                                 data['FAMILY'])))
+            self.xml.dataElement('FN', " ".join([x for x in (data['GIVEN'],
+                                                             data['FAMILY'])
+                                                 if x]))
             self.xml.startTag('N')
             self.xml.dataElement('FAMILY', data['FAMILY'])
             self.xml.dataElement('GIVEN', data['GIVEN'])
