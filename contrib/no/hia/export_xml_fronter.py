@@ -163,9 +163,8 @@ def register_spread_groups(emne_info, stprog_info):
             emne_sted_id = 'STRUCTURE:%s' % emne_id_prefix
             emne_rom_id = 'ROOM:%s:undenh:%s:%s:%s' % (
                 emne_id_prefix, emnekode, versjon, terminnr)
-            register_room('%s (ver %s, %d. termin): %s' %
-                          (emnekode.upper(), versjon, int(terminnr),
-                           emne_info[emnekode]['navn']),
+            register_room('%s (ver %s, %d. termin)' %
+                          (emnekode.upper(), versjon, int(terminnr)),
                           emne_rom_id, emne_sted_id,
                           profile='BAS-emnerom04h')
 
@@ -245,7 +244,8 @@ def register_spread_groups(emne_info, stprog_info):
                                    brukere_studenter_id)
                     register_group(
                         'Studenter på %s' % subg_name_el[6], # kullkode
-                        fronter_gname, brukere_stprog_id)
+                        fronter_gname, brukere_stprog_id,
+                        allow_contact=1)
                     # Synkroniser medlemmer i Cerebrum-gruppa til CF.
                     group.clear()
                     group.find(subg_id)
