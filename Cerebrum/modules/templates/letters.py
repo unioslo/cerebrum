@@ -108,6 +108,11 @@ tag is present, hdr and footer will be empty.
         if ret:
             raise IOError("Bardode returned %s" % ret)
 
+    def _tail(self, fname, num=-1):
+        f = file(fname)
+        ret = f.readlines()[-num]
+        return "".join(ret).rstrip()
+
     def spool_job(self, filename, type, printer, skip_lpr=False, logfile=None,
                   lpr_user='unknown'):
         """Spools the job.  The spool command is executed in the
@@ -136,6 +141,18 @@ tag is present, hdr and footer will be empty.
                 status = os.system("%s %s.ps >> %s 2>&1" % (
                     lpr_cmd, base_filename, logfile))
                 if status:
-                    raise IOError("Error spooling job, see %s for details" % logfile)
+                    raise IOError("Error spooling job, see %s for details (tail: %s)"
+                                  % (logfile, self._tail(logfile, num=1)))
         finally:
             os.chdir(old_dir)
+
+if __name__ == '__main__':
+    th = TemplateHandler('no_NO/printer', 'breg', 'ps')
+    f = file("t.ps", "w")
+    if th._hdr:
+        f.write(th._hdr)
+    f.write(th.apply_template('body', {}))
+    if th._footer:
+        f.write(th._footer)
+    f.close()
+    th.spool_job("t.ps", th._type, 'nosuchprinter', skip_lpr=False)
