@@ -290,7 +290,7 @@ def main():
         elif opt in ('-s', '--studieprogram-file'):
             studieprogramfile = val
         elif opt in ('-g', '--generate-groups'):
-            gen_group = 1   
+            gen_groups = 1   
     if "system_fs" not in cereconf.SYSTEM_LOOKUP_ORDER:
         print "Check your config, SYSTEM_LOOKUP_ORDER is wrong!"
         sys.exit(1)
