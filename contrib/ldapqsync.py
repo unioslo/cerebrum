@@ -210,21 +210,7 @@ def change_spread(dn_id,ch_type,ch_params):
     if entity.entity_type == int(co.entity_account):
 	change_user_spread(dn_id,ch_type,ch_params)
     elif entity.entity_type == int(co.entity_group):
-	# change_group_spread(dn_id,ch_type,ch_params)
-	#  group_destroy,group_create
-	param_list = string.split(ch_params,'\n')
-    	cl_spread = int(re.sub('\D','',param_list[3]))
-	if 
-	if True in [entity.has_spread(x) for x in g_spreads]:
-	    if (ch_type = int(const.spread_del)):
-		#make dn and send delete
-	    elif (ch_type = int(const.spread_add)):
-		# get group-info and send ldap_add
-	if True in [entity.has_spread(x) for x in n_spreads]:
-	    if (ch_type = int(const.spread_del)):
-		#make dn and send delete
-	    elif (ch_type = int(const.spread_add)):
-		#get group-info and send ldap_add 
+	 change_group_spread(dn_id,ch_type,ch_params)
     else:
 	logger.info("Change_spread did not resolve request (%s,%s)" 
 					% (dn_id,ch_type)) 
@@ -249,9 +235,9 @@ def change_group_spread(dn_id,ch_type,ch_params):
 	else:
 	    spread_stat = False
 	ldap_res = lc.get_ldap_value(group_dn,search_str,None)
-	if (ch_type = int(const.spread_del)) and not spread_stat and ldap_res <> []:
+	if (ch_type == int(const.spread_del)) and not spread_stat and ldap_res <> []:
 	    lc.delete_ldap(search_dn)
-	elif (ch_type = int(const.spread_add)) and spread_stat and ldap_res == []:
+	elif (ch_type == int(const.spread_add)) and spread_stat and ldap_res == []:
 	    grp_list = get_group_info(dn_id)
 	    lc.add_ldap(search_dn,grp_list)
 	else:
@@ -264,14 +250,18 @@ def change_group_spread(dn_id,ch_type,ch_params):
         else:
             spread_stat = False
         ldap_res = lc.get_ldap_value(group_dn,search_str,None)
-        if (ch_type = int(const.spread_del)) and not spread_stat and ldap_res <> []:
+        if (int(ch_type) == int(const.spread_del)) and not spread_stat and \
+							ldap_res <> []:
             lc.delete_ldap(search_dn)
-        elif (ch_type = int(const.spread_add)) and spread_stat and ldap_res == []:
+        elif (int(ch_type) == int(const.spread_add)) and spread_stat and \
+							ldap_res == []:
             grp_list = get_netgroup_info(dn_id)
             lc.add_ldap(search_dn,grp_list)
         else:
             logger.info("Could not resolve changelog request on group: %s" % \
                                                         group.group_name)
+    else:
+	pass
 
 
 
