@@ -4,8 +4,7 @@
 ###attr $action = "/feil/url"
 #attr $fields = [ ("name", "Name"),
                   ("accountid", "Account name"),
-                  ("birthno", "Birth number (exact match)"),
-                  ("birthdate", "Date of birth"),
+                  ("birthdate", "Date of birth (YYYY-MM-DD, exact match)"),
                 ]
 #def getAction
 $url("person/search")#slurp
