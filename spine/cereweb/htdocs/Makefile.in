@@ -26,6 +26,7 @@ install-lib:
 install: $(sources) htaccess
 	$(INSTALL) -d $(DESTDIR)/$(webroot)
 	$(INSTALL) -v -m 644 $(sources) $(DESTDIR)/$(webroot)
+	$(INSTALL) -v -m 755 Chandler.py $(DESTDIR)/$(webroot)/Chandler.cgi
 	$(INSTALL) -v -m 644 htaccess $(DESTDIR)/$(webroot)/.htaccess
 	$(MAKE) -C css $@
 	$(MAKE) -C login $@
