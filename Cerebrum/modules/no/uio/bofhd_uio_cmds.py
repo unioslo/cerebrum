@@ -47,12 +47,10 @@ from Cerebrum import Cache
 from Cerebrum import Database
 from Cerebrum import Entity
 from Cerebrum import Errors
-from Cerebrum.Constants import _CerebrumCode, _QuarantineCode, _SpreadCode,\
-     _PersonAffiliationCode, _PersonAffStatusCode, _EntityTypeCode
+from Cerebrum.Constants import _CerebrumCode, _SpreadCode
 from Cerebrum import Utils
 from Cerebrum.modules import Email
-from Cerebrum.modules.Email import _EmailSpamLevelCode, _EmailSpamActionCode,\
-     _EmailDomainCategoryCode
+from Cerebrum.modules.Email import _EmailDomainCategoryCode
 from Cerebrum.modules import PasswordChecker
 from Cerebrum.modules import PosixGroup
 from Cerebrum.modules import PosixUser
@@ -78,6 +76,9 @@ def format_time(field):
     return ':'.join((field, "date", fmt))
 
 class TimeoutException(Exception):
+    pass
+
+class ConnectException(Exception):
     pass
 
 class BofhdExtension(object):
@@ -127,19 +128,26 @@ class BofhdExtension(object):
         import imaplib
         def nonblocking_open(self, host, port):
             import socket
-            import time
+            import select
+            import errno
             self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.sock.setblocking(False)
-            tries = 0
-            while tries < 10:
-                tries += 1
-                err = self.sock.connect_ex((self.host, self.port))
-                if err == 0:
-                    self.sock.setblocking(True)
-                    self.file = self.sock.makefile('rb')
-                    return
-                time.sleep(0.05)
-            raise TimeoutException
+            err = self.sock.connect_ex((self.host, self.port))
+            # I don't think connect_ex() can ever return success immediately,
+            # it has to wait for a roundtrip.
+            assert err
+            if err <> errno.EINPROGRESS:
+                raise ConnectException(errno.errorcode[err])
+
+            ignore, wset, ignore = select.select([], [self.sock], [], 1.0)
+            if not wset:
+                raise TimeoutException
+            err = self.sock.getsockopt(socket.SOL_SOCKET, socket.SO_ERROR)
+            if err == 0:
+                self.sock.setblocking(True)
+                self.file = self.sock.makefile('rb')
+                return
+            raise ConnectException(errno.errorcode[err])
         setattr(imaplib.IMAP4, 'open', nonblocking_open)
 
     def num2str(self, num):
@@ -617,6 +625,8 @@ class BofhdExtension(object):
         AccountName(help_ref="account_name", repeat=True),
         perm_filter='can_email_info',
         fs=FormatSuggestion([
+        ("Type:             %s",
+         ("target_type",)),
         #
         # target_type == Account
         #
@@ -697,18 +707,28 @@ class BofhdExtension(object):
     def email_info(self, operator, uname):
         et, acc = self.__get_email_target_and_account(uname)
         ttype = et.email_target_type
+        ttype_name = str(self.const.EmailTarget(ttype))
+        ret = [ {'target_type': ttype_name } ]
+        # The target_type in ret is overwritten when it is considered
+        # redundant information.
         if ttype == self.const.email_target_Mailman:
-            return self._email_info_mailman(uname, et)
+            ret = self._email_info_mailman(uname, et)
         elif ttype == self.const.email_target_multi:
-            return self._email_info_multi(uname, et)
+            ret += self._email_info_multi(uname, et)
         elif ttype == self.const.email_target_pipe:
-            return self._email_info_pipe(uname, et)
+            ret = self._email_info_pipe(uname, et)
         elif ttype == self.const.email_target_forward:
-            return self._email_info_forward(uname, et)
-        elif ttype not in (self.const.email_target_account,
-                           self.const.email_target_deleted):
+            ret += self._email_info_forward(uname, et)
+        elif ttype == self.const.email_target_account:
+            ret = self._email_info_account(operator, acc, et)
+        elif ttype == self.const.email_target_deleted:
+            ret += self._email_info_account(operator, acc, et)
+        else:
             raise CerebrumError, ("email info for target type %s isn't "
-                                  "implemented") % self.num2const[ttype]
+                                  "implemented") % ttype_name
+        return ret
+
+    def _email_info_account(self, operator, acc, et):
         self.ba.can_email_info(operator.get_entity_id(), acc)
         addrs = self.__get_valid_email_addrs(et)
         ret = self._email_info_basic(acc, et, addrs)
@@ -745,7 +765,7 @@ class BofhdExtension(object):
             es.find(est.email_server_id)
             info["server"] = es.name
             type = int(es.email_server_type)
-            info["server_type"] = str(Email._EmailServerTypeCode(type))
+            info["server_type"] = str(self.const.EmailServerType(type))
         try:
             info["def_addr"] = acc.get_primary_mailaddress()
         except Errors.NotFoundError:
@@ -763,8 +783,8 @@ class BofhdExtension(object):
         esf = Email.EmailSpamFilter(self.db)
         try:
             esf.find(target.email_target_id)
-            spam_lev = _EmailSpamLevelCode(int(esf.email_spam_level))
-            spam_act = _EmailSpamActionCode(int(esf.email_spam_action))
+            spam_lev = self.const.EmailSpamLevel(esf.email_spam_level)
+            spam_act = self.const.EmailSpamAction(esf.email_spam_action)
             info.append({'spam_level':       str(spam_lev),
                          'spam_level_desc':  spam_lev._get_description(),
                          'spam_action':      str(spam_act),
@@ -793,9 +813,14 @@ class BofhdExtension(object):
                     # see if it's a STORAGE quota or something else.
                     # not very important for us, though.
                     used, limit = cyrus.lq("user", acc.account_name)
-                    used = str(used/1024)
+                    if used is None:
+                        used = 'N/A'
+                    else:
+                        used = str(used/1024)
                 except TimeoutException:
                     used = 'DOWN'
+                except ConnectException, e:
+                    used = str(e)
                 info.append({'quota_hard': eq.email_quota_hard,
                              'quota_soft': eq.email_quota_soft,
                              'quota_used': used})
@@ -1661,15 +1686,15 @@ class BofhdExtension(object):
         """Set the spam level for the EmailTarget associated with username.
         It is also possible for super users to pass the name of a mailing
         list."""
-        levelcode = None
-        for c in self.const.fetch_constants(_EmailSpamLevelCode):
-            if str(c).startswith(level):
-                if levelcode:
-                    raise CerebrumError, ("'%s' does not uniquely identify "+
-                                          "a spam level") % level
-                levelcode = c
-        if not levelcode:
+        codes = self.const.fetch_constants(self.const.EmailSpamLevel,
+                                           prefix_match=level)
+        if len(codes) == 1:
+            levelcode = codes[0]
+        elif len(codes) == 0:
             raise CerebrumError, "Spam level code not found: %s" % level
+        else:
+            raise CerebrumError, ("'%s' does not uniquely identify a spam "+
+                                  "level") % level
         et, acc = self.__get_email_target_and_account(uname)
         self.ba.can_email_spam_settings(operator.get_entity_id(), acc, et)
         esf = Email.EmailSpamFilter(self.db)
@@ -1697,15 +1722,15 @@ class BofhdExtension(object):
         """Set the spam action for the EmailTarget associated with username.
         It is also possible for super users to pass the name of a mailing
         list."""
-        actioncode = None
-        for c in self.const.fetch_constants(_EmailSpamActionCode):
-            if str(c).startswith(action):
-                if actioncode:
-                    raise CerebrumError, ("'%s' does not uniquely identify "+
-                                          "a spam action") % action
-                actioncode = c
-        if not actioncode:
+        codes = self.const.fetch_constants(self.const.EmailSpamAction,
+                                           prefix_match=action)
+        if len(codes) == 1:
+            actioncode = codes[0]
+        elif len(codes) == 0:
             raise CerebrumError, "Spam action code not found: %s" % action
+        else:
+            raise CerebrumError, ("'%s' does not uniquely identify a spam "+
+                                  "action") % action
         et, acc = self.__get_email_target_and_account(uname)
         self.ba.can_email_spam_settings(operator.get_entity_id(), acc, et)
         esf = Email.EmailSpamFilter(self.db)
@@ -3606,11 +3631,9 @@ class BofhdExtension(object):
                             hdr="%-14s %s" % ('Name', 'Description')))
     def quarantine_list(self, operator):
         ret = []
-        for c in dir(self.const):
-            tmp = getattr(self.const, c)
-            if isinstance(tmp, _QuarantineCode):
-                ret.append({'name': "%s" % tmp,
-                            'desc': unicode(tmp._get_description(), 'iso8859-1')})
+        for c in self.const.fetch_constants(self.const.Quarantine):
+            ret.append({'name': "%s" % c,
+                        'desc': c._get_description()})
         return ret
 
     # quarantine remove
@@ -4387,9 +4410,8 @@ class BofhdExtension(object):
                 map = [(("%-8s %s", "Num", "Affiliation"), None)]
                 for aff in person.get_affiliations():
                     ou = self._get_ou(ou_id=aff['ou_id'])
-                    name = "%s/%s@%s" % (
-                        self.num2const[int(aff['affiliation'])],
-                        self.num2const[int(aff['status'])],
+                    name = "%s@%s" % (
+                        self.const.PersonAffStatus(aff['status']),
                         self._format_ou_name(ou))
                     map.append((("%s", name), int(aff['affiliation'])))
                 if not len(map) > 1:
