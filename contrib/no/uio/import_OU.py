@@ -6,6 +6,9 @@ import sys
 
 from Cerebrum import Database,Constants,Errors
 from Cerebrum.modules.no.uio import OU
+import pprint
+pp = pprint.PrettyPrinter(indent=4)
+
 
 class StedData(object):
     colnames = """fakultetnr, instituttnr, gruppenr, forkstednavn, stednavn,
@@ -36,6 +39,7 @@ class StedData(object):
         return (stedkode, stedinfo)
 
 stedfile = "/u2/dumps/LT/sted.dta";
+verbose = 1
 
 def main():
     Cerebrum = Database.connect(user="cerebrum")
@@ -45,9 +49,14 @@ def main():
     new_ou = OU.OU(Cerebrum)
     i = 1
     stedkode2ou = {}
+    ou.clear()
     for k in steder.values():
         i = i + 1
-        # if(k['fakultetnr'] != "33"): continue
+
+        if verbose:
+            print "Processing %02d-%02d-%02d %s" % (
+                int(k['fakultetnr']), int(k['instituttnr']),
+                int(k['gruppenr']), k['forkstednavn'])
         new_ou.clear()
 
         new_ou.populate(k['stednavn'], k['fakultetnr'],
@@ -70,24 +79,25 @@ def main():
             ou.get_stedkode(k['fakultetnr'], k['instituttnr'], k['gruppenr'])
             ou.find(ou.ou_id)
 
-            if not (ou == new_ou):
-                print "Changed %s %s %s" % (k['fakultetnr'], k['instituttnr'], k['gruppenr'])
+            if not (new_ou == ou):
+                if verbose: print "is changed"
                 new_ou.write_db(ou)
             new_ou.ou_id = ou.ou_id
-        except Errors.NotFoundError: # Cerebrum.Errors.NotFoundError:
-            print "New entry"
+        except Errors.NotFoundError:
+            if verbose: print "is new"
             new_ou.write_db()
             
         stedkode = "%s-%s-%s" % (k['fakultetnr'], k['instituttnr'], k['gruppenr'])
         stedkode2ou[stedkode] = new_ou.ou_id
         Cerebrum.commit()
 
-    # sys.exit()
     existing_ou_mappings = {}
     for t in ou.get_structure_mappings(co.perspective_lt):
         existing_ou_mappings[t[0]] = t[1]
         
     # Now populate ou_structure
+    if verbose:
+        print "Populate ou_structure"
     for stedkode in steder.keys():
         rec_make_stedkode(stedkode, ou, existing_ou_mappings, steder, stedkode2ou, co)
 
@@ -112,7 +122,7 @@ def rec_make_stedkode(stedkode, ou, existing_ou_mappings, steder, stedkode2ou, c
 
     if(org_stedkode_ou != None and (stedkode != org_stedkode) and
        (not existing_ou_mappings.has_key(org_stedkode_ou))):
-        rec_make_stedkode(org_stedkode, ou, existing_ou_mappings, steder, stedkode2ou)
+        rec_make_stedkode(org_stedkode, ou, existing_ou_mappings, steder, stedkode2ou, co)
 
     ou.find(stedkode2ou[stedkode])
     if stedkode2ou.has_key(org_stedkode):
