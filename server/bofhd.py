@@ -55,8 +55,8 @@ from Cerebrum import Utils
 from Cerebrum.extlib import logging
 from Cerebrum.modules.bofhd.errors import CerebrumError
 from Cerebrum.modules.bofhd.help import Help
-from Cerebrum.modules.bofhd.utils import xmlrpc_to_native
-from Cerebrum.modules.bofhd.utils import native_to_xmlrpc
+from Cerebrum.modules.bofhd.xmlutils import xmlrpc_to_native
+from Cerebrum.modules.bofhd.xmlutils import native_to_xmlrpc
 import traceback
 
 logging.fileConfig(cereconf.LOGGING_CONFIGFILE)
