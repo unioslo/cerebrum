@@ -103,6 +103,10 @@ class GroupName(Parameter):
     _type = 'groupName'
     _help_ref = 'group_name'
 
+class GroupSearchType(Parameter):
+    _type = 'groupSearchType'
+    _help_ref = 'group_search_type'
+
 class GroupOperation(Parameter):
     _tab_func = 'tab_foobar'
     _type = 'groupOperation'
