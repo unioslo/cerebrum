@@ -169,6 +169,37 @@ class OU(EntityContactInfo, EntityAddress, Entity):
                             {'ou_id': self.entity_id,
                              'perspective': int(perspective)})
 
+    def structure_path(self, perspective):
+        """Return a string indicating OU's structural placement.
+
+        Recursively collect 'acronym' of OU and its parents (as they
+        are modeled in 'perspective'); return a string with a
+        '/'-delimited list of these acronyms, most specific OU first.
+
+        """
+        temp = self.__class__(self._db)
+        temp.find(self.entity_id)
+        components = []
+        visited = []
+        while True:
+            # Detect infinite loops
+            if temp.entity_id in visited:
+                raise RuntimeError, "DEBUG: Loop detected: %r" % visited
+            visited.append(temp.entity_id)
+            # Append this node's acronym (if it is non-NULL) to
+            # 'components'.
+            # TBD: Is this the correct way to handle NULL acronyms?
+            if temp.acronym is not None:
+                components.append(temp.acronym)
+            # Find parent, end search if parent is either NULL or the
+            # same node we're currently at.
+            parent_id = temp.get_parent(perspective)
+            if (parent_id is None) or (parent_id == temp.entity_id):
+                break
+            temp.clear()
+            temp.find(parent_id)
+        return "/".join(components)
+
     def unset_parent(self, perspective):
         self.execute("""
         DELETE FROM [:table schema=cerebrum name=ou_structure]
