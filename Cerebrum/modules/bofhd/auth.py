@@ -26,6 +26,7 @@ from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum import Constants
 from Cerebrum import Cache
 from Cerebrum import Errors
+from Cerebrum import Person
 from Cerebrum.modules import PosixGroup
 from Cerebrum.Utils import Factory, mark_update
 from Cerebrum.modules.bofhd.errors import PermissionDenied
@@ -555,23 +556,66 @@ class BofhdAuth(DatabaseAccessor):
         return self.can_add_spread(self, operator, entity, spread,
                                    query_run_any=query_run_any)
     
-    def can_add_affiliation(self, operator, person=None, ou=None, aff=None,
+    def can_add_account_type(self, operator, account=None, ou=None, aff=None,
                             aff_status=None, query_run_any=False):
         if self.is_superuser(operator):
             return True
         if query_run_any:
+            if self._has_operation_perm_somewhere(operator, self.const.auth_create_user):
+                return True
             return False
+        # Return true if we have auth_create_user on this user, and
+        # the affiliation is of type manual or the person has the affiliaton
+        self.can_create_user(operator, disk=account.disk_id)
+        if aff == self.const.affiliation_manuell:
+            return True
+        person = Person.Person(self._db)
+        person.find(account.owner_id)
+        for tmp_aff in person.get_affiliations():
+            if (tmp_aff['affiliation'] == aff and
+                tmp_aff['status'] == aff_status):
+                return True
+        raise PermissionDenied("No access")
+
+    def can_remove_account_type(self, operator, account=None, ou=None,
+                               aff=None, query_run_any=False):
+        if self.is_superuser(operator):
+            return True
+        if query_run_any:
+            if self._has_operation_perm_somewhere(operator, self.const.auth_create_user):
+                return True
+            return False
+        return self.can_create_user(operator, disk=account.disk_id)
+    
+    def can_add_affiliation(self, operator, person=None, ou=None, aff=None,
+                            aff_status=None, query_run_any=False):
+        if self.is_superuser(operator):
+            return True
         # TODO (at a later time): add 'auth_add_affiliation',
         # 'auth_remove_affiliation'.  Determine how these should be
         # connected to ou etc.
-        raise PermissionDenied("Currently limited to superusers")
+        # Currently we allow anyone that can create users to
+        # add/remove any affiliation of type manuell
+        if query_run_any:
+            if self._has_operation_perm_somewhere(operator, self.const.auth_create_user):
+                return True
+            return False
+        if (aff == self.const.affiliation_manuell and
+            self._has_operation_perm_somewhere(operator, self.const.auth_create_user)):
+            return True
+        raise PermissionDenied("No access for that person affiliation combination")
 
     def can_remove_affiliation(self, operator, person=None, ou=None,
                                aff=None, query_run_any=False):
         if self.is_superuser(operator):
             return True
         if query_run_any:
+            if self._has_operation_perm_somewhere(operator, self.const.auth_create_user):
+                return True
             return False
+        if (aff == self.const.affiliation_manuell and
+            self._has_operation_perm_somewhere(operator, self.const.auth_create_user)):
+            return True
         raise PermissionDenied("Currently limited to superusers")
 
     def can_create_user(self, operator, person=None, disk=None,
