@@ -703,10 +703,11 @@ ORDER BY fodselsdato, personnr
             
         qry = """
         SELECT frk.fodselsdato, frk.personnr, frk.fakturanr, frk.dato_betalt,
-               fkd.belop
+               fkd.belop, fkd.detaljlopenr, frk.kidkode
         FROM fs.fakturareskontrodetalj fkd,
              fs.fakturareskontro frk
         WHERE fkd.fakturanr = frk.fakturanr AND
+              fkd.status_betalt = 'J' AND
               fkd.fakturadetaljtypekode IN ('UTSKRIFT', 'UTSKRIFT1',
               'UTSKRIFT2', 'UTSKRIFT3') AND
               frk.status_betalt = 'J' %s""" % where
