@@ -82,12 +82,16 @@ This would probably requiring clients to wrap the calls to the server
 methods so that xmlrpclib.Fault could be converted to something else.
 HOW?
 
-<h2>login(uname, password</h2>
+<h2>login(uname, password, clientid)</h2>
 
-<pre>sessid = testsvr.login(user, passwd)</pre>
+<pre>sessid = testsvr.login(user, passwd, clientid)</pre>
 
 The login method authenticates the user.  Upon success, a sessionid is
 returned which must be used for future communication with the server.
+
+<p>
+clientid is a string identifying the client.  By requiring this string
+it is easier to keep track of the number of different clients.
 
 <h2>ping()</h2>
 Returns the string <code>pong</code> to indicate that the server is alive
@@ -102,7 +106,7 @@ The format of the data is as follows:
 #   protocol_command  bofh_cmd1 bofh_cmd2 parameter[1..n] #of_loopable_param
 commands = (
     ('get_person', 'person', 'get', 'number', 1),
-    ('add_fg', 'filegroup', 'add', 'string', 'string', 1),
+    ('add_fg', 'filegroup', 'add', 'string', 'string', 1))
 </pre>
 
 Here protocol_command is the name of the function that will be called
@@ -190,7 +194,7 @@ steps are taken to avoid clash of command names.
 
 
 <hr>
-<address>$Revision$</address>
+<address>$Id$</address>
 
 </body>
 </html>
