@@ -126,7 +126,13 @@ class my_install_data (install_data.install_data, object):
             print "Warning, uid!=0, not writing cerebrum_path.py"
             return
         f_in = open("cerebrum_path.py.in", "r")
-        f_out = open("%s/cerebrum_path.py" % sysconfig.get_python_lib(), "w")
+        cere_path = os.path.join(sysconfig.get_python_lib(), "cerebrum_path.py")
+        if self.root:
+            cere_path = os.path.normpath(cere_path)
+            if os.path.isabs(cere_path):
+                cere_path = cere_path[1:]
+            cere_path = os.path.join(self.root, cere_path)
+        f_out = open(cere_path, "w")
         etc_dir = "%s/etc/cerebrum" % self.install_dir
         python_dir = sysconfig.get_python_lib(prefix=self.install_dir)
         for line in f_in.readlines():
