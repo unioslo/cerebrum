@@ -19,35 +19,50 @@ from Cerebrum import Account
 from Cerebrum import Constants
 
 def usage(exitcode=0):
-    print """Usage: report_new_users.py spread1 ..."""
+    print """Usage: report_new_users.py [-s spread1 | -f fnrfile]"""
     sys.exit(exitcode)
 
 def main():
     try:
-        opts, spreads = getopt.getopt(sys.argv[1:], '', ['help'])
+        opts, args = getopt.getopt(sys.argv[1:], 's:f:', ['help'])
     except getopt.GetoptError:
         usage(1)
-
-    if not spreads:
-        usage(1)
-
-    for opt, val in opts:
-        if opt == '--help':
-            usage()
 
     db = Factory.get("Database")()
     const = Factory.get("Constants")(db)
 
-    for spread in spreads:
-        dump_new_users(db, const, spread)
+    for opt, val in opts:
+        if opt == '--help':
+            usage()
+        elif opt == '-s':
+            dump_new_users(db, const, spread=val)
+        elif opt == '-f':
+            dump_new_users(db, const, fnr_file=val)
 
-
-def dump_new_users(db, const, spread, start_date=None):
-    scode = int(getattr(const, spread))
+def dump_new_users(db, const, spread=None, fnr_file=None, start_date=None):
     entity = Entity.Entity(db)
     if start_date is None:
         start_date = yesterday(db)
-    for r in entity.list_all_with_spread(scode):
+    if spread is not None:
+        scode = int(getattr(const, spread))
+        rows = entity.list_all_with_spread(scode)
+    elif fnr_file is not None:
+        account = Account.Account(db)
+        person = Person.Person(db)
+        rows = []
+        f = open(fnr_file)
+        for fnr in f.readlines():
+            fnr = fnr.rstrip()
+            person.clear()
+            try:
+                person.find_by_external_id(const.externalid_fodselsnr, fnr)
+            except Errors.NotFoundError:
+                print "no users for %s" % fnr
+                continue
+            for r in account.list_accounts_by_owner_id(person.entity_id):
+                rows.append({'entity_id': r['account_id']})
+        
+    for r in rows:
         try:
             account = _get_account(db, r['entity_id'])
         except Errors.NotFoundError:
