@@ -592,7 +592,7 @@ def get_address(address_id):
     return "%s@%s" % (ea.email_addr_local_part,
                       ed.rewrite_special_domains(ed.email_domain_name))
 
-def is_ok_time(now):
+def is_ok_batch_time(now):
     times = LEGAL_BATCH_MOVE_TIMES.split('-')
     if times[0] > times[1]:   #  Like '20:00-08:00'
         if now > times[0] or now < times[1]:
