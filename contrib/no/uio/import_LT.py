@@ -64,7 +64,7 @@ class LTDataParser(xml.sax.ContentHandler):
             for k in attrs.keys():
                 self.p_data[k] = attrs[k].encode('iso8859-1')
         else:
-            print "WARNING: unknown element: %s" % name
+            logger.warn("WARNING: unknown element: %s" % name)
 
     def endElement(self, name):
         if name == "person":
@@ -184,6 +184,8 @@ def determine_affiliations(person):
 	    ret[k] = sted['id'], const.affiliation_ansatt,\
                    		const.affiliation_status_ansatt_bil
     for g in person.get('gjest', ()):
+        if not type_is_active(g):
+            continue
         if g['gjestetypekode'] == 'EMERITUS':
             aff_stat = const.affiliation_tilknyttet_emeritus
         elif g['gjestetypekode'] == 'PCVAKT':
