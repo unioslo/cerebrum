@@ -157,6 +157,7 @@ NW_LOST_AND_FOUND = 'ou=lost-n-found'
 NW_GROUP_POSTFIX = '-gruppe'
 NW_PASSWORD_EXPIRE = 'FALSE'
 NW_CAN_CHANGE_PW = 'FALSE'
+NW_GROUP_SPREAD = ('spread_novell_group',)
 
 
 #Notes spesifikke variable.
