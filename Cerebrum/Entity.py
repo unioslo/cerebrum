@@ -258,6 +258,19 @@ class Entity(DatabaseAccessor):
         FROM [:table schema=cerebrum name=entity_info]
         WHERE entity_type=:entity_type""", {'entity_type': int(entity_type)})
 
+    def get_subclassed_object(self, id=None):
+        """Instantiates and returns a object of the proper class
+        based on the entity's type."""
+        if id is not None:
+            self.find(id)
+        type = str(self.const.EntityType(self.entity_type))
+        component = Factory.type_component_map.get(type)
+        if component is None:
+            raise ValueError, "No factory for type %s" % type
+        object = Factory.get(component)(self._db)
+        object.find(self.entity_id)
+        return object
+
 
 class EntityName(Entity):
     "Mixin class, usable alongside Entity for entities having names."
@@ -641,6 +654,7 @@ class EntityQuarantine(Entity):
         self._db.log_change(self.entity_id, self.const.quarantine_del,
                             None, change_params={'q_type': int(type)})
 
+# TODO: OBSOLETE.  use Entity.get_subclassed_object()
 def object_by_entityid(id, database): 
     """Instanciates and returns a object of the proper class
        based on the entity's type."""
