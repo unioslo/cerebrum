@@ -1,0 +1,21 @@
+[spine]
+cache: false
+cache_dir: /tmp/havarden
+username: stain
+password: blapp
+
+[corba]
+context: Cerebrum
+service: Gro
+object: GroServer
+url: /tmp/havarden/spine.ior
+
+[ssl]
+ca_file: CA.crt
+key_file: client.pem
+password: client
+
+[idl]
+path: ../lib/server/idl/
+spine: server.idl
+errors: errors.idl
