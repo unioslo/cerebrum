@@ -133,7 +133,8 @@ def set_quota(person_id, has_quota=False, has_blocked_quota=False,
             pq_logger.info("set has_quota=%i for %i" % (has_quota, person_id))
         if ppq_info['has_blocked_quota'] != new_blocked:
             ppq.set_status_attr(person_id, {'has_blocked_quota': has_blocked_quota})
-            pq_logger.info("set has_blocked_quota=%i for %i" % (has_quota, person_id))
+            pq_logger.info("set has_blocked_quota=%i for %i" % (
+                has_blocked_quota, person_id))
     except Errors.NotFoundError:
         ppq_info = {'max_quota': None,
                     'weekly_quota': None}
