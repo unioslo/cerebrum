@@ -497,13 +497,16 @@ class BofhdAuth(DatabaseAccessor):
     def can_create_disk(self, operator, host=None, query_run_any=False):
         if self.is_superuser(operator):
             return True
+        if query_run_any:
+            return self._has_operation_perm_somewhere(operator,
+                                                      self.const.auth_add_disk)
+        if host is not None:
+            host = int(host.entity_id)
         if self._query_target_permissions(operator, self.const.auth_add_disk,
                                           self.const.auth_target_type_host,
                                           host, None):
             return True
-        if query_run_any:
-            return False
-        raise PermissionDenied("Permission denied")
+        raise PermissionDenied("No access to host")
 
     def can_remove_disk(self, operator, host=None, query_run_any=False):
         return self.can_create_disk(operator, host=host,
