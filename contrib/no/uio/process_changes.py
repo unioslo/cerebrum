@@ -1,34 +1,61 @@
 #!/usr/bin/env python2.2
 
-# This script should be ran regularly from cron.  It process the
-# changelog, and performs a number of tasks:
+# This script should be ran regularly.  It process the changelog, and
+# performs a number of tasks:
 #
 # - when a user has been creted: create users homedir
 
 import cerebrum_path
 
 import os
+import sys
+import getopt
 import cereconf
+
+from Cerebrum.extlib import logging
 from Cerebrum.modules import CLHandler
 from Cerebrum.Utils import Factory
+from Cerebrum import Errors
 from Cerebrum import Disk
 from Cerebrum.modules import PosixUser
 from Cerebrum.modules import PosixGroup
 
-rsh = "/local/bin/ssh"
+logging.fileConfig(cereconf.LOGGING_CONFIGFILE)
+logger = logging.getLogger("cronjob")
 db = Factory.get('Database')()
 const = Factory.get('CLConstants')(db)
-ei = CLHandler.CLHandler(db)
 posix_user = PosixUser.PosixUser(db)
 posix_group = PosixGroup.PosixGroup(db)
+host = Disk.Host(db)
+disk = Disk.Disk(db)
+# Hosts to connect to, set to None in a production environment:
+debug_hostlist = ['cerebellum']
 
-def test_setup():
-    """Debug methods while testing: inserts ChangeLog entries"""
-    db.cl_init(change_by=None, change_program='foobarprog')
-    db.log_change(54, const.a_create, None)
-    db.log_change(57, const.a_create, None)
+def insert_account_in_cl(account_name):
+    """Add an account_create event to the ChangeLog.  Useful for
+    testing, or if forcing an operation"""
+    db.cl_init(change_by=None, change_program='process_changes')
+    posix_user.find_by_name(account_name)
+    db.log_change(posix_user.entity_id, const.account_create, None)
     db.commit()
 
+def get_make_user_data(entity_id):
+    posix_user.clear()
+    posix_user.find(entity_id)
+    posix_group.clear()
+    posix_group.find(posix_user.gid_id)
+    disk.clear()
+    disk.find(posix_user.disk_id)
+    host.clear()
+    host.find(disk.host_id)
+    return {'uname': posix_user.account_name,
+            'disk': disk.path,
+            'uid': str(posix_user.posix_uid),
+            'gid': str(posix_group.posix_gid),
+            'gecos': posix_user.get_gecos(),
+            'host': host.name}
+
+# TODO: remove this method iff we dont need to quote rsh cmd
 def quote_list(lst):  # TODO: check that input is in [a-zA-Z0-9-_ '"]
     ret = ""
     for n in range(len(lst)):
@@ -41,42 +68,54 @@ def quote_list(lst):  # TODO: check that input is in [a-zA-Z0-9-_ '"]
     return " ".join(lst)
 
 def make_user(entity_id):
-    posix_user.clear()
-    posix_user.find(entity_id)
-    posix_group.clear()
-    posix_group.find(posix_user.gid)
+    try:
+        info = get_make_user_data(entity_id)
+    except Errors.NotFoundError:
+        logger.warn("NotFound error for entity_id %s" % entity_id)
+        return
+    cmd = [cereconf.CREATE_USER_SCRIPT, info['uname'], info['disk'],
+           info['uid'], info['gid'], cereconf.POSIX_HOME_TEMPLATE_DIR,
+           cereconf.POSIX_USERMOD_SCRIPTDIR, info['gecos']]
 
-    uname = posix_user.get_name(const.account_namespace)['entity_name']
-    home = posix_user.home
-    user_uid = str(posix_user.posix_uid)
-    default_group = str(posix_group.posix_gid)
-
-    # TODO: find out which machine to connect to.
-    # send more info like full-name (used for eudora ini files), but
-    # find a safe way to quote it that is parseable by /bin/sh (STDIN)?
-    host = Disk.Host(db)
-    disk = Disk.Disk(db)
-    disk.clear()
-    disk.find(posix_user.disk_id)
-    host.clear()
-    host.find(disk.host_id)
-    
-    homedir = "%s/%s" % (disk.path, posix_user.account_name)
-    cmd = ['/local/etc/reguser/mkhomedir', uname, homedir,
-           user_uid, default_group, cereconf.POSIX_HOME_TEMPLATE_DIR,
-           cereconf.POSIX_USERMOD_SCRIPTDIR, posix_user.get_gecos()]
     # TODO: It seems that ssh properly handles the arguments to the
     # remote command, but this must be investigated further to prevent
     # malicious abuse.
-    cmd = (rsh, '-n', host.name) + tuple(cmd)
+    cmd = (cereconf.RSH_CMD, '-n', info['host']) + tuple(cmd)
 
-    print "Doing: %s" % str(cmd)
-    os.spawnv(os.P_WAIT, rsh, cmd)
+    logger.debug("Doing: %s" % str(cmd))
+    if debug_hostlist is None or info['host'] in debug_hostlist:
+        os.spawnv(os.P_WAIT, rsh, cmd)
 
-for evt in ei.get_events('uio_ch', [const.a_create]):
-    if evt.change_type_id == int(const.a_create):
-        print "Creating entity_id=%s" % (evt.subject_entity)
-        make_user(evt.subject_entity)
-# test_setup()
-db.commit()
+def process_changes():
+    ei = CLHandler.CLHandler(db)
+    for evt in ei.get_events('uio_ch', [const.account_create]):
+        if evt.change_type_id == int(const.account_create):
+            logger.debug("Creating entity_id=%s" % (evt.subject_entity))
+            make_user(evt.subject_entity)
+    db.commit()
 
+def usage(exitcode=0):
+    print """process_changes.py [options]
+    -h | --help
+    -i | --insert account_name
+    -p | --process-changes"""
+    sys.exit(exitcode)
+
+def main():
+    try:
+        opts, args = getopt.getopt(sys.argv[1:], 'hi:p',
+                                   ['help', 'insert=', 'process-changes'])
+    except getopt.GetoptError:
+        usage(1)
+    if not opts:
+        usage(1)
+    for opt, val in opts:
+        if opt in ('-h', '--help'):
+            usage()
+        elif opt in ('-i', '--insert'):
+            insert_account_in_cl(val)
+        elif opt in ('-p', '--process-changes'):
+            process_changes()
+            
+if __name__ == '__main__':
+    main()
