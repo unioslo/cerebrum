@@ -161,7 +161,7 @@ class JobRunner(object):
         running_jobs = []
         prev_loop_time = 0
         n_fast_loops = 0
-        while 1:
+        while True:
             if time.time() - prev_loop_time < 2:
                 logger.debug("Fast loop: %s" % (time.time() - prev_loop_time))
                 n_fast_loops += 1
@@ -204,24 +204,34 @@ class JobRunner(object):
             delta = self.find_ready_jobs(self.all_jobs)
             logger.debug("%s New queue (delta=%s): %s" % (
                 "-" * 20, delta, ", ".join(self.ready_to_run)))
-            if(delta > 0):
+            if delta > 0:
                 if debug_time:
                     time.sleep(1)
                 else:
                     pre_time = time.time()
-                    # sleep until next job, either Timer or SocketHandling will wake us
+                    # Sleep until next job, either Timer or
+                    # SocketHandling will wake us
                     self.sleep_to = pre_time + min(max_sleep, delta)
-                    self.timer_wait = threading.Timer(min(max_sleep, delta), self.wake_runner)
-                    self.timer_wait.setDaemon(1)
-                    self.timer_wait.start()
                     self.runner_cw.acquire()
+                    # We have the lock.  Set up the wake-up call for
+                    # ourselves (but don't release the lock until the
+                    # timer has been activated, as we won't hear it if
+                    # it goes off before we're wait()ing).
+                    self.timer_wait = threading.Timer(min(max_sleep, delta),
+                                                      self.wake_runner)
+                    self.timer_wait.setDaemon(True)
+                    self.timer_wait.start()
+                    # Now, release the lock and wait for the timer to
+                    # wake us.
                     self.runner_cw.wait()
-                    self.runner_cw.release()
                     self.sleep_to = None
+                    # We're awake, and don't need the lock anymore.
+                    self.runner_cw.release()
                     if time.time() - pre_time < min(max_sleep, delta):
-                        # Work-around for some machines that don't sleep long enough
+                        # Work-around for some machines that don't
+                        # sleep long enough
                         time.sleep(1)
-        
+
 def usage(exitcode=0):
     print """job_runner.py --reload | --config file | --quit | --status"""
     sys.exit(exitcode)
@@ -264,7 +274,7 @@ def main():
         sys.exit(1)
     jr = JobRunner(scheduled_jobs)
     jr_thread = threading.Thread(target=sock.start_listener, args=(jr,))
-    jr_thread.setDaemon(1)
+    jr_thread.setDaemon(True)
     jr_thread.start()
     try:
         jr.runner()
