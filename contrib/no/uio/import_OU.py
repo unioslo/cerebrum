@@ -44,7 +44,7 @@ stedfile = "/u2/dumps/LT/sted.dta";
 verbose = 1
 
 def main():
-    Cerebrum = Database.connect(user="cerebrum")
+    Cerebrum = Database.connect()
     steder = les_sted_info()
     co = Constants.Constants(Cerebrum)
     ou = OU.OU(Cerebrum)
