@@ -218,6 +218,8 @@ def make_letters():
             th = TemplateHandler('no', 'new_user', 'txt')  # TODO: write this template
         out.write(th._hdr)
         for k in keys:
+            if all_passwords[k][1] != run_no:
+                continue
             dta[k]['lopenr'] = num
             out.write(th.apply_template('body', dta[k]))
             num += 1
