@@ -44,7 +44,7 @@ from Cerebrum.modules import Email
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules import PosixUser
 from Cerebrum.modules import PosixGroup
-
+from Cerebrum.Constants import _SpreadCode
 
 
 
@@ -79,12 +79,14 @@ def process_line(infile):
             logger.error("Bad line: %s. Skipping" % line)
             continue
         # fi
-        
+
+        fnr = fields[0]
         uname = fields[1]
-        uid = fields[3]
-        gid = fields[4]
+        if fnr == "":
+            logger.warn("User: %s got no fnr. Skipping", uname)
+            continue
         if not uname == "":
-            user_id = process_user(uname, uid, gid)
+            user_id = process_user(uname, fnr)
         else:
             logger.warn("No username: %s. Skipping", line)
         # fi
@@ -95,65 +97,52 @@ def process_line(infile):
 # end process_line
 
     
-def process_user(uname, uid, gid):
+def process_user(uname, fnr):
     """
     Set uid/gid for user.
     """
-
     try:
-        pg.clear()
-        pg.find_by_gid(gid)
-        logger.debug3("Found group with gid: %s", gid)
+        person.clear()
+        person.find_by_external_id(co.externalid_fodselsnr, fnr)
     except Errors.NotFoundError:
-        pg.clear()
-        logger.warn("Group not found: %s continue with gid: %s", gid, 1000)
-        pg.find_by_gid(1000)
-    # yrt
-    
-    try:
-        account.clear()
-        account.find_by_name(uname)
-        logger.debug3("User %s exists in Cerebrum", uname)
-    except Errors.NotFoundError:
-        logger.warn("User %s not found. Skipping.", uname)
+        logger.warn("Person with fnr: %s doesn't exists in Cerebrum.", fnr)
         return
     # yrt
 
     try:
         pu.clear()
-        pu.find_by_uid(int(uid))
-        if pu.account_name == uname:
-            logger.debug3("User %s exists as PosixUser in Cerebrum", uname)
+        pu.find_by_name(uname)
+        if pu.owner_id == person.entity_id:
+            logger.debug3("User %s exists in Cerebrum with person: %s",
+                          uname, fnr)
+            pu.add_spread(spread)
+            pu.write_db()
+            logger.debug3("User %s got spread %s", uname, spread)
         else:
-            logger.warn("User %s exists with uid: %s. We have: %s.",
-                        pu.account_name, uname, uid)
+            logger.warn("User %s exists with owner: %s. We have: %s.",
+                        pu.account_name, pu.owner_id, person.entity_id)
         return
     except Errors.NotFoundError:
-        pass
-
-    try:
-        pu.clear()
-        pu.find(account.entity_id)
-        if int(pu.posix_uid) == int(uid):
-            logger.debug3("User %s exists as PosixUser in Cerebrum", uname)
-        else:
-            logger.warn("User %s exists with uid: %s. Will leave alone.", uname, uid)
+        logger.warn("POSIX-user not found: %s.", uname)
         return
-    except Errors.NotFoundError:
-        pu.clear()
-        pu.populate(uid, pg.entity_id, None, co.posix_shell_tcsh, parent=account)
-        pu.write_db()
-        logger.debug3("User %s promoted with uid: %s", uname, uid)
     # yrt
 # end process_user
 
+def map_spread(id):
+    try:
+        return int(_SpreadCode(id))
+    except Errors.NotFoundError:
+        print "Error mapping %s" % id
+        raise
+# end map_spread
 
 
 def usage():
-    print """Usage: import_crypt.py
+    print """Usage: update_spread.py
     -v, --verbose : Show extra information. Multiple -v's are allowed
                     (more info).
     -f, --file    : File to parse.
+    -s, --spread  : Give spread to users.
     """
     sys.exit(0)
 # end usage
@@ -161,43 +150,51 @@ def usage():
 
 
 def main():
-    global db, co, account, default_creator_id
-    global dryrun, logger, pu, pg
+    global db, co, spread, dryrun, logger, pu, person
 
     logger = Factory.get_logger("console")
     
     try:
         opts, args = getopt.getopt(sys.argv[1:],
-                                   'f:d',
+                                   'f:ds:',
                                    ['file=',
-                                    'dryrun'])
+                                    'dryrun',
+                                    'spread'])
     except getopt.GetoptError:
         usage()
     # yrt
 
+
+    db = Factory.get('Database')()
+    db.cl_init(change_program='update_spread')
+    co = Factory.get('Constants')(db)
+    pu = PosixUser.PosixUser(db)
+    person = Factory.get('Person')(db)
+
+
     dryrun = False
+    spread = None
     for opt, val in opts:
         if opt in ('-d', '--dryrun'):
             dryrun = True
         elif opt in ('-f', '--file'):
             infile = val
+        elif opt in ('-s', '--spread'):
+            spread = map_spread(val)
         # fi
     # od
 
     if infile is None:
         usage()
     # fi
-
-    db = Factory.get('Database')()
-    db.cl_init(change_program='import_uid_gid')
-    co = Factory.get('Constants')(db)
-    account = Factory.get('Account')(db)
+    if spread is None:
+        print "ERROR: Must supply a spread!\n"
+        usage()
+    # fi
 
     pu = PosixUser.PosixUser(db)
     pg = PosixGroup.PosixGroup(db)
 
-    account.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
-    default_creator_id = account.entity_id
     process_line(infile)
 
     attempt_commit()
