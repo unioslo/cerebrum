@@ -252,10 +252,15 @@ public class JBofh {
     /** Creates a new instance of JBofh 
      */
 
-    public JBofh(boolean gui, String log4jPropertyFile, String bofhd_url) 
-        throws BofhdException {
+    public JBofh(boolean gui, String log4jPropertyFile, String bofhd_url,
+        Hashtable propsOverride) throws BofhdException {
 	guiEnabled = gui;
         loadPropertyFiles(log4jPropertyFile);
+        for (Enumeration e = propsOverride.keys() ; e.hasMoreElements() ;) {
+            String k = (String) e.nextElement();
+            String v = (String) propsOverride.get(k);
+            props.put(k, v);
+        }
 	if(gui){
             // Load class with reflection to prevent javac from trying
             // to compile JBofhFrameImpl which requires swing.
@@ -814,6 +819,8 @@ public class JBofh {
             String bofhd_url = null;
 	    boolean test_login = false;
 	    String log4jPropertyFile = "/log4j_normal.properties";
+            Hashtable propsOverride = new Hashtable();
+
 	    for(int i = 0; i < args.length; i++) {
 		if(args[i].equals("-q")) {
 		    test_login = true;
@@ -825,6 +832,10 @@ public class JBofh {
 		    gui = false;
 		} else if(args[i].equals("-u")) {
                     uname = args[++i];
+		} else if(args[i].equals("--set")) {
+                    String tmp = args[++i];
+                    propsOverride.put(tmp.substring(0, tmp.indexOf('=')),
+                        tmp.substring(tmp.indexOf('=')+1));
 		} else if(args[i].equals("-d")) {
                     log4jPropertyFile = "/log4j.properties";
 		} else {
@@ -835,11 +846,12 @@ public class JBofh {
                         "--url url : connect to alternate server\n"+
                         "--gui : start with primitive java gui\n"+
                         "--nogui : start in console mode\n"+
+                        "--set key=value: override settings in property file\n"+
                         "-d : enable debugging");
                     System.exit(1);
                 }
 	    }
-            jb = new JBofh(gui, log4jPropertyFile, bofhd_url);
+            jb = new JBofh(gui, log4jPropertyFile, bofhd_url, propsOverride);
 	    if(test_login) {
 		jb.initialLogin("bootstrap_account", "test");
                 // "test" md5: $1$F9feZuRT$hNAtCcCIHry4HKgGkkkFF/
