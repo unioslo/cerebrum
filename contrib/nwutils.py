@@ -303,8 +303,7 @@ def get_account_dict(dn_id, spread):
     (ldap_dn, entry) = get_account_info(dn_id, spread)
     for attr in entry:
         return_dict[attr[0]] = attr[1]
-    print return_dict
-    return(return_dict)
+    return (ldap_dn, return_dict)
 
 
 
@@ -338,7 +337,7 @@ def get_user_info(account_id, spread):
                     ext_id = int(person.get_external_id(co.system_fs, co.externalid_studentnr)[0]['external_id'])
                 else: 
                     ext_id = int(person.get_external_id(int(getattr(co, ss)))[0]['external_id'])
-            except Errors.NotFoundError:
+            except:
                 pass
         if full_name == ' ':
             print "WARNING: getting persons name failed, account.owner_id:",person_id
@@ -460,9 +459,10 @@ def find_home_dir(account_id, account_name, spread):
         disk.clear()
         disk.find(tmp['disk_id'])
     except Errors.NotFoundError:
-         return None
+        return None
     return "%s/%s" % (disk.path, account_name)
-        
+
+
 
 def find_login_script(account):
     #This value is a specific UIO standard.

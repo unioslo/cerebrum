@@ -90,7 +90,7 @@ def nwqsync(spread):
     global spread_id
     i = 0
     clh = CLHandler.CLHandler(db)
-    ch_log_list = clh.get_events('ldap',cl_events)
+    ch_log_list = clh.get_events('nwqsync',cl_events)
     spread_id = int(getattr(co, spread))
     for cll in ch_log_list:
         try:
@@ -99,10 +99,10 @@ def nwqsync(spread):
             print "event_type %d not handled" % cll.change_type_id
         else:
             exec cltype[int(cll.change_type_id)]
- #           clh.confirm_event(cll)
+            clh.confirm_event(cll)
         i += 1
- #       clh.confirm_event(cll)
- #   clh.commit_confirmations()
+        clh.confirm_event(cll)
+    clh.commit_confirmations()
 
 
 def dbg_print(lvl, str):
@@ -203,7 +203,23 @@ def user_add_del_grp(ch_type,dn_user,dn_dest):
             print dbg_print(WARN, "WARNING: unhandled group logic")
 
 
+def path2edir(attrs):
+    try:
+        idx = attrs.index('ndsHomeDirectory')
+    except:
+        return
+    value = attrs[idx+1]
+    (foo,srv,vol,path) = value.split("/", 3)
+    search_str = "cn=%s_%s" % (srv,vol)
+    search_dn = "%s" % cereconf.NW_LDAP_ROOT
+    ldap_disk = ldap_handle.GetObjects(search_dn,search_str)
+    if ldap_disk == []:
+        del attrs[idx:idx+1]
+    else:
+        attrs[idx+1] = "%s#0#%s" % (ldap_disk[0][0], path)
     
+
+
 
 def change_user_spread(dn_id,ch_type,ch_params):
     account = Account.Account(db)
@@ -224,6 +240,7 @@ def change_user_spread(dn_id,ch_type,ch_params):
         elif (ch_type == int(const.spread_add)):
             if (ldap_obj == []):
                 (ldap_user, ldap_attrs) = nwutils.get_account_info(dn_id, spread_id)
+                path2edir(ldap_attrs)
                 add_ldap(ldap_user,ldap_attrs)
             else:
                 (ldap_user, ldap_attrs) = ldap_obj [0]
@@ -287,20 +304,21 @@ def mod_account(dn_id,i):
         search_str = "cn=%s" % account.account_name
         search_dn = "%s" % cereconf.NW_LDAP_ROOT
         ldap_entry = ldap_handle.GetObjects(search_dn,search_str)
-        base_entry = nwutils.get_account_dict(dn_id, spread_id)
+        (cerebrm_dn, base_entry) = nwutils.get_account_dict(dn_id, spread_id)
         if ldap_entry != []:
-            print ldap_entry
             (dn_str,ldap_attr) = ldap_entry[0]
         else:
             dbg_print(WARN, "WARNING: CL Modify on object not in LDAP")
             return
+        if base_entry.has_key('ndsHomeDirectory'):
+            newpath = path2edir(('ndsHomeDirectory', base_entry['ndsHomeDirectory']))
+            base_entry['ndsHomeDirectory'] = newpath[1]
         for entry in base_entry.keys():
             try:
                 if (ldap_attr[entry] <> base_entry[entry]):
                     if entry in ('userPassword',):
                         pass
                     else:
-                        print "Diff:", ldap_attr[entry], base_entry[entry]
                         value = (entry, base_entry[entry]),
                         attr_mod_ldap(dn_str, value)
             except KeyError:
