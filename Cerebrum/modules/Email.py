@@ -399,21 +399,17 @@ class EmailTarget(EmailEntity):
         """Return all email_addresses associated with this
         email_target as row objects.  If special is False, rewrite the
         magic domain names into working domain names."""
-        list = self.query("""
+        ret = self.query("""
         SELECT ea.local_part, ed.domain, ea.address_id
         FROM [:table schema=cerebrum name=email_address] ea
         JOIN [:table schema=cerebrum name=email_domain] ed
           ON ed.domain_id = ea.domain_id
         WHERE ea.target_id = :t_id""", {'t_id': int(self.email_target_id)})
-        if special:
-            return list
-        else:
+        if not special:
             ed = EmailDomain(self._db)
-            rewritten = []
-            for r in list:
+            for r in ret:
                 r['domain'] = ed.rewrite_special_domains(r['domain'])
-                rewritten.append(r)
-            return rewritten
+        return ret
 
     def list_email_targets(self):
         """Return target_id of all EmailTarget in database"""
