@@ -27,21 +27,36 @@ from doc_exception import DocstringException, ProgrammingError
 
 class SyncError(DocstringException):
     """General Sync error"""
+    # Base class of Sync exceptions
 
 class WrongModeError(SyncError, ProgrammingError):
     """Not supported in this mode of operation"""
+    # For instance trying to do update() while not in incr mode
+
+class BackendError(SyncError):
+    """Could not use backend"""
+    # For instance, if an LDAP backend could not be contacted
 
 class ServerError(SyncError):
-    """Server error"""
+    """Spine Server error"""
+    # With "Server" we mean the Spine server.
 
 class LoginError(ServerError):
-    """Could not login"""
+    """Could not login to Spine"""
 
 class NotSupportedError(SyncError):
     """Object not supported"""
+    # Raised if trying to add a user to a groupfile or whenever
+    # the backend doesn't support the object's class
 
 class NotPosixError(NotSupportedError):
     """Not POSIX user/group"""
+    # Typically raised by UNIX backends
 
+class AlreadyExistsError(BackendError):
+    """Object already exists"""
+    # Raised if the add could not be completed. For instance, 
+    # add(user) with user.name=="root" should give this error in
+    # some cases.
 
 # arch-tag: 6e72e042-394c-446a-a668-8daf95076582

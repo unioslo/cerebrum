@@ -29,13 +29,13 @@ from ldif import LDIFParser,LDIFWriter
 from dsml import DSMLParser,DSMLWriter 
 
 import unittest
-from errors import ServerError
+from errors import BackendError
 
 import config
 
 
 
-class LdapConnectionError(ServerError):
+class LdapConnectionError(BackendError):
     pass
 
 class DsmlHandler(DSMLParser):
