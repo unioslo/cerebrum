@@ -1,0 +1,48 @@
+# This is the help file for bofhd.  Currently it is simply a file that
+# should be cat'ed (with lines starting with # removed), but some
+# improvements are needed:
+#
+# - each bofhd module should have its own help file
+# - all commands should be tagged so that the one may show only help
+#   relevant for the commands that the user is allowed to run.  This
+#   probably means that we also needs markup for identifying general
+#   help text that allways should be shown
+# - it may be desireable to allow help on a specific prompt, but this
+#   is probably better left for version 2
+Hjelp for jbofh.
+
+jbofh er en komandolinje orientert klient for administrasjon av
+brukere.  Detaljert hjelp kan finnes på http://.....
+
+group   Gruppe-kommando
+           add      user+ gruppe   - Melde accounts inn
+           gadd     gruppe+ gruppe - Melde grupper inn
+           remove   user+ gruppe   - Melde accounts ut
+           gremove  gruppe+ gruppe - Melde grupper ut
+           user     user+        - Liste alle gruppene til en account
+           create                - Byggge en ny gruppe
+           def      user+ gruppe - Sette default gruppe
+           destroy  group+       - Sletter gruppen
+           info group            - viser litt info om gruppen
+           ls group              - Liste alle direkte medlemmer i en gruppe
+           lsexp group           - Liste alle ekspanderte medlemmer i en gruppe
+user    Brukerrelaterte kommandoer
+           create                 - bygge brukere
+           passwd  user+          - Sett et tilfeldig passord på brukeren
+           info    user           - vis info om en bruker
+           accounts <idtype> <id> - vis brukernavn for person
+           delete                 - slette en gitt bruker
+           lcreated               - oversikt over byggede brukere
+           move    user hvor      - Flytte en gitt bruker
+           shell   user1 user2 ... shell - Sette loginshell for en bruker
+           splatt  user1 user2 ... [-why "begrunnelse"] - Sperrer brukers konto
+print   Skriver relaterte kommandoer
+           qoff    user+ ...      - Skru av kvote på en bruker
+           qpq     user+          - Vise informasjon om en brukers skrivekvote
+           upq     user tall      - Oppdaterer brukerens skriverkvote
+person  Personrelaterte kommandoer
+           create <display_name> <id_type> <id> - bygger en person
+           bcreate <display_name> <birth_date (yyyy-mm-dd)>
+profile  Profil relaterte kommandoer
+           upload filnavn
+           download
