@@ -490,18 +490,19 @@ def change_user_spread(dn_id,ch_type,spread,uname=None):
 		if ldap_obj:
 		    disk_name = ldap_obj[0][1].get('ndsHomeDirectory')[0]
 		    if dsk_path in disk_name[0].split(','):
-			(c_diskid, c_home, stat) = account.get_home(spread)
-			account.set_home(spread, disk_id=c_diskid, home=c_home,\
-						status=co.home_status_on_disk)
-                    else:
-			s_path = disk_name.split(',')[0].split('=')[1].lower().\
-								replace('_','/')
-			s_path = '/' + s_path +'%'
-			dsk = Factory.get('Disk')(db)
-			if len(dsk.search(path=s_path)) == 1:
-			    new_disk = dsk.search(path=s_path)[0]['disk_id']
-			    account.set_home(spread, disk_id=new_disk,
-						status=co.home_status_on_disk)
+			(c_homedir, c_diskid, c_home, stat) = account.get_home(spread)
+			account.set_home(spread, c_homedir)
+
+# This seems unnecessary?? TODO: find out why is this being done
+##                     else:
+## 			s_path = disk_name.split(',')[0].split('=')[1].lower().\
+## 								replace('_','/')
+## 			s_path = '/' + s_path +'%'
+## 			dsk = Factory.get('Disk')(db)
+## 			if len(dsk.search(path=s_path)) == 1:
+## 			    new_disk = dsk.search(path=s_path)[0]['disk_id']
+## 			    account.set_home(spread, disk_id=new_disk,
+## 						status=co.home_status_on_disk)
                     db.commit()
                     break
                 time.sleep(delay)
