@@ -38,6 +38,7 @@ default_topics_file = "/cerebrum/dumps/FS/topics.xml"
 default_studieprogram_file = "/cerebrum/dumps/FS/studieprogrammer.xml"
 default_regkort_file = "/cerebrum/dumps/FS/regkort.xml"
 default_ou_file = "/cerebrum/dumps/FS/ou.xml"
+default_fnrupdate_file = "/cerebrum/dumps/FS/fnr_udpate.xml"
 
 xml = XMLHelper()
 fs = None
@@ -198,6 +199,15 @@ def write_emne_info(outfile):
         f.write(xml.xmlify_dbrow(t, xml.conv_colnames(cols), 'emne') + "\n")
     f.write("</data>\n")
 
+def write_fnrupdate_info(outfile):
+    """Lager fil med informasjon om alle fødselsnummerendringer"""
+    f=open(outfile, 'w')
+    f.write(xml.xml_hdr + "<data>\n")
+    cols, dta = fs.GetFnrEndringer()
+    for t in dta:
+        f.write(xml.xmlify_dbrow(t, xml.conv_colnames(cols), 'fnr') + "\n")
+    f.write("</data>\n")
+
 def fix_float(row):
     for n in range(len(row)):
         if isinstance(row[n], float):
@@ -210,12 +220,14 @@ def usage(exitcode=0):
     --studprog-file name: override studprog xml filename
     --emne-file name: override emne xml filename
     --regkort-file name: override regkort xml filename
+    --fnr-update-file name: override fnr-update xml filename
     --ou-file name: override ou xml filename
     --db-user name: connect with given database username
     --db-service name: connect to given database
     -p: generate person xml file
     -t: generate topics xml file
     -e: generate emne xml file
+    -f: generate fnr xml update file
     -s: generate studprog xml file
     -r: generate regkort xml file
     -o: generate ou xml file
@@ -231,10 +243,11 @@ def assert_connected(user="ureg2000", service="FSPROD.uio.no"):
 
 def main():
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "ptsroe",
+        opts, args = getopt.getopt(sys.argv[1:], "ptsroef",
                                    ["person-file=", "topics-file=",
                                     "studprog-file=", "regkort-file=",
                                     'emne-file=', "ou-file=", "db-user=",
+                                    'fnr-update-file=',
                                     "db-service="])
     except getopt.GetoptError:
         usage()
@@ -246,6 +259,7 @@ def main():
     regkort_file = default_regkort_file
     emne_file = default_emne_file
     ou_file = default_ou_file
+    fnrupdate_file = default_fnrupdate_file
     db_user = None         # TBD: cereconf value?
     db_service = None      # TBD: cereconf value?
     for o, val in opts:
@@ -261,6 +275,8 @@ def main():
             regkort_file = val
         elif o in ('--ou-file',):
             ou_file = val
+        elif o in ('--fnr-update-file',):
+            fnrupdate_file = val
         elif o in ('--db-user',):
             db_user = val
         elif o in ('--db-service',):
@@ -273,6 +289,8 @@ def main():
             write_topic_info(topics_file)
         elif o in ('-s',):
             write_studprog_info(studprog_file)
+        elif o in ('-f',):
+            write_fnrupdate_info(fnrupdate_file)
         elif o in ('-e',):
             write_emne_info(emne_file)
         elif o in ('-r',):
