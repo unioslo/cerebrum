@@ -21,10 +21,6 @@ import Database
 from Builder import Attribute
 from Searchable import Searchable
 
-import Registry
-registry = Registry.get_registry()
-
-
 class DatabaseAttr(Attribute):
     def __init__(self, name, data_type, table, dbattr_name=None,
                  write=False, from_db=None, to_db=None):
@@ -52,7 +48,6 @@ class DatabaseClass(Searchable):
     
     def _load_all_db(self):
         db = self.get_database()
-
         
         tables = []
         attributes = []
@@ -62,7 +57,7 @@ class DatabaseClass(Searchable):
             attributes += attrs
 
         sql = 'SELECT '
-        sql += ', '.join(['%s.%s as %s' % (attr.table, self._get_real_name(attr), attr.name) for attr in attributes])
+        sql += ', '.join(['%s.%s AS %s' % (attr.table, self._get_real_name(attr), attr.name) for attr in attributes])
         sql += ' FROM '
         sql += ', '.join(tables)
         sql += ' WHERE '
@@ -129,6 +124,55 @@ class DatabaseClass(Searchable):
 
             db.execute(sql, keys)
 
+    def create_search_method(cls):
+        def search(self, *args, **vargs): 
+            db = self.get_database()
+            
+            tables = {}
+            attributes = {}
+            main_attrs = []
+            for attr in self.slots + getattr(self, 'search_slots', []):
+                if isinstance(attr, DatabaseAttr):
+                    if attr in self.slots:
+                        main_attrs.append(attr)
+                    attributes[attr.name] = attr
+                    tables[attr.table] = attr.table
+
+            where = []
+            values = {}
+            for key, value in vargs.items():
+                if value is None or key not in attributes.keys():
+                    continue
+                if attributes[key].data_type == 'string':
+                    where.append('LOWER(%s.%s) LIKE :%s' % (attributes[key].table, key, key))
+                    value = value.replace("*","%")
+                    value = value.replace("?","_")
+                    value = value.lower()
+                else:
+                    where.append('%s.%s = :%s' % (attributes[key].table, key, key))
+                    value = attributes[key].to_db(value)
+                values[key] = value
+            
+            sql = 'SELECT '
+            sql += ', '.join(['%s.%s AS %s' % (attr.table, attr.name, attr.name) for attr in main_attrs])
+            sql += ' FROM '
+            sql += ', '.join(tables.keys())
+            if where:
+                sql += ' WHERE '
+                sql += ' AND '.join(where)
+
+            objects = []
+            for row in db.query(sql, values):
+                tmp = {}
+                for attr in main_attrs:
+                    tmp[attr.name] = attr.from_db(row['%s' % attr.name])
+                objects.append(cls(**tmp))
+            
+            return objects
+        return search
+    
+    create_search_method = classmethod(create_search_method)
+    
     def build_methods(cls):
         for i in cls.slots:
             setattr(cls, 'load_' + i.name, cls._load_all_db)

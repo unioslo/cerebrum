@@ -94,7 +94,12 @@ class Searchable(object):
         for attr in cls.slots + cls.search_slots:
             get = create_get_method(attr.name)
 
-            new_attr = Attribute(attr.name, attr.data_type, write=True)
+            if hasattr(attr, 'table'):
+                import copy
+                new_attr = copy.copy(attr)
+                new_attr.write = True
+            else:
+                new_attr = Attribute(attr.name, attr.data_type, write=True)
             search_class.register_attribute(new_attr, get=get)
             
         # FIXME: this should use register_method
