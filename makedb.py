@@ -35,6 +35,7 @@ def runfile(fname, Cerebrum):
             print "  database error:", sys.exc_info()[1]
         else:
             print "ret: "+str(res)
+    Cerebrum.commit()
 
 if __name__ == '__main__':
     main()
