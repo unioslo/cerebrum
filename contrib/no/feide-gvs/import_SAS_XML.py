@@ -22,6 +22,7 @@
 import getopt
 import sys
 import os
+import re
 
 import xml.sax
 
@@ -45,7 +46,7 @@ institution = {}
 ou_local2ou_id = {}
 pers_local2ou_local = {}
 ou_local2dns = {}
-
+fnr2local_id = {}
 
 class SASDataParser(xml.sax.ContentHandler):
     """This class is used to iterate over information from SAS-XML-file. """
@@ -59,11 +60,19 @@ class SASDataParser(xml.sax.ContentHandler):
 
     def startElement(self, name, attrs):
         if name in ("sastransfer","teacheratschool","classcoursestudents",
-                    "studentsinclass","programs","students","administration",
-                    "teachers","intstitutions"):
+                    "studentsinclass","programs","intstitutions"):
             pass
+        elif name in ("students",):
+            self.ad = 's'
+        elif name in ("teachers",):
+            self.ad = 't'
+        elif name in ("administration",):
+            self.ad = 'a'
+        elif name in ('parents',):
+            self.ad = 'p'
         elif name in ("teacherschool","classcoursestudents","studentinclass",
-                      "program","student","person","institution"):
+                      "program","student","person","institution",
+                      "employee-school"):
             self.data = {}
             for k in attrs.keys():
                 self.data[k] = attrs[k].encode('iso8859-1')
@@ -72,67 +81,115 @@ class SASDataParser(xml.sax.ContentHandler):
                 self.data[k] = attrs[k].encode('iso8859-1')
 
     def endElement(self, name):
-        if name == "teacherschool":
-            teacher2school[self.data['personid']] = {}
+        if name in ("sastransfer","teacheratschool","classcoursestudents",
+                    "studentsinclass","programs","intstitutions",
+                    "students","administration", "teacher",
+                    "employeesatschool"):
+            pass
+
+        elif name == "teacherschool":
+            #teacher2school[self.data['personid']] = {}
             pers_local2ou_local[self.data['personid']] = self.data['schoolid']
-            for i in self.data.keys():
-                teacher2school[self.data['personid']][i] = self.data[i]
-                                                            
+            #for i in self.data.keys():
+            #    teacher2school[self.data['personid']][i] = self.data[i]
+        elif name == "employee-school":
+            d = self.data['socialsecno']
+            m = re.search(r'(\d{2})(\d{2})(\d{2})(\d{5})', d)
+            if m:
+                print d, m.group(3), m.group(2), m.group(1), m.group(4)
+                d = "19%02d%02d%02d:%05d" % (int(m.group(3)), int(m.group(2)),
+                                            int(m.group(1)), int(m.group(4)))
+                print d
+            else:
+                print "ERROR: Didn't work: %s" % d
+                sys.exit(0)
+            if fnr2local_id.has_key(d):
+                print "jall ", d, self.data['schoolid']
+                pers_local2ou_local[fnr2local_id[d]] = self.data['schoolid']
+            else:
+                print "WARNING: Didn't find %s in pers_local2ou_local" % d
+                    
+            
         elif name == "classcoursestudents":
-            id = "%s:%s:%s" % (self.data['countyid'],
-                               self.data['schoolid'],
-                               self.data['studentid'])
-            student2classcourse[id] = {}
+            #id = "%s:%s:%s" % (self.data['countyid'],
+            #                   self.data['schoolid'],
+            #                   self.data['studentid'])
+            #student2classcourse[id] = {}
             pers_local2ou_local[self.data['studentid']] = self.data['schoolid']
-            for i in self.data.keys():
-                student2classcourse[id][i] = self.data[i]
+            #for i in self.data.keys():
+            #    student2classcourse[id][i] = self.data[i]
                 
         elif name == "studentinclass":
-            id = "%s:%s:%s" % (self.data['countyid'],
-                               self.data['schoolid'],
-                               self.data['studentid'])
-            student2class[id] = {}
+            #id = "%s:%s:%s" % (self.data['countyid'],
+            #                   self.data['schoolid'],
+            #                   self.data['studentid'])
+            #student2class[id] = {}
+            if self.data['studentid'] == "IPOS00031D":
+                print "TEST: ", self.data['studentid'], self.data['schoolid']
+                for i in self.data.keys():
+                    print "   ", i, self.data[i]
             pers_local2ou_local[self.data['studentid']] = self.data['schoolid']
-            for i in self.data.keys():
-                student2class[id][i] = self.data[i]
+            #for i in self.data.keys():
+            #    student2class[id][i] = self.data[i]
                 
         elif name == "program":
-            id = "%s:%s:%s:%s" % (self.data['countyid'],
-                                  self.data['schoolid'],
-                                  self.data['classcode'],
-                                  self.data['course'])
-            program[id] = {}
-            for i in self.data.keys():
-                program[id][i] = self.data[i]
-                
-        elif name == "student":
-            student[self.data['localid']] = {}
-            for i in self.data.keys():
-                if self.data.has_key(i):
-                    student[self.data['localid']][i] = self.data[i]
-            student[self.data['localid']]['type'] = 'pupil'
-
+            #id = "%s:%s:%s:%s" % (self.data['countyid'],
+            #                      self.data['schoolid'],
+            #                      self.data['classcode'],
+            #                      self.data['course'])
+            #program[id] = {}
+            #for i in self.data.keys():
+            #    program[id][i] = self.data[i]
+            pass
+ 
         elif name == "person":
+            if self.ad == 'p':
+                return
             person[self.data['localid']] = {}
             for i in self.data.keys():
                 person[self.data['localid']][i] = self.data[i]
-            person[self.data['localid']]['type'] = 'teacher'
+            if self.data.has_key('borndate') and \
+                   self.data.has_key('socialsecno'):
+                fnr2local_id["%s:%s" % (self.data['borndate'],
+                                        self.data['socialsecno'])] = \
+                                        self.data['localid']
+            else:
+                print "WARNING: no birthdate %s" % self.data['localid']
+            if self.ad == 'a':
+                person[self.data['localid']]['type'] = 'admin'
+            elif self.ad == 't':
+                person[self.data['localid']]['type'] = 'teacher'
+            else:
+                person[self.data['localid']]['type'] = 'pupil'
 
         elif name == "institution":
             institution[self.data['name']] = {}
             for i in self.data.keys():
+                #print i, self.data[i]
                 institution[self.data['name']][i] = self.data[i]
+            #print "\n"
         else:
             self.data[name] = self.var
 
 def prosess_data():
     prosess_OUs()
     init_mail()
-    prosess_persons(pupil)
+
+    #for i in person.keys():
+    #    print i, " pers"
+    #    if pers_local2ou_local.has_key(i):
+    #        print "  ", i, pers_local2ou_local[i], \
+    #              ou_local2ou_id[pers_local2ou_local[i]]
+    #sys.exit(0)
+    # prosess_persons(pupil)
     prosess_persons(person)
 
 def prosess_OUs():
     for o in institution.keys():
+        #print o
+        #for i in institution[o].keys():
+        #    print i, institution[o][i]
+        #sys.exit(0)
         op = None
         if not institution[o].has_key('name'):
             print "No name for OU."
@@ -170,7 +227,7 @@ def prosess_OUs():
 def prosess_persons(dict=None):
     person = dict
     if person == None:
-        print "No parameter given! Exiting."
+        print "ERROR: No parameter given! Exiting."
         sys.exit(1)
     for p in person.keys():
         fnr = 0
@@ -182,14 +239,14 @@ def prosess_persons(dict=None):
                     int(tmp[6:8]), int(tmp[4:6]), int(tmp[2:4]),\
                     int(person[p]['socialsecno']))
             except ValueError:
-                print "Ugyldig fødselsnr: %s" % fnr
+                print "WARNING: Ugyldig fødselsnr: %s" % fnr
                 continue
             if (year < 1970
                 and getattr(cereconf, "ENABLE_MKTIME_WORKAROUND", 0) == 1):
                 # Seems to be a bug in time.mktime on some machines
                 year = 1970
         else:
-            print "No fnr. Skipping."
+            print "WARNING: No fnr. Skipping."
             continue
         
         gender = co.gender_male
@@ -200,12 +257,12 @@ def prosess_persons(dict=None):
             firstname =  person[p]['givenname']
             print "%s" % firstname
         else:
-            print "No firstname: %s" % fnr
+            print "WARNING: No firstname: %s" % fnr
         if person[p].has_key('familynname'):
             lastname = person[p]['familynname']
             print "%s" % lastname
         else:
-            print "No lastname: %s" % fnr
+            print "WARNING: No lastname: %s" % fnr
             
         new_person = Person.Person(db)
         new_person.clear()
@@ -233,21 +290,48 @@ def prosess_persons(dict=None):
                                         fnr)
         aff = None
         ou_id = None
+        if pers_local2ou_local.has_key(person[p]['localid']):
+            try:
+                p_id = person[p]['localid']
+                t_id = pers_local2ou_local[p_id]
+                ou_id = ou_local2ou_id[t_id]
+            except KeyError:
+                print person[p]['localid'], person[p]['localid'],pers_local2ou_local[person[p]['localid']]
+                for i in pers_local2ou_local.keys():
+                    print "   ", i, pers_local2ou_local[i]
+                sys.exit(0)
+        else:
+            print "WARNING: Found no OU for person: %s. Skipping." % \
+                  person[p]['localid']
+            continue
+
         if person[p]['type'] == 'pupil' and person[p].has_key('localid'):
-            ou_id = ou_local2ou_id[pers_local2ou_local[person[p]['localtid']]]
+            print "pupil ",person[p]['localid'], \
+                  pers_local2ou_local[person[p]['localid']], \
+                  ou_local2ou_id[pers_local2ou_local[person[p]['localid']]]
             aff = co.affiliation_pupil
             new_person.populate_affiliation(co.system_sas,
                                             int(ou_id),
                                             aff,
                                             co.affiliation_status_pupil_active)
         elif person[p]['type'] == 'teacher' and person[p].has_key('localid'):
-            ou_id = ou_local2ou_id[pers_local2ou_local[person[p]['localid']]]
+            print "teacher ",person[p]['localid'], \
+                  pers_local2ou_local[person[p]['localid']], \
+                  ou_local2ou_id[pers_local2ou_local[person[p]['localid']]]
             aff = co.affiliation_teacher
             new_person.populate_affiliation(co.system_sas,
                                             int(ou_id),
                                             aff,
                                             co.affiliation_status_teacher_active)
-        
+        elif person[p]['type'] == 'admin' and person[p].has_key('localid'):
+            print "admin ",person[p]['localid'], \
+                  pers_local2ou_local[person[p]['localid']], \
+                  ou_local2ou_id[pers_local2ou_local[person[p]['localid']]]
+            aff = co.affiliation_admin
+            new_person.populate_affiliation(co.system_sas,
+                                            int(ou_id),
+                                            aff,
+                                            co.affiliation_status_admin_active)
         if person[p].has_key('type'):
             if person[p]['type'] == 'pupil':
                 pass
@@ -280,6 +364,7 @@ def prosess_persons(dict=None):
             print "**** NEW ****"
         elif op == False:
             print "**** UPDATE ****"
+        
 
 def prosess_user(owner_id, local_id, aff, fname, lname):
     ac.clear()
@@ -316,7 +401,7 @@ def prosess_user(owner_id, local_id, aff, fname, lname):
     tmp = ac.write_db()
     ac.add_spread(co.spread_cerebrum_user)
     
-    print owner_id, ou_local2ou_id[pers_local2ou_local[local_id]], aff
+    print "user ",owner_id, ou_local2ou_id[pers_local2ou_local[local_id]], aff
     ac.set_account_type(ou_local2ou_id[ou_id], aff)
     
     tmp = ac.write_db()
@@ -360,7 +445,7 @@ def prosess_mail_address(ac_list):
                     ea.clear()
                     ea.find_by_local_part_and_domain(ac.account_name,
                                                  mdom.email_domain_id)
-                    print "Warning! Could not make mail-address. Exists."
+                    print "WARNING: Warning! Could not make mail-address. Exists."
                     return
                 # uname wasn't taken:
                 except Errors.NotFoundError:
