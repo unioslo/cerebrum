@@ -42,7 +42,7 @@ class Metainfo(object):
         try:
             self.get_metainfo(name)
             self.db.execute("""
-            UDPATE [:table schema=cerebrum name=cerebrum_metainfo]
+            UPDATE [:table schema=cerebrum name=cerebrum_metainfo]
             SET value=:value
             WHERE name=:name""", {'name': name, 'value': value}) 
         except Errors.NotFoundError:
