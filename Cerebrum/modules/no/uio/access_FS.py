@@ -248,7 +248,6 @@ WHERE  p.fodselsdato=s.fodselsdato AND
 	'NORAD','ARKHANG','NORDPLUS','ORDOPPTAK','EVU','UTLOPPTAK'"""
         qry = self._GetOpptakQuery().replace("RELEVANTE_STUDIERETTSTATKODER",
                                              studierettstatkoder)
-	print qry
         return (self._get_cols(qry), self.db.query(qry))
         
     def GetAlumni(self):
