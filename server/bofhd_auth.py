@@ -6,19 +6,6 @@ from Cerebrum.Utils import Factory
 from Cerebrum import Utils
 import re
 
-class _AuthRoleOpCode(Constants._CerebrumCode):
-    "Mappings stored in the auth_role_op_code table"
-    _lookup_table = '[:table schema=cerebrum name=auth_op_code]'
-
-class Constants(Constants.Constants):
-    auth_alter_printerquota = _AuthRoleOpCode('alter_printerquo', 'desc')
-    auth_set_password = _AuthRoleOpCode('set_password', 'desc')
-    auth_move_from_disk = _AuthRoleOpCode('move_from_disk',
-                                         'can move from disk')
-    auth_move_to_disk = _AuthRoleOpCode('move_to_disk',
-                                         'can move to disk')
-    auth_alter_group_membership = _AuthRoleOpCode('alter_group_memb', 'desc')
-
 class BofhdAuthOpSet(DatabaseAccessor):
     __metaclass__ = Utils.mark_update
     __read_attr__ = ('__in_db', 'const')
@@ -193,8 +180,12 @@ class BofhdAuth(DatabaseAccessor):
         AND aot.target_type=:t_type
     """
 
-    def can_change_disk(self, operator, disk):
 
+    def _check_disk_access(self, operator, disk_id, direction):
+        
+        return 1
+
+    def can_change_disk(self, operator, new_disk, old_disk=None):
         """With controls_disk, destination_id may point to a disk or a
         host.  If pointing to a host, auth_role_attrs are checked for
         wildcard matches.
