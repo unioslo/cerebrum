@@ -61,8 +61,10 @@ class BofhdRequests(object):
             'operation': int(op_code),
             'entity_id': entity_id,
             'destination_id': destination_id,
-            'state_data': state_data
+            'state_data': state_data,
+            'request_id': int(self.nextval('request_id_seq'))
             }
+        
         self._db.execute("""
         INSERT INTO [:table schema=cerebrum name=bofhd_request] (%(tcols)s)
         VALUES (%(binds)s)""" % {
@@ -70,8 +72,13 @@ class BofhdRequests(object):
             'binds': ", ".join([":%s" % t for t in cols.keys()])},
                          cols)
 
-    def delete_request(self, entity_id, operator_id=None, operation=None):
-        cols = {'entity_id': entity_id}
+    def delete_request(self, entity_id=None, request_id=None,
+                       operator_id=None, operation=None):
+        cols = {}
+        if entity_id is not None:
+            cols['entity_id'] = entity_id
+        if request_id is not None:
+            cols['request_id'] = request_id
         if operator_id is not None:
             cols['requestee_id'] = operator_id
         if operation is not None:
@@ -79,9 +86,11 @@ class BofhdRequests(object):
         self._db.execute("""DELETE FROM [:table schema=cerebrum name=bofhd_request]
         WHERE %s""" % " AND ".join(["%s=:%s" % (x, x) for x in cols.keys()]), cols)
 
-    def get_requests(self, operator_id=None, entity_id=None, operation=None,
+    def get_requests(self, request_id=None, operator_id=None, entity_id=None, operation=None,
                      given=False):
         cols = {}
+        if request_id is not None:
+            cols['request_id'] = request_id
         if entity_id is not None:
             cols['entity_id'] = entity_id
         if operator_id is not None:
