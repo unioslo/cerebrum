@@ -265,7 +265,7 @@ class Group(EntityName, Entity):
         """Remove ``member``'s membership of operation type ``op`` in group."""
         self.validate_member(member)
         self.execute("""
-        DELETE [:table schema=cerebrum name=group_member]
+        DELETE FROM [:table schema=cerebrum name=group_member]
         WHERE
           group_id=:g_id AND
           operation=:op AND

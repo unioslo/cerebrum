@@ -219,7 +219,7 @@ class Account(EntityName, EntityQuarantine, Entity):
                                   'auth_data' : self._auth_info[k]})
             elif self.__in_db and what == 'update':
                     self.execute("""
-                    DELETE [:table schema=cerebrum name=account_authentication]
+                    DELETE FROM [:table schema=cerebrum name=account_authentication]
                     WHERE account_id=:acc_id AND method=:method""",
                                  {'acc_id' : self.entity_id, 'method' : k})
         del self.__in_db
