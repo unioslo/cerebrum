@@ -306,3 +306,4 @@ def register_spine_class(cls, idl_cls, idl_struct):
 
     class_cache[cls] = corba_class
 
+# arch-tag: d64745f8-6ea2-469e-b821-b0f448ab7e4a

@@ -66,3 +66,4 @@ Account.db_attr_aliases[table] = {'id':'account_id', 'primary_group':'gid'}
 Account.build_methods()
 Account.search_class.build_methods()
 
+# arch-tag: 6397155e-c46c-4e57-a5f7-54d2f046f622

@@ -50,3 +50,4 @@ class Person(Entity):
 
 registry.register_class(Person)
 
+# arch-tag: 7b2aca28-7bca-4872-98e1-c45e08faadfc

@@ -30,3 +30,4 @@ Group.db_attr_aliases['posix_group'] = {'id':'group_id'}
 Group.build_methods()
 Group.build_search_class()
 
+# arch-tag: 1d1d6cc7-0222-42b1-9e43-4953ad046987

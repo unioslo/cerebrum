@@ -90,3 +90,4 @@ def is_quarantined(self):
 
 Entity.register_method(Method('is_quarantined', bool), is_quarantined)
 
+# arch-tag: 07667d91-f0b5-4152-8e83-36994ffa9b8e

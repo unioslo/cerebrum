@@ -141,3 +141,4 @@ class OUString(SpineClass):
                 Attribute('language', 'string')]
     slots = primary
 
+# arch-tag: ec070b27-28c8-4b51-b1cd-85d14b5e28e4

@@ -46,3 +46,4 @@ def get_names(self):
 
 Person.register_method(Method('get_names', [PersonName]), get_names)
 
+# arch-tag: 6a0ecb31-a1a6-4581-ad50-c9e53323041b

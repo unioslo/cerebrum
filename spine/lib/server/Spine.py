@@ -103,3 +103,4 @@ class SpineImpl(Cerebrum_core__POA.Spine):
 
         return corba_obj
 
+# arch-tag: 6c78d470-4b73-491a-a448-c54cc8650148

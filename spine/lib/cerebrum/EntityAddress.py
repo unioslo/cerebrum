@@ -60,3 +60,4 @@ def get_addresses(self):
 
 Entity.register_method(Method('get_addresses', [EntityAddress]), get_addresses)
 
+# arch-tag: ff3c2894-d69c-4de5-bf1f-8bd44d0a8e31

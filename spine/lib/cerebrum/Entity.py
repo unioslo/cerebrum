@@ -73,3 +73,4 @@ class Entity(DatabaseClass, EntityAuth):
 
 registry.register_class(Entity)
 
+# arch-tag: 2004ac4b-14d6-4f9b-93a2-e255c5a0d3f8

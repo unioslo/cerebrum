@@ -51,3 +51,4 @@ def get_spreads(self):
 
 Entity.register_method(Method('get_spreads', [EntitySpread]), get_spreads)
 
+# arch-tag: 225423b6-e786-4494-90a1-2b33ba481a92

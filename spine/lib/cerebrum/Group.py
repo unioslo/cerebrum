@@ -57,3 +57,4 @@ class Group(Entity):
 
 registry.register_class(Group)
 
+# arch-tag: 263241fc-0255-4c71-9494-dc13153ad781

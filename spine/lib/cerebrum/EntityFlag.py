@@ -50,3 +50,4 @@ def get_flags(self):
 
 Entity.register_method(Method('get_flags', [EntityFlag]), get_flags)
 
+# arch-tag: 04b59b5d-a443-426e-8b3e-743a137b629c

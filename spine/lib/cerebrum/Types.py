@@ -76,3 +76,4 @@ for name, table in [('AccountType', 'account_code'),
     registry.register_class(cls)
     __all__.append(name)
 
+# arch-tag: 965b1b0a-4526-4189-b507-2459e1ed646d

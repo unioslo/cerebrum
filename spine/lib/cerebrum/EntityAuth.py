@@ -82,3 +82,4 @@ class EntityAuth(object): # Mixin for Entity
         return False
 
 
+# arch-tag: 9d165933-cbf5-4cc3-845c-e87e1be3f31f
