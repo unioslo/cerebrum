@@ -47,7 +47,7 @@ import cereconf
 from Cerebrum.extlib import logging
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors
-from job_utils import *
+from Cerebrum.modules.job_runner.job_utils import SocketHandling, JobQueue
 
 debug_time = 0        # increase time by N seconds every second
 max_sleep = 300
