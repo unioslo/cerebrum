@@ -13,6 +13,7 @@ import cerebrum_path
 from Cerebrum.Utils import Factory
 from Cerebrum import Entity
 from Cerebrum import OU
+from Cerebrum import Errors
 from Cerebrum import Person
 from Cerebrum import Account
 from Cerebrum import Constants
@@ -46,9 +47,9 @@ def dump_new_users(db, const, spread, start_date=None):
     entity = Entity.Entity(db)
     if start_date is None:
         start_date = yesterday(db)
-    for e_id in entity.list_all_with_spread(scode):
+    for r in entity.list_all_with_spread(scode):
         try:
-            account = _get_account(db, e_id)
+            account = _get_account(db, r['entity_id'])
         except Errors.NotFoundError:
             # Feil entity_type?  Bør ikke kunne skje, da hver enkelt
             # spread er begrenset til en enkelt entity_type.
