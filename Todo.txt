@@ -82,7 +82,7 @@
   Dependencies:
   Assigned to: 
   Resources: Hvem som helst
-  Cost: (ikke mye)
+  Cost: 
   Status: Trenger kort diskusjon
   Due date:
   Priority: 2.1
@@ -147,7 +147,7 @@
   Dependencies:
   Assigned to: fredrivo
   Resources: runefro
-  Cost:
+  Cost: 16t
   Status:
   Due date:
   Priority: 2
@@ -185,11 +185,11 @@
   Description:
   Dependencies:
   Assigned to: fredrivo
-  Resources: pcadm
+  Resources: pcadm, mraaum
   Cost: (lite)
   Status: Er testet på dummy. Testmiljø for windows er i ferd med å bli etablert
-  Due date: 2004-12-01
-  Priority: 1.5
+  Due date: 
+  Priority: 2
 ** Fjerne krav om å oppbevare klartekstpassord i Cerebrum
   Description:
   Dependencies:
@@ -224,8 +224,8 @@
   Resources: mathiasm, baardj
   Cost:
   Status:
-  Due date:
-  Priority: 2
+  Due date: 2005-01-15
+  Priority: 1.5
 ** Hvordan representerer vi Feide-ID i Cerebrum?
   Description: Vi må kunne assosiere en person sin FEIDE-ID fra en
                annen institusjon med personen i Cerebrum., samtidig
@@ -241,8 +241,8 @@
   Assigned to: hmeland
   Resources: runefro, mathiasm, kjetilho, mraaum, baardj
   Cost:
-  Status:
-  Due date:
+  Status: fordrer møte
+  Due date: 2005-06-01
   Priority: 2
 ** 'Dynamiske' grupper
   Description: Få på plass et generelt gruppe-begrep som representerer
@@ -289,7 +289,7 @@
   Assigned to: hmeland
   Resources: jazz, mathiasm, baardj
   Cost:
-  Status:
+  Status: Done
   Due date:
   Priority: 2
 ** En del tjenester vil snakke med POSIX-treet i Cerebrum
@@ -313,7 +313,7 @@
   Due date:
   Priority: 3
 
-* FS
+* FS/Student-IT
 ** Data tilbake til FS.
   Description: Fra Cerebrum skal FS få data om personens primærbruker,
                og dennes mailadresse.
@@ -336,13 +336,10 @@
   Dependencies:
   Assigned to: runefro
   Resources: baardj
-  Cost: (lite)
-  Due date: 2004-11-15
-	    (Hvor kommer denne datoen fra? Er det realistisk?  Hvis
-	    nei, bør ikke dette dokumentet publiseres med denne
-	    fristen.)
+  Cost: 2t
+  Due date: 2005-01-15
   Priority: 1.1
-  Status: Pending et par administrative avgjørelser
+  Status: 
 
 ** Synkronisere steddata fra HR til FS via Cerebrum
   Description: Ved UiO er HR autoritativ for OU-informasjon, og FS er
@@ -371,7 +368,7 @@
 	    nei, bør ikke dette dokumentet publiseres med denne
 	    fristen.)
   Priority: 1 (FS 5.0 Settes i prod 2004-11-15)
-  Status:
+  Status: Done
 
 *** FS 5.0 - bedre mulighet for institusjonsuavhengige script?
   Description: Det er en målsetting å få redusert eller helst fjernet
@@ -387,9 +384,9 @@
   Cost:
   Status:
   Due date:
-  Priority: 2
+  Priority: 3
 
-** Import av kull/klasser fra FS
+** Import av kull/klasser/studieretninger fra FS
   Description: Versjon 5.0 av FS rydder opp i en del uklarheter rundt
                kull og klasser.  Det gjør det mulig å få overført
                entydige data om disse entitetene til Cerebrum og
@@ -402,17 +399,6 @@
   Due date:
   Priority: 2
 
-** Eksport av kull/klasser til ClassFronter
-  Description: Ta tak i de automatisk genererte gruppene som
-               representerer kull/klasser fra FS, og gjøre disse
-               tilgjengelig for ClassFronter.
-  Dependencies: Import av kull/klasser fra FS
-  Assigned to:
-  Resources:
-  Cost:
-  Status:
-  Due date:
-  Priority: 2
 
 ** Studieprogram/Studieretninger
   Description: Vi må få inn støtte for studieretninger under
@@ -444,7 +430,7 @@
   Cost:
   Status:
   Due date:
-  Priority: 2 (gitt at vi har forstått punktets hensikt riktig)
+  Priority: 3
 
 ** Må ha egne søk, kan ikke parse på tags
   Description: ??? (Skjønner ikke hva dette punktet er ment å bety)
@@ -460,7 +446,8 @@
   Description: FS har et flere adresser knyttet til personer, og typer
                av personer.  Vi må kunne ha disse i Cerebrum, og kunne
                gjenbruke de i de forskjellige settingene der
-               postadresser behøves.
+               postadresser behøves. Vi henter fra FS, men de er ikke i 
+	       Cerebrum.
 
                I FS finnes:
                  FS.PERSON - Hjemadresse
@@ -469,12 +456,12 @@
                  FS.DELTAKER - Jobbadresse
 
   Dependencies:
-  Assigned to:
-  Resources:
-  Cost:
+  Assigned to: Rune
+  Resources: Jazz
+  Cost: 16t
   Status:
   Due date:
-  Priority: 2
+  Priority: 1
 
 ** Alumni
   Description: UiO har ikke etablert noen sentral ordning for en
@@ -504,7 +491,7 @@
   Assigned to:
   Resources:
   Cost:
-  Status:
+  Status: Done
   Due date:
   Priority: 2
 
@@ -531,7 +518,7 @@
   Assigned to: hmeland
   Resources: baardj
   Cost:
-  Status:
+  Status: Done
   Due date:
   Priority: 2
 
@@ -547,6 +534,17 @@
   Dependencies:
   Assigned to: runefro
   Resources: jazz, baardj
+  Cost:
+  Status:
+  Due date:
+  Priority: 2
+
+** UiO: Studentservere
+   Description: Avvikling av Platon og strukturering av studentservere-
+		endring av DTD til studconfig
+  Dependencies:
+  Assigned to: 
+  Resources: 
   Cost:
   Status:
   Due date:
@@ -661,10 +659,10 @@
                dette, slik at denne må skrives om.
   Dependencies: Avhengig av endringer i den import vi gjør fra LT
                 (senere SAP/POLS).
-  Assigned to: Roger
-  Resources: igorr, baardj
+  Assigned to: igorr
+  Resources: baardj
   Cost: 200
-  Status: Venter på Rogers ansettelse 1.2.2005
+  Status: 
   Due date:
   Priority: 2.1
  
@@ -766,34 +764,29 @@
   Due date: 2005-02-01
   Priority: 1
 
-** HiA: Bør CF-eksport oppdateres? JA. Den må generaliseres.
+** Eksport av kull/klasser/studieretninger til ClassFronter
+  Description: Ta tak i de automatisk genererte gruppene som
+               representerer kull/klasser fra FS, og gjøre disse
+               tilgjengelig for ClassFronter.
+  Dependencies: Import av kull/klasser fra FS
+  Assigned to:
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority: 2
+
+** Bør CF-eksport oppdateres/generaliseres
 
   Description: I dag er HiAs CF-eksport skreddersydd for HiA.  Dersom
 	       en generalisert eksport lages, bør man vurdere hvorvidt
 	       det er en god ide å flytte HiA over til å benytte
 	       denne.
-
-	       Cue diskusjoner om hvem som skal betale, hva
-	       kontraktene sier og hvem som har ansvaret for dagens
-	       situasjon. :-)
+	       Dersom F2G skal ha det i Østfold er det pri 2, ellers 
+	       pri 3.
   Dependencies: Studieprogrammer, studieretning, kull og klasse
   Assigned to: Margrete
   Resources: Igor, Kjetil, Harald, Bård
-  Cost:
-  Status:
-  Due date:
-  Priority:
-
-** Gjelder dette også Feide2GO etc.?
-  Description: Grunnopplæringen introduserer en del strukturer vi til
-               nå ikke er kjent med eller har noe forhold til.  Det må
-               etableres en plan for hva det skal lages automatiske
-               grupper for i Cerebrum ut i fra en skole-organisering.
-               Disse gruppene må så gjøres tilgjengelige for spread
-               som gjør dem kjent for et LMS.
-  Dependencies:
-  Assigned to:
-  Resources:
   Cost:
   Status:
   Due date:
@@ -813,13 +806,14 @@
                     => XML-file som dekker programmet,
                        studieretningene, kull og klassene under dette
                        programmet. 
+		Kun pri 2 dersom F2G skal ha det.
   Dependencies:
   Assigned to: hmeland
   Resources: LMS-tjenestegruppen, baardj
   Cost:
   Status: Må diskuteres på eget møte om IMS
   Due date:
-  Priority: 2
+  Priority: 3
 
 
 * Hjemmeområdeadministrering
@@ -828,6 +822,7 @@
 
 ** Ett hjemmeområde per spreadtype
   Description: ??? (Vi har jo allerede dette?)
+	       Antagelig mangler vi beskrivelse av hva vi har :)
 
 ** Lagre hvert fysiske hjemmeområde for bruker kun en gang i databasen
   Description: I dag kan brukers hjemmeområde lagres en gang
@@ -835,8 +830,8 @@
 	       hjemmeområde for flere spreads så finnes det ikke noen
 	       garanti for at disse holdes i synk.
   Dependencies:
-  Assigned to:
-  Resources:
+  Assigned to: Rune
+  Resources: Harald
   Cost:
   Status:
   Due date:
@@ -849,16 +844,16 @@
                unngår å "glemme" områder som ikke blir opprettet, og
                (for UiOs del) å rydde opp i tidligere synder.
   Dependencies:
-  Assigned to:
-  Resources:
+  Assigned to: Rune
+  Resources: 
   Cost:
-  Status:
+  Status: Er i test, logger skal behandles, møte med BSD
   Due date:
   Priority: 2
 
 ** Bygge/flytte/slette hjemmeområder på andre systemer enn UNIX
 *** Administrere hjemmeområder på Windows
-  Description:
+  Description: F2Go
   Dependencies:
   Assigned to:
   Resources:
@@ -867,7 +862,7 @@
   Due date:
   Priority: 4
 *** Administrere hjemmeområder på Novell
-  Description:
+  Description: F2Go
   Dependencies:
   Assigned to:
   Resources:
@@ -882,12 +877,19 @@
   Assigned to: Bård
   Resources: (Jazz), Rune
   Cost:
-  Status: Må spesifiseres
+  Status: mangler doc, noen av disse bør inn i bofh
   Due date:
   Priority: 2.1
 *** Gjenoppliving av Cerebrum-database-data for bruker
 *** Restore av hjemmeområdedata
 *** Restore av maildata
+    Description:
+  Assigned to: Bård
+  Resources: (Jazz), Rune
+  Cost:
+  Status: er dette fikset? Bård sjekker
+  Due date:
+  Priority:
 
 ** Snapshot av hjemmeområde 
   Description: Ha mulighet for å hente inn snapshot av brukers
@@ -898,51 +900,9 @@
   Assigned to:
   Resources:
   Cost:
-  Status:
+  Status: 
   Due date:
   Priority: 3
-
-** Avvikling av steder
-  Description: Steder som avvikles i autoritativt kildesystem bør
-	       merkes som avviklet i Cerebrum.  Det er ikke trivielt å
-	       fjerne stedet fra Cerebrum, da det bl.a. kan være
-	       knyttet opp i personers og brukeres affiliations.
-	       Mulig løsning: Utvide ou_info med kolonne for
-	       deleted_date.
-  Dependencies:
-  Assigned to:
-  Resources:
-  Cost:
-  Status:
-  Due date:
-  Priority: 2.9
-
-** Flytting av personer/brukere ved avvikling av steder
-  Description: Lage script for å avhjelpe omorganisering; oppdatere
-	       eksisterende affiliations ved gammelt sted til å heller
-	       være ved nytt sted.
-  Dependencies:
-  Assigned to:
-  Resources:
-  Cost:
-  Status:
-  Due date:
-  Priority: 3
-
-** Landkoder i adresser
-  Description: Cerebrums databaseskjema har støtte for landkoder for
-	       adresser, men det finnes ikke noe Python-kode for å
-	       benytte denne featuren.  Python-rammeverk for denne
-	       featuren (med input-data som ofte er fritekst) må
-	       lages.
-  Dependencies:
-  Assigned to: Rune
-  Resources: Hvem som helst
-  Cost: (ikke mye)
-  Status: Fordrer et par avgjørelser i forkant
-  Due date:
-  Priority: 2
-
 
 * Notes
 ** Grupper må synkroniseres
@@ -1006,9 +966,9 @@
   Dependencies:
   Assigned to: hmeland
   Resources: 
-  Cost: (lite)
+  Cost: 
   Status: Påbegynnes over nyttår
-  Due date: 2004-12-01
+  Due date: 
   Priority: 1.2
 
 ** Quicksync av epostdata
@@ -1031,7 +991,7 @@
   Cost:
   Status: Utredning av om KTHs ting kan brukes må gjøres først
   Due date:
-  Priority: 2.8
+  Priority: 3
 
 
 * Karantener
@@ -1076,13 +1036,13 @@
 ** Logging generelt, ikke holdbart for drift slik vi gjør det i dag
   Description: Cerebrum logger for mye og til for mange steder; det
 	       blir vanskelig å holde oversikt/plukke ut signifikante
-	       feil.
+	       feil. Må dokumenteres.
   Dependencies:
   Assigned to: Igor
   Resources: Harald, Rune, Kjetil/Mathias
   Cost:
-  Status: Møte avholdt, forsøkt utredet. Nytt møte må til for forståelse.
-  Due date: (Skal være spesifisert 2004-11-15, implementert 2005-02-01)
+  Status: ferdig?
+  Due date: 
   Priority: 1.5
 
 ** Generalisert XML-import 
@@ -1096,9 +1056,9 @@
   Assigned to: Bård
   Resources: Mathias, Rune
   Cost:
-  Status:
+  Status: ferdig?
   Due date:
-  Priority: 2
+  Priority: 1.2
 
 ** Cerebrum og diverse objekter
   Description: Dersom Cerebrum skal være mellommann mellom flere
@@ -1127,7 +1087,7 @@
   Cost:
   Status: Bård skal utrede intensjonen, og hva som må ryddes i før det påbegynnes.
   Due date:
-  Priority: 2
+  Priority: 1.3
 
 ** Installasjon og oppgradering av Cerebrum
   Description: Må gå gjennom eksisterende installasjonsrutine og sørge
@@ -1135,45 +1095,45 @@
 	       implementasjonen og dokumentasjonen i samsvar med
 	       dette.
   Dependencies:
-  Assigned to:
+  Assigned to: igorr
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority: 1.5
+
+** BOFH må støtte flere sesjoner/være flertrådet
+  Description: Det er for lett å DOSe bofhd i dag; alt man trenger er
+	       telnet.
+  Dependencies:
+  Assigned to: Rune
   Resources:
   Cost:
   Status:
   Due date:
   Priority: 2
 
-** BOFH må støtte flere sesjoner/være flertrådet
-  Description: Det er for lett å DOSe bofhd i dag; alt man trenger er
-	       telnet.
-  Dependencies:
-  Assigned to:
-  Resources:
-  Cost:
-  Status:
-  Due date:
-  Priority: 3 (evt. 2 dersom bofhd ikke skal gå via metaserver)
-
 ** Få på plass webgrensesnitt for flere tjenester (ønsket er også
    infoside som it-personell kan få opp.
 
 *** Lage liste over hvilke tjenester som trengs
-  Description:
+  Description: Først bør man ha møte og kanskje spørre en termvak/lukevakt/it-ansvarlig
   Dependencies:
   Assigned to:
   Resources:
   Cost:
   Status:
   Due date:
-  Priority: 2.5
+  Priority: 2
 *** Implementere nødvendige tjenester
   Description:
   Dependencies:
-  Assigned to:
+  Assigned to: Rune
   Resources:
   Cost:
   Status:
   Due date:
-  Priority: 2.5
+  Priority: 2
 
 
 ** BOFH-forbedringer, f.eks. alias.
@@ -1194,22 +1154,16 @@
   Assigned to: jazz
   Resources:
   Cost:
-  Status:
+  Status: Fordrer møte med spesifisering og avgrensning
   Due date:
   Priority: 2
 
 ** Oppsplitting av bofh_uio_cmds
   Description: Store deler av bofh_uio_cmds er ikke UiO-spesifikke.
 	       Disse delene bør derfor splittes ut i andre bofh-moduler.
-
-	       Dersom man bestemmer seg for at bofhd skal operere via
-	       metaserver, vil man i stedet for å splitte opp en
-	       eksisterende fil måtte skrive om hele sulamitten -- og
-	       kan da ta jobben med å plassere metodene i passende
-	       moduler i samme slengen.
   Dependencies:
-  Assigned to:
-  Resources:
+  Assigned to: Rune
+  Resources: Jazz
   Cost:
   Status:
   Due date:
@@ -1252,9 +1206,10 @@
 
 ** Dokumentasjon
   Description: Ymse former for dokumentasjon av Cerebrum må på plass.
+	       Punktet må splittes.
   Dependencies:
   Assigned to:
-  Resources: runefro, hmeland, jazz, mathiasm, christfs
+  Resources: runefro, hmeland, jazz, mathiasm, christfs, igorr
   Cost:
   Status:
   Due date:
@@ -1287,7 +1242,7 @@
 	       ikke bare "BOFH"-requests.  Er det mulig/ønskelig å slå
 	       sammen denne med process_changes?
   Dependencies:
-  Assigned to:
+  Assigned to: Rune
   Resources: mathiasm
   Cost:
   Status:
@@ -1315,7 +1270,7 @@
   Assigned to: baardj
   Resources:
   Cost:
-  Status:
+  Status: fordrer møte
   Due date:
   Priority: 2
 
@@ -1328,10 +1283,10 @@
 	       bør bofhd kunne kjøres i hhv. record- og
 	       playback-modus.
   Dependencies:
-  Assigned to:
-  Resources: hmeland, runefro
+  Assigned to: runefro
+  Resources: 
   Cost:
-  Status:
+  Status: må ha møte for å lage spec?
   Due date:
   Priority: 2
 
@@ -1344,11 +1299,11 @@
   Assigned to: runefro
   Resources:  kjetilth, hmeland
   Cost:
-  Status: Klart, lite møte før prodsetting
+  Status: venter på ny pythonver.
   Due date:
   Priority: 2
 
-** Python 2.3 (eller nyere)
+** Python 2.3 
   Description: Verifisere at Cerebrum fungerer med Python 2.3.
 	       Antagelig bør Cerebrum 1.0 fortsatt kunne fungere med
 	       Python 2.2.1, da tidligere releases ikke er verifisert
@@ -1357,7 +1312,7 @@
   Assigned to: runefro
   Resources: Kjetil, hmeland
   Cost:
-  Status: Klart, lite møte før prodsetting
+  Status: er i testdrift
   Due date:
   Priority: 2
 
@@ -1388,11 +1343,53 @@
   Description:
   Dependencies:
   Assigned to: baardj
-  Resources:
+  Resources: KGM, Sven Erik, Bjørn, Arne, Christine
   Cost:
   Status:
   Due date:
   Priority: 2
+
+** Landkoder i adresser
+  Description: Cerebrums databaseskjema har støtte for landkoder for
+	       adresser, men det finnes ikke noe Python-kode for å
+	       benytte denne featuren.  Python-rammeverk for denne
+	       featuren (med input-data som ofte er fritekst) må
+	       lages.
+  Dependencies:
+  Assigned to: Rune
+  Resources: Hvem som helst
+  Cost: (ikke mye)
+  Status: Fordrer et par avgjørelser i forkant
+  Due date:
+  Priority: 2
+
+** Avvikling av steder
+  Description: Steder som avvikles i autoritativt kildesystem bør
+	       merkes som avviklet i Cerebrum.  Det er ikke trivielt å
+	       fjerne stedet fra Cerebrum, da det bl.a. kan være
+	       knyttet opp i personers og brukeres affiliations.
+	       Mulig løsning: Utvide ou_info med kolonne for
+	       deleted_date.
+  Dependencies:
+  Assigned to:
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority: 2.9
+
+** Flytting av personer/brukere ved avvikling av steder
+  Description: Lage script for å avhjelpe omorganisering; oppdatere
+	       eksisterende affiliations ved gammelt sted til å heller
+	       være ved nytt sted.
+  Dependencies:
+  Assigned to:
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority: 3
+
 
 
 arch-tag: a2bdce9c-5efd-44a2-b13f-d190e665ef25
