@@ -33,19 +33,6 @@ following additional information is provided:
 - role records (rolle)
 - reservation records (reservasjon)
 - leaves of absence records (permisjon)
-
-The layout of the entire module is in mod_lt.dia.
-
-import cerebrum_path
-import cereconf 
-from Cerebrum import Database
-from Cerebrum.Utils import Factory
-db = Factory.get("Database")()
-person = Factory.get("Person")(db)
-const = Factory.get("Constants")(db)
-person.find_by_external_id(const.externalid_fodselsnr, "10037930771")
-person.populate_tilsetting(100, 3, 2015, '20040101', '20050101', 100)
-
 """
 
 import sys
