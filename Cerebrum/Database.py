@@ -720,6 +720,20 @@ class Database(object):
             return ["'%s'" % val]
         raise ValueError
 
+    def _read_password(self, database, user):
+        import os
+        filename = os.path.join(cereconf.DB_AUTH_DIR,
+                                'passwd-%s@%s' % (user.lower(),
+                                                  database.lower()))
+        f = file(filename)
+        try:
+            # .rstrip() removes any trailing newline, if present.
+            dbuser, dbpass = f.readline().rstrip().split('\t', 1)
+            assert dbuser == user
+            return dbpass
+        finally:
+            f.close()
+
 class PostgreSQL(Database):
     """PostgreSQL driver class."""
 
@@ -735,8 +749,8 @@ class PostgreSQL(Database):
             service = cereconf.CEREBRUM_DATABASE_NAME
         if user is None:
             user = cereconf.CEREBRUM_DATABASE_CONNECT_DATA.get('user')
-        #if password is None:
-        #    password = self._read_password(service, user)
+        if password is None:
+            password = self._read_password(service, user)
         cdata['real_user'] = user
         cdata['real_password'] = password
         cdata['real_service'] = service
@@ -817,20 +831,6 @@ class Oracle(Database):
         # this will in turn invoke the connect() function in the
         # DCOracle2 module.
         super(Oracle, self).connect(conn_str)
-
-    def _read_password(self, database, user):
-        import os
-        filename = os.path.join(cereconf.DB_AUTH_DIR,
-                                'passwd-%s@%s' % (user.lower(),
-                                                  database.lower()))
-        f = file(filename)
-        try:
-            # .rstrip() removes any trailing newline, if present.
-            dbuser, dbpass = f.readline().rstrip().split('\t', 1)
-            assert dbuser == user
-            return dbpass
-        finally:
-            f.close()
 
     def pythonify_data(self, data):
         """Convert type of values in row to native Python types."""
