@@ -663,7 +663,8 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
         SELECT person_id
         FROM [:table schema=cerebrum name=person_info]""")
 
-def list_extended_person(self, spread=None, include_quarantines=0):
+
+    def list_extended_person(self, spread=None, include_quarantines=0):
         """ Multiple join's to increase performance on LDAP-dump"""
         efrom = ewhere = ecols = ""
         if include_quarantines:
@@ -672,40 +673,62 @@ def list_extended_person(self, spread=None, include_quarantines=0):
             ecols = ", eq.quarantine_type"
         if spread is not None:
             efrom += """  JOIN [:table schema=cerebrum name=entity_spread] es
-            ON at.account_id=es.entity_id AND es.spread=:spread"""
+            ON pi.person_id=es.entity_id AND es.spread=:spread"""
         return self.query("""
-        SELECT pi.person_id, pi.birth_date, pei.external_id, pn.name, en.entity_name,
-         eci.contact_value, aa.auth_data, at.ou_id, at.affiliation, ea.local_part, ed.domain  %s
-        FROM
+        SELECT DISTINCT pi.person_id, pi.birth_date, pei.external_id, pn.name, en.entity_name,
+         eci.contact_value, aa.auth_data, at.ou_id, at.affiliation, ea.local_part, ed.domain,
+	 pas.status, eci3.contact_value AS fax %(ecols)s 
+	FROM
           [:table schema=cerebrum name=person_info] pi
-          %s
           JOIN [:table schema=cerebrum name=account_type] at
-            ON at.person_id=pi.person_id AND at.priority='1'
+            ON at.person_id=pi.person_id AND
+                at.priority=(SELECT MIN(priority)
+                FROM [:table schema=cerebrum name=account_type] at2
+                WHERE at2.person_id=pi.person_id)
+	  %(efrom)s
           JOIN  [:table schema=cerebrum name=person_name] pn
             ON pn.person_id=pi.person_id AND pn.source_system=:pn_ss AND
                pn.name_variant=:pn_nv
           JOIN [:table schema=cerebrum name=person_external_id] pei
             ON pi.person_id=pei.person_id
           LEFT JOIN [:table schema=cerebrum name=account_authentication] aa
-            ON aa.account_id=at.account_id AND aa.method=:aa_method
+            ON aa.account_id=at.account_id AND aa.method=(SELECT MAX(method)
+                FROM [:table schema=cerebrum name=account_authentication] aa2
+                where at.account_id=aa2.account_id)
           LEFT JOIN [:table schema=cerebrum name=entity_name] en
             ON en.entity_id=at.account_id AND en.value_domain=:vd
           LEFT JOIN [:table schema=cerebrum name=entity_contact_info] eci
-             ON eci.entity_id=pi.person_id AND eci.contact_pref='1' AND contact_type=:eci_phone
+             ON eci.entity_id=pi.person_id AND
+                contact_type=[:get_constant name=contact_phone] AND
+                eci.contact_pref=(SELECT MIN(contact_pref)
+                FROM [:table schema=cerebrum name=entity_contact_info] eci2
+                WHERE eci2.entity_id = pi.person_id)
+          LEFT JOIN [:table schema=cerebrum name=entity_contact_info] eci3
+             ON eci3.entity_id=pi.person_id AND
+                eci3.contact_type=[:get_constant name=contact_fax] AND
+                eci3.contact_pref=(SELECT MIN(contact_pref)
+                FROM [:table schema=cerebrum name=entity_contact_info] eci4
+                WHERE eci4.entity_id = pi.person_id)
           LEFT JOIN [:table schema=cerebrum name=email_target] et
-             ON at.account_id=et.entity_id AND et.target_type='133' AND et.entity_type=:et_type
+             ON at.account_id=et.entity_id AND et.target_type=:em_type AND et.entity_type=:et_type
           LEFT JOIN [:table schema=cerebrum name=email_primary_address] epa
              ON et.target_id=epa.target_id
           LEFT JOIN [:table schema=cerebrum name=email_address] ea
              ON epa.address_id=ea.address_id
           LEFT JOIN [:table schema=cerebrum name=email_domain] ed
              ON ea.domain_id=ed.domain_id
-          """ % (ecols, efrom),
+          LEFT JOIN [:table schema=cerebrum name=person_affiliation_source] pas
+             ON pi.person_id=pas.person_id AND at.affiliation=pas.affiliation AND at.ou_id=pas.ou_id
+                AND pas.source_system=(SELECT MIN(source_system) FROM
+                [:table schema=cerebrum name=person_affiliation_source] pas2
+                WHERE pi.person_id=pas2.person_id AND at.affiliation=pas2.affiliation AND at.ou_id=pas2.ou_id)
+          """ % locals(),
                           {'vd': int(self.const.account_namespace),
                            'spread': spread,
                            'pn_ss': int(self.const.system_cached),
                            'pn_nv': int(self.const.name_full),
-                           'eci_phone': int(self.const.contact_phone),
+			   'eci_phone': int(self.const.contact_phone),
                            'et_type': int(self.const.entity_account),
+                           'em_type': int(self.const.email_target_account),
                            'aa_method': int(self.const.auth_type_md5_crypt)})
 
