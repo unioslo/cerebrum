@@ -175,6 +175,7 @@ def makeInitialUsers(Cerebrum):
     a.populate(cereconf.INITIAL_ACCOUNTNAME, co.entity_group,
                eg.entity_id, int(co.account_program), ea.entity_id,
                None, parent=ea)
+    a.set_password(cereconf.INITIAL_ACCOUNTNAME_PASSWORD)
     a.write_db()
 
     g = Group.Group(Cerebrum)
