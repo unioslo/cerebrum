@@ -78,16 +78,26 @@ class Change(object):
     def __str__(self):    
         date = self.date.strftime("%Y-%m-%d")    
         return "%s <%s> %s" % (date, self.change_by, self.message())
-    def message(self):
+    def message(self, object_wrapper=lambda s: str(s)):
+        """Returns the change entry as a textual message.
+        object_wrapper might be a supplied function that takes a
+        object and converts it to strings. This function should support
+        ALL kind of objects."""
         words = self.__dict__.copy()
         try:
             words.update(self.params)
         except Exception, e:
             pass
+
+        # convert to strings
+        for (key, value) in words.items():
+            words[key] = object_wrapper(value)
+        subject = object_wrapper(self.subject)    
+
         try:
             return self.type.message % words
         except KeyError:
-            return "%s %s" % (self.type.message, self.subject)
+            return "%s %s" % (self.type.message, subject)
 
 class ContactInfo(object):
 
