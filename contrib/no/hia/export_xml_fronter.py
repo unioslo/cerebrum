@@ -416,7 +416,13 @@ def main():
     acc2names = load_acc2name()
     # Spytt ut PERSON-elementene.
     for user in acc2names.itervalues():
-	fxml.user_to_XML(user)
+        fxml.user_to_XML(user['NAME'],
+                         # Forhåpentligvis gjør "STATUS_UPDATE" at
+                         # brukeren ikke får satt passord lik
+                         # brukernavn, i motsetning til hva som skjer
+                         # med "STATUS_ADD".
+                         fronter_lib.Fronter.STATUS_UPDATE,
+                         user)
 
     # Registrer en del semi-statiske strukturnoder.
     root_node_id = "STRUCTURE:ClassFronter structure root node"
