@@ -399,7 +399,7 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
         return self.query("""
         SELECT person_id, id_type, source_system, external_id
         FROM [:table schema=cerebrum name=person_external_id]
-        %s""" % where, cols)
+        %s""" % where, cols, fetchall=False)
 
     def find_persons_by_bdate(self, bdate):
         return self.query("""
