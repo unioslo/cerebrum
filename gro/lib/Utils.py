@@ -1,38 +1,5 @@
-import weakref
-import time
-
-class Cached(object):
-    cache = weakref.WeakValueDictionary()
-
-    def __new__(cls, *args, **vargs):
-        key = cls, cls.getKey(*args, **vargs)
-        
-        if key in cls.cache:
-            return cls.cache[key]
-        
-        self = object.__new__(cls)
-        cls.cache[key] = self
-        return self
-
 class Lazy(object):
     pass
-
-#class LazyMethod(object):
-#    def __init__(self, var, load):
-#        if type(var) is not str:
-#            raise ValueError('var must be a str')
-#        self.var = var
-#        self.load = load
-#
-#    def __call__(self, obj):
-#        value = getattr(obj, self.var)
-#        if value is Lazy:
-#            load = getattr(obj, self.load)
-#            load()
-#            value = getattr(obj, self.var)
-#            if value is Lazy:
-#                raise Exception('%s was not initialized during load' % self.var)
-#        return value
 
 # å bruke en klasse med __call__ vil ikke funke, da den ikke vil bli bundet til objektet.
 # mulig det kan jukses til med noen stygge metaklassetriks, men dette blir penere.
