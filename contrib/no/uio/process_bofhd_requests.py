@@ -623,10 +623,10 @@ def process_move_requests():
                          operator, spool):
                 logger.debug('user %s moved from %s to %s' %
                              (uname,old_disk,new_disk))
-                account.disk_id = r['destination_id']
+                account.set_home(default_spread, disk_id = r['destination_id'],
+                                 status=const.home_status_on_disk)
                 account.write_db()
                 br.delete_request(request_id=r['request_id'])
-		db.log_change(r['entity_id'], cl_const.account_move , None, change_params={ 'old_host':old_host , 'new_host':new_host , 'old_disk':old_disk, 'new_disk':new_disk })
                 db.commit()
             else:
                 if new_disk == old_disk:
