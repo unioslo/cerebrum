@@ -85,7 +85,7 @@ def personnr_ok(nr, _retDate=0):
         # _opprettelse_ av nye student-personnummer, men allerede
         # opprettede nummer vil finnes en stund enda.
         year += 1900
-    elif date[0] >= 55:
+    elif year >= 55:
         # eldste person tildelt fødelsnummer er født i 1855.
         year += 1800
     else:
