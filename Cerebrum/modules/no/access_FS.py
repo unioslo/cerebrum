@@ -936,17 +936,18 @@ class Undervisning(FSObject):
               p.adrlin1_hjemsted, p.adrlin2_hjemsted, p.postnr_hjemsted,
               p.adrlin3_hjemsted, p.adresseland_hjemsted, 
               p.telefonnr_hjemsted, fp.stillingstittel_engelsk, 
-              r.institusjonsnr, r.faknr, r.instituttnr, r.gruppenr,
-              r.status_aktiv, r.status_publiseres, r.terminkode, r.arstall,
+              fp.institusjonsnr_ansatt AS institusjonsnr,
+              fp.faknr_ansatt AS faknr,
+              fp.instituttnr_ansatt AS instituttnr,
+              fp.gruppenr_ansatt AS gruppenr,
+              fp.status_aktiv, fp.status_reserv_nettpubl AS status_publiseres,
+              '%s' AS terminkode, '%s' AS arstall,
               p.kjonn, p.status_dod
         FROM fs.person p, fs.fagperson fp,
-             fs.fagpersonundsemester r
-        WHERE r.fodselsdato = fp.fodselsdato AND
-              r.personnr = fp.personnr AND
-              fp.fodselsdato = p.fodselsdato AND
-              fp.personnr = p.personnr AND 
-              %s
-        """ % (self._get_termin_aar(only_current=0))
+        WHERE fp.fodselsdato = p.fodselsdato AND
+              fp.personnr = p.personnr AND
+              fp.status_aktiv = 'J'
+        """ % (self.termin, self.year)
         return self.db.query(qry)
 
     def get_fagperson_semester(self, fnr, pnr, institusjonsnr, fakultetnr,
