@@ -291,7 +291,7 @@ WHERE s.fodselsdato = p.fodselsdato AND
       s.fodselsdato = u.fodselsdato AND
       s.personnr = u.personnr AND
       u.status_innreisende = 'J' AND
-      u.data_fra <= SYSDATE AND
+      u.dato_fra <= SYSDATE AND
       u.dato_til >= SYSDATE
       """
         return (self._get_cols(qry), self.db.query(qry))
