@@ -55,15 +55,16 @@ def separate_entries(rows, *predicates):
     """Separate ``rows`` into (keep, reject) tuple based on ``predicates``.
 
     The ``rows`` argument should be a sequence of db_row.py-generated
-    objects.  Each predicate in ``predicate`` should be a (key, value)
-    tuple.  The key must be a valid attribute name of each row object.
+    objects.  Each element in ``predicates`` should be a (key, value)
+    tuple, and is a formulation of a test expression.  The key must be
+    a valid attribute name of each row object.
 
     The rows are separated according to these rules:
     1. By default rows go to the keep list.
-    2. If a predicate's value is None, that predicate is ignored.
-    3. Compare each predicate's value with the attribute named key in
-       each row.  Rows matching all predicates go to the keep list,
-       while the rest end up in the reject list.
+    2. If a predicate's `value` is None, that predicate is ignored.
+    3. Compare each predicate's `value` with the attribute whose name
+       is `key` in each row.  Rows matching all predicates go to the
+       keep list, while the rest end up in the reject list.
 
     """
     keep = []
@@ -180,11 +181,6 @@ class mark_update(auto_super):
       NOTE: If a class has an explicit definition of ``__new__``,
             that class will retain that definition.
 
-    ``__slots__``:
-      Set automatically from ``__write_attr__`` and ``__read_attr__``.
-      NOTE: If a class has an explicit definition of ``__slots__``,
-            this metaclass will only add to the slots already defined.
-
     ``__read_attr__`` and ``__write_attr__``:
       Gets overwritten with tuples holding the name-mangled versions
       of the names they initially held.  If there was no initial
@@ -193,6 +189,12 @@ class mark_update(auto_super):
     ``__xerox__``:
       Copy all attributes that are valid for this instance from object
       given as first arg.
+
+    ``__slots__``:
+      Iff a class has an explicit definition of ``__slots__``, this
+      metaclass will add names from ``__write_attr__`` and
+      ``__read_attr__`` to the class's slots.  Classes without any
+      explicit ``__slots__`` are not affected by this.
 
     Additionally, mark_update is a subclass of the auto_super
     metaclass; hence, all classes with metaclass mark_update will also
@@ -321,10 +323,11 @@ class mark_update(auto_super):
                 setattr(self, mupdated, getattr(from_obj, mupdated))
         dict.setdefault('__xerox__', __xerox__)
 
-        slots = list(dict.get('__slots__', []))
-        for slot in read + write + [mupdated]:
-            slots.append(slot)
-        dict['__slots__'] = tuple(slots)
+        if hasattr(dict('__slots__')):
+            slots = list(dict['__slots__'])
+            for slot in read + write + [mupdated]:
+                slots.append(slot)
+            dict['__slots__'] = tuple(slots)
 
         return super(mark_update, cls).__new__(cls, name, bases, dict)
 
