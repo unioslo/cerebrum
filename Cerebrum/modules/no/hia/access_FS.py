@@ -194,7 +194,8 @@ WHERE p.fodselsdato=d.fodselsdato AND
       p.personnr=d.personnr AND
       d.deltakernr=k.deltakernr AND
       e.etterutdkurskode=k.etterutdkurskode AND
-      NVL(e.status_kontotildeling,'J')='J' AND
+      (NVL(e.status_kontotildeling,'J')='J' OR 
+       NVL(e.status_nettbasert_und,'J')='J') AND
       k.kurstidsangivelsekode = e.kurstidsangivelsekode AND
       NVL(e.dato_til, SYSDATE) >= SYSDATE - 30"""
         return (self._get_cols(qry), self.db.query(qry))
