@@ -283,3 +283,31 @@ class PaidPrinterQuotas(DatabaseAccessor):
         ret.sort(lambda x,y: cmp(x[0], y[0]))
 
         return ret
+
+    def get_pagecount_stats(self, tstamp_from, tstamp_to, group_by=('stedkode',)):
+        binds = {'tstamp_from': tstamp_from,
+                 'tstamp_to': tstamp_to}
+        if group_by:
+            extra_cols = ", " + ", ".join(group_by)
+            group_by = "GROUP BY " + ", ".join(group_by)
+        else:
+            group_by = extra_cols = ""
+        qry = """SELECT count(*) AS jobs, sum(pageunits_free) AS free,
+                  sum(pageunits_paid) AS paid, sum(pageunits_total) AS total %s
+        FROM [:table schema=cerebrum name=paid_quota_history] pqh,
+             [:table schema=cerebrum name=paid_quota_printjob] pqp
+        WHERE pqh.job_id=pqp.job_id AND tstamp >= :tstamp_from AND tstamp < :tstamp_to
+        %s""" % (extra_cols, group_by)
+        return self.query(qry, binds)
+
+    def get_payment_stats(self, tstamp_from, tstamp_to):
+        binds = {'tstamp_from': tstamp_from,
+                 'tstamp_to': tstamp_to}
+        qry = """SELECT count(*) AS jobs, sum(pageunits_free) AS free,
+            sum(pageunits_paid) AS paid, sum(kroner) AS kroner, transaction_type
+        FROM [:table schema=cerebrum name=paid_quota_history] pqh,
+             [:table schema=cerebrum name=paid_quota_transaction] pqt
+        WHERE pqh.job_id=pqt.job_id AND tstamp >= :tstamp_from AND tstamp < :tstamp_to
+        GROUP BY transaction_type"""
+        return self.query(qry, binds)
+    
