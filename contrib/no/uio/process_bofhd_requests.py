@@ -48,12 +48,12 @@ def email_delivery_stopped(user):
 
 def get_email_target_id(user_id):
     t = Email.EmailTarget(db)
-    t.find_by_entity(user_id, const.entity_account)
+    t.find_by_entity(user_id)
     return t.email_target_id
 
 def get_primary_email_address(user_id):
     t = Email.EmailPrimaryAddressTarget(db)
-    t.find_by_entity(user_id, const.entity_account)
+    t.find_by_entity(user_id)
     a = Email.EmailAddress(db)
     a.find(t.get_address_id())
     d = Email.EmailDomain(db)
@@ -211,7 +211,7 @@ def process_email_requests():
                     pass
             if move_email(r['entity_id'], r['requestee_id'],
                           r['state_data']['source_server'],
-                          r['state_data']['dest_server']):
+                          r['destination_id']):
                 br.delete_request(request_id=r['request_id'])
                 br.add_request(r['requestee_id'], r['run_at'],
                                const.bofh_email_move,
@@ -326,7 +326,7 @@ def cyrus_set_quota(user_id, hq):
 
 def cyrus_subscribe(uname, server, action="create"):
     cmd = [SUDO_CMD, cereconf.WRAPPER_CMD, '-c', 'subscribeimap',
-           action, uname, server];
+           action, server, uname];
     cmd = ["%s" % x for x in cmd]
     logger.debug("doing %s" % cmd)
     if debug_hostlist is None or old_host in debug_hostlist:
@@ -343,19 +343,20 @@ def move_email(user_id, mailto_id, from_host, to_host):
         uname = get_account(user_id)[1]
         mailto = get_primary_email_address(mailto_id)
     except Errors.NotFoundError:
-        logger.error("%d or %d not found" % (uname, mailto))
+        logger.error("%d or %d not found" % (user_id, mailto_id))
         return False
-    # TODO: do it for real!
-    hqouta = 100
-    from_type = "nfsspool"
-    to_type = "nfsspool"
-    if from_host.starts_with('mail-sg'):
-        from_type = 'imap'
-    if to_host.starts_with('mail-sg'):
-        to_type = 'imap'
+
+    es_to = Email.EmailServer(self._db)
+    es_to.find(to_host)
+    es_fr = Email.EmailServer(self._db)
+    es_fr.find(from_host)
+    eq = Email.EmailQuota(self._db)
+    eq.find_by_entity(user_id)
+
     cmd = [SUDO_CMD, cereconf.WRAPPER_CMD, '-c', 'mvmail',
-           uname, mailto, hquota,
-           from_host, from_type, to_host, to_type]
+           uname, mailto, eq.email_quota_hard,
+           es_fr.name, str(es_fr.email_server_type),
+           es_to.name, str(es_to.email_server_type)]
     cmd = ["%s" % x for x in cmd]
     logger.debug("doing %s" % cmd)
     EXIT_SUCCESS = 0
@@ -365,7 +366,7 @@ def move_email(user_id, mailto_id, from_host, to_host):
     EXIT_FAILED = 4
     errnum = os.spawnv(os.P_WAIT, cmd)
     if errnum == EXIT_QUOTAEXCEEDED:
-        # TODO: bump quota
+        # TODO: bump quota, or something else
         return True
     elif errnum == EXIT_SUCCESS:
         return True
