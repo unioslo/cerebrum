@@ -25,7 +25,8 @@ from Cerebrum import Utils
 from Cerebrum import Constants
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum.Constants import _AuthoritativeSystemCode,_PersonAffiliationCode, \
-     _PersonExternalIdCode, _PersonAffStatusCode, _SpreadCode, _OUPerspectiveCode
+     _PersonExternalIdCode, _PersonAffStatusCode, _SpreadCode, _OUPerspectiveCode, \
+     _QuarantineCode
 
 
 import cereconf
@@ -71,7 +72,21 @@ class FeideGvsConstants(Constants.Constants):
         'SAS',
         'Perspective: SAS')
 
-    
+    quarantine_generell = _QuarantineCode(
+	'generell', 
+	'Generell splatt')
+
+    quarantine_teppe = _QuarantineCode(
+	'teppe', 
+	'Kallt inn på teppet til drift')
+
+    quarantine_system = _QuarantineCode(
+	'system', 
+	'Systembrukar som ikke skal logge inn')
+
+    quarantine_svakt_passord = _QuarantineCode(
+	'svakt_passord', 
+	'For dårlig passord')
 
 class FeideGvsEntity(DatabaseAccessor):
     def clear_class(self, cls):
