@@ -30,6 +30,7 @@ from Cerebrum.modules import PosixUser
 from Cerebrum.modules import PosixGroup
 from Cerebrum import Disk
 from Cerebrum.Entity import EntityName
+from Cerebrum import QuarantineHandler
 
 db = Factory.get('Database')()
 co = Factory.get('Constants')(db)
@@ -40,7 +41,9 @@ MAX_LINE_LENGTH = 512
 entity2uname = {}
 debug = 0
 
-def generate_passwd(filename):
+def generate_passwd(filename, spread=None):
+    if spread is None:
+        raise ValueError, "Must set user_spread"
     shells = {}
     for s in posix_user.list_shells():
         shells[int(s['code'])] = s['shell']
@@ -50,7 +53,8 @@ def generate_passwd(filename):
     disk = Disk.Disk(db)
     for d in disk.list():
         diskid2path[int(d['disk_id'])] = d['path']
-    for row in posix_user.list_extended_posix_users(auth_method=co.auth_type_md5_crypt):
+    for row in posix_user.list_extended_posix_users(auth_method=co.auth_type_md5_crypt,
+                                                    spread=spread, include_quarantines=1):
         uname = row['entity_name']
         passwd = row['auth_data']
         if passwd is None:
@@ -58,10 +62,23 @@ def generate_passwd(filename):
         posix_group.posix_gid = row['posix_gid']
         gecos = "posix_user.get_gecos()"
         home = row['home'] 
+        shell = shells[int(row['shell'])]
+        if row['quarantine_type'] is not None:
+            qh = QuarantineHandler.QuarantineHandler(db, [row['quarantine_type']])
+            if qh.should_skip():
+                continue
+            if qh.is_locked():
+                passwd = '*locked'
+            qshell = qh.get_shell()
+            if qshell is not None:
+                shell = qshell
+
         if home is None:
+            if row['disk_id'] is None:
+                print "Bad disk for %s" % uname
+                continue
             home = diskid2path[int(row['disk_id'])] + "/" + uname
             
-        shell = shells[int(row['shell'])]
         line = join((uname, passwd, str(row['posix_uid']),
                     str(posix_group.posix_gid), gecos,
                     str(home), shell))
@@ -75,13 +92,15 @@ def generate_passwd(filename):
     f.close()
     os.rename("%s.new" % filename, filename)
 
-def generate_group(filename):
+def generate_group(filename, group_spread, user_spread):
+    if group_spread is None or user_spread is None:
+        raise ValueError, "Must set user_spread and group_spread"
     groups = {}
     f = file("%s.new" % filename, "w")
     en = EntityName(db)
     for row in en.list_names(int(co.account_namespace)):
         entity2uname[int(row['entity_id'])] = row['entity_name']
-    for row in posix_group.list_all():
+    for row in posix_group.list_all(spread=group_spread):
         posix_group.clear()
         posix_group.find(row.group_id)
         # Group.get_members will flatten the member set, but returns
@@ -92,7 +111,7 @@ def generate_group(filename):
         gid = str(posix_group.posix_gid)
 
         members = []
-        for id in posix_group.get_members():
+        for id in posix_group.get_members(spread=user_spread):
             id = db.pythonify_data(id)
             if entity2uname.has_key(id):
                 members.append(entity2uname[id])
@@ -173,24 +192,33 @@ def maxjoin(elems, maxlen, sep=','):
     return (s, ())
 
 
+def map_spread(id):
+    return int(id)   # TODO:  Should take text as input param
+
 def main():
     global debug
     opts, args = getopt.getopt(sys.argv[1:], 'dg:p:',
-                               ['debug', 'group=', 'passwd='])
+                               ['debug', 'group=', 'passwd=', 'group_spread=',
+                                'user_spread='])
+    user_spread = group_spread = None
     for opt, val in opts:
         if opt in ('-d', '--debug'):
             debug += 1
         elif opt in ('-g', '--group'):
-            generate_group(val)
+            generate_group(val, group_spread, user_spread)
         elif opt in ('-p', '--passwd'):
-            generate_passwd(val)
+            generate_passwd(val, user_spread)
+        elif opt in ('--group_spread',):
+            group_spread = map_spread(val)
+        elif opt in ('--user_spread',):
+            user_spread = map_spread(val)
         else:
             usage()
     if len(opts) == 0:
         usage()
 
 def usage():
-    print """Usage: [-d] {-p outfile | -g outfile}"""
+    print """Usage: [-d] {--group_spread value --user_spread value} {-p outfile | -g outfile}"""
     sys.exit(0)
 
 if __name__ == '__main__':
