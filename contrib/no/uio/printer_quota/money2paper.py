@@ -18,7 +18,7 @@ co = Factory.get('Constants')(db)
 person = Person.Person(db)
 ppq = PaidPrinterQuotas.PaidPrinterQuotas(db)
 pq_util = PPQUtil.PPQUtil(db)
-logger = Factory.get_logger("console")
+logger = Factory.get_logger("cronjob")
 # we don't want the log of payment statements to be cluttered with
 # debug statements etc.
 payment_logger = bofhd_pq_utils.SimpleLogger('pq_bofhd.log')
