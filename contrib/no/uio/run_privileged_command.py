@@ -43,6 +43,8 @@ commands = {
     'mvmail': [cereconf.MVMAIL_SCRIPT, 8],
     # uname, home, uid, dfg
     'convertmail': [cereconf.CONVERT_MAILCONFIG_SCRIPT, 4],
+    # mode, listname, admin
+    'mailman': [cereconf.MAILMAN_SCRIPT, 3],
     }
 
 def usage(exitcode=0):
