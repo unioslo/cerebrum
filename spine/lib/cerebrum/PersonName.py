@@ -51,4 +51,18 @@ def get_names(self):
 
 Person.register_method(Method('get_names', [PersonName]), get_names)
 
+def add_name(self, name, name_variant, source_system):
+    obj = self._get_cerebrum_obj()
+    obj.affect_names(source_system.get_id(), name_variant.get_id())
+    obj.populate_name(name_variant.get_id(), name)
+    obj.write_db()
+
+    # this is a hack to make sure all PersonName objects is up to date
+    # maybe we should implement our own create/save
+    for i in self.get_names():
+        i.get_name()
+        del i._name
+
+Person.register_method(Method('add_name', None, args=[('name', str), ('name_variant', NameType), ('source_system', SourceSystem)], write=True), add_name)
+
 # arch-tag: 6a0ecb31-a1a6-4581-ad50-c9e53323041b
