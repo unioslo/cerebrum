@@ -40,7 +40,7 @@ db = Factory.get('Database')()
 co = Factory.get('Constants')(db)
 db.cl_init(change_program='add_disk')
 logging.fileConfig(cereconf.LOGGING_CONFIGFILE)
-logger = logging.getLogger("console")
+logger = logging.getLogger("cronjob")
 
 
 account = Factory.get('Account')(db)
@@ -267,7 +267,7 @@ def get_account_info(account_id, spread, site_callback):
     ent_name.find(account_id)
     #pq = PrinterQuotas.PrinterQuotas(db);
     name = ent_name.get_name(co.account_namespace)
-    (first_n, last_n, account_disable, home_dir, affiliation, ext_id,email) = get_user_info(account_id, spread)
+    (first_n,last_n,account_disable,home_dir,affiliation,ext_id,email,pers) = get_user_info(account_id, spread)
     passwords = db.get_log_events(types=(int(co.account_password),), subject_entity=account_id)
 
     pwd_rows = [row for row in passwords]
@@ -277,18 +277,22 @@ def get_account_info(account_id, spread, site_callback):
         type, value, tb = sys.exc_info()
         logger.warn("Aiee! %s %s" % (str(type), str(value)))
         pwd = ''
-    try:
-        pri_ou = get_primary_ou(account_id, co.account_namespace)
-    except Errors.NotFoundError:
-        logger.info("Unexpected error /me thinks")
-    if not pri_ou:
-        logger.warn("WARNING: no primary OU found for",name,"in namespace", 
+    if pers:
+	try:
+	    pri_ou = get_primary_ou(account_id, co.account_namespace)
+	except Errors.NotFoundError:
+	    logger.info("Unexpected error me thinks")
+	if not pri_ou:
+	    logger.warn("WARNING: no primary OU found for",name,"in namespace", 
 							co.account_namespace)
-        pri_ou = cereconf.NW_DEFAULT_OU_ID
-    crbrm_ou = id_to_ou_path(pri_ou , cereconf.NW_LDAP_ROOT)
-    ldap_ou = get_ldap_usr_ou(crbrm_ou, affiliation)
-    ldap_dn = unicode('cn=%s,' % name, 'iso-8859-1').encode('utf-8') + ldap_ou
-    
+	    pri_ou = cereconf.NW_DEFAULT_OU_ID
+	crbrm_ou = id_to_ou_path(pri_ou , cereconf.NW_LDAP_ROOT)
+	ldap_ou = get_ldap_usr_ou(crbrm_ou, affiliation)
+	ldap_dn = unicode('cn=%s,' % name, 'iso-8859-1').encode('utf-8') + ldap_ou
+    else:
+	ldap_ou = "%s,%s" % (unicode(cereconf.NW_LDAP_STUDOU, 'iso-8859-1').encode('utf-8'),
+                        unicode(cereconf.NW_LDAP_ROOT, 'iso-8859-1').encode('utf-8'))
+	ldap_dn = unicode('cn=%s,' % name, 'iso-8859-1').encode('utf-8') + ldap_ou
     try:
 	if cereconf.NW_PRINTER_QUOTAS.lower() == 'enable': 
 	    from Cerebrum.modules.no import PrinterQuotas 
@@ -340,45 +344,61 @@ def get_account_dict(dn_id, spread, site_callback):
 
 
 def get_user_info(account_id, spread):
-
     affiliation = None
     account.clear()
     account.find(account_id)
+    ent_name.clear()
+    ent_name.find(account.owner_id)
     home_dir = find_home_dir(account_id, account.account_name, spread)
-    names = {'name_last':None,'name_first':None,'name_full':None}    
-    try:
-        person_id = account.owner_id
-        person.clear()
-        person.find(person_id)
-	for name_var in names:
-	    try:
-		names[name_var] = person.get_name(int(co.system_cached), int(getattr(co,name_var)))
-	    except Errors.NotFoundError:
-		name[name_var] = None
-	if not names['name_last'] or not names['name_first']:
-	    if names['name_full']:
-		name_l = names['name_full'].split(' ')
-		names['name_last'] = name_l[len(name_l)-1]
-		names['name_first'] = ' '.join(name_l[:len(name_l)-1])
-	    else:
-		for name_var in names:
-		    names[name_var] = account.account_name
-    except Errors.NotFoundError:
-        logger.info("WARNING: find on person or account failed, user_id:", account_id)
-    ext_id = 0
-    try:
-	affiliation = get_primary_affiliation(account_id, co.account_namespace)
-	if affiliation == co.affiliation_student:
-	    ext_id = int(person.get_external_id(co.system_fs, co.externalid_studentnr)[0]['external_id'])
-	else: 
-	    ext_id = int(person.get_external_id(int(getattr(co, ss)))[0]['external_id'])
-    except:
-	pass
-    try:
-	email = account.get_primary_mailaddress()
-    except:
-	email = None
-
+    names = {'name_last':None,'name_first':None,'name_full':None}
+    if ent_name.entity_type == int(co.entity_person):
+	pers = True
+    else:
+	pers = False
+    if pers:
+	try:
+	    person_id = account.owner_id
+	    person.clear()
+	    person.find(person_id)
+	    for name_var in names:
+		try:
+		    names[name_var] = person.get_name(int(co.system_cached), int(getattr(co,name_var)))
+		except Errors.NotFoundError:
+		    name[name_var] = None
+	    if not names['name_last'] or not names['name_first']:
+		if names['name_full']:
+		    name_l = names['name_full'].split(' ')
+		    if len(name_l) > 1:
+			names['name_last'] = name_l[len(name_l)-1]
+			names['name_first'] = ' '.join(name_l[:len(name_l)-1])
+		    else: 
+			names['name_last'] = names['name_full']
+			names['name_first'] = names['name_full']
+		else:
+		    for name_var in names:
+			names[name_var] = account.account_name	
+    	except Errors.NotFoundError:
+	    logger.debug("find on person or account failed, user_id:", account_id)
+	    for name_var in names:
+		names[name_var] = account.account_name
+    	ext_id = 0
+	try:
+	    affiliation = get_primary_affiliation(account_id, co.account_namespace)
+	    if affiliation == co.affiliation_student:
+		ext_id = int(person.get_external_id(co.system_fs, co.externalid_studentnr)[0]['external_id'])
+	    else: 
+		ext_id = int(person.get_external_id(int(getattr(co, ss)))[0]['external_id'])
+	except:
+	    pass
+	try:
+	    email = account.get_primary_mailaddress()
+	except:
+	    email = None
+    else:
+    	email = None
+	affiliation = None
+	names = {'name_last':account.account_name, 
+		'name_first':account.account_name}
     account_disable = 'FALSE'
     # Check against quarantine.
     quarantine.clear()
@@ -397,7 +417,8 @@ def get_user_info(account_id, spread):
             logger.info("WARNING: missing QUARANTINE_RULE")    
     if (account.is_expired()):
         account_disable = 'TRUE'
-    return (names['name_first'], names['name_last'], account_disable, home_dir, affiliation, ext_id, email)
+    return (names['name_first'], names['name_last'], account_disable, 
+		home_dir, affiliation, ext_id, email, pers)
 
 
 def get_primary_ou(account_id,namespace):
