@@ -12,7 +12,7 @@ from db import db
 __all__ = ['Entity', 'Note']
 
 class Entity(Node):
-    slots = ['id', 'entityType', 'spreads', 'notes', 'contactInfo']
+    slots = ['id', 'entityType', 'spreads', 'notes', 'contactInfo', 'addresses']
     readSlots = Node.readSlots + slots
     writeSlots = Node.writeSlots + []
 
@@ -35,6 +35,7 @@ class Entity(Node):
         except NotImplementedError:
             real = Entity
         self.__class__ = real
+        self._key = key
         cls.cache[key] = self
         return self
 
@@ -45,6 +46,22 @@ class Entity(Node):
     def __init__(self, id, parents=Lazy, children=Lazy, *args, **vargs):
         Node.__init__(self, parents, children)
         Clever.__init__(self, Entity, id, *args, **vargs)
+
+    def create(entityType):
+# Det funker ikke pga log_change.
+#        e = Cerebrum.Entity.Entity(db)
+#        e.populate(entityType.id)
+#        e.write_db()
+#        id = e.entity_id
+
+        id = int(db.nextval('entity_id_seq'))
+        db.execute('''INSERT INTO entity_info
+                        (entity_id, entity_type)
+                        VALUES (%s, %s)''' % (id, entityType.id))
+        # changelog her...
+
+        return Entity(id, entityType=entityType)
+    create = staticmethod(create)
 
     # load methods
     
@@ -88,6 +105,14 @@ class Entity(Node):
                                     subject = row['subject'],
                                     description = row['description']))
 
+    def loadAddresses(self):
+        self._addresses = sets.Set()
+        e = Cerebrum.Entity.EntityAddress(db)
+        e.entity_id = self.id
+
+        for row in e.get_entity_address():
+            self._addresses.add(Address.getByRow(row))
+
     def loadContactInfo(self):
         self._contactInfo = sets.Set()
 
@@ -102,6 +127,7 @@ class Entity(Node):
     getNotes = LazyMethod('_notes', 'loadNotes')
     getSpreads = LazyMethod('_spreads', 'loadSpreads')
     getContactInfo = LazyMethod('_contactInfo', 'loadContactInfo')
+    getAddresses = LazyMethod('_addresses', 'loadAddresses')
 
 
 Clever.prepare(Entity, 'load')
@@ -170,6 +196,16 @@ class Note(Node):
         Node.__init__(self, parents, children)
         Clever.__init__(self, Note, id, *args, **vargs)
 
+    def create(creator, entity, subject, description):
+        id = int(db.nextval('note_seq'))
+        db.execute('''INSERT INTO note
+                      (note_id, creator_id, entity_id, subject, description)
+                      VALUES (%s, %s, %s, %s, %s)''' % (id, creator.id, entity.id, `subject`, `description`))
+        db.commit()
+        return Note(id, creator=creator, entity=entity, subject=subject, description=description)
+    create = staticmethod(create)
+    db.commit()
+
     def getKey(id, *args, **vargs):
         return id
     getKey = staticmethod(getKey)
@@ -193,3 +229,36 @@ class Note(Node):
         self._description = row['description']
 
 Clever.prepare(Note, 'load')
+
+class Address(Node):
+    # country må fikses..
+    slots = ['entity', 'sourceSystem', 'addressType', 'text', 'poBox', 'postalNumber', 'city', 'country']
+    readSlots = Node.readSlots + slots
+    writeSlots = Node.writeSlots + ['text', 'poBox', 'postalNumber', 'city', 'country']
+
+    def __init__(self, parents, children, *args, **vargs):
+        Node.__init__(self, parents, children)
+        Clever.__init__(self, Address, *args, **vargs)
+
+    def getByRow(cls, row):
+        import Types
+
+        entity = Entity(int(row['entity_id']))
+        sourceSystem = Types.SourceSystem(int(row['source_system']))
+        addressType = Types.AddressType(int(row['address_type']))
+        text = row['address_text']
+        poBox = row['p_o_box']
+        postalNumber = row['postal_number']
+        city = row['city']
+        country = int(row['country'])
+
+        return cls(entity=entity, sourceSystem=sourceSystem, addressType=addressType, text=text,
+                   poBox=poBox, postalNumber=postalNumber, city=city, country=county)
+
+    def getKey(entity, sourceSystem, addressType, *args, **vargs):
+        return entity, sourceSystem, addressType
+
+    def load(self):
+        raise Exception('FU')
+
+Clever.prepare(Address, 'load')
