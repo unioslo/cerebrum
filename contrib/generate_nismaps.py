@@ -54,6 +54,12 @@ entity2uname = {}
 debug = 0
 e_o_f = False
 
+class NISMapException(Exception): pass
+class UserSkipQuarantine(NISMapException): pass
+class NISMapError(NISMapException): pass
+class BadUsername(NISMapError): pass
+class NoDisk(NISMapError): pass
+
 def generate_passwd(filename, spread=None):
     if spread is None:
         raise ValueError, "Must set user_spread"
@@ -68,12 +74,10 @@ def generate_passwd(filename, spread=None):
     static_posix_user = PosixUser.PosixUser(db)
     for d in disk.list():
         diskid2path[int(d['disk_id'])] = d['path']
-    for row in posix_user.list_extended_posix_users(auth_method=co.auth_type_crypt3_des,
-                                                    spread=spread, include_quarantines=1):
+    def process_user(row, extra_rows):
         uname = row['entity_name']
         if len(uname) > 8:
-            print "Bad username %s" % uname
-            continue
+            raise BadUsername, "Bad username %s" % uname
         passwd = row['auth_data']
         if passwd is None:
             passwd = '*'
@@ -87,9 +91,20 @@ def generate_passwd(filename, spread=None):
         home = row['home'] 
         shell = shells[int(row['shell'])]
         if row['quarantine_type'] is not None:
-            qh = QuarantineHandler.QuarantineHandler(db, [row['quarantine_type']])
+            quara_rows = [row] + extra_rows
+            now = db.DateFromTicks(time.time())
+            quarantines = []
+            for qrow in quara_rows:
+                if (qrow['start_date'] <= now
+                    and (qrow['end_date'] is None or qrow['end_date'] >= now)
+                    and (qrow['disable_until'] is None
+                         or qrow['disable_until'] < now)):
+                    # The quarantine found in this row is currently
+                    # active.
+                    quarantines.append(qrow['quarantine_type'])
+            qh = QuarantineHandler.QuarantineHandler(db, quarantines)
             if qh.should_skip():
-                continue
+                raise UserSkipQuarantine
             if qh.is_locked():
                 passwd = '*locked'
             qshell = qh.get_shell()
@@ -98,8 +113,7 @@ def generate_passwd(filename, spread=None):
 
         if home is None:
             if row['disk_id'] is None:
-                print "Bad disk for %s" % uname
-                continue
+                raise NoDisk, "Bad disk for %s" % uname
             home = diskid2path[int(row['disk_id'])] + "/" + uname
             
         line = join((uname, passwd, str(row['posix_uid']),
@@ -109,9 +123,37 @@ def generate_passwd(filename, spread=None):
             print line
         f.write(line+"\n")
         # convert to 7-bit
-        n += 1
-        #if n > 100:
-        #    break
+    user_iter = posix_user.list_extended_posix_users(
+        auth_method=co.auth_type_crypt3_des,
+        spread=spread, include_quarantines=True)
+    user_row = None
+    extra_rows = []
+    for row in user_iter:
+        if user_row is None:
+            pass
+        elif row['account_id'] == user_row['account_id']:
+            extra_rows.append(row)
+        else:
+            try:
+                process_user(user_row, extra_rows)
+                n += 1
+                # if n > 100:
+                #     break
+            except NISMapError, e:
+                print e
+            except NISMapException:
+                pass
+            extra_rows = []
+        user_row = row
+    else:
+        if user_row is not None:
+            try:
+                process_user(user_row, extra_rows)
+                n += 1
+            except NISMapError, e:
+                print e
+            except NISMapException:
+                pass
     if e_o_f:
 	f.write('E_O_F\n')
     f.close()
