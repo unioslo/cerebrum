@@ -349,6 +349,7 @@ def import_all():
         progress.write("Person/%s: " % level, raw=True)
         for oid, rows in person2row.items():
             person_id = write_person(rows, skole2ou_id, src_sys)
+            person_id = int(person_id)  # cast to int to make it hashable
             poid2person_id[oid] = person_id
             for row in rows:
                 if isinstance(row, ElevRow):
@@ -361,6 +362,8 @@ def import_all():
                     groups.setdefault(gname, []).append(person_id)
                 elif isinstance(row, AnsattRow):
                     gname = "%s_ansatt" % row.skole
+            # TBD: vi ønsker antagelig å dytte inn account_id sammen
+            #   med person_id i groups dict'en over + lærer under
             account_id = write_account(rows, person_id, gname)
             poid2account_id[oid] = account_id
         progress.write("\n")
@@ -858,8 +861,11 @@ def write_person(rows, skole2ou_id, src_sys):
 
 def write_account(rows, person_id, gname):
     # TODO:
-    # - bare bygge konto hvis ikke har fra før
     # - account affiliations
+
+    posix_user = PosixUser.PosixUser(Cerebrum)
+    for t in posix_user.get_accounts_by_owner_id(person_id):
+        return  # TBD: er oppdatering aktuelt?
     gid = group_cache.get(gname)
     if gid is None:
         group = PosixGroup.PosixGroup(Cerebrum)
@@ -874,7 +880,6 @@ def write_account(rows, person_id, gname):
     disk_id = user_disks['bas:/home']
     creator_id = default_creator_id
 
-    posix_user = PosixUser.PosixUser(Cerebrum)
     if verbose > 1:
         print "bygger: "+".".join([str(x) for x in rows])
     try:
@@ -900,11 +905,12 @@ def write_group(name, members):
     except Errors.NotFoundError:
         # TBD: Not sure that it's right to use
         # cereconf.INITIAL_ACCOUNTNAME as creator for these groups.
-        group.new(account, co.group_visibility_all, name,
+        group.new(account.entity_id, co.group_visibility_all, name,
                   # TODO: Add more *descriptive* group descriptions.
                   "SATS auto-derived group.")
+    members = uniq(members)
     for m in members:
-        group.add_member(m, co.group_memberop_union)
+        group.add_member(m, co.entity_person, co.group_memberop_union)
     return group.entity_id
 
 
