@@ -91,6 +91,7 @@ class Entity(DatabaseAccessor):
             for attr in ('entity_id', 'entity_type'):
                 if hasattr(from_obj, attr):
                     setattr(self, attr, getattr(from_obj, attr))
+            self.__in_db = from_obj.__in_db
 
     def __eq__(self, other):
         assert isinstance(other, Entity)
