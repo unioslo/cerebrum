@@ -63,9 +63,9 @@ class AutoPriorityAccountMixin(Account.Account):
             taken.append(int(row['priority']))
         taken = [x for x in taken if x >= pri_min and x < pri_max]
         taken.sort()
-        if taken:
+        if (not taken):
             taken.append(pri_min)
-        new_pri = taken[-1] + 2
+	new_pri = taken[-1] + 2
         if new_pri < pri_max:
             return new_pri
 
