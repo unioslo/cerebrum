@@ -137,9 +137,11 @@ def process_person_callback(person_info):
     studentnr = None
     affiliations = []
     address_info = None
+    aktiv_sted = []
     # Iterate over all person_info entries and extract relevant data    
     for dta_type in person_info.keys():
-        p = person_info[dta_type][0]
+        x = person_info[dta_type]
+	p = x[0]
         if isinstance(p, str):
             continue
         # Get name
@@ -188,29 +190,30 @@ def process_person_callback(person_info):
                                  affiliations, _get_sko(p, 'faknr',
                                  'instituttnr', 'gruppenr', 'institusjonsnr'))
         elif dta_type in ('aktiv', ):
-            # TODO: Ikke noe som genererer disse entriene foreløbig.
-            # Skal kanskje leses fra topics, men det er uvvist hvilket
-            # format topic fila vil få
-            pass
+	    for row in x:
+		aktiv_sted.append(int(studieprog2sko[row['studieprogramkode']]))
         elif dta_type in ('opptak', ):
-            subtype = co.affiliation_status_student_opptak
-            if p['studierettstatkode'] == 'EVU':
-                subtype = co.affiliation_status_student_evu
-            elif p['studierettstatkode'] == 'PRIVATIST':
-                subtype = co.affiliation_status_student_privatist
-            elif p['studierettstatkode'] == 'FULLFØRT':
-                subtype = co.affiliation_status_student_alumni
-            _process_affiliation(co.affiliation_student,
-                                 subtype,
-                                 affiliations, studieprog2sko[p['studieprogramkode']])
+	    for row in x:
+		subtype = co.affiliation_status_student_opptak
+		if studieprog2sko[row['studieprogramkode']] in aktiv_sted:
+		    subtype = co.affiliation_status_student_aktiv
+		elif row['studierettstatkode'] == 'EVU':
+		    subtype = co.affiliation_status_student_evu
+		elif row['studierettstatkode'] == 'PRIVATIST':
+		    subtype = co.affiliation_status_student_privatist
+		elif row['studierettstatkode'] == 'FULLFØRT':
+		    subtype = co.affiliation_status_student_alumni
+		_process_affiliation(co.affiliation_student, subtype,
+                                 affiliations, studieprog2sko[row['studieprogramkode']])
         elif dta_type in ('perm',):
             _process_affiliation(co.affiliation_student,
                                  co.affiliation_status_student_aktiv,
                                  affiliations, studieprog2sko[p['studieprogramkode']])
         elif dta_type in ('tilbud',):
-            _process_affiliation(co.affiliation_student,
+	    for row in x:
+           	 _process_affiliation(co.affiliation_student,
                                  co.affiliation_status_student_tilbud,
-                                 affiliations, studieprog2sko[p['studieprogramkode']])
+                                 affiliations, studieprog2sko[row['studieprogramkode']])
         elif dta_type in ('evu', ):
             _process_affiliation(co.affiliation_student,
                                  co.affiliation_status_student_evu,
