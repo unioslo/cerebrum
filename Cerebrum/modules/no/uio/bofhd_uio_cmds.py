@@ -3969,7 +3969,11 @@ class BofhdExtension(object):
     all_commands['user_demote_posix'] = Command(
         ('user', 'demote_posix'), AccountName(), perm_filter='can_create_user')
     def user_demote_posix(self, operator, accountname):
-        raise NotImplementedError, "Feel free to implement this function"
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            raise PermissionDenied("currently limited to superusers")
+        user = self._get_account(accountname, actype="PosixUser")
+        user.delete_posixuser()
+        return "ok"
 
     def user_create_basic_prompt_func(self, session, *args):
         return self._user_create_prompt_func_helper('Account', session, *args)
