@@ -260,7 +260,7 @@ def process_groups(super, fg_super):
             #
             # FIXME: handle the case where a single e-mail target is
             # in charge of more than one group.
-            leaf = get_group(group)
+            leaf = get_group(group.group_name)
         if course:
             sync_email_address("%s-%s@ifi.uio.no" % (course, act), leaf)
             if not course in short_name:
