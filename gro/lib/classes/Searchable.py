@@ -19,6 +19,8 @@
 
 from __future__ import generators
 
+import copy
+
 from GroBuilder import GroBuilder
 from Builder import Attribute, Method
 
@@ -94,19 +96,15 @@ class Searchable(object):
         for attr in cls.slots + cls.search_slots:
             get = create_get_method(attr.name)
 
-            if hasattr(attr, 'table'):
-                import copy
-                new_attr = copy.copy(attr)
-                new_attr.write = True
-            else:
-                new_attr = Attribute(attr.name, attr.data_type, write=True)
+            new_attr = copy.copy(attr)
+            new_attr.write = True
             search_class.register_attribute(new_attr, get=get)
             
-        # FIXME: this should use register_method
         search_class._search = cls.create_search_method()
         assert search_class._search
-        search_class.method_slots.append(Method('search', '%sSeq' % cls.__name__))
+        search_class.method_slots.append(Method('search', search_class, sequence=True))
 
+        cls.search_class = search_class
         return search_class
 
     create_search_class = classmethod(create_search_class)
