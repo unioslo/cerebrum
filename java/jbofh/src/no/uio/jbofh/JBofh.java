@@ -391,7 +391,7 @@ public class JBofh {
                     ((String) args.get(0)).equals("q")) {
                     bye();
 		} else if(((String) args.get(0)).equals("source")) {
-                    if(args.size() == 0) {
+                    if(args.size() == 1) {
                         showMessage("Must specify filename to source", true);
                     } else {
                         sourceFile((String) args.get(1));
