@@ -60,6 +60,9 @@ class _PosixShellCode(Constants._CerebrumCode):
     pass
 
 class Constants(Constants.Constants):
+
+    PosixShell = _PosixShellCode
+
     posix_shell_bash = _PosixShellCode('bash', '/bin/bash')
     posix_shell_csh = _PosixShellCode('csh', '/bin/csh')
     posix_shell_false = _PosixShellCode('false', '/bin/false')

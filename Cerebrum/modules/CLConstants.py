@@ -28,7 +28,9 @@ class _ChangeTypeCode(_CerebrumCode):
     _lookup_table = '[:table schema=cerebrum name=change_type]'
     # _insert_dependency = _PersonAffiliationCode
     _lookup_desc_column = 'msg_string'
-    
+    _key_size = 2
+
+    # TODO: accept numeric code value
     def __init__(self, category, type, msg_string):
         super(_ChangeTypeCode, self).__init__(category)
         self.category = category
@@ -70,6 +72,8 @@ class CLConstants(Constants.Constants):
 
     Defines a number of variables that are used to get access to the
     string/int value of the corresponding database key."""
+
+    ChangeType = _ChangeTypeCode
 
     group_add = _ChangeTypeCode('e_group', 'add',
                                 'added %(subject)s to %(dest)s')

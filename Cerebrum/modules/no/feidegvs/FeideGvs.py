@@ -36,6 +36,8 @@ class _FeideGvsGuardianCode(Constants._CerebrumCode):
 
 class FeideGvsConstants(Constants.Constants):
 
+    FeideGvsGuardian = _FeideGvsGuardianCode
+
     system_sas = _AuthoritativeSystemCode(
         'SAS',
         'Skole Administrativt System')

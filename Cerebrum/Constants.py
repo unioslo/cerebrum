@@ -1,5 +1,5 @@
 # -*- coding: iso-8859-1 -*-
-# Copyright 2002, 2003 University of Oslo, Norway
+# Copyright 2002, 2003, 2004 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -43,31 +43,105 @@ class _CerebrumCode(DatabaseAccessor):
     _lookup_str_column = 'code_str'
     _lookup_desc_column = 'description'
     _code_sequence = '[:sequence schema=cerebrum name=code_seq op=next]'
+    # How many of the arguments to the constructor are the key value?
+    _key_size = 1
 
     # Should we postpone INSERTion of code value in this class until
     # some other code value class has been fully INSERTed (e.g. due to
     # foreign key constraint checks)?
     _insert_dependency = None
 
+    # Turn constant objects into instance singletons: there can
+    # only be one instance of a given state.
+    #
+    # The implementation is a bit tricky, since we need to avoid
+    # lookup the integer code value of objects while initialising.
+    
+    def __new__(cls, *args, **kwargs):
+        # Each instance is stored in the class variable _cache using
+        # two keys: the integer value (code) and the string value
+        # (code_str).  If the constructor key to the code table
+        # contains more than value (_key_size > 1), a tuple of the
+        # string values is used as key as well.
+        #
+        # The mapping from integer is delayed and filled in the first
+        # time a constructor is called with an integer argument.  The
+        # cache either contains all keys, or just the string (and
+        # tuple) key.
+        if cls.__dict__.get("_cache") is None:
+            cls._cache = {}
+
+        # If the key is composite and only one argument is given, it
+        # _should_ be the code value as an integer of some sort, and
+        # enter the else branch.
+        if isinstance(args[0], (str, _CerebrumCode)):
+            if cls._key_size > 1 and len(args) > 1:
+                code = ()
+                for i in range(cls._key_size):
+                    if isinstance(args[i], int):
+                        raise TypeError, "Arguments must be constants or str."
+                    code += (str(args[i]), )
+            else:
+                code = str(args[0])
+            if code in cls._cache:
+                return cls._cache[code]
+            new = DatabaseAccessor.__new__(cls)
+            if cls._key_size > 1:
+                # We must call __init__ explicitly to fetch code_str.
+                # When __new__ is done, __init__ is called again by
+                # Python.  Wasted effort, but not worth worrying
+                # about.
+                new.__init__(*args, **kwargs)
+                cls._cache[str(new)] = new
+        else:
+            # Handle PgNumeric and other integer-like types
+            try:
+                code = int(args[0])
+            except ValueError:
+                raise TypeError, "Argument 'code' must be int or str."
+            if code in cls._cache:
+                return cls._cache[code]
+
+            # The cache may be incomplete, only containing code_str as
+            # key.  So we make a new object based on the integer
+            # value, and if it turns out the code was in the cache
+            # after all, we throw away the new instance and use the
+            # cached one instead.
+            new = DatabaseAccessor.__new__(cls)
+            new.__init__(*args, **kwargs)
+            code_str = str(new)
+            if code_str in cls._cache:
+                cls._cache[code] = cls._cache[code_str]
+                return cls._cache[code]
+            cls._cache[code_str] = new
+
+        cls._cache[code] = new
+        return new
+
     # TBD: Should this take DatabaseAccessor args as well?  Maybe use
     # some kind of currying in Constants to avoid having to pass the
     # Database arg every time?
     def __init__(self, code, description=None):
-        self.int = None
+        # self may be an already initialised singleton, but we only
+        # attempt to avoid work in the integer constructor case.
         if isinstance(description, str):
             description = description.strip()
         self._desc = description
-        if type(code) is int:
+        if isinstance(code, str):
+            # We can't initialise self.int here since the database is
+            # unavailable while all the constants are defined, nor
+            # would we want to, since we often never need the
+            # information.
+            self.int = None
+            self.str = code
+        elif not hasattr(self, "int"):
             self.int = code
             self.str = self.sql.query_1("SELECT %s FROM %s WHERE %s=:code" %
                                         (self._lookup_str_column,
                                          self._lookup_table,
                                          self._lookup_code_column),
                                         {'code': code})
-        elif type(code) is str:
-            self.str = code
-        else:
-            raise TypeError, "Argument 'code' must be int or str."
+        return self.str
 
     def __str__(self):
         return self.str
@@ -84,11 +158,11 @@ class _CerebrumCode(DatabaseAccessor):
 
     def _get_description(self):
         if self._desc is None:
-            self._desc = self.sql.query_1("SELECT %s FROM %s WHERE %s=:str" %
+            self._desc = self.sql.query_1("SELECT %s FROM %s WHERE %s=:code" %
                                           (self._lookup_desc_column,
                                            self._lookup_table,
-                                           self._lookup_str_column),
-                                          self.__dict__)
+                                           self._lookup_code_column),
+                                          {'code': int(self)})
         return self._desc
     description = property(_get_description, None, None,
                            "This code value's description.")
@@ -137,6 +211,21 @@ class _CerebrumCode(DatabaseAccessor):
             raise CodeValuePresentError, "Code value %r present." % self
         except Errors.NotFoundError:
             pass
+
+    def _update_description(self, stats):
+        if self._desc is None:
+            return
+        new_desc = self._desc
+        # Force fetching the description from the database
+        self._desc = None
+        db_desc = self._get_description()
+        if new_desc <> db_desc:
+            self._desc = new_desc
+            stats['updated'] += 1
+            self.sql.execute("UPDATE %s SET %s=:desc WHERE %s=:code" %
+                             (self._lookup_table, self._lookup_desc_column,
+                              self._lookup_code_column),
+                             {'desc': new_desc, 'code': self.int})
 
     def insert(self):
         self.sql.execute("""
@@ -276,10 +365,39 @@ class _PersonAffStatusCode(_CerebrumCode):
     _lookup_str_column = 'status_str'
     _lookup_table = '[:table schema=cerebrum name=person_aff_status_code]'
     _insert_dependency = _PersonAffiliationCode
+    _key_size = 2
 
-    def __init__(self, affiliation, status, description=None):
-        self.affiliation = affiliation
-        super(_PersonAffStatusCode, self).__init__(status, description)
+    # The constructor accepts __init__(int) and
+    # __init__(<one of str, int or _PersonAffiliationCode>, str [, str])
+    def __init__(self, affiliation, status=None, description=None):
+        if status is None:
+            if isinstance(affiliation, int):
+                # Not affiliation, but the code value for this status
+                code = affiliation
+                self.int = code
+                (affiliation, self.str, self._desc) = \
+                             self.sql.query_1("""
+                             SELECT affiliation, %s, %s FROM %s
+                             WHERE %s=:status""" % (self._lookup_str_column,
+                                                    self._lookup_desc_column,
+                                                    self._lookup_table,
+                                                    self._lookup_code_column),
+                                              {'status': code})
+            else:
+                # Handle PgNumeric and similar numeric objects
+                try:
+                    if not isinstance(affiliation, str):
+                        return self.__init__(int(affiliation))
+                except ValueError:
+                    pass
+                raise TypeError, ("Must pass integer when initialising " +
+                                  "from code value")
+        if isinstance(affiliation, _PersonAffiliationCode):
+            self.affiliation = affiliation
+        else:
+            self.affiliation = _PersonAffiliationCode(affiliation)
+        return (str(self.affiliation),
+                super(_PersonAffStatusCode, self).__init__(status, description))
 
     def __int__(self):
         if self.int is None:
@@ -292,8 +410,8 @@ class _PersonAffStatusCode(_CerebrumCode):
                                              'aff' : int(self.affiliation)}))
         return self.int
 
-    ## Should __str__ be overriden as well, to indicate both
-    ## affiliation and status?
+    def __str__(self):
+        return "%s/%s" % (self.affiliation, self.str)
 
     def insert(self):
         self.sql.execute("""
@@ -321,7 +439,7 @@ class _OUPerspectiveCode(_CerebrumCode):
     pass
 
 class _AccountCode(_CerebrumCode):
-    "Mappings stored in the ou_perspective_code table"
+    "Mappings stored in the account_code table"
     _lookup_table = '[:table schema=cerebrum name=account_code]'
     pass
 
@@ -341,7 +459,7 @@ class _AuthenticationCode(_CerebrumCode):
     pass
 
 class _GroupMembershipOpCode(_CerebrumCode):
-    "Mappings stored in the ou_perspective_code table"
+    "Mappings stored in the group_membership_op_code table"
     _lookup_table = '[:table schema=cerebrum name=group_membership_op_code]'
     pass
 
@@ -400,7 +518,7 @@ class ConstantsBase(DatabaseAccessor):
                 order[dep][cls].append(attr)
         if not order.has_key(None):
             raise ValueError, "All code values have circular dependencies."
-        stats = {'total': 0, 'inserted': 0}
+        stats = {'total': 0, 'inserted': 0, 'updated': 0}
         def insert(root, update, stats=stats):
             for cls in order[root].keys():
                 cls_code_count = 0
@@ -411,6 +529,7 @@ class ConstantsBase(DatabaseAccessor):
                         code._pre_insert_check()
                     except CodeValuePresentError:
                         if update:
+                            code._update_description(stats)
                             continue
                         raise
                     code.insert()
@@ -430,7 +549,7 @@ class ConstantsBase(DatabaseAccessor):
         insert(None, update)
         if order:
             raise ValueError, "Some code values have circular dependencies."
-        return (stats['inserted'], stats['total'])
+        return (stats['inserted'], stats['total'], stats['updated'])
 
     def __init__(self, database):
         super(ConstantsBase, self).__init__(database)
@@ -543,8 +662,27 @@ class CommonConstants(ConstantsBase):
         'archived', 'Has been archived')
 
 class Constants(CoreConstants, CommonConstants):
-    pass
 
+    CerebrumCode = _CerebrumCode
+    EntityType = _EntityTypeCode
+    Spread = _SpreadCode
+    ContactInfo = _ContactInfoCode
+    Country = _CountryCode
+    Address = _AddressCode
+    Gender = _GenderCode
+    PersonExternalId = _PersonExternalIdCode
+    PersonName = _PersonNameCode
+    PersonAffiliation = _PersonAffiliationCode
+    PersonAffStatus = _PersonAffStatusCode
+    AuthoritativeSystem = _AuthoritativeSystemCode
+    OUPerspective = _OUPerspectiveCode
+    Account = _AccountCode
+    AccountHomeStatus = _AccountHomeStatusCode
+    ValueDomain = _ValueDomainCode
+    Authentication = _AuthenticationCode
+    GroupMembershipOp = _GroupMembershipOpCode
+    GroupVisibility = _GroupVisibilityCode
+    Quarantine = _QuarantineCode
 
 class ExampleConstants(Constants):
     """Singleton whose members make up all needed coding values.

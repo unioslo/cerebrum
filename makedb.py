@@ -167,13 +167,14 @@ def insert_code_values(db):
     const = Factory.get('Constants')(db)
     print "Inserting code values."
     try:
-        new, total = const.initialize()
+        new, total, updated = const.initialize()
     except db.DatabaseError:
         traceback.print_exc(file=sys.stdout)
         print "Error initializing constants, check that you include "+\
               "the sql files referenced by CLASS_CONSTANTS"
         sys.exit(1)
-    print "  Inserted %d new codes (new total: %d)." % (new, total)
+    print "  Inserted %d new codes (new total: %d), updated %d" % (new, total,
+                                                                   updated)
     db.commit()
 
 def makeInitialUsers(db):
