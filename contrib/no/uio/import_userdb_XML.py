@@ -131,10 +131,12 @@ class PersonUserParser(xml.sax.ContentHandler):
     """Parser for the users.xml file.  Stores recognized data in an
     internal datastructure"""
 
-    def __init__(self, call_back_function):
+    def __init__(self, person_call_back_function, group_call_back_function):
         self.personer = []
         self.elementstack = []
-        self.call_back_function = call_back_function
+        self.person_call_back_function = person_call_back_function
+        self.group_call_back_function = group_call_back_function
+        self.group_owner = None
         # self.person = {
         #  'bdate': <person bdate="VALUE">,
         #  'ptype': [ <person><uio><ptype val="X1"/>, ...],
@@ -165,10 +167,14 @@ class PersonUserParser(xml.sax.ContentHandler):
         for k in attrs.keys():
             tmp[k.encode('iso8859-1')] = attrs[k].encode('iso8859-1')
         name = name.encode('iso8859-1')
-        if name == "persons":
+        if name == "data":
+            pass
+        elif name == "persons":
+            pass
+        elif name == "nonpersons":
             pass
         elif name == "person":
-            self.person = {'bdate': tmp['bdate'], 'ptype': []}
+            self.person = {'bdate': tmp.get('bdate', None), 'ptype': []}
         elif self.elementstack[-1] == "user":
             if name in ("auth", "spread", "name", "pwdhist",
                         "emailaddress", "forwardaddress", "tripnote"):
@@ -178,7 +184,9 @@ class PersonUserParser(xml.sax.ContentHandler):
                 self.user[name] = tmp
             else:
                 print "WARNING: unknown user element: %s" % name
-        elif self.elementstack[-1] == "person":
+        elif name == "group_owned":
+            self.group_owner = tmp['name']
+        elif self.elementstack[-1] in ("person", "group_owned"):
             if name in ("contact", "name", "extid"):
                 self.person.setdefault(name, []).append(tmp)
             elif name in ("uio",):
@@ -198,11 +206,13 @@ class PersonUserParser(xml.sax.ContentHandler):
 
     def endElement(self, name):
         if name == "person":
-            self.call_back_function(self.person)
+            self.person_call_back_function(self.person)
         elif name == "user":
-            self.person.setdefault(name, []).append(self.user)
+            if self.group_owner:
+                self.group_call_back_function(self.group_owner, self.user)
+            else:
+                self.person.setdefault(name, []).append(self.user)
         self.elementstack.pop()
-
 
 class GroupData(object):
     """This class is used to iterate over all groups from ureg."""
@@ -661,58 +671,6 @@ def import_groups(groupfile, fill=0):
             groupObj.add_member(tmp, co.entity_group, co.group_memberop_union)
     db.commit()
 
-ureg_person_aff_mapping = {
-    'A' : [co.affiliation_ansatt, co.affiliation_status_ansatt_tekadm],
-    'M' : [co.affiliation_ansatt, co.affiliation_status_ansatt_tekadm],
-    'V' : [co.affiliation_ansatt, co.affiliation_status_ansatt_vit],
-    'F' : [co.affiliation_tilknyttet, co.affiliation_tilknyttet_fagperson],
-    'E' : [co.affiliation_student, co.affiliation_status_student_evu],
-    'S' : [co.affiliation_student, co.affiliation_status_student_aktiv],
-    'G' : [co.affiliation_tilknyttet, co.affiliation_tilknyttet_emeritus]
-    }
-# *unset* aff_status -> inherit from Person
-ureg_user_aff_mapping = {
-    'A' : {'*unset*': [co.affiliation_ansatt, '*unset*']
-           },
-    'S' : {'*unset*': [co.affiliation_student, '*unset*']
-           },
-    'X' : {'C': [co.affiliation_manuell, co.affiliation_manuell_cicero],
-           'D' : [co.affiliation_upersonlig, co.affiliation_upersonlig_felles],
-           'E' : [co.affiliation_manuell, co.affiliation_manuell_ekst_person],
-           'F' : '*special*',
-           'G' : [co.affiliation_manuell, co.affiliation_manuell_gjest],
-           'J' : [co.affiliation_manuell, co.affiliation_manuell_spes_avt],
-           'K' : [co.affiliation_upersonlig, co.affiliation_upersonlig_kurs],
-           'L' : [co.affiliation_upersonlig, co.affiliation_upersonlig_pvare],
-           'N' : [co.affiliation_manuell, co.affiliation_manuell_biotech],
-           'O' : [co.affiliation_manuell, co.affiliation_manuell_sio],
-           'P' : [co.affiliation_upersonlig, co.affiliation_upersonlig_term_maskin],
-           'R' : [co.affiliation_manuell, co.affiliation_manuell_radium],
-           'T' : [co.affiliation_manuell, co.affiliation_manuell_notur],
-           'W' : [co.affiliation_manuell, co.affiliation_manuell_gjesteforsker],
-           'Z' : [co.affiliation_manuell, co.affiliation_manuell_sivilarb],
-           'c' : [co.affiliation_upersonlig, co.affiliation_upersonlig_bib_felles],
-           'e' : [co.affiliation_tilknyttet, co.affiliation_tilknyttet_emeritus],
-           'f' : [co.affiliation_upersonlig, co.affiliation_upersonlig_uio_forening],
-           # TODO: h = sommerskole.  Hva er rett affiliation?
-           'h' : [co.affiliation_student, co.affiliation_status_student_aktiv],
-           'j' : [co.affiliation_manuell, co.affiliation_manuell_kaja_kontrakt],
-           'k' : [co.affiliation_manuell, co.affiliation_manuell_konsulent],
-           'n' : [co.affiliation_manuell, co.affiliation_manuell_notam2],
-           'p' : [co.affiliation_tilknyttet, co.affiliation_tilknyttet_ekst_stip],
-           'r' : [co.affiliation_manuell, co.affiliation_manuell_radium],
-           'u' : [co.affiliation_manuell, co.affiliation_manuell_gjest],
-           # TODO: z = frischsenteret.  Hva er rett affiliation?
-           'z' : [co.affiliation_manuell, co.affiliation_manuell_ekst_person],
-           # TODO: noen har blank.  Hva er rett affiliation?
-           '*unset*' : [co.affiliation_manuell, co.affiliation_manuell_ekst_person],
-           },
-    'a' : {'*unset*': [co.affiliation_ansatt, '*unset*']
-           },
-    's' : {'*unset*': [co.affiliation_student, '*unset*']
-           }
-    }
-
 def import_person_users(personfile):
     global gid2entity_id, stedkode2ou_id, default_ou
 
@@ -744,11 +702,12 @@ def import_person_users(personfile):
         ou.find_stedkode(90, 1, 99)
         stedkode2ou_id["900199"] = ou.entity_id
 
-    default_ou = stedkode2ou_id["900199"]
+    default_ou = stedkode2ou_id[default_ou]
 
     showtime("Parsing")
     try:
-        xml.sax.parse(personfile, PersonUserParser(person_callback))
+        xml.sax.parse(personfile, PersonUserParser(person_callback,
+                                                   group_owned_callback))
     except StopIteration:
         pass
     showtime("Post-processing")
@@ -757,7 +716,7 @@ def import_person_users(personfile):
     # Populate person affiliations
     showtime("Populate person affiliations")
     for p_id in person_id2affs.keys():
-        print "a"
+        print "a",
         personObj.clear()
         personObj.find(p_id)
         for ou_id, aff, affstat in person_id2affs[p_id]:
@@ -765,7 +724,7 @@ def import_person_users(personfile):
                 print "  person.pop_aff (%s): %s, %s, %s" % (
                     p_id, ou_id, aff, affstat)
             personObj.__updated = True
-            personObj.populate_affiliation(co.system_ureg, ou_id, aff, affstat)
+            personObj.populate_affiliation(source_system, ou_id, aff, affstat)
         tmp = personObj.write_db()
         if verbose:
             print "  person.write_db (%s)-> %s" % (p_id, tmp)
@@ -773,7 +732,7 @@ def import_person_users(personfile):
     # user_creators and account_id2aff have atleast all keys in account_id2aff
     showtime("Setting user_creators")
     for uc in user_creators.keys():
-        print "c"
+        print "c",
         creator_id = uname2entity_id.get(user_creators[uc], None)
         account.clear()
         account.find(uc)
@@ -801,9 +760,12 @@ def import_person_users(personfile):
     for person_id in deleted_users.keys():
         for du in deleted_users[person_id]:
             if not uname2entity_id.has_key(du['uname']):
-                account_id = create_account(du, person_id)
+                account_id = create_account(du, person_id, co.entity_person)
                 uname2entity_id[du['uname']] = account_id
     db.commit()
+
+def group_owned_callback(owner_gname, user):
+    create_account(user, _get_group(owner_gname), co.entity_group, int(co.account_test))
 
 def person_callback(person):
     # - Hvis personen har spread=u/i, bygg PosixUser.
@@ -819,7 +781,7 @@ def person_callback(person):
             raise StopIteration()
     personObj.clear()
     fnr = None
-    for e in person['extid']:
+    for e in person.get('extid', []):
         if e['type'] == 'fnr':
             if e['val'] <> '00000000000':
                 fnr = e['val']
@@ -859,37 +821,37 @@ def person_callback(person):
             gender = co.gender_unknown
 
         personObj.populate(bdate, gender)
-        personObj.affect_names(co.system_ureg, *(namestr2const.values()))
+        personObj.affect_names(source_system, *(namestr2const.values()))
 
         for k in person['name']:
             if namestr2const.has_key(k['type']):
                 personObj.populate_name(namestr2const[k['type']], k['val'])
         if fnr is not None:
-            personObj.affect_external_id(co.system_ureg, co.externalid_fodselsnr)
-            personObj.populate_external_id(co.system_ureg,
+            personObj.affect_external_id(source_system, co.externalid_fodselsnr)
+            personObj.populate_external_id(source_system,
                                            co.externalid_fodselsnr, fnr)
-        for c in person['contact']:
+        for c in person.get('contact', []):
             if(len(c['val']) == 0):
                 continue
             if c['type'] == 'workphone':
-                personObj.populate_contact_info(co.system_ureg,
+                personObj.populate_contact_info(source_system,
                                                 co.contact_phone, c['val'],
                                                 contact_pref=1)
             elif c['type'] == 'privphone':
-                personObj.populate_contact_info(co.system_ureg,
+                personObj.populate_contact_info(source_system,
                                                 co.contact_phone, c['val'],
                                                 contact_pref=2)
             elif c['type'] == 'workfax':
-                personObj.populate_contact_info(co.system_ureg,
+                personObj.populate_contact_info(source_system,
                                                 co.contact_phone, c['val'])
             elif c['type'] == 'privaddress':
                 a = c['val'].split('$', 2)
-                personObj.populate_address(co.system_ureg, co.address_post,
+                personObj.populate_address(source_system, co.address_post,
                                            address_text="\n".join(a))
         new_affs = []
         if person.has_key('uio'):
             for ptype in person['ptype']:
-                aff, affstat = ureg_person_aff_mapping[ptype]
+                aff, affstat = person_aff_mapping[ptype]
                 ou_id = stedkode2ou_id.get(person['uio']['psko'], default_ou)
                 new_affs.append((ou_id, aff, affstat))
         personObj.write_db()
@@ -903,12 +865,12 @@ def person_callback(person):
         if u.has_key('deleted_date'):
             deleted_users.setdefault(person_id, []).append(u)
         else:
-            account_id = create_account(u, person_id)
+            account_id = create_account(u, person_id, co.entity_person)
             if not u.has_key('reserved'):
-                user_creators[account_id] = u['created_by']
+                user_creators[account_id] = u.get('created_by', 'bootstrap_account')
             uname2entity_id[u['uname']] = account_id
 
-def create_account(u, owner_id):
+def create_account(u, owner_id, owner_type, np_type=None):
     is_posix = 0
     if u.has_key('deleted_date'):
         expire_date = [int(x) for x in u['deleted_date'].split('-')]
@@ -935,7 +897,7 @@ def create_account(u, owner_id):
         account.clear()
         accountObj = account
 
-    if not u.has_key('reserved'):
+    if u.has_key('home'):
         home = u['home']
         tmp = home.split("/")
         if len(tmp) == 5:
@@ -977,15 +939,16 @@ def create_account(u, owner_id):
                             home=home, # TODO: disk_id
                             name=u['uname'],
                             disk_id=disk_id,
-                            owner_type=co.entity_person,
+                            owner_type=owner_type,
                             owner_id=owner_id,
                             creator_id=acc_creator_id,
-                            expire_date=expire_date)
+                            expire_date=expire_date,
+                            np_type=np_type)
     else:
         accountObj.populate(u['uname'],
-                            co.entity_person,
+                            owner_type,
                             owner_id,
-                            None,
+                            np_type,
                             acc_creator_id,
                             expire_date,
                             home,
@@ -1016,7 +979,7 @@ def create_account(u, owner_id):
                 mailprimaddr.write_db()
 
     # Assign account affiliaitons by checking the
-    # ureg_user_aff_mapping.  if subtype = '*unset*, try to find a
+    # user_aff_mapping.  if subtype = '*unset*, try to find a
     # corresponding person affiliation, first at the same OU, then at
     # any OU (overriding the OU set for the user).
     #
@@ -1025,12 +988,12 @@ def create_account(u, owner_id):
 
     if u.get('uio', {}).has_key('utype'):
         utype = u['uio']['utype']
-        ustype = u['uio']['ustype'] or '*unset*'
+        ustype = u['uio'].get('ustype', '') or '*unset*'
         if ustype == 'F':
             accountObj.np_type = int(co.account_test)
             accountObj.write_db()
         else:
-            aff, affstat = ureg_user_aff_mapping[utype][ustype]
+            aff, affstat = user_aff_mapping[utype][ustype]
             ou_id = stedkode2ou_id.get(u['uio']['usko'], default_ou)
             skip_affiliation = False
             if str(affstat) == '*unset*':
@@ -1109,14 +1072,27 @@ def showtime(msg):
     print "[%s] %s (delta: %i)" % (strftime("%H:%M:%S", localtime()), msg, (time()-prev_msgtime))
     prev_msgtime = time()
 
-def usage():
-    print """import_userdb_XML.py [{-g|-e|-p|-m|-i} file] [ -m num ] {-G|-E|-P|-M|-I}
+def read_config(fname):
+    "Reads configuration from a python-script specified by filename"
+    global person_aff_mapping, user_aff_mapping, default_ou
 
+    globs = {}
+    locs = {}
+    execfile(fname, globs, locs)
+    person_aff_mapping = locs.get('person_aff_mapping')
+    user_aff_mapping = locs.get('user_aff_mapping')
+    default_ou = locs.get('default_ou')
+
+def usage():
+    print """import_userdb_XML.py -c file -s system [{-g|-e|-p|-m|-i} file] [ -m num ] {-G|-E|-P|-M|-I}
+
+-c file: manadatory configurationfile
 -G : generate the groups
 -E : import email domains and non-user email addresses
 -P : generate persons, accounts and user email addresses
 -M : populate the groups with members
 -I : import it-group permissions
+-s system: mandatory source-system
 
 This program is normally run first with -G, then -E, -P, -M and
 finally with -M.  It is not designed allow import multiple times to
@@ -1132,14 +1108,15 @@ persons will be created iff they cannot be located by their extid
 
 if __name__ == '__main__':
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "dp:g:m:vi:e:PGMIE",
+        opts, args = getopt.getopt(sys.argv[1:], "c:dp:g:m:vi:e:s:PGMIE",
                                    ["pfile=", "gfile=", "persons", "groups",
                                     "groupmembers", "verbose", "quick-test",
-                                    "max_cb=", "emailfile=", "email"])
+                                    "max_cb=", "emailfile=", "email", "config=",
+                                    "source-system="])
     except getopt.GetoptError:
         usage()
         sys.exit(2)
-    global max_cb, verbose, quick_test
+    global max_cb, verbose, quick_test, source_system
     verbose = 0
     quick_test = 0
     # global debug
@@ -1172,10 +1149,14 @@ if __name__ == '__main__':
             debug += 1
         elif o in ('-M', '--groupmembers'):
             import_groups(gfile, 1)
+        elif o in ('-c', '--config',):
+            read_config(a)
         elif o in ('-e', '--emailfile',):
             emfile = a
         elif o in ('-E', '--email',):
             import_email(emfile)
+        elif o in ('-s', '--source-system',):
+            source_system = getattr(co, a)
     if(len(opts) == 0):
         usage()
     else:
