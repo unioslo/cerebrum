@@ -192,7 +192,7 @@ SELECT studieprogramkode, studieprognavn, studienivakode,
        faknr_studieansv, instituttnr_studieansv, gruppenr_studieansv,
        status_utgatt
 FROM fs.studieprogram"""
-
+        return (self._get_cols(qry), self.db.query(qry))
 # Det er en del studenter på HiA som har opptak til inaktive studieprogrammer
 # derfor må vi fjerne dette kravet fram til det er ryddet opp i dette
 # Kravet burde settes inn permanent siden man bygger felles-rom for studieprogrammer
@@ -200,7 +200,7 @@ FROM fs.studieprogram"""
 # Vi henter dog status_utgatt, det burde kunne brukes til å skille ut de programmene
 # man ikke skal ha rom for.
 # WHERE status_utgatt = 'N' """
-        return (self._get_cols(qry), self.db.query(qry))
+
 
 
 ##################################################################
@@ -390,10 +390,12 @@ WHERE em.fodselsdato = :fnr AND
 SELECT DISTINCT
   sps.studieprogramkode, sps.studierettstatkode, sps.dato_studierett_tildelt,
   sps.dato_studierett_gyldig_til, sps.status_privatist, sps.studentstatkode
-FROM fs.studieprogramstudent sps
+FROM fs.studieprogramstudent sps, fs.person p
 WHERE sps.fodselsdato=:fnr AND
       sps.personnr=:pnr AND
-      AND %s
+      p.fodselsdato = sps.fodselsdato AND
+      p.personnr = sps.personnr AND
+      %s
         """ % self.is_alive()
         return (self._get_cols(qry), self.db.query(qry, {'fnr': fnr, 
                                                          'pnr': pnr}))
@@ -435,12 +437,14 @@ WHERE utdp.fodselsdato = :fnr AND
 SELECT DISTINCT
   sps.studieprogramkode, sps.terminkode_kull, sps.arstall_kull,
   k.status_aktiv
-FROM fs.studieprogramstudent sps, fs.kull k
-WHERE fodselsdato = :fnr AND
-      personnr = :pnr AND
+FROM fs.studieprogramstudent sps, fs.kull k, fs.person p
+WHERE sps.fodselsdato = :fnr AND
+      sps.personnr = :pnr AND
+      p.fodselsdato = sps.fodselsdato AND
+      p.personnr = sps.personnr AND
       sps.studieprogramkode = k.studieprogramkode AND
       sps.terminkode_kull = k.terminkode AND
-      sps.arstall_kull = k.arstall
+      sps.arstall_kull = k.arstall AND
       %s
       """ % self.is_alive()
 	return (self._get_cols(qry), self.db.query(qry, {'fnr': fnr, 'pnr': pnr}))
