@@ -30,7 +30,7 @@ class OUStructure(object):
         "Set the parent of this OU to `parent_id' in `perspective'."
         self.execute("""
         INSERT INTO cerebrum.ou_structure (ou_id, perspective, parent_id)
-        VALUES (:1, :2, :3)""", self.entity_id, perspective, parent_id)
+        VALUES (:1, :2, :3)""", self.entity_id, int(perspective), parent_id)
 
     def get_structure_mappings(self, perspective):
         "Return a list of ou_id -> parent_id mappings reperesenting the ou structure."
@@ -49,6 +49,7 @@ class OU(Entity, EntityContactInfo, EntityPhone, EntityAddress, OUStructure):
         self.display_name = None
         self.sort_name = None
         EntityAddress.clear(self)
+        super(OU, self).clear()
 
     def populate(self, name, acronym=None, short_name=None, display_name=None,
             sort_name=None):
@@ -69,6 +70,9 @@ class OU(Entity, EntityContactInfo, EntityPhone, EntityAddress, OUStructure):
 
         Note that None != the empty string ''"""
         assert isinstance(other, OU)
+        identical = super(OU, self).__eq__(other)
+        if not identical:
+            return identical
 
         identical = ((other.name == self.name) and
                      (other.acronym == self.acronym) and
