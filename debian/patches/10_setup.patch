@@ -1,11 +1,6 @@
-Index: setup.py
-===================================================================
-RCS file: /cvsroot/cerebrum/cerebrum/setup.py,v
-retrieving revision 1.36
-diff -u -I^#.*python2\.[23]$ -r1.36 setup.py
---- setup.py	2 Jul 2004 07:16:23 -0000	1.36
-+++ setup.py	2 Aug 2004 11:06:52 -0000
-@@ -144,6 +144,7 @@
+--- /home/andreas/src/cerebrum/setup.py	2004-11-03 12:24:22.000000000 +0100
++++ setup.py	2005-01-05 18:50:57.000000000 +0100
+@@ -162,6 +162,7 @@
  
      def run (self):
          self.mkpath(self.install_dir)
@@ -13,7 +8,7 @@ diff -u -I^#.*python2\.[23]$ -r1.36 setup.py
          for f in self.data_files:
              # it's a tuple with dict to install to and a list of files
              tdict = f[0]
-@@ -154,14 +155,14 @@
+@@ -172,14 +173,14 @@
                  dir = change_root(self.root, dir)
              self.mkpath(dir)
              os.chmod(dir, tdict['mode'])
@@ -36,7 +31,7 @@ diff -u -I^#.*python2\.[23]$ -r1.36 setup.py
              if f[1] == []:
                  # If there are no files listed, the user must be
                  # trying to create an empty directory, so add the
-@@ -174,8 +175,9 @@
+@@ -192,8 +193,9 @@
                      (out, _) = self.copy_file(data, dir)
                      self.outfiles.append(out)
                      os.chmod(out, mode)
@@ -48,7 +43,15 @@ diff -u -I^#.*python2\.[23]$ -r1.36 setup.py
  
  class test(Command):
      user_options = [('check', None, 'Run check'),
-@@ -302,7 +304,8 @@
+@@ -248,6 +250,7 @@
+                    'Cerebrum/modules/no/uio/printer_quota',
+                    'Cerebrum/modules/no/uio/AutoStud',
+                    'Cerebrum/modules/no/feidegvs',
++                   'Cerebrum/modules/no/debian-edu',
+                    'Cerebrum/modules/no/hia',
+                    'Cerebrum/modules/templates',
+                    'Cerebrum/client',
+@@ -320,7 +323,8 @@
                         [('client/passweb.py', 0755),
                          ('client/passweb_form.html', 0644),
                          ('client/passweb_receipt.html', 0644),
@@ -58,4 +61,3 @@ diff -u -I^#.*python2\.[23]$ -r1.36 setup.py
                       ({'path': sysconfdir,
                         'owner': cerebrum_user,
                         'mode': 0755},
-
