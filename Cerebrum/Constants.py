@@ -87,6 +87,29 @@ class _OUPerspectiveCode(_CerebrumCode):
     _lookup_table = 'ou_perspective_code'
     pass
 
+
+class _AccountCode(_CerebrumCode):
+    "Mappings stored in the ou_perspective_code table"
+    _lookup_table = 'account_code'
+    pass
+
+class _ValueDomainCode(_CerebrumCode):
+    "Mappings stored in the value_domain_code table"
+    _lookup_table = 'value_domain_code'
+    pass
+
+class _AuthenticationCode(_CerebrumCode):
+    "Mappings stored in the value_domain_code table"
+    _lookup_table = 'authentication_code'
+    pass
+
+## Module spesific constant.  Belongs somewhere else
+class _PosixShellCode(_CerebrumCode):
+    "Mappings stored in the posix_shell_code table"
+    _lookup_table = 'posix_shell_code'
+    pass
+
+
 class Constants(DatabaseAccessor):
 
     """Defines a number of variables that are used to get access to the
@@ -126,6 +149,15 @@ class Constants(DatabaseAccessor):
     perspective_lt = _OUPerspectiveCode('LT')
     perspective_fs = _OUPerspectiveCode('FS')
 
+    account_person = _AccountCode('U')
+    account_program = _AccountCode('P')
+
+    posix_shell_bash = _PosixShellCode('bash')
+
+    entity_accname_default = _ValueDomainCode("def_accname_dom")
+
+    auth_type_md5 = _AuthenticationCode("MD5")
+    
     def __init__(self, database):
         super(Constants, self).__init__(database)
 
@@ -139,7 +171,6 @@ def main():
 
     skip = dir(Cerebrum)
     for x in filter(lambda x: x[0] != '_' and not x in skip, dir(co)):
-        print "map: %s" % x
         print "co.%s: %s = %d" % (x, getattr(co, x), getattr(co, x))
 
 if __name__ == '__main__':
