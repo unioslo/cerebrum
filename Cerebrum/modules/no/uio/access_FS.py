@@ -593,3 +593,197 @@ WHERE k.etterutdkurskode='%s' AND
 
         return (self._get_cols(qry), self.db.query(qry)) 
 
+    def GetAnsvEvuKurs(self, kurs, tid):
+        qry = """
+SELECT k.fodselsdato, k.personnr
+FROM fs.kursfagansvarlig k
+WHERE k.etterutdkurskode=:kurs AND
+      k.kurstidsangivelsekode=:tid"""
+        return (self._get_cols(qry),
+                self.db.query(qry, {'kurs': kurs, 'tid': tid}))
+
+    def GetStudEvuKurs(self, kurs, tid):
+        qry = """
+SELECT d.fodselsdato, d.personnr
+FROM fs.deltaker d, fs.kursdeltakelse k
+WHERE k.etterutdkurskode=:kurs AND
+      k.kurstidsangivelsekode=:tid AND
+      k.deltakernr=d.deltakernr AND
+      d.fodselsdato IS NOT NULL AND
+      d.personnr IS NOT NULL"""
+        return (self._get_cols(qry),
+                self.db.query(qry, {'kurs': kurs, 'tid': tid}))
+
+    # GetAnsvUndervEnhet
+    #
+    #   Finner alle som er ansvarlige for undervisning av et gitt emne
+    #
+    #   Henter fra:
+    #
+    #          * FS.UNDERVISNINGSENHET (som inneholder samme verdi som
+    #            FS.emne jmf. Geir Vangen)
+    #
+    #          * FS.UNDERVISNINGSANSVARLIG
+    #
+    #          * FS.UNDAKTIVITET_LERER (for undervisningsaktiviteter med
+    #            undervisningsform `forelesning').
+    #
+    # Input:
+    #
+    #  * Institusjonsnr ('185' -> UiO)
+    #  * Emnekode       (VC(12))
+    #  * Versonskode    (VC(3))
+    #  * Terminkode     (VC(4))
+    #  * Årstall        (N(4))
+    #  * Terminnr       (N(4))
+    #
+    # Returnerer en liste av følgende lister:
+    #
+    #  * Fødselsdato    (N(6))
+    #  * Personnr       (N(5))
+    #  * Publiseres     ('J'/'N')
+    #
+    # For gitt emne (se input)
+    #
+    def GetAnsvUndervEnhet(self, Instnr, emnekode, versjon,
+                           termk, aar, termnr):
+        qry = """
+SELECT
+  uan.fodselsdato AS fodselsdato,
+  uan.personnr AS personnr
+FROM
+  fs.undervisningsansvarlig uan
+WHERE
+  uan.institusjonsnr = :instnr AND
+  uan.emnekode       = :emnekode AND
+  uan.versjonskode   = :versjon AND
+  uan.terminkode     = :terminkode AND
+  uan.arstall        = :arstall AND
+  uan.terminnr       = :terminnr
+UNION
+SELECT
+  ue.fodselsdato_Ansvarligkontakt AS fodselsdato,
+  ue.personnr_Ansvarligkontakt AS personnr
+FROM
+  fs.undervisningsenhet ue
+WHERE
+  ue.institusjonsnr = :instnr AND
+  ue.emnekode       = :emnekode AND
+  ue.versjonskode   = :versjon AND
+  ue.terminkode     = :terminkode AND
+  ue.arstall        = :arstall AND
+  ue.terminnr       = :terminnr AND
+  ue.fodselsdato_Ansvarligkontakt IS NOT NULL AND
+  ue.personnr_Ansvarligkontakt IS NOT NULL
+UNION
+SELECT
+  ual.fodselsdato_fagansvarlig AS fodselsdato,
+  ual.personnr_fagansvarlig AS personnr
+FROM
+  fs.undaktivitet ua, fs.undaktivitet_lerer ual
+WHERE
+  ua.institusjonsnr = :instnr AND
+  ua.emnekode       = :emnekode AND
+  ua.versjonskode   = :versjon AND
+  ua.terminkode     = :terminkode AND
+  ua.arstall        = :arstall AND
+  ua.terminnr       = :terminnr AND
+  ua.undformkode    = 'FOR' AND
+  ua.institusjonsnr = ual.institusjonsnr AND
+  ua.emnekode       = ual.emnekode AND
+  ua.versjonskode   = ual.versjonskode AND
+  ua.terminkode     = ual.terminkode AND
+  ua.arstall        = ual.arstall AND
+  ua.terminnr       = ual.terminnr AND
+  ua.aktivitetkode  = ual.aktivitetkode"""
+
+        return (self._get_cols(qry),
+                self.db.query(qry, {
+            'instnr': Instnr,
+            'emnekode': emnekode,
+            'versjon': versjon,
+            'terminkode': termk,
+            'arstall': aar,
+            'terminnr': termnr}))
+
+
+    # GetStudUndervEnhet
+    #
+    #   Gir en oversikt over hvilke studenter som følger et gitt emne.
+    #   Lister alle som er undervisningsmeldt til et emne og/eller som er
+    #   meldt til eksamen i emnet.
+    #
+    # Input:
+    #
+    #  * Institusjonsnr ('185' -> UiO)
+    #  * Emnekode       (VC(12))
+    #  * Versonskode    (VC(3))
+    #  * Terminkode     (VC(4))
+    #  * Årstall        (N(4))
+    #  * Terminnr       (N(4))
+    #
+    # Returnerer en liste av følgende lister:
+    #
+    #  * Fødselsdato    (N(6))
+    #  * Personnr       (N(5))
+    #
+    # For gitt emne (se input)
+    #
+    def GetStudUndervEnhet(self, Instnr, emnekode, versjon, termk, aar, termnr):
+        qry = """
+SELECT
+  fodselsdato, personnr
+FROM
+  FS.UNDERVISNINGSMELDING
+WHERE
+  institusjonsnr = :instnr AND
+  emnekode       = :emnekode AND
+  versjonskode   = :versjon AND
+  terminkode     = :terminkode AND
+  arstall        = :arstall AND
+  terminnr       = :terminnr
+UNION
+SELECT
+  fodselsdato, personnr
+FROM
+  FS.EKSAMENSMELDING
+WHERE
+  institusjonsnr = :instnr AND
+  emnekode       = :emnekode AND
+  versjonskode   = :versjon AND
+  arstall       >= :arstall"""
+        return (self._get_cols(qry),
+                self.db.query(qry, {
+            'instnr': Instnr,
+            'emnekode': emnekode,
+            'versjon': versjon,
+            'terminkode': termk,
+            'arstall': aar,
+            'terminnr': termnr}))
+
+    def GetAnsvEvuAktivitet(self, kurs, tid, aktkode):
+        qry = """
+SELECT k.fodselsdato, k.personnr
+FROM fs.kursaktivitet_fagperson k
+WHERE k.etterutdkurskode=:kurs AND
+      k.kurstidsangivelsekode=:tid AND
+      k.aktivitetskode=:aktkode"""
+        return (self._get_cols(qry),
+                self.db.query(qry, {
+            'kurs': kurs,
+            'tid': tid,
+            'aktkode': aktkode}))
+
+    def GetStudEvuAktivitet(self, kurs, tid, aktkode):
+        qry = """
+SELECT d.fodselsdato, d.personnr
+FROM fs.deltaker d, fs.kursaktivitet_deltaker k
+WHERE k.etterutdkurskode=:kurs AND
+      k.kurstidsangivelsekode=:tid AND
+      k.aktivitetskode=:aktkode AND
+      k.deltakernr = d.deltakernr"""
+        return (self._get_cols(qry),
+                self.db.query(qry, {
+            'kurs': kurs,
+            'tid': tid,
+            'aktkode': aktkode}))
