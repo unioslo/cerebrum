@@ -821,7 +821,8 @@ CREATE TABLE person_affiliation_source
   last_date	DATE
 		DEFAULT [:now]
 		NOT NULL,
-  deleted_date	DATE,
+  deleted_date	DATE
+		DEFAULT NULL,
   CONSTRAINT person_aff_src_pk
     PRIMARY KEY (person_id, ou_id, affiliation, source_system),
   CONSTRAINT person_aff_src_exists
