@@ -173,6 +173,8 @@ def determine_affiliations(person):
     for g in person.get('gjest', ()):
         if g['gjestetypekode'] == 'EMERITUS':
             aff_stat = const.affiliation_tilknyttet_emeritus
+	elif g['gjestetypekode'] == 'EF-STIP':
+	    aff_stat = const.affiliation_tilknyttet_ekst_stip
         else:
             logger.warn("Unknown gjestetypekode: %s" % g['gjestetypekode'])
             continue
