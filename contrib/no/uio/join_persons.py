@@ -148,7 +148,69 @@ def person_join(old_person, new_person):
         new_person.write_db()
         for d in do_del:
             new_person.delete_affiliation(*d)
-        
+    
+    #Printer quota. Added "if" for future use since pq may be optional 
+    if True:
+	from Cerebrum.modules.no.uio.printer_quota import PaidPrinterQuotas
+	pq_join = {'old':{'id':int(old_id)},'new':{'id':int(new_id)}}
+	pq = PaidPrinterQuotas.PaidPrinterQuotas(db)
+	logger.debug("In printer-qoutas.")
+	# If new doesnt have any entry, we must create default pq for this person
+	try:
+	    pq.find(new_id)
+	except Errors.NotFoundError:
+	    # default: no_quota -> Have to find out if all student get quota.
+	    pq.new_quota(new_id)
+	    logger.debug("Create printer-quota for new person!")
+	for person,id in pq_join.items():
+	    try:
+		tab_val = pq.find(id['id'])
+		pq_join[person]['exist'] = True
+		# insert values
+		for col in ('has_quota','has_blocked_quota','weekly_quota',
+					'max_quota','total_pages','paid_quota','free_quota'):
+		    # There is a difference between None, 0, 'F'
+		    # No clue about what to do with weekly_quota and max_quota.
+		    # Will create a warning message and do exit.
+		    if col in ('max_quota','weekly_quota'):
+			if tab_val[col] != None:
+			    print "Warning! No logic to solve printer quota. Please update manually"
+			    sys.exit(0)
+			else: pass	
+		    elif tab_val[col] == None or isinstance(tab_val[col],str):
+			pq_join[person][col] = tab_val[col]
+		    else:
+			try: 
+			    pq_join[person][col] = int(tab_val[col])
+			except: 
+			    logger.warn("Unexpected value in print-qouta table, person-id:%s" % id['id'])
+	    except Errors.NotFoundError:
+		pq_join[id]['exist'] = False
+		logger.debug("Person did not have printer-quota on old-person.")
+	
+	if pq_join['old']['exist'] != False:
+	    if ([id for id in pq_join.values() if (id['has_quota'] == 'F')]):
+		pq_join['new']['has_quota'] = False
+		pq_join['new']['free_quota'] = 0
+	    else:
+		pq_join['new']['has_quota'] = True
+		pq_join['new']['free_quota'] += pq_join['old']['free_quota'] 
+	    # Maybe we should do some more testing
+	    if [id for id in pq_join.values() if id['has_blocked_quota'] == 'T']:
+		pq_join['new']['has_blocked_quota'] = True
+		logger.info("One or both has a blocked printer quota! New printer-quot blocked!")
+	    else:
+		pq_join['new']['has_blocked_quota'] = False 
+	    pq_join['new']['total_pages'] += pq_join['old']['total_pages']
+	    pq_join['new']['paid_quota'] += pq_join['old']['paid_quota']
+	    del pq_join['new']['id']
+	    del pq_join['new']['exist']
+	    pq.set_status_attr(int(new_id), pq_join['new'])
+	    pq.rem_person_status(old_id)
+	    pq.change_history_owner(new_id,old_id)
+	
+
+
     # account_type
     account = Factory.get('Account')(db)
     old_account_types = []
