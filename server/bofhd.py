@@ -32,6 +32,7 @@ import md5
 import socket
 import pickle
 import SimpleXMLRPCServer
+import xmlrpclib
 from random import Random
 
 import cerebrum_path
@@ -44,7 +45,7 @@ from Cerebrum.extlib import logging
 from server.bofhd_errors import CerebrumError
 import traceback
 
-logging.fileConfig("cerebrum.ini")
+logging.fileConfig(cereconf.LOGGING_CONFIGFILE)
 logger = logging.getLogger("console")  # The import modules use the "import" logger
 
 # TBD: Is a BofhdSession class a good idea?  It could (optionally)
@@ -209,6 +210,50 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler):
             raise sys.exc_info()[0], ret
         return wash_response(ret)
 
+    # This method is pretty identical to the one shipped with Python,
+    # except that we don't silently eat exceptions
+    def do_POST(self):
+        """Handles the HTTP POST request.
+
+        Attempts to interpret all HTTP POST requests as XML-RPC calls,
+        which are forwarded to the _dispatch method for handling.
+        """
+
+        try:
+            # get arguments
+            data = self.rfile.read(int(self.headers["content-length"]))
+            params, method = xmlrpclib.loads(data)
+
+            # generate response
+            try:
+                response = self._dispatch(method, params)
+                # wrap response in a singleton tuple
+                response = (response,)
+            except:
+                logger.warn("Unexpected exception 1", exc_info=1)
+                # report exception back to server
+                response = xmlrpclib.dumps(
+                    xmlrpclib.Fault(1, "%s:%s" % (sys.exc_type, sys.exc_value))
+                    )
+            else:
+                response = xmlrpclib.dumps(response, methodresponse=1)
+        except:
+            logger.warn("Unexpected exception 2", exc_info=1)
+            # internal error, report as HTTP server error
+            self.send_response(500)
+            self.end_headers()
+        else:
+            # got a valid XML RPC response
+            self.send_response(200)
+            self.send_header("Content-type", "text/xml")
+            self.send_header("Content-length", str(len(response)))
+            self.end_headers()
+            self.wfile.write(response)
+
+            # shut down the connection
+            self.wfile.flush()
+            self.connection.shutdown(1)
+
     def bofhd_login(self, uname, password):
         account = Account.Account(self.server.db)
         try:
@@ -315,6 +360,14 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler):
             self.server.db.rollback()
             raise
 
+    def bofhd_call_prompt_func(self, sessionid, cmd, *args):
+        session = BofhdSession(self.server.db, sessionid)
+        instance, cmdObj = self.server.get_cmd_info(cmd)
+        if cmdObj._prompt_func is not None:
+            # TODO: er dette rett syntax?
+            return getattr(instance, cmdObj._prompt_func.__name__)(session, *args)
+        raise CerebrumError, "Command has no prompt func"
+        
     def bofhd_get_default_param(self, sessionid, cmd, *args):
         """Get default value for a parameter.  Returns a string.  The
         client should append '[<returned_string>]: ' to its prompt.
