@@ -146,7 +146,7 @@ class FS(object):
 #
 ####################################################
 
-    def GetStudinfTilbud_50(self, institutsjonsnr=0):
+    def GetStudentTilbud_50(self, institutsjonsnr=0):
         """Hent personer som har fått tilbud om opptak
 	Disse skal gis affiliation student med kode tilbud til
         stedskoden sp.faknr_studieansv+sp.instituttnr_studieansv+
@@ -193,7 +193,7 @@ SELECT DISTINCT s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
        p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
        p.adresseland_hjemsted, p.status_reserv_nettpubl, 
        p.sprakkode_malform, sps.studieprogramkode, sps.studieretningkode,
-       sps.studierettstatkode, sps.studentstatus, sps.terminkode_kull,
+       sps.studierettstatkode, sps.studentstatkode, sps.terminkode_kull,
        sps.arstall_kull, p.kjonn, p.status_dod
 FROM fs.student s, fs.person p, fs.studieprogramstudent sps
 WHERE  p.fodselsdato=s.fodselsdato AND
@@ -211,21 +211,21 @@ SELECT DISTINCT s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
        s.adrlin3_semadr, s.adresseland_semadr, p.adrlin1_hjemsted,
        p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
        p.adresseland_hjemsted, p.status_reserv_nettpubl,
-       p.sprakkode_malform, sps.studieprogramkode, st.studieretningkode,
-       sps.studierettstatkode, sps.studentstatus, sps.terminkode_kull,
+       p.sprakkode_malform, sps.studieprogramkode, sps.studieretningkode,
+       sps.studierettstatkode, sps.studentstatkode, sps.terminkode_kull,
        sps.arstall_kull, p.kjonn, p.status_dod
-FROM fs.student s, fs.person p, fs.studierett st, fs.registerkort r
+FROM fs.student s, fs.person p, fs.studieprogramstudent sps, fs.registerkort r
 WHERE  p.fodselsdato=s.fodselsdato AND
        p.personnr=s.personnr AND
        p.fodselsdato=sps.fodselsdato AND
        p.personnr=sps.personnr AND
        p.fodselsdato=r.fodselsdato AND
        p.personnr=r.personnr AND
-       NVL(st.dato_studierett_gyldig_til,SYSDATE) >= sysdate AND
+       NVL(sps.dato_studierett_gyldig_til,SYSDATE) >= sysdate AND
        sps.status_privatist = 'N' AND
        r.arstall >= (%s - 1)
        """ % (self.year)
-        return qry
+        return (self._get_cols(qry), self.db.query(qry))
 
     def GetStudentPrivatist_50(self):
 
@@ -244,7 +244,7 @@ SELECT DISTINCT s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
        p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
        p.adresseland_hjemsted, p.status_reserv_nettpubl, 
        p.sprakkode_malform, sps.studieprogramkode, sps.studieretningkode,
-       sps.studierettstatkode, sps.studentstatus, sps.terminkode_kull,
+       sps.studierettstatkode, sps.studentstatkode, sps.terminkode_kull,
        sps.arstall_kull, p.kjonn, p.status_dod
 FROM fs.student s, fs.person p, fs.studieprogramstudent sps
 WHERE  p.fodselsdato=s.fodselsdato AND
@@ -262,21 +262,21 @@ SELECT DISTINCT s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
        s.adrlin3_semadr, s.adresseland_semadr, p.adrlin1_hjemsted,
        p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
        p.adresseland_hjemsted, p.status_reserv_nettpubl,
-       p.sprakkode_malform, sps.studieprogramkode, st.studieretningkode,
-       sps.studierettstatkode, sps.studentstatus, sps.terminkode_kull,
+       p.sprakkode_malform, sps.studieprogramkode, sps.studieretningkode,
+       sps.studierettstatkode, sps.studentstatkode, sps.terminkode_kull,
        sps.arstall_kull, p.kjonn, p.status_dod
-FROM fs.student s, fs.person p, fs.studierett st, fs.registerkort r
+FROM fs.student s, fs.person p, fs.studieprogramstudent sps, fs.registerkort r
 WHERE  p.fodselsdato=s.fodselsdato AND
        p.personnr=s.personnr AND
        p.fodselsdato=sps.fodselsdato AND
        p.personnr=sps.personnr AND
        p.fodselsdato=r.fodselsdato AND
        p.personnr=r.personnr AND
-       NVL(st.dato_studierett_gyldig_til,SYSDATE) >= sysdate AND
+       NVL(sps.dato_studierett_gyldig_til,SYSDATE) >= sysdate AND
        sps.status_privatist = 'J' AND
        r.arstall >= (%s - 1)
        """ % (self.year)
-        return qry
+        return (self._get_cols(qry), self.db.query(qry))
 
     def GetStudentPrivatistEmne_50(self):
         """Hent personer som er uekte privatister, dvs. som er
@@ -310,7 +310,7 @@ WHERE s.fodselsdato=p.fodselsdato AND
              p.personnr=sps.personnr AND
              es.emnekode=em.emnekode AND
              es.studieprogramkode = sps.studieprogramkode AND
-             NVL(st.dato_studierett_gyldig_til,SYSDATE) >= SYSDATE)
+             NVL(sps.dato_studierett_gyldig_til,SYSDATE) >= SYSDATE)
       """ % (self.get_termin_aar(only_current=1))
         return (self._get_cols(qry), self.db.query(qry))
         
@@ -370,8 +370,7 @@ WHERE r.fodselsdato = fp.fodselsdato AND
       fp.fodselsdato = p.fodselsdato AND
       fp.personnr = p.personnr AND 
       %s
-        """ % ((self.get_termin_aar(only_current=0))
-
+        """ % (self.get_termin_aar(only_current=0))
         return (self._get_cols(qry), self.db.query(qry))
 
 
@@ -385,7 +384,7 @@ SELECT DISTINCT s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
        s.adrlin3_semadr, s.adresseland_semadr, p.adrlin1_hjemsted,
        p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
        p.adresseland_hjemsted, p.status_reserv_nettpubl, 
-       p.sprakkode_malform,st.studieprogramkode, st.studierettstatkode,
+       p.sprakkode_malform,sps.studieprogramkode, sps.studierettstatkode,
        p.kjonn, p.status_dod
 FROM fs.student s, fs.person p, fs.studieprogramstudent sps, fs.studieprogram sp
 WHERE  p.fodselsdato=s.fodselsdato AND
@@ -626,16 +625,14 @@ WHERE sp.arstall >= %s AND
                                                      False))
     # end GetPortalInfo
 
-
-# Studinfo (bofh) metoder
-
     def GetStudentStudierett_50(self,fnr,pnr):
 	"""Hent info om alle studierett en student har eller har hatt"""
         qry = """
 SELECT DISTINCT
-  sps.studieprogramkode, sps.studieretningkode, sps.terminkode_kull
-  sps.arstall_kull, sps.studierettstatkode, sps.dato_studierett_tildelt,
-  sps.dato_studierett_gyldig_til, sps.status_privatist, sps.studentstatkode
+sps.studieprogramkode, sps.studierettstatkode,
+sps.studieretningkode,sps.dato_studierett_tildelt, 
+sps.dato_studierett_gyldig_til,sps.status_privatist, 
+sps.studentstatkode
 FROM fs.studieprogramstudent sps, fs.person p
 WHERE sps.fodselsdato=:fnr AND
       sps.personnr=:pnr AND
@@ -644,8 +641,6 @@ WHERE sps.fodselsdato=:fnr AND
       AND %s
         """ % self.is_alive()
         return (self._get_cols(qry), self.db.query(qry, {'fnr': fnr, 'pnr': pnr}))
-
-
 
 
 
@@ -885,8 +880,6 @@ WHERE s.fodselsdato=r.fodselsdato AND
       NVL(st.dato_gyldig_til,SYSDATE) >= sysdate AND
       %s
 UNION """ %(self.get_termin_aar(only_current=1))
-
-        
 
         qry = qry + """
 SELECT DISTINCT
