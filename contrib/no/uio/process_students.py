@@ -834,7 +834,7 @@ def make_letters(data_file=None, type=None, range=None):
             order_by = brev_profil['order_by']
         if not dta[order_by][account_id]['zip'] or dta[order_by][account_id]['country']:
             # TODO: Improve this check, which is supposed to skip foreign addresses
-            logger.warn("Not sending abroad: %s" % dta[account_id]['uname'])
+            logger.warn("Not sending abroad: %s" % dta[order_by][account_id]['uname'])
             continue
         printer = cereconf.PRINT_PRINTER
         if brev_profil.has_key('printer'):
@@ -950,6 +950,7 @@ def list_noncallback_users(fname):
     """Dump accounts on student-disk that did not get a callback
     resulting in update_account."""
     
+    logger.info("Dumping noncallback users to %s" % fname)
     f = file(fname, 'w')
     on_student_disk = {}
     # TBD: This includes expired accounts, is that what we want?
