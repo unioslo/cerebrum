@@ -4672,7 +4672,7 @@ class BofhdExtension(object):
                 return "student-move queued for execution at %s" % br.batch_time
             elif move_type == "student_immediate":
                 br.add_request(operator.get_entity_id(), br.now,
-                               const.bofh_move_student,
+                               self.const.bofh_move_student,
                                account.entity_id, None, state_data=spread)
                 return "student-move queued for immediate execution"
             elif move_type == "confirm":
