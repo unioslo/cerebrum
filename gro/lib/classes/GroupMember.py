@@ -29,6 +29,7 @@ from Types import EntityType, GroupMemberOperationType
 import Registry
 registry = Registry.get_registry()
 
+table = 'group_member'
 class GroupMember(DatabaseClass):
     primary = [
         DatabaseAttr('group', 'group_member', Group),
@@ -37,6 +38,13 @@ class GroupMember(DatabaseClass):
         DatabaseAttr('member_type', 'group_member', EntityType)
     ]
     slots = []
+    db_attr_aliases = {
+        table: {
+            'group':'group_id',
+            'member':'member_id'
+        }
+    }
+
 
 registry.register_class(GroupMember)
 
