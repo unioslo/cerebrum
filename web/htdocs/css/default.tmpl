@@ -18,37 +18,89 @@
  * Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
  */
 
-## Styles for the bottom frame
-div.activitylog h2,div.worklist h2 {
-  font-size: 90%;
-  margin: 0;
-  padding: 0;
-  background: #9ab;
+## Styles for the bottom frame, wich contains worklist, transactions and activitylog.
+## IE doesnt support inline-block on divs, so I had to use spans instead, and then
+## i had to use vertical-align: top, to make it look just like in opera.
+div.bottom h2, div.bottom h3 {
+    font-size: 80%;
+    margin: 0;
+    padding: 0;
+    letter-spacing: 0.2em;
 }
 
-div.activitylog {
-  overflow: auto;
-  height: 5em;
-  width: 25em;
-  padding: 0;
-  margin: 0;
-  margin-left: 2em;
+## Styles for the transaction-box
+span.transbox {
+    display: inline-block;
+    width: 15em;
+    margin-right: 0.5em;
+    vertical-align: top;
 }
 
-div.worklist {
-  width: 18em;
-  float: left;
-  /*margin-right: 2em;*/
+span.transbox h2 {
+    background: #9a5;
 }
 
-div.buttons {
-  text-align: left;
+span.transbox div.select input {
+    font-size: 80%;
+    font-family: sans-serif;
 }
 
-div.buttons input {
-  width: 5em;
-  margin-top: 0.3em;
-  margin-left: 0.3em;
+span.transbox div.commit input {
+    width: 6em;
+    font-size: 100%;
+    font-family: sans-serif;
+}
+
+## Styles for the worklist.
+span.worklist {
+    display: inline-block;
+    width: 20em;
+    margin-right: 0.5em;
+    vertical-align: top;
+}
+
+span.worklist h2 {
+    background: #9ab;
+}
+
+span.worklist span.list {
+    display: inline-block;
+    vertical-align: top;
+}
+
+span.worklist span.list select:focus {
+    background: #ffe;
+}
+
+span.worklist span.buttons {
+    display: inline-block;
+    vertical-align: top;
+}
+
+span.worklist span.buttons input {
+    width: 4em;
+    font-size: 80%;
+    font-family: sans-serif;
+}
+
+span.worklist span.wactions {
+    display: inline-block;
+    vertical-align: top;
+    background: #9ac;
+    border: 1px dashed black;
+    padding: 0.4em;
+}
+
+## ActivityLog
+span.activitylog {
+    display: inline-block;
+    width: 19em;
+    vertical-align: top;
+    overflow: auto;
+}
+
+span.activitylog h2 {
+    background: #999;
 }
 
 ## Styles for the menu:
