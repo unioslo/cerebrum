@@ -664,7 +664,7 @@ ORDER BY fodselsdato, personnr
         frk.arstall = r.arstall AND
         frk.fakturastatuskode ='OPPGJORT' and
         fkd.fakturanr = frk.fakturanr AND
-        fkd.fakturadetaljtypekode in ('PAPIRHEL','PAPIRDEL','PAPIRPU')"""
+        fkd.fakturadetaljtypekode = 'PAPIRAVG'"""
         return (self._get_cols(qry), self.db.query(qry, {'semester': self.semester,
                                                          'year': self.year}))
 
