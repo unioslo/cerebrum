@@ -1,10 +1,10 @@
 #!/usr/bin/env python2.2
 # -*- coding: iso-8859-1 -*-
 #
-# Placing of files when installing Cerebrum
-# -----------------------------------------
+# Placement of files when installing Cerebrum
+# -------------------------------------------
 #
-# NOTE: Atleast while developing, I would reccomend using "--prefix
+# NOTE: At least while developing, I recommend using "--prefix
 # /cerebrum".  Otherwise all these paths are relative to / unless
 # otherwise noted.
 #
@@ -19,10 +19,10 @@
 #
 #   Note that the entire Cerebrum/modules catalog is installed.
 #   Site-specific components should assert that they do not use names
-#   that clashes with the files distributed with cerebrum, otherwise
+#   that clashes with the files distributed with Cerebrum, otherwise
 #   they may be overwritten by a later installation.  The naming
 #   syntax should be that of a reversed dns name with '.' replaced with
-#   '/'.  Eg, for uio.no, the directory modules/uio/no is used.
+#   '/'.  E.g., for uio.no, the directory modules/no/uio is used.
 #
 # design/
 #   *.sql:        usr/share/cerebrum/doc/design/
@@ -48,7 +48,7 @@
 #
 #   As the client will be installed stand-alone on numerous machines,
 #   the files for it resides in a separate directory to make
-#   distribution easier.  All clients should share atleast one config
+#   distribution easier.  All clients should share at least one config
 #   file
 #
 # java/jbofh/
