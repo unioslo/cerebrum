@@ -57,3 +57,6 @@ ENABLE_BOFHD_CRYPTO=0
 # requires that accounts and groups have creator_ids/owner_ids.
 INITIAL_GROUPNAME = "bootstrap_group"
 INITIAL_ACCOUNTNAME = "bootstrap_account"
+
+# To use site-specific constants:
+# CONSTANTS_MODULE="Cerebrum.modules.no.uio.Constants"
