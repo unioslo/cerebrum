@@ -47,7 +47,7 @@ class PersonExternalId(DatabaseClass):
 registry.register_class(PersonExternalId)
 
 def get_external_ids(self):
-    s = registry.PersonExternalIdSearch()
+    s = registry.PersonExternalIdSearcher()
     s.set_person(self)
     return s.search()
 
