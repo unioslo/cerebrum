@@ -21,7 +21,7 @@
 
 """
 
-This file is part of the Cerebrum framework.
+This file is a part of the Cerebrum framework.
 
 It generates a plain text dump suitable for the student portal project.  The
 output generated contains exam registration information.
@@ -69,7 +69,7 @@ from Cerebrum import Database
 from Cerebrum.Utils import Factory
 
 from Cerebrum.modules.no.uio.access_FS import FS
-from Cerebrum.Utils import SimilarSizeWriter
+from Cerebrum.Utils import MinimumSizeWriter
 
 if sys.version >= (2, 3):
     import logging
@@ -198,8 +198,10 @@ def output_text(output_file):
     Initialize data structures and start generating the output.
     """
 
-    output_stream = SimilarSizeWriter(output_file, "w")
-    output_stream.set_size_change_limit(10)
+    output_stream = MinimumSizeWriter(output_file, "w")
+    # 1MB is the minimum allowed size for the portal dump.
+    # The number is somewhat magic, but it seems sensible
+    output_stream.set_minimum_size_limit(1024*1024)
     db_cerebrum = Factory.get("Database")()
     logger.debug(cereconf.DB_AUTH_DIR)
     
@@ -214,6 +216,7 @@ def output_text(output_file):
     constants = Factory.get("Constants")(db_cerebrum)
     
     names, rows = db_fs.GetPortalInfo()
+    logger.debug("Fetched portal information from FS")
     count = 0
     for row in rows:
         output_row(row, output_stream, db_person, db_account, constants)

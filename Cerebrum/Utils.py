@@ -604,7 +604,31 @@ class SimilarSizeWriter(AtomicFileWriter):
                   "File size changed more than %d%%: %d -> %d (%+.1f)" % (
                 self.__percentage, old, new, change_percentage)
 
-                  
+
+class MinimumSizeWriter(AtomicFileWriter):
+    """
+    This file writer would fail, if the new file size is less than a certain
+    number of bytes. All other file size changes are permitted, regardless
+    of the original file's size.
+    """
+
+    def set_minimum_size_limit(self, bytes):
+        self.__minimum_size = bytes
+    # end set_minimum_size_limit
+
+    def validate_output(self):
+        super(MinimumSizeWriter, self).validate_output()
+
+        new_size = os.path.getsize(self._tmpname)
+        if new_size < self.__minimum_size:
+            raise RuntimeError, \
+                  "File is too small: current: %d, minimum allowed: %d" % (
+                  new_size, self.__minimum_size )
+        # fi
+    # end validate_output
+# end MinimumSizeWriter
+
+
 class RecursiveDict(dict):
     """A variant of dict supporting recursive updates"""
     def update(self, other):
