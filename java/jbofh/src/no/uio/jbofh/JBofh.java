@@ -374,12 +374,12 @@ public class JBofh {
 			Vector lst = bcompleter.analyzeCommand(args, -1);
 			for(int i = 0; i < lst.size(); i++) args.set(i, lst.get(i));
 		    } catch (AnalyzeCommandException e) {
-			showMessage("Error translating command:"+e, true); continue;
+			showMessage("Unknown command", true); continue;
 		    }
                     
 		    Object r[] = translateCommand(args);
 		    if(r == null) {
-			showMessage("Error translating command", true); continue;
+			showMessage("Unknown command", true); continue;
 		    }
 		    String protoCmd = (String) r[0];
 		    Vector protoArgs = (Vector) r[1];
@@ -396,7 +396,7 @@ public class JBofh {
 		    } catch (BofhdException ex) {
 			showMessage(ex.getMessage(), true);
 		    } catch (Exception ex) {
-			showMessage("Unexpected error (bug, true): "+ex, true);
+			showMessage("Unexpected error (bug): "+ex, true);
 			ex.printStackTrace();
 		    } finally {
                         if(guiEnabled) mainFrame.showWait(false);
@@ -431,11 +431,11 @@ public class JBofh {
             try {
                 args = cLine.splitCommand(cmd);
             } catch (ParseException ex) {
-                showMessage("Error translating command: "+cmd, true); continue;
+                showMessage("Unknown command ("+cmd+")", true); continue;
              }
             Object r[] = translateCommand(args);
             if(r == null) {
-                showMessage("Error translating command: "+cmd, true); continue;
+                showMessage("Unknown command: "+cmd, true); continue;
             }
             String protoCmd = (String) r[0];
             Vector protoArgs = (Vector) r[1];
