@@ -21,7 +21,7 @@ co = Utils.Factory.get('Constants')(db)
 account = Utils.Factory.get('Account')(db)
 disk = Utils.Factory.get('Disk')(db)
 
-mailed_users = []
+mailed_users = {}
 splatted_users = []
 debug_enabled = False   # If set to true, no e-mail will be sent
 debug_verbose = False   # e-mail is shown on stdout (requires debug_enabled)
@@ -31,7 +31,7 @@ splattee_id = account.entity_id
 db_now = db.Date(*([ int(x) for x in (
     "%d-%d-%d" % time.localtime()[:3]).split('-')]))
 
-def mail_user(account_id, deadline=''):
+def mail_user(account_id, mail_type, deadline='', first_time=''):
     account.clear()
     account.find(account_id)
     try:
@@ -41,20 +41,22 @@ def mail_user(account_id, deadline=''):
         home = "%s/%s" % (disk.path, account.account_name)
     except Errors.NotFoundError:
         home = 'ukjent'
-    logger.debug("Mailing %s (home=%s)" % (account.account_name, home))
+    logger.debug("Mailing %s to %s (home=%s)" % (
+        mail_type, account.account_name, home))
     try:
         prim_email = account.get_primary_mailaddress()
     except Errors.NotFoundError:
         logger.warn("No email-address for %i" % account_id)
         return
-    subject = email_info['Subject']
+    subject = email_info[mail_type]['Subject']
     subject = subject.replace('${USERNAME}', account.account_name)
-    body = email_info['Body']
+    body = email_info[mail_type]['Body']
     body = body.replace('${USERNAME}', account.account_name)
     body = body.replace('${DEADLINE}', deadline)
+    body = body.replace('${FIRST_TIME}', first_time)
     
-    if send_mail(prim_email, email_info['From'], subject, body):
-        mailed_users.append(account.account_name)
+    if send_mail(prim_email, email_info[mail_type]['From'], subject, body):
+        mailed_users.setdefault(mail_type, []).append(account.account_name)
     return True
 
 def splat_user(account_id):
@@ -69,7 +71,7 @@ def splat_user(account_id):
         "password not changed", db_now, None)
     db.commit()
 
-def process_data():
+def process_data(status_mode=False, normal_mode=False):
     # mail_data_file always contain information about users that
     # currently has been warned that their account will be locked.
     global max_users
@@ -90,29 +92,58 @@ def process_data():
     account_ids = [int(x['account_id']) for x in ph.find_old_password_accounts(max_date)]
     account_ids.extend( [int(x['account_id']) for x in ph.find_no_history_accounts() ])
     logger.debug("Found %i users" % len(account_ids))
+    num_mailed = num_splatted = num_previously_warned = num_reminded = 0
     for account_id in account_ids:
         max_users -= 1
         if max_users < 0:
             break
         if not mail_data.has_key(account_id):
-            if mail_user(account_id, deadline=deadline):
-                new_mail_data[account_id] = now
-        elif mail_data[account_id] < now - grace_period:
-            splat_user(account_id)
+            if normal_mode:
+                if mail_user(account_id, 'first', deadline=deadline):
+                    new_mail_data[account_id] = {'first': now }
+            num_mailed += 1
+        elif mail_data[account_id]['first'] < now - grace_period:
+            if normal_mode:
+                splat_user(account_id)
+            num_splatted += 1
         else:
+            num_previously_warned += 1
+            if (reminder_delay and
+                (mail_data[account_id]['first'] < now - reminder_delay) and
+                not mail_data[account_id].has_key('reminder')):
+                if normal_mode:
+                    tmp = time.strftime(
+                        '%Y-%m-%d', time.localtime(mail_data[account_id]['first'] +
+                                                   grace_period))
+                    first_time = time.strftime(
+                        '%Y-%m-%d', time.localtime(mail_data[account_id]['first']))
+                    if mail_user(account_id, 'reminder', deadline=tmp,
+                                 first_time=first_time):
+                        mail_data[account_id]['reminder'] = now
+                num_reminded += 1
             new_mail_data[account_id] = mail_data[account_id]
+    if status_mode:
+        print ("Users with old password: %i\nWould splat: %i\n"
+               "Would mail: %i\nPreviously warned: %i\nNum reminded: %i" %(
+            len(account_ids), num_splatted, num_mailed,
+            num_previously_warned, num_reminded))
+    if not normal_mode:
+        return
     pickle.dump(new_mail_data, open(mail_data_file, 'w'))
     send_mail(
         summary_email_info['To'],
         summary_email_info['From'],
         "notify_change_passord e-mailed %i users and splatted %i" % (
-        len(mailed_users), len(splatted_users)),
-        ("The following users were e-mailed: \n  %s\n"
+        (len(mailed_users.get('first', [])) +
+         len(mailed_users.get('reminder', []))), len(splatted_users)),
+        ("The following users were 'first' e-mailed: \n  %s\n"
+         "The following users were 'reminder' e-mailed: \n  %s\n"
          "The following users were splatted: \n  %s\n"
-         "\nRegards, Cerebrum\n") % ("\n  ".join(mailed_users),
-                                     "\n  ".join(splatted_users),))
+         "\nRegards, Cerebrum\n") % ("\n  ".join(mailed_users.get('first', [])),
+                                     "\n  ".join(mailed_users.get('reminder', [])),
+                                     "\n  ".join(splatted_users)))
 
-def send_mail(mail_to, mail_from, subject, body, mail_cc=None,):
+def send_mail(mail_to, mail_from, subject, body, mail_cc=None):
     if debug_enabled and not debug_verbose:
         return True
     try:
@@ -125,28 +156,44 @@ def send_mail(mail_to, mail_from, subject, body, mail_cc=None,):
         return False
     return True
 
+def parse_mail(fname):
+    fp = open(fname, 'rb')
+    msg = email.message_from_file(fp)
+    fp.close()
+    return {
+        'Subject': Header.decode_header(msg['Subject'])[0][0],
+        'From': msg['From'],
+        'Cc': msg['Cc'],
+        'Reply-To': msg['Reply-To'],
+        'Body': msg.get_payload(decode=1)
+        }
+
 def main():
     try:
         opts, args = getopt.getopt(
             sys.argv[1:], 'p',
             ['help', 'from=', 'to=', 'cc=', 'msg-file=',
              'max-password-age=', 'grace-period=', 'data-file=',
-             'max-users=', 'debug'])
+             'max-users=', 'debug', 'status', 'reminder-delay=',
+             'reminder-msg-file='])
     except getopt.GetoptError:
+        usage(1)
+    if len(opts) == 0:
         usage(1)
 
     global summary_email_info, max_users, max_password_age, \
-           grace_period, mail_data_file, email_info
+           grace_period, mail_data_file, email_info, reminder_delay
     max_users = 999999
     email_info = {}
     summary_email_info = {}
+    reminder_delay = None
     mail_data_file = '/cerebrum/var/logs/notify_change_password.dta'
 
     for opt, val in opts:
         if opt in ('--help',):
             usage()
         elif opt in ('-p',):
-            process_data()
+            process_data(normal_mode=True)
         elif opt in ('--from',):
             summary_email_info['From'] = val
         elif opt in ('--to',):
@@ -160,24 +207,24 @@ def main():
         elif opt in ('--cc',):
             summary_email_info['Cc'] = val
         elif opt in ('--msg-file',):
-            fp = open(val, 'rb')
-            msg = email.message_from_file(fp)
-            fp.close()
-            email_info['Subject'] = Header.decode_header(msg['Subject'])[0][0]
-            email_info['From'] = msg['From']
-            email_info['Cc'] = msg['Cc']
-            email_info['Reply-To'] = msg['Reply-To']
-            email_info['Body'] = msg.get_payload(decode=1)
+            email_info['first'] = parse_mail(val)
+        elif opt in ('--reminder-msg-file',):
+            email_info['reminder'] = parse_mail(val)
         elif opt in ('--max-password-age',):
             max_password_age = int(val) * 3600 * 24
         elif opt in ('--grace-period',):
             grace_period = float(val) * 3600 * 24
+        elif opt in ('--reminder-delay',):
+            reminder_delay = float(val) * 3600 * 24
         elif opt in ('--data-file',):
             mail_data_file = val
         elif opt in ('--max-users',):
             max_users = int(val)
-    if len(opts) == 0:
-        usage(1)
+        elif opt in ('--status', ):
+            if not debug_enabled:
+                print "Must use --debug with --status"
+                sys.exit(1)
+            process_data(status_mode=True)
 
 def usage(exitcode=0):
     print """Usage: [options]
@@ -192,11 +239,15 @@ def usage(exitcode=0):
          will be set to the end-users address.
     --max-password-age days : warn/splatt when password is older that this # of days
     --grace-period days : minimum time between warn and splat
+    --reminder-delay days: send a reminder after this number of days
+         after the first message.
+    --reminder-msg-file file : like --msg-file but with the reminder mail
     --data-file name : location of the database with info about who was mailed when
     --max-users num : debug purposes only: limit max processed users
     --debug : Will not send mail or splat accounts (updates data-file).
               Use with --logger-name=console
-    """
+    --status : Show statistics about what would happen if the script
+         was ran now.  Does not update files/send mail."""
     sys.exit(exitcode)
 
 if __name__ == '__main__':
