@@ -104,14 +104,14 @@ class EntityName_createTestCase(Entity_createTestCase):
     def setUp(self):
         super(EntityName_createTestCase, self).setUp()
         try:
-            self.entity.add_name(self.co.account_namespace, self.test_name)
+            self.entity.add_entity_name(self.co.account_namespace, self.test_name)
         except:
             print "Error: unable to create EntityName"
             traceback.print_exc()
             raise
 
     def tearDown(self):
-        self.entity.delete_name(self.co.account_namespace)
+        self.entity.delete_entity_name(self.co.account_namespace)
         super(EntityName_createTestCase, self).tearDown()
 
 class EntityNameTestCase(EntityName_createTestCase):
@@ -131,7 +131,7 @@ class EntityNameTestCase(EntityName_createTestCase):
 
     def testEntityDeleteName(self):
         "Test that the EntityName can be deleted"
-        self.entity.delete_name(self.co.account_namespace)
+        self.entity.delete_entity_name(self.co.account_namespace)
         self.assertRaises(Errors.NotFoundError,
                           self.entity.get_name, self.co.account_namespace)
 
