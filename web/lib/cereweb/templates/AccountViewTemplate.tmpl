@@ -5,6 +5,10 @@
 #from Cerebrum.web.utils import url
 #from Cerebrum.web import HistoryLog
 
+#def getAction
+$url("account/action")#slurp
+#end def
+
 #def viewAccount($account, $show_owner=True, $show_history=True)
 <h1>$_("Account") $account.name</h1>
 <div class="info">
@@ -37,6 +41,13 @@
 </dl>
 </div>
 
+<form action="$getAction()" method="POST">
+    <input type="hidden" name="id" value="$account.id" />
+    <input type="submit" name="delete_account" value="$_("Remove account")" />
+    <input type="submit" name="edit_account" value="$_("Edit account")" />
+</form>
+
+#if $show_history
 $view_entity($account)
 #end if
 #end def
