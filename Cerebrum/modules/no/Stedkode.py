@@ -159,6 +159,14 @@ class Stedkode(OU):
         SELECT landkode, institusjon, fakultet, institutt, avdeling, katalog_merke
         FROM [:table schema=cerebrum name=stedkode]
         WHERE ou_id = :ou_id""", locals())
+        # TODO: hack to avoid problem with <PgNumeric value: 0> being
+        # mapped to SQL Null.  all of these have constraint NOT NULL, so
+        # they can't be None here.
+        self.landkode = int(self.landkode)
+        self.institusjon = int(self.institusjon)
+        self.fakultet = int(self.fakultet)
+        self.institutt = int(self.institutt)
+        self.avdeling = int(self.avdeling)
         try:
             del self.__in_db
         except AttributeError:
