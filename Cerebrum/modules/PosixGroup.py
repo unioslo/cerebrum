@@ -17,12 +17,21 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-"""Access to Cerebrum groups that are also POSIX file groups."""
+"""The PosixGroup module implements a specialisation of the `Group'
+core class.  The specialided subclass, called PosixGroup.PosixGroup,
+supports the additional group parameters that are needed for building
+Unix-style file groups.
 
-from Cerebrum import Group
+Currently, the only Posix-specific parameter is `posix_gid', which is
+a numeric GID.
+
+"""
+
+from Cerebrum.Utils import Factory
 from Cerebrum import Errors
 
-class PosixGroup(Group.Group):
+Group_class = Factory.get("Group")
+class PosixGroup(Group_class):
 
     __read_attr__ = ('__in_db',)
     __write_attr__ = ('posix_gid',)
@@ -45,8 +54,9 @@ class PosixGroup(Group.Group):
         if parent is not None:
             self.__xerox__(parent)
         else:
-            Group.Group.populate(self, creator_id, visibility, name, description,
-                           create_date, expire_date)
+            super(PosixGroup, self).populate(self, creator_id, visibility,
+                                             name, description, create_date,
+                                             expire_date)
         self.__in_db = False
         if gid is None:
             gid = self._get_gid()
