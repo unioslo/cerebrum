@@ -515,22 +515,36 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine, Entity):
         SELECT *
         FROM [:table schema=cerebrum name=account_info] ai %s""" % where)
 
-    def list_account_name_home(self, spread):
-        """Returns a list of account_id, name, home and path."""
-        # TODO: Include spread in query
-        return self.query("""  
-        SELECT ai.account_id, en.entity_name, ah.home, d.path
-        FROM [:table schema=cerebrum name=entity_name] en,
-             [:table schema=cerebrum name=account_info] ai,
-             [:table schema=cerebrum name=entity_spread] es
-             LEFT JOIN [:table schema=cerebrum name=account_home] ah
-               ON ah.account_id=es.entity_id AND es.spread = ah.spread
-             LEFT JOIN [:table schema=cerebrum name=disk_info] d
-               ON d.disk_id = ah.disk_id
-        WHERE ai.account_id=en.entity_id AND en.entity_id=es.entity_id
-              AND es.spread=:spread""",
-                          {'spread': int(spread)})
+    def list_account_name_home(self, spread, filter_home=False):
+        """Returns a list of account_id, name, home and path.
+           filter_home=False means that spread is a filter on
+           accounts. filter_home=True means that the spread is
+           a filter on home."""
 
+        if filter_home:
+            return self.query("""
+            SELECT ai.account_id, en.entity_name, ah.home, d.path
+            FROM [:table schema=cerebrum name=entity_name] en,
+                 [:table schema=cerebrum name=account_info] ai
+                 LEFT JOIN [:table schema=cerebrum name=account_home] ah
+                   ON ah.account_id=ai.account_id AND ah.spread=:spread
+                 LEFT JOIN [:table schema=cerebrum name=disk_info] d
+                   ON d.disk_id = ah.disk_id
+            WHERE ai.account_id=en.entity_id""", {'spread': int(spread)})
+
+        return self.query("""
+            SELECT ai.account_id, en.entity_name, ah.home, d.path
+            FROM [:table schema=cerebrum name=entity_name] en,
+                 [:table schema=cerebrum name=account_info] ai,
+                 [:table schema=cerebrum name=entity_spread] es
+                 LEFT JOIN [:table schema=cerebrum name=account_home] ah
+                   ON ah.account_id=es.entity_id AND es.spread = ah.spread
+                 LEFT JOIN [:table schema=cerebrum name=disk_info] d
+                   ON d.disk_id = ah.disk_id
+            WHERE ai.account_id=en.entity_id AND en.entity_id=es.entity_id
+                  AND es.spread=:spread""", {'spread': int(spread)})
+
+    
     def list_reserved_users(self):
         """Return all reserved users"""
         return self.query("""
@@ -566,9 +580,3 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine, Entity):
                 return r
             except PasswordChecker.PasswordGoodEnoughException:
                 pass  # Wasn't good enough
-
-    def list_accounts_owner(self):
-        """List account_ids and its owner_id."""
-        return self.query("""
-        SELECT account_id, owner_id
-        FROM [:table schema=cerebrum name=account_info]""")
