@@ -7,16 +7,6 @@
 #
 # Work in progress, current implementation, expect big changes
 #
-# Notes:
-#
-#   - need to find an XmlRPCServer implementation that supports https
-#     with ssl ceritficate validation.  Zope and other packages that use
-#     m2crypto can probably be used.
-#   - Should probably be multithreaded, or use medusa or similar
-#   - Should probably support database connection pooling
-#
-#   - needs some research on when explicit specification of charset is
-#     required
 
 from SimpleXMLRPCServer import SimpleXMLRPCServer
 import re
@@ -24,6 +14,7 @@ import socket
 # import xmlrpclib
 from Cerebrum import Database
 from Cerebrum import Person
+from Cerebrum import Utils
 import sys
 import traceback
 import dumputil
@@ -58,9 +49,9 @@ class ExportedFuncs:
             # Import module, create an instance of it, and update
             # mapping between command and the module implementing it.
             # Sub-modules may override functions.
-            modfile, classname = line.split()
-            exec("import %s" % modfile)
-            exec("modref = %s.%s(self.Cerebrum)" % (modfile, classname))
+            modfile = line
+            mod = Utils.dyn_import(modfile)
+            modref = mod.BofhdExtention(self.Cerebrum)
             self.modules[modfile] = modref
             for k in modref.all_commands.keys():
                 self.command2module[k] = modfile
@@ -149,6 +140,50 @@ class ExportedFuncs:
             # traceback.print_tb(sys.exc_info()[2])
             raise
 
+    def tab_complete(self, sessionid, *args):
+        "Atempt to tab-complete the command."
+        
+        user = self.get_user_from_session(sessionid)
+        modfile = self.command2module[args[0]]
+        try:
+            func = getattr(self.modules[modfile], args[0]+"_tab")
+            ret = func(user, *args[1:])
+            return self.process_returndata(ret)
+        except AttributeError:
+            # TODO: Make a default tab-completion function, like:
+            # self.xxxx = {
+            #    'get_person' : ('fg', 'add', 'user:alterable_user', 'group:alterable_group', 1)
+            # }
+            #
+            return ("foo", "bar", "gazonk")
+        except Exception:
+            print "Unexpected error"
+            raise
+
+    def prompt_next_param(self, sessionid, *args):
+        "Prompt for next parameter."
+        
+        user = self.get_user_from_session(sessionid)
+        modfile = self.command2module[args[0]]
+        try:
+            func = getattr(self.modules[modfile], args[0]+"_prompt")
+            ret = func(user, *args[1:])
+            return self.process_returndata(ret)
+        except AttributeError:
+            # TODO: Make a default tab-completion function, like:
+            # self.xxxx = {
+            #    'get_person' : ('fg', 'add', 'user:alterable_user', 'group:alterable_fgroup', 1)
+            # }
+            #
+            # self.type2text = {
+            #    'alterable_user' : 'username',
+            #    'alterable_fgroup' : 'filegroup'
+            # }
+            return "username"
+        except Exception:
+            print "Unexpected error"
+            raise
+
     def process_returndata(self, ret):
         """Encode the returndata so that it is a legal XML-RPC structure."""
         # Todo: process recursive structures
@@ -185,8 +220,8 @@ class CallableFuncs:
 
     def __init__(self, exportedFuncs):
         self.ef = exportedFuncs
+        # The format of this dict is documented in adminprotocol.html
         self.all_commands = {
-            # function,      bofhcmd1, cmd2,  param1..n,#loop param
             'get_person' : ('person', 'info', 'number', 1)
             }
         self.name_codes = {}
