@@ -167,7 +167,7 @@ class Stedkode(OU):
         self.__in_db = True
         self.__updated = []
 
-    def find_stedkode(self, fakultet, institutt, avdeling, institusjon=None,
+    def find_stedkode(self, fakultet, institutt, avdeling, institusjon,
                       landkode=0):
         if institusjon is None:   # Temporary to trap old code
             raise ValueError, "You must specify institusjon"
