@@ -442,7 +442,7 @@ class BofhdExtension(object):
             raise CerebrumError, ("Can't add e-mail address to target "+
                                   "type %s") % self.num2const[ttype]
         ea = Email.EmailAddress(self.db)
-        lp, dom = address.split('@')
+        lp, dom = self._split_email_address(address)
         ed = self._get_email_domain(dom)
         self.ba.can_email_address_add(operator.get_entity_id(),
                                       account=acc, domain=ed)
@@ -1075,7 +1075,7 @@ class BofhdExtension(object):
     def email_create_archive(self, operator, listname):
         """Create e-mail address for archiving messages.  Also adds a
         request to create the needed directories on the web server."""
-        lp, dom = listname.split('@')
+        lp, dom = self._split_email_address(listname)
         ed = self._get_email_domain(dom)
         self.ba.can_email_archive_create(operator.get_entity_id(), ed)
         self._check_mailman_official_name(listname)
@@ -1112,7 +1112,7 @@ class BofhdExtension(object):
         fs=FormatSuggestion([("Deleted address: %s", ("address", ))]),
         perm_filter="can_email_archive_delete")
     def email_delete_archive(self, operator, addr):
-        lp, dom = addr.split('@')
+        lp, dom = self._split_email_address(addr)
         ed = self._get_email_domain(dom)
         et, acc = self.__get_email_target_and_account(addr)
         if et.email_target_type <> self.const.email_target_pipe:
@@ -1323,10 +1323,7 @@ class BofhdExtension(object):
         """Create a forward target, add localaddr as an address
         associated with that target, and add remoteaddr as a forward
         addresses."""
-        try:
-            lp, dom = localaddr.split('@')
-        except ValueError:
-            raise CerebrumError, "invalid format for e-mail address"
+        lp, dom = self._split_email_address(localaddr)
         ed = self._get_email_domain(dom)
         self.ba.can_email_forward_create(operator.get_entity_id(), ed)
         ea = Email.EmailAddress(self.db)
@@ -1361,7 +1358,7 @@ class BofhdExtension(object):
         """Create e-mail addresses listname needs to be a Mailman
         list.  Also adds a request to create the list on the Mailman
         server."""
-        lp, dom = listname.split('@')
+        lp, dom = self._split_email_address(listname)
         ed = self._get_email_domain(dom)
         op = operator.get_entity_id()
         self.ba.can_email_list_create(op, ed)
@@ -1421,7 +1418,7 @@ class BofhdExtension(object):
         perm_filter="can_email_list_create")
     def email_create_list_alias(self, operator, listname, address):
         """Create a secondary name for an existing Mailman list."""
-        lp, dom = address.split('@')
+        lp, dom = self._split_email_address(address)
         ed = self._get_email_domain(dom)
         self.ba.can_email_list_create(operator.get_entity_id(), ed)
         self._check_mailman_official_name(listname)
@@ -1445,10 +1442,7 @@ class BofhdExtension(object):
         fs=FormatSuggestion([("Deleted address: %s", ("address", ))]),
         perm_filter="can_email_list_delete")
     def email_delete_list(self, operator, listname):
-        if listname.count('@') == 0:
-            raise CerebrumError, ("Specify the complete e-mail address, "
-                                  "including the domain")
-        lp, dom = listname.split('@')
+        lp, dom = self._split_email_address(listname)
         ed = self._get_email_domain(dom)
         op = operator.get_entity_id()
         self.ba.can_email_list_delete(op, ed)
@@ -1477,6 +1471,15 @@ class BofhdExtension(object):
         br.add_request(op, br.now, self.const.bofh_mailman_remove,
                        list_id, None, listname)
         return result
+
+    def _split_email_address(self, addr):
+        if addr.count('@') == 0:
+            raise CerebrumError, \
+                  "E-mail address (%s) must include domain" % addr
+        if addr <> addr.lower():
+            raise CerebrumError, \
+                  "E-mail address (%s) can't contain upper case letters" % addr
+        return addr.split('@')
 
     def _get_mailman_list(self, listname):
         """Returns the official name for the list, or raise an error
@@ -1570,7 +1573,7 @@ class BofhdExtension(object):
         """Create en e-mail target of type 'multi' expanding to
         members of group, and associate the e-mail address with this
         target."""
-        lp, dom = addr.split('@')
+        lp, dom = self._split_email_address(addr)
         ed = self._get_email_domain(dom)
         gr = self._get_group(group)
         self.ba.can_email_multi_create(operator.get_entity_id(), ed, gr)
@@ -1601,7 +1604,7 @@ class BofhdExtension(object):
         fs=FormatSuggestion([("Deleted address: %s", ("address", ))]),
         perm_filter="can_email_multi_delete")
     def email_delete_multi(self, operator, addr):
-        lp, dom = addr.split('@')
+        lp, dom = self._split_email_address(addr)
         ed = self._get_email_domain(dom)
         et, acc = self.__get_email_target_and_account(addr)
         if et.email_target_type <> self.const.email_target_multi:
@@ -3929,7 +3932,7 @@ class BofhdExtension(object):
     # user affiliation_add
     all_commands['user_affiliation_add'] = Command(
         ("user", "affiliation_add"), AccountName(), OU(), Affiliation(), AffiliationStatus(),
-        perm_filter='can_add_affiliation')
+        perm_filter='can_add_account_type')
     def user_affiliation_add(self, operator, accountname, ou, aff, aff_status):
         account = self._get_account(accountname)
         person = self._get_person('entity_id', account.owner_id)
@@ -3943,13 +3946,13 @@ class BofhdExtension(object):
     # user affiliation_remove
     all_commands['user_affiliation_remove'] = Command(
         ("user", "affiliation_remove"), AccountName(), OU(), Affiliation(),
-        perm_filter='can_remove_affiliation')
+        perm_filter='can_remove_account_type')
     def user_affiliation_remove(self, operator, accountname, ou, aff): 
         account = self._get_account(accountname)
         aff = self._get_affiliationid(aff)
         ou = self._get_ou(stedkode=ou)
-        person = self._get_person('entity_id', account.owner_id)
-        self.ba.can_remove_account_type(operator.get_entity_id(), account, ou, aff)
+        self.ba.can_remove_account_type(operator.get_entity_id(),
+                                        account, ou, aff)
         account.del_account_type(ou.entity_id, aff)
         account.write_db()
         return "OK"
