@@ -2,6 +2,9 @@
 from mod_python.Session import Session
 from mod_python import apache
 from mod_python import util
+from Cerebrum.web.utils import url
+
+#FIXME 
 import forgetHTML as html
 
 from Cerebrum.client.ServerConnection import ServerConnection
@@ -22,7 +25,7 @@ def index(req, user="", password=""):
         else:
             req.session['server'] = server     
             req.session.save()
-            util.redirect(req, "http://garbageman.itea.ntnu.no/~stain/")
+            util.redirect(req, url("/"))
         
     doc = html.SimpleDocument("Log in to Cerebrum")
     body = doc.body
