@@ -11,13 +11,20 @@ import os
 commands = {
     # uname, uid, gid, old_disk, new_disk, mailto, receipt
     'mvuser': [cereconf.MVUSER_SCRIPT, 7],
-    'rmuser': [cereconf.RMUSER_SCRIPT, 3], # uname, operator, old_home
+    # uname, operator, old_home
+    'rmuser': [cereconf.RMUSER_SCRIPT, 3],
     # uname, home_path, uid, gid, tpl_dir, usermod_script_dir, gecos
     'adduser': [cereconf.CREATE_USER_SCRIPT, 7],
+    # server, uname
+    'subscribeimap': [cereconf.SUBSCRIBE_SCRIPT, 2],
+    # uname, mailto, hquota, from_host, from_type, to_host, to_type
+    'mvmail': [cereconf.MVMAIL_SCRIPT, 7],
+    # uname, home, uid, dfg
+    'convertmail': [cereconf.CONVERT_MAILCONFIG_SCRIPT, 4],
     }
 
 def usage(exitcode=0):
-    print """Usage: run_privilleged_command.py [-c cmd | -h] args
+    print """Usage: run_privileged_command.py [-c cmd | -h] args
     -c | --command cmd: run the command with specified args
     -h | --help: this message
 
@@ -29,7 +36,7 @@ def usage(exitcode=0):
     /etc/sudoers.
 
     Add something like this to /etc/sudoers:
-    cerebrum  localhost=NOPASSWD: /path/to/run_privilleged_command.py
+    cerebrum  localhost=NOPASSWD: /path/to/run_privileged_command.py
     """
     
     sys.exit(exitcode)
