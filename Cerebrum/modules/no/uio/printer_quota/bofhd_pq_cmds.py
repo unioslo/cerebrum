@@ -6,6 +6,7 @@ from Cerebrum import Account
 from Cerebrum import Cache
 from Cerebrum import Constants
 from Cerebrum import Errors
+from Cerebrum import Utils
 from Cerebrum import Person
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.bofhd.cmd_param import Command, PersonId, SimpleString, FormatSuggestion, Integer
@@ -90,7 +91,7 @@ class BofhdExtension(object):
 
     def __init__(self, server):
         self.server = server
-        self.logger = server.logger
+        self.logger = bofhd_pq_utils.SimpleLogger('pq_bofhd.log')
         self.db = server.db
         self.const = Factory.get('Constants')(self.db)
         self.tt_mapping = {}
@@ -250,6 +251,8 @@ The currently defined id-types are:
         self.bu.get_pquota_status(person_id)
         ppq = PaidPrinterQuotas.PaidPrinterQuotas(self.db)
         ppq.set_status_attr(person_id, {'has_quota': False})
+        self.logger.info("pquota_off for %i by %i" % (
+            person_id, operator.get_entity_id()))
         return "OK, turned off quota for person_id=%i" % person_id
 
     all_commands['pquota_update'] = Command(
@@ -264,6 +267,8 @@ The currently defined id-types are:
         # Throws subclass for CerebrumError, which bofhd.py will handle
         pu.set_free_pages(person_id, int(new_value), why,
                           update_by=operator.get_entity_id())
+        self.logger.info("pquota_update for %i -> %i by %i (%s)" % (
+            person_id, int(new_value), operator.get_entity_id(), repr(why)))
         return "OK, set free quota for %i to %s" % (person_id, new_value)
 
     all_commands['pquota_undo'] = Command(
@@ -277,6 +282,8 @@ The currently defined id-types are:
         # Throws subclass for CerebrumError, which bofhd.py will handle
         pu.undo_transaction(person_id, job_id, int(num_pages),
                             why, update_by=operator.get_entity_id())
+        self.logger.info("pquota_undo for %i, job %i with %i pages by %i (%s)" % (
+            person_id, int(job_id), int(num_pages), operator.get_entity_id(), repr(why)))
         return "OK"
 
 

@@ -1,5 +1,10 @@
 # -*- coding: iso-8859-1 -*-
 
+import os
+import time
+
+import cereconf
+
 from Cerebrum import Account
 from Cerebrum import Constants
 from Cerebrum import Errors
@@ -8,6 +13,38 @@ from Cerebrum.Utils import Factory
 from Cerebrum.modules.bofhd.errors import CerebrumError
 from Cerebrum.modules.no.uio.printer_quota import PaidPrinterQuotas
 from Cerebrum.modules.no.uio.printer_quota import errors
+
+class SimpleLogger(object):
+    # Unfortunately we cannot user Factory.get_logger due to the
+    # singleton behaviour of cerelog.get_logger().  Once this is
+    # fixed, this class can be removed.
+    def __init__(self, fname):
+        self.stream = open(
+            os.path.join(cereconf.AUTOADMIN_LOG_DIR, fname), 'a+')
+        
+    def show_msg(self, lvl, msg, exc_info=None):
+        self.stream.write("%s %s [%i] %s\n" % (
+            time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),
+            lvl, os.getpid(), msg))
+        self.stream.flush()
+
+    def debug2(self, msg, **kwargs):
+        self.show_msg("DEBUG2", msg, **kwargs)
+    
+    def debug(self, msg, **kwargs):
+        self.show_msg("DEBUG", msg, **kwargs)
+
+    def info(self, msg, **kwargs):
+        self.show_msg("INFO", msg, **kwargs)
+
+    def error(self, msg, **kwargs):
+        self.show_msg("ERROR", msg, **kwargs)
+
+    def fatal(self, msg, **kwargs):
+        self.show_msg("FATAL", msg, **kwargs)
+
+    def critical(self, msg, **kwargs):
+        self.show_msg("CRITICAL", msg, **kwargs)
 
 class BofhdUtils(object):
     def __init__(self, server):

@@ -8,6 +8,7 @@ from Cerebrum import Errors
 from Cerebrum import Person
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no import fodselsnr
+from Cerebrum.modules.no.uio.printer_quota import bofhd_pq_utils
 from Cerebrum.modules.no.uio.printer_quota import PaidPrinterQuotas
 from Cerebrum.modules.no.uio.printer_quota import PPQUtil
 from Cerebrum.modules.no.uio.AutoStud.StudentInfo import GeneralDataParser
@@ -18,6 +19,9 @@ person = Person.Person(db)
 ppq = PaidPrinterQuotas.PaidPrinterQuotas(db)
 pq_util = PPQUtil.PPQUtil(db)
 logger = Factory.get_logger("console")
+# we don't want the log of payment statements to be cluttered with
+# debug statements etc.
+payment_logger = bofhd_pq_utils.SimpleLogger('pq_bofhd.log')
 
 def import_data(fname):
     # Hent betalings-id'er hittil i år
@@ -59,6 +63,8 @@ def import_data(fname):
                                 description,
                                 payment_tstamp=payment_tstamp,
                                 update_program='money2paper')
+            payment_logger.info("Registered %s kr for %i (id: %s)" % (
+                attrs['belop'], person_id, ekstern_betaling_id))
         except db.DatabaseError, msg:
             db.rollback()
             logger.warn("Input %s caused DatabaseError:%s" % (attrs, msg))

@@ -24,6 +24,7 @@ class BofhdExtension(object):
         self.bu = bofhd_pq_utils.BofhdUtils(server)
         self.epay_user = int(
             self.bu.get_account(cereconf.BOFHD_EPAY_USER).entity_id)
+        self.logger = bofhd_pq_utils.SimpleLogger('pq_bofhd.log')
 
     def get_help_strings(self):
         # We don't provide help as we're only supposed to be used from scripts
@@ -69,6 +70,7 @@ class BofhdExtension(object):
         except self.db.DatabaseError, msg:
             raise errors.InvalidPaymentData(
                 "Input caused DatabaseError:%s" % msg)
+        self.logger.info("_handle_epay: %s" % str(data))
         return "OK, data with intern-betaling-id=%s registered" % (
             data['intern-betaling-id'])
 
