@@ -132,7 +132,7 @@ def main():
         new_person.affect_addresses(co.system_lt, co.address_post)
         new_person.populate_address(co.address_post, addr="%s\n%s" %
                                     (person['adresselinje1_privatadresse'],
-                                     person['adresselinje2_privatadresse']),
+                                     person.get('adresselinje2_privatadresse', '')),
                                     zip=person['poststednr_privatadresse'],
                                     city=person['poststednavn_privatadresse'])
         if stedkode <> '':
