@@ -48,6 +48,8 @@ DEFAULT_ACCOUNT_NAMESPACE = 'account_names'
 DEFAULT_OU = None   # Used by bofh "account affadd" if OU is not set
 POSIX_HOME_TEMPLATE_DIR = "/local/etc/newusertemplates"
 POSIX_USERMOD_SCRIPTDIR = "/etc/cerebrum"
+CREATE_USER_SCRIPT= '/local/etc/reguser/mkhomedir'
+RSH_CMD = '/local/bin/ssh'
 # Temporary switch until someone can figure out why mktime won't work
 # with year < 1970 on some systems.  Must NOT be set on production
 # systems.
@@ -130,6 +132,8 @@ PRINT_PRINTER=None
 PRINT_BARCODE=None
 
 # Logdir for AutoStud jobs
-AUTOADMIN_LOG_DIR='.'
+AUTOADMIN_LOG_DIR='.'     # Set to a place where only 'cerebrum' has write access
 # Socket used to query the job-runner server, should not be writeable by untrusted users
 JOB_RUNNER_SOCKET="/tmp/jr-socket"
+
+JOB_RUNNER_LOG_DIR='.'   # Set to a place where only 'cerebrum' has write access
