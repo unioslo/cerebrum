@@ -323,8 +323,31 @@ class AccountUiOMixin(Account.Account):
         # super, since without an email server, no target or address
         # will be created.
         if not (self.is_reserved() or self.is_deleted()):
-            spreads = [int(r['spread']) for r in self.get_spread()]
+            est = Email.EmailServerTarget(self._db)
+            es = Email.EmailServer(self._db)
             srv_type = self.const.email_server_type_nfsmbox
+            try:
+                est.find_by_entity(self.entity_id)
+            except Errors.NotFoundError:
+                pass
+            else:
+                # This account's email target is already associated
+                # with an email server.
+                #
+                # If the server is of type Cyrus, we want the target
+                # to stay on that server; set srv_type to Cyrus.
+                # Otherwise, determine srv_type from what spreads the
+                # account has.
+                #
+                # Without this special rule for targets already
+                # residing in Cyrus, the call to
+                # ._UiO_update_email_server() further down would cause
+                # problems when doing removal of all the account's
+                # spreads at the start of account deletion.
+                es.find(est.email_server_id)
+                if es.email_server_type == self.const.email_server_type_cyrus:
+                    srv_type = self.const.email_server_type_cyrus
+            spreads = [int(r['spread']) for r in self.get_spread()]
             if int(self.const.spread_uio_imap) in spreads:
                 srv_type = self.const.email_server_type_cyrus
             self._UiO_update_email_server(srv_type)
