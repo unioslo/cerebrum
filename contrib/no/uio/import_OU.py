@@ -35,9 +35,9 @@ class StedData(object):
             stedinfo[c] = info.pop(0)
             if(stedinfo[c] == ''):
                 stedinfo[c] = None
-        stedkode = "%s-%s-%s" % (stedinfo['fakultetnr'],
-                                 stedinfo['instituttnr'],
-                                 stedinfo['gruppenr'])
+        stedkode = get_stedkode_str( stedinfo['fakultetnr'],
+                                     stedinfo['instituttnr'],
+                                     stedinfo['gruppenr'] )
         return (stedkode, stedinfo)
 
 verbose = 1
@@ -59,9 +59,10 @@ def main():
         i = i + 1
 
         if verbose:
-            print "Processing %02d-%02d-%02d %s" % (
-                int(k['fakultetnr']), int(k['instituttnr']),
-                int(k['gruppenr']), k['forkstednavn'])
+            print "Processing %s %s" % (
+                get_stedkode_str(k['fakultetnr'], k['instituttnr'],
+                                 k['gruppenr']),
+                k['forkstednavn'])
         new_ou.clear()
 
         new_ou.populate(k['stednavn'], k['fakultetnr'],
@@ -86,15 +87,15 @@ def main():
             ou.find(ou.ou_id)
 
             if not (new_ou == ou):
-                if verbose: print "is changed"
+                if verbose: print "  is changed"
                 new_ou.write_db(ou)
             new_ou.ou_id = ou.ou_id
         except Errors.NotFoundError:
-            if verbose: print "is new"
+            if verbose: print "  is new"
             new_ou.write_db()
             
-        stedkode = "%s-%s-%s" % (k['fakultetnr'], k['instituttnr'],
-                                 k['gruppenr'])
+        stedkode = get_stedkode_str(k['fakultetnr'], k['instituttnr'],
+                                    k['gruppenr'])
         stedkode2ou[stedkode] = new_ou.ou_id
         Cerebrum.commit()
 
@@ -113,12 +114,12 @@ def rec_make_stedkode(stedkode, ou, existing_ou_mappings, steder,
                       stedkode2ou, co):
     """Recursively create the ou_id -> parent_id mapping"""
     sted = steder[stedkode]
-    org_stedkode = "%s-%s-%s" % (sted['fakultetnr_for_org_sted'],
-                            sted['instituttnr_for_org_sted'],
-                            sted['gruppenr_for_org_sted'])
+    org_stedkode = get_stedkode_str(sted['fakultetnr_for_org_sted'],
+                                    sted['instituttnr_for_org_sted'],
+                                    sted['gruppenr_for_org_sted'])
     if(not stedkode2ou.has_key(org_stedkode)):
-        print "Error in dataset, missing STEDKODE: %s, using None" % \
-              org_stedkode
+        print "Error in dataset, %s references missing STEDKODE: %s, using None" % \
+              (stedkode, org_stedkode)
         org_stedkode = None
         org_stedkode_ou = None
     else:
@@ -153,6 +154,10 @@ def les_sted_info():
         (stedkode, sted) = dta.parse_line(line)
         steder[stedkode] = sted
     return steder
+
+def get_stedkode_str(faknr, instnr, groupnr):
+    str = "%02d-%02d-%02d" % ( int(faknr), int(instnr), int(groupnr) )
+    return str
 
 if __name__ == '__main__':
     main()
