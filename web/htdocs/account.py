@@ -10,6 +10,7 @@ from gettext import gettext as _
 from Cerebrum.web.utils import url
 from Cerebrum.web.utils import redirect_object
 from Cerebrum.web.utils import queue_message
+from Cerebrum.web.utils import no_cache
 import xmlrpclib
 
 def index(req):
@@ -20,6 +21,7 @@ def index(req):
     return page
 
 def list(req):
+    no_cache(req)
     (name, owner, expire_date, create_date) = 
         req.session.get('account_lastsearch', ("", "", "", ""))
     return search(req, name, accountid, birthno, birthdate)

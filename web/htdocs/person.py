@@ -9,6 +9,7 @@ from Cerebrum.web.templates.HistoryLogTemplate import HistoryLogTemplate
 from Cerebrum.web.Main import Main
 from gettext import gettext as _
 from Cerebrum.web.utils import url
+from Cerebrum.web.utils import no_cache
 from Cerebrum.web import profile
 import xmlrpclib
 
@@ -60,6 +61,7 @@ def create(req, name="", birthno="", birthdate="", ou="", affiliation="", aff_st
     return page
 
 def list(req):
+    no_cache(req)
     (name, accountid, birthno, birthdate) = \
         req.session.get('person_lastsearch', ("", "", "", ""))
     return search(req, name, accountid, birthno, birthdate)

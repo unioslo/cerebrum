@@ -11,6 +11,7 @@ from Cerebrum.web.Main import Main
 from gettext import gettext as _
 from Cerebrum.web.utils import url
 from Cerebrum.web.utils import redirect_object
+from Cerebrum.web.utils import no_cache
 from mx import DateTime
 
 def index(req):
@@ -57,6 +58,7 @@ def search(req, name="", desc="", spread=""):
     return page    
 
 def list(req):
+    no_cache(req)
     (name, desc, spread) = req.session.get('group_lastsearch',
                                            ("", "", ""))
     return search(req, name, desc, spread)
