@@ -10,13 +10,14 @@ from Cerebrum.Utils import Factory
 from Cerebrum import Utils
 from Cerebrum.modules.no.uio.DiskQuota import DiskQuota
 db = Factory.get('Database')()
+co = Factory.get('Constants')(db)
 
-def list_disk_quotas(fname):
+def list_disk_quotas(fname, spread):
     f = Utils.SimilarSizeWriter(fname, "w")
     f.set_size_change_limit(10)
     now = mx.DateTime.now()
     dq = DiskQuota(db)
-    for row in dq.list_quotas():
+    for row in dq.list_quotas(spread=spread):
         quota = row['quota']
         if row['override_expiration'] and row['override_expiration'] > now:
             quota = row['override_quota']
@@ -31,7 +32,7 @@ def list_disk_quotas(fname):
 
 def main():
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'lt:', ['help'])
+        opts, args = getopt.getopt(sys.argv[1:], 'lt:s:', ['help'])
     except getopt.GetoptError:
         usage(1)
 
@@ -40,8 +41,10 @@ def main():
             usage()
         elif opt in ('-t',):
             fname = val
+        elif opt in ('-s',):
+            spread = val
         elif opt in ('-l',):
-            list_disk_quotas(fname)
+            list_disk_quotas(fname, co.Spread(spread))
     if not opts:
         usage(1)
 
@@ -50,6 +53,7 @@ def usage(exitcode=0):
     List disk quotas for all users.
 
     -t target_file
+    -s spread
     -l : list disk quotas
     """
     sys.exit(exitcode)

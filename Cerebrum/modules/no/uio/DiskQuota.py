@@ -120,12 +120,16 @@ class DiskQuota(DatabaseAccessor):
         FROM [:table schema=cerebrum name=disk_quota]
         WHERE homedir_id=:homedir_id""", {'homedir_id': homedir_id})
 
-    def list_quotas(self):
+    def list_quotas(self, spread=None):
         """List quota and homedir information for all users that has
         quota"""
+        where = ""
+        if spread:
+            where = " AND ah.spread=:spread"
+            spread = int(spread)
         return self.query("""
         SELECT dq.homedir_id, ah.account_id, hi.home, en.entity_name, di.path,
-               dq.quota, dq.override_quota, dq.override_expiration
+               dq.quota, dq.override_quota, dq.override_expiration, ah.spread
         FROM [:table schema=cerebrum name=disk_quota] dq,
              [:table schema=cerebrum name=homedir] hi,
              [:table schema=cerebrum name=disk_info] di,
@@ -135,7 +139,8 @@ class DiskQuota(DatabaseAccessor):
               hi.disk_id=di.disk_id AND
               hi.homedir_id=ah.homedir_id AND
               ah.account_id=en.entity_id AND
-              en.value_domain=:value_domain""", {
-            'value_domain': int(self.co.account_namespace)})
+              en.value_domain=:value_domain %s""" % where, {
+            'value_domain': int(self.co.account_namespace),
+            'spread': spread})
     
 # arch-tag: 4b6c5df8-8100-4fd3-b679-bc8224f5b0df
