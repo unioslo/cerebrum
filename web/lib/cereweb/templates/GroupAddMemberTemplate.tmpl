@@ -1,0 +1,37 @@
+#from Cerebrum.web.InitTemplate import InitTemplate
+#extends InitTemplate
+
+
+#def generate_option($name, $options, $selected=None)
+    <select name="$name" />
+#for $value, $text in $options
+#set $is_selected = ""
+#if $selected==$value
+#set $is_selected = ' selected="selected"'
+#end if
+        <option$is_selected value="$value">$text</option>
+#end for
+    </select>
+#end def
+
+#def add_member_box($action, $member_types, $operations, $error_msg=None)
+<div class="add_member">
+<form action="$action" method="POST">
+    <h2>$_("Add Member")</h2>
+#if $error_msg
+    <div class="error">
+        $error_msg
+    </div>
+#end if
+    <div id="add_member_name">
+        <label for="name">$_("Name")</label>
+        <input type="text" value="" name="name" />
+        <label for="type">$_("Type")</label>
+$generate_option("type", $member_types)
+    </div>
+    <label for="operation">$_("Operations")</label>
+$generate_option("operation", $operations)
+    <input type="submit" value="$_("Add")" name="submit" />
+</form>
+</div>
+#end def
