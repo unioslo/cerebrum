@@ -27,6 +27,9 @@ from Cerebrum.Entity import \
 from Cerebrum import Utils
 from Cerebrum import Errors
 
+class MissingOtherException(Exception): pass
+class MissingSelfException(Exception): pass
+
 
 class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
     __read_attr__ = ('__in_db', '_affil_source', '__affil_data',
@@ -259,34 +262,29 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
                         self._update_name(self._pn_affect_source, type, self._name_info[type])
                         is_new = False
                         updated_name = True
-                except KeyError, msg:
-                    # Note: the arg to a python exception must be
-                    # casted to str :-(
-                    if str(msg) == "MissingOther":
-                        if self._name_info.has_key(type):
-                            self._set_name(self._pn_affect_source, type,
-                                           self._name_info[type])
-                            if is_new <> 1:
-                                is_new = False
-                            updated_name = True
-                    elif str(msg) == "MissingSelf":
-                        self.execute("""
-                        DELETE FROM [:table schema=cerebrum name=person_name]
-                        WHERE
-                          person_id=:p_id AND
-                          source_system=:src AND
-                          name_variant=:n_variant""",
-                                     {'p_id': self.entity_id,
-                                      'src': int(self._pn_affect_source),
-                                      'n_variant': int(type)})
-                        self._db.log_change(self.entity_id,
-                                            self.const.person_name_del, None,
-                                            change_params={'src': int(self._pn_affect_source),
-                                            'name_variant': int(type)})
-                        is_new = False
+                except MissingOtherException:
+                    if self._name_info.has_key(type):
+                        self._set_name(self._pn_affect_source, type,
+                                       self._name_info[type])
+                        if is_new <> 1:
+                            is_new = False
                         updated_name = True
-                    else:
-                        raise
+                except MissingSelfException:
+                    self.execute("""
+                    DELETE FROM [:table schema=cerebrum name=person_name]
+                    WHERE
+                      person_id=:p_id AND
+                      source_system=:src AND
+                      name_variant=:n_variant""",
+                                 {'p_id': self.entity_id,
+                                  'src': int(self._pn_affect_source),
+                                  'n_variant': int(type)})
+                    self._db.log_change(self.entity_id,
+                                        self.const.person_name_del, None,
+                                        change_params={'src': int(self._pn_affect_source),
+                                        'name_variant': int(type)})
+                    is_new = False
+                    updated_name = True
             if updated_name:
                 self._update_cached_fullname()
         # TODO: Handle external_id
@@ -428,11 +426,11 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
             if len(tmp) == 0:
                 raise KeyError
         except:
-            raise KeyError, "MissingOther"
+            raise MissingOtherException 
         try:
             myname = self._name_info[type]
         except:
-            raise KeyError, "MissingSelf"
+            raise MissingSelfException
 #        if isinstance(myname, unicode):
 #            return unicode(tmp, 'iso8859-1') == myname
         return tmp == myname
