@@ -130,12 +130,14 @@ def write_role_info(outfile):
     f.write("</data>\n")
 
 def write_undenh_file(outfile):
-    # valid sem = next/current
-    f=open(outfile,'w')
+    "Skriv metadata om undervisningsenheter for inneværende+neste semester."
+    f = open(outfile, 'w')
     f.write(xml.xml_hdr + "<undervenhet>\n")
-    cols, undenh= fs.GetUndervEnhet(sem="next")
-    for u in undenh:
-	f.write(xml.xmlify_dbrow(u, xml.conv_colnames(cols), 'undenhet') + "\n")
+    for semester in ('current', 'next'):
+        cols, undenh = fs.GetUndervEnhet(sem=semester)
+        for u in undenh:
+            f.write(xml.xmlify_dbrow(u, xml.conv_colnames(cols), 'undenhet')
+                    + "\n")
     f.write("</undervenhet>\n")
 
 def write_studprog_info(outfile):
