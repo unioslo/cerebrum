@@ -192,20 +192,20 @@ class Account(EntityName, EntityQuarantine, Entity):
                     INSERT INTO [:table schema=cerebrum name=account_authentication]
                         (account_id, method, auth_data)
                     VALUES (:acc_id, :method, :auth_data)""",
-                                 {'acc_id' : self.account_id, 'method' : k,
+                                 {'acc_id' : self.entity_id, 'method' : k,
                                   'auth_data' : self._auth_info[k]})
                 else:
                     self.execute("""
                     UPDATE [:table schema=cerebrum name=account_authentication]
                     SET auth_data=:auth_data
                     WHERE account_id=:acc_id AND method=:method""",
-                                 {'acc_id' : self.account_id, 'method' : k,
+                                 {'acc_id' : self.entity_id, 'method' : k,
                                   'auth_data' : self._auth_info[k]})
             elif self.__in_db and what == 'update':
                     self.execute("""
                     DELETE [:table schema=cerebrum name=account_authentication]
                     WHERE account_id=:acc_id AND method=:method""",
-                                 {'acc_id' : self.account_id, 'method' : k})
+                                 {'acc_id' : self.entity_id, 'method' : k})
         del self.__in_db
         self.__in_db = True
         self.__updated = False
@@ -213,7 +213,7 @@ class Account(EntityName, EntityQuarantine, Entity):
     def find(self, account_id):
         super(Account, self).find(account_id)
 
-        (self.account_id, self.owner_type, self.owner_id,
+        (self.entity_id, self.owner_type, self.owner_id,
          self.np_type, self.create_date, self.creator_id,
          self.expire_date) = self.query_1(
             """SELECT account_id, owner_type, owner_id, np_type, create_date, creator_id, expire_date
@@ -223,13 +223,14 @@ class Account(EntityName, EntityQuarantine, Entity):
         self.__in_db = True
         self.__updated = False
 
-    def find_account_by_name(self, domain, name):
-        self.find_by_name(domain, name)
-        self.find(self.entity_id)
+    def find_by_name(self, name, domain=None):
+        if domain is None:
+            domain = int(self.const.account_namespace)
+        EntityName.find_by_name(self, domain, name)
 
     def get_account_authentication(self, method):
         """Return the name with the given variant"""
 
         return self.query_1("""SELECT auth_data FROM [:table schema=cerebrum name=account_authentication]
             WHERE account_id=:a_id AND method=:method""",
-                            {'a_id' : self.account_id, 'method' : int(method)})
+                            {'a_id' : self.entity_id, 'method' : int(method)})
