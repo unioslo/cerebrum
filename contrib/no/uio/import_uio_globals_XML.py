@@ -42,13 +42,13 @@ def main():
                 dom.clear()
                 dom.find_by_domain(row['domain'])
                 for ctg in dom.get_categories():
-                    if ctg == co.email_domain_category_uio_globals:
+                    if ctg['category'] == co.email_domain_category_uio_globals:
                         break
                 else:
                     dom.add_category(co.email_domain_category_uio_globals)
                     print "Added: %d: %s" % (dom.email_domain_id, domain)
             except Errors.NotFoundError:
-                print "Not fround: %s" % domain
+                print "Not found: %s" % domain
         else:
             print "Omitted: %s" % domain
     db.commit()
