@@ -353,7 +353,8 @@ def dump_perspective(sources):
         
         print "%s%s %s %s (%s)" % (make_prefix(parent, level),
                                    " " * (level * 4),
-                                   parent,
+                                   string.join(string.split(str(parent), "-"),
+                                               ""),
                                    values.get("akronym", "N/A"),
                                    values.get("stednavn", "N/A"))
         children = list()
