@@ -311,8 +311,7 @@ WHERE s.fodselsdato=r.fodselsdato AND
       st.status_privatist='N' AND 
       st.studieprogramkode=sp.studieprogramkode AND
       r.regformkode IN ('STUDWEB','DOKTORREG','MANUELL') AND
-      (st.opphortstudierettstatkode IS NULL OR
-      st.dato_gyldig_til >= sysdate) AND
+      NVL(st.dato_gyldig_til,SYSDATE) >= sysdate AND
       %s
 UNION """ %(self.get_termin_aar(only_current=1))
 
@@ -329,8 +328,7 @@ WHERE s.fodselsdato=st.fodselsdato AND
       st.status_privatist='N' AND     
       r.studieprogramkode=st.studieprogramkode AND
       st.studieprogramkode=sp.studieprogramkode AND
-      (st.opphortstudierettstatkode IS NULL OR
-      st.dato_gyldig_til >= sysdate) AND
+      NVL(st.dato_gyldig_til,SYSDATE) >= sysdate AND
       r.dato_bekreftet < SYSDATE
       """ 
      	return (self._get_cols(qry), self.db.query(qry))
@@ -535,8 +533,7 @@ ORDER BY fodselsdato, personnr
             m.personnr = p.personnr AND
             NVL(p.status_dod, 'N') = 'N' AND
             %s AND
-            (st.opphortstudierettstatkode IS NULL OR 
-             st.dato_gyldig_til >= sysdate) AND
+            NVL(st.dato_gyldig_til,SYSDATE) >= sysdate AND
             st.status_privatist = 'N' AND
             m.institusjonsnr = e.institusjonsnr AND
             m.emnekode = e.emnekode AND
