@@ -581,8 +581,10 @@ class BofhdExtension(object):
                 mapping['barcode'] = '%s/barcode_%s.eps' % (
                     tmp_dir, account.entity_id)
                 th.make_barcode(account.entity_id, mapping['barcode'])
+            person = self._get_person('entity_id', account.owner_id)
+            fullname = person.get_name(self.const.system_cached, self.const.name_full)
+            mapping['fullname'] =  fullname
             if tpl_lang.endswith("letter"):
-                person = self._get_person('entity_id', account.owner_id)
                 try:
                     address = person.get_entity_address(source=self.const.system_fs,
                                                         type=self.const.address_post)
@@ -598,7 +600,6 @@ class BofhdExtension(object):
                     continue
                 address = address[0]
                 alines = address['address_text'].split("\n")+[""]
-                fullname = person.get_name(self.const.system_cached, self.const.name_full)
                 mapping['address_line1'] = fullname
                 mapping['address_line2'] = alines[0]
                 mapping['address_line3'] = alines[1]
@@ -607,7 +608,6 @@ class BofhdExtension(object):
                 mapping['country'] = address['country']
 
                 mapping['birthdate'] = person.birth_date.strftime('%Y-%m-%d')
-                mapping['fullname'] =  fullname
                 mapping['emailadr'] =  "TODO"  # We probably don't need to support this...
 
             out.write(th.apply_template('body', mapping))
@@ -615,7 +615,7 @@ class BofhdExtension(object):
             out.write(th._footer)
         out.close()
         try:
-            th.spool_job(out_name, tpl_type, skriver, skip_lpr=1,
+            th.spool_job(out_name, tpl_type, skriver, skip_lpr=0,
                          logfile="%s/spool.log" % tmp_dir)
         except IOError, msg:
             raise CerebrumError(msg)
