@@ -74,7 +74,8 @@ def make_user(entity_id):
     except Errors.NotFoundError:
         logger.warn("NotFound error for entity_id %s" % entity_id)
         return
-    cmd = [cereconf.CREATE_USER_SCRIPT, info['uname'], info['disk'],
+    cmd = [cereconf.CREATE_USER_SCRIPT, info['uname'],
+           "%s/%s" % (info['disk'], info['uname']),
            info['uid'], info['gid'], cereconf.POSIX_HOME_TEMPLATE_DIR,
            cereconf.POSIX_USERMOD_SCRIPTDIR, info['gecos']]
 
@@ -85,7 +86,7 @@ def make_user(entity_id):
 
     logger.debug("Doing: %s" % str(cmd))
     if debug_hostlist is None or info['host'] in debug_hostlist:
-        os.spawnv(os.P_WAIT, rsh, cmd)
+        os.spawnv(os.P_WAIT, cereconf.RSH_CMD, cmd)
 
 def process_changes():
     ei = CLHandler.CLHandler(db)
