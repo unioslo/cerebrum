@@ -354,9 +354,10 @@ WHERE s.fodselsdato=p.fodselsdato AND
       em.emnekode = es.emnekode AND
        %s AND %s AND
       NOT EXISTS
-      (SELECT st.studieprogramkode FROM fs.studierett st
+      (SELECT 'x' FROM fs.studierett st
        WHERE p.fodselsdato=st.fodselsdato AND
              p.personnr=st.personnr AND
+             es.studieprogramkode = st.studieprogramkode AND
              (st.opphortstudierettstatkode IS NULL OR
               st.dato_gyldig_til >= SYSDATE))
       """ % (self.get_termin_aar(only_current=1),self.is_alive())
