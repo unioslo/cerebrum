@@ -6,12 +6,44 @@
 
 
 class Address:
-    pass
+
+    def setInfo(cls, entity_id, source_system, address_type, 
+                address_text=None, p_o_box=None, city=None, 
+                country=None):
+        """ Sets address-info for a given entity_id, and returns
+            an address-object with this info.
+        """
+        pass
+        
+    setInfo = classmethod(setInfo)
+
+    def getInfo(cls, entity_id):
+        """ Retrieves a list of address-objects for given entity
+        """
+        pass
+
+    getInfo = classmethod(getInfo)
 
 
 class ContactInfo:
-    pass
 
+    def setInfo(cls, entitiy_id, source_system, contact_type,
+                contact_pref=None, contact_value=None, 
+                description=None):
+        """ Sets contactinfo for a given entity_id, and returns
+            a contactinfo-object with this info.
+        """
+        pass
+
+    setInfo = classmethod(setInfo)
+
+    def getInfo(cls, entity_id):
+        """ Retrieves a list of contactinfo-objects for given entity.
+        """
+        pass
+
+    getInfo = classmethod(getInfo)
+        
 
 class Entity:
     
@@ -130,6 +162,7 @@ class Account(Entity):
         pass
 
     findByName = classmethod(findByName)
+
 
 class Quarantine:
     def __init__ (self, startDate, endDate, quarantineType, reason):
