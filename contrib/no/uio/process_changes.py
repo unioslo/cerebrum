@@ -216,13 +216,13 @@ class Quarantine2Request(EvtHandler):
                                 const.bofh_quarantine_refresh,
                                 evt['subject_entity'], None)
             
-        self.br.add_request(None, br.now, const.bofh_quarantine_refresh,
+        self.br.add_request(None, self.br.now, const.bofh_quarantine_refresh,
                             evt['subject_entity'], None)
         db.commit()
         return True
     
     def notify_quarantine_del(self, evt, params):
-        self.br.add_request(None, br.now, const.bofh_quarantine_refresh,
+        self.br.add_request(None, self.br.now, const.bofh_quarantine_refresh,
                             evt['subject_entity'], None)
         db.commit()
         return True
