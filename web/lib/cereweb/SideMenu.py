@@ -5,7 +5,9 @@ class SideMenu(Menu):
         Menu.__init__(self)
         self.makePerson()
         self.makeGroup()
+        self.makeRoles()
         self.makeSpread()
+        self.makeOptions()
     def makePerson(self):
         self.person = self.addItem("person", "Person", "/person")
         self.person.addItem("search", "Search", "/person/search")
@@ -20,10 +22,24 @@ class SideMenu(Menu):
         self.group.addItem("view", "View", "/group/view?id=%s")
         self.group.addItem("edit", "Edit", "/group/edit?id=%s")
 
+    def makeRoles(self):
+        self.group = self.addItem("roles", "Roles", "/roles")
+        self.group.addItem("search", "Search", "/roles/search")
+        self.group.addItem("list", "List", "/roles/list")
+        self.group.addItem("view", "View", "/roles/view?id=%s")
+        self.group.addItem("edit", "Edit", "/roles/edit?id=%s")
+
     def makeSpread(self):
-        self.group = self.addItem("spread", "spread", "/spread")
+        self.group = self.addItem("spread", "Spread", "/spread")
         self.group.addItem("search", "Search", "/spread/search")
         self.group.addItem("list", "List", "/spread/list")
         self.group.addItem("view", "View", "/spread/view?id=%s")
         self.group.addItem("edit", "Edit", "/spread/edit?id=%s")
+
+    def makeOptions(self):
+        self.group = self.addItem("options", "Options", "/options")
+        self.group.addItem("search", "Search", "/options/search")
+        self.group.addItem("list", "List", "/options/list")
+        self.group.addItem("view", "View", "/options/view?id=%s")
+        self.group.addItem("edit", "Edit", "/options/edit?id=%s")
 
