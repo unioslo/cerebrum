@@ -8,7 +8,7 @@ Description: Initial password to the automatically created account
  .
  Please enter a password.
 
-Template: cerebrum-server/db-auto-config
+Template: cerebrum-server/db_auto_config
 Type: boolean
 Default: true
 Description: Automatic handling of the database backend for cerebrum
