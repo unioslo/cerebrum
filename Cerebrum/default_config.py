@@ -123,6 +123,14 @@ NIS_SPREADS = ()
 # Spreads that are legal for entries in account_home
 HOME_SPREADS = ()
 
+# If your CLASS_ACCOUNT includes
+#   Cerebrum.modules.AccountExtras/AutoPriorityAccountMixin
+# you must override this value in your cereconf.py.  The purpose of
+# the structure is to specify the default (affiliation, status) ->
+# (pri_min, pri_max) ranges for new account_type rows.  See the mixin
+# class for information on the proper structure of the value.
+ACCOUNT_PRIORITY_RANGES = None
+
 # Active directory specific settings.
 
 AD_SERVER_HOST = 'bastard'
