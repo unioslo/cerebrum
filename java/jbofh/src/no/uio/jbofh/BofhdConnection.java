@@ -107,6 +107,8 @@ public class BofhdConnection {
     /** Creates a new instance of BofdConnection */
     public BofhdConnection(Category log) {
         this.logger = log;
+        // The xmlrpc-1.1 driver doesn't handle character encoding correctly
+        System.setProperty("sax.driver", "com.jclark.xml.sax.Driver");
     }
 
     void connect(String host_url, boolean use_int_trust) {
