@@ -24,6 +24,15 @@ class LdapCall:
     def __call__(self, s_dict):
 	return s_dict
 
+    def get_update_tag(self,cn_tag):
+	ldap_update_dn = ','.join(('cn=' + cn_tag, ldap_update_str))
+	ldap_update_tag =  [ (ldap_update_dn),
+                        {'cn':[cn_tag],
+                        'objectclass':['top','applicationProcess'],
+                        'description':['Disable dynamic LDAP sync.']}]
+	return(ldap_update_tag)
+
+
 
     def ldap_connect(self,serv_l=None):
         if not serv_l:
@@ -186,14 +195,20 @@ class LdapCall:
 
  
     def add_disable_sync(self,cn_tag):
-	ldap_update_tag = get_update_tag(cn_tag)
+	ldap_update_tag = self.get_update_tag(cn_tag)
 	ldif_list = modlist.addModlist(ldap_update_tag[1])
-	add_ldap(self,ldap_update_tag[0],ldif_list)
+	self.add_ldap(ldap_update_tag[0],ldif_list)
 
  
-    def check_sync_mode(s_list,cn_tag):
-	value = get_ldap_value(self,ldap_update_str,'cn=' + cn_tag)
+    def check_sync_mode(self,cn_tag):
+	cn_str = str('cn=' + cn_tag)
+	value = self.get_ldap_value(ldap_update_str,cn_str)
 	if (value == []):
 	    return(True)
 	else:
  	    return(False)
+
+    def delete_disabel_sync(self,cn_tag):
+	cn_str = ','.join(('cn=' + cn_tag, ldap_update_str))
+	self.delete_ldap(cn_str)
+
