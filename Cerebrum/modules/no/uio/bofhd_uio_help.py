@@ -13,8 +13,7 @@ group_help = {
 command_help = {
     'group': {
     'group_add': 'Melde accounts inn i en gruppe',
-    'group_create': 'Byggge en ny posix filgruppe',
-    'group_create_basic': 'Byggge en ny gruppe',
+    'group_create': 'Byggge en ny gruppe',
     'group_def': 'Sett default gruppe',
     'group_delete': 'Sletter gruppen',
     'group_gadd': 'Melde grupper inn',
@@ -39,7 +38,7 @@ command_help = {
     'misc_hadd': 'Legge til host',
     'misc_hrem': 'Fjerne host',
     'misc_list_passwords': 'Vis/skriv ut passord satt i denne bofh-sesjonen',
-    'misc_mmove': 'vis alle flyttinger som jeg kan confirme/jeg har requestet',
+    'misc_list_requests': 'vis alle flyttinger som jeg kan confirme/jeg har requestet',
     'misc_user_passwd': 'Sjekk om en brukers passord er en gitt streng',
     },
     'perm': {
@@ -83,7 +82,6 @@ command_help = {
     'user_affiliation_add': 'Legg til affiliation for bruker',
     'user_affiliation_remove': 'Fjern affiliation for bruker',
     'user_create': 'Bygge vanlig bruker (PosixUser)',
-    'user_create_basic': 'Bygge bruker uten noen egenskaper',
     'user_delete': 'slette en gitt bruker',
     'user_demote_posix': 'Gjøre en PosixUser om til en Account',
     'user_gecos': 'Sette gecos på en bruker',
@@ -91,9 +89,10 @@ command_help = {
     'user_info': 'vis info om en bruker',
     'user_move': 'Flytter en bruker',
     'user_password': 'Setter passord for en bruker',
-    'user_promote_posix': 'Gjøre en bruker om til en PosixUser',
+    'user_promote_posix': 'Gjøre en bruker om til en PosixUser (unix bruker)',
+    'user_reserve': 'Bygge bruker uten noen egenskaper (reservert bruker)',
     'user_set_expire': 'Sett ekspireringsdato for en bruker',
-    'user_set_np_type': 'Sett/slett np_type for en bruker',
+    'user_set_np_type': 'Sett/slett np_type for en ikke-personlig bruker',
     'user_set_owner': 'Endre eier av en konto',
     'user_shell': 'Sette loginshell for en bruker',
     'user_student_create': 'Bygg student-bruker'
@@ -106,26 +105,25 @@ arg_help = {
                          'You should enter the name of the source account for this operation'],
     'account_password': ['password', 'Enter password'],
     'affiliation': ['affiliation', 'Enter affiliaton',
-                    """A persons affiliation defines the current rolle  
-                       of that person within a defined organizational unit. 
-                       'misc affiliations' lists all possible affiliations"""],
+"""A persons affiliation defines the current rolle of that person
+within a defined organizational unit.  'misc affiliations' lists all
+possible affiliations"""],
     'affiliation_status': ['aff_status', 'Enter affiliation status',
-                           """Affiliation status describes a persons current 
-			      status within a defined organizational unit 
- 			      (e.a. whether the person is an active student or 
-                               an employee on leave).  
-			      'misc aff_status_codes' lists affiliation status codes"""],
+"""Affiliation status describes a persons current status within a
+defined organizational unit (e.a. whether the person is an active
+student or an employee on leave).  'misc aff_status_codes' lists
+affiliation status codes"""],
     'date': ['date', 'Enter date of birth(YYYY-MM-DD)'],
     'disk': ['disk', 'Enter disk',
-             'Enter the path to the disc without trailing slash or username.\n'+
-             'Example: /usit/sauron/u1\n',
-             'For non-cerebrum disks, prepend the path with a :'],
+ """Enter the path to the disc without trailing slash or username.
+ 'Example: /usit/sauron/u1
+ 'For non-cerebrum disks, prepend the path with a :"""],
     'group_name': ['gname', 'Enter groupname'],
     'group_name_dest': ['gname', 'Enter the destination group'],
     'group_name_new': ['gname', 'Enter the new group name'],
     'group_name_src': ['gname', 'Enter the source group'],
     'group_operation': ['op', 'Enter group operation'],
-    'group_visibility': ['vis', 'Enter visibility'],
+    'group_visibility': ['vis', 'Enter visibility', "Example: A (= all)"],
     'id': ['id', 'Enter id'],
     'id:op_target': ['op_target_id', 'Enter op_target_id'],
     'move_type': ['move_type', 'Enter move type',
@@ -136,6 +134,7 @@ arg_help = {
  - hard_nofile
  - student
  - student_immediate
+ - give
  - request
  - confirm
  - cancel"""],
@@ -166,22 +165,27 @@ You may also use entity_id:id."""],
     'string_description': ['description', 'Enter description'],
     'string_filename': ['filename', 'Enter filename'],
     'string_group_filter': ['filter', 'Enter filter'],
-    'string_host': ['hostname', 'Enter hostname'],
+    'string_host': ['hostname', 'Enter hostname.  Example: ulrik'],
     'string_new_priority': ['new_priority', 'Enter value new priority value'],
     'string_np_type': ['np_type', 'Enter np_type', """Valid values include:
 'P' - Programvarekonto
 'T' - Testkonto."""],
     'string_op_set': ['op_set_name', 'Enter name of operation set'],
-    'string_old_priority': ['old_priority', 'Enter value old priority value'],
+    'string_old_priority': ['old_priority', 'Enter old priority value'],
     'string_perm_target': ['id|type', 'Enter target id or type', 'Legal types: host, disk, group'],
     'string_from_to': ['from_to', 'Enter from and optionally to-date (YYYY-MM-DD-YYYY-MM-DD)'],
     'string_why': ['why', 'Why?'],
-    'user_create_id': ['owner', 'Enter account owner', """Identify account owner (person or group) by entering:
+    'user_create_person_id': ['owner', 'Enter account owner',
+"""Identify account owner (person or group) by entering:
   Birthdate (YYYY-MM-DD)
   Norwegian fødselsnummer (11 digits)
   Export-ID (exp:exportid)
   External ID (idtype:idvalue)
   Group name (group:name)"""],
-    'user_existing': ['uname', 'Enter an existing user name'],
+'user_create_select_person': ['<not displayed>', '<not displayed>',
+"""Select a person from the list by entering the corresponding
+number.  If the person is missing, you must create it with "person
+create" """],
+'user_existing': ['uname', 'Enter an existing user name'],
     'yes_no_force': ['force', 'Force the operation?']
     }
