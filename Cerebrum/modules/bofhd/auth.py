@@ -973,7 +973,7 @@ class BofhdAuth(DatabaseAccessor):
             return True
         # Allow a user to manipulate his own accounts
         if account:
-            owner_acc = Factory.get("Account")(self.db)
+            owner_acc = Factory.get("Account")(self._db)
             owner_acc.find(operator)
             if (owner_acc.owner_id == account.owner_id and
                 owner_acc.owner_type == account.owner_type):
