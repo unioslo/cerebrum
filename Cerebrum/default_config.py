@@ -92,6 +92,11 @@ CLASS_DATABASE = ['Cerebrum.CLDatabase/CLDatabase']
 #CLASS_CHANGELOG = ['Cerebrum.modules.ChangeLog/ChangeLog']
 CLASS_CHANGELOG = ['Cerebrum.ChangeLog/ChangeLog']
 
+# Plain Email-backend generation.
+# UiO has it's own. Enable it with
+# CLASS_EMAILLDAP = ['Cerebrum.modules.no.uio.EmailLDAP/EmailLDAPUiOMixin']
+CLASS_EMAILLDAP = ['Cerebrum.modules.EmailLDAP/EmailLDAP']
+
 # Which module(s) to use as ClientAPI
 # (use Cerebrum.Utils.Factory.get_module("ClientAPI")
 MODULE_CLIENTAPI = ['Cerebrum.client.BofhModel']
@@ -187,3 +192,13 @@ DEFAULT_INSTITUSJONSNR=None
 # qualified domain name that is registered in the installation's
 # 'email_domain' table.
 EMAIL_DEFAULT_DOMAIN = None
+
+# LDAP-stuff.
+LDAP_BASE_DN="dc=uio,dc=no"
+LDAP_MAIL_BASE = """
+dn: ou=mail,%s
+objectClass: top
+objectClass: norOrganizationalUnit
+ou: mail
+description: mail-config ved UiO.\n
+""" % LDAP_BASE_DN
