@@ -95,7 +95,7 @@ def update_account(profile, account_ids, do_move=0, rem_grp=0, account_info={}):
         for r in group.list_groups_with_entity(account_id):
             if r['operation'] == const.group_memberop_union:
                 already_member[int(r['group_id'])] = 1
-        for g in profile.get_filgrupper():  # TODO: Vil antagelig være get_groups()
+        for g in profile.get_grupper():  # TODO: Vil antagelig være get_groups()
             if not already_member.get(g, 0):
                 group.clear()
                 group.find(g)
@@ -258,7 +258,7 @@ def process_students(update_accounts=0, create_users=0):
             if debug:
                 print " disk=%s, dfg=%s, def_sko=%s, fg=%s sko=%s" % \
                       (profile._disk, profile.get_dfg(),
-                      profile.get_email_sko(), profile.get_filgrupper(),
+                      profile.get_email_sko(), profile.get_grupper(),
                       profile.get_stedkoder())
             try:
                 if create_users and not students.has_key(fnr):
