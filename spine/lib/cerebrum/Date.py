@@ -71,4 +71,4 @@ class Date(SpineClass):
 
 registry.register_class(Date)
 
-# arch-tag: b91bce22-4551-41a3-a2ea-b84cd02944f2
+# arch-tag: 57d51c14-a6c9-4913-a011-1f7222ad79b5

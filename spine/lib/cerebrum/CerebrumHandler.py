@@ -70,4 +70,4 @@ for name, cls in registry.map.items():
 
 registry.register_class(CerebrumHandler)
 
-# arch-tag: 042e8f2b-e0fa-4277-9c43-f434f0b3015c
+# arch-tag: 79265054-583c-4ead-ae5b-3720b9d72810

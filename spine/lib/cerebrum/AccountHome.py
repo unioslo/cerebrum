@@ -51,3 +51,4 @@ class AccountHome(DatabaseClass):
 
 registry.register_class(AccountHome)
 
+# arch-tag: f1f89d6e-8174-4d53-82ac-c21885a8b574

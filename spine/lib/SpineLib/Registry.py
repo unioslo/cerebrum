@@ -63,3 +63,4 @@ def get_registry():
         _registry = Registry()
     return _registry
 
+# arch-tag: 3d88e0d4-1147-4562-a8fa-1a627e2ced49

@@ -128,4 +128,3 @@ def get_members(self):
 
 Group.register_method(Method('get_members', [Entity]), get_members)
 
-# arch-tag: db95a633-1591-4f72-91e4-fcb6ab6981e6

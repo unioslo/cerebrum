@@ -94,4 +94,4 @@ class CerewebCommands(SpineClass):
 
 registry.register_class(CerewebCommands)
 
-# arch-tag: b89d1172-fbfc-4b63-959b-4689ce1ff025
+# arch-tag: f21ea724-a469-4ef8-87bf-1eae1493717c

@@ -126,3 +126,4 @@ class Searchable(object):
 
     create_search_method = classmethod(create_search_method)
 
+# arch-tag: 08f6a74c-997c-486c-8a33-5666156c42d6

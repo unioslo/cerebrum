@@ -29,3 +29,4 @@ class LockHolder:
     def get_database(self):
         raise NotImplementedError('not implemented')
 
+# arch-tag: 936776b7-2224-45da-9eb2-a8c8524faf8f

@@ -110,3 +110,4 @@ class Caching(object):
 
     create_primary_key = staticmethod(create_primary_key)
 
+# arch-tag: bc83a632-7f0c-4b97-8856-84a0b9cea0ac

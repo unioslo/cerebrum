@@ -77,3 +77,4 @@ def get_dumper(self):
 
 SearchClass.register_method(Method('get_dumper', DumpClass), get_dumper)
 
+# arch-tag: 94dead40-0291-4725-a4dd-a37303eec825

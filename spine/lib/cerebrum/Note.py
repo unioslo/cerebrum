@@ -68,4 +68,3 @@ def get_notes(self):
 
 Entity.register_method(Method('get_notes', [Note]), get_notes)
 
-# arch-tag: 051b4ae4-d46d-43b6-b339-fb857279db1f

@@ -24,3 +24,4 @@ conf = ConfigParser.ConfigParser()
 conf.read('client.conf.template')
 conf.read('client.conf')
 
+# arch-tag: 6eaa9c05-4185-4d4b-9024-6820af3e0c81

@@ -127,3 +127,4 @@ SearchClass.register_method(Method('set_differences', [SearchClass], write=True)
 registry.register_class(SearchClass)
 
 
+# arch-tag: c3bdb45f-2d86-4863-8df7-6a3f33776bde

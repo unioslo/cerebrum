@@ -53,4 +53,4 @@ class Commands(SpineClass):
 
 registry.register_class(Commands)
 
-# arch-tag: d756f6b2-7b09-4bf5-a65e-81cacfea017a
+# arch-tag: 71417222-2307-47cd-b582-9f793a502e6a

@@ -46,4 +46,4 @@ class Disk(Entity):
     entity_type = EntityType(name='disk')
 registry.register_class(Disk)
 
-# arch-tag: 239b4bea-84e4-412d-9158-e1af43362885
+# arch-tag: 3c4a4e7b-88e8-4b38-83b4-8648146d94bf

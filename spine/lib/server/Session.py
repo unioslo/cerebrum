@@ -119,4 +119,3 @@ for name, cls in registry.map.items():
 class SessionImpl(Session, generated__POA.SpineSession):
     pass
 
-# arch-tag: f285d04a-698c-40a1-a442-40438bc3ee37

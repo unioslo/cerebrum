@@ -75,4 +75,4 @@ class ChangeLog(DatabaseClass):
     }
 registry.register_class(ChangeLog)
 
-# arch-tag: 1ca69631-04d1-44b1-b766-1eebd7b072fc
+# arch-tag: 7e73d1d8-0ac3-46a6-a360-1b3efe6e4549

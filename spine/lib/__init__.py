@@ -23,3 +23,4 @@ import SpineLib.Registry
 
 ServerAPI = SpineLib.Registry.get_registry()
 
+# arch-tag: 6570f452-e8f7-4c02-9438-7c142dcf68c4

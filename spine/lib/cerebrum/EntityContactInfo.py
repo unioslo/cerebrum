@@ -56,4 +56,3 @@ def get_contact_info(self):
 
 Entity.register_method(Method('get_contact_info', [EntityContactInfo]), get_contact_info)
 
-# arch-tag: 6de264a4-7076-4d31-8084-742a0d5cfdac

@@ -44,4 +44,3 @@ class Host(Entity):
 
 registry.register_class(Host)
 
-# arch-tag: 8351c2b3-4238-447d-b168-3e396a9d2646

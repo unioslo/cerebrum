@@ -80,3 +80,4 @@ else:
     importIDLString(idl, ['-I' + idl_path])
     import generated
 
+# arch-tag: 380b39b2-0d61-411c-80ce-a3b230b04618
