@@ -34,7 +34,7 @@ class HiAFS(FS):
 #       Studenter                                              #
 ################################################################
 
-    def GetTilbud(self):
+    def GetTilbud(self, institusjonsnr=0):
 	"""Hent data om studenter med tilbud til opptak på
 	et studieprogram ved Høgskolen i Agder. """
 	qry = """
@@ -49,12 +49,11 @@ FROM fs.soknadsalternativ sa, fs.person p, fs.opptakstudieprogram osp,
 WHERE p.fodselsdato=sa.fodselsdato AND
       p.personnr=sa.personnr AND
       sa.institusjonsnr='%s' AND 
-      sa.opptakstypekode = 'NOM' AND
       sa.tilbudstatkode IN ('I', 'S') AND
       sa.studietypenr = osp.studietypenr AND
       osp.studieprogramkode = sp.studieprogramkode
       AND %s
-      """ % (institutsjonsnr, self.is_alive())
+      """ % (institusjonsnr, self.is_alive())
         return self.db.query(qry)
 
     def GetOpptak(self):
@@ -92,20 +91,38 @@ SELECT DISTINCT
       p.adrlin2_hjemsted, p.postnr_hjemsted, 
       p.adrlin3_hjemsted, p.adresseland_hjemsted,
       nk.studieprogramkode, nk.studieretningkode, 
-      nk.kullkode, nk.klassekode, 
+      nk.kullkode, nk.klassekode
 FROM  fs.person p, fs.student s, fs.naverende_klasse nk, 
       fs.studiekull sk, fs.registerkort r
 WHERE p.fodselsdato = s.fodselsdato AND
       p.personnr = s.personnr AND
+      p.fodselsdato = nk.fodselsdato AND
+      p.personnr = nk.personnr AND
+      %s AND
       p.fodselsdato = r.fodselsdato AND
       p.personnr = r.personnr AND
-      p.fodselsdato = nk.fodselsdato AND'
+      %s """ % (self.is_alive(),self.get_termin_aar(only_current=1))
+        qry += """ UNION
+SELECT DISTINCT
+      p.fodselsdato, p.personnr, p.etternavn, p.fornavn, 
+      p.kjonn, s.adrlin1_semadr,
+      s.adrlin2_semadr, s.postnr_semadr, s.adrlin3_semadr,
+      s.adresseland_semadr, p.adrlin1_hjemsted,
+      p.adrlin2_hjemsted, p.postnr_hjemsted, 
+      p.adrlin3_hjemsted, p.adresseland_hjemsted,
+      nk.studieprogramkode, nk.studieretningkode, 
+      nk.kullkode, nk.klassekode
+FROM  fs.person p, fs.student s, fs.naverende_klasse nk, 
+      fs.studiekull sk
+WHERE p.fodselsdato = s.fodselsdato AND
+      p.personnr = s.personnr AND
+      p.fodselsdato = nk.fodselsdato AND
       p.personnr = nk.personnr AND
       %s AND
       nk.kullkode = sk.kullkode AND
       nk.studieprogramkode = sk.studieprogramkode AND
-      sk.status_aktiv = 'J' AND
-      %s """ % (self.is_alive(),self.get_termin_aar(only_current=1)
+      sk.status_aktiv = 'J' """ % self.is_alive()
+        return (self._get_cols(qry), self.db.query(qry))
 
     def GetPrivatist(self):
 	"""Her henter vi informasjon om privatister ved HiA"""
@@ -206,26 +223,103 @@ WHERE status_aktiv = 'J' """
 
 
 ##################################################################
+# Fronterspesifikke søk
+##################################################################
+
+    def GetAllePersonRoller(self, institusjonsnr=0):
+	"""Hent alle personroller registrert i FS. For hver person
+	vi plukker ut trenger vi å vite hvilke roller personen innehar,
+	i tilknytting til hvilket emne(kode), versjon(skode) for inneværende 
+	og neste semester/termin. I tillegg henter vi dato_fra og dato_til
+	da disse angir rollens varighet. """
+        qry = """
+SELECT DISTINCT
+   fodselsdato, personnr, rollenr, rollekode, dato_fra, dato_til,
+   institusjonsnr, faknr, gruppenr, studieprogramkode, emnekode, 
+   versjonskode, aktivitetkode, terminnr, etterutdkurskode, 
+   kurstidsangivelsekode
+FROM fs.personrolle 
+WHERE dato_fra < SYSDATE AND
+      NVL(dato_til,SYSDATE) >= sysdate AND
+      institusjonsnr = %s""" %  institusjonsnr
+        return (self._get_cols(qry), self.db.query(qry))
+
+    def GetUndervEnhet(self, sem="current"):
+	"""Metoden som henter data om undervisningsenheter
+	i nåverende (current) eller neste (next) semester. Default
+	vil være nåværende semester. For hver undervisningsenhet 
+	henter vi institusjonsnr, emnekode, versjonskode, terminkode + årstall 
+	og terminnr."""
+	qry = """
+SELECT DISTINCT
+  r.institusjonsnr, r.emnekode, r.versjonskode, e.emnenavnfork, 
+  r.terminnr, r.terminkode, r.arstall
+FROM fs.emne e, fs.undervisningsenhet r
+WHERE r.emnekode = e.emnekode AND
+      r.versjonskode = e.versjonskode AND
+      """ 
+        if (sem=="current"):
+	    qry +="""%s""" % self.get_termin_aar(only_current=1)
+        else: 
+	    qry +="""%s""" % self.get_next_termin_aar()
+	return (self._get_cols(qry), self.db.query(qry))
+	
+   
+    def GetEmnerUndervNaa(self):
+	"""Hent data om emner som har undervisning dette semesteret.
+	Skal brukes til å opprette rom (på emnenivå) i ClassFronter. 
+	Bruker fs.emne og fs.undervisninsenhet. Henter emnekode, 
+	versjonskode, terminkode, årstall og terminnummer, samt 
+	emnets navn og forkortet navn. Foreløpig hentes data for
+	nåværende semester, det er mulig at man vil ønske å utvide 
+	dette til å omfatte flere semestre. Dumpes til fil på 
+	/cerebrum/dumps/FS/aktive_emner.xml"""
+	qry = """
+SELECT DISTINCT
+   r.emnekode, e.emnenavnfork, r.versjonskode, r.terminnr, 
+   r.terminkode, r.arstall
+FROM fs.emne e, fs.undervisningsenhet r
+WHERE r.emnekode = e.emnekode AND
+      r.versjonskode = e.versjonskode AND
+      %s """ % self.get_termin_aar(only_current=1)
+        return (self._get_cols(qry),self.db.query(qry))
+
+##################################################################
 # Metoder for OU-er:
 ##################################################################
 
 
     def GetAlleOUer(self, institusjonsnr=0):
-        """Hent data om stedskoder registrert i FS"""
+        """Hent data om stedskoder registrert i FS. Dumpes til fil
+	på /cerebrum/dumps/FS/ou.xml"""
         qry = """
 SELECT DISTINCT
    faknr, instituttnr, gruppenr, stedakronym, stednavn_bokmal,
    faknr_org_under, instituttnr_org_under, gruppenr_org_under,
    adrlin1, adrlin2, postnr, telefonnr, faxnr,
-   adrlin1_besok, adrlin2_besok, postnr_besok, url,
-   bibsysbeststedkode, orgnr
+   adrlin1_besok, adrlin2_besok, postnr_besok, url, emailadresse,
+   bibsysbeststedkode, stedkode_konv
 FROM fs.sted
 WHERE institusjonsnr='%s'
 	 """ % institusjonsnr
-        return self.db.query(qry)
+        return (self._get_cols(qry),self.db.query(qry))
         
+##################################################################
+# Øvrige metoder (ikke i bruk)
+##################################################################
 
-
+    def GetAlleEmner(self):
+        """Hent informasjon om alle emner i FS. Denne brukes foreløpig 
+        ikke til noe som helst men det kan tenkes at vi trenger noen av
+        dataene etterhvert så den beholder vi."""
+        qry = """
+SELECT DISTINCT
+   emnekode, versjonskode, emnenavnfork, institusjonsnr_reglement,
+   faknr_reglement, instituttnr_reglement, gruppenr_reglement, 
+   studienivakode, emnetypekode, fjernundstatkode, terminkode_und_forste,
+   arstall_und_forste, terminkode_und_siste, arstall_und_siste
+FROM fs.emne """
+        return (self._get_cols(qry),self.db.query(qry))
 
 ##################################################################
 # Hjelpemetoder  
@@ -234,6 +328,15 @@ WHERE institusjonsnr='%s'
     def is_alive(self):
 	"""Sjekk om en person er registrert som avdød i FS"""
 	return "NVL(p.status_dod, 'N') = 'N'\n"
+
+    def get_next_termin_aar(self):
+	"""en fin metode som henter neste semesters terminkode og årstal."""
+	yr, mon, md  = t = time.localtime()[0:3]
+	if mon <= 6:
+	    next = "(r.terminkode LIKE 'H_ST' AND r.arstall=%s)\n" % yr
+	else:
+	    next = "(r.terminkode LIKE 'V_R' AND r.arstall=%s)\n" % (yr + 1)
+	return next
 
     def get_termin_aar(self, only_current=0):
         yr, mon, md = t = time.localtime()[0:3]
@@ -249,11 +352,5 @@ WHERE institusjonsnr='%s'
         if only_current or mon >= 10 or (mon == 9 and md > 15):
             return current
         return "(%s OR (r.terminkode LIKE 'V_R' AND r.arstall=%d))\n" % (current, yr)
-
-
-
-
-
-
 
 
