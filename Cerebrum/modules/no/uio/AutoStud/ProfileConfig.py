@@ -133,7 +133,9 @@ class ProfileDefinition(object):
                     mapping.setdefault(select_type, {}).setdefault(
                         map_data[1], {}).setdefault(tmp, []).append(self)
                 elif map_data[0] == StudconfigParser.SPECIAL_MAPPING:
-                    if select_type == 'aktivt_sted':
+                    if select_type in('aktivt_sted', 'evu_sted'):
+                        # nivaa is not used by evu_sted, but it doesn't hurt
+                        # to include it
                         tmp = ":".join((s_criteria['stedkode'],
                                         s_criteria['institusjon'],
                                         s_criteria['scope'],
@@ -289,6 +291,8 @@ class StudconfigParser(xml.sax.ContentHandler):
         "privatist_emne": [NORMAL_MAPPING, 'emnekode',
                            'privatist_emne', 'emnekode'],
         "aktivt_sted": [SPECIAL_MAPPING, 'stedkode', 'aktiv',
+                        'studieprogramkode'],
+        "evu_sted": [SPECIAL_MAPPING, 'stedkode', 'evu',
                         'studieprogramkode'],
         "medlem_av_gruppe": [SPECIAL_MAPPING]
         }

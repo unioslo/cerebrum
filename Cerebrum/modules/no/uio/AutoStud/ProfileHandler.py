@@ -181,6 +181,8 @@ class ProfileMatcher(object):
             else:
                 if select_type == 'aktivt_sted':
                     self._check_aktivt_sted(student_info)
+                elif select_type == 'evu_sted':
+                    self._check_evu_sted(student_info)
                 elif select_type == 'medlem_av_gruppe':
                     self._check_group_membership(member_groups)
 
@@ -225,6 +227,24 @@ class ProfileMatcher(object):
                 if sko in v['steder']:
                     self._append_match(
                         'aktivt_sted', 'studieproram',
+                        entry['studieprogramkode'], v['profiles'])
+
+    def _check_evu_sted(self, student_info):
+        """Resolve all evu_sted criterias for this student."""
+
+        as_dict = self.pc.select_mapping['evu_sted']
+        for k in as_dict.keys():
+            v = as_dict[k]
+            # Does this aktivt_sted criteria match a 'evu' entry?
+            for entry in student_info.get('evu', []):
+                d = self.pc.autostud.studieprogramkode2info[
+                    entry['studieprogramkode']]
+                sko = "%02i%02i%02i" % (int(d['faknr_studieansv']),
+                                        int(d['instituttnr_studieansv']),
+                                        int(d['gruppenr_studieansv']))
+                if sko in v['steder']:
+                    self._append_match(
+                        'evu_sted', 'studieproram',
                         entry['studieprogramkode'], v['profiles'])
 
     def _check_group_membership(self, groups):
