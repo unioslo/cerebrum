@@ -13,7 +13,6 @@ class Profile(object):
         """
 
         # topics may contain data from get_studieprog_list
-        self._groups = groups
         self._autostud = autostud
         self._logger = logger
         self._pc = pc
@@ -182,8 +181,17 @@ class Profile(object):
         return self.settings.get('spread', [])
 
     def get_pquota(self):
-        assert self._groups is not None
+        """Return information about printerquota.  Throws a ValueError
+        if profile has no quota information"""
+        ret = {}
+        if not self.settings.has_key('printer_kvote'):
+            raise ValueError, "No matching quota settings"
         for m in self.settings.get('printer_kvote', []):
-            pass # TODO
-        raise NotImplementedError, "TODO"
-        
+            for k in ('start', 'uke', 'max_akk', 'max_sem'):
+                ret[k] = ret.get(k, 0) + int(m[k])
+        return {
+            'initial_quota': ret['start'],
+            'weekly_quota': ret['uke'],
+            'max_quota': ret['max_akk'],
+            'termin_quota': ret['max_sem']
+            }
