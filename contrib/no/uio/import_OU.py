@@ -16,15 +16,6 @@ OU_class = Factory.get('OU')
 
 class StedData(xml.sax.ContentHandler):
     def __init__(self, filename):
-        # What I'd like to do, it something like:
-        #   self.parser = xml.sax.make_parser()
-        #   self.parser.setContentHandler(self)
-        #   self.parser.setErrorHandler(xml.sax.handler.ErrorHandler())
-        # and have next() call self.parser.parse(file.readline())
-        # whenever more data needs to be parsed to fetch the next
-        # record. TODO
-
-        # Ugly memory-wasting, inflexible way:
         self.tp = TrivialParser()
         xml.sax.parse(filename, self.tp)
 
@@ -64,7 +55,7 @@ if len(sys.argv) == 2:
 
 def main():
     # Parse command line options and arguments
-    opts, args = getopt.getopt(sys.argv[1:], 'v', ['verbose'])
+    opts, args = getopt.getopt(sys.argv[1:], 'vs:', ['verbose', 'sted-file'])
 
     verbose = 0
     stedfile = "/cerebrum/dumps/LT/sted.xml"
@@ -72,8 +63,8 @@ def main():
     for opt, val in opts:
         if opt in ('-v', '--verbose'):
             verbose += 1
-    if args:
-        stedfile = args.pop(0)
+        elif opt in ('-s', '--sted-file'):
+            stedfile = val
 
     Cerebrum = Factory.get('Database')()
     steder = {}
@@ -165,8 +156,12 @@ def rec_make_stedkode(stedkode, ou, existing_ou_mappings, steder,
     org_stedkode = get_stedkode_str(sted, suffix='_for_org_sted')
     if not stedkode2ou.has_key(org_stedkode):
         print "Error in dataset:"\
-              "  %s references missing STEDKODE: %s, using None" % (
+              " %s references missing STEDKODE: %s, using None" % (
             stedkode, org_stedkode)
+        org_stedkode = None
+        org_stedkode_ou = None
+    elif stedkode == org_stedkode:
+        print "Warning: %s has self as parent, using None" % stedkode
         org_stedkode = None
         org_stedkode_ou = None
     else:
