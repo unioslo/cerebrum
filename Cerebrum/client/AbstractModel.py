@@ -82,9 +82,59 @@ class ContactInfo(object):
     def get_info(cls, entity_id):
         """Retrieves a list of contactinfo-objects for given entity."""
         pass
-
     get_info = classmethod(get_info)
+
+class QuarantineType(object):
+    """A type of quarantine that can be set on entities"""
+    _all = None
+    def __init__(self, name, description):
+        self.name = name
+        self.description = description
+    
+    def __str__(self):
+        return self.description
+    
+    def __repr__(self):
+        return "<QuarantineType %s>" % self.name
+    
+    def get_all(cls):    
+        """Returns all known Quarantine types"""
+        pass
+    get_all = classmethod(get_all)    
+
+    def get_by_name(cls, name):
+        """Returns the quarantine type of the given name"""
+        pass
+    get_by_name = classmethod(get_by_name)    
         
+        
+class Quarantine(object):
+    def __init__(self, entity, quarantine_type, start, end, who, why, disable_until):
+        self.entity = entity
+        self.quarantine_type = quarantine_type
+        self.start = start
+        self.end = end
+        self.who = who
+        self.why = why
+        self.disable_until = disable_until
+    
+    def __repr__(self):
+        return "<Quarantine %s on %s from %s>" % (self.quarantine_type.name, 
+                                                  self.entity,
+                                                  self.start)
+
+    def remove(self):
+        """Remove quarantine from entity"""
+        pass
+    
+    def disable(self, until=None):
+        """Disables this quarantine until date.
+           This indicates that the quarantine is lifted
+           until given date. This is useful e.g. for giving users who have been
+           quarantined for having too old passwords a limited time to change
+           their password; in order to change their password they must use
+           their old password, and this won't work when they're quarantined."""
+        pass
 
 class Entity(object):
     
@@ -125,34 +175,10 @@ class Entity(object):
         """ Deletes this entity from the database.
         """
         pass
-        
-    def get_address_info(self):
-        pass
-        
-    def get_contact_info(self):
-        pass
-        
-    def get_spread_info(self):
-        pass
-        
-    def add_quarantine(self, quarantine_type, description, start_date=None, 
-                       disable_until=None, end_date='default'):
-        """Adds the enitity to a defined ``quarantine_type`` with
-           ``description``.
-           
-           Quarantine starts at ``start_date``, defaults to None which is now.
-           
-           Quarantine ends at ``end_date``, defaults to 'default' which uses
-           the duration field from the defined quarantine-type. Setting this
-           parameter to None means indefinitely.
-           
-           Setting ``disable_until`` indicates that the quarantine is lifted
-           until given date. This is useful e.g. for giving users who have been
-           quarantined for having too old passwords a limited time to change
-           their password; in order to change their password they must use
-           their old password, and this won't work when they're quarantined.
-        """
-        pass
+    
+    def add_quarantine(self, quarantine_type, why="", 
+                       start=None, end=None):
+        """Create and store a new quarantine on entity"""
         
     def get_quarantines(self):
         """ Returns a list of quarantine-objects, if the entity has any quarantines
@@ -235,14 +261,6 @@ class Account(Entity):
         """Retrieves an instance with given name."""
         pass
     fetch_by_name = classmethod(fetch_by_name)
-
-
-class Quarantine(object):
-    def __init__ (self, start_date, end_date, quarantine_type, reason):
-        self.start_date = start_date
-        self.end_date = end_date
-        self.type = quarantine_type
-        self.reason = reason
 
 class Constants(object):
     JOIN = 1
