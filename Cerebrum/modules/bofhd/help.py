@@ -10,12 +10,14 @@
 # group_help contains the general help text, as well as help for the
 # main commands (group, user, misc etc.)
 
-_group_help = {'general': """Hjelp for jbofh.
+_group_help = {'general': """BOFH help:
 
-jbofh er en komandolinje orientert klient for administrasjon av
-brukere.  Detaljert hjelp kan finnes på http://.....
-For hjelp om en enkelt hovedgruppe, skriv "help <hovedgruppe>".
-Tilgjengelige hovedgrupper:
+BOFH is a command-line based application for user administration.  
+A detailed description of BOFH as well as information about Cerebrum
+(which BOFH is a client for) may be viewed at 
+http://www.usit.uio.no/it/lita/cerebrum/. help <<command-group>>
+shows detailed information about commands in any of the main command 
+groups. Available main groups are:
 """,
                'glossary': """Glossary of common terms in Cerebrum:
 - account: a user account (POSIX or generic user) in Cerebrum
