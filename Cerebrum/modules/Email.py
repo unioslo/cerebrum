@@ -131,7 +131,7 @@ class EmailConstants(Constants.Constants):
     email_target_deleted = _EmailTargetCode(
         'deleted',
         "Target type for addresses that are no longer working, but"
-        " for which it is useful to include of a short custom text in"
+        " for which it is useful to include a short custom text in"
         " the error message returned to the sender.  The text"
         " is taken from email_target.alias_value")
 
