@@ -579,7 +579,7 @@ class FronterXML(object):
 
     def user_to_XML(self, data):
         """Lager XML for en person"""
-        self.xml.startTag('PERSON')
+        self.xml.startTag('PERSON', {'recstatus': 1})
         self.xml.startTag('SOURCEDID')
         self.xml.dataElement('SOURCE', self.DataSource)
         self.xml.dataElement('ID', data['NAME'])
@@ -604,7 +604,7 @@ class FronterXML(object):
         # Lager XML for en gruppe
         #if recstatus == Fronter.STATUS_DELETE:
         #    return
-        self.xml.startTag('GROUP')
+        self.xml.startTag('GROUP', {'recstatus': 1})
         self.xml.startTag('SOURCEDID')
         self.xml.dataElement('SOURCE', self.DataSource)
         self.xml.dataElement('ID', data['group_name'])
@@ -618,7 +618,7 @@ class FronterXML(object):
         #allow_contact = data.get('allow_contact', 0)
         #if allow_contact:
         #    allow_contact = 2
-        self.xml.emptyTag('TYPEVALUE', {'level' : 2})
+        self.xml.emptyTag('TYPEVALUE', {'level': data['level']})
         #                      {'level': allow_room | allow_contact})
         self.xml.endTag('GROUPTYPE')
         self.xml.startTag('DESCRIPTION')
@@ -631,22 +631,22 @@ class FronterXML(object):
         self.xml.startTag('RELATIONSHIP', {'relation': 1})
         self.xml.startTag('SOURCEDID')
         self.xml.dataElement('SOURCE', self.DataSource)
-        self.xml.dataElement('ID', 'cerebrum@hia.no imported groups')
+        self.xml.dataElement('ID', data['parent'])
         self.xml.endTag('SOURCEDID')
         self.xml.emptyTag('LABEL')
         self.xml.endTag('RELATIONSHIP')
         self.xml.endTag('GROUP')
 
-    def room_to_XML(self, id, recstatus, data):
+    def room_to_XML(self, data):
         # Lager XML for et rom
         #
         # Gamle rom skal aldri slettes automatisk.
         if recstatus == Fronter.STATUS_DELETE:
             return 
-        self.xml.startTag('GROUP', {'recstatus': recstatus})
+        self.xml.startTag('GROUP', {'recstatus': 1})
         self.xml.startTag('SOURCEDID')
         self.xml.dataElement('SOURCE', self.DataSource)
-        self.xml.dataElement('ID', id)
+        self.xml.dataElement('ID', data['group_name'])
         self.xml.endTag('SOURCEDID')
         if (recstatus == Fronter.STATUS_ADD or recstatus == Fronter.STATUS_UPDATE):
             self.xml.startTag('GROUPTYPE')

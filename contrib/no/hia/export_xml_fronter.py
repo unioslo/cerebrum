@@ -33,7 +33,7 @@ from Cerebrum.modules.no.hia import access_FS #Not sure yet
 from Cerebrum import Database
 from Cerebrum import Person
 from Cerebrum import Group
-from Cerebrum.modules.no import Stedkode 
+from Cerebrum.modules.no.Stedkode import Stedkode 
 from Cerebrum.modules.no.hia import fronter_lib
 
 db = const = logger = None
@@ -135,8 +135,9 @@ def get_group():
 
 
 def make_fak_dict(fak_dict):
-    res = {}
-    sted = Factory.get('Stedkode')(db)
+    res1 = {}
+    res2 = {}
+    sted = Stedkode.Stedkode(db)
     for k in fak_dict.keys():
 	sted.clear()
 	try:
@@ -144,27 +145,32 @@ def make_fak_dict(fak_dict):
 	    if sted.acronym:
 		st_name = sted.acronym
 	    else: st_name = sted.short_name
-	    res[int(k)] = {'title': name,'
-	
-	str(k)+'0000'
-	
+	    sted_k = "%02d0000" % k 
+	    res2[int(k)] = {'title': st_name, 'group_name':('hia.no:fs:struktur:emner:2004:host:' + (str(sted_k))),
+				'parent':'hia.no:fs:struktur:emner:2004:host','level': 1}
+	    res1[int(k)] = {'title': st_name, 'group_name':('hia.no:fs:struktur:emner:2004:vaar:' + (str(sted_k))),
+                                'parent':'hia.no:fs:struktur:emner:2004:vaar','level': 1}
+	except Errors.NotFoundError: 
+	    pass
+    return(res1,res2)
 
-def check_adm_access():
-    global 
-    fdsl2prim = person.getdict_external_id2primary_account(const.externalid_fodselsnr,ent_id=True)
-    roles_xml_parser('/cerebrum/dumps/FS/roles.xml',process_role_callback)
+#def check_adm_access():
+#    global 
+#    fdsl2prim = person.getdict_external_id2primary_account(const.externalid_fodselsnr,ent_id=True)
+#    roles_xml_parser('/cerebrum/dumps/FS/roles.xml',process_role_callback)
 
-def process_role_callback(r_info):
-    fnr = "%06d%05d" % (int(r_info['fodselsdato']),int(r_info['personnr']))
-    print fnr
-    for k,v in r_info.items():
-	print k,v
+#def process_role_callback(r_info):
+#    fnr = "%06d%05d" % (int(r_info['fodselsdato']),int(r_info['personnr']))
+#    print fnr
+#    for k,v in r_info.items():
+#	print k,v
 
 def process_undenh(undenh):
     if not sh2long.has_key(str(undenh['emnekode']).lower()):
 	sh2long[str(undenh['emnekode']).lower()] =  {'navn':undenh['emnenavn_bokmal'],
 							'fak':undenh['faknr_kontroll']}
-    
+ 
+   
 def get_faknr():
     fak_dict = {}
     for k,v in sh2long.items():
@@ -265,13 +271,15 @@ def main():
                 'title':'Emner','parent':'hia.no:fs:top'}
     top_dict[2] = {'level': 0 , 'group_name':'hia.no:fs:struktur:emner:2004:vaar',
                 'title':'Emner VAAR 2004','parent':'hia.no:fs:struktur:emner'}
-    top_dic[3] = {'level': 0 , 'group_name':'hia.no:fs:struktur:emner:2004:host',
+    top_dict[3] = {'level': 0 , 'group_name':'hia.no:fs:struktur:emner:2004:host',
                 'title':'Emner HOST 2004','parent':'hia.no:fs:struktur:emner'}
     fak_dict = get_faknr()
-    fak_d = make_fak_dict(fak_dict)
+    fak_d1,fak_d2 = make_fak_dict(fak_dict)
     xml1.start_xml_head()
     #genere topp struktur 
-    
+    for k,v in top_dict.items():
+	xml1.group_to_XML(v)
+    for k,v in 
     for k,v in acc2names.items():
 	xml1.user_to_XML(v)
     for k,v in und_grp.items():
