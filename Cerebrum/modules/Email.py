@@ -24,7 +24,10 @@ from Cerebrum import Constants
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum.Entity import Entity
 from Cerebrum.Disk import Host
+from Cerebrum import Person
+from Cerebrum import Account
 
+import cereconf
 
 class _EmailTargetCode(Constants._CerebrumCode):
     _lookup_table = '[:table schema=cerebrum name=email_target_code]'
@@ -416,17 +419,20 @@ class EmailAddress(EmailEntity):
         self.__in_db = True
         self.__updated = []
 
-    def find_by_address(self, address):
-        lp, dp = address.split('@')
-        domain = EmailDomain(self._db)
-        domain.find_by_domain(dp)
+    def find_by_local_part_and_domain(self, local_part, domain_id):
         address_id = self._db.query_1("""
         SELECT address_id
         FROM [:table schema=cerebrum name=email_address]
         WHERE local_part=:lp AND domain_id=:d_id""",
-                                      {'lp': lp,
-                                       'd_id': domain.email_domain_id})
+                                      {'lp': local_part,
+                                       'd_id': domain_id})
         self.find(address_id)
+
+    def find_by_address(self, address):
+        lp, dp = address.split('@')
+        domain = EmailDomain(self._db)
+        domain.find_by_domain(dp)
+        self.find_by_local_part_and_domain(lp, domain.email_domain_id)
 
     def list_email_addresses(self):
         """Return address_id of all EmailAddress in database"""
@@ -506,14 +512,16 @@ class EntityEmailDomain(Entity):
         self.__updated = []
         return is_new
 
-    def find(self, entity_id):
+    def find(self, entity_id, affiliation=None):
         self.__super.find(entity_id)
         try:
             (self.entity_email_domain_id,
              self.entity_email_affiliation) = self.query_1("""
             SELECT domain_id, affiliation
             FROM [:table schema=cerebrum name=email_entity_domain]
-            WHERE entity_id=:e_id""", {'e_id': entity_id})
+            WHERE entity_id=:e_id AND
+                  affiliation=:aff""", {'e_id': entity_id,
+                                        'aff': affiliation})
             in_db = True
         except Errors.NotFoundError:
             in_db = False
@@ -524,10 +532,12 @@ class EntityEmailDomain(Entity):
         self.__in_db = in_db
         self.__updated = []
 
-    def delete():
+    def delete(self, affiliation=None):
         return self.execute("""
         DELETE FROM [:table schema=cerebrum name=email_entity_domain]
-        WHERE entity_id=:e_id""", {'e_id': self.entity_id})
+        WHERE entity_id=:e_id AND
+              affiliation=:aff""", {'e_id': self.entity_id,
+                                    'aff': affiliation})
 
 
 class EmailQuota(EmailTarget):
@@ -1084,3 +1094,111 @@ def EmailServerTarget(EmailTarget):
 
     def get_server_id(self):
         return self.email_server_id
+
+class AccountEmailMixin(Account.Account):
+    """Email-module mixin for core class ``Account''."""
+
+    def get_default_maildomain(self):
+        class UseDefaultDomainException(StandardError):
+            pass
+        try:
+            # Find OU and affiliation for this user's best-priority
+            # account_type entry.
+            typs = self.get_account_types()
+            if not typs:
+                # If no appropriate account_type entries were found,
+                # return the default maildomain.
+                raise UseDefaultDomainException
+            row = typs[0]
+            ou, aff = row['ou_id'], row['affiliation']
+            # If a maildomain is associated with this (ou, aff)
+            # combination, then that is the user's default maildomain.
+            entdom = EntityEmailDomain(self._db)
+            try:
+                entdom.find(ou, affiliation=aff)
+                return entdom.entity_email_domain_id
+            except Errors.NotFoundError:
+                pass
+            # Otherwise, try falling back to tha maildomain associated
+            # with (ou, None).
+            entdom.clear()
+            try:
+                entdom.find(ou)
+                return entdom.entity_email_domain_id
+            except Errors.NotFoundError:
+                pass
+            # Still no proper maildomain association has been found;
+            # fall back to default maildomain.
+            raise UseDefaultDomainException
+        except UseDefaultDomainException:
+            pass
+        dom = EmailDomain(self._db)
+        dom.find_by_domain(cereconf.EMAIL_DEFAULT_DOMAIN)
+        return dom.email_domain_id
+
+    def get_default_mailaddress(self):
+        dom_id = self.get_default_maildomain()
+        dom = EmailDomain(self._db)
+        dom.find(dom_id)
+        ctgs = dom.get_categories()
+        if self.const.email_domain_category_cnaddr in ctgs:
+            local_part = "" # TODO: Calculate this based on full name
+        elif self.const.email_domain_category_uidaddr in ctgs:
+            local_part = self.account_name
+        else:
+            # Neither username- nor fullname-based addresses should be
+            # defined in the user's (apparent) default maildomain; use
+            # username@EMAIL_DEFAULT_DOMAIN instead.
+            local_part = self.account_name
+            dom.clear()
+            dom.find(cereconf.EMAIL_DEFAULT_DOMAIN)
+        # Check that this address doesn't belong to something else.
+        addr = EmailAddress(self._db)
+        try:
+            addr.find_by_local_part_and_domain(local_part,
+                                               dom.get_domain_name())
+            targ = EmailTarget(self._db)
+            targ.find(addr.email_addr_target_id)
+            if targ.email_target_type <> self.const.email_target_account or \
+                   targ.email_target_entity_id <> self.entity_id:
+                # Address exists, but this Account is not the owner.
+                pass
+        except Errors.NotFoundError:
+            pass
+
+        # Validate that value of local_part is proper for use as an
+        # email address local part.
+        
+
+class PersonEmailMixin(Person.Person):
+
+    """Email-module mixin for core class ``Person''."""
+
+    def getdict_external_id2mailaddr(self, id_type):
+        ret = {}
+        # TODO: How should multiple external_id entries, only
+        # differing in person_external_id.source_system, be treated?
+        target_type = int(self.const.email_target_account)
+        for row in self.query("""
+        SELECT pei.external_id,
+               ea.local_part || '@' || ed.domain AS email_primary_address
+        FROM [:table schema=cerebrum name=person_external_id] pei
+        JOIN [:table schema=cerebrum name=account_type] at
+          ON at.person_id = pei.person_id AND
+             at.priority = (SELECT min(at2.priority)
+                            FROM [:table schema=cerebrum name=account_type] at2
+                            WHERE at2.person_id = pei.person_id)
+        JOIN [:table schema=cerebrum name=email_target] et
+          ON et.target_type = :targ_type AND
+             et.entity_id = at.account_id
+        JOIN [:table schema=cerebrum name=email_primary_address] epa
+          ON epa.target_id = et.target_id
+        JOIN [:table schema=cerebrum name=email_address] ea
+          ON ea.address_id = epa.address_id
+        JOIN [:table schema=cerebrum name=email_domain] ed
+          ON ed.domain_id = ea.domain_id
+        WHERE pei.id_type = :id_type""",
+                              {'id_type': int(id_type),
+                               'targ_type': target_type}):
+            ret[row['external_id']] = row['email_primary_address']
+        return ret
