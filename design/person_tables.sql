@@ -21,7 +21,10 @@ CREATE TABLE person
   gender	CHAR VARYING(16)
 		NOT NULL
 		CONSTRAINT person_gender REFERENCE gender_code(code),
-  deceased	BOOLEAN,
+  deceased	CHAR(1)
+		NOT NULL
+		CONSTRAINT person_deceased_bool
+		  CHECK (deceased IN ('T', 'F')),
   comment	CHAR VARYING(512)
 );
 
@@ -200,11 +203,11 @@ CREATE TABLE person_quarantine
 		CHAR VARYING(16)
 		CONSTRAINT person_quarantine_quarantine_type
 		  REFERENCES quarantine_code(code),
-  entered_by	NUMERIC(12,0)
+  creator	NUMERIC(12,0)
 		NOT NULL
-		CONSTRAINT person_quarantine_entered_by
-		  REFERENCES person(person_id),
-  entered_date	DATE
+		CONSTRAINT person_quarantine_creator
+		  REFERENCES account(account_id),
+  create_date	DATE
 		NOT NULL
 		DEFAULT SYSDATE,
 /* TBD: Are the following two columns necessary? */
