@@ -23,28 +23,15 @@
 
 This file is part of the Cerebrum framework.
 
-It generates an xml dump, suitable for importing into the FRIDA framework
-(for more information on FRIDA, start at <URL:
+It generates an xml dump, suitable for importing into the FRIDA project (for
+more information on FRIDA, start at <URL:
 http://www.usit.uio.no/prosjekter/frida/pg/>). The output format is
-specified by FRIDA.dtd, available in the "uiocerebrum" project, at
+specified by FRIDA.dtd, available in the 'uiocerebrum' project, at
 cvs.uio.no.
 
 The general workflow is rather simple:
 
-person.xml    --+
-                |
-                +--> generate_frida_export.py ===> frida.xml
-                |
-<cerebrum db> --+
-
-person.xml is needed for information about hiring / peoples' statuses. 
-
-<cerebrum db> is needed for everything else.
-
-person.xml format is specified by lt-person.dtd available in the
-"uiocerebrum" project. Only some of the elements are of interest for FRIDA
-export. We use Norwegian fødselsnummer to tie <person>-elements to database
-rows.
+<cerebrum db> ---> generate_frida_export.py ===> frida.xml
 
 The output generation consists of the following steps:
 
@@ -55,7 +42,6 @@ The output generation consists of the following steps:
 
 """
 
-import xml.sax
 import sys
 import time
 import getopt
@@ -67,7 +53,9 @@ import cereconf
 import Cerebrum
 from Cerebrum import Database
 from Cerebrum.Utils import Factory
+from Cerebrum.Utils import AtomicFileWriter
 from Cerebrum.extlib import xmlprinter
+from Cerebrum.extlib.sets import Set
 
 from Cerebrum.modules.no import Stedkode
 from Cerebrum.modules.no import fodselsnr
@@ -78,352 +66,6 @@ if sys.version >= (2, 3):
 else:
     from Cerebrum.extlib import logging
 # fi
-
-
-
-
-
-class LTPersonRepresentation(object):
-    """
-    This class is a handy abstraction toward the information emcompassed by
-    the <person> elements.
-
-    There are not that many elements that are of interest to us:
-
-    <person> -- a new person
-    <tils>   -- hiring information
-    <gjest>  -- guest information
-    <res>    -- reservation information
-
-    The relevant spec from the dtd is:
-
-    <!ELEMENT person (arbtlf? | komm* | rolle* | tils* | res* | bilag* | gjest*)>
-    <!ATTLIST person
-              navn CDATA #REQUIRED
-              fodtdag CDATA #REQUIRED
-              fodtmnd CDATA #REQUIRED
-              fodtar CDATA #REQUIRED
-              personnr CDATA #REQUIRED>
-    <!ELEMENT tils EMPTY>
-    <!ATTLIST tils
-	      fakultetnr_utgift CDATA #REQUIRED
-              instituttnr_utgift CDATA #REQUIRED
-	      gruppenr_utgift CDATA #REQUIRED
-	      stillingkodenr_beregnet_sist CDATA #REQUIRED
-	      prosent_tilsetting CDATA #REQUIRED
-	      dato_fra CDATA #REQUIRED
-	      dato_til CDATA #REQUIRED
-	      hovedkat (VIT | ØVR) #REQUIRED
-	      tittel CDATA #REQUIRED>
-    <!ELEMENT gjest EMPTY>
-    <!ATTLIST gjest
-              fakultetnr CDATA #REQUIRED
-              instituttnr CDATA #REQUIRED
-              gruppenr CDATA #REQUIRED
-              gjestetypekode CDATA #REQUIRED
-              dato_fra CDATA #REQUIRED
-              dato_til CDATA #REQUIRED>
-    <!ELEMENT res EMPTY>
-    <!ATTLIST res
-              katalogkode (ADRTLF | ELKAT) #REQUIRED
-              felttypekode CDATA #REQUIRED>
-
-    NB! Not all attributes/elements are shown, only those that are of
-    interest to FRIDA.
-    """
-
-
-    # These are names of the XML-elements of interest to FRIDA export
-    PERSON_ELEMENT = "person"
-    INTERESTING_ELEMENTS = ["tils", "gjest", "res"]
-
-
-
-    def __init__(self, attributes):
-        """
-        This constructor reports back whether initialization succeeded
-        (True/False). Objects which lack critical attributes are useless in
-        FRIDA export.
-
-        If the initialization fails, no guarantees about the instance's
-        state/attributes are made.
-        """
-
-        self.elements = {}
-
-        # Interesting elements have repetitions. Thus a hash of lists
-        for element in self.INTERESTING_ELEMENTS:
-            self.elements[element] = []
-        # od
-
-        # We need an ID to tie a person to the database identification Let's
-        # use fnr, although it's a bad identification in general, but we do
-        # NOT have any other identifier in person.xml
-        if not (attributes.has_key("fodtdag") and
-                attributes.has_key("fodtmnd") and
-                attributes.has_key("fodtar") and
-                attributes.has_key("personnr")):
-            raise (ValueError,
-                  "Missing critical data for person: " + str(attributes))
-        # fi
-
-        # NB! We 0-fill the 'personnr', as data from LT looks a bit funny
-        # every now and then
-        self.fnr = "%02d%02d%02d%05d" % (int(attributes["fodtdag"]),
-                                         int(attributes["fodtmnd"]),
-                                         int(attributes["fodtar"]),
-                                         int(attributes["personnr"]))
-
-
-        # NB! This code might raise fodselsnr.InvalidFnrError
-        #     We need sanity checking, because LT dumps are suffer from bitrot
-        #     (e.g. Swedish SSNs end up as Norwegian. Gah!)
-        fodselsnr.personnr_ok(self.fnr)
-        
-        self.fnr = self.fnr.encode("latin1")
-        # we do not really need a name (it is in cerebrum), but it might
-        # come in handy during debugging stages
-        self.name = attributes["navn"].encode("latin1")
-        logger.debug("extracted new person element from LT (%s, %s)",
-                     self.fnr, self.name)
-    # end
-
-
-
-    def register_element(self, name, attributes):
-        """
-        Each <person> element has a number of interesting child
-        elements. This method is used for 'attaching' them to person objects.
-        """
-        if name not in self.INTERESTING_ELEMENTS:
-            return
-        # fi
-
-        encoded_attributes = {}
-        for key, value in attributes.items():
-            # We have to do this charset conversion. No worries, parsing xml
-            # takes too little time to be of consideration
-            key = key.encode("latin1")
-            value = value.encode("latin1")
-            encoded_attributes[key] = value
-        # od
-
-        self.elements[name].append(encoded_attributes)
-    # end registerElement
-
-
-
-    def get_element(self, name):
-        """
-        Return a sequence of attributes of all NAME elements.
-
-        Each item in this sequence is a dictionary of the element's
-        attributes (key = attribute name, value = attribute value).
-        """
-        return self.elements.get(name, [])
-    # end get_element
-
-
-
-    def set_element(self, name, value):
-        """
-        The opposite of get_element().
-
-        NB! This function will overwrite all previous values under key NAME.
-        """
-
-        self.elements[name] = value
-    # end set_element
-
-
-
-    def is_frida(self):
-        """
-        A person is interesting for FRIDA if he has an active <tils> or
-        <gjest> element.
-
-        An element is active if it has dato_fra in the past and dato_til in
-        the future (or right *now*).
-        """
-
-        return (self.has_active("gjest") or
-                self.has_active("tils"))
-    # end is_frida
-
-
-
-    def is_employee(self):
-        """
-        A person is an employee if he has an active <tils> element
-        """
-
-        return self.has_active("tils")
-    # end is_employee
-
-
-
-    def has_active(self, element):
-        """
-        Determine whether SELF has an ELEMENT entry with suitable dates.
-        """
-
-        for attributes in self.elements.get(element, []):
-            start = attributes.get("dato_fra", None)
-            end = attributes.get("dato_til", None)
-
-            now = time.strftime("%Y%m%d")
-
-            # That's the beauty of ISO8601 -- date comparisons work right
-            if (start and end and
-                start < now <= end):
-                return True
-            # fi
-        # od
-
-        return False
-    # end has_active
-
-
-
-    def has_reservation(self, **attributes):
-        """
-        Check whether <person> represented by SELF contains at least one
-        <res> element with specified ATTRIBUTES.
-        """
-
-        items = attributes.items()
-
-        for res in self.elements.get("res", []):
-            hit = True
-            for attribute, value in items:
-                if not res.has_key(attribute) or res[attribute] != value:
-                    hit = False
-                    break 
-                # fi
-            # od
-
-            if hit: return True
-        # od
-
-        return False
-    # end has_resevation
-
-
-
-    def __str__(self):
-        """
-        This function is mainly for debug purposes
-        """
-        output = ("<%s %s %s [" %
-                  (type(self).__name__,
-                   getattr(self, "fnr", "N/A"),
-                   getattr(self, "name", "N/A")))
-
-        if self.is_frida(): output += " F"
-
-        if self.is_employee(): output += " E"
-
-        output += " ]>"
-        return output
-    # end debug_output
-    
-# end LTPersonRepresentation
-
-
-
-
-
-class LTPersonParser(xml.sax.ContentHandler, object):
-    '''
-    This class is used to extract <person> elements (defined by
-    lt-person.dtd) from the LT dumps.
-
-    *Only* information of interest to the FRIDA project is extracted.
-
-    The interesting elements look like this:
-
-    <person fornavn="Kristi" etternavn="Agerup" navn="Agerup Kristi"
-            adrtypekode_privatadresse="EKST"
-            adresselinje1_privatadresse="Helene Sembs vei 19"
-            poststednr_privatadresse="3610"
-            poststednavn_privatadresse="KONGSBERG"
-            telefonnr_privattelefon="32720909" fakultetnr_for_lonnsslip="18"
-            instituttnr_for_lonnsslip="4" gruppenr_for_lonnsslip="0"
-            fodtdag="27" personnr="48259" fodtmnd="6" fodtar="56">
-      <tils fakultetnr_utgift="18" instituttnr_utgift="4" gruppenr_utgift="0"
-            stillingkodenr_beregnet_sist="1017" prosent_tilsetting="80.0"
-            dato_fra="20021201" dato_til="20031031"
-            hovedkat="VIT"
-            tittel="stipendiat"/>
-      <gjest fakultetnr="15" instituttnr="4" gruppenr="30"
-             gjestetypekode="IKKE ANGIT"
-             dato_fra="20030901" dato_til="20041231"/>
-      <res katalogkode="ELKAT" felttypekode="PRIVADR"/>
-    </person>
-    '''
-
-    PERSON_ELEMENT = LTPersonRepresentation.PERSON_ELEMENT
-    INTERESTING_ELEMENTS = LTPersonRepresentation.INTERESTING_ELEMENTS
-
-
-
-    def __init__(self, filename, callback_function):
-        super(LTPersonParser, self).__init__()
-
-        # Keep the assosiated file name, just for debugging
-        self.filename = filename
-        # This handler would process person information
-        self.callback = callback_function
-        # We always keep track of the current person that we gather
-        # information on (i.e. current <person> element being parsed)
-        self.current_person = None
-    # end ctor
-
-
-
-    def parse(self):
-        if not hasattr(self, "filename"):
-            fatal("Missing filename. Operation aborted")
-        # fi
-
-        xml.sax.parse(self.filename, self)
-    # end parse
-
-
-
-    def startElement(self, name, attributes):
-        """
-        NB! we only handle elements interesting for the FRIDA output
-
-        Also, if a LTPersonRepresentation object cannot be constructed for
-        some reason, that particular <person>-element from LT dump is
-        discarded.
-        """
-        if name == self.PERSON_ELEMENT:
-            try:
-                self.current_person = None
-                self.current_person = LTPersonRepresentation(attributes)
-            except ValueError, value:
-                logger.error("Failed to construct a person from XML: %s",
-                              value)
-            except fodselsnr.InvalidFnrError, value:
-                logger.error("Failed to construct a person from XML: %s",
-                             value)
-            # yrt
-        elif (name in self.INTERESTING_ELEMENTS and
-              self.current_person):
-            self.current_person.register_element(name, attributes)
-        # fi
-    # end startElement
-
-
-
-    def endElement(self, name):
-        if name == self.PERSON_ELEMENT and self.current_person:
-            self.callback(self.current_person)
-        # fi
-    # end endElement
-# end class LTPersonParser
 
 
 
@@ -568,7 +210,29 @@ def output_OU_parent(writer, child_ou, parent_stedkode, constants):
 
 
 
-def _find_suitable_OU(stedkode, id, constants):
+ou_parent = dict()
+def find_suitable_OU(stedkode, id, constants):
+    """
+    This is a caching wrapper around __find_suitable_OU
+    """
+    child = int(id)
+
+    if ou_parent.has_key(child):
+        return ou_parent[child]
+    # fi
+
+    parent = __find_suitable_OU(stedkode, child, constants)
+    if parent is not None:
+        parent = int(parent)
+    # fi
+    
+    ou_parent[child] = parent
+    return parent
+# end find_suitable_OU
+
+
+
+def __find_suitable_OU(stedkode, id, constants):
     """
     Return ou_id for an OU x that:
 
@@ -595,7 +259,7 @@ def _find_suitable_OU(stedkode, id, constants):
                  
         if (parent_id is not None and 
             parent_id != stedkode.entity_id):
-            return _find_suitable_OU(stedkode, parent_id, constants)
+            return __find_suitable_OU(stedkode, parent_id, constants)
         # fi
     except Cerebrum.Errors.NotFoundError, value:
         logger.error("AIEE! Looking up an OU failed: %s", value)
@@ -603,13 +267,11 @@ def _find_suitable_OU(stedkode, id, constants):
     # yrt
 
     return None
-# end _find_suitable_OU
+# end __find_suitable_OU
 
 
-from Cerebrum.extlib.sets import Set
+
 _ou_cache = Set()
-
-
 def output_OU(writer, start_id, db_ou, stedkode, parent_stedkode, constants):
     """
     Output all information pertinent to a specific OU
@@ -624,7 +286,7 @@ def output_OU(writer, start_id, db_ou, stedkode, parent_stedkode, constants):
                           Addressline, Telephon*, Fax*, URL*)>
     """
 
-    id = _find_suitable_OU(stedkode, start_id, constants)
+    id = find_suitable_OU(stedkode, start_id, constants)
     if id is None:
         logger.warn("No suitable ids for (start) id = %s", start_id)
         return
@@ -736,110 +398,21 @@ def output_OUs(writer, db):
 
 
 
-def get_reservation(pobj):
-    '''
-    Returns the reservation status ( YES | NO ) for a person represented by
-    POBJ.
-
-    The rules are a bit involved. The decision is based on various <res
-    katalogkode="..." felttypekode="..." resnivakode="..."> elements.
-
-    The starting point is that all employees (tilsatte) have no reservations
-    and all guests (gjester) do.  Further refinements of this simple rule
-    are:
-
-    There is only one katalogkode that is of interest -- ELKAT.
-
-    The only guests not reserved are those having
-    <res katalogkode="ELKAT" felttype="gjesteoppl" resnivakode="samtykke">
-
-    For the employees, these are reserved:
-
-    felttype    resniva
-    BESØKSADR - ??      => reserved
-    BRNAVN -    ??      => reserved
-    EMAIL -     ??      => reserved
-    JOBBADR -   ??      => reserved
-    JOBBFAX -   TOTAL   => reserved
-    JOBBTLF -   TOTAL   => reserved
-    TOTAL   -   ??      => reserved
-
-    ?? means "do not care"
-
-    The old rules were:
-    If P is an employee, then			      
-      If P has <res katalogkode = "ELKAT"> too then	      
-        Reservation = "yes"				      
-      Else						      
-        Reservation = "no"				      
-    Else 						      
-      If P has <res katalogkode="ELKAT" 		      
-                    felttypekode="GJESTEOPPL"> then	      
-        Reservation = "no"				      
-      Else						      
-        Reservation = "yes"				      
-    Fi                                                  
-    '''
-    reserved = "yes"
-    not_reserved = "no"
-
-    if pobj.is_employee():
-        # None means "don't care"
-        for felttypekode, resnivakode in [ ("BESØKSADR", None),
-                                           ("BRNAVN", None),
-                                           ("EMAIL", None),
-                                           ("JOBBADR", None),
-                                           ("JOBBFAX", "TOTAL"),
-                                           ("JOBBTLF", "TOTAL"),
-                                           ("TOTAL", None) ]:
-            tmp = { "felttypekode" : felttypekode,
-                    "katalogkode" : "ELKAT" }
-            if resnivakode: tmp[ "resnivakode" ] = resnivakode
-
-            if pobj.has_reservation(**tmp):
-                logger.info("%s has reservation; criteria: %s %s",
-                            pobj.fnr, str(felttypekode), str(resnivakode))
-                return reserved
-            # fi
-        # od
-
-        # None of the reservation were present. This means that the person
-        # is up for grabs
-        return not_reserved
-    else:
-        # guests are different
-        if pobj.has_reservation(katalogkode="ELKAT",
-                                felttypekode="GJESTEOPPL",
-                                resnivakode="SAMTYKKE"):
-            return not_reserved
-        else:
-            return reserved
-        # fi
-    # fi
-# end get_reservation
-
-
-
-def construct_person_attributes(writer, pobj, db_person, constants, stedkode):
+def construct_person_attributes(writer, db_person, constants):
     """
     Construct a dictionary containing all attributes for the FRIDA <person>
-    element represented by pobj.
+    element represented by DB_PERSON.
 
-    Furthermore, we convert OU information in POBJ 'tils' and 'gjest' to OUs
-    that are guaranteed to have katalog_merke (this is similar to what
-    output_OU does).
-
-    This function assumes that db_person is already associated to the
+    This function assumes that DB_PERSON is already associated to the
     appropriate database row(s) (via a suitable find*-call).
 
-    This function returns True, if POBJ has at least one suitable
-    gjest/tilsetting, and False otherwise.
+    This function returns a dictionary with all attributes to be output in
+    the xml file.
     """
 
     attributes = {}
+
     # This *cannot* fail or return more than one entry
-    # NB! Although pobj.fnr is the same as row.extenal_id below, looking it
-    #     up is an extra check for data validity
     row = db_person.get_external_id(constants.system_lt,
                                     constants.externalid_fodselsnr)[0]
     attributes["NO_SSN"] = str(row.external_id)
@@ -866,121 +439,99 @@ def construct_person_attributes(writer, pobj, db_person, constants, stedkode):
         attributes["Affiliation"] = "Member"
     # fi
 
-    # And now the reservations
-    attributes["Reservation"] = get_reservation(pobj)
 
-    # NB! make sure that this key does not overwrite something useful
-    pobj.set_element("attributes", attributes)
+    result = db_person.get_reservert()
+    if result:
+        # And now the reservations -- there is at most one result
+        attributes["Reservation"] = {"T" : "yes",
+                                     "F" : "no" }[result[0]["reservert"]]
+    else:
+        logger.error("Aiee! Missing reservation information for person_id %s",
+                     db_person.entity_id)
+    # fi
 
-    return _update_attributes(pobj, constants, stedkode)
+    return attributes
 # end construct_person_attributes
 
 
 
-def _update_attributes(pobj, constants, stedkode):
+def process_person_frida_information(db_person, stedkode, constants):
     """
-    This function processes information in <tils> and <gjest> elements
-    represented by POBJ. It ensures that all OUs references in these
-    elements can be published in a catalogue.
+    This function locate all tils/gjest records for DB_PERSON and possibly
+    re-writes them in a suitable fashion.
 
-    Specifically, if there is an OU that does not have katalog_merke = 'T',
-    a suitable parent OU is located in a manner similar to that of
-    output_OU().
+    'Suitable fashion' means that each record output has information on an
+    OU that is 'publishable' (i.e. has katalog_merke = 'T'). A person is
+    output only if (s)he has at least one tils or gjest record with a
+    publisheable OU.
 
-    This function returns True, if there is at least one <tils>/<gjest> with
-    a 'publishable' OU, and False otherwise. A person represented by POBJ
-    will not end up in FRIDA export, if this function returns False.
+    If there is an OU that is not 'publishable', its closest publishable
+    parent is used instead.
 
-    NB! This function operates *destructively* on POBJ.
-    """
-
-    # First, employments -- tilsettinger
-    original_tils = pobj.get_element("tils")
-    new_tils = filter( lambda tilsetting:
-                       _update_stedkode(tilsetting,
-                                        "fakultetnr_utgift",
-                                        "instituttnr_utgift",
-                                        "gruppenr_utgift",
-                                        constants, stedkode),
-                       original_tils )
-    if len(new_tils) != len(original_tils):
-        logger.info("<tils> shrank for %s", pobj.fnr)
-    # fi
-
-    # ... then guests -- gjest
-    original_gjest = pobj.get_element("gjest")
-    new_gjest = filter( lambda gjest:
-                        _update_stedkode(gjest,
-                                         "fakultetnr",
-                                         "instituttnr",
-                                         "gruppenr",
-                                         constants, stedkode),
-                        original_gjest )
-    if len(new_gjest) != len(original_gjest):
-        logger.info("<gjest> shrank for %s", pobj.fnr)
-    # fi
-
-    # Record the updates
-    pobj.set_element("tils", new_tils)
-    pobj.set_element("gjest", new_gjest)
-
-    # If at least one suitable OU exists, the person is "publishable" :)
-    return bool(new_tils or new_gjest)
-# end _update_stedkode
-
-
-
-def _update_stedkode(dictionary, fakultet, institutt, avdeling,
-                     constants, stedkode):
-    """
-    Check whether the OU identified by 
-
-    DICTIONARY[FAKULTET], DICTIONARY[FAKULTET], DICTIONARY[FAKULTET]
-
-    ... is 'publishable', and if it is not, find its parent that is.
-
-    NB! DICTIONARY is processed destructively.
+    This function returns a tuple with two sequences -- one containing all
+    updated employment (tils) records, the other containing all updated
+    guest (gjest) records.
     """
 
-    try:
-        stedkode.clear()
-        stedkode.find_stedkode(dictionary[fakultet],
-                               dictionary[institutt],
-                               dictionary[avdeling],
-                               cereconf.DEFAULT_INSTITUSJONSNR)
-        start_id = stedkode.entity_id
-        # It updates stedkode
-        new_id = _find_suitable_OU(stedkode, start_id, constants)
+    # We are interested only in "active" records 
+    now = time.strftime("%Y%m%d")
+    employments = map(lambda db_row: db_row._dict(),
+                      db_person.get_tilsetting(now))
+    guests = map(lambda db_row: db_row._dict(),
+                 db_person.get_gjest(now))
 
-        if int(start_id) != int(new_id):
-            logger.info("FORCED OU id update: %s -> %s", start_id, new_id)
-        # fi
+    logger.debug("Fetched %d employments and %d guests from db",
+                 len(employments), len(guests))
 
-        if new_id is not None:
-            (dictionary[fakultet], 
-             dictionary[institutt],
-             dictionary[avdeling]) = (stedkode.fakultet,
-                                      stedkode.institutt,
-                                      stedkode.avdeling)
-            return True
-        else:
-            return False
-        # fi
-    except Cerebrum.Errors.NotFoundError:
+    # Force ou_ids to refer to publishable OUs
+    employments = filter(lambda dictionary:
+                         _update_person_ou_information(dictionary,
+                                                       stedkode,
+                                                       constants),
+                         employments)
+
+    # Force ou_ids to refer to publishable OUs
+    guests = filter(lambda dictionary:
+                    _update_person_ou_information(dictionary,
+                                                  stedkode,
+                                                  constants),
+                    guests)
+
+    return (employments, guests)
+# end process_person_frida_information
+
+
+
+def _update_person_ou_information(dictionary, stedkode, constants):
+    """
+    This function forces the OU_ID in DICTIONARY to be the ou_id for a
+    publishable OU, if at all possible.
+
+    It returns True if such an OU can be found, and False otherwise.
+
+    Consult find_suitable_OU.__doc__ for more information.
+    """
+
+    # Stedkode is updated by _find_suitable_OU
+    ou_id = find_suitable_OU(stedkode, dictionary["ou_id"], constants)
+    if ou_id is None:
         return False
-    # yrt
+    # fi
 
-    # NOTREACHED
-    return False
-# end _update_stedkode
-        
+    # Otherwise, register the publishable parent under the key ou_id
+    dictionary["ou_id"] = ou_id
+    dictionary["fakultet"] = stedkode.fakultet
+    dictionary["institutt"] = stedkode.institutt
+    dictionary["avdeling"] = stedkode.avdeling
+    return True
+# end _process_employment
 
 
-def output_employment_information(writer, pobj, stedkode, constants):
+
+def output_employment_information(writer, employment):
     """
-    Output all employment information pertinent to a particular person
-    (POBJ). I.e. convert from <tils>-elements in LT dump to <Tilsetting>
-    elements in FRIDA export. 
+    Output all employment information contained in sequence EMPLOYMENT. Each
+    entry is a dictionary, representing employment information from mod_lt.
 
     Each employment record is written out thus:
 
@@ -989,51 +540,53 @@ def output_employment_information(writer, pobj, stedkode, constants):
                           fraDato, tilDato)>
     <!ATTLIST Tilsetting Affiliation ( Staff | Faculty ) #REQUIRED>
 
-    These elements/attributes are formed from the corresponding entries
-    represented by POBJ.
-
     """
 
     # There can be several <tils> elements for each person
     # Each 'element' below is a dictionary of attributes for that particular
     # <tils>
-    for element in pobj.get_element("tils"):
-
-        if element["hovedkat"] == "VIT":
-            attributes = {"Affiliation": "Faculty"}
-        elif element["hovedkat"] == "ØVR":
-            attributes = {"Affiliation": "Staff"}
-        else:
-            logger.error("Aiee! %s has no suitable employment affiliation %s",
-                         pobj.fnr, str(element))
+    for element in employment:
+        if element["hovedkategori"] is None:
+            logger.error("Aiee! %s has no suitable employment affiliation (%s)",
+                         employment["person_id"])
             continue
+        else:
+            affiliation = { "VIT" : "Faculty",
+                            "ØVR" : "Staff" }[element["hovedkategori"]]
+            attributes = {"Affiliation" : affiliation}
         # fi
 
         writer.startElement("Tilsetting", attributes)
-        for output, index in [("Stillingskode", "stillingkodenr_beregnet_sist"),
+        for output, index in [("Stillingskode", "stillingkode"),
                               ("StillingsTitle", "tittel"),
-                              ("Stillingsandel", "prosent_tilsetting"),
-                              ("StillingsFak", "fakultetnr_utgift"),
-                              ("StillingsInstitutt", "instituttnr_utgift"),
-                              ("StillingsGruppe", "gruppenr_utgift"),
-                              ("fraDato", "dato_fra"),
-                              ("tilDato", "dato_til"),
+                              ("Stillingsandel", "andel"),
+                              ("StillingsFak", "fakultet"),
+                              ("StillingsInstitutt", "institutt"),
+                              ("StillingsGruppe", "avdeling"),
                               ]:
             if element.has_key(index):
                 output_element(writer, element[index], output)
             # fi
         # od
+        
+        for output, index in [("fraDato", "dato_fra"),
+                              ("tilDato", "dato_til")]:
+            if element.has_key(index):
+                output_element(writer, element[index].strftime("%Y%m%d"),
+                               output)
+            # fi
+        # od
+        
         writer.endElement("Tilsetting")
     # od
 # end output_employment_information
 
 
 
-def output_guest_information(writer, pobj, stedkode, constants):
+def output_guest_information(writer, guest, constants):
     """
-    Output all guest information pertinent to a particular person (POBJ).
-    I.e. convert from <gjest>-elements in LT dump to <Gjest> elements in
-    FRIDA export.
+    Output all guest information contained in sequence GUEST. Each entry in
+    GUEST is a dictionary representing guest information from mod_lt.
 
     Each guest record is written out thus:
     
@@ -1042,24 +595,30 @@ def output_guest_information(writer, pobj, stedkode, constants):
                      ( Emeritus | Stipendiat | unknown ) #REQUIRED>
     """
 
-    for element in pobj.get_element("gjest"):
-
+    for element in guest:
         attributes = {"Affiliation": "unknown"}
-        if element["gjestetypekode"] == "EMERITUS":
+
+        if int(element["gjestetypekode"]) == int(constants.lt_gjestetypekode_emeritus):
             attributes = {"Affiliation": "Emeritus"}
-        elif element["gjestetypekode"] == "EF-STIP":
+        elif int(element["gjestetypekode"]) == int(constants.lt_gjestetypekode_ef_stip):
             attributes = {"Affiliation": "Stipendiat"}
         # fi
 
         writer.startElement("Gjest", attributes)
-        for output, index in [("guestFak", "fakultetnr"),
-                              ("guestInstitutt", "instituttnr"),
-                              ("guestGroup", "gruppenr"),
-                              ("fraDato", "dato_fra"),
-                              ("tilDato", "dato_til"),
+        for output, index in [("guestFak", "fakultet"),
+                              ("guestInstitutt", "institutt"),
+                              ("guestGroup", "avdeling"),
                               ]:
             if element.has_key(index):
                 output_element(writer, element[index], output)
+            # fi
+        # od
+
+        for output, index in [("fraDato", "dato_fra"),
+                              ("tilDato", "dato_til")]:
+            if element.has_key(index):
+                output_element(writer, element[index].strftime("%Y%m%d"),
+                               output)
             # fi
         # od
         writer.endElement("Gjest")
@@ -1068,9 +627,10 @@ def output_guest_information(writer, pobj, stedkode, constants):
 
 
 
-def output_person(writer, pobj, db_person, db_account, constants, stedkode):
+def output_person(writer, person_id, db_person, db_account,
+                  constants, stedkode):
     """
-    Output all information pertinent to a particular person (POBJ).
+    Output all information pertinent to a particular person (PERSON_ID)
 
     Each <Person> is described thus:
 
@@ -1084,37 +644,31 @@ def output_person(writer, pobj, db_person, db_account, constants, stedkode):
 
     """
 
-    # Ignore 'uninteresting' people
-    if not pobj.is_frida(): return
-
-    db_person.clear()
+    # load all interesting information about this person
     try:
-        # NB! There can be *only one* FNR per person in LT (PK in
-        # the person_external_id table)
-        db_person.find_by_external_id(constants.externalid_fodselsnr,
-                                      pobj.fnr,
-                                      constants.system_lt)
+        db_person.clear()
+        db_person.find(person_id)
     except Cerebrum.Errors.NotFoundError:
-        # This should *not* be possible -- everyone in the LT dump should
-        # also be registered in the database (after a while, at least)
-        logger.error("Aiee! No person with NO_SSN (fnr) = %s found " +
-                     "although this NO_SSN exists in the LT dump",
-                     pobj.fnr)
-        return 
+        logger.error("Aiee! person_id %s spontaneously disappeared", person_id)
+        return
     # yrt
 
-    employment_status = construct_person_attributes(writer,
-                                                    pobj,
-                                                    db_person,
-                                                    constants,
-                                                    stedkode)
-    if not employment_status:
-        logger.error("Aiee! Person %s (%s) has no suitable <tils>/<gjest>",
-                     pobj.fnr, db_person.entity_id)
+    employment, guest = process_person_frida_information(db_person,
+                                                         stedkode,
+                                                         constants)
+    logger.debug("There are %d employments and %d guest rows for %s",
+                 len(employment), len(guest), db_person.entity_id)
+    
+    if (not employment and not guest):
+        logger.info("person_id %s has no suitable tils/gjest records",
+                    person_id)
         return
     # fi
-        
-    writer.startElement("Person", pobj.get_element("attributes"))
+
+    attributes = construct_person_attributes(writer, db_person, constants)
+
+    writer.startElement("Person", attributes)
+
     # surname
     output_element(writer,
                    db_person.get_name(constants.system_lt,
@@ -1131,7 +685,7 @@ def output_person(writer, pobj, db_person, db_account, constants, stedkode):
     # uname && email for the *primary* account.
     primary_account = db_person.get_primary_account()
     if primary_account is None:
-        logger.info("Person %s has no accounts", pobj.fnr)
+        logger.info("person_id %s has no accounts", db_person.entity_id)
     else:
         db_account.clear()
         db_account.find(primary_account)
@@ -1142,6 +696,8 @@ def output_person(writer, pobj, db_person, db_account, constants, stedkode):
             primary_email = db_account.get_primary_mailaddress()
             output_element(writer, primary_email, "emailAddress")
         except Cerebrum.Errors.NotFoundError:
+            logger.info("person_id %s has no primary e-mail address",
+                        db_person.entity_id)
             pass
         # yrt
     # fi
@@ -1155,66 +711,54 @@ def output_person(writer, pobj, db_person, db_account, constants, stedkode):
         output_element(writer, contact[0].contact_value, "Telephone")
     # od
 
-    output_employment_information(writer, pobj, stedkode, constants)
+    output_employment_information(writer, employment)
 
-    output_guest_information(writer, pobj, stedkode, constants)
+    output_guest_information(writer, guest, constants)
     
     writer.endElement("Person")
-# end 
+# end output_person
 
 
 
-def output_people(writer, db, person_file):
+def output_people(writer, db):
     """
     Output information about all interesting people.
 
-    LTPersonRepresentation.is_frida describes what kind of people are
-    'interesting' in FRIDA context.
+    A person is interesting for FRIDA, if it has active employments
+    (tilsetting) or active guest records (gjest). A record is considered
+    active, if it has a start date in the past (compared to the moment when
+    the script is run) and the end date is either unknown or in the future.
     """
+
     db_person = Factory.get("Person")(db)
     constants = Factory.get("Constants")(db)
     db_account = Factory.get("Account")(db)
     stedkode = Stedkode.Stedkode(db)    
 
-    #
-    # Sanity-checking
-    # 
-    for c in ["system_lt", "affiliation_ansatt",
-              "affiliation_status_ansatt_tekadm",
-              "affiliation_status_ansatt_vit", "externalid_fodselsnr",
-              "name_last", "name_first", "contact_phone"]:
-        logger.debug("%s -> %s (%d)",
-                     c, getattr(constants,c), getattr(constants,c))
+    writer.startElement("NorPersons")
+    for id in db_person.list_frida_persons():
+        output_person(writer, id["person_id"],
+                      db_person,
+                      db_account,
+                      constants,
+                      stedkode)
     # od
-
-    parser = LTPersonParser(person_file,
-                            lambda p: output_person(writer = writer,
-                                                    pobj = p,
-                                                    db_person = db_person,
-                                                    db_account = db_account,
-                                                    constants = constants,
-                                                    stedkode = stedkode))
-    parser.parse()
+    writer.endElement("NorPersons")
 # end output_people    
 
 
 
-def output_xml(output_file,
-               data_source,
-               target,
-               person_file):
+def output_xml(output_file, data_source, target):
     """
     Initialize all connections and start generating the xml output.
 
     OUTPUT_FILE names the xml output.
 
     DATA_SOURCE and TARGET are elements in the xml output.
-
-    PERSON_FILE is the name of the person LT dump (used as input).
     """
 
     # Nuke the old copy
-    output_stream = open(output_file, "w")
+    output_stream = AtomicFileWriter(output_file, "w")
     writer = xmlprinter.xmlprinter(output_stream,
                                    indent_level = 2,
                                    # Output is for humans too
@@ -1247,13 +791,11 @@ def output_xml(output_file,
     writer.endElement("NorOrgUnits")
 
     # Dump all people
-    writer.startElement("NorPersons")
-    output_people(writer, db, person_file)
-    writer.endElement("NorPersons")
+    output_people(writer, db)
     
     writer.endDocument()
     output_stream.close()
-# end 
+# end output_xml
 
 
 
@@ -1265,8 +807,6 @@ def usage():
     options = '''
 options: 
 -o, --output-file: output file (default ./frida.xml)
--p, --person-file: person input file (default ./person.xml)
--s, --sted-file:   sted input file (default ./sted.xml)
 -v, --verbose:     output more debugging information
 -d, --data-source: source that generates frida.xml (default"Cerebrum@uio.no")
 -t, --target:      what (whom :)) the dump is meant for (default "FRIDA")
@@ -1292,12 +832,11 @@ def main(argv):
     
     try:
         options, rest = getopt.getopt(argv,
-                                      "o:p:vd:t:h", ["output-file=",
-                                                     "person-file=",
-                                                     "verbose",
-                                                     "data-source=",
-                                                     "target",
-                                                     "help",])
+                                      "o:vd:t:h", ["output-file=",
+                                                   "verbose",
+                                                   "data-source=",
+                                                   "target",
+                                                   "help",])
     except getopt.GetoptError:
         usage()
         sys.exit(1)
@@ -1305,7 +844,6 @@ def main(argv):
 
     # Default values
     output_file = "frida.xml"
-    person_file = "person.xml"
     # FIXME: Maybe snatch these from cereconf?
     data_source = "Cerebrum@uio.no"
     target = "FRIDA"
@@ -1314,8 +852,6 @@ def main(argv):
     for option, value in options:
         if option in ("-o", "--output-file"):
             output_file = value
-        elif option in ("-p", "--person-file"):
-            person_file = value
         elif option in ("-v", "--verbose"):
             logger.setLevel(logging.DEBUG)
         elif option in ("-d", "--data-source"):
@@ -1330,8 +866,7 @@ def main(argv):
 
     output_xml(output_file = output_file,
                data_source = data_source,
-               target = target,
-               person_file = person_file)
+               target = target)
 # end main
 
 
