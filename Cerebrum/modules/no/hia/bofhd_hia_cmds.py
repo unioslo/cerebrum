@@ -2745,7 +2745,7 @@ class BofhdExtension(object):
         th = TemplateHandler(tpl_lang, tpl_name, tpl_type)
         tmp_dir = Utils.make_temp_dir(dir=cereconf.JOB_RUNNER_LOG_DIR,
                                       prefix="bofh_spool")
-	out_name = "%s/%s-%s.%s" % (tmp_dir, opr, time_temp, tpl_type)
+	out_name = "%s/%s-%s-%s.%s" % (tmp_dir, opr, time_temp, os.getpid(), tpl_type)
         out = file(out_name, "w")
         if th._hdr is not None:
             out.write(th._hdr)
