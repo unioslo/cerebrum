@@ -44,6 +44,7 @@ class Config(object):
         self.group_defs = {}
         self.default_values = {}
         self.profiles = []
+        self.profilename2profile = {}
         self.required_spread_order = []
         self.lookup_helper = LookupHelper(autostud.db, logger, autostud.ou_perspective)
         self.using_disk_kvote = False
@@ -75,17 +76,16 @@ class Config(object):
             if profilename2profile.has_key(p.name):
                 self.add_error("Duplicate profile-name %s" % p.name)
             profilename2profile[p.name] = p
-            p.expand_profile_settings()
-            p.convertToDatabaseRefs(self.lookup_helper, self)
+            p.post_config(self.lookup_helper, self)
             if p.priority is not None:
                 self.using_priority=True
+            self.profilename2profile[p.name] = p
         for p in self.profiles:
             p.expand_super(profilename2profile)
-            p.settings["spread"] = self._sort_spreads(p.settings["spread"])
             if self.using_priority and p.priority is None:
                 self.add_error("Priority used, but not defined for %s" % \
                                p.name)
-
+            
         self.select_tool = SelectTool(self.profiles, self._logger, self)
         # Change keys in group_defs from name to entity_id
         pg = PosixGroup.PosixGroup(self.autostud.db)
@@ -118,15 +118,6 @@ class Config(object):
         ret += pp.pformat(self.disk_pools)
         return ret
 
-    def _sort_spreads(self, spreads):
-        """On some sites certain spreads requires other spreads, thus
-        we must sort them """
-        ret = []
-        for s in self.required_spread_order:
-            if s in spreads:
-                ret.append(s)
-        return ret
-
     def add_error(self, msg):
         self._errors.append(msg)
 
@@ -138,29 +129,44 @@ class ProfileDefinition(object):
         self.name = name
         self.super = super
         self._logger = logger
-        self.settings = {}
+        self._settings = {}
         self.selection_criterias = {}
         self.priority = None
+        self.super_names = []
 
     def __repr__(self):
         return "Profile object(%s)" % self.name
 
-    def expand_profile_settings(self):
-        pass
-    
+    def post_config(self, lookup_helper, config):
+        self._convertToDatabaseRefs(lookup_helper, config)
+
+        # Initially _settings directly contains the actual settings.
+        # After we have finished, we expand this so that it contains
+        # setting, <name of profile that gave the setting>.  This
+        # allows us to detect if the setting originated from the
+        # current profile, or if it originated from a super.
+        
+        for k, v in self._settings.items():
+            self._settings[k] = [(x, self.name) for x in v]
+
     def expand_super(self, name2profile):
         """Recursively add all settings from parent profiles so that
         we can remove the reference to super."""
+
         if self.super is not None:
             if not name2profile.has_key(self.super):
                 self.config.add_error("Illegal super '%s' for '%s'" % (
                     self.super, self.name))
             tmp_super = name2profile[self.super]
             tmp_super.expand_super(name2profile)
-            for k in tmp_super.settings.keys():
-                if k == 'disk' and self.settings.has_key(k):
+            self.super_names = [tmp_super.name] + tmp_super.super_names
+
+            for k in tmp_super._settings.keys():
+                if k == 'disk' and self._settings.has_key(k):
                     break  # We're not interested in disks from super
-                self.settings.setdefault(k, []).extend(tmp_super.settings[k])
+                self._settings.setdefault(k, []).extend(
+                    tmp_super._settings[k])
+
             if self.priority is None and tmp_super.priority is not None:
                 self.priority = tmp_super.priority
             if self.priority != tmp_super.priority:
@@ -168,6 +174,17 @@ class ProfileDefinition(object):
                     self.name, tmp_super.name, self.priority,
                     tmp_super.priority))
             self.super = None
+            self._settings["spread"] = self._sort_spreads(self._settings["spread"])
+
+    def _sort_spreads(self, spreads):
+        """On some sites certain spreads requires other spreads, thus
+        we must sort them """
+        ret = []
+        for s in self.config.required_spread_order:
+            for tmp_s, tmp_p in spreads:
+                if s == tmp_s:
+                    ret.append((s, tmp_p))
+        return ret
 
     def _get_steder(self, institusjon, stedkode, scope):
         ret = []
@@ -180,22 +197,25 @@ class ProfileDefinition(object):
 
     def add_setting(self, name, attribs):
         if name == "gruppe" and attribs.get("type", None) == "primary":
-            self.settings.setdefault("primarygroup", []).append(attribs)
-        self.settings.setdefault(name, []).append(attribs)
+            self._settings.setdefault("primarygroup", []).append(attribs)
+        self._settings.setdefault(name, []).append(attribs)
+
+    def get_settings(self, k):
+        return self._settings.get(k, [])
 
     def add_selection_criteria(self, name, attribs):
         self.selection_criterias.setdefault(name, []).append(attribs)
 
     def debug_dump(self):
-        return "Profile name: '%s', p=%s, settings:\n%s" % (
-            self.name, self.priority, pp.pformat(self.settings))
+        return "Profile name: '%s', p=%s, supers=%s, settings:\n%s" % (
+            self.name, self.priority, self.super_names, pp.pformat(self._settings))
 
     #
     # methods for converting the XML entries to values from the database
     #
 
     def _convert_disk_settings(self, config):
-        """Update self.settings["disk"] so that it looks like:
+        """Update self._settings["disk"] so that it looks like:
         [{spread1: {Either:  'path': int(disk_id),
                     Or:      'prefix': 'prefix'
                     Or:      'pool': 'pool'}},
@@ -227,7 +247,7 @@ class ProfileDefinition(object):
                     self.config.add_error("bad disk: %s" % disk)
             return ret
 
-        for d in self.settings.get("disk", []):
+        for d in self._settings.get("disk", []):
             if d.has_key('pool'):
                 tmp_spreads = []
                 for d2 in config.disk_pools[d['pool']]:
@@ -239,7 +259,7 @@ class ProfileDefinition(object):
             return
 
         tmp = {}
-        for disk in self.settings.get("disk", []):
+        for disk in self._settings.get("disk", []):
             # We're only interested in the first disk for each single
             # spread.  This allows a sub-profile to override the home
             # in its super without interpreting the target as a 'div
@@ -253,44 +273,44 @@ class ProfileDefinition(object):
         if not tmp:
             tmp = []
         else:
-            self.settings["disk"] = [tmp]
+            self._settings["disk"] = [tmp]
 
-    def convertToDatabaseRefs(self, lookup_helper, config):
+    def _convertToDatabaseRefs(self, lookup_helper, config):
         """Convert references in profil-settings to database values
         where apropriate"""
-        for p in self.settings.get("priority", []):
+        for p in self._settings.get("priority", []):
             if self.priority is not None and self.priority != int(p['level']):
                 self.config.add_error(
                     "Conflicting priorities in %s" % self.name)
             self.priority = int(p['level'])
         if self.priority is not None:
-            del(self.settings['priority'])
+            del(self._settings['priority'])
         tmp = []
-        for spread in self.settings.get("spread", []):
+        for spread in self._settings.get("spread", []):
             tmp.append(lookup_helper.get_spread(spread['system']))
-        self.settings["spread"] = tmp
+        self._settings["spread"] = tmp
         tmp = []
-        for group in self.settings.get("gruppe", []):
+        for group in self._settings.get("gruppe", []):
             # TODO: Should assert that entry is in group_defs
             tmp.append(lookup_helper.get_group(group['navn']))
-        self.settings["gruppe"] = tmp  
+        self._settings["gruppe"] = tmp  
         tmp = []
-        for group in self.settings.get("primarygroup", []):
+        for group in self._settings.get("primarygroup", []):
             tmp.append(lookup_helper.get_group(group['navn']))
-        self.settings["primarygroup"] = tmp  
+        self._settings["primarygroup"] = tmp  
         tmp = []
-        for stedkode in self.settings.get("stedkode", []):
+        for stedkode in self._settings.get("stedkode", []):
             tmp2 = lookup_helper.get_stedkode(stedkode['verdi'],
                                               stedkode['institusjon'])
             if tmp2 is not None:
                 tmp.append(tmp2)
-        self.settings["stedkode"] = tmp
+        self._settings["stedkode"] = tmp
         tmp = []
-        for q in self.settings.get("quarantine", []):
+        for q in self._settings.get("quarantine", []):
             tmp.append({'quarantine': config.autostud.co.Quarantine(q['navn']),
                         'start_at': int(q.get('start_at', 0)) * 3600 * 24,
                         'scope': q.get('scope', None)})
-        self.settings["quarantine"] = tmp  
+        self._settings["quarantine"] = tmp  
 
         self._convert_disk_settings(config)
 

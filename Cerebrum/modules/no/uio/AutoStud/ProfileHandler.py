@@ -20,6 +20,7 @@
 
 import pprint
 
+import cereconf
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum import Disk
 from Cerebrum.modules.no.uio.AutoStud.ProfileConfig import StudconfigParser
@@ -62,6 +63,87 @@ class Profile(object):
             for spread in disk.keys():
                 tmp[int(spread)] = 1
         return tmp.keys()
+
+    # remove any disks where its matching profile is the child of
+    # another profile that has a matching disk
+    def _check_elimination(self, candidate, original):
+        """Check if candidate can be completly eliminated by
+        looking in the profiles in original and their parents.
+        Will remove the entries in 'candidate' that matches.
+        """
+        self._logger.debug2("_check_elimination: %s, %s" % (candidate, original))
+        
+        n = len(candidate) - 1
+        while n >= 0:
+            for o in original:
+                self._logger.debug2("supr-check: %s in %s" % (
+                    candidate[n], self.pc.profilename2profile[o].super_names))
+                if (candidate[n] == o or
+                    candidate[n] in self.pc.profilename2profile[o].super_names):
+                    del(candidate[n])
+                    break
+            n -= 1
+        if candidate:
+            return False
+        return True
+
+    def _solve_disk_match(self, disk_spread):
+        potential_disks = []
+        tmp_nivaakode = None
+
+        # Determine all disks at the highest nivaakode, and make a list
+        # with (setting, [all profilenames with this setting])
+        for d, n, profile_names in self.matcher.get_raw_match('disk'):
+            if disk_spread not in d.keys():
+                continue            # Incorrect spread for this disk
+            if not tmp_nivaakode:
+                tmp_nivaakode = n
+            if n != tmp_nivaakode:  # This disk is at a lower nivåkode
+                break
+            appended = False
+            for tmp_d, tmp_pnames in potential_disks:
+                if tmp_d == d[disk_spread]:
+                    tmp_pnames.extend(profile_names)
+                    appended = True
+                    break
+            if not appended:
+                potential_disks.append((d[disk_spread], profile_names))
+        if not potential_disks:
+            raise NoAvailableDisk, "No disk matches profiles"
+        self._logger.debug2("Resolve %s" % potential_disks)
+
+        # Iterate over all potential disks
+        i1 = len(potential_disks) - 1
+        while i1 >= 0:
+            original = potential_disks[i1]
+            i2 = len(potential_disks) - 1
+            did_del = False
+            # Then call check_elimination for all the other disks, and
+            # remove those that may be omitted.  Everytime we remove
+            # something, we restart the outer loop
+            
+            while i2 >= 0:
+                if i1 != i2:
+                    self._logger.debug2("i1 = %i, i2 = %i" % (i1, i2))
+                    candidate = potential_disks[i2]
+                    if self._check_elimination(candidate[1], original[1]):
+                        did_del = True
+                        del(potential_disks[i2])
+                i2 -= 1
+            i1 -= 1
+            if did_del:
+                i1 = len(potential_disks) - 1
+        if len(potential_disks) > 1:
+            if tmp_nivaakode < 300:
+                # TODO: These cereconf variables should actually be
+                # read from the xml file
+                new_disk = cereconf.AUTOADMIN_DIV_LGRAD_DISK
+            else:
+                new_disk = cereconf.AUTOADMIN_DIV_HGRAD_DISK
+        else:
+            new_disk = potential_disks[0][0]
+        self._logger.debug2("Result: %s" % repr(new_disk))
+        return new_disk
     
     def get_disk(self, disk_spread, current_disk=None):
         """Return a disk_id matching the current profile.  If the
@@ -75,22 +157,8 @@ class Profile(object):
 
         # Detect conflicting disks at same 'nivåkode'
         disk_spread = int(disk_spread)
-        new_disk, tmp_nivaakode = None, None
-        for d, n in self.matcher.get_raw_match('disk'):
-            if disk_spread not in d.keys():
-                continue            # Incorrect spread for this disk
-            if not new_disk:
-                new_disk, tmp_nivaakode = d[disk_spread], n
-            if n != tmp_nivaakode:  # This disk is at a lower nivåkode
-                break
-            if d[disk_spread] != new_disk:
-                if n < 300:  # TODO: don't hardcode these
-                    new_disk = {'prefix': '/uio/kant/div-l'}
-                else:
-                    new_disk = {'prefix': '/uio/kant/div-h'}
-                break
-        if not new_disk:
-            raise NoAvailableDisk, "No disk matches profiles"
+
+        new_disk = self._solve_disk_match(disk_spread)
 
         # Check if one of the matching disks matches the disk that the
         # user currently is on

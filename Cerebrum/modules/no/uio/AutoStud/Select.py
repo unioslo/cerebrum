@@ -300,11 +300,23 @@ class SelectTool(object):
             return cmp(x[0], y[0])
         return cmp(y[1], x[1])
 
-    def _unique_extend(self, list, values, nivaakode=0):
+    def _unique_extend(self, tgt_list, values, profile_name, nivaakode=0):
+        """Append all v in values to tgt_list iff they are not already
+        there.  We also store the nivakode for the first time the
+        value was seen.  We store the name of all profiles that has
+        this value at this nivåkode
+        """
+        if not isinstance(values, (tuple, list)):
+            values = (values,)
         for item in values:
-            if item not in [x[0] for x in list]:
-                list.append((item, nivaakode))
-
+            if item not in [x[0] for x in tgt_list]:
+                tgt_list.append((item, nivaakode, [profile_name]))
+            else:
+                for tmp_item, tmp_nivaakode, tmp_profiles in tgt_list:
+                    if (tmp_item == item and tmp_nivaakode == nivaakode and
+                        profile_name not in tmp_profiles):
+                        tmp_profiles.append(profile_name)
+                
     def get_person_match(self, person_info, member_groups=None, person_affs=None):
         matches = []
         for mtype, sm in self.select_map_defs.items():
@@ -334,11 +346,11 @@ class SelectTool(object):
         matched_settings = {}
         for match in matches:
             profile, nivaakode = match
-            for k in profile.settings.keys():
-                if not profile.settings[k]:
-                    continue      # This profile had no setting of this type
-                self._unique_extend(matched_settings.setdefault(k, []),
-                                    profile.settings[k], nivaakode=nivaakode)
+            for k in profile._settings.keys():
+                for settings, actual_profile in profile.get_settings(k):
+                    self._unique_extend(matched_settings.setdefault(k, []),
+                                        settings, actual_profile,
+                                        nivaakode=nivaakode)
         return matches, matched_settings
 
 # arch-tag: 9decddaa-4ba4-49f1-b8bc-7dcdd4809b8b
