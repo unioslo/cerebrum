@@ -47,9 +47,8 @@ class StudentInfoParser(xml.sax.ContentHandler):
             self.call_back_function(self.person)
         self.elementstack.pop()
 
-
-class StudieprogDefParser(xml.sax.ContentHandler):
-    """Parses the xml file that containts studieprogram definitions"""
+class GeneralDataParser(xml.sax.ContentHandler, object):
+    """Parses the xml file that contains definitions"""
 
     def startElement(self, name, attrs):
         self.t_data = {}
@@ -57,12 +56,13 @@ class StudieprogDefParser(xml.sax.ContentHandler):
             self.t_data[k.encode('iso8859-1')] = attrs[k.encode('iso8859-1')].encode('iso8859-1')
 
     def endElement(self, name):
-        if name == "studprog":
-            self.studieprogs.append(self.t_data)
+        if name == self.entry_tag:
+            self.data.append(self.t_data)
 
-    def __init__(self, studieprogs_file):
-        self.studieprogs = []
-        xml.sax.parse(studieprogs_file, self)
+    def __init__(self, data_file, entry_tag):
+        self.data = []
+        self.entry_tag = entry_tag
+        xml.sax.parse(data_file, self)
 
     def __iter__(self):
         return self
@@ -71,9 +71,16 @@ class StudieprogDefParser(xml.sax.ContentHandler):
         """Returns a dict with data about all studieprogs for the next person."""
         ret = []
         try:
-            return self.studieprogs.pop(0)
+            return self.data.pop(0)
         except IndexError:
             if len(ret) > 0:
                 return ret
             raise StopIteration, "End of file"
 
+class StudieprogDefParser(GeneralDataParser):
+    def __init__(self, studieprogs_file):
+        super(StudieprogDefParser, self).__init__(studieprogs_file, 'studprog')
+
+class EmneDefParser(GeneralDataParser):
+    def __init__(self, studieprogs_file):
+        super(EmneDefParser, self).__init__(studieprogs_file, 'emne')

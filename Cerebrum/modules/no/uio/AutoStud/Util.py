@@ -70,6 +70,20 @@ class LookupHelper(object):
             self._logger.warn("ukjent sko: %s" % name)
         return self._sko_cache[name]
 
+    def get_all_child_sko(self, sko):
+        ret = []
+        ou = Factory.get('OU')(self._db)
+        ou.find(sko)
+        ret.append("%02i%02i%02i" % (
+            ou.fakultet, ou.institutt, ou.avdeling))
+        for row in ou.list_children(self.const.perspective_lt):
+            # TODO: don't hardcode perspective
+            ou.clear()
+            ou.find(row['ou_id'])
+            ret.append("%02i%02i%02i" % (
+                ou.fakultet, ou.institutt, ou.avdeling))
+        return ret
+
 class ProgressReporter(object):
     """Logging framework the makes log-files somewhat easier to read
     (set_indent method).  A future version might make this a wrapper

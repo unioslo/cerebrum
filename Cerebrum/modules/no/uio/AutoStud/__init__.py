@@ -13,7 +13,7 @@ from Cerebrum import Disk
 
 class AutoStud(object):
     def __init__(self, db, logger, cfg_file=None, debug=0,
-                 studieprogs_file=None):
+                 studieprogs_file=None, emne_info_file=None):
         self._logger = logger
         self.debug = debug
         self.db = db
@@ -26,9 +26,13 @@ class AutoStud(object):
             self.disks_order = self.disks.keys()
             self.disks_order.sort(self._disk_sort)
         self.pc = ProfileConfig.Config(self, logger, debug=debug, cfg_file=cfg_file)
+        logger.debug(self.pc.debug_dump())
         self.studieprogramkode2info = {}
         for sp in StudentInfo.StudieprogDefParser(studieprogs_file=studieprogs_file):
             self.studieprogramkode2info[sp['studieprogramkode']] = sp
+        self.emnekode2info = {}
+        for emne in StudentInfo.EmneDefParser(emne_info_file):
+            self.emnekode2info[emne['emnekode']] = emne
 
     def _disk_sort(self, x, y):
         regexp = re.compile(r"^(\D+)(\d*)")
@@ -46,5 +50,5 @@ class AutoStud(object):
     def get_profile(self, student_info, groups=None):
         """Returns a Profile object matching the topics, to check
         quotas, groups must also be set."""
-        return ProfileHandler.Profile(self, student_info, self._logger, self.pc,
+        return ProfileHandler.Profile(student_info, self._logger, self.pc,
                                       groups=groups)

@@ -38,20 +38,11 @@ class Config(object):
             ret += p.debug_dump()+"\n"
         return ret
 
-    def get_matching_profiles(self, select_type, select_key, entry_value):
-        """Return a list of ProfileDefinition objects that matches
-        this select criteria."""
-        
-        ret = self.select_mapping.get(select_type, {}).get(
-            select_key, {}).get(entry_value, None)
-        self._logger.debug2("Check matches for %s / %s / %s -> %s" % (
-            select_type, select_key, entry_value, str(ret)))
-        return ret
-        
 class ProfileDefinition(object):
     """Represents a profile as defined in the studconfig.xml file"""
     
-    def __init__(self, name, logger, super=None):
+    def __init__(self, config, name, logger, super=None):
+        self.config = config
         self.name = name
         self.super = super
         self._logger = logger
@@ -87,11 +78,39 @@ class ProfileDefinition(object):
         """
         for select_type in self.selection_criterias.keys():
             for s_criteria in self.selection_criterias[select_type]:
-                for use_id in StudconfigParser.select_elements[select_type]:
-                    tmp = s_criteria.get(use_id, None)
-                    if tmp is not None:
-                        mapping.setdefault(select_type, {}).setdefault(
-                            use_id, {}).setdefault(tmp, []).append(self)
+                map_data = StudconfigParser.select_map_defs[select_type]
+                if map_data[0] == StudconfigParser.NORMAL_MAPPING:
+                    tmp = s_criteria.get(map_data[1], None)
+                    mapping.setdefault(select_type, {}).setdefault(
+                        map_data[1], {}).setdefault(tmp, []).append(self)
+                elif map_data[0] == StudconfigParser.SPECIAL_MAPPING:
+                    if select_type == 'aktivt_sted':
+                        tmp = ":".join((s_criteria['stedkode'],
+                                        s_criteria['institusjonsnr'],
+                                        s_criteria['scope'],
+                                        s_criteria.get('nivaa_min', ''),
+                                        s_criteria.get('nivaa_max', '')))
+                        tmp = mapping.setdefault(
+                            select_type, {}).setdefault(tmp, {})
+                        tmp.setdefault('profiles', []).append(self)
+                        if not tmp.has_key('steder'):
+                            tmp['steder'] = self._get_steder(
+                                s_criteria['institusjonsnr'],
+                                s_criteria['stedkode'],
+                                s_criteria['scope'])
+                        tmp['nivaa_min'] = s_criteria.get('nivaa_min', None)
+                        tmp['nivaa_max'] = s_criteria.get('nivaa_max', None)
+                    else:
+                        self._logger.warn("Unknown special mapping %s" % select_type)
+
+    def _get_steder(self, institusjonsnr, stedkode, scope):
+        ret = []
+        sko = self.config.lookup_helper.get_stedkode(stedkode, institusjonsnr)
+        if scope == 'sub':
+            ret.extend(self.config.lookup_helper.get_all_child_sko(sko))
+        else:
+            ret.append(stedkode)
+        return ret
 
     def add_setting(self, name, attribs):
         if name == "gruppe" and attribs.get("type", None) == "primary":
@@ -167,35 +186,39 @@ class StudconfigParser(xml.sax.ContentHandler):
     applied, thus values from the current profile will appear before
     values from the super."""
 
-    select_elements = {"aktiv": ['studieprogram'],
-                       "privatist_emne": ['emnekode', 'studieprogram'],
-                       "privatist_studieprogram": ['studieprogram'],
-                       "fagperson": ['stedkode'],
-                       "tilbud": ['studieprogram'],
-                       "opptak": ['studieprogram'],
-                       "alumni": ['studieprogram'],
-                       "permisjon": ['fraverskode'],
-                       "evu": ['stedkode'],
-                       "regkort": [],
-                       "eksamen": ['emne']}
+    NORMAL_MAPPING='*NORMAL_FLAG*'
+    SPECIAL_MAPPING='*SPECIAL_FLAG*'
+    # select_map_defs defines how to determine if data in
+    # merged_persons.xml matches a select criteria in studconfig.xml
+    #
+    # With NORMAL_MAPPING, a '*' will match any entry.  If other
+    # special processing should occour, the SPECIAL_MAPPING flag must
+    # be set, and relevant code added to
+    # ProfileHandler.ProfileMatcher and ProfileDefinition.set_select_mapping
+    select_map_defs = {
+        ## SX = studconfig.xml, MX = merged_persons.xml
+        ## <SX:select-tag>: [MAPPING_TYPE, <SX:match-attribute>,
+        ##                   <MX:studinfo-tag>, <MX:match-attribute>]
+        ##
+        ## When MAPPING_TYPE != NORMAL_MAPPING, the rest of the
+        ## corresponding values may depend on the specific
+        ## implemetation for the SPECIAL_MAPPING
 
-    def get_value_for_select_id(entry, id_type):
-        """The ids in StudconfigParser.select_elements sometimes
-        points to entries that are not directly represented in the FS
-        dump.  This method extracts the value of the requested type
-        from an entry from FS """
-
-        if(id_type == 'studieprogram'):
-            return entry.get('studieprogramkode', None)
-        if(id_type == 'emne'):
-            return entry.get('emnekode', None)
-        if(id_type == 'stedkode'):   # TODO
-            return None
-        if(id_type == 'fraverskode'):
-            return entry.get('fraverarsakkode_hovedarsak', None)
-        raise ValueError, "Bad id_type %s" % id_type
-
-    get_value_for_select_id = staticmethod(get_value_for_select_id)
+        "tilbud": [NORMAL_MAPPING, 'studieprogram', 'tilbud',
+                   'studieprogramkode'],
+        "studierett": [NORMAL_MAPPING, 'studieprogram', 'opptak',
+                       'studieprogramkode'],
+        "aktiv": [NORMAL_MAPPING, 'studieprogram', 'aktiv',
+                  'studieprogramkode'],
+        "privatist_studieprogram": [NORMAL_MAPPING, 'studieprogram',
+                                    'privatist_studieprogram',
+                                    'studieprogramkode'],
+        "emne": [NORMAL_MAPPING, 'emnekode', 'eksamen', 'emnekode'],
+        "privatist_emne": [NORMAL_MAPPING, 'emnekode',
+                           'privatist_emne', 'emnekode'],
+        "aktivt_sted": [SPECIAL_MAPPING, 'stedkode', 'aktiv',
+                        'studieprogramkode']
+        }
 
     profil_settings = ("stedkode", "gruppe", "spread", "disk", "mail",
                        "printer_kvote", "disk_kvote", "nivå", "brev", "build")
@@ -218,7 +241,7 @@ class StudconfigParser(xml.sax.ContentHandler):
 
         if len(self.elementstack) == 2:
             if ename == 'profil':
-                self._in_profil = ProfileDefinition(
+                self._in_profil = ProfileDefinition(self._config,
                     tmp['navn'], self._config._logger, super=tmp.get('super', None))
                 self._config.profiles.append(self._in_profil)
             elif ename == 'gruppe_oversikt':
@@ -250,7 +273,7 @@ class StudconfigParser(xml.sax.ContentHandler):
                     self._in_profil.add_setting(ename, tmp)
                 else:
                     raise SyntaxWarning, "Unexpected tag %s on in profil" % ename
-            elif self._in_select and ename in self.select_elements:
+            elif self._in_select and ename in self.select_map_defs:
                 self._in_profil.add_selection_criteria(ename, tmp)
             else:
                 raise SyntaxWarning, "Unexpected tag %s on in profil" % ename
