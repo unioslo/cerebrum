@@ -24,47 +24,69 @@ would probably turn out to be a bad idea if one tried to use groups in
 that fashion.  Hence, this module **requires** the caller to supply a
 name when constructing a Group object."""
 
+from Cerebrum import Utils
 from Cerebrum.Entity import Entity, EntityName
 
-class Group(Entity, EntityName):
+class Group(EntityName, Entity):
+
+    # TBD: Eventually, this metaclass definition should be part of the
+    # class definitions in Entity.py, but as that probably will break
+    # a lot of code, we're starting here.
+    __metaclass__ = Utils.mark_update
+
+    __read_attr = ('__in_db',)
+    __write_attr__ = ('description', 'visibility', 'creator_id',
+                      'create_date', 'expire_date', 'group_name')
+
     def clear(self):
-        self.group_id = None
-        self.creator_id = None
-        self.visibility = None
-        self.description = None
-        self.create_date = None
-        self.expire_date = None
-        self.group_name = None
+        for attr in Group.__read_attr__:
+            if hasattr(self, attr):
+                delattr(self, attr)
+        for attr in Group.__write_attr__:
+            setattr(self, attr, None)
+            self.__updated = False
 
     def populate(self, creator, visibility, name,
-                 description=None, create_date=None, expire_date=None):
+                 description=None, create_date=None, expire_date=None,
+                 parent=None):
         """Populate group instance's attributes without database access."""
-        self.creator_id = creator.entity_id
+        # TBD: Should this method call self.clear(), or should that be
+        # the caller's responsibility?
+        if parent is not None:
+            self.__xerox__(parent)
+        else:
+            Entity.populate(self, self.const.entity_group)
+        self.__in_db = False
+        self.creator_id = int(creator.entity_id)
         self.visibility = visibility
-        self.group_name = name
         self.description = description
         self.create_date = create_date
         self.expire_date = expire_date
-        super(Group, self).populate(self.const.entity_group)
+        # TBD: Should this live in EntityName, and not here?  If yes,
+        # the attribute should probably have a more generic name than
+        # "group_name".
+        self.group_name = name
 
-    def write_db(self, as_object=None):
+    def write_db(self):
         """Write group instance to database.
 
-        If ``as_object`` is set, it should be another group object.
-        That object's entity_id will be the one that is updated with
-        this object's attributes.
+        If this instance has a ``entity_id`` attribute (inherited from
+        class Entity), this Group entity is already present in the
+        Cerebrum database, and we'll use UPDATE to bring the instance
+        in sync with the database.
 
         Otherwise, a new entity_id is generated and used to insert
-        this object."""
+        this object.
 
-        assert self.__write_db
-        super(Group, self).write_db(as_object)
-        self.group_id = self.entity_id
-        if as_object is None:
+        """
+        self.__super.write_db()
+        if not self.__updated:
+            return
+        if not self.__in_db:
             cols = [('entity_type', ':e_type'),
                     ('group_id', ':g_id'),
                     ('description', ':desc'),
-                    ('visibility', ':visib')
+                    ('visibility', ':visib'),
                     ('creator_id', ':creator_id')]
             # Columns that have default values through DDL.
             if self.create_date is not None:
@@ -76,9 +98,9 @@ class Group(Entity, EntityName):
             VALUES (%(binds)s)""" % {'tcols': ", ".join([x[0] for x in cols]),
                                      'binds': ", ".join([x[1] for x in cols])},
                          {'e_type': int(self.const.entity_group),
-                          'g_id': self.group_id,
+                          'g_id': self.entity_id,
                           'desc': self.description,
-                          'visib': self.visibility,
+                          'visib': int(self.visibility),
                           'creator_id': self.creator_id,
                           # Even though the following two bind
                           # variables will only be used in the query
@@ -87,11 +109,13 @@ class Group(Entity, EntityName):
                           # including them here.
                           'create_date': self.create_date,
                           'exp_date': self.expire_date})
+            # TBD: This is superfluous (and wrong) to do here if
+            # there's a write_db() method in EntityName.
             self.execute("""
             INSERT INTO [:table schema=cerebrum name=entity_name]
               (entity_id, value_domain, entity_name)
             VALUES (:g_id, :domain, :name)""",
-                         {'g_id': self.group_id,
+                         {'g_id': self.entity_id,
                           'domain': int(self.const.group_namespace),
                           'name': self.group_name})
         else:
@@ -107,7 +131,7 @@ class Group(Entity, EntityName):
             SET %(defs)s
             WHERE group_id=:g_id""" % {'defs': ", ".join(
                 ["%s=%s" % x for x in cols if x[0] <> 'group_id'])},
-                         {'g_id': self.group_id,
+                         {'g_id': self.entity_id,
                           'desc': self.description,
                           'visib': self.visibility,
                           'creator_id': self.creator_id,
@@ -118,44 +142,73 @@ class Group(Entity, EntityName):
                           # including them here.
                           'create_date': self.create_date,
                           'exp_date': self.expire_date})
+            # TBD: Maybe this is better done in EntityName.write_db()?
             self.execute("""
             UPDATE [:table schema=cerebrum name=entity_name]
             SET entity_name=:name
             WHERE
               entity_id=:g_id AND
               value_domain=:domain""",
-                         {'g_id': self.group_id,
+                         {'g_id': self.entity_id,
                           'domain': int(self.const.group_namespace),
                           'name': self.group_name})
         ## EntityName.write_db(self, as_object)
-        self.__write_db = False
+        del self.__in_db
+        self.__in_db = True
+        self.__updated = False
 
+    def delete(self):
+        if self.__in_db:
+            # Empty this group's set of members.
+            self.execute("""
+            DELETE FROM [:table schema=cerebrum name=group_member]
+            WHERE group_id=:g_id""", {'g_id': self.entity_id})
+            # Remove name of group from the group namespace.
+            self.delete_name(self.const.group_namespace)
+            # Remove entry in table `group_info'.
+            self.execute("""
+            DELETE FROM [:table schema=cerebrum name=group_info]
+            WHERE group_id=:g_id""", {'g_id': self.entity_id})
+        # Class Group is a core class; when its delete() method is
+        # called, the underlying Entity object is also removed.
+        Entity.delete(self)
+
+## TBD: Do we really need __eq__ methods once all Entity subclass
+## instances properly keep track of their __updated attributes?
     def __eq__(self, other):
         assert isinstance(other, Group)
-        if (self.creator_id <> other.creator_id or
-            self.visibility <> other.visibility or
-            self.group_name <> other.group_name or
-            self.description <> other.description or
-            self.create_date <> other.create_date or
-            self.expire_date <> other.expire_date):
-            return False
-        # TBD: Should this compare member sets as well?
-        return True
+        if (self.creator_id == other.creator_id
+            and self.visibility == other.visibility
+            and self.group_name == other.group_name
+            and self.description == other.description
+            # The 'create_date' attributes should only be included in
+            # the comparison of it is set in both objects.
+            and (self.create_date is None
+                 or other.create_date is None
+                 or self.create_date == other.create_date)
+            and (self.expire_date is None
+                 or other.expire_date is None
+                 or self.expire_date == other.expire_date)):
+            # TBD: Should this compare member sets as well?
+            return True
+        return False
 
     def new(self, creator, visibility, name,
             description=None, create_date=None, expire_date=None):
         """Insert a new group into the database."""
         Group.populate(self, creator, visibility, name, description,
                         create_date, expire_date)
-        Group.write_db(self)
-        Group.find(self, self.group_id)
+        Group.write_db()
+        # TBD: What is the following call meant to do?
+        Group.find(self, self.entity_id)
 
     def find(self, group_id):
         """Connect object to group with ``group_id`` in database."""
-        (self.group_id, self.description, self.visibility, self.creator_id,
+        self.__super.find(group_id)
+        (self.description, self.visibility, self.creator_id,
          self.create_date, self.expire_date, self.group_name) = \
          self.query_1("""
-        SELECT gi.group_id, gi.description, gi.visibility, gi.creator_id,
+        SELECT gi.description, gi.visibility, gi.creator_id,
                gi.create_date, gi.expire_date, en.entity_name
         FROM [:table schema=cerebrum name=group_info] gi,
              [:table schema=cerebrum name=entity_name] en
@@ -165,63 +218,104 @@ class Group(Entity, EntityName):
           en.value_domain=:domain""",
                       {'g_id': group_id,
                        'domain': int(self.const.group_namespace)})
-        super(self, Group).find(group_id)
+        try:
+            del self.__in_db
+        except AttributeError:
+            pass
+        self.__in_db = True
+        self.__updated = False
 
-    def find_by_name(self, name, domain):
+    def find_by_name(self, name, domain=None):
         """Connect object to group having ``name`` in ``domain``."""
-        group_id = self.query_1("""
-        SELECT entity_id
-        FROM [:table schema=cerebrum name=entity_name]
-        WHERE value_domain=:domain AND entity_name=:name""", locals())
-        self.find(group_id)
+        if domain is None:
+            domain = int(self.const.group_namespace)
+        EntityName.find_by_name(self, domain, name)
+
+    def validate_member(self, member):
+        """Raise ValueError iff ``member`` not of proper type."""
+        if isinstance(member, Entity):
+            return True
+        raise ValueError
 
     def add_member(self, member, op):
         """Add ``member`` to group with operation type ``op``."""
-        assert isinstance(member, Entity)
+        self.validate_member(member)
         self.execute("""
         INSERT INTO [:table schema=cerebrum name=group_member]
           (group_id, operation, member_type, member_id)
         VALUES (:g_id, :op, :m_type, :m_id)""",
-                     {'g_id': self.group_id,
+                     {'g_id': self.entity_id,
                       'op': int(op),
                       'm_type': member.entity_type,
                       'm_id': member.entity_id})
 
     def remove_member(self, member, op):
         """Remove ``member``'s membership of operation type ``op`` in group."""
+        self.validate_member(member)
         self.execute("""
         DELETE [:table schema=cerebrum name=group_member
         WHERE
           group_id=:g_id AND
           operation=:op AND
-          member_id=:m_id""", {'g_id': self.group_id,
+          member_id=:m_id""", {'g_id': self.entity_id,
                                'op': int(op),
                                'm_id': member.entity_id})
 
-    def list_members(self, domain):
+    def list_members(self):
         """Return a list of lists indicating the members of the group.
 
         The top-level list returned is on the form
           [union, intersection, difference]
-        where each of the sublists contains the names of members with
-        the indicated membership operation.
+        where each of the sublists contains
+          (``entity_type``, ``entity_id``)
+        tuples indicating the members with the indicated membership
+        operation.
 
         """
         members = [[], [], []]
-        union, intersection, difference = members
-        for op, name in self.query("""
-        SELECT m.operation, n.entity_name
-        FROM [:table schema=cerebrum name=group_member] m,
-             [:table schema=cerebrum name=entity_name] n
-        WHERE
-          m.group_id=:g_id AND
-          m.group_id = n.entity_id AND
-          n.value_domain=:domain""", {'g_id': self.group_id,
-                                      'domain': domain}):
-            if int(op) == int(self.const.group_memberop_union):
-                union.append(name)
-            elif int(op) == int(self.const.group_memberop_intersection):
-                intersection.append(name)
-            elif int(op) == int(self.const.group_memberop_difference):
-                difference.append(name)
+        op2set = {int(self.const.group_memberop_union): members[0],
+                  int(self.const.group_memberop_intersection): members[1],
+                  int(self.const.group_memberop_difference): members[2]}
+        for op, mtype, mid in self.query("""
+        SELECT operation, member_type, member_id
+        FROM [:table schema=cerebrum name=group_member]
+        WHERE m.group_id=:g_id""", {'g_id': self.entity_id}):
+            op2set[int(op)].append((int(mtype), int(mid)))
         return members
+
+    def get_members(self, _trace=()):
+        my_id = self.entity_id
+        if my_id in _trace:
+            # Circular list definition, _trace should be logged.
+            return ()
+        u, i, d = self.list_members()
+        if not u:
+            # The only "positive" members are unions; if there are
+            # none of those, the resulting set must be empty.
+            return ()
+        # TBD: Should this just be a Group instance?
+        temp = self.__class__(self._db)
+        def expand(set):
+            ret = []
+            for mtype, m_id in set:
+                if mtype == self.const.entity_account:
+                    ret.append(m_id)
+                elif mtype == self.const.entity_group:
+                    temp.find(m_id)
+                    ret.extend(temp.get_members(_trace + (my_id,)))
+            return ret
+        # Expand u to get a set of account_ids.
+        res = expand(u)
+        if i:
+            res = intersect(res, expand(i))
+        if d:
+            res = difference(res, expand(d))
+        return res
+
+# Python 2.3 has a 'set' module in the standard library; for now we'll
+# roll our own.
+def intersect(a, b):
+    return [x for x in a if x in b]
+
+def difference(a, b):
+    return [x for x in a if x not in b]
