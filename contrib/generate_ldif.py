@@ -187,7 +187,7 @@ def root_OU():
 
 def generate_org(ou_id,filename=None):
     ou = OU.OU(Cerebrum)
-    ou_list = ou.get_structure_mappings(co.perspective_lt)
+    ou_list = ou.get_structure_mappings(int(getattr(co, cereconf.ORG_PERSPECTIVE)))
     ou_string = "%s=%s,%s" % (cereconf.ORG_ATTR,cereconf.ORG_DN, cereconf.LDAP_BASE)
     trav_list(ou_id, ou_list, ou_string, filename)
     stedkode = Stedkode.Stedkode(Cerebrum)
@@ -374,7 +374,9 @@ def generate_person(filename=None):
     except: pass
     affili_stu = "student"
     affili_em = "employee"
-    for row in person.list_extended_person(person_spread, include_quarantines=1):
+    for row in person.list_extended_person(person_spread,
+                                           include_quarantines=1,
+                                           incl_mail=cereconf.PERSON_LIST_MAIL):
 	name,entity_name,ou_id,affili = row['name'],row['entity_name'],row['ou_id'],row['affiliation']
 	if row['external_id'] and (affili == int(co.affiliation_ansatt) or affili == int(co.affiliation_student)): # and not alias_list[int(row['person_id'])]; # Sjekker for en entry
 	    person.clear()
@@ -422,7 +424,7 @@ def generate_person(filename=None):
 		    break
 		except:
 		    pass
-	    if row['local_part'] and row['domain']:
+	    if cereconf.PERSON_LIST_MAIL and row['local_part'] and row['domain']:
 		domain = row['domain']
 		if email_domains and email_domains.has_key(domain):
 		    pers_string += "mail: %s@%s\n" % (row['local_part'],email_domains[domain])
@@ -533,7 +535,7 @@ def generate_users(spread=None,filename=None):
     spreads = []
     if spread:
 	#for entry in spread:
- 	    spreads.append(int(spread))
+        spreads.append(int(spread))
     else:
 	for entry in cereconf.USER_SPREAD:
 	    spreads.append(int(getattr(co,entry)))
