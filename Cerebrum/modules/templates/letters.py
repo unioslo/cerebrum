@@ -110,11 +110,6 @@ tag is present, hdr and footer will be empty.
         if logfile is None:
             logfile = Utils.make_temp_file(only_name=True)
         base_filename = filename[:filename.rindex('.')]	
-	# we should probably pass curren_dir as a parameter 
-	# to spool_job from misc list_passwords
-	# TODO: get Rune or Harald to comment this
-	dir = re.sub(r'(/[a-z]*\.[a-z]*$)','/',filename)
-	os.chdir(dir)
 	if type == 'tex':
             status = (os.system("%s --interaction nonstopmode %s >> %s 2>&1" % (
                 cereconf.PRINT_LATEX_CMD, filename, logfile)) or
