@@ -49,7 +49,7 @@ passwords = {}
 
 def quick_user_sync():
 
-    answer=cl.get_events('ad',(clco.group_add,clco.group_rem,clco.account_password,clco.spread_add,clco.spread_del,clco.quarantine_add,clco.quarantine_del,clco.quarantine_mod,clco.account_move))
+    answer=cl.get_events('ad',(clco.group_add,clco.group_rem,clco.account_password,clco.spread_add,clco.spread_del,clco.quarantine_add,clco.quarantine_del,clco.quarantine_mod,clco.account_home_added,clco.account_home_updated))
 
     for ans in answer:
         chg_type = ans['change_type_id']
@@ -113,24 +113,22 @@ def quick_user_sync():
 		cl.confirm_event(ans)
 	elif chg_type == clco.quarantine_add or chg_type == clco.quarantine_del or chg_type == clco.quarantine_mod:	
 	    change_quarantine(ans['subject_entity']) 
-	elif chg_type == clco.account_move:
-   	    change_params = pickle.loads(ans['change_params'])
-	    move_account(ans['subject_entity'],change_params)
+	elif chg_type == clco.account_home_updated or chg_type == clco.account_home_added:
+	    move_account(ans['subject_entity'])
     cl.commit_confirmations()    
 
 
-def move_account(entity_id,params):
+def move_account(entity_id):
     account.clear()
     account.find(entity_id)
     if account.has_spread(int(co.spread_uio_ad_account)):		
-	if params['old_host'] != params['new_host']:
-	    account_name = id_to_name(entity_id,'user')
-	    if not account_name:
-	        return False         	
-	    new_home = adutils.find_home_dir(entity_id, account_name, disk_spread)
-       	    sock.send('ALTRUSR&%s/%s&hdir&%s\n' % ( cereconf.AD_DOMAIN, account_name, new_home ))  
-            if sock.read() != ['210 OK']:
-                print 'WARNING: Failed update home directory ', account_name
+	account_name = id_to_name(entity_id,'user')
+	if not account_name:
+	    return False         	
+	home = adutils.find_home_dir(entity_id, account_name, disk_spread)
+       	sock.send('ALTRUSR&%s/%s&hdir&%s\n' % ( cereconf.AD_DOMAIN, account_name, home ))  
+	if sock.read() != ['210 OK']:
+	    print 'WARNING: Failed update home directory ', account_name
 
 
 def change_quarantine(entity_id):
@@ -366,7 +364,7 @@ def id_to_name(id,entity_type):
         name = entityname.get_name(namespace)
         obj_name = "%s%s" % (name,grp_postfix)
     except Errors.NotFoundError:
-	print 'FAILURE: id %s missing, probably deleted' % id
+	print 'WARNING: id %s missing, probably deleted' % id
 	return False
     return obj_name
     
