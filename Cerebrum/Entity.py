@@ -78,6 +78,9 @@ class Entity(DatabaseAccessor):
 
     def __eq__(self, other):
         assert isinstance(other, Entity)
+        # TBD: Should two entities having different entity_types
+        # compare equally or not?
+        # return self.entity_type == other.entity_type
         return True  # Always true
 
     def __ne__(self, other):
@@ -105,14 +108,14 @@ class Entity(DatabaseAccessor):
         """
         assert self.__write_db
         if as_object is None:
-            entity_id = self.nextval('entity_id_seq')
+            entity_id = int(self.nextval('entity_id_seq'))
             self.execute("""
             INSERT INTO [:table schema=cerebrum name=entity_info]
               (entity_id, entity_type)
             VALUES (:e_id, :e_type)""", {'e_id': entity_id,
                                          'e_type': int(self.entity_type)})
         else:
-            entity_id = as_object.entity_id
+            entity_id = int(as_object.entity_id)
             # Don't need to do anything as entity type can't change
         self.entity_id = entity_id
         self.__write_db = False
@@ -140,6 +143,7 @@ class Entity(DatabaseAccessor):
         SELECT entity_id, entity_type
         FROM [:table schema=cerebrum name=entity_info]
         WHERE entity_id=:e_id""", {'e_id': entity_id})
+        self.entity_id = int(self.entity_id)
 
     def delete(self):
         "Completely remove an entity."
@@ -242,7 +246,7 @@ class EntityAddress(object):
         """Note: The object that affect_addresses has been called on
         must be on the left side of the equal sign, otherwise we don't
         really know what to compare."""
-        
+
         if self._affect_source is None:
             return True
         assert isinstance(other, EntityAddress)
@@ -281,7 +285,7 @@ class EntityAddress(object):
             ai = self._address_info[type]
         except:
             raise KeyError, "MissingSelf"
-        
+
         # print "Compare: %s AND %s" % (ai, other_addr)
         for k in ('address_text', 'p_o_box', 'postal_number', 'city',
                   'country'):
