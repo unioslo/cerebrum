@@ -24,6 +24,24 @@ module Cerebrum_core {
         string value;
     };
 
+    typedef sequence <KeyValue> KeyValueSeq;
+
+    struct Entity {
+        long entity_id;
+        string entity_type;
+        KeyValueSeq attributes;
+    };
+    typedef sequence <Entity> EntitySeq;
+
+    struct GroupMember {
+        long group_id;
+        string operation_type;
+        long entity_id;
+    };
+
+    typedef sequence <GroupMember> GroupMemberSeq;
+        
+
     /**
     * Structure/object used to hold the Gro version.
     * If a client shares the major version number of Gro, then
@@ -40,9 +58,6 @@ module Cerebrum_core {
         octet minor;
     };
 
-    typedef sequence <KeyValue> KeyValueSeq; /**< Sequence of KeyValue objects. */
-
-    typedef sequence <KeyValueSeq> IterSeq; /**< Sequence of Keyvalue sequences. */
 
     /**
     * The interface representing Gro, and thus the entry point to the Gro
@@ -64,6 +79,10 @@ module Cerebrum_core {
         */
         LOHandler get_lo_handler();
 
+        string test();
+
+        string get_idl();
+
         /**
         * Method for fetching a handler for an AP client
         * \param username
@@ -72,6 +91,7 @@ module Cerebrum_core {
         */
         Object get_ap_handler(in string username, in string password)
             raises(Errors::LoginError);
+        Object get_ap_handler_by_session_id(in string session_id);
     };
 
     /**
@@ -100,10 +120,11 @@ module Cerebrum_core {
         * \return The last ID present in the change log. This ID is used as an
         * argument when fetching the next update.
         */
-        long get_all( out BulkIterator entity_iterator,
-                      in string entity_type_class,
-                      in StringSeq spreads );
-                      
+        long get_all(out EntitySeq entity_iterator,
+                     out GroupMemberSeq groups,
+                     in string group_name,
+                     in StringSeq tags);
+
         /**
         * Method for fetching all objects of a given type from Gro, updated
         * after a specified change log entry ID.
@@ -143,7 +164,7 @@ module Cerebrum_core {
         * Fetches a new bulk of items.
         * \return \link Cerebrum_core::IterSeq \endlink
         */
-        IterSeq next() 
+        void next() 
             raises( Errors::IteratorEmptyError );
         /**
         * \return True when the iterator is empty.
