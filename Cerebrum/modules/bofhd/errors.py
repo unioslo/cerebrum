@@ -23,3 +23,13 @@ class CerebrumError(StandardError):
 
 class PermissionDenied(CerebrumError):
     pass
+
+class ServerRestartedError(CerebrumError):
+    """Notify the client that the server has restarted.  The client
+    should flush any cached data"""
+    pass
+
+class SessionExpiredError(CerebrumError):
+    """The received session_id was unknown.  It was probably expired."""
+    pass
+
