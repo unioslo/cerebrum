@@ -107,14 +107,14 @@ def generate_users(spread=None,filename=None):
             acc_id = int(acc_id)
             if entity2uname.has_key(acc_id):
                 continue
-            if row['auth_data'] is None:
-                if auth_method == co.auth_type_crypt3_des:
-                    # Neither md5_crypt nor crypt3_des hash found.
-                    passwd = '{crypt}*Invalid'
-                else:
-                    continue
+            if row['auth_data']:
+                passwd = '{crypt}' + row['auth_data']
+            elif auth_method != co.auth_type_crypt3_des:
+                # Get the password in the next pass.
+                continue
             else:
-                passwd = "{crypt}%s" % row['auth_data']
+                # Final pass - neither md5_crypt nor crypt3_des hash found.
+                passwd = '{crypt}*Invalid'
             shell = shells[int(shell)]
             if row['quarantine_type'] is not None:
                 qh = QuarantineHandler(db, (row['quarantine_type'],))
