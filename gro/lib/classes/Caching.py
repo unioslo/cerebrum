@@ -32,12 +32,14 @@ class Caching(object):
 
     def __new__(cls, *args, **vargs):
         """
-        When a new object is requested, the system will check, using cls.get_key(*args, **vargs)
-        to see if it exists in the cache. If so, then a reference to it is returned. Otherwise
-        a new object is created and the reference to that is returned instead."""
+        When a new object is requested, the system will check, using
+        cls.create_primary_key(*args, **vargs) to see if it exists in the cache. If so, then
+        a reference to it is returned. Otherwise a new object is created and the reference to
+        that is returned instead."""
 
         # getting the key to uniquely identify this object
-        key = cls, cls.get_key(*args, **vargs) # cls is inserted to avoid collisions
+        primary_key = cls.create_primary_key(*args, **vargs)
+        key = cls, primary_key # cls is inserted to avoid collisions
 
         # if it allready exists, return the old one
         if key in cls.cache:
@@ -45,27 +47,37 @@ class Caching(object):
         
         # create a new object
         self = object.__new__(cls)
-        self._key = key
-        cls.cache[key] = self
+
+        cls.cache_object(self, primary_key)
 
         # remember __init__ will be run, even though it is an old object
         return self 
 
     def get_primary_key(self):
         """ Returns the primary key for the object. """
-        return self._key[0]
+        return self._key[1]
 
     def invalidate_object(cls, obj):
         """ Remove the node from the cache. """
         del cls.cache[obj._key]
 
+    def cache_object(cls, obj, primary_key):
+        key = cls, primary_key
+
+        obj._key = key
+        cls.cache[key] = obj
+
     invalidate_object = classmethod(invalidate_object)
+    cache_object = classmethod(cache_object)
 
     def invalidate(self):
         """ Remove the node from the cache. """
         self.invalidate_object(self)
 
-    def get_key(*args, **vargs):
-        pass # this will make it a singleton
+    def cache_self(self):
+        self.cache_object(self, self.get_primary_key())
 
-    get_key = staticmethod(get_key)
+    def create_primary_key(*args, **vargs):
+        return None # this will make it a singleton
+
+    create_primary_key = staticmethod(create_primary_key)
