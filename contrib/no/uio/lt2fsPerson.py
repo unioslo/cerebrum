@@ -21,56 +21,64 @@ Data som overføres
 ===========================
 
 Personer
-  For alle personer registrert i LT skal man overføre fødselsnr,
-  fornavn, etternavn, email, kjønn og fødselsdato medmindre personen
-  er kjent i FS fra før (i.e. eksisterende data oppdateres ikke).
-  Dataene registreres i fs.person.
+--------
 
-Personer med tilsettning av typen vitenskapelig ansatt
-  Alle personer registrert i LT som vitenskapelig ansatt skal
-  registreres i FS i tabellen fs.fagperson.  Dersom personen er kjent
-  fra før, skal informasjonen evt. oppdateres.  Følgende data overføres:
+FS.PERSON
 
-  * Hent stedet der personen har sin primære (*1) ansatt affiliation.
-    Bruk denne stedkoden til å hente følgende opplysninger fra
-    fs.sted: adr1 (adrlin1), adr2 (adrlin2), postnr (postnr), adr3
-    (adrlin3), instinr (institusjonsnr), fak (faknr), inst
-    (instituttnr), gruppe (gruppenr), arbsted (fra hvor?)
-    
-  * tlf (cerebrum: contact_phone), title (cerebrum: name_work_title),
-    fax (cerebrum: contact_fax), status (statisk='J')
+  For alle personer som ligger i LT med minst en aktiv tilsetting
+  eller minst en aktiv gjest registrering skal man sette inn en linje
+  i FS.person for denne personen med:
+    - Fodselsdato
+    - personnr
+    - Fornavn
+    - Etternavn
+    - emailadresser
+    - kjønn
+    - dato_fodt
 
-  (*1) Primær i denne sammenheng utledes ved å:
+  medmindre personen er kjent i FS fra før.  Ingen update eller
+  delete, kun insert.
 
-    - finn høyest prioriterte ou_id i account_type som primært har
-      aff_status=vitenskapelig, sekundært en vilkårlig annen ansatt
-      affiliation.
 
-    - dersom personen ikke har noen account_type m/ansatt affiliation,
-      velges laveste ou_id der personen primært har
-      aff_status=vitenskapelig, sekundært en vilkårlig annen
-      ansatt affiliation.
+FS.FAGPERSON
+
+  Alle personer i LT med minst en aktiv tilsetting i kategegorien
+  vitenskaplig eller med minst en aktiv gjest registrering med
+  gjestetypekode 'GRP-LÆRER' skal man sette inn en linje i
+  FS.FAGPERSON for denne personen:
+
+    - Fodselsdato
+    - personnr
+    - Institusjonsnr_Ansatt (*1)
+    - Faknr_Ansatt (*1)
+    - Instituttnr_Ansatt (*1)
+    - Gruppenr_Ansatt (*1)
+    - Telefonnr_Arbeide
+    - Telefonnr_Fax_Arb
+    - Status_aktiv
+    - Stillingstittel_Norsk
+
+  (*1) sted for primære ansatt affiliation Primær i denne sammenheng
+       utledes ved å:
+
+         - finn høyest prioriterte ou_id i account_type som primært
+           har aff_status=vitenskapelig, sekundært en vilkårlig annen
+           ansatt affiliation.
+
+         - dersom personen ikke har noen account_type m/ansatt
+           affiliation, velges laveste ou_id der personen primært har
+           aff_status=vitenskapelig, sekundært en vilkårlig annen
+           ansatt affiliation.
+
+  Der skal kun gjøres update på telefon og fax.
 
   Det foretas ingen sletting fra fs.fagperson.
-
-fs.fagpersonundsemester
-
-  For alle vitenskapelig ansatte populerer man i tillegg tabellen
-  fs.fagpersonundsemester med dataene:
-
-  * fnr, instinr, fak, inst, gruppe (samme stedkode som over)
-  * status, status_publ (begge statisk=J)
-  * termin, arstall (VÅR/HØST, årstall m/4 siffer)
-
-  Det foretas kun innlegging av data i denne tabellen ettersom
-  tabellens primærnøkkel spenner over alle kolonnene nevnt over med
-  untak av status kolonnene.
 
 Spesielle merknader
 --------------------
   Dersom personen i følge Cerebrum finnes i FS og LT, men har
   forskjellig fødselsnummer, skal logges en feilmelding.  Ingen data
-  skal endres for personen.
+  skal endres for slike personen.
 
 """
 
