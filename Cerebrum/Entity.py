@@ -174,10 +174,23 @@ class EntityAddress(object):
     "Mixin class, usable alongside Entity for entities having addresses."
     def add_entity_address(self, source, type, addr=None, pobox=None,
                            zip=None, city=None, country=None):
-        pass
+        self.execute("""
+        INSERT INTO cerebrum.entity_address
+          (entity_id, source_system, address_type,
+           address_text, p_o_box, postal_number, city, country)
+        VALUES (:1, :2, :3, :4, :5, :6, :7, :8)""",
+                     self.entity_id, source, type,
+                     addr, pobox, zip, city, country)
 
     def get_entity_address(self, source=None, type=None):
-        pass
+        addrs = self.query("""
+        SELECT * FROM cerebrum.entity_address
+        WHERE entity_id=:1""", self.entity_id)
+        if source is not None:
+            addrs = [a for a in addrs if a.source_system == source]
+        if type is not None:
+            addrs = [a for a in addrs if c.address_type == type]
+        return addrs
 
     def delete_entity_address(self, source, type):
         self.execute("""
@@ -191,16 +204,34 @@ class EntityQuarantine(object):
     "Mixin class, usable alongside Entity for entities we can quarantine."
     def add_entity_quarantine(self, type, creator, comment=None,
                               start=None, end=None):
-        pass
+        self.execute("""
+        INSERT INTO cerebrum.entity_quarantine
+          (entity_id, quarantine_type,
+           creator_id, comment, start_date, end_date)
+        VALUES (:1, :2, :3, :4, :5, :6)""",
+                     self.entity_id, type,
+                     creator, comment, start, end)
+
     def get_entity_quarantine(self, type=None):
-        pass
+        quars = self.query("""
+        SELECT * FROM cerebrum.entity_quarantine
+        WHERE entity_id=:1""", self.entity_id)
+        if type is not None:
+            quars = [q for q in quars if c.quarantine_type == type]
+        return quars
 
     def disable_entity_quarantine(self, type, until):
-        pass
+        self.execute("""
+        UPDATE cerebrum.entity_quarantine
+        SET disable_until=:3
+        WHERE
+          entity_id=:1 AND
+          quarantine_type=:2
+        """, self.entity_id, type, until)
 
     def delete_entity_quarantine(self, type):
         self.execute("""
-        DELETE cerebrum.entity_address
+        DELETE cerebrum.entity_quarantine
         WHERE
           entity_id=:1 AND
           quarantine_type=:2""", self.entity_id, type)
