@@ -643,15 +643,14 @@ class EntityEmailDomain(Entity):
         """Return all rows (entitity_id, affiliation, domain_id)
         associated with the e-mail domain domain_id, OR this entity
         and any affilation."""
-        if domain_id:
-            where = "WHERE domain_id=:d_id"
-        else:
-            where = "WHERE entity_id=:e_id"
-        return self.query("""
+        sql = """
         SELECT entity_id, affiliation, domain_id
-        FROM [:table schema=cerebrum name=email_entity_domain]"""+
-                          where, {'d_id': domain_id,
-                                  'e_id': self.entity_id})
+        FROM [:table schema=cerebrum name=email_entity_domain]"""
+        if domain_id:
+            return self.query(sql + "WHERE domain_id=:d_id",
+                              {'d_id': domain_id})
+        return self.query(sql + "WHERE entity_id=:e_id",
+                          {'e_id': self.entity_id})
 
     def delete(self):
         if self.entity_email_affiliation:
