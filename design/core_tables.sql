@@ -518,8 +518,8 @@ CREATE TABLE host_info
 		NOT NULL
 		CONSTRAINT host_info_entity_type_chk
 		  CHECK (entity_type = [:get_constant name=entity_host]),
-  host_id	NUMERIC(6,0) 
-                CONSTRAINT host_info_pk PRIMARY KEY,
+  host_id	NUMERIC(12,0) 
+		CONSTRAINT host_info_pk PRIMARY KEY,
   name		CHAR VARYING(80)
 		NOT NULL
 		CONSTRAINT host_info_name_u UNIQUE,
@@ -534,7 +534,8 @@ CREATE TABLE host_info
 /*	disk_info
 
   path is the name of the directory that users are placed in and that
-       will ocour in the NIS map, excluding trailing slash.  
+  will occur in the NIS map, excluding trailing slash.
+
 */
 category:main;
 CREATE TABLE disk_info
@@ -544,9 +545,9 @@ CREATE TABLE disk_info
 		NOT NULL
 		CONSTRAINT disk_info_entity_type_chk
 		  CHECK (entity_type = [:get_constant name=entity_disk]),
-  disk_id	NUMERIC(6,0)
-                CONSTRAINT disk_info_pk PRIMARY KEY,
-  host_id	NUMERIC(6,0)
+  disk_id	NUMERIC(12,0)
+		CONSTRAINT disk_info_pk PRIMARY KEY,
+  host_id	NUMERIC(12,0)
 		NOT NULL
 		CONSTRAINT disk_info_host_id
 		  REFERENCES host_info(host_id),
@@ -606,9 +607,9 @@ Hvert brukernavn (kontekst?) kan ha tilknyttet et eget hjemmeområde.
  * probably is the more accurate term anyway.
 
  np_type: "Non-personal" account type for accounts.  This is required
-          to be set for non-personal accounts, and *can* be set for
-          personal accounts as well (e.g. to indicate that a personal
-          account is a "test account").
+	  to be set for non-personal accounts, and *can* be set for
+	  personal accounts as well (e.g. to indicate that a personal
+	  account is a "test account").
 
  */
 category:main;
@@ -639,9 +640,9 @@ CREATE TABLE account_info
 		NOT NULL
 		CONSTRAINT account_info_creator_id
 		  REFERENCES account_info(account_id),
-  home		CHAR VARYING(512) NULL,
-  disk_id       NUMERIC(6,0) NULL
-                CONSTRAINT account_info_disk_id REFERENCES disk_info(disk_id),
+  home		CHAR VARYING(512),
+  disk_id	NUMERIC(12,0)
+		CONSTRAINT account_info_disk_id REFERENCES disk_info(disk_id),
   expire_date	DATE
 		DEFAULT NULL,
   CONSTRAINT account_info_entity_id
@@ -1013,7 +1014,8 @@ CREATE TABLE person_external_id
   source_system	NUMERIC(6,0)
 		CONSTRAINT person_external_id_source_sys
 		  REFERENCES authoritative_system_code(code),
-  external_id	CHAR VARYING(256),
+  external_id	CHAR VARYING(256)
+		NOT NULL,
   CONSTRAINT person_external_id_pk
     PRIMARY KEY (person_id, id_type, source_system),
   CONSTRAINT person_external_id_unique
@@ -1196,26 +1198,20 @@ GRANT INSERT, UPDATE, DELETE ON person_aff_status_code TO change_code;
 /*	person_affiliation_source
 
   last_date: The most recent date this affiliation was seen in the
-        data from source_system.
+	data from source_system.
 
   deleted_date: When an affiliation does not appear in the data from
-        source_system, this column is set to the current date.  See
-        description of table person_affiliation for why such
-        affiliations can't be removed right away.
+	source_system, this column is set to the current date.  See
+	description of table person_affiliation for why such
+	affiliations can't be removed right away.
 
 */
 category:main;
 CREATE TABLE person_affiliation_source
 (
-  person_id	NUMERIC(12,0)
-		CONSTRAINT person_aff_src_person_id
-		  REFERENCES person_info(person_id),
-  ou_id		NUMERIC(12,0)
-		CONSTRAINT person_aff_src_ou_id
-		  REFERENCES ou_info(ou_id),
-  affiliation	NUMERIC(6,0)
-		CONSTRAINT person_aff_src_affiliation
-		  REFERENCES person_affiliation_code(code),
+  person_id	NUMERIC(12,0),
+  ou_id		NUMERIC(12,0),
+  affiliation	NUMERIC(6,0),
   source_system	NUMERIC(6,0)
 		CONSTRAINT person_aff_src_source_sys
 		  REFERENCES authoritative_system_code(code),
