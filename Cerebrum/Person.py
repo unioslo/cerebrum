@@ -138,8 +138,8 @@ class PersonAffiliation(object):
             other_aff = other.get_affiliations(source_system=self._pa_affect_source,
                                                affiliation=affect_type)
             other_dict = {}
-            for t_ss, t_ou_id, t_affiliation, t_status in other_aff:
-                other_dict[t_ou_id] = t_status
+            for t in other_aff:
+                other_dict[t.ou_id] = t.status
             for t_ou_id, t_status in self._pa_affiliations.get(affect_type, []):
                 if other_dict.has_key(t_ou_id):
                     if other_dict[t_ou_id] != int(t_status):
@@ -204,15 +204,14 @@ class PersonAffiliation(object):
                               's_system' : int(self._pa_affect_source)})
 
     def get_affiliations(self, source_system=None, affiliation=None, ou_id=None):
-
         qry = """SELECT source_system, ou_id, affiliation, status
                  FROM cerebrum.person_affiliation WHERE person_id=:p_id"""
         params = {'p_id' : self.person_id}
         for v in ('source_system', 'affiliation', 'ou_id'):
-            val = globals().get(v, None)
+            val = locals().get(v, None)
             if val != None:
                 qry += " AND %s=:%s" % (v, v)
-                params["%s" % v] = val
+                params["%s" % v] = int(val)
         return self.query(qry, params)
 
 class Person(Entity, EntityContactInfo, EntityAddress,
@@ -269,7 +268,6 @@ class Person(Entity, EntityContactInfo, EntityAddress,
                      (other.gender == int(self.gender)) and
                      (other.description == self.description) and
                      (other.deceased == self.deceased))
-
         if self._debug_eq: print "Person.__eq__ = %s" % identical
         return identical
 
