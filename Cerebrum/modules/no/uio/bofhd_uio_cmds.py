@@ -2097,6 +2097,10 @@ class BofhdExtension(object):
         self.ba.can_email_tripnote_toggle(operator.get_entity_id(), acc)
         ev = Email.EmailVacation(self.db)
         ev.find_by_entity(acc.entity_id)
+        # TODO: If 'enable' at this point actually is None (which, by
+        # the looks of the if-else clause at the top seems
+        # impossible), opposite_status won't be defined, and hence the
+        # ._find_tripnote() call below will fail.
         if enable is not None:
             opposite_status = not enable
         date = self._find_tripnote(uname, ev, when, opposite_status)
@@ -2146,13 +2150,13 @@ class BofhdExtension(object):
             text = r['vacation_text']
             if r['enable'] == 'F':
                 enable = "OFF"
-            elif r['end_date'] < now:
+            elif r['end_date'] is not None and r['end_date'] < now:
                 enable = "OLD"
             elif r['start_date'] > now:
                 enable = "PENDING"
             else:
                 enable = "ON"
-            if r['start_date'] == act_date:
+            if act_date is not None and r['start_date'] == act_date:
                 enable = "ACTIVE"
             elif hide:
                 text = "<text is hidden>"
@@ -2185,12 +2189,12 @@ class BofhdExtension(object):
         self.ba.can_email_tripnote_edit(operator.get_entity_id(), acc)
         date_start, date_end = self._parse_date_from_to(when)
         now = self._today()
-        if date_end < now:
+        if date_end is not None and date_end < now:
             raise CerebrumError, "Won't add already obsolete tripnotes"
         ev = Email.EmailVacation(self.db)
         ev.find_by_entity(acc.entity_id)
         for v in ev.get_vacation():
-            if v['start_date'] == date_start:
+            if date_start is not None and v['start_date'] == date_start:
                 raise CerebrumError, ("There's a tripnote starting on %s "+
                                       "already") % str(date_start)[:10]
         text = text.replace('\\n', '\n')
@@ -2207,6 +2211,8 @@ class BofhdExtension(object):
     def email_remove_tripnote(self, operator, uname, when=None):
         acc = self._get_account(uname)
         self.ba.can_email_tripnote_edit(operator.get_entity_id(), acc)
+        # TBD: This variable isn't used; is this call a sign of rot,
+        # or is it here for input validation?
         start = self._parse_date(when)
         ev = Email.EmailVacation(self.db)
         ev.find_by_entity(acc.entity_id)
@@ -3715,6 +3721,9 @@ class BofhdExtension(object):
         self.ba.can_create_person(operator.get_entity_id(), ou, aff)
         person = self.person
         person.clear()
+        # TBD: The current implementation of ._parse_date() should
+        # handle None input just fine; if that implementation is
+        # correct, this test can be removed.
         if bdate is not None:
             bdate = self._parse_date(bdate)
             if bdate > self._today():
@@ -5375,6 +5384,9 @@ class BofhdExtension(object):
 
     def _parse_date(self, date):
         if not date:
+            # TBD: Is this correct behaviour?  mx.DateTime.DateTime
+            # objects allow comparison to None, although that is
+            # hardly what we expect/want.
             return None
         if isinstance(date, DateTime.DateTimeType):
             date = date.Format("%Y-%m-%d")
