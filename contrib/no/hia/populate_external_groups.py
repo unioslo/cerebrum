@@ -645,8 +645,9 @@ class fs_stprog_kull_users(fs_stprog_group):
         fnr = "%06d%05d" % (int(user['fodselsdato']), int(user['personnr']))
         # TBD: Key on account_id (of primary user) instead?
         if fnr in self.users:
-            logger.warn("Bruker %r forsøkt meldt inn i gruppe flere ganger.",
-                        user)
+            logger.warn("Bruker %r forsøkt meldt inn i gruppe %r"
+                        " flere ganger (XML = %r).",
+                        fnr, self.name(), user)
             return
         self.users[fnr] = user
 
@@ -818,7 +819,7 @@ def main():
             for ue_foreleser in fs_super.list_matches('undenh', attrs,
                                                       'foreleser'):
                 ue_foreleser.add(attrs)
-        elif rolle == 'STUDIELEDER':
+        elif rolle == 'STUDILEDER':
             for ue_studieleder in fs_super.list_matches('undenh', attrs,
                                                         'studieleder'):
                 ue_studieleder.add(attrs)
