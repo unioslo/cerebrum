@@ -557,7 +557,7 @@ def output_employment_information(writer, employment):
         # fi
 
         writer.startElement("Tilsetting", attributes)
-        for output, index in [("Stillingskode", "stillingkode"),
+        for output, index in [("Stillingskode", "code_str"),
                               ("StillingsTitle", "tittel"),
                               ("Stillingsandel", "andel"),
                               ("StillingsFak", "fakultet"),
