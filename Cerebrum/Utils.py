@@ -183,6 +183,12 @@ def pgp_decrypt(message, password):
         raise IOError, "gpg exited with %i" % exit_code
     return msg
 
+def format_as_int(i):
+    """Get rid of PgNumeric while preserving NULL values"""
+    if i is not None:
+        return int(i)
+    return i
+
 class auto_super(type):
     """Metaclass adding a private class variable __super, set to super(cls).
 
