@@ -109,8 +109,13 @@ class BofhdCompleter implements org.gnu.readline.ReadlineCompleter {
 		if(lvl >= cmd.size()) {
 		    ok = true;
 		} else if((cmd.get(lvl) instanceof String) &&
-			  tmp.startsWith((String) cmd.get(lvl))) {
+                    tmp.startsWith((String) cmd.get(lvl))) {
 		    ok = true;
+                    if(tmp.equals((String) cmd.get(lvl))) {
+                        thisLvl.clear();
+                        thisLvl.add(tmp);
+                        break;
+                    }
 		}
 		if(ok) {
                     logger.debug("added");
@@ -232,10 +237,11 @@ public class JBofh {
 		bc.login(def_uname, def_password);
 	    } else {
 		uname = cLine.promptArg("Username " + 
-					(def_uname == null ? "" : "["+def_uname+"]") +": ", 
-					false);
+                    (def_uname == null ? "" : "["+def_uname+"]") +": ", 
+                    false);
 		if(uname.equals("")) uname = def_uname;
-		password = cLine.promptArg("Password: ", false);
+                ConsolePassword cp = new ConsolePassword();
+                password = cp.getPassword("Password:");
 		bc.login(uname, password);
 	    }
 	} catch (IOException io) {
@@ -268,7 +274,7 @@ public class JBofh {
             }
             Vector c = (Vector) cmd_def.get(0);
             if(((String) cmd.get(0)).equals(c.get(0)) && 
-               ((String) cmd.get(1)).equals(c.get(1))) {
+                ((String) cmd.get(1)).equals(c.get(1))) {
                 ret[0] = key;
                 Vector t = new Vector();                
                 for(int i = 2; i < cmd.size(); i++) t.add(cmd.get(i));
@@ -334,10 +340,6 @@ public class JBofh {
     }
 
     Vector checkArgs(String cmd, Vector args) throws BofhdException {
-        /*
-        logger.debug("Tra: "+cmd+" -> ("+args.length +") "+args);
-        for(int i = 0; i < args.length; i++)
-            logger.debug(i+": "+args[i]); */
         String sample[] = {};
         Vector ret = (Vector) args.clone();
         Vector cmd_def = (Vector) commands.get(cmd);
@@ -373,8 +375,7 @@ public class JBofh {
             try {
 		String s = 
 		    cLine.promptArg(prompt+
-				    (defval == null ? "" : " ["+defval+"]")+" >", 
-				    false);
+                        (defval == null ? "" : " ["+defval+"]")+" >", false);
 		if(defval != null && s.equals("")) {
 		    ret.add(defval);
 		} else {
@@ -397,8 +398,7 @@ public class JBofh {
 	    try {
 		String defval = (String) arginfo.get("default");
 		String s = cLine.promptArg((String) arginfo.get("prompt") +
-					   (defval == null ? "" : " ["+defval+"]")+" >", 
-					   false);
+                    (defval == null ? "" : " ["+defval+"]")+" >", false);
 		if(s.equals("") && defval == null) continue;
 		if(! s.equals("")) {
 		    Hashtable h = (Hashtable) arginfo.get("map");
@@ -439,8 +439,7 @@ public class JBofh {
 		format = (Hashtable) knownFormats.get(cmd);
 	    } else {
 		throw new IllegalArgumentException("result was class: "+
-						   resp.getClass().getName()+
-						   " and no format suggestion exists");
+                    resp.getClass().getName()+ ", no format suggestion exists");
 	    }
         }
         
@@ -479,7 +478,7 @@ public class JBofh {
 	    }
 	} catch (BofhdException be) {
 	    System.out.println("Caught error during init, terminating: \n"+
-			       be.getMessage());
+                be.getMessage());
 	}
     }    
 }
