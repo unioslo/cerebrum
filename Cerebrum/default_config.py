@@ -29,7 +29,8 @@ DB_AUTH_DIR = '/etc/cerebrum'
 # Name of the SQL database
 CEREBRUM_DATABASE_NAME = None
 
-CEREBRUM_DATABASE_CONNECT_DATA = { 'user' : None }
+CEREBRUM_DATABASE_CONNECT_DATA = {'user': None,
+                                  'table_owner': None}
 
 DEFAULT_GECOS_NAME="name_full"
 AUTH_CRYPT_METHODS = ("auth_type_md5",)
