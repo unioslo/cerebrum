@@ -1,4 +1,4 @@
-#!/usr/bin/env python2.2
+#!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 #
 # Copyright 2002, 2003, 2004 University of Oslo, Norway
