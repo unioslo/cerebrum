@@ -19,8 +19,9 @@ def index(req):
     return page
 
 def search(req, name, desc, spread):
+    req.session['group_lastsearch'] = (name, desc, spread)
     page = Main(req)
-    page.title = "Group search"
+    page.title = _("Group search")
     page.setFocus("group/list")
     server = req.session['server']
     # Store given search parameters in search form
@@ -50,6 +51,11 @@ def search(req, name, desc, spread):
     result.append(groupsearch.form())
     page.content = result
     return page    
+
+def list(req):
+    (name, desc, spread) = req.session.get('group_lastsearch',
+                                           ("", "", ""))
+    return search(req, name, desc, spread)
 
 def _create_view(req, id):
     """Creates a page with a view of the group given by id, returns
