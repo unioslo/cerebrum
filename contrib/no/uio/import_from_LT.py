@@ -31,11 +31,8 @@ from Cerebrum.modules.no.uio.access_LT import LT
 from Cerebrum import Database,Errors
 from Cerebrum.Utils import XMLHelper
 
-default_stedfile = "/cerebrum/dumps/LT/sted.xml"
-default_personfile = "/cerebrum/dumps/LT/person.xml"
-
-def get_sted_info():
-    f=open(default_stedfile, 'w')
+def get_sted_info(outfile):
+    f=open(outfile, 'w')
     f.write(xml.xml_hdr + "<data>\n")
 
     cols, steder = LT.GetSteder();
@@ -47,7 +44,7 @@ def get_sted_info():
         f.write("</sted>\n")
     f.write("</data>\n")
 
-def get_person_info():
+def get_person_info(outfile):
     """Henter info om alle personer i LT som er av interesse.
     Ettersom opplysningene samles fra flere datakilder, lagres de
     først i en dict persondta"""
@@ -60,7 +57,7 @@ def get_person_info():
     for t in LT.GetHovedkategorier()[1]:
         kate2hovedkat[t['univstkatkode']] = t['hovedkatkode']
 
-    f=open(default_personfile, 'w')
+    f=open(outfile, 'w')
     f.write(xml.xml_hdr + "<data>\n")
     tilscols, tils = LT.GetTilsettinger()
     persondta = {}
@@ -121,23 +118,48 @@ def get_person_info():
 
     f.write("</data>\n")
 
+def usage(exitcode=0):
+    print """Usage: -s sid -u uname [options]
+    -v | --verbose : turn up verbosity
+    -s | --sid sid: sid to connect with
+    -u uname: username to connect with
+    --sted-file file: filename to write sted info to
+    --person-file file: filename to write person info to"""
+    sys.exit(exitcode)
+
 def main():
     global LT, xml, verbose
 
-    sid = "LTPROD.uio.no"
-    opts, args = getopt.getopt(sys.argv[1:], 'vs', ['verbose', 'sid'])
+    personfile = None
+    stedfile = None
+    sid = None
+    user = None
+    try:
+        opts, args = getopt.getopt(sys.argv[1:], 'vs:u:',
+                                   ['verbose', 'sid=', 'sted-file=', 'person-file='])
+    except getopt.GetoptError:
+        usage(1)
     for opt, val in opts:
         if opt in ('-v', '--verbose'):
             pass  # not currently used
-        elif opt in ('s', '--sid'):
+        elif opt in ('-s', '--sid'):
             sid = val
-    db = Database.connect(user="ureg2000", service=sid,
-                          DB_driver='Oracle')
+        elif opt in ('-u'):
+            user = val
+        elif opt in ('--sted-file'):
+            stedfile = val
+        elif opt in ('--person-file'):
+            personfile = val
+    if user is None or sid is None:
+        usage(1)
+    db = Database.connect(user=user, service=sid, DB_driver='Oracle')
     LT = LT(db)
     xml = XMLHelper()
 
-    get_sted_info()
-    get_person_info()
+    if stedfile is not None:
+        get_sted_info(stedfile)
+    if personfile is not None:
+        get_person_info(personfile)
 
 if __name__ == '__main__':
     main()
