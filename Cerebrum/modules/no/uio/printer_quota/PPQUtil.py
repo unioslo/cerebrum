@@ -133,6 +133,8 @@ class PPQUtil(object):
         if ((not ignore_transaction_type) and
             rows[0]['transaction_type'] != int(self.const.pqtt_printout)):
             raise errors.IllegalUndoRequest, "Can only undo print jobs"
+        if rows[0]['person_id'] != person_id:
+            raise errors.IllegalUndoRequest, "person_id doesn't match job_id"
 
         # Calculate change
         old_free, old_paid, old_total = [int(rows[0][x]) for x in (
