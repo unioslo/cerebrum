@@ -155,6 +155,11 @@ def make_temp_dir(dir="/tmp", prefix="cerebrum_tmp"):
     os.mkdir(name)
     return name
 
+_latin1_specials = {'Ğ': 'Dh',  'ğ': 'dh',
+                    'Ş': 'Th',  'ş': 'th',
+                    'ß': 'ss'}
+_latin1_wash_cache = {}
+
 def latin1_wash(data, target_charset, expand_chars=False, substitute=''):
     # TBD: The code in this function is rather messy, as it tries to
     # deal with multiple combinations of target charsets etc.  It
@@ -163,58 +168,61 @@ def latin1_wash(data, target_charset, expand_chars=False, substitute=''):
     # usable via the Python builtin str.encode().  On the other hand,
     # that might be seen as involving excess amounts of magic for such
     # an apparently simple task.
-    tr_from = ('ÆØÅæøå[\\]{|}¦¿'
-               'ÀÁÂÃÄÇÈÉÊËÌÍÎÏÑÒÓÔÕÖÙÚÛÜİàáâãäçèéêëìíîïñòóôõöùúûüıÿ'
-               '¨­¯´')
-    if target_charset == 'iso646-60':
-        tr_to = ('[\\]{|}[\\]{|}||'
-                 'AAAAACEEEEIIIINOOOOOUUUUYaaaaaceeeeiiiinooooouuuuyy'
-                 '"--\'')
-    elif target_charset == 'POSIXname':
-        tr_to = ('AOAaoaAOAaoaoo'
-                 'AAAAACEEEEIIIINOOOOOUUUUYaaaaaceeeeiiiinooooouuuuyy'
-                 '"--\'')
-    else:
-        raise ValueError, "Unknown target charset: %r" % (target_charset,)
+    key = (target_charset, bool(expand_chars), substitute)
+    try:
+        (tr, xlate_subst, xlate_match) = _latin1_wash_cache[key]
+    except KeyError:
+        tr_from = ('ÆØÅæøå[\\]{|}¦¿'
+                   'ÀÁÂÃÄÇÈÉÊËÌÍÎÏÑÒÓÔÕÖÙÚÛÜİàáâãäçèéêëìíîïñòóôõöùúûüıÿ'
+                   '¨­¯´')
+        xlate = _latin1_specials.copy()
+        if target_charset == 'iso646-60':
+            tr_to = ('[\\]{|}[\\]{|}||'
+                     'AAAAACEEEEIIIINOOOOOUUUUYaaaaaceeeeiiiinooooouuuuyy'
+                     '"--\'')
+            xlate_re = '[^\x1f-\x7e\xff]'  # Should be [^\x20-\x7e].
+        elif target_charset == 'POSIXname':
+            tr_to = ('AOAaoaAOAaoaoo'
+                     'AAAAACEEEEIIIINOOOOOUUUUYaaaaaceeeeiiiinooooouuuuyy'
+                     '"--\'')
+            if expand_chars:
+                xlate.update({'Æ': 'Ae', 'æ': 'ae',  'Å': 'Aa', 'å': 'aa'})
+            xlate_re = r'[^a-zA-Z0-9 -]'
+        else:
+            raise ValueError, "Unknown target charset: %r" % (target_charset,)
 
-    if target_charset == 'POSIXname' and expand_chars:
-        xlate = {'Æ' : 'Ae', 'æ' : 'ae', 'Å' : 'Aa', 'å' : 'aa'}
-        data = ''.join([xlate.get(c, c) for c in data])
+        tr = dict(zip(tr_from, tr_to))
+        for ch in filter(xlate.has_key, tr_from):
+            del tr[ch]
+        tr = string.maketrans("".join(tr.keys()), "".join(tr.values()))
 
-    tr = string.maketrans(tr_from, tr_to)
-    data = data.translate(tr)
+        xlate_re = re.compile(xlate_re)
+        for ch in filter(xlate_re.match, tr):
+            xlate.setdefault(ch, substitute)
 
-    xlate = {}
-    for y in range(0x00, 0x1f): xlate[chr(y)] = substitute
-    for y in range(0x7f, 0xff): xlate[chr(y)] = substitute
-    xlate['Ğ'] = 'Dh'
-    xlate['ğ'] = 'dh'
-    xlate['Ş'] = 'Th'
-    xlate['ş'] = 'th'
-    xlate['ß'] = 'ss'
-    data = ''.join([xlate.get(c, c) for c in data])
+        (tr, xlate_subst, xlate_match) = _latin1_wash_cache[key] = (
+            tr, xlate_re.sub, lambda match: xlate[match.group()])
 
-    if target_charset == 'POSIXname':
-        data = re.sub(r'[^a-zA-Z0-9 -]', substitute, data)
-    return data
+    return xlate_subst(xlate_match, str(data).translate(tr))
+
+_lat1_646_tr = string.maketrans(
+    'ÆØÅæø¦¿åÀÁÂÃÄÇÈÉÊËÌÍÎÏÑÒÓÔÕÖÙÚÛÜİàáâãäçèéêëìíîïñòóôõöùúûüıÿ¨­¯´',
+    '[\\]{|||}AAAAACEEEEIIIINOOOOOUUUUYaaaaaceeeeiiiinooooouuuuyy"--\'')
+_lat1_646_subst = re.compile('[^\x1f-\x7e\xff]').sub  # Should be [^\x20-\x7e].
+_lat1_646_cache = {}
 
 def latin1_to_iso646_60(s, substitute=''):
     #
     # Wash known accented letters and some common charset confusions.
-    tr = string.maketrans(
-        'ÆØÅæø¦¿åÀÁÂÃÄÇÈÉÊËÌÍÎÏÑÒÓÔÕÖÙÚÛÜİàáâãäçèéêëìíîïñòóôõöùúûüıÿ¨­¯´',
-        '[\\]{|||}AAAAACEEEEIIIINOOOOOUUUUYaaaaaceeeeiiiinooooouuuuyy"--\'')
-    s = string.translate(s, tr)
+    try:
+        xlate_match = _lat1_646_cache[substitute]
+    except KeyError:
+        xlate = _latin1_specials.copy()
+        for ch in filter(_lat1_646_subst.__self__.match, _lat1_646_tr):
+            xlate.setdefault(ch, substitute)
+        xlate_match = _lat1_646_cache[substitute] = lambda m: xlate[m.group()]
 
-    xlate = {}
-    for y in range(0x00, 0x1f): xlate[chr(y)] = substitute
-    for y in range(0x7f, 0xff): xlate[chr(y)] = substitute
-    xlate['Ğ'] = 'Dh'
-    xlate['ğ'] = 'dh'
-    xlate['Ş'] = 'Th'
-    xlate['ş'] = 'th'
-    xlate['ß'] = 'ss'
-    return string.join(map(lambda x:xlate.get(x, x), s), '')
+    return _lat1_646_subst(xlate_match, str(s).translate(_lat1_646_tr))
 
 def pgp_encrypt(message, id):
     cmd = [cereconf.PGPPROG]
