@@ -257,20 +257,20 @@ class Group(EntityName, Entity):
           (group_id, operation, member_type, member_id)
         VALUES (:g_id, :op, :m_type, :m_id)""",
                      {'g_id': self.entity_id,
-                      'op': op,
-                      'm_type': member.entity_type,
+                      'op': int(op),
+                      'm_type': int(member.entity_type),
                       'm_id': member.entity_id})
 
     def remove_member(self, member, op):
         """Remove ``member``'s membership of operation type ``op`` in group."""
         self.validate_member(member)
         self.execute("""
-        DELETE [:table schema=cerebrum name=group_member
+        DELETE [:table schema=cerebrum name=group_member]
         WHERE
           group_id=:g_id AND
           operation=:op AND
           member_id=:m_id""", {'g_id': self.entity_id,
-                               'op': op,
+                               'op': int(op),
                                'm_id': member.entity_id})
 
     def list_members(self):
@@ -291,7 +291,7 @@ class Group(EntityName, Entity):
         for op, mtype, mid in self.query("""
         SELECT operation, member_type, member_id
         FROM [:table schema=cerebrum name=group_member]
-        WHERE m.group_id=:g_id""", {'g_id': self.entity_id}):
+        WHERE group_id=:g_id""", {'g_id': self.entity_id}):
             op2set[int(op)].append((mtype, mid))
         return members
 
