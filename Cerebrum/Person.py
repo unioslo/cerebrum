@@ -78,12 +78,15 @@ class PersonName(object):
                       'name': name})
 
     def get_person_name_codes(self):
-        return self.query("SELECT code, description FROM person_name_code")
+        return self.query("""
+        SELECT code, description
+        FROM [:table schema=cerebrum name=person_name_code]""")
 
     def get_name(self, source_system, variant):
         """Return the name with the given variant"""
         return self.query_1("""
-        SELECT name FROM person_name
+        SELECT name
+        FROM [:table schema=cerebrum name=person_name]
         WHERE
           person_id=:p_id AND
           name_variant=:n_variant AND
@@ -254,7 +257,7 @@ class PersonAffiliation(object):
 
 class Person(Entity, EntityContactInfo, EntityAddress,
              EntityQuarantine, PersonName, PersonAffiliation):
-    
+
     def clear(self):
         "Clear all attributes associating instance with a DB entity."
         self.birth_date = None
@@ -276,7 +279,7 @@ class Person(Entity, EntityContactInfo, EntityAddress,
         super(Person, self).populate(self.const.entity_person)
         self.__write_db = True
 
-        
+
 ##     def __ne__(self, other):
 ##         return not self.__eq__(other)
 
@@ -375,7 +378,7 @@ class Person(Entity, EntityContactInfo, EntityAddress,
         Person.write_db(self)
         Person.find(self, self.person_id)
         return self.person_id
-    
+
     def find(self, person_id):
         """Associate the object with the person whose identifier is person_id.
 
