@@ -30,12 +30,14 @@ Cerebrum = Factory.get('Database')()
 co = Factory.get('Constants')(Cerebrum)
 posix_user = PosixUser.PosixUser(Cerebrum)
 posix_group = PosixGroup.PosixGroup(Cerebrum)
+MAX_LINE_LENGTH = 512
 
 entity2uname = {}
 
 def generate_passwd():
     count = 0
     for row in posix_user.get_all_posix_users():
+        
         id = Cerebrum.pythonify_data(row['account_id'])
         posix_user.clear()
         posix_user.find(id)
@@ -77,6 +79,7 @@ def generate_passwd():
 def generate_group():
     groups = {}
     for row in posix_group.list_all():
+        posix_group.clear()
         posix_group.find(row.group_id)
         # Group.get_members will flatten the member set, but returns
         # only a list of entity ids; we remove all ids with no
@@ -84,8 +87,17 @@ def generate_group():
         # their PosixUser usernames.
         gname = posix_group.group_name
         gid = str(posix_group.posix_gid)
-        members = [entity2uname[id] for id in posix_group.get_members()
-                   if entity2uname.has_key(id)]
+        #members = [entity2uname[id] for id in posix_group.get_members()
+        #           if entity2uname.has_key(id)]
+
+        members = []
+        for id in posix_group.get_members():
+            if entity2uname.has_key(str(id)):
+                members = [entity2uname[id]]
+            else:
+                raise ValueError, "Found no id: %s for group: %s" % (
+                    id, gname)
+        
         gline = join((gname, '*', gid, join(members, ',')))
         if len(gline) <= MAX_LINE_LENGTH:
             print gline
