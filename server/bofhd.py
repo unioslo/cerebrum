@@ -176,13 +176,19 @@ class BofhdSession(object):
                          'state_data': pickle.dumps(state_data)
                          })
 
-    def get_state(self):
+    def get_state(self, state_type=None):
         """Retrieve all state tuples for ``session_id``."""
+        if state_type is not None:
+            where = "AND state_type=:state_type"
+        else:
+            where = ""
         ret = self._db.query("""
         SELECT state_type, entity_id, state_data, set_time
         FROM [:table schema=cerebrum name=bofhd_session_state]
-        WHERE session_id=:session_id
-        ORDER BY set_time""", {'session_id': self._id})
+        WHERE session_id=:session_id %s
+        ORDER BY set_time""" % where, {
+            'session_id': self._id,
+            'state_type': state_type})
         for r in ret:
             r['state_data'] = pickle.loads(r['state_data'])
         return ret
