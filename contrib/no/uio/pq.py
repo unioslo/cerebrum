@@ -15,12 +15,15 @@ import SocketServer
 import socket
 import signal
 from time import gmtime, strftime, time
+import pwd
+
+import cerebrum_path
+
 from Cerebrum import Errors
 from Cerebrum.modules.no.uio import PrinterQuotas
 # from Cerebrum import Entity
 from Cerebrum import Account
 from Cerebrum.Utils import Factory
-import pwd
 
 # 2NN answers, meaning last command was a success.
 helo    = "220 PRISS Quota Daemon Vrev ready"
@@ -54,7 +57,7 @@ class RequestHandler(SocketServer.StreamRequestHandler):
         #
         if cmd[0] <> "HELO":
             self.log('ERROR', "HELO expected %s received" % cmd);
-            self.send("ecmd cmd[0]");
+            self.send("%s %s" % (ecmd, cmd[0]));
             return
         else:
             # Get information based on username
@@ -93,7 +96,7 @@ class RequestHandler(SocketServer.StreamRequestHandler):
                 elif cmd[0] == 'SUBP':
                     self.send(self.subtract_quota(cmd[1], cmd[2]))
                 else:
-                    self.log('ERROR', "Unknown command cmd[0] (cmd)")
+                    self.log('ERROR', "Unknown command %s" %  str(cmd))
                     self.send(ecmd)
                     done = 1
 
