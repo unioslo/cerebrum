@@ -109,11 +109,7 @@ def generate_users(spread=None,filename=None):
                 qshell = qh.get_shell()
                 if qshell is not None:
                     shell = qshell
-            cn = (row['name'] or gecos)
-            if cn:
-                cn = some2utf(cn)
-            else:
-                cn = uname
+            cn    = some2utf(row['name'] or gecos or uname)
             gecos = latin1_to_iso646_60(some2iso(gecos or cn))
             if row['disk_id']:
                 home = "%s/%s" % (disks[int(row['disk_id'])],uname)
@@ -123,7 +119,7 @@ def generate_users(spread=None,filename=None):
                 continue
             if acc_id <> prev_userid:
                 f.write('dn: uid=%s%s\n' % (uname, posix_dn))
-                f.write('%scn: %s\n' % (obj_string, gecos))
+                f.write('%scn: %s\n' % (obj_string, cn))
                 f.write('uid: %s\n' % uname)
                 f.write('uidNumber: %s\n' % str(row['posix_uid']))
                 f.write('gidNumber: %s\n' % str(row['posix_gid']))
