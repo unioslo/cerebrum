@@ -368,6 +368,7 @@ def output_group_xml():
         if parent <> id:
             output(parent)
         fxml.group_to_XML(data['CFid'], fronter_lib.Fronter.STATUS_ADD, data)
+        done[id] = True
     for group in new_group.iterkeys():
         output(group)
 
