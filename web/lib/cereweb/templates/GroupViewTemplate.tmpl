@@ -1,0 +1,71 @@
+#extends InitTemplate
+#import forgetHTML
+#from Cerebrum.web.TableView import TableView
+#from SortedTableTemplate import SortedTableTemplate
+#from Cerebrum.web.utils import url
+
+#def viewGroup(group)
+<h1>$_("Group") $group.name</h1>
+$groupInfo($group)
+$groupMembers($group)
+#end def
+
+#def groupMembers(group)
+#set $allmembers = $group.get_members()
+#if $allmembers
+<div class="members">
+<h2>$_("Members")</h2>
+<%
+memberSets = {}
+for member in allmembers:
+    operation = member['operation']
+    # fetch (and possibly create) a list to contain members
+    members = memberSets.setdefault(operation, [])
+    members.append(member)
+    
+for operation in ('union', 'inters.', 'diff'):
+    members = memberSets.get(operation)
+    if not members:
+        # skip empty members
+        continue
+    write(self.memberList(operation, members))
+%>
+#end def
+
+#def memberList(operation, members)
+#set $operations = {'union': $_('Union'), 'inters.': $_('Intersection'), 'diff': $_('Difference')}
+#set $headers = {'type': $_("Type"), 'name': $_("Name")}
+<div class="memberlist">
+<h3>$operations[$operation]</h3>
+#set $table = $TableView("type", "name")
+#for $member in $members
+$table.add(member['type'], member['name'])
+#end for
+$SortedTableTemplate().sorted_table($table, $headers, $url("blapp=%s"), $url("blupp=%s"))
+</div>
+#end def
+
+#def groupInfo(group)
+<div class="info">
+<dl>
+    <dt>$_("Name")</dt>
+    <dd>$group.name</dd>
+
+#if $group.gid
+    <dt>$_("Gid")</dt>
+    <dd>$group.gid</dd>
+#end if    
+
+    <dt>$_("Description")</dt>
+    <dd>$group.description</dd>
+
+    <dt>$_("Expire")</dt>
+    <dd>$group.expire</dd>
+
+    <dt>$_("Spreads")</dt>
+#set $spreads=', '.join($group.spreads)    
+    <dd>$spreads</dd>
+
+</dl>
+</div>
+#end def
