@@ -11,6 +11,15 @@ export PYTHONPATH
 
 cd $SRCDIR
 
-chmod u+x ./makedb.py
+MAKEDB=./makedb.py
 
-./makedb.py --drop && ./makedb.py
+chmod u+x $MAKEDB
+
+EXTRA="\
+     --extra-file=design/mod_posix_user.sql \
+     --extra-file=design/mod_stedkode.sql \
+     --extra-file=design/bofhd_tables.sql \
+     --extra-file=design/bofhd_auth.sql \
+     --extra-file=design/mod_changelog.sql"
+
+$MAKEDB --drop $EXTRA && $MAKEDB $EXTRA
