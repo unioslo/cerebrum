@@ -10,6 +10,14 @@ Requirements
   Python 2.2
   Python xmlrpclib v?
 
+Mailing lists
+-------------
+
+     cerebrum-commits@usit.uio.no    - all CVS commit logs
+     cerebrum-developers@usit.uio.no - the Cerebrum developers
+
+  Report bugs and misfeatures to cerebrum-developers@usit.uio.no.
+
 License
 -------
 
