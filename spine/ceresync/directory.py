@@ -129,6 +129,10 @@ class LdapBack:
         tries to authenticate
         """
         self.incr = incr
+        if incr == False:
+            self.notinsync = self.search(attrslist=["dn"]) # Only interested in attribute dn to be received
+        else:
+            self.notinsync = []
         if uri == None:
             self.uri = config.sync.get("ldap","uri")
         if binddn == None:
@@ -144,12 +148,22 @@ class LdapBack:
 
     def close(self):
         """
-        Close ongoing operations and disconnect from server
+        Syncronize current base if incr=True, then
+        close ongoing operations and disconnect from server
         """
+        if self.incr == True:
+            self.syncronize()
         try:
             self.l.close()
         except ldap.LDAPError,e:
             print "Error occured while closing LDAPConnection: %s" % (e)
+
+    def syncronize(self):
+        """ Deletes objects not to be found in given base.
+        Only for use when incr is set to False.
+        """
+        for entry in self.notinsync:
+            self.delete(dn=entry)
 
     def abort(self):
         """
@@ -168,6 +182,8 @@ class LdapBack:
         attrs=self.get_attributes(obj)
         try:
             self.l.add_s(dn,modlist.addModlist(attrs,ignore_attr_types))
+            if self.incr == False:
+                self.notinsync.remove(dn)
         except ldap.ALREADY_EXIST,e:
             print "%s already exist. Trying update instead..." % (dn)
             self.update(obj,ignore_attr_types)
@@ -193,11 +209,12 @@ class LdapBack:
         except ldap.LDAPError,e:
             print "An error occured while modifying %s" % (dn)
 
-    def delete(self,obj):
+    def delete(self,obj=None,dn=None):
         """
         Delete object from LDAP. 
         """
-        dn=self.get_dn(obj)
+        if not obj == None:
+            dn=self.get_dn(obj)
         try:
             self.l.delete_s(dn)
         except ldap.NO_SUCH_OBJECT,e:
@@ -205,13 +222,15 @@ class LdapBack:
         except ldap.LDAPError,e:
             print "Error occured while trying to remove %s from database: %s" % (dn,e)
 
-    def search(self,conn,base="dc=example,dc=com",scope=ldap.SCOPE_SUBTREE,filterstr='(objectClass=*)',attrslist=None,attrsonly=0):
+    def search(self,base=None,scope=ldap.SCOPE_SUBTREE,filterstr='(objectClass=*)',attrslist=None,attrsonly=0):
+        if base == None:
+            base = self.base
         try:
             result = self.l.search_s(base,scope,filterstr,attrslist,attrsonly)
         except ldap.LDAPError,e:
             print "Error occured while searching with filter: %s" % (filterstr)
             return [] # Consider raise exception later
-        return res
+        return result
 
 ###
 ###
