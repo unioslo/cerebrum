@@ -42,8 +42,15 @@ class Constants(Constants.Constants):
     system_fs = _AuthoritativeSystemCode('FS', 'FS')
     system_migrate = _AuthoritativeSystemCode('MIGRATE', 'Migrate from files')
     system_sap = _AuthoritativeSystemCode('SAP', 'SAP')
+    system_manual =  _AuthoritativeSystemCode('MANUELL', 
+					      'Manually added information')
 
     perspective_fs = _OUPerspectiveCode('FS', 'FS')
+
+    # Temporary hack to make sure that process_students.py works 
+    # should be removed as soon as proceess_students has been
+    # updated with the apropriate patch
+    perspective_lt = _OUPerspectiveCode('FS','FS')
 
     account_test = _AccountCode('testbruker', 'Testkonto')
     account_kurs = _AccountCode('kursbruker','Kurskonto')
@@ -52,7 +59,7 @@ class Constants(Constants.Constants):
 
     affiliation_ansatt = _PersonAffiliationCode('ANSATT','Ansatt ved HiA')
     affiliation_status_ansatt_manuell = _PersonAffStatusCode(
-        affiliation_ansatt, 'manuell', 'Ansatt, manuell import')
+        affiliation_ansatt, 'ans_manuell', 'Ansatt, manuell import')
     affiliation_status_ansatt_vitenskapelig = _PersonAffStatusCode(
         affiliation_ansatt, 'vitenskapelig', 'Ansatt, vitenskapelige ansatte')
     affiliation_status_ansatt_tekadm = _PersonAffStatusCode(
@@ -61,10 +68,9 @@ class Constants(Constants.Constants):
         affiliation_ansatt, 'primær', 'Primærtilknytning for SAP ansatte')
     
 # STUDENTER
-    affiliation_student = _PersonAffiliationCode(
-        'STUDENT', 'Student ved HiA (i følge FS)')
+    affiliation_student = _PersonAffiliationCode('STUDENT', 'Student ved HiA')
     affiliation_status_student_manuell = _PersonAffStatusCode(
-	affiliation_student, 'manuell', 'Student, manuell import')
+	affiliation_student, 'stud_manuell', 'Student, manuell import')
     affiliation_status_student_evu = _PersonAffStatusCode(
 	affiliation_student, 'evu', 'Student, etter og videre utdanning')
     affiliation_status_student_aktiv = _PersonAffStatusCode(
@@ -73,8 +79,16 @@ class Constants(Constants.Constants):
 	affiliation_student, 'tilbud', 'Student, tilbud')
     affiliation_status_student_privatist = _PersonAffStatusCode(
 	affiliation_student, 'privatist', 'Student, privatist')
-    affiliation_status_student_opptak = _PersonAffStatusCode(
-	affiliation_student, 'opptak', 'Student, opptak')
+    
+# We are not going to use this affiliation fro the time being
+# affiliation_status_student_opptak = _PersonAffStatusCode(
+# affiliation_student, 'opptak', 'Student, opptak')
+
+# ANDRE
+
+    affiliation_manuell = _PersonAffiliationCode('MANUELL', 'Tilknyttet HiA uten å være registrert i et av de autoritative kildesystemene')
+    affiliation_status_manuell_ekstern = _PersonAffStatusCode(
+	affiliation_manuell, 'ekstern', 'Eksern tilknyttet person')
 
     # We override the default settings for shells, thus this file
     # should be before PosixUser in cereconf.CLASS_CONSTANTS
@@ -83,42 +97,42 @@ class Constants(Constants.Constants):
     posix_shell_bash = _PosixShellCode('bash', '/local/gnu/bin/bash')
 
 # SPREAD DEFINISJONER
-    spread_hia_novell_user = _SpreadCode('NOVELL_user@hia', Constants.Constants.entity_account,
+    spread_hia_novell_user = _SpreadCode('account@edir', Constants.Constants.entity_account,
 					 'User in Novell domain "hia"')
-    spread_hia_novell_group = _SpreadCode('NOVELL_group@hia', Constants.Constants.entity_group,
+    spread_hia_novell_group = _SpreadCode('group@edir', Constants.Constants.entity_group,
 					 'Group in Novell domain "hia"')
-    spread_stud_nis_user = _SpreadCode('NIS_user@stud', Constants.Constants.entity_account,
+    spread_stud_nis_user = _SpreadCode('account@nisstud', Constants.Constants.entity_account,
 					 'User in NIS domain "stud"')
-    spread_ans_nis_user = _SpreadCode('NIS_user@ans', Constants.Constants.entity_account,
+    spread_ans_nis_user = _SpreadCode('account@nisans', Constants.Constants.entity_account,
 					 'User in NIS domain "ans"')
-    spread_stud_nis_fg = _SpreadCode('NIS_fg@stud', Constants.Constants.entity_group,
+    spread_stud_nis_fg = _SpreadCode('group@nisstud', Constants.Constants.entity_group,
                                     'File group in NIS domain "stud"')
-    spread_stud_nis_ng = _SpreadCode('NIS_ng@stud', Constants.Constants.entity_group,
+    spread_stud_nis_ng = _SpreadCode('netgroup@nisstud', Constants.Constants.entity_group,
                                     'Net group in NIS domain "stud"')
-    spread_ans_nis_fg = _SpreadCode('NIS_fg@ans', Constants.Constants.entity_group,
+    spread_ans_nis_fg = _SpreadCode('group@nisans', Constants.Constants.entity_group,
                                     'File group in NIS domain "ans"')
-    spread_ans_nis_ng = _SpreadCode('NIS_ng@ans', Constants.Constants.entity_group,
+    spread_ans_nis_ng = _SpreadCode('netgroup@nisans', Constants.Constants.entity_group,
                                     'Net group in NIS domain "ans"')
-    spread_hia_adgang = _SpreadCode('Adgang@hia', Constants.Constants.entity_person,
+    spread_hia_adgang = _SpreadCode('account@adgang', Constants.Constants.entity_person,
 				    'Person exported to Adgang system')
-    spread_hia_email = _SpreadCode('EMAIL@hia', Constants.Constants.entity_account,
+    spread_hia_email = _SpreadCode('account@imap', Constants.Constants.entity_account,
 				   'Email user at HiA')
-    spread_hia_bibsys = _SpreadCode('BIBSYS@hia', Constants.Constants.entity_person,
+    spread_hia_bibsys = _SpreadCode('account@bibsys', Constants.Constants.entity_person,
 				    'Person exported to BIBSYS')
-    spread_hia_tele = _SpreadCode('TELE@hia', Constants.Constants.entity_person,
+    spread_hia_tele = _SpreadCode('account@telefon', Constants.Constants.entity_person,
 				  'Person exported to phone system')
-    spread_hia_ldap_person = _SpreadCode('LDAP_person', Constants.Constants.entity_person, 
+    spread_hia_ldap_person = _SpreadCode('account@ldap', Constants.Constants.entity_person, 
 					 'Person included in LDAP directory')
-    spread_hia_ldap_ou = _SpreadCode('LDAP_OU', Constants.Constants.entity_ou,
+    spread_hia_ldap_ou = _SpreadCode('ou@ldap', Constants.Constants.entity_ou,
                                      'OU included in LDAP directory')
-    spread_hia_helpdesk = _SpreadCode('HELPDESK@uio', Constants.Constants.entity_account, 
+    spread_hia_helpdesk = _SpreadCode('account@helpdesk', Constants.Constants.entity_account, 
 				      'Account exported to helpdesk system')
-    spread_hia_ad_account = _SpreadCode('AD_account', Constants.Constants.entity_account,
+    spread_hia_ad_account = _SpreadCode('account@ad', Constants.Constants.entity_account,
 					'Account included in Active Directory')
-    spread_hia_ad_group = _SpreadCode('AD_group', Constants.Constants.entity_group,
+    spread_hia_ad_group = _SpreadCode('group@ad', Constants.Constants.entity_group,
 				      'group included in Active Directory')   
 
-    spread_hia_fronter = _SpreadCode('CF@hia', Constants.Constants.entity_group,
+    spread_hia_fronter = _SpreadCode('classgroup@fronter', Constants.Constants.entity_group,
 				     '''Group representing a course \
 				     that should be exported to the ClassFronter.\
 				     Should only be given to groups that have been \
