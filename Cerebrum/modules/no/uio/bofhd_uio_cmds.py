@@ -996,6 +996,77 @@ class BofhdExtension(object):
                  'name': a[1]
                  } for a in group.get_members(get_entity_name=True)]
 
+    # group personal <uname>+
+    all_commands['group_personal'] = Command(
+        ("group", "personal"), AccountName(repeat=True),
+        fs=FormatSuggestion("Group created, posix gid: %i\n"+
+                            "You may have to restart bofh to access the "+
+                            "'group add' command", ("group_id",)),
+        perm_filter='can_create_personal_group')
+    def group_personal(self, operator, uname):
+        """This is a separate command for convenience and consistency.
+        A personal group is always a PosixGroup, and has the same
+        spreads as the user.  We try to make the gid equal the user's
+        uid."""
+        acc = self._get_account(uname)
+        op = operator.get_entity_id()
+        self.ba.can_create_personal_group(op, acc)
+        # 1. Create group
+        group = Utils.Factory.get('Group')(self.db)
+        try:
+            group.find_by_name(uname)
+            raise CerebrumError, "Group %s already exists" % uname
+        except Errors.NotFoundError:
+            group.populate(creator_id=op,
+                           visibility=self.const.group_visibility_all,
+                           name=uname,
+                           description=('Personal file group for %s' % uname))
+            group.write_db()
+        # 2. Promote to PosixGroup
+        pu = PosixUser.PosixUser(self.db)
+        pg = PosixGroup.PosixGroup(self.db)
+        pu.find_by_name(uname)
+        # New users have UID > 60000.  We want them to have UID ==
+        # GID, although no code should rely on this!  But the old
+        # convention was GID == UID + 10000.  In the UID space
+        # 50000..60000 these two conventions can't be reconciled, so
+        # we just use the new convention.  If the wanted GID is taken,
+        # pick the first free GID.
+        if pu.posix_uid > 50000:
+            target_gid = pu.posix_uid
+        else:
+            target_gid = pu.posix_uid + 10000
+
+        try:
+            pg.find_by_gid(target_gid)
+            # no exception means the desired gid is taken already
+            pg.clear()
+            target_gid = None
+        except Errors.NotFoundError:
+            pass
+        pg.populate(parent=group, gid=target_gid)
+        try:
+            pg.write_db()
+        except self.db.DatabaseError, m:
+            raise CerebrumError, "Database error: %s" % m
+        # 3. make user the owner of the group so he can administer it
+        op_set = BofhdAuthOpSet(self.db)
+        op_set.find_by_name('ureg_group')
+        op_target = BofhdAuthOpTarget(self.db)
+        op_target.populate(group.entity_id, 'group')
+        op_target.write_db()
+        role = BofhdAuthRole(self.db)
+        role.grant_auth(acc.entity_id, op_set.op_set_id, op_target.op_target_id)
+        # 4. make user a member of his personal group
+        self._group_add(operator, uname, uname, type="account")
+        # 5. add spreads corresponding to its owning user
+        for s in acc.get_spread():
+            if self.const.spread_uio_nis_user in s:
+                group.add_spread(self.const.spread_uio_nis_fg)
+            elif self.const.spread_ifi_nis_user in s:
+                group.add_spread(self.const.spread_ifi_nis_fg)
+        return {'group_id': int(pg.posix_gid)}
+
     # group posix_create
     all_commands['group_promote_posix'] = Command(
         ("group", "promote_posix"), GroupName(),
