@@ -634,6 +634,8 @@ def process_move_requests():
                 else:
                     br.delay_request(r['request_id'], minutes=24*60)
 
+    return # We want to test the API changes before putting this in production
+
     for r in br.get_requests(operation=const.bofh_move_student):
         # TODO: Må også behandle const.bofh_move_student, men
         # student-auomatikken mangler foreløbig støtte for det.
