@@ -504,7 +504,11 @@ def generate_person(filename=None):
 		    if ou_struct[int(ou_id)][2]:
 			pers_string += "street: %s\n" % some2utf(ou_struct[int(ou_id)][2])
 		except: pass
-		#pers_string += "title: "
+		if row['per_title']:
+		    pers_string += "title: %s\n" % row['per_title']
+		else:
+     		    if row['title']:
+			pers_string += "title: %s\n" % row['title']
 		if row['contact_value']:
 		    phone_str = []
 		    for phones in string.split(row['contact_value'],'$'):
