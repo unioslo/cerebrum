@@ -1,0 +1,47 @@
+ChangeLog in Cerebrum
+=====================
+
+  ChangeLog should be used for all API operations (only API ops?)
+  that performs modifications to the database that may be of
+  interest.  This includes most bofh commands, as well as automatic
+  maintenance.
+
+  It will be used for:
+    - keeping a log of who did what to who
+    - making other systems detect that something has changed
+
+  Sample usage:
+
+  # user created:
+  foo.log_change(posix_userObj.{entity_id, type}, const.USER_CREATED)
+
+  foo.log_change(posix_userObj.{entity_id, type}, const.USER_DEF_FG, 
+                 change_params='new_fg_id')
+
+  foo.log_change(posix_groupObj.{entity_id, type}, const.G_ADD, 
+                 posix_userObj.entity_id)
+
+
+Event-listeners
+===============
+
+  A stand-alone process EL receives log_change events either through
+  regular polling or over a socket or similar.  The process is not
+  required to be running at all times.
+
+  Calling ELInterface.add_action_listener(self, key, type=None) will
+  register a program with EL, and EL will cause
+  self.update_event(change_id) to be called whenever a log_change of
+  the corresponding change_category has occoured.  This is done
+  through polling/socket.
+
+  Calling ELInterface.get_events(key, type) will receive all events
+  that were received since the last time it was called.
+
+  The key parameter is used to keep track of what events that has
+  been sent to a given listener.  It asserts that no events are lost
+  (must keep track of max change_id sendt for a given key, as well as
+  any holes in the id_sequence.  holes older than X seconds are
+  dropped).
+
+
