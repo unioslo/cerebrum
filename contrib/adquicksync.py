@@ -46,7 +46,7 @@ cl = CLHandler.CLHandler(db)
 
 delete_users = 0
 delete_groups = 0
-debug = False
+debug = True
 
 
 def quick_user_sync():
@@ -162,7 +162,7 @@ def add_spread(entity_id,spread):
             #TBD:Even a new user that received AD_spread can have a quarantine setting.
             if sock.read() == ['210 OK']:
                 #Make sure that the user is in the groups he should be.
-                for row in group.list_groups_with_entity(account.entity_id):
+                for row in group.list_groups_with_entity(entity_id):
                     group.clear()
                     group.find(row['group_id'])
                     if group.has_spread(int(co.spread_uio_ad_group)):
@@ -288,7 +288,6 @@ def change_pw(account_id,pw_params):
     account.find(account_id)
     if account.has_spread(int(co.spread_uio_ad_account)):
         pw=pw_params['password']
-        #These numbers represent the location in the ASCII table.
         pw=pw.replace('%','%25')
         pw=pw.replace('&','%26')
         user = id_to_name(account_id,'user')
