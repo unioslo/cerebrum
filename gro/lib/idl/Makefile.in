@@ -1,0 +1,47 @@
+##
+## Makefile for Cheetah templates
+##
+SHELL = @SHELL@
+INSTALL = @INSTALL@
+CHEETAH = @CHEETAH@
+OMNIIDL = omniidl #FIXME denne må bli generert med configure
+
+prefix = @prefix@
+libdir = @libdir@
+pythondir = @PYTHONDIR@
+
+sources = $(wildcard *.idl)
+objdir = Cerebrum/gro/Generated
+objects = $(objdir)/__init__.py \
+		  $(objdir)/errors_idl.py \
+		  $(objdir)/gro_idl.py \
+		  $(objdir)/Cerebrum_core/__init__.py \
+		  $(objdir)/Cerebrum_core/Errors/__init__.py \
+		  $(objdir)/Cerebrum_core__POA/__init__.py \
+		  $(objdir)/Cerebrum_core__POA/Errors/__init__.py
+
+.PHONY: all install install-lib clean distclean print
+
+Cerebrum/gro/Generated: $(sources)
+	rm -rf Cerebrum
+	omniidl -bpython -Wbpackage=Cerebrum.gro.Generated $(sources)
+
+all: Cerebrum/gro/Generated
+
+print:
+	@echo Sources
+	@echo $(sources)
+
+install: install-lib
+
+install-lib: $(sources)
+	@for file in $(objects); do \
+	  $(INSTALL) -D -v -m 644 $$file $(DESTDIR)/$(pythondir)/$$file || exit 1; \
+	done
+
+
+clean:
+	rm -rf Cerebrum
+
+distclean: clean
+	rm -f Makefile

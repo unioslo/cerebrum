@@ -1,0 +1,185 @@
+/* #include "classes.idl" */
+#include "errors.idl"
+
+/**
+* Module containing all interfaces defined as the core of Gro.
+* Extensions should be declared as separate modules.
+*/
+module Cerebrum_core {    
+    //forward declarations
+    interface LOHandler;
+    interface APHandler;
+    interface BulkIterator;
+
+    typedef sequence<string> StringSeq;
+
+    /**
+    * Structure/object representing a key->value pair.
+    * All objects in the LO Handler are represented as key->value pairs,
+    * where key is any attribute of an object, and value is a string
+    * representing the value of that attribute.
+    * \param key The key.
+    * \param value The value as a string.
+    */
+    struct KeyValue {
+        string key;
+        string value;
+    };
+
+    /**
+    * Structure/object used to hold the Gro version.
+    * If a client shares the major version number of Gro, then
+    * Gro should be able to handle it's requests. This promise
+    * cannot be made if their major version numbers differ.
+    * A client developer should use this to specify which version
+    * of Gro his or her client is developed for.
+    *
+    * \param major The major version number.
+    * \param minor The minor version number.
+    */
+    struct Version{
+        octet major;
+        octet minor;
+    };
+
+    typedef sequence <KeyValue> KeyValueSeq; /**< Sequence of KeyValue objects. */
+
+    typedef sequence <KeyValueSeq> IterSeq; /**< Sequence of Keyvalue sequences. */
+
+    /**
+    * The interface representing Gro, and thus the entry point to the Gro
+    * server.
+    * Separate handlers for LOs and APs can be obtained from this interface.
+    */
+    interface Gro {
+        /**
+        * Method for fetching the Gro version. It is recommended that
+        * all clients verify compatibility through this method before
+        * proceeding.
+        * \return A Version object representing the version.
+        */
+        Version get_version();
+
+        /**
+        * Method for fetching a handler for an LO client.
+        * \return An LO Handler.
+        */
+        LOHandler get_lo_handler();
+
+        /**
+        * \warning !!!NOT IMPLEMENTED!!!
+        */
+        APHandler get_ap_handler();
+    };
+
+    /**
+    * The interface represeting the LO Handler. This handler will in general
+    * return actual data and not object references. The data is serialized using
+    * the defined structures. If you wish to use object references (i.e. for
+    * changing attributes), please see the \link APHandler \endlink
+    * 
+    * See also \link KeyValue \endlink
+    */
+    interface LOHandler{
+        /**
+        * Method for fetching _all_ objects of a given type from Gro.
+        * Should only be used the first time a client is updating it's own
+        * records. For subsequent updates, the \link
+        * Cerebrum_core::LOHandler::get_update() \endlink method
+        * should be used.
+        *
+        * \param entity_iterator Reference to an iterator which will contain
+        * the objects fetched.
+        * \param entity_type_class A string representing the \ref
+        * classtypes "class type" which should be fetched.
+        * \param spreads A sequence of strings stating which spreads to search
+        * in. If the sequence is empty, all objects of the specified type are
+        * returned.
+        * \return The last ID present in the change log. This ID is used as an
+        * argument when fetching the next update.
+        */
+        long get_all( out BulkIterator entity_iterator,
+                      in string entity_type_class,
+                      in StringSeq spreads );
+                      
+        /**
+        * Method for fetching all objects of a given type from Gro, updated
+        * after a specified change log entry ID.
+        *
+        * \param entity_iterator Reference to an iterator which will contain
+        * the objects fetched.
+        * \param deleted_objects Reference to an iterator which will contain
+        * the IDs of any deleted objects.
+        * \param entity_type_class A string representing the \ref classtypes
+        * "class type" which should be fetched.
+        * \param spreads A sequence of strings stating which spreads to search
+        * in. If the sequence is empty, all objects of the specified type are
+        * returned.
+        * \param from_change_id The change log ID from which the search will
+        * begin.
+        * \return The last ID present in the change log. This ID is used as an
+        * argument when fetching the next update.
+        */
+        long get_update( out BulkIterator entity_iterator, 
+                         out BulkIterator deleted_objects,
+                         in string entity_type_class,
+                         in StringSeq spreads,
+                         in long from_change_id );
+    };
+
+    /**
+    * \warning !!!NOT IMPLEMENTED!!!
+    */
+    interface APHandler{
+
+        /**
+        * Starts transaction, more to come!.
+        */
+        void begin();
+
+        /**
+        * Commit changes to the database.
+        * Raises a CommitError, since i dont know what errors we can expect.
+        */
+        void commit()
+            raises( Errors::CommitError );
+
+        /**
+        * Rollback changes done to entitys. Rolls back to begin, wont have
+        * any effect if used after commit(), i think?
+        */
+        void rollback();
+
+    };
+
+    /**
+    * Interface used to hold an amount of items. The interface provides
+    * a method for fetching a specified amount of these items repetitively.
+    */
+    interface BulkIterator{
+        /**
+        * Specifies the amount of item to fetch in each iteration.
+        * \param amount the amount of items to fetch.
+        */
+        void set_amount( in long amount );
+        /**
+        * Fetches a new bulk of items.
+        * \return \link Cerebrum_core::IterSeq \endlink
+        */
+        IterSeq next() 
+            raises( Errors::IteratorEmptyError );
+        /**
+        * \return True when the iterator is empty.
+        */
+        boolean is_empty();        
+    };
+};
+/** \page info Additional information
+* Additional information to the Gro API documentation.
+* \section classtypes "Entity type classes"
+* The class types are directly mapped to the names
+* of the classes in the Cerebrum API.
+* As an example, if a client wishes to fetch all
+* accounts, the class type should be 'Account'. If the client wishes to fetch
+* Active Directory accounts, the class type should be 'ADAccount'.
+*/

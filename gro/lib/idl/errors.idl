@@ -1,0 +1,35 @@
+module Cerebrum_core{
+
+    /**
+    * Module containing all errors raised by Gro.
+    */
+    module Errors{
+
+        /**
+        * Error raised when trying to fetch elements
+        * from an empty iterator.
+        * \param explanation A string containing a short explanation.
+        */
+        exception IteratorEmptyError{
+            string explanation;
+        };
+
+        /**
+        * Error raised when trying to fetch a class type which does
+        * not exist in Cerebrum.
+        * \param explanation A string containing a short explanation.
+        */
+        exception NoSuchTypeError{
+            string explanation;
+        };
+
+        /**
+        * Error raised when commiting changes in APHandler.
+        * Not sure wich errors can be expected yet...
+        * \param explanation A string containing a short explanation.
+        */
+        exception CommitError{
+            string explanation;
+        };
+    };
+};
