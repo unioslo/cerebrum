@@ -245,9 +245,12 @@ class PosixUser(Account_class):
     def get_gecos(self):
         """Returns the gecos string of this object.  If self.gecos is
         not set, gecos is a washed version of the persons cached fullname"""
-        assert self.owner_type == int(self.const.entity_person)
         if self.gecos is not None:
             return self.gecos
+        if self.owner_type == int(self.const.entity_group):
+            return self._conv_name(
+                "%s user" % self.account_name, as_gecos=1)
+        assert self.owner_type == int(self.const.entity_person)
         p = Factory.get("Person")(self._db)
         p.find(self.owner_id)
         try:
