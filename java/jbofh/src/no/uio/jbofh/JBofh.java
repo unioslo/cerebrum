@@ -423,6 +423,10 @@ public class JBofh {
     }
 
     void showResponse(String cmd, Object resp) throws BofhdException {
+	if(resp instanceof String) {
+	    System.out.println(resp);
+	    return;
+	}
         Vector args = new Vector();
         args.add(cmd);
         Hashtable format = (Hashtable) knownFormats.get(cmd);
@@ -434,14 +438,9 @@ public class JBofh {
 		knownFormats.put(cmd, f);
 		format = (Hashtable) knownFormats.get(cmd);
 	    } else {
-		if(resp instanceof String) {
-		    System.out.println(resp);
-		    return;
-		} else {
-		    throw new IllegalArgumentException("result was class: "+
-						       resp.getClass().getName()+
-						       " and no format suggestion exists");
-		}
+		throw new IllegalArgumentException("result was class: "+
+						   resp.getClass().getName()+
+						   " and no format suggestion exists");
 	    }
         }
         
