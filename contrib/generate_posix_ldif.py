@@ -290,9 +290,9 @@ def main():
                                    ('help', 'posix') + short2long_opts[1])
         opts = dict(opts)
     except getopt.GetoptError, e:
-        usage("\n" + str(e))
+        usage(str(e))
     if args:
-        usage("\n" "Invalid arguments: %s" % " ".join(args))
+        usage("Invalid arguments: " + " ".join(args))
     if '--help' in opts:
         usage()
     # Copy long options into short options
@@ -325,9 +325,11 @@ def main():
     if glob_fd:
         glob_fd.close()
 
-def usage(exitcode=0):
-    print __doc__
-    sys.exit(exitcode)
+def usage(err=0):
+    if err:
+        print >>sys.stderr, err
+    print >>sys.stderr, __doc__
+    sys.exit(bool(err))
 
 if __name__ == '__main__':
     	main()

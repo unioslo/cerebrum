@@ -45,9 +45,9 @@ def main():
         opts, args = getopt.getopt(sys.argv[1:], 'ho:m',
                                    ('help', 'org=', 'omit-mail-module'))
     except getopt.GetoptError, e:
-        usage("\n" + str(e))
+        usage(str(e))
     if args:
-        usage("\n" "Invalid arguments: %s" % " ".join(args))
+        usage("Invalid arguments: " + " ".join(args))
     for opt, val in opts:
         if opt in ('-o', '--org'):
             ofile = val
@@ -71,9 +71,11 @@ def main():
     outfile.close()
     timer("Dump done.")
 
-def usage(exitcode=0):
-    print __doc__
-    sys.exit(exitcode)
+def usage(err=0):
+    if err:
+        print >>sys.stderr, err
+    print >>sys.stderr, __doc__
+    sys.exit(bool(err))
 
 if __name__ == '__main__':
     	main()
