@@ -348,6 +348,7 @@ def get_user_info(account_id, spread):
     account.clear()
     account.find(account_id)
     ent_name.clear()
+    ext_id = 0
     ent_name.find(account.owner_id)
     home_dir = find_home_dir(account_id, account.account_name, spread)
     names = {'name_last':None,'name_first':None,'name_full':None}
@@ -381,13 +382,12 @@ def get_user_info(account_id, spread):
 	    logger.debug("find on person or account failed, user_id:", account_id)
 	    for name_var in names:
 		names[name_var] = account.account_name
-    	ext_id = 0
 	try:
 	    affiliation = get_primary_affiliation(account_id, co.account_namespace)
 	    if affiliation == co.affiliation_student:
 		ext_id = int(person.get_external_id(co.system_fs, co.externalid_studentnr)[0]['external_id'])
 	    else: 
-		ext_id = int(person.get_external_id(int(getattr(co, ss)))[0]['external_id'])
+		ext_id = int(person.get_external_id(source_system=None,id_type=co.externalid_sap_ansattnr)[0]['external_id'])
 	except:
 	    pass
 	try:
