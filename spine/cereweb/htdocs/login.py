@@ -60,4 +60,4 @@ def index(req, username="", password=""):
     form.append(html.Submit("Login"))
     return doc
 
-# arch-tag: 4dc1ddde-c201-4b09-8a81-b007662cabca
+# arch-tag: c1c42d44-1800-4608-b215-8a669cf10821
