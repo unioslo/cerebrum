@@ -99,14 +99,28 @@ from Cerebrum.modules import Email
 from Cerebrum.modules.no.uio.access_FS import FS
 from Cerebrum.modules.no.uio.fronter_lib import FronterUtils
 
+def ordered_uniq(input):
+    """Take a list as input and remove (later) duplicates without
+    changing the ordering of the elements."""
+    seen = {}
+    output = []
+    for el in input:
+        if el not in seen:
+            output.append(el)
+            seen[el] = True
+    return output
+
 def prefetch_primaryusers():
     # TBD: This code is used to get account_id for both students and
     # fagansv.  Should we look at affiliation here?
     account = Factory.get('Account')(db)
     personid2accountid = {}
+    personid2student = {}
     for a in account.list_accounts_by_type(filter_expired=True):
         p_id = int(a['person_id'])
         a_id = int(a['account_id'])
+        if a['affiliation'] == co.affiliation_student:
+            personid2student.setdefault(p_id, []).append(a_id)
         personid2accountid.setdefault(p_id, []).append(a_id)
 
     person = Factory.get('Person')(db)
@@ -135,40 +149,39 @@ def prefetch_primaryusers():
                 del fnr2account_id[fnr]
         fnr_source[fnr] = (p_id, src_sys)
         if personid2accountid.has_key(p_id):
-            account_ids = personid2accountid[p_id]
+            account_ids = ordered_uniq(personid2accountid[p_id])
             for acc in account_ids:
                 account_id2fnr[acc] = fnr
+            if p_id in personid2student:
+                fnr2stud_account_id[fnr] = ordered_uniq(personid2student[p_id] +
+                                                        account_ids)
+            else:
+                fnr2stud_account_id[fnr] = account_ids
             fnr2account_id[fnr] = account_ids
     del fnr_source
 
-def fnrs2account_ids(rows, primary_only=True):
+def fnrs2account_ids(rows, primary_only=True, prefer_student=False):
     """Return list of primary accounts for the persons identified by
     row(s).  Optionally return a tuple of (primaries, secondaries)
-    instead.  The secondary accounts are _not_ sorted according to
-    priority."""
-    ret = []
+    instead.  The secondaries are a single list, so when more than one
+    row is passed, you can't tell which person owns them."""
+    prim = []
     sec = []
     for r in rows:
         fnr = "%06d%05d" % (
             int(r['fodselsdato']), int(r['personnr']))
         if fnr2account_id.has_key(fnr):
-            prim_acc = fnr2account_id[fnr][0]
-            ret.append(prim_acc)
+            if prefer_student:
+                account_list = fnr2stud_account_id[fnr]
+            else:
+                account_list = fnr2account_id[fnr]
+            prim.append(account_list[0])
             if not primary_only:
-                # Each account can be associated with more than one
-                # affiliation, and so occur more than once in the list.
-                # This is also true for the primary account name, but
-                # when we remove it from the dict after populating it
-                # with every account, we remove all occurences of it.
-                account = {}
-                for a in fnr2account_id[fnr]:
-                    account[a] = None
-                del account[prim_acc]
-                sec += account.keys()
+                sec.extend(account_list[1:])
     if primary_only:
-        return ret
+        return prim
     else:
-        return (ret, sec)
+        return (prim, sec)
 
 def process_kursdata():
     logger.debug("Getting all primaryusers")
@@ -325,20 +338,17 @@ def get_evukurs_aktiviteter():
             UndervEnhet[kurs_id].setdefault('aktivitet', {})[
                 aktivitet['aktivitetskode']] = aktivitet['aktivitetsnavn']
         tmp = {}
-        for evuansv in fs.evu.get_kurs_ansv(kurs['etterutdkurskode'],
-                                            kurs['kurstidsangivelsekode']):
-            fnr = "%06d%05d" % (
-                int(evuansv['fodselsdato']), int(evuansv['personnr']))
-            if fnr2account_id.has_key(fnr):
-                tmp[fnr2account_id[fnr][0]] = 1
+        for evuansv in \
+            fnrs2account_ids(fs.evu.get_kurs_ansv(kurs['etterutdkurskode'],
+                                                  kurs['kurstidsangivelsekode'])):
+            tmp[evuansv] = 1
         UndervEnhet[kurs_id]['fagansv'] = tmp.copy()
         tmp = {}
-        for student in fs.evu.list_kurs_stud(kurs['etterutdkurskode'],
-                                             kurs['kurstidsangivelsekode']):
-            fnr = "%06d%05d" % (
-                int(student['fodselsdato']), int(student['personnr']))
-            if fnr2account_id.has_key(fnr):
-                tmp[fnr2account_id[fnr][0]] = 1
+        for student in \
+            fnrs2account_ids(fs.evu.list_kurs_stud(kurs['etterutdkurskode'],
+                                                   kurs['kurstidsangivelsekode']),
+                             prefer_student=True):
+            tmp[student] = 1
         UndervEnhet[kurs_id]['students'] = tmp.copy()
 
 def get_evu_ansv(kurskode, tidsrom):
@@ -441,11 +451,12 @@ def populate_enhet_groups(enhet_id):
         # eksamensmeldte studenter.
         logger.debug(" student")
         alle_stud = {}
-        prim, sec = fnrs2account_ids(
-            fs.student.list_undervisningsenhet(Instnr, emnekode,
-                                               versjon, termk,
-                                               aar, termnr),
-                                     primary_only=False)
+        prim, sec = \
+              fnrs2account_ids(fs.student.list_undervisningsenhet(\
+                                   Instnr, emnekode, versjon, termk, aar,
+                                   termnr),
+                               primary_only=False,
+                               prefer_student=True)
         for account_id in prim:
             alle_stud[account_id] = 1
 
@@ -488,12 +499,11 @@ def populate_enhet_groups(enhet_id):
             # Ansvarlige for denne undervisningsaktiviteten.
             logger.debug(" aktivitetsansvar:%s" % aktkode)
             akt_ansv = {}
-            prim, sec = fnrs2account_ids(
-                fs.undervisning.get_ansvarlig_for_enhet(
-                Instnr, emnekode, versjon, termk, aar, termnr,
-                aktkode),
-                primary_only=False)
-            
+            prim, sec = \
+                  fnrs2account_ids(fs.undervisning.get_ansvarlig_for_enhet( \
+                                       Instnr, emnekode, versjon, termk, aar,
+                                       termnr, aktkode),
+                                   primary_only=False)
             for account_id in prim:
                 akt_ansv[account_id] = 1
 
@@ -565,10 +575,11 @@ def populate_enhet_groups(enhet_id):
             # Studenter meldt på denne undervisningsaktiviteten.
             logger.debug(" student:%s" % aktkode)
             akt_stud = {}
-            for account_id in fnrs2account_ids(
-                fs.undervisning.list_aktivitet(
-                Instnr, emnekode, versjon, termk, aar, termnr,
-                aktkode)):
+            for account_id in \
+                fnrs2account_ids(fs.undervisning.list_aktivitet(
+                                     Instnr, emnekode, versjon, termk, aar,
+                                     termnr, aktkode),
+                                 prefer_student=True):
                 if not alle_stud.has_key(account_id):
                     logger.warn("OBS: Bruker <%s> (fnr <%s>) er med i"
                                 " undaktivitet <%s>, men ikke i"
@@ -679,8 +690,9 @@ def populate_enhet_groups(enhet_id):
             # Ansvarlige for kursaktivitet
             logger.debug(" aktivitetsansvar:%s" % aktkode)
             evu_akt_ansv = {}
-            for account_id in fnrs2account_ids(
-                fs.evu.list_aktivitet_ansv(kurskode, tidsrom, aktkode)):
+            for account_id in \
+                fnrs2account_ids(fs.evu.list_aktivitet_ansv(kurskode, tidsrom,
+                                                            aktkode)):
                 evu_akt_ansv[account_id] = 1
 
             sync_group(kurs_id, "%s:aktivitetsansvar:%s" % (enhet_id, aktkode),
@@ -692,8 +704,10 @@ def populate_enhet_groups(enhet_id):
             # Studenter til denne kursaktiviteten
             logger.debug(" student:%s" % aktkode)
             evu_akt_stud = {}
-            for account_id in fnrs2account_ids(
-                fs.evu.list_aktivitet_stud(kurskode, tidsrom, aktkode)):
+            for account_id in \
+                fnrs2account_ids(fs.evu.list_aktivitet_stud(kurskode, tidsrom,
+                                                            aktkode),
+                                 prefer_student=True):
                 if not evustud.has_key(account_id):
                     logger.warn("""OBS: Bruker <%s> (fnr <%s>) er med i aktivitet <%s>, men ikke i kurset <%s>.""" % (
                         account_id, account_id2fnr[account_id],
@@ -875,8 +889,8 @@ def usage(exitcode=0):
     sys.exit(exitcode)
 
 def main():
-    global fs, db, co, logger, emne_versjon, emne_termnr, \
-           account_id2fnr, fnr2account_id, AffiliatedGroups, \
+    global fs, db, co, logger, emne_versjon, emne_termnr, account_id2fnr, \
+           fnr2account_id, fnr2stud_account_id, AffiliatedGroups, \
            known_FS_groups, fs_supergroup, auto_supergroup, \
            group_creator, UndervEnhet, \
            ifi_netgr_g, ifi_netgr_lkurs
@@ -907,6 +921,11 @@ def main():
     emne_versjon = {}
     emne_termnr = {}
     account_id2fnr = {}
+    # Both fnr2account_id and fnr2stud_account_id are keyed by fnr and
+    # have an array of every account ID's of that person sorted by
+    # priority as their value, but in fnr2stud_account_id the accounts
+    # with affiliation STUDENT will appear before other affiliations.
+    fnr2stud_account_id = {}
     fnr2account_id = {}
     AffiliatedGroups = {}
     known_FS_groups = {}
