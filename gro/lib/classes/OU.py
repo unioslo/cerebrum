@@ -21,59 +21,35 @@ import Cerebrum.OU
 import Database
 
 from Builder import Attribute, Builder, Method
+from CerebrumClass import CerebrumAttr
 from Entity import Entity
 
 __all__ = ['OU']
 
 class OU(Entity):
-    slots = Entity.slots + [Attribute('name', 'string', writable=True),
-                            Attribute('acronym','string',writable=True),
-                            Attribute('short_name','string',writable=True),
-                            Attribute('display_name','string',writable=True),
-                            Attribute('sort_name','string',writable=True)]
-    method_slots = Entity.method_slots + [  Method('get_parent', 'OU', 
-                                                [Attribute('perspective','string')]
-                                            ), 
-                                            Method('set_parent', 'void', 
-                                                [Attribute('perspective','string'), 
-                                                 Attribute('parent','OU')]
-                                            ),
-                                            Method('unset_parent', 'void', 
-                                                [Attribute('perspective','string')]
-                                            ),
-                                            Method('get_names','stringSeq'), # Actually list of 2-tuples
-                                            Method('get_acronyms','stringSeq'), # 2-tuple list as well
-                                            Method('get_structure_path', 'string', 
-                                                [Attribute('perspective','string')]
-                                            ),
-                                            Method('get_structure_mappings', 'OUStructureSeq', 
-                                                [Attribute('perspective','string')]
-                                            ),
-                                            Method('list_children', 'OUSeq', 
-                                                [Attribute('perspective','string')]
-                                            ),
-                                            Method('get_children', 'OUSeq', 
-                                                [Attribute('perspective','string')]
-                                            ), # Alias
-                                            Method('root', 'OU'),
-                                            Method('get_root', 'OU')
-                                         ] # Alias
-
-
+    slots = Entity.slots + [CerebrumAttr('name', 'string', writable=True),
+                            CerebrumAttr('acronym', 'string', writable=True),
+                            CerebrumAttr('short_name', 'string', writable=True),
+                            CerebrumAttr('display_name', 'string', writable=True),
+                            CerebrumAttr('sort_name', 'string', writable=True)]
+    method_slots = Entity.method_slots + [Method('get_parent', 'OU', [('perspective','string')]), 
+                                          Method('set_parent', 'void', [('perspective','string'),
+                                                                        ('parent','OU')]),
+                                          Method('unset_parent', 'void', [('perspective','string')]),
+                                          Method('get_names','stringSeq'), # Actually list of 2-tuples
+                                          Method('get_acronyms','stringSeq'), # 2-tuple list as well
+                                          Method('get_structure_path', 'string',
+                                                 [('perspective','string')]),
+                                          Method('get_structure_mappings', 'OUStructureSeq', 
+                                                 [('perspective','string')]),
+                                          Method('list_children', 'OUSeq', 
+                                                 [('perspective','string')]),
+                                          Method('get_children', 'OUSeq', 
+                                                 [('perspective','string')]), # Alias
+                                          Method('root', 'OU'),
+                                          Method('get_root', 'OU')] # Alias
 
     cerebrum_class = Cerebrum.OU.OU
-
-    def _load_ou(self):
-        e = Cerebrum.OU.OU(Database.get_database())
-        e.find(self._entity_id)
-
-        self._name = e.name
-        self._acronym = e.acronym
-        self._short_name = e.short_name
-        self._display_name = e.display_name
-        self._sort_name = e.sort_name
-
-    load_name = load_acronym = load_short_name = load_display_name = load_sort_name =_load_ou
 
     def get_parent(self, perspective):
         e = Cerebrum.OU.OU(Database.get_database())
@@ -140,7 +116,7 @@ class OU(Entity):
     def root(self):
         e = Cerebrum.OU.OU(Database.get_database())
         e.entity_id = self._entity_id
-        return OU(int(e.root()))
+        return OU(int(e.root()[0][0]))
 
     def get_root(self): # Alias for root (I like this better too ;))
         return self.root()

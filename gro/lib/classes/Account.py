@@ -22,36 +22,30 @@ import crypt
 import Database
 
 from Cerebrum.extlib import sets
-from Cerebrum.gro.Cerebrum_core import Errors
 
 from Builder import Builder, Attribute, Method
 from Entity import Entity
+from CerebrumClass import CerebrumAttr, CerebrumEntityAttr
 
 __all__ = ['Account', 'AccountAuthentication']
 
+def entity_from_cerebrum(value):
+    return Entity(value)
+def entity_to_cerebrum(value):
+    return value.get_entity_id()
+
 class Account(Entity):
     # hmm.. skipper np_type inntil videre. og konseptet rundt home/disk er litt føkka
-    slots = Entity.slots + [Attribute('name', 'string', writable=True),
-                            Attribute('owner_id', 'long'),
-                            Attribute('create_date', 'Date'),
-                            Attribute('creator_id', 'long'),
-                            Attribute('expire_date', 'Date', writable=True)]
-    method_slots = Entity.method_slots + [Method('get_authentications', 'AccountAuthentication')]
+    slots = Entity.slots + [CerebrumAttr('name', 'string', 'account_name', writable=True),
+                            CerebrumEntityAttr('owner', 'long', 'owner_id'),
+                            CerebrumAttr('create_date', 'Date'),
+                            CerebrumEntityAttr('creator', 'long', 'creator_id'),
+                            CerebrumAttr('expire_date', 'Date', writable=True)]
+    method_slots = Entity.method_slots + [Method('get_authentications', 'AccountAuthentication'),
+                                          Method('authenticate', 'boolean', [('password', 'string')])]
 
     cerebrum_class = Cerebrum.Account.Account
     
-    def _load_account(self):
-        e = Cerebrum.Account.Account(Database.get_database())
-        e.find(self._entity_id)
-
-        self._name = e.account_name
-        self._owner_id = int(e.owner_id)
-        self._creator_id = int(e.creator_id)
-        self._creator_date = e.create_date
-        self._expire_date = e.expire_date
-
-    load_name = load_owner_id = load_creator_id = load_create_date = load_expire_date = _load_account
-
     def get_authentications(self): # jada... dette skal bort/gjøres på en annen måte
         authentications = []
         for row in Database.get_database().query('''SELECT account_id, method, auth_data

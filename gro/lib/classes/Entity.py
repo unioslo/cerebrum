@@ -25,37 +25,36 @@ import Cerebrum.modules.Note
 import Database
 
 from Cerebrum.extlib import sets
-from Cerebrum.gro.Cerebrum_core import Errors
 
 from Builder import Builder, Attribute, Method
 from Searchable import Searchable
+from CerebrumClass import CerebrumClass, CerebrumAttr, CerebrumTypeAttr
+from Types import *
 
 __all__ = ['Entity', 'Note', 'Address', 'ContactInfo']
 
-class Entity(Builder, Searchable):
-    primary = [Attribute('entity_id', 'long')]
-    slots = [Attribute('entity_id', 'long'),
-             Attribute('entity_type', 'EntityType')]
+def entity_type_to_cerebrum(value):
+    return value.get_id()
+
+def entity_type_from_cerebrum(value):
+    import Types
+    return Types.EntityType.get_by_id(value)
+
+class Entity(Builder, Searchable, CerebrumClass):
+    primary = [CerebrumAttr('entity_id', 'long')]
+    slots = primary + [CerebrumTypeAttr('entity_type', 'EntityType', type_class=EntityType)]
     method_slots = [Method('get_spreads', 'SpreadSeq'),
                     Method('get_notes', 'NoteSeq'),
                     Method('get_contact_info', 'ContactInfoSeq'),
                     Method('get_addresses', 'AddressSeq')]
 
-#    primary = [Attribute('entity_id', 'long')]
-#    slots = primary + [Attribute('entity_type', 'long'),
-#                       Method('get_notes', 'NoteSeq'),
-#                       Method('add_note',
-#                              'void',
-#                              (('subject', 'string'), ('description', 'string')),
-#                              apNode=True)]
+    cerebrum_class = Cerebrum.Entity.Entity
 
 #    def add_note(self, creator_id, subject, description):
 #        e = Cerebrum.modules.Note.EntityNote(db)
 #        e.entity_id = self.get_entity_id()
 #
 #        e.add_note(creator_id, subject, description)
-
-    cerebrum_class = Cerebrum.Entity.Entity
 
     def __new__(cls, *args, **vargs):
         obj = Builder.__new__(Entity, *args, **vargs)
@@ -68,10 +67,16 @@ class Entity(Builder, Searchable):
 
         if obj.__class__ is Entity:
             obj.__class__ = entity_class
-        elif cls is not entity_class:
+        elif cls is not entity_class and cls is not Entity:
             raise Exception('wrong class. Asked for %s, but found %s' % (cls, entity_class))
 
         return obj
+
+    def build_methods(cls):
+        super(Entity, cls).build_methods()
+        super(Searchable, cls).build_methods()
+
+    build_methods = classmethod(build_methods)
 
     def get_spreads(self):
         import Types
@@ -138,12 +143,12 @@ class Entity(Builder, Searchable):
             return True
         return False
 
-    def load_entity_type(self):
-        import Types
-
-        e = self.cerebrum_class(Database.get_database())
-        e.find(self._entity_id)
-        self._entity_type = Types.EntityType.get_by_id(int(e.entity_type))
+#    def load_entity_type(self):
+#        import Types
+#
+#        e = self.cerebrum_class(Database.get_database())
+#        e.find(self._entity_id)
+#        self._entity_type = Types.EntityType.get_by_id(int(e.entity_type))
 
 class ContactInfo(Builder):
     primary = [Attribute('entity_id', 'long'),
