@@ -3,6 +3,8 @@
 
 import getopt
 import sys
+
+import cerebrum_path
 import cereconf
 
 from Cerebrum import Constants
@@ -107,7 +109,8 @@ def person_join(old_person, new_person):
     # entity_spread
     for s in old_person.get_spread():
         logger.debug("entity_spread: %s" % s['spread'])
-        new_person.add_spread(s['spread'])
+        if not new_person.has_spread(s['spread']):
+            new_person.add_spread(s['spread'])
 
     # person_affiliation
     has_affs = {}
