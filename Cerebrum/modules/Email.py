@@ -639,12 +639,30 @@ class EntityEmailDomain(Entity):
         self.__in_db = True
         self.__updated = []
 
-    def delete(self, affiliation=None):
+    def list_affiliations(self, domain_id=None):
+        """Return all rows (entitity_id, affiliation, domain_id)
+        associated with the e-mail domain domain_id, OR this entity
+        and any affilation."""
+        if domain_id:
+            where = "WHERE domain_id=:d_id"
+        else:
+            where = "WHERE entity_id=:e_id"
+        return self.query("""
+        SELECT entity_id, affiliation, domain_id
+        FROM [:table schema=cerebrum name=email_entity_domain]"""+
+                          where, {'d_id': domain_id,
+                                  'e_id': self.entity_id})
+
+    def delete(self):
+        if self.entity_email_affiliation:
+            aff_cond = "affiliation=:aff"
+        else:
+            aff_cond = "affiliation IS NULL"
         return self.execute("""
         DELETE FROM [:table schema=cerebrum name=email_entity_domain]
-        WHERE entity_id=:e_id AND
-              affiliation=:aff""", {'e_id': self.entity_id,
-                                    'aff': affiliation})
+        WHERE entity_id=:e_id AND """ + aff_cond,
+                            {'e_id': self.entity_id,
+                             'aff': self.entity_email_affiliation})
 
 
 class EmailQuota(EmailTarget):
