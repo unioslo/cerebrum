@@ -357,12 +357,11 @@ class Group(EntityName, Entity):
 
     def list_all(self, spread=None):
         """Lists all groups (of given ``spread``).
-           DEPRECATED: use search() instead"""
-        # Convert spread id to spread code to confirm with search()
-        spread = _SpreadCode(spread)   
-        result = self.search(filter_spread=spread)
-        # only return (id,name) 
-        return [(id,name) for (id,name,desc) in result]
+
+        DEPRECATED: use search() instead
+
+        """
+        return self.search(filter_spread=spread)
 
     def search(self, filter_spread=None, filter_name=None, filter_desc=None):
         """Retrieves a list of groups filtered by the given criterias.
@@ -439,10 +438,21 @@ class Group(EntityName, Entity):
         FROM [:table schema=cerebrum name=group_info] %s""" % where,
                           {'etype': int(self.const.entity_group)})
 
-# Python 2.3 has a 'set' module in the standard library; for now we'll
-# roll our own.
-def intersect(a, b):
-    return [x for x in a if x in b]
+try:
+    import sets
+    def intersect(a, b):
+        a = sets.ImmutableSet(a)
+        return a.intersection(b)
 
-def difference(a, b):
-    return [x for x in a if x not in b]
+    def difference(a, b):
+        a = sets.ImmutableSet(a)
+        return a.difference(b)
+except ImportError:
+    # The 'sets' module didn't appear as part of standard Python until
+    # 2.3; as we're only requiring Python 2.2.1, we're rolling our
+    # own.
+    def intersect(a, b):
+        return [x for x in a if x in b]
+
+    def difference(a, b):
+        return [x for x in a if x not in b]
