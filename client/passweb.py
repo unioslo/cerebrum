@@ -26,10 +26,10 @@ def handle_request():
     print "Content-type: text/html\n"
     
     if not form.has_key("action"):
-        print get_tpl("pform.html")
+        print get_tpl("passweb_form.html")
     else:
         msg = change_password(form)
-        tpl = get_tpl("receipt.html")
+        tpl = get_tpl("passweb_receipt.html")
         print tpl.replace("@MSG@", msg)
 
 def get_tpl(name):
