@@ -187,7 +187,7 @@ keep_togglers = [
      'triggers': (co.disk_add, co.disk_mod, co.disk_del)},
     # Host
     {'columns': ('subject_entity', ),
-     'triggers': (co.host_add, co.host_mod)},
+     'triggers': (co.host_add, co.host_mod, co.host_del)},
     # OU
     {'columns': ('subject_entity', ),
      'triggers': (co.ou_create, co.ou_mod)},
