@@ -467,7 +467,7 @@ WHERE p.fodselsdato=d.fodselsdato AND
 SELECT fodselsdato, personnr, institusjonsnr, faknr, instituttnr, gruppenr
 FROM fs.drgradsavtale
 WHERE dato_start <= SYSDATE AND
-      NVL(dato_slutt, sysdate) >= SYSDATE"""
+      NVL(DATO_BEREGNET_SLUTT, sysdate) >= SYSDATE"""
         return (self._get_cols(qry), self.db.query(qry))
 
     def GetStudieproginf(self):
