@@ -31,10 +31,10 @@ def runfile(fname, Cerebrum):
         try:
             res = Cerebrum.execute(ddl)
         except:
-            print "CMD: [%s] -> " % ddl
-            print "  database error:", sys.exc_info()[1]
+            print "  CMD: [%s] -> " % ddl
+            print "    database error:", sys.exc_info()[1]
         else:
-            print "ret: "+str(res)
+            print "  ret: "+str(res)
     Cerebrum.commit()
 
 if __name__ == '__main__':
