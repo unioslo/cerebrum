@@ -874,8 +874,7 @@ def person_callback(person):
             bdate = None
         else:
             try:
-                bdate = [int(x) for x in person['bdate'].split('-')]
-                bdate = db.Date(*bdate)
+                bdate = parse_date(person['bdate'])
             except:
                 print "WARNING: Illegal birthdate: %s" % person['bdate']
                 bdate = None
@@ -949,8 +948,7 @@ def create_account(u, owner_id, owner_type, np_type=None):
         return None
     is_posix = False
     if u.has_key('deleted_date'):
-        expire_date = [int(x) for x in u['deleted_date'].split('-')]
-        expire_date = db.Date(*expire_date)
+        expire_date = parse_date(u['deleted_date'])
         if int(u['dfg']) > 0 and not uid_taken.has_key(int(u['uid'])):
             is_posix = True
     else:
@@ -965,13 +963,15 @@ def create_account(u, owner_id, owner_type, np_type=None):
         if not gid2entity_id.has_key(int(u['dfg'])):
             is_posix = False
         else:
-            gecos = None        # TODO
+            gecos = None
+            for name in u.get('name', []):
+                if name.get('type') == 'gecos' and name.get('val'):
+                    gecos = name.get('val')
             shell = shell2shellconst[u['shell']]
-            posix_user.clear()
             accountObj = posix_user
     if not is_posix:
-        account.clear()
         accountObj = account
+    accountObj.clear()
 
     if u.has_key('home'):
         home = u['home']
@@ -1166,8 +1166,7 @@ def create_account(u, owner_id, owner_type, np_type=None):
             when = db.TimestampFromTicks(time())
             why = "Had splat on import from ureg2000"
         else:
-            when = [int(x) for x in u['quarantine']['when'].split('-')]
-            when = db.Date(*when)
+            when = parse_date(u['quarantine']['when'])
             why = u['quarantine']['why']
         accountObj.add_entity_quarantine(int(co.quarantine_generell),
                                          acc_creator_id, # TODO: Set this
