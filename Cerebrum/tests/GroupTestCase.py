@@ -7,6 +7,7 @@ from Cerebrum import Database
 from Cerebrum import Account
 from Cerebrum import Group
 from Cerebrum.tests.AccountTestCase import Account_createTestCase
+import pprint
 
 class Group_createTestCase(Account_createTestCase):
 
@@ -17,6 +18,8 @@ class Group_createTestCase(Account_createTestCase):
         self._populate_group(group)
         group.write_db()
         self.group_id = group.entity_id
+        self.group = group
+        self.members = ()
 
     def _populate_group(self, group, **group_args):
         if not group_args:
@@ -36,11 +39,15 @@ class Group_createTestCase(Account_createTestCase):
         group = Group.Group(self.Cerebrum)
         group.find(self.group_id)
         group.delete()
-        
+        for id in self.members:
+            self.Cerebrum.execute(
+                """DELETE FROM [:table schema=cerebrum name=entity_name]
+                WHERE entity_id=:id""", {'id': id})
+            self.Cerebrum.execute(
+                """DELETE FROM [:table schema=cerebrum name=account_info]
+                WHERE account_id=:id""", {'id': id})
         super(Group_createTestCase, self).tearDown()
         self.Cerebrum.commit()
-
-
 
 class GroupTestCase(Group_createTestCase):
     def testCreateGroup(self):
@@ -67,18 +74,43 @@ class GroupTestCase(Group_createTestCase):
 
     def testAddMember(self):
         "Test adding members to groups."
-        pass
+        account = Account.Account(self.Cerebrum)
+        account.find(self.account_id)
+        self.group.add_member(account, Group_createTestCase.co.group_memberop_union)
+        # TODO: Assuming that it worked, should add test to verify this
 
     def testRemoveMember(self):
         "Test removing members from groups."
-        pass
+        account = Account.Account(self.Cerebrum)
+        account.find(self.account_id)
+        self.group.remove_member(account, Group_createTestCase.co.group_memberop_union)
+        # TODO: Verify that it worked
 
     def testListMembers(self):
         "Test (recursively) listing members of groups."
-        pass
+        account = Account.Account(self.Cerebrum)
+        # TODO: Here we should add members in a complex way and read them back
+        i = 0
+        while i < 5:
+            i += 1
+            account.clear()
+            self._myPopulateAccount(account)
+            account.account_name += "_%s" % i
+            account.write_db()
+            self.members += (account.entity_id, )
+            self.group.add_member(account,
+                                  Group_createTestCase.co.group_memberop_union)
+
+        pp = pprint.PrettyPrinter(indent=4)
+        pp.pprint(self.group.list_members())
 
 def suite():
-    return unittest.makeSuite(GroupTestCase, 'test')
+    #    return unittest.makeSuite(GroupTestCase, 'test')
+    suite = unittest.TestSuite()
+    suite.addTest(GroupTestCase("testAddMember"))
+    suite.addTest(GroupTestCase("testListMembers"))
+    suite.addTest(GroupTestCase("testRemoveMember"))
+    return suite
 
 if __name__ == '__main__':
     unittest.main(defaultTest='suite')
