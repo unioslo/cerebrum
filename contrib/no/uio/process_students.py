@@ -305,7 +305,7 @@ def process_students_callback(person_info):
         process_student(person_info)
     except:
         max_errors -= 1
-        if max_errs < 0:
+        if max_errors < 0:
             raise
         trace = "".join(traceback.format_exception(
             sys.exc_type, sys.exc_value, sys.exc_traceback))
