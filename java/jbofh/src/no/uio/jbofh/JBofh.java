@@ -228,8 +228,8 @@ public class JBofh {
     public JBofh(boolean gui, String log4jPropertyFile, String bofhd_url) 
         throws BofhdException {
 	guiEnabled = gui;
-	if(gui) mainFrame = new JBofhFrame(this);
         loadPropertyFiles(log4jPropertyFile);
+	if(gui) mainFrame = new JBofhFrame(this);
 
         bc = new BofhdConnection(logger, this);
         String intTrust = (String) props.get("InternalTrustManager.enable");
@@ -309,6 +309,7 @@ public class JBofh {
 		    password = cp.getPassword(prompt);
 		}
             }
+            if(password == null) return false;
             bc.login(uname, password);
             this.uname = uname;
 	} catch (IOException io) {
