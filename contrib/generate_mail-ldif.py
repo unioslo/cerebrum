@@ -20,9 +20,11 @@
 
 import time
 import sys
+import base64
 
 import cerebrum_path
 from Cerebrum import Errors
+from Cerebrum import Account
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import Email
 
@@ -56,17 +58,149 @@ def read_targ():
     
         targets.append(id)
 
-
-def write_ldif():
+def write_misc(t):
     mail_quota = Email.EmailQuota(Cerebrum)
     mail_spam = Email.EmailSpamFilter(Cerebrum)
     mail_virus = Email.EmailVirusScan(Cerebrum)
+    
+    # Find quota-info for target:
+    try:
+        mail_quota.clear()
+        mail_quota.find(t)
+        print "softQuota: %d" % mail_quota.get_quota_soft()
+        print "hardQuota: %d" % mail_quota.get_quota_hard()
+    except Errors.NotFoundError:
+        pass
+        
+    # Find SPAM-info for target:
+    try:
+        mail_spam.clear()
+        mail_spam.find(t)
+        print "spamLevel: %d" % mail_spam.get_spam_level()
+        print "spamAction: %s" % mail_spam.get_spam_action()
+    except Errors.NotFoundError:
+        pass
+    
+    # Find virus-info for target:
+    try:
+        mail_virus.clear()
+        mail_virus.find(t)
+        # TODO: somthing smart, but if .. else for now.
+        if mail_virus.get_enable():
+            print "virusScanning: True"
+        else:
+            print "virusScanning: Flase"
+        print "virusFound: %s" % mail_virus.get_virus_found_act()
+        print "virusRemoved: %s" % mail_virus.get_virus_removed_act()
+    except Errors.NotFoundError:
+        pass
+
+
+def write_ldif():
+    mail_prim = Email.EmailPrimaryAddress(Cerebrum)
+    
     for t in targets:
         mail_targ.clear()
         mail_targ.find(t)
-        
+
+        target = ""
+
+        # The structure is decided by what target-type the
+        # target is (class EmailConstants in Email.py):
+        tt = mail_targ.get_target_type_name()
+
+        if str(tt) == "account":
+            # Target is the local delivery defined for the Account whose
+            # account_id == email_target.entity_id.
+            ent_type = mail_targ.get_entity_type()
+            ent_id = mail_targ.get_entity_id()
+            # TODO: Get string "account" out of EmailTarget, not a number.
+            if ent_type == 2003:
+                try:
+                    acc = Account.Account(Cerebrum)
+                    acc.clear()
+                    acc.find(ent_id)
+                    target = acc.account_name
+                except Errors.NotFoundError:
+                    txt = "Target: %s(account) no user found: %s"% (t,ent_id)
+                    sys.stderr.write(txt)
+                    continue
+            
+        elif str(tt) == "pipe" or str(tt) == "pipe" or str(tt) == "Mailman":
+            # Target is a shell pipe. The command (and args) to pipe mail
+            # into is gathered from email_target.alias_value.  Iff
+            # email_target.entity_id is set and belongs to an Account,
+            # deliveries to this target will be run as that account.
+            #   or
+            # Target is a file. The absolute path of the file is gathered
+            # from email_target.alias_value.  Iff email_target.entity_id
+            # is set and belongs to an Account, deliveries to this target
+            # will be run as that account.
+            #   or
+            # Target is a Mailman mailing list. The command (and args) to
+            # pipe mail into is gathered from email_target.alias_value.
+            # Iff email_target.entity_id is set and belongs to an
+            # Account, deliveries to this target will be run as that
+            # account.
+            target = mail_targ.get_alias()
+            if target == None:
+                txt = "Target: %s(%s) needs a value in alias_value\n" % (t,tt)
+                sys.stderr.write(txt)
+                continue
+
+            ent_type = mail_targ.get_entity_type()
+            ent_id = mail_targ.get_entity_id()
+            # TODO: Get "account" out of EmailTarget, not a number.
+            if ent_type == 2003:
+                try:
+                    acc = Account.Account(Cerebrum)
+                    acc.clear()
+                    acc.find(ent_id)
+                    target = ":%s:%s" % (acc.account_name, target)
+                except Errors.NotFoundError:
+                    txt = "Target: %s(%s) no user found: %s" % (t,tt,ent_id)
+                    sys.stderr.write(txt)
+                    continue
+            elif ent_type == None and ent_id == None:
+                # Catch valid targets with no user bound to it.
+                pass
+            else:
+                txt = "Target: %s(pipe) has invalid entities: %s, %s"\
+                      % (t,ent_type, ent_id)
+                stderr.write(txt)
+                continue
+
+        elif str(tt) == "multi":
+            # Target is the set of `account`-type targets corresponding to
+            # the Accounts that are first-level members of the Group that
+            # has group_id == email_target.entity_id.
+            pass
+        else:
+            # The target-type isn't known to this script.
+            stderr.write("Wrong target-type in target: %s: %s" % ( t, tt ))
+            continue
+
         print "dn: cn=a%s,ou=mail,dc=uio,dc=no" % t
         print "objectClass: top"
+        print "objectClass: mailAddr"
+        print "targetType: %s" % tt
+        #print "target:: %s" % base64.encodestring(target)
+        print "target: %s" % target
+        
+        # Find primary mail-address:
+        try:
+            mail_prim.clear()
+            mail_prim.find(t)
+            a = mail_prim.get_address_id()
+            mail_addr.clear()
+            mail_addr.find(a)
+            dom_id = mail_addr.get_domain_id()
+            mail_dom.clear()
+            mail_dom.find(dom_id)
+            print "defaultMailAddress: %s@%s" % ( mail_addr.get_localpart(),
+                                                  mail_dom.get_domain_name() )
+        except Errors.NotFoundError:
+            pass 
 
         # Find addresses for target:
         if targ2addr.has_key(t):
@@ -79,36 +213,10 @@ def write_ldif():
                 print "mail: %s@%s" % ( mail_addr.get_localpart(),
                                         mail_dom.get_domain_name() )
 
-        # Find quota-info for target:
-        try:
-            mail_quota.clear()
-            mail_quota.find(t)
-            print "softQuota: %d" % mail_quota.get_quota_soft()
-            print "hardQuota: %d" % mail_quota.get_quota_hard()
-        except Errors.NotFoundError:
-            pass
 
-        # Find SPAM-info for target:
-        try:
-            mail_spam.clear()
-            mail_spam.find(t)
-            print "spamLevel: %d" % mail_spam.get_spam_level()
-            print "spamAction: %s" % mail_spam.get_spam_action()
-        except Errors.NotFoundError:
-            pass
-
-        # Find virus-info for target:
-        try:
-            mail_virus.clear()
-            mail_virus.find(t)
-            if mail_virus.is_enabled():
-                print "virusFound: %s" % mail_virus.get_virus_found_act()
-                print "virusRemoved: %s" % mail_virus.get_virus_removed_act()
-        except Errors.NotFoundError:
-            pass
-
-           
+        write_misc(t)
         print "\n"
+    
 
 def main():
     read_addr()

@@ -204,7 +204,7 @@ class EmailTarget(EmailEntity):
     def write_db(self):
         if not self.__updated:
             return
-        is_new = not self.__in_db
+
         if is_new:
             self.email_target_id = int(self.nextval("email_id_seq"))
             self.execute("""
@@ -271,6 +271,23 @@ class EmailTarget(EmailEntity):
         return self.query("""
         SELECT target_id
         FROM [:table schema=cerebrum name=email_target]""")
+
+    def get_target_type(self):
+        return self.email_target_type
+
+    def get_target_type_name(self):
+        name = self._db.pythonify_data(self.email_target_type)
+        name = _EmailTargetCode(name)
+        return name
+
+    def get_alias(self):
+        return self.email_target_alias
+
+    def get_entity_id(self):
+        return self.email_target_entity_id
+    
+    def get_entity_type(self):
+        return self.email_target_entity_type
 
 
 class EmailAddress(EmailEntity):
@@ -535,33 +552,6 @@ class _EmailSpamLevelCode(Constants._CerebrumCode):
 class _EmailSpamActionCode(Constants._CerebrumCode):
     _lookup_table = '[:table schema=cerebrum name=email_spam_action_code]'
 
-    def __init__(self, code, description=None):
-        super(_EmailSpamActionCode, self).__init__(code, description)
-
-    def insert(self):
-        self._pre_insert_check()
-        self.sql.execute("""
-        INSERT INTO %(code_table)s
-          (%(code_col)s, %(str_col)s, %(desc_col)s)
-        VALUES
-          (%(code_seq)s, :str, :desc)""" % {
-            'code_table': self._lookup_table,
-            'code_col': self._lookup_code_column,
-            'str_col': self._lookup_str_column,
-            'desc_col': self._lookup_desc_column,
-            'code_seq': self._code_sequence},
-                         {'str': self.str,
-                          'desc': self._desc})
-
-    def get_action(self):
-        if self.str is None:
-            self.str = int(self.sql.query_1("""
-            SELECT code_str
-            FROM %(code_table)s
-            WHERE code=:code""" % {'code_table': self._lookup_table},
-                                              {'code': int(self)}))
-        return self.str
-
     
 class EmailSpamFilter(EmailTarget):
     __read_attr__ = ('__in_db',)
@@ -633,75 +623,16 @@ class EmailSpamFilter(EmailTarget):
 
     def get_spam_action(self):
         action = self._db.pythonify_data(self.email_spam_action)
-        if isinstance(action, int):
-            action = _EmailSpamActionCode(action)
-        elif isinstance(action, _EmailSpamActionCode):
-            pass
-        else:
-            raise TypeError
-        return action.get_action()
-
+        action = _EmailSpamActionCode(action)
+        return action
+        
 
 class _EmailVirusFoundCode(Constants._CerebrumCode):
     _lookup_table = '[:table schema=cerebrum name=email_virus_found_code]'
 
-    def __init__(self, code, description=None):
-        super(_EmailVirusFoundCode, self).__init__(code, description)
-
-    def insert(self):
-        self._pre_insert_check()
-        self.sql.execute("""
-        INSERT INTO %(code_table)s
-          (%(code_col)s, %(str_col)s, %(desc_col)s)
-        VALUES
-          (%(code_seq)s, :str, :desc)""" % {
-            'code_table': self._lookup_table,
-            'code_col': self._lookup_code_column,
-            'str_col': self._lookup_str_column,
-            'desc_col': self._lookup_desc_column,
-            'code_seq': self._code_sequence},
-                         {'str': self.str,
-                          'desc': self._desc})
-
-    def get_found(self):
-        if self.str is None:
-            self.str = int(self.sql.query_1("""
-            SELECT code_str
-            FROM %(code_table)s
-            WHERE code=:code""" % {'code_table': self._lookup_table},
-                                              {'code': int(self)}))
-        return self.str
-
 
 class _EmailVirusRemovedCode(Constants._CerebrumCode):
     _lookup_table = '[:table schema=cerebrum name=email_virus_removed_code]'
-
-    def __init__(self, code, description=None):
-        super(_EmailVirusRemovedCode, self).__init__(code, description)
-
-    def insert(self):
-        self._pre_insert_check()
-        self.sql.execute("""
-        INSERT INTO %(code_table)s
-          (%(code_col)s, %(str_col)s, %(desc_col)s)
-        VALUES
-          (%(code_seq)s, :str, :desc)""" % {
-            'code_table': self._lookup_table,
-            'code_col': self._lookup_code_column,
-            'str_col': self._lookup_str_column,
-            'desc_col': self._lookup_desc_column,
-            'code_seq': self._code_sequence},
-                         {'str': self.str,
-                          'desc': self._desc})
-
-    def get_removed(self):
-        if self.str is None:
-            self.str = int(self.sql.query_1("""
-            SELECT code_str
-            FROM %(code_table)s
-            WHERE code=:code""" % {'code_table': self._lookup_table},
-                                              {'code': int(self)}))
-        return self.str
 
 
 class EmailVirusScan(EmailTarget):
@@ -767,30 +698,20 @@ class EmailVirusScan(EmailTarget):
         self.__in_db = True
         self.__updated = False
 
-    def is_enabled(self):
+    def get_enable(self):
         if self.email_virus_enable == "T":
             return True
         return False
 
     def get_virus_found_act(self):
         found = self._db.pythonify_data(self.email_virus_found_act)
-        if isinstance(found, int):
-            found = _EmailVirusFoundCode(found)
-        elif isinstance(found, _EmailVirusFoundCode):
-            pass
-        else:
-            raise TypeError
-        return found.get_found()
+        found = _EmailVirusFoundCode(found)
+        return found
     
     def get_virus_removed_act(self):
         removed = self._db.pythonify_data(self.email_virus_removed_act)
-        if isinstance(removed, int):
-            removed = _EmailVirusRemovedCode(removed)
-        elif isinstance(removed, _EmailVirusRemovedCode):
-            pass
-        else:
-            raise TypeError
-        return removed.get_removed()
+        removed = _EmailVirusRemovedCode(removed)
+        return removed
         
 
 class EmailForward(EmailTarget):
@@ -856,7 +777,6 @@ class EmailPrimaryAddress(EmailTarget):
         self.__in_db = True
         self.__updated = False
         return is_new
-
     def find(self, target_id):
         self.__super.find(target_id)
         self.email_primaddr_id = self.query_1("""
@@ -869,3 +789,6 @@ class EmailPrimaryAddress(EmailTarget):
             pass
         self.__in_db = True
         self.__updated = False
+
+    def get_address_id(self):
+        return self.email_primaddr_id
