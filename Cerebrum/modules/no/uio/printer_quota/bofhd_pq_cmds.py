@@ -98,8 +98,9 @@ The currently defined id-types are:
 
     # We provide two methods for history data, one for jbofh, and one
     # for scripts
-    def _pquota_history(self, person_id, when):
+    def _pquota_history(self, operator, person_id, when):
         # when is number of days in the past
+        # TODO: Permission sjekking
         ppq_info = self.bu.get_pquota_status(person_id)
         if when:
             when = self.db.Date(*( time.localtime(time.time()-3600*24*when)[:3]))
@@ -117,13 +118,11 @@ The currently defined id-types are:
         
     all_commands['pquota_history'] = None
     def pquota_history(self, operator, person, when=None):
-        # TODO: Permission sjekking
         return self._pquota_history(
-            self.bu.find_pq_person(person), when)
+            operator, self.bu.find_pq_person(person), when)
 
     all_commands['jbofh_pquota_history'] = Command(
         ("pquota", "history"), PersonId(),
-        #SimpleString(help_ref='quota_date', optional=True),
         fs=FormatSuggestion("%8i %-7s %16s %-10s %-20s %5i %5i",
                             ('job_id', 'transaction_type',
                              format_time('tstamp'), 'update_by',
@@ -133,11 +132,10 @@ The currently defined id-types are:
                             ("JobId", "Type", "When", "By", "Data", "#Free",
                              "#Paid")))
     def jbofh_pquota_history(self, operator, person_id):
-        # TODO: Permission sjekking
-        #when = 14              # Max days for cmd-client
-        when = None
+        when = 7              # Max days for cmd-client
         ret = []
-        for r in self._pquota_history(self.bu.find_person(person_id), when):
+        for r in self._pquota_history(
+            operator, self.bu.find_person(person_id), when):
             tmp = {
                 'job_id': r['job_id'],
                 'transaction_type': r['transaction_type'],
@@ -167,7 +165,7 @@ The currently defined id-types are:
         person_id = self.bu.find_person(person_id)
         self.bu.get_pquota_status(person_id)
         ppq = PaidPrinterQuotas.PaidPrinterQuotas(self.db)
-        ppq.set_has_quota(person_id, has_quota=False)
+        ppq.set_status_attr(person_id, {'has_quota': False})
         return "OK, turned off quota for person_id=%i" % person_id
 
     all_commands['pquota_update'] = Command(
@@ -177,11 +175,9 @@ The currently defined id-types are:
         person_id = self.bu.find_person(person_id)
         self.bu.get_pquota_status(person_id)
         pu = PPQUtil.PPQUtil(self.db)
-        try:
-            pu.set_free_pages(person_id, int(new_value), why,
-                              update_by=operator.get_entity_id())
-        except ValueError, msg:
-            raise bofhd_pq_utils.BadQuotaValue(msg)
+        # Throws subclass for CerebrumError, which bofhd.py will handle
+        pu.set_free_pages(person_id, int(new_value), why,
+                          update_by=operator.get_entity_id())
         return "OK, set free quota for %i to %s" % (person_id, new_value)
 
     all_commands['pquota_undo'] = Command(
@@ -190,11 +186,9 @@ The currently defined id-types are:
     def pquota_undo(self, operator, person_id, job_id, num_pages, why):
         person_id = self.bu.find_person(person_id)
         pu = PPQUtil.PPQUtil(self.db)
-        try:
-            pu.undo_transaction(person_id, job_id, int(num_pages),
-                                why, update_by=operator.get_entity_id())
-        except ValueError, msg:
-            raise bofhd_pq_utils.BadQuotaValue(msg)
+        # Throws subclass for CerebrumError, which bofhd.py will handle
+        pu.undo_transaction(person_id, job_id, int(num_pages),
+                            why, update_by=operator.get_entity_id())
         return "OK"
 
 

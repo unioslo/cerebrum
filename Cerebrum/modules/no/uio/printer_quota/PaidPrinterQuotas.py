@@ -12,7 +12,6 @@ class Constants(Constants.Constants):
         'balance', 'Balance - used when cleaning out old data')
     pqtt_printout = _PaidQuotaTransactionTypeCode(
         'print', 'Normal print job')
-    #raise ValueError, "TODO: hva gjør vi med gratis vs betalt påfyll og hvilke kolonner som fylles med data osv.?  Ref. at det skal kunne vises i history"
     pqtt_quota_fill_pay = _PaidQuotaTransactionTypeCode(
         'pay', 'Quota fill')
     pqtt_quota_fill_free = _PaidQuotaTransactionTypeCode(

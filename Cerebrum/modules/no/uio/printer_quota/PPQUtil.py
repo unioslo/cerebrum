@@ -1,10 +1,11 @@
 # -*- coding: iso-8859-1 -*-
 
-from Cerebrum.modules.no.uio.printer_quota import PaidPrinterQuotas
-from Cerebrum.modules.bofhd.errors import CerebrumError
+from Cerebrum import Errors
 from Cerebrum import Person
 from Cerebrum import Utils
-from Cerebrum import Errors
+
+from Cerebrum.modules.no.uio.printer_quota import PaidPrinterQuotas
+from Cerebrum.modules.no.uio.printer_quota import errors
 
 PAGE_COST = {
     'fs': 0.30,
@@ -29,7 +30,8 @@ class PPQUtil(object):
         try:
             self.ppq.find(person_id)
         except Errors.NotFoundError:
-            # TBD: Is it correct to give person quota when it doesn't have it?
+            # We accept payments even if user has no quota, thus we
+            # must make a quota_status entry for the person
             self.ppq.new_quota(person_id)
 
         self.ppq._add_transaction(
@@ -49,12 +51,12 @@ class PPQUtil(object):
     def _alter_free_pages(self, op, person_id, new_value, why,
                           update_by=None, update_program=None):
         if new_value < 0:
-            raise ValueError, "Cannot %s negative quota" % op
+            raise errors.InvalidQuotaData, "Cannot %s negative quota" % op
         row = self.ppq.find(person_id)
         if op == 'set':
             new_value = new_value - row['free_quota']
         if new_value == 0:
-            raise ValueError, "quota already at that value"
+            raise errors.InvalidQuotaData, "quota already at that value"
         
         self.ppq._add_transaction(
             self.const.pqtt_quota_fill_free,
@@ -80,24 +82,24 @@ class PPQUtil(object):
         self, person_id, target_job_id, page_units, description,
         update_by=None, update_program=None):
         if not (page_units > 0):
-            raise ValueError("page_units must be > 0")
+            raise errors.IllegalUndoRequest("page_units must be > 0")
         rows = self.ppq.get_history(
             target_job_id=target_job_id)
         if len(rows) > 0:
-            raise CerebrumError, "Undo already registered for that job"
+            raise errors.IllegalUndoRequest, "Undo already registered for that job"
         rows = self.ppq.get_history(
             job_id=target_job_id)
         if len(rows) == 0:
-            raise CerebrumError, "Unknown target_job_id"
+            raise errors.IllegalUndoRequest, "Unknown target_job_id"
         if rows[0]['transaction_type'] != int(self.const.pqtt_printout):
-            raise CerebrumError, "Can only undo print jobs"
+            raise errors.IllegalUndoRequest, "Can only undo print jobs"
 
         # Calculate change
         old_free, old_pay = (rows[0]['pageunits_free'],
                              rows[0]['pageunits_paid'])
 
         if page_units > -old_free + -old_pay:
-            raise CerebrumError, "Cannot undo more pages than was in the job"
+            raise errors.IllegalUndoRequest, "Cannot undo more pages than was in the job"
 
         pageunits_free = pageunits_paid = 0
         if old_pay < 0:                  # Paid for refered print-job

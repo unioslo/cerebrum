@@ -7,15 +7,7 @@ from Cerebrum import Person
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.bofhd.errors import CerebrumError
 from Cerebrum.modules.no.uio.printer_quota import PaidPrinterQuotas
-
-class UserHasNoQuota(CerebrumError):
-    pass
-
-class NotFound(CerebrumError):
-    pass
-
-class BadQuotaValue(CerebrumError):
-    pass
+from Cerebrum.modules.no.uio.printer_quota import errors
 
 class BofhdUtils(object):
     def __init__(self, server):
@@ -29,7 +21,7 @@ class BofhdUtils(object):
         try:
             row = ppq.find(person_id)
         except Errors.NotFoundError:
-            raise UserHasNoQuota("User has no quota")
+            raise errors.UserHasNoQuota("User has no quota")
         return row
         
     def find_pq_person(self, fnr):
@@ -45,7 +37,7 @@ class BofhdUtils(object):
                 return person.entity_id
             except Errors.NotFoundError:
                 pass
-        raise NotFound("No person with fnr=%s" % fnr)
+        raise errors.NotFoundError("No person with fnr=%s" % fnr)
 
     def _map_person_id(self, id_data):
         """Map <id_type:id> to const.<id_type>, id.  Recognizes
@@ -60,7 +52,7 @@ class BofhdUtils(object):
             id_type = self.const.PersonExternalId(id_type)
         if id_type is not None:
             return id_type, id_data
-        raise CerebrumError, "Unknown person_id type"
+        raise errors.NotFoundError, "Unknown person_id type"
 
     def find_person(self, id_data, id_type=None):
         """Return person_id matching id_data.  id_data can be an
@@ -83,12 +75,12 @@ class BofhdUtils(object):
             elif id_type == 'entity_id':
                 person.find(id_data)
             else:
-                raise NotFound, "Unknown id_type"
+                raise errors.NotFoundError, "Unknown id_type"
         except Errors.NotFoundError:
-            raise NotFound, "Could not find person with %s=%s" % (
+            raise errors.NotFoundError, "Could not find person with %s=%s" % (
                 id_type, id_data)
         except Errors.TooManyRowsError:
-            raise CerebrumError, "ID not unique %s=%s" % (id_type, id_data)
+            raise errors.NotFoundError, "ID not unique %s=%s" % (id_type, id_data)
         return person.entity_id
 
     def get_uname(self, entity_id):
@@ -111,8 +103,8 @@ class BofhdUtils(object):
             elif id_type == 'id':
                 account.find(id_data)
             else:
-                raise NotImplementedError, "unknown id_type: '%s'" % id_type
+                raise errors.NotFoundError, "unknown id_type: '%s'" % id_type
         except Errors.NotFoundError:
-            raise CerebrumError(
+            raise errors.NotFoundError(
                 "Could not find Account with %s=%s" % (id_type, id_data))
         return account
