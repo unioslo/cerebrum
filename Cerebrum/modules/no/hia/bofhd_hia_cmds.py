@@ -2190,7 +2190,7 @@ class BofhdExtension(object):
 	body.append("group create %s \"%s\"" % (groupname, description))
 	for i in range(len(spreads)):
 	    if (self._get_constant(spreads[i],"No such spread") in \
-		[self.const.spread_uio_nis_fg,self.const.spread_ifi_nis_fg]):
+		[self.const.spread_nis_fg,self.const.spread_ans_nis_fg]):
                 pg = PosixGroup.PosixGroup(self.db)
 		if not pg.illegal_name(groupname):
 		    body.append("group promote_posix %s" % groupname)
@@ -2200,10 +2200,11 @@ class BofhdExtension(object):
 	    else:
 		pass	    
 	body.append("spread add group %s %s" % (groupname, spreadstring))
+	body.append("access grant group_mod %s group %s" (moderator, groupname))
 	body.append("")
 	body.append("")
         Utils.sendmail(toaddr, fromaddr, subject, "\n".join(body))
-	return "Request sent to brukerreg@usit.uio.no"
+	return "Request sent to brukerreg@hia.no"
 
     #  group def
     all_commands['group_def'] = Command(
@@ -2612,7 +2613,7 @@ class BofhdExtension(object):
             raise PermissionDenied("Currently limited to superusers")
         host = self._get_host(hostname)
         disk = Utils.Factory.get('Disk')(self.db)
-        disk.populate(host.entity_id, diskname, 'uio disk')
+        disk.populate(host.entity_id, diskname, 'HiA user disk')
         disk.write_db()
         if len(diskname.split("/")) != 4:
             return "OK.  Warning: disk did not follow expected pattern."
@@ -2655,7 +2656,7 @@ class BofhdExtension(object):
         if not self.ba.is_superuser(operator.get_entity_id()):
             raise PermissionDenied("Currently limited to superusers")
         host = Utils.Factory.get('Host')(self.db)
-        host.populate(hostname, 'uio host')
+        host.populate(hostname, 'HiA host')
         host.write_db()
         return "OK"
 
@@ -3443,7 +3444,7 @@ class BofhdExtension(object):
         fodselsdato, pnum = fodselsnr.del_fnr(fnr[0]['external_id'])
         har_opptak = {}
         ret = []
-        db = Database.connect(user="ureg2000", service="FSPROD.uio.no",
+        db = Database.connect(user="cerebrum", service="FSHIA.uio.no",
                               DB_driver='Oracle')
         fs = FS(db)
         for row in fs.GetStudentStudierett(fodselsdato, pnum)[1]:
@@ -3701,7 +3702,7 @@ class BofhdExtension(object):
         entity = self._get_entity(entity_type, id)
         spread = int(self._get_constant(spread, "No such spread"))
         self.ba.can_add_spread(operator.get_entity_id(), entity, spread)
-        if spread == int(self.const.spread_uio_imap):
+        if spread == int(self.const.spread_hia_email):
             raise CerebrumError, "Cannot remove IMAP spread without deleting user"
         entity.delete_spread(spread)
         if entity_type == 'account':
@@ -3812,7 +3813,7 @@ class BofhdExtension(object):
                         'help_ref': 'user_create_select_person'}
         owner_id = all_args.pop(0)
         if not group_owner:
-            person = self._get_person("entity_id", owner_id)
+	    person = self._get_person("entity_id", owner_id)
             existing_accounts = []
             account = self.Account_class(self.db)
             for r in account.list_accounts_by_owner_id(person.entity_id):
@@ -3821,7 +3822,7 @@ class BofhdExtension(object):
                     exp = account.expire_date.strftime('%Y-%m-%d')
                 else:
                     exp = '<not set>'
-                existing_accounts.append("%-10s %s" % (account.account_name,
+		existing_accounts.append("%-10s %s" % (account.account_name,
                                                        exp))
             if existing_accounts:
                 existing_accounts = "Existing accounts:\n%-10s %s\n%s\n" % (
@@ -3945,7 +3946,7 @@ class BofhdExtension(object):
             for spread in cereconf.BOFHD_NEW_USER_SPREADS:
                 posix_user.add_spread(self._get_constant(spread,
                                                          "No such spread"))
-            posix_user.set_home(self.const.spread_uio_nis_user,
+            posix_user.set_home(self.const.spread_nis_user,
                                 disk_id=disk_id, home=home,
                                 status=self.const.home_status_not_created)
             # For correct ordering of ChangeLog events, new users
@@ -3965,6 +3966,40 @@ class BofhdExtension(object):
                                                     'password': passwd})
         return {'uid': uid}
 
+    
+    # user home_create (set extra home per spread for a given account)
+    all_commands['user_home_create'] = Command(
+	("user", "home_create"), AccountName(), Spread(), DiskId(), perm_filter='can_create_user')
+    def user_home_create(self, operator, accountname, spread, disk):
+	hdisk = Utils.Factory.get('Disk')(self.db)
+	account = self._get_account(accountname)
+	disk_id, home = self._get_disk_or_home(disk)
+        if home is not None:
+            if home[0] == ':':
+                home = home[1:]
+            else:
+                raise CerebrumError, "Invalid disk"
+	self.ba.can_create_user(operator.get_entity_id(), account)
+	if (self._get_constant(spread, "No such spread") not in \
+	    [self.const.spread_nis_user, self.const.spread_ans_nis_user,
+	     self.const.spread_hia_novell_user, self.const.spread_hia_ad_account]):
+	    raise CerebrumError, "Cannot assign home in a non-home spread!"
+	if account.has_spread(self._get_constant(spread)):
+	    try:
+		account.get_home(self._get_constant(spread))
+		raise CerebrumError, "User already has a home in spread %s, use user move" % spread
+	    except:
+		account.set_home(self._get_constant(spread, "No such spread"), 
+				 disk_id=disk_id, home=home,
+				 status=self.const.home_status_not_created)
+	else:
+	    account.add_spread(self._get_constant(spread, "No such spread"))
+	    account.set_home(self._get_constant(spread, "No such spread"), 
+			     disk_id=disk_id, home=home,
+			     status=self.const.home_status_not_created)
+	account.write_db()
+	return "Home updated for %s in spread %s" % (accountname, spread)
+	    
     # user delete
     all_commands['user_delete'] = Command(
         ("user", "delete"), AccountName(), perm_filter='can_delete_user')
@@ -4049,22 +4084,26 @@ class BofhdExtension(object):
             ou = self._get_ou(ou_id=row['ou_id'])
             affiliations.append("%s@%s" % (self.num2const[int(row['affiliation'])],
                                            self._format_ou_name(ou)))
-        try:
-            tmp = account.get_home(self.const.spread_ans_nis_user)
-        except Errors.NotFoundError:
-            tmp = {'disk_id': None, 'home': None}
-        ret = {'entity_id': account.entity_id,
-               'spread': ",".join(["%s" % self.num2const[int(a['spread'])]
-                                   for a in account.get_spread()]),
-               'affiliations': (",\n" + (" " * 15)).join(affiliations),
-               'expire': account.expire_date,
-               'home': tmp['home']}
-        if tmp['disk_id'] is not None:
-            disk = Utils.Factory.get('Disk')(self.db)
-            disk.find(tmp['disk_id'])
-            ret['home'] = "%s/%s" % (disk.path, account.account_name)
-
-        if is_posix:
+	disk = Utils.Factory.get('Disk')(self.db)
+	spreads = []
+	hm = []
+	spreads = account.get_spread()
+	for row in spreads:
+	    try:
+		tmp = account.get_home(int(row['spread']))
+		disk.clear()
+		disk.find(tmp['disk_id'])
+		print tmp['disk_id']
+		hm.append("%s/%s (%s)" % (disk.path, account.account_name, self.num2const[int(row['spread'])]))
+	    except Errors.NotFoundError:
+		tmp = {'disk_id': None, 'home': None}
+	ret = {'entity_id': account.entity_id,
+	       'spread': ",".join(["%s" % self.num2const[int(a['spread'])]
+				   for a in account.get_spread()]),
+	       'affiliations': (",\n" + (" " * 15)).join(affiliations),
+	       'expire': account.expire_date,
+	       'home': ("\n" + (" " * 15)).join(hm)}
+	if is_posix:
             group = self._get_group(account.gid_id, idtype='id', grtype='PosixGroup')
             ret['uid'] = account.posix_uid
             ret['dfg_posix_gid'] = group.posix_gid
@@ -4073,8 +4112,8 @@ class BofhdExtension(object):
             ret['shell'] = str(self.num2const[int(account.shell)])
         # TODO: Return more info about account
         if account.get_entity_quarantine():
-            ret['quarantined'] = 'Yes'
-        return ret
+	    ret['quarantined'] = 'Yes'
+	return ret
 
 
     def _map_template(self, num=None):
@@ -4497,7 +4536,6 @@ class BofhdExtension(object):
     # misc helper functions.
     # TODO: These should be protected so that they are not remotely callable
     #
-
     def _get_account(self, id, idtype=None, actype="Account"):
         if actype == 'Account':
             account = self.Account_class(self.db)
@@ -4819,7 +4857,7 @@ class BofhdExtension(object):
 
     def _today(self):
         return self._parse_date("%d-%d-%d" % time.localtime()[:3])
-
+	    
     def _parse_range(self, selection):
         lst = []
         try:
