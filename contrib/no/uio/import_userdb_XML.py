@@ -843,7 +843,7 @@ def person_callback(person):
         if False:
             print "[%s] person_callbacks last minute: %i (mem=%s, gc=%i)" % (strftime("%H:%M:%S", localtime()), users_minute, tmp, gc.collect())
         else:
-            print "[%s] person_callbacks last minute: %i (%s)" % (strftime("%a H:%M:%S", localtime()), users_minute, tmp)
+            print "[%s] person_callbacks last minute: %i (%s)" % (strftime("%a %H:%M:%S", localtime()), users_minute, tmp)
         users_minute = 0
         prev_time = tmp_time
     users_minute += 1
