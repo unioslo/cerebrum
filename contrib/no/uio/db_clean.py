@@ -230,18 +230,23 @@ keep_togglers = [
      'triggers': (co.entity_addr_add, co.entity_addr_del)},
     ]
 
-if not never_forget_homedir:
-    keep_togglers.extend([
-        # Account homedir  (obsolete)
-        {'columns': ('subject_entity', ),
-         'triggers': (co.account_move, )},
-        # Account homedir
-        {'columns': ('subject_entity', ),
-         'change_params': ('spread', ),
-         'triggers': (co.account_home_updated, co.account_home_added,
-                      co.account_home_removed)}
-        ])
+if never_forget_homedir:
+    toggleable = 0
+else:
+    toggleable = 1
 
+keep_togglers.extend([
+    # Account homedir  (obsolete)
+    {'columns': ('subject_entity', ),
+     'toggleable': toggleable,
+     'triggers': (co.account_move, )},
+    # Account homedir
+    {'columns': ('subject_entity', ),
+     'toggleable': toggleable,
+     'change_params': ('spread', ),
+     'triggers': (co.account_home_updated, co.account_home_added,
+                  co.account_home_removed)}
+    ])
 
 def setup():
     # Sanity check: assert that triggers are unique.  Also provides
@@ -255,7 +260,10 @@ def setup():
         for t in k['triggers']:
             if trigger_mapping.has_key(int(t)):
                 raise ValueError, "%s is not a unique trigger" % t
-            trigger_mapping[int(t)] = k
+            if not k.get('toggleable', 1):
+                trigger_mapping[int(t)] = None
+            else:
+                trigger_mapping[int(t)] = k
 
 def remove_plaintext_passwords():
     """Removes plaintext passwords."""
@@ -348,6 +356,8 @@ def process_log():
             
         # Determine a unique key for this event to check togglability
         m = trigger_mapping[int(e['change_type_id'])]
+        if m is None:
+            continue          # Entry is not toggle'able
         key = [ "%i" % m['toggler_id'] ]
         for c in m.get('columns'):
             key.append("%i" % e[c])
