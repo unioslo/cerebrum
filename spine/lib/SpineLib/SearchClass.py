@@ -48,6 +48,7 @@ class SearchClass(SpineClass):
         self._unions = []
         self._intersections = []
         self._differences = []
+        self.mark = None
 
     def save(self):
         pass
@@ -85,23 +86,26 @@ class SearchClass(SpineClass):
         else:
             unions.update(self._result)
 
-        def convert(objs):
-            if not objs:
-                return objs
+        def convert(searcher):
+            if searcher.mark is not None:
+                new_objs = sets.Set()
 
-            data_type = objs[0].__class__
-            if issubclass(data_type, self._cls):
-                return objs
+                for i in searcher.search():
+                    new_objs.add(getattr(i, searcher.mark.get_name_get())())
 
-            print 'hæ?', objs
-            return []
+                return new_objs
+
+            elif issubclass(searcher._cls, self._cls):
+                return searcher.search()
+            else:
+                raise Exception('unnable to merge searchclass withouth a mark')
 
         for i in self._unions:
-            unions.update(convert(i.search()))
+            unions.update(convert(i))
         for i in self._intersections:
-            intersections.update(convert(i.search()))
+            intersections.update(convert(i))
         for i in self._differences:
-            differences.update(convert(i.search()))
+            differences.update(convert(i))
 
         if intersections:
             unions.intersection_update(intersections)
@@ -120,9 +124,10 @@ def set_intersections(self, intersections):
 def set_differences(self, differences):
     self._differences = differences
 
-SearchClass.register_method(Method('set_unions', [SearchClass], write=True), set_unions)
-SearchClass.register_method(Method('set_intersections', [SearchClass], write=True), set_intersections)
-SearchClass.register_method(Method('set_differences', [SearchClass], write=True), set_differences)
+args = [('search_classes', [SearchClass])]
+SearchClass.register_method(Method('set_unions', None, args, write=True), set_unions)
+SearchClass.register_method(Method('set_intersections', None, args, write=True), set_intersections)
+SearchClass.register_method(Method('set_differences', None, args, write=True), set_differences)
 
 registry.register_class(SearchClass)
 

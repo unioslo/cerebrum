@@ -22,17 +22,16 @@ import copy
 
 from Builder import Method
 
-def create_get_method(var):
+def create_get_method(attr):
     """
     This function creates a simple get method get(self), which
     uses getattr().
     Methods created with this function are used in search objects.
     """
-    assert type(var) == str
 
-    def get(self, default=None):
+    def get(self):
         # get the variable
-        return getattr(self, '_' + var, default)
+        return getattr(self, attr.get_name_private())
     return get
 
 def create_new_attr(attr, **vargs):
@@ -55,6 +54,14 @@ def create_new_attr(attr, **vargs):
         new_attr._old_name = new_attr.name
         new_attr.name += name
     return new_attr
+
+def create_mark_method(attr):
+    method = Method('mark_' + attr.name, None, write=True)
+    def mark(self):
+        if self.mark is not None:
+            raise Exception('Allready marked for %s' % self.mark)
+        self.mark = attr
+    return method, mark
 
 class Searchable(object):
     search_slots = []
@@ -80,6 +87,10 @@ class Searchable(object):
             search_class.db_attr_aliases = cls.db_attr_aliases.copy()
 
         for attr in cls.slots + cls.search_slots:
+            if issubclass(attr.data_type, Searchable):
+                method, mark = create_mark_method(attr)
+                search_class.register_method(method, mark, overwrite=True)
+
             new_attrs = []
             if attr.data_type == str:
                 new_attrs.append(create_new_attr(attr, like=True))
@@ -104,7 +115,7 @@ class Searchable(object):
                         search_class.db_attr_aliases[new_attr.table][new_attr.name] = tmp
                     del new_attr._old_name
 
-                get = create_get_method(new_attr.name)
+                get = create_get_method(new_attr)
                 search_class.register_attribute(new_attr, get=get, overwrite=True)
 
         search_class._search = cls.create_search_method()
