@@ -127,6 +127,7 @@ command_help = {
     'perm_grant': 'Add an entry to auth_role',
     'perm_revoke': 'Remove an entry from auth_role',
     'perm_who_owns': 'Show owner of a target',
+    'perm_who_has_perm': 'Show who has the given op_set permission somewhere',
     },
     'person': {
     'person_accounts': 'View account a person is owner of',

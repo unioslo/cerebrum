@@ -378,7 +378,6 @@ class BofhdExtension(object):
         if len(rows) == 0:
             ar.grant_auth(entity_id, opset.op_set_id, op_target_id)
             return "OK"
-        print "DEBUG", "hei"
         return "%s already has %s access to %s" % (entity_name, opset.name,
                                                    target_name)
 
@@ -393,8 +392,6 @@ class BofhdExtension(object):
         if len(rows) == 0:
             return "%s don't have %s access to %s" % (entity_name, opset.name,
                                                       target_name)
-        print ["%r" % x for x in (entity_id, opset, target_id, target_type,
-                                  attr, entity_name, target_name)]
         ar.revoke_auth(entity_id, opset.op_set_id, op_target_id)
         # See if the op_target has any references left, delete it if not.
         rows = ar.list(op_target_id=op_target_id)
@@ -1792,11 +1789,9 @@ class BofhdExtension(object):
         act_date = None
         for r in ev.get_vacation():
             if r['start_date'] > r['end_date']:
-                # TODO: should use logger -- but how to access it?
-                # logger.warn("bogus tripnote for %s, start at %s, end at %s",
-                #             uname, r['start_date'], r['end_date'])
-                print ("WARNING: bogus tripnote for %s, start at %s, end at %s"
-                       % (uname, r['start_date'], r['end_date']))
+                self.logger.warn(
+                    "bogus tripnote for %s, start at %s, end at %s"
+                    % (uname, r['start_date'], r['end_date']))
                 ev.delete_vacation(r['start_date'])
                 ev.write_db()
                 continue
@@ -2637,10 +2632,9 @@ class BofhdExtension(object):
 
     all_commands['misc_dadd'] = Command(
         ("misc", "dadd"), SimpleString(help_ref='string_host'), DiskId(),
-        perm_filter='is_superuser')
+        perm_filter='can_create_disk')
     def misc_dadd(self, operator, hostname, diskname):
-        if not self.ba.is_superuser(operator.get_entity_id()):
-            raise PermissionDenied("Currently limited to superusers")
+        self.ba.can_create_disk(operator.get_entity_id())
         host = self._get_host(hostname)
         disk = Utils.Factory.get('Disk')(self.db)
         disk.populate(host.entity_id, diskname, 'uio disk')
@@ -2670,10 +2664,9 @@ class BofhdExtension(object):
 
     all_commands['misc_drem'] = Command(
         ("misc", "drem"), SimpleString(help_ref='string_host'), DiskId(),
-        perm_filter='is_superuser')
+        perm_filter='can_remove_disk')
     def misc_drem(self, operator, hostname, diskname):
-        if not self.ba.is_superuser(operator.get_entity_id()):
-            raise PermissionDenied("Currently limited to superusers")
+        self.ba.can_remove_disk(operator.get_entity_id())
         host = self._get_host(hostname)
         disk = Utils.Factory.get('Disk')(self.db)
         disk.find_by_path(diskname, host_id=host.entity_id)
@@ -2682,10 +2675,9 @@ class BofhdExtension(object):
     
     all_commands['misc_hadd'] = Command(
         ("misc", "hadd"), SimpleString(help_ref='string_host'),
-        perm_filter='is_superuser')
+        perm_filter='can_create_host')
     def misc_hadd(self, operator, hostname):
-        if not self.ba.is_superuser(operator.get_entity_id()):
-            raise PermissionDenied("Currently limited to superusers")
+        self.ba.can_create_host(operator.get_entity_id())
         host = Utils.Factory.get('Host')(self.db)
         host.populate(hostname, 'uio host')
         host.write_db()
@@ -2693,12 +2685,12 @@ class BofhdExtension(object):
 
     all_commands['misc_hrem'] = Command(
         ("misc", "hrem"), SimpleString(help_ref='string_host'),
-        perm_filter='is_superuser')
+        perm_filter='can_remove_host')
     def misc_hrem(self, operator, hostname):
-        if not self.ba.is_superuser(operator.get_entity_id()):
-            raise PermissionDenied("Currently limited to superusers")
+        self.ba.can_remove_host(operator.get_entity_id())
         host = self._get_host(hostname)
-        raise NotImplementedError, "API does not support host removal"
+        host.delete()
+        return "OK, %s deleted" % hostname
 
     # misc list_passwords
     def misc_list_passwords_prompt_func(self, session, *args):
@@ -3123,6 +3115,27 @@ class BofhdExtension(object):
         bar.revoke_auth(entity_id, aos.op_set_id, op_target_id)
         return "OK"
 
+    # perm who_has_perm
+    all_commands['perm_who_has_perm'] = Command(
+        ("perm", "who_has_perm"), SimpleString(help_ref="string_op_set"),
+        fs=FormatSuggestion("%-8s %-8s %-8i",
+                            ("entity_id", "op_set_id", "op_target_id"),
+                            hdr="%-8s %-8s %-8s" %
+                            ("entity_id", "op_set_id", "op_target_id")),
+        perm_filter='is_superuser')
+    def perm_who_has_perm(self, operator, op_set_name):
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            raise PermissionDenied("Currently limited to superusers")
+        aos = BofhdAuthOpSet(self.db)
+        aos.find_by_name(op_set_name)
+        bar = BofhdAuthRole(self.db)
+        ret = []
+        for r in bar.list(op_set_id=aos.op_set_id):
+            ret.append({'entity_id': self._get_entity_name(None, r['entity_id']),
+                        'op_set_id': self.num2op_set_name[int(r['op_set_id'])],
+                        'op_target_id': r['op_target_id']})
+        return ret
+
     # perm who_owns
     all_commands['perm_who_owns'] = Command(
         ("perm", "who_owns"), Id(help_ref="id:entity_ext"),
@@ -3141,6 +3154,24 @@ class BofhdExtension(object):
             target_ids = []
             for r in aot.list(target_type='group', entity_id=group.entity_id):
                 target_ids.append(r['op_target_id'])
+        elif id.startswith("account:"):
+            account = self._get_account(id.split(":")[-1])
+            disk = Utils.Factory.get('Disk')(self.db)
+            try:
+                tmp = account.get_home(self.const.spread_uio_nis_user)
+                disk.find(tmp[0])
+            except Errors.NotFoundError:
+                raise CerebrumError, "Unknown disk for user"
+            aot = BofhdAuthOpTarget(self.db)
+            target_ids = []
+            for r in aot.list(target_type='global_host'):
+                target_ids.append(r['op_target_id'])
+            for r in aot.list(target_type='disk', entity_id=disk.entity_id):
+                target_ids.append(r['op_target_id'])
+            for r in aot.list(target_type='host', entity_id=disk.host_id):
+                if (not r['attr'] or 
+                    re.compile(r['attr']).match(disk.path.split("/")[-1]) != None):
+                    target_ids.append(r['op_target_id'])
         else:
             if not id.isdigit():
                 raise CerebrumError("Expected target-id")
