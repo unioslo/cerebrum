@@ -28,7 +28,7 @@ import cereconf
 from Cerebrum.Utils import Factory
 
 def main():
-    opts, args = getopt.getopt(sys.argv[1:], 'd',
+    opts, args = getopt.getopt(sys.argv[1:], 'dc:',
                                ['debug', 'drop', 'insert-codes',
                                 'extra-file='])
 
@@ -36,6 +36,9 @@ def main():
     do_drop = False
     do_insert = False
     extra_files = []
+    Cerebrum = Factory.get('Database')(
+        user=cereconf.CEREBRUM_DATABASE_CONNECT_DATA['table_owner'])
+
     for opt, val in opts:
         if opt in ('-d', '--debug'):
             debug += 1
@@ -47,9 +50,9 @@ def main():
             do_insert = True
         elif opt == '--extra-file':
             extra_files.append(val)
-
-    Cerebrum = Factory.get('Database')(
-        user=cereconf.CEREBRUM_DATABASE_CONNECT_DATA['table_owner'])
+        elif opt == '-c':
+            read_country_file(val, Cerebrum)
+            sys.exit()
 
     order = ('drop', 'code', '  insert', 'main')
     if args:
@@ -73,6 +76,27 @@ def main():
                 runfile(f, Cerebrum, debug, phase)
     if do_bootstrap:
         makeInitialUsers(Cerebrum)
+
+def read_country_file(fname, db):
+    f = file(fname, "r")
+    for line in f.readlines():
+        if line[0] == '#':
+            continue
+        dta = [x.strip() for x in line.split("\t") if x.strip() <> ""]
+        if len(dta) == 4:
+            cols = {
+                'code_str': dta[0],
+                'country': dta[2],
+                'phone_prefix': dta[3],
+                'description': dta[2]
+                }
+            db.execute("""
+            INSERT INTO [:table schema=cerebrum name=country_code]
+              (code, %s) VALUES
+              ([:sequence schema=cerebrum name=code_seq op=next], %s)""" % (
+                ", ".join(cols.keys()), ", ".join([":%s" % t for t in
+                                                   cols.keys()])), cols)
+    db.commit()
 
 def insert_code_values(Cerebrum):
     const = Factory.get('Constants')(Cerebrum)
