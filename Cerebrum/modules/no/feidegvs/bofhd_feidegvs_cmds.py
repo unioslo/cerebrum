@@ -885,6 +885,8 @@ class BofhdExtension(object):
 		    ou = self._get_ou(aff['ou_id'])
 		if aff['affiliation'] == int(self.const.affiliation_pupil):
 		    ou = self._get_ou(aff['ou_id'])
+		if aff['affiliation'] == int(self.const.affiliation_employee):
+		    ou = self._get_ou(aff['ou_id'])
 	    account.set_account_type(ou.entity_id, affiliation)
 	else:
 	    raise CerebrumError, "Person not properly registered, check source system"
