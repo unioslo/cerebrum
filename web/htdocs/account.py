@@ -8,9 +8,11 @@ from Cerebrum.web.templates.HistoryLogTemplate import HistoryLogTemplate
 from Cerebrum.web.Main import Main
 from gettext import gettext as _
 from Cerebrum.web.utils import url
+from Cerebrum.web.utils import redirect
 from Cerebrum.web.utils import redirect_object
 from Cerebrum.web.utils import queue_message
 from Cerebrum.web.utils import no_cache
+from mx import DateTime
 import xmlrpclib
 
 def index(req):
@@ -65,7 +67,7 @@ def search(req, name, owner, expire_date, create_date):
     return page    
 
 def create(req, ownerid="", ownertype="", id="", name="", affiliation="", 
-           show_form=None, hide_form=None, create=None):
+           expire_date="", show_form=None, hide_form=None, create=None):
     if show_form:
         req.session['profile']['person']['edit']['show_account_create'] = True
 
@@ -77,9 +79,18 @@ def create(req, ownerid="", ownertype="", id="", name="", affiliation="",
         try:
             owner = ClientAPI.fetch_object_by_id(server, ownerid)
             account = ClientAPI.Account.create(server, name, owner, affiliation)
+            
+            if expire_date and account:
+                account.set_expire_date(expire_date)
+        
         except xmlrpclib.Fault, e:
-            queue_message(req, e.FaultString.split("CerebrumError: ")[-1], True)
-
+            queue_message(req, e.faultString.split("CerebrumError: ")[-1], True)
+        
+        else:
+            if not expire_date:
+                expire_date = _("never")
+            queue_message(req, _("Account '%s' added, expires '%s'") % (name, expire_date))
+            
     return redirect(req, url("%s/view?id=%s" % (ownertype, ownerid)), seeOther=True)
 
 def _create_view(req, id):
@@ -101,3 +112,21 @@ def _create_view(req, id):
 def view(req, id):
     (page, account) = _create_view(req, id)
     return page
+
+def action(req, id, delete_account="", edit_account=""):
+    """Handles the form at the bottom of AccountView"""
+    server = req.session['server']
+    
+    account = ClientAPI.Account.fetch_by_id(server, id)
+    owner = account.get_owner_object()
+    
+    if delete_account:
+        name = account.name
+        account.set_expire_date(DateTime.DateFrom('').Format('%Y-%m-%d'))
+        queue_message(req, _("Account '%s' queued for removal") % name)
+
+    elif edit_account:
+        # FIXME: Edit account
+        pass
+
+    return redirect_object(req, owner, seeOther=True)
