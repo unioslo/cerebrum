@@ -22,6 +22,7 @@
 import socket
 import re
 import time
+import string
 
 import cerebrum_path
 import cereconf
@@ -54,12 +55,10 @@ class SocketCom(object):
     def connect(self):
         try:
 	    self.sockobj = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-#           self.sockobj.connect(('devel01', 2000))
 	    self.sockobj.connect((cereconf.NOTES_SERVER_HOST, cereconf.NOTES_SERVER_PORT))
             print 'INFO: Connecting, starting session', now()
             print ">>", self.sockobj.recv(8192),
 	    print "<< Authenticating"
-#	    self.sockobj.send('test\n')
 	    self.sockobj.send(cereconf.NOTES_PASSWORD)
 	    self.readline()
         except:
@@ -68,9 +67,14 @@ class SocketCom(object):
 
 
     def send(self, message):
-        print "<<", message,
-        self.last_send=message
+        if(string.find(message,"&pass&")>=0):
+           tmp=string.split(message,"&")
+           tmp.pop()
+           tmp.append("XXXXXXXX")
+           tmp=string.join(tmp,"&")
+           print "<< %s" % tmp
         self.sockobj.send(message)
+
 
 
     def readline(self, out=True):
