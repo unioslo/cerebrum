@@ -1923,20 +1923,13 @@ class BofhdExtension(object):
             spreads = [int(r['spread']) for r in acc.get_spread()]
             br = BofhdRequests(self.db, self.const)
             if not self.const.spread_uio_imap in spreads:
+                # UiO's add_spread mixin will not do much since
+                # EmailServerTarget is set to a Cyrus server already.
                 acc.add_spread(self.const.spread_uio_imap)
-                # Since server was chosen already, add_spread() has
-                # only queued a create request, not a move request.
-                # Look up the create request so we get the dependency
-                # right.
-                for r in br.get_requests(operation=self.const.bofh_email_create,
-                                         entity_id=acc.entity_id):
-                    req = r['request_id']
-            else:
-                # We need to create the new e-mail account ourselves.
-                req = br.add_request(operator.get_entity_id(), br.now,
-                                     self.const.bofh_email_create,
-                                     acc.entity_id, est.email_server_id)
-
+            # Create the mailbox.
+            req = br.add_request(operator.get_entity_id(), br.now,
+                                 self.const.bofh_email_create,
+                                 acc.entity_id, est.email_server_id)
             # Now add a move request.
             br.add_request(operator.get_entity_id(), br.now,
                            self.const.bofh_email_move,
