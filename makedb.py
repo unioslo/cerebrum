@@ -44,7 +44,7 @@ def usage(exitcode=0):
         Make sure all code values for the current configuration of
         cereconf.CLASS_CONSTANTS have been inserted into the database.
         Does not create tables.
-  --update-constants
+  --update-codes
         Like --only-insert-codes, but will remove constants that
         exists in the database, but not in CLASS_CONSTANTS (subject to
         FK constraints).
