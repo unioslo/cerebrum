@@ -144,16 +144,22 @@ class Profile(object):
         if new is not None:
             self._autostud.disks[new][1] += 1
 
+    def get_brev(self):
+        return self.settings.get("brev")[0]
+        
     def get_stedkoder(self):
         return self.settings.get("stedkode", [])
 
     def get_dfg(self):
-        if self.toplevel_settings.has_key('primarygroup'):
+        if len(self.toplevel_settings.get('primarygroup', [])) > 0:
             return self.toplevel_settings['primarygroup'][0]
         return self.toplevel_settings['gruppe'][0]
 
     def get_grupper(self):
         return self.settings.get('gruppe', [])
+
+    def get_spreads(self):
+        return self.settings.get('spread', [])
 
     def get_pquota(self):
         assert self._groups is not None
