@@ -24,7 +24,7 @@ from Cerebrum import Utils
 from Cerebrum import Constants
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum.Constants import _AuthoritativeSystemCode,_PersonAffiliationCode, \
-     _PersonExternalIdCode, _PersonAffStatusCode, _SpreadCode, _OUPerspectiveCode, \
+     _EntityExternalIdCode, _PersonAffStatusCode, _SpreadCode, _OUPerspectiveCode, \
      _QuarantineCode
 
 
@@ -41,7 +41,7 @@ class DebianEduConstants(Constants.Constants):
         'SAS',
         'Skole Administrativt System')
 
-    externalid_sas_id = _PersonExternalIdCode(
+    externalid_sas_id = _EntityExternalIdCode(
         'SASID',
         'SAS internal id-number')
 
@@ -153,7 +153,7 @@ class DebianEduConstants(Constants.Constants):
 	'svakt_passord', 
 	'For dårlig passord')
 
-    externalid_fodselsnr = _PersonExternalIdCode(
+    externalid_fodselsnr = _EntityExternalIdCode(
         'NO_BIRTHNO',
         'Norwegian birth number')
 

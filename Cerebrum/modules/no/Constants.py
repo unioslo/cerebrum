@@ -23,7 +23,7 @@
 
 from Cerebrum import Constants
 from Cerebrum.Constants import \
-     _AuthoritativeSystemCode, _OUPerspectiveCode, _PersonExternalIdCode, \
+     _AuthoritativeSystemCode, _OUPerspectiveCode, _EntityExternalIdCode, \
      _PersonAffiliationCode, _PersonAffStatusCode
 
 class Constants(Constants.Constants):
@@ -40,7 +40,7 @@ class Constants(Constants.Constants):
 
     perspective_sats = _OUPerspectiveCode('SATS', 'SATS')
 
-    externalid_personoid = _PersonExternalIdCode('SATS_PERSONOID',
+    externalid_personoid = _EntityExternalIdCode('SATS_PERSONOID',
                                                  'PK in SATS')
 
     affiliation_foresatt = _PersonAffiliationCode('FORESATT',

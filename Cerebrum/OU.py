@@ -25,10 +25,12 @@ import cereconf
 from Cerebrum import Utils
 from Cerebrum import Errors
 from Cerebrum.Entity import \
-     Entity, EntityContactInfo, EntityAddress, EntityQuarantine
+     Entity, EntityContactInfo, EntityAddress, EntityQuarantine, \
+     EntityExternalId
 
 
-class OU(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
+class OU(EntityContactInfo, EntityExternalId, EntityAddress,
+         EntityQuarantine, Entity):
 
     __read_attr__ = ('__in_db',)
     __write_attr__ = ('name', 'acronym', 'short_name', 'display_name',

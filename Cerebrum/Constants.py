@@ -352,10 +352,40 @@ class _GenderCode(_CerebrumCode):
     _lookup_table = '[:table schema=cerebrum name=gender_code]'
     pass
 
-class _PersonExternalIdCode(_CerebrumCode):
-    "Mappings stored in the person_external_id_code table"
-    _lookup_table = '[:table schema=cerebrum name=person_external_id_code]'
-    pass
+class _EntityExternalIdCode(_CerebrumCode):
+    "Mappings stored in the entity_external_id_code table"
+    _lookup_table = '[:table schema=cerebrum name=entity_external_id_code]'
+    _insert_dependency = _EntityTypeCode
+
+    def __init__(self, code, entity_type=None, description=None):
+        if entity_type is not None:
+            self.entity_type = entity_type
+        super(_EntityExternalIdCode, self).__init__(code, description)
+
+    def insert(self):
+        self.sql.execute("""
+        INSERT INTO %(code_table)s
+          (entity_type, %(code_col)s, %(str_col)s, %(desc_col)s)
+        VALUES
+          (:entity_type, %(code_seq)s, :str, :desc)""" % {
+            'code_table': self._lookup_table,
+            'code_col': self._lookup_code_column,
+            'str_col': self._lookup_str_column,
+            'desc_col': self._lookup_desc_column,
+            'code_seq': self._code_sequence},
+                         {'entity_type': int(self.entity_type),
+                          'str': self.str,
+                          'desc': self._desc})
+
+    def entity_type(self):
+        return _EntityTypeCode(self.sql.query_1("""
+        SELECT entity_type
+        FROM %(table)s
+        WHERE %(code_col)s = :code""" % {
+            'table': self._lookup_table,
+            'code_col': self._lookup_code_column},
+                                                {'code': int(self)}))
+
 
 class _PersonNameCode(_CerebrumCode):
     "Mappings stored in the person_name_code table"
@@ -699,7 +729,7 @@ class Constants(CoreConstants, CommonConstants):
     Country = _CountryCode
     Address = _AddressCode
     Gender = _GenderCode
-    PersonExternalId = _PersonExternalIdCode
+    EntityExternalId = _EntityExternalIdCode
     PersonName = _PersonNameCode
     PersonAffiliation = _PersonAffiliationCode
     PersonAffStatus = _PersonAffStatusCode
@@ -718,9 +748,6 @@ class ExampleConstants(Constants):
 
     Defines a number of variables that are used to get access to the
     string/int value of the corresponding database key."""
-
-    externalid_fodselsnr = _PersonExternalIdCode('NO_BIRTHNO',
-                                                 'Norwegian birth number')
 
     affiliation_employee = _PersonAffiliationCode('EMPLOYEE', 'Employed')
     affiliation_status_employee_valid = _PersonAffStatusCode(

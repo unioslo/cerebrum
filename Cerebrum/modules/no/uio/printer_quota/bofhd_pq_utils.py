@@ -104,7 +104,7 @@ class BofhdUtils(object):
 
         id_type, id_data = id_data.split(":", 1)
         if id_type != 'entity_id':
-            id_type = self.const.PersonExternalId(id_type)
+            id_type = self.const.EntityExternalId(id_type)
         if id_type is not None:
             return id_type, id_data
         raise errors.NotFoundError, "Unknown person_id type"

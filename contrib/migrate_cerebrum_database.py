@@ -34,16 +34,16 @@ from Cerebrum import Metainfo
 from Cerebrum.Constants import _SpreadCode
 
 # run migrate_* in this order
-versions = ('rel_0_9_2', 'rel_0_9_3', 'rel_0_9_4')
+versions = ('rel_0_9_2', 'rel_0_9_3', 'rel_0_9_4', 'rel_0_9_5')
 
-def makedb(release, stage):
+def makedb(release, stage, insert_codes=True):
     print "Running Makedb(%s, %s)..." % (release, stage)
-    cmd = ['%s/makedb.py' % makedb_path, '--stage', stage,
+    cmd = ['%s/makedb.py' % makedb_path, '-d', '--stage', stage,
            '%s/migrate_to_%s.sql' % (design_path, release)]
     r = os.system(" ".join(cmd))
     if r:
         continue_prompt("Exit value was %i, continue? (y/n)[y]" % r)
-    if stage == 'pre':
+    if stage == 'pre' and insert_codes:
         cmd = ['%s/makedb.py' % makedb_path, '--only-insert-codes']
         r = os.system(" ".join(cmd))
         if r:
@@ -270,6 +270,49 @@ def migrate_to_rel_0_9_4():
     print "Migration to 0.9.4 completed successfully"
     db.commit()
 
+
+def migrate_to_rel_0_9_5():
+    """Migrate from 0.9.4 database to the 0.9.5 database schema."""
+
+    assert_db_version("0.9.4")
+    # Inserting codes is bad at this stage. We have working codes, and
+    # we know they are used by person_external_id ATM and they are all
+    # entity_person. Therefore, omit code-insertion.
+    makedb('0_9_5', 'pre', False)
+    db.commit()
+    print "\ndone."
+    # Copy person_ext_id_code into entity_ext_code. Insert
+    # co.entity_person as well. person_ext_id_code contains only
+    # people-codes ATM.
+    db.execute("""
+    INSERT INTO [:table schema=cerebrum name=entity_external_id_code]
+      (code, code_str, entity_type, description)
+    SELECT DISTINCT peic.code, peic.code_str, ei.entity_type, peic.description
+    FROM person_external_id_code peic, person_external_id pei, entity_info ei
+    WHERE peic.code=pei.id_type AND pei.person_id=ei.entity_id""")
+    
+    db.execute("""
+    INSERT INTO entity_external_id
+    SELECT pei.person_id, ei.entity_type, pei.id_type, pei.source_system, 
+           pei.external_id
+    FROM person_external_id pei, entity_info ei
+    WHERE pei.person_id=ei.entity_id""")
+
+    # CLConstants got person_ext_id_del etc. Rename to entity...
+    db.execute("""
+    UPDATE [:table schema=cerebrum name=change_type]
+    SET category='entity'
+    WHERE type IN ('ext_id_add', 'ext_id_del', 'ext_id_mod')""")
+    
+    db.commit()
+    makedb('0_9_5', 'post')
+    meta = Metainfo.Metainfo(db)
+    meta.set_metainfo(Metainfo.SCHEMA_VERSION_KEY, (0,9,5))
+    print "Migration to 0.9.5 completed successfully"
+    db.commit()
+
+
+
 def init():
     global db, co, str2const, num2const
 
@@ -326,6 +369,7 @@ def main():
     if not from_rel:
         started = True
     for v in versions:
+        print v, from_rel, started
         if not started:
             if from_rel == v:   # from is not inclusive
                 started = True

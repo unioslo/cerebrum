@@ -356,6 +356,83 @@ category:main/Oracle;
 GRANT INSERT, UPDATE, DELETE ON entity_name TO change_entity;
 
 
+/*	entity_external_id_code
+
+  A person/OU can have any number of "unique identifiers", though 
+  only one of each "identifier type".
+
+  This table defines what types of personal unique identifiers
+  ("Norwegian SSN", "Norwegian Student ID card number", etc.), or an
+  OU's external ID ("Department unique ID"), that can
+  be entered into this installation of the system.
+
+*/
+category:code;
+CREATE TABLE entity_external_id_code
+(
+  code		NUMERIC(6,0)
+		CONSTRAINT entity_external_id_code_pk PRIMARY KEY,
+  code_str	CHAR VARYING(16)
+		NOT NULL
+		CONSTRAINT entity_external_id_codestr_u UNIQUE,
+  entity_type	NUMERIC(6,0)
+		NOT NULL
+		CONSTRAINT entity_external_id_code_entity_type
+		  REFERENCES entity_type_code(code),
+  description	CHAR VARYING(512)
+		NOT NULL,
+  CONSTRAINT entity_external_id_code_type_unique
+    UNIQUE (code, entity_type)
+);
+category:code/Oracle;
+GRANT SELECT ON entity_external_id_code TO read_code;
+category:code/Oracle;
+GRANT INSERT, UPDATE, DELETE ON entity_external_id_code TO change_code;
+
+
+/*	entity_external_id
+
+  There exists a lot of different ID systems for persons/OUs outside
+  Cerebrum, and a person/OU will typically have been assigned an ID in
+  several of these.  To allow Cerebrum to identify a single person/OU
+  by several ID schemes, this table holds the various external
+  person/OU IDs that is known to relate to a single person/OU.
+
+  The idea is that only "Person" and "OU" will subclass the new
+  "EntityExternalID" class, but this may change in the future. 
+
+*/
+category:main;
+CREATE TABLE entity_external_id
+(
+  entity_id	NUMERIC(12,0),
+  entity_type	NUMERIC(6,0)
+		NOT NULL,
+  id_type	NUMERIC(6,0)
+                NOT NULL,
+  source_system	NUMERIC(6,0)
+                NOT NULL
+		CONSTRAINT entity_external_id_source_sys
+		  REFERENCES authoritative_system_code(code),
+  external_id	CHAR VARYING(256)
+		NOT NULL,
+  CONSTRAINT entity_external_id_pk
+    PRIMARY KEY (entity_id, id_type, source_system),
+  CONSTRAINT entity_external_id_unique
+    UNIQUE (id_type, source_system, external_id),
+  CONSTRAINT entity_external_id_entity_id FOREIGN KEY (entity_id, entity_type)
+    REFERENCES entity_info(entity_id, entity_type),
+  CONSTRAINT entity_spread_spread FOREIGN KEY (id_type, entity_type)
+    REFERENCES entity_external_id_code(code, entity_type)
+);
+category:main/Oracle;
+GRANT SELECT ON entity_external_id TO read_entity;
+category:main/Oracle;
+GRANT INSERT, UPDATE, DELETE ON entity_external_id TO change_entity;
+category:main;
+CREATE INDEX entity_external_id_ext_id ON entity_external_id(external_id);
+
+
 /*	country_code
 
 
@@ -1076,70 +1153,6 @@ category:main/Oracle;
 GRANT INSERT, UPDATE, DELETE ON person_info TO change_person;
 
 
-/*	person_external_id_code
-
-  One person can have any number of "unique identifiers", though only
-  one of each "identifier type".
-
-  This table defines what types of personal unique identifiers
-  ("Norwegian SSN", "Norwegian Student ID card number", etc.) that can
-  be entered into this installation of the system.
-
-*/
-category:code;
-CREATE TABLE person_external_id_code
-(
-  code		NUMERIC(6,0)
-		CONSTRAINT person_external_id_code_pk PRIMARY KEY,
-  code_str	CHAR VARYING(16)
-		NOT NULL
-		CONSTRAINT person_external_id_codestr_u UNIQUE,
-  description	CHAR VARYING(512)
-		NOT NULL
-);
-category:code/Oracle;
-GRANT SELECT ON person_external_id_code TO read_code;
-category:code/Oracle;
-GRANT INSERT, UPDATE, DELETE ON person_external_id_code TO change_code;
-
-
-/*	person_external_id
-
-  There exists a lot of different ID systems for persons outside
-  Cerebrum, and a person will typically have been assigned an ID in
-  several of these.  To allow Cerebrum to identify a single person by
-  several ID schemes, this table holds the various external person IDs
-  that is known to relate to a single person.
-
-*/
-category:main;
-CREATE TABLE person_external_id
-(
-  person_id	NUMERIC(12,0)
-		CONSTRAINT person_external_id_person_id
-		  REFERENCES person_info(person_id),
-  id_type	NUMERIC(6,0)
-		CONSTRAINT person_external_id_id_type
-		  REFERENCES person_external_id_code(code),
-  source_system	NUMERIC(6,0)
-		CONSTRAINT person_external_id_source_sys
-		  REFERENCES authoritative_system_code(code),
-  external_id	CHAR VARYING(256)
-		NOT NULL,
-  CONSTRAINT person_external_id_pk
-    PRIMARY KEY (person_id, id_type, source_system),
-  CONSTRAINT person_external_id_unique
-    UNIQUE (id_type, source_system, external_id)
-);
-category:main/Oracle;
-GRANT SELECT ON person_external_id TO read_person;
-category:main/Oracle;
-GRANT INSERT, UPDATE, DELETE ON person_external_id TO change_person;
-category:main;
-CREATE INDEX person_external_id_ext_id ON person_external_id(external_id);
-
-
-
 /*	person_name_code
 
   A person must have one or more names.  Apart from the base set of
@@ -1843,10 +1856,6 @@ DROP TABLE person_name;
 category:drop;
 DROP TABLE person_name_code;
 category:drop;
-DROP TABLE person_external_id;
-category:drop;
-DROP TABLE person_external_id_code;
-category:drop;
 DROP TABLE person_info;
 category:drop;
 DROP TABLE gender_code;
@@ -1894,6 +1903,10 @@ category:drop;
 DROP TABLE entity_name;
 category:drop;
 DROP TABLE value_domain_code;
+category:drop;
+DROP TABLE entity_external_id;
+category:drop;
+DROP TABLE entity_external_id_code;
 category:drop;
 DROP TABLE entity_spread;
 category:drop;

@@ -25,7 +25,7 @@ Address, Gender etc. type."""
 
 from Cerebrum import Constants
 from Cerebrum.Constants import _AuthoritativeSystemCode,_OUPerspectiveCode, \
-     _SpreadCode, _QuarantineCode, _PersonExternalIdCode, \
+     _SpreadCode, _QuarantineCode, _EntityExternalIdCode, \
      _PersonAffiliationCode, _PersonAffStatusCode, _AccountCode,_AuthenticationCode
 from Cerebrum.modules.PosixUser import _PosixShellCode
 from Cerebrum.modules.Email import \
@@ -33,7 +33,8 @@ from Cerebrum.modules.Email import \
 
 class Constants(Constants.Constants):
 
-    externalid_fodselsnr = _PersonExternalIdCode('NO_BIRTHNO',
+    externalid_fodselsnr = _EntityExternalIdCode('NO_BIRTHNO',
+                                                 Constants.Constants.entity_person,
                                                  'Norwegian birth number')
 
     system_lt = _AuthoritativeSystemCode('LT', 'LT')

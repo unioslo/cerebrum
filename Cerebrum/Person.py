@@ -23,7 +23,8 @@
 
 import cereconf
 from Cerebrum.Entity import \
-     Entity, EntityContactInfo, EntityAddress, EntityQuarantine
+     Entity, EntityContactInfo, EntityAddress, EntityQuarantine, \
+     EntityExternalId
 from Cerebrum import Utils
 from Cerebrum import Errors
 
@@ -31,9 +32,9 @@ class MissingOtherException(Exception): pass
 class MissingSelfException(Exception): pass
 
 
-class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
-    __read_attr__ = ('__in_db', '_affil_source', '__affil_data',
-                     '_extid_source', '_extid_types')
+class Person(EntityContactInfo, EntityExternalId, EntityAddress,
+             EntityQuarantine, Entity):
+    __read_attr__ = ('__in_db', '_affil_source', '__affil_data')
     __write_attr__ = ('birth_date', 'gender', 'description', 'deceased')
 
     def clear(self):
@@ -46,18 +47,15 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
         #       Person.__slots__, which means they will stop working
         #       once all Entity classes have been ported to use the
         #       mark_update metaclass.
-        self._external_id= {}
         # Person names:
         self._pn_affect_source = None
         self._pn_affect_variants = None
         self._name_info = {}
 
     def delete(self):
-        # Remove person from person_external_id, person_name,
-        # person_affiliation, person_affiliation_source, person_info.
-        # Super will remove the entity from the mix-in classes
-        for r in self.get_external_id():
-            self._delete_external_id(r['source_system'], r['id_type'])
+        # Remove person from person_name, person_affiliation,
+        # person_affiliation_source, person_info. Super will remove
+        # the entity from the mix-in classes
         for r in self.get_all_names():
             self._delete_name(r['source_system'], r['name_variant'])
         for r in self.get_affiliations(include_deleted=True):
@@ -196,30 +194,6 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
         else:
             is_new = None
 
-        # Handle external_id
-        if hasattr(self, '_extid_source'):
-            types = list(self._extid_types[:])
-            did_update = False
-            for row in self.get_external_id(source_system=self._extid_source):
-                if int(row['id_type']) not in self._extid_types:
-                    continue
-                tmp = self._external_id.get(int(row['id_type']), None)
-                if tmp is None:
-                    did_update = True
-                    self._delete_external_id(self._extid_source, row['id_type'])
-                elif tmp <> row['external_id']:
-                    did_update = True
-                    self._set_external_id(self._extid_source, row['id_type'],
-                                          tmp, update=True)
-                types.remove(int(row['id_type']))
-            for type in types:
-                if self._external_id.has_key(type):
-                    did_update = True
-                    self._set_external_id(self._extid_source, type,
-                                          self._external_id[type])
-            if did_update and is_new <> 1:
-                is_new = False
-
         # Handle PersonAffiliations
         if hasattr(self, '_affil_source'):
             source = self._affil_source
@@ -294,7 +268,6 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
             self._pn_affect_variants = None
             self._name_info = {}
 
-        # TODO: Handle external_id
         del self.__in_db
         self.__in_db = True
         self.__updated = []
@@ -327,81 +300,6 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
         self.__in_db = True
         self.__updated = []
 
-    def affect_external_id(self, source, *types):
-        self._extid_source = source
-        self._extid_types = [int(x) for x in types]
-
-    def populate_external_id(self, source_system, id_type, external_id):
-        if not hasattr(self, '_extid_source'):
-            raise ValueError, \
-                  "Must call affect_external_id"
-        elif self._extid_source != source_system:
-            raise ValueError, \
-                  "Can't populate multiple `source_system`s w/o write_db()."
-        self._external_id[int(id_type)] = external_id
-
-    def _delete_external_id(self, source_system, id_type):
-        self.execute("""DELETE FROM [:table schema=cerebrum name=person_external_id]
-        WHERE person_id=:p_id AND id_type=:id_type AND source_system=:src""",
-                     {'p_id': self.entity_id,
-                      'id_type': int(id_type),
-                      'src': int(source_system)})
-        self._db.log_change(self.entity_id, self.const.person_ext_id_del, None,
-                            change_params={'id_type': int(id_type),
-                                           'src': int(source_system)})
-
-    def _set_external_id(self, source_system, id_type, external_id,
-                         update=False):
-        if update:
-            sql = """UPDATE [:table schema=cerebrum name=person_external_id]
-            SET external_id=:ext_id
-            WHERE person_id=:p_id AND id_type=:id_type AND source_system=:src"""
-            self._db.log_change(self.entity_id, self.const.person_ext_id_mod, None,
-                                change_params={'id_type': int(id_type),
-                                               'src': int(source_system),
-                                               'value': external_id})
-        else:
-            sql = """INSERT INTO [:table schema=cerebrum name=person_external_id]
-            (person_id, id_type, source_system, external_id)
-            VALUES (:p_id, :id_type, :src, :ext_id)"""
-            self._db.log_change(self.entity_id, self.const.person_ext_id_add, None,
-                                change_params={'id_type': int(id_type),
-                                               'src': int(source_system),
-                                               'value': external_id})
-        self.execute(sql, {'p_id': self.entity_id,
-                           'id_type': int(id_type),
-                           'src': int(source_system),
-                           'ext_id': external_id})
-
-    def get_external_id(self, source_system=None, id_type=None):
-        cols = {'person_id': int(self.entity_id)}
-        if source_system is not None:
-            cols['source_system'] = int(source_system)
-        if id_type is not None:
-            cols['id_type'] = int(id_type)
-        return self.query("""
-        SELECT id_type, source_system, external_id
-        FROM [:table schema=cerebrum name=person_external_id]
-        WHERE %s""" % " AND ".join(["%s=:%s" % (x, x)
-                                   for x in cols.keys()]), cols)
-
-    def list_external_ids(self, source_system=None, id_type=None,
-                          external_id=None):
-        cols = {}
-        if source_system is not None:
-            cols['source_system'] = int(source_system)
-        if id_type is not None:
-            cols['id_type'] = int(id_type)
-        if external_id is not None:
-            cols['external_id'] = str(external_id)
-        if cols:
-            where = ("WHERE " +
-                     " AND ".join(["%s=:%s" % (x, x) for x in cols.keys()]))
-        return self.query("""
-        SELECT person_id, id_type, source_system, external_id
-        FROM [:table schema=cerebrum name=person_external_id]
-        %s""" % where, cols, fetchall=False)
-
     def find_persons_by_bdate(self, bdate):
         return self.query("""
         SELECT person_id FROM [:table schema=cerebrum name=person_info]
@@ -417,19 +315,6 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
         return self.query("""
         SELECT DISTINCT person_id FROM [:table schema=cerebrum name=person_name]
         WHERE """ + where, locals())
-
-    def find_by_external_id(self, id_type, external_id, source_system=None):
-        binds = {'id_type': int(id_type),
-                 'ext_id': external_id }
-        where = ""
-        if source_system is not None:
-            binds['src'] = int(source_system)
-            where = " AND source_system=:src"
-        person_id = self.query_1("""
-        SELECT DISTINCT person_id
-        FROM [:table schema=cerebrum name=person_external_id]
-        WHERE id_type=:id_type AND external_id=:ext_id %s""" % where, binds)
-        self.find(person_id)
 
     def find_by_export_id(self, export_id):
         person_id = self.query_1("""
@@ -842,14 +727,15 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
         # missing accounts is quite alright.
         for row in self.query("""
             SELECT
-              DISTINCT pei.external_id, en.entity_name
+              DISTINCT eei.external_id, en.entity_name
             FROM
-              [:table schema=cerebrum name=person_external_id] pei,
+              [:table schema=cerebrum name=enity_external_id] eei,
               [:table schema=cerebrum name=account_type] at,
               [:table schema=cerebrum name=entity_name] en
             WHERE
-              pei.id_type = :id_type AND
-              pei.person_id = at.person_id AND
+              eei.id_type = :id_type AND
+              eei.entity_type = [:get_constant name=entity_person] AND
+              eei.person_id = at.person_id AND
               at.priority = (SELECT
                                min(at2.priority)
                              FROM
@@ -932,15 +818,17 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
               ON pi.person_id=es.entity_id AND es.spread=:spread"""
 	if idtype:
 	    efrom += """
-	    JOIN [:table schema=cerebrum name=person_external_id] pei
-            ON pi.person_id = pei.person_id AND pei.id_type=:idtype"""
+	    JOIN [:table schema=cerebrum name=entity_external_id] eei
+            ON pi.person_id = eei.entity_id AND eei.id_type=:idtype AND
+               eei.entity_type = [:get_constant name=entity_person]"""
 	else:
 	    efrom += """
-	    JOIN [:table schema=cerebrum name=person_external_id] pei
-            ON pi.person_id = pei.person_id""" 
+	    JOIN [:table schema=cerebrum name=entity_external_id] eei
+            ON pi.person_id = eei.entity_id AND
+               eei.entity_type = [:get_constant name=entity_person]""" 
 
         return self.query("""
-        SELECT DISTINCT pi.person_id, pi.birth_date, at.account_id, pei.external_id,
+        SELECT DISTINCT pi.person_id, pi.birth_date, at.account_id, eei.external_id,
           at.ou_id, at.affiliation %(ecols)s
 	FROM
           [:table schema=cerebrum name=person_info] pi
@@ -982,7 +870,7 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
               ON ea.domain_id=ed.domain_id"""
 
         return self.query("""
-        SELECT DISTINCT pi.person_id, pi.birth_date, pei.external_id,
+        SELECT DISTINCT pi.person_id, pi.birth_date, eei.external_id,
           pn.name, en.entity_name, eci.contact_value, aa.auth_data,
           at.ou_id, at.affiliation, pas.status, eci3.contact_value AS fax,
           pn2.name AS title, pn3.name AS personal_title, ead.address_text,
@@ -1003,8 +891,9 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
             ON pn.person_id = pi.person_id AND
                pn.source_system = :pn_ss AND
                pn.name_variant = :pn_nv
-          JOIN [:table schema=cerebrum name=person_external_id] pei
-            ON pi.person_id = pei.person_id
+          JOIN [:table schema=cerebrum name=entity_external_id] eei
+            ON pi.person_id = eei.entity_id AND
+               eei.entity_type = [:get_constant name=entity_person]
           LEFT JOIN [:table schema=cerebrum name=account_authentication] aa
             ON aa.account_id = at.account_id AND
                aa.method = [:get_constant name=auth_type_md5_crypt]

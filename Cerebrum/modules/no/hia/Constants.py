@@ -26,7 +26,7 @@ Address, Gender etc. type."""
 
 from Cerebrum.Constants import Constants, \
      _AuthoritativeSystemCode, _OUPerspectiveCode, _SpreadCode, \
-     _QuarantineCode, _PersonExternalIdCode, _PersonAffiliationCode, \
+     _QuarantineCode, _EntityExternalIdCode, _PersonAffiliationCode, \
      _PersonAffStatusCode, _AccountCode, _PersonNameCode, \
      _ContactInfoCode, _CountryCode
 from Cerebrum.modules.PosixUser import _PosixShellCode
@@ -35,11 +35,11 @@ central_Constants = Constants
 
 class Constants(central_Constants):
 
-    externalid_fodselsnr = _PersonExternalIdCode('NO_BIRTHNO',
+    externalid_fodselsnr = _EntityExternalIdCode('NO_BIRTHNO',
                                                  'Norwegian birth number')
-    externalid_studentnr = _PersonExternalIdCode('NO_STUDNO',
+    externalid_studentnr = _EntityExternalIdCode('NO_STUDNO',
                                                  'Norwegian student number')
-    externalid_sap_ansattnr = _PersonExternalIdCode('HiA_SAP_EMP#',
+    externalid_sap_ansattnr = _EntityExternalIdCode('HiA_SAP_EMP#',
                                                     'HiA SAP employee number')
 
     system_fs = _AuthoritativeSystemCode('FS', 'FS')

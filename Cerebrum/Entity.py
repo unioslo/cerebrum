@@ -732,6 +732,151 @@ class EntityQuarantine(Entity):
           FROM [:table schema=cerebrum name=entity_quarantine] eq""" + sel)
 
 
+class EntityExternalId(Entity):
+    "Mixin class, usable alongside Entity for ExternalIds."
+    __read_attr__ = ('_extid_source', '_extid_types')
+    __write_attr__ = ()
+
+    def clear(self):
+        self.__super.clear()
+        self._external_id= {}
+    
+    def delete(self):
+        # Entities cannot be both Persons and OUs with the same entity_id
+        # so not joining on entity_type should be safe.
+        self.execute("""
+        DELETE FROM [:table schema=cerebrum name=entity_external_id]
+        WHERE entity_id=:e_id""", {'e_id': self.entity_id})
+        self.__super.delete()
+
+    def write_db(self):
+        self.__super.write_db()
+        if hasattr(self, '_extid_source'):
+            types = list(self._extid_types[:])
+            for row in self.get_external_id(source_system=self._extid_source):
+                if int(row['id_type']) not in self._extid_types:
+                    continue
+                tmp = self._external_id.get(int(row['id_type']), None)
+                if tmp is None:
+                    self._delete_external_id(self._extid_source, row['id_type'])
+                elif tmp <> row['external_id']:
+                    self._set_external_id(self._extid_source, row['id_type'],
+                                          tmp, update=True)
+                types.remove(int(row['id_type']))
+            for type in types:
+                if self._external_id.has_key(type):
+                    self._set_external_id(self._extid_source, type,
+                                          self._external_id[type])
+    
+
+    def affect_external_id(self, source, *types):
+        self._extid_source = source
+        self._extid_types = [int(x) for x in types]
+
+    def populate_external_id(self, source_system, id_type, external_id):
+        if not hasattr(self, '_extid_source'):
+            raise ValueError, \
+                  "Must call affect_external_id"
+        elif self._extid_source != source_system:
+            raise ValueError, \
+                  "Can't populate multiple `source_system`s w/o write_db()."
+        self._external_id[int(id_type)] = external_id
+
+    def _delete_external_id(self, source_system, id_type):
+        self.execute("""DELETE FROM [:table schema=cerebrum name=entity_external_id]
+        WHERE entity_id=:p_id AND id_type=:id_type AND source_system=:src""",
+                     {'p_id': self.entity_id,
+                      'id_type': int(id_type),
+                      'src': int(source_system)})
+        self._db.log_change(self.entity_id, self.const.entity_ext_id_del, None,
+                            change_params={'id_type': int(id_type),
+                                           'src': int(source_system)})
+
+    def _set_external_id(self, source_system, id_type, external_id,
+                         update=False):
+        if update:
+            sql = """UPDATE [:table schema=cerebrum name=entity_external_id]
+            SET external_id=:ext_id
+            WHERE entity_id=:e_id AND id_type=:id_type AND source_system=:src"""
+            self._db.log_change(self.entity_id, self.const.entity_ext_id_mod, None,
+                                change_params={'id_type': int(id_type),
+                                               'src': int(source_system),
+                                               'value': external_id})
+        else:
+            sql = """INSERT INTO [:table schema=cerebrum name=entity_external_id]
+            (entity_id, entity_type, id_type, source_system, external_id)
+            VALUES (:e_id, :e_type, :id_type, :src, :ext_id)"""
+            self._db.log_change(self.entity_id, self.const.entity_ext_id_add, None,
+                                change_params={'id_type': int(id_type),
+                                               'src': int(source_system),
+                                               'value': external_id})
+        self.execute(sql, {'e_id': self.entity_id,
+                           'e_type': self.entity_type,
+                           'id_type': int(id_type),
+                           'src': int(source_system),
+                           'ext_id': external_id})
+
+    def get_external_id(self, source_system=None, id_type=None):
+        cols = {'entity_id': int(self.entity_id),
+                'entity_type': int(self.entity_type)}
+        if source_system is not None:
+            cols['source_system'] = int(source_system)
+        if id_type is not None:
+            cols['id_type'] = int(id_type)
+        return self.query("""
+        SELECT id_type, source_system, external_id
+        FROM [:table schema=cerebrum name=entity_external_id]
+        WHERE %s""" % " AND ".join(["%s=:%s" % (x, x)
+                                   for x in cols.keys()]), cols)
+
+    def list_external_ids(self, source_system=None, id_type=None,
+                          external_id=None, entity_type=None):
+        if entity_type == None:
+            if self.entity_type == None:
+                entity_type = self.const.entity_person
+            else:
+                entity_type = self.entity_type
+        cols = {}
+        cols['entity_type'] = int(entity_type)
+        if source_system is not None:
+            cols['source_system'] = int(source_system)
+        if id_type is not None:
+            cols['id_type'] = int(id_type)
+        if external_id is not None:
+            cols['external_id'] = str(external_id)
+        if cols:
+            where = ("WHERE " +
+                     " AND ".join(["%s=:%s" % (x, x) for x in cols.keys()]))
+        return self.query("""
+        SELECT entity_id, id_type, source_system, external_id
+        FROM [:table schema=cerebrum name=entity_external_id]
+        %s""" % where, cols, fetchall=False)
+   
+    def find_by_external_id(self, id_type, external_id, source_system=None,
+                             entity_type=None):
+        if entity_type == None:
+            if self.entity_type == None:
+                entity_type = self.const.entity_person
+            else:
+                entity_type = self.entity_type
+        binds = {'id_type': int(id_type),
+                 'ext_id': external_id,
+                 'entity_type': int(entity_type) }
+        where = ""
+        if source_system is not None:
+            binds['src'] = int(source_system)
+            where = " AND source_system=:src"
+        entity_id = self.query_1("""
+        SELECT DISTINCT entity_id
+        FROM [:table schema=cerebrum name=entity_external_id]
+        WHERE id_type=:id_type AND external_id=:ext_id AND
+        entity_type=:entity_type %s""" % where, binds)
+        self.find(entity_id)
+
+ 
+
+
+
 # TODO: OBSOLETE.  use Entity.get_subclassed_object()
 def object_by_entityid(id, database): 
     """Instanciates and returns a object of the proper class
