@@ -48,14 +48,14 @@ class Helper(DatabaseAccessor):
           - dns_owner_ref: reference to dns_owner or None if non-existing
           - same_type: boolean set to true if a record of the same type exists."""
 
-        dns = DnsOwner.DnsOwner(self._db)
+        dns_owner = DnsOwner.DnsOwner(self._db)
         self.legal_dns_owner_name(name)
         try:
-            dns.find_by_name(name)
+            dns_owner.find_by_name(name)
         except Errors.NotFoundError:
             return None, None
 
-        referers = self.get_referers(dns_owner_id=dns.entity_id)
+        referers = self.get_referers(dns_owner_id=dns_owner.entity_id)
         if dns.CNAME_OWNER in referers:
             raise DNSError, "name already in use by CNAME"
 
@@ -68,7 +68,7 @@ class Helper(DatabaseAccessor):
         if record_type == dns.A_RECORD:
             if dns.A_RECORD in referers:
                 return dns.entity_id, True
-        return dns.entity_id, False
+        return dns_owner.entity_id, False
 
     def legal_dns_owner_name(self, name):
         if not re.search(r'^[0-9]*[a-zA-Z]+[a-zA-Z\-0-9]*', name):
@@ -102,12 +102,12 @@ class Helper(DatabaseAccessor):
         mx = DnsOwner.MXSet(self._db)
         for row in mx.list_mx_sets(target_id=dns_owner_id):
             ret.append(dns.MX_SET)
-        dns = DnsOwner.DnsOwner(self._db)
-        for row in dns.list_srv_records(owner_id=dns_owner_id):
+        dns_owner = DnsOwner.DnsOwner(self._db)
+        for row in dns_owner.list_srv_records(owner_id=dns_owner_id):
             ret.append(dns.SRV_OWNER)
-        for row in dns.list_srv_records(target_owner_id=dns_owner_id):
+        for row in dns_owner.list_srv_records(target_owner_id=dns_owner_id):
             ret.append(dns.SRV_TARGET)
-        for row in dns.list_ttl_records(dns_owner_id=dns_owner_id):
+        for row in dns_owner.list_ttl_records(dns_owner_id=dns_owner_id):
             ret.append(dns.GENERAL_TTL_RECORD)
         cn = CNameRecord.CNameRecord(self._db)
         for row in cn.list_ext(cname_owner=dns_owner_id):
@@ -173,9 +173,9 @@ class Helper(DatabaseAccessor):
         refs = self.get_referers(dns_owner_id=dns_owner_id)
         if refs:
             raise DNSError("dns_owner still refered in %s" % str(refs))
-        dns = DnsOwner.DnsOwner(self._db)
-        dns.find(dns_owner_id)
-        dns.delete()
+        dns_owner = DnsOwner.DnsOwner(self._db)
+        dns_owner.find(dns_owner_id)
+        dns_owner.delete()
 
     def full_remove_dns_owner(self, dns_owner_id):
         # fjerner alle entries der dns_owner vil være til venstre i
@@ -214,8 +214,8 @@ class Helper(DatabaseAccessor):
         if rows:
             refs = self.get_referers(dns_owner_id=rows[0]['dns_owner_id'])
             if not refs:
-                dns = DnsOwner.DnsOwner(self._db)
-                dns.find(rows[0]['dns_owner_id'])
-                dns.delete()
+                dns_owner = DnsOwner.DnsOwner(self._db)
+                dns_owner.find(rows[0]['dns_owner_id'])
+                dns_owner.delete()
 
 # arch-tag: f3000618-d5a9-49ff-a553-8cab7895939d
