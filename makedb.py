@@ -40,10 +40,18 @@ def main():
 
     if args:
         for f in args:
-            runfile(f, Cerebrum, debug)
+            runfile(f, Cerebrum, debug, None)
     else:
-        makedbs(Cerebrum, debug)
+        files = get_filelist(Cerebrum)
+        fr = files[:]
+        fr.reverse()
+        for f in fr:
+            runfile(os.path.join(CEREBRUM_DDL_DIR, f), Cerebrum, debug, 'drop')
+        for f in files:
+            runfile(os.path.join(CEREBRUM_DDL_DIR, f), Cerebrum, debug, 'code')
         insert_code_values(Cerebrum)
+        for f in files:
+            runfile(os.path.join(CEREBRUM_DDL_DIR, f), Cerebrum, debug, 'main')
         makeInitialUsers(Cerebrum)
 
 def insert_code_values(Cerebrum):
@@ -84,29 +92,21 @@ def makeInitialUsers(Cerebrum):
 
 CEREBRUM_DDL_DIR = "design"
 
-def makedbs(Cerebrum, debug):
+def get_filelist(Cerebrum):
     # Need to import Database.py for testing whether the database
     # class we're using is an Oracle (sub)class.
     from Cerebrum import Database
-    files = ['drop_mod_stedkode.sql',
-             'drop_mod_nis.sql',
-             'drop_mod_posix_user.sql',
-             'drop_core_tables.sql',
-             'core_tables.sql',
+    files = ['core_tables.sql',
              'mod_posix_user.sql',
              'mod_nis.sql',
-##              'core_data.sql',
              'mod_stedkode.sql'
              ]
     if isinstance(Cerebrum, Database.Oracle):
         files.extend(['drop_oracle_grants.sql', 'oracle_grants.sql'])
+    return files
 
-    for f in files:
-        runfile(os.path.join(CEREBRUM_DDL_DIR, f), Cerebrum, debug)
-
-
-def runfile(fname, Cerebrum, debug):
-    print "Reading file: <%s>" % fname
+def runfile(fname, Cerebrum, debug, key=None):
+    print "Reading file (key=%s): <%s>" % (key, fname)
     f = file(fname)
     text = "".join(f.readlines())
     long_comment = re.compile(r"/\*.*?\*/", re.DOTALL)
@@ -114,8 +114,17 @@ def runfile(fname, Cerebrum, debug):
     line_comment = re.compile(r"--.*")
     text = re.sub(line_comment, "", text)
     text = re.sub(r"\s+", " ", text)
-    for stmt in text.split(";"):
-        stmt = stmt.strip()
+    text = text.split(";")
+    for n in range(0, len(text), 2):
+        text[n] = text[n].strip()
+        if n == len(text) - 1:
+            break
+        (type_id, value) =  text[n].split(":")
+        if type_id <> 'category':
+            raise RuntimeError, "Illegal type_id in: %s" % text[n]
+        if key is not None and key <> value:
+            continue
+        stmt = text[n+1].strip()
         if not stmt:
             continue
         try:
