@@ -25,6 +25,7 @@ import time
 import os
 import re
 import cyruslib
+import mx
 
 import cerebrum_path
 import cereconf
@@ -193,11 +194,12 @@ def process_email_requests():
     
     acc = Factory.get('Account')(db)
     br = BofhdRequests(db, const)
+    now = mx.DateTime.now()
     start_time = time.time()
     for r in br.get_requests(operation=const.bofh_email_create):
         logger.debug("Req: email_create %d at %s",
                      r['request_id'], r['run_at'])
-        if keep_running() and r['run_at'] < br.now:
+        if keep_running() and r['run_at'] < now:
             hq = get_email_hardquota(r['entity_id'])
             if (cyrus_create(r['entity_id']) and
                 cyrus_set_quota(r['entity_id'], hq)):
@@ -210,7 +212,7 @@ def process_email_requests():
     start_time = time.time()
     for r in br.get_requests(operation=const.bofh_email_hquota):
         logger.debug("Req: email_hquota %s", r['run_at'])
-	if keep_running() and r['run_at'] < br.now:
+	if keep_running() and r['run_at'] < now:
             hq = get_email_hardquota(r['entity_id'])
             if cyrus_set_quota(r['entity_id'], hq):
                 br.delete_request(request_id=r['request_id'])
@@ -222,7 +224,7 @@ def process_email_requests():
     start_time = time.time()
     for r in br.get_requests(operation=const.bofh_email_delete):
         logger.debug("Req: email_delete %s", r['run_at'])
-	if keep_running() and r['run_at'] < br.now:
+	if keep_running() and r['run_at'] < now:
 	    try:
                 acc.clear()
                 acc.find(r['entity_id'])
@@ -255,7 +257,7 @@ def process_email_requests():
     start_time = time.time()
     for r in br.get_requests(operation=const.bofh_email_move):
         logger.debug("Req: email_move %s %d", r['run_at'], int(r['state_data']))
-	if keep_running() and r['run_at'] < br.now:
+	if keep_running() and r['run_at'] < now:
             # state_data is a request-id which must complete first,
             # typically an email_create request.
             logger.debug("email_move %d, state is %r" % \
@@ -308,7 +310,7 @@ def process_email_requests():
     start_time = time.time()
     for r in br.get_requests(operation=const.bofh_email_convert):
         logger.debug("Req: email_convert %s", r['run_at'])
-	if keep_running() and r['run_at'] < br.now:
+	if keep_running() and r['run_at'] < now:
             user_id = r['entity_id']
             try:
                 acc.clear()
@@ -542,10 +544,11 @@ def move_email(user_id, mailto_id, from_host, to_host):
 def process_mailman_requests():
     acc = Factory.get('Account')(db)
     br = BofhdRequests(db, const)
+    now = mx.DateTime.now()
     for r in br.get_requests(operation=const.bofh_mailman_create):
         logger.debug("Req: mailman_create %d at %s",
                      r['request_id'], r['run_at'])
-        if keep_running() and r['run_at'] < br.now:
+        if keep_running() and r['run_at'] < now:
             try:
                 listname = get_address(r['entity_id'])
             except Errors.NotFoundError:
@@ -576,7 +579,7 @@ def process_mailman_requests():
     for r in br.get_requests(operation=const.bofh_mailman_add_admin):
         logger.debug("Req: mailman_add_admin %d at %s",
                      r['request_id'], r['run_at'])
-        if keep_running() and r['run_at'] < br.now:
+        if keep_running() and r['run_at'] < now:
             if dependency_pending(r['state_data']):
                 br.delay_request(r['request_id'])
                 continue 
@@ -595,7 +598,7 @@ def process_mailman_requests():
     for r in br.get_requests(operation=const.bofh_mailman_remove):
         logger.debug("Req: mailman_remove %d at %s",
                      r['request_id'], r['run_at'])
-        if keep_running() and r['run_at'] < br.now:
+        if keep_running() and r['run_at'] < now:
             listname = r['state_data']
             cmd = [SUDO_CMD, cereconf.WRAPPER_CMD, '-c',
                    'mailman', 'rmlist', listname, "dummy" ];
@@ -628,12 +631,13 @@ def is_ok_batch_time(now):
 
 def process_move_requests():
     br = BofhdRequests(db, const)
+    now = mx.DateTime.now()
     requests = br.get_requests(operation=const.bofh_move_user_now)
     if is_ok_batch_time(time.strftime("%H:%M")):
         process_move_student_requests() # generates bofh_move_user requests
         requests.extend(br.get_requests(operation=const.bofh_move_user))    
     for r in requests:
-        if keep_running() and r['run_at'] < br.now:
+        if keep_running() and r['run_at'] < now:
             logger.debug("Req %d: bofh_move_user %d",
                          r['request_id'], r['entity_id'])
             try:
@@ -806,8 +810,9 @@ def process_quarantine_refresh_requests():
     quicksync script can revalidate the quarantines."""
 
     br = BofhdRequests(db, const)
+    now = mx.DateTime.now()
     for r in br.get_requests(operation=const.bofh_quarantine_refresh):
-        if r['run_at'] > br.now:
+        if r['run_at'] > now:
             continue
         db.log_change(r['entity_id'], const.quarantine_refresh, None)
         br.delete_request(request_id=r['request_id'])
@@ -815,11 +820,12 @@ def process_quarantine_refresh_requests():
 
 def process_delete_requests():
     br = BofhdRequests(db, const)
+    now = mx.DateTime.now()
     group = Factory.get('Group')(db)
     for r in br.get_requests(operation=const.bofh_delete_user):
         if not keep_running():
             break
-        if r['run_at'] > br.now:
+        if r['run_at'] > now:
             continue
         spread = default_spread
         is_posix = False
