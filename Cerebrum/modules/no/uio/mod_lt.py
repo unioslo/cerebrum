@@ -617,7 +617,8 @@ class PersonLTMixin(Person.Person):
         values = {"person_id" : int(person_id)}
         time_clause, extra_vars = self._make_timestamp_clause(timestamp)
         values.update(extra_vars)
-
+        
+        emp_clause = ""
         if tilsettings_id is not None:
             emp_clause = " AND tilsettings_id = :tilsettings_id "
             values["tilsettings_id"] = int(tilsettings_id)
