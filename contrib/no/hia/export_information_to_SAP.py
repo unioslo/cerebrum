@@ -156,31 +156,20 @@ def main():
     logger = Factory.get_logger("console")
 
     options, rest = getopt.getopt(sys.argv[1:],
-                                  "s:d",
-                                  ["sap-file=",
-                                   "dryrun",])
+                                  "s:",
+                                  ["sap-file=",]) 
     input_name = None
     dryrun = False
     
     for option, value in options:
         if option in ("-s", "--sap-file"):
             input_name = value
-        elif option in ("-d", "--dryrun"):
-            dryrun = True
         # fi
     # od
 
     db = Factory.get("Database")()
 
     process_employees(input_name, db)
-
-    if dryrun:
-        db.rollback()
-        logger.info("Rolled back all changes")
-    else:
-        db.commit()
-        logger.info("Committed all changes")
-    # fi
 # end main
 
 
