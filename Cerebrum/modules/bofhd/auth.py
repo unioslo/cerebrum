@@ -667,7 +667,7 @@ class BofhdAuth(DatabaseAccessor):
     # the user's local sysadmin and helpdesk operators.
     def can_email_info_detail(self, operator, account=None,
                               query_run_any=False):
-        if account and operator == account.entity_id:
+        if query_run_any or account and operator == account.entity_id:
             return True
         return self._is_local_postmaster(operator,
                                          self.const.auth_set_password,
@@ -675,7 +675,7 @@ class BofhdAuth(DatabaseAccessor):
 
     # the user, local sysadmin, and helpdesk can ask for migration
     def can_email_migrate(self, operator, account=None, query_run_any=False):
-        if account and operator == account.entity_id:
+        if query_run_any or account and operator == account.entity_id:
             return True
         return self._is_local_postmaster(operator,
                                          self.const.auth_email_migrate,
@@ -700,7 +700,7 @@ class BofhdAuth(DatabaseAccessor):
     # tripnote on/off
     def can_email_forward_toggle(self, operator, account=None,
                                  query_run_any=False):
-        if account and operator == account.entity_id:
+        if query_run_any or account and operator == account.entity_id:
             return True
         return self._is_local_postmaster(operator,
                                          self.const.auth_email_forward_off,
@@ -720,7 +720,7 @@ class BofhdAuth(DatabaseAccessor):
 
     def can_email_tripnote_toggle(self, operator, account=None,
                                   query_run_any=False):
-        if account and operator == account.entity_id:
+        if query_run_any or account and operator == account.entity_id:
             return True
         return self._is_local_postmaster(operator,
                                          self.const.auth_email_vacation_off,
@@ -805,10 +805,10 @@ class BofhdAuth(DatabaseAccessor):
                                                 disk.host_id, victim_id):
             if not int(r['has_attr']):
                 return True
-            pattern = self._get_auth_op_target_attr(r['op_target_id'])
-            m = re.compile(pattern).match(disk.path.split("/")[-1])
-            if m != None:
-                return True
+            for pattern in self._get_auth_op_target_attr(r['op_target_id']):
+                m = re.compile(pattern).match(disk.path.split("/")[-1])
+                if m != None:
+                    return True
         raise PermissionDenied("No access to disk")
 
     def _query_maildomain_permissions(self, operator, operation, domain,
@@ -838,8 +838,8 @@ class BofhdAuth(DatabaseAccessor):
             if not affiliation or not int(r['has_attr']):
                 return True
             if (int(r['has_attr']) and
-                self._get_auth_op_target_attr(r['op_target_id']) ==
-                str(affiliation)):
+                str(affiliation) in
+                self._get_auth_op_target_attr(r['op_target_id'])):
                 return True
         return False
 
@@ -964,20 +964,19 @@ class BofhdAuth(DatabaseAccessor):
                 return True
             else:
                 aff = str(self.const._PersonAffiliationCode(r['affiliation']))
-                if aff == self._get_auth_op_target_attr(r['op_target_id']):
+                if aff in self._get_auth_op_target_attr(r['op_target_id']):
                     return True
         return False
 
     def _get_auth_op_target_attr(self, op_target_id):
-        r = self.query("""
+        attrlist = ()
+        for r in self.query("""
            SELECT attr
            FROM [:table schema=cerebrum name=auth_op_target_attrs]
            WHERE op_target_id=:op_target_id""",
-                             {'op_target_id': op_target_id})
-        if r:
-            return r['attr']
-        else:
-            return None
+                            {'op_target_id': op_target_id}):
+            attrlist += (r['attr'],)
+        return attrlist
 
     def _has_global_access(self, operator, operation, global_type, victim_id):
         """global_host and global_group should not be allowed to
