@@ -3691,7 +3691,7 @@ class BofhdExtension(object):
         entity = self._get_entity(entity_type, id)
         spread = int(self._get_constant(spread, "No such spread"))
 	# TODO probably not the most optimal solution, 
-	if self._get_constant(spread) == self.const.spread_hia_novell:
+	if spread == int(self.const.spread_hia_novell):
 	    return "Please use the command 'user home_create' to assign an extra homedir to the user!"
         self.ba.can_add_spread(operator.get_entity_id(), entity, spread)
         try:
