@@ -382,7 +382,7 @@ def populate_enhet_groups(enhet_id):
             enhet_ansv[account_id] = 1
 
         # TODO: generaliser ifi-hack seinare
-        if (re.match(r"(dig|inf|med-inf|tool)\d", emnekode.lower())
+        if (re.match(r"(dig|inf|med-inf|tool)", emnekode.lower())
             and termk == fs.get_curr_semester()
             and aar == str(fs.year)):
             logger.debug(" (ta med Ifi-spesifikke grupper)")
