@@ -62,7 +62,8 @@ def make_user(entity_id):
     
     homedir = "%s/%s" % (disk.path, posix_user.account_name)
     cmd = ['/local/etc/reguser/mkhomedir', uname, homedir,
-           user_uid, default_group, cereconf.POSIX_HOME_TEMPLATE_DIR]
+           user_uid, default_group, cereconf.POSIX_HOME_TEMPLATE_DIR,
+           cereconf.POSIX_USERMOD_SCRIPTDIR, posix_user.get_gecos()]
     cmd = (rsh, '-n', host.name) + ("'"+quote_list(cmd)+"'",)
 
     print "DO: %s" % str(cmd)
