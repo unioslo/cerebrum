@@ -122,7 +122,7 @@ Fra LT.TILSETTING
 Det er kun aktuelt å legge inn i Cerebrum som aktive de som har mottat
 bilagslønn siste 180 dager.
 
-For gjester skal vi ha:
+For bilagslønnede skal vi ha:
 
 Fra LT.PERSON
 
@@ -181,9 +181,9 @@ Fra LT.PERSKOMM
 
 Fra LT.DELPOSTERING
 
-     - FAKULTETNR   
-     - INSTITUTTNR  
-     - GRUPPENR     
+     - FAKULTETNR_KONTERING
+     - INSTITUTTNR_KONTERING
+     - GRUPPENR_KONTERING  
 
      Koblet mot LT.STED gir dette info om
             - Adresser
