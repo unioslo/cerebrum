@@ -374,7 +374,7 @@ def process_email_requests():
         
 def cyrus_create(user_id):
     try:
-        uname = get_account(user_id)[1]
+        uname = get_username(user_id)
     except Errors.NotFoundError:
         logger.error("cyrus_create: %d not found", user_id)
         return False
@@ -434,7 +434,7 @@ def cyrus_delete(host, uname):
 
 def cyrus_set_quota(user_id, hq):
     try:
-        uname = get_account(user_id)[1]
+        uname = get_username(user_id)
     except Errors.NotFoundError:
         logger.error("cyrus_set_quota: %d: user not found", user_id)
         return False
@@ -622,6 +622,7 @@ def process_move_requests():
                 logger.warn("Account %s is expired, cancelling request" %
                             account.account_name)
                 br.delete_request(request_id=r['request_id'])
+                db.commit()
                 continue
             try:
                 operator = get_account(r['requestee_id'])[0].account_name
@@ -772,6 +773,11 @@ def get_account(account_id, type='Account', spread=None):
     else:
         host = None  # TODO:  How should we handle this?
     return account, uname, host, home
+
+def get_username(account_id):
+    account = Factory.get('Account')(db)
+    account.find(account_id)
+    return account.account_name
 
 def get_group(id, grtype="Group"):
     if grtype == "Group":
