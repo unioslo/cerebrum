@@ -67,7 +67,7 @@ def get_primary_email_address(user_id):
 
 def get_imaphost(user_id):
     em = Email.EmailServerTarget(db)
-    em.find(get_email_target_id(user_id)
+    em.find(get_email_target_id(user_id))
     server = Email.EmailServer(db)
     server.find(em.get_server_id())
     if server.email_server_type == const.email_server_type_cyrus:
@@ -264,15 +264,15 @@ def process_email_requests():
                         for addr in [t.split(subsep)
                                      for t in line.split(": ")][1]:
                             add_forward(user_id, addr)
-                        elif line.starts_with("tripnote: "):
-                            msg = "\n".join([t.split(subsep)
-                                             for t in line.split(": ")][1])
-                            vac = Email.EmailVacation(db)
-                            vac.find(get_email_target_id(user_id))
-                            vac.add_vacation(start = db.Date(1970, 1, 1),
-                                             end = None, msg, enable=True)
-                        else:
-                            logger.error("convertmail reported: %s\n" % line)
+                    elif line.starts_with("tripnote: "):
+                        msg = "\n".join([t.split(subsep)
+                                         for t in line.split(": ")][1])
+                        vac = Email.EmailVacation(db)
+                        vac.find(get_email_target_id(user_id))
+                        vac.add_vacation(start = db.Date(1970, 1, 1),
+                                         end = None, text=msg, enable=True)
+                    else:
+                        logger.error("convertmail reported: %s\n" % line)
             except:
                     db.rollback()
                     # TODO better diagnostics
@@ -286,7 +286,7 @@ def cyrus_create(user_id):
         uname = get_account(user_id)[1]
     except Errors.NotFoundError:
         logger.error("cyrus_create: %d not found" % user_id)
-        continue
+        return False
     assert uname is not None
     try:
         cyradm = connect_cyrus(user_id = user_id)
