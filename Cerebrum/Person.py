@@ -27,8 +27,18 @@ ENTITY_TYPE_PERSON = 'p'
 
 class PersonName(object):
     "Mixin class for Person"
+
+    def get_person_name_codes(self):
+        return self.query("SELECT code, description FROM person_name_code")
+
     def get_name(self, variant, source_system=None):
-        pass
+        """TODO: It is uncertain wheter source_system=None is legal"""
+        qry = "SELECT name FROM person_name WHERE person_id=:1 AND name_variant=:2"
+        params = (self.person_id, variant)
+        if source_system != None:
+            qry += " AND source_system=:3"
+            params += (source_system,)
+        return self.query_1(qry, *params)
 
     def set_name(self, variant, source_system, name):
         self.execute("""
