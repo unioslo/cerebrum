@@ -22,10 +22,10 @@ def get_jobs():
         'ldif_user':
           Action(call=System('%s/generate_user_ldif.py' % feidegvscontrib,
                              params=['--file', '%s/users-db.ldif' % ldapdir]),
-                 max_freq=60*60),
-        'ldif_mail':
-            Action(call=System('%s/generate_mail_ldif.py' % feidegvscontrib,
-                               params=['-m', '%s/mail-db.ldif' % ldapdir]),
-                   max_freq=60*60, when=When(freq=90*60))
+                 max_freq=60*60)#,
+#        'ldif_mail':
+#            Action(call=System('%s/generate_mail_ldif.py' % feidegvscontrib,
+#                               params=['-m', '%s/mail-db.ldif' % ldapdir]),
+#                   max_freq=60*60, when=When(freq=90*60))
         }
 
