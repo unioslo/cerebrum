@@ -15,7 +15,6 @@ from Cerebrum import Group
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no import fodselsnr
 
-
 pp = pprint.PrettyPrinter(indent=4)
 
 Cerebrum = Factory.get('Database')()
@@ -34,18 +33,21 @@ def read_inputfile(filename):
     f = open(filename, 'rb')
     spec = {}
     n = 0
-    for k in f.readline().strip().split(","):
+    t = f.readline().replace("\t", "¦")
+    for k in t.strip().split("¦"):
         spec[k.lower()] = n
         n += 1
     ret = []
     nlegal = nillegal = 0
+    lineno = 1
     while 1:
+        lineno += 1
         line = f.readline()
         if line == '': break
-        
-        dta = line.strip().split(",")
+        line = line.replace("\t", "¦")
+        dta = line.strip().split("¦")
         if(len(dta) != n):
-            # print "WARNING: Illegal line: '%s'" % line
+            warn("WARNING: Illegal line #%i: '%s'" % (lineno, line[:-2]))
             nillegal += 1
             continue
         nlegal += 1
@@ -318,8 +320,8 @@ def create_OU(skole, spec, parent):
 def convert_all():
     files = ("sted_vg.txt", "klasse_fag_emne_gs.txt",
              "klasse_fag_emne_vg.txt", "person_ansatt_gs.txt",
-             "person_ansatt_ikkeLærer_gs.txt",
-             "person_ansatt_ikkeLærer_vg.txt",
+             "person_andre_ansatte_gs.txt",
+             "person_andre_ansatte_vg.txt",
              "person_ansatt_lærere_gs.txt",
              "person_ansatt_lærere_vg.txt",
              "person_ansatt_vg.txt",
@@ -345,8 +347,8 @@ def usage():
 
 if __name__ == '__main__':
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "wvi",
-                                   ["warn", "verbose", "import"])
+        opts, args = getopt.getopt(sys.argv[1:], "wvic",
+                                   ["warn", "verbose", "import", "convert"])
     except getopt.GetoptError:
         usage()
         sys.exit(2)
@@ -357,5 +359,7 @@ if __name__ == '__main__':
             verbose += 1
         elif o in ('-i', '--import'):
             import_all()
+        elif o in ('-c', '--convert'):
+            convert_all()
     if(len(opts) == 0):
         usage()
