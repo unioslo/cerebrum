@@ -96,7 +96,7 @@ def make_user(entity_id):
         info = get_make_user_data(entity_id)
     except Errors.NotFoundError:
         logger.warn("NotFound error for entity_id %s" % entity_id)
-        return
+        raise
     if int(info['home']['status']) == const.home_status_on_disk:
         logger.warn("User already on disk? %s" % entity_id)
         return
@@ -125,10 +125,13 @@ def process_changes():
     for evt in ei.get_events('uio_ch', [cl_const.account_create]):
         if evt.change_type_id == int(cl_const.account_create):
             logger.debug("Creating entity_id=%s" % (evt.subject_entity))
-            if make_user(evt.subject_entity):
-                status = const.home_status_on_disk
-            else:
-                status = const.home_status_create_failed
+            try:
+                if make_user(evt.subject_entity):
+                    status = const.home_status_on_disk
+                else:
+                    status = const.home_status_create_failed
+            except Errors.NotFoundError:
+                continue  # A reserved user or similar that don't get a homedir
             # posix_user was set by get_make_user_data
             home = posix_user.get_home(home_spread)
             posix_user.set_home(home_spread, disk_id=home['disk_id'],
