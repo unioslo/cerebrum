@@ -51,6 +51,22 @@ should only require minor changes to clients/servers.
 It is legal for the client to have multiple requests running at the
 same time with the same sessionid.
 
+<h1>Character encoding</h1>
+
+<ul>
+<li>xmlrpclib encodes return values as unicode.  They can be decoded
+like <code>ret.encode('iso8859-1')</code> (provided that ret is a
+string)
+<li><code>None</code> is not a legal return value, not even inside a
+tuple/dictionary.
+<li>Clients should remember to pass <code>encoding='iso8859-1'</code>
+to the <code>xmlrpclib.Server</code> constructor if non-ASCII
+characters are used in parameters to method calls.  Non-printable
+characters must be encoded as binary:
+<code>xmlrpclib.Binary('\01')</code>
+</ul>
+
+
 <h1>Methods</h1>
 
 The return values of XML-RPC callable methods can among other things
