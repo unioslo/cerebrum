@@ -800,7 +800,7 @@ def main():
     if (not update_accounts and not create_users and not validate and
           range is None):
         if not recalc_pq:
-            usage("expected mode was recalculate printer quotas")
+            usage("no mode of operation selected")
     else:
         if recalc_pq:
             raise ValueError, "recalc-pq cannot be combined with other operations"
