@@ -35,6 +35,7 @@ from Cerebrum import Database,Person,Utils,Account,Errors,cereconf
 from Cerebrum.modules import PosixUser
 import sys
 import traceback
+from cmd_param import *
 # import dumputil
 import pprint
 
@@ -53,8 +54,8 @@ class ExportedFuncs(object):
     def __init__(self, Cerebrum, fname):
         self.defaultSessionId = 'secret'
         self.THIS_CFU = 'this'
-        self.modules = {}
-        self.command2module = {}
+        self.modules = {}           # Maps modulenames to a module reference
+        self.command2module = {}    # Maps a command to a modulename
         self.Cerebrum = Cerebrum
         self.person = Person.Person(self.Cerebrum)
         self.const = self.person.const
@@ -159,64 +160,74 @@ class ExportedFuncs(object):
         func = getattr(self.modules[modfile], args[0])
         try:
             new_args = ()
-            for n in range(1, len(args)):            # TODO: Don't do this this way
-                if args[n] == 'XNone':
+            for n in range(1, len(args)):
+                if args[n] == 'XNone':     # TODO: Don't do this this way
                     new_args += (None,)
                 else:
                     new_args += (args[n],)
+                # TODO: Hvis vi får lister/tupler som input, skal func
+                # kalles flere ganger
+                if isinstance(ret, list) or isinstance(ret, tuple):
+                    raise NotImplemetedError, "tuple argumenter ikke implemetert enda"
             ret = func(user, *new_args)
             print "process ret: "
             pp.pprint(ret)
+            self.ef.Cerebrum.commit()
             return self.process_returndata(ret)
         except Exception:
             # ret = "Feil: %s" % sys.exc_info()[0]
             # print "Error: %s: %s " % (sys.exc_info()[0], sys.exc_info()[1])
             # traceback.print_tb(sys.exc_info()[2])
+            self.ef.Cerebrum.rollback()
             raise
+
+    ## Prompting and tab-completion works pretty much the same way.
+    ## First we check if the function 'name' has a function named
+    ## 'name_prompt' (or 'name_tab'), and uses this.  If no such
+    ## function is defined, we check the Parameter object to find out
+    ## what to do.
 
     def tab_complete(self, sessionid, *args):
         "Atempt to tab-complete the command."
         
         user = self.get_user_from_session(sessionid)
-        modfile = self.command2module[args[0]]
-        try:
-            func = getattr(self.modules[modfile], args[0]+"_tab")
+        func, modref, param = self._lookupParamInfo(args[0], "_tab", len(args)-1)
+        if func is not None:
             ret = func(user, *args[1:])
-            return self.process_returndata(ret)
-        except AttributeError:
-            # TODO: Make a default tab-completion function, like:
-            # self.xxxx = {
-            #    'get_person' : ('fg', 'add', 'user:alterable_user', 'group:alterable_group', 1)
-            # }
-            #
-            return ("foo", "bar", "gazonk")
-        except Exception:
-            print "Unexpected error"
-            raise
+        else:
+            if param._tab_func is None:
+                ret = ()
+            else:
+                ret = getattr(modref, param._tab_func)(user, *args[1:])
+        return self.process_returndata(ret)
 
     def prompt_next_param(self, sessionid, *args):
         "Prompt for next parameter."
-        
+
         user = self.get_user_from_session(sessionid)
-        modfile = self.command2module[args[0]]
-        try:
-            func = getattr(self.modules[modfile], args[0]+"_prompt")
+        func, modref, param = self._lookupParamInfo(args[0], "_prompt", len(args)-1)
+        if func is not None:
             ret = func(user, *args[1:])
             return self.process_returndata(ret)
+        else:
+            if param._prompt_func is None:
+                if param._name is not None:
+                    return param._prompt % param._name  # TBD: set this explicitly
+                else:
+                    return param._prompt
+            else:
+                return getattr(modref, param._prompt_func)(user, *args[1:])
+
+    def _lookupParamInfo(self, cmd, fext, nargs):
+        modref = self.modules[ self.command2module[cmd] ]
+        try:
+            func = getattr(modref, cmd+fext)
+            return (func, None, None, None)
         except AttributeError:
-            # TODO: Make a default tab-completion function, like:
-            # self.xxxx = {
-            #    'get_person' : ('fg', 'add', 'user:alterable_user', 'group:alterable_fgroup', 1)
-            # }
-            #
-            # self.type2text = {
-            #    'alterable_user' : 'username',
-            #    'alterable_fgroup' : 'filegroup'
-            # }
-            return "username"
-        except Exception:
-            print "Unexpected error"
-            raise
+            pass
+        cmdspec = modref.all_commands[cmd]
+        assert(nargs < len(cmdspec._params)) # prompt skal ikke kalles hvis for mange argumenter(?)
+        return (None, modref, cmdspec._params[nargs])
 
     def process_returndata(self, ret):
         """Encode the returndata so that it is a legal XML-RPC structure."""
@@ -246,30 +257,73 @@ class ExportedFuncs(object):
             raise "CerebrumError", "Authentication failure"
         return 'runefro'
 
-
 class CallableFuncs(object):
-
     """All CallableFuncs takes user as first arg, and is responsible
     for checking neccesary permissions"""
 
+    all_commands = {
+        ## bofh> person affadd <idtype> <id+> <affiliation> [<status> [<ou>]]
+        ## bofh> person afflist <idtype> <id>
+        ## bofh> person affrem <idtype> <id> <affiliation> [<ou>]
+        ## bofh> person create <display_name> {<birth_date (yyyy-mm-dd)> | <id_type> <id>}
+        ## bofh> person delete <id_type> <id>
+        ## bofh> person find {<name> | <id> [<id_type>] | <birth_date>}
+        'person_find': Command(("person", "find") , Id(),
+                               PersonIdType(optional=1)),
+        
+        ## bofh> person info <idtype> <id>
+        ## bofh> person name <id_type> {<export_id> | <fnr>} <name_type> <name>
+
+        ## bofh> account affadd <accountname> <affiliation> <ou=>
+        ## bofh> account affrem <accountname> <affiliation> <ou=>
+        ## bofh> account create <accountname> <idtype> <id> <affiliation=> <ou=> [<expire_date>]
+        'account_create': Command(('account', 'create'),
+                                  AccountName(ptype="new"),
+                                  PersonIdType(), PersonId(),
+                                  Affiliation(default=1),
+                                  OU(default=1), Date(optional=1)),
+
+        ## bofh> account password <accountname> [<password>]
+        ## bofh> account posix_create <accountname> <prigroup> <home=> <shell=> <gecos=>
+        ## bofh> account type <accountname>
+
+        ## bofh> group account <accountname>
+        ## bofh> group add <entityname+> <groupname+> [<op>]
+        'group_add': Command(("group", "add"), GroupName("source", repeat=1),
+                             GroupName("destination", repeat=1),
+                             GroupOperation(optional=1))
+        
+        ## bofh> group create <name> [<description>]
+        ## bofh> group delete <name>
+        ## bofh> group expand <groupname>
+        ## bofh> group expire <name> <yyyy-mm-dd>
+        ## bofh> group group <groupname>
+        ## bofh> group info <name>
+        ## bofh> group list <groupname>
+        ## bofh> group person <person_id>
+        ## bofh> group remove <entityname+> <groupname+> [<op>]
+        ## bofh> group visibility <name> <visibility>
+
+        }
+
     def __init__(self, exportedFuncs):
         self.ef = exportedFuncs
-        # The format of this dict is documented in adminprotocol.html
-        self.all_commands = {
-            'get_person' : ('person', 'info', 'number', 1),
-            'user_lbdate' : ('user', 'lbdate', 'number', 1),
-            'user_create' : ('user', 'create', 'person_id', 'np_type', 'expire_date', 'uname', 'uid', 'gid', 'gecos', 'home', 'shell', 0)
-            }
         self.const = self.ef.const
         self.name_codes = {}
         for t in self.ef.person.get_person_name_codes():
             self.name_codes[int(t.code)] = t.description
+
+    def tab_foobar(self, *args):
+        return ["foo", "bar", "gazonk"]
+        
+    def prompt_foobar(self, *args):
+        return "Enter a joke"
         
     def get_commands(self, uname):
         # TODO: Do some filtering on uname to remove commands
         commands = {}
         for k in self.all_commands.keys():
-            commands[k] = self.all_commands[k]
+            commands[k] = self.all_commands[k].getStruct()
         return commands
 
     def get_format_suggestion(self, cmd):
@@ -280,6 +334,22 @@ class CallableFuncs(object):
             }
         return suggestions.get(cmd)
 
+    def person_find(self, key, keytype):
+        if keytype is None:  # Is name or date (YYYY-MM-DD)
+            m = re.match(r'(\d{4})-(\d{2})-(\d{2})', key)
+            if m is not None:
+                # dato sok
+                pass
+            else:
+                # navn sok
+                pass
+        else:
+            raise NotImplementedError, "What keytypes do exist?"
+
+    ##
+    ## 2002-11-11: The functions below are obsoleted
+    ##
+    
     def user_lbdate(self, user, date):
         ret = ()
         person = self.ef.person
@@ -338,10 +408,8 @@ class CallableFuncs(object):
             posix_user.set_password(passwd)
             posix_user.write_db()
             
-            self.ef.Cerebrum.commit()
             return {'password' : passwd, 'uname' : uname}
         except Database.DatabaseError:
-            self.ef.Cerebrum.rollback()
             # TODO: Log something here
             raise "Something went wrong, see log for details: %s" % (sys.exc_info()[1])
 
