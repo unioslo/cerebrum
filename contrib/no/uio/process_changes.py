@@ -36,6 +36,7 @@ def insert_account_in_cl(account_name):
     """Add an account_create event to the ChangeLog.  Useful for
     testing, or if forcing an operation"""
     db.cl_init(change_by=None, change_program='process_changes')
+    posix_user.clear()
     posix_user.find_by_name(account_name)
     db.log_change(posix_user.entity_id, const.account_create, None)
     db.commit()
@@ -89,12 +90,15 @@ def make_user(entity_id):
         os.spawnv(os.P_WAIT, cereconf.RSH_CMD, cmd)
 
 def process_changes():
-    ei = CLHandler.CLHandler(db)
+    # Note that CLHandler gets its own database handle
+    ei = CLHandler.CLHandler(Factory.get('Database')())
     for evt in ei.get_events('uio_ch', [const.account_create]):
         if evt.change_type_id == int(const.account_create):
             logger.debug("Creating entity_id=%s" % (evt.subject_entity))
             make_user(evt.subject_entity)
-    db.commit()
+        ei.confirm_event(evt)
+    ei.commit_confirmations()
+    #db.commit()
 
 def usage(exitcode=0):
     print """process_changes.py [options]
