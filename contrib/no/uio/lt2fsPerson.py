@@ -324,6 +324,8 @@ def update_from_lt():
         if pdata.fnr_mismatch:
             logger.warn("Fnr-mismatch, skipping: %s" % pdata.fnr_mismatch)
             continue
+        if pdata.pnr >= 90000:
+            continue  # Midlertidig fødselsnummer uønsket
         try:
             process_person(pdata)
             fs.db.commit()
