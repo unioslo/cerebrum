@@ -414,6 +414,30 @@ class Account(AccountType, EntityName, EntityQuarantine, Entity):
         except Errors.NotFoundError:
             return False
 
+    # TODO: is_reserved and list_reserved_users belong in an extended
+    # version of Account
+    def is_reserved(self):
+        """We define a reserved account as an account with no
+        expire_date and no spreads"""
+        if (self.expire_date is not None) or self.get_spread():
+            return False
+        return True
+
+    def list(self):
+        """Returns all accounts"""
+        return self.query("""
+        SELECT *
+        FROM [:table schema=cerebrum name=account_info]""")
+
+    def list_reserved_users(self):
+        """Return all reserved users"""
+        return self.query("""
+        SELECT *
+        FROM [:table schema=cerebrum name=account_info] ai
+        WHERE ai.expire_date IS NULL AND NOT EXISTS (
+          SELECT 'foo' FROM [:table schema=cerebrum name=entity_spread] es
+          WHERE es.entity_id=ai.account_id)""")
+
     def list_accounts_by_owner_id(self, owner_id):
         """Return a list of account-ids, or None if none found"""
         try:
