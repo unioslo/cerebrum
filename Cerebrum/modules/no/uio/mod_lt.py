@@ -445,8 +445,8 @@ class PersonLTMixin(Person.Person):
         entity. superclasses and/or siblings fix the rest through super/mro.
         """
 
-        for schema in (_TILSETTINGS_SCHEMA, _BILAGS_SCHEMA, _GJEST_SCHEMA,
-                       _RESERVASJONS_SCHEMA, _PERMISJONS_SCHEMA, _ROLLE_SCHEMA):
+        for schema in (_PERMISJONS_SCHEMA, _TILSETTINGS_SCHEMA, _BILAGS_SCHEMA,
+                       _GJEST_SCHEMA, _RESERVASJONS_SCHEMA, _ROLLE_SCHEMA):
             self.execute("""
                          DELETE FROM
                            %s
