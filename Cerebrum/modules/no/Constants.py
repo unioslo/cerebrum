@@ -41,6 +41,7 @@ class Constants(Constants.Constants):
     perspective_sats = _OUPerspectiveCode('SATS', 'SATS')
 
     externalid_personoid = _EntityExternalIdCode('SATS_PERSONOID',
+                                                 Constants.Constants.entity_person,
                                                  'PK in SATS')
 
     affiliation_foresatt = _PersonAffiliationCode('FORESATT',
