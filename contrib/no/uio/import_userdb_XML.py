@@ -643,6 +643,8 @@ def import_groups(groupfile, fill=False):
     for group in GroupData(groupfile):
         # pp.pprint(group)
         progress.write(".")
+        if group.get('ngtype', '') == 'm':
+            continue   # Don't want machine-netgroups
         if group['type'] == 'fg' and int(group['gid']) < 1:
             continue   # TODO: failes database constraint
         groupObj = Group.Group(db)
