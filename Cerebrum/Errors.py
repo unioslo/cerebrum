@@ -102,8 +102,8 @@ class ProgrammingError(CerebrumError):
 class DatabaseException(CerebrumError):
     """Database error"""
 
-class DatabaseConnectionError(DatabaseException):
-    """Connection error"""
+class DatabaseConnectionError(DatabaseException, PoliteException):
+    """Database connection error"""
 
 class NotFoundError(DatabaseException):
     """Could not find"""
