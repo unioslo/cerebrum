@@ -21,14 +21,12 @@
 
 
 import sys, os, getopt, time, string, pickle, re, ldap, ldif
-import mx
 
 import cerebrum_path
 import cereconf
 from Cerebrum import Constants
 from Cerebrum import Errors
 from Cerebrum import OU
-from Cerebrum import Account
 from Cerebrum import Group
 from Cerebrum import Entity
 from Cerebrum.extlib import logging
@@ -136,7 +134,9 @@ def main():
             nwqsync(spread, g_spread)
         else:
             logger.error("Could not create TLS-channel to server %s." % host)
-        int_log.write("\n# End at  %s \n" % time.strftime("%a, %d %b %Y %H:%M:%S +0000", time.localtime()))
+        int_log.write("\n# End at  %s \n" % time.strftime(\
+					"%a, %d %b %Y %H:%M:%S +0000",\
+					time.localtime()))
         #else:
         #    int_log.write("\n # Could not connect to server!")
         int_log.close()
@@ -268,11 +268,27 @@ def evaluate_grp_name(grp_name):
         logger.warn('Cereconf variabel NW_GROUP_POSTFIX is not a string')
     return(grp_name)
 
+def write_elog(ldap_user, log_txt, desc_list=[]):
+    if not desc_list:
+	try:
+	    dn_list = ldap_user.split(',')
+	    (foo,ldap_attrs) = ldap_handle.GetObjects((','.join(dn_list[1:])),
+								dn_list[0])[0]
+	    desc_list = ldap_attrs.get('description')
+	except:
+	    logger.warn("Write_elog could not resolve %s" % ldap_user)
+	    return
+    if len(desc_list) >= 4:
+	for x in desc_list[1:][:len(desc_list)-3]:
+	    attr_del_ldap(ldap_user, [('description',[x,])])
+    log_str = str(nwutils.now()) + log_txt
+    attr_add_ldap(ldap_user,[('description',[log_str,])])
+
     
 def user_add_del_grp(ch_type,dn_user,dn_dest):
     group = Group.Group(db)
     group.clear()
-    account = Account.Account(db)
+    account = Factory.get('Account')(db)
     group.entity_id = int(dn_dest)
     grp_list = [int(group.entity_id) for s in spread_grp if group.has_spread(s)]
     grp_list += group.list_member_groups(dn_dest, spread_grp)
@@ -362,33 +378,37 @@ def change_quarantine(dn_id):
     except ValueError:
         logger.warn("Could not find user:%s at server" % account.account_name)
         return
-    nw_stat_login = 1
+    desc = ' Quarantine:Removed'
+    nw_stat_login = True
     new_login = 'FALSE'
-    try:
-        if ldap_obj[0][1]['loginDisabled'][0] != 'FALSE':
-            nw_stat_login = 2
-    except KeyError:
-        nw_stat_login = False
+    if not ldap_attr.get('loginDisabled'):
+	nw_stat_login = False
+    desc_l = ldap_attr.get('description')
     quarantines = account.get_entity_quarantine()
     if quarantines:
         from Cerebrum import QuarantineHandler
-        now = mx.DateTime.now()
+	from mx import DateTime
+        now = DateTime.now()
         quarant = []
         for qua in quarantines:
-            if (qua['start_date'] <= now and (qua['end_date'] or \
+            if (qua['start_date'] <= now and (not(qua['end_date']) or \
 				qua['end_date'] >= now) and \
-				(qua['disable_until'] or \
+				(not(qua['disable_until']) or \
 				qua['disable_until'] < now)):
                 quarant.append(qua['quarantine_type'])
+		desc = ' Quarantine:' + (qua['description'] or \
+				str(co.Quarantine(qua['quarantine_type'])))
             qh = QuarantineHandler.QuarantineHandler(db, quarant)
             #if qh.should_skip():
             #    raise UserSkipQuarantine
             if qh.is_locked():
                 new_login = 'TRUE'
-    if not nw_stat_login or (nw_stat_login == 1 and new_login == 'TRUE') or \
-						(nw_stat_login == 2 and \
-						new_login == 'FALSE'):
-	attr_mod_ldap(ldap_user,[('loginDisabled',[new_login,])])
+    if not nw_stat_login:
+        attr_add_ldap(ldap_user,[('loginDisabled',[new_login,])])
+    else:
+        attr_mod_ldap(ldap_user,[('loginDisabled',[new_login,])])
+    log_txt = ' loginDisabled=' + new_login + desc
+    write_elog(ldap_user, log_txt, desc_l)
         
 
 
@@ -398,26 +418,27 @@ def path2edir(attrs):
     for (attr, value) in attrs:
       if attr == 'ndsHomeDirectory':
         break
-      idx=idx+1
+      idx += 1
     if attr != 'ndsHomeDirectory':
-      return None
+	return None
     try:
-      (foo,srv,vol,path) = value.split("/", 3)
+	path_list = value.split("/")
     except:
-      del attrs[idx]
-      return None
-    search_str = "cn=%s_%s" % (srv,vol)
-    search_dn = "%s" % cereconf.NW_LDAP_ROOT
-    ldap_disk = ldap_handle.GetObjects(search_dn,search_str)
+	del attrs[idx]
+	return None
+    search_str = "cn=%s_%s" % (path_list[1].upper(),path_list[2].upper())
+    ldap_disk = ldap_handle.GetObjects(cereconf.NW_LDAP_ROOT, search_str)
     if not isinstance(ldap_disk,list):
 	logger.warn("Lost TLS-connection to server.")
 	sys.exit(0)
     if ldap_disk == []:
       del attrs[idx]
     else:
-      disk_str = "%s#0#%s" % (ldap_disk[0][0], path)
-      attrs[idx] = ('ndsHomeDirectory', disk_str)
-    return disk_str
+	disk_str = "%s#0#" % (ldap_disk[0][0])
+	if len(path_list) >= 4:
+	    disk_str = disk_str + '%s' % ('\\'.join((path_list[3:])))
+	attrs[idx] = ('ndsHomeDirectory', disk_str)
+    return search_str
 
 
 def change_user_spread(dn_id,ch_type,spread,uname=None):
@@ -445,19 +466,41 @@ def change_user_spread(dn_id,ch_type,spread,uname=None):
 								acc_name)
 	else: 
 	    (ldap_user, ldap_attrs) = ldap_obj[0]
-	    for grp in group.list_groups_with_entity(dn_id):
-                user_add_del_grp(const.group_rem, dn_id, grp['group_id'])
-	    delete_ldap(ldap_user)
+	    if not uname:
+		for x in spread_ids:
+		    if account.get_home(x)['status'] ==\
+					co.AccountHomeStatus('archived'):
+			delete_ldap(ldap_user)
+		    else:
+			log_txt = "Cant delete user, active home-directory:" 
+			logger.warn("%s %s" % (log_txt,account.account_name))
+	    else:
+		delete_ldap(ldap_user)
     elif (ch_type == int(const.spread_add)):
 	if ldap_obj == [] and [x for x in spread_ids if account.has_spread(x)]:
 	    (ldap_user, ldap_attrs) = nwutils.get_account_info(dn_id, \
 							spread, None)
-            path2edir(ldap_attrs)
+            dsk_path = path2edir(ldap_attrs)
 	    add_ldap(ldap_user,ldap_attrs)
             # Check if 
             for delay in range(3,8):
-                if ldap_handle.GetObjects(search_dn,search_str):
-                    account.set_home(spread,status=co.home_status_on_disk)
+		ldap_obj = ldap_handle.GetObjects(search_dn,search_str)
+		if ldap_obj:
+		    disk_name = ldap_obj[0][1].get('ndsHomeDirectory')
+		    if dsk_path in disk_name[0].split(','):
+			(c_diskid, c_home, stat) = account.get_home(spread)
+			account.set_home(spread, disk_id=c_diskid, home=c_home,\
+						status=co.home_status_on_disk)
+                    else:
+			s_path = disk_name.split(',')[0].split('=')[1].lower().\
+								replace('_','/')
+			s_path = '/' + s_path +'%'
+			dsk = Factory.get('Disk')(db)
+			if len(dsk.search(path=s_path)) == 1:
+			    new_disk = dsk.search(path=s_path)[0]['disk_id']
+			    account.set_home(spread, disk_id=new_disk,
+						status=co.home_status_on_disk)
+                    db.commit()
                     break
                 time.sleep(delay)
             else:
@@ -585,7 +628,7 @@ def change_spread(dn_id,ch_type,ch_params):
 
 
 def mod_account(dn_id):
-    account = Account.Account(db)
+    account = Factory.get('Account')(db)
     account.clear()
     account.find(dn_id)
     #has_spread = 0
@@ -622,7 +665,7 @@ def mod_account(dn_id):
 
 
 def change_passwd(dn_id, ch_params):
-    account = Account.Account(db)
+    account = Factory.get('Account')(db)
     account.clear()
     account.find(dn_id)
     if [x for x in spread_ids if account.has_spread(x)]:
@@ -637,9 +680,7 @@ def change_passwd(dn_id, ch_params):
             return
     	try:
 	    (ldap_user,ldap_attr) = ldap_obj[0]
-	    #attrs = []
-	    #attrs.append(('passwordAllowChange',['TRUE']))
-	    #attr_mod_ldap(ldap_user,attrs)
+	    desc_l = ldap_attr.get('description')
 	    attrs = []
             pwd = pickle.loads(ch_params)['password']
             attrs.append( ("userPassword", [unicode(pwd, 'iso-8859-1').encode('utf-8')]) )
@@ -647,6 +688,7 @@ def change_passwd(dn_id, ch_params):
 	    for attr in attrs:
 		attr_l = [attr ,]
 		attr_mod_ldap(ldap_user,attr_l)
+	    write_elog(ldap_user, ' password change.', desc_l)
 	except:
             logger.warn('Could not update password on user:%s\n' % account.account_name)  
     
@@ -658,7 +700,8 @@ def pers_name_mod(pers_id):
     names = {}
     for var, attr in {'FIRST':'givenName', 'LAST':'sn', 
 					'FULL':'fullName'}.items():
-	names[attr] = person.get_name(co.system_cached, co.PersonName(var))
+	name = person.get_name(co.system_cached, co.PersonName(var))
+	names[attr] = unicode(name, 'iso-8859-1').encode('utf-8')
     for row in acc.list_accounts_by_owner_id(pers_id):
 	acc.clear()
 	acc.find(int(row.account_id))
