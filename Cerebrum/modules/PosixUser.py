@@ -44,7 +44,7 @@ class PosixUser(object):
 
     def clear(self):
         super(PosixUser, self).clear()
-        self.user_uid = None
+        self.posix_uid = None
         self.gid = None
         self.gecos = None
         self.home = None
@@ -53,7 +53,7 @@ class PosixUser(object):
     def __eq__(self, other):
         assert isinstance(other, PosixUser)
 
-        if (self.user_uid != other.user_uid or
+        if (self.posix_uid != other.posix_uid or
             self.gid   != other.gid or
             self.gecos != other.gecos or
             self.home  != other.home or
@@ -62,8 +62,8 @@ class PosixUser(object):
 
         return True
 
-    def populate_posix_user(self, user_uid, gid, gecos, home, shell):
-        self.user_uid = user_uid
+    def populate_posix_user(self, posix_uid, gid, gecos, home, shell):
+        self.posix_uid = posix_uid
         self.gid = gid
         self.gecos = gecos
         self.home = home
@@ -76,10 +76,10 @@ class PosixUser(object):
         if as_object is None:
             self.execute("""
             INSERT INTO [:table schema=cerebrum name=posix_user]
-              (account_id, user_uid, gid, gecos, home, shell)
+              (account_id, posix_uid, gid, gecos, home, shell)
             VALUES (:a_id, :u_id, :gid, :gecos, :home, :shell)""",
                          {'a_id': self.account_id,
-                          'u_id': self.user_uid,
+                          'u_id': self.posix_uid,
                           'gid': self.gid,
                           'gecos': self.gecos,
                           'home': self.home,
@@ -87,11 +87,11 @@ class PosixUser(object):
         else:
             self.execute("""
             UPDATE [:table schema=cerebrum name=posix_user]
-            SET account_id=:a_id, user_uid=:u_id, gid=:gid, gecos=:gecos,
+            SET account_id=:a_id, posix_uid=:u_id, gid=:gid, gecos=:gecos,
                 home=:home, shell=:shell)
             WHERE account_id=:orig_account_id""",
                          {'a_id': self.account_id,
-                          'u_id': self.user_uid,
+                          'u_id': self.posix_uid,
                           'gid': self.gid,
                           'gecos': self.gecos,
                           'home': self.home,
@@ -104,7 +104,7 @@ class PosixUser(object):
 
         (self.account_id, self.user_id, self.gid, self.gecos,
          self.home, self.shell) = self.query_1("""
-         SELECT account_id, user_uid, gid, gecos, home, shell
+         SELECT account_id, posix_uid, gid, gecos, home, shell
          FROM [:table schema=cerebrum name=posix_user]
          WHERE account_id=:account_id""", locals())
 
@@ -117,9 +117,9 @@ class PosixUser(object):
             uid = self.nextval("posix_uid_seq")
             try:
                 self.query_1("""
-                SELECT user_uid
+                SELECT posix_uid
                 FROM [:table schema=cerebrum name=posix_user]
-                WHERE user_uid=:uid""", locals())
+                WHERE posix_uid=:uid""", locals())
             except Errors.NotFoundError:
                 return uid
 
