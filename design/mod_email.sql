@@ -424,9 +424,9 @@ GRANT INSERT, UPDATE, DELETE ON email_virus_scan TO read_mod_email;
 category:main;
 CREATE TABLE email_forward
 (
-  account_id	NUMERIC(12,0)
-		CONSTRAINT email_forward_account_id
-		  REFERENCES account_info(account_id),
+  target_id	NUMERIC(12,0)
+		CONSTRAINT email_forward_target_id
+		  REFERENCES email_target(target_id),
   forward_to	CHAR VARYING(256)
 		NOT NULL,
   enable	CHAR(1)
