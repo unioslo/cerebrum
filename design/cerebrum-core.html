@@ -1,0 +1,671 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN"
+   "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+  <head>
+    <title>Index for cerebrum</title>
+    <style type="text/css">
+	BODY {
+		color:	#000000; 
+		background-color: #FFFFFF;
+		font-family: Helvetica, sans-serif; 
+	}
+
+	P {
+		margin-top: 5px;
+		margin-bottom: 5px;
+	}
+
+	P.w3ref {
+		font-size: 8pt;
+		font-style: italic;
+		text-align: right;
+	}
+
+	P.detail {
+		font-size: 10pt;
+	}
+
+	.error {
+		color: #FFFFFF;
+		background-color: #FF0000;
+	}
+
+	H1, H2, H3, H4, H5, H6 {
+	}
+
+	OL {
+		list-style-type: upper-alpha;
+	}
+
+	UL.topic {
+		list-style-type: upper-alpha;
+	}
+
+	LI.topic {
+		font-weight : bold;
+	}
+
+	HR {
+		color: #00FF00;
+		background-color: #808080;
+	}
+
+	TABLE {
+		border-width: medium;
+		padding: 3px;
+		background-color: #000000;
+		width: 90%;
+	}
+
+	CAPTION {
+		text-transform: capitalize;
+		font-weight : bold;
+		font-size: 14pt;
+	}
+
+	TH {
+		color: #FFFFFF;
+		background-color: #000000;
+		text-align: left;
+	}
+
+	TR {
+		color: #000000;
+		background-color: #000000;
+		vertical-align: top;
+	}
+
+	TR.tr0 {
+		background-color: #F0F0F0;
+	}
+
+	TR.tr1 {
+		background-color: #D8D8D8;
+	}
+
+	TD {
+		font-size: 12pt;
+	}
+
+	TD.col0 {
+		font-weight : bold;
+		width: 20%;
+	}
+
+	TD.col1 {
+		font-style: italic;
+		width: 15%;
+	}
+
+	TD.col2 {
+		font-size: 12px;
+	}
+    </style>
+    <link rel="stylesheet" type="text/css" media="all" href="all.css">
+    <link rel="stylesheet" type="text/css" media="screen" href="screen.css">
+    <link rel="stylesheet" type="text/css" media="print" href="print.css">
+    <meta HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=iso-8859-1">
+  </head>
+  <body>
+<p><br><br>Dumped on 2002-9-27.</p><a name="index"><h1>Index of database - cerebrum</h1><ul><li><a name="group_public">public</a></li><ul><li><a href="#table_account_authentication">account_authentication</a></li><li><a href="#table_account_code">account_code</a></li><li><a href="#table_account_info">account_info</a></li><li><a href="#table_account_type">account_type</a></li><li><a href="#table_address_code">address_code</a></li><li><a href="#table_authentication_code">authentication_code</a></li><li><a href="#table_authoritative_system_code">authoritative_system_code</a></li><li><a href="#table_contact_info_code">contact_info_code</a></li><li><a href="#table_country_code">country_code</a></li><li><a href="#table_entity_address">entity_address</a></li><li><a href="#table_entity_contact_info">entity_contact_info</a></li><li><a href="#table_entity_info">entity_info</a></li><li><a href="#table_entity_name">entity_name</a></li><li><a href="#table_entity_quarantine">entity_quarantine</a></li><li><a href="#table_entity_type_code">entity_type_code</a></li><li><a href="#table_gender_code">gender_code</a></li><li><a href="#table_group_info">group_info</a></li><li><a href="#table_group_member">group_member</a></li><li><a href="#table_group_membership_op_code">group_membership_op_code</a></li><li><a href="#table_group_visibility_code">group_visibility_code</a></li><li><a href="#table_language_code">language_code</a></li><li><a href="#table_ou_info">ou_info</a></li><li><a href="#table_ou_name_language">ou_name_language</a></li><li><a href="#table_ou_perspective_code">ou_perspective_code</a></li><li><a href="#table_ou_structure">ou_structure</a></li><li><a href="#table_person_aff_status_code">person_aff_status_code</a></li><li><a href="#table_person_affiliation">person_affiliation</a></li><li><a href="#table_person_affiliation_code">person_affiliation_code</a></li><li><a href="#table_person_external_id">person_external_id</a></li><li><a href="#table_person_external_id_code">person_external_id_code</a></li><li><a href="#table_person_info">person_info</a></li><li><a href="#table_person_name">person_name</a></li><li><a href="#table_person_name_code">person_name_code</a></li><li><a href="#table_quarantine_code">quarantine_code</a></li><li><a href="#table_value_domain_code">value_domain_code</a></li></ul></ul><hr><h2>Table: <a href="#group_public">public</a>.<a name="table_account_authentication">account_authentication</a></h2><table width="100%" cellspacing="0" cellpadding="3">
+                <caption>public.account_authentication Structure</caption>
+                <tr>
+                <th>F-Key</th>
+                <th>Name</th>
+                <th>Type</th>
+                <th>Description</th>
+                </tr><tr class="tr0"><td><a href="#table_account_info">public -> account_info</a>
+                  </td><td>account_id</td>
+                  <td>numeric(12,0)</td><td><i>NOT NULL</i></td></tr><tr class="tr1"><td><a href="#table_authentication_code">public -> authentication_code</a>
+                  </td><td>method</td>
+                  <td>numeric(6,0)</td><td><i>NOT NULL</i></td></tr><tr class="tr0"><td></td><td>auth_data</td>
+                  <td>character varying(4000)</td><td><i>NOT NULL</i></td></tr></table><p>&nbsp;</p><table width="100%" cellspacing="0" cellpadding="3">
+                    <caption>public.account_authentication Constraints</caption>
+                    <tr>
+                    <th>Name</th>
+                    <th>Constraint</th>
+                    </tr><tr class="tr0"><td>account_auth_pk</td>
+                      <td>PRIMARY KEY (account_id, method)</td></tr></table><p><a href="#index">Index</a> - <a href="#group_public">Schema public</a></p><hr><h2>Table: <a href="#group_public">public</a>.<a name="table_account_code">account_code</a></h2><table width="100%" cellspacing="0" cellpadding="3">
+                <caption>public.account_code Structure</caption>
+                <tr>
+                <th>F-Key</th>
+                <th>Name</th>
+                <th>Type</th>
+                <th>Description</th>
+                </tr><tr class="tr0"><td></td><td>code</td>
+                  <td>numeric(6,0)</td><td><i>NOT NULL PRIMARY KEY </i></td></tr><tr class="tr1"><td></td><td>code_str</td>
+                  <td>character varying(16)</td><td><i>NOT NULL UNIQUE </i></td></tr><tr class="tr0"><td></td><td>description</td>
+                  <td>character varying(512)</td><td><i>NOT NULL</i></td></tr></table><p>Tables referencing this one via Foreign Key Constraints:</p><ul><li><a href="#table_account_info">public.account_info</a></li></ul><p><a href="#index">Index</a> - <a href="#group_public">Schema public</a></p><hr><h2>Table: <a href="#group_public">public</a>.<a name="table_account_info">account_info</a></h2><table width="100%" cellspacing="0" cellpadding="3">
+                <caption>public.account_info Structure</caption>
+                <tr>
+                <th>F-Key</th>
+                <th>Name</th>
+                <th>Type</th>
+                <th>Description</th>
+                </tr><tr class="tr0"><td></td><td>entity_type</td>
+                  <td>numeric(6,0)</td><td><i>NOT NULL default 2003</i></td></tr><tr class="tr1"><td></td><td>account_id</td>
+                  <td>numeric(12,0)</td><td><i>NOT NULL PRIMARY KEY </i></td></tr><tr class="tr0"><td></td><td>owner_type</td>
+                  <td>numeric(6,0)</td><td><i>NOT NULL</i></td></tr><tr class="tr1"><td></td><td>owner_id</td>
+                  <td>numeric(12,0)</td><td><i>NOT NULL</i></td></tr><tr class="tr0"><td><a href="#table_account_code">public -> account_code</a>
+                  </td><td>np_type</td>
+                  <td>numeric(6,0)</td><td></td></tr><tr class="tr1"><td></td><td>create_date</td>
+                  <td>date</td><td><i>NOT NULL</i></td></tr><tr class="tr0"><td><a href="#table_account_info">public -> account_info</a>
+                  </td><td>creator_id</td>
+                  <td>numeric(12,0)</td><td><i>NOT NULL</i></td></tr><tr class="tr1"><td></td><td>expire_date</td>
+                  <td>date</td><td></td></tr></table><p>&nbsp;</p><table width="100%" cellspacing="0" cellpadding="3">
+                    <caption>public.account_info Constraints</caption>
+                    <tr>
+                    <th>Name</th>
+                    <th>Constraint</th>
+                    </tr><tr class="tr0"><td>&quot;RI_ConstraintTrigger_30649&quot;</td>
+                      <td>FOREIGN KEY (entity_type, entity_id) REFERENCES entity_info(entity_type, account_id)</td></tr><tr class="tr1"><td>&quot;RI_ConstraintTrigger_30655&quot;</td>
+                      <td>FOREIGN KEY (owner_type, entity_id) REFERENCES entity_info(entity_type, owner_id)</td></tr><tr class="tr0"><td>account_info_entity_type_chk</td>
+                      <td>CHECK entity_type = &apos;2003&apos;::&quot;numeric&quot;</td></tr><tr class="tr1"><td>account_info_id_owner_unique</td>
+                      <td>UNIQUE (account_id, owner_id)</td></tr><tr class="tr0"><td>account_info_np_type_chk</td>
+                      <td>CHECK ((owner_type = &apos;2002&apos;::&quot;numeric&quot;) AND (np_type IS NULL)) OR ((owner_type = &apos;2004&apos;::&quot;numeric&quot;) AND (np_type IS NOT NULL))</td></tr><tr class="tr1"><td>account_info_owner_type_chk</td>
+                      <td>CHECK (owner_type = &apos;2002&apos;::&quot;numeric&quot;) OR (owner_type = &apos;2004&apos;::&quot;numeric&quot;)</td></tr></table><p>Tables referencing this one via Foreign Key Constraints:</p><ul><li><a href="#table_account_authentication">public.account_authentication</a></li><li><a href="#table_account_info">public.account_info</a></li><li><a href="#table_entity_quarantine">public.entity_quarantine</a></li><li><a href="#table_group_info">public.group_info</a></li></ul><p><a href="#index">Index</a> - <a href="#group_public">Schema public</a></p><hr><h2>Table: <a href="#group_public">public</a>.<a name="table_account_type">account_type</a></h2><table width="100%" cellspacing="0" cellpadding="3">
+                <caption>public.account_type Structure</caption>
+                <tr>
+                <th>F-Key</th>
+                <th>Name</th>
+                <th>Type</th>
+                <th>Description</th>
+                </tr><tr class="tr0"><td></td><td>person_id</td>
+                  <td>numeric(12,0)</td><td><i>NOT NULL</i></td></tr><tr class="tr1"><td></td><td>ou_id</td>
+                  <td>numeric(12,0)</td><td><i>NOT NULL</i></td></tr><tr class="tr0"><td></td><td>affiliation</td>
+                  <td>numeric(6,0)</td><td><i>NOT NULL</i></td></tr><tr class="tr1"><td></td><td>source_system</td>
+                  <td>numeric(6,0)</td><td><i>NOT NULL</i></td></tr><tr class="tr0"><td></td><td>account_id</td>
+                  <td>numeric(12,0)</td><td><i>NOT NULL</i></td></tr></table><p>&nbsp;</p><table width="100%" cellspacing="0" cellpadding="3">
+                    <caption>public.account_type Constraints</caption>
+                    <tr>
+                    <th>Name</th>
+                    <th>Constraint</th>
+                    </tr><tr class="tr0"><td>&quot;RI_ConstraintTrigger_30868&quot;</td>
+                      <td>FOREIGN KEY (person_id, source_system, affiliation, ou_id) REFERENCES person_affiliation(person_id, source_system, affiliation, ou_id)</td></tr><tr class="tr1"><td>&quot;RI_ConstraintTrigger_30874&quot;</td>
+                      <td>FOREIGN KEY (account_id, owner_id) REFERENCES account_info(account_id, person_id)</td></tr><tr class="tr0"><td>account_type_pk</td>
+                      <td>PRIMARY KEY (person_id, ou_id, affiliation, account_id, source_system)</td></tr></table><p><a href="#index">Index</a> - <a href="#group_public">Schema public</a></p><hr><h2>Table: <a href="#group_public">public</a>.<a name="table_address_code">address_code</a></h2><table width="100%" cellspacing="0" cellpadding="3">
+                <caption>public.address_code Structure</caption>
+                <tr>
+                <th>F-Key</th>
+                <th>Name</th>
+                <th>Type</th>
+                <th>Description</th>
+                </tr><tr class="tr0"><td></td><td>code</td>
+                  <td>numeric(6,0)</td><td><i>NOT NULL PRIMARY KEY </i></td></tr><tr class="tr1"><td></td><td>code_str</td>
+                  <td>character varying(16)</td><td><i>NOT NULL UNIQUE </i></td></tr><tr class="tr0"><td></td><td>description</td>
+                  <td>character varying(512)</td><td><i>NOT NULL</i></td></tr></table><p>Tables referencing this one via Foreign Key Constraints:</p><ul><li><a href="#table_entity_address">public.entity_address</a></li></ul><p><a href="#index">Index</a> - <a href="#group_public">Schema public</a></p><hr><h2>Table: <a href="#group_public">public</a>.<a name="table_authentication_code">authentication_code</a></h2><table width="100%" cellspacing="0" cellpadding="3">
+                <caption>public.authentication_code Structure</caption>
+                <tr>
+                <th>F-Key</th>
+                <th>Name</th>
+                <th>Type</th>
+                <th>Description</th>
+                </tr><tr class="tr0"><td></td><td>code</td>
+                  <td>numeric(6,0)</td><td><i>NOT NULL PRIMARY KEY </i></td></tr><tr class="tr1"><td></td><td>code_str</td>
+                  <td>character varying(16)</td><td><i>NOT NULL UNIQUE </i></td></tr><tr class="tr0"><td></td><td>description</td>
+                  <td>character varying(512)</td><td><i>NOT NULL</i></td></tr></table><p>Tables referencing this one via Foreign Key Constraints:</p><ul><li><a href="#table_account_authentication">public.account_authentication</a></li></ul><p><a href="#index">Index</a> - <a href="#group_public">Schema public</a></p><hr><h2>Table: <a href="#group_public">public</a>.<a name="table_authoritative_system_code">authoritative_system_code</a></h2><table width="100%" cellspacing="0" cellpadding="3">
+                <caption>public.authoritative_system_code Structure</caption>
+                <tr>
+                <th>F-Key</th>
+                <th>Name</th>
+                <th>Type</th>
+                <th>Description</th>
+                </tr><tr class="tr0"><td></td><td>code</td>
+                  <td>numeric(6,0)</td><td><i>NOT NULL PRIMARY KEY </i></td></tr><tr class="tr1"><td></td><td>code_str</td>
+                  <td>character varying(16)</td><td><i>NOT NULL UNIQUE </i></td></tr><tr class="tr0"><td></td><td>description</td>
+                  <td>character varying(512)</td><td><i>NOT NULL</i></td></tr></table><p>Tables referencing this one via Foreign Key Constraints:</p><ul><li><a href="#table_entity_address">public.entity_address</a></li><li><a href="#table_entity_contact_info">public.entity_contact_info</a></li><li><a href="#table_person_affiliation">public.person_affiliation</a></li><li><a href="#table_person_external_id">public.person_external_id</a></li><li><a href="#table_person_name">public.person_name</a></li></ul><p><a href="#index">Index</a> - <a href="#group_public">Schema public</a></p><hr><h2>Table: <a href="#group_public">public</a>.<a name="table_contact_info_code">contact_info_code</a></h2><table width="100%" cellspacing="0" cellpadding="3">
+                <caption>public.contact_info_code Structure</caption>
+                <tr>
+                <th>F-Key</th>
+                <th>Name</th>
+                <th>Type</th>
+                <th>Description</th>
+                </tr><tr class="tr0"><td></td><td>code</td>
+                  <td>numeric(6,0)</td><td><i>NOT NULL PRIMARY KEY </i></td></tr><tr class="tr1"><td></td><td>code_str</td>
+                  <td>character varying(16)</td><td><i>NOT NULL UNIQUE </i></td></tr><tr class="tr0"><td></td><td>description</td>
+                  <td>character varying(512)</td><td><i>NOT NULL</i></td></tr></table><p>Tables referencing this one via Foreign Key Constraints:</p><ul><li><a href="#table_entity_contact_info">public.entity_contact_info</a></li></ul><p><a href="#index">Index</a> - <a href="#group_public">Schema public</a></p><hr><h2>Table: <a href="#group_public">public</a>.<a name="table_country_code">country_code</a></h2><table width="100%" cellspacing="0" cellpadding="3">
+                <caption>public.country_code Structure</caption>
+                <tr>
+                <th>F-Key</th>
+                <th>Name</th>
+                <th>Type</th>
+                <th>Description</th>
+                </tr><tr class="tr0"><td></td><td>code</td>
+                  <td>numeric(6,0)</td><td><i>NOT NULL PRIMARY KEY </i></td></tr><tr class="tr1"><td></td><td>code_str</td>
+                  <td>character varying(16)</td><td><i>NOT NULL UNIQUE </i></td></tr><tr class="tr0"><td></td><td>country</td>
+                  <td>character varying(64)</td><td><i>NOT NULL</i></td></tr><tr class="tr1"><td></td><td>phone_prefix</td>
+                  <td>character varying(8)</td><td></td></tr><tr class="tr0"><td></td><td>description</td>
+                  <td>character varying(512)</td><td><i>NOT NULL</i></td></tr></table><p>Tables referencing this one via Foreign Key Constraints:</p><ul><li><a href="#table_entity_address">public.entity_address</a></li></ul><p><a href="#index">Index</a> - <a href="#group_public">Schema public</a></p><hr><h2>Table: <a href="#group_public">public</a>.<a name="table_entity_address">entity_address</a></h2><table width="100%" cellspacing="0" cellpadding="3">
+                <caption>public.entity_address Structure</caption>
+                <tr>
+                <th>F-Key</th>
+                <th>Name</th>
+                <th>Type</th>
+                <th>Description</th>
+                </tr><tr class="tr0"><td><a href="#table_entity_info">public -> entity_info</a>
+                  </td><td>entity_id</td>
+                  <td>numeric(12,0)</td><td><i>NOT NULL</i></td></tr><tr class="tr1"><td><a href="#table_authoritative_system_code">public -> authoritative_system_code</a>
+                  </td><td>source_system</td>
+                  <td>numeric(6,0)</td><td><i>NOT NULL</i></td></tr><tr class="tr0"><td><a href="#table_address_code">public -> address_code</a>
+                  </td><td>address_type</td>
+                  <td>numeric(6,0)</td><td><i>NOT NULL</i></td></tr><tr class="tr1"><td></td><td>address_text</td>
+                  <td>character varying(256)</td><td></td></tr><tr class="tr0"><td></td><td>p_o_box</td>
+                  <td>character varying(10)</td><td></td></tr><tr class="tr1"><td></td><td>postal_number</td>
+                  <td>character varying(8)</td><td></td></tr><tr class="tr0"><td></td><td>city</td>
+                  <td>character varying(128)</td><td></td></tr><tr class="tr1"><td><a href="#table_country_code">public -> country_code</a>
+                  </td><td>country</td>
+                  <td>numeric(6,0)</td><td></td></tr></table><p>&nbsp;</p><table width="100%" cellspacing="0" cellpadding="3">
+                    <caption>public.entity_address Constraints</caption>
+                    <tr>
+                    <th>Name</th>
+                    <th>Constraint</th>
+                    </tr><tr class="tr0"><td>entity_address_pk</td>
+                      <td>PRIMARY KEY (entity_id, source_system, address_type)</td></tr></table><p><a href="#index">Index</a> - <a href="#group_public">Schema public</a></p><hr><h2>Table: <a href="#group_public">public</a>.<a name="table_entity_contact_info">entity_contact_info</a></h2><table width="100%" cellspacing="0" cellpadding="3">
+                <caption>public.entity_contact_info Structure</caption>
+                <tr>
+                <th>F-Key</th>
+                <th>Name</th>
+                <th>Type</th>
+                <th>Description</th>
+                </tr><tr class="tr0"><td><a href="#table_entity_info">public -> entity_info</a>
+                  </td><td>entity_id</td>
+                  <td>numeric(12,0)</td><td><i>NOT NULL</i></td></tr><tr class="tr1"><td><a href="#table_authoritative_system_code">public -> authoritative_system_code</a>
+                  </td><td>source_system</td>
+                  <td>numeric(6,0)</td><td><i>NOT NULL</i></td></tr><tr class="tr0"><td><a href="#table_contact_info_code">public -> contact_info_code</a>
+                  </td><td>contact_type</td>
+                  <td>numeric(6,0)</td><td><i>NOT NULL</i></td></tr><tr class="tr1"><td></td><td>contact_pref</td>
+                  <td>numeric(2,0)</td><td><i>NOT NULL default 50</i></td></tr><tr class="tr0"><td></td><td>contact_value</td>
+                  <td>character varying(255)</td><td><i>NOT NULL</i></td></tr><tr class="tr1"><td></td><td>description</td>
+                  <td>character varying(512)</td><td></td></tr></table><p>&nbsp;</p><table width="100%" cellspacing="0" cellpadding="3">
+                    <caption>public.entity_contact_info Constraints</caption>
+                    <tr>
+                    <th>Name</th>
+                    <th>Constraint</th>
+                    </tr><tr class="tr0"><td>entity_contact_info_pk</td>
+                      <td>PRIMARY KEY (entity_id, source_system, contact_type, contact_pref)</td></tr></table><p><a href="#index">Index</a> - <a href="#group_public">Schema public</a></p><hr><h2>Table: <a href="#group_public">public</a>.<a name="table_entity_info">entity_info</a></h2><table width="100%" cellspacing="0" cellpadding="3">
+                <caption>public.entity_info Structure</caption>
+                <tr>
+                <th>F-Key</th>
+                <th>Name</th>
+                <th>Type</th>
+                <th>Description</th>
+                </tr><tr class="tr0"><td></td><td>entity_id</td>
+                  <td>numeric(12,0)</td><td><i>NOT NULL PRIMARY KEY </i></td></tr><tr class="tr1"><td><a href="#table_entity_type_code">public -> entity_type_code</a>
+                  </td><td>entity_type</td>
+                  <td>numeric(6,0)</td><td><i>NOT NULL</i></td></tr></table><p>&nbsp;</p><table width="100%" cellspacing="0" cellpadding="3">
+                    <caption>public.entity_info Constraints</caption>
+                    <tr>
+                    <th>Name</th>
+                    <th>Constraint</th>
+                    </tr><tr class="tr0"><td>entity_info_type_unique</td>
+                      <td>UNIQUE (entity_type, entity_id)</td></tr></table><p>Tables referencing this one via Foreign Key Constraints:</p><ul><li><a href="#table_entity_address">public.entity_address</a></li><li><a href="#table_entity_contact_info">public.entity_contact_info</a></li><li><a href="#table_entity_name">public.entity_name</a></li><li><a href="#table_entity_quarantine">public.entity_quarantine</a></li></ul><p><a href="#index">Index</a> - <a href="#group_public">Schema public</a></p><hr><h2>Table: <a href="#group_public">public</a>.<a name="table_entity_name">entity_name</a></h2><table width="100%" cellspacing="0" cellpadding="3">
+                <caption>public.entity_name Structure</caption>
+                <tr>
+                <th>F-Key</th>
+                <th>Name</th>
+                <th>Type</th>
+                <th>Description</th>
+                </tr><tr class="tr0"><td><a href="#table_entity_info">public -> entity_info</a>
+                  </td><td>entity_id</td>
+                  <td>numeric(12,0)</td><td><i>NOT NULL</i></td></tr><tr class="tr1"><td><a href="#table_value_domain_code">public -> value_domain_code</a>
+                  </td><td>value_domain</td>
+                  <td>numeric(6,0)</td><td><i>NOT NULL</i></td></tr><tr class="tr0"><td></td><td>entity_name</td>
+                  <td>character varying(256)</td><td><i>NOT NULL</i></td></tr></table><p>&nbsp;</p><table width="100%" cellspacing="0" cellpadding="3">
+                    <caption>public.entity_name Constraints</caption>
+                    <tr>
+                    <th>Name</th>
+                    <th>Constraint</th>
+                    </tr><tr class="tr0"><td>entity_name_pk</td>
+                      <td>PRIMARY KEY (entity_id, value_domain)</td></tr><tr class="tr1"><td>entity_name_unique_per_domain</td>
+                      <td>UNIQUE (value_domain, entity_name)</td></tr></table><p><a href="#index">Index</a> - <a href="#group_public">Schema public</a></p><hr><h2>Table: <a href="#group_public">public</a>.<a name="table_entity_quarantine">entity_quarantine</a></h2><table width="100%" cellspacing="0" cellpadding="3">
+                <caption>public.entity_quarantine Structure</caption>
+                <tr>
+                <th>F-Key</th>
+                <th>Name</th>
+                <th>Type</th>
+                <th>Description</th>
+                </tr><tr class="tr0"><td><a href="#table_entity_info">public -> entity_info</a>
+                  </td><td>entity_id</td>
+                  <td>numeric(12,0)</td><td><i>NOT NULL</i></td></tr><tr class="tr1"><td><a href="#table_quarantine_code">public -> quarantine_code</a>
+                  </td><td>quarantine_type</td>
+                  <td>numeric(6,0)</td><td><i>NOT NULL</i></td></tr><tr class="tr0"><td><a href="#table_account_info">public -> account_info</a>
+                  </td><td>creator_id</td>
+                  <td>numeric(12,0)</td><td><i>NOT NULL</i></td></tr><tr class="tr1"><td></td><td>description</td>
+                  <td>character varying(512)</td><td></td></tr><tr class="tr0"><td></td><td>create_date</td>
+                  <td>date</td><td><i>NOT NULL</i></td></tr><tr class="tr1"><td></td><td>start_date</td>
+                  <td>date</td><td><i>NOT NULL</i></td></tr><tr class="tr0"><td></td><td>disable_until</td>
+                  <td>date</td><td></td></tr><tr class="tr1"><td></td><td>end_date</td>
+                  <td>date</td><td></td></tr></table><p>&nbsp;</p><table width="100%" cellspacing="0" cellpadding="3">
+                    <caption>public.entity_quarantine Constraints</caption>
+                    <tr>
+                    <th>Name</th>
+                    <th>Constraint</th>
+                    </tr><tr class="tr0"><td>entity_quarantine_pk</td>
+                      <td>PRIMARY KEY (entity_id, quarantine_type)</td></tr></table><p><a href="#index">Index</a> - <a href="#group_public">Schema public</a></p><hr><h2>Table: <a href="#group_public">public</a>.<a name="table_entity_type_code">entity_type_code</a></h2><table width="100%" cellspacing="0" cellpadding="3">
+                <caption>public.entity_type_code Structure</caption>
+                <tr>
+                <th>F-Key</th>
+                <th>Name</th>
+                <th>Type</th>
+                <th>Description</th>
+                </tr><tr class="tr0"><td></td><td>code</td>
+                  <td>numeric(6,0)</td><td><i>NOT NULL PRIMARY KEY </i></td></tr><tr class="tr1"><td></td><td>code_str</td>
+                  <td>character varying(16)</td><td><i>NOT NULL UNIQUE </i></td></tr><tr class="tr0"><td></td><td>description</td>
+                  <td>character varying(512)</td><td><i>NOT NULL</i></td></tr></table><p>Tables referencing this one via Foreign Key Constraints:</p><ul><li><a href="#table_entity_info">public.entity_info</a></li></ul><p><a href="#index">Index</a> - <a href="#group_public">Schema public</a></p><hr><h2>Table: <a href="#group_public">public</a>.<a name="table_gender_code">gender_code</a></h2><table width="100%" cellspacing="0" cellpadding="3">
+                <caption>public.gender_code Structure</caption>
+                <tr>
+                <th>F-Key</th>
+                <th>Name</th>
+                <th>Type</th>
+                <th>Description</th>
+                </tr><tr class="tr0"><td></td><td>code</td>
+                  <td>numeric(6,0)</td><td><i>NOT NULL PRIMARY KEY </i></td></tr><tr class="tr1"><td></td><td>code_str</td>
+                  <td>character varying(16)</td><td><i>NOT NULL UNIQUE </i></td></tr><tr class="tr0"><td></td><td>description</td>
+                  <td>character varying(512)</td><td><i>NOT NULL</i></td></tr></table><p>Tables referencing this one via Foreign Key Constraints:</p><ul><li><a href="#table_person_info">public.person_info</a></li></ul><p><a href="#index">Index</a> - <a href="#group_public">Schema public</a></p><hr><h2>Table: <a href="#group_public">public</a>.<a name="table_group_info">group_info</a></h2><table width="100%" cellspacing="0" cellpadding="3">
+                <caption>public.group_info Structure</caption>
+                <tr>
+                <th>F-Key</th>
+                <th>Name</th>
+                <th>Type</th>
+                <th>Description</th>
+                </tr><tr class="tr0"><td></td><td>entity_type</td>
+                  <td>numeric(6,0)</td><td><i>NOT NULL default 2004</i></td></tr><tr class="tr1"><td></td><td>group_id</td>
+                  <td>numeric(12,0)</td><td><i>NOT NULL PRIMARY KEY </i></td></tr><tr class="tr0"><td></td><td>description</td>
+                  <td>character varying(512)</td><td></td></tr><tr class="tr1"><td><a href="#table_group_visibility_code">public -> group_visibility_code</a>
+                  </td><td>visibility</td>
+                  <td>numeric(6,0)</td><td><i>NOT NULL</i></td></tr><tr class="tr0"><td><a href="#table_account_info">public -> account_info</a>
+                  </td><td>creator_id</td>
+                  <td>numeric(12,0)</td><td><i>NOT NULL</i></td></tr><tr class="tr1"><td></td><td>create_date</td>
+                  <td>date</td><td><i>NOT NULL</i></td></tr><tr class="tr0"><td></td><td>expire_date</td>
+                  <td>date</td><td></td></tr></table><p>&nbsp;</p><table width="100%" cellspacing="0" cellpadding="3">
+                    <caption>public.group_info Constraints</caption>
+                    <tr>
+                    <th>Name</th>
+                    <th>Constraint</th>
+                    </tr><tr class="tr0"><td>&quot;RI_ConstraintTrigger_30921&quot;</td>
+                      <td>FOREIGN KEY (entity_type, entity_id) REFERENCES entity_info(entity_type, group_id)</td></tr><tr class="tr1"><td>group_info_entity_type_chk</td>
+                      <td>CHECK entity_type = &apos;2004&apos;::&quot;numeric&quot;</td></tr></table><p>Tables referencing this one via Foreign Key Constraints:</p><ul><li><a href="#table_group_member">public.group_member</a></li></ul><p><a href="#index">Index</a> - <a href="#group_public">Schema public</a></p><hr><h2>Table: <a href="#group_public">public</a>.<a name="table_group_member">group_member</a></h2><table width="100%" cellspacing="0" cellpadding="3">
+                <caption>public.group_member Structure</caption>
+                <tr>
+                <th>F-Key</th>
+                <th>Name</th>
+                <th>Type</th>
+                <th>Description</th>
+                </tr><tr class="tr0"><td><a href="#table_group_info">public -> group_info</a>
+                  </td><td>group_id</td>
+                  <td>numeric(12,0)</td><td><i>NOT NULL</i></td></tr><tr class="tr1"><td><a href="#table_group_membership_op_code">public -> group_membership_op_code</a>
+                  </td><td>operation</td>
+                  <td>numeric(6,0)</td><td><i>NOT NULL</i></td></tr><tr class="tr0"><td></td><td>member_type</td>
+                  <td>numeric(6,0)</td><td><i>NOT NULL</i></td></tr><tr class="tr1"><td></td><td>member_id</td>
+                  <td>numeric(12,0)</td><td><i>NOT NULL</i></td></tr></table><p>&nbsp;</p><table width="100%" cellspacing="0" cellpadding="3">
+                    <caption>public.group_member Constraints</caption>
+                    <tr>
+                    <th>Name</th>
+                    <th>Constraint</th>
+                    </tr><tr class="tr0"><td>&quot;RI_ConstraintTrigger_30946&quot;</td>
+                      <td>FOREIGN KEY (member_type, entity_id) REFERENCES entity_info(entity_type, member_id)</td></tr><tr class="tr1"><td>group_member_not_self</td>
+                      <td>CHECK group_id &lt;&gt; member_id</td></tr><tr class="tr0"><td>group_member_pk</td>
+                      <td>PRIMARY KEY (group_id, operation, member_id)</td></tr></table><p><a href="#index">Index</a> - <a href="#group_public">Schema public</a></p><hr><h2>Table: <a href="#group_public">public</a>.<a name="table_group_membership_op_code">group_membership_op_code</a></h2><table width="100%" cellspacing="0" cellpadding="3">
+                <caption>public.group_membership_op_code Structure</caption>
+                <tr>
+                <th>F-Key</th>
+                <th>Name</th>
+                <th>Type</th>
+                <th>Description</th>
+                </tr><tr class="tr0"><td></td><td>code</td>
+                  <td>numeric(6,0)</td><td><i>NOT NULL PRIMARY KEY </i></td></tr><tr class="tr1"><td></td><td>code_str</td>
+                  <td>character varying(16)</td><td><i>NOT NULL UNIQUE </i></td></tr><tr class="tr0"><td></td><td>description</td>
+                  <td>character varying(512)</td><td><i>NOT NULL</i></td></tr></table><p>Tables referencing this one via Foreign Key Constraints:</p><ul><li><a href="#table_group_member">public.group_member</a></li></ul><p><a href="#index">Index</a> - <a href="#group_public">Schema public</a></p><hr><h2>Table: <a href="#group_public">public</a>.<a name="table_group_visibility_code">group_visibility_code</a></h2><table width="100%" cellspacing="0" cellpadding="3">
+                <caption>public.group_visibility_code Structure</caption>
+                <tr>
+                <th>F-Key</th>
+                <th>Name</th>
+                <th>Type</th>
+                <th>Description</th>
+                </tr><tr class="tr0"><td></td><td>code</td>
+                  <td>numeric(6,0)</td><td><i>NOT NULL PRIMARY KEY </i></td></tr><tr class="tr1"><td></td><td>code_str</td>
+                  <td>character varying(16)</td><td><i>NOT NULL UNIQUE </i></td></tr><tr class="tr0"><td></td><td>description</td>
+                  <td>character varying(512)</td><td><i>NOT NULL</i></td></tr></table><p>Tables referencing this one via Foreign Key Constraints:</p><ul><li><a href="#table_group_info">public.group_info</a></li></ul><p><a href="#index">Index</a> - <a href="#group_public">Schema public</a></p><hr><h2>Table: <a href="#group_public">public</a>.<a name="table_language_code">language_code</a></h2><table width="100%" cellspacing="0" cellpadding="3">
+                <caption>public.language_code Structure</caption>
+                <tr>
+                <th>F-Key</th>
+                <th>Name</th>
+                <th>Type</th>
+                <th>Description</th>
+                </tr><tr class="tr0"><td></td><td>code</td>
+                  <td>numeric(6,0)</td><td><i>NOT NULL PRIMARY KEY </i></td></tr><tr class="tr1"><td></td><td>code_str</td>
+                  <td>character varying(16)</td><td><i>NOT NULL UNIQUE </i></td></tr><tr class="tr0"><td></td><td>description</td>
+                  <td>character varying(512)</td><td><i>NOT NULL</i></td></tr></table><p>Tables referencing this one via Foreign Key Constraints:</p><ul><li><a href="#table_ou_name_language">public.ou_name_language</a></li></ul><p><a href="#index">Index</a> - <a href="#group_public">Schema public</a></p><hr><h2>Table: <a href="#group_public">public</a>.<a name="table_ou_info">ou_info</a></h2><table width="100%" cellspacing="0" cellpadding="3">
+                <caption>public.ou_info Structure</caption>
+                <tr>
+                <th>F-Key</th>
+                <th>Name</th>
+                <th>Type</th>
+                <th>Description</th>
+                </tr><tr class="tr0"><td></td><td>entity_type</td>
+                  <td>numeric(6,0)</td><td><i>NOT NULL default 2001</i></td></tr><tr class="tr1"><td></td><td>ou_id</td>
+                  <td>numeric(12,0)</td><td><i>NOT NULL PRIMARY KEY </i></td></tr><tr class="tr0"><td></td><td>name</td>
+                  <td>character varying(512)</td><td><i>NOT NULL</i></td></tr><tr class="tr1"><td></td><td>acronym</td>
+                  <td>character varying(15)</td><td></td></tr><tr class="tr0"><td></td><td>short_name</td>
+                  <td>character varying(30)</td><td></td></tr><tr class="tr1"><td></td><td>display_name</td>
+                  <td>character varying(80)</td><td></td></tr><tr class="tr0"><td></td><td>sort_name</td>
+                  <td>character varying(80)</td><td></td></tr></table><p>&nbsp;</p><table width="100%" cellspacing="0" cellpadding="3">
+                    <caption>public.ou_info Constraints</caption>
+                    <tr>
+                    <th>Name</th>
+                    <th>Constraint</th>
+                    </tr><tr class="tr0"><td>&quot;RI_ConstraintTrigger_30688&quot;</td>
+                      <td>FOREIGN KEY (entity_type, entity_id) REFERENCES entity_info(entity_type, ou_id)</td></tr><tr class="tr1"><td>ou_info_entity_type_chk</td>
+                      <td>CHECK entity_type = &apos;2001&apos;::&quot;numeric&quot;</td></tr></table><p>Tables referencing this one via Foreign Key Constraints:</p><ul><li><a href="#table_ou_name_language">public.ou_name_language</a></li><li><a href="#table_ou_structure">public.ou_structure</a></li><li><a href="#table_ou_structure">public.ou_structure</a></li><li><a href="#table_person_affiliation">public.person_affiliation</a></li></ul><p><a href="#index">Index</a> - <a href="#group_public">Schema public</a></p><hr><h2>Table: <a href="#group_public">public</a>.<a name="table_ou_name_language">ou_name_language</a></h2><table width="100%" cellspacing="0" cellpadding="3">
+                <caption>public.ou_name_language Structure</caption>
+                <tr>
+                <th>F-Key</th>
+                <th>Name</th>
+                <th>Type</th>
+                <th>Description</th>
+                </tr><tr class="tr0"><td><a href="#table_ou_info">public -> ou_info</a>
+                  </td><td>ou_id</td>
+                  <td>numeric(12,0)</td><td><i>NOT NULL</i></td></tr><tr class="tr1"><td><a href="#table_language_code">public -> language_code</a>
+                  </td><td>language_code</td>
+                  <td>numeric(6,0)</td><td><i>NOT NULL</i></td></tr><tr class="tr0"><td></td><td>name</td>
+                  <td>character varying(512)</td><td><i>NOT NULL</i></td></tr><tr class="tr1"><td></td><td>acronym</td>
+                  <td>character varying(15)</td><td></td></tr><tr class="tr0"><td></td><td>short_name</td>
+                  <td>character varying(30)</td><td></td></tr><tr class="tr1"><td></td><td>display_name</td>
+                  <td>character varying(80)</td><td></td></tr><tr class="tr0"><td></td><td>sort_name</td>
+                  <td>character varying(80)</td><td></td></tr></table><p>&nbsp;</p><table width="100%" cellspacing="0" cellpadding="3">
+                    <caption>public.ou_name_language Constraints</caption>
+                    <tr>
+                    <th>Name</th>
+                    <th>Constraint</th>
+                    </tr><tr class="tr0"><td>ou_name_language_pk</td>
+                      <td>PRIMARY KEY (ou_id, language_code)</td></tr></table><p><a href="#index">Index</a> - <a href="#group_public">Schema public</a></p><hr><h2>Table: <a href="#group_public">public</a>.<a name="table_ou_perspective_code">ou_perspective_code</a></h2><table width="100%" cellspacing="0" cellpadding="3">
+                <caption>public.ou_perspective_code Structure</caption>
+                <tr>
+                <th>F-Key</th>
+                <th>Name</th>
+                <th>Type</th>
+                <th>Description</th>
+                </tr><tr class="tr0"><td></td><td>code</td>
+                  <td>numeric(6,0)</td><td><i>NOT NULL PRIMARY KEY </i></td></tr><tr class="tr1"><td></td><td>code_str</td>
+                  <td>character varying(16)</td><td><i>NOT NULL UNIQUE </i></td></tr><tr class="tr0"><td></td><td>description</td>
+                  <td>character varying(512)</td><td><i>NOT NULL</i></td></tr></table><p>Tables referencing this one via Foreign Key Constraints:</p><ul><li><a href="#table_ou_structure">public.ou_structure</a></li></ul><p><a href="#index">Index</a> - <a href="#group_public">Schema public</a></p><hr><h2>Table: <a href="#group_public">public</a>.<a name="table_ou_structure">ou_structure</a></h2><table width="100%" cellspacing="0" cellpadding="3">
+                <caption>public.ou_structure Structure</caption>
+                <tr>
+                <th>F-Key</th>
+                <th>Name</th>
+                <th>Type</th>
+                <th>Description</th>
+                </tr><tr class="tr0"><td><a href="#table_ou_info">public -> ou_info</a>
+                  </td><td>ou_id</td>
+                  <td>numeric(12,0)</td><td><i>NOT NULL</i></td></tr><tr class="tr1"><td><a href="#table_ou_perspective_code">public -> ou_perspective_code</a>
+                  </td><td>perspective</td>
+                  <td>numeric(6,0)</td><td><i>NOT NULL</i></td></tr><tr class="tr0"><td><a href="#table_ou_info">public -> ou_info</a>
+                  </td><td>parent_id</td>
+                  <td>numeric(12,0)</td><td></td></tr></table><p>&nbsp;</p><table width="100%" cellspacing="0" cellpadding="3">
+                    <caption>public.ou_structure Constraints</caption>
+                    <tr>
+                    <th>Name</th>
+                    <th>Constraint</th>
+                    </tr><tr class="tr0"><td>&quot;RI_ConstraintTrigger_30719&quot;</td>
+                      <td>FOREIGN KEY (parent_id, perspective) REFERENCES ou_structure(ou_id, perspective)</td></tr><tr class="tr1"><td>ou_structure_pk</td>
+                      <td>PRIMARY KEY (ou_id, perspective)</td></tr></table><p><a href="#index">Index</a> - <a href="#group_public">Schema public</a></p><hr><h2>Table: <a href="#group_public">public</a>.<a name="table_person_aff_status_code">person_aff_status_code</a></h2><table width="100%" cellspacing="0" cellpadding="3">
+                <caption>public.person_aff_status_code Structure</caption>
+                <tr>
+                <th>F-Key</th>
+                <th>Name</th>
+                <th>Type</th>
+                <th>Description</th>
+                </tr><tr class="tr0"><td><a href="#table_person_affiliation_code">public -> person_affiliation_code</a>
+                  </td><td>affiliation</td>
+                  <td>numeric(6,0)</td><td><i>NOT NULL</i></td></tr><tr class="tr1"><td></td><td>status</td>
+                  <td>numeric(6,0)</td><td><i>NOT NULL</i></td></tr><tr class="tr0"><td></td><td>status_str</td>
+                  <td>character varying(16)</td><td><i>NOT NULL</i></td></tr><tr class="tr1"><td></td><td>description</td>
+                  <td>character varying(512)</td><td><i>NOT NULL</i></td></tr></table><p>&nbsp;</p><table width="100%" cellspacing="0" cellpadding="3">
+                    <caption>public.person_aff_status_code Constraints</caption>
+                    <tr>
+                    <th>Name</th>
+                    <th>Constraint</th>
+                    </tr><tr class="tr0"><td>person_aff_status_code_pk</td>
+                      <td>PRIMARY KEY (affiliation, status)</td></tr><tr class="tr1"><td>person_aff_status_codestr_u</td>
+                      <td>UNIQUE (affiliation, status_str)</td></tr></table><p><a href="#index">Index</a> - <a href="#group_public">Schema public</a></p><hr><h2>Table: <a href="#group_public">public</a>.<a name="table_person_affiliation">person_affiliation</a></h2><table width="100%" cellspacing="0" cellpadding="3">
+                <caption>public.person_affiliation Structure</caption>
+                <tr>
+                <th>F-Key</th>
+                <th>Name</th>
+                <th>Type</th>
+                <th>Description</th>
+                </tr><tr class="tr0"><td><a href="#table_person_info">public -> person_info</a>
+                  </td><td>person_id</td>
+                  <td>numeric(12,0)</td><td><i>NOT NULL</i></td></tr><tr class="tr1"><td><a href="#table_ou_info">public -> ou_info</a>
+                  </td><td>ou_id</td>
+                  <td>numeric(12,0)</td><td><i>NOT NULL</i></td></tr><tr class="tr0"><td><a href="#table_person_affiliation_code">public -> person_affiliation_code</a>
+                  </td><td>affiliation</td>
+                  <td>numeric(6,0)</td><td><i>NOT NULL</i></td></tr><tr class="tr1"><td><a href="#table_authoritative_system_code">public -> authoritative_system_code</a>
+                  </td><td>source_system</td>
+                  <td>numeric(6,0)</td><td><i>NOT NULL</i></td></tr><tr class="tr0"><td></td><td>status</td>
+                  <td>numeric(6,0)</td><td></td></tr><tr class="tr1"><td></td><td>create_date</td>
+                  <td>date</td><td><i>NOT NULL</i></td></tr><tr class="tr0"><td></td><td>last_date</td>
+                  <td>date</td><td><i>NOT NULL</i></td></tr><tr class="tr1"><td></td><td>deleted_date</td>
+                  <td>date</td><td></td></tr></table><p>&nbsp;</p><table width="100%" cellspacing="0" cellpadding="3">
+                    <caption>public.person_affiliation Constraints</caption>
+                    <tr>
+                    <th>Name</th>
+                    <th>Constraint</th>
+                    </tr><tr class="tr0"><td>&quot;RI_ConstraintTrigger_30859&quot;</td>
+                      <td>FOREIGN KEY (affiliation, status) REFERENCES person_aff_status_code(affiliation, status)</td></tr><tr class="tr1"><td>person_affiliation_pk</td>
+                      <td>PRIMARY KEY (person_id, ou_id, affiliation, source_system)</td></tr></table><p><a href="#index">Index</a> - <a href="#group_public">Schema public</a></p><hr><h2>Table: <a href="#group_public">public</a>.<a name="table_person_affiliation_code">person_affiliation_code</a></h2><table width="100%" cellspacing="0" cellpadding="3">
+                <caption>public.person_affiliation_code Structure</caption>
+                <tr>
+                <th>F-Key</th>
+                <th>Name</th>
+                <th>Type</th>
+                <th>Description</th>
+                </tr><tr class="tr0"><td></td><td>code</td>
+                  <td>numeric(6,0)</td><td><i>NOT NULL PRIMARY KEY </i></td></tr><tr class="tr1"><td></td><td>code_str</td>
+                  <td>character varying(16)</td><td><i>NOT NULL UNIQUE </i></td></tr><tr class="tr0"><td></td><td>description</td>
+                  <td>character varying(512)</td><td><i>NOT NULL</i></td></tr></table><p>Tables referencing this one via Foreign Key Constraints:</p><ul><li><a href="#table_person_aff_status_code">public.person_aff_status_code</a></li><li><a href="#table_person_affiliation">public.person_affiliation</a></li></ul><p><a href="#index">Index</a> - <a href="#group_public">Schema public</a></p><hr><h2>Table: <a href="#group_public">public</a>.<a name="table_person_external_id">person_external_id</a></h2><table width="100%" cellspacing="0" cellpadding="3">
+                <caption>public.person_external_id Structure</caption>
+                <tr>
+                <th>F-Key</th>
+                <th>Name</th>
+                <th>Type</th>
+                <th>Description</th>
+                </tr><tr class="tr0"><td><a href="#table_person_info">public -> person_info</a>
+                  </td><td>person_id</td>
+                  <td>numeric(12,0)</td><td><i>NOT NULL</i></td></tr><tr class="tr1"><td><a href="#table_person_external_id_code">public -> person_external_id_code</a>
+                  </td><td>id_type</td>
+                  <td>numeric(6,0)</td><td><i>NOT NULL</i></td></tr><tr class="tr0"><td><a href="#table_authoritative_system_code">public -> authoritative_system_code</a>
+                  </td><td>source_system</td>
+                  <td>numeric(6,0)</td><td><i>NOT NULL</i></td></tr><tr class="tr1"><td></td><td>external_id</td>
+                  <td>character varying(256)</td><td></td></tr></table><p>&nbsp;</p><table width="100%" cellspacing="0" cellpadding="3">
+                    <caption>public.person_external_id Constraints</caption>
+                    <tr>
+                    <th>Name</th>
+                    <th>Constraint</th>
+                    </tr><tr class="tr0"><td>person_external_id_pk</td>
+                      <td>PRIMARY KEY (person_id, id_type, source_system)</td></tr><tr class="tr1"><td>person_external_id_unique</td>
+                      <td>UNIQUE (id_type, external_id)</td></tr></table><p><a href="#index">Index</a> - <a href="#group_public">Schema public</a></p><hr><h2>Table: <a href="#group_public">public</a>.<a name="table_person_external_id_code">person_external_id_code</a></h2><table width="100%" cellspacing="0" cellpadding="3">
+                <caption>public.person_external_id_code Structure</caption>
+                <tr>
+                <th>F-Key</th>
+                <th>Name</th>
+                <th>Type</th>
+                <th>Description</th>
+                </tr><tr class="tr0"><td></td><td>code</td>
+                  <td>numeric(6,0)</td><td><i>NOT NULL PRIMARY KEY </i></td></tr><tr class="tr1"><td></td><td>code_str</td>
+                  <td>character varying(16)</td><td><i>NOT NULL UNIQUE </i></td></tr><tr class="tr0"><td></td><td>description</td>
+                  <td>character varying(512)</td><td><i>NOT NULL</i></td></tr></table><p>Tables referencing this one via Foreign Key Constraints:</p><ul><li><a href="#table_person_external_id">public.person_external_id</a></li></ul><p><a href="#index">Index</a> - <a href="#group_public">Schema public</a></p><hr><h2>Table: <a href="#group_public">public</a>.<a name="table_person_info">person_info</a></h2><table width="100%" cellspacing="0" cellpadding="3">
+                <caption>public.person_info Structure</caption>
+                <tr>
+                <th>F-Key</th>
+                <th>Name</th>
+                <th>Type</th>
+                <th>Description</th>
+                </tr><tr class="tr0"><td></td><td>entity_type</td>
+                  <td>numeric(6,0)</td><td><i>NOT NULL default 2002</i></td></tr><tr class="tr1"><td></td><td>person_id</td>
+                  <td>numeric(12,0)</td><td><i>NOT NULL PRIMARY KEY </i></td></tr><tr class="tr0"><td></td><td>export_id</td>
+                  <td>character varying(16)</td><td><i>UNIQUE </i></td></tr><tr class="tr1"><td></td><td>birth_date</td>
+                  <td>date</td><td></td></tr><tr class="tr0"><td><a href="#table_gender_code">public -> gender_code</a>
+                  </td><td>gender</td>
+                  <td>numeric(6,0)</td><td><i>NOT NULL</i></td></tr><tr class="tr1"><td></td><td>deceased</td>
+                  <td>character(1)</td><td><i>NOT NULL default &apos;F&apos;</i></td></tr><tr class="tr0"><td></td><td>description</td>
+                  <td>character varying(512)</td><td></td></tr></table><p>&nbsp;</p><table width="100%" cellspacing="0" cellpadding="3">
+                    <caption>public.person_info Constraints</caption>
+                    <tr>
+                    <th>Name</th>
+                    <th>Constraint</th>
+                    </tr><tr class="tr0"><td>&quot;RI_ConstraintTrigger_30761&quot;</td>
+                      <td>FOREIGN KEY (entity_type, entity_id) REFERENCES entity_info(entity_type, person_id)</td></tr><tr class="tr1"><td>person_info_deceased_bool</td>
+                      <td>CHECK (deceased = &apos;T&apos;::bpchar) OR (deceased = &apos;F&apos;::bpchar)</td></tr><tr class="tr0"><td>person_info_entity_type_chk</td>
+                      <td>CHECK entity_type = &apos;2002&apos;::&quot;numeric&quot;</td></tr></table><p>Tables referencing this one via Foreign Key Constraints:</p><ul><li><a href="#table_person_affiliation">public.person_affiliation</a></li><li><a href="#table_person_external_id">public.person_external_id</a></li><li><a href="#table_person_name">public.person_name</a></li></ul><p><a href="#index">Index</a> - <a href="#group_public">Schema public</a></p><hr><h2>Table: <a href="#group_public">public</a>.<a name="table_person_name">person_name</a></h2><table width="100%" cellspacing="0" cellpadding="3">
+                <caption>public.person_name Structure</caption>
+                <tr>
+                <th>F-Key</th>
+                <th>Name</th>
+                <th>Type</th>
+                <th>Description</th>
+                </tr><tr class="tr0"><td><a href="#table_person_info">public -> person_info</a>
+                  </td><td>person_id</td>
+                  <td>numeric(12,0)</td><td><i>NOT NULL</i></td></tr><tr class="tr1"><td><a href="#table_person_name_code">public -> person_name_code</a>
+                  </td><td>name_variant</td>
+                  <td>numeric(6,0)</td><td><i>NOT NULL</i></td></tr><tr class="tr0"><td><a href="#table_authoritative_system_code">public -> authoritative_system_code</a>
+                  </td><td>source_system</td>
+                  <td>numeric(6,0)</td><td><i>NOT NULL</i></td></tr><tr class="tr1"><td></td><td>name</td>
+                  <td>character varying(256)</td><td><i>NOT NULL</i></td></tr></table><p>&nbsp;</p><table width="100%" cellspacing="0" cellpadding="3">
+                    <caption>public.person_name Constraints</caption>
+                    <tr>
+                    <th>Name</th>
+                    <th>Constraint</th>
+                    </tr><tr class="tr0"><td>person_name_pk</td>
+                      <td>PRIMARY KEY (person_id, name_variant, source_system)</td></tr></table><p><a href="#index">Index</a> - <a href="#group_public">Schema public</a></p><hr><h2>Table: <a href="#group_public">public</a>.<a name="table_person_name_code">person_name_code</a></h2><table width="100%" cellspacing="0" cellpadding="3">
+                <caption>public.person_name_code Structure</caption>
+                <tr>
+                <th>F-Key</th>
+                <th>Name</th>
+                <th>Type</th>
+                <th>Description</th>
+                </tr><tr class="tr0"><td></td><td>code</td>
+                  <td>numeric(6,0)</td><td><i>NOT NULL PRIMARY KEY </i></td></tr><tr class="tr1"><td></td><td>code_str</td>
+                  <td>character varying(16)</td><td><i>NOT NULL UNIQUE </i></td></tr><tr class="tr0"><td></td><td>description</td>
+                  <td>character varying(512)</td><td><i>NOT NULL</i></td></tr></table><p>Tables referencing this one via Foreign Key Constraints:</p><ul><li><a href="#table_person_name">public.person_name</a></li></ul><p><a href="#index">Index</a> - <a href="#group_public">Schema public</a></p><hr><h2>Table: <a href="#group_public">public</a>.<a name="table_quarantine_code">quarantine_code</a></h2><table width="100%" cellspacing="0" cellpadding="3">
+                <caption>public.quarantine_code Structure</caption>
+                <tr>
+                <th>F-Key</th>
+                <th>Name</th>
+                <th>Type</th>
+                <th>Description</th>
+                </tr><tr class="tr0"><td></td><td>code</td>
+                  <td>numeric(6,0)</td><td><i>NOT NULL PRIMARY KEY </i></td></tr><tr class="tr1"><td></td><td>code_str</td>
+                  <td>character varying(16)</td><td><i>NOT NULL UNIQUE </i></td></tr><tr class="tr0"><td></td><td>description</td>
+                  <td>character varying(512)</td><td><i>NOT NULL</i></td></tr><tr class="tr1"><td></td><td>duration</td>
+                  <td>numeric(4,0)</td><td></td></tr></table><p>Tables referencing this one via Foreign Key Constraints:</p><ul><li><a href="#table_entity_quarantine">public.entity_quarantine</a></li></ul><p><a href="#index">Index</a> - <a href="#group_public">Schema public</a></p><hr><h2>Table: <a href="#group_public">public</a>.<a name="table_value_domain_code">value_domain_code</a></h2><table width="100%" cellspacing="0" cellpadding="3">
+                <caption>public.value_domain_code Structure</caption>
+                <tr>
+                <th>F-Key</th>
+                <th>Name</th>
+                <th>Type</th>
+                <th>Description</th>
+                </tr><tr class="tr0"><td></td><td>code</td>
+                  <td>numeric(6,0)</td><td><i>NOT NULL PRIMARY KEY </i></td></tr><tr class="tr1"><td></td><td>code_str</td>
+                  <td>character varying(16)</td><td><i>NOT NULL UNIQUE </i></td></tr><tr class="tr0"><td></td><td>description</td>
+                  <td>character varying(512)</td><td><i>NOT NULL</i></td></tr></table><p>Tables referencing this one via Foreign Key Constraints:</p><ul><li><a href="#table_entity_name">public.entity_name</a></li></ul><p><a href="#index">Index</a> - <a href="#group_public">Schema public</a></p><p class="w3ref"><a href="http://validator.w3.org/check/referer">W3C HTML 4.01 Strict</a></p></body></html>
