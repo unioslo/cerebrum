@@ -30,7 +30,8 @@ class StedData(object):
         stedinfo = {}
         for c in self.colnames:
             stedinfo[c] = info.pop(0)
-        return stedinfo
+        sko = "%s-%s-%s" % (stedinfo['fakultetnr'], stedinfo['instituttnr'], stedinfo['gruppenr'])
+        return (sko, stedinfo)
 
 stedfile = "/u2/dumps/LT/sted.dta";
 
@@ -40,14 +41,11 @@ def main():
     ou = OU.OU(Cerebrum)
     i = 1
     sko2ou = {}
-    for k in steder:
+    for k in steder.values():
         i = i + 1
-#        if (x > 10): break
-        print "OU: %s" % ou,
         try:
-            ou.get_sko(k['fakultetnr'], k['instituttnr'], k['gruppenr'])
-            print " Exists"
             sko = "%s-%s-%s" % (k['fakultetnr'], k['instituttnr'], k['gruppenr'])
+            ou.get_sko(k['fakultetnr'], k['instituttnr'], k['gruppenr'])
             sko2ou[sko] = ou.ou_id
 
             # Todo: compare old and new
@@ -72,41 +70,53 @@ def main():
 #                                  country=k['landnavn_besok_adr'])
             if k['telefonnr'].strip() != '':
                 ou.add_entity_phone('LT', 'f', k['telefonnr'])
-            print "Created"
+    existing_ou_mappings = {}
+    for t in ou.get_structure_mappings('LT'):
+        existing_ou_mappings[t[0]] = t[1]
+        
     # Now populate ou_structure
-    # TODO: This must be done in the right order
-    for k in steder:
-        sko = "%s-%s-%s" % (k['fakultetnr'], k['instituttnr'], k['gruppenr'])
-        org_sko = "%s-%s-%s" % (k['fakultetnr_for_org_sted'],
-                                k['instituttnr_for_org_sted'],
-                                k['gruppenr_for_org_sted'])
-        ou.find(sko2ou[sko])
-        try:
-            print "Map %s -> %s (%s -> %s)" % (sko, org_sko, sko2ou[sko], sko2ou[org_sko])
-            rec_make_sko(k, steder, sko2ou)
-        except KeyError:
-            print "no key: <%s>" % org_sko
-        except:
-            print "Other error: %s " % sys.exc_info()[1]
+    for sko in steder.keys():
+        rec_make_sko(sko, ou, existing_ou_mappings, steder, sko2ou)
 
-def rec_make_sko(sted, steder, sko2ou):
+def rec_make_sko(sko, ou, existing_ou_mappings, steder, sko2ou):
+    """Recursively create the ou_id -> parent_id mapping"""
+    sted = steder[sko]
+    org_sko = "%s-%s-%s" % (sted['fakultetnr_for_org_sted'],
+                            sted['instituttnr_for_org_sted'],
+                            sted['gruppenr_for_org_sted'])
+    if(not sko2ou.has_key(org_sko)):
+        print "Error in dataset, missing SKO: %s, using None" % org_sko
+        org_sko = None
+        org_sko_ou = None
+    else:
+        org_sko_ou = sko2ou[org_sko]
+        
+    if(existing_ou_mappings.has_key(sko2ou[sko])):
+        if(existing_ou_mappings[sko2ou[sko]] != org_sko_ou):
+            print "Mapping for %s changed TODO (%s != %s)" % (
+                sko, existing_ou_mappings[sko2ou[sko]], org_sko_ou)
+        return
 
-    # while s (exists(sko2ou[sted])):
-    #   rec_make_sko(s, steder, sko2ou)
-    # if(! exists mapping): make_sko(s)
+    if(org_sko_ou != None and (sko != org_sko) and
+       (not existing_ou_mappings.has_key(org_sko_ou))):
+        rec_make_sko(org_sko, ou, existing_ou_mappings, steder, sko2ou)
 
-    #  ou.add_structure_maping('LT', sko2ou[org_sko])
-
-    pass
+    ou.find(sko2ou[sko])
+    if sko2ou.has_key(org_sko):
+        ou.add_structure_maping('LT', sko2ou[org_sko])
+    else:
+        ou.add_structure_maping('LT', None)
+    existing_ou_mappings[sko2ou[sko]] = org_sko_ou
 
 def les_sted_info():
-    steder = []
+    steder = {}
     f = file(stedfile)
 
     dta = StedData()
 
     for line in f.readlines():
-        steder.append( dta.parse_line(line) )
+        (sko, sted) = dta.parse_line(line)
+        steder[sko] = sted
     return steder
 
 if __name__ == '__main__':
