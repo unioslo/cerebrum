@@ -503,6 +503,8 @@ def process_students_callback(person_info):
         trace = "".join(traceback.format_exception(
             sys.exc_type, sys.exc_value, sys.exc_traceback))
         logger.error("Unexpected error: %s" % trace)
+        db.rollback()
+
 
 def process_student(person_info):
     fnr = fodselsnr.personnr_ok("%06d%05d" % (int(person_info['fodselsdato']),
