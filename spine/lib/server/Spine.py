@@ -25,10 +25,6 @@ import Cerebrum_core
 
 import Session
 
-#TODO: is this really needed?
-#import classes.Registry
-#registry = classes.Registry.get_registry()
-
 from Cerebrum.spine.Account import get_account_by_name
 
 # The major version number of the Spine server
@@ -38,7 +34,7 @@ SPINE_MAJOR_VERSION = 0
 SPINE_MINOR_VERSION = 1
 
 class SpineImpl(Cerebrum_core__POA.Spine):
-    """ Implementation of the Spine interface.
+    """Implementation of the Spine interface.
     
     Implements the methods in the Spine interface.
     These are provided to remote clients
@@ -53,15 +49,12 @@ class SpineImpl(Cerebrum_core__POA.Spine):
     def get_idl_md5(self):
         return Session.idl_source_md5
 
+    def get_idl_commented(self):
+        return Session.idl_source_commented
+
     def get_version(self):
         return Cerebrum_core.Version(SPINE_MAJOR_VERSION, SPINE_MINOR_VERSION)
         
-    def test(self, txt=None):
-        if txt is None:
-            txt = 'foomeeee'
-        print "server: %s"% (txt)
-        return txt
-    
     def login(self, username, password):
         """Return the user-spesific session.
         

@@ -100,12 +100,15 @@ class Session:
         self.cleanup()
 
     # TODO legge til:
+    #   - is_admin()?
+    #   - is_superuser()??
     #   - Events
     #   - Spine-admin-ting?
     #       - statistikk
     #       - oversikt over alle brukere/transaksjoner.
 
 
+# Build corba-classes and idls.
 registry.build_all()
 classes = []
 classes += registry.classes
@@ -113,6 +116,7 @@ classes.append(Session)
 
 idl_source = create_idl_source(classes, 'generated')
 idl_source_md5 = md5.new(idl_source).hexdigest()
+idl_source_commented = create_idl_source(classes, 'generated', docs=True)
 
 omniORB.importIDLString(idl_source, ['-I' + cereconf.IDL_PATH])
 

@@ -18,6 +18,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+import sys
 import Communication
 
 from Cerebrum.extlib import sets
@@ -34,6 +35,7 @@ corba_types = [int, str, bool, None]
 corba_structs = {}
 
 def convert_to_corba(obj, transaction, data_type):
+    """Convert obj to a data type corba knows of."""
     if obj is None and data_type is not None:
         if data_type in corba_types:
             raise TypeError("Can't convert None, should be %s" % data_type)
@@ -93,6 +95,7 @@ def convert_to_corba(obj, transaction, data_type):
         raise TypeError('unknown data_type', data_type)
 
 def convert_from_corba(obj, data_type):
+    """Convert a corba-object to a python object."""
     if data_type in corba_types:
         return obj
     elif type(data_type) == list:
@@ -103,6 +106,12 @@ def convert_from_corba(obj, data_type):
         return com.reference_to_servant(obj).spine_object
 
 def create_corba_method(method):
+    """Creates a wrapper for method.
+
+    Creates a corbamethod which wraps the method 'method'.
+    The wrapper handles authentication, and converts arguments
+    from corbaobjects to pythonobjects.
+    """
     args_table = {}
     for name, data_type in method.args:
         args_table[name] = data_type
@@ -176,8 +185,70 @@ def create_corba_method(method):
 
     return corba_method
 
-def create_idl_interface(cls, exceptions=()):
-    txt = 'interface Spine%s' % cls.__name__
+def create_idl_comment(comment, tabs=0):
+    """Returns a string with the idl comment.
+
+    Returns a comment on the following syntax:
+    /**
+    * comment
+    */
+
+    If you need the comment to be indented, give the number of tabs
+    with 'tabs'.
+    """
+    tabs = '\t'*tabs
+    comment = comment.replace('\n', '\n%s* ' % tabs)
+    return '%s/**\n%s* %s\n%s*/\n' % (tabs, tabs, comment, tabs)
+
+def trim_docstring(docstring):
+    """Trims indentation from docstrings.
+
+    This method is copied from pep 257 regarding docstrings. It was
+    placed in public domain by David Goodger & Guido van Rossum, which
+    can be found here: http://www.python.org/peps/pep-0257.html
+    """
+    if not docstring:
+        return ''
+    # Convert tabs to spaces (following the normal Python rules)
+    # and split into a list of lines:
+    lines = docstring.expandtabs().splitlines()
+    # Determine minimum indentation (first line doesn't count):
+    indent = sys.maxint
+    for line in lines[1:]:
+        stripped = line.lstrip()
+        if stripped:
+            indent = min(indent, len(line) - len(stripped))
+    # Remove indentation (first line is special):
+    trimmed = [lines[0].strip()]
+    if indent < sys.maxint:
+        for line in lines[1:]:
+            trimmed.append(line[indent:].rstrip())
+    # Strip off trailing and leading blank lines:
+    while trimmed and not trimmed[-1]:
+        trimmed.pop()
+    while trimmed and not trimmed[0]:
+        trimmed.pop(0)
+    # Return a single string:
+    return '\n'.join(trimmed)
+
+def create_idl_interface(cls, exceptions=(), docs=False):
+    """Create idl definition for the class 'cls'.
+    
+    Creates idl interface for the class from attributes in cls.slots
+    and methods in cls.method_slots.
+
+    'exceptions' takes a list of strings, with the name of exceptions
+    which can be raised by all the methods in the class 'cls'.
+    
+    If you wish the idl to be commented, use docs=True. This will copy
+    the docstring into the idl interface for this class.
+    """
+    txt = ""
+    
+    if docs and cls.__doc__:
+        txt += create_idl_comment(trim_docstring(cls.__doc__))
+    
+    txt += 'interface Spine%s' % cls.__name__
 
     parent_slots = sets.Set()
     if cls.builder_parents:
@@ -199,6 +270,7 @@ def create_idl_interface(cls, exceptions=()):
     def add_header(header):
         if header not in headers:
             headers.append(header)
+
     def get_type(data_type):
         if type(data_type) == list:
             blipp = get_type(data_type[0])
@@ -243,9 +315,9 @@ def create_idl_interface(cls, exceptions=()):
             add_header('interface %s;' % name)
 
         return name
-            
 
-    txt += '\n\t//get and set methods for attributes\n'
+    if docs and cls.slots:
+        txt += '\t//Get and set methods for attributes\n'
     for attr in cls.slots:
         if attr in parent_slots:
             continue
@@ -256,13 +328,20 @@ def create_idl_interface(cls, exceptions=()):
             txt += '\tvoid set_%s(in %s new_%s)%s;\n' % (attr.name, data_type, attr.name, exception)
         txt += '\n'
 
-    if cls.method_slots:
-        txt += '\n\t//other methods\n'
+    if docs and cls.slots and cls.method_slots:
+        txt += '\t//Other methods\n'
+    
     for method in cls.method_slots:
         if method in parent_slots:
             continue
-        exception = get_exceptions(tuple(method.exceptions) + tuple(exceptions))
+        
+        if docs:
+            if method.doc is None and hasattr(cls, method.name):
+                method.doc = getattr(cls, method.name).__doc__
+            if method.doc:
+                txt += create_idl_comment(trim_docstring(method.doc), tabs=1)
 
+        exception = get_exceptions(tuple(method.exceptions) + tuple(exceptions))
         args = []
         for name, data_type in method.args:
             args.append('in %s in_%s' % (get_type(data_type), name))
@@ -271,33 +350,55 @@ def create_idl_interface(cls, exceptions=()):
         txt += '\t%s %s(%s)%s;\n' % (data_type, method.name, ', '.join(args), exception)
 
     txt += '};\n'
-
     return headers, txt
 
-def create_idl_source(classes, module_name='Generated'):
-    include = '#include "errors.idl"\n'
-    headers = []
-    lines = []
+def create_idl_source(classes, module_name='Generated', docs=False):
+    """Create idl for classes in 'classes'.
 
-    exceptions = ('TransactionError', 'AlreadyLockedError')
+    Creates the idl source for the classes in 'classes' under the
+    module name 'module_name'.
 
-    defined = []
+    If you wish the idl to be commented, use docs=True. This will copy
+    the docstring into the idl.
+    """
+    include = '#include "errors.idl"'
+    global_exceptions = ()
+
+    # Prepare headers and lines for all classes.
+    headers = []   # contains headers for all classes.
+    lines = []     # contains interface definitions for all classes.
     for cls in classes:
-        cls_headers, cls_txt = create_idl_interface(cls, exceptions=exceptions)
+        cls_headers, cls_txt = create_idl_interface(cls, global_exceptions, docs)
         for i in cls_headers:
             if i not in headers:
                 headers.append(i)
-        lines.append('\t' + cls_txt.replace('\n', '\n\t'))
+        lines.append(cls_txt)
 
-    return '%s\nmodule %s {\n%s\n%s\n};\n' % (include, module_name,
-                                              '\n'.join(headers), '\n'.join(lines))
+    # Build the idl string 'txt'.
+    txt = '%s\n\nmodule %s {\n\t' % (include, module_name)
+    txt += '\n'.join(headers).replace('\n', '\n\t')
+    txt += '\n\t'
+    txt += '\n'.join(lines).replace('\n', '\n\t')
+    txt += '\n};\n'
+    return txt
 
 class CorbaClass:
+    """Base class for all corba-classes.
+
+    All classes we are gonna send to clients through corba will inherit
+    from this class.
+    """
+    
     def __init__(self, spine_object, transaction):
         self.spine_object = spine_object
         self.transaction = transaction
 
 def register_spine_class(cls, idl_cls, idl_struct):
+    """Create corba for the class 'cls'.
+
+    Registers structs and classes in corba_structs and class_cache.
+    Creates a corbaclass for the class, and builds corbamethods in it.
+    """
     name = cls.__name__
     corba_class_name = 'Spine' + name
 
