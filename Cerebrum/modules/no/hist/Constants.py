@@ -124,7 +124,10 @@ class Constants(Constants.Constants):
     quarantine_autostud = _QuarantineCode('autostud', 'Ikke aktiv student')
     quarantine_autoekstern = _QuarantineCode('autoekstern',
                                             'Ekstern konto expired')
-    
+    quarantine_auto_inaktiv = _QuarantineCode('auto_inaktiv', 'Ikke aktiv student, utestengt')
+    quarantine_auto_emailonly = _QuarantineCode('auto_emailonly',
+                                                'Ikke ordinær student, tilgang til bare e-post')
+      
     account_test = _AccountCode('testbruker', 'Testkonto')
     account_kurs = _AccountCode('kursbruker', 'Kurskonto')
 
@@ -134,4 +137,3 @@ class Constants(Constants.Constants):
         's_hist',
         "The email server type for students at HiST.")
     
-# arch-tag: adf134a1-7038-445d-b3d7-7e27fa16f0b9
