@@ -174,6 +174,10 @@ class Spread(Parameter):
     _type = 'spread'
     _help_ref = 'spread'
 
+class UserSearchType(Parameter):
+    _type = 'userSearchType'
+    _help_ref = 'user_search_type'
+
 class YesNo(Parameter):
     _type = 'yesNo'
     _help_ref = 'yesNo'
@@ -240,7 +244,8 @@ class FormatSuggestion(object):
               The key may be prepended with :yyyy-MM-dd to format the
               returned date object.  The format-specifier is the same
               as used by java.text.SimpleDateFormat
-        - hdr: an optional header to be displayed before the data."""
+        - hdr: an optional header to be displayed before the data.
+        """
 
         ret = {'str_vars': self._string_vars}
         if self._hdr is not None:
