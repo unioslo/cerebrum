@@ -38,14 +38,14 @@ for name, gro_class in registry.map.items():
                 return gro_class(name=name)
             return get_method
         m = blipp(gro_class)
-        args = [('name', str, False)]
+        args = [('name', str)]
     else:
         m = gro_class
         args = []
         for i in gro_class.primary:
-            args.append((i.name, i.data_type, i.sequence))
+            args.append((i.name, i.data_type))
 
-    method = Method(method_name, gro_class, False, args)
+    method = Method(method_name, gro_class, args)
     APHandler.register_method(method, m)
 
 registry.register_class(APHandler)

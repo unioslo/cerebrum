@@ -26,11 +26,13 @@ __all__ = ['Attribute', 'Method', 'Builder']
 
 
 class Attribute(object):
-    def __init__(self, name, data_type, sequence=False, exceptions=(), write=False):
+    def __init__(self, name, data_type, exceptions=(), write=False):
         self.name = name
         assert type(data_type) != str
+        assert type(exceptions) in (list, tuple)
+        assert write in (True, False)
+
         self.data_type = data_type
-        self.sequence = sequence
         self.exceptions = exceptions
         self.write = write
 
@@ -53,19 +55,14 @@ class Attribute(object):
         return '%s(%s, %s)' % (self.__class__.__name__, `self.name`, `self.data_type`)
 
 class Method(object):
-    def __init__(self, name, data_type, sequence=False, args=(), exceptions=(), write=False):
+    def __init__(self, name, data_type, args=(), exceptions=(), write=False):
         self.name = name
         assert type(data_type) != str
+        assert type(exceptions) in (list, tuple)
+        assert write in (True, False)
+
         self.data_type = data_type
-        self.sequence = sequence
-        self.args = []
-        for i in args:
-            if len(i) == 2:
-                name, data_type = i
-                sequence = False
-            else:
-                name, data_type, sequence = i
-            self.args.append((name, data_type, sequence))
+        self.args = args
         self.exceptions = exceptions
         self.write = write
 
@@ -104,7 +101,6 @@ def create_readonly_set_method(attr):
     return readonly_set
 
 class Builder(object):
-    cls_name = None
     primary = []
     slots = []
     method_slots = []
@@ -113,7 +109,7 @@ class Builder(object):
     builder_children = ()
 
     def __init__(self, *args, **vargs):
-        mark = '_%s%s' % (self.cls_name, id(self))
+        mark = '_%s%s' % (self.__class__.__name__, id(self))
         # check if the object is old
         if hasattr(self, mark):
             return getattr(self, mark)
@@ -122,7 +118,9 @@ class Builder(object):
         
         # set all variables give in args and vargs
         for attr, value in map.items():
-            setattr(self, attr.get_name_private(), value)
+            var = attr.get_name_private()
+            if not hasattr(self, var):
+                setattr(self, var, value)
 
         # used to track changes
         if not hasattr(self, 'updated'):
@@ -143,6 +141,8 @@ class Builder(object):
             map[attr] = value
 
         return map
+
+    map_args = classmethod(map_args)
 
     def save(self):
         """ Save all changed attributes """
