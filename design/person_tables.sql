@@ -20,8 +20,8 @@ CREATE TABLE person_info
 (
   /* Dummy column, needed for type check against `entity_id'. */
   entity_type	CHAR VARYING(16)
-		NOT NULL
 		DEFAULT 'p'
+		NOT NULL
 		CONSTRAINT person_info_entity_type_chk
 		  CHECK (entity_type = 'p'),
 
@@ -30,17 +30,17 @@ CREATE TABLE person_info
   export_id	CHAR VARYING(16)
 		DEFAULT NULL
 		CONSTRAINT person_info_export_id_unique UNIQUE,
-  birth_date	DATE
-		NOT NULL,
+  birth_date	DATE,
   gender	CHAR VARYING(16)
 		NOT NULL
 		CONSTRAINT person_info_gender
 		  REFERENCES gender_code(code),
   deceased	CHAR(1)
+		DEFAULT 'F'
 		NOT NULL
 		CONSTRAINT person_info_deceased_bool
 		  CHECK (deceased IN ('T', 'F')),
-  comment	CHAR VARYING(512),
+  description	CHAR VARYING(512),
   CONSTRAINT person_info_entity_id
     FOREIGN KEY (entity_type, person_id)
     REFERENCES entity_info(entity_type, entity_id)
