@@ -1,5 +1,23 @@
 # -*- coding: iso-8859-1 -*-
+
 # Copyright 2002, 2003 University of Oslo, Norway
+#
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
 # Denne fila implementerer er en bofhd extension som i størst mulig
 # grad forsøker å etterligne kommandoene i ureg2000 sin bofh klient.
 #
@@ -1980,15 +1998,21 @@ class BofhdExtension(object):
 
     # perm add_target
     all_commands['perm_add_target'] = Command(
-        ("perm", "add_target"), SimpleString(help_ref="string_perm_target_type"),
-        Id(), perm_filter='is_superuser')
-    def perm_add_target(self, operator, target_type, op_target_id):
+        ("perm", "add_target"),
+        SimpleString(help_ref="string_perm_target_type"), Id(),
+        perm_filter='is_superuser')
+    def perm_add_target(self, operator, target_type, entity_id):
         if not self.ba.is_superuser(operator.get_entity_id()):
             raise PermissionDenied("Currently limited to superusers")
+        if entity_id.isdigit():
+            entity_id = int(entity_id)
+        else:
+            raise CerebrumError("Integer entity_id expected; got %r" %
+                                (entity_id,))
         aot = BofhdAuthOpTarget(self.db)
-        aot.populate(op_target_id, target_type)
+        aot.populate(entity_id, target_type)
         aot.write_db()
-        return "OK, id=%d" % aot.entity_id
+        return "OK, target id=%d" % aot.op_target_id
 
     # perm add_target_attr
     all_commands['perm_add_target_attr'] = Command(
