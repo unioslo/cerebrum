@@ -46,37 +46,67 @@ command_help = {
        "Revoke authorisation",
     },
     'email': {
-    'email_add_address': 'Add an alias address',
-    'email_remove_address': 'Remove an alias address',
-    'email_update': 'Update default address and aliases associated with account',
-    'email_create_domain': 'Create a new e-mail domain',
-    'email_create_forward': 'Create a new e-mail forward target',
-    'email_domain_info': 'View information about an e-mail domain',
-    'email_add_domain_affiliation': 'Connect a OU to an e-mail domain',
-    'email_remove_domain_affiliation': 'Remove link between OU and e-mail domain',
-    'email_domain_configuration': 'Configure settings for an e-mail domain',
-    'email_forward': 'Turn e-mail forwarding for a user on/off',
-    'email_add_forward': 'Add a forward address',
-    'email_remove_forward': 'Remove a forward address',
-    'email_info': 'View e-mail information about a user or address',
-    'email_create_archive': 'Add address feeding an archive of a list',
-    'email_create_list': 'Add addresses needed for a Mailman list',
-    'email_create_list_alias':
+    "email_add_address":
+        "Add an alias address",
+    "email_remove_address":
+        "Remove an alias address",
+    "email_reassign_address":
+        "Move an address from one account to another",
+    "email_update":
+        "Update default address and aliases associated with account",
+    "email_create_domain":
+        "Create a new e-mail domain",
+    "email_create_forward":
+        "Create a new e-mail forward target",
+    "email_domain_info":
+        "View information about an e-mail domain",
+    "email_add_domain_affiliation":
+        "Connect a OU to an e-mail domain",
+    "email_remove_domain_affiliation":
+        "Remove link between OU and e-mail domain",
+    "email_domain_configuration":
+        "Configure settings for an e-mail domain",
+    "email_forward":
+        "Turn e-mail forwarding for a user on/off",
+    "email_add_forward":
+        "Add a forward address",
+    "email_remove_forward":
+        "Remove a forward address",
+    "email_info":
+        "View e-mail information about a user or address",
+    "email_create_archive":
+        "Add address feeding an archive of a list",
+    "email_create_list":
+        "Add addresses needed for a Mailman list",
+    "email_create_list_alias":
        "Add an alias for a Mailman list.  This also adds additional "\
        "-owner and -request addresses.",
-    'email_create_multi': 'Make an e-mail target which expands to the members of a group',
-    'email_delete_archive': 'Remove address for a Mailman archive',
-    'email_delete_list': "Remove a Mailman list's addresses",
-    'email_delete_multi': "Remove a multi target and all its addresses",
-    'email_migrate': 'Migrate users from old to new e-mail service',
-    'email_move': 'Move a user\'s e-mail to another server',
-    'email_quota': "Change a user's storage quota for e-mail",
-    'email_spam_action': "How to handle user's spam",
-    'email_spam_level': "Change user's tolerance for spam",
-    'email_tripnote': 'Turn vacation messages on/off',
-    'email_add_tripnote': 'Add vacation message',
-    'email_list_tripnotes': "List user's vacation messages",
-    'email_remove_tripnote': 'Remove vacation message',
+    "email_create_multi":
+        "Make an e-mail target which expands to the members of a group",
+    "email_delete_archive":
+        "Remove address for a Mailman archive",
+    "email_delete_list":
+        "Remove a Mailman list's addresses",
+    "email_delete_multi":
+        "Remove a multi target and all its addresses",
+    "email_migrate":
+        "Migrate users from old to new e-mail service",
+    "email_move":
+        "Move a user's e-mail to another server",
+    "email_quota":
+        "Change a user's storage quota for e-mail",
+    "email_spam_action":
+        "How to handle user's spam",
+    "email_spam_level":
+        "Change user's tolerance for spam",
+    "email_tripnote":
+        "Turn vacation messages on/off",
+    "email_add_tripnote":
+        "Add vacation message",
+    "email_list_tripnotes":
+        "List user's vacation messages",
+    "email_remove_tripnote":
+        "Remove vacation message",
     },
     'group': {
     'group_add': 'Let an account join a group',
@@ -205,9 +235,12 @@ affiliation status codes"""],
          "The legal date format is 2003-12-31"],
     'disk':
         ['disk', 'Enter disk',
-         """Enter the path to the disc without trailing slash or username.
- Example: /usit/sauron/u1
- For non-cerebrum disks, prepend the path with a :"""],
+         "Enter the path to the disk without trailing slash or username.  "
+         "Example:\n"
+         "  /usit/sauron/u1\n\n"
+         "If the disk isn't registered in Cerebrum and never should be, "
+         "enter the whole path verbatim, prepended by a colon.  Example:\n"
+         "  :/usr/local/oracle"],
     'email_address':
         ['address', 'Enter e-mail address'],
     'email_category':
