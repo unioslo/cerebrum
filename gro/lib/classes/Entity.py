@@ -58,6 +58,22 @@ class Entity(Builder, Searchable):
 
     cerebrum_class = Cerebrum.Entity.Entity
 
+    def __new__(cls, *args, **vargs):
+        obj = Builder.__new__(Entity, *args, **vargs)
+
+        if obj.__class__ is Entity: # this is a fresh object
+            obj.__init__(*args, **vargs)
+
+        entity_type = obj.get_entity_type()
+        entity_class = entity_type.get_class()
+
+        if cls is Entity:
+            obj.__class__ = entity_class
+        elif cls is not entity_class:
+            raise Exception('wrong class. Asked for %s, but found %s' % (cls, entity_class))
+
+        return obj
+
     def get_spreads(self):
         import Types
         e = Cerebrum.Entity.Entity(db)
@@ -123,6 +139,13 @@ class Entity(Builder, Searchable):
             return True
         return False
 
+    def load_entity_type(self):
+        import Types
+
+        e = self.cerebrum_class(db)
+        e.find(self._entity_id)
+        self._entity_type = Types.EntityType(int(e.entity_type))
+
 class ContactInfo(Builder):
     primary = [Attribute('entity_id', 'long'),
                Attribute('source_system', 'SourceSystem'),
@@ -147,9 +170,9 @@ class ContactInfo(Builder):
     # kontaktinfo burde være en entitet).
     # hadde det ikke vært mer fornuftig å hatt entity, contactPref som
     # primær-nøkkel? nå blir det jo bare rot.
-    def get_key(entity_id, source_system, contact_type, *args, **vargs):
+    def create_primary_key(entity_id, source_system, contact_type, *args, **vargs):
         return entity_id, source_system, contact_type
-    get_key = staticmethod(get_key)
+    create_primary_key = staticmethod(create_primary_key)
 
 class Note(Builder):
     primary = [Attribute('note_id', 'long')]
