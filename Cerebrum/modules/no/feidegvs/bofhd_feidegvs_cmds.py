@@ -36,7 +36,7 @@ except ImportError:
     # It's the same module taken from python 2.3, it should
     # work fine in 2.2  
     from Cerebrum.extlib.sets import Set    
-
+    
 import cereconf
 from Cerebrum import Cache
 from Cerebrum import Database
@@ -78,7 +78,7 @@ class BofhdExtension(object):
     Group_class = Utils.Factory.get('Group')
     external_id_mappings = {}
 
-     def __init__(self, server):
+    def __init__(self, server):
         self.server = server
         self.logger = server.logger
         self.db = server.db
@@ -2641,17 +2641,25 @@ class BofhdExtension(object):
             return True
         return False
         
+    # The next two functions require all affiliations to be in upper case,
+    # and all affiliation statuses to be in lower case.  If this changes,
+    # the user will have to type exact case.
     def _get_affiliationid(self, code_str):
-        for k in self.person_affiliation_codes.keys():
-            if k.lower() == code_str.lower():
-                return self.person_affiliation_codes[k]
-        raise CerebrumError("Unknown affiliation")
+        try:
+            c = self.const.PersonAffiliation(code_str.upper())
+            # force a database lookup to see if it's a valid code
+            int(c)
+            return c
+        except Errors.NotFoundError:
+            raise CerebrumError("Unknown affiliation")
 
     def _get_affiliation_statusid(self, affiliation, code_str):
-        for k in self.person_affiliation_statusids[str(affiliation)].keys():
-            if k.lower() == code_str.lower():
-                return self.person_affiliation_statusids[str(affiliation)][k]
-        raise CerebrumError("Unknown affiliation status")
+        try:
+            c = self.const.PersonAffStatus(affiliation, code_str.lower())
+            int(c)
+            return c
+        except Errors.NotFoundError:
+            raise CerebrumError("Unknown affiliation status")
 
     def _get_constant(self, const_str, err_msg="Could not find constant"):
         if self.str2const.has_key(const_str):
