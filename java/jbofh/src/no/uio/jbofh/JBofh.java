@@ -435,75 +435,86 @@ public class JBofh {
         }
         return null; // Throw?
     }
+
+    private boolean processCmdLine() {
+        Vector args;
+        try {
+            bcompleter.setEnabled(true);
+            args = cLine.getSplittedCommand();
+        } catch (IOException io) {
+            if(guiEnabled && (! mainFrame.confirmExit()))
+                return true;
+            return false;
+        } catch (ParseException pe) {
+            showMessage("Error parsing command: "+pe, true);
+            return true;
+        }
+        if(args.size() == 0) return true;
+        try {
+            if(((String) args.get(0)).equals("commands")) {  // Neat while debugging
+                for (Enumeration e = bc.commands.keys() ; e.hasMoreElements() ;) {
+                    Object key = e.nextElement();
+                    showMessage(key+" -> "+ bc.commands.get(key), true); 
+                }
+            } else if(((String) args.get(0)).equals("quit")) {
+                bye();
+            } else if(((String) args.get(0)).equals("source")) {
+                if(args.size() == 1) {
+                    showMessage("Must specify filename to source", true);
+                } else {
+                    sourceFile((String) args.get(1));
+                }
+            } else if(((String) args.get(0)).equals("help")) {
+                args.remove(0);
+                showMessage(bc.getHelp(args), true);
+            } else {
+                try {
+                    Vector lst = bcompleter.analyzeCommand(args, -1);
+                    for(int i = 0; i < lst.size(); i++) args.set(i, lst.get(i));
+                } catch (AnalyzeCommandException e) {
+                    showMessage("Unknown command", true); return true;
+                }
+                    
+                Object r[] = translateCommand(args);
+                if(r == null) {
+                    showMessage("Unknown command", true); return true;
+                }
+                String protoCmd = (String) r[0];
+                Vector protoArgs = (Vector) r[1];
+                protoArgs = checkArgs(protoCmd, protoArgs);
+                if(protoArgs == null) return true;
+                try {
+                    boolean multiple_cmds = false;
+                    for (Enumeration e = protoArgs.elements() ; e.hasMoreElements() ;) 
+                        if(e.nextElement() instanceof Vector)
+                            multiple_cmds = true;
+                    if(guiEnabled) mainFrame.showWait(true);
+                    Object resp = bc.sendCommand(protoCmd, protoArgs);
+                    if(resp != null) showResponse(protoCmd, resp, multiple_cmds, true);
+                } catch (BofhdException ex) {
+                    showMessage(ex.getMessage(), true);
+                } catch (Exception ex) {
+                    showMessage("Unexpected error (bug): "+ex, true);
+                    ex.printStackTrace();
+                } finally {
+                    if(guiEnabled) mainFrame.showWait(false);
+                }
+            }
+        } catch (BofhdException be) {
+            showMessage(be.getMessage(), true);
+        }
+        return true;
+    }
             
     void enterLoop() {
-        while(true) {
-            Vector args;
+        boolean keepLooping = true;
+        while(keepLooping) {
             try {
-                bcompleter.setEnabled(true);
-                args = cLine.getSplittedCommand();
-            } catch (IOException io) {
-                if(guiEnabled && (! mainFrame.confirmExit()))
-                    continue;
-                break;
-            } catch (ParseException pe) {
-                showMessage("Error parsing command: "+pe, true);
-                continue;
+                keepLooping = processCmdLine();
+            } catch (Exception ex) {
+                showMessage("Unexpected error (bug): "+ex, true);
+                ex.printStackTrace();
             }
-            if(args.size() == 0) continue;
-	    try {
-		if(((String) args.get(0)).equals("commands")) {  // Neat while debugging
-		    for (Enumeration e = bc.commands.keys() ; e.hasMoreElements() ;) {
-			Object key = e.nextElement();
-			showMessage(key+" -> "+ bc.commands.get(key), true); 
-		    }
-                } else if(((String) args.get(0)).equals("quit")) {
-                    bye();
-		} else if(((String) args.get(0)).equals("source")) {
-                    if(args.size() == 1) {
-                        showMessage("Must specify filename to source", true);
-                    } else {
-                        sourceFile((String) args.get(1));
-                    }
-		} else if(((String) args.get(0)).equals("help")) {
-		    args.remove(0);
-		    showMessage(bc.getHelp(args), true);
-		} else {
-		    try {
-			Vector lst = bcompleter.analyzeCommand(args, -1);
-			for(int i = 0; i < lst.size(); i++) args.set(i, lst.get(i));
-		    } catch (AnalyzeCommandException e) {
-			showMessage("Unknown command", true); continue;
-		    }
-                    
-		    Object r[] = translateCommand(args);
-		    if(r == null) {
-			showMessage("Unknown command", true); continue;
-		    }
-		    String protoCmd = (String) r[0];
-		    Vector protoArgs = (Vector) r[1];
-		    protoArgs = checkArgs(protoCmd, protoArgs);
-		    if(protoArgs == null) continue;
-		    try {
-			boolean multiple_cmds = false;
-			for (Enumeration e = protoArgs.elements() ; e.hasMoreElements() ;) 
-			    if(e.nextElement() instanceof Vector)
-				multiple_cmds = true;
-                        if(guiEnabled) mainFrame.showWait(true);
-			Object resp = bc.sendCommand(protoCmd, protoArgs);
-			if(resp != null) showResponse(protoCmd, resp, multiple_cmds, true);
-		    } catch (BofhdException ex) {
-			showMessage(ex.getMessage(), true);
-		    } catch (Exception ex) {
-			showMessage("Unexpected error (bug): "+ex, true);
-			ex.printStackTrace();
-		    } finally {
-                        if(guiEnabled) mainFrame.showWait(false);
-                    }
-		}
-	    } catch (BofhdException be) {
-		showMessage(be.getMessage(), true);
-	    }
 	}
         bye();
     }
