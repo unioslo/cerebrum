@@ -371,8 +371,7 @@ def process_email_requests():
                                      for t in line.split(": ")][1]:
                             add_forward(user_id, addr)
                     elif line.startswith("tripnote: "):
-                        msg = "\n".join([t.split(subsep)
-                                         for t in line.split(": ")][1])
+                        msg = "\n".join(line[10:].split(subsep))
                         vac = Email.EmailVacation(db)
                         vac.find_by_entity(user_id)
                         # if there's a message imported from ~/tripnote
