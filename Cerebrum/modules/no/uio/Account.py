@@ -229,6 +229,12 @@ class AccountUiOMixin(Account.Account):
                     if svr['name'] == 'mail-sg0':
                         # Old (VA) cluster; reserved for test users.
                         continue
+                    elif svr['name'] in ('mail-sg1', 'mail-sg4', 'mail-sg7',
+                                         'mail-sg9'):
+                        # Old (VA) cluster; the file systems on these
+                        # packages are at least 95% full, so we want
+                        # to avoid creating any more users on them.
+                        continue
                     elif (svr['name'].startswith('cyrus')
                           and svr['name'][5:].isdigit()
                           and 1 <= int(svr['name'][5:]) <= 16):
