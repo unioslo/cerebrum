@@ -270,13 +270,13 @@ class BofhdExtension(object):
         """List direct members of group"""
         group = self._get_group(groupname)
         ret = []
-        u, i, d = group.list_members()
+        u, i, d = group.list_members(get_entity_name=True)
         for t, rows in ('union', u), ('inters.', i), ('diff', d):
             for r in rows:
                 ret.append({'op': t,
                             'type': str(self.num2const[int(r[0])]),
                             'id': r[1],
-                            'name': self._get_entity_name(r[0], r[1])})
+                            'name': r[2]})
         return ret
 
     # group list_all
@@ -298,9 +298,9 @@ class BofhdExtension(object):
     def group_list_expanded(self, operator, groupname):
         """List members of group after expansion"""
         group = self._get_group(groupname)
-        return [{'member_id': a,
-                 'name': self._get_entity_name(self.const.entity_account, a)
-                 } for a in group.get_members()]
+        return [{'member_id': a[0],
+                 'name': a[1]
+                 } for a in group.get_members(get_entity_name=True)]
 
     # group posix_create
     all_commands['group_promote_posix'] = Command(
