@@ -50,7 +50,6 @@ import SimpleXMLRPCServer
 import xmlrpclib
 import getopt
 import traceback
-import random
 from random import Random
 
 try:
@@ -614,12 +613,21 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
                 return ""
         return getattr(instance, func.__name__)(session, *args)  # TODO: er dette rett syntax?
 
-class BofhdServer(object):
-    def __init__(self, database, config_fname):
+
+class BofhdServerImplementation(object):
+    def __init__(self, server_address=None,
+                 RequestHandlerClass=BofhdRequestHandler,
+                 database=None, config_fname=None, *args, **kws):
+        # Calls to object.__init__ are no-ops, so this won't do
+        # anything unless there are mixins (and they are placed after
+        # BofhdServer in self's MRO).
+        super(BofhdServerImplementation, self).__init__(
+            server_address, RequestHandlerClass, *args, **kws)
+        self.known_sessions = {}
+        self.logRequests = False
         self.db = database
         self.config_fname = config_fname
         self.read_config()
-        self.known_sessions = {}
 
     def read_config(self):
         self.const = Utils.Factory.get('Constants')(self.db)
@@ -658,7 +666,19 @@ class BofhdServer(object):
                 logger.warn("Warning, function '%s' is not implemented" % k)
         self.help = Help(self.cmd_instances)
 
+    def get_cmd_info(self, cmd):
+        """Return BofhdExtension and Command object for this cmd
+        """
+        inst = self.cmd2instance[cmd]
+        return (inst, inst.all_commands[cmd])
+
+    # Override SocketServer.TCPServer (or subclass).
+    def server_bind(self):
+        self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        super(BofhdServerImplementation, self).server_bind()
+
     def close_request(self, request):
+        super(BofhdServerImplementation, self).close_request(request)
         # Check that the database is alive and well by creating a new
         # cursor.
         #
@@ -672,50 +692,86 @@ class BofhdServer(object):
         csr = self.db.cursor()
         csr.close()
 
-    def get_cmd_info(self, cmd):
-        """Return BofhdExtension and Command object for this cmd
-        """
-        inst = self.cmd2instance[cmd]
-        return (inst, inst.all_commands[cmd])
+class _TCPServer(SocketServer.TCPServer, object):
+    "SocketServer.TCPServer as a new-style class."
+    pass
 
-class StandardBofhdServer(SimpleXMLRPCServer.SimpleXMLRPCServer, BofhdServer):
-    def __init__(self, database, config_fname, addr, requestHandler,
-                 logRequests=1):
-        super(StandardBofhdServer, self).__init__(addr, requestHandler)
-        BofhdServer.__init__(self, database, config_fname)
-    
-    def server_bind(self):
-        self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        SocketServer.TCPServer.server_bind(self)
+class BofhdServer(BofhdServerImplementation, _TCPServer):
+    """Plain non-encrypted Bofhd server.
+
+    Constructor accepts the following arguments:
+
+      server_address        -- (ipAddr, portNumber) tuple
+      RequestHandlerClass   -- class for handling XML-RPC requests
+      logRequests           -- boolean
+      database              -- Cerebrum Database object
+      config_fname          -- name of Bofhd config file
+
+    """
+    pass
+
+class _ThreadingMixIn(SocketServer.ThreadingMixIn, object):
+    "SocketServer.ThreadingMixIn as a new-style class."
+    pass
+
+class ThreadingBofhdServer(BofhdServerImplementation, _ThreadingMixIn,
+                           _TCPServer):
+    """Threaded non-encrypted Bofhd server.
+
+    Constructor accepts the following arguments:
+
+      server_address        -- (ipAddr, portNumber) tuple
+      RequestHandlerClass   -- class for handling XML-RPC requests
+      logRequests           -- boolean
+      database              -- Cerebrum Database object
+      config_fname          -- name of Bofhd config file
+
+    """
+    pass
+
 
 if CRYPTO_AVAILABLE:
-    class SSLBofhdServer(SSL.SSLServer, BofhdServer): # SSL.ThreadingSSLServer
+    class _SSLServer(SSL.SSLServer, object):
+        "SSL.SSLServer as a new-style class."
+        pass
 
-        def __init__(self, database, config_fname, addr, requestHandler,
-                     ssl_context):
-            super(SSLBofhdServer, self).__init__(addr, requestHandler,
-                                                 ssl_context)
-            BofhdServer.__init__(self, database, config_fname)
-            self.logRequests = 0
-            
-        def server_bind(self):
-            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            SocketServer.TCPServer.server_bind(self)
+    class SSLBofhdServer(BofhdServerImplementation, _SSLServer):
+        """SSL-enabled Bofhd server.
+
+        Constructor accepts the following arguments:
+
+          server_address        -- (ipAddr, portNumber) tuple
+          RequestHandlerClass   -- class for handling XML-RPC requests
+          logRequests           -- boolean
+          database              -- Cerebrum Database object
+          config_fname          -- name of Bofhd config file
+          ssl_context           -- SSL.Context object
+
+        """
+        pass
+
+    class _ThreadingSSLServer(SSL.ThreadingSSLServer, object):
+        "SSL.ThreadingSSLServer as a new-style class."
+        pass
 
     # TODO: Check if it is sufficient to do something like:
     # class ThreadingSSLBofhdServer(SSL.ThreadingSSLServer, SSLBofhdServer)
-    class ThreadingSSLBofhdServer(SSL.ThreadingSSLServer, BofhdServer):
+    class ThreadingSSLBofhdServer(BofhdServerImplementation,
+                                  _ThreadingSSLServer):
+        """SSL-enabled threaded Bofhd server.
 
-        def __init__(self, database, config_fname, addr, requestHandler,
-                     ssl_context):
-            super(SSLBofhdServer, self).__init__(addr, requestHandler,
-                                                 ssl_context)
-            BofhdServer.__init__(self, database, config_fname)
-            self.logRequests = 0
+        Constructor accepts the following arguments:
 
-        def server_bind(self):
-            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            SocketServer.TCPServer.server_bind(self)
+          server_address        -- (ipAddr, portNumber) tuple
+          RequestHandlerClass   -- class for handling XML-RPC requests
+          logRequests           -- boolean
+          database              -- Cerebrum Database object
+          config_fname          -- name of Bofhd config file
+          ssl_context           -- SSL.Context object
+
+        """
+        pass
+
 
 _db_pool_lock = thread.allocate_lock()
 
@@ -798,7 +854,9 @@ if __name__ == '__main__':
             # This is a bit icky.  What we want to accomplish is to
             # fetch the results from a bofhd_get_commands client
             # command.
-            server = BofhdServer(Utils.Factory.get('Database')(), conffile)
+            server = BofhdServerImplementation(
+                database=Utils.Factory.get('Database')(),
+                config_fname=conffile)
             commands = {}
             db = Utils.Factory.get('Database')()
             group = Utils.Factory.get('Group')(db)
@@ -852,20 +910,18 @@ if __name__ == '__main__':
                            SSL.verify_none)
         ctx.set_tmp_dh('%s/dh1024.pem' % cereconf.DB_AUTH_DIR)
         if multi_threaded:
-            server = ThreadingSSLBofhdServer(db, conffile,
-                                    ("0.0.0.0", port), BofhdRequestHandler, ctx)
+            server = ThreadingSSLBofhdServer(
+                ("0.0.0.0", port), BofhdRequestHandler, db, conffile, ctx)
         else:
-            server = SSLBofhdServer(db, conffile,
-                                    ("0.0.0.0", port), BofhdRequestHandler, ctx)
+            server = SSLBofhdServer(
+                ("0.0.0.0", port), BofhdRequestHandler, db, conffile, ctx)
     else:
         if multi_threaded:
-            new_class = type('ThreadingBofhdServer',
-                             (SocketServer.ThreadingMixIn, StandardBofhdServer), {})
-            server = new_class(db, conffile,
-                               ("0.0.0.0", port), BofhdRequestHandler)
+            server = ThreadingBofhdServer(
+                ("0.0.0.0", port), BofhdRequestHandler, db, conffile)
         else:
-            server = StandardBofhdServer(db, conffile,
-                                         ("0.0.0.0", port), BofhdRequestHandler)
+            server = BofhdServer(
+                ("0.0.0.0", port), BofhdRequestHandler, db, conffile)
     server.serve_forever()
 
 # arch-tag: 65c53099-96e5-4d49-aa19-18b9800f26d6
