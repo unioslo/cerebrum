@@ -1,7 +1,7 @@
 #!/usr/bin/env python2.2
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2003 University of Oslo, Norway
+# Copyright 2003, 2004 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -28,13 +28,13 @@
 # =========================================================================
 # Rom:     |*********|*********|*********|*********|**********|************
 # ---------+---------+---------+---------+---------+----------+------------
-# Felles   |  Change |  Change |  Change |   Read  |          |
+# Felles   |  Owner  |  Owner  |  Owner  |  Write  |          |
 # ---------+---------+---------+---------+---------+----------+------------
-# Lærer    |  Change |  Change |  Change |         |          |
+# Lærer    |  Owner  |  Owner  |  Owner  |         |          |
 # ---------+---------+---------+---------+---------+----------+------------
-# Akt. 1   |         |  Change |         |         |   Write  |
+# Akt. 1   |         |  Owner  |         |         |   Write  |
 # ---------+---------+---------+---------+---------+----------+------------
-# Akt. 2   |         |         |  Change |         |          |   Write
+# Akt. 2   |         |         |  Owner  |         |          |   Write
 # =========================================================================
 # Korridor:|*********|*********|*********|*********|**********|************
 # ---------+---------+---------+---------+---------+----------+------------
@@ -482,9 +482,11 @@ def build_structure(sko, allow_room=0, allow_contact=0):
             # we can do to salvage the situation.  Bail out by
             # returning None.
             return None
-	parent_sted = get_sted(entity_id=sted.get_parent(const.perspective_lt))
-        if parent_sted is None:
-	    print "Stedkode <%s> er uten foreldre; bruker %s" % (sko, root_sko)
+        try:
+            parent_sted = get_sted(entity_id=sted.get_parent(const.perspective_lt))
+        except Errors.NotFoundError:
+	    logger.warn("Stedkode <%s> er uten foreldre; bruker %s" %
+                        (sko, root_sko))
 	    parent = build_structure(root_sko)
         else:
             parent = build_structure("%02d%02d%02d" % (
