@@ -103,6 +103,7 @@ def main():
         account_id = int(row['account_id'])
         user = id2acc.get(account_id)
         if user in home_page_users:
+            del home_page_users[user]
             person2URLs.setdefault(int(row['person_id']), []).append(
                 user2URL(user))
 
