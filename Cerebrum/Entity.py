@@ -251,6 +251,21 @@ class EntityName(Entity):
 
 class EntityContactInfo(Entity):
     "Mixin class, usable alongside Entity for entities having contact info."
+
+    __read_attr__ = ('_contact_info', )
+    __write_attr__ = ('source_system', )
+
+    def clear(self):
+        "Clear all attributes associating instance with a DB entity."
+        self.__super.clear()
+        for attr in EntityContactInfo.__read_attr__:
+            if hasattr(self, attr):
+                delattr(self, attr)
+        for attr in EntityContactInfo.__write_attr__:
+            setattr(self, attr, None)
+        self.__updated = False
+        self._contact_info = {}
+
     def add_contact_info(self, source, type, value, pref=None,
                          description=None):
         # TODO: Calculate next available pref.  Should also handle the
@@ -277,11 +292,40 @@ class EntityContactInfo(Entity):
             ('source_system', source),
             ('contact_type', type))
 
-    def populate_contact_info(self, type, value, contact_pref=50,
-                              description=None):
-        # TBD: I think this method should be deleted
-        pass
+    def populate_contact_info(self, source_system, type=None, value=None,
+                              contact_pref=50, description=None):
+        if self.source_system is None:
+            self.source_system = source_system
+        elif self.source_system <> source_system:
+            raise RuntimeError, "source_system is already set to a different value"
+        if type is None:
+            return
+        self._contact_info[int(type)] = {'value': value,
+                                         'pref': contact_pref,
+                                         'description': description}
 
+    def write_db(self):
+        self.__super.write_db()
+        if self.source_system is None:
+            return
+        for r in self.get_contact_info(source=self.source_system):
+            do_del = True
+            if self._contact_info.has_key(int(r['contact_type'])):
+                h = self._contact_info[int(r['contact_type'])]
+                print h
+                if (h['value'] == r['contact_value'] and
+                    h['pref'] == r['contact_pref'] and
+                    h['description'] == r['description']):
+                    del(self._contact_info[int(r['contact_type'])])
+                    do_del = False
+            if do_del:
+                self.delete_contact_info(self.source_system, r['contact_type'])
+        for type in self._contact_info.keys():
+            self.add_contact_info(self.source_system, type,
+                                  self._contact_info[type]['value'],
+                                  self._contact_info[type]['pref'],
+                                  self._contact_info[type]['description'])
+            
     def delete_contact_info(self, source, type):
         self.execute("""
         DELETE FROM [:table schema=cerebrum name=entity_contact_info]
@@ -296,7 +340,9 @@ class EntityAddress(Entity):
     "Mixin class, usable alongside Entity for entities having addresses."
 
     # TODO: Clean this up.
-    __write_attr__ = ('_address_info', '_affect_source', '_affect_types')
+    __write_attr__ = ('_address_info', '_affect_source', '_affect_types',
+                      'source_system')
+    __read_attr__ = ()
 
     def clear(self):
         super(EntityAddress, self).clear()
@@ -304,7 +350,9 @@ class EntityAddress(Entity):
         self._affect_types = None
         self._address_info = {}
         self.__updated = False
+        self.source_system = None
 
+    # TBD:  We might decide to remove __eq__ and _compare_addresses
     def __eq__(self, other):
         """Note: The object that affect_addresses has been called on
         must be on the left side of the equal sign, otherwise we don't
@@ -354,59 +402,46 @@ class EntityAddress(Entity):
                 return False
         return True
 
-    def affect_addresses(self, source, *types):
-        self._affect_source = source
-        if types is None:
-            raise NotImplementedError
-        self._affect_types = types
-
-    def populate_address(self, type, addr=None, pobox=None,
-                         zip=None, city=None, country=None):
-        self._address_info[type] = {'address_text': addr,
-                                    'p_o_box': pobox,
-                                    'postal_number': zip,
-                                    'city': city,
-                                    'country': country}
-        pass
+    def populate_address(self, source_system, type=None, address_text=None, p_o_box=None,
+                         postal_number=None, city=None, country=None):
+        if self.source_system is None:
+            self.source_system = source_system
+        elif self.source_system <> source_system:
+            raise RuntimeError, "source_system is already set to a different value"
+        if type is None:
+            return
+        self._address_info[int(type)] = {'address_text': address_text,
+                                         'p_o_box': p_o_box,
+                                         'postal_number': postal_number,
+                                         'city': city,
+                                         'country': country}
 
     def write_db(self):
-        super(EntityAddress, self).write_db()
-        # If affect_addresses has not been called, we don't care about
-        # addresses
-        if self._affect_source is None:
+        self.__super.write_db()
+        if self.source_system is None:
             return
+        for r in self.get_entity_address(source=self.source_system):
+            do_del = True
+            if self._address_info.has_key(int(r['address_type'])):
+                h = self._address_info[int(r['address_type'])]
+                equals = True
+                for k in ('address_text', 'p_o_box', 'postal_number', 'city',
+                          'country'):
+                    if(h[k] != r[k]):
+                        equals = False
+                if equals:
+                    del(self._address_info[int(r['address_type'])])
+                    do_del = False
+            if do_del:
+                self.delete_entity_address(self.source_system, r['address_type'])
 
-        for type in self._affect_types:
-            insert = False
-            try:
-                if not self._compare_addresses(type, self):
-                    ai = self._address_info.get(type)
-                    self.execute("""
-                    UPDATE [:table schema=cerebrum name=entity_address]
-                    SET address_text=:a_text, p_o_box=:p_box,
-                        postal_number=:p_num, city=:city, country=:country
-                    WHERE
-                      entity_id=:e_id AND
-                      source_system=:src AND
-                      address_type=:a_type""",
-                                 {'a_text': ai['address_text'],
-                                  'p_box': ai['p_o_box'],
-                                  'p_num': ai['postal_number'],
-                                  'city': ai['city'],
-                                  'country': ai['country'],
-                                  'e_id': self.entity_id,
-                                  'src': int(self._affect_source),
-                                  'a_type': int(type)})
-            except KeyError, msg:
-                # Note: the arg to a python exception must be casted to str :-(
-                if str(msg) == "MissingOther":
-                    if self._address_info.has_key(type):
-                        self.add_entity_address(self._affect_source, type,
-                                                 **self._address_info[type])
-                elif str(msg) == "MissingSelf":
-                    delete_entity_address(self._affect_source, type)
-                else:
-                    raise
+        for type in self._address_info.keys():
+            self.add_entity_address(self.source_system, type,
+                                  self._address_info[type]['address_text'],
+                                  self._address_info[type]['p_o_box'],
+                                  self._address_info[type]['postal_number'],
+                                  self._address_info[type]['city'],
+                                  self._address_info[type]['country'])
 
     def add_entity_address(self, source, type, address_text=None,
                             p_o_box=None, postal_number=None, city=None,
@@ -442,24 +477,14 @@ class EntityAddress(Entity):
                       'a_type': int(a_type)})
 
     def get_entity_address(self, source=None, type=None):
-        # TODO: Select * gives positional args, which is error-prone: fix
-
+        if type is not None:
+            type = int(type)
         return Utils.keep_entries(
             self.query("""
             SELECT * FROM [:table schema=cerebrum name=entity_address]
             WHERE entity_id=:e_id""", {'e_id': self.entity_id}),
             ('source_system', int(source)),
-            ('address_type', int(type)))
-
-    def delete_entity_address(self, source, type):
-        self.execute("""
-        DELETE FROM [:table schema=cerebrum name=entity_address]
-        WHERE
-          entity_id=:e_id AND
-          source_system=:src AND
-          address_type=:a_type""", {'e_id': self.entity_id,
-                                    'src': int(source),
-                                    'a_type': int(type)})
+            ('address_type', type))
 
 class EntityQuarantine(Entity):
     "Mixin class, usable alongside Entity for entities we can quarantine."
