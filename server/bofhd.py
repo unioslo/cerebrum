@@ -330,18 +330,12 @@ class CallableFuncs(object):
                              np_type, 
                              creator_id, expire_date)
             account.write_db()
-
-            # populate_posix_user(user_uid, gid, gecos, home, shell):
+            Account.Account.find(posix_user, account.account_id)
             posix_user.populate(account.account_id, uid, gid, gecos,
                                         home, shell)
-            
-            # account.affect_domains(self.const.entity_accname_default)
-            # account.populate_name(self.const.entity_accname_default, uname)
-            
             passwd = posix_user.make_passwd(uname)
-            account.affect_auth_types(self.const.auth_type_md5)
-            # account.populate_authentication_type(self.const.auth_type_md5, passwd)
-            account.set_password(passwd)
+            # posix_user.affect_auth_types(self.const.auth_type_md5)
+            posix_user.set_password(passwd)
             posix_user.write_db()
             
             self.ef.Cerebrum.commit()
