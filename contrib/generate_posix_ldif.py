@@ -81,8 +81,6 @@ def generate_users(spread=None,filename=None):
     for hd in disk.list(spread=spreads[0]):
 	disks[int(hd['disk_id'])] = hd['path']  
     posix_dn = "," + get_tree_dn('USER')
-    obj_string = "".join(["objectClass: %s\n" % oc for oc in
-                          ('top', 'account', 'posixAccount')])
     if filename:
 	f = file(filename,'w')
         f.write("\n")
@@ -101,7 +99,6 @@ def generate_users(spread=None,filename=None):
     # We already favour the stronger 'md5_crypt' hash over any
     # 'crypt3_des', though.
     for auth_method in (co.auth_type_md5_crypt, co.auth_type_crypt3_des):
-        prev_userid = 0
         for row in posix_user.list_extended_posix_users(auth_method, spreads, 
 						include_quarantines = True):
             (acc_id, shell, gecos, uname) = (
@@ -128,27 +125,28 @@ def generate_users(spread=None,filename=None):
                 qshell = qh.get_shell()
                 if qshell is not None:
                     shell = qshell
-            cn    = row['name'] or gecos or uname
-            gecos = latin1_to_iso646_60(gecos or cn)
             if row['disk_id']:
                 home = "%s/%s" % (disks[int(row['disk_id'])],uname)
             elif row['home']:
                 home = row['home']
 	    else:
                 continue
-            if acc_id <> prev_userid:
-                f.write('dn: uid=%s%s\n' % (uname, posix_dn))
-                f.write('%scn: %s\n' % (obj_string, iso2utf(cn)))
-                f.write('uid: %s\n' % uname)
-                f.write('uidNumber: %s\n' % str(row['posix_uid']))
-                f.write('gidNumber: %s\n' % str(row['posix_gid']))
-                f.write('homeDirectory: %s\n' % home)
-                f.write('userPassword: %s\n' % passwd)
-                f.write('loginShell: %s\n' % shell)
-                f.write('gecos: %s\n' % gecos)
-                f.write('\n')
-		entity2uname[acc_id] = uname
-                prev_userid = acc_id
+            cn    = row['name'] or gecos or uname
+            gecos = latin1_to_iso646_60(gecos or cn)
+            f.write("".join((
+                'dn: '              'uid=', uname, posix_dn, '\n'
+                'objectClass: '     'top'           '\n'
+                'objectClass: '     'account'       '\n'
+                'objectClass: '     'posixAccount'  '\n'
+                'cn: ',             iso2utf(cn),    '\n'
+                'uid: ',            uname,          '\n'
+                'uidNumber: ',      str(int(row['posix_uid'])), '\n'
+                'gidNumber: ',      str(int(row['posix_gid'])), '\n'
+                'homeDirectory: ',  home,           '\n'
+                'userPassword: ',   passwd,         '\n'
+                'loginShell: ',     shell,          '\n'
+                'gecos: ',          gecos,          '\n\n')))
+            entity2uname[acc_id] = uname
     if filename:
 	f.close()
 
@@ -168,19 +166,18 @@ def generate_posixgroup(spread=None,u_spread=None,filename=None):
 
     groups = {}
     dn_str = get_tree_dn('FILEGROUP')
-    obj_str = "".join(["objectClass: %s\n" % oc for oc in
-                       ('top', 'posixGroup')])
     for row in posix_group.list_all_grp(spreads):
 	posix_group.clear()
         posix_group.find(row.group_id)
         gname = posix_group.group_name
-        pos_grp = "dn: cn=%s,%s\n" % (gname, dn_str)
-        pos_grp += "%s" % obj_str
-        pos_grp += "cn: %s\n" % gname
-        pos_grp += "gidNumber: %d\n" % posix_group.posix_gid
+        members = []
+        entry = {'objectClass': ('top', 'posixGroup'),
+                 'cn':          (gname,),
+                 'gidNumber':   (str(int(posix_group.posix_gid)),),
+                 'memberUid':   members}
         if posix_group.description:
             # latin1_to_iso646_60 later
-            pos_grp += "description: %s\n" % iso2utf(posix_group.description)
+            entry['description'] = (iso2utf(posix_group.description),)
 	group.clear()
         group.find(row.group_id)
         # Since get_members only support single user spread, spread is
@@ -189,9 +186,8 @@ def generate_posixgroup(spread=None,u_spread=None,filename=None):
             uname_id = int(id[0])
             if not entity2uname.has_key(uname_id):
                 entity2uname[uname_id] = id[1]
-            pos_grp += "memberUid: %s\n" % entity2uname[uname_id]
-        f.write(pos_grp)
-	f.write("\n")
+            members.append(entity2uname[uname_id])
+        f.write(entry_string("cn=%s,%s" % (gname, dn_str), entry, False))
     if filename:
 	f.close()
 
@@ -210,28 +206,27 @@ def generate_netgroup(spread=None,u_spread=None,filename=None):
     spreads = eval_spread_codes(spread or cereconf.LDAP_NETGROUP_SPREAD)
     u_spreads = eval_spread_codes(u_spread or cereconf.LDAP_USER_SPREAD)
     dn_str = get_tree_dn('NETGROUP')
-    obj_str = "".join(["objectClass: %s\n" % oc for oc in
-                       ('top', 'nisNetGroup')])
     for row in pos_netgrp.list_all_grp(spreads):
 	grp_memb = {}
         pos_netgrp.clear()
         pos_netgrp.find(row.group_id)
         netgrp_name = pos_netgrp.group_name
-        netgrp_str = "dn: cn=%s,%s\n" % (netgrp_name, dn_str)
-        netgrp_str += "%s" % obj_str
-        netgrp_str += "cn: %s\n" % netgrp_name
+        entry = {'objectClass':       ('top', 'nisNetGroup'),
+                 'cn':                (netgrp_name,),
+                 'nisNetgroupTriple': [],
+                 'memberNisNetgroup': []}
         if not entity2uname.has_key(int(row.group_id)):
             entity2uname[int(row.group_id)] = netgrp_name
         if pos_netgrp.description:
-            netgrp_str += "description: %s\n" % \
-                          latin1_to_iso646_60(pos_netgrp.description)
-        f.write(netgrp_str)
-        get_netgrp(int(row.group_id), spreads, u_spreads, f)
-        f.write("\n")
+            entry['description'] = (
+                latin1_to_iso646_60(pos_netgrp.description),)
+        get_netgrp(int(row.group_id), spreads, u_spreads,
+                   entry['nisNetgroupTriple'], entry['memberNisNetgroup'])
+        f.write(entry_string("cn=%s,%s" % (netgrp_name, dn_str), entry, False))
     if filename:
 	f.close()
 
-def get_netgrp(netgrp_id, spreads, u_spreads, f):
+def get_netgrp(netgrp_id, spreads, u_spreads, triples, members):
     pos_netgrp = Factory.get('Group')(db)
     pos_netgrp.clear()
     pos_netgrp.entity_id = netgrp_id
@@ -239,16 +234,16 @@ def get_netgrp(netgrp_id, spreads, u_spreads, f):
 						get_entity_name= True)[0]:
         uname_id,uname = int(id[1]),id[2]
         if ('_' not in uname) and not grp_memb.has_key(uname_id):
-            f.write("nisNetgroupTriple: (,%s,)\n" % uname)
+            triples.append("(,%s,)" % uname)
             grp_memb[uname_id] = True
     for group in pos_netgrp.list_members(None, int(co.entity_group),
 						get_entity_name=True)[0]:
         pos_netgrp.clear()
         pos_netgrp.entity_id = int(group[1])
 	if filter(pos_netgrp.has_spread, spreads):
-            f.write("memberNisNetgroup: %s\n" % group[2])
+            members.append(group[2])
         else:
-            get_netgrp(int(group[1]), spreads, u_spreads, f)
+            get_netgrp(int(group[1]), spreads, u_spreads, triples, members)
 
 
 def eval_spread_codes(spread):
