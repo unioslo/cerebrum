@@ -35,11 +35,12 @@ class Commands(SpineClass):
     primary_key = []
     slots = []
     method_slots = [
-        Method('create_group', Group, [('name', str)], write=True)
+        Method('create_group', Group, [('name', str)], write=True),
+        Method('get_last_changelog_id', int)
     ]
 
-    def __init__(self):
-        SpineClass.__init__(self, cache=None)
+    def __new__(self, *args, **vargs):
+        return SpineClass.__new__(self, cache=None)
 
     def create_group(self, name):
         db = self.get_database()
@@ -50,6 +51,10 @@ class Commands(SpineClass):
 
         id = group.entity_id
         return Group(id, write_lock=self.get_writelock_holder())
+
+    def get_last_changelog_id(self):
+        db = self.get_database()
+        return int(db.query_1('SELECT max(change_id) FROM change_log'))
 
 registry.register_class(Commands)
 
