@@ -262,7 +262,6 @@ class BofhdExtension(object):
     def email_info(self, operator, uname):
         if uname.find('@') <> -1:
             try:
-                acc = Utils.Factory.get('Account')(self.db)
                 ea = Email.EmailAddress(self.db)
                 ea.find_by_address(uname)
                 et = Email.EmailTarget(self.db)
@@ -271,7 +270,8 @@ class BofhdExtension(object):
                 if (ttype == self.const.email_target_Mailman):
                     return self._email_info_mailman(uname, et)
                 elif (ttype == self.const.email_target_account):
-                    acc.find(et.email_target_entity_id)
+                    acc = self._get_account(et.email_target_entity_id,
+                                            idtype = 'id')
                 else:
                     raise CerebrumError, ("email info for target type %s isn't "
                                           "implemented") % self.num2const[ttype]
@@ -1061,28 +1061,8 @@ class BofhdExtension(object):
                            description=('Personal file group for %s' % uname))
             group.write_db()
         # 2. Promote to PosixGroup
-        pu = PosixUser.PosixUser(self.db)
         pg = PosixGroup.PosixGroup(self.db)
-        pu.find_by_name(uname)
-        # New users have UID > 60000.  We want them to have UID ==
-        # GID, although no code should rely on this!  But the old
-        # convention was GID == UID + 10000.  In the UID space
-        # 50000..60000 these two conventions can't be reconciled, so
-        # we just use the new convention.  If the wanted GID is taken,
-        # pick the first free GID.
-        if pu.posix_uid > 50000:
-            target_gid = pu.posix_uid
-        else:
-            target_gid = pu.posix_uid + 10000
-
-        try:
-            pg.find_by_gid(target_gid)
-            # no exception means the desired gid is taken already
-            pg.clear()
-            target_gid = None
-        except Errors.NotFoundError:
-            pass
-        pg.populate(parent=group, gid=target_gid)
+        pg.populate(parent=group)
         try:
             pg.write_db()
         except self.db.DatabaseError, m:
