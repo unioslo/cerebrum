@@ -31,10 +31,6 @@ import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no.hia import access_FS
-from Cerebrum import Database
-from Cerebrum import Person
-from Cerebrum import Group
-from Cerebrum import Account
 from Cerebrum.modules.no import Stedkode
 from Cerebrum.modules.no.hia import fronter_lib
 
@@ -123,31 +119,36 @@ def load_acc2name():
     account = Factory.get('Account')(db)
     person = Factory.get('Person')(db)
     logger.debug('Loading person/user-to-names table')
-    """	Get uname2mailaddr is a module in modules/Email.py and 
-	it is an AccountMixinClass """
+    # For the .getdict_uname2mailaddr method to be available, this
+    # Cerebrum instance must have enabled the Account mixin class
+    # Cerebrum.modules.Email.AccountEmailMixin (by including it in
+    # cereconf.CLASS_ACCOUNT).
     uname2mail = account.getdict_uname2mailaddr()
 
-    """	Get person_name_dict based on cached values"""
-    person_name = person.getdict_persons_names(source_system=const.system_cached,
-		name_types= [const.name_first,const.name_last,const.name_full])
+    # Build the person_name_dict based on the automatically updated
+    # 'system_cached' name variants in the database.
+    person_name = person.getdict_persons_names(
+        source_system=const.system_cached,
+        name_types = [const.name_first, const.name_last, const.name_full])
 
-    ext2puname = person.getdict_external_id2primary_account(const.externalid_fodselsnr)
+    ext2puname = person.getdict_external_id2primary_account(
+        const.externalid_fodselsnr)
     ret = {}
     for pers in person.list_persons_atype_extid():
-	#logger.debug("Loading person: %s" % pers['name'])
+	# logger.debug("Loading person: %s" % pers['name'])
 	if ext2puname.has_key(pers['external_id']):
 	    ent_name = ext2puname[pers['external_id']]
 	else:
-	    #logger.debug("Person has no account: %d" % pers['person_id']) 
+	    # logger.debug("Person has no account: %d" % pers['person_id']) 
 	    continue
 	if person_name.has_key(int(pers['person_id'])):
 	    if len(person_name[int(pers['person_id'])]) <> 3:
-		#logger.debug("Person name fault, person_id: %s" % ent_name)
+		# logger.debug("Person name fault, person_id: %s" % ent_name)
 		continue
 	    else: 
 		names = person_name[int(pers['person_id'])]
 	else:
-	    #logger.debug("Person name fault, person_id: %s" % ent_name)
+	    # logger.debug("Person name fault, person_id: %s" % ent_name)
 	    continue
         if uname2mail.has_key(ent_name):
             email = uname2mail[ent_name]
@@ -164,7 +165,6 @@ def load_acc2name():
             'EMAILCLIENT': 1}
     return ret
 
-
 def get_ans_fak(fak_list, ent2uname):
     fak_res = {}
     person = Factory.get('Person')(db)
@@ -174,11 +174,11 @@ def get_ans_fak(fak_list, ent2uname):
         # Get all stedkoder in one faculty
         for ou in stdk.get_stedkoder(fakultet=int(fak)):
             # get persons in the stedkode
-            for pers in person.list_affiliations(source_system=const.system_sap,
-                                        affiliation=const.affiliation_ansatt,
-                                        ou_id=int(ou['ou_id'])):
+            for pers in person.list_affiliations(
+                  source_system=const.system_sap,
+                  affiliation=const.affiliation_ansatt,
+                  ou_id=int(ou['ou_id'])):
                 person.clear()
-                #person.entity_id = int(pers['person_id'])
                 try:
 		    person.find(int(pers['person_id']))
                     acc_id = person.get_primary_account()
