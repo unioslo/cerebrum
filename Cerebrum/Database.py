@@ -749,7 +749,7 @@ class PostgreSQL(Database):
             service = cereconf.CEREBRUM_DATABASE_NAME
         if user is None:
             user = cereconf.CEREBRUM_DATABASE_CONNECT_DATA.get('user')
-        if password is None:
+        if password is None and user is not None:
             password = self._read_password(service, user)
         cdata['real_user'] = user
         cdata['real_password'] = password
