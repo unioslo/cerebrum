@@ -254,6 +254,7 @@ WHERE dato_fra < SYSDATE AND
 	qry = """
 SELECT DISTINCT
   r.institusjonsnr, r.emnekode, r.versjonskode, e.emnenavnfork, 
+  e.faknr_kontroll, e.instituttnr_kontroll, e.gruppenr_kontroll,
   r.terminnr, r.terminkode, r.arstall
 FROM fs.emne e, fs.undervisningsenhet r
 WHERE r.emnekode = e.emnekode AND
@@ -308,7 +309,7 @@ WHERE sp.faknr_studieansv = :faknr AND
 	på /cerebrum/dumps/FS/ou.xml"""
         qry = """
 SELECT DISTINCT
-   faknr, instituttnr, grupxfopenr, stedakronym, stednavn_bokmal,
+   faknr, instituttnr, gruppenr, stedakronym, stednavn_bokmal,
    faknr_org_under, instituttnr_org_under, gruppenr_org_under,
    adrlin1, adrlin2, postnr, telefonnr, faxnr,
    adrlin1_besok, adrlin2_besok, postnr_besok, url, emailadresse,
