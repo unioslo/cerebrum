@@ -18,35 +18,45 @@ class Address(Abstract.Address):
 
 class ContactInfo(Abstract.ContactInfo):
     pass
+            
+class ChangeType(Abstract.ChangeType):
+    pass
 
+class Change(Abstract.Change):
+    pass
 
 class Entity(Abstract.Entity):
     
     def __init__(self, server):
         self.server = server
+        self.id = None # undetermined at this stage
+        
+    def __eq__(self, other):
+        return isinstance(other, Entity) and self.id == other.id
+        
+    def __hash__(self):
+        return hash(self.id) ^ hash(Entity)
     
     def fetch_by_id(cls, server, id):
         """ Retrieves an instance from ``server`` with given ``id``.
             ``server`` is a ServerConnection.
         """
+        # instanciate what ever class we might be 
         entity = cls(server)
-        entity.load_entity_info(id)
+        info = server.entity_info(id)
+        entity._load_entity_info(info)
         return entity
         
     fetch_by_id = classmethod(fetch_by_id)    
     
-    def load_entity_info(self, id):
+    def _load_entity_info(self, info):
         """Loads entity specific data to this object
-           from server using the given ``id``.
-           Returns a dictionary of possibly other useful items.
-           (for subclasses)
+           from a infohash as defined by bofh.
         """
-        self.id = id
-        warn("entity_info not implemented yet")
-        info = self.server.entity_info(id)
-        self.names = info['names']
+        self.id = info['entity_id'] 
+        # are these really useful for anything?
+        self.names = info.get('names', [])
         self.type = info['type']
-        return info
     
     def delete(self):
         pass
@@ -66,12 +76,44 @@ class Entity(Abstract.Entity):
         
     def get_quarantines(self):
         pass
+    
+    def get_history(self):
+        # get the history log, and some helping information on entities and
+        # chang he types
+        (history, entities, change_types) = self.server.entity_history(self.id)
 
+        # Use entity info-dicts to create all entities that are referred to
+        # within history
+        entity_map = {}
+        for (entity_id,info) in entities.items():
+            entity = fetch_object_by_id(self.server, entity_id, info=info)
+            entity_map[int(entity_id)] = entity
+
+        # And vice versa for the change types    
+        change_map = {}
+        for (change_type_id, change_details) in change_types.items():
+            (category, change_type, msg) = change_details
+            change_type = ChangeType(change_type_id, category, change_type, msg)
+            change_map[int(change_type_id)] = change_type
+
+        # resolve all references to entities and change_types    
+        changes = []
+        for entry in history:
+            change = Change(type = change_map.get(entry['type']),
+                            date = entry['date'],
+                            subject = entity_map.get(entry['subject']),
+                            dest = entity_map.get(entry['dest']),
+                            params = entry['params'],
+                            # change_by might be a program name 
+                            # instead of entity, just include that string
+                            change_by = entity_map.get(entry['change_by']) or entry['change_by'])
+            changes.append(change)
+        return changes       
 
 class Group(Entity, Abstract.Group):
     
     def __init__(self, server):
-        Entity.__init__(self, server)
+        super(Group, self).__init__(server)
     
     def create(cls, server, name, description):
         group = Group(server)
@@ -80,7 +122,7 @@ class Group(Entity, Abstract.Group):
 
         # FIXME: Check for errors...
         info = server.group_create(name, description)
-        group.load_entity_info(info['group_id'])
+        group._load_entity_info(info)
         group.expire = info['expire']
         group.gid = info.get('gid')
         group.spreads = info['spread'].split(",")
@@ -89,10 +131,10 @@ class Group(Entity, Abstract.Group):
     create = classmethod(create)
     
     def fetch_by_name(cls, server, name):
-        group = Group(server)
+        group = cls(server)
         # FIXME: Check for errors: not found, etc.
         info = server.group_info(name)
-        group.load_entity_info(info['entity_id'])
+        group._load_entity_info(info)
         # FIXME: Only spread names currently
         # TODO: Don't fetch spreads here
         #spread=kommaseparert liste med code_str
@@ -101,8 +143,8 @@ class Group(Entity, Abstract.Group):
         
     fetch_by_name = classmethod(fetch_by_name)
     
-    def load_entity_info(self, id):
-        info = Entity.load_entity_info(self, id)    
+    def _load_entity_info(self, info):
+        super(Group, self)._load_entity_info(info)
         self.name = info['name']
         self.description = info['description']
         self.visibility = info['visibility']
@@ -112,7 +154,6 @@ class Group(Entity, Abstract.Group):
         self.gid = info.get('gid')
         # TODO - get spreads (or make a method to get spreads)
         self.spreads = []
-        return info
 
     def search(cls, server, spread=None, name=None, desc=None):
         filter = {}
@@ -129,7 +170,7 @@ class Group(Entity, Abstract.Group):
             groups.append((row['id'],
                            row['name'],
                            row['desc']))
-        return groups    
+        return groups
     search = classmethod(search)    
 
     def get_members(self):
@@ -143,9 +184,7 @@ class Group(Entity, Abstract.Group):
             member['type'] = grpmember['type']
             member['name'] = grpmember['name']
             member['operation'] = grpmember['op']
-            # FIXME
-            warn("Need to create the new_object_by_id-function")
-            #member['object'] = new_object_by_id(member['id'])
+            member['object'] = fetch_object_by_id(self.server, member['id'])
             # Should be just tuples of (object, operation)
             members.append(member)
             
@@ -160,7 +199,8 @@ class Group(Entity, Abstract.Group):
             INTESECTION or DIFFERENCE, default is UNION."""
         self.server.group_add_entity(member.id, self.id, operation)
 
-    def remove_member(self, member_id=None, member_entity=None, operation=Constants.UNION):
+    def remove_member(self, member_id=None, member_entity=None, 
+                      operation=Constants.UNION):
         # FIXME: Make this use the soon-to-be-universiall group_remove
         if member_id and member_entity:
             raise TypeError, "member_id or member_entity must be given, not both"    
@@ -173,16 +213,27 @@ class Group(Entity, Abstract.Group):
     def delete_group(self):
         self.server.group_delete(self.name)
 
-def fetch_object_by_id(server, id):
+def fetch_object_by_id(server, id, info=None):
+    # Mapping between entity types and classes defined here
+    # TODO: Move out from fetch_object_by_id - to be able to 
+    # extend the mapping
     classes = {
         'group': Group,
-        'account': Account,
+#        'account': Account,
         # 'ou': OU,
         # 'person': Person,
-        #'host': Host,
-        'disk': Disk
+        # 'host': Host,
+#        'disk': Disk
     }
-    info = server.entity_info(id)
-    entity_class = classes.get(info['type'], Entity)
-    return entity_class.fetch_by_id(server, id)
+
+    # We need this info dictionary up front to check info['type']
+    if info is None:
+        info = server.entity_info(id)
+    # Note that parameter id is not used at all if info is given. entity.id is
+    # set by Entity._load_entity_info  using info['entity_id'] later on
+    # We don't care what kind of class GeneralEntity really is    
+    GeneralEntity = classes.get(info['type'], Entity)
+    entity = GeneralEntity(server)
+    entity._load_entity_info(info)
+    return entity
 
