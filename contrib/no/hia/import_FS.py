@@ -197,7 +197,8 @@ def process_person_callback(person_info):
 	  for row in x:
 	        _process_affiliation(co.affiliation_student,
 				     co.affiliation_status_student_evu,
-				     affiliations, studieprog2sko[row['studieprogramkode']])
+				     affiliations, _get_sko(p, 'faknr_adm_ansvar',
+				     'instituttnr_adm_ansvar', 'gruppenr_adm_ansvar'))
         elif dta_type in ('privatist_studieprogram', ):
 	  for row in x:
                 _process_affiliation(co.affiliation_student,
