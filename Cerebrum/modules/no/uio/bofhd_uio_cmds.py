@@ -377,6 +377,37 @@ class BofhdExtension(object):
             raise CerebrumError, "Bad password: %s" % m
         return "OK"
 
+    all_commands['misc_dadd'] = Command(
+        ("misc", "dadd"), SimpleString(help_ref='string_host'), DiskId())
+    def misc_dadd(self, operator, hostname, diskname):
+        host = self._get_host(hostname)
+        disk = Disk.Disk(self.db)
+        disk.populate(host.entity_id, diskname, 'uio disk')
+        disk.write_db()
+        return "OK"
+
+    all_commands['misc_drem'] = Command(
+        ("misc", "drem"), SimpleString(help_ref='string_host'), DiskId())
+    def misc_drem(self, operator, hostname, diskname):
+        host = self._get_host(hostname)
+        disk = Disk.Disk(db)
+        disk.find_by_path(diskname, host_id=host.entity_id)
+        raise NotImplementedError, "API does not support disk removal"
+
+    all_commands['misc_hadd'] = Command(
+        ("misc", "hadd"), SimpleString(help_ref='string_host'))
+    def misc_hadd(self, operator, hostname):
+        host = Disk.Host(self.db)
+        host.populate(hostname, 'uio host')
+        host.write_db()
+        return "OK"
+
+    all_commands['misc_hrem'] = Command(
+        ("misc", "hrem"), SimpleString(help_ref='string_host'))
+    def misc_hrem(self, operator, hostname):
+        host = self._get_host(hostname)
+        raise NotImplementedError, "API does not support host removal"
+
     # misc lmy
     all_commands['misc_lmy'] = Command(
         ("misc", "lmy"), )
@@ -949,7 +980,10 @@ class BofhdExtension(object):
             person = self.person
             person.clear()
             if arg.isdigit() and len(arg) > 10:  # finn personer fra fnr
-                person.find_by_external_id(self.const.externalid_fodselsnr, arg)
+                try:
+                    person.find_by_external_id(self.const.externalid_fodselsnr, arg)
+                except Errors.NotFoundError:
+                    raise CerebrumError, "Could not find that person"
                 c = [{'person_id': person.entity_id}]
             elif arg.find("-") != -1:
                 # finn personer på fødselsdato
@@ -973,7 +1007,7 @@ class BofhdExtension(object):
             return {'prompt': "Shell", 'default': 'bash'}
         shell = all_args.pop(0)
         if(len(all_args) == 0):
-            return {'prompt': "Disk"}
+            return {'prompt': "Disk", 'help_ref': 'disk'}
         disk = all_args.pop(0)
         if(len(all_args) == 0):
             ret = {'prompt': "Brukernavn", 'last_arg': 1}
@@ -1002,6 +1036,11 @@ class BofhdExtension(object):
         uid = posix_user.get_free_uid()
         shell = self._get_shell(shell)
         disk_id, home = self._get_disk(home)
+        if home is not None:
+            if home[0] == ':':
+                home = home[1:]
+            else:
+                raise CerebrumError, "Invalid disk"
         posix_user.clear()
         gecos = None
         expire_date = None
@@ -1013,7 +1052,7 @@ class BofhdExtension(object):
                             owner_id=person.entity_id, np_type=None,
                             creator_id=operator.get_entity_id(),
                             expire_date=expire_date)
-        passwd = posix_user.make_passwd(None)
+        passwd = posix_user.make_passwd(uname)
         posix_user.set_password(passwd)
         try:
             posix_user.write_db()
@@ -1129,10 +1168,10 @@ class BofhdExtension(object):
         if(len(all_args) == 0):
             return {'prompt': "Velg#",
                     'map': [(("Alternativer",), None),
-                            (("Skriv ut passordark",), 1),
-                            (("List brukernavn/passord til skjerm",), 2)]}
+                            (("Skriv ut passordark",), "skriv"),
+                            (("List brukernavn/passord til skjerm",), "skjerm")]}
         arg = all_args.pop(0)
-        if(arg == '2'):
+        if(arg == "skjerm"):
             return {'last_arg': 1}
         if(len(all_args) == 0):
             map = [(("Alternativer",), None)]
@@ -1162,10 +1201,10 @@ class BofhdExtension(object):
 
     all_commands['user_list_passwords'] = Command(
         ("user", "list_passwords"), prompt_func=user_list_passwords_prompt_func,
-        fs=FormatSuggestion("%-8s %-12s %s", ("account_id", "operation", "password"),
-                            hdr="%-8s %-12s %s" % ("Id", "Operation", "Password")))
+        fs=FormatSuggestion("%-8s %-20s %s", ("account_id", "operation", "password"),
+                            hdr="%-8s %-20s %s" % ("Id", "Operation", "Password")))
     def user_list_passwords(self, operator, *args):
-        if args[0] == "2":
+        if args[0] == "skjerm":
             return self._get_cached_passwords(operator)
         args = list(args[:])
         args.pop(0)
@@ -1410,6 +1449,14 @@ class BofhdExtension(object):
         except Errors.NotFoundError:
             raise CerebrumError, "Could not find account with %s=%s" % (idtype, id)
         return account
+
+    def _get_host(self, name):
+        host = Disk.Host(self.db)
+        try:
+            host.find_by_name(name)
+            return host
+        except Errors.NotFoundError:
+            raise CerebrumError, "Unkown host: %s" % name
 
     def _get_group(self, id, idtype='name', grtype="Group"):
         if grtype == "Group":
