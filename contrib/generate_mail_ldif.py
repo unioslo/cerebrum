@@ -26,6 +26,7 @@ import getopt
 
 import cerebrum_path
 import cereconf
+from Cerebrum import Errors
 from Cerebrum.Utils import Factory, SimilarSizeWriter
 from Cerebrum.modules import Email
 from Cerebrum.modules.bofhd.utils import BofhdRequests
