@@ -156,7 +156,7 @@ class PasswordChecker(DatabaseAccessor):
             self.look(f, words[0], dict_order, case_fold)
             while (1):
                 line = f.readline()
-                if line is None:
+                if len(line) == 0:
                     return 0
                 line = line.rstrip()
                 if case_fold:
