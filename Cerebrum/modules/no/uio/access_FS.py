@@ -36,6 +36,7 @@ class FSPerson(object):
             self.sem = 'V'
         else:
             self.sem = 'H'
+        self.year = t[0]
         self.YY = str(t[0])[2:]
 
     def GetKursFagpersonundsemester(self):
@@ -149,6 +150,93 @@ WHERE  p.fodselsdato=d.fodselsdato and
        ek.dato_til > SYSDATE - 14"""
         return (self._get_cols(qry), self.db.query(qry))
 
+    def GetAlleEksamener(self, fnr=None):
+        fodselsdato=None
+        personnr=None
+        extra=""
+        if fnr is not None:
+            fodselsdato, personnr = fnr[:-5], fnr[-5:]
+            extra=" AND p.personnr=:personnr AND p.fodselsdato=:fodselsdato "
+            
+        """Returner informasjon om alle eksamensmeldinger for aktive
+        studenter ved UiO"""
+
+	# Velg ut studentens eksamensmeldinger for inneværende og
+	# fremtidige semestre.  Søket sjekker at studenten har
+	# rett til å følge kurset, og at vedkommende er
+	# semesterregistrert i inneværende semester (eller,
+	# dersom fristen for semesterregistrering dette
+	# semesteret ennå ikke er utløpt, hadde
+	# semesterregistrert seg i forrige semester).
+        qry = """
+SELECT m.fodselsdato, m.personnr,
+       m.emnekode, m.arstall, m.manednr,
+       sprg.studienivakode,
+       e.institusjonsnr_reglement, e.faknr_reglement,
+       e.instituttnr_reglement, e.gruppenr_reglement, es.studieprogramkode
+FROM fs.eksamensmelding m, fs.emne e, fs.studierett st,
+     fs.emne_i_studieprogram es, fs.registerkort r, fs.studieprogram sprg,
+     fs.person p
+WHERE
+  m.arstall >= :year AND
+  m.fodselsdato = st.fodselsdato AND
+  m.personnr = st.personnr AND
+  m.fodselsdato = r.fodselsdato AND
+  m.personnr = r.personnr AND
+  m.fodselsdato = p.fodselsdato AND
+  m.personnr = p.personnr AND
+  NVL(p.status_dod, 'N') = 'N' AND
+  %s %s AND 
+  (st.opphortstudierettstatkode IS NULL OR
+   st.dato_gyldig_til >= sysdate) AND
+  st.status_privatist = 'N' AND
+  m.institusjonsnr = e.institusjonsnr AND
+  m.emnekode = e.emnekode AND
+  m.versjonskode = e.versjonskode AND
+  m.institusjonsnr = es.institusjonsnr AND
+  m.emnekode = es.emnekode AND
+  es.studieprogramkode = st.studieprogramkode AND
+  es.studieprogramkode = sprg.studieprogramkode
+UNION""" % (self.get_termin_aar(), extra)
+	# Velg ut studentens avlagte UiO eksamener i inneværende
+	# semester (studenten er fortsatt gyldig student ut
+	# semesteret, selv om alle eksamensmeldinger har gått
+	# over til å bli eksamensresultater).
+	#
+	# Søket sjekker _ikke_ at det finnes noen
+	# semesterregistrering for inneværende registrering
+	# (fordi dette skal være implisitt garantert av FS).
+        qry += """
+SELECT sp.fodselsdato, sp.personnr,
+       sp.emnekode, sp.arstall, sp.manednr,
+       sprg.studienivakode,
+       e.institusjonsnr_reglement, e.faknr_reglement,
+       e.instituttnr_reglement, e.gruppenr_reglement, st.studieprogramkode
+FROM fs.studentseksprotokoll sp, fs.emne e, fs.studierett st,
+     fs.emne_i_studieprogram es, fs.studieprogram sprg, fs.person p
+WHERE
+  sp.arstall >= :year AND
+  sp.fodselsdato = st.fodselsdato AND
+  sp.personnr = st.personnr AND
+  sp.fodselsdato = p.fodselsdato AND
+  sp.personnr = p.personnr %s AND 
+  NVL(p.status_dod, 'N') = 'N' AND
+  (st.opphortstudierettstatkode IS NULL OR
+   st.DATO_GYLDIG_TIL >= sysdate) AND
+  st.status_privatist = 'N' AND
+  sp.emnekode = e.emnekode AND
+  sp.versjonskode = e.versjonskode AND
+  sp.institusjonsnr = e.institusjonsnr AND
+  sp.institusjonsnr = '185' AND
+  sp.emnekode = es.emnekode AND
+  es.studieprogramkode = st.studieprogramkode AND
+  es.studieprogramkode = sprg.studieprogramkode
+ORDER BY fodselsdato, personnr"""  % extra
+        return (self._get_cols(qry),
+                self.db.query(qry, {'year': self.year,
+                                    'fodselsdato': fodselsdato,
+                                    'personnr': personnr}))
+
     def get_termin_aar(self, only_current=0):
         yr, mon, md = t = time.localtime()[0:3]
         if mon <= 6:
@@ -166,6 +254,7 @@ WHERE  p.fodselsdato=d.fodselsdato and
 
     # TODO: Belongs in a separate file, and should consider using row description
     def _get_cols(self, sql):
+        sql = sql[:sql.upper().find("FROM")+4]
         m = re.compile(r'^\s*SELECT\s*(DISTINCT)?(.*)FROM', re.DOTALL | re.IGNORECASE).match(sql)
         if m == None:
             raise InternalError, "Unreconginzable SQL!"
