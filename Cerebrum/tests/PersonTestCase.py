@@ -28,7 +28,7 @@ class Person_createTestCase(OU_createTestCase):
         new_person = Person.Person(self.Cerebrum)
         self._myPopulatePerson(new_person)
         new_person.write_db()
-        self.entity_id = new_person.entity_id
+        self.person_id = new_person.entity_id
 
     def _myPopulatePerson(self, person):
         pd = self.person_dta
@@ -56,20 +56,21 @@ class Person_createTestCase(OU_createTestCase):
 class PersonTestCase(Person_createTestCase):
     def testCreatePerson(self):
         "Test that one can create a Person"
-        self.failIf(getattr(self, "entity_id", None) is None)
+        self.failIf(getattr(self, "person_id", None) is None)
 
     def testComparePerson(self):
         "Check that created database object has correct values"
         person = Person.Person(self.Cerebrum)
-        person.find(self.entity_id)
+        person.find(self.person_id)
         new_person = Person.Person(self.Cerebrum)
         new_person.clear()
         self._myPopulatePerson(new_person)
 
         if(new_person <> person):
             print "Error: should be equal"
-        person.populate(self.person_dta['birth'], self.co.gender_female)
-        if(new_person == person):
+        person.birth_date = self.person_dta['birth']
+        person.gender = self.co.gender_female
+        if new_person == person:
             print "Error: should be different"
 
     def testDeletePerson(self):
@@ -78,16 +79,16 @@ class PersonTestCase(Person_createTestCase):
         # deletion of Persons
         self.Cerebrum.execute(
             """DELETE FROM [:table schema=cerebrum name=person_affiliation]
-               WHERE person_id=:id""", {'id': self.entity_id})
+               WHERE person_id=:id""", {'id': self.person_id})
         self.Cerebrum.execute(
             """DELETE FROM [:table schema=cerebrum name=person_name]
-               WHERE person_id=:id""", {'id': self.entity_id})
+               WHERE person_id=:id""", {'id': self.person_id})
         self.Cerebrum.execute(
             """DELETE FROM [:table schema=cerebrum name=person_info]
-               WHERE person_id=:id""", {'id': self.entity_id})
+               WHERE person_id=:id""", {'id': self.person_id})
         person = Person.Person(self.Cerebrum)
         try:
-            person.find(self.entity_id)
+            person.find(self.person_id)
             fail("Error: Should no longer exist")
         except:
             # OK
