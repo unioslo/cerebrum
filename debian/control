@@ -35,7 +35,7 @@ Description: common files for cerebrum systems
 
 Package: cerebrum-server 
 Architecture: any 
-Depends: ${misc:Depends}, python, python-pgsql, cerebrum-common (= ${Source-Version})
+Depends: ${misc:Depends}, python, python-pgsql, postgresql, cerebrum-common (= ${Source-Version})
 Description: cerebrum server 
  files needed for the server of the advanced automated user
  administration and management system "cerebrum" on debian.
