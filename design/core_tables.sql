@@ -123,7 +123,7 @@ CREATE TABLE entity_info
 */
 CREATE TABLE spread_code
 (
-  code		NUMERIC(6,0),
+  code		NUMERIC(6,0)
 		CONSTRAINT spread_code_pk PRIMARY KEY,
   code_str	CHAR VARYING(16)
 		NOT NULL
@@ -133,7 +133,8 @@ CREATE TABLE spread_code
 		CONSTRAINT spread_code_entity_type
 		  REFERENCES entity_type_code(code),
   description	CHAR VARYING(512)
-		NOT NULL
+		NOT NULL,
+  CONSTRAINT spread_code_type_unique UNIQUE (code, entity_type)
 );
 
 
@@ -154,9 +155,9 @@ CREATE TABLE entity_spread
   entity_id	NUMERIC(12,0),
   entity_type	NUMERIC(6,0),
   spread	NUMERIC(6,0),
-  CONSTRAINT entity_spread_pk PRIMARY KEY (entity_id, spread)
+  CONSTRAINT entity_spread_pk PRIMARY KEY (entity_id, spread),
   CONSTRAINT entity_spread_entity_id FOREIGN KEY (entity_id, entity_type)
-    REFERENCES entity_info(entity_id, entity_type)
+    REFERENCES entity_info(entity_id, entity_type),
   CONSTRAINT entity_spread_spread FOREIGN KEY (spread, entity_type)
     REFERENCES spread_code(code, entity_type)
 );
