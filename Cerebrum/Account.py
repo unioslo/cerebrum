@@ -29,38 +29,30 @@ from Cerebrum.Entity import \
 from Cerebrum import cereconf
 import crypt,random,string
 
-# TODO: I'm not sure how PosixUser should be imported as a mix-in
-# class.  The current implementation makes Account depending on Posix
-# user, which is not correct.
-
-from Cerebrum.modules.PosixUser import PosixUser
-
-class Account(Entity, EntityName, EntityQuarantine, PosixUser):
+class Account(Entity, EntityName, EntityQuarantine):
 
     def clear(self):
+        self.account_name = None
         self.owner_type = None
         self.owner_id = None
         self.np_type = None
         self.creator_id = None
         self.expire_date = None
         self._name_info = {}
-        self._acc_affect_domains = None
+        self._acc_affect_domains = ()
         self._auth_info = {}
-        self._acc_affect_auth_types = None
+        self._acc_affect_auth_types = ()
 
     def __eq__(self, other):
-        if self._pn_affect_source is None:
-            return True
         assert isinstance(other, Account)
-        if not PosixUser.__eq__(self, other): return False
 
-        if (self.owner_type != other.owner_type or
+        if (self.account_name != other.account_name or
+            int(self.owner_type) != int(other.owner_type) or
             self.owner_id != other.owner_id or
             self.np_type != other.np_type or
             self.creator_id != other.creator_id or
             self.expire_date != other.expire_date):
             return False
-
         for type in self._acc_affect_domains:  # Compare unames in afffect_domaines
             other_name = other.get_name(type)
             my_name = self._name_info.get(type, None)
@@ -69,18 +61,24 @@ class Account(Entity, EntityName, EntityQuarantine, PosixUser):
         return True
 
     def affect_domains(self, *domains):
+        # Disabled this function as it has yet to be determined how
+        # one should mark the spread of users.  Things suggest that it
+        # belongs in a separate module.
+        raise NotImplementedError, "Multiple domains not currently supported" 
         self._acc_affect_domains = domains
 
     def populate_name(self, domain, name):
         """Username is stored in entity_name."""
         self._name_info[domain] = name
 
-    def populate(self, owner_type, owner_id, np_type, creator_id, expire_date):
+    def populate(self, name, owner_type, owner_id, np_type, creator_id, expire_date):
+        self.account_name = name
         self.owner_type = owner_type
         self.owner_id = owner_id
         self.np_type = np_type
         self.creator_id = creator_id
         self.expire_date = expire_date
+        self.populate_name(self.const.account_namespace, name)
 
     def affect_auth_types(self, *authtypes):
         self._acc_affect_auth_types = authtypes
@@ -115,6 +113,8 @@ class Account(Entity, EntityName, EntityQuarantine, PosixUser):
         type = self.np_type
         if type is not None: type = int(type)
 
+        if not self.const.account_namespace in self._acc_affect_domains:
+            self._acc_affect_domains += (self.const.account_namespace, )
         if as_object is None:
             new_id = super(Account, self).new(int(self.const.entity_account))
 
@@ -133,7 +133,6 @@ class Account(Entity, EntityName, EntityQuarantine, PosixUser):
             for k in self._acc_affect_domains:
                 if self._name_info.get(k, None) is not None:
                     self.add_name(k, self._name_info[k])
-            PosixUser.write_db(self, as_object)
         else:
             self.execute("""
             UPDATE [:table schema=cerebrum name=account_info]
@@ -192,6 +191,7 @@ class Account(Entity, EntityName, EntityQuarantine, PosixUser):
             """SELECT account_id, owner_type, owner_id, np_type, create_date, creator_id, expire_date
                FROM [:table schema=cerebrum name=account_info]
                WHERE account_id=:a_id""", {'a_id' : account_id})
+        self.account_name = self.get_name(self.const.account_namespace)[0][2]
 
     def find_account_by_name(self, domain, name):
         self.find_by_name(domain, name)
