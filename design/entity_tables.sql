@@ -29,6 +29,26 @@ CREATE TABLE entity_id
 );
 
 
+/*	entity_name
+
+
+
+*/
+CREATE TABLE entity_name
+(
+  entity_id	NUMERIC(12,0)
+		CONSTRAINT entity_name_entity_id
+		  REFERENCES entity_id(id),
+  value_domain	CHAR VARYING(16)
+		CONSTRAINT entity_name_value_domain
+		  REFERENCES value_domain_code(code),
+  name		CHAR VARYING(256)
+		NOT NULL,
+  PRIMARY KEY (entity_id, value_domain),
+  UNIQUE (value_domain, name)
+);
+
+
 /*	entity_address
 
   The column `address_text' is a (near) free-form textual
@@ -50,7 +70,8 @@ CREATE TABLE entity_address
   postal_number	CHAR VARYING(8),
   city		CHAR VARYING(128),
   country	CHAR VARYING(16)
-		CONSTRAINT REFERENCES country_code(code),
+		CONSTRAINT entity_address_country
+		  REFERENCES country_code(code),
   CONSTRAINT ou_address_pk
     PRIMARY KEY (entity_id, source_system, address_type)
 );
@@ -76,7 +97,7 @@ CREATE TABLE entity_phone
 		  REFERENCES authoritative_system_code(code),
   phone_type	CHAR VARYING(16)
 		CONSTRAINT entity_phone_phone_type
-		  REFERENCES phone_type_code(code),
+		  REFERENCES phone_code(code),
   phone_pref	NUMERIC(2,0)
 		DEFAULT 50,
   phone_number	CHAR VARYING(20)
