@@ -30,7 +30,7 @@ class Account_createTestCase(Person_createTestCase):
         self._myPopulateAccount(account)
 
         account.write_db()
-        self.account_id = int(account.account_id)
+        self.entity_id = int(account.entity_id)
 
     def _myPopulateAccount(self, account):
         ad = self.account_dta
@@ -43,23 +43,23 @@ class Account_createTestCase(Person_createTestCase):
         # print "Account_createTestCase.tearDown()"
         self.Cerebrum.execute(
             """DELETE FROM [:table schema=cerebrum name=entity_name]
-               WHERE entity_id=:id""", {'id': self.account_id})
+               WHERE entity_id=:id""", {'id': self.entity_id})
         self.Cerebrum.execute(
             """DELETE FROM [:table schema=cerebrum name=account_info]
-               WHERE account_id=:id""", {'id': self.account_id})
+               WHERE account_id=:id""", {'id': self.entity_id})
         super(Person_createTestCase, self).tearDown()
 
 
 class AccountTestCase(Account_createTestCase):
     def testCreateAccount(self):
         "Test that one can create an Account"
-        self.failIf(getattr(self, "account_id", None) is None)
+        self.failIf(getattr(self, "entity_id", None) is None)
 
     def testCompareAccount(self):
         "Check that created database object has correct values"
         account = Account.Account(self.Cerebrum)
         account.clear()
-        account.find(self.account_id)
+        account.find(self.entity_id)
         new_account = Account.Account(self.Cerebrum)
         new_account.clear()
         self._myPopulateAccount(new_account)
@@ -71,11 +71,11 @@ class AccountTestCase(Account_createTestCase):
     def testDeleteAccount(self):
         "Delete the person"
         # This is actually a clean-up method, as we don't support deletion of Persons
-        old_id = self.account_id
+        old_id = self.entity_id
         self.tearDown()
         account = Account.Account(self.Cerebrum)
         try:
-            account.find(self.account_id)
+            account.find(self.entity_id)
             fail("Error: Should no longer exist")
         except:
             # OK
