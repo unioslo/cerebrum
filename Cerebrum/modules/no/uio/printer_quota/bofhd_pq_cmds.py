@@ -134,6 +134,7 @@ class BofhdExtension(object):
             'pquota_off': 'Turns off quota for a person',
             'pquota_update': 'Updates a persons free quota',
             'pquota_undo': 'Undo a whole, or part of a job',
+            'pquota_job_info': 'Show details about a job'
             },
             }
         
@@ -281,6 +282,81 @@ The currently defined id-types are:
 
         # Transaction order may be different from the job completion order
         ret.sort(lambda a, b: cmp(a['tstamp'], b['tstamp']))
+        return ret
+
+    all_commands['pquota_job_info'] = Command(
+        ("pquota", "job_info"), Integer(help_ref='job_id'),
+        fs=FormatSuggestion([
+        ("Job id:          %i\n" +
+         "Type:            %s\n" +
+         "Timestamp:       %s\n" +
+         "Person id:       %s\n" +
+         "Update by:       %s\n" +
+         "Update program:  %s\n" +
+         "Pageunits free:  %i\n" +
+         "Pageunits paid:  %i\n" +
+         "Pageunits total: %i",
+         ('job_id', 'transaction_type', format_time("tstamp"),
+          'person_id', 'update_by', 'update_program',
+          'pageunits_free', 'pageunits_paid', 'pageunits_total')),
+        ("Printer queue:   %s\n"+
+         "Account:         %i\n"+
+         "Job name:        %s\n"+
+         "Stedkode:        %s\n"+
+         "Spool trace:     %s\n"+
+         "PrissQID:        %s\n"+
+         "Paper type:      %s\n"+
+         "Pages:           %s",
+         ("printer_queue", "account_id", "job_name", "stedkode",
+          "spool_trace", "priss_queue_id", "paper_type", "pages")),
+        ("Target job id:   %s\n"+
+         "Description:     %s\n"+
+         "Bank id:         %s\n"+
+         "Kroner:          %s\n"+
+         "Payment tstamp:  %s",
+         ("target_job_id", "description", "bank_id", "kroner",
+          format_time("payment_tstamp")))]))
+    def pquota_job_info(self, operator, job_id):
+        ppq = PaidPrinterQuotas.PaidPrinterQuotas(self.db)
+        if not job_id.isdigit():
+            raise CerebrumError, "%s is not a number" % job_id
+        rows = ppq.get_history(job_id=job_id)
+        if len(rows) == 0:
+            raise CerebrumError, "Unknown job_id"
+        # Must have undo permissions to see job-details for a person.
+        # Also, there is no reason to allow looking at old jobs.
+        self.ba.can_pquota_undo(operator, rows[0]['person_id'])
+        if ((not self.ba.is_superuser(operator.get_entity_id())) and
+            rows[0]['tstamp'].ticks() < time.time() - 3600*24*3):
+            raise PermissionDenied, "Job is too old"
+
+        cols = ['job_id', 'transaction_type', 'tstamp', 'person_id',
+                'update_by', 'update_program', 'pageunits_free',
+                'pageunits_paid', 'pageunits_total']
+        if rows[0]['transaction_type'] == int(self.const.pqtt_printout):
+            cols.extend(["printer_queue", "account_id", "job_name",
+                         "stedkode", "spool_trace", "priss_queue_id",
+                         "paper_type", "pages"])
+        elif rows[0]['transaction_type'] in (
+            int(self.const.pqtt_quota_fill_pay),
+            int(self.const.pqtt_quota_fill_free),
+            int(self.const.pqtt_undo),
+            #int(self.const.pqtt_quota_balance) # TODO: Should be defined
+            ):
+            cols.extend(["target_job_id", "description", "bank_id",
+                         "kroner", "payment_tstamp"])
+
+        ret = {}
+        for c in cols:
+            ret[c] = rows[0][c]
+        # TODO: Work-around since client don't handle returned NULL
+        # values when format-specifier != %s.  The client probably has
+        # to be fixed.
+        for c in ('person_id', 'update_by', 'pages', 'target_job_id',
+                  'kroner'):
+            if ret.has_key(c):
+                ret[c] = str(ret[c])
+        ret['transaction_type'] = self.tt_mapping[ret['transaction_type']]
         return ret
 
     all_commands['pquota_off'] = Command(
