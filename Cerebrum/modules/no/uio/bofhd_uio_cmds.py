@@ -3937,7 +3937,8 @@ class BofhdExtension(object):
                 for tmp in br.get_requests(entity_id=account.entity_id):
                     if tmp['operation'] in (
                         self.const.bofh_move_student, self.const.bofh_move_user,
-                        self.const.bofh_move_give, self.const.bofh_move_request):
+                        self.const.bofh_move_give, self.const.bofh_move_request,
+                        self.const.bofh_move_user_now):
                         count += 1
                         br.delete_request(request_id=tmp['request_id'])
                 return "OK, %i bofhd requests deleted" % count
