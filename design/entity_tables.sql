@@ -94,6 +94,10 @@ CREATE TABLE entity_address
   ordering between these `phone_number's; high `phone_pref' values are
   preferred.
 
+  TBD: Do we really need a separate set of tables for phone number
+       info?  That is, why can't phone info merely be treated as just
+       another kind of "contact info"?
+
 */
 CREATE TABLE entity_phone
 (
@@ -130,10 +134,10 @@ CREATE TABLE entity_contact_info
 		CONSTRAINT entity_contact_info_entity_id
 		 REFERENCES entity_info(entity_id),
   source_system	CHAR VARYING(16)
-		CONSTRAINT entity_contact_info_source_system
+		CONSTRAINT entity_contact_info_source_sys
 		  REFERENCES authoritative_system_code(code),
   contact_type	CHAR VARYING(16)
-		CONSTRAINT entity_contact_info_contact_type
+		CONSTRAINT entity_contact_info_cont_type
 		  REFERENCES contact_info_code(code),
   contact_pref	NUMERIC(2,0)
 		DEFAULT 50,
@@ -168,13 +172,13 @@ CREATE TABLE entity_quarantine
 		  REFERENCES entity_info(entity_id),
   quarantine_type
 		CHAR VARYING(16)
-		CONSTRAINT entity_quarantine_quarantine_type
+		CONSTRAINT entity_quarantine_quar_type
 		  REFERENCES quarantine_code(code),
   creator_id	NUMERIC(12,0)
 		NOT NULL
 		CONSTRAINT entity_quarantine_creator_id
 		  REFERENCES account_info(account_id),
-  comment	CHAR VARYING(512),
+  description	CHAR VARYING(512),
   create_date	DATE
 		DEFAULT SYSDATE
 		NOT NULL,
