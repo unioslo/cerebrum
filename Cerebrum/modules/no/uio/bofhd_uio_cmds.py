@@ -13,6 +13,7 @@
 import re
 import sys
 import time
+import os
 
 import cereconf
 from Cerebrum import Account
@@ -495,7 +496,7 @@ class BofhdExtension(object):
                     'help_ref': 'print_select_template'}
         arg = all_args.pop(0)
         tpl_lang, tpl_name, tpl_type = self._map_template(arg)
-        if not tpl_lang.endswith("-letter"):
+        if not tpl_lang.endswith("letter"):
             if not all_args:
                 return {'prompt': 'Oppgi skrivernavn'}
             skriver = all_args.pop(0)
@@ -522,26 +523,72 @@ class BofhdExtension(object):
         args.pop(0)
         tpl_lang, tpl_name, tpl_type = self._map_template(args.pop(0))
         skriver = None
-        if not tpl_lang.endswith("-letter"):
+        if not tpl_lang.endswith("letter"):
             skriver = args.pop(0)
+        else:
+            skriver = cereconf.PRINT_PRINTER
         selection = args.pop(0)
         cache = self._get_cached_passwords(operator)
         th = TemplateHandler(tpl_lang, tpl_name, tpl_type)
-        out, out_name = Utils.make_temp_file()
+        tmp_dir = Utils.make_temp_dir(prefix="bofh_spool")
+        out_name = "%s/%s.%s" % (tmp_dir, "job", tpl_type)
+        out = file(out_name, "w")
         if th._hdr is not None:
             out.write(th._hdr)
+        ret = []
+        
         for n in self._parse_range(selection):
             n -= 1
-            mapping = {'Brukernavn': cache[n]['account_id'],
-                       'Passord': cache[n]['password']}
+            account = self._get_account(cache[n]['account_id'])
+            mapping = {'uname': cache[n]['account_id'],
+                       'password': cache[n]['password'],
+                       'account_id': account.entity_id,
+                       'lopenr': ''}
+            if tpl_lang.endswith("letter"):
+                mapping['barcode'] = '%s/barcode_%s.eps' % (
+                    tmp_dir, account.entity_id)
+                th.make_barcode(account.entity_id, mapping['barcode'])
+            if tpl_lang.endswith("letter"):
+                person = self._get_person('entity_id', account.owner_id)
+                try:
+                    address = person.get_entity_address(source=self.const.system_fs,
+                                                        type=self.const.address_post)
+                except Errors.NotFoundError:
+                    try:
+                        address = person.get_entity_address(source=self.const.system_lt,
+                                                            type=self.const.address_post)
+                    except Errors.NotFoundError:
+                        ret.append("Error: Couldn't get authtoritative address for %s" % account.account_name)
+                        continue
+                if not address:
+                    ret.append("Error: Couldn't get authtoritative address for %s" % account.account_name)
+                    continue
+                address = address[0]
+                alines = address['address_text'].split("\n")+[""]
+                fullname = person.get_name(self.const.system_cached, self.const.name_full)
+                mapping['address_line1'] = fullname
+                mapping['address_line2'] = alines[0]
+                mapping['address_line3'] = alines[1]
+                mapping['zip'] = address['postal_number']
+                mapping['city'] = address['city']
+                mapping['country'] = address['country']
+
+                mapping['birthdate'] = person.birth_date.strftime('%Y-%m-%d')
+                mapping['fullname'] =  fullname
+                mapping['emailadr'] =  "TODO"  # We probably don't need to support this...
+
             out.write(th.apply_template('body', mapping))
         if th._footer is not None:
             out.write(th._footer)
         out.close()
-        # TODO: pick up out_name and send it to printer, running
-        # through latex if tpl_type == 'tex'
-        return "OK: %s/%s.%s spooled @ %s for %s" % (
-            tpl_lang, tpl_name, tpl_type, skriver, selection)
+        try:
+            th.spool_job(out_name, tpl_type, skriver, skip_lpr=1,
+                         logfile="%s/spool.log" % tmp_dir)
+        except IOError, msg:
+            raise CerebrumError(msg)
+        ret.append("OK: %s/%s.%s spooled @ %s for %s" % (
+            tpl_lang, tpl_name, tpl_type, skriver, selection))
+        return "\n".join(ret)
 
     # misc mmove
     all_commands['misc_list_requests'] = Command(
@@ -1372,9 +1419,11 @@ class BofhdExtension(object):
         selected template """
         tpls = []
         n = 1
-        for k in cereconf.BOFHD_TEMPLATES.keys():
+        keys = cereconf.BOFHD_TEMPLATES.keys()
+        keys.sort()
+        for k in keys:
             for tpl in cereconf.BOFHD_TEMPLATES[k]:
-                tpls.append("%s:%s.%s" % (k, tpl[0], tpl[1]))
+                tpls.append("%s:%s.%s (%s)" % (k, tpl[0], tpl[1], tpl[2]))
                 if num is not None and n == int(num):
                     return (k, tpl[0], tpl[1])
                 n += 1
@@ -1796,7 +1845,7 @@ class BofhdExtension(object):
         person = self.person
         person.clear()
         try:
-            if idtype == 'account_name':
+            if str(idtype) == 'account_name':
                 ac = self._get_account(id)
                 id = ac.owner_id
                 idtype = "entity_id"
