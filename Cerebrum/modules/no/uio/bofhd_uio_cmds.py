@@ -646,6 +646,8 @@ class BofhdExtension(object):
         ("perm", "opset_list"), 
         fs=FormatSuggestion("%-6i %s", ("id", "name"), hdr="Id     Name"))
     def perm_opset_list(self, operator):
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            raise PermissionDenied("Currently limited to superusers")
         aos = BofhdAuthOpSet(self.db)
         ret = []
         for r in aos.list():
@@ -659,6 +661,8 @@ class BofhdExtension(object):
         fs=FormatSuggestion("%-6i %-16s %s", ("op_id", "op", "attrs"),
                             hdr="%-6s %-16s %s" % ("Id", "op", "Attributes")))
     def perm_opset_show(self, operator, name):
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            raise PermissionDenied("Currently limited to superusers")
         aos = BofhdAuthOpSet(self.db)
         aos.find_by_name(name)
         ret = []
@@ -679,6 +683,8 @@ class BofhdExtension(object):
                             hdr="%-8s %-15s %-10s %-18s %s" % (
         "TargetId", "TargetEntityId", "TargetType", "TargetName", "Attrs")))
     def perm_target_list(self, operator, target_type, entity_id=None):
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            raise PermissionDenied("Currently limited to superusers")
         aot = BofhdAuthOpTarget(self.db)
         ret = []
         if target_type.isdigit():
@@ -707,6 +713,8 @@ class BofhdExtension(object):
         ("perm", "add_target"), SimpleString(help_ref="string_perm_target_type"),
         Id())
     def perm_add_target(self, operator, target_type, op_target_id):
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            raise PermissionDenied("Currently limited to superusers")
         aot = BofhdAuthOpTarget(self.db)
         aot.populate(op_target_id, target_type)
         aot.write_db()
@@ -717,6 +725,8 @@ class BofhdExtension(object):
         ("perm", "add_target_attr"), Id(help_ref="id:op_target"),
         SimpleString(help_ref="string_attribute"))
     def perm_add_target_attr(self, operator, op_target_id, attr):
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            raise PermissionDenied("Currently limited to superusers")
         aot = BofhdAuthOpTarget(self.db)
         aot.find(op_target_id)
         aot.add_op_target_attr(attr)
@@ -726,6 +736,8 @@ class BofhdExtension(object):
     all_commands['perm_del_target'] = Command(
         ("perm", "del_target"), Id(help_ref="id:op_target"))
     def perm_del_target(self, operator, op_target_id):
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            raise PermissionDenied("Currently limited to superusers")
         aot = BofhdAuthOpTarget(self.db)
         aot.find(op_target_id)
         aot.delete()
@@ -736,6 +748,8 @@ class BofhdExtension(object):
         ("perm", "del_target_attr"), Id(help_ref="id:op_target"),
         SimpleString(help_ref="string_attribute"))
     def perm_del_target_attr(self, operator, op_target_id, attr):
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            raise PermissionDenied("Currently limited to superusers")
         aot = BofhdAuthOpTarget(self.db)
         aot.find(op_target_id)
         aot.del_op_target_attr(attr)
@@ -749,6 +763,8 @@ class BofhdExtension(object):
                             hdr="%-8s %-8s %-8s" %
                             ("entity_id", "op_set_id", "op_target_id")))
     def perm_list(self, operator, entity_id):
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            raise PermissionDenied("Currently limited to superusers")
         bar = BofhdAuthRole(self.db)
         ret = []
         for r in bar.list(entity_id):
@@ -762,6 +778,8 @@ class BofhdExtension(object):
         ("perm", "grant"), Id(), SimpleString(help_ref="string_op_set"),
         Id(help_ref="id:op_target"))
     def perm_grant(self, operator, entity_id, op_set_name, op_target_id):
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            raise PermissionDenied("Currently limited to superusers")
         bar = BofhdAuthRole(self.db)
         bar.grant_auth(entity_id, op_set_id, op_target_id)
         return "OK"
@@ -771,6 +789,8 @@ class BofhdExtension(object):
         ("perm", "revoke"), Id(), SimpleString(help_ref="string_op_set"),
         Id(help_ref="id:op_target"))
     def perm_revoke(self, operator, entity_id, op_set_name, op_target_id):
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            raise PermissionDenied("Currently limited to superusers")
         bar = BofhdAuthRole(self.db)
         bar.revoke_auth(entity_id, op_set_id, op_target_id)
         return "OK"
