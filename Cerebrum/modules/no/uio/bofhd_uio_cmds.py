@@ -155,16 +155,14 @@ class BofhdExtension(object):
         et, acc = self.__get_email_target_and_account(uname)
         ttype = et.email_target_type
         if ttype not in (self.const.email_target_Mailman,
+                         self.const.email_target_multi,
+                         self.const.email_target_pipe,
                          self.const.email_target_account):
             raise CerebrumError, ("Can't add e-mail address to target "+
                                   "type %s") % self.num2const[ttype]
         ea = Email.EmailAddress(self.db)
         lp, dom = address.split('@')
-        try:
-            ed = Email.EmailDomain(self.db)
-            ed.find_by_domain(dom)
-        except Errors.NotFoundError:
-            raise CerebrumError, "Unknown domain name (%s)" % dom
+        ed = self._get_email_domain(dom)
         self.ba.can_email_address_add(operator.get_entity_id(),
                                       account=acc, domain=ed)
         ea.clear()
@@ -189,6 +187,8 @@ class BofhdExtension(object):
         ttype = et.email_target_type
         if ttype not in (self.const.email_target_Mailman,
                          self.const.email_target_account,
+                         self.const.email_target_pipe,
+                         self.const.email_target_multi,
                          self.const.email_target_deleted):
             raise CerebrumError, ("Can't remove e-mail address from target "+
                                   "type %s") % self.num2const[ttype]
@@ -197,7 +197,9 @@ class BofhdExtension(object):
             ea.find_by_address(address)
         except Errors.NotFoundError:
             raise CerebrumError, "No such e-mail address (%s)" % address
-        if ea.get_target_id() <> et.email_target_id:
+        if ((ttype == int(self.const.email_target_Mailman) and
+             self._get_mailman_list(uname) <> self._get_mailman_list(address))
+            and ea.get_target_id() <> et.email_target_id):
             raise CerebrumError, ("Address <%s> is not associated with %s" %
                                   (address, uname))
         ed = Email.EmailDomain(self.db)
@@ -205,7 +207,11 @@ class BofhdExtension(object):
         self.ba.can_email_address_add(operator.get_entity_id(),
                                       account=acc, domain=ed)
         ea.delete()
-        return "OK"
+        for r in et.get_addresses():
+            # there is at least one address left
+            return "OK"
+        et.delete()
+        return "OK, also deleted e-mail target"
 
     # email forward "on"|"off"|"local" <account>+ [<address>+]
     all_commands['email_forward'] = Command(
@@ -222,23 +228,27 @@ class BofhdExtension(object):
         fw.find_by_entity(acc.entity_id)
         matches = []
         prim = acc.get_primary_mailaddress()
-        if addr is not None and addr == 'local':
-            addr = prim
-        for r in fw.get_forward():
-            if addr is None or r['forward_to'].find(addr) <> -1:
-                matches.append(r['forward_to'])
+
+        if addr == 'local':
+            found = False
+            for a in self.__get_valid_email_addrs(fw):
+                if self._forward_exists(fw, a):
+                    found = True
+                    matches.append(a)
+        else:
+            for r in fw.get_forward():
+                if addr is None or r['forward_to'].find(addr) <> -1:
+                    matches.append(r['forward_to'])
         if addr:
             if not matches:
                 raise CerebrumError, "No such forward address: %s" % addr
-            elif len(matches) > 1:
+            elif len(matches) > 1 and addr <> 'local':
                 raise CerebrumError, "More than one address matches %s" % addr
         elif not matches:
             raise CerebrumError, "No forward addresses for %s" % uname
         if action == 'local':
             action = 'on'
-            if self._forward_exists(fw, prim):
-                matches.append(prim)
-            else:
+            if not found:
                 fw.add_forward(prim)
         for a in matches:
             if action == 'on':
@@ -262,7 +272,9 @@ class BofhdExtension(object):
         self.ba.can_email_forward_edit(operator.get_entity_id(), acc)
         fw = Email.EmailForward(self.db)
         fw.find_by_entity(acc.entity_id)
-        addr = self._check_email_address(address, acc.get_primary_mailaddress())
+        addr = self._check_email_address(address)
+        if addr == 'local':
+            addr = acc.get_primary_mailaddress()
         try:
             fw.add_forward(addr)
         except Errors.TooManyRowsError:
@@ -281,15 +293,21 @@ class BofhdExtension(object):
         self.ba.can_email_forward_edit(operator.get_entity_id(), acc)
         fw = Email.EmailForward(self.db)
         fw.find_by_entity(acc.entity_id)
-        addr = self._check_email_address(address, acc.get_primary_mailaddress())
-        if self._forward_exists(fw, addr):
-            fw.delete_forward(addr)
+        addr = self._check_email_address(address)
+        if addr == 'local':
+            locals = self.__get_valid_email_addrs(fw)
         else:
+            locals = [addr]
+        removed = 0
+        for a in locals:
+            if self._forward_exists(fw, a):
+                fw.delete_forward(a)
+                removed += 1
+        if not removed:
             raise CerebrumError, "No such forward address (%s)" % addr
-        fw.write_db()
         return "OK"
 
-    def _check_email_address(self, address, primary=None):
+    def _check_email_address(self, address):
         # To stop some typoes, we require that the address consists of
         # a local part and a domain, and the domain must contain at
         # least one period.  We also remove leading and trailing
@@ -297,8 +315,8 @@ class BofhdExtension(object):
         # address in angle brackets is accepted, e.g. either of
         # "jdoe@example.com" or "Jane Doe <jdoe@example.com>" is OK.
         address = address.strip()
-        if address == 'local' and not primary is None:
-            return primary
+        if address == 'local':
+            return address
         if address.find("@") == -1:
             raise CerebrumError, "E-mail addresses must include the domain name"
         if not (re.match(r'[^@\s]+@[^@\s.]+\.[^@\s]+$', address) or
@@ -355,6 +373,8 @@ class BofhdExtension(object):
         ("                  %s",
          ("mailman_mailowner", )),
         # target_type == multi
+        ("Primary address:  %s",
+         ("multi_def_addr",)),
         ("Valid address:    %s",
          ("multi_valid_addr_1",)),
         ("                  %s",
@@ -365,6 +385,13 @@ class BofhdExtension(object):
          ("multi_forward_1",)),
         ("                  %s",
          ("multi_forward",)),
+        # target_type == pipe
+        ("Command:          %s\n"+
+         "Run as:           %s\n"+
+         "Address:          %s",
+         ("pipe_cmd", "pipe_runas", "pipe_addr_1")),
+        ("                  %s",
+         ("pipe_addr",)),
         #
         # both account and Mailman
         #
@@ -378,26 +405,37 @@ class BofhdExtension(object):
             return self._email_info_mailman(uname, et)
         elif ttype == self.const.email_target_multi:
             return self._email_info_multi(uname, et)
+        elif ttype == self.const.email_target_pipe:
+            return self._email_info_pipe(uname, et)
         elif ttype not in (self.const.email_target_account,
                            self.const.email_target_deleted):
             raise CerebrumError, ("email info for target type %s isn't "
                                   "implemented") % self.num2const[ttype]
         self.ba.can_email_info(operator.get_entity_id(), acc)
-        ret = self._email_info_basic(acc)
+        addrs = self.__get_valid_email_addrs(et)
+        ret = self._email_info_basic(acc, et, addrs)
         try:
             self.ba.can_email_info_detail(operator.get_entity_id(), acc)
-            ret += self._email_info_spam(et)
-            ret += self._email_info_detail(acc)
         except PermissionDenied:
             pass
+        else:
+            ret += self._email_info_spam(et)
+            ret += self._email_info_detail(acc, addrs)
         return ret
-    
-    def _email_info_basic(self, acc):
+
+    def __get_valid_email_addrs(self, et, special=False):
+        """Return a list of all valid e-mail addresses for the given
+        EmailTarget.  Keep special domain names intact if special is
+        True, otherwise re-write them into real domain names."""
+        addrs = []
+        for r in et.get_addresses(special=special):
+            addrs.append(r['local_part'] + '@' + r['domain'])
+        return addrs
+
+    def _email_info_basic(self, acc, et, addrs):
         info = {}
         data = [ info ]
         info["account"] = acc.account_name
-        et = Email.EmailTarget(self.db)
-        et.find_by_entity(acc.entity_id)
         if et.email_target_type == self.const.email_target_deleted:
             info["server"] = "<none>"
             info["server_type"] = "N/A"
@@ -411,12 +449,10 @@ class BofhdExtension(object):
             type = int(es.email_server_type)
             info["server_type"] = str(Email._EmailServerTypeCode(type))
             info["def_addr"] = acc.get_primary_mailaddress()
-        addrs = []
-        for r in et.get_addresses(special=False):
-            addrs.append(r['local_part'] + '@' + r['domain'])
-        info["valid_addr_1"] = addrs[0]
-        for idx in range(1, len(addrs)):
-            data.append({"valid_addr": addrs[idx]})
+        if addrs:
+            info["valid_addr_1"] = addrs[0]
+            for idx in range(1, len(addrs)):
+                data.append({"valid_addr": addrs[idx]})
         return data
 
     def _email_info_spam(self, target):
@@ -434,7 +470,7 @@ class BofhdExtension(object):
             pass
         return info
 
-    def _email_info_detail(self, acc):
+    def _email_info_detail(self, acc, addrs):
         info = []
         eq = Email.EmailQuota(self.db)
         try:
@@ -469,16 +505,12 @@ class BofhdExtension(object):
         local_copy = ""
         ef = Email.EmailForward(self.db)
         ef.find_by_entity(acc.entity_id)
-        if ef.email_target_type == self.const.email_target_deleted:
-            prim = "<deleted>"
-        else:
-            prim = acc.get_primary_mailaddress()
         for r in ef.get_forward():
             if r['enable'] == 'T':
                 enabled = "on"
             else:
                 enabled = "off"
-            if r['forward_to'] == prim:
+            if r['forward_to'] in addrs:
                 local_copy = "+ local delivery (%s)" % enabled
             else:
                 forw.append("%s (%s) " % (r['forward_to'], enabled))
@@ -551,6 +583,15 @@ class BofhdExtension(object):
 
     def _email_info_multi(self, addr, et):
         ret = []
+        # a multi target does not need a primary address target, but
+        # let's handle it just in case.
+        epat = Email.EmailPrimaryAddressTarget(self.db)
+        try:
+            epat.find(et.email_target_id)
+        except Errors.NotFoundError:
+            pass
+        else:
+            ret.append({'multi_def_addr': self.__get_address(epat)})
         addr_list = []
         for r in et.get_addresses():
             addr_list.append("%(local_part)s@%(domain)s" % r)
@@ -579,13 +620,91 @@ class BofhdExtension(object):
                     continue
                 acc.clear()
                 acc.find(member_id)
-                fwds.append(acc.get_primary_mailaddress())
+                try:
+                    addr = acc.get_primary_mailaddress()
+                except Errors.NotFoundError:
+                    addr = "(account %s has no e-mail)" % acc.account_name
+                fwds.append(addr)
             if fwds:
                 ret.append({'multi_forward_1': fwds[0]})
                 for idx in range(1, len(fwds)):
                     ret.append({'multi_forward': fwds[idx]})
         return ret
-    
+
+    def _email_info_pipe(self, addr, et):
+        acc = self._get_account(et.email_target_using_uid, idtype='id')
+        addrs = self.__get_valid_email_addrs(et)
+        data = [{'pipe_addr_1': addrs[0],
+                 'pipe_cmd': et.get_alias(),
+                 'pipe_runas': acc.account_name}]
+        for idx in range(1, len(addrs)):
+            data.append({'pipe_addr': addrs[idx]})
+        return data
+
+    # email create_archive <list-address>
+    all_commands['email_create_archive'] = Command(
+        ("email", "create_archive"),
+        EmailAddress(help_ref="mailman_list"),
+        perm_filter="can_email_archive_create")
+    def email_create_archive(self, operator, listname):
+        """Create e-mail address for archiving messages.  Also adds a
+        request to create the needed directories on the web server."""
+        lp, dom = listname.split('@')
+        ed = self._get_email_domain(dom)
+        self.ba.can_email_archive_create(operator.get_entity_id(), ed)
+        self._check_mailman_official_name(listname)
+        ea = Email.EmailAddress(self.db)
+        try:
+            ea.find_by_local_part_and_domain(lp + "-archive",
+                                             ed.email_domain_id)
+        except Errors.NotFoundError:
+            pass
+        else:
+            raise CerebrumError, ("%s-archive@%s already exists" % (lp, dom))
+        archive_user = 'www'
+        archive_prog = '/local/share/mta/bin/new-archive-monthly'
+        arch = lp.lower() + "-archive"
+        dc = dom.lower().split('.'); dc.reverse()
+        archive_dir = "/".join(["/uio/caesar/mailarkiv"] + dc + [arch])
+        et = Email.EmailTarget(self.db)
+        et.populate(self.const.email_target_pipe,
+                    alias="|%s %s" % (archive_prog, archive_dir),
+                    using_uid=self._get_account(archive_user).entity_id)
+        et.write_db()
+        ea = Email.EmailAddress(self.db)
+        ea.populate(arch, ed.email_domain_id, et.email_target_id)
+        ea.write_db()
+        # TODO: add bofh request to run mkdir on www
+        return ("OK, now run ssh www 'mkdir -p %s; chown www %s; chmod o= %s'" %
+                (archive_dir, archive_dir, archive_dir))
+
+
+    # email delete_archive <address>
+    all_commands['email_delete_archive'] = Command(
+        ("email", "delete_archive"),
+        EmailAddress(help_ref="email_address"),
+        fs=FormatSuggestion([("Deleted address: %s", ("address", ))]),
+        perm_filter="can_email_archive_delete")
+    def email_delete_archive(self, operator, addr):
+        lp, dom = addr.split('@')
+        ed = self._get_email_domain(dom)
+        et, acc = self.__get_email_target_and_account(addr)
+        if et.email_target_type <> self.const.email_target_pipe:
+            raise CerebrumError, "%s: Not a archive target" % addr
+        # we can imagine passing along the name of the mailing list
+        # to the auth function in the future.
+        self.ba.can_email_archive_delete(operator.get_entity_id(), ed)
+        # All OK, let's nuke it all.
+        result = []
+        ea = Email.EmailAddress(self.db)
+        for r in et.get_addresses():
+            ea.clear()
+            ea.find(r['address_id'])
+            result.append({'address': self.__get_address(ea)})
+            ea.delete()
+        et.delete()
+        return result
+
     # email create_list <list-address> [admin,admin,admin]
     all_commands['email_create_list'] = Command(
         ("email", "create_list"),
@@ -597,10 +716,14 @@ class BofhdExtension(object):
         list.  Also adds a request to create the list on the Mailman
         server."""
         lp, dom = listname.split('@')
-        ed = Email.EmailDomain(self.db)
-        ed.find_by_domain(dom)
-        self.ba.can_email_list_create(operator.get_entity_id(),
-                                      ed.email_domain_id)
+        ed = self._get_email_domain(dom)
+        self.ba.can_email_list_create(operator.get_entity_id(), ed)
+        self._check_mailman_official_name(listname)
+        if mlist is None:
+            raise CerebrumError, "%s is not a Mailman list" % listname
+        if listname <> mlist:
+            raise CerebrumError, ("%s is not the official name of the list %s" %
+                                  (listname, mlist))
         try:
             self._get_account(lp)
         except CerebrumError:
@@ -623,13 +746,9 @@ class BofhdExtension(object):
     def email_create_list_alias(self, operator, listname, address):
         """Create a secondary name for an existing Mailman list."""
         lp, dom = address.split('@')
-        ed = Email.EmailDomain(self.db)
-        ed.find_by_domain(dom)
-        self.ba.can_email_list_create(operator.get_entity_id(),
-                                      ed.email_domain_id)
-        if listname <> self._get_mailman_list(listname):
-            raise CerebrumError, ("%s is not the official name of the list" %
-                                  listname)
+        ed = self._get_email_domain(dom)
+        self.ba.can_email_list_create(operator.get_entity_id(), ed)
+        self._check_mailman_official_name(listname)
         try:
             self._get_account(lp)
         except CerebrumError:
@@ -637,6 +756,9 @@ class BofhdExtension(object):
         else:
             raise CerebrumError, ("Won't create list %s, as %s is an "
                                   "existing username") % (address, lp)
+        # we _don't_ check for "more than 8 characters in local
+        # part OR it contains hyphen" since we assume the people
+        # who have access to this command know what they are doing
         self._register_list_addresses(listname, lp, dom)
         return "OK"
 
@@ -648,13 +770,9 @@ class BofhdExtension(object):
         perm_filter="can_email_list_delete")
     def email_delete_list(self, operator, listname):
         lp, dom = listname.split('@')
-        ed = Email.EmailDomain(self.db)
-        ed.find_by_domain(dom)
-        self.ba.can_email_list_delete(operator.get_entity_id(),
-                                      ed.email_domain_id)
-        if listname <> self._get_mailman_list(listname):
-            raise CerebrumError, ("%s is not the official name of the list" %
-                                  listname)
+        ed = self._get_email_domain(dom)
+        self.ba.can_email_list_delete(operator.get_entity_id(), ed)
+        self._check_mailman_official_name(listname)
         # All OK, let's nuke it all.
         result = []
         et = Email.EmailTarget(self.db)
@@ -692,6 +810,15 @@ class BofhdExtension(object):
             raise CerebrumError, ("Unrecognised pipe command for Mailman list:"+
                                   et.email_target_alias)
         return m.group(2)
+    
+    def _check_mailman_official_name(self, listname):
+        mlist = self._get_mailman_list(listname)
+        if mlist is None:
+            raise CerebrumError, "%s is not a Mailman list" % listname
+        if listname <> mlist:
+            raise CerebrumError, ("%s is not the official name of the list %s" %
+                                  (listname, mlist))
+
 
     def _register_list_addresses(self, listname, lp, dom):
         """Add list, owner and request addresses.  listname is the
@@ -706,10 +833,11 @@ class BofhdExtension(object):
         ea = Email.EmailAddress(self.db)
         try:
             ea.find_by_local_part_and_domain(lp, ed.email_domain_id)
-            raise CerebrumError, ("The address %s@%s is already in use" %
-                                  (lp, dom))
         except Errors.NotFoundError:
             pass
+        else:
+            raise CerebrumError, ("The address %s@%s is already in use" %
+                                  (lp, dom))
 
         mailman = self._get_account("mailman", actype="PosixUser")
 
@@ -744,6 +872,79 @@ class BofhdExtension(object):
                 ea.clear()
                 ea.populate(addr_lp, ed.email_domain_id, et.email_target_id)
                 ea.write_db()
+
+    # email create_multi <multi-address> <group>
+    all_commands['email_create_multi'] = Command(
+        ("email", "create_multi"),
+        EmailAddress(help_ref="email_address"),
+        GroupName(help_ref="group_name_dest"),
+        perm_filter="can_email_multi_create")
+    def email_create_multi(self, operator, addr, group):
+        """Create en e-mail target of type 'multi' expanding to
+        members of group, and associate the e-mail address with this
+        target."""
+        lp, dom = addr.split('@')
+        ed = self._get_email_domain(dom)
+        gr = self._get_group(group)
+        self.ba.can_email_multi_create(operator.get_entity_id(), ed, gr)
+        ea = Email.EmailAddress(self.db)
+        try:
+            ea.find_by_local_part_and_domain(lp, ed.email_domain_id)
+        except Errors.NotFoundError:
+            pass
+        else:
+            raise CerebrumError, "Address <%s> is already in use" % addr
+        et = Email.EmailTarget(self.db)
+        et.populate(self.const.email_target_multi,
+                    entity_type = self.const.entity_group,
+                    entity_id = gr.entity_id)
+        et.write_db()
+        ea.clear()
+        ea.populate(lp, ed.email_domain_id, et.email_target_id)
+        ea.write_db()
+        epat = Email.EmailPrimaryAddressTarget(self.db)
+        epat.populate(ea.email_addr_id, parent=et)
+        epat.write_db()
+        return "OK"
+
+    # email delete_multi <address>
+    all_commands['email_delete_multi'] = Command(
+        ("email", "delete_multi"),
+        EmailAddress(help_ref="email_address"),
+        fs=FormatSuggestion([("Deleted address: %s", ("address", ))]),
+        perm_filter="can_email_multi_delete")
+    def email_delete_multi(self, operator, addr):
+        lp, dom = addr.split('@')
+        ed = self._get_email_domain(dom)
+        et, acc = self.__get_email_target_and_account(addr)
+        if et.email_target_type <> self.const.email_target_multi:
+            raise CerebrumError, "%s: Not a multi target" % addr
+        if et.email_target_entity_type <> self.const.entity_group:
+            raise CerebrumError, "%s: Does not point to a group!" % addr
+        gr = self._get_group(et.email_target_entity_id, idtype="id")
+        self.ba.can_email_multi_delete(operator.get_entity_id(), ed, gr)
+        epat = Email.EmailPrimaryAddressTarget(self.db)
+        try:
+            epat.find(et.email_target_id)
+        except Errors.NotFoundError:
+            # a multi target does not need a primary address
+            pass
+        else:
+            # but if one exists, we require the user to supply that
+            # address, not an arbitrary alias.
+            if addr <> self.__get_address(epat):
+                raise CerebrumError, ("%s is not the primary address of "+
+                                      "the target") % addr
+        # All OK, let's nuke it all.
+        epat.delete()
+        result = []
+        ea = Email.EmailAddress(self.db)
+        for r in et.get_addresses():
+            ea.clear()
+            ea.find(r['address_id'])
+            result.append({'address': self.__get_address(ea)})
+            ea.delete()
+        return result
 
     # email migrate
     all_commands['email_migrate'] = Command(
@@ -1140,7 +1341,37 @@ class BofhdExtension(object):
                 raise CerebrumError, ("Account '%s' has no email target" %
                                       address)
         return et, acc
-
+    
+    def __get_address(self, etarget):
+        """The argument can be
+        - EmailPrimaryAddressTarget
+        - EmailAddress
+        - EmailTarget (look up primary address and return that, throw
+        exception if there is no primary address)
+        - integer (use as email_target_id and look up that target's
+        primary address)
+        The return value is a text string containing the e-mail
+        address.  Special domain names are not rewritten."""
+        ea = Email.EmailAddress(self.db)
+        if isinstance(etarget, (int, long, float)):
+            epat = Email.EmailPrimaryAddressTarget(self.db)
+            # may throw exception, let caller handle it
+            epat.find(etarget)
+            ea.find(epat.email_primaddr_id)
+        elif isinstance(etarget, Email.EmailTarget):
+            epat = Email.EmailPrimaryAddressTarget(self.db)
+            epat.find(etarget.email_target_id)
+            ea.find(epat.email_primaddr_id)
+        elif isinstance(etarget, Email.EmailPrimaryAddressTarget):
+            ea.find(etarget.email_primaddr_id)
+        elif isinstance(etarget, Email.EmailAddress):
+            ea = etarget
+        else:
+            raise ValueError, "Unknown argument (%s)" % repr(etarget)
+        ed = Email.EmailDomain(self.db)
+        ed.find(ea.email_addr_domain_id)
+        return ("%s@%s" % (ea.email_addr_local_part,
+                           ed.email_domain_name))
 
     #
     # entity commands
@@ -2941,10 +3172,10 @@ class BofhdExtension(object):
                               "Entity id:     %i",
                               ("spread", "affiliations", format_day("expire"),
                                "home", "entity_id")),
-                             ("uid:           %i\n" +
-                              "default fg:    %i=%s\n" +
-                              "gecos:         %s\n" +
-                              "shell:         %s",
+                             ("UID:           %i\n" +
+                              "Default fg:    %i=%s\n" +
+                              "Gecos:         %s\n" +
+                              "Shell:         %s",
                               ('uid', 'dfg_posix_gid', 'dfg_name', 'gecos',
                                'shell')),
                              ("Quarantined:   %s",
@@ -3366,6 +3597,14 @@ class BofhdExtension(object):
         except Errors.NotFoundError:
             raise CerebrumError, "Could not find %s with %s=%s" % (actype, idtype, id)
         return account
+
+    def _get_email_domain(self, name):
+        ed = Email.EmailDomain(self.db)
+        try:
+            ed.find_by_domain(name)
+        except Errors.NotFoundError:
+            raise CerebrumError, "Unknown e-mail domain (%s)" % name
+        return ed
 
     def _get_host(self, name):
         host = Utils.Factory.get('Host')(self.db)
