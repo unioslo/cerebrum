@@ -310,6 +310,7 @@ public class JBofh {
             System.exit(1);
         }
         cLine = new CommandLine(logger, this, idleWarnDelay, idleTerminateDelay);
+        readVersion();
     }
 
     public void initialLogin(String uname, String password) 
@@ -322,7 +323,7 @@ public class JBofh {
             showMessage(msg, true);
 
         initCommands();
-	showMessage("Welcome to jbofh, v "+getVersion()+", type \"help\" for help", true);
+	showMessage("Welcome to jbofh, v "+version+", type \"help\" for help", true);
     }
     
     protected void loadPropertyFiles(String fname) {
@@ -341,8 +342,8 @@ public class JBofh {
 	}
     }
 
-    public String getVersion() {
-        String version = "Error reading version file";
+    private void readVersion() {
+        version = "Error reading version file";
 	URL url = ResourceLocator.getResource(this, "/version.txt");
         if(url != null) {
             try {
@@ -351,7 +352,6 @@ public class JBofh {
                 br.close();
             } catch (IOException e) {}  // ignore failure
         }
-        return version;
     }
 
     public boolean login(String uname, String password) throws BofhdException {
@@ -856,6 +856,7 @@ public class JBofh {
                 System.exit(0);
 	    } else {
 		System.out.println(msg);
+                System.exit(0);
 	    }
 	}
     }    
