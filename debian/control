@@ -1,0 +1,17 @@
+Source: cerebrum
+Section: unknown
+Priority: optional
+Maintainer: Andreas Schuldei <andreas@schuldei.org>
+Build-Depends: debhelper (>= 4.0.0)
+Standards-Version: 3.6.0
+
+Package: cerebrum
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: <insert up to 60 chars description>
+ <insert long description, indented with spaces>
+
+Package: cerebrum-doc
+Architecture: all
+Description: Documentation for cerebrum
+ <insert long description, indented with spaces>
