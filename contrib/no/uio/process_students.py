@@ -51,6 +51,7 @@ derived_person_affiliations = {}
 person_student_affiliations = {}
 has_quota = {}
 processed_students = {}
+processed_accounts = {}
 keep_account_home = {}
 paid_paper_money = {}
 account_id2fnr = {}
@@ -121,7 +122,7 @@ class AccountUtil(object):
                                             'home': {},
                                             'gid': None,
                                             'quarantines': [],
-                                            'disk_kvote': None}
+                                            'disk_kvote': {}}
         AccountUtil.update_account(account.entity_id, fnr, profile, as_posix)
         return account.entity_id
     create_user=staticmethod(create_user)
@@ -182,7 +183,7 @@ class AccountUtil(object):
                     homedir_id = user.set_homedir(
                         disk_id=new_disk, status=const.home_status_not_created)
                     user.set_home(disk_spread, homedir_id)
-                    accounts[account_id]['homedir_id'] = homedir_id
+                    accounts[account_id]['home'][disk_spread] = (new_disk, homedir_id)
                 else:
                     br = BofhdRequests(db, const)
                     # TBD: Is it correct to set requestee_id=None?
@@ -212,8 +213,7 @@ class AccountUtil(object):
                 user.add_entity_quarantine(
                     dta[0], default_creator_id, 'automatic', start_at)
             elif c_id == 'disk_kvote':
-                disk_quota_obj.set_quota(
-                    accounts[account_id]['homedir_id'], quota=int(dta[0]))
+                disk_quota_obj.set_quota(dta[0], quota=int(dta[1]))
             else:
                 raise ValueError, "Unknown change: %s" % c_id
         tmp = user.write_db()
@@ -250,6 +250,7 @@ class AccountUtil(object):
         # First fill 'changes' with all needed modifications.  We will
         # only lookup databaseobjects if changes is non-empty.
         logger.info2(" UPDATE:%s" % account_id)
+        processed_accounts[account_id] = True
         changes = []
         ac = accounts[account_id]
         if as_posix:
@@ -272,7 +273,7 @@ class AccountUtil(object):
         for s in autostud.pc.disk_spreads.keys():
             tmp = ac['home'].get(s, None)
             if (tmp and
-                autostud.student_disk.has_key(int(tmp))):
+                autostud.student_disk.has_key(int(tmp[0]))):
                 may_be_quarantined = True
 
         current_disk_id = None
@@ -280,7 +281,7 @@ class AccountUtil(object):
             if not disk_spread in user_spreads:
                 # The disk-spread in disk-defs was not one of the users spread
                 continue 
-            current_disk_id = ac['home'].get(disk_spread, None)
+            current_disk_id = ac['home'].get(disk_spread, [None])[0]
             if keep_account_home[fnr] and (move_users or current_disk_id is None):
                 try:
                     new_disk = profile.get_disk(disk_spread, current_disk_id)
@@ -291,10 +292,16 @@ class AccountUtil(object):
                     changes.append(('disk', (current_disk_id, disk_spread, new_disk)))
                     current_disk_id = new_disk
 
-        if current_disk_id is not None and autostud.pc.using_disk_kvote:
-            quota = profile.get_disk_kvote(current_disk_id)
-            if ac['disk_kvote'] != quota:
-                changes.append(('disk_kvote', (quota,)))
+        if autostud.pc.using_disk_kvote:
+            for spread, (disk_id, homedir_id) in accounts[
+                account_id]['home'].items():
+                if not autostud.student_disk.has_key(disk_id):
+                    # Setter kun kvote på student-disker
+                    continue
+                quota = profile.get_disk_kvote(disk_id)
+                if ac['disk_kvote'].get(homedir_id, None) != quota:
+                    changes.append(('disk_kvote', (homedir_id, quota)))
+                    ac['disk_kvote'][homedir_id] = quota
 
         # TBD: Is it OK to ignore date on existing quarantines when
         # determining if it should be added?
@@ -578,7 +585,7 @@ class BuildAccounts(object):
                     'personnr': p})
     _process_unprocessed_students=staticmethod(_process_unprocessed_students)
 
-def start_process_students():
+def start_process_students(recalc_pq=False, update_create=False):
     global autostud, accounts, persons
 
     logger.info("process_students started")
@@ -591,7 +598,7 @@ def start_process_students():
     logger.info("got student accounts")
     if recalc_pq:
         RecalcQuota.recalc_pq_main()
-    else:
+    elif update_create:
         BuildAccounts.update_accounts_main()
     logger.info("process_students finished")
 
@@ -622,7 +629,7 @@ def get_existing_accounts():
                                'spreads': [spread_id], 'groups': [group_id],
                                'affs': [(aff, ou)],
                                'expire_date': expire_date,
-                               'home': {spread: disk_id}}}
+                               'home': {spread: (disk_id, homedir_id)}}}
     """
     persons = {}
 
@@ -667,7 +674,7 @@ def get_existing_accounts():
             'groups': [],
             'affs': [],
             'quarantines': [],
-            'disk_kvote': None}
+            'disk_kvote': {}}
     # PosixGid
     for row in posix_user_obj.list_posix_users():
         tmp = accounts.get(int(row['account_id']), None)
@@ -688,7 +695,7 @@ def get_existing_accounts():
     for row in disk_quota_obj.list_quotas():
         tmp = accounts.get(int(row['account_id']), None)
         if tmp is not None:
-            tmp['disk_kvote'] = row['quota']
+            tmp['disk_kvote'][int(row['homedir_id'])] = row['quota']
     # Spreads
     for spread_id in autostud.pc.spread_defs:
         spread = const.Spread(spread_id)
@@ -711,8 +718,8 @@ def get_existing_accounts():
     for row in account_obj.list_account_home():
         tmp = accounts.get(int(row['account_id']), None)
         if tmp is not None and row['disk_id']:
-            tmp['home'][int(row['home_spread'])] = int(row['disk_id'])
-            tmp['homedir_id'] = int(row['homedir_id'])
+            tmp['home'][int(row['home_spread'])] = (
+                int(row['disk_id']), int(row['homedir_id']))
             
     # Group memberships (TODO: currently only handles union members)
     for group_id in autostud.pc.group_defs.keys():
@@ -928,9 +935,25 @@ def validate_config():
                       studieprogs_file=studieprogs_file,
                       emne_info_file=emne_info_file)
 
+def list_noncallback_users(fname):
+    """Dump accounts on student-disk that did not get a callback
+    resulting in update_account."""
+    
+    f = file(fname, 'w')
+    on_student_disk = {}
+    for row in account_obj.list_account_home():
+        if autostud.student_disk.has_key(int(row['disk_id'] or 0)):
+            on_student_disk[int(row['account_id'])] = True
+
+    for ac_id in on_student_disk.keys():
+        if processed_accounts.has_key(ac_id):
+            continue
+        f.write("%i\n" % ac_id)
+    f.close()
+
 def main():
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'dcus:C:S:e:p:',
+        opts, args = getopt.getopt(sys.argv[1:], 'dcus:C:S:e:p:G:',
                                    ['debug', 'create-users', 'update-accounts',
                                     'student-info-file=', 'only-dump-results=',
                                     'studconfig-file=', 'fast-test', 'with-lpr',
@@ -946,7 +969,7 @@ def main():
         usage(str(e))
     global debug, fast_test, create_users, update_accounts, logger, skip_lpr
     global student_info_file, studconfig_file, only_dump_to, studieprogs_file, \
-           recalc_pq, dryrun, emne_info_file, move_users, remove_groupmembers, \
+           dryrun, emne_info_file, move_users, remove_groupmembers, \
            workdir, paper_money_file, ou_perspective, with_quarantines
 
     skip_lpr = True       # Must explicitly tell that we want lpr
@@ -960,6 +983,7 @@ def main():
     paper_money_file = None         # Default: don't check for paid paper money
     to_stdout = False
     log_level = AutoStud.Util.ProgressReporter.DEBUG
+    non_callback_fname = None
     for opt, val in opts:
         if opt in ('-d', '--debug'):
             debug += 1
@@ -987,6 +1011,8 @@ def main():
             move_users = True
         elif opt in ('-C', '--studconfig-file'):
             studconfig_file = val
+        elif opt in ('-G',):
+            non_callback_fname = val
         elif opt in ('--fast-test',):  # Internal debug use ONLY!
             fast_test = True
         elif opt in ('--ou-perspective',):
@@ -1013,13 +1039,9 @@ def main():
         else:
             usage("Unimplemented option: " + opt)
 
-    if (not update_accounts and not create_users and not validate and
-          range is None):
-        if not recalc_pq:
-            usage("no mode of operation selected")
-    else:
-        if recalc_pq:
-            raise ValueError, "recalc-pq cannot be combined with other operations"
+    if recalc_pq and (update_accounts or create_users):
+        raise ValueError, "recalc-pq cannot be combined with other operations"
+
     if workdir is None:
         workdir = "%s/ps-%s.%i" % (cereconf.AUTOADMIN_LOG_DIR,
                                    strftime("%Y-%m-%d", localtime()),
@@ -1036,38 +1058,59 @@ def main():
         sys.exit(0)
     if range is not None:
         make_letters("letters.info", type=type, range=val)
-    else:
-        start_process_students()
+        return
+
+    if not (recalc_pq or update_accounts or create_users or
+            non_callback_fname):
+        usage("No action selected")
+
+    start_process_students(recalc_pq=recalc_pq,
+                           update_create=(create_users or non_callback_fname))
+    if non_callback_fname:
+        list_noncallback_users(non_callback_fname)
     
 def usage(error=None):
     if error:
         print "Error:", error
-    print """Usage: process_students.py -d | -c | -u
-    -d | --debug: increases debug verbosity
-    -c | --create-user : create new users
-    -u | --update-accounts : update existing accounts
-    -s | --student-info-file file:
-    -e | --emne-info-file file:
-    -C | --studconfig-file file:
-    -S | --studie-progs-file file:
-    -p | --paper-file file: check for paid-quota only done if set
-    --ou-perspective code_str: set ou_perspective (default: perspective_fs)
-    --dryrun: don't do any changes to the database.  This can be used
-      to get an idea of what changes a normal run would do.  TODO:
-      also dryrun some parts of update/create user.
-    --validate: parse the configuration file and report any errors,
-      then exit.
-    --recalc-pq : recalculate printerquota settings (does not update
-      quota).  Cannot be combined with -c/-u
-    --only-dump-results file: just dump results with pickle without
-      entering make_letters
-    --workdir dir:  set workdir for --reprint
-    --remove-groupmembers: remove groupmembers if profile says so
-    --move-users: move users if profile says so
-    --type type: set type (=the mal attribute to <brev> in studconfig.xml) for --reprint
-    --reprint range:  Re-print letters in case of paper-jam etc. (comma separated)
-    --with-lpr: Spool the file with new user letters to printer
-    --with-quarantines: Enables quarantine settings
+    print """Usage: process_students.py
+    Actions:
+      -c | --create-user : create new users
+      -u | --update-accounts : update existing accounts
+      --reprint range:  Re-print letters in case of paper-jam etc. (comma
+        separated)
+      --recalc-pq : recalculate printerquota settings (does not update
+        quota).  Cannot be combined with -c/-u
+      -G file : Dump account_id for users on student disks that did not
+       get a callback.
+
+    Input files:
+      -s | --student-info-file file:
+      -e | --emne-info-file file:
+      -C | --studconfig-file file:
+      -S | --studie-progs-file file:
+      -p | --paper-file file: check for paid-quota only done if set
+
+    Other settings:
+      --only-dump-results file: just dump results with pickle without
+        entering make_letters
+      --workdir dir:  set workdir for --reprint
+      --with-lpr: Spool the file with new user letters to printer
+
+    Action limiters/enablers:
+      --remove-groupmembers: remove groupmembers if profile says so
+      --move-users: move users if profile says so
+      --with-quarantines: Enables quarantine settings
+
+    Misc:
+      -d | --debug: increases debug verbosity
+      --ou-perspective code_str: set ou_perspective (default: perspective_fs)
+      --dryrun: don't do any changes to the database.  This can be used
+        to get an idea of what changes a normal run would do.  TODO:
+        also dryrun some parts of update/create user.
+      --validate: parse the configuration file and report any errors,
+        then exit.
+      --type type: set type (=the mal attribute to <brev> in studconfig.xml)
+        for --reprint
 
 To create new users:
   ./contrib/no/uio/process_students.py -C .../studconfig.xml -S .../studieprogrammer.xml -s .../merged_persons.xml -c
