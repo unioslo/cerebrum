@@ -496,6 +496,7 @@ class BofhdServer(object):
         self.const = Factory.get('Constants')(database)
         self.cmd2instance = {}
         self.cmd_instances = []
+        self.logger = logger
 
         config_file = file(config_fname)
         while True:
