@@ -210,7 +210,7 @@ def create(req, birthnr="", gender="", birthdate="", ou="", affiliation="", aff_
     page.content = lambda: create.form(req)
     return page
 
-def save(req, id, gender, birthdate, description, deceased):
+def save(req, id, gender, birthdate, description, deceased, save):
     """Store the form for editing a person into the database."""
     server = req.session.get("active")
     person = _get_person(req, id)

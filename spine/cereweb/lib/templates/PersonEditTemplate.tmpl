@@ -75,7 +75,7 @@ $view_entity($person, $req)
     <label for="gender">$_('Gender'):</label>
     <select name="gender">
     #for $name, $desc in $genders
-        <option id="$name">$desc</option>
+        <option value="$name">$desc</option>
     #end for
     </select><br />
 #end def
@@ -85,11 +85,11 @@ $view_entity($person, $req)
     <label for="$name">$_('$label'):</label>
     <select name="$name">
     #if $default
-        <option id="True">True</option>
-        <option id="False">False</option>
+        <option value="True">True</option>
+        <option value="False">False</option>
     #else
-        <option id="False">False</option>
-        <option id="True">True</option>
+        <option value="False">False</option>
+        <option value="True">True</option>
     #end if
     </select><br />
 #end def
