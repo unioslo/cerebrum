@@ -20,9 +20,9 @@
 
 import sys
 import os
-import omniORB
-import CosNaming
-from omniORB import CORBA, sslTP
+import urllib
+
+from omniORB import CORBA, sslTP, importIDL, importIDLString
 
 import config
 
@@ -36,25 +36,12 @@ idl_errors = os.path.join(idl_path, config.conf.get('idl', 'errors'))
 
 def connect(args=[]):
     """ 
-    Method for connecting to a CORBA name service
-    and fetch the Gro object. The method prefers
-    SSL connections.
+    Method for connecting and fetch the Gro object.
+    The method prefers SSL connections.
     """
     orb = CORBA.ORB_init(args + ['-ORBendPoint', 'giop:ssl::'], CORBA.ORB_ID)
-    # Get the name service and narrow the root context
-    obj = orb.resolve_initial_references("NameService")
-    rootContext = obj._narrow(CosNaming.NamingContext)
-
-    if rootContext is None:
-        raise Exception("Could not narrow the root naming context")
-
-    # Fetch gro using the name service
-    name = [CosNaming.NameComponent(config.conf.get('corba', 'context'),
-                                    config.conf.get('corba', 'service')),
-            CosNaming.NameComponent(config.conf.get('corba', 'object'), "")]
-
-    obj = rootContext.resolve(name)
-
+    ior = urllib.urlopen(config.conf.get('corba', 'url')).read()
+    obj = orb.string_to_object(ior)
     gro = obj._narrow(Cerebrum_core.Gro)
     if gro is None:
         raise Exception("Could not narrow the gro object")
@@ -84,12 +71,12 @@ if config.conf.getboolean('gro', 'cache'):
         os.system('omniidl -bpython -C %s -I%s %s' % (cache_dir, idl_path, generated))
         import generated
 else:
-    omniORB.importIDL(idl_gro)
-    omniORB.importIDL(idl_errors)
+    importIDL(idl_gro)
+    importIDL(idl_errors)
     import Cerebrum_core
 
     idl = connect().get_idl()
-    omniORB.importIDLString(idl, ['-I' + idl_path])
+    importIDLString(idl, ['-I' + idl_path])
     import generated
 
 # arch-tag: 5d3a6913-5d66-437b-a8e1-89b123047ada

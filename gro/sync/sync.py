@@ -60,7 +60,7 @@ class Sync:
         # is redesigned 
         # self.lo = self.gro.get_lo_handler()
         try:
-            self.ap = self.gro.get_ap_handler(user, password)
+            self.ap = self.gro.login(user, password)
         except GroErrors.LoginError, e:
             raise LoginError, user
    
@@ -83,7 +83,7 @@ class Sync:
     def get_accounts(self):
         """Get all accounts from Gro. Returns a list of Account objects."""
         t = self._transaction()
-        search = t.get_account_search()
+        search = t.get_account_searcher()
         accounts = search.search()
         results = []
         for account in accounts:
@@ -94,7 +94,7 @@ class Sync:
 
     def get_groups(self):
         t = self._transaction()
-        search = t.get_group_search()
+        search = t.get_group_searcher()
         groups = search.search()
         results = []
         for group in groups:
@@ -161,8 +161,7 @@ class Account:
             self.shell = None
         else:    
             # Rest of POSIX stuff 
-            # get_gid returns a Group instance, not a gid =)
-            group = account.get_gid() 
+            group = account.get_primary_group() 
             self.gid = group.get_posix_gid()
             self.uid = account.get_posix_uid()
             self.shell = account.get_shell().get_shell()
@@ -206,7 +205,7 @@ class TestTransaction(unittest.TestCase):
         self.t.rollback()    
 
     def testAccountSearch(self):
-        search = self.t.get_account_search()
+        search = self.t.get_account_searcher()
         result = search.search()
         assert len(result) > 0
             
@@ -247,7 +246,16 @@ class TestSync(unittest.TestCase):
         assert not bootstrap.uid 
         assert not bootstrap.gid
         assert not bootstrap.shell
-            
+
+    def testGetGroups(self):
+        groups = self.s.get_groups()
+        assert groups
+        # We can assume that bootstrap_group exists for now 
+        has_bootstrap = filter(lambda g: g.name == 'bootstrap_group', groups)
+        assert has_bootstrap
+        bootstrap = has_bootstrap[0]
+        assert "bootstrap_account" in bootstrap.membernames
+        assert not bootstrap.gid
 
 if __name__ == "__main__":
     unittest.main()
