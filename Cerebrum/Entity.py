@@ -683,11 +683,17 @@ class EntityQuarantine(Entity):
         self._db.log_change(self.entity_id, self.const.quarantine_add,
                             None, change_params={'q_type': int(type)})
 
-    def get_entity_quarantine(self, type=None):
+    def get_entity_quarantine(self, type=None, only_active=False):
+        if only_active:
+            where = """AND start_date <= [:now] AND (
+            end_date IS NULL OR end_date < [:now]) AND (
+            disable_until IS NULL OR disable_until <= [:now])"""
+        else:
+            where = ""
         return Utils.keep_entries(
             self.query("""
             SELECT * FROM [:table schema=cerebrum name=entity_quarantine]
-            WHERE entity_id=:e_id""", {'e_id': self.entity_id}),
+            WHERE entity_id=:e_id %s""" % where, {'e_id': self.entity_id}),
             ('quarantine_type', type))
 
     def disable_entity_quarantine(self, type, until):
