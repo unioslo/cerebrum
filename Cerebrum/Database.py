@@ -744,7 +744,13 @@ class PostgreSQL(Database):
 
     _db_mod = "pyPgSQL.PgSQL"
 
-    def connect(self, user=None, password=None, service=None):
+    def connect(self, user=None, password=None, service=None,
+                # Not sure that this is the proper default, but as a
+                # quick hack it seems to work for us here in Norway.
+                client_encoding='ISO_8859_1',
+                # This might not be the correct default for Cerebrum,
+                # but seems to work OK in the shorter term.
+                unicode_results=False):
         cdata = self._connect_data
         cdata.clear()
         cdata['arg_user'] = user
@@ -759,11 +765,29 @@ class PostgreSQL(Database):
         cdata['real_user'] = user
         cdata['real_password'] = password
         cdata['real_service'] = service
-        super(PostgreSQL, self).connect(user = user, password = password,
-                                        database = service)
-        # TBD: This is a hack, and probably not the correct fix.
-        self.execute("SET CLIENT_ENCODING TO 'ISO_8859_1'")
 
+        super(PostgreSQL, self).connect(user = user,
+                                        password = password,
+                                        database = service,
+                                        client_encoding = client_encoding,
+                                        unicode_results = unicode_results)
+
+        # Ensure that pyPgSQL and PostgreSQL client agrees on what
+        # encoding to use.
+        if client_encoding is not None:
+            if isinstance(client_encoding, str):
+                enc = client_encoding
+            elif isinstance(client_encoding, tuple):
+                enc = client_encoding[0]
+            self.execute("SET CLIENT_ENCODING TO '%s'" % client_encoding)
+            # Need to commit here, and as no real work has been done
+            # yet, it should be safe.
+            #
+            # Without an explicit COMMIT, a ROLLBACK (either explicit
+            # or implicit, e.g. as the result of some statement
+            # causing a failure) will reset the PostgreSQL's client to
+            # CLIENT_ENCODING = 'default charset for database'.
+            self.commit()
 
     # According to its documentation, this driver module implements
     # the Binary constructor as a method of the connection object.
