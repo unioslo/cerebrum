@@ -265,6 +265,19 @@ class EntityContactInfo(object):
 class EntityAddress(object):
     "Mixin class, usable alongside Entity for entities having addresses."
 
+    # TBD: Does this mixin really have to keep state?  If no, it won't
+    # have to use the mark_update machinery at all.  If yes, the
+    # implementation should be cleaned up.
+    __metaclass__ = Utils.mark_update
+    __write_attr__ = ('_address_info', '_affect_source', '_affect_types')
+
+    def clear(self):
+        super(EntityAddress, self).clear()
+        self._affect_source = None
+        self._affect_types = None
+        self._address_info = {}
+        self.__updated = False
+
     def __eq__(self, other):
         """Note: The object that affect_addresses has been called on
         must be on the left side of the equal sign, otherwise we don't
@@ -367,12 +380,6 @@ class EntityAddress(object):
                     delete_entity_address(self._affect_source, type)
                 else:
                     raise
-
-    def clear(self):
-        super(EntityAddress, self).clear()
-        self._affect_source = None
-        self._affect_types = None
-        self._address_info = {}
 
     def add_entity_address(self, source, type, address_text=None,
                             p_o_box=None, postal_number=None, city=None,
