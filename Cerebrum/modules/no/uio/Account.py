@@ -111,8 +111,7 @@ class AccountUiOMixin(Account.Account):
                 br.add_request(None,	# Requestor
                                br.now, self.const.bofh_email_will_move,
                                self.entity_id, est.email_server_id,
-                               state_data = {'depend_req': reqid,
-                                             'source_server': old_server})
+                               state_data = reqid)
             # The user's email target is now associated with an email
             # server; try generating email addresses connected to the
             # target.
