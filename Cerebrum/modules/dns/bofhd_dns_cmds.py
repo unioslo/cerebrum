@@ -136,6 +136,7 @@ class BofhdExtension(object):
             'ip_revmap_override': 'Registrer/slett override på reversemap',
             'ip_srv_add': 'Opprette en SRV record',
             'ip_srv_del': 'Fjerne en SRV record',
+            'ip_ttl_set': 'Set TTL for en DNS-owner',
             'ip_txt_set': 'sette TXT',
             },
             }
@@ -166,7 +167,11 @@ class BofhdExtension(object):
              'will be interpreted as a subnet.  You may skip the 129.240 part'],
             'hinfo':
             ['hinfo', 'Enter HINFO code',
-             'Use "ip list_hinfo" to get a list of legal values'],
+             'Use "ip list_hinfo" to get a list of legal values, some examples are:\n'
+             "- unix\n",
+             "- windows\n",
+             "- mac\n",
+             "- nettboks"],
             'mx_set':
             ['mx_set', 'Enter mx_set',
              'Use "ip list_mx_set" to get a list of legal values'],
@@ -234,11 +239,11 @@ class BofhdExtension(object):
     # ip alloc
     all_commands['ip_alloc'] = Command(
         ("ip", "alloc"), HostNameRepeat(), SubNetOrIP(), Hinfo(),
-        MXSet(), Comment(), Contact(), Force(optional=True),
+        Comment(), Contact(), Force(optional=True),
         fs=FormatSuggestion("%-30s %s", ('name', 'ip'),
                             hdr="%-30s %s" % ('name', 'ip')))
     def ip_alloc(self, operator, hostname, subnet_or_ip, hinfo,
-                 mx_set, comment, contact, force=False):
+                 comment, contact, force=False):
         force = self.mb_utils.parse_force(force)
         hostnames = self.mb_utils.parse_hostname_repeat(hostname)
         subnet, ip, ip_ref = self.mb_utils.parse_subnet_or_ip(subnet_or_ip)
@@ -252,7 +257,7 @@ class BofhdExtension(object):
         else:
             free_ip_numbers = [ ip ]
         # If user don't want mx_set, it must be removed with "ip mx_set"
-        mx_set=self.mb_utils.find_mx_set(mx_set)
+        mx_set=self.mb_utils.find_mx_set(cereconf.DNS_DEFAULT_MX_SET)
         ret = []
         for name in hostnames:
             ip = self.mb_utils.alloc_arecord(
@@ -469,11 +474,11 @@ class BofhdExtension(object):
 
     # ip mx_add
     all_commands['ip_mx_add'] = Command(
-        ("ip", "mx_add"), MXSet(), TTL(), Priority(), HostName())
-    def ip_mx_add(self, operator, mx_set, ttl, priority, host_name):
+        ("ip", "mx_add"), MXSet(), Priority(), HostName())
+    def ip_mx_add(self, operator, mx_set, priority, host_name):
         host_ref = self.mb_utils.find_target_by_parsing(
             host_name, dns.DNS_OWNER)
-        self.mb_utils.mx_set_add(mx_set, ttl, priority, host_ref)
+        self.mb_utils.mx_set_add(mx_set, priority, host_ref)
         return "OK, added %s to mx_set %s" % (host_name, mx_set)
 
     # ip mx_del
@@ -560,16 +565,14 @@ class BofhdExtension(object):
         
     # ip srv_add
     all_commands['ip_srv_add'] = Command(
-        ("ip", "srv_add"), ServiceName(), TTL(), Priority(), Weight(),
+        ("ip", "srv_add"), ServiceName(), Priority(), Weight(),
         Port(), HostName())
-    def ip_srv_add(self, operator, service_name, ttl, priority,
+    def ip_srv_add(self, operator, service_name, priority,
                    weight, port, target_name):
         target_id = self.mb_utils.find_target_by_parsing(
             target_name, dns.DNS_OWNER)
-        if ttl:
-            ttl = int(ttl)
         self.mb_utils.alter_srv_record(
-            'add', service_name, ttl, int(priority), int(weight),
+            'add', service_name, int(priority), int(weight),
             int(port), target_id)
         return "OK, added SRV record %s -> %s" % (service_name, target_name)
 
@@ -577,28 +580,44 @@ class BofhdExtension(object):
     all_commands['ip_srv_del'] = Command(
         ("ip", "srv_del"), ServiceName(), TTL(), Priority(), Weight(),
         Port(), HostName())
-    def ip_srv_del(self, operator, service_name, ttl, priority,
-                   weight, port, target_name):
+    def ip_srv_del(self, operator, service_name, priority,
+                   weight, port, target_name , ttl=None):
         target_id = self.mb_utils.find_target_by_parsing(
             target_name, dns.DNS_OWNER)
         if ttl:
             ttl = int(ttl)
         self.mb_utils.alter_srv_record(
-            'del', service_name, ttl, int(priority), int(weight),
+            'del', service_name, int(priority), int(weight),
             int(port), target_id)
         return "OK, deletded SRV record %s -> %s" % (service_name, target_name)
 
 
-    # ip txt
-    all_commands['ip_txt_set'] = Command(
-        ("ip", "txt_set"), HostName(), TXT(), TTL(optional=True))
-    def ip_txt_set(self, operator, host_name, txt, ttl=None):
-        if ttl:
-            ttl = int(ttl)
+    # ip ttl_set
+    all_commands['ip_ttl_set'] = Command(
+        ("ip", "ttl_set"), HostName(), TTL())
+    def ip_ttl_set(self, operator, host_name, ttl):
         owner_id = self.mb_utils.find_target_by_parsing(
             host_name, dns.DNS_OWNER)
+        if ttl:
+            ttl = int(ttl)
+        else:
+            ttl = None
+        operation = self.mb_utils.set_ttl(
+            owner_id, ttl)
+        return "OK, set TTL record for %s to %s" % (host_name, ttl)
+
+    # ip txt
+    all_commands['ip_txt_set'] = Command(
+        ("ip", "txt_set"), HostName(), TXT())
+    def ip_txt_set(self, operator, host_name, txt):
+        owner_id = self.mb_utils.find_target_by_parsing(
+            host_name, dns.DNS_OWNER)
+        if ttl:
+            ttl = int(ttl)
+        else:
+            ttl = None
         operation = self.mb_utils.alter_ttl_record(
-            owner_id, int(self.const.fielt_type_txt), ttl, txt)
+            owner_id, int(self.const.field_type_txt), txt)
         return "OK, %s TXT record for %s" % (operation, host_name)
 
     def get_format_suggestion(self, cmd):
