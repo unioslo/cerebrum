@@ -32,7 +32,9 @@ __all__ = ['Date']
 
 class Date(SpineClass):
     primary = []
-    slots = []
+    slots = [
+        Attribute('format', str, write=True)
+    ]
     method_slots = [
         Method('get_year', int),
         Method('get_month', int),
@@ -41,6 +43,7 @@ class Date(SpineClass):
         Method('get_minute', int),
         Method('get_second', int),
         Method('strftime', str, args=[('formatstr', str)]),
+        Method('toString', str)
     ]
 
     def create_primary_key(cls, value):
@@ -73,6 +76,13 @@ class Date(SpineClass):
     def strftime(self, formatstr):
         return self._value.strftime(formatstr)
 
+    def toString(self):
+        format = getattr(self, self.get_attr('format').get_name_private(), None)
+        if format is None:
+            return str(self._value)
+        else:
+            return self.strftime(format)
+
 registry.register_class(Date)
 
 # Commands for clients to create Date-objects.
@@ -81,7 +91,9 @@ def get_date_now(self):
     return Date(mx.DateTime.now())
 
 def get_date(self, year, month, day):
-    return Date(mx.DateTime.Date(year, month, day))
+    date = Date(mx.DateTime.Date(year, month, day))
+    date.set_format("%Y-%m-%d")
+    return date
 
 def get_datetime(self, year, month, day, hour, minute, second):
     return Date(mx.DateTime.DateTime(year, month, day, hour, minute, second))
