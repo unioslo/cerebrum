@@ -18,7 +18,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import weakref
+import time, weakref
 
 import cereconf
 
@@ -28,7 +28,7 @@ from Cerebrum.gro.Cerebrum_core import Errors
 import Caching, Scheduler
 
 
-__all__ = ['Locking']
+__all__ = ['Locking','LockHolder']
 
 class Locking(object):
     """
@@ -47,62 +47,78 @@ class Locking(object):
     """
 
     def __init__(self):
-        self.readLocks = weakref.WeakKeyDictionary()
-        self.writeLock = None
+        self.read_locks = weakref.WeakKeyDictionary()
+        self.write_lock = None
 
     def lock_for_reading(self, client):
         """
         Try to lock the object for reading.
         """
-        if self.writeLock:
-            if self.writeLock() is client:
+        self.__has_timeouts(client)
+
+        if self.write_lock:
+            ref, locktime = self.write_lock
+            if ref() is client:
+                self.lock_for_writing(client)
                 return
-            raise Errors.AlreadyLockedError, 'Write lock exists'
-        if self.readLocks.has_key(client):
-            return
-        self.readLocks[client] = None
+            raise Errors.AlreadyLockedError, 'Write lock exists on %s' % self
+        self.read_locks[client] = time.time()
 
         def unlock(ref):
             o = ref()
-            if o is not None and self.readLocks.has_key(o):
+            if o is not None and self.read_locks.has_key(o):
+                locktime = self.read_locks[o]
+                if locktime + cereconf.GRO_LOCK_TIMEOUT > time.time():
+                    return
                 self.reload()
                 self.unlock(o)
-                self._timed_out()
+                self.__lost_lock(o)
+
         scheduler = Scheduler.get_scheduler()
         scheduler.addTimer(cereconf.GRO_LOCK_TIMEOUT, unlock, weakref.ref(client))
+
+    def __lost_lock(self, client):
+        client.lost_locks.append(self)
+
+    def __has_timeouts(self, client):
+        if len(client.lost_locks) > 0:
+            l = client.lost_locks.pop(0)
+            raise Errors.TransactionError('Your lock on %s timed out' % l)
 
     def lock_for_writing(self, client):
         """
         Try to lock the object for writing.
         """
-        if self.writeLock and self.writeLock() is not client:
-            raise Errors.AlreadyLockedError, 'Write lock exists'
+        self.__has_timeouts(client)
 
-        if self.readLocks.has_key(client):
-            if len(self.readLocks) > 1:
-                raise Errors.AlreadyLockedError, 'Other read locks exist'
-            del self.readLocks[client]
-        elif len(self.readLocks) > 0:
-            raise Errors.AlreadyLockedError, 'Other read locks exist'
+        holder = self.get_writelock_holder() 
+        if holder is not None and holder is not client:
+            raise Errors.AlreadyLockedError, 'Write lock exists on %s' % self
+
+        if self.read_locks.has_key(client):
+            if len(self.read_locks) > 1:
+                raise Errors.AlreadyLockedError, 'Other read locks exist on %s' % self
+            del self.read_locks[client]
+        elif len(self.read_locks) > 0:
+            raise Errors.AlreadyLockedError, 'Other read locks exist on %s' % self
 
         def rollback(obj):
             self.reload()
-        self.writeLock = weakref.ref(client, rollback)
+
+        self.write_lock = weakref.ref(client, rollback), time.time()
         
         def unlock(ref):
             o = ref()
             if o is not None and self.has_writelock(o):
+                ref, locktime = self.write_lock
+                if locktime + cereconf.GRO_LOCK_TIMEOUT > time.time():
+                    return
                 self.reload()
                 self.unlock(o)
-                self._timed_out()
+                self.__lost_lock(o)
+                    
         scheduler = Scheduler.get_scheduler()
         scheduler.addTimer(cereconf.GRO_LOCK_TIMEOUT, unlock, weakref.ref(client))
-
-    def _timed_out(self):
-        """
-        Raise a TransactionError telling that the lock has timed out.
-        """
-        raise Errors.TransactionError('Your lock has timed out')
 
     def unlock(self, client):
         """
@@ -111,30 +127,47 @@ class Locking(object):
         assert not getattr(self, 'updated', None)
         
         if self.has_writelock(client):
-            self.writeLock = None
-        elif self.readLocks.has_key(client):
-            del self.readLocks[client]
+            self.write_lock = None
+        elif self.read_locks.has_key(client):
+            del self.read_locks[client]
+        
+    def has_readlock(self, locker):
+        """
+        Checks if the given client has a read lock.
+        """
+        return self.read_locks.has_key(locker) or self.has_writelock(locker)
 
     def has_writelock(self, locker):
         """
         Checks if the given client has a write lock.
         """
-        return self.writeLock and self.writeLock() is locker
+        if self.write_lock is None:
+            return False
+        ref, locktime = self.write_lock
+        return ref() is locker
 
-    def get_readlockers(self):
+    def get_readlock_holders(self):
         """
-        Returns a list of clients with a read lock on this item.
+        Returns a (possibly empty) list of clients with a read lock on this item.
         """
-        users = []
-        for client in self.readLocks.keys():
-            users.append(client)
-        return users
+        holders = []
+        for client in self.read_locks.keys():
+            holders.append(client)
+        return holders
+    
+    def get_writelock_holder(self):
+        if self.write_lock is None:
+            return None
+        ref, locktime = self.write_lock
+        return ref()
 
-    def get_writelockers(self):
-        """
-        Returns the client with a write lock or None.
-        """
-        if self.writeLock:
-            obj = self.writeLock()
-            return obj
-        return None
+
+class LockHolder:
+    """
+    This class defines the interface required by clients who
+    want to use the Locking class to get locks on objects.
+    """
+    def __init__(self):
+        self.lost_locks = []
+    def get_database(self):
+        pass
