@@ -198,16 +198,27 @@ loaded into bofhd.  It contains a number of lines of the format:
 <pre>module_file classname</pre> module_file does not have a .py
 ending.
 
-classname must implement a method <code>get_commands(self,
-uname)</code> with return values on the same format as described above.
-
 <p>
-Will we do this?:<br> 
+The following methods must be implemented (see <a
+href="../bin/modules_skeleton.py">modules_skeleton.py</a> for an
+example):
+<p>
+<pre>
+    def __init__(self):
+        self.all_commands = {
+            'a_person' : ('person', 'get', 'number', 1)
+	}
 
-The protocol_commands specified will automatically be prepended with
-module_file so that name-clashes for method names will be avoided.  No
-steps are taken to avoid clash of command names.
+    def get_commands(self, uname):
+        return {'a_command' :  ('person', 'get', 'number', 1)}
 
+    def get_format_suggestion(self, cmd):
+        return { 'a_command' : "Name: %s\nPassword: %s\n" }
+</pre>
+
+The global dict of all commands is built up by first searching the
+bofhd module, and then all modules in the configfile.  Thus, a command
+in a module may override the default implementation.
 
 <hr>
 <address>$Id$</address>
