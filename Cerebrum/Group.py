@@ -327,38 +327,46 @@ class Group(EntityName, Entity):
         return members
 
     def get_members(self, _trace=(), spread=None, get_entity_name=False):
+        """Return a flattened list of entity ids of all account
+        members in this group and its subgroups.  If spread is set,
+        only include accounts with that spread.  If get_entity_name is
+        set, return a list [id, name] for each account."""
         my_id = self.entity_id
         if my_id in _trace:
             # TODO: Circular list definition, log value of _trace.
             return ()
-        u, i, d = self.list_members(spread=spread, get_entity_name=get_entity_name)
-        if not u:
+        u, i, d = self.list_members(get_entity_name=get_entity_name,
+                                    spread=spread,
+                                    member_type=self.const.entity_account)
+        ug, ig, dg = self.list_members(member_type=self.const.entity_group)
+        if not u and not ug:
             # The only "positive" members are unions; if there are
             # none of those, the resulting set must be empty.
             return ()
         # TBD: Should this just be a Group instance?
         temp = self.__class__(self._db)
-        def expand(set):
+        def expand(accounts, groups):
             ret = []
-            for row in set:
-                mtype, m_id = row[0:2]
-                if mtype == self.const.entity_account:
-                    if get_entity_name:
-                        ret.append([m_id, row[2]])
-                    else:
-                        ret.append(m_id)
-                elif mtype == self.const.entity_group:
-                    temp.clear()
-                    temp.find(m_id)
-                    ret.extend(temp.get_members(_trace + (my_id,), spread=spread,
-                                                get_entity_name=get_entity_name))
+            for row in accounts:
+                m_id = row[1]
+                if get_entity_name:
+                    ret.append([m_id, row[2]])
+                else:
+                    ret.append(m_id)
+            for row in groups:
+                m_id = row[1]
+                temp.clear()
+                temp.find(m_id)
+                ret.extend(temp.get_members(_trace + (my_id,),
+                                            spread=spread,
+                                            get_entity_name=get_entity_name))
             return ret
         # Expand u to get a set of account_ids.
-        res = expand(u)
+        res = expand(u, ug)
         if i:
-            res = intersect(res, expand(i))
+            res = intersect(res, expand(i, ig))
         if d:
-            res = difference(res, expand(d))
+            res = difference(res, expand(d, dg))
         return res
 
 
