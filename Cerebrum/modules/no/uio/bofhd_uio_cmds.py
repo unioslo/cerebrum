@@ -2620,6 +2620,8 @@ class BofhdExtension(object):
         disk = Utils.Factory.get('Disk')(self.db)
         disk.populate(host.entity_id, diskname, 'uio disk')
         disk.write_db()
+        if len(diskname.split("/")) != 4:
+            return "OK.  Warning: disk did not follow expected pattern."
         return "OK"
 
     all_commands['misc_dls'] = Command(
