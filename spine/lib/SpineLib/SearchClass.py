@@ -111,17 +111,19 @@ class SearchClass(SpineClass):
         for i in self._unions:
             unions.update(convert(i))
 
-        if hasattr(self, '_intersections'):
+        if hasattr(self, '_intersections') and self._intersections:
             intersections = sets.Set()
+            intersections.update(convert(self._intersections.pop()))
             for i in self._intersections:
-                intersections.update(convert(i))
+                intersections.intersection_update(convert(i))
         else:
             intersections = None
 
-        if hasattr(self, '_differences'):
+        if hasattr(self, '_differences') and self._differences:
             differences = sets.Set()
+            differences.update(convert(self._differences.pop()))
             for i in self._differences:
-                differences.update(convert(i))
+                differences.difference_update(convert(i))
         else:
             differences = None
 
