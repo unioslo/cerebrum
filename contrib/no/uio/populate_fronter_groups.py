@@ -28,6 +28,7 @@ These groups are later used when exporting data to ClassFronter.
 import sys
 import getopt
 import re
+import locale
 
 import cerebrum_path
 import cereconf
@@ -110,7 +111,7 @@ def process_kursdata():
         # Kallene på sync_group legger inn nye entries i
         # %AffiliatedGroups; ting blir mye greiere å holde rede på om vi
         # fjerner "våre" nøkler derfra så snart vi er ferdige.
-        del(AffiliatedGroups[kurs_id])
+        del AffiliatedGroups[kurs_id]
     logger.info(" ... done")
 
     # Oppdaterer gruppene på nivå 1.
@@ -237,9 +238,9 @@ def populate_enhet_groups(enhet_id):
         # knytte dem til riktig undervisningsenhet.
         multi_enhet = []
         multi_id = "%s:%s:%s:%s" % (Instnr, emnekode, termk, aar)
-        if emne_termnr.get(multi_id, {}).keys() > 1:
+        if len(emne_termnr.get(multi_id, {})) > 1:
             multi_enhet.append("%s. termin" % termnr)
-        if emne_versjon.get(multi_id, {}).keys() > 1:
+        if len(emne_versjon.get(multi_id, {})) > 1:
             multi_enhet.append("v%s" % versjon)
         if multi_enhet:
             enhet_suffix = ", %s" % ", ".join(multi_enhet)
@@ -377,7 +378,7 @@ def sync_group(affil, gname, descr, mtype, memb):
         members = {}
         for tmp_gname in memb.keys():
             grp = get_group(tmp_gname)
-            members[grp.entity_id] = 1
+            members[int(grp.entity_id)] = 1
     else:                          # memb has account_id as keys
         members = memb.copy()
     gname = mkgname(gname, 'uio.no:fs:')
@@ -397,6 +398,12 @@ def sync_group(affil, gname, descr, mtype, memb):
     # $gname.
     try:
         group = get_group(gname)
+    except Errors.NotFoundError:
+        group = Factory.get('Group')(db)
+        group.clear()
+        group.populate(group_creator, correct_visib, gname, description=descr)
+        group.write_db()
+    else:
         # Dersom gruppen $gname fantes, er $gr nå en peker til samme
         # objekt som $Group; i motsatt fall er $gr false.
         if group.visibility != correct_visib:
@@ -408,40 +415,53 @@ def sync_group(affil, gname, descr, mtype, memb):
 
         u, i, d = group.list_members(member_type=mtype)
         for member in u:
-            member = member[1]      # member_id has index=1 (poor API design?)
+            member = int(member[1]) # member_id has index=1 (poor API design?)
             if members.has_key(member):
-                del(members[member])
+                del members[member]
             else:
+                logger.debug("sync_group(): Deleting member %d" % member)
                 group.remove_member(member, co.group_memberop_union)
                 #
                 # Supergroups will only contain groups that have been
                 # automatically created by this script, hence it is
                 # safe to automatically destroy groups that are no
                 # longer member of their supergroup.
-
                 if (mtype == co.entity_group and
                     correct_visib == co.group_visibility_internal and
                     (not known_FS_groups.has_key(member))):
                     destroy_group(member, 2)
-    except Errors.NotFoundError:
-        group = Factory.get('Group')(db)
-        group.clear()
-        group.populate(group_creator, correct_visib, gname, description=descr)
-        group.write_db()
 
     for member in members.keys():
         group.add_member(member, mtype, co.group_memberop_union)
 
 def destroy_group(gname, max_recurse):
     gr = get_group(gname)
+    logger.debug("destroy_group(%s/%d, %d) [After get_group]"
+                 % (gr.group_name, gr.entity_id, max_recurse))
+    if max_recurse < 0:
+        logger.fatal("destroy_group(%s): Recursion too deep" % gr.group_name)
+        sys.exit(3)
+    # Fetch group's members
     u, i, d = gr.list_members(member_type=co.entity_group)
-    for subg in u:
-        destroy_group(subg['entity_id'], max_recurse - 1)
+    logger.debug("destroy_group() subgroups: %r" % (u,))
+    # Remove any spreads the group has
+    for row in gr.get_spread():
+        gr.delete_spread(row['spread'])
+    # Delete the parent group (which implicitly removes all membership
+    # entries representing direct members of the parent group)
     gr.delete()
+    # Destroy any subgroups (down to level max_recurse).  This needs
+    # to be done after the parent group has been deleted, in order for
+    # the subgroups not to be members of the parent anymore.
+    for subg in u:
+        destroy_group(subg[1], max_recurse - 1)
 
-def get_group(name):
+def get_group(id):
     gr = Factory.get('Group')(db)
-    gr.find_by_name(name)
+    if isinstance(id, str):
+        gr.find_by_name(id)
+    else:
+        gr.find(id)
     return gr
 
 def get_account(name):
@@ -450,9 +470,9 @@ def get_account(name):
     return ac
 
 def mkgname(id, prefix='internal:'):
-    if id[0:len(prefix)] == prefix:
+    if id.startswith(prefix):
         return id.lower()
-    return ("%s%s" % (prefix, id)).lower()
+    return (prefix + id).lower()
 
 def usage(exitcode=0):
     print """Usage: [optons]
@@ -464,12 +484,16 @@ def main():
     global fs, db, co, logger, emne_versjon, emne_termnr, \
            account_id2fnr, fnr2account_id, AffiliatedGroups, \
            known_FS_groups, fs_supergroup, group_creator, UndervEnhet
+
+    # Håndter upper- og lowercasing av strenger som inneholder norske
+    # tegn.
+    locale.setlocale(locale.LC_CTYPE, ('en_US', 'iso88591'))
+
     try:
         opts, args = getopt.getopt(sys.argv[1:], "",
                                    ["db-user=", "db-service="])
     except getopt.GetoptError:
-        usage()
-        sys.exit(2)
+        usage(2)
     db_user = None         # TBD: cereconf value?
     db_service = None      # TBD: cereconf value?
     for o, val in opts:
