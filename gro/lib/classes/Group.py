@@ -21,16 +21,14 @@ import Cerebrum.Group
 
 from Cerebrum.extlib import sets
 
+from GroBuilder import GroBuilder
+from Builder import Attribute, Method
+from Searchable import Searchable
+from CerebrumClass import CerebrumAttr, CerebrumTypeAttr
+
+
 import Registry
 registry = Registry.get_registry()
-
-Builder = registry.Builder
-Searchable = registry.Searchable
-Attribute = registry.Attribute
-Method = registry.Method
-
-CerebrumAttr = registry.CerebrumAttr
-CerebrumTypeAttr = registry.CerebrumTypeAttr
 
 Entity = registry.Entity
 
@@ -53,10 +51,10 @@ class Group(Entity):
     def get_members(self):
         searcher = registry.GroupMemberSearch(self)
         searcher.set_group(self)
-        searcher.include_subgroups(True)
+        searcher.set_include_subgroups(True)
         return searcher.search()
 
-class GroupMember(Builder, Searchable):
+class GroupMember(GroBuilder, Searchable):
     primary = [
         Attribute('group', 'Group'),
         Attribute('operation', 'GroupMemberOperationType'),

@@ -23,17 +23,15 @@ import Cerebrum.Account
 
 from Cerebrum.extlib import sets
 
+
+from GroBuilder import GroBuilder
+from Builder import Attribute, Method
+from CerebrumClass import CerebrumAttr, CerebrumEntityAttr
+
 import Registry
 registry = Registry.get_registry()
 
-Builder = registry.Builder
-Attribute = registry.Attribute
-Method = registry.Method
-
 Entity = registry.Entity
-
-CerebrumAttr = registry.CerebrumAttr
-CerebrumEntityAttr = registry.CerebrumEntityAttr
 
 __all__ = ['Account', 'AccountAuthentication']
 
@@ -66,7 +64,7 @@ class Account(Entity):
                 return True
         return False
 
-class AccountAuthentication(Builder):
+class AccountAuthentication(GroBuilder):
     primary = [Attribute('account_id', 'Account'),
                Attribute('method', 'AuthenticationType')]
     slots = primary + [Attribute('auth_data', 'string', write=True)]

@@ -25,28 +25,21 @@ import Cerebrum.modules.Note
 
 from Cerebrum.extlib import sets
 
+from GroBuilder import GroBuilder
+from Builder import Attribute, Method
+from CerebrumClass import CerebrumClass, CerebrumAttr, CerebrumTypeAttr
+from Auth import EntityAuth
+
 import Registry
 registry = Registry.get_registry()
 
-Builder = registry.Builder
-Attribute = registry.Attribute
-Method = registry.Method
-
-CerebrumClass = registry.CerebrumClass
-CerebrumAttr = registry.CerebrumAttr
-CerebrumTypeAttr = registry.CerebrumTypeAttr
-
-EntityAuth = registry.EntityAuth
-
-EntityType = registry.EntityType
-
 __all__ = ['Entity', 'Note', 'Address', 'ContactInfo']
 
-class Entity(Builder, CerebrumClass, EntityAuth):
+class Entity(CerebrumClass, GroBuilder, EntityAuth):
     primary = [CerebrumAttr('entity_id', 'long')]
     slots = primary + [
-        CerebrumTypeAttr('entity_type', 'EntityType', type_class=EntityType)]
-    method_slots = Builder.method_slots + [
+        CerebrumTypeAttr('entity_type', 'EntityType', type_class=registry.EntityType)]
+    method_slots = GroBuilder.method_slots + [
         Method('get_spreads', 'SpreadSeq'),
         Method('get_notes', 'NoteSeq'),
         Method('get_contact_info', 'ContactInfoSeq'),
@@ -66,7 +59,7 @@ class Entity(Builder, CerebrumClass, EntityAuth):
         e.add_note(db.change_by, subject, description)
 
     def __new__(cls, *args, **vargs):
-        obj = Builder.__new__(Entity, *args, **vargs)
+        obj = GroBuilder.__new__(Entity, *args, **vargs)
 
         if obj.__class__ is Entity: # this is a fresh object
             obj.__init__(*args, **vargs)
@@ -83,7 +76,7 @@ class Entity(Builder, CerebrumClass, EntityAuth):
 
     def build_methods(cls):
         super(Entity, cls).build_methods()
-        super(Builder, cls).build_methods()
+        super(CerebrumClass, cls).build_methods()
 
     build_methods = classmethod(build_methods)
 
@@ -165,7 +158,7 @@ class Entity(Builder, CerebrumClass, EntityAuth):
 
 
 
-class ContactInfo(Builder):
+class ContactInfo(GroBuilder):
     primary = [Attribute('entity_id', 'long'),
                Attribute('source_system', 'SourceSystem'),
                Attribute('contact_type', 'ContactInfoType'),
@@ -183,7 +176,7 @@ class ContactInfo(Builder):
         return contactInfo
     getByRow = classmethod(getByRow)
 
-class Note(Builder):
+class Note(GroBuilder):
     primary = [Attribute('note_id', 'long')]
     slots = primary + [Attribute('create_date', 'Date'),
                        Attribute('creator_id', 'long'),
@@ -201,7 +194,7 @@ class Note(Builder):
 
     getByRow = classmethod(getByRow)
 
-class Address(Builder):
+class Address(GroBuilder):
     # country må fikses.. Lage en egen Node for det i Types kanskje..
     # Address skal vel kanskje heller ikke ha write-attributes?
     slots = [Attribute('entity_id', 'long'),

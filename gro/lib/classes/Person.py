@@ -21,15 +21,13 @@ import Cerebrum.Person
 
 from Cerebrum.extlib import sets
 
+from Cerebrum.extlib import sets
+from GroBuilder import GroBuilder
+from Builder import Attribute, Method
+from CerebrumClass import CerebrumAttr, CerebrumTypeAttr
+
 import Registry
 registry = Registry.get_registry()
-
-Builder = registry.Builder
-Attribute = registry.Attribute
-Method = registry.Method
-
-CerebrumAttr = registry.CerebrumAttr
-CerebrumTypeAttr = registry.CerebrumTypeAttr
 
 Entity = registry.Entity
 
@@ -75,7 +73,7 @@ class Person(Entity):
 
         return names
 
-class PersonName(Builder):
+class PersonName(GroBuilder):
     primary = [Attribute('person', 'Person'), Attribute('name_variant', 'NameType'),
                Attribute('source_system', 'SourceSystem'), Attribute('name', 'string')]
     slots = primary + []

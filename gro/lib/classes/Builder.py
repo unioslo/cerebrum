@@ -22,15 +22,10 @@ import time
 from Cerebrum.extlib import sets
 from Cerebrum.gro.Cerebrum_core import Errors
 
-from Caching import Caching
-from Locking import Locking
-
-import Database
-
-__all__ = ['Attribute', 'Method', 'Builder', 'CorbaBuilder']
+__all__ = ['Attribute', 'Method', 'Builder']
 
 
-class Attribute:
+class Attribute(object):
     def __init__(self, name, data_type, exceptions=None, write=False):
         self.type = 'Attribute'
         self.name = name
@@ -47,7 +42,7 @@ class Attribute:
     def __repr__(self):
         return '%s(%s, %s)' % (self.__class__.__name__, `self.name`, `self.data_type`)
 
-class Method:
+class Method(object):
     def __init__(self, name, data_type, args=None, exceptions=None, write=False):
         self.type = 'Method'
         self.name = name
@@ -62,9 +57,6 @@ class Method:
 
     def __repr__(self):
         return '%s(%s, %s)' % (self.__class__.__name__, `self.name`, `self.data_type`)
-
-# å bruke en klasse med __call__ vil ikke funke, da den ikke vil bli bundet til objektet.
-# mulig det kan jukses til med noen stygge metaklassetriks, men dette blir penere.
 
 def create_lazy_get_method(var, load):
     assert type(var) == str
@@ -102,101 +94,12 @@ def create_readonly_set_method(var):
         raise Errors.ReadOnlyAttributeError('attribute %s is read only' % var)
     return readonly_set
 
-class CorbaBuilder:
-    corba_parents = []
-
-    def create_idl(cls, module_name=None, exceptions=()):
-        txt = cls.create_idl_header()
-        txt += cls.create_idl_interface(exceptions=exceptions)
-
-        if module_name is not None:
-            return 'module %s {\n\t%s\n};' % (module_name, txt.replace('\n', '\n\t'))
-        else:
-            return txt
-
-    def create_idl_header(cls, defined = None):
-        if defined is None:
-            defined = []
-
-        txt = ''
-
-#        txt = 'interface %s;\n' % cls.__name__
-#        txt += 'typedef sequence<%s> %sSeq;\n' % (cls.__name__, cls.__name__)
-
-        # TODO. this is a bit nasty
-
-        for slot in cls.slots + cls.method_slots:
-            if not slot.data_type[0].isupper():
-                continue
-            if slot.data_type.endswith('Seq'):
-                name = slot.data_type[:-3]
-            else:
-                name = slot.data_type
-
-            if name in defined:
-                continue
-            else:
-                defined.append(name)
-            txt += 'interface %s;\n' % name
-            txt += 'typedef sequence<%s> %sSeq;\n' % (name, name)
-
-        return txt
-
-    def create_idl_interface(cls, exceptions=()):
-        txt = 'interface %s {\n' % cls.__name__
-
-        txt = 'interface ' + cls.__name__
-        if cls.corba_parents:
-            txt += ': ' + ', '.join(cls.corba_parents)
-
-        txt += ' {\n'
-
-        txt += '\t//constructors\n'
-#        txt += '\t%s get_object(%s);\n' % (cls.__name__, ', '.join(['in %s %s' % (attr.data_type, attr.name) for attr in cls.primary]))
-        
-        def get_exceptions(exceptions):
-            # FIXME: hente ut navnerom fra cereconf? err.. stygt :/
-            if not exceptions:
-                return ''
-            else:
-                return '\n\t\traises(%s)' % ', '.join(['Cerebrum_core::Errors::' + i for i in exceptions])
-                
-
-        txt += '\n\t//get and set methods for attributes\n'
-        for attr in cls.slots:
-            exception = get_exceptions(tuple(attr.exceptions) + tuple(exceptions))
-            txt += '\t%s get_%s()%s;\n' % (attr.data_type, attr.name, exception)
-            if attr.write:
-                txt += '\tvoid set_%s(in %s new_%s)%s;\n' % (attr.name, attr.data_type, attr.name, exception)
-            txt += '\n'
-
-        txt += '\n\t//other methods\n'
-        for method in cls.method_slots:
-            exception = get_exceptions(tuple(method.exceptions) + tuple(exceptions))
-            args = ['in %s in_%s' % (data_type, name) for name, data_type in method.args]
-            txt += '\t%s %s(%s)%s;\n' % (method.data_type, method.name, ', '.join(args), exception)
-
-        txt += '};\n'
-
-        return txt
-
-    create_idl = classmethod(create_idl)
-    create_idl_header = classmethod(create_idl_header)
-    create_idl_interface = classmethod(create_idl_interface)
- 
-
-class Builder(Caching, Locking, CorbaBuilder):
+class Builder(object):
     primary = []
     slots = []
     method_slots = []
 
     def __init__(self, *args, **vargs):
-        write_lock = vargs.get('write_lock', None)
-        if 'write_lock' in vargs:
-            del vargs['write_lock']
-        nocache = vargs.get('nocache', False)
-        if 'nocache' in vargs:
-            del vargs['nocache']
         if len(args) + len(vargs) > len(self.slots):
             raise TypeError('__init__() takes at most %s argument%s (%s given)' % (len(self.slots) + 1,
                             len(self.slots)>0 and 's' or '', len(args) + len(vargs) + 1))
@@ -207,9 +110,6 @@ class Builder(Caching, Locking, CorbaBuilder):
         if hasattr(self, mark):
             return getattr(self, mark)
         
-        Locking.__init__(self, write_lock=write_lock)
-        Caching.__init__(self, nocache=nocache)
-
         slotNames = [i.name for i in cls.slots]
 
         for key in vargs.keys():
@@ -227,22 +127,8 @@ class Builder(Caching, Locking, CorbaBuilder):
         # mark the object as old
         setattr(self, mark, time.time())
 
-    def get_database(self):
-        c = self.get_writelock_holder()
-        if c is not None:
-            return c.get_database() # The lockholder has get_database()
-        else:
-            return Database.get_database()
-
-    def load(self):
-        # vil vi ha dette?
-        # load kan laste _alle_ attributter vel å iterere gjennom slots...
-        raise NotImplementedError('this should not happen')
-
     def save(self):
         """ Save all changed attributes """
-        # make sure there is a writelock
-        assert self.get_writelock_holder() is not None
 
         saved = sets.Set()
         for var in self.updated:
@@ -271,7 +157,7 @@ class Builder(Caching, Locking, CorbaBuilder):
 
         Used by the caching facility to identify a unique object
         """
-        
+
         names = [i.name for i in cls.primary]
         for var, value in zip(names, args):
             vargs[var] = value

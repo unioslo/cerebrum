@@ -19,14 +19,13 @@
 
 import Cerebrum.Disk
 
+from CerebrumClass import CerebrumAttr, CerebrumEntityAttr
+
 import Registry
 registry = Registry.get_registry()
 
 Entity = registry.Entity
 Host = registry.Host
-
-CerebrumAttr = registry.CerebrumAttr
-CerebrumEntityAttr = registry.CerebrumEntityAttr
 
 __all__ = ['Disk']
 

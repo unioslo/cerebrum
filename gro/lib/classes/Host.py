@@ -19,11 +19,12 @@
 
 import Cerebrum.Disk # er det ikke logisk at Host ligger i Disk? :p
 
+from CerebrumClass import CerebrumAttr
+
 import Registry
 registry = Registry.get_registry()
 
 Entity = registry.Entity
-CerebrumAttr = registry.CerebrumAttr
 
 __all__ = ['Host']
 

@@ -19,7 +19,8 @@
 
 from __future__ import generators
 
-from Builder import Builder
+from GroBuilder import GroBuilder
+from Builder import Attribute, Method
 
 def create_get_method(var):
     """
@@ -39,11 +40,11 @@ def create_id_iterator(start=0):
         yield start
         start += 1
 
-class SearchClass(Builder):
+class SearchClass(GroBuilder):
     search_id_iterator = create_id_iterator()
 
     def __init__(self, search_id=None):
-        Builder.__init__(self)
+        GroBuilder.__init__(self)
 
     def save(self):
         pass
@@ -90,19 +91,16 @@ class Searchable(object):
         search_class.slots = []
         search_class.method_slots = []
         
-        import Registry
-        registry = Registry.get_registry()
-        
         for attr in cls.slots + cls.search_slots:
             get = create_get_method(attr.name)
 
-            new_attr = registry.Attribute(attr.name, attr.data_type, write=True)
+            new_attr = Attribute(attr.name, attr.data_type, write=True)
             search_class.register_attribute(new_attr, get=get)
             
         # FIXME: this should use register_method
         search_class._search = cls.create_search_method()
         assert search_class._search
-        search_class.method_slots.append(registry.Method('search', '%sSeq' % cls.__name__))
+        search_class.method_slots.append(Method('search', '%sSeq' % cls.__name__))
 
         return search_class
 

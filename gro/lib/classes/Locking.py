@@ -25,10 +25,10 @@ import cereconf
 from Cerebrum.gro import Transaction
 from Cerebrum.gro.Cerebrum_core import Errors
 
-import Caching, Scheduler
+import Scheduler
 
 
-__all__ = ['Locking','LockHolder']
+__all__ = ['Locking']
 
 class Locking(object):
     """
@@ -72,7 +72,7 @@ class Locking(object):
                 locktime = self.read_locks[o]
                 if locktime + cereconf.GRO_LOCK_TIMEOUT > time.time():
                     return
-                self.reload()
+                self.reset()
                 self.unlock(o)
                 self.__lost_lock(o)
 
@@ -105,7 +105,7 @@ class Locking(object):
             raise Errors.AlreadyLockedError, 'Other read locks exist on %s' % self
 
         def rollback(obj):
-            self.reload()
+            self.reset()
 
         self.write_lock = weakref.ref(client, rollback), time.time()
         
@@ -115,7 +115,7 @@ class Locking(object):
                 ref, locktime = self.write_lock
                 if locktime + cereconf.GRO_LOCK_TIMEOUT > time.time():
                     return
-                self.reload()
+                self.reset()
                 self.unlock(o)
                 self.__lost_lock(o)
                     

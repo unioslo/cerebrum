@@ -22,15 +22,13 @@ from Cerebrum.Errors import NotFoundError
 
 from Cerebrum.gro.Cerebrum_core import Errors
 
+from Cerebrum.extlib import sets
+from GroBuilder import GroBuilder
+from Builder import Attribute, Method
+from CerebrumClass import CerebrumAttr, CerebrumTypeAttr
+
 import Registry
 registry = Registry.get_registry()
-
-Builder = registry.Builder
-Attribute = registry.Attribute
-Method = registry.Method
-
-CerebrumAttr = registry.CerebrumAttr
-CerebrumTypeAttr = registry.CerebrumTypeAttr
 
 Entity = registry.Entity
 
@@ -133,12 +131,12 @@ class OU(Entity):
     def get_root(self): # Alias for root (I like this better too ;))
         return self.root()
 
-class OUStructure(Builder):
+class OUStructure(GroBuilder):
     primary = [Attribute('ou', 'OU'),
                 Attribute('parent_ou','OU')]
     slots = primary
 
-class OUString(Builder):
+class OUString(GroBuilder):
     primary = [Attribute('value', 'string'),
                 Attribute('language', 'string')]
     slots = primary

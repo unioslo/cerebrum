@@ -18,11 +18,10 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 import Database
-import Registry
-registry = Registry.get_registry()
+from GroBuilder import GroBuilder
+from Builder import Attribute
+from Searchable import Searchable
 
-Attribute = registry.Attribute
-Searchable = registry.Searchable
 
 __all__ = ['CerebrumAttr', 'CerebrumEntityAttr', 'CerebrumClass']
 

@@ -20,16 +20,16 @@
 import Registry
 registry = Registry.get_registry()
 
-Builder = registry.Builder
-Attribute = registry.Attribute
-Searchable = registry.Searchable
+from GroBuilder import GroBuilder
+from Builder import Attribute, Method
+from Searchable import Searchable
 
 __all__ = ['AddressType', 'ContactInfoType', 'GenderType', 'EntityType',
            'SourceSystem', 'NameType', 'AuthenticationType', 'Spread',
            'GroupMemberOperationType', 'GroupVisibilityType', 'QuarantineType',
            'OUPerspectiveType', 'AuthOperationType']
 
-class CodeType(Builder, Searchable):
+class CodeType(GroBuilder, Searchable):
     primary = [Attribute('name', 'string')]
     slots = primary + [Attribute('id', 'long'),
                        Attribute('description', 'string')]

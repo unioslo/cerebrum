@@ -17,16 +17,12 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import Registry
-
-registry = Registry.get_registry()
-
-Builder = registry.Builder
-Attribute = registry.Attribute
+from GroBuilder import GroBuilder
+from Builder import Attribute, Method
 
 __all__ = ['Date']
 
-class Date(Builder):
+class Date(GroBuilder):
     primary = [Attribute('date', 'long')]
     slots = primary
 

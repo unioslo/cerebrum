@@ -1,16 +1,35 @@
+# -*- coding: iso-8859-1 -*-
+# Copyright 2002, 2003 University of Oslo, Norway
+#
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
+from GroBuilder import GroBuilder
+from Builder import Attribute, Method
+from Searchable import Searchable
+
 import Registry
 registry = Registry.get_registry()
-
-Builder = registry.Builder
-Attribute = registry.Attribute
-Searchable = registry.Searchable
 
 AuthOperationType = registry.AuthOperationType
 
 __all__ = ['AuthOperationSet', 'AuthOperation', 'AuthOperationAttr', 'AuthRole', 'EntityAuth']
 
 # samling med operasjoner
-class AuthOperationSet(Builder):
+class AuthOperationSet(GroBuilder):
     primary = [Attribute('id', 'long')]
     slots = primary + [Attribute('name', 'string')]
 
@@ -21,7 +40,7 @@ class AuthOperationSet(Builder):
                                    WHERE op_set_id=:id''', {'id': self._id})
 
 # AuthOperationSet innholder disse
-class AuthOperation(Builder, Searchable):
+class AuthOperation(GroBuilder, Searchable):
     primary = [Attribute('id', 'long')]
     slots = primary + [Attribute('operation_type', 'AuthOperationType'),
                        Attribute('operation_set', 'AuthOperationSet')]
@@ -65,7 +84,7 @@ class AuthOperation(Builder, Searchable):
 
 # hva skal denne brukes til? validation? jaha? kanskje vi kan løse spread-tullet
 # i AuthOperationTarget med denne da...
-class AuthOperationAttr(Builder):
+class AuthOperationAttr(GroBuilder):
     primary = [Attribute('id', 'long')]
     slots = primary + [Attribute('attr', 'string')]
 
@@ -74,11 +93,11 @@ class AuthOperationAttr(Builder):
 # kun entity skal være nødvendig her...
 # 1:1 mapping er jo fint
 # jeg driter i denne
-#class AuthOperationTarget(Builder):
+#class AuthOperationTarget(GroBuilder):
 #    primary = [Attribute('id', 'long')]
 #    slots = primary + [Attribute('entity', 'Entity')]
 
-class AuthRole(Builder, Searchable):
+class AuthRole(GroBuilder, Searchable):
     primary = [Attribute('entity', 'Entity'), Attribute('operation_set', 'AuthOperationSet'),
                Attribute('target', 'Entity')]
     slots = primary + []
