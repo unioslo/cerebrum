@@ -24,6 +24,11 @@ class DatabaseAccessor(object):
     def __init__(self, database):
         assert isinstance(database, Database.Database)
         self._db = database
+        # Copy driver-specific type constructors and exceptions.
+        for ctor in Database.API_TYPE_CTOR_NAMES:
+            setattr(self, ctor, getattr(database, ctor))
+        for exc in Database.API_EXCEPTION_NAMES:
+            setattr(self, exc, getattr(database, exc))
 
     def execute(self, operation, *parameters):
         return self._db.execute(operation, *parameters)
