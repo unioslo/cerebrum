@@ -514,12 +514,15 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
         Once a full name has been established (either an actual
         registered full name or a source system in which both first
         and last name is registered), the search through the source
-        systems continues until a first- and last-name pair match the
-        full name is found.
+        systems continues until a first and last name pair matching
+        the full name is found.
 
-        If no such first- and last-name pair is found, attempt using
-        the heuristics in the _split_full_name() method to guess at
-        those name variants.
+        If no such first and last name pair is found, split the full
+        name to guess at those name variants.
+
+        Persons with no first name _must_ be registered with an
+        explicit first name of "": a single-word full name is not
+        trusted.
 
         A ValueError is raised if no cacheworthy name variants are
         found for the person."""
@@ -541,31 +544,30 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
             if not names:
                 # This source system had no name data on this person.
                 continue
+            gen_full = None
+            if 'name_first' in names and 'name_last' in names:
+                if names['name_first'] == '':
+                    gen_full = names['name_last']
+                else:
+                    gen_full = names['name_first']+' '+names['name_last']
             if cached_name['name_full'] is None:
-                full_name = None
                 if 'name_full' in names:
-                    full_name = names['name_full']
-                elif 'name_first' in names and 'name_last' in names:
-                    full_name = " ".join(
-                        (names['name_first'], names['name_last']))
-                if full_name:
-                    cached_name['name_full'] = full_name
+                    cached_name['name_full'] = names['name_full']
+                elif gen_full:
+                    cached_name['name_full'] = gen_full
                 else:
                     # None of the source systems this far have
                     # presented us with enough data to form a full
                     # name.
                     continue
             # Here, we know that cached_name['full_name'] is set to
-            # the person's proper full name; try to find matching
-            # values for first and last name.
-            if 'name_first' in names and 'name_last' in names:
-                test_full_name = " ".join(
-                    (names['name_first'], names['name_last']))
-                if test_full_name == cached_name['name_full']:
-                    cached_name['name_first'] = names['name_first']
-                    cached_name['name_last'] = names['name_last']
-            more_to_cache = [n for n in cached_name if cached_name[n] is None]
-            if not more_to_cache:
+            # the person's proper full name; if gen_full is set, we
+            # know the current source system has good values for first
+            # and last name, too.
+            if gen_full == cached_name['name_full']:
+                cached_name['name_first'] = names['name_first']
+                cached_name['name_last'] = names['name_last']
+            if None not in cached_name.values():
                 # All name variants in cached_name are present; we're
                 # ready to start updating the database.
                 break
@@ -575,22 +577,16 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
             # last, best hope for getting cached first- and last names
             # is to chop the full name apart.
             if 'name_full' in cached_name:
-                ok_splitnames = {}
-                for k, v in self._split_full_name(cached_name['name_full']):
-                    if k in cached_name and cached_name[k] is None:
-                        ok_splitnames[k] = v
-                    else:
-                        # The return value from _split_full_name
-                        # should not be used to either add new name
-                        # variants to cache, or to override the
-                        # cacheable values we already have.
-                        break
-                else:
-                    # All the data returned from _split_full_name is
-                    # safe to use.
-                    cached_name.update(ok_splitnames)
+                name_parts = full_name.split()
+                if len(name_parts) >= 2:
+                    last_name = name_parts.pop()
+                    if 'name_last' not in cached_name:
+                        cached_name['name_last'] = last_name
+                    if 'name_first' not in cached_name:
+                        cached_name['name_first'] = " ".join(name_parts)
+
         if not [n for n in cached_name if cached_name[n] is not None]:
-            # We have at zero cacheable name variants.
+            # We have no cacheable name variants.
             raise ValueError, "No cacheable name for %d / %r" % (
                 self.entity_id, self._name_info)
         sys_cache = self.const.system_cached
@@ -605,20 +601,6 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
             except Errors.NotFoundError:
                 if name is not None:
                     self._set_name(sys_cache, name_type, name)
-
-    def _split_full_name(self, full_name):
-        """Split full name into its name part constituents.
-
-        Return a dict whose keys are the 'Constants' attribute names
-        for name part code values, while the values should be the part
-        of 'full_name' that corresponds to that code value."""
-
-        name_parts = [part for part in full_name.split(" ") if part]
-        ret = {}
-        if len(name_parts) >= 2:
-            ret['name_last'] = name_parts.pop()
-            ret['name_first'] = " ".join(name_parts)
-        return ret
 
     def list_person_name_codes(self):
         return self.query("""
@@ -644,8 +626,8 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
                              'src': int(source_system)})
 
     def get_all_names(self):
-        # TBD: It may be a miss-design that we have the get_name
-        # method as well.  Could use optional keyword args to this
+        # TBD: It may be a misdesign that we have this method.  Could
+        # change get_name's args into optional keyword args to this
         # method for the same effect (like get_external_id).
         return self.query("""
         SELECT *
