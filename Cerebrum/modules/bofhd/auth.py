@@ -661,7 +661,17 @@ class BofhdAuth(DatabaseAccessor):
                 operator, self.const.auth_remove_user)
         return self.is_account_owner(operator, self.const.auth_remove_user,
                                      account)
-    
+
+    def can_set_default_group(self, operator, account=None,
+                              group=None, query_run_any=False):
+        if query_run_any or self.is_superuser(operator):
+            return True
+        if account.account_name == group.group_name:
+            return True # personal group: TODO need better detection
+        self.can_alter_group(operator, group)
+        self.can_give_user(operator, account)
+        return True
+        
     def can_set_gecos(self, operator, account=None,
                       query_run_any=False):
         if self.is_superuser(operator):
