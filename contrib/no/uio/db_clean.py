@@ -278,7 +278,8 @@ def process_log():
     now = time.time()
     last_seen = {}
     n = 0
-    for e in db.get_log_events():
+    db2 = Factory.get('Database')()  # Work-around for fetchmany cursor re-usage
+    for e in db2.get_log_events():
         n += 1
         
         logger.debug((e['tstamp'].strftime('%Y-%m-%d'),
