@@ -194,14 +194,12 @@ WHERE p.fodselsdato=sa.fodselsdato AND
     def _GetOpptakQuery(self):
 	aar, maned = time.localtime()[0:2]
         """Hent personer med opptak til et studieprogram ved
-        institusjonen og som i løpet av siste år har avlagt en eksamen
-        eller har vært eksamensmeldt i minst ett emne ved
-        institusjonen i løpet av siste år inngår i denne gruppen, samt
-        de som har fått opptak de siste 365 dager.
-        Med untak av de som har 'studierettstatkode' lik 'PRIVATIST'
-        skal alle disse får affiliation student med kode 'opptak'
-        ('privatist' for disse) til stedskoden sp.faknr_studieansv +
-        sp.instituttnr_studieansv + sp.gruppenr_studieansv""" 
+        institusjonen og som enten har vært registrert siste året 
+        eller opptak efter 2003-01-01.  Med untak av de som har
+        'studierettstatkode' lik 'PRIVATIST' skal alle disse få
+        affiliation student med kode 'opptak' ('privatist' for disse)
+        til stedskoden sp.faknr_studieansv + sp.instituttnr_studieansv
+        + sp.gruppenr_studieansv""" 
 
         qry = """
 SELECT DISTINCT s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
@@ -211,23 +209,21 @@ SELECT DISTINCT s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
        p.adresseland_hjemsted, p.status_reserv_nettpubl, 
        p.sprakkode_malform,st.studieprogramkode, st.studierettstatkode,
        p.kjonn
-FROM fs.student s, fs.person p, fs.studierett st, fs.eksmeldinglogg el,
+FROM fs.student s, fs.person p, fs.studierett st, fs.registerkort r,
      fs.studieprogram sp
 WHERE  p.fodselsdato=s.fodselsdato AND
        p.personnr=s.personnr AND
        p.fodselsdato=st.fodselsdato AND
        p.personnr=st.personnr AND 
        st.studieprogramkode = sp.studieprogramkode AND
-       p.fodselsdato=el.fodselsdato AND
-       p.personnr=el.personnr AND
+       p.fodselsdato=r.fodselsdato AND
+       p.personnr=r.personnr AND
        st.opphortstudierettstatkode IS NULL AND
        st.studierettstatkode IN (RELEVANTE_STUDIERETTSTATKODER)
        AND
-       (el.arstall >= (%s - 1) OR
-       st.dato_tildelt > sysdate - 365)
+       (r.arstall >= (%s - 1) OR
+       st.dato_tildelt >= to_date('2003-01-01', 'yyyy-mm-dd'))
        """ % (aar)
-        # Man kan ikke sjekke el.aarstall >= i fjor ettersom tabellen
-        # også inneholder fremtidige meldinger.
         return qry
     
 
