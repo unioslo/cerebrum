@@ -47,7 +47,7 @@ class OU(OU):
         super(OU, self).clear()
 
     def populate(self, name, fakultet, institutt, avdeling,
-            institusjon=135, katalog_merke='T',acronym=None,
+            institusjon=185, katalog_merke='T',acronym=None,
             short_name=None, display_name=None, sort_name=None):
         
         "Set instance's attributes without referring to the Cerebrum DB."
@@ -106,16 +106,19 @@ class OU(OU):
             self.execute("""
             INSERT INTO cerebrum.stedkode
                 (ou_id, institusjon, fakultet, institutt, avdeling, katalog_merke)
-            VALUES (:1, :2, :3, :4, :5, :6)""",
-                         self.ou_id, self.institusjon, self.fakultet, self.institutt,
-                         self.avdeling, self.katalog_merke)
+            VALUES (:ou_id, :institusjon, :fak, :institutt, :avd, :kat_merke)""",
+                         {'ou_id' : self.ou_id, 'institusjon' : self.institusjon,
+                          'fak' : self.fakultet, 'institutt' : self.institutt,
+                          'avd' : self.avdeling, 'kat_merke' : self.katalog_merke})
         else:
             ou_id = as_object.ou_id
             self.execute("""
-            UPDATE cerebrum.stedkode SET institusjon=:1, fakultet=:2,
-                 institutt=:3, avdeling=:4, katalog_merke=:5
-            WHERE ou_id=:6""", self.institusjon, self.fakultet, self.institutt,
-                         self.avdeling, self.katalog_merke, self.ou_id)
+            UPDATE cerebrum.stedkode SET institusjon=:institusjon, fakultet=:fak,
+                 institutt=:institutt, avdeling=:avd, katalog_merke=:kat_merke
+            WHERE ou_id=:ou_id""",
+                         {'institusjon' : self.institusjon, 'fak' : self.fakultet,
+                          'institutt' : self.institutt, 'avd' : self.avdeling,
+                          'kat_merke' : self.katalog_merke, 'ou_id' : self.ou_id})
 
         self.__write_db = False
 
@@ -125,19 +128,21 @@ class OU(OU):
 
     def find_stedkode(self, fakultet, institutt, avdeling, institusjon=185):
         (self.ou_id, self.institusjon, self.fakultet, self.institutt,
-         self.avdeling, self.katalog_merke) = self.query_1("""
+         self.avdeling, self.katalog_merke) = \
+        self.query_1("""
         SELECT ou_id, institusjon, fakultet, institutt, avdeling, katalog_merke
         FROM cerebrum.stedkode
-        WHERE
-          institusjon = :1 AND
-          fakultet    = :2 AND
-          institutt   = :3 AND
-          avdeling    = :4""", institusjon, fakultet, institutt, avdeling)
+        WHERE institusjon = :institusjon AND fakultet = :fak AND
+              institutt = :institutt AND avdeling = :avd""",
+                     {'institusjon' : institusjon, 'fak' : fakultet,
+                      'institutt' : institutt, 'avd' : avdeling})
 
     def add_stedkode(self, fakultet, institutt, avdeling, institusjon=185,
                      katalog_merke='T'):
         return self.execute("""
         INSERT INTO cerebrum.stedkode
           (ou_id, institusjon, fakultet, institutt, avdeling, katalog_merke)
-        VALUES (:1, :2, :3, :4, :5, :6)""", self.entity_id, institusjon,
-                            fakultet, institutt, avdeling, katalog_merke)
+        VALUES (:ou_id, :institusjon, :fak, :institutt, :avd, :kat_merke)""",
+                            {'ou_id' : self.ou_id, 'institusjon' : institusjon,
+                             'fak' : fakultet, 'institutt' : institutt, 'avd' : avdeling,
+                             'kat_merke' : katalog_merke})
