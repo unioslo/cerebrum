@@ -4318,11 +4318,11 @@ class BofhdExtension(object):
 	
     # user promote_posix
     all_commands['user_promote_posix'] = Command(
-        ('user', 'promote_posix'), AccountName(), GroupName(),
+        ('user', 'promote_posix'), AccountName(), Spread(), GroupName(),
         PosixShell(default="bash"), DiskId(),
         perm_filter='can_create_user')
-    def user_promote_posix(self, operator, accountname, dfg=None, shell=None,
-                          home=None):
+    def user_promote_posix(self, operator, accountname, spread,
+                           dfg=None, shell=None, home=None):
         is_posix = False
         try:
             self._get_account(accountname, actype="PosixUser")
@@ -4332,6 +4332,7 @@ class BofhdExtension(object):
         if is_posix:
             raise CerebrumError("%s is already a PosixUser" % accountname)
         account = self._get_account(accountname)
+        spread = int(self._get_constant(spread, "No such spread"))
         pu = PosixUser.PosixUser(self.db)
         uid = pu.get_free_uid()
         group = self._get_group(dfg, grtype='PosixGroup')
@@ -4345,8 +4346,7 @@ class BofhdExtension(object):
         person = self._get_person("entity_id", account.owner_id)
         self.ba.can_create_user(operator.get_entity_id(), person, disk_id)
         pu.populate(uid, group.entity_id, None, shell, parent=account)
-        pu.set_home(self.const.spread_uio_nis_user,
-                    disk_id=disk_id, home=home,
+        pu.set_home(spread, disk_id=disk_id, home=home,
                     status=self.const.home_status_not_created)
         pu.write_db()
         return "OK"
