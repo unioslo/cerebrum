@@ -28,7 +28,7 @@ import pprint
 pp = pprint.PrettyPrinter(indent=4)
 
 class PersonName(object):
-    "Mixin class for Person"
+    """Mixin class for Person"""
 
     def __init__(self):
         assert isinstance(Person, self)
@@ -40,9 +40,9 @@ class PersonName(object):
         self._name_info = {}
 
     def __eq__(self, other):
-        if self._pn_affect_source == None:
-            return True
         assert isinstance(other, PersonName)
+        if self._pn_affect_source is None:
+            return True
         for type in self._pn_affect_types:
             other_name = other.get_name(self._pn_affect_source, type)
             my_name = self._name_info.get(type, None)
@@ -52,6 +52,7 @@ class PersonName(object):
 
     def _compare_names(self, type, other):
         """Returns True if names are equal.
+
         self must be a populated object."""
 
         try:
@@ -60,35 +61,41 @@ class PersonName(object):
                 raise KeyError
         except:
             raise KeyError, "MissingOther"
-
         try:
             myname = self._name_info[type]
         except:
             raise KeyError, "MissingSelf"
-        
         return tmp == myname
 
     def _set_name(self, source_system, variant, name):
         self.execute("""
-        INSERT INTO [:table schema=cerebrum name=person_name] (person_id, name_variant, source_system, name)
-        VALUES (:p_id, :n_variant, :s_system, :name)""",
-                     {'p_id' : self.person_id, 'n_variant' : int(variant),
-                      's_system' : int(source_system), 'name' : name})
+        INSERT INTO [:table schema=cerebrum name=person_name]
+          (person_id, name_variant, source_system, name)
+        VALUES (:p_id, :n_variant, :src, :name)""",
+                     {'p_id': self.person_id,
+                      'n_variant': int(variant),
+                      'src': int(source_system),
+                      'name': name})
 
     def get_person_name_codes(self):
         return self.query("SELECT code, description FROM person_name_code")
 
     def get_name(self, source_system, variant):
         """Return the name with the given variant"""
-
-        return self.query_1("""SELECT name FROM person_name
-            WHERE person_id=:p_id AND name_variant=:n_variant AND source_system=:s_system""",
-                            {'p_id' : self.person_id, 'n_variant' : int(variant),
-                             's_system' : int(source_system)})
+        return self.query_1("""
+        SELECT name FROM person_name
+        WHERE
+          person_id=:p_id AND
+          name_variant=:n_variant AND
+          source_system=:src""",
+                            {'p_id': self.person_id,
+                             'n_variant': int(variant),
+                             'src': int(source_system)})
 
     def affect_names(self, source, *types):
         self._pn_affect_source = source
-        if types == None: raise "Not implemented"
+        if types is None:
+            raise NotImplementedError
         self._pn_affect_types = types
 
     def populate_name(self, type, name):
@@ -97,9 +104,8 @@ class PersonName(object):
     def write_db(self, as_object=None):
         # If affect_names has not been called, we don't care about
         # names
-
-        if self._pn_affect_source == None: return
-
+        if self._pn_affect_source is None:
+            return
         for type in self._pn_affect_types:
             try:
                 if not self._compare_names(type, as_object):
@@ -107,41 +113,51 @@ class PersonName(object):
                     self.execute("""
                     UPDATE [:table schema=cerebrum name=person_name]
                     SET name=:name
-                    WHERE person_id=:p_id AND source_system=:s_system AND
-                       name_variant=:n_variant""",
-                                 {'name' : self._name_info[type], 'p_id' : as_object.person_id,
-                                  's_system' : int(self._pn_affect_source),
-                                  'n_variant' : int(type)})
+                    WHERE
+                      person_id=:p_id AND
+                      source_system=:src AND
+                      name_variant=:n_variant""",
+                                 {'name': self._name_info[type],
+                                  'p_id': as_object.person_id,
+                                  'src': int(self._pn_affect_source),
+                                  'n_variant': int(type)})
             except KeyError, msg:
                 # Note: the arg to a python exception must be casted to str :-(
                 if str(msg) == "MissingOther":
                     if self._name_info.has_key(type):
-                        self._set_name(self._pn_affect_source, type, self._name_info[type])
+                        self._set_name(self._pn_affect_source, type,
+                                       self._name_info[type])
                 elif str(msg) == "MissingSelf":
-                    self.execute("""DELETE [:table schema=cerebrum name=person_name]
-                                    WHERE person_id=:p_id AND source_system=:s_system
-                                          AND name_variant=:n_variant""",
-                                 {'p_id' : as_object.person_id,
-                                  's_system' : int(self._pn_affect_source),
-                                  'n_variant' : int(type)})
+                    self.execute("""
+                    DELETE FROM [:table schema=cerebrum name=person_name]
+                    WHERE
+                      person_id=:p_id AND
+                      source_system=:src AND
+                      name_variant=:n_variant""",
+                                 {'p_id': as_object.person_id,
+                                  'src': int(self._pn_affect_source),
+                                  'n_variant': int(type)})
                 else:
                     raise
-            
+
+
 class PersonAffiliation(object):
-    "Mixin class for Person"
+    """Mixin class for Person"""
 
     def __eq__(self, other):
-        if self._pa_affect_source == None:
+        assert isinstance(other, PersonAffiliation)
+        if self._pa_affect_source is None:
             return True
-
         for affect_type in self._pa_affect_types:
-            other_aff = other.get_affiliations(source_system=self._pa_affect_source,
-                                               affiliation=affect_type)
+            other_aff = other.get_affiliations(
+                source_system=self._pa_affect_source,
+                affiliation=affect_type)
             other_dict = {}
             for t in other_aff:
                 # Not sure why this casting to int is required on PostgreSQL
                 other_dict[int(t.ou_id)] = t.status
-            for t_ou_id, t_status in self._pa_affiliations.get(affect_type, []):
+            for t_ou_id, t_status in \
+                    self._pa_affiliations.get(affect_type, []):
                 # Not sure why this casting to int is required on PostgreSQL
                 t_ou_id = int(t_ou_id)
                 if other_dict.has_key(t_ou_id):
@@ -158,63 +174,82 @@ class PersonAffiliation(object):
 
     def affect_affiliations(self, source, *types):
         self._pa_affect_source = source
-        if types == None: raise "Not implemented"
+        if types is None:
+            raise NotImplementedError
         self._pa_affect_types = types
 
     def populate_affiliation(self, ou_id, affiliation, status):
-        self._pa_affiliations[affiliation] = self._pa_affiliations.get(affiliation, []) + [(ou_id, status)]
+        self._pa_affiliations[affiliation] = \
+            self._pa_affiliations.get(affiliation, []) + [(ou_id, status)]
 
     def write_db(self, as_object=None):
-        if self._pa_affect_source == None: return
+        if self._pa_affect_source is None:
+            return
         other = {}
         for affect_type in self._pa_affect_types:
             if as_object != None:
-                t = as_object.get_affiliations(source_system=self._pa_affect_source, affiliation=affect_type)
+                t = as_object.get_affiliations(
+                    source_system=self._pa_affect_source,
+                    affiliation=affect_type)
                 for t_ss, t_ou_id, t_affiliation, t_status in t:
                     other["%d-%d" % (t_ou_id, t_affiliation)] = t_status
-                    
             for ou_id, status in self._pa_affiliations[affect_type]:
                 key = "%d-%d" % (ou_id, affect_type)
                 if not other.has_key(key):
                     self.execute("""
-                    INSERT INTO [:table schema=cerebrum name=person_affiliation] (person_id, ou_id, affiliation,
-                       source_system, status, create_date, last_date)
-                    VALUES (:p_id, :ou_id, :affiliation, :s_system, :status,
+                    INSERT INTO
+                      [:table schema=cerebrum name=person_affiliation]
+                      (person_id, ou_id, affiliation, source_system, status,
+                       create_date, last_date)
+                    VALUES (:p_id, :ou_id, :affiliation, :src, :status,
                             [:now], [:now])""",
-                                 {'p_id' : self.person_id, 'ou_id' : ou_id,
-                                  'affiliation' : int(affect_type),
-                                  's_system' : int(self._pa_affect_source),
-                                  'status' : int(status)})
-
+                                 {'p_id': self.person_id,
+                                  'ou_id': ou_id,
+                                  'affiliation': int(affect_type),
+                                  'src': int(self._pa_affect_source),
+                                  'status': int(status)})
                 elif other[key] != int(status):
                     self.execute("""
-                    UPDATE [:table schema=cerebrum name=person_affiliation] SET status=:status
-                    WHERE person_id=:p_id AND ou_id=:ou_id AND affiliation=:affiliation
-                          AND source_system=:s_system""",
-                                 {'status' : int(status), 'p_id' : self.person_id,
-                                  'ou_id' : ou_id, 'affiliation' : int(affect_type),
-                                  's_system' : int(self._pa_affect_source)})
+                    UPDATE [:table schema=cerebrum name=person_affiliation]
+                    SET status=:status
+                    WHERE
+                      person_id=:p_id AND
+                      ou_id=:ou_id AND
+                      affiliation=:affiliation AND
+                      source_system=:src""",
+                                 {'status': int(status),
+                                  'p_id': self.person_id,
+                                  'ou_id': ou_id,
+                                  'affiliation': int(affect_type),
+                                  'src': int(self._pa_affect_source)})
                 if other.has_key(key): del other[key]
             for k in other.keys():
                 # TODO: We don't delete affiliations, we mark them as deleted
                 ou_id, affect_type = k.split('-')
                 self.execute("""
-                   DELETE [:table schema=cerebrum name=person_affiliation]
-                   WHERE person_id=:p_id AND ou_id=:ou_id AND affiliation=:affiliation
-                         AND source_system=:s_system""",
-                             {'p_id' : self.person_id, 'ou_id' : int(ou_id),
-                              'affiliation' : int(affect_type),
-                              's_system' : int(self._pa_affect_source)})
+                DELETE FROM [:table schema=cerebrum name=person_affiliation]
+                WHERE
+                  person_id=:p_id AND
+                  ou_id=:ou_id AND
+                  affiliation=:affiliation AND
+                  source_system=:src""",
+                             {'p_id': self.person_id,
+                              'ou_id': int(ou_id),
+                              'affiliation': int(affect_type),
+                              'src': int(self._pa_affect_source)})
 
-    def get_affiliations(self, source_system=None, affiliation=None, ou_id=None):
-        qry = """SELECT source_system, ou_id, affiliation, status
-                 FROM [:table schema=cerebrum name=person_affiliation] WHERE person_id=:p_id"""
-        params = {'p_id' : self.person_id}
+    def get_affiliations(self, source_system=None, affiliation=None,
+                         ou_id=None):
+        qry = """
+        SELECT source_system, ou_id, affiliation, status
+        FROM [:table schema=cerebrum name=person_affiliation]
+        WHERE person_id=:p_id"""
+        params = {'p_id': self.person_id}
         for v in ('source_system', 'affiliation', 'ou_id'):
             val = locals().get(v, None)
             if val != None:
                 qry += " AND %s=:%s" % (v, v)
-                params["%s" % v] = int(val)
+                params[v] = int(val)
         return self.query(qry, params)
 
 class Person(Entity, EntityContactInfo, EntityAddress,
@@ -254,19 +289,18 @@ class Person(Entity, EntityContactInfo, EntityAddress,
         if not identical:
             if self._debug_eq: print "Person.super.__eq__ = %s" % identical
             return identical
-
         identical = EntityAddress.__eq__(self, other)
         if self._debug_eq: print "EntityAddress.__eq__ = %s" % identical
-        if not identical: return False
-
+        if not identical:
+            return False
         identical = PersonAffiliation.__eq__(self, other)
         if self._debug_eq: print "PersonAffiliation.__eq__ = %s" % identical
-        if not identical: return False
-
+        if not identical:
+            return False
         identical = PersonName.__eq__(self, other)
         if self._debug_eq: print "PersonName.__eq__ = %s" % identical
-        if not identical: return False
-
+        if not identical:
+            return False
         identical = ((other.birth_date == self.birth_date) and
                      (other.gender == int(self.gender)) and
                      (other.description == self.description) and
@@ -290,40 +324,44 @@ class Person(Entity, EntityContactInfo, EntityAddress,
 
         """
         assert self.__write_db
-
         super(Person, self).write_db(as_object)
         self.person_id = self.entity_id
-
         if as_object is None:
-            self.person_id = super(Person, self).new(int(self.const.entity_person))
-
+            self.person_id = super(Person, self).new(
+                int(self.const.entity_person))
             self.execute("""
-            INSERT INTO [:table schema=cerebrum name=person_info] (entity_type, person_id,
-               export_id, birth_date, gender, deceased, description)
-            VALUES (:e_type, :p_id, :exp_id, :b_date, :gender, :deceased, :desc)""",
-                         {'e_type' : int(self.const.entity_person),
-                          'p_id' : self.person_id, 'exp_id' : 'exp-'+str(self.person_id),
-                          'b_date' : self.birth_date, 'gender' : int(self.gender),
-                          'deceased' : 'F', 'desc' : self.description})
+            INSERT INTO [:table schema=cerebrum name=person_info]
+              (entity_type, person_id, export_id, birth_date, gender,
+               deceased, description)
+            VALUES
+              (:e_type, :p_id, :exp_id, :b_date, :gender, :deceased, :desc)""",
+                         {'e_type': int(self.const.entity_person),
+                          'p_id': self.person_id,
+                          'exp_id': 'exp-'+str(self.person_id),
+                          'b_date': self.birth_date,
+                          'gender': int(self.gender),
+                          'deceased': 'F',
+                          'desc': self.description})
             # print "X: %s" % str(self._external_id)
             for t_ss, t_type, t_id in self._external_id:
                 self._set_external_id(t_ss, t_type, t_id)
         else:
             self.person_id = as_object.person_id
-            
             self.execute("""
-            UPDATE [:table schema=cerebrum name=person_info] SET export_id=:exp_id, birth_date=:b_date,
-               gender=:gender, deceased=:deceased, description=:desc
+            UPDATE [:table schema=cerebrum name=person_info]
+            SET export_id=:exp_id, birth_date=:b_date, gender=:gender,
+                deceased=:deceased, description=:desc
             WHERE person_id=:p_id""",
-                         {'exp_id' : 'exp-'+str(self.person_id), 'b_date' : self.birth_date,
-                          'gender' : int(self.gender), 'deceased' : 'F',
-                          'desc' : self.description, 'p_id' : self.person_id})
-
+                         {'exp_id': 'exp-'+str(self.person_id),
+                          'b_date': self.birth_date,
+                          'gender': int(self.gender),
+                          'deceased': 'F',
+                          'desc': self.description,
+                          'p_id': self.person_id})
         EntityAddress.write_db(self, as_object)
         PersonAffiliation.write_db(self, as_object)
         PersonName.write_db(self, as_object)
         self.__write_db = False
-
         # TODO: Handle external_id
 
     def new(self, birth_date, gender, description=None, deceased='F'):
@@ -333,7 +371,6 @@ class Person(Entity, EntityContactInfo, EntityAddress,
         new entity.
 
         """
-
         Person.populate(self, birth_date, gender, description, deceased)
         Person.write_db(self)
         Person.find(self, self.person_id)
@@ -351,32 +388,34 @@ class Person(Entity, EntityContactInfo, EntityAddress,
             """SELECT person_id, export_id, birth_date, gender,
                       deceased, description
                FROM [:table schema=cerebrum name=person_info]
-               WHERE person_id=:p_id""", {'p_id' : person_id})
+               WHERE person_id=:p_id""", {'p_id': person_id})
         super(Person, self).find(person_id)
-
 
     def populate_external_id(self, source_system, id_type, external_id):
         self._external_id += ((source_system, id_type, external_id),)
 
     def _set_external_id(self, source_system, id_type, external_id):
         self.execute("""
-        INSERT INTO [:table schema=cerebrum name=person_external_id] (person_id, id_type, source_system, external_id)
-        VALUES (:p_id, :id_type, :s_system, :ext_id)""",
-                     {'p_id' : self.person_id, 'id_type' : int(id_type),
-                      's_system' : int(source_system), 'ext_id' : external_id})
-
-        pass
+        INSERT INTO [:table schema=cerebrum name=person_external_id]
+          (person_id, id_type, source_system, external_id)
+        VALUES (:p_id, :id_type, :src, :ext_id)""",
+                     {'p_id': self.person_id,
+                      'id_type': int(id_type),
+                      'src': int(source_system),
+                      'ext_id': external_id})
 
     def find_persons_by_bdate(self, bdate):
-        return Utils.keep_entries(self.query(
-            """SELECT person_id FROM [:table schema=cerebrum name=person_info]
-               WHERE to_char(birth_date, 'YYYY-MM-DD')=:bdate""", {'bdate' : bdate}))
+        # TBD: Should the keep_entries() call really be here?
+        return Utils.keep_entries(self.query("""
+        SELECT person_id FROM [:table schema=cerebrum name=person_info]
+        WHERE to_char(birth_date, 'YYYY-MM-DD')=:bdate""", locals()))
 
     def find_by_external_id(self, id_type, external_id):
         person_id = self.query_1("""
         SELECT person_id
         FROM [:table schema=cerebrum name=person_external_id]
         WHERE id_type=:id_type AND external_id=:ext_id""",
-                                 {'id_type' : int(id_type), 'ext_id' : external_id})
+                                 {'id_type': int(id_type),
+                                  'ext_id': external_id})
         self.find(person_id)
         return person_id
