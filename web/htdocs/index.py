@@ -16,8 +16,8 @@ def index(req, tag="p"):
     table.add("Ganske", "bra", "altså")
     body.content = table
 
-    log = ActivityLog()
-    body.activitylog = log
+    #log = ActivityLog()
+    #body.activitylog = log
 
     worklist = WorkList()
     body.worklist = worklist
