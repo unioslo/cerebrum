@@ -31,9 +31,9 @@ registry = Registry.get_registry()
 
 class GroupMember(DatabaseClass):
     primary = [
-        DatabaseAttr('group', 'group_member', Group, dbattr_name='group_id'),
+        DatabaseAttr('group', 'group_member', Group),
         DatabaseAttr('operation', 'group_member', GroupMemberOperationType),
-        DatabaseAttr('member', 'group_member', Entity, dbattr_name='member_id'),
+        DatabaseAttr('member', 'group_member', Entity),
         DatabaseAttr('member_type', 'group_member', EntityType)
     ]
     slots = []

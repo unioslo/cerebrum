@@ -10,19 +10,24 @@ import Registry
 registry = Registry.get_registry()
 
 table = 'account_authentication'
-
 class AccountAuthentication(DatabaseClass):
     primary = [
-        DatabaseAttr('account', table, Account, dbattr_name='account_id'),
+        DatabaseAttr('account', table, Account),
         DatabaseAttr('method', table, AuthenticationType)
     ]
     slots = [
         DatabaseAttr('auth_data', table, str, write=True)
     ]
 
+    db_attr_aliases = {
+        table:{
+            'account':'account_id'
+        }
+    }
+
 registry.register_class(AccountAuthentication)
 
-def get_authentications(self): # jada... dette skal bort/gjøres på en annen måte
+def get_authentications(self):
     s = registry.AccountAuthenticationSearch(self)
     s.set_account(self)
 

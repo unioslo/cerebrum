@@ -17,85 +17,61 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import Database
+from DatabaseClass import DatabaseClass, DatabaseAttr
 
-from GroBuilder import GroBuilder
-from Builder import Attribute, Method
-from Searchable import Searchable
+from Entity import Entity
+from Date import Date
 
 import Registry
 registry = Registry.get_registry()
 
 __all__ = ['ChangeType', 'ChangeEvent']
 
-# sukk. hvorfor er ikke denne implementert som konstanter?
-class ChangeType(GroBuilder):
-    primary = [Attribute('category', 'string'), Attribute('type', 'string')]
-    slots = primary + [Attribute('id', 'long'), Attribute('msg', 'string')]
+table = 'change_type'
+class ChangeType(DatabaseClass):
+    primary = [
+        DatabaseAttr('id', table, int),
+    ]
+    slots = [
+        DatabaseAttr('category', table, str),
+        DatabaseAttr('type', table, str),
+        DatabaseAttr('msg', table, str)
+    ]
 
-    def get_by_id(cls, id):
-        db = Database.get_database()
-        row = db.query_1('''SELECT category, type, msg_string
-                            FROM [:table schema=cerebrum name=change_type]
-                            WHERE change_type_id = %s''' % id)
-        return ChangeType(id=id, category=row['category'], type=row['type'], msg=['msg_string'])
+    db_attr_aliases = {
+        table: {
+            'id':'change_type_id',
+            'msg':'msg_string'
+        }
+    }
+registry.register_class(ChangeType)
 
-    get_by_id = classmethod(get_by_id)
+table = 'change_log'
+class ChangeLog(DatabaseClass):
+    primary = [
+        DatabaseAttr('id', table, int)
+    ]
+    slots = [
+        DatabaseAttr('timestamp', table, Date),
+        DatabaseAttr('subject', table, Entity),
+        DatabaseAttr('type', table, ChangeType),
+        DatabaseAttr('destination', table, str), # Entity
+        DatabaseAttr('params', table, str),
+        DatabaseAttr('change_by', table, str), # Entity
+        DatabaseAttr('change_program', table, str),
+        DatabaseAttr('description', table, str),
+    ]
 
-
-
-class ChangeEvent(GroBuilder, Searchable):
-    primary = [Attribute('id', 'long')]
-    slots = primary + [Attribute('timestamp', 'Date'), Attribute('subject', 'Entity'),
-                       Attribute('change_type', 'ChangeType'), Attribute('destination', 'Entity'),
-                       Attribute('params', 'string'), Attribute('change_by', 'Entity'),
-                       Attribute('change_program', 'string')]
-
-    def get_by_row(cls, row):
-        c = cls(int(row['change_id']))
-        c._timestamp = row['tstamp']
-        c._subject = registry.Entity(int(row['subject_entity']))
-        c._change_type = ChangeType.get_by_id(int(row['change_type_id']))
-        destination = row['dest_entity']
-        c._destination = destination and registry.Entity(int(destination)) or None
-        c._params = row['change_params']
-        c._change_by = row['change_by']
-        c._change_program = row['change_program']
-        return c
-
-    get_by_row = classmethod(get_by_row)
-
-    def _load_change_event(self):
-        db = self.get_database()
-        row = db.query_1('''SELECT change_id, tstamp, subject_entity, change_type_id,
-                           dest_entity, change_params, change_by, change_program
-                    FROM [:table schema=cerebrum name=change_log]
-                    WHERE change_id = %s''' % self._id)
-        self.get_by_row(row)
-
-    load_id = load_timestamp = load_params = load_change_by = load_change_program = _load_change_event
-
-    def create_search_method(cls):
-        def search(self, id=None, timestamp=None, subject=None, change_type=None, destination=None, change_by=None):
-            if id is None:
-                id = 0
-            if change_type is not None:
-                change_type = [change_type.get_id()]
-
-            if subject is not None:
-                subject = subject.get_entity_id()
-
-            if destination is not None:
-                destination = destination.get_entity_id()
-                
-            db = self.get_database()
-            events = []
-            for row in db.get_log_events(start_id=id, types=change_type, subject_entity=subject,
-                                     dest_entity=destination):
-                events.append(cls.get_by_row(row))
-            return events
-        return search
-
-    create_search_method = classmethod(create_search_method)
+    db_attr_aliases = {
+        table:{
+            'id':'change_id',
+            'timestamp':'tstamp',
+            'subject':'subject_entity',
+            'type':'change_type_id',
+            'destination':'dest_entity',
+            'params':'change_params'
+        }
+    }
+registry.register_class(ChangeLog)
 
 # arch-tag: 1ca69631-04d1-44b1-b766-1eebd7b072fc

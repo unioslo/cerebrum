@@ -30,14 +30,13 @@ registry = Registry.get_registry()
 __all__ = ['Note']
 
 class Note(DatabaseClass):
-    cls_name = 'Note'
     primary = [
-        DatabaseAttr('id', 'note', int, dbattr_name='note_id')
+        DatabaseAttr('id', 'note', int)
     ]
     slots = [
         DatabaseAttr('create_date', 'note', str),
-        DatabaseAttr('creator', 'note', Entity, dbattr_name='creator_id'),
-        DatabaseAttr('entity', 'note', Entity, dbattr_name='entity_id'),
+        DatabaseAttr('creator', 'note', Entity),
+        DatabaseAttr('entity', 'note', Entity),
         DatabaseAttr('subject', 'note', str),
         DatabaseAttr('description', 'note', str)
     ]
@@ -55,7 +54,7 @@ def add_note(self, subject, description):
 Entity.register_method(Method('add_note', None, args=[('subject', str), ('description', str)], write=True), add_note)
 
 def get_notes(self):
-    s = registry.NoteSearch()
+    s = registry.NoteSearch(self)
     s.set_entity(self)
     return s.search()
 

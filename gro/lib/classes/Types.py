@@ -22,9 +22,24 @@ from DatabaseClass import DatabaseClass, DatabaseAttr
 import Registry
 registry = Registry.get_registry()
 
-__all__ = []
+__all__ = ['CodeType']
 
-for name, table in [('EntityType', 'entity_type_code'),
+class CodeType(DatabaseClass):
+    def create_primary_key(cls, id=None, name=None, **args):
+        if id is None and name is not None:
+            s = cls.search_class(name)
+            s.set_name(name)
+            (obj,) = s.search()
+            id = obj.get_id()
+
+        assert type(id) in (int, long)
+
+        return super(CodeType, cls).create_primary_key(id, name, **args)
+
+    create_primary_key = classmethod(create_primary_key)
+
+for name, table in [('AccountType', 'account_code'),
+                    ('EntityType', 'entity_type_code'),
                     ('AddressType', 'address_code'),
                     ('ContactInfoType', 'contact_info_code'),
                     ('GenderType', 'gender_code'),
@@ -36,36 +51,27 @@ for name, table in [('EntityType', 'entity_type_code'),
                     ('GroupVisibilityType', 'group_visibility_code'),
                     ('QuarantineType', 'quarantine_code'),
                     ('OUPerspectiveType', 'ou_perspective_code'),
-                    ('AuthOperationType', 'auth_op_code'),]:
+                    ('AuthOperationType', 'auth_op_code'),
+                    ('ValueDomain', 'value_domain_code')]:
 
-    exec 'class %s(DatabaseClass):\n pass\ncls=%s' % (name, name)
+    exec 'class %s(CodeType):\n pass\ncls=%s' % (name, name)
 
     cls.primary = [
-        DatabaseAttr('id', table, int, dbattr_name='code'),
+        DatabaseAttr('id', table, int),
     ]
     cls.slots = [
-        DatabaseAttr('name', table, str, dbattr_name='code_str'),
+        DatabaseAttr('name', table, str),
         DatabaseAttr('description', table, str)
     ]
+    cls.db_attr_aliases = {
+        table:{
+            'id':'code',
+            'name':'code_str'
+        }
+    }
+            
 
     registry.register_class(cls)
     __all__.append(name)
-
-def get_class(self):
-    name = self.get_name()
-    if name == 'account':
-        return registry.Account
-    elif name == 'disk':
-        return registry.Disk
-    elif name == 'group':
-        return registry.Group
-    elif name == 'host':
-        return registry.Host
-    elif name == 'ou':
-        return registry.OU
-    elif name == 'person':
-        return registry.Person
-
-EntityType.get_class = get_class
 
 # arch-tag: 8c22fbba-ab80-405e-8d56-1e62b7da1cae
