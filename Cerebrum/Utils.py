@@ -367,11 +367,16 @@ class XMLHelper(object):
             "%s%s>" % (extra_attr, close_tag))
 
     def escape_xml_attr(self, a):
-        # TODO:  Check XML-spec to find out what to quote
+        """Escapes XML attributes.  Expected input format is iso-8859-1"""
         a = str(a).replace('&', "&amp;")
         a = a.replace('"', "&quot;")
         a = a.replace('<', "&lt;")
         a = a.replace('>', "&gt;")
+        # http://www.w3.org/TR/1998/REC-xml-19980210.html#NT-Char
+        # x9 | #xA | #xD | [#x20-#xD7FF] | [#xE000-#xFFFD] |
+        # [#x10000-#x10FFFF] /* any Unicode character, excluding the
+        # surrogate blocks, FFFE, and FFFF. */
+        a = re.sub('[^\011\012\015\040-\377]', '.', a)
         return '"%s"' % a
 
 class Factory(object):
