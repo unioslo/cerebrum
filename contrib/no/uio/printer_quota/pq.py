@@ -98,7 +98,8 @@ def _assert_has_quota(person_id):
 # class RequestHandler(SocketServer.BaseRequestHandler):
 class RequestHandler(SocketServer.StreamRequestHandler):
     def process_commands(self):
-        if not self.client_address[0] in authorized_hosts:
+        if not self.client_address[0].startswith(
+            cereconf.PQ_IP_CONNECT_PREFIX):
             self.send(eperm)
             return
         
@@ -216,6 +217,9 @@ class RequestHandler(SocketServer.StreamRequestHandler):
         return no
 
     def subtract_quota(self, printer, pageunits, job_data):
+        if not self.client_address[0] in authorized_hosts:
+            return eperm
+        
         pageunits = float(pageunits)
         if pageunits < 0:
             self.log('TRACE', "subtract_quota: BAD_PAGE")
@@ -277,9 +281,9 @@ def expand_netgroup(name, idx=0):  # should perhaps be in Utils.py
             ret.extend(expand_netgroup(entry))
     return ret
 
-def get_authorized_hosts():
+def get_authorized_hosts(machine_list):
     x = {}
-    for s in cereconf.PQ_REMOTE_IP:
+    for s in machine_list:
         if s[0] == '@':
             for s2 in expand_netgroup(s[1:]):
                 x[socket.gethostbyname(s2)] = True
@@ -318,7 +322,7 @@ if __name__ == '__main__':
     if not port:
         port = socket.getservbyname("prissquota", "tcp")
 
-    authorized_hosts = get_authorized_hosts()
+    authorized_hosts = get_authorized_hosts(cereconf.PQ_IP_SUBP)
     server = MyServer(('', port), RequestHandler)
     server.serve_forever()
 
