@@ -4,6 +4,7 @@
 
 import unittest
 
+from Cerebrum.tests import EntityTestCase
 from Cerebrum.tests.OUTestCase import OUTestCase
 from Cerebrum.tests.PersonTestCase import PersonTestCase
 from Cerebrum.tests.AccountTestCase import AccountTestCase
@@ -22,8 +23,8 @@ def suite():
     suite3 = PersonTestCase.suite()
     suite4 = AccountTestCase.suite()
     suite5 = GroupTestCase.suite()
-    return unittest.TestSuite((suite1, suite2, suite3, suite4, suite5))
-
+    suite6 = EntityTestCase.suite()
+    return unittest.TestSuite((suite6, suite1, suite2, suite3, suite4, suite5))
 
 if __name__ == '__main__':
     # When this module is executed from the command-line, run all its tests
