@@ -72,13 +72,18 @@ ORDER BY tlfpreftegn"""
 
     def GetTilsettinger(self):
         "Henter alle tilsetninger med dato_til frem i tid"
-        qry = """SELECT distinct fodtdag, fodtmnd, fodtar, personnr,
-	       fakultetnr_utgift, instituttnr_utgift, gruppenr_utgift,
-               stillingkodenr_beregnet_sist, prosent_tilsetting,
-               TO_CHAR(dato_fra, 'YYYYMMDD'), TO_CHAR(dato_til, 'YYYYMMDD'),
-               tilsnr
-            FROM lt.tilsetting
-	    WHERE dato_fra <= SYSDATE AND NVL(dato_til, SYSDATE) > SYSDATE"""
+        qry = """SELECT DISTINCT t.fodtdag, t.fodtmnd, t.fodtar,
+               t.personnr, t.fakultetnr_utgift, t.instituttnr_utgift,
+               t.gruppenr_utgift, NVL(t.stillingkodenr_beregnet_sist,
+                                      s.stillingkodenr),
+               t.prosent_tilsetting,
+               TO_CHAR(t.dato_fra, 'YYYYMMDD'),
+               TO_CHAR(t.dato_til, 'YYYYMMDD'),
+               t.tilsnr
+            FROM lt.tilsetting t, lt.stilling s
+	    WHERE dato_fra <= SYSDATE AND
+                  NVL(dato_til, SYSDATE) > SYSDATE AND
+                  t.stilnr = s.stilnr"""
         return (self._get_cols(qry), self.db.query(qry))
 
     def GetTitler(self):
