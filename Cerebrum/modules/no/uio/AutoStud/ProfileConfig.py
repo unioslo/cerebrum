@@ -50,6 +50,12 @@ class Config(object):
             p.set_select_mapping(self.select_mapping)
         for p in self.profiles:
             p.expand_super(profilename2profile)
+        # Change keys in group_defs from name to entity_id
+        tmp = {}
+        for k in self.group_defs.keys():
+            tmp[self.lookup_helper.get_group(k)] = self.group_defs[k]
+        self.group_defs = tmp
+            
 
     def debug_dump(self):
         ret = "Mapping of select-criteria to profile:\n"
@@ -271,11 +277,10 @@ class StudconfigParser(xml.sax.ContentHandler):
     def __init__(self, config):
         self.elementstack = []
         self._config = config
-        self._in_profil = None
-        self._in_select = None
-        self._in_gruppe_oversikt = None
-        self._in_disk_oversikt = None
         self._super = None
+        self._legal_spreads = {}
+        self._legal_groups = {}
+        self._in_profil = None
 
     def startElement(self, ename, attrs):
         tmp = {}
@@ -284,26 +289,34 @@ class StudconfigParser(xml.sax.ContentHandler):
         ename = ename.encode('iso8859-1')
         self.elementstack.append(ename)
 
-        if len(self.elementstack) == 2:
+        if len(self.elementstack) == 1 and ename == 'studconfig':
+            pass
+        elif len(self.elementstack) == 2:
             if ename == 'profil':
                 self._in_profil = ProfileDefinition(self._config,
                     tmp['navn'], self._config._logger, super=tmp.get('super', None))
                 self._config.profiles.append(self._in_profil)
             elif ename == 'gruppe_oversikt':
-                self._in_gruppe_oversikt = 1
                 self._default_group_auto = tmp['default_auto']
             elif ename == 'disk_oversikt':
-                self._in_disk_oversikt = 1
                 self._default_disk_max = tmp['default_max']
             elif ename == 'default_values':
-                pass   # Not supported yet
-        elif self._in_gruppe_oversikt:
+                pass   # Not supported yet, deprecated?
+        elif len(self.elementstack) == 3 and self.elementstack[1] == 'default_values':
+            pass  # deprecated?
+        elif len(self.elementstack) == 3 and self.elementstack[1] == 'spread_oversikt':
+            if ename == 'spreaddef':
+                self._legal_spreads[tmp['kode']] = 1
+            else:
+                raise SyntaxWarning, "Unexpected tag %s in spread_oversikt" % ename
+        elif len(self.elementstack) == 3 and self.elementstack[1] == 'gruppe_oversikt':
             if ename == 'gruppedef':
+                self._legal_groups[tmp['navn']] = 1
                 self._config.group_defs[tmp['navn']] = {
                     'auto': tmp.get('auto', self._default_group_auto)}
             else:
-                raise SyntaxWarning, "Unexpected tag %s in gruppedef" % ename
-        elif self._in_disk_oversikt:
+                raise SyntaxWarning, "Unexpected tag %s in gruppe_oversikt" % ename
+        elif len(self.elementstack) == 3 and self.elementstack[1] == 'disk_oversikt':
             if ename == 'diskdef':
                 tmp['max'] = tmp.get('max', self._default_disk_max)
                 if tmp.has_key('path'):
@@ -311,35 +324,31 @@ class StudconfigParser(xml.sax.ContentHandler):
                 else:
                     self._config.disk_defs.setdefault('prefix', {})[tmp['prefix']] = tmp
             else:
-                raise SyntaxWarning, "Unexpected tag %s in diskdef" % ename
+                raise SyntaxWarning, "Unexpected tag %s in disk_oversikt" % ename
         elif self._in_profil:
             if len(self.elementstack) == 3:
                 if ename == 'select':
-                    self._in_select = 1
+                    pass
                 elif ename in self.profil_settings:
+                    if ename == 'gruppe' and not self._legal_groups.has_key(tmp['navn']):
+                        raise SyntaxWarning, "Not in groupdef: %s" % tmp['navn']
+                    elif ename == 'spread' and not self._legal_spreads.has_key(tmp['system']):
+                        raise SyntaxWarning, "Not in spreaddef: %s" % tmp['system']
                     self._in_profil.add_setting(ename, tmp)
                 else:
-                    raise SyntaxWarning, "Unexpected tag %s on in profil" % ename
-            elif self._in_select and ename in self.select_map_defs:
+                    raise SyntaxWarning, "Unexpected tag %s in %s" % (
+                        ename, repr(self.elementstack))
+            elif (len(self.elementstack) == 4 and
+                  self.elementstack[2] == 'select' and
+                  ename in self.select_map_defs):
                 self._in_profil.add_selection_criteria(ename, tmp)
             else:
-                raise SyntaxWarning, "Unexpected tag %s on in profil" % ename
-        elif ename == 'studconfig':
-            pass
-        elif ename in ('spreaddef', 'print', 'mailkvote', 'diskkvote'):
-            pass   # Not supported yet
+                raise SyntaxWarning, "Unexpected tag %s in %s" % (
+                    ename, repr(self.elementstack))
         else:
-            raise SyntaxWarning, "Unexpected tag %s on in profil" % ename
+            raise SyntaxWarning, "Unexpected tag %s in %s" % (ename, repr(self.elementstack))
 
     def endElement(self, ename):
         self.elementstack.pop()
-        if self._in_select and ename == 'select':
-            self._in_select = None
-        elif self._in_profil and ename == 'profil':
+        if self._in_profil and ename == 'profil':
             self._in_profil = None
-        elif self._in_gruppe_oversikt and ename == 'gruppe_oversikt':
-            self._in_gruppe_oversikt = None
-        elif self._in_disk_oversikt and ename == 'disk_oversikt':
-            self._in_disk_oversikt = None
-        elif len(self.elementstack) == 0 and ename == 'studconfig':
-            pass
