@@ -25,120 +25,64 @@ from Cerebrum.Errors import NotFoundError
 from server.Cerebrum_core import Errors
 from SpineLib.SpineClass import SpineClass
 from SpineLib.Builder import Attribute, Method
-from SpineLib.CerebrumClass import CerebrumAttr, CerebrumTypeAttr
+from SpineLib.DatabaseClass import DatabaseClass, DatabaseAttr
 
 from SpineLib import Registry
+
+from Entity import Entity
+from Types import EntityType, OUPerspectiveType
+
 registry = Registry.get_registry()
 
-Entity = registry.Entity
+__all__ = ['OU', 'OUStructure']
 
-__all__ = ['OU', 'OUStructure','OUString']
-
+table = 'ou_info'
 class OU(Entity):
-    slots = Entity.slots + [CerebrumAttr('name', 'string', write=True),
-                            CerebrumAttr('acronym', 'string', write=True),
-                            CerebrumAttr('short_name', 'string', write=True),
-                            CerebrumAttr('display_name', 'string', write=True),
-                            CerebrumAttr('sort_name', 'string', write=True)]
-    method_slots = Entity.method_slots + [Method('get_parent', 'OU', 
-                                            [('perspective','OUPerspectiveType')],
-                                            ['NotFoundError']),
-                                            
-                                          Method('set_parent', 'void', [('perspective','OUPerspectiveType'),
-                                                                        ('parent','OU')]),
-                                          Method('unset_parent', 'void', [('perspective','OUPerspectiveType')]),
-                                          Method('get_names','OUStringSeq'),
-                                          Method('get_acronyms','OUStringSeq'),
-                                          Method('get_structure_path', 'string',
-                                                 [('perspective','OUPerspectiveType')]),
-                                          Method('get_structure_mappings', 'OUStructureSeq', 
-                                                 [('perspective','OUPerspectiveType')]),
-                                          Method('list_children', 'OUSeq', 
-                                                 [('perspective','OUPerspectiveType')]),
-                                          Method('get_children', 'OUSeq', 
-                                                 [('perspective','OUPerspectiveType')]), # Alias
-                                          Method('root', 'OU'),
-                                          Method('get_root', 'OU')] # Alias
+    slots = Entity.slots + [
+        DatabaseAttr('name', table, str),
+        DatabaseAttr('acronym', table, str),
+        DatabaseAttr('short_name', table, str), 
+        DatabaseAttr('display_name', table, str),
+        DatabaseAttr('sort_name', table, str)
+    ]
 
-    cerebrum_class = Cerebrum.OU.OU
+    db_attr_aliases = Entity.db_attr_aliases.copy()
+    db_attr_aliases[table] = {
+        'id': 'ou_id'
+    }
+    entity_type = EntityType(name='ou')
 
-    def get_parent(self, perspective):
-        e = Cerebrum.OU.OU(self.get_database())
-        e.entity_id = self.get_entity_id()
-        try:
-            parent_id = e.get_parent(perspective.get_id())
-        except Cerebrum.Errors.NotFoundError:
-            raise Errors.NotFoundError('No parents found in given perspective')
-        return OU(int(parent_id))
+registry.register_class(OU)
 
-    def set_parent(self, perspective, parent):
-        e = Cerebrum.OU.OU(self.get_database())
-        e.entity_id = self.get_entity_id()
-        e.set_parent(perspective.get_id(), parent.get_entity_id())
+table = 'ou_structure'
 
-    def unset_parent(self, perspective):
-        e = Cerebrum.OU.OU(self.get_database())
-        e.entity_id = self.get_entity_id()
-        e.unset_parent(perspective.get_id())
+class OUStructure(DatabaseClass):
+    primary = [
+        DatabaseAttr('ou', table, OU),
+        DatabaseAttr('perspective', table, OUPerspectiveType),
+    ]
+    slots = [DatabaseAttr('parent', table, OU)]
+    db_attr_aliases = {
+        table : {
+            'ou' : 'ou_id',
+            'parent' : 'parent_id',
+        }
+    }
 
-    def get_names(self):
-        names = []
-        e = Cerebrum.OU.OU(self.get_database())
-        e.entity_id = self.get_entity_id()
-        for name, lang in e.get_names():
-            names.append(OUString(name, lang))
-        return names
+registry.register_class(OUStructure)
 
-    def get_acronyms(self):
-        acronyms = []
-        e = Cerebrum.OU.OU(self.get_database())
-        e.entity_id = self.get_entity_id()
-        for acronym, lang in e.get_acronyms():
-            acronyms.append(OUString(acronym, lang))
-        return acronyms
+def get_parent(self, perspective):
+    s = registry.OUStructureSearcher()
+    s.set_ou(self)
+    return s.search()
 
-    def get_structure_path(self, perspective):
-        e = Cerebrum.OU.OU(self.get_database())
-        e.entity_id = self.get_entity_id()
-        return e.structure_path(perspective.get_id())
+OU.register_method(Method('get_parent', OU), get_parent)
 
-    def get_structure_mappings(self, perspective):
-        mappings = []
-        e = Cerebrum.OU.OU(self.get_database())
-        e.entity_id = self.get_entity_id()
-        for ou_id, parent_id in e.get_structure_mappings(perspective.get_id()):
-            if ou_id is None or parent_id is None: # Skip.. TODO: Is this right?
-                continue 
-            mappings.append(OUStructure(OU(int(ou_id)), OU(int(parent_id))))
-        return mappings
+def get_children(self, perspective):
+    s = registry.OUStructureSearcher()
+    s.set_parent(self)
+    return s.search()
 
-    def list_children(self, perspective): # This differs from the Cerebrum API
-        children = []
-        e = Cerebrum.OU.OU(self.get_database())
-        e.entity_id = self.get_entity_id()
-        for id in e.list_children(perspective.get_id()):
-            children.append(OU(int(id)))
-        return children
-
-    def get_children(self, perspective): # Alias for list_children (I like this name more ;))
-        return self.list_children(perspective)
-
-    def root(self):
-        e = Cerebrum.OU.OU(self.get_database())
-        e.entity_id = self.get_entity_id()
-        return OU(int(e.root()[0][0]))
-
-    def get_root(self): # Alias for root (I like this better too ;))
-        return self.root()
-
-class OUStructure(SpineClass):
-    primary = [Attribute('ou', 'OU'),
-                Attribute('parent_ou','OU')]
-    slots = primary
-
-class OUString(SpineClass):
-    primary = [Attribute('value', 'string'),
-                Attribute('language', 'string')]
-    slots = primary
+OU.register_method(Method('get_children', [OU]), get_children)
 
 # arch-tag: ec070b27-28c8-4b51-b1cd-85d14b5e28e4
