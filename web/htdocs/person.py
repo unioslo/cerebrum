@@ -53,7 +53,7 @@ def create(req, name="", birthno="", birthdate="", ou="", affiliation="", aff_st
             table.add(link, person.birthdate.Format("%Y-%m-%d"))
             result.append(table)
         elif person==None:
-            result.append(html.Emphasis(_("Sorry, person not created because of an error")))
+            page.add_message(_("Sorry, person not created because of an error"), True)
         
     result.append(personcreate.form())
     page.content = lambda: result.output().encode("utf8")
@@ -90,10 +90,10 @@ def search(req, name="", accountid="", birthno="", birthdate=""):
                 table.add(link, person.birthdate.Format("%Y-%m-%d"))
             result.append(table)
         else:
-            result.append(html.Emphasis(_("Sorry, no person(s) found matching the given criteria.")))
+            page.add_message(_("Sorry, no person(s) found matching the given criteria."))
 
     except xmlrpclib.Fault, e:
-        result.append(html.Emphasis(e.faultString.split("CerebrumError: ")[-1]))
+        page.add_message(e.faultString.split("CerebrumError: ")[-1]), True)
         
     result.append(html.Header(_("Search for other persons"), level=2))
     result.append(personsearch.form())
