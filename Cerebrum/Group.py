@@ -340,7 +340,7 @@ class Group(EntityName, Entity):
                 elif mtype == self.const.entity_group:
                     temp.clear()
                     temp.find(m_id)
-                    ret.extend(temp.get_members(_trace + (my_id,)), spread=spread)
+                    ret.extend(temp.get_members(_trace + (my_id,), spread=spread))
             return ret
         # Expand u to get a set of account_ids.
         res = expand(u)
