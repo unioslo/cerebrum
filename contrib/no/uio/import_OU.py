@@ -294,29 +294,6 @@ def set_quaran():
                                           start = now) 
     db.commit()
 
-"""
-   0 000000        UKJ (Uspesifisiert sted)
-X* 0 900199        UiO (UiO orgnivå 0)
-   1     900000     (Organisasjonssted Kollegiet)
-X* 2         110000 TF (Det teologiske fakultet)
-X* 3             110010 Faksekr (Fakultetssekretariat Teologisk fakultet)
-X* 3             110020 Fagsek (Fagseksjonen, Teologisk fakultet)
-X* 3             110030 AKS (Avd kompetansehevende studier, Teologisk)
-X* 2         120000 JF (Det juridiske fakultet)
-X* 3             120010 Faksekr (Det juridiske fakultets sekretariat)
- * 4                 120011  (Juridisk fakultet, Admin.seksjonen)
- * 4                 120012  (Juridisk fakultet, IT-seksjonen)
- * 4                 120013  (Juridiske fakultet, Studie/eksamensseksj)
- * 5                     120014  (Juridisk fakultet, Eksamensgruppen)
- * 5                     120015  (Juridisk fakultet, Informasjonsgruppen)
- * 5                     120016  (Juridisk fakultet, Studieadm.gruppen)
-   4                 120030  (Juridisk fakultet, Hustrykkeriet)
-X* 3             120100 IfK (Institutt for kriminologi)
-X* 3             120200 IfP (Institutt for privatrett)
-X* 3             120300 IRS (Institutt for rettssosiologi)
-X* 4                 120310  (Juss-buss, Inst. for rettssosiologi)
-X* 3             120400 NIfS (Nordisk institutt for sjørett)
-"""
 
 
 def dump_perspective(sources):
