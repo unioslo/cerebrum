@@ -10,7 +10,8 @@ from Cerebrum.web.templates.HistoryLogTemplate import HistoryLogTemplate
 from Cerebrum.web.Main import Main
 from gettext import gettext as _
 from Cerebrum.web.utils import url
-from Cerebrum.web.utils import redirect
+from Cerebrum.web.utils import redirect_object
+from mx import DateTime
 
 def index(req):
     page = Main(req)
@@ -19,7 +20,7 @@ def index(req):
     page.content = groupsearch.form
     return page
 
-def search(req, name, desc, spread):
+def search(req, name="", desc="", spread=""):
     req.session['group_lastsearch'] = (name, desc, spread)
     page = Main(req)
     page.title = _("Group search")
@@ -44,10 +45,12 @@ def search(req, name, desc, spread):
         link = url("group/view?id=%s" % id)
         link = html.Anchor(name, href=link)
         table.add(link, desc)
+    
     if groups:    
         result.append(table)
     else:
-        result.append(html.Emphasis(_("Sorry, no groups found matching the given criteria.")))
+        page.add_message(_("Sorry, no groups found matching the given criteria."))
+        
     result.append(html.Header(_("Search for other groups"), level=2))
     result.append(groupsearch.form())
     page.content = lambda: result.output().encode("utf8")
@@ -155,9 +158,26 @@ def save(req, id, name, desc, expire):
     server = req.session['server']
     if not(id):
         group = ClientAPI.Group.create(server, name, desc)
-        return redirect(req, url("/group/view?id=%s" % group.id), 
-                             seeOther=True)
+        return redirect_object(req, group, seeOther=True)
+    
+    group = ClientAPI.Group.fetch_by_id(server, id)
+    
+    if name != group.name:
+        #FIXME: Do something, maybe...
+        pass
+    
     if expire:
-        return "Cannot set expire yet"    
-    return "Don't know how to edit group"
+        # Expire date is set, check if it's changed...
+        DateTime.DateFrom(expire)
+        if group.expire != expire:
+            group.set_expire_date(expire)
+    else:
+        # No expire date set, check if it's to be removed
+        if group.expire:
+            group.set_expire_date(None)
 
+    if desc != group.description:
+        #FIXME: Do something, maybe...
+        pass
+
+    return redirect_object(req, group, seeOther=True)
