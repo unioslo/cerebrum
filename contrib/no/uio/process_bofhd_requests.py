@@ -179,7 +179,7 @@ def dependency_pending(dep_id):
         return False
     br = BofhdRequests(db, const)
     for dr in br.get_requests(request_id=dep_id):
-        logger.debug("waiting for request %d" % dep_id)
+        logger.debug("waiting for request %d" % int(dep_id))
         return True
     return False
 
