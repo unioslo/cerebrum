@@ -30,6 +30,39 @@ class Constants(Constants.Constants):
     bofh_move_request = _BofhdRequestOpCode('br_move_request', 'Move request')
     bofh_move_give = _BofhdRequestOpCode('br_move_give', 'Give away user')
     bofh_delete_user = _BofhdRequestOpCode('br_delete_user', 'Delete user')
+    
+    # br_email_will_move is left in queue until delivery has stopped.
+    # then a new request, br_email_move is inserted, and left in queue
+    # until the operation has completed.
+    # if either type of request is in the queue, generate_mail_ldif.py
+    # will set the mailPause attribute for that user.
+
+    # state_data:
+    #    source_server
+    #    dest_server
+    #    depend_req (request_id: wait while it's in queue)
+    bofh_email_will_move = _BofhdRequestOpCode('br_email_will_move',
+                                               'Will move user e-mail')
+    # same as bofh_email_will_move
+    # will insert a bofh_email_convert when done
+    bofh_email_move = _BofhdRequestOpCode('br_email_move',
+                                          'Move user among e-mail servers')
+    # state_data:
+    #    hquota (int: quota in mebibytes)
+    bofh_email_create = _BofhdRequestOpCode('br_email_create',
+                                            'Create user mailboxes')
+    # state_data:
+    #    imaphost (string: hostname)
+    bofh_email_delete = _BofhdRequestOpCode('br_email_delete',
+                                            'Delete all user mailboxes')
+    # state_data:
+    #    hquota (int: quota in mebibytes)
+    bofh_email_hquota = _BofhdRequestOpCode('br_email_hquota',
+                                            'Set e-mail hard quota')
+    # state_data:
+    #    (nothing)
+    bofh_email_convert = _BofhdRequestOpCode('br_email_convert',
+                                             'Convert user mail config')
 
 class BofhdRequests(object):
     def __init__(self, db, const, id=None):
@@ -71,6 +104,15 @@ class BofhdRequests(object):
             'tcols': ", ".join(cols.keys()),
             'binds': ", ".join([":%s" % t for t in cols.keys()])},
                          cols)
+
+    def delay_request(self, request_id, seconds=600):
+	cols = self.get_requests(request_id)
+	when = cols['run_at'] + seconds;
+	self._db.execute("""
+		UPDATE [:table schema=cerebrum name=bofhd_request]
+		SET run_at = %d
+		WHERE request_id = %d
+		""" % (when, request_id))
 
     def delete_request(self, entity_id=None, request_id=None,
                        operator_id=None, operation=None):
