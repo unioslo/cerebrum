@@ -115,7 +115,7 @@ public class CommandLine {
     }
     
     Vector getSplittedCommand() throws IOException, ParseException {
-	return splitCommand(promptArg("jbofh >", true));
+	return splitCommand(promptArg((String)jbofh.props.get("console_prompt"), true));
     }
 
     public static void main(String[] args) {

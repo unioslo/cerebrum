@@ -8,12 +8,14 @@ package no.uio.jbofh;
 
 import java.io.*;
 import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.net.URL;
 import java.util.Arrays;
 import java.util.Enumeration;
 import java.util.Hashtable;
 import java.util.Iterator;
 import java.util.Properties;
+import java.util.StringTokenizer;
 import java.util.Vector;
 import org.apache.log4j.Category;
 import org.apache.log4j.PropertyConfigurator;
@@ -236,11 +238,15 @@ public class JBofh {
 	}
 	if(gui) mainFrame = new JBofhFrame(this);
 	URL url = ResourceLocator.getResource(this, "/version.txt");
-	try {
-	    BufferedReader br = new BufferedReader(new InputStreamReader(url.openStream()));
-	    version = br.readLine();
-	    br.close();
-	} catch (IOException e) {}  // ignore failure
+        if(url == null) {
+            version = "Error reading version file";
+        } else {
+            try {
+                BufferedReader br = new BufferedReader(new InputStreamReader(url.openStream()));
+                version = br.readLine();
+                br.close();
+            } catch (IOException e) {}  // ignore failure
+        }
 
         bc = new BofhdConnection(logger);
         String intTrust = (String) props.get("InternalTrustManager.enable");
@@ -434,7 +440,7 @@ public class JBofh {
             String protoCmd = (String) r[0];
             Vector protoArgs = (Vector) r[1];
             try {
-                showMessage("jbofh >"+cmd, true);
+                showMessage(((String) props.get("console_prompt"))+cmd, true);
                 Object resp = bc.sendCommand(protoCmd, protoArgs);
                 if(resp != null) showResponse(protoCmd, resp, false);
             } catch (BofhdException ex) {
@@ -646,8 +652,27 @@ public class JBofh {
 		try {
 		    PrintfFormat pf = new PrintfFormat(format_str);
 		    Object a[] = new Object[order.size()];
-		    for(int i = 0; i < order.size(); i++) 
-			a[i] = row.get(order.get(i));
+		    for(int i = 0; i < order.size(); i++) {
+                        String tmp = (String) order.get(i);
+                        if(tmp.indexOf(":") != -1) {
+                            StringTokenizer st = new StringTokenizer(tmp, ":");
+                            tmp = st.nextToken();
+                            String type = st.nextToken();
+                            String formatinfo = "";
+                            while (st.hasMoreTokens()) {
+                                if(formatinfo.length() > 0)
+                                    formatinfo += ":";
+                                formatinfo += st.nextToken();
+                            }
+                            a[i] = row.get(tmp);
+                            if (type.equals("date") && (! "<not set>".equals(a[i]))) {
+                                SimpleDateFormat sdf = new SimpleDateFormat(formatinfo);
+                                a[i] = sdf.format(a[i]);
+                            }
+                        } else {
+                            a[i] = row.get(tmp);
+                        }
+                    }
 		    showMessage(pf.sprintf(a), true);
 		} catch (IllegalArgumentException ex) {
 		    logger.error("Error formatting "+resp+"\n as: "+format, ex);

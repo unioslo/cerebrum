@@ -218,7 +218,7 @@ public class JBofhFrame implements ActionListener {
             lbPrompt.setText("Wait");
             tfCmdLine.setEditable(false);
         } else {
-            lbPrompt.setText("jbofh>");
+            lbPrompt.setText((String) jbofh.props.get("console_prompt"));
             tfCmdLine.setEditable(true);
         }
     }
