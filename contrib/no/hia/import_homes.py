@@ -96,7 +96,7 @@ def process_line(infile):
                 account.set_home(co.spread_nis_user, home=home,
                                  status=co.home_status_on_disk)
                 logger.debug("User %s got home %s, %s.", uname, home, status)
-                
+		account.write_db()                
                 
                 continue
             try:
