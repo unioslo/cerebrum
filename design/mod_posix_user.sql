@@ -36,7 +36,7 @@ CREATE TABLE posix_group
 		  REFERENCES group_info(group_id),
   gid		NUMERIC(12,0)
                 CONSTRAINT posix_group_gid_chk
-                  CHECK (gid >= 0 AND gid < 2147483648)
+                  CHECK (gid >= 0 AND gid <= 2147483647)
 		CONSTRAINT posix_group_gid UNIQUE
 );
 
@@ -62,7 +62,7 @@ CREATE TABLE posix_user (
   uid           NUMERIC(12,0)
 		NOT NULL
                 CONSTRAINT posix_user_uid_chk
-                  CHECK (uid >= 0 AND uid < 2147483648)
+                  CHECK (uid >= 0 AND uid <= 2147483647)
 		CONSTRAINT posix_user_uid_unique UNIQUE,
   gid           NUMERIC(12,0)
 		NOT NULL
