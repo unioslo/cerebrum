@@ -605,8 +605,10 @@ Hvert brukernavn (kontekst?) kan ha tilknyttet et eget hjemmeområde.
  * we avoid using that as a table or column name.  Besides, "account"
  * probably is the more accurate term anyway.
 
- np_type: Account type for non-personal accounts.  For personal
-          accounts there's a separate user_type table.
+ np_type: "Non-personal" account type for accounts.  This is required
+          to be set for non-personal accounts, and *can* be set for
+          personal accounts as well (e.g. to indicate that a personal
+          account is a "test account").
 
  */
 category:main;
@@ -649,8 +651,7 @@ CREATE TABLE account_info
     FOREIGN KEY (owner_type, owner_id)
     REFERENCES entity_info(entity_type, entity_id),
   CONSTRAINT account_info_np_type_chk
-    CHECK ((owner_type = [:get_constant name=entity_person] AND
-	    np_type IS NULL) OR
+    CHECK ((owner_type = [:get_constant name=entity_person]) OR
 	   (owner_type = [:get_constant name=entity_group] AND
 	    np_type IS NOT NULL)),
 /* The next constraint is needed to allow `account_type' to have a
