@@ -3094,9 +3094,15 @@ class BofhdExtension(object):
                                account.entity_id, r[0]['destination_id'])
                 return "move queued for execution at %s" % br.batch_time
             elif move_type == "cancel":
-                br.delete_request(account.entity_id,
-                                  operator_id=operator.get_entity_id())
-                return "OK, move request deleted"
+                # TBD: Should superuser delete other request types as well?
+                count = 0
+                for tmp in br.get_requests(entity_id=account.entity_id):
+                    if tmp['operation'] in (
+                        self.const.bofh_move_student, self.const.bofh_move_user,
+                        self.const.bofh_move_give, self.const.bofh_move_request):
+                        count += 1
+                        br.delete_request(request_id=tmp['request_id'])
+                return "OK, %i bofhd requests deleted" % count
         elif move_type in ("request",):
             disk, why = args[0], args[1]
             disk_id, home = self._get_disk(disk)
