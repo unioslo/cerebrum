@@ -1,14 +1,14 @@
 [spine]
 cache: false
-cache_dir: /tmp/havarden
-username: stain
-password: blapp
+cache_dir: /tmp/spine_cache
+username: user
+password: password
 
 [corba]
 context: Cerebrum
-service: Gro
-object: GroServer
-url: /tmp/havarden/spine.ior
+service: Spine
+object: SpineServer
+url: /tmp/spine.ior
 
 [ssl]
 ca_file: CA.crt
