@@ -1,38 +1,88 @@
 import os
 
 
-# Need to handle exceptions better
+# Need to handle exceptions better?
 class multihandler:
     def __init__(self, *handlers):
         self.handlers=handlers
+	self.active=False
+	self.bad=False
+    def begin(self):
+	if self.bad or self.active: raise "notready"
+	try:
+            for h in self.handlers: h.begin()
+	    self.active=True
+	except:
+	    self.bad=True
+	    raise
     def close(self):
-        for h in self.handlers: h.close()
+	if self.bad or not self.active: raise "notready"
+	try:
+           for h in self.handlers: h.close()
+	   self.active=False
+        except:
+	   self.bad=True
+	   raise
     def add(self, obj):
-        for h in self.handlers: h.add(obj)
+	if self.bad or not self.active: raise "notready"
+	try:
+            for h in self.handlers: h.add(obj)
+	except:
+	    self.bad=True
+	    raise
     def delete(self, obj):
-        for h in self.handlers: h.delete(obj)
+	if self.bad or not self.active: raise "notready"
+	try:
+            for h in self.handlers: h.delete(obj)
+	except:
+	    self.bad=True
+	    raise
     def update(self, obj):
-        for h in self.handlers: h.update(obj)
+	if self.bad or not self.active: raise "notready"
+	try:
+            for h in self.handlers: h.update(obj)
+	except:
+	    self.bad=True
+	    raise
+    def abort(self):
+	for h in self.handlers:
+	    try:
+		h.abort()
+	    except:
+		pass #This is abort, so it's ok.
+	self.active=False
+	self.bad=False
 
 
 class fileback:
-    def __init__(self, filename, mode, inkr=False):
-        if inkr: throw "foo"
-        self.filename=file
-        self.tmpname=file + ".tmp." + str(os.getpid())
+    def __init__(self, filename=None, mode=0644):
+	if filename: self.filename=filename
+	self.mode=mode
+    def begin(inkr=False)
+	self.inkr=inkr
+	if self.inkr: self.readin(self.filename)
+        self.tmpname=self.filename + ".tmp." + str(os.getpid())
         self.f=open(self.tmpfile, 'w')
         os.chmod(self.tmpfile, mode)
-        self.format=formatpasswd
     def close(self):
+	if self.inkr: self.writeout()
         self.f.flush()
         os.fsync(self.f.fileno())
         self.f.close()
         os.rename(self.tmpname, self.filename)
+    def abort(self):
+	self.f.close()
+	os.unlink(self.tmpname)
     def add(self, obj):
-        self.f.write(self.format(obj))
+	if self.inkr:
+            self.records[obj.name]=self.format(obj)
+	else:
+	    self.f.write(self.format(obj))
     def update(self, obj):
+	if not self.inkr: raise "not supported in this mode of operation"
         self.records[obj.name]=self.format(obj)
     def delete(self, obj):
+	if not self.inkr: raise "not supported in this mode of operation"
         del self.records[obj.name]
 
 class clfileback(fileback):
@@ -71,7 +121,7 @@ class shadowfile(clfileback):
         return "%s:%s:::::::" % ( account.name, account.cryptpasswd )
 
 
-class aliasfile(cflfileback):
+class aliasfile(clfileback):
     filename="/etc/bdb/aliases"
     def format(self, addr):
         if addr.primary:
