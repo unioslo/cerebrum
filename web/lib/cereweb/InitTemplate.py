@@ -24,4 +24,4 @@ from gettext import gettext
 class InitTemplate(Template):
     _ = staticmethod(gettext)
 
-# arch-tag: e4dc87f8-a862-4ff9-9800-479f82be8589
+# arch-tag: c3e5cd4b-1eb5-4fd4-aca1-1268cf043492

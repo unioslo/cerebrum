@@ -36,4 +36,4 @@ def cleanuphandler(req):
         del req.session        
     return apache.OK       
 
-# arch-tag: 9890c009-9dab-4207-aeec-604d91ee1e7d
+# arch-tag: 59c4130c-7e17-45d7-bade-5d2fc25363e3

@@ -82,4 +82,4 @@ class Main(MainTemplate):
         """Wraps the setFocus-method on the menu."""
         self.menu.setFocus(*args)
 
-# arch-tag: 3f246425-25b1-4e28-a969-3f04c31264c7
+# arch-tag: 82762c07-04ad-4864-bc2f-2b84e5805042

@@ -84,4 +84,4 @@ def get_icon_by_change_type(changetype):
     icon=icon_map.get(type, "blank.png")
     return icon
             
-# arch-tag: c867b6bd-9a66-4967-9e41-fa88f669a641
+# arch-tag: 1d05ac4a-7763-4c69-9b56-696ab481717d

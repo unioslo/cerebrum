@@ -69,5 +69,4 @@ def check_profile(req):
         return
     req.session['profile'] = get_profile(req)
         
-    
-# arch-tag: 1afe2a16-d38f-434d-a9fe-081e54c8b235
+# arch-tag: 789a854d-e709-4545-9780-735b17baf3e2

@@ -25,4 +25,4 @@ def get_profile(req):
     profile = RecursiveDict(default_profile.profile)
     return profile
 
-# arch-tag: 72620efc-1668-4701-9820-180b48326902
+# arch-tag: 5c8c40a8-25ae-4a89-8aa3-cb64e064874f

@@ -133,4 +133,4 @@ def save(req, id, name="", desc=""):
     queue_message(req, _("Transaction %s have been modified." % trans.get_name()))
     redirect(req, url("transactions/edit?id=%i" % trans.get_id()), seeOther=True)
 
-# arch-tag: f21ff93e-8a60-40ef-b328-c5a84914eeb5
+# arch-tag: db31a148-8eff-4e76-9ccc-a72265dffdf3
