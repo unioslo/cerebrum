@@ -91,7 +91,7 @@ def create_user(fnr, profile):
     account.set_password(password)
     tmp = account.write_db()
     # Temporary hack until all students should have imap spread
-    account.add_spread(const.spread_uio_imap)
+    account.add_spread(const.spread_hia_email)
     logger.debug("new Account, write_db=%s" % tmp)
     all_passwords[int(account.entity_id)] = [password, profile.get_brev()]
     update_account(profile, fnr, [account.entity_id])
@@ -109,7 +109,7 @@ def update_account(profile, fnr, account_ids, account_info={}):
 
     as_posix = False
     for spread in profile.get_spreads():  # TBD: Is this check sufficient?
-        if str(spread).startswith('NIS'):
+        if spread in [const.spread_nis_user]:
             as_posix = True
     if as_posix:
         user = PosixUser.PosixUser(db)
@@ -863,3 +863,4 @@ if __name__ == '__main__':
     #                  cfg_file="/home/runefro/usit/cerebrum/uiocerebrum/etc/config/studconfig.xml")
 
     main()
+
