@@ -503,6 +503,34 @@ class EmailQuota(EmailTarget):
 class _EmailSpamLevelCode(Constants._CerebrumCode):
     _lookup_table = '[:table schema=cerebrum name=email_spam_level_code]'
 
+    def __init__(self, code, level=None, description=None):
+        super(_EmailSpamLevelCode, self).__init__(code, description)
+        self.level = level
+
+    def insert(self):
+        self._pre_insert_check()
+        self.sql.execute("""
+        INSERT INTO %(code_table)s
+          (%(code_col)s, %(str_col)s, grade, %(desc_col)s)
+        VALUES
+          (%(code_seq)s, :str, :level, :desc)""" % {
+            'code_table': self._lookup_table,
+            'code_col': self._lookup_code_column,
+            'str_col': self._lookup_str_column,
+            'desc_col': self._lookup_desc_column,
+            'code_seq': self._code_sequence},
+                         {'str': self.str,
+                          'level': self.level,
+                          'desc': self._desc})
+
+    def get_level(self):
+        if self.level is None:
+            self.level = int(self.sql.query_1("""
+            SELECT grade
+            FROM %(code_table)s
+            WHERE code=:code""" % {'code_table': self._lookup_table},
+                                              {'code': int(self)}))
+        return self.level
 
 class _EmailSpamActionCode(Constants._CerebrumCode):
     _lookup_table = '[:table schema=cerebrum name=email_spam_action_code]'
