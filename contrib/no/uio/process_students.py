@@ -68,31 +68,38 @@ def update_account(profile, account_ids, do_move=0, rem_grp=0, account_info={}):
     should be filled with affiliation info """
     
     group = Group.Group(db)
-    posix_user = PosixUser.PosixUser(db)
+    as_posix = 0    # TODO.  This value must be gotten from somewhere
+    if as_posix:
+        user = PosixUser.PosixUser(db)
+    else:
+        user = Account.Account(db)
     person = Person.Person(db)
-        
+
     for account_id in account_ids:
         logger.info2(" UPDATE:%s" % account_id)
         try:
-            posix_user.find(account_id)
+            user.find(account_id)
             # populate logic asserts that db-write is only done if needed
-            disk = profile.get_disk(posix_user.disk_id)
-            if posix_user.disk_id <> disk:
-                profile.notify_used_disk(old=posix_user.disk_id, new=disk)
-                posix_user.disk_id = disk
-            posix_user.gid = profile.get_dfg()
-            tmp = posix_user.write_db()
-            logger.debug2("old PosixUser, write_db=%s" % tmp)
+            disk = profile.get_disk(user.disk_id)
+            if user.disk_id <> disk:
+                profile.notify_used_disk(old=user.disk_id, new=disk)
+                user.disk_id = disk
+            user.gid = profile.get_dfg()
+            tmp = user.write_db()
+            logger.debug2("old User, write_db=%s" % tmp)
         except Errors.NotFoundError:
             disk_id=profile.get_disk()
             profile.notify_used_disk(old=None, new=disk_id)
-            uid = posix_user.get_free_uid()
-            gid = profile.get_dfg()
-            shell = default_shell
-            posix_user.populate(uid, gid, None, shell, disk_id=disk_id,
-                                parent=account_id)
-            tmp = posix_user.write_db()
-            logger.debug2("new PosixUser, write_db=%s" % tmp)
+            if as_posix:
+                uid = user.get_free_uid()
+                gid = profile.get_dfg()
+                shell = default_shell
+                user.populate(uid, gid, None, shell, disk_id=disk_id,
+                                    parent=account_id)
+            else:
+                raise ValueError, "This is a bug, the Account object should exist"
+            tmp = user.write_db()
+            logger.debug2("new User, write_db=%s" % tmp)
         # Populate groups
         already_member = {}
         for r in group.list_groups_with_entity(account_id):
@@ -114,7 +121,7 @@ def update_account(profile, account_ids, do_move=0, rem_grp=0, account_info={}):
         # Populate affiliations
         # Speedup: Try to determine if object is changed without populating
         changed = 0
-        paffs = person_affiliations.get(int(posix_user.owner_id), [])
+        paffs = person_affiliations.get(int(user.owner_id), [])
         for ou_id in profile.get_stedkoder():
             try:
                 idx = paffs.index((const.system_fs, ou_id, const.affiliation_student,
@@ -125,7 +132,7 @@ def update_account(profile, account_ids, do_move=0, rem_grp=0, account_info={}):
                 pass
         if len(paffs) > 0:
             changed = 1
-        person.find(posix_user.owner_id)
+        person.find(user.owner_id)
         if changed:
             for ou_id in profile.get_stedkoder():
                 person.populate_affiliation(const.system_fs, ou_id, const.affiliation_student,
@@ -138,14 +145,14 @@ def update_account(profile, account_ids, do_move=0, rem_grp=0, account_info={}):
                 if has_ou == ou_id and has_aff == const.affiliation_student:
                     has = 1
             if not has:
-                posix_user.add_account_type(person.entity_id, ou_id, const.affiliation_student)
+                user.add_account_type(person.entity_id, ou_id, const.affiliation_student)
         # Populate spreads
-        has_acount_spreads = [int(x['spread']) for x in posix_user.get_spread()]
+        has_acount_spreads = [int(x['spread']) for x in user.get_spread()]
         has_person_spreads = [int(x['spread']) for x in person.get_spread()]
         for spread in profile.get_spreads():
             if spread.entity_type == const.entity_account:
                 if not int(spread) in has_acount_spreads:
-                    posix_user.add_spread(spread)
+                    user.add_spread(spread)
             elif spread.entity_type == const.entity_person:
                 if not int(spread) in has_person_spreads:
                     person.add_spread(spread)
@@ -328,7 +335,12 @@ def process_students():
     logger.info("student_info_file processed")
     db.commit()
     logger.info("making letters")
-    make_letters()
+    if only_dump_to is not None:
+        f = open(only_dump_to, 'w')
+        pickle.dump(all_passwords, f)
+        f.close()
+    else:
+        make_letters()
     logger.info("process_students finished")
 
 def main():
@@ -341,13 +353,14 @@ def main():
     except getopt.GetoptError:
         usage()
     global debug, fast_test, create_users, update_accounts, logger, skip_lpr
-    global student_info_file, studconfig_file
+    global student_info_file, studconfig_file, only_dump_to
 
     skip_lpr = True       # Must explicitly tell that we want lpr
     update_accounts = create_users = 0
     fast_test = False
     workdir = None
     range = None
+    only_dump_to = None
     bootstrap()
     for opt, val in opts:
         if opt in ('-d', '--debug'):
@@ -362,6 +375,8 @@ def main():
             studconfig_file = val
         elif opt in ('--fast-test',):  # Internal debug use ONLY!
             fast_test = True
+        elif opt in ('--only-dum-results',):
+            only_dump_to = val
         elif opt in ('--with-lpr',):
             skip_lpr = False
         elif opt in ('--workdir',):
