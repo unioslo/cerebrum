@@ -27,9 +27,9 @@ from Cerebrum import Database
 from Cerebrum.extlib import xmlprinter
 
 # TODO: This file should not have UiO hardcoded data in it
-SYDRadmins = ['baardj', 'frankjs','jazz']
-DMLadmins = ['lindaj', 'hallgerb', 'maskoger', 'stefanij', 'jonar',
-             'helgeu', 'kaugedal']
+SYDRadmins = ['baardj', 'frankjs', 'jazz']
+DMLadmins = ['lindaj', 'hallgerb', 'maskoger', 'jonar', 'helgeu',
+             'kaugedal', 'rinos', 'monahst']
 AllAdmins = SYDRadmins + DMLadmins
 host_config = {
     'internkurs.uio.no': { 'DBinst': 'DLOUIO.uio.no',
@@ -41,13 +41,13 @@ host_config = {
                      'export': ['All_users'],
                      },
     'kladdebok.uio.no': { 'DBinst': 'DLOUTV.uio.no',
-                          'admins': AllAdmins + ['hmeland', 'thomash'],
+                          'admins': AllAdmins + ['hmeland'],
                           'export': ['FS'],
                           'plain_users': ['mgrude', 'gunnarfk'],
                           'spread': 'spread_fronter_kladdebok'
                           },
     'kladdebok.uio.no/dlotest': {'DBinst': 'DLOTEST.uio.no',
-                                 'admins': AllAdmins + ['jazz', 'hmtest'],
+                                 'admins': AllAdmins + ['hmtest'],
                                  'export': ['FS', 'All_users'],
                                  'spread': 'spread_fronter_blyant'
                                  },
