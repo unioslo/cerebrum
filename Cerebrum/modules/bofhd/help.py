@@ -12,31 +12,34 @@
 
 _group_help = {'general': """BOFH help:
 
-BOFH is a command-line based application for user administration.  
-A detailed description of BOFH as well as information about Cerebrum
-(which BOFH is a client for) may be viewed at 
-http://www.usit.uio.no/it/lita/cerebrum/. help <<command-group>>
-shows detailed information about commands in any of the main command 
-groups. Additional help is available in form of the commands 
+BOFH is a command-line based application for user administration.  A
+detailed description of BOFH as well as information about Cerebrum
+(which BOFH is a client for) may be viewed at
+http://www.usit.uio.no/it/lita/cerebrum/. help <<command-group>> shows
+detailed information about commands in any of the main command groups.
+A plus after an argument in the syntax description means that more
+than one argument can be given by putting them inside parentheses.
+
+Additional help is available in form of the commands 
 <<help glossary>>, <<help intro>> and <<help basics>>. 
 Available main command groups are:
 """,
                'glossary': """Glossary of common terms in Cerebrum:
 - account: a user account (POSIX or generic user) in Cerebrum
 - account authentication: data needed to authenticate a particular 
-  user troughout the system
+  user throughout the system
 - account owner: person or group which holds the ownership of an 
   account
 - account type: describes the ownership of an non-personal account
   (i.e. system account, software account, group account)
 - affilliation: the role a person possess within an organizational unit
 - affiliation status code: more precise description of a persons role 
-  (i.e. affiliation -> STUDENT, affiliation status code -> 
+  (i.e. affiliation -> STUDENT, affiliation status code -> aktiv)
   within an organizational unit
 - authoritative system: source system primarily used to update any 
   particular type of data in Cerebrum
 - changelog: system for keeping track of modifications to the database 
-  and making other systems detected changes at sync-time
+  and making other systems detect changes at sync-time
 - core: Cerebrum core API (see http://cerebrum_core...)
 - disk: a disk defined on a machine registered in Cerebrum
 - entity: an account (user), organizational unit, person or a group 
@@ -45,13 +48,13 @@ Available main command groups are:
 - entity id: an id assigned to each entity that exist in Cerebrum
 - email domain: the domain assignet to each e-mail address in Cerebrum 
   (the part of the address after the "@")
-- export id: an internal id asigned to each entity used to ease the 
+- export id: an internal id assigned to each entity used to ease the 
   export of Cerebrum-specific data to other systems
 - external id: unique id assigned to each person registered in Cerebrum
-   (e.g. national sosial security number)
+   (e.g. national social security number)
 - group: a collection of users or machines usually used to assign various
-  permissions in Cerebrum or troughout the system
-- group visibility:
+  permissions in Cerebrum or other systems
+- group visibility: 
 - home: home directory of a user registered in Cerebrum
 - uid: the numeric user ID value space in UNIX
 - host: a machine registered in Cerebrum
@@ -68,12 +71,12 @@ Available main command groups are:
 Although Cerebrum encourages use of automatic processing, a need for 
 manually done modifications of the contents of the database is usually
 present in any large organization. BOFH is a command-line based client 
-software for Cerebrum developed at theUniversity of Oslo to facilitate 
+software for Cerebrum developed at the University of Oslo to facilitate 
 this need. In order to use BOFH authentication is required and privileges
-assigned to the account owner calculated (trough group membership). All 
+assigned to the account owner calculated (through group membership). All 
 communication between a BOFH user and the database happens during a 
 session (which starts when BOFH is started and authentication is 
-successfully done). The server logs information about which actions are
+successful). The server logs information about which actions are
 performed by which user, and also records the changes made to
 interesting attributes of registered users in the system.  This
 enables the privileged users of the system to trace the changes and
@@ -81,7 +84,7 @@ thus correct errors introduced into the system.  During a session a
 user typically executes various commands and some of these (and their
 consequences) are temporarily stored in a way that allows the user to
 retrace his or hers steps.
-Online help is also available troughout the session.  
+Online help is also available throughout the session.  
                """,
 	       'basics': """
 Register a new employee and create an account for them:
