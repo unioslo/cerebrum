@@ -25,6 +25,7 @@ from Cerebrum.extlib import sets
 
 from SpineClass import SpineClass
 from Builder import Attribute, Method
+from SpineExceptions import ClientProgrammingError
 
 import Registry
 registry = Registry.get_registry()
@@ -106,7 +107,8 @@ class SearchClass(SpineClass):
             elif issubclass(searcher._cls, self._cls):
                 return searcher.search()
             else:
-                raise Exception('unnable to merge searchclass withouth a mark')
+                raise ClientProgrammingError, \
+                        'Not able to merge searchclasses withouth a marked attribute'
 
         for i in self._unions:
             unions.update(convert(i))

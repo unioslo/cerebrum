@@ -27,23 +27,24 @@ which should be sent to users.
 Implement exceptions localy, in the modules where they fit the most.
 Exceptions which is not so clear to where they should be placed, can be
 implemented here.
+
+Public exceptions in this module:
+* SpineException - Base-class for all exceptions in spine.
+* AccessDeniedError - Raised if client dont have access to the method.
+* ClientProgrammingError - Raised when the client does something illegal.
 """
+
+__all__ = [
+    'SpineException', 'AccessDeniedError', 'ClientProgrammingError'
+]
 
 class SpineException(Exception):
     """Base-class for all exceptions in spine."""
-  
-    def __init__(self, *args, **vargs):
-        """Allows an explanation-string as argument.
 
-        The explanation will be copied into the wrapper-object in
-        the corba-layer.
-        """
-        if 'explanation' in vargs.keys():
-            self.explanation = vargs.pop('explanation')
-        elif len(args) > 0 and type(args[0]) is str:
-            self.explanation = args[0]
-            args = args[1:]
+class AccessDeniedError(SpineException):
+    """Raised if client dont have access to the method."""
 
-        Exception.__init__(self, *args, **vargs)
+class ClientProgrammingError(SpineException):
+    """Raised when the client does something illegal."""
 
 # arch-tag: 7c3b53d8-649b-4dfc-8582-1664e52b6e0e

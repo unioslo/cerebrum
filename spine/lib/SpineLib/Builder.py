@@ -21,6 +21,7 @@
 from Cerebrum.extlib import sets
 from Transaction import TransactionError
 from Locking import AlreadyLockedError
+from SpineExceptions import AccessDeniedError
 
 
 __all__ = ['Attribute', 'Method', 'Builder']
@@ -60,7 +61,9 @@ class Attribute(object):
         assert optional in (True, False)
 
         self.data_type = data_type
-        self.exceptions = exceptions + [AlreadyLockedError, TransactionError]
+        self.exceptions = exceptions + [
+            AlreadyLockedError, TransactionError, AccessDeniedError
+        ]
         self.write = write
         self.optional = optional
 
@@ -122,7 +125,9 @@ class Method(object):
 
         self.data_type = data_type
         self.args = args
-        self.exceptions = exceptions + [AlreadyLockedError, TransactionError]
+        self.exceptions = exceptions + [
+            AlreadyLockedError, TransactionError, AccessDeniedError
+        ]
         self.write = write
         self.doc = None
 
