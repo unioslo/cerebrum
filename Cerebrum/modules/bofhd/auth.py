@@ -643,6 +643,13 @@ class BofhdAuth(DatabaseAccessor):
     # the user's local sysadmin
     def can_email_info_detail(self, operator, account=None,
                               query_run_any=False):
+        if self.is_superuser(operator):
+            return True
+        if query_run_any:
+            return self._has_operation_perm_somewhere(
+                operator, self.const.auth_create_user)
+        if operator == account.entity_id:
+            return True
         return self._query_disk_permissions(operator,
                                             self.const.auth_create_user,
                                             self._get_disk(account.disk_id),
