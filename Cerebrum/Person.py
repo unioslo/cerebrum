@@ -504,18 +504,19 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
                                            'name': name,
                                            'name_variant': int(variant)})
 
+
     def _update_cached_fullname(self):
         """Update the persons cached fullname
         (cereconf.DEFAULT_GECOS_NAME) if it has been modified.  The
         fullname is determined by evaluating the name variants
         cereconf.NAME_LOOKUP_ORDER using the source system order
         defined by cereconf.SYSTEM_LOOKUP_ORDER.
-
+                                                                                                                                                                                
         A ValueError is raised if the fullname couldn't be established.
         """
         p = Person(self._db)
         p.find(self.entity_id)
-
+                                                                                                                                                                                
         cache_const = getattr(self.const, cereconf.DEFAULT_GECOS_NAME)
         for ss in cereconf.SYSTEM_LOOKUP_ORDER:
                 for n_variants in cereconf.NAME_LOOKUP_ORDER:
@@ -527,16 +528,25 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
                     except Errors.NotFoundError:
                         continue
                     new_name = " ".join(full_name)
-                    try:
-                        old_name = self.get_name(self.const.system_cached, cache_const)
-                        if old_name == new_name:
-                            return
-                    except Errors.NotFoundError:
-                        self._set_name(self.const.system_cached, cache_const, new_name)
-                    else:
-                        self._update_name(self.const.system_cached, cache_const, new_name)
+                    new_f_name,new_l_name = full_name
+                    names_l = {'name_first':new_f_name,
+                                'name_last':new_l_name,
+                                'name_full':new_name}
+                    for attrs,new_name in names_l.items():
+                        try:
+                            old_name = self.get_name(self.const.system_cached,
+                                                         getattr(self.const,attrs))
+                            if old_name != new_name:
+                                self._update_name(self.const.system_cached,
+                                                getattr(self.const,attrs),
+                                                new_name)
+                        except Errors.NotFoundError:
+                            self._set_name(self.const.system_cached,
+                                                getattr(self.const,attrs),
+                                                new_name)
                     return
         raise ValueError, "Bad name for %s / %s" % (self.entity_id, self._name_info)
+
 
     def list_person_name_codes(self):
         return self.query("""
