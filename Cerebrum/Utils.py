@@ -189,6 +189,10 @@ class mark_update(auto_super):
       of the names they initially held.  If there was no initial
       definition, the attribute is set to the empty tuple.
 
+    ``__xerox__``:
+      Copy all attributes that are valid for this instance from object
+      given as first arg.
+
     Additionally, mark_update is a subclass of the auto_super
     metaclass; hence, all classes with metaclass mark_update will also
     be subject to the functionality provided by the auto_super
@@ -202,7 +206,7 @@ class mark_update(auto_super):
     ...     def print_updated(self):
     ...         if self.__updated:
     ...             print  'A'
-    ... 
+    ...
     >>> class B(A):
     ...     __write_attr__ = ('egg', 'sausage', 'bacon')
     ...     __read_attr__ = ('spam',)
@@ -210,7 +214,7 @@ class mark_update(auto_super):
     ...         if self.__updated:
     ...             print  'B'
     ...         self.__super.print_updated()
-    ... 
+    ...
     >>> b = B()
     >>> b.breakfast = 'vroom'
     >>> b.spam = False
@@ -226,7 +230,7 @@ class mark_update(auto_super):
       File "Cerebrum/Utils.py", line 237, in __setattr__
         raise AttributeError, \
     AttributeError: Attribute 'spam' is read-only.
-    >>> del b.spam 
+    >>> del b.spam
     >>> b.spam = True
     >>> b.spam
     1
@@ -236,7 +240,7 @@ class mark_update(auto_super):
     Traceback (most recent call last):
       File "<stdin>", line 1, in ?
     AttributeError: sausage
-    >>> 
+    >>>
 
     """
     def __new__(cls, name, bases, dict):
@@ -287,6 +291,34 @@ class mark_update(auto_super):
             setattr(obj, mupdated, False)
             return obj
         dict.setdefault('__new__', __new__)
+
+        def __xerox__(self, from_obj, reached_common=False):
+            """Copy attributes of ``from_obj`` to self (shallowly).
+
+            If self's class is the same as or a subclass of
+            ``from_obj``s class, all attributes are copied.  If self's
+            class is a base class of ``from_obj``s class, only the
+            attributes appropriate for self's class (and its base
+            classes) are copied.
+
+            """
+            if not reached_common and \
+               name in [c.__name__ for c in from_obj.__class__.__mro__]:
+                reached_common = True
+            try:
+                super_xerox = getattr(self, msuper).__xerox__
+            except AttributeError:
+                # We've reached a base class that doesn't have this
+                # metaclass; stop recursion.
+                super_xerox = None
+            if super_xerox is not None:
+                super_xerox(from_obj, reached_common)
+            if reached_common:
+                for attr in read + write:
+                    if hasattr(from_obj, attr):
+                        setattr(self, attr, getattr(from_obj, attr))
+                setattr(self, mupdated, getattr(from_obj, mupdated))
+        dict.setdefault('__xerox__', __xerox__)
 
         slots = list(dict.get('__slots__', []))
         for slot in read + write + [mupdated]:
