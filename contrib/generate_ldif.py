@@ -31,6 +31,7 @@ import cerebrum_path
 import cereconf  
 from Cerebrum import Errors
 from Cerebrum import Entity
+from Cerebrum import Group
 from Cerebrum.Utils import Factory, latin1_to_iso646_60, SimilarSizeWriter
 from Cerebrum.modules.no import Stedkode
 from Cerebrum.modules import PosixUser
@@ -791,23 +792,26 @@ def generate_netgroup(spread=None, filename=None):
     f.close()
 
 def get_netgrp(netgrp_id,spreads,f):
-    pos_netgrp = Factory.get('Group')(Cerebrum)
+    pos_netgrp = Group.Group(Cerebrum)
     pos_user = PosixUser.PosixUser(Cerebrum)
     pos_netgrp.clear()
     pos_netgrp.find(int(netgrp_id))
     try:
-        for id in pos_netgrp.list_members(None,int(co.entity_account))[0]:
+        for id in pos_netgrp.list_members(int(getattr(co,(cereconf.LDAP_USER_SPREAD[0]))),\
+							int(co.entity_account))[0]:
             uname_id = int(id[1])
-            if entity2uname.has_key(uname_id):
-                uname = entity2uname[uname_id]
-            else:
-                pos_user.clear()
-                pos_user.find(uname_id)
-                uname = pos_user.account_name
+	    try:
+            	if entity2uname.has_key(uname_id):
+                    uname = entity2uname[uname_id]
+		else:
+		    pos_user.clear()
+		    pos_user.find(uname_id)
+		    uname = pos_user.account_name
             # The LDAP schema for NIS netgroups doesn't allow
             # usernames with '_' in.
-            if '_' not in uname:
-                f.write("nisNetgroupTriple: (,%s,)\n" % uname)
+		if '_' not in uname:
+		    f.write("nisNetgroupTriple: (,%s,)\n" % uname)
+	    except: print "LDAP:netgroup: User not valid (%d)" % uname_id
         for group in pos_netgrp.list_members(None,int(co.entity_group))[0]:
             valid_spread = False
             pos_netgrp.clear()
