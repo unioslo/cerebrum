@@ -56,9 +56,9 @@ CEREBRUM_DATABASE_NAME.
 Warning: the target datbases cerebrum tables will be dropped and
 recreated when running this script!
 
-Run "make check"
+Run "make fullcheck"
 
-If any of the checks failes on your system, you chould investigate the
+If any of the tests fail on your system, you chould investigate the
 error before proceeding with the installation.
 
 
