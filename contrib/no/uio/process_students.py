@@ -17,6 +17,7 @@ from Cerebrum import Group
 from Cerebrum import Person
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import PosixUser
+from Cerebrum.modules.bofhd.utils import BofhdRequests
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.uio import AutoStud
 from Cerebrum.modules.no.uio import PrinterQuotas
@@ -106,7 +107,12 @@ def update_account(profile, account_ids, do_move=False, rem_grp=False,
                 changes.append("disk %s->%s" % (
                     autostud.disks.get(user.disk_id, ['None'])[0],
                     autostud.disks.get(disk, ['None'])[0]))
-                user.disk_id = disk
+                if disk != None:
+                    br = BofhdRequests(db, const)
+                    # TBD: Is it correct to set requestee_id=None?
+                    br.add_request(None, br.batch_time,
+                                   const.bofh_move_user, account_id,
+                                   disk)
             if as_posix:
                 old_gid = user.gid
                 user.gid = profile.get_dfg()
