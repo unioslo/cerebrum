@@ -158,9 +158,9 @@ def main():
         if person.has_key("komm"):
             telefoner = ["%s%s" % (t['kommnrverdi'], t['telefonnr'])
                          for t in person['komm'] if t['kommtypekode'] == 'ARBTLF']
-            telefoner = telefoner + [t['telefonnr'] or t['kommnrverdi']
+            telefoner = telefoner + [t.get('telefonnr', '') or t['kommnrverdi']
                                      for t in person['komm'] if t['kommtypekode'] == 'TLF']
-            faxer = [t['telefonnr'] or t['kommnrverdi']
+            faxer = [t.get('telefonnr', '') or t.get('kommnrverdi', '')
                      for t in person['komm'] if t['kommtypekode'] == 'FAX']
         if len(faxer) == 0:
             pass            # TODO: Hente fax fra stedkode
