@@ -88,12 +88,9 @@ class GeneralDataParser(xml.sax.ContentHandler, object):
 
     def next(self):
         """Returns a dict with data about all studieprogs for the next person."""
-        ret = []
         try:
             return self.data.pop(0)
         except IndexError:
-            if len(ret) > 0:
-                return ret
             raise StopIteration, "End of file"
 
 class StudieprogDefParser(GeneralDataParser):
