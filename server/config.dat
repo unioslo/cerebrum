@@ -1,0 +1,6 @@
+# Config file for bofhd
+# 
+# This file specifies which plugins should be used for this installation
+# of bofhd.  The current format is just a list of files to be imported.
+server.bofhd_cmds
+modules.no.bofhd_module_example
