@@ -18,8 +18,6 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import time
-
 from Cerebrum.extlib import sets
 from Cerebrum.spine.server.Cerebrum_core import Errors
 
@@ -68,6 +66,7 @@ class Method(object):
         self.args = args
         self.exceptions = exceptions
         self.write = write
+        self.doc = None
 
     def __repr__(self):
         return '%s(%s, %s)' % (self.__class__.__name__, `self.name`, `self.data_type`)
@@ -168,8 +167,6 @@ class Builder(object):
                     loaded.add(load_method)
         self.updated.clear()
 
-    # class methods
-    
     def create_primary_key(cls, *args, **vargs):
         """Create primary key from args and vargs.
 
@@ -247,6 +244,7 @@ class Builder(object):
         if hasattr(cls, method.name) and not overwrite:
             raise AttributeError('%s already exists in %s' % (method.name, cls.__name__))
         setattr(cls, method.name, method_func)
+        method.doc = method_func.__doc__
         cls.method_slots.append(method)
 
     register_method = classmethod(register_method)

@@ -29,6 +29,14 @@ from SpineClass import SpineClass
 __all__ = ['DatabaseAttr', 'DatabaseClass', 'ConvertableAttribute']
 
 class ConvertableAttribute(object):
+    """Mixin for attributes which needs to be converted.
+
+    This mixin is for attributes which might need to be converted when
+    loaded or saved. Attributes which inherits this class should accept
+    convert_to and convert_from in their __init__-method, so they can be
+    overridden for that specific attribute.
+    """
+    
     def convert_to(self, value):
         if isinstance(value, SpineClass):
             key = value.get_primary_key()
@@ -45,7 +53,6 @@ class ConvertableAttribute(object):
             value = int(value)
         return self.data_type(value)
 
-
 class DatabaseAttr(Attribute, ConvertableAttribute):
     """Ojbect attribute from the database.
 
@@ -57,13 +64,13 @@ class DatabaseAttr(Attribute, ConvertableAttribute):
     database with the attr 'convert_to' and 'convert_from'.
 
     Since this attribute has knowledge of the database, you can use it
-    with the generic search/create/delete-methods found in DatabaseClass
-    and CerebrumDbClass.
+    with the generic search/create/delete-methods found in DatabaseClass.
     """
     
-    def __init__(self, name, table, data_type,
-                 write=False, convert_to=None, convert_from=None, optional=False):
-        Attribute.__init__(self, name, data_type, write=write, optional=optional)
+    def __init__(self, name, table, data_type, exceptions=(), write=False,
+                 convert_to=None, convert_from=None, optional=False):
+        Attribute.__init__(self, name, data_type, exceptions=exceptions,
+                           write=write, optional=optional)
 
         self.table = table
 
