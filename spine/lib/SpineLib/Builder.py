@@ -186,8 +186,8 @@ class Builder(object):
     slots = []
     method_slots = []
 
-    builder_parents = ()
-    builder_children = ()
+    builder_parents = None
+    builder_children = None
 
     def __init__(self, *args, **vargs):
         map = self.map_args(*args, **vargs)
@@ -244,7 +244,17 @@ class Builder(object):
             if attr not in self.primary:
                 load_method = getattr(self, attr.get_name_load(), None)
                 if load_method not in loaded and load_method is not None:
-                    load_method()
+                    if attr.optional:
+                        # FIXME: pass på riktig exception
+                        # Cerebrum.spine.server.Cerebrum_core og 
+                        # Cerebrum.Errors er ikke det samme.
+                        import Cerebrum.Errors
+                        try:
+                            load_method()
+                        except Cerebrum.Errors.NotFoundError, e:
+                            continue
+                    else:
+                        load_method()
                     loaded.add(load_method)
         self.updated.clear()
 
@@ -317,6 +327,9 @@ class Builder(object):
 
         if register:
             cls.slots.append(attribute)
+#            if cls.builder_children is not None:
+#                for i in cls.builder_children:
+#                    i.slots.append(attribute)
 
     register_attribute = classmethod(register_attribute)
 
@@ -331,6 +344,9 @@ class Builder(object):
         setattr(cls, method.name, method_func)
         method.doc = method_func.__doc__
         cls.method_slots.append(method)
+        if cls.builder_children is not None:
+            for i in cls.builder_children:
+                i.method_slots.append(method)
 
     register_method = classmethod(register_method)
 
