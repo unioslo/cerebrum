@@ -662,8 +662,11 @@ def pers_name_mod(pers_id):
 	if [x for x in spread_ids if acc.has_spread(x)] and names:
 	    search_str = "(&(cn=%s)(objectClass=inetOrgPerson))" % \
 							acc.account_name
-	    (l_user, l_attr) = ldap_handle.GetObjects(cereconf.NW_LDAP_ROOT,\
-								search_str)[0]
+	    ldap_obj = ldap_handle.GetObjects(cereconf.NW_LDAP_ROOT, search_str)
+	    if ldap_obj:
+		(l_user, l_attr) = ldap_obj[0]
+	    else:
+		return
 	    for attr, name in names.items():
 		upd_str = [((attr,[name]))]
 	    	if attr in l_attr.keys():
