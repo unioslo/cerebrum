@@ -4,52 +4,47 @@ import time
 import getopt
 import sys
 import pickle
+import email
+from email import Header
 
 import cerebrum_path
+import cereconf
 from Cerebrum import Errors
 from Cerebrum import Utils
 from Cerebrum.modules import PasswordHistory
 
-# TODO: bruk cereconf e.l. for adresser, fil-med-mail-body osv.
+logger = Utils.Factory.get_logger("console")
+db = Utils.Factory.get('Database')()
+db.cl_init(change_program="notify_ch_pass")
+co = Utils.Factory.get('Constants')(db)
+account = Utils.Factory.get('Account')(db)
 
-mail_data_file = "/tmp/mail.dta"
-max_user_response_time = 3600*24*14  # max time to respond to
-                                     # "change your password" notice
-max_user_response_time = 2 # DEBUG
-max_password_age = 3600*24*300
-mail_to = 'cerebrum-drift@usit.uio.no'
-mail_cc = ''
-mail_from = 'cerebrum-drift@usit.uio.no'
 mailed_users = []
 splatted_users = []
+debug_enabled = False   # If set to true, no e-mail will be sent
+debug_verbose = False   # e-mail is shown on stdout (requires debug_enabled)
 
-Factory = Utils.Factory
-db = Factory.get('Database')()
-db.cl_init(change_program="bytt_passord")
-co = Factory.get('Constants')(db)
-account = Factory.get('Account')(db)
-account.find_by_name("bootstrap_account")
+account.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
 splattee_id = account.entity_id
 db_now = db.Date(*([ int(x) for x in (
     "%d-%d-%d" % time.localtime()[:3]).split('-')]))
 
-brev_body = """Bla. bla bla... """
-
-def mail_user(account_id):
+def mail_user(account_id, deadline=''):
     account.clear()
     account.find(account_id)
-    print "Mailing %s" % account.account_name
-    # logger.info("Mailing %s" % account.account_name)
+    logger.debug("Mailing %s" % account.account_name)
     try:
         prim_email = account.get_primary_mailaddress()
     except Errors.NotFoundError:
-        # logger.warn("")
-        print "Ingen mail-adresse for brukeren"  # TBD: Bruke @ulrik?
+        logger.warn("No email-address for %i" % account_id)
         return
-    send_mail(
-        prim_email,
-        "Pålegg fra sentral drift: passordbytte for " + account.account_name,
-        brev_body)
+    subject = email_info['Subject']
+    subject = subject.replace('${UNAME}', account.account_name)
+    body = email_info['Body']
+    body = body.replace('${UNAME}', account.account_name)
+    body = body.replace('${DEADLINE}', deadline)
+    
+    send_mail(prim_email, email_info['From'], subject, body)
     mailed_users.append(account.account_name)
     return True
 
@@ -59,72 +54,122 @@ def splat_user(account_id):
     splatted_users.append(account.account_name)
     account.add_entity_quarantine(
         co.quarantine_autopassord, splattee_id,
-        "Ikke byttet passord", db_now, None)
+        "password not changed", db_now, None)
     db.commit()
-    print "Splatting %s" % account.account_name
-    # logger.info("Splatting %s" % account.account_name)
+    logger.debug("Splatting %s" % account.account_name)
 
 def process_data():
     # mail_data_file always contain information about users that
     # currently has been warned that their account will be locked.
-    
+    global max_users
+    logger.info("process_data started, debug_enabled=%i, debug_verbose=%i" % (
+        debug_enabled, debug_verbose))
     try:
         mail_data = pickle.load(open(mail_data_file))
     except IOError:
         mail_data = {}
     new_mail_data = {}
     now = time.time()
+    logger.debug("Loaded info about %i emailed users" % len(mail_data))
+    deadline = time.strftime('%Y-%m-%d', time.localtime(now + grace_period))
 
-    stop = 999999  # DEBUG: begrens mengden
+    max_date = time.strftime('%Y-%m-%d',
+                             time.localtime(time.time()-max_password_age))
     ph = PasswordHistory.PasswordHistory(db)
-    # TODO: få med de som av en eller annen grunn ikke er i PasswordHistory
-    for account_id in ph.find_old_password_accounts(
-        time.strftime('%Y-%m-%d',
-                      time.localtime(time.time()-max_password_age))):
-        stop -= 1
-        if stop < 0:
+    account_ids = [int(x[0]) for x in ph.find_old_password_accounts(max_date)]
+    account_ids.extend( [int(x[0]) for x in ph.find_no_history_accounts() ])
+    logger.debug("Found %i users" % len(account_ids))
+    for account_id in account_ids:
+        max_users -= 1
+        if max_users < 0:
             break
         if not mail_data.has_key(account_id):
-            if mail_user(account_id):
+            if mail_user(account_id, deadline=deadline):
                 new_mail_data[account_id] = now
-        elif mail_data[account_id] < now - max_user_response_time:
+        elif mail_data[account_id] < now - grace_period:
             splat_user(account_id)
         else:
             new_mail_data[account_id] = mail_data[account_id]
     pickle.dump(new_mail_data, open(mail_data_file, 'w'))
     send_mail(
-        mail_to,
-        "bytt_passord varslet %i brukere og sperret %i" % (
+        summary_email_info['To'],
+        summary_email_info['From'],
+        "notify_change_passord e-mailed %i users and splatted %i" % (
         len(mailed_users), len(splatted_users)),
-        ("Følgende brukere ble varslet: \n  %s\n"
-         "Følgende brukere ble sperret: \n  %s\n"
-         "\nHilsen Cerebrum\n") % ("\n  ".join(mailed_users),
-                                   "\n  ".join(splatted_users),))
+        ("The following users were e-mailed: \n  %s\n"
+         "The following users were splatted: \n  %s\n"
+         "\nRegards, Cerebrum\n") % ("\n  ".join(mailed_users),
+                                     "\n  ".join(splatted_users),))
 
-def send_mail(mail_to, subject, body, mail_cc=mail_cc, mail_from=mail_from):
-    # TODO: finne python modul som mailer+mime-encoder, inkl. subject
-    if mail_cc:
-        mail_cc = "Cc: %s\n" % mail_cc
-    print ("To: %s\n%sFrom: %s\nSubject: %s\n\n%s" % (
-        mail_to, mail_cc, mail_from, subject, body))
+def send_mail(mail_to, mail_from, subject, body, mail_cc=None,):
+    ret = Utils.sendmail(mail_to, mail_from, subject, body,
+                         cc=mail_cc, debug=debug_enabled)
+    if debug_verbose:
+        print "---- Mail: ---- \n"+ ret
 
 def main():
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'p',
-                                   ['help'])
+        opts, args = getopt.getopt(
+            sys.argv[1:], 'p',
+            ['help', 'from=', 'to=', 'cc=', 'msg-file=',
+             'max-password-age=', 'grace-period=', 'data-file=',
+             'max-users='])
     except getopt.GetoptError:
         usage(1)
+
+    global summary_email_info, max_users, max_password_age, \
+           grace_period, mail_data_file, email_info
+    max_users = 999999
+    email_info = {}
+    summary_email_info = {}
+    mail_data_file = '/cerebrum/var/logs/notify_change_password.dta'
+
     for opt, val in opts:
         if opt in ('--help',):
             usage()
         elif opt in ('-p',):
             process_data()
+        elif opt in ('--from',):
+            summary_email_info['From'] = val
+        elif opt in ('--to',):
+            summary_email_info['To'] = val
+        elif opt in ('--cc',):
+            summary_email_info['Cc'] = val
+        elif opt in ('--msg-file',):
+            fp = open(val, 'rb')
+            msg = email.message_from_file(fp)
+            fp.close()
+            email_info['Subject'] = Header.decode_header(msg['Subject'])[0][0]
+            email_info['From'] = msg['From']
+            email_info['Cc'] = msg['Cc']
+            email_info['Reply-To'] = msg['Reply-To']
+            email_info['Body'] = msg.get_payload(decode=1)
+        elif opt in ('--max-password-age',):
+            max_password_age = int(val) * 3600 * 24
+        elif opt in ('--grace-period',):
+            grace_period = float(val) * 3600 * 24
+        elif opt in ('--data-file',):
+            mail_data_file = val
+        elif opt in ('--max-users',):
+            max_users = int(val)
     if len(opts) == 0:
         usage(1)
 
 def usage(exitcode=0):
     print """Usage: [options]
-    -p  : splatt/mail brukere som ikke har skiftet passord
+    Force users to change passwords regularly.
+    
+    -p  : splatt/mail users that hasn't changed their password
+    --from address  : for the summary sent to admin
+    --to address    : for the summary sent to admin
+    --cc address    : for the summary sent to admin
+    --msg-file file : file with message.  Formated as a normal e-mail,
+         body, cc, subject, from and reply-to will be extracted.  To
+         will be set to the end-users address.
+    --max-password-age days : warn/splatt when password is older that this # of days
+    --grace-period days : minimum time between warn and splat
+    --data-file name : location of the database with info about who was mailed when
+    --max-users num : debug purposes only: limit max processed users
     """
     sys.exit(exitcode)
 
