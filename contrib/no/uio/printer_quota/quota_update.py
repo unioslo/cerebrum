@@ -40,6 +40,8 @@ processed_person = {}
 person = Person.Person(db)
 pq_logger = bofhd_pq_utils.SimpleLogger('pq_bofhd.log')
 processed_pids = {}
+utv_quota = 250
+utv_person = {}
 
 # term_init_mask brukes til å identifisere de kvotetildelinger som har
 # skjedde i dette semesteret.  Den definerer også tidspunktet da
@@ -135,6 +137,17 @@ def set_quota(person_id, has_quota=False, has_blocked_quota=False,
                           '%s%s' % (term_init_prefix, 'default'),
                           update_program=update_program)
 
+    # Tildele eventuelle utvidede fri-kvoter jmf. 2.2 og 2.3
+    for uq in utv_person.get(person_id, []):
+        if uq not in free_this_term.get(person_id, []):
+            logger.debug("grant %s for %i" % (uq, person_id))
+            pq_logger.info("set initial %s=%i for %i" % (
+                uq, utv_quota, person_id))
+            pu.add_free_pages(person_id,
+                              utv_quota,
+                              '%s%s' % (term_init_prefix, uq),
+                              update_program=update_program)
+
     # Determine and set new quota, filtering out any initial quotas
     # granted previously this term.
     new_weekly = None
@@ -222,7 +235,7 @@ def recalc_quota_callback(person_info):
     set_quota(person_id, has_quota=True, has_blocked_quota=False, quota=quota)
     logger.set_indent(0)
 
-def get_bet_fritak_data(lt_person_file):
+def get_bet_fritak_utv_data(lt_person_file):
     # Finn pc-stuevakter/gruppelærere mfl. ved å parse LT-dumpen (3.2)
     ret = {}
     fnr2pid = {}
@@ -235,6 +248,11 @@ def get_bet_fritak_data(lt_person_file):
             "%02d%02d%02d%05d" % (int(person['fodtdag']), int(person['fodtmnd']),
                                   int(person['fodtar']), int(person['personnr'])))
         for g in data.get('gjest', []):
+            if g['gjestetypekode'] in ('ST-POL UTV','ST-ORG UTV'):
+                if not fnr2pid.has_key(fnr):
+                    logger.warn("Unknown LT-person %s" % fnr)
+                    return
+                utv_person.setdefault(fnr2pid[fnr], []).append(g['gjestetypekode'])
             if g['gjestetypekode'] in ('PCVAKT', 'GRP-LÆRER', 'ST-POL FRI',
                                        'ST-ORG FRI', 'EF-FORSKER', 'EF-STIP',
                                        'EMERITUS', 'GJ-FORSKER', 'REG-ANSV',
@@ -318,7 +336,7 @@ def fetch_data(drgrad_file, fritak_kopiavg_file, betalt_papir_file, lt_person_fi
 
     logger.debug("Prefetching data")
 
-    betaling_fritak = get_bet_fritak_data(lt_person_file)
+    betaling_fritak = get_bet_fritak_utv_data(lt_person_file)
     logger.debug("Fritak for: %s" % betaling_fritak)
     # Finn alle som skal rammes av kvoteregimet
     quota_victim = {}
