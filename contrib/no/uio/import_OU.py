@@ -18,6 +18,27 @@ db = Factory.get('Database')()
 db.cl_init(change_program='import_OU')
 co = Factory.get('Constants')(db)
 
+
+# <data>
+#   <sted fakultetnr="ff" instituttnr="ii" gruppenr="gg"
+#         fakultetnr_for_org_sted="FF" instituttnr_for_org_sted="II"
+#         gruppenr_for_org_sted="GG"
+#         stednavn="foo bar" forkstednavn="foo" akronym="fb"
+#         adresselinje1_intern_adr="adr1_int"
+#         adresselinje2_intern_adr="adr2_int"
+#         poststednr_intern_adr="postnr_int"
+#         poststednavn_intern_adr="postnavn_int"
+#         adresselinje1_besok_adr="adr1_besok"
+#         adresselinje2_besok_adr="adr2_besok"
+#         poststednr_besok_adr="postnr_besok"
+#         poststednavn_besok_adr="postnavn_besok">
+#     <komm kommtypekode=("EKSTRA TLF" | "FAX" | "FAXUTLAND" | "JOBBTLFUTL" |
+#                         "EPOST")
+#           telefonnr="foo" kommnrverdi="bar">
+#     </komm>
+#   </sted>
+# </data>
+
 class OUData(xml.sax.ContentHandler):
     def __init__(self, filename):
         self.tp = TrivialParser()
