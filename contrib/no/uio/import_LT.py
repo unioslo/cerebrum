@@ -89,13 +89,14 @@ def main():
         elif opt in ('-p', '--person-file'):
             personfile = val
             
-    Cerebrum = Factory.get('Database')()
-    ou = Factory.get('OU')(Cerebrum)
-    personObj = Person.Person(Cerebrum)
-    co = Factory.get('Constants')(Cerebrum)
+    db = Factory.get('Database')()
+    db.cl_init(change_program='import_LT')
+    ou = Factory.get('OU')(db)
+    personObj = Person.Person(db)
+    co = Factory.get('Constants')(db)
 
     pp = pprint.PrettyPrinter(indent=4)
-    new_person = Person.Person(Cerebrum)
+    new_person = Person.Person(db)
 
     if getattr(cereconf, "ENABLE_MKTIME_WORKAROUND", 0) == 1:
         print "Warning: ENABLE_MKTIME_WORKAROUND is set"
@@ -120,7 +121,7 @@ def main():
         except Errors.NotFoundError:
             pass
 
-        new_person.populate(Cerebrum.Date(year, mon, day), gender)
+        new_person.populate(db.Date(year, mon, day), gender)
 
         new_person.affect_names(co.system_lt, co.name_full)
         new_person.affect_external_id(co.system_lt, co.externalid_fodselsnr)
@@ -187,7 +188,7 @@ def main():
                 print "**** NEW ****"
             elif op == False:
                 print "**** UPDATE ****"
-        Cerebrum.commit()
+        db.commit()
 
 if __name__ == '__main__':
     main()
