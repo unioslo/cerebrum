@@ -47,12 +47,16 @@ from Cerebrum.modules import PasswordHistory
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no import Stedkode
 from Cerebrum.modules.no.uio import PrinterQuotas
-from Cerebrum.modules.bofhd.auth import BofhdAuthOpSet, BofhdAuthRole, BofhdAuthOpTarget
+from Cerebrum.modules.bofhd.auth \
+     import BofhdAuthOpSet, BofhdAuthRole, BofhdAuthOpTarget
 from Cerebrum.Utils import Factory
+from Cerebrum.modules import Email
+
 
 default_personfile = ''
 default_groupfile = ''
 default_itpermfile = ''
+default_emailfile = ''
 db = Factory.get('Database')()
 db.cl_init(change_program='migrate_iux')
 co = Factory.get('Constants')(db)
@@ -78,6 +82,24 @@ account.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
 acc_creator_id = account.entity_id
 pwdhist = PasswordHistory.PasswordHistory(db)
 pquotas = PrinterQuotas.PrinterQuotas(db)
+
+maildom = Email.EmailDomain(db)
+mailtarg = Email.EmailTarget(db)
+mailaddr = Email.EmailAddress(db)
+mailprimaddr = Email.EmailPrimaryAddressTarget(db)
+
+class AutoFlushStream(object):
+    __slots__ = ('_stream',)
+    def __init__(self, stream):
+        self._stream = stream
+
+    def write(self, data):
+        ret = self._stream.write(data)
+        self._stream.flush()
+        return ret
+
+progress = AutoFlushStream(sys.stdout)
+
 
 shell2shellconst = {
     'bash': co.posix_shell_bash,
@@ -109,6 +131,30 @@ class PersonUserParser(xml.sax.ContentHandler):
         self.personer = []
         self.elementstack = []
         self.call_back_function = call_back_function
+        # self.person = {
+        #  'bdate': <person bdate="VALUE">,
+        #  'ptype': [ <person><uio><ptype val="X1"/>, ...],
+        #  'contact': [ {attr-dict from <person><contact>}, ...],
+        #  'name': [ {attr-dict from <person><name>}, ...],
+        #  'extid': [ {attr-dict from <person><extid>}, ...],
+        #  'uio': {attr-dict from <person><uio>},
+        #  'user': [self.user, ...]
+        # }
+        # self.user = {attr-dict from <person><user>}.update({
+        #  'auth': [ {attr-dict from <person><user><auth>}, ...],
+        #  'spread': [ {attr-dict from <spread>}, ...],
+        #  'name': [ {attr-dict from <name>}, ...],
+        #  'pwdhist': [ {attr-dict from <pwdhist>}, ...],
+        #  'emailaddress': [ {attr-dict from <emailaddress>}, ...],
+        #  'forwardaddress': [ {attr-dict from <forwardaddress>}, ...],
+        #  'tripnote': [ {attr-dict from <tripnote>}, ...],
+        #
+        #  'uio': {attr-dict from <uio>},
+        #  'printerquota': {attr-dict from <printerquota>},
+        #  'quarantine': {attr-dict from <quarantine>},
+        #  'useremail': {attr-dict from <useremail>},
+        #  'emailfilter': {attr-dict from <emailfilter>},
+        # })
 
     def startElement(self, name, attrs):
         tmp = {}
@@ -120,17 +166,17 @@ class PersonUserParser(xml.sax.ContentHandler):
         elif name == "person":
             self.person = {'bdate': tmp['bdate'], 'ptype': []}
         elif self.elementstack[-1] == "user":
-            if name in ("auth", "spread", "name", "pwdhist"):
-                self.user[name] = self.user.get(name, []) + [tmp]
-            elif name in ("uio", "printerquota", "quarantine"):
+            if name in ("auth", "spread", "name", "pwdhist",
+                        "emailaddress", "forwardaddress", "tripnote"):
+                self.user.setdefault(name, []).append(tmp)
+            elif name in ("uio", "printerquota", "quarantine", "useremail",
+                          "emailfilter"):
                 self.user[name] = tmp
-            elif name in ("useremail", "emailaddress"):
-                pass  # TODO: process these
             else:
                 print "WARNING: unknown user element: %s" % name
         elif self.elementstack[-1] == "person":
             if name in ("contact", "name", "extid"):
-                self.person[name] = self.person.get(name, []) + [tmp]
+                self.person.setdefault(name, []).append(tmp)
             elif name in ("uio",):
                 self.person[name] = tmp
             elif name == "user":
@@ -150,7 +196,7 @@ class PersonUserParser(xml.sax.ContentHandler):
         if name == "person":
             self.call_back_function(self.person)
         elif name == "user":
-            self.person['user'] = self.person.get('user', []) + [self.user]
+            self.person.setdefault(name, []).append(self.user)
         self.elementstack.pop()
 
 
@@ -204,6 +250,159 @@ class GroupParser(xml.sax.ContentHandler):
         if name == "group":
             self.groups.append(self.group)
         self.elementstack.pop()
+
+class MailDataParser(xml.sax.ContentHandler):
+
+    def __init__(self, callback):
+        self.callback = callback
+        self.elementstack = []
+
+    def startElement(self, name, attrs):
+        tmp = {}
+        for k in attrs.keys():
+            tmp[k.encode('iso8859-1')] = attrs[k].encode('iso8859-1')
+        if name == 'email':
+            pass
+        elif name in ('emaildomain', 'emailhost', 'emailaddresstype',
+                      'emailalias'):
+            self.callback(name, tmp)
+        else:
+            print "WARNING: Unknown email element: %s" % name
+        self.elementstack.append(name)
+
+    def endElement(self, name):
+        self.elementstack.pop()
+
+
+def import_email(filename):
+    try:
+        xml.sax.parse(filename, MailDataParser(create_email))
+    except StopIteration:
+        pass
+
+
+ureg_domtyp2catgs = {
+    'u': (co.email_domain_category_uidaddr,),
+    'U': (co.email_domain_category_uidaddr,
+          co.email_domain_category_include_all_uids),
+    'p': (co.email_domain_category_cnaddr,),
+    'P': (co.email_domain_category_cnaddr,
+          co.email_domain_category_include_all_uids),
+    'N': ()
+    }
+maildomain2eid = {}
+
+def create_email(otype, data):
+    if otype == 'emaildomain':
+        maildom.clear()
+        maildom.populate(data['domain'], data['description'])
+        maildom.write_db()
+        maildomain2eid[data['domain']] = maildom.email_domain_id
+        progress.write('E')
+        domtyp = data.get('addr_format', None)
+        if ureg_domtyp2catgs.has_key(domtyp):
+            for cat in ureg_domtyp2catgs[domtyp]:
+                maildom.add_category(int(cat))
+                progress.write('c')
+        else:
+            raise ValueError, "Unknown mail domain type: <%s>" % domtyp
+    elif otype == 'emailhost':
+        servername = data['host']
+        servertype = {'spool': co.email_server_type_nfsmbox,
+                      'imap': co.email_server_type_cyrus}[data['type']]
+        serverdescr = 'Email server (%s)' % str(servertype)
+        server = Email.EmailServer(db)
+        try:
+            server.find_by_name(servername)
+        except Errors.NotFoundError:
+            host = Disk.Host(db)
+            try:
+                host.find_by_name(servername)
+            except Errors.NotFoundError:
+                server.populate(servertype, servername, serverdescr)
+            else:
+                server.populate(servertype, parent=host)
+        else:
+            progress.write('=')
+            return
+        server.write_db()
+        progress.write('S')
+    elif otype == 'emailaddresstype':
+        # TODO: How should we process these?
+        pass
+    elif otype == 'emailalias':
+        # Find or create target of correct type
+        mailtarg.clear()
+        dt = data['desttype']
+        dest = data['dest']
+        typ = None
+        e_id = None
+        e_typ = None
+        alias = None
+        if dt == 'u':
+            raise ValueError, \
+                  "Destination of type 'u' found in non-personal email dump."
+        elif dt == 'a':
+            if dest.startswith('/') or dest.startswith('|'):
+                if data.has_key('run_as'):
+                    account.clear()
+                    try:
+                        account.find_by_name(data['run_as'])
+                        e_id, e_typ = account.entity_id, account.entity_type
+                    except Errors.NotFoundError:
+                        # TODO: Rekkefølge-problem, run_as virker ikke
+                        # med mindre man har importert brukere, mens
+                        # bruker-import ikke virker med mindre
+                        # maildomener etc. er ferdig opprettet.
+                        pass
+                typ = {'/': co.email_target_file,
+                       '|': co.email_target_pipe}[dest[0]]
+                alias = dest
+            elif dest.startswith(":fail:"):
+                typ = co.email_target_deleted
+                alias = dest[6:].strip() or None
+            elif dest.startswith(':include:'):
+                # TODO: Usikker på hvordan dette bør gjøres; kanskje
+                # med et 'multi' target.  Er også usikker på om
+                # 'multi'-targets implementeres som grupper eller som
+                # forward-adresser.
+                print "WARNING: Not implemented: import of :include: targets"
+                return
+            elif '@' in dest and " " not in dest:
+                typ = co.email_target_forward
+                # TBD: Skal forward lagres i alias_value, eller skal
+                # EmailTarget utvides til å også være EmailForward?
+                alias = dest
+            else:
+                raise ValueError, \
+                      "Don't know how to convert emailalias:" + repr(data)
+            try:
+                mailtarg.find_by_entity_and_alias(e_id, alias)
+            except Errors.NotFoundError:
+                mailtarg.populate(typ, e_id, e_typ, alias)
+                mailtarg.write_db()
+            progress.write('T')
+        elif dt == 'l':
+            return
+        else:
+            raise ValueError, "Unknown desttype: " + dt
+        # Create address connected to target
+        mailaddr.clear()
+        lp, dom = data['addr'].split('@', 1)
+        expire = None
+        if data.has_key('exp_date'):
+            expire = db.Date(*([int(x) for x in data['exp_date'].split('-')]))
+        if not hasattr(mailtarg, 'email_target_id'):
+            print repr(data)
+        mailaddr.populate(lp, maildomain2eid[dom], mailtarg.email_target_id,
+                          expire)
+        mailaddr.write_db()
+        progress.write('A')
+                                  
+        # Possibly state that address is primary for this target
+        
+    else:
+        print "Warning: Unimplemented tag <%s> found." % otype
 
 class ITPermData(xml.sax.ContentHandler):
     def __init__(self, filename):
@@ -785,6 +984,29 @@ def create_account(u, owner_id):
                             disk_id)
     accountObj.write_db()
 
+    if u.has_key("useremail"):
+        # Create EmailTarget
+        mailtarg.clear()
+        mailtarg.populate(co.email_target_account, accountObj.entity_id,
+                          alias=u['useremail'].get('alias', None))
+        mt_id = mailtarg.write_db()
+
+        for tmp in u.get("emailaddress", []):
+            lp, dom = tmp['addr'].split("@")
+            dom_id = maildomain2id[dom]
+            mailaddr.clear()
+            expire_date = None
+            if tmp.has_key("expire_date"):
+                expire_date = [int(x) for x in tmp['expire_date'].split('-')]
+                expire_date = db.Date(*expire_date)
+            mailaddr.populate(lp, dom_id, mt_id, expire_date)
+            ma_id = mailaddr.write_db()
+
+            if tmp.get("primary", "no") == "yes":
+                mailprimaddr.clear()
+                mailprimaddr.populate(ma_id, parent=mailtarg)
+                mailprimaddr.write_db()
+
     # Assign account affiliaitons by checking the
     # ureg_user_aff_mapping.  if subtype = '*unset*, try to find a
     # corresponding person affiliation, first at the same OU, then at
@@ -880,28 +1102,32 @@ def showtime(msg):
     prev_msgtime = time()
 
 def usage():
-    print """import_userdb_XML.py [-p file | -g file | -m num | -i file] {-P | -G | -M -I}
+    print """import_userdb_XML.py [{-g|-e|-p|-m|-i} file] [ -m num ] {-G|-E|-P|-M|-I}
 
 -G : generate the groups
--P : generate persons and accounts
+-E : import email domains and non-user email addresses
+-P : generate persons, accounts and user email addresses
 -M : populate the groups with members
 -I : import it-group permissions
 
-Normaly first run with -G, then -P and finally with -M.  The program
-is not designed to be ran multiple times.
+This program is normally run first with -G, then -E, -P, -M and
+finally with -M.  It is not designed allow import multiple times to
+the same database.
 
-This script is designed to be ran on a database that contains no users
-or groups.  ou and person tables should preferable be populated.  When
-importing accounts, the persons will be created iff they cannot be
-located by their extid (currently only fnr is supported).
-    """
+This script is designed import to a database that contains no users or
+groups.  OU and person tables should preferably already have been
+populated (by some other program(s)).  When importing accounts, the
+persons will be created iff they cannot be located by their extid
+(currently only fnr is supported).
+
+"""
 
 if __name__ == '__main__':
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "dp:g:m:vi:PGMI",
+        opts, args = getopt.getopt(sys.argv[1:], "dp:g:m:vi:e:PGMIE",
                                    ["pfile=", "gfile=", "persons", "groups",
                                     "groupmembers", "verbose", "quick-test",
-                                    "max_cb="])
+                                    "max_cb=", "emailfile=", "email"])
     except getopt.GetoptError:
         usage()
         sys.exit(2)
@@ -913,6 +1139,7 @@ if __name__ == '__main__':
     pfile = default_personfile
     gfile = default_groupfile
     ifile = default_itpermfile
+    emfile = default_emailfile
     showtime("Started")
     for o, a in opts:
         if o in ('-p', '--pfile'):
@@ -937,7 +1164,15 @@ if __name__ == '__main__':
             debug += 1
         elif o in ('-M', '--groupmembers'):
             import_groups(gfile, 1)
+        elif o in ('-e', '--emailfile',):
+            emfile = a
+        elif o in ('-E', '--email',):
+            import_email(emfile)
     if(len(opts) == 0):
         usage()
     else:
         showtime("all done")
+
+# TODO:
+# * Hvordan skal defaultgruppe for slettede brukere huskes?
+# * Sette account_info.create_date til opprettelsesdato fra Ureg.
