@@ -58,6 +58,7 @@ The 'date' attribute is formatted thus 'YYYY-MM-DD HH:MM:SS'.
 import sys
 import getopt
 import xml.sax
+import time
 
 import cerebrum_path
 import cereconf
@@ -156,6 +157,11 @@ def process_file(filename, db, const, person_old, person_new):
     for element in parser:
         old, new = element["old"], element["new"]
         prefix = "%s %s" % (source_system_name, element["date"])
+        tmp_exempt_date = exemptions.get((source_system_name, old, new), None)
+        if tmp_exempt_date > time.strftime('%Y-%m-%d'):
+            logger.debug("delayed %s:%s -> %s (until %s)" % (
+                source_system_name, old, new, tmp_exempt_date))
+            continue
 
         if old == new:
             logger.info("%s: %s (old) == %s (new). No changes in Cerebrum.",
@@ -196,6 +202,32 @@ def process_file(filename, db, const, person_old, person_new):
     # od
 # end process_file
 
+def read_exemptions_file(fname):
+    """The exceptions file contains a list of fnr-changes to ignore.
+    Blank lines and lines starting with # are considered comments.
+    The other lines must have the format:
+      <date> <source-system> <old-fnr> <new-fnr>
+
+    Where <date> is the last date that the exception is valid on
+    format YYYY-MM-DD
+    """
+    ret = {}
+    for line in file(fname):
+        line.strip()
+        if line.isspace() or line.startswith("#"):
+            continue
+        
+        end_date, src_system, old_fnr, new_fnr = line.split()
+        ret[(src_system, old_fnr, new_fnr)] = end_date
+    return ret
+
+def usage(exitcode=0):
+    print """Usage: [options] filenames
+  
+    -d | --dryrun : do not commit changes to database
+    -e | --exemptions fname : Load exemptions from file
+    """
+    sys.exit(exitcode)
 
 
 def main():
@@ -203,25 +235,27 @@ def main():
     Start method for this script. 
     """
 
-    global logger
+    global logger, exemptions
     logger = Factory.get_logger("cronjob")
     logger.info("Generating external id updates")
     
     try:
         options, rest = getopt.getopt(sys.argv[1:],
-                                      "d",
-                                      ["dryrun",])
+                                      "de:",
+                                      ["dryrun", "exemptions="])
     except getopt.GetoptError:
         logger.exception("Unknown option")
         sys.exit(1)
     # yrt
 
     dryrun = False
-    
+    exemptions = {}
     for option, value in options:
         if option in ("-d", "--dryrun"):
             dryrun = True
-        # fi
+        elif option in ("-e", "--exemptions"):
+            exemptions = read_exemptions_file(value)
+
     # od
 
     db = Factory.get("Database")()
