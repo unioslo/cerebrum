@@ -623,13 +623,13 @@ class EntityQuarantine(Entity):
            creator_id, description, start_date, end_date)
         VALUES (:e_id, :q_type, :c_id, :description, :start_date, :end_date)""",
                      {'e_id': self.entity_id,
-                      'q_type': type,
+                      'q_type': int(type),
                       'c_id': creator,
                       'description': description,
                       'start_date': start,
                       'end_date': end})
         self._db.log_change(self.entity_id, self.const.quarantine_add,
-                            None, change_params={'q_type': type})
+                            None, change_params={'q_type': int(type)})
 
     def get_entity_quarantine(self, type=None):
         return Utils.keep_entries(
