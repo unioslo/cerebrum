@@ -125,3 +125,8 @@ PRINT_LATEX_CMD=None
 PRINT_DVIPS_CMD=None
 PRINT_LPR_CMD=None
 BOFHD_SUPERUSER_GROUP=INITIAL_GROUPNAME
+
+# Logdir for AutoStud jobs
+AUTOADMIN_LOG_DIR='.'
+# Socket used to query the job-runner server, should not be writeable by untrusted users
+JOB_RUNNER_SOCKET="/tmp/jr-socket"
