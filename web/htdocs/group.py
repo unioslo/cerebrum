@@ -147,11 +147,11 @@ def edit(req, id):
     page.content = lambda: edit.form(id)
     return page
 
-def new(req):
+def create(req):
     page = Main(req)
-    page.menu.setFocus("group/new")
+    page.menu.setFocus("group/create")
     edit = GroupEditTemplate()
-    page.content = lambda: edit.form()
+    page.content = edit.form
     return page
 
 def save(req, id, name, desc, expire):
