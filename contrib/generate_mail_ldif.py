@@ -19,6 +19,19 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+"""Usage: generate_mail_ldif.py [options]
+
+Write e-mail information for use by the mail system to an LDIF file,
+which can then be loaded into LDAP.
+
+Options:
+  -s | --spread <spread>:  Targets printed found in spread.
+  -v | --verbose:          Show some statistics while running.
+                           Repeat the option for more verbosity.
+  -m | --mail-file <file>: Specify file to write to.
+  -i | --ignore-size:      Use file class instead of SimilarSizeWriter.
+  -h | --help:             This message."""
+
 import re
 import sys
 import base64
@@ -26,7 +39,7 @@ import getopt
 
 import cerebrum_path
 import cereconf
-from Cerebrum import Errors
+from Cerebrum.Errors import NotFoundError, PoliteException
 from Cerebrum.Utils import Factory, SimilarSizeWriter
 from Cerebrum.modules import Email
 from Cerebrum.modules.bofhd.utils import BofhdRequests
@@ -344,19 +357,8 @@ def get_data(spread):
 def map_spread(id):
     try:
         return int(_SpreadCode(id))
-    except Errors.NotFoundError:
-        print "Error mapping %s" % id
-        raise
-
-def usage():
-    print """
-generate_mail_ldif.py -s|--spread <spread> [-h] [-v|--verbose]+ [-m|--mail-file <file>]
-  -s|--spread <spread>: Targets printed found in spread.
-  -v|--verbose: Shows some statistics.
-  -m|--mail-file <file>: Specify file to write to.
-  -i|--ignore-size: Use file class instead of SimilarSizeWriter.
-  -h|--help: This message."""
-    sys.exit(0)
+    except NotFoundError:
+        raise PoliteException("Invalid spread code: %r" % id)
 
 
 def main():
@@ -364,16 +366,12 @@ def main():
     
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'vm:s:ih',
-                                   ['verbose', 'mail-file=', 'spread=',
-                                    'ignore-size', 'help'])
-    except getopt.GetoptError:
-        usage()
-
-    db = Factory.get('Database')()
-    _SpreadCode.sql = db   # TODO: provide a map-spread in Util.py
-    co = Factory.get('Constants')(db)
-    #ldap = EmailLDAP(db)
-    ldap = Factory.get('EmailLDAP')(db)
+                                   ('verbose', 'mail-file=', 'spread=',
+                                    'ignore-size', 'help'))
+    except getopt.GetoptError, e:
+        usage(str(e))
+    if args:
+        usage("Invalid arguments: " + " ".join(args))
 
     verbose = 0
     mail_file = None
@@ -385,17 +383,22 @@ def main():
         elif opt in ('-m', '--mail-file'):
             mail_file = val
         elif opt in ('-s', '--spread'):
-            spread = map_spread(val)
+            spread = val
         elif opt in ('-i', '--ignore-size'):
             ignore = True
         elif opt in ('-h', '--help'):
             usage()
-
-    if spread is None:
-        raise ValueError, "Must set spread"
-
     if mail_file is None:
         mail_file = "/".join((cereconf.LDAP_DUMP_DIR, default_mail_file))
+    if spread is None:
+        sys.exit("Must set spread.")
+
+    db = Factory.get('Database')()
+    _SpreadCode.sql = db   # TODO: provide a map-spread in Util.py
+    co = Factory.get('Constants')(db)
+    ldap = Factory.get('EmailLDAP')(db)
+    spread = map_spread(spread)
+
     if ignore:
         f = file(mail_file, 'w')
     else:
@@ -403,6 +406,12 @@ def main():
 	f.set_size_change_limit(10)
     get_data(spread)
     f.close()
+
+def usage(err=0):
+    if err:
+        print >>sys.stderr, err
+    print >>sys.stderr, __doc__
+    sys.exit(bool(err))
 
 if __name__ == '__main__':
     main()
