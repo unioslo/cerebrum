@@ -15,14 +15,15 @@ class Person_createTestCase(OU_createTestCase):
 
     person_dta = {
         'birth': OU_createTestCase.Cerebrum.Date(1970, 1, 1),
-        'gender' : OU_createTestCase.co.gender_male,
+        'gender': OU_createTestCase.co.gender_male,
         'full_name': "Full Name",
         'adr': 'adr', 'zip': 'zip', 'city': 'city'
         }
 
     def setUp(self):
         # print "Person_createTestCase.setUp()"
-        # print "Type1: %s, type2: %s" % (type(Person_createTestCase), str(self))
+        # print "Type1: %s, type2: %s" % (type(Person_createTestCase),
+        #                                 str(self))
         super(Person_createTestCase, self).setUp()
         new_person = Person.Person(self.Cerebrum)
         self._myPopulatePerson(new_person)
@@ -36,15 +37,17 @@ class Person_createTestCase(OU_createTestCase):
         person.affect_names(self.co.system_fs, self.co.name_full)
         person.populate_name(self.co.name_full, pd['full_name'])
 
-        # person.populate_external_id(co.system_fs, co.externalid_fodselsnr, fnr)
+        # person.populate_external_id(co.system_fs, co.externalid_fodselsnr,
+        #                             fnr)
 
         person.affect_addresses(self.co.system_fs, self.co.address_post)
         person.populate_address(self.co.address_post, addr=pd['adr'],
-                                    zip=pd['zip'],
-                                    city=pd['city'])
-        person.affect_affiliations(self.co.system_fs, self.co.affiliation_student)
+                                zip=pd['zip'],
+                                city=pd['city'])
+        person.affect_affiliations(self.co.system_fs,
+                                   self.co.affiliation_student)
         person.populate_affiliation(self.ou_id, self.co.affiliation_student,
-                                        self.co.affiliation_status_student_valid)
+                                    self.co.affiliation_status_student_valid)
 
     def tearDown(self):
         # print "Person_createTestCase.tearDown()"
@@ -71,7 +74,8 @@ class PersonTestCase(Person_createTestCase):
 
     def testDeletePerson(self):
         "Delete the person"
-        # This is actually a clean-up method, as we don't support deletion of Persons
+        # This is actually a clean-up method, as we don't support
+        # deletion of Persons
         self.Cerebrum.execute(
             """DELETE FROM [:table schema=cerebrum name=person_affiliation]
                WHERE person_id=:id""", {'id': self.person_id})
