@@ -230,10 +230,10 @@ class Account(EntityName, EntityQuarantine, Entity):
     def find(self, account_id):
         self.__super.find(account_id)
 
-        (self.entity_id, self.owner_type, self.owner_id,
+        (self.owner_type, self.owner_id,
          self.np_type, self.create_date, self.creator_id,
          self.expire_date) = self.query_1("""
-        SELECT account_id, owner_type, owner_id, np_type, create_date,
+        SELECT owner_type, owner_id, np_type, create_date,
                creator_id, expire_date
         FROM [:table schema=cerebrum name=account_info]
         WHERE account_id=:a_id""", {'a_id' : account_id})
