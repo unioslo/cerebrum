@@ -109,7 +109,7 @@ def get_names(person_id):
                 return (last_n, first_n)
     return ("*Ukjent etternavn*", "*Ukjent fornavn*")
 
-def get_ans_fak(fak_list):
+def get_ans_fak(fak_list,ent2uname):
     fak_res = {}
     person = Factory.get('Person')(db)
     stdk = Stedkode.Stedkode(db)
@@ -117,26 +117,28 @@ def get_ans_fak(fak_list):
         ans_list = []
         # Get all stedkoder in one faculty
         for ou in stdk.get_stedkoder(fakultet=int(fak)):
-            print fak, int(ou['ou_id'])
             # get persons in the stedkode
             for pers in person.list_affiliations(source_system=const.system_sap,
                                         affiliation=const.affiliation_ansatt,
                                         ou_id=int(ou['ou_id'])):
                 person.clear()
-                #person.find(int(pers['person_id']))
-                person.entity_id = int(pers['person_id'])
+                #person.entity_id = int(pers['person_id'])
                 try:
-                    person.get_primary_account()
+		    person.find(int(pers['person_id']))
+                    acc_id = person.get_primary_account()
                 except Errors.NotFoundError:
                     logger.debug("Person pers_id: %d , no valid account!" % \
                                         person.entity_id)
                     break
-                # Add primary account id if not added before inside faculty
-                if person.entity_id not in ans_list:
-                    ans_list.append(person.entity_id)
+		if acc_id and ent2uname.has_key(acc_id):
+		    uname = ent2uname[acc_id]['NAME']
+		    if uname not in ans_list:
+			ans_list.append(uname)
+		else:
+		    logger.debug("Person pers_id: %d have no account!" % \
+							person.entity_id)
         fak_res[int(fak)] = ans_list
     return fak_res
-
 
 
 def register_spread_groups(emne_info, stprog_info):
@@ -395,7 +397,8 @@ def main():
             stprog_info[stprog] = {'fak': faknr}
     access_FS.studieprog_xml_parser('/cerebrum/dumps/FS/studieprog.xml',
                                     finn_stprog_info)
-
+    # Henter ut ansatte per fakultet
+    ans_dict = get_ans_fak(fak_emner.keys(),acc2names) 
     # Opprett de forskjellige stedkode-korridorene.
     ou = Stedkode.Stedkode(db)
     for faknr in fak_emner.iterkeys():
@@ -411,6 +414,15 @@ def main():
                 faknavn = ou.acronym
             else:
                 faknavn = ou.short_name
+	    fak_ans_id = "%s:sap:gruppe:%s:%s:ansatte" % \
+			(cereconf.INSTITUTION_DOMAIN_NAME,
+			cereconf.DEFAULT_INSTITUSJONSNR,
+			fak_sko)
+	    ans_title = "Ansatte ved %s" % faknavn
+	    print "register group",ans_title, brukere_id, fak_ans_id
+	    register_group(ans_title, fak_ans_id,brukere_id) 
+	    ans_memb = ans_dict[int(faknr)]
+	    register_members(fak_ans_id, ans_memb)
             for sem_node_id in (emner_this_sem_id,
                                 emner_next_sem_id):
                 fak_node_id = sem_node_id + \
