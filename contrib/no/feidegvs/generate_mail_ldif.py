@@ -25,11 +25,12 @@ import re
 import sys
 import base64
 import getopt
-#import string
+import string
 
 import cerebrum_path
 import cereconf
 from Cerebrum import Person
+from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import Email
 #from Cerebrum.modules.EmailLDAP import EmailLDAP
@@ -111,12 +112,14 @@ def write_ldif():
             acc.clear()
             acc.find_by_name(target)
             per.clear()
-            per.find(acc.owner_id)
-            rname = "%s %s" % (per.get_name(co.system_sas, co.name_first), 
-                              per.get_name(co.system_sas, co.name_last))
-            #rest += "name:: %s" % base64.encodestring(rname)
+            try:
+                per.find(acc.owner_id)
+                rname = "%s %s" % (per.get_name(co.system_sas, co.name_first), 
+                                   per.get_name(co.system_sas, co.name_last))
+                
+            except Errors.NotFoundError:
+                rname = target
             rest += "name: %s\n" % rname
-            
             # Find quota-settings:
             if ldap.targ2quota.has_key(t):
                 soft, hard = ldap.targ2quota[t]
@@ -222,6 +225,12 @@ def write_ldif():
         f.write("cn: d%s\n" % t)
         f.write("targetType: %s\n" % ldap.get_targettype(tt))
         if target:
+            if ldap.targ2prim.has_key(t):
+                tmp_addr = ldap.aid2addr[ldap.targ2prim[t]]
+                lp, dom = string.split(tmp_addr, '@')
+                target = "%s@%s" % (target, dom)
+            else:
+                print "WARNING! Couldn't find %s's primary address." % target
             f.write("target: %s\n" % target)
         if uid:
             f.write("uid: %s\n" % uid)
