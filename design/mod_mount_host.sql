@@ -23,5 +23,8 @@ CREATE TABLE mount_host
   mount_name    CHAR VARYING(80)
 		NOT NULL
 );
-
 	
+category:drop;
+DROP TABLE mount_host;
+category:drop;
+DROP TABLE mount_host_type_code;
