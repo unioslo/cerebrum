@@ -443,7 +443,6 @@ class BofhdAuth(DatabaseAccessor):
             return True
         raise PermissionDenied("No access to group")
 
-
     def can_create_group(self, operator, query_run_any=False):
         if self.is_superuser(operator):
             return True
@@ -616,6 +615,68 @@ class BofhdAuth(DatabaseAccessor):
                                                 self._get_disk(entity.disk_id),
                                                 entity.entity_id)
         raise PermissionDenied("no access for that entity_type")
+
+    # TODO: the can_email_xxx functions do not belong in core Cerebrum
+
+    def can_email_migrate(self, operator, account=None, query_run_any=False):
+        if self.is_superuser(operator):
+            return True
+        if query_run_any:
+            return True
+        if operator == account.entity_id:
+            return True
+        return self._query_disk_permissions(operator,
+                                            self.const.auth_remove_user,
+                                            self._get_disk(account.disk_id),
+                                            account.entity_id)
+
+    def can_email_move(self, operator, account=None, query_run_any=False):
+        if self.is_superuser(operator):
+            return True
+        if query_run_any:
+            return False
+        raise PermissionDenied("Currently limited to superusers")
+
+    # everyone can see basic information
+    def can_email_info(self, operator, account=None, query_run_any=False):
+        return True
+
+    # detailed information about tripnotes etc. is only available to
+    # the user's local sysadmin
+    def can_email_info_detail(self, operator, account=None,
+                              query_run_any=False):
+        return self.can_email_migrate(operator, account, query_run_any)
+
+    # the local sysadmin is allowed to turn forwarding and tripnote on/off
+    def can_email_forward_toggle(self, operator, account=None,
+                                 query_run_any=False):
+        return self.can_email_migrate(operator, account, query_run_any)
+
+    def can_email_tripnote_toggle(self, operator, account=None,
+                                  query_run_any=False):
+        return self.can_email_migrate(operator, account, query_run_any)
+
+    # the local sysadmin may not add or remove forward addresses.
+    def can_email_forward_edit(self, operator, account=None,
+                                query_run_any=False):
+        if self.is_superuser(operator):
+            return True
+        if query_run_any:
+            return True
+        if operator == account.entity_id:
+            return True
+        return PermissionDenied("Currently limited to superusers")
+
+    # nor edit the tripnote messages or add new ones.
+    def can_email_tripnote_edit(self, operator, account=None,
+                                query_run_any=False):
+        if self.is_superuser(operator):
+            return True
+        if query_run_any:
+            return True
+        if operator == account.entity_id:
+            return True
+        return PermissionDenied("Currently limited to superusers")
 
     def _query_disk_permissions(self, operator, operation, disk, victim_id):
         """Permissions on disks may either be granted to a specific
