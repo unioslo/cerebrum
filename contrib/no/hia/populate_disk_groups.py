@@ -22,9 +22,9 @@
 """
 Usage: python2.2 populate_disk_groups.py --spread=<spread> --delete_all
 
---delete_all delete all internal groups for that spread.
+--spread (without delete_all) updates and creates internal groups.
 
---spread (without delete_all) updates and creates internal groups. 
+--delete_all delete all internal groups for that spread.
 
 Without spread, it will make groups for all disk with any spread.
 
@@ -140,10 +140,11 @@ def destroy_group(group_id):
                  % del_grp.group_name)
     #print "destroy_group(%s) [After get_group]" % del_grp.group_name
     for r in del_grp.list_groups_with_entity(del_grp.entity_id):
-	logger.debug("Parent id:",r['group_id'],"group-id:", del_grp.entity_id)
+	logger.debug("Parent id: %s    group-id:%s"\
+				 % (r['group_id'],del_grp.entity_id))
 	remove_memb_parent(r['group_id'], r['operation'],del_grp.entity_id)
-    logger.debug("Removed group:",del_grp.group_name, "group-id:", 
-						del_grp.entity_id)
+    logger.debug("Removed group: %s   group-id: %s"\
+				% (del_grp.group_name,del_grp.entity_id))
     #print "Removed group:",del_grp.group_name, "group-id:",del_grp.entity_id
     del_grp.delete()
                                                                                                                                                                     
@@ -371,7 +372,7 @@ def main():
     opt_s = del_all = None
     try:
         opts, args = getopt.getopt(sys.argv[1:], "hs:d",
-                                   ("help", "spread=","delete_all"))
+                                   ("help", "spread","delete_all"))
     except getopt.GetoptError, e:
         usage(str(e))
     if args:
@@ -381,6 +382,8 @@ def main():
             opt_s = val
 	elif opt in ("-d","--delete_all"):
 	    del_all = True
+	elif opt in ("-h","--help"):
+	    usage(1)
     global u_spread
     u_spread = None
     init_module()
