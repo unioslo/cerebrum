@@ -1,0 +1,220 @@
+Om man ønsker å angi verdien '-' eller '?' i et argument, må dette
+quotes -- enten inne i fnutter (som i denne setningen :-), eller ved å
+prefikse med backslash.  Klienten forstår både enkle og doble fnutter,
+men særbehandler ikke backslash på noen måte i slike kontekster.
+
+Vil angi: foo"bar'xyzzy med \backslash
+Quotes som: foo\"bar\'xyzzy\ med\ \\backslash
+eller: 'foo"bar\'xyzzy med \\backslash'
+osv.
+
+Argumenter som muligens har default-verdi angis i spesifikasjonen med
+"=" på slutten.  I klienten kan man skrive "-" i stedet for å angi
+noen verdi for slike argumenter, med følgende resultat:
+
+  * Argumentet som er angitt som "-" får satt sin default-verdi.
+  * Dersom "-"-argumentet var siste argument på linja, får de
+    resterende argumentene med default-verdi også sine
+    default-verdier.
+  * Finnes det ikke-"-"-argumenter på slutten av linja, behandles
+    disse på vanlig måte.  Evt. ikke-utfylte argumenter vil da
+    promptes etter.
+  * Om man vil påtvinge prompt på et argument med default-verdi kan
+    man angi '?' for dette argumentet.
+  * Argumenter uten default-verdi som kommer etter argumenter med
+    default-verdi i kommandoen *må* alltid angis.  Gjør man ikke det,
+    vil disse derfor promptes etter.
+
+Argumenter som er valgfrie, angis inne i [].  Om et slikt argument
+ikke oppgis som en del av kommandoen, vil man ikke automatisk gå i
+prompt-modus for å få tak en verdi for dette.  Man kan påtvinge et
+prompt ved å oppgi verdien '?'.  Er man allerede i prompt-modus i det
+man kommer til et valgfritt argument, vil det promptes også etter
+dette.
+
+[Harald Meland]
+
+> [B}rd Henry Moum Jakobsen]
+>
+>> Person - Create, modefy, destroy
+>>
+>>  I tillegg til de personer som systemet får via autorative systemer må
+>>  en kunne legge inn helt egne personentyer, og modefisere affiliation
+>>  for disse.
+>
+> # Gender will default to 'unknown' for persons with no fnr.
+> bofh> person create <display_name> {<birth_date (yyyy-mm-dd)> | <id_type> <id>}
+> Created 'display_name' as person with id 'export_id' (name).
+> 
+> # Max hits?  20?
+> bofh> person find {<name> | <id_type> <id> | <birth_date>}
+> Found N entries, reporting first 20:
+> ##  ExportID   Name                         Birthdate
+> 1   0982734    Roger Rakett                 2002-11-06
+> ...
+>
+> # Set new name (source_system == "manual").
+> bofh> person name <id_type> {<export_id> | <fnr>} <name_type> <name>
+>
+
+bofh> person affadd <idtype> <id+> <affiliation> [<status> [<ou>]]
+
+> bofh> person affadd fnr 06057335171 tilsatt aktiv 313313
+> Added affiliation (tilsatt, aktiv, 313313) to person with id 'export_id' (name).
+>
+> bofh> person affadd fnr 06057335171 tilsatt inaktiv 313313
+> Changed affiliation to (tilsatt, inaktiv, 313313) for person with
+> id 'export_id' (name).
+>
+> bofh> person affadd fnr 06057335171 tilsatt aktiv
+> Unspecified OU is ambiguous, no changes done.
+>
+> bofh> person affrem <idtype> <id> <affiliation> [<ou>]
+>
+> person afflist <idtype> <id>
+
+person info <idtype> <id>
+[...]
+Remaining affiliations with no accounts:
+  (student, liksom, 150100)
+
+> # Remove person.  Don't do anything if there are data (accounts,
+> # affiliations, etc.) associatied with the person.
+> bofh> person delete <id_type> <id>
+>
+>> Account - Create, modefy, destroy
+
+# Personal accounts:
+account create <accountname> <idtype> <id> <affiliation=> <ou=> [<expire_date>]
+
+account posix_create <accountname> <prigroup> <home=> <shell=> <gecos=>
+
+account affadd <accountname> <affiliation> <ou=>
+
+account affrem <accountname> <affiliation> <ou=>
+
+account type <accountname>
+
+bofh> account create hmeland fnr 06057335171 -
+Person has multiple affiliations, no changes done.
+bofh> account create hmeland fnr 06057335171 tilsatt -
+Account 'hmeland' created for person Harald Meland, affiliation
+(tilsatt, aktiv, 331520).
+
+bofh> account type hmeland
+(tilsatt, aktiv, GT/SAPP/USIT/SADM)
+
+bofh> account posix_create hmeland -
+Not enough parameters.
+Default group: usit
+Account 'hmeland' created as posix user with ...
+
+bofh> account posix_create hmeland usit - bash
+Gecos: [Enter]
+Posix account 'hmeland' created with ...
+
+>>  Knytte en bruker til en affiliation, lage ny bruker
+>>
+>>  Endre passord
+
+account password <accountname> [<password>]
+
+>>  Endre tilknytting
+>>
+>>  Bygge upersonlige brukere
+>>
+>>  Slette brukere
+>>
+>>
+>> Acountspread - add, remove
+>>
+>>  Gjøre brukere til NIS, NT, LDAP brukere
+>>
+>>  Og fjerne.
+>>
+>>
+>> Group - Create, modefy, destroy
+>>
+>>  Lage grupper
+>
+> bofh> group create
+> Group name: [Enter]
+> Mandatory parameter -- use '.' to quit, '?' for help.
+> Group name: .
+> (quit)
+>
+> bofh> group
+> Valid commands:
+> group create <name> [<description>]
+> group expire <name> <yyyy-mm-dd>
+> group visibility <name> <visibility>
+> group info <name>
+> group delete <name>
+> ...
+>
+> bofh> group create hei
+> Group 'hei' created by 'accountname' -- visibility 'A', expire_date=None.
+>
+> bofh> group visibility hei ?
+> Valid group visibilities:
+>   X  Purely internal
+>   A  Visible to everyone
+> Group visibility: 
+>
+>
+>>  Definere moderator
+>
+> Utsettes.
+>
+>>  Endre medlemmer
+
+group add <entityname+> <groupname+> [<op>]
+group remove <entityname+> <groupname+> [<op>]
+
+> bofh> group add haraldme usit
+> Entity name 'haraldme' is ambiguous, no changes done.
+
+bofh> group aadd haraldme usit
+Added account 'haraldme' to group 'usit' (union).
+
+> bofh> group add ucore usit
+> Added group 'ucore' to group 'usit' (union).
+>
+> bofh> group add (hhg palconf haraldme) sjefer
+> Entity name 'haraldme' is ambiguous, no changes done.
+
+bofh> group add (hhg (palconf haraldme)) sjefer
+Syntax error in repetition.
+
+> bofh> group add (hhg palconf hmeland) sjefer
+> Added group 'hhg' to group 'sjefer' (union).
+> Added group 'palconf' to group 'sjefer' (union).
+Added account 'hmeland' to group 'sjefer' (union).
+>
+> bofh> group remove .no .eu diff
+> Removed country '.no' from group '.eu' (difference).
+>
+> # List all groups where entity is a (direct or indirect) member, and
+> # type of membership (union, intersection or difference).
+group account <accountname>
+> group group <groupname>
+> group person <person_id>
+>
+> # List direct members of group (with their entity types), in
+> # categories coresponding to the three membership ops.
+> group list <groupname>
+>
+> # Do full group expansion; list resulting members and their entity
+> # types.
+> group expand <groupname>
+>
+>>  Slette gruppe
+>>
+>> Groupspread - add, remove
+>>
+>>  Sette spread for en gruppe
+>>     - NT, NIS, LDAP, Notes...
+>>
+>>  slette spread
+>>
+>>
