@@ -153,7 +153,7 @@ class _CerebrumCode(DatabaseAccessor):
             'class': self.__class__.__name__,
             'str': self.str,
             'int': int,
-            'id': hex(id(self))}
+            'id': hex(id(self) & 2**32-1)} # Avoid FutureWarning in hex conversion
 
     def _get_description(self):
         if self._desc is None:
