@@ -483,31 +483,31 @@ class EntityAddress(Entity):
         if not hasattr(self, '_src_sys'):
             return
         try:
-            data = self.__data
+            data = self.__data.copy()
         except AttributeError:
             return
         for r in self.get_entity_address(source=self._src_sys):
             do_del = True
-            if self.__data.has_key(int(r['address_type'])):
-                h = self.__data[int(r['address_type'])]
+            if data.has_key(int(r['address_type'])):
+                h = data[int(r['address_type'])]
                 equals = True
                 for k in ('address_text', 'p_o_box', 'postal_number', 'city',
                           'country'):
                     if h[k] <> r[k]:
                         equals = False
                 if equals:
-                    del self.__data[int(r['address_type'])]
+                    del data[int(r['address_type'])]
                     do_del = False
             if do_del:
                 self.delete_entity_address(self._src_sys, r['address_type'])
 
-        for type in self.__data.keys():
+        for type in data.keys():
             self.add_entity_address(self._src_sys, type,
-                                    self.__data[type]['address_text'],
-                                    self.__data[type]['p_o_box'],
-                                    self.__data[type]['postal_number'],
-                                    self.__data[type]['city'],
-                                    self.__data[type]['country'])
+                                    data[type]['address_text'],
+                                    data[type]['p_o_box'],
+                                    data[type]['postal_number'],
+                                    data[type]['city'],
+                                    data[type]['country'])
 
     def add_entity_address(self, source, type, address_text=None,
                            p_o_box=None, postal_number=None, city=None,
