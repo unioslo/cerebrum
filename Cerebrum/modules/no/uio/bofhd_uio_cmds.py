@@ -147,7 +147,7 @@ class BofhdExtension(object):
 
     #  group def
     all_commands['group_def'] = Command(
-        ('group', 'def'), GroupName(help_ref="group_name_dest"), AccountName())
+        ('group', 'def'), AccountName(), GroupName(help_ref="group_name_dest"))
     def group_def(self, operator, accountname, groupname):
         account = self._get_account(accountname, actype="PosixUser")
         grp = self._get_group(groupname, grtype="PosixGroup")
@@ -257,12 +257,13 @@ class BofhdExtension(object):
     # group list_all
     all_commands['group_list_all'] = Command(
         ("group", "list_all"), SimpleString(help_ref="string_group_filter", optional=True),
-        fs=FormatSuggestion("%8i", ("id", ), hdr="Id"))
+        fs=FormatSuggestion("%8i %s", ("id", "name"), hdr="%8s %s" % ("Id", "Name")))
     def group_list_all(self, operator, filter=None):
         group = Group.Group(self.db)
         ret = []
         for r in group.list_all():
-            ret.append({'id': r[0]})
+            ret.append({'id': r[0],
+                        'name': self._get_entity_name(self.const.entity_group, r[0])})
         return ret
 
     # group list_expanded
@@ -935,7 +936,7 @@ class BofhdExtension(object):
             person.add_affiliation(ou.entity_id, aff,
                                    self.const.system_manual, aff_status)
             person.write_db()
-        account.add_account_type(account.owner_id, ou.entity_id, aff)
+        account.set_account_type(ou.entity_id, aff)
         account.write_db()
         return "OK, added %s@%s to %s" % (aff, ou.entity_id, account.owner_id)
     
@@ -948,7 +949,7 @@ class BofhdExtension(object):
         ou = self._get_ou(stedkode=ou)
         person = self._get_person('entity_id', account.owner_id)
         self.ba.can_remove_affiliation(operator.get_entity_id(), person, ou, aff)
-        account.del_account_type(account.owner_id, ou.entity_id, aff)
+        account.del_account_type(ou.entity_id, aff)
         account.write_db()
         return "OK"
 
