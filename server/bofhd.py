@@ -1,4 +1,4 @@
-#!/usr/bin/env python2.2
+#!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 
 # Copyright 2002 University of Oslo, Norway
@@ -32,7 +32,14 @@ import crypt
 import md5
 import socket
 import cerebrum_path
-from Cerebrum.extlib import timeoutsocket
+import cereconf
+if sys.version_info < (2, 3):
+    from Cerebrum.extlib import timeoutsocket
+    use_new_timeout = False
+else:
+    use_new_timeout = True
+    # Doesn't work with m2crypto:
+    # socket.setdefaulttimeout(cereconf.BOFHD_CLIENT_SOCKET_TIMEOUT)
 import thread
 import threading
 import time
@@ -53,7 +60,6 @@ except ImportError:
 
 # import SecureXMLRPCServer
 
-import cereconf
 from Cerebrum import Errors
 from Cerebrum import Utils
 from Cerebrum import QuarantineHandler
@@ -264,14 +270,24 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
         return native_to_xmlrpc(ret)
 
     def handle(self):
-        if not use_encryption:
-            self.connection.set_timeout(cereconf.BOFHD_CLIENT_SOCKET_TIMEOUT)
-        try:
-            super(BofhdRequestHandler, self).handle()
-        except timeoutsocket.Timeout, msg:
-            logger.debug("Timeout: %s from %s" % (
-                msg, ":".join([str(x) for x in self.client_address])))
-            self.server.db.rollback()
+        if not use_new_timeout:
+            if not use_encryption:
+                self.connection.set_timeout(cereconf.BOFHD_CLIENT_SOCKET_TIMEOUT)
+            try:
+                super(BofhdRequestHandler, self).handle()
+            except timeoutsocket.Timeout, msg:
+                logger.debug("Timeout: %s from %s" % (
+                    msg, ":".join([str(x) for x in self.client_address])))
+                self.server.db.rollback()
+        else:
+            if not use_encryption:
+                self.connection.settimeout(cereconf.BOFHD_CLIENT_SOCKET_TIMEOUT)
+            try:
+                super(BofhdRequestHandler, self).handle()
+            except socket.timeout, msg:
+                logger.debug("Timeout: %s from %s" % (
+                    msg, ":".join([str(x) for x in self.client_address])))
+                self.server.db.rollback()
 
     # This method is pretty identical to the one shipped with Python,
     # except that we don't silently eat exceptions
@@ -677,6 +693,10 @@ if CRYPTO_AVAILABLE:
                                                  ssl_context)
             BofhdServer.__init__(self, database, config_fname)
             self.logRequests = 0
+            
+        def server_bind(self):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            SocketServer.TCPServer.server_bind(self)
 
     # TODO: Check if it is sufficient to do something like:
     # class ThreadingSSLBofhdServer(SSL.ThreadingSSLServer, SSLBofhdServer)
@@ -688,6 +708,10 @@ if CRYPTO_AVAILABLE:
                                                  ssl_context)
             BofhdServer.__init__(self, database, config_fname)
             self.logRequests = 0
+
+        def server_bind(self):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            SocketServer.TCPServer.server_bind(self)
 
 _db_pool_lock = thread.allocate_lock()
 
