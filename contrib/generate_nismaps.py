@@ -1,5 +1,7 @@
 #!/usr/bin/env python2.2
 
+import cerebrum_path
+
 from Cerebrum import Database,Constants,Errors
 from Cerebrum import Person
 from Cerebrum import Account

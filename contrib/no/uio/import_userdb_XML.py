@@ -8,6 +8,8 @@ been made to isolate these so that this script also can be used with
 other sources.
 """
 
+import cerebrum_path
+
 import pprint
 import xml.sax
 import sys

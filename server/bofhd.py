@@ -27,6 +27,8 @@
 # Work in progress, current implementation, expect big changes
 #
 
+import cerebrum_path
+
 from SimpleXMLRPCServer import SimpleXMLRPCServer
 import re
 import socket
