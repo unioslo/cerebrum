@@ -43,13 +43,10 @@ cl = CLHandler.CLHandler(db)
 
 delete_users = 0
 delete_groups = 0
-debug = True
+debug = False
 passwords = {}
 
 def quick_user_sync():
-
-#TBD: Will fail if remove spread is run on an entity that also is
-#     removed from Cerebrum database.
 
     answer=cl.get_events('ad',(clco.group_add,clco.group_rem,clco.account_password,clco.spread_add,clco.spread_del,clco.quarantine_add,clco.quarantine_del,clco.quarantine_mod,clco.account_move))
 
@@ -81,7 +78,11 @@ def quick_user_sync():
                 g_obj = group.find(ans['dest_entity'])
                 if group.has_spread(int(co.spread_uio_ad_group)):
                     account_name = id_to_name(ans['subject_entity'],'user')
+		    if not account_name:
+	    		return False         
                     group_name = id_to_name(ans['dest_entity'],'group')
+		    if not group_name:
+	    		return False         
                     if debug:
                         print ("account:%s,group_name:%s") % (account_name,group_name)
                     if chg_type == clco.group_add:
@@ -122,7 +123,9 @@ def move_account(entity_id,params):
     account.find(entity_id)
     if account.has_spread(int(co.spread_uio_ad_account)):		
 	if params['old_host'] != params['new_host']:
-	    account_name = id_to_name(entity_id,'user')	
+	    account_name = id_to_name(entity_id,'user')
+	    if not account_name:
+	        return False         	
 	    new_home = adutils.find_home_dir(entity_id, account_name)
        	    sock.send('ALTRUSR&%s/%s&hdir&%s\n' % ( cereconf.AD_DOMAIN, account_name, new_home ))  
             if sock.read() != ['210 OK']:
@@ -141,7 +144,9 @@ def change_quarantine(entity_id):
 
 def add_spread(entity_id,spread):
     if spread == co.spread_uio_ad_account:
-        account_name =id_to_name(entity_id,'user')	
+        account_name =id_to_name(entity_id,'user')
+	if not account_name:
+	    return False         	
 	ou.clear()
     	ou.find(cereconf.AD_CERE_ROOT_OU_ID)
     	ourootname='OU=%s' % ou.acronym        
@@ -198,7 +203,8 @@ def add_spread(entity_id,spread):
 
     elif spread == co.spread_uio_ad_group:
         grp=id_to_name(entity_id,'group')
-           
+        if not grp:
+	    return False            
         if cereconf.AD_DEFAULT_OU=='0':
             ad_ou='CN=Users,%s' % (cereconf.AD_LDAP)
         else:
@@ -238,6 +244,8 @@ def del_spread(entity_id,spread,delete=delete_users):
 
     if spread == co.spread_uio_ad_account:
         user=id_to_name(entity_id,'user')
+	if not user:
+	    return False         
         if delete:
             sock.send('DELUSR&%s/%s\n' % (cereconf.AD_DOMAIN, user))
             if sock.read() != ['210 OK']:
@@ -259,7 +267,9 @@ def del_spread(entity_id,spread,delete=delete_users):
                         print 'WARNING: Error moving:', ldap[4:], 'to',cereconf.AD_LOST_AND_FOUND
                 
     elif spread == co.spread_uio_ad_group:
-        group_n=id_to_name(entity_id,'group')         
+        group_n=id_to_name(entity_id,'group')
+	if not group_n:
+	    return False         
         if delete_groups:
             sock.send('DELGR&%s/%s\n' % (cereconf.AD_DOMAIN, group_n))
             if sock.read() != ['210 OK']:
@@ -314,6 +324,8 @@ def change_pw(account_id,pw_params):
         pw=pw.replace('%','%25')
         pw=pw.replace('&','%26')
         user = id_to_name(account_id,'user')
+	if not user:
+	    return False
         sock.send('ALTRUSR&%s/%s&pass&%s\n' % (cereconf.AD_DOMAIN,user,pw))
         if sock.read() == ['210 OK']:
 	    return True
@@ -336,10 +348,14 @@ def id_to_name(id,entity_type):
         e_type = int(co.entity_group)
         namespace = int(co.group_namespace)
         grp_postfix = cereconf.AD_GROUP_POSTFIX
-    entityname.clear()
-    entityname.find(id)
-    name = entityname.get_name(namespace)
-    obj_name = "%s%s" % (name,grp_postfix)
+    try:	
+        entityname.clear()
+        entityname.find(id)
+        name = entityname.get_name(namespace)
+        obj_name = "%s%s" % (name,grp_postfix)
+    except Errors.NotFoundError:
+	print 'FAILURE: id %s missing, probably deleted' % id
+	return False
     return obj_name
     
         
