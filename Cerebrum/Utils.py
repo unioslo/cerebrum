@@ -438,7 +438,6 @@ class Factory(object):
                       'Disk': 'CLASS_DISK',
                       'Database': 'CLASS_DATABASE',
                       'Constants': 'CLASS_CONSTANTS',
-                      'ClientAPI': 'CLASS_CLIENTAPI',
                       'CLConstants': 'CLASS_CL_CONSTANTS',
                       'ChangeLog': 'CLASS_CHANGELOG',
                       'DBDriver': 'CLASS_DBDRIVER'}
