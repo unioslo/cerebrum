@@ -2008,8 +2008,8 @@ class BofhdExtension(object):
         try:
             group.clear()
             if idtype is None:
-                if id.isdigit():
-                    idtype='id'
+                if id.find(':') <> -1:
+                    idtype, id = id.split(':', 1)
                 else:
                     idtype='name'
             if idtype == 'name':
