@@ -27,6 +27,7 @@
 from Cerebrum import Errors
 from Cerebrum import Utils
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
+from Cerebrum import Constants
 
 class Entity(DatabaseAccessor):
     """Class for generic access to Cerebrum entities.
@@ -47,13 +48,17 @@ class Entity(DatabaseAccessor):
 
         """
         super(Entity, self).__init__(database)
-        self._clear()
+        self.clear()
         self.__write_db = False
+        self.constants = Constants.Constants(database)
 
-    def _clear(self):
+    def clear(self):
         "Clear all attributes associating instance with a DB entity."
+        print "Entity.clear()"
         self.entity_id = None
         self.entity_type = None
+
+        EntityAddress.clear(self)
 
     ###
     ###   Methods dealing with the `cerebrum.entity_info' table
@@ -83,14 +88,16 @@ class Entity(DatabaseAccessor):
         Cerebrum database, use the .find() method.
 
         """
-        assert __write_db
+
+        assert self.__write_db
         if as_object is None:
             entity_id = self.nextval('cerebrum.entity_id_seq')
+            self.execute("""
+            INSERT INTO cerebrum.entity_info(entity_id, entity_type)
+            VALUES (:1, :2)""", entity_id, int(self.entity_type))
         else:
             entity_id = as_object.entity_id
-        self.execute("""
-        INSERT INTO cerebrum.entity_info(entity_id, entity_type)
-        VALUES (:1, :2)""", entity_id, self.entity_type)
+            # Don't need to do anything as entity type can't change
         self.entity_id = entity_id
         self.__write_db = False
 
@@ -125,8 +132,9 @@ class Entity(DatabaseAccessor):
                   "Unable to determine which entity to delete."
         self.execute("""
         DELETE cerebrum.entity_info WHERE entity_id=:1""", self.entity_id)
-        self._clear()
+        self.clear()
         return
+
 
 class EntityName(object):
     "Mixin class, usable alongside Entity for entities having names."
@@ -220,16 +228,88 @@ class EntityPhone(object):
           phone_type=:3 AND
           phone_pref=:4""", self.entity_id, source, type, pref)
 
+## p = CerebrumFactory.Person()
+## p2 = CerebrumFactory.Person()
+## for person in LT.persons():
+##     p.clear()
+##     p.affect_addresses(Constants.source_LT, Constants.address_street,
+##                        Constants.address_post)
+##     for addr in person.get_addresses():
+##         p.populate_address(addr)
+##     try:
+##         p2.find_fnr(person.get_fnr())
+##         if p <> p2:
+##             p.write_db(p2)
+##     except NotFound:
+##         p.write_db()
+
+# Må kunne signalisere tre forskjellige typer operasjoner som følge av
+# at write_db() kalles: add, change og delete.
+#
+# Må ha signalisert til ea1 hvilke(t?) source_system-innslag som er
+# interessante for sammenlikningen (og dermed også for write_db()).
+#
+# Fint med mulighet til å signalisere hvilken/hvilke adresse-typer som
+# skal tas med under sammenlikningen (og av write_db()).
+    
+
 class EntityAddress(object):
     "Mixin class, usable alongside Entity for entities having addresses."
-    def add_entity_address(self, source, type, addr=None, pobox=None,
+
+    def __init__(self):
+        assert isinstance(Entity, self)
+        self.clear()
+
+    def affect_addresses(self, source, *types):
+        self._affect_source = source
+        if types == None: raise "Not implemented"
+        self._affect_types = types
+
+    def populate_address(self, type, addr=None, pobox=None,
+                         zip=None, city=None, country=None):
+        self._address_info[type] = (addr, pobox, zip, city, country)
+        pass
+
+    def write_db(self, as_object=None):
+        # If affect_addresses has not been called, we don't care about
+        # addresses
+        if self._affect_source == None: return
+        print "EntityAddress.write_db()"
+
+        for type in self._affect_types:
+            insert = False
+            if as_object == None:
+                if self._address_info.has_key(type):
+                    insert = True
+            else:
+                try:
+                    as_object.get_entity_address(self._affect_source, type)
+                    if not self._address_info.has_key(type):
+                        # Delete
+                        pass
+                    else:
+                        # Update (compare first?)
+                        pass
+                except:
+                    insert = True
+            if insert:
+                self._add_entity_address(self._affect_source, type, *self._address_info[type])
+
+
+    def clear(self):
+        # print "EntityAddress.clear()"
+        self._affect_source = None
+        self._affect_types = None
+        self._address_info = {}
+
+    def _add_entity_address(self, source, type, addr=None, pobox=None,
                            zip=None, city=None, country=None):
         self.execute("""
         INSERT INTO cerebrum.entity_address
           (entity_id, source_system, address_type,
            address_text, p_o_box, postal_number, city, country)
         VALUES (:1, :2, :3, :4, :5, :6, :7, :8)""",
-                     self.entity_id, source, type,
+                     self.entity_id, int(source), int(type),
                      addr, pobox, zip, city, country)
 
     def get_entity_address(self, source=None, type=None):
