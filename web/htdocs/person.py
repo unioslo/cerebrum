@@ -36,12 +36,11 @@ def search(req, name, accountid, birthno, birthdate):
                                     birthno or None,
                                     birthdate or None)
     table = html.SimpleTable(header="row")
-    table.add(_("Name"), _("Description"))
-    for (id, name, desc) in persons:
-        desc = desc or ""
-        link = url("person/view?id=%s" % id)
-        link = html.Anchor(name, href=link)
-        table.add(link, desc)
+    table.add(_("Name"), _("Date of birth"))
+    for person in persons:
+        link = url("person/view?id=%s" % person.id)
+        link = html.Anchor(person.name, href=link)
+        table.add(link, person.birthdate.Format("%Y-%m-%d"))
     if persons:    
         result.append(table)
     else:
