@@ -667,7 +667,9 @@ GRANT INSERT, UPDATE, DELETE ON account_info TO change_account;
 /*	entity_quarantine
 
   When `end_date' is NULL, the `entity_id' is quarantined
-  indefinitely.
+  indefinitely.  Code setting `end_date' might use the `duration'
+  column in quarantine_code as a default number of days from
+  start_date.
 
   Use the column `disable_until' to indicate that a quarantine should
   be lifted from now until the date in `disable_until'.  This is
