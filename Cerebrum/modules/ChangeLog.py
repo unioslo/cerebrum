@@ -53,20 +53,26 @@ class ChangeLog(object):
             m['id'] = int(self.nextval('change_log_seq'))
             self.execute("""
             INSERT INTO [:table schema=cerebrum name=change_log]
-               (change_id, subject_entity,
-                change_type_id, dest_entity, change_params, change_by, change_program)
+               (change_id, subject_entity, change_type_id, dest_entity,
+                change_params, change_by, change_program)
             VALUES (:id, :subject_entity, :change_type_id,
-                :destination_entity, :change_params, :change_by, :change_program)""", m)
+                    :destination_entity, :change_params, :change_by,
+                    :change_program)""", m)
         self.messages = []
 
-    def get_log_events(self, start_id, types=None, subject_entity=None):
+    def get_log_events(self, start_id, max_id=None, types=None,
+                       subject_entity=None):
         where = ["change_id >= :start_id"]
         bind = {'start_id': int(start_id)}
         if subject_entity is not None:
             where.append("subject_entity=:subject_entity")
             bind['subject_entity'] = int(subject_entity)
+        if max_id is not None:
+            where.append("change_id <= :max_id")
+            bind['max_id'] = int(max_id)
         if types is not None:
-            where.append("change_type_id IN("+", ".join(["%i" % x for x in types])+")")
+            where.append("change_type_id IN("+", ".join(
+                ["%i" % x for x in types])+")")
         where = "WHERE "+" AND ".join(where)
         ret = []
         for r in self.query("""

@@ -68,9 +68,14 @@ CREATE TABLE change_log
 category:main;
 create index change_log_subject_idx on change_log(subject_entity);
 
+/* Store first and last change_id that a CLHandler client has
+received.  Multiple entries for one evthdlr_key are legal and
+indicates holes in the sequence.
+*/
 category:main;
 CREATE TABLE change_handler_data
 (
-  evthdlr_key    CHAR VARYING(20), 
-  last_id        NUMERIC(6,0)
+  evthdlr_key    CHAR VARYING(20) NOT NULL, 
+  first_id       NUMERIC(6,0) NOT NULL,
+  last_id        NUMERIC(6,0) NOT NULL
 );
