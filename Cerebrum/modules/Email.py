@@ -1401,16 +1401,6 @@ class AccountEmailMixin(Account.Account):
             self.update_email_addresses()
         return ret
 
-    def set_account_type(self, *param, **kw):
-        ret = self.__super.set_account_type(*param, **kw)
-        self.update_email_addresses()
-        return ret
-
-    def del_account_type(self, *param, **kw):
-        ret = self.__super.del_account_type(*param, **kw)
-        self.update_email_addresses()
-        return ret
-
     def update_email_addresses(self):
         # Find, create or update a proper EmailTarget for this
         # account.
@@ -1650,6 +1640,27 @@ class AccountEmailMixin(Account.Account):
             raise ValueError, "Local-part can't be empty (%r -> %r)" % (
                 local_part, lp)
         return lp
+
+    def set_account_type(self, *param, **kw):
+        ret = self.__super.set_account_type(*param, **kw)
+        self.update_email_addresses()
+        return ret
+
+    def del_account_type(self, *param, **kw):
+        ret = self.__super.del_account_type(*param, **kw)
+        self.update_email_addresses()
+        return ret
+
+    def add_spread(self, *param, **kw):
+        ret = self.__super.add_spread(*param, **kw)
+        self.update_email_addresses()
+        return ret
+
+    def delete_spread(self, *param, **kw):
+        ret = self.__super.delete_spread(*param, **kw)
+        self.update_email_addresses()
+        return ret
+
 
 
 class PersonEmailMixin(Person.Person):
