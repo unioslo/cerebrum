@@ -32,3 +32,4 @@ CLASS_CONSTANTS = (
 	'Cerebrum.modules.CLConstants/CLConstants' 
 ) 
 CLASS_OU = ('Cerebrum.modules.no.Stedkode/Stedkode',)
+INITIAL_ACCOUNTNAME_PASSWORD = "change_on_install"
