@@ -332,8 +332,8 @@ The currently defined id-types are:
         rows = ppq.get_history(job_id=job_id)
         if len(rows) == 0:
             raise errors.IllegalUndoRequest, "Unknown target_job_id"
-        if (not (self.ba.is_superuser(operator) or
-                 rows[0]['tstamp'].ticks() > time.time() - 3600*24*3)):
+        if ((not self.ba.is_superuser(operator.get_entity_id())) and
+            rows[0]['tstamp'].ticks() < time.time() - 3600*24*3):
             raise PermissionDenied, "Job is too old"
         # Throws subclass for CerebrumError, which bofhd.py will handle
         pu.undo_transaction(person_id, job_id, num_pages,
