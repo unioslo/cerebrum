@@ -46,7 +46,7 @@ class LookupHelper(object):
             self._logger.warn("ukjent gruppe: %s" % name)
         return self._group_cache[name] 
 
-    def get_stedkode(self, name):
+    def get_stedkode(self, name, institusjon):
         #TODO: not quite right, remove once xml file is fixed
         name = name.replace("SV-student", "140000")
         name = name.replace("UV-student", "140000")
@@ -63,7 +63,7 @@ class LookupHelper(object):
             inst = int(name[2:4])
             gr = int(name[4:])
             ou.clear()
-            ou.find_stedkode(fak, inst, gr)
+            ou.find_stedkode(fak, inst, gr, institusjon)
             self._sko_cache[name] = int(ou.entity_id)
         except (Errors.NotFoundError, ValueError):
             self._sko_cache[name] = None
