@@ -205,6 +205,8 @@ class JobRunner(object):
                     self.db_qh.update_last_run(job, self.last_run[job])
                 self.current_job = None
 
+            if 'quit' in self.ready_to_run:
+                raise ExitProgram
             # figure out what jobs to run next
             self.ready_to_run = []
             logger.debug("Finding ready jobs (running: %s)" % str(running_jobs))
