@@ -83,7 +83,9 @@ class Constants(Constants.Constants):
 
     affiliation_manuell = _PersonAffiliationCode('MANUELL', 'Tilknyttet HiA uten å være registrert i et av de autoritative kildesystemene')
     affiliation_status_manuell_ekstern = _PersonAffStatusCode(
-	affiliation_manuell, 'ekstern', 'Eksern tilknyttet person')
+	affiliation_manuell, 'ekstern', 'Ekstern tilknyttet person')
+    affiliation_status_manuell_sia = _PersonAffStatusCode(
+	affiliation_manuell, 'sia', 'Person tilknyttet Samskipnaden i Agder')
 
     # We override the default settings for shells, thus this file
     # should be before PosixUser in cereconf.CLASS_CONSTANTS
