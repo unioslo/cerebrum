@@ -31,12 +31,14 @@ from Cerebrum.modules import PosixGroup
 from Cerebrum import Disk
 from Cerebrum.Entity import EntityName
 from Cerebrum import QuarantineHandler
+from Cerebrum.Constants import _SpreadCode
 
 db = Factory.get('Database')()
 co = Factory.get('Constants')(db)
 posix_user = PosixUser.PosixUser(db)
 posix_group = PosixGroup.PosixGroup(db)
 MAX_LINE_LENGTH = 512
+_SpreadCode.sql = db
 
 entity2uname = {}
 debug = 0
@@ -51,6 +53,7 @@ def generate_passwd(filename, spread=None):
     n = 0
     diskid2path = {}
     disk = Disk.Disk(db)
+    static_posix_user = PosixUser.PosixUser(db)
     for d in disk.list():
         diskid2path[int(d['disk_id'])] = d['path']
     for row in posix_user.list_extended_posix_users(auth_method=co.auth_type_md5_crypt,
@@ -60,7 +63,12 @@ def generate_passwd(filename, spread=None):
         if passwd is None:
             passwd = '*'
         posix_group.posix_gid = row['posix_gid']
-        gecos = "posix_user.get_gecos()"
+        gecos = row['gecos']
+        if gecos is None:
+            gecos = row['name']
+        if gecos is None:
+            gecos = "GECOS NOT SET"
+        gecos = static_posix_user._conv_name(gecos, as_gecos=1)
         home = row['home'] 
         shell = shells[int(row['shell'])]
         if row['quarantine_type'] is not None:
@@ -191,9 +199,12 @@ def maxjoin(elems, maxlen, sep=','):
             s += sep + e
     return (s, ())
 
-
 def map_spread(id):
-    return int(id)   # TODO:  Should take text as input param
+    try:
+        return int(_SpreadCode(id))
+    except Errors.NotFoundError:
+        print "Error mapping %s" % id
+        raise
 
 def main():
     global debug
