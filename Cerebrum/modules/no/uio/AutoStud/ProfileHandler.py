@@ -305,6 +305,8 @@ class ProfileMatcher(object):
         for match in self.matches:
             profile, nivaakode = match
             for k in profile.settings.keys():
+                if not profile.settings[k]:
+                    continue      # This profile had no setting of this type
                 self._unique_extend(self.settings.setdefault(k, []),
                                     profile.settings[k])
                 if set_at.get(k, nivaakode) == nivaakode:
