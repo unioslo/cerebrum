@@ -167,17 +167,7 @@ def _create_corba_method(method):
                 pass
 
             # Transaction
-            if hasattr(self.transaction, 'snapshot'):
-                if isinstance(self.spine_object, DumpClass) or isinstance(self.spine_object, SearchClass):
-                    self.spine_object.cache = self.transaction.snapshot
-                elif method.write:
-                    raise Exception('Trying to access write-method outside a transaction: %s' % method)
-                else:
-                    cache = self.transaction.snapshot
-                    key = self.spine_object.get_primary_key()
-                    self.spine_object = self.spine_class(*key, **{'cache':cache})
-            else:
-                self.transaction.add_ref(self.spine_object)
+            self.transaction.add_ref(self.spine_object)
 
             if method.write:
                 self.spine_object.lock_for_writing(self.transaction)

@@ -53,7 +53,6 @@ class Session:
         Method('new_transaction', CerebrumHandler),
         Method('get_transactions', [CerebrumHandler]),
         Method('get_transaction', CerebrumHandler, args=[('id', int)]),
-        Method('snapshot', CerebrumHandler),
         Method('logout', None)
     ]
     builder_parents = ()
@@ -66,17 +65,9 @@ class Session:
         self.transactions = {}
 
     def new_transaction(self):
+        self.cleanup()
         id = self.counter.next()
         transaction = CerebrumHandler(self.client, id)
-        corba_obj = convert_to_corba(transaction, transaction, CerebrumHandler)
-        self.transactions[id] = corba_obj
-        return corba_obj
-
-    def snapshot(self):
-        id = self.counter.next()
-        cache = {}
-        transaction = CerebrumHandler(self.client, id, cache=cache)
-        transaction.snapshot = cache
         corba_obj = convert_to_corba(transaction, transaction, CerebrumHandler)
         self.transactions[id] = corba_obj
         return corba_obj
