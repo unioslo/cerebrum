@@ -1343,4 +1343,212 @@ class FS(object):
         """
         return self.db.query(query, fetchall = fetchall)
 
+class element_attribute_xml_parser(xml.sax.ContentHandler, object):
+
+    elements = {}
+    """A dict containing all valid element names for this parser.
+
+    The dict must have a key for each of the XML element names that
+    are valid for this parser.  The corresponding values indicate
+    whether or not the parser class should invoke the callback
+    function upon encountering such an element.
+
+    Subclasses should override this entire attribute (i.e. subclasses
+    should do elements = {key: value, ...}) rather than add more keys
+    to the class attribute in their parent class (i.e. subclasses
+    should not do elements[key] = value)."""
+
+    def __init__(self, filename, callback, encoding='iso8859-1'):
+        self._callback = callback
+        self._encoding = encoding
+        xml.sax.parse(filename, self)
+
+    def startElement(self, name, attrs):
+        if name not in self.elements:
+            raise ValueError, \
+                  "Unknown XML element: %r" % (name,)
+        # Only set self._in_element etc. for interesting elements.
+        if self.elements[name]:
+            data = {}
+            for k, v in attrs.items():
+                data[k] = v.encode(self._encoding)
+            self._callback(name, data)
+
+class non_nested_xml_parser(element_attribute_xml_parser):
+
+    def __init__(self, filename, callback, encoding='iso8859-1'):
+        self._in_element = None
+        self._attrs = None
+        super(non_nested_xml_parser, self).__init__(
+            filename, callback, encoding)
+
+    def startElement(self, name, attrs):
+        if name not in self.elements:
+            raise ValueError, \
+                  "Unknown XML element: %r" % (name,)
+        if self._in_element is not None:
+            raise RuntimeError, \
+                  "Can't deal with nested elements (<%s> before </%s>)." % (
+                name, self._in_element)
+        # Only set self._in_element etc. for interesting elements.
+        if self.elements[name]:
+            self._in_element = name
+            self._data = {}
+            for k, v in attrs.items():
+                self._data[k] = v.encode(self._encoding)
+
+    def endElement(self, name):
+        if name not in self.elements:
+            raise ValueError, \
+                  "Unknown XML element: %r" % (name,)
+        if self._in_element == name:
+            self._callback(name, self._data)
+            self._in_element = None
+
+class ou_xml_parser(element_attribute_xml_parser):
+    "Parserklasse for ou.xml."
+
+    elements = {'data': False,
+                'sted': True,
+                'komm': True,
+                }
+
+class person_xml_parser(non_nested_xml_parser):
+    "Parserklasse for person.xml."
+
+    elements = {'data': False,
+                'aktiv': True,
+                'tilbud': True,
+                'evu': True,
+                'privatist_studieprogram': True,
+                }
+
+class roles_xml_parser(non_nested_xml_parser):
+    "Parserklasse for studieprog.xml."
+
+    elements = {'data': False,
+                'role': True,
+                }
+
+    def endElement(self, name):
+        if name == 'role':
+            do_callback = self.validate_role(self._data)
+            if not do_callback:
+                self._in_element = None
+        return super(roles_xml_parser, self).endElement(name)
+
+    def validate_role(self, attrs):
+        # Verifiser at rollen _enten_ gjelder en (fullstendig
+        # spesifisert) undervisningsenhet _eller_ en und.aktivitet
+        # _eller_ et studieprogram, osv. -- og ikke litt av hvert.
+        col2target = {
+            'fodselsdato': None,
+            'personnr': None,
+            'rollenr': None,
+            'rollekode': None,
+            'dato_fra': None,
+            'dato_til': None,
+            'institusjonsnr': ['sted', 'emne', 'undenh', 'undakt'],
+            'faknr': ['sted'],
+            'instituttnr': ['sted'],
+            'gruppenr': ['sted'],
+            'studieprogramkode': ['stprog'],
+            'emnekode': ['emne', 'undenh', 'undakt'],
+            'versjonskode': ['emne', 'undenh', 'undakt'],
+            'aktivitetkode': ['undakt'],
+            'terminkode': ['undenh', 'undakt'],
+            'arstall': ['undenh', 'undakt'],
+            'terminnr': ['undenh', 'undakt'],
+            'etterutdkurskode': ['evu'],
+            'kurstidsangivelsekode': ['evu'],
+            'saksbehinit_opprettet': None,
+            'dato_opprettet': None,
+            'saksbehinit_endring': None,
+            'dato_endring': None,
+            'merknadtekst': None,
+            }
+        logger = Factory.get_logger()
+        data = attrs.copy()
+        target = None
+        not_target = sets.Set()
+        possible_targets = sets.Set()
+        for col, targs in col2target.iteritems():
+            if col in data:
+                del data[col]
+                if targs is None:
+                    continue
+                possible_targets = possible_targets.union(targs)
+                if target is None:
+                    # Har ikke sett noen kolonner som har med
+                    # spesifisering av target å gjøre før; target
+                    # må være en av de angitt i 'targs'.
+                    target = sets.Set(targs)
+                else:
+                    # Target må være i snittet mellom 'targs' og
+                    # 'target'.
+                    target = target.intersection(targs)
+            else:
+                if targs is None:
+                    continue
+                # Kolonnen kan spesifisere target, men er ikke med i
+                # denne posteringen; oppdater not_target.
+                not_target = not_target.union(targs)
+
+        do_callback = True
+        if data:
+            # Det fantes kolonner i posteringen som ikke er tatt med i
+            # 'col2target'-dicten.
+            logger.error("Ukjente kolonner i FS.PERSONROLLE: %r", data)
+            do_callback = False
+
+        if target is not None:
+            target = tuple(target - not_target)
+        else:
+            # Denne personrollen inneholdt ikke _noen_
+            # target-spesifiserende kolonner.
+            target = ()
+        if len(target) <> 1:
+            if len(target) > 1:
+                logger.error("Personrolle har flertydig angivelse av",
+                             " targets, kan være: %r (XML = %r).",
+                             target, attrs)
+                attrs['::rolletarget::'] = target
+            else:
+                logger.error("Personrolle har ingen tilstrekkelig"
+                             " spesifisering av target, inneholder"
+                             " elementer fra: %r (XML = %r).",
+                             tuple(possible_targets), attrs)
+                attrs['::rolletarget::'] = tuple(possible_targets)
+            do_callback = False
+        else:
+            logger.debug("Personrolle OK, target = %r (XML = %r).",
+                         target[0], attrs)
+            # Target er entydig og tilstrekkelig spesifisert; gjør
+            # dette tilgjengelig for callback.
+            attrs['::rolletarget::'] = target
+        return do_callback
+
+
+class studieprog_xml_parser(non_nested_xml_parser):
+    "Parserklasse for studieprog.xml."
+
+    elements = {'data': False,
+                'studprog': True,
+                }
+
+class underv_enhet_xml_parser(non_nested_xml_parser):
+    "Parserklasse for underv_enhet.xml."
+
+    elements = {'undervenhet': False,
+                'undenhet': True,
+                }
+
+class student_undenh_xml_parser(non_nested_xml_parser):
+    "Parserklasse for student_undenh.xml."
+
+    elements = {'data': False,
+                'student': True
+                }
+
+
 # arch-tag: 15c18bb0-05e8-4c3b-a47c-c84566e57803
