@@ -286,22 +286,17 @@ class BofhdAuth(DatabaseAccessor):
     def __init__(self, database):
         super(BofhdAuth, self).__init__(database)
         self.const = Factory.get('Constants')(database)
-        self._superusers = self._get_group_members(
-            cereconf.BOFHD_SUPERUSER_GROUP)
+        self._group_member_cache = Cache.Cache(mixins = [Cache.cache_timeout],
+                                               timeout = 60)
         group = Group.Group(self._db)
         group.find_by_name(cereconf.BOFHD_SUPERUSER_GROUP)
         self._superuser_group = group.entity_id
-
-        # TODO: Change can_get_student_info so that the old studit
-        # group may be grantet auth_view_studentinfo to global_host
-        self._student_info_users = self._get_group_members(
-            cereconf.BOFHD_STUDADM_GROUP)
         self._any_perm_cache = Cache.Cache(mixins=[Cache.cache_mru,
                                                    Cache.cache_slots],
                                            size=500)
 
     def is_superuser(self, operator, query_run_any=False):
-        if operator in self._superusers:
+        if operator in self._get_group_members(cereconf.BOFHD_SUPERUSER_GROUP):
             return True
         return False
     
@@ -317,7 +312,10 @@ class BofhdAuth(DatabaseAccessor):
                                             account.entity_id)
 
     def can_get_student_info(self, operator, person=None, query_run_any=False):
-        if self.is_superuser(operator) or operator in self._student_info_users:
+        # TODO: Change can_get_student_info so that the old studit
+        # group may be grantet auth_view_studentinfo to global_host
+        if (self.is_superuser(operator) or
+            operator in self._get_group_members(cereconf.BOFHD_STUDADM_GROUP)):
             return True
         if query_run_any:
             return False
@@ -771,7 +769,8 @@ class BofhdAuth(DatabaseAccessor):
         if global_type == 'global_group':
             if victim_id == self._superuser_group:
                 return False
-        elif victim_id in self._superusers:
+        elif victim_id in \
+                 self._get_group_members(cereconf.BOFHD_SUPERUSER_GROUP):
             return False
         for k in self._query_target_permissions(operator, operation,
                                                 global_type, None, None):
@@ -789,10 +788,16 @@ class BofhdAuth(DatabaseAccessor):
         return ret
 
     def _get_group_members(self, groupname):
+        try:
+            return self._group_member_cache[groupname]
+        except KeyError:
+            pass
         group = Group.Group(self._db)
         group.find_by_name(groupname)
-        return [int(id) for id in group.get_members()]
-        
+        members = [int(id) for id in group.get_members()]
+        self._group_member_cache[groupname] = members
+        return members
+
     def _get_disk(self, disk_id):
         disk = Disk.Disk(self._db)
         disk.find(disk_id)
