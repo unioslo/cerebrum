@@ -313,9 +313,8 @@ def change_user_spread(dn_id,ch_type,ch_params):
                 (ldap_user, ldap_attrs) = nwutils.get_account_info(dn_id, cl_spread, None)
                 path2edir(ldap_attrs)
                 #ldap_user = ldap_user.replace('ou=HIST', 'o=HiST')
-		#input = sys.stdin.readline()
 		#if input.lower() == 'y':
-		print ldap_user,ldap_attrs
+		#print ldap_user,ldap_attrs
 		add_ldap(ldap_user,ldap_attrs)
             else:
                 (ldap_user, ldap_attrs) = ldap_obj [0][0]
