@@ -25,13 +25,17 @@ module Cerebrum_core{
 
         /**
         * Error raised when commiting changes in APHandler.
-        * Not sure wich errors can be expected yet...
+        * Not used yet!
         * \param explanation A string containing a short explanation.
         */
         exception CommitError{
             string explanation;
         };
 
+        /**
+        * Error raised when trying to fetch a node wich dont exists.
+        * \param explanation A string containing a short explanation.
+        */
         exception NoSuchNodeError {
             string explanation;
         };
@@ -54,6 +58,11 @@ module Cerebrum_core{
             string explanation;
         };
 
+        /**
+        * Error raised when trying to get/set an node attribute wich
+        * dont exists.
+        * \param explanation A string containing a short explanation
+        */
         exception NoSuchAttributeError {
             string explanation;
         };
