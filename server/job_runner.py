@@ -275,15 +275,20 @@ class JobRunner(object):
     
 def usage(exitcode=0):
     print """job_runner.py [options]:
-      --reload: re-read the config file
       --config file : use alternative config-file
+      --dump level : shows dependency graph, level must be in the range 0-3
+
+      Options for communicating with a running server:
+
+      --reload: re-read the config file
       --quit : exit gracefully (allowing current job to complete)
       --status : show status for a running job-runner
       --pause : pause the queue, won't start any new jobs
       --resume : resume from paused state
-      --dump level : shows dependency graph, level must be in the range 0-3
       --run jobname : adds jobname to the front of the run queue, ignoring
-        dependencies"""
+        dependencies
+      --show-job name: show detailed information about a job
+        """
 
     sys.exit(exitcode)
 
@@ -291,14 +296,15 @@ def main():
     try:
         opts, args = getopt.getopt(sys.argv[1:], '',
                                    ['reload', 'quit', 'status', 'config=',
-                                    'dump=', 'run=', 'pause', 'resume'])
+                                    'dump=', 'run=', 'pause', 'resume',
+                                    'show-job='])
     except getopt.GetoptError:
         usage(1)
     #global scheduled_jobs
     alt_config = False
     for opt, val in opts:
         if opt in('--reload', '--quit', '--status', '--run', '--pause',
-                  '--resume'):
+                  '--resume', '--show-job'):
             if opt == '--reload':
                 cmd = 'RELOAD'
             elif opt == '--quit':
@@ -310,7 +316,9 @@ def main():
             elif opt == '--resume':
                 cmd = 'RESUME'
             elif opt == '--run':
-                cmd = 'RUNCMD %s' % val
+                cmd = 'RUNJOB %s' % val
+            elif opt == '--show-job':
+                cmd = 'SHOWJOB %s' % val
             sock = SocketHandling()
             try:
                 print "Response: %s" % sock.send_cmd(cmd)

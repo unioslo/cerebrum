@@ -70,12 +70,19 @@ class Action(object):
         self.when = when
         self.post = post or []
         self.multi_ok = multi_ok
+        self.last_exit_msg = None
 
     def copy_runtime_params(self, other):
         """When reloading the configuration, we must preserve some
         runtime params when we alter the all_jobs dict"""
         if self.call is not None and other.call is not None:
             self.call.copy_runtime_params(other.call)
+
+    def get_pretty_cmd(self):
+        if not self.call:
+            return None
+        return "%s %s" % (self.call.cmd, " ".join(
+            ["'%s'" % p for p in self.call.params]))
 
 class CallableAction(object):
     """Abstract class representing the call parameter to Action"""
@@ -208,6 +215,7 @@ class System(CallableAction):
                 if not exit_code:
                     self.logger.warn(
                         "exit_code=0, and %s don't exist!" % self.run_dir)
+                self.last_exit_msg = "exit_code=%i, full disk?" % exit_code
                 return (exit_code, None)
             if (exit_code != 0 or
                 (self.stdout_ok == 0 and 
@@ -215,7 +223,9 @@ class System(CallableAction):
                 os.path.getsize("%s/stderr.log" % self.run_dir) > 0):
                 newdir = "%s.%s" % (self.run_dir, time.time())
                 os.rename(self.run_dir, newdir)
+                self.last_exit_msg = "exit_code=%i, check %s" % (exit_code, newdir)
                 return (exit_code, newdir)
+            self.last_exit_msg = "Ok"
             self._cleanup()        
             return 1
         else:

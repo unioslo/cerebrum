@@ -170,6 +170,31 @@ class SocketHandling(object):
         self._is_listening = False
         signal.signal(signal.SIGALRM, SocketHandling.timeout)
 
+    def _format_time(self, t):
+        if t:
+            return time.asctime(time.localtime(t))
+        return None
+
+    def _show_job(self, jobname, job_runner):
+        job = job_runner.job_queue.get_known_jobs().get(
+            jobname, None)
+        if not job:
+            return 'Unknown job %s' % jobname
+
+        tmp = self._format_time(job_runner.job_queue._started_at.get(jobname))
+        if tmp:
+            ret = "Status: running, started at %s\n" % tmp
+        else:
+            tmp = self._format_time(job_runner.job_queue._last_run.get(jobname))
+            ret = "Status: not running.  Last run: %s\n" % tmp or 'unknown'
+            ret += "Last exit status: %s\n" % job.last_exit_msg
+        ret += "Command: %s\n" % job.get_pretty_cmd()
+        ret += "Pre-jobs: %s\n" % job.pre
+        ret += "Post-jobs: %s\n" % job.post
+        ret += "When: %s, max-freq: %s\n" % (job.when, job.max_freq)
+        return ret
+        
+        
     def start_listener(self, job_runner):
         self.socket = socket.socket(socket.AF_UNIX)
         self.socket.bind(cereconf.JOB_RUNNER_SOCKET)
@@ -199,7 +224,7 @@ class SocketHandling(object):
                     job_runner.wake_runner_signal()
                     self.send_response(conn, 'OK')
                     break
-                elif data.startswith('RUNCMD '):
+                elif data.startswith('RUNJOB '):
                     jobname = data[7:]
                     if not job_runner.job_queue.get_known_jobs().has_key(jobname):
                         self.send_response(conn, 'Unknown job %s' % jobname)
@@ -207,6 +232,9 @@ class SocketHandling(object):
                         job_runner.job_queue.get_run_queue().insert(0, jobname)
                         self.send_response(conn, 'Added %s to head of queue' % jobname)
                         job_runner.wake_runner_signal()
+                    break
+                elif data.startswith('SHOWJOB '):
+                    self.send_response(conn, self._show_job(data[8:], job_runner))
                     break
                 elif data == 'STATUS':
                     ret = "Run-queue: \n  %s\n" % "\n  ".join(
