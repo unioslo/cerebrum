@@ -41,6 +41,7 @@ from Cerebrum import Account
 from Cerebrum import Disk
 from Cerebrum import Group
 from Cerebrum import Person
+from Cerebrum import Entity
 from Cerebrum import Errors
 from Cerebrum.modules import PosixGroup
 from Cerebrum.modules import PosixUser
@@ -672,7 +673,7 @@ def import_groups(groupfile, fill=0):
     db.commit()
 
 def import_person_users(personfile):
-    global gid2entity_id, stedkode2ou_id, default_ou
+    global gid2entity_id, stedkode2ou_id, default_ou, uname_exists
 
     group=PosixGroup.PosixGroup(db)
     gid2entity_id = {}
@@ -688,6 +689,12 @@ def import_person_users(personfile):
     else:
         for row in group.list_all_ext():
             gid2entity_id[int(row['posix_gid'])] = row['group_id']
+
+    uname_exists = {}
+
+    en = Entity.EntityName(db)
+    for r in en.list_names(int(co.account_namespace)):
+        uname_exists[r['entity_name']] = r['entity_id']
 
     ou = Stedkode.Stedkode(db)
     stedkode2ou_id = {}
@@ -761,11 +768,12 @@ def import_person_users(personfile):
         for du in deleted_users[person_id]:
             if not uname2entity_id.has_key(du['uname']):
                 account_id = create_account(du, person_id, co.entity_person)
-                uname2entity_id[du['uname']] = account_id
+                if account_id is not None:
+                    uname2entity_id[du['uname']] = account_id
     db.commit()
 
 def group_owned_callback(owner_gname, user):
-    create_account(user, _get_group(owner_gname), co.entity_group, int(co.account_test))
+    create_account(user, _get_group(owner_gname), co.entity_group, int(co.account_program))
 
 def person_callback(person):
     # - Hvis personen har spread=u/i, bygg PosixUser.
@@ -786,7 +794,7 @@ def person_callback(person):
             if e['val'] <> '00000000000':
                 fnr = e['val']
     person_id = None
-    if 0:    # This script is only intended to be ran on an empty database
+    if 1:    # This script is only intended to be ran on an empty database
         if fnr is not None:
             try:
                 print "Fnr: %s" % fnr,
@@ -866,11 +874,15 @@ def person_callback(person):
             deleted_users.setdefault(person_id, []).append(u)
         else:
             account_id = create_account(u, person_id, co.entity_person)
-            if not u.has_key('reserved'):
-                user_creators[account_id] = u.get('created_by', 'bootstrap_account')
-            uname2entity_id[u['uname']] = account_id
-
+            if account_id is not None:
+                if not u.has_key('reserved'):
+                    user_creators[account_id] = u.get('created_by', 'bootstrap_account')
+                uname2entity_id[u['uname']] = account_id
+            
 def create_account(u, owner_id, owner_type, np_type=None):
+    if uname_exists.has_key(u['uname']):
+        print "User %s already exists, skipping" % u['uname']
+        return None
     is_posix = 0
     if u.has_key('deleted_date'):
         expire_date = [int(x) for x in u['deleted_date'].split('-')]
@@ -990,7 +1002,7 @@ def create_account(u, owner_id, owner_type, np_type=None):
         utype = u['uio']['utype']
         ustype = u['uio'].get('ustype', '') or '*unset*'
         if ustype == 'F':
-            accountObj.np_type = int(co.account_test)
+            accountObj.np_type = int(co.account_program)
             accountObj.write_db()
         else:
             aff, affstat = user_aff_mapping[utype][ustype]
