@@ -149,6 +149,21 @@ class OU(EntityContactInfo, EntityAddress, Entity):
         self.__in_db = True
         self.__updated = False
 
+    def find_by_parent(self, acronym, perspective, parent_id):
+        pid = "AND s.parent_id=:parent_id"
+        if parent_id is None:
+            pid = ""
+        ou_id = self.query_1("""
+        SELECT o.ou_id
+        FROM [:table schema=cerebrum name=ou_structure] s,
+             [:table schema=cerebrum name=ou_info] o
+        WHERE s.ou_id = o.ou_id AND s.perspective=:perspective
+             %s AND o.acronym=:acronym""" % pid,
+                                 {'perspective': int(perspective),
+                                  'acronym': acronym,
+                                  'parent_id': parent_id})
+        self.find(ou_id)
+
     def set_parent(self, perspective, parent_id):
         """Set the parent of this OU to ``parent_id`` in ``perspective``."""
         self.execute("""
