@@ -177,6 +177,7 @@ def generate_group(filename, group_spread, user_spread):
     account2def_group = {}
     for row in posix_user.list_extended_posix_users():
 	account2def_group[int(row['account_id'])] = int(row['posix_gid'])
+    user_membership_count = {}
     for row in posix_group.list_all(spread=group_spread):
         posix_group.clear()
         posix_group.find(row.group_id)
@@ -195,7 +196,11 @@ def generate_group(filename, group_spread, user_spread):
                     if len(entity2uname[id]) > 8:
                         print "Bad username %s in %s"%(entity2uname[id], gname)
                     else:
-                        members.append(entity2uname[id])
+                        user_membership_count[id] = user_membership_count.get(id, 0) + 1
+                        if user_membership_count[id] > max_group_memberships:
+                            print "Too many groups for %s" % entity2uname[id]
+                        else:
+                            members.append(entity2uname[id])
             else:
                 raise ValueError, "Found no id: %s for group: %s" % (
                     id, gname)
@@ -287,15 +292,18 @@ def map_spread(id):
 def main():
     global debug
     global e_o_f
+    global max_group_memberships
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'dg:p:n:',
                                    ['debug', 'help', 'eof', 'group=',
                                     'passwd=', 'group_spread=',
-                                    'user_spread=', 'netgroup='])
+                                    'user_spread=', 'netgroup=',
+                                    'max_memberships='])
     except getopt.GetoptError:
         usage(1)
 
     user_spread = group_spread = None
+    max_group_memberships = 16
     for opt, val in opts:
         if opt in ('--help',):
             usage()
@@ -311,6 +319,8 @@ def main():
             generate_netgroup(val, group_spread, user_spread)
         elif opt in ('--group_spread',):
             group_spread = map_spread(val)
+        elif opt in ('--max_memberships',):
+            max_group_memberships = val
         elif opt in ('--user_spread',):
             user_spread = map_spread(val)
         else:
