@@ -366,6 +366,7 @@ class XMLHelper(object):
         return '"%s"' % a
 
 class Factory(object):
+    class_cache = {}
 
     def get(comp):
         components = {'OU': 'CLASS_OU',
@@ -377,6 +378,8 @@ class Factory(object):
                       'CLConstants': 'CLASS_CL_CONSTANTS',
                       'ChangeLog': 'CLASS_CHANGELOG',
                       'DBDriver': 'CLASS_DBDRIVER'}
+        if Factory.class_cache.has_key("comp"):
+            return Factory.class_cache[comp]
         try:
             conf_var = components[comp]
         except KeyError:
@@ -388,8 +391,13 @@ class Factory(object):
 ##             cls = import_spec.split(".")[-1]
 ##             import_spec = (import_spec, cls)
         if isinstance(import_spec, tuple):
-            mod = dyn_import(import_spec[0])
-            return getattr(mod, import_spec[1])
+            bases = ()
+            for c in import_spec:
+                (mod_name, class_name) = c.split("/", 2)
+                mod = dyn_import(mod_name)
+                bases += (getattr(mod, class_name), )
+            Factory.class_cache[comp] = type(comp, bases, {})
+            return Factory.class_cache[comp]
         else:
             raise ValueError, \
                   "Invalid import spec for component %s: %r" % (comp,
