@@ -9,6 +9,7 @@ from Cerebrum.web.templates.HistoryLogTemplate import HistoryLogTemplate
 from Cerebrum.web.Main import Main
 from gettext import gettext as _
 from Cerebrum.web.utils import url
+import xmlrpclib
 
 def index(req):
     page = Main(req)
@@ -72,21 +73,27 @@ def search(req, name="", accountid="", birthno="", birthdate=""):
                        searchList=[{'formvalues': formvalues}])
     result = html.Division()
     result.append(html.Header(_("Person search results"), level=2))
-    persons = ClientAPI.Person.search(server, name or None,
-                                    accountid or None,
-                                    birthno or None,
-                                    birthdate or None)
-    if persons:
-        table = html.SimpleTable(header="row")
-        table.add(_("Name"), _("Date of birth"))
-        for person in persons:
-            link = url("person/view?id=%s" % person.id)
-            link = html.Anchor(person.name, href=link)
-            table.add(link, person.birthdate.Format("%Y-%m-%d"))
-        result.append(table)
-    else:
-        result.append(html.Emphasis(_("Sorry, no person(s) found matching the given criteria.")))
 
+    try:
+        persons = ClientAPI.Person.search(server, name or None,
+                                          accountid or None,
+                                          birthno or None,
+                                          birthdate or None)
+        
+        if persons:
+            table = html.SimpleTable(header="row")
+            table.add(_("Name"), _("Date of birth"))
+            for person in persons:
+                link = url("person/view?id=%s" % person.id)
+                link = html.Anchor(person.name, href=link)
+                table.add(link, person.birthdate.Format("%Y-%m-%d"))
+            result.append(table)
+        else:
+            result.append(html.Emphasis(_("Sorry, no person(s) found matching the given criteria.")))
+
+    except xmlrpclib.Fault, e:
+        result.append(html.Emphasis(e.faultString.split("CerebrumError: ")[-1]))
+        
     result.append(html.Header(_("Search for other persons"), level=2))
     result.append(personsearch.form())
     page.content = lambda: result.output().encode("utf8")
