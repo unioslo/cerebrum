@@ -24,6 +24,8 @@ import time
 import xml.sax
 
 from Cerebrum.modules.no.uio.access_FS import FS
+from Cerebrum.Utils import Factory
+from Cerebrum.extlib import sets
 
 class HiAFS(FS):
     """FS klassen definerer et sett med metoder som kan benyttes for å
@@ -513,6 +515,100 @@ class roles_xml_parser(non_nested_xml_parser):
     elements = {'data': False,
                 'role': True,
                 }
+
+    def endElement(self, name):
+        if name == 'role':
+            do_callback = self.validate_role(self._data)
+            if not do_callback:
+                self._in_element = None
+        return super(roles_xml_parser, self).endElement(name)
+
+    def validate_role(self, attrs):
+        # Verifiser at rollen _enten_ gjelder en (fullstendig
+        # spesifisert) undervisningsenhet _eller_ en und.aktivitet
+        # _eller_ et studieprogram, osv. -- og ikke litt av hvert.
+        col2target = {
+            'fodselsdato': None,
+            'personnr': None,
+            'rollenr': None,
+            'rollekode': None,
+            'dato_fra': None,
+            'dato_til': None,
+            'institusjonsnr': ['sted', 'emne', 'undenh', 'undakt'],
+            'faknr': ['sted'],
+            'instituttnr': ['sted'],
+            'gruppenr': ['sted'],
+            'studieprogramkode': ['stprog'],
+            'emnekode': ['emne', 'undenh', 'undakt'],
+            'versjonskode': ['emne', 'undenh', 'undakt'],
+            'aktivitetkode': ['undakt'],
+            'terminkode': ['undenh', 'undakt'],
+            'arstall': ['undenh', 'undakt'],
+            'terminnr': ['undenh', 'undakt'],
+            'etterutdkurskode': ['evu'],
+            'kurstidsangivelsekode': ['evu'],
+            'saksbehinit_opprettet': None,
+            'dato_opprettet': None,
+            'saksbehinit_endring': None,
+            'dato_endring': None,
+            'merknadtekst': None,
+            }
+        logger = Factory.get_logger()
+        data = attrs.copy()
+        target = None
+        not_target = sets.Set()
+        possible_targets = sets.Set()
+        for col, targs in col2target.iteritems():
+            if col in data:
+                del data[col]
+                if targs is None:
+                    continue
+                possible_targets = possible_targets.union(targs)
+                if target is None:
+                    # Har ikke sett noen kolonner som har med
+                    # spesifisering av target å gjøre før; target
+                    # må være en av de angitt i 'targs'.
+                    target = sets.Set(targs)
+                else:
+                    # Target må være i snittet mellom 'targs' og
+                    # 'target'.
+                    target = target.intersection(targs)
+            else:
+                if targs is None:
+                    continue
+                # Kolonnen kan spesifisere target, men er ikke med i
+                # denne posteringen; oppdater not_target.
+                not_target = not_target.union(targs)
+
+        do_callback = True
+        if data:
+            # Det fantes kolonner i posteringen som ikke er tatt med i
+            # 'col2target'-dicten.
+            logger.error("Ukjente kolonner i FS.PERSONROLLE: %r", data)
+            do_callback = False
+
+        target = tuple(target - not_target)
+        if len(target) <> 1:
+            if len(target) > 1:
+                logger.error("Personrolle har flertydig angivelse av",
+                             " targets, kan være: %r (XML = %r).",
+                             target, attrs)
+                attrs['::rolletarget::'] = target
+            else:
+                logger.error("Personrolle har ingen tilstrekkelig"
+                             " spesifisering av target, inneholder"
+                             " elementer fra: %r (XML = %r).",
+                             tuple(possible_targets), attrs)
+                attrs['::rolletarget::'] = tuple(possible_targets)
+            do_callback = False
+        else:
+            logger.debug("Personrolle OK, target = %r (XML = %r).",
+                         target[0], attrs)
+            # Target er entydig og tilstrekkelig spesifisert; gjør
+            # dette tilgjengelig for callback.
+            attrs['::rolletarget::'] = target
+        return do_callback
+
 
 class studieprog_xml_parser(non_nested_xml_parser):
     "Parserklasse for studieprog.xml."
