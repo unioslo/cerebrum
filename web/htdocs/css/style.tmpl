@@ -115,13 +115,24 @@ div.accounts div.create input {
     padding: 0;
 }
 
-div.info dd {
-    margin-left: 0;
-    padding-left: 0;
+dd {
+  margin-left: 0;
+  padding-left: 0;
 }
-
-div.info dt {
-    font-weight: bold;
+dt:after { 
+  content: ":";
+}
+dt {
+  float: left; 
+  margin-right: 0.5em;
+  font-weight: bold;
+}
+dd,dt {
+  margin-top: 0;
+  margin-bottom:0;
+  padding-top: 0;
+  padding-bottom: 0;
+  line-height: 1.3em;
 }
 
 div.actions {
