@@ -61,7 +61,6 @@ class DiskQuota(DatabaseAccessor):
                   override_expiration=NotSet(), description=NotSet()):
         """Insert or update disk_quota for homedir_id.  Will only
         affect the columns used as keyword arguments"""
-
         tmp = (['homedir_id', homedir_id],
                ['quota', quota],
                ['override_quota', override_quota],
@@ -83,7 +82,7 @@ class DiskQuota(DatabaseAccessor):
                 ", ".join([":%s" % t[0] for t in tmp])),
                          dict([(t[0], t[1]) for t in tmp]))
         else:
-            tmp = filter(lambda k: not isinstance(str(k[1]), NotSet), tmp)
+            tmp = filter(lambda k: not isinstance(k[1], NotSet), tmp)
             self.execute("""
             UPDATE [:table schema=cerebrum name=disk_quota]
             SET %s
@@ -92,7 +91,9 @@ class DiskQuota(DatabaseAccessor):
                          dict([(t[0], t[1]) for t in tmp]))
         tmp = dict(tmp)
         if tmp.get('override_expiration', None):
-            tmp['override_expiration'] = tmp['override_expiration'].strftime(
+            # The DBI-Api don't provide a consistent way to parse input-dates
+            t = self.get_quota(homedir_id)
+            tmp['override_expiration'] = t['override_expiration'].strftime(
                 '%Y-%m-%d')
         self._db.log_change(self._get_account_id(homedir_id),
                             self.co.disk_quota_set, None, change_params=tmp)
@@ -123,7 +124,7 @@ class DiskQuota(DatabaseAccessor):
         """List quota and homedir information for all users that has
         quota"""
         return self.query("""
-        SELECT dq.homedir_id, ah.account_id, en.entity_name, di.path,
+        SELECT dq.homedir_id, ah.account_id, hi.home, en.entity_name, di.path,
                dq.quota, dq.override_quota, dq.override_expiration
         FROM [:table schema=cerebrum name=disk_quota] dq,
              [:table schema=cerebrum name=homedir] hi,
