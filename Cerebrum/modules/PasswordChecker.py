@@ -8,7 +8,6 @@ import os
 
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum.Utils import Factory
-from Cerebrum import Account
 from Cerebrum.modules import PasswordHistory
 
 msgs = {
@@ -304,11 +303,14 @@ class PasswordChecker(DatabaseAccessor):
         if not ok:
             raise PasswordGoodEnoughException(msgs['sequence_keys'])
 
-    def goodenough(self, account, fullpasswd):
+    def goodenough(self, account, fullpasswd, uname=None):
         """Perform a number of checks on a password to see if it is
         random enough.  This is done by checking the mix of
         upper/lowercase letters and special characers, as well as
-        checking a database."""
+        checking a database.
+
+        To use on non-existing accounts, set account=None and set uname
+        to the username"""
 
         passwd = fullpasswd[0:8]
 
@@ -324,15 +326,16 @@ class PasswordChecker(DatabaseAccessor):
             raise PasswordGoodEnoughException(msgs['space'])
 
         self._check_variation(passwd)
-        self.check_password_history(account, passwd)   # Will raise on error
-        self.check_password_history(account, fullpasswd)
+        if account is not None:
+            self.check_password_history(account, passwd)   # Will raise on error
+            self.check_password_history(account, fullpasswd)
         self._check_dict(passwd)
         self._check_two_word_combination(passwd)
 
         for tmp in ('ibm', 'dec', 'sun', 'at&t', 'nasa', 'jan', 'feb',
                     'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep',
                     'oct', 'nov', 'dec'):
-            if passwd.lower.find(tmp) != -1:
+            if passwd.lower().find(tmp) != -1:
                 raise PasswordGoodEnoughException(msgs['dict_hit'])
 
         self._check_sequence(passwd)
@@ -349,15 +352,18 @@ class PasswordChecker(DatabaseAccessor):
             raise PasswordGoodEnoughException(msgs['repetitive_sequence'])
 
         # username backwards?
-        tmp = list(passwd)
+        if uname is None:
+            uname = account.account_name
+        tmp = list(uname)
         tmp.reverse()
         if passwd == "".join(tmp):
             raise PasswordGoodEnoughException(msgs['uname_backwards'])
 
 def main():
+    from Cerebrum.Account import Account
     db = Factory.get('Database')()
     pc = PasswordChecker(db)
-    account = Account.Account(db)
+    account = Account(db)
     account.find_by_name('bootstrap_account')
     if 0:
         print "Ret: %s" % pc._is_word_in_dict(
