@@ -353,7 +353,25 @@ class Person(Entity, Abstract.Person):
     create = classmethod(create)
 
     def search(cls, server, name=None, account=None, birthno=None, birthdate=None):
-        pass
+        """Retrieves a list of persons, or empty list if none"""
+        info = None
+        if name:
+            info = server.person_find("name", name)
+        elif account:
+            info = server.person_find("person_id", account)
+        elif birthdate:
+            info = server.person_find("date", birthdate)
+        else:
+            return None
+            
+        if info:
+            persons = []
+            for entry in info:
+                person = fetch_object_by_id(server, entry['id'])
+                persons.append(person)
+
+            return persons
+            
     search = classmethod(search)
 
     def _load_entity_info(self, info):
