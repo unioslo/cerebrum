@@ -30,7 +30,7 @@ def main():
     if len(sys.argv) == 2:
         external_id = sys.argv[1]
     else:
-        external_id = "30535890168"
+        external_id = "41023468172"
 
     Cerebrum = Database.connect()
 
