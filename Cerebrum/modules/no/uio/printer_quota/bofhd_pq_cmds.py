@@ -225,7 +225,7 @@ The currently defined id-types are:
     all_commands['pquota_history'] = None
     def pquota_history(self, operator, person, when=None):
         return self._pquota_history(
-            operator, self.bu.find_pq_person(person), when)
+            operator, self.bu.find_person(person), when)
 
     all_commands['jbofh_pquota_history'] = Command(
         ("pquota", "history"), PersonId(), Integer(help_ref="int_when", optional=True),
