@@ -484,13 +484,13 @@ ORDER BY fodselsdato, personnr
 SELECT DISTINCT
   em.emnekode, em.dato_opprettet
 FROM fs.eksamensmelding em, fs.person p
-WHERE em.fodselsdato=fnr AND
-      em.personnr=pnr AND
+WHERE em.fodselsdato=:fnr AND
+      em.personnr=:pnr AND
       em.fodselsdato=p.fodselsdato AND
       em.personnr=p.personnr 
       AND %s
         """ % self.is_alive()
-        return (self._get_cols(qry), self.db.query(qry))
+        return (self._get_cols(qry), self.db.query(qry, {'fnr': fnr, 'pnr': pnr}))
 
     def GetStudentStudierett(self,fnr,pnr):
 	"""Hent info om alle studierett en student har eller har hatt"""
@@ -499,13 +499,13 @@ SELECT DISTINCT
   st.studieprogramkode, st.studierettstatkode, st.dato_tildelt,
   st.dato_gyldig_til, st.status_privatist
 FROM fs.studierett st, fs.person p
-WHERE st.fodselsdato=fnr AND
-      st.personnr=pnr AND
+WHERE st.fodselsdato=:fnr AND
+      st.personnr=:pnr AND
       st.fodselsdato=p.fodselsdato AND
       st.personnr=p.personnr 
       AND %s
         """ % self.is_alive()
-        return (self._get_cols(qry), self.db.query(qry))
+        return (self._get_cols(qry), self.db.query(qry, {'fnr': fnr, 'pnr': pnr}))
 
     def GetEmneIStudProg(self,emne):
         """Hent alle studieprogrammer et gitt emne kan inngå i."""
@@ -513,24 +513,24 @@ WHERE st.fodselsdato=fnr AND
 SELECT DISTINCT 
   studieprogramkode   
 FROM fs.emne_i_studieprogram
-WHERE emnekode = emne
+WHERE emnekode = :emne
        """ 
-        return (self._get_cols(qry), self.db.query(qry))
+        return (self._get_cols(qry), self.db.query(qry, {'emne': emne}))
 
     def GetStudentSemReg(self,fnr,pnr):
         """Hent data om semesterregistrering for student i nåværende semester."""
         qry = """
 SELECT DISTINCT
-  rk.regformkode, rk.betformkode, rk.dato_betaling, rk.dato_regform_endret
-FROM fs.registerkort rk, fs.person p
-WHERE rk.fodselsdato = fnr AND
-      rk.personnr = pnr AND
+  r.regformkode, r.betformkode, r.dato_betaling, r.dato_regform_endret
+FROM fs.registerkort r, fs.person p
+WHERE r.fodselsdato = :fnr AND
+      r.personnr = :pnr AND
       %s AND
-      rk.fodselsdato = p.fodselsdato AND
-      rk.personnr = p.personnr AND
+      r.fodselsdato = p.fodselsdato AND
+      r.personnr = p.personnr AND
       %s
         """ %(self.get_termin_aar(only_current=1),self.is_alive())
-	return (self._get_cols(qry), self.db.query(qry))
+	return (self._get_cols(qry), self.db.query(qry, {'fnr': fnr, 'pnr': pnr}))
 
     def GetStudentUtdPlan(self,fnr,pnr):
         """Hent opplysninger om utdanningsplan for student"""
@@ -539,13 +539,13 @@ SELECT DISTINCT
   utdp.studieprogramkode, utdp.terminkode_bekreft, utdp.arstall_bekreft,
   utdp.dato_bekreftet
 FROM fs.studprogstud_planbekreft utdp, fs.person p
-WHERE utdp.fodselsdato = fnr AND
-      utdp.personnr = pnr AND
+WHERE utdp.fodselsdato = :fnr AND
+      utdp.personnr = :pnr AND
       utdp.fodselsdato = p.fodselsdato AND
       utdp.personnr = p.personnr AND
       %s
         """ % self.is_alive()
-	return (self._get_cols(qry), self.db.query(qry))
+	return (self._get_cols(qry), self.db.query(qry, {'fnr': fnr, 'pnr': pnr}))
     
 	
 ##################################################################
