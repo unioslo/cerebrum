@@ -6,11 +6,12 @@ import sys
 
 from Cerebrum import Database,Constants,Errors
 from Cerebrum import Person
+from Cerebrum import cereconf
 from Cerebrum.modules.no.uio import OU
 from Cerebrum.modules.no import fodselsnr
 # import pprint
 
-personfile = "/u2/dumps/FS/persons.dat";
+default_personfile = "/u2/dumps/FS/persons.dat"
 
 class FSData(object):
     cols_n = """fdato, pnr, lname, fname, adr1, adr2, postnr,adr3,
@@ -48,9 +49,12 @@ class FSData(object):
 def main():
     Cerebrum = Database.connect()
 
+    if getattr(cereconf, "ENABLE_MKTIME_WORKAROUND", 0) == 1:
+        print "Warning: ENABLE_MKTIME_WORKAROUND is set"
     if len(sys.argv) == 2:
         personfile = sys.argv[1]
-
+    else:
+        personfile = default_personfile
     f = os.popen("sort -u "+personfile)
 
     dta = FSData()
@@ -69,6 +73,9 @@ def process_person(Cerebrum, persondta):
     
     try:
         (year, mon, day) = fodselsnr.fodt_dato(persondta['fdato'] + persondta['pnr'])
+        if(year < 1970 and getattr(cereconf, "ENABLE_MKTIME_WORKAROUND", 0) == 1):
+            year = 1970   # Seems to be a bug in time.mktime on some machines
+
         fnr = fodselsnr.personnr_ok(persondta['fdato'] + persondta['pnr'])
     except fodselsnr.InvalidFnrError:
         print "Ugyldig fødselsnr: %s%s" % (persondta['fdato'],
