@@ -308,7 +308,7 @@ class BofhdExtension(object):
     def group_user(self, operator, accountname):
         account = self._get_account(accountname)
         group = Group.Group(self.db)
-        return [{'memberop': str(self.num2const[r['operation']]),
+        return [{'memberop': str(self.num2const[int(r['operation'])]),
                  'group': self._get_entity_name(self.const.entity_group, r['group_id'])}
                 for r in group.list_groups_with_entity(account.entity_id)]
 
@@ -753,20 +753,6 @@ class BofhdExtension(object):
         account.write_db()
         return "OK"
 
-    # user affiliations
-    all_commands['user_affiliations'] = Command(
-        ("user", "affiliations"), AccountName(),
-        fs=FormatSuggestion("%-14s %s", ('affiliation', 'ou_id'),
-                            hdr="%-14s %s" % ('Affiliation', 'OU_id')))
-    def user_affiliations(self, operator, accountname):
-        account = self._get_account(accountname)
-        ret = []
-        for row in account.get_account_types():
-            ou = self._get_ou(ou_id=row['ou_id'])
-            ret.append({'ou_id': ou.short_name,
-                        'affiliation': str(self.num2const[int(row['affiliation'])])})
-        return ret
-
     # user bcreate
     all_commands['user_bcreate'] = Command(
         ("user", "bcreate"), SimpleString(help_ref="string_filename"))
@@ -893,7 +879,8 @@ class BofhdExtension(object):
     # user info
     all_commands['user_info'] = Command(
         ("user", "info"), AccountName(),
-        fs=FormatSuggestion([("entity id: %i\nSpreads: %s", ("entity_id", "spread")),
+        fs=FormatSuggestion([("entity id: %i\nSpreads: %s\nAffiliations: %s",
+                              ("entity_id", "spread", "affiliations")),
                              ("uid: %i\ndfg: %i\ngecos: %s\nshell: %s",
                               ('uid', 'dfg', 'gecos', 'shell'))]))
     def user_info(self, operator, accountname):
@@ -903,9 +890,15 @@ class BofhdExtension(object):
             is_posix = 1
         except CerebrumError:
             account = self._get_account(accountname)
+        affiliations = []
+        for row in account.get_account_types():
+            ou = self._get_ou(ou_id=row['ou_id'])
+            affiliations.append("%s@%s" % (self.num2const[int(row['affiliation'])],
+                                           ou.short_name))
         ret = {'entity_id': account.entity_id,
                'spread': ",".join(["%s" % self.num2const[int(a['spread'])]
-                                   for a in account.get_spread()])}
+                                   for a in account.get_spread()]),
+               'affiliations': ",".join(affiliations)}
         if is_posix:
             ret['uid'] = account.posix_uid
             ret['dfg'] = account.gid_id
@@ -983,13 +976,17 @@ class BofhdExtension(object):
     all_commands['user_set_expire'] = Command(
         ('user', 'set_expire'), AccountName(), Date())
     def user_set_expire(self, operator, accountname, date):
-        raise NotImplementedError, "Feel free to implement this function"
+        account = self._get_account(accountname)
+        account.expire_date = self._parse_date(date)
+        account.write_db()
 
     # user set_np_type
     all_commands['user_set_np_type'] = Command(
         ('user', 'set_np_type'), AccountName(), SimpleString(help_ref="string_np_type"))
     def user_set_np_type(self, operator, accountname, np_type):
-        raise NotImplementedError, "Feel free to implement this function"
+        account = self._get_account(accountname)
+        account.np_type = self._map_np_type(np_type)
+        account.write_db()
 
     # user shell
     all_commands['user_shell'] = Command(
@@ -1169,6 +1166,10 @@ class BofhdExtension(object):
             pass
         return disk_id, home
 
+    def _map_np_type(self, np_type):
+        # TODO: Assert _AccountCode
+        return int(self.str2const[np_type])
+        
     def _map_visibility_id(self, visibility):
         # TODO: Assert _VisibilityCode
         return int(self.str2const[visibility])
