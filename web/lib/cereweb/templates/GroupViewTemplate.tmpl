@@ -3,6 +3,7 @@
 #import forgetHTML
 #from Cerebrum.web.TableView import TableView
 #from MemberTableTemplate import MemberTableTemplate
+#from HistoryLogTemplate import HistoryLogTemplate
 #from Cerebrum.web.utils import url
 
 #def viewGroup(group)
@@ -10,6 +11,8 @@
 $groupInfo($group)
 $groupMembers($group)
 $add_member($group)
+#set $historyLog = HistoryLogTemplate()
+$historyLog.viewHistoryLog()
 #end def
 
 #def groupMembers(group)
