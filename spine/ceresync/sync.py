@@ -71,7 +71,6 @@ class Sync:
         """
 
         self._transactions = []
-        self.connection = None
         self._connect()
    
         if incr:
@@ -97,20 +96,6 @@ class Sync:
             self._changes = None
 #            print 'getting everything'
 
-# Hvorfor er denne kommentert ut? FORKLAR!
-    """
-    def __del__(self):
-        # We roll back our own passive main connection
-        if self._connection:
-            self._connection.rollback()
-        # We shouldn't have any open transactions now, but if we do, we
-        # abort those too. Such connections could have been created by
-        # modules who need to make other _transaction()s.
-        if self._open_transactions():
-            print >>sys.stderr, "WARNING: %s transactions still open, rolling back" % len(self._transactions)
-        self._rollback()
-"""
-    
     def _rollback(self):
         """Rolls back any open transactions"""
         for t in self._transactions:
@@ -179,7 +164,7 @@ class Sync:
     def close(self):
         self._rollback()
 
-    def get_accounts(self):
+    def _get_accounts(self):
         """Get all accounts from Spine. Returns a list of Account objects."""
         t = self._connection
 
@@ -254,7 +239,7 @@ class Sync:
             i.type = 'account'
         return accounts
 
-    def get_groups(self):
+    def _get_groups(self):
         t = self._connection
 
         # create a search
@@ -292,7 +277,7 @@ class Sync:
 
         return groups
 
-    def get_persons(self):
+    def _get_persons(self):
         t = self._connection
         search = t.get_person_searcher()
         persons = search.search()
@@ -311,14 +296,13 @@ class Sync:
             person.users = [a.get_name() for a in accounts.search()]
         return results
 
-    def get_changes(self):
-        """
-        returns a list with (type, operation, object) tuples
+    def _get_changes(self):
+        """ Get all changes from Spine.
 
-        type can be ACCOUNT, GROUP, PERSON, OU
-        operation can be ADD, UPDATE, DELETE
+        returns a generator with (operation, object) tuples
+        operation can be add, update, delete
 
-        when doing DELETE operations, object is the primary key (i.e username) 
+        when doing delete operations, object is the primary key (cerebrum id) 
         """
 
         s = self._changes.get_dumper()
@@ -333,8 +317,7 @@ class Sync:
             types[i.reference] = i
 
         s.mark_type()
-        s.mark_subject()
-        #s.mark_subject_entity()
+        s.mark_subject_entity()
         changes = []
         for i in s.dump():
             changes.append((i.id, types[i.type], i))
@@ -344,13 +327,12 @@ class Sync:
         changed = set()
 
         entities = {}
-        for i in self.get_accounts():
+        for i in self._get_accounts():
             entities[i.id] = i
-        for i in self.get_groups():
+        for i in self._get_groups():
             entities[i.id] = i
 
         for id, change, log in changes:
-            print log.subject_entity
             if change.category == 'entity' and change.type == 'del':
                 yield 'del', log.subject_entity
                 continue
@@ -369,17 +351,19 @@ class Sync:
 
         assert not entities # all entities must have been processed
 
-    def get_all(self):
-        for i in self.get_accounts():
+    def _get_all(self):
+        """Get all objects from Spine."""
+        for i in self._get_accounts():
             yield 'add', i
-        for i in self.get_groups():
+        for i in self._get_groups():
             yield 'add', i
 
     def get_objects(self):
+        """Get all or only changed objects from Spine."""
         if self._changes is None:
-            return self.get_all()
+            return self._get_all()
         else:
-            return self.get_changes()
+            return self._get_changes()
 
 class Person:
     """Stub object for representation of a person"""
@@ -482,7 +466,7 @@ class TestSync(unittest.TestCase):
         self.assertRaises(SpineErrors.TransactionError, t.rollback)
     
     def testGetAccounts(self):
-        accounts = self.s.get_accounts()
+        accounts = self.s._get_accounts()
         assert accounts
         # We can assume that bootstrap_account exists for now 
         has_bootstrap = [a for a in accounts if a.name == 'bootstrap_account']
@@ -509,7 +493,7 @@ class TestSync(unittest.TestCase):
         self.assertEqual(stain.shell, "/local/gnu/bin/bash")
 
     def testGetGroups(self):
-        groups = self.s.get_groups()
+        groups = self.s._get_groups()
         assert groups
         # We can assume that bootstrap_group exists for now 
         has_bootstrap = [g for g in groups if g.name == 'bootstrap_group']
@@ -525,7 +509,7 @@ class TestSync(unittest.TestCase):
         # FIXME: Should test a posix group 
    
     def testGetPersons(self):
-        persons = self.s.get_persons()
+        persons = self.s._get_persons()
         assert persons
         soilands = [p for p in persons if p.full_name=="Stian Soiland"]
         assert soilands   # There's no other default person we can rely on..
