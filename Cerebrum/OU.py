@@ -281,13 +281,23 @@ class OU(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
 
     def set_parent(self, perspective, parent_id):
         """Set the parent of this OU to ``parent_id`` in ``perspective``."""
-        self.execute("""
-        INSERT INTO [:table schema=cerebrum name=ou_structure]
-          (ou_id, perspective, parent_id)
-        VALUES (:e_id, :perspective, :parent_id)""",
-                     {'e_id': self.entity_id,
+        try:
+            self.get_parent(perspective)
+            self.execute("""
+            UPDATE [:table schema=cerebrum name=ou_structure]
+            SET parent_id=:parent_id
+            WHERE ou_id=:e_id AND perspective=:perspective""",
+                      {'e_id': self.entity_id,
                       'perspective': int(perspective),
                       'parent_id': parent_id})
+        except Errors.NotFoundError:
+            self.execute("""
+            INSERT INTO [:table schema=cerebrum name=ou_structure]
+              (ou_id, perspective, parent_id)
+            VALUES (:e_id, :perspective, :parent_id)""",
+                         {'e_id': self.entity_id,
+                          'perspective': int(perspective),
+                          'parent_id': parent_id})
         self._db.log_change(self.entity_id, self.const.ou_set_parent,
                             parent_id,
                             change_params={'perspective': int(perspective)})
