@@ -3466,9 +3466,30 @@ class BofhdExtension(object):
                         'help_ref': 'user_create_select_person'}
         owner_id = all_args.pop(0)
         if not group_owner:
+            person = self._get_person("entity_id", owner_id)
+            existing_accounts = []
+            account = Utils.Factory.get('Account')(self.db)
+            for r in account.list_accounts_by_owner_id(person.entity_id):
+                account = self._get_account(r['account_id'], idtype='id')
+                if account.expire_date:
+                    exp = account.expire_date.strftime('%Y-%m-%d')
+                else:
+                    exp = '<not set>'
+                existing_accounts.append("%-10s %s" % (account.account_name,
+                                                       exp))
+            if existing_accounts:
+                existing_accounts = "Existing accounts:\n%-10s %s\n%s\n" % (
+                    "uname", "expire", "\n".join(existing_accounts))
+            else:
+                existing_accounts = ''
+            if existing_accounts:
+                if not all_args:
+                    return {'prompt': "%sContinue? (y/n)" % existing_accounts}
+                yes_no = all_args.pop(0)
+                if not yes_no == 'y':
+                    raise CerebrumError, "Command aborted at user request"
             if not all_args:
                 map = [(("%-8s %s", "Num", "Affiliation"), None)]
-                person = self._get_person("entity_id", owner_id)
                 for aff in person.get_affiliations():
                     ou = self._get_ou(ou_id=aff['ou_id'])
                     name = "%s/%s@%s" % (
@@ -3530,13 +3551,16 @@ class BofhdExtension(object):
         fs=FormatSuggestion("Created uid=%i", ("uid",)),
         perm_filter='can_create_user')
     def user_create(self, operator, *args):
-        if len(args) == 6:
+        if args[0].startswith('group:'):
             group_id, np_type, filegroup, shell, home, uname = args
             owner_type = self.const.entity_group
             owner_id = self._get_group(group_id.split(":")[1]).entity_id
             np_type = int(self._get_constant(np_type, "Unknown account type"))
         else:
-            idtype, person_id, affiliation, filegroup, shell, home, uname = args
+            if len(args) == 7:
+                idtype, person_id, affiliation, filegroup, shell, home, uname = args
+            else:
+                idtype, person_id, yes_no, affiliation, filegroup, shell, home, uname = args
             owner_type = self.const.entity_person
             owner_id = self._get_person("entity_id", person_id).entity_id
             np_type = None
