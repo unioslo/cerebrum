@@ -323,6 +323,11 @@ class _AccountCode(_CerebrumCode):
     _lookup_table = '[:table schema=cerebrum name=account_code]'
     pass
 
+class _AccountHomeStatusCode(_CerebrumCode):
+    "Mappings stored in the home_status_code table"
+    _lookup_table = '[:table schema=cerebrum name=home_status_code]'
+    pass
+
 class _ValueDomainCode(_CerebrumCode):
     "Mappings stored in the value_domain_code table"
     _lookup_table = '[:table schema=cerebrum name=value_domain_code]'
@@ -517,6 +522,13 @@ class CommonConstants(ConstantsBase):
 
     # bootstrap_account is of this type:
     account_program = _AccountCode('programvare', 'Programvarekonto')
+    home_status_not_created = _AccountHomeStatusCode('not_created', 'Not created')
+    home_status_create_failed = _AccountHomeStatusCode(
+        'create_failed', 'Creation failed')
+    home_status_on_disk = _AccountHomeStatusCode(
+        'on_disk', 'Currently on disk')
+    home_status_archived = _AccountHomeStatusCode(
+        'archived', 'Has been archived')
 
 class Constants(CoreConstants, CommonConstants):
     pass
