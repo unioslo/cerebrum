@@ -70,7 +70,7 @@ def generate_passwd(filename, spread=None):
     diskid2path = {}
     disk = Factory.get('Disk')(db)
     static_posix_user = PosixUser.PosixUser(db)
-    for d in disk.list():
+    for d in disk.list(spread=spread):
         diskid2path[int(d['disk_id'])] = d['path']
     def process_user(row, extra_rows):
         uname = row['entity_name']
