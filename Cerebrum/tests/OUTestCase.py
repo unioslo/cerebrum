@@ -9,7 +9,7 @@ from Cerebrum import OU
 from Cerebrum import Person
 from Cerebrum import Account
 from Cerebrum import Constants
-from Cerebrum.utils import Factory
+from Cerebrum.Utils import Factory
 
 # Explicitly inherit from `object` because unittest isn't a new-style
 # class, and we want to be allowed to call super.
