@@ -28,14 +28,21 @@ from Cerebrum import Errors
 
 
 class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
+    __metaclass__ = Utils.mark_update
+
+    __read_attr = ('__in_db',)
+    __write_attr__ = ('birth_date', 'gender', 'description', 'deceased')
 
     def clear(self):
         "Clear all attributes associating instance with a DB entity."
         super(Person, self).clear()
-        self.birth_date = None
-        self.gender = None
-        self.description = None
-        self.deceased = None
+        for attr in Person.__read_attr__:
+            if hasattr(self, attr):
+                delattr(self, attr)
+        for attr in Person.__write_attr__:
+            setattr(self, attr, None)
+            self.__updated = False
+
         self._external_id= ()
         # Person names:
         self._pn_affect_source = None
@@ -54,7 +61,7 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
         self.deceased = deceased
 
         Entity.populate(self, self.const.entity_person)
-        self.__write_db = True
+        self.__in_db = False
 
     def __eq__(self, other):
         """Define == operator for Person objects."""
@@ -68,7 +75,7 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
         if affected_source is not None:
             for affected_affil in self._pa_affected_affiliations:
                 other_dict = {}
-                for t in other.get_affiliations(simple=False):
+                for t in other.get_affiliations():
                     if t.source_system == affected_source:
                         # Not sure why this casting to int is required
                         # on PostgreSQL
@@ -110,27 +117,21 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
         if self._debug_eq: print "Person.__eq__ = %s" % identical
         return identical
 
-    def write_db(self, as_object=None):
+    def write_db(self):
         """Sync instance with Cerebrum database.
 
         After an instance's attributes has been set using .populate(),
         this method syncs the instance with the Cerebrum database.
 
-        If `as_object' isn't specified (or is None), the instance is
-        written as a new entry to the Cerebrum database.  Otherwise,
-        the object overwrites the Entity entry corresponding to the
-        instance `as_object'.
-
         If you want to populate instances with data found in the
         Cerebrum database, use the .find() method.
 
         """
-        assert self.__write_db
-        super(Person, self).write_db(as_object)
-        self.person_id = self.entity_id
-        if as_object is None:
-            self.person_id = super(Person, self).new(
-                int(self.const.entity_person))
+        self.__super.write_db()
+        if not self.__updated:
+            print "not updated"
+            return
+        if not self.__in_db:
             self.execute("""
             INSERT INTO [:table schema=cerebrum name=person_info]
               (entity_type, person_id, export_id, birth_date, gender,
@@ -148,7 +149,6 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
             for t_ss, t_type, t_id in self._external_id:
                 self._set_external_id(t_ss, t_type, t_id)
         else:
-            self.person_id = as_object.person_id
             self.execute("""
             UPDATE [:table schema=cerebrum name=person_info]
             SET export_id=:exp_id, birth_date=:b_date, gender=:gender,
@@ -162,13 +162,12 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
                           'p_id': self.entity_id})
 
         affected_source = self._pa_affect_source
-        if affected_source is not None:
+        if affected_source is not None:    # Handle PersonAffiliations
             other = {}
-            if as_object is not None:
-                for t_ou_id, t_affiliation, t_source, t_status in \
-                        as_object.get_affiliations(simple=False):
-                    if affected_source == t_source:
-                        other["%d-%d" % (t_ou_id, t_affiliation)] = t_status
+            for t_ou_id, t_affiliation, t_source, t_status in \
+                    self.get_affiliations():
+                if affected_source == t_source:
+                    other["%d-%d" % (t_ou_id, t_affiliation)] = t_status
             for affected_affil in self._pa_affected_affiliations:
                 for ou_id, status in self._pa_affiliations[affected_affil]:
                     key = "%d-%d" % (ou_id, affected_affil)
@@ -188,7 +187,7 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
         if self._pn_affect_source is not None:
             for type in self._pn_affect_types:
                 try:
-                    if not self._compare_names(type, as_object):
+                    if not self._compare_names(type, self):
                         n = self._name_info.get(type)
                         self.execute("""
                         UPDATE [:table schema=cerebrum name=person_name]
@@ -198,7 +197,7 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
                           source_system=:src AND
                           name_variant=:n_variant""",
                                      {'name': self._name_info[type],
-                                      'p_id': as_object.person_id,
+                                      'p_id': self.entity_id,
                                       'src': int(self._pn_affect_source),
                                       'n_variant': int(type)})
                 except KeyError, msg:
@@ -215,14 +214,17 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
                           person_id=:p_id AND
                           source_system=:src AND
                           name_variant=:n_variant""",
-                                     {'p_id': as_object.person_id,
+                                     {'p_id': self.entity_id,
                                       'src': int(self._pn_affect_source),
                                       'n_variant': int(type)})
                     else:
                         raise
         
-        self.__write_db = False
         # TODO: Handle external_id
+        del self.__in_db
+        self.__in_db = True
+        self.__updated = False
+
 
     def new(self, birth_date, gender, description=None, deceased='F'):
         """Register a new person.  Return new entity_id.
@@ -243,16 +245,19 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
         NotFoundError is raised.
 
         """
-        (self.person_id, self.export_id, self.birth_date, self.gender,
+        (self.export_id, self.birth_date, self.gender,
          self.deceased, self.description) = self.query_1(
-            """SELECT person_id, export_id, birth_date, gender,
+            """SELECT export_id, birth_date, gender,
                       deceased, description
                FROM [:table schema=cerebrum name=person_info]
                WHERE person_id=:p_id""", {'p_id': person_id})
         super(Person, self).find(person_id)
+        self.__in_db = True
+        self.__updated = False
 
     def populate_external_id(self, source_system, id_type, external_id):
         self._external_id += ((source_system, id_type, external_id),)
+        self.__updated = True
 
     def _set_external_id(self, source_system, id_type, external_id):
         self.execute("""
@@ -265,10 +270,9 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
                       'ext_id': external_id})
 
     def find_persons_by_bdate(self, bdate):
-        # TBD: Should the keep_entries() call really be here?
-        return Utils.keep_entries(self.query("""
+        return self.query("""
         SELECT person_id FROM [:table schema=cerebrum name=person_info]
-        WHERE to_char(birth_date, 'YYYY-MM-DD')=:bdate""", locals()))
+        WHERE to_date(birth_date, 'YYYY-MM-DD')=:bdate""", locals())
 
     def find_by_external_id(self, id_type, external_id):
         person_id = self.query_1("""
@@ -333,6 +337,7 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
 
     def populate_name(self, type, name):
         self._name_info[type] = name
+        self.__updated = True
 
     def affect_affiliations(self, source, *types):
         self._pa_affect_source = source
@@ -343,18 +348,13 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
     def populate_affiliation(self, ou_id, affiliation, status):
         self._pa_affiliations[affiliation] = \
             self._pa_affiliations.get(affiliation, []) + [(ou_id, status)]
+        self.__updated = True
 
-    def get_affiliations(self, simple=True):
-        if simple:
-            return self.query("""
-            SELECT ou_id, affiliation
-            FROM [:table schema=cerebrum name=person_affiliation]
-            WHERE person_id=:p_id""", {'p_id': self.entity_id})
-        else:
-            return self.query("""
-            SELECT ou_id, affiliation, source_system, status
-            FROM [:table schema=cerebrum name=person_affiliation_source]
-            WHERE person_id=:p_id""", {'p_id': self.entity_id})
+    def get_affiliations(self):
+        return self.query("""
+        SELECT ou_id, affiliation, source_system, status
+        FROM [:table schema=cerebrum name=person_affiliation_source]
+        WHERE person_id=:p_id""", {'p_id': self.entity_id})
 
     def add_affiliation(self, ou_id, affiliation, source, status):
         binds = {'ou_id': int(ou_id),
