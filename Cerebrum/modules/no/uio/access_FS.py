@@ -237,6 +237,26 @@ ORDER BY fodselsdato, personnr"""  % extra
                                     'fodselsdato': fodselsdato,
                                     'personnr': personnr}))
 
+    def FinnAlleStudprogSko(self):
+        qry = """
+SELECT DISTINCT
+  st.fodselsdato, st.personnr, st.studieprogramkode, sprog.studienivakode,
+  sprog.institusjonsnr_studieansv, sprog.faknr_studieansv,
+  sprog.instituttnr_studieansv, sprog.gruppenr_studieansv
+FROM
+  fs.studierett st, fs.studieprogram sprog, fs.person p
+WHERE
+  st.fodselsdato = p.fodselsdato AND
+  st.personnr = p.personnr AND
+  NVL(p.status_dod, 'N') = 'N' AND
+  st.opphortstudierettstatkode IS NULL AND
+  st.status_privatist='N' AND
+  st.studieprogramkode = sprog.studieprogramkode AND
+  NVL(st.dato_tildelt,SYSDATE-365) > SYSDATE - 90
+ORDER BY
+  st.fodselsdato, st.personnr, sprog.studienivakode, st.studieprogramkode"""
+        return (self._get_cols(qry), self.db.query(qry))
+
     def get_termin_aar(self, only_current=0):
         yr, mon, md = t = time.localtime()[0:3]
         if mon <= 6:
