@@ -5332,6 +5332,8 @@ class BofhdExtension(object):
         # Date-type.
         if y > 2050:
             raise CerebrumError, "Too far into the future: %s" % date
+	if y < 1800:
+	    raise CerebrumError, "Too long ago: %s" % date
         try:
             return self.db.Date(y, m, d)
         except:
