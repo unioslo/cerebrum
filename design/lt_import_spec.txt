@@ -1,0 +1,26 @@
+[ This documentation is in Norwegian as the system in question is only
+  used in Norway and there only at UoO ]
+
+$Id$
+
+
+1.0 Import av personinformasjon fra LT til Cerebrum.
+====================================================
+
+Fra LT skal vi importere personinformasjon om:
+
+  - Ansatte (de med minst en aktiv tilsetting)
+  - Bilagslønnede (de som har mottat en lønnsutbetaling siste 180
+    dager)
+  - Gjester (de som ligger inne som aktive gjester, med en lovlig kode).
+
+
+2.0 Import av roller fra LT til Cerebrum
+========================================
+
+
+
+3.0 Import av steder fra LT til Cerebrum
+========================================
+
+
