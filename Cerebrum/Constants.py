@@ -365,7 +365,7 @@ class _EntityExternalIdCode(_CerebrumCode):
         super(_EntityExternalIdCode, self).__init__(code, description)
 
     def __int__(self):
-        super(_EntityExternalIdCode, self).__int__()
+        i = super(_EntityExternalIdCode, self).__int__()
         # Casting a CerebrumCode object to int is the de facto way of
         # forcing a database lookup.  Make sure we also initialise
         # entity_type from the database, if needed.
@@ -378,6 +378,7 @@ class _EntityExternalIdCode(_CerebrumCode):
                 """ % { 'table': self._lookup_table,
                         'code_col': self._lookup_code_column},
                 {'code': int(self)}))
+        return i
 
     def insert(self):
         self.sql.execute("""
