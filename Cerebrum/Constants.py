@@ -492,6 +492,7 @@ class CommonConstants(ConstantsBase):
                                              "Person's private phone number")
     contact_fax = _ContactInfoCode('FAX', 'Fax')
     contact_email = _ContactInfoCode('EMAIL', 'Email')
+    contact_url = _ContactInfoCode('URL', 'URL')
 
     address_post = _AddressCode('POST', 'Post address')
     address_post_private = _AddressCode('PRIVPOST',
