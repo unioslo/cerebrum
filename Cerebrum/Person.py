@@ -685,24 +685,27 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
     def list_affiliations(self, person_id=None, source_system=None,
                           affiliation=None, status=None, ou_id=None,
                           include_deleted=False, fetchall = True):
-        cols = {}
+        where = []
         for t in ('person_id', 'affiliation', 'source_system', 'status', \
 								'ou_id'):
-            if locals()[t] is not None:
-                cols[t] = int(locals()[t])
-        tests = ["%s=:%s" % (x, x) for x in cols.keys()
-                 if cols[x] is not None]
+            val = locals()[t]
+            if val is not None:
+                if isinstance(val, (list, tuple)):
+                    where.append("%s IN (%s)" %
+                                 (t, ", ".join(map(str, map(int, val)))))
+                else:
+                    where.append("%s = %d" % (t, val))
         if not include_deleted:
-            tests.append("(deleted_date IS NULL OR deleted_date > [:now])")
-        where = " AND ".join(tests)
-        if len(where) > 0:
-            where = "WHERE %s" % where
+            where.append("(deleted_date IS NULL OR deleted_date > [:now])")
+        where = " AND ".join(where)
+        if where:
+            where = "WHERE " + where
 
         return self.query("""
         SELECT person_id, ou_id, affiliation, source_system, status,
           deleted_date
         FROM [:table schema=cerebrum name=person_affiliation_source]
-        %s""" % where, cols, fetchall = fetchall)
+        %s""" % where, fetchall = fetchall)
 
     def add_affiliation(self, ou_id, affiliation, source, status):
         binds = {'ou_id': int(ou_id),
@@ -1119,5 +1122,3 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
         FROM %s %s""" % (','.join(tables), where_str),
             {'spread': spread, 'entity_type': int(self.const.entity_person),
              'name': name, 'description': description})
-
-
