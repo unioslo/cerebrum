@@ -748,6 +748,34 @@ CREATE TABLE person_affiliation_code
 );
 
 
+/*	person_affiliation
+
+  As (personal) user accounts are connected to a person's
+  affiliations, deletion of rows in this table can be cumbersome.  To
+  alleviate this problem, the deleted_date column is set non-NULL in
+  rows corresponding to no longer existing affiliations.
+
+  Once an affiliation with non-NULL deleted_date no longer have any
+  user accounts associated with it, that row can (and should) be
+  removed.
+
+*/
+CREATE TABLE person_affiliation
+(
+  person_id	NUMERIC(12,0)
+		CONSTRAINT person_affiliation_person_id
+		  REFERENCES person_info(person_id),
+  ou_id		NUMERIC(12,0)
+		CONSTRAINT person_affiliation_ou_id
+		  REFERENCES ou_info(ou_id),
+  affiliation	NUMERIC(6,0)
+		CONSTRAINT person_affiliation_affiliation
+		  REFERENCES person_affiliation_code(code),
+  CONSTRAINT person_affiliation_pk
+    PRIMARY KEY (person_id, ou_id, affiliation)
+);
+
+
 /*	person_aff_status_code
 
   , and what kinds of
@@ -772,31 +800,19 @@ CREATE TABLE person_aff_status_code
 );
 
 
-/*	person_affiliation
-
-  As (personal) user accounts are connected to a person's
-  affiliations, deletion of rows in this table can be cumbersome.  To
-  alleviate this problem, the deleted_date column is set non-NULL in
-  rows corresponding to no longer existing affiliations.
-
-  Once an affiliation with non-NULL deleted_date no longer have any
-  user accounts associated with it, that row can (and should) be
-  removed.
-
-*/
-CREATE TABLE person_affiliation
+CREATE TABLE person_affiliation_source
 (
   person_id	NUMERIC(12,0)
-		CONSTRAINT person_affiliation_person_id
+		CONSTRAINT person_aff_src_person_id
 		  REFERENCES person_info(person_id),
   ou_id		NUMERIC(12,0)
-		CONSTRAINT person_affiliation_ou_id
+		CONSTRAINT person_aff_src_ou_id
 		  REFERENCES ou_info(ou_id),
   affiliation	NUMERIC(6,0)
-		CONSTRAINT person_affiliation_affiliation
+		CONSTRAINT person_aff_src_affiliation
 		  REFERENCES person_affiliation_code(code),
   source_system	NUMERIC(6,0)
-		CONSTRAINT person_affiliation_source_sys
+		CONSTRAINT person_aff_src_source_sys
 		  REFERENCES authoritative_system_code(code),
   status	NUMERIC(6,0),
   create_date	DATE
@@ -806,9 +822,12 @@ CREATE TABLE person_affiliation
 		DEFAULT [:now]
 		NOT NULL,
   deleted_date	DATE,
-  CONSTRAINT person_affiliation_pk
+  CONSTRAINT person_aff_src_pk
     PRIMARY KEY (person_id, ou_id, affiliation, source_system),
-  CONSTRAINT person_affiliation_status
+  CONSTRAINT person_aff_src_exists
+    FOREIGN KEY (person_id, ou_id, affiliation)
+    REFERENCES person_affiliation(person_id, ou_id, affiliation),
+  CONSTRAINT person_aff_src_status
     FOREIGN KEY (affiliation, status)
     REFERENCES person_aff_status_code(affiliation, status)
 );
@@ -830,13 +849,12 @@ CREATE TABLE account_type
   person_id	NUMERIC(12,0),
   ou_id		NUMERIC(12,0),
   affiliation	NUMERIC(6,0),
-  source_system	NUMERIC(6,0),
   account_id	NUMERIC(12,0),
   CONSTRAINT account_type_pk
-    PRIMARY KEY (person_id, ou_id, affiliation, account_id, source_system),
+    PRIMARY KEY (person_id, ou_id, affiliation, account_id),
   CONSTRAINT account_type_affiliation
-    FOREIGN KEY (person_id, ou_id, affiliation, source_system)
-    REFERENCES person_affiliation(person_id, ou_id, affiliation, source_system),
+    FOREIGN KEY (person_id, ou_id, affiliation)
+    REFERENCES person_affiliation(person_id, ou_id, affiliation),
   CONSTRAINT account_type_account
     FOREIGN KEY (account_id, person_id)
     REFERENCES account_info(account_id, owner_id)
