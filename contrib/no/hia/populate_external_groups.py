@@ -82,10 +82,19 @@ db = logger = fnr2account_id = const = None
 #                 STUDIEPROGRAMKODE:studiekull
 #               Eks "internal:hia.no:fs:201:studieprogram:tekn.eksp:studiekull"
 #             4  Gruppe med alle studenter i et kull
+#                  internal:DOMAIN:fs:INSTITUSJONSNR:studieprogram:
+#                    STUDIEPROGRAMKODE:studiekull:KULLKODE:student
+#                  Eks "internal:hia.no:fs:201:studieprogram:tekn.eksp:
+#                       studiekull:04v:student"
+#          3  Gruppering av alle personrolle-grupper for et studieprogram
 #               internal:DOMAIN:fs:INSTITUSJONSNR:studieprogram:
-#                 STUDIEPROGRAMKODE:studiekull:KULLKODE:student
-#               Eks "internal:hia.no:fs:201:studieprogram:tekn.eksp:studiekull:
-#                    04v:student"
+#                 STUDIEPROGRAMKODE:rolle
+#               Eks "internal:hia.no:fs:201:studieprogram:tekn.eksp:rolle"
+#             4  Gruppe med alle studieledere knyttet til et studieprogram
+#                  internal:DOMAIN:fs:INSTITUSJONSNR:studieprogram:
+#                    STUDIEPROGRAMKODE:rolle:studieleder
+#                  Eks "internal:hia.no:fs:201:studieprogram:tekn.eksp:
+#                       rolle:studieleder"
 
 ###
 ### Struktur SAP-grupper i Cerebrum
@@ -212,7 +221,12 @@ class group_tree(object):
         pass
 
     def list_matches(self, gtype, data, category):
-        pass
+        if self.users:
+            raise RuntimeError, \
+                  "list_matches() not overriden for user-containing group."
+        for subg in self.subnodes.itervalues():
+            for match in subg.list_matches(gtype, data, category):
+                yield match
 
     def list_matches_1(self, *args, **kws):
         ret = [x for x in self.list_matches(*args, **kws)]
@@ -333,11 +347,6 @@ class fs_supergroup(group_tree):
             children[subg] = subg
         subg.add(attrs)
 
-    def list_matches(self, gtype, data, category):
-        for subg in self.subnodes.itervalues():
-            for match in subg.list_matches(gtype, data, category):
-                yield match
-
 
 class fs_undenh_group(group_tree):
 
@@ -372,12 +381,10 @@ class fs_undenh_1(fs_undenh_group):
 
     def list_matches(self, gtype, data, category):
         if gtype <> 'undenh':
-            return
+            return ()
         if data.get('institusjonsnr', self._prefix[0]) <> self._prefix[0]:
-            return
-        for subg in self.subnodes.itervalues():
-            for match in subg.list_matches(gtype, data, category):
-                yield match
+            return ()
+        return super(fs_undenh_1, self).list_matches(gtype, data, category)
 
 
 class fs_undenh_2(fs_undenh_group):
@@ -396,12 +403,10 @@ class fs_undenh_2(fs_undenh_group):
 
     def list_matches(self, gtype, data, category):
         if data.get('arstall', self._prefix[0]) <> self._prefix[0]:
-            return
+            return ()
         if data.get('terminkode', self._prefix[1]) <> self._prefix[1]:
-            return
-        for subg in self.subnodes.itervalues():
-            for match in subg.list_matches(gtype, data, category):
-                yield match
+            return ()
+        return super(fs_undenh_2, self).list_matches(gtype, data, category)
 
 
 class fs_undenh_3(fs_undenh_group):
@@ -438,14 +443,12 @@ class fs_undenh_3(fs_undenh_group):
 
     def list_matches(self, gtype, data, category):
         if data.get('emnekode', self._prefix[0]) <> self._prefix[0]:
-            return
+            return ()
         if data.get('versjonskode', self._prefix[1]) <> self._prefix[1]:
-            return
+            return ()
         if data.get('terminnr', self._prefix[2]) <> self._prefix[2]:
-            return
-        for subg in self.subnodes.itervalues():
-            for match in subg.list_matches(gtype, data, category):
-                yield match
+            return ()
+        return super(fs_undenh_3, self).list_matches(gtype, data, category)
 
     def add(self, ue):
         children = self.subnodes
@@ -528,12 +531,10 @@ class fs_stprog_1(fs_stprog_group):
 
     def list_matches(self, gtype, data, category):
         if gtype <> 'studieprogram':
-            return
+            return ()
         if data.get('institusjonsnr', self._prefix[0]) <> self._prefix[0]:
-            return
-        for subg in self.subnodes.itervalues():
-            for match in subg.list_matches(gtype, data, category):
-                yield match
+            return ()
+        return super(fs_stprog_1, self).list_matches(gtype, data, category)
 
 
 class fs_stprog_2(fs_stprog_group):
@@ -543,29 +544,38 @@ class fs_stprog_2(fs_stprog_group):
     def __init__(self, parent, stprog):
         super(fs_stprog_2, self).__init__(parent)
         self._prefix = (stprog['studieprogramkode'],)
-        self.child_class = fs_stprog_3
+        # Denne klassen har mer enn en mulig barn-klasse.
+        self.child_class = None
 
     def description(self):
         return ("Supergruppe for alle grupper knyttet til"
                 " studieprogrammet %r" % (self._prefix[0],))
 
+    def add(self, stprog):
+        # Det skal lages to grener under hver gruppe på dette nivået.
+        old = self.child_class
+        try:
+            for child_class in (fs_stprog_3_kull, fs_stprog_3_rolle):
+                self.child_class = child_class
+                super(fs_stprog_2, self).add(stprog)
+        finally:
+            self.child_class = old
+
     def list_matches(self, gtype, data, category):
         if data.get('studieprogramkode', self._prefix[0]) <> self._prefix[0]:
-            return
-        for subg in self.subnodes.itervalues():
-            for match in subg.list_matches(gtype, data, category):
-                yield match
+            return ()
+        return super(fs_stprog_2, self).list_matches(gtype, data, category)
 
 
-class fs_stprog_3(fs_stprog_group):
+class fs_stprog_3_kull(fs_stprog_group):
 
     max_recurse = 1
 
     def __init__(self, parent, stprog):
-        super(fs_stprog_3, self).__init__(parent)
+        super(fs_stprog_3_kull, self).__init__(parent)
         self._prefix = ('studiekull',)
         self._studieprog = stprog['studieprogramkode']
-        self.child_class = fs_stprog_users
+        self.child_class = fs_stprog_kull_users
         self.spreads = (const.spread_hia_fronter,)
 
     def description(self):
@@ -595,21 +605,24 @@ class fs_stprog_3(fs_stprog_group):
             # utsettes derfor til senere (i.e. ved parsing av
             # person.xml); se metoden list_matches over.
             if stprog.has_key('kullkode'):
-                gr = fs_stprog_users(self, stprog, category)
+                gr = self.child_class(self, stprog, category)
                 if gr in children:
                     logger.warn("Kull %r forekommer flere ganger.", stprog)
                     continue
                 children[gr] = gr
                 ret.append(gr)
+        # TBD: Bør, bl.a. for konsistensens skyld, alle .add()-metoden
+        # returnere noe?  Denne .add()-metodens returverdi brukes av
+        # .list_matches()-metoden like over.
         return ret
 
 
-class fs_stprog_users(fs_stprog_group):
+class fs_stprog_kull_users(fs_stprog_group):
 
     max_recurse = 0
 
     def __init__(self, parent, stprog, category):
-        super(fs_stprog_users, self).__init__(parent)
+        super(fs_stprog_kull_users, self).__init__(parent)
         self._prefix = (stprog['kullkode'],)
         self._studieprog = stprog['studieprogramkode']
         self._name = (category,)
@@ -625,6 +638,61 @@ class fs_stprog_users(fs_stprog_group):
     def list_matches(self, gtype, data, category):
         if (data.get('kullkode', self._prefix[0]) == self._prefix[0]
             and category == self._name[0]):
+            yield self
+
+    def add(self, user):
+        fnr = "%06d%05d" % (int(user['fodselsdato']), int(user['personnr']))
+        # TBD: Key on account_id (of primary user) instead?
+        if fnr in self.users:
+            logger.warn("Bruker %r forsøkt meldt inn i gruppe flere ganger.",
+                        user)
+            return
+        self.users[fnr] = user
+
+
+class fs_stprog_3_rolle(fs_stprog_group):
+
+    max_recurse = 1
+
+    def __init__(self, parent, stprog):
+        super(fs_stprog_3_rolle, self).__init__(parent)
+        self._prefix = ('rolle',)
+        self._studieprog = stprog['studieprogramkode']
+        self.child_class = fs_stprog_rolle_users
+        self.spreads = (const.spread_hia_fronter,)
+
+    def description(self):
+        return ("Supergruppe for personrolle-grupper knyttet til"
+                " studieprogrammet %r" % (self._studieprog,))
+
+    def add(self, stprog):
+        children = self.subnodes
+        for category in ('studieleder',):
+            gr = self.child_class(self, stprog, category)
+            if gr in children:
+                logger.warn('Studieprogram %r forekommer flere ganger.',
+                            self._studieprog)
+                continue
+            children[gr] = gr
+
+
+class fs_stprog_rolle_users(fs_stprog_group):
+
+    max_recurse = 0
+
+    def __init__(self, parent, stprog, category):
+        super(fs_stprog_rolle_users, self).__init__(parent)
+        self._studieprog = stprog['studieprogramkode']
+        self._name = (category,)
+
+    def description(self):
+        category = self._name[0]
+        if category == 'studieleder':
+            return ("Studieledere på studieprogrammet %r" % self._studieprog)
+        raise ValueError("Ugyldig kategori: %r" % category)
+
+    def list_matches(self, gtype, data, category):
+        if category == self._name[0]:
             yield self
 
     def add(self, user):
@@ -729,8 +797,19 @@ def main():
         os.path.join(dump_dir, 'student_undenh.xml'),
         student_UE_helper)
 
+    # Gå igjennom alle kjente studieprogrammer; opprett gruppeobjekter
+    # for disse.
+    def create_studieprog_helper(el_name, attrs):
+        if el_name == 'studprog':
+            fs_super.add('studieprogram', attrs)
+
+    logger.info("Leser XML-fil: studieprog.xml")
+    access_FS.studieprog_xml_parser(
+        os.path.join(dump_dir, 'studieprog.xml'),
+        create_studieprog_helper)
+
     # Meld forelesere og studieledere inn i undervisningsenhet-gruppene
-    def rolle_UE_helper(el_name, attrs):
+    def rolle_helper(el_name, attrs):
         if el_name <> 'role':
             return
         rolle = attrs['rollekode']
@@ -742,26 +821,15 @@ def main():
             for ue_studieleder in fs_super.list_matches('undenh', attrs,
                                                         'studieleder'):
                 ue_studieleder.add(attrs)
+            for stpr_studieleder in fs_super.list_matches('studieprogram',
+                                                          attrs,
+                                                          'studieleder'):
+                stpr_studieleder.add(attrs)
 
     logger.info("Leser XML-fil: roles.xml")
     access_FS.roles_xml_parser(
         os.path.join(dump_dir, 'roles.xml'),
-        rolle_UE_helper)
-
-    # Her kan i prinsippet alle undervisningsenhet-relaterte
-    # gruppeobjekter synkroniseres med tilsvarende grupper i
-    # databasen.
-
-    # Gå igjennom alle kjente studieprogrammer; opprett gruppeobjekter
-    # for disse.
-    def create_studieprog_helper(el_name, attrs):
-        if el_name == 'studprog':
-            fs_super.add('studieprogram', attrs)
-
-    logger.info("Leser XML-fil: studieprog.xml")
-    access_FS.studieprog_xml_parser(
-        os.path.join(dump_dir, 'studieprog.xml'),
-        create_studieprog_helper)
+        rolle_helper)
 
     # Finn alle studenter 
     def student_studieprog_helper(el_name, attrs):
