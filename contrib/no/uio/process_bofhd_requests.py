@@ -359,12 +359,14 @@ def process_email_requests():
                                 vac.delete_vacation(start)
                         vac.add_vacation(start, msg, enable='T')
                     else:
-                        logger.error("convertmail reported: %s\n" % line)
+                        logger.error("%s: convertmail reported: %s\n",
+                                     acc.account_name, line)
             except Exception, e:
                     db.rollback()
                     # TODO better diagnostics
                     success = False
-                    logger.error("convertmail failed: %s (%s)", repr(e), e)
+                    logger.error("%s: convertmail failed: %s (%s)",
+                                 acc.account_name, repr(e), e)
             if success:
                 br.delete_request(request_id=r['request_id'])
             else:
@@ -415,8 +417,8 @@ def cyrus_delete(host, uname):
     res, list = cyradm.m.list("user.%s." % uname)
     if res == 'OK' and list[0]:
         for line in list:
-            folder = line.split(' ')[2]
-            folders += [ folder[1:-1] ]
+            m = re.match(r'^\(.*?\) ".*?" "(.*)"$', line)
+            folders += [ m.group(1) ]
     # Make sure the subfolders are deleted first by reversing
     # the sorted list.
     folders.sort()
