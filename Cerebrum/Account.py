@@ -30,9 +30,10 @@ from Cerebrum.Database import Errors
 from Cerebrum import cereconf
 import crypt,random,string
 
-class Account(Entity, EntityName, EntityQuarantine):
+class Account(EntityName, EntityQuarantine, Entity):
 
     def clear(self):
+        super(Account, self).clear()
         self.account_name = None
         self.owner_type = None
         self.owner_id = None
@@ -65,14 +66,15 @@ class Account(Entity, EntityName, EntityQuarantine):
         # Disabled this function as it has yet to be determined how
         # one should mark the spread of users.  Things suggest that it
         # belongs in a separate module.
-        raise NotImplementedError, "Multiple domains not currently supported" 
+        raise NotImplementedError, "Multiple domains not currently supported"
         self._acc_affect_domains = domains
 
     def populate_name(self, domain, name):
         """Username is stored in entity_name."""
         self._name_info[domain] = name
 
-    def populate(self, name, owner_type, owner_id, np_type, creator_id, expire_date):
+    def populate(self, name, owner_type, owner_id, np_type, creator_id,
+                 expire_date):
         self.account_name = name
         self.owner_type = owner_type
         self.owner_id = owner_id
@@ -103,13 +105,13 @@ class Account(Entity, EntityName, EntityQuarantine):
             self.populate_authentication_type(getattr(self.const, method), enc)
 
     def enc_auth_type_md5(self, plaintext):
-        saltchars = string.uppercase + string.lowercase + string.digits + "./" 
+        saltchars = string.uppercase + string.lowercase + string.digits + "./"
         s = []
         for i in range(8):
             s.append(random.choice(saltchars))
         salt = "$1$" + string.join(s, "")
         return crypt.crypt(plaintext, salt)
-    
+
     def write_db(self, as_object=None):
         type = self.np_type
         if type is not None: type = int(type)
@@ -205,4 +207,3 @@ class Account(Entity, EntityName, EntityQuarantine):
         return self.query_1("""SELECT auth_data FROM [:table schema=cerebrum name=account_authentication]
             WHERE account_id=:a_id AND method=:method""",
                             {'a_id' : self.account_id, 'method' : int(method)})
-    
