@@ -35,8 +35,8 @@ class EntityNote(Entity):
                      {'n_id': int(note_id),
                       'e_id': int(self.entity_id),
                       'c_id': int(creator),
-                      'subject': str(subject),
-                      'description': str(description),
+                      'subject': subject,
+                      'description': description,
                      })
 
        # Is this the correct way to log changes?
@@ -44,7 +44,7 @@ class EntityNote(Entity):
                             None,
                             change_params={
                             'note_id': int(note_id),
-                            'subject': str(subject) })
+                            'subject': subject })
     def get_notes(self):
         a = self.query("""
         SELECT note_id, create_date, creator_id, subject, description
