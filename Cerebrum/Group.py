@@ -496,4 +496,28 @@ class Group(EntityQuarantine, EntityName, Entity):
 	FROM [:table schema=cerebrum name=group_info]
 	%s""" % where)
 
+    def list_member_groups(self, grp_id, spreads, grp_list=[], grp_sup=False):
+	""" Return a list of groups with spread(s) which has group as a 
+	    member and goes recursive through the group-tree. Support 
+	    both groups with group support and without. Ex: if account 
+	    is added to an 'internal'-group, we will do a netgroup-search  
+	    with group_support, and without if it is an file-group, which 
+	    has to expand all members. Spreads must be a list or a tupple
+	    with at least one entry()"""
+	
+	for entry in self.list_groups_with_entity(grp_id):
+	    if entry['member_type'] == co.entity_group:
+		# Not very nice programming. WHAT TO DO??
+		self.clear()
+		grp_id = int(entry['group_id'])
+		self.entity_id = grp_id
+		if (not grp_sup and True in [self.has_spread(x) for x in spreads]):
+		    grp_list.append(grp_id)
+		    list_member_groups(grp_id, spreads, grp_list, grp_sup)
+		elif (grp_sup and True in [self.has_spread(x) for x in spreads]):
+		    grp_list.append(grp_id)
+		else:
+		    list_member_groups(grp_id, spreads, grp_list, grp_sup)
+	return(grp_list)
 
+	       
