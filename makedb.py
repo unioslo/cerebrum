@@ -214,9 +214,6 @@ def get_filelist(db, extra_files=[]):
 
 def runfile(fname, db, debug, phase):
     print "Reading file (phase=%s): <%s>" % (phase, fname)
-    # Run both the generic (e.g. 'main') and driver-specific
-    # (e.g. 'main/Oracle' categories for this phase in one run.
-    phase_driver = "/".join((phase, db.__class__.__base__.__name__))
     f = file(fname)
     text = "".join(f.readlines())
     long_comment = re.compile(r"/\*.*?\*/", re.DOTALL)
@@ -234,11 +231,15 @@ def runfile(fname, db, debug, phase):
         if not stmt:
             continue
         if state == NO_CATEGORY:
-            (type_id, value) = stmt.split(":", 1)
+            (type_id, for_phase) = stmt.split(":", 1)
             if type_id <> 'category':
                 raise ValueError, \
                       "Illegal type_id in file %s: %s" % (fname, i)
-            if value in (phase, phase_driver):
+            for_rdbms = None
+            if '/' in for_phase:
+                for_phase, for_rdbms = for_phase.split("/", 1)
+            if for_phase == phase and (for_rdbms is None or
+                                       for_rdbms == db.rdbms_id):
                 state = CORRECT_CATEGORY
             else:
                 state = WRONG_CATEGORY
