@@ -3771,12 +3771,22 @@ class BofhdExtension(object):
     # quarantine list
     all_commands['quarantine_list'] = Command(
         ("quarantine", "list"),
-        fs=FormatSuggestion("%-14s %s", ('name', 'desc'),
-                            hdr="%-14s %s" % ('Name', 'Description')))
+        fs=FormatSuggestion("%-16s  %1s  %-17s %s",
+                            ('name', 'lock', 'shell', 'desc'),
+                            hdr="%-15s %-4s %-17s %s" % \
+                            ('Name', 'Lock', 'Shell', 'Description')))
     def quarantine_list(self, operator):
         ret = []
         for c in self.const.fetch_constants(self.const.Quarantine):
+            lock = 'N'; shell = '-'
+            rule = cereconf.QUARANTINE_RULES.get(str(c), {})
+            if 'lock' in rule:
+                lock = 'Y'
+            if 'shell' in rule:
+                shell = rule['shell'].split("/")[-1]
             ret.append({'name': "%s" % c,
+                        'lock': lock,
+                        'shell': shell,
                         'desc': c._get_description()})
         return ret
 
