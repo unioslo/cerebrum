@@ -22,41 +22,50 @@ import time
 
 
 class Caching(object):
-    """ Handles caching of nodes.
+    """ Handles caching of objects.
     
-    If a client asks for data which is already built from the database, a reference
-    to the existing node instance will be returned.
-    When no one is holding a reference to the node, it will be removed from the cache"""
+    If a new object is requested which is already created, a reference to the existing
+    object will be returned. The object is automatically removed from the cache when no one
+    is no longer holding a reference to it"""
+
     cache = weakref.WeakValueDictionary()
 
     def __new__(cls, *args, **vargs):
         """
-        When a new node is requested, the system will check to see if it exists in the
-        cache. If so, then a reference to it is returned. Otherwise a new node is created
-        from data in the database and the reference to that is returned instead."""
-        key = cls, cls.getKey(*args, **vargs)
+        When a new object is requested, the system will check, using cls.get_key(*args, **vargs)
+        to see if it exists in the cache. If so, then a reference to it is returned. Otherwise
+        a new object is created and the reference to that is returned instead."""
 
+        # getting the key to uniquely identify this object
+        key = cls, cls.get_key(*args, **vargs) # cls is inserted to avoid collisions
+
+        # if it allready exists, return the old one
         if key in cls.cache:
             return cls.cache[key]
         
+        # create a new object
         self = object.__new__(cls)
         self._key = key
         cls.cache[key] = self
+
+        # remember __init__ will be run, even though it is an old object
         return self 
 
-    def getPrimaryKey(self):
-        """ Returns the primary key for the node. """
-        return self._key
+    def get_primary_key(self):
+        """ Returns the primary key for the object. """
+        return self._key[0]
 
-    def invalidateObject(cls, obj):
+    def invalidate_object(cls, obj):
         """ Remove the node from the cache. """
-        del cls.cache[obj]
-    invalidateObject = classmethod(invalidateObject)
+        del cls.cache[obj._key]
+
+    invalidate_object = classmethod(invalidate_object)
 
     def invalidate(self):
         """ Remove the node from the cache. """
-        self.invalidateObject(self)
+        self.invalidate_object(self)
 
-    def getKey(*args, **vargs): # this will make it a singleton
-        pass
-    getKey = staticmethod(getKey)
+    def get_key(*args, **vargs):
+        pass # this will make it a singleton
+
+    get_key = staticmethod(get_key)
