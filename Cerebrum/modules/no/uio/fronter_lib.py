@@ -27,7 +27,7 @@ from Cerebrum import Database
 from Cerebrum.extlib import xmlprinter
 
 # TODO: This file should not have UiO hardcoded data in it
-SYDRadmins = ['baardj', 'frankjs', 'jazz']
+SYDRadmins = ['baardj', 'frankjs', 'jazz', 'werner']
 DMLadmins = ['lindaj', 'hallgerb', 'maskoger', 'jonar', 'helgeu',
              'kaugedal', 'rinos', 'monahst']
 FronterDotComAdmins = ['aleksap', 'oscarh']
