@@ -278,9 +278,11 @@ def write_elog(ldap_user, log_txt, desc_list=[]):
 	except:
 	    logger.warn("Write_elog could not resolve %s" % ldap_user)
 	    return
-    if len(desc_list) >= 4:
+    if desc_list and desc_list >= 4:
 	for x in desc_list[1:][:len(desc_list)-3]:
 	    attr_del_ldap(ldap_user, [('description',[x,])])
+    elif not desc_list:
+	attr_add_ldap(ldap_user,[('description',['unknown',])])
     log_str = str(nwutils.now()) + log_txt
     attr_add_ldap(ldap_user,[('description',[log_str,])])
 
