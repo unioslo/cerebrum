@@ -540,14 +540,13 @@ class SimilarSizeWriter(AtomicFileWriter):
         super(SimilarSizeWriter, self).validate_output()
         if not os.path.exists(self._name):
             return
-        import stat
-        old = os.stat(self._name)[stat.ST_SIZE]
+        old = os.path.getsize(self._name)
         if old == 0:
             # Any change in size will be an infinite percent-wise size
             # change.  Treat this as if the old file did not exist at
             # all.
             return
-        new = os.stat(self._tmpname)[stat.ST_SIZE]
+        new = os.path.getsize(self._tmpname)
         change_percentage = 100 * (float(new)/old) - 100
         if abs(change_percentage) > self.__percentage:
             raise RuntimeError, \
