@@ -142,7 +142,7 @@ class MakeUser(EvtHandler):
         try:
             info = self._get_make_user_data(entity_id)
         except Errors.NotFoundError:
-            logger.warn("NotFound error for entity_id %s" % entity_id)
+            logger.warn("NotFound error for entity_id %s" % entity_id, exc_info=1)
             raise
         if int(info['home']['status']) == const.home_status_on_disk:
             logger.warn("User already on disk? %s" % entity_id)
