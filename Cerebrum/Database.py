@@ -145,6 +145,7 @@ class Cursor(object):
         self._sql_cache = Cache.Cache(mixins=[Cache.cache_mru,
                                               Cache.cache_slots],
                                       size=100)
+        self._row_class = None
         # Copy the Database-specific type constructors; these have
         # already been converted into static methods by
         # Database._register_driver_types().
@@ -187,8 +188,19 @@ class Cursor(object):
         # compatibility with the underlying database module, we return
         # this 'unspecified' value anyway.
         try:
+            try:
 ##             print "DEBUG: sql=<%s>\nDEBUG: binds=<%s>" % (sql, binds)
-            return self._cursor.execute(sql, binds)
+                return self._cursor.execute(sql, binds)
+            finally:
+                if self.description:
+                    # Retrieve the column names involved in the query.
+                    fields = [ d[0].lower() for d in self.description ]
+                    # Make a db_row class that corresponds to this set of
+                    # column names.
+                    self._row_class = db_row.make_row_class(fields)
+                else:
+                    # Not a row-returning query; clear self._row_class.
+                    self._row_class = None
         except self.DatabaseError:
             # TBD: These errors should probably be logged somewhere,
             # and not merely printed...
@@ -295,7 +307,7 @@ class Cursor(object):
         """Do DB-API 2.0 .fetchmany()."""
         if size is None:
             size = self.arraysize
-        return self._cursor.fetchmany(size=size)
+        return self._cursor.fetchmany(size)
 
     def fetchall(self):
         """Do DB-API 2.0 .fetchall()."""
@@ -319,21 +331,29 @@ class Cursor(object):
         return self._cursor
 
     def __iter__(self):
-        """Cursor objects support iteration."""
-        return self
+        """Return iterator over the current query's results."""
+        return RowIterator(self)
 
-    def next(self):
-        """Return the next row in the Cursor's result set."""
-        row = self.fetchone()
-        if row is not None:
-            return row
-        raise StopIteration
+    def wrap_row(self, row):
+        """Return `row' wrapped in a db_row object."""
+        return self._row_class(row)
 
-    def query(self, query, params=()):
+    def query(self, query, params=(), fetchall=True):
         """Perform an SQL query, and return all rows it yields.
 
-        The result of the query, if any, is returned as a sequence of
-        db_row objects."""
+        If the query produces any result, this can be returned in two
+        ways.  In both cases every row is wrapped in a db_row object.
+
+        1. If `fetchall' is true (the default), all rows are
+           immediately fetched from the database, and returned as a
+           sequence.
+
+        2. If 'fetchall' is false, this method returns an iterator
+           object, suitable for e.g. returning one row on demand per
+           iteration in a for loop.  This approach can in some cases
+           lead to much lower memory consumption.
+
+        """
 
 ##         query = query.strip()
 ##         assert query.lower().startswith("select")
@@ -343,13 +363,12 @@ class Cursor(object):
             # not return rows (e.g. "UPDATE" or "CREATE TABLE");
             # should we raise an exception here?
             return None
-        # Retrieve the column names involved in the query.
-        fields = [ d[0].lower() for d in self.description ]
-        # Make a db_row class that corresponds to this set of
-        # column names.
-        R = db_row.make_row_class(fields)
-        # Return all rows, wrapped up in db_row instances.
-        return [ R(row) for row in self.fetchall() ]
+        if fetchall:
+            # Return all rows, wrapped up in db_row instances.
+            R = self._row_class
+            return [ R(row) for row in self.fetchall() ]
+        else:
+            return self
 
     def query_1(self, query, params=()):
         """Perform an SQL query that should yield at most one row.
@@ -377,6 +396,23 @@ class Cursor(object):
             raise Errors.NotFoundError
         else:
             raise Errors.TooManyRowsError
+
+
+class RowIterator(object):
+    def __init__(self, cursor):
+        self._csr = cursor
+        self._queue = []
+
+    def __iter__(self):
+        return self
+
+    def next(self):
+        if not self._queue:
+            self._queue.extend(self._csr.fetchmany())
+        if not self._queue:
+            raise StopIteration
+        row = self._queue.pop(0)
+        return self._csr.wrap_row(row)
 
 
 #
@@ -645,13 +681,24 @@ class Database(object):
         """Return the unwrapped connection object underlying this instance."""
         return self._db
 
-    def query(self, query, params=()):
+    def query(self, *params, **kws):
         """Perform an SQL query, and return all rows it yields.
 
-        The result of the query, if any, is returned as a sequence of
-        db_row objects."""
+        If the query produces any result, this can be returned in two
+        ways.  In both cases every row is wrapped in a db_row object.
 
-        return self._cursor.query(query, params)
+        1. If `fetchall' is true (the default), all rows are
+           immediately fetched from the database, and returned as a
+           sequence.
+
+        2. If 'fetchall' is false, this method returns an iterator
+           object, suitable for e.g. returning one row on demand per
+           iteration in a for loop.  This approach can in some cases
+           lead to much lower memory consumption.
+
+        """
+
+        return self._cursor.query(*params, **kws)
 
     def query_1(self, query, params=()):
         """Perform an SQL query that should yield at most one row.
