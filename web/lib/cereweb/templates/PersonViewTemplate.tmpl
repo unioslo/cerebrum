@@ -7,8 +7,10 @@
 
 #def viewPerson($person, $profile)
 <h1>$_("Person") $person.name</h1>
+<div class="infoaccounts">
 $personInfo($person)
 $personAccounts($person, $profile)
+</div>
 $view_entity($person)
 #end def
 
@@ -51,11 +53,11 @@ $t.viewAccountShort($account)
     <dt>$_("Description")</dt>
     <dd>$person.description</dd>
 
-    <dt>$_("Other names")</dt>
-    <dd></dd>
+##    <dt>$_("Other names")</dt>
+##    <dd></dd>
 
-    <dt>Affilitations</dt>
-    <dd></dd>
+##    <dt>Affilitations</dt>
+##    <dd></dd>
 </dl>
 </div>
 #end def
