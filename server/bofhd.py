@@ -114,38 +114,18 @@ class ExportedFuncs(object):
         """Check if arg is a legal value for the given argtype"""
         pass
     
-    def help(self, group):
+    def help(self, *group):
         # TBD: Re-think this
         # Show help by parsing the help file.  This is only partially implemented
         f = file("help.txt")
-        if group == '':
-            group = "general"
-        re_strip = re.compile(r"¤", re.DOTALL)
-        re_section = re.compile(r"¤section:([^¤]+)¤", re.DOTALL)
-        re_cmd = re.compile(r"¤cmd:([^¤]+)¤", re.DOTALL)
         ret = ''
-        correct_section = 0
         while 1:
             line = f.readline()
             if not line: break
             if line[0] == '#':
                 continue
-            # Find correct section
-            pos = re.search(re_section, line)
-            if pos is not None:
-                if group == pos.group(1):
-                    correct_section = 1
-                else :
-                    correct_section = 0
-                line = re.sub(re_section, "", line)
-            # Process ¤cmd:KEY¤ markers
-            if correct_section:
-                pos = re.search(re_cmd, line)
-                if pos is not None:
-                    # TBD: Check if command is legal for user
-                    line = re.sub(re_cmd, pos.group(1), line)
-                    line = re.sub(re_strip, "", line)
-                ret = ret + line
+            ret = ret + line
+        ret = ret + "End of help text"
         return unicode(ret.strip(), 'iso8859-1')
 
     def run_command(self, sessionid, *args):
@@ -172,7 +152,7 @@ class ExportedFuncs(object):
             print "process ret: "
             pp.pprint(ret)
             self.Cerebrum.commit()
-            return self.process_returndata(ret)
+            return self.process_returndata(self.Cerebrum.pythonify_data(ret))
         except Exception:
             # ret = "Feil: %s" % sys.exc_info()[0]
             # print "Error: %s: %s " % (sys.exc_info()[0], sys.exc_info()[1])
