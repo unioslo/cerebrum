@@ -184,7 +184,7 @@ class Entity(DatabaseAccessor):
         self.clear()
 
 
-class EntityName(object):
+class EntityName(Entity):
     "Mixin class, usable alongside Entity for entities having names."
     def get_name(self, domain):
         return self.query_1("""
@@ -219,7 +219,7 @@ class EntityName(object):
         # Populate all of self's class (and base class) attributes.
         self.find(entity_id)
 
-class EntityContactInfo(object):
+class EntityContactInfo(Entity):
     "Mixin class, usable alongside Entity for entities having contact info."
     def add_contact_info(self, source, type, value, pref=None,
                          description=None):
@@ -262,13 +262,10 @@ class EntityContactInfo(object):
                       'c_type': int(type)})
 
 
-class EntityAddress(object):
+class EntityAddress(Entity):
     "Mixin class, usable alongside Entity for entities having addresses."
 
-    # TBD: Does this mixin really have to keep state?  If no, it won't
-    # have to use the mark_update machinery at all.  If yes, the
-    # implementation should be cleaned up.
-    __metaclass__ = Utils.mark_update
+    # TODO: Clean this up.
     __write_attr__ = ('_address_info', '_affect_source', '_affect_types')
 
     def clear(self):
@@ -434,7 +431,7 @@ class EntityAddress(object):
                                     'src': int(source),
                                     'a_type': int(type)})
 
-class EntityQuarantine(object):
+class EntityQuarantine(Entity):
     "Mixin class, usable alongside Entity for entities we can quarantine."
     def add_entity_quarantine(self, type, creator, comment=None,
                               start=None, end=None):
