@@ -22,7 +22,8 @@ import Communication
 
 from Cerebrum.extlib import sets
 from Cerebrum.spine.SpineLib.Builder import Method
-from Cerebrum.spine.SpineLib.Dumpable import Struct
+from Cerebrum.spine.SpineLib.DumpClass import Struct, DumpClass
+from Cerebrum.spine.SpineLib.SearchClass import SearchClass
 from Cerebrum.spine.Auth import AuthOperationType
 
 # FIXME: weakref her?
@@ -138,10 +139,11 @@ def create_corba_method(method):
                 self.spine_object.lock_for_reading(self.transaction)
             self.transaction.add_ref(self.spine_object)
 
-        elif not method.write:
+        elif (not method.write
+              or isinstance(self.spine_object, SearchClass)
+              or isinstance(self.spine_object, DumpClass)):
             if self.spine_object.get_writelock_holder() is not None:
                 self.spine_object = self.spine_class(*self.spine_object.get_primary_key(), **{'cache':{}})
-
         else:
             raise Exception('Trying to access write-method outside a transaction: %s' % method)
 
