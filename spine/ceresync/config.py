@@ -29,9 +29,9 @@ conf.read(('client.conf.template', 'client.conf'))
 sync = ConfigParser.ConfigParser()
 sync.read(('sync.conf.template', 'sync.conf'))
 
-def apply_quarantenes(obj):
+def apply_quarantenes(obj, typestr):
     for q in obj.get_quarantines():
-        a=sync.get('quarantenes', q.name)
+        a=sync.get('%s_quarantenes' % typestr, q.name)
         try:
             (var, val) = a.split('=')
             #val=eval(val)  # ouch! but needed for strings/ints/etc
@@ -39,12 +39,12 @@ def apply_quarantenes(obj):
             logging.error("Bad quarantene action \"%s\"" % a)
 	setattr(obj, var, val)
 
-def apply_override(obj):
-    for var, val in sync.items('override'):
+def apply_override(obj, typestr):
+    for var, val in sync.items('%s_override' % typestr):
         setattr(obj, var, val)
 
-def apply_default(obj):
-    for var, val in sync.items('default'):
+def apply_default(obj, typestr):
+    for var, val in sync.items('%s_default' % typestr):
 	if not obj.__dict__.has_key(var):
             setattr(obj, var, val)
 
