@@ -111,7 +111,7 @@ def populate_account_affiliations(user, person, account_info):
     for ou, aff, status in person_student_affiliations.get(int(user.owner_id), []):                               
         assert aff == const.affiliation_student                                                                   
         if not ou in account_ous:                                                                                 
-            user.set_account_type(ou_id, const.affiliation_student)                                               
+            user.set_account_type(ou, const.affiliation_student)                                               
         else:                                                                                                     
             account_ous.remove(ou)                                                                                
             remove_idx = 0                                                                                        
