@@ -38,9 +38,9 @@ class CerewebOption(DatabaseClass):
         DatabaseAttr('value', option_table, str, write=True)
     ]
     db_attr_aliases = {
-        str(option_table): {'id': 'option_id', 'entity': 'entity_id'}
+        option_table: {'id': 'option_id', 'entity': 'entity_id'}
     }
-    method_slots = [Method('delete', None)]
+    method_slots = [Method('delete', None, write=True)]
 
     def delete(self):
         self._delete()
@@ -58,9 +58,9 @@ class CerewebMotd(DatabaseClass):
         DatabaseAttr('message', motd_table, str)
     ]
     db_attr_aliases = {
-        str(motd_table): {'id': 'motd_id'}
+        motd_table: {'id': 'motd_id'}
     }
-    method_slots = [Method('delete', None)]
+    method_slots = [Method('delete', None, write=True)]
 
     def delete(self):
         self._delete()

@@ -25,6 +25,8 @@ from GroBuilder import GroBuilder
 from Searchable import Searchable
 from Dumpable import Dumpable
 
+__all__ = ['DatabaseAttr', 'DatabaseClass']
+
 class DatabaseAttr(Attribute):
     def __init__(self, name, table, data_type,
                  write=False, from_db=None, to_db=None, optional=False):
@@ -47,7 +49,26 @@ class DatabaseAttr(Attribute):
             return value
 
     def from_db(self, value):
+        # Depends on the db-driver, should be done in a cleaner way.
+        if isinstance(value, pyPgSQL.PgSQL.PgNumeric):
+            value = int(value)
         return self.data_type(value)
+
+def get_real_name(map, attr, table=None):
+    """Finds the real name from map.
+
+    Map should be a dict with dicts in it, where the table is the key in
+    the outer dict, and you have DatabaseAttr.name as key in the inner
+    dict, the value of the inner dict should be the real name the slot has
+    in the database. The map is also used when primary-keys have diffrent
+    name in diffrent databases.
+    """
+    if table is None:
+        table = attr.table
+    if table in map and attr.name in map[table]:
+        return map[table][attr.name]
+    else:
+        return attr.name
 
 class DatabaseClass(GroBuilder, Searchable, Dumpable):
     db_attr_aliases = {}
@@ -79,8 +100,6 @@ class DatabaseClass(GroBuilder, Searchable, Dumpable):
 
         for i in attributes:
             value = row[i.name]
-            if isinstance(value, pyPgSQL.PgSQL.PgNumeric):
-                value = int(value)
             value = i.from_db(value)
             setattr(self, i.get_name_private(), value)
 
@@ -112,26 +131,49 @@ class DatabaseClass(GroBuilder, Searchable, Dumpable):
             db.execute(sql, keys)
 
     def _delete(self):
+        """Generic method for deleting this instance from the database.
+        
+        Creates the SQL query and executes it to remove the rows in the
+        database which this instance fills. The reverse of db_table_order
+        is used if set, and primary slots is used to create the where clause.
+        """
         db = self.get_database()
         table_order = self.db_table_order[:].reverse()
 
+        # Prepare primary keys for each table to delete from
         tables = {}
         for attr in self.primary:
             if not isinstance(attr, DatabaseAttr):
                 continue
             if attr.table not in tables:
                 tables[attr.table] = {}
-            tables[attr.table][self._get_real_name(attr)] = attr.to_db(getattr(self, 'get_'+attr.name)())
+            value = attr.to_db(getattr(self, 'get_'+attr.name)())
+            tables[attr.table][self._get_real_name(attr)] = value
         
+        # If db_table_order is set, we delete in the opposite order.
         for table in (table_order or tables.keys()):
             sql = "DELETE FROM %s WHERE " % table
-            tmp = []
-            for attr in tables[table].keys():
-                tmp.append("%s = :%s" % (attr, attr))
-            sql += " AND ".join(tmp)
+            sql += " AND ".join(['%s = :%s' % (a, a) for a in tables[table].keys()])
             db.execute(sql, tables[table])
 
     def _create(cls, db, *args, **vargs):
+        """Generic method for creating instances in the database.
+        
+        Creates the SQL query and executes it to create instances of the
+        class 'cls' in the database. This method is "private" because you
+        need to supply the primary key for the new instance. You should
+        also check that enough arguments are given to create a new
+        instance.
+
+        Example of "public" create method:
+        def create_example(self, example):
+            db = self.get_database()
+            id = int(db.nextval('example'))
+            Example._create(db, id, example)
+            return Example(id, write_lock=self.get_writelock_holder())
+
+        Notice the write_lock argument when returning the new object.
+        """
         map = cls.map_args(*args, **vargs)
         tables = cls._get_sql_tables()
 
@@ -147,11 +189,9 @@ class DatabaseClass(GroBuilder, Searchable, Dumpable):
 
     def _get_sql_tables(cls):
         tables = {}
-        
         for attr in cls.slots:
             if not isinstance(attr, DatabaseAttr):
                 continue
-            
             if attr.table not in tables:
                 tables[attr.table] = []
             tables[attr.table].append(attr)
@@ -160,73 +200,98 @@ class DatabaseClass(GroBuilder, Searchable, Dumpable):
 
     _get_sql_tables = classmethod(_get_sql_tables)
 
-    def _get_real_name(cls, attr, table=None):
-        if table is None:
-            table = attr.table
-        if table in cls.db_attr_aliases and attr.name in cls.db_attr_aliases[table]:
-            return cls.db_attr_aliases[table][attr.name]
-        else:
-            return attr.name
+    def _get_real_name(cls, *args, **vargs):
+        return get_real_name(cls.db_attr_aliases, *args, **vargs)
 
     _get_real_name = classmethod(_get_real_name)
 
     def create_search_method(cls):
-        def search(self, **vargs): 
-            db = self.get_database()
+        """Generic method for searching for instances of class 'cls'.
+
+        Used when creating a searchclass for class 'cls', to add a method
+        which searches for instances of the class.
+        """
+        def search(self, *args, **vargs):
+            """Search for instances of the original class.
+
+            Creates SQL query for finding instances of the original class
+            which matches arguments given in args and vargs.
+            Returns a list of objects returned from the SQL query.
             
-            tables = {}
-            attributes = {}
-            main_attrs = []
-            for attr in self.slots:
-                if isinstance(attr, DatabaseAttr):
-                    if attr.optional and attr.name not in vargs:
-                        continue
-                    for i in cls.slots:
-                        if i.name == attr.name:
-                            main_attrs.append(attr)
-                    attributes[attr.name] = attr
-                    tables[attr.table] = attr.table
+            If the DatabaseAttr has the attribute 'like', string comparison
+            is used and wildcards are supported in the where clause. 'less'
+            and 'more' gives '<' and '>' in the where clause.
+            """
+            map = self.map_args(*args, **vargs) # Dict with Attribute: value
 
-            where = []
-            if len(tables) > 1:
-                # we need to make sure all primary keys are the same
-                jee = tables.keys()
-                for i in cls.primary:
-                    tmp = '%s.%s = %%s.%%s' % (jee[0], cls._get_real_name(i, jee[0]))
-                    for table in jee[1:]:
-                        where.append(tmp % (table, cls._get_real_name(i, table)))
-
-            values = {}
-            for key, value in vargs.items():
-                if value is None or key not in attributes.keys():
+            # We need the original slots, to fill attrs when we create new objects
+            originals = []
+            tables = sets.Set()
+            for attr in cls.slots:
+                if not isinstance(attr, DatabaseAttr) or attr.optional:
                     continue
-                attr = attributes[key]
-                real_key = cls._get_real_name(attr)
-                if attributes[key].data_type == str:
-                    where.append('LOWER(%s.%s) LIKE :%s' % (attr.table, real_key, key))
-                    value = value.replace("*","%")
-                    value = value.replace("?","_")
+                originals.append(attr)
+                tables.add(attr.table)
+            
+            def _get_real_name(*args, **vargs):
+                return get_real_name(self.db_attr_aliases, *args, **vargs)
+            
+            def convert_value(attr, value):
+                """Returns the where query for the attr & key.
+                
+                Prepares the value to be inserted into the query,
+                and returns the where clause for the query.
+                """
+                args = (attr.table, _get_real_name(attr), attr.name)
+                value = attr.to_db(value)
+                if hasattr(attr, 'like'):
+                    whr = 'LOWER(%s.%s) LIKE :%s' % args
+                    value = value.replace("*","%").replace("?", "_")
                     value = value.lower()
+                elif hasattr(attr, 'less'):
+                    whr = '%s.%s < :%s' % args
+                elif hasattr(attr, 'more'):
+                    whr = '%s.%s > :%s' % args
                 else:
-                    where.append('%s.%s = :%s' % (attr.table, real_key, key))
-                    value = attr.to_db(value)
-                values[key] = value
+                    whr = '%s.%s = :%s' % args
+                return (whr, value)
+        
+            # Prepare the where clause and values to supply with the sql query
+            where = []
+            values = {}
+            for attr, value in map.items():
+                if not isinstance(attr, DatabaseAttr) or attr.optional:
+                    continue
+                whr, val = convert_value(attr, value)
+                where.append(whr)
+                values[attr.name] = val
+                tables.add(attr.table)
 
+            # We need to make sure all primary keys are the same
+            if len(tables) > 1:
+                table = tables.pop()
+                for i in cls.primary:
+                    tmp = '%s.%s = %%s.%%s' % (table, _get_real_name(i, table))
+                    for table in tables:
+                        where.append(tmp % (table, _get_real_name(i, table)))
+                tables.add(table)
+            
+            # Create sql query
             sql = 'SELECT '
-            sql += ', '.join(['%s.%s AS %s' % (attr.table, cls._get_real_name(attr), attr.name) for attr in main_attrs])
+            sql += ', '.join(['%s.%s AS %s' % (attr.table, _get_real_name(attr),
+                                               attr.name) for attr in originals])
             sql += ' FROM '
-            sql += ', '.join(tables.keys())
+            sql += ', '.join(tables)
             if where:
                 sql += ' WHERE '
                 sql += ' AND '.join(where)
 
+            # Build objects from the query result, and return them in a list.
             objects = []
-            for row in db.query(sql, values):
+            for row in self.get_database().query(sql, values):
                 tmp = {}
-                for attr in main_attrs:
-                    value = row['%s' % attr.name]
-                    if isinstance(value, pyPgSQL.PgSQL.PgNumeric):
-                        value = int(value)
+                for attr in originals:
+                    value = row[attr.name]
                     tmp[attr.name] = attr.from_db(value)
                 objects.append(cls(**tmp))
             
