@@ -865,9 +865,9 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
 
 
     def list_persons(self):
-        """Return all person ids."""
+        """Return all persons' person_id and birth_date."""
         return self.query("""
-        SELECT person_id
+        SELECT person_id, birth_date
         FROM [:table schema=cerebrum name=person_info]""")
 
 
