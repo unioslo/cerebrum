@@ -1317,18 +1317,25 @@ WHERE
             # Ikke blant de terminkodene vi støtter i dag; sørg for at
             # eksamensmelding-delen av søket ikke gir noe resultat.
             minmaned, maxmaned = 13, 0
+        # Den ulekre repetisjonen av bind-parametere under synes
+        # dessverre å være nødvendig; ut fra foreløpig testing ser det
+        # ut til at enten Oracle eller DCOracle2 krever at dersom et
+        # statement består av flere uavhengige SELECTs, og SELECT
+        # nr. N bruker minst en bind-variabel nevnt i SELECT nr. x,
+        # der x < N, må SELECT nr. N *kun* bruke de bind-variablene
+        # som også finnes i SELECT nr. x.
         qry = """
 SELECT
   fodselsdato, personnr
 FROM
   FS.UNDERVISNINGSMELDING
 WHERE
-  institusjonsnr = :instnr AND
-  emnekode       = :emnekode AND
-  versjonskode   = :versjon AND
-  terminkode     = :terminkode AND
-  arstall        = :arstall AND
-  terminnr       = :terminnr
+  institusjonsnr = :und_instnr AND
+  emnekode       = :und_emnekode AND
+  versjonskode   = :und_versjon AND
+  terminkode     = :und_terminkode AND
+  arstall        = :und_arstall AND
+  terminnr       = :und_terminnr
 UNION
 SELECT
   fodselsdato, personnr
@@ -1342,15 +1349,18 @@ WHERE
   manednr       >= :minmaned AND
   manednr       <= :maxmaned"""
         return (self._get_cols(qry),
-                self.db.query(qry, {
-            'instnr': Instnr,
-            'emnekode': emnekode,
-            'versjon': versjon,
-            'terminkode': termk,
-            'arstall': aar,
-            'terminnr': termnr,
-            'minmaned': minmaned,
-            'maxmaned': maxmaned}))
+                self.db.query(qry, {'und_instnr': Instnr,
+                                    'und_emnekode': emnekode,
+                                    'und_versjon': versjon,
+                                    'und_terminkode': termk,
+                                    'und_arstall': aar,
+                                    'und_terminnr': termnr,
+                                    'instnr': Instnr,
+                                    'emnekode': emnekode,
+                                    'versjon': versjon,
+                                    'arstall': aar,
+                                    'minmaned': minmaned,
+                                    'maxmaned': maxmaned}))
 
     def GetAnsvEvuAktivitet(self, kurs, tid, aktkode):
         qry = """
