@@ -123,6 +123,14 @@ class RequestHandler(SocketServer.StreamRequestHandler):
         #                 for logging purposes.
         #
         # Possible &send() feedback: ok, no, edbdown, badpage
+
+        # The script that's supposed to do the weekly update of user's
+        # printerquotas isn't ready yet.  Until it is, everyone is
+        # allowed to print as much as they want (but their quota
+        # counter will decrease).
+        if True:
+            return ok
+
         if self.printer_quota.has_printerquota in (None, '0', 'F'):
             return ok
         pageunits = float(pageunits)
