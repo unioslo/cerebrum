@@ -434,6 +434,33 @@ class PersonLTMixin(Person.Person):
 
 
 
+    def delete(self):
+        """
+        Remove person from:
+
+        _TILSETTINGS_SCHEMA, _BILAGS_SCHEMA, _GJEST_SCHEMA,
+        _RESERVASJONS_SCHEMA, _PERMISJONS_SCHEMA, _ROLLE_SCHEMA
+
+        This is this class' part of the deletion of a person
+        entity. superclasses and/or siblings fix the rest through super/mro.
+        """
+
+        for schema in (_TILSETTINGS_SCHEMA, _BILAGS_SCHEMA, _GJEST_SCHEMA,
+                       _RESERVASJONS_SCHEMA, _PERMISJONS_SCHEMA, _ROLLE_SCHEMA):
+            self.execute("""
+                         DELETE FROM
+                           %s
+                         WHERE
+                           person_id = :person_id
+                         """ % schema,
+                         {"person_id" : int(self.entity_id)})
+        # od
+
+        self.__super.delete()
+    # end delete
+
+
+
     def get_bilag(self):
         return self.list_bilag(self.entity_id)
     # end get_bilag
