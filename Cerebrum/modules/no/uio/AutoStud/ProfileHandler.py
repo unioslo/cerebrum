@@ -62,7 +62,8 @@ class Profile(object):
             sko = self._pc.lookup_helper.get_stedkode(
                 "%02i%02i%02i" % (int(d['faknr_studieansv']),
                                   int(d['instituttnr_studieansv']),
-                                  int(d['gruppenr_studieansv'])))
+                                  int(d['gruppenr_studieansv'])),
+                                  int(d['institusjonsnr_studieansv']))
             self._unique_extend(self.settings.setdefault("stedkode", []), [sko])
 
     def _unique_extend(self, list, values):
