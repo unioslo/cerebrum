@@ -7,7 +7,7 @@ Cerebrum
 Requirements
 ------------
 
-  Python 2.2
+  Python 2.2.1
   SQL Database (PostgreSQL, Oracle)
 
 Mailing lists

@@ -9,7 +9,7 @@ Installation of Cerebrum
 
 Prerequisities
 --------------
-Install python >= 2.2, and a PostgreSQL or Oracle database.  Install
+Install python >= 2.2.1, and a PostgreSQL or Oracle database.  Install
 python-pgsql >= 2.2 or DCOracle2.
 
   Debian packages: python2.2 python2.2-xmlbase
