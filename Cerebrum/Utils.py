@@ -373,7 +373,10 @@ class Factory(object):
                       'Account': 'CLASS_ACCOUNT',
                       'Group': 'CLASS_GROUP',
                       'Database': 'CLASS_DATABASE',
-                      'Constants': 'CLASS_CONSTANTS'}
+                      'Constants': 'CLASS_CONSTANTS',
+                      'CLConstants': 'CLASS_CL_CONSTANTS',
+                      'ChangeLog': 'CLASS_CHANGELOG',
+                      'DBDriver': 'CLASS_DBDRIVER'}
         try:
             conf_var = components[comp]
         except KeyError:

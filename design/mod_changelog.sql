@@ -47,9 +47,9 @@ CREATE TABLE change_log
                   NOT NULL
                   CONSTRAINT change_id_pk PRIMARY KEY,
   subject_entity  NUMERIC(12,0),
-  subject_type    CHAR VARYING(8),
   change_type_id  NUMERIC(6,0)
                   REFERENCES change_type(change_type_id),
+  dest_entity     NUMERIC(12,0),
   change_params   CHAR VARYING(255),
   change_by       NUMERIC(12,0)
                   REFERENCES entity_info(entity_id),

@@ -255,6 +255,7 @@ class Group(EntityName, Entity):
                       'op': int(op),
                       'm_type': int(member.entity_type),
                       'm_id': member.entity_id})
+        self._db.log_change(member.entity_id, self.clconst.g_add, self.entity_id)
 
     def remove_member(self, member, op):
         """Remove ``member``'s membership of operation type ``op`` in group."""
