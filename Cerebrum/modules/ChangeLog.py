@@ -63,7 +63,7 @@ class ChangeLog(object):
         where = ["change_id >= :start_id"]
         bind = {'start_id': int(start_id)}
         if type is not None:
-            where += "type = :type"
+            where.append("change_type_id = :type")
             bind['type'] = type
         where = "WHERE "+" AND ".join(where)
         ret = []
@@ -72,6 +72,30 @@ class ChangeLog(object):
                change_params, change_by, change_program
         FROM [:table schema=cerebrum name=change_log] %s
         ORDER BY change_id""" % where, bind):
+            ret.append(r)
+        return ret
+
+    def get_log_events_date(self, type=None, sdate=None, edate=None):
+        where = []
+        if type is not None:
+            where.append("change_type_id = %s" % type)
+        if sdate is not None:
+            if edate is not None:
+                where.append("""tstamp BETWEEN TO_DATE('%s', 'YYYY-MM-DD') 
+                                AND TO_DATE('%s', 'YYYY-MM-DD')""" % (sdate,edate))
+            else:
+                where.append("tstamp >= TO_DATE('%s', 'YYYY-MM-DD')" % sdate)
+        else:
+            if edate is not None:
+                where.append("tstamp <= TO_DATE('%s', 'YYYY-MM-DD')" % edate)
+        if (type, sdate, edate) is not None:
+            where = "WHERE "+" AND ".join(where)
+        ret = []
+        for r in self.query("""
+        SELECT tstamp, change_id, subject_entity, change_type_id,
+               dest_entity, change_params, change_by, change_program
+        FROM [:table schema=cerebrum name=change_log] %s
+        ORDER BY change_id""" % where):
             ret.append(r)
         return ret
 
