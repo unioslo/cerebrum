@@ -535,7 +535,34 @@ class _EmailSpamLevelCode(Constants._CerebrumCode):
 class _EmailSpamActionCode(Constants._CerebrumCode):
     _lookup_table = '[:table schema=cerebrum name=email_spam_action_code]'
 
+    def __init__(self, code, description=None):
+        super(_EmailSpamActionCode, self).__init__(code, description)
 
+    def insert(self):
+        self._pre_insert_check()
+        self.sql.execute("""
+        INSERT INTO %(code_table)s
+          (%(code_col)s, %(str_col)s, %(desc_col)s)
+        VALUES
+          (%(code_seq)s, :str, :desc)""" % {
+            'code_table': self._lookup_table,
+            'code_col': self._lookup_code_column,
+            'str_col': self._lookup_str_column,
+            'desc_col': self._lookup_desc_column,
+            'code_seq': self._code_sequence},
+                         {'str': self.str,
+                          'desc': self._desc})
+
+    def get_action(self):
+        if self.str is None:
+            self.str = int(self.sql.query_1("""
+            SELECT code_str
+            FROM %(code_table)s
+            WHERE code=:code""" % {'code_table': self._lookup_table},
+                                              {'code': int(self)}))
+        return self.str
+
+    
 class EmailSpamFilter(EmailTarget):
     __read_attr__ = ('__in_db',)
     __write_attr__ = ('email_spam_level', 'email_spam_action')
@@ -584,7 +611,7 @@ class EmailSpamFilter(EmailTarget):
     def find(self, target_id):
         self.__super.find(target_id)
         self.email_spam_level, self.email_spam_action = self.query_1("""
-        SELECT level, action
+        SELECT grade, action
         FROM [:table schema=cerebrum name=email_spam_filter]
         WHERE target_id=:t_id""",{'t_id': self.email_target_id})
         try:
@@ -595,26 +622,86 @@ class EmailSpamFilter(EmailTarget):
         self.__updated = False
 
     def get_spam_level(self):
-        foo = self.email_spam_level
-        if isinstance(foo, int):
-            foo = _EmailSpamLevelCode(self.email_spam_level)
-        elif isinstance(foo, _EmailSpamLevelCode):
+        level = self._db.pythonify_data(self.email_spam_level)
+        if isinstance(level, int):
+            level = _EmailSpamLevelCode(level)
+        elif isinstance(level, _EmailSpamLevelCode):
             pass
         else:
             raise TypeError
-        return foo.get_level()
+        return level.get_level()
 
     def get_spam_action(self):
-        return self.email_spam_action
-
+        action = self._db.pythonify_data(self.email_spam_action)
+        if isinstance(action, int):
+            action = _EmailSpamActionCode(action)
+        elif isinstance(action, _EmailSpamActionCode):
+            pass
+        else:
+            raise TypeError
+        return action.get_action()
 
 
 class _EmailVirusFoundCode(Constants._CerebrumCode):
     _lookup_table = '[:table schema=cerebrum name=email_virus_found_code]'
 
+    def __init__(self, code, description=None):
+        super(_EmailVirusFoundCode, self).__init__(code, description)
+
+    def insert(self):
+        self._pre_insert_check()
+        self.sql.execute("""
+        INSERT INTO %(code_table)s
+          (%(code_col)s, %(str_col)s, %(desc_col)s)
+        VALUES
+          (%(code_seq)s, :str, :desc)""" % {
+            'code_table': self._lookup_table,
+            'code_col': self._lookup_code_column,
+            'str_col': self._lookup_str_column,
+            'desc_col': self._lookup_desc_column,
+            'code_seq': self._code_sequence},
+                         {'str': self.str,
+                          'desc': self._desc})
+
+    def get_found(self):
+        if self.str is None:
+            self.str = int(self.sql.query_1("""
+            SELECT code_str
+            FROM %(code_table)s
+            WHERE code=:code""" % {'code_table': self._lookup_table},
+                                              {'code': int(self)}))
+        return self.str
+
 
 class _EmailVirusRemovedCode(Constants._CerebrumCode):
     _lookup_table = '[:table schema=cerebrum name=email_virus_removed_code]'
+
+    def __init__(self, code, description=None):
+        super(_EmailVirusRemovedCode, self).__init__(code, description)
+
+    def insert(self):
+        self._pre_insert_check()
+        self.sql.execute("""
+        INSERT INTO %(code_table)s
+          (%(code_col)s, %(str_col)s, %(desc_col)s)
+        VALUES
+          (%(code_seq)s, :str, :desc)""" % {
+            'code_table': self._lookup_table,
+            'code_col': self._lookup_code_column,
+            'str_col': self._lookup_str_column,
+            'desc_col': self._lookup_desc_column,
+            'code_seq': self._code_sequence},
+                         {'str': self.str,
+                          'desc': self._desc})
+
+    def get_removed(self):
+        if self.str is None:
+            self.str = int(self.sql.query_1("""
+            SELECT code_str
+            FROM %(code_table)s
+            WHERE code=:code""" % {'code_table': self._lookup_table},
+                                              {'code': int(self)}))
+        return self.str
 
 
 class EmailVirusScan(EmailTarget):
@@ -686,11 +773,25 @@ class EmailVirusScan(EmailTarget):
         return False
 
     def get_virus_found_act(self):
-        return self.email_virus_found_act
-
+        found = self._db.pythonify_data(self.email_virus_found_act)
+        if isinstance(found, int):
+            found = _EmailVirusFoundCode(found)
+        elif isinstance(found, _EmailVirusFoundCode):
+            pass
+        else:
+            raise TypeError
+        return found.get_found()
+    
     def get_virus_removed_act(self):
-        return self.email_virus_removed_act
-
+        removed = self._db.pythonify_data(self.email_virus_removed_act)
+        if isinstance(removed, int):
+            removed = _EmailVirusRemovedCode(removed)
+        elif isinstance(removed, _EmailVirusRemovedCode):
+            pass
+        else:
+            raise TypeError
+        return removed.get_removed()
+        
 
 class EmailForward(EmailTarget):
     def find(self, account_id): pass
