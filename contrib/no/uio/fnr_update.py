@@ -126,7 +126,7 @@ def get_id_type(kind, const):
     """
 
     try:
-        return int(const.PersonExternalId(kind))
+        return int(const.EntityExternalId(kind))
     except Errors.NotFoundError:
         logger.warn("Cannot locate id type '%s'", kind)
         return None
