@@ -69,7 +69,7 @@ def email_delivery_stopped(user):
     # the ldap module
     import ldap, ldap.filter, ldap.ldapobject
     if ldapconn is None:
-        ldapconn= ldap.ldapobject.ReconnectLDAPObject("ldap://ny-ldap.uio.no/")
+        ldapconn= ldap.ldapobject.ReconnectLDAPObject("ldap://ldap.uio.no/")
         ldapconn.set_option(ldap.OPT_PROTOCOL_VERSION, 3)
         ldapconn.set_option(ldap.OPT_DEREF, ldap.DEREF_NEVER)
     try:
