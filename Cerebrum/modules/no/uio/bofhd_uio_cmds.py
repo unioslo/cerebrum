@@ -32,7 +32,14 @@ import sys
 import time
 import os
 import cyruslib
+import pickle
 from mx import DateTime
+try:
+    from sets import Set
+except ImportError:
+    # It's the same module taken from python 2.3, it should
+    # work fine in 2.2  
+    from Cerebrum.extlib.sets import Set    
 
 import cereconf
 from Cerebrum import Cache
@@ -1378,23 +1385,27 @@ class BofhdExtension(object):
     #
     all_commands['entity_info'] = None
     def entity_info(self, operator, entity_id):
-        """Returns a dings"""
+        """Returns basic information on the given entity id"""
         entity = self._get_entity(id=entity_id)
         result = {}
         result['type'] = str(_EntityTypeCode(int(entity.entity_type)))
-        result['id'] = entity.entity_id
+        result['entity_id'] = entity.entity_id
         try:
             names = entity.get_names()
         except AttributeError:
             pass
         else:        
-            # convert to a python type 
-            result['names'] = [(a,b) for (a,b) in names]
+            # convert to python tuples
+            result['names'] = [(r.domain, r.name) for r in names]
         if entity.entity_type in \
             (CoreConstants.entity_group, CoreConstants.entity_account): 
             result['creator_id'] = entity.creator_id
             result['create_date'] = entity.create_date
             result['expire_date'] = entity.expire_date
+            # FIXME: Should be a list instead of a string, but text clients doesn't 
+            # know how to view such a list
+            result['spread'] = ", ".join(["%s" % self.num2const[int(a['spread'])]
+                                         for a in entity.get_spread()])
         if entity.entity_type == CoreConstants.entity_group:
             result['name'] = entity.group_name
             result['description'] = entity.description
@@ -1412,6 +1423,48 @@ class BofhdExtension(object):
            # TODO: de-reference np_type
            # result['np_type'] = entity.np_type
         return result
+    
+    # entity history
+    all_commands['entity_history'] = None
+    def entity_history(self, operator, entity_id, limit=100):
+        entity = self._get_entity(id=entity_id)
+        self.ba.can_show_history(operator.get_entity_id(), entity)
+        result = self.db.get_log_events(any_entity=entity_id)
+        events = []
+        entities = Set()
+        change_types = Set()
+        # skip all but the last entries
+        result = result[-limit:]
+        for row in result:
+            event = {}
+            change_type = int(row['change_type_id'])
+            change_types.add(change_type)
+            event['type'] = change_type
+
+            event['date'] = row['tstamp']
+            event['subject'] = row['subject_entity']
+            event['dest'] = row['dest_entity']
+            params = row['change_params']
+            if params:
+                params = pickle.loads(params)
+            event['params'] = params
+            change_by = row['change_by']
+            if change_by:
+                entities.add(change_by)
+                event['change_by'] = change_by
+            else:
+                event['change_by'] = row['change_program']
+            entities.add(event['subject'])
+            entities.add(event['dest'])
+            events.append(event)
+        # Resolve to entity_info, return as dict
+        entities = dict([(str(e), self.entity_info(operator,e)) 
+                        for e in entities if e])
+        # resolv change_types as well, return as dict
+        change_types = dict([(str(t), self.change_type2details.get(t))
+                        for t in change_types])
+        return events, entities, change_types
+
     #
     # group commands
     #
@@ -1459,8 +1512,7 @@ class BofhdExtension(object):
         return "OK"
 
     # group add_entity
-    all_commands['group_add_entity'] = Command(
-        ("group", "add_entity"), perm_filter='can_alter_group')
+    all_commands['group_add_entity'] = None
     def group_add_entity(self, operator, src_entity_id, dest_group_id,
                   group_operator=None):
         """Adds a entity to a group. Both the source entity and the group
@@ -1573,8 +1625,7 @@ class BofhdExtension(object):
 
 
     # group remove_entity
-    all_commands['group_remove_entity'] = Command(
-        ("group", "remove_entity"), perm_filter='can_alter_group')
+    all_commands['group_remove_entity'] = None
     def group_remove_entity(self, operator, member_entity, group_entity,
                             group_operation):
         group = self._get_entity(id=group_entity)
@@ -1590,27 +1641,20 @@ class BofhdExtension(object):
                               "Spreads:      %s\n" +
                               "Description:  %s\n" +
                               "Expire:       %s\n" +
-                              "Entity id:    %i""", ("name", "spread", "desc",
-                                                     format_day("expire"),
+                              "Entity id:    %i""", ("name", "spread", "description",
+                                                     format_day("expire_date"),
                                                      "entity_id")),
                              ("Gid:          %i", ('gid',))]))
     def group_info(self, operator, groupname):
         # TODO: Group visibility should probably be checked against
         # operator for a number of commands
-        is_posix = False
-        try:
-            grp = self._get_group(groupname, grtype="PosixGroup")
-            is_posix = True
-        except CerebrumError:
-            grp = self._get_group(groupname)
-        ret = {'entity_id': grp.entity_id,
-               'name': grp.group_name,
-               'spread': ", ".join(["%s" % self.num2const[int(a['spread'])]
-                                   for a in grp.get_spread()]),
-               'desc': grp.description,
-               'expire': grp.expire_date}
-        if is_posix:
-            ret['gid'] = grp.posix_gid
+        grp = self._get_group(groupname)
+        ret = self.entity_info(operator, grp.entity_id)
+        
+        # FIXME: compatibility mode for old FormatSuggestion that might
+        # be cached on clients 
+        ret['desc'] = ret['description']
+        ret['expire'] = ret['expire_date']
         return ret
 
     # group list
@@ -2821,9 +2865,10 @@ class BofhdExtension(object):
         entity = self._get_entity(entity_type, id)
         qtype = int(self._get_constant(qtype, "No such quarantine"))
         self.ba.can_set_quarantine(operator.get_entity_id(), entity, qtype)
-        if entity_type != 'account':
-            raise CerebrumError("Quarantines can only be set on accounts")
-        entity.add_entity_quarantine(qtype, operator.get_entity_id(), why, date_start, date_end)
+        try:
+            entity.add_entity_quarantine(qtype, operator.get_entity_id(), why, date_start, date_end)
+        except AttributeError:    
+            raise CerebrumError("Quarantines cannot be set on %s" % entity_type)
         return "OK"
 
     # quarantine show
