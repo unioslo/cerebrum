@@ -52,7 +52,7 @@ def update_quotas(dryrun):
         
         new_quota = min(row['printer_quota'] + row['weekly_quota'],
                         row['max_quota'])
-        if False:   # temporarely disabled as termin_quota=0 for all entries in db
+        if row['termin_quota'] > 0:   # 0 means unlimited termin quota
             if new_quota + row['pages_this_semester'] > row['termin_quota']:
                 new_quota = row['termin_quota'] - row['pages_this_semester']
         try:
