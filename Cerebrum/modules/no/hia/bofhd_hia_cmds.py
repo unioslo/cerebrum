@@ -2819,19 +2819,24 @@ class BofhdExtension(object):
             fullname = person.get_name(self.const.system_cached, self.const.name_full)
             mapping['fullname'] =  fullname
             if tpl_lang.endswith("letter"):
-                try:
-                    address = person.get_entity_address(source=self.const.system_sap,
-                                                        type=self.const.address_post)
-                except Errors.NotFoundError:
-		    try:
-			address = person.get_entity_address(source=self.const.system_fs,
-                                                            type=self.const.address_post)
-		    except Errors.NotFoundError:
-			ret.append("Error: Couldn't get authoritative address for %s" % account.account_name)
-			continue
+                address = None
+                for source, kind in ((self.const.system_sap,
+                                      self.const.address_post),
+                                     (self.const.system_fs,
+                                      self.const.address_post),
+                                     (self.const.system_fs,
+                                      self.const.address_post_private)):
+                    try:
+                        address = person.get_entity_address(source = source,
+                                                            type = kind)
+                        break
+                    except Errors.NotFoundError:
+                        pass
+
                 if not address:
                     ret.append("Error: Couldn't get authoritative address for %s" % account.account_name)
                     continue
+                
                 address = address[0]
                 alines = address['address_text'].split("\n")+[""]
                 mapping['address_line1'] = fullname
