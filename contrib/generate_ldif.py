@@ -501,8 +501,8 @@ def generate_person(filename=None):
 			pers_string += "eduPersonOrgUnitDN: %s\n" % org
 			org_printed.append(org)
 		except: pass
-	    pers_string += "eduPersonPrincipalName: %s@%s\n" % (entity_name, 
-						cereconf.LDAP_BASE_DOMAIN)
+	    pers_string += "eduPersonPrincipalName: %s@%s\n" % (
+                entity_name, cereconf.INSTITUTION_DOMAIN_NAME)
 	    lastname = name
 	    for sys in cereconf.SYSTEM_LOOKUP_ORDER:
 		try:
