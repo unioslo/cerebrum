@@ -39,7 +39,7 @@ from Cerebrum.modules.no import fodselsnr
 
 group_name = "LT-elektroniske-reservasjoner"
 group_desc = "Internal group for people from LT which will not be shown online"
-ignore_gjestetypekode_group = ('IKKE ANGIT','EKST. KONS')
+ignore_gjestetypekode_group = ('IKKE ANGIT',)
 
 
 
@@ -132,7 +132,7 @@ def get_sted(fakultet, institutt, gruppe):
                                   'addr_post': addr_post}
             ou_cache[int(ou.ou_id)] = ou_cache[stedkode]
         except Errors.NotFoundError:
-            logger.warn("bad stedkode: %s" % str(stedkode))
+            logger.info("bad stedkode: %s" % str(stedkode))
             ou_cache[stedkode] = None
     return ou_cache[stedkode]
 
@@ -203,6 +203,8 @@ def determine_affiliations(person):
 	elif g['gjestetypekode'] == 'SIVILARB':
 	    aff_stat = const.affiliation_tilknyttet_sivilarbeider
 	elif g['gjestetypekode'] == 'EKST. PART':
+	    aff_stat = const.affiliation_tilknyttet_ekst_partner
+	elif g['gjestetypekode'] == 'EKST. KONS':
 	    aff_stat = const.affiliation_tilknyttet_ekst_partner
 	elif (g['gjestetypekode'] == 'REGANSV' or g['gjestetypekode'] == 'REG-ANSV'):
 	    aff_stat = const.affiliation_tilknyttet_frida_reg
