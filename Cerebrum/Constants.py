@@ -160,6 +160,26 @@ class _SpreadCode(_CerebrumCode):
     """Code values for entity `spread`; table `entity_spread`."""
     _lookup_table = '[:table schema=cerebrum name=spread_code]'
 
+    def __init__(self, code, entity_type, description=None):
+        self.entity_type = entity_type
+        super(_SpreadCode, self).__init__(code, description)
+
+    def insert(self):
+        self._pre_insert_check()
+        self.sql.execute("""
+        INSERT INTO %(code_table)s
+          (entity_type, %(code_col)s, %(str_col)s, %(desc_col)s)
+        VALUES
+          (:entity_type, %(code_seq)s, :str, :desc)""" % {
+            'code_table': self._lookup_table,
+            'code_col': self._lookup_code_column,
+            'str_col': self._lookup_str_column,
+            'desc_col': self._lookup_desc_column,
+            'code_seq': self._code_sequence},
+                         {'entity_type': int(self.entity_type),
+                          'str': self.str,
+                          'desc': self._desc})
+
     def entity_type(self):
         return _EntityTypeCode(self.sql.query_1("""
         SELECT entity_type
