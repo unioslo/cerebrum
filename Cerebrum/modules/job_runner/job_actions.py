@@ -162,7 +162,7 @@ class System(CallableAction):
                     os.execv("/bin/sleep", [self.id, str(5+random.randint(5,10))])
                 os.execv(self.cmd, p)
             except OSError, e:
-                self.logger.debug("Will do SystemExit")
+                self.logger.debug("Exec failed, check the command that was executed.")
                 # avoid cleanup handlers, seems to mess with logging
                 sys._exit(e.errno)
         except SystemExit:
