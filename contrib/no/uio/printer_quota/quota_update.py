@@ -306,14 +306,17 @@ def get_students():
     fritak_tilknyttet = (int(const.affiliation_tilknyttet_pcvakt),
                          int(const.affiliation_tilknyttet_grlaerer),
                          int(const.affiliation_tilknyttet_bilag))
+    logger.debug2("Gyldige: %s" % str(tmp_gyldige))
     for pid in tmp_gyldige.keys():
         if [x for x in tmp_gyldige[pid] if x[1] in fritak_tilknyttet]:
             # Fritak via TILKNYTTET affiliation
+            logger.debug2("%i: fritak_tilknyttet" % pid)
             continue
         elif (int(const.affiliation_student),
             int(const.affiliation_status_student_aktiv)) in tmp_gyldige[pid]:
             # Har minst en gyldig STUDENT/aktiv affiliation
             ret.append(pid)
+            logger.debug2("%i: STUDENT/aktiv" % pid)
             continue
         elif [x for x in tmp_gyldige[pid]
               if x[0] == int(const.affiliation_student)]:
@@ -324,8 +327,10 @@ def get_students():
                              x[1] == int(const.affiliation_manuell_inaktiv_student)))]:
                 # ... og ingen gyldige ikke-student affiliations
                 ret.append(pid)
+                logger.debug2("%i: stud-aff and no non-studaff" % pid)
                 continue
 
+    logger.debug2("Slettede: %s" % str(tmp_slettede))
     for pid in tmp_slettede.keys():
         if tmp_gyldige.has_key(pid):
             continue
