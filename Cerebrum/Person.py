@@ -204,32 +204,45 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
         # Handle PersonAffiliations
         if hasattr(self, '_affil_source'):
             source = self._affil_source
+            # db_affil is used to see if the exact affiliation exists
+            # (or did exist earlier, and is marked as deleted)
             db_affil = {}
+            # db_prim is used to see if a row with that primary key
+            # exists.
 	    db_prim = {}
-            for t_person_id, t_ou_id, t_affiliation, t_source, \
-                t_status, deleted_date \
-                in self.get_affiliations(include_deleted = True):
+            for (t_person_id, t_ou_id, t_affiliation, t_source,
+                 t_status, deleted_date) in \
+                 self.get_affiliations(include_deleted = True):
                 if source == t_source:
                     idx = "%d:%d:%d" % (t_ou_id, t_affiliation, t_status)
-                    db_affil[idx] = [True, deleted_date]
+                    db_affil[idx] = deleted_date
 		    db_prim['%s:%s' % (t_ou_id, t_affiliation)] = idx
             pop_affil = self.__affil_data
-            for idx in pop_affil.keys():
+            for prim in pop_affil.keys():
+                idx = "%s:%d" % (prim, pop_affil[prim])
                 if db_affil.has_key(idx):
-                    if  db_affil[idx][1] is not None:    # Resurrect affiliation
+                    # this affiliation, including status, exists in the
+                    # database already, but we may have to resurrect it
+                    # if it's deleted.
+                    if db_affil[idx] is not None:
                         ou_id, affil, status = [int(x) for x in idx.split(":")]
                         self.add_affiliation(ou_id, affil, source, status)
                     del db_affil[idx]
                 else:
+                    # this may be a completely new affiliation, or just a
+                    # change in status.
                     ou_id, affil, status = [int(x) for x in idx.split(":")]
                     self.add_affiliation(ou_id, affil, source, status)
-                    primary_key = '%s:%s' % (ou_id, affil)
-		    if db_prim.has_key(primary_key):
-                        del db_affil[db_prim[primary_key]]
                     if is_new <> 1:
                         is_new = False
+                    if db_prim.has_key(prim):
+                        # it was only a change of status.  make sure
+                        # the loop below won't delete the affiliation.
+                        del db_affil[db_prim[prim]]
+            # delete all the remaining affiliations.  some of them
+            # are already marked as deleted.
             for idx in db_affil.keys():
-                if db_affil[idx][1] is None:
+                if db_affil[idx] is None:
                     ou_id, affil, status = [int(x) for x in idx.split(":")]
                     self.delete_affiliation(ou_id, affil, source)
                     if is_new <> 1:
@@ -533,8 +546,8 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
                   "Can't populate multiple `source_system`s w/o write_db()."
         if ou_id is None:
             return
-        idx = "%d:%d:%d" % (ou_id, affiliation, status)
-        self.__affil_data[idx] = True
+        idx = "%d:%d" % (ou_id, affiliation)
+        self.__affil_data[idx] = int(status)
 
     def get_affiliations(self, include_deleted=False):
         return self.list_affiliations(self.entity_id,
