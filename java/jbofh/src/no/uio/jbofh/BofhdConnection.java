@@ -250,9 +250,9 @@ public class BofhdConnection {
             return r;
         } catch (XmlRpcException e) {
 	    logger.debug("exception-message: "+e.getMessage());
-	    String match = "server.bofhd_errors.CerebrumError:";
+	    String match = "Cerebrum.modules.bofhd.errors.";
 	    if(e.getMessage().startsWith(match)) {
-		throw new BofhdException("User error: "+e.getMessage().substring(match.length()));
+		throw new BofhdException("User error: "+e.getMessage().substring(e.getMessage().indexOf(":")+1));
 	    } else {
 		logger.error("err: code="+e.code, e);
 		throw new BofhdException("Error: "+e.getMessage());
