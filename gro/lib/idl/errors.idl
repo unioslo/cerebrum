@@ -92,5 +92,19 @@ module Cerebrum_core{
             string explanation;
         };
 
+        /**
+        * Error raised when trying to get a search class from an unsearchable class.
+        */
+        exception UnsearchableClassError{
+            string explanation;
+        };
+
+        /**
+        * Error raised when a search fails.
+        */
+        exception SearchError{
+            string explanation;
+        };
+
     };
 };
