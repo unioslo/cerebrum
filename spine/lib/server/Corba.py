@@ -198,14 +198,15 @@ def create_corba_method(method):
 
     return corba_method
 
-def create_idl_comment(comment='', args=(), return_type=None, tabs=0):
+def create_idl_comment(comment='', args=(), rtn_type='', exceptions=(), tabs=0):
     """Returns a string with the idl comment.
 
     Returns a comment on the following syntax:
     /**
     * comment
     * \\param argument argument type
-    * \\return Returns a return_type
+    * \\return Returns a rtn_type
+    * \\throw Exception
     */
 
     If you need the comment to be indented, give the number of tabs
@@ -219,8 +220,10 @@ def create_idl_comment(comment='', args=(), return_type=None, tabs=0):
     for i in args:
         value = getattr(i[1], '__name__', str(i[1]))
         txt += '%s* \\param %s Value of type %s\n' % (tabs, i[0], value)
-    if return_type:
-        txt += '%s* \\return Value of type %s\n' % (tabs, return_type)
+    if rtn_type:
+        txt += '%s* \\return Value of type %s\n' % (tabs, rtn_type)
+    for i in exceptions:
+        txt += '%s* \\throw %s\n' % (tabs, i)
     txt += '%s*/\n' % tabs
     return txt
 
@@ -345,30 +348,41 @@ def create_idl_interface(cls, exceptions=(), docs=False):
     for attr in cls.slots:
         if attr in parent_slots:
             continue
-        exception = get_exceptions(tuple(attr.exceptions) + tuple(exceptions))
+
+        exceptions = tuple(attr.exceptions) + tuple(exceptions)
+        exception = get_exceptions(exceptions)
         data_type = get_type(attr.data_type)
+        
+        txt += create_idl_comment('', (), data_type, exceptions, tabs=1)
         txt += '\t%s get_%s()%s;\n' % (data_type, attr.name, exception)
-        if attr.write:
-            txt += '\tvoid set_%s(in %s new_%s)%s;\n' % (attr.name, data_type, attr.name, exception)
         txt += '\n'
+
+        if attr.write:
+            txt += create_idl_comment('', [data_type], 'void', exceptions, tabs=1)
+            txt += '\tvoid set_%s(in %s new_%s)%s;\n' % (attr.name, data_type, attr.name, exception)
+            txt += '\n'
 
     if docs and cls.slots and cls.method_slots:
         txt += '\t//Other methods\n'
     for method in cls.method_slots:
         if method in parent_slots:
             continue
-        exception = get_exceptions(tuple(method.exceptions) + tuple(exceptions))
+
         args = []
         for name, data_type in method.args:
             args.append('in %s in_%s' % (get_type(data_type), name))
         data_type = get_type(method.data_type)
+        exception = tuple(method.exceptions) + tuple(exceptions)
 
         if method.doc is None and hasattr(cls, method.name):
             method.doc = getattr(cls, method.name).__doc__
-        if method.doc:
-            txt += create_idl_comment(trim_docstring(method.doc), tabs=1)
+        
+        doc = trim_docstring(method.doc or '')
+        txt += create_idl_comment(doc, method.args, data_type, exception, tabs=1)
 
+        exception = get_exceptions(exception)
         txt += '\t%s %s(%s)%s;\n' % (data_type, method.name, ', '.join(args), exception)
+        txt += '\n'
 
     txt += '};\n'
     return headers, txt
