@@ -72,7 +72,7 @@ def main():
             print "'table_owner' not set in CEREBRUM_DATABASE_CONNECT_DATA."
             print "Will use regular 'user' (%s) instead." % db_user
     Cerebrum = Factory.get('Database')(user=db_user)
-
+    Cerebrum.cl_init(change_program="makedb")
     for opt, val in opts:
         if opt == '--help':
             usage()
