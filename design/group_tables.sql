@@ -24,8 +24,8 @@ CREATE TABLE group_info
 (
   /* Dummy column, needed for type check against `entity_id'. */
   entity_type	CHAR VARYING(16)
-		NOT NULL
 		DEFAULT 'g'
+		NOT NULL
 		CONSTRAINT group_info_entity_type_chk
 		  CHECK (entity_type = 'g'),
 
@@ -80,7 +80,7 @@ CREATE TABLE group_member
 		  REFERENCES group_info(group_id),
   operation	CHAR VARYING(16)
 		CONSTRAINT group_member_operation
-		  REFERENCES group_membership_operation_code(code),
+		  REFERENCES group_membership_op_code(code),
   member_type	CHAR VARYING(16)
 		NOT NULL,
   member_id	NUMERIC(12,0),
@@ -110,6 +110,7 @@ filegroups needs only be written once).
 
  */
 
+/*
 CREATE TABLE group_export_type
 (
   gtype		 CHAR VARYING(32),
@@ -117,10 +118,12 @@ CREATE TABLE group_export_type
   description	 CHAR VARYING(512),
   PRIMARY KEY (gtype, system_owner) 
 );
+*/
 
 
 
 /* Define how a specific group should be exported. */
+/*
 CREATE TABLE group_export
 (
   gkey		NUMERIC(12,0)
@@ -144,6 +147,7 @@ CREATE TABLE group_export
   CONSTRAINT group_export_gtype FOREIGN KEY (gtype, system_owner)
     REFERENCES group_export_type(gtype, system_owner)
 );
+*/
 
 
 /* TBD: Må tenke mer på om spread skal skilles fra grupper, og
