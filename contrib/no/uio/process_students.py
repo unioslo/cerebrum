@@ -19,6 +19,9 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+import hotshot, hotshot.stats
+proffile  = 'hotshot.prof'
+
 import getopt
 import sys
 import os
@@ -51,11 +54,485 @@ keep_account_home = {}
 paid_paper_money = {}
 account_id2fnr = {}
 
+posix_user_obj = PosixUser.PosixUser(db)
+account_obj = Factory.get('Account')(db)
+person_obj = Factory.get('Person')(db)
+group_obj = Factory.get('Group')(db)
+
 debug = 0
 max_errors = 50          # Max number of errors to accept in person-callback
 
-enable_fs_derived=False  # Aparently we no longer want this feature,
-                         # but we don't want to remove the code yet.
+class AccountUtil(object):
+    """Collection of methods that operate on a single account to make
+    it conform to a profile """
+
+    def create_user(fnr, profile):
+        # dryruning this method is unfortunately a bit tricky
+        assert not dryrun
+        logger.info2("CREATE")
+        person = Factory.get('Person')(db)
+        try:
+            person.find_by_external_id(const.externalid_fodselsnr, fnr,
+                                       const.system_fs)
+        except Errors.NotFoundError:
+            logger.warn("OUCH! person %s not found" % fnr)
+            return None
+        first_name = person.get_name(const.system_cached, const.name_first)
+        last_name = person.get_name(const.system_cached, const.name_last)
+        account = Factory.get('Account')(db)
+        uname = account.suggest_unames(const.account_namespace,
+                                       first_name, last_name)[0]
+        account.populate(uname,
+                         const.entity_person,
+                         person.entity_id,
+                         None,
+                         default_creator_id, default_expire_date)
+        password = account.make_passwd(uname)
+        account.set_password(password)
+        tmp = account.write_db()
+        # Temporary hack until all students should have imap spread
+        account.add_spread(const.spread_uio_imap)
+        logger.debug("new Account, write_db=%s" % tmp)
+        all_passwords[int(account.entity_id)] = [password, profile.get_brev()]
+        as_posix = False
+        for spread in profile.get_spreads():  # TBD: Is this check sufficient?
+            if str(spread).startswith('NIS'):
+                as_posix = True
+        accounts[int(account.entity_id)] = {'owner': fnr,
+                                            'expire_date': None,
+                                            'spreads': [],
+                                            'groups': [],
+                                            'affs': [],
+                                            'home': [],
+                                            'gid': None}
+        AccountUtil.update_account(account.entity_id, fnr, profile, as_posix)
+        return account.entity_id
+    create_user=staticmethod(create_user)
+
+    def _populate_account_affiliations(account_id, fnr):
+        """Assert that the account has the same student affiliations as
+        the person.  Will not remove the last student account affiliation
+        even if the person has no such affiliation"""
+
+        changes = []
+        remove_idx = 1     # Do not remove last account affiliation
+        account_ous = [ou for aff, ou in accounts[account_id]['affs']
+                       if aff == const.affiliation_student]
+        for aff, ou, status in persons[fnr]['affs']:
+            assert aff == const.affiliation_student
+            if not ou in account_ous:
+                changes.append(('set_ac_type', (ou, const.affiliation_student)))
+            else:
+                account_ous.remove(ou)
+                remove_idx = 0
+
+        for ou in account_ous[remove_idx:]:
+            changes.append(('del_ac_type', (ou, const.affiliation_student)))
+        return changes
+    _populate_account_affiliations=staticmethod(_populate_account_affiliations)
+    
+    def _handle_user_changes(changes, account_id, as_posix):
+        if as_posix:
+            user = posix_user_obj
+        else:
+            user = account_obj
+        user.clear()
+        if changes[0][0] == 'dfg' and accounts[account_id]['gid'] is None:
+            uid = user.get_free_uid()
+            shell = default_shell
+            account_obj.clear()
+            account_obj.find(account_id)
+            user.populate(uid, changes[0][1], None, shell, 
+                          parent=account_obj, expire_date=default_expire_date)
+            user.write_db()
+            logger.debug("Used dfg2: "+str(changes[0][1]))
+            accounts[account_id]['groups'].append(changes[0][1])
+            del(changes[0])
+        else:
+            user.find(account_id)
+
+        for c_id, dta in changes:
+            if c_id == 'dfg':
+                user.gid_id = dta
+                logger.debug("Used dfg: "+str(dta))
+                accounts[account_id]['groups'].append(dta)
+            elif c_id == 'expire':
+                user.expire_date = dta
+            elif c_id == 'disk':
+                current_disk_id, disk_spread, new_disk = dta
+                if current_disk_id is None:
+                    logger.debug("Set home: %s" % new_disk)
+                    user.set_home(disk_spread, disk_id = new_disk,
+                                  status=const.home_status_not_created)
+                else:
+                    br = BofhdRequests(db, const)
+                    # TBD: Is it correct to set requestee_id=None?
+                    try:
+                        br.add_request(None, br.batch_time,
+                                       const.bofh_move_user, account_id,
+                                       new_disk, state_data=int(disk_spread))
+                    except errors.CerebrumError, e:
+                        # Conflicting request or similiar
+                        logger.warn(e)
+            elif c_id == 'remove_autostud_quarantine':
+                user.delete_entity_quarantine(const.quarantine_autostud)
+            elif c_id == 'add_spread':
+                user.add_spread(dta)
+            elif c_id == 'person_spread':
+                logger.warn("Person spread?  TODO: implement")
+            elif c_id == 'set_ac_type':
+                user.set_account_type(dta[0], dta[1])
+            elif c_id == 'del_ac_type':
+                user.del_account_type(dta[0], dta[1])
+            else:
+                raise ValueError, "Unknown change: %s" % c
+        tmp = user.write_db()
+        logger.debug("write_db=%s" % tmp)
+    _handle_user_changes=staticmethod(_handle_user_changes)
+
+    def _update_group_memberships(account_id, profile):
+        changes = []       # Changes is only used for debug output
+        already_member = {}
+        for group_id in accounts[account_id]['groups']:
+            already_member[group_id] = True
+
+        logger.debug("%i already in %s" % (account_id, repr(already_member)))
+        for g in profile.get_grupper():
+            logger.debug("In %s ?" % repr(g))
+            if not already_member.has_key(g):
+                group_obj.clear()
+                group_obj.find(g)
+                group_obj.add_member(account_id, const.entity_account,
+                                 const.group_memberop_union)
+                changes.append(("g_add", group_obj.group_name))
+            else:
+                del already_member[g]
+        if remove_groupmembers:
+            for g in already_member.keys():
+                if autostud.pc.group_defs.get(g, {}).get('auto', None) == 'auto':
+                    group_obj.clear()
+                    group_obj.find(g)
+                    group_obj.remove_member(account_id, const.group_memberop_union)
+                    changes.append(('g_rem', group_obj.group_name))
+        return changes
+    _update_group_memberships=staticmethod(_update_group_memberships)
+
+    def update_account(account_id, fnr, profile, as_posix):
+        # First fill 'changes' with all needed modifications.  We will
+        # only lookup databaseobjects if changes is non-empty.
+        logger.info2(" UPDATE:%s" % account_id)
+        changes = []
+        ac = accounts[account_id]
+        if as_posix:
+            gid = profile.get_dfg()
+            if (ac['gid'] is None or ac['gid'] != gid):
+                changes.append(('dfg', gid))   # dfg has changed og new PosixUser
+
+        if ac['expire_date'] != default_expire_date:
+            changes.append(('expire', default_expire_date))
+
+        # Set/change homedir
+        user_spreads = [int(s) for s in profile.get_spreads()]
+        for disk_spread in profile.get_disk_spreads():
+            if not disk_spread in user_spreads:
+                # The disk-spread in disk-defs was not one of the users spread
+                continue 
+            current_disk_id = ac['home'].get(disk_spread, None)
+            if keep_account_home[fnr] and (move_users or current_disk_id is None):
+                try:
+                    new_disk = profile.get_disk(disk_spread, current_disk_id)
+                except AutoStud.ProfileHandler.NoAvailableDisk, msg:
+                    raise
+                if current_disk_id != new_disk:
+                    profile.notify_used_disk(old=current_disk_id, new=new_disk)
+                    changes.append(('disk', (current_disk_id, disk_spread, new_disk)))
+        # Check quarantines
+        if ac.get('autostud_quarantine', False):
+            changes.append(("remove_autostud_quarantine", None))
+
+        # Populate spreads
+        has_acount_spreads = ac['spreads']
+        has_person_spreads = persons[fnr]['spreads']
+        for spread in profile.get_spreads():
+            if spread.entity_type == const.entity_account:
+                if not int(spread) in has_acount_spreads:
+                    changes.append(('add_spread', spread))
+            elif spread.entity_type == const.entity_person:
+                if not int(spread) in has_person_spreads:
+                    changes.append(('person_spread', spread))
+
+        changes.extend(AccountUtil._populate_account_affiliations(account_id, fnr))
+        # We have now collected all changes that would need fetching of
+        # the user object.
+        if changes:
+            AccountUtil._handle_user_changes(changes, account_id, as_posix)
+
+        changes.extend(AccountUtil._update_group_memberships(account_id, profile))
+
+        if changes:
+            logger.debug("Changes [%i/%s]: %s" % (
+                account_id, fnr, repr(changes)))
+    update_account = staticmethod(update_account)
+
+class RecalcQuota(object):
+    """Collection of methods to calculate proper quota settings for a
+    person"""
+
+    def _recalc_quota_callback(person_info):
+        fnr = fodselsnr.personnr_ok("%06d%05d" % (int(person_info['fodselsdato']),
+                                                  int(person_info['personnr'])))
+        logger.set_indent(0)
+        logger.debug("Callback for %s" % fnr)
+        logger.set_indent(3)
+        logger.debug(logger.pformat(_filter_person_info(person_info)))
+        pq = PrinterQuotas.PrinterQuotas(db)
+        group = Factory.get('Group')(db)
+
+        for account_id in students.get(fnr, {}).keys():
+            groups = []
+            for r in group_obj.list_groups_with_entity(account_id):
+                groups.append(int(r['group_id']))
+            try:
+                profile = autostud.get_profile(person_info, member_groups=groups)
+                quota = profile.get_pquota()
+            except AutoStud.ProfileHandler.NoMatchingQuotaSettings, msg:
+                logger.warn("Error for %s: %s" %  (fnr, msg))
+                logger.set_indent(0)
+                return
+            except AutoStud.ProfileHandler.NoMatchingProfiles, msg:
+                logger.warn("Error for %s: %s" %  (fnr, msg))
+                logger.set_indent(0)
+                return
+            except Errors.NotFoundError, msg:
+                logger.warn("Error for %s: %s" %  (fnr, msg))
+                logger.set_indent(0)
+                return
+            logger.debug("Setting %s as pquotas for %s" % (quota, account_id))
+            if dryrun:
+                continue
+            pq.clear()
+            try:
+                pq.find(account_id)
+            except Errors.NotFoundError:
+                # The quota update script should be ran just after this script
+                if quota['weekly_quota'] == 'UL':
+                    init_quota = 0
+                else:
+                    init_quota = int(quota['initial_quota']) - int(quota['weekly_quota'])
+                pq.populate(account_id, init_quota, 0, 0, 0, 0, 0, 0)
+            if quota['weekly_quota'] == 'UL' or profile.get_printer_kvote_fritak():
+                pq.has_printerquota = 'F'
+            else:
+                pq.has_printerquota = 'T'
+                pq.weekly_quota = quota['weekly_quota']
+                pq.max_quota = quota['max_quota']
+                pq.termin_quota = quota['termin_quota']
+            if paper_money_file:
+                if (not profile.get_printer_betaling_fritak() and
+                    not paid_paper_money.get(fnr, False)):
+                    logger.debug("didn't pay, max_quota=0 for %s " % fnr)
+                    pq.max_quota = 0
+                    pq.printer_quota = 0
+            pq.write_db()
+            has_quota[int(account_id)] = True
+        logger.set_indent(0)
+        # We commit once for each person to avoid locking too many db-rows
+        if not dryrun:
+            db.commit()
+    _recalc_quota_callback=staticmethod(_recalc_quota_callback)
+
+    def recalc_pq_main():
+        raise SystemExit("--recalc-quota is obsolete and will be removed shortly")
+        if paper_money_file:
+            for p in AutoStud.StudentInfo.GeneralDataParser(paper_money_file, 'betalt'):
+                fnr = fodselsnr.personnr_ok("%06d%05d" % (int(p['fodselsdato']),
+                                                          int(p['personnr'])))
+                paid_paper_money[fnr] = True
+        autostud.start_student_callbacks(student_info_file,
+                                         RecalcQuota._recalc_quota_callback)
+        # Set default_quota for the rest that already has quota
+        pq = PrinterQuotas.PrinterQuotas(db)
+        dv = autostud.pc.default_values
+        for row in pq.list_quotas():
+            account_id = int(row['account_id'])
+            if row['has_printerquota'] == 'F' or has_quota.get(account_id, False):
+                continue
+            logger.debug("Default quota for %i" % account_id)
+            # TODO: sjekk om det er nødvendig med oppdatering før vi gjør find.
+            pq.clear()
+            try:
+                pq.find(account_id)
+            except Errors.NotFoundError:
+                logger.error("not found: %i, recently deleted?" % account_id)
+                continue
+            pq.weekly_quota = dv['print_uke']
+            pq.max_quota = dv['print_max_akk']
+            pq.termin_quota = dv['print_max_sem']
+            if paper_money_file:
+                if not account_id2fnr.has_key(account_id):
+                    # probably a deleted user
+                    logger.debug("account_id %i not in account_id2fnr, deleted?" % account_id)
+                elif not paid_paper_money.get(account_id2fnr[account_id], False):
+                    logger.debug("didn't pay, max_quota=0 for %i " % account_id)
+                    pq.max_quota = 0
+                    pq.printer_quota = 0
+            pq.write_db()
+        if not dryrun:
+            db.commit()
+        else:
+            db.rollback()
+    recalc_pq_main=staticmethod(recalc_pq_main)
+
+class BuildAccounts(object):
+    """Collection of methods for updating/creating student users for
+    all persons"""
+
+    def _process_students_callback(person_info):
+        global max_errors
+        try:
+            BuildAccounts._process_student(person_info)
+        except:
+            max_errors -= 1
+            if max_errors < 0:
+                raise
+            trace = "".join(traceback.format_exception(
+                sys.exc_type, sys.exc_value, sys.exc_traceback))
+            logger.error("Unexpected error: %s" % trace)
+            db.rollback()
+    _process_students_callback=staticmethod(_process_students_callback)
+
+    def _process_student(person_info):
+        fnr = fodselsnr.personnr_ok("%06d%05d" % (int(person_info['fodselsdato']),
+                                                  int(person_info['personnr'])))
+        logger.set_indent(0)
+        logger.debug("Callback for %s" % fnr)
+
+        logger.set_indent(3)
+        logger.debug(logger.pformat(_filter_person_info(person_info)))
+        if not persons.has_key(fnr):
+            logger.warn("(person) not found error for %s" % fnr)
+            logger.set_indent(0)
+            return
+        try:
+            profile = autostud.get_profile(person_info, member_groups=persons[fnr]['groups'],
+                                           person_affs=persons[fnr]['affs'])
+            logger.debug(profile.debug_dump())
+        except AutoStud.ProfileHandler.NoMatchingProfiles, msg:
+            logger.warn("No matching profile error for %s: %s" %  (fnr, msg))
+            logger.set_indent(0)
+            return
+        
+        processed_students[fnr] = 1
+        keep_account_home[fnr] = profile.get_build()['home']
+        if fast_test:
+            logger.debug(profile.debug_dump())
+            # logger.debug("Disk: %s" % profile.get_disk())
+            logger.set_indent(0)
+            return
+        try:
+            _debug_dump_profile_match(profile, fnr)
+            if dryrun:
+                logger.set_indent(0)
+                return
+            pinfo = persons.get(fnr, None)
+            if pinfo is None:
+                logger.warn("Unknown person %s" % fnr)
+                return
+            if (create_users and not pinfo['stud_ac'] and
+                profile.get_build()['action']):
+                if pinfo['other_ac']:
+                    logger.debug("Has active non-student account, skipping")
+                    return
+                elif pinfo['reserved_ac']:  # has a reserved account
+                    logger.debug("using reserved: %s" % pinfo['reserved_ac'])
+                    BuildAccounts._update_persons_accounts(
+                        profile, fnr, [ pinfo['reserved_ac'][0] ])
+                else:
+                    account_id = AccountUtil.create_user(fnr, profile)
+                    if account_id is None:
+                        logger.set_indent(0)
+                        return
+                # students.setdefault(fnr, {})[account_id] = []
+            elif update_accounts and pinfo['stud_ac']:
+                BuildAccounts._update_persons_accounts(
+                    profile, fnr, pinfo['stud_ac'])
+        except AutoStud.ProfileHandler.NoAvailableDisk, msg:
+            logger.error("  Error for %s: %s" % (fnr, msg))
+        logger.set_indent(0)
+        # We commit once for each person to avoid locking too many db-rows
+        if not dryrun:
+            db.commit()
+    _process_student=staticmethod(_process_student)
+    
+    def _update_persons_accounts(profile, fnr, account_ids):
+        """Update the account by checking that group, disk and
+        affiliations are correct.  For existing accounts, account_info
+        should be filled with affiliation info """
+
+        # dryruning this method is unfortunately a bit tricky
+        assert not dryrun
+        
+        as_posix = False
+        for spread in profile.get_spreads():  # TBD: Is this check sufficient?
+            if str(spread).startswith('NIS'):
+                as_posix = True
+        for account_id in account_ids:
+            AccountUtil.update_account(account_id, fnr, profile, as_posix)
+    _update_persons_accounts=staticmethod(_update_persons_accounts)
+
+    def update_accounts_main():
+        autostud.start_student_callbacks(student_info_file,
+                                         BuildAccounts._process_students_callback)
+        logger.set_indent(0)
+        logger.info("student_info_file processed")
+        if not dryrun:
+            db.commit()
+            logger.info("making letters")
+            if only_dump_to is not None:
+                f = open(only_dump_to, 'w')
+                pickle.dump(all_passwords, f)
+                f.close()
+            else:
+                make_letters()
+        else:
+            db.rollback()
+        BuildAccounts._process_unprocessed_students()
+    update_accounts_main=staticmethod(update_accounts_main)
+
+    def _process_unprocessed_students():
+        """Unprocessed students didn't match a profile, or didn't get a
+        callback at all"""
+        # TBD: trenger vi skille på de?
+        logger.info("process_unprocessed_students")
+
+        for fnr, pinfo in persons.items(): 
+            if not pinfo['stud_ac']:
+                continue
+            if not processed_students.has_key(fnr):
+                logger.debug("%s has student accounts, but has not been processed" % fnr)
+            if not keep_account_home.get(fnr, False):
+                tmp = []
+                for a_id in pinfo['stud_ac']:
+                    tmp.append(accounts[a_id]['home'])
+                logger.debug("%s didn't set keep_account_home: %s" % (fnr, repr(tmp)))
+    _process_unprocessed_students=staticmethod(_process_unprocessed_students)
+
+def start_process_students():
+    global autostud, accounts, persons
+
+    logger.info("process_students started")
+    autostud = AutoStud.AutoStud(db, logger, debug=debug, cfg_file=studconfig_file,
+                                 studieprogs_file=studieprogs_file,
+                                 emne_info_file=emne_info_file,
+                                 ou_perspective=ou_perspective)
+    logger.info("config processed")
+    persons, accounts = get_existing_accounts()
+    logger.info("got student accounts")
+    if recalc_pq:
+        RecalcQuota.recalc_pq_main()
+    else:
+        BuildAccounts.update_accounts_main()
+    logger.info("process_students finished")
 
 def bootstrap():
     global default_creator_id, default_expire_date, default_shell
@@ -70,306 +547,143 @@ def bootstrap():
     default_expire_date = None
     default_shell = const.posix_shell_bash
 
-def create_user(fnr, profile):
-    # dryruning this method is unfortunately a bit tricky
-    assert not dryrun
-    logger.info2("CREATE")
-    person = Factory.get('Person')(db)
-    try:
-        person.find_by_external_id(const.externalid_fodselsnr, fnr, const.system_fs)
-    except Errors.NotFoundError:
-        logger.warn("OUCH! person %s not found" % fnr)
-        return None
-    first_name = person.get_name(const.system_cached, const.name_first)
-    last_name = person.get_name(const.system_cached, const.name_last)
-    account = Factory.get('Account')(db)
-    uname = account.suggest_unames(const.account_namespace,
-                                   first_name, last_name)[0]
-    account.populate(uname,
-                     const.entity_person,
-                     person.entity_id,
-                     None,
-                     default_creator_id, default_expire_date)
-    password = account.make_passwd(uname)
-    account.set_password(password)
-    tmp = account.write_db()
-    # Temporary hack until all students should have imap spread
-    account.add_spread(const.spread_uio_imap)
-    logger.debug("new Account, write_db=%s" % tmp)
-    all_passwords[int(account.entity_id)] = [password, profile.get_brev()]
-    update_account(profile, fnr, [account.entity_id])
-    return account.entity_id
-
-def populate_derived_affiliations(profile, user, person):
-    # Populate affiliations
-    # Speedup: Try to determine if object is changed without populating
-    changed = False
-    paffs = derived_person_affiliations.get(int(user.owner_id), [])
-    for ou_id in profile.get_stedkoder():
-        try:
-            idx = paffs.index((const.system_fs_derived, ou_id, const.affiliation_student,
-                               const.affiliation_status_student_aktiv))
-            del paffs[idx]
-        except ValueError:
-            changed = True
-            pass
-    if paffs:
-        changed = True
-    person.clear()
-    person.find(user.owner_id)
-    if changed:
-        for ou_id in profile.get_stedkoder():
-            person.populate_affiliation(const.system_fs_derived, ou_id, const.affiliation_student,
-                                        const.affiliation_status_student_aktiv)
-        tmp = person.write_db()
-        logger.debug2("alter person affiliations, write_db=%s" % tmp)
-    for ou_id in profile.get_stedkoder():
-        has = False
-        for has_ou, has_aff in account_info.get(account_id, []):
-            if has_ou == ou_id and has_aff == const.affiliation_student:
-                has = True
-        if not has:
-            user.set_account_type(ou_id, const.affiliation_student)
-
-def populate_account_affiliations(user, person, account_info):
-    """Assert that the account has the same student affiliations as
-    the person.  Will not remove the last student account affiliation
-    even if the person has no such affiliation"""
-
-    remove_idx = 1     # Do not remove last account affiliation
-    account_ous = [ou for ou, aff in account_info.get(int(user.entity_id), [])
-                   if aff == const.affiliation_student]
-    for ou, aff, status in person_student_affiliations.get(int(user.owner_id), []):
-        assert aff == const.affiliation_student
-        if not ou in account_ous:
-            user.set_account_type(ou, const.affiliation_student)
-        else:
-            account_ous.remove(ou)
-            remove_idx = 0
-
-    for ou in account_ous[remove_idx:]:
-        user.del_account_type(ou, const.affiliation_student)
-
-def update_account(profile, fnr, account_ids, account_info={}):
-    """Update the account by checking that group, disk and
-    affiliations are correct.  For existing accounts, account_info
-    should be filled with affiliation info """
-
-    # dryruning this method is unfortunately a bit tricky
-    assert not dryrun
-    
-    group = Factory.get('Group')(db)
-
-    as_posix = False
-    for spread in profile.get_spreads():  # TBD: Is this check sufficient?
-        if str(spread).startswith('NIS'):
-            as_posix = True
-    if as_posix:
-        user = PosixUser.PosixUser(db)
-    else:
-        user = Factory.get('Account')(db)
-    person = Factory.get('Person')(db)
-
-    for account_id in account_ids:
-        logger.info2(" UPDATE:%s" % account_id)
-        changes = []
-        if as_posix:
-            try:
-                user.clear()
-                user.find(account_id)
-            except Errors.NotFoundError:
-                uid = user.get_free_uid()
-                gid = profile.get_dfg()
-                shell = default_shell
-                user.populate(uid, gid, None, shell, 
-                              parent=account_id, expire_date=default_expire_date)
-            old_gid = user.gid_id
-            user.gid = profile.get_dfg()
-            if user.gid_id != old_gid:
-                changes.append("dfg %s->%s" % (user.gid_id, old_gid))
-        else:
-            user.clear()
-            user.find(account_id)  # If it don't exist, it is a bug
-
-        if user.expire_date:
-            user.expire_date = default_expire_date
-
-        # Set/change homedir
-        user_spreads = [int(s) for s in profile.get_spreads()]
-        for disk_spread in profile.get_disk_spreads():
-            if not disk_spread in user_spreads:
-                # The disk-spread in disk-defs was not one of the users spread
-                continue 
-            try:
-                current_disk_id = user.get_home(disk_spread)['disk_id']
-            except Errors.NotFoundError:
-                current_disk_id = None
-            if keep_account_home[fnr] and (move_users or current_disk_id is None):
-                try:
-                    new_disk = profile.get_disk(disk_spread, current_disk_id)
-                except AutoStud.ProfileHandler.NoAvailableDisk, msg:
-                    raise
-                if current_disk_id != new_disk:
-                    profile.notify_used_disk(old=current_disk_id, new=new_disk)
-                    changes.append("disk %s->%s" % (
-                        autostud.disks.get(current_disk_id, ['None'])[0],
-                        autostud.disks.get(new_disk, ['None'])[0]))
-                    if current_disk_id is None:
-                        logger.debug("Set home: %s" % new_disk)
-                        user.set_home(disk_spread, disk_id = new_disk,
-                                      status=const.home_status_not_created)
-                    else:
-                        br = BofhdRequests(db, const)
-                        # TBD: Is it correct to set requestee_id=None?
-                        try:
-                            br.add_request(None, br.batch_time,
-                                           const.bofh_move_user, account_id,
-                                           new_disk, state_data=int(disk_spread))
-                        except errors.CerebrumError, e:
-                            # Conflicting request or similiar
-                            logger.warn(e)
-
-        tmp = user.write_db()
-        logger.debug("write_db=%s" % tmp)
-
-        # Populate groups
-        already_member = {}
-        for r in group.list_groups_with_entity(account_id):
-            if r['operation'] == const.group_memberop_union:
-                already_member[int(r['group_id'])] = True
-        for g in profile.get_grupper():
-            if not already_member.has_key(g):
-                group.clear()
-                group.find(g)
-                group.add_member(account_id, const.entity_account,
-                                 const.group_memberop_union)
-                changes.append("g_add: %s" % group.group_name)
-            else:
-                del already_member[g]
-        if remove_groupmembers:
-            for g in already_member.keys():
-                if autostud.pc.group_defs.get(g, {}).get('auto', None) == 'auto':
-                    group.clear()
-                    group.find(g)
-                    group.remove_member(account_id, const.group_memberop_union)
-
-        # Check quarantines
-        if user.get_entity_quarantine(type=const.quarantine_autostud):
-            changes.append("removed quarantine_autostud")
-            user.delete_entity_quarantine(const.quarantine_autostud)
-
-        if enable_fs_derived:
-            populate_derived_affiliations(profile, user, person)
-        else:
-            person.clear()
-            person.find(user.owner_id)
-
-        populate_account_affiliations(user, person, account_info)
-
-        # Populate spreads
-        has_acount_spreads = [int(x['spread']) for x in user.get_spread()]
-        has_person_spreads = [int(x['spread']) for x in person.get_spread()]
-        for spread in profile.get_spreads():
-            if spread.entity_type == const.entity_account:
-                if not int(spread) in has_acount_spreads:
-                    user.add_spread(spread)
-                    changes.append("Add spread: %s" % str(spread))
-            elif spread.entity_type == const.entity_person:
-                if not int(spread) in has_person_spreads:
-                    person.add_spread(spread)
-        if changes:
-            logger.debug("Changes [%s]: %s" % (user.account_name, ", ".join(changes)))
-        # TODO: update default e-mail address
-
 def get_existing_accounts():
-    """Return a mapping of <fnr>:{account_id}[(ou_id, affiliation)]
-    for all students, and a mapping <fnr>:<account_id|None>
-    (account_id is used when the account is a reservation) for all
-    others that owns an account"""
+    """Prefetch data about persons and their accounts to avoid
+    multiple SQL queries for each callback.  Returns:
+
+    persons = {'fnr': {'affs': [(aff, ou, status)],
+                       'stud_ac': [account_id], 'other_ac': [account_id],
+                       'reserved_ac': [account_id],
+                       'spreads': [spread_id],
+                       'groups': [group_id]}}
+    accounts = {'account_id': {'owner: fnr, 'reserved': boolean,
+                               'gid': group_id, 'autostud_quarantine': boolean
+                               'spreads': [spread_id], 'groups': [group_id],
+                               'affs': [(aff, ou)],
+                               'expire_date': expire_date,
+                               'home': {spread: disk_id}}}
+    """
+    persons = {}
 
     logger.info("In get_existing_accounts")
     if fast_test:
         return {}, {}
-    account = Factory.get('Account')(db)
-    person = Factory.get('Person')(db)
-    if enable_fs_derived:
-        for p in person.list_affiliations(
-            source_system=const.system_fs_derived,
-            affiliation=const.affiliation_student,
-            fetchall=False):
-            derived_person_affiliations.setdefault(int(p['person_id']),
-                                                   []).append(
-                (int(p['source_system']), int(p['ou_id']),
-                 int(p['affiliation']), int(p['status'])))
 
-    for p in person.list_affiliations(
+    logger.info("Listing persons")
+    pid2fnr = {}
+    had_fs_fnr = {}
+    for row in person_obj.list_external_ids(id_type=const.externalid_fodselsnr):
+        if not pid2fnr.has_key(int(row['person_id'])):
+            if had_fs_fnr.has_key(int(row['person_id'])):
+                continue
+            pid2fnr[int(row['person_id'])] = row['external_id']
+            if row['source_system'] == int(const.system_fs):
+                had_fs_fnr[int(row['person_id'])] = True
+            persons[row['external_id']] = {
+                'affs': [], 'stud_ac': [], 'other_ac': [], 'reserved_ac': [], 'spreads': [],
+                'groups': []}
+
+    for row in person_obj.list_affiliations(
         source_system=const.system_fs,
         affiliation=const.affiliation_student,
         fetchall=False):
-        person_student_affiliations.setdefault(int(p['person_id']),
-                                               []).append(
-            (int(p['ou_id']),
-             int(p['affiliation']), int(p['status'])))
+        tmp = pid2fnr.get(int(row['person_id']), None)
+        if tmp is not None:
+            persons[tmp]['affs'].append(
+                (int(row['affiliation']), int(row['ou_id']), int(row['status'])))
 
-    logger.info("Finding student accounts...")
-    pid2fnr = {}              # Prefer fnr from FS
-    had_fs_fnr = {}
-    for p in person.list_external_ids(id_type=const.externalid_fodselsnr):
-        if not pid2fnr.has_key(int(p['person_id'])):
-            if had_fs_fnr.has_key(int(p['person_id'])):
-                continue
-            pid2fnr[int(p['person_id'])] = p['external_id']
-            if p['source_system'] == int(const.system_fs):
-                had_fs_fnr[int(p['person_id'])] = True
-    logger.info("  done list_external_ids")
+    #
+    # Hent ut info om eksisterende og reserverte konti
+    #
+    logger.info("Listing accounts...")
+    accounts = {}
+    for row in account_obj.list(filter_expired=True, fetchall=False):
+        if not row['owner_id'] or not pid2fnr.has_key(int(row['owner_id'])):
+            continue
+        accounts[int(row['account_id'])] = {
+            'owner': pid2fnr[int(row['owner_id'])],
+            'expire_date': row['expire_date'],
+            'spreads': [],
+            'gid': None,
+            'reserved': False,
+            'home': {},
+            'groups': [],
+            'affs': []}
+    # PosixGid
+    for row in posix_user_obj.list_posix_users():
+        tmp = accounts.get(int(row['account_id']), None)
+        if tmp is not None:
+            tmp['gid'] = int(row['gid'])
+    # Reserved users
+    for row in account_obj.list_reserved_users(fetchall=False):
+        tmp = accounts.get(int(row['account_id']), None)
+        if tmp is not None:
+            tmp['reserved'] = True
+    # Autostud quarantine
+    for row in account_obj.list_entity_quarantines(
+        entity_types=const.entity_account):
+        if row['quarantine_type'] != int(const.quarantine_autostud):
+            continue
+        tmp = accounts.get(int(row['entity_id']), None)
+        if tmp is not None:
+            tmp['autostud_quarantine'] = True
+    # Spreads
+    for spread_id in autostud.pc.spread_defs:
+        spread = const.Spread(spread_id)
+        if spread.entity_type == const.entity_account:
+            is_account_spread = True
+        elif spread.entity_type == const.entity_person:
+            is_account_spread = False
+        else:
+            logger.warn("Unknown spread type")
+            continue
+        for row in account_obj.list_all_with_spread(spread_id):
+            if is_account_spread:
+                tmp = accounts.get(int(row['entity_id']), None)
+            else:
+                tmp = persons.get(
+                    pid2fnr.get(int(row['entity_id']), None), None)
+            if tmp is not None:
+                tmp['spreads'].append(spread_id)
+    # Account homes
+    for row in account_obj.list_account_home():
+        tmp = accounts.get(int(row['account_id']), None)
+        if tmp is not None and row['disk_id']:
+            tmp['home'][int(row['home_spread'])] = int(row['disk_id'])
 
-    # Find all student accounts.  A student account is an account that
-    # has only account_types with affiliation=student.  We're
-    # currently only interested in active accounts, thus we filter on
-    # expired (which also includes filtering on deleted)
-
-    # TBD: skal vi implementere en cereconf.STUDENT_DISKS som benyttes
-    # istedet dersom den er != None?
-
-    students = {}
-    for a in account.list_accounts_by_type(
+    # Group memberships (TODO: currently only handles union members)
+    for group_id in autostud.pc.group_defs.keys():
+        group_obj.clear()
+        group_obj.find(group_id)
+        for row in group_obj.list_members(member_type=const.entity_account)[0]:
+            tmp = accounts.get(int(row[1]), None)    # Col 1 is member_id
+            if tmp is not None:
+                tmp['groups'].append(group_id)
+        for row in group_obj.list_members(member_type=const.entity_person)[0]:
+            tmp = persons.get(int(row[1]), None)    # Col 1 is member_id
+            if tmp is not None:
+                tmp['groups'].append(group_id)
+    # Affiliations
+    for row in account_obj.list_accounts_by_type(
         affiliation=const.affiliation_student, filter_expired=True,
         fetchall=False):
-        if not pid2fnr.has_key(int(a['person_id'])):
-            continue
-        student_data = students.setdefault(pid2fnr[int(a['person_id'])], {})
-        student_data.setdefault(int(a['account_id']), []).append(
-            [ int(a['ou_id']), int(a['affiliation']) ])
-    for person_id in students.keys():
-        for account_id in students[person_id].keys():
-            do_del = False
-            for aff_data in students[person_id][account_id]:
-                if aff_data[1] != const.affiliation_student:
-                    do_del = True
-            if do_del:
-                del(students[person_id][account_id])
-    logger.info("  done list_accounts_by_type")
+        tmp = accounts.get(int(row['account_id']), None)
+        if tmp is not None:
+            tmp['affs'].append([ int(row['affiliation']) , int(row['ou_id'])])
 
-    others = {}
-    # We only register the reserved account if the user doesn't
-    # have another active account
-    for a in account.list(filter_expired=True, fetchall=False):
-        # Also populate account_id -> fnr mapping
-        account_id2fnr[int(a['account_id'])] = pid2fnr.get(
-            int(a['owner_id'] or 0), None)
-        fnr = pid2fnr.get(int(a['owner_id']), None)
-        if (fnr is not None) and not students.has_key(fnr):
-            others[fnr] = None   # TODO: a bit ugly, use an extra dict instead
+    for ac_id, tmp in accounts.items():
+        if tmp['reserved']:
+            persons[ accounts[ac_id]['owner'] ]['reserved_ac'].append(ac_id)
+            
+        elif int(const.affiliation_student) in [aff for aff, ou in tmp['affs']]:
+            persons[ accounts[ac_id]['owner'] ]['stud_ac'].append(ac_id)
+        else:
+            persons[ accounts[ac_id]['owner'] ]['other_ac'].append(ac_id)
 
-    logger.info("  done account.list")
-    for a in account.list_reserved_users(fetchall=False):
-        fnr = pid2fnr.get(int(a['owner_id']), None)
-        if (fnr is not None) and (not students.has_key(fnr)  and
-                                  not others.has_key(fnr)):
-            others[fnr] = int(a['account_id'])
-
-    logger.info(" found %i + %i entires" % (len(students), len(others)))
-    return students, others
+    logger.info(" found %i persons and %i accounts" % (len(persons), len(accounts)))
+    #logger.debug("Persons: \n"+"\n".join([str(y) for y in persons.items()]))
+    #logger.debug("Accounts: \n"+"\n".join([str(y) for y in accounts.items()]))
+    return persons, accounts
 
 def make_letters(data_file=None, type=None, range=None):
     if data_file is not None:  # Load info on letters to print from file
@@ -508,263 +822,37 @@ def _filter_person_info(person_info):
             ret[info_type] = person_info[info_type]
     return ret
 
-def recalc_quota_callback(person_info):
-    fnr = fodselsnr.personnr_ok("%06d%05d" % (int(person_info['fodselsdato']),
-                                              int(person_info['personnr'])))
-    logger.set_indent(0)
-    logger.debug("Callback for %s" % fnr)
-    logger.set_indent(3)
-    logger.debug(logger.pformat(_filter_person_info(person_info)))
-    pq = PrinterQuotas.PrinterQuotas(db)
-    group = Factory.get('Group')(db)
-
-    for account_id in students.get(fnr, {}).keys():
-        groups = []
-        for r in group.list_groups_with_entity(account_id):
-            groups.append(int(r['group_id']))
-        try:
-            profile = autostud.get_profile(person_info, member_groups=groups)
-            quota = profile.get_pquota()
-        except AutoStud.ProfileHandler.NoMatchingQuotaSettings, msg:
-            logger.warn("Error for %s: %s" %  (fnr, msg))
-            logger.set_indent(0)
-            return
-        except AutoStud.ProfileHandler.NoMatchingProfiles, msg:
-            logger.warn("Error for %s: %s" %  (fnr, msg))
-            logger.set_indent(0)
-            return
-        except Errors.NotFoundError, msg:
-            logger.warn("Error for %s: %s" %  (fnr, msg))
-            logger.set_indent(0)
-            return
-        logger.debug("Setting %s as pquotas for %s" % (quota, account_id))
-        if dryrun:
-            continue
-        pq.clear()
-        try:
-            pq.find(account_id)
-        except Errors.NotFoundError:
-            # The quota update script should be ran just after this script
-            if quota['weekly_quota'] == 'UL':
-                init_quota = 0
-            else:
-                init_quota = int(quota['initial_quota']) - int(quota['weekly_quota'])
-            pq.populate(account_id, init_quota, 0, 0, 0, 0, 0, 0)
-        if quota['weekly_quota'] == 'UL' or profile.get_printer_kvote_fritak():
-            pq.has_printerquota = 'F'
-        else:
-            pq.has_printerquota = 'T'
-            pq.weekly_quota = quota['weekly_quota']
-            pq.max_quota = quota['max_quota']
-            pq.termin_quota = quota['termin_quota']
-        if paper_money_file:
-            if (not profile.get_printer_betaling_fritak() and
-                not paid_paper_money.get(fnr, False)):
-                logger.debug("didn't pay, max_quota=0 for %s " % fnr)
-                pq.max_quota = 0
-                pq.printer_quota = 0
-        pq.write_db()
-        has_quota[int(account_id)] = True
-    logger.set_indent(0)
-    # We commit once for each person to avoid locking too many db-rows
-    if not dryrun:
-        db.commit()
-
-def process_students_callback(person_info):
-    global max_errors
+def _debug_dump_profile_match(profile, fnr):
+    # TODO:  Hører ikke dette hjemme i ProfileHandler?
+    # Note that we don't pass current_disk to get_disks() here.
+    # Thus this value may differ from the one used during an
+    # update
     try:
-        process_student(person_info)
-    except:
-        max_errors -= 1
-        if max_errors < 0:
-            raise
-        trace = "".join(traceback.format_exception(
-            sys.exc_type, sys.exc_value, sys.exc_traceback))
-        logger.error("Unexpected error: %s" % trace)
-        db.rollback()
-
-
-def process_student(person_info):
-    fnr = fodselsnr.personnr_ok("%06d%05d" % (int(person_info['fodselsdato']),
-                                              int(person_info['personnr'])))
-    logger.set_indent(0)
-    logger.debug("Callback for %s" % fnr)
-    alternative_account_id = other_account_owners.get(fnr, -1)
-    logger.set_indent(3)
-    logger.debug(logger.pformat(_filter_person_info(person_info)))
-    try:
-        profile = autostud.get_profile(person_info)
-        logger.debug(profile.debug_dump())
-    except AutoStud.ProfileHandler.NoMatchingProfiles, msg:
-        logger.warn("No matching profile error for %s: %s" %  (fnr, msg))
-        logger.set_indent(0)
-        return
-    except Errors.NotFoundError, msg:
-        logger.warn("(person) not found error for %s: %s" %  (fnr, msg))
-        logger.set_indent(0)
-        return
-    
-    processed_students[fnr] = 1
-    keep_account_home[fnr] = profile.get_build()['home']
-    if fast_test:
-        logger.debug(profile.debug_dump())
-        # logger.debug("Disk: %s" % profile.get_disk())
-        logger.set_indent(0)
-        return
-    try:
-        # Note that we don't pass current_disk to get_disks() here.
-        # Thus this value may differ from the one used during an
-        # update
-        try:
-            dfg = profile.get_dfg()       # dfg is only mandatory for PosixGroups
-        except AutoStud.ProfileHandler.NoDefaultGroup:
-            dfg = "<no_dfg>"
-        if keep_account_home[fnr]:
-            # This will throw an exception if <build home="true">, and
-            # we can't get a disk.  This is what we want
-            disk = []
-            spreads = [int(s) for s in profile.get_spreads()]
-            for s in profile.get_disk_spreads():
-                if s in spreads:
-                    disk.append((profile.get_disk(s), s))
-            if not disk:
-                raise AutoStud.ProfileHandler.NoAvailableDisk, "No disk matches profiles"
-        else:
-            disk = "<no_home>"
-        logger.debug("disk=%s, dfg=%s, fg=%s sko=%s" % \
-                     (str(disk), dfg,
-                      profile.get_grupper(),
-                      profile.get_stedkoder()))
-        if dryrun:
-            logger.set_indent(0)
-            return
-        if (create_users and not students.has_key(fnr) and
-            profile.get_build()['action']):
-            if alternative_account_id is None:
-                logger.debug("Has active non-student account, skipping")
-                return
-            elif alternative_account_id != -1:  # has a reserved account
-                logger.debug("using reserved: %i" % alternative_account_id)
-                account_id = alternative_account_id
-                update_account(profile, fnr, [account_id],
-                               account_info=students.get(fnr, {}))
-            else:
-                account_id = create_user(fnr, profile)
-            if account_id is None:
-                logger.set_indent(0)
-                return
-            students.setdefault(fnr, {})[account_id] = []
-        elif update_accounts and students.has_key(fnr):
-            update_account(profile, fnr, students[fnr].keys(),
-                           account_info=students[fnr])
-    except AutoStud.ProfileHandler.NoAvailableDisk, msg:
-        logger.error("  Error for %s: %s" % (fnr, msg))
-    logger.set_indent(0)
-    # We commit once for each person to avoid locking too many db-rows
-    if not dryrun:
-        db.commit()
+        dfg = profile.get_dfg()       # dfg is only mandatory for PosixGroups
+    except AutoStud.ProfileHandler.NoDefaultGroup:
+        dfg = "<no_dfg>"
+    if keep_account_home[fnr]:
+        # This will throw an exception if <build home="true">, and
+        # we can't get a disk.  This is what we want
+        disk = []
+        spreads = [int(s) for s in profile.get_spreads()]
+        for s in profile.get_disk_spreads():
+            if s in spreads:
+                disk.append((profile.get_disk(s), s))
+        if not disk:
+            raise AutoStud.ProfileHandler.NoAvailableDisk(
+                "No disk matches profiles")
+    else:
+        disk = "<no_home>"
+    logger.debug("disk=%s, dfg=%s, fg=%s sko=%s" % \
+                 (str(disk), dfg,
+                  profile.get_grupper(),
+                  profile.get_stedkoder()))
 
 def validate_config():
     AutoStud.AutoStud(db, logger, debug=debug, cfg_file=studconfig_file,
                       studieprogs_file=studieprogs_file,
                       emne_info_file=emne_info_file)
-
-def process_students():
-    global autostud, students, other_account_owners
-
-    logger.info("process_students started")
-    students, other_account_owners = get_existing_accounts()
-    
-    logger.info("got student accounts")
-    autostud = AutoStud.AutoStud(db, logger, debug=debug, cfg_file=studconfig_file,
-                                 studieprogs_file=studieprogs_file,
-                                 emne_info_file=emne_info_file,
-                                 ou_perspective=ou_perspective)
-    logger.info("config processed")
-    if recalc_pq:
-        if paper_money_file:
-            for p in AutoStud.StudentInfo.GeneralDataParser(paper_money_file, 'betalt'):
-                fnr = fodselsnr.personnr_ok("%06d%05d" % (int(p['fodselsdato']),
-                                                          int(p['personnr'])))
-                paid_paper_money[fnr] = True
-        autostud.start_student_callbacks(student_info_file,
-                                         recalc_quota_callback)
-        # Set default_quota for the rest that already has quota
-        pq = PrinterQuotas.PrinterQuotas(db)
-        dv = autostud.pc.default_values
-        for row in pq.list_quotas():
-            account_id = int(row['account_id'])
-            if row['has_printerquota'] == 'F' or has_quota.get(account_id, False):
-                continue
-            logger.debug("Default quota for %i" % account_id)
-            pq.clear()
-            try:
-                pq.find(account_id)
-            except Errors.NotFoundError:
-                logger.error("not found: %i, recently deleted?" % account_id)
-                continue
-            pq.weekly_quota = dv['print_uke']
-            pq.max_quota = dv['print_max_akk']
-            pq.termin_quota = dv['print_max_sem']
-            if paper_money_file:
-                if not account_id2fnr.has_key(account_id):
-                    # probably a deleted user
-                    logger.debug("account_id %i not in account_id2fnr, deleted?" % account_id)
-                elif not paid_paper_money.get(account_id2fnr[account_id], False):
-                    logger.debug("didn't pay, max_quota=0 for %i " % account_id)
-                    pq.max_quota = 0
-                    pq.printer_quota = 0
-            pq.write_db()
-        if not dryrun:
-            db.commit()
-        else:
-            db.rollback()
-    else:
-        autostud.start_student_callbacks(student_info_file,
-                                         process_students_callback)
-        logger.set_indent(0)
-        logger.info("student_info_file processed")
-        if not dryrun:
-            db.commit()
-            logger.info("making letters")
-            if only_dump_to is not None:
-                f = open(only_dump_to, 'w')
-                pickle.dump(all_passwords, f)
-                f.close()
-            else:
-                make_letters()
-        else:
-            db.rollback()
-        process_unprocessed_students()
-    logger.info("process_students finished")
-
-def process_unprocessed_students():
-    """Unprocessed students didn't match a profile, or didn't get a
-    callback at all"""
-    # TBD: trenger vi skille på de?
-    
-    user = Factory.get('Account')(db)
-    for fnr in students.keys(): 
-        if not processed_students.has_key(fnr):
-            logger.debug("%s has student accounts, but has not been processed" % fnr)
-        if not keep_account_home.get(fnr, False):
-            # List accounts that the student has, and that lies on a
-            # student-disk
-            accounts = []
-            for account_id in students[fnr].keys():
-                user.clear()
-                user.find(account_id)
-                disk_ids = []
-                for disk_spread in autostud.pc.disk_spreads.keys():
-                    try:
-                        tmp=user.get_home(disk_spread)['disk_id']
-                        if autostud.student_disk.has_key(tmp):
-                            disk_ids.append((int(tmp), int(disk_spread)))
-                    except (Errors.NotFoundError, TypeError):
-                        pass
-                accounts.append("%s:%s" % (user.account_name,
-                                           str(disk_ids)))
-            logger.debug("%s didn't set keep_account_home: %s" % (fnr, str(accounts)))
 
 def main():
     try:
@@ -872,7 +960,7 @@ def main():
     if range is not None:
         make_letters("letters.info", type=type, range=val)
     else:
-        process_students()
+        start_process_students()
     
 def usage(error=None):
     if error:
@@ -917,6 +1005,12 @@ if __name__ == '__main__':
     #AutoStud.AutoStud(db, logger, debug=3,
     #                  cfg_file="/home/runefro/usit/cerebrum/uiocerebrum/etc/config/studconfig.xml")
 
-    main()
+    if False:
+        print "Profilerer..."
+        prof = hotshot.Profile(proffile)
+        prof.runcall(main)                # profiler hovedprogrammet
+        prof.close()
+    else:
+        main()
 
 # arch-tag: 99817548-9213-4dc3-8d03-002fc6a2f138
