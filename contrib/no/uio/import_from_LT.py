@@ -111,6 +111,32 @@ def get_person_info(outfile):
         persondta[key]['gjest'] = persondta[key].get('gjest', []) + [g]
     # od
 
+    pcols, permisjoner = LT.GetPermisjoner()
+    for p in permisjoner:
+        key = string.join([ str(x)
+                            for x in 
+                              [p["fodtdag"], p["fodtmnd"],
+                               p["fodtar"], p["personnr"]]
+                            ], "-")
+        if not persondta.has_key(key):
+            persondta[key] = {}
+        # fi
+
+        if not persondta[key].has_key("permisjon"):
+            persondta[key]["permisjon"] = {}
+        # fi
+
+        # Since LT.Permisjon(key, tilsnr) is the PK, this assignment will never
+        # overwrite any information
+        pkey = str(p.tilsnr)
+        if not persondta[key]["permisjon"].has_key(pkey):
+            persondta[key]["permisjon"][pkey] = []
+        # fi
+        
+        persondta[key]["permisjon"][pkey].append(p)
+    # od
+
+
     # Skriv ut informasjon om de personer vi allerede har hentet, og
     # hent noe tillegs informasjon om de
     f=open(outfile, 'w')
@@ -138,18 +164,31 @@ def get_person_info(outfile):
             f.write("  "+xml.xmlify_dbrow(
                 r, xml.conv_colnames(rcols), 'rolle') +"\n")
 
+        permisjoner = persondta[p].get("permisjon", {})
         for t in persondta[p].get('tils', ()):
             # Unfortunately the oracle driver returns
             # to_char(dato_fra,'yyyymmdd') as key for rows, so we use
             # indexes here :-(
             attr = " ".join(["%s=%s" % (tilscols[i], xml.escape_xml_attr(t[i]))
-                             for i in (4,5,6,7,8,9,10, )])
+                             for i in (4,5,6,7,8,9,10,11, )])
             if t['stillingkodenr_beregnet_sist'] is not None:
                 sk = skode2tittel[t['stillingkodenr_beregnet_sist']]
                 attr += ' hovedkat=%s' % xml.escape_xml_attr(
                     kate2hovedkat[sk[1]])
                 attr += ' tittel=%s' % xml.escape_xml_attr(sk[0])
-                f.write("  <tils "+attr+"/>\n")
+                f.write("  <tils " + attr + " >\n" )
+
+                formatted_leaves = output_leaves( t, permisjoner )
+                for leave in formatted_leaves:
+                    pattr = string.join( ["%s=%s" %
+                                          (x[0], xml.escape_xml_attr(x[1]))
+                                          for x in leave] )
+                    f.write("    <permisjon " + pattr + " />\n")
+                # od
+                
+                f.write( "  </tils>\n" )
+            # fi
+        # od
 
         if reservasjoner.has_key(p): 
             for r in reservasjoner[p].get('res', ()):
@@ -164,7 +203,7 @@ def get_person_info(outfile):
                 continue
 
             attr = string.join(["%s=%s" % (lonnscols[i],
-                                            xml.escape_xml_attr(t[i]))
+                                           xml.escape_xml_attr(t[i]))
                                 for i in (0,5,6,7,)],
                                " ")
             f.write("  <bilag " + attr + "/>\n")
@@ -182,6 +221,32 @@ def get_person_info(outfile):
 
     f.write("</data>\n")
 # end get_person_info
+
+
+
+def output_leaves( tilsetting, permisjoner ):
+    """
+    Returns a sequence S of subsequences Q, where each Q contains pairs P of
+    the form (<name>, <value>):
+
+    [ [ ('permisjonskode', '13'), ('dato_fra', '20031212'), ... ],
+      [ ('permisjonskode', '46'), ('dato_fra', '20040107'), ... ],
+    ]
+    """
+
+    accumulator = []
+
+    key = str(tilsetting.tilsnr)
+    for permisjon in permisjoner.get(key, []):
+        result = [ (x, getattr(permisjon, x)) for x in
+                   [ "permarsakkode", "dato_fra", "dato_til",
+                     "prosent_permisjon", ] ]
+        accumulator.append( result )
+    # od
+
+    return accumulator
+# end 
+
 
 
 def make_key(db_row):
