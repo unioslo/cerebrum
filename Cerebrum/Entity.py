@@ -49,8 +49,8 @@ class Entity(DatabaseAccessor):
     __read_attr__ = ('__in_db', 'const',
                      # TBD: HM *thinks* these attributes should be
                      # write-once...
-                     'entity_id', 'entity_type')
-    __write_attr__ = ()
+                     'entity_id')
+    __write_attr__ = ('entity_type',)
 
     def __init__(self, database):
         """
