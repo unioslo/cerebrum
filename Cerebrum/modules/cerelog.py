@@ -598,13 +598,14 @@ class CerebrumRotatingHandler(logging.FileHandler, object):
         self.logdir = logdir
         self.directory = os.path.basename(sys.argv[0])
         self.basename = "log"
-        if not os.path.exists(self.logdir):
-            os.mkdir(self.logdir, 0770)
-        # fi
-
         directory = os.path.join(self.logdir, self.directory)
         if not os.path.exists(directory):
-            os.mkdir(directory, 0770)
+            try:
+                os.makedirs(directory, 0770)
+            except OSError, e:    
+                if e[0] != 17:
+                    # the error is not 'file exists', which we ignore
+                    raise e
         # fi
 
         self.filename = os.path.join(self.logdir,
