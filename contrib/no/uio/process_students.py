@@ -3,6 +3,7 @@
 import getopt
 import sys
 import os
+import pickle
 
 import cereconf
 from time import gmtime, strftime, time
@@ -32,7 +33,7 @@ def bootstrap():
     default_expire_date = None
     default_shell = const.posix_shell_bash
 
-def create_user(fnr, profile, reserve=0):
+def create_user(fnr, profile):
     logger.info2("CREATE")
     person = Person.Person(db)
     try:
@@ -41,8 +42,8 @@ def create_user(fnr, profile, reserve=0):
         logger.warn("OUCH! person %s not found" % fnr)
         return None
     posix_user = PosixUser.PosixUser(db)
-    full_name = person.get_name(const.system_fs, const.name_full)
-    first_name, last_name = full_name.split(" ", 1) # TODO: fs-import bør lagre begge navn
+    full_name = person.get_name(const.system_cached, const.name_full)
+    first_name, last_name = full_name.split(" ", 1)
     uname = posix_user.suggest_unames(const.account_namespace,
                                       first_name, last_name)[0]
     account = Factory.get('Account')(db)
@@ -51,13 +52,12 @@ def create_user(fnr, profile, reserve=0):
                      person.entity_id,
                      None,
                      default_creator_id, default_expire_date)
-    password = posix_user.make_passwd(uname)
+    password = account.make_passwd(uname)
     account.set_password(password)
-    # TODO: må også lage brev-info fra profil (språk?)
-    show_update('a', account.write_db())
-    all_passwords[int(account.entity_id)] = [password, reserve]
-    if not reserve:
-        update_account(profile, [account.entity_id])
+    tmp = account.write_db()
+    logger.debug2("new Account, write_db=%s" % tmp)
+    all_passwords[int(account.entity_id)] = [password, profile.get_brev()]
+    update_account(profile, [account.entity_id])
     return account.entity_id
 
 def update_account(profile, account_ids, do_move=0, rem_grp=0, account_info={}):
@@ -79,7 +79,8 @@ def update_account(profile, account_ids, do_move=0, rem_grp=0, account_info={}):
                 profile.notify_used_disk(old=posix_user.disk_id, new=disk)
                 posix_user.disk_id = disk
             posix_user.gid = profile.get_dfg()
-            show_update('u', posix_user.write_db())
+            tmp = posix_user.write_db()
+            logger.debug2("old PosixUser, write_db=%s" % tmp)
         except Errors.NotFoundError:
             disk_id=profile.get_disk()
             profile.notify_used_disk(old=None, new=disk_id)
@@ -88,12 +89,14 @@ def update_account(profile, account_ids, do_move=0, rem_grp=0, account_info={}):
             shell = default_shell
             posix_user.populate(uid, gid, None, shell, disk_id=disk_id,
                                 parent=account_id)
-            show_update('U', posix_user.write_db())
+            tmp = posix_user.write_db()
+            logger.debug2("new PosixUser, write_db=%s" % tmp)
+        # Populate groups
         already_member = {}
         for r in group.list_groups_with_entity(account_id):
             if r['operation'] == const.group_memberop_union:
                 already_member[int(r['group_id'])] = 1
-        for g in profile.get_grupper():  # TODO: Vil antagelig være get_groups()
+        for g in profile.get_grupper():
             if not already_member.get(g, 0):
                 group.clear()
                 group.find(g)
@@ -106,7 +109,8 @@ def update_account(profile, account_ids, do_move=0, rem_grp=0, account_info={}):
                 if g in autostud.autogroups:
                     pass  # TODO:  studxonfig.xml should have the list...
 
-        # Speedup: Only fetch person obj from DB if it is modified
+        # Populate affiliations
+        # Speedup: Try to determine if object is changed without populating
         changed = 0
         paffs = person_affiliations.get(int(posix_user.owner_id), [])
         for ou_id in profile.get_stedkoder():
@@ -119,12 +123,13 @@ def update_account(profile, account_ids, do_move=0, rem_grp=0, account_info={}):
                 pass
         if len(paffs) > 0:
             changed = 1
+        person.find(posix_user.owner_id)
         if changed:
-            person.find(posix_user.owner_id)
             for ou_id in profile.get_stedkoder():
                 person.populate_affiliation(const.system_fs, ou_id, const.affiliation_student,
                                             const.affiliation_status_student_valid)
-            show_update('p', person.write_db())
+            tmp = person.write_db()
+            logger.debug2("alter person affiliations, write_db=%s" % tmp)
         for ou_id in profile.get_stedkoder():
             has = 0
             for has_ou, has_aff in account_info.get(account_id, []):
@@ -132,8 +137,18 @@ def update_account(profile, account_ids, do_move=0, rem_grp=0, account_info={}):
                     has = 1
             if not has:
                 posix_user.add_account_type(person.entity_id, ou_id, const.affiliation_student)
+        # Populate spreads
+        has_acount_spreads = [int(x['spread']) for x in posix_user.get_spread()]
+        has_person_spreads = [int(x['spread']) for x in person.get_spread()]
+        for spread in profile.get_spreads():
+            if spread.entity_type == const.entity_account:
+                if not int(spread) in has_acount_spreads:
+                    posix_user.add_spread(spread)
+            elif spread.entity_type == const.entity_person:
+                if not int(spread) in has_person_spreads:
+                    person.add_spread(spread)
+            
         # TODO: update default e-mail address
-        # TODO: spread
 
 def get_student_accounts():
     if fast_test:
@@ -165,11 +180,12 @@ def make_letters(data_file=None, type=None, range=None):
         f.close()
         for r in [int(x) for x in range.split(",")]:
             tmp = tmp_passwords["%s-%i" % (type, r)]
-            tmp[1].append(r)
+            tmp.append(r)
             all_passwords[tmp[0]] = tmp[1]
     person = Person.Person(db)
     account = Account.Account(db)
     dta = {}
+    logger.debug("Making %i letters" % len(all_passwords))
     for account_id in all_passwords.keys():
         try:
             account.clear()
@@ -196,47 +212,62 @@ def make_letters(data_file=None, type=None, range=None):
 
         tpl['uname'] = account.account_name
         tpl['password'] =  all_passwords[account_id][0]
-        tpl['fullname'] =  person.get_name(const.system_fs, const.name_full)
+        tpl['birthdate'] = person.birth_date.strftime('%Y-%m-%d')
+        tpl['fullname'] =  person.get_name(const.system_cached, const.name_full)
         tmp = person.get_external_id(id_type=const.externalid_fodselsnr,
                                      source_system=const.system_fs)
         tpl['birthno'] =  tmp[0]['external_id']
         tpl['emailadr'] =  "TODO"  # We probably don't need to support this...
         dta[account_id] = tpl
 
+    # Print letters sorted by zip.  Each template type has its own
+    # letter number sequence
     keys = dta.keys()
     keys.sort(lambda x,y: cmp(dta[x]['zip'], dta[y]['zip']))
     letter_info = {}
-    tmp = ('reservert', 'konto')
-    if data_file is not None:
-        tmp = (type,)
-    for run_no in tmp:
-        num = 1
-        out = file("letter-%s.%i" % (run_no, time()), "w")
-        if run_no == 'reservert':
-            th = TemplateHandler('no', 'new_user', 'txt')
+    files = {}
+    tpls = {}
+    counters = {}
+    # TODO: Barcode handling, we need to determine what should be
+    # written in the barcode, and how the template should know that it
+    # needs barcode handling.
+    for account_id in keys:
+        password, brev_profil = all_passwords[account_id][:2]
+        letter_type = "%s.%s" % (brev_profil['mal'], brev_profil['type'])
+        if not files.has_key(letter_type):
+            files[letter_type] = file("letter-%i-%s" % (time(), letter_type), "w")
+            tpls[letter_type] = TemplateHandler(
+                'no-letter', brev_profil['mal'], brev_profil['type'])
+            if tpls[letter_type]._hdr is not None:
+                files[letter_type].write(tpls[letter_type]._hdr)
+            counters[letter_type] = 1
+        if data_file is not None:
+            dta[account_id]['lopenr'] = all_passwords[account_id][2]
         else:
-            th = TemplateHandler('no', 'new_user', 'txt')
-        if th._hdr is not None:
-            out.write(th._hdr)
-        for k in keys:
-            if all_passwords[k][1] != run_no:
-                continue
-            letter_info["%s-%i" % (run_no, num)] = [k, all_passwords[k]]
-            if data_file is not None:
-                dta[k]['lopenr'] = all_passwords[k][2]
-            else:
-                dta[k]['lopenr'] = num
-            out.write(th.apply_template('body', dta[k]))
-            num += 1
-        if th._footer is not None:
-            out.write(th._footer)
-        out.close()
+            dta[account_id]['lopenr'] = counters[letter_type]
+            letter_info["%s-%i" % (brev_profil['mal'], counters[letter_type])] = \
+                                [account_id, [password, brev_profil, counters[letter_type]]]
+        files[letter_type].write(tpls[letter_type].apply_template(
+            'body', dta[account_id]))
+        counters[letter_type] += 1
     # Save passwords for created users so that letters may be
     # re-printed at a later time in case of print-jam etc.
-    if data_file is not None:
+    if data_file is None:
         f=open("letters.info", 'w')
         pickle.dump(letter_info, f)
         f.close()
+    # Close files and spool jobs
+    for letter_type in files.keys():
+        if tpls[letter_type]._footer is not None:
+            files[letter_type].write(tpls[letter_type]._footer)
+        files[letter_type].close()
+        try:
+            tpls[letter_type].spool_job(files[letter_type].name,
+                                        tpls[letter_type]._type, cereconf.PRINT_PRINTER,
+                                        skip_lpr=skip_lpr)
+            os.unlink(tpls[letter_type].logfile)
+        except IOError, msg:
+            print msg
 
 def process_students_callback(person_info):
     fnr = fodselsnr.personnr_ok("%06d%05d" % (int(person_info['fodselsdato']),
@@ -266,7 +297,7 @@ def process_students_callback(person_info):
                 logger.set_indent(0)
                 return
             students.setdefault(fnr, []).append(account_id)
-        if update_accounts and students.has_key(fnr):
+        elif update_accounts and students.has_key(fnr):
             update_account(profile, students[fnr].keys(),
                            account_info=students[fnr])
     except ValueError, msg:  # TODO: Bad disk should throw a spesific class
@@ -291,15 +322,18 @@ def process_students():
     logger.info("process_students finished")
 
 def main():
-    opts, args = getopt.getopt(sys.argv[1:], 'dcus:C:',
-                               ['debug', 'create-users', 'update-accounts',
-                                'student-info-file=',
-                                'studconfig-file=', 'fast-test',
-                                'workdir', 'type', 'reprint'])
-
-    global debug, fast_test, create_users, update_accounts, logger
+    try:
+        opts, args = getopt.getopt(sys.argv[1:], 'dcus:C:',
+                                   ['debug', 'create-users', 'update-accounts',
+                                    'student-info-file=',
+                                    'studconfig-file=', 'fast-test', 'with-lpr',
+                                    'workdir=', 'type=', 'reprint='])
+    except getopt.GetoptError:
+        usage()
+    global debug, fast_test, create_users, update_accounts, logger, skip_lpr
     global student_info_file, studconfig_file
-    
+
+    skip_lpr = True       # Must explicitly tell that we want lpr
     update_accounts = create_users = 0
     fast_test = False
     workdir = None
@@ -318,6 +352,8 @@ def main():
             studconfig_file = val
         elif opt in ('--fast-test',):  # Internal debug use ONLY!
             fast_test = True
+        elif opt in ('--with-lpr',):
+            skip_lpr = False
         elif opt in ('--workdir',):
             workdir = val
         elif opt in ('--type',):
@@ -334,7 +370,7 @@ def main():
         os.mkdir(workdir)
     os.chdir(workdir)
     logger = AutoStud.Util.ProgressReporter(
-        "%s/run.log.%i" % (workdir, os.getpid()))
+        "%s/run.log.%i" % (workdir, os.getpid()), stdout=1)
     if range is not None:
         make_letters("letters.info", type=type, range=val)
     else:
