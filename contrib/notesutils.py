@@ -45,36 +45,58 @@ class SocketCom(object):
     """Class for Basic socket communication to connect to the ADserver"""
 
     p = re.compile('210 OK')
-    
+
     def __init__(self):
+        self._buffer = ""
         self.connect()
 
-        
-    def connect(self):    
+
+    def connect(self):
         try:
 	    self.sockobj = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+#           self.sockobj.connect(('devel01', 2000))
 	    self.sockobj.connect((cereconf.NOTES_SERVER_HOST, cereconf.NOTES_SERVER_PORT))
             print 'INFO: Connecting, starting session', now()
             print ">>", self.sockobj.recv(8192),
 	    print "<< Authenticating"
+#	    self.sockobj.send('test\n')
 	    self.sockobj.send(cereconf.NOTES_PASSWORD)
-	    self.read()
+	    self.readline()
         except:
 	    print 'CRITICAL: failed connecting to:', cereconf.NOTES_SERVER_HOST, cereconf.NOTES_SERVER_PORT
-            raise 
+            raise
 
 
     def send(self, message):
         print "<<", message,
         self.last_send=message
         self.sockobj.send(message)
-        
+
+
+    def readline(self, out=True):
+        while True:
+            eol = self._buffer.find("\n")
+            if eol == -1:
+                new_data = self.sockobj.recv(8192)
+                if not new_data:
+                    # End of file.
+                    ret = self._buffer
+                    self._buffer = ""
+                    break
+                self._buffer += new_data
+            else:
+                ret = self._buffer[:eol]
+		self._buffer = self._buffer[eol+1:]
+                break
+	ret=ret.lstrip()
+        return ret
+
 
     def read(self,out=1):
         received = []
         rec = []
         while 1:
-            data = self.sockobj.recv(8192)
+            data = self.sockobj.recv(8196)
             if data[3] != '-': break
             m=self.p.search(data)
             if m: break
@@ -98,14 +120,14 @@ class SocketCom(object):
 
 def get_crbrm_ou(ou_id):
 
-    try:      
+    try:
         ou.clear()
         ou.find(ou_id)
         path = ou.structure_path(co.perspective_lt)
-	#Notes can only take 4 OU levels. 
+	#Notes can only take 4 OU levels.
         ou_path = path.split('/',4)
 	#Do not wish to send the root OU name to Notes.
-	return ou_path[:-1]	
+	return ou_path[:-1]
     except Errors.NotFoundError:
         print "WARNING: Could not find OU with id",ou_id
 
@@ -117,14 +139,14 @@ def chk_quarantine(account_id):
     quarantines = quarantine.get_entity_quarantine()
     qua = []
     for row in quarantines:
-        qua.append(row['quarantine_type']) 
+        qua.append(row['quarantine_type'])
     qh = QuarantineHandler.QuarantineHandler(db, qua)
     try:
-        if qh.is_locked():           
+        if qh.is_locked():
             account_disable += 1
-    except KeyError:        
-        print "WARNING: missing QUARANTINE_RULE"    
-    if account_disable:		
+    except KeyError:
+        print "WARNING: missing QUARANTINE_RULE"
+    if account_disable:
 	return True
 
 
@@ -154,4 +176,3 @@ def now():
 
 if __name__ == '__main__':
     pass
-
