@@ -1,0 +1,415 @@
+/*
+ * Copyright 2004 University of Oslo, Norway
+ *
+ * This file is part of Cerebrum.
+ *
+ * Cerebrum is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * Cerebrum is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with Cerebrum; if not, write to the Free Software Foundation,
+ * Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+ */
+
+## Method wich fixes some problems on diffrent browers
+#def shrink($name)
+html>body $name {
+    display: table;
+    width: auto;
+}
+$name {
+    white-space:nowrap; /* to force width */
+    width:20px;/* rumor is IE should auto-expand  -- doesn't appear true? */
+}
+#end def
+
+## Main title on the all pages.
+div.title {
+    overflow: visible;
+    border-bottom: 1px dashed gray;
+    margin-bottom: 0.5em;
+    width: 500px;
+}
+
+## Smaller title, and fancier!
+div.subtitle {
+    text-align: center;
+    font-size: 80%;
+    background-color: #abc;
+    border-bottom: black 1px solid;
+    border-right: black 1px solid;
+    margin-bottom: 0.5em;
+    width: 440px;
+}
+
+## Dashed line over notes and quarantines on all view entities pages.
+div.entityview {
+    border-top: 1px dashed gray;
+    padding-top: 0.4em;
+}
+
+## Nice looking search page with simple css
+## copyed from www.quirksmode.org/css/form.html
+## new
+div.searchsection {
+    display: block;
+    width: 20em;
+    border: 1px solid black;
+    padding: 2px;
+}
+
+div.searchsection table {
+    border: none;
+    witdh: 100%;
+}
+
+div.searchsection th {
+    border-bottom: 1px dotted gray;
+}
+
+div.searchsection th.more {
+    text-decoration: none;
+}
+
+div.searchsection input:focus {
+    background: #ffe;
+}
+
+## old
+div.search {
+    display: block;
+    width: 23em;
+}
+
+div.searchform label, div.searchform input {
+    width: 12em;
+    float: left;
+    margin-bottom: 0.4em;
+}
+
+div.searchform label {
+    text-align: right;
+    width: 9em;
+    padding-right: 12px;
+}
+
+div.searchform br {
+    clear: left;
+}
+
+div.searchform input:focus {
+    background: #ffe;
+}
+
+div.search div.help {
+    border: 1px dotted black;
+    padding: 2px;
+    margin: 2px;
+    margin-bottom: 0.5em;
+}
+
+div.searchresult {
+    empty-cells: show; 
+}
+
+.searcherror {
+    border: 1px dottet red;
+}
+
+## Styles for create pages, like create person etc..
+div.create {
+    display: block;
+    width: 23em;
+}
+
+div.createform label, div.createform input, div.createform select, div.createform textarea {
+    width: 12em;
+    float: left;
+    margin-bottom: 0.4em;
+}
+
+div.createform label {
+    text-align: right;
+    width: 9em;
+    padding-right: 12px;
+}
+
+div.createform br {
+    clear: left;
+}
+
+div.createform input:focus, div.createform textarea:focus {
+    background: #ffe;
+}
+
+div.create div.help {
+    border: 1px dotted black;
+    padding: 2px;
+    margin: 2px;
+    margin-bottom: 0.5em;
+}
+
+## Styles for edit pages, like person edit etc..
+div.edit {
+    display: block;
+    width: 23em;
+}
+
+div.editform label, div.editform input, div.editform select, div.editform textarea {
+    width: 12em;
+    float: left;
+    margin-bottom: 0.4em;
+}
+
+div.editform label {
+    text-align: right;
+    width: 9em;
+    padding-right: 12px;
+}
+
+div.editform br {
+    clear: left;
+}
+
+div.editform input:focus, div.editform textarea:focus {
+    background: #ffe;
+}
+
+div.edit div.help {
+    border: 1px dotted black;
+    padding: 2px;
+    margin: 2px;
+    margin-bottom: 0.5em;
+}
+
+## The info part for view person, should be quite similar to all
+## other infoparts on entities, and other stuff, so will probably make
+## it more general, and use the same for all.
+div.viewinfo {
+    margin-bottom: 1em;
+}
+$shrink("div.viewinfo")
+
+div.info {
+    margin-bottom: 0.2em;
+    border-bottom: 1px dashed gray;
+}
+
+div.viewinfo .deceased {
+    font-weight: bold;
+    color: #f00;
+}
+
+## The yellow box for notes in entities.
+div.notes {
+    background: #ffc;
+    border: 1px solid #dda;
+    border-collapse: collapse;
+    margin-bottom: 1em;
+    padding: 0.3em;
+}
+$shrink("div.notes")
+
+div.notes h2 {
+    margin: 0;
+    padding: 0;
+    background: #dda;
+    font-size: 100%;
+    width: 100%;
+}
+
+div.notes input, div.notes textarea {
+    font-size: 80%;
+    font-family: sans-serif;
+}
+
+div.notes form h3 {
+    font-size: 100%;
+}
+
+div.notes label {
+    display: block;
+    font-size: 80%;
+}
+
+div.note {
+    border-bottom: 1px dashed #dda;
+}
+
+## The light blue box for list over names on the view person page.
+div.personnames {
+    background: #eff;
+    border: 1px solid #bdf;
+    border-collapse: collapse;
+    margin-bottom: 1em;
+    padding: 0.3em;
+}
+$shrink("div.personnames")
+
+div.personnames h2 {
+    margin: 0;
+    padding: 0;
+    background: #bdf;
+    font-size: 100%;
+    width: 100%;
+}
+
+div.personnames input, div.personnames select {
+    font-size: 80%;
+    font-family: sans-serif;
+}
+
+div.personnames form h3 {
+    font-size: 100%;
+}
+
+div.personnames label {
+    display: block;
+    font-size: 80%;
+}
+
+div.name {
+    border-bottom: 1px dashed #bdf;
+}
+
+## The red box for quarantines on all pages wich views entities.
+div.quarantines {
+    background: #cba;
+    font-size: 80%;
+    float: right;
+}
+
+div.quarantines h2 {
+    margin: 0;
+    padding: 0;
+    background: #da9;
+    font-size: 125%;
+}
+
+div.quarantines td {
+    padding: 0.2em;
+}
+
+## List of accounts on view person page.
+div.personaccounts {
+}
+
+div.personaccount {
+    font-size: 90%;
+    border-bottom: #eef 2px dotted;
+}
+
+div.persongroup {
+    font-size: 90%;
+    margin-left: 2em;
+}
+
+div.personaccounts input {
+    font-size: 80%;
+    margin-bottom: 0.1em;
+}
+
+## Listing of accounts both on the account view page, and all accounts
+## for a certain person on view person page.
+div.accounts {
+    background: #fff;
+    border: 1px solid #abc;
+    border-collapse: collapse;
+    margin-bottom: 1em;
+    padding: 0.3em;
+}
+$shrink("div.accounts")
+
+div.accounts h2 {
+    margin: 0;
+    padding: 0;
+    background: #abc;
+    font-size: 100%;
+}
+
+div.account {
+    font-size: 90%;
+    margin-top: 0.5em;
+    margin-bottom: 0.5em;
+    border-bottom: #eef 2px dotted;
+}
+$shrink("div.account")
+
+div.account h2 {
+    background: #eef;
+    font-size: 100%;
+    margin-bottom: 0;
+}
+
+div.accounts div.create {
+    font-size: 80%;
+    background: #cde;
+    padding-bottom: 0.5em;
+    margin-top: 0.5em;
+}
+$shrink("div.accounts div.create")
+
+div.accounts div.accountcreate h3 {
+    background: #abc;
+    margin: 0;
+    font-size: 100%;
+    padding-left: 1em;
+}
+
+div.accounts div.accountcreate form {
+    padding-left: 1em;
+    padding-right: 1em;
+}
+
+div.accounts div.accountcreate label {
+    display: block;
+}
+
+div.accounts input, div.accountcreate input {
+    font-size: 80%;
+    padding: 0;
+}
+
+## Actions is links wich perfom action on something, for instance
+## [delete] on notes. Or [edit] on the view person page.
+div.actions a, div.account a, a.actions {
+    color: blue;
+    white-space: nowrap;
+    margin-bottom: 0.1em;
+    padding-right: 0.2em;
+    text-align: center;
+}
+
+div.actions a:visited, div.account a:visited, a.actions:visited {
+    color: blue;
+}
+
+div.actions a:before, div.account a:before, a.actions:before {
+##    content: "[";
+}
+ 
+div.actions a:after, div.account a:after, a.actions:after {
+##    content: "]";
+}
+
+## Historylog is placed on the far right on the bottom "frame".
+$shrink("div.historylog")
+
+div.historylog h2 {
+    margin: 0;
+    padding: 0;
+    background: #ad9;
+    font-size: 100%;
+}
+
+div.historylog td, div.activitylog td, table.results td {
+    border-bottom: 1px dotted #aaa;
+}
+

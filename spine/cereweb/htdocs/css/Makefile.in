@@ -1,0 +1,45 @@
+##
+## Makefile for Cheetah-based stylesheets (CSS)
+##
+SHELL = @SHELL@
+INSTALL = @INSTALL@
+CHEETAH = @CHEETAH@
+
+prefix = @prefix@
+libdir = @libdir@
+webroot = @webroot@
+cssdir = $(webroot)/css
+
+sources = $(wildcard *.tmpl)
+stylesheets = $(patsubst %.tmpl,%.css, $(sources))
+backups = $(patsubst %.css,%.css_bak, $(stylesheets))
+
+.PHONY: all install clean distclean print
+
+all: $(stylesheets)
+
+$(stylesheets): %.css: %.tmpl 
+	$(CHEETAH) fill --oext css $<
+
+print:
+	@echo Sources
+	@echo $(sources)
+	@echo ---
+	@echo Templates
+	@echo $(stylesheets)
+	@echo --
+	@echo Going to $(templatedir)
+
+install: $(stylesheets)
+	@for file in $(stylesheets); do \
+	  $(INSTALL) -D -v -m 644 $$file $(DESTDIR)/$(cssdir)/$$file || exit 1; \
+	done
+	$(INSTALL) -D -v -m 644 htaccess $(DESTDIR)/$(cssdir)/.htaccess
+
+clean:
+	rm -f *~ 
+	rm -f $(stylesheets)
+	rm -f $(backups)
+
+distclean: clean
+	rm -f Makefile
