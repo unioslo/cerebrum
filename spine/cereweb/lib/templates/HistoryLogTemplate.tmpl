@@ -23,18 +23,18 @@
 #from SortedTableTemplate import SortedTableTemplate
 
 #def viewHistoryLog($table, $id)
-#set $headers = {'timestamp': $_("Timestamp"), 'icon': $_("Icon"), 'who': $_("Who"), 'message': $_("Message")}
+#set $headers = {'timestamp': $_("Timestamp"), 'icon': $_("Icon"), 'who': $_("Who"), 'category': $_("Category"), 'message': $_("Message")}
 <div class="historylog">
 <h2>History log</h2>
 $SortedTableTemplate().sorted_table($table, $headers, $url("sortpri=%s"), $url("sortby=%s"))
 <div class="actions">
-  <a href="$url("fullhistorylog/view?id=%s"%id)">View full history log</a>
+  <a href="$url("fullhistorylog/view?id=%s" % $id)">View full history log</a>
 </div>
 </div>
 #end def
 
 #def viewCompleteHistoryLog($table)
-#set $headers = {'timestamp': $_("Timestamp"), 'icon': $_("Icon"), 'who': $_("Who"), 'message': $_("Message")}
+#set $headers = {'timestamp': $_("Timestamp"), 'icon': $_("Icon"), 'who': $_("Who"), 'category': $_("Category"), 'message': $_("Message")}
 <div class="historylog">
 <h2>History log</h2>
 $SortedTableTemplate().sorted_table($table, $headers, $url("sortpri=%s"), $url("sortby=%s"))

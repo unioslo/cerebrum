@@ -22,13 +22,18 @@ import forgetHTML as html
 from gettext import gettext as _
 from Cerebrum import Errors
 from Cereweb.Main import Main
-from Cereweb.utils import url, queue_message, redirect_object, redirect, snapshot
+from Cereweb.utils import url, queue_message, redirect_object, redirect
+from Cereweb.utils import object_link, transaction_decorator
 from Cereweb.templates.GroupSearchTemplate import GroupSearchTemplate
-#from Cereweb.templates.GroupViewTemplate import GroupViewTemplate
-#from Cereweb.templates.GroupAddMemberTemplate import GroupAddMemberTemplate
-#from Cereweb.templates.GroupEditTemplate import GroupEditTemplate
-#from Cereweb.templates.GroupCreateTemplate import GroupCreateTemplate
+from Cereweb.templates.GroupViewTemplate import GroupViewTemplate
+from Cereweb.templates.GroupAddMemberTemplate import GroupAddMemberTemplate
+from Cereweb.templates.GroupEditTemplate import GroupEditTemplate
+from Cereweb.templates.GroupCreateTemplate import GroupCreateTemplate
 
+operations = {
+    'union':'Union',
+    'intersection':'Intersection',
+    'difference':'Difference'}
 
 def index(req):
     """Creates a page with the search for group form."""
@@ -44,7 +49,8 @@ def list(req):
     (name, desc, spread) = req.session.get('group_lastsearch', ("", "", ""))
     return search(req, name, desc, spread)
 
-def search(req, name="", desc="", spread=""):
+@transaction_decorator
+def search(req, name="", desc="", spread="", transaction=None):
     """Creates a page with a list of groups matching the given criterias."""
     req.session['group_lastsearch'] = (name, desc, spread)
     page = Main(req)
@@ -59,7 +65,7 @@ def search(req, name="", desc="", spread=""):
     form = GroupSearchTemplate(searchList=[{'formvalues': values}])
 
     if name or desc or spread:
-        server = snapshot(req)
+        server = transaction
         searcher = server.get_group_searcher()
         if name:
             searcher.set_name_like(name)
@@ -104,42 +110,45 @@ def search(req, name="", desc="", spread=""):
 
     return page
 
-def _get_group(req, id):
+def _get_group(req, transaction, id):
     """Returns a Group-object from the database with the specific id."""
-    server = req.session.get("active")
     try:
-        return server.get_group(int(id))
+        return transaction.get_group(int(id))
     except Exception, e:
         queue_message(req, _("Could not load group with id=%s" % id), error=True)
         queue_message(req, str(e), error=True)
         redirect(req, url("group"), temporary=True)
 
-def view(req, id):
+@transaction_decorator
+def view(req, transaction, id):
     """Creates a page with the view of the group with the given by."""
-    group = _get_group(req, id)
+    group = _get_group(req, transaction, id)
     page = Main(req)
     page.title = _("Group %s:" % group.get_name())
     page.setFocus("group/view", str(group.get_id()))
     view = GroupViewTemplate()
     view.add_member = lambda group:_add_box(group)
-    page.content = lambda: view.viewGroup(req, group)
+    content = view.viewGroup(req, group)
+    page.content = lambda: content
     return page
     
 def _add_box(group):
-    operations = [('union',)*2, ('intersection',)*2, ('difference',)*2]
+    ops = operations.items()
+    ops.sort()
+    ops.reverse()
     member_types = [("account", _("Account")),
                     ("group", _("Group"))]
     action = url("group/add_member?id=%s" % group.get_id())
 
     template = GroupAddMemberTemplate()
-    return template.add_member_box(action, member_types, operations)
+    return template.add_member_box(action, member_types, ops)
 
-def add_member(req, id, name, type, operation):
-    server = ServerConnection.get_server(req)
-    group = _get_group(req, id)
-    if operation not in (ClientAPI.Constants.UNION, 
-                         ClientAPI.Constants.INTERSECTION, 
-                         ClientAPI.Constants.DIFFERENCE):
+@transaction_decorator
+def add_member(req, transaction, id, name, type, operation):
+    group = _get_group(req, transaction, id)
+    try:
+        operation = transaction.get_group_member_operation_type(operation)
+    except:
         # Display an error-message on top of page.
         queue_message(req, _("%s is not a valid operation.") % 
                            operation, error=True)
@@ -147,17 +156,17 @@ def add_member(req, id, name, type, operation):
         raise Errors.UnreachableCodeError
     
     try:
-        if (type == "account"):
-            entity = ClientAPI.Account.fetch_by_name(server, name)
-        elif (type == "group"):
-            entity = ClientAPI.Group.fetch_by_name(server, name)
+        search = transaction.get_entity_name_searcher()
+        search.set_name(name)
+        search.set_value_domain(transaction.get_value_domain(type + '_names'))
+        entityName, = search.search()
+        entity = entityName.get_entity()
     except:
         queue_message(req, _("Could not add non-existing member %s %s") %
                          (type, name), error=True)       
         redirect_object(req, group, seeOther=True)
         raise Errors.UnreachableCodeError
 
-    #FIXME: Operation should be constants somewhere
     try:
         group.add_member(entity, operation)
     except:    
@@ -167,13 +176,22 @@ def add_member(req, id, name, type, operation):
     queue_message(req, (_("%s %s added as a member to group.") % 
                         (type, name)))
     redirect_object(req, group, seeOther=True)
+
+    transaction.commit()
     raise Errors.UnreachableCodeError
 
-def remove_member(req, groupid, memberid, operation):
-    group = _get_group(req, groupid)
-    group.remove_member(member_id=memberid, operation=operation)
+@transaction_decorator
+def remove_member(req, transaction, groupid, memberid, operation):
+    group = _get_group(req, transaction, groupid)
+    member = transaction.get_entity(int(memberid))
+    operation = transaction.get_group_member_operation_type(operation)
+
+    group_member = transaction.get_group_member(group, operation, member, member.get_type())
+    group.remove_group_member(group_member)
     queue_message(req, _("%s removed from group %s") % (memberid, group))
     redirect_object(req, group, seeOther=True)
+
+    transaction.commit()
 
 def edit(req, id):
     """Creates a page with the form for editing a person."""

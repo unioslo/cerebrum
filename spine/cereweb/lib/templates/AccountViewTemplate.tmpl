@@ -17,7 +17,7 @@
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 #extends EntityViewTemplate
-#from Cereweb.utils import url, object_link
+#from Cereweb.utils import url, object_link, view_date, view_spreads
 
 ## Main method for creating the view of accounts.
 #def viewAccount($req, $account)
@@ -31,28 +31,19 @@
 <div class="accountinfo">
     <dl>
         <dt>$_("Date created")</dt>
-        <dd>date!</dd>
-        ##<dd>$account.get_create_date()</dd>
+        <dd>$view_date($account.get_create_date())</dd>
 
-        ##if $account.get_expire_date()
         <dt>$_("Expire date")</dt>
-        <dd>date!</dd>
-        ##<dd>$account.get_expire_date()</dd>
-        ##end if
+        <dd>$view_date($account.get_expire_date())</dd>
 
         <dt>$_("Created by")</dt>
-        <dd>GoD32!</dd>
-        ##<dd>$account.get_creator()</dd>
+        <dd>$object_link($account.get_creator())</dd>
 
         <dt>$_("Owned by")</dt>
-        <dd>0wned!</dd>
-        ##<dd>$account.get_owner()</dd>
+        <dd>$object_link($account.get_owner())</dd>
 
-        ##if $account.spread
         <dt>$_("Spreads")</dt>
-        <dd>spreads!</dd>
-        ##<dd>$account.spread</dd>
-        ##end if    
+        <dd>$view_spreads($account.get_spreads())</dd>
     </dl>
 </div>
 <div class="actions">

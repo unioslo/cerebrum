@@ -21,11 +21,11 @@
 #import forgetHTML
 #from Cereweb.TableView import TableView
 #from HistoryLogTemplate import HistoryLogTemplate
-#from Cereweb.utils import url
+#from Cereweb.utils import url, object_link
 #from Cereweb import HistoryLog
 
 #def viewFullHistoryLog($entity)
-<h1>$entity.type $entity.name</h1>
+<h1>$entity.get_type().get_name(): $object_link(entity)</h1>
 $HistoryLog.view_history($entity)
 #end def
 

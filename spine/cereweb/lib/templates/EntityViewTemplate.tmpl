@@ -18,18 +18,18 @@
 
 #from Cereweb.InitTemplate import InitTemplate
 #from Cereweb.utils import url
-##from Cereweb import HistoryLog
+#from Cereweb import HistoryLog
 #from NoteViewTemplate import NoteViewTemplate
 #from NoteAddTemplate import NoteAddTemplate
-##from QuarantineViewTemplate import QuarantineViewTemplate
+#from QuarantineViewTemplate import QuarantineViewTemplate
 #extends InitTemplate
 
 ## Main method for creating a view of the entity.
 #def view_entity($entity, $req)
 <div class="entityview">
+    $quarantines($entity)
     $notes($entity, $req)
-##    $quarantines($entity)
-##    $history($entity)
+    $history($entity)
 </div>
 #end def
 

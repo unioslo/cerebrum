@@ -31,7 +31,7 @@ def url(path):
     """
     if path[:1] == '/':
         path = path[1:]
-    if not path.startswith('css'):
+    if not path.startswith('css') and not path.endswith('png'):
         path = 'Chandler.cgi' + '/' + path
     return cereconf.WEBROOT + "/" + path
 
@@ -49,7 +49,13 @@ def object_link(object, text=None, method="view"):
        the parameter text is given."""
     url = object_url(object, method)   
     if text is None:
-        text = str(object)
+        type = object.get_type().get_name()
+        if type in ('group', 'account'):
+            text = object.get_name()
+        elif type == 'person':
+            text = object.get_cached_full_name()
+        else:
+            text = str(object)
     return forgetHTML.Anchor(text, href=url)        
 
 def redirect(req, url, temporary=False, seeOther=False):
@@ -120,4 +126,10 @@ def transaction_decorator(method):
                 pass
     return transaction_decorator
 
+def view_date(date):
+    return date and date.strftime("%Y-%m-%d") or '-'
+
+def view_spreads(spreads):
+    return ', '.join(i.get_spread().get_name() for i in spreads)
+    
 # arch-tag: 046d3f6d-3e27-4e00-8ae5-4721aaf7add6

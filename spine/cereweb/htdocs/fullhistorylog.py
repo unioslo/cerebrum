@@ -21,7 +21,7 @@
 import forgetHTML as html
 from gettext import gettext as _
 from Cereweb.Main import Main
-from Cereweb.utils import url
+from Cereweb.utils import url, transaction_decorator
 from Cereweb.templates.FullHistoryLogTemplate import FullHistoryLogTemplate
 
 def index(req):
@@ -31,28 +31,22 @@ def index(req):
     #page.content = viewhistory.form
     return page
 
-def _create_view(req, id):
+@transaction_decorator
+def view(req, transaction, id):
     """Creates a page with a view of the entire historylog
        based on an entity"""
-    server = req.session['server']
     page = Main(req)
     try:
-        entity = ClientAPI.fetch_object_by_id(server, id)
+        entity = transaction.get_entity(int(id))
         #entity.quarantines = entity.get_quarantines()
         #entity.uri = req.unparsed_uri
     except:
         page.add_message(_("Could not load entity with id %s") % id)
-        return (page, None)
+        return page
 
     view = FullHistoryLogTemplate()
-    page.content = lambda: view.viewFullHistoryLog(entity)
-    return (page, entity)
-
-def view(req, id):
-    server = req.session['server']
-    page = Main(req)
-    entity = ClientAPI.fetch_object_by_id(server,id)
-    (page, entity) = _create_view(req, id)
+    content = view.viewFullHistoryLog(entity)
+    page.content = lambda: content
     return page
 
 # arch-tag: b5256b7a-e7d9-48f8-9623-92875f2a4f46

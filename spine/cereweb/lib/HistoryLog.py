@@ -25,14 +25,14 @@ from Cereweb.utils import object_link
 from Cerebrum.Utils import Factory
 ClientAPI = Factory.get_module("ClientAPI")
 import types
+import cPickle
 
 def view_history_short(entity):
     # Could use some other template for 'short' view 
     template = HistoryLogTemplate()
-    events = entity.get_history(5)
-    id = entity.id
+    events = entity.get_history()[-5:]
     table = _history_tableview(events)
-    return template.viewHistoryLog(table, id)
+    return template.viewHistoryLog(table, entity.get_id())
 
 def view_history(entity):
     template = HistoryLogTemplate()
@@ -52,20 +52,26 @@ def object_wrapper(object):
 
 def _history_tableview(events):    
             
-    table = TableView("timestamp", "icon", "who", "message")
+    table = TableView("timestamp", "icon", "who", "category", "message")
     for change in events:
-        if type(change.change_by) in types.StringTypes:
-            who = change.change_by
+        change_by = change.get_change_by()
+        if change_by:
+            who = object_link(change_by)
         else:
-            who = object_link(change.change_by)
-        icon = get_icon_by_change_type(change.type.type)
+            who = change.get_change_program() or 'unknown'
+
+        type = change.get_type()
+
+        icon = get_icon_by_change_type(type.get_type())
         #server = req.session['server']
         #ent = ClientAPI.fetch_object_by_id(server, change.change_by)
         #who = ent.name            
-        table.add(timestamp=change.date.Format("%Y-%m-%d"),
+        table.add(timestamp=change.get_timestamp().strftime("%Y-%m-%d"),
                   who=who,
+                  category=type.get_category(),
                   # TODO: Should use hyperlinks on references 
-                  message=change.message(object_wrapper), 
+#                  message=change.message(object_wrapper), 
+                  message=change.get_message(),
                   icon='<img src=\"'+url("img/"+icon)+'\">') 
     return table        
         

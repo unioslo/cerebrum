@@ -22,12 +22,13 @@ import forgetHTML as html
 from gettext import gettext as _
 from Cerebrum import Errors
 from Cereweb.Main import Main
-from Cereweb.utils import url, redirect, redirect_object, queue_message, snapshot
+from Cereweb.utils import url, redirect, redirect_object, queue_message
+from Cereweb.utils import object_link, transaction_decorator
 from Cereweb.templates.AccountSearchTemplate import AccountSearchTemplate
-#from Cereweb.templates.AccountViewTemplate import AccountViewTemplate
-#from Cereweb.templates.AccountEditTemplate import AccountEditTemplate
-#from Cereweb.templates.AccountCreateTemplate import AccountCreateTemplate
-#from Cereweb.templates.HistoryLogTemplate import HistoryLogTemplate
+from Cereweb.templates.AccountViewTemplate import AccountViewTemplate
+from Cereweb.templates.AccountEditTemplate import AccountEditTemplate
+from Cereweb.templates.AccountCreateTemplate import AccountCreateTemplate
+from Cereweb.templates.HistoryLogTemplate import HistoryLogTemplate
 
 
 def index(req):
@@ -43,7 +44,8 @@ def list(req):
         req.session.get('account_lastsearch', ("", "", "", ""))
     return search(req, name, owner, expire_date, create_date)
 
-def search(req, name="", owner="", expire_date="", create_date=""):
+@transaction_decorator
+def search(req, name="", owner="", expire_date="", create_date="", transaction=None):
     req.session['account_lastsearch'] = (name, owner,
                                          expire_date, create_date)
     page = Main(req)
@@ -60,14 +62,14 @@ def search(req, name="", owner="", expire_date="", create_date=""):
 
 
     if name or owner or expire_date or create_date:
-        server = snapshot(req)
+        server = transaction
 
         entitysearch = server.get_entity_searcher()
-        accountsearch = server.get_account_searcher()
-        intersections = [accountsearch,]
+        search = server.get_account_searcher()
+        intersections = [search,]
         
         if name:
-            accountsearch.set_name_like(name)
+            search.set_name_like(name)
 
         if owner:
             personnamesearch = server.get_person_name_searcher()
@@ -77,11 +79,11 @@ def search(req, name="", owner="", expire_date="", create_date=""):
         
         if expire_date:
             date = server.get_commands().strptime(expire_date, "%Y-%m-%d")
-            accountsearch.set_expire_date(date)
+            search.set_expire_date(date)
 
         if create_date:
             date = server.get_commands().strptime(create_date, "%Y-%m-%d")
-            accountsearch.set_create_date(date)
+            search.set_create_date(date)
 
         entitysearch.set_intersections(intersections)
         accounts = entitysearch.search()
@@ -97,9 +99,14 @@ def search(req, name="", owner="", expire_date="", create_date=""):
             for account in accounts:
                 link = url("account/view?id=%s" % account.get_id())
                 link = html.Anchor(account.get_name(), href=link)
-                owner = account.get_owner().get_names()[0].get_name()
+                owner = object_link(account.get_owner())
                 cdate = account.get_create_date().strftime("%Y-%m-%d")
-                edate = account.get_expire_date().strftime("%Y-%m-%d")
+                edate = account.get_expire_date()
+                if edate:
+                    edate = edate.strftime("%Y-%m-%d")
+                else:
+                    edate = ''
+                #table.add(link, owner, cdate, edate, account.get_description())
                 table.add(link, owner, cdate, edate, account.get_description())
 
             result.append(table)
@@ -115,7 +122,7 @@ def search(req, name="", owner="", expire_date="", create_date=""):
 
 def create(req, owner="", name="", expire_date=""):
     page = Main(req)
-    page.title = _("Create a new person:")
+    page.title = _("Create a new Account:")
     page.setFocus("account/create")
 
     # Store given createparameters in the create-form
@@ -128,39 +135,38 @@ def create(req, owner="", name="", expire_date=""):
     page.content = create.form
     return page
 
-def _get_account(req, id):
-    server = req.session.get("active")
+def _get_account(req, transaction, id):
     try:
-        return server.get_account(int(id))
+        return transaction.get_account(int(id))
     except Exception, e:
         queue_message(req, _("Could not load account with id=%i" % id), error=True)
         queue_message(req, _(str(e)), error=True)
         redirect(req, url("account"), temporary=True)
 
-def _create_view(req, id):
+@transaction_decorator
+def view(req, transaction, id):
     """Creates a page with a view of the account given by id, returns
-       a tuple of a Main-template and an account instance"""
+       a Main-template"""
     page = Main(req)
     page.title = ""
-    account = _get_account(req, id)
+    account = _get_account(req, transaction, id)
     page.setFocus("account/view", id)
     view = AccountViewTemplate()
-    page.content = lambda: view.viewAccount(req, account)
-    return (page, account)
-
-def view(req, id):
-    (page, account) = _create_view(req, id)
+    content = view.viewAccount(req, account)
+    page.content = lambda: content
     return page
 
-def edit(req, id):
+@transaction_decorator
+def edit(req, transaction, id):
     """Creates a page with the form for editing an account."""
-    account = _get_account(req, id)
+    account = _get_account(req, transaction, id)
     page = Main(req)
     page.title = ""
     page.setFocus("account/edit")
     edit = AccountEditTemplate()
     edit.formvalues['name'] = account.get_name()
-    page.content = lambda: edit.edit(account)
+    content = edit.edit(account)
+    page.content = lambda: content
     return page
 
 def save(req, id, save=None, abort=None, expire_date=''):

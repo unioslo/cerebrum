@@ -21,8 +21,11 @@
 import forgetHTML as html
 from gettext import gettext as _
 from Cereweb.Main import Main
-from Cereweb.utils import queue_message, redirect_object
+from Cereweb.utils import queue_message, redirect_object, transaction_decorator
 from Cereweb.templates.QuarantineTemplate import QuarantineTemplate
+
+def index(req):
+    return 'Move along, nothing to see here'
 
 def _quarantine_vars():
     fields =[("entity_type", "Entity type"),
@@ -37,14 +40,13 @@ def _quarantine_vars():
         formvalues[name] = ""
     return (fields, formvalues)
 
-def edit(req, entity_id, type, submit=None, why=None, start=None, end=None, disable_until=None):
-    server = req.session['server']
+@transaction_decorator
+def edit(req, transaction, entity_id, type, submit=None, why=None, start=None, end=None, disable_until=None):
     err_msg = ""
     (fields, formvalues) = _quarantine_vars()
-    ent = ClientAPI.fetch_object_by_id(server, entity_id)
-    quarantines = ent.get_quarantines()
-    for row in quarantines:
-        if row.type.name == type:
+    entity = transaction.get_entity(entity_id)
+    for q in entity.get_quarantines():
+        if q.get_type().get_name() == type:
             formvalues['type'] = type
             formvalues['why'] = row.why
             if row.start:
@@ -102,52 +104,71 @@ def remove(req, entity_id, type):
     queue_message(req, _("Removed quarantine"))
     return redirect_object(req, ent, seeOther=True)
 
-def add(req, entity_id, submit=None,entity_type=None,\
-        type=None,why=None,start=None,end=None,disable_until=None):
+@transaction_decorator
+def add(req, transaction, entity_id, submit=None, type=None, why=None,
+        start=None, end=None, disable_until=None):
 
-    server = req.session['server']
     err_msg = ""
-    ent = ClientAPI.fetch_object_by_id(server,entity_id)
+    entity = transaction.get_entity(int(entity_id))
     (fields, formvalues) = _quarantine_vars()
+
+    if type:
+        q_type = transaction.get_quarantine_type(type)
+
+        search = transaction.get_entity_quarantine_searcher()
+        search.set_entity(entity)
+        search.set_type(q_type)
+        result = search.search()
+        if result:
+            quarantine, = result
+        else:
+            quarantine = None
+    else:
+        quarantine = None
 
     if (submit == 'Save'):
         try:
             """ Set up a new quarantine with registered values.
                 Return to the entity's form if OK.
             """
-            ent.add_quarantine(type,why=why,start=start,end=end)
-            if (disable_until):
-                try:
-                    ent.disable_quarantine(type=type, until=disable_until)
-                except:
-                    err_msg = _("Unable to disable the quarantine.")
+            q_type = transaction.get_quarantine_type(type)
+            #entity.add_quarantine(q_type, why, start, end, disable_until)
+            c = transaction.get_commands()
+            date_none = c.get_date_none()
+
+            date_start = start and c.strptime(start, "%Y-%m-%d") or date_none
+            date_end = end and c.strptime(end, "%Y-%m-%d") or date_none
+            date_disable_until = disable_until and c.strptime(disable_until, "%Y-%m-%d") or date_none
+            entity.add_quarantine(q_type, why, date_start, date_end, date_disable_until)
             if (not err_msg):
                 queue_message(req, _("Added quarantine %s" % type))
-                return redirect_object(req, ent, seeOther=True)
+                redirect_object(req, entity, seeOther=True)
+                transaction.commit()
+                return
         except "Jeg vil se feilmeldingen":
             """ Save the values given by the user, and set up
                 en error message to be shown.
             """
             for name, desc in fields:
                 try:
-                    formvalues[name] = eval(name)
+                    formvalues[name] = eval(name) #<- eh, eval? wtf
                 except:
                     pass
             err_msg = _("Add new quarantine failed!")
 
-    formvalues['entity_type'] = ent.type
-    formvalues['entity_name'] = ent.name
     page = Main(req)
     add = QuarantineTemplate()
     add.fields = fields
     add.formvalues = formvalues
-    all_types = ClientAPI.QuarantineType.get_all(server)
-    has_types = [quarantine.type for quarantine in ent.get_quarantines()]
+
+    types = dict((i.get_name(), i.get_description()) for i in transaction.get_quarantine_type_searcher().search())
     # only present types not already set
     # FIXME: Should only present types appropriate for the
     # entity_type. (how could we know that?) 
-    types = [type for type in all_types if type not in has_types]
-    page.content = lambda: add.quarantine_form(ent, "quarantine/add", types)
+    for i in (i.get_type().get_name() for i in entity.get_quarantines()):
+        del types[i]
+    content = add.quarantine_form(entity, "quarantine/add", types)
+    page.content = lambda: content
     if (err_msg):
         page.add_message(err_msg, True)
 

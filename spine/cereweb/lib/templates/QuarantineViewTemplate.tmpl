@@ -21,14 +21,14 @@
 #from Cereweb.TableView import TableView
 #from MemberTableTemplate import MemberTableTemplate
 #from SortedTableTemplate import SortedTableTemplate
-#from Cereweb.utils import url
+#from Cereweb.utils import url, object_link
 ## I don't like involving ClientAPI from the templates..
 #from Cerebrum.Utils import Factory 
 #set ClientAPI = Factory.get_module("ClientAPI")
 
 #def view_quarantines($entity)
 
-#set $entity_id = $entity.id 
+#set $entity_id = $entity.get_id()
 #set $quarantines = $entity.get_quarantines()
 
 <div class="quarantines">
@@ -38,16 +38,18 @@
 
 #for $quarantine in $quarantines
     ## Get string values
-    #set $start = $quarantine.start and $quarantine.start.strftime("%Y-%m-%d")
-    #set $end = $quarantine.end and $quarantine.end.strftime("%Y-%m-%d")
-    #set $disable_until = $quarantine.disable_until and $quarantine.disable_until.strftime("%Y-%m-%d")
-    #set $qtype = $quarantine.type.name
+    #set $start = $quarantine.get_start_date().strftime("%Y-%m-%d")
+    #set $end = $quarantine.get_end_date()
+    #set $end = $end and $end.strftime("%Y-%m-%d") or ''
+    #set $disable_until = $quarantine.get_disable_until()
+    #set $disable_until = $disable_until and $disable_until.strftime("%Y-%m-%d") or ''
+    #set $qtype = $quarantine.get_type().get_name()
     #set $editurl = $url('quarantine/edit?entity_id=%s&amp;type=%s' % ($entity_id, $qtype))
     #set $removeurl = $url('quarantine/remove?entity_id=%s&amp;type=%s' % ($entity_id, $qtype))
     #set $edit = "<a href='%s'>[%s]</a>" % ($editurl, $_("Edit"))
     #set $remove= "<a href='%s'>[%s]</a>" % ($removeurl, $_("Remove"))
     $table.add($qtype, $start, $end, $disable_until,
-               $quarantine.who, $quarantine.why,
+               $object_link($quarantine.get_creator()), $quarantine.get_description(),
                $edit, $remove)
 #end for
 

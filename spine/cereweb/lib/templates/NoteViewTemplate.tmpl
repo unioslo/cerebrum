@@ -17,7 +17,7 @@
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 #from Cereweb.InitTemplate import InitTemplate
-#from Cereweb.utils import url
+#from Cereweb.utils import url, object_link
 #extends InitTemplate
 
 #def viewNotes($entity, $req)
@@ -26,17 +26,15 @@
 <h2>$_("Notes:")</h2>
 #for $note in $notes
     #set $creator = $note.get_creator()
-    #set $creator_url  = $url("account/view?id=%s" % $creator.get_id())
-    #set $creator_name = $_($creator.get_name())
     #set $delete = $url('note/delete?id=%s&entity=%s' % ($note.get_id(), $entity.get_id()))
     <div class="note">
         <div>
             <em>$note.get_create_date().strftime("%Y-%m-%d")</em>&nbsp;
-            <em>Creator: <a href="$creator_url">$creator_name</a></em>&nbsp;
+            <em>Creator: $object_link($creator)</em>&nbsp;
             <a href="$delete" class="actions">$_("delete")</a>
         </div>
         <div>$note.get_subject()</div>
-        <div>$note.get_description()</div>
+        <div><pre>$note.get_description().strip()</pre></div>
   </div>
 #end for
 #end if

@@ -18,7 +18,7 @@
 
 #extends EntityViewTemplate
 #from Cereweb.TableView import TableView
-#from Cereweb.utils import url
+#from Cereweb.utils import url, object_link
 #from MemberTableTemplate import MemberTableTemplate
 
 
@@ -31,7 +31,7 @@
 
 
 #def groupMembers(group)
-    #set $allmembers = $group.get_members()
+    #set $allmembers = $group.get_group_members()
     #if $allmembers
     <div class="members">
         <h2>$_("Members")</h2>
@@ -62,8 +62,8 @@ for operation in ('union', 'intersection', 'difference'):
 <h3>$operations[$operation]</h3>
 #set $table = $TableView("type", "name")
 #for $member in $members
-$table.add($member['type'], $member['name'], 
-           id=$member['id'], groupid=$group.id, operation=$operation)
+$table.add($member.get_member_type().get_name(), $object_link($member.get_member()), 
+           id=$member.get_member().get_id(), groupid=$group.get_id(), operation=$operation)
 #end for
 $MemberTableTemplate().sorted_table($table, $headers, $url("blapp=%s"), $url("blupp=%s"))
 <input type="submit" value="Remember checked" />
