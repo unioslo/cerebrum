@@ -153,7 +153,7 @@ def update_account(profile, fnr, account_ids, account_info={}):
             if keep_account_home[fnr] and (move_users or current_disk_id is None):
                 try:
                     new_disk = profile.get_disk(disk_spread, current_disk_id)
-                except ValueError, msg:
+                except AutoStud.ProfileHandler.NoAvailableDisk, msg:
                     raise
                 if current_disk_id != new_disk:
                     profile.notify_used_disk(old=current_disk_id, new=new_disk)
@@ -564,7 +564,7 @@ def process_student(person_info):
         # update
         try:
             dfg = profile.get_dfg()       # dfg is only mandatory for PosixGroups
-        except ValueError:
+        except AutoStud.ProfileHandler.NoDefaultGroup:
             dfg = "<no_dfg>"
         if keep_account_home[fnr]:
             # This will throw an exception if <build home="true">, and
@@ -575,7 +575,7 @@ def process_student(person_info):
                 if s in spreads:
                     disk.append((profile.get_disk(s), s))
             if not disk:
-                raise ValueError, "No disk matches profiles"
+                raise AutoStud.ProfileHandler.NoAvailableDisk, "No disk matches profiles"
         else:
             disk = "<no_home>"
         logger.debug("disk=%s, dfg=%s, fg=%s sko=%s" % \
@@ -604,7 +604,7 @@ def process_student(person_info):
         elif update_accounts and students.has_key(fnr):
             update_account(profile, fnr, students[fnr].keys(),
                            account_info=students[fnr])
-    except ValueError, msg:  # TODO: Bad disk should throw a spesific class
+    except AutoStud.ProfileHandler.NoAvailableDisk, msg:
         logger.error("  Error for %s: %s" % (fnr, msg))
     logger.set_indent(0)
     # We commit once for each person to avoid locking too many db-rows
