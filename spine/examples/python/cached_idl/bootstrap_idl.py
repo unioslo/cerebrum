@@ -19,7 +19,7 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 import sys
-change this: sys.path.append('/home/erikgors/install/lib/python2.4/site-packages/')
+sys.path.append('/home/evenwiik/install/lib/python2.4/site-packages/')
 
 import os
 import urllib
@@ -33,11 +33,9 @@ sslTP.key_file(config.conf.get('ssl', 'key_file'))
 sslTP.key_file_password(config.conf.get('ssl', 'password'))
 
 idl_path = config.conf.get('idl', 'path')
-idl_server = os.path.join(idl_path, config.conf.get('idl', 'server'))
-idl_errors = os.path.join(idl_path, config.conf.get('idl', 'errors'))
+idl_core = os.path.join(idl_path, config.conf.get('idl', 'core'))
 
 ior_url = config.conf.get('corba', 'url')
-
 
 def connect(args=[]):
     """Returns the server object.
@@ -45,15 +43,14 @@ def connect(args=[]):
     Method for connecting and fetch the Spine object.
     The method prefers SSL connections.
     """
-    importIDL(idl_server)
-    importIDL(idl_errors)
-    import Cerebrum_core
+    importIDL(idl_core)
+    import SpineCore
 
     orb = CORBA.ORB_init(args + ['-ORBendPoint', 'giop:ssl::'], CORBA.ORB_ID)
     print '- fetching ior from:', ior_url
     ior = urllib.urlopen(ior_url).read()
     obj = orb.string_to_object(ior)
-    spine = obj._narrow(Cerebrum_core.Spine)
+    spine = obj._narrow(SpineCore.Spine)
     if spine is None:
         raise Exception("Could not narrow the spine object")
 
@@ -65,21 +62,19 @@ def bootstrap():
     import Cereweb
     target = os.path.dirname(os.path.dirname(os.path.realpath(Cereweb.__file__)))
     print '- downloading source'
-    source = spine.get_idl().replace('module generated', 'module SpineIDL')
+    source = spine.get_idl()
     print '- (%s bytes)' % len(source)
     generated = os.path.join(target, 'SpineIDL.idl')
     fd = open(generated, 'w')
     fd.write(source)
     fd.close()
     print '- Compiling to', target
-    print ''
 
-    for i in (idl_errors, idl_server, generated):
-        command = 'omniidl -bpython -C %s -Wbpackage=Cereweb -I %s %s' % (target, idl_path, i)
-        os.system(command)
+    os.system('omniidl -bpython -C %s -Wbpackage=Cereweb %s %s' %
+                                            (target, idl_core, generated))
 
-    import Cereweb.SpineIDL
-    print '- All done:', Cereweb.SpineIDL
+    import Cereweb.SpineIDL, Cereweb.SpineCore
+    print '- All done:', Cereweb.SpineIDL, Cereweb.SpineCore
 
 if __name__ == '__main__':
     bootstrap()

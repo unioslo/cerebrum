@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2004 University of Oslo, Norway
+# Copyright 2004, 2005 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -31,8 +31,7 @@ sslTP.key_file(config.conf.get('ssl', 'key_file'))
 sslTP.key_file_password(config.conf.get('ssl', 'password'))
 
 idl_path = config.conf.get('idl', 'path')
-idl_server = os.path.join(idl_path, config.conf.get('idl', 'server'))
-idl_errors = os.path.join(idl_path, config.conf.get('idl', 'errors'))
+idl_core = os.path.join(idl_path, config.conf.get('idl', 'core'))
 
 def connect(args=[]):
     """Returns the server object.
@@ -43,7 +42,7 @@ def connect(args=[]):
     orb = CORBA.ORB_init(args + ['-ORBendPoint', 'giop:ssl::'], CORBA.ORB_ID)
     ior = urllib.urlopen(config.conf.get('corba', 'url')).read()
     obj = orb.string_to_object(ior)
-    spine = obj._narrow(Cerebrum_core.Spine)
+    spine = obj._narrow(SpineCore.Spine)
     if spine is None:
         raise Exception("Could not narrow the spine object")
 
@@ -56,28 +55,27 @@ if config.conf.getboolean('spine', 'cache'):
         sys.path.append(cache_dir)
 
     try:
-        import Cerebrum_core
+        import SpineCore
     except:
-        os.system('omniidl -bpython -C %s %s %s' % (cache_dir, idl_server, idl_errors))
-        import Cerebrum_core
+        os.system('omniidl -bpython -C %s %s' % (cache_dir, idl_core))
+        import SpineCore
 
     try:
-        import generated
+        import SpineIDL
     except:
         source = connect().get_idl()
-        generated = os.path.join(cache_dir, 'generated.idl')
+        generated = os.path.join(cache_dir, 'SpineIDL.idl')
         fd = open(generated, 'w')
         fd.write(source)
         fd.close()
-        os.system('omniidl -bpython -C %s -I%s %s' % (cache_dir, idl_path, generated))
-        import generated
+        os.system('omniidl -bpython -C %s %s' % (cache_dir, generated))
+        import SpineIDL
 else:
-    importIDL(idl_server)
-    importIDL(idl_errors)
-    import Cerebrum_core
+    importIDL(idl_core)
+    import SpineCore
 
     idl = connect().get_idl()
-    importIDLString(idl, ['-I' + idl_path])
-    import generated
+    importIDLString(idl)
+    import SpineIDL
 
 # arch-tag: 380b39b2-0d61-411c-80ce-a3b230b04618
