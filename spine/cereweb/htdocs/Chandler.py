@@ -57,22 +57,33 @@ def cgi_main():
         if os.path.exists(os.path.join(dirname, '%s.py' % module)):
             module = __import__(module)
 
-            if method[:1].isalpha() and method.isalnum():
+            if method[:1].isalpha() and method.replace('_', '').isalnum():
                 doc = getattr(module, method)(req, **args)
 
+        # convert doc to a string. This might fail. We want
+        # to do this before we start to print headers
+        doc = str(doc)
+
+        # old session. Save it
         if req.session:
             req.session.save()
+
+        # new session. Set the cookie
         if id is None and req.session is not None:
             cookie = Cookie.SimpleCookie()
             cookie['cereweb_id'] = req.session.id
             print cookie.output()
 
+        # Print all headers
         for key, value in req.headers_out.items():
             print '%s: %s' % (key, value)
         if req.status is not None:
             print 'Status:', req.status
         print
+
+        # Print document
         print doc
+
     except Exception, e:
         for key, value in req.headers_out.items():
             print '%s: %s' % (key, value)
