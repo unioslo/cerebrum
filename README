@@ -1,0 +1,22 @@
+Cerebrum
+========
+
+  Cerebrum is a Python/RDBMS framework upon which user administration
+  systems can be built.
+
+Requirements
+------------
+
+  Python 2.2
+  Python xmlrpclib v?
+
+License
+-------
+
+  Cerebrum is licensed using GNU Public License version 2 and later
+
+Fetching the source
+-------------------
+
+  The latest source is available from
+  <URL:https://sourceforge.net/projects/cerebrum/>.
