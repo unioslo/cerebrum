@@ -714,9 +714,6 @@ class CerebrumSubstituteHandler(CerebrumRotatingHandler):
         self.replacement = replacement
         self.permissions = permissions
 
-        print "maxBytes: ", maxBytes
-        print "backup: ", backupCount
-
         # Force our permissions
         os.chmod(self.filename, permissions)
     # end __init__
@@ -744,5 +741,4 @@ class CerebrumSubstituteHandler(CerebrumRotatingHandler):
     # end prepareMessage
 
 # end CerebrumSubstituteHandler
-        
-    
+
