@@ -191,6 +191,12 @@ class Builder(Caching, Locking, CorbaBuilder):
     method_slots = []
 
     def __init__(self, *args, **vargs):
+        write_lock = vargs.get('write_lock', None)
+        if 'write_lock' in vargs:
+            del vargs['write_lock']
+        nocache = vargs.get('nocache', False)
+        if 'nocache' in vargs:
+            del vargs['nocache']
         if len(args) + len(vargs) > len(self.slots):
             raise TypeError('__init__() takes at most %s argument%s (%s given)' % (len(self.slots) + 1,
                             len(self.slots)>0 and 's' or '', len(args) + len(vargs) + 1))
@@ -201,8 +207,8 @@ class Builder(Caching, Locking, CorbaBuilder):
         if hasattr(self, mark):
             return getattr(self, mark)
         
-        Locking.__init__(self)
-        Caching.__init__(self)
+        Locking.__init__(self, write_lock=write_lock)
+        Caching.__init__(self, nocache=nocache)
 
         slotNames = [i.name for i in cls.slots]
 
@@ -235,6 +241,8 @@ class Builder(Caching, Locking, CorbaBuilder):
 
     def save(self):
         """ Save all changed attributes """
+        # make sure there is a writelock
+        assert self.get_writelock_holder() is not None
 
         saved = sets.Set()
         for var in self.updated:
@@ -244,15 +252,16 @@ class Builder(Caching, Locking, CorbaBuilder):
                 saved.add(save_method)
         self.updated.clear()
 
-    def reload(self):
+    def reset(self):
         """ Reload all changed attributes """
 
         loaded = sets.Set()
-        for var in self.updated:
-            load_method = getattr(self, 'load_' + var)
-            if load_method not in loaded:
-                load_method()
-                loaded.add(load_method)
+        for attr in self.slots:
+            if attr not in self.primary:
+                load_method = getattr(self, 'load_' + attr.name)
+                if load_method not in loaded:
+                    load_method()
+                    loaded.add(load_method)
         self.updated.clear()
 
     # class methods
