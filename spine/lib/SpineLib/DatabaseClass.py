@@ -31,10 +31,9 @@ __all__ = ['DatabaseAttr', 'DatabaseClass']
 class DatabaseAttr(Attribute):
     def __init__(self, name, table, data_type,
                  write=False, from_db=None, to_db=None, optional=False):
-        Attribute.__init__(self, name, data_type, write=write)
+        Attribute.__init__(self, name, data_type, write=write, optional=optional)
 
         self.table = table
-        self.optional = optional
 
         if to_db is not None:
             self.to_db = to_db

@@ -27,15 +27,17 @@ __all__ = ['Attribute', 'Method', 'Builder']
 
 
 class Attribute(object):
-    def __init__(self, name, data_type, exceptions=(), write=False):
+    def __init__(self, name, data_type, exceptions=(), write=False, optional=False):
         self.name = name
         assert type(data_type) != str
         assert type(exceptions) in (list, tuple)
         assert write in (True, False)
+        assert optional in (True, False)
 
         self.data_type = data_type
         self.exceptions = exceptions
         self.write = write
+        self.optional = optional
 
     def get_name_get(self):
         return 'get_' + self.name
