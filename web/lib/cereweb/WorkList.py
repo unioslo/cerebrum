@@ -18,18 +18,20 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-from Cerebrum.web.templates.WorkListTemplate import WorkListTemplate
-
 import forgetHTML as html
+from Cerebrum.web.templates.WorkListTemplate import WorkListTemplate
 
 # subclass Division to be included in a division..
 class WorkList(html.Division):
+
     def __init__(self):
         self.remembered = []
         self.selected = []
+
     def addEntity(self, id):
         object = APImannen.getEntity(id)
         self.remembered.append(object)
+
     def output(self):
         template = WorkListTemplate()
         objects = []
@@ -37,16 +39,34 @@ class WorkList(html.Division):
             view = str(object)
             key = object.getEntityID()
             objects.append( (key, view) )
-        selected = [object.getEntityID() for object in self.selected]       
+        selected = [object.getEntityID() for object in self.selected]
+        buttons = self.getButtons()
         actions = self.getActions()
-        return template.worklist(objects, actions, selected)
+        return template.worklist(objects, buttons, actions, selected)
+
+    def getButtons(self):
+        """Returns a list with all buttons for the worklist.
+        
+        buttons contains a list of lists, where each sublist contains the 
+        key and label for the button. The buttons are placed on the left
+        side of the work list.
+        """
+        buttons = []
+        buttons.append(("select", "Select"))
+        buttons.append(("all", "All"))
+        buttons.append(("none", "None"))
+        buttons.append(("invert", "Invert"))
+        buttons.append(("forget", "Forget"))
+        return buttons
+        
+
     def getActions(self):
+        """Actions should return the links for the selected object.
+
+        Should return list of list with link and label for each action.
+        """
         actions = []
         actions.append(("view", "View"))
-        actions.append(("edit", "Edit"))
-        actions.append(("delete", "Delete"))
-        actions.append(("fix", "Fix it"))
         return actions
-            
-
+ 
 # arch-tag: 3b1978e7-aca9-4641-ad12-1e7361a158d9

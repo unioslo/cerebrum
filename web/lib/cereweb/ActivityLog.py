@@ -18,17 +18,26 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-##from Cerebrum.web.templates.HistoryLogTemplate import HistoryLogTemplate
+
+# NOTE TO SELF: this file is obsolete, implement new activitylog in here or in
+# the Transactions.py..
+
+import forgetHTML as html
 from Cerebrum.web.templates.ActivityLogTemplate import ActivityLogTemplate
-from Cerebrum.web.TableView import TableView
-from Cerebrum.web.HistoryLog import object_wrapper
-from Cerebrum.web.utils import url
-from Cerebrum.Utils import Factory
-ClientAPI = Factory.get_module("ClientAPI")
-#from Cerebrum.web.Main import Main
-import types
-#import forgetHTML as html
-                                                                                                                                                                            
+
+#subclass Division to be included in a division
+class ActivityLog(html.Division):
+
+    def output(self):
+        template = ActivityLogTemplate()
+        return template.activitylog()
+
+
+#TODO: All belove here is old stuff i was to afraid to remove just yet.
+#from Cerebrum.web.TableView import TableView
+#from Cerebrum.web.HistoryLog import object_wrapper
+#from Cerebrum.web.utils import url
+#from Cerebrum.Utils import Factory
 def view_operator_history(session, limit=10):
     template = ActivityLogTemplate()
     server = session['server']
@@ -40,13 +49,13 @@ def view_operator_history(session, limit=10):
         last_event = events[-1]
         # just get the new ones
         events.extend(ClientAPI.operator_history(server, last_event))
-                                                                                                                                                                            
+
     # chop of the limit last events (if limit is 0 - all events)
     events = events[-limit:]
     session['operator_events'] = events
     table = _activity_tableview(events)
     return template.viewActivityLog(table)
-                                                                                                                                                                            
+
 def _activity_tableview(events):
     table = TableView("icon", "message")
     for change in events:
@@ -57,7 +66,7 @@ def _activity_tableview(events):
         table.add(message=change.message(object_wrapper),
                   icon='<img src=\"'+url("img/"+icon)+'\">')
     return table
-                                                                                                                                                                            
+
 def get_icon_by_change_type(changetype):
     type = changetype.split("_")[-1]
     icon_map = {
@@ -70,6 +79,5 @@ def get_icon_by_change_type(changetype):
     }
     icon=icon_map.get(type, "blank.png")
     return icon
-            
 
 # arch-tag: ed8a9388-5b3e-4650-96bf-add0ba181744
