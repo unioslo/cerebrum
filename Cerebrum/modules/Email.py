@@ -1730,6 +1730,14 @@ class PersonEmailMixin(Person.Person):
         of type 'entity_type'"""
         return self._id2mailaddr(entity_type=entity_type).items()
 
+    def _update_cached_names(self):
+        self.__super._update_cached_names()
+        acc = Utils.Factory.get('Account')(self._db)
+        for row in self.get_accounts():
+            acc.clear()
+            acc.find(row['account_id'])
+            acc.update_email_addresses()
+
     def getdict_external_id2mailaddr(self, id_type):
         """Return dict mapping person_external_id to email for
         person_external_id type 'id_type'"""
