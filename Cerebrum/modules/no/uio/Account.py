@@ -22,11 +22,12 @@
 import random
 
 import re
+import cereconf
 from Cerebrum import Account
 from Cerebrum import Errors
 from Cerebrum.modules import Email
 from Cerebrum.modules.bofhd.utils import BofhdRequests
-
+from Cerebrum.Utils import pgp_encrypt
 
 class AccountUiOMixin(Account.Account):
     """Account mixin class providing functionality specific to UiO.
@@ -299,3 +300,6 @@ class AccountUiOMixin(Account.Account):
             if r['affiliation'] == self.const.affiliation_ansatt:
                 return True
         return False
+
+    def enc_auth_type_pgp_crypt(self, plaintext, salt=None):
+        return pgp_encrypt(plaintext, cereconf.PGPID)

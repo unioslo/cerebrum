@@ -29,6 +29,7 @@ import os
 import smtplib
 import string
 import new
+import popen2
 
 def dyn_import(name):
     """Dynamically import python module ``name``."""
@@ -154,6 +155,33 @@ def latin1_to_iso646_60(s, substitute=''):
     xlate['þ'] = 'th'
     xlate['ß'] = 'ss'
     return string.join(map(lambda x:xlate.get(x, x), s), '')
+
+def pgp_encrypt(message, id):
+    cmd = [cereconf.PGPPROG, '--recipient', id, '--default-key', id,
+           '--encrypt', '--armor', '--batch', '--quiet']
+
+    child = popen2.Popen3(cmd)
+    child.tochild.write(message)
+    child.tochild.close()
+    msg = child.fromchild.read()
+    exit_code = child.wait()
+    if exit_code:
+        raise IOError, "gpg exited with %i" % exit_code
+    return msg
+
+def pgp_decrypt(message, password):
+    cmd = [cereconf.PGPPROG, '--batch', '--passphrase-fd', "0",
+           '--decrypt', '--quiet']
+    child = popen2.Popen3(cmd)
+    
+    child.tochild.write(password+"\n")
+    child.tochild.write(message)
+    child.tochild.close()
+    msg = child.fromchild.read()
+    exit_code = child.wait()
+    if exit_code:
+        raise IOError, "gpg exited with %i" % exit_code
+    return msg
 
 class auto_super(type):
     """Metaclass adding a private class variable __super, set to super(cls).

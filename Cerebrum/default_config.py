@@ -222,3 +222,7 @@ description: mail-config ved UiO.\n
 
 # Base reference for URLs on webpages
 WEBROOT = "/"
+
+# Used when pgp-encrypting passwords:
+PGPPROG = '/usr/bin/gpg'
+PGPID = "enter your string here"
