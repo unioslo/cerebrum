@@ -58,7 +58,7 @@ def generate_passwd(filename, spread=None):
     static_posix_user = PosixUser.PosixUser(db)
     for d in disk.list():
         diskid2path[int(d['disk_id'])] = d['path']
-    for row in posix_user.list_extended_posix_users(auth_method=co.auth_type_md5_crypt,
+    for row in posix_user.list_extended_posix_users(auth_method=co.auth_type_crypt3_des,
                                                     spread=spread, include_quarantines=1):
         uname = row['entity_name']
         passwd = row['auth_data']
