@@ -84,6 +84,10 @@ class AccountType(object):
             VALUES (%(binds)s)""" % {'tcols': ", ".join(cols.keys()),
                                      'binds': ", ".join([":%s" % t for t in cols.keys()])},
                          cols)
+            self._db.log_change(self.entity_id, self.const.account_type_add,
+                                None, change_params={'ou_id': int(ou_id),
+                                                     'affiliation': int(affiliation),
+                                                     'priority': priority})
         else:
             if orig_pri <> priority:
                 self._set_account_type_priority(all_pris, orig_pri, priority)
@@ -104,6 +108,9 @@ class AccountType(object):
         SET priority=:priority
         WHERE %s""" % " AND ".join(["%s=:%s" % (x, x)
                                    for x in cols.keys() if x != "priority"]), cols)
+        self._db.log_change(self.entity_id, self.const.account_type_mod,
+                            None, change_params={'new_pri': new_pri,
+                                                 'old_pri': orig_pri})
         
     def del_account_type(self, ou_id, affiliation):
         cols = {'person_id': self.owner_id,
@@ -114,6 +121,9 @@ class AccountType(object):
         DELETE FROM [:table schema=cerebrum name=account_type]
         WHERE %s""" % " AND ".join(["%s=:%s" % (x, x)
                                    for x in cols.keys()]), cols)
+        self._db.log_change(self.entity_id, self.const.account_type_del,
+                            None, change_params={'ou_id': int(ou_id),
+                                                 'affiliation': int(affiliation)})
 
     def list_accounts_by_type(self, ou_id=None, affiliation=None,
                               status=None):
@@ -272,15 +282,8 @@ class Account(AccountType, EntityName, EntityQuarantine, Entity):
                           'home' : self.home,
                           'disk_id' : self.disk_id,
                           'create_date': self.create_date})
-            # TBD: This is superfluous (and wrong) to do here if
-            # there's a write_db() method in EntityName.
-            self.execute("""
-            INSERT INTO [:table schema=cerebrum name=entity_name]
-              (entity_id, value_domain, entity_name)
-            VALUES (:g_id, :domain, :name)""",
-                         {'g_id': self.entity_id,
-                          'domain': int(self.const.account_namespace),
-                          'name': self.account_name})
+            self._db.log_change(self.entity_id, self.const.account_create, None)
+            self.add_entity_name(self.const.account_namespace, self.account_name)
         else:
             cols = [('owner_type',':o_type'),
                     ('owner_id',':o_id'),
@@ -304,16 +307,8 @@ class Account(AccountType, EntityName, EntityQuarantine, Entity):
                           'home' : self.home,
                           'disk_id' : self.disk_id,
                           'acc_id' : self.entity_id})
-            # TBD: Maybe this is better done in EntityName.write_db()?
-            self.execute("""
-            UPDATE [:table schema=cerebrum name=entity_name]
-            SET entity_name=:name
-            WHERE
-              entity_id=:g_id AND
-              value_domain=:domain""",
-                         {'g_id': self.entity_id,
-                          'domain': int(self.const.account_namespace),
-                          'name': self.account_name})
+            self._db.log_change(self.entity_id, self.const.account_mod, None)
+            self.update_entity_name(self.const.account_namespace, self.account_name)
 
         # We store the plaintext password in the changelog so that
         # other systems that need it may get it.  The changelog
@@ -327,7 +322,7 @@ class Account(AccountType, EntityName, EntityQuarantine, Entity):
         else:
             # self.__plaintext_password is set.  Put the value in the
             # changelog.
-            self._db.log_change(self.entity_id, self.const.a_password,
+            self._db.log_change(self.entity_id, self.const.account_password,
                                 None, change_params={'password': plain})
 
         # Store the authentication data.

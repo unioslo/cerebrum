@@ -124,8 +124,6 @@ class PosixUser(Account.Account):
                           'gid': self.gid_id,
                           'gecos': self.gecos,
                           'shell': int(self.shell)})
-            self._db.log_change(self.entity_id, self.const.a_create,
-                                None)  # TBD: const.pa_create
         else:
             self.execute("""
             UPDATE [:table schema=cerebrum name=posix_user]

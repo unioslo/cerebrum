@@ -116,15 +116,8 @@ class Group(EntityName, Entity):
                           # including them here.
                           'create_date': self.create_date,
                           'exp_date': self.expire_date})
-            # TBD: This is superfluous (and wrong) to do here if
-            # there's a write_db() method in EntityName.
-            self.execute("""
-            INSERT INTO [:table schema=cerebrum name=entity_name]
-              (entity_id, value_domain, entity_name)
-            VALUES (:g_id, :domain, :name)""",
-                         {'g_id': self.entity_id,
-                          'domain': int(self.const.group_namespace),
-                          'name': self.group_name})
+            self._db.log_change(self.entity_id, self.const.group_create, None)
+            self.add_entity_name(self.const.group_namespace, self.group_name)
         else:
             cols = [('description', ':desc'),
                     ('visibility', ':visib'),
@@ -149,16 +142,8 @@ class Group(EntityName, Entity):
                           # including them here.
                           'create_date': self.create_date,
                           'exp_date': self.expire_date})
-            # TBD: Maybe this is better done in EntityName.write_db()?
-            self.execute("""
-            UPDATE [:table schema=cerebrum name=entity_name]
-            SET entity_name=:name
-            WHERE
-              entity_id=:g_id AND
-              value_domain=:domain""",
-                         {'g_id': self.entity_id,
-                          'domain': int(self.const.group_namespace),
-                          'name': self.group_name})
+            self._db.log_change(self.entity_id, self.const.group_mod, None)
+            self.update_entity_name(self.const.group_namespace, self.group_name)
         ## EntityName.write_db(self, as_object)
         del self.__in_db
         self.__in_db = True
@@ -172,11 +157,12 @@ class Group(EntityName, Entity):
             DELETE FROM [:table schema=cerebrum name=group_member]
             WHERE group_id=:g_id""", {'g_id': self.entity_id})
             # Remove name of group from the group namespace.
-            self.delete_name(self.const.group_namespace)
+            self.delete_entity_name(self.const.group_namespace)
             # Remove entry in table `group_info'.
             self.execute("""
             DELETE FROM [:table schema=cerebrum name=group_info]
             WHERE group_id=:g_id""", {'g_id': self.entity_id})
+            self._db.log_change(self.entity_id, self.const.group_destroy, None)
         # Class Group is a core class; when its delete() method is
         # called, the underlying Entity object is also removed.
         Entity.delete(self)
@@ -253,8 +239,7 @@ class Group(EntityName, Entity):
                       'op': int(op),
                       'm_type': int(type),
                       'm_id': member_id})
-        self._db.log_change(member_id, self.clconst.g_add,
-                            self.entity_id)
+        self._db.log_change(member_id, self.clconst.group_add, self.entity_id)
 
     def has_member(self, member_id, type, op):
         try:
@@ -281,6 +266,7 @@ class Group(EntityName, Entity):
           member_id=:m_id""", {'g_id': self.entity_id,
                                'op': int(op),
                                'm_id': member_id})
+        self._db.log_change(member_id, self.clconst.group_rem, self.entity_id)
 
     def list_groups_with_entity(self, entity_id, include_indirect_members=0):
         """Return a list where entity_id is a direct member"""

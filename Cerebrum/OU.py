@@ -90,6 +90,7 @@ class OU(EntityContactInfo, EntityAddress, Entity):
                           'short_name': self.short_name,
                           'disp_name': self.display_name,
                           'sort_name': self.sort_name})
+            self._db.log_change(self.entity_id, self.const.ou_create, None)
         else:
             self.execute("""
             UPDATE [:table schema=cerebrum name=ou_info]
@@ -102,6 +103,7 @@ class OU(EntityContactInfo, EntityAddress, Entity):
                           'disp_name': self.display_name,
                           'sort_name': self.sort_name,
                           'ou_id': self.entity_id})
+            self._db.log_change(self.entity_id, self.const.ou_mod, None)
         del self.__in_db
         self.__in_db = True
         self.__updated = False
@@ -206,6 +208,8 @@ class OU(EntityContactInfo, EntityAddress, Entity):
         WHERE ou_id=:e_id AND perspective=:perspective""",
                      {'e_id': self.entity_id,
                       'perspective': int(perspective)})
+        self._db.log_change(self.entity_id, self.const.ou_unset_parent,
+                            None, change_params={'perspective': int(perspective)})
 
     def set_parent(self, perspective, parent_id):
         """Set the parent of this OU to ``parent_id`` in ``perspective``."""
@@ -216,6 +220,9 @@ class OU(EntityContactInfo, EntityAddress, Entity):
                      {'e_id': self.entity_id,
                       'perspective': int(perspective),
                       'parent_id': parent_id})
+        self._db.log_change(self.entity_id, self.const.ou_set_parent,
+                            parent_id,
+                            change_params={'perspective': int(perspective)})
 
     def list_children(self, perspective):
         return self.query("""

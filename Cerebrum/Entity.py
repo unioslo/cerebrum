@@ -145,6 +145,7 @@ class Entity(DatabaseAccessor):
               (entity_id, entity_type)
             VALUES (:e_id, :e_type)""", {'e_id': self.entity_id,
                                          'e_type': int(self.entity_type)})
+            self._db.log_change(self.entity_id, self.const.entity_add, None)
         else:
             # Don't need to do anything as entity type can't change
             pass
@@ -201,6 +202,7 @@ class Entity(DatabaseAccessor):
         self.execute("""
         DELETE FROM [:table schema=cerebrum name=entity_info]
         WHERE entity_id=:e_id""", {'e_id': self.entity_id})
+        self._db.log_change(self.entity_id, self.const.entity_del, None)
         self.clear()
 
     def get_spread(self):
@@ -212,8 +214,7 @@ class Entity(DatabaseAccessor):
 
     def add_spread(self, spread):
         """Add ``spread`` to this entity."""
-        self._db.cl_init(change_by=None, change_program='add_spread')
-        self._db.log_change(self.entity_id, self.clconst.s_add,
+        self._db.log_change(self.entity_id, self.clconst.spread_add,
                             None, change_params={'spread': int(spread)})
         return self.execute("""
         INSERT INTO [:table schema=cerebrum name=entity_spread]
@@ -224,13 +225,12 @@ class Entity(DatabaseAccessor):
 
     def delete_spread(self, spread):
         """Remove ``spread`` from this entity."""
-        self._db.cl_init(change_by=None, change_program='delete_spread')
-        self._db.log_change(self.entity_id, self.clconst.s_del,
+        self._db.log_change(self.entity_id, self.clconst.spread_del,
                                 None, change_params={'spread': int(spread)})
         return self.execute("""
         DELETE FROM [:table schema=cerebrum name=entity_spread]
         WHERE entity_id=:e_id AND spread=:spread""", {'e_id': self.entity_id,
-                                                      'spread': int(spread)},change_program='test')
+                                                      'spread': int(spread)})
 
     def list_all_with_spread(self, spread):
         """Return sequence of all 'entity_id's that has ``spread``."""
@@ -239,7 +239,7 @@ class Entity(DatabaseAccessor):
         FROM [:table schema=cerebrum name=entity_spread]
         WHERE spread=:spread""", {'spread': spread})
 
-    def got_spread(self, spread):
+    def has_spread(self, spread):
         """Return true if entity has spread.""" 
         ent_spread = self.get_spread()
         for row in ent_spread:
@@ -264,7 +264,10 @@ class EntityName(Entity):
                           {'e_id': self.entity_id,
                            'domain': int(domain)})
 
-    def add_name(self, domain, name):
+    def add_entity_name(self, domain, name):
+        self._db.log_change(self.entity_id, self.const.entity_name_add, None,
+                            change_params={'domain': int(domain),
+                                           'name': name})
         return self.execute("""
         INSERT INTO [:table schema=cerebrum name=entity_name]
           (entity_id, value_domain, entity_name)
@@ -272,12 +275,27 @@ class EntityName(Entity):
                                             'domain': int(domain),
                                             'name': name})
 
-    def delete_name(self, domain):
+    def delete_entity_name(self, domain):
+        self._db.log_change(self.entity_id, self.const.entity_name_del, None,
+                            change_params={'domain': int(domain),
+                                           'name': name})
         return self.execute("""
         DELETE FROM [:table schema=cerebrum name=entity_name]
         WHERE entity_id=:e_id AND value_domain=:domain""",
                             {'e_id': self.entity_id,
                              'domain': int(domain)})
+
+    def update_entity_name(self, domain, name):
+        self._db.log_change(self.entity_id, self.const.entity_name_mod, None,
+                            change_params={'domain': int(domain),
+                                           'name': name})
+        self.execute("""
+        UPDATE [:table schema=cerebrum name=entity_name]
+        SET entity_name=:name
+        WHERE entity_id=:e_id AND value_domain=:domain""",
+                     {'e_id': self.entity_id,
+                      'domain': int(domain),
+                      'name': name})
 
     def find_by_name(self, name, domain):
         "Associate instance with the entity having NAME in DOMAIN."
@@ -332,6 +350,7 @@ class EntityContactInfo(Entity):
                       'pref': pref,
                       'value': value,
                       'desc': description})
+        self._db.log_change(self.entity_id, self.const.entity_cinfo_add, None)
 
     def get_contact_info(self, source=None, type=None):
         return Utils.keep_entries(
@@ -402,6 +421,7 @@ class EntityContactInfo(Entity):
           contact_type=:c_type"""
         if str(pref) <> 'ALL':
             sql += """ AND contact_pref=:pref"""
+        self._db.log_change(self.entity_id, self.const.entity_cinfo_del, None)
         return self.execute(sql, {'e_id': self.entity_id,
                                   'src': int(source),
                                   'c_type': int(type),
@@ -490,6 +510,7 @@ class EntityAddress(Entity):
                       'p_num': postal_number,
                       'city': city,
                       'country': country})
+        self._db.log_change(self.entity_id, self.const.entity_addr_add, None)
 
     def delete_entity_address(self, source_type, a_type):
         self.execute("""
@@ -500,6 +521,7 @@ class EntityAddress(Entity):
                      {'e_id': self.entity_id,
                       'src': int(source_type),
                       'a_type': int(a_type)})
+        self._db.log_change(self.entity_id, self.const.entity_addr_del, None)
 
     def get_entity_address(self, source=None, type=None):
         cols = {'entity_id': int(self.entity_id)}
@@ -532,6 +554,8 @@ class EntityQuarantine(Entity):
                       'description': description,
                       'start_date': start,
                       'end_date': end})
+        self._db.log_change(self.entity_id, self.const.quarantine_add,
+                            None, change_params={'q_type': type})
 
     def get_entity_quarantine(self, type=None):
         return Utils.keep_entries(
@@ -548,6 +572,8 @@ class EntityQuarantine(Entity):
                      {'e_id': self.entity_id,
                       'q_type': type,
                       'd_until': until})
+        self._db.log_change(self.entity_id, self.const.quarantine_mod,
+                            None, change_params={'q_type': type})
 
     def delete_entity_quarantine(self, type):
         self.execute("""
@@ -555,3 +581,5 @@ class EntityQuarantine(Entity):
         WHERE entity_id=:e_id AND quarantine_type=:q_type""",
                      {'e_id': self.entity_id,
                       'q_type': type})
+        self._db.log_change(self.entity_id, self.const.quarantine_del,
+                            None, change_params={'q_type': type})

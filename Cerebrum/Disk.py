@@ -81,6 +81,7 @@ class Disk(Entity):
                           'disk_id': self.entity_id,
                           'path': self.path,
                           'description': self.description})
+            self._db.log_change(self.entity_id, self.const.disk_add, None)
         else:
             self.execute("""
             UPDATE [:table schema=cerebrum name=disk_info]
@@ -89,6 +90,7 @@ class Disk(Entity):
                          {'path': self.path,
                           'disk_id': self.entity_id,
                           'description': self.description})
+            self._db.log_change(self.entity_id, self.const.disk_mod, None)
         del self.__in_db
         self.__in_db = True
         self.__updated = False
@@ -199,6 +201,7 @@ class Host(Entity):
                           'host_id': self.entity_id,
                           'name': self.name,
                           'description': self.description})
+            self._db.log_change(self.entity_id, self.const.host_add, None)
         else:
             self.execute("""
             UPDATE [:table schema=cerebrum name=host_info]
@@ -207,6 +210,7 @@ class Host(Entity):
                          {'name': self.name,
                           'host_id': self.entity_id,
                           'description': self.description})
+            self._db.log_change(self.entity_id, self.const.host_mod, None)
         del self.__in_db
         self.__in_db = True
         self.__updated = False

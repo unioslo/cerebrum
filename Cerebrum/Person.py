@@ -164,6 +164,7 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
                               'gender': int(self.gender),
                               'deceased': 'F',
                               'desc': self.description})
+                self._db.log_change(self.entity_id, self.const.person_create, None)
             else:
                 self.execute("""
                 UPDATE [:table schema=cerebrum name=person_info]
@@ -176,6 +177,7 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
                               'deceased': 'F',
                               'desc': self.description,
                               'p_id': self.entity_id})
+                self._db.log_change(self.entity_id, self.const.person_update, None)
         else:
             is_new = None
 
@@ -252,6 +254,10 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
                                      {'p_id': self.entity_id,
                                       'src': int(self._pn_affect_source),
                                       'n_variant': int(type)})
+                        self._db.log_change(self.entity_id,
+                                            self.const.person_name_del, None,
+                                            change_params={'src': int(self._pn_affect_source),
+                                            'name_variant': int(type)})
                         is_new = False
                         updated_name = True
                     else:
@@ -311,6 +317,9 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
                      {'p_id': self.entity_id,
                       'id_type': int(id_type),
                       'src': int(source_system)})
+        self._db.log_change(self.entity_id, self.const.person_ext_id_del, None,
+                            change_params={'id_type': int(id_type),
+                                           'src': int(source_system)})
 
     def _set_external_id(self, source_system, id_type, external_id,
                          update=False):
@@ -318,10 +327,18 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
             sql = """UPDATE [:table schema=cerebrum name=person_external_id]
             SET external_id=:ext_id
             WHERE person_id=:p_id AND id_type=:id_type AND source_system=:src"""
+            self._db.log_change(self.entity_id, self.const.person_ext_id_mod, None,
+                                change_params={'id_type': int(id_type),
+                                               'src': int(source_system),
+                                               'value': external_id})
         else:
             sql = """INSERT INTO [:table schema=cerebrum name=person_external_id]
             (person_id, id_type, source_system, external_id)
             VALUES (:p_id, :id_type, :src, :ext_id)"""
+            self._db.log_change(self.entity_id, self.const.person_ext_id_add, None,
+                                change_params={'id_type': int(id_type),
+                                               'src': int(source_system),
+                                               'value': external_id})
         self.execute(sql, {'p_id': self.entity_id,
                            'id_type': int(id_type),
                            'src': int(source_system),
@@ -392,6 +409,8 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
             myname = self._name_info[type]
         except:
             raise KeyError, "MissingSelf"
+#        if isinstance(myname, unicode):
+#            return unicode(tmp, 'iso8859-1') == myname
         return tmp == myname
 
     def _set_name(self, source_system, variant, name):
@@ -404,6 +423,10 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
                       'n_variant': int(variant),
                       'src': int(source_system),
                       'name': name})
+        self._db.log_change(self.entity_id, self.const.person_name_add, None,
+                            change_params={'src': int(source_system),
+                                           'name': name,
+                                           'name_variant': int(variant)})
 
     def _update_name(self, source_system, variant, name):
         # Class-internal use only
@@ -418,7 +441,10 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
                       'p_id': self.entity_id,
                       'src': int(source_system),
                       'n_variant': int(variant)})
-
+        self._db.log_change(self.entity_id, self.const.person_name_mod, None,
+                            change_params={'src': int(source_system),
+                                           'name': name,
+                                           'name_variant': int(variant)})
 
     def _update_cached_fullname(self):
         """Update the persons cached fullname
@@ -539,6 +565,8 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
             INSERT INTO [:table schema=cerebrum name=person_affiliation]
               (person_id, ou_id, affiliation)
             VALUES (:p_id, :ou_id, :affiliation)""", binds)
+            self._db.log_change(self.entity_id,
+                                self.const.person_aff_add, None)
         try:
             self.query_1("""
             SELECT 'yes'
@@ -556,12 +584,16 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
               ou_id=:ou_id AND
               affiliation=:affiliation AND
               source_system=:source""", binds)
+            self._db.log_change(self.entity_id,
+                                self.const.person_aff_src_mod, None)
         except Errors.NotFoundError:
             self.execute("""
             INSERT INTO [:table schema=cerebrum name=person_affiliation_source]
               (person_id, ou_id, affiliation, source_system, status)
             VALUES (:p_id, :ou_id, :affiliation, :source, :status)""",
                          binds)
+            self._db.log_change(self.entity_id,
+                                self.const.person_aff_src_add, None)
 
     def delete_affiliation(self, ou_id, affiliation, source, status):
         binds = {'ou_id': int(ou_id),
@@ -577,6 +609,8 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
           ou_id=:ou_id AND
           affiliation=:affiliation AND
           source_system=:source""", binds)
+        self._db.log_change(self.entity_id,
+                            self.const.person_aff_src_del, None)
         # This method doesn't touch table 'person_affiliation', nor
         # does it try to do any actual deletion of rows from table
         # 'person_affiliation_source'; these tasks are in the domain
@@ -593,6 +627,8 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
           ou_id=:ou_id AND
           affiliation=:affiliation AND
           source_system=:source""", locals())
+        self._db.log_change(self.entity_id,
+                            self.const.person_aff_src_del, None)
         remaining_affiliations = self.query("""
         SELECT 'yes'
         FROM [:table schema=cerebrum name=person_affiliation_source]
@@ -607,6 +643,8 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
               person_id=:p_id AND
               ou_id=:ou_id AND
               affiliation=:affiliation""", locals())
+            self._db.log_change(self.entity_id,
+                                self.const.person_aff_del, None)
 
     def get_accounts(self):
         acc = Account.Account(self._db)
