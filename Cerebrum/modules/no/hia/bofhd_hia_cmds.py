@@ -2728,16 +2728,24 @@ class BofhdExtension(object):
         args.pop(0)
         tpl_lang, tpl_name, tpl_type = self._map_template(args.pop(0))
         skriver = None
-        if not tpl_lang.endswith("letter"):
-            skriver = args.pop(0)
-        else:
-            skriver = cereconf.PRINT_PRINTER
-        selection = args.pop(0)
+	# kommenterer ut dette fram til det er kommet fram en bedre løsning
+	# på problemet med overføring av passordark til HiA-maskinen
+        #if not tpl_lang.endswith("letter"):
+        #    skriver = args.pop(0)
+        #else:
+        #    skriver = cereconf.PRINT_PRINTER
+	try:
+            acc = self._get_account(operator.get_entity_id(), idtype='id')
+	    opr=account.account_name
+        except NotFoundError:
+	    raise CerebrumError, ("Could not find the operator id!")
+	time_temp = strftime("%Y-%m-%d-%H%M", localtime())
+	selection = args.pop(0)
         cache = self._get_cached_passwords(operator)
         th = TemplateHandler(tpl_lang, tpl_name, tpl_type)
         tmp_dir = Utils.make_temp_dir(dir=cereconf.JOB_RUNNER_LOG_DIR,
                                       prefix="bofh_spool")
-	out_name = "%s/%s.%s" % (tmp_dir, "job", tpl_type)
+	out_name = "%s/%s-%s.%s" % (tmp_dir, opr, time_temp, tpl_type)
         out = file(out_name, "w")
         if th._hdr is not None:
             out.write(th._hdr)
