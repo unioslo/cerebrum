@@ -1,0 +1,17 @@
+Index: Cerebrum/default_config.py
+===================================================================
+RCS file: /cvsroot/cerebrum/cerebrum/Cerebrum/default_config.py,v
+retrieving revision 1.80
+diff -u -r1.80 default_config.py
+--- Cerebrum/default_config.py	21 Oct 2004 18:53:10 -0000	1.80
++++ Cerebrum/default_config.py	22 Oct 2004 22:18:49 -0000
+@@ -176,7 +176,8 @@
+ NOTES_SOURCE_SEARCH_ORDER = ('system_ureg','system_lt','system_fs')
+ 
+ # You should set this variable to the location of your logging ini file
+-LOGGING_CONFIGFILE = None
++LOGGING_CONFIGFILE     = "/etc/cerebrum/logging.ini"
++LOGGING_CONFIGFILE_NEW = "/etc/cerebrum/logging.ini"
+ 
+ QUARANTINE_RULES = {}
+ # QUARANTINE_RULES = {
