@@ -44,6 +44,7 @@ db.cl_init(change_program='process_students')
 const = Factory.get('Constants')(db)
 all_passwords = {}
 derived_person_affiliations = {}
+person_student_affiliations = {}
 has_quota = {}
 processed_students = {}
 keep_account_home = {}
@@ -99,7 +100,7 @@ def create_user(fnr, profile):
     update_account(profile, fnr, [account.entity_id])
     return account.entity_id
 
-def populate_accoount_affiliations(profile, user, person):
+def populate_derived_affiliations(profile, user, person):
     # Populate affiliations
     # Speedup: Try to determine if object is changed without populating
     changed = False
@@ -129,6 +130,25 @@ def populate_accoount_affiliations(profile, user, person):
                 has = True
         if not has:
             user.set_account_type(ou_id, const.affiliation_student)
+
+def populate_account_affiliations(user, person, account_info):
+    """Assert that the account has the same student affiliations as
+    the person.  Will not remove the last student account affiliation
+    even if the person has no such affiliation"""
+
+    remove_idx = 1     # Do not remove last account affiliation
+    account_ous = [ou for ou, aff in account_info.get(int(user.entity_id), [])
+                   if aff == const.affiliation_student]
+    for ou, aff, status in person_student_affiliations.get(int(user.owner_id), []):
+        assert aff == const.affiliation_student
+        if not ou in account_ous:
+            user.set_account_type(ou_id, const.affiliation_student)
+        else:
+            account_ous.remove(ou)
+            remove_idx = 0
+
+    for ou in account_ous[remove_idx:]:
+        user.del_account_type(ou, const.affiliation_student)
 
 def update_account(profile, fnr, account_ids, account_info={}):
     """Update the account by checking that group, disk and
@@ -239,10 +259,12 @@ def update_account(profile, fnr, account_ids, account_info={}):
             user.delete_entity_quarantine(const.quarantine_autostud)
 
         if enable_fs_derived:
-            populate_accoount_affiliations(profile, user, person)
+            populate_derived_affiliations(profile, user, person)
         else:
             person.clear()
             person.find(user.owner_id)
+
+        populate_account_affiliations(user, person, account_info)
 
         # Populate spreads
         has_acount_spreads = [int(x['spread']) for x in user.get_spread()]
@@ -264,7 +286,8 @@ def get_existing_accounts():
     for all students, and a mapping <fnr>:<account_id|None>
     (account_id is used when the account is a reservation) for all
     others that owns an account"""
-    
+
+    logger.info("In get_existing_accounts")
     if fast_test:
         return {}, {}
     account = Factory.get('Account')(db)
@@ -278,6 +301,15 @@ def get_existing_accounts():
                                                    []).append(
                 (int(p['source_system']), int(p['ou_id']),
                  int(p['affiliation']), int(p['status'])))
+
+    for p in person.list_affiliations(
+        source_system=const.system_fs,
+        affiliation=const.affiliation_student,
+        fetchall=False):
+        person_student_affiliations.setdefault(int(p['person_id']),
+                                               []).append(
+            (int(p['ou_id']),
+             int(p['affiliation']), int(p['status'])))
 
     logger.info("Finding student accounts...")
     pid2fnr = {}              # Prefer fnr from FS
