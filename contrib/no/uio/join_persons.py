@@ -104,6 +104,11 @@ def person_join(old_person, new_person):
             q['quarantine_type'], q['creator_id'],
             q['description'], q['start_date'], q['end_date'])
 
+    # entity_spread
+    for s in old_person.get_spread():
+        logger.debug("entity_spread: %s" % s['spread'])
+        new_person.add_spread(s['spread'])
+
     # person_affiliation
     has_affs = {}
     for ss in source_systems:
@@ -177,7 +182,7 @@ def main():
             old = int(val)
         elif opt == '--new':
             new = int(val)
-        elif opt == '--drurun':
+        elif opt == '--dryrun':
             dryrun = True
     if not (old and new):
         usage(1)
