@@ -105,7 +105,7 @@ def rem_old_aff():
     person = Person.Person(db)
     for k,v in old_aff.items():
 	if v:
-	    ent_id,ou,affi = re.split':',k)
+	    ent_id,ou,affi = re.split(':',k)
             person.clear()
 	    person.entity_id = int(ent_id)
             person.delete_affiliation(int(ou),int(affi),int(const.system_fs),1)
