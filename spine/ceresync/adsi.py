@@ -213,12 +213,16 @@ class ADUser(_ADAccount):
     def update(self, obj):
         ad_obj = super(ADUser, self).update(obj)
         # FIXME: Should check with quarantines       
-        # FIXME: Why does this not work?
-        ad_obj.accountDisabled = False
+        # NOTE: Bug in our AD wrapper forces us to use
+        # the com_object directly as AccountDisabled is NOT a 
+        # property to be set with put("AccountDisabled", False) but
+        # should be set directly. I don't know why.
+        ad_obj.com_object.accountDisabled = False
         # FIXME: should fetch names from owner, and not require Posix
         ad_obj.fullName = obj.gecos or ""
         # FIXME: Must have clear text password :(
-        ad_obj.setPassword(obj.password)
+        password = "fisk4Me"
+        ad_obj.setPassword(password)
         ad_obj.setInfo()
         return ad_obj
     
