@@ -6,6 +6,7 @@ import os
 from Cerebrum import Database
 from Cerebrum import Person
 from Cerebrum.modules.no.uio import OU
+from Cerebrum.modules.no import fodselsnr
 from DCOracle2 import Date
 
 class FSData(object):
@@ -59,15 +60,18 @@ def process_person(person, persondta):
         persondta['fname'], persondta['lname']),
     (year, mon, day) = fnrdato2dato(persondta['fdato'])
     if(year < 1970): year = 1970      # Seems to be a bug in DCOracle2
-    fodselsnr = persondta['fdato'] + persondta['pnr']
+    try:
+        fnr = fodselsnr.personnr_ok(persondta['fdato'] + persondta['pnr'])
+    except fodselsnr.InvalidFnrError:
+        print "Ugyldig fødselsnr: %s%s" % persondta['fdato'], persondta['pnr']
 
-    if((int(persondta['pnr']) % 2) == 1):
+    if(fodselsnr.er_kvinne(fnr)):
         gender = FEMALE
     else:
         gender = MALE
 
     try:
-        person.find_by_external_id('fodselsnr', fodselsnr)
+        person.find_by_external_id('fodselsnr', fnr)
         print " Already exists"
 
         # Todo: cmp
@@ -75,7 +79,7 @@ def process_person(person, persondta):
         print " Is new"
         id = person.new(Date(year, mon, day), gender)
         person.find(id)
-        person.set_external_id('fodselsnr', fodselsnr)
+        person.set_external_id('fodselsnr', fnr)
         person.set_name('full', 'FS', "%s %s" % (persondta['fname'], persondta['lname']))
         person.entity_id = person.person_id
         person.add_entity_address('FS', 'p', addr="%s\n%s" %
