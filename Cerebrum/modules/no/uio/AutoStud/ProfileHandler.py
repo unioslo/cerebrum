@@ -6,7 +6,7 @@ class Profile(object):
     (and optionaly groups) to the apropriate home, default group etc
     using rules read by the StudconfigParser."""
 
-    def __init__(self, student_info, logger, pc, groups=None):
+    def __init__(self, student_info, logger, pc, member_groups=None):
         """The logic for resolving conflicts and enumerating settings
         is similar for most attributes, thus we resolve the settings
         applicatble for this profile in the constructor
@@ -20,7 +20,8 @@ class Profile(object):
         mail_user = 0
         full_account = 0
         
-        self.matcher = ProfileMatcher(pc, student_info, logger)
+        self.matcher = ProfileMatcher(pc, student_info, logger,
+                                      member_groups=member_groups)
 
 
     def debug_dump(self):
@@ -98,7 +99,10 @@ class Profile(object):
             raise ValueError, "No matching quota settings"
         for m in self.matcher.settings.get('printer_kvote', []):
             for k in ('start', 'uke', 'max_akk', 'max_sem'):
-                ret[k] = ret.get(k, 0) + int(m[k])
+                if m[k] == 'UL':
+                    ret[k] = m[k]
+                else:
+                    ret[k] = ret.get(k, 0) + int(m[k])
         return {
             'initial_quota': ret['start'],
             'weekly_quota': ret['uke'],
@@ -110,12 +114,12 @@ class ProfileMatcher(object):
     """Methods for determining which profiles matches a given
     person."""
 
-    def __init__(self, pc, student_info, logger):
+    def __init__(self, pc, student_info, logger, member_groups=None):
         self.pc = pc
         self.matches = []
         self.logger = logger
         self.matching_selectors = {}
-        self._process_person_info(student_info)
+        self._process_person_info(student_info, member_groups=member_groups)
         self.logger.debug("Matching profiles: %s" % self.matches)
         if len(self.matches) == 0:
             raise ValueError, "No matching profiles"
@@ -123,7 +127,7 @@ class ProfileMatcher(object):
         self.toplevel_settings = {}
         self._resolve_matches()
 
-    def _process_person_info(self, student_info):
+    def _process_person_info(self, student_info, member_groups=[]):
         """Check if student_info contains data of the type identified
         by StudconfigParser.select_elements.  If yes, check if the
         corresponding value matches a profile."""
@@ -138,6 +142,8 @@ class ProfileMatcher(object):
             else:
                 if select_type == 'aktivt_sted':
                     self._check_aktivt_sted(student_info)
+                elif select_type == 'medlem_av_gruppe':
+                    self._check_group_membership(member_groups)
 
     def _check_aktivt_sted(self, student_info):
         """Resolve all aktivt_sted criterias for this student."""
@@ -181,6 +187,13 @@ class ProfileMatcher(object):
                     self._append_match(
                         'aktivt_sted', 'studieproram',
                         entry['studieprogramkode'], v['profiles'])
+
+    def _check_group_membership(self, groups):
+        for g in self.pc.select_mapping['medlem_av_gruppe'].keys():
+            if g in groups:
+                self._append_match(
+                    'medlem_av_gruppe', 'gruppe',
+                    g, self.pc.select_mapping['medlem_av_gruppe'][g])
 
     def _check_match(self, select_type, value):
         # If studconfig.xml don't use this mapping: return

@@ -377,21 +377,25 @@ def recalc_quota_callback(person_info):
     logger.debug("Callback for %s" % fnr)
     logger.set_indent(3)
     logger.debug(logger.pformat(_filter_person_info(person_info)))
-    try:
-        profile = autostud.get_profile(person_info)
-        quota = profile.get_pquota()
-    except ValueError, msg:
-        logger.warn("Error for %s: %s" %  (fnr, msg))
-        logger.set_indent(0)
-        return
-    except Errors.NotFoundError, msg:
-        logger.warn("Error for %s: %s" %  (fnr, msg))
-        logger.set_indent(0)
-        return
-    logger.debug("Setting %s as pquotas for %s" % (
-        quota, str(students.get(fnr, {}).keys())))
     pq = PrinterQuotas.PrinterQuotas(db)
+    group = Group.Group(db)
+
     for account_id in students.get(fnr, {}).keys():
+        groups = []
+        for r in group.list_groups_with_entity(account_id):
+            groups.append(int(r['group_id']))
+        try:
+            profile = autostud.get_profile(person_info, member_groups=groups)
+            quota = profile.get_pquota()
+        except ValueError, msg:
+            logger.warn("Error for %s: %s" %  (fnr, msg))
+            logger.set_indent(0)
+            return
+        except Errors.NotFoundError, msg:
+            logger.warn("Error for %s: %s" %  (fnr, msg))
+            logger.set_indent(0)
+            return
+        logger.debug("Setting %s as pquotas for %s" % (quota, account_id))
         if dryrun:
             continue
         pq.clear()
@@ -399,7 +403,8 @@ def recalc_quota_callback(person_info):
             pq.find(account_id)
         except Errors.NotFoundError:
             # The quota update script should be ran just after this script
-            pq.printer_quota = quota['initial_quota'] - quota['weekly_quota']
+            pq.populate(account_id, quota['initial_quota'] - quota['weekly_quota'],
+                        0, 0, 0, 0, 0, 0)
         pq.has_printerquota = 1
         pq.weekly_quota = quota['weekly_quota']
         pq.max_quota = quota['max_quota']
@@ -446,6 +451,9 @@ def process_student(person_info):
         logger.set_indent(0)
         return
     try:
+        # Note that we don't pass current_disk to get_disks() here.
+        # Thus this value may differ from the one used during an
+        # update
         logger.debug("disk=%s, dfg=%s, fg=%s sko=%s" % \
                      (profile.get_disk(), profile.get_dfg(),
                       profile.get_grupper(),

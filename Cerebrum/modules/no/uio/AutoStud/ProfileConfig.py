@@ -102,6 +102,9 @@ class ProfileDefinition(object):
                                 s_criteria['scope'])
                         tmp['nivaa_min'] = s_criteria.get('nivaa_min', None)
                         tmp['nivaa_max'] = s_criteria.get('nivaa_max', None)
+                    elif select_type == 'medlem_av_gruppe':
+                        mapping.setdefault(
+                            select_type, {}).setdefault(s_criteria['group_id'], []).append(self)
                     else:
                         self._logger.warn("Unknown special mapping %s" % select_type)
 
@@ -175,6 +178,12 @@ class ProfileDefinition(object):
             if tmp:
                 break   # Only interested in the first disk
         self.settings["disk"] = tmp
+        tmp = []
+        for group in self.selection_criterias.get("medlem_av_gruppe", []):
+            id = lookup_helper.get_group(group['navn'])
+            if id:
+                tmp.append({'group_id': id })
+        self.selection_criterias["medlem_av_gruppe"] = tmp  
                 
 class StudconfigParser(xml.sax.ContentHandler):
     """
@@ -219,7 +228,8 @@ class StudconfigParser(xml.sax.ContentHandler):
         "privatist_emne": [NORMAL_MAPPING, 'emnekode',
                            'privatist_emne', 'emnekode'],
         "aktivt_sted": [SPECIAL_MAPPING, 'stedkode', 'aktiv',
-                        'studieprogramkode']
+                        'studieprogramkode'],
+        "medlem_av_gruppe": [SPECIAL_MAPPING]
         }
 
     profil_settings = ("stedkode", "gruppe", "spread", "disk", "mail",
@@ -279,8 +289,6 @@ class StudconfigParser(xml.sax.ContentHandler):
                     raise SyntaxWarning, "Unexpected tag %s on in profil" % ename
             elif self._in_select and ename in self.select_map_defs:
                 self._in_profil.add_selection_criteria(ename, tmp)
-            elif ename == 'medlem_av_gruppe':
-                pass  # Not supported yet
             else:
                 raise SyntaxWarning, "Unexpected tag %s on in profil" % ename
         elif ename == 'studconfig':
