@@ -1,3 +1,15 @@
+/*
+
+  TBD: Should the email-related stuff become entities?  If yes,
+       should any of the "names" in email addresses (i.e. domain names
+       and local parts) be moved out of email-specific tables, and
+       rather use the generic table entity_name (with appropriate
+       value_domains)?
+
+*/
+
+CREATE SEQUENCE email_id_seq;
+
 /*	email_target_code
 
   Define valid target types, e.g. 'user', 'pipe', 'file', 'Mailman'.
@@ -19,9 +31,13 @@ CREATE TABLE email_target_code
 
   Define all targets this email system should know about.
 
-  TBD: For (at least) `pipe` and `file` targets it is necessary to
-       specify which user the delivery should be done as; how should
-       we encode such information?
+  For (at least) `pipe` and `file` targets it is necessary to specify
+  which user the delivery should be done as; use column 'entity_id' to
+  hold this information on these 'target_type's.
+
+  TBD: Do we need to specify both the `user` and the `group` a
+       delivery should be run under?  If yes, how should we model
+       that?
 
   TBD: How should "user target -> specific IMAP server" info be
        modelled?
@@ -32,6 +48,7 @@ CREATE TABLE email_target
   target_id	NUMERIC(12,0)
 		CONSTRAINT email_target_pk PRIMARY KEY,
   target_type	NUMERIC(6,0)
+		NOT NULL
 		CONSTRAINT email_target_target_type
 		  REFERENCES email_target_code(code),
   entity_type	NUMERIC(6,0),
@@ -42,9 +59,7 @@ CREATE TABLE email_target
   CONSTRAINT email_destination_entity_type
     CHECK (entity_type IN ([:get_constant name=entity_account],
 			   [:get_constant name=entity_group])),
-  CONSTRAINT email_target_ambiguous
-    CHECK ((entity_id IS NOT NULL AND alias_value IS NULL) OR
-           (entity_id IS NULL AND alias_value IS NOT NULL))
+  CONSTRAINT email_target_unique UNIQUE (entity_id, alias_value)
 );
 
 
