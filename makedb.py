@@ -72,8 +72,8 @@ def main():
         if db_user is not None:
             print "'table_owner' not set in CEREBRUM_DATABASE_CONNECT_DATA."
             print "Will use regular 'user' (%s) instead." % db_user
-    Cerebrum = Factory.get('Database')(user=db_user)
-    Cerebrum.cl_init(change_program="makedb")
+    db = Factory.get('Database')(user=db_user)
+    db.cl_init(change_program="makedb")
     for opt, val in opts:
         if opt == '--help':
             usage()
@@ -84,12 +84,12 @@ def main():
             # unless we're explicitly asked to do so.
             do_drop = True
         elif opt == '--only-insert-codes':
-            insert_code_values(Cerebrum)
+            insert_code_values(db)
             sys.exit()
         elif opt == '--extra-file':
             extra_files.append(val)
         elif opt in ('-c', '--country-file'):
-            read_country_file(val, Cerebrum)
+            read_country_file(val, db)
             sys.exit()
 
     # By having two leading spaces in the '  insert' literal below, we
@@ -106,7 +106,7 @@ def main():
         files = args
     else:
         do_bootstrap = True
-        files = get_filelist(Cerebrum, extra_files)
+        files = get_filelist(db, extra_files)
 
     # With --drop, all we should do is run the 'drop' category
     # statements.  Reverse the SQL file order to drop modules
@@ -116,17 +116,17 @@ def main():
         fr = files[:]
         fr.reverse()
         for f in fr:
-            runfile(f, Cerebrum, debug, 'drop')
+            runfile(f, db, debug, 'drop')
         sys.exit(0)
 
     for phase in order:
         if phase == '  insert':
-            insert_code_values(Cerebrum)
+            insert_code_values(db)
         else:
             for f in files:
-                runfile(f, Cerebrum, debug, phase)
+                runfile(f, db, debug, phase)
     if do_bootstrap:
-        makeInitialUsers(Cerebrum)
+        makeInitialUsers(db)
 
 def read_country_file(fname, db):
     f = file(fname, "r")
@@ -156,45 +156,43 @@ def insert_code_values(db):
         new, total = const.initialize()
     except db.DatabaseError:
         traceback.print_exc(file=sys.stdout)
-
         print "Error initializing constants, check that you include "+\
               "the sql files referenced by CLASS_CONSTANTS"
-
         sys.exit(1)
     print "  Inserted %d new codes (new total: %d)." % (new, total)
-    Cerebrum.commit()
+    db.commit()
 
-def makeInitialUsers(Cerebrum):
+def makeInitialUsers(db):
     print "Creating initial entities."
     from Cerebrum import Constants
     from Cerebrum import Group
     from Cerebrum import Account
     from Cerebrum import Entity
-    co = Constants.Constants(Cerebrum)
-    eg = Entity.Entity(Cerebrum)
+    co = Constants.Constants(db)
+    eg = Entity.Entity(db)
     eg.populate(co.entity_group)
     eg.write_db()
 
-    ea = Entity.Entity(Cerebrum)
+    ea = Entity.Entity(db)
     ea.populate(co.entity_account)
     ea.write_db()
 
     # TODO:  These should have a permanent quarantine and be non-visible
-    a = Account.Account(Cerebrum)
+    a = Account.Account(db)
     a.populate(cereconf.INITIAL_ACCOUNTNAME, co.entity_group,
                eg.entity_id, int(co.account_program), ea.entity_id,
                None, parent=ea)
     a.set_password(cereconf.INITIAL_ACCOUNTNAME_PASSWORD)
     a.write_db()
 
-    g = Group.Group(Cerebrum)
+    g = Group.Group(db)
     g.populate(a.entity_id, co.group_visibility_all,
                cereconf.INITIAL_GROUPNAME, parent=eg)
     g.write_db()
     g.add_member(a.entity_id, co.entity_account, co.group_memberop_union)
-    Cerebrum.commit()
+    db.commit()
 
-def get_filelist(Cerebrum, extra_files=[]):
+def get_filelist(db, extra_files=[]):
     core_files = ['core_tables.sql']
     files = core_files[:]
     files.extend(extra_files)
@@ -213,11 +211,11 @@ def get_filelist(Cerebrum, extra_files=[]):
                 ret.append(f)
     return ret
 
-def runfile(fname, Cerebrum, debug, phase):
+def runfile(fname, db, debug, phase):
     print "Reading file (phase=%s): <%s>" % (phase, fname)
     # Run both the generic (e.g. 'main') and driver-specific
     # (e.g. 'main/Oracle' categories for this phase in one run.
-    phase_driver = "/".join((phase, Cerebrum.__class__.__base__.__name__))
+    phase_driver = "/".join((phase, db.__class__.__base__.__name__))
     f = file(fname)
     text = "".join(f.readlines())
     long_comment = re.compile(r"/\*.*?\*/", re.DOTALL)
@@ -251,8 +249,8 @@ def runfile(fname, Cerebrum, debug, phase):
             try:
                 status = "."
                 try:
-                    Cerebrum.execute(stmt)
-                except Cerebrum.DatabaseError:
+                    db.execute(stmt)
+                except db.DatabaseError:
                     status = "E"
                     print "\n  ERROR: [%s]" % stmt
                     if debug:
@@ -273,7 +271,7 @@ def runfile(fname, Cerebrum, debug, phase):
                     sys.stdout.write("\n")
                     output_col = 0
                 sys.stdout.flush()
-                Cerebrum.commit()
+                db.commit()
     if state <> NO_CATEGORY:
         raise ValueError, \
               "Found more category specs than statements in file %s." % fname
