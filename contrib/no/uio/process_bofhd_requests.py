@@ -116,7 +116,7 @@ def process_email_requests():
                 hq = 100
             if (cyrus_create(r['entity_id']) and
                 cyrus_set_quota(r['entity_id'], hq)):
-                br.delete_request(r['request_id'])
+                br.delete_request(request_id=r['request_id'])
             else:
                 db.rollback()
                 br.delay_request(r['request_id'])
@@ -130,7 +130,7 @@ def process_email_requests():
                 # TODO: should look up in tables
                 hq = 100
             if cyrus_set_quota(r['entity_id'], hq):
-                br.delete_request(r['request_id'])
+                br.delete_request(request_id=r['request_id'])
             else:
                 db.rollback()
                 br.delay_request(r['request_id'])
@@ -192,7 +192,7 @@ def process_email_requests():
                 logger.error("connect to LDAP failed")
 
             # delivery is stopped, go to next phase
-            br.delete_request(r['request_id'])
+            br.delete_request(request_id=r['request_id'])
             br.add_request(r['requestee_id'], r['run_at'],
                            const.bofh_email_move,
                            r['entity_id'], r['destination_id'],
@@ -212,7 +212,7 @@ def process_email_requests():
             if move_email(r['entity_id'], r['requestee_id'],
                           r['state_data']['source_server'],
                           r['state_data']['dest_server']):
-                br.delete_request(r['request_id'])
+                br.delete_request(request_id=r['request_id'])
                 br.add_request(r['requestee_id'], r['run_at'],
                                const.bofh_email_move,
                                r['entity_id'], r['destination_id'],
@@ -238,7 +238,7 @@ def process_email_requests():
             except Errors.NotFoundErrors:
                 logger.debug("bofh_email_convert: %s: " % acc.name +
                              "not a PosixUser, skipping e-mail conversion")
-                br.delete_request(r['request_id'])
+                br.delete_request(request_id=r['request_id'])
                 db.commit()
                 continue
                 
@@ -390,7 +390,7 @@ def process_move_requests():
                          old_host, old_disk, new_host, new_disk, operator):
                 account.disk_id =  r['destination_id']
                 account.write_db()
-                br.delete_request(r['entity_id'], r['requestee_id'], r['operation'])
+                br.delete_request(request_id=r['request_id'])
                 db.commit()
 
     for r in br.get_requests(operation=const.bofh_move_student):
@@ -403,7 +403,7 @@ def process_move_requests():
         if delete_user(uname, old_host, '%s/%s' % (old_disk, uname), operator):
             account.expire_date = br.now
             account.write_db()
-            br.delete_request(r['entity_id'], r['requestee_id'], r['operation'])
+            br.delete_request(request_id=r['request_id'])
             db.commit()
 
 def delete_user(uname, old_host, old_home, operator):
