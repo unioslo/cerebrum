@@ -63,7 +63,8 @@ class JobRunner(object):
         self.runner_cw = threading.Condition()
         self.db_qh = DbQueueHandler(db, logger)
         self.all_jobs = {}
-
+        self.sleep_to = None
+        
     def reload_scheduled_jobs(self):
         reload(self.scheduled_jobs)
         # The old all_jobs dict may contain information that we want
