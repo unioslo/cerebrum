@@ -17,7 +17,9 @@ A detailed description of BOFH as well as information about Cerebrum
 (which BOFH is a client for) may be viewed at 
 http://www.usit.uio.no/it/lita/cerebrum/. help <<command-group>>
 shows detailed information about commands in any of the main command 
-groups. Available main groups are:
+groups. Additional help is available in form of the commands 
+<<help glossary>>, <<help intro>> and <<help basics>>. 
+Available main command groups are:
 """,
                'glossary': """Glossary of common terms in Cerebrum:
 - account: a user account (POSIX or generic user) in Cerebrum
