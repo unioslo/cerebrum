@@ -373,10 +373,17 @@ def read_vacation():
         else:
             insert = True
         if insert:
+            # Make sure vacations that doesn't span now aren't marked
+            # as active, even though they might be registered as
+            # 'enabled' in the database.
+            enable = False
+            if row['start_date'] <= cur and (row['end_date'] is None
+                                             or row['end_date'] >= cur):
+                enable = (row['enable'] == 'T')
             targ2vacation[t_id] = (row['vacation_text'],
                                    row['start_date'],
                                    row['end_date'],
-                                   row['enable'])
+                                   enable)
 
 def read_accounts():
     acc = Account.Account(db)
@@ -394,6 +401,37 @@ def read_pending_moves():
         pending[int(r['entity_id'])] = True
     return pending
 
+def read_multi_target(group_id):
+    grp = Factory.get('Group')(db)
+    grp.clear()
+    try:
+        grp.find(group_id)
+    except Errors.NotFoundError:
+        raise ValueError, "no group found: %d" % group_id
+    u, i, d = grp.list_members()
+    if i or d:
+        raise ValueError, "group has non-union members: %d" % group_id
+    # Iterate over group's union members
+    member_addrs = []
+    for member_type, member_id in u:
+        if member_type <> co.entity_account:
+            continue
+        # Verify that the user has its own email target.
+        mail_targ.clear()
+        try:
+            mail_targ.find_by_email_target_attrs(
+                target_type = co.email_target_account,
+                entity_id = member_id)
+        except Errors.NotFoundError:
+            raise ValueError, "no target for group member: %d" % member_id
+        targ_id = int(mail_targ.email_target_id)
+        if not targ2addr.has_key(targ_id):
+            continue
+        addrs = targ2addr[targ_id][:]
+        addrs.sort()
+        member_addrs.append(addrs[0])
+    return member_addrs
+
 def write_ldif():
     counter = 0
     curr = now()
@@ -409,6 +447,12 @@ description: mail-config ved UiO.\n
 
     for row in mail_targ.list_email_targets_ext():
         t = int(row['target_id'])
+
+        if not targ2addr.has_key(t):
+            # There are no addresses for this target; hence, no mail
+            # can reach it.  Move on.
+            continue
+
         tt = int(row['target_type'])
         et = row['entity_type']
         if et is not None:
@@ -464,7 +508,7 @@ description: mail-config ved UiO.\n
                 txt, start, end, enable = targ2vacation[t]
                 tmp = re.sub('\n', '', base64.encodestring(txt))
                 rest += "tripnote:: %s\n" % tmp
-                if enable == 'T':
+                if enable:
                     rest += "tripnoteActive: TRUE\n"
 
             # See if e-mail delivery should be suspended
@@ -546,10 +590,15 @@ description: mail-config ved UiO.\n
             # Target is the set of `account`-type targets corresponding to
             # the Accounts that are first-level members of the Group that
             # has group_id == email_target.entity_id.
-            if targ2forward.has_key(t):
-                for forw, enable in targ2forward[t]:
-                    if enable == 'T':
-                        rest += "forwardDestination: %s\n" % targ2addr[int(forw)]
+            if et == co.entity_group:
+                try:
+                    addrs = read_multi_target(ei)
+                except ValueError, exc:
+                    txt = "Target: %s (%s) %s\n" % (t, tt, exc)
+                    sys.stderr.write(txt)
+                    continue
+                for addr in addrs:
+                    rest += "forwardDestination: %s\n" % addr
             else:
                 # A 'multi' target with no forwarding; seems odd.
                 txt = "Target: %s (%s) no forwarding found.\n" % (t, tt)
@@ -581,9 +630,8 @@ description: mail-config ved UiO.\n
                     t, targ2prim[t])
             
         # Find addresses for target:
-        if targ2addr.has_key(t):
-            for a in targ2addr[t]:
-                f.write("mail: %s\n" % a)
+        for a in targ2addr[t]:
+            f.write("mail: %s\n" % a)
 
         # Find forward-settings:
         if targ2forward.has_key(t):
@@ -591,30 +639,31 @@ description: mail-config ved UiO.\n
                 if enable == 'T':
                     f.write("forwardDestination: %s\n" % addr)
 
-        # Find spam-settings:
-        if targ2spam.has_key(t):
-            level, action = targ2spam[t]
-            f.write("spamLevel: %d\n" % level)
-            f.write("spamAction: %d\n" % action)
-        else:
-            # Set default-settings.
-            f.write("spamLevel: 9999\n")
-            f.write("spamAction: 0\n")
-
-        # Find virus-setting:
-        if targ2virus.has_key(t):
-            found, rem, enable = targ2virus[t]
-            f.write("virusFound: %s\n" % found)
-            f.write("virusRemoved: %s\n" % rem)
-            if enable == 'T':
-                f.write("virusScanning: TRUE\n")
+        if tt in (co.email_target_account, co.email_target_Mailman):
+            # Find spam-settings:
+            if targ2spam.has_key(t):
+                level, action = targ2spam[t]
+                f.write("spamLevel: %d\n" % level)
+                f.write("spamAction: %d\n" % action)
             else:
-                f.write("virusScanning: FALSE\n")
-        else:
-            # Set default-settings.
-            f.write("virusScanning: TRUE\n")
-            f.write("virusFound: 1\n")
-            f.write("virusRemoved: 1\n")
+                # Set default-settings.
+                f.write("spamLevel: 9999\n")
+                f.write("spamAction: 0\n")
+
+            # Find virus-setting:
+            if targ2virus.has_key(t):
+                found, rem, enable = targ2virus[t]
+                f.write("virusFound: %s\n" % found)
+                f.write("virusRemoved: %s\n" % rem)
+                if enable == 'T':
+                    f.write("virusScanning: TRUE\n")
+                else:
+                    f.write("virusScanning: FALSE\n")
+            else:
+                # Set default-settings.
+                f.write("virusScanning: TRUE\n")
+                f.write("virusFound: 1\n")
+                f.write("virusRemoved: 1\n")
 
             
         f.write("\n")
