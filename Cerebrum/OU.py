@@ -21,7 +21,7 @@
 """
 
 from Cerebrum.Entity import \
-     Entity, EntityContactInfo, EntityPhone, EntityAddress
+     Entity, EntityContactInfo, EntityAddress
 
 class OUStructure(object):
     "Mixin class, used by OU for OUs with structure."
@@ -38,7 +38,7 @@ class OUStructure(object):
         SELECT ou_id, parent_id FROM cerebrum.ou_structure
         WHERE perspective=:1""", int(perspective))
 
-class OU(Entity, EntityContactInfo, EntityPhone, EntityAddress, OUStructure):
+class OU(Entity, EntityContactInfo, EntityAddress, OUStructure):
 
     def clear(self):
         "Clear all attributes associating instance with a DB entity."
@@ -64,6 +64,9 @@ class OU(Entity, EntityContactInfo, EntityPhone, EntityAddress, OUStructure):
         super(OU, self).populate(self.constants.entity_ou)
 
         self.__write_db = True
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
 
     def __eq__(self, other):
         """Ovveride the == test for objects.
