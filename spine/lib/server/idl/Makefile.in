@@ -36,11 +36,11 @@ objects = $(objdir)/errors_idl.py \
 .PHONY: all install install-lib clean distclean print
 
 #TODO: Plukk idl-kompilator fra cereconf (eller annet lurt sted)
-Cerebrum/gro: $(sources)
+Cerebrum/spine/server: $(sources)
 	rm -rf Cerebrum
 	omniidl -bpython -Wbpackage=Cerebrum.spine.server $(sources)
 
-all: Cerebrum/spine
+all: Cerebrum/spine/server
 
 print:
 	@echo Sources
@@ -48,7 +48,7 @@ print:
 
 install: install-lib
 
-install-lib: $(sources)
+install-lib: all $(sources)
 	@for file in $(objects); do \
 	  $(INSTALL) -D -v -m 644 $$file $(DESTDIR)/$(pythondir)/$$file || exit 1; \
 	done
