@@ -28,7 +28,7 @@ from Cerebrum import Group
 from Cerebrum import Disk
 from Cerebrum import Entity
 from string import maketrans
-from Cerebrum.Utils import Factory, latin1_to_iso646_60
+from Cerebrum.Utils import Factory, latin1_to_iso646_60,SimilarSizeWriter
 from Cerebrum.modules.no import Stedkode
 from Cerebrum.modules import PosixUser
 from Cerebrum.modules import PosixGroup
@@ -354,7 +354,8 @@ def generate_person(filename=None):
     if filename:
 	f = file(filename, 'a')
     else:
-	f = file(string.join((cereconf.LDAP_DUMP_DIR,cereconf.LDAP_PERSON_FILE),'/'), 'w')	
+	f = SimilarSizeWriter(string.join((cereconf.LDAP_DUMP_DIR,cereconf.LDAP_PERSON_FILE),'/'), 'w')	
+	f.set_size_change_limit(10)
     f.write("\n")
     objclass_string = "objectClass: top\n"
     for objclass in cereconf.LDAP_PERSON_OBJECTCLASS:
@@ -534,7 +535,8 @@ def generate_alias(filename=None):
     if filename:
 	f = file(filename,'a')
     else:
-	f = file(string.join((cereconf.LDAP_DUMP_DIR,cereconf.LDAP_ALIAS_FILE),'/'), 'w')
+	f = SimilarSizeWriter(string.join((cereconf.LDAP_DUMP_DIR,cereconf.LDAP_ALIAS_FILE),'/'), 'w')
+	f.set_size_change_limit(10)
     f.write("\n")
     obj_string = "\nobjectClass: top"
     for obj in cereconf.LDAP_ALIAS_OBJECTCLASS:
@@ -580,7 +582,8 @@ def generate_users(spread=None,filename=None):
     if filename: 
 	f = file(filename, 'w')
     else: 
-	f = file(string.join((cereconf.LDAP_DUMP_DIR,cereconf.LDAP_USER_FILE),'/'), 'w')
+	f = SimilarSizeWriter(string.join((cereconf.LDAP_DUMP_DIR,cereconf.LDAP_USER_FILE),'/'), 'w')
+	f.set_size_change_limit(10)
     pos_user = posix_user.list_extended_posix_users_test(getattr(co,'auth_type_md5_crypt'),
 								spreads,include_quarantines=1)
     f.write("\n")
@@ -644,7 +647,8 @@ def generate_group(spread=None, filename=None):
     if filename:
 	f = file(filename, 'w')
     else:
-	f = file(string.join((cereconf.LDAP_DUMP_DIR,cereconf.LDAP_GROUP_FILE),'/'), 'w')
+	f = SimilarSizeWriter(string.join((cereconf.LDAP_DUMP_DIR,cereconf.LDAP_GROUP_FILE),'/'), 'w')
+	f.set_size_change_limit(10)
     f.write("\n")
     groups = {}
     dn_str = "%s=%s,%s" % (cereconf.LDAP_ORG_ATTR,cereconf.LDAP_GROUP_DN,cereconf.LDAP_BASE)
@@ -687,7 +691,8 @@ def generate_netgroup(spread=None, filename=None):
     if filename:
         f = file(filename, 'w')
     else:
-        f = file(string.join((cereconf.LDAP_DUMP_DIR,cereconf.LDAP_NETGROUP_FILE),'/'), 'w')
+        f = SimilarSizeWriter(string.join((cereconf.LDAP_DUMP_DIR,cereconf.LDAP_NETGROUP_FILE),'/'), 'w')
+	f.set_size_change_limit(10)
     spreads = []
     if spread:
 	spreads.append(int(getattr(co,spread)))
