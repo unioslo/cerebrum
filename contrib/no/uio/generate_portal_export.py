@@ -162,7 +162,7 @@ def get_account(no_ssn, db_person, db_account, constants, lookup_order):
 
         # We did not find anything useful
         if uname is None:
-            logger.error("Aiee! All attempts to find accounts for %s failed",
+            logger.error("Aiee! All attempts to find %s in Cerebrum failed",
                          no_ssn)
             cache_value(no_ssn, uname)
         # fi

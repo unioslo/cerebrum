@@ -528,7 +528,7 @@ ORDER BY fodselsdato, personnr
             m.emnekode = es.emnekode AND
             es.studieprogramkode = st.studieprogramkode AND
             es.studieprogramkode = sprg.studieprogramkode
-        """ % self.get_termin_aar(True)
+        """ % self.get_termin_aar()
 
         # Velg ut studentens avlagte UiO eksamener i inneværende
         # semester (studenten er fortsatt gyldig student ut
