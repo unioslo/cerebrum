@@ -78,7 +78,8 @@ class Constants(Constants.Constants):
     auth_target_type_global_maildomain = "global_maildom"
     auth_target_type_global_ou = "global_ou"
 
-    bofh_move_user = _BofhdRequestOpCode('br_move_user', 'Move user')
+    bofh_move_user = _BofhdRequestOpCode('br_move_user', 'Move user (batch)')
+    bofh_move_user_now = _BofhdRequestOpCode('br_move_user_now', 'Move user')
     bofh_move_student = _BofhdRequestOpCode('br_move_student', 'Move student')
     bofh_move_request = _BofhdRequestOpCode('br_move_request', 'Move request')
     bofh_move_give = _BofhdRequestOpCode('br_move_give', 'Give away user')
