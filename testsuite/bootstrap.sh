@@ -13,4 +13,4 @@ cd $SRCDIR
 
 chmod u+x ./makedb.py
 
-./makedb.py --drop
+./makedb.py --drop && ./makedb.py

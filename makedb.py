@@ -30,7 +30,8 @@ from Cerebrum.Utils import Factory
 def main():
     opts, args = getopt.getopt(sys.argv[1:], 'dc:',
                                ['debug', 'drop', 'insert-codes',
-                                'only-insert-codes', 'extra-file='])
+                                'only-insert-codes', 'country-file=',
+                                'extra-file='])
 
     debug = 0
     do_drop = False
@@ -53,25 +54,39 @@ def main():
             sys.exit()
         elif opt == '--extra-file':
             extra_files.append(val)
-        elif opt == '-c':
+        elif opt in ('-c', '--country-file'):
             read_country_file(val, Cerebrum)
             sys.exit()
 
-    order = ('drop', 'code', '  insert', 'main')
+    # By having two leading spaces in the '  insert' literal below, we
+    # make sure that the 'insert code values' phase won't execute any
+    # statements from .sql files.
+    #
+    # This safeguard works because runfile(), which is used to process
+    # .sql files, will collapse any sequence of whitespace into a
+    # single space before it tries to decide what phase a statement
+    # belongs in.
+    order = ('code', '  insert', 'main')
     if args:
         do_bootstrap = False
         files = args
     else:
         do_bootstrap = True
         files = get_filelist(Cerebrum, extra_files)
+
+    # With --drop, all we should do is run the 'drop' category
+    # statements.  Reverse the SQL file order to drop modules
+    # depending on core first; statement order in each file is NOT
+    # reversed, though.
+    if do_drop:
+        fr = files[:]
+        fr.reverse()
+        for f in fr:
+            runfile(f, Cerebrum, debug, 'drop')
+        sys.exit(0)
+
     for phase in order:
-        if phase == 'drop':
-            if do_drop:
-                fr = files[:]
-                fr.reverse()
-                for f in fr:
-                    runfile(f, Cerebrum, debug, phase)
-        elif phase == '  insert':
+        if phase == '  insert':
             if do_bootstrap or do_insert:
                 insert_code_values(Cerebrum)
         else:
