@@ -63,7 +63,7 @@ class OU(Entity, EntityContactInfo, EntityAddress, OUStructure):
         self.display_name = display_name
         self.sort_name = sort_name
 
-        super(OU, self).populate(self.constants.entity_ou)
+        super(OU, self).populate(self.const.entity_ou)
 
         self.__write_db = True
 
@@ -112,12 +112,12 @@ class OU(Entity, EntityContactInfo, EntityAddress, OUStructure):
         ou_id = self.entity_id
 
         if as_object is None:
-            # ou_id = super(OU, self).new(int(self.constants.entity_ou))
+            # ou_id = super(OU, self).new(int(self.const.entity_ou))
             self.execute("""
             INSERT INTO cerebrum.ou_info (entity_type, ou_id, name, acronym,
                    short_name, display_name, sort_name)
             VALUES (:e_type, :ou_id, :name, :acronym, :short_name, :disp_name, :sort_name)""",
-                         {'e_type' : int(self.constants.entity_ou), 'ou_id' : ou_id,
+                         {'e_type' : int(self.const.entity_ou), 'ou_id' : ou_id,
                           'name' : self.name, 'acronym' : self.acronym,
                           'short_name' : self.short_name, 'disp_name' : self.display_name,
                           'sort_name' : self.sort_name})
