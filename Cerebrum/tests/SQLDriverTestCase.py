@@ -27,6 +27,11 @@ class SQLDriverTestCase(unittest.TestCase):
         hash[value] = 1
         assert(1 == hash[value], 'Unable to compare Integer to SQL Integer')
 
+    def testBrokenDate(self):
+        "Check if the Date class handle dates before 1970"
+        date = self.db.Date(1969, 1, 1)
+        date = None
+
     def tearDown(self):
         self.db.execute("DROP TABLE test_db_dict");
         self.db.close()
@@ -36,6 +41,7 @@ class SQLDriverTestCase(unittest.TestCase):
         suite.addTest(SQLDriverTestCase("testSQLIntComparable1"))
         suite.addTest(SQLDriverTestCase("testSQLIntComparable2"))
         suite.addTest(SQLDriverTestCase("testSQLIntHashable"))
+        suite.addTest(SQLDriverTestCase("testBrokenDate"))
         return suite
     suite=staticmethod(suite)
 
