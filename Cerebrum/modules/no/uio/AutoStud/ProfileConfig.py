@@ -23,6 +23,8 @@ class Config(object):
         profilename2profile = {}
         self.select_mapping = {}
         for p in self.profiles:
+            if profilename2profile.has_key(p.name):
+                self._logger.warn("Duplicate profile-name %s" % p.name)
             profilename2profile[p.name] = p
             p.expand_profile_settings()
             p.convertToDatabaseRefs(self.lookup_helper, self)
