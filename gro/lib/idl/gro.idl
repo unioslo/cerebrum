@@ -137,11 +137,13 @@ module Cerebrum_core {
     * The Access Point Handler
     */
     interface APHandler {
+
         /**
         * Get a type node
         */
         Node getTypeByName(in string className, in string name)
             raises (Errors::NoSuchTypeError, Errors::NoSuchNodeError);
+
         /**
         * Get an entity
         */
@@ -227,6 +229,7 @@ module Cerebrum_core {
         /**
         * Remove your locks on this node. Will remove both read and write
         * locks if you got them.
+        * \exception Raises an exception if the node was not locked.
         */
         void unlock()
             raises( Errors::NotLockedError );
@@ -268,20 +271,23 @@ module Cerebrum_core {
         string getWriteLocker();
 
         /**
-        * Begins a transaction
+        * Begins a transaction. It will lock the node for reading for you.
+        * \exception Raises an exception if the node is already locked.
         */
         void begin()
             raises( Errors::AlreadyLockedError );
 
         /**
         * Commit changes to the database.
-        * \return A list over changed attributes
+        * \return A list over changed attributes.
+        * \exception Raises an exception if the node is not writelocked.
         */
         StringSeq commit()
             raises( Errors::CommitError, Errors::NotLockedError );
 
         /**
         * Rollback changes done to node, and unlocks all locks.
+        * \exception Raises an exception if the node was not locked.
         */
         void rollback()
             raises( Errors::NotLockedError );
