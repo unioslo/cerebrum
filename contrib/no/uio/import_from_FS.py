@@ -5,9 +5,10 @@ import os
 import sys
 from Cerebrum import cereconf
 
+from Cerebrum import Database
+from Cerebrum import Errors
+from Cerebrum.Utils import XMLHelper
 from Cerebrum.modules.no.uio.access_FS import FSPerson
-from Cerebrum import Database,Errors
-from Utils import XMLHelper
 
 default_personfile = "/cerebrum/dumps/FS/persons.xml"
 
