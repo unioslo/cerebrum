@@ -1084,7 +1084,7 @@ def create_account(u, owner_id):
         elif tmp['domain'] == 'i':
             accountObj.add_spread(co.spread_ifi_nis_user)
     for tmp in u.get('pwdhist', []):
-        pwdhist.add_history(accountObj.entity_id, '', _csum=tmp['value'])
+        pwdhist.add_history(accountObj, '', _csum=tmp['value'])
     return accountObj.entity_id
 
 def make_disk(hostname, disk, diskname):
