@@ -254,12 +254,25 @@ class BofhdAuthRole(DatabaseAccessor):
         WHERE entity_id=:e_id AND op_set_id=:os_id AND op_target_id=:t_id""", {
             'e_id': entity_id, 'os_id': op_set_id, 't_id': op_target_id})
 
-    def list(self, entity_id):
+    def list(self, entity_ids):
+        """Return info about where entity_id has permissions.
+        entity_id may be a list of entities """
+        if not isinstance(entity_id, (list, tuple)):
+            entity_id = [entity_id]
         return self.query("""
-        SELECT entity_id, op_set_id, op_target_id
+        SELECT DISTINCT entity_id, op_set_id, op_target_id
         FROM [:table schema=cerebrum name=auth_role]
-        WHERE entity_id=:entity_id""", {
-            'entity_id': entity_id})
+        WHERE entity_id IN (%s)""" % ", ".join(["%i" % i for i in entity_id]))
+
+    def list_owners(self, target_ids):
+        """Return info about who owns the given target_ids"""
+        if not isinstance(target_id, (list, tuple)):
+            target_id = [target_id]
+        return self.query("""
+        SELECT DISTINCT entity_id, op_set_id, op_target_id
+        FROM [:table schema=cerebrum name=auth_role]
+        WHERE op_target_id IN (%s)""" % ", ".join(["%i" % i for i in target_id]))
+        
 
 class BofhdAuth(DatabaseAccessor):
     """Defines methods that are used by bofhd to determine wheter
