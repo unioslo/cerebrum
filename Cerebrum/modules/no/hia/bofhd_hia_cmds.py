@@ -409,6 +409,40 @@ class BofhdExtension(object):
     # email commands
     #
 
+    # email set_primary_address account lp@dom
+    all_commands['email_set_primary_address'] = Command(
+	("email", "set_primary_address"), 
+        AccountName(help_ref="account_name", repeat=False),
+        EmailAddress(help_ref='email_address', repeat=False),
+	perm_filter='is_superuser')
+    def email_set_primary_address(self, operator, uname, address):
+	et, acc = self.__get_email_target_and_account(uname)
+        ea = Email.EmailAddress(self.db)
+	if address == '':
+	    return "Primary address cannot be an empty string!"
+	lp, dom = address.split('@')
+        ed = self._get_email_domain(dom)
+        ea.clear()
+        try:
+            ea.find_by_address(address)
+	    if ea.email_addr_target_id <> et.email_target_id:
+		raise CerebrumError, "Address (%s) is in use by another user" % address
+        except Errors.NotFoundError:
+            pass
+	ea.populate(lp, ed.email_domain_id, et.email_target_id)
+	ea.write_db()
+	epat = Email.EmailPrimaryAddressTarget(self.db)
+	epat.clear()
+	try:
+	    epat.find(ea.email_addr_target_id)
+	    epat.populate(ea.email_addr_id)
+	except Errors.NotFoundError:
+	    epat.clear()
+	    epat.find(ea.email_addr_target_id)
+	    epat.populate(ea.email_addr_id, parent = et)
+	epat.write_db()
+	return "Registered %s as primary address for %s" % (address, acc.account_name)
+
     # email add_address <address or account> <address>+
     all_commands['email_add_address'] = Command(
         ('email', 'add_address'),
@@ -619,6 +653,7 @@ class BofhdExtension(object):
             if r['forward_to'] == addr:
                 return True
         return False
+
 
     # email info <account>+
     all_commands['email_info'] = Command(
@@ -4079,8 +4114,8 @@ class BofhdExtension(object):
         # Set gecos to NULL if user requests a whitespace-only string.
         self.ba.can_set_gecos(operator.get_entity_id(), account)
         account.gecos = gecos.strip() or None
-        account.write_db()
-        return "OK"
+	account.write_db()        
+	return "OK, set gecos for %s to '%s'" % (accountname, gecos)
 
     # user history
     all_commands['user_history'] = Command(
