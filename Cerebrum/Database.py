@@ -31,6 +31,7 @@
 #      use in the DB_driver keyword argument.
 
 import sys
+import os
 from types import DictType, StringType
 from cStringIO import StringIO
 
@@ -841,7 +842,8 @@ class Oracle(Database):
 
     _db_mod = "DCOracle2"
 
-    def connect(self, user=None, password=None, service=None):
+    def connect(self, user=None, password=None, service=None,
+                client_encoding='american_america.we8iso8859p1'):
         cdata = self._connect_data
         cdata.clear()
         cdata['arg_user'] = user
@@ -855,6 +857,7 @@ class Oracle(Database):
             password = self._read_password(service, user)
         conn_str = '%s/%s@%s' % (user, password, service)
         cdata['conn_str'] = conn_str
+        os.environ['NLS_LANG'] = client_encoding
         #
         # Call superclass .connect with appropriate CONNECTIONSTRING;
         # this will in turn invoke the connect() function in the
