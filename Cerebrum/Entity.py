@@ -252,6 +252,8 @@ class EntityAddress(object):
                 if not self._compare_addresses(type, other):
                     return False
             except KeyError, msg:
+                if str(msg) == "MissingOther" and self._address_info.has_key(type):
+                    return False
                 return False
         return True
 
