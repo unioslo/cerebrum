@@ -291,12 +291,20 @@ class OU(EntityContactInfo, EntityAddress, Entity):
                             parent_id,
                             change_params={'perspective': int(perspective)})
 
-    def list_children(self, perspective):
-        return self.query("""
+    def list_children(self, perspective, entity_id=None, recursive=False):
+        if not entity_id:
+            entity_id = self.entity_id
+        ret = []
+        tmp = self.query("""
         SELECT ou_id FROM [:table schema=cerebrum name=ou_structure]
         WHERE parent_id=:e_id AND perspective=:perspective""",
-                          {'e_id': self.entity_id,
+                          {'e_id': entity_id,
                            'perspective': int(perspective)})
+        if tmp:
+            ret.extend(tmp)
+            for r in tmp:
+                ret.extend(self.list_children(perspective, r['ou_id'], recursive))
+        return ret
 
     def list_all(self):
         return self.query("""
