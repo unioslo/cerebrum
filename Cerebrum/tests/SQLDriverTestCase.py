@@ -25,6 +25,8 @@ class SQLDriverTestCase(unittest.TestCase):
 
     def testSQLIntHashable(self):
         "Check if SQL Integer is hashable"
+        # This test fails with Debian package python2.2-pgsql version
+        # 2.2-1, but works with version 2.0-3.1
         value = self.db.query_1("SELECT max(value) FROM test_db_dict")
         hash = {}
         hash[value] = 1
