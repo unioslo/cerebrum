@@ -113,6 +113,7 @@ class AccountUtil(object):
         accounts[int(account.entity_id)] = {'owner': fnr,
                                             'expire_date': None,
                                             'groups': [],
+					    'spreads':[],
                                             'affs': [],
                                             'home': {},
                                             'gid': None,
