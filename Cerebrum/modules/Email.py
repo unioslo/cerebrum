@@ -285,7 +285,7 @@ class EmailTarget(EmailEntity):
 
     def get_entity_id(self):
         return self.email_target_entity_id
-    
+
     def get_entity_type(self):
         return self.email_target_entity_type
 
@@ -549,10 +549,11 @@ class _EmailSpamLevelCode(Constants._CerebrumCode):
                                               {'code': int(self)}))
         return self.level
 
+
 class _EmailSpamActionCode(Constants._CerebrumCode):
     _lookup_table = '[:table schema=cerebrum name=email_spam_action_code]'
 
-    
+
 class EmailSpamFilter(EmailTarget):
     __read_attr__ = ('__in_db',)
     __write_attr__ = ('email_spam_level', 'email_spam_action')
@@ -625,7 +626,7 @@ class EmailSpamFilter(EmailTarget):
         action = self._db.pythonify_data(self.email_spam_action)
         action = _EmailSpamActionCode(action)
         return action
-        
+
 
 class _EmailVirusFoundCode(Constants._CerebrumCode):
     _lookup_table = '[:table schema=cerebrum name=email_virus_found_code]'
@@ -707,34 +708,96 @@ class EmailVirusScan(EmailTarget):
         found = self._db.pythonify_data(self.email_virus_found_act)
         found = _EmailVirusFoundCode(found)
         return found
-    
+
     def get_virus_removed_act(self):
         removed = self._db.pythonify_data(self.email_virus_removed_act)
         removed = _EmailVirusRemovedCode(removed)
         return removed
-        
+
 
 class EmailForward(EmailTarget):
-    def find(self, account_id): pass
-    def populate_forward(self, address, enable): pass
-    def write_db(self): pass
-    def list_forward(self): pass
+
+    def add_forward(self, forward, enable=True):
+        enable = 'F'
+        if enable:
+            enable = 'T'
+        return self.execute("""
+        INSERT INTO [:table schema=cerebrum name=email_forward]
+          (target_id, forward_to, enable)
+        VALUES (:t_id, :forward, :enable)""", {'t_id': self.email_target_id,
+                                               'forward': forward,
+                                               'enable': enable})
+
+    def _set_forward_enable(self, forward, enable):
+        return self.execute("""
+        UPDATE [:table schema=cerebrum name=email_forward]
+        SET enable=:enable
+        WHERE target_id=:t_id""", {'t_id': self.email_target_id,
+                                   'enable': enable})
+
+    def enable_forward(self, forward):
+        return self._set_forward_enable(forward, 'T')
+
+    def disable_forward(self, forward):
+        return self._set_forward_enable(forward, 'F')
+
+    def get_forward(self):
+        return self.query("""
+        SELECT forward_to, enable
+        FROM [:table schema=cerebrum name=email_forward]
+        WHERE target_id=:t_id""", {'t_id': self.email_target_id})
+
+    def delete_forward(self, forward):
+        return self.execute("""
+        DELETE FROM [:table schema=cerebrum name=email_forward]
+        WHERE target_id=:t_id AND forward_to=:forward""",
+                            {'t_id': self.email_target_id,
+                             'forward': forward})
 
 
 class EmailVacation(EmailTarget):
-    __read_attr__ = ('__in_db',)
-    __write_attr__ = ('email_vacation_start', 'email_vacation_text',
-                      'email_vacation_end', 'email_vacation_enable')
 
-    def clear(self):
-        self.__super.clear()
-        self.clear_class(EmailVacation)
-        self.__updated = False
+    def add_vacation(self, start, text, end=None, enable=False):
+        # TODO: Should use DDL-imposed default values if not
+        # instructed otherwise.
+        return self.execute("""
+        INSERT INTO [:table schema=cerebrum name=email_vacation]
+          (target_id, start_date, vacation_text, end_date, enable)
+        VALUES (:t_id, :start, :text, :end, :enable)""",
+                            {'t_id': self.email_target_id,
+                             'start': start,
+                             'text': text,
+                             'end': end,
+                             'enable': enable})
 
-    def populate_vacation(self, start_date, message, end_date, enable): pass
-    def find(self, target_id): pass
-    def write_db(self): pass
-    def list_vacation(self): pass
+    def _set_vacation_enable(self, start, enable):
+        return self.execute("""
+        UPDATE [:table schema=cerebrum name=email_vacation]
+        SET enable=:enable
+        WHERE target_id=:t_id AND start_date=:start""",
+                            {'t_id': self.email_target_id,
+                             'start': start,
+                             'enable': enable})
+
+    def enable_vacation(self, start):
+        return self._set_vacation_enable(start, True)
+
+    def disable_vacation(self, start):
+        return self._set_vacation_enable(start, False)
+
+    def get_vacation(self):
+        return self.query("""
+        SELECT vacation_text, start_date, end_date, enable
+        FROM [:table schema=cerebrum name=email_vacation]
+        WHERE target_id=:t_id
+        ORDER BY start_date""", {'t_id': self.email_target_id})
+
+    def delete_vacation(self, start):
+        return self.execute("""
+        DELETE FROM [:table schema=cerebrum name=email_vacation]
+        WHERE target_id=:t_id AND start_date=:start""",
+                            {'t_id': self.email_target_id,
+                             'start': start})
 
 
 class EmailPrimaryAddress(EmailTarget):
