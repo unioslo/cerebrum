@@ -41,11 +41,11 @@ tag is present, hdr and footer will be empty.
                 for t2 in f2.readlines():
                     body += t2
             else:
-                if len(body) == 0:
+                if not body:
                     hdr += t
                 else:
                     footer += t
-        if len(body) == 0:
+        if not body:
             return (None, hdr, None)
         return (hdr, body, footer)
 
@@ -72,17 +72,17 @@ tag is present, hdr and footer will be empty.
                 v.replace(')', '\\)')
                 v.replace('(', '\\(')
             elif self._type == 'tex':
-                if len(v) == 0:
-                    v = '\ '
+                if not v:
+                    v = '\\ '
                 else:
-                    for c in '\#$%&~_^{}':
-                        v = v.replace(c, '\%s' % c)
+                    for c in '\\#$%&~_^{}':
+                        v = v.replace(c, '\\' + c)
                     v = v.replace('-', '{-}')
             template = template.replace("<%s>" % k, v)
         return template
 
     def spool_job(self, filename, type, printer, skip_lpr=False):
-        logfile = Utils.make_temp_file(only_name=1)
+        logfile = Utils.make_temp_file(only_name=True)
         self.logfile = logfile
         base_filename = filename[:filename.rindex('.')]
         if type == 'tex':
