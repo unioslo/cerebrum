@@ -34,6 +34,8 @@ class Constants(Constants.Constants):
                                                  'Norwegian birth number')
     externalid_studentnr = _PersonExternalIdCode('NO_STUDNO',
                                                  'Norwegian student number')
+    externalid_sap_ansattnr = _PersonExternalIdCode('HiA_SAP_EMP#',
+                                                    'HiA SAP employee number')
 
     system_fs = _AuthoritativeSystemCode('FS', 'FS')
     system_migrate = _AuthoritativeSystemCode('MIGRATE', 'Migrate from files')
