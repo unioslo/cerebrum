@@ -28,6 +28,7 @@ from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import PosixUser
 from Cerebrum.modules import PosixGroup
+from Cerebrum import Group
 from Cerebrum import Disk
 from Cerebrum.Entity import EntityName
 from Cerebrum import QuarantineHandler
@@ -97,6 +98,46 @@ def generate_passwd(filename, spread=None):
         n += 1
         #if n > 100:
         #    break
+    f.close()
+    os.rename("%s.new" % filename, filename)
+
+def generate_netgroup(filename, group_spread, user_spread):
+    # TODO: It may be desireable to merge this method with
+    # generate_group, currently separate as a number of things differ
+    # and limited available time.
+    group = Group.Group(db)
+    gid2gname = {}
+    en = EntityName(db)
+    for row in en.list_names(int(co.account_namespace)):
+        entity2uname[int(row['entity_id'])] = row['entity_name']
+    entity2gname = {}
+    for row in en.list_names(int(co.group_namespace)):
+        entity2gname[int(row['entity_id'])] = row['entity_name']
+    f = file("%s.new" % filename, "w")
+    num = 0
+    for row in group.list_all(spread=group_spread):
+        group.clear()
+        group.find(row.group_id)
+        gid2gname[int(row.group_id)] = group.group_name
+        group_members = []
+        account_members = []
+        for spread in (group_spread, user_spread):
+            u, i, d = group.list_members(spread=spread)
+            for row2 in u:
+                if int(row2[0]) == co.entity_account:
+                    account_members.append("(,%s,)" % entity2uname[int(row2[1])])
+                elif int(row2[0]) == co.entity_group:
+                    group_members.append(entity2gname[int(row2[1])])
+        # TODO: Also process intersection and difference members.
+        line = " ".join((join(group_members, ' '), join(account_members, ' ')))
+        maxlen = MAX_LINE_LENGTH - (len(group.group_name) + 1)
+        while len(line) > maxlen:
+            pos = line.index(" ", len(line) - (MAX_LINE_LENGTH - 3))
+            tmp_gname = "x%02x" % num
+            f.write("%s %s\n" % (tmp_gname, line[pos+1:]))
+            line = "%s %s" % (tmp_gname, line[:pos])
+            num += 1
+        f.write("%s %s\n" % (group.group_name, line))
     f.close()
     os.rename("%s.new" % filename, filename)
 
@@ -208,17 +249,26 @@ def map_spread(id):
 
 def main():
     global debug
-    opts, args = getopt.getopt(sys.argv[1:], 'dg:p:',
-                               ['debug', 'group=', 'passwd=', 'group_spread=',
-                                'user_spread='])
+    try:
+        opts, args = getopt.getopt(sys.argv[1:], 'dg:p:n:',
+                                   ['debug', 'help', 'group=',
+                                    'passwd=', 'group_spread=',
+                                    'user_spread=', 'netgroup='])
+    except getopt.GetoptError:
+        usage(1)
+
     user_spread = group_spread = None
     for opt, val in opts:
-        if opt in ('-d', '--debug'):
+        if opt in ('--help',):
+            usage()
+        elif opt in ('-d', '--debug'):
             debug += 1
         elif opt in ('-g', '--group'):
             generate_group(val, group_spread, user_spread)
         elif opt in ('-p', '--passwd'):
             generate_passwd(val, user_spread)
+        elif opt in ('-n', '--netgroup'):
+            generate_netgroup(val, group_spread, user_spread)
         elif opt in ('--group_spread',):
             group_spread = map_spread(val)
         elif opt in ('--user_spread',):
@@ -226,11 +276,25 @@ def main():
         else:
             usage()
     if len(opts) == 0:
-        usage()
+        usage(1)
 
-def usage():
-    print """Usage: [-d] {--group_spread value --user_spread value} {-p outfile | -g outfile}"""
-    sys.exit(0)
+def usage(exitcode=0):
+    print """Usage: [options]
+    -d | --debug
+      Enable deubgging
+    --group_spread value
+      Filter by group_spread
+    --user_spread value
+      Filter by user_spread
+    -p | --passwd outfile
+      Write password map to outfile
+    -g | --group outfile
+      Write posix group map to outfile
+    -n | --netgroup outfile
+      Write netgroup map to outfile
+
+    Generates a NIS map of the requested type for the requested spreads."""
+    sys.exit(exitcode)
 
 if __name__ == '__main__':
     main()
