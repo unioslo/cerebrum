@@ -56,6 +56,7 @@ class OU_createTestCase(unittest.TestCase, object):
         self.Cerebrum.execute("""
         DELETE FROM [:table schema=cerebrum name=ou_info]
         WHERE ou_id=:id""", {'id': self.ou_id})
+        self.Cerebrum.commit()
 
 
 class OUTestCase(OU_createTestCase):
