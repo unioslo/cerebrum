@@ -22,7 +22,7 @@ import copy
 
 from Builder import Method, Attribute
 
-def create_mark_method(name, method_name):
+def create_mark_method(name, method_name, optional=False):
     """
     This function creates a mark method for every attribute and read method in the class.
     Using mark_<something> marks <something> for inclusion in the dump.
@@ -31,9 +31,18 @@ def create_mark_method(name, method_name):
     def dump(self):
         holder = self.get_writelock_holder()
         for struct, obj in zip(self.structs, self._objects):
-            obj.lock_for_reading(holder)
-            value = getattr(obj, method_name)()
-            struct[name] = value
+            if optional:
+                struct['%s_exists' % name] = True
+            try:
+                obj.lock_for_reading(holder)
+                value = getattr(obj, method_name)()
+                struct[name] = value
+            except Exception, e:
+                if optional:
+                    struct['%s_exists' % name] = False
+                else:
+                    raise e
+
     return dump
 
 class Dumpable(object):
@@ -55,11 +64,15 @@ class Dumpable(object):
         dumper_class.slots = DumpClass.slots + []
         dumper_class.method_slots = DumpClass.method_slots + []
 
+        # mark methods for attributes and methods
+        
         for attr in cls.slots:
-            get = create_mark_method(attr.name, attr.get_name_get())
+            get = create_mark_method(attr.name, attr.get_name_get(), attr.optional)
             dumper_class.register_method(Method('mark_' + attr.name, None, write=True), get, overwrite=True)
 
-        for method in [i for i in cls.method_slots if not i.write]:
+        for method in cls.method_slots:
+            if method.write or method.args:
+                continue
             get = create_mark_method(method.name, method.name)
             mark = copy.copy(method)
             mark.name = 'mark_' + mark.name
@@ -67,14 +80,30 @@ class Dumpable(object):
             mark.write = True
             dumper_class.register_method(mark, get, overwrite=True)
 
+
+        # dumper methods for attributes and methods
+
+        for attr in cls.slots:
+            if type(attr.data_type) == type(Dumpable) and issubclass(attr.data_type, Dumpable):
+                name = 'dump_%s' % attr.name
+                m, get_dump = create_generic_dumper(attr.data_type.dumper_class, name, attr.get_name_get(), attr.optional)
+                dumper_class.register_method(m, get_dump, overwrite=True)
+
+        for method in cls.method_slots:
+            if not method.write and not method.args and type(method.data_type) == type(Dumpable) and issubclass(method.data_type, Dumpable):
+                name = 'dump_%s' % method.name
+                m, get_dump = create_generic_dumper(method.data_type.dumper_class, name, method.name)
+                dumper_class.register_method(m, get_dump, overwrite=True)
+
+        # make dump accessable from search classes
         def dump(self):
             return self.structs
         m = Method('dump', [Struct(cls)], write=True)
         dumper_class.register_method(m, dump, overwrite=True)
 
         if issubclass(cls, Searchable):
-            get_dump = create_get_dumper(cls.dumper_class)
-            m = Method('get_dumper', cls.dumper_class, write=True)
+            get_dump = create_get_dumper(dumper_class)
+            m = Method('get_dumper', dumper_class, write=True)
             cls.search_class.register_method(m, get_dump, overwrite=True)
 
     build_dumper_class = classmethod(build_dumper_class)
@@ -83,5 +112,26 @@ def create_get_dumper(dumper_class):
     def get_dumper(self):
         return dumper_class(self.search())
     return get_dumper
+
+def create_generic_dumper(dumper_class, name, method_name, optional=False):
+    m = Method(name, dumper_class, write=True)
+    def get_dumper(self):
+        holder = self.get_writelock_holder()
+        objects = []
+        for i in self._objects:
+            i.lock_for_reading(holder)
+            if optional:
+                try:
+                    value = getattr(i, method_name)()
+                except:
+                    continue
+            else:
+                value = getattr(i, method_name)()
+            objects.append(value)
+
+        return dumper_class(objects)
+
+    return m, get_dumper
+
 
 # arch-tag: 94dead40-0291-4725-a4dd-a37303eec825
