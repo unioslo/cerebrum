@@ -131,10 +131,10 @@ class PosixUser(object):
         firstinit = None
         if m != None:
             # at least three names
-    	firstinit = m.group(0)
-     	firstinit = re.sub(r'([- ])(\S)[^- ]*', r'\1\2', firstinit)
-     	firstinit = re.sub(r'^(\S).*?($|[- ])', r'\1', firstinit)
-     	firstinit = re.sub(r'[- ]', '', firstinit)
+            firstinit = m.group(0)
+            firstinit = re.sub(r'([- ])(\S)[^- ]*', r'\1\2', firstinit)
+            firstinit = re.sub(r'^(\S).*?($|[- ])', r'\1', firstinit)
+            firstinit = re.sub(r'[- ]', '', firstinit)
 
         # Remove hyphens.  People called "Geir-Ove Johnsen Hansen" generally
         # prefer "geirove" to just "geir".
@@ -159,8 +159,8 @@ class PosixUser(object):
         # ("ss" means firstinit, "i" means initial, "l" means last name)
 
         if firstinit and len(firstinit) > 1:
-    	i = len (firstinit)
-    	llen = len (lname)
+            i = len (firstinit)
+            llen = len (lname)
             if llen > 8 - i: llen = 8 - i 
             for j in range(llen, 0, -1):
                 un = firstinit + lname[0:j]
@@ -190,7 +190,7 @@ class PosixUser(object):
         if flen > 7: flen = 7
 
         for i in range(flen, 0, -1):
-    	llim = len(lname)
+            llim = len(lname)
             if llim > 8 - i: llim = 8 - i 
             for j in range(1, llim):
                 if initial:
@@ -204,7 +204,7 @@ class PosixUser(object):
                         un = fname[0:i] + initial + lname[0:j-1]
                         if self.validate_new_uname(un): potuname += (un, )
     	    un = fname[0:i] + lname[0:j]
-                if self.validate_new_uname(un): potuname += (un, )
+            if self.validate_new_uname(un): potuname += (un, )
             if len(potuname) >= goal: break
 
         # Absolutely last ditch effort:  geirov1, geirov2 etc.
