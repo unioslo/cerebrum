@@ -22,14 +22,40 @@ For alle importerer vi:
   - fødselsnummer
   - kjønn
 Fagpersoner:
-  - arbeidsadresse	(som co.address_post)
+  - arbeidsadresse fra fs.fagperson	(som co.address_post)
+    Hvis denne ikke finnes, brukes hjemstedsadresse fra FS.person
   - alle stedkoder	(fs.fagpersonundsemester)
 Studenter:
-  - semesteradresse	(som co.address_post)
-EVU-studenter:
-  - hjemstedsadresse	(som co.address_post)
+  - semesteradresse, fra FS.student	(som co.address_post)
+    Hvis denne ikke finnes, brukes hjemstedsadresse fra FS.person
+  - Stedkode(r) (*_studieansv) for aktivt studieprogram
+  - Stedkode(r) (*_kontroll) for emner eksamensmeldt eller undervisningsmeldt.
 
-(Merk at EVU-/studenter ikke får noen stedkode)
+EVU-studenter:
+  - Job-adresse, fra FS.deltaker	(som co.address_post)
+    Hvis denne ikke finnes, brukes hjemstedsadresse fra FS.deltaker
+    Hvis denne ikke finnes, brukes hjemstedsadresse fra FS.person
+  - Stedkode(r) (*_Adm_ansvar) for kurs.
+
+
+Når skal de med i importen:
+
+ - Fagpersoner:
+   - Hvis de har en postering for inneværende semester i fs.fagpersonundsemester
+
+ - Student:
+   - Hvis de har en 'lovlig' (dvs. <> 'PRIVATIST') studierett til et studieprogram.
+
+   Merk: Disse blir aktive/ekte når de får et aktivt studieprogram
+         (dvs. et studieprogram med studierett (dvs. <> 'PRIVATIST'),
+         semesterregistrert (Regform: 'MANUELL' eller 'STUDWEB'), og
+         meldt til eksamen i et emne som kan inngå i studieprogramet).
+         Inntil dette er de kun 'passive' studenter.
+
+ - EVU-studenter
+   - Meldt til et kurs som har startdato senest om 14 dager, eller som
+     avsluttes tidligst for 14 dager siden
+
 
 
 2.0 Regler for automatisk bygging av kontoer o.l.
@@ -44,8 +70,7 @@ For alle med student-konto gjelder følgende:
 
 - Personen får affiliation('STUDENT') mot stedkodene til alle dens
   studieprogram
-- For EVU-studenter hentes stedkodene fra fakultetsnummeret i
-  'etterutdkurskode' (= de to første sifrene)
+- For EVU-studenter hentes stedkodene fra fs.etterutdkurs.*_Adm_ansvar
 - Kontoen meldes inn i alle primær-/grupper angitt i studconfig.xml.
   Den meldes også ut av alle øvrige grupper listet som "auto-grupper".
 - Kontoen gis alle spread som matcher i studconfig.xml
