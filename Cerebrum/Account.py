@@ -24,6 +24,7 @@ Usernames are stored in the table entity_name.  The domain that the
 default username is stored in is yet to be determined.
 """
 
+from Cerebrum import Utils
 from Cerebrum.Entity import \
      Entity, EntityName, EntityQuarantine
 from Cerebrum.Database import Errors
@@ -31,17 +32,21 @@ from Cerebrum import cereconf
 import crypt,random,string
 
 class Account(EntityName, EntityQuarantine, Entity):
+    __metaclass__ = Utils.mark_update
+
+    __read_attr = ('__in_db',)
+    __write_attr__ = ('account_name', 'owner_type', 'owner_id',
+                      'np_type', 'creator_id', 'expire_date', 'create_date')
 
     def clear(self):
         super(Account, self).clear()
-        self.account_name = None
-        self.owner_type = None
-        self.owner_id = None
-        self.np_type = None
-        self.creator_id = None
-        self.expire_date = None
+        for attr in Account.__read_attr__:
+            if hasattr(self, attr):
+                delattr(self, attr)
+        for attr in Account.__write_attr__:
+            setattr(self, attr, None)
+            self.__updated = False
         self._name_info = {}
-        self._acc_affect_domains = ()
         self._auth_info = {}
         self._acc_affect_auth_types = ()
 
@@ -55,33 +60,21 @@ class Account(EntityName, EntityQuarantine, Entity):
             self.creator_id != other.creator_id or
             self.expire_date != other.expire_date):
             return False
-        for type in self._acc_affect_domains:  # Compare unames in afffect_domaines
-            other_name = other.get_name(type)
-            my_name = self._name_info.get(type, None)
-            if my_name != other_name:
-                return False
         return True
 
-    def affect_domains(self, *domains):
-        # Disabled this function as it has yet to be determined how
-        # one should mark the spread of users.  Things suggest that it
-        # belongs in a separate module.
-        raise NotImplementedError, "Multiple domains not currently supported"
-        self._acc_affect_domains = domains
-
-    def populate_name(self, domain, name):
-        """Username is stored in entity_name."""
-        self._name_info[domain] = name
-
     def populate(self, name, owner_type, owner_id, np_type, creator_id,
-                 expire_date):
-        self.account_name = name
+                 expire_date, parent=None):
+        if parent is not None:
+            self.__xerox__(parent)
+        else:
+            Entity.populate(self, self.const.entity_account)
+        self.__in_db = False
         self.owner_type = owner_type
         self.owner_id = owner_id
         self.np_type = np_type
         self.creator_id = creator_id
         self.expire_date = expire_date
-        self.populate_name(self.const.account_namespace, name)
+        self.account_name = name
 
     def affect_auth_types(self, *authtypes):
         self._acc_affect_auth_types = authtypes
@@ -112,53 +105,82 @@ class Account(EntityName, EntityQuarantine, Entity):
         salt = "$1$" + string.join(s, "")
         return crypt.crypt(plaintext, salt)
 
-    def write_db(self, as_object=None):
-        type = self.np_type
-        if type is not None: type = int(type)
-
-        if not self.const.account_namespace in self._acc_affect_domains:
-            self._acc_affect_domains += (self.const.account_namespace, )
-        if as_object is None:
-            new_id = super(Account, self).new(int(self.const.entity_account))
-
+    def write_db(self):
+        self.__super.write_db()
+        if not self.__updated:
+            return
+        if not self.__in_db:
+            cols = [('entity_type', ':e_type'),
+                    ('account_id', ':acc_id'),
+                    ('owner_type', ':o_type'),
+                    ('owner_id', ':o_id'),
+                    ('np_type', ':np_type'),
+                    ('creator_id', ':c_id')]
+            # Columns that have default values through DDL.
+            if self.create_date is not None:
+                cols.append(('create_date', ':create_date'))
+            if self.expire_date is not None:
+                cols.append(('expire_date', ':exp_date'))
             self.execute("""
-            INSERT INTO [:table schema=cerebrum name=account_info] (entity_type, account_id,
-                owner_type, owner_id, np_type, create_date, creator_id, expire_date)
-            VALUES (:e_type, :acc_id, :o_type, :o_id, :np_type, [:now], :c_id, :e_date)""",
+            INSERT INTO [:table schema=cerebrum name=account_info] (%(tcols)s)
+            VALUES (%(binds)s)""" % {'tcols': ", ".join([x[0] for x in cols]),
+                                     'binds': ", ".join([x[1] for x in cols])},
                          {'e_type' : int(self.const.entity_account),
-                          'acc_id' : new_id,
+                          'acc_id' : self.entity_id,
                           'o_type' : int(self.owner_type),
                           'c_id' : self.creator_id,
                           'o_id' : self.owner_id,
-                          'np_type' : type,
-                          'e_date' : self.expire_date})
-            self.account_id = new_id
-            for k in self._acc_affect_domains:
-                if self._name_info.get(k, None) is not None:
-                    self.add_name(k, self._name_info[k])
+                          'np_type' : self.np_type,
+                          'exp_date' : self.expire_date,
+                          'create_date': self.create_date})
+            # TBD: This is superfluous (and wrong) to do here if
+            # there's a write_db() method in EntityName.
+            self.execute("""
+            INSERT INTO [:table schema=cerebrum name=entity_name]
+              (entity_id, value_domain, entity_name)
+            VALUES (:g_id, :domain, :name)""",
+                         {'g_id': self.entity_id,
+                          'domain': int(self.const.account_namespace),
+                          'name': self.account_name})
         else:
-            new_id = self.account_id
+            cols = [('owner_type',':o_type'),
+                    ('owner_id',':o_id'),
+                    ('np_type',':np_type'),
+                    ('creator_id',':c_id')]
+            if self.create_date is not None:
+                cols.append(('create_date', ':create_date'))
+            if self.expire_date is not None:
+                cols.append(('expire_date', ':exp_date'))
+
             self.execute("""
             UPDATE [:table schema=cerebrum name=account_info]
-            SET owner_type=:o_type, owner_id=:o_id, np_type=:np_type,
-               creator_id=:c_id, expire_date=:e_date
-            WHERE account_id=:acc_id""",
+            SET %(defs)s
+            WHERE account_id=:acc_id""" % {'defs': ", ".join(
+                ["%s=%s" % x for x in cols])},
                          {'o_type' : int(self.owner_type),
                           'c_id' : self.creator_id,
                           'o_id' : self.owner_id,
-                          'np_type' : type,
+                          'np_type' : self.np_type,
                           'e_date' : self.expire_date,
-                          'acc_id' : as_object.account_id})
-            self.account_id = as_object.account_id
+                          'acc_id' : self.entity_id})
+            # TBD: Maybe this is better done in EntityName.write_db()?
+            self.execute("""
+            UPDATE [:table schema=cerebrum name=entity_name]
+            SET entity_name=:name
+            WHERE
+              entity_id=:g_id AND
+              value_domain=:domain""",
+                         {'g_id': self.entity_id,
+                          'domain': int(self.const.account_namespace),
+                          'name': self.account_name})
 
         # Store the authentication data.
-
         for k in self._acc_affect_auth_types:
             k = int(k)
             what = 'insert'
-            if as_object is not None:
+            if self.__in_db:
                 try:
-                    dta = as_object.get_account_authentication(k)
+                    dta = self.get_account_authentication(k)
                     if dta != self._auth_info.get(k, None):
                         what = 'update'
                 except Errors.NotFoundError:
@@ -179,12 +201,14 @@ class Account(EntityName, EntityQuarantine, Entity):
                     WHERE account_id=:acc_id AND method=:method""",
                                  {'acc_id' : self.account_id, 'method' : k,
                                   'auth_data' : self._auth_info[k]})
-            elif as_object is not None and what == 'update':
+            elif self.__in_db and what == 'update':
                     self.execute("""
                     DELETE [:table schema=cerebrum name=account_authentication]
                     WHERE account_id=:acc_id AND method=:method""",
                                  {'acc_id' : self.account_id, 'method' : k})
-        return new_id
+        del self.__in_db
+        self.__in_db = True
+        self.__updated = False
 
     def find(self, account_id):
         super(Account, self).find(account_id)
