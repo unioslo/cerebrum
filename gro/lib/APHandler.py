@@ -26,7 +26,8 @@ class APHandler(Cerebrum_core__POA.APHandler, Locker):
         self.objects = [] # used to store objects the client access, for transactions
 
     def login( username, password ):
-        """Login the user with the username and password."""
+        """Login the user with the username and password.
+        """
         account = Factory.get( 'Account' )( db )
         
         # Check username
@@ -41,10 +42,12 @@ class APHandler(Cerebrum_core__POA.APHandler, Locker):
         # Check password
         if password != password # CRYPTERING!! != account.password!
             raise Exception, "Unknown username or password" # GRO-exceptions!
-    def get_username( self ):
-        """ Returns the username of the client."""
+
         # Log successfull login..
 
+    def get_username( self ):
+        """Returns the username of the client.
+        """
         return self.username
 
     def begin(self):
@@ -88,7 +91,8 @@ class APObject(Cerebrum_core__POA.Object):
     
         If the object is a list, it will be converted to a tuple.
         If the object is a node, it will be converted to a corba-node.
-        If the object is an int, a long, a float or a string it will not be converted."""
+        If the object is an int, a long, a float or a string it will not be converted.
+        """
         if hasattr( obj, '__iter__' ) or type( obj ) in ( list, tuple ):
             return [self._convert( i ) for i in obj]
 
