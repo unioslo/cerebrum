@@ -22,14 +22,57 @@
 import random
 
 import re
-import smbpasswd
 import cereconf
 from Cerebrum import Account
 from Cerebrum import Errors
 from Cerebrum.modules import Email
 from Cerebrum.modules import PasswordHistory
 from Cerebrum.modules.bofhd.utils import BofhdRequests
-from Cerebrum.Utils import pgp_encrypt
+from Cerebrum.Utils import pgp_encrypt, Factory
+
+def calculate_account_type_priority(account, ou_id, affiliation):
+    # Determine the status this affiliation resolves to
+    if account.owner_id is None:
+        raise ValueError, "non-owned account can't have account_type"
+    person = Factory.get('Person')(account._db)
+    status = None
+    for row in person.list_affiliations(person_id=account.owner_id):
+        if row['ou_id'] == ou_id and row['affiliation'] == affiliation:
+            status = account.const.PersonAffStatus(
+                row['status'])._get_status()
+            break
+    if status is None:
+        raise ValueError, "Person don't have that affiliation"
+    affiliation = str(account.const.PersonAffiliation(int(affiliation)))
+
+    # Fint the range that we resolve to
+    pri_ranges = cereconf.ACCOUNT_PRIORITY_RANGES
+    if not pri_ranges.has_key(affiliation):
+        affiliation = '*'
+    if not pri_ranges[affiliation].has_key(status):
+        status = '*'
+    pri_min, pri_max = pri_ranges[affiliation][status]
+
+    # Find taken values in this range and sort them
+    taken = []
+    for row in account.get_account_types(all_persons_types=True):
+        taken.append(int(row['priority']))
+    taken = [x for x in taken if x >= pri_min and x < pri_max]
+    taken.sort()
+    if(not taken):
+        taken.append(pri_min)
+    new_pri = taken[-1] + 2
+    if new_pri < pri_max:
+        return new_pri
+
+    # In the unlikely event that the previous taken value was at the
+    # end of the range
+    new_pri = pri_max - 1
+    while new_pri >= pri_min:
+        if new_pri not in taken:
+            return new_pri
+        new_pri -= 1
+    raise ValueError, "No free priorities for that account_type!"
 
 class AccountUiOMixin(Account.Account):
     """Account mixin class providing functionality specific to UiO.
@@ -100,6 +143,12 @@ class AccountUiOMixin(Account.Account):
             self.set_home(spread, disk_id=tmp['disk_id'],
                           home=tmp['home'], status=tmp['status'])
         return ret
+
+    def set_account_type(self, ou_id, affiliation, priority=None):
+        if priority is None:
+            priority = calculate_account_type_priority(
+                self, ou_id, affiliation)
+        ret = self.__super.set_account_type(ou_id, affiliation, priority)
 
     def set_home(self, spread, disk_id=None, home=None, status=None):
         # Assert that user has same home at ifi & uio
@@ -336,4 +385,5 @@ class AccountUiOMixin(Account.Account):
         return pgp_encrypt(plaintext, cereconf.PGPID)
 
     def enc_auth_type_md4_nt(self,plaintext,salt=None):
+        import smbpasswd
         return smbpasswd.nthash(plaintext)
