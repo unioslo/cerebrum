@@ -52,6 +52,8 @@ targ2vacation = {}
 acc2name = {}
 
 base_dn = "dc=uio,dc=no"
+db_tt2ldif_tt = {'account': 'user',
+                 'forward': 'forwardAddress'}
 
 def read_addr():
     counter = 0
@@ -338,7 +340,7 @@ description: mail-config ved UiO.\n
         f.write("dn: cn=d%s,ou=mail,%s\n" % (t, base_dn))
         f.write("objectClass: mailAddr\n")
         f.write("cn: d%s\n" % t)
-        f.write("targetType: %s\n" % tt)
+        f.write("targetType: %s\n" % db_tt2ldif_tt.get(str(tt), str(tt)))
         if target:
             f.write("target: %s\n" % target)
         if uid:
