@@ -250,7 +250,8 @@ class group_tree(object):
                     primary_account_id = int(a_ids[0])
                     sub_ids[primary_account_id] = const.entity_account
                 else:
-                    logger.warn("Fant ingen bruker for fnr=%r", fnr)
+                    logger.warn("Fant ingen bruker for fnr=%r (XML = %r)",
+                                fnr, self.users[fnr])
         else:
             # Gruppa har ikke noen personmedlemmer, og skal dermed
             # populeres med *kun* evt. subgruppemedlemmer.  Vi sørger
