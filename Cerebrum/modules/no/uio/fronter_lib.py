@@ -83,7 +83,7 @@ WHERE g.importid IS NOT NULL AND
 
     def ListGroupsACL(self):
         return self.db.query("""
-SELECT s.importid, g.importid, a.group_access, a.room_access
+SELECT s.importid AS structid, g.importid AS groupid, a.group_access, a.room_access
 FROM structuregrouptbl s, structuregrouptbl g, structureacl a
 WHERE s.importid IS NOT NULL AND
       s.id = a.structid AND
@@ -99,7 +99,7 @@ WHERE r.structureid = s.id AND
 
     def ListRoomsACL(self):
         return self.db.query("""
-SELECT r.importid, g.importid, a.read_access, a.write_access,
+SELECT r.importid AS roomid, g.importid AS groupid, a.read_access, a.write_access,
        a.delete_access, a.change_access
 FROM projecttbl2 r, structuregrouptbl g, acl a
 WHERE r.importid IS NOT NULL AND
@@ -424,41 +424,42 @@ class Fronter(object):
                            }
         return rooms
 
-    def get_fronter_groupmembers(self):
+    def get_fronter_groupmembers(self, current_groups):
         groupmembers = {}
         for m in self._accessFronter.ListAllGroupMembers():
-            if current_groups.has_key(m['gname']):
-                groupmembers.setdefault(m['gname'], {})[m['uname']] = 1
+            if current_groups.has_key(m['importid']):
+                groupmembers.setdefault(m['importid'], {})[m['username']] = 1
         return groupmembers
 
-    def get_fronter_acl(self):
+    def get_fronter_acl(self, current_groups, current_rooms):
         acl = {}
+        fix_newgroup = re.compile(r'^uio\.no:fs:')
         for a in self._accessFronter.ListGroupsACL():
             # Any access granted to groups with the old naming scheme
             # should be removed.
-            newgroup = a['group']
+            newgroup = a['groupid']
             if re.search(r'^uio\.no:fs:\d', newgroup):
-                newgroup.sub(r'^uio\.no:fs:', 'uio.no:fs:%s:' % self.EMNE_PREFIX.lower())
+                fix_newgroup.sub('uio.no:fs:%s:' % self.EMNE_PREFIX.lower(), newgroup)
 
             # Place all access-entries for node `$struct' in one hash (we
             # don't really need to look up all the nodes for which a
             # specific group has rights, so changing the order of the two
             # hash keys would make things harder).
-            if (current_groups.has_key(a['struct']) and (
-                current_groups.has_key(a['group']) or
+            if (current_groups.has_key(a['structid']) and (
+                current_groups.has_key(a['groupid']) or
                 current_groups.has_key(newgroup))):
-                acl[a['struct']][a['group']] = {'gacc': a['gaccess'], 'racc': a['raccess']}
+                acl[a['structid']][a['groupid']] = {'gacc': a['group_access'], 'racc': a['room_access']}
         for r in self._accessFronter.ListRoomsACL():
-            role = ((r['change'] & fronter.ROLE_CHANGE) |
-                    (r['delete'] & fronter.ROLE_DELETE) |
-                    (r['write'] & fronter.ROLE_WRITE) |
-                    (r['read'] & fronter.ROLE_READ))
-            newgroup = r['group']
+            role = ((r['change_access'] and self.ROLE_CHANGE) or
+                    (r['delete_access'] and self.ROLE_DELETE) or
+                    (r['write_access'] and self.ROLE_WRITE) or
+                    (r['read_access'] and self.ROLE_READ))
+            newgroup = r['groupid']
             if re.search(r'^uio\.no:fs:\d', newgroup):
-                newgroup.sub(r'^uio\.no:fs:', 'uio.no:fs:%s:'  % self.EMNE_PREFIX.lower())
+                fix_newgroup.sub('uio.no:fs:%s:'  % self.EMNE_PREFIX.lower(), newgroup)
 
-            if (current_rooms.has_key(r['room']) and (
-                current_groups.has_key(r['group']) or
+            if (current_rooms.has_key(r['roomid']) and (
+                current_groups.has_key(r['groupid']) or
                 current_groups.has_key(newgroup))):
                 acl[room][group] = {'role': role}
         return acl

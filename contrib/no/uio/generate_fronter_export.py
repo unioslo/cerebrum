@@ -106,7 +106,9 @@ def gen_export(fronterHost, fs_db):
     global fronter, const, db
     # TODO: grisete med disse globale variablene, fjern dem
     global new_group, old_group, group_updates, new_users, old_users, \
-           user_updates, new_rooms, old_rooms, room_updates
+           user_updates, new_rooms, old_rooms, room_updates, \
+           new_groupmembers, old_groupmembers, groupmember_updates, \
+           new_acl, old_acl, acl_updates
 
     db = Factory.get('Database')()
     const = Factory.get('Constants')(db)
@@ -134,12 +136,16 @@ def gen_export(fronterHost, fs_db):
     logger.info("get_fronter_groups()")
     old_group = fronter.get_fronter_groups()
     new_group = {}
-    group_updates = {}
+    group_updates = {fronter.STATUS_ADD: {},
+                     fronter.STATUS_UPDATE: {},
+                     fronter.STATUS_DELETE: {}}
 
     logger.info("get_fronter_rooms()")
     old_rooms = fronter.get_fronter_rooms()
     new_rooms = {}
-    room_updates = {}
+    room_updates = {fronter.STATUS_ADD: {},
+                    fronter.STATUS_UPDATE: {},
+                    fronter.STATUS_DELETE: {}}
 
     # 608-650: legger inn brukermedlemer i %new_groupmembers på
     # cf-gruppenivå 3
@@ -163,11 +169,16 @@ def gen_export(fronterHost, fs_db):
     # - div kall til register_group_update, register_room_update,
     #   group_to_XML og room_to_XML
     logger.info("process_room_group_updates()")
-    process_room_group_updates()
+    current_groups = {}
+    current_rooms = {}
+    process_room_group_updates(current_groups, current_rooms)
 
     logger.info("get_fronter_groupmembers()")
-    old_groupmembers = fronter.get_fronter_groupmembers()
-    groupmember_updates = {}
+    new_groupmembers = {}
+    old_groupmembers = fronter.get_fronter_groupmembers(current_groups)
+    groupmember_updates = {fronter.STATUS_ADD: {},
+                           fronter.STATUS_UPDATE: {},
+                           fronter.STATUS_DELETE: {}}
 
     # 1435-1462:
     # - div. kall til register_groupmember_update og personmembers_to_XML
@@ -175,8 +186,11 @@ def gen_export(fronterHost, fs_db):
     process_groupmembers()
 
     logger.info("get_fronter_acl()")
-    old_acl = fronter.get_fronter_acl()
-    acl_updates = {}
+    new_acl = {}
+    old_acl = fronter.get_fronter_acl(current_groups, current_rooms)
+    acl_updates = {fronter.STATUS_ADD: {},
+                   fronter.STATUS_UPDATE: {},
+                   fronter.STATUS_DELETE: {}}
 
     # 1677-1723:
     # - div kall til acl_to_XML og register_acl_update
@@ -285,7 +299,6 @@ def reg_supergroups():
         register_group("Alle brukere", sg_id, root_struct_id, 0, 0)
         register_group("Alle brukere (STOR)", 'All_users', sg_id, 0, 1)
 
-    new_acl = {}
     for sgname in fronter.supergroups:
         # $sgname er på nivå 2 == Kurs-ID-gruppe.  Det er på dette nivået
         # eksport til ClassFronter er definert i Ureg2000.
@@ -577,14 +590,16 @@ def process_kurs2enhet():
 
 def register_group_update(operation, id):
     """populerer %group_updates"""
-    parent = new_group[id]['parent']
-    title = new_group[id]['title']
 
-    # This isn't called with $operation = STATUS_UPDATE until all
-    # $operation = STATUS_ADD calls are done, and simlarly for
-    # STATUS_DELETE after STATUS_UPDATE.
-    if (id != root_struct_id and parent and new_group.has_key(parent)):
-	register_group_update(operation, parent)
+    if operation != fronter.STATUS_DELETE:
+        parent = new_group[id]['parent']
+        # title = new_group[id]['title']
+
+        # This isn't called with $operation = STATUS_UPDATE until all
+        # $operation = STATUS_ADD calls are done, and simlarly for
+        # STATUS_DELETE after STATUS_UPDATE.
+        if (id != root_struct_id and parent and new_group.has_key(parent)):
+            register_group_update(operation, parent)
 
     if operation == fronter.STATUS_ADD:
         if not (new_group.has_key(id) and (not old_group.has_key(id))):
@@ -617,7 +632,7 @@ def register_group_update(operation, id):
 	group_updates[operation][id] = old_group[id]
 	del(old_group[id])
 
-def register_room_update(operation, id):
+def register_room_update(operation, roomid):
     # populerer %room_updates
     if operation == fronter.STATUS_ADD:
         if not (new_rooms.has_key(roomid) and (not old_rooms.has_key(roomid))):
@@ -648,10 +663,9 @@ def register_room_update(operation, id):
 	room_updates[operation][roomid] = old_rooms[roomid]
 	del(old_rooms[roomid])
 
-def process_room_group_updates():
+def process_room_group_updates(current_groups, current_rooms):
     # Vi kan ikke oppdatere medlemskap på grupper vi ikke lenger får data
     # om, så vi må holde orden på hvilke Fronter-grupper som er 'current'.
-    current_groups = {}
 
     for (status, group_dict, room_dict) in (
         (fronter.STATUS_ADD, new_group, new_rooms),
@@ -663,7 +677,7 @@ def process_room_group_updates():
                 current_groups[id] = 1
             register_group_update(status, id) 
 
-        for id in group_updates.get(fronter.STATUS_ADD, {}).keys():
+        for id in group_updates.get(status, {}).keys():
             data = group_updates[status][id]
             xml.group_to_XML(data['CFid'], status, data)
 
@@ -671,7 +685,6 @@ def process_room_group_updates():
 
         # Det skal ikke gjøres endringer i rettighetstildeling til rom vi ikke
         # lenger henter data om (rom fra tidligere semestre).
-        current_rooms = {}
 
         for id in room_dict.keys():
             if status == fronter.STATUS_ADD:
