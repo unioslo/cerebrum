@@ -104,8 +104,10 @@ def process_user(uname, pwd):
         account.clear()
         account.find_by_name(uname)
         logger.debug3("User %s exists in Cerebrum", uname)
+        account.affect_auth_types(co.auth_type_crypt3_des,)
         account.populate_authentication_type(auth_type, pwd)
         account.write_db()
+        logger.debug3("User %s got passwd inserted: %s", uname, pwd)
     except Errors.NotFoundError:
         logger.warn("User %s not found. Skipping.", uname)
     # yrt
