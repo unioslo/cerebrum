@@ -5,16 +5,16 @@ import time
 class Caching(object):
     """ Handles caching of nodes.
     
-    If a client asks for a node wich already exists, he will give him the node
-    instead of creating a new node. When noone is holding a referance to the
-    node, it will be removed from the cache."""
+    If a client asks for data which is already built from the database, a reference
+    to the existing node instance will be returned.
+    When no one is holding a reference to the node, it will be removed from the cache"""
     cache = weakref.WeakValueDictionary()
 
     def __new__(cls, *args, **vargs):
         """
-        When a new node is attempted to be created, it will be read
-        from the database, or if it exists it will return the already
-        existing node instead."""
+        When a new node is requested, the system will check to see if it exists in the
+        cache. If so, then a reference to it is returned. Otherwise a new node is created
+        from data in the database and the reference to that is returned instead."""
         key = cls, cls.getKey(*args, **vargs)
 
         if key in cls.cache:

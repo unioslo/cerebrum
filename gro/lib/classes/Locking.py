@@ -13,21 +13,31 @@ class Locking( object ):
     """ Adds methods to lock down nodes.
 
     Will give nodes the possibility to be locked for reading and writing
-    for a certain client, with a timeout with the help of the LockTimeout-class."""
+    for a certain client, with a timeout with the help of the LockTimeout-class.
+    Locks will be granted according to the following matrix:
+
+    Existing  |  Read(self)  | Read(others) | Write(self) | Write(others)
+    Requested |              |              |             |
+    ----------+--------------+--------------+-------------+---------------
+      Read    |      N/A     |       Y      |   N/A       |       N
+      Write   |      Y       |       N      |   N/A       |       N
+
+    In other words:
+    - You need a read lock to obtain a write lock
+    - Obtaining a lock you already got will lead to an exception
+    - You will not get a lock if someone else got a write lock
+    - You will not get a write lock if someone else got a lock
+      """
 
     def __init__( self ):
-        # Weak dictionarie wich contains the clients and the time
+        # Weak dictionary which contains the clients and the time
         # they were locked. Time is used to timeout locks.
         self.readLocks = weakref.WeakKeyDictionary()
         self.writeLock = None
 
     def lockForReading( self, client ):
-        """ Prevent others from locking nodes.
+        """Request a read lock on this node."""
 
-        Several clients can put a readlock on the node, wich will prevent others
-        from putting a writelock on this node.
-        Raises an exception if someone else got a writelock on this node, or
-        if the client already got a readlock and/or writelock."""
         if not self.writeLock:
             if not self.isReadLockedByMe( client ):
                 self.readLocks[ client ] = time.time()
@@ -39,12 +49,7 @@ class Locking( object ):
             raise Errors.AlreadyLockedError( 'Someone already got writelock on this node' )
 
     def lockForWriting( self, client ):
-        """ Obtain access to write to this node.
-
-        Only one client can hold a writelock, and the client can only obtain a
-        writelock if he already got a readlock, and noone else got a readlock.
-        Raises an exception if someone else got readlock and/or writelock, or
-        if the client dont got a readlock yet."""
+        """Request a write lock on this node."""
         if not self.writeLock:
             if self.isReadLockedByMe( client ) and not self.isReadLockedByOther( client ):
                 def rollback(obj):
@@ -61,11 +66,8 @@ class Locking( object ):
             raise Errors.AlreadyLockedError( 'A writelock already exists on this node' )
 
     def unlock( self, client ):
-        """ Remove your locks on this node.
-
-        Will remove all your locks on this node if you got any. This is to prevent
-        clients to lock the node after they are finished making changes.
-        Raises an exception if the client dont got a lock on the node."""
+        """Remove all locks held by client on this node.
+        Raises an exception if the client doesn't have a lock on this node."""
         if self.isReadLockedByMe( client ):
             if self.isWriteLockedByMe( client ):
                 # her må det sikkert gjøres noe opprydding i objectet..
@@ -77,37 +79,35 @@ class Locking( object ):
     def isReadLockedByMe( self, client ):
         """ Check if this node is locked for reading by the client
     
-        Returns true if the client got a readlock. Returns false if the client 
-        dont got a readlock, regardless of who else got a readlock."""
+        Returns true if the client got a read lock and false otherwise.
+        Other locks are disregarded."""
         return ( client in self.readLocks.keys() )
 
     def isReadLockedByOther( self, client ):
-        """ Check if this node is locked for reading by others than the client.
+        """ Check if this node is locked for reading by other clients.
     
-        Returns true if someone else than the client got a readlock.
-        Returns false if noone has a readlock, or if the client is the only
-        with a readlock."""
+        Returns true if a client different to the specified client got a read lock
+        and false otherwise."""
         return len(self.readLocks) > 1 or not self.readLocks and self.isReadLockedByMe()
 
     def isWriteLockedByMe( self, client ):
         """ Check if this node is locked for writing by the client.
     
-        Returns true if the client got a writelock.
-        Returns false if noone has a writelock, or someone else got a writelock."""
+        Returns true if the client specified got a write lock and false otherwise."""
         return ( self.writeLock and client is self.writeLock() ) 
 
     def isWriteLockedByOther( self, client ):
-        """ Check if this node is locked for writing by someone else.
+        """ Check if this node is locked for writing by another client.
 
-        Returns true if someone else than the client got a writelock on this node.
-        Returns false if noone has a writelock, or the client has the writelock."""
+        Returns true if a client different to the client specified got a write lock
+        and false otherwise."""
         return self.writeLock and ( client is not self.writeLock() )
 
     def getReadLockers( self ):
         """ Returns a list over all who got a readlock.
 
         Returns a list with usernames for all who got a readlock on this node.
-        Will return an informativ string if the node isnt readlocked."""
+        Will return an informative string if the node isn't locked for reading."""
         if self.readLocks:
             str = 'Users with readlock on this node:\n'
             for client in self.readLocks.keys():
@@ -119,11 +119,11 @@ class Locking( object ):
     def getWriteLocker( self ):
         """ Returns the username wich got a writelock.
 
-        Will return an informativ string if the node isnt writelocked."""
+        Will return an informative string if the node isn't locked for writing."""
         if self.writeLock:
-            str = '%s got a writelock on this node' % self.writeLock.getUsername()
+            str = '%s got a write lock on this node' % self.writeLock.getUsername()
         else:
-            str = 'No writelock exists on this node'
+            str = 'No write lock exists on this node'
         return str
 
 
@@ -131,8 +131,8 @@ class Locking( object ):
 class Locker:
     """ Interface for clients.
 
-    Locker is the client wich locks down the node. If you want to lock down a node
-    you should extend this class, and implement the getUsername()-method."""
+    Locker is the client which locks the node. If you want to lock a node
+    you should extend this class, and implement the getUsername() method."""
 
     def __init__( self, username ):
         self.username = username
@@ -148,7 +148,7 @@ class Locker:
 class LockTimeout( threading.Thread ):
     """ Handles timeout of locked nodes.
 
-    This class should have its own thread wich removes locks after a certain time.
+    This class should have it's own thread which removes locks after a certain time.
     Still not sure how it will work together with Locking"""
 
     def __init__( self ):

@@ -22,11 +22,11 @@ class APHandler(Cerebrum_core__POA.APHandler, Locker):
         """ Returns the username of the client.
     
         Used by the node if a client wants a list over who got a lock on the node.
-        Overloads the getUsername()-method in the locker-class."""
+        Overrides the getUsername()-method in the locker-class."""
         return self.username
 
     def getEntity(self, id):
-        """ Returns a corba node of the entity wich got that specific id. """
+        """ Returns a corba node of the entity which got the specified id. """
         import classes.Entity
         entity = classes.Entity.Entity(id)
         apNode = APNode(self, entity)
@@ -34,10 +34,10 @@ class APHandler(Cerebrum_core__POA.APHandler, Locker):
         return self.com.get_corba_representation(apNode)
 
     def getTypeByName(self, className, name):
-        """ Returns a corba node wich got that specific name.
+        """ Returns a corba node which got the specified name.
         
-        You need to specify wich class and wich name the database-object you want.
-        Raises an exception if the classname was not found."""
+        Both class and name of the wanted database-object is needed.
+        Raises an exception if className was not found."""
         import classes.Types
         if className in classes.Types.__all__:
             NodeClass = getattr(classes.Types, className)
@@ -49,10 +49,10 @@ class APHandler(Cerebrum_core__POA.APHandler, Locker):
         raise Errors.NoSuchTypeError('className %s was not found' % className)
 
     def getNode(self, className, key):
-        """ Returns a corba node wich got that specific name.
+        """ Returns a corba node which got the name specified by key.
     
         The diffrence between this method and getTypeBy() is that this method
-        maps classnames to a string wich can differ from the classname."""
+        maps classnames to a string that can differ from the classname."""
         if className not in Node.classMap:
             raise Errors.NoSuchTypeError('className %s was not found' % className)
         l = []
@@ -68,21 +68,22 @@ class APHandler(Cerebrum_core__POA.APHandler, Locker):
 class APNode(Cerebrum_core__POA.Node):
     """ Access point proxy node.
 
-    The node contain the APHandler and a node. It act as a proxy for the node.
-    This is to give us a sort of an automatic session handling, so the client
-    do not have to deal with a session id, and that we can lock down nodes for
-    the specific client, using the APHandler as a identifier for the client."""
+    The APNode contains the APHandler and a node. It acts as a proxy for the node.
+    This is to give us a sort of automatic session handling that will solve two problems:
+    1 - The client does not have to deal with a session id
+    2 - GRO can perform locking on nodes requested by an client,
+        using the APHandler to identify it."""
 
     def __init__(self, ap, node):
         self.ap = ap
         self.node = node
 
     def _convert(self, obj):
-        """ Convert a object.
+        """ Convert an object.
     
-        If the object is a list, it will be convertet to a tuple.
-        If the object is a node, it will be convertet to a corba-node.
-        If the ojbect is a int, long, float or string it will not be converted."""
+        If the object is a list, it will be converted to a tuple.
+        If the object is a node, it will be converted to a corba-node.
+        If the object is an int, a long, a float or a string it will not be converted."""
         if hasattr(obj, '__iter__') or type(obj) in (list, tuple):
             return [self._convert(i) for i in obj]
 
@@ -122,7 +123,7 @@ class APNode(Cerebrum_core__POA.Node):
     def _get(self, key):
         """ Returns node values.
 
-        Raises exception if the node wasnt readlocked, or if they key isnt a
+        Raises an exception if the node wasn't read-locked, or if the key isn't a
         valid attribute."""
         if key in self.node.readSlots:
             # check locking
@@ -157,16 +158,18 @@ class APNode(Cerebrum_core__POA.Node):
         return self.node.writeSlots
 
     def _set( self, key, value ):
-        """ Set a node attribute.
+        """ Sets a node attribute.
         
-        Set an attribute on a node, if that node got that attribute, and if
-        the attribute is writeable. Called by setString and setLong."""
+        Set an attribute on a node if:
+         - The node got that attribute AND
+         - The attribute is writeable.
+        Called by setString and setLong."""
         if key not in self.node.readSlots:
             raise NoSuchAttributeError( 'Not a valid attribute for the node.' )
         if key not in self.node.writeSlots:
             raise ReadOnlyAttributeError( '%s is not writeable.' % key )
         if not self.isWriteLockedByMe():
-            raise NotLockedError( 'You dont got a writelock on this node.' )
+            raise NotLockedError( 'You don\'t got a writelock on this node.' )
         setattr( self.node, key, value )
 
     def setString(self, key, value):
@@ -178,60 +181,62 @@ class APNode(Cerebrum_core__POA.Node):
         self._set( key, value )
 
     def lockForReading( self ):
-        """ Prevent other from locking the node for writing.
+        """ Prevent others from locking the node for writing.
 
         Lock the node so no other client can put a writelock on it.
-        Raises an AlreadyLockedError if its already writelocked by someone else"""
+        Raises an AlreadyLockedError if the node is already
+        locked for writing by another client"""
         self.node.lockForReading( self.ap )
 
     def lockForWriting( self ):
         """ Obtain access to make changes to the node.
 
-        Before you can change a changeable attribute you must lock it for writing.
-        Raises an AlreadyLockedError if its already locked by someone else."""
+        Before a changeable attribute can be written, a write lock must be obtained.
+        Raises an AlreadyLockedError if the node is already locked for writing
+        by another client."""
         self.node.lockForWriting( self.ap )
 
     def unlock( self ):
-        """ Remove all your locks on the node.
+        """ Remove all locks the current client got on this node.
 
-        Raises an NotLockedError if you dont got any locks on the node."""
+        Raises a NotLockedError if the current client got no locks on this node."""
         self.node.unlock( self.ap )
 
     def isReadLockedByMe( self ):
-        """ Check if the node is locked for reading for me. """
+        """ Check if this node is locked for reading for me. """
         return self.node.isReadLockedByMe( self.ap )
 
     def isReadLockedByOther( self ):
-        """ Check if the node is locked for reading by others. """
+        """ Check if this node is locked for reading by someone else. """
         return self.node.isReadLockedByOther( self.ap )
 
     def isWriteLockedByMe( self ):
-        """ Check if the node is locked for writing by me. """
+        """ Check if this node is locked for writing by me. """
         return self.node.isWriteLockedByMe( self.ap )
 
     def isWriteLockedByOther( self ):
-        """ Check if someone else got a writelock on the node. """
+        """ Check if this node is locked for writing by someone else."""
         return self.node.isWriteLockedByother( self.ap )
 
     def getReadLockers( self ):
-        """ Get a list over all wich has a readlock on the node. """
+        """ Get a list over all clients with a readlock on this node. """
         return self.node.getReadLockers( self.ap )
 
     def getWriteLocker( self ):
-        """ Get the username of the client wich has a writelock on this node. """
+        """ Get the username of the client with has a writelock on this node. """
         return self.node.getWriteLocker( self.ap )
 
     def begin( self ):
         """ Begins a transaction.
     
-        It will lock the node for reading for you.
+        A read lock will be requested on this node..
         Raises an AlreadyLockedError if the node is already locked."""
         self.lockForReading()
 
     def rollback(self):
         """ Remove/drop changes done to the node.
     
-        Rollbacks changes done to the node, and unlocks all locks on the node.
+        Rollbacks changes done to this node, and unlocks all locks on this node.
         Raises an NotLockedError if the node isnt locked for writing."""
         if self.isWriteLockedByMe():
             self.node.rollback()
@@ -240,8 +245,8 @@ class APNode(Cerebrum_core__POA.Node):
     def commit(self):
         """ Save changes to the database.
     
-        Commits the changes in the node to the database. Returns a list over
-        changed atrributes. Raises an NotLockedError if the node isnt locked
+        Commits the changes in this node to the database. Returns a list with
+        al changed attributes. Raises a NotLockedError if the node isn't locked
         for writing. """
         if not self.updated:
             return []
