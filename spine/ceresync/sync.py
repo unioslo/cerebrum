@@ -97,6 +97,7 @@ class Sync:
             self._changes = None
 #            print 'getting everything'
 
+# Hvorfor er denne kommentert ut? FORKLAR!
     """
     def __del__(self):
         # We roll back our own passive main connection
