@@ -613,11 +613,8 @@ class CerebrumRotatingHandler(logging.FileHandler, object):
         self.backupCount = backupCount
         self.mode = mode
         if maxBytes > 0:
-            self.mode = "a"
+            self.mode = "a+"
         # fi
-
-        debug("cerebrumFileHandler inited with:",
-              logdir, self.mode, self.maxBytes, self.backupCount)
     # end __init__
 
 
