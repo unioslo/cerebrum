@@ -519,9 +519,7 @@ def main():
 	if con:
 	    load_cltype_table(cltype)
 	    nwqsync(spread)
-	    int_log.write("\n# End at  %s \n" % time.strftime("%a, 
-						%d %b %Y %H:%M:%S +0000",
-						time.localtime()))
+	    int_log.write("\n# End at  %s \n" % time.strftime("%a, %d %b %Y %H:%M:%S +0000", time.localtime()))
 	else:
 	    int_log.write("\n # Could not connect to server!")
 	int_log.close()
