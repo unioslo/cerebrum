@@ -665,7 +665,14 @@ ORDER BY fodselsdato, personnr
 
     def GetStudBetPapir(self):
         """Lister ut fødselsnummer til alle de som har betalt en eller
-        annen form for papirpenger"""
+        annen form for papirpenger. Vi henter inn de studentene som
+        har fritak for betaling av semesteravgift da det er blitt
+        bestemt at disse heller ikke skal betale papiravgift dette
+        semesteret.  Dette er imidlertid litt problematisk siden det
+        finnes flere typer studenter med slik fritak uten at man har
+        full oversikt over alle studentgrupper som omfattes av
+        dette"""
+
 
         qry = """
         SELECT DISTINCT r.fodselsdato, r.personnr
@@ -683,6 +690,24 @@ ORDER BY fodselsdato, personnr
         frk.fakturastatuskode ='OPPGJORT' and
         fkd.fakturanr = frk.fakturanr AND
         fkd.fakturadetaljtypekode = 'PAPIRAVG'"""
+	qry += """ UNION
+        SELECT DISTINCT r.fodselsdato, r.personnr
+        FROM fs.registerkort r
+        WHERE
+        r.TERMINKODE = :semester and r.arstall = :year AND
+        r.betformkode='FRITATT'"""
+
+#Ved senere anledning (når studierettstatuskoder som skal brukes er bekreftet
+# skal denne delen av søket også taes i bruk
+#	qry += """ UNION
+#	SELECT DISTINCT st.fodselsdato, st.personnr
+#	FROM fs.studierett st
+#	WHERE
+#	st.status_privatist='N' AND
+#	NVL(st.dato_gyldig_til,SYSDATE) >= sysdate AND
+#	st.studierettstatkode IN ('ERASMUS','NORDPLUS',
+#       'SOKRATES','NORAD','FULBRIGHT','KULTURAVT') """	
+
         return (self._get_cols(qry), self.db.query(qry, {'semester': self.semester,
                                                          'year': self.year}))
 
