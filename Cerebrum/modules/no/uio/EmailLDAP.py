@@ -23,6 +23,7 @@ import os
 import re
 import sys
 import string
+import time
 
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import Email
@@ -293,16 +294,32 @@ class EmailLDAPUiOMixin(EmailLDAP):
 
     def read_misc_target(self):
         a = Factory.get('Account')(self._db)
+        # For the time being, remove passwords for all quarantined
+        # accounts, regardless of quarantine type.
+        quarantines = {}
+        now = self._db.DateFromTicks(time.time())
+        for row in a.list_entity_quarantines(
+                entity_types = self.const.entity_account):
+            if (row['start_date'] <= now
+                and (row['end_date'] is None or row['end_date'] >= now)
+                and (row['disable_until'] is None
+                     or row['disable_until'] < now)):
+                # The quarantine in this row is currently active.
+                quarantines[int(row['entity_id'])] = "*locked"
         for row in a.list_account_authentication():
-            self.e_id2passwd[row['account_id']] = (row['entity_name'],
-                                                   row['auth_data'])
+            account_id = int(row['account_id'])
+            self.e_id2passwd[account_id] = (
+                row['entity_name'],
+                quarantines.get(account_id) or row['auth_data'])
         for row in a.list_account_authentication(self.const.auth_type_crypt3_des):
             # *sigh* Special-cases do exist. If a user is created when the
             # above for-loop runs, this loop gets a row more. Before I ignored
             # this, and the whole thing went BOOM on me.
-            if not self.e_id2passwd.get(row['account_id'], (0, 0))[1]:
-                self.e_id2passwd[row['account_id']] = (row['entity_name'],
-                                                       row['auth_data'])
+            account_id = int(row['account_id'])
+            if not self.e_id2passwd.get(account_id, (0, 0))[1]:
+                self.e_id2passwd[account_id] = (
+                    row['entity_name'],
+                    quarantines.get(account_id) or row['auth_data'])
 
     def get_misc(self, entity_id, target_id, email_target_type):
         if email_target_type == self.const.email_target_account:
