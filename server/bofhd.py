@@ -55,6 +55,8 @@ from Cerebrum import Utils
 from Cerebrum.extlib import logging
 from Cerebrum.modules.bofhd.errors import CerebrumError
 from Cerebrum.modules.bofhd.help import Help
+from Cerebrum.modules.bofhd.utils import xmlrpc_to_native
+from Cerebrum.modules.bofhd.utils import native_to_xmlrpc
 import traceback
 
 logging.fileConfig(cereconf.LOGGING_CONFIGFILE)
@@ -207,60 +209,12 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
     use_encryption = CRYPTO_AVAILABLE
 
     def _dispatch(self, method, params):
-        # Translate params between Python objects and XML-RPC-usable
-        # structures.  We could have used marshal.{loads,dumps} here,
-        # but then the Java client would have trouble
-        # encoding/decoding requests/responses.
-        def wash_params(obj):
-            if isinstance(obj, (str, unicode)):
-                if obj == ':None':
-                    return None
-                elif obj.startswith(":"):
-                    return obj[1:]
-                return obj
-            elif isinstance(obj, (tuple, list)):
-                obj_type = type(obj)
-                return obj_type([wash_params(x) for x in obj])
-            elif isinstance(obj, dict):
-                obj_type = type(obj)
-                return obj_type([(wash_params(x), wash_params(obj[x]))
-                                 for x in obj])
-            elif isinstance(obj, (int, long, float)):
-                return obj
-            else:
-                raise ValueError, "Unrecognized parameter type: '%r'" % obj
-
-        def wash_response(obj, no_unicodify=0):
-            if obj is None:
-                return ':None'
-            elif isinstance(obj, (str, unicode)):
-                if isinstance(obj, str) and not no_unicodify:
-                    obj = unicode(obj, 'iso8859-1')
-                if obj.startswith(":"):
-                    return ":" + obj
-                return obj
-            elif isinstance(obj, (tuple, list)):
-                obj_type = type(obj)
-                return obj_type([wash_response(x) for x in obj])
-            elif isinstance(obj, dict):
-                obj_type = type(obj)
-                return obj_type([(wash_response(x, no_unicodify=1), wash_response(obj[x]))
-                                 for x in obj])
-            elif isinstance(obj, (int, long, float)):
-                return obj
-            elif str(type(obj)) == "<type 'DateTime'>":  # TODO: use isinstance instead
-                # TODO: This only works for Postgres.  Needs support
-                # in Database.py as the Python database API doesn't
-                # define any return type for Date
-                return xmlrpclib.DateTime(obj.localtime().tuple())
-            else:
-                raise ValueError, "Unrecognized parameter type: '%r'" % obj
         try:
             func = getattr(self, 'bofhd_' + method)
         except AttributeError:
             raise Exception('method "%s" is not supported' % method)
         try:
-            ret = apply(func, wash_params(params))
+            ret = apply(func, xmlrpc_to_native(params))
         except CerebrumError, e:
             # ret = ":".join((":Exception:", type(e).__name__, str(e)))
             ret = str(e)
@@ -280,7 +234,7 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
             # ret = ":".join((":Exception:" + type(e).__name__, "Unknown error."))
             ret = "Unknown error (a server error has been logged)."
             raise sys.exc_info()[0], ret
-        return wash_response(ret)
+        return native_to_xmlrpc(ret)
 
     # This method is pretty identical to the one shipped with Python,
     # except that we don't silently eat exceptions
