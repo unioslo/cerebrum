@@ -111,63 +111,6 @@ class BofhdExtension(bofhd_uio_cmds.BofhdExtension):
                                change_by=operator.get_entity_id())
         return self._unwrap_events(operator, events)
     
-    # override UiOs quarantine commands - since they require 
-    # and USE the useless 'entity type' parameter. This parameter
-    # is not needed due to _get_entity(idtype=None) - and 
-    # basically only prevents quarantines from working on types that
-    # DO support it. 
-
-    # FIXME Note that all_command-entries have not been updated for the
-    # lack of EntityType, and are basically just inherited from uio.
-        
-
-    # quarantine disable
-    def quarantine_disable(self, operator, id, qtype, date):
-        entity = self._get_entity(id=id)
-        date = self._parse_date(date)
-        qtype = int(self._get_constant(qtype, "No such quarantine"))
-        self.ba.can_disable_quarantine(operator.get_entity_id(), entity, qtype)
-        entity.disable_entity_quarantine(qtype, date)
-        return "OK"
-
-    # quarantine remove
-    def quarantine_remove(self, operator, id, qtype):
-        entity = self._get_entity(id=id)
-        qtype = int(self._get_constant(qtype, "No such quarantine"))
-        self.ba.can_remove_quarantine(operator.get_entity_id(), entity, qtype)
-        entity.delete_entity_quarantine(qtype)
-        return "OK"
-
-
-
-    # quarantine set
-    def quarantine_set(self, operator, id, qtype, why, date):
-        date_start, date_end = self._parse_date_from_to(date)
-        entity = self._get_entity(id=id)
-        qtype = int(self._get_constant(qtype, "No such quarantine"))
-        self.ba.can_set_quarantine(operator.get_entity_id(), entity, qtype)
-        try:
-            entity.add_entity_quarantine(qtype, operator.get_entity_id(), why, date_start, date_end)
-        except AttributeError:
-            raise CerebrumError("Quarantines cannot be set on %s" % entity_type)
-        return "OK"
-
-    # quarantine show
-    def quarantine_show(self, operator, id):
-        ret = []
-        entity = self._get_entity(id=id)
-        self.ba.can_show_quarantines(operator.get_entity_id(), entity)
-        for r in entity.get_entity_quarantine():
-            acc = self._get_account(r['creator_id'], idtype='id')
-            ret.append({'type': "%s" % self.num2const[int(r['quarantine_type'])],
-                        'start': r['start_date'],
-                        'end': r['end_date'],
-                        'disable_until': r['disable_until'],
-                        'who': acc.account_name,
-                        'why': r['description']})
-        return ret
-        
-        
     # entity history
     all_commands['entity_history'] = None
     def entity_history(self, operator, entity_id, limit=100):
