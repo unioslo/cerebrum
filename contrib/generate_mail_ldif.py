@@ -448,7 +448,7 @@ description: mail-config ved UiO.\n
                 txt, start, end, enable = targ2vacation[t]
                 tmp = re.sub('\n', '', base64.encodestring(txt))
                 rest += "tripnote:: %s\n" % tmp
-                if enable:
+                if enable == 'T':
                     rest += "tripnoteActive: TRUE\n"
 
             # Find mail-server settings:
