@@ -13,8 +13,8 @@ CREATE TABLE ou_info
 (
   /* Dummy column, needed for type check against `entity_id'. */
   entity_type	CHAR VARYING(16)
-		NOT NULL
 		DEFAULT 'o'
+		NOT NULL
 		CONSTRAINT ou_info_entity_type_chk
 		  CHECK (entity_type = 'o'),
 
