@@ -38,3 +38,6 @@ class Caching(object):
         """ Remove the node from the cache. """
         self.invalidateObject(self)
 
+    def getKey(*args, **vargs): # this will make it a singleton
+        pass
+    getKey = staticmethod(getKey)
