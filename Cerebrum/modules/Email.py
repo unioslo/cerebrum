@@ -1494,8 +1494,7 @@ class PersonEmailMixin(Person.Person):
         # differing in person_external_id.source_system, be treated?
         target_type = int(self.const.email_target_account)
         for row in self.query("""
-        SELECT pei.external_id,
-               ea.local_part || '@' || ed.domain AS email_primary_address
+        SELECT pei.external_id, ea.local_part, ed.domain
         FROM [:table schema=cerebrum name=person_external_id] pei
         JOIN [:table schema=cerebrum name=account_type] at
           ON at.person_id = pei.person_id AND
@@ -1514,5 +1513,7 @@ class PersonEmailMixin(Person.Person):
         WHERE pei.id_type = :id_type""",
                               {'id_type': int(id_type),
                                'targ_type': target_type}):
-            ret[row['external_id']] = row['email_primary_address']
+            ret[row['external_id']] = '@'.join((
+                row['local_part'],
+                self.rewrite_special_domains(row['domain'])))
         return ret
