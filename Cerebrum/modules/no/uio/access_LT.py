@@ -50,7 +50,7 @@ SELECT
   poststednavn_alternativ_adr, landnavn_alternativ_adr
 FROM lt.sted
 WHERE
-  dato_nedlagt > sysdate AND dato_opprettet >= sysdate
+  dato_opprettet <= SYSDATE AND dato_nedlagt > SYSDATE
 ORDER BY fakultetnr, instituttnr, gruppenr"""
         r = self.db.query(qry)
         return ([x[0] for x in self.db.description], r)
