@@ -1,6 +1,8 @@
 #!/usr/bin/env python2.2
 
+import os
 import cereconf
+from Cerebrum import Utils
 
 class TemplateHandler(object):
     """Handling of templates for letters.
@@ -23,9 +25,10 @@ tag is present, hdr and footer will be empty.
             print apply_template(body, {'username': u.user, ...})
         print footer
         """
-    def __init__(self, lang, tplname, type):
-        self._type=type
-        (self._hdr, self._body, self._footer) = self.read_templates(lang, tplname)
+    def __init__(self, lang=None, tplname=None, type=None):
+        if lang is not None:
+            self._type=type
+            (self._hdr, self._body, self._footer) = self.read_templates(lang, tplname)
 
     def read_templates(self, lang, tplname):
         pathinfo = (cereconf.TEMPLATE_DIR,lang, tplname, self._type)
@@ -46,12 +49,18 @@ tag is present, hdr and footer will be empty.
         return (hdr, body, footer)
 
     def apply_template(self, template, mapping):
+        """applies mapping to hdr, body or footer template and returns
+        the resulting string.  Mapping is a dict, where strings named
+        <key> are replaced with mapping[key].  The special key
+        template_dir may be used to refer to cereconf.TEMPLATE_DIR"""
+
         if template == 'hdr':
             template = self._hdr
         elif template == 'body':
             template = self._body
         elif template == 'footer':
             template = self._footer
+        mapping['template_dir'] = cereconf.TEMPLATE_DIR
         for k in mapping.keys():
             if mapping[k] is None:
                 v = ""
@@ -64,3 +73,16 @@ tag is present, hdr and footer will be empty.
             template = template.replace("<%s>" % k, v)
         return template
 
+    def spool_job(self, filename, type, printer):
+        logfile = Utils.make_temp_file(only_name=1)
+        if type == 'tex':
+            status = (os.system("%s --interaction nonstopmode %s >> %s 2>&1" % (
+                cereconf.PRINT_LATEX_CMD, filename, logfile)) or
+                      os.system("%s -f < %s.dvi > %s.ps 2>> %s" % (
+                cereconf.PRINT_DVIPS_CMD, base_filename, base_filename, logfile)))
+            if status:
+                raise IOError("Error spooling job, see %s for details" % logfile)
+        status = os.system("%s %s >> %s 2>&1" % (
+            cereconf.PRINT_LPR_CMD, filename, logfile))
+        if status:
+            raise IOError("Error spooling job, see %s for details" % logfile)
