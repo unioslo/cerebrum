@@ -623,7 +623,9 @@ class BofhdExtension(object):
             out.write(th._footer)
         out.close()
         try:
+            account = self._get_account(operator.get_entity_id(), idtype='id')
             th.spool_job(out_name, tpl_type, skriver, skip_lpr=0,
+                         lpr_user=account.account_name,
                          logfile="%s/spool.log" % tmp_dir)
         except IOError, msg:
             raise CerebrumError(msg)
