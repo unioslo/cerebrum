@@ -5,16 +5,16 @@
 #def addForm($entity)
 <form action="$url('note/add')" type="post">
 
-#set title = $_("Add a comment to %s") % $entity
-    <h2>$title</h2>
+#set title = $_("Add comment")
+    <h3>$title</h3>
 
     <input type="hidden" name="entity" value="$entity.id" />
 
     <label for="subject">$_("Subject"):</label>
-    <input type="text" size="60" name="subject" /> <br />
+    <input type="text" size="40" name="subject" /> <br />
 
     <label for="description">$_("Optional details"):</label>
-    <textarea cols="60" rows="6" name="description"></textarea> <br />
+    <textarea cols="40" rows="6" name="description"></textarea> <br />
 
     <input type="submit" value="$_('Add')" />
 </form>

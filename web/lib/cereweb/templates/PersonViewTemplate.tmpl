@@ -17,8 +17,6 @@ $view_entity($person)
 #def personAccounts($person, $profile)
 <div class="accounts">
 <h2>$_("Accounts")</h2>
-#set t = $AccountCreateTemplate()
-$t.form($person, show_create_form=$profile['person']['edit']['show_account_create'])
 #set $allaccounts = $person.get_accounts()
 #if $allaccounts
 #for $account in $allaccounts
@@ -26,6 +24,8 @@ $t.form($person, show_create_form=$profile['person']['edit']['show_account_creat
 $t.viewAccountShort($account)
 #end for
 #end if
+#set t = $AccountCreateTemplate()
+$t.form($person, show_create_form=$profile['person']['edit']['show_account_create'])
 </div>
 #end def
 

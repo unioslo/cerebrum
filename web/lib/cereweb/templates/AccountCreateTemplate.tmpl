@@ -15,18 +15,29 @@ $url("account/create")#slurp
 
 #def input($name, $label)
     #set $value = $formvalues.get($name, "")
-    <label for='$name'>$label</label>
-    <input type='text' name='$name' id='$name' value='$value' /><br />
+    <label for="$name">$label</label>
+    <input type="text" name="$name" id="$name" value="$value" /><br />
 #end def
 
 #def form($owner, $id=-1, $show_create_form=False, $show_heading=False)
 
+#if $show_create_form
+#set divclass="create"
+#else
+#set divclass="hidden"
+#end if
+
+<div class=$divclass>
+
 #if $show_heading
 #set $heading = $_("Create account for %s (%s)") % ($owner.name, $owner.type)
 <h1>$heading</h1>
+#elif $show_create_form
+<h3>$_("Create account")</h3>
 #end if
 
 <form action="$getAction()" method="POST">
+
     <input type="hidden" name="ownerid" value="$owner.id" />
     <input type="hidden" name="ownertype" value="$owner.type" />
 #if $show_create_form
@@ -34,10 +45,14 @@ $url("account/create")#slurp
     #echo $input($name, $label) #
 #end for
     <input type="hidden" name="id" value="$id" />
-    <input type="submit" name="create" value="Create" />
-    <input type="submit" name="hide_form" value="Hide account create" />
+    <br />
+    <input type="submit" name="create" value="$_('Create')" />
+    <input type="submit" name="hide_form"
+           value="$_('Abort')" />
 #else
-    <input type="submit" name="show_form" value="Create account" />
+    <input type="submit" name="show_form" 
+           value="$_('Create account')" />
 #end if
 </form>
+</div>
 #end def
