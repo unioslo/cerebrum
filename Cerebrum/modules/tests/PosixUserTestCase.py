@@ -34,6 +34,7 @@ class PosixUser_createTestCase(Account_createTestCase):
         pd = self.posixuser_dta
         pd['account_id'] = self.account_id
         posix_user.clear()
+        self._myPopulateAccount(posix_user)
         if(pd['posix_uid'] is None):
             pd['posix_uid'] = posix_user.get_free_uid()
 
