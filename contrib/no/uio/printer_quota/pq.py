@@ -36,6 +36,8 @@ from time import gmtime, strftime, time
 import pwd
 import getopt
 import sys
+import traceback
+import cStringIO
 
 import cerebrum_path
 
@@ -137,7 +139,7 @@ class RequestHandler(SocketServer.StreamRequestHandler):
             while not done:
                 cmd = self.get()
     
-                if not cmd[0]:
+                if len(cmd) == 0 or (not cmd[0]):
                     self.log('ERROR', "Connection down? !")
                     self.send(eerror)
                     done = 1
@@ -176,6 +178,9 @@ class RequestHandler(SocketServer.StreamRequestHandler):
         except ValueError, msg:
             self.log('ERROR', "ValueError: %s" % msg)
             self.send(ebadpage)
+        except:
+            self.log('CRITICAL', 'Unexpected exception: %s' % \
+                     self.formatException(sys.exc_info()))
         signal.alarm(0)
             
     def check_quota(self, printer, pageunits):
@@ -245,6 +250,19 @@ class RequestHandler(SocketServer.StreamRequestHandler):
         f = file(pqdlog, "a")
         f.write("%s [%s] %s %s\n" % (strftime("%Y-%m-%d %H:%M:%S", gmtime()), my_pid, lvl, msg))
         f.close()
+
+    def formatException(self, ei):  # from logging.py
+        """
+        Format the specified exception information as a string. This
+        default implementation just uses traceback.print_exception()
+        """
+        sio = cStringIO.StringIO()
+        traceback.print_exception(ei[0], ei[1], ei[2], None, sio)
+        s = sio.getvalue()
+        sio.close()
+        if s[-1] == "\n":
+            s = s[:-1]
+        return s
 
 def usage(exitcode=0):
     print """Usage: pq.py [options]
