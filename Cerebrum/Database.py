@@ -400,9 +400,9 @@ class Cursor(object):
                 return res[0][0]
             return res[0]
         elif len(res) == 0:
-            raise Errors.NotFoundError
+            raise Errors.NotFoundError, repr(params)
         else:
-            raise Errors.TooManyRowsError
+            raise Errors.TooManyRowsError, repr(params)
 
 
 class RowIterator(object):
