@@ -4,8 +4,9 @@ from Cerebrum import Database,Constants,Errors
 from Cerebrum import Person
 from Cerebrum import Account
 import pprint
+import time
 
-Cerebrum = Database.connect(user="cerebrum")
+Cerebrum = Database.connect()
 person = Person.Person(Cerebrum)
 co = Constants.Constants(Cerebrum)
 account = Account.Account(Cerebrum)
@@ -13,6 +14,8 @@ person = Person.Person(Cerebrum)
 
 def generate_passwd():
     pp = pprint.PrettyPrinter(indent=4)
+    count = 0
+    timestamp = time.strftime("%FT%H:%m %z", time.gmtime(time.time()))
     for id in account.get_all_posix_users():
         id = id[0]
         account.find_posixuser(id)
@@ -38,6 +41,9 @@ def generate_passwd():
             account.home,
             shell)
 	# convert to 7-bit
+    # Hm, not sure if -1 is accepted as user/group id.  Need to check
+    print "DUMMYUSER:*:-1:-1:Generated %d users %s::/bin/false" % (count,
+                                                                   timestamp)
 
 def main():
     generate_passwd()
