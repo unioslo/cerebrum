@@ -40,6 +40,16 @@ from Cerebrum.modules.no.uio import bofhd_uio_help
 from Cerebrum.modules.no.uio.access_FS import FS
 from Cerebrum.modules.templates.letters import TemplateHandler
 
+# TBD: It would probably be cleaner if our time formats were specified
+# in a non-Java-SimpleDateTime-specific way.
+def format_day(field):
+    fmt = "yyyy-MM-dd"                  # 10 characters wide
+    return ":".join((field, "date", fmt))
+
+def format_time(field):
+    fmt = "yyyy-MM-dd HH:mm"            # 16 characters wide
+    return '.'.join((field, "date", fmt))
+
 class BofhdExtension(object):
     """All CallableFuncs take user as first arg, and are responsible
     for checking necessary permissions"""
@@ -2264,14 +2274,3 @@ class BofhdExtension(object):
                     lst.append(part)
         lst.sort()
         return lst
-
-
-# TBD: It would probably be cleaner if our time formats were specified
-# in a non-Java-SimpleDateTime-specific way.
-def format_day(field):
-    fmt = "yyyy-MM-dd"                  # 10 characters wide
-    return ":".join(field, "date", fmt)
-
-def format_time(field):
-    fmt = "yyyy-MM-dd HH:mm"            # 16 characters wide
-    return '.'.join(field, "date", fmt)
