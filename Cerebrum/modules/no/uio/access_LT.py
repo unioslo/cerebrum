@@ -23,6 +23,7 @@ import sys
 import time
 
 from Cerebrum import Database,Errors
+from Cerebrum.modules.no import fodselsnr
 
 class LT(object):
     """Methods for fetching person, OU and some other information from LT"""
@@ -164,6 +165,91 @@ ORDER BY tlfpreftegn"""
         "Hent hovedkategorier (VIT for vitenskapelig ansatt o.l.)"
         qry = "SELECT univstkatkode, hovedkatkode FROM lt.univstkategori"
         return (self._get_cols(qry), self.db.query(qry))
+
+    def _GetAllPersonsKommType(self, kommtype):
+        if kommtype not in ('UREG-EMAIL', 'UREG-USER'):
+            raise ValueError, "Bad kommtype: %s" % kommtype
+        fnr2komm = []
+    for row in self.db.query("""
+SELECT
+  fodtdag, fodtmnd, fodtar, personnr, kommnrverdi, tlfpreftegn
+FROM
+  lt.perskomm
+WHERE kommtypekode = :kommtype
+UNION
+SELECT
+  fodtdag, fodtmnd, fodtar, personnr, NULL, 'A' AS tlfpreftegn
+FROM
+  lt.person p
+WHERE
+  NOT EXISTS (
+    SELECT 'x' FROM lt.perskomm k
+    WHERE k.kommtypekode = :1 AND
+      p.fodtdag = k.fodtdag AND
+      p.fodtmnd = k.fodtmnd AND
+      p.fodtar = k.fodtar)
+ORDER BY fodtdag, fodtmnd, fodtar, personnr, tlfpreftegn""", {
+        'kommtype': kommtype}):
+        fnr = fodselsnr.personnr_ok(
+            "%02d%02s%02d%05d" % (tuple([int(row[x]) for x in (
+            'fodtdag', 'fodtmnd', 'fodtar', 'personnr')])))
+        fnr = fodselsnr.personnr_ok(fnr)
+        if row['kommnrverdi'] is not None:
+            ret.setdefault(fnr, []).append(row['kommnrverdi'])
+        return fnr2komm
+
+    def GetAllPersonsUregEmail(self):
+        return self._GetAllPersonsKommType('UREG-EMAIL')
+
+    def GetAllPersonsUregUser(self):
+        return self.GetAllPersonsKommType('UREG-USER')
+
+    def _DeleteKommtypeVerdi(self, fnr, kommtypekode, kommnrverdi):
+        dag, maned, aar, personnr = fodselsnr.del_fnr_4(fnr)
+        return self.execute("""
+DELETE
+  lt.perskomm
+WHERE
+  Fodtdag=:dag AND
+  Fodtmnd=:maned AND
+  Fodtar=:aar AND
+  Personnr=:personnr AND
+  Kommtypekode=:kommtypekode AND
+  kommnrverdi=:kommverdi""", {
+            'dag': dag,
+            'maned': maned,
+            'aar': aar,
+            'personnr': personnr,
+            'kommtypekode': kommtypekode,
+            'kommverdi': kommnrverdi})
+        
+    def DeletePriUser(self, fnr, uname):
+        return self._DeleteKommtypeVerdi(fnr, 'UREG-USER', uname)
+
+    def DeletePriMailAddr(self, fnr, email):
+        return self._DeleteKommtypeVerdi(fnr, 'UREG-EMAIL', email)
+
+    def _AddKommtypeVerdi(self, fnr, kommtypekode, kommnrverdi):
+        dag, maned, aar, personnr = fodselsnr.del_fnr_4(fnr)
+        return self.execute("""
+INSERT INTO
+  lt.perskomm
+     (FODTDAG, FODTMND, FODTAR, PERSONNR,
+      KOMMTYPEKODE, TLFPREFTEGN, KOMMNRVERDI)
+VALUES
+  (:dag, :maned, :aar, :personnr, :kommtypekode, 'A', :kommverdi)""", {
+            'dag': dag,
+            'maned': maned,
+            'aar': aar,
+            'personnr': personnr,
+            'kommtypekode': kommtypekode,
+            'kommverdi': kommnrverdi})
+
+    def WritePriMailAddr(self, fnr, email):
+        return self._AddKommtypeVerdi(fnr, 'UREG-EMAIL', email)
+
+    def WritePriUser(self, fnr, uname):
+        return self._AddKommtypeVerdi(fnr, 'UREG-USER', uname)
 
     # TODO: Belongs in a separate file, and should consider using row description
     def _get_cols(self, sql):
