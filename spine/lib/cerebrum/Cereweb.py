@@ -93,10 +93,14 @@ class CerewebCommands(SpineClass):
                     args=[('entity', Entity), ('key', str), ('value', str)])
     ]
 
-    def __init__(self):
-        SpineClass.__init__(self, cache=None)
+    def __new__(self, *args, **vargs):
+        return SpineClass.__new__(self, cache=None)
 
     def create_cereweb_motd(self, subject, message):
+        """Create a new motd.
+
+        Create a new Message-of-the-day.
+        """
         db = self.get_database()
         id = int(db.nextval('cereweb_seq'))
         creator = self.get_writelock_holder().get_client()
@@ -104,6 +108,10 @@ class CerewebCommands(SpineClass):
         return CerewebMotd(id, write_lock=self.get_writelock_holder())
 
     def create_cereweb_option(self, entity, key, value):
+        """Create a new option.
+
+        Create a new key:value option.
+        """
         db = self.get_database()
         id = int(db.nextval('cereweb_seq'))
         CerewebOption._create(db, id, entity, key, value)
