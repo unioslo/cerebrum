@@ -4024,10 +4024,54 @@ class BofhdExtension(object):
         account.write_db()
         return "OK"
 
+    def user_set_owner_prompt_func(self, session, *args):
+        all_args = list(args[:])
+        if not all_args:
+            return {'prompt': 'Account name'}
+        account_name = all_args.pop(0)
+        if not all_args:
+            return {'prompt': 'Entity type (group/person)',
+                    'default': 'person'}
+        entity_type = all_args.pop(0)
+        if not all_args:
+            return {'prompt': 'Id of the type specified above'}
+        id = all_args.pop(0)
+        if entity_type == 'person':
+            if not all_args:
+                person = self._get_person(*self._map_person_id(id))
+                map = [(("%-8s %s", "Num", "Affiliation"), None)]
+                for aff in person.get_affiliations():
+                    ou = self._get_ou(ou_id=aff['ou_id'])
+                    name = "%s/%s@%s" % (
+                        self.num2const[int(aff['affiliation'])],
+                        self.num2const[int(aff['status'])],
+                        self._format_ou_name(ou))
+                    map.append((("%s", name), int(aff['affiliation'])))
+                if not len(map) > 1:
+                    raise CerebrumError(
+                        "Person has no affiliations. Try person affiliation_add")
+                return {'prompt': "Choose affiliation from list", 'map': map,
+                        'last_arg': True}
+        else:
+            if not all_args:
+                return {'prompt': "Enter np_type",
+                        'help_ref': 'string_np_type',
+                        'last_arg': True}
+            np_type = all_args.pop(0)
+        raise CerebrumError, "Client called prompt func with too many arguments"
+
     all_commands['user_set_owner'] = Command(
-        ("user", "set_owner"), AccountName(), EntityType(default='person'),
-        Id(), perm_filter='is_superuser')
-    def user_set_owner(self, operator, accountname, entity_type, id):
+        ("user", "set_owner"), prompt_func=user_set_owner_prompt_func,
+        perm_filter='is_superuser')
+    def user_set_owner(self, operator, *args):
+        if args[1] == 'person':
+            accountname, entity_type, id, affiliation = args
+            new_owner = self._get_person(*self._map_person_id(id))
+        else:
+            accountname, entity_type, id, np_type = args
+            new_owner = self._get_entity(entity_type, id)
+            np_type = int(self._get_constant(np_type, "Unknown account type"))
+
         account = self._get_account(accountname)
         if not self.ba.is_superuser(operator.get_entity_id()):
             raise PermissionDenied("only superusers may assign account ownership")
@@ -4037,10 +4081,11 @@ class BofhdExtension(object):
                 account.del_account_type(row['ou_id'], row['affiliation'])
         account.owner_type = new_owner.entity_type
         account.owner_id = new_owner.entity_id
+        if args[1] == 'group':
+            account.np_type = np_type
         account.write_db()
         if new_owner.entity_type == self.const.entity_person:
-            for row in new_owner.get_affiliations():
-                account.set_account_type(row['ou_id'], row['affiliation'])
+            self._user_create_set_account_type(account, account.owner_id, affiliation)
         return "OK"
 
     # user shell
