@@ -154,9 +154,6 @@ def makeInitialUsers(Cerebrum):
 
     Cerebrum.commit()
 
-
-CEREBRUM_DDL_DIR = "design"
-
 def get_filelist(Cerebrum, extra_files=[]):
     files = ['core_tables.sql']
     files.extend(extra_files)
@@ -165,7 +162,7 @@ def get_filelist(Cerebrum, extra_files=[]):
         if '/' in f:
             ret.append(f)
         else:
-            ret.append(os.path.join(CEREBRUM_DDL_DIR, f))
+            ret.append(os.path.join(cereconf.CEREBRUM_DDL_DIR, f))
     return ret
 
 def runfile(fname, Cerebrum, debug, phase):
