@@ -24,6 +24,7 @@ import sys
 import readline
 import traceback
 import pprint
+import getopt
 
 pp = pprint.PrettyPrinter(indent=4)
 
@@ -121,14 +122,27 @@ serverport = 8000
 user = 'runefro'
 passwd = 'foo'
 
-if len(sys.argv) >= 2:
-    serverport = int(sys.argv[1])
+crypto = 0
+try:
+    opts, args = getopt.getopt(sys.argv[1:], "h:p:c", ["host=", "port=", "crypto"])
+except getopt.GetoptError:
+    print "usage()"
+    sys.exit(2)
+for o, a in opts:
+    if o in ('-h', '--host'):
+        serverhost = a
+    elif o in ('-p', '--port'):
+        serverport = int(a)
+    elif o in ('-c', '--crypto'):
+        crypto = 1
 
-if len(sys.argv) >= 3:
-    serverhost = sys.argv[2]
-
-testsvr = xmlrpclib.Server("http://%s:%d" % (serverhost, serverport),
-                           encoding='iso8859-1') #, verbose=1)
+if crypto:
+    from M2Crypto.m2xmlrpclib import Server, SSL_Transport
+    testsvr = Server('https://%s:%d' % (serverhost, serverport),
+                     SSL_Transport(), encoding='iso8859-1')
+else:
+    testsvr = xmlrpclib.Server("http://%s:%d" % (serverhost, serverport),
+                               encoding='iso8859-1') #, verbose=1)
 
 try:
     sessid = testsvr.login(user, passwd)
