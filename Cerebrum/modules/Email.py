@@ -451,10 +451,20 @@ class EmailTarget(EmailEntity):
         self.__updated = []
 
     def delete(self):
+        # We do not delete the corresponding rows in email_address
+        # (and by extension, in email_primary_address) to reduce the
+        # chance of catastrophic mistakes.
+        for table in ('email_forward', 'email_vacation', 'email_quota',
+                      'email_spam_filter', 'email_virus_scan',
+                      'email_target_server'):
+            self.execute("""
+            DELETE FROM [:table schema=cerebrum name=%s]
+            WHERE target_id=:e_id""" % table, {'e_id': self.email_target_id})
+
         return self.execute("""
         DELETE FROM [:table schema=cerebrum name=email_target]
         WHERE target_id=:e_id""", {'e_id': self.email_target_id})
-        
+
     def find_by_email_target_attrs(self, **kwargs):
         if not kwargs:
             raise ProgrammingError, \
