@@ -42,6 +42,7 @@ from Cerebrum.modules.no.hia import fronter_lib
 db = const = logger = None
 fxml = None
 romprofil_id = {}
+include_this_sem = True
 
 def init_globals():
     global db, const, logger
@@ -54,12 +55,15 @@ def init_globals():
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'h:',
                                    ['host=', 'rom-profil=',
+                                    'uten-dette-semester',
+                                    'uten-passord',
                                     'debug-file=', 'debug-level='])
     except getopt.GetoptError:
         usage(1)
     debug_file = os.path.join(cf_dir, "x-import.log")
     debug_level = 4
     host = 'hia'
+    set_pwd = True
     for opt, val in opts:
         if opt in ('-h', '--host'):
             host = val
@@ -67,9 +71,11 @@ def init_globals():
             debug_file = val
         elif opt == '--debug-level':
             debug_level = val
-        elif opt == 'rom-profil':
-            profil_navn, profil_id = val.split(':')
-            romprofil_id[profil_navn] = profil_id
+        elif opt == '--uten-dette-semester':
+            global include_this_sem
+            include_this_sem = False
+        elif opt == '--uten-passord':
+            set_pwd = False
         else:
             raise ValueError, "Invalid argument: %r", (opt,)
 
@@ -94,7 +100,8 @@ def init_globals():
                                   cf_dir = cf_dir,
                                   debug_file = debug_file,
                                   debug_level = debug_level,
-                                  fronter = None)
+                                  fronter = None,
+                                  include_password = set_pwd)
 
 def get_semester():
     t = time.localtime()[0:2]
@@ -107,6 +114,8 @@ def get_semester():
         this_sem = 'høst'
         next_year = this_year + 1
         next_sem = 'vår'
+    if not include_this_sem:
+        this_year, this_sem = next_year, next_sem
     return ((str(this_year), this_sem), (str(next_year), next_sem))
 
 def load_acc2name():
@@ -191,6 +200,7 @@ def get_ans_fak(fak_list, ent2uname):
 
 def register_spread_groups(emne_info, stprog_info):
     group = Factory.get('Group')(db)
+    this_sem, next_sem = get_semester()
     for r in group.search(filter_spread=const.spread_hia_fronter):
         gname = r['name']
         gname_el = gname.split(':')
@@ -202,6 +212,8 @@ def register_spread_groups(emne_info, stprog_info):
             # nivå 4.
             instnr = gname_el[3]
             ar, term, emnekode, versjon, terminnr = gname_el[5:10]
+            if (ar, term) not in (this_sem, next_sem):
+                continue
             fak_sko = "%02d0000" % emne_info[emnekode]['fak']
 
             # Rom for undervisningsenheten.
