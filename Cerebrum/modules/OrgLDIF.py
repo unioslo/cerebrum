@@ -180,11 +180,11 @@ Set cereconf.LDAP_ORG_ROOT to the organization's root ou_id or to None."""
         self.traverse_ou_children(outfile, self.root_ou_id, None)
         if self.root_ou_id is not None:
             self.traverse_ou_children(outfile, None, None)
-        loops = [i for i in self.ou_tree.iteritems()
-                 if not self.ou2DN.has_key(i[0])]
+        loops = [i for i in self.ou_tree.iteritems() if i[0] not in self.ou2DN]
         if loops:
-            logger.warn("Loops in org.tree; ignored {parent:[children]} = %s",
-                        dict(loops))
+            self.logger.warn(
+                "Loops in org.tree; ignored {parent:[children]} = %s",
+                dict(loops))
         timer("...OUs done.")
         self.uninit_org_dump()
 
@@ -207,7 +207,7 @@ Set cereconf.LDAP_ORG_ROOT to the organization's root ou_id or to None."""
         # Recursively output parent_id's children according to self.ou_tree.
         # Fill in self.ou2DN[].
         for ou_id in self.ou_tree.get(parent_id, ()):
-            if not self.ou2DN.has_key(ou_id):
+            if ou_id not in self.ou2DN:
                 dn = self.write_ou(outfile, ou_id, parent_dn)
                 self.ou2DN[ou_id] = dn
                 self.traverse_ou_children(outfile, ou_id, dn)
@@ -219,9 +219,9 @@ Set cereconf.LDAP_ORG_ROOT to the organization's root ou_id or to None."""
         # returned parent DN must be None if it is to represent that DN.
         dn, entry = self.make_ou_entry(ou_id, parent_dn)
         if entry:
-            if self.used_DNs.has_key(dn):
-                self.logger.warn("Omitting ou_id %d: duplicate DN '%s'"
-                                 % (ou_id, dn))
+            if dn in self.used_DNs:
+                self.logger.warn("Omitting ou_id %d: duplicate DN '%s'",
+                                 ou_id, dn)
                 dn = parent_dn
             else:
                 self.used_DNs[dn] = True
@@ -335,28 +335,27 @@ Set cereconf.LDAP_ORG_ROOT to the organization's root ou_id or to None."""
             if status is not None:
                 status  = int(status)
             affiliation = (int(row['affiliation']), status, int(row['ou_id']))
-            if affiliations.has_key(person_id):
-                p_affiliations = affiliations[person_id]
-            else:
-                p_affiliations = affiliations[person_id] = []
             if self.select_bool(self.person_aff_selector,
                                 person_id, (affiliation,)):
-                p_affiliations.append(affiliation)
+                if affiliations.has_key(person_id):
+                    affiliations[person_id].append(affiliation)
+                else:
+                    affiliations[person_id] = [affiliation]
         timer("...affiliations done.")
 
     def init_person_names(self):
         # Set self.person_names = dict {person_id: {name_variant: name}}
         timer = self.make_timer("Fetching personal names...")
-        self.person_names = {}
+        self.person_names = person_names = {}
         for row in self.person.list_persons_name(
                 source_system = self.const.system_cached,
                 name_type     = [self.const.name_full,
                                  self.const.name_first,
                                  self.const.name_last]):
             person_id = int(row['person_id'])
-            if not self.person_names.has_key(person_id):
-                self.person_names[person_id] = {}
-            self.person_names[person_id][int(row['name_variant'])]=row['name']
+            if not person_names.has_key(person_id):
+                person_names[person_id] = {}
+            person_names[person_id][int(row['name_variant'])]=row['name']
         timer("...personal names done.")
 
     def init_person_titles(self):
@@ -377,23 +376,23 @@ Set cereconf.LDAP_ORG_ROOT to the organization's root ou_id or to None."""
         timer = self.make_timer("Fetching account information...")
         timer2 = self.make_timer()
         account = Factory.get('Account')(self.db)
-        self.acc_name        = {}
-        self.acc_passwd      = {}
-        self.acc_quarantines = {}
+        self.acc_name = acc_name = {}
+        self.acc_passwd = {}
+        self.acc_quarantines = acc_quarantines = {}
         fill_passwd = {
             int(self.const.auth_type_md5_crypt):  self.acc_passwd.__setitem__,
             int(self.const.auth_type_crypt3_des): self.acc_passwd.setdefault }
         for row in account.list_account_authentication(
                 auth_type = fill_passwd.keys()):
-            account_id                = int(row['account_id'])
-            self.acc_name[account_id] = row['entity_name']
-            method                    = row['method']
+            account_id           = int(row['account_id'])
+            acc_name[account_id] = row['entity_name']
+            method               = row['method']
             if method:
                 fill_passwd[int(method)](account_id, row['auth_data'])
         timer2("...account quarantines...")
         for entity_id, quarantine_type in account.list_entity_quarantines(
                 entity_types = self.const.entity_account):
-            self.acc_quarantines.setdefault(int(entity_id), []).append(
+            acc_quarantines.setdefault(int(entity_id), []).append(
                 int(quarantine_type))
         timer("...account information done.")
 
@@ -426,7 +425,7 @@ Set cereconf.LDAP_ORG_ROOT to the organization's root ou_id or to None."""
     def init_person_addresses(self):
         # Set self.addr_info = dict {person_id: {address_type: (addr. data)}}.
         timer = self.make_timer("Fetching personal addresses...")
-        self.addr_info = {}
+        self.addr_info = addr_info = {}
         for row in self.person.list_entity_addresses(
                 entity_type   = self.const.entity_person,
                 source_system = getattr(self.const,
@@ -434,9 +433,9 @@ Set cereconf.LDAP_ORG_ROOT to the organization's root ou_id or to None."""
                 address_type  = [self.const.address_street,
                                  self.const.address_post]):
             entity_id = int(row['entity_id'])
-            if not self.addr_info.has_key(entity_id):
-                self.addr_info[entity_id] = {}
-            self.addr_info[entity_id][int(row['address_type'])] = (
+            if not addr_info.has_key(entity_id):
+                addr_info[entity_id] = {}
+            addr_info[entity_id][int(row['address_type'])] = (
                 row['address_text'], row['p_o_box'], row['postal_number'],
                 row['city'], row['country'])
         timer("...personal addresses done.")
@@ -471,7 +470,7 @@ cereconf.LDAP_ALIASES requires LDAP_ORG_DN != None / LDAP_PERSON_DN.""")
             round += 1
             dn, entry, alias_info = self.make_person_entry(row)
             if dn:
-                if self.used_DNs.has_key(dn):
+                if dn in self.used_DNs:
                     self.logger.warn("Omitting person_id %d: duplicate DN '%s'"
                                      % (row['person_id'], dn))
                 else:
@@ -493,15 +492,10 @@ cereconf.LDAP_ALIASES requires LDAP_ORG_DN != None / LDAP_PERSON_DN.""")
         # The row must have keys 'person_id', 'account_id',
         # and if person_dn_primaryOU() is not overridden: 'ou_id'.
         person_id  = int(row['person_id'])
-        account_id = row['account_id']
-        if account_id is not None:
-            account_id = int(account_id)
+        account_id = int(row['account_id'])
 
         p_affiliations = self.affiliations.get(person_id)
         if not p_affiliations:
-            if p_affiliations is None:
-                self.logger.debug("Person %s got no affiliations. Skipping.",
-                                  person_id)
             return None, None, None
 
         names = self.person_names.get(person_id)
@@ -850,11 +844,12 @@ cereconf.LDAP_ALIASES requires LDAP_ORG_DN != None / LDAP_PERSON_DN.""")
                 done[norm] = True
                 result.append(val)
         return result
+    attr_unique = staticmethod(attr_unique)
 
     # used by split_name()
     _unicode_space_split = re.compile(ur'\S+').findall
 
-    def split_name(fullname=None, givenname=None, lastname=None):
+    def split_name(self, fullname=None, givenname=None, lastname=None):
         """Return (UTF-8 given name, UTF-8 last name)."""
         full,given,last = [self._unicode_space_split(unicode(n or '', 'utf-8'))
                            for n in (fullname, givenname, lastname)]
@@ -901,7 +896,7 @@ cereconf.LDAP_ALIASES requires LDAP_ORG_DN != None / LDAP_PERSON_DN.""")
         def timer(msg):
             prev        = timer.start
             timer.start = time.time()
-            self.logger.debug("%s (%d seconds)" % (msg, timer.start - prev))
+            self.logger.debug("%s (%d seconds)", msg, timer.start - prev)
         if msg:
             self.logger.debug(msg)
         timer.start = time.time()

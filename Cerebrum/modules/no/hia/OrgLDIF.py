@@ -20,7 +20,7 @@
 from Cerebrum.modules.no.OrgLDIF import *
 
 class OrgLDIFUiOMixin(norEduLDIFMixin):
-    "Mixin class for norEduLDIFMixin(OrgLDIF) with HiA modifications."""
+    """Mixin class for norEduLDIFMixin(OrgLDIF) with HiA modifications."""
 
     def init_person_dump(self, use_mail_module):
         self.__super.init_person_dump(use_mail_module)

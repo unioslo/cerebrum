@@ -128,7 +128,7 @@ class norEduLDIFMixin(OrgLDIF):
         # norEduOrgUnitUniqueNumber in the RDN as well.
         dn = "ou=%s,%s" % (
             dn_escape_re.sub(hex_escape_match, entry['ou'][0]), parent_dn)
-        if self.used_DNs.has_key(dn):
+        if dn in self.used_DNs:
             dn = "norEduOrgUnitUniqueNumber=%s+%s" % (
                 dn_escape_re.sub(hex_escape_match,
                                  entry['norEduOrgUnitUniqueNumber'][0]),

@@ -23,7 +23,7 @@ from Cerebrum.modules.no.OrgLDIF import *
 ou_rdn2space_re = re.compile('[#\"+,;<>\\\\=\0\\s]+')
 
 class OrgLDIFUiOMixin(norEduLDIFMixin):
-    "Mixin class for norEduLDIFMixin(OrgLDIF) with UiO modifications."""
+    """Mixin class for norEduLDIFMixin(OrgLDIF) with UiO modifications."""
 
     def make_ou_dn(self, entry, parent_dn):
         # Change from superclass:
