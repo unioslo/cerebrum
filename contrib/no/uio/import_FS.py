@@ -84,7 +84,9 @@ def _process_affiliation(aff, aff_status, new_affs, ou):
 
 def _ext_address_info(a_dict, kline1, kline2, kline3, kpost, kland):
     ret = {}
-    ret['address_text'] = "\n".join((a_dict.get(kline1, ''), a_dict.get(kline2, '')))
+    ret['address_text'] = "\n".join([a_dict.get(f, None)
+                                     for f in (kline1, kline2)
+                                     if a_dict.get(f, None)])
     ret['postal_number'] = a_dict.get(kpost, '')
     ret['city'] =  a_dict.get(kline3, '')
     if len(ret['address_text']) < 2:
