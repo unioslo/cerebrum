@@ -9,17 +9,19 @@ package no.uio.jbofh;
 import java.util.Vector;
 import org.gnu.readline.*;
 import java.io.EOFException;
+import org.apache.log4j.Category;
 
 /**
  *
  * @author  runefro
  */
 public class CommandLine {
+    Category logger;
     
     /** Creates a new instance of CommandLine */
-    public CommandLine() {
+    public CommandLine(Category logger) {
         Readline.initReadline("myapp");
-        
+        this.logger = logger;
         Runtime.getRuntime().addShutdownHook(new Thread() {
             public void run() {
                 Readline.cleanup();
@@ -70,16 +72,13 @@ public class CommandLine {
                 if(line != null) 
                     return splitCommand(line);
             } catch (EOFException e) {
-                System.out.println("eof");
-                break;
+                return null;
             } catch (Exception e) {
-                e.printStackTrace();
-                System.out.println("ouch");
+                logger.error("Unexpected exception reading commandline", e);
+                System.out.println("Unexpected error: "+e);
+                String empty[] = {};
+                return empty;
             }
         }
-        return null;  // TODO: Throw something
-        // Readline.cleanup();  // see note above about addShutdownHook
     }
-
-    
 }
