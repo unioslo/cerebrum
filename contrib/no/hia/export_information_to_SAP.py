@@ -94,6 +94,7 @@ def get_email(person, account):
     # fi
 
     # This cannot fail
+    account.clear()
     account.find(accounts[0].account_id)
 
     try:
