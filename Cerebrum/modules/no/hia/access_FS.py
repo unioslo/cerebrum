@@ -398,6 +398,47 @@ FROM fs.emne """
         return (self._get_cols(qry),self.db.query(qry))
 
 ##################################################################
+## E-post adresser i FS:
+##################################################################
+
+
+    def GetAllPersonsEmail(self, fetchall = False):
+        return self.db.query("""
+        SELECT fodselsdato, personnr, emailadresse
+        FROM fs.person""", fetchall = fetchall)
+
+    def WriteMailAddr(self, fodselsdato, personnr, email):
+        self.db.execute("""
+        UPDATE fs.person
+        SET emailadresse=:email
+        WHERE fodselsdato=:fodselsdato AND personnr=:personnr""",
+                        {'fodselsdato': fodselsdato,
+                         'personnr': personnr,
+                         'email': email})
+
+##################################################################
+## Brukernavn i FS:
+##################################################################
+
+    def GetAllPersonsUname(self, fetchall = False):
+        return self.db.query("""
+        SELECT fodselsdato, personnr, brukernavn
+        FROM fs.personreg""", fetchall = fetchall)
+    # end GetAllPersonsUname
+
+
+    def WriteUname(self, fodselsdato, personnr, uname):
+        self.db.execute("""
+        UPDATE fs.personreg
+        SET brukernavn = :uname
+        WHERE fodselsdato = :fodselsdato AND personnr = :personnr""",
+                        {'fodselsdato': fodselsdato,
+                         'personnr': personnr,
+                         'uname': uname})
+    # end WriteUname
+
+
+##################################################################
 # Hjelpemetoder  
 ##################################################################
 
