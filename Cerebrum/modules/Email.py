@@ -1476,13 +1476,11 @@ class AccountEmailMixin(Account.Account):
 
     def get_primary_mailaddress(self):
         """Return account's current primary address."""
-        target_type = int(self.const.email_target_account)
         r = self.query_1("""
         SELECT ea.local_part, ed.domain
         FROM [:table schema=cerebrum name=account_info] ai
         JOIN [:table schema=cerebrum name=email_target] et
-          ON et.target_type = :targ_type AND
-             et.entity_id = ai.account_id
+          ON et.entity_id = ai.account_id
         JOIN [:table schema=cerebrum name=email_primary_address] epa
           ON epa.target_id = et.target_id
         JOIN [:table schema=cerebrum name=email_address] ea
@@ -1490,8 +1488,7 @@ class AccountEmailMixin(Account.Account):
         JOIN [:table schema=cerebrum name=email_domain] ed
           ON ed.domain_id = ea.domain_id
         WHERE ai.account_id = :e_id""",
-                              {'e_id': int(self.entity_id),
-                               'targ_type': target_type})
+                              {'e_id': int(self.entity_id)})
         ed = EmailDomain(self._db)
         return (r['local_part'] + '@' +
                 ed.rewrite_special_domains(r['domain']))
