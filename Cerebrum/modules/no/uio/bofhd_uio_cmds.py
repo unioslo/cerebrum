@@ -987,15 +987,17 @@ class BofhdExtension(object):
         elif type == "account":
             src_entity = self._get_account(src_name)
         return self._group_add_entity(operator, src_entity, 
-                                 dest_group, group_operator)    
+                                      dest_group, group_operator)    
 
     def _group_add_entity(self, operator, src_entity, dest_group,
                           group_operator=None):
         group_operator = self._get_group_opcode(group_operator)
         group_d = self._get_group(dest_group)
-        self.ba.can_alter_group(operator.get_entity_id(), group_d)
+        if operator:
+            self.ba.can_alter_group(operator.get_entity_id(), group_d)
         try:
-            group_d.add_member(src_entity.entity_id, src_entity.entity_type, group_operator)
+            group_d.add_member(src_entity.entity_id, src_entity.entity_type,
+                               group_operator)
         except self.db.DatabaseError, m:
             raise CerebrumError, "Database error: %s" % m
         return "OK"
@@ -1204,8 +1206,7 @@ class BofhdExtension(object):
     def group_personal(self, operator, uname):
         """This is a separate command for convenience and consistency.
         A personal group is always a PosixGroup, and has the same
-        spreads as the user.  We try to make the gid equal the user's
-        uid."""
+        spreads as the user."""
         acc = self._get_account(uname)
         op = operator.get_entity_id()
         self.ba.can_create_personal_group(op, acc)
@@ -1236,7 +1237,7 @@ class BofhdExtension(object):
         role = BofhdAuthRole(self.db)
         role.grant_auth(acc.entity_id, op_set.op_set_id, op_target.op_target_id)
         # 4. make user a member of his personal group
-        self._group_add(operator, uname, uname, type="account")
+        self._group_add(None, uname, uname, type="account")
         # 5. add spreads corresponding to its owning user
         self.__spread_sync_group(acc, group)
         return {'group_id': int(pg.posix_gid)}
