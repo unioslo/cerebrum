@@ -419,6 +419,10 @@ class StudconfigParser(xml.sax.ContentHandler):
             elif (len(self.elementstack) == 4 and
                   self.elementstack[2] == 'select' and
                   ename in SelectTool.select_map_defs):
+                if (ename == 'medlem_av_gruppe' and
+                    not self._legal_groups.has_key(tmp['navn'])):
+                    self._config.add_error("Not in groupdef: %s" % \
+                                           tmp['navn'])
                 self._in_profil.add_selection_criteria(ename, tmp)
             else:
                 self._config.add_error("Unexpected tag '%s', attr=%s in %s" % (

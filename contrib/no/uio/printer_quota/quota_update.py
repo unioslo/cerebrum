@@ -417,7 +417,7 @@ def fetch_data(drgrad_file, fritak_kopiavg_file, betalt_papir_file, lt_person_fi
     person_id_member = {}
     group = Group.Group(db)
     count = [0, 0]
-    groups = autostud.pc.known_select_criterias['medlem_av_gruppe'].values()
+    groups = autostud.pc.group_defs.keys()
     logger.debug("Finding members in %s" % groups)
     for g in groups:
         group.clear()

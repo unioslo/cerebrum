@@ -212,7 +212,7 @@ class SelectMapAny(SelectMapSuper):
         
     def get_matches(self, person_info, member_groups=None, person_affs=None):
         matches = []
-        for p in self._select_map['ALL']:
+        for p in self._select_map.get('ALL', []):
             self._append_match(matches, p)
         return matches
     
