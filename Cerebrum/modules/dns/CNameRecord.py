@@ -5,6 +5,14 @@ from Cerebrum.modules.dns.EntityNote import EntityNote
 from Cerebrum.modules.dns.DnsOwner import DnsOwner
 
 class CNameRecord(EntityNote, Entity):
+    """``CNameRecord.CNameRecord(EntityNote, Entity)`` is used to
+    store information about CName-records in the dns_cname_record
+    table.  It uses the standard Cerebrum populate logic for handling
+    updates.
+
+    It does not perform sany checks on the updates.  Use the Helper
+    class for this.
+    """
     __read_attr__ = ('__in_db', 'name')
     __write_attr__ = ('cname_owner_id', 'ttl', 'target_owner_id')
 

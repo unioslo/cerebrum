@@ -6,7 +6,9 @@ from Cerebrum.Entity import Entity
 from Cerebrum.modules import dns
 
 class MXSet(DatabaseAccessor):
-    """Handles the mx_set and mx_set_members tables"""
+    """``DnsOwner.MXSet(DatabaseAccessor)`` handles the dns_mx_set and
+    dns_mx_set_members tables.  It uses the standard Cerebrum populate
+    logic for handling updates."""
 
     __metaclass__ = Utils.mark_update
 
@@ -139,7 +141,8 @@ class MXSet(DatabaseAccessor):
             'mx_set_id': self.mx_set_id})
         
 class GeneralDnsRecord(object):
-    """Mix-in class for additional TTL-enabled data like TXT records"""
+    """``DnsOwner.GeneralDnsRecord(object)`` is a mix-in class for
+    additional TTL-enabled data like TXT records."""
 
     def __fill_coldata(self, coldata):
         binds = coldata.copy()
@@ -197,6 +200,9 @@ class GeneralDnsRecord(object):
 
 
 class DnsOwner(GeneralDnsRecord, Entity):
+    """``DnsOwner(GeneralDnsRecord, Entity)`` primarily updates the
+    DnsOwner table using the standard Cerebrum populate framework."""
+
     __read_attr__ = ('__in_db',)
     __write_attr__ = ('name', 'is_foreign', 'mx_set_id')
 

@@ -2,8 +2,9 @@
 # TODO: This class probably belongs directly below Cerebrum
 
 class EntityNote(object):
-    """Mix-in class for extra info that one might want to attach to an
-    entity, and that one can only have one of."""
+    """``EntityNote(object)`` is a mix-in class for extra info that
+    one might want to attach to an entity, and that one can only have
+    one of."""
 
     def __fill_coldata(self, coldata):
         binds = coldata.copy()

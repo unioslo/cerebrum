@@ -1,10 +1,16 @@
 # -*- coding: iso-8859-1 -*-
-
 from Cerebrum.Entity import Entity
 from Cerebrum.modules.dns.EntityNote import EntityNote
 from Cerebrum.modules.dns.DnsOwner import DnsOwner
 
 class ARecord(EntityNote, Entity):
+    """``ARecord(EntityNote, Entity)`` is used to store information
+    about A-records in the dns_a_record table.  It uses the standard
+    Cerebrum populate logic for handling updates.
+
+    It does not perform sany checks on the updates.  Use the Helper
+    class for this.
+    """
     __read_attr__ = ('__in_db', 'name')
     __write_attr__ = ('ip_number_id', 'ttl', 'mac', 'dns_owner_id')
 

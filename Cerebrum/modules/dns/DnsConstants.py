@@ -71,6 +71,8 @@ class _HinfoCode(Constants._CerebrumCode):
     list = staticmethod(list)
 
 class Constants(Constants.Constants):
+    """``DnsConstants.Constants(Constants.Constants)`` defines
+    constants used by the dns module"""
     entity_dns_cname = Constants._EntityTypeCode(
         'cname',
         'cname - see table "cerebrum.cname_info" and friends.')

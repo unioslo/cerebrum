@@ -77,7 +77,7 @@ The following commands has been implemented::
                     - legg til en a-record
     a_rem           host_name [ip]                          
                     - fjern en a-record
-    alloc           host_name_repeat subnet_or_ip hinfo mx_set comment contact [force]
+    alloc           host_name_repeat subnet_or_ip hinfo comment contact [force]
                     - Registrerer ip-addresse for en ny maskin
     cname_add       host_name host_name [force]             
                     - registrer et cname
@@ -95,7 +95,7 @@ The following commands has been implemented::
                     - Lister data for gitt hostnavn/ip-addresse eller cname
     list_free       subnet_or_ip                            
                     - list ledige ipnr
-    mx_add          mx_set ttl pri host_name                
+    mx_add          mx_set pri host_name                    
                     - legg ny entry til et MX set
     mx_del          mx_set host_name                        
                     - fjern entry fra et MX set
@@ -109,16 +109,17 @@ The following commands has been implemented::
                     - Forande et IP-nr/navn til et annet IP-nr/navn.
     revmap_override host_id new_host_id [force]             
                     - Registrer/slett override p? reversemap
-    srv_add         service_name ttl pri weight port host_name
+    srv_add         service_name pri weight port host_name  
                     - Opprette en SRV record
     srv_del         service_name ttl pri weight port host_name
                     - Fjerne en SRV record
-    txt_set         host_name txt [ttl]                     
+    ttl_set         host_name ttl                           
+                    - Set TTL for en DNS-owner
+    txt_set         host_name txt                           
                     - sette TXT
 
 TODO::
 
-  - vi mangler TTL-setting en del steder
   - maskin-nett-grupper
   - assert that we can register special data like MX-only records
 
@@ -184,9 +185,6 @@ like elsewhere in jbofh::
   a subnet.  You may skip the 129.240 part
   Enter subnet or ip >200
   Enter HINFO code >hinfo_1  
-  Enter mx_set >?
-  Use "ip list_mx_set" to get a list of legal values
-  Enter mx_set >mx_target_1 
   Enter comment >?
   Typically location
   Enter comment >test makin
@@ -198,14 +196,14 @@ like elsewhere in jbofh::
 
 Several machines can be registered in one go::
 
-  jbofh >ip alloc testpc[01..05] 130 hinfo_1 mx_target_1 "fine maskiner" "foo@bar.com"
+  jbofh >ip alloc testpc[01..05] 130 hinfo_1 "fine maskiner" "foo@bar.com"
   name                           ip
   testpc01                       129.240.130.35
   testpc02                       129.240.130.39
   testpc03                       129.240.130.40
   testpc04                       129.240.130.52
   testpc05                       129.240.130.53
-  jbofh >ip alloc (fin_maskin finere_maskin) 130 hinfo_1 mx_target_1 "fine maskiner" "foo@bar.com"
+  jbofh >ip alloc (fin_maskin finere_maskin) 130 hinfo_1 "fine maskiner" "foo@bar.com"
   name                           ip
   fin_maskin                     129.240.130.54
   name                           ip
@@ -287,171 +285,6 @@ Somethimes the deletion must be forced::
 
 
 
-Data model
-=================
-
-Important consepts:
-
-- the name of a host/cname/a-record... is stored in dns_owner.  A
-  rename will affect all entries, even targets for mx/cnames etc.
-- ip_numbers is stored in ip_number.  An update will affect all
-  a-records that point to this ip
-- mx_set is a collection of MX records.  It is tied to dns_owner.
-
-TBD: We currently allow contact-info and comments for a-records,
-cnames and hosts.  Should we move the comment+contact to dns_owner?
-Do we need comments/contact info other places?
-
-.. _fig_data_model :
-
-Figure: The database schema
-
-.. image:: dns.png
-
-
-Validation etc.
----------------------------------
-
-TODO: det meste av dette er implementert.  Oppdater beskrivelsene.
-
-(Note: this section is currently just a collection of notes during
-design)
-
-Mreg tries to maintain a set of rules to preserve the integrity of the
-zone file.  (Actually, it should enforce this from the bofhd side, but
-also in the API as much as possible).
-
-FKs in the database schema prevents deletion of data that has pointers
-to it.  The following extra things must be checked:
-
-- Avoid ending up with entries in ip_number that has no FKs pointing
-  to it
-- That dns_owner entries contain legal characters
-- That dns_owner entries added does not contain reserved names.  TODO:
-  What are "reserved names"?  Usernames?
-- nothing can have something that is a CNAME as a target, and if
-  something is a CNAME, it cannot be anything else.
-- an entry in mreg_host_info must have atleast one corresponding
-  a_record entry.
-
-
-When removing data, we encounter some problems that must be handled:
-
-- some of UiOs MX-records have no additional data, and are thus
-  represented by a single entry in dns_owner.
-- we have some reverse-map ip-numbers that are not in our ip-range.
-
-TBD/TODO: How can we assert that deletion of data does not delete
-unintentional data, while avoiding junk left-over from partial
-deletion?
-
-Foreign data
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-The zone suffix (.uio.no.) is not registered for each row in
-dns_owner.
-
-
-Deletion/update of dns_owner/ip_number
----------------------------------------
-The following commands are relevant here:
-
-1. ip rename  NAME
-2. ip rename  IP
-3. ip free    NAME
-4. ip free    IP
-5. ip a_rem   NAME
-6. ip a_rem   IP
-
-ip rename/free is interpreted as operating on dns_owner or ip_number
-depending on wheter a NAME or IP was entered.
-
-ip rename
-~~~~~~~~~~~~~~
-Will update dns_owner or ip_number directly.  If target already
-exists: 
-
-- Force must be set
-- existing tables with FK to this dns_owner/ip_number will be
-  updated to new id.
-- the old entry in ip_number/dns_owner will be deleted.
-- must check if new dns_owner is a CNAME or something else that
-  violates the zone-file.
-
-ip free
-~~~~~~~~~~~~~~
-If argument is an ip_number, this ip_number will be removed from the
-ip_number table (provided that it won't break any FK constraints).
-
-If argument is a dns_owner, it will remove data with indicated
-dns_owner_id from:
-
-- a_record
-- mreg_host_info
-- cname_record
-- general_ttl_record
-- entity_note
-- srv_record
-- override_reversemap
-
-Force must be used if "ip info" would return anything more than one
-HINFO record + one A record.
-
-Will throw an exception if the deleted entry is a target of any of
-the above mentioned records, or used in a mx_set.
-
-ip a_rem
-~~~~~~~~~~~~~~
-
-Will delete the a_record + corresponding ip_number and/or dns_owner
-entry.  Will throw an exception if:
-
-- it is the only a_record for a mreg_host_info entry
-- if the a_record was used as a target (see 'ip free')
-
-Distributed files
-==================
-
-User interface:
-
-  Cerebrum/modules/bofhd_mreg_cmds.py
-    BofhdExtension for the bofhd module
-  Cerebrum/modules/bofhd_mreg_utils.py
-    The business-logic for the bofhd module
-
-API:
-
-  Cerebrum/modules/MregConstants.py
-    Defines various constants
-  Cerebrum/modules/mreg/ARecord.py
-    Handles the a_record table
-  Cerebrum/modules/mreg/CNameRecord.py
-    Handles the cname_record table
-  Cerebrum/modules/mreg/DnsOwner.py
-    handles dns_owner, mx_set, mx_set_members, general_ttl_record, srv_record
-  Cerebrum/modules/mreg/EntityNote.py
-    handles entity_note.  Should perhaps be moved into Cerebrum-core
-  Cerebrum/modules/mreg/Helper.py
-    various helper methods used by the API and bofhd to assert that we
-    don't violate DNS schema etc.
-  Cerebrum/modules/mreg/HostInfo.py
-    handles mreg_host_info
-  Cerebrum/modules/mreg/IPNumber.py
-    handles ip_number and override_reversemap
-  Cerebrum/modules/mreg/__init__.py
-    defines some API constants
-
-Support files:
-
-  contrib/build_zone.py
-    builds forward, reverse maps and hosts file
-  contrib/import_mreg.py
-    migrates existing forward+reverse zone files, hosts file and
-    netgroup files into the database
-  contrib/strip4cmp.py
-    converts forward/reverse map into a format that is usable for
-    comparing zone files with "diff -u"
-
-
 TODO
 ==========
 
@@ -495,4 +328,3 @@ Ting som kan vente til Version >= 1.1:
   inntasting av kodeverdien for disse en optimal løsning.  Finnes det
   noe bedre alternativ?
 
-arch-tag: 8f399da5-564d-4e26-88cf-e0c804fe2c4e

@@ -15,6 +15,11 @@ from Cerebrum.modules.dns.DnsOwner import DnsOwner
 
 
 class HostInfo(EntityNote, Entity):
+    """``HostInfo(EntityNote, Entity)`` is used to store information
+    about machines in the dns_host_info table.  It uses the standard
+    Cerebrum populate logic for handling updates.
+    """
+    
     __read_attr__ = ('__in_db', 'name')
     __write_attr__ = ('dns_owner_id', 'ttl', 'hinfo')
 

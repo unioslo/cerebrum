@@ -7,6 +7,11 @@ from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum import Utils
 
 class IPNumber(DatabaseAccessor):
+    """``IPNumber.IPNumber(DatabaseAccessor)`` primarely updates the
+    dns_ip_number table.  It also has methods for handling the
+    reverse-map entries in dns_override_reversemap.  It uses the
+    standard Cerebrum populate logic for handling updates."""
+
     __metaclass__ = Utils.mark_update
 
     __read_attr__ = ('__in_db',)

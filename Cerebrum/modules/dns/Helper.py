@@ -12,15 +12,15 @@ from Cerebrum.modules import dns
 from Cerebrum.modules.bofhd import errors
 
 class DNSError(errors.CerebrumError):
-    """The operation is illegal for DNS"""
+    """A DNSError is thrown when an operation is illegal for DNS"""
     # TODO: It is a bit unfortunate to use a bofhd exception class
     # here.  The purpose is to make bofh recognize this as a
     # user-error
     pass
 
 class Helper(DatabaseAccessor):
-    """Defines a number of methods that tries to assert that data in
-    the zone-file will be legal.
+    """``Helper.Helper(DatabaseAccessor)`` defines a number of methods
+    that tries to assert that data in the zone-file will be legal.
 
     The API should use these methods to assert that new data does not
     break consistency like additional records for something that is a
