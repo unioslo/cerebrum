@@ -53,6 +53,7 @@ CREATE_USER_SCRIPT= '/local/etc/reguser/mkhomedir'
 MVUSER_SCRIPT = '/cerebrum/sbin/mvuser'
 RMUSER_SCRIPT = '/cerebrum/sbin/aruser'
 RSH_CMD = '/local/bin/ssh'
+WRAPPER_CMD='/cerebrum/sbin/run_privileged_command.py'
 
 # Temporary switch until someone can figure out why mktime won't work
 # with year < 1970 on some systems.  Must NOT be set on production
