@@ -21,7 +21,6 @@
 import sys
 
 from omniORB import CORBA, sslTP
-import CosNaming
 
 import cereconf
 
@@ -34,33 +33,6 @@ class Communication(object):
         self.orb = CORBA.ORB_init(sys.argv + ['-ORBendPoint', 'giop:ssl::'], CORBA.ORB_ID)
 
         self.rootPOA = self.orb.resolve_initial_references("RootPOA")
-        ns = self.orb.resolve_initial_references("NameService")
-        root_context = ns._narrow(CosNaming.NamingContext)
-
-        if root_context is None:
-            raise Exception("Could not narrow root naming context")
-
-        #register in the name service
-        name = [CosNaming.NameComponent(cereconf.GRO_CONTEXT_NAME, cereconf.GRO_SERVICE_NAME)]
-        try:
-            self.context = root_context.bind_new_context(name)
-        except CosNaming.NamingContext.AlreadyBound, ex:
-            existing = root_context.resolve(name)
-            self.context = existing._narrow(CosNaming.NamingContext)
-            if self.context is None:
-                raise Exception("Could not bind or find existing context")
-
-    def bind_object(self, to_bind, name):
-        """
-        Shortcut function to bind an object to a name in our
-        naming context on the name server"""
-        name = [CosNaming.NameComponent(name, "")]
-        obj = to_bind._this()
-        print self.orb.object_to_string(obj)
-        try:
-            self.context.bind(name, obj)
-        except CosNaming.NamingContext.AlreadyBound:
-            self.context.rebind(name, obj)
 
     def servant_to_reference(self, *objects):
         """
