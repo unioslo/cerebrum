@@ -67,6 +67,7 @@ import cereconf
 
 from Cerebrum import Database
 from Cerebrum.Utils import Factory
+from Cerebrum import Errors
 
 from Cerebrum.modules.no.uio.access_FS import FS
 from Cerebrum.Utils import MinimumSizeWriter
@@ -87,10 +88,11 @@ no_ssn_cache = {}
 
 def cached_value(key):
     """
-    Returns the cached value for key (if it exists) or None. NB! In this
-    context, values cannot be None, which is thus safe to use as a sentinel.
+    Returns a pair (much like aref in CL) -- the cached value for KEY (if it
+    exists) and whether the lookup was a hit.
     """
-    return no_ssn_cache.get(key, None)
+
+    return (no_ssn_cache.get(key, None), no_ssn_cache.has_key(key))
 # end cached_value
 
 def cache_value(key, value):
@@ -99,13 +101,79 @@ def cache_value(key, value):
     """
 
     # NB! This is potentially very dangerous, as no upper limit is placed on
-    # the cache
+    # the cache's size
     no_ssn_cache[key] = value
 # end cache_value
 
 
 
-def output_row(row, stream, db_person, db_account, constants):
+def get_account(no_ssn, db_person, db_account, constants, lookup_order):
+    """
+    Find the primary account belonging to no_ssn (if it exists).
+
+    Returns the account name found or None.
+    """
+    uname, is_cached = cached_value(no_ssn)
+
+    if not is_cached:
+
+        #
+        # This is a bit involved.
+        # 
+        # Ideally, we should not have to look people up past
+        # FS. Unfortunately, we might have to. So, we respect the lookup
+        # order of the installation (from cereconf) and try to locate _any_
+        # possible match, if the FS lookup fails.
+        #
+        # The first entry in lookup_order is system_fs
+        uname = None
+        for source in lookup_order:
+            try:
+                db_person.clear()
+                db_person.find_by_external_id(constants.externalid_fodselsnr,
+                                              no_ssn,
+                                              source)
+
+                # If a person has no primary account (i.e. no accounts), we
+                # simply skip him
+                account_id = db_person.get_primary_account()
+                if not account_id:
+                    logger.warn("Person %s has no accounts", no_ssn)
+                    cache_value(no_ssn, None)
+                    return None
+                # fi
+
+                db_account.clear()
+                db_account.find(account_id)
+                uname = db_account.get_account_name()
+                cache_value(no_ssn, uname)
+                return uname
+
+            except Errors.NotFoundError:
+                # FIXME: report the exception/stacktrace as well?
+                logger.error("Could not find NO_SSN (fnr) %s in Cerebrum with " + 
+                             "source system %s", no_ssn, source)
+            except Errors.TooManyRowsError:
+                # FIXME: What can we do about _this_ type of errors?
+                logger.error("Multiple rows for source system %s (fnr = %s)",
+                             source, no_ssn)
+            # yrt
+        # od
+
+        # We did not find anything useful
+        if uname is None:
+            logger.error("Aiee! All attempts to find accounts for %s failed",
+                         no_ssn)
+            cache_value(no_ssn, uname)
+        # fi
+    # fi
+
+    return uname
+# end get_account
+
+
+
+def output_row(row, stream, db_person, db_account, constants, lookup_order):
     """
     Write out one portal entry.
 
@@ -128,39 +196,8 @@ def output_row(row, stream, db_person, db_account, constants):
     birth_date = str(int(row.fodselsdato)).zfill(6)
     no_ssn = birth_date + str(int(row.personnr))
 
-    uname = cached_value(no_ssn)
+    uname = get_account(no_ssn, db_person, db_account, constants, lookup_order)
     if uname is None:
-
-        try:
-            db_person.clear()
-            db_person.find_by_external_id(constants.externalid_fodselsnr,
-                                          no_ssn,
-                                          constants.system_fs)
-        except:
-            # FIXME: report the exception/stacktrace as well?
-            logger.error("Could not find NO_SSN (fnr) %s in Cerebrum",
-                         no_ssn)
-            cache_value(no_ssn, "missing no_ssn")
-            return
-        # yrt
-        
-        # If a person has no primary account (i.e. no accounts), we simply skip
-        # him
-        account_id = db_person.get_primary_account()
-        if not account_id:
-            logger.warn("Person %s has no accounts", no_ssn)
-            cache_value(no_ssn, "missing account")
-            return 
-        # fi
-
-        db_account.clear()
-        db_account.find(account_id)
-        uname = db_account.get_account_name()
-
-        cache_value(no_ssn, uname)
-    # This no_ssn is not in the database or there is no account :(
-    elif (uname == "missing no_ssn" or
-          uname == "missing account"):
         return
     # fi
 
@@ -214,16 +251,19 @@ def output_text(output_file):
     db_person = Factory.get("Person")(db_cerebrum)
     db_account = Factory.get("Account")(db_cerebrum)
     constants = Factory.get("Constants")(db_cerebrum)
+
+    # FS is first. This is intentional.
+    lookup_order = [constants.system_fs]
+    for authoritative_system_name in cereconf.SYSTEM_LOOKUP_ORDER:
+        lookup_order.append(getattr(constants, authoritative_system_name))
+    # od
     
     names, rows = db_fs.GetPortalInfo()
     logger.debug("Fetched portal information from FS")
-    count = 0
     for row in rows:
-        output_row(row, output_stream, db_person, db_account, constants)
-        count += 1
-        if count % 10000 == 0:
-            logger.debug("Written next 10000 rows")
-        # fi
+        output_row(row, output_stream,
+                   db_person, db_account, constants,
+                   lookup_order)
     # od
 
     output_stream.close()
