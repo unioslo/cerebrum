@@ -36,6 +36,12 @@ class OUStructure(object):
         INSERT INTO cerebrum.ou_structure (ou_id, perspective, parent_id)
         VALUES (:1, :2, :3)""", self.entity_id, perspective, parent_id)
 
+    def get_structure_mappings(self, perspective):
+        "Return a list of ou_id -> parent_id mappings reperesenting the ou structure."
+        return self.query("""
+        SELECT ou_id, parent_id FROM cerebrum.ou_structure
+        WHERE perspective=:1""", perspective)
+
 class OU(Entity, EntityContactInfo, EntityPhone, EntityAddress, OUStructure):
 
     def new(self, name, acronym=None, short_name=None, display_name=None,
