@@ -373,8 +373,9 @@ def make_letters(data_file=None, type=None, range=None):
             # We allways create a barcode file, this is not strictly
             # neccesary
             make_barcode(account_id)
+        dta[account_id]['barcode'] = os.path.realpath('barcode_%s.eps' %  account_id)
         files[letter_type].write(tpls[letter_type].apply_template(
-            'body', dta[account_id]))
+            'body', dta[account_id], no_quote=('barcode',)))
         counters[letter_type] += 1
     # Save passwords for created users so that letters may be
     # re-printed at a later time in case of print-jam etc.
@@ -589,7 +590,8 @@ def main():
         usage()
     global debug, fast_test, create_users, update_accounts, logger, skip_lpr
     global student_info_file, studconfig_file, only_dump_to, studieprogs_file, \
-           recalc_pq, dryrun, emne_info_file, move_users, remove_groupmembers
+           recalc_pq, dryrun, emne_info_file, move_users, remove_groupmembers, \
+           workdir
 
     skip_lpr = True       # Must explicitly tell that we want lpr
     update_accounts = create_users = recalc_pq = dryrun = move_users = False
@@ -679,7 +681,7 @@ def usage():
     --workdir dir:  set workdir for --reprint
     --remove-groupmembers: remove groupmembers if profile says so
     --move-users: move users if profile says so
-    --type type: set type (=the mal attribute to <brev> in -C) for --reprint
+    --type type: set type (=the mal attribute to <brev> in studconfig.xml) for --reprint
     --reprint range:  Re-print letters in case of paper-jam etc. (comma separated)
     --with-lpr: Spool the file with new user letters to printer
 
@@ -687,7 +689,7 @@ To create new users:
   ./contrib/no/uio/process_students.py -C .../studconfig.xml -S .../studieprogrammer.xml -s .../merged_persons.xml -c
 
 To reprint letters of a given type:
-  ./contrib/no/uio/process_students.py --workdir tmp/ps-2003-09-25.1265 --type nye-stud-brukerkonto-brev --reprint 1,2
+  ./contrib/no/uio/process_students.py --workdir tmp/ps-2003-09-25.1265 --type new_stud_account --reprint 1,2
     """
     sys.exit(0)
 
