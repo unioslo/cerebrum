@@ -1108,19 +1108,14 @@ def create_account(u, owner_id, owner_type, np_type=None):
 
         if u.get('mail_hardquota') and u.get('mail_softquota'):
             mailquota.clear()
-            try:
-                mailquota.find(mt_id)
-            except Errors.NotFoundError:
-                pass
-            mailquota.populate_quota(int(u['mail_softquota']),
-                                     int(u['mail_hardquota']))
+            mailquota.populate(int(u['mail_softquota']),
+                               int(u['mail_hardquota']),
+                               parent=mailtarg)
+            mailquota.write_db()
         if u.has_key('mailhost'):
             mailserver.clear()
-            try:
-                mailserver.find(mt_id)
-            except Errors.NotFoundError:
-                pass
-            mailserver.populate(get_server_id(u['mailhost']), parent=mt_id)
+            mailserver.populate(get_server_id(u['mailhost']),
+                                parent=mailtarg)
             mailserver.write_db()
                 
     # Assign account affiliaitons by checking the

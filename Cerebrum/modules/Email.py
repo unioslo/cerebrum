@@ -563,7 +563,9 @@ class EmailQuota(EmailTarget):
         self.clear_class(EmailQuota)
         self.__updated = []
 
-    def populate_quota(self, soft, hard):
+    def populate(self, soft, hard, parent=None):
+        if parent is not None:
+            self.__xerox__(parent)
         try:
             if not self.__in_db:
                 raise RuntimeError, "populate() called multiple times."
