@@ -1,23 +1,28 @@
-##
-## Very simple template for CSS-'frames'
-## 
-##
-
-#set $menuwidth = 10
-#set $bottomheight = 9.5
-
-
-/* Magic to do 'frames' from CSS.
- * 
- * This file is part of the Cereweb project of Cerebrum
- * ( http://cerebrum.sf.net/ )
- * (c) NTNU ITEA 2003 
- * Author: Stian Søiland <stain@itea.ntnu.no>
+/*
+ * Copyright 2004 University of Oslo, Norway
  *
- * Large parts of this file is however copied freely from
+ * This file is part of Cerebrum.
+ *
+ * Cerebrum is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * Cerebrum is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU 
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License 
+ * along with Cerebrum; if not, write to the Free Software Foundation,
+ * Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * Large parts of this file is copied freely from
  * the site http://devnull.tagsoup.com/fixed/
  * Many thanks to Eric Bednarz <devnull@tagsoup.com>
  *
+ * Magic to do 'frames' from CSS.
+ * 
  * Essentially the trick is to make body only 100% high (ie. the screen
  * size) - and let div.content be the main content, and that div can
  * scroll away down the side.
@@ -30,23 +35,27 @@
  *   <!--[if IE]>
  *     <link rel="stylesheet" type="text/css" href="css/fixed_ie5.css">
  *   <![endif]-->
- *
- * 
  */
+
+## Used to position the frames correctly, so they dont overlap eachother.
+#set $menuwidth = 8
+#set $bottomheight = 9.5
+
 body {
   margin: 0;
   background: white;
 }
 
-div.menu,div.bottom {
+div.menu, div.bottom {
   position: absolute;  
   /*margin: 0;*/
   /* Debuglines */
-  border: 1px dashed #aaa;
+  border: 2px dashed #aaa;
   background: white; 
   /* If scrolling is needed: */
   overflow: auto; 
 }
+
 div.menu {
   /* Placed in the upper left corner */
   top: 0;
@@ -55,6 +64,7 @@ div.menu {
   width: ${menuwidth}em;
   height: 100%;
 }
+
 div.menu div {
   position: static; 
   /*top: auto;
@@ -64,7 +74,7 @@ div.menu div {
   height: auto;
 }
 
-div.bottom  {
+div.bottom {
   /* Placed in the lower left corner */
   bottom: 0;
   left: 0;
@@ -77,6 +87,7 @@ div.bottom  {
   /* avoid collission with div.menu */
   margin-left: ${menuwidth}em;
 }
+
 div.bottom div {
   /* Placed in the lower left corner */
   /*bottom: auto;*/
@@ -90,6 +101,7 @@ div.bottom div {
   /* avoid collission with div.menu */
   /*margin-left: auto;*/
 }
+
 /* This trick is to fix something i IE 5 on Mac..  */
 @media screen {
   body>div.menu,body>div.bottom {
@@ -104,10 +116,9 @@ div.bottom div {
 #set $paddingleft = $menuwidth + $realpadding
 #set $paddingbottom = $bottomheight + $realpadding  
 div.content {
-  padding-top: ${realpadding}em; 
+  padding-top: 0em; 
   padding-right: ${realpadding}em; 
   padding-left: ${paddingleft}em; 
   padding-bottom: ${paddingbottom}em;
 }
 
- 

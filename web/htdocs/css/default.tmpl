@@ -1,9 +1,31 @@
+/*
+ * Copyright 2004 University of Oslo, Norway
+ *
+ * This file is part of Cerebrum.
+ *
+ * Cerebrum is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * Cerebrum is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU 
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License 
+ * along with Cerebrum; if not, write to the Free Software Foundation,
+ * Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+ */
+
+## Styles for the bottom frame
 div.activitylog h2,div.worklist h2 {
   font-size: 90%;
   margin: 0;
   padding: 0;
   background: #9ab;
 }
+
 div.activitylog {
   overflow: auto;
   height: 5em;
@@ -12,20 +34,24 @@ div.activitylog {
   margin: 0;
   margin-left: 2em;
 }
+
 div.worklist {
   width: 18em;
   float: left;
   /*margin-right: 2em;*/
 }
-div.buttons{
+
+div.buttons {
   text-align: left;
 }
+
 div.buttons input {
   width: 5em;
   margin-top: 0.3em;
   margin-left: 0.3em;
 }
 
+## Styles for the menu:
 div.menu a { top: 10px; left: 10px; }
 div.menu a { display: block; }
 
@@ -50,6 +76,8 @@ div.menulevel2 {
 div.menu .active {
     font-style: italic;
 }
+
+## Styles for messages and errors
 div.messages {
     border: black 1px dashed;
 }
