@@ -77,16 +77,16 @@ class EmailLDAPUiOMixin(EmailLDAP):
         return '@'.join((local_part, domain))
 
     
-    def read_server(self):
-        self.__super.read_server()
-        self.make_home2spool()
+    def read_server(self, spread):
+        self.__super.read_server(spread)
+        self.make_home2spool(spread)
         
   
-    def list_machines(self):
+    def list_machines(self, spread):
         disk = Factory.get('Disk')(self._db)
         res = []
         path_pattern = re.compile(r'/(?P<department>[^/]+)/(?P<host>[^/]+)/[^/]+')
-        for d in disk.list():
+        for d in disk.list(spread):
             path = d['path']
             m = path_pattern.match(path)
             if m:
@@ -152,7 +152,7 @@ class EmailLDAPUiOMixin(EmailLDAP):
             self.local_uio_domain[dom] = prim
 
 
-    def make_home2spool(self):
+    def make_home2spool(self, spread):
         spoolhost = {}
         cname_cache = {}
         curdom, lowpri, primary = "", "", ""
@@ -265,7 +265,7 @@ class EmailLDAPUiOMixin(EmailLDAP):
             if spoolhost.has_key(real):
                 spoolhost[alias] = spoolhost[real]
 
-        for faculty, host in self.list_machines():
+        for faculty, host in self.list_machines(spread):
             host = string.lower(host)
             if host == '*':
                 continue

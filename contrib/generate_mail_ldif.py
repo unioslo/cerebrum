@@ -292,7 +292,7 @@ def get_data(spread):
         print "  done in %d sec." % (now() - curr)
         print "Starting read_server()..."
         curr = now()    
-    ldap.read_server()
+    ldap.read_server(spread)
     if verbose:
         print "  done in %d sec." % (now() - curr)
         print "Starting read_vacation()..."

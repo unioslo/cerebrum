@@ -124,7 +124,7 @@ class EmailLDAP(DatabaseAccessor):
                                                       row['enable']]
 
 
-    def read_server(self):
+    def read_server(self, spread):
         mail_serv = Email.EmailServer(self._db)
         for row in mail_serv.list_email_server_ext():
             self.serv_id2server[int(row['server_id'])] = [row['server_type'],
