@@ -196,13 +196,17 @@ WHERE p.fodselsdato=sa.fodselsdato AND
 
     def _GetOpptakQuery(self):
 	aar, maned = time.localtime()[0:2]
+
         """Hent personer med opptak til et studieprogram ved
-        institusjonen og som enten har vært registrert siste året 
-        eller opptak efter 2003-01-01.  Med untak av de som har
-        'studierettstatkode' lik 'PRIVATIST' skal alle disse få
-        affiliation student med kode 'opptak' ('privatist' for disse)
-        til stedskoden sp.faknr_studieansv + sp.instituttnr_studieansv
-        + sp.gruppenr_studieansv""" 
+        institusjonen og som enten har vært registrert siste året
+        eller opptak efter 2003-01-01.  Henter ikke de som har
+        fremtidig opptak.  Disse kommer med 14 dager før dato for
+        tildelt opptak.  Med untak av de som har 'studierettstatkode'
+        lik 'PRIVATIST' skal alle disse få affiliation student med
+        kode 'opptak' ('privatist' for disse) til stedskoden
+        sp.faknr_studieansv + sp.instituttnr_studieansv +
+        sp.gruppenr_studieansv"""
+
         qry = """
 SELECT DISTINCT s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
        s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
@@ -219,6 +223,7 @@ WHERE  p.fodselsdato=s.fodselsdato AND
        st.studieprogramkode = sp.studieprogramkode AND
        NVL(st.dato_gyldig_til,SYSDATE) >= sysdate AND
        st.studierettstatkode IN (RELEVANTE_STUDIERETTSTATKODER) AND
+       st.dato_tildelt < SYSDATE + 14 AND
        st.dato_tildelt >= to_date('2003-01-01', 'yyyy-mm-dd')
        """
         qry += """ UNION
