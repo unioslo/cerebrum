@@ -21,7 +21,7 @@
  
 
 
-import sys, re, locale, os
+import sys, re, locale, os, string
 import xml.sax
 
 import cerebrum_path
@@ -155,31 +155,34 @@ def make_fak_dict(fak_dict):
 	    else: st_name = sted.short_name
 	    s = k
 	    sted_k = "%02d0000" % k 
-	    res2[int(k)] = {'title': st_name, 'group_name':('hia.no:fs:struktur:emner:2004:host:' + (str(sted_k))),
-				'parent':'hia.no:fs:struktur:emner:2004:host','level': 1}
+	    res2[int(k)] = {'title': st_name, 'group_name':('hia.no:fs:struktur:emner:2004:h&st:øst:' + (str(sted_k))),
+				'parent':'hia.no:fs:struktur:emner:2004:høst','level': 1}
 	    res1[int(k)] = {'title': st_name, 'group_name':('hia.no:fs:struktur:emner:2004:v&r:' + (str(sted_k))),
-                                'parent':'hia.no:fs:struktur:emner:2004:v&r','level': 1}
+                                'parent':'hia.no:fs:struktur:emner:2004:vår','level': 1}
 	except Errors.NotFoundError: 
 	    pass
     par1,par2 = res1[int(s)]['parent'], res2[int(s)]['parent']
-    for kor in ('studenter','forelesere','sprint tudieledere'):
+    term1,term2 = res1[int(s)]['group_name'].split(':')[-2:][0],res2[int(s)]['group_name'].split(':')[-2:][0]
+    for kor in ('student','foreleser','studieleder'):
 	res2[kor] = {'title':('aktive '+ kor), 'group_name': (':'.join((par2,kor))),
-			'parent':par2 ,'level': 1}
+			'parent':par2 ,'level': 1, 'term':term2¦}
 	res1[kor] = {'title':('aktive '+ kor), 'group_name': (':'.join((par1,kor))),
-                        'parent':par1 ,'level': 1}
+                        'parent':par1 ,'level': 1 ,'term': term1}
     return(res1,res2)
 
-def make_undenh_user_grp():
+def make_undenh_user_grp(res1_in,res2_in):
     group = Factory.get('Group')(db) 
     role = {}
+    res = {}
+    grp_str = 'hia.no:fs:gruppe:undenh'
     for rol,acc in [x.split(':') for x in ('student:1',
-					'foreleser:6',
-					'studieleder:5')]:
+					'foreleser:2',
+					'studieleder:2')]:
 	role[rol]= acc
     for k,v in und_grp.items():
 	for grp in ('student','foreleser','studieleder'):
 	    group.clear()
-	    for id,ro in [mem.split(':')for mem in v.['members']]:
+	    for id,ro in [mem.split(':')for mem in v['members']]:
 		if grp == ro:
 		    group.find(int(id))
 		    members = []
@@ -187,8 +190,16 @@ def make_undenh_user_grp():
 						int(const.entity_account),
                                                 get_entity_name=True)[0]: 
 			members.append(grp_mem[2])
-		    data = {'role':role[grp], 'group_name':('hia.no:fs:gruppe:undenh:'+ k + grp)}
-		    xml1.personmembers_to_XML(data,members)
+		    term = k.split(':')[1:2][0]
+		    if (res1_in[grp]['term'] == term):
+			parent = res1_in[grp]['group_name']
+		    else: parent = res2_in[grp]['group_name']
+		    title = "%s for %s" % (string.capitalize(grp) + 'for' + k.split(':')[2:3][0]) 
+		    key_res = ':'.join((k,grp))
+		    res[key_res] = {'role':role[grp],'group_name':':'.join((grp_str,key_res)),
+			     'members':members, 'title':title, 'parent': parent}
+		    xml1.group_to_XML(res[key_res])
+    return(res) 
 
 #def check_adm_access():
 #    global 
@@ -305,15 +316,17 @@ def main():
                 'title':'HiA-Fronter','parent':'hia.no:fs:top'}
     top_dict[1] = {'level': 0 , 'group_name':'hia.no:fs:struktur:emner',
                 'title':'Emner','parent':'hia.no:fs:top'}
-    top_dict[2] = {'level': 0 , 'group_name':'hia.no:fs:struktur:emner:2004:vaar',
-                'title':'Emner VAAR 2004','parent':'hia.no:fs:struktur:emner'}
-    top_dict[3] = {'level': 0 , 'group_name':'hia.no:fs:struktur:emner:2004:host',
-                'title':'Emner HOST 2004','parent':'hia.no:fs:struktur:emner'}
+    top_dict[2] = {'level': 0 , 'group_name':'hia.no:fs:struktur:emner:2004:vår',
+                'title':'Emner VÅR 2004','parent':'hia.no:fs:struktur:emner'}
+    top_dict[3] = {'level': 0 , 'group_name':'hia.no:fs:struktur:emner:2004:høst',
+                'title':'Emner HØST 2004','parent':'hia.no:fs:struktur:emner'}
     fak_dict = get_faknr()
     get_group(fak_dict)
     fak_d1,fak_d2 = make_fak_dict(fak_dict)
     xml1.start_xml_head()
-    #genere topp struktur 
+    for k,v in acc2names.items():
+        xml1.user_to_XML(v)
+    #gruppe,rom og struktur starter 
     for k,v in top_dict.items():
 	xml1.group_to_XML(v)
     for k,v in fak_d1.items():
@@ -322,9 +335,11 @@ def main():
         xml1.group_to_XML(v)
     for k,v in und_grp.items():
         xml1.room_to_XML(v)
-    make_undenh_user_grp(fak_d1,fak_d2)
-    for k,v in acc2names.items():
-	xml1.user_to_XML(v)
+    mem_grp = make_undenh_user_grp(fak_d1,fak_d2)
+    #grupper ferdig
+    for k,v in mem_grp.items():
+	members = v['members']
+	personmembers_to_XML(v,members)
     xml1.end()
     
 
