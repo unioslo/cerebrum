@@ -21,7 +21,6 @@
 import time
 
 import cerebrum_path
-from Cerebrum import Constants
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import PosixUser
@@ -66,7 +65,7 @@ def generate_passwd():
             gecos = posix_user.get_gecos()
 
         # TODO: Using .description to get the shell's path is ugly.
-        shell = Constants._PosixShellCode(int(posix_user.shell)).description
+        shell = PosixUser._PosixShellCode(int(posix_user.shell)).description
         print join((uname, passwd, str(posix_user.posix_uid),
                     str(default_group.posix_gid), gecos,
                     posix_user.home, shell))
