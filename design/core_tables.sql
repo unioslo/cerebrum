@@ -954,7 +954,7 @@ CREATE TABLE person_external_id
   CONSTRAINT person_external_id_pk
     PRIMARY KEY (person_id, id_type, source_system),
   CONSTRAINT person_external_id_unique
-    UNIQUE (id_type, external_id)
+    UNIQUE (id_type, source_system, external_id)
 );
 category:main/Oracle;
 GRANT SELECT ON person_external_id TO read_person;
