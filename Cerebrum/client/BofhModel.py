@@ -21,16 +21,7 @@ class Entity(Abstract.Entity):
         Abstract.Entity.__init__(self)
         self.server = server
     
-    def load_entity_info(self, id):
-        """Loads entity specific data from server using the given ``id``.
-        """
-        warn("entity_info not implemented yet")
-        return
-        info = self.server.entity_info(id)
-        self.names = info['names']
-        self.type = info['type']
-
-    def get_by_id(cls, id, server):
+    def fetch_by_id(cls, id, server):
         """ Retrieves an instance from ``server`` with given ``id``.
             ``server`` is a ServerConnection.
         """
@@ -38,7 +29,17 @@ class Entity(Abstract.Entity):
         entity.load_entity_info(id)
         return entity
         
-    get_by_id = classmethod(get_by_id)    
+    fetch_by_id = classmethod(fetch_by_id)    
+    
+    def load_entity_info(self, id):
+        """Loads entity specific data to this object
+           from server using the given ``id``.
+        """
+        warn("entity_info not implemented yet")
+        return
+        info = self.server.entity_info(id)
+        self.names = info['names']
+        self.type = info['type']
     
     def delete(self):
         pass
@@ -56,7 +57,7 @@ class Entity(Abstract.Entity):
                       disable_until=None, end_date='default'):
         pass
         
-    def list_quarantines(self):
+    def get_quarantines(self):
         pass
 
 
@@ -80,7 +81,7 @@ class Group(Entity, Abstract.Group):
         
     create = classmethod(create)
     
-    def find_by_name(cls, name, server):
+    def fetch_by_name(cls, name, server):
         group = Group(server)
         # FIXME: Check for errors: not found, etc.
         info = server.group_info(name)
@@ -96,7 +97,7 @@ class Group(Entity, Abstract.Group):
         group.spreads = info['spread'].split(",")
         return group
         
-    find_by_name = classmethod(find_by_name)
+    fetch_by_name = classmethod(fetch_by_name)
 
     def get_members(self):
         # FIXME: Check for errors...
@@ -108,9 +109,11 @@ class Group(Entity, Abstract.Group):
             member['id'] = grpmember['id']
             member['type'] = grpmember['type']
             member['name'] = grpmember['name']
-            member['operation'] = grpmember['memberop']
-            # FIXME: Need to create the new_object_by_id-function
-            member['object'] = new_object_by_id(member['id'])
+            member['operation'] = grpmember['op']
+            # FIXME
+            warn("Need to create the new_object_by_id-function")
+            #member['object'] = new_object_by_id(member['id'])
+            # Should be just tuples of (object, operation)
             members.append(member)
             
         return members

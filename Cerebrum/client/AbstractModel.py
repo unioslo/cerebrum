@@ -49,12 +49,12 @@ class Entity:
         self.contactinfo = []
         self.spreads = []
     
-    def get_by_id(cls, id):
+    def fetch_by_id(cls, id):
         """Retrieves an instance with given id """
         # entity_info og entity_type_code
         pass
         
-    get_by_id = classmethod(get_by_id)
+    fetch_by_id = classmethod(fetch_by_id)
     
     def delete(self):
         """ Deletes this entity from the database.
@@ -88,7 +88,7 @@ class Entity:
         """
         pass
         
-    def list_quarantines(self):
+    def get_quarantines(self):
         """ Returns a list of quarantine-objects, if the entity has any quarantines
             set.
         """
@@ -103,11 +103,11 @@ class Group(Entity):
         pass
     create = classmethod(create)
     
-    def find_by_name(cls, name):
+    def fetch_by_name(cls, name):
         """ Retrieves an instance with given name.
         """
         pass
-    find_by_name = classmethod(find_by_name)
+    fetch_by_name = classmethod(fetch_by_name)
 
     def get_members(self):
         """ Retrieves members of the group, does _not_ recurse, ie.
@@ -147,10 +147,10 @@ class Account(Entity):
         pass
     create = classmethod(create)
 
-    def find_by_name(cls, name):
+    def fetch_by_name(cls, name):
         """Retrieves an instance with given name."""
         pass
-    find_by_name = classmethod(find_by_name)
+    fetch_by_name = classmethod(fetch_by_name)
 
 
 class Quarantine:
