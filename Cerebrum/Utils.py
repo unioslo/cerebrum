@@ -155,6 +155,49 @@ def make_temp_dir(dir="/tmp", prefix="cerebrum_tmp"):
     os.mkdir(name)
     return name
 
+def latin1_wash(data, target_charset, expand_chars=False, substitute=''):
+    # TBD: The code in this function is rather messy, as it tries to
+    # deal with multiple combinations of target charsets etc.  It
+    # *might* be worth it to reimplement this stuff as a few proper
+    # Python codecs, i.e. registered via codecs.register() and hence
+    # usable via the Python builtin str.encode().  On the other hand,
+    # that might be seen as involving excess amounts of magic for such
+    # an apparently simple task.
+    tr_from = ('ÆØÅæøå[\\]{|}¦¿'
+               'ÀÁÂÃÄÇÈÉÊËÌÍÎÏÑÒÓÔÕÖÙÚÛÜİàáâãäçèéêëìíîïñòóôõöùúûüıÿ'
+               '¨­¯´')
+    if target_charset == 'iso646-60':
+        tr_to = ('[\\]{|}[\\]{|}||'
+                 'AAAAACEEEEIIIINOOOOOUUUUYaaaaaceeeeiiiinooooouuuuyy'
+                 '"--\'')
+    elif target_charset == 'POSIXname':
+        tr_to = ('AOAaoaAOAaoaoo'
+                 'AAAAACEEEEIIIINOOOOOUUUUYaaaaaceeeeiiiinooooouuuuyy'
+                 '"--\'')
+    else:
+        raise ValueError, "Unknown target charset: %r" % (target_charset,)
+
+    if target_charset == 'POSIXname' and expand_chars:
+        xlate = {'Æ' : 'Ae', 'æ' : 'ae', 'Å' : 'Aa', 'å' : 'aa'}
+        data = ''.join([xlate.get(c, c) for c in data])
+
+    tr = string.maketrans(tr_from, tr_to)
+    data = data.translate(tr)
+
+    xlate = {}
+    for y in range(0x00, 0x1f): xlate[chr(y)] = substitute
+    for y in range(0x7f, 0xff): xlate[chr(y)] = substitute
+    xlate['Ğ'] = 'Dh'
+    xlate['ğ'] = 'dh'
+    xlate['Ş'] = 'Th'
+    xlate['ş'] = 'th'
+    xlate['ß'] = 'ss'
+    data = ''.join([xlate.get(c, c) for c in data])
+
+    if target_charset == 'POSIXname':
+        data = re.sub(r'[^a-zA-Z0-9 -]', substitute, data)
+    return data
+
 def latin1_to_iso646_60(s, substitute=''):
     #
     # Wash known accented letters and some common charset confusions.
