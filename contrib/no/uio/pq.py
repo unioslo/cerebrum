@@ -55,7 +55,7 @@ ecmd     = "514 Unknown command"
 eerror   = "515 Unknown error"
 
 # pqdlog = "/u2/log/priss/prissquotad"
-pqdlog = "/tmp/prissquotad"
+pqdlog = "/cerebrum/var/log/prissquotad"
 db = Factory.get('Database')()
 
 class MyServer(SocketServer.TCPServer):
