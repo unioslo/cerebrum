@@ -133,7 +133,7 @@ class AccountType(object):
 
     def list_accounts_by_type(self, ou_id=None, affiliation=None,
                               status=None, filter_expired=False,
-                              person_id=None, fetchall=True):
+                              account_id=None, person_id=None, fetchall=True):
         """Return ``account_id``s of the matching accounts."""
         extra=""
         if affiliation is not None:
@@ -150,6 +150,8 @@ class AccountType(object):
             extra += " AND at.person_id=:person_id"
         if filter_expired:
             extra += " AND (ai.expire_date IS NULL OR ai.expire_date > [:now])"
+        if account_id:
+            extra += " AND ai.account_id=:account_id"
         return self.query("""
         SELECT DISTINCT at.person_id, at.ou_id, at.affiliation, at.account_id,
                         at.priority
@@ -165,7 +167,10 @@ class AccountType(object):
                           {'ou_id': ou_id,
                            'affiliation': affiliation,
                            'status': status,
+                           'account_id' : account_id,
                            'person_id': person_id}, fetchall = fetchall)
+    # end list_accounts_by_type
+
 
 class AccountHome(object):
     """AccountHome keeps track of where the users home dir is.  There
