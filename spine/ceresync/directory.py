@@ -272,7 +272,7 @@ class PosixUser(LdapBack):
         s['userPassword'] = '{MD5}' + obj.password # until further notice, presume md5-hash
         s['gidNumber'] = str(obj.primary_group.posix_gid)
         s['gecos'] = self.gecos(obj.gecos)
-        s['homeDirectory'] = obj.home
+        s['homeDirectory'] = obj.homedir
         s['loginShell'] = obj.shell
         return s
 
