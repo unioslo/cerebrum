@@ -270,7 +270,7 @@ class AccountUtil(object):
                     profile.notify_used_disk(old=current_disk_id, new=new_disk)
                     changes.append(('disk', (current_disk_id, disk_spread, new_disk)))
         # Check quarantines
-        if int(const.quarantine_autostud) in ac['quarantines']:
+        if int(const.quarantine_auto_inaktiv) in ac['quarantines']:
             changes.append(("remove_autostud_quarantine", None))
         # TBD: Is it OK to ignore date on existing quarantines when
         # determining if it should be added?
