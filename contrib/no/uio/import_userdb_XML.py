@@ -73,6 +73,7 @@ debug = 0
 user_creators = {}     # Store post-processing info for users
 uname2entity_id = {}
 deleted_users = {}
+reserved_unames = {}
 uid_taken = {}
 person_id2affs = {}
 account_id2aff = {}
@@ -820,7 +821,15 @@ def import_person_users(personfile):
     showtime("Creating deleted users")
     for person_id in deleted_users.keys():
         for du in deleted_users[person_id]:
-            if not uname2entity_id.has_key(du['uname']):
+            if uname2entity_id.has_key(du['uname']):
+                # User name is occupied by a non-deleted user.
+                pass
+            elif reserved_unames.get(du['uname'], person_id) <> person_id:
+                # User name is both a reserved and a deleted user
+                # belonging to the same person, and we're not
+                # processing that correct person here.
+                pass
+            else:
                 account_id = create_account(du, person_id, co.entity_person)
                 if account_id is not None:
                     uname2entity_id[du['uname']] = account_id
@@ -947,6 +956,25 @@ def person_callback(person):
         if u.has_key('deleted_date'):
             deleted_users.setdefault(person_id, []).append(u)
         else:
+            if u.has_key('reserved'):
+                for du in deleted_users.get(person_id, []):
+                    # Note: This assumes that a reserved username will
+                    # always come after any "real" or "deleted" users
+                    # owned by a single person.
+                    if du['uname'] == u['uname']:
+                        # The person currently owns this username, as
+                        # it is reserved.  However, the same person
+                        # also owns a deleted user with the same
+                        # username, and the information attached to
+                        # the deleted user will probably be more
+                        # interesting than the reservation.
+                        #
+                        # Don't do the reservation of the username
+                        # here, but leave a hint to help the
+                        # population of deleted users ensure that only
+                        # the correct person can get this username.
+                        reserved_unames[u['uname']] = person_id
+                        return
             account_id = create_account(u, person_id, co.entity_person)
             if account_id is not None:
                 if not u.has_key('reserved'):
