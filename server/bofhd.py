@@ -193,6 +193,8 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler):
                                  for x in obj])
             elif isinstance(obj, (int, long, float)):
                 return obj
+            elif str(type(obj)) == "<type 'DateTime'>":  # TODO: use isinstance instead
+                return xmlrpclib.DateTime(obj.localtime())
             else:
                 raise ValueError, "Unrecognized parameter type: '%r'" % obj
         try:
@@ -447,12 +449,16 @@ def usage():
 """
 
 if __name__ == '__main__':
-    opts, args = getopt.getopt(sys.argv[1:], 'c:t:',
-                               ['config-file=', '--test-help='])
+    opts, args = getopt.getopt(sys.argv[1:], 'c:t:p:',
+                               ['config-file=', 'test-help=',
+                                'port='])
     conffile = None
+    port = 8000
     for opt, val in opts:
         if opt in ('-c', '--config-file'):
             conffile = val
+        elif opt in ('-p', '--port'):
+            port = val
         elif opt in ('-t', '--test-help'):
             # This is a bit icky.  What we want to accomplish is to
             # fetch the results from a bofhd_get_commands client
