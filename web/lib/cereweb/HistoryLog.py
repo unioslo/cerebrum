@@ -1,8 +1,8 @@
 from Cerebrum.web.templates.HistoryLogTemplate import HistoryLogTemplate
 from Cerebrum.web.TableView import TableView
 from Cerebrum.web.utils import url
-#from Cerebrum.Utils import Factory
-#ClientAPI = Factory.get_module("ClientAPI")
+from Cerebrum.Utils import Factory
+ClientAPI = Factory.get_module("ClientAPI")
 #from Cerebrum.web.Main import Main
 import types
 #import forgetHTML as html
@@ -10,16 +10,35 @@ import types
 def view_history_short(entity):
     # Could use some other template for 'short' view 
     template = HistoryLogTemplate()
-    table = _history_tableview(entity, 5)
+    events = entity.get_history(5)
+    table = _history_tableview(events)
     return template.viewHistoryLog(table)
 
 def view_history(entity):
     template = HistoryLogTemplate()
-    table = _history_tableview(entity)
+    events = entity.get_history()
+    table = _history_tableview(events)
     return template.viewHistoryLog(table)
 
-def _history_tableview(entity, max_entries=None):    
-    history = entity.get_history(max_entries)
+def view_operator_history(session, limit=10):
+    template = HistoryLogTemplate()
+    server = session['server']
+    events = session.get('operator_events')
+    if not events:
+        # get all  (TODO: Only one week or younger)
+        events = ClientAPI.operator_history(server, )
+    else:
+        last_event = events[-1]
+        # just get the new ones
+        events.extend(ClientAPI.operator_history(server, last_event))
+
+    # chop of the limit last events (if limit is 0 - all events)    
+    events = events[-limit:]    
+    session['operator_events'] = events
+    table = _history_tableview(events)
+    return template.viewHistoryLog(table)
+
+def _history_tableview(events):    
     table = TableView("timestamp", "icon", "who", "message")
     icon_map = {
         "add" : "add.png",
@@ -29,7 +48,7 @@ def _history_tableview(entity, max_entries=None):
         "create" : "create.png",
         "mod" : "modify.png"
     }
-    for change in history:
+    for change in events:
         if type(change.change_by) in types.StringTypes:
             who = change.change_by
         else:
