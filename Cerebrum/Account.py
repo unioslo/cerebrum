@@ -259,3 +259,14 @@ class Account(EntityName, EntityQuarantine, Entity):
         WHERE account_id=:a_id AND method=:method""",
                             {'a_id': self.entity_id,
                              'method': int(method)})
+
+    def get_account_expired(self):
+        """Return expire_date if account expire date is overdue, else False"""
+        try:
+            return self.query_1("""
+            SELECT expire_date
+            FROM [:table schema=cerebrum name=account_info]
+            WHERE expire_date < now() AND account_id=:a_id""",
+                                {'a_id': self.entity_id})
+        except Errors.NotFoundError:
+            return False
