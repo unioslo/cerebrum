@@ -299,7 +299,7 @@ class EmailTarget(EmailEntity):
                 alias_value=:alias, using_uid=:uid
             WHERE target_id=:t_id""",
                          {'t_id': self.email_target_id,
-                          't_type': self.email_target_type,
+                          't_type': int(self.email_target_type),
                           'e_id': self.email_target_entity_id,
                           'e_type': entity_type,
                           'alias': self.email_target_alias,
