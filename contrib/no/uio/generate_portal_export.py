@@ -78,6 +78,32 @@ else:
 # fi
 
 
+# 
+# It looks like there is way too much time spent looking up things. The
+# output structure suggests that it might be beneficial to cache
+# (no_ssn,uname) mappings
+#
+no_ssn_cache = {}
+
+def cached_value(key):
+    """
+    Returns the cached value for key (if it exists) or None. NB! In this
+    context, values cannot be None, which is thus safe to use as a sentinel.
+    """
+    return no_ssn_cache.get(key, None)
+# end cached_value
+
+def cache_value(key, value):
+    """
+    Insert a new pair into the cache.
+    """
+
+    # NB! This is potentially very dangerous, as no upper limit is placed on
+    # the cache
+    no_ssn_cache[key] = value
+# end cache_value
+
+
 
 def output_row(row, stream, db_person, db_account, constants):
     """
@@ -97,35 +123,46 @@ def output_row(row, stream, db_person, db_account, constants):
     studieprogram       row['studieprogramkode']         
     """
 
-    db_person.clear()
-    db_account.clear()
-
     # This is insane! Why is FS so non-chalant?
     # Force birth dates to be 6-digit by prepending zeros
     birth_date = str(int(row.fodselsdato)).zfill(6)
     no_ssn = birth_date + str(int(row.personnr))
 
-    try:
-        db_person.find_by_external_id(constants.externalid_fodselsnr,
-                                      no_ssn,
-                                      constants.system_fs)
-    except:
-        # FIXME: report the exception/stacktrace as well?
-        logger.error("Could not find NO_SSN (fnr) %1 in Cerebrum",
-                     no_ssn)
-        return
-    # yrt
+    uname = cached_value(no_ssn)
+    if uname is None:
 
-    # If a person has no primary account (i.e. no accounts), we simply skip
-    # him
-    account_id = db_person.get_primary_account()
-    if not account_id:
-        logger.warn("Person %s has no accounts", no_ssn)
-        return 
+        try:
+            db_person.clear()
+            db_person.find_by_external_id(constants.externalid_fodselsnr,
+                                          no_ssn,
+                                          constants.system_fs)
+        except:
+            # FIXME: report the exception/stacktrace as well?
+            logger.error("Could not find NO_SSN (fnr) %s in Cerebrum",
+                         no_ssn)
+            cache_value(no_ssn, "missing no_ssn")
+            return
+        # yrt
+        
+        # If a person has no primary account (i.e. no accounts), we simply skip
+        # him
+        account_id = db_person.get_primary_account()
+        if not account_id:
+            logger.warn("Person %s has no accounts", no_ssn)
+            cache_value(no_ssn, "missing account")
+            return 
+        # fi
+
+        db_account.clear()
+        db_account.find(account_id)
+        uname = db_account.get_account_name()
+
+        cache_value(no_ssn, uname)
+    # This no_ssn is not in the database or there is no account :(
+    elif (uname == "missing no_ssn" or
+          uname == "missing account"):
+        return
     # fi
-    
-    db_account.find(account_id)
-    uname = db_account.get_account_name()
 
     # These can potentially be empty in the query result (NULL, that is)
     year = ''
@@ -162,6 +199,7 @@ def output_text(output_file):
     """
 
     output_stream = SimilarSizeWriter(output_file, "w")
+    output_stream.set_size_change_limit(10)
     db_cerebrum = Factory.get("Database")()
     logger.debug(cereconf.DB_AUTH_DIR)
     
