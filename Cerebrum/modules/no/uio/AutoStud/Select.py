@@ -335,3 +335,5 @@ class SelectTool(object):
                 self._unique_extend(matched_settings.setdefault(k, []),
                                     profile.settings[k], nivaakode=nivaakode)
         return matches, matched_settings
+
+# arch-tag: 9decddaa-4ba4-49f1-b8bc-7dcdd4809b8b
