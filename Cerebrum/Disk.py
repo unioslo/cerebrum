@@ -135,25 +135,27 @@ class Disk(Entity):
         self.find(entity_id)
 
     def list(self, host_id=None, filter_expired=False, spread=None):
-        where = ai_where = ""
+        where = ai_where = spread_where = ""
         if host_id is not None:
             where = "WHERE host_id=:host_id"
         if filter_expired:
             ai_where = "AND (ai.expire_date IS NULL OR ai.expire_date > [:now])"
-        if spread is None:
-            raise ValueError, "must take spread into consideration"
+        if spread is not None:
+            spread_where = "AND ah.spread=:spread"
+            spread = int(spread)
         
         # Note: This syntax requires Oracle >= 9
         return self.query("""
-        SELECT count(ah.account_id), di.disk_id, di.host_id, di.path
+        SELECT count(ah.account_id), ah.spread,
+               di.disk_id, di.host_id, di.path
         FROM [:table schema=cerebrum name=disk_info] di
           LEFT JOIN [:table schema=cerebrum name=account_home] ah
-            ON di.disk_id=ah.disk_id AND ah.spread=:spread
+            ON di.disk_id=ah.disk_id %s
           LEFT JOIN [:table schema=cerebrum name=account_info] ai
             ON ah.account_id=ai.account_id %s %s
-        GROUP BY di.disk_id, di.host_id, di.path""" % (
-            ai_where, where), {'host_id': host_id,
-                               'spread': int(spread)})
+        GROUP BY di.disk_id, di.host_id, di.path, ah.spread""" %
+                          (spread_where, ai_where, where),
+                          {'host_id': host_id, 'spread': spread})
 
     def delete(self):
         if self.__in_db:
