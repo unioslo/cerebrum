@@ -1806,11 +1806,14 @@ class BofhdExtension(object):
         perm_filter='can_create_user')
     def user_promote_posix(self, operator, accountname, dfg=None, shell=None,
                           home=None):
+        is_posix = False
         try:
             self._get_account(accountname, actype="PosixUser")
-            raise CerebrumError("%s is already a PosixUser" % accountname)
-        except Errors.NotFoundError:
+            is_posix = True
+        except CerebrumError:
             pass
+        if is_posix:
+            raise CerebrumError("%s is already a PosixUser" % accountname)
         account = self._get_account(accountname)
         pu = PosixUser.PosixUser(self.db)
         uid = pu.get_free_uid()
