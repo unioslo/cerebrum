@@ -38,7 +38,7 @@ class Transaction:
 
         try:
             for item in self._refs:
-                if item.updated and item.is_writelocked_by_me(self):
+                if item.updated and item.has_writelock(self):
                     item.save()
                 item.unlock(self)
 
@@ -61,7 +61,7 @@ class Transaction:
             raise Errors.TransactionError('No transaction started')
 
         for item in self._refs:
-            if item.updated and item.is_writelocked_by_me(self):
+            if item.updated and item.has_writelock(self):
                 item.reload()
             item.unlock(self)
 
