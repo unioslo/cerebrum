@@ -87,13 +87,13 @@ class PersonFnrMixin(Person.Person):
         If users_only, only return persons with accounts with affiliations."""
         result = {}                     # {person_id: fodselsnr}
         multi = {}                      # {person_id: {fodselsnr: 0}}
-        f = "[:table schema=cerebrum name=person_external_id] pei"
+        f = "[:table schema=cerebrum name=entity_external_id] eei"
         if users_only:
-            f += " JOIN [:table schema=cerebrum name=account_type]" \
-                 " USING (person_id)"
+            f += " JOIN [:table schema=cerebrum name=account_type] at" \
+                 " ON at.person_id=eei.entity_id"
         for person_id, fnr in self.query("""
-            SELECT DISTINCT pei.person_id, pei.external_id FROM %s
-            WHERE pei.id_type = %d""" % (f, self.const.externalid_fodselsnr)):
+            SELECT DISTINCT eei.entity_id, eei.external_id FROM %s
+            WHERE eei.id_type = %d""" % (f, self.const.externalid_fodselsnr)):
             person_id = int(person_id)
             if result.setdefault(person_id, fnr) is not fnr:
                 multi.setdefault(person_id, {result[person_id]: 0})[fnr] = 0
