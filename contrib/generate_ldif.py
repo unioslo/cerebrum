@@ -716,7 +716,7 @@ def generate_posixgroup(spread=None,u_spread=None,filename=None):
     obj_str = "objectClass: top\n"
     for obj in cereconf.LDAP_GROUP_OBJECTCLASS:
 	obj_str += "objectClass: %s\n" % obj
-    for row in posix_group.list_all_test(spreads):
+    for row in posix_group.list_all_grp(spreads):
 	posix_group.clear()
         posix_group.find(row.group_id)
         gname = posix_group.group_name
@@ -760,7 +760,7 @@ def generate_netgroup(spread=None,u_spread=None,filename=None):
     obj_str = "objectClass: top\n"
     for obj in cereconf.LDAP_NETGROUP_OBJECTCLASS:
         obj_str += "objectClass: %s\n" % obj
-    for row in pos_netgrp.list_all_test(spreads):
+    for row in pos_netgrp.list_all_grp(spreads):
         pos_netgrp.clear()
         pos_netgrp.find(row.group_id)
         netgrp_name = pos_netgrp.group_name
@@ -962,7 +962,7 @@ def make_attr(name, strings, normalize = None, verify = None, raw = False):
 
 def main():
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'u:g:n:a:b:c:po',
+        opts, args = getopt.getopt(sys.argv[1:], 'u:g:n:U:G:N:po',
                                    ['help', 'group=','org=','user=','netgroup_spread=',
                                     'group_spread=','user_spread=', 'netgroup=','posix'])
     except getopt.GetoptError:
@@ -971,6 +971,7 @@ def main():
     user_spread = group_spread = None
     p = {}
     for opt, val in opts:
+	m_val = []
         if opt in ('--help',):
             usage()
 	elif opt in ('-o','--org'):
@@ -990,12 +991,15 @@ def main():
             p['g_file'] = val
 	elif opt in ('-n', '--netgroup'):
             p['n_file'] = val
-	elif opt in ('-a','--user_spread'):
-	    p['u_spr'] = eval_spread_codes(str(val))
-	elif opt in ('-b','--group_spread',):
-	    p['g_spr'] = eval_spread_codes(str(val))
-        elif opt in ('-c','--netgroup_spread',):
-            p['n_spr'] = eval_spread_codes(str(val))
+	elif opt in ('-U','--user_spread'):
+	    [m_val.append(str(x)) for x in val.split(',')]
+	    p['u_spr'] = eval_spread_codes(m_val)
+	elif opt in ('-G','--group_spread',):
+	    [m_val.append(str(x)) for x in val.split(',')]
+	    p['g_spr'] = eval_spread_codes(m_val)
+        elif opt in ('-N','--netgroup_spread',):
+	    [m_val.append(str(x)) for x in val.split(',')]
+            p['n_spr'] = eval_spread_codes(m_val)
 	elif opt in ('--posix',):
             generate_users()
             generate_posixgroup()
@@ -1019,21 +1023,21 @@ def usage(exitcode=0):
     --org=<outfile>
         Write organization, person and alias to a LDIF-file
 
-    --user=<outfile> --user_spread=<value>| -a <value>
+    --user=<outfile>| -u=<outfile> --user_spread=<value>|-U=<value>
         Write users to a LDIF-file
 
-    --group=<outfile> --group_spread=<value>|-b <value> --user_spread=<value>
+    --group=<outfile>  --group_spread=<value>|-G=<value> --user_spread=<value>
         Write posix groups to a LDIF-file
 
-    --netgroup=<outfile> --netgroup_spread=<value>|-c <value> --user_spread=<value>
+    --netgroup=<outfile> --netgroup_spread=<value>|-N=<value> --user_spread=<value>
         Write netgroup map to a LDIF-file
 
     --posix
         write all posix-user,-group and -netgroup
         from default cereconf parameters
 
-    Both --user_spread, --netgroup_spread  and --group_spread handle handle
-    multiple spread-values (<value1>|[<value1>,<value2>,,,])"""
+    Both --user_spread, --netgroup_spread  and --group_spread can handle
+    multiple spread-values (<value>|<value1>,<value2>,,,)"""
     sys.exit(exitcode)
 
 def config():
