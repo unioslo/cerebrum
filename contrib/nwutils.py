@@ -47,6 +47,9 @@ quarantine = Entity.EntityQuarantine(db)
 ou = Factory.get('OU')(db)
 ent_name = Entity.EntityName(db)
 
+pass_cache = {}
+pass_cached = False
+
 class LDAPConnection:
     __port = 0
     def __init__( self, host, port, binddn, password, scope ):
@@ -236,7 +239,6 @@ def now():
 def get_primary_affiliation(account_id, namespace):
     account.clear()
     account.find(account_id)
-    name = account.get_name(namespace)
     acc_types = account.get_account_types()
     c = 0
     current = 0
@@ -253,23 +255,50 @@ def get_primary_affiliation(account_id, namespace):
 
 
 
+def get_all_pass():
+    global pass_cache
+    
+    passwords = db.get_log_events(types=[co.account_password])
+    for row in passwords:
+      try:
+        pass_cache[row['subject_entity']] = pickle.loads(row.change_params)['password']
+      except:
+        type, value, tb = sys.exc_info()
+        print "Aiee! %s %s" % (str(type), str(value))
+
+
+
+def get_ptpass(account_id, use_cached=False):
+    global pass_cached
+    global pass_cache
+
+    if use_cached is False:
+      passwords = db.get_log_events(types=[co.account_password], subject_entity=account_id)
+      pwd_rows = [row for row in passwords]
+      try: 
+        pass_cache[account_id] = pickle.loads(pwd_rows[-1].change_params)['password']
+      except:
+        pass
+    elif pass_cached is False:
+      get_all_pass()
+      pass_cached = True
+    try:
+      pwd = pass_cache[account_id]
+    except:
+      print "Warning: Password missing on %d" % account_id
+      pwd = '' 
+    return pwd
+
+
 # Creates the array we can feed directly to ldap"
-def get_account_info(account_id, spread, site_callback):
+def get_account_info(account_id, spread, site_callback, cache_pass=False):
     usr_attr = {}
     ent_name.clear()
     ent_name.find(account_id)
     pq = PrinterQuotas.PrinterQuotas(db);
     name = ent_name.get_name(co.account_namespace)
     (first_n, last_n, account_disable, home_dir, affiliation, ext_id) = get_user_info(account_id, spread)
-    passwords = db.get_log_events(types=(int(co.account_password),), subject_entity=account_id)
-
-    pwd_rows = [row for row in passwords]
-    try:
-        pwd = pickle.loads(pwd_rows[-1].change_params)['password']
-    except:
-        type, value, tb = sys.exc_info()
-        print "Aiee! %s %s" % (str(type), str(value))
-        pwd = ''
+    pwd = get_ptpass(account_id, cache_pass)
     try:
         pri_ou = get_primary_ou(account_id, co.account_namespace)
     except Errors.NotFoundError:
@@ -310,9 +339,9 @@ def get_account_info(account_id, spread, site_callback):
 
 
 
-def get_account_dict(dn_id, spread, site_callback):
+def get_account_dict(dn_id, spread, site_callback, cache_pass=False):
     return_dict = {}
-    (ldap_dn, entry) = get_account_info(dn_id, spread, site_callback)
+    (ldap_dn, entry) = get_account_info(dn_id, spread, site_callback, cache_pass=cache_pass)
     for attr in entry:
         return_dict[attr[0]] = attr[1]
     return (ldap_dn, return_dict)
@@ -381,7 +410,6 @@ def get_user_info(account_id, spread):
 def get_primary_ou(account_id,namespace):
     account.clear()
     account.find(account_id)
-    name = account.get_name(namespace)
     acc_types = account.get_account_types()
     c = 0
     current = 0
