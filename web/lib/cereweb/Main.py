@@ -11,6 +11,13 @@ class Main(MainTemplate):
         self.menu = SideMenu()
         self.worklist = self.session['worklist']
         self.activitylog = self.session['activitylog']
+        self.messages = [] # reset each time =)
+
+    def add_message(self, message, error=False):
+        """Adds a message on top of page. If error is true, the 
+        message will be highlighted as an error"""
+        self.messages.append((message, error))
+
     def prepareSession(self):    
         if not self.session.has_key("activitylog"):
             self.session['activitylog'] = ActivityLog() 
