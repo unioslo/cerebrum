@@ -46,6 +46,7 @@ class GroImpl(Cerebrum_core__POA.Gro):
 
     def __init__(self, com):
         self.com = com
+        self.ap_handler_class = APHandler.APHandler.create_ap_handler_impl()
         self.loHandler = com.get_corba_representation(LOHandler.LOHandler(self, self._db))
 
     def get_version(self):
@@ -60,7 +61,7 @@ class GroImpl(Cerebrum_core__POA.Gro):
         return self.loHandler
 
     def get_ap_handler(self, username, password):
-        ap = APHandler.APHandler(self.com, username, password)
+        ap = self.ap_handler_class(self.com, username, password)
         return self.com.get_corba_representation(ap)
 
     def get_database(cls):
