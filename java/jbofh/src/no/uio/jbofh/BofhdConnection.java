@@ -54,6 +54,7 @@ public class BofhdConnection {
     }
     
     String getHelp(Vector args) throws BofhdException {
+        args.add(0, sessid);
         return (String) sendRawCommand("help", args);
     }
     

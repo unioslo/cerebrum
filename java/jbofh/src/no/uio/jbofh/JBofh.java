@@ -78,14 +78,15 @@ class BofhdCompleter implements org.gnu.readline.ReadlineCompleter {
     }
     
     /**
-     * Analyze the command that user has entered by comparing with the list of legal 
-     * commands, and translating to the command-parts full name.  When the command is 
-     * not unique, the value of expat determines the action.  If < 0, or not equal to
-     * the current argument number, an AnalyzeCommandException is thrown.  Otherwise a 
-     * list of legal values is returned.
+     * Analyze the command that user has entered by comparing with the
+     * list of legal commands, and translating to the command-parts
+     * full name.  When the command is not unique, the value of expat
+     * determines the action.  If < 0, or not equal to the current
+     * argument number, an AnalyzeCommandException is thrown.
+     * Otherwise a list of legal values is returned.
      *
-     * If expat < 0 and all checked parameters defined in the list of legal commands 
-     * were ok, the expanded parameters are returned.
+     * If expat < 0 and all checked parameters defined in the list of
+     * legal commands were ok, the expanded parameters are returned.
      *
      * @param cmd the arguments to analyze
      * @param expat the level at which expansion should occour, or < 0 to translate
@@ -94,17 +95,19 @@ class BofhdCompleter implements org.gnu.readline.ReadlineCompleter {
      */    
     public Vector analyzeCommand(Vector cmd, int expat) throws AnalyzeCommandException {
         int lvl = 0;
+        boolean debugCmdAnalyzer = false;
         Hashtable h = complete;
         Enumeration e = h.keys();
-        while(e.hasMoreElements()) logger.debug("dta: "+e.nextElement());
+        if (debugCmdAnalyzer) 
+            while(e.hasMoreElements()) logger.debug("dta: "+e.nextElement());
         e = h.keys();
 
-        logger.debug("analyzeCommand("+cmd.size()+", "+expat);
+        if (debugCmdAnalyzer) logger.debug("analyzeCommand("+cmd.size()+", "+expat);
         while(expat < 0 || lvl <= expat) {
             Vector thisLvl = new Vector();
             while(e.hasMoreElements()) {   // Find matching commands at this level
                 String tmp = (String) e.nextElement();
-                logger.debug("chk: "+tmp);
+                if (debugCmdAnalyzer) logger.debug("chk: "+tmp);
 		boolean ok = false;
 		if(lvl >= cmd.size()) {
 		    ok = true;
@@ -118,11 +121,11 @@ class BofhdCompleter implements org.gnu.readline.ReadlineCompleter {
                     }
 		}
 		if(ok) {
-                    logger.debug("added");
+                    if (debugCmdAnalyzer) logger.debug("added");
                     thisLvl.add(tmp);
                 }
             }
-            logger.debug(expat+" == "+lvl);
+            if (debugCmdAnalyzer) logger.debug(expat+" == "+lvl);
             if(expat == lvl) {
                 return thisLvl;
             }
@@ -154,11 +157,11 @@ class BofhdCompleter implements org.gnu.readline.ReadlineCompleter {
         
     public String completer(String str, int param) {
         /*
-         * The readLine library gives too little information about the current line to get 
-         * this correct as it does not seem to include information about where on the line 
-         * the cursor is when tab is pressed, making it impossible to tab-complete within 
-         * a line.
-         *
+         * The readLine library gives too little information about the
+         * current line to get this correct as it does not seem to
+         * include information about where on the line the cursor is
+         * when tab is pressed, making it impossible to tab-complete
+         * within a line.
          * 
          **/
         if(param == 0) {  // 0 -> first call to iterator
@@ -378,6 +381,13 @@ public class JBofh {
                         (defval == null ? "" : " ["+defval+"]")+" >", false);
 		if(defval != null && s.equals("")) {
 		    ret.add(defval);
+                } else if(s.equals("?")) {
+                    i--;
+                    Vector v = new Vector();
+                    v.add("arg_help");
+                    v.add(param.get("help_ref"));
+                    String help = (String) bc.getHelp(v);
+                    System.out.println(help);
 		} else {
 		    ret.add(s);
 		}
@@ -474,6 +484,7 @@ public class JBofh {
 	    if(args.length == 1 && args[0].equals("-q")) {
 		new JBofh("bootstrap_account", "test");
 	    } else {    // "test" md5: $1$F9feZuRT$hNAtCcCIHry4HKgGkkkFF/
+                // insert into account_authentication values((select entity_id from entity_name where entity_name='bootstrap_account'), (select code from authentication_code where code_str='MD5-crypt'), '$1$F9feZuRT$hNAtCcCIHry4HKgGkkkFF/');
 		new JBofh(System.getProperty("user.name"), null);
 	    }
 	} catch (BofhdException be) {

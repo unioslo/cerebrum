@@ -22,15 +22,14 @@ class Parameter(object):
     subclass's definition."""
 
     def __init__(self, optional=False, default=None, repeat=False,
-                 ptype=None, prompt=None):
+                 help_ref=None):
         """
         optional   : boolean if argument is optional
         default    : string or callable method to get the default value
                      for this parameter.  If None, the value has no default
                      value
         repeat     : boolean if object is repeatable
-        prompt     : to override the prompt string defined in the class
-        ptype      : 'prompt type', string inserted in the prompt
+        help_ref   : to override the help_ref defined in the class
         """
 
         for k, v in locals().items():
@@ -46,14 +45,14 @@ class Parameter(object):
             else:
                 setattr(self, attr, v)
 
-    def get_struct(self):
+    def get_struct(self, bofhd_ref):
         ret = {}
-        for k in ('_optional', '_repeat', '_type',
+        for k in ('_optional', '_repeat', '_type', '_help_ref'
                   # '_prompt',
                   ):
             if getattr(self, k) is not None and getattr(self, k) != 0:
                 ret[k[1:]] = getattr(self, k)
-        ret['prompt'] = self.getPrompt()
+        ret['prompt'] = self.getPrompt(bofhd_ref)
         if self._default is not None:
             if isinstance(self._default, str):
                 ret['default'] = self._default
@@ -61,104 +60,106 @@ class Parameter(object):
                 ret['default'] = 1  # = call get_default_param
         return ret
 
-    def getPrompt(self):
-        if self._ptype is not None:
-            return self._prompt % (self._ptype+" ")
-        try:
-            self._prompt.index("%s")
-            return self._prompt % ""
-        except ValueError:
-            pass
-        return self._prompt
+    def getPrompt(self, bofhd_ref):
+        # print "Get: %s" % self._help_ref
+        return bofhd_ref.server.help.arg_help[self._help_ref][1]
 
 class AccountName(Parameter):
     _tab_func = 'tab_foobar'
     _type = 'accountName'
-    _prompt = "Enter %saccountname"
+    _help_ref = 'account_name'
 
 class AccountPassword(Parameter):
     _type = 'accountPassword'
-    _prompt = "Enter password"
+    _help_ref = 'account_password'
 
 class Affiliation(Parameter):
     _type = 'affiliation'
-    _prompt = "Enter affiliation"
+    _help_ref = 'affiliation'
 
 class AffiliationStatus(Parameter):
     _type = 'affiliationStatus'
-    _prompt = "Enter affiliation status"
+    _help_ref = 'affiliation_status'
 
 class Date(Parameter):
     _type = 'date'
-    _prompt = "Enter %sdate"
+    _help_ref = 'date'
 
 class DiskId(Parameter):
     _type = 'disk'
-    _prompt = "Enter %sdisk"
+    _help_ref = 'disk'
 
-class Description(Parameter):
-    _type = 'description'
-    _prompt = "Enter description"
-
-class EntityName(Parameter):
-    _type = 'entityName'
-    _prompt = "Enter %sentity name"
+class EntityType(Parameter):
+    _type = 'entityType'
+    _help_ref = 'entity_type'
 
 class GroupName(Parameter):
     # _prompt_func = 'prompt_foobar'
     _type = 'groupName'
-    _prompt = "Enter %sgroupname"
+    _help_ref = 'group_name'
 
 class GroupOperation(Parameter):
     _tab_func = 'tab_foobar'
     _type = 'groupOperation'
-    _prompt = "Enter group operation"
+    _help_ref = 'group_operation'
 
 class GroupVisibility(Parameter):
     _tab_func = 'tab_foobar'
     _type = 'groupVisibility'
-    _prompt = "Enter visibility"
+    _help_ref = 'group_visibility'
 
 class Id(Parameter):
     _tab_func = 'tab_foobar'
     _type = 'id'
-    _prompt = "Enter id"
+    _help_ref = 'id'
+
+class MoveType(Parameter):
+    _type = 'moveType'
+    _help_ref = 'move_type'
 
 class OU(Parameter):
     _type = 'ou'
-    _prompt = "Enter OU"
+    _help_ref = 'ou'
 
 class PersonId(Parameter):
     _type = 'personId'
-    _prompt = "Enter person id"
-
-class PersonIdType(Parameter):
-    _type = 'personIdType'
-    _prompt = "Enter idtype"
-
-class PersonNameType(Parameter):
-    _type = 'personNameType'
-    _prompt = "Enter nametype"
+    _help_ref = 'person_id'
 
 class PersonName(Parameter):
     _type = 'personName'
-    _prompt = "Enter person name"
+    _help_ref = 'person_name'
 
-class PosixHome(Parameter):
-    _type = 'posixHome'
-    _prompt = "Enter home directory"
+class PersonNameType(Parameter):
+    _type = 'personNameType'
+    _help_ref = 'person_name_type'
 
-class PosixShell(Parameter):
-    _type = 'posixShell'
-    _prompt = "Enter shell"
-
-class SimpleString(Parameter):
-    _type = 'simpleString'
-    _prompt = "%s"
+class PersonSearchType(Parameter):
+    _type = 'personSearchType'
+    _help_ref = 'person_search_type'
 
 class PosixGecos(Parameter):
     _type = 'posixGecos'
-    _prompt = "Enter gecos"
+    _help_ref = 'posix_gecos'
+
+class PosixShell(Parameter):
+    _type = 'posixShell'
+    _help_ref = 'posix_shell'
+
+class QuarantineType(Parameter):
+    _type = 'quarantineType'
+    _help_ref= 'quarantine_type'
+    
+class SimpleString(Parameter):
+    _type = 'simpleString'
+    _help_ref = 'string'
+
+class Spread(Parameter):
+    _type = 'spread'
+    _help_ref = 'spread'
+
+class YesNo(Parameter):
+    _type = 'yesNo'
+    _help_ref = 'yesNo'
 
 class Command(object):
     def __init__(self, cmd, *params, **kw):
@@ -177,11 +178,11 @@ class Command(object):
         else:
             return None
 
-    def get_struct(self):
+    def get_struct(self, bofhd_ref):
         if self._params is not None:
-            return (self._cmd, [k.get_struct() for k in self._params])
+            return (self._cmd, [k.get_struct(bofhd_ref) for k in self._params])
         if self._prompt_func is not None:
-            return (self._cmd, 'prompt_func')
+            return (self._cmd, 'prompt_func')  # Flags that command has prompt_func
         return (self._cmd,)
 
 class FormatSuggestion(object):

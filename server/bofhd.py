@@ -33,6 +33,7 @@ import socket
 import pickle
 import SimpleXMLRPCServer
 import xmlrpclib
+import getopt
 from random import Random
 
 import cerebrum_path
@@ -43,6 +44,7 @@ from Cerebrum.Utils import Factory
 from Cerebrum import Utils
 from Cerebrum.extlib import logging
 from server.bofhd_errors import CerebrumError
+from server.bofhd_help import Help
 import traceback
 
 logging.fileConfig(cereconf.LOGGING_CONFIGFILE)
@@ -319,20 +321,20 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler):
 ##         """Check if arg is a legal value for the given argtype"""
 ##         pass
 
-    def bofhd_help(self, *group):
-        # TBD: Re-think this.
-        # Show help by parsing the help file.
-        # This is only partially implemented.
-        f = file("help.txt")
-        ret = ''
-        while 1:
-            line = f.readline()
-            if not line: break
-            if line[0] == '#':
-                continue
-            ret = ret + line
-        ret = ret + "End of help text"
-        return unicode(ret.strip(), 'iso8859-1')
+    def bofhd_help(self, sessionid, *group):
+        print "Help: %s" % str(group)
+        commands = self.bofhd_get_commands(sessionid)
+        if len(group) == 0:
+            ret = self.server.help.get_general_help(commands)
+        elif group[0] == 'arg_help':
+            ret = self.server.help.get_arg_help(group[1])
+        elif len(group) == 1:
+            ret = self.server.help.get_group_help(commands, *group)
+        elif len(group) == 2:
+            ret = server.help.get_cmd_help(commands, *group)
+        else:
+            raise CerebrumError, "Unexpected help request"
+        return unicode(ret, 'iso8859-1')
 
     def bofhd_run_command(self, sessionid, cmd, *args):
         """Execute the callable function (in the correct module) with
@@ -415,7 +417,7 @@ class BofhdServer(SimpleXMLRPCServer.SimpleXMLRPCServer, object):
             modfile, class_name = line.split("/", 1)
             mod = Utils.dyn_import(modfile)
             cls = getattr(mod, class_name)
-            instance = cls(database)
+            instance = cls(self)
             self.cmd_instances.append(instance)
             for k in instance.all_commands.keys():
                 self.cmd2instance[k] = instance
@@ -424,6 +426,7 @@ class BofhdServer(SimpleXMLRPCServer.SimpleXMLRPCServer, object):
         for k in t:
             if not hasattr(self.cmd2instance[k], k):
                 print "Warning, function '%s' is not implemented" % k
+        self.help = Help(self.cmd_instances)
 
     def get_cmd_info(self, cmd):
         """Return BofhdExtension and Command object for this cmd
@@ -437,43 +440,58 @@ class BofhdServer(SimpleXMLRPCServer.SimpleXMLRPCServer, object):
         self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         SocketServer.TCPServer.server_bind(self)
 
-def find_config_dat():
-    # XXX This should get the path from configure
-    for filename in ("server/config.dat",
-                     "config.dat",
-                     "/etc/cerebrum/config.dat",
-                     "/tmp/cerebrum/etc/cerebrum/config.dat"):
-        try:
-            print "Testing filename ",filename
-            f = file(filename)
-            if (f):
-                return filename
-        except:
-            continue
-    return "config.dat"
+def usage():
+    print """Usage: bofhd.py -c filename [-t keyword]
+  -c | --config-file <filename>: use as config file
+  -t | --test-help <keyword>: check help consistency
+"""
 
 if __name__ == '__main__':
-    conffile = find_config_dat()
-    # Loop for an available port while testing to avoid already bound error
-    for port in range(8000,8005):
-        try:
-            print "Server starting at port: %d" % port
-            if not cereconf.ENABLE_BOFHD_CRYPTO:
-                server = BofhdServer(Factory.get('Database')(), conffile,
-                                     ("0.0.0.0", port))
+    opts, args = getopt.getopt(sys.argv[1:], 'c:t:',
+                               ['config-file=', '--test-help='])
+    conffile = None
+    for opt, val in opts:
+        if opt in ('-c', '--config-file'):
+            conffile = val
+        elif opt in ('-t', '--test-help'):
+            # This is a bit icky.  What we want to accomplish is to
+            # fetch the results from a bofhd_get_commands client
+            # command.
+            server = BofhdServer(Factory.get('Database')(), conffile,
+                                 ("0.0.0.0", 9999))
+            commands = {}
+            for inst in server.cmd_instances:
+                newcmd = inst.get_commands(None)
+                for k in newcmd.keys():
+                    if inst is not server.cmd2instance[k]:
+                        print "Skipping:", k
+                        continue
+                    commands[k] = newcmd[k]
+            if val == '':
+                print server.help.get_general_help(commands)
+            elif val.find(":") >= 0:
+                print server.help.get_cmd_help(commands, *val.split(":"))
+            elif val == 'check':
+                server.help.check_consistency(commands)
             else:
-                from server import MySimpleXMLRPCServer
-                from M2Crypto import SSL
+                print server.help.get_group_help(commands, val)
+            sys.exit()
+            
+    if conffile is None:
+        usage()
+        sys.exit()
+        
+    print "Server starting at port: %d" % port
+    if not cereconf.ENABLE_BOFHD_CRYPTO:
+        server = BofhdServer(Factory.get('Database')(), conffile,
+                             ("0.0.0.0", port))
+    else:
+        from server import MySimpleXMLRPCServer
+        from M2Crypto import SSL
 
-                ctx = MySimpleXMLRPCServer.init_context('sslv23', 'server.pem',
-                                                        'ca.pem',
-                                                        SSL.verify_none)
-                ctx.set_tmp_dh('dh1024.pem')
-                server = MySimpleXMLRPCServer.SimpleXMLRPCServer(('',port),ctx)
-
-##             server.register_instance(ExportedFuncs(Factory.get('Database')(),
-##                                                    conffile))
-            server.serve_forever()
-        except socket.error:
-            print "Failed, trying another port"
-            pass
+        ctx = MySimpleXMLRPCServer.init_context('sslv23', 'server.pem',
+                                                'ca.pem',
+                                                SSL.verify_none)
+        ctx.set_tmp_dh('dh1024.pem')
+        server = MySimpleXMLRPCServer.SimpleXMLRPCServer(('',port),ctx)
+    server.serve_forever()

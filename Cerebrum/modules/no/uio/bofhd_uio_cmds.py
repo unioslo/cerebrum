@@ -19,43 +19,11 @@ from Cerebrum.modules import PosixGroup
 from Cerebrum.modules.no.uio import PrinterQuotas
 from Cerebrum.Utils import Factory
 from templates.letters import TemplateHandler
-from bofhd_errors import CerebrumError
+from server.bofhd_errors import CerebrumError
+from Cerebrum.modules.no.uio import bofhd_uio_help
 import cereconf
 from Cerebrum.modules import PosixUser
 import re
-
-# This is just documentation, will be removed:
-help = """
-group   Gruppe-kommando
-           add     user+ gruppe - Melde accounts inn
-           gadd    gruppe+ gruppe - Melde grupper inn
-           remove  user+ gruppe - Melde accounts ut
-           gremove  gruppe+ gruppe - Melde grupper ut
-           user    user+ - Liste alle gruppene til en account
-           create   - Byggge en ny gruppe
-           def     user+ gruppe - Sette default gruppe
-           destroy group+ - Sletter gruppen
-           info group    - viser litt info om gruppen
-           ls group - Liste alle direkte medlemmer i en gruppe
-           lsexp group - Liste alle ekspanderte medlemmer i en gruppe
-user    Brukerrelaterte kommandoer
-           create   - bygge brukere
-           passwd  user+ - Sett et tilfeldig passord på brukeren
-           info    user - vis info om en bruker
-           accounts <idtype> <id> - vis brukernavn for person
-           delete   - slette en gitt bruker
-           lcreated         - oversikt over byggede brukere
-           move    user hvor - Flytte en gitt bruker
-           shell   user1 user2 ... shell - Sette loginshell for en bruker
-           splatt  user1 user2 ... [-why "begrunnelse"] - Sperrer brukers konto
-print   Skriver relaterte kommandoer
-           qoff    user+ ... - Skru av kvote på en bruker
-           qpq     user+ - Vise informasjon om en brukers skrivekvote
-           upq     user tall - Oppdaterer brukerens skriverkvote
-person  Personrelaterte kommandoer
-           create <display_name> <id_type> <id> - bygger en person
-           bcreate <display_name> <birth_date (yyyy-mm-dd)>
-"""
 
 class BofhdExtension(object):
     """All CallableFuncs takes user as first arg, and is responsible
@@ -64,8 +32,9 @@ class BofhdExtension(object):
     all_commands = {}
     OU_class = Factory.get('OU')
 
-    def __init__(self, db):
-        self.db = db
+    def __init__(self, server):
+        self.server = server
+        self.db = server.db
         self.person = Person.Person(self.db)
         self.const = self.person.const
         self.name_codes = {}
@@ -79,8 +48,12 @@ class BofhdExtension(object):
         # TBD: Do some filtering on uname to remove commands
         commands = {}
         for k in self.all_commands.keys():
-            commands[k] = self.all_commands[k].get_struct()
+            commands[k] = self.all_commands[k].get_struct(self)
         return commands
+
+    def get_help_strings(self):
+        return (bofhd_uio_help.group_help, bofhd_uio_help.command_help,
+                bofhd_uio_help.arg_help)
 
     def get_format_suggestion(self, cmd):
         return self.all_commands[cmd].get_fs()
@@ -89,19 +62,21 @@ class BofhdExtension(object):
     # group commands
     #
 
+    # group add
     all_commands['group_add'] = Command(
-        ("group", "add"), AccountName(ptype="source", repeat=True),
-        GroupName(ptype="destination", repeat=True),
+        ("group", "add"), AccountName(help_ref="account_name_src", repeat=True),
+        GroupName(help_ref="group_name_dest", repeat=True),
         GroupOperation(optional=True))
     def group_add(self, operator, src_name, dest_group,
                   group_operator=None):
         return self._group_add(operator, src_name, dest_group,
                                group_operator, type="account")
 
-    all_commands['group_gadd'] = Command(("group", "gadd"),
-                                        GroupName(ptype="source", repeat=True),
-                                        GroupName(ptype="destination", repeat=True),
-                                        GroupOperation(optional=True))
+    # group gadd
+    all_commands['group_gadd'] = Command(
+        ("group", "gadd"), GroupName(help_ref="group_name_src", repeat=True),
+        GroupName(help_ref="group_name_dest", repeat=True),
+        GroupOperation(optional=True))
     def group_gadd(self, operator, src_name, dest_group,
                   group_operator=None):
         return self._group_add(operator, src_name, dest_group,
@@ -122,15 +97,51 @@ class BofhdExtension(object):
             raise CerebrumError, "Database error: %s" % m
         return "OK"
 
+    # group create
+    all_commands['group_create'] = Command(
+        ("group", "create"), GroupName(help_ref="group_name_new"),
+        SimpleString(help_ref="string_description"),
+        fs=FormatSuggestion("Created with posixgid: %i", ("group_id",)))
+    def group_create(self, operator, groupname, description):
+        pg = PosixGroup.PosixGroup(self.db)
+        pg.populate(creator_id=operator.get_entity_id(),
+                    visibility=self.const.group_visibility_all,
+                    name=groupname, description=description)
+        try:
+            pg.write_db()
+        except self.db.DatabaseError, m:
+            raise CerebrumError, "Database error: %s" % m
+        return {'group_id': int(pg.posix_gid)}
+
+    #  group def
+    all_commands['group_def'] = Command(
+        ('group', 'def'), GroupName(help_ref="group_name_dest"), AccountName())
+    def group_def(self, operator, accountname, groupname):
+        account = self._get_account(accountname, actype="PosixUser")
+        grp = self._get_group(groupname, grtype="PosixGroup")
+        account.gid = grp.entity_id
+        account.write_db()
+        return "OK"
+
+    # group delete
+    all_commands['group_delete'] = Command(
+        ("group", "delete"), GroupName(), YesNo(help_ref="yes_no_force", optional=True, default="No"))
+    def group_delete(self, operator, groupname, force=None):
+        grp = self._get_group(groupname)
+        grp.delete()
+        return "OK"
+
+    # group remove
     all_commands['group_remove'] = Command(
-        ("group", "remove"), AccountName(ptype="member", repeat=True),
-        GroupName(ptype="remove from", repeat=True),
+        ("group", "remove"), AccountName(help_ref="account_name_member", repeat=True),
+        GroupName(help_ref="group_name_dest", repeat=True),
         GroupOperation(optional=True))
     def group_remove(self, operator, src_name, dest_group,
                      group_operator=None):
         return self._group_remove(operator, src_name, dest_group,
                                group_operator, type="account")
 
+    # group gremove
     all_commands['group_gremove'] = Command(
         ("group", "gremove"), GroupName(repeat=True),
         GroupName(repeat=True), GroupOperation(optional=True))
@@ -154,48 +165,9 @@ class BofhdExtension(object):
             raise CerebrumError, "Database error: %s" % m
         return "OK"   # TBD: returns OK if user is not member of group.  correct?
 
-    all_commands['group_account'] = Command(
-        ('group', 'user'), AccountName(), fs=FormatSuggestion(
-        "%-9s %s", ("memberop", "group"), hdr="Operation Group"))
-    def group_account(self, operator, accountname):
-        account = self._get_account(accountname)
-        group = Group.Group(self.db)
-        return [{'memberop': self._get_const(r['operation']),
-                 'group': self._get_entity_name(self.const.entity_group, r['group_id'])}
-                for r in group.list_groups_with_entity(account.entity_id)]
-
-    all_commands['group_create'] = Command(
-        ("group", "create"), GroupName(ptype="new"), Description(),
-        fs=FormatSuggestion("Created with posixgid: %i", ("group_id",)))
-    def group_create(self, operator, groupname, description):
-        pg = PosixGroup.PosixGroup(self.db)
-        pg.populate(creator_id=operator.get_entity_id(),
-                    visibility=self.const.group_visibility_all,
-                    name=groupname, description=description)
-        try:
-            pg.write_db()
-        except self.db.DatabaseError, m:
-            raise CerebrumError, "Database error: %s" % m
-        return {'group_id': int(pg.posix_gid)}
-
-    all_commands['account_def'] = Command(
-        ('group', 'def'), AccountName(ptype=""), GroupName(ptype="existing"))
-    def account_def(self, operator, accountname, groupname):
-        account = self._get_account(accountname, actype="PosixUser")
-        grp = self._get_group(groupname, grtype="PosixGroup")
-        account.gid = grp.entity_id
-        account.write_db()
-        return "OK"
-
-    all_commands['group_destroy'] = Command(
-        ("group", "destroy"), GroupName(ptype="existing"))
-    def group_destroy(self, operator, groupname):
-        grp = self._get_group(groupname)
-        grp.delete()
-        return "OK"
-
+    # group info
     all_commands['group_info'] = Command(
-        ("group", "info"), GroupName(ptype="existing"),
+        ("group", "info"), GroupName(),
         fs=FormatSuggestion("id: %i\nSpreads: %s", ("entity_id", "spread")))
     def group_info(self, operator, groupname):
         grp = self._get_group(groupname)
@@ -207,8 +179,9 @@ class BofhdExtension(object):
                 'spread': ",".join([self._get_const(int(a['spread']))
                                     for a in grp.get_spread()])}
 
+    # group list
     all_commands['group_list'] = Command(
-        ("group", "ls"), GroupName(ptype="existing"),
+        ("group", "list"), GroupName(),
         fs=FormatSuggestion("%-8s %-7s %6i %s", ("op", "type", "id", "name"),
                             hdr="MemberOp Type    Id     Name"))
     def group_list(self, operator, groupname):
@@ -224,8 +197,15 @@ class BofhdExtension(object):
                             'name': self._get_entity_name(r[0], r[1])})
         return ret
 
+    # group list_all
+    all_commands['group_list_all'] = Command(
+        ("group", "list_all"), SimpleString(help_ref="string_group_filter", optional=True))
+    def group_list_all(self, operator, filter=None):
+        raise NotImplementedError, "Feel free to implement this function"
+
+    # group list_expanded
     all_commands['group_list_expanded'] = Command(
-        ("group", "lsexp"), GroupName(ptype="existing"),
+        ("group", "list_expanded"), GroupName(),
         fs=FormatSuggestion("%8i %s", ("member_id", "name"), hdr="Id       Name"))
     def group_list_expanded(self, operator, groupname):
         """List members of group after expansion"""
@@ -234,21 +214,354 @@ class BofhdExtension(object):
                  'name': self._get_entity_name(self.const.entity_account, a)
                  } for a in group.get_members()]
 
+    # group posix_create
+    all_commands['group_posix_create'] = Command(
+        ("group", "posix_create"), GroupName(),
+        SimpleString(help_ref="string_description", optional=True))
+    def group_posix_create(self, operator, group, description=None):
+        raise NotImplementedError, "Feel free to implement this function"
+
+    # group posix_delete
+    all_commands['group_posix_delete'] = Command(
+        ("group", "posix_delete"), GroupName(), SimpleString(help_ref="string_description"))
+    def group_posix_delete(self, operator, group, description):
+        raise NotImplementedError, "Feel free to implement this function"
+
+    # group set_expire
+    all_commands['group_set_expire'] = Command(
+        ("group", "set_expire"), GroupName(), Date())
+    def group_set_expire(self, operator, group, expire):
+        raise NotImplementedError, "Feel free to implement this function"
+
+    # group set_visibility
+    all_commands['group_set_visibility'] = Command(
+        ("group", "set_visibility"), GroupName(), GroupVisibility())
+    def group_set_visibility(self, operator, group, visibility):
+        raise NotImplementedError, "Feel free to implement this function"
+
+    # group user
+    all_commands['group_user'] = Command(
+        ('group', 'user'), AccountName(), fs=FormatSuggestion(
+        "%-9s %s", ("memberop", "group"), hdr="Operation Group"))
+    def group_user(self, operator, accountname):
+        account = self._get_account(accountname)
+        group = Group.Group(self.db)
+        return [{'memberop': self._get_const(r['operation']),
+                 'group': self._get_entity_name(self.const.entity_group, r['group_id'])}
+                for r in group.list_groups_with_entity(account.entity_id)]
+
+    #
+    # misc commands
+    #
+
+    # misc aff_status_codes
+    all_commands['misc_aff_status_codes'] = Command(
+        ("misc", "aff_status_codes"), )
+    def misc_aff_status_codes(self, operator):
+        raise NotImplementedError, "Feel free to implement this function"
+
+    # misc affiliations
+    all_commands['misc_affiliations'] = Command(
+        ("misc", "affiliations"), )
+    def misc_affiliations(self, operator):
+        raise NotImplementedError, "Feel free to implement this function"
+
+    # misc all_requests
+    all_commands['misc_all_requests'] = Command(
+        ("misc", "all_requests"), )
+    def misc_all_requests(self, operator):
+        raise NotImplementedError, "Feel free to implement this function"
+
+    # misc checkpassw
+    all_commands['misc_checkpassw'] = Command(
+        ("misc", "checkpassw"), AccountPassword())
+    def misc_checkpassw(self, operator):
+        raise NotImplementedError, "Feel free to implement this function"
+
+    # misc lmy
+    all_commands['misc_lmy'] = Command(
+        ("misc", "lmy"), )
+    def misc_lmy(self, operator):
+        raise NotImplementedError, "Feel free to implement this function"
+
+    # misc lsko
+    all_commands['misc_lsko'] = Command(
+        ("misc", "lsko"), SimpleString())
+    def misc_lsko(self, operator):
+        raise NotImplementedError, "Feel free to implement this function"
+
+    # misc mmove_confirm
+    all_commands['misc_mmove_confirm'] = Command(
+        ("misc", "mmove_confirm"), )
+    def misc_mmove_confirm(self, operator):
+        raise NotImplementedError, "Feel free to implement this function"
+
+    # misc mmove_requests
+    all_commands['misc_mmove_requests'] = Command(
+        ("misc", "mmove_requests"), )
+    def misc_mmove_requests(self, operator):
+        raise NotImplementedError, "Feel free to implement this function"
+
+
+    # misc profile_download
+    all_commands['misc_profile_download'] = Command(
+        ("misc", "profile_download"), SimpleString(help_ref="string_filename"))
+    def misc_profile_download(self, operator, filename):
+        raise NotImplementedError, "Feel free to implement this function"
+
+    # misc profile_upload
+    all_commands['misc_profile_upload'] = Command(
+        ("misc", "profile_upload"), SimpleString(help_ref="string_filename"))
+    def misc_profile_upload(self, operator, filename):
+        raise NotImplementedError, "Feel free to implement this function"
+
+    # misc user_passwd
+    all_commands['misc_user_passwd'] = Command(
+        ("misc", "user_passwd"), AccountName(), AccountPassword())
+    def misc_user_passwd(self, operator):
+        raise NotImplementedError, "Feel free to implement this function"
+
+    #
+    # person commands
+    #
+
+    # person accounts
+    all_commands['person_accounts'] = Command(
+        ("person", "accounts"), PersonId(),
+        fs=FormatSuggestion("%6i %s", ("account_id", "name"), hdr="Id     Name"))
+    def person_accounts(self, operator, id):
+        person = self._get_person(id)
+        account = Account.Account(self.db)
+        ret = []
+        for r in account.list_accounts_by_owner_id(person.entity_id):
+            account = self._get_account(r['account_id'], idtype='id')
+
+            ret.append({'account_id': r['account_id'],
+                        'name': account.account_name})
+        return ret
+
+    # person bcreate  # TODO: Prøve å slå sammen med "person accounts"
+    all_commands['person_bcreate'] = Command(
+        ("person", "bcreate"), PersonName(), Date(),
+        fs=FormatSuggestion("Created: %i", ("person_id",)))
+    def person_bcreate(self, operator, display_name, birth_date=None):
+        return self._person_create(operator, display_name, birth_date=birth_date)
+
+    # person create
+    all_commands['person_create'] = Command(
+        ("person", "create"), PersonName(), 
+        PersonId(), fs=FormatSuggestion("Created: %i",
+        ("person_id",)))
+    def person_create(self, operator, display_name,
+                      id=None):
+        return self._person_create(operator, display_name, id=id)
+
+    def _person_create(self, operator, display_name, birth_date=None,
+                      id_type=None, id=None):
+        person = self.person
+        person.clear()
+        if birth_date is not None:
+            birth_date = self._parse_date(birth_date)
+        person.populate(birth_date, self.const.gender_male,
+                        description='Manualy created')
+        # TDB: new constants
+        person.affect_names(self.const.system_manual, self.const.name_full)
+        person.populate_name(self.const.name_full,
+                             display_name.encode('iso8859-1'))
+        try:
+            if id_type is not None:
+                if id_type == 'fnr':
+                    person.populate_external_id(self.const.system_manual,
+                                                self.const.externalid_fodselsnr,
+                                                id)
+            person.write_db()
+        except self.db.DatabaseError, m:
+            raise CerebrumError, "Database error: %s" % m
+        return {'person_id': person.entity_id}
+
+    # person find
+    all_commands['person_find'] = Command(
+        ("person", "find"), PersonSearchType(), SimpleString())
+    def person_find(self, operator, search_type, value):
+        raise NotImplementedError, "Feel free to implement this function"
+
+    # person info
+    all_commands['person_info'] = Command(
+        ("person", "info"), PersonId())
+    def person_info(self, operator, person_id):
+        raise NotImplementedError, "Feel free to implement this function"
+
+    # person set_id
+    all_commands['person_set_id'] = Command(
+        ("person", "set_id"), PersonId(help_ref="person_id:current"),
+        PersonId(help_ref="person_id:new"))
+    def person_set_id(self, operator, current_id, new_id):
+        raise NotImplementedError, "Feel free to implement this function"
+
+    # person student_info
+    all_commands['person_student_info'] = Command(
+        ("person", "set_id"), PersonId())
+    def person_student_info(self, operator, person_id):
+        raise NotImplementedError, "Feel free to implement this function"
+
+    # person user_priority
+    all_commands['person_user_priority'] = Command(
+        ("person", "user_priority"), AccountName(), SimpleString())
+    def person_user_priority(self, operator, person_id):
+        raise NotImplementedError, "Feel free to implement this function"
+
+    #
+    # printer commands
+    #
+
+    all_commands['printer_qoff'] = Command(
+        ("print", "qoff"), AccountName())
+    def printer_qoff(self, operator, accountname):
+        account = self._get_account(accountname)
+        pq = self._get_printerquota(account.entity_id)
+        if pq is None:
+            return "User has no quota"
+        pq.has_printerquota = 0
+        pq.write_db()
+        return "OK"
+
+    all_commands['printer_qpq'] = Command(
+        ("print", "qpq"), AccountName(),
+        fs=FormatSuggestion("Has quota Quota Pages printed This "+
+                            "term Weekly q. Term q. Max acc.\n"+
+                            "%-9s %5i %13i %9i %9i %7i %8i",
+                            ('has_printerquota', 'printer_quota',
+                            'pages_printed', 'pages_this_semester',
+                            'weekly_quota', 'termin_quota', 'max_quota')))
+    def printer_qpq(self, operator, accountname):
+        account = self._get_account(accountname)
+        pq = self._get_printerquota(account.entity_id)
+        if pq is None:
+            return "User has no quota"
+        return {'printer_quota': pq.printer_quota,
+                'pages_printed': pq.pages_printed,
+                'pages_this_semester': pq.pages_this_semester,
+                'termin_quota': pq.termin_quota,
+                'has_printerquota': pq.has_printerquota,
+                'weekly_quota': pq.weekly_quota,
+                'max_quota': pq.max_quota}
+
+    all_commands['printer_upq'] = Command(
+        ("print", "upq"), AccountName(), SimpleString())
+    def printer_upq(self, operator, accountname, pages):
+        account = self._get_account(accountname)
+        pq = self._get_printerquota(account.entity_id)
+        if pq is None:
+            return "User has no quota"
+        # TBD: Should we check that pages is not > pq.max_quota?
+        pq.printer_quota = pages
+        pq.write_db()
+        return "OK"
+
+    #
+    # quarantine commands
+    #
+
+    # quarantine disable
+    all_commands['quarantine_disable'] = Command(
+        ("quarantine", "disable"), EntityType(), Id(), QuarantineType(), Date())
+    def quarantine_disable(self, operator, entity_type, id, qtype, date):
+        raise NotImplementedError, "Feel free to implement this function"
+
+    # quarantine info
+    all_commands['quarantine_info'] = Command(
+        ("quarantine", "info"), QuarantineType())
+    def quarantine_info(self, operator, qtype):
+        raise NotImplementedError, "Feel free to implement this function"
+
+    # quarantine list
+    all_commands['quarantine_list'] = Command(
+        ("quarantine", "list"), )
+    def quarantine_list(self, operator):
+        raise NotImplementedError, "Feel free to implement this function"
+
+    # quarantine remove
+    all_commands['quarantine_remove'] = Command(
+        ("quarantine", "remove"), EntityType(), Id(), QuarantineType())
+    def quarantine_remove(self, operator, entity_type, id):
+        raise NotImplementedError, "Feel free to implement this function"
+
+    # quarantine set
+    all_commands['quarantine_set'] = Command(
+        ("quarantine", "set"), EntityType(), Id(repeat=True), QuarantineType(),
+        SimpleString(help_ref="string_why"),
+        SimpleString(help_ref="string_from_to", optional=True))
+    def quarantine_set(self, operator, entity_type, id, spread):
+        raise NotImplementedError, "Feel free to implement this function"
+
+    # quarantine show
+    all_commands['quarantine_show'] = Command(
+        ("quarantine", "show"), EntityType(), Id())
+    def quarantine_show(self, operator, entity_type, id):
+        raise NotImplementedError, "Feel free to implement this function"
+
+    #
+    # spread commands
+    #
+
+    # spread add
+    all_commands['spread_add'] = Command(
+        ("spread", "add"), EntityType(), Id(), Spread())
+    def spread_add(self, operator, entity_type, id, spread):
+        raise NotImplementedError, "Feel free to implement this function"
+
+    # spread info
+    all_commands['spread_info'] = Command(
+        ("spread", "info"), Spread())
+    def spread_info(self, operator, spread):
+        raise NotImplementedError, "Feel free to implement this function"
+
+    # spread list
+    all_commands['spread_list'] = Command(
+        ("spread", "list"),)
+    def spread_list(self, operator):
+        raise NotImplementedError, "Feel free to implement this function"
+
+    # spread remove
+    all_commands['spread_remove'] = Command(
+        ("spread", "remove"), EntityType(), Id(), Spread())
+    def spread_remove(self, operator, entity_type, id, spread):
+        raise NotImplementedError, "Feel free to implement this function"
+
+
     #
     # user commands
     #
 
-    ## Enter bdate, fnr or idtype> 130472
-    ## <liste med kandidater>
-    ## Select person> 4
-    ## <klienten må mappe 4 -> person_id e.l.>
-    ##
-    ## Enter bdate, fnr or idtype> 13047201234
-    ## OK
-    ##
-    ## Enter bdate, fnr or idtype> personid
-    ## Enter id> 72
-    ## OK
+    # user affiliation_add
+    all_commands['user_affiliation_add'] = Command(
+        ("user", "affiliation_add"), AccountName(), Affiliation(), OU(), AffiliationStatus())
+    def user_affiliation_add(self, operator, accountname):
+        raise NotImplementedError, "Feel free to implement this function"
+
+    # user affiliation_remove
+    all_commands['user_affiliation_remove'] = Command(
+        ("user", "affiliation_remove"), AccountName(), OU())
+    def user_affiliation_remove(self, operator, accountname):
+        raise NotImplementedError, "Feel free to implement this function"
+
+    # user affiliations
+    all_commands['user_affiliations'] = Command(
+        ("user", "affiliations"), AccountName())
+    def user_affiliations(self, operator, accountname):
+        raise NotImplementedError, "Feel free to implement this function"
+
+    # user bcreate
+    all_commands['user_bcreate'] = Command(
+        ("user", "bcreate"), SimpleString(help_ref="string_filename"))
+    def user_bcreate(self, operator, filename):
+        raise NotImplementedError, "Feel free to implement this function"
+
+    # user clear_created
+    all_commands['user_clear_created'] = Command(
+        ("user", "clear_created"), AccountName(optional=True))
+    def user_clear_created(self, operator, account_name=None):
+        raise NotImplementedError, "Feel free to implement this function"
 
     def user_create_prompt_func(self, session, *args):
         """A prompt_func on the command level should return
@@ -306,6 +619,7 @@ class BofhdExtension(object):
             return ret
         raise CerebrumError, "Client called prompt func with too many arguments"
 
+    # user create
     all_commands['user_create'] = Command(
         ('user', 'create'), prompt_func=user_create_prompt_func,
         fs=FormatSuggestion("Created uid=%i, password=%s", ("uid", "password")))
@@ -348,9 +662,57 @@ class BofhdExtension(object):
                                                     'password': passwd})
         return {'password': passwd, 'uid': uid}
 
-    all_commands['account_password'] = Command(
-        ('user', 'password'), AccountName(ptype=""), AccountPassword(optional=True))
-    def account_password(self, operator, accountname, password=None):
+    # user delete
+    all_commands['user_delete'] = Command(
+        ("user", "delete"), AccountName())
+    def user_delete(self, operator, accountname):
+        # TODO: How do we delete accounts?
+        raise NotImplementedError, "Feel free to implement this function"
+
+    # user gecos
+    all_commands['user_gecos'] = Command(
+        ("user", "gecos"), AccountName(), PosixGecos())
+    def user_gecos(self, operator, accountname, gecos):
+        raise NotImplementedError, "Feel free to implement this function"
+
+    # user history
+    all_commands['user_history'] = Command(
+        ("user", "history"), AccountName())
+    def user_history(self, operator, accountname):
+        raise NotImplementedError, "Feel free to implement this function"
+
+    # user info
+    all_commands['user_info'] = Command(
+        ("user", "info"), AccountName(),
+        fs=FormatSuggestion("entity id: %i\nSpreads: %s", ("entity_id", "spread")))
+    def user_info(self, operator, accountname):
+        account = self._get_account(accountname)
+        # TODO: Return more info about account
+        return {'entity_id': account.entity_id,
+                'spread': ",".join([self._get_const(int(a['spread']))
+                                    for a in account.get_spread()])}
+
+    # user list_created
+    all_commands['user_list_created'] = Command(
+        ("user", "list_created"), fs=FormatSuggestion("%6i %s", ("account_id", "password")))
+    def user_list_created(self, operator):
+        ret = []
+        for r in operator.get_state():
+            # state_type, entity_id, state_data, set_time
+            if r['state_type'] == 'new_account_passwd':
+                ret.append(r['state_data'])
+        return ret
+
+    # user move
+    all_commands['user_move'] = Command(
+        ("user", "move"), MoveType(), AccountName(), DiskId())
+    def user_move(self, operator, accountname, disk_id):
+        raise NotImplementedError, "Feel free to implement this function"
+
+    # user password
+    all_commands['user_password'] = Command(
+        ('user', 'password'), AccountName(), AccountPassword(optional=True))
+    def user_password(self, operator, accountname, password=None):
         account = self._get_account(accountname)
         if password is None:
             raise NotImplementedError, \
@@ -360,160 +722,56 @@ class BofhdExtension(object):
             account.write_db()
         except self.db.DatabaseError, m:
             raise CerebrumError, "Database error: %s" % m
-        operator.store_state("account_passwd", {'account_id': int(account.entity_id),
+        operator.store_state("user_passwd", {'account_id': int(account.entity_id),
                                                 'password': password})
         return "OK"
-
-    all_commands['account_info'] = Command(
-        ("user", "info"), AccountName(ptype="existing"),
-        fs=FormatSuggestion("entity id: %i\nSpreads: %s", ("entity_id", "spread")))
-    def account_info(self, operator, accountname):
-        account = self._get_account(accountname)
-        # TODO: Return more info about account
-        return {'entity_id': account.entity_id,
-                'spread': ",".join([self._get_const(int(a['spread']))
-                                    for a in account.get_spread()])}
-
-    all_commands['account_accounts'] = Command(
-        ("user", "accounts"), PersonIdType(), PersonId(),
-        fs=FormatSuggestion("%6i %s", ("account_id", "name"), hdr="Id     Name"))
-    def account_accounts(self, operator, id_type, id):
-        person = self._get_person(id, id_type)
-        account = Account.Account(self.db)
-        ret = []
-        for r in account.list_accounts_by_owner_id(person.entity_id):
-            account = self._get_account(r['account_id'], idtype='id')
-
-            ret.append({'account_id': r['account_id'],
-                        'name': account.account_name})
-        return ret
-
-    all_commands['account_delete'] = Command(
-        ("user", "delete"), AccountName(ptype="existing"))
-    def account_delete(self, operator, accountname):
-        # TODO: How do we delete accounts?
+    
+    # user posix_create
+    all_commands['user_posix_create'] = Command(
+        ('user', 'posix_create'), AccountName(), GroupName(), PosixShell(default="bash"), DiskId())
+    def user_posix_create(self, operator, accountname, dfg=None, shell=None, home=None):
         raise NotImplementedError, "Feel free to implement this function"
 
-    all_commands['account_lcreated'] = Command(
-        ("user", "lcreated"), fs=FormatSuggestion("%6i %s", ("account_id", "password")))
-    def account_lcreated(self, operator):
-        ret = []
-        for r in operator.get_state():
-            # state_type, entity_id, state_data, set_time
-            if r['state_type'] == 'new_account_passwd':
-                ret.append(r['state_data'])
-        return ret
-
-    all_commands['account_move'] = Command(
-        ("user", "move"), AccountName(ptype="existing"), DiskId())
-    def account_move(self, operator, accountname, disk_id):
-        # TODO: What should be done, apart from updating the database
-        # when moving a user?
+    # user posix_delete
+    all_commands['user_posix_delete'] = Command(
+        ('user', 'posix_delete'), AccountName())
+    def user_posix_delete(self, operator, accountname):
         raise NotImplementedError, "Feel free to implement this function"
 
-    all_commands['account_shell'] = Command(
-        ("user", "shell"), AccountName(ptype="existing"), PosixShell(default="bash"))
-    def account_shell(self, operator, accountname, shell=None):
+    # user set_expire
+    all_commands['user_set_expire'] = Command(
+        ('user', 'set_expire'), AccountName(), Date())
+    def user_set_expire(self, operator, accountname, date):
+        raise NotImplementedError, "Feel free to implement this function"
+
+    # user set_np_type
+    all_commands['user_set_np_type'] = Command(
+        ('user', 'set_np_type'), AccountName(), SimpleString(help_ref="string_np_type"))
+    def user_set_np_type(self, operator, accountname, np_type):
+        raise NotImplementedError, "Feel free to implement this function"
+
+    # user shell
+    all_commands['user_shell'] = Command(
+        ("user", "shell"), AccountName(), PosixShell(default="bash"))
+    def user_shell(self, operator, accountname, shell=None):
         account = self._get_account(accountname, actype="PosixUser")
         shell = self._get_shell(shell)
         account.shell = shell
         account.write_db()
         return "OK"
 
-    all_commands['account_splatt'] = Command(
-        ("user", "splatt"), AccountName(ptype="existing"), Description(prompt="Why"))
-    def account_splatt(self, operator, accountname, shell=None):
+    # user splatt
+    all_commands['user_splatt'] = Command(
+        ("user", "splatt"), AccountName(), SimpleString(help_ref="string_description"))
+    def user_splatt(self, operator, accountname, shell=None):
         # TODO: How do we splatt a user?
         raise NotImplementedError, "Feel free to implement this function"
 
-    #
-    # printer commands
-    #
-
-    all_commands['printer_qoff'] = Command(
-        ("print", "qoff"), AccountName(ptype="existing"))
-    def printer_qoff(self, operator, accountname):
-        account = self._get_account(accountname)
-        pq = self._get_printerquota(account.entity_id)
-        if pq is None:
-            return "User has no quota"
-        pq.has_printerquota = 0
-        pq.write_db()
-        return "OK"
-
-    all_commands['printer_qpq'] = Command(
-        ("print", "qpq"), AccountName(ptype="existing"),
-        fs=FormatSuggestion("Has quota Quota Pages printed This "+
-                            "term Weekly q. Term q. Max acc.\n"+
-                            "%-9s %5i %13i %9i %9i %7i %8i",
-                            ('has_printerquota', 'printer_quota',
-                            'pages_printed', 'pages_this_semester',
-                            'weekly_quota', 'termin_quota', 'max_quota')))
-    def printer_qpq(self, operator, accountname):
-        account = self._get_account(accountname)
-        pq = self._get_printerquota(account.entity_id)
-        if pq is None:
-            return "User has no quota"
-        return {'printer_quota': pq.printer_quota,
-                'pages_printed': pq.pages_printed,
-                'pages_this_semester': pq.pages_this_semester,
-                'termin_quota': pq.termin_quota,
-                'has_printerquota': pq.has_printerquota,
-                'weekly_quota': pq.weekly_quota,
-                'max_quota': pq.max_quota}
-
-    all_commands['printer_upq'] = Command(
-        ("print", "upq"), AccountName(ptype="existing"), Description(prompt="# sider"))
-    def printer_upq(self, operator, accountname, pages):
-        account = self._get_account(accountname)
-        pq = self._get_printerquota(account.entity_id)
-        if pq is None:
-            return "User has no quota"
-        # TBD: Should we check that pages is not > pq.max_quota?
-        pq.printer_quota = pages
-        pq.write_db()
-        return "OK"
-
-    #
-    # person commands
-    #
-
-    all_commands['person_create'] = Command(
-        ("person", "create"), PersonName(), PersonIdType(),
-        PersonId(), fs=FormatSuggestion("Created: %i",
-        ("person_id",)))
-    def person_create(self, operator, display_name,
-                      id_type=None, id=None):
-        return self._person_create(operator, display_name, id_type=id_type, id=id)
-
-    all_commands['person_bcreate'] = Command(
-        ("person", "bcreate"), PersonName(), Date(),
-        fs=FormatSuggestion("Created: %i", ("person_id",)))
-    def person_bcreate(self, operator, display_name, birth_date=None):
-        return self._person_create(operator, display_name, birth_date=birth_date)
-
-    def _person_create(self, operator, display_name, birth_date=None,
-                      id_type=None, id=None):
-        person = self.person
-        person.clear()
-        if birth_date is not None:
-            birth_date = self._parse_date(birth_date)
-        person.populate(birth_date, self.const.gender_male,
-                        description='Manualy created')
-        # TDB: new constants
-        person.affect_names(self.const.system_manual, self.const.name_full)
-        person.populate_name(self.const.name_full,
-                             display_name.encode('iso8859-1'))
-        try:
-            if id_type is not None:
-                if id_type == 'fnr':
-                    person.populate_external_id(self.const.system_manual,
-                                                self.const.externalid_fodselsnr,
-                                                id)
-            person.write_db()
-        except self.db.DatabaseError, m:
-            raise CerebrumError, "Database error: %s" % m
-        return {'person_id': person.entity_id}
+    # user student_create
+    all_commands['user_student_create'] = Command(
+        ('user', 'student_create'), PersonId())
+    def user_student_create(self, operator, person_id):
+        raise NotImplementedError, "Feel free to implement this function"
 
     #
     # misc helper functions.
