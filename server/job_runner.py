@@ -169,10 +169,18 @@ class JobRunner(object):
 
         while not self._should_quit:
             self.handle_completed_jobs()
-            # don't re-fill the queue if it still has entries
-            # TBD: or should we simply append to it?  Does it mather?
+
+            # re-fill / append to the ready to run queue.  If delay
+            # queue-filling until the queue is empty, we will end up
+            # waiting for all running jobs, thus reducing paralellism.
+            #
+            # TBD: This could in theory lead to starvation.  Is that a
+            # relevant issue?
+
             if not self.job_queue.get_run_queue():
                 delta = self.job_queue.get_next_job_time()
+            else:
+                self.job_queue.get_next_job_time(append=True)
                 
             # Keep track of number of running non-wait jobs
             num_running = 0

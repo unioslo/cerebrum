@@ -162,11 +162,15 @@ class System(CallableAction):
                     os.execv("/bin/sleep", [self.id, str(5+random.randint(5,10))])
                 os.execv(self.cmd, p)
             except OSError, e:
+                self.logger.debug("Will do SystemExit")
                 sys.exit(e.errno)
+        except SystemExit:
+            #self.logger.debug("not trapping exit")
+            raise   # Don't stop the above sys.exit()
         except:
             # Full disk etc. can trigger this
             self.logger.critical("Caught unexpected exception", exc_info=1)
-        logger.error("OOPS!  This code should never be reached")
+        self.logger.error("OOPS!  This code should never be reached")
         sys.exit(1)
 
     def cond_wait(self, child_pid):

@@ -360,6 +360,7 @@ class JobQueue(object):
         self._running_jobs.append((job_name, pid))
         self._started_at[job_name] = time.time()
         self._run_queue.remove(job_name)
+        self.logger.debug("Started [%s]" % job_name)
 
     def job_done(self, job_name, pid):
         if pid is not None:
@@ -378,14 +379,17 @@ class JobQueue(object):
     def get_run_queue(self):
         return self._run_queue
         
-    def get_next_job_time(self):
+    def get_next_job_time(self, append=False):
         """find job that should be ran due to the current time, or
         being a pre-requisit of a ready job.  Returns number of
         seconds to next event, and stores the queue internaly."""
 
         global current_time
         jobs = self._known_jobs
-        queue = []
+        if append:
+            queue = self._run_queue[:]
+        else:
+            queue = []
         if self._debug_time:
             current_time += self._debug_time
         else:
@@ -394,6 +398,13 @@ class JobQueue(object):
         for job_name in jobs.keys():
             delta = current_time - self._last_run[job_name]
             if jobs[job_name].when is not None:
+                if append and job_name in self._run_queue:
+                    # Without this, a previously added job that has a
+                    # pre/post job with multi_ok=True would get the
+                    # pre/post job appended once each time
+                    # get_next_job_time was called.
+                    continue
+
                 # TODO: vent med å legge inn jobbene, slik at de som
                 # har when=time kommer før de som har when=freq.                
                 n = jobs[job_name].when.next_delta(
@@ -404,8 +415,9 @@ class JobQueue(object):
                     if pre_len == len(queue):
                         continue     # no jobs was added
                 min_delta = min(n, min_delta)
+        self.logger.debug("Delta=%i, a=%i/%i Queue: %s" % (
+            min_delta, append, len(self._run_queue), str(queue)))
         self._run_queue = queue
-        self.logger.debug("Delta=%i, Queue: %s" % (min_delta, str(queue)))
         return min_delta
 
     def insert_job(self, queue, job_name):
