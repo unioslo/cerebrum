@@ -35,7 +35,9 @@ class StedData(object):
             stedinfo[c] = info.pop(0)
             if(stedinfo[c] == ''):
                 stedinfo[c] = None
-        stedkode = "%s-%s-%s" % (stedinfo['fakultetnr'], stedinfo['instituttnr'], stedinfo['gruppenr'])
+        stedkode = "%s-%s-%s" % (stedinfo['fakultetnr'],
+                                 stedinfo['instituttnr'],
+                                 stedinfo['gruppenr'])
         return (stedkode, stedinfo)
 
 stedfile = "/u2/dumps/LT/sted.dta";
@@ -61,7 +63,8 @@ def main():
 
         new_ou.populate(k['stednavn'], k['fakultetnr'],
                         k['instituttnr'], k['gruppenr'], acronym=k['akronym'],
-                        short_name=k['forkstednavn'], display_name=k['stednavn'],
+                        short_name=k['forkstednavn'],
+                        display_name=k['stednavn'],
                         sort_name=k['stednavn'])
         new_ou.affect_addresses(co.system_lt, co.address_street,
                                 co.address_post)
@@ -76,7 +79,7 @@ def main():
                                 zip=k['poststednr_besok_adr'],
                                 city=k['poststednavn_besok_adr'])
         try:
-            ou.get_stedkode(k['fakultetnr'], k['instituttnr'], k['gruppenr'])
+            ou.find_stedkode(k['fakultetnr'], k['instituttnr'], k['gruppenr'])
             ou.find(ou.ou_id)
 
             if not (new_ou == ou):
@@ -87,42 +90,48 @@ def main():
             if verbose: print "is new"
             new_ou.write_db()
             
-        stedkode = "%s-%s-%s" % (k['fakultetnr'], k['instituttnr'], k['gruppenr'])
+        stedkode = "%s-%s-%s" % (k['fakultetnr'], k['instituttnr'],
+                                 k['gruppenr'])
         stedkode2ou[stedkode] = new_ou.ou_id
         Cerebrum.commit()
 
     existing_ou_mappings = {}
-    for t in ou.get_structure_mappings(co.perspective_lt):
-        existing_ou_mappings[t[0]] = t[1]
-        
+    for node in ou.get_structure_mappings(co.perspective_lt):
+        existing_ou_mappings[node.ou_id] = node.parent_id
+
     # Now populate ou_structure
     if verbose:
         print "Populate ou_structure"
     for stedkode in steder.keys():
-        rec_make_stedkode(stedkode, ou, existing_ou_mappings, steder, stedkode2ou, co)
+        rec_make_stedkode(stedkode, ou, existing_ou_mappings, steder,
+                          stedkode2ou, co)
 
-def rec_make_stedkode(stedkode, ou, existing_ou_mappings, steder, stedkode2ou, co):
+def rec_make_stedkode(stedkode, ou, existing_ou_mappings, steder,
+                      stedkode2ou, co):
     """Recursively create the ou_id -> parent_id mapping"""
     sted = steder[stedkode]
     org_stedkode = "%s-%s-%s" % (sted['fakultetnr_for_org_sted'],
                             sted['instituttnr_for_org_sted'],
                             sted['gruppenr_for_org_sted'])
     if(not stedkode2ou.has_key(org_stedkode)):
-        print "Error in dataset, missing STEDKODE: %s, using None" % org_stedkode
+        print "Error in dataset, missing STEDKODE: %s, using None" % \
+              org_stedkode
         org_stedkode = None
         org_stedkode_ou = None
     else:
         org_stedkode_ou = stedkode2ou[org_stedkode]
-        
+
     if(existing_ou_mappings.has_key(stedkode2ou[stedkode])):
         if(existing_ou_mappings[stedkode2ou[stedkode]] != org_stedkode_ou):
             print "Mapping for %s changed TODO (%s != %s)" % (
-                stedkode, existing_ou_mappings[stedkode2ou[stedkode]], org_stedkode_ou)
+                stedkode, existing_ou_mappings[stedkode2ou[stedkode]],
+                org_stedkode_ou)
         return
 
     if(org_stedkode_ou != None and (stedkode != org_stedkode) and
        (not existing_ou_mappings.has_key(org_stedkode_ou))):
-        rec_make_stedkode(org_stedkode, ou, existing_ou_mappings, steder, stedkode2ou, co)
+        rec_make_stedkode(org_stedkode, ou, existing_ou_mappings, steder,
+                          stedkode2ou, co)
 
     ou.find(stedkode2ou[stedkode])
     if stedkode2ou.has_key(org_stedkode):
@@ -144,4 +153,3 @@ def les_sted_info():
 
 if __name__ == '__main__':
     main()
-
