@@ -120,22 +120,9 @@ FROM fs.studieprogram"""
         """Hent informasjon om semester-registrering og betaling"""
         qry = """
 SELECT DISTINCT
-       r.fodselsdato, r.personnr, p.etternavn, p.fornavn,
-       s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
-       s.adrlin3_semadr, s.adresseland_semadr, p.adrlin1_hjemsted,
-       p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
-       p.adresseland_hjemsted, p.status_reserv_nettpubl
-FROM fs.registerkort r, fs.student s, fs.person p, fs.studierett st
-WHERE  r.fodselsdato=p.fodselsdato AND
-       p.fodselsdato=s.fodselsdato AND
-       r.personnr=p.personnr AND
-       p.personnr=s.personnr AND
-       r.fodselsdato=st.fodselsdato AND
-       r.personnr=st.personnr AND
-       st.opphortstudierettstatkode IS NULL AND
-       st.status_privatist='N' AND
-       %s
-    """ % self.get_termin_aar()
+       fodselsdato, personnr, regformkode, dato_endring, dato_opprettet
+FROM fs.registerkort r
+WHERE %s""" % self.get_termin_aar(only_current=1)
         return (self._get_cols(qry), self.db.query(qry))
 
     def GetStudinfEvu(self):
