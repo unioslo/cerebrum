@@ -196,7 +196,7 @@ SELECT DISTINCT s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
        p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
        p.adresseland_hjemsted, p.status_reserv_nettpubl, 
        p.sprakkode_malform,st.studieprogramkode, st.studierettstatkode,
-       p.kjonn, p.status_reserv_nettpubl
+       p.kjonn
 FROM fs.student s, fs.person p, fs.studierett st, fs.eksmeldinglogg el,
      fs.studieprogram sp
 WHERE  p.fodselsdato=s.fodselsdato AND
@@ -234,7 +234,7 @@ SELECT DISTINCT s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
        p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
        p.adresseland_hjemsted, p.status_reserv_nettpubl, 
        p.sprakkode_malform,st.studieprogramkode, st.studierettstatkode,
-       p.kjonn, p.status_reserv_nettpubl
+       p.kjonn
 FROM fs.student s, fs.person p, fs.studierett st, fs.eksmeldinglogg el,
      fs.studieprogram sp
 WHERE  p.fodselsdato=s.fodselsdato AND
@@ -343,8 +343,7 @@ SELECT s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
        s.adrlin3_semadr, s.adresseland_semadr, p.adrlin1_hjemsted,
        p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
        p.adresseland_hjemsted, p.status_reserv_nettpubl, 
-       p.sprakkode_malform, p.kjonn, em.emnekode,
-       p.status_reserv_nettpubl
+       p.sprakkode_malform, p.kjonn, em.emnekode
 FROM fs.student s, fs. person p, fs.registerkort r,
      fs.eksamensmelding em
 WHERE s.fodselsdato=p.fodselsdato AND
@@ -382,7 +381,7 @@ SELECT DISTINCT
        p.adresseland_hjemsted, d.deltakernr, d.emailadresse,
        k.etterutdkurskode, e.studieprogramkode, 
        e.faknr_adm_ansvar, e.instituttnr_adm_ansvar, 
-       e.gruppenr_adm_ansvar, p.status_reserv_nettpubl
+       e.gruppenr_adm_ansvar
 FROM fs.deltaker d, fs.person p, fs.kursdeltakelse k,
      fs.etterutdkurs e
 WHERE p.fodselsdato=d.fodselsdato AND
