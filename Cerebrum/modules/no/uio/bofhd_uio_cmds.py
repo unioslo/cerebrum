@@ -28,7 +28,7 @@ from Cerebrum.modules import PosixUser
 from Cerebrum.modules.bofhd.cmd_param import *
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd.utils import BofhdRequests
-from Cerebrum.modules.bofhd.auth import BofhdAuth
+from Cerebrum.modules.bofhd.auth import BofhdAuth, BofhdAuthOpSet, AuthConstants, BofhdAuthOpTarget, BofhdAuthRole
 from Cerebrum.modules.no.uio import PrinterQuotas
 from Cerebrum.modules.no.uio import bofhd_uio_help
 from Cerebrum.modules.templates.letters import TemplateHandler
@@ -67,6 +67,10 @@ class BofhdExtension(object):
                 self.num2const[int(tmp)] = tmp
                 self.str2const["%s" % tmp] = tmp
         self.ba = BofhdAuth(server.db)
+        aos = BofhdAuthOpSet(server.db)
+        self.num2op_set_name = {}
+        for r in aos.list():
+            self.num2op_set_name[int(r['op_set_id'])] = r['name']
 
     def get_commands(self, uname):
         # TBD: Do some filtering on uname to remove commands
@@ -440,6 +444,126 @@ class BofhdExtension(object):
             return "Password is correct"
         return "Incorrect password"
 
+
+    #
+    # perm commands
+    #
+
+    # perm opset_list
+    all_commands['perm_opset_list'] = Command(
+        ("perm", "opset_list"), 
+        fs=FormatSuggestion("%-6i %s", ("id", "name"), hdr="Id     Name"))
+    def perm_opset_list(self, operator):
+        aos = BofhdAuthOpSet(self.db)
+        ret = []
+        for r in aos.list():
+            ret.append({'id': r['op_set_id'],
+                        'name': r['name']})
+        return ret
+
+    # perm opset_show
+    all_commands['perm_opset_show'] = Command(
+        ("perm", "opset_show"), SimpleString(help_ref="string_op_set"),
+        fs=FormatSuggestion("%-6i %-16s %s", ("op_id", "op", "attrs"),
+                            hdr="%-6s %-16s %s" % ("Id", "op", "Attributes")))
+    def perm_opset_show(self, operator, name):
+        aos = BofhdAuthOpSet(self.db)
+        aos.find_by_name(name)
+        ret = []
+        for r in aos.list_operations():
+            c = AuthConstants(int(r['op_code']))
+            ret.append({'op': str(c),
+                        'op_id': r['op_id'],
+                        'attrs': ", ".join(
+                ["%s" % r2['attr'] for r2 in aos.list_operation_attrs(r['op_id'])])})
+        return ret
+
+    # perm target_list
+    all_commands['perm_target_list'] = Command(
+        ("perm", "target_list"), SimpleString(help_ref="string_perm_target"),
+        Id(optional=True),
+        fs=FormatSuggestion("%-8i %-15i %-10s %-18s %s",
+                            ("tgt_id", "entity_id", "target_type", "name", "attrs"),
+                            hdr="%-8s %-15s %-10s %-18s %s" % (
+        "TargetId", "TargetEntityId", "TargetType", "TargetName", "Attrs")))
+    def perm_target_list(self, operator, target_type, entity_id=None):
+        aot = BofhdAuthOpTarget(self.db)
+        ret = []
+        if target_type.isdigit():
+            rows = aot.list(target_id=target_type)
+        else:
+            rows = aot.list(target_type=target_type, entity_id=entity_id)
+        for r in rows:
+            if r['target_type'] == 'group':
+                name = self._get_entity_name(self.const.entity_group, r['entity_id'])
+            elif r['target_type'] == 'disk':
+                name = self._get_entity_name(self.const.entity_disk, r['entity_id'])
+            elif r['target_type'] == 'host':
+                name = self._get_entity_name(self.const.entity_host, r['entity_id'])
+            else:
+                name = "unknown"
+            ret.append({'tgt_id': r['op_target_id'],
+                        'entity_id': r['entity_id'],
+                        'name': name,
+                        'target_type': r['target_type'],
+                        'attrs': ", ".join(
+                ["%s" % r2['attr'] for r2 in aot.list_target_attrs(r['op_target_id'])])})
+        return ret
+
+    # perm add_target_attr
+    all_commands['perm_add_target_attr'] = Command(
+        ("perm", "add_target_attr"), Id(help_ref="id:op_target"),
+        SimpleString(help_ref="string_attribute"))
+    def perm_add_target_attr(self, operator, op_target_id, attr):
+        aot = BofhdAuthOpTarget(self.db)
+        aot.find(op_target_id)
+        aot.add_op_target_attr(attr)
+        return "OK"
+
+    # perm del_target_attr
+    all_commands['perm_del_target_attr'] = Command(
+        ("perm", "del_target_attr"), Id(help_ref="id:op_target"),
+        SimpleString(help_ref="string_attribute"))
+    def perm_del_target_attr(self, operator, op_target_id, attr):
+        aot = BofhdAuthOpTarget(self.db)
+        aot.find(op_target_id)
+        aot.del_op_target_attr(attr)
+        return "OK"
+
+    # perm list
+    all_commands['perm_list'] = Command(
+        ("perm", "list"), Id(),
+        fs=FormatSuggestion("%-8s %-8s %-8i",
+                            ("entity_id", "op_set_id", "op_target_id"),
+                            hdr="%-8s %-8s %-8s" %
+                            ("entity_id", "op_set_id", "op_target_id")))
+    def perm_list(self, operator, entity_id):
+        bar = BofhdAuthRole(self.db)
+        ret = []
+        for r in bar.list(entity_id):
+            ret.append({'entity_id': self._get_entity_name(None, r['entity_id']),
+                        'op_set_id': self.num2op_set_name[int(r['op_set_id'])],
+                        'op_target_id': r['op_target_id']})
+        return ret
+
+    # perm grant
+    all_commands['perm_grant'] = Command(
+        ("perm", "grant"), Id(), SimpleString(help_ref="string_op_set"),
+        Id(help_ref="id:op_target"))
+    def perm_grant(self, operator, entity_id, op_set_name, op_target_id):
+        bar = BofhdAuthRole(self.db)
+        bar.grant_auth(entity_id, op_set_id, op_target_id)
+        return "OK"
+
+    # perm revoke
+    all_commands['perm_revoke'] = Command(
+        ("perm", "revoke"), Id(), SimpleString(help_ref="string_op_set"),
+        Id(help_ref="id:op_target"))
+    def perm_revoke(self, operator, entity_id, op_set_name, op_target_id):
+        bar = BofhdAuthRole(self.db)
+        bar.revoke_auth(entity_id, op_set_id, op_target_id)
+        return "OK"
+
     #
     # person commands
     #
@@ -576,7 +700,7 @@ class BofhdExtension(object):
     def person_user_priority(self, operator, account_name, priority):
         account = self._get_account(account_name)
         person = self._get_person('entity_id', account.owner_id)
-        self.ba.can_set_person_user_priority(operator.get_entity_id(), person)
+        self.ba.can_set_person_user_priority(operator.get_entity_id(), account)
         # TODO: The API doesn't support this yet
         raise NotImplementedError, "Feel free to implement this function"
 
@@ -1186,7 +1310,7 @@ class BofhdExtension(object):
         except self.db.DatabaseError, m:
             raise CerebrumError, "Database error: %s" % m
         operator.store_state("user_passwd", {'account_id': int(account.entity_id),
-                                                'password': password})
+                                             'password': password})
         return "OK"
     
     # user posix_create
@@ -1361,12 +1485,24 @@ class BofhdExtension(object):
             raise NotImplementedError, "unkown nametype: %s" % nametye
 
     def _get_entity_name(self, type, id):
+        if type is None:
+            ety = Entity.Entity(self.db)
+            ety.find(id)
+            type = self.num2const[int(ety.entity_type)]
         if type == self.const.entity_account:
             acc = self._get_account(id, idtype='id')
             return acc.account_name
         elif type == self.const.entity_group:
             group = self._get_group(id, idtype='id')
             return group.get_name(self.const.group_namespace)
+        elif type == self.const.entity_disk:
+            disk = Disk.Disk(self.db)
+            disk.find(id)
+            return disk.path
+        elif type == self.const.entity_host:
+            host = Disk.Host(self.db)
+            host.find(id)
+            return host.name
         else:
             return "%s:%s" % (type, id)
 

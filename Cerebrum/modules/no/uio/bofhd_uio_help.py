@@ -6,6 +6,7 @@ group_help = {
     'quarantine': 'Karantene (sperre) relaterte kommandoer',
     'spread': 'Spread relaterte kommandoer',
     'user': 'Brukerrelaterte kommandoer',
+    'perm': 'Rettighetsrelaterte kommandoer'
     }
 
 command_help = {
@@ -38,6 +39,16 @@ command_help = {
     'misc_profile_download': 'hente ned profil fil fra serveren',
     'misc_profile_upload': 'laste opp ny profil fil til serveren',
     'misc_user_passwd': 'Sjekk om en brukers passord er en gitt streng',
+    },
+    'perm': {
+    'perm_opset_list': 'lists defined opsets',
+    'perm_opset_show': 'shows definition of the given opset',
+    'perm_target_list': 'list auth_op_target data of the given type',
+    'perm_add_target_attr': 'adds attr',
+    'perm_del_target_attr': 'removes attr',
+    'perm_list': 'lists op_set_name and op_target for entity_id',
+    'perm_grant': 'adds entry to auth_role',
+    'perm_revoke': 'removes entry from auth_role',
     },
     'person': {
     'person_accounts': 'vis brukernavn for person',
@@ -107,6 +118,7 @@ arg_help = {
     'group_operation': ['op', 'Enter group operation'],
     'group_visibility': ['vis', 'Enter visibility'],
     'id': ['id', 'Enter id'],
+    'id:op_target': ['op_target_id', 'Enter op_target_id'],
     'move_type': ['move_type', 'Enter move type',
                   """Legal move types:
  - immediate
@@ -136,11 +148,14 @@ The currently defined id-types are:
                               'the letter will be sendt through snail-mail from a central printer.'],
     'quarantine_type': ['qtype', 'Enter quarantine type', """'quarantine list' lists possible values"""],
     'spread': ['spread', 'Enter spread', """'spread list' lists possible values"""],
+    'string_attribute': ['attr', 'Enter attribute'],
     'string_description': ['description', 'Enter description'],
     'string_filename': ['filename', 'Enter filename'],
     'string_group_filter': ['filter', 'Enter filter'],
     'string_np_type': ['np_type', 'Enter np_type', """Valid values include:
 'p' - Programvarekonto."""],
+    'string_op_set': ['op_set_name', 'Enter name of operation set'],
+    'string_perm_target': ['id|type', 'Enter target id or type', 'Legal types: host, disk, group'],
     'string_from_to': ['from_to', 'Enter from and optionally to-date (YYYY-MM-DD-YYYY-MM-DD)'],
     'string_why': ['why', 'Why?'],
     'user_create_id': ['owner', 'Enter account owner', """Identify account owner (person or group) by entering:
