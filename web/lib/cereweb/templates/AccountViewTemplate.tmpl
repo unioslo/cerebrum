@@ -1,0 +1,30 @@
+#from Cerebrum.web.InitTemplate import InitTemplate
+#extends InitTemplate
+#import forgetHTML
+#from Cerebrum.web.TableView import TableView
+#from Cerebrum.web.utils import url
+#from Cerebrum.web import HistoryLog
+
+#def viewAccount($account, $show_owner=True)
+<h1>$_("Account") $account.name</h1>
+<div class="info">
+<dl>
+    <dt>$_("Date created")</dt>
+    <dd>$account.create_date</dd>
+
+    <dt>$_("Expire date")</dt>
+    <dd>$account.expire_date</dd>
+    
+    <dt>$_("Created by")</dt>
+    <dd>...</dd>
+
+#if $show_owner
+    <dt>$_("Owned by")</dt>
+    <dd>...</dd>
+#end if
+
+    <dt>$_("Spreads")</dt>
+    <dd>$account.spread</dd>
+</dl>
+</div>
+#end def
