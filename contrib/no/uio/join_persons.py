@@ -40,10 +40,16 @@ def person_join(old_person, new_person):
         old_person.clear()      
         old_person.find(old_id)
         old_person.affect_external_id(ss, *types)
-        for id in old_person.get_external_id(ss):
-            new_person.populate_external_id(ss, id['id_type'], id['external_id'])
-        for id in new_person.get_external_id(ss):
-            new_person.populate_external_id(ss, id['id_type'], id['external_id'])
+        try:
+            for id in old_person.get_external_id(ss):
+                new_person.populate_external_id(ss, id['id_type'], id['external_id'])
+        except Errors.NotFoundError:
+            continue  # Old person didn't have data, no point in continuing
+        try:
+            for id in new_person.get_external_id(ss):
+                new_person.populate_external_id(ss, id['id_type'], id['external_id'])
+        except Errors.NotFoundError:
+            pass
         old_person.write_db()   # Avoids unique external_id constaint violation
         new_person.write_db()
             
@@ -87,16 +93,22 @@ def person_join(old_person, new_person):
         logger.debug("entity_address: %s" % ss)
         new_person.clear()      
         new_person.find(new_id)
-        for ea in old_person.get_entity_address(ss):
-            new_person.populate_address(
-                ea['source_system'], ea['address_type'],
-                ea['address_text'], ea['p_o_box'], ea['postal_number'],
-                ea['city'], ea['country'])
-        for ea in new_person.get_entity_address(ss):
-            new_person.populate_address(
-                ea['source_system'], ea['address_type'],
-                ea['address_text'], ea['p_o_box'], ea['postal_number'],
-                ea['city'], ea['country'])
+        try:
+            for ea in old_person.get_entity_address(ss):
+                new_person.populate_address(
+                    ea['source_system'], ea['address_type'],
+                    ea['address_text'], ea['p_o_box'], ea['postal_number'],
+                    ea['city'], ea['country'])
+        except Errors.NotFoundError:
+            pass
+        try:
+            for ea in new_person.get_entity_address(ss):
+                new_person.populate_address(
+                    ea['source_system'], ea['address_type'],
+                    ea['address_text'], ea['p_o_box'], ea['postal_number'],
+                    ea['city'], ea['country'])
+        except Errors.NotFoundError:
+            pass
         new_person.write_db()
 
     # entity_quarantine
