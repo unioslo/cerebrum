@@ -116,6 +116,8 @@ def determine_affiliations(person):
         stedkode =  "%02d%02d%02d" % (int(t['fakultetnr_utgift']),
                                       int(t['instituttnr_utgift']),
                                       int(t['gruppenr_utgift']))
+	if t['tittel']:
+	    new_person.populate_name(const.name_work_title, t['tittel'])
         if t['hovedkat'] == 'ØVR':
             aff_stat = const.affiliation_status_ansatt_tekadm
         elif t['hovedkat'] == 'VIT':
@@ -224,7 +226,8 @@ def process_person(person):
         logger.warn("Ikke noe navn for %s" % fnr)
         return
     new_person.populate(db.Date(year, mon, day), gender)
-    new_person.affect_names(const.system_lt, const.name_first, const.name_last)
+    new_person.affect_names(const.system_lt, const.name_first, const.name_last,
+							const.name_work_title)
     new_person.affect_external_id(const.system_lt, const.externalid_fodselsnr)
     new_person.populate_name(const.name_first, person['fornavn'])
     new_person.populate_name(const.name_last, person['etternavn'])
