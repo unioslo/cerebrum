@@ -70,9 +70,10 @@ class xmlprinter(object):
     
     __slots__ = ['fp', '_elstack', '_inroot',
                  '_past_doctype', '_past_decl', '_finished',
-                 '_indent_level', '_data_mode', '_has_data']
+                 '_indent_level', '_data_mode', '_has_data',
+                 '_encoding', '_input_encoding']
 
-    def __init__(self, fp, indent_level=0, data_mode=0):
+    def __init__(self, fp, indent_level=0, data_mode=0, input_encoding='UTF-8'):
         """fp is a file-like object, needing only a write() method"""
         self._finished     = False
         self._past_doctype = False
@@ -82,13 +83,15 @@ class xmlprinter(object):
         self.fp           = fp
         self._indent_level = indent_level
         self._data_mode = data_mode
+        self._input_encoding = input_encoding
 
     def startDocument(self, encoding='UTF-8'):
         """Begin writing out a document, including the XML declaration.
         Currently the encoding header can be changed from the default,
         but it won't affect how the rest of the document is encoded.
         """
-        
+
+        self._encoding = encoding
         if self._past_decl:
             raise WellFormedError, "past allowed point for XML declaration"
         
@@ -142,12 +145,23 @@ class xmlprinter(object):
         self._inroot = True
         self._has_data = 0
 
+    def comment(self, data):
+        self.fp.write("<!-- %s -->" % data);
+        if len(self._elstack) == 0:
+            self.fp.write("\n")
+
     def data(self, data):
         """Add text 'data'."""
         if not self._inroot:
             raise WellFormedError, "attempt to add data outside of root"
         self._has_data = 1
-        self.fp.write(escape(data).encode('UTF-8'))
+        data = escape(data)
+        if self._input_encoding != self._encoding:
+            if self._input_encoding == 'UTF-8':
+                data = data.encode(self._encoding)
+            else:
+                data = data.decode(self._input_encoding).encode(self._encoding)
+        self.fp.write(data)
 
     def dataElement(self, name, data, attrs={}):
         self.startElement(name, attrs)
