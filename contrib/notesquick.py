@@ -59,7 +59,11 @@ def quick_sync():
 #Account changed OU 
 #Account connected same Person changed spread.
 
-    answer=cl.get_events('notes',(clco.account_password,clco.spread_add,clco.spread_del,clco.quarantine_add,clco.quarantine_del,clco.quarantine_mod))
+    answer=cl.get_events('notes',(
+        clco.account_password, clco.spread_add, clco.spread_del,
+        clco.quarantine_add, clco.quarantine_del,
+        clco.quarantine_mod, clco.quarantine_refresh))
+
     for ans in answer:
 	cl.confirm_event(ans)	
         chg_type = ans['change_type_id']
@@ -80,7 +84,10 @@ def quick_sync():
             	    change_params = pickle.loads(ans['change_params'])
 		    if change_params['spread'] == int(co.spread_uio_notes_account):    
               	        delundel_user(ans['subject_entity'],'splatt')
-                elif chg_type == clco.quarantine_add or chg_type == clco.quarantine_del or chg_type == clco.quarantine_mod:
+                elif (chg_type == clco.quarantine_add or
+                      chg_type == clco.quarantine_del or
+                      chg_type == clco.quarantine_mod or
+                      chg_type == clco.quarantine_refresh):
 		    change_quarantine(ans['subject_entity']) 
 	except Errors.NotFoundError:
 	    logger.warn("Could not find entity %s", ans['subject_entity'])
