@@ -29,6 +29,7 @@ import xml.sax
 import cerebrum_path
 import cereconf
 from Cerebrum import Errors
+from Cerebrum import Person
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no.uio.AutoStud import StudentInfo
@@ -91,6 +92,23 @@ def _ext_address_info(a_dict, kline1, kline2, kline3, kpost, kland):
     if len(ret['address_text']) < 2:
         return None
     return ret
+
+def _load_cere_aff():
+    fs_aff = {}
+    person = Person.Person(db) # ?!?
+    for row in person.list_affiliations(source_system=co.system_fs):
+	k = "%s:%s:%s" % (row['person_id'],row['ou_id'],row['affiliation'])
+        fs_aff[str(k)] = True
+    return(fs_aff)
+
+def rem_old_aff():
+    person = Person.Person(db)
+    for k,v in old_aff.items():
+	if v:
+	    ent_id,ou,affi = re.split':',k)
+            person.clear()
+	    person.entity_id = int(ent_id)
+            person.delete_affiliation(int(ou),int(affi),int(const.system_fs),1)
 
 def process_person_callback(person_info):
     """Called when we have fetched all data on a person from the xml
@@ -234,6 +252,10 @@ def process_person_callback(person_info):
     for a in affiliations:
         ou, aff, aff_status = a
         new_person.populate_affiliation(co.system_fs, ou, aff, aff_status)
+	if include_delete: 
+	    key_a = "%s:%s:%s" % (new_person.entity_id,ou,int(aff))
+	    if old_aff.has_key(key_a):
+	    	old_aff[key_a] = False
 
     op = new_person.write_db()
     if op is None:
@@ -267,11 +289,13 @@ def process_person_callback(person_info):
 
 
 def main():
-    global verbose, ou, db, co, logger, fnr2person_id, gen_groups, group
+    global verbose, ou, db, co, logger, fnr2person_id, gen_groups, group, \
+							old_aff, include_delete
     verbose = 0
-    opts, args = getopt.getopt(sys.argv[1:], 'vp:s:g', ['verbose', 'person-file=',
+    include_delete = False
+    opts, args = getopt.getopt(sys.argv[1:], 'vp:s:g:d', ['verbose', 'person-file=',
                                                        'studieprogram-file=',
-                                                        'generate-groups'])
+                                                        'generate-groups','include-delete'])
     personfile = default_personfile
     studieprogramfile = default_studieprogramfile
     for opt, val in opts:
@@ -283,6 +307,8 @@ def main():
             studieprogramfile = val
         elif opt in ('-g', '--generate-groups'):
             gen_groups = True
+	elif opt in ('-d', '--include-delete'):
+	    include_delete = True
     if "system_fs" not in cereconf.SYSTEM_LOOKUP_ORDER:
         print "Check your config, SYSTEM_LOOKUP_ORDER is wrong!"
         sys.exit(1)
@@ -313,14 +339,17 @@ def main():
 
     # create fnr2person_id mapping, always using fnr from FS when set
     person = Factory.get('Person')(db)
+    if include_delete:
+	old_aff = _load_cere_aff()
     fnr2person_id = {}
     for p in person.list_external_ids(id_type=co.externalid_fodselsnr):
         if co.system_fs == p['source_system']:
             fnr2person_id[p['external_id']] = p['person_id']
         elif not fnr2person_id.has_key(p['external_id']):
             fnr2person_id[p['external_id']] = p['person_id']
-
     StudentInfo.StudentInfoParser(personfile, process_person_callback, logger)
+    if include_delete:
+	rem_old_aff()
     db.commit()
     logger.info("Completed")
 
