@@ -104,7 +104,7 @@ def get_groups(self):
 
     return [i for i in group_members if _get_members(i, group_members)]
 
-Entity.register_method(Method('get_groups', [GroupMember]), get_groups)
+Entity.register_method(Method('get_groups', [Group]), get_groups)
 
 def get_members(self):
     """
