@@ -2757,7 +2757,6 @@ class BofhdExtension(object):
                 map = [(("%-8s %s", "Id", "Name"), None)]
                 for i in range(len(c)):
                     person = self._get_person("entity_id", c[i]['person_id'])
-                    # TODO: We should show the persons name in the list
                     map.append((
                         ("%8i %s", int(c[i]['person_id']),
                          person.get_name(self.const.system_cached, self.const.name_full)),
@@ -2771,19 +2770,15 @@ class BofhdExtension(object):
                 map = [(("%-8s %s", "Num", "Affiliation"), None)]
                 person = self._get_person("entity_id", owner_id)
                 for aff in person.get_affiliations():
-                    if aff['affiliation'] == int(self.const.affiliation_ansatt):
-                        map.append((("%s", str(self.const.affiliation_ansatt)),
-                                    int(self.const.affiliation_ansatt)))
-                    elif aff['affiliation'] == int(self.const.affiliation_student):
-                        map.append((("%s", str(self.const.affiliation_student)),
-                                    int(self.const.affiliation_student)))
-                    else:
-                        ou = self._get_ou(ou_id=aff['ou_id'])
-                        name = "%s/%s@%s" % (
-                            self.num2const[int(aff['affiliation'])],
-                            self.num2const[int(aff['status'])],
-                            self._format_ou_name(ou))
-                        map.append((("%s", name), int(aff['affiliation'])))
+                    ou = self._get_ou(ou_id=aff['ou_id'])
+                    name = "%s/%s@%s" % (
+                        self.num2const[int(aff['affiliation'])],
+                        self.num2const[int(aff['status'])],
+                        self._format_ou_name(ou))
+                    map.append((("%s", name), int(aff['affiliation'])))
+                if not len(map) > 1:
+                    raise CerebrumError(
+                        "Person has no affiliations. Try person affiliation_add")
                 return {'prompt': "Choose affiliation from list", 'map': map}
             affiliation = all_args.pop(0)
         else:
