@@ -1,6 +1,7 @@
 include *.in *.py
 include COPYING
 include HACKING
+include INSTALL
 include configure
 include configure.ac
 include testsuite/*.in testsuite/*.sh testsuite/*.dat  testsuite/*.py
@@ -8,5 +9,6 @@ recursive-include java *.java *.jar *.xml *.properties *.so
 recursive-include client *.py *.html
 recursive-include contrib *.py
 recursive-include design *.sql *.dia *.html
+include design/entity_usage.txt
 recursive-include server *.py *.dat
 # prune etc
