@@ -496,28 +496,41 @@ class Group(EntityQuarantine, EntityName, Entity):
 	FROM [:table schema=cerebrum name=group_info]
 	%s""" % where)
 
-    def list_member_groups(self, grp_id, spreads, grp_list=[], grp_sup=False):
-	""" Return a list of groups with spread(s) which has group as a 
-	    member and goes recursive through the group-tree. Support 
-	    both groups with group support and without. Ex: if account 
-	    is added to an 'internal'-group, we will do a netgroup-search  
-	    with group_support, and without if it is an file-group, which 
-	    has to expand all members. Spreads must be a list or a tupple
-	    with at least one entry()"""
+
+    def list_member_groups(self, grp_id, spreads, grp_sup=False, ent_type=False):
+	""" Return a list of groups with spread(s) which is recursivly a member 
+	    of the group. It goes recursivly through the group-tree. Support
+            external systems with group-member support and group that has to 
+	    expand accounts and users (no support of group as member). 
+	    Ex: if account is added to an 'internal'-group, we will do a 
+	    netgroup-search with group_support, and without if it is an 
+	    file-group, which has to expand all members. Spreads must be a 
+	    list or a tupple with at least one entry()"""
+	global cyc_l, list_grp
+	cyc_l = []
+	list_grp = []
+	if not ent_type:
+	    ent_type = self.const.entity_group
+	self._rec_member_groups(grp_id, spreads, grp_sup, ent_type)
+	return(list_grp)
 	
+
+    def _rec_member_groups(self, grp_id, spreads, grp_sup, ent_type):
+	""" Recursive group-tree search. Used by 'list_member_groups'"""
 	for entry in self.list_groups_with_entity(grp_id):
-	    if entry['member_type'] == self.const.entity_group:
+	    if entry['member_type'] == ent_type:
 		# Not very nice programming. WHAT TO DO??
 		self.clear()
 		grp_id = int(entry['group_id'])
 		self.entity_id = grp_id
+		if grp_id in cyc_l: continue
+		else: cyc_l.append(grp_id)
 		if not grp_sup and [x for x in spreads if self.has_spread(x)]:
-		    grp_list.append(grp_id)
-		    self.list_member_groups(grp_id, spreads, grp_list, grp_sup)
+		    list_grp.append(grp_id)
+		    self._rec_member_groups(grp_id, spreads, grp_sup, ent_type)
 		elif grp_sup and [x for x in spreads if self.has_spread(x)]:
-		    grp_list.append(grp_id)
+		    list_grp.append(grp_id)
 		else:
-		    self.list_member_groups(grp_id, spreads, grp_list, grp_sup)
-	return(grp_list)
+		    self._rec_member_groups(grp_id, spreads, grp_sup, ent_type)
 
 	       
