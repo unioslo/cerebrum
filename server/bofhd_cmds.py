@@ -5,7 +5,7 @@ from Cerebrum import Account
 from Cerebrum import Errors
 from Cerebrum import Group
 from Cerebrum import Person
-from Cerebrum import cereconf
+import cereconf
 from Cerebrum.modules import PosixUser
 import re
 
@@ -84,7 +84,9 @@ class BofhdExtension(object):
         ## bofh> person create <display_name> {<birth_date (yyyy-mm-dd)> | <id_type> <id>}
         'person_create': Command(("person", "create"), PersonName(),
                                  Date(optional=1), PersonIdType(),
-                                 PersonId()),
+                                 PersonId(),
+                                  fs=FormatSuggestion("Created: %i",
+                                                   ("person_id",))),
         ## bofh> person delete <id_type> <id>
         'person_delete': Command(("person", "delete"), PersonIdType(),
                                  PersonId(repeat=1)),
@@ -317,7 +319,9 @@ class BofhdExtension(object):
         person-id is returned"""
         person = self.person
         person.clear()
-        date = self.Cerebrum.Date(*([int(x) for x in birth_date.split('-')]))
+        date = None
+        if birth_date is not None:
+            date = self.Cerebrum.Date(*([int(x) for x in birth_date.split('-')]))
         person.populate(date, self.const.gender_male, description='Manualy created')
         person.affect_names(self.const.system_manual, self.const.name_full) # TDB: new constants
         person.populate_name(self.const.name_full, display_name.encode('iso8859-1'))
@@ -326,7 +330,7 @@ class BofhdExtension(object):
                 person.populate_external_id(self.const.system_manual,
                                             self.const.externalid_fodselsnr, id)
         person.write_db()
-        return person.person_id
+        return {'person_id': person.entity_id}
 
     def person_delete(self, user, idtype, id):
         """Remove person.  Don't do anything if there are data
