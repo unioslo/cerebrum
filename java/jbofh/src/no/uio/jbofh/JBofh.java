@@ -6,19 +6,19 @@
 
 package no.uio.jbofh;
 
-import org.apache.xmlrpc.XmlRpcException;
-import org.apache.xmlrpc.XmlRpcClient;
 import java.io.*;
-import org.gnu.readline.*;
-import java.util.Properties;
+import java.text.ParseException;
 import java.util.Arrays;
 import java.util.Enumeration;
-import java.util.Vector;
 import java.util.Hashtable;
 import java.util.Iterator;
+import java.util.Properties;
+import java.util.Vector;
 import org.apache.log4j.Category;
 import org.apache.log4j.PropertyConfigurator;
-
+import org.apache.xmlrpc.XmlRpcClient;
+import org.apache.xmlrpc.XmlRpcException;
+import org.gnu.readline.*;
 
 import com.sun.java.text.PrintfFormat;
 
@@ -91,34 +91,41 @@ class BofhdCompleter implements org.gnu.readline.ReadlineCompleter {
      * @throws AnalyzeCommandException
      * @return list of completions, or translated commands
      */    
-    public Object []analyzeCommand(String cmd[], int expat) throws AnalyzeCommandException {
+    public Vector analyzeCommand(Vector cmd, int expat) throws AnalyzeCommandException {
         int lvl = 0;
         Hashtable h = complete;
         Enumeration e = h.keys();
         while(e.hasMoreElements()) logger.debug("dta: "+e.nextElement());
         e = h.keys();
 
-        logger.debug("analyzeCommand("+cmd.length+", "+expat);
+        logger.debug("analyzeCommand("+cmd.size()+", "+expat);
         while(expat < 0 || lvl <= expat) {
             Vector thisLvl = new Vector();
-            while(e.hasMoreElements()) {
+            while(e.hasMoreElements()) {   // Find matching commands at this level
                 String tmp = (String) e.nextElement();
                 logger.debug("chk: "+tmp);
-                if(lvl >= cmd.length || tmp.startsWith(cmd[lvl])) {
+		boolean ok = false;
+		if(lvl >= cmd.size()) {
+		    ok = true;
+		} else if((cmd.get(lvl) instanceof String) &&
+			  tmp.startsWith((String) cmd.get(lvl))) {
+		    ok = true;
+		}
+		if(ok) {
                     logger.debug("added");
                     thisLvl.add(tmp);
                 }
             }
             logger.debug(expat+" == "+lvl);
             if(expat == lvl) {
-                return thisLvl.toArray();
+                return thisLvl;
             }
             if(thisLvl.size() == 1) {  // Check next level
-                cmd[lvl] = (String) thisLvl.get(0);
-                h = (Hashtable) h.get(cmd[lvl]);
+                cmd.set(lvl, thisLvl.get(0));
+                h = (Hashtable) h.get(cmd.get(lvl));
                 if(h.size() == 0 && expat < 0) {
-                    Object ret[] = new Object[lvl];
-                    for(int i = 0; i < lvl; i++) ret[i] = cmd[i];
+                    Vector ret = new Vector();
+                    for(int i = 0; i < lvl; i++) ret.add(cmd.get(i));
                     return ret;
                 }
                 /* TODO:  If h.size() == 0 -> we have reached the max completion
@@ -126,8 +133,8 @@ class BofhdCompleter implements org.gnu.readline.ReadlineCompleter {
                  **/
                 if(h == null) {
                     Vector ret = new Vector();
-                    for(int i = 0; i < lvl; i++) ret.add(cmd[i]);
-                    return ret.toArray();
+                    for(int i = 0; i < lvl; i++) ret.add(cmd.get(i));
+                    return ret;
                 }
                 e = h.keys();
                 lvl++;
@@ -149,9 +156,15 @@ class BofhdCompleter implements org.gnu.readline.ReadlineCompleter {
          * 
          **/
         if(param == 0) {  // 0 -> first call to iterator
-            String args[] = jbofh.cLine.splitCommand(Readline.getLineBuffer());
-            logger.debug("len="+args.length+", trail_space="+(Readline.getLineBuffer().endsWith(" ") ? "true" : "false"));
-            int len = args.length;
+            Vector args;
+	    try {
+		args = jbofh.cLine.splitCommand(Readline.getLineBuffer());
+	    } catch (ParseException pe) {
+		iter = null;
+		return null;
+	    }
+            logger.debug("len="+args.size()+", trail_space="+(Readline.getLineBuffer().endsWith(" ") ? "true" : "false"));
+            int len = args.size();
             if(! Readline.getLineBuffer().endsWith(" ")) len--;
             if(len < 0) len = 0;
             logger.debug("new len: "+len);
@@ -159,10 +172,8 @@ class BofhdCompleter implements org.gnu.readline.ReadlineCompleter {
                 iter = null;
                 return null;
             }
-            possible = new Vector();
             try {
-                Object lst[] = analyzeCommand(args, len);
-                for(int i = 0; i < lst.length; i++) possible.add(lst[i]);
+                possible = analyzeCommand(args, len);
                 iter = possible.iterator();
             } catch (AnalyzeCommandException e) {
                 logger.debug("Caught: ", e);
@@ -221,8 +232,9 @@ public class JBofh {
      * @param cmd the command-line arguments
      * @return the protocol command
      */    
-    Object []translateCommand(String cmd[]) {
+    Object []translateCommand(Vector cmd) {
         Object ret[] = new Object[2];
+        if(cmd.size() < 2) return null;
         for (Enumeration e = commands.keys() ; e.hasMoreElements() ;) {
             Object key = e.nextElement();
             Vector cmd_def = (Vector) commands.get(key);
@@ -231,10 +243,11 @@ public class JBofh {
                 continue;
             }
             Vector c = (Vector) cmd_def.get(0);
-            if(cmd[0].equals(c.get(0)) && cmd[1].equals(c.get(1))) {
+            if(((String) cmd.get(0)).equals(c.get(0)) && 
+               ((String) cmd.get(1)).equals(c.get(1))) {
                 ret[0] = key;
-                String t[] = new String[cmd.length - 2];
-                for(int i = 2; i < cmd.length; i++) t[i-2] = cmd[i];
+                Vector t = new Vector();                
+                for(int i = 2; i < cmd.size(); i++) t.add(cmd.get(i));
                 ret[1] = t;
                 return ret;
             }
@@ -244,22 +257,28 @@ public class JBofh {
             
     void enterLoop() {
         while(true) {
-            String args[] = cLine.getSplittedCommand();
-            if(args == null) break;
-            if(args.length == 0) continue;
-            if(args[0].equals("commands")) {  // Neat while debugging
+            Vector args;
+            try {
+                args = cLine.getSplittedCommand();
+            } catch (IOException io) {
+                break;
+            } catch (ParseException pe) {
+                System.out.println("Error parsing command: "+pe);
+                continue;
+            }
+            if(args.size() == 0) continue;
+            if(((String) args.get(0)).equals("commands")) {  // Neat while debugging
                 for (Enumeration e = commands.keys() ; e.hasMoreElements() ;) {
                     Object key = e.nextElement();
                     System.out.println(key+" -> "+ commands.get(key)); 
                 }
-            } else if(args[0].equals("help")) {
-                String v[] = new String[args.length-1];        
-                System.arraycopy(args, 0, v, 0, args.length-1);
-                System.out.println(bc.getHelp(v));
+            } else if(((String) args.get(0)).equals("help")) {
+		args.remove(0);
+                System.out.println(bc.getHelp(args));
             } else {
                 try {
-                    Object lst[] = bcompleter.analyzeCommand(args, -1);
-                    for(int i = 0; i < lst.length; i++) args[i] = (String) lst[i];
+                    Vector lst = bcompleter.analyzeCommand(args, -1);
+                    for(int i = 0; i < lst.size(); i++) args.set(i, lst.get(i));
                 } catch (AnalyzeCommandException e) {
                     System.out.println("Error translating command:"+e); continue;
                 }
@@ -269,27 +288,26 @@ public class JBofh {
                     System.out.println("Error translating command"); continue;
                 }
                 String protoCmd = (String) r[0];
-                Object protoArgs[] = (Object []) r[1];
+                Vector protoArgs = (Vector) r[1];
                 protoArgs = checkArgs(protoCmd, protoArgs);
-                Object resp = bc.sendCommand(protoCmd, (String [])protoArgs);
+                if(protoArgs == null) continue;
+                Object resp = bc.sendCommand(protoCmd, protoArgs);
                 if(resp != null) showResponse(protoCmd, resp);
             }
         }
         System.out.println("I'll be back");
     }
 
-    Object []checkArgs(String cmd, Object args[]) {
+    Vector checkArgs(String cmd, Vector args) {
         /*
         logger.debug("Tra: "+cmd+" -> ("+args.length +") "+args);
         for(int i = 0; i < args.length; i++)
             logger.debug(i+": "+args[i]); */
         String sample[] = {};
-        Vector ret = new Vector();
-        for(int i = 0; i < args.length; i++) 
-            ret.add(args[i]);        
+        Vector ret = (Vector) args.clone();
         Vector cmd_def = (Vector) commands.get(cmd);
         Vector pspec = (Vector) cmd_def.get(1);
-        for(int i = args.length; i < pspec.size(); i++) {
+        for(int i = args.size(); i < pspec.size(); i++) {
             logger.debug("ps: "+i+" -> "+pspec.get(i));
             /* TODO:  I'm not sure how to handle the diff between optional and default */
             Integer opt = (Integer) ((Hashtable)pspec.get(i)).get("optional");
@@ -298,16 +316,21 @@ public class JBofh {
                 break;
             ret.add(0, bc.sessid);
             ret.add(1, cmd);
-            String prompt = (String) bc.sendRawCommand("prompt_next_param", (String [])ret.toArray(sample));            
+            String prompt = (String) bc.sendRawCommand("prompt_next_param", ret);
             ret.remove(0);
             ret.remove(0);
-            ret.add(cLine.promptArg(prompt+" >", false));
+            try {
+                ret.add(cLine.promptArg(prompt+" >", false));
+            } catch (IOException io) {
+                return null;
+            }
         }
-        return ret.toArray(sample);
+        return ret;
     }
     
     void showResponse(String cmd, Object resp) {
-        String args[] = { cmd };
+        Vector args = new Vector();
+        args.add(cmd);
         Hashtable format = (Hashtable) knownFormats.get(cmd);
         if(format == null) {
             knownFormats.put(cmd, bc.sendRawCommand("get_format_suggestion", args));

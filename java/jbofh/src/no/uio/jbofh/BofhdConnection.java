@@ -37,35 +37,35 @@ public class BofhdConnection {
     }
     
     String login(String uname, String password) {
-        String cmd[] = {uname, password};
-        String sessid = (String) sendRawCommand("login", cmd);
+        Vector args = new Vector();
+        args.add(uname);
+        args.add(password);
+        String sessid = (String) sendRawCommand("login", args);
         logger.debug("Login ret: "+sessid);
         this.sessid = sessid;
         return sessid;
     }
     
     Hashtable getCommands() {
-        String args[] = {sessid};
+        Vector args = new Vector();
+        args.add(sessid);
         return (Hashtable) sendRawCommand("get_commands", args);
     }
     
-    String getHelp(String args[]) {
+    String getHelp(Vector args) {
         return (String) sendRawCommand("help", args);
     }
     
-    Object sendCommand(String cmd, String[] args) {
-        String v[] = new String[args.length+2];        
-        v[0] = sessid;
-        v[1] = cmd;
-        System.arraycopy(args, 0, v, 2, args.length);
-        return sendRawCommand("run_command", v);
+    Object sendCommand(String cmd, Vector args) {
+        args.add(0, sessid);
+        args.add(1, cmd);
+        return sendRawCommand("run_command", args);
     }
 
-    Object sendRawCommand(String cmd, String[] args) {
+    Object sendRawCommand(String cmd, Vector args) {
         try {
-            logger.debug("sendCommand("+cmd+", ");
-            for(int i = 0; i < args.length; i++) logger.debug(args[i]+", ");
-            return xmlrpc.execute(cmd, new Vector(Arrays.asList(args)));
+            logger.debug("sendCommand("+cmd+", "+args);
+            return xmlrpc.execute(cmd, args);
         } catch (XmlRpcException e) {
             logger.error("err:", e);
             System.out.println("Error: "+e.getMessage());
