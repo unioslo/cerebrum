@@ -9,8 +9,8 @@ from modules.no.uio.access_LT import LT
 from Cerebrum import Database,Errors
 from Utils import XMLHelper
 
-default_stedfile = "/u2/dumps/LT/sted.dat.2"
-default_personfile = "/u2/dumps/LT/person.dat.2"
+default_stedfile = "/cerebrum/dumps/LT/sted.xml"
+default_personfile = "/cerebrum/dumps/LT/person.xml"
 
 cereconf.DATABASE_DRIVER='Oracle'
 Cerebrum = Database.connect(user="ureg2000", service="LTKURS.uio.no")
@@ -19,7 +19,7 @@ xml = XMLHelper()
 
 def get_sted_info():
     f=open(default_stedfile, 'w')
-    f.write(xml_hdr + "<data>\n")
+    f.write(xml.xml_hdr + "<data>\n")
 
     cols, steder = LT.GetSteder();
     for s in steder:
@@ -44,7 +44,7 @@ def get_person_info():
         kate2hovedkat[t['univstkatkode']] = t['hovedkatkode']
 
     f=open(default_personfile, 'w')
-    f.write(xml_hdr + "<data>\n")
+    f.write(xml.xml_hdr + "<data>\n")
     tilscols, tils = LT.GetTilsettinger()
     persondta = {}
     for t in tils:
