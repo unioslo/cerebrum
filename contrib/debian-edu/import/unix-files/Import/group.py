@@ -189,7 +189,7 @@ class GroupImport(ImportBase):
                 if not self.group.has_member(self.account_member.entity_id,
                                              self.constants.entity_account,
                                              self.constants.group_memberop_union):
-                    self.group.add_member(account_member.entity_id,
+                    self.group.add_member(self.account_member.entity_id,
                                           self.constants.entity_account,
                                           self.constants.group_memberop_union)
     #           else:
