@@ -1,0 +1,41 @@
+# Process this with config.status to get Makefile
+
+prefix     = @prefix@
+sbindir    = @sbindir@
+bindir     = @bindir@
+
+AUTOCONF   = @AUTOCONF@
+
+srcdir       = .
+top_builddir = .
+
+all: Makefile
+install: Makefile
+	./setup.py install install_data --install-dir=$(prefix)
+dist: Makefile
+	./setup.py sdist
+
+bootstrap: all
+	$(MAKE) -C testsuite bootstrap 2>&1 | tee testsuite/log-bootstrap.out
+testrun: all
+	$(MAKE) -C testsuite testrun 2>&1   | tee testsuite/log-testrun.out
+
+check: all
+	PYTHONPATH=`pwd` python2.2 testsuite/Run.py  -v 2>&1 | \
+	  tee testsuite/log-check.out
+
+fullcheck: bootstrap check testrun
+
+clean:
+
+distclean: clean
+	-$(RM) config.log config.status Makefile
+
+Makefile: $(srcdir)/Makefile.in  $(top_builddir)/config.status
+	cd $(top_builddir) && CONFIG_FILES=$@ $(SHELL) ./config.status
+
+config.status: $(srcdir)/configure $(srcdir)/configure.ac
+	$(SHELL) ./config.status --recheck
+
+$(srcdir)/configure: $(srcdir)/configure.ac
+	cd $(srcdir) && $(AUTOCONF)
