@@ -93,7 +93,7 @@ def write_ldif():
             mail_spam.clear()
             mail_spam.find(t)
             print "spamLevel: %d" % mail_spam.get_spam_level()
-            print "spamAction: %d" % mail_spam.get_spam_action()
+            print "spamAction: %s" % mail_spam.get_spam_action()
         except Errors.NotFoundError:
             pass
 
@@ -102,8 +102,8 @@ def write_ldif():
             mail_virus.clear()
             mail_virus.find(t)
             if mail_virus.is_enabled():
-                print "virusFound: %d" % mail_virus.get_virus_found_act()
-                print "virusRemoved: %d" % mail_virus.get_virus_removed_act()
+                print "virusFound: %s" % mail_virus.get_virus_found_act()
+                print "virusRemoved: %s" % mail_virus.get_virus_removed_act()
         except Errors.NotFoundError:
             pass
 
