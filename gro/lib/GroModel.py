@@ -1,21 +1,6 @@
 import classes.Registry
 registry = classes.Registry.get_registry()
 
-from classes.Builder import Attribute, Builder, CorbaBuilder, Method
-registry.register_class(Attribute)
-registry.register_class(Builder)
-registry.register_class(CorbaBuilder)
-registry.register_class(Method)
-
-from classes.Searchable import Searchable
-registry.register_class(Searchable)
-
-from classes.CerebrumClass import CerebrumAttr, CerebrumClass, CerebrumEntityAttr, CerebrumTypeAttr
-registry.register_class(CerebrumAttr)
-registry.register_class(CerebrumClass)
-registry.register_class(CerebrumEntityAttr)
-registry.register_class(CerebrumTypeAttr)
-
 from classes.Types import *
 registry.register_class(AddressType)
 registry.register_class(AuthenticationType)
