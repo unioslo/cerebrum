@@ -60,6 +60,7 @@ import cerebrum_path
 import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
+from Cerebrum.modules import Email
 from Cerebrum.modules.no.uio.access_FS import FS
 from Cerebrum.modules.no.uio.fronter_lib import FronterUtils
 from Cerebrum import Logging
@@ -107,15 +108,29 @@ def prefetch_primaryusers():
     del fnr_source
 
 def fnrs2account_ids(rows, primary_only=True):
+    """Return list of primary accounts for the persons identified by
+    row(s).  Optionally return a tuple of (primaries, secondaries)
+    instead.  The secondary accounts are _not_ sorted according to
+    priority."""
     ret = []
     sec = []
     for r in rows:
         fnr = "%06d%05d" % (
             int(r['fodselsdato']), int(r['personnr']))
         if fnr2account_id.has_key(fnr):
-            ret.append(fnr2account_id[fnr][0])
+            prim_acc = fnr2account_id[fnr][0]
+            ret.append(prim_acc)
             if not primary_only:
-                sec += fnr2account_id[fnr][1:]
+                # Each account can be associated with more than one
+                # affiliation, and so occur more than once in the list.
+                # This is also true for the primary account name, but
+                # when we remove it from the dict after populating it
+                # with every account, we remove all occurences of it.
+                account = {}
+                for a in fnr2account_id[fnr]:
+                    account[a] = None
+                del account[prim_acc]
+                sec += account.keys()
     if primary_only:
         return ret
     else:
@@ -149,6 +164,8 @@ def process_kursdata():
     #
     logger.info("Oppdaterer enhets-supergrupper:")
     for kurs_id in AffiliatedGroups.keys():
+        if kurs_id == auto_supergroup:
+            continue
         rest = kurs_id.split(":")
         type = rest.pop(0).lower()
         if type == 'kurs':
@@ -197,6 +214,16 @@ def process_kursdata():
     # automatisk opprettet på bakgrunn av import fra FS.  Uten en slik
     # oversikt vil man ikke kunne foreta automatisk sletting av grupper
     # tilhørende "utgåtte" undervisningsenheter og -aktiviteter.
+
+    logger.info("Oppdaterer supergruppe for alle ekstra grupper")
+    sync_group(None, auto_supergroup,
+               "Ikke-eksporterbar gruppe.  Definerer hvilke andre "+
+               "automatisk opprettede grupper som refererer til "+
+               "grupper speilet fra FS.",
+               co.entity_group,
+               AffiliatedGroups[auto_supergroup])
+    logger.info(" ... done")
+
     logger.info("Oppdaterer supergruppe for alle emnekode-supergrupper")
     sync_group(None, fs_supergroup,
                "Ikke-eksporterbar gruppe.  Definerer hvilke andre grupper "+
@@ -364,13 +391,13 @@ def populate_enhet_groups(enhet_id):
             gmem = { gname: 1,
                      "%s-sek" % gname: 1 }
             netgr_navn = "g%s-0" % netgr_emne
-            sync_group(fs_supergroup, netgr_navn,
+            sync_group(auto_supergroup, netgr_navn,
                        "Ansvarlige %s %s %s%s" % (emnekode, termk, aar,
                                                   enhet_suffix),
                        co.entity_group, gmem, visible=True);
             # midlertidig, for å bli kvitt medlemmer som stammer fra
             # UREG-importen.
-            sync_group(fs_supergroup, netgr_navn,
+            sync_group(auto_supergroup, netgr_navn,
                        "Ansvarlige %s %s %s%s" % (emnekode, termk, aar,
                                                   enhet_suffix),
                        co.entity_account, empty, visible=True);
@@ -467,13 +494,13 @@ def populate_enhet_groups(enhet_id):
                 gmem = { "%s:%s" % (gname, aktkode) : 1,
                          "%s-sek:%s" % (gname, aktkode): 1 }
                 netgr_navn = "g%s-%s" % (netgr_emne, aktnavn)
-                sync_group(fs_supergroup, netgr_navn,
+                sync_group(auto_supergroup, netgr_navn,
                            "Ansvarlige %s-%s %s %s%s" % (emnekode, aktnavn,
                                                          termk, aar,
                                                          enhet_suffix),
                            co.entity_group, gmem, visible=True)
                 # midlertidig
-                sync_group(fs_supergroup, netgr_navn,
+                sync_group(auto_supergroup, netgr_navn,
                            "Ansvarlige %s-%s %s %s%s" % (emnekode, aktnavn,
                                                          termk, aar,
                                                          enhet_suffix),
@@ -508,13 +535,13 @@ def populate_enhet_groups(enhet_id):
                                 prefix = 'uio.no:fs:')
                 gmem = { gname: 1 }
                 netgr_navn = "s%s-%s" % (netgr_emne, aktnavn)
-                sync_group(fs_supergroup, netgr_navn,
+                sync_group(auto_supergroup, netgr_navn,
                            "Studenter %s-%s %s %s%s" % (emnekode, aktnavn,
                                                         termk, aar,
                                                         enhet_suffix),
                            co.entity_group, gmem, visible=True);
                 # midlertidig
-                sync_group(fs_supergroup, netgr_navn,
+                sync_group(auto_supergroup, netgr_navn,
                            "Studenter %s-%s %s %s%s" % (emnekode, aktnavn,
                                                         termk, aar,
                                                         enhet_suffix),
@@ -532,12 +559,12 @@ def populate_enhet_groups(enhet_id):
                        co.entity_account, alle_stud)
             gmem = { gname: 1 }
             netgr_navn = "s%s-e" % netgr_emne
-            sync_group(fs_supergroup, netgr_navn,
+            sync_group(auto_supergroup, netgr_navn,
                        "Studenter %s-e %s %s%s" % (emnekode, termk, aar,
                                                    enhet_suffix),
                        co.entity_group, gmem, visible=True);
             # midlertidig
-            sync_group(fs_supergroup, netgr_navn,
+            sync_group(auto_supergroup, netgr_navn,
                        "Studenter %s-e %s %s%s" % (emnekode, termk, aar,
                                                    enhet_suffix),
                        co.entity_account, empty, visible=True);
@@ -545,24 +572,24 @@ def populate_enhet_groups(enhet_id):
             alle_aktkoder[netgr_navn] = 1
             # alle studenter på kurset
             netgr_navn = "s%s" % netgr_emne
-            sync_group(fs_supergroup, netgr_navn,
+            sync_group(auto_supergroup, netgr_navn,
                        "Studenter %s %s %s%s" % (emnekode, termk, aar,
                                                  enhet_suffix),
                        co.entity_group, alle_aktkoder, visible=True);
             # midlertidig
-            sync_group(fs_supergroup, netgr_navn,
+            sync_group(auto_supergroup, netgr_navn,
                        "Studenter %s %s %s%s" % (emnekode, termk, aar,
                                                  enhet_suffix),
                        co.entity_account, empty, visible=True);
             add_spread_to_group(netgr_navn, co.spread_ifi_nis_ng)
             # alle gruppelærere og kursledelsen
             netgr_navn = "g%s" % netgr_emne
-            sync_group(fs_supergroup, netgr_navn,
+            sync_group(auto_supergroup, netgr_navn,
                        "Ansvarlige %s %s %s%s" % (emnekode, termk, aar,
                                                   enhet_suffix),
                        co.entity_group, alle_ansv, visible=True);
             # midlertidig
-            sync_group(fs_supergroup, netgr_navn,
+            sync_group(auto_supergroup, netgr_navn,
                        "Ansvarlige %s %s %s%s" % (emnekode, termk, aar,
                                                   enhet_suffix),
                        co.entity_account, empty, visible=True);
@@ -620,10 +647,10 @@ def populate_enhet_groups(enhet_id):
     logger.debug(" done")
 
 def populate_ifi_groups():
-    sync_group(fs_supergroup, "ifi-g", "Alle gruppelærere for Ifi-kurs",
+    sync_group(auto_supergroup, "ifi-g", "Alle gruppelærere for Ifi-kurs",
                co.entity_group, ifi_netgr_g, visible=True)
     add_spread_to_group("ifi-g", co.spread_ifi_nis_ng)
-    sync_group(fs_supergroup, "lkurs", "Alle laveregradskurs ved Ifi",
+    sync_group(auto_supergroup, "lkurs", "Alle laveregradskurs ved Ifi",
                co.entity_group, ifi_netgr_lkurs, visible=True)
     add_spread_to_group("lkurs", co.spread_ifi_nis_ng)
 
@@ -639,8 +666,9 @@ def sync_group(affil, gname, descr, mtype, memb, visible=False):
     if visible:
         # visibility implies that the group name should be used as is.
         correct_visib = co.group_visibility_all
-        if not affil == fs_supergroup:
-            raise ValueError, "all visible groups must be members of supergroup"
+        if not affil == auto_supergroup:
+            raise ValueError, ("All visible groups must be members of the "
+                               "supergroup for automatic groups")
     else:
         gname = mkgname(gname, 'uio.no:fs:')
         correct_visib = co.group_visibility_none
@@ -702,6 +730,25 @@ def destroy_group(gname, max_recurse):
     if max_recurse < 0:
         logger.fatal("destroy_group(%s): Recursion too deep" % gr.group_name)
         sys.exit(3)
+    # If a e-mail target is of type multi and has this group as its
+    # destination, delete the e-mail target and any associated
+    # addresses.  There can only be one target per group.
+    et = Email.EmailTarget(db)
+    try:
+        et.find_by_email_target_attrs(target_type = co.email_target_multi,
+                                      entity_id = gr.entity_id)
+    except Errors.NotFoundError:
+        pass
+    else:
+        logger.debug("found email target referencing %s" % gr.group_name)
+        ea = Email.EmailAddress(db)
+        for r in et.get_addresses():
+            ea.clear()
+            ea.find(r['address_id'])
+            logger.debug("deleting address %s@%s" %
+                         (r['local_part'], r['domain']))
+            ea.delete()
+        et.delete()
     # Fetch group's members
     u, i, d = gr.list_members(member_type=co.entity_group)
     logger.debug("destroy_group() subgroups: %r" % (u,))
@@ -751,7 +798,8 @@ def usage(exitcode=0):
 def main():
     global fs, db, co, logger, emne_versjon, emne_termnr, \
            account_id2fnr, fnr2account_id, AffiliatedGroups, \
-           known_FS_groups, fs_supergroup, group_creator, UndervEnhet, \
+           known_FS_groups, fs_supergroup, auto_supergroup, \
+           group_creator, UndervEnhet, \
            ifi_netgr_g, ifi_netgr_lkurs
 
     # Håndter upper- og lowercasing av strenger som inneholder norske
@@ -787,7 +835,11 @@ def main():
     ifi_netgr_g = {}
     ifi_netgr_lkurs = {}
 
+    # Inneholder tre av FS-grupper.
     fs_supergroup = "{supergroup}"
+    # Inneholder gruppene som refererer til FS-gruppene over.  Flat
+    # struktur.
+    auto_supergroup = "{autogroup}"
     group_creator = get_account(cereconf.INITIAL_ACCOUNTNAME).entity_id
     process_kursdata()
     logger.debug("commit...")
