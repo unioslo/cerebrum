@@ -1009,11 +1009,11 @@ WHERE institusjonsnr='%s'
         d = time.strftime("%Y-%m-%d", date)
         qry = """
 SELECT e.etterutdkurskode, e.kurstidsangivelsekode, e.etterutdkursnavn,
-       e.institusjonsnr_adm_ansvar, e.faknr_adm_ansvar, e.instituttnr_adm_ansvar,
-       e.gruppenr_adm_ansvar, TO_CHAR(e.dato_til,'YYYY-MM-DD') AS dato_til
+       e.institusjonsnr_adm_ansvar, e.faknr_adm_ansvar,
+       e.instituttnr_adm_ansvar, e.gruppenr_adm_ansvar,
+       TO_CHAR(e.dato_til,'YYYY-MM-DD') AS dato_til
 FROM fs.etterutdkurs e
-WHERE NVL(TO_DATE('%s', 'YYYY-MM-DD'), SYSDATE)
-        BETWEEN (e.dato_fra-14) AND (e.dato_til+14)
+WHERE NVL(TO_DATE('%s', 'YYYY-MM-DD'), SYSDATE) <  (e.dato_til+30)
         """ % d
         
         return (self._get_cols(qry), self.db.query(qry))
