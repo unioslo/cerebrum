@@ -18,6 +18,8 @@ class Account(Entity):
                             Attribute('creator_id', 'long'),
                             Attribute('expire_date', 'Date', writable=True)]
     methodSlots = [Method('get_authentications', 'AccountAuthentication')]
+
+    cerebrum_class = Cerebrum.Account.Account
     
     def _load_account(self):
         e = Cerebrum.Account.Account(db)

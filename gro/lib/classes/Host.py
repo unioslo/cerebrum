@@ -11,6 +11,8 @@ class Host(Entity):
     slots = Entity.slots + [Attribute('name', 'string', writable=True), 
                             Attribute('description', 'string', writable=True)]
 
+    cerebrum_class = Cerebrum.Disk.Host
+
     def _load_host(self):
         e = Cerebrum.Disk.Host(db)
         e.find(self.get_entity_id())

@@ -33,6 +33,8 @@ class Entity(Builder):
 #
 #        e.add_note(creator_id, subject, description)
 
+    cerebrum_class = Cerebrum.Entity.Entity
+
     def get_spreads(self):
         import Types
         e = Cerebrum.Entity.Entity(db)

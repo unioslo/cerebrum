@@ -19,6 +19,8 @@ class Person(Entity):
                             Attribute('gender', 'GenderType'),
                             Attribute('description', 'string')]
 
+    cerebrum_class = Cerebrum.Person.Person
+
     def load(self):
         import Types
 

@@ -17,6 +17,8 @@ class Group(Entity):
                             Attribute('expire_date', 'Date', writable=True)]
     methodSlots = Entity.methodSlots + [Method('get_members', 'MemberList')]
 
+    cerebrum_class = Cerebrum.Group.Group
+
     def _getByCerebrumGroup(cls, e):
         entity_id = int(e.entity_id)
         name = e.group_name

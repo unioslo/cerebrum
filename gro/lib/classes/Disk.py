@@ -11,6 +11,8 @@ class Disk(Entity):
                             Attribute('path', 'string', writable=True),
                             Attribute('description', 'string', writable=True)]
 
+    cerebrum_class = Cerebrum.Disk.Disk
+
     def _load_disk(self):
         import Host
         e = Cerebrum.Disk.Disk(db)
