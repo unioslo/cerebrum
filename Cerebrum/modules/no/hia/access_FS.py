@@ -56,6 +56,10 @@ WHERE p.fodselsdato=sa.fodselsdato AND
       """ % (institusjonsnr, self.is_alive())
         return (self._get_cols(qry),self.db.query(qry))
 
+# Datagrunnlaget hos HiA er ikke ryddet ferdig, derfor skal vi ikke bruke dette
+# søket foreløpig. Lar det stå i tilfelle siden vi kan få bruk for 
+# den i fremtiden.
+
     def GetOpptak(self):
 	"""Hent inn data om alle studenter med opptak til
 	et studieprogram ved HiA (studierett)."""
@@ -66,7 +70,8 @@ SELECT DISTINCT
       s.adrlin2_semadr, s.postnr_semadr, s.adrlin3_semadr, 
       s.adresseland_semadr, p.adrlin1_hjemsted,
       p.sprakkode_malform,st.studieprogramkode, 
-      st.studieretningkode, st.studierettstatkode
+      st.studieretningkode, st.studierettstatkode,
+      s.studentnr_tildelt
 FROM  fs.student s, fs.person p, fs.studierett st
 WHERE p.fodselsdato = s.fodselsdato AND
       p.personnr = s. personnr AND
@@ -81,7 +86,11 @@ WHERE p.fodselsdato = s.fodselsdato AND
 	""" Hent opplysninger om alle aktive studenter. En
 	aktiv student er definert som en student på et aktivt 
 	kull som i tillegg har en forekomst i tabellen 
-	fs.registerkort for inneværende semester."""
+	fs.registerkort for inneværende semester. For å få helt riktige 
+	data her burde man også sjekke at studierett er gyldig, men
+	det ser ut til at HiA da mister noe data. Etterhvert (når opprydingen
+	i FSHIA er gjort) bør man legge inn setningen
+	NVL(st.dato_gyldig_til,SYSDATE) >= sysdate i begge delene av søket."""
 	qry = """
 SELECT DISTINCT
       p.fodselsdato, p.personnr, p.etternavn, p.fornavn, 
@@ -91,13 +100,17 @@ SELECT DISTINCT
       p.adrlin2_hjemsted, p.postnr_hjemsted, 
       p.adrlin3_hjemsted, p.adresseland_hjemsted,
       nk.studieprogramkode, nk.studieretningkode, 
-      nk.kullkode, nk.klassekode
+      nk.kullkode, nk.klassekode, s.studentnr_tildelt
 FROM  fs.person p, fs.student s, fs.naverende_klasse nk, 
-      fs.studiekull sk, fs.registerkort r
+      fs.registerkort r, fs.studierett st
 WHERE p.fodselsdato = s.fodselsdato AND
       p.personnr = s.personnr AND
       p.fodselsdato = nk.fodselsdato AND
       p.personnr = nk.personnr AND
+      nk.fodselsdato = st.fodselsdato AND
+      nk.personnr = st.personnr AND
+      nk.studieprogramkode = st.studieprogramkode AND
+      st.studierettstatkode NOT IN ('PRIVATIST','EVU') AND
       %s AND
       p.fodselsdato = r.fodselsdato AND
       p.personnr = r.personnr AND
@@ -111,13 +124,17 @@ SELECT DISTINCT
       p.adrlin2_hjemsted, p.postnr_hjemsted, 
       p.adrlin3_hjemsted, p.adresseland_hjemsted,
       nk.studieprogramkode, nk.studieretningkode, 
-      nk.kullkode, nk.klassekode
+      nk.kullkode, nk.klassekode, s.studentnr_tildelt
 FROM  fs.person p, fs.student s, fs.naverende_klasse nk, 
-      fs.studiekull sk
+      fs.studiekull sk, fs.studierett st
 WHERE p.fodselsdato = s.fodselsdato AND
       p.personnr = s.personnr AND
       p.fodselsdato = nk.fodselsdato AND
       p.personnr = nk.personnr AND
+      nk.fodselsdato = st.fodselsdato AND
+      nk.personnr = st.personnr AND
+      nk.studieprogramkode = st.studieprogramkode AND
+      st.studierettstatkode NOT IN ('PRIVATIST','EVU') AND
       %s AND
       nk.kullkode = sk.kullkode AND
       nk.studieprogramkode = sk.studieprogramkode AND
@@ -133,7 +150,8 @@ SELECT DISTINCT
      s.adrlin2_semadr, s.postnr_semadr, s.adrlin3_semadr,
      s.adresseland_semadr, p.adrlin1_hjemsted,
      p.sprakkode_malform,st.studieprogramkode,
-     st.studieretningkode, st.status_privatist
+     st.studieretningkode, st.status_privatist, 
+     s.studentnr_tildelt
 FROM fs.student s, fs.person p, fs.studierett st
 WHERE p.fodselsdato = s.fodselsdato AND
       p.personnr = s. personnr AND
@@ -155,7 +173,8 @@ SELECT DISTINCT
       s.adresseland_semadr, p.adrlin1_hjemsted,
       p.adrlin2_hjemsted, p.postnr_hjemsted, 
       p.adrlin3_hjemsted, p.adresseland_hjemsted,
-      st.studieretningkode, st.studieprogramkode
+      s.studentnr_tildelt, st.studieretningkode, 
+      st.studieprogramkode
 FROM  fs.student s, fs.person p, fs.studierett st, fs.studieprogram sp
 WHERE p.fodselsdato = s.fodselsdato AND
       p.personnr = s. personnr AND
@@ -202,10 +221,18 @@ WHERE p.fodselsdato=d.fodselsdato AND
 	av rom i CF."""
         qry = """
 SELECT studieprogramkode, studieprognavn, studienivakode,
-       status_utdplan, institusjonsnr_studieansv,
-       faknr_studieansv, instituttnr_studieansv, gruppenr_studieansv, 
-FROM fs.studieprogram
-WHERE status_utgatt = 'N' """
+       status_utdplan, institusjonsnr_studieansv, 
+       faknr_studieansv, instituttnr_studieansv, gruppenr_studieansv,
+       status_utgatt
+FROM fs.studieprogram"""
+
+# Det er en del studenter på HiA som har opptak til inaktive studieprogrammer
+# derfor må vi fjerne dette kravet fram til det er ryddet opp i dette
+# Kravet burde settes inn permanent siden man bygger felles-rom for studieprogrammer
+# i CF på grunnlag av disse data (det er litt dumt å bygge flere enn nødvndig
+# Vi henter dog status_utgatt, det burde kunne brukes til å skille ut de programmene
+# man ikke skal ha rom for.
+# WHERE status_utgatt = 'N' """
         return (self._get_cols(qry), self.db.query(qry))
 
 
@@ -301,7 +328,6 @@ WHERE sp.faknr_studieansv = :faknr AND
       nk.kullkode = sk.kullkode AND
       sk.statusaktiv = 'J'"""
         return (self._get_cols(qry),self.db.query(qry))
-
 
     def AlternativtGetAlleStudStudprog(self, studprogkode):
 	"""Finn alle studenter på et studieprogram.
