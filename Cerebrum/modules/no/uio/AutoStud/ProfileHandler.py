@@ -113,9 +113,13 @@ class Profile(object):
         return self.matcher.settings.get("stedkode", [])
 
     def get_dfg(self):
-        if len(self.matcher.toplevel_settings.get('primarygroup', [])) > 0:
-            return self.matcher.toplevel_settings['primarygroup'][0]
-        return self.matcher.toplevel_settings['gruppe'][0]
+        for t in self.matcher.toplevel_settings.get('primarygroup', []):
+            if self.pc.group_defs[t]['is_posix']:
+                return t
+        for t in self.matcher.toplevel_settings['gruppe']:
+            if self.pc.group_defs[t]['is_posix']:
+                return t
+        raise ValueError, "No dfg is a PosixGroup"
 
     def get_grupper(self):
         return self.matcher.settings.get('gruppe', [])

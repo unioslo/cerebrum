@@ -24,6 +24,8 @@ translating it to an internal datastructure"""
 import xml.sax
 import pprint
 from Cerebrum.modules.no.uio.AutoStud.Util import LookupHelper
+from Cerebrum.modules import PosixGroup
+from Cerebrum import Errors
 
 class Config(object):
     def __init__(self, autostud, logger, cfg_file=None, debug=0):
@@ -53,9 +55,18 @@ class Config(object):
             p.expand_super(profilename2profile)
             p.settings["spread"] = self._sort_spreads(p.settings["spread"])
         # Change keys in group_defs from name to entity_id
+        pg = PosixGroup.PosixGroup(autostud.db)
         tmp = {}
         for k in self.group_defs.keys():
-            tmp[self.lookup_helper.get_group(k)] = self.group_defs[k]
+            id = self.lookup_helper.get_group(k)
+            t = self.group_defs[k]
+            try:
+                pg.clear()
+                pg.find(id)
+                t['is_posix'] = True
+            except Errors.NotFoundError:
+                t['is_posix'] = False
+            tmp[id] = t
         self.group_defs = tmp
             
 
