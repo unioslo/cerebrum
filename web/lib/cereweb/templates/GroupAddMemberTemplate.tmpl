@@ -14,15 +14,10 @@
     </select>
 #end def
 
-#def add_member_box($action, $member_types, $operations, $error_msg=None)
+#def add_member_box($action, $member_types, $operations)
 <div class="add_member">
 <form action="$action" method="POST">
     <h2>$_("Add Member")</h2>
-#if $error_msg
-    <div class="error">
-        $error_msg
-    </div>
-#end if
     <div id="add_member_name">
         <label for="name">$_("Name")</label>
         <input type="text" value="" name="name" />
