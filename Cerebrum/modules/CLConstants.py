@@ -116,6 +116,7 @@ class CLConstants(Constants.Constants):
     disk_del = _ChangeTypeCode('disk', 'del', "delete disk %(subject)s")
     host_add = _ChangeTypeCode('host', 'add', 'new host %(subject)s')
     host_mod = _ChangeTypeCode('host', 'mod', 'update host %(subject)s')
+    host_del = _ChangeTypeCode('host', 'del', 'del host %(subject)s')
     ou_create = _ChangeTypeCode('ou', 'create', 'created OU %(subject)s')
     ou_mod = _ChangeTypeCode('ou', 'mod', 'modified OU %(subject)s')
     ou_unset_parent = _ChangeTypeCode('ou', 'unset_parent',

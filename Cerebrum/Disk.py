@@ -274,3 +274,11 @@ class Host(Entity):
         WHERE name=:name""", {'name': name})
         self.find(entity_id)
 
+    def delete(self):
+        if self.__in_db:
+            self.execute("""
+            DELETE FROM [:table schema=cerebrum name=host_info]
+            WHERE host_id = :host_id""", {'host_id': self.entity_id})
+            self._db.log_change(self.entity_id, self.const.host_del, None,
+                                change_params={'old_name': self.name})
+        self.__super.delete()
