@@ -650,7 +650,7 @@ class PersonSAPMixin(Person.Person):
         VALUE is assumed to be a dictionary.
         """
 
-        if attribute not in self.__write_attr__:
+        if attribute not in PersonSAPMixin.__write_attr__:
             raise AttributeError, \
                   "Unknown attribute %s in %s" % (attribute,
                                                   self.__class__.__name__)
