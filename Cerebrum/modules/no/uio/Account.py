@@ -26,6 +26,7 @@ import cereconf
 from Cerebrum import Account
 from Cerebrum import Errors
 from Cerebrum.modules import Email
+from Cerebrum.modules import PasswordHistory
 from Cerebrum.modules.bofhd.utils import BofhdRequests
 from Cerebrum.Utils import pgp_encrypt
 
@@ -115,6 +116,11 @@ class AccountUiOMixin(Account.Account):
             raise ValueError, "Unexpected spread %s in set_home" % spread
         ret = self.__super.set_home(other_home_spread, disk_id=disk_id,
                                     home=home, status=status)        
+
+    def set_password(self, plaintext):
+        ph = PasswordHistory.PasswordHistory(self._db)
+        ph.add_history(self, plaintext)
+        return self.__super.set_password(plaintext)
 
     def _UiO_update_email_server(self, server_type):
         est = Email.EmailServerTarget(self._db)
