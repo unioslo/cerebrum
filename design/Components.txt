@@ -6,7 +6,7 @@ Core API
   STATUS: Started, but still incomplete and likely to change.
 	  During 2002-09 this API should be somewhat usable.
 
-  RESPONSIBILITY OF:
+  RESPONSIBILITY OF: HM, *
 
   API and utility functions for connecting to the Cerebrum database
   and performing operations on the core entities it models.
@@ -26,9 +26,9 @@ Core API
 POSIX users and groups
 ----------------------
   STATUS: Not started.
-	  Should be somewhat usable by the end of 2002-09.
+	  Should be somewhat usable by the end of 2002-10-10.
 
-  RESPONSIBILITY OF:
+  RESPONSIBILITY OF: SS, KTH, HM
 
   Extra database structures for specializing the core entities
   "Account" and "Group" into the corresponding POSIX terms, and API to
@@ -43,9 +43,9 @@ POSIX users and groups
 NIS export
 ----------
   STATUS: Not started.
-	  Should be usable by the end of 2002-10.
+	  Should be usable by the end of 2002-10-10.
 
-  RESPONSIBILITY OF:
+  RESPONSIBILITY OF: SS, KTH
 
   Database structures, API and scripts needed to define which POSIX
   users/groups should be exported to NIS, and to build the source for
@@ -56,16 +56,36 @@ NIS export
   FILES:
     design/mod_nis.sql
 
+User administration protocol
+----------------------------
+  STATUS: Started reviewing options.
+	  Should be operative by end of 2002-09.
+
+  RESPONSIBILITY OF: RF, HM
+
+  
+
+  CODE DEPENDENCIES: Python 2.2.1, protocol-specific library
+
+  FILES:
+
 User administration server
 --------------------------
   STATUS: Started working on design (what protocol should we use?).
 	  Should be operative by end of 2002-10.
 
-  RESPONSIBILITY OF:
+  RESPONSIBILITY OF: RF, HM
 
-  
+  All "live" Cerebrum access from outside of the Cerebrum installation
+  proper should be done through this server.
 
-  CODE DEPENDENCIES: Core API
+  Some of the (query) operations it supports should not require the
+  client to authenticate, e.g. "Does the password 'foo' satisfy the
+  current password quality criteria?"; other operations definitely
+  requires client authentication, e.g. "Change password of user 'bar'
+  to 'foo'".
+
+  CODE DEPENDENCIES: Core API, User administration protocol
 
   FILES:
 
@@ -74,11 +94,12 @@ User administration terminal client
   STATUS: Not started
           Should be operative by end of 2002-10.
 
-  RESPONSIBILITY OF:
+  RESPONSIBILITY OF: PR
 
-  
+  A text terminal client for requesting the operations offered by the
+  User administration server.
 
-  CODE DEPENDENCIES: User administration server
+  CODE DEPENDENCIES: User administration protocol
 
   FILES:
 
@@ -87,11 +108,12 @@ User administration web frontend
   STATUS: Not started
 	  Should offer web-based password change by end of 2002-11.
 
-  RESPONSIBILITY OF:
+  RESPONSIBILITY OF: KS? RM? Webgruppa?
 
-  
+  A web frontend for performing (at least some of) the operations
+  offered by the User administration server.
 
-  CODE DEPENDENCIES: User administration server
+  CODE DEPENDENCIES: User administration protocol
 
   FILES:
 
@@ -100,9 +122,10 @@ Import from SATS (specific to Norway)
   STATUS: Not started
 	  Should be operative by end of 2002-11.
 
-  RESPONSIBILITY OF:
+  RESPONSIBILITY OF: RF, HM
 
-  
+  Scripts (and possibly database structures/API) for importing person,
+  OU and grouping data from the pupil administration system SATS.
 
   CODE DEPENDENCIES: Core API
 
@@ -115,9 +138,15 @@ Email API
   STATUS: Not started
 	  Should be working by end of 2002-11.
 
-  RESPONSIBILITY OF:
+  RESPONSIBILITY OF: HM, KTH
 
-  
+  Database structures, API and scripts for allowing Cerebrum to build
+  email system tables (e.g. exportable as sendmail-style alias files).
+
+  Needs to define at least
+   * local mail domains,
+   * valid local addresses,
+   * local addresses to destinations mapping
 
   CODE DEPENDENCIES: Core API
 
@@ -128,9 +157,10 @@ Export to LMS "Itslearning"
   STATUS: Not started
 	  Should be working by end of 2002-11.
 
-  RESPONSIBILITY OF:
+  RESPONSIBILITY OF: PR
 
-  
+  Scripts and possibly database structures/API for exporting user and
+  group data to the LMS "Itslearning".
 
   CODE DEPENDENCIES: Email API
 
@@ -141,7 +171,7 @@ ChangeLog API
   STATUS: Not started
 	  Should be operative by end of 2002-11.
 
-  RESPONSIBILITY OF:
+  RESPONSIBILITY OF: SS
 
   
 
@@ -154,9 +184,11 @@ Export to Active Directory
   STATUS: Not started
 	  Should be operative by end of 2002-11.
 
-  RESPONSIBILITY OF:
+  RESPONSIBILITY OF: FV, RF
 
-  
+  Scripts, database structures and API for exporting OU, user and
+  group data to Active Directory.  This will very likely also include
+  some kind of service that must be installed at the AD server.
 
   CODE DEPENDENCIES: Email API
 
@@ -166,9 +198,11 @@ Import from FS (Specific to Norway)
 -----------------------------------
   STATUS: Not started
 
-  RESPONSIBILITY OF:
+  RESPONSIBILITY OF: HM, RF, BHMJ
 
-  
+  Scripts (and possibly database structures/API) for importing person
+  and grouping info from the Norwegian student administration system
+  FS.
 
   CODE DEPENDENCIES: Core API
 
@@ -178,9 +212,11 @@ Export to FS (Specific to Norway)
 ---------------------------------
   STATUS: Not started
 
-  RESPONSIBILITY OF:
+  RESPONSIBILITY OF: HM
 
-  
+  Scripts (and possibly database structures/API) for exporting person
+  info and email addresses to the Norwegian student administration
+  system FS.
 
   CODE DEPENDENCIES: Core API, maybe also Email API
 
@@ -192,7 +228,9 @@ Import from MSTAS (Specific to Norway)
 
   RESPONSIBILITY OF:
 
-  
+  Scripts (and possibly database structures/API) for importing person
+  and grouping info from the Norwegian student administration system
+  MSTAS.
 
   CODE DEPENDENCIES: Core API
 
@@ -204,7 +242,9 @@ Export to MSTAS (Specific to Norway)
 
   RESPONSIBILITY OF:
 
-  
+  Scripts (and possibly database structures/API) for exporting person
+  info and email addresses to the Norwegian student administration
+  system MSTAS.
 
   CODE DEPENDENCIES: Core API, maybe also Email API
 
@@ -216,7 +256,8 @@ Export to SATS (Specific to Norway)
 
   RESPONSIBILITY OF:
 
-  
+  Scripts (and possibly database structures/API) for exporting person
+  info to the Norwegian pupil administration system SATS.
 
   CODE DEPENDENCIES: Core API
 
@@ -226,11 +267,15 @@ Export to UA (Specific to uio.no)
 ---------------------------------
   STATUS: Not started
 
-  RESPONSIBILITY OF:
+  RESPONSIBILITY OF: HM
 
-  
+  Scripts (and possibly database structures/API) for exporting person
+  and group info to UA, the physical access system of the University
+  of Oslo.
 
   CODE DEPENDENCIES: Core API
+
+  DATA DEPENDENCIES: Import LT+FS
 
   FILES:
 
@@ -238,9 +283,10 @@ Import from LT (Specific to uio.no)
 -----------------------------------
   STATUS: Not started
 
-  RESPONSIBILITY OF:
+  RESPONSIBILITY OF: RF, HBF, HM, BHMJ
 
-  
+  Scripts for importing OU, person and grouping info from the
+  University of Oslo system LT.
 
   CODE DEPENDENCIES: Core API
 
@@ -250,9 +296,10 @@ Export to LT (Specific to uio.no)
 ---------------------------------
   STATUS: Not started
 
-  RESPONSIBILITY OF:
+  RESPONSIBILITY OF: RF, HM, BHMJ
 
-  
+  Scripts for exporting email addresses to the University of Oslo
+  system LT.
 
   CODE DEPENDENCIES: Core API
 
@@ -261,8 +308,10 @@ Export to LT (Specific to uio.no)
 Export of user and filegroup data to LDAP
 -----------------------------------------
   STATUS: Not started
+	  This might be needed for MacOS X authentication; if so, it's
+	  needed by the end of 2002-11.
 
-  RESPONSIBILITY OF:
+  RESPONSIBILITY OF: MM, HBF, HM
 
   
 
@@ -274,7 +323,7 @@ Export of OU and person data to LDAP
 ------------------------------------
   STATUS: Not started
 
-  RESPONSIBILITY OF:
+  RESPONSIBILITY OF: MM, HBF
 
   
 
@@ -286,7 +335,7 @@ Export of user data to Notes
 ----------------------------
   STATUS: Not started
 
-  RESPONSIBILITY OF:
+  RESPONSIBILITY OF: BHMJ, HF, FV
 
   
 
@@ -298,7 +347,7 @@ Export to LMS ClassFronter
 --------------------------
   STATUS: Not started
 
-  RESPONSIBILITY OF:
+  RESPONSIBILITY OF: HM
 
   
 
@@ -322,11 +371,11 @@ Printer quota API
 -----------------
   STATUS: Not started
 
-  RESPONSIBILITY OF:
+  RESPONSIBILITY OF: SS, PR
 
   
 
-  CODE DEPENDENCIES: Core API
+  CODE DEPENDENCIES: Core API, User administration protocol
 
   FILES:
 
@@ -348,7 +397,7 @@ Export to Samba
 
   RESPONSIBILITY OF:
 
-  
+  Export Samba password files.  Requested by the University of Tromsø.
 
   CODE DEPENDENCIES: Core API
 
