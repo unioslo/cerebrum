@@ -127,7 +127,7 @@ class Group(EntityName, Entity):
                           'name': self.group_name})
         else:
             cols = [('description', ':desc'),
-                    ('visibility', ':visib')
+                    ('visibility', ':visib'),
                     ('creator_id', ':creator_id')]
             if self.create_date is not None:
                 cols.append(('create_date', ':create_date'))
