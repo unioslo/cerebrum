@@ -761,6 +761,7 @@ def make_letters(data_file=None, type=None, range=None):
     account = Factory.get('Account')(db)
     dta = {}
     logger.debug("Making %i letters" % len(all_passwords))
+    any_letter = None
     for account_id in all_passwords.keys():
         try:
             account.clear()
@@ -796,15 +797,21 @@ def make_letters(data_file=None, type=None, range=None):
         tpl['emailadr'] =  "TODO"  # We probably don't need to support this...
         tpl['account_id'] = account_id
         dta[account_id] = tpl
-
-    # Print letters sorted by zip.  Each template type has its own
-    # letter number sequence
+        if any_letter is None:
+            any_letter = all_passwords[account_id][1]
+    # Print letters sorted by zip by default. Override with 'order_by' in 
+    # studconfig. order_by must have the same value in ALL letters.
+    # Each template type has its own letter number sequence
+    order_by = 'zip'
+    if any_letter is not None and any_letter.has_key('order_by'):
+        order_by = any_letter['order_by']
     keys = dta.keys()
-    keys.sort(lambda x,y: cmp(dta[x]['zip'], dta[y]['zip']))
+    keys.sort(lambda x,y: cmp(dta[x][order_by], dta[y][order_by]))
     letter_info = {}
     files = {}
     tpls = {}
     counters = {}
+    printers = {}
     for account_id in keys:
         if not dta[account_id]['zip'] or dta[account_id]['country']:
             # TODO: Improve this check, which is supposed to skip foreign addresses
@@ -819,6 +826,9 @@ def make_letters(data_file=None, type=None, range=None):
                 'no_NO/letter', brev_profil['mal'], brev_profil['type'])
             if tpls[letter_type]._hdr is not None:
                 files[letter_type].write(tpls[letter_type]._hdr)
+            printers[letter_type] = cereconf.PRINT_PRINTER
+            if brev_profil.has_key('printer'):
+                printers[letter_type] = brev_profil['printer']
             counters[letter_type] = 1
         if data_file is not None:
             dta[account_id]['lopenr'] = all_passwords[account_id][2]
@@ -848,7 +858,8 @@ def make_letters(data_file=None, type=None, range=None):
         files[letter_type].close()
         try:
             tpls[letter_type].spool_job(files[letter_type].name,
-                                        tpls[letter_type]._type, cereconf.PRINT_PRINTER,
+                                        tpls[letter_type]._type,
+                                        printers[letter_type],
                                         skip_lpr=skip_lpr)
             os.unlink(tpls[letter_type].logfile)
         except IOError, msg:
