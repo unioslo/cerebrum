@@ -20,6 +20,8 @@
 
 import sys
 import re
+import traceback
+import getopt
 
 from Cerebrum import Database
 from Cerebrum import Constants
@@ -30,14 +32,22 @@ from Cerebrum import cereconf
 from Cerebrum import Entity
 
 def main():
-    ignoreerror = False
+    opts, args = getopt.getopt(sys.argv[1:], 'd', ['debug'])
+
+    debug = 0
+    for opt, val in opts:
+        if opt in ('-d', '--debug'):
+            debug += 1
+
     global Cerebrum
-    Cerebrum = Database.connect()
-    if len(sys.argv) >= 2:
-        for f in sys.argv[1:]:
-            runfile(f, Cerebrum, ignoreerror)
+    Cerebrum = Database.connect(
+        user=cereconf.CEREBRUM_DATABASE_CONNECT_DATA['table_owner'])
+
+    if args:
+        for f in args:
+            runfile(f, Cerebrum, debug)
     else:
-        makedbs(Cerebrum, ignoreerror)
+        makedbs(Cerebrum, debug)
     makeInitialUsers()
 
 def makeInitialUsers():
@@ -64,20 +74,25 @@ def makeInitialUsers():
 
     Cerebrum.commit()
 
-def makedbs(Cerebrum, ignoreerror):
-    for f in ('drop_mod_stedkode.sql',
-              'drop_mod_nis.sql',
-              'drop_mod_posix_user.sql',
-              'drop_core_tables.sql',
-              'core_tables.sql',
-              'mod_posix_user.sql',
-              'mod_nis.sql',
-              'core_data.sql',
-              'mod_stedkode.sql'
-              ):
-        runfile("design/%s" % f, Cerebrum, ignoreerror)
+def makedbs(Cerebrum, debug):
+    files = ['drop_mod_stedkode.sql',
+             'drop_mod_nis.sql',
+             'drop_mod_posix_user.sql',
+             'drop_core_tables.sql',
+             'core_tables.sql',
+             'mod_posix_user.sql',
+             'mod_nis.sql',
+             'core_data.sql',
+             'mod_stedkode.sql'
+             ]
+    if isinstance(Cerebrum, Database.Oracle):
+        files.extend(['drop_oracle_grants.sql', 'oracle_grants.sql'])
 
-def runfile(fname, Cerebrum, ignoreerror):
+    for f in files:
+        runfile("design/%s" % f, Cerebrum, debug)
+
+
+def runfile(fname, Cerebrum, debug):
     print "Reading file: <%s>" % fname
     f = file(fname)
     text = "".join(f.readlines())
@@ -86,21 +101,30 @@ def runfile(fname, Cerebrum, ignoreerror):
     line_comment = re.compile(r"--.*")
     text = re.sub(line_comment, "", text)
     text = re.sub(r"\s+", " ", text)
-    for ddl in text.split(";"):
-        ddl = ddl.strip()
-        if not ddl:
+    for stmt in text.split(";"):
+        stmt = stmt.strip()
+        if not stmt:
             continue
         try:
-            res = Cerebrum.execute(ddl)
-            if ignoreerror:
-                Cerebrum.commit()
-        except:
-            print "  CMD: [%s] -> " % ddl
-            print "    database error:", sys.exc_info()[1]
-        else:
-            print "  ret: "+str(res)
-    if not ignoreerror:
-        Cerebrum.commit()
+            try:
+                Cerebrum.execute(stmt)
+                status = "."
+            except Cerebrum.DatabaseError:
+                print "\n  ERROR: [%s]" % stmt
+                status = "E"
+                if debug:
+                    print "  Database error: ",
+                    if debug >= 2:
+                        # Re-raise error, causing us to (at least)
+                        # break out of this for loop.
+                        raise
+                    else:
+                        traceback.print_exc(file=sys.stdout)
+        finally:
+            sys.stdout.write(status)
+            sys.stdout.flush()
+            Cerebrum.commit()
+    print
 
 if __name__ == '__main__':
     main()
