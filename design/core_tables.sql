@@ -1477,7 +1477,7 @@ CREATE TABLE group_member
 		NOT NULL,
   member_id	NUMERIC(12,0),
   CONSTRAINT group_member_pk
-    PRIMARY KEY (group_id, operation, member_id),
+    PRIMARY KEY (group_id, member_id),
   CONSTRAINT group_member_exists
     FOREIGN KEY (member_type, member_id)
     REFERENCES entity_info(entity_type, entity_id),

@@ -29,6 +29,12 @@ from Cerebrum import Utils
 from Cerebrum import Errors
 from Cerebrum.Entity import Entity, EntityName
 
+try:
+    import sets
+except ImportError:
+# pre 2.3, we'll import the module from our copy
+    from Cerebrum.extlib import sets
+
 class Group(EntityName, Entity):
 
     __read_attr__ = ('__in_db',)
@@ -381,10 +387,15 @@ class Group(EntityName, Entity):
         FROM [:table schema=cerebrum name=group_info] %s""" % where,
                           {'etype': int(self.const.entity_group)})
 
-# Python 2.3 has a 'set' module in the standard library; for now we'll
-# roll our own.
+# Python 2.3 has a 'set' module in the standard library; 
+# we imported sets from extlib if we're before 2.3. 
 def intersect(a, b):
-    return [x for x in a if x in b]
+    a = sets.Set(a)
+    b = sets.Set(b)
+    return a.intersection(b)
 
 def difference(a, b):
-    return [x for x in a if x not in b]
+    a = sets.Set(a)
+    b = sets.Set(b)
+    return a.difference(b)
+
