@@ -86,7 +86,8 @@ INSERT INTO fs.fagperson
    status_aktiv)
 VALUES
   (:fnr, :pnr, :adr1, :adr2, :postnr, :adr3, :tlf, :arbsted,
-   :institusjonsnr, :fakultetnr, :instiuttnr, :gruppenr)""", {
+   :institusjonsnr, :fakultetnr, :instiuttnr, :gruppenr, :tittel, :fax,
+   :status)""", {
             'fnr': fnr, 'pnr': pnr,
             'adr1': adr1, 'adr2': adr2, 'postnr': postnr, 'adr3': adr3,
             'tlf': tlf, 'arbsted': arbsted,
@@ -1553,7 +1554,7 @@ WHERE utdp.fodselsdato = :fnr AND
 SELECT DISTINCT
   institusjonsnr, faknr, instituttnr, gruppenr, stedakronym, stednavn_bokmal,
   faknr_org_under, instituttnr_org_under, gruppenr_org_under,
-  adrlin1, adrlin2, postnr, telefonnr, faxnr,
+  adrlin1, adrlin2, postnr, adrlin3, stedkortnavn, telefonnr, faxnr,
   adrlin1_besok, adrlin2_besok, postnr_besok, url,
   bibsysbeststedkode
 FROM fs.sted
