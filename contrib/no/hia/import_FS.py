@@ -190,6 +190,9 @@ def process_person_callback(person_info):
 	      # in cerebrum
               if studieprog2sko[row['studieprogramkode']] is not None:
                   aktiv_sted.append(int(studieprog2sko[row['studieprogramkode']]))
+		  _process_affiliation(co.affiliation_student,
+				       co.affiliation_status_student_aktiv, affiliations,
+				       studieprog2sko[row['studieprogramkode']])
 	elif dta_type in ('evu',):
 	  for row in x:
 	        _process_affiliation(co.affiliation_student,
