@@ -43,6 +43,7 @@ default_studieprogramfile = "/cerebrum/dumps/FS/studieprogrammer.xml"
 group_name = "FS-aktivt-samtykke"
 group_desc = "Internal group for students which will be shown online."
 
+
 studieprog2sko = {}
 ou_cache = {}
 gen_groups = False
@@ -50,28 +51,11 @@ gen_groups = False
 """Importerer personer fra FS iht. fs_import.txt."""
 
 def _add_res(entity_id):
-    group = Group.Group(db)
-    try:
-        group.find_by_name(group_name)
-    except Errors.NotFoundError:
-        group.clear()
-        ac = Account.Account(db)
-        ac.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
-        group.populate(ac.entity_id, co.group_visibility_internal,
-                       group_name, group_desc)
-        group.write_db()
-
     if not group.has_member(entity_id, co.entity_person, co.group_memberop_union):
         group.add_member(entity_id, co.entity_person, co.group_memberop_union)
         group.write_db()
 
 def _rem_res(entity_id):
-    group = Group.Group(db)
-    try:
-        group.find_by_name(group_name)
-    except Errors.NotFoundError:
-        return
-
     if group.has_member(entity_id, co.entity_person, co.group_memberop_union):
         group.remove_member(entity_id, co.group_memberop_union)
 
@@ -282,7 +266,7 @@ def process_person_callback(person_info):
 
 
 def main():
-    global verbose, ou, db, co, logger, fnr2person_id, gen_groups
+    global verbose, ou, db, co, logger, fnr2person_id, gen_groups, group
     verbose = 0
     opts, args = getopt.getopt(sys.argv[1:], 'vp:s:g', ['verbose', 'person-file=',
                                                        'studieprogram-file=',
@@ -308,6 +292,16 @@ def main():
     db.cl_init(change_program='import_FS')
     ou = Factory.get('OU')(db)
     co = Factory.get('Constants')(db)
+    group = Group.Group(db)
+    try:
+	group.find_by_name(group_name)
+    except Errors.NotFoundError:
+	group.clear()
+	ac = Account.Account(db)
+	ac.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
+	group.populate(ac.entity_id, co.group_visibility_internal,
+                       group_name, group_desc)
+	group.write_db()
     if getattr(cereconf, "ENABLE_MKTIME_WORKAROUND", 0) == 1:
         logger.warn("Warning: ENABLE_MKTIME_WORKAROUND is set")
 
