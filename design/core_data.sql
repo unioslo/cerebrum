@@ -1,11 +1,11 @@
 INSERT INTO entity_type_code (code, code_str, description) VALUES
-  (code_seq.nextval, 'o', 'Organizational Unit - see table "cerebrum.ou_info" and friends.');
+  (2001, 'o', 'Organizational Unit - see table "cerebrum.ou_info" and friends.');
 INSERT INTO entity_type_code (code, code_str, description) VALUES
-  (code_seq.nextval, 'p', 'Person - see table "cerebrum.person_info" and friends.');
+  (2002, 'p', 'Person - see table "cerebrum.person_info" and friends.');
 INSERT INTO entity_type_code (code, code_str, description) VALUES
-  (code_seq.nextval, 'a', 'User Account - see table "cerebrum.account_info" and friends.');
+  (2003, 'a', 'User Account - see table "cerebrum.account_info" and friends.');
 INSERT INTO entity_type_code (code, code_str, description) VALUES
-  (code_seq.nextval, 'g', 'Group - see table "cerebrum.group_info" and friends.');
+  (2004, 'g', 'Group - see table "cerebrum.group_info" and friends.');
 
 INSERT INTO contact_info_code (code, code_str, description) VALUES
   (code_seq.nextval, 'PHONE', 'Phone');
@@ -52,5 +52,7 @@ INSERT INTO authoritative_system_code (code, code_str, description) VALUES
 
 INSERT INTO ou_perspective_code (code, code_str, description) VALUES
   (code_seq.nextval, 'LT', 'LT');
+INSERT INTO ou_perspective_code (code, code_str, description) VALUES
+  (code_seq.nextval, 'FS', 'FS');
 
 commit;
