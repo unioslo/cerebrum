@@ -221,10 +221,10 @@ class BofhdExtension(object):
     def group_info(self, operator, groupname):
         # TODO: Group visibility should probably be checked against
         # operator for a number of commands
-        is_posix = 0
+        is_posix = False
         try:
             grp = self._get_group(groupname, grtype="PosixGroup")
-            is_posix = 1
+            is_posix = True
         except CerebrumError:
             grp = self._get_group(groupname)
         ret = {'entity_id': grp.entity_id,
@@ -752,7 +752,7 @@ class BofhdExtension(object):
         pq = self._get_printerquota(account.entity_id)
         if pq is None:
             return "User has no quota"
-        pq.has_printerquota = 0
+        pq.has_printerquota = False
         pq.write_db()
         return "OK"
 
@@ -925,12 +925,12 @@ class BofhdExtension(object):
         self.ba.can_add_affiliation(operator.get_entity_id(), person, ou, aff, aff_status)
 
         # Assert that the person already have the affiliation
-        has_aff = 0
+        has_aff = False
         for a in person.get_affiliations():
             if a['ou_id'] == ou.entity_id and a['affiliation'] == aff:
                 if a['status'] <> aff_status:
                     raise CerebrumError, "Person has conflicting aff_status for this ou/affiliation combination"
-                has_aff = 1
+                has_aff = True
                 break
         if not has_aff:
             person.add_affiliation(ou.entity_id, aff,
@@ -974,10 +974,10 @@ class BofhdExtension(object):
           is returned to the server, typically when user selects from
           a list."""
         all_args = list(args[:])
-        if(len(all_args) == 0):
+        if not all_args:
             return {'prompt': "Enter bdate, fnr or idtype"}
         arg = all_args.pop(0)
-        if(len(all_args) == 0):
+        if not all_args:
             person = self.person
             person.clear()
             if arg.isdigit() and len(arg) > 10:  # finn personer fra fnr
@@ -1001,17 +1001,17 @@ class BofhdExtension(object):
                     int(c[i]['person_id'])))
             return {'prompt': "Velg person fra listen", 'map': map}
         person_id = all_args.pop(0)
-        if(len(all_args) == 0):
+        if not all_args:
             return {'prompt': "Default filgruppe"}
         filgruppe = all_args.pop(0)
-        if(len(all_args) == 0):
+        if not all_args:
             return {'prompt': "Shell", 'default': 'bash'}
         shell = all_args.pop(0)
-        if(len(all_args) == 0):
+        if not all_args:
             return {'prompt': "Disk", 'help_ref': 'disk'}
         disk = all_args.pop(0)
-        if(len(all_args) == 0):
-            ret = {'prompt': "Brukernavn", 'last_arg': 1}
+        if not all_args:
+            ret = {'prompt': "Brukernavn", 'last_arg': True}
             posix_user = PosixUser.PosixUser(self.db)
             try:
                 person = self._get_person("entity_id", person_id)
@@ -1019,7 +1019,7 @@ class BofhdExtension(object):
                 full = person.get_name(self.const.system_cached, self.const.name_full)
                 fname, lname = full.split(" ", 1)
                 sugg = posix_user.suggest_unames(self.const.account_namespace, fname, lname)
-                if len(sugg) > 0:
+                if sugg:
                     ret['default'] = sugg[0]
             except ValueError:
                 pass    # Failed to generate a default username
@@ -1103,10 +1103,10 @@ class BofhdExtension(object):
                              ("uid: %i\ndfg: %i\ngecos: %s\nshell: %s",
                               ('uid', 'dfg', 'gecos', 'shell'))]))
     def user_info(self, operator, accountname):
-        is_posix = 0
+        is_posix = False
         try: 
             account = self._get_account(accountname, actype="PosixUser")
-            is_posix = 1
+            is_posix = True
         except CerebrumError:
             account = self._get_account(accountname)
         affiliations = []
@@ -1166,15 +1166,15 @@ class BofhdExtension(object):
   2 List brukernavn/passord til skjerm
   """
         all_args = list(args[:])
-        if(len(all_args) == 0):
+        if not all_args:
             return {'prompt': "Velg#",
                     'map': [(("Alternativer",), None),
                             (("Skriv ut passordark",), "skriv"),
                             (("List brukernavn/passord til skjerm",), "skjerm")]}
         arg = all_args.pop(0)
         if(arg == "skjerm"):
-            return {'last_arg': 1}
-        if(len(all_args) == 0):
+            return {'last_arg': True}
+        if not all_args:
             map = [(("Alternativer",), None)]
             n = 1
             for t in self._map_template():
@@ -1185,10 +1185,10 @@ class BofhdExtension(object):
         arg = all_args.pop(0)
         tpl_lang, tpl_name, tpl_type = self._map_template(arg)
         if not tpl_lang.endswith("-letter"):
-            if(len(all_args) == 0):
+            if not all_args:
                 return {'prompt': 'Oppgi skrivernavn'}
             skriver = all_args.pop(0)
-        if(len(all_args) == 0):
+        if not all_args:
             n = 1
             map = [(("%8s %s", "uname", "operation"), None)]
             for row in self._get_cached_passwords(session):
@@ -1196,8 +1196,8 @@ class BofhdExtension(object):
                 n += 1
             if n == 1:
                 raise CerebrumError, "no users"
-            return {'prompt': 'Velg bruker(e)', 'last_arg': 1,
-                    'map': map, 'raw': 1,
+            return {'prompt': 'Velg bruker(e)', 'last_arg': True,
+                    'map': map, 'raw': True,
                     'help_ref': 'print_select_range'}
 
     all_commands['user_list_passwords'] = Command(
@@ -1236,45 +1236,45 @@ class BofhdExtension(object):
     def user_move_prompt_func(self, session, *args):
         all_args = list(args[:])
         print all_args
-        if(len(all_args) == 0):
+        if not all_args:
             mt = MoveType()
             return mt.get_struct(self)
         mtype = all_args.pop(0)
-        if(len(all_args) == 0):
+        if not all_args:
             an = AccountName()
             return an.get_struct(self)
         ac_name = all_args.pop(0)
         if mtype in ("immediate", "batch", "nofile"):
-            if(len(all_args) == 0):
+            if not all_args:
                 di = DiskId()
                 r = di.get_struct(self)
-                r['last_arg'] = 1
+                r['last_arg'] = True
                 return r
-            return {'last_arg': 1}
+            return {'last_arg': True}
         elif mtype in ("student", "student_immediate", "confirm", "cancel"):
-            return {'last_arg': 1}
+            return {'last_arg': True}
         elif mtype in ("request",):
-            if(len(all_args) == 0):
+            if not all_args:
                 di = DiskId()
                 return di.get_struct(self)
             disk = all_args.pop(0)
-            if(len(all_args) == 0):
+            if not all_args:
                 ss = SimpleString(help_ref="string_why")
                 r = ss.get_struct(self)
-                r['last_arg'] = 1
+                r['last_arg'] = True
                 return r
-            return {'last_arg': 1}
+            return {'last_arg': True}
         elif mtype in ("give",):
-            if(len(all_args) == 0):
+            if not all_args:
                 who = GroupName()
                 return who.get_struct(self)
             who = all_args.pop(0)
-            if(len(all_args) == 0):
+            if not all_args:
                 ss = SimpleString(help_ref="string_why")
                 r = ss.get_struct(self)
-                r['last_arg'] = 1
+                r['last_arg'] = True
                 return r
-            return {'last_arg': 1}
+            return {'last_arg': True}
         raise CerebrumError, "Bad user_move command (%s)" % mtype
         
     all_commands['user_move'] = Command(
@@ -1318,7 +1318,7 @@ class BofhdExtension(object):
             elif move_type == "confirm":
                 r = br.get_requests(entity_id=account.entity_id,
                                     operation=self.const.bofh_move_request)
-                if len(r) < 1:
+                if not r:
                     raise CerebrumError, "No matching request found"
                 br.delete_request(account.entity_id,
                                   operation=self.const.bofh_move_request)
