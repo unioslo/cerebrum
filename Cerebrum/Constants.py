@@ -359,8 +359,25 @@ class _EntityExternalIdCode(_CerebrumCode):
 
     def __init__(self, code, entity_type=None, description=None):
         if entity_type is not None:
+            if not isinstance(entity_type, _EntityTypeCode):
+                entity_type = _EntityTypeCode(entity_type)
             self.entity_type = entity_type
         super(_EntityExternalIdCode, self).__init__(code, description)
+
+    def __int__(self):
+        super(_EntityExternalIdCode, self).__int__()
+        # Casting a CerebrumCode object to int is the de facto way of
+        # forcing a database lookup.  Make sure we also initialise
+        # entity_type from the database, if needed.
+        if not hasattr(self, 'entity_type'):
+            self.entity_type = _EntityTypeCode(self.sql.query_1(
+                """
+                SELECT entity_type
+                FROM %(table)s
+                WHERE %(code_col)s = :code
+                """ % { 'table': self._lookup_table,
+                        'code_col': self._lookup_code_column},
+                {'code': int(self)}))
 
     def insert(self):
         self.sql.execute("""
@@ -376,15 +393,6 @@ class _EntityExternalIdCode(_CerebrumCode):
                          {'entity_type': int(self.entity_type),
                           'str': self.str,
                           'desc': self._desc})
-
-    def entity_type(self):
-        return _EntityTypeCode(self.sql.query_1("""
-        SELECT entity_type
-        FROM %(table)s
-        WHERE %(code_col)s = :code""" % {
-            'table': self._lookup_table,
-            'code_col': self._lookup_code_column},
-                                                {'code': int(self)}))
 
 
 class _PersonNameCode(_CerebrumCode):
