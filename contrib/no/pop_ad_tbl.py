@@ -26,17 +26,11 @@ import re
 # TODO: Should probably avoid "import *" here.
 from socket import *
 
+import cerebrum_path
 import cereconf
-from Cerebrum import Constants
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import ADObject
-from Cerebrum import OU
-from Cerebrum import Person
-from Cerebrum import Account
-from Cerebrum import Group
-from Cerebrum import Entity
-#from Cerebrum import Entity.EntityName
 from Cerebrum.modules import ADAccount
 
 
@@ -44,12 +38,7 @@ Cerebrum = Factory.get('Database')()
 co = Factory.get('Constants')(Cerebrum)
 ad_object = ADObject.ADObject(Cerebrum)
 ad_account = ADAccount.ADAccount(Cerebrum)
-entity = Entity.Entity(Cerebrum)
-entityname = Entity.EntityName(Cerebrum)
-ou = OU.OU(Cerebrum)
-person = Person.Person(Cerebrum)
-group = Group.Group(Cerebrum)
-account = Account.Account(Cerebrum)
+account = Factory.get('Account')(Cerebrum)
 
 #Legge info inn i adtabellene.
 #Først accounts.

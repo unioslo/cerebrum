@@ -1,6 +1,24 @@
 #!/usr/bin/env python2.2
 # -*- coding: iso-8859-1 -*-
 
+# Copyright 2003 University of Oslo, Norway
+#
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
 import getopt
 import sys
 import os
@@ -15,7 +33,6 @@ from Cerebrum import Errors
 from Cerebrum.modules import Email
 from Cerebrum.modules import PosixUser
 from Cerebrum.modules import PosixGroup
-from Cerebrum import Disk
 from Cerebrum import Constants
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.bofhd.utils import BofhdRequests
@@ -88,7 +105,7 @@ def get_home(acc):
     if acc.home:
         return acc.home
     elif acc.disk_id is not None:
-        disk = Disk.Disk(db)
+        disk = Factory.get('Disk')(db)
         disk.find(acc.disk_id)
         return "%s/%s" % (disk.path, acc.account_name)
     else:
@@ -554,10 +571,10 @@ def move_user(uname, uid, gid, old_host, old_disk, new_host, new_disk, spread,
     return 0
 
 def get_disk(disk_id):
-    disk = Disk.Disk(db)
+    disk = Factory.get('Disk')(db)
     disk.clear()
     disk.find(disk_id)
-    host = Disk.Host(db)
+    host = Factory.get('Host')(db)
     host.clear()
     host.find(disk.host_id)
     return host.name, disk.path
@@ -581,7 +598,7 @@ def get_account(account_id, type='Account'):
 
 def get_group(id, grtype="Group"):
     if grtype == "Group":
-        group = Group.Group(db)
+        group = Factory.get('Group')(db)
     elif grtype == "PosixGroup":
         group = PosixGroup.PosixGroup(db)
     group.clear()

@@ -1,7 +1,7 @@
 #!/usr/bin/env python2.2
 # -*- coding: iso-8859-1 -*-
 #
-# Copyright 2002, 2003 University of Oslo, Norway
+# Copyright 2003 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -26,25 +26,17 @@ import re
 import cerebrum_path
 import cereconf
 import nwutils
-from Cerebrum import Constants
 from Cerebrum import Errors
-from Cerebrum import OU
-from Cerebrum import Account
-from Cerebrum import Group
 from Cerebrum import Entity
 from Cerebrum.Utils import Factory
-# from Cerebrum.modules import ADAccount
-# from Cerebrum.modules import ADObject
 
 
 db = Factory.get('Database')()
 co = Factory.get('Constants')(db)
-# ad_object = ADObject.ADObject(db)
-# ad_account = ADAccount.ADAccount(db)
-ou = OU.OU(db)
+ou = Factory.get('OU')(db)
 ent_name = Entity.EntityName(db)
-group = Group.Group(db)
-account = Account.Account(db)
+group = Factory.get('Group')(db)
+account = Factory.get('Account')(db)
 
 delete_users = 1
 delete_groups = 0

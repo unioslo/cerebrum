@@ -1,4 +1,5 @@
 #!/usr/bin/env python2.2
+# -*- coding: iso-8859-1 -*-
 
 # Copyright 2002, 2003 University of Oslo, Norway
 #
@@ -14,27 +15,28 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 # General Public License for more details.
 #
+# You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import time, re, string, sys, getopt, base64
+import time
+import re
+import string
+import sys
+import getopt
+import base64
+from string import maketrans
+
 import cerebrum_path
 import cereconf  
-from Cerebrum import OU
-from Cerebrum import Person
 from Cerebrum import Errors
-from Cerebrum import Account
-from Cerebrum import Group
-from Cerebrum import Disk
 from Cerebrum import Entity
-from string import maketrans
-from Cerebrum.Utils import Factory, latin1_to_iso646_60,SimilarSizeWriter
+from Cerebrum.Utils import Factory, latin1_to_iso646_60, SimilarSizeWriter
 from Cerebrum.modules.no import Stedkode
 from Cerebrum.modules import PosixUser
 from Cerebrum.modules import PosixGroup
 from Cerebrum import QuarantineHandler
 from Cerebrum.Constants import _SpreadCode
-#from Cerebrum.modules.no.uio import Constants
 
 Cerebrum = Factory.get('Database')()
 co = Factory.get('Constants')(Cerebrum)
@@ -50,7 +52,7 @@ normalize_trans = maketrans(
 
 
 def load_code_tables():
-    person = Person.Person(Cerebrum)
+    person = Factory.get('Person')(Cerebrum)
     affili_codes = person.list_person_affiliation_codes()
     for aff in affili_codes:
         affiliation_code[int(Cerebrum.pythonify_data(aff['code']))] = Cerebrum.pythonify_data(aff['code_str'])
@@ -87,7 +89,7 @@ def init_ldap_dump(ou_org,filename=None):
 	init_str += "dc: %s\n" % dc
     for des in cereconf.LDAP_BASE_DESCRIPTION:
 	init_str += "description: %s\n" % des
-    ou = OU.OU(Cerebrum)
+    ou = Factory.get('OU')(Cerebrum)
     ou.find(ou_org)
     ou_fax = None
     ou_faxs = ''
@@ -191,7 +193,7 @@ def init_ldap_dump(ou_org,filename=None):
     f.close()	
 
 def root_OU():
-    ou = OU.OU(Cerebrum)
+    ou = Factory.get('OU')(Cerebrum)
     root_id=ou.root()
     if len(root_id) > 1:
 	text1 = "You have %d roots in your organization-tree. Cerebrum only support 1.\n" % (len(root_id))
@@ -213,7 +215,7 @@ Set LDAP_ORG_ROOT_AUTO='Disable' and LDAP_ORG_ROOT to the correct ou_id number!"
 	return(root_org)
 
 def generate_org(ou_id,filename=None):
-    ou = OU.OU(Cerebrum)
+    ou = Factory.get('OU')(Cerebrum)
     ou_list = ou.get_structure_mappings(co.perspective_lt)
     ou_string = "%s=%s,%s" % (cereconf.LDAP_ORG_ATTR,cereconf.LDAP_ORG_DN, cereconf.LDAP_BASE)
     trav_list(ou_id, ou_list, ou_string, filename)
@@ -234,7 +236,7 @@ def generate_org(ou_id,filename=None):
 			str_ou = print_OU(non_org, par_ou, stedkodestr, filename)
     
 def print_OU(id, par_ou, stedkodestr,par, filename=None):
-    ou = OU.OU(Cerebrum)
+    ou = Factory.get('OU')(Cerebrum)
     ou.clear()
     ou.find(id)
     str_ou = []
@@ -386,8 +388,8 @@ def trav_list(par, ou_list, par_ou,filename=None):
 		    trav_list(c,ou_list,par_ou,filename)
 
 def generate_person(filename=None):
-    person = Person.Person(Cerebrum)
-    group = Group.Group(Cerebrum)
+    person = Factory.get('Person')(Cerebrum)
+    group = Factory.get('Group')(Cerebrum)
     if filename:
 	f = file(filename, 'a')
     else:
@@ -560,7 +562,7 @@ def generate_person(filename=None):
     f.close()
 
 def generate_alias(filename=None):
-    person = Person.Person(Cerebrum)
+    person = Factory.get('Person')(Cerebrum)
     dn_string = "%s=%s,%s" % (cereconf.LDAP_ORG_ATTR,cereconf.LDAP_PERSON_DN,cereconf.LDAP_BASE)
     if filename:
 	f = file(filename,'a')
@@ -592,7 +594,7 @@ def generate_users(spread=None,filename=None):
     prev_userid = 0
     posix_user = PosixUser.PosixUser(Cerebrum)
     posix_group = PosixGroup.PosixGroup(Cerebrum)
-    disk = Disk.Disk(Cerebrum)
+    disk = Factory.get('Disk')(Cerebrum)
     spreads = []
     if spread:
 	#for entry in spread:
@@ -673,7 +675,7 @@ def generate_posixgroup():
 
 def generate_group(spread=None, filename=None):
     posix_group = PosixGroup.PosixGroup(Cerebrum)
-    group = Group.Group(Cerebrum)
+    group = Factory.get('Group')(Cerebrum)
     pos_usr = PosixUser.PosixUser(Cerebrum)
     user_spread = int(getattr(co,cereconf.LDAP_USER_SPREAD[0]))
     if filename:
@@ -718,7 +720,7 @@ def generate_group(spread=None, filename=None):
 
 
 def generate_netgroup(spread=None, filename=None):
-    pos_netgrp = Group.Group(Cerebrum) 
+    pos_netgrp = Factory.get('Group')(Cerebrum) 
     posix_user = PosixUser.PosixUser(Cerebrum)
     if filename:
         f = file(filename, 'w')

@@ -19,17 +19,13 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import cerebrum_path
-
 import pprint
 import sys
 import os
 
+import cerebrum_path
 import cereconf
 from Cerebrum import Errors
-from Cerebrum import Account
-from Cerebrum import Group
-from Cerebrum import Disk
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import PosixUser
 from Cerebrum.modules import PosixGroup
@@ -41,7 +37,7 @@ pp = pprint.PrettyPrinter(indent=4)
 Cerebrum = Factory.get('Database')()
 Cerebrum.cl_init(change_program='import_SATS.py')
 co = Factory.get('Constants')(Cerebrum)
-account = Account.Account(Cerebrum)
+account = Factory.get('Account')(Cerebrum)
 account.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
 
 school2ouid = {}
@@ -583,7 +579,7 @@ def update_person(p, spec, type, affiliations, groupnames):
     """Create or update the persons name, address and contact info.
 
     """
-    person = Person.Person(Cerebrum)
+    person = Factory.get('Person')(Cerebrum)
     gender = co.gender_female
     if p[spec['sex']] == '1':
         gender = co.gender_male
@@ -662,7 +658,7 @@ def update_person(p, spec, type, affiliations, groupnames):
             person.add_affiliation(school2ouid[a], co.affiliation_employee,  # TODO: new const
                                    source_system, co.affiliation_status_employee_valid)
     for g in groupnames:
-        group = Group.Group(Cerebrum)
+        group = Factory.get('Group')(Cerebrum)
         try:
             group.find_by_name(g)
         except Errors.NotFoundError:
@@ -712,8 +708,8 @@ def import_OU(import_spec):
 
 def bootstrap_disks(disks):
     global user_disks, default_creator_id
-    host = Disk.Host(Cerebrum)
-    disk = Disk.Disk(Cerebrum)
+    host = Factory.get('Host')(Cerebrum)
+    disk = Factory.get('Disk')(Cerebrum)
     for hostname, diskname in disks:
         try:
             host.clear()

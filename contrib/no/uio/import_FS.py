@@ -19,8 +19,6 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import cerebrum_path
-
 import re
 import os
 import sys
@@ -28,11 +26,9 @@ import getopt
 
 import xml.sax
 
-from Cerebrum import Errors
-from Cerebrum import Person
-from Cerebrum import Group
-from Cerebrum import Account
+import cerebrum_path
 import cereconf
+from Cerebrum import Errors
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no.uio.AutoStud import StudentInfo
@@ -211,7 +207,7 @@ def process_person_callback(person_info):
     # another source-system, some mecanism is needed to determine the
     # superior setting.
     
-    new_person = Person.Person(db)
+    new_person = Factory.get('Person')(db)
     if fnr2person_id.has_key(fnr):
         new_person.find(fnr2person_id[fnr])
 
@@ -297,12 +293,12 @@ def main():
     db.cl_init(change_program='import_FS')
     ou = Factory.get('OU')(db)
     co = Factory.get('Constants')(db)
-    group = Group.Group(db)
+    group = Factory.get('Group')(db)
     try:
 	group.find_by_name(group_name)
     except Errors.NotFoundError:
 	group.clear()
-	ac = Account.Account(db)
+	ac = Factory.get('Account')(db)
 	ac.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
 	group.populate(ac.entity_id, co.group_visibility_internal,
                        group_name, group_desc)
@@ -316,7 +312,7 @@ def main():
                      'gruppenr_studieansv')
 
     # create fnr2person_id mapping, always using fnr from FS when set
-    person = Person.Person(db)
+    person = Factory.get('Person')(db)
     fnr2person_id = {}
     for p in person.list_external_ids(id_type=co.externalid_fodselsnr):
         if co.system_fs == p['source_system']:

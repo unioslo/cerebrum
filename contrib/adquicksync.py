@@ -1,7 +1,7 @@
 #!/usr/bin/env python2.2
 # -*- coding: iso-8859-1 -*-
 #
-# Copyright 2002, 2003 University of Oslo, Norway
+# Copyright 2003 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -27,10 +27,7 @@ import cerebrum_path
 import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-from Cerebrum import OU
 from Cerebrum import Entity
-from Cerebrum import Account
-from Cerebrum import Group
 from Cerebrum.modules import CLHandler
 import adutils
 
@@ -39,9 +36,9 @@ co = Factory.get('Constants')(db)
 clco = Factory.get('CLConstants')(db)
 entity = Entity.Entity(db)
 entityname = Entity.EntityName(db)
-ou = OU.OU(db)
-group = Group.Group(db)
-account = Account.Account(db)
+ou = Factory.get('OU')(db)
+group = Factory.get('Group')(db)
+account = Factory.get('Account')(db)
 cl = CLHandler.CLHandler(db)
 
 delete_users = 0

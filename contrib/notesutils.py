@@ -1,7 +1,7 @@
 #!/usr/bin/env python2.2
 # -*- coding: iso-8859-1 -*-
 #
-# Copyright 2002, 2003 University of Oslo, Norway
+# Copyright 2003 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -27,20 +27,17 @@ import string
 import cerebrum_path
 import cereconf
 from Cerebrum.Utils import Factory
-from Cerebrum import Account
 from Cerebrum import Errors
-from Cerebrum import Person
-from Cerebrum import OU
 from Cerebrum import Entity
 from Cerebrum import QuarantineHandler
 
 
 db = Factory.get('Database')()
 co = Factory.get('Constants')(db)
-account = Account.Account(db)
-person = Person.Person(db)
+account = Factory.get('Account')(db)
+person = Factory.get('Person')(db)
 quarantine = Entity.EntityQuarantine(db)
-ou = OU.OU(db)
+ou = Factory.get('OU')(db)
 
 class SocketCom(object):
     """Class for Basic socket communication to connect to the ADserver"""

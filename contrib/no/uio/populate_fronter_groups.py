@@ -1,34 +1,47 @@
 #!/usr/bin/env python2.2
 # -*- coding: iso-8859-1 -*-
 
-import cerebrum_path
+# Copyright 2003 University of Oslo, Norway
+#
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 import sys
 import getopt
 import re
 
+import cerebrum_path
 import cereconf
 from Cerebrum import Database
 from Cerebrum import Errors
-from Cerebrum import Account
-from Cerebrum import Person
-from Cerebrum import Group
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no.uio.access_FS import FS
 from Cerebrum.modules.no.uio.fronter_lib import FronterUtils
-
 from Cerebrum.extlib import logging
 
 def prefetch_primaryusers():
     # TBD: This code is used to get account_id for both students and
     # fagansv.  Should we look at affiliation here?
-    account = Account.Account(db)
+    account = Factory.get('Account')(db)
     personid2accountid = {}
     for a in account.list_accounts_by_type():
         # TODO: Also look at account_type.priority
         personid2accountid[int(a['person_id'])] = int(a['account_id'])
 
-    person = Person.Person(db)
+    person = Factory.get('Person')(db)
     for row in person.list_external_ids(
         source_system=co.system_fs, id_type=co.externalid_fodselsnr):
         if personid2accountid.has_key(int(row['person_id'])):
@@ -406,7 +419,7 @@ def sync_group(affil, gname, descr, mtype, memb):
                     (not known_FS_groups.has_key(member))):
                     destroy_group(member, 2)
     except Errors.NotFoundError:
-        group = Group.Group(db)
+        group = Factory.get('Group')(db)
         group.clear()
         group.populate(group_creator, correct_visib, gname, description=descr)
         group.write_db()
@@ -422,12 +435,12 @@ def destroy_group(gname, max_recurse):
     gr.delete()
 
 def get_group(name):
-    gr = Group.Group(db)
+    gr = Factory.get('Group')(db)
     gr.find_by_name(name)
     return gr
 
 def get_account(name):
-    ac = Account.Account(db)
+    ac = Factory.get('Account')(db)
     ac.find_by_name(name)
     return ac
 

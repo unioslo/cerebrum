@@ -27,8 +27,6 @@ import base64
 
 import cerebrum_path
 from Cerebrum import Errors
-from Cerebrum import Account
-from Cerebrum import Group
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import Email
 
@@ -69,7 +67,7 @@ def get_quota(t):
 def create_inboxes():
     """Loop through list initialised by read_targ() and emit instructions
     for Cyrus on stdout."""
-    acc = Account.Account(Cerebrum)
+    acc = Factory.get('Account')(Cerebrum)
     
     for t in targets:
         mail_targ.clear()

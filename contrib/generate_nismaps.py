@@ -20,17 +20,15 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 import time
-
 import getopt
 import sys
 import os
+
 import cerebrum_path
 from Cerebrum import Errors
 from Cerebrum import Utils
 from Cerebrum.modules import PosixUser
 from Cerebrum.modules import PosixGroup
-from Cerebrum import Group
-from Cerebrum import Disk
 from Cerebrum.Entity import EntityName
 from Cerebrum import QuarantineHandler
 from Cerebrum.Constants import _SpreadCode
@@ -70,7 +68,7 @@ def generate_passwd(filename, spread=None):
     f.set_size_change_limit(5)
     n = 0
     diskid2path = {}
-    disk = Disk.Disk(db)
+    disk = Factory.get('Disk')(db)
     static_posix_user = PosixUser.PosixUser(db)
     for d in disk.list():
         diskid2path[int(d['disk_id'])] = d['path']
@@ -162,7 +160,7 @@ def generate_netgroup(filename, group_spread, user_spread):
     # TODO: It may be desireable to merge this method with
     # generate_group, currently separate as a number of things differ
     # and limited available time.
-    group = Group.Group(db)
+    group = Factory.get('Group')(db)
     gid2gname = {}
     en = EntityName(db)
     for row in en.list_names(int(co.account_namespace)):

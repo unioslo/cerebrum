@@ -19,23 +19,19 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import cerebrum_path
-
 import re
 import os
 import sys
 import getopt
 
+import xml.sax
+
+import cerebrum_path
 import cereconf
 from Cerebrum import Errors
-from Cerebrum import Person
-from Cerebrum import Account
-from Cerebrum import Group
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.uio import AutoStud
-
-import xml.sax
 
 group_name = "LT-elektroniske-reservasjoner"
 group_desc = "Internal group for people from LT which will not be shown online"
@@ -329,18 +325,18 @@ def main():
     db = Factory.get('Database')()
     db.cl_init(change_program='import_LT')
     const = Factory.get('Constants')(db)
-    group = Group.Group(db)
+    group = Factory.get('Group')(db)
     try:
 	group.find_by_name(group_name)
     except Errors.NotFoundError:
 	group.clear()
-        ac = Account.Account(db)
+        ac = Factory.get('Account')(db)
         ac.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
         group.populate(ac.entity_id, const.group_visibility_internal,
                        group_name, group_desc)
         group.write_db()	
     ou = Factory.get('OU')(db)
-    new_person = Person.Person(db)
+    new_person = Factory.get('Person')(db)
     if include_del:
 	cere_list = load_all_affi_entry()
     LTDataParser(personfile, process_person)

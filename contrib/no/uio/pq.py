@@ -1,7 +1,24 @@
 #!/usr/bin/env python2.2
 # -*- coding: iso-8859-1 -*-
-# Id: 
+
+# Copyright 2003 University of Oslo, Norway
 #
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
 # This is a python port of the PRISS pq daemon.
 #
 #   This daemon is the backend for the PRISS Quota system. It listens
@@ -21,8 +38,6 @@ import cerebrum_path
 
 from Cerebrum import Errors
 from Cerebrum.modules.no.uio import PrinterQuotas
-# from Cerebrum import Entity
-from Cerebrum import Account
 from Cerebrum.Utils import Factory
 
 # 2NN answers, meaning last command was a success.
@@ -62,7 +77,7 @@ class RequestHandler(SocketServer.StreamRequestHandler):
         else:
             # Get information based on username
             try:
-                account = Account.Account(db)
+                account = Factory.get('Account')(db)
                 account.clear()
                 account.find_by_name(cmd[1])
             except Errors.NotFoundError:
