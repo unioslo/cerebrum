@@ -55,6 +55,27 @@ def _rem_res(entity_id):
     if group.has_member(entity_id, co.entity_person, co.group_memberop_union):
         group.remove_member(entity_id, co.group_memberop_union)
 
+def _get_sted_address(a_dict, k_institusjon, k_fak, k_inst, k_gruppe):
+    ou_id = _get_sko(a_dict, k_fak, k_inst, k_gruppe,
+                     kinstitusjon=k_institusjon)
+    if not ou_id:
+        return None
+    ou_id = int(ou_id)
+    if not ou_adr_cache.has_key(ou_id):
+        ou = Factory.get('OU')(db)
+        ou.find(ou_id)
+        rows = ou.get_entity_address(source=co.system_lt, type=co.address_street)
+        if rows:
+            ou_adr_cache[ou_id] = {
+                'address_text': rows[0]['address_text'],
+                'postal_number': rows[0]['postal_number'],
+                'city': rows[0]['city']
+                }
+        else:
+            ou_adr_cache[ou_id] = None
+            logger.warn("No address for %i" % ou_id)
+    return ou_adr_cache[ou_id]
+
 def _get_sko(a_dict, kfak, kinst, kgr, kinstitusjon=None):
     key = "-".join((a_dict[kfak], a_dict[kinst], a_dict[kgr]))
     if not ou_cache.has_key(key):
@@ -92,6 +113,52 @@ def _ext_address_info(a_dict, kline1, kline2, kline3, kpost, kland):
         return None
     return ret
 
+def _calc_address(person_info):
+    """Evaluerer personens adresser iht. til flereadresser_spek.txt og
+    returnerer en tuple (address_post, address_post_private,
+    address_street)"""
+
+    # FS.PERSON     *_hjemsted (1)
+    # FS.STUDENT    *_semadr (2)
+    # FS.FAGPERSON  *_arbeide (3)
+    # FS.DELTAKER   *_job (4)
+    # FS.DELTAKER   *_hjem (5) 
+    rules = [
+        ('aktiv', ('_semadr', '_hjemsted', None)),
+        ('evu', ('_job', '_hjem', None)),
+        ('tilbud', ('None', '_hjemsted', None)),
+        ('privatist_studieprogram', ('_semadr', '_hjemsted', None)),
+        ]
+    adr_map = {
+        '_arbeide': ('adrlin1_arbeide', 'adrlin2_arbeide', 'adrlin3_arbeide',
+                     'postnr_arbeide', 'adresseland_arbeide'),
+        '_hjemsted': ('adrlin1_hjemsted', 'adrlin2_hjemsted',
+                      'adrlin3_hjemsted', 'postnr_hjemsted',
+                      'adresseland_hjemsted'),
+        '_semadr': ('adrlin1_semadr', 'adrlin2_semadr', 'adrlin3_semadr',
+                    'postnr_semadr', 'adresseland_semadr'),
+        '_job': ('adrlin1_job', 'adrlin2_job', 'adrlin3_job', 'postnr_job',
+                 'adresseland_job'),
+        '_hjem': ('adrlin1_hjem', 'adrlin2_hjem', 'adrlin3_hjem',
+                  'postnr_hjem', 'adresseland_hjem'),
+        '_besok_adr': ('institusjonsnr', 'faknr', 'instituttnr', 'gruppenr')
+        }
+
+    ret = [None, None, None]
+    for key, addr_src in rules:
+        if not person_info.has_key(key):
+            continue
+        tmp = person_info[key][0].copy()
+        for i in range(len(addr_src)):
+            addr_cols = adr_map.get(addr_src[i], None)
+            if (ret[i] is not None) or not addr_cols:
+                continue
+            if len(addr_cols) == 4:
+                ret[i] = _get_sted_address(tmp, *addr_cols)
+            else:
+                ret[i] = _ext_address_info(tmp, *addr_cols)
+    return ret
+
 def _load_cere_aff():
     fs_aff = {}
     person = Person.Person(db) # ?!?
@@ -113,7 +180,7 @@ def process_person_callback(person_info):
     """Called when we have fetched all data on a person from the xml
     file.  Updates/inserts name, address and affiliation
     information."""
-    
+    global no_name
     try:
         fnr = fodselsnr.personnr_ok("%06d%05d" % (int(person_info['fodselsdato']),
                                                   int(person_info['personnr'])))
@@ -226,6 +293,7 @@ def process_person_callback(person_info):
             
     if etternavn is None:
         logger.warn("Ikke noe navn på %s" % fnr)
+	no_name += 1 
         return
 
     # TODO: If the person already exist and has conflicting data from
@@ -253,8 +321,13 @@ def process_person_callback(person_info):
                                       co.externalid_fodselsnr)
     new_person.populate_external_id(co.system_fs, co.externalid_fodselsnr, fnr)
 
-    if address_info is not None:
-        new_person.populate_address(co.system_fs, co.address_post, **address_info)
+    ad_post, ad_post_private, ad_street = _calc_address(person_info)
+    for address_info, ad_const in ((ad_post, co.address_post),
+                                   (ad_post_private, co.address_post_private),
+                                   (ad_street, co.address_street)):
+        # TBD: Skal vi slette evt. eksisterende adresse v/None?
+        if address_info is not None:
+            new_person.populate_address(co.system_fs, ad_const, **address_info)
     # if this is a new Person, there is no entity_id assigned to it
     # until written to the database.
     op = new_person.write_db()

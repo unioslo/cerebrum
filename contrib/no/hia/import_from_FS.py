@@ -54,21 +54,25 @@ def write_hia_person_info(outfile):
     f.write(xml.xml_hdr + "<data>\n")
 
     #Aktive ordinære studenter ved HiA
-    cols, hiaaktiv = fs.GetAktive()
-    for a in hiaaktiv:
+    cols, hiastudent = fs.GetAktive()
+    for a in hiastudent:
 	fix_float(a)
         f.write(xml.xmlify_dbrow(a,xml.conv_colnames(cols),'aktiv') + "\n")
+    # Eksamensmeldinger
+    cols, hiastudent = fs.GetAlleEksamensmeldinger()
+    for s in hiastudent:
+        f.write(xml.xmlify_dbrow(s, xml.conv_colnames(cols), 'eksamen') + "\n")
     #Privatister ved HiA
-    cols, hiaprivatist = fs.GetPrivatist()
-    for p in hiaprivatist:
+    cols, hiastudent = fs.GetPrivatist()
+    for p in hiastudent:
 	f.write(xml.xmlify_dbrow(p,xml.conv_colnames(cols),'privatist_studieprogram') + "\n")
     #Personer som har tilbud om opptak ved HiA
-    cols, hiatilbud = fs.GetTilbud(cereconf.DEFAULT_INSTITUSJONSNR)
-    for t in hiatilbud:
+    cols, hiastudent = fs.GetTilbud(cereconf.DEFAULT_INSTITUSJONSNR)
+    for t in hiastudent:
         f.write(xml.xmlify_dbrow(t,xml.conv_colnames(cols),'tilbud') + "\n")
     #EVU-studenter ved HiA
-    cols, hiaevu = fs.GetDeltaker()
-    for e in hiaevu:
+    cols, hiastudent = fs.GetDeltaker()
+    for e in hiastudent:
         f.write(xml.xmlify_dbrow(e,xml.conv_colnames(cols),'evu') + "\n")
 
     f.write("</data>\n")
