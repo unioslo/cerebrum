@@ -909,7 +909,7 @@ class BofhdExtension(object):
             affiliations.append("%s/%s@%s" % (
                 self.num2const[int(row['affiliation'])],
                 self.num2const[int(row['status'])],
-                ou.short_name))
+                self._format_ou_name(ou)))
         return {'name': person.get_name(self.const.system_cached,
                                         getattr(self.const, cereconf.DEFAULT_GECOS_NAME)),
                 'affiliations': ", ".join(affiliations),
@@ -979,9 +979,9 @@ class BofhdExtension(object):
             ret.append({'uname': ac2.account_name,
                         'priority': row['priority'],
                         'affiliation': '%s@%s' % (
-                self.num2const[int(row['affiliation'])], ou.short_name)})
+                self.num2const[int(row['affiliation'])], self._format_ou_name(ou))})
             ## This seems to trigger a wierd python bug:
-            ## self.num2const[int(row['affiliation'], ou.short_name)])})
+            ## self.num2const[int(row['affiliation'], self._format_ou_name(ou))])})
         return ret
     #
     # printer commands
@@ -1186,12 +1186,16 @@ class BofhdExtension(object):
                 has_aff = True
                 break
         if not has_aff:
+            if (aff == self.const.affiliation_ansatt or
+                aff == self.const.affiliation_student):
+                raise PermissionDenied(
+                    "Student/Ansatt affiliation can only be set by FS/LT")
             person.add_affiliation(ou.entity_id, aff,
                                    self.const.system_manual, aff_status)
             person.write_db()
         account.set_account_type(ou.entity_id, aff)
         account.write_db()
-        return "OK, added %s@%s to %s" % (aff, ou.short_name, account.owner_id)
+        return "OK, added %s@%s to %s" % (aff, self._format_ou_name(ou), account.owner_id)
     
     # user affiliation_remove
     all_commands['user_affiliation_remove'] = Command(
@@ -1423,7 +1427,7 @@ class BofhdExtension(object):
         for row in account.get_account_types():
             ou = self._get_ou(ou_id=row['ou_id'])
             affiliations.append("%s@%s" % (self.num2const[int(row['affiliation'])],
-                                           ou.short_name))
+                                           self._format_ou_name(ou)))
         ret = {'entity_id': account.entity_id,
                'spread': ",".join(["%s" % self.num2const[int(a['spread'])]
                                    for a in account.get_spread()]),
@@ -1846,6 +1850,10 @@ class BofhdExtension(object):
             return self.const.posix_shell_bash
         return int(self.str2const[shell])
     
+    def _format_ou_name(self, ou):
+        return "%s (%02i%02i%02i)" % (ou.short_name, ou.fakultet,
+                                      ou.institutt, ou.avdeling)
+
     def _get_ou(self, ou_id=None, stedkode=None):
         ou = self.OU_class(self.db)
         ou.clear()
