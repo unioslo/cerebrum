@@ -77,8 +77,6 @@ def container_entry_string(tree_name, attrs = {}):
     attrs = dict(cereconf2utf('LDAP_CONTAINER_ATTRS'))
     attrs.update(attrs)
     attrs.update(cereconf2utf('LDAP_%s_ATTRS' % tree_name, {}))
-    if 'top' not in attrs['objectClass']:
-        attrs['objectClass'] = ('top',) + tuple(attrs['objectClass'])
     return entry_string(get_tree_dn(tree_name), attrs)
 
 
