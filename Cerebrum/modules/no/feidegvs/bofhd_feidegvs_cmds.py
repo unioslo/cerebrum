@@ -1746,7 +1746,7 @@ class BofhdExtension(object):
                    in [int(self.const.system_fs), int(self.const.system_lt)]:
                 person.delete_affiliation(ou.entity_id, aff,
                                           row['source_system'])
-        return "OK, removed %s@%s from %s" % (aff, ou), person.entity_id)
+        return "OK, removed %s@%s from %s" % (aff, ou, person.entity_id)
 
     # person find
     all_commands['person_find'] = Command(
