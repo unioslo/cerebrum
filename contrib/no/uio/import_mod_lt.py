@@ -26,6 +26,7 @@ import types
 import xml
 import xml.sax
 import getopt
+import time
 
 import cerebrum_path
 import cereconf
@@ -156,7 +157,7 @@ def has_reservation(pxml, **attributes):
 
     return False
 # end has_reservation
-  
+
 
 
 def get_reservation(pxml, person):
@@ -197,8 +198,23 @@ def get_reservation(pxml, person):
     reserved = True
     not_reserved = False
     unknown = None
+    now = time.strftime("%Y%m%d")
 
-    if person.get_tilsetting():
+    # We take the most restrictive version first (it matters for people who
+    # are both guests and employees
+    if person.get_gjest(now):
+        # guests are different
+        if has_reservation(pxml,
+                           katalogkode="ELKAT",
+                           felttypekode="GJESTEOPPL",
+                           resnivakode="SAMTYKKE"):
+            logger.info("%s has a guest permit (NO res)", person.entity_id)
+            return not_reserved
+        else:
+            logger.info("%s is a guest and is reserved", person.entity_id)
+            return reserved
+        # fi
+    elif person.get_tilsetting(now):
         # None means "don't care"
         for felttypekode, resnivakode in [ ("BESØKSADR", None),
                                            ("BRNAVN", None),
@@ -224,18 +240,6 @@ def get_reservation(pxml, person):
         logger.info("%s has NO reservations. All tests failed",
                     person.entity_id)
         return not_reserved
-    elif person.get_gjest():
-        # guests are different
-        if has_reservation(pxml,
-                           katalogkode="ELKAT",
-                           felttypekode="GJESTEOPPL",
-                           resnivakode="SAMTYKKE"):
-            logger.info("%s has a guest permit (NO res)", person.entity_id)
-            return not_reserved
-        else:
-            logger.info("%s is a guest and is reserved", person.entity_id)
-            return reserved
-        # fi
     else:
         logger.info("%s has neither guest nor employment information. " +
                     "No reservation information can be calculated",
@@ -249,25 +253,9 @@ def get_reservation(pxml, person):
 def import_reservasjon(pxml, person, stedkode, constanns):
     """
     Import reservation information about PERSON/PXML.
-
-    NB! This operation *requires* up-to-date information on PERSON's
-    tilsetting and gjest records.
     """
 
-    reservation = None
-    for element in pxml["res"]:
-        value = get_reservation(pxml, person)
-
-        # If there is at least one reservation, it is pointless to explore
-        # other possibilities
-        if value:
-            reservation = value
-            break
-        # fi
-        
-        reservation = reservation or value
-    # end 
-
+    reservation = get_reservation(pxml, person)
     # FIXME: How sane is this approach?
     # No reservation information is known about person. Pretend nothing
     # happend.
