@@ -49,7 +49,6 @@ from Cerebrum import Entity
 from Cerebrum import Errors
 from Cerebrum.Constants import _CerebrumCode, _QuarantineCode, _SpreadCode,\
      _PersonAffiliationCode, _PersonAffStatusCode, _EntityTypeCode
-from Cerebrum.Constants import CoreConstants     
 from Cerebrum import Utils
 from Cerebrum.modules import Email
 from Cerebrum.modules.Email import _EmailSpamLevelCode, _EmailSpamActionCode,\
@@ -57,6 +56,7 @@ from Cerebrum.modules.Email import _EmailSpamLevelCode, _EmailSpamActionCode,\
 from Cerebrum.modules import PasswordChecker
 from Cerebrum.modules import PosixGroup
 from Cerebrum.modules import PosixUser
+from Cerebrum.modules import Note
 from Cerebrum.modules.bofhd.cmd_param import *
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd.utils import BofhdRequests
@@ -1734,7 +1734,7 @@ class BofhdExtension(object):
             # convert to python tuples
             result['names'] = [(r.domain, r.name) for r in names]
         if entity.entity_type in \
-            (CoreConstants.entity_group, CoreConstants.entity_account): 
+            (self.const.entity_group, self.const.entity_account): 
             result['creator_id'] = entity.creator_id
             result['create_date'] = entity.create_date
             result['expire_date'] = entity.expire_date
@@ -1742,7 +1742,7 @@ class BofhdExtension(object):
             # know how to view such a list
             result['spread'] = ", ".join(["%s" % self.num2const[int(a['spread'])]
                                          for a in entity.get_spread()])
-        if entity.entity_type == CoreConstants.entity_group:
+        if entity.entity_type == self.const.entity_group:
             result['name'] = entity.group_name
             result['description'] = entity.description
             result['visibility'] = entity.visibility
@@ -1750,12 +1750,12 @@ class BofhdExtension(object):
                 result['gid'] = getattr(entity, 'gid')
             except AttributeError:
                 pass    
-        elif entity.entity_type == CoreConstants.entity_account:
+        elif entity.entity_type == self.const.entity_account:
             result['name'] = entity.account_name
             result['owner_id'] = entity.owner_id
-            result['home'] = entity.home
+            #result['home'] = entity.home
            # TODO: de-reference disk_id
-            result['disk_id'] = entity.disk_id
+            #result['disk_id'] = entity.disk_id
            # TODO: de-reference np_type
            # result['np_type'] = entity.np_type
         return result
@@ -1770,7 +1770,7 @@ class BofhdExtension(object):
         entities = Set()
         change_types = Set()
         # skip all but the last entries
-        result = result[-limit:]
+        #result = result[-limit:]
         for row in result:
             event = {}
             change_type = int(row['change_type_id'])
@@ -1800,6 +1800,45 @@ class BofhdExtension(object):
         change_types = dict([(str(t), self.change_type2details.get(t))
                         for t in change_types])
         return events, entities, change_types
+
+    #
+    # Note commands
+    # Notes are simply small messages attached to entities. 
+    # 
+    # note show
+    all_commands['note_show'] = None
+    def note_show(self, operator, entity_id):
+        entity = Note.EntityNote(self.db)
+        entity.find(entity_id)
+        #self.ba.can_show_notes(operator.get_entity_id(), entity)
+        notes = entity.get_notes()
+        result = []
+        for note_row in notes:
+            note = {}
+            # transfer simple values blindly 
+            for key in 'note_id creator_id create_date subject description'.split():
+                note[key] = note_row[key]
+            # translate creator_id into username    
+            acc = self._get_account(note_row['creator_id'], idtype='id')
+            note['creator'] = acc.account_name
+            result.append(note)
+        return result    
+    
+    # note add
+    all_commands['note_add'] = None
+    def note_add(self, operator, entity_id, subject, description):
+        entity = Note.EntityNote(self.db)
+        entity.find(entity_id)
+        #self.ba.can_add_notes(operator.get_entity_id(), entity)
+        entity.add_note(operator.get_entity_id(), subject, description)
+        
+    # note remove
+    all_commands['note_remove'] = None
+    def note_remove(self, operator, entity_id, note_id):
+        entity = Note.EntityNote(self.db)
+        entity.find(entity_id)
+        #self.ba.can_remove_notes(operator.get_entity_id(), entity)
+        entity.delete_note(operator.get_entity_id(), note_id)
 
     #
     # group commands
@@ -1857,7 +1896,7 @@ class BofhdExtension(object):
         dest_group = 'id:%s' % dest_group_id
         src_entity = self._get_entity(id=src_entity_id)
         if not src_entity.entity_type in \
-            (CoreConstants.entity_account, CoreConstants.entity_group):
+            (self.const.entity_account, self.const.entity_group):
             raise CerebrumError, \
               "Entity %s is not a legal type " \
               "to become group member" % src_entity_id
@@ -2081,7 +2120,11 @@ class BofhdExtension(object):
                         (str(self.const.group_memberop_difference), d)):
             unsorted = []
             for r in rows:
+                # yes, we COULD have used row NAMES instead of
+                # numbers, but somebody decided to return simple 
+                # tuples instead of the usual db_row objects ...
                 unsorted.append({'op': t,
+                                 'id': r[1],
                                  'type': str(self.num2const[int(r[0])]),
                                  'name': r[2]})
             unsorted.sort(compare)
