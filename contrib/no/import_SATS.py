@@ -1003,9 +1003,7 @@ def write_email(addr, account_id):
 
     target = Email.EmailTarget(Cerebrum)
     try:
-        # TODO: Denne kan også gi MultipleRowsFoundError; bør
-        # find_by_entity kunne ta target_type som argument?
-        target.find_by_entity(account_id, co.entity_account)
+        target.find_by_entity(account_id)
         progress.write('-')
     except Errors.NotFoundError:
         target.populate(co.email_target_account,
