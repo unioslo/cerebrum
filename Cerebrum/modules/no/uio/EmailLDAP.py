@@ -1,5 +1,5 @@
 # -*- coding: iso-8859-1 -*-
-# Copyright 2003 University of Oslo, Norway
+# Copyright 2003, 2004 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -40,9 +40,9 @@ class EmailLDAPUiOMixin(EmailLDAP):
         self.e_id2passwd = {}
         
 
-    spam_act2dig = {'noaction': 0,
-                    'spamfolder': 1,
-                    'dropspam':2}
+    spam_act2dig = {'noaction':   '0',
+                    'spamfolder': '1',
+                    'dropspam':   '2'}
     db_tt2ldif_tt = {'account': 'user',
                      'forward': 'forwardAddress'}         
     _translate_domains = {'UIO_HOST': 'ulrik.uio.no',
@@ -106,8 +106,8 @@ class EmailLDAPUiOMixin(EmailLDAP):
     def read_spam(self):
         mail_spam = Email.EmailSpamFilter(self._db)
         for row in mail_spam.list_email_spam_filters_ext():
-            self.targ2spam[int(row['target_id'])] = [row['level'],
-                                                     self.spam_act2dig.get(row['code_str'], 0)]
+            self.targ2spam[int(row['target_id'])] = [
+                row['level'], self.spam_act2dig.get(row['code_str'], '0')]
 
     
     def read_addr(self):
