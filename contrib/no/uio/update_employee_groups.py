@@ -221,7 +221,7 @@ def process_employees(db_cerebrum, lt):
         if not (row["dato_fra"] <= now <= row["dato_til"]):
             logger.debug("Skipping irrelevant employment information: " +
                          "NO_SSN=%s; [%s;%s]",
-                         no_ssn, row[i"dato_fra"], row["dato_til"])
+                         no_ssn, row["dato_fra"], row["dato_til"])
             continue
         # fi
 
