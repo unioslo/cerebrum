@@ -41,12 +41,6 @@ class BofhdExtension(object):
         for t in self.person.get_person_name_codes():
             self.name_codes[int(t.code)] = t.description
 
-    def tab_foobar(self, *args):
-        return ["foo", "bar", "gazonk"]
-
-    def prompt_foobar(self, *args):
-        return "Enter a joke"
-
     def get_commands(self, uname):
         # TBD: Do some filtering on uname to remove commands
         commands = {}
@@ -84,7 +78,7 @@ class BofhdExtension(object):
     all_commands['account_create'] = Command(
         ('account', 'create'),
         AccountName(ptype="new"), PersonIdType(), PersonId(),
-        Affiliation(default=True), OU(default=True), Date(optional=True),
+        Affiliation(default="True"), OU(default="True"), Date(optional=True),
         fs=FormatSuggestion("Created with id: %i", ("account_id",)))
     def account_create(self, operator, accountname, idtype, id,
                        affiliation=None, ou=None, expire_date=None):
@@ -124,24 +118,24 @@ class BofhdExtension(object):
 
     ## bofh> account posix_create <accountname> <prigroup> <home=> \
     ##         <shell=> <gecos=>
+    def default_posix_create_home(self, operator, accountname, prigroup):
+        return '/home/%s' % accountname
     all_commands['account_posix_create'] = Command(
         ('account', 'posix_create'),
         AccountName(ptype="existing"), GroupName(ptype="primary"),
-        PosixHome(default=True), PosixShell(default=True),
-        PosixGecos(default=True),
+        PosixHome(default=default_posix_create_home), PosixShell(default="bash"),
+        PosixGecos(default="foobar"),
         fs=FormatSuggestion("Created with password: %s", ("password", )))
     # TODO:  Ettersom posix er optional, flytt denne til en egen fil
     def account_posix_create(self, operator, accountname, prigroup, home=None,
                              shell=None, gecos=None):
         """Create a PosixUser for existing 'accountname'"""
         account = self._get_account(accountname)
-        group=_get_group(prigroup)
+        group=self._get_group(prigroup)
         posix_user = PosixUser.PosixUser(self.Cerebrum)
         uid = posix_user.get_free_uid()
 
-        if home is None:
-            home = '/home/%s' % accountname
-        if shell is None:
+        if shell == 'bash':
             shell = self.const.posix_shell_bash
         posix_user.clear()
         posix_user.populate(uid, group.entity_id, gecos,
@@ -332,7 +326,7 @@ class BofhdExtension(object):
     all_commands['person_affadd'] = Command(
         ("person", "affadd"),
         PersonIdType(), PersonId(repeat=True), Affiliation(),
-        AffiliationStatus(default=True), OU(default=True))
+        AffiliationStatus(default="True"), OU(default="True"))
     def person_affadd(self, operator, idtype, id, affiliation,
                       status=None, ou=None):
         """Add 'affiliation'@'ou' with 'status' to person with
@@ -351,7 +345,7 @@ class BofhdExtension(object):
     all_commands['person_affrem'] = Command(("person", "affrem"),
                                             PersonIdType(),
                                             PersonId(repeat=True),
-                                            Affiliation(), OU(default=True))
+                                            Affiliation(), OU(default="True"))
     def person_affrem(self, operator, idtype, id, affiliation, ou):
         """Add 'affiliation'@'ou' with 'status' to person with 'idtype'='id'"""
         raise NotImplementedError, "Feel free to implement this function"
@@ -474,7 +468,7 @@ class BofhdExtension(object):
     ## bofh> misc pprint <printer> <template=>
     all_commands['misc_pprint'] = Command(
         ("misc", "pprint"), SimpleString(ptype="printername"),
-        SimpleString(ptype="template", default=True))
+        SimpleString(ptype="template", default="True"))
     def misc_pprint(self, operator, printer, template='new_password',
                     lang='no', type='ps'):
         """Print password sheets"""
