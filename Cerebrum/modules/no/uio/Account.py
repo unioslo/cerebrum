@@ -226,23 +226,13 @@ class AccountUiOMixin(Account.Account):
                 if svr['server_type'] <> server_type:
                     continue
                 if server_type == self.const.email_server_type_cyrus:
-                    if svr['name'] == 'mail-sg0':
-                        # Old (VA) cluster; reserved for test users.
-                        continue
-                    elif svr['name'] in ('mail-sg1', 'mail-sg4', 'mail-sg7',
-                                         'mail-sg9'):
-                        # Old (VA) cluster; the file systems on these
-                        # packages are at least 95% full, so we want
-                        # to avoid creating any more users on them.
-                        continue
-                    elif (svr['name'].startswith('cyrus')
-                          and svr['name'][5:].isdigit()
-                          and 1 <= int(svr['name'][5:]) <= 16):
-                        # New (EVA) cluster; need to be registered for
-                        # our test users, but shouldn't be used for
-                        # ordinary users' mail targets.
-                        continue
-                email_servs.append(svr['server_id'])
+                    if (svr['name'].startswith('cyrus')
+                        and svr['name'][5:].isdigit()
+                        and 1 <= int(svr['name'][5:]) <= 12):
+                        # One among the first 12 ServiceGuard packages
+                        # of our Cyrus cluster; new users should have
+                        # their mailbox placed on one of these.
+                        email_servs.append(svr['server_id'])
             svr_id = random.choice(email_servs)
             if old_server is None:
                 try:
