@@ -242,12 +242,13 @@ def migrate_to_rel_0_9_4():
                 break
         if homedir_id is None:
             # Cannot use AccountHome as the new class is not yet installed
-            homedir_id = long(db.nextval('entity_id_seq'))
+            homedir_id = long(db.nextval('homedir_id_seq'))
             db.execute("""
             INSERT INTO [:table schema=cerebrum name=homedir]
-              (homedir_id, home, disk_id, status)
-            VALUES (:h_id, :home, :disk_id, :status)""", {
+              (homedir_id, account_id, home, disk_id, status)
+            VALUES (:h_id, :account_id, :home, :disk_id, :status)""", {
                 'h_id': homedir_id,
+                'account_id': row['account_id'],
                 'home': row['home'],
                 'disk_id': row['disk_id'],
                 'status': row['status']})
