@@ -2852,18 +2852,42 @@ class BofhdExtension(object):
 
     # misc mmove
     all_commands['misc_list_requests'] = Command(
-        ("misc", "list_requests"),
+        ("misc", "list_requests"), SimpleString(
+        help_ref='string_bofh_request_search_by', default='requestee'),
+        SimpleString(help_ref='string_bofh_request_target', default='<me>'),
         fs=FormatSuggestion("%-6i %-10s %-16s %-15s %-10s %-20s %s",
                             ("id", "requestee", format_time("when"),
                              "op", "entity", "destination", "args"),
                             hdr="%-6s %-10s %-16s %-15s %-10s %-20s %s" % \
                             ("Id", "Requestee", "When", "Op", "Entity",
                              "Destination", "Arguments")))
-    def misc_list_requests(self, operator):
+    def misc_list_requests(self, operator, search_by, destination):
         br = BofhdRequests(self.db, self.const)
         ret = []
-        for r in br.get_requests(operator_id=operator.get_entity_id(),
-                                 given=True):
+
+        if destination == '<me>':
+            destination = self._get_account(operator.get_entity_id(), idtype='id')
+            destination = destination.account_name
+        if search_by == 'requestee':
+            account = self._get_account(destination)
+            rows = br.get_requests(operator_id=account.entity_id, given=True)
+        elif search_by == 'operation':
+            try:
+                destination = int(self.const.BofhdRequestOp('br_'+destination))
+            except Errors.NotFoundError:
+                raise CerebrumError("Unknown request operation %s" % destination)
+            rows = br.get_requests(operation=destination)
+        elif search_by == 'disk':
+            disk = Utils.Factory.get('Disk')(self.db)
+            disk.find_by_path(destination)
+            rows = br.get_requests(destination_id=disk.entity_id)
+        elif search_by == 'account':
+            account = self._get_account(destination)
+            rows = br.get_requests(entity_id=account.entity_id)
+        else:
+            raise CerebrumError("Unknown search_by criteria")
+
+        for r in rows:
             op = self.num2const[int(r['operation'])]
             dest = None
             if op in (self.const.bofh_move_user, self.const.bofh_move_request):
@@ -2873,7 +2897,6 @@ class BofhdExtension(object):
             elif op in (self.const.bofh_move_give,):
                 dest = self._get_entity_name(self.const.entity_group,
                                              r['destination_id'])
-            print "R: %s" % r['run_at']
             ret.append({'when': r['run_at'],
                         'requestee': self._get_entity_name(self.const.entity_account, r['requestee_id']),
                         'op': str(op),

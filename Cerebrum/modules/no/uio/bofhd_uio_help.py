@@ -351,6 +351,17 @@ printer."""],
     'string_attribute':
         ['attr', 'Enter attribute',
          "Experts only.  See the documentation for details"],
+    'string_bofh_request_target':
+        ['target', 'Enter target',
+         'Enter a target id corresponding to the previously specified type'],
+    'string_bofh_request_search_by':
+        ['search_by', 'Enter type to search by',
+         """Enter the operation that you want to search for.  Legal values:
+'requestee' username : the user that requested the operation
+'operation' type : the type of operation (move_user, move_user_now,
+    move_student, move_request, delete_user etc.)
+'disk' path: a disk used as target
+'account' username: the user affected by the operation"""],
     'string_description':
         ['description', 'Enter description'],
     'string_spread':
