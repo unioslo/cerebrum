@@ -254,7 +254,7 @@ def process_email_requests():
                 acc.clear()
                 acc.find(r['entity_id'])
             except Errors.NotFoundError:
-                logger.error("%d not found", r['entity_id'])
+                logger.error("email_move: user %d not found", r['entity_id'])
                 continue
             est = Email.EmailServerTarget(db)
             est.find(get_email_target_id(r['entity_id']))
@@ -630,7 +630,7 @@ def process_move_requests():
                     r['entity_id'], type='PosixUser', spread=r['state_data'])
                 new_host, new_disk  = get_disk(r['destination_id'])
             except Errors.NotFoundError:
-                logger.error("%i not found" % r['entity_id'])
+                logger.error("move_request: user %i not found" % r['entity_id'])
                 continue
             if account.is_expired():
                 logger.warn("Account %s is expired, cancelling request" %
