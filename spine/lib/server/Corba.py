@@ -206,6 +206,7 @@ def _create_corba_method(method):
             import SpineIDL, types
 
             if getattr(e, '__class__', e) not in method.exceptions:
+                print e, e.__class__
                 raise
 
             if len(e.args) > 0 and type(e.args[0]) is str:
@@ -499,13 +500,14 @@ def register_spine_class(cls, idl_cls, idl_struct):
 
     for attr in cls.slots:
         get_name = 'get_' + attr.name
-        get = Method(get_name, attr.data_type)
+        get = Method(get_name, attr.data_type, exceptions=attr.exceptions)
 
         setattr(corba_class, get_name, _create_corba_method(get))
 
         if attr.write:
             set_name = 'set_' + attr.name
-            set = Method(set_name, None, [(attr.name, attr.data_type)], write=True)
+            set = Method(set_name, None, [(attr.name, attr.data_type)],
+                         exceptions=attr.exceptions, write=True)
 
             setattr(corba_class, set_name, _create_corba_method(set))
 
