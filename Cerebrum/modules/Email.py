@@ -1743,7 +1743,7 @@ class PersonEmailMixin(Person.Person):
         person_external_id type 'id_type'"""
         return self._id2mailaddr(id_type=id_type)
 
-    def _id2mailaddr(self, id_type=None, entity_type=None):
+    def _id2mailaddr(self, id_type=None, entity_type=None, filter_expired=True):
         ret = {}
         # TODO: How should multiple external_id entries, only
         # differing in person_external_id.source_system, be treated?
@@ -1762,7 +1762,15 @@ class PersonEmailMixin(Person.Person):
             primary_col = "ei.entity_id"
             where = "ei.entity_type=:entity_type"
             key_col = 'entity_id'
-            
+
+        if filter_expired:
+            expired_table = ", [:table schema=cerebrum name=account_info] ai"
+            expired_where = (" AND ai.account_id = at2.account_id " +
+                              " AND (ai.expire_date IS NULL OR " +
+                              "      ai.expire_date > [:now])")
+        else:
+            expired_where = expired_table = ""
+
         ed = EmailDomain(self._db)
         for row in self.query("""
         SELECT %s, ea.local_part, ed.domain
@@ -1771,7 +1779,8 @@ class PersonEmailMixin(Person.Person):
           ON at.person_id = %s AND
              at.priority = (SELECT min(at2.priority)
                             FROM [:table schema=cerebrum name=account_type] at2
-                            WHERE at2.person_id = %s)
+                                 %s
+                            WHERE at2.person_id = %s %s)
         JOIN [:table schema=cerebrum name=email_target] et
           ON et.target_type = :targ_type AND
              et.entity_id = at.account_id
@@ -1781,7 +1790,8 @@ class PersonEmailMixin(Person.Person):
           ON ea.address_id = epa.address_id
         JOIN [:table schema=cerebrum name=email_domain] ed
           ON ed.domain_id = ea.domain_id
-        WHERE %s""" % (select_col, main_table, primary_col, primary_col, where),
+        WHERE %s""" % (select_col, main_table, primary_col, expired_table,
+                       primary_col, expired_where, where),
                               {'id_type': id_type,
                                'targ_type': target_type,
                                'entity_type': entity_type}):
