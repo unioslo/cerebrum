@@ -255,7 +255,8 @@ class Builder(Caching, Locking):
             set = SimpleSetWrapper(attr.name)
             setattr(searchcls, 'set_' + attr.name, set)
         if not hasattr(cls, 'cerebrum_class'):
-            raise UnsearchableClassError('Class %s has no cerebrum_class reference' % cls.__name__)
+            raise Errors.UnsearchableClassError('Class %s has no cerebrum_class reference' % 
+                                                    cls.__name__)
         searchcls._cerebrum_class = cls.cerebrum_class
         def search(searchcls):
             searchdict = {}
@@ -270,7 +271,7 @@ class Builder(Caching, Locking):
                 try:
                     entity_id = int(row[0])
                 except TypeError:
-                    raise UnsearchableClassError('Could not find the ID of the found %s object' %
+                    raise Errors.SearchError('Could not find the ID of the found %s object' %
                                                     cls.__name__)
                 objects.append(searchcls._cls(entity_id))
             return objects
