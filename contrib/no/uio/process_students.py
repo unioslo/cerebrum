@@ -118,18 +118,23 @@ def update_account(profile, account_ids, account_info={}):
             user.clear()
             user.find(account_id)
             # populate logic asserts that db-write is only done if needed
-            if move_users or user.disk_id is None:
+            try:
+                disk_id = user.get_home(user_spread)['disk_id']
+            except errors.NotFoundError:
+                disk_id = None
+            if move_users or disk_id is None:
+
                 try:
-                    disk = profile.get_disk(user.disk_id)
+                    disk = profile.get_disk(disk_id)
                 except ValueError, msg:  # TODO: get_disk should raise DiskError
                     disk = None
-                if user.disk_id != disk:
-                    profile.notify_used_disk(old=user.disk_id, new=disk)
+                if disk_id != disk:
+                    profile.notify_used_disk(old=disk_id, new=disk)
                     changes.append("disk %s->%s" % (
-                        autostud.disks.get(user.disk_id, ['None'])[0],
+                        autostud.disks.get(disk_id, ['None'])[0],
                         autostud.disks.get(disk, ['None'])[0]))
-                    if user.disk_id is None:
-                        user.disk_id = disk
+                    if disk_id is None:
+                        user.set_home(user_spread, disk_id = disk_id)
                     elif disk != None:
                         br = BofhdRequests(db, const)
                         # TBD: Is it correct to set requestee_id=None?
@@ -596,14 +601,14 @@ def main():
                                     'studconfig-file=', 'fast-test', 'with-lpr',
                                     'workdir=', 'type=', 'reprint=',
                                     'emne-info-file=', 'move-users',
-                                    'recalc-pq', 'studie-progs-file=',
+                                    'recalc-pq', 'studie-progs-file=', 'user-spread=',
                                     'dryrun', 'remove-groupmembers'])
     except getopt.GetoptError:
         usage()
     global debug, fast_test, create_users, update_accounts, logger, skip_lpr
     global student_info_file, studconfig_file, only_dump_to, studieprogs_file, \
            recalc_pq, dryrun, emne_info_file, move_users, remove_groupmembers, \
-           workdir
+           workdir, user_spread
 
     skip_lpr = True       # Must explicitly tell that we want lpr
     update_accounts = create_users = recalc_pq = dryrun = move_users = False
@@ -612,6 +617,7 @@ def main():
     workdir = None
     range = None
     only_dump_to = None
+    user_spread = None
     to_stdout = False
     for opt, val in opts:
         if opt in ('-d', '--debug'):
@@ -637,6 +643,8 @@ def main():
             studconfig_file = val
         elif opt in ('--fast-test',):  # Internal debug use ONLY!
             fast_test = True
+        elif opt in ('--user-spread',):
+            user_spread = getattr(const, val)
         elif opt in ('--only-dump-results',):
             only_dump_to = val
         elif opt in ('--dryrun',):
@@ -653,7 +661,9 @@ def main():
         else:
             usage()
 
-    if (not update_accounts and not create_users and range is None):
+    if user_spread is None:
+        usage()
+    elif (not update_accounts and not create_users and range is None):
         if not recalc_pq:
             usage()
     else:
@@ -683,6 +693,7 @@ def usage():
     -e | --emne-info-file file:
     -C | --studconfig-file file:
     -S | --studie-progs-file file:
+    --user-spread spread: (mandatory) spread for users 
     --dryrun: don't do any changes to the database.  This can be used
       to get an idea of what changes a normal run would do.  TODO:
       also dryrun some parts of update/create user.
