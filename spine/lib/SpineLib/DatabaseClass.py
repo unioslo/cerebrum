@@ -93,7 +93,7 @@ class DatabaseClass(SpineClass, Searchable, Dumpable):
 
         keys = {}
         for i in self.primary:
-            keys[i.name] = i.to_db(getattr(self, '_' + i.name))
+            keys[i.name] = i.to_db(getattr(self, i.get_name_private()))
 
         row = db.query_1(sql, keys)
         if len(attributes) == 1:
@@ -148,7 +148,7 @@ class DatabaseClass(SpineClass, Searchable, Dumpable):
                 continue
             if attr.table not in tables:
                 tables[attr.table] = {}
-            value = attr.to_db(getattr(self, 'get_'+attr.name)())
+            value = attr.to_db(getattr(self, attr.get_name_get())())
             tables[attr.table][self._get_real_name(attr)] = value
         
         # If db_table_order is set, we delete in the opposite order.
@@ -314,19 +314,19 @@ class DatabaseClass(SpineClass, Searchable, Dumpable):
                     attributes.append(i)
 
         for i in optionals + attributes:
-            setattr(cls, 'save_' + i.name, cls._save_all_db)
+            setattr(cls, i.get_name_save(), cls._save_all_db)
 
         def load_db_attributes(self):
             self._load_db_attributes(attributes)
         for i in attributes:
-            setattr(cls, 'load_' + i.name, load_db_attributes)
+            setattr(cls, i.get_name_load(), load_db_attributes)
 
         for i in optionals:
             def create(attr):
                 def load_db_attribute(self):
                     self._load_db_attributes([attr])
                 return load_db_attribute
-            setattr(cls, 'load_' + i.name, create(i))
+            setattr(cls, i.get_name_load(), create(i))
 
         super(DatabaseClass, cls).build_methods()
         cls.build_search_class()
