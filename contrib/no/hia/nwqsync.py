@@ -71,10 +71,10 @@ cl_entry = {'group_mod' : 'pass',
 	#'group_rem' : 'group_mod(cll.change_type_id,cll.subject_entity,\
 	#				cll.dest_entity,cll.change_id)',
 	#'account_mod' : 'mod_account(cll.subject_entity,i)',
-	#'spread_add' : 'change_spread(cll.subject_entity,cll.change_type_id,\
-	#						cll.change_params)',
-	#'spread_del' : 'change_spread(cll.subject_entity,cll.change_type_id,\
-	#						cll.change_params)',
+	'spread_add' : 'change_spread(cll.subject_entity,cll.change_type_id,\
+							cll.change_params)',
+	'spread_del' : 'change_spread(cll.subject_entity,cll.change_type_id,\
+							cll.change_params)',
 	#'quarantine_add' : 'change_quarantine(cll.subject_entity,\
 	#						cll.change_type_id)',
 	#'quarantine_mod' : 'change_quarantine(cll.subject_entity,\
@@ -159,6 +159,9 @@ def delete_ldap(obj_dn):
 def add_ldap(obj_dn, attrs):
     try:
         ldap_handle.CreateObject(obj_dn, attrs)
+	attr = []
+	for obj,value in attrs:
+	    attr.append((obj,[value,]))
 	log_str = '\n' + ldif.CreateLDIF(obj_dn,attr)
         int_log.write(log_str)
     except ldap.LDAPError, e:
@@ -205,6 +208,7 @@ def attr_mod_ldap(obj_dn, attrs):
     
     
 def user_add_del_grp(ch_type,dn_user,dn_dest):
+    return
     group = Group.Group(db)
     group.clear()
     account = Account.Account(db)
@@ -282,7 +286,6 @@ def path2edir(attrs):
 
 
 def change_user_spread(dn_id,ch_type,ch_params):
-    return
     account = Account.Account(db)
     group = Group.Group(db)
     param_list = []
@@ -295,7 +298,8 @@ def change_user_spread(dn_id,ch_type,ch_params):
         #ldap_obj = ldap_handle.GetObjects(search_dn,search_str)
 	ldap_obj = get_ldap_value(search_dn,search_str)
         if (ch_type == int(const.spread_del)):
-            for (ldap_user, ldap_attrs) in ldap_obj[0]:
+	    if ldap_obj <> []:
+		(ldap_user, ldap_attrs) = ldap_obj[0][0]
                 if not nwutils.touchable(ldap_attrs):
                     return
                 delete_ldap(ldap_user)
@@ -306,6 +310,7 @@ def change_user_spread(dn_id,ch_type,ch_params):
                 #ldap_user = ldap_user.replace('ou=HIST', 'o=HiST')
 		#input = sys.stdin.readline()
 		#if input.lower() == 'y':
+		print ldap_user,ldap_attrs
 		add_ldap(ldap_user,ldap_attrs)
             else:
                 (ldap_user, ldap_attrs) = ldap_obj [0][0]
@@ -353,6 +358,7 @@ def change_spread(dn_id,ch_type,ch_params):
     entity.find(int(dn_id))
     """What to do with ch_param"""
     if entity.entity_type == int(co.entity_account):
+	print "in user spread"
         change_user_spread(dn_id,ch_type,ch_params)
     elif entity.entity_type == int(co.entity_group):
         change_group_spread(dn_id,ch_type,ch_params)
@@ -403,25 +409,25 @@ def change_passwd(dn_id, ch_params):
 	search_str = "(&(cn=%s)(objectClass=inetOrgPerson))" % account.account_name
 	search_dn = "%s" % cereconf.NW_LDAP_ROOT
 	ldap_obj = get_ldap_value(search_dn,search_str,retrieveAttributes=['dn',])
-    if ldap_obj == []:
-	logger.info("User could not be found on server: %s\n " % search_str)
-        return
-    try:
-	ldap_entry = ldap_obj[0]
-	# Because of some strange attributes on some users in eDir, 
-	# we have to change passwordAllowChange to True -> change passwd -> False
-	attrs = []
-	attrs.append(('passwordAllowChange',['TRUE']))
-	attr_mod_ldap(ldap_entry[0][0],attrs)
-	attrs = []
-        pwd = pickle.loads(ch_params)['password']
-        attrs.append( ("userPassword", [unicode(pwd, 'iso-8859-1').encode('utf-8')]) )
-	attrs.append(('passwordAllowChange',['FALSE']))
-	for attr in attrs:
-            attr_l = [attr ,]
-            attr_mod_ldap(ldap_entry[0][0],attr_l)
-    except:
-        logger.warn('Could not update password on user:%s\n' % account.account_name)  
+    	if ldap_obj == []:
+	    logger.info("User could not be found on server: %s\n " % search_str)
+            return
+    	try:
+	    ldap_entry = ldap_obj[0]
+	    # Because of some strange attributes on some users in eDir, 
+	    # we have to change passwordAllowChange to True -> change passwd -> False
+	    attrs = []
+	    attrs.append(('passwordAllowChange',['TRUE']))
+	    attr_mod_ldap(ldap_entry[0][0],attrs)
+	    attrs = []
+            pwd = pickle.loads(ch_params)['password']
+            attrs.append( ("userPassword", [unicode(pwd, 'iso-8859-1').encode('utf-8')]) )
+	    attrs.append(('passwordAllowChange',['FALSE']))
+	    for attr in attrs:
+		attr_l = [attr ,]
+		attr_mod_ldap(ldap_entry[0][0],attr_l)
+	except:
+            logger.warn('Could not update password on user:%s\n' % account.account_name)  
     
 
 
@@ -495,14 +501,18 @@ def main():
 	    int_log = file((default_dir + default_file),'w')
 	else:
 	    int_log = file((default_dir + default_file),'a')
-        #dbg_print(INFO, 'INFO: Novell eDirectory quicksync starting at %s' % nwutils.now())
+	int_log.write("\n# %s \n" % time.strftime("%a, %d %b %Y %H:%M:%S +0000", 
+							time.localtime()))
 	passwd = db._read_password(host,cereconf.NW_ADMINUSER.split(',')[:1][0])
         ldap_handle = nwutils.LDAPConnection(host, port,
-                                    binddn=cereconf.NW_ADMINUSER, password=passwd, scope='sub')
+					binddn=cereconf.NW_ADMINUSER, 
+					password=passwd, scope='sub')
 	ldap_connect()
         load_cltype_table(cltype)                            
         nwqsync(spread)
-        #dbg_print(INFO, 'INFO: Novell eDirectory quicksync done at %s' % nwutils.now())
+        int_log.write("\n# End at  %s \n" % time.strftime("%a, 
+						%d %b %Y %H:%M:%S +0000",
+						time.localtime()))
 	int_log.close()
     else:
         usage(1);        

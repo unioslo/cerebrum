@@ -264,9 +264,9 @@ def get_account_info(account_id, spread, site_callback):
     usr_attr = {}
     ent_name.clear()
     ent_name.find(account_id)
-    pq = PrinterQuotas.PrinterQuotas(db);
+    #pq = PrinterQuotas.PrinterQuotas(db);
     name = ent_name.get_name(co.account_namespace)
-    (first_n, last_n, account_disable, home_dir, affiliation, ext_id) = get_user_info(account_id, spread)
+    (first_n, last_n, account_disable, home_dir, affiliation, ext_id,email) = get_user_info(account_id, spread)
     passwords = db.get_log_events(types=(int(co.account_password),), subject_entity=account_id)
 
     pwd_rows = [row for row in passwords]
@@ -290,17 +290,18 @@ def get_account_info(account_id, spread, site_callback):
     
     try:
 	if cereconf.NW_PRINTER_QUOTAS.lower() == 'enable': 
+	    from Cerebrum.modules.no import PrinterQuotas 
 	    pq = PrinterQuotas.PrinterQuotas(db)
             pq.clear();
     	    pq.find(account_id)
 	    print_quota = pq.printer_quota
-    except Errors.AttributeError:
-	if affiliation == co.affiliation_student:
-            print_quota = '11000'
-	else:
-	    print_quota = None
     except Errors.NotFoundError:
         print_quota = None  # User has no quota
+    except:
+        if affiliation == co.affiliation_student:
+            print_quota = '11000'
+        else:
+            print_quota = None
     attrs = []
     attrs.append( ("ObjectClass", "user" ) )
     attrs.append( ("givenName", unicode(first_n, 'iso-8859-1').encode('utf-8') ) )
@@ -317,6 +318,8 @@ def get_account_info(account_id, spread, site_callback):
     if print_quota is not None:
     	attrs.append( ("accountBalance", print_quota) )
 	attrs.append( ("allowUnlimitedCredit", "FALSE"))
+    if email:
+	attrs.append( ("EMailAddress", email))
     passwd = unicode(pwd, 'iso-8859-1').encode('utf-8')
     attrs.append( ("userPassword", passwd) )
     if site_callback is not None:
@@ -366,6 +369,10 @@ def get_user_info(account_id, spread):
                     ext_id = int(person.get_external_id(int(getattr(co, ss)))[0]['external_id'])
             except:
                 pass
+	    try:
+		email = account.get_primary_mailaddress()
+	    except:
+		email = None
         if full_name == ' ':
             logger.info("WARNING: getting persons name failed, account.owner_id:",person_id)
     except Errors.NotFoundError:
@@ -390,7 +397,7 @@ def get_user_info(account_id, spread):
             logger.info("WARNING: missing QUARANTINE_RULE")    
     if (account.is_expired()):
         account_disable = 'TRUE'
-    return (first_n, last_n, account_disable, home_dir, affiliation, ext_id)
+    return (first_n, last_n, account_disable, home_dir, affiliation, ext_id, email)
 
 
 def get_primary_ou(account_id,namespace):
@@ -439,7 +446,7 @@ def get_ldap_group_ou(grp_name):
 
 def get_ldap_usr_ou(crbm_ou, aff):
 
-    if cereconf.NW_LDAP_STUDOU != None and (aff == co.affiliation_student \
+    if cereconf.NW_LDAP_STUDOU != None and (aff == co.affiliation_student or \
 				ent_name.has_spread(co.spread_hia_novell_labuser)):
 	utf8_ou = "%s,%s" % (unicode(cereconf.NW_LDAP_STUDOU, 'iso-8859-1').encode('utf-8'),
 			unicode(cereconf.NW_LDAP_ROOT, 'iso-8859-1').encode('utf-8'))
