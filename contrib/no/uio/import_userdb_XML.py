@@ -865,6 +865,10 @@ def person_callback(person):
         personObj.write_db()
         person_id = personObj.entity_id
         person_id2affs[person_id] = new_affs
+    else:
+        for a in personObj.get_affiliations():
+            person_id2affs.setdefault(person_id, []).append(
+                (int(a['ou_id']), int(a['affiliation']), int(a['status'])))
 
     # Build the persons users.  Delay building deleted users to avoid
     # username conflicts, and store creators uname as its entity_id is
