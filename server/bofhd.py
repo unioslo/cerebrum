@@ -306,11 +306,21 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
         account = Account_class(self.server.db)
         try:
             account.find_by_name(uname)
-            enc_pass = account.get_account_authentication(
-                self.server.const.auth_type_md5_crypt)
         except Errors.NotFoundError:
             logger.info("Failed login for %s from %s" % (
                 uname, ":".join([str(x) for x in self.client_address])))
+            raise CerebrumError, "Unknown username or password"
+        enc_pass = None
+        for auth in (self.server.const.auth_type_md5_crypt,
+                     self.server.const.auth_type_crypt3_des):
+            try:
+                enc_pass = account.get_account_authentication(auth)
+                break
+            except Errors.NotFoundError:
+                pass
+        if enc_pass is None:
+            logger.info("Missing password for %s from %s" % (uname,
+                        ":".join([str(x) for x in self.client_address])))
             raise CerebrumError, "Unknown username or password"
         # TODO: Add API for credential verification to Account.py.
         if enc_pass <> crypt.crypt(password, enc_pass):
