@@ -14,6 +14,7 @@ from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.no.uio.printer_quota import PPQUtil
 from Cerebrum.modules.no.uio.printer_quota import PaidPrinterQuotas
 from Cerebrum.modules.no.uio.printer_quota import bofhd_pq_utils
+from Cerebrum.modules.no.uio.printer_quota import errors
 from Cerebrum.modules.bofhd import auth
 from Cerebrum.modules.bofhd.utils import _AuthRoleOpCode
 
@@ -295,6 +296,12 @@ The currently defined id-types are:
         except ValueError:
             raise CerebrumError, "job_id should be a number"
         pu = PPQUtil.PPQUtil(self.db)
+        ppq = PaidPrinterQuotas.PaidPrinterQuotas(self.db)
+        rows = ppq.get_history(job_id=job_id)
+        if len(rows) == 0:
+            raise errors.IllegalUndoRequest, "Unknown target_job_id"
+        if rows[0]['tstamp'].ticks() < time.time() - 3600*24*3:
+            raise PermissionDenied, "Job is too old"
         # Throws subclass for CerebrumError, which bofhd.py will handle
         pu.undo_transaction(person_id, job_id, num_pages,
                             why, update_by=operator.get_entity_id())
