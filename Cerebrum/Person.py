@@ -826,7 +826,7 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
 	  ead.postal_number, ead.city, ead.country,
 	  ead1.address_text AS post_text, ead1.postal_number AS post_postal,
           ead1.city AS post_city, ead1.country AS post_country ,
-          ead1.p_o_box AS post_box %(ecols)s
+	  aa1.auth_data AS auth_crypt, ead1.p_o_box AS post_box %(ecols)s
 	FROM
           [:table schema=cerebrum name=person_info] pi
           JOIN [:table schema=cerebrum name=account_type] at
@@ -844,10 +844,10 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
             ON pi.person_id = pei.person_id
           LEFT JOIN [:table schema=cerebrum name=account_authentication] aa
             ON aa.account_id = at.account_id AND
-               aa.method = (
-                 SELECT MAX(method)
-                 FROM [:table schema=cerebrum name=account_authentication] aa2
-                 WHERE at.account_id = aa2.account_id)
+               aa.method = [:get_constant name=auth_type_md5_crypt]
+	  LEFT JOIN [:table schema=cerebrum name=account_authentication] aa1
+            ON aa1.account_id = at.account_id AND
+               aa1.method = [:get_constant name=auth_type_crypt3_des]
 	  LEFT JOIN [:table schema=cerebrum name=person_name] pn2
             ON pn2.person_id = pi.person_id AND
                pn2.name_variant = :pn_ti
