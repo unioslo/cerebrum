@@ -1,5 +1,5 @@
 from Cerebrum.web.templates.MainTemplate import MainTemplate
-from Cerebrum.web.ActivityLog import ActivityLog
+from Cerebrum.web import ActivityLog
 from Cerebrum.web.WorkList import WorkList
 from Cerebrum.web.SideMenu import SideMenu
 
@@ -10,7 +10,8 @@ class Main(MainTemplate):
         self.prepareSession()
         self.menu = SideMenu()
         self.worklist = self.session['worklist']
-        self.activitylog = self.session['activitylog']
+        #self.activitylog = self.session['activitylog']
+        self.activitylog = lambda: ActivityLog.view_operator_history(self.session)
         self.messages = [] # reset each time =)
 
     def add_message(self, message, error=False):
@@ -19,8 +20,8 @@ class Main(MainTemplate):
         self.messages.append((message, error))
 
     def prepareSession(self):    
-        if not self.session.has_key("activitylog"):
-            self.session['activitylog'] = ActivityLog() 
+        #if not self.session.has_key("activitylog"):
+        #    self.session['activitylog'] = ActivityLog() 
         if not self.session.has_key("worklist"):
             self.session['worklist'] = WorkList() 
         
