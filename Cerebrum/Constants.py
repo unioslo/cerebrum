@@ -361,7 +361,7 @@ class ConstantsBase(DatabaseAccessor):
             raise ValueError, "Some code values have circular dependencies."
 
     def __init__(self, database):
-        super(Constants, self).__init__(database)
+        super(ConstantsBase, self).__init__(database)
 
         # TBD: Works, but is icky -- _CerebrumCode or one of its
         # superclasses might use the .sql attribute themselves for
@@ -369,7 +369,7 @@ class ConstantsBase(DatabaseAccessor):
         _CerebrumCode.sql = database
 
 
-class CoreContants(ConstantsBase):
+class CoreConstants(ConstantsBase):
 
     entity_person = _EntityTypeCode(
         'person',
@@ -433,6 +433,8 @@ class CommonConstants(ConstantsBase):
 
     system_manual = _AuthoritativeSystemCode('Manual', 'Manual registration')
 
+    # bootstrap_account is of this type:
+    account_program = _AccountCode('P', 'Programvarekonto')
 
 class Constants(CoreConstants, CommonConstants):
     pass
@@ -454,11 +456,6 @@ class ExampleConstants(Constants):
     affiliation_student = _PersonAffiliationCode('STUDENT', 'Student')
     affiliation_status_student_valid = _PersonAffStatusCode(
         affiliation_student, 'VALID', 'Valid')
-
-    # UIO specific constants, belong in UiOConstants once we get the
-    # CerebrumFactory up and running
-    account_program = _AccountCode('P', 'Programvarekonto')
-
 
 def main():
     from Cerebrum.Utils import Factory
