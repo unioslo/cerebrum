@@ -144,8 +144,7 @@ class Group(Entity, Abstract.Group):
             ``operation`` is one of 'union', 'difference' and
             'intersection', the default is 'union'.
         """
-        # FIXME: Make this use the soon-to-be-universiall group_add
-        self.server.group_gadd(member.name, self.name, operation)
+        self.server.group_add_entity(member.id, self.id, operation)
 
     def remove_member(self, member):
         # FIXME: Make this use the soon-to-be-universiall group_remove
