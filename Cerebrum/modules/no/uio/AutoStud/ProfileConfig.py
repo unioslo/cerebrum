@@ -37,6 +37,9 @@ class Config(object):
             ret += p.debug_dump()
 
     def get_matching_profiles(self, select_type, select_key, entry_value):
+        """Return a list of ProfileDefinition objects that matches
+        this select criteria."""
+        
         ret = self.select_mapping.get(select_type, {}).get(
             select_key, {}).get(entry_value, None)
         self._logger.debug("Check matches for %s / %s / %s -> %s" % (
@@ -105,19 +108,26 @@ class ProfileDefinition(object):
     #
 
     def convertToDatabaseRefs(self, lookup_helper, config):
-        self.spreads = []
+        tmp = []
         for spread in self.settings.get("spread", []):
-            self.spreads.append(lookup_helper.get_spread(spread['system']))
-        self.groups = []
+            tmp.append(lookup_helper.get_spread(spread['system']))
+        self.settings["spread"] = tmp
+        tmp = []
         for group in self.settings.get("gruppe", []):
             # TODO: Should assert that entry is in group_defs
-            self.groups.append(lookup_helper.get_group(group['navn']))
-        self.stedkoder = []
+            tmp.append(lookup_helper.get_group(group['navn']))
+        self.settings["gruppe"] = tmp  
+        tmp = []
+        for group in self.settings.get("primarygroup", []):
+            tmp.append(lookup_helper.get_group(group['navn']))
+        self.settings["primarygroup"] = tmp  
+        tmp = []
         for stedkode in self.settings.get("stedkode", []):
-            self.stedkoder.append(lookup_helper.get_stedkode(stedkode['verdi']))
-        self.disk = None
+            tmp.append(lookup_helper.get_stedkode(stedkode['verdi']))
+        self.settings["stedkode"] = tmp
+        tmp = []
         for disk in self.settings.get("disk", []):
-            self.disk = disk
+            tmp = [disk]
             for t in ('prefix', 'path'):
                 if disk.has_key(t): # Assert that disk is in disk_defs
                     try:
@@ -129,6 +139,7 @@ class ProfileDefinition(object):
                     if config.autostud.disks[d][0] == disk['path']:
                         disk['path'] = d
             break   # Only interested in the first disk
+        self.settings["disk"] = tmp
                 
 class StudconfigParser(xml.sax.ContentHandler):
     """
