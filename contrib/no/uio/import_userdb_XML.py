@@ -17,16 +17,16 @@ from Cerebrum import Account
 from Cerebrum import Group
 from Cerebrum import Person
 from Cerebrum import cereconf
-from Cerebrum import Constants
 from Cerebrum import Errors
 from Cerebrum.modules import PosixGroup
 from Cerebrum.modules import PosixUser
+from Cerebrum.Utils import Factory
 
 default_personfile = '/local2/home/runefro/usit/cerebrum/contrib/no/uio/users.xml'
 default_groupfile = '/local2/home/runefro/usit/cerebrum/contrib/no/uio/filegroups.xml'
 Cerebrum = Database.connect()
 personObj = Person.Person(Cerebrum)
-co = Constants.Constants(Cerebrum)
+co = Factory.getConstants()(Cerebrum)
 pp = pprint.PrettyPrinter(indent=4)
 
 class PersonUserData(object):
@@ -159,6 +159,8 @@ def import_groups(groupfile, fill=0):
         # pp.pprint(group)
         print ".",
         sys.stdout.flush()
+        if int(group['gid']) < 1:
+            continue
         groupObj = Group.Group(Cerebrum)
         pg = PosixGroup.PosixGroup(Cerebrum)
         if not fill:
@@ -196,7 +198,8 @@ def import_person_users(personfile):
         fnr = None
         for e in person['extid']:
             if e['type'] == 'fnr':
-                fnr = e['val']
+                if e['val'] <> '00000000000':
+                    fnr = e['val']
         person_id = None
         if fnr is not None:
             try:
@@ -209,8 +212,14 @@ def import_person_users(personfile):
                 pass
         if person_id is None:
             # Personen fantes ikke, lag den
-            bdate = [int(x) for x in person['bdate'].split('-')]
-            personObj.populate(Cerebrum.Date(*bdate),
+            try:
+                bdate = [int(x) for x in person['bdate'].split('-')]
+                bdate = Cerebrum.Date(*bdate)
+            except:
+                print "Warning, %s is an illegal date" % person['bdate']
+                bdate = [1970, 1, 1]
+                bdate = Cerebrum.Date(*bdate)
+            personObj.populate(bdate,
                                 co.gender_unknown)
             personObj.affect_names(co.system_ureg, *(namestr2const.values()))
 
@@ -232,7 +241,7 @@ def import_person_users(personfile):
                     personObj.affect_addresses(co.system_ureg, co.address_post)
                     a = c['val'].split('$', 2)
                     personObj.populate_address(co.address_post,
-                                               addr="%s\n%s" % (a[0], a[1]))
+                                               addr="\n".join(a))
             if person.has_key('uio'):
                 if person['uio'].has_key('psko'):
                     # Typer v/uio: A B M S X a b s
@@ -268,7 +277,11 @@ def import_person_users(personfile):
             shell = co.posix_shell_bash # TODO: shell2shellconst[u['shell']]
             
             group=PosixGroup.PosixGroup(Cerebrum)
-            group.find_by_gid(u['dfg'])
+            try:
+                group.find_by_gid(u['dfg'])
+            except Errors.NotFoundError:
+                print "WARNING: could not find dfg=%s for %s" % (u['dfg'], u['uname']) 
+                continue
             account.clear()
             account.populate(u['uname'],
                              co.entity_person,  # Owner type TODO
@@ -298,7 +311,7 @@ def import_person_users(personfile):
                                 parent=account)
 
             posix_user.write_db(account)
-            Cerebrum.commit()
+    Cerebrum.commit()
 
 def usage():
     print """import_userdb_XML.py [-p file | -g file] {-P | -G | -M}
