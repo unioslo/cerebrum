@@ -71,7 +71,6 @@ cl_entry = {'group_mod' : 'pass',
 	#'group_rem' : 'group_mod(cll.change_type_id,cll.subject_entity,\
 	#				cll.dest_entity,cll.change_id)',
 	#'account_mod' : 'mod_account(cll.subject_entity,i)',
-	'account_password' : 'change_passwd(cll.subject_entity, cll.change_params)'
 	#'spread_add' : 'change_spread(cll.subject_entity,cll.change_type_id,\
 	#						cll.change_params)',
 	#'spread_del' : 'change_spread(cll.subject_entity,cll.change_type_id,\
@@ -81,7 +80,8 @@ cl_entry = {'group_mod' : 'pass',
 	#'quarantine_mod' : 'change_quarantine(cll.subject_entity,\
 	#						cll.change_type_id)',
 	#'quarantine_del' : 'change_quarantine(cll.subject_entity,\
-	#						cll.change_type_id)'i
+	#						cll.change_type_id)'
+	'account_password' : 'change_passwd(cll.subject_entity, cll.change_params)'
 	}
 									
 
@@ -140,49 +140,64 @@ def get_ldap_value(search_id,dn,retrieveAttributes=None):
     return(result_set)
 
 
-def dbg_print(lvl, str):
-    if dbg_level >= lvl:
-        print str
+#def dbg_print(lvl, str):
+#    if dbg_level >= lvl:
+#        print str
     
 
 
 def delete_ldap(obj_dn):
-    dbg_print(DEBUG, "delete_ldap()%s", obj_dn)
     try:
         ldap_handle.DeleteObject(obj_dn)
+	log_str = '\n' + ldif.CreateLDIF(obj_dn,{'changetype': \
+                                                        ('delete',)})
+	int_log.write(log_str)
     except ldap.LDAPError, e:
         logger.info("delete_ldap() ERROR: ", e)
     
     
 def add_ldap(obj_dn, attrs):
-    dbg_print(DEBUG, ("add_ldap():", obj_dn, attrs))
     try:
         ldap_handle.CreateObject(obj_dn, attrs)
+	log_str = '\n' + ldif.CreateLDIF(obj_dn,attr)
+        int_log.write(log_str)
     except ldap.LDAPError, e:
-        print "add_ldap() ERROR: ", e, obj_dn, attrs
+        logger.info("add_ldap() ERROR: ", e, obj_dn, attrs)
         
     
     
 def attr_add_ldap(obj_dn, attrs):
-    dbg_print(DEBUG, ("attr_add_ldap():", obj_dn, attrs))
     try:
         ldap_handle.AddAttributes(obj_dn, attrs)
+	for obj,value in attrs:
+            attr = [(ldap.MOD_ADD,obj,value)]
+	log_str = '\n' + ldif.CreateLDIF(obj_dn,attr)
+        int_log.write(log_str)
     except ldap.LDAPError, e:
-        print "attr_add_ldap() ERROR: ", e, obj_dn, attrs
+        logger.info("attr_add_ldap() ERROR: ", e, obj_dn, attrs)
     
     
 def attr_del_ldap(obj_dn, attrs):
-    dbg_print(DEBUG, ("attr_del_ldap():", obj_dn, attrs))
     try:
         ldap_handle.DeleteAttributes(obj_dn, attrs)
+	for obj,value in attrs:
+	    attr = [(ldap.MOD_DELETE,obj,value)]
+	log_str = '\n' + ldif.CreateLDIF(obj_dn,attr)
+        int_log.write(log_str)
     except ldap.LDAPError, e:
-        print "attr_del_ldap() ERROR: ", e, obj_dn, attrs
+        logger.info("attr_del_ldap() ERROR: ", e, obj_dn, attrs)
     
     
 def attr_mod_ldap(obj_dn, attrs):
     try:
         ldap_handle.ModifyAttributes(obj_dn, attrs)
-	log_str = '\n' + ldif.CreateLDIF(obj_dn,attrs)
+	attr = []
+	for obj,value in attrs:
+	   if obj == 'userPassword':
+		attr.append((ldap.MOD_REPLACE,obj,['xxxxxxx',]))
+	   else:
+		attr.append((ldap.MOD_REPLACE,obj,value))	
+	log_str = '\n' + ldif.CreateLDIF(obj_dn,attr)
 	int_log.write(log_str)
     except ldap.LDAPError, e:
         logger.info("attr_mod_ldap() ERROR: ", e, obj_dn, attrs)
@@ -201,24 +216,24 @@ def user_add_del_grp(ch_type,dn_user,dn_dest):
     ldap_obj = get_ldap_value(search_dn,search_str)[0]
     if ldap_obj == []:
        # Group not in LDAP (yet)
-       dbg_print(WARN, "WARNING: Group %s not found in LDAP" % search_str)
+       logger.warn("WARNING: Group %s not found in LDAP" % search_str)
        pass
     else:
         (ldap_group, ldap_attrs) = ldap_obj [0]
         if not nwutils.touchable(ldap_attrs):
-            dbg_print((ERROR, "ERROR: LDAP object %s not managed by Cerebrum." % ldap_group))
+            logger.info("ERROR: LDAP object %s not managed by Cerebrum." % ldap_group)
             return
         account.clear()
         account.find(dn_user)
-        search_str = "cn=%s" % account.account_name
+        search_str = "(&(cn=%s)(objectClass=inetOrgPerson))" % account.account_name
         search_dn = "%s" % cereconf.NW_LDAP_ROOT
         #ldap_obj = ldap_handle.GetObjects(search_dn,search_str)
-	ldap_obj = get_ldap_value(search_dn,search_str)[0]
+	ldap_obj = get_ldap_value(search_dn,search_str)
         if ldap_obj == []:
             return
-        (ldap_user, ldap_uattrs) = ldap_obj [0]
+        (ldap_user, ldap_uattrs) = ldap_obj [0][0]
         if not nwutils.touchable(ldap_uattrs):
-            dbg_print((ERROR, "ERROR: LDAP object %s not managed by Cerebrum." % ldap_user))
+            logger.warn("ERROR: LDAP object %s not managed by Cerebrum." % ldap_user)
             return
         attrs = []
         attrs.append( ("securityEquals", ldap_group) )
@@ -226,7 +241,7 @@ def user_add_del_grp(ch_type,dn_user,dn_dest):
         if ch_type == const.group_add:
             if ldap_attrs.has_key('member'):
                 if ldap_user in ldap_attrs['member']:
-                    dbg_print(WARN, "WARNING: User %s already member in group %s" % (ldap_user, ldap_group))
+                    logger.warn("WARNING: User %s already member in group %s" % (ldap_user, ldap_group))
                     return
             attr_add_ldap(ldap_user, attrs)
             attrs = []
@@ -238,7 +253,7 @@ def user_add_del_grp(ch_type,dn_user,dn_dest):
             attrs.append( ("member", ldap_user) )
             attr_del_ldap(ldap_group, attrs)
         else:
-            print dbg_print(WARN, "WARNING: unhandled group logic")
+            logger.info("WARNING: unhandled group logic")
 
 
 def path2edir(attrs):
@@ -275,12 +290,12 @@ def change_user_spread(dn_id,ch_type,ch_params):
     cl_spread = int(re.sub('\D','',param_list[3]))
     if cl_spread in spread_ids:
         account.find(dn_id)
-        search_str = "cn=%s" % account.account_name
+        search_str = "(&(cn=%s)(objectClass=inetOrgPerson))" % account.account_name
         search_dn = "%s" % cereconf.NW_LDAP_ROOT
         #ldap_obj = ldap_handle.GetObjects(search_dn,search_str)
-	ldap_obj = get_ldap_value(search_dn,search_str)[0]
+	ldap_obj = get_ldap_value(search_dn,search_str)
         if (ch_type == int(const.spread_del)):
-            for (ldap_user, ldap_attrs) in ldap_obj:
+            for (ldap_user, ldap_attrs) in ldap_obj[0]:
                 if not nwutils.touchable(ldap_attrs):
                     return
                 delete_ldap(ldap_user)
@@ -289,12 +304,12 @@ def change_user_spread(dn_id,ch_type,ch_params):
                 (ldap_user, ldap_attrs) = nwutils.get_account_info(dn_id, cl_spread, None)
                 path2edir(ldap_attrs)
                 #ldap_user = ldap_user.replace('ou=HIST', 'o=HiST')
-		input = sys.stdin.readline()
-		if input.lower() == 'y':
-                    add_ldap(ldap_user,ldap_attrs)
+		#input = sys.stdin.readline()
+		#if input.lower() == 'y':
+		add_ldap(ldap_user,ldap_attrs)
             else:
-                (ldap_user, ldap_attrs) = ldap_obj [0]
-                dbg_print(WARN, "WARNING: User %s already exist as %s" % (account.account_name, ldap_user))
+                (ldap_user, ldap_attrs) = ldap_obj [0][0]
+                logger.info("WARNING: User %s already exist as %s" % (account.account_name, ldap_user))
             for grp in group.list_groups_with_entity(dn_id):
                 user_add_del_grp(const.group_add, dn_id, grp['group_id'])
 
@@ -315,11 +330,11 @@ def change_group_spread(dn_id,ch_type,ch_params):
     utf8_ou = nwutils.get_ldap_group_ou(group_name)
     utf8_dn = unicode('cn=%s,' % group_name, 'iso-8859-1').encode('utf-8') + utf8_ou
     search_dn = "%s" % cereconf.NW_LDAP_ROOT
-    ldap_obj = ldap_handle.GetObjects(search_dn, utf8_dn)
+    ldap_obj = get_ldap_value(search_dn, utf8_dn)
     if ldap_obj <> []:
-        (ldap_group, ldap_attrs) = ldap_obj [0]
+        (ldap_group, ldap_attrs) = ldap_obj [0][0]
         if not nwutils.touchable(ldap_attrs):
-            dbg_print((ERROR, "ERROR: LDAP object %s not managed by Cerebrum." % ldap_group))
+            logger.info("ERROR: LDAP object %s not managed by Cerebrum." % ldap_group)
             return
     if True in [group.has_spread(x) for x in spread_ids]:
         attrs = []
@@ -342,7 +357,7 @@ def change_spread(dn_id,ch_type,ch_params):
     elif entity.entity_type == int(co.entity_group):
         change_group_spread(dn_id,ch_type,ch_params)
     else:
-        int_log.write("\n# Change_spread did not resolve request (%s,%s)" 
+        logger.info("# Change_spread did not resolve request (%s,%s)" 
 					% (dn_id,ch_type)) 
 
 
@@ -352,14 +367,14 @@ def mod_account(dn_id,i):
     account.find(dn_id)
     has_spread = 0
     if True in [account.has_spread(x) for x in spread_ids]:
-        search_str = "cn=%s" % account.account_name
+        search_str = "(&(cn=%s)(objectClass=inetOrgPerson))" % account.account_name
         search_dn = "%s" % cereconf.NW_LDAP_ROOT
-        ldap_entry = ldap_handle.GetObjects(search_dn,search_str)
+        ldap_entry = get_ldap_value(search_dn,search_str)
         (cerebrm_dn, base_entry) = nwutils.get_account_dict(dn_id, spread_ids[0], None)
         if ldap_entry != []:
-            (dn_str,ldap_attr) = ldap_entry[0]
+            (dn_str,ldap_attr) = ldap_entry[0][0]
         else:
-            dbg_print(WARN, "WARNING: CL Modify on object not in LDAP")
+            logger.info("WARNING: CL Modify on object not in LDAP")
             return
         if base_entry.has_key('ndsHomeDirectory'):
             newpath = path2edir([('ndsHomeDirectory', base_entry['ndsHomeDirectory'])])
@@ -402,7 +417,9 @@ def change_passwd(dn_id, ch_params):
         pwd = pickle.loads(ch_params)['password']
         attrs.append( ("userPassword", [unicode(pwd, 'iso-8859-1').encode('utf-8')]) )
 	attrs.append(('passwordAllowChange',['FALSE']))
-	attr_mod_ldap(ldap_entry[0][0],attrs)
+	for attr in attrs:
+            attr_l = [attr ,]
+            attr_mod_ldap(ldap_entry[0][0],attr_l)
     except:
         logger.warn('Could not update password on user:%s\n' % account.account_name)  
     
@@ -416,19 +433,19 @@ def group_mod(ch_type,dn_id,dn_dest,log_id):
     group.clear()
     group.entity_id = int(dn_dest)
     group_name = cereconf.NW_GROUP_PREFIX + group.get_name(co.group_namespace) + cereconf.NW_GROUP_POSTFIX
-    search_str = "cn=%s" % group_name
+    search_str = "cn=%s" % group_name	# Find a proper objectclass to avoid name-space collition
     search_dn = "%s" % cereconf.NW_LDAP_ROOT
     if group_done.has_key(dn_dest):
         return
-    ldap_obj = ldap_handle.GetObjects(search_dn,search_str)
+    ldap_obj = get_ldap_value(search_dn,search_str)
     if ldap_obj <> []:
-        (ldap_group, ldap_attrs) = ldap_obj [0]
+        (ldap_group, ldap_attrs) = ldap_obj [0][0]
         for mem in group.get_members(spread=spread_ids[0]):
             user_add_del_grp(ch_type,mem,dn_dest)
         group_done[dn_dest] = "Synced"
     else:
        # Group not in LDAP (yet)
-       dbg_print(WARN, "WARNING: Group %s not found in LDAP" % search_str)
+       logger.info("WARNING: Group %s not found in LDAP" % search_str)
        group_done[dn_dest] = "not found"
     
     

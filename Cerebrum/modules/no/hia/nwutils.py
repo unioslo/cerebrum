@@ -31,12 +31,16 @@ from Cerebrum.Utils import Factory
 from Cerebrum import Entity
 from Cerebrum import Errors
 from Cerebrum import QuarantineHandler
+from Cerebrum.extlib import logging
 from ldap import modlist
  
 # Set up the basics.
 db = Factory.get('Database')()
 co = Factory.get('Constants')(db)
 db.cl_init(change_program='add_disk')
+logging.fileConfig(cereconf.LOGGING_CONFIGFILE)
+logger = logging.getLogger("console")
+
 
 account = Factory.get('Account')(db)
 person = Factory.get('Person')(db)
@@ -63,12 +67,10 @@ class LDAPConnection:
     
     
     def __connect( self, host, binddn, password, port=389, crypted=True):
-	print "in connect"
         handle = ldap.open( host )
         handle.protocol_version = ldap.VERSION3
-        l_bind = 0
         if handle:
-	    if crypted:
+	    if crypted:  
 		try:
 		    if cereconf.TLS_CACERT_FILE is not None:
                         handle.OPT_X_TLS_CACERTFILE = cereconf.TLS_CACERT_FILE
@@ -80,17 +82,18 @@ class LDAPConnection:
             if crypted:
                 try:
                     handle.start_tls_s()
-                    l_bind = handle.simple_bind(binddn,password)
-                    print "TLS connection established to %s" % host
+                    handle.simple_bind_s(binddn,password)
+                    logger.info("TLS connection established to %s" % host)
                 except:
-                    print "Could not open TLS-connection to %s" % host
+                    logger.info( "Could not open TLS-connection to %s" % host)
+		    return False
             else:
                 try:
-                    l_bind = handle.simple_bind( binddn, password )
-                    print "Unencrypted connection to %s" % host
+                    handle.simple_bind_s( binddn, password )
+                    logger.info("Unencrypted connection to %s" % host)
                 except:
-                    print "Could not open unencrypted connection to %s" % host
-        if l_bind:
+                    logger.info("Could not open unencrypted connection to %s" % host)
+       		    return False
             return handle
         return False
     
@@ -271,25 +274,33 @@ def get_account_info(account_id, spread, site_callback):
         pwd = pickle.loads(pwd_rows[-1].change_params)['password']
     except:
         type, value, tb = sys.exc_info()
-        print "Aiee! %s %s" % (str(type), str(value))
+        logger.warn("Aiee! %s %s" % (str(type), str(value)))
         pwd = ''
     try:
         pri_ou = get_primary_ou(account_id, co.account_namespace)
     except Errors.NotFoundError:
-        print "Unexpected error /me thinks"
+        logger.info("Unexpected error /me thinks")
     if not pri_ou:
-        print "WARNING: no primary OU found for",name,"in namespace", co.account_namespace
+        logger.warn("WARNING: no primary OU found for",name,"in namespace", 
+							co.account_namespace)
         pri_ou = cereconf.NW_DEFAULT_OU_ID
     crbrm_ou = id_to_ou_path(pri_ou , cereconf.NW_LDAP_ROOT)
     ldap_ou = get_ldap_usr_ou(crbrm_ou, affiliation)
     ldap_dn = unicode('cn=%s,' % name, 'iso-8859-1').encode('utf-8') + ldap_ou
     
     try:
-        pq.clear();
-    	pq.find(account_id)
+	if cereconf.NW_PRINTER_QUOTAS.lower() == 'enable': 
+	    pq = PrinterQuotas.PrinterQuotas(db)
+            pq.clear();
+    	    pq.find(account_id)
+	    print_quota = pq.printer_quota
+    except Errors.AttributeError:
+	if affiliation == co.affiliation_student:
+            print_quota = '11000'
+	else:
+	    print_quota = None
     except Errors.NotFoundError:
-        pq = None  # User has no quota
-
+        print_quota = None  # User has no quota
     attrs = []
     attrs.append( ("ObjectClass", "user" ) )
     attrs.append( ("givenName", unicode(first_n, 'iso-8859-1').encode('utf-8') ) )
@@ -303,8 +314,9 @@ def get_account_info(account_id, spread, site_callback):
     attrs.append( ("generationQualifier","%d" % ext_id ) )
     attrs.append( ("passwordAllowChange", cereconf.NW_CAN_CHANGE_PW) )
     attrs.append( ("loginDisabled", account_disable) )
-    if pq is not None:
-    	attrs.append( ("accountBalance", pq.printer_quota) )
+    if print_quota is not None:
+    	attrs.append( ("accountBalance", print_quota) )
+	attrs.append( ("allowUnlimitedCredit", "FALSE"))
     passwd = unicode(pwd, 'iso-8859-1').encode('utf-8')
     attrs.append( ("userPassword", passwd) )
     if site_callback is not None:
@@ -355,9 +367,9 @@ def get_user_info(account_id, spread):
             except:
                 pass
         if full_name == ' ':
-            print "WARNING: getting persons name failed, account.owner_id:",person_id
+            logger.info("WARNING: getting persons name failed, account.owner_id:",person_id)
     except Errors.NotFoundError:
-        print "WARNING: find on person or account failed, user_id:", account_id        
+        logger.info("WARNING: find on person or account failed, user_id:", account_id)        
     
 
     account_disable = 'FALSE'
@@ -375,7 +387,7 @@ def get_user_info(account_id, spread):
             if qh.is_locked():           
                 account_disable = 'TRUE'
         except KeyError:        
-            print "WARNING: missing QUARANTINE_RULE"    
+            logger.info("WARNING: missing QUARANTINE_RULE")    
     if (account.is_expired()):
         account_disable = 'TRUE'
     return (first_n, last_n, account_disable, home_dir, affiliation, ext_id)
@@ -416,19 +428,24 @@ def get_ldap_group_ou(grp_name):
     utf8_ou = unicode("ou=%s,%s" % (cereconf.NW_LOST_AND_FOUND, cereconf.NW_LDAP_ROOT), 'iso-8859-1').encode('utf-8')
     if grp_name.find('stud') != -1:
         if cereconf.NW_LDAP_STUDGRPOU != None:
-            utf8_ou = unicode(cereconf.NW_LDAP_STUDGRPOU, 'iso-8859-1').encode('utf-8')
+            utf8_ou = "%s,%s" % (unicode(cereconf.NW_LDAP_STUDGRPOU, 'iso-8859-1').encode('utf-8'),
+			unicode(cereconf.NW_LDAP_ROOT, 'iso-8859-1').encode('utf-8'))
     elif grp_name.find('ans') != -1:
         if cereconf.NW_LDAP_ANSGRPOU != None:
-            utf8_ou = unicode(cereconf.NW_LDAP_ANSGRPOU, 'iso-8859-1').encode('utf-8')
+	    utf8_ou = "%s,%s" % (unicode(cereconf.NW_LDAP_ANSGRPOU, 'iso-8859-1').encode('utf-8'),
+			unicode(cereconf.NW_LDAP_ROOT, 'iso-8859-1').encode('utf-8'))
     return utf8_ou
 
 
 def get_ldap_usr_ou(crbm_ou, aff):
 
-    if cereconf.NW_LDAP_STUDOU != None and aff == co.affiliation_student:
-        utf8_ou = unicode(cereconf.NW_LDAP_STUDOU, 'iso-8859-1').encode('utf-8')
+    if cereconf.NW_LDAP_STUDOU != None and (aff == co.affiliation_student \
+				ent_name.has_spread(co.spread_hia_novell_labuser)):
+	utf8_ou = "%s,%s" % (unicode(cereconf.NW_LDAP_STUDOU, 'iso-8859-1').encode('utf-8'),
+			unicode(cereconf.NW_LDAP_ROOT, 'iso-8859-1').encode('utf-8'))
     elif cereconf.NW_LDAP_ANSOU != None and aff != co.affiliation_student:
-        utf8_ou = unicode(cereconf.NW_LDAP_ANSOU, 'iso-8859-1').encode('utf-8')
+	utf8_ou = "%s,%s" % (unicode(cereconf.NW_LDAP_ANSOU, 'iso-8859-1').encode('utf-8'),
+		unicode(cereconf.NW_LDAP_ROOT, 'iso-8859-1').encode('utf-8'))
     elif crbm_ou != None:
         utf8_ou = unicode(crbm_ou, 'iso-8859-1').encode('utf-8')
     else:
@@ -446,7 +463,7 @@ def get_crbrm_ou(ou_id):
         #TBD: Utvide med spread sjekk, OUer uten acronym, problem?
         return 'ou=%s' % path.replace('/',',ou=')
     except Errors.NotFoundError:
-        print "WARNING: Could not find OU with id",ou_id
+        logger.info("WARNING: Could not find OU with id",ou_id)
 
 
 def id_to_ou_path(ou_id,ourootname):
