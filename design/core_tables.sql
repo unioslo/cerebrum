@@ -1753,7 +1753,8 @@ Data assosiert direkte med en enkelt konto:
  * Struktur for tildeling av ymse rettigheter til (IT-)grupper.
 */
 
-
+category:drop;
+DROP TABLE cerebrum_metainfo;
 category:drop;
 DROP TABLE group_member;
 category:drop;
@@ -1804,8 +1805,6 @@ category:drop;
 DROP TABLE account_home;
 category:drop;
 DROP TABLE home_status_code;
-category:drop;
-DROP TABLE global_constants;
 category:drop;
 DROP TABLE account_info;
 category:drop;

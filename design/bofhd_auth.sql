@@ -6,8 +6,6 @@ version=1.0;
 category:drop;
 DROP TABLE auth_role;
 category:drop;
-DROP TABLE auth_op_target_attrs;
-category:drop;
 DROP TABLE auth_op_target;
 category:drop;
 DROP TABLE auth_op_attrs;
