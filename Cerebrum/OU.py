@@ -74,11 +74,16 @@ class OU(Entity, EntityContactInfo, EntityPhone, EntityAddress, OUStructure):
         if not identical:
             return identical
 
+        identical = EntityAddress.__eq__(self, other)
+        if self._debug_eq: print "EntityAddress.__eq__ = %s" % identical
+        if not identical: return False
+
         identical = ((other.name == self.name) and
                      (other.acronym == self.acronym) and
                      (other.short_name == self.short_name) and
                      (other.display_name == self.display_name) and
                      (other.sort_name == self.sort_name))
+        if self._debug_eq: print "OU.__eq__ = %s" % identical
         return identical
 
     def write_db(self, as_object=None):
