@@ -70,7 +70,8 @@ class CLHandler(DatabaseAccessor):
         range_no = 0
         i_sent = i_confirmed = 0
         updated = False
-
+        if len(self._confirmed_events) == 0:
+            return  # No update needed
         # We know what events we sent to the client, which events the
         # client confirmed this time, as well as what ranges of events the
         # client has previously acknowledged.  Now we iterate over all
@@ -94,27 +95,26 @@ class CLHandler(DatabaseAccessor):
             while (i_confirmed+1 < len(self._confirmed_events) and
                    self._confirmed_events[i_confirmed] < tmp_evt_id):
                 i_confirmed += 1
-	    if i_confirmed:
-            	if (self._confirmed_events[i_confirmed] == tmp_evt_id):
-                    # The event was confirmed, uppdate corresponding range
-                    if debug:
-                    	print "  C: hole=%i (%s)" % (found_hole, new_ranges)
+            if (self._confirmed_events[i_confirmed] == tmp_evt_id):
+                # The event was confirmed, uppdate corresponding range
+                if debug:
+                    print "  C: hole=%i (%s)" % (found_hole, new_ranges)
 
-                    if (tmp_evt_id > new_ranges[range_no][1] and
-                    	tmp_evt_id > new_ranges[range_no][0]):
-                    	updated = True
-                    	if found_hole:
-                            if range_no < len(new_ranges):
-                            	new_ranges.insert(range_no+1, [tmp_evt_id, tmp_evt_id])
-                            else:
-                            	new_ranges.append([tmp_evt_id, tmp_evt_id])
-                            found_hole = False
-                    	else:
-                            new_ranges[range_no][1] = tmp_evt_id
-                    if debug:
-                    	print "  RES: %s" % new_ranges
-            	else:
-                    found_hole = True
+                if (tmp_evt_id > new_ranges[range_no][1] and
+                    tmp_evt_id > new_ranges[range_no][0]):
+                    updated = True
+                    if found_hole:
+                        if range_no < len(new_ranges):
+                            new_ranges.insert(range_no+1, [tmp_evt_id, tmp_evt_id])
+                        else:
+                            new_ranges.append([tmp_evt_id, tmp_evt_id])
+                        found_hole = False
+                    else:
+                        new_ranges[range_no][1] = tmp_evt_id
+                if debug:
+                    print "  RES: %s" % new_ranges
+            else:
+                found_hole = True
             i_sent += 1
         if debug:
             print "NR: %s (%s)" % (new_ranges, updated)
