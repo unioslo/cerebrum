@@ -256,6 +256,7 @@ public class JBofh implements ActionListener {
 
         bc = new BofhdConnection(logger);
         String intTrust = (String) props.get("InternalTrustManager.enable");
+        showMessage("Bofhd server is at "+props.get("bofhd_url"), true);
         bc.connect((String) props.get("bofhd_url"), 
             (intTrust != null && intTrust.equals("true")) ? true : false);
         // Setup ReadLine routines
