@@ -1350,13 +1350,13 @@ WHERE em.fodselsdato = :fnr AND
       em.personnr = :pnr AND
       em.fodselsdato = p.fodselsdato AND
       em.personnr = p.personnr AND
-      em.arstall >= :year AND
-      em.manednr > :mnd - 3
+      (em.arstall > :year1 OR (em.arstall = :year2 AND em.manednr > :mnd - 3))
       AND %s
         """ % self.is_alive()
         return (self._get_cols(qry), self.db.query(qry, {'fnr': fnr,
                                                          'pnr': pnr,
-                                                         'year': self.year,
+                                                         'year1': self.year,
+                                                         'year2': self.year,
                                                          'mnd': self.mndnr}))
 
     def GetStudentStudierett(self,fnr,pnr):
