@@ -23,28 +23,32 @@
 from Cerebrum.Entity import \
      Entity, EntityContactInfo, EntityAddress
 
+
 class OUStructure(object):
-    "Mixin class, used by OU for OUs with structure."
+    """Mixin class, used by OU for OUs with structure."""
 
     def set_parent(self, perspective, parent_id):
-        "Set the parent of this OU to `parent_id' in `perspective'."
+        """Set the parent of this OU to ``parent_id`` in ``perspective``."""
         self.execute("""
-        INSERT INTO [:table schema=cerebrum name=ou_structure] (ou_id, perspective, parent_id)
+        INSERT INTO [:table schema=cerebrum name=ou_structure]
+          (ou_id, perspective, parent_id)
         VALUES (:e_id, :perspective, :parent_id)""",
-                     {'e_id' : self.entity_id, 'perspective' : int(perspective),
-                      'parent_id' : parent_id})
+                     {'e_id': self.entity_id,
+                      'perspective': int(perspective),
+                      'parent_id': parent_id})
 
     def get_structure_mappings(self, perspective):
-        "Return a list of ou_id -> parent_id mappings reperesenting the ou structure."
+        """Return list of ou_id -> parent_id connections in ``perspective``."""
         return self.query("""
-        SELECT ou_id, parent_id FROM [:table schema=cerebrum name=ou_structure]
-        WHERE perspective=:perspective""", {'perspective' : int(perspective)})
+        SELECT ou_id, parent_id
+        FROM [:table schema=cerebrum name=ou_structure]
+        WHERE perspective=:perspective""", {'perspective': int(perspective)})
+
 
 class OU(Entity, EntityContactInfo, EntityAddress, OUStructure):
 
     def clear(self):
-        "Clear all attributes associating instance with a DB entity."
-
+        """Clear all attributes associating instance with a DB entity."""
         self.name = None
         self.acronym = None
         self.short_name = None
@@ -53,10 +57,9 @@ class OU(Entity, EntityContactInfo, EntityAddress, OUStructure):
         EntityAddress.clear(self)
         super(OU, self).clear()
 
-    def populate(self, name, acronym=None, short_name=None, display_name=None,
-            sort_name=None):
-        "Set instance's attributes without referring to the Cerebrum DB."
-
+    def populate(self, name, acronym=None, short_name=None,
+                 display_name=None, sort_name=None):
+        """Set instance's attributes without referring to the Cerebrum DB."""
         self.name = name
         self.acronym = acronym
         self.short_name = short_name
@@ -67,28 +70,26 @@ class OU(Entity, EntityContactInfo, EntityAddress, OUStructure):
 
         self.__write_db = True
 
-    def __ne__(self, other):
-        return not self.__eq__(other)
-
     def __eq__(self, other):
-        """Ovveride the == test for objects.
+        """Overide the == test for objects.
 
         Note that None != the empty string ''"""
         assert isinstance(other, OU)
         identical = super(OU, self).__eq__(other)
         if not identical:
             return identical
-
         identical = EntityAddress.__eq__(self, other)
-        if self._debug_eq: print "EntityAddress.__eq__ = %s" % identical
-        if not identical: return False
-
+        if self._debug_eq:
+            print "EntityAddress.__eq__ = %s" % identical
+        if not identical:
+            return False
         identical = ((other.name == self.name) and
                      (other.acronym == self.acronym) and
                      (other.short_name == self.short_name) and
                      (other.display_name == self.display_name) and
                      (other.sort_name == self.sort_name))
-        if self._debug_eq: print "OU.__eq__ = %s" % identical
+        if self._debug_eq:
+            print "OU.__eq__ = %s" % identical
         return identical
 
     def write_db(self, as_object=None):
@@ -103,37 +104,40 @@ class OU(Entity, EntityContactInfo, EntityAddress, OUStructure):
         instance `as_object'.
 
         If you want to populate instances with data found in the
-        Cerebrum database, use the .find() method.
-
-        """
+        Cerebrum database, use the .find() method."""
         assert self.__write_db
-
         super(OU, self).write_db(as_object)
+        self.commit()
         ou_id = self.entity_id
-
         if as_object is None:
             # ou_id = super(OU, self).new(int(self.const.entity_ou))
             self.execute("""
-            INSERT INTO [:table schema=cerebrum name=ou_info] (entity_type, ou_id, name, acronym,
-                   short_name, display_name, sort_name)
-            VALUES (:e_type, :ou_id, :name, :acronym, :short_name, :disp_name, :sort_name)""",
-                         {'e_type' : int(self.const.entity_ou), 'ou_id' : ou_id,
-                          'name' : self.name, 'acronym' : self.acronym,
-                          'short_name' : self.short_name, 'disp_name' : self.display_name,
-                          'sort_name' : self.sort_name})
+            INSERT INTO [:table schema=cerebrum name=ou_info]
+              (entity_type, ou_id, name, acronym, short_name, display_name,
+               sort_name)
+            VALUES (:e_type, :ou_id, :name, :acronym, :short_name, :disp_name,
+                    :sort_name)""",
+                         {'e_type': int(self.const.entity_ou),
+                          'ou_id': ou_id,
+                          'name': self.name,
+                          'acronym': self.acronym,
+                          'short_name': self.short_name,
+                          'disp_name': self.display_name,
+                          'sort_name': self.sort_name})
         else:
             ou_id = as_object.ou_id
-            
             self.execute("""
-            UPDATE [:table schema=cerebrum name=ou_info] SET name=:name, acronym=:acronym,
-                   short_name=:short_name, display_name=:disp_name, sort_name=:sort_name
+            UPDATE [:table schema=cerebrum name=ou_info]
+            SET name=:name, acronym=:acronym, short_name=:short_name,
+                display_name=:disp_name, sort_name=:sort_name
             WHERE ou_id=:ou_id""", 
-                         {'name' : self.name, 'acronym' : self.acronym,
-                          'short_name' : self.short_name, 'disp_name' : self.display_name,
-                          'sort_name' : self.sort_name, 'ou_id' : ou_id})
-
+                         {'name': self.name,
+                          'acronym': self.acronym,
+                          'short_name': self.short_name,
+                          'disp_name': self.display_name,
+                          'sort_name': self.sort_name,
+                          'ou_id': ou_id})
         EntityAddress.write_db(self, as_object)
-
         self.ou_id = ou_id
         self.__write_db = False
 
@@ -142,26 +146,20 @@ class OU(Entity, EntityContactInfo, EntityAddress, OUStructure):
         """Register a new entity of ENTITY_TYPE.  Return new entity_id.
 
         Note that the object is not automatically associated with the
-        new entity.
-
-        """
-
-
+        new entity."""
         OU.populate(self, name, acronym, short_name, display_name, sort_name)
         OU.write_db(self)
         OU.find(self, self.entity_id)
-
         return self.entity_id
 
     def find(self, ou_id):
         """Associate the object with the OU whose identifier is OU_ID.
 
         If OU_ID isn't an existing OU identifier,
-        NotFoundError is raised.
-
-        """
-        self.ou_id, self.name, self.acronym, self.short_name, self.display_name, self.sort_name = self.query_1("""
+        NotFoundError is raised."""
+        (self.ou_id, self.name, self.acronym, self.short_name,
+         self.display_name, self.sort_name) = self.query_1("""
         SELECT ou_id, name, acronym, short_name, display_name, sort_name
         FROM [:table schema=cerebrum name=ou_info]
-        WHERE ou_id=:ou_id""", {'ou_id' : ou_id})
+        WHERE ou_id=:ou_id""", {'ou_id': ou_id})
         super(OU, self).find(ou_id)
