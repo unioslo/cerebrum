@@ -30,6 +30,7 @@ import sys
 import crypt
 import md5
 import socket
+import pickle
 import SimpleXMLRPCServer
 from random import Random
 
@@ -56,6 +57,8 @@ class BofhdSession(object):
         self._id = id
         self._entity_id = None
 
+    # TODO: we should remove all state information older than N
+    # seconds
     def set_authenticated_entity(self, entity_id):
         """Create persistent entity/session mapping; return new session_id.
 
@@ -99,8 +102,9 @@ class BofhdSession(object):
             raise CerebrumError, "Authentication failure"
         return self._entity_id
 
-    def store_state(self, state_type, state_data, entity_id):
+    def store_state(self, state_type, state_data, entity_id=None):
         """Add state tuple to ``session_id``."""
+        # TODO: assert that there is space for state_data
         return self._db.execute("""
         INSERT INTO [:table schema=cerebrum name=bofhd_session_state]
           (session_id, state_type, entity_id, state_data, set_time)
@@ -108,17 +112,34 @@ class BofhdSession(object):
                         {'session_id': self._id,
                          'state_type': state_type,
                          'entity_id': entity_id,
-                         'state_data': state_data
+                         'state_data': pickle.dumps(state_data)
                          })
 
     def get_state(self):
         """Retrieve all state tuples for ``session_id``."""
-        return self._db.query("""
+        ret = self._db.query("""
         SELECT state_type, entity_id, state_data, set_time
         FROM [:table schema=cerebrum name=bofhd_session_state]
         WHERE session_id=:session_id
-        ORDER BY set_time""", {'session_id': self._id}) 
+        ORDER BY set_time""", {'session_id': self._id})
+        for r in ret:
+            r['state_data'] = pickle.loads(r['state_data'])
+        return ret
 
+    def clear_state(self, state_types=None):
+        """Remove state in the server, such as cached passwords, or
+        when logging out."""
+        if state_types is None:
+            self._db.execute("""
+            DELETE FROM [:table schema=cerebrum name=bofhd_session_state]
+            WHERE session_id=:session_id
+            """, {'session_id': self._id})
+            self._db.execute("""
+            DELETE FROM [:table schema=cerebrum name=bofhd_session]
+            WHERE session_id=:session_id
+            """, {'session_id': self._id})
+        else:
+            raise NotImplementedError, "Clear only certain state types"
 
 class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler):
 
@@ -282,9 +303,7 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler):
             for x in args:
                 if isinstance(x, tuple):
                     raise NotImplementedError, "Tuple params not implemented."
-            # TBD: It would probably be better to pass the full
-            # `session`, and not merely `entity_id`, to `func`.
-            ret = func(entity_id, *args)
+            ret = func(session, *args)
             self.server.db.commit()
             # TBD: What should be returned if `args' contains tuple,
             # indicating that `func` should be called multiple times?

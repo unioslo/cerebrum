@@ -132,6 +132,10 @@ class PosixShell(Parameter):
     _type = 'posixShell'
     _prompt = "Enter shell"
 
+class SimpleString(Parameter):
+    _type = 'simpleString'
+    _prompt = "%s"
+
 class PosixGecos(Parameter):
     _type = 'posixGecos'
     _prompt = "Enter gecos"

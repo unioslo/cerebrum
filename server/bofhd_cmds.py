@@ -21,6 +21,7 @@ from Cerebrum import Account
 from Cerebrum import Errors
 from Cerebrum import Group
 from Cerebrum import Person
+from templates.letters import TemplateHandler
 from bofhd_errors import CerebrumError
 import cereconf
 from Cerebrum.modules import PosixUser
@@ -117,6 +118,8 @@ class BofhdExtension(object):
             account.write_db()
         except self.Cerebrum.DatabaseError, m:
             raise CerebrumError, "Database error: %s" % m
+        operator.store_state("account_passwd", {'account_id': int(account.entity_id),
+                                                'password': password})
         return password
 
     ## bofh> account posix_create <accountname> <prigroup> <home=> \
@@ -467,6 +470,30 @@ class BofhdExtension(object):
         except self.Cerebrum.DatabaseError, m:
             raise CerebrumError, "Database error: %s" % m           
         return "OK"
+
+    ## bofh> misc pprint <printer> <template=>
+    all_commands['misc_pprint'] = Command(
+        ("misc", "pprint"), SimpleString(ptype="printername"),
+        SimpleString(ptype="template", default=True))
+    def misc_pprint(self, operator, printer, template='new_password',
+                    lang='no', type='ps'):
+        """Print password sheets"""
+        ret = []
+        tpl = TemplateHandler(lang, template, type)
+        n = 1
+        for x in operator.get_state():
+            if x['state_type'] == 'account_passwd':
+                dta = x['state_data']
+                # TODO: Should send this to printer
+                ret.append('/tmp/out.%i.ps' % n)
+                n += 1
+                f = open(ret[-1], 'w')
+                # TODO:  probably want to extract more data
+                f.write(tpl.apply_template(
+                    'body', {'theusername': dta['account_id'],
+                             'thepassword': dta['password']}))
+                f.close()
+        return str(ret)
 
     #
     # misc helper functions.
