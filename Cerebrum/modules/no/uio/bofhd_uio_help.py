@@ -148,21 +148,35 @@ command_help = {
     'group_set_visibility': 'Set visibility for a group',
     'group_user': 'List all groups an account is a member of',
     },
-    'misc': {
-    'misc_affiliations': 'List all the affiliations defined in the database',
-    'misc_change_request': 'Change execution time for a pending request',
-    'misc_checkpassw': 'Test the quality of a given password',
-    'misc_clear_passwords': 'clear password(s) from the altered-passwords list in the current sessions',
-    'misc_dadd': 'Register a disk in Cerebrum database',
-    'misc_dls': 'List all registered disk for a given host',
-    'misc_drem': 'Remove a disk entry from Cerebrum',
-    'misc_hadd': 'Register a new host in the Cerebrum database',
-    'misc_hrem': 'Remove a host entry from Cerebrum',
-    'misc_list_passwords': 'View/print all the password altered during a session',
-    'misc_reload': 'Re-read server config file (use with care)',
-    'misc_list_requests': 'View pending jobs the current BOFH user has requested/may confirm',
-    'misc_stedkode': 'Look up OU by stedkode or name',
-    'misc_user_passwd': 'Check whether an account has a given password',
+    "misc": {
+    "misc_affiliations":
+        "List all known affiliations",
+    "misc_change_request":
+        "Change execution time for a pending request",
+    "misc_checkpassw":
+        "Test the quality of a given password",
+    "misc_clear_passwords":
+        "Forget the passwords which have been set this session",
+    "misc_dadd":
+        "Register a new disk",
+    "misc_dls":
+        "List all registered disks for a given host",
+    "misc_drem":
+        "Remove a disk",
+    "misc_hadd":
+        "Register a new host",
+    "misc_hrem":
+        "Remove a host",
+    "misc_list_passwords":
+        "View/print all the password altered this session",
+    "misc_reload":
+        "Re-read server config file (use with care)",
+    "misc_list_requests":
+        "View pending jobs",
+    "misc_stedkode":
+        "Look up OU by stedkode or name",
+    "misc_user_passwd":
+        "Check whether an account has a given password",
     },
     'perm': {
     'perm_opset_list': 'List defined opsets',
