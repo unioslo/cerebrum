@@ -358,6 +358,12 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
         SELECT person_id FROM [:table schema=cerebrum name=person_info]
         WHERE to_date(birth_date, 'YYYY-MM-DD')=:bdate""", locals())
 
+
+    def find_persons_by_name(self, name):
+        return self.query("""
+        SELECT DISTINCT person_id FROM [:table schema=cerebrum name=person_name]
+        WHERE name LIKE :name""", locals())
+
     def find_by_external_id(self, id_type, external_id, source_system=None):
         binds = {'id_type': int(id_type),
                  'ext_id': external_id }
