@@ -65,4 +65,12 @@ def add_name(self, name, name_variant, source_system):
 
 Person.register_method(Method('add_name', None, args=[('name', str), ('name_variant', NameType), ('source_system', SourceSystem)], write=True), add_name)
 
+def get_cached_full_name(self):
+    cached = SourceSystem(name='Cached')
+    full = NameType(name='FULL')
+    return PersonName(self, full, cached).get_name()
+
+Person.register_method(Method('get_cached_full_name', str), get_cached_full_name)
+
+
 # arch-tag: 6a0ecb31-a1a6-4581-ad50-c9e53323041b
