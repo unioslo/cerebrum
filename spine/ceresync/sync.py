@@ -39,35 +39,54 @@ for hack in (generated._objref_SpineGroup,
         except RuntimeError, e:
             return False
     hack.__eq__ = __eq__
+    # Why 2147483647 ?  
     hack.__hash__ = lambda self:self._hash(2147483647)
 
 class Sync:
-    def __init__(self, incr, id):
+    def __init__(self, incr=False, id=None):
+        """Creates a sync connection to Spine. 
+
+        If incr is true, the parameter id must be supplied, and only
+        changed object since that change id will be returned from
+        get_-methods
+
+        If incr is false, all objects will be returned
+
+        The last change_id for the supplied objects 
+        is supplied in the attribute last_change, both for incr=True
+        and incr=False.
+        """
+
         self._transactions = []
         self._connect()
    
         if incr:
+            if id is None:
+                raise errors.ProgrammingError, "Must supply 'id' argument"
             self._connection = self._transaction()
         else:
             self._connection = self._snapshot()
 
         self._from_change = id
-        self._last_change = self._connection.get_commands().get_last_changelog_id()
+        self.last_change = self._connection.get_commands().get_last_changelog_id()
 
         if incr:
             self._changes = self._connection.get_change_log_searcher()
             self._changes.set_id_more_than(self._from_change)
-            self._changes.set_id_less_than(self._last_change + 1)
+            self._changes.set_id_less_than(self.last_change + 1)
             self._changes.mark_subject()
 #            print 'changes:', self._changes.search()
-#            print 'getting changes from %s to %s' % (self._from_change, self._last_change)
+#            print 'getting changes from %s to %s' % (self._from_change, self.last_change)
         else:
             self._changes = None
 #            print 'getting everything'
 
     def __del__(self):
+        # We roll back our own passive main connection
+        self._connection.rollback()
         # We shouldn't have any open transactions now, but if we do, we
-        # abort them.
+        # abort those too. Such connections could have been created by
+        # modules who need to make other _transaction()s.
         if self._open_transactions():
             print >>sys.stderr, "WARNING: %s transactions still open, rolling back" % len(self._transactions)
         self._rollback()
@@ -205,7 +224,6 @@ class Sync:
                 i.gecos = None
                 i.primary_group = None
                 i.shell = None
-
         return accounts
 
     def get_groups(self):
@@ -261,12 +279,7 @@ class Sync:
             # WHICH IS THE PRIMARY USER? What about different user name
             # domains? 
             person.users = [a.get_name() for a in accounts.search()]
-
-        t.rollback()
         return results
-
-    def get_last_change(self):
-        return self._last_change
  
 class Person:
     """Stub object for representation of a person"""
@@ -290,9 +303,7 @@ class Person:
         self.groups = [g.get_name() for g in person.get_groups()]
         # FIXME: What about organizational belongings?
 
-        # Map to true Python booleans
-        bools = {"F": False, "T": True}
-        self.deceased = bools[person.get_deceased()]
+        self.deceased = person.get_deceased()
 
         # Unwrap PersonName objects
         names = person.get_names() 
@@ -397,7 +408,6 @@ class TestSync(unittest.TestCase):
         # HEHEHE 
         self.assertEqual(stain.shell, "/local/gnu/bin/bash")
 
-
     def testGetGroups(self):
         groups = self.s.get_groups()
         assert groups
@@ -433,7 +443,6 @@ class TestSync(unittest.TestCase):
         self.assertEqual(soiland.deceased, False)
         # FIXME: Should be "stain" and "soiland" in soiland.users
         self.assertEqual(soiland.users, ["cxx"])
-
 
 if __name__ == "__main__":
     unittest.main()
