@@ -2,6 +2,7 @@ from Cerebrum.gro.Cerebrum_core import Errors
 from Cerebrum.gro import Cerebrum_core__POA, Utils, Node, Locking, Locker
 
 from omniORB.any import to_any, from_any
+import mx.DateTime
 
 
 """ Access point handler.
@@ -51,6 +52,17 @@ class APHandler(Cerebrum_core__POA.APHandler, Locker):
 
         raise Errors.NoSuchTypeError('className %s was not found' % className)
 
+    def getNode(self, className, key):
+        if className not in Node.classMap:
+            raise Errors.NoSuchTypeError('className %s was not found' % className)
+        l = []
+        for i in from_any(key):
+            if isinstance(i, APNode):
+                l.append(i.node)
+            else:
+                l.append(i)
+        node = Node.classMap[className](*l)
+        return self.com.get_corba_representation(APNode(self, node))
 
 
 """ Access point proxy node.
@@ -72,11 +84,14 @@ class APNode(Cerebrum_core__POA.Node):
     If the object is a node, it will be convertet to a corba-node.
     If the ojbect is a int, long, float or string it will not be converted."""
     def _convert(self, obj):
-        if hasattr(obj, '__iter__'):
+        if hasattr(obj, '__iter__') or type(obj) in (list, tuple):
             return [self._convert(i) for i in obj]
 
         elif type(obj) in (int, long, float, str):
             return obj
+
+        elif type(obj) == mx.DateTime.DateTimeType:
+            return obj.ticks()
 
         elif isinstance(obj, Node):
             apNode = APNode(self.ap, obj)
@@ -84,11 +99,11 @@ class APNode(Cerebrum_core__POA.Node):
 
         elif obj is None:
             print 'warning! obj is None'
-            return 0
+            return 'wtf. None!'
 
         else:
             print type(obj)
-            unknown_type
+            raise Errors.ServerError('Server failed to convert object')
 
 
     """ Returns the parents of the node. """
@@ -99,6 +114,12 @@ class APNode(Cerebrum_core__POA.Node):
     """ Returns the childrens of the node. """
     def getChildren(self):
         return self._convert(self.node.children)
+
+    def getPrimaryKey(self):
+        key = self.node.getPrimaryKey()[1]
+        if type(key) != tuple:
+            key = [key]
+        return to_any(self._convert(key))
 
 
     """ Returns node values.
@@ -133,6 +154,17 @@ class APNode(Cerebrum_core__POA.Node):
     def getClassName(self):
         return self.node.__class__.__name__
 
+    def getReadAttributes(self):
+        return self.node.readSlots
+
+    def getWriteAttributes(self):
+        return self.node.writeSlots
+
+    def setString(self, key, value):
+        setattr(self.node, key, value)
+
+    def setLong(self, key, value):
+        setattr(self.node, key, value)
 
     """ Prevent other from locking the node for writing.
 
