@@ -110,7 +110,7 @@ def nwqsync(spreads,g_spread):
 	    param_list = string.split(cll.change_params,'\n')
 	    domain = re.sub('\D','',param_list[3])
             ent_name = param_list[6].split('\'')[1]
-	    ent_name_cache[cll.subject_id] = {'name':ent_name,'value_domain':domain}
+	    ent_name_cache[cll.subject_entity] = {'name':ent_name,'value_domain':domain}
 	    continue
         try:
             func = cltype[int(cll.change_type_id)]
