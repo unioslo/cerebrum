@@ -21,10 +21,39 @@
 
 import re
 from Cerebrum import Group
+from Cerebrum.Database import Errors
 
 class GroupUiOMixin(Group.Group):
     """Group mixin class providing functionality specific to UiO.
     """
+
+    def add_member(self, member_id, type, op):
+        '''Override default add_member with checks that avoids
+        membership in too many PosixGroups of the same spread as this
+        gives problems with NFS'''
+
+        from Cerebrum.modules import PosixGroup
+
+        # TODO: we should look at op, and include_indirect_members
+        spreads = [int(s['spread']) for s in self.get_spread()]
+        counts = {}
+        for s in spreads:
+            counts[s] = 0
+        pg = PosixGroup.PosixGroup(self._db)
+        for g in self.list_groups_with_entity(member_id):
+            try:
+                pg.clear()
+                pg.find(g['group_id'])
+                for s in pg.get_spread():
+                    if int(s['spread']) in spreads:
+                        counts[int(s['spread'])] += 1
+            except Errors.NotFoundError:
+                pass
+        for k in counts.keys():
+            if counts[k] > 16:
+                raise self._db.IntegrityError(
+                    "Member of too many groups (%i)" % counts[k])
+        super(GroupUiOMixin, self).add_member(member_id, type, op)
 
     def illegal_name(self, name):
         # Avoid circular import dependency
