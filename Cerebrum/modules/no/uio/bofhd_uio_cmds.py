@@ -1893,17 +1893,12 @@ class BofhdExtension(object):
 	opr = operator.get_entity_id()
         acc = Utils.Factory.get("Account")(self.db)
 	acc.find(opr)
-	
         fromaddr = acc.get_primary_mailaddress()
-
 	toaddr = cereconf.GROUP_REQUESTS_SENDTO
 	spreadstring = "(" + spread + ")"
-	
 	spreads = []
 	spreads = re.split(" ",spread)
-
 	subject = "Cerebrum group create request %s" % groupname
-
 	body = []
 	body.append("Please create a new group:")
 	body.append("")
@@ -1913,27 +1908,27 @@ class BofhdExtension(object):
 	body.append("Moderator: %s" % moderator)
 	body.append("")
 	body.append("group create %s \"%s\"" % (groupname, description))
-	
 	for i in range(len(spreads)):
 	    if (self._get_constant(spreads[i],"No such spread") in \
-		[self.const.spread_uio_nis_ng,self.const.spread_uio_nis_fg,\
-		 self.const.spread_ifi_nis_ng,self.const.spread_ifi_nis_fg]):
-		 body.append("group promote_posix %s" % groupname)
-		 break
+		[self.const.spread_uio_nis_fg,self.const.spread_ifi_nis_fg]):
+                pg = PosixGroup.PosixGroup(self.db)
+		if not pg.illegal_name(groupname):
+		    body.append("group promote_posix %s" % groupname)
+		else:
+		    raise CerebrumError, "Illegal groupname, max 8 characters allowed."
+		    break
 	    else:
-		 pass	    
-
+		pass	    
 	body.append("spread add %s %s" % (groupname, spreadstring))
 	body.append("")
 	body.append("")
-	
 	message = email.Message.Message()
 	message["From"] = fromaddr
 	message["To"] = toaddr
 	message["Subject"] = subject
 	message.set_payload("\n".join(body), "ISO-8859-1")
 	Utils.sendmail(fromaddr, toaddr, message)	
-	return "Request sendt to brukerreg@usit.uio.no"
+	return "Request sent to brukerreg@usit.uio.no"
 
     #  group def
     all_commands['group_def'] = Command(
@@ -3072,7 +3067,35 @@ class BofhdExtension(object):
                                     idtype, id)
         person.write_db()
         return "OK"
-    
+
+    #person set name
+    all_commands['person_set_name'] = Command(
+	("person", "set_name"),PersonId(help_ref="person_id_other"),
+	PersonName(help_ref="person_name_full"),
+	fs=FormatSuggestion("Name altered for: %i",
+        ("person_id",)),
+	perm_filter='is_superuser')
+    def person_set_name(self, operator, person_id, person_fullname):
+        person = self._get_person(*self._map_person_id(person_id))
+	self.ba.is_superuser(operator.get_entity_id())
+
+	for a in person.get_affiliations():
+	    if (a['affiliation'] in \
+		[self.const.affiliation_ansatt, self.const.affiliation_student,\
+		 self.const.affiliation_tilknyttet]):
+		raise CerebrumError, "You can't alter name of a person registered in an authorative source system!"
+	    else:
+		pass
+	    person.affect_names(self.const.system_manual, self.const.name_full)
+	    person.populate_name(self.const.name_full,
+				 person_fullname.encode('iso8859-1'))
+	    
+	    try:
+		person.write_db()
+	    except self.db.DatabaseError, m:
+		raise CerebrumError, "Database error: %s" % m
+	    return {'person_id': person.entity_id}
+
     # person student_info
     all_commands['person_student_info'] = Command(
         ("person", "student_info"), PersonId(),
