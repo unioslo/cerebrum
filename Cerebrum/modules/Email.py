@@ -143,7 +143,7 @@ class EmailDomain(EmailEntity):
 
     def clear(self):
         self.clear_class(EmailDomain)
-        self.__updated = False
+        self.__updated = []
 
     def populate(self, domain, description):
         try:
@@ -177,7 +177,7 @@ class EmailDomain(EmailEntity):
                           'descr': self.email_domain_description})
         del self.__in_db
         self.__in_db = True
-        self.__updated = False
+        self.__updated = []
         return is_new
 
     def find(self, domain_id):
@@ -191,7 +191,7 @@ class EmailDomain(EmailEntity):
         except AttributeError:
             pass
         self.__in_db = True
-        self.__updated = False
+        self.__updated = []
 
     def find_by_domain(self, domain):
         domain_id = self.query_1("""
@@ -229,7 +229,7 @@ class EmailTarget(EmailEntity):
 
     def clear(self):
         self.clear_class(EmailTarget)
-        self.__updated = False
+        self.__updated = []
 
     def populate(self, type, entity_id=None, entity_type=None, alias=None):
         try:
@@ -279,7 +279,7 @@ class EmailTarget(EmailEntity):
                           'alias': self.email_target_alias})
         del self.__in_db
         self.__in_db = True
-        self.__updated = False
+        self.__updated = []
         return is_new
 
     def find(self, target_id):
@@ -294,7 +294,7 @@ class EmailTarget(EmailEntity):
         except AttributeError:
             pass
         self.__in_db = True
-        self.__updated = False
+        self.__updated = []
 
     def find_by_entity(self, entity_id, entity_type):
         # This might find no rows, and it might find more than one
@@ -357,7 +357,7 @@ class EmailAddress(EmailEntity):
                       'email_addr_target_id', 'email_addr_expire_date')
     def clear(self):
         self.clear_class(EmailAddress)
-        self.__updated = False
+        self.__updated = []
 
     def populate(self, local_part, domain_id, target_id, expire=None):
         try:
@@ -399,7 +399,7 @@ class EmailAddress(EmailEntity):
                           'expire': self.email_addr_expire_date})
         del self.__in_db
         self.__in_db = True
-        self.__updated = False
+        self.__updated = []
         return is_new
 
     def find(self, address_id):
@@ -414,7 +414,7 @@ class EmailAddress(EmailEntity):
         except AttributeError:
             pass
         self.__in_db = True
-        self.__updated = False
+        self.__updated = []
 
     def find_by_address(self, address):
         lp, dp = address.split('@')
@@ -460,7 +460,7 @@ class EntityEmailDomain(Entity):
     def clear(self):
         self.__super.clear()
         self.clear_class(EntityEmailDomain)
-        self.__updated = False
+        self.__updated = []
 
     def populate_email_domain(self, domain_id, affiliation=None):
         try:
@@ -494,7 +494,7 @@ class EntityEmailDomain(Entity):
                                        'dom_id': self.entity_email_domain_id})
         del self.__in_db
         self.__in_db = True
-        self.__updated = False
+        self.__updated = []
         return is_new
 
     def find(self, entity_id):
@@ -513,7 +513,7 @@ class EntityEmailDomain(Entity):
         except AttributeError:
             pass
         self.__in_db = in_db
-        self.__updated = False
+        self.__updated = []
 
     def delete():
         return self.execute("""
@@ -529,7 +529,7 @@ class EmailQuota(EmailTarget):
     def clear(self):
         self.__super.clear()
         self.clear_class(EmailQuota)
-        self.__updated = False
+        self.__updated = []
 
     def populate_quota(self, soft, hard):
         try:
@@ -564,7 +564,7 @@ class EmailQuota(EmailTarget):
                                        'hard': self.email_quota_hard})
         del self.__in_db
         self.__in_db = True
-        self.__updated = False
+        self.__updated = []
         return is_new
 
     def find(self, target_id):
@@ -578,7 +578,7 @@ class EmailQuota(EmailTarget):
         except AttributeError:
             pass
         self.__in_db = True
-        self.__updated = False
+        self.__updated = []
 
     def get_quota_soft(self):
         return self.email_quota_soft
@@ -631,7 +631,7 @@ class EmailSpamFilter(EmailTarget):
     def clear(self):
         self.__super.clear()
         self.clear_class(EmailSpamFilter)
-        self.__updated = False
+        self.__updated = []
 
     def populate_spam_filter(self, level, action):
         try:
@@ -666,7 +666,7 @@ class EmailSpamFilter(EmailTarget):
                                        'action': self.email_spam_action})
         del self.__in_db
         self.__in_db = True
-        self.__updated = False
+        self.__updated = []
         return is_new
 
     def find(self, target_id):
@@ -680,7 +680,7 @@ class EmailSpamFilter(EmailTarget):
         except AttributeError:
             pass
         self.__in_db = True
-        self.__updated = False
+        self.__updated = []
 
     def get_spam_level(self):
         level = self._db.pythonify_data(self.email_spam_level)
@@ -714,7 +714,7 @@ class EmailVirusScan(EmailTarget):
     def clear(self):
         self.__super.clear()
         self.clear_class(EmailVirusScan)
-        self.__updated = False
+        self.__updated = []
 
     def populate_virus_scan(self, found_action, removed_action, enable):
         try:
@@ -752,7 +752,7 @@ class EmailVirusScan(EmailTarget):
                           'enable': self.email_virus_enable})
         del self.__in_db
         self.__in_db = True
-        self.__updated = False
+        self.__updated = []
         return is_new
 
     def find(self, target_id):
@@ -767,7 +767,7 @@ class EmailVirusScan(EmailTarget):
         except AttributeError:
             pass
         self.__in_db = True
-        self.__updated = False
+        self.__updated = []
 
     def get_enable(self):
         if self.email_virus_enable == "T":
@@ -877,7 +877,7 @@ class EmailPrimaryAddressTarget(EmailTarget):
     def clear(self):
         self.__super.clear()
         self.clear_class(EmailPrimaryAddressTarget)
-        self.__updated = False
+        self.__updated = []
 
     def populate(self, address_id, parent=None):
         if parent is not None:
@@ -913,7 +913,7 @@ class EmailPrimaryAddressTarget(EmailTarget):
                                        'addr_id': self.email_primaddr_id})
         del self.__in_db
         self.__in_db = True
-        self.__updated = False
+        self.__updated = []
         return is_new
 
     def find(self, target_id):
@@ -927,7 +927,7 @@ class EmailPrimaryAddressTarget(EmailTarget):
         except AttributeError:
             pass
         self.__in_db = True
-        self.__updated = False
+        self.__updated = []
 
     def get_address_id(self):
         return self.email_primaddr_id
@@ -940,7 +940,7 @@ class EmailServer(Host):
     def clear(self):
         self.__super.clear()
         self.clear_class(EmailServer)
-        self.__updated = False
+        self.__updated = []
 
     def populate(self, server_type, name=None, description=None, parent=None):
         if parent is not None:
@@ -975,7 +975,7 @@ class EmailServer(Host):
                                        'type': int(self.email_server_type)})
         del self.__in_db
         self.__in_db = True
-        self.__updated = False
+        self.__updated = []
         return is_new
 
     def find(self, server_id):
@@ -989,4 +989,66 @@ class EmailServer(Host):
         except AttributeError:
             pass
         self.__in_db = True
-        self.__updated = False
+        self.__updated = []
+
+def EmailServerTarget(EmailTarget):
+    __read_attr__ = ('__in_db',)
+    __write_attr__ = ('email_server_id',)
+
+    def clear(self):
+        self.__super.clear()
+        self.clear_class(EmailServerTarget)
+        self.__updated = []
+
+    def populate(self, server_id, parent=None):
+        if parent is not None:
+            self.__xerox__(parent)
+        try:
+            if not self.__in_db:
+                raise RuntimeError, "populate() called multiple times."
+        except AttributeError:
+            if parent is None:
+                raise RunTimeError, \
+                      "Can't populate EmailServerTarget w/o parent."
+            self.__in_db = False
+        self.email_server_id = server_id
+
+    def write_db(self):
+        self.__super.write_db()
+        if not self.__updated:
+            return
+        is_new = not self.__in_db
+        if is_new:
+            self.execute("""
+            INSERT INTO [:table schema=cerebrum name=email_target_server]
+              (target_id, server_id)
+            VALUES (:t_id, :srv_id)""",
+                         {'t_id': self.email_target_id,
+                          'srv_id': self.email_server_id})
+        else:
+            # TBD: What about DELETEs?
+            self.execute("""
+            UPDATE [:table schema=cerebrum name=email_target_server]
+            SET server_id=:srv_id
+            WHERE target_id=:t_id""", {'t_id': self.email_target_id,
+                                       'srv_id': self.email_server_id})
+        del self.__in_db
+        self.__in_db = True
+        self.__updated = []
+        return is_new
+
+    def find(self, target_id):
+        self.__super.find(target_id)
+        self.email_server_id = self.query_1("""
+        SELECT server_id
+        FROM [:table schema=cerebrum name=email_target_server]
+        WHERE target_id=:t_id""", {'t_id': self.email_target_id})
+        try:
+            del self.__in_db
+        except AttributeError:
+            pass
+        self.__in_db = True
+        self.__updated = []
+
+    def get_server_id(self):
+        return self.email_server_id
