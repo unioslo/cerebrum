@@ -3449,8 +3449,8 @@ class BofhdExtension(object):
         ("person", "student_info"), PersonId(),
         fs=FormatSuggestion([
         ("Studieprogrammer: %s, %s, %s, tildelt=%s->%s privatist: %s",
-         ("studprogkode", "studierettstatkode", "opphortstatus", format_day("dato_tildelt"),
-          format_day("dato_gyldig_til"), "privatist")),
+         ("studprogkode", "studierettstatkode", "status", format_day("dato_studierett_tildelt"),
+          format_day("dato_studierett_gyldig_til"), "privatist")),
         ("Eksamensmeldinger: %s (%s), %s",
          ("ekskode", "programmer", format_day("dato"))),
         ("Utd. plan: %s, %s, %d, %s",
@@ -3459,7 +3459,7 @@ class BofhdExtension(object):
         ("Semesterreg: %s, %s, betalt: %s, endret: %s",
          ("regformkode", "betformkode", format_day("dato_betaling"),
           format_day("dato_regform_endret"))),
-        ("Klasse: %s, (%s)", ("klassekode", "kullkode"))
+        ("Kull: %s, (%s)", ("kullkode", "status_aktiv"))
 	]),
         perm_filter='can_get_student_info')
     def person_student_info(self, operator, person_id):
