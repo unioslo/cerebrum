@@ -39,6 +39,7 @@ from Cerebrum.modules.bofhd.utils import BofhdRequests
 from Cerebrum.modules.bofhd import errors
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.uio import AutoStud
+from Cerebrum.modules.no.uio import DiskQuota
 from Cerebrum.modules.no.uio import PrinterQuotas
 from Cerebrum.modules.templates.letters import TemplateHandler
 
@@ -58,6 +59,7 @@ posix_user_obj = PosixUser.PosixUser(db)
 account_obj = Factory.get('Account')(db)
 person_obj = Factory.get('Person')(db)
 group_obj = Factory.get('Group')(db)
+disk_quota_obj = DiskQuota.DiskQuota(db)
 
 debug = 0
 max_errors = 50          # Max number of errors to accept in person-callback
@@ -179,6 +181,7 @@ class AccountUtil(object):
                     homedir_id = user.set_homedir(
                         disk_id=new_disk, status=const.home_status_not_created)
                     user.set_home(disk_spread, homedir_id)
+                    accounts[account_id]['homedir_id'] = homedir_id
                 else:
                     br = BofhdRequests(db, const)
                     # TBD: Is it correct to set requestee_id=None?
@@ -207,6 +210,9 @@ class AccountUtil(object):
                 start_at = strftime('%Y-%m-%d', localtime(dta[1] + time()))
                 user.add_entity_quarantine(
                     dta[0], default_creator_id, 'automatic', start_at)
+            elif c_id == 'disk_kvote':
+                disk_quota_obj.set_quota(
+                    accounts[account_id]['homedir_id'], quota=int(dta[0]))
             else:
                 raise ValueError, "Unknown change: %s" % c_id
         tmp = user.write_db()
@@ -268,6 +274,7 @@ class AccountUtil(object):
                 autostud.student_disk.has_key(int(tmp))):
                 may_be_quarantined = True
 
+        current_disk_id = None
         for disk_spread in profile.get_disk_spreads():
             if not disk_spread in user_spreads:
                 # The disk-spread in disk-defs was not one of the users spread
@@ -281,6 +288,12 @@ class AccountUtil(object):
                 if current_disk_id != new_disk:
                     profile.notify_used_disk(old=current_disk_id, new=new_disk)
                     changes.append(('disk', (current_disk_id, disk_spread, new_disk)))
+                    current_disk_id = new_disk
+
+        if current_disk_id is not None and autostud.pc.using_disk_kvote:
+            quota = profile.get_disk_kvote(current_disk_id)
+            changes.append(('disk_kvote', (quota,)))
+
         # TBD: Is it OK to ignore date on existing quarantines when
         # determining if it should be added?
         tmp = []
@@ -691,7 +704,8 @@ def get_existing_accounts():
         tmp = accounts.get(int(row['account_id']), None)
         if tmp is not None and row['disk_id']:
             tmp['home'][int(row['home_spread'])] = int(row['disk_id'])
-
+            tmp['homedir_id'] = int(row['homedir_id'])
+            
     # Group memberships (TODO: currently only handles union members)
     for group_id in autostud.pc.group_defs.keys():
         group_obj.clear()
