@@ -1,0 +1,203 @@
+As I've promised Andreas, here is my attempt at shedding some light on
+why Cerebrum installs its files in so many different directories.
+
+
+* Layout of the Cerebrum development tree.
+
+  The various files that makes up Cerebrum's CVS tree (and hence any
+  Cerebrum release tarball) can be split into several groups:
+
+** cerebrum/Cerebrum/ -- the 'Cerebrum' python package.
+
+  When some piece of python code does "from Cerebrum import foo", it
+  imports some part of the Cerebrum python package.
+
+  This package contains both the "Core Cerebrum API" (which is made
+  up of all files directly under cerebrum/Cerebrum --
+  e.g. "Entity.py", "Database.py" and "Utils.py") and lots of
+  extensions building on this core API.
+
+  Any such extension is made up of one or more files residing
+  somewhere under cerebrum/Cererum/modules.
+
+  This modules/ directory has a few files placed directly in it --
+  these correspond to extensions that aren't (believed to be)
+  specific to any particular country or institution.
+
+  Modules that *are* considered country- or institution-specific are
+  placed in subdirectories of the modules/ directory; e.g. modules
+  specific to Norway lives in cerebrum/modules/no/, while modules
+  specific to The University of Oslo lives in
+  cerebrum/Cerebrum/modules/no/uio/.
+
+  The reason for splitting the modules/ subpackage in this
+  reverse-domain-name fashion is to allow different institutions to
+  maintain "their own" extensions without too much
+  inter-institutional quarreling over whether or not extension "foo"
+  should be changed (to support new features/clean up the
+  code/whatever).  While code reuse is nice, it isn't necessarily a
+  good idea to make it compulsory for all code to be reusable.
+
+  Example: The folks at uio.no might be perfectly happy with how
+    "Cerebrum.modules.no.foo" is working for them, while the folks at
+    ntnu.no desperately needs to tweak it a bit -- in a way that
+    would make it unusable to uio.no.  Solution: Let the ntnu.no
+    folks use Cerebrum.modules.no.ntnu.foo instead, where they can do
+    all the tweaking they need.  The uio.no folks can then keep using
+    Cerebrum.modules.no.foo.
+
+    Alternatively, the solution might be reversed -- ntnu.no keeps
+    using Cerebrum.modules.no.foo, while uio.no needs to fork the
+    existing module (before ntnu.no started tweaking it) into
+    Cerebrum.modules.no.uio.foo.
+
+    Without the option of forking the module like this, both
+    behaviours (pre- and post-tweak) could be supported in the same
+    module, conditionalized on some configuration setting.  However,
+    if you repeat this practice for N institutions, you'll quickly
+    end up with pretty much impenetrable spaghetti code.
+
+*** cerebrum/Cerebrum/extlib/ -- external code
+
+  Cerebrum makes use of a few Python modules that aren't developed as
+  part of Cerebrum.  These are imported into the development tree
+  under the cerebrum/Cerebrum/extlib/ directory.
+
+** cerebrum/contrib/ -- export and import scripts.
+
+  Scripts for doing various imports to and exports from Cerebrum
+  resides here.
+
+  This directory is also split in a reverse-domain-name fashion.
+  Scripts that are "generic" live directly under cerebrum/contrib/,
+  while scripts that are specific to uio.no lives in
+  cerebrum/contrib/no/uio/.
+
+  The idea is, again, to allow e.g. ntnu.no to implement features they
+  need without getting too tangled up in whatever features e.g. uio.no
+  are already using (and relying on).
+
+  Note that ntnu.no are free to choose filenames under contrib/no/ntnu
+  however they like.  If they make a ntnu.no-specific variant of the
+  existing script contrib/foo.py, they might call it
+  contrib/no/ntnu/foo.py, or they might call it
+  contrib/no/ntnu/foo_ntnu.py, or even contrib/no/ntnu/bar.py -- it's
+  their call.
+
+  Also note that some scripts will depend on specific extensions under
+  cerebrum/Cerebrum being installed and configured -- however, there
+  doesn't have to be any correspondence between the placement of the
+  script under contrib/ and the placement of the extension it uses
+  under Cerebrum.
+
+  Example: A script in contrib/no/uio/ is free to use extensions from
+    Cerebrum/modules/se/su/ and Cerebrum/modules/fi/tut/.
+
+** cerebrum/server/ -- various long-running Cerebrum services.
+** cerebrum/java/ -- Java client code (JBofh).
+** cerebrum/design/ -- SQL definitions and design documents.
+** cerebrum/web/ -- web-based bofh client.
+
+* Installing all this -- what goes where.
+
+** The Cerebrum python package
+
+  The entire cerebrum/Cerebrum/ directory (with all subdirectories) is
+  installed.  This is done partly to ease the installation process:
+
+   - the person doing the install doesn't have to specify which parts
+     to install, and
+
+   - the installation magic doesn't have to figure out if any of the
+     parts it was asked to install happens to rely on some part that
+     wasn't scheduled for installation.
+
+  and partly because we expect many installations to use extensions
+  from multiple (supposedly) institution-specific subpackages.
+  E.g. uio.no may discover that ntnu.no already have forked "foo" to
+  support a feature that uio.no also wants.  uio.no are then free to
+  use the ntnu.no-specific "foo" module (but might at a later date
+  need to fork it into their own directory if ntnu.no makes any
+  changes that uio.no doesn't want).
+
+  -- The Cerebrum python package and its subpackages should be
+     installed as "packages" (in distutils terminology); this means
+     that byte-compiled (".pyc") and, optionally, optimized (".pyo")
+     variants of the files should be installed along with the plain
+     ".py" files.
+
+     The Cerebrum package should be installed in the directory
+     returned by distutils.sysconfig.get_python_lib(prefix=$prefix),
+     e.g. $prefix/lib/python2.2/site-packages/.
+
+  We expect it to be a common case to install Cerebrum with a
+  non-standard --prefix or --root.  This means that python won't be
+  able to find the Cerebrum package without some modification of
+  sys.path.  To solve this, the module "cerebrum_path.py" is installed
+  to a directory in the non-modified sys.path, and Cerebrum scripts
+  should always do "import cerebrum_path" before they try to access
+  anything from the Cerebrum package.
+
+  -- The cerebrum_path.py module should be installed as "py_modules".
+     The module should go in the directory returned by
+     distutils.sysconfig.get_python_lib(),
+     e.g. /usr/lib/python2.2/site-packages/.
+
+  Python code should use fully qualified module names when importing
+  from the Cerebrum package.  Even though module
+  "Cerebrum.modules.no.foo" might be able to (in most circumstances)
+  import module "Cerebrum.modules.no.bar" by saying
+
+    import bar
+
+  it should rather say one of
+
+    from Cerebrum.modules.no import bar
+    import Cerebrum.modules.no.bar
+
+** The plethora of scripts under contrib/.
+
+  It is likely that many Cerebrum installations will want to use a
+  combination of
+
+   1) generic scripts -- the ones that live directly under contrib/,
+
+   2) "their own" scripts -- that live in the domain-specific
+      subdirectory of contrib/ corresponding to that institution, and
+
+   3) (supposedly) institution-specific scripts from one or more other
+      institutions -- which live in those institutions'
+      domain-specific subdirectories of contrib/.
+
+  As it is entirely up to each institution to decide how they want to
+  name the scripts inside their institution-specific subdirectory of
+  contrib, an attempt to install files from both (1), (2) and (3) to
+  the same directory might lead to collisions.
+
+  While it is not likely that any one installation will want to use
+  scripts from *all* the subdirectories of contrib/, the same
+  "simplicity of installation" argument as given above should hold
+  here, too.  Hence, we install the entire contrib/ tree.
+
+  -- All files under contrib/ should be installed as "scripts".
+     However, to avoid collisions, the tree structure of
+     cerebrum/contrib/ should be reflected under the installation
+     target directory, $prefix/share/cerebrum/contrib/.
+
+** Long-running services
+
+  Files under cerebrum/server/ should also be installed as "scripts",
+  and go in $prefix/sbin/.
+
+** SQL definitions etc.
+
+  Files under cerebrum/design/ should be installed as "data_files" to
+  $prefix/share/doc/cerebrum/design/.
+
+
+Hopefully, that should cover most of it.  If there still are areas of
+uncertainty, or if anyone disagrees with any of the above, let me
+know.
+-- 
+Harald
+
