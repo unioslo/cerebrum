@@ -326,17 +326,72 @@ class Group(Entity, Abstract.Group):
     def delete_group(self):
         self.server.group_delete(self.name)
 
+class Account(Entity, Abstract.Account):
+
+    def fetch_by_name(cls, name):
+        pass
+    fetch_by_name = classmethod(fetch_by_name)
+
+    def search(cls, name=None, create_date=None, creator_id=None, home=None,
+               disk_id=None, expire_date=None, owner_id=None, np_type=None, auth_method=None):
+        pass
+
+    def set_home(self, home):
+        pass
+
+    def set_disk_id(self, disk_id):
+        pass
+
+    def set_owner(self, entity_id):
+        pass
+
+    def set_expire_date(self, expire_date):
+        pass
+
+    def get_auth_data(self, method=None):
+        pass
+
+    def get_account_types(self):
+        pass
+
+    def delete(self):
+        pass    
+
+class Person(Entity, Abstract.Person):
+
+    def create(cls):
+        pass
+    create = classmethod(create)
+
+    def search(cls, server, name=None, account=None, birthno=None, birthdate=None):
+        pass
+    search = classmethod(search)
+
+    def _load_entity_info(self, info):
+        self.name = info['name']
+        self.birthdate = info['birthdate']
+        self.affiliations = info.get('affilitations')
+        self.names = info['names']
+        self.description = info['description']
+        self.gender = info['gender']    
+        self.deceased = info['deceased']
+
+    def delete(self):
+        pass
+
+                                                    
+
 def fetch_object_by_id(server, id, info=None):
     # Mapping between entity types and classes defined here
     # TODO: Move out from fetch_object_by_id - to be able to 
     # extend the mapping
     classes = {
         'group': Group,
-#        'account': Account,
+        'person': Person,
+        # 'account': Account,
         # 'ou': OU,
-        # 'person': Person,
         # 'host': Host,
-#        'disk': Disk
+        # 'disk': Disk
     }
 
     # We need this info dictionary up front to check info['type']
@@ -349,4 +404,3 @@ def fetch_object_by_id(server, id, info=None):
     entity = GeneralEntity(server)
     entity._load_entity_info(info)
     return entity
-

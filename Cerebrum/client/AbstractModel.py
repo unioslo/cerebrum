@@ -287,15 +287,73 @@ class Account(Entity):
     def __str__(self):
         return self.name
 
-    def create(cls, name):
-        """Creates an account with given name."""
-        pass
-    create = classmethod(create)
+#    def create(cls, name):
+#        """Creates an account with given name."""
+#        pass
+#    create = classmethod(create)
 
     def fetch_by_name(cls, name):
         """Retrieves an instance with given name."""
         pass
     fetch_by_name = classmethod(fetch_by_name)
+
+    def search(cls, name=None, create_date=None, creator_id=None, home=None, 
+               disk_id=None, expire_date=None, owner_id=None, np_type=None, auth_method=None):
+        """Retrieves accounts that matches the given criteria.
+           ``name``, ``home`` (if given) should be strings. Wildcards (* and ?) might be used.
+           ``create_date`` and ``expire_date`` are special strings:
+             >YYYY-MM-DD, =YYYY-MM-DD, <YYYY-MM-DD
+           ``disk_id`` and ``owner_id`` are integers.
+           ``np_type``, integer or string, wildcards allowed [if string]
+           ``auth_method``, integer or string, wildcards allowed [if string]."""
+        pass
+
+    def set_home(self, home):
+        """Changes ``home`` for account."""
+        pass
+
+    def set_disk_id(self, disk_id):
+        """Sets ``disk_id`` for account."""
+        pass
+
+    def set_owner(self, entity_id):
+        """Sets owner of account."""
+        pass
+    
+    def set_expire_date(self, expire_date):
+        """Sets expire_date of account."""
+        pass
+
+    def get_auth_data(self, method=None):
+        """Retrieves auth_data for given auth. method, if method is 
+           None, all methods are returned.
+           Result is a touple of touples ((method,auth_data),)."""
+        pass
+
+    def get_account_types(self):
+        """Retrieves a touple of dicts with account_types for account."""
+        pass
+    
+    def delete(self):
+        """Delete the account."""
+        pass   
+
+
+class Person(Entity):
+
+    def __str__(self):
+        return self.name
+
+    def create(cls):
+        pass
+    create = classmethod(create)
+
+    def search(cls, name=None, account=None, birthno=None, birthdate=None):
+        pass
+
+    def delete(self):
+        pass
+
 
 class Constants(object):
     JOIN = 1
