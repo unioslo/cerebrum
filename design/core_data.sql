@@ -53,7 +53,7 @@ INSERT INTO account_code (code, code_str, description) VALUES
 INSERT INTO group_visibility_code (code, code_str, description) VALUES
   ([:sequence schema=cerebrum name=code_seq op=next], 'A', 'All');
 
-INSERT INTO posix_shell_code(code, code_str, description) VALUES
+INSERT INTO posix_shell_code(code, code_str, shell) VALUES
   ([:sequence schema=cerebrum name=code_seq op=next], 'bash', '/bin/bash');
 
 INSERT INTO value_domain_code(code, code_str, description) VALUES
