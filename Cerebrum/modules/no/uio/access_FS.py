@@ -626,22 +626,6 @@ WHERE sp.arstall >= %s AND
                                                      False))
     # end GetPortalInfo
 
-    def GetStudentStudierett_50(self,fnr,pnr):
-	"""Hent info om alle studierett en student har eller har hatt"""
-        qry = """
-SELECT DISTINCT
-  sps.studieprogramkode, sps.studierettstatkode,
-  sps.dato_studierett_tildelt, st.dato_studierett_gyldig_til,
-  sps.status_privatist, st.studentstatus
-FROM fs.studieprogramstudent sps, fs.person p
-WHERE sps.fodselsdato=:fnr AND
-      sps.personnr=:pnr AND
-      sps.fodselsdato=p.fodselsdato AND
-      sps.personnr=p.personnr 
-      AND %s
-        """ % self.is_alive()
-        return (self._get_cols(qry), self.db.query(qry, {'fnr': fnr, 'pnr': pnr}))
-
 
 # Studinfo (bofh) metoder
 
