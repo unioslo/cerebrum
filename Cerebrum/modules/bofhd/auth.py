@@ -219,7 +219,7 @@ class BofhdAuthOpTarget(DatabaseAccessor):
         self.__updated = []
         return is_new
 
-    def list(self, target_id=None, target_type=None, entity_id=None):
+    def list(self, target_id=None, target_type=None, entity_id=None, attr=None):
         ewhere = []
         if entity_id is not None:
             ewhere.append("entity_id=:entity_id")
@@ -227,6 +227,8 @@ class BofhdAuthOpTarget(DatabaseAccessor):
             ewhere.append("op_target_id=:target_id")
         if target_type is not None:
             ewhere.append("target_type=:target_type")
+        if attr is not None:
+            ewhere.append("attr=:attr")
         if ewhere:
             ewhere = "WHERE %s" % " AND ".join(ewhere)
         else:
@@ -235,9 +237,7 @@ class BofhdAuthOpTarget(DatabaseAccessor):
         SELECT op_target_id, entity_id, target_type, attr
         FROM [:table schema=cerebrum name=auth_op_target]
         %s
-        ORDER BY entity_id""" % ewhere, {
-            'target_type': target_type, 'entity_id': entity_id,
-            'target_id': target_id})
+        ORDER BY entity_id""" % ewhere, locals())
 
 
 class BofhdAuthRole(DatabaseAccessor):
@@ -260,15 +260,23 @@ class BofhdAuthRole(DatabaseAccessor):
         WHERE entity_id=:e_id AND op_set_id=:os_id AND op_target_id=:t_id""", {
             'e_id': entity_id, 'os_id': op_set_id, 't_id': op_target_id})
 
-    def list(self, entity_ids):
+    def list(self, entity_ids=None, op_set_id=None, op_target_id=None):
         """Return info about where entity_id has permissions.
         entity_id may be a list of entities """
-        if not isinstance(entity_ids, (list, tuple)):
-            entity_ids = [entity_ids]
+        ewhere = []
+        if entity_ids is not None:
+            if not isinstance(entity_ids, (list, tuple)):
+                entity_ids = [entity_ids]
+            ewhere.append("entity_id IN (%s)" % 
+                          ", ".join(["%i" % i for i in entity_ids]))
+        if op_set_id is not None:
+            ewhere.append("op_set_id=:op_set_id")
+        if op_target_id is not None:
+            ewhere.append("op_target_id=:op_target_id")
         return self.query("""
         SELECT DISTINCT entity_id, op_set_id, op_target_id
         FROM [:table schema=cerebrum name=auth_role]
-        WHERE entity_id IN (%s)""" % ", ".join(["%i" % i for i in entity_ids]))
+        WHERE (%s)""" % " AND ".join(ewhere), locals())
 
     def list_owners(self, target_ids):
         """Return info about who owns the given target_ids"""
@@ -525,8 +533,8 @@ class BofhdAuth(DatabaseAccessor):
     def can_add_spread(self, operator, entity=None, spread=None,
                        query_run_any=False):
         """The list of spreads that an operator may modify are stored
-        in auth_op_target_attrs, where the corresponding
-        auth_op_target has target_type='spread' and entity_id=None"""
+        in auth_op_target with target_type 'spread' and entity_id set
+        to the integer code value of the spread."""
         if self.is_superuser(operator):
             return True
         if query_run_any:
@@ -1085,16 +1093,6 @@ class BofhdAuth(DatabaseAccessor):
                 if aff == r['attr']:
                     return True
         return False
-
-    def _get_auth_op_target_attr(self, op_target_id):
-        attrlist = ()
-        for r in self.query("""
-           SELECT attr
-           FROM [:table schema=cerebrum name=auth_op_target_attrs]
-           WHERE op_target_id=:op_target_id""",
-                            {'op_target_id': op_target_id}):
-            attrlist += (r['attr'],)
-        return attrlist
 
     def _has_global_access(self, operator, operation, global_type, victim_id):
         """global_host and global_group should not be allowed to
