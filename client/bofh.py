@@ -5,6 +5,9 @@ import getpass
 import sys
 import readline
 import traceback
+import pprint
+
+pp = pprint.PrettyPrinter(indent=4)
 
 def ext_prompt(msg, type, default=None):
     if(default != None):
@@ -36,6 +39,8 @@ def run_command(sessid, cmd):
             try:
                 format = testsvr.get_format_suggestion(k)
                 ret = testsvr.run_command(sessid, k, *cmd[2:])
+                # print "Ret: %s" % len(ret)
+                # pp.pprint(ret)
                 if isinstance(ret, list) or isinstance(ret, tuple):
                     for x in range(len(ret)):
                         if isinstance(ret[x], unicode):
@@ -60,17 +65,19 @@ def run_command(sessid, cmd):
     # - exception (is thrown)
     # - command response
     # - optionally: tell client to update (restart should suffice) itself. 
-    if format != '':
+    if format != '' and len(ret) != 0:
         format = format.encode('iso8859-1')
         format, fields = format.split('¤')
         # print "f: %s\nx:%s\n" % (format, fields)
-        dta = ()
-        for f in fields.split(';'): dta += (ret[f], )
-        
-        print format % dta
-        #    return ret, format
+        if isinstance(ret, dict):
+            ret = (ret,)
+        for l in ret:
+            dta = ()
+            for f in fields.split(';'): dta += (l[f], )
+            print format % dta
+            #    return ret, format
     else:
-        print dta
+        print ret
 
 port = 8000
 if len(sys.argv) == 2:
