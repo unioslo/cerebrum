@@ -127,7 +127,8 @@ def write_ldif():
             if ldap.targ2vacation.has_key(t):
                 txt, start, end, enable = ldap.targ2vacation[t]
                 rest += "tripnote:: %s\n" % \
-                        base64.encodestring(txt).replace("\n", "")
+                        base64.encodestring(txt or "<No message>\n"
+                                            ).replace("\n", "")
                 if enable:
                     rest += "tripnoteActive: TRUE\n"
 
