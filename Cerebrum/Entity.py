@@ -686,7 +686,7 @@ class EntityQuarantine(Entity):
     def get_entity_quarantine(self, type=None, only_active=False):
         if only_active:
             where = """AND start_date <= [:now] AND (
-            end_date IS NULL OR end_date < [:now]) AND (
+            end_date IS NULL OR end_date > [:now]) AND (
             disable_until IS NULL OR disable_until <= [:now])"""
         else:
             where = ""
