@@ -60,7 +60,7 @@ class Error(StandardError):
     pass
 class InterfaceError(Error):
     """Driver-independent base class of DB-API InterfaceError exceptions.
-    
+
     Exception raised for errors that are related to the database
     interface rather than the database itself."""
     pass
@@ -134,7 +134,7 @@ class Cursor(object):
 
     Instances are created by calling the .cursor() method of an object
     of the appropriate Database subclass."""
-    
+
     def __init__(self, db):
         self._db = db
         real = db.driver_connection()
@@ -300,7 +300,7 @@ class Cursor(object):
         if row is not None:
             return row
         raise StopIteration
-        
+
     def query(self, query, params=()):
         """Perform an SQL query, and return all rows it yields.
 
@@ -411,7 +411,7 @@ class params_as_dict(bind_param_converter):
         else:
             self._data[name] = value
         return self.param_format % locals()
-        
+
 
 class paramstyle_named(params_as_dict):
     param_format = ':%(name)s'
@@ -426,11 +426,11 @@ class Database(object):
 
     _db_mod = None
     """The name of the DB-API module to use, or a module object.
-    
+
     Prior to first instantiation, this class attribute can be a string
     specifying the full name of the database module that should be
     imported.
-    
+
     During the first instantiation of a Database subclass, that
     subclass's _db_mod attribute is set to the module object of the
     dynamically imported database driver module."""
@@ -706,6 +706,9 @@ class PostgreSQL(Database):
         else:
             raise ValueError, 'Invalid sequnce operation: %s' % op
 
+    def _sql_port_sequence_start(self, value):
+        return ['START', value]
+
     def _sql_port_from_dual(self):
         return []
 
@@ -756,6 +759,9 @@ class Oracle(Database):
             return ['%(schema)s.%(name)s.currval' % locals()]
         else:
             raise self.ProgrammingError, 'Invalid sequence operation: %s' % op
+
+    def _sql_port_sequence_start(self, value):
+        return ['START', 'WITH', value]
 
     def _sql_port_from_dual(self):
         return ["FROM", "DUAL"]
