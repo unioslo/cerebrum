@@ -780,7 +780,7 @@
   Assigned to: igorr
   Resources: baardj
   Cost: 
-  Status: 
+  Status: Done
   Due date: 
   Priority: 
 
