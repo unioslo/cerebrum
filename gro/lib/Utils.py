@@ -14,23 +14,45 @@ class Cached(object):
         cls.cache[key] = self
         return self
 
-class Lazy:
+class Lazy(object):
     pass
 
+#class LazyMethod(object):
+#    def __init__(self, var, load):
+#        if type(var) is not str:
+#            raise ValueError('var must be a str')
+#        self.var = var
+#        self.load = load
+#
+#    def __call__(self, obj):
+#        value = getattr(obj, self.var)
+#        if value is Lazy:
+#            load = getattr(obj, self.load)
+#            load()
+#            value = getattr(obj, self.var)
+#            if value is Lazy:
+#                raise Exception('%s was not initialized during load' % self.var)
+#        return value
+
+# å bruke en klasse med __call__ vil ikke funke, da den ikke vil bli bundet til objektet.
+# mulig det kan jukses til med noen stygge metaklassetriks, men dette blir penere.
+
 def LazyMethod(var, load):
-    if type(var) is not str:
-        raise ValueError('var must be a str')
+    assert type(var) == str
+    assert type(load) == str
+
     def lazy(self):
         value = getattr(self, var)
         if value is Lazy:
-            load(self)
+            loadmethod = getattr(self, load)
+            loadmethod()
             value = getattr(self, var)
             if value is Lazy:
-                raise Exception('%s was not initialized during load')
+                raise Exception('%s was not initialized during load' % var)
         return value
     return lazy
 
-class Clever:
+class Clever(object):
     def __init__(self, cls, *args, **vargs):
         var = '_%s%s' % (cls.__name__, id(self))
         if hasattr(self, var):
