@@ -205,12 +205,14 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
         if hasattr(self, '_affil_source'):
             source = self._affil_source
             db_affil = {}
+	    db_prim = {}
             for t_person_id, t_ou_id, t_affiliation, t_source, \
                 t_status, deleted_date \
                 in self.get_affiliations(include_deleted = True):
                 if source == t_source:
                     idx = "%d:%d:%d" % (t_ou_id, t_affiliation, t_status)
                     db_affil[idx] = [True, deleted_date]
+		    db_prim['%s:%s' % (t_ou_id, t_affiliation)] = idx
             pop_affil = self.__affil_data
             for idx in pop_affil.keys():
                 if db_affil.has_key(idx):
@@ -221,6 +223,8 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
                 else:
                     ou_id, affil, status = [int(x) for x in idx.split(":")]
                     self.add_affiliation(ou_id, affil, source, status)
+		    if db_prim.has_key('%s:%s' % (ou_id, affil)):
+                        del db_affil[db_prim['%s:%s' % (ou_id, affil)]]
                     if is_new <> 1:
                         is_new = False
             for idx in db_affil.keys():
