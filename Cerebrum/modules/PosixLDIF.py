@@ -21,7 +21,7 @@
  
 """
 
-import time
+import time, sys
  
 import cereconf
 from Cerebrum.modules import LDIFutils
@@ -29,7 +29,7 @@ from Cerebrum.QuarantineHandler import QuarantineHandler
 from Cerebrum.Utils import Factory, latin1_to_iso646_60, auto_super
  
  
-logger = Factory.get_logger("console")
+#logger = Factory.get_logger("console")
  
 
 
@@ -41,7 +41,7 @@ class PosixLDIF(object):
 
     __metaclass__ = auto_super
  
-    def __init__(self, db, u_sprd = None, g_sprd = None, n_sprd = None):
+    def __init__(self, db, u_sprd = None, g_sprd = None, n_sprd = None, fd=None):
 	"""
 	Initiate database and import modules. Spreads are given in initiation 
 	and general constants which is used in more than one method.
@@ -56,22 +56,25 @@ class PosixLDIF(object):
 	self.posgrp	= PosixGroup.PosixGroup(self.db)
         self.user_dn	= LDIFutils.ldapconf('USER', 'dn', None)
 	self.get_name 	= True
+	self.fd	= fd
 	
 	self.spread_d = {}
 	# Validate spread from arg or from cereconf
 	for x,y in zip(['USER','FILEGROUP','NETGROUP'],[u_sprd,g_sprd,n_sprd]):
-	    spread = LDIFutils.map_spreads(
+	    spread = LDIFutils.map_spreads(\
                 y or getattr(cereconf, 'LDAP_' + x).get('spread'), list)
 	    if spread:
                 self.spread_d[x.lower()] = spread
-	if not self.spread_d:
+	if not self.spread_d.has_key('user'):
 	    raise ProgrammingError, "Must specify spread-value as 'arg' or in cereconf"
-        self.id2uname	= {} 	   
+        self.id2uname	= {}
 
-    def user_ldif(self, f, auth_meth = None):
+
+    def user_ldif(self, filename=None, auth_meth = None):
 	"""
 	Generate posix-user. 
 	"""
+	f = LDIFutils.ldif_outfile('USER', filename, self.fd)
 	self.init_user(auth_meth)
 	f.write(LDIFutils.container_entry_string('USER'))
 	for row in self.posuser.list_extended_posix_users(
@@ -81,6 +84,7 @@ class PosixLDIF(object):
 	    dn,entry = self.user_object(row)
 	    if dn:
 		f.write(LDIFutils.entry_string(dn, entry, False))
+	LDIFutils.end_ldif_outfile('USER', f, self.fd)
 	
 
     def init_user(self, auth_meth=None):
@@ -98,10 +102,39 @@ class PosixLDIF(object):
 	If all only one entry, it will prefect any in auth_table.
 	If 'none', it will use default API authentication (crypt3des).
 	"""
+	self.auth_format = {}
 	auth_meth_l = []
 	self.user_auth = None
+	code = '_AuthenticationCode'
 	# Priority is arg, else cereconf default value
-	auth = auth_meth or cereconf.LDAP['auth_method']
+	# auth_meth_l is a list sent to load_auth_tab and contains
+	# all methods minus primary which is called by 
+	auth = auth_meth or cereconf.LDAP['auth_attr']
+	if isinstance(auth,dict):
+	    if not auth.has_key('userPassword'):
+		self.logger.warn("Only support 'userPassword'-attribute")
+		return None
+	    default_auth = auth['userPassword'][:1][0]
+	    if len(default_auth) == 2:
+		self.user_auth, format = LDIFutils.map_constants(code, \
+							default_auth[0]),\
+							default_auth[1]
+	    else: 
+		self.user_auth, format = LDIFutils.map_constants(code,\
+							default_auth[0]),\
+							None
+	    self.auth_format[int(self.user_auth)] = {'attr':'userPassword',
+								'format':format}
+	    for entry in auth['userPassword'][1:]:
+		if len(entry) == 2:
+		    auth_t,format = LDIFutils.map_constants(code,entry[0]),\
+								entry[1]
+		else:
+		    auth_t, format = LDIFutils.map_constants(code,entry[0]),\
+									None    
+		auth_meth_l.append(auth_t)
+		self.auth_format[int(auth_t)] = {'attr':'userPassword',\
+							'format':format}
 	if isinstance(auth,(list,tuple)):
 	     self.user_auth = int(getattr(self.const,auth[:1][0]))
 	     for entry in auth[1:]:
@@ -112,10 +145,10 @@ class PosixLDIF(object):
 
     def load_auth_tab(self,auth_meth=None):
 	self.auth_data = {}
-	method = self.auth_methods(auth_meth)
-	if method:
-	    for x in self.posuser.list_account_authentication(auth_type=method):
-		if not x['account_id'] or not  x['method']:
+	self.a_meth = self.auth_methods(auth_meth)
+	if self.a_meth:
+	    for x in self.posuser.list_account_authentication(auth_type=self.a_meth):
+		if not x['account_id'] or not x['method']:
 		    continue
 		acc_id, meth = int(x['account_id']), int(x['method']) 
 		if not self.auth_data.has_key(acc_id):
@@ -146,7 +179,7 @@ class PosixLDIF(object):
 					and (row['disable_until'] is None \
 					or row['disable_until'] < now)):
 		# The quarantine in this row is currently active.
-            	self.quarantines.setdefault(int(row['entity_id']), []).append(
+            	self.quarantines.setdefault(int(row['entity_id']), []).append(\
                 		int(row['quarantine_type']))
 
 
@@ -155,13 +188,26 @@ class PosixLDIF(object):
 	uname = row['entity_name']
 	passwd = '{crypt}*Invalid'
 	if row['auth_data']:
-	    passwd = "{crypt}" + row['auth_data']
+	    if self.auth_format[self.user_auth]['format']:
+		passwd = self.auth_format[self.user_auth]['format'] % \
+						row['auth_data']
+	    else:
+		passwd = row['auth_data']
+	    passwd_attr = self.auth_format[self.user_auth]['attr']
 	else:
-	    method = int(self.const.auth_type_crypt3_des)
-	    try:
-		passwd = '{crypt}' + self.auth_data[account_id][method]
-	    except KeyError:
-		pass
+	    for uauth in [x for x in self.a_meth if self.auth_format.has_key(x)]:
+	    #method = int(self.const.auth_type_crypt3_des)
+	    	try:
+		    #if uauth in self.auth_format.keys():
+		    if self.auth_format[uauth]['format']:
+			passwd = self.auth_format[uauth]['format'] % \
+					self.auth_data[account_id][uauth]
+			passwd_attr = self.auth_format[uauth]['attr'] 
+		    else:	 
+		        passwd = self.auth_data[account_id][uauth]
+			    
+		except KeyError:
+		    pass
 	if not row['shell']:
 	    self.logger.warn("User % have no posix-shell!" % uname)
 	    return None, None
@@ -211,17 +257,22 @@ class PosixLDIF(object):
 
 
 
-    def filegroup_ldif(self,f):
+    def filegroup_ldif(self,filename=None):
 	"""
 	Generate filegroup. Groups without group and expanded  members 
 	from both external and internal groups.
 	"""
+	f = LDIFutils.ldif_outfile('FILEGROUP', filename, self.fd)
         self.init_filegroup()
-        f.write(LDIFutils.container_entry_string('FILEGROUP'))
-	for row in self.posgrp.list_all_grp(self.spread_d['filegroup']):
-	    dn,entry = self.filegroup_object(row)
-	    if dn:
-		f.write(LDIFutils.entry_string(dn, entry, False))
+	if not self.spread_d.has_key('filegroup'):
+	    logger.warn("No spread is given for filegroup!")
+	else:
+            f.write(LDIFutils.container_entry_string('FILEGROUP'))
+	    for row in self.posgrp.list_all_grp(self.spread_d['filegroup']):
+		dn,entry = self.filegroup_object(row)
+		if dn:
+		    f.write(LDIFutils.entry_string(dn, entry, False))
+	LDIFutils.end_ldif_outfile('FILEGROUP', f, self.fd)
 	    
 	    
 	
@@ -270,23 +321,28 @@ class PosixLDIF(object):
 	pass
 
 
-    def netgroup_ldif(self, f):
+    def netgroup_ldif(self, filename=None):
 	"""
 	Generate netgroup with only users.
 	"""
+	f = LDIFutils.ldif_outfile('NETGROUP', filename, self.fd)
 	self.init_netgroup()
-	f.write(LDIFutils.container_entry_string('NETGROUP'))
-	for row in self.grp.list_all_grp(self.spread_d['netgroup']):
+	if not self.spread_d.has_key('netgroup'):
+	    logger.warn("No valid netgroup-spread in cereconf or arg!")
+	else:
+	    f.write(LDIFutils.container_entry_string('NETGROUP'))
+	    for row in self.grp.list_all_grp(self.spread_d['netgroup']):
 		dn,entry = self.netgroup_object(row)
 		if dn:
 		    f.write(LDIFutils.entry_string(dn, entry, False))
+	LDIFutils.end_ldif_outfile('NETGROUP', f, self.fd)
+	
 	
     def init_netgroup(self):
 	"""
 	Initiate modules and constants.
 	"""
 	self.ngrp_dn = LDIFutils.ldapconf('NETGROUP', 'dn')
-	# Sjekk om det ikke holder med posgrp
 	from Cerebrum import Group
 	self.grp = Factory.get('Group')(self.db)
 	
