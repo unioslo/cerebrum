@@ -17,19 +17,19 @@ chmod u+x $TESTDIR/create_user.py ./contrib/generate_nismaps.py
 
 echo "***** First time import *****"
 
-./contrib/no/uio/import_OU.py $TESTDIR/LT-sted.dat
+./contrib/no/uio/import_OU.py -s $TESTDIR/LT-sted.dat
 
-./contrib/no/uio/import_LT.py $TESTDIR/LT-persons.dat
+./contrib/no/uio/import_LT.py -p $TESTDIR/LT-persons.dat
 
-./contrib/no/uio/import_FS.py $TESTDIR/FS-persons.dat
+./contrib/no/uio/import_FS.py -p $TESTDIR/FS-persons.dat
 
 echo "***** Second time import, ie update *****"
 
-./contrib/no/uio/import_OU.py $TESTDIR/LT-sted.dat
+./contrib/no/uio/import_OU.py -s $TESTDIR/LT-sted.dat
 
-./contrib/no/uio/import_LT.py $TESTDIR/LT-persons.dat
+./contrib/no/uio/import_LT.py -p $TESTDIR/LT-persons.dat
 
-./contrib/no/uio/import_FS.py $TESTDIR/FS-persons.dat
+./contrib/no/uio/import_FS.py -p $TESTDIR/FS-persons.dat
 
 # FIXME: Add script to make new posix accounts from all existing persons
 
