@@ -6,6 +6,7 @@
 import sys
 import getopt
 import time
+import string
 import pickle
 import os
 
@@ -22,12 +23,12 @@ from Cerebrum.modules.no.uio import AutoStud
 
 
 def usage(exitcode=0):
-    print """Usage: report_new_users.py [ -S sep ] [-s spread | -f fnrfile]"""
+    print """Usage: report_new_users.py [ -S sep ] [ -d delta ] -s spread | -f fnrfile"""
     sys.exit(exitcode)
 
 def main():
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 's:f:S:', ['help'])
+        opts, args = getopt.getopt(sys.argv[1:], 'S:d:s:f:', ['help'])
     except getopt.GetoptError:
         usage(1)
 
@@ -39,7 +40,10 @@ def main():
 
     studnr2data = read_student_data("/cerebrum/dumps/FS/merged_persons.xml")
 
-    field_sep = ''
+    field_sep = '¤'
+    spread = None
+    delta = 0
+    fnrfile = None
     for opt, val in opts:
         if opt == '--help':
             usage()
@@ -49,12 +53,22 @@ def main():
                 usage(1)
             field_sep = val
         elif opt == '-s':
-            dump_new_users(db, const, studnr2data, field_sep,
-                           spread=val)
+            spread = val
+        elif opt == '-d':
+            delta = string.atoi(val) 
         elif opt == '-f':
-            dump_new_users(db, const, studnr2data, field_sep,
-                           fnr_file=val)
-
+            fnrfile = val
+    if spread is not None and fnrfile is not None:
+        usage(1);        
+    if spread is not None:
+        dump_new_users(db, const, studnr2data, field_sep,
+                           spread=val, start_date=db.DateFromTicks(time.time() - 60*60*24*delta))
+    elif fnrfile is not None:
+        dump_new_users(db, const, studnr2data, field_sep,
+                           fnr_file=fnrfile,start_date=db.DateFromTicks(time.time() - 60*60*24*delta))
+    else:
+        usage(1)        
+                           
 def dump_new_users(db, const, studnr2data, field_sep, spread=None,
                    fnr_file=None, start_date=None):
     entity = Entity.Entity(db)
@@ -92,6 +106,7 @@ def dump_new_users(db, const, studnr2data, field_sep, spread=None,
         atypes = account.get_account_types()
         if account.create_date < start_date:
             # Hopp over accounts som er eldre enn angitt start-dato.
+            # print "SKIP %s because it's to old\n" % account.account_name
             continue
 
         # Finn en (tilfeldig) av stedkodene brukeren har
@@ -149,13 +164,13 @@ def dump_new_users(db, const, studnr2data, field_sep, spread=None,
 
         # Nyeste kullkode studenten er med i, samt studieprogrammet og
         # studieretningen knyttet til denne kullkoden.
-        kull, stprog, stretn = studnr2data.get(studnr, ('','',''))
+        kull, stprog, stretn, klassekode = studnr2data.get(studnr, ('','','',''))
 
         sys.stdout.write(
             (field_sep.join(("%(brukernavn)s", "%(pwd)s", "%(sko)s",
                              "%(studentnr)s", "%(fullname)s", "%(fname)s",
                              "%(lname)s", "%(aff)s", "%(affstatus)s",
-                             "%(kull)s", "%(stprog)s", "%(stretn)s"))
+                             "%(kull)s", "%(klasse)s", "%(stprog)s", "%(stretn)s"))
              + "\n") % {'brukernavn': account.account_name,
                         'pwd': pwd,
                         'sko': stedkode,
@@ -166,6 +181,7 @@ def dump_new_users(db, const, studnr2data, field_sep, spread=None,
                         'aff': aff,
                         'affstatus': affstatus,
                         'kull': kull,
+                        'klasse': klassekode,
                         'stprog': stprog,
                         'stretn': stretn,
                         })
@@ -188,7 +204,7 @@ def _get_account(db, e_id):
     return account
 
 def yesterday(db):
-    now = time.time()
+    now = time.time();
     return db.DateFromTicks(now - 60*60*24)
 
 def read_student_data(fname):
@@ -201,12 +217,13 @@ def read_student_data(fname):
             kull = info['kullkode']
             studretn = info['studieretningkode']
             studprog = info['studieprogramkode']
+            klassekode = info['klassekode']
             if not studnr2data.has_key(studnr):
-                studnr2data[studnr] = (kull, studretn, studprog)
+                studnr2data[studnr] = (kull, studretn, studprog, klassekode)
             else:
                 present_kull = studnr2data[studnr][0]
                 if kull > present_kull:
-                    studnr2data[studnr] = (kull, studretn, studprog)
+                    studnr2data[studnr] = (kull, studretn, studprog, klassekode)
 
     # Trenger strengt tatt ikke logging her, men må ha et
     # logger-objekt å sende til StudentInfoParser -- så da logger vi
