@@ -6,7 +6,6 @@
 import sys
 import getopt
 import time
-import string
 import pickle
 import os
 
@@ -23,12 +22,43 @@ from Cerebrum.modules.no.uio import AutoStud
 
 
 def usage(exitcode=0):
-    print """Usage: report_new_users.py [ -S sep ] [ -d delta ] -s spread | -f fnrfile"""
+    print """Usage: report_new_users.py {options}
+Valid options are:
+
+  -S sep
+        Use the string 'sep' as output field separator
+
+  -s spread
+        Report new users that have the given spread.  Specify 'spread'
+        by the name of the corresponding Constants class attribute.
+
+        This option can not be combined with the '-f' option.
+
+  -d delta
+        Limit '-s' output to users created at most 'delta' days ago.
+
+  -D YYYY-MM-DD
+  --start-date YYYY-MM-DD
+        Limit '-s' output to users created on or after the specified
+        date.  Default is yesterday.
+
+  -f fnrfile
+        Report new users belonging to persons whose fnr is listed in
+        'fnrfile'.  The file 'fnrfile' should contain 11-digit fnrs,
+        one per line.
+
+        This option can not be combined with the '-s' option.
+
+Exactly one of the '-s' or '-f' options must be specified.  All output
+is written to stdout.
+
+"""
     sys.exit(exitcode)
 
 def main():
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'S:d:s:f:', ['help'])
+        opts, args = getopt.getopt(sys.argv[1:], 'S:D:d:f:s:',
+                                   ['help', 'start-date'])
     except getopt.GetoptError:
         usage(1)
 
@@ -41,8 +71,8 @@ def main():
     studnr2data = read_student_data("/cerebrum/dumps/FS/merged_persons.xml")
 
     field_sep = '¤'
+    sdate = None
     spread = None
-    delta = 0
     fnrfile = None
     for opt, val in opts:
         if opt == '--help':
@@ -52,28 +82,32 @@ def main():
                 print "Can't use null field separator."
                 usage(1)
             field_sep = val
+        elif opt in ('-D', '--start-date'):
+            sdate = db.Date(*([int(x) for x in val.split("-", 2)]))
+        elif opt == '-d':
+            sdate = db.DateFromTicks(time.time() - int(val)*24*60*60)
         elif opt == '-s':
             spread = val
-        elif opt == '-d':
-            delta = string.atoi(val) 
         elif opt == '-f':
             fnrfile = val
     if spread is not None and fnrfile is not None:
+        # Kan ikke angi både spread og fnr-fil.
         usage(1);        
     if spread is not None:
         dump_new_users(db, const, studnr2data, field_sep,
-                           spread=val, start_date=db.DateFromTicks(time.time() - 60*60*24*delta))
+                       spread=val, start_date=sdate)
     elif fnrfile is not None:
         dump_new_users(db, const, studnr2data, field_sep,
-                           fnr_file=fnrfile,start_date=db.DateFromTicks(time.time() - 60*60*24*delta))
+                       fnr_file=fnrfile, start_date=sdate)
     else:
+        # Må angi minst en av spread eller fnr-fil.
         usage(1)        
                            
 def dump_new_users(db, const, studnr2data, field_sep, spread=None,
                    fnr_file=None, start_date=None):
     entity = Entity.Entity(db)
     if start_date is None:
-        start_date = yesterday(db)
+        start_date = today(db)
     if spread is not None:
         scode = int(getattr(const, spread))
         rows = entity.list_all_with_spread(scode)
@@ -206,6 +240,9 @@ def _get_account(db, e_id):
 def yesterday(db):
     now = time.time();
     return db.DateFromTicks(now - 60*60*24)
+
+def today(db):
+    return db.DateFromTicks(time.time())
 
 def read_student_data(fname):
     studnr2data = {}
