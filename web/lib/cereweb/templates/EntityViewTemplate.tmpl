@@ -8,25 +8,30 @@
 #from NoteAddTemplate import NoteAddTemplate
 
 #def view_entity($entity)
-$add_note($entity)
-$history($entity)
-$quarantines($entity)
+    #set $title = str($entity)
+    $quarantines($entity)
+    $add_note($entity)
+    $history($entity)
 #end def
 
 #def history($entity)
-$HistoryLog.view_history_short($entity)
+    $HistoryLog.view_history_short($entity)
 #end def
 
 #def quarantines($entity)
-#set q = QuarantineViewTemplate()
-$q.view_quarantines($entity)
+    #set q = QuarantineViewTemplate()
+    $q.view_quarantines($entity)
 #end def
 
 #def add_note($entity)
-#set t = NoteViewTemplate()
-$t.viewNotes($entity)
-#set t = NoteAddTemplate()
-$t.addForm($entity)
+<div class="notes">
+    #set notetitle = $_("Notes")
+    <h2>$notetitle</h2>
+    #set t = NoteViewTemplate()
+    $t.viewNotes($entity)
+    #set t = NoteAddTemplate()
+    $t.addForm($entity)
+</div>
 #end def
 
 
