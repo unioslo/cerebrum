@@ -129,7 +129,4 @@ def transaction_decorator(method):
 def view_date(date):
     return date and date.strftime("%Y-%m-%d") or '-'
 
-def view_spreads(spreads):
-    return ', '.join(i.get_spread().get_name() for i in spreads)
-    
 # arch-tag: 046d3f6d-3e27-4e00-8ae5-4721aaf7add6

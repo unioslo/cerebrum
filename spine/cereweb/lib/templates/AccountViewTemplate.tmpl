@@ -17,7 +17,7 @@
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 #extends EntityViewTemplate
-#from Cereweb.utils import url, object_link, view_date, view_spreads
+#from Cereweb.utils import url, object_link, view_date
 
 ## Main method for creating the view of accounts.
 #def viewAccount($req, $account)
@@ -41,9 +41,6 @@
 
         <dt>$_("Owned by")</dt>
         <dd>$object_link($account.get_owner())</dd>
-
-        <dt>$_("Spreads")</dt>
-        <dd>$view_spreads($account.get_spreads())</dd>
     </dl>
 </div>
 <div class="actions">

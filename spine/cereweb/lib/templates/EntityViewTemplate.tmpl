@@ -22,18 +22,28 @@
 #from NoteViewTemplate import NoteViewTemplate
 #from NoteAddTemplate import NoteAddTemplate
 #from QuarantineViewTemplate import QuarantineViewTemplate
+#from SpreadViewTemplate import SpreadViewTemplate
 #extends InitTemplate
 
 ## Main method for creating a view of the entity.
 #def view_entity($entity, $req)
 <div class="entityview">
+    $spreads($entity, $req)
     $quarantines($entity)
     $notes($entity, $req)
     $history($entity)
 </div>
 #end def
 
-## Shows the history of the entity. Not ready yet..
+## Shows the spreads the entity has.
+#def spreads($entity, $req)
+<div class="personnames">
+    #set s = SpreadViewTemplate()
+    $s.view_spreads($entity, $req)
+</div>
+#end def
+
+## Shows the history of the entity.
 #def history($entity)
     $HistoryLog.view_history_short($entity)
 #end def
