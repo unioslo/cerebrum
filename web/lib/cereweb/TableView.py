@@ -56,12 +56,25 @@ class TableView:
                 return self.column_order(column) * diff
         return diff        
         
-    def sorted(self):
+    def sorted(self, includeData=False):
         """Returns a two dimensional sorted list. 
            Rows are taken from self._rows with the columns selected from
-           self.columns, and sorted by the rules in self.sort."""
+           self.columns, and sorted by the rules in self.sort.
+
+           If includeData is true, each row returned is a tuple of (columns,
+           rowdata) - where columns are the selected columns and rowdata the
+           original row data as a dict.
+           """
         self._rows.sort(self._sorter)
-        return [[row.get(column) for column in self.columns] for row in self._rows] 
+        result = []
+        for row in self._rows:
+            columns = [row.get(column) for column in self.columns]
+            if includeData:
+                # include row data dict 
+                result.append( (columns, row) )
+            else:    
+                result.append(row)
+        return result
 
     def html(self, **titles):
         """Returns a HTML version of the sorted table. Keyword arguments
