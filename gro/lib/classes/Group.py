@@ -24,7 +24,7 @@ from Cerebrum.extlib import sets
 from GroBuilder import GroBuilder
 from Builder import Attribute, Method
 from Searchable import Searchable
-from CerebrumClass import CerebrumAttr, CerebrumTypeAttr
+from CerebrumClass import CerebrumAttr, CerebrumTypeAttr, CerebrumDateAttr
 
 
 import Registry
@@ -42,7 +42,7 @@ class Group(Entity):
         CerebrumAttr('name', 'string', 'group_name', write=True),
         CerebrumAttr('description', 'string', write=True),
         CerebrumTypeAttr('visibility', 'GroupVisibilityType', GroupVisibilityType, write=True),
-        CerebrumAttr('expire_date', 'Date', write=True)]
+        CerebrumDateAttr('expire_date', 'Date', write=True)]
     method_slots = Entity.method_slots + [
         Method('get_members', 'GroupMemberSeq')]
 
