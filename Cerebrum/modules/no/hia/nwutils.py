@@ -84,7 +84,7 @@ class LDAPConnection:
                 try:
                     handle.start_tls_s()
                     handle.simple_bind_s(binddn,password)
-                    logger.info("TLS connection established to %s" % host)
+                    logger.debug("TLS connection established to %s" % host)
                 except:
                     logger.info( "Could not open TLS-connection to %s" % host)
 		    return False
@@ -244,7 +244,10 @@ def get_primary_affiliation(account_id, namespace):
     account.clear()
     account.find(account_id)
     name = account.get_name(namespace)
-    acc_types = account.get_account_types()
+    try:
+        acc_types = account.get_account_types()
+    except Errors.NotFoundError:
+        return(None)
     c = 0
     current = 0
     pri = 9999
@@ -307,6 +310,7 @@ def get_account_info(account_id, spread, site_callback):
             print_quota = '11000'
         else:
             print_quota = None
+    time_now = time.strftime("%H:%M:%S %d/%m/%Y",time.localtime()) 
     attrs = []
     attrs.append( ("ObjectClass", "user" ) )
     attrs.append( ("givenName", unicode(first_n, 'iso-8859-1').encode('utf-8') ) )
@@ -317,7 +321,7 @@ def get_account_info(account_id, spread, site_callback):
         utf8_home = unicode(home_dir, 'iso-8859-1').encode('utf-8')
         attrs.append( ("ndsHomeDirectory",  utf8_home) )
     attrs.append( ("description","Cerebrum;%d" % ext_id ) )
-    attrs.append( ("generationQualifier","%d" % ext_id ) )
+    attrs.append( ("generationQualifier","%d ,%s" % (ext_id,time_now) ))
     attrs.append( ("passwordAllowChange", cereconf.NW_CAN_CHANGE_PW) )
     attrs.append( ("loginDisabled", account_disable) )
     if print_quota is not None:
@@ -425,7 +429,10 @@ def get_primary_ou(account_id,namespace):
     account.clear()
     account.find(account_id)
     name = account.get_name(namespace)
-    acc_types = account.get_account_types()
+    try:
+        acc_types = account.get_account_types()
+     except Errors.NotFoundError:
+         return(None)
     c = 0
     current = 0
     pri = 9999
@@ -471,28 +478,29 @@ def get_ldap_usr_ou(crbm_ou, aff):
 				ent_name.has_spread(co.spread_hia_novell_labuser)):
 	utf8_ou = "%s,%s" % (unicode(cereconf.NW_LDAP_STUDOU, 'iso-8859-1').encode('utf-8'),
 			unicode(cereconf.NW_LDAP_ROOT, 'iso-8859-1').encode('utf-8'))
-    elif cereconf.NW_LDAP_ANSOU != None and aff != co.affiliation_student:
+    elif cereconf.NW_LDAP_ANSOU != None and aff == co.affiliation_ansatt:
 	utf8_ou = "%s,%s" % (unicode(cereconf.NW_LDAP_ANSOU, 'iso-8859-1').encode('utf-8'),
 		unicode(cereconf.NW_LDAP_ROOT, 'iso-8859-1').encode('utf-8'))
     elif crbm_ou != None:
         utf8_ou = unicode(crbm_ou, 'iso-8859-1').encode('utf-8')
     else:
-        utf8_ou = unicode("ou=%s,%s" % (cereconf.NW_LOST_AND_FOUND, cereconf.NW_LDAP_ROOT), 'iso-8859-1').encode('utf-8')
+        utf8_ou = unicode("ou=%s,%s" % (cereconf.NW_LDAP_STUDOU, cereconf.NW_LDAP_ROOT), 'iso-8859-1').encode('utf-8')
     return utf8_ou
 
 
 
 def get_crbrm_ou(ou_id):
-
-    try:        
-        ou.clear()
-        ou.find(ou_id)
-        path = ou.structure_path(co.perspective_fs)
-        #TBD: Utvide med spread sjekk, OUer uten acronym, problem?
-        return 'ou=%s' % path.replace('/',',ou=')
-    except Errors.NotFoundError:
-        logger.info("WARNING: Could not find OU with id",ou_id)
-
+    if ou_id != None:
+        try:        
+            ou.clear()
+            ou.find(ou_id)
+            path = ou.structure_path(co.perspective_fs)
+            #TBD: Utvide med spread sjekk, OUer uten acronym, problem?
+            return 'ou=%s' % path.replace('/',',ou=')
+        except Errors.NotFoundError:
+            logger.info("WARNING: Could not find OU with id",ou_id)
+    else:
+        return('student')
 
 def id_to_ou_path(ou_id,ourootname):
     crbrm_ou = get_crbrm_ou(ou_id)
