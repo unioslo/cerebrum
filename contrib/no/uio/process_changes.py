@@ -202,7 +202,8 @@ class Quarantine2Request(EvtHandler):
             if qdata[when] is not None:
                 self.br.add_request(None, qdata[when] ,
                                     const.bofh_quarantine_refresh,
-                                    evt['subject_entity'], None)
+                                    evt['subject_entity'], None,
+                                    state_data=int(params['q_type']))
             db.commit()
         return True
     
@@ -214,16 +215,25 @@ class Quarantine2Request(EvtHandler):
         if qdata['disable_until']:
             self.br.add_request(None, qdata['disable_until'],
                                 const.bofh_quarantine_refresh,
-                                evt['subject_entity'], None)
+                                evt['subject_entity'], None,
+                                state_data=int(params['q_type']))
             
         self.br.add_request(None, self.br.now, const.bofh_quarantine_refresh,
-                            evt['subject_entity'], None)
+                            evt['subject_entity'], None,
+                            state_data=int(params['q_type']))
         db.commit()
         return True
     
     def notify_quarantine_del(self, evt, params):
+        # Remove existing requests for this entity_id/quarantine_type
+        # combination as they are no longer needed
+        for row in self.br.get_requests(entity_id=evt['subject_entity'],
+                                        operation=int(const.bofh_quarantine_refresh)):
+            if int(row['state_data']) == int(params['q_type']):
+                self.br.delete_request(request_id=row['request_id'])
         self.br.add_request(None, self.br.now, const.bofh_quarantine_refresh,
-                            evt['subject_entity'], None)
+                            evt['subject_entity'], None,
+                            state_data=int(params['q_type']))
         db.commit()
         return True
 
