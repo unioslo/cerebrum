@@ -609,7 +609,7 @@ def object_by_entityid(id, database):
        based on the entity's type."""
     entity = Entity(database)   
     entity.find(id)
-    # nice - convert from almost-int to int to EntityTyoeCode to str 
+    # nice - convert from almost-int to int to EntityTypeCode to str 
     type = str(_EntityTypeCode(int(entity.entity_type)))
     try:
         component = Factory.type_component_map.get(type)
