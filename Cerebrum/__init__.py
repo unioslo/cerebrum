@@ -18,6 +18,14 @@
 
 
 # Current Cerebrum version as a (major, minor, micro) tuple.
-_version = (0, 0, 1)
+_version = (0, 0, 2)
 
 __version__ = ".".join( [str(digit) for digit in _version] )
+
+
+if __name__ == '__main__':
+    # When this module is invoked as a script, print the version.
+    #
+    # This can be useful for non-Python scripts that want to get at
+    # the Cerebrum release number.
+    print __version__
