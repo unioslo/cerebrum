@@ -26,12 +26,10 @@ DATABASE_DRIVER = "Oracle"
 # are kept in this directory.
 DB_AUTH_DIR = '/etc/cerebrum'
 
-# Name of the SQL database user connecting to the database
-CEREBRUM_DATABASE_USER = None
-
 # Name of the SQL database
 CEREBRUM_DATABASE_NAME = None
 
-CEREBRUM_DATABASE_CONNECT_DATA = {}
+CEREBRUM_DATABASE_CONNECT_DATA = { 'user' : None }
+
 DEFAULT_GECOS_NAME="name_full"
 AUTH_CRYPT_METHODS = ("auth_type_md5",)
