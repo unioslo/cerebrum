@@ -1,0 +1,42 @@
+#from Cerebrum.web.InitTemplate import InitTemplate
+#from Cerebrum.web.utils import url
+#extends InitTemplate
+
+## List of tuples (name, label)
+#attr $fields = [ ("name", "Name"),
+                  ("affiliation", "Affiliation"),
+                ]
+#def getAction
+$url("account/create")#slurp
+#end def
+
+#attr $formvalues = {}
+
+#def input($name, $label)
+    #set $value = $formvalues.get($name, "")
+    <label for='$name'>$label</label>
+    <input type='text' name='$name' id='$name' value='$value' /><br />
+#end def
+
+#def form($owner, $id=-1, $show_create_form=False, $show_heading=False)
+
+#if $show_heading
+#set $heading = $_("Create account for %s (%s)") % ($owner.name, $owner.type)
+<h1>$heading</h1>
+#end if
+
+<form action="$getAction()" method="POST">
+    <input type="hidden" name="ownerid" value="$owner.id" />
+    <input type="hidden" name="ownertype" value="$owner.type" />
+#if $show_create_form
+#for $name, $label in $fields #
+    #echo $input($name, $label) #
+#end for
+    <input type="hidden" name="id" value="$id" />
+    <input type="submit" name="create" value="Create" />
+    <input type="submit" name="hide_form" value="Hide account create" />
+#else
+    <input type="submit" name="show_form" value="Create account" />
+#end if
+</form>
+#end def
