@@ -48,7 +48,7 @@ cache holding data:
 
 """
 
-class Cache(object):
+class Cache(dict):
     """Constructor class for cache instances."""
     def __new__(cls, mixins=(), **kwargs):
         bases = [cache_base]
@@ -60,7 +60,7 @@ class Cache(object):
         # same arguments we received in this __new__() call.
         return dict.__new__(cache_class)
 
-class cache_base(dict):
+class cache_base(Cache):
     """Minimal base class of 'cache' types."""
     def __init__(self, mixins=(), **kwargs):
         dict.__init__(self)
@@ -88,7 +88,7 @@ class cache_base(dict):
 #    __getitem__ methods of a mixin class with a `key` that is present
 #    in the cache.
 
-class cache_mru(dict):
+class cache_mru(Cache):
     """Mixin class that gives a cache Most-Recently-Used behaviour."""
     def __getitem__(self, key):
         ret = super(cache_mru, self).__getitem__(key)
@@ -104,7 +104,7 @@ class cache_mru(dict):
             self.registry.insert(0, key)
         return ret
 
-class cache_slots(dict):
+class cache_slots(Cache):
     """Mixin class that restricts the maximum number of slots in a cache."""
     def setup(self, **kwargs):
         self.size = kwargs.get('size', 100)
@@ -116,7 +116,7 @@ class cache_slots(dict):
             self.__delitem__(stale_key)
         return ret
 
-class cache_timeout(dict):
+class cache_timeout(Cache):
     """Mixin class that implements a timeout on cached elements."""
     def setup(self, **kwargs):
         import time
