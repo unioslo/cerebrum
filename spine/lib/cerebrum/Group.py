@@ -22,7 +22,7 @@ from Cerebrum.Utils import Factory
 from SpineLib.Builder import Method, Attribute
 from SpineLib.DatabaseClass import DatabaseAttr
 
-from CerebrumClass import CerebrumClass, CerebrumAttr, CerebrumDbAttr
+from CerebrumClass import CerebrumAttr, CerebrumDbAttr
 from Cerebrum.Utils import Factory
 
 from Entity import Entity
@@ -37,7 +37,7 @@ __all__ = ['Group']
 
 table = 'group_info'
 
-class Group(CerebrumClass, Entity):
+class Group(Entity):
     slots = Entity.slots + [
         CerebrumDbAttr('description', table, str, write=True),
         CerebrumDbAttr('visibility', table, GroupVisibilityType, write=True),
