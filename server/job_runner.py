@@ -109,6 +109,7 @@ class JobRunner(object):
         self.job_queue = JobQueue(scheduled_jobs, db, logger)
         self._should_quit = False
         self.sleep_to = None
+        self.queue_paused = False
 
     def sig_general_handler(signum, frame):
         """General signal handler, for places where we use signal.pause()"""
@@ -194,6 +195,9 @@ class JobRunner(object):
             tmp_queue = self.job_queue.get_run_queue()[:]   # loop modifies list
             completed_nowait_job = False
             for job_name in tmp_queue:
+                if self.queue_paused:
+                    delta = max_sleep
+                    break
                 job_ref = self.job_queue.get_known_job(job_name)
                 if (job_ref.call and job_ref.call.wait and
                     num_running >= cereconf.JOB_RUNNER_MAX_PARALELL_JOBS):
@@ -254,6 +258,8 @@ def usage(exitcode=0):
       --config file : use alternative config-file
       --quit : exit gracefully (allowing current job to complete)
       --status : show status for a running job-runner
+      --pause : pause the queue, won't start any new jobs
+      --resume : resume from paused state
       --dump level : shows dependency graph, level must be in the range 0-3
       --run jobname : adds jobname to the front of the run queue, ignoring
         dependencies"""
@@ -264,19 +270,24 @@ def main():
     try:
         opts, args = getopt.getopt(sys.argv[1:], '',
                                    ['reload', 'quit', 'status', 'config=',
-                                    'dump=', 'run='])
+                                    'dump=', 'run=', 'pause', 'resume'])
     except getopt.GetoptError:
         usage(1)
     #global scheduled_jobs
     alt_config = False
     for opt, val in opts:
-        if opt in('--reload', '--quit', '--status', '--run'):
+        if opt in('--reload', '--quit', '--status', '--run', '--pause',
+                  '--resume'):
             if opt == '--reload':
                 cmd = 'RELOAD'
             elif opt == '--quit':
                 cmd = 'QUIT'
             elif opt == '--status':
                 cmd = 'STATUS'
+            elif opt == '--pause':
+                cmd = 'PAUSE'
+            elif opt == '--resume':
+                cmd = 'RESUME'
             elif opt == '--run':
                 cmd = 'RUNCMD %s' % val
             sock = SocketHandling()

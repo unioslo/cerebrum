@@ -169,6 +169,15 @@ class SocketHandling(object):
                         conn, 'QUIT is now only entry in ready-to-run queue')
                     job_runner.quit()
                     break
+                elif data == 'PAUSE':
+                    job_runner.queue_paused = True
+                    self.send_response(conn, 'OK')
+                    break
+                elif data == 'RESUME':
+                    job_runner.queue_paused = False
+                    job_runner.wake_runner_signal()
+                    self.send_response(conn, 'OK')
+                    break
                 elif data.startswith('RUNCMD '):
                     jobname = data[7:]
                     if not job_runner.job_queue.get_known_jobs().has_key(jobname):
@@ -213,6 +222,8 @@ class SocketHandling(object):
                         ret += 'Sleep to %s (%i seconds)\n' % (
                             time.strftime('%H:%M.%S', time.localtime(job_runner.sleep_to)),
                             job_runner.sleep_to - time.time())
+                    if job_runner.queue_paused:
+                        ret += "Notice: Queue paused\n"
                     self.send_response(conn, ret)
                     break
                 elif data == 'PING':
