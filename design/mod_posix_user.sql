@@ -1,3 +1,4 @@
+category:code;
 CREATE TABLE posix_shell_code
 (
   code		NUMERIC(6,0)
@@ -28,6 +29,7 @@ CREATE TABLE posix_shell_code
 	Unix numeric filegroup ID.
 
  */
+category:main;
 CREATE TABLE posix_group
 (
   group_id	NUMERIC(12,0)
@@ -41,6 +43,7 @@ CREATE TABLE posix_group
 		CONSTRAINT posix_group_gid UNIQUE
 );
 
+category:main;
 CREATE SEQUENCE posix_gid_seq [:sequence_start value=1000];
 
 /*	posix_user
@@ -56,6 +59,7 @@ CREATE SEQUENCE posix_gid_seq [:sequence_start value=1000];
 		For non-personal users this column must be non-NULL.
 
 */
+category:main;
 CREATE TABLE posix_user (
   account_id    NUMERIC(12,0)
 		CONSTRAINT posix_user_pk PRIMARY KEY
@@ -83,4 +87,16 @@ CREATE TABLE posix_user (
 		CONSTRAINT posix_user_shell REFERENCES posix_shell_code(code)
 );
 
+category:main;
 CREATE SEQUENCE posix_uid_seq [:sequence_start value=1000];
+
+category:drop;
+DROP TABLE posix_user;
+category:drop;
+DROP TABLE posix_group;
+category:drop;
+DROP TABLE posix_shell_code;
+category:drop;
+DROP SEQUENCE posix_uid_seq;
+category:drop;
+DROP SEQUENCE posix_gid_seq;

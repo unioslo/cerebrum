@@ -1,26 +1,4 @@
-/* Note about the default values for entity types:
-
-   Entity types are now coded as numbers.  The actual numbers inserted
-   into the code value defining tables are currently not part of the
-   core setup, hence the number used for e.g. a 'person' entity type
-   might vary from installation to installation.
-
-   This complicates the (entity_id, entity_type) FK constraints from
-   e.g. person_info to entity_info, as one needs to know the actual
-   code value the installation uses in order to write the CHECK
-   constraint (and the DEFAULT value).
-
-   In time this will probably be solved via some kind of SQL
-   preprocessor; currently, to get the show on the road, we just use
-   the following numbers :
-
-     2001       ou
-     2002       person
-     2003       account
-     2004       group
-
-*/
-
+category:code;
 CREATE SEQUENCE code_seq;
 
 /*	authoritative_system_code
@@ -28,6 +6,7 @@ CREATE SEQUENCE code_seq;
 
 
 */
+category:code;
 CREATE TABLE authoritative_system_code
 (
   code		NUMERIC(6,0)
@@ -46,6 +25,7 @@ CREATE TABLE authoritative_system_code
   data on, e.g. persons, groups and OUs.
 
 */
+category:code;
 CREATE TABLE entity_type_code
 (
   code		NUMERIC(6,0)
@@ -80,7 +60,9 @@ CREATE TABLE entity_type_code
 	* ldap DNs (to allow these to members of groups)
 
 */
+category:main;
 CREATE SEQUENCE entity_id_seq;
+category:main;
 CREATE TABLE entity_info
 (
   entity_id	NUMERIC(12,0)
@@ -121,6 +103,7 @@ CREATE TABLE entity_info
   47    'LDAP_OU'       <ou>         'OU included in LDAP directory'
 
 */
+category:code;
 CREATE TABLE spread_code
 (
   code		NUMERIC(6,0)
@@ -150,6 +133,7 @@ CREATE TABLE spread_code
       see table `spread_code` for how spread types are defined.
 
 */
+category:main;
 CREATE TABLE entity_spread
 (
   entity_id	NUMERIC(12,0),
@@ -186,6 +170,7 @@ CREATE TABLE entity_spread
   any particular value space.
 
 */
+category:code;
 CREATE TABLE value_domain_code
 (
   code		NUMERIC(6,0)
@@ -203,6 +188,7 @@ CREATE TABLE value_domain_code
 
 
 */
+category:main;
 CREATE TABLE entity_name
 (
   entity_id	NUMERIC(12,0)
@@ -225,6 +211,7 @@ CREATE TABLE entity_name
 
 
 */
+category:code;
 CREATE TABLE country_code
 (
   code		NUMERIC(6,0)
@@ -245,6 +232,7 @@ CREATE TABLE country_code
 
 
 */
+category:code;
 CREATE TABLE address_code
 (
   code		NUMERIC(6,0)
@@ -263,6 +251,7 @@ CREATE TABLE address_code
   representation of the address, with '$' used to indicate newlines.
 
 */
+category:main;
 CREATE TABLE entity_address
 (
   entity_id	NUMERIC(12,0)
@@ -291,6 +280,7 @@ CREATE TABLE entity_address
 
 
 */
+category:code;
 CREATE TABLE contact_info_code
 (
   code		NUMERIC(6,0)
@@ -311,6 +301,7 @@ CREATE TABLE contact_info_code
   are preferred.
 
 */
+category:main;
 CREATE TABLE entity_contact_info
 (
   entity_id	NUMERIC(12,0)
@@ -341,6 +332,7 @@ CREATE TABLE entity_contact_info
   entity_quarantine(end_date) column.
 
 */
+category:code;
 CREATE TABLE quarantine_code
 (
   code		NUMERIC(6,0)
@@ -366,6 +358,7 @@ CREATE TABLE quarantine_code
   values can be "system account", "program account", "group account".
 
 */
+category:code;
 CREATE TABLE account_code
 (
   code		NUMERIC(6,0)
@@ -398,20 +391,21 @@ Hvert brukernavn (kontekst?) kan ha tilknyttet et eget hjemmeområde.
           accounts there's a separate user_type table.
 
  */
+category:main;
 CREATE TABLE account_info
 (
   /* Dummy column, needed for type check against `entity_id'. */
   entity_type	NUMERIC(6,0)
-		DEFAULT 2003
+		DEFAULT [:get_constant name=entity_account]
 		NOT NULL
 		CONSTRAINT account_info_entity_type_chk
-		  CHECK (entity_type = 2003),
+		  CHECK (entity_type = [:get_constant name=entity_account]),
   account_id	NUMERIC(12,0)
 		CONSTRAINT account_info_pk PRIMARY KEY,
   owner_type	NUMERIC(6,0)
 		NOT NULL
 		CONSTRAINT account_info_owner_type_chk
-		  CHECK (owner_type IN (2002, 2004)),
+		  CHECK (owner_type IN ([:get_constant name=entity_person], [:get_constant name=entity_group])),
   owner_id	NUMERIC(12,0)
 		NOT NULL,
   np_type	NUMERIC(6,0)
@@ -433,8 +427,8 @@ CREATE TABLE account_info
     FOREIGN KEY (owner_type, owner_id)
     REFERENCES entity_info(entity_type, entity_id),
   CONSTRAINT account_info_np_type_chk
-    CHECK ((owner_type = 2002 AND np_type IS NULL) OR
-	   (owner_type = 2004 AND np_type IS NOT NULL)),
+    CHECK ((owner_type = [:get_constant name=entity_person] AND np_type IS NULL) OR
+	   (owner_type = [:get_constant name=entity_group] AND np_type IS NOT NULL)),
 /* The next constraint is needed to allow `account_type' to have a
    foreign key agains these two columns. */
   CONSTRAINT account_info_id_owner_unique
@@ -458,6 +452,7 @@ CREATE TABLE account_info
     past.
 
 */
+category:main;
 CREATE TABLE entity_quarantine
 (
   entity_id	NUMERIC(12,0)
@@ -495,14 +490,15 @@ CREATE TABLE entity_quarantine
   this installation.
 
  */
+category:main;
 CREATE TABLE ou_info
 (
   /* Dummy column, needed for type check against `entity_id'. */
   entity_type	NUMERIC(6,0)
-		DEFAULT 2001
+		DEFAULT [:get_constant name=entity_ou]
 		NOT NULL
 		CONSTRAINT ou_info_entity_type_chk
-		  CHECK (entity_type = 2001),
+		  CHECK (entity_type = [:get_constant name=entity_ou]),
   ou_id		NUMERIC(12,0)
 		CONSTRAINT ou_info_pk PRIMARY KEY,
   name		CHAR VARYING(512) NOT NULL,
@@ -534,6 +530,7 @@ CREATE TABLE ou_info
   of these code values signify, are kept in this table.
 
 */
+category:code;
 CREATE TABLE ou_perspective_code
 (
   code		NUMERIC(6,0)
@@ -559,6 +556,7 @@ CREATE TABLE ou_perspective_code
   Root nodes are identified by NULL `parent_id'.
 
 */
+category:main;
 CREATE TABLE ou_structure
 (
   ou_id		NUMERIC(12,0)
@@ -598,6 +596,7 @@ CREATE TABLE ou_structure
   in the language your institution most commonly uses for job titles.
 
 */
+category:code;
 CREATE TABLE language_code
 (
   code		NUMERIC(6,0)
@@ -616,6 +615,7 @@ CREATE TABLE language_code
   the default language of this installation.
 
 */
+category:main;
 CREATE TABLE ou_name_language
 (
   ou_id		NUMERIC(12,0)
@@ -640,6 +640,7 @@ CREATE TABLE ou_name_language
 
 
 */
+category:code;
 CREATE TABLE gender_code
 (
   code		NUMERIC(6,0)
@@ -670,14 +671,15 @@ CREATE TABLE gender_code
 	støtte dette.
 
 */
+category:main;
 CREATE TABLE person_info
 (
   /* Dummy column, needed for type check against `entity_id'. */
   entity_type	NUMERIC(6,0)
-		DEFAULT 2002
+		DEFAULT [:get_constant name=entity_person]
 		NOT NULL
 		CONSTRAINT person_info_entity_type_chk
-		  CHECK (entity_type = 2002),
+		  CHECK (entity_type = [:get_constant name=entity_person]),
   person_id	NUMERIC(12,0)
 		CONSTRAINT person_info_pk PRIMARY KEY,
   export_id	CHAR VARYING(16)
@@ -710,6 +712,7 @@ CREATE TABLE person_info
   be entered into this installation of the system.
 
 */
+category:code;
 CREATE TABLE person_external_id_code
 (
   code		NUMERIC(6,0)
@@ -731,6 +734,7 @@ CREATE TABLE person_external_id_code
   that is known to relate to a single person.
 
 */
+category:main;
 CREATE TABLE person_external_id
 (
   person_id	NUMERIC(12,0)
@@ -761,6 +765,7 @@ CREATE TABLE person_external_id
   entered into this installation of the system.
 
 */
+category:code;
 CREATE TABLE person_name_code
 (
   code		NUMERIC(6,0)
@@ -780,6 +785,7 @@ CREATE TABLE person_name_code
   amount of registered name data as "not exportable".
 
 */
+category:main;
 CREATE TABLE person_name
 (
   person_id	NUMERIC(12,0)
@@ -805,6 +811,7 @@ CREATE TABLE person_name
   ("employee", "faculty", "student", "guest", etc.).
 
 */
+category:code;
 CREATE TABLE person_affiliation_code
 (
   code		NUMERIC(6,0)
@@ -829,6 +836,7 @@ CREATE TABLE person_affiliation_code
   removed.
 
 */
+category:main;
 CREATE TABLE person_affiliation
 (
   person_id	NUMERIC(12,0)
@@ -852,6 +860,7 @@ CREATE TABLE person_affiliation
   etc.) each of these "affiliation" types can have.
 
 */
+category:code;
 CREATE TABLE person_aff_status_code
 (
   affiliation	NUMERIC(6,0)
@@ -869,6 +878,7 @@ CREATE TABLE person_aff_status_code
 );
 
 
+category:main;
 CREATE TABLE person_affiliation_source
 (
   person_id	NUMERIC(12,0)
@@ -914,6 +924,7 @@ CREATE TABLE person_affiliation_source
   specific (personal) user_account belongs to the same person.
 
 */
+category:main;
 CREATE TABLE account_type
 (
   person_id	NUMERIC(12,0),
@@ -936,6 +947,7 @@ CREATE TABLE account_type
 
 
 */
+category:code;
 CREATE TABLE authentication_code
 (
   code		NUMERIC(6,0)
@@ -967,6 +979,7 @@ CREATE TABLE authentication_code
      should be implemented as an optional add-on module.
 
 */
+category:main;
 CREATE TABLE account_authentication
 (
   account_id	NUMERIC(12,0)
@@ -982,6 +995,7 @@ CREATE TABLE account_authentication
 );
 
 
+category:code;
 CREATE TABLE group_visibility_code
 (
   code		NUMERIC(6,0)
@@ -1007,14 +1021,15 @@ CREATE TABLE group_visibility_code
 	     the access delegation structure?
 
 */
+category:main;
 CREATE TABLE group_info
 (
   /* Dummy column, needed for type check against `entity_id'. */
   entity_type	NUMERIC(6,0)
-		DEFAULT 2004
+		DEFAULT [:get_constant name=entity_group]
 		NOT NULL
 		CONSTRAINT group_info_entity_type_chk
-		  CHECK (entity_type = 2004),
+		  CHECK (entity_type = [:get_constant name=entity_group]),
   group_id	NUMERIC(12,0)
 		CONSTRAINT group_info_pk PRIMARY KEY,
   description	CHAR VARYING(512),
@@ -1043,6 +1058,7 @@ CREATE TABLE group_info
 );
 
 
+category:code;
 CREATE TABLE group_membership_op_code
 (
   code		NUMERIC(6,0)
@@ -1071,6 +1087,7 @@ CREATE TABLE group_membership_op_code
 	  Reduce the member set by removing all Difference type members
 
  */
+category:main;
 CREATE TABLE group_member
 (
   group_id	NUMERIC(12,0)
@@ -1380,3 +1397,84 @@ spread
    C			C		C		A
 
 , men *vil* vi egentlig det? */
+
+category:drop;
+DROP TABLE group_member;
+category:drop;
+DROP TABLE group_membership_op_code;
+category:drop;
+DROP TABLE group_info;
+category:drop;
+DROP TABLE group_visibility_code;
+category:drop;
+DROP TABLE account_authentication;
+category:drop;
+DROP TABLE authentication_code;
+category:drop;
+DROP TABLE account_type;
+category:drop;
+DROP TABLE person_affiliation_source;
+category:drop;
+DROP TABLE person_aff_status_code;
+category:drop;
+DROP TABLE person_affiliation;
+category:drop;
+DROP TABLE person_affiliation_code;
+category:drop;
+DROP TABLE person_name;
+category:drop;
+DROP TABLE person_name_code;
+category:drop;
+DROP TABLE person_external_id;
+category:drop;
+DROP TABLE person_external_id_code;
+category:drop;
+DROP TABLE person_info;
+category:drop;
+DROP TABLE gender_code;
+category:drop;
+DROP TABLE ou_name_language;
+category:drop;
+DROP TABLE language_code;
+category:drop;
+DROP TABLE ou_structure;
+category:drop;
+DROP TABLE ou_perspective_code;
+category:drop;
+DROP TABLE ou_info;
+category:drop;
+DROP TABLE entity_quarantine;
+category:drop;
+DROP TABLE account_info;
+category:drop;
+DROP TABLE account_code;
+category:drop;
+DROP TABLE quarantine_code;
+category:drop;
+DROP TABLE entity_contact_info;
+category:drop;
+DROP TABLE contact_info_code;
+category:drop;
+DROP TABLE entity_address;
+category:drop;
+DROP TABLE address_code;
+category:drop;
+DROP TABLE country_code;
+category:drop;
+DROP TABLE entity_name;
+category:drop;
+DROP TABLE value_domain_code;
+category:drop;
+DROP TABLE entity_spread;
+category:drop;
+DROP TABLE spread_code;
+category:drop;
+DROP TABLE entity_info;
+category:drop;
+DROP SEQUENCE entity_id_seq;
+category:drop;
+DROP TABLE entity_type_code;
+category:drop;
+DROP TABLE authoritative_system_code;
+category:drop;
+DROP SEQUENCE code_seq;

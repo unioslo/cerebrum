@@ -13,6 +13,7 @@
 
 
 */
+category:main;
 CREATE TABLE stedkode
 (
   ou_id		NUMERIC(12,0)
@@ -32,3 +33,5 @@ CREATE TABLE stedkode
 		  CHECK (katalog_merke IN ('T', 'F')),
   CONSTRAINT stedkode_kode UNIQUE (institusjon, fakultet, institutt, avdeling)
 );
+category:drop;
+DROP TABLE stedkode;

@@ -1,3 +1,4 @@
+category:code;
 CREATE TABLE nis_domain_code
 (
   code		NUMERIC(6,0)
@@ -9,6 +10,7 @@ CREATE TABLE nis_domain_code
 		NOT NULL
 );
 
+category:main;
 CREATE TABLE nis_netgroup
 (
   domain	NUMERIC(6,0)
@@ -26,3 +28,7 @@ CREATE TABLE nis_netgroup
   groups?
 
 */
+category:drop;
+DROP TABLE nis_netgroup;
+category:drop;
+DROP TABLE nis_domain_code;
