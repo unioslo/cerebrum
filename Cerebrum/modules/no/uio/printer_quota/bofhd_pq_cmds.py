@@ -135,8 +135,8 @@ The currently defined id-types are:
             'job_id': ['job_id', 'Enter job_id of job to undo'],
             'subtr_pages': ['num_pages', 'Number of pages to undo',
                             'To undo the entire job, leave blank'],
-            'undo_why': ['why', 'Why', 'Why do you want to undo this job?']
-            
+            'undo_why': ['why', 'Why', 'Why do you want to undo this job?'],
+            'int_when': ['when', 'Number of past days']
             }
         return (group_help, command_help,
                 arg_help)
@@ -204,7 +204,7 @@ The currently defined id-types are:
             operator, self.bu.find_pq_person(person), when)
 
     all_commands['jbofh_pquota_history'] = Command(
-        ("pquota", "history"), PersonId(),
+        ("pquota", "history"), PersonId(), Integer(help_ref="int_when", optional=True),
         fs=FormatSuggestion("%8i %-7s %16s %-10s %-20s %5i %5i",
                             ('job_id', 'transaction_type',
                              format_time('tstamp'), 'update_by',
@@ -214,8 +214,16 @@ The currently defined id-types are:
                             ("JobId", "Type", "When", "By", "Data", "#Free",
                              "#Paid")),
         perm_filter='can_pquota_list_history')
-    def jbofh_pquota_history(self, operator, person_id):
-        when = 7              # Max days for cmd-client
+    def jbofh_pquota_history(self, operator, person_id, when=None):
+        if when is None:
+            when = 7              # Max days for cmd-client
+        else:
+            if not self.ba.is_superuser(operator.get_entity_id()):
+                raise PermissionDenied("Only superusers may use when")
+            try:
+                when = int(when)
+            except ValueError:
+                raise CerebrumError, "When must be a number"
         ret = []
         for r in self._pquota_history(
             operator, self.bu.find_person(person_id), when):
