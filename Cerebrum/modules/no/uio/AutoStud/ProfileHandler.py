@@ -20,6 +20,9 @@
 
 from Cerebrum.modules.no.uio.AutoStud.ProfileConfig import StudconfigParser
 
+class NoMatchingQuotaSettings(Exception): pass
+class NoMatchingProfiles(Exception): pass
+
 class Profile(object):
     """Profile implements the logic that maps a persons student_info
     (and optionaly groups) to the apropriate home, default group etc
@@ -131,17 +134,20 @@ class Profile(object):
         return self.matcher.settings.get('spread', [])
 
     def get_pquota(self):
-        """Return information about printerquota.  Throws a ValueError
+        """Return information about printerquota.  Throws a NoMatchingQuotaSettings
         if profile has no quota information"""
         ret = {}
         if not self.matcher.settings.has_key('printer_kvote'):
-            raise ValueError, "No matching quota settings"
+            raise NoMatchingQuotaSettings, "No matching quota settings"
         for m in self.matcher.settings.get('printer_kvote', []):
             for k in ('start', 'uke', 'max_akk', 'max_sem'):
-                if m[k] == 'UL':
+                if m[k] == 'UL' or ret.get(k, '') == 'UL':
                     ret[k] = m[k]
                 else:
-                    ret[k] = ret.get(k, 0) + int(m[k])
+                    try:
+                        ret[k] = int(ret.get(k, 0)) + int(m[k])
+                    except ValueError:
+                        self._logger.warn("Bad value: %s / %s" % (ret.get(k, 0), m[k]))
         return {
             'initial_quota': ret['start'],
             'weekly_quota': ret['uke'],
@@ -161,7 +167,7 @@ class ProfileMatcher(object):
         self._process_person_info(student_info, member_groups=member_groups)
         self.logger.debug("Matching profiles: %s" % self.matches)
         if len(self.matches) == 0:
-            raise ValueError, "No matching profiles"
+            raise NoMatchingProfiles, "No matching profiles"
         self.settings = {}
         self.toplevel_settings = {}
         self._resolve_matches()
