@@ -267,11 +267,13 @@ class Account(AccountType, EntityName, EntityQuarantine, Entity):
         # other systens that need it may get it.  The changelog
         # handler should remove the plaintext password using some
         # criteria.
-        if hasattr(self, '__plaintext_password'):
+        try:
             self._db.log_change(self.entity_id, self.const.a_password,
                                 None, change_params={'password':
                                                      self.__plaintext_password})
-
+        except AttributeError:
+            pass  # TODO: this is meant to catch that self.__plaintext_password is unset
+        
         # Store the authentication data.
         for k in self._acc_affect_auth_types:
             k = int(k)
@@ -327,7 +329,7 @@ class Account(AccountType, EntityName, EntityQuarantine, Entity):
                creator_id, expire_date, home, disk_id
         FROM [:table schema=cerebrum name=account_info]
         WHERE account_id=:a_id""", {'a_id' : account_id})
-        self.account_name = self.get_name(self.const.account_namespace)[2]
+        self.account_name = self.get_name(self.const.account_namespace)
         try:
             del self.__in_db
         except AttributeError:
