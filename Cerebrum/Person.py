@@ -22,10 +22,10 @@
 
 from Cerebrum.Entity import \
      Entity, EntityContactInfo, EntityAddress, EntityQuarantine
-from Cerebrum import OU,Utils
+from Cerebrum import OU
+from Cerebrum import Utils
+from Cerebrum import Errors
 
-import pprint
-pp = pprint.PrettyPrinter(indent=4)
 
 class PersonName(object):
     """Mixin class for Person"""
@@ -149,22 +149,22 @@ class PersonAffiliation(object):
 
     def __eq__(self, other):
         assert isinstance(other, PersonAffiliation)
-        if self._pa_affect_source is None:
+        affected_source = self._pa_affect_source
+        if affected_source is None:
             return True
-        for affect_type in self._pa_affect_types:
-            other_aff = other.get_affiliations(
-                source_system=self._pa_affect_source,
-                affiliation=affect_type)
+        for affected_affil in self._pa_affected_affiliations:
             other_dict = {}
-            for t in other_aff:
-                # Not sure why this casting to int is required on PostgreSQL
-                other_dict[int(t.ou_id)] = t.status
+            for t in other.get_affiliations(simple=False):
+                if t.source_system == affected_source:
+                    # Not sure why this casting to int is required on
+                    # PostgreSQL
+                    other_dict[int(t.ou_id)] = t.status
             for t_ou_id, t_status in \
-                    self._pa_affiliations.get(affect_type, []):
+                    self._pa_affiliations.get(affected_affil, []):
                 # Not sure why this casting to int is required on PostgreSQL
                 t_ou_id = int(t_ou_id)
                 if other_dict.has_key(t_ou_id):
-                    if other_dict[t_ou_id] != int(t_status):
+                    if other_dict[t_ou_id] <> t_status:
                         return False
                     del other_dict[t_ou_id]
             if len(other_dict) != 0:
@@ -179,81 +179,134 @@ class PersonAffiliation(object):
         self._pa_affect_source = source
         if types is None:
             raise NotImplementedError
-        self._pa_affect_types = types
+        self._pa_affected_affiliations = types
 
     def populate_affiliation(self, ou_id, affiliation, status):
         self._pa_affiliations[affiliation] = \
             self._pa_affiliations.get(affiliation, []) + [(ou_id, status)]
 
     def write_db(self, as_object=None):
-        if self._pa_affect_source is None:
+        affected_source = self._pa_affect_source
+        if affected_source is None:
             return
         other = {}
-        for affect_type in self._pa_affect_types:
-            if as_object is not None:
-                t = as_object.get_affiliations(
-                    source_system=self._pa_affect_source,
-                    affiliation=affect_type)
-                for t_ss, t_ou_id, t_affiliation, t_status in t:
-                    other["%d-%d" % (t_ou_id, t_affiliation)] = t_status
-            for ou_id, status in self._pa_affiliations[affect_type]:
-                key = "%d-%d" % (ou_id, affect_type)
-                if not other.has_key(key):
-                    self.execute("""
-                    INSERT INTO
-                      [:table schema=cerebrum name=person_affiliation]
-                      (person_id, ou_id, affiliation, source_system, status,
-                       create_date, last_date)
-                    VALUES (:p_id, :ou_id, :affiliation, :src, :status,
-                            [:now], [:now])""",
-                                 {'p_id': self.person_id,
-                                  'ou_id': ou_id,
-                                  'affiliation': int(affect_type),
-                                  'src': int(self._pa_affect_source),
-                                  'status': int(status)})
-                elif other[key] != int(status):
-                    self.execute("""
-                    UPDATE [:table schema=cerebrum name=person_affiliation]
-                    SET status=:status
-                    WHERE
-                      person_id=:p_id AND
-                      ou_id=:ou_id AND
-                      affiliation=:affiliation AND
-                      source_system=:src""",
-                                 {'status': int(status),
-                                  'p_id': self.person_id,
-                                  'ou_id': ou_id,
-                                  'affiliation': int(affect_type),
-                                  'src': int(self._pa_affect_source)})
-                if other.has_key(key): del other[key]
-            for k in other.keys():
-                # TODO: We don't delete affiliations, we mark them as deleted
-                ou_id, affect_type = k.split('-')
-                self.execute("""
-                DELETE FROM [:table schema=cerebrum name=person_affiliation]
-                WHERE
-                  person_id=:p_id AND
-                  ou_id=:ou_id AND
-                  affiliation=:affiliation AND
-                  source_system=:src""",
-                             {'p_id': self.person_id,
-                              'ou_id': int(ou_id),
-                              'affiliation': int(affect_type),
-                              'src': int(self._pa_affect_source)})
+        if as_object is not None:
+            for t_ou_id, t_affiliation, t_source, t_status in \
+                    as_object.get_affiliations(simple=False):
+                if affected_source <> t_source:
+                    continue
+                other["%d-%d" % (t_ou_id, t_affiliation)] = t_status
+        for affected_affil in self._pa_affected_affiliations:
+            for ou_id, status in self._pa_affiliations[affected_affil]:
+                key = "%d-%d" % (ou_id, affected_affil)
+                if not other.has_key(key) or other[key] <> status:
+                    self.add_affiliation(ou_id, affected_affil,
+                                         affected_source, status)
+                if other.has_key(key):
+                    del other[key]
+            for key in other.keys():
+                ou_id, affected_affil = key.split('-')
+                status = other[key]
+                self.delete_affiliation(ou_id, affected_affiliation,
+                                        affected_source, status)
 
-    def get_affiliations(self, source_system=None, affiliation=None,
-                         ou_id=None):
-        qry = """
-        SELECT source_system, ou_id, affiliation, status
-        FROM [:table schema=cerebrum name=person_affiliation]
-        WHERE person_id=:p_id"""
-        params = {'p_id': self.person_id}
-        for v in ('source_system', 'affiliation', 'ou_id'):
-            val = locals().get(v, None)
-            if val is not None:
-                qry += " AND %s=:%s" % (v, v)
-                params[v] = int(val)
-        return self.query(qry, params)
+    def get_affiliations(self, simple=True):
+        if simple:
+            return self.query("""
+            SELECT ou_id, affiliation
+            FROM [:table schema=cerebrum name=person_affiliation]
+            WHERE person_id=:p_id""", {'p_id': self.person_id})
+        else:
+            return self.query("""
+            SELECT ou_id, affiliation, source_system, status
+            FROM [:table schema=cerebrum name=person_affiliation_source]
+            WHERE person_id=:p_id""", {'p_id': self.person_id})
+
+    def add_affiliation(self, ou_id, affiliation, source, status):
+        binds = {'ou_id': int(ou_id),
+                 'affiliation': int(affiliation),
+                 'source': int(source),
+                 'status': int(status),
+                 'p_id': self.person_id,
+                 }
+        # If needed, add to table 'person_affiliation'.
+        try:
+            self.query_1("""
+            SELECT 'yes'
+            FROM [:table schema=cerebrum name=person_affiliation]
+            WHERE
+              person_id=:p_id AND
+              ou_id=:ou_id AND
+              affiliation=:affiliation""", binds)
+        except Errors.NotFoundError:
+            self.execute("""
+            INSERT INTO [:table schema=cerebrum name=person_affiliation]
+              (person_id, ou_id, affiliation)
+            VALUES (:p_id, :ou_id, :affiliation)""", binds)
+        try:
+            self.query_1("""
+            SELECT 'yes'
+            FROM [:table schema=cerebrum name=person_affiliation_source]
+            WHERE
+              person_id=:p_id AND
+              ou_id=:ou_id AND
+              affiliation=:affiliation AND
+              source_system=:source""", binds)
+            self.execute("""
+            INSERT INTO [:table schema=cerebrum name=person_affiliation_source]
+              (person_id, ou_id, affiliation, source_system, status)
+            VALUES (:p_id, :ou_id, :affiliation, :source, :status)""",
+                         binds)
+        except Errors.NotFoundError:
+            self.execute("""
+            UPDATE [:table schema=cerebrum name=person_affiliation_source]
+            SET status=:status, last_date=[:now], deleted_date=NULL
+            WHERE
+              person_id=:p_id AND
+              ou_id=:ou_id AND
+              affiliation=:affiliation AND
+              source_system=:source""", binds)
+
+    def delete_affiliation(self, ou_id, affiliation, source, status):
+        self.execute("""
+        UPDATE [:table schema=cerebrum name=person_affiliation_source]
+        SET deleted_date=[:now]
+        WHERE
+          person_id=:p_id AND
+          ou_id=:ou_id AND
+          affiliation=:affiliation AND
+          source_system=:source""", locals())
+        # This method doesn't touch table 'person_affiliation', nor
+        # does it try to do any actual deletion of rows from table
+        # 'person_affiliation_source'; these tasks are in the domain
+        # of various database cleanup procedures.
+
+    def nuke_affiliation(self, ou_id, affiliation, source, status):
+        p_id = self.person_id
+        # This method shouldn't be used lightly; see
+        # .delete_affiliation().
+        self.execute("""
+        DELETE FROM [:table schema=cerebrum name=person_affiliation_source]
+        WHERE
+          person_id=:p_id AND
+          ou_id=:ou_id AND
+          affiliation=:affiliation AND
+          source_system=:source""", locals())
+        remaining_affiliations = self.query("""
+        SELECT 'yes'
+        FROM [:table schema=cerebrum name=person_affiliation_source]
+        WHERE
+          person_id=:p_id AND
+          ou_id=:ou_id AND
+          affiliation=:affiliation""", locals())
+        if not remaining_affiliations:
+            self.execute("""
+            DELETE FROM [:table schema=cerebrum name=person_affiliation]
+            WHERE
+              person_id=:p_id AND
+              ou_id=:ou_id AND
+              affiliation=:affiliation""", locals())
+
 
 class Person(Entity, EntityContactInfo, EntityAddress,
              EntityQuarantine, PersonName, PersonAffiliation):
