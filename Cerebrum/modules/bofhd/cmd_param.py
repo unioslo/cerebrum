@@ -90,6 +90,10 @@ class DiskId(Parameter):
     _type = 'disk'
     _help_ref = 'disk'
 
+class EmailAddressString(Parameter):
+    _type = 'emailAddress',
+    _help_ref = 'email_address'
+    
 class EntityType(Parameter):
     _type = 'entityType'
     _help_ref = 'entity_type'
