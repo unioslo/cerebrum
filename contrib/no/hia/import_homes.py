@@ -118,6 +118,9 @@ def process_home(home):
     """
     Return a disk_id..
     """
+
+    # /adh/ugle/u2/knutaa
+    
     if rm_str:
         home = re.sub(rm_str, '', home)
 
@@ -129,8 +132,7 @@ def process_home(home):
 
     machine = fields[1]
     disk_name = fields[2]
-    path = "/%s/%s" % (machine, disk_name)
-    
+    path = "/hia/%s/%s" % (machine, disk_name)
     try:
         disk.clear()
         disk.find_by_path(path)
