@@ -50,3 +50,5 @@ class EmailLDAPHiAMixin(EmailLDAP):
 
     def close_misc_target(self):
         self.account_file.close()
+
+# arch-tag: 94d33fb2-0a59-4051-a2d7-c4c9bffb0d92
