@@ -33,9 +33,8 @@ CREATE TABLE feide_gvs_guardian_code
   code_str	CHAR VARYING(16)
 		NOT NULL
 		CONSTRAINT feide_gvs_guardian_codestr_u UNIQUE,
-  relation	CHAR VARYING(512)
+  description	CHAR VARYING(512)
 		NOT NULL
-		CONSTRAINT feide_gvs_guardian_code_relation_u UNIQUE
 );
 
 
