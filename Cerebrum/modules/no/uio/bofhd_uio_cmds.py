@@ -3730,7 +3730,7 @@ class BofhdExtension(object):
                     else:
                         gender = self.const.gender_female
                 except fodselsnr.InvalidFnrError, msg:
-                    raise CerebrumError("Invalid birth-no")
+                    raise CerebrumError("Invalid birth-no: '%s'" % msg)
                 try:
                     person.find_by_external_id(self.const.externalid_fodselsnr, id)
                     raise CerebrumError("A person with that fnr already exists")
@@ -4273,6 +4273,8 @@ class BofhdExtension(object):
                         ("%8i %s", int(c[i]['person_id']),
                          person.get_name(self.const.system_cached, self.const.name_full)),
                         int(c[i]['person_id'])))
+                if not len(map) > 1:
+                    raise CerebrumError, "No persons matched"
                 return {'prompt': "Choose person from list",
                         'map': map,
                         'help_ref': 'user_create_select_person'}
