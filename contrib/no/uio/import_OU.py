@@ -103,9 +103,9 @@ def rec_make_sko(sko, ou, existing_ou_mappings, steder, sko2ou):
 
     ou.find(sko2ou[sko])
     if sko2ou.has_key(org_sko):
-        ou.add_structure_maping('LT', sko2ou[org_sko])
+        ou.set_parent('LT', sko2ou[org_sko])
     else:
-        ou.add_structure_maping('LT', None)
+        ou.set_parent('LT', None)
     existing_ou_mappings[sko2ou[sko]] = org_sko_ou
 
 def les_sted_info():
