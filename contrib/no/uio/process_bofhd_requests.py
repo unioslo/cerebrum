@@ -278,7 +278,7 @@ def process_email_requests():
                 continue
             success = True
             try:
-                subsep = '\037'
+                subsep = '\034'
                 for line in fd.readlines():
                     if line.endswith('\n'):
                         line = line[:-1]
