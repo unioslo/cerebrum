@@ -402,8 +402,12 @@ def create_email_alias(otype, data):
             # with .find_by_entity_and_alias().
             mailforward.clear()
             mailforward.find(int(mailtarg.email_target_id))
-            mailforward.add_forward(dest)
-            progress.write('F')
+            for fw in mailforward.get_forward():
+                if fw['forward_to'] == dest:
+                    break
+            else:
+                mailforward.add_forward(dest)
+                progress.write('F')
     elif dt == 'l':
         typ = co.email_target_Mailman
         # Mailman list; all these aliases should run as user
