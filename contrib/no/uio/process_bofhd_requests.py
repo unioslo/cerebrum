@@ -24,7 +24,6 @@ import sys
 import time
 import os
 import re
-import ldap
 import cyruslib
 
 import cerebrum_path
@@ -64,6 +63,9 @@ default_spread = const.spread_uio_nis_user
 
 def email_delivery_stopped(user):
     global ldapconn
+    # Delayed import so that the script can be ran on machines without
+    # the module
+    import ldap
     if ldapconn is None:
         ldapconn = ldap.open("ldap.uio.no")
         ldapconn.set_option(ldap.OPT_PROTOCOL_VERSION, 3)
@@ -659,12 +661,19 @@ def process_move_requests():
         # TODO: Må også behandle const.bofh_move_student, men
         # student-auomatikken mangler foreløbig støtte for det.
         pass
+    group = Factory.get('Group')(db)
     for r in br.get_requests(operation=const.bofh_delete_user):
         if not keep_running():
             break
-        spread = r['state_data']
-        account, uname, old_host, old_disk = get_account(
-            r['entity_id'], spread=spread)
+        spread = default_spread
+        is_posix = False
+        try:
+            account, uname, old_host, old_disk = get_account(
+                r['entity_id'], spread=spread, type='PosixUser')
+            is_posix = True
+        except Errors.NotFoundError:
+            account, uname, old_host, old_disk = get_account(
+                r['entity_id'], spread=spread)
         operator = get_account(r['requestee_id'])[0].account_name
         if delete_user(uname, old_host, '%s/%s' % (old_disk, uname), operator):
             account.expire_date = br.now
@@ -672,6 +681,17 @@ def process_move_requests():
             home = account.get_home(spread)
             account.set_home(spread, disk_id=home['disk_id'], home=home['home'],
                              status=const.home_status_archived)
+            # Remove references in other tables
+            # Note that we preserve the quarantines for deleted users
+            # TBD: Should we have an API function for this?
+            if is_posix:
+                account.delete_posixuser()
+            for s in account.get_spread():
+                account.delete_spread(s['spread'])
+            for g in group.list_groups_with_entity(account.entity_id):
+                group.clear()
+                group.find(g['group_id'])
+                group.remove_member(account.entity_id, g['operation'])
             br.delete_request(request_id=r['request_id'])
             db.commit()
 
