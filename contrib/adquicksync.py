@@ -44,7 +44,7 @@ cl = CLHandler.CLHandler(db)
 delete_users = 0
 delete_groups = 0
 debug = True
-
+passwords = {}
 
 def quick_user_sync():
 
@@ -167,12 +167,17 @@ def add_spread(entity_id,spread):
             #Set a random password on user, bacause NEWUSR creates an
             #account with blank password.
             if sock.read() == ['210 OK']:
-                pw = account.make_passwd(account_name)
-                pw=pw.replace('%','%25')
-                pw=pw.replace('&','%26')
+		if entity_id in passwords:
+		    #Set correct password if in an earlier changelog entry.
+		    pw = passwords[entity_id]
+		else:
+		    #Set random password.
+                    pw = account.make_passwd(account_name)
+                    pw=pw.replace('%','%25')
+                    pw=pw.replace('&','%26')
                 sock.send('ALTRUSR&%s/%s&pass&%s\n' % (cereconf.AD_DOMAIN,account_name,pw))
             else:
-                'WARNING: Failed creating new user ', account_name
+                print 'WARNING: Failed creating new user ', account_name
 
         if sock.read() == ['210 OK']:            
             (full_name, account_disable, home_dir, cereconf.AD_HOME_DRIVE, login_script) = adutils.get_user_info(entity_id,account_name)
@@ -305,12 +310,16 @@ def change_pw(account_id,pw_params):
     account.find(account_id)
     if account.has_spread(int(co.spread_uio_ad_account)):
         pw=pw_params['password']
+	#Convert password so that it don't mess up the communication protocol.
         pw=pw.replace('%','%25')
         pw=pw.replace('&','%26')
         user = id_to_name(account_id,'user')
         sock.send('ALTRUSR&%s/%s&pass&%s\n' % (cereconf.AD_DOMAIN,user,pw))
         if sock.read() == ['210 OK']:
 	    return True
+	else:
+	    #Remember password from changelog, if user not yet created in AD.
+            passwords[account_id] = pw	
     else:
         if debug:
             print "Change password: Account %s, missing ad_spread" % (account_id)
