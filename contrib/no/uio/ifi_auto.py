@@ -133,6 +133,7 @@ def shorten_course_name(course):
     fgname = fgname.replace("inf", "i", 1)
     fgname = fgname.replace("dig", "id", 1)
     fgname = fgname.replace("tool", "it", 1)
+    fgname = fgname.replace("infverk", "iv", 1)
     return fgname[:6]
 
 def convert_activitynumber(act):
