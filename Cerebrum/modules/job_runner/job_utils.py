@@ -17,6 +17,9 @@ class When(object):
         self.freq = freq
         self.time = time
 
+        # TODO: support not-run interval to prevent running jobs when
+        # FS is down etc.
+        
     def next_delta(self, last_time, current_time):
         """Returns # seconds til the next time this job should run
         """
@@ -36,8 +39,27 @@ class When(object):
                                          time.gmtime(self.freq))
 
 class Time(object):
-    def __init__(self, min=None, hour=None, wday=None):
-        """Emulate time part of crontab(5), None=*"""
+    def __init__(self, min=None, hour=None, wday=None, max_freq=None):
+        """Emulate time part of crontab(5), None=*
+
+        When using Action.max_freq of X hours and a Time object for a
+        specific time each day, the Action.max_freq setting may delay
+        a job so that a job that should be ran at night is ran during
+        daytime (provided that something has made the job ran at an
+        unusual hour earlier).
+
+        To avoid this, set Time.max_freq.  This prevents next_time
+        from checking wheter the job should have started until
+        last_time+max_freq has passed.  I.e. if max_freq=1 hour the
+        job is set to run at 12:30, but was ran at 12:00, the job will
+        not run until the next matching time after 13:00.  If the
+        Action.max_freq had been used, the job would have ran at
+        13:00."""
+
+        # TBD: what mechanisms should be provided to prevent new jobs
+        # from being ran immeadeately when the time is not currently
+        # within the correct range?
+
         self.min = min
         if min is not None:
             self.min.sort()
@@ -47,6 +69,7 @@ class Time(object):
         self.wday = wday
         if wday is not None:
             self.wday.sort()
+        self.max_freq = max_freq or 0
 
     def _next_list_value(self, val, list, size):
         for n in list:
@@ -56,7 +79,7 @@ class Time(object):
 
     def next_time(self, prev_time):
         """Return the number of seconds until next time after num"""
-        hour, min, sec, wday = (time.localtime(prev_time))[3:7]
+        hour, min, sec, wday = (time.localtime(prev_time+self.max_freq))[3:7]
 
         add_week = 0
         for i in range(10):
@@ -505,3 +528,43 @@ class JobQueue(object):
             ["  %s" % k for k in jobs.keys() if not shown.has_key(k)])
 
     dump_jobs = staticmethod(dump_jobs)
+
+def run_tests():
+    def parse_time(t):
+        return time.mktime(time.strptime(t, '%Y-%m-%d %H:%M')) + time.timezone
+    def format_time(sec):
+        # %w has a different definition of day 0 than the localtime
+        # tuple :-(
+        return time.strftime('%Y-%m-%d %H:%M', time.localtime(sec)) + \
+               " w=%i" % (time.localtime(sec))[6]
+    def format_duration(sec):
+        return "%s %id" % (
+            time.strftime('%H:%M', time.gmtime(abs(delta))), int(delta/(3600*24)))
+    tests = [(When(time=[Time(wday=[5], hour=[5], min=[30])]),
+              (('2004-06-10 17:00', '2004-06-14 20:00'),
+               ('2004-06-11 17:00', '2004-06-14 20:00'),
+               ('2004-06-12 17:00', '2004-06-14 20:00'),
+              )),
+             (When(time=[Time(wday=[5], hour=[5], min=[30], max_freq=24*60*60)]),
+              (('2004-06-10 17:00', '2004-06-14 20:00'),
+               ('2004-06-11 17:00', '2004-06-14 20:00'),
+               ('2004-06-12 17:00', '2004-06-14 20:00'),
+              )),
+             (When(time=[Time(hour=[4], min=[5])]),
+              (('2004-06-01 03:00', '2004-06-01 04:00'),
+               ('2004-06-01 03:00', '2004-06-01 04:10'),
+               ('2004-06-01 03:00', '2004-06-01 04:20'),
+              ))]
+    for when, times in tests:
+        print "When obj: ", when
+        for t in times:
+            # convert times to seconds since epoch in localtime
+            prev = parse_time(t[0])
+            now = parse_time(t[1])
+            delta = when.next_delta(prev, now)
+            print "  prev=%s, now=%s -> %s [delta=%i/%s]" % (
+                format_time(prev), format_time(now), 
+                format_time(now+delta), delta, format_duration(delta))
+
+if __name__ == '__main__':
+    run_tests()
