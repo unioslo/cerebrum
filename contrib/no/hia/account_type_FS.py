@@ -1,3 +1,7 @@
+#!/usr/bin/env python2.2
+# -*- coding: iso-8859-1 -*-
+# Copyright 2003 University of Oslo, Norway
+#
 # A very crude script that sets account types based om data from FS
 # Will be worked through very soon
 
@@ -9,7 +13,7 @@ from Cerebrum.modules.no.hia import Constants
 
 db = Utils.Factory.get("Database")()
 person = Utils.Factory.get("Person")(db)
-logger = Utils.Factory.get_logger("console")
+logger = Utils.Factory.get_logger("cronjob")
 account = Utils.Factory.get("Account")(db)
 const = Utils.Factory.get("Constants")(db)
 db.cl_init(change_program='account_type_FS')
