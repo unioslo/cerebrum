@@ -18,10 +18,9 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import pyPgSQL
 from SpineLib.Builder import Attribute
 from SpineLib.SpineClass import SpineClass
-from SpineLib.DatabaseClass import DatabaseClass, DatabaseAttr, ConvertableAttribute
+from SpineLib.DatabaseClass import DatabaseAttr, ConvertableAttribute
 
 __all__ = ['CerebrumAttr', 'CerebrumDbAttr', 'CerebrumClass']
 
@@ -63,11 +62,20 @@ class CerebrumDbAttr(CerebrumAttr, DatabaseAttr):
     """
 
 class CerebrumClass(SpineClass):
+    """Mixin class which adds support for cerebrum.
 
+    This class adds support for working directly against cerebrum, and
+    for easly wrapping methods found in cerebrum.
+    """
+    
     cerebrum_class = None
     cerebrum_attr_aliases = {}
     
     def _get_cerebrum_obj(self):
+        """Returns the cerebrum-obj for this instance.
+
+        Expect and uses the find-method in the cerebrum_class.
+        """
         db = self.get_database()
         obj = self.cerebrum_class(db)
         id = self.get_primary_key()[0]
@@ -77,6 +85,11 @@ class CerebrumClass(SpineClass):
         return obj
     
     def _get_cerebrum_name(self, attr):
+        """Returns the name of the attribute in cerebrum.
+
+        cerebrum_attr_aliases is a dict with mapping over
+        spine-attr-name and cerebrum-attr-name.
+        """
         if attr.name in self.cerebrum_attr_aliases.keys():
             return self.cerebrum_attr_aliases[attr.name]
         else:
@@ -101,12 +114,21 @@ class CerebrumClass(SpineClass):
         obj.write_db()
 
     def _delete(self):
-        # FIXME: invalidate? må vel gjøre noe mer.
+        """Generic method for deleting this instance from cerebrum.
+
+        You should implement your own delete method which will
+        invalidate the object after this method has been called.
+        """
         obj = self._get_cerebrum_obj()
         obj.delete()
 
     def _create(cls, db, *args, **vargs):
-        # FIXME: skal ikke denne returnere noe?
+        """Generic method for creating instances in cerebrum.
+
+        This method is "private" because you should check if the needed
+        arguments are given, and since you must returned the newly
+        created object yourself, which you lock for writing.
+        """
         obj = self.cerebrum_class(db)
         obj.populate(*args, **vargs)
         obj.write_db()

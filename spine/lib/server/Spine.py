@@ -37,7 +37,8 @@ class SpineImpl(Cerebrum_core__POA.Spine):
     """Implementation of the Spine interface.
     
     Implements the methods in the Spine interface.
-    These are provided to remote clients
+    These are provided to remote clients. This is the first object
+    returned to the client, after they have connected.
     """
 
     def __init__(self):

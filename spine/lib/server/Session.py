@@ -40,6 +40,15 @@ def count():
         i += 1
 
 class Session:
+    """User-spesific session.
+
+    This is returned to the client when they succesfully login. If they
+    dont logout, the same session will be returned next time they login.
+
+    This has to be an old-style object, since the idl definition says
+    that Spine should return an Object when logged in.
+    """
+    
     slots = []
     method_slots = [
         Method('new_transaction', CerebrumHandler),
