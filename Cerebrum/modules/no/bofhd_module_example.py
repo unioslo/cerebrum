@@ -23,7 +23,7 @@
 
 from Cerebrum.Utils import Factory
 
-from cmd_param import Command,Id
+from Cerebrum.modules.bofhd.cmd_param import Command,Id
 
 
 class BofhdExtension(object):
