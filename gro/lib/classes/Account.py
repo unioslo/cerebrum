@@ -17,29 +17,32 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import Cerebrum.Account
 import crypt
-import Database
+
+import Cerebrum.Account
 
 from Cerebrum.extlib import sets
 
-from Builder import Builder, Attribute, Method
-from Entity import Entity
-from CerebrumClass import CerebrumAttr, CerebrumEntityAttr
+import Registry
+registry = Registry.get_registry()
+
+Builder = registry.Builder
+Attribute = registry.Attribute
+Method = registry.Method
+
+Entity = registry.Entity
+
+CerebrumAttr = registry.CerebrumAttr
+CerebrumEntityAttr = registry.CerebrumEntityAttr
 
 __all__ = ['Account', 'AccountAuthentication']
-
-def entity_from_cerebrum(value):
-    return Entity(value)
-def entity_to_cerebrum(value):
-    return value.get_entity_id()
 
 class Account(Entity):
     # hmm.. skipper np_type inntil videre. og konseptet rundt home/disk er litt føkka
     slots = Entity.slots + [CerebrumAttr('name', 'string', 'account_name', write=True),
-                            CerebrumEntityAttr('owner', 'long', 'owner_id'),
+                            CerebrumEntityAttr('owner', 'long', Entity, 'owner_id'),
                             CerebrumAttr('create_date', 'Date'),
-                            CerebrumEntityAttr('creator', 'long', 'creator_id'),
+                            CerebrumEntityAttr('creator', 'long', Entity, 'creator_id'),
                             CerebrumAttr('expire_date', 'Date', write=True)]
     method_slots = Entity.method_slots + [Method('get_authentications', 'AccountAuthentication'),
                                           Method('authenticate', 'boolean', [('password', 'string')])]
@@ -69,9 +72,8 @@ class AccountAuthentication(Builder):
     slots = primary + [Attribute('auth_data', 'string', write=True)]
 
     def getByRow(cls, row):
-        import Types
         account_id = int(row['account_id'])
-        method = Types.AuthenticationType.get_by_id(int(row['method']))
+        method = registry.AuthenticationType(id=int(row['method']))
         auth_data = row['auth_data']
 
         return cls(account_id=account_id,

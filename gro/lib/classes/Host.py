@@ -18,16 +18,17 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 import Cerebrum.Disk # er det ikke logisk at Host ligger i Disk? :p
-import Database
 
+import Registry
+registry = Registry.get_registry()
 
-from Entity import Entity
-from Builder import Attribute
-from CerebrumClass import CerebrumAttr
+Entity = registry.Entity
+CerebrumAttr = registry.CerebrumAttr
 
 __all__ = ['Host']
 
 class Host(Entity):
-    cerebrum_class = Cerebrum.Disk.Host
     slots = Entity.slots + [CerebrumAttr('name', 'string', write=True), 
                             CerebrumAttr('description', 'string', write=True)]
+
+    cerebrum_class = Cerebrum.Disk.Host

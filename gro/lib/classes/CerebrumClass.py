@@ -17,9 +17,12 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-from Builder import Attribute
-from Searchable import Searchable
 import Database
+import Registry
+registry = Registry.get_registry()
+
+Attribute = registry.Attribute
+Searchable = registry.Searchable
 
 __all__ = ['CerebrumAttr', 'CerebrumEntityAttr', 'CerebrumClass']
 
@@ -43,12 +46,14 @@ class CerebrumAttr(Attribute):
         return value
 
 class CerebrumEntityAttr(CerebrumAttr):
+    def __init__(self, name, data_type, entity_class, cerebrum_name=None, write=False):
+        CerebrumAttr.__init__(self, name, data_type, cerebrum_name, write)
+        self.entity_class = entity_class
     def to_cerebrum(self, value):
         return value.get_entity_id()
 
     def from_cerebrum(self, value):
-        import Entity
-        return Entity.Entity(value)
+        return self.entity_class(int(value))
 
 class CerebrumTypeAttr(CerebrumAttr):
     def __init__(self, name, data_type, type_class, cerebrum_name=None, write=False):
@@ -59,7 +64,7 @@ class CerebrumTypeAttr(CerebrumAttr):
         return value.get_id()
 
     def from_cerebrum(self, value):
-        return self.type_class.get_by_id(value)
+        return self.type_class(id=int(value))
 
 class CerebrumClass(Searchable):
     cerebrum_class = None

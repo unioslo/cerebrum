@@ -19,8 +19,7 @@
 
 from __future__ import generators
 
-import Database
-from Builder import Builder, Attribute, Method
+from Builder import Builder
 
 def create_get_method(var):
     """
@@ -83,15 +82,18 @@ class Searchable(object):
         search_class.slots = []
         search_class.method_slots = []
         
+        import Registry
+        registry = Registry.get_registry()
+        
         for attr in cls.slots:
             get = create_get_method(attr.name)
 
-            new_attr = Attribute(attr.name, attr.data_type, write=True)
+            new_attr = registry.Attribute(attr.name, attr.data_type, write=True)
             search_class.register_attribute(new_attr, get=get)
             
         # FIXME: this should use register_method
         search_class._search = cls.create_search_method()
-        search_class.method_slots.append(Method('search', '%sSeq' % cls.__name__))
+        search_class.method_slots.append(registry.Method('search', '%sSeq' % cls.__name__))
 
         return search_class
 

@@ -18,13 +18,20 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 import Cerebrum.OU
-import Database
 
-from Builder import Attribute, Builder, Method
-from CerebrumClass import CerebrumAttr
-from Entity import Entity
+import Registry
+registry = Registry.get_registry()
 
-__all__ = ['OU']
+Builder = registry.Builder
+Attribute = registry.Attribute
+Method = registry.Method
+
+CerebrumAttr = registry.CerebrumAttr
+CerebrumTypeAttr = registry.CerebrumTypeAttr
+
+Entity = registry.Entity
+
+__all__ = ['OU', 'OUStructure']
 
 class OU(Entity):
     slots = Entity.slots + [CerebrumAttr('name', 'string', write=True),

@@ -180,11 +180,12 @@ class CorbaBuilder:
 class Builder(Caching, Locking, CorbaBuilder):
     primary = []
     slots = []
-    method_slots = []
+    method_slots = [Method('reload', 'void', write=True), Method('save', 'void', write=True)]
 
     def __init__(self, *args, **vargs):
         if len(args) + len(vargs) > len(self.slots):
-            raise TypeError('too many arguments')
+            raise TypeError('__init__() takes at most %s argument%s (%s given)' % (len(self.slots),
+                            len(self.slots)>1 and 's' or '', len(args) + len(vargs)))
 
         cls = self.__class__
         mark = '_%s%s' % (cls.__name__, id(self))
@@ -196,6 +197,11 @@ class Builder(Caching, Locking, CorbaBuilder):
         Caching.__init__(self)
 
         slotNames = [i.name for i in cls.slots]
+
+        for key in vargs.keys():
+            if key not in slotNames:
+                raise TypeError("__init__() got an unexpected keyword argument '%s'" % key)
+
         # set all variables give in args and vargs
         for var, value in zip(slotNames, args) + vargs.items():
             setattr(self, '_' + var, value)

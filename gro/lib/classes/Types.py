@@ -17,13 +17,12 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import Cerebrum.Entity
-import Database
+import Registry
+registry = Registry.get_registry()
 
-from Cerebrum.gro.Cerebrum_core import Errors
-
-from Builder import Builder, Attribute
-from Searchable import Searchable
+Builder = registry.Builder
+Attribute = registry.Attribute
+Searchable = registry.Searchable
 
 __all__ = ['AddressType', 'ContactInfoType', 'GenderType', 'EntityType',
            'SourceSystem', 'NameType', 'AuthenticationType', 'Spread',
@@ -35,31 +34,53 @@ class CodeType(Builder, Searchable):
     slots = primary + [Attribute('id', 'long'),
                        Attribute('description', 'string')]
 
-    def get_by_id(cls, id):
-        rows = Database.get_database().query('''SELECT code_str, description
-                           FROM %s WHERE code = %s''' % (cls._tableName, id))
-        if not rows:
-            raise Errors.NoSuchNodeError('%s(%s) not found' % (cls.__name__, id))
-        row = rows[0]
+    def create_primary_key(cls, name=None, id=None, description=None):
+        # creates primary key for CodeType.
+        # This will actually make it possible for a constant
+        # to have 2 instances in the cache, which is a bad thing.
+        # We do this because we dont want to ask the database
+        # for a name when we get a object by id, since we have
+        # name as primary key.
+        if name is not None:
+            assert type(name) == str
+            return (name, )
+        elif id is not None:
+            assert type(id) == int
+            return (id, )
+        assert 0
 
-        name = row['code_str']
-        description = row['description']
+    create_primary_key = classmethod(create_primary_key)
 
-        return cls(id, name=name, description=description)
+    def __eq__(self, other):
+        """ Check of self and other has the same id """
+        if self is other:
+            return True
+        else:
+            return self.get_id() == other.get_id()
 
-    get_by_id = classmethod(get_by_id)
+    def __hash__(self):
+        """ return the hash of the name """
+        return hash(self.get_name())
 
     def _load(self):
-        rows = Database.get_database().query('''SELECT code, description
-                           FROM %s WHERE code_str = %s''' % (self._tableName, `self._name`)) # ugh. stygg escaping
-        if not rows:
-            raise Errors.NoSuchNodeError('%s %s not found' % (self.__class__.__name__, self._name))
-        row = rows[0]
+        db = self.get_database()
 
+        id = name = None
+
+        if hasattr(self, '_id'):
+            id = self._id
+            where = 'code = :id'
+        else:
+            name = self._name
+            where = 'code_str = :name'
+
+        row = db.query_1('''SELECT code, code_str, description
+                            FROM %s WHERE %s''' % (self._tableName, where), {'id':id, 'name':name})
         self._id = int(row['code'])
+        self._name = row['code_str']
         self._description = row['description']
 
-    load_id = load_description = _load
+    load_id = load_name = load_description = _load
 
     def create_search_method(cls):
         def search(self, id=None, name=None, description=None):
@@ -114,19 +135,19 @@ class EntityType(CodeType):
     _tableName = 'entity_type_code'
 
     def get_class(self):
-        import Account, Disk, Group, Host, OU, Person
-        if self.get_name() == 'account':
-            return Account.Account
-        elif self.get_name() == 'disk':
-            return Disk.Disk
-        elif self.get_name() == 'group':
-            return Group.Group
-        elif self.get_name() == 'host':
-            return Host.Host
-        elif self.get_name() == 'ou':
-            return OU.OU
-        elif self.get_name() == 'person':
-            return Person.Person
+        name = self.get_name()
+        if name == 'account':
+            return registry.Account
+        elif name == 'disk':
+            return registry.Disk
+        elif name == 'group':
+            return registry.Group
+        elif name == 'host':
+            return registry.Host
+        elif name == 'ou':
+            return registry.OU
+        elif name == 'person':
+            return registry.Person
 
 class SourceSystem(CodeType):
     _tableName = 'authoritative_system_code'

@@ -61,13 +61,14 @@ class Caching(object):
         """ Remove the node from the cache. """
         del cls.cache[obj._key]
 
+    invalidate_object = classmethod(invalidate_object)
+
     def cache_object(cls, obj, primary_key):
         key = cls, primary_key
 
         obj._key = key
         cls.cache[key] = obj
 
-    invalidate_object = classmethod(invalidate_object)
     cache_object = classmethod(cache_object)
 
     def invalidate(self):

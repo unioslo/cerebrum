@@ -22,27 +22,36 @@ import time
 import Cerebrum.Entity
 import Cerebrum.QuarantineHandler
 import Cerebrum.modules.Note
-import Database
 
 from Cerebrum.extlib import sets
 
-from Builder import Builder, Attribute, Method
-from Searchable import Searchable
-from CerebrumClass import CerebrumClass, CerebrumAttr, CerebrumTypeAttr
-from Types import *
-from Auth import EntityAuth
+import Registry
+registry = Registry.get_registry()
+
+Builder = registry.Builder
+Attribute = registry.Attribute
+Method = registry.Method
+
+CerebrumClass = registry.CerebrumClass
+CerebrumAttr = registry.CerebrumAttr
+CerebrumTypeAttr = registry.CerebrumTypeAttr
+
+EntityAuth = registry.EntityAuth
+
+EntityType = registry.EntityType
 
 __all__ = ['Entity', 'Note', 'Address', 'ContactInfo']
 
 class Entity(Builder, CerebrumClass, EntityAuth):
     primary = [CerebrumAttr('entity_id', 'long')]
-    slots = primary + [CerebrumTypeAttr('entity_type', 'EntityType', type_class=EntityType)]
-    method_slots = [Method('get_spreads', 'SpreadSeq'),
-                    Method('get_notes', 'NoteSeq'),
-                    Method('get_contact_info', 'ContactInfoSeq'),
-                    Method('get_addresses', 'AddressSeq'),
-                    Method('add_note', 'void', [('subject', 'string'), ('description', 'string')],
-                            write=True)]
+    slots = primary + [
+        CerebrumTypeAttr('entity_type', 'EntityType', type_class=EntityType)]
+    method_slots = Builder.method_slots + [
+        Method('get_spreads', 'SpreadSeq'),
+        Method('get_notes', 'NoteSeq'),
+        Method('get_contact_info', 'ContactInfoSeq'),
+        Method('get_addresses', 'AddressSeq'),
+        Method('add_note', 'void', [('subject', 'string'), ('description', 'string')], write=True)]
 
     cerebrum_class = Cerebrum.Entity.Entity
 
@@ -78,13 +87,12 @@ class Entity(Builder, CerebrumClass, EntityAuth):
     build_methods = classmethod(build_methods)
 
     def get_spreads(self):
-        import Types
         e = Cerebrum.Entity.Entity(self.get_database())
         e.entity_id = self.get_entity_id()
         
         spreads = []
         for i in e.get_spread():
-            spreads.append(Types.Spread.get_by_id(int(i[0])))
+            spreads.append(registry.Spread(id=int(i[0])))
             
         return spreads
 
@@ -151,11 +159,9 @@ class ContactInfo(Builder):
                        Attribute('description', 'string', write=True)]
 
     def getByRow(cls, row):
-        import Types
-
         contactInfo = cls(entity_id=int(row['entity_id']),
-                          source_system=Types.SourceSystem.get_by_id(int(row['source_system'])),
-                          contact_type=Types.ContactInfoType.get_by_id(int(row['contact_type'])),
+                          source_system=registry.SourceSystem(id=int(row['source_system'])),
+                          contact_type=registry.ContactInfoType(id=int(row['contact_type'])),
                           contact_pref=int(row['contact_pref']),
                           contact_value=row['contact_value'],
                           description=row['description'])
@@ -201,11 +207,9 @@ class Address(Builder):
              Attribute('country', 'long', write=True)]
 
     def getByRow(cls, row):
-        import Types
-
         return cls(entity_id=int(row['entity_id']),
-                   source_system=Types.SourceSystem.get_by_id(int(row['source_system'])),
-                   address_type=Types.AddressType.get_by_id(int(row['address_type'])),
+                   source_system=registry.SourceSystem(id=int(row['source_system'])),
+                   address_type=registry.AddressType(id=int(row['address_type'])),
                    address_text=row['address_text'],
                    p_o_box=row['p_o_box'],
                    postal_number=row['postal_number'],

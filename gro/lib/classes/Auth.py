@@ -1,7 +1,11 @@
-from Types import CodeType
-from Builder import Builder, Attribute
-from Searchable import Searchable
-from Types import AuthOperationType
+import Registry
+registry = Registry.get_registry()
+
+Builder = registry.Builder
+Attribute = registry.Attribute
+Searchable = registry.Searchable
+
+AuthOperationType = registry.AuthOperationType
 
 __all__ = ['AuthOperationSet', 'AuthOperation', 'AuthOperationAttr', 'AuthRole', 'EntityAuth']
 
@@ -26,7 +30,7 @@ class AuthOperation(Builder, Searchable):
         row = db.query_1('''SELECT op_code, op_set_id
                             FROM [:table schema=cerebrum name=auth_operation]
                             WHERE op_id=:id''', {'id': self._id})
-        self._operation_type = AuthOperationType.get_by_id(int(row['op_code']))
+        self._operation_type = AuthOperationType(id=int(row['op_code']))
         self._operation_set = AuthOperationSet(int(row['op_set_id']))
 
     load_operation_type = load_operation_set = _load_operation
@@ -81,7 +85,6 @@ class AuthRole(Builder, Searchable):
 
     def create_search_method(cls):
         def search(self, entity=None, operation_set=None, target=None):
-            from Entity import Entity # nå må vi få fikset gro_registry snart..
             where = []
             if entity is not None:
                 where.append('entity_id = %i' % entity.get_entity_id())
@@ -103,7 +106,8 @@ class AuthRole(Builder, Searchable):
                 entity_id = int(row['entity_id'])
                 op_set_id = int(row['op_set_id'])
                 op_target_id = int(row['op_target_id'])
-                obj = AuthRole(Entity(entity_id), AuthOperationSet(op_set_id), Entity(op_target_id))
+                obj = AuthRole(registry.Entity(entity_id), AuthOperationSet(op_set_id),
+                               registry.Entity(op_target_id))
                 objects.append(obj)
             return objects
         return search

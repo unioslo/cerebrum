@@ -18,39 +18,21 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 import Cerebrum.Disk
-import Database
 
-from Entity import Entity
-from Builder import Attribute
+import Registry
+registry = Registry.get_registry()
+
+Entity = registry.Entity
+Host = registry.Host
+
+CerebrumAttr = registry.CerebrumAttr
+CerebrumEntityAttr = registry.CerebrumEntityAttr
 
 __all__ = ['Disk']
 
 class Disk(Entity):
-    slots = Entity.slots + [Attribute('host', 'Host', write=True),
-                            Attribute('path', 'string', write=True),
-                            Attribute('description', 'string', write=True)]
+    slots = Entity.slots + [CerebrumEntityAttr('host', 'Host', Host, 'host_id', write=True),
+                            CerebrumAttr('path', 'string', write=True),
+                            CerebrumAttr('description', 'string', write=True)]
 
     cerebrum_class = Cerebrum.Disk.Disk
-
-    def _load_disk(self):
-        import Host
-        e = Cerebrum.Disk.Disk(self.get_database())
-        e.find(self._entity_id)
-
-        self._host = Host.Host(int(e.host_id))
-        self._path = e.path
-        self._description  = e.description
-
-    def _save_disk(self):
-        e = Cerebrum.Disk.Disk(self.get_database())
-        e.find(self._entity_id)
-
-        e.host_id = self._host.get_entity_id()
-        e.path = self._path
-        e.description = self._description
-        e.write_db()
-        e.commit()
-
-
-    load_host = load_path = load_description = _load_disk
-    save_host = save_path = save_description = _save_disk

@@ -17,21 +17,29 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import Cerebrum.Entity
 import Cerebrum.Group
-import Database
 
 from Cerebrum.extlib import sets
 
-from Builder import Builder, Attribute, Method
-from CerebrumClass import CerebrumAttr, CerebrumTypeAttr
-from Entity import Entity
-from Types import GroupVisibilityType, GroupMemberOperationType
+import Registry
+registry = Registry.get_registry()
+
+Builder = registry.Builder
+Attribute = registry.Attribute
+Method = registry.Method
+
+CerebrumAttr = registry.CerebrumAttr
+CerebrumTypeAttr = registry.CerebrumTypeAttr
+
+Entity = registry.Entity
+
+GroupVisibilityType = registry.GroupVisibilityType
+GroupMemberOperationType = registry.GroupMemberOperationType
 
 __all__ = ['Group', 'GroupMember']
 
 class Group(Entity):
-    slots = Entity.slots + [CerebrumAttr('name', 'string', 'group_name', True),
+    slots = Entity.slots + [CerebrumAttr('name', 'string', 'group_name', write=True),
                             CerebrumAttr('description', 'string', write=True),
                             CerebrumTypeAttr('visibility', 'GroupVisibilityType',
                                              GroupVisibilityType, write=True),
