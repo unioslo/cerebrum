@@ -22,13 +22,15 @@ import copy
 
 from Builder import Method
 
-def create_get_method(attr):
-    """
-    This function creates a simple get method get(self), which
-    uses getattr().
-    Methods created with this function are used in search objects.
-    """
+__all__ = ['Searchable']
 
+def create_get_method(attr):
+    """Returns the value of the variable attr represents.
+    
+    This function creates a simple get method get(self), which
+    uses getattr(). Methods created with this function are used
+    in search objects.
+    """
     def get(self):
         # get the variable
         return getattr(self, attr.get_name_private())
@@ -56,12 +58,40 @@ def create_new_attr(attr, **vargs):
     return new_attr
 
 def create_mark_method(attr):
+    """Marks the attribute 'attr'.
+
+    Creates a method which marks the attribute for use when
+    merging searchbjects. If you whish to merge two searchobjects,
+    which returns diffrent types, you have to mark which attributes in
+    this searchobject should return.
+    """
     method = Method('mark_' + attr.name, None, write=True)
     def mark(self):
         if self.mark is not None:
             raise Exception('Allready marked for %s' % self.mark)
         self.mark = attr
     return method, mark
+
+def create_set_method(attr):
+    """Set the 'value' for the 'attr'.
+
+    Creates a method which sets the value of the 'attr' to 'value'.
+    Will only return the set-method if the 'attr' has the exists-
+    attribute. Raises an exception if the 'value' is False.
+    """
+    def set(self, value):
+        if not value:
+            raise ValueError('value %s is not allowed for this method' % value)
+        orig = getattr(self, attr.get_name_private(), None)
+        if orig is not value:
+            setattr(self, attr.get_name_private(), value)
+            self.updated.add(attr)
+
+    if getattr(attr, 'exists', False):
+        return set
+    else:
+        return None
+
 
 class Searchable(object):
     search_slots = []
@@ -87,11 +117,18 @@ class Searchable(object):
             search_class.db_attr_aliases = cls.db_attr_aliases.copy()
 
         for attr in cls.slots + cls.search_slots:
+            # Mark-methods is used when merging search-objects.
             if issubclass(attr.data_type, Searchable):
                 method, mark = create_mark_method(attr)
                 search_class.register_method(method, mark, overwrite=True)
 
             new_attrs = []
+
+            if getattr(attr, 'optional', False):
+                new_attr = create_new_attr(attr, exists=True)
+                new_attr.data_type = bool
+                new_attrs.append(new_attr)
+
             if attr.data_type == str:
                 new_attrs.append(create_new_attr(attr, like=True))
             elif attr.data_type == int:
@@ -116,7 +153,9 @@ class Searchable(object):
                     del new_attr._old_name
 
                 get = create_get_method(new_attr)
-                search_class.register_attribute(new_attr, get=get, overwrite=True)
+                set = create_set_method(new_attr)
+                search_class.register_attribute(new_attr, get=get, set=set,
+                                                overwrite=True)
 
         search_class._search = cls.create_search_method()
         assert search_class._search

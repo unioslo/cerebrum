@@ -29,6 +29,20 @@ from SpineClass import SpineClass
 __all__ = ['DatabaseAttr', 'DatabaseClass']
 
 class DatabaseAttr(Attribute):
+    """Ojbect attribute from the database.
+
+    Used to represent an attribute which can be found in the database.
+    The value of this attribute will be loaded and saved from/to the
+    database.
+
+    You can include your own methods for converting to and from the
+    database with the attr 'to_db' and 'from_db'.
+
+    Since this attribute has knowledge of the database, you can use it
+    with the generic search/create/delete-methods found in DatabaseClass
+    and CerebrumDbClass.
+    """
+    
     def __init__(self, name, table, data_type,
                  write=False, from_db=None, to_db=None, optional=False):
         Attribute.__init__(self, name, data_type, write=write, optional=optional)
@@ -253,14 +267,21 @@ class DatabaseClass(SpineClass, Searchable, Dumpable):
                 """
                 args = (attr.table, _get_real_name(attr), attr.name)
                 value = attr.to_db(value)
-                if hasattr(attr, 'like'):
+                if getattr(attr, 'like', False):
                     whr = 'LOWER(%s.%s) LIKE :%s' % args
                     value = value.replace("*","%").replace("?", "_")
                     value = value.lower()
-                elif hasattr(attr, 'less'):
+                elif getattr(attr, 'less', False):
                     whr = '%s.%s < :%s' % args
-                elif hasattr(attr, 'more'):
+                elif getattr(attr, 'more', False):
                     whr = '%s.%s > :%s' % args
+                elif getattr(attr, 'exists', False):
+                    if value:
+                        whr = '%s.%s is not :%s' % args
+                    else:
+                        whr = '%s.%s is :%s' % args
+                    value = None
+                    print whr, value
                 else:
                     whr = '%s.%s = :%s' % args
                 return (whr, value)
@@ -271,8 +292,6 @@ class DatabaseClass(SpineClass, Searchable, Dumpable):
             for attr, value in map.items():
                 if not isinstance(attr, DatabaseAttr):
                     continue
-                if attr.optional:
-                    tables.add(attr.table)
                 whr, val = convert_value(attr, value)
                 where.append(whr)
                 values[attr.name] = val

@@ -148,8 +148,7 @@ class Builder(object):
     get_attr = classmethod(get_attr)
 
     def save(self):
-        """ Save all changed attributes """
-
+        """Save all changed attributes."""
         saved = sets.Set()
         for attr in self.updated:
             save_method = getattr(self, 'save_' + attr.name)
@@ -159,8 +158,7 @@ class Builder(object):
         self.updated.clear()
 
     def reset(self):
-        """ Reload all changed attributes """
-
+        """Reload all changed attributes."""
         loaded = sets.Set()
         for attr in self.slots:
             if attr not in self.primary:
@@ -173,9 +171,9 @@ class Builder(object):
     # class methods
     
     def create_primary_key(cls, *args, **vargs):
-        """ Create primary key from args and vargs
+        """Create primary key from args and vargs.
 
-        Used by the caching facility to identify a unique object
+        Used by the caching facility to identify a unique object.
         """
 
         names = [i.name for i in cls.primary]
@@ -189,8 +187,8 @@ class Builder(object):
 
     create_primary_key = classmethod(create_primary_key)
  
-    def register_attribute(cls, attribute, load=None, save=None, get=None, set=None, overwrite=False, override=False, register=True):
-        """ Registers an attribute
+    def register_attribute(cls, attribute, load=None, save=None, get=None, set=None, overwrite=False, register=True):
+        """Registers an attribute.
 
         attribute contains the name and data_type as it will be in the API
         load - loads the value for this attribute
@@ -200,10 +198,11 @@ class Builder(object):
 
         load/save/get/set must take self as first argument.
 
-        overwrite - decides whether to overwrite existing definitions
+        overwrite - decides whether to overwrite existing definitions.
 
-        If the attribute does not exist, it will be added to the class
-        If overwrite=True load/save/get/set will be overwritten if they allready exists.
+        If the attribute does not exist, it will be added to the class.
+        If overwrite=True load/save/get/set will be overwritten if they
+        allready exists.
 
         If get and set is None, the default behavior is for set and get to use
         self._`attribute.name`. load will then be run automatically by get if the
@@ -244,8 +243,7 @@ class Builder(object):
     register_attribute = classmethod(register_attribute)
 
     def register_method(cls, method, method_func, overwrite=False):
-        """ Registers a method
-        """
+        """Registers a method."""
         if hasattr(cls, method.name) and not overwrite:
             raise AttributeError('%s already exists in %s' % (method.name, cls.__name__))
         setattr(cls, method.name, method_func)
