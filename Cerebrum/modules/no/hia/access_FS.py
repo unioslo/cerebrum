@@ -268,7 +268,7 @@ WHERE r.emnekode = e.emnekode AND
 	qry = """
 SELECT DISTINCT
   fodselsdato, personnr
-FROM fs.undervisningsmelding, fs.eksamenmelding
+FROM fs.undervisningsmelding
 WHERE
   institusjonsnr = :institusjonsnr AND
   emnekode = :emnekode AND
