@@ -147,7 +147,7 @@ class Entity(DatabaseAccessor):
             raise Errors.NoEntityAssociationError, \
                   "Unable to determine which entity to delete."
         self.execute("""
-        DELETE [:table schema=cerebrum name=entity_info]
+        DELETE FROM [:table schema=cerebrum name=entity_info]
         WHERE entity_id=:e_id""", {'e_id': self.entity_id})
         self.clear()
         return
@@ -172,7 +172,7 @@ class EntityName(object):
 
     def delete_name(self, domain):
         return self.execute("""
-        DELETE [:table schema=cerebrum name=entity_name]
+        DELETE FROM [:table schema=cerebrum name=entity_name]
         WHERE entity_id=:e_id AND value_domain=:domain""",
                             {'e_id': self.entity_id,
                              'domain': int(domain)})
@@ -222,7 +222,7 @@ class EntityContactInfo(object):
 
     def delete_contact_info(self, source, type, pref):
         self.execute("""
-        DELETE [:table schema=cerebrum name=entity_contact_info]
+        DELETE FROM [:table schema=cerebrum name=entity_contact_info]
         WHERE entity_id=:e_id AND source_system=:src AND
           contact_type=:c_type AND contact_pref=:c_pref""",
                      {'e_id': self.entity_id,
@@ -338,7 +338,7 @@ class EntityAddress(object):
                                                  **self._address_info[type])
                 elif str(msg) == "MissingSelf":
                     self.execute("""
-                    DELETE [:table schema=cerebrum name=entity_address]
+                    DELETE FROM [:table schema=cerebrum name=entity_address]
                     WHERE
                       entity_id=:e_id AND
                       source_system=:src AND
@@ -390,7 +390,7 @@ class EntityAddress(object):
 
     def delete_entity_address(self, source, type):
         self.execute("""
-        DELETE [:table schema=cerebrum name=entity_address]
+        DELETE FROM [:table schema=cerebrum name=entity_address]
         WHERE
           entity_id=:e_id AND
           source_system=:src AND
@@ -432,7 +432,7 @@ class EntityQuarantine(object):
 
     def delete_entity_quarantine(self, type):
         self.execute("""
-        DELETE [:table schema=cerebrum name=entity_quarantine]
+        DELETE FROM [:table schema=cerebrum name=entity_quarantine]
         WHERE entity_id=:e_id AND quarantine_type=:q_type""",
                      {'e_id': self.entity_id,
                       'q_type': type})
