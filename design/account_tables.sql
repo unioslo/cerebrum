@@ -145,8 +145,6 @@ Data assosiert direkte med en enkelt konto:
    Sperring på kontekst-nivå må gjøres ved å fjerne
    aktuell spread.
 
-   TBD: Varighet på sperring og sperre-type.
-
  * Aktiv/slettet (bør ligge en stund med alle		0..1
    tabell-entries intakt, men flagget som
    slettet, for å lett kunne gjøre restore).
@@ -154,9 +152,9 @@ Data assosiert direkte med en enkelt konto:
    Dersom vi hadde hatt datostempel for alle
    medlemmers innmeldelse i grupper, kunne dette ha
    blitt implementert som (nok) en gruppe.  Det har
-   vi, og vil vi neppe ha, så dermed fremstår
-   gruppe-implementasjon ikke som noen lur måte å
-   gjøre dette på.
+   vi ikke, og vil nok heller ikke ha, så dermed
+   fremstår gruppe-implementasjon ikke som noen lur
+   måte å gjøre dette på.
 
  * Spread (hvilke systemer skal kontoen være		0..N
    kjent i)
@@ -184,9 +182,9 @@ Data assosiert direkte med en enkelt konto:
 
  * Opprettet av						== 1
 
-   Kontoen som foretok opprettelsen.  Når denne
-   brukeren slettes, "arver" kontoen som foretar
-   slettingen alle disse opprettelsene.
+   Kontoen som foretok opprettelsen.  Konti som er
+   registrert som "oppretter" kan ikke fjernes (men
+   kan markeres som inaktive).
 
  * Opprettet dato					== 1
 
@@ -196,6 +194,67 @@ Data assosiert direkte med en enkelt konto:
    brukeren
 
 */
+
+
+/*	account
+
+Konto kan være tilknyttet en person.  Kontoens type indikerer hvorvidt
+kontoen kan være upersonlig; integriteten av dette tas hånd om utenfor
+SQL.
+
+Konto kan ha forskjellig brukernavn i forskjellige kontekster, men
+alle disse skal til enhver tid kunne autentisere seg på (de) samme
+måte(ne).
+
+Hvert brukernavn (kontekst?) kan ha tilknyttet et eget hjemmeområde.
+
+ * "User" is an Oracle reserved word, so we're probably better off if
+ * we avoid using that as a table or column name.  Besides, "account"
+ * probably is the more accurate term anyway.
+
+ np_type: Account type for non-personal accounts.  For personal
+          accounts there's a separate user_type table.
+
+ */
+CREATE TABLE account
+(
+  /* Dummy column, needed for type check against `entity_id'. */
+  entity_type	CHAR VARYING(16)
+		NOT NULL
+		DEFAULT 'u'
+		CONSTRAINT account_entity_type_chk CHECK (entity_type = 'u'),
+
+  account_id	NUMERIC(12,0)
+		CONSTRAINT account_pk PRIMARY KEY,
+  owner_type	CHAR VARYING(16)
+		NOT NULL
+		CONSTRAINT account_owner_type_chk
+		  CHECK (owner_type IN ('p', 'g')),
+  owner		NUMERIC(12,0)
+		NOT NULL,
+  np_type	CHAR VARYING(16)
+		CONSTRAINT account_np_type REFERENCES account_code(code),
+  create_date	DATE
+		DEFAULT SYSDATE
+		NOT NULL,
+  creator	NUMERIC(12,0)
+		NOT NULL
+		CONSTRAINT account_creator REFERENCES account(account_id),
+  expire_date	DATE
+		DEFAULT NULL,
+  deleted	CHAR(1)
+		NOT NULL
+		CONSTRAINT account_deleted_bool
+		  CHECK (deleted IN ('T', 'F')),
+  CONSTRAINT account_entity_id FOREIGN KEY (entity_type, account_id)
+    REFERENCES entity_id(entity_type, id),
+  CONSTRAINT account_owner FOREIGN KEY (owner_type, owner)
+    REFERENCES entity_id(entity_type, id),
+  CONSTRAINT account_np_type_chk
+    CHECK ((owner_type = 'p' AND np_type IS NULL) OR
+	   (owner_type = 'g' AND np_type IS NOT NULL)),
+  CONSTRAINT account_id_plus_owner_unique UNIQUE (account_id, owner)
+);
 
 
 /*	account_type
@@ -222,72 +281,7 @@ CREATE TABLE account_type
     REFERENCES person_affiliation(person_id, ou_id, affiliation),
   CONSTRAINT account_type_user
     FOREIGN KEY (user_id, person_id)
-    REFERENCES account(user_id, person_id)
-);
-
-
-/*	account_type_code
-
-  Accounts can be either personal or non-personal.  While the data in
-  account_type should be sufficient to identify the type(s) of
-  personal accounts, there's still a need to keep track of the various
-  kinds of non-personal accounts.
-
-  This table holds code values for these data.  Some examples of code
-  values can be "system account", "program account", "group account".
-
-*/
-CREATE TABLE account_type_code
-(
-  code		CHAR VARYING(16)
-		CONSTRAINT account_type_code_pk PRIMARY KEY,
-  description	CHAR VARYING(512)
-		NOT NULL
-);
-
-/*	account
-
-Konto kan være tilknyttet en person.  Kontoens type indikerer hvorvidt
-kontoen kan være upersonlig; integriteten av dette tas hånd om utenfor
-SQL.
-
-Konto kan ha forskjellig brukernavn i forskjellige kontekster, men
-alle disse skal til enhver tid kunne autentisere seg på (de) samme
-måte(ne).
-
-Hvert brukernavn (kontekst?) kan ha tilknyttet et eget hjemmeområde.
-
- * "User" is an Oracle reserved word, so we're probably better off if
- * we avoid using that as a table or column name.  Besides, "account"
- * probably is the more accurate term anyway.
-
- np_type: Account type for non-personal accounts.  For personal
-          accounts there's a separate user_type table.
-
- */
-CREATE TABLE account
-(
-  account_id	NUMERIC(12,0)
-		CONSTRAINT account_pk PRIMARY KEY,
-  owner		NUMERIC(12,0)
-		CONSTRAINT account_owner REFERENCES person(person_id),
-  group_owner	NUMERIC(12,0)
-		CONSTRAINT account_group_owner REFERENCES group_info(group_id),
-  np_type	CHAR VARYING(16)
-		CONSTRAINT account_np_type REFERENCES account_type_code(code),
-  create_date	DATE
-		DEFAULT SYSDATE
-		NOT NULL,
-  creator	NUMERIC(12,0)
-		NOT NULL
-		CONSTRAINT account_creator REFERENCES account(account_id),
-  expire_date	DATE
-		DEFAULT NULL,
-  deleted	BOOLEAN
-		NOT NULL,
-  CONSTRAINT account_one_owner
-    CHECK ((owner IS NOT NULL AND np_type IS NULL) OR
-	   (group_owner IS NOT NULL AND np_type IS NOT NULL))
+    REFERENCES account(account_id, owner)
 );
 
 
@@ -307,17 +301,23 @@ CREATE TABLE authentication_code
 
 /*	account_authentication
 
- * Keep track of the data needed to authenticate each account.
+  Keep track of the data needed to authenticate each account.
 
- TBD:
+  TBD:
 
-  * How large should the column method_data be?  Probably at least
-    large enough to hold one X.509 certificate (or even several?)
+   * `method_data' is currently as large as Oracle will allow a "CHAR
+     VARYING" column to be.  Is that large enough, or should we use a
+     completely different data type?  The column should probably be at
+     least large enough to hold one X.509 certificate (or maybe even
+     several).
 
-  * Password history (i.e. don't allow recycling of passwords); this
-    should probably be implemented as an optional add-on module.
+   * Should the auth_data column be split into multiple columns,
+     e.g. for "private" and "public" data?
 
- */
+   * Password history (i.e. don't allow recycling of passwords); this
+     should be implemented as an optional add-on module.
+
+*/
 CREATE TABLE account_authentication
 (
   account_id	NUMERIC(12,0)
@@ -326,12 +326,10 @@ CREATE TABLE account_authentication
   method	CHAR VARYING(16)
 		CONSTRAINT account_authentication_method
 		  REFERENCES authentication_code(code),
-  auth_data	CHAR VARYING(1024)
+  auth_data	CHAR VARYING(4000)
 		NOT NULL,
   CONSTRAINT account_auth_pk PRIMARY KEY (account_id, method)
 );
-
-
 
 
 /*	reserved_name
@@ -355,199 +353,13 @@ CREATE TABLE account_authentication
        man skal lage foreign keys mot en slik tvetydig navne-kolonne.
 
 */
-
 CREATE TABLE reserved_name
 (
   value_domain	CHAR VARYING(16)
-		CONSTRAINT value_domain_code(code),
+		CONSTRAINT reserved_name_value_domain
+		  REFERENCES value_domain_code(code),
   name		CHAR VARYING(128),
   why		CHAR VARYING(512)
 		NOT NULL,
-  CONSTRAINT reserved_name_pk PRIMARY KEY (domain, name)
+  CONSTRAINT reserved_name_pk PRIMARY KEY (value_domain, name)
 );
-
-
-CREATE TABLE account_quarantine
-(
-  account_id	NUMERIC(12,0)
-		CONSTRAINT account_quarantine_account_id
-		  REFERENCES account(account_id),
-
-/* TBD: Bør man bruke samme kode-tabell for sperringer av personer og
-	brukere? */
-  quarantine_type
-		CHAR VARYING(16)
-		CONSTRAINT account_quarantine_quarantine_type
-		  REFERENCES quarantine_code(code),
-/* TBD: Hvilke flere attributter trengs knyttet til hver sperring av
-	bruker? */
-  CONSTRAINT account_quarantine_pk
-    PRIMARY KEY (account_id, quarantine_type)
-);
-
-
-CREATE TABLE posix_shell
-(
-  shell		CHAR VARYING(16)
-		CONSTRAINT posix_shell_pk PRIMARY KEY,
-  shell_path	CHAR VARYING(64)
-		NOT NULL,
-  CONSTRAINT posix_shell_path_unique UNIQUE (shell_path)
-);
-
-
-/*	posix_user
-
-  There are several reasons for having separate '*_domain'-columns for
-  name, uid and gid:
-
-   * This is necessary if e.g. 'name' should be separately unique in
-     NIS domain X and Y, while 'uid' should be unique across both of
-     these NIS domains.
-
-   * It's useful to allow separate reservation of user names, uids and
-     gids (as these reservations are coupled to the same "value
-     domain" names.
-
-  TBD: Holder argumentasjonen over, eller er det bedre å bruke kun en
-       kolonne for å indikere verdi-domene for alle tre verdiene?
-
-  'gecos'	For personal users the POSIX gecos field will default
-		to the owning persons full name.  The default can be
-		overridden by setting this column non-NULL.
-		For non-personal users this column must be non-NULL.
-
-*/
-CREATE TABLE posix_user
-(
-  account_id	NUMERIC(12,0)
-		CONSTRAINT posix_user_account_id
-		  REFERENCES account(account_id)
-		CONSTRAINT posix_user_pk PRIMARY KEY,
-/* TBD: Bør kjernern tillate samme `account' å gi opphav til flere
-        `posix_user's, f.eks. dersom man opererer med multiple
-        NIS-domener?  Hvis ja: Hva bør da primærnøkkelen for
-        posix_user være? */
-  name		CHAR VARYING(8)
-		NOT NULL,
-  name_domain	CHAR VARYING(16)
-		CONSTRAINT posix_user_name_domain
-		  REFERENCES value_domain_code(code),
-  uid		NUMERIC(10,0)
-		NOT NULL,
-  uid_domain	CHAR VARYING(16)
-		CONSTRAINT posix_user_uid_domain
-		  REFERENCES value_domain_code(code),
-  gid		NUMERIC(10,0)
-		NOT NULL,
-  gid_domain	CHAR VARYING(16)
-		CONSTRAINT posix_user_gid_domain
-		  REFERENCES value_domain_code(code),
-  gecos		CHAR VARYING(128),
-  dir		CHAR VARYING(64)
-		NOT NULL,
-  shell		CHAR VARYING(16)
-		NOT NULL
-		CONSTRAINT posix_user_shell REFERENCES posix_shell(shell),
-  CONSTRAINT posix_user_name_unique UNIQUE(name, name_domain),
-  CONSTRAINT posix_user_uid_unique UNIQUE(uid, uid_domain),
-  CONSTRAINT posix_user_gid_unique UNIQUE(gid, gid_domain)
-);
-
-
-/*	notur_user
-
-
-
-*/
-CREATE TABLE notur_user
-(
-  account_id	NUMERIC(12,0)
-		CONSTRAINT notur_user_account_id
-		  REFERENCES posix_user(account_id)
-		CONSTRAINT notur_user_pk PRIMARY KEY,
-  notur_uid	NUMERIC(10,0)
-		NOT NULL,
-/* TBD: Trenger vi en egen verdidomene-kolonne for UIDer her?  NoTuR
-	spiser jo på en måte av alle de involverte institusjonenes
-	egne UID-rom, men har på en annen måte fått tilordnet seg sin
-	egen range innenfor hver av disse. */
-  uid_domain	CHAR VARYING(16)
-		CONSTRAINT notur_user_uid_domain
-		  REFERENCES value_domain_code(code)
-);
-
-
-/*	notur_site_user
-
-  'name' and 'dir' defaults to the corresponding values from the
-  parent posix_user.
-
-*/
-CREATE TABLE notur_site_user
-(
-  account_id	NUMERIC(12,0)
-		CONSTRAINT notur_site_user_account_id
-		  REFERENCES notur_user(account_id),
-  notur_domain	CHAR VARYING(16)
-		CONSTRAINT notur_site_user_notur_domain
-		  REFERENCES value_domain_code(code),
-/* TBD: Vil UNIQUE-constrainten nederst fungere som den skal dersom
-	'name' tillates å kunne være NULL? */
-  name		CHAR VARYING(8),
-  dir		CHAR VARYING(64),
-  CONSTRAINT notur_site_user_pk PRIMARY KEY(account_id, notur_domain),
-  CONSTRAINT notur_site_user_unique UNIQUE(notur_domain, user_name)
-);
-
-
-/* TBD: Spread for brukere; bør dette implementeres ved hjelp av en
-	"REFERENCES account(account_id)"-type tabell, eller som
-	separat spread-tabell for hver enkelt variant av bruker det
-	finnes andre tabeller for (som f.eks. posix_user)? */
-
-
-/* TBD: Bør printerkvoter legges på brukere eller personer, eller bør
-	man kanskje til og med ha mulighet for å legge innslag begge
-	steder (og hvilke konsekvenser får i så fall det for hvordan
-	logikken rundt må se ut)? */
-
-CREATE TABLE printer_quota
-(
-  person_id	NUMERIC(12,0)
-		CONSTRAINT printer_quota_person_id
-		  REFERENCES person(person_id),
-  account_id	NUMERIC(12,0)
-		CONSTRAINT printer_quota_account_id
-		  REFERENCES account(account_id),
-  active	BOOLEAN,
-/* TBD: Bør vi splitte ut kolonnene under i en annen tabell, slik at
-	det kun blir ett "active"-flagg for å si om en person/bruker
-	har aktiv(e) printerkvotesettinger eller ei? */
-  value_type	CHAR VARYING(16)
-		REFERENCES printer_quota_value_code(code),
-  value		NUMERIC(6,0)
-		NOT NULL,
-  PRIMARY KEY(person_id, value_type)
-/* eller */
-  PRIMARY KEY(account_id, value_type)
-);
-
-
-CREATE TABLE mail_domain
-(
-  domain_name	CHAR VARYING(128),
-
-/* TBD: Ønsker å kunne legge inn innslagg her om domener uten at det
-	nødvendigvis eksporteres noe data om dem til epostsystemet.
-	Er det nødvendig med muligheter for registrering av flere
-	opplysninger rundt dette, så som "starttidspunkt som lokalt
-	domene", "tidspunkt for når domenet sluttet/vil slutte å være
-	lokalt domene", etc.? */
-  local		BOOLEAN
-		NOT NULL,
-  description	CHAR VARYING(512),
-  PRIMARY KEY domain_name
-);
-
-/* TBD: Flere tabeller om mail. */
