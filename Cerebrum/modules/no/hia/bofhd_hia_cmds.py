@@ -1345,7 +1345,7 @@ class BofhdExtension(object):
         for r in acc.get_spread():
             if r['spread'] == int(self.const.spread_hia_email):
                 raise CerebrumError, "%s is already an IMAP user" % uname
-        acc.add_spread(self.const.spread_uio_imap)
+        acc.add_spread(self.const.spread_hia_email)
 	return "Ok, IMAP-spread added to %s" % uname
 
     # email move
