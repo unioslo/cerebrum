@@ -225,10 +225,17 @@ class AccountUiOMixin(Account.Account):
             for svr in es.list_email_server_ext():
                 if svr['server_type'] <> server_type:
                     continue
-                if (server_type == self.const.email_server_type_cyrus
-                    and svr['name'] == 'mail-sg0'):
-                    # Reserved for test users.
-                    continue
+                if server_type == self.const.email_server_type_cyrus:
+                    if svr['name'] == 'mail-sg0':
+                        # Old (VA) cluster; reserved for test users.
+                        continue
+                    elif (svr['name'].startswith('cyrus')
+                          and svr['name'][5:].isdigit()
+                          and 1 <= int(svr['name'][5:]) <= 16):
+                        # New (EVA) cluster; need to be registered for
+                        # our test users, but shouldn't be used for
+                        # ordinary users' mail targets.
+                        continue
                 email_servs.append(svr['server_id'])
             svr_id = random.choice(email_servs)
             if old_server is None:
