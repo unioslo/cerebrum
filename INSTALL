@@ -14,6 +14,11 @@ PyPostgress or DCOracle2.
 Create a database instance where cerebrum should be ran, as well as a
 user which cerebrum should connect as.
 
+Instructions for creating the Oracle users:
+  CREATE USER cerebrum IDENTIFIED BY somepassword;
+  GRANT connect, resource, create role TO cerebrum;
+  CREATE USER cerebrum_user identified BY somepassword;
+  GRANT connect, resource TO cerebrum_user;
 
 Get the sources
 ---------------
@@ -51,7 +56,7 @@ Installing the software
 -----------------------
 Enter the directory where you installed the sources, and run:
 
-  python2.2 setup.py install [--prefix /cerebrum]
+  python2.2 setup.py install install_data --install-dir=/cerebrum
 
 This will install the Cerebrum python modules into your site-packages
 directory.  A number of other files are placed as documented in the
