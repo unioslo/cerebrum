@@ -1,6 +1,4 @@
-#from Cerebrum.web.InitTemplate import InitTemplate
-#extends InitTemplate
-#import forgetHTML
+#extends EntityViewTemplate
 #from Cerebrum.web.TableView import TableView
 #from AccountViewTemplate import AccountViewTemplate
 #from AccountCreateTemplate import AccountCreateTemplate
@@ -11,7 +9,7 @@
 <h1>$_("Person") $person.name</h1>
 $personInfo($person)
 $personAccounts($person, $profile)
-$HistoryLog.view_history_short($person)
+$view_entity($person)
 #end def
 
 #def personAccounts($person, $profile)
@@ -46,7 +44,8 @@ $t.viewAccount($account, False, False)
     <dd>$person.birthdate.Format('%Y-%m-%d')</dd>
 
 #if $person.deceased
-    $_("-- Person is deceased --")
+#set msg = $_("Person is deceased");
+    <strong class="deceased">$msg</strong>
 #end if
     
     <dt>$_("Description")</dt>
