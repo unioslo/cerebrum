@@ -187,52 +187,32 @@ def process_person_callback(person_info):
     # superior setting.
     
     new_person = Person.Person(db)
-    old_fnr = None
     try:
         new_person.find_by_external_id(co.externalid_fodselsnr, fnr)
-        old_fnr = fnr
     except Errors.NotFoundError:
         pass
     except Errors.TooManyRowsError:
         try:
             new_person.find_by_external_id(co.externalid_fodselsnr, fnr, co.system_fs)
-            old_fnr = fnr  
         except Errors.NotFoundError:
             pass
 
     new_person.populate(db.Date(year, mon, day), gender)
 
-    old_fname = None
-    old_lname = None
-    if (old_fnr):
-      try:
-          old_fname = new_person.get_name(co.system_fs, co.name_first)
-          old_lname = new_person.get_name(co.system_fs, co.name_last)
-      except Errors.NotFoundError:
-          pass
-    if (fornavn != old_fname or etternavn != old_lname):
-        new_person.affect_names(co.system_fs, co.name_first, co.name_last)   
-        new_person.populate_name(co.name_first, fornavn)
-        new_person.populate_name(co.name_last, etternavn)
+    new_person.affect_names(co.system_fs, co.name_first, co.name_last)
+    new_person.populate_name(co.name_first, fornavn)
+    new_person.populate_name(co.name_last, etternavn)
 
-    old_snr = None
-    if old_fnr:
-        for row in new_person.get_external_id(source_system=co.system_fs):
-            if (row['id_type'] == co.externalid_studentnr):
-               old_snr = row['external_id']
-               break
-    if studentnr is not None and studentnr != old_snr:
+    if studentnr is not None:
         new_person.affect_external_id(co.system_fs,
                                       co.externalid_fodselsnr,
                                       co.externalid_studentnr)
         new_person.populate_external_id(co.system_fs, co.externalid_studentnr,
                                         studentnr)
-    elif fnr != old_fnr:
+    else:
         new_person.affect_external_id(co.system_fs,
                                       co.externalid_fodselsnr)
-    # Hvis vi setter studentnr på nytt må også f.nr. settes.
-    if (fnr != old_fnr or old_snr != studentnr):
-        new_person.populate_external_id(co.system_fs, co.externalid_fodselsnr, fnr)
+    new_person.populate_external_id(co.system_fs, co.externalid_fodselsnr, fnr)
 
     if address_info is not None:
         new_person.populate_address(co.system_fs, co.address_post, **address_info)
