@@ -80,6 +80,7 @@ tag is present, hdr and footer will be empty.
         elif template == 'footer':
             template = self._footer
         mapping['template_dir'] = cereconf.TEMPLATE_DIR
+        no_quote += ('template_dir', )
         for k in mapping.keys():
             if mapping[k] is None:
                 v = ""
@@ -109,24 +110,31 @@ tag is present, hdr and footer will be empty.
 
     def spool_job(self, filename, type, printer, skip_lpr=False, logfile=None,
                   lpr_user='unknown'):
+        """Spools the job.  The spool command is executed in the
+        directory where filename resides."""
         if logfile is None:
             logfile = Utils.make_temp_file(only_name=True)
         self.logfile = logfile
+        old_dir = os.getcwd()
+        os.chdir(os.path.dirname(filename))
         base_filename = filename[:filename.rindex('.')]	
-	if type == 'tex':
-            status = (os.system("%s --interaction nonstopmode %s >> %s 2>&1" % (
-                cereconf.PRINT_LATEX_CMD, filename, logfile)) or
-                      os.system("%s -f < %s.dvi > %s.ps 2>> %s" % (
-                cereconf.PRINT_DVIPS_CMD, base_filename, base_filename, logfile)))
-            if status:
-                raise IOError("Error spooling job, see %s for details" % logfile)
-        if not skip_lpr:
-            if re.search(r'[^a-z0-9\-_]', printer):
-                raise IOError("Bad printer name")
-            lpr_cmd = cereconf.PRINT_LPR_CMD.replace("<printer>", printer)
-            lpr_cmd = lpr_cmd.replace("<uname>", lpr_user)
-            lpr_cmd = lpr_cmd.replace("<hostname>", os.uname()[1])
-            status = os.system("%s %s.ps >> %s 2>&1" % (
-                lpr_cmd, base_filename, logfile))
-            if status:
-                raise IOError("Error spooling job, see %s for details" % logfile)
+        try:
+            if type == 'tex':
+                status = (os.system("%s --interaction nonstopmode %s >> %s 2>&1" % (
+                    cereconf.PRINT_LATEX_CMD, filename, logfile)) or
+                          os.system("%s -f < %s.dvi > %s.ps 2>> %s" % (
+                    cereconf.PRINT_DVIPS_CMD, base_filename, base_filename, logfile)))
+                if status:
+                    raise IOError("Error spooling job, see %s for details" % logfile)
+            if not skip_lpr:
+                if re.search(r'[^a-z0-9\-_]', printer):
+                    raise IOError("Bad printer name")
+                lpr_cmd = cereconf.PRINT_LPR_CMD.replace("<printer>", printer)
+                lpr_cmd = lpr_cmd.replace("<uname>", lpr_user)
+                lpr_cmd = lpr_cmd.replace("<hostname>", os.uname()[1])
+                status = os.system("%s %s.ps >> %s 2>&1" % (
+                    lpr_cmd, base_filename, logfile))
+                if status:
+                    raise IOError("Error spooling job, see %s for details" % logfile)
+        finally:
+            os.chdir(old_dir)
