@@ -617,7 +617,7 @@ class BofhdExtension(object):
             raise PermissionDenied("Currently limited to superusers (is is slooow)")
         # superseeded by group_search - note that filter (which was never
         # implemented) is NOT passed on   
-        return self.group_search(self, operator)    
+        return self.group_search(operator)    
 
     # group list_expanded
     all_commands['group_list_expanded'] = Command(
@@ -680,9 +680,11 @@ class BofhdExtension(object):
         filter_spread = filter.get('spread',  None)
         for r in group.search(filter_spread=filter_spread,  
                               filter_name=filter_name,
-                              filter_desc=filter_desc)
-            ret.append({'id': r[0],
-                        'name': self._get_entity_name(self.const.entity_group, r[0])})
+                              filter_desc=filter_desc):
+            ret.append({'id': r.group_id,
+                        'name': r.name,
+                        'desc': r.description,
+                      })
         return ret
 
     
