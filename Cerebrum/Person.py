@@ -387,15 +387,18 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
         WHERE %s""" % " AND ".join(["%s=:%s" % (x, x)
                                    for x in cols.keys()]), cols)
 
-    def list_external_ids(self, source_system=None, id_type=None):
+    def list_external_ids(self, source_system=None, id_type=None,
+                          external_id=None):
         cols = {}
-        for t in ('source_system', 'id_type'):
-            if locals()[t] is not None:
-                cols[t] = int(locals()[t])
-        where = " AND ".join(["%s=:%s" % (x, x)
-                             for x in cols.keys() if cols[x] is not None])
-        if len(where) > 0:
-            where = "WHERE %s" % where
+        if source_system is not None:
+            cols['source_system'] = int(source_system)
+        if id_type is not None:
+            cols['id_type'] = int(id_type)
+        if external_id is not None:
+            cols['external_id'] = str(external_id)
+        if cols:
+            where = ("WHERE " +
+                     " AND ".join(["%s=:%s" % (x, x) for x in cols.keys()]))
         return self.query("""
         SELECT person_id, id_type, source_system, external_id
         FROM [:table schema=cerebrum name=person_external_id]
