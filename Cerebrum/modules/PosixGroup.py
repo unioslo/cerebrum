@@ -48,7 +48,7 @@ class PosixGroup(Group.Group):
         if parent is not None:
             self.__xerox__(parent)
         else:
-            Group.populate(creator_id, visibility, name, description,
+            Group.Group.populate(self, creator_id, visibility, name, description,
                            create_date, expire_date)
         self.__in_db = False
         if gid is None:
