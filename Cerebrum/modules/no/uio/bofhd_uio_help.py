@@ -101,6 +101,8 @@ command_help = {
     },
     'person': {
     'person_accounts': 'View account a person is owner of',
+    'person_affiliation_add': 'Add an affiliation to a person',
+    'person_affiliation_remove': 'Remove an affiliation from a person',
     'person_create': 'Register a new person in Cerebrum',
     'person_find': 'Search for a person in Cerebrum',
     'person_info': 'View information about a person',
