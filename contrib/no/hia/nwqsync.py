@@ -272,13 +272,13 @@ def user_add_del_grp(ch_type,dn_user,dn_dest,ch_id=None):
 	(ldap_group, ldap_attrs) = ldap_obj[0]
 	if isinstance(dn_user,(str,int)):
 	    dn_user = [int(dn_user),] 
-	ldap_users = []
+	ldap_users = {}
 	# Check if all user are registrated
 	# This might be "over the egde" with verifying,
 	# and maybe it should be removed because CPU and time
 	for user in dn_user: 
 	    account.clear()
-	    account.find(dn_user)
+	    account.find(int(user))
 	    search_str = "(&(cn=%s)(objectClass=inetOrgPerson))" % \
 						account.account_name
 	    search_dn = "%s" % cereconf.NW_LDAP_ROOT
@@ -288,28 +288,30 @@ def user_add_del_grp(ch_type,dn_user,dn_dest,ch_id=None):
 						(search_str,group_name))
 		dn_user.remove(user)
 	    else:
-		ldap_users.append(account.account_name)
+		#ldap_users.append(account.account_name)
+		ldap_users[int(user)] = ldap_obj[0][0]
 	if ch_type == const.group_add:
 	    # Check if user already a member of the p
 	    if ldap_attrs.has_key('member'):
-		for user in ldap_users: 
-		    if ldap_user in ldap_attrs['member']:
+		for user, cn_user in ldap_users.items(): 
+		    if cn_user in ldap_attrs['member']:
 			logger.info("User %s already member in group %s" % \
-						(ldap_user, ldap_group))
-			ldap_users.remove(user)
+						(cn_user, ldap_group))
+			del ldap_users[user]
 	    if ldap_users:
-		attr_add_ldap(ldap_group,[('member',ldap_users)])
+		attr_add_ldap(ldap_group,[('member',ldap_users.values())])
 	elif ch_type == const.group_rem:
 	    grp_mem = []
 	    for spr in spread_ids:
-	    # Support multiple spread. Fetch all users unique.
-	        grp_mem += [x for x in group.get_members(spread=spr, \
-				get_entity_name=True) if x not in grp_mem]
+	    # Support multiple spread. Fetch all unuque users.
+	        grp_mem += [int(x) for x in group.get_members(spread=spr) \
+				if int(x) not in grp_mem]
 	    # Remove users that still are suppose to be in the group
 	    # This users may be indirect members from internal groups
-	    [ldap_users.remove(x) for x in grp_mem if x in ldap_users]
+	    for del_user in [x for x in grp_mem if ldap_users.has_key(x)]:
+		del ldap_users[del_user]
 	    if ldap_users:
-		attr_del_ldap(ldap_group, [('member',ldap_users)])
+		attr_del_ldap(ldap_group, [('member',ldap_users.values())])
 	else:
 	    logger.info("WARNING: unhandled group logic")
 
@@ -388,6 +390,7 @@ def change_user_spread(dn_id,ch_type,spread,uname=None):
 								ch_type))
 
 
+
 def change_group_spread(dn_id,ch_type,spread,gname=None):    
     group = Group.Group(db)
     #if group_done.has_key(dn_id) and group_done[dn_id] is ch_type:
@@ -403,7 +406,7 @@ def change_group_spread(dn_id,ch_type,spread,gname=None):
     group_name = evaluate_grp_name(grp_name)
     #utf8_ou = nwutils.get_ldap_group_ou(group_name)
     utf8_dn = unicode('cn=%s' % group_name, 'iso-8859-1').encode('utf-8') #+ utf8_ou
-    search_cn = "(&(%s)(objectclass=group))"
+    search_cn = "(&(%s)(objectclass=group))" % utf8_dn
     search_dn = "%s" % cereconf.NW_LDAP_ROOT
     #ldap_obj = get_ldap_value(search_dn, utf8_dn)
     ldap_obj = ldap_handle.GetObjects(search_dn, search_cn)
@@ -425,11 +428,17 @@ def change_group_spread(dn_id,ch_type,spread,gname=None):
 		if  (co.affiliation_student == \
 				nwutils.get_primary_affiliation(mem[0],co.account_namespace)):
 		    student_grp = True
-		attrs.append('member',mem[1])
+		    attrs.append(('member',','.join((('cn='+mem[1]),
+						cereconf.NW_LDAP_STUDOU,
+						search_dn))))
+		else:
+		    attrs.append(('member',','.join((('cn='+mem[1]),
+                                                cereconf.NW_LDAP_ANSOU,
+                                                search_dn))))
 	    if student_grp:
-		grp_dn = utf8_dn + ',ou=grp,ou=stud'
+		grp_dn = utf8_dn + ',ou=grp,ou=stud,' + cereconf.NW_LDAP_ROOT
 	    else:
-		grp_dn = utf8_dn + ',ou=grp,ou=ans'
+		grp_dn = utf8_dn + ',ou=grp,ou=ans,' + cereconf.NW_LDAP_ROOT
 	    add_ldap(grp_dn, attrs)
 	    #for mem in members:
 		#user_add_del_grp(const.group_add,mem,dn_id)
