@@ -216,8 +216,8 @@ class Constants(DatabaseAccessor):
 
     posix_shell_bash = _PosixShellCode('bash')
 
-    entity_accname_default = _ValueDomainCode("def_accname_dom")
     group_namespace = _ValueDomainCode(cereconf.DEFAULT_GROUP_NAMESPACE)
+    account_namespace = _ValueDomainCode(cereconf.DEFAULT_ACCOUNT_NAMESPACE)
 
     auth_type_md5 = _AuthenticationCode("md5")
     
