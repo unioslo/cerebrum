@@ -129,10 +129,6 @@ class LdapBack:
         tries to authenticate
         """
         self.incr = incr
-        if incr == False:
-            self.notinsync = self.search(attrslist=["dn"]) # Only interested in attribute dn to be received
-        else:
-            self.notinsync = []
         if uri == None:
             self.uri = config.sync.get("ldap","uri")
         if binddn == None:
@@ -142,19 +138,24 @@ class LdapBack:
         try:
             self.l = ldap.initialize(self.uri)
             self.l.simple_bind_s(self.binddn,self.bindpw)
+            self.notinsync = []
+            if incr == False:
+                res = self.search(filterstr=self.filter,attrslist=["dn"]) # Only interested in attribute dn to be received
+                for entry in res:
+                    self.notinsync.append(entry[0])
         except ldap.LDAPError,e:
             #raise LdapConnectionError
             print "Error connecting to server: %s" % (e)
 
     def close(self):
         """
-        Syncronize current base if incr=True, then
+        Syncronize current base if incr=False, then
         close ongoing operations and disconnect from server
         """
-        if self.incr == True:
+        if self.incr == False:
             self.syncronize()
         try:
-            self.l.close()
+            self.l.unbind_s()
         except ldap.LDAPError,e:
             print "Error occured while closing LDAPConnection: %s" % (e)
 
@@ -162,19 +163,21 @@ class LdapBack:
         """ Deletes objects not to be found in given base.
         Only for use when incr is set to False.
         """
+        print "Syncronizing LDAP database"
         for entry in self.notinsync:
             self.delete(dn=entry)
+        print "Done syncronizing"
 
     def abort(self):
         """
         Close ongoing operations and disconnect from server
         """
         try:
-            self.l.close()
+            self.l.unbind_s()
         except ldap.LDAPError,e:
             print "Error occured while closing LDAPConnection: %s" % (e)
 
-    def add(self, obj, ignore_attr_types=[]):
+    def add(self, obj, ignore_attr_types=['',]):
         """
         Add object into LDAP. If the object exist, we update all attributes given.
         """
@@ -183,10 +186,13 @@ class LdapBack:
         try:
             self.l.add_s(dn,modlist.addModlist(attrs,ignore_attr_types))
             if self.incr == False:
-                self.notinsync.remove(dn)
-        except ldap.ALREADY_EXIST,e:
-            print "%s already exist. Trying update instead..." % (dn)
-            self.update(obj,ignore_attr_types)
+                try:
+                    self.notinsync.remove(dn)
+                except:
+                    pass
+        except ldap.ALREADY_EXISTS,e:
+            print "%s already exist. Trying update instead..." % (obj.name)
+            self.update(obj)
         except ldap.LDAPError,e:
             print "An error occured while adding %s: e" % (dn,e)
 
@@ -198,11 +204,14 @@ class LdapBack:
         attrs=self.get_attributes(obj)
         if old == None:
             # Fetch old values from LDAP
-            res = search(dn) # using dn as base, and fetch first record
-            old_attrs = res[1]
+            res = self.search(dn) # using dn as base, and fetch first record
+            old_attrs = res[0][1]
+        else:
+            old_attrs = {}
         mod_attrs = modlist.modifyModlist(old_attrs,attrs,ignore_attr_types,ignore_oldexistent)
         try:
             self.l.modify_s(dn,mod_attrs)
+            print "%s updated successfully" % (obj.name)
         except ldap.NO_SUCH_OBJECT,e:
             # Object does not exist.. add it instead
             self.add(obj)
@@ -243,19 +252,20 @@ class PosixUser(LdapBack):
             self.base = config.sync.get("ldap","user_base")
         else:
             self.base = base
+        self.filter = config.sync.get("ldap","userfilter")
         self.obj_class = ['top','person','posixAccount','shadowAccount'] # Need 'person' for structural-objectclass
 
     def get_attributes(self,obj):
         """Convert Account-object to map ldap-attributes"""
         s = {}
         s['objectClass'] = self.obj_class
-        s['cn'] = obj.fullname
-        s['sn'] = obj.fullname.split()[len(obj.fullname.split())-1] # presume last name, is surname
+        s['cn'] = obj.gecos
+        s['sn'] = obj.gecos.split()[len(obj.gecos.split())-1] # presume last name, is surname
         s['uid'] = obj.name
-        s['uidNumber'] = obj.uid
+        s['uidNumber'] = str(obj.posix_uid)
         s['userPassword'] = '{MD5}' + obj.password # until further notice, presume md5-hash
-        s['gidNumber'] = obj.gid
-        s['gecos'] = self.gecos(obj.fullname)
+        s['gidNumber'] = str(obj.primary_group.posix_gid)
+        s['gecos'] = self.gecos(obj.gecos)
         s['homeDirectory'] = obj.home
         s['loginShell'] = obj.shell
         return s
@@ -283,6 +293,7 @@ class PosixGroup(LdapBack):
             self.base = config.sync.get("ldap","user_base")
         else:
             self.base = base
+        self.filter = config.sync.get("ldap","groupfilter")
         self.obj_class = ['top','posixGroup']
         # posixGroup supports attribute memberUid, which is multivalued (i.e. can be a list, or string)
 
@@ -306,6 +317,7 @@ class PosixGroup(LdapBack):
 class Person:
     def __init__(self,base="ou=People,dc=ntnu,dc=no"):
         self.base = base
+        self.filter = config.sync.get("ldap","peoplefilter")
         self.obj_class = ['top','person','organizationalPerson','inetorgperson','eduperson','noreduperson']
 
     def get_dn(self,obj):
@@ -327,6 +339,7 @@ class Alias:
     """ Mail aliases, for setups that store additional mailinglists and personal aliases in ldap."""
     def __init__(self,base=""):
         self.base = base
+        self.filter = config.sync.get("ldap","aliasfilter")
 
     def get_dn(self,obj):
         pass
@@ -340,6 +353,7 @@ class OU:
     """
     def __init__(self,base="ou=organization,dc=ntnu,dc=no"):
         self.base = base
+        self.filter = config.sync.get("ldap","oufilter")
         self.obj_class = ['top','organizationalUnit']
 
     def get_dn(self,obj):
