@@ -67,7 +67,7 @@ public class BofhdConnection {
     private String washSingleObject(String str) {
 	if(str.startsWith(":")) {
 	    str = str.substring(1);
-	    if(str.equals("None")) return null;
+	    if(str.equals("None")) return "<null>";
 	    if(! (str.substring(0,1).equals(":"))) {
 		System.err.println("Warning: unknown escape sequence: "+str);
 	    }
