@@ -3,10 +3,15 @@
 
 import getopt
 import sys
+import os
 
 import cerebrum_path
 import cereconf
 
+from Cerebrum import Account
+from Cerebrum import Errors
+from Cerebrum.modules import PosixUser
+from Cerebrum.modules import PosixGroup
 from Cerebrum import Account
 from Cerebrum import Disk
 from Cerebrum.Utils import Factory
@@ -20,19 +25,23 @@ logging.fileConfig(cereconf.LOGGING_CONFIGFILE)
 logger = logging.getLogger("cronjob")
 # Hosts to connect to, set to None in a production environment:
 debug_hostlist = ['cerebellum']
+SUDO_CMD="/usr/bin/sudo"
 
 def process_move_requests():
     br = BofhdRequests(db, const)
     for r in br.get_requests(operation=const.bofh_move_user):
         if r['run_at'] < br.now:
             try:
-                account, uname, old_host, old_disk = get_account(r['entity_id'])
+                account, uname, old_host, old_disk = get_account(
+                    r['entity_id'], type='PosixUser')
                 new_host, new_disk  = get_disk(r['destination_id'])
             except Errors.NotFoundError:
-                logging.error("%i not found" % r['entity_id'])
+                logger.error("%i not found" % r['entity_id'])
                 continue
-            operator = get_account_name(r['requestee_id'])
-            if move_user(uname, old_host, old_disk, new_host, new_disk, operator):
+            operator = get_account(r['requestee_id'])[0].account_name
+            group = get_group(account.gid_id, grtype='PosixGroup')
+            if move_user(uname, int(account.posix_uid), int(group.posix_gid),
+                         old_host, old_disk, new_host, new_disk, operator):
                 account.disk_id =  r['destination_id']
                 account.write_db()
                 br.delete_request(r['entity_id'], r['requestee_id'], r['operation'])
@@ -43,7 +52,7 @@ def process_move_requests():
         pass
     for r in br.get_requests(operation=const.bofh_delete_user):
         account, uname, old_host, old_disk = get_account(r['entity_id'])
-        operator = get_account_name(r['requestee_id'])
+        operator = get_account(r['requestee_id'])[0].account_name
         if delete_user(uname, old_host, '%s/%s' % (old_disk, uname), operator):
             account.expire_date = br.now
             account.write_db()
@@ -51,31 +60,34 @@ def process_move_requests():
             db.commit()
     
 def delete_user(uname, old_host, old_home, operator):
-    cmd = [cereconf.ARUSER_SCRIPT, uname, operator, old_home]
-    logging.debug("doing %s" % cmd)
+    cmd = [SUDO_CMD, cereconf.WRAPPER_CMD, '-c', 'aruser', uname,
+           operator, old_home]
+    cmd = ["%s" % x for x in cmd]
+    logger.debug("doing %s" % cmd)
     if debug_hostlist is None or old_host in debug_hostlist:
         errnum = os.spawnv(os.P_WAIT, cmd)
     else:
         errnum = 0
     if not errnum:
         return 1
-    logging.error("%s returned %i" % (cereconf.ARUSER_SCRIPT, errnum))
+    logger.error("%s returned %i" % (cmd, errnum))
     return 0
 
-def move_user(uname, old_host, old_disk, new_host, new_disk, operator):
+def move_user(uname, uid, gid, old_host, old_disk, new_host, new_disk, operator):
     mailto = operator
     receipt = 1
-    cmd = [cereconf.MVUSER_SCRIPT, uname, uid, gid, old_disk,
-           new_disk, mailto, receipt]
-    logging.debug("doing %s" % cmd)
+    cmd = [SUDO_CMD, cereconf.WRAPPER_CMD, '-c', 'mvuser', uname, uid,
+           gid, old_disk, new_disk, mailto, receipt]
+    cmd = ["%s" % x for x in cmd]
+    logger.debug("doing %s" % cmd)
     if debug_hostlist is None or (old_host in debug_hostlist and
                                   new_host in debug_hostlist):
-        errnum = os.spawnv(os.P_WAIT, cmd)
+        errnum = os.spawnv(os.P_WAIT, cmd[0], cmd)
     else:
         errnum = 0
     if not errnum:
         return 1
-    logging.error("%s returned %i" % (cereconf.ARUSER_SCRIPT, errnum))
+    logger.error("%s returned %i" % (cmd, errnum))
     return 0
 
 def get_disk(disk_id):
@@ -87,25 +99,31 @@ def get_disk(disk_id):
     host.find(disk.host_id)
     return host.name, disk.path
 
-def get_account_name(account_id):
-    account = Account.Account(db)
-    account.clear()
-    account.find(account_id)
-    return account.account_name
-
-def get_account(account_id):
-    account = Account.Account(db)
+def get_account(account_id, type='Account'):
+    if type == 'Account':
+        account = Account.Account(db)
+    elif type == 'PosixUser':
+        account = PosixUser.PosixUser(db)        
     account.clear()
     account.find(account_id)
     home = account.home
-    uname = account.get_account_name()
+    uname = account.account_name
     if home is None:
         if account.disk_id is None:
-            raise Errors.NotFoundError, "Bad disk for %s" % uname
+            return account, uname, None, None
         host, home = get_disk(account.disk_id)
     else:
         host = None  # TODO:  How should we handle this?
     return account, uname, host, home
+
+def get_group(id, grtype="Group"):
+    if grtype == "Group":
+        group = Group.Group(db)
+    elif grtype == "PosixGroup":
+        group = PosixGroup.PosixGroup(db)
+    group.clear()
+    group.find(id)
+    return group
 
 def main():
     try:
