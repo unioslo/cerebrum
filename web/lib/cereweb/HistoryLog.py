@@ -7,18 +7,18 @@ ClientAPI = Factory.get_module("ClientAPI")
 import types
 #import forgetHTML as html
 
-def view_history_short(entity):
+def view_history_short(entity, id):
     # Could use some other template for 'short' view 
     template = HistoryLogTemplate()
     events = entity.get_history(5)
     table = _history_tableview(events)
-    return template.viewHistoryLog(table)
+    return template.viewHistoryLog(table, id)
 
 def view_history(entity):
     template = HistoryLogTemplate()
     events = entity.get_history()
     table = _history_tableview(events)
-    return template.viewHistoryLog(table)
+    return template.viewCompleteHistoryLog(table)
 
 def view_operator_history(session, limit=10):
     template = HistoryLogTemplate()
