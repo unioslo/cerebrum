@@ -327,3 +327,5 @@ class DnsOwner(GeneralTTLRecord, Entity):
             'target_owner_id': target_owner_id} )
 
     # We don't support update_srv_record as the PK is too wide.
+
+# arch-tag: 5956ec5e-b6e7-4747-9188-233ed7a8007a

@@ -123,3 +123,5 @@ class CNameRecord(EntityNote, Entity):
         WHERE cname_id=:e_id""", {'e_id': self.entity_id})
         self.delete_entity_note()
         self.__super.delete()
+
+# arch-tag: 1f20a221-a237-420b-b4b3-2e12be8a06ce

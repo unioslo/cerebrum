@@ -218,3 +218,4 @@ class Helper(DatabaseAccessor):
                 dns.find(rows[0]['dns_owner_id'])
                 dns.delete()
 
+# arch-tag: f3000618-d5a9-49ff-a553-8cab7895939d

@@ -99,3 +99,5 @@ class Constants(Constants.Constants):
     FieldTypeCode = _FieldTypeCode
     HinfoCode = _HinfoCode
     EntityNoteCode = _EntityNoteCode
+
+# arch-tag: 05900130-fb6f-4186-97d0-ded361bdfd88

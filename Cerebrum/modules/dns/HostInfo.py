@@ -130,3 +130,5 @@ class HostInfo(EntityNote, Entity):
         WHERE host_id=:e_id""", {'e_id': self.entity_id})
         self.delete_entity_note()
         self.__super.delete()
+
+# arch-tag: f414513c-94a4-433f-942c-6b80222098c2

@@ -45,3 +45,4 @@ class EntityNote(object):
         WHERE entity_id=:entity_id AND note_type=:note_type""" % {
             'defs': ", ".join(["%s=%s" % x for x in cols])}, binds)
 
+# arch-tag: b9675c8b-b7da-41d4-ad78-f6b7fc47fb49

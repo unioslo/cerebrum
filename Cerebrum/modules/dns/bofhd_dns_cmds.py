@@ -606,3 +606,5 @@ class BofhdExtension(object):
 
 if __name__ == '__main__':
     pass
+
+# arch-tag: c8f44ecd-c4fb-464c-a871-e81768793319

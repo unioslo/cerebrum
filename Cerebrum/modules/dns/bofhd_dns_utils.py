@@ -563,3 +563,5 @@ if __name__ == '__main__':
               '129.240.254.148', '129.240.254.163'):
         print "%s->%s" % (n, mu._find_subnet(n))
     tmp.db.commit()
+
+# arch-tag: f085073a-5cde-4aea-8c92-295fd81dc8b2

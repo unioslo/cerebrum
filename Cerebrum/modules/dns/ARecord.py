@@ -150,3 +150,5 @@ class ARecord(EntityNote, Entity):
         WHERE %s """ % where, {
             'ip_number_id': ip_number_id,
             'dns_owner_id': dns_owner_id} )
+
+# arch-tag: 655bcc55-d41d-4e27-9c21-18993232895e

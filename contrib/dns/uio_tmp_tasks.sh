@@ -49,3 +49,5 @@ case "$1" in
 	echo "Usage: old_and_large.sh --migrate | --fetch"
 	;;
 esac
+
+# arch-tag: dfc54693-f7c1-4c6a-b97c-a0f3450b3696
