@@ -11,6 +11,9 @@ class SQLDriverTestCase(unittest.TestCase):
         self.db.execute("INSERT INTO test_db_dict (value) VALUES (1)")
         # Calling commit() to make sure it is possible to continue
         # testing even if the SQL call fails.
+
+        self.db.execute("CREATE TABLE test_db_utf8 (value CHAR VARYING(128))")
+
         self.db.commit()
         
     def testSQLIntHashable(self):
@@ -24,17 +27,13 @@ class SQLDriverTestCase(unittest.TestCase):
 
     def testUTF8TextParam(self):
         "Check if CHAR VARYING() can store Unicode/UTF8 text"
-        self.db.execute("CREATE TABLE test_db_utf8 (value CHAR VARYING(128))")
         self.db.execute("INSERT INTO test_db_utf8 (value) VALUES (:text)",
                         {'text': u"unicodeTest"})
-        self.db.execute("DROP TABLE test_db_utf8")
         self.db.commit()
 
     def testUTF8TextStatement(self):
         "Check if SQL driver accept Unicode/UTF8 statements"
-        self.db.execute(u"CREATE TABLE test_db_utf8 (value CHAR VARYING(128))")
-        self.db.execute(u"INSERT INTO test_db_utf8 (value) VALUES (1)")
-        self.db.execute(u"DROP TABLE test_db_utf8")
+        self.db.execute(u"INSERT INTO test_db_utf8 (value) VALUES ('foobar')")
         self.db.commit()
 
     def testBrokenDateBefore1901(self):
@@ -48,7 +47,14 @@ class SQLDriverTestCase(unittest.TestCase):
         date = None
 
     def tearDown(self):
-        self.db.execute("DROP TABLE test_db_dict");
+        try:
+            self.db.execute("DROP TABLE test_db_utf8")
+        except:
+            pass
+        try:
+            self.db.execute("DROP TABLE test_db_dict");
+        except:
+            pass
         self.db.commit()
         self.db.close()
 
