@@ -488,7 +488,7 @@ def change_user_spread(dn_id,ch_type,spread,uname=None):
             for delay in range(3,8):
 		ldap_obj = ldap_handle.GetObjects(search_dn,search_str)
 		if ldap_obj:
-		    disk_name = ldap_obj[0][1].get('ndsHomeDirectory')
+		    disk_name = ldap_obj[0][1].get('ndsHomeDirectory')[0]
 		    if dsk_path in disk_name[0].split(','):
 			(c_diskid, c_home, stat) = account.get_home(spread)
 			account.set_home(spread, disk_id=c_diskid, home=c_home,\
