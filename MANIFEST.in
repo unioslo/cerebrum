@@ -1,3 +1,10 @@
+include *.in
+include COPYING
+include configure
+include configure.ac
+include testsuite/Makefile.in
+recursive-include client *.py *.html
 recursive-include contrib *.py
-recursive-include design *.sql
+recursive-include design *.sql *.dia *.html
+recursive-include server *.py
 # prune etc
