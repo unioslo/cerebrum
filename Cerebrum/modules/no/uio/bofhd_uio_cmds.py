@@ -2792,7 +2792,10 @@ class BofhdExtension(object):
         num_ok = 0
         for n in self._parse_range(selection):
             n -= 1
-            account = self._get_account(cache[n]['account_id'])
+            try:
+                account = self._get_account(cache[n]['account_id'])
+            except IndexError:
+                raise CerebrumError("Number not in valid range")
             mapping = {'uname': cache[n]['account_id'],
                        'password': cache[n]['password'],
                        'account_id': account.entity_id,
@@ -2990,6 +2993,8 @@ class BofhdExtension(object):
         ("misc", "user_passwd"), AccountName(), AccountPassword())
     def misc_user_passwd(self, operator, accountname, password):
         ac = self._get_account(accountname)
+        if isinstance(password, unicode):  # crypt.crypt don't like unicode
+            password = password.encode('iso8859-1')
         # Only people who can set the password are allowed to check it
         self.ba.can_set_password(operator.get_entity_id(), ac)
         old_pass = ac.get_account_authentication(self.const.auth_type_md5_crypt)
@@ -3603,8 +3608,11 @@ class BofhdExtension(object):
         account = self._get_account(account_name)
         person = self._get_person('entity_id', account.owner_id)
         self.ba.can_set_person_user_priority(operator.get_entity_id(), account)
-        old_priority = int(old_priority)
-        new_priority = int(new_priority)
+        try:
+            old_priority = int(old_priority)
+            new_priority = int(new_priority)
+        except ValueError:
+            raise CerebrumError, "priority must be a number"
         ou = None
         affiliation = None
         for row in account.get_account_types():
@@ -4308,6 +4316,8 @@ class BofhdExtension(object):
             if operator.get_entity_id() <> account.entity_id:
                 raise CerebrumError, \
                       "Cannot specify password for another user."
+            if isinstance(password, unicode):  # crypt.crypt don't like unicode
+                password = password.encode('iso8859-1')
         try:
             pc = PasswordChecker.PasswordChecker(self.db)
             pc.goodenough(account, password)
@@ -4592,6 +4602,8 @@ class BofhdExtension(object):
                 account.find(id)
             else:
                 raise NotImplementedError, "unknown idtype: '%s'" % idtype
+            if len(id) == 0:
+                raise CerebrumError, "Must specify id"
         except Errors.NotFoundError:
             raise CerebrumError, "Could not find %s with %s=%s" % (actype, idtype, id)
         return account
