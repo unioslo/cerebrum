@@ -377,7 +377,7 @@ class PosixLDIF(object):
                                            int(self.const.entity_account),
                                            get_entity_name=self.get_name)[0]:
 	    if self.get_name:
-		uname_id,uname = int(union[1]),union[2]
+		uname_id, uname = int(union[1]), union[2]
 	    else:
 		uname_id = int(union[1])
 		try:
@@ -386,9 +386,11 @@ class PosixLDIF(object):
                     # Probably an expired user, don't include it.
 		    self.logger.warn('Cache enabled but user:%s not found' %
                                      uname_id)
-	    if uname_id in self._gmemb and "_" not in uname:
-		triples.append("(,%s,)" % uname)
-		self._gmemb[uname_id] = True
+                    continue
+	    if uname_id in self._gmemb or "_" in uname:
+                continue
+            triples.append("(,%s,)" % uname)
+            self._gmemb[uname_id] = True
 	for union in self.grp.list_members(None, int(self.const.entity_group),
                                            get_entity_name=True)[0]:
 	    self.grp.clear()
