@@ -214,7 +214,7 @@ class BofhdExtension(object):
         SimpleString(help_ref="string_host"),
         fs=FormatSuggestion("%-16s %-16s %-9s %s",
                             ("opset", "attr", "type", "name"),
-                            hdr="-%16s %-16s %-9s %s" %
+                            hdr="%-16s %-16s %-9s %s" %
                             ("Operation set", "Pattern", "Type", "Name")))
     def access_host(self, operator, host):
         return self._list_access("host", host)
@@ -230,8 +230,6 @@ class BofhdExtension(object):
     def access_maildom(self, operator, maildom):
         return self._list_access("maildom", maildom)
 
-    # access person <account>
-    
     # access ou <ou>
     all_commands['access_ou'] = Command(
         ('access', 'ou'),
@@ -244,13 +242,6 @@ class BofhdExtension(object):
         return self._list_access("ou", ou)
 
     # access user <account>
-    #
-    # This is more tricky, we want to show anyone with access, through
-    # OU, host or disk.  (not global_XXX, though.)
-    #
-    # Note that there is no auth-type "account", so you can't be
-    # granted direct access to a specific user.
-    #
     all_commands['access_user'] = Command(
         ('access', 'user'),
         AccountName(),
@@ -261,6 +252,13 @@ class BofhdExtension(object):
                             ("Operation set", "TType", "Target", "Attr",
                              "Type", "Name")))
     def access_user(self, operator, user):
+        """This is more tricky than the others, we want to show anyone
+        with access, through OU, host or disk.  (not global_XXX,
+        though.)
+
+        Note that there is no auth-type 'account', so you can't be
+        granted direct access to a specific user."""
+
         acc = self._get_account(user)
         # Make lists of the disks and hosts associated with the user
         disks = {}
@@ -347,11 +345,10 @@ class BofhdExtension(object):
         aos = BofhdAuthOpSet(self.db)
         for r in self._get_auth_op_target(target_id, target_type,
                                           any_attr=True):
-            attr = r['attr']
-            if attr is None:
+            if r['attr'] is None:
                 attr = ""
             else:
-                attr = decode_attr(attr)
+                attr = decode_attr(r['attr'])
             for r2 in ar.list(op_target_id=r['op_target_id']):
                 aos.clear()
                 aos.find(r2['op_set_id'])
@@ -360,7 +357,7 @@ class BofhdExtension(object):
                             'attr': attr,
                             'type': str(self.const.EntityType(ety.entity_type)),
                             'name': self._get_name_from_object(ety)})
-        ret.sort(lambda a,b: (cmp(a['attr'], b['attr']) or
+        ret.sort(lambda a,b: (cmp(a['opset'], b['opset']) or
                               cmp(a['name'], b['name'])))
         return ret or empty_result
 
@@ -510,9 +507,6 @@ class BofhdExtension(object):
             # elsewhere.
             raise CerebrumError, "Must specify affiliation for global ou access"
 
-    # access list entity
-    # list the permissions entity has.
-
     # access list_opsets
     all_commands['access_list_opsets'] = Command(
         ('access', 'list_opsets'),
@@ -556,14 +550,22 @@ class BofhdExtension(object):
         ret.sort(lambda x,y: cmp(x['op'], y['op']) or cmp(x['attr'], y['attr']))
         return ret
 
-
-    # for phase 2, something like:
-    # access create_opset <opset name> <op>+
-    # access add_op_to_opset <op>+ <opset>
-    # access remove_op_from_opset <op>+ <opset>
-    # access create_op <opname>
-    # access delete_op <opname>
-    # what to do about auth_op_attrs?
+    # TODO
+    #
+    # To be able to manipulate all aspects of bofhd authentication, we
+    # need a few more commands:
+    #
+    #   access create_opset <opset name>
+    #   access create_op <opname> <desc>
+    #   access delete_op <opname>
+    #   access add_to_opset <opset> <op> [<attr>]
+    #   access remove_from_opset <opset> <op> [<attr>]
+    #
+    # The opset could be implicitly deleted after the last op was
+    # removed from it.
+    #
+    # Perhaps we also need "access list entity" to list the
+    # permissions entity has.
 
     def _get_auth_op_target(self, entity_id, target_type, attr=None,
                             any_attr=False, create=False):
@@ -2890,7 +2892,6 @@ class BofhdExtension(object):
                 ret.append(r)
         return ret
 
-    # misc checkpassw
     all_commands['misc_change_request'] = Command(
         ("misc", "change_request"), Id(help_ref="id:request_id"), Date())
     def misc_change_request(self, operator, request_id, date):
@@ -2907,6 +2908,7 @@ class BofhdExtension(object):
         return "OK"
 
     # misc checkpassw
+    # TBD: this command should be renamed "misc check_password"
     all_commands['misc_checkpassw'] = Command(
         ("misc", "checkpassw"), AccountPassword())
     def misc_checkpassw(self, operator, password):
@@ -3161,7 +3163,6 @@ class BofhdExtension(object):
             tpl_lang, tpl_name, tpl_type, skriver, selection))
         return "\n".join(ret)
 
-    # misc mmove
     all_commands['misc_list_requests'] = Command(
         ("misc", "list_requests"), SimpleString(
         help_ref='string_bofh_request_search_by', default='requestee'),
@@ -3217,6 +3218,21 @@ class BofhdExtension(object):
                         'id': r['request_id']
                         })
         return ret
+
+    all_commands['misc_cancel_request'] = Command(
+        ("misc", "cancel_request"),
+        SimpleString(help_ref='id:request_id'))
+    def misc_cancel_request(self, operator, req):
+        if req.isdigit():
+            req_id = int(req)
+        else:
+            raise CerebrumError, "Request-ID must be a number"
+        br = BofhdRequests(self.db, self.const)
+        if not br.get_requests(request_id=req_id):
+            raise CerebrumError, "Request ID %d not found" % req_id
+        self.ba.can_cancel_request(operator.get_entity_id(), req_id)
+        br.delete_request(request_id=req_id)
+        return "OK"
 
     all_commands['misc_reload'] = Command(
         ("misc", "reload"), 
@@ -3297,6 +3313,7 @@ class BofhdExtension(object):
         return output
 
     # misc user_passwd
+    # TBD: this command should be renamed "misc check_user_password"
     all_commands['misc_user_passwd'] = Command(
         ("misc", "user_passwd"), AccountName(), AccountPassword())
     def misc_user_passwd(self, operator, accountname, password):
@@ -3306,8 +3323,8 @@ class BofhdExtension(object):
         # Only people who can set the password are allowed to check it
         self.ba.can_set_password(operator.get_entity_id(), ac)
         old_pass = ac.get_account_authentication(self.const.auth_type_md5_crypt)
-        if(ac.enc_auth_type_md5_crypt(password, salt=old_pass[:old_pass.rindex('$')])
-           == old_pass):
+        salt = old_pass[:old_pass.rindex('$')]
+        if ac.enc_auth_type_md5_crypt(password, salt=salt) == old_pass:
             return "Password is correct"
         return "Incorrect password"
 
