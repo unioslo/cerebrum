@@ -62,3 +62,9 @@ CREATE TABLE change_log
   change_program  CHAR VARYING(16),
   comment         CHAR VARYING(255)
 );
+category:code;
+CREATE TABLE change_handler_data
+(
+  evthdlr_key    CHAR VARYING(20), 
+  last_id        NUMERIC(6,0)
+);
