@@ -61,5 +61,8 @@ class GroBuilder(Builder, Caching, Locking, CorbaBuilder):
 
         super(GroBuilder, self).save()
 
+    def __repr__(self):
+        key = [str(i) for i in self.get_primary_key()]
+        return '%s(%s)' % (self.__class__.__name__, ', '.join(key))
 
 # arch-tag: d4705da7-3839-44dd-b436-9ddd7a412327
