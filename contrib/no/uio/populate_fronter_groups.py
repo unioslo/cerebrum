@@ -44,8 +44,8 @@ def prefetch_primaryusers():
     account = Factory.get('Account')(db)
     personid2accountid = {}
     for a in account.list_accounts_by_type():
-        # TODO: Also look at account_type.priority
-        personid2accountid[int(a['person_id'])] = int(a['account_id'])
+        personid2accountid.setdefault(int(a['person_id']),
+                                      int(a['account_id']))
 
     person = Factory.get('Person')(db)
     for row in person.list_external_ids(
