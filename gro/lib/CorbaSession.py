@@ -1,5 +1,7 @@
 from __future__ import generators
 
+import md5
+
 import omniORB
 import cereconf
 
@@ -22,12 +24,15 @@ class CorbaSession(CorbaBuilder):
     slots = []
     method_slots = [
         Method('new_transaction', APHandler),
-        Method('get_transactions', APHandler, sequence=True),
-        Method('get_transaction', APHandler, args=[('id', int)])
+        Method('get_transactions', [APHandler]),
+        Method('get_transaction', APHandler, args=[('id', int)]),
+        Method('snapshot', APHandler),
+        Method('logout', None)
     ]
     builder_parents = ()
     builder_children = ()
     def __init__(self, client):
+        print 'login', client
         self.client = client
         self.counter = count()
         self.transactions = {}
@@ -35,9 +40,12 @@ class CorbaSession(CorbaBuilder):
     def new_transaction(self):
         id = self.counter.next()
         transaction = APHandler(self.client, id)
-        corba_obj = CorbaClass.convert_to_corba(transaction, transaction, APHandler, False)
+        corba_obj = CorbaClass.convert_to_corba(transaction, transaction, APHandler)
         self.transactions[id] = corba_obj
         return corba_obj
+
+    def snapshot(self):
+        return CorbaClass.convert_to_corba(APHandler(self.client, -1), None, APHandler)
 
     def cleanup(self):
         dirty = []
@@ -55,6 +63,16 @@ class CorbaSession(CorbaBuilder):
     def get_transaction(self, id):
         return self.transactions[id]
 
+    def logout(self):
+        print 'logout', self.client
+        for i in self.transactions.values():
+            try:
+                i.rollback()
+            except Exception, e:
+                print i, e
+
+        self.cleanup()
+
     # FIXME legge til:
     #   - LOHandler
     #   - Events
@@ -63,23 +81,25 @@ class CorbaSession(CorbaBuilder):
     #       - oversikt over alle brukere/transaksjoner.
 
 
+registry.build_all()
 classes = []
 classes += registry.classes
 classes.append(CorbaSession)
 
 idl_source = create_idl_source(classes, 'generated')
+idl_source_md5 = md5.new(idl_source).hexdigest()
 
-try:
-    omniORB.importIDLString(idl_source, ['-I' + cereconf.IDL_PATH])
-except:
-    print idl_source
+omniORB.importIDLString(idl_source, ['-I' + cereconf.IDL_PATH])
 
-import generated__POA
+import generated, generated__POA
 for name, gro_class in registry.map.items():
-    idl_class = getattr(generated__POA, name)
-    CorbaClass.register_gro_class(gro_class, idl_class)
+    idl_class = getattr(generated__POA, 'Spine' + name)
 
-class CorbaSessionImpl(CorbaSession, generated__POA.CorbaSession):
+    idl_struct = getattr(generated, name + 'Struct', None)
+
+    CorbaClass.register_gro_class(gro_class, idl_class, idl_struct)
+
+class CorbaSessionImpl(CorbaSession, generated__POA.SpineCorbaSession):
     pass
 
 # arch-tag: f285d04a-698c-40a1-a442-40438bc3ee37

@@ -1,62 +1,84 @@
 import Communication
 
 from classes.Builder import Method
+from classes.Dumpable import Struct
 
 # FIXME: weakref her?
 class_cache = {}
 object_cache = {}
 
 corba_types = [int, str, bool, None]
+corba_structs = {}
 
-def convert_to_corba(obj, transaction, data_type, sequence):
-    def convert(obj, data_type):
-        if obj is None and data_type is not None:
-            raise TypeError('cant convert None')
-        elif data_type in corba_types:
-            return obj
-        elif data_type in class_cache:
-            # corba casting
-            if obj.__class__ in data_type.builder_children:
-                data_type = obj.__class__
+def convert_to_corba(obj, transaction, data_type):
+    if obj is None and data_type is not None:
+        raise TypeError("Can't convert None, should be %s" % data_type)
+    elif data_type in corba_types:
+        return obj
+    elif isinstance(data_type, Struct):
+        data_type = data_type.data_type
+        struct = corba_structs[data_type]
 
-            corba_class = class_cache[data_type]
-            key = (corba_class, transaction, obj)
-            if key in object_cache:
-                return object_cache[key]
+        vargs = {}
+        vargs['reference'] = convert_to_corba(obj['reference'], transaction, data_type)
 
-            com = Communication.get_communication()
-            corba_object = com.servant_to_reference(corba_class(obj, transaction))
-            object_cache[key] = corba_object
-            return corba_object
-        else:
-            raise TypeError('unknown data_type', data_type)
+        for attr in data_type.slots + [i for i in data_type.method_slots if not i.write]:
+            if attr.name in obj:
+                value = convert_to_corba(obj[attr.name], transaction, attr.data_type)
+            else:
+                if attr.data_type == int:
+                    value = 0
+                elif attr.data_type == str:
+                    value = ''
+                elif attr.data_type == bool:
+                    value = False
+                elif type(attr.data_type) == list:
+                    value = []
+                elif attr.data_type in class_cache:
+                    value = None
+                else:
+                    raise TypeError("Can't convert attribute %s in %s to nil" % (attr, data_type))
+            vargs[attr.name] = value
 
-    if sequence:
-        return [convert(i, data_type) for i in obj]
+        return struct(**vargs)
+
+    elif type(data_type) == list:
+        return [convert_to_corba(i, transaction, data_type[0]) for i in obj]
+
+    elif data_type in class_cache:
+        # corba casting
+        if obj.__class__ in data_type.builder_children:
+            data_type = obj.__class__
+
+        corba_class = class_cache[data_type]
+        key = (corba_class, transaction, obj)
+        if key in object_cache:
+            return object_cache[key]
+
+        com = Communication.get_communication()
+        corba_object = com.servant_to_reference(corba_class(obj, transaction))
+        object_cache[key] = corba_object
+        return corba_object
     else:
-        return convert(obj, data_type)
+        raise TypeError('unknown data_type', data_type)
 
-def convert_from_corba(corba_obj, data_type, sequence):
-    def convert(obj):
-        if data_type in corba_types:
-            return obj
-        elif data_type in class_cache:
-            corba_class = class_cache[data_type]
-            com = Communication.get_communication()
-            return com.reference_to_servant(obj).gro_object
-
-    if sequence:
-        return [convert(i) for i in obj]
-    else:
-        return convert(corba_obj)
+def convert_from_corba(obj, data_type):
+    if data_type in corba_types:
+        return obj
+    elif type(data_type) == list:
+        return [convert_from_corba(i, data_type[0]) for i in obj]
+    elif data_type in class_cache:
+        corba_class = class_cache[data_type]
+        com = Communication.get_communication()
+        return com.reference_to_servant(obj).gro_object
 
 from classes import Registry
 registry = Registry.get_registry()
 
 def create_corba_method(method):
     args_table = {}
-    for name, data_type, sequence in method.args:
-        args_table[name] = data_type, sequence
+    for name, data_type in method.args:
+        args_table[name] = data_type
         
     def corba_method(self, *corba_args, **corba_vargs):
         if len(corba_args) + len(corba_vargs) > len(args_table):
@@ -64,46 +86,53 @@ def create_corba_method(method):
 
         # Auth
 
-        """
         # FIXME: avhengighet til registry er teit her.
         # må lage en metode som gjør jobbe i GroBuilder.
-        class_name = self.gro_object.__class__.__name__
-        operation_type = registry.AuthOperationType('%s.%s' % (class_name, method.name))
-        operator = self.transaction.get_client()
-        try:
-            if self.gro_object.check_permission(operator, operation_type):
-                print 'access granted'
-            else:
-                print 'access denied'
-        except Exception, e:
-            print 'warning check_permission(', operator , ', ', operation_type, ') failed:', e
-            print 'access denied'
-        """
+#        class_name = self.gro_class.__name__
+#        operation_type = registry.AuthOperationType(name='%s.%s' % (class_name, method.name))
+#        operator = self.transaction.get_client()
+#        try:
+#            if self.gro_object.check_permission(operator, operation_type):
+#                print 'access granted'
+#            else:
+#                print 'access denied'
+#        except Exception, e:
+#            print 'warning check_permission(', operator , ', ', operation_type, ') failed:', e
+#            print 'access denied'
 
         # Transaction
-        if method.write:
-            self.gro_object.lock_for_writing(self.transaction)
-        else:
-            self.gro_object.lock_for_reading(self.transaction)
+        object = self.gro_object
+        if self.transaction is not None:
+            if method.write:
+                object.lock_for_writing(self.transaction)
+            else:
+                object.lock_for_reading(self.transaction)
+            self.transaction.add_ref(object)
 
-        self.transaction.add_ref(self.gro_object)
+        elif not method.write:
+            if object.get_writelock_holder() is not None:
+                object = self.gro_class(*self.gro_object.get_primary_key(), **{'nocache':True})
+
+        else:
+            raise Exception('Trying to access write-method outside a transaction: %s' % method)
+
 
         # convert corba arguments to real arguments
         args = []
-        for value, (name, data_type, sequence) in zip(corba_args, method.args):
-            args.append(convert_from_corba(value, data_type, sequence))
+        for value, (name, data_type) in zip(corba_args, method.args):
+            args.append(convert_from_corba(value, data_type))
 
         vargs = {}
         for name, value in corba_vargs:
-            data_type, sequence = args_table[name]
-            vargs[name] = convert_from_corba(value, data_type, sequence)
+            data_type = args_table[name]
+            vargs[name] = convert_from_corba(value, data_type)
 
         # run the real method
-        value = getattr(self.gro_object, method.name)(*args, **vargs)
+        value = getattr(object, method.name)(*args, **vargs)
         if method.write:
-            self.gro_object.save()
+            object.save()
 
-        return convert_to_corba(value, self.transaction, method.data_type, method.sequence)
+        return convert_to_corba(value, self.transaction, method.data_type)
 
     return corba_method
 
@@ -112,22 +141,26 @@ class CorbaClass:
         self.gro_object = gro_object
         self.transaction = transaction
 
-def register_gro_class(gro_class, idl_class):
+def register_gro_class(gro_class, idl_class, idl_struct):
     name = gro_class.__name__
-    corba_class_name = 'AP' + name
+    corba_class_name = 'Spine' + name
+
+    corba_structs[gro_class] = idl_struct
 
     exec 'class %s(CorbaClass, idl_class):\n\tpass\ncorba_class = %s' % (
         corba_class_name, corba_class_name)
 
+    corba_class.gro_class = gro_class
+
     for attr in gro_class.slots:
         get_name = 'get_' + attr.name
-        get = Method(get_name, attr.data_type, attr.sequence)
+        get = Method(get_name, attr.data_type)
 
         setattr(corba_class, get_name, create_corba_method(get))
 
         if attr.write:
             set_name = 'set_' + attr.name
-            set = Method(set_name, None, False, [(attr.name, attr.data_type, attr.sequence)], write=True)
+            set = Method(set_name, None, [(attr.name, attr.data_type)], write=True)
 
             setattr(corba_class, set_name, create_corba_method(set))
 
