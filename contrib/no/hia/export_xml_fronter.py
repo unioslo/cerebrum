@@ -100,7 +100,7 @@ def init_globals():
                                   fronter = None,
                                   include_password = set_pwd)
 
-# This is an ogly hack and will have to go shortly. The purpose is
+# This is an ugly hack and will have to go shortly. The purpose is
 # to allow HiA-students and teachers access to last semester CF-rooms
 # The proper solution to the problem is an implementation of Fronters
 # import script which can deal with this
@@ -122,10 +122,10 @@ def init_globals():
 
 
 def get_semester():
-    t = time.localtime()[0:2]
+    t = time.localtime()[0:3]
     this_year = t[0]
     # hack
-    if t[1] == 1:
+    if (t[1] < 3 or (t[1] == 3 and t[2] < 15)):
 	this_sem = 'høst'
 	next_year = this_year
 	this_year = this_year - 1
