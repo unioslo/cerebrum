@@ -109,8 +109,8 @@ class AccountUiOMixin(Account.Account):
                 # Move user iff we chose a new server.  Add a
                 # dependency on the create above.
                 br.add_request(None,	# Requestor
-                               br.now, self.const.bofh_email_will_move,
-                               self.entity_id, est.email_server_id,
+                               br.now, self.const.bofh_email_move,
+                               self.entity_id, old_server,
                                state_data = reqid)
             # The user's email target is now associated with an email
             # server; try generating email addresses connected to the
