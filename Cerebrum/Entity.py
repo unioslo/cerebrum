@@ -42,17 +42,12 @@ class Entity(DatabaseAccessor):
 
     """
 
-    # Override this with separate type identifiers (e.g. 'p' for
-    # Person) in each subclass.
-    class_entity_type = None
-
     def __init__(self, database):
         """
 
         """
         super(Entity, self).__init__(database)
         self.clear()
-        self.__write_db = False
         self.const = Constants.Constants(database)
         # TBD: Debugging/Logging.  Define in cereconf.py?
         self._debug_eq = False
@@ -64,8 +59,6 @@ class Entity(DatabaseAccessor):
         self.entity_type = None
         self._is_populated = False
 
-        EntityAddress.clear(self)
-
     ###
     ###   Methods dealing with the `cerebrum.entity_info' table
     ###
@@ -74,7 +67,12 @@ class Entity(DatabaseAccessor):
         "Set instance's attributes without referring to the Cerebrum DB."
         self.entity_type = entity_type
         self._is_populated = True
-        self.__write_db = True
+
+    def __xerox__(self, from_obj, reached_common=False):
+        if isinstance(from_obj, Entity):
+            for attr in ('entity_id', 'entity_type'):
+                if hasattr(from_obj, attr):
+                    setattr(self, attr, getattr(from_obj, attr))
 
     def __eq__(self, other):
         assert isinstance(other, Entity)
@@ -106,7 +104,8 @@ class Entity(DatabaseAccessor):
         Cerebrum database, use the .find() method.
 
         """
-        assert self.__write_db
+        if self.entity_id is not None:
+            return
         if as_object is None:
             entity_id = int(self.nextval('entity_id_seq'))
             self.execute("""
@@ -118,7 +117,6 @@ class Entity(DatabaseAccessor):
             entity_id = int(as_object.entity_id)
             # Don't need to do anything as entity type can't change
         self.entity_id = entity_id
-        self.__write_db = False
 
     def new(self, entity_type):
         """Register a new entity of ENTITY_TYPE.  Return new entity_id.
@@ -238,14 +236,13 @@ class EntityContactInfo(object):
 class EntityAddress(object):
     "Mixin class, usable alongside Entity for entities having addresses."
 
-    def __init__(self):
-        assert isinstance(Entity, self)
-        self.clear()
-
     def __eq__(self, other):
         """Note: The object that affect_addresses has been called on
         must be on the left side of the equal sign, otherwise we don't
         really know what to compare."""
+
+        if not super(EntityAddress, self).__eq__(other):
+            return False
 
         if self._affect_source is None:
             return True
@@ -310,6 +307,7 @@ class EntityAddress(object):
         pass
 
     def write_db(self, as_object=None):
+        super(EntityAddress, self).write_db(as_object)
         # If affect_addresses has not been called, we don't care about
         # addresses
         if self._affect_source is None:
@@ -356,6 +354,7 @@ class EntityAddress(object):
                     raise
 
     def clear(self):
+        super(EntityAddress, self).clear()
         self._affect_source = None
         self._affect_types = None
         self._address_info = {}
