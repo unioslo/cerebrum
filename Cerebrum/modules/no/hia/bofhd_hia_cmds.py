@@ -53,7 +53,7 @@ from Cerebrum.modules import PosixUser
 from Cerebrum.modules.bofhd.cmd_param import *
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd.utils import BofhdRequests
-from Cerebrum.modules.no.hia.auth import BofhdAuth, BofhdAuthOpSet, \
+from Cerebrum.modules.no.auth import BofhdAuth, BofhdAuthOpSet, \
      AuthConstants, BofhdAuthOpTarget, BofhdAuthRole
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.uio import PrinterQuotas
@@ -314,7 +314,7 @@ class BofhdExtension(object):
 
     def _validate_access_ou(self, ou, attr):
         try:
-            int(self.const.PersonAffiliationCode(attr))
+            int(self.const.PersonAffiliation(attr))
         except Errors.NotFoundError:
             raise CerebrumError, "Must specify affiliation for ou access"
 
@@ -324,7 +324,7 @@ class BofhdExtension(object):
         return None, self.const.auth_target_type_global_ou
     def _validate_access_global_ou(self, ou, attr):
         try:
-            int(self.const.PersonAffiliationCode(attr))
+            int(self.const.PersonAffiliation(attr))
         except Errors.NotFoundError:
             raise CerebrumError, "Must specify affiliation for global ou access"
     # def _get_access_id_spread(self, target_name):
