@@ -113,13 +113,19 @@ def mangle_name(classname, attr):
         return '_' + classname + attr
     return attr
 
-def make_temp_file(dir="/tmp", only_name=0):
+def make_temp_file(dir="/tmp", only_name=0, ext="", prefix="cerebrum_tmp"):
     # TODO: Assert unique filename, and avoid potential security risks
-    name = "%s/cerebrum_tmp.%s" % (dir, time.time())
+    name = "%s/%s.%s%s" % (dir, prefix, time.time(), ext)
     if only_name:
         return name
     f = file(name, "w")
     return f, name
+
+def make_temp_dir(dir="/tmp", prefix="cerebrum_tmp"):
+    # TODO: Assert unique filename, and avoid potential security risks
+    name = make_temp_file(dir=dir, only_name=1, ext="", prefix=prefix)
+    os.mkdir(name)
+    return name
 
 class auto_super(type):
     """Metaclass adding a private class variable __super, set to super(cls).
