@@ -142,7 +142,6 @@ def process_person_callback(person_info):
     for dta_type in person_info.keys():
         x = person_info[dta_type]
 	p = x[0]
-	print x[0]
         if isinstance(p, str):
             continue
         # Get name
@@ -174,8 +173,10 @@ def process_person_callback(person_info):
                     	'adrlin3_hjemsted', 'postnr_hjemsted',
                     	'adresseland_hjemsted')
             elif dta_type in ('tilbud',):
-                # TODO: adresse informasjon mangler i xml fila
-                pass
+                	address_info = _ext_address_info(p,
+                    	'adrlin1_hjemsted', 'adrlin2_hjemsted',
+                    	'adrlin3_hjemsted', 'postnr_hjemsted',
+                    	'adresseland_hjemsted')
 
         # Get affiliations
         # Lots of changes here compared to import_FS.py @ uio
@@ -247,7 +248,6 @@ def process_person_callback(person_info):
     op = new_person.write_db()
     for a in affiliations:
         ou, aff, aff_status = a
-	print "\n%s, %s" % (ou, aff_status) 
         new_person.populate_affiliation(co.system_fs, ou, aff, aff_status)
 	if include_delete:
 	    key_a = "%s:%s:%s" % (new_person.entity_id,ou,int(aff))
