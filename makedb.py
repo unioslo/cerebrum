@@ -1,6 +1,6 @@
 #!/usr/bin/env python2.2
 
-# Copyright 2002 University of Oslo, Norway
+# Copyright 2002, 2003 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -29,13 +29,12 @@ from Cerebrum.Utils import Factory
 
 def main():
     opts, args = getopt.getopt(sys.argv[1:], 'dc:',
-                               ['debug', 'drop', 'insert-codes',
+                               ['debug', 'drop',
                                 'only-insert-codes', 'country-file=',
                                 'extra-file='])
 
     debug = 0
     do_drop = False
-    do_insert = False
     extra_files = []
     Cerebrum = Factory.get('Database')(
         user=cereconf.CEREBRUM_DATABASE_CONNECT_DATA['table_owner'])
@@ -47,10 +46,8 @@ def main():
             # We won't drop any tables (which might be holding data)
             # unless we're explicitly asked to do so.
             do_drop = True
-        elif opt == '--insert-codes':
-            do_insert = True
         elif opt == '--only-insert-codes':
-            insert_code_values(Cerebrum, update=1)
+            insert_code_values(Cerebrum)
             sys.exit()
         elif opt == '--extra-file':
             extra_files.append(val)
@@ -87,8 +84,7 @@ def main():
 
     for phase in order:
         if phase == '  insert':
-            if do_bootstrap or do_insert:
-                insert_code_values(Cerebrum)
+            insert_code_values(Cerebrum)
         else:
             for f in files:
                 runfile(f, Cerebrum, debug, phase)
@@ -116,10 +112,11 @@ def read_country_file(fname, db):
                                                    cols.keys()])), cols)
     db.commit()
 
-def insert_code_values(Cerebrum, update=0):
+def insert_code_values(Cerebrum):
     const = Factory.get('Constants')(Cerebrum)
     print "Inserting code values."
-    const.initialize(update)
+    new, total = const.initialize()
+    print "  Inserted %d new codes (new total: %d)." % (new, total)
     Cerebrum.commit()
 
 def makeInitialUsers(Cerebrum):
@@ -155,12 +152,7 @@ def makeInitialUsers(Cerebrum):
 CEREBRUM_DDL_DIR = "design"
 
 def get_filelist(Cerebrum, extra_files=[]):
-    files = ['core_tables.sql',
-             'mod_posix_user.sql',
-             'mod_nis.sql',
-             'mod_stedkode.sql',
-             'mod_changelog.sql'
-             ]
+    files = ['core_tables.sql']
     files.extend(extra_files)
     ret = []
     for f in files:
