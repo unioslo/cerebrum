@@ -77,6 +77,10 @@ def process_person(Cerebrum, persondta):
 
     new_person = Person.Person(Cerebrum)
     co = Factory.getConstants()(Cerebrum)
+    try:
+        new_person.find_by_external_id(co.externalid_fodselsnr, fnr)
+    except Errors.NotFoundError:
+        pass
     
     gender = co.gender_male
     if(fodselsnr.er_kvinne(fnr)):
@@ -120,17 +124,13 @@ def process_person(Cerebrum, persondta):
         new_person.affect_affiliations(co.system_fs, aff_type)
         new_person.populate_affiliation(ou.ou_id, aff_type, aff_status)
 
-    try:
-        person = Person.Person(Cerebrum)
-        person.find_by_external_id(co.externalid_fodselsnr, fnr)
-        if not (new_person == person):
-            print "**** UPDATE ****"
-            new_person.write_db(person)
-        else:
-            print "**** EQUAL ****"
-    except Errors.NotFoundError:
+    op = new_person.write_db()
+    if op is None:
+        print "**** EQUAL ****"
+    elif op == True:
         print "**** NEW ****"
-        new_person.write_db()
+    elif op == False:
+        print "**** UPDATE ****"
 
 if __name__ == '__main__':
     main()
