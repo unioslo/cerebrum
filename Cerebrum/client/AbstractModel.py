@@ -42,7 +42,7 @@ class ContactInfo:
 
 class Entity:
     
-    def __init__(self):
+    def __init__(self, server):
         # Holds a list of all names for each valuedomain
         self.names = {}
         self.addresses = []
@@ -97,13 +97,13 @@ class Entity:
 
 class Group(Entity):
     
-    def create(cls, name, description):
+    def create(cls, server, name, description):
         """ Creates a new group with given name and description.
         """
         pass
     create = classmethod(create)
     
-    def fetch_by_name(cls, name):
+    def fetch_by_name(cls, server, name):
         """ Retrieves an instance with given name.
         """
         pass
@@ -167,3 +167,8 @@ class Quarantine:
         self.end_date = end_date
         self.type = quarantine_type
         self.reason = reason
+
+class Constants:
+    JOIN = 1
+    INTERSECTION = 2
+    DIFFERENCE = 3
