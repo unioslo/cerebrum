@@ -1,4 +1,4 @@
-#! /bin/sh -x
+#! /bin/sh
 #
 # skeleton	example file to build /etc/init.d/ scripts.
 #		This file should be used to construct scripts for /etc/init.d.
@@ -9,14 +9,29 @@
 #
 # Version:	@(#)skeleton  1.9  26-Feb-2001  miquels@cistron.nl
 #
+#DEBUG="debug"
+#[ -n $DEBUG ] && set -x
 
 PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
-DAEMON=/usr/sbin/bofhd.py
+DAEMON_BOFHD=/usr/sbin/bofhd.py
+DAEMON_JOB_R=/usr/sbin/job_runner.py
 NAME=cerebrum
 DESC=cerebrum
-DAEMON_OPTS="--config-file /etc/cerebrum/config.dat"
+PID_BOFHD="$NAME-bofhd"
+PID_JOB_R="$NAME-job_runner"
+DAEMON_BOFHD_OPTS="--config-file /etc/cerebrum/config.dat"
+DAEMON_JOB_R_OPTS=""
+MANDATORY_FILES=( /etc/cerebrum/config.dat		 \
+		  /etc/cerebrum/logging.ini		 \
+		  /etc/cerebrum/cereconf.py		 \
+		  /etc/cerebrum/scheduled_jobs.py	 \
+		  /etc/cerebrum/passwd-cerebrum@cerebrum \
+		)
 
-test -x $DAEMON || exit 0
+#[ -n $DEBUG ] && echo ${#MANDATORY_FILES[@]} ${MANDATORY_FILES[@]}
+test -x $DAEMON_BOFHD || exit 0
+test -x $DAEMON_JOB_R || exit 0
+
 
 # Include cerebrum defaults if available
 if [ -f /etc/default/cerebrum ] ; then
@@ -25,43 +40,53 @@ fi
 
 set -e
 
+check_mandatory_files_are_there() {
+	local files_exist="true"
+	for i in $(seq 0  $((${#MANDATORY_FILES[@]} - 1))) ; do
+		if [ ! -f "${MANDATORY_FILES[$i]}" ] ; then
+		return 1
+		fi
+	done
+	return 0
+}
+
 case "$1" in
   start)
-	echo -n "Starting $DESC: "
-	start-stop-daemon --start --quiet --pidfile /var/run/$NAME.pid \
-		--exec $DAEMON -- $DAEMON_OPTS
-	echo "$NAME."
+	if check_mandatory_files_are_there ; then
+		echo -n "Starting $DESC: "
+		start-stop-daemon --start --quiet --pidfile /var/run/$PID_BOFHD.pid \
+			--chuid cerebrum --exec $DAEMON_BOFHD -- $DAEMON_BOFHD_OPTS
+		start-stop-daemon --start --quiet --pidfile /var/run/$PID_JOB_R.pid \
+			--chuid cerebrum --exec $DAEMON_JOB_R -- $DAEMON_JOB_R_OPTS
+		echo "$NAME."
+	fi
 	;;
   stop)
 	echo -n "Stopping $DESC: "
-	start-stop-daemon --stop --quiet --pidfile /var/run/$NAME.pid \
-		--exec $DAEMON
+	start-stop-daemon --stop --quiet --pidfile /var/run/$PID_BOFHD.pid \
+		--exec $DAEMON_BOFHD --oknodo
+	start-stop-daemon --stop --quiet --pidfile /var/run/$PID_JOB_R.pid \
+		--exec $DAEMON_JOB_R --oknodo
 	echo "$NAME."
 	;;
-  #reload)
-	#
-	#	If the daemon can reload its config files on the fly
-	#	for example by sending it SIGHUP, do it here.
-	#
-	#	If the daemon responds to changes in its config file
-	#	directly anyway, make this a do-nothing entry.
-	#
-	# echo "Reloading $DESC configuration files."
-	# start-stop-daemon --stop --signal 1 --quiet --pidfile \
-	#	/var/run/$NAME.pid --exec $DAEMON
-  #;;
-  restart|force-reload)
-	#
-	#	If the "reload" option is implemented, move the "force-reload"
-	#	option to the "reload" entry above. If not, "force-reload" is
-	#	just the same as "restart".
-	#
+  reload|force-reload)
+	echo "Reloading $DESC configuration files."
+	start-stop-daemon --start --quiet --pidfile /var/run/$PID_JOB_R.pid \
+		--chuid cerebrum --exec $DAEMON_JOB_R -- "--reload"
+	;;
+  restart)
 	echo -n "Restarting $DESC: "
-	start-stop-daemon --stop --quiet --pidfile \
-		/var/run/$NAME.pid --exec $DAEMON
+	start-stop-daemon --stop --quiet  --oknodo --pidfile \
+		/var/run/$PID_BOFHD.pid --exec $DAEMON_BOFHD
+	start-stop-daemon --stop --quiet  --oknodo --pidfile \
+		/var/run/$PID_JOB_R.pid --exec $DAEMON_JOB_R
 	sleep 1
-	start-stop-daemon --start --quiet --pidfile \
-		/var/run/$NAME.pid --exec $DAEMON -- $DAEMON_OPTS
+	if check_mandatory_files_are_there ; then
+		start-stop-daemon --start --quiet --pidfile /var/run/$PID_BOFHD.pid \
+			--chuid cerebrum --exec $DAEMON_BOFHD -- $DAEMON_BOFHD_OPTS
+		start-stop-daemon --start --quiet --pidfile /var/run/$PID_JOB_R.pid \
+			--chuid cerebrum --exec $DAEMON_JOB_R -- $DAEMON_JOB_R_OPTS
+	fi
 	echo "$NAME."
 	;;
   *)
