@@ -5,14 +5,14 @@
 # cerebrum installation.  See the documentation for job_runner for
 # details.
 
-from job_actions import *
-from job_utils import When, Time
+from Cerebrum.modules.job_runner.job_actions import *
+from Cerebrum.modules.job_runner.job_utils import When, Time
 
 def get_jobs():
-    sbin = '/cerebrum/sbin'
-    contrib = '/cerebrum/share/cerebrum/contrib'
+    sbin = '/sbin'
+    contrib = '/usr/share/cerebrum/contrib'
     feidegvscontrib = contrib + '/no/feidegvs'
-    dumpdir = '/cerebrum/dumps'
+    dumpdir = '/tmp/dumps'
     ldapdir = dumpdir + '/LDAP'
     return {
         'backup': Action(call=System('%s/backup.py' % sbin),
