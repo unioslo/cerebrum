@@ -268,8 +268,8 @@ WHERE status_aktiv = 'J' """
 SELECT DISTINCT
    fodselsdato, personnr, rollenr, rollekode, dato_fra, dato_til,
    institusjonsnr, faknr, gruppenr, studieprogramkode, emnekode, 
-   versjonskode, aktivitetkode, terminnr, etterutdkurskode, 
-   kurstidsangivelsekode
+   versjonskode, aktivitetkode, terminkode, arstall, terminnr,
+   etterutdkurskode, kurstidsangivelsekode
 FROM fs.personrolle 
 WHERE dato_fra < SYSDATE AND
       NVL(dato_til,SYSDATE) >= sysdate AND
