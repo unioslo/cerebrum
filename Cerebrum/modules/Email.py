@@ -341,6 +341,14 @@ class EmailTarget(EmailEntity):
         SELECT target_id
         FROM [:table schema=cerebrum name=email_target]""", fetchall=False)
 
+    def list_email_targets_ext(self):
+        """Returns target_id, target_type, entity_type, entity_id and
+        alias_value"""
+        return self.query("""
+        SELECT target_id, target_type, entity_type, entity_id, alias_value
+        FROM [:table schema=cerebrum name=email_target]
+        """, fetchall=False)
+        
     def get_target_type(self):
         return self.email_target_type
 
@@ -873,6 +881,11 @@ class EmailForward(EmailTarget):
                             {'t_id': self.email_target_id,
                              'forward': forward})
 
+    def list_email_forwards(self):
+        return self.query("""
+        SELECT target_id, forward_to, enable
+        FROM [:table schema=cerebrum name=email_forward]
+        """, fetchall=False)
 
 class EmailVacation(EmailTarget):
 
@@ -918,6 +931,11 @@ class EmailVacation(EmailTarget):
                             {'t_id': self.email_target_id,
                              'start': start})
 
+    def list_email_vacations(self):
+        return self.query("""
+        SELECT target_id, vacation_text, start_date, end_date, enable
+        FROM [:table schema=cerebrum name=email_vacation]
+        """, fetchall=False)
 
 class EmailPrimaryAddressTarget(EmailTarget):
     __read_attr__ = ('__in_db',)
@@ -1046,6 +1064,14 @@ class EmailServer(Host):
         self.__in_db = True
         self.__updated = []
 
+    def list_email_server_ext(self):
+        return self.query("""
+        SELECT s.server_id, s.server_type, h.name
+        FROM [:table schema=cerebrum name=email_server] s,
+             [:table schema=cerebrum name=host_info] h
+        WHERE s.server_id = h.host_id
+        """, fetchall=False)
+
 class EmailServerTarget(EmailTarget):
     __read_attr__ = ('__in_db',)
     __write_attr__ = ('email_server_id',)
@@ -1107,6 +1133,12 @@ class EmailServerTarget(EmailTarget):
 
     def get_server_id(self):
         return self.email_server_id
+
+    def list_email_server_targets(self):
+        return self.query("""
+        SELECT target_id, server_id
+        FROM [:table schema=cerebrum name=email_target_server]
+        """, fetchall=False)
 
 class AccountEmailMixin(Account.Account):
     """Email-module mixin for core class ``Account''."""

@@ -431,6 +431,14 @@ class Account(AccountType, EntityName, EntityQuarantine, Entity):
         SELECT *
         FROM [:table schema=cerebrum name=account_info]""")
 
+    def list_account_names(self):
+        """Returns a list of account_id and name."""
+        return self.query("""
+        SELECT a.account_id, e.entity_name
+        FROM [:table schema=cerebrum name=account_info] a,
+             [:table schema=cerebrum name=entity_name] e
+        WHERE a.account_id=e.entity_id""")
+
     def list_reserved_users(self):
         """Return all reserved users"""
         return self.query("""
