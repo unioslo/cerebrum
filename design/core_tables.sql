@@ -1526,14 +1526,17 @@ CREATE TABLE group_member
 		  REFERENCES group_membership_op_code(code),
   member_type	NUMERIC(6,0)
 		NOT NULL,
-  member_id	NUMERIC(12,0),
+  member_id	NUMERIC(12,0)
+		NOT NULL,
   CONSTRAINT group_member_pk
     PRIMARY KEY (group_id, operation, member_id),
   CONSTRAINT group_member_exists
     FOREIGN KEY (member_type, member_id)
     REFERENCES entity_info(entity_type, entity_id),
   CONSTRAINT group_member_not_self
-    CHECK (group_id <> member_id)
+    CHECK (group_id <> member_id),
+  CONSTRAINT group_member_op_unique
+    UNIQUE (group_id, member_type, member_id)
 );
 category:main/Oracle;
 GRANT SELECT ON group_member TO read_group;
