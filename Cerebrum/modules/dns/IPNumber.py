@@ -1,3 +1,5 @@
+# -*- coding: iso-8859-1 -*-
+
 import struct
 import socket
 

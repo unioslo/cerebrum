@@ -1,3 +1,5 @@
+# -*- coding: iso-8859-1 -*-
+
 #from Cerebrum.DatabaseAccessor import DatabaseAccessor
 #from Cerebrum import Utils
 #from Cerebrum.Database import Errors

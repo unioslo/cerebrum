@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# -*- coding: iso-8859-1 -*-
 
 # Collection of small test-scripts, should be converted to unit-test
 # framework.

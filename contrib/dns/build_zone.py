@@ -1,4 +1,5 @@
-#!/usr/bin/env python2.2
+#!/usr/bin/env python
+# -*- coding: iso-8859-1 -*-
 
 import os
 import re

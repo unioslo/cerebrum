@@ -1,3 +1,4 @@
+# -*- coding: iso-8859-1 -*-
 # TODO: This class probably belongs directly below Cerebrum
 
 class EntityNote(object):

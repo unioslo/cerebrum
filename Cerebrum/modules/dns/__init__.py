@@ -1,3 +1,5 @@
+# -*- coding: iso-8859-1 -*-
+
 IP_NUMBER = 'IPNumber'
 DNS_OWNER='DnsOwner'
 REV_IP_NUMBER = 'IPNumber_rev'

@@ -1,3 +1,5 @@
+# -*- coding: iso-8859-1 -*-
+
 from Cerebrum import Utils
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum.Entity import Entity
@@ -121,6 +123,14 @@ class MXSet(DatabaseAccessor):
         DELETE FROM [:table schema=cerebrum name=mx_set_member]
         WHERE mx_set_id=:mx_set_id AND target_id=:target_id""", {
             'mx_set_id': self.mx_set_id, 'target_id': target_id})
+
+    def update_mx_set_member(self, ttl, pri, target_id):
+        return self.execute("""
+        UPDATE [:table schema=cerebrum name=mx_set_member]
+        SET ttl=:ttl, pri=:pri
+        WHERE mx_set_id=:mx_set_id AND target_id=:target_id""", {
+            'mx_set_id': self.mx_set_id, 'target_id': target_id,
+            'ttl': ttl, 'pri': pri})
 
     def delete(self):
         return self.execute("""

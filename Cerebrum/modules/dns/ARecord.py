@@ -1,3 +1,5 @@
+# -*- coding: iso-8859-1 -*-
+
 from Cerebrum.Entity import Entity
 from Cerebrum.modules.dns.EntityNote import EntityNote
 from Cerebrum.modules.dns.DnsOwner import DnsOwner

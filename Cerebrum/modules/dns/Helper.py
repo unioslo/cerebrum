@@ -1,3 +1,4 @@
+# -*- coding: iso-8859-1 -*-
 import re
 
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
