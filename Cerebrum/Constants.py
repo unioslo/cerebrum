@@ -231,6 +231,7 @@ class Constants(DatabaseAccessor):
 
     gender_male = _GenderCode('M')
     gender_female = _GenderCode('F')
+    gender_unknown = _GenderCode('X')
 
     externalid_fodselsnr = _PersonExternalIdCode('NO_BIRTHNO')
 
@@ -251,6 +252,7 @@ class Constants(DatabaseAccessor):
     system_lt = _AuthoritativeSystemCode('LT')
     system_fs = _AuthoritativeSystemCode('FS')
     system_manual = _AuthoritativeSystemCode('Manual')
+    system_ureg = _AuthoritativeSystemCode('Ureg')
 
     perspective_lt = _OUPerspectiveCode('LT')
     perspective_fs = _OUPerspectiveCode('FS')
@@ -263,6 +265,7 @@ class Constants(DatabaseAccessor):
     account_namespace = _ValueDomainCode(cereconf.DEFAULT_ACCOUNT_NAMESPACE)
 
     auth_type_md5 = _AuthenticationCode("md5")
+    auth_type_crypt = _AuthenticationCode("crypt")
 
     group_memberop_union = _GroupMembershipOpCode('union')
     group_memberop_intersection = _GroupMembershipOpCode('intersection')
