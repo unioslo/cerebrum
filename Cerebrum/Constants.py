@@ -267,6 +267,14 @@ class Constants(DatabaseAccessor):
 
     group_visibility_all = _GroupVisibilityCode('A')
 
+    def map_const(self, num):
+        skip = dir(_CerebrumCode.sql)
+        for x in filter(lambda x: x[0] != '_' and not x in skip, dir(self)):
+            v = getattr(self, x)
+            if int(v) == num:
+                return v
+        return None
+
     def __init__(self, database):
         super(Constants, self).__init__(database)
 
@@ -283,11 +291,13 @@ def main():
     co = Constants(Cerebrum)
 
     skip = dir(Cerebrum)
+    skip.append('map_const')
     for x in filter(lambda x: x[0] != '_' and not x in skip, dir(co)):
         try:
             print "co.%s: %s = %d" % (x, getattr(co, x), getattr(co, x))
         except Errors.NotFoundError:
             print "NOT FOUND: co.%s" % x
+    print "Map '7' back to str: %s" % co.map_const(7)
 
 if __name__ == '__main__':
     main()
