@@ -9,14 +9,14 @@ if [ -f cerebrum_0.0.$DATE.orig.tar.gz ] ; then
 fi
 
 if [ -f cerebrum/debian/changelog ] ; then
-  rm -f cerebrum/debian/changelog
+  echo rm -f cerebrum/debian/changelog
 fi
 
 DEBFULLNAME="Andreas Schuldei"
 DEBEMAIL="andreas@debian.org"
 export DEBEMAIL DEBFULLNAME
 (cd cerebrum
-    cvs up -dPA
+    cvs -q up -dPA
     dch --newversion 0.0.$DATE "new upstream cvs checkout"
 )
 
