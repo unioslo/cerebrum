@@ -75,6 +75,7 @@ import sys
 if sys.version_info >= (2, 3):
     # The 'logging' module is bundled with Python 2.3 and newer.
     import logging
+    from logging import handlers
 else:
     # Even though the 'logging' module might have been installed with
     # this older-than-2.3 Python, we'd rather not deal with troubles
@@ -428,7 +429,10 @@ def initialize_handler(name, config):
             handler.setRollover(maxsize, backcount)
         # fi
         
-    elif klass == logging.MemoryHandler:
+    elif ((not sys.version_info >= (2, 3) and
+          klass == logging.MemoryHandler) or
+          (sys.version_info >= (2, 3) and
+           klass == handlers.MemoryHandler)):
         raise ValueError, "Aiee! MemoryHandlers not supported yet"
     # fi
 
