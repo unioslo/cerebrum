@@ -300,6 +300,7 @@ def make_barcode(account_id):
         logger.warn("Bardode returned %s" % ret)
 
 def process_students_callback(person_info):
+    global max_errors
     try:
         process_student(person_info)
     except:
