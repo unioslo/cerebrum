@@ -327,7 +327,8 @@ def process_students():
     logger.info("process_students started")
     students = get_student_accounts()
     logger.info("got student accounts")
-    autostud = AutoStud.AutoStud(db, logger, debug=debug, cfg_file=studconfig_file)
+    autostud = AutoStud.AutoStud(db, logger, debug=debug, cfg_file=studconfig_file,
+                                 studieprogs_file=studieprogs_file)
     logger.info("config processed")
     autostud.start_student_callbacks(student_info_file,
                                      process_students_callback)
@@ -345,15 +346,16 @@ def process_students():
 
 def main():
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'dcus:C:',
+        opts, args = getopt.getopt(sys.argv[1:], 'dcus:C:S:',
                                    ['debug', 'create-users', 'update-accounts',
                                     'student-info-file=', 'only-dump-results=',
                                     'studconfig-file=', 'fast-test', 'with-lpr',
-                                    'workdir=', 'type=', 'reprint='])
+                                    'workdir=', 'type=', 'reprint=',
+                                    'studie-progs-file='])
     except getopt.GetoptError:
         usage()
     global debug, fast_test, create_users, update_accounts, logger, skip_lpr
-    global student_info_file, studconfig_file, only_dump_to
+    global student_info_file, studconfig_file, only_dump_to, studieprogs_file
 
     skip_lpr = True       # Must explicitly tell that we want lpr
     update_accounts = create_users = 0
@@ -371,6 +373,8 @@ def main():
             update_accounts = 1
         elif opt in ('-s', '--student-info-file'):
             student_info_file = val
+        elif opt in ('-S', '--studie-progs-file'):
+            studieprogs_file = val
         elif opt in ('-C', '--studconfig-file'):
             studconfig_file = val
         elif opt in ('--fast-test',):  # Internal debug use ONLY!
@@ -408,6 +412,7 @@ def usage():
     -u | --update-accounts : update existing accounts
     -s | --student-info-file file:
     -C | --studconfig-file file:
+    -S | --studie-progs-file file:
     --workdir dir:  set workdir for --reprint
     --type type: set type for --reprint
     --reprint range:  Re-print letters in case of paper-jam etc.
