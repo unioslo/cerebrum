@@ -30,6 +30,8 @@ import xml.sax
 
 from Cerebrum import Errors
 from Cerebrum import Person
+from Cerebrum import Group
+from Cerebrum import Account
 import cereconf
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.Utils import Factory
@@ -38,11 +40,40 @@ from Cerebrum.modules.no.uio import AutoStud
 
 default_personfile = "/cerebrum/dumps/FS/merged_persons.xml"
 default_studieprogramfile = "/cerebrum/dumps/FS/studieprogrammer.xml"
+group_name = "FS-aktivt-samtykke"
+group_desc = "Internal group for students which will be shown online."
 
 studieprog2sko = {}
 ou_cache = {}
+gen_groups = 0
 
 """Importerer personer fra FS iht. fs_import.txt."""
+
+def _add_res(entity_id):
+    group = Group.Group(db)
+    try:
+        group.find_by_name(group_name)
+    except Errors.NotFoundError:
+        group.clear()
+        ac = Account.Account(db)
+        ac.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
+        group.populate(ac.entity_id, co.group_visibility_internal,
+                       group_name, group_desc)
+        group.write_db()
+
+    if not group.has_member(entity_id, co.entity_person, co.group_memberop_union):
+        group.add_member(entity_id, co.entity_person, co.group_memberop_union)
+        group.write_db()
+
+def _rem_res(entity_id):
+    group = Group.Group(db)
+    try:
+        group.find_by_name(group_name)
+    except Errors.NotFoundError:
+        return
+
+    if group.has_member(entity_id, co.entity_person, co.group_memberop_union):
+        group.remove_member(entity_id, co.group_memberop_union)
 
 def _get_sko(a_dict, kfak, kinst, kgr, kinstitusjon=None):
     key = "-".join((a_dict[kfak], a_dict[kinst], a_dict[kgr]))
@@ -234,11 +265,28 @@ def process_person_callback(person_info):
     elif op == False:
         logger.info2("**** UPDATE ****")
 
+    # Reservations    
+    if gen_groups == 1:
+        for dta_type in person_info.keys():
+            p = person_info[dta_type][0]
+            if isinstance(p, str):
+                continue
+            # If !not fagperson and has_key('status_reserv_nettpubl'): add to group
+            if not dta_type in ('fagperson',):
+                if p.has_key('status_reserv_nettpubl'):
+                    # If tatus_reserv_nettpubl == N the student isn't reserved.
+                    if p['status_reserv_nettpubl'] == "N":
+                        _add_res(new_person.entity_id)
+                    else:
+                        _rem_res(new_person.entity_id)
+
+
 def main():
     global verbose, ou, db, co, logger
     verbose = 0
-    opts, args = getopt.getopt(sys.argv[1:], 'vp:s:', ['verbose', 'person-file=',
-                                                       'studieprogram-file='])
+    opts, args = getopt.getopt(sys.argv[1:], 'vp:s:g', ['verbose', 'person-file=',
+                                                       'studieprogram-file=',
+                                                        'generate-groups'])
     personfile = default_personfile
     studieprogramfile = default_studieprogramfile
     for opt, val in opts:
@@ -248,6 +296,8 @@ def main():
             personfile = val
         elif opt in ('-s', '--studieprogram-file'):
             studieprogramfile = val
+        elif opt in ('-g', '--generate-groups'):
+            gen_group = 1   
     if "system_fs" not in cereconf.SYSTEM_LOOKUP_ORDER:
         print "Check your config, SYSTEM_LOOKUP_ORDER is wrong!"
         sys.exit(1)
