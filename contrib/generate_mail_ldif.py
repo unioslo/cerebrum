@@ -32,7 +32,6 @@ Options:
   -i | --ignore-size:      Use file class instead of SimilarSizeWriter.
   -h | --help:             This message."""
 
-import re
 import sys
 import base64
 import getopt
@@ -42,7 +41,6 @@ import cereconf
 from Cerebrum.Errors import NotFoundError, PoliteException
 from Cerebrum.Utils import Factory, SimilarSizeWriter
 from Cerebrum.modules import Email
-from Cerebrum.modules.bofhd.utils import BofhdRequests
 from Cerebrum.modules.LDIFutils import container_entry_string
 from Cerebrum.Constants import _SpreadCode
 from time import time as now
@@ -127,8 +125,8 @@ def write_ldif():
             # Find vacations-settings:
             if ldap.targ2vacation.has_key(t):
                 txt, start, end, enable = ldap.targ2vacation[t]
-                tmp = re.sub('\n', '', base64.encodestring(txt))
-                rest += "tripnote:: %s\n" % tmp
+                rest += "tripnote:: %s\n" % \
+                        base64.encodestring(txt).replace('\n', '')
                 if enable:
                     rest += "tripnoteActive: TRUE\n"
 
