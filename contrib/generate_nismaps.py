@@ -36,7 +36,8 @@ entity2uname = {}
 def generate_passwd():
     count = 0
     for row in posix_user.get_all_posix_users():
-        id = row['account_id']
+        id = Cerebrum.pythonify_data(row['account_id'])
+        posix_user.clear()
         posix_user.find(id)
         # account.find(id)
 
@@ -55,7 +56,8 @@ def generate_passwd():
             passwd = '*'
 
         try:
-            default_group = posix_group.find(posix_user.gid)
+            posix_group.clear()
+            posix_group.find(posix_user.gid)
         except Errors.NotFoundError:
             continue
 
@@ -65,9 +67,10 @@ def generate_passwd():
             gecos = posix_user.get_gecos()
 
         # TODO: Using .description to get the shell's path is ugly.
-        shell = PosixUser._PosixShellCode(int(posix_user.shell)).description
+        shell = PosixUser._PosixShellCode(int(posix_user.shell))
+        shell = shell.description
         print join((uname, passwd, str(posix_user.posix_uid),
-                    str(default_group.posix_gid), gecos,
+                    str(posix_group.posix_gid), gecos,
                     posix_user.home, shell))
         # convert to 7-bit
 
