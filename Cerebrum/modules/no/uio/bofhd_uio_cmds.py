@@ -1970,13 +1970,18 @@ class BofhdExtension(object):
     # TODO: These should be protected so that they are not remotely callable
     #
 
-    def _get_account(self, id, idtype='name', actype="Account"):
+    def _get_account(self, id, idtype=None, actype="Account"):
         if actype == 'Account':
             account = Account.Account(self.db)
         elif actype == 'PosixUser':
             account = PosixUser.PosixUser(self.db)
         account.clear()
         try:
+            if idtype is None:
+                if id.find(":") != -1:
+                    idtype, id = id.split(":", 1)
+                else:
+                    idtype = 'name'
             if idtype == 'name':
                 account.find_by_name(id, self.const.account_namespace)
             elif idtype == 'id':
