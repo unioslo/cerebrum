@@ -373,17 +373,10 @@ class Fronter(object):
                 # "ordentlige" undervisningsenheter).
                 self.kurs2navn[kurs_id] = evu['etterutdkursnavn']
 
-        for evukurs in self._fs.GetEvuKurs()[1]:
-            for evukursakt in self._fs.GetAktivitetEvuKurs(
-                evukurs['etterutdkurskode'], evukurs['kurstidsangivelsekode'])[1]:
-                id_seq = (self.EVU_PREFIX, evukursakt['etterutdkurskode'],
-                          evukursakt['kurstidsangivelsekode'])
-                kurs_id = FronterUtils.UE2KursID(*id_seq)
-                if kurs.has_key(kurs_id):
-                    enhet_id = ":".join(id_seq)
-                    self.enhet2akt[enhet_id].append(
-                        [evukursakt['etterutdkurskode'],
-                         evukursakt['aktivitetsnavn']])
+                for akt in self._fs.GetAktivitetEvuKurs(
+                    evu['etterutdkurskode'], evu['kurstidsangivelsekode'])[1]:
+                    self.enhet2akt.setdefault(enhet_id, []).append(
+                        (akt['etterutdkurskode'], akt['aktivitetsnavn']))
         self.logger.debug("read_kurs_data: len(self.kurs2enhet)=%i" % \
                           len(self.kurs2enhet))
 
