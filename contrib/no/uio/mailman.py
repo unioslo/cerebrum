@@ -24,7 +24,7 @@ import sys
 import re
 
 def validate_address(addr):
-    if re.match(r'[a-z0-9][a-z0-9-]*[a-z0-9]@[a-z0-9-]+(\.[a-z0-9]+)+$', addr):
+    if re.match(r'[a-z0-9][a-z0-9.-]*[a-z0-9]@[a-z0-9-]+(\.[a-z0-9]+)+$', addr):
         return True
     raise ValueError
 
