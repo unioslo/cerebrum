@@ -3,15 +3,31 @@ from Cerebrum.gro import Cerebrum_core__POA, Utils, Node, Locking, Locker
 
 from omniORB.any import to_any, from_any
 
+
+""" Access point handler.
+
+Each client has his own access point, wich will be used to identify the client
+so we can lock down nodes to the client and check if the client got access to
+make the changes he tries to do. The client has to provide the GRO a username
+and password before he gets the aphandler. This information will be stored in
+this object."""
 class APHandler(Cerebrum_core__POA.APHandler, Locker):
+
     def __init__(self, com, username, password):
         self.com = com
         self.username = username
         self.password = password
 
+
+    """ Returns the username of the client.
+    
+    Used by the node if a client wants a list over who got a lock on the node.
+    Overloads the getUsername()-method in the locker-class."""
     def getUsername(self):
         return self.username
 
+
+    """ Returns a corba node of the entity wich got that specific id. """
     def getEntity(self, id):
         import classes.Entity
         entity = classes.Entity.Entity(id)
@@ -19,6 +35,11 @@ class APHandler(Cerebrum_core__POA.APHandler, Locker):
 
         return self.com.get_corba_representation(apNode)
 
+
+    """ Returns a corba node wich got that specific name.
+    
+    You need to specify wich class and wich name the database-object you want.
+    Raises an exception if the classname was not found."""
     def getTypeByName(self, className, name):
         import classes.Types
         if className in classes.Types.__all__:
@@ -30,11 +51,26 @@ class APHandler(Cerebrum_core__POA.APHandler, Locker):
 
         raise Errors.NoSuchTypeError('className %s was not found' % className)
 
+
+
+""" Access point proxy node.
+
+The node contain the APHandler and a node. It act as a proxy for the node.
+This is to give us a sort of an automatic session handling, so the client
+do not have to deal with a session id, and that we can lock down nodes for
+the specific client, using the APHandler as a identifier for the client."""
 class APNode(Cerebrum_core__POA.Node):
+
     def __init__(self, ap, node):
         self.ap = ap
         self.node = node
 
+
+    """ Convert a object.
+    
+    If the object is a list, it will be convertet to a tuple.
+    If the object is a node, it will be convertet to a corba-node.
+    If the ojbect is a int, long, float or string it will not be converted."""
     def _convert(self, obj):
         if hasattr(obj, '__iter__'):
             return [self._convert(i) for i in obj]
@@ -54,27 +90,46 @@ class APNode(Cerebrum_core__POA.Node):
             print type(obj)
             unknown_type
 
+
+    """ Returns the parents of the node. """
     def getParents(self):
         return self._convert(self.node.parents)
 
+
+    """ Returns the childrens of the node. """
     def getChildren(self):
         return self._convert(self.node.children)
 
+
+    """ Returns node values.
+
+    Raises exception if the node wasnt readlocked, or if they key isnt a
+    valid attribute."""
     def _get(self, key):
         if key in self.node.readSlots:
             # check locking
             if key in self.node.writeSlots and not self.isReadLockedByMe():
-                raise Errors.NotLockedError('No read lock for this node')
+                raise Errors.NotLockedError('You dont got read lock for this node')
             value = getattr(self.node, key)
             b = self._convert(value)
             return b
         raise Errors.NoSuchAttributeError('%s was not found in node' % key)
 
+
+    """ Wrapper for the _get-method.
+    
+    Will return the same as the _get-method, but the value of the attribute 
+    is transformed into an any type. get can return any type of value, but
+    if you know you want a string, you should use getString."""
     def get(self, key):
         return to_any(self._get(key))
 
+
+    """ Methods wich dont return the value as an any-type. """
     getString = getLong = getNode = getNodeSeq = _get
 
+
+    """ Returns the classname for the node. """
     def getClassName(self):
         return self.node.__class__.__name__
 
