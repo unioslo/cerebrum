@@ -8,7 +8,8 @@ from Cerebrum.web.templates.HistoryLogTemplate import HistoryLogTemplate
 from Cerebrum.web.Main import Main
 from gettext import gettext as _
 from Cerebrum.web.utils import url
-from Cerebrum.web.utils import redirect
+from Cerebrum.web.utils import redirect_object
+from Cerebrum.web.utils import queue_message
 import xmlrpclib
 
 def index(req):
@@ -47,7 +48,8 @@ def search(req, name, owner, expire_date, create_date):
     if accounts:    
         result.append(table)
     else:
-        result.append(html.Emphasis(_("Sorry, no account(s) found matching the given criteria.")))
+        page.add_message(_("Sorry, no account(s) found matching the given criteria."))
+        
     result.append(html.Header(_("Search for other accounts"), level=2))
     result.append(accountsearch.form())
     page.content = result.output().encode("utf8")
@@ -67,7 +69,7 @@ def create(req, ownerid="", ownertype="", id="", name="", affiliation="",
             owner = ClientAPI.fetch_object_by_id(server, ownerid)
             account = ClientAPI.Account.create(server, name, owner, affiliation)
         except xmlrpclib.Fault, e:
-            req.session['profile']['last_error_message'] = e.faultString.split("CerebrumError: ")[-1]                    
+            queue_message(req, e.FaultString.split("CerebrumError: ")[-1], True)
 
     return redirect(req, url("%s/view?id=%s" % (ownertype, ownerid)), seeOther=True)
 
