@@ -638,6 +638,20 @@ class BofhdServer(object):
                 logger.warn("Warning, function '%s' is not implemented" % k)
         self.help = Help(self.cmd_instances)
 
+    def close_request(self, request):
+        # Check that the database is alive and well by creating a new
+        # cursor.
+        #
+        # As close_request() is called without any except: in
+        # SocketServer.BaseServer.handle_request(), any exception here
+        # will actually cause bofhd to die.  This is probably what we
+        # want to happen when a database connection unexpextedly goes
+        # down; anything resembling automatic reconnection magic could
+        # alter the crashed state of the database, making debugging
+        # more difficult.
+        csr = self.db.cursor()
+        csr.close()
+
     def get_cmd_info(self, cmd):
         """Return BofhdExtension and Command object for this cmd
         """
