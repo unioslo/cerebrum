@@ -156,6 +156,10 @@ def _calc_address(person_info):
         if key == 'aktiv':
             # Henter ikke adresseinformasjon for aktiv, men vi vil
             # alltid ha minst et opptak når noen er aktiv.
+            if not person_info.has_key('opptak'):
+                logger.error("Har aktiv tag uten opptak tag! (fnr: %s %s)" % (
+                    person_info['fodselsdato'], person_info['personnr']))
+                continue
             tmp = person_info['opptak'][0].copy()
         for i in range(len(addr_src)):
             addr_cols = adr_map.get(addr_src[i], None)
