@@ -201,8 +201,8 @@ def get_person_info(outfile):
                                  "dato_fra", "dato_til",
                                  "tilsnr"]])
             key = "stillingkodenr_beregnet_sist"
-            attr = attr + ("%s=%s" % (key,
-                                      xml.escape_xml_attr(int(t[key])))) 
+            attr = attr + (" %s=%s " % (key,
+                                        xml.escape_xml_attr(int(t[key])))) 
             
             sk = skode2tittel[t['stillingkodenr_beregnet_sist']]
             attr += ' hovedkat=%s' % xml.escape_xml_attr(
