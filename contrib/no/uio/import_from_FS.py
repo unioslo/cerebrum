@@ -61,6 +61,15 @@ def write_person_info(outfile):
     cols, students = fs.GetStudinfOpptak()
     for s in students:
         f.write(xml.xmlify_dbrow(s, xml.conv_colnames(cols), 'opptak') + "\n")
+    # Studenter med alumni opptak til et studieprogram
+    cols, students = fs.GetAlumni()
+    for s in students:
+        f.write(xml.xmlify_dbrow(s, xml.conv_colnames(cols), 'alumni') + "\n")
+
+    # Studenter med privatist opptak til et studieprogram
+    cols, students = fs.GetPrivatistStudieprogram()
+    for s in students:
+        f.write(xml.xmlify_dbrow(s, xml.conv_colnames(cols), 'privatist_studieprogram') + "\n")
 
     # Aktive studenter
     cols, students = fs.GetStudinfAktiv()
@@ -72,17 +81,17 @@ def write_person_info(outfile):
     # Privatister (=eksamensmeldt i emne de ikke har opptak til)
     cols, students = fs.GetStudinfPrivatist()
     for s in students:
-        f.write(xml.xmlify_dbrow(s, xml.conv_colnames(cols), 'privatist') + "\n")
+        f.write(xml.xmlify_dbrow(s, xml.conv_colnames(cols), 'privatist_emne') + "\n")
 
     # Semester-registrering
     cols, students = fs.GetStudinfRegkort()
     for s in students:
-        f.write(xml.xmlify_dbrow(s, xml.conv_colnames(cols), 'semreg') + "\n")
+        f.write(xml.xmlify_dbrow(s, xml.conv_colnames(cols), 'regkort') + "\n")
 
     # Eksamensmeldinger
     cols, students = fs.GetAlleEksamener()
     for s in students:
-        f.write(xml.xmlify_dbrow(s, xml.conv_colnames(cols), 'eksmeld') + "\n")
+        f.write(xml.xmlify_dbrow(s, xml.conv_colnames(cols), 'eksamen') + "\n")
 
     # EVU students
     # En del EVU studenter vil være gitt av søket over
@@ -94,7 +103,7 @@ def write_person_info(outfile):
     # Studenter i permisjon (også dekket av GetStudinfOpptak)
     cols, permstud = fs.GetStudinfPermisjon()
     for p in permstud:
-        f.write(xml.xmlify_dbrow(p, xml.conv_colnames(cols), 'perm') + "\n")
+        f.write(xml.xmlify_dbrow(p, xml.conv_colnames(cols), 'permisjon') + "\n")
 
     # Personer som har fått tilbud
     cols, tilbudstud = fs.GetStudinfTilbud()

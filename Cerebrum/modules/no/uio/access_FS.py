@@ -140,7 +140,6 @@ WHERE r.fodselsdato = fp.fodselsdato AND
       fp.fodselsdato = p.fodselsdato AND
       fp.personnr = p.personnr AND 
       %s
-      %s
         """ % (self.get_termin_aar())
 
         return (self._get_cols(qry), self.db.query(qry))
@@ -173,7 +172,7 @@ WHERE p.fodselsdato=sa.fodselsdato AND
       sa.tilbudstatkode IN ('I', 'S') AND
       sa.studietypenr = osp.studietypenr AND
       osp.studieprogramkode = sp.studieprogramkode
-      %s
+      AND %s
       """ % (institutsjonsnr, self.is_alive())
         return (self._get_cols(qry), self.db.query(qry))
 
@@ -206,10 +205,10 @@ WHERE  p.fodselsdato=s.fodselsdato AND
        p.fodselsdato=el.fodselsdato AND
        p.personnr=el.personnr AND 
        st.studierettstatkode IN (RELEVANTE_STUDIERETTSTATKODER)
-       ) AND
+       AND
        ((el.arstall = %s and el.manednr <=%s) OR
        (el.arstall = %s and el.manednr >= %s))
-       %s	
+       AND %s	
        """ % (aar, maned, aar-1, maned, self.is_alive())
         # Man kan ikke sjekke el.aarstall >= i fjor ettersom tabellen
         # også inneholder fremtidige meldinger.
@@ -231,7 +230,7 @@ WHERE  p.fodselsdato=s.fodselsdato AND
                                              studierettstatkoder)
         return (self._get_cols(qry), self.db.query(qry))
 
-    def GetPrivatistStudieprogram():
+    def GetPrivatistStudieprogram(self):
         studierettstatkoder = "'PRIVATIST'"
         qry = self._GetOpptakQuery().replace("RELEVANTE_STUDIERETTSTATKODER",
                                              studierettstatkoder)
@@ -307,7 +306,7 @@ FROM fs.innvilget_permisjon pe, fs.person p
 WHERE p.fodselsdato = pe.fodselsdato AND
       p.personnr = pe.personnr AND
       dato_fra < SYSDATE AND NVL(dato_til, SYSDATE) >= SYSDATE
-      %s
+      AND %s
         """ % self.is_alive()
         return (self._get_cols(qry), self.db.query(qry))
 
@@ -334,14 +333,13 @@ WHERE s.fodselsdato=p.fodselsdato AND
       p.fodselsdato=em.fodselsdato AND
       p.personnr=em.personnr AND
       em.emnekode = es.emnekode AND
-       %s %s
-      es.studieprogramkode not exists
-      (select st.studieprogramkode from fs.studierett st where
-       p.fodselsdato=st.fodselsdato AND
-       p.personnr=st.personnr AND
-       (st.opphortstudierettstatkode IS NULL OR
-        st.dato_gyldig_til >= sysdate))
-
+       %s AND %s AND
+      NOT EXISTS
+      (SELECT st.studieprogramkode FROM fs.studierett st
+       WHERE p.fodselsdato=st.fodselsdato AND
+             p.personnr=st.personnr AND
+             (st.opphortstudierettstatkode IS NULL OR
+              st.dato_gyldig_til >= SYSDATE))
       """ % (self.get_termin_aar(only_current=1),self.is_alive())
         return (self._get_cols(qry), self.db.query(qry))
 
@@ -372,7 +370,7 @@ WHERE p.fodselsdato=d.fodselsdato AND
       NVL(e.status_nettbasert_und,'J')='J' AND
       k.kurstidsangivelsekode = e.kurstidsangivelsekode AND
       e.dato_til > SYSDATE - 180 
-      %s
+      AND %s
       """ % self.is_alive()
 	return (self._get_cols(qry), self.db.query(qry))
       
@@ -424,7 +422,7 @@ FROM fs.person p, fs.eksamensmelding e
 WHERE p.fodselsdato=e.fodselsdato AND
       p.personnr=e.personnr AND
       e.arstall=%s 
-      %s
+      AND %s
 ORDER BY fodselsdato, personnr
       """ %(aar[0],self.is_alive())                            
       	return (self._get_cols(qry), self.db.query(qry))
@@ -446,7 +444,7 @@ ORDER BY fodselsdato, personnr
 
 
     def is_alive(self):
-	return "AND NVL(p.status_dod, 'N') = 'N'\n"
+	return "NVL(p.status_dod, 'N') = 'N'\n"
 
 	
 ##################################################################
