@@ -616,7 +616,7 @@ def generate_users(spread=None,filename=None):
     for sh in posix_user.list_shells():
 	shells[int(sh['code'])] = sh['shell']
     disks = {}
-    for hd in disk.list():
+    for hd in disk.list(spread=user_spread):
 	disks[int(hd['disk_id'])] = hd['path']  
     posix_dn = ",%s=%s,%s" % (cereconf.LDAP_ORG_ATTR,cereconf.LDAP_USER_DN,cereconf.LDAP_BASE)
     posix_dn_string = "%s=" % cereconf.LDAP_USER_ATTR
@@ -991,7 +991,7 @@ def make_attr(name, strings, normalize = None, verify = None, raw = False):
 
 
 def main():
-    global debug
+    global debug, user_spread
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'dg:p:n:',
                                    ['debug', 'help', 'group=','org=','person=','user=',
