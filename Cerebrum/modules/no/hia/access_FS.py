@@ -54,7 +54,7 @@ WHERE p.fodselsdato=sa.fodselsdato AND
       osp.studieprogramkode = sp.studieprogramkode
       AND %s
       """ % (institusjonsnr, self.is_alive())
-        return self.db.query(qry)
+        return (self._get_cols(qry),self.db.query(qry))
 
     def GetOpptak(self):
 	"""Hent inn data om alle studenter med opptak til
@@ -197,7 +197,8 @@ WHERE p.fodselsdato=d.fodselsdato AND
 
     def GetStudieproginf(self):
         """For hvert definerte studieprogram henter vi 
-        informasjon om utd_plan og eier samt studieprogkode"""
+        informasjon om utd_plan og eier samt studieprogkode. Dumpen fra
+	denne (studieprog.xml) skal også brukes i forbindelse med bygging av rom i CF."""
         qry = """
 SELECT studieprogramkode, studieprognavn, studienivakode,
        status_utdplan, institusjonsnr_studieansv,
@@ -263,25 +264,38 @@ WHERE r.emnekode = e.emnekode AND
         else: 
 	    qry +="""%s""" % self.get_next_termin_aar()
 	return (self._get_cols(qry), self.db.query(qry))
-	
-   
-    def GetEmnerUndervNaa(self):
-	"""Hent data om emner som har undervisning dette semesteret.
-	Skal brukes til å opprette rom (på emnenivå) i ClassFronter. 
-	Bruker fs.emne og fs.undervisninsenhet. Henter emnekode, 
-	versjonskode, terminkode, årstall og terminnummer, samt 
-	emnets navn og forkortet navn. Foreløpig hentes data for
-	nåværende semester, det er mulig at man vil ønske å utvide 
-	dette til å omfatte flere semestre. Dumpes til fil på 
-	/cerebrum/dumps/FS/aktive_emner.xml"""
+
+    def GetStudenterUndervEnhet(self, institusjonsnr, emnekode, versjonskode,
+				terminnr, terminkode, arstall):
+	"""Finn fødselsnumrene til alle studenter på et gitt 
+	undervisningsenhet. Skal brukes til å generere grupper for
+	adgang til CF."
 	qry = """
 SELECT DISTINCT
-   r.emnekode, e.emnenavnfork, r.versjonskode, r.terminnr, 
-   r.terminkode, r.arstall
-FROM fs.emne e, fs.undervisningsenhet r
-WHERE r.emnekode = e.emnekode AND
-      r.versjonskode = e.versjonskode AND
-      %s """ % self.get_termin_aar(only_current=1)
+  fodselsdato, personnr
+FROM fs.undervisningsmelding
+WHERE
+  institusjonsnr = :institusjonsnr AND
+  emnekode = :emnekode AND
+  versjonskode = :versjonskode AND
+  terminnr = :terminnr AND
+  terminkode = :terminkode AND
+  arstall = :arstall"""
+       return (self._get_cols(qry), self.db.query(qry))
+
+    def StudprogAlleStud(self, faknr, studprogkode):
+	"""Henter data om alle studenter på et gitt studieprogram og fakultetet
+	denne tilhører"""
+	qry = """
+SELECT DISTINCT
+  sp.faknr_studieansv, nk.fodselsdato, nk.personnr, nk.studieprogramkode, nk.kullkode,
+  nk.klassekode
+FROM fs.naverende_klasse nk, fs.studieprogram sp, fs.studiekull sk
+WHERE sp.faknr_studieansv = :faknr AND
+      sp.studieprogramkode = :studprogkode AND
+      sp.studieprogramkode = nk.studieprogramkode
+      nk.kullkode = sk.kullkode AND
+      sk.statusaktiv = 'J'"""
         return (self._get_cols(qry),self.db.query(qry))
 
 ##################################################################
@@ -294,7 +308,7 @@ WHERE r.emnekode = e.emnekode AND
 	på /cerebrum/dumps/FS/ou.xml"""
         qry = """
 SELECT DISTINCT
-   faknr, instituttnr, gruppenr, stedakronym, stednavn_bokmal,
+   faknr, instituttnr, grupxfopenr, stedakronym, stednavn_bokmal,
    faknr_org_under, instituttnr_org_under, gruppenr_org_under,
    adrlin1, adrlin2, postnr, telefonnr, faxnr,
    adrlin1_besok, adrlin2_besok, postnr_besok, url, emailadresse,
@@ -305,8 +319,23 @@ WHERE institusjonsnr='%s'
         return (self._get_cols(qry),self.db.query(qry))
         
 ##################################################################
-# Øvrige metoder (ikke i bruk)
+# Øvrige metoder (ikke i bruk ennå)
 ##################################################################
+
+    def AlternativtGetAlleStudStudprog(self, studprogkode):
+	"""Finn alle studenter på et studieprogram.
+	Dette er et alternativt søk dersom det viser seg at søket som 
+	skal returnere studiprogram + kullkode ikke kan brukes (dette fordi
+	den aktuelle tabellen i FS ikke nødvendigvis er populert for alle
+	HiA anser som gyldige studenter"""
+	qry = """
+SELECT DISTINCT
+  fodselsdato, personnr, studieprogramkode
+from fs.studierett 
+WHERE
+  studieprogramkode = :studporgkode AND
+  NVL(st.dato_gyldig_til,SYSDATE) >= sysdate""" 
+        return (self._get_cols(qry),self.db.query(qry))
 
     def GetAlleEmner(self):
         """Hent informasjon om alle emner i FS. Denne brukes foreløpig 
