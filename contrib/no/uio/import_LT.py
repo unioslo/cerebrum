@@ -192,6 +192,10 @@ def determine_affiliations(person):
 	    aff_stat = const.affiliation_tilknyttet_ekst_forsker
 	elif g['gjestetypekode'] == 'GJ-FORSKER':
 	    aff_stat = const.affiliation_tilknyttet_gjesteforsker
+	elif g['gjestetypekode'] == 'SIVILARB':
+	    aff_stat = const.affiliation_tilknyttet_sivilarbeider
+	elif g['gjestetypekode'] == 'EKST. PART':
+	    aff_stat = const.affiliation_tilknyttet_ekst_partner
 	elif (g['gjestetypekode'] == 'REGANSV' or g['gjestetypekode'] == 'REG-ANSV'):
 	    aff_stat = const.affiliation_tilknyttet_frida_reg
         elif (g['gjestetypekode'] == 'ST-POL FRI' or g['gjestetypekode'] =='ST-POL UTV'):
