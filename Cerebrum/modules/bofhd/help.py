@@ -218,6 +218,7 @@ _command_help = {
 
 _arg_help = {
     'account_name': ['uname', 'Enter accountname'],
+    'email_address': ['address', 'Enter e-mail address'],
     'entity_type': ['entity_type', 'Entity type', """Possible values:
  - group
  - account"""],
