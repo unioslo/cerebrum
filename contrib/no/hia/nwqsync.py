@@ -41,7 +41,8 @@ group_done = {}
 db = Factory.get('Database')()
 const = Factory.get('CLConstants')(db)
 co = Factory.get('Constants')(db)
-logger = Factory.get_logger("console")
+logging.fileConfig(cereconf.LOGGING_CONFIGFILE)
+logger = logging.getLogger("console")
 cl_events = (
 		const.account_mod, \
 		const.account_password, \
@@ -86,7 +87,7 @@ cl_entry = {'group_mod' : 'pass',
 									
 
 
-def nwqsync(spreads):
+def nwqsync(spreads,g_spread):
     i = 0
     global spread_ids, spread_grp, ent_name_cache
     spread_ids = []
@@ -96,9 +97,12 @@ def nwqsync(spreads):
     clh = CLHandler.CLHandler(db)
     ch_log_list = clh.get_events('nwqsync',cl_events)
     for spread in spreads.split(','):
-      spread_ids.append(int(getattr(co, spread)))
+	spread_ids.append(int(getattr(co, spread)))
     try:
-	spread_grp = [int(getattr(co,spread)) for spread in cerconf.NW_GROUP_SPREAD]
+	spread_grp = [int(getattr(co,x)) for x in (g_spread or cereconf.NW_GROUP_SPREAD)]
+    except:
+	logger.warn('No group spread is found?')
+	sys.exit(1)	    
     for cll in ch_log_list:
 	if ch_type in [const.entity_name_del,]:
 	    param_list = string.split(ch_params,'\n')
@@ -387,8 +391,8 @@ def change_group_spread(dn_id,ch_type,spread,gname=None):
 	    logger.error('Group-entity can not be found: ch-id:%s subj-id:%s' % (ch_id,dn_id))
     else: grp_name = gname	
     group_name = evaluate_grp_name(grp_name)
-    utf8_ou = nwutils.get_ldap_group_ou(group_name)
-    utf8_dn = unicode('cn=%s,' % group_name, 'iso-8859-1').encode('utf-8') + utf8_ou
+    #utf8_ou = nwutils.get_ldap_group_ou(group_name)
+    utf8_dn = unicode('cn=%s,' % group_name, 'iso-8859-1').encode('utf-8') #+ utf8_ou
     search_dn = "%s" % cereconf.NW_LDAP_ROOT
     #ldap_obj = get_ldap_value(search_dn, utf8_dn)
     ldap_obj = ldap_handle.GetObjects(search_dn,utf8_dn)
@@ -404,9 +408,23 @@ def change_group_spread(dn_id,ch_type,spread,gname=None):
 	    attrs.append(("ObjectClass", "group"))
 	    attrs.append(("description", "Cerebrum;%d;%s" % (dn_id,
 							nwutils.now())))
-	    add_ldap(utf8_dn, attrs)
-	    for mem in group.get_members():
-		user_add_del_grp(const.group_add,mem,dn_id)
+	    #add_ldap(utf8_dn, attrs)
+	    student_grp = False
+	    members = []
+	    for mem in group.get_members(spread = spread_ids[0],entity_name=True):
+		if  (co.affiliation_student == \
+				nwutils.get_primary_affiliation(mem,co.account_namespace)):
+		    student_grp = True
+		members.append(mem[1])
+		#user_add_del_grp(const.group_add,mem,dn_id)
+	    attrs.append(("member", members))
+	    if student_grp:
+		grp_dn = utf8_dn + ',ou=grp,ou=stud'
+	    else:
+		grp_dn = utf8_dn + ',ou=grp,ou=ans'
+	    add_ldap(grp_dn, attrs)
+	    #for mem in members:
+		#user_add_del_grp(const.group_add,mem,dn_id)
             group_done[dn_id] = ch_type
 	except:
 	    logger.error('Error occured while creating group %s' % dn_id)
@@ -533,10 +551,10 @@ def group_mod(ch_type,dn_id,dest_id,log_id):
 	return
     group = Factory.get('Group')(db)
     try:
-	group.entity_id = int(dn_dest)
+	group.entity_id = int(dest_id)
     except Errors.NotFoundError:
 	logger.warn("Group-id:%s could not be found. Changelog-id: %s" % \
-                                                        (dn_dest,log_id))
+                                                        (dest_id,log_id))
 	return
     user_list = []
     if entity.entity_type == co.entity_group:
@@ -555,9 +573,9 @@ def group_mod(ch_type,dn_id,dest_id,log_id):
 							 (dn_id,log_id))
 	return
     group.clear()
-    group.entity_id = int(dn_dest)	
-    grp_list =  group.list_member_groups(grp_id=dn_dest,spread_grp)
-        # If initial destination group has spread, add group to list.	
+    group.entity_id = int(dest_id)	
+    grp_list =  group.list_member_groups(dest_id,spread_grp)
+    # If initial destination group has spread, add group to list.	
     grp_list += [group.entity_id for x in spread_grp if group.has_spread(x) \
 					and group.entity_id not in grp_list]
     for grp in grp_list:
@@ -578,9 +596,9 @@ def usage(exitcode=0):
 
 def main():
     global ldap_handle, dbg_level, int_log
-    port = host = spread = None
+    port = host = spread = g_spread =None
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'S:s:p:d:', ['help'])
+        opts, args = getopt.getopt(sys.argv[1:], 'S:s:p:d:g', ['help'])
     except getopt.GetoptError:
         usage(1)
 
@@ -597,6 +615,8 @@ def main():
             port = int(val)
         elif opt == '-d':
             dbg_level = int(val)
+	elif opt == '-g':
+	    g_spread = [x for x in val.split(',')]
     if spread is not None:
         if host is None:
             host = cereconf.NW_LDAPHOST
@@ -612,22 +632,17 @@ def main():
 	    int_log = file((default_dir + default_file),'a')
 	int_log.write("\n# %s \n" % time.strftime("%a, %d %b %Y %H:%M:%S +0000", 
 							time.localtime()))
-	try:
-	    spread_grp = [int(getattr(co,x)) for x in cereconf.NW_GROUP_SPREAD]
-	except:
-	    logger.error("No Novell group-spread id defined")
-	    sys.exit()
 	passwd = db._read_password(host,cereconf.NW_ADMINUSER.split(',')[:1][0])
         ldap_handle = nwutils.LDAPConnection(host, port,
 					binddn=cereconf.NW_ADMINUSER, 
 					password=passwd, scope='sub')
-	ldap_connect()
-	if con:
-	    load_cltype_table(cltype)
-	    nwqsync(spread)
-	    int_log.write("\n# End at  %s \n" % time.strftime("%a, %d %b %Y %H:%M:%S +0000", time.localtime()))
-	else:
-	    int_log.write("\n # Could not connect to server!")
+	#ldap_connect()
+	#if con:
+	load_cltype_table(cltype)
+	nwqsync(spread, g_spread)
+	int_log.write("\n# End at  %s \n" % time.strftime("%a, %d %b %Y %H:%M:%S +0000", time.localtime()))
+	#else:
+	#    int_log.write("\n # Could not connect to server!")
 	int_log.close()
     else:
         usage(1);        
