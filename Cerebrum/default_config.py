@@ -239,16 +239,6 @@ INSTITUTION_DOMAIN_NAME = "my-institution.example"
 # 'email_domain' table.
 EMAIL_DEFAULT_DOMAIN = None
 
-# LDAP-stuff.
-LDAP_BASE_DN="dc=uio,dc=no"
-LDAP_MAIL_BASE = """
-dn: ou=mail,%s
-objectClass: top
-objectClass: organizationalUnit
-ou: mail
-description: mail-config ved UiO.\n
-""" % LDAP_BASE_DN
-
 # Base reference for URLs on webpages
 WEBROOT = "/"
 
