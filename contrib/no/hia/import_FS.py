@@ -183,24 +183,31 @@ def process_person_callback(person_info):
 	# TODO: split import_FS into a common part and organization spesific parts
         if dta_type in ('aktiv', ):
 	  for row in x:
-		_process_affiliation(co.affiliation_student,
-                 		 co.affiliation_status_student_aktiv,
-                		 affiliations, studieprog2sko[row['studieprogramkode']])
-        elif dta_type in ('evu',):
+	      # aktiv_sted is necessary in order to avoid different affiliation statuses
+	      # to a same 'stedkode' to be overwritten 
+              # e.i. if a person has both affiliations status 'tilbud' and
+	      # aktive to a single stedkode we want to register the status 'aktive'
+	      # in cerebrum
+              if studieprog2sko[row['studieprogramkode']] is not None:
+                  aktiv_sted.append(int(studieprog2sko[row['studieprogramkode']]))
+	elif dta_type in ('evu',):
 	  for row in x:
 	        _process_affiliation(co.affiliation_student,
-                		 co.affiliation_status_student_evu,
-                		 affiliations, studieprog2sko[row['studieprogramkode']])
+				     co.affiliation_status_student_evu,
+				     affiliations, studieprog2sko[row['studieprogramkode']])
         elif dta_type in ('privatist_studieprogram', ):
 	  for row in x:
                 _process_affiliation(co.affiliation_student,
-                                 co.affiliation_status_student_privatist,
-                                 affiliations, studieprog2sko[row['studieprogramkode']])
+				     co.affiliation_status_student_privatist,
+				     affiliations, studieprog2sko[row['studieprogramkode']])
         elif dta_type in ('tilbud', ):
 	  for row in x:
-                _process_affiliation(co.affiliation_student,
-                                 co.affiliation_status_student_tilbud,
-                                 affiliations, studieprog2sko[row['studieprogramkode']])
+              subtype = co.affiliation_status_student_tilbud
+              if studieprog2sko[row['studieprogramkode']] in aktiv_sted:
+                  subtype = co.affiliation_status_student_aktiv
+	      _process_affiliation(co.affiliation_student,
+                                   subtype, affiliations,
+                                   studieprog2sko[row['studieprogramkode']])
 	# HiA does not have "real" evu-students yet. this means that the evu-students get 
 	# an affiliation in much the same way as other students, commenting this code out
 	# might present a problem at a later time an should be considered as a temporary
