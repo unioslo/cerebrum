@@ -37,6 +37,9 @@ class Registry(object):
             gro_class.build_search_class()
             self.register_class(gro_class.search_class)
 
+            gro_class.build_dumper_class()
+            self.register_class(gro_class.dumper_class)
+
         for i in self.classes:
             if issubclass(gro_class, i):
                 gro_class.builder_parents += (i, )
@@ -47,6 +50,10 @@ class Registry(object):
 
     def __getattr__(self, key):
         return self.map[key]
+
+    def build_all(self):
+        for i in self.classes:
+            i.build_methods()
 
 _registry = None
 def get_registry():

@@ -23,11 +23,12 @@ from Cerebrum.extlib import sets
 from Builder import Attribute
 from GroBuilder import GroBuilder
 from Searchable import Searchable
+from Dumpable import Dumpable
 
 class DatabaseAttr(Attribute):
-    def __init__(self, name, table, data_type, sequence=False,
+    def __init__(self, name, table, data_type,
                  write=False, from_db=None, to_db=None, optional=False):
-        Attribute.__init__(self, name, data_type, sequence=sequence, write=write)
+        Attribute.__init__(self, name, data_type, write=write)
 
         self.table = table
         self.optional = optional
@@ -48,7 +49,7 @@ class DatabaseAttr(Attribute):
     def from_db(self, value):
         return self.data_type(value)
 
-class DatabaseClass(GroBuilder, Searchable):
+class DatabaseClass(GroBuilder, Searchable, Dumpable):
     db_attr_aliases = {}
     db_table_order = []
 
@@ -251,11 +252,15 @@ class DatabaseClass(GroBuilder, Searchable):
             setattr(cls, 'load_' + i.name, load_db_attributes)
 
         for i in optionals:
-            def load_db_attribute(self):
-                self._load_db_attributes([i])
-            setattr(cls, 'load_' + i.name, load_db_attribute)
+            def create(attr):
+                def load_db_attribute(self):
+                    self._load_db_attributes([attr])
+                return load_db_attribute
+            setattr(cls, 'load_' + i.name, create(i))
 
         super(DatabaseClass, cls).build_methods()
+        cls.build_search_class()
+        cls.build_dumper_class()
  
     build_methods = classmethod(build_methods)
 
