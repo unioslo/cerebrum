@@ -1088,6 +1088,14 @@ class EmailPrimaryAddressTarget(EmailTarget):
         self.__updated = []
         return is_new
 
+    def delete(self):
+        """Delete primary address.  Note that this will _not_ call
+        delete() in parent.  If you want to delete the EmailTarget as
+        well, you need to do so explicitly."""
+        ret = self.execute("""
+        DELETE FROM [:table schema=cerebrum name=email_primary_address]
+        WHERE target_id=:e_id""", {'e_id': self.email_target_id})
+
     def find(self, target_id):
         self.__super.find(target_id)
         self.email_primaddr_id = self.query_1("""
