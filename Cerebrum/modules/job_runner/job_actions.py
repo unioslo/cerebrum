@@ -27,6 +27,7 @@ import sys
 import time
 import random
 
+import cerebrum_path
 import cereconf
 
 LockExists = 'LockExists'
@@ -106,7 +107,7 @@ class CallableAction(object):
 
     def set_id(self, id):
         self.id = id
-        self.locfile_name = "%s/job-runner-%s.lock" % (cereconf.JOB_RUNNER_LOG_DIR, id)
+        self.lockfile_name = "%s/job-runner-%s.lock" % (cereconf.JOB_RUNNER_LOG_DIR, id)
 
     def set_logger(self, logger):
         self.logger = logger
@@ -114,8 +115,8 @@ class CallableAction(object):
     def check_lockfile(self):
         """Flag an error iff the process whos pid is in the lockfile
         is running."""
-        if os.path.isfile(self.locfile_name):
-            f = open(self.locfile_name, 'r')
+        if os.path.isfile(self.lockfile_name):
+            f = open(self.lockfile_name, 'r')
             pid = f.readline()
             if(pid.isdigit()):
                 try:
@@ -125,14 +126,17 @@ class CallableAction(object):
                     pass   # Process doesn't exist
 
     def make_lockfile(self):
-        f=open(self.locfile_name, 'w')
+        f=open(self.lockfile_name, 'w')
         f.write("%s" % os.getpid())
         f.close()
 
+    def free_lock(self):
+        os.unlink(self.lockfile_name)
+        
     def copy_runtime_params(self, other):
         self.logger = other.logger
         self.id = other.id
-        self.locfile_name = other.locfile_name
+        self.lockfile_name = other.lockfile_name
         
 class System(CallableAction):
     def __init__(self, cmd, params=[], stdout_ok=0):
@@ -219,7 +223,7 @@ class System(CallableAction):
         return None
 
     def _cleanup(self):
-        os.unlink(self.locfile_name)
+        self.free_lock()
         os.unlink("%s/stdout.log" % self.run_dir)
         os.unlink("%s/stderr.log" % self.run_dir)
 
