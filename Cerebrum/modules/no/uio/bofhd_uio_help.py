@@ -144,6 +144,7 @@ command_help = {
     'group_promote_posix': 'Make an existing group into a POSIX-group',
     'group_demote_posix': 'Make an existing POSIX-group into a Cerebrum group',
     'group_remove': 'Remove member accounts from a given group',
+    'group_search': 'Search for a group using various criteria',
     'group_set_expire': 'Set expire date for a group',
     'group_set_visibility': 'Set visibility for a group',
     'group_user': 'List all groups an account is a member of',
@@ -232,6 +233,8 @@ command_help = {
     'user_password': 'Set a new password for an account',
     'user_promote_posix': 'Make a Cerebrum account into a POSIX user account',
     'user_reserve': 'Reserve a user name in the database',
+    'user_set_disk_quota': 'Temporary override users disk_kvota',
+    'user_set_disk_status': 'Set homedir status for user',
     'user_set_expire': 'Set expire date for an account',
     'user_set_np_type': 'Set/remove np-type for an account (i.e. program, system etc)',
     'user_set_owner': 'Assign ownership for an account',
@@ -277,6 +280,10 @@ affiliation status codes"""],
          "If the disk isn't registered in Cerebrum and never should be, "
          "enter the whole path verbatim, prepended by a colon.  Example:\n"
          "  :/usr/local/oracle"],
+    'disk_quota_size': ['size', 'Enter quota size',
+                        'Enter quota size in MB, or -1 for unlimited quota'],
+    'disk_quota_expire_date': ['end_date', 'Enter end-date for override',
+                               'Format is 2003-12-31'],
     'email_address':
         ['address', 'Enter e-mail address'],
     'email_category':

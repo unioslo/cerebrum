@@ -34,6 +34,7 @@ from Cerebrum.modules.bofhd.utils import BofhdRequests
 
 
 class AuthConstants(Constants._CerebrumCode):
+    # TODO: this looks like a duplicate of utils._AuthRoleOpCode.  Cleanup!
     _lookup_table = '[:table schema=cerebrum name=auth_op_code]'
     pass
 
@@ -373,6 +374,33 @@ class BofhdAuth(DatabaseAccessor):
                                        entity.entity_id, operation_attr=operation_attr):
                 return True
             raise PermissionDenied("No access to account")
+
+    def can_set_disk_quota(self, operator, account=None, unlimited=False,
+                           forever=False, query_run_any=False):
+        if self.is_superuser(operator):
+            return True
+        if query_run_any:
+            x = self._has_operation_perm_somewhere(
+                operator, self.const.auth_disk_quota_set)
+            return self._has_operation_perm_somewhere(
+                operator, self.const.auth_disk_quota_set)
+        if forever:
+            self.is_account_owner(operator, self.const.auth_disk_quota_forver,
+                                  account)
+        if unlimited:
+            self.is_account_owner(operator, self.const.auth_disk_quota_unlimited,
+                                  account)
+        return self.is_account_owner(operator, self.const.auth_disk_quota_set,
+                                     account)
+
+    def can_show_disk_quota(self, operator, account=None, query_run_any=False):
+        if self.is_superuser(operator):
+            return True
+        if query_run_any:
+            return self._has_operation_perm_somewhere(
+                operator, self.const.auth_disk_quota_show)
+        return self.is_account_owner(operator, self.const.auth_disk_quota_show,
+                                     account)
 
     def can_set_person_user_priority(self, operator, account=None,
                                      query_run_any=False):
@@ -1059,7 +1087,7 @@ class BofhdAuth(DatabaseAccessor):
             m = re.compile(r['attr']).match(disk.path.split("/")[-1])
             if m != None:
                 return True
-        raise PermissionDenied("No access to disk")
+        raise PermissionDenied("No access to disk checking for '%s'" % operation)
 
     def _query_maildomain_permissions(self, operator, operation, domain,
                                       victim_id):

@@ -43,6 +43,13 @@ class Constants(Constants.Constants):
                                        'Can add hosts for userdisks')
     auth_create_group = _AuthRoleOpCode('create_group',
                                         'Can create groups')
+    auth_disk_quota_set = _AuthRoleOpCode('disk_quota_set', 'Can set disk qupta')
+    auth_disk_quota_forver = _AuthRoleOpCode('disk_quota_forev',
+                                             'Can set unlimited quota duration')
+    auth_disk_quota_unlimited = _AuthRoleOpCode('disk_quota_unlim',
+                                                'Can set unlimited quota')
+    auth_disk_quota_show = _AuthRoleOpCode('disk_quota_show',
+                                           'Can see disk quota')
     auth_view_studentinfo = _AuthRoleOpCode('view_studinfo',
                                             'Can view student info')
     auth_alter_printerquota = _AuthRoleOpCode('alter_printerquo', 'desc')

@@ -62,6 +62,7 @@ from Cerebrum.modules.bofhd.auth import BofhdAuth, BofhdAuthOpSet, \
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.uio import bofhd_uio_help
 from Cerebrum.modules.no.uio.access_FS import FS
+from Cerebrum.modules.no.uio.DiskQuota import DiskQuota
 from Cerebrum.modules.templates.letters import TemplateHandler
 
 # TBD: It would probably be cleaner if our time formats were specified
@@ -4467,6 +4468,33 @@ class BofhdExtension(object):
 
         # raise NotImplementedError, "Feel free to implement this function"
 
+    all_commands['user_set_disk_quota'] = Command(
+        ("user", "set_disk_quota"), AccountName(), Integer(help_ref="disk_quota_size"),
+        Date(help_ref="disk_quota_expire_date"), SimpleString(help_ref="string_why"),
+        perm_filter='can_set_disk_quota')
+    def user_set_disk_quota(self, operator, accountname, size, date, why):
+        account = self._get_account(accountname)
+        age = DateTime.strptime(date, '%Y-%m-%d') - DateTime.now()
+        unlimited = forever = False
+        if age.days > 185:
+            forever = True
+        try:
+            size = int(size)
+        except ValueError:
+            raise CerebrumError, "Expected int as size"
+        if size > 1024:           # "unlimited" for perm-check = +1024M
+            unlimited = True
+        self.ba.can_set_disk_quota(operator.get_entity_id(), account,
+                                   unlimited=unlimited, forever=forever)
+        home = account.get_home(self.const.spread_uio_nis_user)
+        _date = self._parse_date(date)
+        if size < 0:               # Unlimited
+            size = None
+        dq = DiskQuota(self.db)
+        dq.set_quota(home['homedir_id'], override_quota=size,
+                     override_expiration=_date, description=why)
+        return "OK, quota overridden for %s" % accountname
+
     # user gecos
     all_commands['user_gecos'] = Command(
         ("user", "gecos"), AccountName(), PosixGecos(),
@@ -4524,6 +4552,10 @@ class BofhdExtension(object):
                                format_day("expire"),
                                "home", "home_status", "entity_id", "owner_id",
                                "owner_type", "owner_desc")),
+                             ("Disk quota:    %s MiB\n" +
+                              "Override:      %s MiB (until %s: %s)",
+                              ("disk_quota", "dq_override",
+                               format_day("dq_expire"), "dq_why")),
                              ("UID:           %i\n" +
                               "Default fg:    %i=%s\n" +
                               "Gecos:         %s\n" +
@@ -4550,8 +4582,10 @@ class BofhdExtension(object):
             tmp = account.get_home(self.const.spread_uio_nis_user)
             home_status = "%s" % self.num2const[int(tmp['status'])]
         except Errors.NotFoundError:
-            tmp = {'disk_id': None, 'home': None, 'status': None}
+            tmp = {'disk_id': None, 'home': None, 'status': None,
+                   'homedir_id': None}
             home_status = None
+
         ret = {'entity_id': account.entity_id,
                'username': account.account_name,
                'spread': ",".join(["%s" % self.num2const[int(a['spread'])]
@@ -4562,6 +4596,27 @@ class BofhdExtension(object):
                'home_status': home_status,
                'owner_id': account.owner_id,
                'owner_type': str(self.num2const[int(account.owner_type)])}
+        try:
+            self.ba.can_show_disk_quota(operator.get_entity_id(), account)
+            can_see_quota = True
+        except PermissionDenied:
+            can_see_quota = False
+        if tmp['homedir_id'] and can_see_quota:
+            try:
+                dq = DiskQuota(self.db)
+                dq_row = dq.get_quota(tmp['homedir_id'])
+                ret['disk_quota'] = dq_row['quota']
+                if dq_row['quota'] is not None:
+                    ret['disk_quota'] = str(dq_row['quota'])
+                if dq_row['override_expiration']:
+                    ret['dq_override'] = dq_row['override_quota']
+                    if dq_row['override_quota'] is not None:
+                        ret['dq_override'] = str(dq_row['override_quota'])
+                    ret['dq_expire'] = dq_row['override_expiration']
+                    ret['dq_why'] = dq_row['description']
+            except Errors.NotFoundError:
+                pass
+
         if account.owner_type == self.const.entity_person:
             person = self._get_person('entity_id', account.owner_id)
             ret['owner_desc'] = person.get_name(self.const.system_cached,
