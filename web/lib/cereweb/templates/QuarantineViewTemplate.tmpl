@@ -1,0 +1,62 @@
+#from Cerebrum.web.InitTemplate import InitTemplate
+#extends InitTemplate
+#import forgetHTML
+#from Cerebrum.web.TableView import TableView
+#from MemberTableTemplate import MemberTableTemplate
+#from SortedTableTemplate import SortedTableTemplate
+#from Cerebrum.web.utils import url
+
+#def view_quarantines_form($entity_id, $quarantines, $uri)
+<div class="quarantines">
+<h2>$_("Quarantines")</h2>
+#if quarantines
+#set $table=$TableView("type","start","end","disable_until","who","why")
+#for $quarantine in $quarantines
+#if $quarantine.start
+#set $quarantine.start = $quarantine.start.strftime("%Y-%m-%d")
+#end if
+#if $quarantine.end
+#set $quarantine.end = $quarantine.end.strftime("%Y-%m-%d")
+#end if
+#if $quarantine.disable_until
+#set $quarantine.disable_until = $quarantine.disable_until.strftime("%Y-%m-%d")
+#end if
+$table.add($quarantine.type.name,$quarantine.start,$quarantine.end,$quarantine.disable_until,$quarantine.who,$quarantine.why)
+#end for
+#set $headers = {'type': $_("Type"), 'start': $_("Start"), 'end': $_("End"), 'disable_until': $_("Disabled until"), 'who': $_("Registered by"), 'why': $_("Description")}
+#set $bgcolors=[" bgcolor=#9ab",""," bgcolor=#9ab",""," bgcolor=#9ab",""]
+<table>
+    <tr>
+#for $column in $table.columns
+#set $header = $headers.get($column, "")
+        <th>$header</th>
+#end for
+    </tr>
+#for $row, $rowdata in $table.sorted(includeData=True)
+#set $qtype = $rowdata.get("type","")
+    <tr>
+#set $i = 0
+#for $col in $row
+        <td$bgcolors[$i]>$col</td>
+#set $i +=1
+#end for
+#set $editurl = $url('quarantine/edit?entity_id=%s&amp;type=%s&amp;uri=%s' % ($entity_id, $qtype, $uri))
+#set $removeurl = $url('quarantine/remove?entity_id=%s&amp;type=%s&amp;uri=%s' % ($entity_id, $qtype, $uri))
+        <td><a href="$removeurl">[Remove] </a></td>
+        <td><a href="$editurl">[Edit]</a></td>
+    </tr>
+#end for
+</table>
+#else
+    <tr>
+        <td>None</td>
+    </tr>
+#end if
+#set $addurl = $url('quarantine/add?entity_id=%s&amp;uri=%s' % ($entity_id, uri))
+    <p>
+    <tr>
+        <td><a href="$addurl">[Add new quarantine]</a></td>
+    </tr>
+</div>
+
+#end def
