@@ -60,6 +60,7 @@ def init_ldap_dump(ou_org,filename=None):
 	f = file(filename,'w')
     else:
 	f = file(string.join((cereconf.LDAP_DUMP_DIR,cereconf.ORG_FILE),'/'), 'w')
+    print "Generate organization"
     init_str = "dn: %s\n" % (cereconf.LDAP_BASE)    
     init_str += "objectClass: top\n"
     for oc in cereconf.BASE_OBJECTCLASS:
@@ -96,9 +97,9 @@ def init_ldap_dump(ou_org,filename=None):
         post_string = "%s$ %s %s" % (post_addr_str,vailidate_name(post_addr[0]['postal_number']),vailidate_name(post_addr[0]['city']))
         init_str += "postalAddress: %s\n" % post_string
 	street_addr = ou.get_entity_address(None,co.address_street)
-        street_addr_str = "%s" % string.replace(string.rstrip(street_addr[0]['address_text']),"\n","$")
-        street_string = "%s$ %s %s" %(street_addr_str, vailidate_name(street_addr[0]['postal_number']),vailidate_name(street_addr[0]['city']))
-        init_str += "streetAddress: %s\n" % street_string
+        street_addr_str = "%s" % string.replace(string.rstrip(street_addr[0]['address_text']),"\n",",")
+        street_string = "%s %s %s" %(street_addr_str, vailidate_name(street_addr[0]['postal_number']),vailidate_name(street_addr[0]['city']))
+        init_str += "street: %s\n" % street_string
     except:
         pass
     ou_phone = None
@@ -124,7 +125,7 @@ def init_ldap_dump(ou_org,filename=None):
 	    init_str += "objectClass: %s\n" % obj
 	for ous in getattr(cereconf,(string.join((org,'ALTERNATIVE_NAME'),'_'))):
 	    init_str += "%s: %s\n" % (cereconf.ORG_ATTR,ous)
-	init_str += "description: %s\n\n" % getattr(cereconf,(string.join((org,'DESCRIPTION'),'_'))) 
+	init_str += "description: %s\n\n" % iso2utf(getattr(cereconf,(string.join((org,'DESCRIPTION'),'_')))) 
 	f.write(init_str)
     f.close()	
 
@@ -192,32 +193,49 @@ def print_OU(id, par_ou, stedkodestr, filename=None):
     try:
     	ou_faxnumber = ou.get_contact_info(None, co.contact_fax)
     	if ou_faxnumber:
-	    ou_fax = "%s" % (Cerebrum.pythonify_data(ou_faxnumber[0]['contact_value']))
+	    #ou_fax = "%s" % (Cerebrum.pythonify_data(ou_faxnumber[0]['contact_value'])) 
 	    for x in ou_faxnumber:
 	    	ou_str += "facsimileTelephoneNumber: %s\n" % (Cerebrum.pythonify_data(x['contact_value']))
     except:
 	pass
+    try: 
+	ou_email = ou.get_contact_info(None,co.contact_email)
+	if ou_email:
+	    for x in ou_email:
+		ou_str += "mail: %s\n" % (x['contact_value'])
+	else:
+	    t_email = Email.EmailTarget(Cerebrum)
+	    ou_mail_target = t_email.find_by_entity(ou.entity_id,co.entity_ou)
+	    p_email = Email.EmailPrimaryAddressTarget(Cerebrum)
+	    p_email.find(ou_mail_target)
+	    a_email = Email.EmailAddress(Cerebrum)
+	    a_email.find(p_email.email_primaddr_id)
+	    d_email = Email.EmailDomain(Cerebrum)
+	    d_email.find(a_email.email_addr_domain_id)
+	    ou_str += "mail: %s@%s\n" % (a_email.email_addr_local_part, d_email.email_domain_name) 
+    except:  pass
     if stedkodestr:	
 	ou_str += "norOrgUnitNumber: %s\n" % stedkodestr
     if ou.acronym:
-	ou_str += "ou: %s\n" % ou.acronym
-    ou_str += "ou: %s\n" % ou.short_name
-    ou_str += "ou: %s\n" % ou.display_name
-    ou_str += "cn: %s\n" % ou.sort_name
+	ou_str += "acronym: %s\n" % iso2utf(ou.acronym)
+    ou_str += "ou: %s\n" % iso2utf(ou.short_name)
+    ou_str += "ou: %s\n" % iso2utf(ou.display_name)
+    ou_str += "ou: %s\n" % iso2utf(ou.sort_name)
+    ou_str += "cn: %s\n" % iso2utf(ou.sort_name)
     try:
 	for cc in cereconf.SYSTEM_LOOKUP_ORDER:
 	    post_addr = ou.get_entity_address(getattr(co, cc), co.address_post)
     	    if post_addr:
 		post_addr_str = "%s" % string.replace(string.rstrip(post_addr[0]['address_text']),"\n","$") 
 		post_string = "%s$ %s %s" % (post_addr_str,vailidate_name(post_addr[0]['postal_number']),vailidate_name(post_addr[0]['city']))
-		ou_str += "postalAddress: %s\n" % post_string
+		ou_str += "postalAddress: %s\n" % iso2utf(post_string)
 		break
     	for dd in cereconf.SYSTEM_LOOKUP_ORDER:
             street_addr = ou.get_entity_address(getattr(co, dd), co.address_street)
             if street_addr:
-		street_addr_str = "%s" % string.replace(string.rstrip(street_addr[0]['address_text']),"\n","$")
+		street_addr_str = "%s" % string.replace(string.rstrip(street_addr[0]['address_text']),"\n",",")
 		street_string = "%s$ %s %s" %(street_addr_str, vailidate_name(street_addr[0]['postal_number']),vailidate_name(street_addr[0]['city']))
-		ou_str += "streetAddress: %s\n" % street_string
+		ou_str += "street: %s\n" % iso2utf(street_string)
                 break
    	ou_phnumber = (ou.get_contact_info(None, co.contact_phone))
     	if ou_phnumber:
@@ -263,14 +281,20 @@ def generate_person(filename=None):
     dn_attr = cereconf.PERSON_ATTR
     dn_base = "%s" % cereconf.LDAP_BASE
     dn_string = "%s=%s,%s" % (cereconf.ORG_ATTR,cereconf.PERSON_DN,dn_base) 
-    for row in person.list_extended_person():
+    person_spread = acl_spread = None
+    try:  perrson_spread = int(getattr(co,cereconf.PERSON_SPREAD))
+    except:  pass
+    try:  acl_spread = int(cereconf.PERSON_ACL_SPREAD) # When change to co -> int(getattr(co,cereconf.PERSON_..)
+    except:  pass
+    for row in person.list_extended_person(person_spread, include_quarantines=0):
 	id, birth_date,external_id,name,entity_name,phone,passwd,ou_id,email,domain,affili = row['person_id'], row['birth_date'],row['external_id'],row['name'],row['entity_name'],row['contact_value'],row['auth_data'],row['ou_id'],row['local_part'],row['domain'],row['affiliation']
 	if external_id:
 	    person.clear()
 	    person.entity_id = id
 	    pers_string = "dn: %s=%s,%s\n" % (dn_attr,entity_name,dn_string)
 	    pers_string += "%s" % objclass_string
-	    pers_string += "cn: %s\n" % name
+  	    utf_name = iso2utf(name)
+	    pers_string += "cn: %s\n" % utf_name
 	    if birth_date:
 		pers_string += "birthDate: %s\n" % (time.strftime("%d%m%y",time.strptime(str(birth_date),"%Y-%m-%d %H:%M:%S.00")))
 	    pers_string += "norSSN: %s\n" % external_id
@@ -289,8 +313,8 @@ def generate_person(filename=None):
 		given_name = None
 		lastname = None
 		try:
-		    pers_string += "givenName: %s\n" % person.get_name(getattr(co,sys),co.name_first)
-		    lastname = person.get_name(getattr(co,sys),co.name_last)
+		    pers_string += "givenName: %s\n" % iso2utf(person.get_name(getattr(co,sys),co.name_first))
+		    lastname = iso2utf(person.get_name(getattr(co,sys),co.name_last))
 		    break
 		except:
 		    pass
@@ -303,13 +327,18 @@ def generate_person(filename=None):
 	    if lastname:
 		pers_string += "sn: %s\n" % lastname
 	    if (int(affili) == int(co.affiliation_ansatt)): 
-		pers_string += "postalAddress: %s\n" % ou_struct[int(ou_id)][1]
-		pers_string += "street: %s\n" % ou_struct[int(ou_id)][2]
+		pers_string += "postalAddress: %s\n" % iso2utf(ou_struct[int(ou_id)][1])
+		pers_string += "street: %s\n" % iso2utf(ou_struct[int(ou_id)][2])
 		#pers_string += "title: "
-		if phone:
-		    pers_string += "telephoneNumber: %s\n" % phone
+		if phone is not None:
+		    phonelist = string.split(phone,'$')
+		    for phones in phonelist:
+		    	pers_string += "telephoneNumber: %s\n" % phones
 		else:
-		    pers_string += "telephoneNumber: %s\n" % ou_struct[int(ou_id)][3]
+		    if ou_struct[int(ou_id)][3] is not None:
+		    	pers_string += "telephoneNumber: %s\n" % ou_struct[int(ou_id)][3]
+		    else:
+			pass
 		if ou_struct[int(ou_id)][4]:
 		    pers_string += "facsimileTelephoneNumber: %s\n" % ou_struct[int(ou_id)][4]
 	    for affi in p_affiliations:
@@ -319,6 +348,8 @@ def generate_person(filename=None):
 		pers_string += "userPassword: {crypt}%s\n" % passwd
 	    else:
 		pers_string += "userPassword: *\n"
+	    if acl_spread and person.has_spread(acl_spread):
+		pers_string += "%s\n" % cereconf.PERSON_LDAP_ACL
 	    alias_list[int(id)] = entity_name, prim_org, name, lastname
 	    f.write("\n")
 	    f.write(pers_string)
@@ -347,9 +378,9 @@ def generate_alias(filename=None):
 	    alias_str += "%s" % obj_string
 	    alias_str += "\nuid: %s" % entity_name
 	    if name:
-		alias_str += "\ncn: %s" % name
+		alias_str += "\ncn: %s" % iso2utf(name)
 	    if lastname:
-		alias_str += "\nsn: %s" % lastname
+		alias_str += "\nsn: %s" % iso2utf(lastname)
 	    alias_str += "\naliasedObjectName: uid=%s,%s" % (entity_name,dn_string)
 	    f.write("\n")
 	    f.write(alias_str)
@@ -370,14 +401,15 @@ def generate_users(spread=None,filename=None):
     obj_string = "objectClass: top\n"
     for obj in cereconf.USER_OBJECTCLASS:
 	obj_string += "objectClass: %s\n" % obj
-    if filename:
-	f = file(filename, 'w')
-    else:
-	f = file(string.join((cereconf.LDAP_DUMP_DIR,cereconf.USER_FILE),'/'), 'w')
+    if (cereconf.USER_QUARANTINE != None):
+	quara = int(cereconf.USER_QUARANTINE)
+    else: quara = 0
+    if filename: f = file(filename, 'w')
+    else: f = file(string.join((cereconf.LDAP_DUMP_DIR,cereconf.USER_FILE),'/'), 'w')
     if not spread: 
-    	pos_user = posix_user.list_extended_posix_users(getattr(co,'auth_type_md5_crypt'))
+    	pos_user = posix_user.list_extended_posix_users(getattr(co,'auth_type_md5_crypt'),include_quarantines=quara)
     else:
-	pos_user = posix_user.list_extended_posix_users(getattr(co,'auth_type_md5_crypt'),spread)
+	pos_user = posix_user.list_extended_posix_users(getattr(co,'auth_type_md5_crypt'),spread,include_quarantines=quara)
     f.write("\n")
     for row in pos_user:
 	acc_id,uid,shell,gecos,uname,home,disk_id,passwd,gid, full_name = row['account_id'],row['posix_uid'],row['shell'],row['gecos'],row['entity_name'],row['home'],row['disk_id'],row['auth_data'],row['posix_gid'],row['name']
@@ -387,7 +419,7 @@ def generate_users(spread=None,filename=None):
 	else:
 	    passwd = "{crypt}%s" % passwd
 	if not gecos:
-	    gecos = posix_user._conv_name(full_name)
+	    gecos = posix_user._conv_name(full_name,alt=0,as_gecos=1)
 	if not home:
 	    home = "%s/%s" % (disks[int(disk_id)],uname)
         shell = shells[int(shell)]
@@ -407,15 +439,15 @@ gecos: %s""" % (posix_dn_string, uname, posix_dn, obj_string, gecos, uname,
     f.close()
 
 def generate_posixgroup():
-   for spread in cereconf.GROUP_SPREAD:
-	generate_group(int(getattr(co,spread)))
+    spread = cereconf.GROUP_SPREAD
+    generate_group(int(getattr(co,spread)))
 
 def generate_group(spread=None, filename=None):
     posix_group = PosixGroup.PosixGroup(Cerebrum)
     if filename:
 	f = file(filename, 'w')
     else:
-	f = file(string.join((cereconf.LDAP_DUMP_DIR,("%s%s" % (spread,cereconf.GROUP_FILE))),'/'), 'w')
+	f = file(string.join((cereconf.LDAP_DUMP_DIR,cereconf.GROUP_FILE),'/'), 'w')
     f.write("\n")
     groups = {}
     dn_str = "%s=%s,%s" % (cereconf.ORG_ATTR,cereconf.GROUP_DN,cereconf.LDAP_BASE)
@@ -514,8 +546,16 @@ def genenerate_netgroup(spread=None, filename=None):
             pass
     f.close()
 
+def iso2utf(s):
+  new = ''
+  for ch in s:
+    c=ord(ch)
+    if (c & 0x80) == 0:
+      new = new+ch
+    else:
+      new = new+chr(0xC0 | (0x03 & (c >> 6)))+chr(0x80 | (0x3F & c))
+  return new
     
-
 def main():
     global debug
     try:
@@ -588,17 +628,22 @@ def map_spread(id):
         raise
 
 def config():
-	if (cereconf.ORG_ROOT_AUTO == 'Enable'):
-	    org_root = int(cereconf.ORG_ROOT)
+	if (cereconf.ORG_ROOT_AUTO != 'Enable'):
+	    try:
+	    	org_root = int(cereconf.ORG_ROOT)
+	    except Errors.NotFoundError:
+		print "ORG_ROOT parametre in ldapconf.py not valid"
+		raise
 	else:
 	    org_root = root_OU()
 	if org_root: 
-	    load_code_tables() #sjekk nærmere
+	    load_code_tables()
 	    init_ldap_dump(org_root)
 	    generate_org(org_root)
 	    if (cereconf.PERSON == 'Enable'):
     		print "Person generate" 
 		generate_person()
+		sys.exit()
 	    if (cereconf.ALIAS == 'Enable'):
 		print "Alias generate"
 		generate_alias()
@@ -611,6 +656,7 @@ def config():
 	    if (cereconf.NETGROUP == 'Enable'):
 		print "Netgroup generate"
 		genenerate_netgroup()
+	    #files_
 	else:
 	    pass
 	
