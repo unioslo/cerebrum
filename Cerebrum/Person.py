@@ -661,6 +661,17 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
         acc = Utils.Factory.get('Account')(self._db)
         return acc.list_accounts_by_owner_id(self.entity_id)
 
+    def get_primary_account(self):
+        """Returns the account_id of SELF.entity_id's primary account"""
+        acc = Utils.Factory.get("Account")(self._db)
+        # get_account_types *must* return its results sorted
+        accounts = acc.get_account_types(True, self.entity_id)
+        if accounts:
+            return accounts[0].account_id
+        else:
+            return None
+        # fi
+    # end get_primary_account
 
     def list_persons(self):
         """Return all person ids."""
