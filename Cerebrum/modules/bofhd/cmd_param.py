@@ -91,7 +91,7 @@ class DiskId(Parameter):
     _help_ref = 'disk'
 
 class EmailAddressString(Parameter):
-    _type = 'emailAddress',
+    _type = 'emailAddress'
     _help_ref = 'email_address'
     
 class EntityType(Parameter):
