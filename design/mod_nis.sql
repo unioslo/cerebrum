@@ -1,3 +1,13 @@
+category:code/Oracle;
+CREATE ROLE read_mod_nis NOT IDENTIFIED;
+category:code/Oracle;
+CREATE ROLE change_mod_nis NOT IDENTIFIED;
+category:code/Oracle;
+GRANT read_mod_nis TO read_core_table;
+category:code/Oracle;
+GRANT change_mod_nis TO change_core_table;
+
+
 category:code;
 CREATE TABLE nis_domain_code
 (
@@ -9,6 +19,11 @@ CREATE TABLE nis_domain_code
   description	CHAR VARYING(512)
 		NOT NULL
 );
+category:code/Oracle;
+GRANT SELECT ON nis_domain_code TO read_mod_nis;
+category:code/Oracle;
+GRANT INSERT, UPDATE, DELETE ON nis_domain_code TO read_mod_nis;
+
 
 category:main;
 CREATE TABLE nis_netgroup
@@ -21,6 +36,11 @@ CREATE TABLE nis_netgroup
 		  REFERENCES group_info(group_id),
   CONSTRAINT nis_netgroup_pk PRIMARY KEY (domain, group_id)
 );
+category:main/Oracle;
+GRANT SELECT ON nis_netgroup TO read_mod_nis;
+category:main/Oracle;
+GRANT INSERT, UPDATE, DELETE ON nis_netgroup TO read_mod_nis;
+
 
 /*
 
@@ -32,3 +52,8 @@ category:drop;
 DROP TABLE nis_netgroup;
 category:drop;
 DROP TABLE nis_domain_code;
+
+category:drop/Oracle;
+DROP ROLE change_mod_nis;
+category:drop/Oracle;
+DROP ROLE read_mod_nis;

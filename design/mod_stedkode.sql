@@ -8,6 +8,19 @@
  *** Norway.
  ***/
 
+category:code/Oracle;
+CREATE ROLE read_mod_stedkode NOT IDENTIFIED;
+category:code/Oracle;
+CREATE ROLE change_mod_stedkode NOT IDENTIFIED;
+category:code/Oracle;
+GRANT read_mod_stedkode TO change_mod_stedkode;
+
+category:drop/Oracle;
+GRANT read_mod_stedkode TO read_core_table;
+category:drop/Oracle;
+GRANT change_mod_stedkode TO change_core_table;
+
+
 /*	stedkode
 
 
@@ -33,5 +46,16 @@ CREATE TABLE stedkode
 		  CHECK (katalog_merke IN ('T', 'F')),
   CONSTRAINT stedkode_kode UNIQUE (institusjon, fakultet, institutt, avdeling)
 );
+category:main/Oracle;
+GRANT SELECT ON stedkode TO read_mod_stedkode;
+category:main/Oracle;
+GRANT INSERT, UPDATE, DELETE ON stedkode TO change_mod_stedkode;
+
+
 category:drop;
 DROP TABLE stedkode;
+
+category:drop/Oracle;
+DROP ROLE change_mod_stedkode;
+category:drop/Oracle;
+DROP ROLE read_mod_stedkode;

@@ -1,3 +1,16 @@
+category:code/Oracle;
+CREATE ROLE read_mod_posix_user NOT IDENTIFIED;
+category:code/Oracle;
+CREATE ROLE change_mod_posix_user NOT IDENTIFIED;
+category:code/Oracle;
+GRANT read_mod_posix_user TO change_mod_posix_user;
+
+category:code/Oracle;
+GRANT read_mod_posix_user TO read_core_table;
+category:code/Oracle;
+GRANT change_mod_posix_user TO change_core_table;
+
+
 category:code;
 CREATE TABLE posix_shell_code
 (
@@ -11,6 +24,10 @@ CREATE TABLE posix_shell_code
 		NOT NULL
 		CONSTRAINT posix_shell_code_shell_u UNIQUE
 );
+category:code/Oracle;
+GRANT SELECT ON posix_shell_code TO read_mod_posix_user;
+category:code/Oracle;
+GRANT INSERT, UPDATE, DELETE ON posix_shell_code TO read_mod_posix_user;
 
 
 /*	posix_group
@@ -42,9 +59,17 @@ CREATE TABLE posix_group
                   CHECK (posix_gid >= 0 AND posix_gid <= 2147483647)
 		CONSTRAINT posix_group_gid UNIQUE
 );
+category:main/Oracle;
+GRANT SELECT ON posix_group TO read_mod_posix_user;
+category:main/Oracle;
+GRANT INSERT, UPDATE, DELETE ON posix_group TO read_mod_posix_user;
+
 
 category:main;
 CREATE SEQUENCE posix_gid_seq [:sequence_start value=1000];
+category:main/Oracle;
+GRANT SELECT ON posix_gid_seq TO read_mod_posix_user;
+
 
 /*	posix_user
 
@@ -86,9 +111,17 @@ CREATE TABLE posix_user (
 		NOT NULL
 		CONSTRAINT posix_user_shell REFERENCES posix_shell_code(code)
 );
+category:main/Oracle;
+GRANT SELECT ON posix_user TO read_mod_posix_user;
+category:main/Oracle;
+GRANT INSERT, UPDATE, DELETE ON posix_user TO read_mod_posix_user;
+
 
 category:main;
 CREATE SEQUENCE posix_uid_seq [:sequence_start value=1000];
+category:main/Oracle;
+GRANT SELECT ON posix_uid_seq TO read_mod_posix_user;
+
 
 category:drop;
 DROP TABLE posix_user;
@@ -100,3 +133,8 @@ category:drop;
 DROP SEQUENCE posix_uid_seq;
 category:drop;
 DROP SEQUENCE posix_gid_seq;
+
+category:drop/Oracle;
+DROP ROLE change_mod_posix_user;
+category:drop/Oracle;
+DROP ROLE read_mod_posix_user;

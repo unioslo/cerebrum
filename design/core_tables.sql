@@ -1,5 +1,66 @@
+/* Define role hierarchy used for granting access to various database
+   objects.
+
+   Currently, this is only done when running on an Oracle database. */
+
+category:code/Oracle;
+CREATE ROLE read_code NOT IDENTIFIED;
+category:code/Oracle;
+CREATE ROLE change_code NOT IDENTIFIED;
+category:code/Oracle;
+GRANT read_code TO change_code;
+
+category:code/Oracle;
+CREATE ROLE read_entity NOT IDENTIFIED;
+category:code/Oracle;
+CREATE ROLE change_entity NOT IDENTIFIED;
+category:code/Oracle;
+GRANT read_code, read_entity TO change_entity;
+category:code/Oracle;
+CREATE ROLE read_ou NOT IDENTIFIED;
+category:code/Oracle;
+CREATE ROLE change_ou NOT IDENTIFIED;
+category:code/Oracle;
+GRANT read_code, read_ou TO change_ou;
+category:code/Oracle;
+CREATE ROLE read_person NOT IDENTIFIED;
+category:code/Oracle;
+CREATE ROLE change_person NOT IDENTIFIED;
+category:code/Oracle;
+GRANT read_code, read_person TO change_person;
+category:code/Oracle;
+CREATE ROLE read_account NOT IDENTIFIED;
+category:code/Oracle;
+CREATE ROLE change_account NOT IDENTIFIED;
+category:code/Oracle;
+GRANT read_code, read_account TO change_account;
+category:code/Oracle;
+CREATE ROLE read_group NOT IDENTIFIED;
+category:code/Oracle;
+CREATE ROLE change_group NOT IDENTIFIED;
+category:code/Oracle;
+GRANT read_code, read_group TO change_group;
+
+category:code/Oracle;
+CREATE ROLE read_core_table NOT IDENTIFIED;
+category:code/Oracle;
+GRANT read_code, read_entity, read_ou, read_person, read_account,
+      read_group
+  TO read_core_table;
+
+category:code/Oracle;
+CREATE ROLE change_core_table NOT IDENTIFIED;
+category:code/Oracle;
+GRANT change_code, change_entity, change_ou, change_person,
+      change_account, change_group
+  TO change_core_table;
+
+
 category:code;
 CREATE SEQUENCE code_seq;
+-- No Oracle GRANT is necessary for this sequence, as all code values
+-- should be defined by the table owner.
+
 
 /*	authoritative_system_code
 
@@ -17,12 +78,34 @@ CREATE TABLE authoritative_system_code
   description	CHAR VARYING(512)
 		NOT NULL
 );
+category:code/Oracle;
+GRANT SELECT ON authoritative_system_code TO read_code;
+category:code/Oracle;
+GRANT INSERT, UPDATE, DELETE ON authoritative_system_code TO change_code;
 
 
 /*	entity_type_code
 
   This table holds one entry per type of entity the system can collect
   data on, e.g. persons, groups and OUs.
+
+  Note about the actual values signifying entity types:
+
+    Entity types are coded as numbers.  The actual numbers signifying
+    the specific entity types are not part of the core setup, hence
+    the number used for e.g. a 'person' entity type might vary from
+    installation to installation.
+ 
+    This complicates the (entity_type, entity_id) FK constraints from
+    e.g. person_info to entity_info, as one needs to know the actual
+    code value the installation uses in order to write the CHECK
+    constraint (and the DEFAULT value).
+ 
+    The upshot of all this is that code value tables have to be
+    created and code values have to be inserted before any data tables
+    having code-value-specific constraints can be created.  Data value
+    table definition will then use '[:get_constant]' constructs for
+    looking up the sequence-generated numerical code values.
 
 */
 category:code;
@@ -36,7 +119,17 @@ CREATE TABLE entity_type_code
   description	CHAR VARYING(512)
 		NOT NULL
 );
+category:code/Oracle;
+GRANT SELECT ON entity_type_code TO read_code;
+category:code/Oracle;
+GRANT INSERT, UPDATE, DELETE ON entity_type_code TO change_code;
 
+
+
+category:main;
+CREATE SEQUENCE entity_id_seq;
+category:main/Oracle;
+GRANT SELECT ON entity_id_seq TO change_entity;
 
 
 /*	entity_info
@@ -61,8 +154,6 @@ CREATE TABLE entity_type_code
 
 */
 category:main;
-CREATE SEQUENCE entity_id_seq;
-category:main;
 CREATE TABLE entity_info
 (
   entity_id	NUMERIC(12,0)
@@ -74,6 +165,10 @@ CREATE TABLE entity_info
   CONSTRAINT entity_info_type_unique
     UNIQUE (entity_type, entity_id)
 );
+category:main/Oracle;
+GRANT SELECT ON entity_info TO read_entity;
+category:main/Oracle;
+GRANT INSERT, UPDATE, DELETE ON entity_info TO change_entity;
 
 
 /*	spread_code
@@ -119,6 +214,10 @@ CREATE TABLE spread_code
 		NOT NULL,
   CONSTRAINT spread_code_type_unique UNIQUE (code, entity_type)
 );
+category:code/Oracle;
+GRANT SELECT ON spread_code TO read_code;
+category:code/Oracle;
+GRANT INSERT, UPDATE, DELETE ON spread_code TO change_code;
 
 
 /*	entity_spread
@@ -140,11 +239,15 @@ CREATE TABLE entity_spread
   entity_type	NUMERIC(6,0),
   spread	NUMERIC(6,0),
   CONSTRAINT entity_spread_pk PRIMARY KEY (entity_id, spread),
-  CONSTRAINT entity_spread_entity_id FOREIGN KEY (entity_id, entity_type)
-    REFERENCES entity_info(entity_id, entity_type),
+  CONSTRAINT entity_spread_entity_id FOREIGN KEY (entity_type, entity_id)
+    REFERENCES entity_info(entity_type, entity_id),
   CONSTRAINT entity_spread_spread FOREIGN KEY (spread, entity_type)
     REFERENCES spread_code(code, entity_type)
 );
+category:main/Oracle;
+GRANT SELECT ON entity_spread TO read_entity;
+category:main/Oracle;
+GRANT INSERT, UPDATE, DELETE ON entity_spread TO change_entity;
 
 
 /*	value_domain_code
@@ -181,6 +284,10 @@ CREATE TABLE value_domain_code
   description	CHAR VARYING(512)
 		NOT NULL
 );
+category:code/Oracle;
+GRANT SELECT ON value_domain_code TO read_code;
+category:code/Oracle;
+GRANT INSERT, UPDATE, DELETE ON value_domain_code TO change_code;
 
 
 /*	entity_name
@@ -204,6 +311,10 @@ CREATE TABLE entity_name
   CONSTRAINT entity_name_unique_per_domain
     UNIQUE (value_domain, entity_name)
 );
+category:main/Oracle;
+GRANT SELECT ON entity_name TO read_entity;
+category:main/Oracle;
+GRANT INSERT, UPDATE, DELETE ON entity_name TO change_entity;
 
 
 /*	country_code
@@ -225,6 +336,10 @@ CREATE TABLE country_code
   description	CHAR VARYING(512)
 		NOT NULL
 );
+category:code/Oracle;
+GRANT SELECT ON country_code TO read_code;
+category:code/Oracle;
+GRANT INSERT, UPDATE, DELETE ON country_code TO change_code;
 
 
 /*	address_code
@@ -243,6 +358,10 @@ CREATE TABLE address_code
   description	CHAR VARYING(512)
 		NOT NULL
 );
+category:code/Oracle;
+GRANT SELECT ON address_code TO read_code;
+category:code/Oracle;
+GRANT INSERT, UPDATE, DELETE ON address_code TO change_code;
 
 
 /*	entity_address
@@ -273,6 +392,10 @@ CREATE TABLE entity_address
   CONSTRAINT entity_address_pk
     PRIMARY KEY (entity_id, source_system, address_type)
 );
+category:main/Oracle;
+GRANT SELECT ON entity_address TO read_entity;
+category:main/Oracle;
+GRANT INSERT, UPDATE, DELETE ON entity_address TO change_entity;
 
 
 /*	contact_info_code
@@ -291,6 +414,10 @@ CREATE TABLE contact_info_code
   description	CHAR VARYING(512)
 		NOT NULL
 );
+category:code/Oracle;
+GRANT SELECT ON contact_info_code TO read_code;
+category:code/Oracle;
+GRANT INSERT, UPDATE, DELETE ON contact_info_code TO change_code;
 
 
 /*	entity_contact_info
@@ -321,6 +448,10 @@ CREATE TABLE entity_contact_info
   CONSTRAINT entity_contact_info_pk
     PRIMARY KEY (entity_id, source_system, contact_type, contact_pref)
 );
+category:main/Oracle;
+GRANT SELECT ON entity_contact_info TO read_entity;
+category:main/Oracle;
+GRANT INSERT, UPDATE, DELETE ON entity_contact_info TO change_entity;
 
 
 /*	quarantine_code
@@ -345,6 +476,10 @@ CREATE TABLE quarantine_code
   duration	NUMERIC(4,0)
 		DEFAULT NULL
 );
+category:code/Oracle;
+GRANT SELECT ON quarantine_code TO read_code;
+category:code/Oracle;
+GRANT INSERT, UPDATE, DELETE ON quarantine_code TO change_code;
 
 
 /*	account_code
@@ -369,6 +504,10 @@ CREATE TABLE account_code
   description	CHAR VARYING(512)
 		NOT NULL
 );
+category:code/Oracle;
+GRANT SELECT ON account_code TO read_code;
+category:code/Oracle;
+GRANT INSERT, UPDATE, DELETE ON account_code TO change_code;
 
 
 /*	account
@@ -405,7 +544,8 @@ CREATE TABLE account_info
   owner_type	NUMERIC(6,0)
 		NOT NULL
 		CONSTRAINT account_info_owner_type_chk
-		  CHECK (owner_type IN ([:get_constant name=entity_person], [:get_constant name=entity_group])),
+		  CHECK (owner_type IN ([:get_constant name=entity_person],
+					[:get_constant name=entity_group])),
   owner_id	NUMERIC(12,0)
 		NOT NULL,
   np_type	NUMERIC(6,0)
@@ -427,13 +567,19 @@ CREATE TABLE account_info
     FOREIGN KEY (owner_type, owner_id)
     REFERENCES entity_info(entity_type, entity_id),
   CONSTRAINT account_info_np_type_chk
-    CHECK ((owner_type = [:get_constant name=entity_person] AND np_type IS NULL) OR
-	   (owner_type = [:get_constant name=entity_group] AND np_type IS NOT NULL)),
+    CHECK ((owner_type = [:get_constant name=entity_person] AND
+	    np_type IS NULL) OR
+	   (owner_type = [:get_constant name=entity_group] AND
+	    np_type IS NOT NULL)),
 /* The next constraint is needed to allow `account_type' to have a
    foreign key agains these two columns. */
   CONSTRAINT account_info_id_owner_unique
     UNIQUE (account_id, owner_id)
 );
+category:main/Oracle;
+GRANT SELECT ON account_info TO read_account;
+category:main/Oracle;
+GRANT INSERT, UPDATE, DELETE ON account_info TO change_account;
 
 
 /*	entity_quarantine
@@ -477,6 +623,10 @@ CREATE TABLE entity_quarantine
   CONSTRAINT entity_quarantine_pk
     PRIMARY KEY (entity_id, quarantine_type)
 );
+category:main/Oracle;
+GRANT SELECT ON entity_quarantine TO read_entity;
+category:main/Oracle;
+GRANT INSERT, UPDATE, DELETE ON entity_quarantine TO change_entity;
 
 
 /*	ou_info
@@ -510,6 +660,10 @@ CREATE TABLE ou_info
     FOREIGN KEY (entity_type, ou_id)
     REFERENCES entity_info(entity_type, entity_id)
 );
+category:main/Oracle;
+GRANT SELECT ON ou_info TO read_ou;
+category:main/Oracle;
+GRANT INSERT, UPDATE, DELETE ON ou_info to change_ou;
 
 
 /*	ou_perspective_code
@@ -541,6 +695,10 @@ CREATE TABLE ou_perspective_code
   description	CHAR VARYING(512)
 		NOT NULL
 );
+category:code/Oracle;
+GRANT SELECT ON ou_perspective_code TO read_code;
+category:code/Oracle;
+GRANT INSERT, UPDATE, DELETE ON ou_perspective_code TO change_code;
 
 
 /*	ou_structure
@@ -574,6 +732,10 @@ CREATE TABLE ou_structure
     FOREIGN KEY (parent_id, perspective)
     REFERENCES ou_structure(ou_id, perspective)
 );
+category:main/Oracle;
+GRANT SELECT ON ou_structure TO read_ou;
+category:main/Oracle;
+GRANT INSERT, UPDATE, DELETE ON ou_structure to change_ou;
 
 
 /*	language_code
@@ -607,6 +769,10 @@ CREATE TABLE language_code
   description	CHAR VARYING(512)
 		NOT NULL
 );
+category:code/Oracle;
+GRANT SELECT ON language_code TO read_code;
+category:code/Oracle;
+GRANT INSERT, UPDATE, DELETE ON language_code TO change_code;
 
 
 /*	ou_name_language
@@ -633,6 +799,10 @@ CREATE TABLE ou_name_language
   CONSTRAINT ou_name_language_pk
     PRIMARY KEY (ou_id, language_code)
 );
+category:main/Oracle;
+GRANT SELECT ON ou_name_language TO read_ou;
+category:main/Oracle;
+GRANT INSERT, UPDATE, DELETE ON ou_name_language to change_ou;
 
 
 /*	gender_code
@@ -651,6 +821,10 @@ CREATE TABLE gender_code
   description	CHAR VARYING(512)
 		NOT NULL
 );
+category:code/Oracle;
+GRANT SELECT ON gender_code TO read_code;
+category:code/Oracle;
+GRANT INSERT, UPDATE, DELETE ON gender_code TO change_code;
 
 
 /*	person_info
@@ -700,6 +874,10 @@ CREATE TABLE person_info
     FOREIGN KEY (entity_type, person_id)
     REFERENCES entity_info(entity_type, entity_id)
 );
+category:main/Oracle;
+GRANT SELECT ON person_info TO read_person;
+category:main/Oracle;
+GRANT INSERT, UPDATE, DELETE ON person_info TO change_person;
 
 
 /*	person_external_id_code
@@ -723,6 +901,10 @@ CREATE TABLE person_external_id_code
   description	CHAR VARYING(512)
 		NOT NULL
 );
+category:code/Oracle;
+GRANT SELECT ON person_external_id_code TO read_code;
+category:code/Oracle;
+GRANT INSERT, UPDATE, DELETE ON person_external_id_code TO change_code;
 
 
 /*	person_external_id
@@ -752,6 +934,10 @@ CREATE TABLE person_external_id
   CONSTRAINT person_external_id_unique
     UNIQUE (id_type, external_id)
 );
+category:main/Oracle;
+GRANT SELECT ON person_external_id TO read_person;
+category:main/Oracle;
+GRANT INSERT, UPDATE, DELETE ON person_external_id TO change_person;
 
 
 /*	person_name_code
@@ -776,6 +962,10 @@ CREATE TABLE person_name_code
   description	CHAR VARYING(512)
 		NOT NULL
 );
+category:code/Oracle;
+GRANT SELECT ON person_name_code TO read_code;
+category:code/Oracle;
+GRANT INSERT, UPDATE, DELETE ON person_name_code TO change_code;
 
 
 /*	person_name
@@ -802,6 +992,10 @@ CREATE TABLE person_name
   CONSTRAINT person_name_pk
     PRIMARY KEY (person_id, name_variant, source_system)
 );
+category:main/Oracle;
+GRANT SELECT ON person_name TO read_person;
+category:main/Oracle;
+GRANT INSERT, UPDATE, DELETE ON person_name TO change_person;
 
 
 /*	person_affiliation_code
@@ -822,6 +1016,10 @@ CREATE TABLE person_affiliation_code
   description	CHAR VARYING(512)
 		NOT NULL
 );
+category:code/Oracle;
+GRANT SELECT ON person_affiliation_code TO read_code;
+category:code/Oracle;
+GRANT INSERT, UPDATE, DELETE ON person_affiliation_code TO change_code;
 
 
 /*	person_affiliation
@@ -851,6 +1049,10 @@ CREATE TABLE person_affiliation
   CONSTRAINT person_affiliation_pk
     PRIMARY KEY (person_id, ou_id, affiliation)
 );
+category:main/Oracle;
+GRANT SELECT ON person_affiliation TO read_person;
+category:main/Oracle;
+GRANT INSERT, UPDATE, DELETE ON person_affiliation TO change_person;
 
 
 /*	person_aff_status_code
@@ -876,6 +1078,10 @@ CREATE TABLE person_aff_status_code
   CONSTRAINT person_aff_status_codestr_u
     UNIQUE (affiliation, status_str)
 );
+category:code/Oracle;
+GRANT SELECT ON person_aff_status_code TO read_code;
+category:code/Oracle;
+GRANT INSERT, UPDATE, DELETE ON person_aff_status_code TO change_code;
 
 
 category:main;
@@ -911,6 +1117,10 @@ CREATE TABLE person_affiliation_source
     FOREIGN KEY (affiliation, status)
     REFERENCES person_aff_status_code(affiliation, status)
 );
+category:main/Oracle;
+GRANT SELECT ON person_affiliation_source TO read_person;
+category:main/Oracle;
+GRANT INSERT, UPDATE, DELETE ON person_affiliation_source TO change_person;
 
 
 /*	account_type
@@ -940,6 +1150,10 @@ CREATE TABLE account_type
     FOREIGN KEY (account_id, person_id)
     REFERENCES account_info(account_id, owner_id)
 );
+category:main/Oracle;
+GRANT SELECT ON account_type TO read_account;
+category:main/Oracle;
+GRANT INSERT, UPDATE, DELETE ON account_type TO change_account;
 
 
 /*	authentication_code
@@ -958,6 +1172,10 @@ CREATE TABLE authentication_code
   description	CHAR VARYING(512)
 		NOT NULL
 );
+category:code/Oracle;
+GRANT SELECT ON authentication_code TO read_code;
+category:code/Oracle;
+GRANT INSERT, UPDATE, DELETE ON authentication_code TO change_code;
 
 
 /*	account_authentication
@@ -993,6 +1211,11 @@ CREATE TABLE account_authentication
   CONSTRAINT account_auth_pk
     PRIMARY KEY (account_id, method)
 );
+category:main/Oracle;
+GRANT SELECT ON account_authentication TO read_account;
+category:main/Oracle;
+GRANT INSERT, UPDATE, DELETE ON account_authentication
+  TO change_account;
 
 
 category:code;
@@ -1006,6 +1229,11 @@ CREATE TABLE group_visibility_code
   description	CHAR VARYING(512)
 		NOT NULL
 );
+category:code/Oracle;
+GRANT SELECT ON group_visibility_code TO read_code;
+category:code/Oracle;
+GRANT INSERT, UPDATE, DELETE ON group_visibility_code
+  TO change_code;
 
 
 /*	group_info
@@ -1056,6 +1284,10 @@ CREATE TABLE group_info
     FOREIGN KEY (entity_type, group_id)
     REFERENCES entity_info(entity_type, entity_id)
 );
+category:main/Oracle;
+GRANT SELECT ON group_info TO read_group;
+category:main/Oracle;
+GRANT INSERT, UPDATE, DELETE ON group_info TO change_group;
 
 
 category:code;
@@ -1069,6 +1301,11 @@ CREATE TABLE group_membership_op_code
   description	CHAR VARYING(512)
 		NOT NULL
 );
+category:main/Oracle;
+GRANT SELECT ON group_membership_op_code TO read_code;
+category:main/Oracle;
+GRANT INSERT, UPDATE, DELETE ON group_membership_op_code
+  TO change_code;
 
 
 /* group_member:
@@ -1107,6 +1344,15 @@ CREATE TABLE group_member
   CONSTRAINT group_member_not_self
     CHECK (group_id <> member_id)
 );
+category:main/Oracle;
+GRANT SELECT ON group_member TO read_group;
+category:main/Oracle;
+GRANT INSERT, UPDATE, DELETE ON group_member TO change_group;
+
+
+-- Grant roles to users
+category:main/Oracle;
+GRANT change_core_table TO cerebrum_user;
 
 
 /*
@@ -1478,3 +1724,32 @@ category:drop;
 DROP TABLE authoritative_system_code;
 category:drop;
 DROP SEQUENCE code_seq;
+
+category:drop/Oracle;
+DROP ROLE change_core_table;
+category:drop/Oracle;
+DROP ROLE read_core_table;
+category:drop/Oracle;
+DROP ROLE change_group;
+category:drop/Oracle;
+DROP ROLE read_group;
+category:drop/Oracle;
+DROP ROLE change_account;
+category:drop/Oracle;
+DROP ROLE read_account;
+category:drop/Oracle;
+DROP ROLE change_person;
+category:drop/Oracle;
+DROP ROLE read_person;
+category:drop/Oracle;
+DROP ROLE change_ou;
+category:drop/Oracle;
+DROP ROLE read_ou;
+category:drop/Oracle;
+DROP ROLE change_entity;
+category:drop/Oracle;
+DROP ROLE read_entity;
+category:drop/Oracle;
+DROP ROLE change_code;
+category:drop/Oracle;
+DROP ROLE read_code;
