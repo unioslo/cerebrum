@@ -34,8 +34,7 @@ command_help = {
     'misc_checkpassw': 'sjekk om et passord er godt nok',
     'misc_lmy': 'I have no idea what this is supposed to do',
     'misc_lsko': 'I have no idea what this is supposed to do',
-    'misc_mmove_confirm': 'vis alle flyttinger som jeg kan confirme',
-    'misc_mmove_requests': 'vis alle flyttinger som jeg har satt inn request for',
+    'misc_mmove': 'vis alle flyttinger som jeg kan confirme/jeg har requestet',
     'misc_profile_download': 'hente ned profil fil fra serveren',
     'misc_profile_upload': 'laste opp ny profil fil til serveren',
     'misc_user_passwd': 'Sjekk om en brukers passord er en gitt streng',
@@ -56,7 +55,6 @@ command_help = {
     },
     'quarantine': {
     'quarantine_disable': 'Midlertidig utkobling av en karantene',
-    'quarantine_info': 'Vis informasjon om en karantene',
     'quarantine_list': 'List karantenetyper',
     'quarantine_remove': 'Fjern en karantene fra en entitet',
     'quarantine_set': 'Sett karantene på en entitet',
@@ -64,7 +62,6 @@ command_help = {
     },
     'spread': {
     'spread_add': 'Gi en entitet en ny spread',
-    'spread_info': 'Vis informasjon om en spread',
     'spread_list': 'List mulige spread',
     'spread_remove': 'Fjern spread fra en entitet',
     },
@@ -132,6 +129,11 @@ The currently defined id-types are:
     'person_name_full': ['fullname', 'Enter persons fullname'],
     'person_name_type': ['nametype', 'Enter person name type'],
     'posix_shell': ['shell', 'Enter shell'],
+    'print_select_range': ['range', 'Select persons by entering a space-separated list of numbers.  Ranges can be written like "3-15"'],
+    'print_select_template': ['template',
+                              'Choose template by entering its template.  The format of the template\n'+
+                              'name is: <language>:<template-name>.  If language ends with "-letter",\n'+
+                              'the letter will be sendt through snail-mail from a central printer.'],
     'quarantine_type': ['qtype', 'Enter quarantine type', """'quarantine list' lists possible values"""],
     'spread': ['spread', 'Enter spread', """'spread list' lists possible values"""],
     'string_description': ['description', 'Enter description'],
