@@ -22,7 +22,7 @@ from Cerebrum.Utils import Factory
 from templates.letters import TemplateHandler
 from server.bofhd_errors import CerebrumError
 from Cerebrum.modules.no.uio import bofhd_uio_help
-from Cerebrum.Constants import _CerebrumCode, _QuarantineCode
+from Cerebrum.Constants import _CerebrumCode, _QuarantineCode, _SpreadCode
 import cereconf
 from Cerebrum.modules import PosixUser
 import re
@@ -600,26 +600,39 @@ class BofhdExtension(object):
     all_commands['spread_add'] = Command(
         ("spread", "add"), EntityType(), Id(), Spread())
     def spread_add(self, operator, entity_type, id, spread):
-        raise NotImplementedError, "Feel free to implement this function"
+        entity = self._get_entity(entity_type, id)
+        spread = int(self.str2const[spread])
+        entity.add_spread(spread)
+        return "OK"
 
     # spread info
     all_commands['spread_info'] = Command(
         ("spread", "info"), Spread())
     def spread_info(self, operator, spread):
+        # I'm not sure what this function is supposed to do
         raise NotImplementedError, "Feel free to implement this function"
 
     # spread list
     all_commands['spread_list'] = Command(
-        ("spread", "list"),)
+        ("spread", "list"),
+        fs=FormatSuggestion("%-14s %s", ('name', 'desc'),
+                            hdr="%-14s %s" % ('Name', 'Description')))
     def spread_list(self, operator):
-        raise NotImplementedError, "Feel free to implement this function"
+        ret = []
+        for c in dir(self.const):
+            tmp = getattr(self.const, c)
+            if isinstance(tmp, _SpreadCode):
+                ret.append({'name': "%s" % tmp, 'desc': unicode(tmp._get_description(), 'iso8859-1')})
+        return ret
 
     # spread remove
     all_commands['spread_remove'] = Command(
         ("spread", "remove"), EntityType(), Id(), Spread())
     def spread_remove(self, operator, entity_type, id, spread):
-        raise NotImplementedError, "Feel free to implement this function"
-
+        entity = self._get_entity(entity_type, id)
+        spread = int(self.str2const[spread])
+        entity.delete_spread(spread)
+        return "OK"
 
     #
     # user commands
@@ -781,7 +794,7 @@ class BofhdExtension(object):
         account = self._get_account(accountname)
         # TODO: Return more info about account
         return {'entity_id': account.entity_id,
-                'spread': ",".join([self.num2const[int(a['spread'])]
+                'spread': ",".join(["%s" % self.num2const[int(a['spread'])]
                                     for a in account.get_spread()])}
 
     # user list_created
