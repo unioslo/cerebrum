@@ -53,6 +53,44 @@ class ADAccount(ADObject):
         return False
 
 
+    def populate(self, type, ou, login_script, home_dir):
+        try:
+            if not self.__in_db:
+                raise RuntimeError, "populate() called multiple times."
+        except AttributeError:
+            self.__in_db = False        
+        ADObject.populate(self, type, ou)
+        self.login_script = login_script
+        self.home_dir = home_dir
+        
+
+    def write_db(self):
+                
+        self.__super.write_db()
+        if not self.__updated:
+            return
+        if not self.__in_db:
+            self.execute("""
+            INSERT INTO [:table schema=cerebrum name=ad_account]
+              (account_id, login_script, home_dir)
+            VALUES (:a_id, :l_script, :h_dir)""",
+                         {'a_id': self.entity_id,
+                          'l_script': self.login_script,
+                          'h_dir': self.home_dir})
+
+        else:
+            self.execute("""
+            UPDATE [:table schema=cerebrum name=ad_account]
+            SET login_script=:l_script, home_dir=:h_dir
+            WHERE account_id=:a_id""", {'a_id': self.entity_id,
+                                      'l_script': self.login_script,
+                                       'h_dir': self.home_dir, })
+        del self.__in_db
+        self.__in_db = True
+        self.__updated = False
+
+
+
     def find(self, account_id):
         """Associate the object with the ADUser whose identifier is account_id.
 
