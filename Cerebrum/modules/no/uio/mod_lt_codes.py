@@ -1342,6 +1342,12 @@ class LTConstants(Constants.Constants):
         "ST-POL UTV"
     )
 
+    lt_gjestetypekode_unirand = GjestetypeKode(
+        "UNIRAND",
+        "Ymse personer fra randsoneenheter",
+        "UNIRAND"
+    )
+
     # ----[ Rollekoder ]----------------------------------------------
     lt_rollekode_test = RolleKode(
         "LT-000",
