@@ -17,24 +17,25 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+import pyPgSQL.PgSQL
+from Cerebrum.extlib import sets
+
 from Builder import Attribute
 from GroBuilder import GroBuilder
 from Searchable import Searchable
 
 class DatabaseAttr(Attribute):
-    def __init__(self, name, table, data_type, sequence=False, dbattr_name=None,
-                 write=False, from_db=None, to_db=None):
+    def __init__(self, name, table, data_type, sequence=False,
+                 write=False, from_db=None, to_db=None, optional=False):
         Attribute.__init__(self, name, data_type, sequence=sequence, write=write)
 
-        self.dbattr_name = dbattr_name or name
         self.table = table
+        self.optional = optional
 
         if to_db is not None:
             self.to_db = to_db
         if from_db is not None:
             self.from_db = from_db
-
-        assert type(self.dbattr_name) == str
 
     def to_db(self, value):
         if isinstance(value, GroBuilder):
@@ -45,24 +46,16 @@ class DatabaseAttr(Attribute):
             return value
 
     def from_db(self, value):
-        if issubclass(self.data_type, GroBuilder):
-            return self.data_type(int(value)) # kind of stupid thing to do
-        else:
-            return self.data_type(value)
+        return self.data_type(value)
 
 class DatabaseClass(GroBuilder, Searchable):
     db_attr_aliases = {}
     db_table_order = []
 
-    def _load_all_db(self):
+    def _load_db_attributes(self, attributes):
         db = self.get_database()
         
-        tables = []
-        attributes = []
-
-        for table, attrs in self._get_sql_tables().items():
-            tables.append(table)
-            attributes += attrs
+        tables = sets.Set([i.table for i in attributes])
 
         sql = 'SELECT '
         sql += ', '.join(['%s.%s AS %s' % (attr.table, self._get_real_name(attr), attr.name) for attr in attributes])
@@ -77,21 +70,27 @@ class DatabaseClass(GroBuilder, Searchable):
 
         keys = {}
         for i in self.primary:
-            keys[i.name] = getattr(self, '_' + i.name)
+            keys[i.name] = i.to_db(getattr(self, '_' + i.name))
 
-        row = db.query_1(sql, keys)
+        row, = db.query(sql, keys)
 
         for i in attributes:
-            value = i.from_db(row[i.name])
+            value = row[i.name]
+            if isinstance(value, pyPgSQL.PgSQL.PgNumeric):
+                value = int(value)
+            value = i.from_db(value)
             setattr(self, i.get_name_private(), value)
 
     def _save_all_db(self):
         db = self.get_database()
 
         for table, attributes in self._get_sql_tables().items():
+
+            # only update tables with changed attributes
             attributes = [i for i in attributes if i in self.updated]
             if not attributes:
                 continue
+
             sql = 'UPDATE %s SET %s' % (
                 table,
                 ', '.join(['%s=:%s' % (self._get_real_name(attr), attr.name) for attr in attributes])
@@ -144,8 +143,8 @@ class DatabaseClass(GroBuilder, Searchable):
             for i, attr in tables.items():
                 if i == table and attr.name in map:
                     tmp[cls._get_real_name(attr)] = map[attr.name]
-            sql = "INSERT INTO %s (%s) VALUES (:%s)" %
-                    (table, ", ".join(tmp.keys()), ", :".join(tmp.keys()))
+            sql = "INSERT INTO %s (%s) VALUES (:%s)" % (
+                table, ", ".join(tmp.keys()), ", :".join(tmp.keys()))
             db.execute(sql, tmp)
 
         new_obj = cls(**primary_keys)
@@ -171,10 +170,10 @@ class DatabaseClass(GroBuilder, Searchable):
     def _get_real_name(cls, attr, table=None):
         if table is None:
             table = attr.table
-        if table in cls.db_attr_aliases and attr.dbattr_name in cls.db_attr_aliases[table]:
-            return cls.db_attr_aliases[table][attr.dbattr_name]
+        if table in cls.db_attr_aliases and attr.name in cls.db_attr_aliases[table]:
+            return cls.db_attr_aliases[table][attr.name]
         else:
-            return attr.dbattr_name
+            return attr.name
 
     _get_real_name = classmethod(_get_real_name)
 
@@ -187,6 +186,8 @@ class DatabaseClass(GroBuilder, Searchable):
             main_attrs = []
             for attr in self.slots:
                 if isinstance(attr, DatabaseAttr):
+                    if attr.optional and attr.name not in vargs:
+                        continue
                     for i in cls.slots:
                         if i.name == attr.name:
                             main_attrs.append(attr)
@@ -194,6 +195,14 @@ class DatabaseClass(GroBuilder, Searchable):
                     tables[attr.table] = attr.table
 
             where = []
+            if len(tables) > 1:
+                # we need to make sure all primary keys are the same
+                jee = tables.keys()
+                for i in cls.primary:
+                    tmp = '%s.%s = %%s.%%s' % (jee[0], cls._get_real_name(i, jee[0]))
+                    for table in jee[1:]:
+                        where.append(tmp % (table, cls._get_real_name(i, table)))
+
             values = {}
             for key, value in vargs.items():
                 if value is None or key not in attributes.keys():
@@ -222,7 +231,10 @@ class DatabaseClass(GroBuilder, Searchable):
             for row in db.query(sql, values):
                 tmp = {}
                 for attr in main_attrs:
-                    tmp[attr.name] = attr.from_db(row['%s' % attr.name])
+                    value = row['%s' % attr.name]
+                    if isinstance(value, pyPgSQL.PgSQL.PgNumeric):
+                        value = int(value)
+                    tmp[attr.name] = attr.from_db(value)
                 objects.append(cls(**tmp))
             
             return objects
@@ -231,10 +243,27 @@ class DatabaseClass(GroBuilder, Searchable):
     create_search_method = classmethod(create_search_method)
     
     def build_methods(cls):
+        optionals = []
+        attributes = []
         for i in cls.slots:
-            setattr(cls, 'load_' + i.name, cls._load_all_db)
-        for i in cls.slots:
+            if isinstance(i, DatabaseAttr):
+                if i.optional:
+                    optionals.append(i)
+                else:
+                    attributes.append(i)
+
+        for i in optionals + attributes:
             setattr(cls, 'save_' + i.name, cls._save_all_db)
+
+        def load_db_attributes(self):
+            self._load_db_attributes(attributes)
+        for i in attributes:
+            setattr(cls, 'load_' + i.name, load_db_attributes)
+
+        for i in optionals:
+            def load_db_attribute(self):
+                self._load_db_attributes([i])
+            setattr(cls, 'load_' + i.name, load_db_attribute)
 
         super(DatabaseClass, cls).build_methods()
  
