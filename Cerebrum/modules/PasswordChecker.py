@@ -184,7 +184,7 @@ class PasswordChecker(DatabaseAccessor):
             if re.search(r'.+[A-Z].*[A-Z]', passwd):
                 return
             if re.search(r'^..[a-z]+$', passwd):
-                others[cpass[1:]] += 1
+                others[cpasswd[1:]] += 1
 
             for fname in cereconf.PASSWORD_DICTIONARIES:
                 two = npass[:2]
