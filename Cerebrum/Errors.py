@@ -70,6 +70,14 @@ class DocstringException(Exception):
         else:
             return doc or ""
 
+class PoliteException(SystemExit):
+    """Exception used to exit with an error message but no traceback.
+
+    The argument should be a complete explanation of the error, so no
+    traceback will be needed to identify and correct the problem.
+
+    It is a subclass of the SystemExit exception, used by sys.exit()."""
+
 
 class CerebrumError(DocstringException):           
     """Generic Cerebrum error"""
