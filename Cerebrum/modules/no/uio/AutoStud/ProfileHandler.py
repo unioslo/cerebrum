@@ -101,7 +101,10 @@ class Profile(object):
         if current_disk is not None:
             if not self.pc.autostud.student_disk.has_key(int(current_disk)):
                 return current_disk
-            for d in self.matcher.get_match("disk"):
+            matches = self.matcher.get_match("disk")[:]
+            if new_disk is not None:   # avoid moving users between div disks
+                matches.append({disk_spread: new_disk})
+            for d in matches:
                 if disk_spread not in d.keys():
                     continue            # Incorrect spread for this disk
                 d = d[disk_spread]
