@@ -1,20 +1,30 @@
 #!/usr/bin/env python
+# -*- coding: iso-8859-1 -*-
+
+# Copyright 2004, 2005 University of Oslo, Norway
+#
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 import Spine
 import Cerebrum_core.Errors as SpineErrors
 import config
 import unittest
 import sys
-from doc_exception import *
-
-class SyncError(DocstringException):
-    "General Sync error"
-
-class ServerError(SyncError):
-    "Server error"
-
-class LoginError(SyncError):
-    "Could not login"
+import errors
 
 class Sync:
     def __init__(self):
@@ -52,7 +62,7 @@ class Sync:
         try:
             self.spine = Spine.connect()
         except SpineErrors.ServerError:
-            raise ServerError    
+            raise errors.ServerError, "Could not connect to Spine"    
         user = config.sync.get("spine", "login")
         password = config.sync.get("spine", "password")
 
@@ -62,7 +72,7 @@ class Sync:
         try:
             self.ap = self.spine.login(user, password)
         except SpineErrors.LoginError, e:
-            raise LoginError, user
+            raise errors.LoginError, "Spine user %s" % user
    
     def _transaction(self):
         """Get a transaction from Spine. Note that you must
@@ -76,7 +86,7 @@ class Sync:
             try:
                 t = self.ap.new_transaction()         
             except SpineErrors.ServerError:
-                raise ServerError
+                raise errors.ServerError, "Could not create new Spine transaction"
         self._transactions.append(t)    
         return t    
 
@@ -147,6 +157,7 @@ class Group:
             # Posix 
             self.gid = group.get_posix_gid()
             dir(group)
+        # FIXME: Exception !??    
         except Exception, e:
             self.gid = None    
 
@@ -173,6 +184,7 @@ class Account:
             # POSIX-enabled features 
             # Full name
             self.fullname = account.get_gecos()
+        # FIXME: Exception !??    
         except Exception, e:
             #print "Not posix", self.name
             # owner = account.get_owner() 
