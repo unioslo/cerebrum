@@ -4,60 +4,69 @@ import re
 import pickle
 import sys
 
+import xml.sax
+
 from Cerebrum import Database,Constants,Errors
 from Cerebrum.modules.no.uio import OU
-import pprint
-pp = pprint.PrettyPrinter(indent=4)
 
+class StedData(xml.sax.ContentHandler):
+    def __init__(self, filename):
+        # What I'd like to do, it something like:
+        #   self.parser = xml.sax.make_parser()
+        #   self.parser.setContentHandler(self)
+        #   self.parser.setErrorHandler(xml.sax.handler.ErrorHandler())
+        # and have next() call self.parser.parse(file.readline())
+        # whenever more data needs to be parsed to fetch the next
+        # record. TODO
 
-class StedData(object):
-    colnames = """fakultetnr, instituttnr, gruppenr, forkstednavn, stednavn,
-        akronym, stedpostboks, fakultetnr_for_org_sted,
-        instituttnr_for_org_sted, gruppenr_for_org_sted,
-        opprettetmerke_for_oppf_i_kat, telefonnr,
-        adrtypekode_besok_adr, adresselinje1_besok_adr,
-        adresselinje2_besok_adr, poststednr_besok_adr,
-        poststednavn_besok_adr, landnavn_besok_adr,
-        adrtypekode_intern_adr, adresselinje1_intern_adr,
-        adresselinje2_intern_adr, poststednr_intern_adr,
-        poststednavn_intern_adr, landnavn_intern_adr,
-        adrtypekode_alternativ_adr, adresselinje1_alternativ_adr,
-        adresselinje2_alternativ_adr, poststednr_alternativ_adr,
-        poststednavn_alternativ_adr, landnavn_alternativ_adr"""
-    re_cols = re.compile(r"\s+", re.DOTALL)
-    colnames = re.sub(re_cols, "", colnames)
-    colnames = colnames.split(",")
+        # Ugly memory-wasting, inflexible way:
+        self.tp = TrivialParser()
+        xml.sax.parse(filename, self.tp)
 
-    def parse_line(self, line):
-	info = line.split("\034")
-        stedinfo = {}
-        for c in self.colnames:
-            stedinfo[c] = info.pop(0)
-            if(stedinfo[c] == ''):
-                stedinfo[c] = None
-        stedkode = get_stedkode_str( stedinfo['fakultetnr'],
-                                     stedinfo['instituttnr'],
-                                     stedinfo['gruppenr'] )
-        return (stedkode, stedinfo)
+    def __iter__(self):
+        return self
+
+    def next(self):
+        try:
+            return self.tp.steder.pop(0)
+        except IndexError:
+            raise StopIteration, "End of file"
+
+class TrivialParser(xml.sax.ContentHandler):
+    def __init__(self):
+        self.steder = []
+
+    def startElement(self, name, attrs):
+        if name == "sted":
+            tmp = {}
+            for k in attrs.keys():
+                tmp[k] = attrs[k].encode('iso8859-1')
+            self.steder.append(tmp)
+
+    def endElement(self, name): 
+        pass
 
 verbose = 1
-stedfile = "/u2/dumps/LT/sted.dta"
+stedfile = "/u2/dumps/LT/sted.dat.2"
 
 if len(sys.argv) == 2:
     stedfile = sys.argv[1]
 
 def main():
     Cerebrum = Database.connect()
-    steder = les_sted_info()
+    steder = {}
     co = Constants.Constants(Cerebrum)
     ou = OU.OU(Cerebrum)
     new_ou = OU.OU(Cerebrum)
     i = 1
     stedkode2ou = {}
     ou.clear()
-    for k in steder.values():
+    for k in StedData(stedfile):
         i = i + 1
 
+        steder[get_stedkode_str(k['fakultetnr'],
+                                k['instituttnr'],
+                                k['gruppenr'])] = k
         if verbose:
             print "Processing %s '%s'" % (
                 get_stedkode_str(k['fakultetnr'], k['instituttnr'],
@@ -146,17 +155,6 @@ def rec_make_stedkode(stedkode, ou, existing_ou_mappings, steder,
     else:
         ou.set_parent(co.perspective_lt, None)
     existing_ou_mappings[stedkode2ou[stedkode]] = org_stedkode_ou
-
-def les_sted_info():
-    steder = {}
-    f = file(stedfile)
-
-    dta = StedData()
-
-    for line in f.readlines():
-        (stedkode, sted) = dta.parse_line(line)
-        steder[stedkode] = sted
-    return steder
 
 def get_stedkode_str(faknr, instnr, groupnr):
     str = "%02d-%02d-%02d" % ( int(faknr), int(instnr), int(groupnr) )

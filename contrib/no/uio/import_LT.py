@@ -8,61 +8,48 @@ from Cerebrum import Database, Person, Constants, Errors
 from Cerebrum import cereconf
 from Cerebrum.modules.no.uio import OU
 from Cerebrum.modules.no import fodselsnr
+import xml.sax
 import pprint
 
-default_personfile = "/u2/dumps/LT/persons.dat"
+default_personfile = "/u2/dumps/LT/person.dat.2"
 
 class LTData(object):
     """This class is used to iterate over all users in LT. """
 
     def __init__(self, filename):
-        self.file = file(filename)
-        self.prev_data = None
+        # Ugly memory-wasting, inflexible way:
+        self.tp = TrivialParser()
+        xml.sax.parse(filename, self.tp)
 
     def __iter__(self):
         return self
 
     def next(self):
         """Returns a dict with data about the next user in LT."""
-        self.info = {}
-        while 1:
-            line = self.file.readline()
-            if not line:
-                if self.prev_data is None:
-                    raise StopIteration, "End of file"
-                else:
-                    data = None
-            else:
-                line = line.strip()
-                data = line.split('\034')
-                what, data = data[0], data[1:]
-            if not line or what == 'PERSON':
-                if self.prev_data is not None:
-                    pd = self.prev_data
-                    #  Dunno the syntax for this: "%02d%02d%02d%05d" %   [int(x) for x in data[0:3]]
-                    fnr = fodselsnr.personnr_ok("%02d%02d%02d%05d" % (int(pd[0]), int(pd[1]),
-                                                                      int(pd[2]), int(pd[3])))
-                    self.info['fnr'] = fnr
-                    pd = pd[4:]
-                    for x in ('navn' , 'p_title', 'faknr', 'instnr', 'gruppenr', 'adr1', 'adr2',
-                              'poststednr', 'poststednavn', 'landnavn', 'ptlf'):
-                        self.info[x] = pd.pop(0)
-                    self.prev_data = data
-                    return self.info
-                self.prev_data = data
-            elif what == 'KOMM':
-                if data[1] == '0': data[1] = ''
-                if len(data[2]) == 5 and not data[1]: data[1] = "228"
-                self.info['komm'] = self.info.get('komm', []) + [data]
-            elif what == 'TILS':
-                self.info['tils'] = self.info.get('tils', []) + [data]
-                self.info['A'] = 1  # redundant, remove?
-                if data[7] == 'VIT':
-                    self.info['V'] = 1
-            elif what == 'BIL':
-                self.info['bil'] = self.info.get('bil', []) +  [data]
-                self.info['M'] = 1  # redundant, remove?
-        return line
+        try:
+            return self.tp.personer.pop(0)
+        except IndexError:
+            raise StopIteration, "End of file"
+
+class TrivialParser(xml.sax.ContentHandler):
+    def __init__(self):
+        self.personer = []
+
+    def startElement(self, name, attrs):
+        if name in ("arbtlf", "komm", "tils", "bilag"):
+            tmp = {}
+            for k in attrs.keys():
+                tmp[k] = attrs[k].encode('iso8859-1')
+            self.p_data[name] = self.p_data.get(name, []) + [tmp]
+        elif name == "person":
+            self.p_data = {}
+            for k in attrs.keys():
+                self.p_data[k] = attrs[k].encode('iso8859-1')
+
+    def endElement(self, name): 
+        if name == "person":
+            self.personer.append(self.p_data)
+
 
 def conv_name(fullname):
     fullname = fullname.strip()
@@ -85,6 +72,9 @@ def main():
         personfile = default_personfile
         
     for person in LTData(personfile):
+        person['fnr'] = fodselsnr.personnr_ok(
+            "%02d%02d%02d%05d" % (int(person['fodtdag']), int(person['fodtmnd']),
+                                  int(person['fodtar']), int(person['personnr'])))
         print "Got %s" % person['fnr'],
         # pp.pprint(person)
         new_person.clear()
@@ -109,22 +99,29 @@ def main():
         bigtitle = stedkode = ''
         if person.has_key('tils'):
             for tils in person['tils']:
-                t_stedkode, snr, skode, pros, t_title = tils[0:5]
-                if pros > bigpros:
-                    bigpros = pros
-                    bigtitle = t_title
-                    if t_stedkode[0] != 0: stedkode = t_stedkode
-        if stedkode == '' and person.has_key('bil'):
-            stedkode = person['bil'][0][0]
+                # t_stedkode, snr, skode, pros, t_title = tils[0:5]
+                if tils['prosent_tilsetting'] > bigpros:
+                    bigpros = tils['prosent_tilsetting']
+                    bigtitle = tils['tittel']
+                    stedkode =  "%02d%02d%02d" % (int(tils['fakultetnr_utgift']),
+                                                  int(tils['instituttnr_utgift']),
+                                                  int(tils['gruppenr_utgift']))
+        if stedkode == '' and person.has_key('bilag'):
+            stedkode = person['bilag'][0]['stedkode']
         if stedkode == '':
-            stedkode = "%02d%02d%02d" % (int(person['faknr']), int(person['instnr']),
-                                    int(person['gruppenr']))
+            # TODO: Kan være NONE
+            stedkode = "%02d%02d%02d" % (int(person['fakultetnr_for_lonnsslip']),
+                                         int(person['instituttnr_for_lonnsslip']),
+                                         int(person['gruppenr_for_lonnsslip']))
 
         telefoner = faxer = []
         if person.has_key("komm"):
-            telefoner = ["%s%s" % (t[1], t[2]) for t in person['komm'] if t[0] == 'ARBTLF']
-            telefoner = telefoner + [t[2] or t[1] for t in person['komm'] if t[0] == 'TLF']
-            faxer = [t[2] or t[1] for t in person['komm'] if t[0] == 'FAX']
+            telefoner = ["%s%s" % (t['kommnrverdi'], t['telefonnr'])
+                         for t in person['komm'] if t['kommtypekode'] == 'ARBTLF']
+            telefoner = telefoner + [t['telefonnr'] or t['kommnrverdi']
+                                     for t in person['komm'] if t['kommtypekode'] == 'TLF']
+            faxer = [t['telefonnr'] or t['kommnrverdi']
+                     for t in person['komm'] if t['kommtypekode'] == 'FAX']
         if len(faxer) == 0:
             pass            # TODO: Hente fax fra stedkode 
         for tlf in telefoner:
@@ -134,12 +131,11 @@ def main():
 
         new_person.affect_addresses(co.system_lt, co.address_post)
         new_person.populate_address(co.address_post, addr="%s\n%s" %
-                                    (person['adr1'],
-                                     person['adr2']),
-                                    zip=person['poststednr'],
-                                    city=person['poststednavn'])
-
-        if(person.has_key('faknr')):
+                                    (person['adresselinje1_privatadresse'],
+                                     person['adresselinje2_privatadresse']),
+                                    zip=person['poststednr_privatadresse'],
+                                    city=person['poststednavn_privatadresse'])
+        if stedkode <> '':
             try:
                 fak, inst, gruppe = stedkode[0:2], stedkode[2:4], stedkode[4:6]
                 ou.find_stedkode(int(fak), int(inst), int(gruppe))
