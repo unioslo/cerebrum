@@ -7,8 +7,11 @@
 #def viewHistoryLog($table, $id)
 #set $headers = {'timestamp': $_("Timestamp"), 'icon': $_("Icon"), 'who': $_("Who"), 'message': $_("Message")}
 <div class="historylog">
-<h2>History log</h2><a href="$url("fullhistorylog/view?id=%s"%id)">View full history log</a>
-$SortedTableTemplate().sorted_table($table, $headers, $url("sortpri=%s"), $url("sortby=%s"), "history")
+<h2>History log</h2>
+$SortedTableTemplate().sorted_table($table, $headers, $url("sortpri=%s"), $url("sortby=%s"))
+<div class="actions">
+  <a href="$url("fullhistorylog/view?id=%s"%id)">View full history log</a>
+</div>
 </div>
 #end def
 
@@ -16,7 +19,7 @@ $SortedTableTemplate().sorted_table($table, $headers, $url("sortpri=%s"), $url("
 #set $headers = {'timestamp': $_("Timestamp"), 'icon': $_("Icon"), 'who': $_("Who"), 'message': $_("Message")}
 <div class="historylog">
 <h2>History log</h2>
-$SortedTableTemplate().sorted_table($table, $headers, $url("sortpri=%s"), $url("sortby=%s"), "history")
+$SortedTableTemplate().sorted_table($table, $headers, $url("sortpri=%s"), $url("sortby=%s"))
 </div>
 #end def
 
