@@ -237,7 +237,7 @@ class Account(EntityName, EntityQuarantine, Entity):
                creator_id, expire_date
         FROM [:table schema=cerebrum name=account_info]
         WHERE account_id=:a_id""", {'a_id' : account_id})
-        self.account_name = self.get_name(self.const.account_namespace)[0][2]
+        self.account_name = self.get_name(self.const.account_namespace)[2]
         try:
             del self.__in_db
         except AttributeError:
