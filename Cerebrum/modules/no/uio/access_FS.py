@@ -413,14 +413,13 @@ FROM fs.studieprogram"""
 	"""For hvert definerte Emne henter vi informasjon om 
            ansvarlig sted."""
         qry = """
-
-SELECT e.emnekode, e.versjonskode, e.institusjonsnr_reglement,
-       e.faknr_reglement, e.instituttnr_reglement, e.gruppenr_reglement, 
-       e.studienivakode
-FROM fs.emne e
-WHERE e.arstall_eks_siste is NULL OR
-      e.arstall_eks_siste < %s""" % self.year
-        return (self._get_cols(qry), self.db.query(qry))
+        SELECT e.emnekode, e.versjonskode, e.institusjonsnr_reglement,
+               e.faknr_reglement, e.instituttnr_reglement,
+               e.gruppenr_reglement, e.studienivakode
+        FROM fs.emne e
+        WHERE e.arstall_eks_siste is NULL OR
+              e.arstall_eks_siste <= :year"""
+        return (self._get_cols(qry), self.db.query(qry, {'year': self.year}))
 
 
     def GetStudinfRegkort(self):
