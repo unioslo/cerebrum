@@ -253,7 +253,7 @@ class PosixUser(Account.Account):
         firstinit = None
         if m is not None:
             # at least three names
-            firstinit = m.group(0)
+            firstinit = m.group(1)
             firstinit = re.sub(r'([- ])(\S)[^- ]*', r'\1\2', firstinit)
             firstinit = re.sub(r'^(\S).*?($|[- ])', r'\1', firstinit)
             firstinit = re.sub(r'[- ]', '', firstinit)
