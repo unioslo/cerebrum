@@ -1,6 +1,9 @@
 from threading import Lock
 import xmlrpclib
 import re
+from Cerebrum.modules.bofhd.utils import xmlrpc_to_native
+from Cerebrum.modules.bofhd.utils import native_to_xmlrpc
+
 
 # these methods are available directly under the _server connection
 # argument.
@@ -26,7 +29,7 @@ class CommandWrapper(FunctionWrapper):
     def __call__(self, *args):
         return self.serverconn.run_command(self.methodname, *args)
     def doc(self):
-        return self.serverconn._help_Method(self.methodname)
+        return self.serverconn._help_method(self.methodname)
     __doc__ = property(doc)    
 
 class ServerConnection:
@@ -110,7 +113,9 @@ class ServerConnection:
         self._acquire()
         try:
             method = getattr(self._server, methodname)
-            return method(*args)
+            args = native_to_xmlrpc(args)
+            result = method(*args)
+            return xmlrpc_to_native(result)
         finally:
             self._release()
          
