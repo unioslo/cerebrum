@@ -102,7 +102,6 @@ class ChangeLog(object):
             where.append("change_type_id IN("+", ".join(
                 ["%i" % x for x in types])+")")
         where = "WHERE (" + ") AND (".join(where) + ")"
-        ret = []
         return self.query("""
         SELECT tstamp, change_id, subject_entity, change_type_id, dest_entity,
                change_params, change_by, change_program
