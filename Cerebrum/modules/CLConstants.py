@@ -131,9 +131,9 @@ class CLConstants(Constants.Constants):
     quarantine_add = _ChangeTypeCode('quarantine', 'add',
                                      'add quarantine for %(subject)s')
     quarantine_mod = _ChangeTypeCode('quarantine', 'mod',
-                                     'add quarantine for %(subject)s')
+                                     'mod quarantine for %(subject)s')
     quarantine_del = _ChangeTypeCode('quarantine', 'del',
-                                     'add quarantine for %(subject)s')
+                                     'del quarantine for %(subject)s')
     entity_add = _ChangeTypeCode('entity', 'add', 'add entity %(subject)s')
     entity_del = _ChangeTypeCode('entity', 'del', 'del entity %(subject)s')
     entity_name_add = _ChangeTypeCode('entity_name', 'add',
@@ -145,11 +145,11 @@ class CLConstants(Constants.Constants):
     entity_cinfo_add = _ChangeTypeCode('entity_cinfo', 'add',
                                        'add entity_cinfo for %(subject)s')
     entity_cinfo_del = _ChangeTypeCode('entity_cinfo', 'del',
-                                       'add entity_cinfo for %(subject)s')
+                                       'del entity_cinfo for %(subject)s')
     entity_addr_add = _ChangeTypeCode('entity_addr', 'add',
                                       'add entity_addr for %(subject)s')
     entity_addr_del = _ChangeTypeCode('entity_addr', 'del',
-                                      'add entity_addr for %(subject)s')
+                                      'del entity_addr for %(subject)s')
 
     def __init__(self, database):
         super(CLConstants, self).__init__(database)
