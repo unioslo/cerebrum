@@ -113,5 +113,11 @@ module Cerebrum_core{
             string explanation;
         };
 
+        /**
+        * Error raised when no result can be returned
+        */
+        exception NotFoundError{
+            string explanation;
+        };
     };
 };
