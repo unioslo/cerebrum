@@ -147,6 +147,8 @@ class BofhdExtension(object):
             posix_user.write_db()
         except self.Cerebrum.DatabaseError, m:
             raise CerebrumError, "Database error: %s" % m
+        operator.store_state("new_account_passwd", {'account_id': int(account.entity_id),
+                                                    'password': passwd})
         return {'password': passwd}
 
     ## bofh> account type <accountname>
@@ -232,14 +234,14 @@ class BofhdExtension(object):
 
     ## bofh> group delete <name>
     all_commands['group_delete'] = Command(("group", "delete"),
-                                           GroupName("existing"))
+                                           GroupName(ptype="existing"))
     def group_delete(self, operator, groupname):
         """Deletes the group 'groupname'"""
         raise NotImplementedError, "Feel free to implement this function"
 
     ## bofh> group expand <groupname>
     all_commands['group_expand'] = Command(("group", "expand"),
-                                           GroupName("existing"))
+                                           GroupName(ptype="existing"))
     def group_expand(self, operator, groupname):
         """Do full group expansion; list resulting members and their
         entity types."""
@@ -247,7 +249,7 @@ class BofhdExtension(object):
 
     ## bofh> group expire <name> <yyyy-mm-dd>
     all_commands['group_expire'] = Command(("group", "expire"),
-                                           GroupName("existing"), Date())
+                                           GroupName(ptype="existing"), Date())
     def group_expire(self, operator, groupname, date):
         """Set group expiration date for 'groupname' to 'date'"""
         group = self._get_group(groupname)
@@ -259,7 +261,7 @@ class BofhdExtension(object):
 
     ## bofh> group group <groupname>
     all_commands['group_group'] = Command(("group", "group"),
-                                          GroupName("existing"))
+                                          GroupName(ptype="existing"))
     def group_group(self, operator, groupname):
         """List all groups where 'groupname' is a (direct or
         indirect) member, and type of membership (union, intersection
@@ -268,14 +270,14 @@ class BofhdExtension(object):
 
     ## bofh> group info <name>
     all_commands['group_info'] = Command(("group", "info"),
-                                         GroupName("existing"))
+                                         GroupName(ptype="existing"))
     def group_info(self, operator, groupname):
         """Returns some info about 'groupname'"""
         raise NotImplementedError, "Feel free to implement this function"
 
     ## bofh> group list <groupname>
     all_commands['group_list'] = Command(
-        ("group", "list"), GroupName("existing"),
+        ("group", "list"), GroupName(ptype="existing"),
         fs=FormatSuggestion("%i", ("member_id",), hdr="Members ids"))
     def group_list(self, operator, groupname):
         """List direct members of group (with their entity types), in
@@ -286,27 +288,55 @@ class BofhdExtension(object):
 
     ## bofh> group person <person_id>
     all_commands['group_person'] = Command(("group", "person"),
-                                           GroupName("existing"))
+                                           GroupName(ptype="existing"))
     def group_person(self, operator, personid):
         """List all groups where 'personid' is a (direct or
         indirect) member, and type of membership (union, intersection
         or difference)."""
         raise NotImplementedError, "Feel free to implement this function"
 
-    ## bofh> group remove <entityname+> <groupname+> [<op>]
-    # TODO: "entityname" er litt vagt, skal man gjette entitytype?
+    ## bofh> group remove <accountname+> <groupname+> [<op>]
     all_commands['group_remove'] = Command(("group", "remove"),
-                                           EntityName(ptype="source", repeat=True),
-                                           GroupName("existing", repeat=True),
+                                           AccountName(ptype="member", repeat=True),
+                                           GroupName(ptype="remove from", repeat=True),
                                            GroupOperation(optional=True))
-    def group_remove(self, operator, entityname, groupname, op=None):
-        """Remove 'entityname' from 'groupname' using specified
+    def group_remove(self, operator, src_name, dest_group,
+                     group_operator=None):
+        """Remove 'acountname' from 'groupname' using specified
         operator"""
-        raise NotImplementedError, "Feel free to implement this function"
+        return self._group_remove(operator, src_name, dest_group,
+                               group_operator, type="account")
 
+    ## bofh> group gremove <accountname+> <groupname+> [<op>]
+    all_commands['group_gremove'] = Command(("group", "gremove"),
+                                            GroupName(ptype="member", repeat=True),
+                                            GroupName(ptype="remove from", repeat=True),
+                                            GroupOperation(optional=True))
+    def group_gremove(self, operator, src_name, dest_group,
+                      group_operator=None):
+        """Remove 'groupname' from 'groupname' using specified
+        operator"""
+        return self._group_remove(operator, src_name, dest_group,
+                               group_operator, type="group")
+
+    def _group_remove(self, operator, src_name, dest_group,
+                      group_operator=None, type=None):
+        group_operator = self._get_group_opcode(group_operator)
+        group_s = account_s = None
+        if type == "group":
+            src_entity = self._get_group(src_name)
+        elif type == "account":
+            src_entity = self._get_account(src_name)
+        group_d = self._get_group(dest_group)
+        try: 
+            group_d.remove_member(src_entity, group_operator)
+        except self.Cerebrum.DatabaseError, m:
+            raise CerebrumError, "Database error: %s" % m
+        return "OK"   # TBD: returns OK if user is not member of group.  correct?
+        
     ## bofh> group visibility <name> <visibility>
     all_commands['group_visibility'] = Command(("group", "visibility"),
-                                               GroupName("existing"),
+                                               GroupName(ptype="existing"),
                                                GroupVisibility())
     def group_visibility(self, operator, groupname, visibility):
         """Change 'groupname's visibility to 'visibility'"""
