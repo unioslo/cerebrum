@@ -6,10 +6,8 @@ $Id$
 Tegnsett, spesial-tegn, quoting
 -------------------------------
 
-Om man ønsker å angi verdien '-' eller '?' i et argument, må dette
-quotes -- enten inne i fnutter (som i denne setningen :-), eller ved å
-prefikse med backslash.  Klienten forstår både enkle og doble fnutter,
-men særbehandler ikke backslash på noen måte i slike kontekster.
+Klienten forstår både enkle og doble fnutter, men særbehandler ikke
+backslash på noen måte i slike kontekster.
 
 Vil angi: foo"bar'xyzzy med \backslash
 Quotes som: foo\"bar\'xyzzy\ med\ \\backslash
@@ -20,30 +18,35 @@ osv.
 Default verdier/Optional attributter
 ------------------------------------
 
+Med spesifikasjonen menes her den tekstlige beskrivelsen av kommandoer
+i dette dokumentet.
+
 Argumenter som muligens har default-verdi angis i spesifikasjonen med
-"=" på slutten.  I klienten kan man skrive "-" i stedet for å angi
-noen verdi for slike argumenter, med følgende resultat:
+"=" på slutten.  Argumenter som er valgfrie, angis inne i [].
 
-  * Argumentet som er angitt som "-" får satt sin default-verdi.
-  * Dersom "-"-argumentet var siste argument på linja, får de
-    resterende argumentene med default-verdi også sine
-    default-verdier.
-  * Finnes det ikke-"-"-argumenter på slutten av linja, behandles
-    disse på vanlig måte.  Evt. ikke-utfylte argumenter vil da
-    promptes etter.
-  * Om man vil påtvinge prompt på et argument med default-verdi kan
-    man angi '?' for dette argumentet.
-  * Argumenter uten default-verdi som kommer etter argumenter med
-    default-verdi i kommandoen *må* alltid angis.  Gjør man ikke det,
-    vil disse derfor promptes etter.
+  * Hvis man har oppgitt så få argumenter at noen gjenværende
+    argumenter har default verdi (evt er vanlige parametere), vil man
+    kastes inn i prompt modus.  Klienten spør da serveren både hva
+    promptet skal være, og etter dens default verdi (hvis det viser
+    seg hensiktsmessig, kan noen av disse verdiene encodes i Command
+    objektet slik at klienten ikke trenger spørre severen).
+  * Dersom man tidligere på komandolinjen har oppgitt en tuple, gir
+    ikke serveren noen default verdi.
+  * Klienten husker default verdien, og sender denne til serveren.
+  * Når man i klienten taster <enter> for en parameter som har default
+    verdi, settes default verdi inn.
+  * Når man i klienten taster <enter> for en parameter som er
+    optional, sendes den tomme strengen. (TBD: dette gjør det umulig å
+    sende "null".  Er det OK?  Kan løses ved å angi noe i Parameter
+    objektet)
+  * Dersom det bare er optional paremetere igjen på komandolinjen,
+    havner man ikke i prompt modus.
+  * Har man først havnet i prompt modus vil man promptes for alle
+    resterende parametere.
 
-Argumenter som er valgfrie, angis inne i [].  Om et slikt argument
-ikke oppgis som en del av kommandoen, vil man ikke automatisk gå i
-prompt-modus for å få tak en verdi for dette.  Man kan påtvinge et
-prompt ved å oppgi verdien '?'.  Er man allerede i prompt-modus i det
-man kommer til et valgfritt argument, vil det promptes også etter
-dette.
-
+I denne versjonen implementerer vi ikke tab-completion.  Det kommer
+trolig på et senere tidspunkt, og vil sansynligvis være en enkel
+utvidelse av funksjonaliteten for å hente default-verdi.
 
 Person - Create
 ---------------
