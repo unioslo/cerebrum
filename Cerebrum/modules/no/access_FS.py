@@ -998,7 +998,7 @@ class Undervisning(FSObject):
               fp.faknr_ansatt AS faknr,
               fp.instituttnr_ansatt AS instituttnr,
               fp.gruppenr_ansatt AS gruppenr,
-              fp.status_aktiv, 'J' AS status_publiseres,
+              fp.status_aktiv, p.status_reserv_lms AS status_publiseres,
               '%s' AS terminkode, '%s' AS arstall,
               p.kjonn, p.status_dod
         FROM fs.person p, fs.fagperson fp
