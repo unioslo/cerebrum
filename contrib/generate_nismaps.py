@@ -3,6 +3,7 @@
 from Cerebrum import Database,Constants,Errors
 from Cerebrum import Person
 from Cerebrum import Account
+from Cerebrum.modules import PosixUser
 import pprint
 import time
 
@@ -10,37 +11,38 @@ Cerebrum = Database.connect()
 person = Person.Person(Cerebrum)
 co = Constants.Constants(Cerebrum)
 account = Account.Account(Cerebrum)
+posix_user = PosixUser.PosixUser(Cerebrum)
 person = Person.Person(Cerebrum)
 
 def generate_passwd():
     pp = pprint.PrettyPrinter(indent=4)
     count = 0
-    for id in account.get_all_posix_users():
+    for id in posix_user.get_all_posix_users():
         id = id[0]
-        account.find_posixuser(id)
+        posix_user.find(id)
         # account.find(id)
 
         # TODO: The value_domain should be fetched from somewhere
         # The array indexes should be replaced with hash-keys
-        uname = account.get_name(co.entity_accname_default)[0][2]
+        uname = posix_user.get_name(co.account_namespace)[0][2]
         # TODO: Something should set which auth_type to use for this map
         try:
-            passwd = account.get_account_authentication(co.auth_type_md5)
+            passwd = posix_user.get_account_authentication(co.auth_type_md5)
         except Errors.NotFoundError:
             passwd = '*'
         
-        default_group = "posix_group.find(%s)" % account.gid
-        gecos = account.gecos
+        default_group = "posix_group.find(%s)" % posix_user.gid
+        gecos = posix_user.gecos
         if gecos is None:
-            gecos = account.get_gecos()
-        shell = Constants._PosixShellCode(int(account.shell)).description
+            gecos = posix_user.get_gecos()
+        shell = Constants._PosixShellCode(int(posix_user.shell)).description
         print "%s:%s:%s:%s:%s:%s:%s" %(
             uname,
             passwd,
-            account.user_id,
+            posix_user.posix_uid,
             default_group,
             gecos,
-            account.home,
+            posix_user.home,
             shell)
 	# convert to 7-bit
 
