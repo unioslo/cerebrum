@@ -4723,13 +4723,14 @@ class BofhdExtension(object):
         host = None
         if home.find(":") != -1:
             host, path = home.split(":")
+            return None, ':'+path   # We currently don't use the host part
         else:
             path = home
         disk = Utils.Factory.get('Disk')(self.db)
         try:
             disk.find_by_path(path, host)
             disk_id = disk.entity_id
-            home = None
+            path = None
         except Errors.NotFoundError:
             disk_id = None
         return disk_id, path
