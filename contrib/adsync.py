@@ -21,7 +21,6 @@
 import sys
 import time
 import re
-import socket 
 
 import cereconf
 import adutils
@@ -30,28 +29,74 @@ from Cerebrum import Errors
 from Cerebrum import OU
 from Cerebrum import Account
 from Cerebrum import Group
+from Cerebrum import Entity
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import ADAccount
 from Cerebrum.modules import ADObject
+
 
 db = Factory.get('Database')()
 co = Factory.get('Constants')(db)
 ad_object = ADObject.ADObject(db)
 ad_account = ADAccount.ADAccount(db)
 ou = OU.OU(db)
+ent_name = Entity.EntityName(db)
 group = Group.Group(db)
 account = Account.Account(db)
 
 delete_users = 0
 delete_groups = 0
-max_nmbr_users = 50
 domainusers = []
+#For test,
+#max_nmbr_users = 100
+
+def full_ou_sync():
+
+    #Will not delete OUs only create new ones.
+    print 'INFO: Starting full_ou_sync at', adutils.now()
+    OUs = []
+    root = cereconf.AD_CERE_ROOT_OU_ID   
+    sock.send('LORGS&LDAP://%s\n' % (cereconf.AD_LDAP))
+    receive = sock.read(out=0)
+    res=[]
+    for line in receive:
+        for l in line.splitlines():
+            res.append(l[16:])
+    OUs = res[1:-1]
+    if not 'OU=%s,%s' % (cereconf.AD_LOST_AND_FOUND,cereconf.AD_LDAP) in OUs:
+        sock.send('NEWORG&LDAP://%s&%s&%s\n' % ( cereconf.AD_LDAP, cereconf.AD_LOST_AND_FOUND, cereconf.AD_LOST_AND_FOUND))
+        if sock.read() != ['210 OK']:
+            print "WARNING: create OU AD_LOST_AND_FOUND failed"
+
+    def find_children(parent_id,parent_acro):
+
+        ou.clear()
+        ou.find(parent_id)
+        chldrn = ou.list_children(co.perspective_lt)
+
+        for child in chldrn:
+            name=parent_acro
+            ou.clear()
+            ou.find(child['ou_id'])
+            if ou.acronym:
+                name = 'OU=%s,%s' % (ou.acronym,name)
+                if not name.replace('/','\/') in OUs:
+                    
+                    print "INFO:creating ",ou.acronym," in ",parent_acro
+                    sock.send('NEWORG&LDAP://%s&%s&%s\n' % ( parent_acro, ou.acronym, ou.acronym ))
+                    if sock.read() != ['210 OK']:
+                        print "WARNING:failed creating ",ou.acronym," in ",parent_acro
+                        
+            chldrn = ou.list_children(co.perspective_lt)
+            find_children(child['ou_id'], name)
+
+    children = find_children(root,cereconf.AD_LDAP)
+
 
 
 def full_user_sync():
     """Checking each user in AD, and compare with cerebrum information."""
-    # TODO: mangler setting av passord ved oppretting av nye brukere.
-    # Mangler en mer stabil sjekk på hvilken OU brukeren hører hjemme
+    # TODO:Mangler en mer stabil sjekk på hvilken OU brukeren hører hjemme
     # utfra cerebrum
         
     global domainusers
@@ -59,27 +104,29 @@ def full_user_sync():
     adusers = {}
     adusers = get_ad_objects('user')
     sock.send('LUSERS&LDAP://%s&1\n' % (cereconf.AD_LDAP))
-    receive = sock.read()
-
+    receive = sock.read(out=0)
     
     for line in receive[1:-1]:
         fields = line.split('&')
         domainusers.append(fields[3])
         if fields[3] in adusers:
             user_id = adusers[fields[3]]
-##          OU sjekk er ikke et krav til UiO Cerebrum. 
-##          ou_seq = adutils.get_cere_ou(user_id[1])
-##          if ou_seq not in adutils.get_ad_ou(fields[1]):
-##              sock.send('MOVEOBJ&%s&LDAP://OU=%s,%s\n' % (
-##                    fields[1], ou_seq, cereconf.AD_LDAP))
-##                if sock.read() != ['210 OK']:
-##                    print "WARNING: move user failed, ", fields[3], 'to', ou_seq
+            
+            if 'CN=%s,%s' % (fields[3],user_id[1]) != fields[1][7:]:
+                sock.send('MOVEOBJ&%s&LDAP://%s\n' % (fields[1], user_id[1]))
+                if sock.read() != ['210 OK']:
+                    print "WARNING: move user failed, ", fields[1], 'to', user_id[1]
+
             (full_name, account_disable, home_dir, cereconf.AD_HOME_DRIVE,
-             login_script) = adutils.get_user_info(user_id[0])            
+             login_script) = adutils.get_user_info(user_id[0],fields[3])            
             # TODO: cereconf.AD_CANT_CHANGE_PW is set as initial value for
-            # a new user, the value is not changeable afterwards. Issue should b            # e worked out in the adsiservice 
+            # a new user, the value is not changeable afterwards. Issue should be
+            # worked out in the adsiservice 
             try:
-                if ((full_name, account_disable, cereconf.AD_HOME_DRIVE, home_dir,login_script) != (fields[9],fields[17],fields[15], fields[7], fields[13])):
+#                print "cere:",full_name, account_disable, cereconf.AD_HOME_DRIVE, home_dir,login_script
+#                print "ad  :",fields[9],fields[17],fields[15], fields[7], fields[13]
+                if ((full_name, account_disable, cereconf.AD_HOME_DRIVE, str(home_dir),str(login_script)) != (fields[9],fields[17],fields[15], fields[7], fields[13])):
+                    
                     sock.send('ALTRUSR&%s/%s&fn&%s&dis&%s&hdir&%s&hdr&%s&ls&%s&pexp&%s&ccp&%s\n' % ( cereconf.AD_DOMAIN, fields[3], full_name, account_disable, home_dir, cereconf.AD_HOME_DRIVE, login_script, cereconf.AD_PASSWORD_EXPIRE, cereconf.AD_CANT_CHANGE_PW))
                     
                     if sock.read() != ['210 OK']:
@@ -109,20 +156,35 @@ def full_user_sync():
     for user in adusers:
         # The remaining accounts in the list should be created.
         user_id = adusers[user]
-##      OUer ikke et krav i UiO Cerebrum...enda  
-##        ou_struct = adutils.get_cere_ou(user_id[1])
-        sock.send('NEWUSR&LDAP://CN=Users,%s&%s&%s\n' % (cereconf.AD_LDAP,user, user))
+        sock.send('NEWUSR&LDAP://%s&%s&%s\n' % (user_id[1] ,user, user))
         if sock.read() == ['210 OK']:
             print 'INFO: created user, ', user, 'in Users'
-            passw = adutils.get_password(user_id[0])
+            #Set a random password on the created user, and remove & characters.
+            passw = account.make_passwd(user)
+            passw=passw.replace('%','%25')
+            passw=passw.replace('&','%26')
             (full_name,account_disable,home_dir,cereconf.AD_HOME_DRIVE,login_script)\
-                    = adutils.get_user_info(user_id[0])
+                    = adutils.get_user_info(user_id[0],user)
             sock.send('ALTRUSR&%s/%s&pass&%s&fn&%s&dis&%s&hdir&%s&hdr&%s&ls&%s&pexp&%s&ccp&%s\n' % (cereconf.AD_DOMAIN,user,passw,full_name,\
                     account_disable,home_dir,cereconf.AD_HOME_DRIVE,login_script,cereconf.AD_PASSWORD_EXPIRE,cereconf.AD_CANT_CHANGE_PW))            
-            sock.read()
+            if sock.read() != ['210 OK']:
+                sock.send('DELUSR&%s/%s\n' % (cereconf.AD_DOMAIN, user))
+                if sock.read() != ['210 OK']:
+                    print 'FATAL: Error deleting account after failed alteration of new user:', user, ', probably unsecure password.'                    
         else:
-            print 'WARNING: create user failed, ', user, 'in Users'
+            print 'WARNING: create user failed, ', user, ' in ',user_id[1]
 
+
+#For testing of Group sync..
+def gen_domain_users():
+
+    global domainusers
+    print 'INFO: Starting gen_domain_users at', adutils.now()
+    sock.send('LUSERS&LDAP://%s&1\n' % (cereconf.AD_LDAP))
+    receive = sock.read(out=0)    
+    for line in receive[1:-1]:
+        fields = line.split('&')
+        domainusers.append(fields[3])
 
 
 
@@ -133,48 +195,57 @@ def full_group_sync():
     adgroups = {}
     adgroups = get_ad_objects(int(co.entity_group))
     sock.send('LGROUPS&LDAP://%s\n' % (cereconf.AD_LDAP))
-    receive = sock.read()
+    receive = sock.read(out=0)
     for line in receive[1:-1]:
         fields = line.split('&')
         if fields[3] in adgroups:
+            grp_id = adgroups[fields[3]]
             print 'INFO: updating group:', fields[3]
-            sock.send('LGROUP&%s/%s\n' % (cereconf.AD_DOMAIN, fields[3]))
-            res = sock.read()
+            
+            if 'CN=%s,%s' % (fields[3],grp_id[1]) != fields[1][7:]:
+                sock.send('MOVEOBJ&%s&LDAP://%s\n' % (fields[1], grp_id[1]))
+                if sock.read() != ['210 OK']:
+                    print "WARNING: move user failed, ", fields[1], 'to', grp_id[1]
+
             # AD service only list user members not group members of
             # groups, therefore Cerebrum groups are expanded to a list
             # of users.
             group.clear()
-            group.find(adgroups[fields[3]][0])
+            group.find(grp_id[0])
             memblist = []
             for grpmemb in group.get_members():
-                ad_object.clear()
                 try:
-                    ad_object.find(grpmemb)
+                    ent_name.clear()
+                    ent_name.find(grpmemb)                   
+                    if ent_name.has_spread(co.spread_uio_ad_account):
+                        name = ent_name.get_name(int(co.account_namespace))
+                        if not name in memblist:
+                            memblist.append(name)
                 except Errors.NotFoundError:
                     print "WARNING: Could not find groupmemb,", grpmemb
-                    pass
-                name = ad_object.get_name(int(co.account_namespace))
-                memblist.append(name)
-            for l in res:
-                if l=='210 OK': break
-                p = re.compile(cereconf.AD_DOMAIN+'/(.+)')
-                m = p.search(l)
-                member = m.group(1)
-                if member not in memblist:
-                    sock.send('DELUSRGR&%s/%s&%s/%s\n' % (cereconf.AD_DOMAIN, m.group(1), cereconf.AD_DOMAIN, fields[3]))
-                    if sock.read() != ['210 OK']:
-                        print 'WARNING: Failed delete', member, 'from', fields[1]
-                else:
-                    memblist.remove(member)                    
+
+            sock.send('LGROUP&%s/%s\n' % (cereconf.AD_DOMAIN, fields[3]))
+            result = sock.read()
+            for line in result:
+                for l in line.splitlines():
+                    if l != '210 OK':
+                        mem = l.split('&')
+                        if mem[1] in memblist:
+                            memblist.remove(mem[1])
+                        else:
+                            sock.send('DELUSRGR&%s/%s&%s/%s\n' % (cereconf.AD_DOMAIN, mem[1], cereconf.AD_DOMAIN, fields[3]))
+                            if sock.read() != ['210 OK']:
+                                print 'WARNING: Failed delete', member, 'from', fields[1]
+                                  
             for memb in memblist:
                 if memb in domainusers:
-                    sock.send('ADDUSRGR&%s/%s&%s/%s\n' % (cereconf.AD_DOMAIN, memb,
-                                                      cereconf.AD_DOMAIN, fields[3]))
+                    sock.send('ADDUSRGR&%s/%s&%s/%s\n' % (cereconf.AD_DOMAIN, memb, cereconf.AD_DOMAIN, fields[3]))
                     if sock.read() != ['210 OK']:
                         print 'WARNING: Failed add', memb, 'to', fields[3] 
                 else:
                     print "WARNING:groupmember",memb,"in group",fields[3],"not in AD"
             del adgroups[fields[3]]
+
         elif fields[3] in cereconf.AD_DONT_TOUCH:
             pass
         else:
@@ -189,26 +260,27 @@ def full_group_sync():
                     if sock.read() != ['210 OK']:
                         print 'WARNING: Error moving:', fields[3], 'to', \
                               cereconf.AD_LOST_AND_FOUND
+
+
     for grp in adgroups:
         # The remaining is new groups and should be created.
 
-##      Ikke OU støtte i UIO versjonen.
-##        grp_ou = adgroups[grp]
-##        ou_struct = adutils.get_cere_ou(grp_ou[1])
-        sock.send('NEWGR&LDAP://CN=Users,%s&%s&%s\n' % ( cereconf.AD_LDAP, grp, grp))
+        sock.send('NEWGR&LDAP://%s&%s&%s\n' % ( adgroups[grp][1], grp, grp))
         if sock.read() == ['210 OK']:
             group.clear()
             group.find(adgroups[grp][0])
             for grpmemb in group.get_members():
                 try:
-                    ad_object.clear()
-                    ad_object.find(grpmemb)
-                    name = ad_object.get_name(int(co.account_namespace))
-                    print 'INFO:Add', name, 'to', grp
+                    ent_name.clear()
+                    ent_name.find(grpmemb)
+                    name = ent_name.get_name(int(co.account_namespace))
                     if name in domainusers:
+                        print 'INFO:Add', name, 'to', grp
                         sock.send('ADDUSRGR&%s/%s&%s/%s\n' % (cereconf.AD_DOMAIN, name, cereconf.AD_DOMAIN, grp))
                         if sock.read() != ['210 OK']:
                             print 'WARNING: Failed add', name, 'to', grp
+                    else:
+                        print "WARNING: groupmember",name,"in group",grp,"not in AD"
                 except Errors.NotFoundError:
                     print "WARNING: Could not find group member ",grpmemb," in db"
         else:
@@ -226,6 +298,7 @@ def get_args():
 
 
 def get_ad_objects(entity_type):
+    #get all objects with spread ad, in a hash identified by name with id and ou.
     global max_nmbr_users
     grp_postfix = ''
     if entity_type == 'user':
@@ -238,31 +311,62 @@ def get_ad_objects(entity_type):
         grp_postfix = cereconf.AD_GROUP_POSTFIX
         spread = int(co.spread_uio_ad_group)
     ulist = {}
-    count = 0
-    for row in ad_object.list_ad_objects(e_type):
+    count = 0    
+
+    ou.clear()
+    ou.find(cereconf.AD_CERE_ROOT_OU_ID)
+    ourootname='OU=%s' % ou.acronym
+    
+    for row in ent_name.list_all_with_spread(spread):
+        count = count+1
         if count > max_nmbr_users: break
         id = row['entity_id']
-        ad_object.find(id)
-        #test:
-        #if not ad_object.got_spread(spread):
-        #    ad_object.add_spread(spread)
-        #    ad_object.commit()
-        if ad_object.has_spread(spread):
-            count = count+1                   
-            ou_id = row['ou_id']
-            id_and_ou = id, ou_id
-            name = ad_object.get_name(namespace)
+        try:
+            ad_object.clear()
+            ad_object.find(id)
+            ou_path = adutils.id_to_ou_path(ad_object.ou_id,ourootname)
+            id_and_ou = id, ou_path 
+            name = ad_object.get_name(namespace)            
             obj_name = '%s%s' % (name,grp_postfix)
             ulist[obj_name]=id_and_ou
-        ad_object.clear()
-    print "INFO: Found %s nmbr of objects" % (count)    
+        except Errors.NotFoundError:
+            if entity_type == 'user':
+                pri_ou = get_primary_ou(id,namespace):
+                    
+                if not pri_ou:
+                    count = count - 1
+                    print "WARNING: No account_type information for object ", id
+                else:    
+                    crbrm_ou = adutils.id_to_ou_path( pri_ou ,ourootname)
+                    id_and_ou = id, crbrm_ou
+                    obj_name = '%s' % (name)
+                    ulist[obj_name]=id_and_ou    
+
+            else:
+                #Group not registered in ad_object table.
+                ent_name.clear()
+                ent_name.find(id)
+                name = ent_name.get_name(namespace)
+                if cereconf.AD_DEFAULT_OU == '0':
+                    crbrm_ou = 'CN=Users,%s' % cereconf.AD_LDAP
+                else:
+                    crbrm_ou = adutils.get_crbrm_ou(cereconf.AD_DEFAULT_OU)
+                id_and_ou = id, crbrm_ou
+                obj_name = '%s%s' % (name,grp_postfix)
+                ulist[obj_name]=id_and_ou
+                
+    print "INFO: Found %s nmbr of objects" % (count)
     return ulist
 
 
+
+                    
 if __name__ == '__main__':
     sock = adutils.SocketCom()    
     arg = get_args()
+    full_ou_sync()
     full_user_sync()
+#    gen_domain_users()
     full_group_sync()
     sock.close()
 
