@@ -6,19 +6,24 @@ import sys
 import os
 import re
 
+
+doc_dir = os.path.realpath(os.path.join(
+    os.path.dirname(sys.argv[0]), '..'))
+script_dir = os.path.join(doc_dir, 'scripts')
+
 dest_dir = ",build"
-script_dir = os.path.join(os.environ['CEREDOC'], 'scripts')
 rst2html = '%s/rst2html.py' % script_dir
 rst2docbook = '%s/rst2docbook.py' % script_dir
-#rst2docbook = './rst2docbook.py'
+
+os.chdir(doc_dir)
 
 # docutils don't allow environment-variables in paths to
 # include-directive (and won't accept a patch supporting it), thus we
 # make a symlink to avoid hardcoding the full path:
 if not os.path.exists(
-    os.path.join(os.environ['CEREDOC'], ',ceresrc')):
-    os.symlink(os.environ['CERESRC'],
-               os.path.join(os.environ['CEREDOC'], ',ceresrc'))
+    os.path.join(doc_dir, ',ceresrc')):
+    os.symlink(os.path.join(doc_dir, '..'),
+               os.path.join(doc_dir, ',ceresrc'))
 
 # TBD: Hvordan bør oversikten over hvilke filer man skal bygge doc for
 # vedlikeholdes?
@@ -67,20 +72,8 @@ def read_book_xml_file(fname):
                                              extension='.xml'),
                      file_type='xml')
 
-def pre_process(src_file, tgt_file):
-
-    # TODO: Klargjøre hva problemet er:
-    
-    ## We could in theory create our own rst-extensions that allowed
-    ## us to extract doc-strings etc.  However, there are some
-    ## problems that would have to be solved:
-
-    ##  - a simple sysinclude variant of the ordinary include
-    ##    statement would not honour the indentation in the
-
-    pass
-    
 def process_file(src_file, tgt_file, file_type='html'):
+    # Assert that target dir exists
     in_dir = os.path.dirname(tgt_file)
     if not os.path.isdir(in_dir):
         tmp_in_dir = os.path.split(in_dir)
@@ -88,9 +81,12 @@ def process_file(src_file, tgt_file, file_type='html'):
             tmp = os.path.join(*tmp_in_dir[:n])
             if not os.path.isdir(tmp):
                 os.mkdir(tmp)
+
+    # Only rebuild if src has been modified
     if (os.path.isfile(tgt_file) and
         os.path.getmtime(src_file) < os.path.getmtime(tgt_file)):
         return
+
     print "Building %s" % tgt_file
     if file_type == 'html':
         os.system("%s %s > %s" % (rst2html, src_file, tgt_file))
@@ -109,6 +105,9 @@ def process_file(src_file, tgt_file, file_type='html'):
         out.close()
         # os.system("%s %s > %s" % (rst2docbook, src_file, tgt_file))
 
+    # make the figures catalog available as a symlink in each
+    # directory
+    # TBD: Do we really need this?
     if not os.path.exists(
         os.path.join(in_dir, 'figures')):
         os.symlink(os.path.join(script_dir, '..', 'figures'),
@@ -124,11 +123,18 @@ def build_doc(dest_dir):
         for src_file in glob.glob('%s/*.rst' % d):
             process_file(src_file, _get_tgt_file(src_file, dest_dir))
 
+def build_all():
+    build_primitive_contents("contents.rst")
+    read_book_xml_file("book.xml")
+    os.system("export SP_ENCODING=XML; export SP_CHARSET_FIXED=YES;"
+              "cd ,build; db2pdf book.xml")
+
 def usage(exitcode=0):
     print """Usage: [options]
     --help
     --xml file
     --build-contents contents.rst
+    --all  : build all documentation
 
 Note:  if db2pdf doesn't handle utf-8 characters, try:
 export SP_ENCODING=XML
@@ -139,7 +145,7 @@ export SP_CHARSET_FIXED=YES
 def main():
     try:
         opts, args = getopt.getopt(sys.argv[1:], '', [
-            'help', 'build-contents=', 'xml='])
+            'help', 'build-contents=', 'xml=', 'all'])
     except getopt.GetoptError:
         usage(1)
 
@@ -151,6 +157,8 @@ def main():
         elif opt in ('--xml',):
             read_book_xml_file(val)
             sys.exit(0)
+        elif opt in ('--all',):
+            build_all()
     build_doc(dest_dir)
 
 
