@@ -1,1 +1,9 @@
-PERSON20067647972Normann Tre331510Inversibelstien 3300OSLO22850003
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<data>
+<person navn="Normann Tre" fodtdag="41" personnr="62826" fodtmnd="01" fodtar="34"
+ fakultetnr_for_lonnsslip="33" instituttnr_for_lonnsslip="15" gruppenr_for_lonnsslip="10" 
+ adresselinje1_privatadresse="Gåsebystranda 13" poststednr_privatadresse="1313" 
+ poststednavn_privatadresse="Andeby">
+<bilag stedkode="331510"/>
+</person>
+</data>
