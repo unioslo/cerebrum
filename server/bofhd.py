@@ -310,6 +310,16 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
             self.server.db.rollback()
             raise
 
+    def bofhd_logout(self, sessionid):
+        session = BofhdSession(self.server.db, sessionid)
+        try:
+            session.clear_state()
+            self.server.db.commit()
+        except Exception:
+            self.server.db.rollback()
+            raise
+        return "OK"
+
     def bofhd_get_commands(self, sessionid):
         """Build a dict of the commands available to the client."""
 
