@@ -3442,7 +3442,11 @@ class BofhdExtension(object):
         for i in range(1, len(affiliations)):
             data.append({'affiliation': affiliations[i],
                          'source_system': sources[i]})
-        if self.ba.is_superuser(operator.get_entity_id()):
+        account = self.Account_class(self.db)
+        account_ids = [int(r['account_id'])
+                       for r in account.list_accounts_by_owner_id(person.entity_id)]
+        if (self.ba.is_superuser(operator.get_entity_id()) or
+            operator.get_entity_id() in account_ids):
             for row in person.get_external_id(id_type=self.const.externalid_fodselsnr):
                 data.append({'fnr': row['external_id'],
                              'fnr_src': str(
