@@ -362,21 +362,19 @@ ORDER BY
         return "(%s OR (r.terminkode LIKE 'V_R' AND r.arstall=%d))\n" % (current, yr)
 
 
-
 ##################################################################
 # Metoder for OU-er:
 ##################################################################
 
 
-    def GetAlleOUer(self):
+    def GetAlleOUer(self, institusjonsnr=0):
         qry = """
 SELECT DISTINCT
-  faknr, insituttnr, gruppenr, stedakronym, stednavn_bokmal,
+  faknr, instituttnr, gruppenr, stedakronym, stednavn_bokmal,
   faknr_org_under, instituttnr_org_under, gruppenr_org_under,
   adrlin1, adrlin2, postnr, telefonnr, faxnr,
-  adrlin1_besok, adrlin2_besok, postnr, url,
-  bibsysbeststedkode
+  adrlin1_besok, adrlin2_besok, url, bibsysbeststedkode
 FROM fs.sted
-
-"""
+WHERE institusjonsnr='%s'
+""" % institusjonsnr
         return (self._get_cols(qry), self.db.query(qry))
