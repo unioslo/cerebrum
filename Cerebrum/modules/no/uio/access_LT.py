@@ -521,4 +521,25 @@ class LT(object):
         return self.db.query(query, locals()) 
     # end GetPermisjoner
 
+
+
+    def GetFnrEndringer(self):
+        """
+        Returns changes in the Norwegian social security numbers
+        (fødselsnumre) registered in LT.
+        """
+
+        query = """
+        SELECT 
+          Fodtdag_kom_fra, Fodtmnd_kom_fra, Fodtar_kom_fra, Personnr_kom_fra,
+          Fodtdag_ble_til, Fodtmnd_ble_til, Fodtar_ble_til, Personnr_ble_til,
+          TO_CHAR(Dato_endret, 'YYYY-MM-DD HH24:MI:SS') AS Dato_endret
+        FROM
+          lt.personhenvisning
+        ORDER BY
+          Dato_endret
+        """
+
+        return self.db.query(query)
+    # end GetFnrEndringer
 # end class LT
