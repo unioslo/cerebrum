@@ -20,6 +20,7 @@
 """."""
 
 import re
+import string
 
 from Cerebrum import Utils
 from Cerebrum import Constants
@@ -1028,7 +1029,7 @@ class EmailPrimaryAddressTarget(EmailTarget):
                 raise RuntimeError, "populate() called multiple times."
         except AttributeError:
             if parent is None:
-                raise RunTimeError, \
+                raise RuntimeError, \
                       "Can't populate EmailPrimaryAddressTarget w/o parent."
             self.__in_db = False
         self.email_primaddr_id = address_id
@@ -1163,7 +1164,7 @@ class EmailServerTarget(EmailTarget):
                 raise RuntimeError, "populate() called multiple times."
         except AttributeError:
             if parent is None:
-                raise RunTimeError, \
+                raise RuntimeError, \
                       "Can't populate EmailServerTarget w/o parent."
             self.__in_db = False
         self.email_server_id = server_id
@@ -1238,14 +1239,31 @@ class AccountEmailMixin(Account.Account):
         return ret
 
     def update_email_addresses(self):
-        # Find or create EmailTarget for this account.
+        # Find, create or update a proper EmailTarget for this
+        # account.
         et = EmailTarget(self._db)
+        target_type = self.const.email_target_account
+        if self.is_deleted() or self.is_reserved():
+            target_type = self.const.email_target_deleted
         try:
-            et.find_by_entity(self.entity_id)
+            et.find_by_email_target_attrs(entity_id = self.entity_id)
+            et.email_target_type = target_type
         except Errors.NotFoundError:
-            et.populate(self.const.email_target_account,
-                        self.entity_id, self.const.entity_account)
-            et.write_db()
+            et.populate(target_type, self.entity_id, self.const.entity_account)
+        et.write_db()
+        # For deleted/reserved users, set expire_date for all of the
+        # user's addresses, and don't allocate any new addresses.
+        ea = EmailAddress(self._db)
+        if target_type == self.const.email_target_deleted:
+            expire_date = self._db.DateFromTicks(time.time() +
+                                                 60 * 60 * 24 * 180)
+            for row in et.get_addresses():
+                ea.clear()
+                ea.find(row['address_id'])
+                if ea.email_addr_expire_date is None:
+                    ea.email_addr_expire_date = expire_date
+                ea.write_db()
+            return
         # Figure out which domain(s) the user should have addresses
         # in.  Primary domain should be at the front of the resulting
         # list.
@@ -1257,60 +1275,66 @@ class AccountEmailMixin(Account.Account):
         # Iterate over the available domains, testing various
         # local_parts for availability.  Set user's primary address to
         # the first one found to be available.
-        ea = EmailAddress(self._db)
         primary_set = False
-        epta = EmailPrimaryAddressTarget(self._db)
+        epat = EmailPrimaryAddressTarget(self._db)
         for domain in domains:
             if ed.email_domain_name <> domain:
                 ed.clear()
                 ed.find_by_domain(domain)
-            # Always try 'username' as local_part; for some domains
-            local_parts = [self.account_name]
-            if self.const.email_domain_category_cnaddr in ed.get_categories():
-                local_parts.insert(0, self.get_email_cn_local_part())
+            # Check for 'cnaddr' category before 'uidaddr', to prefer
+            # 'cnaddr'-style primary addresses for users in
+            # maildomains that have both categories.
+            ctgs = ed.get_categories()
+            local_parts = []
+            if int(self.const.email_domain_category_cnaddr) in ctgs:
+                local_parts.append(self.get_email_cn_local_part())
+            if int(self.const.email_domain_category_uidaddr) in ctgs:
+                local_parts.append(self.account_name)
             for lp in local_parts:
+                lp = self.wash_email_local_part(lp)
                 # Is the address taken?
                 ea.clear()
                 try:
                     ea.find_by_local_part_and_domain(lp, ed.email_domain_id)
-                    if ea.email_addr_target_id <> self.entity_id:
-                        # Address already exists, and isn't owned by this
-                        # Account.
+                    if ea.email_addr_target_id <> et.email_target_id:
+                        # Address already exists, and points to a
+                        # target not owned by this Account.
                         continue
+                    # Address belongs to this account; make sure
+                    # there's no expire_date set on it.
+                    ea.email_addr_expire_date = None
                 except Errors.NotFoundError:
                     # Address doesn't exist; create it.
                     ea.populate(lp, ed.email_domain_id, self.entity_id,
                                 expire=None)
-                    ea.write_db()
+                ea.write_db()
                 if not primary_set:
-                    epta.clear()
+                    epat.clear()
                     try:
-                        epta.find(ea.email_addr_target_id)
+                        epat.find(ea.email_addr_target_id)
                     except Errors.NotFoundError:
                         # Object is in sync with 'email_target' row, but
                         # has no 'email_primary_address' data.
                         pass
-                    epta.populate(ea.email_addr_id)
-                    epta.write_db()
+                    epat.populate(ea.email_addr_id)
+                    epat.write_db()
                     primary_set = True
-        # Finally, allocate an addresses in EMAIL_DEFAULT_DOMAIN.
 
     def get_email_cn_local_part(self):
         try:
             full = self.get_fullname()
         except Errors.NotFoundError:
             full = self.account_name
-##         full = wash_to_rfc2821(full)
         names = [x.lower() for x in re.split(r'\s+', full)]
-        print "DEBUG1: %r" % names
+##        print "DEBUG1: %r" % names
         last = names.pop(-1)
-        print "DEBUG2: %r + %r" % (names, last)
+##        print "DEBUG2: %r + %r" % (names, last)
         names = [x for x in '-'.join(names).split('-') if x]
-        print "DEBUG3: %r" % names
+##        print "DEBUG3: %r" % names
         if len(names) > 1:
             names = [x[0] for x in names]
         names.append(last)
-        return ".".join(names)
+        return self.wash_email_local_part(".".join(names))
 
     def get_fullname(self):
         if self.owner_type <> self.const.entity_person:
@@ -1373,56 +1397,49 @@ class AccountEmailMixin(Account.Account):
         return dom.email_domain_id
 
     def get_primary_mailaddress(self):
-        """Return account's current primary address, or None."""
+        """Return account's current primary address."""
         target_type = int(self.const.email_target_account)
         return self.query_1("""
         SELECT ea.local_part || '@' || ed.domain AS email_primary_address
-        FROM [:table schema=cerebrum name=account_type] at
+        FROM [:table schema=cerebrum name=account_info] ai
         JOIN [:table schema=cerebrum name=email_target] et
           ON et.target_type = :targ_type AND
-             et.entity_id = at.account_id
+             et.entity_id = ai.account_id
         JOIN [:table schema=cerebrum name=email_primary_address] epa
           ON epa.target_id = et.target_id
         JOIN [:table schema=cerebrum name=email_address] ea
           ON ea.address_id = epa.address_id
         JOIN [:table schema=cerebrum name=email_domain] ed
           ON ed.domain_id = ea.domain_id
-        WHERE at.account_id = :e_id""",
+        WHERE ai.account_id = :e_id""",
                               {'e_id': int(self.entity_id),
                                'targ_type': target_type})
 
-    def _calc_new_primary_mailaddress(self):
-        dom_id = self.get_primary_maildomain()
-        dom = EmailDomain(self._db)
-        dom.find(dom_id)
-        ctgs = dom.get_categories()
-        if self.const.email_domain_category_cnaddr in ctgs:
-            local_part = "" # TODO: Calculate this based on full name
-        elif self.const.email_domain_category_uidaddr in ctgs:
-            local_part = self.account_name
-        else:
-            # Neither username- nor fullname-based addresses should be
-            # defined in the user's (apparent) default maildomain; use
-            # username@EMAIL_DEFAULT_DOMAIN instead.
-            local_part = self.account_name
-            dom.clear()
-            dom.find(cereconf.EMAIL_DEFAULT_DOMAIN)
-        # Check that this address doesn't belong to something else.
-        addr = EmailAddress(self._db)
-        try:
-            addr.find_by_local_part_and_domain(local_part,
-                                               dom.get_domain_name())
-            targ = EmailTarget(self._db)
-            targ.find(addr.email_addr_target_id)
-            if targ.email_target_type <> self.const.email_target_account or \
-                   targ.email_target_entity_id <> self.entity_id:
-                # Address exists, but this Account is not the owner.
-                pass
-        except Errors.NotFoundError:
-            pass
-
-        # Validate that value of local_part is proper for use as an
-        # email address local part.
+    def wash_email_local_part(self, local_part):
+        lp = Utils.latin1_to_iso646_60(local_part)
+        # Translate ISO 646-60 representation of Norwegian characters
+        # to the closest single-ascii-letter.
+        xlate = {'[': 'A', '{': 'a',
+                 '\\': 'O', '|': 'o',
+                 ']': 'A', '}': 'a'}
+        lp = ''.join([xlate.get(c, c) for c in lp])
+        # Don't use caseful local-parts; lowercase them before they're
+        # written to the database.
+        lp = lp.lower()
+        # Retain only characters that are likely to be intentionally
+        # used in local-parts.
+        allow_chars = string.ascii_lowercase + string.digits + '-_.'
+        lp = "".join([c for c in lp if c in allow_chars])
+        # The '.' character isn't allowed at the start or end of a
+        # local-part.
+        while lp.startswith('.'):
+            lp = lp[1:]
+        while lp.endswith('.'):
+            lp = lp[:-1]
+        if not lp:
+            raise ValueError, "Local-part can't be empty (%r -> %r)" % (
+                local_part, lp)
+        return lp
 
 
 class PersonEmailMixin(Person.Person):
