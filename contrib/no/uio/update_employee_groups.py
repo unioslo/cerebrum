@@ -208,16 +208,8 @@ def process_employees(db_cerebrum, lt):
         return
     # yrt
     
-    # 
-    # This is a bit silly -- GetTilsettinger returns an explicit list of
-    # column names, but the "keys" in the actual db_row objects may be quite
-    # different. index() calls cannot fail here, unless someone fiddles with
-    # GetTilsettinger().
-    column_names, values = lt.GetTilsettinger()
-    index_from = column_names.index("dato_fra")
-    index_to = column_names.index("dato_til")
+    values = lt.GetTilsettinger()
     now = time.strftime("%Y%m%d")
-
     for row in values:
         # Reconstruct NO_SSN first
         no_ssn = fetch_no_ssn(row)
@@ -226,10 +218,10 @@ def process_employees(db_cerebrum, lt):
         # fi
 
         # Skip outdated records
-        if not (row[index_from] <= now <= row[index_to]):
+        if not (row["dato_fra"] <= now <= row["dato_til"]):
             logger.debug("Skipping irrelevant employment information: " +
                          "NO_SSN=%s; [%s;%s]",
-                         no_ssn, row[index_from], row[index_to])
+                         no_ssn, row[i"dato_fra"], row["dato_til"])
             continue
         # fi
 
@@ -269,7 +261,7 @@ def process_temporaries(db_cerebrum, lt):
     # timestamp is 180 days ago
     timestamp = time.strftime("%Y%m%d",
                               time.localtime(time.time() - (3600*24*180)))
-    column_names, values = lt.GetLonnsPosteringer(timestamp)
+    values = lt.GetLonnsPosteringer(timestamp)
     logger.debug("All payments fetched")
     for row in values:
         no_ssn = fetch_no_ssn(row)

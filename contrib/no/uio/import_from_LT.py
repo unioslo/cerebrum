@@ -33,55 +33,72 @@ from Cerebrum.modules.no.uio.access_LT import LT
 from Cerebrum import Database,Errors
 from Cerebrum.Utils import XMLHelper
 
+
+
 def get_sted_info(outfile):
     f=open(outfile, 'w')
     f.write(xml.xml_hdr + "<data>\n")
 
-    cols, steder = LT.GetSteder();
+    steder = LT.GetSteder()
     for s in steder:
-        f.write(xml.xmlify_dbrow(s, xml.conv_colnames(cols), 'sted', 0) + "\n")
-        cols2, komm = LT.GetStedKomm(s['fakultetnr'], s['instituttnr'], s['gruppenr'])
+        column_names = LT.get_column_names(s)
+        f.write(xml.xmlify_dbrow(s, xml.conv_colnames(column_names), 'sted', 0) + "\n")
+        komm = LT.GetStedKomm(s['fakultetnr'], s['instituttnr'], s['gruppenr'])
         for k in komm:
-            f.write(xml.xmlify_dbrow(k, xml.conv_colnames(cols2), 'komm') + "\n")
+            column_names2 = LT.get_column_names(k)
+            f.write(xml.xmlify_dbrow(k, xml.conv_colnames(column_names2), 'komm') + "\n")
+        # od
         f.write("</sted>\n")
+    # od 
     f.write("</data>\n")
+# end get_sted_info
+
+
 
 def get_person_info(outfile):
-    """Henter info om alle personer i LT som er av interesse.
-    Ettersom opplysningene samles fra flere datakilder, lagres de
-    først i en dict persondta"""
+    """
+    Henter info om alle personer i LT som er av interesse.  Ettersom
+    opplysningene samles fra flere datakilder, lagres de først i en dict
+    persondta
+    """
 
     # Lag mapping fra stillingskodenr til titel (ala overing)
     skode2tittel = {}
-    for t in LT.GetTitler()[1]:
+    for t in LT.GetTitler():
         skode2tittel[t['stillingkodenr']] = (t['tittel'], t['univstkatkode'])
     # od
 
     # Lag mapping fra univstkatkode til hovedkatkode (VIT etc.)
     kate2hovedkat = {}
-    for t in LT.GetHovedkategorier()[1]:
+    for t in LT.GetHovedkategorier():
         kate2hovedkat[t['univstkatkode']] = t['hovedkatkode']
     # od
 
     # Hent alle aktive tilsetninger
-    tilscols, tils = LT.GetTilsettinger()
+    tils = LT.GetTilsettinger()
     persondta = {}
     for t in tils:
         key = '-'.join(["%i" % x for x in [t['fodtdag'], t['fodtmnd'],
                                            t['fodtar'], t['personnr']]])
         if not persondta.has_key(key):
             persondta[key] = {}
+        # fi
+
         persondta[key]['tils'] = persondta[key].get('tils', []) + [t]
+    # od
 
     # Hent alle reservasjoner
-    rescols, res = LT.GetReservasjoner()
+    res = LT.GetReservasjoner()
     reservasjoner = {}
     for r in res:
         key = '-'.join(["%i" % x for x in [r['fodtdag'], r['fodtmnd'],
                                            r['fodtar'], r['personnr']]])
         if not reservasjoner.has_key(key):
             reservasjoner[key] = {}
+        # fi
+
         reservasjoner[key]['res'] = reservasjoner[key].get('res', []) + [r]
+    # fi
 
     # Hent alle lønnsposteringer siste 180 dager.
     #
@@ -89,7 +106,7 @@ def get_person_info(outfile):
     # færre dager, men det ser ikke ut til å være nødvendig da søket
     # ikke tar mer enn ca et minutt
     tid = time.strftime("%Y%m%d", time.gmtime(time.time() - (3600*24*180)))
-    lonnscols, lonnspost = LT.GetLonnsPosteringer(tid)
+    lonnspost = LT.GetLonnsPosteringer(tid)
     for lp in lonnspost:
         key = '-'.join(["%i" % x for x in [lp['fodtdag'], lp['fodtmnd'],
                                            lp['fodtar'], lp['personnr']]])
@@ -100,7 +117,7 @@ def get_person_info(outfile):
         persondta[key]['bil'] = persondta[key].get('bil', []) + [lp]
     # od
 
-    gcols, gjester = LT.GetGjester()
+    gjester = LT.GetGjester()
     for g in gjester:
         key = '-'.join(["%i" % x for x in [g['fodtdag'], g['fodtmnd'],
                                            g['fodtar'], g['personnr']]])
@@ -111,7 +128,7 @@ def get_person_info(outfile):
         persondta[key]['gjest'] = persondta[key].get('gjest', []) + [g]
     # od
 
-    pcols, permisjoner = LT.GetPermisjoner()
+    permisjoner = LT.GetPermisjoner()
     for p in permisjoner:
         key = string.join([ str(x)
                             for x in 
@@ -126,8 +143,8 @@ def get_person_info(outfile):
             persondta[key]["permisjon"] = {}
         # fi
 
-        # Since LT.Permisjon(key, tilsnr) is the PK, this assignment will never
-        # overwrite any information
+        # Since LT.Permisjon(key, tilsnr) is the PK, this assignment will
+        # never overwrite any information
         pkey = str(p.tilsnr)
         if not persondta[key]["permisjon"].has_key(pkey):
             persondta[key]["permisjon"][pkey] = []
@@ -143,77 +160,105 @@ def get_person_info(outfile):
     f.write(xml.xml_hdr + "<data>\n")
     for p in persondta.keys():
         fodtdag, fodtmnd, fodtar, personnr = p.split('-')
-        picols, pi = LT.GetPersonInfo(fodtdag, fodtmnd, fodtar, personnr)
+        pi = LT.GetPersonInfo(fodtdag, fodtmnd, fodtar, personnr)
+        picols = LT.get_column_names(pi)
         f.write(
             xml.xmlify_dbrow(pi[0],  xml.conv_colnames(picols), 'person', 0,
                              extra_attr={'fodtdag': fodtdag, 'fodtmnd':fodtmnd,
                                          'fodtar':fodtar, 'personnr': personnr}
                              ) + "\n")
-        tlfcols, tlf = LT.GetArbTelefon(fodtdag, fodtmnd, fodtar, personnr)
+        tlf = LT.GetArbTelefon(fodtdag, fodtmnd, fodtar, personnr)
+        tlfcols = LT.get_column_names(tlf)
         for t in tlf:
             f.write("  "+xml.xmlify_dbrow(
                 t, xml.conv_colnames(tlfcols), 'arbtlf') + "\n")
+        # od
 
-        kcols, komm = LT.GetPersKomm(fodtdag, fodtmnd, fodtar, personnr)
+        komm = LT.GetPersKomm(fodtdag, fodtmnd, fodtar, personnr)
+        kcols = LT.get_column_names(komm)
         for k in komm:
             f.write("  "+xml.xmlify_dbrow(
                 k,  xml.conv_colnames(kcols), 'komm') + "\n")
+        # od
 
-        rcols, roller = LT.GetPersonRoller(fodtdag, fodtmnd, fodtar, personnr)
+        roller = LT.GetPersonRoller(fodtdag, fodtmnd, fodtar, personnr)
+        rcols = LT.get_column_names(roller)
         for r in roller:
             f.write("  "+xml.xmlify_dbrow(
                 r, xml.conv_colnames(rcols), 'rolle') +"\n")
+        # od
 
         permisjoner = persondta[p].get("permisjon", {})
         for t in persondta[p].get('tils', ()):
-            # Unfortunately the oracle driver returns
-            # to_char(dato_fra,'yyyymmdd') as key for rows, so we use
-            # indexes here :-(
-            attr = " ".join(["%s=%s" % (tilscols[i], xml.escape_xml_attr(t[i]))
-                             for i in (4,5,6,7,8,9,10,11, )])
-            if t['stillingkodenr_beregnet_sist'] is not None:
-                sk = skode2tittel[t['stillingkodenr_beregnet_sist']]
-                attr += ' hovedkat=%s' % xml.escape_xml_attr(
-                    kate2hovedkat[sk[1]])
-                attr += ' tittel=%s' % xml.escape_xml_attr(sk[0])
-                f.write("  <tils " + attr + " >\n" )
+            attr = string.join(["%s=%s" % (name,
+                                           xml.escape_xml_attr(t[name]))
+                                for name in
+                                ["fakultetnr_utgift",
+                                 "instituttnr_utgift",
+                                 "gruppenr_utgift",
+                                 "stillingkodenr_beregnet_sist",
+                                 "prosent_tilsetting",
+                                 "dato_fra", "dato_til",
+                                 "tilsnr"]])
+            
+            sk = skode2tittel[t['stillingkodenr_beregnet_sist']]
+            attr += ' hovedkat=%s' % xml.escape_xml_attr(
+                                       kate2hovedkat[sk[1]])
+            attr += ' tittel=%s' % xml.escape_xml_attr(sk[0])
+            f.write("  <tils " + attr + " >\n" )
 
-                formatted_leaves = output_leaves( t, permisjoner )
-                for leave in formatted_leaves:
-                    pattr = string.join( ["%s=%s" %
-                                          (x[0], xml.escape_xml_attr(x[1]))
-                                          for x in leave] )
-                    f.write("    <permisjon " + pattr + " />\n")
-                # od
+            formatted_leaves = output_leaves(t, permisjoner)
+            for leave in formatted_leaves:
+                pattr = string.join( ["%s=%s" %
+                                      (x[0], xml.escape_xml_attr(x[1]))
+                                      for x in leave] )
+                f.write("    <permisjon " + pattr + " />\n")
+            # od
                 
-                f.write( "  </tils>\n" )
-            # fi
+            f.write( "  </tils>\n" )
         # od
 
         if reservasjoner.has_key(p): 
             for r in reservasjoner[p].get('res', ()):
-                attr = " ".join(["%s=%s" % (rescols[i], xml.escape_xml_attr(r[i]))
-                                 for i in (4,5,6, )])
+                attr = string.join(["%s=%s" % (name,
+                                               xml.escape_xml_attr(r[name]))
+                                    for name in
+                                      ["katalogkode",
+                                       "felttypekode",
+                                       "resnivakode",]])
                 f.write("  <res "+attr+"/>\n")
+            # od
+        # fi
             
         prev = None
-        persondta[p].get('bil', []).sort( lambda x, y: cmp(make_key(x), make_key(y)) )
+        persondta[p].get('bil', []).sort(lambda x, y:
+                                         cmp(make_key(x), make_key(y)))
         for t in persondta[p].get('bil', []):
             if make_key(t) == make_key(prev):
                 continue
+            # fi
 
-            attr = string.join(["%s=%s" % (lonnscols[i],
-                                           xml.escape_xml_attr(t[i]))
-                                for i in (0,5,6,7,)],
-                               " ")
+            attr = string.join(["%s=%s" % (name,
+                                           xml.escape_xml_attr(t[name]))
+                                for name in
+                                  ["dato_oppgjor",
+                                   "fakultetnr_kontering",
+                                   "instituttnr_kontering",
+                                   "gruppenr_kontering",]])
             f.write("  <bilag " + attr + "/>\n")
             prev = t
         # od
 
         for g in persondta[p].get('gjest', ()):
-            attr = string.join(["%s=%s" % (gcols[i], xml.escape_xml_attr(g[i]))
-                                for i in range(len(gcols))[4:]],
-                               " ")
+            attr = string.join(["%s=%s" % (name,
+                                           xml.escape_xml_attr(g[name]))
+                                for name in
+                                  ["fakultetnr",
+                                   "instituttnr",
+                                   "gruppenr",
+                                   "gjestetypekode",
+                                   "dato_fra",
+                                   "dato_til",]]) 
             f.write("  <gjest "+attr+"/>\n")
         # od
  
@@ -240,7 +285,7 @@ def output_leaves( tilsetting, permisjoner ):
     for permisjon in permisjoner.get(key, []):
         result = [ (x, getattr(permisjon, x)) for x in
                    [ "permarsakkode", "dato_fra", "dato_til",
-                     "prosent_permisjon", ] ]
+                     "prosent_permisjon", "lonstatuskode" ] ]
         accumulator.append( result )
     # od
 
