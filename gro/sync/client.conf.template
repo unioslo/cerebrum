@@ -1,11 +1,9 @@
-[gro]
+[spine]
 cache: false
-cache_dir: /tmp/groo
+cache_dir: /tmp/spine
 
 [corba]
-context: Cerebrum
-service: Gro
-object: GroServer
+url: http://localhost/~stain/spine.ior
 
 [ssl]
 ca_file: CA.crt

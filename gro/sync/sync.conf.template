@@ -1,5 +1,5 @@
-# Gro connection details
-[gro]
+# Spine connection details
+[Spine]
 # Cerebrum login for this LO (Local Organizer). This
 # System Account must have the appropriate rights in Cerebrum
 login: user

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
-import Gro
-import Cerebrum_core.Errors as GroErrors
+import Spine
+import Cerebrum_core.Errors as SpineErrors
 import config
 import unittest
 import sys
@@ -33,7 +33,7 @@ class Sync:
         for t in self._transactions:
             try:
                 t.rollback()        
-            except GroErrors.TransactionError:
+            except SpineErrors.TransactionError:
                 pass    
         self._transactions = []
 
@@ -48,42 +48,46 @@ class Sync:
         return self._transactions              
 
     def _connect(self):    
-        """Connect and login to Gro"""
+        """Connect and login to Spine"""
         try:
-            self.gro = Gro.connect()
-        except GroErrors.ServerError:
+            self.spine = Spine.connect()
+        except SpineErrors.ServerError:
             raise ServerError    
-        user = config.sync.get("gro", "login")
-        password = config.sync.get("gro", "password")
+        user = config.sync.get("spine", "login")
+        password = config.sync.get("spine", "password")
 
         # Will have to use AP handler while LO handler
         # is redesigned 
-        # self.lo = self.gro.get_lo_handler()
+        # self.lo = self.spine.get_lo_handler()
         try:
-            self.ap = self.gro.login(user, password)
-        except GroErrors.LoginError, e:
+            self.ap = self.spine.login(user, password)
+        except SpineErrors.LoginError, e:
             raise LoginError, user
    
     def _transaction(self):
-        """Get a transaction from Gro. Note that you must
+        """Get a transaction from Spine. Note that you must
            commit or rollback the transaction when finished."""
         try:
             t = self.ap.new_transaction()         
-        except GroErrors.ServerError:
+        except SpineErrors.ServerError:
             # let's naivly try to reconnect 
             self._connect()
             # This time it should work!    
             try:
                 t = self.ap.new_transaction()         
-            except GroErrors.ServerError:
+            except SpineErrors.ServerError:
                 raise ServerError
         self._transactions.append(t)    
         return t    
 
     def get_accounts(self):
-        """Get all accounts from Gro. Returns a list of Account objects."""
+        """Get all accounts from Spine. Returns a list of Account objects."""
         t = self._transaction()
         search = t.get_account_searcher()
+        #dumper = search.get_dumper()
+        #dumper.mark_whatever()
+        #accounts = dumper.dump()
+        # since dumper does not work yet, we'll do it the old way 
         accounts = search.search()
         results = []
         for account in accounts:
@@ -231,7 +235,7 @@ class TestSync(unittest.TestCase):
         self.s._rollback()
         # If the t is rolled back, we shouldn't be able to roll back
         # again 
-        self.assertRaises(GroErrors.TransactionError, t.rollback)
+        self.assertRaises(SpineErrors.TransactionError, t.rollback)
     
     def testGetAccounts(self):
         accounts = self.s.get_accounts()

@@ -31,33 +31,34 @@ sslTP.key_file(config.conf.get('ssl', 'key_file'))
 sslTP.key_file_password(config.conf.get('ssl', 'password'))
 
 idl_path = config.conf.get('idl', 'path')
-idl_gro = os.path.join(idl_path, config.conf.get('idl', 'gro'))
+idl_server = os.path.join(idl_path, config.conf.get('idl', 'server'))
 idl_errors = os.path.join(idl_path, config.conf.get('idl', 'errors'))
 
 def connect(args=[]):
-    """ 
-    Method for connecting and fetch the Gro object.
+    """Returns the server object.
+    
+    Method for connecting and fetch the Spine object.
     The method prefers SSL connections.
     """
     orb = CORBA.ORB_init(args + ['-ORBendPoint', 'giop:ssl::'], CORBA.ORB_ID)
     ior = urllib.urlopen(config.conf.get('corba', 'url')).read()
     obj = orb.string_to_object(ior)
-    gro = obj._narrow(Cerebrum_core.Gro)
-    if gro is None:
-        raise Exception("Could not narrow the gro object")
+    spine = obj._narrow(Cerebrum_core.Spine)
+    if spine is None:
+        raise Exception("Could not narrow the spine object")
 
-    return gro
+    return spine
 
-if config.conf.getboolean('gro', 'cache'):
+if config.conf.getboolean('spine', 'cache'):
     # add tmp path to sys.path if it doesnt exists
-    cache_dir = config.conf.get('gro', 'cache_dir')
+    cache_dir = config.conf.get('spine', 'cache_dir')
     if cache_dir not in sys.path:
         sys.path.append(cache_dir)
 
     try:
         import Cerebrum_core
     except:
-        os.system('omniidl -bpython -C %s %s %s' % (cache_dir, idl_gro, idl_errors))
+        os.system('omniidl -bpython -C %s %s %s' % (cache_dir, idl_server, idl_errors))
         import Cerebrum_core
 
     try:
@@ -71,7 +72,7 @@ if config.conf.getboolean('gro', 'cache'):
         os.system('omniidl -bpython -C %s -I%s %s' % (cache_dir, idl_path, generated))
         import generated
 else:
-    importIDL(idl_gro)
+    importIDL(idl_server)
     importIDL(idl_errors)
     import Cerebrum_core
 
@@ -79,4 +80,4 @@ else:
     importIDLString(idl, ['-I' + idl_path])
     import generated
 
-# arch-tag: 5d3a6913-5d66-437b-a8e1-89b123047ada
+# arch-tag: bbf5a039-3e34-4eac-89a8-34326abfb630
