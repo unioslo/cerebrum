@@ -51,6 +51,12 @@ class _PosixShellCode(Constants._CerebrumCode):
 
 class Constants(Constants.Constants):
     posix_shell_bash = _PosixShellCode('bash', '/bin/bash')
+    posix_shell_csh = _PosixShellCode('csh', '/bin/csh')
+    posix_shell_false = _PosixShellCode('false', '/bin/false')
+    posix_shell_nologin = _PosixShellCode('nologin', '/bin/nologin')
+    posix_shell_sh = _PosixShellCode('sh', '/bin/sh')
+    posix_shell_tcsh = _PosixShellCode('tcsh', '/bin/tcsh')
+    posix_shell_zsh = _PosixShellCode('zsh', '/bin/zsh')
 
 class PosixUser(Account.Account):
     """Posix..."""
