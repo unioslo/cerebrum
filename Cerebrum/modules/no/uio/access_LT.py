@@ -70,11 +70,12 @@ class LT(object):
           adrtypekode_alternativ_adr, adresselinje1_alternativ_adr,
           adresselinje2_alternativ_adr, poststednr_alternativ_adr,
           poststednavn_alternativ_adr, landnavn_alternativ_adr,
-          dato_opprettet, dato_nedlagt
+          TO_CHAR(dato_opprettet, 'YYYYMMDD') as dato_opprettet,
+          TO_CHAR(dato_nedlagt, 'YYYYMMDD') as dato_nedlagt
         FROM
           lt.sted
         WHERE
-          NVL(dato_nedlagt,SYSDATE) > SYSDATE - 365
+          NVL(dato_nedlagt,SYSDATE) >= ADD_MONTHS(SYSDATE, -12)
         ORDER BY
           fakultetnr, instituttnr, gruppenr
         """
@@ -122,7 +123,7 @@ class LT(object):
         FROM
           lt.tilsetting t, lt.stilling s
         WHERE
-          NVL(dato_til, SYSDATE) >= SYSDATE - 365 AND
+          NVL(dato_til, SYSDATE) >= ADD_MONTHS(SYSDATE, -12) AND
           t.stilnr = s.stilnr
         """
 
@@ -198,7 +199,7 @@ class LT(object):
         FROM
           lt.gjest
         WHERE
-          NVL(dato_til, SYSDATE) > SYSDATE - 365
+          NVL(dato_til, SYSDATE) > ADD_MONTHS(SYSDATE, -12)
         """
 
         return self.db.query(qry)
