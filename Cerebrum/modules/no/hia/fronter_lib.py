@@ -538,7 +538,7 @@ class XMLWriter(object):   # TODO: Move to separate file
 
 class FronterXML(object):
     def __init__(self, fname, cf_dir=None, debug_file=None, debug_level=None,
-                 fronter=None):
+                 fronter=None, include_password=True):
         self.xml = XMLWriter(fname)
         self.xml.startDocument(encoding='ISO-8859-1')
         self.rootEl = 'ENTERPRISE'
@@ -547,6 +547,7 @@ class FronterXML(object):
         self.debug_file = debug_file
         self.debug_level = debug_level
         self.fronter = fronter
+        self.include_password = include_password
         #self.cf_id = self.fronter.DBinst.split(".")[0]
 	self.cf_id = 'hiafronter'
 
@@ -598,7 +599,8 @@ class FronterXML(object):
         self.xml.endTag('NAME')
         self.xml.dataElement('EMAIL', data['EMAIL'])
         self.xml.startTag('EXTENSION')
-        self.xml.emptyTag('PASSWORD', {'passwordtype': data['PASSWORD']})
+        if self.include_password:
+            self.xml.emptyTag('PASSWORD', {'passwordtype': data['PASSWORD']})
         self.xml.emptyTag('EMAILCLIENT', {'clienttype': data['EMAILCLIENT']})
         self.xml.emptyTag('USERACCESS', {'accesstype': data['USERACCESS']})
         self.xml.endTag('EXTENSION')
