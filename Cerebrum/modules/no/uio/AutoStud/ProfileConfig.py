@@ -38,6 +38,7 @@ class Config(object):
         self._errors = []
         
         self.disk_defs = {}
+        self.disk_pools = {}
         self.disk_spreads = {}  # defined <disk_spread> tags
         self.group_defs = {}
         self.known_select_criterias = {'medlem_av_gruppe': {},
@@ -108,6 +109,8 @@ class Config(object):
         ret += "Profile definitions:"
         for p in self.profiles:
             ret += p.debug_dump()+"\n"
+        ret += "Pools:\n"
+        ret += pp.pformat(self.disk_pools)
         return ret
 
     def _sort_spreads(self, spreads):
@@ -238,25 +241,27 @@ class ProfileDefinition(object):
     def _convert_disk_settings(self, config):
         """Update self.settings["disk"] so that it looks like:
         [{spread1: {Either:  'path': int(disk_id),
-                    Or:      'prefix': 'prefix'}},
+                    Or:      'prefix': 'prefix'
+                    Or:      'pool': 'pool'}},
           spread2: {....}]"""
 
-        tmp = {}
-        for disk in self.settings.get("disk", []):
-            try:
-                for t in ('prefix', 'path'):
-                    if disk.has_key(t): # Assert that disk is in disk_defs
-                        try:
-                            config.disk_defs[t][disk[t]]
-                        except KeyError:
-                            self.config.add_error(
-                                "bad disk: %s=%s" % (t, disk[t]))
-                            self.settings['disk'].remove(disk)
-                            raise  # python should have labeled break/continue
-            except KeyError:
-                continue
-                    
-            if disk.has_key('path'):    # Store disk-id as path
+
+        def _convert_data(disk):
+            """Update 'spreads' and 'path' attributes, and return
+            disk-spreads for this disk."""
+            # Add 'spreads' attr to disk-setting
+            ret = []
+            for t in ('path', 'prefix'):
+                if disk.has_key(t):
+                    try:
+                        disk['spreads'] = config.disk_defs[
+                            t][disk[t]]['spreads']
+                        ret.extend(disk['spreads'])
+                    except KeyError:
+                        config.add_error(
+                            "Tried to use not-defined disk: %s" % disk)
+            # Convert 'path'-attrs to disk-id
+            if disk.has_key('path'):
                 ok = False
                 for d in config.autostud.disks.keys():
                     if config.autostud.disks[d][0] == disk['path']:
@@ -264,9 +269,21 @@ class ProfileDefinition(object):
                         ok = True
                 if not ok:
                     self.config.add_error("bad disk: %s" % disk)
-                    self.settings['disk'].remove(disk)
-                    continue
+            return ret
 
+        for d in self.settings.get("disk", []):
+            if d.has_key('pool'):
+                tmp_spreads = []
+                for d2 in config.disk_pools[d['pool']]:
+                    tmp_spreads.extend(_convert_data(d2))
+                d['spreads'] = dict([(t, 0) for t in tmp_spreads]).keys()
+            else:
+                _convert_data(d)
+        if config._errors:
+            return
+
+        tmp = {}
+        for disk in self.settings.get("disk", []):
             # We're only interested in the first disk for each single
             # spread.  This allows a sub-profile to override the home
             # in its super without interpreting the target as a 'div
@@ -274,7 +291,7 @@ class ProfileDefinition(object):
 
             for s in disk['spreads']:
                 if not tmp.has_key(s):
-                    for t in ('prefix', 'path'):
+                    for t in ('prefix', 'path', 'pool'):
                         if disk.has_key(t):
                             tmp[s] = {t: disk[t]}
         if not tmp:
@@ -447,8 +464,10 @@ class StudconfigParser(xml.sax.ContentHandler):
             elif ename == 'disk_oversikt':
                 self._default_disk_max = tmp['default_max']
                 self._tmp_disk_spreads = []
-            elif ename == 'default_values':
+            elif ename in ('default_values', 'disk_pools', 'spread_oversikt'):
                 pass
+            else:
+                raise ValueError, "DTD-violation: unknown tag: %s" % self.elementstack
         elif len(self.elementstack) == 3 and self.elementstack[1] == 'default_values':
             for k in tmp.keys():
                 self._config.default_values['%s_%s' % (ename, k)] = tmp[k]
@@ -486,6 +505,12 @@ class StudconfigParser(xml.sax.ContentHandler):
             else:
                 self._config.add_error(
                     "Unexpected tag %s in disk_oversikt" % ename)
+        elif self.elementstack[1] == 'disk_pools':
+            if len(self.elementstack) == 3 and ename == 'pool':
+                self._tmp_pool_name = tmp['name']
+                self._config.disk_pools[self._tmp_pool_name] = []
+            elif len(self.elementstack) == 4 and ename == 'disk':
+                self._config.disk_pools[self._tmp_pool_name].append(tmp)
         elif self._in_profil:
             if len(self.elementstack) == 3:
                 if ename == 'select':
@@ -497,17 +522,6 @@ class StudconfigParser(xml.sax.ContentHandler):
                     elif ename == 'spread' and not self.legal_spreads.has_key(tmp['system']):
                         self._config.add_error("Not in spreaddef: %s" % \
                                                tmp['system'])
-                    elif ename == 'disk':
-                        try:
-                            if tmp.has_key('path'):
-                                tmp['spreads'] = self._config.disk_defs[
-                                    'path'][tmp['path']]['spreads']
-                            else:
-                                tmp['spreads'] = self._config.disk_defs[
-                                    'prefix'][tmp['prefix']]['spreads']
-                        except KeyError:
-                            self._config.add_error(
-                                "Tried to use not-defined disk: %s" % tmp)
                     self._in_profil.add_setting(ename, tmp)
                 else:
                     self._config.add_error("Unexpected tag %s in %s" % (
