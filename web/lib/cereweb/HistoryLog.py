@@ -41,21 +41,13 @@ def view_operator_history(session, limit=10):
 
 def _history_tableview(events):    
     table = TableView("timestamp", "icon", "who", "message")
-    icon_map = {
-        "add" : "add.png",
-        "del" : "delete.png",
-        "delete" : "delete.png",
-        "rem" : "remove.png",
-        "create" : "create.png",
-        "mod" : "modify.png"
-    }
     for change in events:
         if type(change.change_by) in types.StringTypes:
             who = change.change_by
         else:
             # TODO: should be a hyperlink to the account
             who = str(change.change_by)
-        icon=icon_map.get(change.type.type, "blank.png")
+        icon = get_icon_by_change_type(change.type.type)
         #server = req.session['server']
         #ent = ClientAPI.fetch_object_by_id(server, change.change_by)
         #who = ent.name            
@@ -66,4 +58,16 @@ def _history_tableview(events):
                   icon='<img src=\"'+url("img/"+icon)+'\">') 
     return table        
         
-    
+def get_icon_by_change_type(changetype):
+    type = changetype.split("_")[-1]
+    icon_map = {
+        "add" : "add.png",
+        "del" : "delete.png",
+        "delete" : "delete.png",
+        "rem" : "remove.png",
+        "create" : "create.png",
+        "mod" : "modify.png"
+    }
+    icon=icon_map.get(type, "blank.png")
+    return icon
+            
