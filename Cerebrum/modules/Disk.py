@@ -121,6 +121,19 @@ class Disk(Entity):
         self.__in_db = True
         self.__updated = False
 
+    def find_by_path(self, path, host_id=None):
+        """Attempt to uniquely identify the disk."""
+        host_qry = ""
+        if host_id is not None:
+            host_qry = "AND host_id=:host_id"
+        entity_id = self.query_1("""
+        SELECT disk_id
+        FROM [:table schema=cerebrum name=disk_info]
+        WHERE path=:path %s""" % host_qry,
+                                 {'path': path,
+                                  'host_id': host_id})
+        self.find(entity_id)
+
 class Host(Entity):
     __read_attr__ = ('__in_db',)
     __write_attr__ = ('name', 'description')

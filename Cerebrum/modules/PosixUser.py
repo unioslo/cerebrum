@@ -47,13 +47,14 @@ class _PosixShellCode(Constants._CerebrumCode):
 
 class Constants(Constants.Constants):
     posix_shell_bash = _PosixShellCode('bash', '/bin/bash')
-
+    entity_host = Constants._EntityTypeCode('host', 'see table host_info')
+    entity_disk = Constants._EntityTypeCode('disk', 'see table disk_info')
 
 class PosixUser(Account.Account):
     """Posix..."""
 
     __read_attr__ = ('__in_db',)
-    __write_attr__ = ('posix_uid', 'gid', 'gecos', 'home', 'shell')
+    __write_attr__ = ('posix_uid', 'gid', 'gecos', 'home', 'shell', 'disk_id')
 
     def clear(self):
         super(PosixUser, self).clear()
@@ -74,7 +75,7 @@ class PosixUser(Account.Account):
             return self.__super.__eq__(other)
         return False
 
-    def populate(self, posix_uid, gid, gecos, home, shell, name=None,
+    def populate(self, posix_uid, gid, gecos, home, shell, disk_id=None, name=None,
                  owner_type=None, owner_id=None, np_type=None,
                  creator_id=None, expire_date=None, parent=None):
         """Populate PosixUser instance's attributes without database access."""
@@ -85,11 +86,20 @@ class PosixUser(Account.Account):
             # owner_id, np_type, creator_id, expire_date)
             Account.Account.populate(self, name, owner_type, owner_id,
                                      np_type, creator_id, expire_date)
+
+        # TBD: When disk_id != None, we may decide to resolve the
+        # actual home, and store it in self.home for speedup.  If so,
+        # changes to Disk.path may trigger updating numerous PosixUser
+        # objects.  Such changes will be very rare.
+        
+        if home is not None and disk_id is not None:
+            raise ValueError, "Cannot set both disk_id and home."
         self.__in_db = False
         self.posix_uid = posix_uid
         self.gid = gid
         self.gecos = gecos
         self.home = home
+        self.disk_id = disk_id
         self.shell = shell
 
     def write_db(self):
@@ -105,25 +115,27 @@ class PosixUser(Account.Account):
         if is_new:
             self.execute("""
             INSERT INTO [:table schema=cerebrum name=posix_user]
-              (account_id, posix_uid, gid, gecos, home, shell)
-            VALUES (:a_id, :u_id, :gid, :gecos, :home, :shell)""",
+              (account_id, posix_uid, gid, gecos, home, disk_id, shell)
+            VALUES (:a_id, :u_id, :gid, :gecos, :home, :disk_id, :shell)""",
                          {'a_id': self.entity_id,
                           'u_id': self.posix_uid,
                           'gid': self.gid,
                           'gecos': self.gecos,
                           'home': self.home,
+                          'disk_id': self.disk_id,
                           'shell': int(self.shell)})
         else:
             self.execute("""
             UPDATE [:table schema=cerebrum name=posix_user]
             SET account_id=:a_id, posix_uid=:u_id, gid=:gid, gecos=:gecos,
-                home=:home, shell=:shell
+                home=:home, disk_id=:disk_id, shell=:shell
             WHERE account_id=:orig_account_id""",
                          {'a_id': self.entity_id,
                           'u_id': self.posix_uid,
                           'gid': self.gid,
                           'gecos': self.gecos,
                           'home': self.home,
+                          'disk_id': self.disk_id,
                           'shell': int(self.shell),
                           'orig_account_id': as_object.account_id})
         del self.__in_db
@@ -178,6 +190,18 @@ class PosixUser(Account.Account):
             except Errors.NotFoundError:
                 pass
         return "Unknown"  # Raise error?
+
+    def get_home(self):
+        """Returns the full path to the users homedirectory"""
+
+        if self.home is not None:
+            return self.home
+        disk = Disk.Disk(self._db)
+        try:
+            disk.find(self.disk_id)
+        except Errors.NotFoundError:
+            return None
+        return "%s/%s" % (disk.path, self.account_name)
 
     def suggest_unames(self, domain, fname, lname):
         """Returns a tuple with 15 (unused) username suggestions based
