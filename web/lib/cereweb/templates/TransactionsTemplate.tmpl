@@ -1,0 +1,65 @@
+## Copyright 2004 University of Oslo, Norway
+##
+## This file is part of Cerebrum.
+##
+## Cerebrum is free software; you can redistribute it and/or modify it
+## under the terms of the GNU General Public License as published by
+## the Free Software Foundation; either version 2 of the License, or
+## (at your option) any later version.
+##
+## Cerebrum is distributed in the hope that it will be useful, but
+## WITHOUT ANY WARRANTY; without even the implied warranty of
+## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+## General Public License for more details.
+##
+## You should have received a copy of the GNU General Public License
+## along with Cerebrum; if not, write to the Free Software Foundation,
+## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
+#from Cerebrum.web.InitTemplate import InitTemplate
+#from Cerebrum.web.utils import url
+#extends InitTemplate
+
+## Main method for creating the box with transactions in the left corner.
+#def transactionbox($transactions, $active)
+<span class="transbox">
+    <h2>$_("Transactions"):</h2>
+    <div class="header">
+        <em>Active:</em> $active.get_name()&nbsp;
+        #set $edit = $url("transacion/edit?id=%i" % $active.get_id())
+        <a href="$edit" class="actions">edit</a>
+        <br />
+        <em>Objects:</em> <strong>$active.get_objects_num()</strong>&nbsp;
+        <em>Changed:</em> <strong>$active.get_objects_changed_num()</strong>&nbsp;
+        #set $view_all = $url("transacion/view?id=%i" % $active.get_id())
+        <a href="$view_all" class="actions">view all</a>
+        <br />
+        <em>Started:</em> $active.get_time_started()
+        <br />
+        <em>Last edited:</em> $active.get_last_edited()&nbsp;
+        #set $history = $url("transacion/history?id=%i" % $active.get_id())
+        <a href="$history" class="actions">full history</a>
+    </div>
+    <form action="#" method="POST">
+        <div class="select">
+            <center>
+                <select name="transaction">
+                #for $transaction in $transactions
+                    <option id="$transaction.get_id()">$transaction.get_name()</option>
+                #end for
+                </select>
+                <input type="submit" name="select" value="Select" />
+            </center>
+        </div>
+        <div class="commmit">
+            <center>
+                <input type="submit" name="new" value="New" />&nbsp;
+                <input type="submit" name="commit" value="Commit" />&nbsp;
+                <input type="submit" name="rollback" value="Rollback" />
+                <input type="hidden" name="id" value="$active.get_id()" />
+            </center>
+        </div>
+    </form>
+</span>
+#end def
+

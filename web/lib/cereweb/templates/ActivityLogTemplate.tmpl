@@ -18,17 +18,11 @@
 
 #from Cerebrum.web.InitTemplate import InitTemplate
 #extends InitTemplate
-##extends FramesTemplate
-#import forgetHTML
-#from Cerebrum.web.TableView import TableView
-#from SortedTableTemplate import SortedTableTemplate
-#from Cerebrum.web.utils import url
 
-#def viewActivityLog($table)
-#set $headers = {'icon': $_("Icon"), 'message': $_("Message")}
-<div class="activitylog">
-<h2>Activity log</h2>
-$SortedTableTemplate().sorted_table($table, $headers, $url("sortpri=%s"), $url("sortby=%s"), "history")
-</div>
+#def activitylog
+<span class="activitylog">
+    <h2>$_("Actvitylog"):</h2>
+    BLAGBALBLblaslblalogologlog...
+</span>
 #end def
 

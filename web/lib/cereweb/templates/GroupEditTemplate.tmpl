@@ -16,33 +16,79 @@
 ## along with Cerebrum; if not, write to the Free Software Foundation,
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-#from Cerebrum.web.InitTemplate import InitTemplate
+#import time
 #from Cerebrum.web.utils import url
-#extends InitTemplate
+#extends EntityViewTemplate
 
-## List of tuples (name, label)
-#attr $fields = [ ("name", "Name"),
-                  ("desc", "Description"),
-                  ("expire_date", "Expiration"),
-                ]
-#def getAction
-$url("group/save")#slurp
+## List of strings wich describes the form.
+#attr $help = ["No help ready at this moment."]
+
+## Creates the content on the group edit page.
+#def editGroup($req, $group)
+<div class="group">
+    $form($group)
+    ##$posixgroup($req, $group)
+    $members($req, $group)
+</div>
+$view_entity($group, $req)
 #end def
 
-#attr $formvalues = {}
+## Action to go to when the form is submitted.
+#def getAction
+$url("group/edit")#slurp
+#end def
 
-#def input($name, $label)
-    #set $value = $formvalues.get($name, "")
-    <label for='$name'>$label</label>
+## Creates input and labes with given values.
+#def input($name, $label, $value="")
+    <label for='$name'>$label:</label>
     <input type='text' name='$name' id='$name' value='$value' /><br />
 #end def
 
-#def form($id="")
-<form action="$getAction()" method="POST">
-#for $name, $label in $fields #
-    #echo $input($name, $label) #
-#end for  
-    <input type="hidden" name="id" value="$id" />
-    <input type="submit" value="Save" />
-</form>
+## Creates a box with info about the form, from the attribute help.
+#def showHelp($lines)
+#if $lines
+    <div class="help">
+    #for $line in $lines
+        <div class="extra">
+            $_($line)
+        </div>
+    #end for
+    </div>
+#end if
 #end def
+
+## Creates the form for editing a groups main info.
+#def form($group)
+<div class="edit">
+    <div class="subtitle">
+        <h3>$_("General groupinfo"):</h3>
+    </div>
+    <form action="$getAction()" method="POST">
+        <div class="editform">
+            $input("name", "Name", $group.get_name())
+            #set $date = $group.get_expire_date().get_date()
+            #set $date = time.strftime("%Y-%m-%d", time.gmtime($date))
+            $input("expire_date", "Expire date", $date)
+            $input("desc", "Description", $group.get_description())
+            <input type="hidden" name="id" value="$group.get_entity_id()" />
+        </div>
+        $showHelp($help)
+        <div>
+            <center>
+                <input type="submit" name="save" value="Save" />&nbsp;
+                <input type="submit" name="delete" value="Delete" />&nbsp;
+                <input type="submit" name="remember" value="Remember" />&nbsp;
+            </center>
+        </div>
+    </form>
+</div>
+#end def
+
+#def members($req, $group)
+<div class="groupmembers">
+    <div class="subtitle">
+        <h3>$_("Members"):</h3>
+    </div>
+</div>
+#end def
+

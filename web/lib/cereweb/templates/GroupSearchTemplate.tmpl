@@ -19,13 +19,13 @@
 #extends SearchTemplate
 #from Cerebrum.web.utils import url
 
-###attr $action = "/feil/url"
-#attr $fields = [ ("name", "Name"),
-                  ("desc", "Description"),
-                  ("spread", "Spread"),
-                ]
+#attr $fields = [("name", "Name"),
+                 ("desc", "Description"),
+                 ("spread", "Spread *")]
+
+#attr $help = ["* Spread: not implementet yet."]
+
 #def getAction
 $url("group/search")#slurp
-#end def                             
-
+#end def
 

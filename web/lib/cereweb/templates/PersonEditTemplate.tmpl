@@ -16,6 +16,7 @@
 ## along with Cerebrum; if not, write to the Free Software Foundation,
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+#import time
 #from Cerebrum.web import ServerConnection
 #from Cerebrum.web.utils import url
 #extends PersonViewTemplate
@@ -24,7 +25,7 @@
 #attr $page_url = "person/edit"
 
 ## Lines with info about the form, used with the function showHelp().
-#attr $help = ["some help will come here"]
+#attr $help = ["* Birthdate: YYYY-MM-DD"]
 
 ## Creates the content on the person edit page.
 #def editPerson($req, $person, $addName)
@@ -81,15 +82,18 @@ $url("person/edit")#slurp
     </select><br />
 #end def
 
-## Creates the form for the main person info.
+## Creates the form for editing the main person info.
 #def form($person, $req)
 <div class="edit">
     <div class="subtitle">
-        <h3>$_("Personinfo"):</h3>
+        <h3>$_("General personinfo"):</h3>
     </div>
     <form action="$getAction()" method="POST">
         <div class="editform">
             $gender($req, $person.get_gender())
+            #set $date = $person.get_birth_date().get_date()
+            #set $date = time.strftime("%Y-%m-%d", time.gmtime($date))
+            $input("birthdate", "Birthdate *",$date)
             $input("desc","Description", $person.get_description())
             <input type="hidden" name="id" value="$person.get_entity_id()" />
         </div>
@@ -98,7 +102,7 @@ $url("person/edit")#slurp
             <center>
                 <input type="submit" name="save" value="Save" />&nbsp;
                 <input type="submit" name="delete" value="Delete" />&nbsp;
-                <input type="submit" name="remember" value="Remember" />&nbsp;
+                <input type="submit" name="remember" value="Remember" />
             </center>
         </div>
     </form>

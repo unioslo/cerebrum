@@ -18,23 +18,23 @@
 
 #extends EntityViewTemplate
 #from Cerebrum.web.TableView import TableView
-#from MemberTableTemplate import MemberTableTemplate
 #from Cerebrum.web.utils import url
-#from Cerebrum.web import HistoryLog
+#from MemberTableTemplate import MemberTableTemplate
 
-#def viewGroup($group)
-<h1>$_("Group") $group.get_name()</h1>
-$groupInfo($group)
-$groupMembers($group)
-$add_member($group)
-$view_entity($group)
+
+#def viewGroup($req, $group)
+    $groupInfo($group)
+    $groupMembers($group)
+    $add_member($group)
+    $view_entity($group, $req)
 #end def
 
+
 #def groupMembers(group)
-#set $allmembers = $group.get_members()
-#if $allmembers
-<div class="members">
-<h2>$_("Members")</h2>
+    #set $allmembers = $group.get_members()
+    #if $allmembers
+    <div class="members">
+        <h2>$_("Members")</h2>
 <%
 memberSets = {}
 for member in allmembers:
@@ -51,8 +51,9 @@ for operation in ('union', 'intersection', 'difference'):
         continue
     write(self.memberList(operation, members, group))
 %>
-</div>
+    </div>
 #end def
+
 
 #def memberList($operation, $members, $group)
 #set $operations = {'union': $_('Union'), 'intersection': $_('Intersection'), 'difference': $_('Difference')}
@@ -72,24 +73,25 @@ $MemberTableTemplate().sorted_table($table, $headers, $url("blapp=%s"), $url("bl
 </div>
 #end def
 
+
 #def groupInfo(group)
 <div class="info">
 <dl>
     <dt>$_("Name")</dt>
     <dd>$group.get_name()</dd>
 
-###if $group.get_gid()
-##    <dt>$_("Gid")</dt>
-##    <dd>$group.get_gid()</dd>
-###end if    
+#if $group.get_entity_id()
+    <dt>$_("Gid")</dt>
+    <dd>$group.get_entity_id()</dd>
+#end if
 
     <dt>$_("Description")</dt>
     <dd>$group.get_description()</dd>
 
-##if $group.expire_date
-##set $expire_date=$group.expire_date.Format("%Y-%m-%d")
+##if $group.get_expire_date()
+##set $expire_date=$group.get_expire_date().Format("%Y-%m-%d")
 ##    <dt>$_("Expire")</dt>
-##    <dd>$expire_date</dd>
+##    <dd>$group.get_expire_date().get_date()</dd>
 ##end if
 
 ##set $spreads=', '.join($group.spreads)    
@@ -102,8 +104,10 @@ $MemberTableTemplate().sorted_table($table, $headers, $url("blapp=%s"), $url("bl
 </div>
 #end def
 
+
 #def add_member(group)
 <div class="add_member">
-Add a member (.. to be inserted by template user)
+    Add a member (.. to be inserted by template user)
 </div>
 #end def
+
