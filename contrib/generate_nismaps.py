@@ -133,7 +133,7 @@ def generate_netgroup(filename, group_spread, user_spread):
         line = " ".join((join(group_members, ' '), join(account_members, ' ')))
         maxlen = MAX_LINE_LENGTH - (len(group.group_name) + 1)
         while len(line) > maxlen:
-            pos = line.index(" ", len(line) - (MAX_LINE_LENGTH - 12))
+            pos = line.index(" ", len(line) - maxlen)
             tmp_gname = "x%02x" % num
             f.write("%s %s\n" % (tmp_gname, line[pos+1:]))
             line = "%s %s" % (tmp_gname, line[:pos])
@@ -150,6 +150,9 @@ def generate_group(filename, group_spread, user_spread):
     en = EntityName(db)
     for row in en.list_names(int(co.account_namespace)):
         entity2uname[int(row['entity_id'])] = row['entity_name']
+    account2def_group = {}
+    for row in posix_user.list_extended_posix_users():
+	account2def_group[int(row['account_id'])] = int(row['posix_gid'])
     for row in posix_group.list_all(spread=group_spread):
         posix_group.clear()
         posix_group.find(row.group_id)
@@ -164,7 +167,8 @@ def generate_group(filename, group_spread, user_spread):
         for id in posix_group.get_members(spread=user_spread):
             id = db.pythonify_data(id)
             if entity2uname.has_key(id):
-                members.append(entity2uname[id])
+                if not account2def_group.get(id, None) == posix_group.posix_gid:
+               	    members.append(entity2uname[id])
             else:
                 raise ValueError, "Found no id: %s for group: %s" % (
                     id, gname)
