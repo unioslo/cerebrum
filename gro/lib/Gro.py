@@ -28,6 +28,7 @@ from Cerebrum.gro import Cerebrum_core__POA, Cerebrum_core
 from Constants import *
 import cereconf
 
+import GroDatabase
 import LOHandler
 import APHandler
 
@@ -41,7 +42,7 @@ class GroImpl(Cerebrum_core__POA.Gro):
     """
     Implements the methods in the Gro interface.
     These are provided to remote clients"""
-    _db = Factory.get('Database')()
+    _db = GroDatabase.GroDatabase()
 
     def __init__(self, com):
         self.com = com
@@ -62,8 +63,8 @@ class GroImpl(Cerebrum_core__POA.Gro):
         ap = APHandler.APHandler(self.com, username, password)
         return self.com.get_corba_representation(ap)
 
-    def get_database(self):
-        return self._db
+    def get_database(cls):
+        return cls._db
     get_database = classmethod(get_database)
 
     
