@@ -7,12 +7,9 @@
 module Cerebrum_core {    
     //forward declarations
     interface LOHandler;
-    interface APHandler;
     interface BulkIterator;
-    interface APObject;
 
     typedef sequence<string> StringSeq;
-    typedef sequence<APObject> APObjectSeq;
 
     /**
     * Structure/object representing a key->value pair.
@@ -73,7 +70,8 @@ module Cerebrum_core {
         * \param password
         * \return An AP Handler
         */
-        APHandler get_ap_handler(in string username, in string password);
+        Object get_ap_handler(in string username, in string password)
+            raises(Errors::LoginError);
     };
 
     /**
@@ -131,38 +129,6 @@ module Cerebrum_core {
                          in long from_change_id );
     };
 
-
-    /**
-    * The Access Point Handler
-    * In opposite to the LOHandler, the APHandler will return object references that
-    * clients can work with. The consistency property is maintained by the APHandler's
-    * transaction support. Using the begin() method will explicitly start an transaction
-    * while an attempt to write to an object will do so implicitly.
-    */
-    interface APHandler {
-
-      /**
-      * This method will explicitly begin a transaction. If another transaction is already
-      * in progress, an exception will be thrown.
-      */
-      void begin()
-        raises( Errors::TransactionError );
-      
-      /**
-      * This method will cause the changes made by the current transaction to be rolled
-      * back. If no transaction is currently active, an error will be raised.
-      */
-      void rollback()
-        raises( Errors::TransactionError );
-
-      /**
-      * This method will write all changes made by the current transaction to the database.
-      * If no transaction is currently active, an error will be raised.
-      */
-      void commit()
-        raises( Errors::TransactionError );
-    };
-
     /**
     * Interface used to hold an amount of items. The interface provides
     * a method for fetching a specified amount of these items repetitively.
@@ -184,10 +150,6 @@ module Cerebrum_core {
         */
         boolean is_empty();        
     };
-
-    interface APObject{
-    };
-
 };
 /** \page info Additional information
 * Additional information to the Gro API documentation.
