@@ -221,7 +221,10 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
             # produce a UnicodeError when cast to str().  Fix by
             # encoding as utf-8
             ret = "%s: %s"  % (e.__class__.__name__, e.args[0])
-            raise sys.exc_info()[0], ret.encode('utf-8')
+            if isinstance(ret, unicode):
+                raise sys.exc_info()[0], ret.encode('utf-8')
+            else:
+                raise sys.exc_info()[0], ret
         except NotImplementedError, e:
             logger.warn("Not-implemented: ", exc_info=1)
             raise CerebrumError, "NotImplemented: %s" % str(e)
