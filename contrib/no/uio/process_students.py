@@ -91,10 +91,10 @@ def create_user(fnr, profile):
     account.add_spread(const.spread_uio_imap)
     logger.debug("new Account, write_db=%s" % tmp)
     all_passwords[int(account.entity_id)] = [password, profile.get_brev()]
-    update_account(profile, [account.entity_id])
+    update_account(profile, fnr, [account.entity_id])
     return account.entity_id
 
-def update_account(profile, account_ids, account_info={}):
+def update_account(profile, fnr, account_ids, account_info={}):
     """Update the account by checking that group, disk and
     affiliations are correct.  For existing accounts, account_info
     should be filled with affiliation info """
@@ -567,7 +567,7 @@ def process_student(person_info):
             elif alternative_account_id != -1:  # has a reserved account
                 logger.debug("using reserved: %i" % alternative_account_id)
                 account_id = alternative_account_id
-                update_account(profile, [account_id],
+                update_account(profile, fnr, [account_id],
                                account_info=students.get(fnr, {}))
             else:
                 account_id = create_user(fnr, profile)
@@ -576,7 +576,7 @@ def process_student(person_info):
                 return
             students.setdefault(fnr, {})[account_id] = []
         elif update_accounts and students.has_key(fnr):
-            update_account(profile, students[fnr].keys(),
+            update_account(profile, fnr, students[fnr].keys(),
                            account_info=students[fnr])
     except ValueError, msg:  # TODO: Bad disk should throw a spesific class
         logger.error("  Error for %s: %s" % (fnr, msg))
