@@ -26,7 +26,7 @@ import sys
 import os
 import cerebrum_path
 from Cerebrum import Errors
-from Cerebrum.Utils import Factory, latin1_to_iso646_60
+from Cerebrum import Utils
 from Cerebrum.modules import PosixUser
 from Cerebrum.modules import PosixGroup
 from Cerebrum import Group
@@ -35,6 +35,7 @@ from Cerebrum.Entity import EntityName
 from Cerebrum import QuarantineHandler
 from Cerebrum.Constants import _SpreadCode
 
+Factory = Utils.Factory
 db = Factory.get('Database')()
 co = Factory.get('Constants')(db)
 posix_user = PosixUser.PosixUser(db)
@@ -51,7 +52,8 @@ def generate_passwd(filename, spread=None):
     shells = {}
     for s in posix_user.list_shells():
         shells[int(s['code'])] = s['shell']
-    f = file("%s.new" % filename, "w")
+    f = Utils.SimilarSizeWriter(filename, "w")
+    f.set_size_change_limit(5)
     n = 0
     diskid2path = {}
     disk = Disk.Disk(db)
@@ -70,7 +72,7 @@ def generate_passwd(filename, spread=None):
             gecos = row['name']
         if gecos is None:
             gecos = "GECOS NOT SET"
-        gecos = latin1_to_iso646_60(gecos)
+        gecos = Utils.latin1_to_iso646_60(gecos)
         home = row['home'] 
         shell = shells[int(row['shell'])]
         if row['quarantine_type'] is not None:
@@ -100,7 +102,6 @@ def generate_passwd(filename, spread=None):
         #if n > 100:
         #    break
     f.close()
-    os.rename("%s.new" % filename, filename)
 
 def generate_netgroup(filename, group_spread, user_spread):
     # TODO: It may be desireable to merge this method with
@@ -114,7 +115,8 @@ def generate_netgroup(filename, group_spread, user_spread):
     entity2gname = {}
     for row in en.list_names(int(co.group_namespace)):
         entity2gname[int(row['entity_id'])] = row['entity_name']
-    f = file("%s.new" % filename, "w")
+    f = Utils.SimilarSizeWriter(filename, "w")
+    f.set_size_change_limit(5)
     num = 0
     for row in group.list_all(spread=group_spread):
         group.clear()
@@ -140,13 +142,13 @@ def generate_netgroup(filename, group_spread, user_spread):
             num += 1
         f.write("%s %s\n" % (group.group_name, line))
     f.close()
-    os.rename("%s.new" % filename, filename)
 
 def generate_group(filename, group_spread, user_spread):
     if group_spread is None or user_spread is None:
         raise ValueError, "Must set user_spread and group_spread"
     groups = {}
-    f = file("%s.new" % filename, "w")
+    f = Utils.SimilarSizeWriter(filename, "w")
+    f.set_size_change_limit(5)
     en = EntityName(db)
     for row in en.list_names(int(co.account_namespace)):
         entity2uname[int(row['entity_id'])] = row['entity_name']
@@ -219,7 +221,6 @@ def generate_group(filename, group_spread, user_spread):
             gname = make_name(g)
         groups[g] = None
     f.close()
-    os.rename("%s.new" % filename, filename)
 
 def join(fields, sep=':'):
     for f in fields:
