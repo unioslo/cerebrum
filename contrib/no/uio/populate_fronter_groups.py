@@ -470,6 +470,14 @@ def populate_enhet_groups(enhet_id):
             # ifi-mnm5infps ifi-mnm2inf ifi-mnm2eld-sig
             alle_aktkoder[gname] = 1
 
+        # Studenter som både 1) er undervisnings- eller eksamensmeldt,
+        # og 2) er med i minst en undervisningsaktivitet, blir meldt
+        # inn i dicten 'student_med_akt'.  Denne dicten kan så, sammen
+        # med dicten 'alle_stud', brukes for å finne hvilke studenter
+        # som er eksamens- eller undervisningsmeldt uten å være meldt
+        # til noen aktiviteter.
+        student_med_akt = {}
+
         for aktkode in UndervEnhet[enhet_id].get('aktivitet', {}).keys():
             #
             # Ansvarlige for denne undervisningsaktiviteten.
@@ -552,14 +560,14 @@ def populate_enhet_groups(enhet_id):
                 fs.GetStudUndAktivitet(Instnr, emnekode, versjon, termk,
                                        aar, termnr, aktkode)[1]):
                 if not alle_stud.has_key(account_id):
-                    logger.warn("""OBS: Bruker <%s> (fnr <%s>) er med i undaktivitet <%s>, men ikke i undervisningsenhet <%s>.\n""" % (
+                    logger.warn("OBS: Bruker <%s> (fnr <%s>) er med i"
+                                " undaktivitet <%s>, men ikke i"
+                                " undervisningsenhet <%s>.\n" % (
                         account_id, account_id2fnr[account_id],
                         "%s:%s" % (enhet_id, aktkode), enhet_id))
-                else:
-                    # ved å fjerne alle på aktiviteter, ender vi opp
-                    # med en liste over de som er meldt til kun eksamen
-                    del alle_stud[account_id]
                 akt_stud[account_id] = 1
+
+            student_med_akt.update(akt_stud)
 
             sync_group(kurs_id, "%s:student:%s" % (enhet_id, aktkode),
                        "Studenter %s %s %s%s %s" % (
@@ -586,6 +594,12 @@ def populate_enhet_groups(enhet_id):
                 alle_aktkoder[netgr_navn] = 1
 
         # ferdig med alle aktiviteter, bare noen få hack igjen ...
+        for account_id in student_med_akt.iterkeys():
+            if alle_stud.has_key(account_id):
+                # Ved å fjerne alle som er meldt til minst en
+                # aktivitet, ender vi opp med en liste over de som
+                # kun er meldt til eksamene.
+                del alle_stud[account_id]
         if ifi_hack:
             gname = mkgname("%s:student:%s" % (enhet_id, "kuneksamen"),
                             prefix = 'uio.no:fs:')
