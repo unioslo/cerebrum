@@ -25,8 +25,7 @@ from Cerebrum.modules import Email
 from Cerebrum import Errors
 
 class AccountHiAMixin(Account.Account):
-
-    def update_email_addresses(self):
+    def update_email_addresses(self, set_primary = False):
         # Find, create or update a proper EmailTarget for this
         # account.
         et = Email.EmailTarget(self._db)
@@ -72,22 +71,29 @@ class AccountHiAMixin(Account.Account):
         # Figure out which domain(s) the user should have addresses
         # in.  Primary domain should be at the front of the resulting
         # list.
+	# if the only address found is in EMAIL_DEFAULT_DOMAIN
+        # don't set default address. This is done in order to prevent
+        # adresses in default domain being sat as primary 
+	# TODO: account_types affiliated to OU's  without connected
+	# email domain don't get a default address
+        primary_set = False
         ed = Email.EmailDomain(self._db)
         ed.find(self.get_primary_maildomain())
         domains = [ed.email_domain_name]
+	if ed.email_domain_name == cereconf.EMAIL_DEFAULT_DOMAIN:
+	    primary_set = True
         if cereconf.EMAIL_DEFAULT_DOMAIN not in domains:
             domains.append(cereconf.EMAIL_DEFAULT_DOMAIN)
         # Iterate over the available domains, testing various
         # local_parts for availability.  Set user's primary address to
         # the first one found to be available.
-        primary_set = False
-        # Never change existing primary_address for any accounts
-	try:
-	    self.get_primary_mailaddress()
+	# Never change any existing email addresses
+        try:
+            self.get_primary_mailaddress()
 	    primary_set = True
-	except Errors.NotFoundError:
-	    pass
-        epat = Email.EmailPrimaryAddressTarget(self._db)
+        except Errors.NotFoundError:
+            pass
+	epat = Email.EmailPrimaryAddressTarget(self._db)
         for domain in domains:
             if ed.email_domain_name <> domain:
                 ed.clear()
@@ -102,24 +108,24 @@ class AccountHiAMixin(Account.Account):
                 local_parts.append(self.account_name)
             elif int(self.const.email_domain_category_uidaddr) in ctgs:
                 local_parts.append(self.account_name)
-            for lp in local_parts:
-                lp = self.wash_email_local_part(lp)
-                # Is the address taken?
-                ea.clear()
-                try:
-                    ea.find_by_local_part_and_domain(lp, ed.email_domain_id)
-                    if ea.email_addr_target_id <> et.email_target_id:
-                        # Address already exists, and points to a
-                        # target not owned by this Account.
+	    for lp in local_parts:
+		lp = self.wash_email_local_part(lp)
+		# Is the address taken?
+ 		ea.clear()
+		try:
+		    ea.find_by_local_part_and_domain(lp, ed.email_domain_id)
+		    if ea.email_addr_target_id <> et.email_target_id:
+			# Address already exists, and points to a
+			# target not owned by this Account.
                         continue
-                    # Address belongs to this account; make sure
-                    # there's no expire_date set on it.
-                    ea.email_addr_expire_date = None
-                except Errors.NotFoundError:
-                    # Address doesn't exist; create it.
-                    ea.populate(lp, ed.email_domain_id, et.email_target_id,
-                                expire=None)
-                ea.write_db()
+		    # Address belongs to this account; make sure
+		    # there's no expire_date set on it.
+		    ea.email_addr_expire_date = None
+		except Errors.NotFoundError:
+		    # Address doesn't exist; create it.
+		    ea.populate(lp, ed.email_domain_id, et.email_target_id,
+				expire=None)
+		ea.write_db()
                 if not primary_set:
                     epat.clear()
                     try:
