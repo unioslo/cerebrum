@@ -13,7 +13,7 @@ db = Factory.get('Database')()
 logging.fileConfig(cereconf.LOGGING_CONFIGFILE)
 logger = logging.getLogger("console")
  
-ldap_update_str = ','.join(('ou=services',cereconf.LDAP_BASE))
+ldap_update_str = ','.join(('ou=services', cereconf.LDAP_BASE_DN))
 
 
 class LdapCall:
@@ -48,7 +48,7 @@ class LdapCall:
                     break
                 if os.path.isfile(f_name): self.s_list[serv] = [file(f_name,'a'),]
                 else: self.s_list[serv] = [file(f_name,'w'),]
-                user = ','.join((user, cereconf.LDAP_BASE))
+                user = ','.join((user, cereconf.LDAP_BASE_DN))
                 con = ldap.open(serv)
                 con.protocol_version = ldap.VERSION3
                 try:
