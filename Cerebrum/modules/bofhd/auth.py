@@ -242,7 +242,8 @@ class BofhdAuthOpTarget(DatabaseAccessor):
         return self.query("""
         SELECT op_target_id, entity_id, target_type, has_attr
         FROM [:table schema=cerebrum name=auth_op_target]
-        WHERE %s""" % " AND ".join(ewhere), {
+        WHERE %s
+        ORDER BY entity_id""" % " AND ".join(ewhere), {
             'target_type': target_type, 'entity_id': entity_id,
             'target_id': target_id})
 
@@ -340,9 +341,11 @@ class BofhdAuth(DatabaseAccessor):
             return True
         if not isinstance(entity, Factory.get('Account')):
             raise PermissionDenied("No access to person")
-        if entity.disk_id:
+
+        disk = self._get_user_disk(entity.entity_id)
+        if disk:
             self._query_disk_permissions(operator, operation,
-                                         self._get_disk(entity.disk_id),
+                                         self._get_disk(disk['disk_id']),
                                          entity.entity_id)
         else:
             raise PermissionDenied("No access to account")
@@ -566,7 +569,10 @@ class BofhdAuth(DatabaseAccessor):
             return False
         # Return true if we have auth_create_user on this user, and
         # the affiliation is of type manual or the person has the affiliaton
-        self.can_create_user(operator, disk=account.disk_id)
+        disk = self._get_user_disk(account.entity_id)
+        if disk:
+            disk = disk['disk_id']
+        self.can_create_user(operator, disk=disk)
         if aff == self.const.affiliation_manuell:
             return True
         person = Person.Person(self._db)
@@ -585,7 +591,10 @@ class BofhdAuth(DatabaseAccessor):
             if self._has_operation_perm_somewhere(operator, self.const.auth_create_user):
                 return True
             return False
-        return self.can_create_user(operator, disk=account.disk_id)
+        disk = self._get_user_disk(account.entity_id)
+        if disk:
+            disk = disk['disk_id']
+        return self.can_create_user(operator, disk=disk)
     
     def can_add_affiliation(self, operator, person=None, ou=None, aff=None,
                             aff_status=None, query_run_any=False):
@@ -1128,6 +1137,14 @@ class BofhdAuth(DatabaseAccessor):
         members = [int(id) for id in group.get_members()]
         self._group_member_cache[groupname] = members
         return members
+
+    def _get_user_disk(self, account_id):
+        try:
+            account = Factory.get('Account')(self._db)
+            account.find(account_id)
+            return account.get_home(self.const.spread_uio_nis_user)
+        except Errors.NotFoundError:
+            return None
 
     def _get_disk(self, disk_id):
         disk = Factory.get('Disk')(self._db)
