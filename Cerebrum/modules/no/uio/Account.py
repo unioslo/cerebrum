@@ -22,6 +22,7 @@
 import random
 
 import re
+import smbpasswd
 import cereconf
 from Cerebrum import Account
 from Cerebrum import Errors
@@ -333,3 +334,6 @@ class AccountUiOMixin(Account.Account):
 
     def enc_auth_type_pgp_crypt(self, plaintext, salt=None):
         return pgp_encrypt(plaintext, cereconf.PGPID)
+
+        def enc_auth_type_md4_nt(self,plaintext,salt=None):
+        return smbpasswd.nthash(plaintext)
