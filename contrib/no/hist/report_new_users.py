@@ -22,13 +22,16 @@ from Cerebrum.modules.no.uio import AutoStud
 
 
 def usage(exitcode=0):
-    print """Usage: report_new_users.py [-s spread | -f fnrfile]"""
+    print """Usage: report_new_users.py [ -S sep ] [-s spread | -f fnrfile]"""
     sys.exit(exitcode)
 
 def main():
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 's:f:', ['help'])
+        opts, args = getopt.getopt(sys.argv[1:], 's:f:S:', ['help'])
     except getopt.GetoptError:
+        usage(1)
+
+    if args:
         usage(1)
 
     db = Factory.get("Database")()
@@ -36,16 +39,24 @@ def main():
 
     studnr2data = read_student_data("/cerebrum/dumps/FS/merged_persons.xml")
 
+    field_sep = ''
     for opt, val in opts:
         if opt == '--help':
             usage()
+        elif opt == '-S':
+            if not val:
+                print "Can't use null field separator."
+                usage(1)
+            field_sep = val
         elif opt == '-s':
-            dump_new_users(db, const, studnr2data, spread=val)
+            dump_new_users(db, const, studnr2data, field_sep,
+                           spread=val)
         elif opt == '-f':
-            dump_new_users(db, const, studnr2data, fnr_file=val)
+            dump_new_users(db, const, studnr2data, field_sep,
+                           fnr_file=val)
 
-def dump_new_users(db, const, studnr2data, spread=None, fnr_file=None,
-                   start_date=None):
+def dump_new_users(db, const, studnr2data, field_sep, spread=None,
+                   fnr_file=None, start_date=None):
     entity = Entity.Entity(db)
     if start_date is None:
         start_date = yesterday(db)
@@ -68,6 +79,9 @@ def dump_new_users(db, const, studnr2data, spread=None, fnr_file=None,
             for r in account.list_accounts_by_owner_id(person.entity_id):
                 rows.append({'entity_id': r['account_id']})
         
+    # Finn brukerens nyeste passord, i klartekst.
+    changelog = db.get_log_events(0, (const.account_password,))
+
     for r in rows:
         try:
             account = _get_account(db, r['entity_id'])
@@ -90,9 +104,8 @@ def dump_new_users(db, const, studnr2data, spread=None, fnr_file=None,
             stedkode = ''
 
         # Finn brukerens nyeste passord, i klartekst.
-        pwd_rows = [row for row in
-                    db.get_log_events(0, (const.account_password,))
-                    if row.dest_entity == account.entity_id]
+        pwd_rows = [row for row in changelog
+                    if row.subject_entity == account.entity_id]
         try:
             pwd = pickle.loads(pwd_rows[-1].change_params)['password']
         except:
@@ -139,22 +152,24 @@ def dump_new_users(db, const, studnr2data, spread=None, fnr_file=None,
         kull, stprog, stretn = studnr2data.get(studnr, ('','',''))
 
         sys.stdout.write(
-            "%(brukernavn)s:%(pwd)s:%(sko)s:%(studentnr)s"
-            ":%(fullname)s:%(fname)s:%(lname)s:%(aff)s"
-            ":%(affstatus)s:%(kull)s:%(stprog)s:%(stretn)s\n" %
-            {'brukernavn': account.account_name,
-             'pwd': pwd,
-             'sko': stedkode,
-             'studentnr': studnr,
-             'fullname': fullname,
-             'fname': fname,
-             'lname': lname,
-             'aff': aff,
-             'affstatus': affstatus,
-             'kull': kull,
-             'stprog': stprog,
-             'stretn': stretn,
-             })
+            (field_sep.join(("%(brukernavn)s", "%(pwd)s", "%(sko)s",
+                             "%(studentnr)s", "%(fullname)s", "%(fname)s",
+                             "%(lname)s", "%(aff)s", "%(affstatus)s",
+                             "%(kull)s", "%(stprog)s", "%(stretn)s"))
+             + "\n") % {'brukernavn': account.account_name,
+                        'pwd': pwd,
+                        'sko': stedkode,
+                        'studentnr': studnr,
+                        'fullname': fullname,
+                        'fname': fname,
+                        'lname': lname,
+                        'aff': aff,
+                        'affstatus': affstatus,
+                        'kull': kull,
+                        'stprog': stprog,
+                        'stretn': stretn,
+                        })
+        sys.stdout.flush()
 
 
 def _get_ou(db, e_id):
