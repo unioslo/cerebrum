@@ -59,6 +59,17 @@ from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no.uio.access_FS import FS
 
+
+def usage(exitcode=0):
+    print """Usage: [options]
+    Updates all e-mail adresses in FS that come from Cerebrum
+    -v | --verbose
+    -d | --dryrun
+    --db-user name: connect with given database username
+    --db-service name: connect to given database
+    """
+    sys.exit(exitcode)
+
 def main():
     db_user = db_service = None
     verbose = dryrun = 0
@@ -100,13 +111,14 @@ def main():
 		if not dryrun: 
 		    fs.WriteMailAddr(row['fodselsdato'], row['personnr'], fnr2primary[fnr])
 		    fs.db.commit()
-	    else:
-		# address registered in FS does not exist in Cerebrum anymore
-		if row['emailadresse'] is not None:
-		    if verbose:
-			print "Deleting address for %s." % fnr
-			fs.WriteMailAddr(row['fodselsdato'], row['personnr'],None)
-			fs.db.commit() 
+	else:
+	    # address registered in FS does not exist in Cerebrum anymore
+	    if row['emailadresse'] is not None:
+		if verbose:
+		    print "Deleting address for %s." % fnr
+		if not dryrun:
+		    fs.WriteMailAddr(row['fodselsdato'], row['personnr'],None)
+		    fs.db.commit() 
 
     print "Done processing addresses."
 
