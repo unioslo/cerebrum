@@ -13,7 +13,7 @@ from Cerebrum import Errors
 from Cerebrum import Utils
 from Cerebrum.modules import PasswordHistory
 
-logger = Utils.Factory.get_logger("console")
+logger = Utils.Factory.get_logger("cronjob")
 db = Utils.Factory.get('Database')()
 db.cl_init(change_program="notify_ch_pass")
 co = Utils.Factory.get('Constants')(db)
@@ -39,9 +39,9 @@ def mail_user(account_id, deadline=''):
         logger.warn("No email-address for %i" % account_id)
         return
     subject = email_info['Subject']
-    subject = subject.replace('${UNAME}', account.account_name)
+    subject = subject.replace('${USERNAME}', account.account_name)
     body = email_info['Body']
-    body = body.replace('${UNAME}', account.account_name)
+    body = body.replace('${USERNAME}', account.account_name)
     body = body.replace('${DEADLINE}', deadline)
     
     send_mail(prim_email, email_info['From'], subject, body)
@@ -76,8 +76,8 @@ def process_data():
     max_date = time.strftime('%Y-%m-%d',
                              time.localtime(time.time()-max_password_age))
     ph = PasswordHistory.PasswordHistory(db)
-    account_ids = [int(x[0]) for x in ph.find_old_password_accounts(max_date)]
-    account_ids.extend( [int(x[0]) for x in ph.find_no_history_accounts() ])
+    account_ids = [int(x['account_id']) for x in ph.find_old_password_accounts(max_date)]
+    account_ids.extend( [int(x['account_id']) for x in ph.find_no_history_accounts() ])
     logger.debug("Found %i users" % len(account_ids))
     for account_id in account_ids:
         max_users -= 1
