@@ -247,6 +247,8 @@ def process_email_requests():
 	if keep_running() and r['run_at'] < br.now:
             # state_data is a request-id which must complete first,
             # typically an email_create request.
+            logger.debug("email_move %d, state is %r" % \
+                         (r['entity_id'], r['state_data']))
             if dependency_pending(r['state_data']):
                 br.delay_request(r['request_id'])
                 continue 
