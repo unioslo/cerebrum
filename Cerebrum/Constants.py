@@ -184,14 +184,63 @@ class _SpreadCode(_CerebrumCode):
     def entity_type(self):
         return _EntityTypeCode(self.sql.query_1("""
         SELECT entity_type
-        FROM [:table schema=cerebrum name=%s]
-        WHERE %s=:code""" % (self._lookup_table, self._lookup_code_column),
+        FROM %(table)s
+        WHERE %(code_col)s = :code""" % {
+            'table': self._lookup_table,
+            'code_col': self._lookup_code_column},
                                                 {'code': int(self)}))
 
 class _ContactInfoCode(_CerebrumCode):
     "Mappings stored in the contact_info_code table"
     _lookup_table = '[:table schema=cerebrum name=contact_info_code]'
     pass
+
+class _CountryCode(_CerebrumCode):
+    """Interface to code values in the `country_code' table."""
+    _lookup_table = '[:table schema=cerebrum name=country_code]'
+
+    def __init__(self, code, country=None, phone_prefix=None,
+                 description=None):
+        if country is not None:
+            self.country = country
+            self.phone_prefix = phone_prefix
+        super(_CountryCode, self).__init__(code, description)
+
+    def insert(self):
+        self.sql.execute("""
+        INSERT INTO %(code_table)s
+          (%(code_col)s, %(str_col)s, country, phone_prefix, %(desc_col)s)
+        VALUES
+          (%(code_seq)s, :str, :country, :phone, :desc)""" % {
+            'code_table': self._lookup_table,
+            'code_col': self._lookup_code_column,
+            'str_col': self._lookup_str_column,
+            'desc_col': self._lookup_desc_column,
+            'code_seq': self._code_sequence},
+                         {'str': self.str,
+                          'country': self.country,
+                          'phone': self.phone_prefix,
+                          'desc': self.description})
+
+    def country(self):
+        if self.country is None:
+            self.country = self._get_column('country')
+        return self.country
+
+    def phone_prefix(self):
+        if self.phone_prefix is None:
+            self.phone_prefix = self._get_column('phone_prefix')
+        return self.phone_prefix
+
+    def _get_column(self, col_name):
+        return self.query_1("""
+        SELECT %(col_name)s
+        FROM %(table)s
+        WHERE %(code_col)s = :code""" % {
+            'col_name': col_name,
+            'table': self._lookup_table,
+            'code_col': self._lookup_code_column},
+                            {'code': int(self)})
 
 class _AddressCode(_CerebrumCode):
     "Mappings stored in the address_code table"

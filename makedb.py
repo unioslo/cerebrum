@@ -130,24 +130,17 @@ def main():
         makeInitialUsers(db)
 
 def read_country_file(fname, db):
+    from Cerebrum import Constants
     f = file(fname, "r")
     for line in f.readlines():
         if line[0] == '#':
             continue
         dta = [x.strip() for x in line.split("\t") if x.strip() <> ""]
         if len(dta) == 4:
-            cols = {
-                'code_str': dta[0],
-                'country': dta[2],
-                'phone_prefix': dta[3],
-                'description': dta[2]
-                }
-            db.execute("""
-            INSERT INTO [:table schema=cerebrum name=country_code]
-              (code, %s) VALUES
-              ([:sequence schema=cerebrum name=code_seq op=next], %s)""" % (
-                ", ".join(cols.keys()), ", ".join([":%s" % t for t in
-                                                   cols.keys()])), cols)
+            code_str, foo, country, phone_prefix = dta
+            code_obj = Constants._CountryCode(code_str, country, phone_prefix,
+                                              description=country)
+            code_obj.insert()
     db.commit()
 
 def insert_code_values(db):
