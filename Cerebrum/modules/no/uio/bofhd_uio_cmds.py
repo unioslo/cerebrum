@@ -778,7 +778,10 @@ class BofhdExtension(object):
     all_commands['user_gecos'] = Command(
         ("user", "gecos"), AccountName(), PosixGecos())
     def user_gecos(self, operator, accountname, gecos):
-        raise NotImplementedError, "Feel free to implement this function"
+        account = self._get_account(accountname, actype="PosixUser")
+        account.gecos = gecos
+        account.write_db()
+        return "OK"
 
     # user history
     all_commands['user_history'] = Command(
@@ -789,13 +792,26 @@ class BofhdExtension(object):
     # user info
     all_commands['user_info'] = Command(
         ("user", "info"), AccountName(),
-        fs=FormatSuggestion("entity id: %i\nSpreads: %s", ("entity_id", "spread")))
+        fs=FormatSuggestion([("entity id: %i\nSpreads: %s", ("entity_id", "spread")),
+                             ("uid: %i\ndfg: %i\ngecos: %s\nshell: %s",
+                              ('uid', 'dfg', 'gecos', 'shell'))]))
     def user_info(self, operator, accountname):
-        account = self._get_account(accountname)
+        is_posix = 0
+        try: 
+            account = self._get_account(accountname, actype="PosixUser")
+            is_posix = 1
+        except CerebrumError:
+            account = self._get_account(accountname)
+        ret = {'entity_id': account.entity_id,
+               'spread': ",".join(["%s" % self.num2const[int(a['spread'])]
+                                   for a in account.get_spread()])}
+        if is_posix:
+            ret['uid'] = account.posix_uid
+            ret['dfg'] = account.gid_id
+            ret['gecos'] = account.gecos
+            ret['shell'] = str(self.num2const[int(account.shell)])
         # TODO: Return more info about account
-        return {'entity_id': account.entity_id,
-                'spread': ",".join(["%s" % self.num2const[int(a['spread'])]
-                                    for a in account.get_spread()])}
+        return ret
 
     # user list_created
     all_commands['user_list_created'] = Command(

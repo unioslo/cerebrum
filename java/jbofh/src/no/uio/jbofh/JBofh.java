@@ -452,29 +452,35 @@ public class JBofh {
                     resp.getClass().getName()+ ", no format suggestion exists");
 	    }
         }
-        
-	Vector order = (Vector) format.get("var");
 	if(! (resp instanceof Vector) ){
-	    Vector tmp = new Vector();
+	    Vector tmp = new Vector();    // Pretend that returned value was a Vector
 	    tmp.add(resp);
 	    resp = tmp;
-	} else {
+	} else {   	    // Vector responses may have a header
 	    String hdr = (String) format.get("hdr");
 	    if(hdr != null) System.out.println(hdr);
 	}
-	for (Enumeration e = ((Vector) resp).elements() ; e.hasMoreElements() ;) {
-	    Object row = e.nextElement();
-	    try {
-		PrintfFormat pf = new PrintfFormat((String) format.get("str"));
-		Object a[] = new Object[order.size()];
-		for(int i = 0; i < order.size(); i++) 
-		    a[i] = ((Hashtable) row).get((String) order.get(i));
-		System.out.println(pf.sprintf(a));
-	    } catch (IllegalArgumentException ex) {
-		logger.error("Error formatting "+resp+"\n as: "+format, ex);
-		System.out.println("An error occoured formatting the response, see log for details");
+	for (Enumeration ef = ((Vector) format.get("str_vars")).elements() ; 
+	     ef.hasMoreElements() ;) {
+	    Vector format_info = (Vector) ef.nextElement();
+	    String format_str = (String) format_info.get(0);
+	    Vector order = (Vector) format_info.get(1);
+	    for (Enumeration e = ((Vector) resp).elements() ; e.hasMoreElements() ;) {
+		Hashtable row = (Hashtable) e.nextElement();
+		if(! row.containsKey(order.get(0)))
+		    continue;
+		try {
+		    PrintfFormat pf = new PrintfFormat(format_str);
+		    Object a[] = new Object[order.size()];
+		    for(int i = 0; i < order.size(); i++) 
+			a[i] = row.get(order.get(i));
+		    System.out.println(pf.sprintf(a));
+		} catch (IllegalArgumentException ex) {
+		    logger.error("Error formatting "+resp+"\n as: "+format, ex);
+		    System.out.println("An error occoured formatting the response, see log for details");
+		}
 	    }
-        }
+	}
     }
     /**
      * @param args the command line arguments

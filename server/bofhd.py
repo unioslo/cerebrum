@@ -313,7 +313,8 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler):
     def bofhd_get_format_suggestion(self, cmd):
         suggestion = self.server.cmd2instance[cmd].get_format_suggestion(cmd)
         if suggestion is not None:
-            suggestion['str'] = unicode(suggestion['str'], 'iso8859-1')
+            # suggestion['str'] = unicode(suggestion['str'], 'iso8859-1')
+            pass
         else:
             # TODO:  Would be better to allow xmlrpc-wrapper to handle None
             return ''

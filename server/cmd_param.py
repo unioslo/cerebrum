@@ -186,13 +186,25 @@ class Command(object):
         return (self._cmd,)
 
 class FormatSuggestion(object):
-    def __init__(self, string, vars, hdr=None):
-        self._string = string
-        self._vars = vars
+    """FormatSuggestion is used by the client to determine how to
+    format a return value from a command.  It returns a list-of-lists
+    where the inner list contains a <format-string, var-list>.
+
+    Normally it will only contain one such list, however some commands
+    may wish to display varying amounts of information.  Before trying
+    to show a format-string, the client should check that atleast one
+    of the required values from var-list are in the dict returned by
+    the command in question."""
+    
+    def __init__(self, string, vars=None, hdr=None):
+        if vars is None:
+            self._string_vars = string
+        else:
+            self._string_vars = [string, vars]
         self._hdr = hdr
 
     def get_format(self):
-        ret = {'str': self._string, 'var': self._vars}
+        ret = {'str_vars': self._string_vars}
         if self._hdr is not None:
             ret['hdr'] = self._hdr
         return ret
