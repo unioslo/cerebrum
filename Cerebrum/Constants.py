@@ -438,7 +438,8 @@ class ConstantsBase(DatabaseAccessor):
         _CerebrumCode.sql = database
 
     def fetch_constants(self, wanted_class):
-        """Return all constant instances of wanted_class."""
+        """Return all constant instances of wanted_class.  The list is
+        sorted by the name of the constants."""
         clist = []
         for name in dir(self):
             const = getattr(self, name)
