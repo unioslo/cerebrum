@@ -364,9 +364,8 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine, Entity):
             cols = [('owner_type',':o_type'),
                     ('owner_id',':o_id'),
                     ('np_type',':np_type'),
-                    ('creator_id',':c_id')]
-            if self.expire_date is not None:
-                cols.append(('expire_date', ':exp_date'))
+                    ('creator_id',':c_id'),
+                    ('expire_date', ':exp_date')]
 
             self.execute("""
             UPDATE [:table schema=cerebrum name=account_info]
