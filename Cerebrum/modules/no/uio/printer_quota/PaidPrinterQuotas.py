@@ -81,8 +81,8 @@ class PaidPrinterQuotas(DatabaseAccessor):
                      priss_queue_id=None, paper_type=None, pages=None,
                      tstamp=None, update_quota=True):
         """Register an entry in the paid_quota_history table."""
-
-        pageunits_total = int(pageunits)
+        pageunits = int(pageunits)
+        pageunits_total = pageunits
         # Determine how much to subtract from free and paid quota
         pageunits_free = pageunits_paid = 0
         if update_quota:
