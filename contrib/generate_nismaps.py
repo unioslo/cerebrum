@@ -36,6 +36,7 @@ from Cerebrum.Constants import _SpreadCode
 Factory = Utils.Factory
 db = Factory.get('Database')()
 co = Factory.get('Constants')(db)
+logger = Factory.get_logger("cronjob")
 posix_user = PosixUser.PosixUser(db)
 posix_group = PosixGroup.PosixGroup(db)
 
@@ -59,6 +60,7 @@ class BadUsername(NISMapError): pass
 class NoDisk(NISMapError): pass
 
 def generate_passwd(filename, shadow_file, spread=None):
+    logger.debug("generate_passwd: "+str((filename, shadow_file, spread)))
     if spread is None:
         raise ValueError, "Must set user_spread"
     shells = {}
@@ -129,7 +131,7 @@ def generate_passwd(filename, shadow_file, spread=None):
                      str(posix_group.posix_gid), gecos,
                      str(home), shell))
         if debug:
-            print line
+            logger.debug(line)
         f.write(line+"\n")
         # convert to 7-bit
     user_iter = posix_user.list_extended_posix_users(
@@ -149,7 +151,7 @@ def generate_passwd(filename, shadow_file, spread=None):
                 # if n > 100:
                 #     break
             except NISMapError, e:
-                print e
+                logger.error("NISMapError", exc_info=1)
             except NISMapException:
                 pass
             extra_rows = []
@@ -160,16 +162,17 @@ def generate_passwd(filename, shadow_file, spread=None):
                 process_user(user_row, extra_rows)
                 n += 1
             except NISMapError, e:
-                print e
+                logger.error("NISMapError", exc_info=1)
             except NISMapException:
                 pass
     if e_o_f:
 	f.write('E_O_F\n')
     f.close()
-    if s:
+    if shadow_file:
         s.close()
 
 def generate_netgroup(filename, group_spread, user_spread):
+    logger.debug("generate_netgroup: "+str((filename, group_spread, user_spread)))
     # TODO: It may be desireable to merge this method with
     # generate_group, currently separate as a number of things differ
     # and limited available time.
@@ -203,10 +206,11 @@ def generate_netgroup(filename, group_spread, user_spread):
                 uname = entity2uname[entity_id]
                 tmp = posix_user.illegal_name(uname)
                 if tmp:
-                    print "Bad username %s in %s" % (tmp, group.group_name)
+                    logger.warn("Bad username %s in %s" % (
+                        tmp, group.group_name))
                 elif len(uname) > 8:
-                    print ("Bad username %s in %s" %
-                           (uname, group.group_name))
+                    logger.warn("Bad username %s in %s" % (
+                        uname, group.group_name))
                 else:
                     account_members.append("(,%s,)" % uname)
             # we include subgroups regardless of their spread, but
@@ -241,6 +245,7 @@ def generate_netgroup(filename, group_spread, user_spread):
     f.close()
 
 def generate_group(filename, group_spread, user_spread):
+    logger.debug("generate_group: "+str((filename, group_spread, user_spread)))
     if group_spread is None or user_spread is None:
         raise ValueError, "Must set user_spread and group_spread"
     groups = {}
@@ -259,7 +264,8 @@ def generate_group(filename, group_spread, user_spread):
         try:
             posix_group.find(row.group_id)
         except Errors.NotFoundError:
-            print "Group %s, spread %s has no GID"%(row.group_id,group_spread)
+            logger.warn("Group %s, spread %s has no GID"%(
+                row.group_id,group_spread))
             continue
         # Group.get_members will flatten the member set, but returns
         # only a list of entity ids; we remove all ids with no
@@ -268,9 +274,9 @@ def generate_group(filename, group_spread, user_spread):
         gname = posix_group.group_name
         tmp = posix_group.illegal_name(gname)
         if tmp:
-            print "Bad groupname %s" % tmp            
+            logger.warn("Bad groupname %s" % tmp)
         if len(gname) > 8:
-            print "Bad groupname %s" % gname
+            logger.warn("Bad groupname %s" % gname)
             continue
         gid = str(posix_group.posix_gid)
 
@@ -289,14 +295,14 @@ def generate_group(filename, group_spread, user_spread):
             if not account2def_group.get(id,None) == posix_group.posix_gid:
                 tmp = posix_user.illegal_name(entity2uname[id])
                 if tmp:
-                    print "Bad username %s" % tmp            
+                    logger.warn("Bad username %s" % tmp)
                 elif len(entity2uname[id]) > 8:
-                    print "Bad username %s in %s"%(entity2uname[id], gname)
+                    logger.warn("Bad username %s in %s"%(entity2uname[id], gname))
                 else:
                     user_membership_count[id] = user_membership_count.get(id, 0) + 1
                     if user_membership_count[id] > max_group_memberships:
-                        print ("Too many groups for %s (%s)" %
-                               (entity2uname[id], gname))
+                        logger.warn("Too many groups for %s (%s)" % (
+                            entity2uname[id], gname))
                     else:
                         members.append(entity2uname[id])
 
@@ -381,7 +387,7 @@ def map_spread(id):
     try:
         return int(_SpreadCode(id))
     except Errors.NotFoundError:
-        print "Error mapping %s" % id
+        print "Error mapping %s" % id  # no need to use logger here
         raise
 
 def main():
