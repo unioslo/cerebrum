@@ -206,14 +206,17 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
         if hasattr(self, '_affil_source'):
             source = self._affil_source
             db_affil = {}
-            for t_person_id, t_ou_id, t_affiliation, t_source, t_status in \
-                    self.get_affiliations():
+            for t_person_id, t_ou_id, t_affiliation, t_source, t_status, \
+                    deleted_date in self.get_affiliations():
                 if source == t_source:
                     idx = "%d:%d:%d" % (t_ou_id, t_affiliation, t_status)
-                    db_affil[idx] = True
+                    db_affil[idx] = [True, deleted_date]
             pop_affil = self.__affil_data
             for idx in pop_affil.keys():
                 if db_affil.has_key(idx):
+                    if  db_affil[idx][1] is not None:    # Resurrect affiliation
+                        ou_id, affil, status = [int(x) for x in idx.split(":")]
+                        self.add_affiliation(ou_id, affil, source, status)
                     del db_affil[idx]
                 else:
                     ou_id, affil, status = [int(x) for x in idx.split(":")]
@@ -221,10 +224,11 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
                     if is_new <> 1:
                         is_new = False
             for idx in db_affil.keys():
-                ou_id, affil, status = [int(x) for x in idx.split(":")]
-                self.delete_affiliation(ou_id, affil, source, status)
-                if is_new <> 1:
-                    is_new = False
+                if db_affil[idx][1] is None:
+                    ou_id, affil, status = [int(x) for x in idx.split(":")]
+                    self.delete_affiliation(ou_id, affil, source, status)
+                    if is_new <> 1:
+                        is_new = False
 
         # If affect_names has not been called, we don't care about
         # names
@@ -541,7 +545,8 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
         if len(where) > 0:
             where = "WHERE %s" % where
         return self.query("""
-        SELECT person_id, ou_id, affiliation, source_system, status
+        SELECT person_id, ou_id, affiliation, source_system, status,
+          deleted_date
         FROM [:table schema=cerebrum name=person_affiliation_source]
         %s""" % where, cols)
 
