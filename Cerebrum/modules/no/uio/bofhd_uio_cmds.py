@@ -4552,10 +4552,10 @@ class BofhdExtension(object):
                                format_day("expire"),
                                "home", "home_status", "entity_id", "owner_id",
                                "owner_type", "owner_desc")),
-                             ("Disk quota:    %s MiB\n" +
-                              "Override:      %s MiB (until %s: %s)",
-                              ("disk_quota", "dq_override",
-                               format_day("dq_expire"), "dq_why")),
+                             ("Disk quota:    %s MiB",
+                              ("disk_quota",)),
+                             ("DQ override:   %s MiB (until %s: %s)",
+                              ("dq_override", format_day("dq_expire"), "dq_why")),
                              ("UID:           %i\n" +
                               "Default fg:    %i=%s\n" +
                               "Gecos:         %s\n" +
