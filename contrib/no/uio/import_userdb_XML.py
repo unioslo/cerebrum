@@ -44,6 +44,7 @@ from Cerebrum import Errors
 from Cerebrum.modules import PosixGroup
 from Cerebrum.modules import PosixUser
 from Cerebrum.modules import PasswordHistory
+from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no import Stedkode
 from Cerebrum.modules.no.uio import PrinterQuotas
 from server.bofhd_auth import BofhdAuthOpSet, BofhdAuthRole, BofhdAuthOpTarget
@@ -64,6 +65,8 @@ uname2entity_id = {}
 deleted_users = {}
 uid_taken = {}
 group2entity_id = {}
+person_id2affs = {}
+account_id2aff = {}
 
 namestr2const = {'lname': co.name_last, 'fname': co.name_first}
 personObj = Factory.get('Person')(db)
@@ -114,7 +117,7 @@ class PersonUserParser(xml.sax.ContentHandler):
         if name == "persons":
             pass
         elif name == "person":
-            self.person = {'bdate': tmp['bdate']}
+            self.person = {'bdate': tmp['bdate'], 'ptype': []}
         elif self.elementstack[-1] == "user":
             if name in ("auth", "spread", "name", "pwdhist"):
                 self.user[name] = self.user.get(name, []) + [tmp]
@@ -133,6 +136,9 @@ class PersonUserParser(xml.sax.ContentHandler):
                     self.user[k] = tmp[k]
             else:
                 print "WARNING: unknown person element: %s" % name
+        elif self.elementstack[-1] == "uio":
+            if name in ("ptype", ):
+                self.person[name].append(tmp['val'])
         else:
             print "WARNING: unknown element: %s" % name
         self.elementstack.append(name)
@@ -450,12 +456,65 @@ def import_groups(groupfile, fill=0):
             groupObj.add_member(tmp.entity_id, tmp.entity_type, co.group_memberop_union)
     db.commit()
 
+ureg_person_aff_mapping = {
+    'A' : [co.affiliation_ansatt, co.affiliation_status_ansatt_tekadm],
+    'M' : [co.affiliation_ansatt, co.affiliation_status_ansatt_tekadm],
+    'V' : [co.affiliation_ansatt, co.affiliation_status_ansatt_vit],
+    'F' : [co.affiliation_tilknyttet, co.affiliation_tilknyttet_fagperson],
+    'E' : [co.affiliation_student, co.affiliation_status_student_evu],
+    'S' : [co.affiliation_student, co.affiliation_status_student_aktiv],
+    'G' : [co.affiliation_tilknyttet, co.affiliation_tilknyttet_emeritus]
+    }
+# *unset* aff_status -> inherit from Person
+ureg_user_aff_mapping = {
+    'A' : {'*unset*': [co.affiliation_ansatt, '*unset*']
+           },
+    'S' : {'*unset*': [co.affiliation_student, '*unset*']
+           },
+    'X' : {'C': [co.affiliation_manuell, co.affiliation_manuell_cicero],
+           'D' : [co.affiliation_upersonlig, co.affiliation_upersonlig_felles],
+           'E' : [co.affiliation_manuell, co.affiliation_manuell_ekst_person],
+           'F' : '*special*',
+           'G' : [co.affiliation_manuell, co.affiliation_manuell_gjest],
+           'J' : [co.affiliation_manuell, co.affiliation_manuell_spes_avt],
+           'K' : [co.affiliation_upersonlig, co.affiliation_upersonlig_kurs],
+           'L' : [co.affiliation_upersonlig, co.affiliation_upersonlig_pvare],
+           'N' : [co.affiliation_manuell, co.affiliation_manuell_biotech],
+           'O' : [co.affiliation_manuell, co.affiliation_manuell_sio],
+           'P' : [co.affiliation_upersonlig, co.affiliation_upersonlig_term_maskin],
+           'R' : [co.affiliation_manuell, co.affiliation_manuell_radium],
+           'T' : [co.affiliation_manuell, co.affiliation_manuell_notur],
+           'W' : [co.affiliation_manuell, co.affiliation_manuell_gjesteforsker],
+           'Z' : [co.affiliation_manuell, co.affiliation_manuell_sivilarb],
+           'c' : [co.affiliation_upersonlig, co.affiliation_upersonlig_bib_felles],
+           'e' : [co.affiliation_tilknyttet, co.affiliation_tilknyttet_emeritus],
+           'f' : [co.affiliation_upersonlig, co.affiliation_upersonlig_uio_forening],
+           # TODO: h = sommerskole.  Hva er rett affiliation?
+           'h' : [co.affiliation_student, co.affiliation_status_student_aktiv],
+           'j' : [co.affiliation_manuell, co.affiliation_manuell_kaja_kontrakt],
+           'k' : [co.affiliation_manuell, co.affiliation_manuell_konsulent],
+           'n' : [co.affiliation_manuell, co.affiliation_manuell_notam2],
+           'p' : [co.affiliation_tilknyttet, co.affiliation_tilknyttet_ekst_stip],
+           'r' : [co.affiliation_manuell, co.affiliation_manuell_radium],
+           'u' : [co.affiliation_manuell, co.affiliation_manuell_gjest],
+           # TODO: z = frischsenteret.  Hva er rett affiliation?
+           'z' : [co.affiliation_manuell, co.affiliation_manuell_ekst_person],
+           # TODO: noen har blank.  Hva er rett affiliation?
+           '*unset*' : [co.affiliation_manuell, co.affiliation_manuell_ekst_person],
+           },
+    'a' : {'*unset*': [co.affiliation_ansatt, '*unset*']
+           },
+    's' : {'*unset*': [co.affiliation_student, '*unset*']
+           }
+    }
+
 def import_person_users(personfile):
-    global gid2entity_id, stedkode2ou_id
+    global gid2entity_id, stedkode2ou_id, default_ou
 
     group=PosixGroup.PosixGroup(db)
     gid2entity_id = {}
-    if 0:
+    # if False and not quick_test:
+    if not quick_test:
         for row in group.list_all():
             group.clear()
             try:
@@ -469,12 +528,13 @@ def import_person_users(personfile):
 
     ou = Stedkode.Stedkode(db)
     stedkode2ou_id = {}
-    if 0:  # TODO: set to 1 when debugging is reasonably complete
+    if not quick_test:
         for row in ou.list_all():
             ou.clear()
             ou.find(row['ou_id'])
             stedkode2ou_id["%02i%02i%02i" % (
                 ou.fakultet, ou.institutt, ou.avdeling)] = ou.entity_id
+    default_ou = stedkode2ou_id["900199"]
 
     showtime("Parsing")
     try:
@@ -483,17 +543,39 @@ def import_person_users(personfile):
         pass
     showtime("Post-processing")
     warned_uc = {}
+    
+    # Populate person affiliations
+    for p_id in person_id2affs.keys():
+        personObj.clear()
+        personObj.find(p_id)
+        for ou_id, aff, affstat in person_id2affs[p_id]:
+            if verbose:
+                print "  person.pop_aff (%s): %s, %s, %s" % (
+                    p_id, ou_id, aff, affstat)
+            personObj.__updated = True
+            personObj.populate_affiliation(co.system_ureg, ou_id, aff, affstat)
+        tmp = personObj.write_db()
+        if verbose:
+            print "  person.write_db (%s)-> %s" % (p_id, tmp)
+    # Set user_creator and account affiliations.
+    # user_creators and account_id2aff have atleast all keys in account_id2aff
     for uc in user_creators.keys():
         creator_id = uname2entity_id.get(user_creators[uc], None)
-        if creator_id is None:
+        account.clear()
+        account.find(uc)
+        if creator_id is not None:
+            account.creator_id = creator_id
+            account.write_db()
+        else:
             if not warned_uc.has_key(user_creators[uc]):
                 print "Warning: Unknown creator: %s" % user_creators[uc]
                 warned_uc[user_creators[uc]] = 1
-        else:
-            account.clear()
-            account.find(uc)
-            account.creator_id = creator_id
-            account.write_db()
+        if account_id2aff.has_key(uc):
+            ou_id, aff, affstat = account_id2aff[uc]
+            if verbose:
+                print "  add_acc_type: (%s / %s) -> %s, %s, %s" % (
+                    account.account_name, account.owner_id, ou_id, aff, affstat)
+            account.add_account_type(account.owner_id, ou_id, aff)
     # Since the deleted users are sorted by deleted_date DESC and
     # grouped by person, we may end up building the wrong user.  This
     # is not critical.
@@ -525,17 +607,20 @@ def person_callback(person):
             if e['val'] <> '00000000000':
                 fnr = e['val']
     person_id = None
-    if fnr is not None:
-        try:
-            print "Fnr: %s" % fnr,
-            personObj.find_by_external_id(co.externalid_fodselsnr, fnr)
-            person_id = personObj.entity_id
-            print " ********* OLD *************"
-        except Errors.NotFoundError:
-            print " ********* NEW *************"
-            pass
+    if 0:    # This script is only intended to be ran on an empty database
+        if fnr is not None:
+            try:
+                print "Fnr: %s" % fnr,
+                personObj.find_by_external_id(co.externalid_fodselsnr, fnr)
+                person_id = personObj.entity_id
+                print " ********* OLD *************"
+            except Errors.NotFoundError:
+                print " ********* NEW *************"
+                pass
+        else:
+            print "No fnr",
     else:
-        print "No fnr",
+        print "Fnr: %s" % fnr
     if person_id is None:
         # Personen fantes ikke, lag den
         if person['bdate'] == '999999':
@@ -547,8 +632,16 @@ def person_callback(person):
             except:
                 print "Warning, %s is an illegal date" % person['bdate']
                 bdate = None
-        personObj.populate(bdate,
-                            co.gender_unknown)
+        try:
+            fodselsnr.personnr_ok(fnr)
+            if fodselsnr.er_mann(fnr):
+                gender = co.gender_male
+            else:
+                gender = co.gender_female                
+        except fodselsnr.InvalidFnrError:
+            gender = co.gender_unknown
+
+        personObj.populate(bdate, gender)
         personObj.affect_names(co.system_ureg, *(namestr2const.values()))
 
         for k in person['name']:
@@ -575,24 +668,15 @@ def person_callback(person):
                 a = c['val'].split('$', 2)
                 personObj.populate_address(co.system_ureg, co.address_post,
                                            address_text="\n".join(a))
+        new_affs = []
         if person.has_key('uio'):
-            if person['uio'].has_key('psko'):
-                # Typer v/uio: A B M S X a b s
-                aff = co.affiliation_student   # TODO: define all const
-                affstat = co.affiliation_status_student_valid
-                if person['uio']['ptype'] in ('A', 'a'):
-                    aff = co.affiliation_employee
-                    affstat = co.affiliation_status_employee_valid
-
-                try:
-                    ou_id = stedkode2ou_id[ person['uio']['psko'] ]
-                    personObj.populate_affiliation(co.system_ureg, ou_id,
-                                                   aff, affstat)
-                except KeyError:
-                    print "Unknown stedkode: %s" % person['uio']['psko']
-
+            for ptype in person['ptype']:
+                aff, affstat = ureg_person_aff_mapping[ptype]
+                ou_id = stedkode2ou_id.get(person['uio']['psko'], default_ou)
+                new_affs.append((ou_id, aff, affstat))
         personObj.write_db()
         person_id = personObj.entity_id
+        person_id2affs[person_id] = new_affs
 
     # Build the persons users.  Delay building deleted users to avoid
     # username conflicts, and store creators uname as its entity_id is
@@ -689,6 +773,44 @@ def create_account(u, owner_id):
                             home,
                             disk_id)
     accountObj.write_db()
+
+    # Assign account affiliaitons by checking the
+    # ureg_user_aff_mapping.  if subtype = '*unset*, try to find a
+    # corresponding person affiliation, first at the same OU, then at
+    # any OU (overriding the OU set for the user).
+    #
+    # If no corresponding person_affiliation was found, the
+    # affiliation is IGNORED (with a warning).
+
+    if u.get('uio', {}).has_key('utype'):
+        utype = u['uio']['utype']
+        ustype = u['uio']['ustype'] or '*unset*'
+        if ustype == 'F':
+            accountObj.np_type = int(co.account_test)
+            accountObj.write_db()
+        else:
+            aff, affstat = ureg_user_aff_mapping[utype][ustype]
+            ou_id = stedkode2ou_id.get(u['uio']['usko'], default_ou)
+            skip_affiliation = False
+            if str(affstat) == '*unset*':
+                for tmp_ou_id, tmp_aff, tmp_affstat in person_id2affs[owner_id]:
+                    if (tmp_ou_id, tmp_aff) == (ou_id, aff):
+                        affstat = tmp_affstat
+                        break
+            if str(affstat) == '*unset*':
+                for tmp_ou_id, tmp_aff, tmp_affstat in person_id2affs[owner_id]:
+                    if tmp_aff == aff:
+                        affstat = tmp_affstat
+                        ou_id = tmp_ou_id
+                        break
+            if str(affstat) <> '*unset*':
+                account_id2aff[accountObj.entity_id] = (ou_id, aff, affstat)
+                if not (ou_id, aff, affstat) in person_id2affs[owner_id]:
+                    person_id2affs[owner_id].append((ou_id, aff, affstat))
+            else:
+                print "Warning: error mapping affiliation %s: %s/%s@%s" % (
+                    u['uname'], aff, affstat, u['uio']['usko'])
+        
     if u.has_key('quarantine') or had_splat:
         if not u.has_key('quarantine'):
             if not u.has_key('deleted_date'):
@@ -762,13 +884,16 @@ located by their extid (currently only fnr is supported).
 
 if __name__ == '__main__':
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "dp:g:m:i:PGMI",
+        opts, args = getopt.getopt(sys.argv[1:], "dp:g:m:vi:PGMI",
                                    ["pfile=", "gfile=", "persons", "groups",
-                                    "groupmembers", "max_cb="])
+                                    "groupmembers", "verbose", "quick-test",
+                                    "max_cb="])
     except getopt.GetoptError:
         usage()
         sys.exit(2)
-    global max_cb
+    global max_cb, verbose, quick_test
+    verbose = 0
+    quick_test = 0
     # global debug
     max_cb = None
     pfile = default_personfile
@@ -778,6 +903,10 @@ if __name__ == '__main__':
     for o, a in opts:
         if o in ('-p', '--pfile'):
             pfile = a
+        elif o in ('-v', '--verbose'):
+            verbose += 1
+        elif o in ('quick-test',):
+            quick_test = 1
         elif o in ('-g', '--gfile'):
             gfile = a
         elif o in ('-i',):
