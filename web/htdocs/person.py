@@ -3,6 +3,7 @@ import forgetHTML as html
 from Cerebrum.Utils import Factory
 ClientAPI = Factory.get_module("ClientAPI")
 from Cerebrum.web.templates.PersonSearchTemplate import PersonSearchTemplate
+from Cerebrum.web.templates.PersonCreateTemplate import PersonCreateTemplate
 from Cerebrum.web.templates.PersonViewTemplate import PersonViewTemplate
 from Cerebrum.web.templates.HistoryLogTemplate import HistoryLogTemplate
 from Cerebrum.web.Main import Main
@@ -16,7 +17,47 @@ def index(req):
     page.content = personsearch.form
     return page
 
-def search(req, name, accountid, birthno, birthdate):
+
+def create(req, name="", birthno="", birthdate="", ou="", affiliation="", aff_status=""):
+    page = Main(req)
+    page.title = "Person create"
+    page.setFocus("person/create")
+    server = req.session['server']
+    # Store given create parameters in create-form
+    formvalues = {}
+    formvalues['name'] = name
+    formvalues['birthno'] = birthno
+    formvalues['birthdate'] = birthdate
+    formvalues['ou'] = ou
+    formvalues['affiliation'] = affiliation
+    formvalues['aff_status'] = aff_status
+    personcreate = PersonCreateTemplate(
+                        searchList=[{'formvalues': formvalues}])
+
+    result = html.Division()
+
+    if name and birthno and birthdate and  \
+        ou and affiliation and aff_status:
+        person = ClientAPI.Person.create(server, name, birthno, 
+                                        birthdate, ou, 
+                                        affiliation, aff_status)
+ 
+        if person:
+            #Display some text about "Person created...", maybe jump to viewing that user?
+            table = html.SimpleTable(header="row")
+            table.add(_("Name"), _("Date of birth"))
+            link = url("person/view?id=%s" % person.id)
+            link = html.Anchor(person.name, href=link)
+            table.add(link, person.birthdate.Format("%Y-%m-%d"))
+            result.append(table)
+        elif person==None:
+            result.append(html.Emphasis(_("Sorry, person not created because of an error")))
+        
+    result.append(personcreate.form())
+    page.content = lambda: result.output().encode("utf8")
+    return page
+
+def search(req, name="", accountid="", birthno="", birthdate=""):
     page = Main(req)
     page.title = "Person search"
     page.setFocus("person/list")
@@ -48,7 +89,7 @@ def search(req, name, accountid, birthno, birthdate):
 
     result.append(html.Header(_("Search for other persons"), level=2))
     result.append(personsearch.form())
-    page.content = result
+    page.content = lambda: result.output().encode("utf8")
     return page    
 
 
