@@ -701,8 +701,9 @@ class fs_stprog_rolle_users(fs_stprog_group):
         fnr = "%06d%05d" % (int(user['fodselsdato']), int(user['personnr']))
         # TBD: Key on account_id (of primary user) instead?
         if fnr in self.users:
-            logger.warn("Bruker %r forsøkt meldt inn i gruppe flere ganger.",
-                        user)
+            logger.warn("Bruker %r forsøkt meldt inn i gruppe %r"
+                        " flere ganger (XML = %r).",
+                        fnr, self.name(), user)
             return
         self.users[fnr] = user
 
@@ -815,11 +816,19 @@ def main():
         if el_name <> 'role':
             return
         rolle = attrs['rollekode']
+        target = attrs['::rolletarget::']
+        if len(target) <> 1:
+            return
+        target = target[0]
+        if target not in ('undenh', 'stprog'):
+            # Denne importen oppretter kun grupper basert på
+            # undervisningsenhet- og studieprogram-roller.
+            return
         if rolle == 'FORELESER':
             for ue_foreleser in fs_super.list_matches('undenh', attrs,
                                                       'foreleser'):
                 ue_foreleser.add(attrs)
-        elif rolle == 'STUDILEDER':
+        elif rolle in ('STUDILEDER', 'STUDKOORD'):
             for ue_studieleder in fs_super.list_matches('undenh', attrs,
                                                         'studieleder'):
                 ue_studieleder.add(attrs)
