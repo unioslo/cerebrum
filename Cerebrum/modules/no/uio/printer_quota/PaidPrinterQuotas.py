@@ -315,7 +315,7 @@ class PaidPrinterQuotas(DatabaseAccessor):
             where = ""
         return self.query(
             """SELECT pqh.job_id, transaction_type, person_id, description,
-               bank_id
+               bank_id, target_job_id
             FROM [:table schema=cerebrum name=paid_quota_transaction] pqt,
                  [:table schema=cerebrum name=paid_quota_history] pqh
             WHERE pqh.job_id=pqt.job_id %s %s""" % (where, order_by),
