@@ -4,23 +4,26 @@ import getopt
 import sys
 import os
 
+import cerebrum_path
+import cereconf
+
 # Simple definition of legal commands.  In the future this should be
 # read from a configuration file.
 # Format: 'key': ['path', 'number-of-args']
 # future versions could provide more restrictions on the legal arguments
 commands = {
+    # uname, home, uid, gid, fullname
+    #'mkhome': [cereconf.MKHOME_SCRIPT, 5],
     # uname, uid, gid, old_disk, new_disk, mailto, receipt
-    'mvuser': [cereconf.MVUSER_SCRIPT, 7],
+    'mvuser': [cereconf.MVUSER_SCRIPT, 8],
     # uname, operator, old_home
-    'rmuser': [cereconf.RMUSER_SCRIPT, 3],
-    # uname, home_path, uid, gid, tpl_dir, usermod_script_dir, gecos
-    'adduser': [cereconf.CREATE_USER_SCRIPT, 7],
-    # server, uname
-    'subscribeimap': [cereconf.SUBSCRIBE_SCRIPT, 2],
+    #'rmuser': [cereconf.RMUSER_SCRIPT, 3],
+    # disk, old uname, new uname
+    #'subscribeimap': [cereconf.SUBSCRIBE_SCRIPT, 2],
     # uname, mailto, hquota, from_host, from_type, to_host, to_type
-    'mvmail': [cereconf.MVMAIL_SCRIPT, 7],
+    #'mvmail': [cereconf.MVMAIL_SCRIPT, 7],
     # uname, home, uid, dfg
-    'convertmail': [cereconf.CONVERT_MAILCONFIG_SCRIPT, 4],
+    #'convertmail': [cereconf.CONVERT_MAILCONFIG_SCRIPT, 4],
     }
 
 def usage(exitcode=0):
