@@ -23,31 +23,34 @@
 from Cerebrum.Entity import \
      Entity, EntityContactInfo, EntityPhone, EntityAddress
 
+
+ENTITY_TYPE_OU = 'o'
+
+
 class OUStructure(object):
     "Mixin class, used by OU for OUs with structure."
 
-    def add_structure_maping(self, perspective, parent_id):
+    def set_parent(self, perspective, parent_id):
+        "Set the parent of this OU to `parent_id' in `perspective'."
         self.execute("""
-    INSERT INTO cerebrum.ou_structure
-      (ou_id, perspective, parent_id)
-    VALUES (:1, :2, :3)""",
-                     self.entity_id, perspective, parent_id)
-    
+        INSERT INTO cerebrum.ou_structure (ou_id, perspective, parent_id)
+        VALUES (:1, :2, :3)""", self.entity_id, perspective, parent_id)
+
 class OU(Entity, EntityContactInfo, EntityPhone, EntityAddress, OUStructure):
 
-    def new(self, name, acronym, short_name, display_name, sort_name):
+    def new(self, name, acronym=None, short_name=None, display_name=None,
+            sort_name=None):
         """Register a new entity of ENTITY_TYPE.  Return new entity_id.
-        
+
         Note that the object is not automatically associated with the
         new entity.
-        
-        """
-        
-        new_id = super(OU, self).new('o')
-        self.execute("""
-        INSERT INTO cerebrum.ou_info(entity_type, ou_id, name, acronym, short_name,
-           display_name, sort_name)
-        VALUES (:1, :2, :3, :4, :5, :6, :7)""", 'o', new_id, name,
-                    acronym, short_name, display_name, sort_name)
-        return new_id
 
+        """
+
+        new_id = super(OU, self).new(ENTITY_TYPE_OU)
+        self.execute("""
+        INSERT INTO cerebrum.ou_info (entity_type, ou_id, name, acronym,
+                                      short_name, display_name, sort_name)
+        VALUES (:1, :2, :3, :4, :5, :6, :7)""", ENTITY_TYPE_OU, new_id,
+                     name, acronym, short_name, display_name, sort_name)
+        return new_id
