@@ -25,6 +25,6 @@ INSERT INTO [:table schema=cerebrum name=group_info]
       888888, [:now], [:now] );
 
 INSERT INTO [:table schema=cerebrum name=posix_group]
-    ( group_id, gid )
+    ( group_id, posix_gid )
   VALUES
     ( 999999, 0 );

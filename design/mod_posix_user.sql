@@ -37,7 +37,7 @@ CREATE TABLE posix_group
   posix_gid	NUMERIC(12,0)
 		NOT NULL
                 CONSTRAINT posix_group_gid_chk
-                  CHECK (gid >= 0 AND gid <= 2147483647)
+                  CHECK (posix_gid >= 0 AND posix_gid <= 2147483647)
 		CONSTRAINT posix_group_gid UNIQUE
 );
 
