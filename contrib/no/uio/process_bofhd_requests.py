@@ -301,13 +301,13 @@ def process_email_requests():
             try:
                 acc.clear()
                 acc.find(user_id)
-            except Errors.NotFoundErrors:
+            except Errors.NotFoundError:
                 logger.error("bofh_email_convert: %d not found" % user_id)
                 continue
             try:
                 posix = PosixUser.PosixUser(db)
                 posix.find(user_id)
-            except Errors.NotFoundErrors:
+            except Errors.NotFoundError:
                 logger.debug("bofh_email_convert: %s: " % acc.account_name +
                              "not a PosixUser, skipping e-mail conversion")
                 br.delete_request(request_id=r['request_id'])
@@ -317,7 +317,7 @@ def process_email_requests():
             try:
                 posix_group = PosixGroup.PosixGroup(db)
                 posix_group.find(posix.gid_id)
-            except Errors.NotFoundErrors:
+            except Errors.NotFoundError:
                 logger.debug("bofh_email_convert: %s: " % acc.account_name +
                              "missing primary fg, skipping")
                 br.delete_request(request_id=r['request_id'])
