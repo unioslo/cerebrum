@@ -120,6 +120,10 @@ DEBUG_COMPARE = False
 # these spreads
 NIS_SPREADS = ()
 
+# process_students uses this constant to detect that the user should
+# become a posix-user
+POSIX_SPREAD_CODES = ()
+
 # Spreads that are legal for entries in account_home
 HOME_SPREADS = ()
 
