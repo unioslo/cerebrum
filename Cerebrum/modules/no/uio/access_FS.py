@@ -672,7 +672,7 @@ WHERE em.fodselsdato=:fnr AND
         qry = """
 SELECT DISTINCT
   st.studieprogramkode, st.studierettstatkode, st.dato_tildelt,
-  st.dato_gyldig_til, st.status_privatist
+  st.dato_gyldig_til, st.status_privatist, st.opphortstudierettstatkode
 FROM fs.studierett st, fs.person p
 WHERE st.fodselsdato=:fnr AND
       st.personnr=:pnr AND
