@@ -146,6 +146,8 @@ class CLConstants(Constants.Constants):
                                      'mod quarantine for %(subject)s')
     quarantine_del = _ChangeTypeCode('quarantine', 'del',
                                      'del quarantine for %(subject)s')
+    quarantine_refresh = _ChangeTypeCode('quarantine', 'refresh',
+                                         'refresh quarantine for %(subject)s')
     entity_add = _ChangeTypeCode('entity', 'add', 'add entity %(subject)s')
     entity_del = _ChangeTypeCode('entity', 'del', 'del entity %(subject)s')
     entity_name_add = _ChangeTypeCode('entity_name', 'add',
