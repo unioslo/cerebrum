@@ -273,7 +273,7 @@ class Group(EntityName, Entity):
         FROM [:table schema=cerebrum name=group_member]
         WHERE member_id=:member_id""", {'member_id': entity_id})
 
-    def list_members(self, spread=None, member_type=None):
+    def list_members(self, spread=None, member_type=None, get_entity_name=False):
         """Return a list of lists indicating the members of the group.
 
         The top-level list returned is on the form
@@ -284,34 +284,47 @@ class Group(EntityName, Entity):
         operation.
 
         """
-        extfrom = extwhere = ""
+        extfrom = extwhere = extcols = ""
+        ncols = 3
         if member_type is not None:
             extwhere = "member_type=:member_type AND "
             member_type = int(member_type)
         if spread is not None:
-            extfrom = "gm, [:table schema=cerebrum name=entity_spread] es"
+            extfrom = ", [:table schema=cerebrum name=entity_spread] es"
             extwhere = """gm.member_id=es.entity_id AND es.spread=:spread AND """
-
+        if get_entity_name:
+            ncols = 4
+            extcols += ", entity_name"
+            extfrom += ", [:table schema=cerebrum name=entity_name] en"
+            # TBD: Is the value_domain check really neccesary?
+            extwhere += """gm.member_id=en.entity_id AND
+              ((en.value_domain=:group_dom AND gm.member_type=:entity_group) OR
+              (en.value_domain=:account_dom AND gm.member_type=:entity_account))
+              AND """
         members = [[], [], []]
         op2set = {int(self.const.group_memberop_union): members[0],
                   int(self.const.group_memberop_intersection): members[1],
                   int(self.const.group_memberop_difference): members[2]}
-        for op, mtype, mid in self.query("""
-        SELECT operation, member_type, member_id
-        FROM [:table schema=cerebrum name=group_member] %s
-        WHERE %sgroup_id=:g_id""" % (extfrom, extwhere), {
+        for row in self.query("""
+        SELECT operation, member_type, member_id %s
+        FROM [:table schema=cerebrum name=group_member] gm %s
+        WHERE %s gm.group_id=:g_id""" % (extcols, extfrom, extwhere), {
             'g_id': self.entity_id,
             'spread': spread,
-            'member_type': member_type}):
-            op2set[int(op)].append((mtype, mid))
+            'member_type': member_type,
+            'group_dom': int(self.const.group_namespace),
+            'account_dom': int(self.const.account_namespace),
+            'entity_group': int(self.const.entity_group),
+            'entity_account': int(self.const.entity_account)}):
+            op2set[int(row[0])].append(row[1:ncols])
         return members
 
-    def get_members(self, _trace=(), spread=None):
+    def get_members(self, _trace=(), spread=None, get_entity_name=False):
         my_id = self.entity_id
         if my_id in _trace:
             # TODO: Circular list definition, log value of _trace.
             return ()
-        u, i, d = self.list_members(spread=spread)
+        u, i, d = self.list_members(spread=spread, get_entity_name=get_entity_name)
         if not u:
             # The only "positive" members are unions; if there are
             # none of those, the resulting set must be empty.
@@ -320,13 +333,18 @@ class Group(EntityName, Entity):
         temp = self.__class__(self._db)
         def expand(set):
             ret = []
-            for mtype, m_id in set:
+            for row in set:
+                mtype, m_id = row[0:2]
                 if mtype == self.const.entity_account:
-                    ret.append(m_id)
+                    if get_entity_name:
+                        ret.append([m_id, row[2]])
+                    else:
+                        ret.append(m_id)
                 elif mtype == self.const.entity_group:
                     temp.clear()
                     temp.find(m_id)
-                    ret.extend(temp.get_members(_trace + (my_id,), spread=spread))
+                    ret.extend(temp.get_members(_trace + (my_id,), spread=spread,
+                                                get_entity_name=get_entity_name))
             return ret
         # Expand u to get a set of account_ids.
         res = expand(u)
