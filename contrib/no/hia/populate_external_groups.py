@@ -383,6 +383,10 @@ class fs_undenh_1(fs_undenh_group):
     def list_matches(self, gtype, data, category):
         if gtype <> 'undenh':
             return ()
+        if '::rolletarget::' in data:
+            target = data['::rolletarget::']
+            if not (len(target) == 1 and target[0] == 'undenh'):
+                return ()
         if data.get('institusjonsnr', self._prefix[0]) <> self._prefix[0]:
             return ()
         return super(fs_undenh_1, self).list_matches(gtype, data, category)
@@ -533,6 +537,10 @@ class fs_stprog_1(fs_stprog_group):
     def list_matches(self, gtype, data, category):
         if gtype <> 'studieprogram':
             return ()
+        if '::rolletarget::' in data:
+            target = data['::rolletarget::']
+            if not (len(target) == 1 and target[0] == 'stprog'):
+                return ()
         if data.get('institusjonsnr', self._prefix[0]) <> self._prefix[0]:
             return ()
         return super(fs_stprog_1, self).list_matches(gtype, data, category)
@@ -803,7 +811,7 @@ def main():
     # Gå igjennom alle kjente studieprogrammer; opprett gruppeobjekter
     # for disse.
     def create_studieprog_helper(el_name, attrs):
-        if el_name == 'studprog':
+        if el_name == 'studprog' and attrs.get('status_utgatt') <> 'J':
             fs_super.add('studieprogram', attrs)
 
     logger.info("Leser XML-fil: studieprog.xml")
