@@ -204,10 +204,6 @@ class Group(Entity, Abstract.Group):
         # FIXME: Check for errors: not found, etc.
         info = server.group_info(name)
         group._load_entity_info(info)
-        # FIXME: Only spread names currently
-        # TODO: Don't fetch spreads here
-        #spread=kommaseparert liste med code_str
-        group.spreads = info['spread'].split(",")
         return group
         
     fetch_by_name = classmethod(fetch_by_name)
@@ -219,7 +215,7 @@ class Group(Entity, Abstract.Group):
         self.visibility = info['visibility']
         self.creatorid = info['creator_id']
         self.create = info['create_date']
-        self.expire = info['expire_date']
+        self.expire_date = info['expire_date']
         self.gid = info.get('gid')
         # TODO - get spreads (or make a method to get spreads)
         self.spreads = []
@@ -319,8 +315,12 @@ class Account(Entity, Abstract.Account):
         
     create = classmethod(create)
 
-    def fetch_by_name(cls, name):
-        pass
+    def fetch_by_name(cls, server, name):
+        info = server.user_info(name)
+        # Oh I know this is stupid, fetching almost the same info
+        # each time. But do we care to rewrite user_info? No.. 
+        id = info['entity_id']
+        return cls.fetch_by_id(server, id)
     fetch_by_name = classmethod(fetch_by_name)
     
     def search(cls, server, name=None, create_date=None, creator_id=None, 
