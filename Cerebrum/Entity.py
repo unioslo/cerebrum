@@ -275,6 +275,13 @@ class EntityName(Entity):
         # Populate all of self's class (and base class) attributes.
         self.find(entity_id)
 
+    def list_names(self, value_domain):
+        return self.query("""
+        SELECT entity_id, value_domain, entity_name
+        FROM [:table schema=cerebrum name=entity_name]
+        WHERE value_domain=:value_domain""",
+                            {'value_domain': value_domain})
+
 class EntityContactInfo(Entity):
     "Mixin class, usable alongside Entity for entities having contact info."
 
