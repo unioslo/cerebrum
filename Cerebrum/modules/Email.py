@@ -1177,6 +1177,15 @@ class EmailServer(Host):
         WHERE s.server_id = h.host_id
         """, fetchall=False)
 
+    def find_by_server_name(self, server):
+        server_id = self.query_1("""
+        SELECT server_id
+        FROM [:table schema=cerebrum name=email_server],
+             [:table schema=cerebrum name=host_info]
+        WHERE server_id = host_id AND
+              name=:name""", {'name': server})
+        self.find(server_id)
+
 class EmailServerTarget(EmailTarget):
     __read_attr__ = ('__in_db',)
     __write_attr__ = ('email_server_id',)
