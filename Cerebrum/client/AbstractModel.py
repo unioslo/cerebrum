@@ -143,30 +143,27 @@ class Quarantine(object):
 class Entity(object):
     
     def __init__(self, server):
-        # Holds a list of all names for each valuedomain
-        self.names = {}
         self.addresses = []
         self.contactinfo = []
         self.spreads = []
     
     def __repr__(self):
-        names = ["%s=%s" % (key, value) for (key,value) in self.names]
-        desc = " ".join(names)
-        if desc:
-            desc = " " + desc
+        try:
+            desc = " " + self.name
+        except AttributeError:
+            desc = ""    
         if hasattr(self, "id"):
             desc = " id=%s%s" % (self.id, desc)
         return "<%s%s>" % (self.type, desc)
     
     def __str__(self):
         try:
-            return self.names[0][1]    
-        except:
+            return self.name
+        except AttributeError:
             if hasattr(self, "id"):
-                return self.id    
+                return self.id
             else:
-                return repr(self)    
-            
+                return repr(self)
     
     def fetch_by_id(cls, id):
         """Retrieves an instance with given id """

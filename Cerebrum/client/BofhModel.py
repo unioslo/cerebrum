@@ -99,8 +99,6 @@ class Entity(Abstract.Entity):
            from a infohash as defined by bofh.
         """
         self.id = info['entity_id'] 
-        # are these really useful for anything?
-        self.names = info.get('names', [])
         self.type = info['type']
     
     def delete(self):
