@@ -29,7 +29,7 @@ class PasswordHistory(DatabaseAccessor):
         self.execute("""
         INSERT INTO [:table schema=cerebrum name=password_history]
           (entity_id, md5base64) VALUES (:e_id, :md5)""",
-                     {'e_id': entity_id, 'md5': csum})
+                     {'e_id': account.entity_id, 'md5': csum})
 
     def del_history(self, entity_id):
         self.execute("""
