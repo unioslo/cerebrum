@@ -103,6 +103,7 @@ class ServerConnection:
         
         
     def _run_method(self, methodname, *args):
+        self._check_connection()
         if methodname not in WITHOUT_SESSION:
             # Add the session ID as the first argument 
             args = (self._session,) + args
