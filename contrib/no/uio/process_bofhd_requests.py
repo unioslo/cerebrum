@@ -18,6 +18,7 @@ from Cerebrum.modules import PosixUser
 from Cerebrum.modules import PosixGroup
 from Cerebrum import Account
 from Cerebrum import Disk
+from Cerebrum import Constants
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.bofhd.utils import BofhdRequests
 from Cerebrum.modules.bofhd.errors import CerebrumError
@@ -29,7 +30,7 @@ const = Factory.get('Constants')(db)
 logging.fileConfig(cereconf.LOGGING_CONFIGFILE)
 logger = logging.getLogger("cronjob")
 # Hosts to connect to, set to None in a production environment:
-debug_hostlist = ['cerebellum']
+debug_hostlist = None
 SUDO_CMD = "/usr/bin/sudo"
 ldapconn = None
 imapconn = None
@@ -387,12 +388,22 @@ def process_move_requests():
                 continue
             operator = get_account(r['requestee_id'])[0].account_name
             group = get_group(account.gid_id, grtype='PosixGroup')
+
+            spread = ",".join(["%s" % Constants._SpreadCode(int(a['spread']))
+                               for a in account.get_spread()]),
+            if get_imaphost(r['entity_id']) == None:
+                spool = '1'
+            else:
+                spool = '0'
             if move_user(uname, int(account.posix_uid), int(group.posix_gid),
-                         old_host, old_disk, new_host, new_disk, operator):
+                         old_host, old_disk, new_host, new_disk, spread,
+                         operator, spool):
                 account.disk_id =  r['destination_id']
                 account.write_db()
                 br.delete_request(request_id=r['request_id'])
                 db.commit()
+    # Resten fungerer ikkje enno, so vi sluttar her.
+    sys.exit(0)
 
     for r in br.get_requests(operation=const.bofh_move_student):
         # TODO: Må også behandle const.bofh_move_student, men
@@ -421,11 +432,11 @@ def delete_user(uname, old_host, old_home, operator):
     logger.error("%s returned %i" % (cmd, errnum))
     return 0
 
-def move_user(uname, uid, gid, old_host, old_disk, new_host, new_disk, operator):
+def move_user(uname, uid, gid, old_host, old_disk, new_host, new_disk, spread,
+              operator, spool):
     mailto = operator
-    receipt = 1
-    cmd = [SUDO_CMD, cereconf.WRAPPER_CMD, '-c', 'mvuser', uname, uid,
-           gid, old_disk, new_disk, mailto, receipt]
+    cmd = [SUDO_CMD, cereconf.WRAPPER_CMD, '-c', 'mvuser', uname, uid, gid,
+           old_disk, new_disk, spread, mailto, spool]
     cmd = ["%s" % x for x in cmd]
     logger.debug("doing %s" % cmd)
     if debug_hostlist is None or (old_host in debug_hostlist and
