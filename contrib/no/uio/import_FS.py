@@ -222,13 +222,12 @@ def process_person_callback(person_info):
         new_person.populate_affiliation(co.system_fs, ou, aff, aff_status)
 
     op = new_person.write_db()
-    if verbose:
-        if op is None:
-            logger.info2("**** EQUAL ****")
-        elif op == True:
-            logger.info2("**** NEW ****")
-        elif op == False:
-            logger.info2("**** UPDATE ****")
+    if op is None:
+        logger.info2("**** EQUAL ****")
+    elif op == True:
+        logger.info2("**** NEW ****")
+    elif op == False:
+        logger.info2("**** UPDATE ****")
 
 def main():
     global verbose, ou, db, co, logger
