@@ -205,7 +205,7 @@ class ProfileMatcher(object):
     def _check_aktivt_sted(self, student_info):
         """Resolve all aktivt_sted criterias for this student."""
 
-        as_dict = self.pc.select_mapping['aktivt_sted']
+        as_dict = self.pc.select_mapping.get('aktivt_sted', {})
         for k in as_dict.keys():
             v = as_dict[k]
             had_eksamen = False
