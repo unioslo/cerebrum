@@ -75,8 +75,7 @@ class PasswordHistory(DatabaseAccessor):
         # - has expire_date in the future/not set
         # - doesn't have any quarantines
         # - newest entry in password_history is older than <date>
-        ret = []
-        for row in self.query(
+        return self.query(
             """SELECT account_id 
             FROM [:table schema=cerebrum name=account_info] ai,
                  [:table schema=cerebrum name=password_history] ph
@@ -93,6 +92,26 @@ class PasswordHistory(DatabaseAccessor):
                      WHERE ai.account_id=eq.entity_id)
             GROUP BY ai.account_id
             HAVING MAX(set_at) < :date""", {
-            'date': date}):
-            ret.append(int(row['account_id']))
-        return ret
+            'date': date})
+
+    def find_no_history_accounts(self):
+        """Returns account_id for all accounts that are not in
+        password_history at all"""
+        ret = []
+        return self.query(
+            """SELECT account_id 
+            FROM [:table schema=cerebrum name=account_info] ai
+            WHERE (ai.expire_date IS NULL OR
+                   ai.expire_date > [:now])
+                   AND EXISTS (
+                     SELECT 'foo'
+                     FROM entity_spread es
+                     WHERE ai.account_id=es.entity_id)
+                   AND NOT EXISTS (
+                     SELECT 'foo'
+                     FROM entity_quarantine eq
+                     WHERE ai.account_id=eq.entity_id)
+                   AND NOT EXISTS (
+                     SELECT 'foo'
+                     FROM password_history ph
+                     WHERE ai.account_id=ph.entity_id)""")
