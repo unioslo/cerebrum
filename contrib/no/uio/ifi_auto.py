@@ -124,6 +124,7 @@ def shorten_course_name(course):
     fgname = course
     fgname = fgname.replace("matinf", "mi", 1)
     fgname = fgname.replace("infmat", "mi", 1)
+    fgname = fgname.replace("infverk", "iv", 1)
     # there are currently no MODxxxx courses, perhaps they won't return.
     # so I reuse the "im" abbreviation for MED-INFxxxx
     fgname = fgname.replace("medinf", "im", 1)
@@ -133,7 +134,6 @@ def shorten_course_name(course):
     fgname = fgname.replace("inf", "i", 1)
     fgname = fgname.replace("dig", "id", 1)
     fgname = fgname.replace("tool", "it", 1)
-    fgname = fgname.replace("infverk", "iv", 1)
     return fgname[:6]
 
 def convert_activitynumber(act):
