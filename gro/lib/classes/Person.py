@@ -42,8 +42,8 @@ Clever.prepare(PersonName, 'load')
 class Person(Entity):
     # primaryAccount gir ingen mening
     # name gir bare navnet blant names som er fult navn (:P)
-    slots = ['exportId', 'deceased', 'gender', 'contactInfo', 'accounts', 'affiliations',
-             'address', 'quarantine', 'name', 'names']
+    # affiliations, quarantine med venner må implementeres
+    slots = ['exportId', 'deceased', 'gender', 'contactInfo', 'accounts', 'name', 'names']
     readSlots = Entity.readSlots + slots
     writeSlots = Entity.writeSlots + ['exportId', 'deceased', 'gender']
 
@@ -52,12 +52,14 @@ class Person(Entity):
         Clever.__init__(self, Person, *args, **vargs)
 
     def load(self):
+        import Types
+
         e = Cerebrum.Person.Person(db)
         e.find(self.id)
 
         self._exportId = e.export_id
         self._deceased = e.deceased == 'T' and True or False
-        self._gender = GenderType(int(e.gender))
+        self._gender = Types.GenderType(int(e.gender))
 
     def loadChildren(self):
         Entity.loadChildren(self)
@@ -101,5 +103,3 @@ class Person(Entity):
     getPrimaryAccount = LazyMethod('_primaryAccount', 'loadAccounts')
 
 Clever.prepare(Person, 'load')
-
-
