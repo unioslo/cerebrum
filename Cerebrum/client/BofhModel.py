@@ -4,6 +4,10 @@
 """
 
 import AbstractModel as Abstract
+# We'll override those that we need to override
+from Abstract import *
+
+
 import ServerConnection
 from mx import DateTime
 from warnings import warn
@@ -21,22 +25,6 @@ class Constants(Abstract.Constants):
     UNION = "union"
     INTERSECTION = "intersection"
     DIFFERENCE = "difference"
-
-
-class Address(Abstract.Address):
-    pass
-
-class ContactInfo(Abstract.ContactInfo):
-    pass
-            
-class ChangeType(Abstract.ChangeType):
-    pass
-
-class Change(Abstract.Change):
-    pass
-
-class Note(Abstract.Note):
-    pass
 
 class QuarantineType(Abstract.QuarantineType):
     
@@ -118,12 +106,11 @@ class Entity(Abstract.Entity):
             from_to = "%s--%s" % (start, end)
         else:
             from_to = start    
-        self.server.quarantine_set(self.type, "id:%s" % self.id, 
+        self.server.quarantine_set("id:%s" % self.id, 
                                    type, why, from_to)
         
     def get_quarantines(self):
-        quarantines = self.server.quarantine_show(self.type,
-                                                  "id:%s" % self.id)
+        quarantines = self.server.quarantine_show("id:%s" % self.id)
         result = []
         for q in quarantines:
             quarantine = Quarantine(self, q.type, q.start,
@@ -151,8 +138,7 @@ class Entity(Abstract.Entity):
            quarantine = Quarantine-instance   --or
            type = QuarantineType or quarantine type string"""
         qtype = self._get_qtype(quarantine, type)
-        self.server.quarantine_remove(self.type,
-                                      "id:%s" % self.id,
+        self.server.quarantine_remove("id:%s" % self.id,
                                       qtype)
    
     def disable_quarantine(self, quarantine=None, type=None,
@@ -162,8 +148,7 @@ class Entity(Abstract.Entity):
            'type': QuarantineType or quarantine type string.
            Disables until date given by 'until'"""
         qtype = self._get_qtype(quarantine, type)
-        self.server.quarantine_disable(self.type,
-                                       "id:%s" % self.id,
+        self.server.quarantine_disable("id:%s" % self.id,
                                        qtype, until)
 
     
@@ -205,18 +190,9 @@ class Group(Entity, Abstract.Group):
         super(Group, self).__init__(server)
     
     def create(cls, server, name, description):
-        group = Group(server)
-        group.name = name
-        group.description = description
-
-        # FIXME: Check for errors...
         info = server.group_create(name, description)
-        group._load_entity_info(info)
-        group.expire = info['expire']
-        group.gid = info.get('gid')
-        group.spreads = info['spread'].split(",")
-        return group
-        
+        id = info['group_id']
+        return fetch_object_by_id(server, id)
     create = classmethod(create)
     
     def fetch_by_name(cls, server, name):
