@@ -34,6 +34,7 @@ class SideMenu(FixUrlMixin, Menu.Menu):
         self.group = self.addItem("group", "Group", "group")
         self.group.addItem("search", "Search", "group")
         self.group.addItem("list", "List", "group/list")
+        self.group.addItem("new", "New", "group/new")
         self.group.addItem("view", "View", "group/view?id=%s")
         self.group.addItem("edit", "Edit", "group/edit?id=%s")
 
