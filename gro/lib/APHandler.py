@@ -22,6 +22,8 @@ import omniORB
 from Cerebrum_core import Errors
 from Transaction import Transaction
 
+import Communication
+
 import classes.Registry
 registry = classes.Registry.get_registry()
 
@@ -29,37 +31,48 @@ CorbaBuilder = registry.CorbaBuilder
 Method = registry.Method
 Attribute = registry.Attribute
 
-def create_ap_method(method_name, data_type, write, method_arguments):
+def create_ap_method(class_name, method_name, data_type, write, method_arguments):
     args_table = dict(method_arguments)
     def method(self, *corba_args, **corba_vargs):
         if len(corba_args) + len(corba_vargs) > len(method_arguments):
             raise TypeError('too many arguments')
 
-        # TODO: hooks til auth må komme her
-        # TODO: fungerer ikke uten at man har startet en transaksjon
+        # Auth
+        operation_type = registry.AuthOperationType('%s.%s' % (class_name, method_name))
+        operator = self.ap_handler.client
+        try:
+            if self.gro_object.check_permission(operator, operation_type):
+                print 'access granted'
+            else:
+                print 'access denied'
+        except Exception, e:
+            print 'warning check_permission(', operator , ', ', operation_type, ') failed:', e
+            print 'access denied'
 
-        if write:
-            if not self.ap_handler.transaction_started:
-                raise Errors.TransactionError('No transaction started')
-            self.gro_object.lock_for_writing(self.ap_handler)
-        else:
-            self.gro_object.lock_for_reading(self.ap_handler)
-
+        # Transaction
         if self.ap_handler.transaction_started:
-            self.ap_handler.add_ref(self.gro_object)
+            if write:
+                self.gro_object.lock_for_writing(self.ap_handler)
+            else:
+                self.gro_object.lock_for_reading(self.ap_handler)
 
+            self.ap_handler.add_ref(self.gro_object)
+        elif write:
+            raise Errors.TransactionError('No transaction started')
+        else:
+            pass # FIXME: nå må vi hindre at ap_handler får lov til å starte en transaksjon
+
+        # convert corba arguments to real arguments
         args = []
         for value, arg in zip(corba_args, method_arguments):
             args.append(APHandler.convert_from_corba(value, arg[1]))
 
+        # run the real method
         vargs = {}
         for name, value in corba_vargs.items():
             vargs[name] = APHandler.convert_from_corba(value, args_table[name])
 
         value = getattr(self.gro_object, method_name)(*args, **vargs)
-
-        if not self.ap_handler.transaction_started:
-            self.gro_object.unlock(self.ap_handler)
 
         return APHandler.convert_to_corba(value, data_type, self.ap_handler)
     return method
@@ -80,26 +93,24 @@ class APClass:
         self.ap_handler = ap_handler
 
     def create_ap_class(cls, gro_class, idl_class):
-        name = gro_class.__name__
-        ap_class_name = 'AP' + name
+        class_name = gro_class.__name__
+        ap_class_name = 'AP' + class_name
         
         exec 'class %s(cls, idl_class):\n\tpass\nap_class = %s' % (
              ap_class_name, ap_class_name)
 
         for attribute in gro_class.slots:
             get_name = 'get_' + attribute.name
-            get = create_ap_method(get_name, attribute.data_type, False, [])
+            get = create_ap_method(class_name, get_name, attribute.data_type, False, [])
             setattr(ap_class, get_name, get)
 
             if attribute.write:
                 set_name = 'set_' + attribute.name
-                set = create_ap_method(set_name, 'void', True, [(attribute.name, attribute.data_type)])
+                set = create_ap_method(class_name, set_name, 'void', True, [(attribute.name, attribute.data_type)])
                 setattr(ap_class, set_name, set)
 
-        # TODO: legge til support for gro_class.method_slots
-
         for method in gro_class.method_slots:
-            ap_method = create_ap_method(method.name, method.data_type, method.write, method.args)
+            ap_method = create_ap_method(class_name, method.name, method.data_type, method.write, method.args)
             setattr(ap_class, method.name, ap_method)
 
         ap_class.gro_class = gro_class
@@ -117,6 +128,7 @@ def create_ap_handler_get_method(data_type):
     return get
 
 class APHandler(CorbaBuilder, Transaction):
+    # FIXME: skriv om denne
     """Access point handler.
 
     Each client has his own access point, wich will be used to identify the client
@@ -129,24 +141,30 @@ class APHandler(CorbaBuilder, Transaction):
     classes = {} # Access Point classes
     gro_classes = {} # GRO API classes to be used
     slots = []
-    method_slots = [Method('begin','void'), Method('rollback', 'void'), Method('commit', 'void')]
+    method_slots = [Method('begin','APHandler'), Method('rollback', 'void'), Method('commit', 'void')]
 
     def convert_to_corba(cls, value, data_type, ap_handler):
         if data_type == 'Entity': # we need to "cast" to the correct class
             data_type = value.__class__.__name__
+
         # TODO: skummel bruk av navnekonvesjon, burde legge til flags i Attribute i stedet
         if data_type.endswith('Seq'):
             return [cls.convert_to_corba(i, data_type[:-3], ap_handler) for i in value]
+
         elif data_type in cls.classes:
             ap_object = cls.classes[data_type](value, ap_handler)
-            return ap_handler.com.get_corba_representation(ap_object)
+            com = Communication.get_communication()
+            return com.register_objects(ap_object)
+
         elif data_type == 'void':
             return value
+
         elif value is None:
             # TODO. her må vi bestemme oss for noe. lage en egen exception for dette kanskje,
             # siden det verdier faktisk kan være None
             print 'warning. trying to return None'
             raise TypeError('cant convert None')
+
         else:
             return value
 
@@ -161,49 +179,6 @@ class APHandler(CorbaBuilder, Transaction):
             return value
 
     convert_from_corba = classmethod(convert_from_corba)
-
-    def __init__(self, com, username, password):
-        client = self.login(username, password)
-        self.username = username
-        self.com = com
-        Transaction.__init__(self, client)
-
-    def login(self, username, password):
-        """Login the user with the username and password.
-        """
-        # We will always throw the same exception in here.
-        # this is important
-
-        exception = Errors.LoginError('Wrong username or password')
-
-        # Check username
-        for char in ['*','?']:
-            if char in username or char in password:
-                raise exception
-
-        search = registry.AccountSearch()
-        search.set_name(username)
-        unames = search.search()
-        if len(unames) != 1:
-            raise exception
-        account = unames[0]
-
-        # Check password
-        if not account.authenticate(password):
-            raise exception
-
-        # Check quarantines
-        if account.is_quarantined():
-            raise exception
-
-        # Log successfull login..
-        
-        return account
-    
-    def get_username(self):
-        """Returns the username of the client.
-        """
-        return self.username
 
     def register_gro_class(cls, gro_class):
         gro_class.build_methods()
@@ -225,28 +200,32 @@ class APHandler(CorbaBuilder, Transaction):
     register_gro_class = classmethod(register_gro_class)
 
     def create_idl(cls):
+        include = '#include "errors.idl"\n'
         txt = 'typedef sequence<string> stringSeq;\n'
         txt += 'typedef sequence<long> longSeq;\n'
         txt += 'typedef sequence<float> floatSeq;\n'
         txt += 'typedef sequence<boolean> booleanSeq;\n'
+
+        exceptions = ('TransactionError', )
 
         defined = []
         for gro_class in cls.gro_classes.values():
             txt += gro_class.create_idl_header(defined)
             
         for gro_class in cls.gro_classes.values():
-            txt += gro_class.create_idl_interface()
+            txt += gro_class.create_idl_interface(exceptions=exceptions)
 
-        tmp = cls.create_idl_interface()
+        tmp = cls.create_idl_interface(exceptions=exceptions)
         txt += tmp
         
-        return 'module %s {\n\t%s\n};\n' % ('generated', txt.replace('\n', '\n\t'))
+        return '%s\nmodule %s {\n\t%s\n};\n' % (include, 'generated', txt.replace('\n', '\n\t'))
 
     create_idl = classmethod(create_idl)
 
     def build_classes(cls):
         idl_string = cls.create_idl()
-        omniORB.importIDLString(idl_string)
+        # FIXME
+        omniORB.importIDLString(idl_string, ['-I/home/erikgors/cvs/cerebrum/gro/lib/idl'])
         import generated__POA
         for name, gro_class in cls.gro_classes.items():
             idl_class = getattr(generated__POA, name)
@@ -263,12 +242,25 @@ class APHandler(CorbaBuilder, Transaction):
 
     create_ap_handler_impl = classmethod(create_ap_handler_impl)
 
+    def begin(self):
+        ap = self.__class__(self.client)
+        Transaction.begin(ap)
+        com = Communication.get_communication()
+        return com.register_objects(ap)
+
 _ap_handler_class = None
-def get_ap_handler_class():
-    global _ap_handler_class
-    if _ap_handler_class is None:
+_is_built = None
+
+def build_ap_handler():
+    global _is_built
+    if _is_built is None:
         for cls in registry.get_gro_classes().values():
             APHandler.register_gro_class(cls)
+
+def get_ap_handler_class():
+    global _ap_handler_class
+    build_ap_handler()
+    if _ap_handler_class is None:
         APHandler.build_classes()
         _ap_handler_class = APHandler.create_ap_handler_impl()
     return _ap_handler_class
