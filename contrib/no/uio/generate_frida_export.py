@@ -960,9 +960,11 @@ def output_person(writer, pobj, db_person, db_account, constants):
         db_account.find(primary_account)
 
         output_element(writer, db_account.get_account_name(), "uname")
-        
-        output_element(writer, db_account.get_primary_mailaddress(),
-                       "emailAddress")
+
+        primary_email = db_account.get_primary_mailaddress()
+        if primary_email:
+            output_element(writer, primary_email, "emailAddress")
+        # fi
     # fi
 
     # <Telephone>?
