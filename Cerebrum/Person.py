@@ -425,6 +425,13 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
         WHERE id_type=:id_type AND external_id=:ext_id %s""" % where, binds)
         self.find(person_id)
 
+    def find_by_export_id(self, export_id):
+        person_id = self.query_1("""
+        SELECT person_id
+        FROM [:table schema=cerebrum name=person_info]
+        WHERE export_id=:export_id""", locals())
+        self.find(person_id)
+
     def _compare_names(self, type, other):
         """Returns True if names are equal.
 
