@@ -8,7 +8,7 @@ from db import db
 
 __all__ = ['AddressType', 'ContactInfoType', 'GenderType', 'EntityType',
            'SourceSystem', 'NameType', 'AuthenticationType', 'Spread',
-           'GroupMemberOperationType']
+           'GroupMemberOperationType', 'GroupVisibilityType']
 
 class CodeType(Node):
     slots = ['id', 'name', 'description']
@@ -78,6 +78,9 @@ class GenderType(CodeType):
 
 Clever.prepare(GenderType, 'load')
 
+class AffiliationType(CodeType):
+    _tableName = 'person_affiliation_code'
+
 class EntityType(CodeType):
     _tableName = 'entity_type_code'
 
@@ -112,8 +115,12 @@ Clever.prepare(EntityType, 'load')
 class SourceSystem(CodeType):
     _tableName = 'authoritative_system_code'
 
+Clever.prepare(SourceSystem)
+
 class NameType(CodeType):
     _tableName = 'person_name_code'
+
+Clever.prepare(NameType)
 
 class AuthenticationType(CodeType):
     _tableName = 'authentication_code'
@@ -122,21 +129,29 @@ class AuthenticationType(CodeType):
         import Account
 
         CodeType.loadChildren(self)
-        
+
         for row in db.query('''SELECT account_id, method, auth_data
                                FROM account_authentication
                                WHERE method = %s''' % self.id):
-            self._children.add(Account.AccountAuthentication.getByRow(row))
+                                   self._children.add(Account.AccountAuthentication.getByRow(row))
+
+Clever.prepare(AuthenticationType)
 
 class GroupMemberOperationType(CodeType):
     _tableName = 'group_membership_op_code'
 
+Clever.prepare(GroupMemberOperationType)
+
 class GroupVisibilityType(CodeType):
     _tableName = 'group_visibility_code'
+
+Clever.prepare(GroupVisibilityType)
 
 class QuarantineType(CodeType):
     # her driter jeg i feltet duration inntil videre....
     _tableName = 'quarantine_code'
+
+Clever.prepare(QuarantineType)
 
 class Spread(CodeType):
     _tableName = 'spread_code'
@@ -145,6 +160,7 @@ class Spread(CodeType):
     writeSlots = CodeType.writeSlots + []
 
     def __init__(self, id, parents=Lazy, children=Lazy, *args, **vargs):
+        Node.__init__(self, parents, children)
         Clever.__init__(self, Spread, id, *args, **vargs)
 
     def load(self):
@@ -164,6 +180,6 @@ class Spread(CodeType):
         CodeType.loadChildren(self)
 
         e = Cerebrum.Entity.Entity(db)
-        self._children.update([Entity(int(i[0])) for i in e.list_all_with_spread(self.id)])
+        self._children.update([Entity.Entity(int(i[0])) for i in e.list_all_with_spread(self.id)])
 
 Clever.prepare(Spread, 'load')
