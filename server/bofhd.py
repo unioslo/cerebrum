@@ -75,7 +75,7 @@ class BofhdSession(object):
         self._db = db
         self._id = id
         self._entity_id = None
-
+        self._owner_id = None
 
     def _remove_old_sessions(self):
         """We remove any authenticated session-ids that was
@@ -154,6 +154,14 @@ class BofhdSession(object):
         except Errors.NotFoundError:
             raise SessionExpiredError, "Authentication failure: session expired. You must login again"
         return self._entity_id
+
+    def get_owner_id(self):
+        if self._owner_id is None:
+            account_id = self.get_entity_id()
+            ac = Account_class(self._db)
+            ac.find(account_id)
+            self._owner_id = int(ac.owner_id)
+        return self._owner_id
 
     def store_state(self, state_type, state_data, entity_id=None):
         """Add state tuple to ``session_id``."""
