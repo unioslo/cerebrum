@@ -184,8 +184,12 @@ class Cursor(object):
 ##             print "DEBUG: sql=<%s>\nDEBUG: binds=<%s>" % (sql, binds)
             return self._cursor.execute(sql, *binds)
         except self.DatabaseError:
-            # TBD: These errors should probably be logged...
-##             print "ERROR: sql=<%s>\nERROR: binds=<%s>" % (sql, binds)
+            # TBD: These errors should probably be logged somewhere,
+            # and not merely printed...
+            print "ERROR: operation=<%s>" % operation
+            print "ERROR: sql=<%s>" % sql
+            print "ERROR: parameters=<%s>" % `parameters`
+            print "ERROR: binds=<%s>" % `binds`
             raise
 ##        return self._cursor.execute(operation, *parameters)
 
@@ -665,6 +669,25 @@ class Database(object):
 
         return self._cursor.query_1(query, params)
 
+    def pythonify_data(self, data):
+        """Convert type of values in row to native Python types."""
+        if isinstance(data, (list, tuple,
+                             # When doing type conversions, db_row
+                             # objects are treated as sequences.
+                             db_row.abstract_row)):
+            tmp = []
+            for i in data:
+                tmp.append(self.pythonify_data(i))
+            # type(data) should not be affected by sequence conversion.
+            data = type(data)(tmp)
+        elif isinstance(data, dict):
+            tmp = {}
+            for k in data.keys():
+                tmp[k] = self.pythonify_data(data[k])
+            # type(data) should not be affected by dict conversion.
+            data = type(data)(tmp)
+        return data
+
     def nextval(self, seq_name):
         """Return a new value from sequence SEQ_NAME.
 
@@ -721,7 +744,7 @@ class PostgreSQL(Database):
                                         database = service)
         # TBD: This is a hack, and probably not the correct fix.
         self.execute("SET CLIENT_ENCODING TO 'ISO_8859_1'")
-        
+
 
     # According to its documentation, this driver module implements
     # the Binary constructor as a method of the connection object.
@@ -735,6 +758,19 @@ class PostgreSQL(Database):
     # best we can do is to raise a NotImplementedError. :-(
     def Binary(string): raise NotImplementedError
     Binary = staticmethod(Binary)
+
+    def pythonify_data(self, data):
+        """Convert type of value(s) in data to native Python types."""
+        if isinstance(data, self._db_mod.PgNumeric):
+            if data.getScale() > 0:
+                data = float(data)
+            elif data <= sys.maxint:
+                data = int(data)
+            else:
+                data = long(data)
+            # Short circuit, no need to involve super here.
+            return data
+        return super(PostgreSQL, self).pythonify_data(data)
 
     def _sql_port_table(self, schema, name):
         return [name]
@@ -795,6 +831,11 @@ class Oracle(Database):
             return dbpass
         finally:
             f.close()
+
+    def pythonify_data(self, data):
+        """Convert type of values in row to native Python types."""
+        # Short circuit; no conversion is necessary for DCOracle2.
+        return data
 
     def _sql_port_table(self, schema, name):
         return ['%(schema)s.%(name)s' % locals()]
