@@ -22,13 +22,16 @@ import forgetHTML as html
 from gettext import gettext as _
 from Cereweb.Main import Main
 from Cereweb.templates.MotdViewTemplate import MotdViewTemplate
+from Cereweb.utils import transaction_decorator
 
-def index(req, tag="p"):
+@transaction_decorator
+def index(req, transaction):
     page = Main(req)
     page.title = _("Welcome to Cereweb")
     page.setFocus("main")
     motd = MotdViewTemplate()
-    page.content = lambda: motd.viewMotds(req)
+    content = motd.viewMotds(transaction)
+    page.content = lambda: content
 
     return page
 
