@@ -43,7 +43,7 @@ db = Factory.get('Database')()
 db.cl_init(change_program='process_students')
 const = Factory.get('Constants')(db)
 all_passwords = {}
-person_affiliations = {}
+derived_person_affiliations = {}
 processed_students = {}
 debug = 0
 max_errors = 50          # Max number of errors to accept in person-callback
@@ -195,10 +195,10 @@ def update_account(profile, account_ids, account_info={}):
         # Populate affiliations
         # Speedup: Try to determine if object is changed without populating
         changed = False
-        paffs = person_affiliations.get(int(user.owner_id), [])
+        paffs = derived_person_affiliations.get(int(user.owner_id), [])
         for ou_id in profile.get_stedkoder():
             try:
-                idx = paffs.index((const.system_fs, ou_id, const.affiliation_student,
+                idx = paffs.index((const.system_fs_derived, ou_id, const.affiliation_student,
                                    const.affiliation_status_student_aktiv))
                 del paffs[idx]
             except ValueError:
@@ -210,7 +210,7 @@ def update_account(profile, account_ids, account_info={}):
         person.find(user.owner_id)
         if changed:
             for ou_id in profile.get_stedkoder():
-                person.populate_affiliation(const.system_fs, ou_id, const.affiliation_student,
+                person.populate_affiliation(const.system_fs_derived, ou_id, const.affiliation_student,
                                             const.affiliation_status_student_aktiv)
             tmp = person.write_db()
             logger.debug2("alter person affiliations, write_db=%s" % tmp)
@@ -246,9 +246,9 @@ def get_existing_accounts():
         return {}, {}
     account = Factory.get('Account')(db)
     person = Factory.get('Person')(db)
-    for p in person.list_affiliations(source_system=const.system_fs,
+    for p in person.list_affiliations(source_system=const.system_fs_derived,
                                       affiliation=const.affiliation_student):
-        person_affiliations.setdefault(int(p['person_id']), []).append(
+        derived_person_affiliations.setdefault(int(p['person_id']), []).append(
             (int(p['source_system']), int(p['ou_id']), int(p['affiliation']), int(p['status'])))
     logger.info("Finding student accounts...")
     pid2fnr = {}
