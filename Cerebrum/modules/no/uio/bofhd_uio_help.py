@@ -65,6 +65,7 @@ command_help = {
     'group': {
     'group_add': 'Let an account join a group',
     'group_create': 'Create a new Cerebrum group',
+    'group_request': 'Send in request for a new Cerebrum group',
     'group_def': 'Set default filegroup for an account',
     'group_delete': 'Delete a group from Cerebrum',
     'group_gadd': 'Let another group join a group',
@@ -220,6 +221,8 @@ affiliation status codes"""],
         ['gname', 'Enter the new group name'],
     'group_name_src':
         ['gname', 'Enter the source group'],
+    'group_name_moderator':
+	['gname', 'Enter the name of the moderator group'],
     'group_operation':
         ['op', 'Enter group operation',
          """Three values are legal: union, intersection and difference.
@@ -327,6 +330,8 @@ printer."""],
          "Experts only.  See the documentation for details"],
     'string_description':
         ['description', 'Enter description'],
+    'string_spread':
+	['spread', 'Enter spread. Example: AD_group NIS_fg@uio'],
     'string_email_host':
         ['hostname', 'Enter e-mail server.  Example: mail-sg2'],
     'string_filename':
