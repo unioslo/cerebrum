@@ -60,8 +60,8 @@ class SocketCom(object):
 	    self.sockobj.send(cereconf.NOTES_PASSWORD)
 	    self.readline()
         except:
-	    self.critical("failed connecting to: %s:%s",
-                          cereconf.NOTES_SERVER_HOST, cereconf.NOTES_SERVER_PORT)
+	    logger.critical("failed connecting to: %s:%s",
+                            cereconf.NOTES_SERVER_HOST, cereconf.NOTES_SERVER_PORT)
             raise
 
 
