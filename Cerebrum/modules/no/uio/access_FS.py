@@ -203,13 +203,13 @@ WHERE  p.fodselsdato=s.fodselsdato AND
        p.personnr=st.personnr AND 
        st.studieprogramkode = sp.studieprogramkode AND
        p.fodselsdato=el.fodselsdato AND
-       p.personnr=el.personnr AND 
+       p.personnr=el.personnr AND
+       st.opphortstudierettstatkode IS NULL AND
        st.studierettstatkode IN (RELEVANTE_STUDIERETTSTATKODER)
        AND
        ((el.arstall = %s and el.manednr <=%s) OR
        (el.arstall = %s and el.manednr >= %s))
-       AND %s	
-       """ % (aar, maned, aar-1, maned, self.is_alive())
+       """ % (aar, maned, aar-1, maned)
         # Man kan ikke sjekke el.aarstall >= i fjor ettersom tabellen
         # også inneholder fremtidige meldinger.
         return qry
@@ -225,9 +225,26 @@ WHERE  p.fodselsdato=s.fodselsdato AND
         return (self._get_cols(qry), self.db.query(qry))
 
     def GetAlumni(self):
-        studierettstatkoder = "'FULLFØRT'"
-        qry = self._GetOpptakQuery().replace("RELEVANTE_STUDIERETTSTATKODER",
-                                             studierettstatkoder)
+        qry = """
+SELECT DISTINCT s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
+       s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
+       s.adrlin3_semadr, s.adresseland_semadr, p.adrlin1_hjemsted,
+       p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
+       p.adresseland_hjemsted, p.status_reserv_nettpubl, 
+       p.sprakkode_malform,st.studieprogramkode, st.studierettstatkode,
+       p.kjonn
+FROM fs.student s, fs.person p, fs.studierett st, fs.eksmeldinglogg el,
+     fs.studieprogram sp
+WHERE  p.fodselsdato=s.fodselsdato AND
+       p.personnr=s.personnr AND
+       p.fodselsdato=st.fodselsdato AND
+       p.personnr=st.personnr AND 
+       st.studieprogramkode = sp.studieprogramkode AND
+       p.fodselsdato=el.fodselsdato AND
+       p.personnr=el.personnr AND
+       st.opphortstudierettstatkode = 'FULLFØRT'  AND
+       st.studierettstatkode IN ('AUTOMATISK', 'CANDMAG', 'DIVERSE',
+       'OVERGANG', 'ORDOPPTAK')
         return (self._get_cols(qry), self.db.query(qry))
 
     def GetPrivatistStudieprogram(self):
