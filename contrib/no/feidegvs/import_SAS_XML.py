@@ -220,7 +220,7 @@ def process_OUs():
             print "**** NEW ****"
         elif op == False:
             print "**** UPDATE ****"
-        print "   ", ou.name, ou_id
+        print "   ", institution[o]['name'], ou_id
         db.commit()
         ou_local2ou_id[institution[o]['schoolid']] = ou_id
         ou_id2dns[ou_id] = institution[o]['dns']
@@ -451,18 +451,23 @@ def process_mail_address(ac_list):
             try:
                 # If it did, we want to make uname an address:
                 ea.clear()
-                ea.find_by_local_part_and_domain(ac.account_name,mdom.email_domain_id)
+                ea.find_by_local_part_and_domain(ac.account_name,
+                                                 mdom.email_domain_id)
                 # Iff found:
                 found = False
                 for row in ea.list_target_addresses(est.email_target_id):
                     ea.clear()
                     ea.find(row['address_id'])
-                    if ea.email_addr_local_part == ac.get_email_cn_local_part() \
+                    if (ea.email_addr_local_part == ac.get_email_cn_local_part() \
+                        or ea.email_addr_local_part == ac.account_name) \
                        and ea.email_addr_domain_id == mdom.email_domain_id:
                         # It is the targets own. No update needed.
                         found = True
                 if not found:
-                    print "WARNING: Could not make mail-address. Exists."
+                    print "WARNING: Could not make mail-address. Exists.",\
+                          "  %s and %s @ %s" % (ac.account_name,
+                                                ac.get_email_cn_local_part(),
+                                                mdom.email_domain_name)
                     continue
             except Errors.NotFoundError:
                 # uname wasn't taken:
@@ -497,7 +502,8 @@ def process_mail_address(ac_list):
                         # It is the targets own. No update needed.
                         found = True
                 if not found:
-                    print "WARNING: Could not make mail-address. Exists."
+                    print "WARNING: Could not make mail-address. Exists.",\
+                          "  %s @ %s" % (ac.account_name, mdom.email_domain_name)
                     continue
             except Errors.NotFoundError:
                 ea.clear()
