@@ -20,7 +20,7 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 """
-This file is part of UiO-specific extensions of Cerebrum.
+This file is a UiO-specific extensions of Cerebrum.
 
 It provides various statistics about certain faculties at the UiO.
 
@@ -43,12 +43,10 @@ The faculty list is hardwired:
 categories. Given an OU, we select its corresponding faculty by walking up
 the hierarchy tree until we see a parent from the faculty list. 
 
-
 """
 
 import sys
 import getopt
-import copy
 
 import cerebrum_path
 import cereconf
@@ -81,51 +79,6 @@ def make_ou_map(db):
 
 
 
-def cache_affiliations(entity_index, selector, const):
-    """
-    Returns entity IDs grouped by affiliations.
-
-    ENTITY_INDEX is the name of the id to extract
-    SELECTOR is a function that performs the lookup
-
-    The return value is a quintuple:
-
-    (ANSATT, STUDENT, TILKNYTTET, MANUELL, UPERSONLIG)
-
-    ... each element being a Set of IDs (as ints)
-    """
-
-    # employees
-    logger.debug("Fetching employees")
-    ansatt = Set([int(row[entity_index]) for row in
-                  selector(affiliation = const.affiliation_ansatt)])
-
-    # The memory footprint is too large to fetch all of them directly
-    logger.debug("Fetching students")
-    student = Set()
-    for row in selector(affiliation = const.affiliation_student,
-                        fetchall = False):
-        student.add(int(row[entity_index]))
-    # od
-    
-    logger.debug("Fetching tilknyttet")
-    tilknyttet = Set([int(row[entity_index]) for row in
-                      selector(affiliation = const.affiliation_tilknyttet)])
-
-    logger.debug("Fetching manuell")
-    manuell = Set([int(row[entity_index]) for row in
-                   selector(affiliation = const.affiliation_manuell)])
-
-    logger.debug("Fetching upersonlig")
-    upersonlig = Set([int(row[entity_index]) for row in
-                      selector(affiliation = const.affiliation_upersonlig)])
-    logger.debug("Done fetching all")
-
-    return (ansatt, student, tilknyttet, manuell, upersonlig)
-# end cache_affiliations
-
-
-
 def locate_faculty(ou_id, ou_to_stedkode, predefined_faculties):
     """
     Returns a faculty 'root' for a given ou_id
@@ -136,7 +89,8 @@ def locate_faculty(ou_id, ou_to_stedkode, predefined_faculties):
 
     # 
     # This code assumes that OU.fakultet for ou with OU_ID designates the
-    # proper faculty.
+    # proper faculty. I do not know whether it is actually the case
+    # 
 
     ou_id = int(ou_id)
     faculty = "others"
@@ -153,71 +107,60 @@ def locate_faculty(ou_id, ou_to_stedkode, predefined_faculties):
 
 
 
-def people_statistics(ou_to_stedkode, db):
+def display_statistics(statistics):
     """
-    Collect statistics for _humans_ registered in Cerebrum.
-    """
+    STATISTICS is a dictionary indexed by faculty numbers (K) and with
+    values (V) being dictionaries with statistics information.
 
-    person = Factory.get("Person")(db)
-    const = Factory.get("Constants")(db)
-
-    # First, group all person_ids by affiliations
-    cache =  cache_affiliations("person_id",
-                                lambda **rest:
-                                  person.list_affiliations(**rest),
-                                const)
-
-    return make_statistics("person_id",
-                           lambda **rest:
-                             person.list_affiliations(**rest),
-                           cache, 
-                           ou_to_stedkode,
-                           db)
-# end people_statistics
-    
-
-
-def account_statistics(ou_to_stedkode, db):
-    """
-    Collect statistics for _accounts_ registered in Cerebrum.
+    This function assumes that _all_ Vs have the exactly same set of keys.
     """
 
-    const = Factory.get("Constants")(db)
-    account = Factory.get("Account")(db)
+    logger.debug("Statistics:")
 
-    # First, group all account_ids by affiliations
-    cache = cache_affiliations("account_id",
-                               lambda **rest:
-                                 account.list_accounts_by_type(**rest),
-                               const)
+    # The keys we are interested in
+    keys = ('ansatt', 'student', 'a&s', 'tilknyttet', 'manuell', 'upersonlig',)
+    # Dictionary for totalling up numbers per affiliation
+    total = dict([(key, 0) for key in keys])
 
-    return make_statistics("account_id",
-                           lambda **rest:
-                             account.list_accounts_by_type(**rest),
-                           cache,
-                           ou_to_stedkode,
-                           db)
-# end account_statistics
+    faculty_keys = statistics.keys()
+    # Order the faculty output by faculty name
+    faculty_keys.sort(lambda x, y: cmp(statistics[x]["name"],
+                                       statistics[y]["name"]))
+
+    # Header first, trim names till 7 characters
+    values = ("fak", "navn") + tuple([str(x)[0:7] for x in keys]) 
+    print ("%7s|" * len(values)) % values
+    print "-------+" * len(values)
+
+    for faculty in faculty_keys:
+        value = statistics[faculty]
+        message = "%7s|%7s" % (faculty, value["name"][0:7])
+
+        for key in keys:
+            message += "|%7s" % value[key]
+            total[key] += value[key]
+        # od
+        
+        print message
+    # od
+    print "-------+" * len(values)
+
+    message = "%7s|%7s" % ("Total", "--")
+    sum = 0
+    for key in keys:
+        message += "|%7s" % total[key]
+        sum += total[key]
+    # od
+
+    print message, "|%7s" % sum
+# end display_statistics
 
 
 
-def make_statistics(id, selector, cache, ou_to_stedkode, db):
+def make_empty_statistics():
     """
-    Populate STATISTICS.
-
-    STATISTICS is the dictionary with the result
-    ID         is the id field we are interested in (person_id or account_id)
-    SELECTOR   is the function that scans through all relevant records
-    CACHE      is a quintuple with IDs grouped by different affiliations
-    OU_TO_STEDKODE is a map of ou_id -> fs.stedkode
-    DB         is the database reference.
-
-    This function returns a dictionary with all the stats.
+    Return an empty dictionary suitable for statistics collection
     """
-
-    const = Factory.get("Constants")(db)
-    
-    (ansatt, student, tilknyttet, manuell, upersonlig) = cache
 
     # A dictionary with statistics information.
     # Keys are faculty numbers/designators for those faculties we are
@@ -251,130 +194,221 @@ def make_statistics(id, selector, cache, ou_to_stedkode, db):
         statistics[key].update(value)
     # od
 
+    return statistics
+# end make_empty_statistics
+
+
+
+def make_affiliation_priorities(const):
+    """
+    Prepares and returns a dictionary sorting affiliations/stati according
+    to this ruleset:
+
+    When associating an entity with a faculty during statistics collection,
+    we have to break ties. The ties are broken in the following fashion:
+
+    1. First we compare affiliation; they are classified in this order
+       ansatt, student, tilknyttet, manuell, upersonlig
+    2. If an entity has two affiliations of the same type, affiliation
+       status is used to break up ties in this order:
+
+       ansatt -> vitenskaplig, tekadm, bilag, permisjon
+       student -> aktiv, evu, alumni, perm, opptak, tilbud, soker, privatist
+       tilknyttet -> emeritus, ekst_forsker, ekst_stip, fagperson, bilag,
+                     gjesteforsker, sivilarbeider, diverse
+       manuell -> don't care
+       upersonlig -> don't care.
+
+       For the latter two, we just select one entry. Does not matter which
+       one (this might mean though that statistics run one after the other
+       might fluctuate. Blame baardj for imprecise specification.
+
+    The dictionary uses affiliations as keys. Each value is in turn a
+    dictionary D, sorting that affiliation's stati. D has at least two
+    (key,value) pairs -- 'name' and 'value', holding that affiliation's name
+    and relative sort order.
+    """
+
+    return { int(const.affiliation_ansatt) :
+               { "name"  : "ansatt",
+                 "value" : 0,
+                 int(const.affiliation_status_ansatt_vit) : 0,
+                 int(const.affiliation_status_ansatt_tekadm) : 1,
+                 int(const.affiliation_status_ansatt_bil) : 2,
+                 int(const.affiliation_status_ansatt_perm) : 3
+               },
+             int(const.affiliation_student) :
+               { "name"  : "student",
+                 "value" : 1,
+                 int(const.affiliation_status_student_aktiv) : 0,
+                 int(const.affiliation_status_student_evu) : 1,
+                 int(const.affiliation_status_student_alumni) : 2,
+                 int(const.affiliation_status_student_perm) : 3,
+                 int(const.affiliation_status_student_opptak) : 4,
+                 int(const.affiliation_status_student_tilbud) : 5,
+                 int(const.affiliation_status_student_soker) : 6,
+                 int(const.affiliation_status_student_privatist) : 7,
+               },
+             int(const.affiliation_tilknyttet) :
+               { "name" : "tilknyttet",
+                 "value" : 2,
+                 int(const.affiliation_tilknyttet_emeritus) : 0,
+                 int(const.affiliation_tilknyttet_ekst_forsker) : 1,
+                 int(const.affiliation_tilknyttet_ekst_stip) : 2,
+                 int(const.affiliation_tilknyttet_fagperson) : 3,
+                 int(const.affiliation_tilknyttet_bilag) : 4,
+                 int(const.affiliation_tilknyttet_gjesteforsker) : 5,
+                 int(const.affiliation_tilknyttet_sivilarbeider) : 6,
+                 int(const.affiliation_tilknyttet_diverse) : 7,
+               },
+             int(const.affiliation_manuell) :
+               { "name" : "manuell",
+                 "value" : 3,
+               },
+             int(const.affiliation_upersonlig) :
+               { "name" : "upersonlig",
+                 "value" : 4,
+               },
+             }
+    return status_values
+# end make_affiliation_priorities
+
+
+
+def people_statistics(ou_to_stedkode, db):
+    """
+    Collect statistics about people.
+
+    The strategy is pretty straightforward:
+
+    for each person P
+       look at P's affiliations A
+       sort them according to the rules in make_affiliation_priorities
+       select the first affiliation FA
+       register P's contribution under faculty derived from FA.ou_id and
+       affiliation derived from FA.affiliation
+    done
+
+    This will ensure that each person is counted only once, despite having
+    multiple affiliations to multiple faculties.
+
+    NB! A silly thing is that the ruleset is incomplete. Harass baardj for a
+    more complete specification.
+    """
+
+    people = Factory.get("Person")(db)
+    const = Factory.get("Constants")(db)
+
+    statistics = make_empty_statistics()
     predefined_faculties = statistics.keys()
 
-    # Okey, the rules are a bit annoying -- we want to split people into
-    # these five groups:
-    #
-    # ansatt   - those with affiliation 'ANSATT' but without affiliation
-    #            'STUDENT'
-    # a&s      - those with affiliation 'ANSATT' and 'STUDENT'.
-    # student  - those with affiliation 'STUDENT' but without affiliation
-    #            'ANSATT'
-    # tilknyttet - those with affiliation 'TILKNYTTET' but without 'ANSATT' or
-    #              'STUDENT'.
-    # manuell - those with affiliation 'MANUELL' but without
-    #           'ANSATT'/'STUDENT'/'TILKNYTTET'
-    # upersonlig - those who do not fall into any of the aforementioned 4
-    #              categories.
+    # sort order for affiliations/statuses
+    order = make_affiliation_priorities(const)
     row_count = 0; limit = 10000
-    for row in selector(fetchall = False):
+
+    for row in people.list_affiliated_persons(fetchall = False):
         row_count += 1
-        if row_count % limit== 0:
-            logger.debug("Next %d rows (%d) have been processed", limit, row_count)
+        if row_count % limit == 0:
+            logger.debug("Next %d (%d) rows", limit, row_count)
         # fi
-        
-        entity_id = int(row[id])
-        
-        faculty = locate_faculty(row.ou_id,
-                                 ou_to_stedkode,
+
+        # Fetch all of row's affiliations. 
+        affiliations = people.list_affiliations(person_id = row["person_id"])
+        if not affiliations:
+            continue
+        # fi
+
+        affiliations.sort(lambda x, y: cmp(order[x.affiliation],
+                                           order[y.affiliation])
+                                    or cmp(order.get(x.status, 0),
+                                           order.get(y.status, 0)))
+        aff = affiliations[0]
+        faculty = locate_faculty(aff.ou_id, ou_to_stedkode,
                                  predefined_faculties)
 
-        affiliation = int(row.affiliation)
-
-        # 'None' means that the affiliation was discarded, because there
-        # existed an affiliation with "higher precedence".
-        affiliation_translated = None
-
-        # FIXME: this code is too ugly
-        if affiliation == int(const.affiliation_ansatt):
-            if entity_id not in student:
-                affiliation_translated = "ansatt"
-            else:
-                affiliation_translated = "a&s"
-            # fi
-        elif affiliation == int(const.affiliation_student):
-            if entity_id not in ansatt:
-                affiliation_translated = "student"
-            # fi
-
-            # NB! Do *not* count 'a&s' here (or we would have twice as
-            # many entries in this category (one from 'affiliation_ansatt'
-            # and one from 'affiliation_student')). Pretend this entry
-            # did not exist.
-        elif affiliation == int(const.affiliation_tilknyttet):
-            if (entity_id not in student and
-                entity_id not in ansatt):
-                affiliation_translated = "tilknyttet"
-            # fi
-        elif affiliation == int(const.affiliation_manuell):
-            if (entity_id not in student and
-                entity_id not in ansatt and
-                entity_id not in tilknyttet):
-                affiliation_translated = "manuell"
-            # fi
-        elif affiliation == int(const.affiliation_upersonlig):
-            if (entity_id not in student and
-                entity_id not in ansatt and
-                entity_id not in tilknyttet and
-                entity_id not in manuell):
-                affiliation_translated = "upersonlig"
-            # fi
+        affs = [ x.affiliation for x in affiliations ]
+        if (const.affiliation_student in affs and
+            const.affiliation_ansatt in affs):
+            affiliation_name = "a&s"
+        else:
+            affiliation_name = order[aff.affiliation]["name"]
         # fi
-
-        # Both keys *are* necessarily present. KeyError is structurally
-        # impossible
-        statistics[faculty][affiliation_translated] += 1
+        
+        statistics[faculty][affiliation_name] += 1
     # od
 
     return statistics
-# end make_statistics
+# end people_statistics
 
 
 
-def display_statistics(statistics):
+def account_statistics(ou_to_stedkode, db):
     """
-    STATISTICS is a dictionary indexed by faculty numbers (K) and with
-    values (V) being dictionaries with statistics information.
+    Collect statistics about accounts.
 
-    This function assumes that _all_ Vs have the exactly same set of keys.
+    for each account A
+        look at A's affiliations F
+        sort them according to the rules in make_affiliation_priorities
+                                  (and by using priority to break ties)
+        select the first affiliation FA
+        register A's contribution under faculty derived from FA.ou_id and
+        affiliation derived from FA.affiliation
+    done
     """
 
-    logger.debug("Statistics:")
+    account = Factory.get("Account")(db)
+    const = Factory.get("Constants")(db)
 
-    keys = ("student", "ansatt", "a&s", "tilknyttet", "manuell",
-            "upersonlig", None)
-    total = dict([(key, 0) for key in keys])
+    statistics = make_empty_statistics()
+    predefined_faculties = statistics.keys()
 
-    faculty_keys = statistics.keys()
-    # Order the faculty output by faculty name
-    faculty_keys.sort(lambda x, y: cmp(statistics[x]["name"],
-                                       statistics[y]["name"]))
-    # Header first
-    #             fak  navn stud ans  a&s  tilk man  uper
-    print ("%7s|%7s|%7s|%7s|%7s|%7s|%7s|%7s|%7s" %
-           (("fak", "navn") + tuple([str(x)[0:7] for x in keys])))
-    print "-" * 80
+    # sort order for affiliations
+    order = make_affiliation_priorities(const)
+    row_count = 0; limit = 10000
 
-    for faculty in faculty_keys:
-        value = statistics[faculty]
-        message = "%7s|%7s" % (faculty, value["name"][0:7])
+    # Keep track of accounts that had been processed
+    processed = Set()
 
-        for key in keys:
-            message += "|%7s" % value[key]
-            total[key] += value[key]
-        # od
+    for row in account.list_accounts_by_type(filter_expired = True,
+                                             fetchall = False):
+        row_count += 1
+        if row_count % limit == 0:
+            logger.debug("Next %d (%d) rows", limit, row_count)
+        # fi
+
+        if int(row.account_id) in processed:
+            continue
+        else:
+            processed.add(int(row.account_id))
+        # fi
+
+        affiliations = account.list_accounts_by_type(account_id=row.account_id,
+                                                     filter_expired = True,
+                                                     fetchall = True)
+
+        # Affiliations have already been ordered according to priority. Just
+        # pick the first one.
+        if not affiliations:
+            continue
+        # fi
+
+        aff = affiliations[0]
+        faculty = locate_faculty(aff.ou_id, ou_to_stedkode,
+                                 predefined_faculties)
+
+        affs = [ x.affiliation for x in affiliations ]
+        if (const.affiliation_student in affs and
+            const.affiliation_ansatt in affs):
+            affiliation_name = "a&s"
+        else:
+            affiliation_name = order[aff.affiliation]["name"]
+        # fi
         
-        print message
+        statistics[faculty][affiliation_name] += 1
     # od
-    print "-" * 80
 
-    message = "%7s|%7s" % ("Total", "--")
-    for key in keys:
-        message += "|%7s" % total[key]
-    # od
-    print message
-# end display_statistics
+    return statistics
+# end account_statistics
 
 
 
@@ -390,11 +424,15 @@ def main():
                                    "users",])
     process_people = False
     process_users = False
+    new_rules = False
+    
     for option, value in options:
         if option in ("-p", "--people"):
             process_people = True
         elif option in ("-u", "--users"):
             process_users = True
+        elif option in ("-n",):
+            new_rules = True
         # fi
     # od
 
