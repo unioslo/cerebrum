@@ -42,6 +42,7 @@ entityname = Entity.EntityName(db)
 ou = Factory.get('OU')(db)
 account = Factory.get('Account')(db)
 cl = CLHandler.CLHandler(db)
+logger = Factory.get_logger("cronjob")
 
 
 def quick_sync():
@@ -82,7 +83,7 @@ def quick_sync():
                 elif chg_type == clco.quarantine_add or chg_type == clco.quarantine_del or chg_type == clco.quarantine_mod:
 		    change_quarantine(ans['subject_entity']) 
 	except Errors.NotFoundError:
-	    print "WARNING: Could not find entity ",ans['subject_entity']	
+	    logger.warn("Could not find entity %s", ans['subject_entity'])
 
     cl.commit_confirmations()    
 
@@ -143,7 +144,7 @@ def get_names(account_id):
         person.clear()
         person.find(person_id)
     except Errors.NotFoundError:
-        print "WARNING: find on person or account failed:", account_id
+        logger.warn("find on person or account failed: %s", account_id)
         return False
 
     firstname = lastname = None
@@ -156,7 +157,7 @@ def get_names(account_id):
         if firstname and lastname:
             return (firstname, lastname)
 
-    print "WARNING: getting persons name failed, account.owner_id:", person_id
+    logger.warn("getting persons name failed, account.owner_id: %s", person_id)
     return False
 
 

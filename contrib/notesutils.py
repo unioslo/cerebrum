@@ -38,6 +38,7 @@ account = Factory.get('Account')(db)
 person = Factory.get('Person')(db)
 quarantine = Entity.EntityQuarantine(db)
 ou = Factory.get('OU')(db)
+logger = Factory.get_logger("cronjob")
 
 class SocketCom(object):
     """Class for Basic socket communication to connect to the ADserver"""
@@ -53,13 +54,14 @@ class SocketCom(object):
         try:
 	    self.sockobj = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 	    self.sockobj.connect((cereconf.NOTES_SERVER_HOST, cereconf.NOTES_SERVER_PORT))
-            print 'INFO: Connecting, starting session', now()
-            print ">>", self.sockobj.recv(8192),
-	    print "<< Authenticating"
+            logger.info("Connecting, starting session %s", now())
+            logger.info(">> %s", self.sockobj.recv(8192))
+	    logger.info("<< Authenticating")
 	    self.sockobj.send(cereconf.NOTES_PASSWORD)
 	    self.readline()
         except:
-	    print 'CRITICAL: failed connecting to:', cereconf.NOTES_SERVER_HOST, cereconf.NOTES_SERVER_PORT
+	    self.critical("failed connecting to: %s:%s",
+                          cereconf.NOTES_SERVER_HOST, cereconf.NOTES_SERVER_PORT)
             raise
 
 
@@ -69,7 +71,7 @@ class SocketCom(object):
            tmp.pop()
            tmp.append("XXXXXXXX")
            tmp=string.join(tmp,"&")
-           print "<< %s" % tmp
+           logger.debug("<< %s", tmp)
         self.sockobj.send(message)
 
 
@@ -108,12 +110,12 @@ class SocketCom(object):
             rec.append(i.strip())
         if out:     
             for elem in rec:
-                 print '>>', elem
+                logger.debug(">> %s", elem)
         return rec    
 
 
     def close(self):
-        print 'INFO: Finished, ending session', now()
+        logger.info("Finished, ending session %s', now()") 
         self.sockobj.send("QUIT\n")
         self.sockobj.close()
 
@@ -130,7 +132,7 @@ def get_crbrm_ou(ou_id):
 	#Do not wish to send the root OU name to Notes.
 	return ou_path[:-1]
     except Errors.NotFoundError:
-        print "WARNING: Could not find OU with id",ou_id
+        logger.warn("Could not find OU with id %s", ou_id)
 
 def chk_quarantine(account_id):
     # Check against quarantine.
@@ -146,7 +148,7 @@ def chk_quarantine(account_id):
         if qh.is_locked():
             account_disable += 1
     except KeyError:
-        print "WARNING: missing QUARANTINE_RULE"
+        logger.warn("missing QUARANTINE_RULE")
     if account_disable:
 	return True
 
