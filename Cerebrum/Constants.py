@@ -475,6 +475,8 @@ class CommonConstants(ConstantsBase):
     contact_email = _ContactInfoCode('EMAIL', 'Email')
 
     address_post = _AddressCode('POST', 'Post address')
+    address_post_private = _AddressCode('PRIVPOST',
+                                        "Person's private post address")
     address_street = _AddressCode('STREET', 'Street address')
 
     gender_male = _GenderCode('M', 'Male')

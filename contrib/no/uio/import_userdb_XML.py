@@ -868,18 +868,18 @@ def person_callback(person):
                 continue
             if c['type'] == 'workphone':
                 personObj.populate_contact_info(source_system,
-                                                co.contact_phone, c['val'],
-                                                contact_pref=1)
+                                                co.contact_phone, c['val'])
             elif c['type'] == 'privphone':
                 personObj.populate_contact_info(source_system,
-                                                co.contact_phone, c['val'],
-                                                contact_pref=2)
+                                                co.contact_phone_private,
+                                                c['val'])
             elif c['type'] == 'workfax':
                 personObj.populate_contact_info(source_system,
                                                 co.contact_phone, c['val'])
             elif c['type'] == 'privaddress':
                 a = c['val'].split('$', 2)
-                personObj.populate_address(source_system, co.address_post,
+                personObj.populate_address(source_system,
+                                           co.address_post_private,
                                            address_text="\n".join(a))
         new_affs = []
         if person.has_key('uio'):
