@@ -709,10 +709,10 @@ ORDER BY fodselsdato, personnr
                fkd.belop, fkd.detaljlopenr, frk.kidkode
         FROM fs.fakturareskontrodetalj fkd,
              fs.fakturareskontro frk
-        WHERE fkd.fakturanr = frk.fakturanr AND
+        WHERE frk.fakturastatuskode = 'OPPGJORT' AND
+              fkd.fakturanr = frk.fakturanr AND
               fkd.status_betalt = 'J' AND
-              fkd.fakturadetaljtypekode IN ('UTSKRIFT', 'UTSKRIFT1',
-              'UTSKRIFT2', 'UTSKRIFT3') AND
+              fkd.fakturadetaljtypekode = 'UTSKRIFT' AND
               frk.status_betalt = 'J' %s""" % where
         
         return (self._get_cols(qry), self.db.query(qry))
