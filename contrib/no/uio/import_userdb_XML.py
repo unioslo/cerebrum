@@ -1144,7 +1144,12 @@ def create_account(u, owner_id, owner_type, np_type=None):
                 # forward + local delivery; the local delivery is
                 # ensured by inserting user's local address as a
                 # forward address.
-                mailforward.add_forward('%s@ulrik.uio.no' % u['uname'], True)
+                try:
+                    mailforward.add_forward('%s@ulrik.uio.no' % u['uname'], True)
+                except db.DatabaseError:
+                    # Probably an integrity error for a forward
+                    # address that already was present.
+                    pass
             if isinstance(enable, str) and enable.isdigit():
                 enable = int(enable)
             try:
