@@ -14,7 +14,7 @@ distcheck: dist
 check:
 	make -C testsuite check 2>&1 | tee testsuite/log-check.out
 
-	PYTHONPATH=`pwd` python2.2 Cerebrum/tests/Run.py  -v
+	PYTHONPATH=`pwd` python2.2 Cerebrum/tests/Run.py  -v | tee testsuite/log-tests.out
 
 clean:
 
