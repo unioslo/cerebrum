@@ -27,7 +27,7 @@ name when constructing a Group object."""
 
 from Cerebrum import Utils
 from Cerebrum import Errors
-from Cerebrum.Entity import Entity, EntityName, EntityQuarantine
+from Cerebrum.Entity import Entity, EntityName
 try:
     from sets import Set
 except ImportError:
@@ -36,7 +36,7 @@ except ImportError:
     from Cerebrum.extlib.sets import Set
 
 
-class Group(EntityQuarantine, EntityName, Entity):
+class Group(EntityName, Entity):
 
     __read_attr__ = ('__in_db',)
     __write_attr__ = ('description', 'visibility', 'creator_id',
