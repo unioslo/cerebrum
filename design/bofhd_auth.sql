@@ -51,7 +51,7 @@ CREATE TABLE auth_operation (
                      CONSTRAINT auth_operation_op_set_fk
                        REFERENCES auth_operation_set(op_set_id)
 );
-
+CREATE INDEX auth_operation_set_id ON auth_operation(op_set_id);
 /* Defines attributes associated with an auth_operation, such as legal
    shells */
 
@@ -98,6 +98,7 @@ CREATE TABLE auth_op_target_attrs (
                        REFERENCES auth_op_target(op_target_id),
   attr             CHAR VARYING(50)
 );
+CREATE INDEX auth_op_target_attrs_oti ON auth_op_target_attrs(op_target_id);
 
 /* A role associates an auth_operation_set with an auth_op_target */
 
@@ -116,4 +117,5 @@ CREATE TABLE auth_role (
                      CONSTRAINT auth_role_op_target_fk
                        REFERENCES auth_op_target(op_target_id)
 );
+CREATE INDEX auth_role_uid ON auth_role(entity_id, op_set_id, op_target_id);
 
