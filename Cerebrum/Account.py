@@ -64,27 +64,28 @@ class AccountType(object):
         WHERE %s""" % " AND".join(["%s=:%s" % (x, x)
                                    for x in cols.keys()]), cols)
 
-    def find_accounts_by_type(self, ou_id, affiliation=None, status=None):
+    def find_accounts_by_type(self, ou_id=None, affiliation=None, status=None):
         """Return the account_id of the matching accounts"""
         extra=""
         if affiliation is not None:
             extra += " AND at.affiliation=:affiliation"
         if status is not None:
             extra += " AND pas.status=:status"
+        if ou_id is not None:
+            extra += " AND at.ou_id=:ou_id"
         return self.query("""
         SELECT DISTINCT account_id
         FROM [:table schema=cerebrum name=account_type] at,
              [:table schema=cerebrum name=person_affiliation_source] pas
         WHERE at.person_id=pas.person_id AND at.ou_id=pas.ou_id
-          AND at.affiliation=pas.affiliation AND
-            at.ou_id=:ou_id %s""" % extra,
+          AND at.affiliation=pas.affiliation %s""" % extra,
                           {'ou_id': ou_id,
-                           'affiliation': affiliation,
+                           'affiliation': int(affiliation),
                            'status': status})
 
 class Account(AccountType, EntityName, EntityQuarantine, Entity):
 
-    __read_attr__ = ('__in_db',
+    __read_attr__ = ('__in_db', '__plaintext_password'
                      # TODO: Get rid of these.
                      )
     __write_attr__ = ('account_name', 'owner_type', 'owner_id', 'home', 'disk_id',
@@ -169,15 +170,9 @@ class Account(AccountType, EntityName, EntityQuarantine, Entity):
             enc = getattr(self, "enc_%s" % method)
             enc = enc(plaintext)
             self.populate_authentication_type(getattr(self.const, method), enc)
+        self.__plaintext_password = plaintext
 
-        # We store the plaintext password in the changelog so that
-        # other systens that need it may get it.  The changelog
-        # handler should remove the plaintext password using some
-        # criteria.
-        self._db.log_change(self.entity_id, self.const.a_password,
-                            None, change_params={'password': plaintext})
-
-    def enc_auth_type_md5(self, plaintext):
+    def enc_auth_type_md5_crypt(self, plaintext):
         saltchars = string.uppercase + string.lowercase + string.digits + "./"
         s = []
         for i in range(8):
@@ -260,6 +255,15 @@ class Account(AccountType, EntityName, EntityQuarantine, Entity):
                          {'g_id': self.entity_id,
                           'domain': int(self.const.account_namespace),
                           'name': self.account_name})
+
+        # We store the plaintext password in the changelog so that
+        # other systens that need it may get it.  The changelog
+        # handler should remove the plaintext password using some
+        # criteria.
+        if hasattr(self, '__plaintext_password'):
+            self._db.log_change(self.entity_id, self.const.a_password,
+                                None, change_params={'password':
+                                                     self.__plaintext_password})
 
         # Store the authentication data.
         for k in self._acc_affect_auth_types:
