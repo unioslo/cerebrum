@@ -348,10 +348,11 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
                      self.server.const.auth_type_crypt3_des):
             try:
                 enc_pass = account.get_account_authentication(auth)
-                break
+                if enc_pass:
+                    break               # Ignore empty password hashes
             except Errors.NotFoundError:
                 pass
-        if enc_pass is None:
+        if not enc_pass:
             logger.info("Missing password for %s from %s" % (uname,
                         ":".join([str(x) for x in self.client_address])))
             raise CerebrumError, "Unknown username or password"
