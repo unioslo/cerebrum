@@ -84,5 +84,13 @@ module Cerebrum_core{
             string explanation;
         };
 
+        /**
+        * Error raised by a transaction. The exact failure will be in the
+        * explanation string
+        */
+        exception TransactionError{
+            string exception;
+        };
+
     };
 };

@@ -1,10 +1,9 @@
-/* #include "classes.idl" */
 #include "errors.idl"
 
 /**
 * Module containing all interfaces defined as the core of Gro.
 * Extensions should be declared as separate modules.
-*/
+/
 module Cerebrum_core {    
     //forward declarations
     interface LOHandler;
@@ -135,31 +134,39 @@ module Cerebrum_core {
 
     /**
     * The Access Point Handler
+    * In opposite to the LOHandler, the APHandler will return object references that
+    * clients can work with. The consistency property is maintained by the APHandler's
+    * transaction support. Using the begin() method will explicitly start an transaction
+    * while an attempt to write to an object will do so implicitly.
     */
     interface APHandler {
 
-        /**
-        * Get a type node
-        */
-        Node getTypeByName(in string className, in string name)
-            raises (Errors::NoSuchTypeError, Errors::NoSuchNodeError);
+      /**
+      * This method will explicitly begin a transaction. If another transaction is already
+      * in progress, an exception will be thrown.
+      */
+      void begin()
+        raises( Errors::TransactionError );
+      
+      /**
+      * This method will cause the changes made by the current transaction to be rolled
+      * back. If no transaction is currently active, an error will be raised.
+      */
+      void rollback()
+        raises( Errors::TransactionError );
 
-        /**
-        * Get an entity
-        */
-        Node getEntity(in long id);
+      /**
+      * This method will write all changes made by the current transaction to the database.
+      * If no transaction is currently active, an error will be raised.
+      */
+      void commit()
+        raises( Errors::TransactionError );
 
-        /**
-        * Get a node
-        */
-        Node getNode(in string className, in any key)
-            raises (Errors::NoSuchTypeError, Errors::NoSuchNodeError);
+      /**
+       * Get an entity
+       */
+      Node getEntity(in long id);
 
-        /**
-        * Create a node
-        */
-        Node createNode(in string className, in any key)
-            raises (Errors::NoSuchTypeError, Errors::NoSuchNodeError);
     };
 
     /**
@@ -184,137 +191,6 @@ module Cerebrum_core {
         boolean is_empty();        
     };
 
-    /**
-    * Interface used to represent data in the Cerebrum Database
-    */
-    interface Node {
-
-        /**
-        /* Parents for this node
-        */
-        NodeSeq getParents();
-
-        /**
-        * Children for this node
-        */
-        NodeSeq getChildren();
-
-        /**
-        * Get a unique key to identify this node
-        */
-        any getPrimaryKey();
-
-        /**
-        * Get an attribute for this node.
-        * \param key The name of the attribute you want.
-        * \exception Raises an exception if the node dont got the attribute,
-        * or if the node isnt locked for reading if the attribute is writeable.
-        */
-        any get(in string key)
-            raises (Errors::NotLockedError, Errors::NoSuchAttributeError);
-        string getString(in string key)
-            raises (Errors::NotLockedError, Errors::NoSuchAttributeError);
-        long getLong(in string key)
-            raises (Errors::NotLockedError, Errors::NoSuchAttributeError);
-        Node getNode(in string key)
-            raises (Errors::NotLockedError, Errors::NoSuchAttributeError);
-        NodeSeq getNodeSeq(in string key)
-            raises (Errors::NotLockedError, Errors::NoSuchAttributeError);
- 
-        /**
-        * Set an attribute for this node.
-        * \param key The name of the attribute.
-        * \param value The value you want to set for the key.
-        * \exception Raises an exception if the node doesnt have the attribute
-        * or if the attribute isnt writeable, or if the node isnt locked for
-        * writing.
-        */
-        any set( in string key, in any value )
-            raises ( Errors::NotLockedError,
-                     Errors::NoSuchAttributeError,
-                     Errors::ReadOnlyAttributeError );
-        any setLong( in string key, in long value )
-            raises ( Errors::NotLockedError,
-                     Errors::NoSuchAttributeError,
-                     Errors::ReadOnlyAttributeError );
-        any setString( in string key, in string value )
-            raises ( Errors::NotLockedError,
-                     Errors::NoSuchAttributeError,
-                     Errors::ReadOnlyAttributeError );
-
-        /**
-        * get the name of the class used for this Node
-        */
-        string getClassName();
-
-        /**
-        * Get a list over all attributes the node got wich you can read.
-        */
-        StringSeq getReadAttributes();
-
-        /**
-        * Get a list over all writeable attributes this node got.
-        */
-        StringSeq getWriteAttributes();
-
-        /**
-        * Check if the node is locked for reading by me.
-        * \return True if the node is locked for reading by this client.
-        */
-        boolean is_readlocked_by_me();
-
-        /**
-        * Check if the node is locked for reading by someone else than me.
-        * \return True if someone else got a readlock on the node.
-        */
-        boolean is_readlocked_by_other();
-
-        /**
-        * Check if this client got a writelock on this node.
-        * \return True if the node is locked for writing by me.
-        */
-        boolean is_writelocked_by_me();
-
-        /**
-        * Check if someone else got a writelock on this node.
-        * \return True if the node is locked for writing by someone else.
-        */
-        boolean is_writelocked_by_other();
-
-        /**
-        * Get a list over all wich has a readlock on this node.
-        * \return A list with usernames.
-        */
-        string get_readlockers();
-
-        /**
-        * Get the username of the person holding a writeloc on this node.
-        * \return The username if exists, empty string if not.
-        */
-        string get_writelocker();
-
-        /**
-        * Begins a transaction. It will lock the node for reading for you.
-        * \exception Raises an exception if the node is already locked.
-        */
-        void begin()
-            raises( Errors::AlreadyLockedError );
-
-        /**
-        * Commit changes to the database.
-        * \return A list over changed attributes.
-        * \exception Raises an exception if the node is not writelocked.
-        */
-        StringSeq commit()
-            raises( Errors::CommitError, Errors::NotLockedError );
-
-        /**
-        * Rollback changes done to node, and unlocks all locks.
-        * \exception Raises an exception if the node was not locked.
-        */
-        void rollback()
-            raises( Errors::NotLockedError );
-    };
 };
 /** \page info Additional information
 * Additional information to the Gro API documentation.

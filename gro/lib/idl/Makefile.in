@@ -17,6 +17,7 @@ objects = $(objdir)/errors_idl.py \
 
 .PHONY: all install install-lib clean distclean print
 
+#TODO: Plukk idl-kompilator fra cereconf (eller annet lurt sted)
 Cerebrum/gro: $(sources)
 	rm -rf Cerebrum
 	omniidl -bpython -Wbpackage=Cerebrum.gro $(sources)
