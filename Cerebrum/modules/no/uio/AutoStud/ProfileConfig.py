@@ -54,6 +54,7 @@ class Config(object):
             # Older API versions don't try to handle external entities
             pass
         parser.parse(cfg_file)
+        self.spread_defs = [int(autostud.co.Spread(x)) for x in sp.legal_spreads.keys()]
 
         # Generate select_mapping dict and expand super profiles
         profilename2profile = {}
@@ -367,7 +368,7 @@ class StudconfigParser(xml.sax.ContentHandler):
         self.elementstack = []
         self._config = config
         self._super = None
-        self._legal_spreads = {}
+        self.legal_spreads = {}
         self._legal_groups = {}
         self._in_profil = None
 
@@ -400,7 +401,7 @@ class StudconfigParser(xml.sax.ContentHandler):
             if ename == 'spreaddef':
                 self._config.required_spread_order.append(
                     self._config.lookup_helper.get_spread(tmp['kode']))
-                self._legal_spreads[tmp['kode']] = 1
+                self.legal_spreads[tmp['kode']] = 1
             else:
                 raise SyntaxWarning, "Unexpected tag %s in spread_oversikt" % ename
         elif len(self.elementstack) == 3 and self.elementstack[1] == 'gruppe_oversikt':
@@ -433,7 +434,7 @@ class StudconfigParser(xml.sax.ContentHandler):
                 elif ename in self.profil_settings:
                     if ename == 'gruppe' and not self._legal_groups.has_key(tmp['navn']):
                         raise SyntaxWarning, "Not in groupdef: %s" % tmp['navn']
-                    elif ename == 'spread' and not self._legal_spreads.has_key(tmp['system']):
+                    elif ename == 'spread' and not self.legal_spreads.has_key(tmp['system']):
                         raise SyntaxWarning, "Not in spreaddef: %s" % tmp['system']
                     elif ename == 'disk':
                         if tmp.has_key('path'):
