@@ -162,6 +162,15 @@ def connect_cyrus(host=None, user_id=None):
         imaphost = host
     return imapconn
 
+def dependency_pending(dep_id):
+    if not dep_id:
+        return False
+    br = BofhdRequests(db, const)
+    for dr in br.get_requests(request_id=dep_id):
+        logger.debug("waiting for request %d", dep_id)
+        return True
+    return False
+
 def process_email_requests():
     acc = Factory.get('Account')(db)
     br = BofhdRequests(db, const)
@@ -226,15 +235,9 @@ def process_email_requests():
 	if r['run_at'] < br.now:
             # state_data is a request-id which must complete first,
             # typically an email_create request.
-            # TBD: make it a general feature in BofhdRequests?
-            if r['state_data']:
-                found_dep = False
-                for dr in br.get_requests(request_id=r['state_data']):
-                    found_dep = True
-                if found_dep:
-                    br.delay_request(r['request_id'])
-                    logger.debug("waiting for request %d", int(r['state_data']))
-                    continue
+            if dependency_pending(r['state_data']):
+                br.delay_request(r['request_id'])
+                continue 
 	    try:
                 acc.clear()
                 acc.find(r['entity_id'])
@@ -501,6 +504,71 @@ def move_email(user_id, mailto_id, from_host, to_host):
         return cyrus_delete(es_fr.name, acc.account_name)
     return True
 
+def process_mailman_requests():
+    acc = Factory.get('Account')(db)
+    br = BofhdRequests(db, const)
+    for r in br.get_requests(operation=const.bofh_mailman_create):
+        logger.debug("Req: mailman_create %d at %s",
+                     r['request_id'], r['run_at'])
+        if r['run_at'] < br.now:
+            listname = get_address(r['entity_id'])
+            admin = get_address(r['destination_id'])
+            cmd = [SUDO_CMD, cereconf.WRAPPER_CMD, '-c',
+                   'mailman', 'newlist', listname, admin ];
+            logger.debug(repr(cmd))
+            errnum = os.spawnv(os.P_WAIT, cmd[0], cmd)
+            logger.debug("returned %d", errnum)
+            if errnum == 0:
+                logger.debug("delete %d", r['request_id'])
+                br.delete_request(request_id=r['request_id'])
+                db.commit()
+            else:
+                logger.error("bofh_mailman_create: %s: returned %d" %
+                             (listname, errnum))
+                br.delay_request(r['request_id'])
+    for r in br.get_requests(operation=const.bofh_mailman_add_admin):
+        logger.debug("Req: mailman_add_admin %d at %s",
+                     r['request_id'], r['run_at'])
+        if r['run_at'] < br.now:
+            if dependency_pending(r['state_data']):
+                br.delay_request(r['request_id'])
+                continue 
+            listname = get_address(r['entity_id'])
+            admin = get_address(r['destination_id'])
+            cmd = [SUDO_CMD, cereconf.WRAPPER_CMD, '-c',
+                   'mailman', 'add_admin', listname, admin ];
+            errnum = os.spawnv(os.P_WAIT, cmd[0], cmd)
+            if errnum == 0:
+                br.delete_request(request_id=r['request_id'])
+                db.commit()
+            else:
+                logger.error("bofh_mailman_admin_add: %s: returned %d" %
+                             (listname, errnum))
+                br.delay_request(r['request_id'])
+    for r in br.get_requests(operation=const.bofh_mailman_remove):
+        logger.debug("Req: mailman_remove %d at %s",
+                     r['request_id'], r['run_at'])
+        if r['run_at'] < br.now:
+            listname = r['state_data']
+            cmd = [SUDO_CMD, cereconf.WRAPPER_CMD, '-c',
+                   'mailman', 'rmlist', listname, "dummy" ];
+            errnum = os.spawnv(os.P_WAIT, cmd[0], cmd)
+            if errnum == 0:
+                br.delete_request(request_id=r['request_id'])
+                db.commit()
+            else:
+                logger.error("bofh_mailman_remove: %s: returned %d" %
+                             (listname, errnum))
+                br.delay_request(r['request_id'])
+
+def get_address(address_id):
+    ea = Email.EmailAddress(db)
+    ea.find(address_id)
+    ed = Email.EmailDomain(db)
+    ed.find(ea.email_addr_domain_id)
+    return "%s@%s" % (ea.email_addr_local_part,
+                      ed.rewrite_special_domains(ed.email_domain_name))
+
 def process_move_requests():
     br = BofhdRequests(db, const)
     for r in br.get_requests(operation=const.bofh_move_user):
@@ -640,7 +708,8 @@ def main():
         elif opt in ('-p', '--process'):
             process_move_requests()
             process_email_requests()
-    
+            process_mailman_requests()
+
 def usage(exitcode=0):
     print """Usage: process_bofhd_requests.py
     -d | --debug: turn on debugging
