@@ -305,6 +305,7 @@ class Group(EntityQuarantine, EntityName, Entity):
         if spread is not None:
             extfrom = ", [:table schema=cerebrum name=entity_spread] es"
             extwhere = """gm.member_id=es.entity_id AND es.spread=:spread AND """
+            spread = int(spread)
         if get_entity_name:
             extcols += ", entity_name"
             extfrom += ", [:table schema=cerebrum name=entity_name] en"
