@@ -252,6 +252,11 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
             if isinstance(ret, unicode):
                 raise sys.exc_info()[0], ret.encode('utf-8')
             else:
+                # Some of our exceptions throws iso8859-1 encoded
+                # error-messages.  These must be encoded as utf-8 to
+                # avoid client-side:
+                #   org.xml.sax.SAXParseException: character not allowed
+                ret = ret.decode('iso8859-1').encode('utf-8')
                 raise sys.exc_info()[0], ret
         except NotImplementedError, e:
             logger.warn("Not-implemented: ", exc_info=1)
