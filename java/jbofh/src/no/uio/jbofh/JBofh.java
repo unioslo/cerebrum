@@ -400,6 +400,9 @@ public class JBofh implements ActionListener {
 			Object key = e.nextElement();
 			showMessage(key+" -> "+ bc.commands.get(key), true); 
 		    }
+                } else if(((String) args.get(0)).equals("quit") || 
+                    ((String) args.get(0)).equals("q")) {
+                    bye();
 		} else if(((String) args.get(0)).equals("help")) {
 		    args.remove(0);
 		    showMessage(bc.getHelp(args), true);
@@ -437,7 +440,15 @@ public class JBofh implements ActionListener {
 		showMessage(be.getMessage(), true);
 	    }
 	}
+        bye();
+    }
+
+    void bye() {
         showMessage("I'll be back", true);
+        try {
+            bc.logout();
+        } catch (BofhdException ex) { } // Ignore
+        System.exit(0);
     }
 
     Vector checkArgs(String cmd, Vector args) throws BofhdException {
@@ -519,10 +530,24 @@ public class JBofh implements ActionListener {
 	    ret.remove(0);
 	    ret.remove(0);
 	    try {
+                if(arginfo.get("prompt") == null && arginfo.get("last_arg") != null)
+                    break;
 		String defval = (String) arginfo.get("default");
 		String s = cLine.promptArg((String) arginfo.get("prompt") +
                     (defval == null ? "" : " ["+defval+"]")+" >", false);
 		if(s.equals("") && defval == null) continue;
+                if(s.equals("?")) {
+                    if(arginfo.get("help_ref") == null) {
+                        showMessage("Sorry, no help available", true);
+                        continue;
+                    }
+                    Vector v = new Vector();
+                    v.add("arg_help");
+                    v.add(arginfo.get("help_ref"));
+                    String help = (String) bc.getHelp(v);
+                    showMessage(help, true);
+                    continue;
+                }
 		if(! s.equals("")) {
 		    Hashtable h = (Hashtable) arginfo.get("map");
 		    if(h != null) {
