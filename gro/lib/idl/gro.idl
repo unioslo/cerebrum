@@ -3,16 +3,16 @@
 /**
 * Module containing all interfaces defined as the core of Gro.
 * Extensions should be declared as separate modules.
-/
+*/
 module Cerebrum_core {    
     //forward declarations
     interface LOHandler;
     interface APHandler;
     interface BulkIterator;
-    interface Object;
+    interface APObject;
 
     typedef sequence<string> StringSeq;
-    typedef sequence<Object> ObjectSeq;
+    typedef sequence<APObject> APObjectSeq;
 
     /**
     * Structure/object representing a key->value pair.
@@ -183,6 +183,9 @@ module Cerebrum_core {
         * \return True when the iterator is empty.
         */
         boolean is_empty();        
+    };
+
+    interface APObject{
     };
 
 };
