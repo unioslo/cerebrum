@@ -86,6 +86,8 @@ class ContactInfo(object):
     get_info = classmethod(get_info)
 
 class Note(object):
+    """A small message or comment to be attached to an Entity"""
+    """A small message or comment to be attached to an Entity"""
     def __init__(self, id, entity, create_date, creator, 
                  subject, description):
         self.id = id         
@@ -221,6 +223,19 @@ class Entity(object):
     def get_history(self):
         """Returns a list of Change objects for recent changes"""
         pass    
+    def add_note(self, subject, description):
+        """Attatches a note to the entity."""
+        pass
+
+    def show_notes(self):
+        """Get all notes attached to entities. 
+        Returns a list of Note objects"""
+        pass
+
+    def remove_note(self, note):
+        """Removes a given Note object from this entity"""
+        pass
+                            
 
 
 class Group(Entity):
