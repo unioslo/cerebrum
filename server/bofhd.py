@@ -31,7 +31,7 @@ from SimpleXMLRPCServer import SimpleXMLRPCServer
 import re
 import socket
 # import xmlrpclib
-from Cerebrum import Database,Person,Utils,Account
+from Cerebrum import Database,Person,Utils,Account,Errors,cereconf
 import sys
 import traceback
 # import dumputil
@@ -291,7 +291,7 @@ class CallableFuncs(object):
             return ()
         return ret
 
-    # user create 2734 XNone XNone XNone XNone 999999 XNone /home 20
+    # user create 2734 XNone XNone XNone XNone 999999 XNone /home 18
     def user_create(self, user, person_id, np_type, expire_date, uname, uid, gid, gecos, home, shell):
         creator_id = 888888    # TODO: Set this
 
@@ -304,7 +304,15 @@ class CallableFuncs(object):
             if(uname == None):                  # Find a suitable username
                 person = self.ef.person
                 person.find(person_id)
-                name = person.get_name(self.const.system_lt, self.const.name_full)
+                name = None
+                for ss in cereconf.PERSON_NAME_SS_ORDER:
+                    try:
+                        name = person.get_name(getattr(self.const, ss), self.const.name_full)
+                        break
+                    except Errors.NotFoundError:
+                        pass
+                if name == None:
+                    raise "No name for person!"  #TODO: errror-class
                 name = name.split()
                 uname = account.suggest_unames(self.const.entity_accname_default,
                                                name[0], name[1])
@@ -328,7 +336,8 @@ class CallableFuncs(object):
             
             passwd = account.make_passwd(uname)
             account.affect_auth_types(self.const.auth_type_md5)
-            account.populate_authentication_type(self.const.auth_type_md5, passwd)
+            # account.populate_authentication_type(self.const.auth_type_md5, passwd)
+            account.set_password(passwd)
             
             account.write_db()
             self.ef.Cerebrum.commit()
