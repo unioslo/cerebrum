@@ -512,13 +512,15 @@ class StandardBofhdServer(SimpleXMLRPCServer.SimpleXMLRPCServer, BofhdServer):
         self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         SocketServer.TCPServer.server_bind(self)
 
-class SSLBofhdServer(SSL.SSLServer, BofhdServer): # SSL.ThreadingSSLServer
+if CRYPTO_AVAILABLE:
+    class SSLBofhdServer(SSL.SSLServer, BofhdServer): # SSL.ThreadingSSLServer
 
-    def __init__(self, database, config_fname, addr, requestHandler,
-                 ssl_context):
-        super(SSLBofhdServer, self).__init__(addr, requestHandler, ssl_context)
-        BofhdServer.__init__(self, database, config_fname)
-        self.logRequests = 0
+        def __init__(self, database, config_fname, addr, requestHandler,
+                     ssl_context):
+            super(SSLBofhdServer, self).__init__(addr, requestHandler,
+                                                 ssl_context)
+            BofhdServer.__init__(self, database, config_fname)
+            self.logRequests = 0
 
 def usage():
     print """Usage: bofhd.py -c filename [-t keyword]
