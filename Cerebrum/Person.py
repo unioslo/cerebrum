@@ -23,7 +23,6 @@
 import cereconf
 from Cerebrum.Entity import \
      Entity, EntityContactInfo, EntityAddress, EntityQuarantine
-from Cerebrum import OU
 from Cerebrum import Utils
 from Cerebrum import Errors
 
@@ -333,6 +332,11 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
         return self.query("""
         SELECT code, description
         FROM [:table schema=cerebrum name=person_name_code]""")
+
+    def get_person_affiliation_codes(self):
+        return self.query("""
+        SELECT code, code_str, description
+        FROM [:table schema=cerebrum name=person_affiliation_code]""")
 
     def get_name(self, source_system, variant):
         """Return the name with the given variant"""
