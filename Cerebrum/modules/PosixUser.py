@@ -70,7 +70,7 @@ class Constants(Constants.Constants):
 
 Account_class = Factory.get("Account")
 class PosixUser(Account_class):
-"" "'POSIX user' specialisation of core class `Account'.
+    """'POSIX user' specialisation of core class `Account'.
 
     This class is not meant to be a transparent mixin class
     (i.e. included in the return value of Utils.Factory.get()) for
