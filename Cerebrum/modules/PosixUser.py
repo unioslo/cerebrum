@@ -37,68 +37,55 @@ from Cerebrum import Account
 class PosixUser(Account.Account):
     """Posix..."""
 
+    __read_attr__ = ('__in_db',)
+    __write_attr__ = ('posix_uid', 'gid', 'gecos', 'home', 'shell')
+
     def clear(self):
-        super(PosixUser, self).clear()
-        self.account_id = None
-        self.posix_uid = None
-        self.gid = None
-        self.gecos = None
-        self.home = None
-        self.shell = None
+        super(Account.Account, self).clear()
+        for attr in PosixUser.__read_attr__:
+            if hasattr(self, attr):
+                delattr(self, attr)
+        for attr in PosixUser.__write_attr__:
+            setattr(self, attr, None)
+        self.__updated = False
 
     def __eq__(self, other):
         assert isinstance(other, PosixUser)
+        if (self.posix_uid == other.posix_uid and
+            self.gid   == other.gid and
+            self.gecos == other.gecos and
+            self.home  == other.home and
+            int(self.shell) == int(other.shell)):
+            return self.__super.__eq__(other)
+        return False
 
-        identical = super(PosixUser, self).__eq__(other)
-        if not identical:
-            return identical
-        
-        if (self.account_id != other.account_id or
-            self.posix_uid != other.posix_uid or
-            self.gid   != other.gid or
-            self.gecos != other.gecos or
-            self.home  != other.home or
-            int(self.shell) != int(other.shell)):
-            return False
-
-        return True
-
-    def populate(self, account_id, posix_uid, gid, gecos, home, shell):
+    def populate(self, posix_uid, gid, gecos, home, shell, name=None,
+                 owner_type=None, owner_id=None, np_type=None,
+                 creator_id=None, expire_date=None, parent=None):
         """Populate PosixUser instance's attributes without database access."""
-        self.account_id = account_id
+        if parent is not None:
+            self.__xerox__(parent)
+        else:
+            # super(PosixUser, self).populate(name, owner_type, owner_id, np_type, creator_id, expire_date)
+            Account.Account.populate(self, name, owner_type, owner_id, np_type, creator_id, expire_date)
+        self.__in_db = False
         self.posix_uid = posix_uid
         self.gid = gid
         self.gecos = gecos
         self.home = home
         self.shell = shell
-        self.__write_db = True  # TODO: Tramper vi nå i Account's navnerom?
 
     def write_db(self, as_object=None):
-        """Write PosixUser instance to database.
-
-        If ``as_object`` is set, it should be another PosixUser object.
-        That object's entity_id will be the one that is updated with
-        this object's attributes.
-
-        Otherwise, a new entity_id is generated and used to insert
-        this object."""
-        assert self.__write_db
-
-        # TODO: This may be incorrect.  What we're trying to do is to
-        # assert that if the user has called something like
-        # set_password on the object, the update is written to the
-        # database.
-        if as_object is None:
-            super(PosixUser, self).write_db(self)
-        else:
-            super(PosixUser, self).write_db(as_object)
-        
-        if as_object is None:
+        """Write PosixUser instance to database."""
+        self.__super.write_db()
+        if not self.__updated:
+            return
+        if not self.__in_db:
             self.execute("""
             INSERT INTO [:table schema=cerebrum name=posix_user]
               (account_id, posix_uid, gid, gecos, home, shell)
             VALUES (:a_id, :u_id, :gid, :gecos, :home, :shell)""",
-                         {'a_id': self.account_id,
+                         {'a_id': self.entity_id,
                           'u_id': self.posix_uid,
                           'gid': self.gid,
                           'gecos': self.gecos,
@@ -108,27 +95,30 @@ class PosixUser(Account.Account):
             self.execute("""
             UPDATE [:table schema=cerebrum name=posix_user]
             SET account_id=:a_id, posix_uid=:u_id, gid=:gid, gecos=:gecos,
-                home=:home, shell=:shell)
+                home=:home, shell=:shell
             WHERE account_id=:orig_account_id""",
-                         {'a_id': self.account_id,
+                         {'a_id': self.entity_id,
                           'u_id': self.posix_uid,
                           'gid': self.gid,
                           'gecos': self.gecos,
                           'home': self.home,
                           'shell': int(self.shell),
                           'orig_account_id': as_object.account_id})
-        self.__write_db = False
+        del self.__in_db
+        self.__in_db = True
+        self.__updated = False
 
     def find(self, account_id):
         """Connect object to PosixUser with ``account_id`` in database."""
         super(PosixUser, self).find(account_id)
-        # self.find(account_id)
 
         (self.account_id, self.posix_uid, self.gid, self.gecos,
          self.home, self.shell) = self.query_1("""
          SELECT account_id, posix_uid, gid, gecos, home, shell
          FROM [:table schema=cerebrum name=posix_user]
          WHERE account_id=:account_id""", locals())
+        self.__in_db = True
+        self.__updated = False
 
     def get_all_posix_users(self):
         """Return account_id of all PosixUsers in database"""
