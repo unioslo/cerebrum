@@ -93,8 +93,7 @@ class PersonFnrMixin(Person.Person):
                  " USING (person_id)"
         for person_id, fnr in self.query("""
             SELECT DISTINCT pei.person_id, pei.external_id FROM %s
-            WHERE pei.id_type = %d""" % (f, self.const.externalid_fodselsnr),
-                                         fetchall = False):
+            WHERE pei.id_type = %d""" % (f, self.const.externalid_fodselsnr)):
             person_id = int(person_id)
             if result.setdefault(person_id, fnr) is not fnr:
                 multi.setdefault(person_id, {result[person_id]: 0})[fnr] = 0
