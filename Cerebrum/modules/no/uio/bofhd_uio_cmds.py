@@ -2216,12 +2216,7 @@ class BofhdExtension(object):
 	body.append("spread add group %s %s" % (groupname, spreadstring))
 	body.append("")
 	body.append("")
-	message = email.Message.Message()
-	message["From"] = fromaddr
-	message["To"] = toaddr
-	message["Subject"] = subject
-	message.set_payload("\n".join(body), "ISO-8859-1")
-	Utils.sendmail(fromaddr, toaddr, message)	
+        Utils.sendmail(fromaddr, toaddr, subject, "\n".join(body))
 	return "Request sent to brukerreg@usit.uio.no"
 
     #  group def
