@@ -57,7 +57,7 @@ def create(req, name="", birthno="", birthdate="", ou="", affiliation="", aff_st
             page.add_message(_("Sorry, person not created because of an error"), True)
         
     result.append(personcreate.form())
-    page.content = lambda: result.output().encode("utf8")
+    page.content = lambda: result.output()
     return page
 
 def list(req):
@@ -92,7 +92,7 @@ def search(req, name="", accountid="", birthno="", birthdate=""):
                                           birthdate or None)
         
         if persons:
-            table = html.SimpleTable(header="row")
+            table = html.SimpleTable(header="row", _class="results")
             table.add(_("Name"), _("Date of birth"))
             for person in persons:
                 link = url("person/view?id=%s" % person.id)
@@ -107,7 +107,7 @@ def search(req, name="", accountid="", birthno="", birthdate=""):
         
     result.append(html.Header(_("Search for other persons"), level=2))
     result.append(personsearch.form())
-    page.content = lambda: result.output().encode("utf8")
+    page.content = lambda: result.output()
     return page    
 
 
