@@ -42,10 +42,29 @@ for hack in (generated._objref_SpineGroup,
     hack.__hash__ = lambda self:self._hash(2147483647)
 
 class Sync:
-    def __init__(self):
+    def __init__(self, incr, id):
         self._transactions = []
         self._connect()
    
+        if incr:
+            self._connection = self._transaction()
+        else:
+            self._connection = self._snapshot()
+
+        self._from_change = id
+        self._last_change = self._connection.get_commands().get_last_changelog_id()
+
+        if incr:
+            self._changes = self._connection.get_change_log_searcher()
+            self._changes.set_id_more_than(self._from_change)
+            self._changes.set_id_less_than(self._last_change + 1)
+            self._changes.mark_subject()
+#            print 'changes:', self._changes.search()
+#            print 'getting changes from %s to %s' % (self._from_change, self._last_change)
+        else:
+            self._changes = None
+#            print 'getting everything'
+
     def __del__(self):
         # We shouldn't have any open transactions now, but if we do, we
         # abort them.
@@ -105,12 +124,32 @@ class Sync:
         self._transactions.append(t)    
         return t    
 
+    def _snapshot(self):
+        """Get a snapshot from Spine."""
+        try:
+            t = self.ap.snapshot()         
+        except SpineErrors.ServerError:
+            # let's naivly try to reconnect 
+            self._connect()
+            # This time it should work!    
+            try:
+                t = self.ap.snapshot()         
+            except SpineErrors.ServerError:
+                raise errors.ServerError, "Could not create new Spine snapshot"
+        self._transactions.append(t)    
+        return t    
+
+    def close(self):
+        self._rollback()
+
     def get_accounts(self):
         """Get all accounts from Spine. Returns a list of Account objects."""
-        t = self._transaction()
+        t = self._connection
 
         # create a search
         account_search = t.get_account_searcher()
+        if self._changes:
+            account_search.set_intersections([self._changes])
 
         # create a dumper and mark what we want to dump
         dumper = account_search.get_dumper()
@@ -167,14 +206,15 @@ class Sync:
                 i.primary_group = None
                 i.shell = None
 
-        t.rollback()
         return accounts
 
     def get_groups(self):
-        t = self._transaction()
+        t = self._connection
 
         # create a search
         group_search = t.get_group_searcher()
+        if self._changes:
+            group_search.set_intersections([self._changes])
 
         # create a dumper and mark what we want to dump
         dumper = group_search.get_dumper()
@@ -202,7 +242,6 @@ class Sync:
             if not group.posix_gid_exists:
                 group.posix_gid = None
 
-        t.rollback()
         return groups
 
     def get_persons(self):
@@ -225,6 +264,9 @@ class Sync:
 
         t.rollback()
         return results
+
+    def get_last_change(self):
+        return self._last_change
  
 class Person:
     """Stub object for representation of a person"""

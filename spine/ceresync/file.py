@@ -187,6 +187,8 @@ class LastUpdate:
         return int(open(self.filename).read().strip())
     def set(self, id):
         open(self.filename,'w').write("%d\n" % id)
+    def exists(self):
+        return os.path.exists(self.filename)
 
 
 # arch-tag: 15c0dab6-50e3-4093-ba64-5be1b5789d90
