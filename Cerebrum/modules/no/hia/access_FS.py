@@ -21,6 +21,7 @@ import re
 import os
 import sys
 import time
+import xml.sax
 
 from Cerebrum.modules.no.uio.access_FS import FS
 
@@ -310,7 +311,14 @@ WHERE
   terminnr = :terminnr AND
   terminkode = :terminkode AND
   arstall = :arstall"""
-        return (self._get_cols(qry), self.db.query(qry, locals()))
+        return (self._get_cols(qry),
+                self.db.query(qry, {'institusjonsnr': institusjonsnr,
+                                    'emnekode': emnekode,
+                                    'versjonskode': versjonskode,
+                                    'terminnr': terminnr,
+                                    'terminkode': terminkode,
+                                    'arstall': arstall}
+                              ))
 
     def StudprogAlleStud(self, faknr, studprogkode):
 	"""Henter data om alle studenter på et gitt studieprogram og 
@@ -327,7 +335,10 @@ WHERE sp.faknr_studieansv = :faknr AND
       sp.studieprogramkode = nk.studieprogramkode
       nk.kullkode = sk.kullkode AND
       sk.statusaktiv = 'J'"""
-        return (self._get_cols(qry),self.db.query(qry))
+        return (self._get_cols(qry),
+                self.db.query(qry, {'faknr': faknr,
+                                    'studprogkode': studprogkode}
+                              ))
 
     def AlternativtGetAlleStudStudprog(self, studprogkode):
 	"""Finn alle studenter på et studieprogram.
@@ -342,7 +353,8 @@ from fs.studierett
 WHERE
   studieprogramkode = :studprogkode AND
   NVL(st.dato_gyldig_til,SYSDATE) >= sysdate""" 
-        return (self._get_cols(qry),self.db.query(qry))
+        return (self._get_cols(qry),
+                self.db.query(qry, {'studprogkode': studprogkode}))
 
 ##################################################################
 # Metoder for OU-er:
@@ -392,7 +404,7 @@ FROM fs.emne """
 
     def get_next_termin_aar(self):
 	"""en fin metode som henter neste semesters terminkode og årstal."""
-	yr, mon, md  = t = time.localtime()[0:3]
+	yr, mon, md = time.localtime()[0:3]
 	if mon <= 6:
 	    next = "(r.terminkode LIKE 'H_ST' AND r.arstall=%s)\n" % yr
 	else:
@@ -400,7 +412,7 @@ FROM fs.emne """
 	return next
 
     def get_termin_aar(self, only_current=0):
-        yr, mon, md = t = time.localtime()[0:3]
+        yr, mon, md = time.localtime()[0:3]
         if mon <= 6:
             # Months January - June == Spring semester
             current = "(r.terminkode LIKE 'V_R' AND r.arstall=%s)\n" % yr;
@@ -415,3 +427,110 @@ FROM fs.emne """
         return "(%s OR (r.terminkode LIKE 'V_R' AND r.arstall=%d))\n" % (current, yr)
 
 
+class element_attribute_xml_parser(xml.sax.ContentHandler):
+
+    elements = {}
+    """A dict containing all valid element names for this parser.
+
+    The dict must have a key for each of the XML element names that
+    are valid for this parser.  The corresponding values indicate
+    whether or not the parser class should invoke the callback
+    function upon encountering such an element.
+
+    Subclasses should override this entire attribute (i.e. subclasses
+    should do elements = {key: value, ...}) rather than add more keys
+    to the class attribute in their parent class (i.e. subclasses
+    should not do elements[key] = value)."""
+
+    def __init__(self, filename, callback, encoding='iso8859-1'):
+        self._callback = callback
+        self._encoding = encoding
+        xml.sax.parse(filename, self)
+
+    def startElement(self, name, attrs):
+        if name not in self.elements:
+            raise ValueError, \
+                  "Unknown XML element: %r" % (name,)
+        # Only set self._in_element etc. for interesting elements.
+        if self.elements[name]:
+            data = {}
+            for k, v in attrs.iteritems():
+                data[k] = v.encode(self._encoding)
+            self._callback(name, data)
+
+class non_nested_xml_parser(element_attribute_xml_parser):
+
+    def __init__(self, filename, callback, encoding='iso8859-1'):
+        self._in_element = None
+        self._attrs = None
+        super(non_nested_xml_parser, self).__init__(
+            filename, callback, encoding)
+
+    def startElement(self, name, attrs):
+        if name not in self.elements:
+            raise ValueError, \
+                  "Unknown XML element: %r" % (name,)
+        if self._in_element is not None:
+            raise RuntimeError, \
+                  "Can't deal with nested elements (<%s> before </%s>)." % (
+                name, self._in_element)
+        # Only set self._in_element etc. for interesting elements.
+        if self.elements[name]:
+            self._in_element = name
+            self._data = {}
+            for k, v in attrs.iteritems():
+                self._data[k] = v.encode(self._encoding)
+
+    def endElement(self, name):
+        if name not in self.elements:
+            raise ValueError, \
+                  "Unknown XML element: %r" % (name,)
+        if self._in_element == name:
+            self._callback(name, self._data)
+            self._in_element = None
+
+class ou_xml_parser(element_attribute_xml_parser):
+    "Parserklasse for ou.xml."
+
+    elements = {'data': False,
+                'sted': True,
+                'komm': True,
+                }
+
+class person_xml_parser(non_nested_xml_parser):
+    "Parserklasse for person.xml."
+
+    elements = {'data': False,
+                'aktiv': True,
+                'tilbud': True,
+                'evu': True,
+                'privatist_studieprogram': True,
+                }
+
+class roles_xml_parser(non_nested_xml_parser):
+    "Parserklasse for studieprog.xml."
+
+    elements = {'data': False,
+                'role': True,
+                }
+
+class studieprog_xml_parser(non_nested_xml_parser):
+    "Parserklasse for studieprog.xml."
+
+    elements = {'data': False,
+                'studprog': True,
+                }
+
+class underv_enhet_xml_parser(non_nested_xml_parser):
+    "Parserklasse for underv_enhet.xml."
+
+    elements = {'undervenhet': False,
+                'undenhet': True,
+                }
+
+class student_undenh_xml_parser(non_nested_xml_parser):
+    "Parserklasse for student_undenh.xml."
+
+    elements = {'data': False,
+                'student': True
+                }
