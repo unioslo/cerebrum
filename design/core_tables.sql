@@ -1328,6 +1328,8 @@ CREATE TABLE account_type
     FOREIGN KEY (account_id, person_id)
     REFERENCES account_info(account_id, owner_id)
 );
+category:main;
+CREATE INDEX account_type_account_id_idx ON account_type(account_id);
 category:main/Oracle;
 GRANT SELECT ON account_type TO read_account;
 category:main/Oracle;
