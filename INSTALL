@@ -5,11 +5,16 @@ Installation of Cerebrum
 3. testing the distribution
 4. Installing the software
 5. Post installation steps
+6. Links
 
 Prerequisities
 --------------
-Install python >= 2.2, and a Postgress or Oracle database.  Install
-PyPostgress or DCOracle2.
+Install python >= 2.2, and a PostgreSQL or Oracle database.  Install
+python-pgsql >= 2.2 or DCOracle2.
+
+  Debian packages: python2.2 python2.2-xmlbase
+                   postgresql python2.2-pgsql
+  RedHat packages: ???
 
 Create a database instance where cerebrum should be ran, as well as a
 user which cerebrum should connect as.
@@ -19,6 +24,11 @@ Instructions for creating the Oracle users:
   GRANT connect, resource, create role TO cerebrum;
   CREATE USER cerebrum_user identified BY somepassword;
   GRANT connect, resource TO cerebrum_user;
+
+Instructions for creating the PostgreSQL database and user:
+
+  % createuser cerebrum
+  % createdb cerebrum
 
 Get the sources
 ---------------
@@ -56,7 +66,9 @@ Installing the software
 -----------------------
 Enter the directory where you installed the sources, and run:
 
-  python2.2 setup.py install install_data --install-dir=/cerebrum
+  ./configure --prefix=/cerebrum
+  make
+  make install
 
 This will install the Cerebrum python modules into your site-packages
 directory.  A number of other files are placed as documented in the
@@ -64,7 +76,7 @@ top of setup.py.  To install to an alternative location, use the
 --prefix option to install.  If you use --prefix, remember to set
 PYTHONPATH when running scripts.
 
-run makedp.py to create the required tables.
+Run 'make bootstrap' to create the required tables.
 
 
 Post installation steps
@@ -72,3 +84,8 @@ Post installation steps
 - cronjobs
 - auto starting bofhd
 - ?
+
+
+Links
+-----
+ - python-pgsql: <URL:http://sourceforge.net/projects/pgsql/>
