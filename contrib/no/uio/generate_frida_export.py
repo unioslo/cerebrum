@@ -566,7 +566,7 @@ def output_OU(writer, id, db_ou, stedkode, parent_stedkode, constants):
                           norOrgUnitDepartment, norOrgUnitGroup,
                           norParentOrgUnitFaculty,
                           norParentOrgUnitDepartment,
-                          norParentOrgUnitGroup, norOrgUnitAcronym+, 
+                          norParentOrgUnitGroup, norOrgUnitAcronym*, 
                           Addressline, Telephon*, Fax*, URL*)>
     """
 
@@ -582,17 +582,13 @@ def output_OU(writer, id, db_ou, stedkode, parent_stedkode, constants):
     db_ou.find(id)
     
     ou_names = db_ou.get_names()
-    ou_acronyms = db_ou.get_acronyms()
     # Ufh! I want CL's count-if
-    # Check that there is at least one name and at least one
-    # acronym that are not empty.
+    # Check that there is at least one non-empty name
     has_any = (lambda sequence, field:
                       [x for x in sequence
                          if x[field] is not None])
-    if (not has_any(ou_names, "name") or 
-        not has_any(ou_acronyms, "acronym")):
-        logger.error("Missing name/acronym information for ou_id = %s",
-                     id)
+    if not has_any(ou_names, "name"):
+        logger.error("Missing name information for ou_id = %s", id)
         return
     # fi
 
@@ -619,7 +615,8 @@ def output_OU(writer, id, db_ou, stedkode, parent_stedkode, constants):
     # Information on this OUs parent
     output_OU_parent(writer, db_ou, parent_stedkode, constants)
     
-    # norOrgUnitAcronym+
+    # norOrgUnitAcronym*
+    ou_acronyms = db_ou.get_acronyms()
     for acronym, language in ou_acronyms:
         # some tuples might have empty acronyms
         if not acronym: continue
