@@ -70,6 +70,8 @@ module Cerebrum_core {
 
         /**
         * Method for fetching a handler for an AP client
+        * \param username
+        * \param password
         * \return An AP Handler
         */
         APHandler get_ap_handler(in string username, in string password);
@@ -171,26 +173,76 @@ module Cerebrum_core {
     * Interface used to represent data in the Cerebrum Database
     */
     interface Node {
+
         /**
         /* Parents for this node
         */
         NodeSeq getParents();
+
         /**
         * Children for this node
         */
         NodeSeq getChildren();
+
         /**
         * get an attribute for this node
         */
         any get(in string key);
+ 
         /**
         * set an attribute for this node
         */
         any set(in string key, in any value);
+
         /**
         * get the name of the class used for this Node
         */
         string getClassName();
+
+        /**
+        * Lock the node so no other client can put a writelock on it.
+        * \exception Raises an exception if someone already got a writelock.
+        */
+        void lockForReading() 
+            raises( Errors::AlreadyLockedError );
+
+        /**
+        * Obtain access to make changes to this node.
+        * \exception Raises an exception if someone else than you got an
+        * readlock or an writelock on the node.
+        */
+        void lockForWriting()
+            raises( Errors::AlreadyLockedError );
+
+        /**
+        * Remove your locks on this node. Will remove both read and write
+        * locks if you got them.
+        */
+        void unlock();
+
+        /**
+        * Check if the node is locked for reading by me.
+        * \return True if the node is locked for reading by this client.
+        */
+        boolean isReadLockedByMe();
+
+        /**
+        * Check if the node is locked for reading by someone else than me.
+        * \return True if someone else got a readlock on the node.
+        */
+        boolean isReadLockedByOther();
+
+        /**
+        * Check if this client got a writelock on this node.
+        * \return True if the node is locked for writing by me.
+        */
+        boolean isWriteLockedByMe();
+
+        /**
+        * Check if someone else got a writelock on this node.
+        * \return True if the node is locked for writing by someone else.
+        */
+        boolean isWriteLockedByOther();
     };
 };
 /** \page info Additional information
