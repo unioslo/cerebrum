@@ -41,6 +41,8 @@ class Entity_createTestCase(unittest.TestCase, object):
         self.Cerebrum.execute("""
         DELETE FROM [:table schema=cerebrum name=entity_info]
         WHERE entity_id=:id""", {'id': self.entity_id})
+        self.Cerebrum.commit()
+
 
 class EntityTestCase(Entity_createTestCase):
     def testCreateEntity(self):
