@@ -59,7 +59,7 @@ def init_globals():
         usage(1)
     debug_file = os.path.join(cf_dir, "x-import.log")
     debug_level = 4
-    host = None
+    host = 'hia'
     for opt, val in opts:
         if opt in ('-h', '--host'):
             host = val
@@ -73,12 +73,12 @@ def init_globals():
         else:
             raise ValueError, "Invalid argument: %r", (opt,)
 
-    host_profiles = {'hia': {'emnerom': 42,
-                             'studieprogram': 42},
+    host_profiles = {'hia': {'emnerom': 1520,
+                             'studieprogram': 1521},
                      'hia2': {'emnerom': 42,
                               'studieprogram': 42},
-                     'hia3': {'emnerom': 42,
-                              'studieprogram': 42}
+                     'hia3': {'emnerom': 1520,
+                              'studieprogram': 1521}
                      }
     if host_profiles.has_key(host):
         romprofil_id.update(host_profiles[host])
@@ -379,10 +379,22 @@ def main():
     register_group('Emner %s %s' % (next_sem[1].upper(), next_sem[0]),
                    emner_next_sem_id, emner_id)
 
-    for sem_node_id in (emner_this_sem_id, emner_next_sem_id):
-        for suffix, title in (('student', 'Aktive studenter'),
-                              ('foreleser', 'Aktive forelesere'),
-                              ('studieleder', 'Studieledere')):
+    emnerom_this_sem_id = emner_this_sem_id + ':emnerom'
+    emnerom_next_sem_id = emner_next_sem_id + ':emnerom'
+    register_group('Emnerom %s %s' % (this_sem[1].upper(), this_sem[0]),
+                   emnerom_this_sem_id, emner_this_sem_id)
+    register_group('Emnerom %s %s' % (next_sem[1].upper(), next_sem[0]),
+                   emnerom_next_sem_id, emner_next_sem_id)
+
+    for sem, sem_node_id in ((this_sem, emner_this_sem_id),
+                             (next_sem, emner_next_sem_id)):
+        for suffix, title in (
+            ('student', 'Studenter %s %s' % (sem[1].upper(),
+                                             sem[0])),
+            ('foreleser', 'Forelesere %s %s' % (sem[1].upper(),
+                                                sem[0])),
+            ('studieleder', 'Studieledere %s %s' % (sem[1].upper(),
+                                                    sem[0]))):
             node_id = sem_node_id + ':' + suffix
             register_group(title, node_id, sem_node_id)
 
@@ -439,11 +451,11 @@ def main():
 			fak_sko)
 	    ans_title = "Ansatte ved %s" % faknavn
 	    print "register group",ans_title, brukere_id, fak_ans_id
-	    register_group(ans_title, fak_ans_id,brukere_id) 
+	    register_group(ans_title, fak_ans_id, brukere_id, allow_contact=True)
 	    ans_memb = ans_dict[int(faknr)]
 	    register_members(fak_ans_id, ans_memb)
-            for sem_node_id in (emner_this_sem_id,
-                                emner_next_sem_id):
+            for sem_node_id in (emnerom_this_sem_id,
+                                emnerom_next_sem_id):
                 fak_node_id = sem_node_id + \
                               ":%s:%s" % (cereconf.DEFAULT_INSTITUSJONSNR,
                                           fak_sko)
