@@ -18,6 +18,16 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+"""
+This module handles everything related to the middleway, corba, in Spine.
+
+Public functions:
+- convert_to_corba      converts a python object into a corba object.
+- convert_from_corba    converts a corba object into a python object.
+- create_idl_source     creates the idl string for the given classes.
+- register_spine_class  creates corbaclass and registers the class.
+"""
+
 import sys
 import Communication
 
@@ -26,6 +36,9 @@ from Cerebrum.spine.SpineLib.Builder import Method
 from Cerebrum.spine.SpineLib.DumpClass import Struct, DumpClass
 from Cerebrum.spine.SpineLib.SearchClass import SearchClass
 from Cerebrum.spine.Auth import AuthOperationType
+
+__all__ = ['convert_to_corba', 'convert_from_corba',
+           'create_idl_source', 'register_spine_class']
 
 # FIXME: weakref her?
 class_cache = {}
@@ -185,20 +198,31 @@ def create_corba_method(method):
 
     return corba_method
 
-def create_idl_comment(comment, tabs=0):
+def create_idl_comment(comment='', args=(), return_type=None, tabs=0):
     """Returns a string with the idl comment.
 
     Returns a comment on the following syntax:
     /**
     * comment
+    * \\param argument argument type
+    * \\return Returns a return_type
     */
 
     If you need the comment to be indented, give the number of tabs
     with 'tabs'.
     """
     tabs = '\t'*tabs
-    comment = comment.replace('\n', '\n%s* ' % tabs)
-    return '%s/**\n%s* %s\n%s*/\n' % (tabs, tabs, comment, tabs)
+    txt = '%s/**\n' % tabs
+    if comment:
+        comment = comment.replace('\n', '\n%s* ' % tabs)
+        txt += '%s* %s\n' % (tabs, comment)
+    for i in args:
+        value = getattr(i[1], '__name__', str(i[1]))
+        txt += '%s* \\param %s Value of type %s\n' % (tabs, i[0], value)
+    if return_type:
+        txt += '%s* \\return Value of type %s\n' % (tabs, return_type)
+    txt += '%s*/\n' % tabs
+    return txt
 
 def trim_docstring(docstring):
     """Trims indentation from docstrings.
@@ -330,23 +354,20 @@ def create_idl_interface(cls, exceptions=(), docs=False):
 
     if docs and cls.slots and cls.method_slots:
         txt += '\t//Other methods\n'
-    
     for method in cls.method_slots:
         if method in parent_slots:
             continue
-        
-        if docs:
-            if method.doc is None and hasattr(cls, method.name):
-                method.doc = getattr(cls, method.name).__doc__
-            if method.doc:
-                txt += create_idl_comment(trim_docstring(method.doc), tabs=1)
-
         exception = get_exceptions(tuple(method.exceptions) + tuple(exceptions))
         args = []
         for name, data_type in method.args:
             args.append('in %s in_%s' % (get_type(data_type), name))
-
         data_type = get_type(method.data_type)
+
+        if method.doc is None and hasattr(cls, method.name):
+            method.doc = getattr(cls, method.name).__doc__
+        if method.doc:
+            txt += create_idl_comment(trim_docstring(method.doc), tabs=1)
+
         txt += '\t%s %s(%s)%s;\n' % (data_type, method.name, ', '.join(args), exception)
 
     txt += '};\n'
