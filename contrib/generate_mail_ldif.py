@@ -52,16 +52,13 @@ def read_addr():
     counter = 0
     curr = now()
     for row in mail_addr.list_email_addresses_ext():
-        if counter == 0:
-            print "  done list_email_addresses_ext(): %d sec." % (now() - curr)
-            counter = 1
-        a_id = db.pythonify_data(row['address_id'])
-        t_id = db.pythonify_data(row['target_id'])
-        lpart = db.pythonify_data(row['local_part'])
-        domain = db.pythonify_data(row['domain'])
-
-        addr = "%s@%s" % ( lpart, domain )
-        targ2addr.setdefault(int(t_id), []).append(addr)
+        counter += 1
+        if verbose and (counter % 5000) == 0:
+            print "  done %d list_email_addresses_ext(): %d sec." % (
+                counter, now() - curr)
+        a_id, t_id = [int(row[x]) for x in ('address_id', 'target_id')]
+        addr = "%s@%s" % (row['local_part'], row['domain'])
+        targ2addr.setdefault(t_id, []).append(addr)
         aid2addr[a_id] = addr
         if verbose > 1:
             print "     Id: %d found targ: %d, address: %s"\
@@ -72,9 +69,10 @@ def read_prim():
     curr = now()
     mail_prim = Email.EmailPrimaryAddressTarget(db)
     for row in mail_prim.list_email_primary_address_targets():
-        if counter == 0:
-            print "  done list_email_primary_address_targets(): %d sec." % (now() - curr)
-            counter = 1
+        counter += 1
+        if verbose and (counter % 5000) == 0:
+            print "  done %d list_email_primary_address_targets(): %d sec." % (
+                counter, now() - curr)
         t_id = db.pythonify_data(row['target_id'])
         a_id = db.pythonify_data(row['address_id'])
         targ2prim[t_id] = a_id
@@ -124,9 +122,10 @@ def write_ldif():
     curr = now()
 
     for row in mail_targ.list_email_targets():
-        if counter == 0:
-            print "  done list_email_targets(): %d sec." % (now() - curr)
-            counter = 1
+        counter += 1
+        if verbose and (counter % 1000) == 0:
+            print "  done %d list_email_targets(): %d sec." % (
+                counter, now() - curr)
             
         t = db.pythonify_data(row['target_id'])
         mail_targ.clear()
