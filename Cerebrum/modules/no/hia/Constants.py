@@ -245,6 +245,23 @@ class Constants(central_Constants):
     country_de = _CountryCode("DE", "Germany", "49", "Germany")
     country_au = _CountryCode("AU", "Australia", "61", "Australia")
     country_dk = _CountryCode("DK", "Denmark", "45", "Denmark")
+    country_it = _CountryCode("IT", "Italia", "39", "Denmark")
+
+## Landkoder som forekommer i SAP-dumpen uten å være
+## definert i Cerebrum
+## BE
+## CH
+## CS
+## EE
+## FR
+## GR
+## ID
+## IE
+## IS
+## LV
+## SG
+## SI
+## TN
 
 # end Constants
 
