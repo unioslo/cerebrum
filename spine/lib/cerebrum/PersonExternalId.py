@@ -53,4 +53,18 @@ def get_external_ids(self):
 
 Person.register_method(Method('get_external_ids', [PersonExternalId]), get_external_ids)
 
+def add_external_id(self, id, id_type, source_system):
+    obj = self._get_cerebrum_obj()
+    obj.affect_external_id(source_system.get_id(), id_type.get_id())
+    obj.populate_external_id(source_system.get_id(), id_type.get_id(), id)
+    obj.write_db()
+
+    # this is a hack to make sure all PersonName objects is up to date
+    # maybe we should implement our own create/save
+    for i in self.get_external_ids():
+        i.get_external_id()
+        del i._external_id
+
+Person.register_method(Method('add_external_id', None, args=[('id', str), ('id_type', PersonExternalIdType), ('source_system', SourceSystem)], write=True), add_external_id)
+
 # arch-tag: ee7aa1c8-845b-4ead-89e0-4fc7aa7051b6
