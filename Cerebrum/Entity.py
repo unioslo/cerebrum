@@ -163,7 +163,7 @@ class EntityName(object):
         return self.execute("""
         DELETE cerebrum.entity_name
         WHERE entity_id=:e_id AND value_domain=:domain""",
-                            {'e_id' : self.entity_id, 'domain' : domain})
+                            {'e_id' : self.entity_id, 'domain' : int(domain)})
 
     def find_by_name(self, domain, name):
         "Associate instance with the entity having NAME in DOMAIN."
@@ -171,7 +171,7 @@ class EntityName(object):
         SELECT entity_id
         FROM cerebrum.entity_name
         WHERE value_domain=:domain AND entity_name=:name""",
-                                 {'domain' : domain, 'name' : name})
+                                 {'domain' : int(domain), 'name' : name})
         Entity.find(self, entity_id)
 
 class EntityContactInfo(object):
