@@ -450,7 +450,6 @@ def generate_person(filename=None):
 			aci_person = True 
 	else: 
 	    print_person = True
-	    aci_person = True
 	    print_phaddr = True
 	if print_person:
 	    person.clear()
@@ -515,7 +514,6 @@ def generate_person(filename=None):
 					row['post_postal'],
 					row['post_city'],
 					row['post_country'])
-		if post_string:
 		    pers_string += "postalAddress: %s\n" % post_string
 		if ((row['address_text']) or (row['postal_number'])):
 		    street_string = make_address(", ",
@@ -524,7 +522,6 @@ def generate_person(filename=None):
 					row['postal_number'],
 					row['city'],
 					row['country'])
-		if street_string:
 		    pers_string += "street: %s\n" % street_string
 		if row['personal_title']:
 		    pers_string += "title: %s\n" % some2utf(row['personal_title'])
@@ -616,7 +613,7 @@ def generate_users(spread=None,filename=None):
     for sh in posix_user.list_shells():
 	shells[int(sh['code'])] = sh['shell']
     disks = {}
-    for hd in disk.list(spread=user_spread):
+    for hd in disk.list(spread=spreads[0]):
 	disks[int(hd['disk_id'])] = hd['path']  
     posix_dn = ",%s=%s,%s" % (cereconf.LDAP_ORG_ATTR,cereconf.LDAP_USER_DN,cereconf.LDAP_BASE)
     posix_dn_string = "%s=" % cereconf.LDAP_USER_ATTR
@@ -676,17 +673,19 @@ def generate_users(spread=None,filename=None):
                 gecos = latin1_to_iso646_60(some2iso(gecos))
             else:
                 gecos = latin1_to_iso646_60(some2iso(cn))
-            if not row['home']:
+            if row['disk_id']:
                 home = "%s/%s" % (disks[int(row['disk_id'])],uname)
-            else:
+            elif row['home']:
                 home = row['home']
+	    else: home = None
             if acc_id <> prev_userid:
                 f.write('dn: %s%s%s\n' % (posix_dn_string, uname, posix_dn))
                 f.write('%scn: %s\n' % (obj_string, gecos))
                 f.write('uid: %s\n' % uname)
                 f.write('uidNumber: %s\n' % str(row['posix_uid']))
                 f.write('gidNumber: %s\n' % str(row['posix_gid']))
-                f.write('homeDirectory: %s\n' % home)
+                if home:
+                    f.write('homeDirectory: %s\n' % home)
                 f.write('userPassword: %s\n' % passwd)
                 f.write('loginShell: %s\n' % shell)
                 f.write('gecos: %s\n' % gecos)
@@ -697,12 +696,13 @@ def generate_users(spread=None,filename=None):
     f.close()
 
 
-def generate_posixgroup(spread=None, filename=None):
+def generate_posixgroup(spread=None,u_spread=None,filename=None):
     posix_group = PosixGroup.PosixGroup(Cerebrum)
     group = Factory.get('Group')(Cerebrum)
     if spread: spreads = eval_spread_codes(spread)
     else: spreads = eval_spread_codes(cereconf.LDAP_GROUP_SPREAD)
-    user_spread = int(getattr(co,cereconf.LDAP_USER_SPREAD[0]))
+    if u_spread: u_spreads = eval_spread_codes(u_spread)
+    else: u_spreads = eval_spread_codes(cereconf.LDAP_USER_SPREAD)
     if filename:
 	f = file(filename, 'w')
     else:
@@ -713,6 +713,7 @@ def generate_posixgroup(spread=None, filename=None):
     obj_str = "objectClass: top\n"
     for obj in cereconf.LDAP_GROUP_OBJECTCLASS:
 	obj_str += "objectClass: %s\n" % obj
+    print spreads,
     for row in posix_group.list_all_test(spreads):
 	distinct_mem = {}
 	posix_group.clear()
@@ -727,7 +728,8 @@ def generate_posixgroup(spread=None, filename=None):
 		pos_grp += "description: %s\n" % some2utf(posix_group.description) #latin1_to_iso646_60 later
 	    group.clear()
 	    group.find(row.group_id)
-	    for id in group.get_members(spread=user_spread,get_entity_name=True):
+            # Since get_members only support single user spread, spread is set to [0]
+	    for id in group.get_members(spread=u_spreads[0],get_entity_name=True):
 		uname_id = int(id[0])
 		if not distinct_mem.has_key(uname_id):
 		    distinct_mem[uname_id] = True
@@ -743,7 +745,7 @@ def generate_posixgroup(spread=None, filename=None):
     f.write("\n")
     f.close()
 
-def generate_netgroup(spread=None, filename=None):
+def generate_netgroup(spread=None,u_spread=None,filename=None):
     global grp_memb
     pos_netgrp = Factory.get('Group')(Cerebrum)
     if filename:
@@ -753,6 +755,8 @@ def generate_netgroup(spread=None, filename=None):
         f.set_size_change_limit(10)
     if spread: spreads = eval_spread_codes(spread)
     else: spreads = eval_spread_codes(cereconf.LDAP_NETGROUP_SPREAD)
+    if u_spread: u_spreads = eval_spread_codes(u_spread)
+    else: u_spreads = eval_spread_codes(cereconf.LDAP_USER_SPREAD)
     f.write("\n")
     dn_str = "%s=%s,%s" % (cereconf.LDAP_ORG_ATTR,cereconf.LDAP_NETGROUP_DN,cereconf.LDAP_BASE)
     obj_str = "objectClass: top\n"
@@ -772,20 +776,19 @@ def generate_netgroup(spread=None, filename=None):
             if pos_netgrp.description:
                  netgrp_str+= "description: %s\n" % latin1_to_iso646_60(pos_netgrp.description)
             f.write(netgrp_str)
-            get_netgrp(row.group_id,spreads,f)
+            get_netgrp(row.group_id,spreads,u_spreads,f)
             f.write("\n")
         except:
             pass
     f.close()
 
-def get_netgrp(netgrp_id,spreads,f):
+def get_netgrp(netgrp_id,spreads,u_spreads,f):
     pos_netgrp = Factory.get('Group')(Cerebrum)
     pos_user = PosixUser.PosixUser(Cerebrum)
     pos_netgrp.clear()
     pos_netgrp.find(int(netgrp_id))
     try:
-        for id in pos_netgrp.list_members(int(getattr(co,(cereconf.LDAP_USER_SPREAD[0]))),\
-							int(co.entity_account))[0]:
+        for id in pos_netgrp.list_members(u_spreads[0],int(co.entity_account))[0]:
             uname_id = int(id[1])
 	    try:
             	if entity2uname.has_key(uname_id):
@@ -811,16 +814,16 @@ def get_netgrp(netgrp_id,spreads,f):
             if valid_spread:
                 f.write("memberNisNetgroup: %s\n" % pos_netgrp.group_name)
             else:
-                get_netgrp(group_id,spreads,f)
+                get_netgrp(group_id,spreads,u_spreads,f)
     except: print "Fault with group: %s" % netgrp_id
 
 
 def eval_spread_codes(spread):
     spreads = []
-    if (type(spread) == type(0) or type(spread) == type('')):
+    if isinstance(spread,(str,int)):
         if (spread_code(spread)):
             spreads.append(spread_code(spread))
-    elif (type(spread) == type([]) or type(spread) == type(())):
+    elif isinstance(spread,(list,tuple)):
         for entry in spread:
             if (spread_code(entry)):
                 spreads.append(spread_code(entry))
@@ -831,17 +834,16 @@ def eval_spread_codes(spread):
 
 def spread_code(spr_str):
     spread = None
-    if (type(spr_str) == type(0)):
+    if isinstance(spr_str,int):
         spread = spr_str
-    elif (type(spr_str) == type('')):
-        if (len(spr_str) > 1):
+    else:
+        try: spread = int(_SpreadCode(spr_str))
+        except (TypeError, ValueError):
             try: spread = int(getattr(co,spr_str))
-            except:
+            except(TypeError, ValueError):
                 try: spread = int(spr_str)
-                except: print "Not valid spread code: '%s'" % spr_str # Change to logger
-        else:
-            try: spread = int(spr_str)
-            except: print "Not valid spread code: '%s'" % spr_str # Change to logger
+                except(TypeError, ValueError): 
+		    print "Not valid spread code: '%s'" % spr_str
     return(spread)
 
 
@@ -900,30 +902,6 @@ def verify_printableString(str):
     """Return true if STR is valid for the LDAP syntax printableString"""
     return printablestring_re.match(str)
 
-#def get_contacts(id,contact_type,email=0):
-#    """ Process infomation in entity_contact_info into a list.
-#        Splits string in to entities, nomalize and remove duplicats"""
-#    entity = Entity.EntityContactInfo(Cerebrum)
-#    entity.clear()
-#    entity.entity_id = int(id)
-#    list_contact_entry = []
-#    contact_entries = entity.get_contact_info(co.system_lt, int(contact_type))
-#    if len(contact_entries) == 1:
-#    	for contact in string.split((Cerebrum.pythonify_data(contact_entries[0]['contact_value'])),'$'):
-#	    if normalize_phone(contact) not in list_contact_entry and email == 0:
-#		list_contact_entry.append(normalize_phone(contact))
-#	    elif contact not in list_contact_entry and email == 1:
-#		list_contact_entry.append(contact)  
-#    elif len(contact_entries) >> 1:
-#	for contact_entry in contact_entries:
-#	    for contact in  string.split((Cerebrum.pythonify_data(contact_entry['contact_value'])),'$'):
-#		if normalize_phone(contact) not in list_contact_entry and email == 0:
-#                    list_contact_entry.append(normalize_phone(contact))
-#		elif contact not in list_contact_entry and email == 1:
-#		     list_contact_entry.append(contact)
-#    else:
-#	list_contact_entry = None
-#    return(list_contact_entry)
 	
 def get_contacts(entity_id=None,source_system=None,contact_type=None,email=0):
     entity = Entity.EntityContactInfo(Cerebrum)
@@ -991,21 +969,19 @@ def make_attr(name, strings, normalize = None, verify = None, raw = False):
 
 
 def main():
-    global debug, user_spread
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'dg:p:n:',
-                                   ['debug', 'help', 'group=','org=','person=','user=',
+        opts, args = getopt.getopt(sys.argv[1:], 'g:p:n:a:b:c:o',
+                                   ['help', 'group=','org=','user=','netgroup_spread=',
                                     'group_spread=','user_spread=', 'netgroup=','posix'])
     except getopt.GetoptError:
         usage(1)
 
     user_spread = group_spread = None
-    
+    p = {}
     for opt, val in opts:
+	print opt
         if opt in ('--help',):
             usage()
-        elif opt in ('-d', '--debug'):
-            debug += 1
 	elif opt in ('-o','--org'):
 	    if (cereconf.LDAP_ORG_ROOT_AUTO == 'Enable'):
 		org_root = int(cereconf.LDAP_ORG_ROOT)
@@ -1017,22 +993,18 @@ def main():
 		generate_org(org_root,val)
 		generate_person(val)
 		generate_alias(val)
-	elif opt in ('-p', '--person'):
-            generate_person(val)
 	elif opt in ('-u', '--user'):
-            #generate_users(user_spread, val)
-	    generate_users()
+            p['u_file'] = val
 	elif opt in ('-g', '--group'):
-	    #load_entity2uname()
-	    generate_posixgroup(group_spread, val)
+            p['g_file'] = val
 	elif opt in ('-n', '--netgroup'):
-	    #load_entity2uname()
-	    #generate_netgroup(group_spread, val)
-	    generate_netgroup()
-	elif opt in ('--user_spread',):
-	    user_spread = map_spread(val)
-	elif opt in ('--group_spread',):
-	    group_spread = map_spread(val)
+            p['n_file'] = val
+	elif opt in ('-a','--user_spread'):
+	    p['u_spr'] = eval_spread_codes(str(val))
+	elif opt in ('-b','--group_spread',):
+	    p['g_spr'] = eval_spread_codes(str(val))
+        elif opt in ('-c','--netgroup_spread',):
+            p['n_spr'] = eval_spread_codes(str(val))
 	elif opt in ('--posix',):
             generate_users()
             generate_posixgroup()
@@ -1041,33 +1013,40 @@ def main():
             usage()
     if len(opts) == 0:
         config()
+    if p.has_key('n_file'):
+        try: generate_netgroup(p['n_spr'],p['u_spr'],p['n_file'])
+        except: usage()
+    if p.has_key('g_file'):
+        try: generate_posixgroup(p['g_spr'],p['u_spr'],p['g_file'])
+        except: usage()
+    if p.has_key('u_file'):
+        try: generate_users(p['u_spr'],p['u_file'])
+        except: usage()
 
 def usage(exitcode=0):
     print """Usage: [options]
-    --group_spread=value
-      Filter by group_spread
-    --user_spread=value
-      Filter by user_spread
-    --org=<outfile> 
-      Write organization, person and alias to a LDIF-file
-    --user=<outfile>
-      Write users to a LDIF-file
-    --group=<outfile>
-      Write posix groups to a LDIF-file
-    --netgroup=<outfile>
-      Write netgroup map to a LDIF-file
-    --posix 
-      write all posix-user,-group and -netgroup from default ldapconf parameters
 
-    Generates an LDIF-file of the requested type for the requested spreads."""
+   No option will generate a full dump with default values from cereconf.
+
+    --org=<outfile>
+        Write organization, person and alias to a LDIF-file
+
+    --user=<outfile> --user_spread=<value>| -a <value>
+        Write users to a LDIF-file
+
+    --group=<outfile> --group_spread=<value>|-b <value> --user_spread=<value>
+        Write posix groups to a LDIF-file
+
+    --netgroup=<outfile> --netgroup_spread=<value>|-c <value> --user_spread=<value>
+        Write netgroup map to a LDIF-file
+
+    --posix
+        write all posix-user,-group and -netgroup
+        from default cereconf parameters
+
+    Both --user_spread, --netgroup_spread  and --group_spread handle handle
+    multiple spread-values (<value1>|[<value1>,<value2>,,,])"""
     sys.exit(exitcode)
-
-def map_spread(id):
-    try:
-        return int(_SpreadCode(id))
-    except Errors.NotFoundError:
-        print "Error mapping %s" % id
-        raise
 
 def config():
 	if (cereconf.LDAP_ORG_ROOT_AUTO != 'Enable'):
