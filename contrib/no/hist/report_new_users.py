@@ -94,7 +94,7 @@ def dump_new_users(db, const, studnr2data, field_sep, spread=None,
                 rows.append({'entity_id': r['account_id']})
         
     # Finn brukerens nyeste passord, i klartekst.
-    changelog = db.get_log_events(0, (const.account_password,))
+    changelog = db.get_log_events(start_id=0, max_id=None, types=(const.account_password,))
 
     for r in rows:
         try:
