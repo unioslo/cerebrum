@@ -152,10 +152,15 @@ case "$1" in
 	chown -R cerebrum.root /var/log/cerebrum
 
 
-	db_get cerebrum-server/db-auto-config
+	db_get cerebrum-server/db_auto_config
 	db_auto_config=$RET
 	if [ $db_auto_config ] ; then
-	    prepare_db	    
+	    db_get cerebrum-server/initial_accountname_password
+	    initial_accountname_password=$RET
+	    perl -p -i -e \
+	      "s/^INITIAL_ACCOUNTNAME_PASSWORD\s*=\s.*/INITIAL_ACCOUNTNAME_PASSWORD = $initial_accountname_password/ " \
+	      /etc/cerebrum/cereconf.py
+	    prepare_db
 	else 
 	    echo "create your db yourself!"
 	fi
