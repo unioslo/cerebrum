@@ -28,6 +28,7 @@ import cerebrum_path
 import cereconf
 from Cerebrum import Database
 from Cerebrum import Errors
+from Cerebrum.extlib import xmlprinter
 from Cerebrum.Utils import XMLHelper, MinimumSizeWriter, AtomicFileWriter
 from Cerebrum.modules.no.hia.access_FS import HiAFS
 
