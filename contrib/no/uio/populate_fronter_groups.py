@@ -48,12 +48,35 @@ def prefetch_primaryusers():
                                       int(a['account_id']))
 
     person = Factory.get('Person')(db)
-    for row in person.list_external_ids(
-        source_system=co.system_fs, id_type=co.externalid_fodselsnr):
-        if personid2accountid.has_key(int(row['person_id'])):
-            account_id = personid2accountid[int(row['person_id'])]
-            account_id2fnr[account_id] = row['external_id']
-            fnr2account_id[row['external_id']] = account_id
+    fnr_source = {}
+    for row in person.list_external_ids(id_type=co.externalid_fodselsnr):
+        p_id = int(row['person_id'])
+        fnr = row['external_id']
+        src_sys = int(row['source_system'])
+        if fnr_source.has_key(fnr) and fnr_source[fnr][0] <> p_id:
+            # Multiple person_info rows have the same fnr (presumably
+            # the different fnrs come from different source systems).
+            logger.error("Multiple persons share fnr %s: (%d, %d)" % (
+                fnr, fnr_source[fnr][0], p_id))
+            # Determine which person's fnr registration to use.
+            source_weight = {int(co.system_fs): 4,
+                             int(co.system_manual): 3,
+                             int(co.system_lt): 2,
+                             int(co.system_ureg): 1}
+            old_weight = source_weight.get(fnr_source[fnr][1], 0)
+            if source_weight.get(src_sys, 0) <= old_weight:
+                continue
+            # The row we're currently processing should be preferred;
+            # if the old row has an entry in fnr2account_id, delete
+            # it.
+            if fnr2account_id.has_key(fnr):
+                del fnr2account_id[fnr]
+        fnr_source[fnr] = (p_id, src_sys)
+        if personid2accountid.has_key(p_id):
+            account_id = personid2accountid[p_id]
+            account_id2fnr[account_id] = fnr
+            fnr2account_id[fnr] = account_id
+    del fnr_source
 
 def fnrs2account_ids(rows):
     ret = []
