@@ -49,6 +49,13 @@ class Entity(DatabaseClass, EntityAuth):
     entity_type = None
 
     def __new__(cls, *args, **vargs):
+        """Make sure the right class is returned.
+
+        We check to make sure that the correct entity-class is returned.
+        
+        If the client asks for entity which really is an subclass of
+        entity, the subclass is returned.
+        """
         obj = super(Entity, cls).__new__(Entity, *args, **vargs)
 
         # Check if obj is a fresh object

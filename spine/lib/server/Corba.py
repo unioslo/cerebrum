@@ -217,11 +217,15 @@ def create_idl_comment(comment='', args=(), rtn_type='', exceptions=(), tabs=0):
     if comment:
         comment = comment.replace('\n', '\n%s* ' % tabs)
         txt += '%s* %s\n' % (tabs, comment)
-    for i in args:
-        value = getattr(i[1], '__name__', str(i[1]))
-        txt += '%s* \\param %s Value of type %s\n' % (tabs, i[0], value)
+    for name, arg_type in args:
+        spam = 'value of type'
+        if type(arg_type) in (list, tuple):
+            arg_type, = arg_type
+            spam = 'list of types'
+        value = getattr(arg_type, '__name__', str(arg_type))
+        txt += '%s* \\param %s %s %s\n' % (tabs, name, spam, value)
     if rtn_type:
-        txt += '%s* \\return Value of type %s\n' % (tabs, rtn_type)
+        txt += '%s* \\return value of type %s\n' % (tabs, rtn_type)
     for i in exceptions:
         txt += '%s* \\throw %s\n' % (tabs, i)
     txt += '%s*/\n' % tabs
@@ -303,23 +307,17 @@ def create_idl_interface(cls, exceptions=(), docs=False):
             blipp = get_type(data_type[0])
             name = blipp + 'Seq'
             add_header('typedef sequence<%s> %s;' % (blipp, name))
-
         elif data_type == str:
             name = 'string'
-
         elif data_type == int:
             name = 'long'
-
         elif data_type == None:
             name = 'void'
-
         elif data_type == bool:
             name = 'boolean'
-
         elif isinstance(data_type, Struct):
             cls = data_type.data_type
             name = cls.__name__ + 'Struct'
-
             header = 'struct %s {\n' % name
             header += '\t%s reference;\n' % get_type(cls)
 
@@ -336,11 +334,9 @@ def create_idl_interface(cls, exceptions=(), docs=False):
             header += '};'
 
             add_header(header)
-
         else:
             name = 'Spine' + data_type.__name__
             add_header('interface %s;' % name)
-
         return name
 
     if docs and cls.slots:
@@ -358,7 +354,8 @@ def create_idl_interface(cls, exceptions=(), docs=False):
         txt += '\n'
 
         if attr.write:
-            txt += create_idl_comment('', [data_type], 'void', exceptions, tabs=1)
+            args = ((attr.name, attr.data_type),)
+            txt += create_idl_comment('', args, 'void', exceptions, tabs=1)
             txt += '\tvoid set_%s(in %s new_%s)%s;\n' % (attr.name, data_type, attr.name, exception)
             txt += '\n'
 
@@ -412,7 +409,7 @@ def create_idl_source(classes, module_name='Generated', docs=False):
     # Build the idl string 'txt'.
     txt = '%s\n\nmodule %s {\n\t' % (include, module_name)
     txt += '\n'.join(headers).replace('\n', '\n\t')
-    txt += '\n\t'
+    txt += '\n\n\t'
     txt += '\n'.join(lines).replace('\n', '\n\t')
     txt += '\n};\n'
     return txt
