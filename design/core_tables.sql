@@ -543,17 +543,17 @@ CREATE TABLE disk_info
   entity_type	NUMERIC(6,0)
 		DEFAULT [:get_constant name=entity_disk]
 		NOT NULL
-		CONSTRAINT host_info_entity_type_chk
+		CONSTRAINT disk_info_entity_type_chk
 		  CHECK (entity_type = [:get_constant name=entity_disk]),
   disk_id	NUMERIC(6,0)
-                CONSTRAINT disk_disk_id_pk PRIMARY KEY,
+                CONSTRAINT disk_info_pk PRIMARY KEY,
   host_id	NUMERIC(6,0)
 		NOT NULL
 		CONSTRAINT disk_host_id
 		  REFERENCES host_info(host_id),
   path		CHAR VARYING(80)
 		NOT NULL
-		CONSTRAINT disk_info_name_u UNIQUE,
+		CONSTRAINT disk_info_path_u UNIQUE,
   description	CHAR VARYING(512)
 		NOT NULL,
   CONSTRAINT disk_info_entity_id 
