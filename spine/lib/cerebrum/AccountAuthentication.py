@@ -66,4 +66,3 @@ def authenticate(self, password):
 
 Account.register_method(Method('authenticate', bool, [('password', str)]), authenticate)
 
-# arch-tag: bb277dd2-3474-4891-8666-5fe9a096b735

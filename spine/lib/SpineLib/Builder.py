@@ -253,4 +253,3 @@ class Builder(object):
 
     build_methods = classmethod(build_methods)
 
-# arch-tag: 246ee465-24a3-4541-a55a-7548356aebfb

@@ -53,4 +53,3 @@ class DumpClass(SpineClass):
 registry.register_class(DumpClass)
 
 
-# arch-tag: abc1fa9e-df20-4d99-b55e-e8299146105f

@@ -67,4 +67,3 @@ def get_account_by_name(name):
     account, = s.search()
     return account.get_entity()
 
-# arch-tag: 96b23dbe-d907-44f6-b6ac-a953ec3034e0

@@ -95,4 +95,3 @@ class Transaction(LockHolder):
         else:
             return self._db
 
-# arch-tag: a615bcdc-e962-4f74-a865-64ba66fffdfa

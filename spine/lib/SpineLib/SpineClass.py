@@ -67,4 +67,3 @@ class SpineClass(Builder, Caching, Locking):
         key = [repr(i) for i in self.get_primary_key()]
         return '%s(%s)' % (self.__class__.__name__, ', '.join(key))
 
-# arch-tag: d4705da7-3839-44dd-b436-9ddd7a412327

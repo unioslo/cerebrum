@@ -334,4 +334,3 @@ class DatabaseClass(SpineClass, Searchable, Dumpable):
  
     build_methods = classmethod(build_methods)
 
-# arch-tag: 82d3bc09-ba4a-46dc-a714-7d78aaf21bde

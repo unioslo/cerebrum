@@ -99,4 +99,3 @@ class AuthRole(DatabaseClass):
     }
 registry.register_class(AuthRole)
 
-# arch-tag: 962639fc-ff64-4015-9502-df9542cd25ef
