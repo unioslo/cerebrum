@@ -3501,25 +3501,36 @@ class BofhdExtension(object):
             person = self.person
             person.clear()
             if search_type == 'name':
-                if value.strip() and '%' not in value and '_' not in value:
+                if len(value.strip()) < 2:
+                    raise CerebrumError, \
+                          "You have to specify at least two letters of the name"
+                if '%' not in value and '_' not in value:
                     # Add wildcards to start and end of value.
-                    value = '%' + value.strip() + '%'
-                matches = person.find_persons_by_name(value)
+                    value = '%' + value + '%'
+                if value <> value.lower():
+                    matches = person.find_persons_by_name(value,
+                                                          case_sensitive=True)
+                else:
+                    matches = person.find_persons_by_name(value)
+            elif search_type == 'fnr':
+                matches = person.list_external_ids(
+                    id_type=self.const.externalid_fodselsnr,
+                    external_id=value)
             elif search_type == 'date':
                 matches = person.find_persons_by_bdate(self._parse_date(value))
             elif search_type == 'stedkode':
                 ou = self._get_ou(stedkode=value)
-                # We potentially get multiple rows for a person when
-                # s/he has moreef than one kind of affiliation.  Store
-                # result in a dict to get rid of dups.
-                result = {}
-                for r in person.list_affiliations(ou_id=ou.entity_id):
-                    result[r['person_id']] = r
-                matches = result.values()
+                matches = person.list_affiliations(ou_id=ou.entity_id)
             else:
                 raise CerebrumError, "Unknown search type (%s)" % search_type
         ret = []
+        seen = {}
         for row in matches:
+            # We potentially get multiple rows for a person when
+            # s/he has more than one source system or affiliation.
+            if row['person_id'] in seen:
+                continue
+            seen[row['person_id']] = True
             person = self._get_person('entity_id', row['person_id'])
             pname = person.get_name(self.const.system_cached,
                                     getattr(self.const,
