@@ -70,4 +70,3 @@ class Request(DatabaseClass):
     }
 registry.register_class(Request)
 
-# arch-tag: 1ca69631-04d1-44b1-b766-1eebd7b072fc
