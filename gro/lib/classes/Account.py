@@ -1,7 +1,7 @@
 import Cerebrum.Account
 
 from Cerebrum.extlib import sets
-from Cerebrum.gro.Utils import Cached, Lazy, LazyMethod, Clever
+from Cerebrum.gro.Utils import Lazy, LazyMethod, Clever
 
 from Node import Node
 from Entity import Entity

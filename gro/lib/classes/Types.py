@@ -2,7 +2,7 @@ import Cerebrum.Entity
 
 from Node import Node
 
-from Cerebrum.gro.Utils import Cached, Lazy, LazyMethod, Clever
+from Cerebrum.gro.Utils import Lazy, LazyMethod, Clever
 
 from db import db
 

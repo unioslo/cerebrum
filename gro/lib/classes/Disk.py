@@ -1,6 +1,6 @@
 import Cerebrum.Disk # er det ikke logisk at Host ligger i Disk? :p
 
-from Cerebrum.gro.Utils import Cached, Lazy, LazyMethod, Clever
+from Cerebrum.gro.Utils import Lazy, LazyMethod, Clever
 
 from Entity import Entity
 
