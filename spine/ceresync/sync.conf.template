@@ -1,6 +1,6 @@
 # Spine connection details
-[Spine]
-# Cerebrum login for this LO (Local Organizer). This
+[spine]
+#Cerebrum login for this LO (Local Organizer). This
 # System Account must have the appropriate rights in Cerebrum
 login: user
 password: password
