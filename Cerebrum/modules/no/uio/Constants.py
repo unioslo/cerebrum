@@ -48,6 +48,10 @@ class Constants(Constants.Constants):
     account_test = _AccountCode('testbruker', 'Testkonto')
     account_kurs = _AccountCode('kursbruker','Kurskonto')
 
+    auth_type_md4_nt =  _AuthenticationCode('MD4-NT',
+        "MD4-derived password hash with Microsoft-added security.")
+
+
     affiliation_ansatt = _PersonAffiliationCode('ANSATT',
                                                 'Ansatt ved UiO (i følge LT)')
     affiliation_status_ansatt_vit = _PersonAffStatusCode(
