@@ -216,19 +216,13 @@ class RequestHandler(SocketServer.StreamRequestHandler):
         return no
 
     def subtract_quota(self, printer, pageunits, job_data):
-        # A LOT of printers don't have page accounting, and even though
-        # this should be filtered out at an earlier stage it miiight
-        # happen that we get a request to subtract 0 pages. Just OK that.
         pageunits = float(pageunits)
-        if pageunits == 0:
-            self.log('TRACE', "subtract_quota: 0_PAGE_REQUEST")
-            return ok
         if pageunits < 0:
             self.log('TRACE', "subtract_quota: BAD_PAGE")
             return ebadpage
 
-        self.log('TRACE', "subtract_quota: %s for %i" % (
-            pageunits, self.person_id or 0))
+        self.log('TRACE', "subtract_quota: %s for %i, data=%s" % (
+            pageunits, self.person_id or 0, repr(job_data)))
         update_quota = self.pq_data and self.pq_data['has_quota'] == 'T'
 
         _assert_has_quota(self.person_id)
