@@ -98,7 +98,8 @@ def main():
             
         stedkode = get_stedkode_str(k['fakultetnr'], k['instituttnr'],
                                     k['gruppenr'])
-        stedkode2ou[stedkode] = new_ou.ou_id
+        # Not sure why this casting to int is required for PostgreSQL
+        stedkode2ou[stedkode] = int(new_ou.ou_id)
         Cerebrum.commit()
 
     existing_ou_mappings = {}

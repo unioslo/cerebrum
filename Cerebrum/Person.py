@@ -139,8 +139,11 @@ class PersonAffiliation(object):
                                                affiliation=affect_type)
             other_dict = {}
             for t in other_aff:
-                other_dict[t.ou_id] = t.status
+                # Not sure why this casting to int is required on PostgreSQL
+                other_dict[int(t.ou_id)] = t.status
             for t_ou_id, t_status in self._pa_affiliations.get(affect_type, []):
+                # Not sure why this casting to int is required on PostgreSQL
+                t_ou_id = int(t_ou_id)
                 if other_dict.has_key(t_ou_id):
                     if other_dict[t_ou_id] != int(t_status):
                         return False
