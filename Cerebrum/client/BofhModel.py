@@ -5,7 +5,7 @@
 
 import AbstractModel as Abstract
 # We'll override those that we need to override
-from Abstract import *
+from AbstractModel import *
 
 
 import ServerConnection
@@ -110,7 +110,7 @@ class Entity(Abstract.Entity):
                                    type, why, from_to)
         
     def get_quarantines(self):
-        quarantines = self.server.quarantine_show("id:%s" % self.id)
+        quarantines = self.server.quarantine_show(None, self.id)
         result = []
         for q in quarantines:
             quarantine = Quarantine(self, q.type, q.start,
@@ -138,7 +138,7 @@ class Entity(Abstract.Entity):
            quarantine = Quarantine-instance   --or
            type = QuarantineType or quarantine type string"""
         qtype = self._get_qtype(quarantine, type)
-        self.server.quarantine_remove("id:%s" % self.id,
+        self.server.quarantine_remove(None, self.id,
                                       qtype)
    
     def disable_quarantine(self, quarantine=None, type=None,
@@ -148,10 +148,9 @@ class Entity(Abstract.Entity):
            'type': QuarantineType or quarantine type string.
            Disables until date given by 'until'"""
         qtype = self._get_qtype(quarantine, type)
-        self.server.quarantine_disable("id:%s" % self.id,
+        self.server.quarantine_disable(None, self.id,
                                        qtype, until)
 
-    
     def get_history(self, max_entries=None):
         # get the history log, and some helping information on entities and
         # chang he types
