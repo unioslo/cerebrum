@@ -554,6 +554,15 @@ class EmailAddress(EmailEntity):
                           {'domain': domain},
                           fetchall=False)
 
+    def list_target_addresses(self, target_id):
+        """Return address_id, local_part and domain_id for target_id"""
+        return self.query("""
+        SELECT address_id, local_part, domain_id
+        FROM [:table schema=cerebrum name=email_address]
+        WHERE target_id = :t_id""",
+                          {'t_id': target_id},
+                          fetchall=False)
+
     def get_target_id(self):
         """Return target_id of this EmailAddress in database"""
         return self.email_addr_target_id
@@ -724,6 +733,11 @@ class EmailQuota(EmailTarget):
             pass
         self.__in_db = True
         self.__updated = []
+
+    def delete(self):
+        return self.execute("""
+        DELETE FROM [:table schema=cerebrum name=email_quota]
+        WHERE target_id=:e_id""", {'e_id': self.email_target_id})
 
     def get_quota_soft(self):
         return self.email_quota_soft
