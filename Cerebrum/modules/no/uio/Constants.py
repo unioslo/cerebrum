@@ -237,6 +237,10 @@ class Constants(Constants.Constants):
     quarantine_autointsomm = _QuarantineCode('autointsomm',
                                             'Sommerskolen er ferdig for i år')
 
+    email_domain_category_uio_globals = _EmailSpamActionCode(
+        'UIO_GLOBALS',
+        "All local_parts defined in domain 'UIO_GLOBALS' are treated"
+        " as overrides for all domains posessing this category.")
     email_spam_level_none = _EmailSpamLevelCode(
         'no_filter', 0, "No email will be filtered as spam")
     email_spam_level_standard = _EmailSpamLevelCode(
