@@ -29,6 +29,25 @@ conf.read(('client.conf.template', 'client.conf'))
 sync = ConfigParser.ConfigParser()
 sync.read(('sync.conf.template', 'sync.conf'))
 
+def apply_quarantenes(obj):
+    for q in obj.get_quarantines():
+        a=sync.get('quarantenes', q.name)
+        try:
+            (var, val) = a.split('=')
+            #val=eval(val)  # ouch! but needed for strings/ints/etc
+	except ValueError:
+            logging.error("Bad quarantene action \"%s\"" % a)
+	setattr(obj, var, val)
+
+def apply_override(obj):
+    for var, val in sync.items('override'):
+        setattr(obj, var, val)
+
+def apply_default(obj):
+    for var, val in sync.items('default'):
+	if not obj.__dict__.has_key(var):
+            setattr(obj, var, val)
+
 # Not only tests that config file contains values, but that they make
 # sense too, like that files referenced do exist
 class TestConf(unittest.TestCase):
