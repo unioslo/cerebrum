@@ -50,12 +50,12 @@ class ExportedFuncs(object):
 
     """
 
-    def __init__(self, fname):
+    def __init__(self, Cerebrum, fname):
         self.defaultSessionId = 'secret'
         self.THIS_CFU = 'this'
         self.modules = {}
         self.command2module = {}
-        self.Cerebrum = Database.connect()
+        self.Cerebrum = Cerebrum
         self.person = Person.Person(self.Cerebrum)
         self.const = self.person.const
         self.cfu = CallableFuncs(self)
@@ -263,7 +263,7 @@ class CallableFuncs(object):
         self.const = self.ef.const
         self.name_codes = {}
         for t in self.ef.person.get_person_name_codes():
-            self.name_codes[t.code] = t.description
+            self.name_codes[int(t.code)] = t.description
         
     def get_commands(self, uname):
         # TODO: Do some filtering on uname to remove commands
@@ -367,7 +367,8 @@ if __name__ == '__main__':
         try:
             print "Server starting at port: %d" % port
             server = SimpleXMLRPCServer(("0.0.0.0", port))
-            server.register_instance(ExportedFuncs("config.dat"))
+            server.register_instance(ExportedFuncs(Database.connect(),
+                                                   "config.dat"))
             server.serve_forever()
         except socket.error:
             print "Failed, trying another port"
