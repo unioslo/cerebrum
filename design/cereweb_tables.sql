@@ -71,3 +71,5 @@ DROP TABLE cereweb_motd;
 category:drop;
 DROP SEQUENCE cereweb_seq;
 
+/* arch-tag: 2f6b9477-8d68-46d4-8ba2-ac55634d451c
+   (do not change this comment) */
