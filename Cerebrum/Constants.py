@@ -22,6 +22,7 @@ The Constants class defines a set of methods that should be used to
 get the actual database code/code_str representing a given Entity,
 Address, Gender etc. type."""
 
+from Cerebrum import cereconf
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
 
 class _CerebrumCode(DatabaseAccessor):
@@ -216,6 +217,7 @@ class Constants(DatabaseAccessor):
     posix_shell_bash = _PosixShellCode('bash')
 
     entity_accname_default = _ValueDomainCode("def_accname_dom")
+    group_namespace = _ValueDomainCode(cereconf.DEFAULT_GROUP_NAMESPACE)
 
     auth_type_md5 = _AuthenticationCode("md5")
     
