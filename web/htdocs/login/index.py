@@ -23,6 +23,8 @@ def index(req, user="", password=""):
             error = error.replace("<", "")
             error = error.replace(">", "")
         else:
+            # forget current profile 
+            del req.session['profile']
             req.session['server'] = server     
             req.session.save()
             util.redirect(req, url("/"))
