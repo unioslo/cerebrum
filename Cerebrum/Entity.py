@@ -488,14 +488,16 @@ class EntityAddress(Entity):
                       'a_type': int(a_type)})
 
     def get_entity_address(self, source=None, type=None):
+        cols = {'entity_id': int(self.entity_id)}
+        if source is not None:
+            cols['source_system'] = int(source)
         if type is not None:
-            type = int(type)
-        return Utils.keep_entries(
-            self.query("""
-            SELECT * FROM [:table schema=cerebrum name=entity_address]
-            WHERE entity_id=:e_id""", {'e_id': self.entity_id}),
-            ('source_system', int(source)),
-            ('address_type', type))
+            cols['address_type'] = int(type)
+        return self.query("""
+        SELECT *
+        FROM [:table schema=cerebrum name=entity_address]
+        WHERE %s""" % " AND ".join(["%s=:%s" % (x, x)
+                                   for x in cols.keys()]), cols)
 
     def list_country_codes(self):
         return self.query("""
