@@ -177,7 +177,7 @@ def get_user_info(account_id, account_name):
 
 def chk_quarantine(account_id):
     # Check against quarantine.
-    account_disable = 0
+    print "checking for quarantine:", account_id
     quarantine.clear()
     quarantine.find(account_id)
     quarantines = quarantine.get_entity_quarantine()
@@ -186,12 +186,12 @@ def chk_quarantine(account_id):
         qua.append(row['quarantine_type']) 
     qh = QuarantineHandler.QuarantineHandler(db, qua)
     try:
-        if qh.is_locked():           
-            account_disable += 1
-    except KeyError:        
-        print "INFO: missing QUARANTINE_RULE"    
-    if account_disable:		
-	return True
+    	if qh.is_locked():           
+            return True
+    except KeyError:
+	pass
+    return False	
+
 
 def get_primary_ou(account_id,namespace):
     account.clear()
