@@ -14,18 +14,22 @@ PAGE_COST = {
     'epay': 0.30
     }
 
+def is_free_period(year, month, mday):
+    if ((month, mday) >= cereconf.PQ_SPRING_FREE[0] and
+        (month, mday) <= cereconf.PQ_SPRING_FREE[1]):
+        return True
+    elif ((month, mday) >= cereconf.PQ_FALL_FREE[0] and
+        (month, mday) <= cereconf.PQ_FALL_FREE[1]):
+        return True
+    else:
+        return False
+
 def get_term_init_prefix(year, month, mday):
     if ((month, mday) >= cereconf.PQ_SPRING_START and
         (month, mday) < cereconf.PQ_FALL_START):
         term = 'V'
-        if ((month, mday) >= cereconf.PQ_SPRING_FREE[0] and
-            (month, mday) <= cereconf.PQ_SPRING_FREE[1]):
-            require_kopipenger = False
     else:
         term = 'H'
-        if ((month, mday) >= cereconf.PQ_FALL_FREE[0] and
-            (month, mday) <= cereconf.PQ_FALL_FREE[1]):
-            require_kopipenger = False
     return '%i-%s:init:' % (year, term)
 
 class PPQUtil(object):

@@ -50,6 +50,7 @@ processed_pids = {}
 
 require_kopipenger = True
 term_init_prefix = PPQUtil.get_term_init_prefix(*time.localtime()[0:3])
+require_kopipenger = PPQUtil.is_free_period(*time.localtime()[0:3])
 
 class ThreeLevelDataParser(xml.sax.ContentHandler):
     """General parser for processing files like:
@@ -236,7 +237,6 @@ def get_bet_fritak_data(lt_person_file):
         for g in data.get('gjest', []):
             if g['gjestetypekode'] in ('PCVAKT', 'GRP-LÆRER', 'ST-POL FRI',
                                        'ST-ORG FRI'):
-                print "%s: %s" % (fnr,  g['gjestetypekode'])
                 if not fnr2pid.has_key(fnr):
                     logger.warn("Unknown LT-person %s" % fnr)
                     return
