@@ -555,33 +555,6 @@
   Due date:
   Priority: 2
 
-** Endre tidspunktet for brukerbygging til deltakere på EVU-kurs.
-  Description: Tillate bygging av brukere i forhold til EVU-kurs
-               tidligere enn dagens 14 dager før kursstart.  Dette bør
-               antagelig gjøres konfigurerbart
-               pr. Cerebrum-installasjon.
-  Dependencies:
-  Assigned to: hmeland
-  Resources: baardj
-  Cost:
-  Status: Done
-  Due date: 2004-12-31
-  Priority: 1
-
-** Bygge grupper rundt EVU-kurs tidligere enn i dag.
-  Description: La EVU-kurs være tilgjengelig for export til LMS
-               tidligere enn dagens 14 dager før start og uavhengig av
-               når vi begynner å bygge studentbrukere for kurset.
-               Innebærer i praksis at LMS-eksport inkluderer data om
-               alle fremtidige EVU-kurs.
-  Dependencies:
-  Assigned to: hmeland
-  Resources: baardj
-  Cost:
-  Status: Done
-  Due date:
-  Priority: 2
-
 ** Avvikling av brukere til EVU-studenter, når og hvordan?
   Description: I dag avvikles hjemområdet for en EVU-student sammen
                med ordinære studenter.  Vi trenger en mer rullerende
@@ -918,6 +891,118 @@
   Due date:
   Priority: 3
 
+** Konfigurering av postklient i cf for IMAP-brukere
+  Description: Siste versjon av IMS Enterprise kan også automatisk 
+		konfigurere postklienten i Cf for brukere som er satt opp 
+		med IMAP. Dette medfører større endringer i xml-fil som 
+		import-skriptet leser. 
+  Dependencies:
+  Assigned to: Harald Meland
+  Resources: Frank S
+  Cost: 10 t
+  Status: 
+  Due date: 2005-01-15
+  Priority: 1
+
+** Valg av verktøyliste/rominnredning for Cf-rom i FS 
+ Description:  	Valg av [UNDAKTIVITET.UNDFORMKODE] bestemmer 
+		verktøyliste som skal velges når rom opprettes. Skal _ikke_ 
+		overskrives. Valg av feil undformkode vil bety at rom blir 
+		opprettet med "feil" verktøyliste. 
+ 		Helge U tar kontakt med SFA som legger til valg i tabell: 
+		[UNDAKTIVITET.UNDFORMKODE] Det opprettes tabell som viser 
+		mapping mellom 'undformkode' i FS og hvilke verktøymeny 
+		dette skal tilsvare i Cf. Oppdateringer av tabell i meldes 
+		til cf-core.
+		Valg av verktøylister for CF-rom i FS
+		Det er laget verktøymenyer på petra som det kan testes mot.
+                UNDAKTIVITET.UNDFORMKODE  | Verktøyliste i CF
+		---------------------------------------------
+		FOR                       |UiOforelesning
+		GR                        |UiOgruppe
+		KOL                       |UiOkollovie
+		KURS                      |UiOkurs
+		LAB                       |UiOlaboratorie
+		OBLOPPG                   |UiOoblig
+		PRO                       |UiOprosjekt
+		ØV                        |UiOøving
+               	Har valgt å bruke verdier som allerede finnes i 
+		UNDAKTIVITET.UNDFORMKODE-tabellen. 
+		Alle andre verdier en de som er listet her må gi
+		UiOstdrom2003-verktøylisten.
+
+ 		Og (selvfølgelig), skript må ikke overskrive, kun 
+		kjøres første gang når rom opprettes!
+                Emnekode i FS det kan testes på: 'TEST' (høst-2004)
+		Denne eksporteres til petra.uio.no
+  Dependencies:
+  Assigned to: 
+  Resources:
+  Cost: 40 t
+  Status: 
+  Due date: 2005-08-01
+  Priority: 3
+
+** Lese-tilgang til "gamle" rom
+  Description:  Tilgang til rom settes til "lese/gjest" for rom det ikke 
+		undervises i, rom eldre enn ett semester. Dette skal 
+		gjøres ca. ved frist for oppmelding til eksamen. Det 
+		forutsettes da at lærere som ønsker å ta kopi (IMS cp) 
+		av rom har fått gjort det før rom "låses" ned. Med 
+		lesetilgang skal bruker kunne hente/laste ned innhold. 
+		Fronter bel spurt om det var mulig med IMS cp kun av 
+		eget innhold fra/til et cf-rom, svaret var at det ikke
+		er mulig med selektiv ims cp eksport
+  Dependencies:
+  Assigned to: 
+  Resources: 
+  Cost: 
+  Status: 
+  Due date: 2005-01-15
+  Priority: 3
+
+** Korridor/rom for Studieprogram
+  Description:  I påvente av at FS gjøres om til bedre å kunne støtte 
+		studieprogram, vil det i første omgang bli aktuelt for 
+		skript å kunne lage korridor/rom for studieprogram hvor 
+		alle (lærer/student) som underviser/er påmeldt (har 
+		studierett) ved et studieprogram får tilgang. Det vil ikke 
+		kunne lages grupper for hvert enkelt kull. Helge U følger 
+		utviklingen av funksjonalitet i FS
+  Dependencies:
+  Assigned to: 
+  Resources: 
+  Cost: 
+  Status: 
+  Due date: 2005-01-15
+  Priority: 3
+
+** Endre tidspunktet for brukerbygging til deltakere på EVU-kurs.
+  Description: Tillate bygging av brukere i forhold til EVU-kurs
+               tidligere enn dagens 14 dager før kursstart.  Dette bør
+               antagelig gjøres konfigurerbart
+               pr. Cerebrum-installasjon.
+  Dependencies:
+  Assigned to: hmeland
+  Resources: baardj
+  Cost:
+  Status: Done
+  Due date: 2004-12-31
+  Priority: 1
+
+** Bygge grupper rundt EVU-kurs tidligere enn i dag.
+  Description: La EVU-kurs være tilgjengelig for export til LMS
+               tidligere enn dagens 14 dager før start og uavhengig av
+               når vi begynner å bygge studentbrukere for kurset.
+               Innebærer i praksis at LMS-eksport inkluderer data om
+               alle fremtidige EVU-kurs.
+  Dependencies:
+  Assigned to: hmeland
+  Resources: baardj
+  Cost:
+  Status: Done
+  Due date:
+  Priority: 2
 
 * Hjemmeområdeadministrering
 
