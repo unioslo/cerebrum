@@ -713,7 +713,6 @@ def generate_posixgroup(spread=None,u_spread=None,filename=None):
     obj_str = "objectClass: top\n"
     for obj in cereconf.LDAP_GROUP_OBJECTCLASS:
 	obj_str += "objectClass: %s\n" % obj
-    print spreads,
     for row in posix_group.list_all_test(spreads):
 	distinct_mem = {}
 	posix_group.clear()
