@@ -97,7 +97,6 @@ class JobRunner(object):
         min_delta = 999999
         for k in jobs.keys():
             delta = current_time - self.last_run.get(k, 0)
-            # print "  %d for %s / %s" % (delta, k, jobs[k].when)
             if jobs[k].when is not None:
                 n = jobs[k].when.next_delta(self.last_run.get(k, 0), current_time)
                 if n <= 0:
@@ -105,32 +104,81 @@ class JobRunner(object):
                 min_delta = min(n, min_delta)
         return min_delta
 
+    def handle_completed_jobs(self, db_qh, running_jobs):
+        """Handle any completed jobs (only jobs that has
+        call != None).  Will block if any of the jobs has wait=1"""
+        for tmp_job in running_jobs:
+            ret = self.all_jobs[tmp_job].call.cond_wait()
+            logger.debug("cond_wait(%s) = %s" % (tmp_job, ret))
+            if ret is None:          # Job not completed
+                pass
+            else:
+                if isinstance(ret, tuple):
+                    logger.error("exit_code=%s for %s, check %s" % (ret[0], tmp_job, ret[1]))
+                running_jobs.remove(tmp_job)
+                if debug_time:
+                    self.last_run[tmp_job] = current_time
+                else:
+                    self.last_run[tmp_job] = time.time()
+                db_qh.update_last_run(tmp_job, self.last_run[tmp_job])
+
     # There is a python supplied sched module, but we don't use it for now...
     def runner(self):
         self.reload_scheduled_jobs()
         self.ready_to_run = []
         db_qh = DbQueueHandler(db, logger)
         self.last_run = db_qh.get_last_run()
+        running_jobs = []
+        prev_loop_time = 0
+        n_fast_loops = 0
         while 1:
+            if time.time() - prev_loop_time < 2:
+                logger.debug("Fast loop: %s" % (time.time() - prev_loop_time))
+                n_fast_loops += 1
+                if n_fast_loops > 3:
+                    logger.critical("Looping too fast.. must be a bug, aborting!")
+                    break
+            else:
+                n_fast_loops = 0
+            prev_loop_time = time.time()
             for job in self.ready_to_run:
+                self.handle_completed_jobs(db_qh, running_jobs)
+                # Start the job
                 if self.all_jobs[job].call is not None:
-                    self.all_jobs[job].call.setup()
-                    self.all_jobs[job].call.execute()
-                    self.all_jobs[job].call.cleanup()
-                if debug_time:
-                    self.last_run[job] = current_time
-                else:
-                    self.last_run[job] = time.time()
-                db_qh.update_last_run(job, self.last_run[job])
+                    if self.all_jobs[job].call.setup():
+                        logger.debug("Executing %s" % job)
+                        self.all_jobs[job].call.execute()
+                        running_jobs.append(job)
+                self.handle_completed_jobs(db_qh, running_jobs)
+
+                # For jobs that has call = None, last_run will be set
+                # after all pre-jobs with wait=1 has completed.  For
+                # jobs with wait=0 we update last_run immeadeately to
+                # prevent find_ready_jobs from trying to start it on
+                # next loop.
+                if (self.all_jobs[job].call is None or
+                    self.all_jobs[job].call.wait == 0):
+                    if debug_time:
+                        self.last_run[job] = current_time
+                    else:
+                        self.last_run[job] = time.time()
+                    db_qh.update_last_run(job, self.last_run[job])
+
             # figure out what jobs to run next
             self.ready_to_run = []
+            logger.debug("Finding ready jobs (running: %s)" % str(running_jobs))
             delta = self.find_ready_jobs(self.all_jobs)
-            logger.debug("New queue (delta=%s): %s" % (delta, ", ".join(self.ready_to_run)))
+            logger.debug("%s New queue (delta=%s): %s" % (
+                "-" * 20, delta, ", ".join(self.ready_to_run)))
             if(delta > 0):
                 if debug_time:
                     time.sleep(1)
                 else:
+                    pre_time = time.time()
                     time.sleep(min(max_sleep, delta))      # sleep until next job
+                    if time.time() - pre_time < min(max_sleep, delta):
+                        # Work-around for some machines that don't sleep long enough
+                        time.sleep(1)
 
 def usage(exitcode=0):
     print """job_runner.py --reload | --config file"""
