@@ -6,7 +6,6 @@
 <!ENTITY admin-bofh-chapter SYSTEM "admin/bofh.rst">
 <!ENTITY admin-install-chapter SYSTEM "admin/install.rst">
 <!ENTITY admin-index-chapter SYSTEM "admin/index.rst">
-<!ENTITY spec-index-chapter SYSTEM "spec/index.rst">
 <!ENTITY devel-index-chapter SYSTEM "devel/index.rst">
 <!ENTITY devel-bofh-chapter SYSTEM "devel/bofh.rst">
 <!ENTITY devel-database-schema-chapter SYSTEM "devel/database-schema.rst">
@@ -75,21 +74,21 @@ refer to the actual chapter rather than a file is on the TODO list.
   </chapter>
 
   <chapter>
-    <title>overview-index-chapter</title>
+    <title>Overview</title>
     &overview-index-chapter;
   </chapter>
 
   <chapter>
-    <title>admin-index-chapter</title>
+    <title>Administration</title>
     &admin-index-chapter;
-  </chapter>
-  <chapter>
-    <title>admin-install-chapter</title>
-    &admin-install-chapter;
-  </chapter>
-  <chapter>
-    <title>admin-bofh-chapter</title>
-    &admin-bofh-chapter;
+    <section>
+      <title>Installation</title>
+      &admin-install-chapter;
+    </section>
+    <section>
+      <title>Bofh</title>
+      &admin-bofh-chapter;
+    </section>
   </chapter>
 
   <!-- TODO: Is there any point in including the specs in the PDF doc?
@@ -100,52 +99,52 @@ refer to the actual chapter rather than a file is on the TODO list.
   -->
 
   <chapter>
-    <title>devel-index-chapter</title>
+    <title>Developing Cerebrum</title>
     &devel-index-chapter;
-  </chapter>
-  <chapter>
-    <title>devel-bofh-chapter</title>
-    &devel-bofh-chapter;
-  </chapter>
-  <chapter>
-    <title>devel-database-schema-chapter</title>
-    &devel-database-schema-chapter;
-  </chapter>
-  <chapter>
-    <title>devel-cerebrum-core-chapter</title>
-    &devel-cerebrum-core-chapter;
-  </chapter>
-  <chapter>
-    <title>devel-codestyle-chapter</title>
-    &devel-codestyle-chapter;
-  </chapter>
-  <chapter>
-    <title>devel-extensions-chapter</title>
-    &devel-extensions-chapter;
-  </chapter>
-  <chapter>
-    <title>devel-hacking-chapter</title>
+    <section>
+      <title>Bofh</title>
+      &devel-bofh-chapter;
+    </section>
+    <section>
+      <title>Database schema</title>
+      &devel-database-schema-chapter;
+    </section>
+    <section>
+      <title>Cerebrum core</title>
+      &devel-cerebrum-core-chapter;
+    </section>
+    <section>
+      <title>Codestyle</title>
+      &devel-codestyle-chapter;
+    </section>
+    <section>
+      <title>Extensions</title>
+      &devel-extensions-chapter;
+    </section>
+    <section>
+      <title>Hacking</title>
     &devel-hacking-chapter;
+  </section>
   </chapter>
   <chapter>
-    <title>extensions-index-chapter</title>
+    <title>Extensions</title>
     &extensions-index-chapter;
+    <section>
+      <title>generate_nismaps</title>
+      &extensions-generate-nismaps-chapter;
+    </section>
+    <section>
+      <title>AutoStud</title>
+      &extensions-autostud-chapter;
+    </section>
   </chapter>
   <chapter>
-    <title>extensions-generate-nismaps-chapter</title>
-    &extensions-generate-nismaps-chapter;
-  </chapter>
-  <chapter>
-    <title>extensions-autostud-chapter</title>
-    &extensions-autostud-chapter;
-  </chapter>
-  <chapter>
-    <title>user-index-chapter</title>
+    <title>End-user documentation</title>
     &user-index-chapter;
-  </chapter>
-  <chapter>
-    <title>user-bofh-chapter</title>
-    &user-bofh-chapter;
+    <section>
+      <title>Bofh</title>
+      &user-bofh-chapter;
+    </section>
   </chapter>
 </book>
 
