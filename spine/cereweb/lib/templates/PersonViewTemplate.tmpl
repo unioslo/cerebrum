@@ -20,6 +20,7 @@
 #from AccountViewTemplate import AccountViewTemplate
 #from PersonNameViewTemplate import PersonNameViewTemplate
 #from PersonNameAddTemplate import PersonNameAddTemplate
+#from PersonExternalIdTemplate import PersonExternalIdTemplate
 #extends EntityViewTemplate
 
 ## Overloaded by other pages to get the right url, used in personNames().
@@ -30,7 +31,8 @@
 <div class="person">
     $personInfo($person)
     $personNames($person, $req, $addName)
-    ##$personAccounts($person, $req)
+    $externalIds($person)
+    $personAccounts($person, $req)
 </div>
 $view_entity($person, $req)
 #end def
@@ -81,6 +83,15 @@ $view_entity($person, $req)
         <a href="$url(tmp_url)">$_("add a name")</a>
     </div>
     #end if
+</div>
+#end def
+
+## List external ids for this person, and form for adding more.
+#def externalIds($person)
+<div class="personnames">
+    <a name="external ids" />
+    #set $v = PersonExternalIdTemplate()
+    $v.externalIds($person)
 </div>
 #end def
 

@@ -1,0 +1,38 @@
+## Copyright 2004 University of Oslo, Norway
+##
+## This file is part of Cerebrum.
+##
+## Cerebrum is free software; you can redistribute it and/or modify it
+## under the terms of the GNU General Public License as published by
+## the Free Software Foundation; either version 2 of the License, or
+## (at your option) any later version.
+##
+## Cerebrum is distributed in the hope that it will be useful, but
+## WITHOUT ANY WARRANTY; without even the implied warranty of
+## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+## General Public License for more details.
+##
+## You should have received a copy of the GNU General Public License
+## along with Cerebrum; if not, write to the Free Software Foundation,
+## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
+#from Cereweb.InitTemplate import InitTemplate
+#extends InitTemplate
+
+#def externalIds($person)
+    #set $ids = $person.get_external_ids()
+    <h2>$_("External Ids:")</h2>
+    #for $id in $ids
+    <div class="name">
+        #set $external_id = $id.get_external_id()
+        #set $type = $id.get_id_type().get_description()
+        #set $ss_name = $id.get_source_system().get_name()
+        #set $ss_desc = $id.get_source_system().get_description()
+        <div class="actions">
+            <em>$type:</em> $external_id
+        </div>
+        <div><em>$_("Source system"):</em> $ss_name ($ss_desc)</div>
+    </div>
+    #end for
+#end def
+

@@ -16,7 +16,7 @@
 ## along with Cerebrum; if not, write to the Free Software Foundation,
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-#from Cereweb.utils import url, snapshot
+#from Cereweb.utils import url
 #extends PersonViewTemplate
 
 ## Overloads page_url in PersonViewTemplate, so personNames() has the right url.
@@ -30,7 +30,8 @@
 <div class="person">
     $form($person, $req)
     $personNames($person, $req, $addName)
-    ##$personAccounts($person, $req)
+    $externalIds($person)
+    $personAccounts($person, $req)
 </div>
 $view_entity($person, $req)
 #end def
@@ -62,27 +63,24 @@ $view_entity($person, $req)
 ## Creates a drop-down list with diffrent genders.
 ## The current gender is first in the list if supplied.
 #def gender($req, $gender=None)
-    #set $server = $snapshot($req)
-    #set $genders = []
-    #if $gender
-        $genders.append(($gender.get_name(), $gender.get_description()))
-    #end if
-    #for $g in $server.get_gender_type_searcher().search()
-        #if $gender is None or $g.get_name() != $gender.get_name()
-            $genders.append(($g.get_name(), $g.get_description()))
-        #end if
-    #end for
+    #set $genders = [('F', 'Female'), ('M', 'Male'), ('X', 'Unknown gender')]
+    #set $gender_name = $gender.get_name()
+    #set $gender_desc = $gender.get_description()
     <label for="gender">$_('Gender'):</label>
     <select name="gender">
+
+    <option value="$gender_name">$gender_desc</option>
     #for $name, $desc in $genders
-        <option value="$name">$desc</option>
+        #if $gender_name != $name
+            <option value="$name">$desc</option>
+        #end if
     #end for
     </select><br />
 #end def
 
 ## Create a drop-down list with true or false.
 #def boolWidget($name, $label, $$default=True)
-    <label for="$name">$_('$label'):</label>
+    <label for="$name">$_($label):</label>
     <select name="$name">
     #if $default
         <option value="True">True</option>

@@ -17,8 +17,9 @@
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 #from Cereweb.InitTemplate import InitTemplate
-#from Cereweb.utils import url, snapshot
+#from Cereweb.utils import url
 #extends InitTemplate
+
 
 
 ## Creates a form for adding a name to a person.
@@ -31,13 +32,11 @@
     <input type="text" size="40" name="name" /> <br />
     <label for="name_type">$_('Name type'):</label>
     <select name="name_type">
-        #set $server = snapshot($req)
-        #for $name_type in $server.get_name_type_search().search()
-        <option value="$name_type.get_name()">$_($name_type.get_description())</option>
+        #set name_types = [('FIRST', 'First name'), ('FULL', 'Full name'), ('LAST', 'Last name'), ('PERSONALTITLE', 'Persons personal title'), ('WORKTITLE', 'Persons work title')]
+        #for $name_type, $desc in $name_types
+        <option value="$name_type">$_($desc)</option>
         #end for
     </select> <br />
-    <label for="source_system">$_("Source system"):</label>
-    <input type="text" size="40" name="source_system" /> <br />
     <div class="actions">
         <input type="submit" value="$_('Add')" />
         #set $tmp_url = "person/view?id=%s#names" % ($entity.get_id())
