@@ -961,14 +961,16 @@ class PsycoPGCursor(Cursor):
         if fetchall and self._convert_cols:
             for r in range(len(ret)):
                 for n in self._convert_cols:
-                    ret[r][n] = long(ret[r][n] )
+                    if ret[r][n] is not None:
+                        ret[r][n] = long(ret[r][n])
         return ret
 
     def wrap_row(self, row):
         """Return `row' wrapped in a db_row object."""
         ret = self._row_class(row)
         for n in self._convert_cols:
-            ret[n] = long(ret[n] )
+            if ret[n] is not None:
+                ret[n] = long(ret[n])
         return ret
 
  
