@@ -381,10 +381,11 @@ class BofhdAuth(DatabaseAccessor):
                                      account)
 
     def can_get_student_info(self, operator, person=None, query_run_any=False):
-        # TODO: Change can_get_student_info so that the old studit
-        # group may be grantet auth_view_studentinfo to global_host
-        if (self.is_superuser(operator) or
-            operator in self._get_group_members(cereconf.BOFHD_STUDADM_GROUP)):
+        if self.is_superuser(operator):
+            return True
+        # auth_view_studentinfo is not tied to a target
+        if self._has_operation_perm_somewhere(
+            operator, self.const.auth_view_studentinfo):
             return True
         if query_run_any:
             return False
