@@ -35,25 +35,13 @@ def url(path):
         path = 'Chandler.cgi' + '/' + path
     return cereconf.WEBROOT + "/" + path
 
-#_object_type_url_map = {
-#    generated.Account:      "account",
-#    generated.Group:        "group",
-#    generated.Person:       "person",
-#    #AbstractModel.OU:      "ou",
-#}
-
 def object_url(object, method="view"):
     """Returns the full path to a page treating the object.
     
     Method could be "view" (the default), "edit" and other things.
     """
-    # You might catch special cases here before the for-loop   
-    for (type, path) in _object_type_url_map.items():
-#        if isinstance(object, type):
-        if object._narrow(type):
-            return url("%s/%s/?id=%s" % 
-                       (path, method, object.get_entity_id()))
-    raise "Unknown object %r" % object
+    type = object.get_type().get_name()
+    return url("%s/%s?id=%s" % (type, method, object.get_id()))
 
 def object_link(object, text=None, method="view"):
     """Creates a HTML anchor (a href=..) for the object.
@@ -131,7 +119,7 @@ def new_transaction(req, name="", description=""):
 
 def snapshot(req):
     """Creates a new snapshot."""
-    snap = req.session.get_spine_session().snapshot()
+    snap = req.session['session'].snapshot()
     return snap
 
 # arch-tag: 046d3f6d-3e27-4e00-8ae5-4721aaf7add6
