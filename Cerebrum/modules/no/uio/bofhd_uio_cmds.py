@@ -453,7 +453,9 @@ class BofhdExtension(object):
             pc.goodenough(None, password, uname="foobar")
         except PasswordChecker.PasswordGoodEnoughException, m:
             raise CerebrumError, "Bad password: %s" % m
-        return "OK"
+        ac = Utils.Factory.get("Account")(self.db)
+        crypt = ac.enc_auth_type_crypt3_des(password)
+        return "OK, crypt == %s" % (crypt,)
 
     # misc clear_passwords
     all_commands['misc_clear_passwords'] = Command(
