@@ -19,17 +19,17 @@ class Group_createTestCase(Account_createTestCase):
         self.group_id = group.entity_id
 
     def _populate_group(self, group, **group_args):
-        account = Account.Account(self.Cerebrum)
-        account.find(self.account_id)
         if not group_args:
+            account = Account.Account(self.Cerebrum)
+            account.find(self.account_id)
             group_args = {
-                'creator_id': account,
+                'creator': account,
                 'visibility': Group_createTestCase.co.group_visibility_all,
                 'name': 'test_group',
                 'description': "Test suite's test group."
                 }
         # group.clear()
-        group.populate(group_args['creator_id'], group_args['visibility'],
+        group.populate(group_args['creator'], group_args['visibility'],
                        group_args['name'], group_args['description'])
 
     def tearDown(self):
