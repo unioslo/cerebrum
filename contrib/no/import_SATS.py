@@ -3,11 +3,13 @@
 import cerebrum_path
 
 import pprint
-import sys
 import string
+import sys
+
 from Cerebrum import Database
-from Cerebrum.Utils import Factory
+from Cerebrum import Errors
 from Cerebrum import Person
+from Cerebrum.Utils import Factory
 from Cerebrum.modules.no import fodselsnr
 
 pp = pprint.PrettyPrinter(indent=4)
@@ -16,7 +18,7 @@ Cerebrum = Database.connect()
 co = Factory.getConstants()(Cerebrum)
 OU_class = Factory.get('OU')
 
-source_system = co.system_manual
+source_system = co.system_sats
 
 def read_inputfile(filename):
     print "Processing %s" % filename
@@ -124,18 +126,16 @@ def import_elever(gs_vg):
         loc[k.lower()] = n
         n += 1
 
-    # TODO: mange records har ikke SSN.  Skal man lagre personoid som
-    # external_id?
+    # Note: mange records har ikke fnr.
 
     for elev in dta:
         sys.stdout.write('.')
         sys.stdout.flush()
-        person.clear()
         gender = co.gender_female
-        if elev[loc['sex']] == 1:
+        if elev[loc['sex']] == '1':
             gender = co.gender_male
 
-        date = Cerebrum.Date(1970,1,1)
+        date = None
         try:
             day, mon, year = [int(x) for x in elev[loc['birthday']].split('.')]
             # if year < 1990: continue  # Speedup while testing
@@ -143,8 +143,17 @@ def import_elever(gs_vg):
         except:
             print "\nWARNING: Bad date %s for %s" % (elev[loc['birthday']],
                                                      elev[loc['personoid']])
+        person.clear()
+        try:
+            person.find_by_external_id(co.externalid_personoid,
+                                       elev[loc['personoid']])
+        except Errors.NotFoundError:
+            pass     # It is a new entry
         person.populate(date, gender)
         person.affect_names(source_system, co.name_first, co.name_last)
+        if elev[loc['firstname']] == '' or elev[loc['lastname']] == '':
+            print "\nWARNING: bad name for %s" % elev[loc['personoid']]
+            continue
         person.populate_name(co.name_first, elev[loc['firstname']])
         person.populate_name(co.name_last, elev[loc['lastname']])
         if elev[loc['socialsecno']] <> '':
@@ -152,9 +161,8 @@ def import_elever(gs_vg):
                                         elev[loc['socialsecno']])
         else:
             print "\nWARNING: no ssid for %s" % elev[loc['personoid']]
-        ##person.populate_external_id(source_system, co.externalid_sats_oid,
-        ##                            elev[loc['personoid']])
-
+        person.populate_external_id(source_system, co.externalid_personoid,
+                                    elev[loc['personoid']])
         try:
             person.write_db()
         except:
@@ -175,8 +183,8 @@ def import_elever(gs_vg):
             person.add_contact_info(source_system, co.contact_phone, elev[loc['phoneno']])
         if elev[loc['faxno']] <> '':
             person.add_contact_info(source_system, co.contact_fax, elev[loc['faxno']])
-        ##if elev[loc['email']] <> '':
-        ##    person.add_contact_info(source_system, co.contact_email, elev[loc['email']])
+        if elev[loc['email']] <> '':
+            person.add_contact_info(source_system, co.contact_email, elev[loc['email']])
 
     Cerebrum.commit()
     print
