@@ -29,7 +29,7 @@ registry = Registry.get_registry()
 
 class PersonName(DatabaseClass):
     primary = [
-        DatabaseAttr('person_id', 'person_name', Person),
+        DatabaseAttr('person', 'person_name', Person),
         DatabaseAttr('name_variant', 'person_name', NameType),
         DatabaseAttr('source_system', 'person_name', SourceSystem),
     ]
@@ -37,11 +37,17 @@ class PersonName(DatabaseClass):
         DatabaseAttr('name', 'person_name', str)
     ]
 
+    db_attr_aliases = {
+        'person_name':{
+            'person':'person_id'
+        }
+    }
+        
 registry.register_class(PersonName)
 
 def get_names(self):
     s = registry.PersonNameSearcher(self)
-    s.set_person_id(self)
+    s.set_person(self)
     return s.search()
 
 Person.register_method(Method('get_names', [PersonName]), get_names)
