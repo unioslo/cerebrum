@@ -19,6 +19,7 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 group_help = {
+    'access': "Access (authorisation) related commands",
     'email': "E-mail commands",
     'group': "Group commands",
     'misc': 'Miscellaneous commands',
@@ -34,10 +35,16 @@ group_help = {
 # not contain \n
 command_help = {
     'access': {
-    'access_grant': "Grant authorisation to operate on entity",
-    'access_group': "List who's authorised to operate on group",
-    'access_host': "List who's authorised to operate on group",
-    'access_revoke': "Revoke authorisation",
+    'access_grant':
+       "Grant authorisation to perform the operations in opset "
+       "<set> on <entity> of type <type> to the members of group <group>.  "
+       "The meaning of <attr> depends on <type>.",
+    'access_group':
+       "List who's authorised to operate on group <gname>",
+    'access_host':
+       "List who's authorised to operate on host <hostname>",
+    'access_revoke':
+       "Revoke authorisation",
     },
     'email': {
     'email_add_address': 'Add an alias address',
