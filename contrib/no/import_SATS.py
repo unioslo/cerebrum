@@ -255,44 +255,65 @@ def update_person(p, spec, type, affiliations, groupnames):
 
 def import_OU(schools):
     """Registers or updates information about all schools listed in the
-    'schools' dict."""  # TODO: handle location in tree
+    'schools' dict."""
     
-    ou = OU_class(Cerebrum)
     ret = {}
+    tspec = {'name': 0, 'institutioncode': 1, 'phoneno': 2, 'faxno': 3,
+             'address1': 4, 'address3': 5}
+    top_ou = create_OU(('UFD', 'UFD', '', '', '', '0000 Norge'), tspec, None)
+    top_ou = create_OU(('Oslo', 'Oslo', '', '', '', '0000 Norge'),
+                       tspec, top_ou.entity_id)
+
     for level in schools.keys():
+        parent_ou = create_OU((level, level, '', '', '', '0000 Norge'),
+                              tspec, top_ou.entity_id)
         spec, dta = read_inputfile("sats/sted_%s.txt" % level)
         for skole in dta:
             if not (skole[spec['institutioncode']] in schools[level]):
                 continue
             sys.stdout.write('.')
             sys.stdout.flush()
-            ou.clear()
-
-            ou.populate(skole[spec['name']],
-                        acronym=skole[spec['institutioncode']][:15],
-                        short_name=skole[spec['institutioncode']][:30],
-                        display_name=skole[spec['name']],
-                        sort_name=skole[spec['name']])
-
-            ou.populate_address(source_system)
-            ou.populate_contact_info(source_system)
-            if skole[spec['address3']] == '':
-                print "Bad info for %s" % skole[spec['name']]
-                pp.pprint(skole)
-            else:
-                postno, city = skole[spec['address3']].split()
-                ou.populate_address(source_system, co.address_post,
-                                    address_text=skole[spec['address1']],
-                                    postal_number=postno, city=city)
-            if skole[spec['phoneno']] <> '':
-                ou.populate_contact_info(source_system, co.contact_phone, skole[spec['phoneno']])
-            if skole[spec['faxno']] <> '':
-                ou.populate_contact_info(source_system, co.contact_fax, skole[spec['faxno']])
-
-            ou.write_db()
+            ou = create_OU(skole, spec, parent_ou.entity_id)
             ret["%s:%s" % (level, skole[spec['institutioncode']])] = ou.entity_id
         print
+    Cerebrum.commit()
     return ret
+
+def create_OU(skole, spec, parent):
+    ou = OU_class(Cerebrum)
+    ou.clear()
+    should_set_parent = True
+    try:
+        ou.find_by_parent(skole[spec['institutioncode']][:15],
+                          co.perspective_sats, parent)
+        should_set_parent = False
+    except Errors.NotFoundError:
+        pass
+    ou.populate(skole[spec['name']],
+                acronym=skole[spec['institutioncode']][:15],
+                short_name=skole[spec['institutioncode']][:30],
+                display_name=skole[spec['name']],
+                sort_name=skole[spec['name']])
+
+    ou.populate_address(source_system)
+    ou.populate_contact_info(source_system)
+    if skole[spec['address3']] == '':
+        print "Bad info for %s" % skole[spec['name']]
+        pp.pprint(skole)
+    else:
+        postno, city = skole[spec['address3']].split()
+        ou.populate_address(source_system, co.address_post,
+                            address_text=skole[spec['address1']],
+                            postal_number=postno, city=city)
+    if skole[spec['phoneno']] <> '':
+        ou.populate_contact_info(source_system, co.contact_phone, skole[spec['phoneno']])
+    if skole[spec['faxno']] <> '':
+        ou.populate_contact_info(source_system, co.contact_fax, skole[spec['faxno']])
+
+    ou.write_db()
+    if should_set_parent:
+        ou.set_parent(co.perspective_sats, parent)
+    return ou
 
 def convert_all():
     files = ("sted_vg.txt", "klasse_fag_emne_gs.txt",
