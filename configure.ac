@@ -76,6 +76,7 @@ AC_CONFIG_FILES([
     gro/bin/Makefile
     gro/lib/Makefile
     gro/lib/idl/Makefile
+    gro/lib/classes/Makefile
 	cerebrum_path.py
 	])
 AC_OUTPUT
