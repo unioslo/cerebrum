@@ -505,20 +505,24 @@ def populate_enhet_groups(enhet_id):
                 #   2-2 -> "Øvelser 102"
                 #   1-1 -> "Forelesning"
                 #
-                # På Ifi forutsetter vi formen "Aktivitet N", og
-                # plukker derfor ut det andre ordet i strengen for
+                # På Ifi forutsetter vi formen "<aktivitetstype> N",
+                # og plukker derfor ut det andre ordet i strengen for
                 # bruk i nettgruppenavnet brukerne vil se.
                 # 
                 # Det kan hende en bedre heuristikk ville være å se
                 # etter et tall i navnet og bruke dette, hvis ikke,
                 # bruke hele navnet med blanke erstattet av
                 # bindestreker.
-                
+
                 aktnavn = UndervEnhet[enhet_id]['aktivitet'][aktkode].lower()
-                if aktnavn.startswith("aktivitet "):
-                    aktnavn = aktnavn.split(" ")[1]
+                m = re.match(r'\S+ (\d+)$', aktnavn)
+                if m:
+                    aktnavn = m.group(1)
                 else:
                     aktnavn = aktnavn.replace(" ", "-")
+                logger.debug("Aktivitetsnavn '%s' -> '%s'" %
+                             (UndervEnhet[enhet_id]['aktivitet'][aktkode],
+                              aktnavn))
                 sync_group(kurs_id, "%s-sek:%s" % (gname, aktkode),
                            ("Ansvarlige %s %s %s%s %s (sekundærkonti)" %
                             (emnekode, termk, aar, enhet_suffix, aktnavn)),
@@ -769,7 +773,7 @@ def destroy_group(gname, max_recurse):
         parent = get_group(r['group_id'])
         logger.info("removing %s from group %s" % (gr.group_name,
                                                    parent.group_name))
-        parent.remove_member(r['group_id'], r['operation'])
+        parent.remove_member(gr.entity_id, r['operation'])
 
     # If a e-mail target is of type multi and has this group as its
     # destination, delete the e-mail target and any associated
