@@ -159,7 +159,7 @@ class EntityName(object):
         return self.query("""
         SELECT * FROM [:table schema=cerebrum name=entity_name]
         WHERE entity_id=:e_id AND value_domain=:domain""",
-                          {'e_id': self.entity_id
+                          {'e_id': self.entity_id,
                            'domain': int(domain)})
 
     def add_name(self, domain, name):
