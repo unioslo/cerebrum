@@ -225,7 +225,8 @@ def import_org_units(sources):
 	    phone_value = "%s%05i" % (k['innvalgnr'], int(k['linjenr']))
             ou.populate_contact_info(source_system, co.contact_phone,
 					phone_value, contact_pref=n)
-        elif int(k.get('telefonnr', 0)):
+        if int(k.get('telefonnr', 0)):
+            n += 1
             ou.populate_contact_info(source_system, co.contact_phone,
 					k['telefonnr'], contact_pref=n)
         op = ou.write_db()
