@@ -47,11 +47,6 @@ class Constants(Constants.Constants):
 
     perspective_fs = _OUPerspectiveCode('FS', 'FS')
 
-    # Temporary hack to make sure that process_students.py works 
-    # should be removed as soon as proceess_students has been
-    # updated with the apropriate patch
-    perspective_lt = _OUPerspectiveCode('FS','FS')
-
     account_test = _AccountCode('testbruker', 'Testkonto')
     account_kurs = _AccountCode('kursbruker','Kurskonto')
 
