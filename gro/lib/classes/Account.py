@@ -19,14 +19,13 @@
 
 import Cerebrum.Account
 import crypt
+import Database
 
 from Cerebrum.extlib import sets
 from Cerebrum.gro.Cerebrum_core import Errors
 
 from Builder import Builder, Attribute, Method
 from Entity import Entity
-
-from db import db
 
 __all__ = ['Account', 'AccountAuthentication']
 
@@ -42,7 +41,7 @@ class Account(Entity):
     cerebrum_class = Cerebrum.Account.Account
     
     def _load_account(self):
-        e = Cerebrum.Account.Account(db)
+        e = Cerebrum.Account.Account(Database.get_database())
         e.find(self._entity_id)
 
         self._name = e.account_name
@@ -55,14 +54,14 @@ class Account(Entity):
 
     def get_authentications(self): # jada... dette skal bort/gjøres på en annen måte
         authentications = []
-        for row in db.query('''SELECT account_id, method, auth_data
+        for row in Database.get_database().query('''SELECT account_id, method, auth_data
                                FROM account_authentication
                                WHERE account_id = %s''' % self._entity_id):
             authentications.append(AccountAuthentication.getByRow(row))
         return authentications
 
     def authenticate(self, password):
-        e = Cerebrum.Account.Account(db)
+        e = Cerebrum.Account.Account(Database.get_database())
 
         for auth in self.get_authentications():
             auth_data = auth.get_auth_data()
@@ -78,7 +77,7 @@ class AccountAuthentication(Builder):
     def getByRow(cls, row):
         import Types
         account_id = int(row['account_id'])
-        method = Types.AuthenticationType(int(row['method']))
+        method = Types.AuthenticationType.get_by_id(int(row['method']))
         auth_data = row['auth_data']
 
         return cls(account_id=account_id,
