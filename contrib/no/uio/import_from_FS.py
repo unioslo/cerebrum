@@ -30,20 +30,21 @@ from Cerebrum import Errors
 from Cerebrum.Utils import XMLHelper
 from Cerebrum.modules.no.uio.access_FS import FSPerson
 
-default_personfile = "/cerebrum/dumps/FS/persons.xml"
+default_person_file = "/cerebrum/dumps/FS/persons.xml"
+default_topics_file = "/cerebrum/dumps/FS/topics.xml"
 
 cereconf.DATABASE_DRIVER='Oracle'
 Cerebrum = Database.connect(user="ureg2000", service="FSDEMO.uio.no")
 FSP = FSPerson(Cerebrum)
 xml = XMLHelper()
 
-def get_person_info():
+def write_person_info(outfile):
     # KURS & EVU fagpersoner
     # Employees from FS related to ordinary courses KURS.
     # Prefix: F
     # !!! Mulig at dette er den eneste spørringen som trengs !!!
 
-    f=open(default_personfile, 'w')
+    f=open(outfile, 'w')
     f.write(xml.xml_hdr + "<data>\n")
     # Her kan stedkodeinfo utledes direkte ...
     cols, fagpersoner = FSP.GetKursFagpersonundsemester()
@@ -75,8 +76,24 @@ def get_person_info():
         f.write(xml.xmlify_dbrow(e, xml.conv_colnames(cols), 'evu') + "\n")
     f.write("</data>\n")
 
+def write_topic_info(outfile):
+    f=open(outfile, 'w')
+    f.write(xml.xml_hdr + "<data>\n")
+    cols, topics = FSP.GetAlleEksamener()
+    for t in topics:
+        # The Oracle driver thinks the result of a union of ints is float
+        fix_float(t)
+        f.write(xml.xmlify_dbrow(t, xml.conv_colnames(cols), 'topic') + "\n")
+    f.write("</data>\n")
+
+def fix_float(row):
+    for n in range(len(row)):
+        if isinstance(row[n], float):
+            row[n] = int(row[n])
+
 def main():
-    get_person_info()
+    write_person_info(default_person_file)
+    write_topic_info(default_topics_file)
 
 if __name__ == '__main__':
     main()
