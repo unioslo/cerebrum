@@ -21,8 +21,8 @@ def _create_view(req, id):
     page = Main(req)
     try:
         entity = ClientAPI.fetch_object_by_id(server, id)
-        entity.quarantines = entity.get_quarantines()
-        entity.uri = req.unparsed_uri
+        #entity.quarantines = entity.get_quarantines()
+        #entity.uri = req.unparsed_uri
     except:
         page.add_message(_("Could not load entity with id %s") % id)
         return (page, None)
