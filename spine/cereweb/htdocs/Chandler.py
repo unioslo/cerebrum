@@ -80,3 +80,5 @@ def cgi_main():
 
 if __name__ == '__main__': # for cgi
     cgi_main()
+
+# arch-tag: 203bd6c2-22de-4bf2-9d6f-f7c658e1fc55
