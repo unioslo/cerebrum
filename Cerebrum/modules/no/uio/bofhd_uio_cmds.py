@@ -128,10 +128,22 @@ class BofhdExtension(object):
 
     def fixup_imaplib(self):
         import imaplib
-        def nonblocking_open(self, host, port):
+        def nonblocking_open(self, host=None, port=None):
             import socket
             import select
             import errno
+            # Perhaps using **kwargs is cleaner, but this works, too.
+            if host is None:
+                if not hasattr(self, "host"):
+                    self.host = ''
+            else:
+                self.host = host
+            if port is None:
+                if not hasattr(self, "port"):
+                    self.port = 143
+            else:
+                self.port = port
+
             self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.sock.setblocking(False)
             err = self.sock.connect_ex((self.host, self.port))
