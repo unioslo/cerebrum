@@ -36,4 +36,8 @@ some Python experience.
   Other stuff in Core: logging, Metainfo, Utils, Cache, extlib,
     Errors, QuarantineHandler.
 
+* `About expire_date <expire_date.html>`_
+  Information about how the expire-date should be handled.  (TBD:
+  should be incorporated in cerebrum-core.rst?)
+
 ..
