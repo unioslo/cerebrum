@@ -199,16 +199,9 @@ class AccountUiOMixin(Account.Account):
             raise self._db.IntegrityError, \
                   "Can't remove uio spread to an account with ifi spread."
 
-        # keep account_home in sync
+        # keep ifi-part of account_home in sync
         if spread == self.const.spread_ifi_nis_user:
             self.clear_home(self.const.spread_ifi_nis_user)
-        elif spread == self.const.spread_uio_nis_user:
-            try:
-                self.get_home(spread)
-                raise self._db.IntegrityError, \
-                      "Must delete user to remove uio_nis spread"
-            except Errors.NotFoundError:
-                pass
 
         #
         # (Try to) perform the actual spread removal.
