@@ -12,7 +12,7 @@ Prerequisities
 Install python >= 2.2.1, and a PostgreSQL or Oracle database.  Install
 pyPgSQL >= 2.2 or DCOracle2.
 
-  Debian packages: python2.2 python2.2-xmlbase
+  Debian packages: python2.2 python2.2-dev python2.2-xmlbase
                    postgresql python2.2-pgsql
   RedHat packages: ???
 
