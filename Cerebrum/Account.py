@@ -691,7 +691,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine, Entity):
         # Obsolete, use list_account_homes instead
         if filter_home:
             return self.query("""
-            SELECT ai.account_id, en.entity_name, ah.home, d.path
+            SELECT ai.account_id, en.entity_name, hd.home, d.path
             FROM [:table schema=cerebrum name=entity_name] en,
                  [:table schema=cerebrum name=account_info] ai
                  LEFT JOIN [:table schema=cerebrum name=account_home] ah
@@ -703,7 +703,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine, Entity):
             WHERE ai.account_id=en.entity_id""", {'spread': int(spread)})
 
         return self.query("""
-            SELECT ai.account_id, en.entity_name, ah.home, d.path
+            SELECT ai.account_id, en.entity_name, hd.home, d.path
             FROM [:table schema=cerebrum name=entity_name] en,
                  [:table schema=cerebrum name=account_info] ai,
                  [:table schema=cerebrum name=entity_spread] es
