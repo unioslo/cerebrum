@@ -1,10 +1,6 @@
-#from Cerebrum.web.InitTemplate import InitTemplate
-#extends InitTemplate
-#import forgetHTML
+#extends EntityViewTemplate
 #from Cerebrum.web.TableView import TableView
 #from MemberTableTemplate import MemberTableTemplate
-#from NoteViewTemplate import NoteViewTemplate
-#from NoteAddTemplate import NoteAddTemplate
 #from Cerebrum.web.utils import url
 #from Cerebrum.web import HistoryLog
 
@@ -13,15 +9,7 @@
 $groupInfo($group)
 $groupMembers($group)
 $add_member($group)
-$add_note($group)
-$HistoryLog.view_history_short($group)
-#end def
-
-#def add_note(group)
-#set t = NoteViewTemplate()
-$t.viewNotes($group)
-#set t = NoteAddTemplate()
-$t.addForm($group)
+$view_entity($group)
 #end def
 
 #def groupMembers(group)
