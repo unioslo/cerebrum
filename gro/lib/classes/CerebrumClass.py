@@ -24,8 +24,8 @@ __all__ = ['CerebrumAttr', 'CerebrumEntityAttr', 'CerebrumClass']
 
 class CerebrumAttr(Attribute):
     def __init__(self, name, data_type, cerebrum_name=None,
-                 writable=False, from_cerebrum=None, to_cerebrum=None):
-        Attribute.__init__(self, name, data_type, writable)
+                 write=False, from_cerebrum=None, to_cerebrum=None):
+        Attribute.__init__(self, name, data_type, write)
 
         self.cerebrum_name = cerebrum_name or name
         if to_cerebrum is not None:
@@ -50,8 +50,8 @@ class CerebrumEntityAttr(CerebrumAttr):
         return Entity.Entity(value)
 
 class CerebrumTypeAttr(CerebrumAttr):
-    def __init__(self, name, data_type, type_class, cerebrum_name=None, writable=False):
-        CerebrumAttr.__init__(self, name, data_type, cerebrum_name, writable)
+    def __init__(self, name, data_type, type_class, cerebrum_name=None, write=False):
+        CerebrumAttr.__init__(self, name, data_type, cerebrum_name, write)
         self.type_class = type_class
 
     def to_cerebrum(self, value):
@@ -64,7 +64,7 @@ class CerebrumClass(object):
     cerebrum_class = None
 
     def _load_cerebrum(self):
-        e = self.cerebrum_class(Database.get_database())
+        e = self.cerebrum_class(self.get_database())
         e.find(self.get_entity_id())
 
         for attr in self.slots:
@@ -78,13 +78,13 @@ class CerebrumClass(object):
             setattr(self, '_' + attr.name, value)
 
     def _save_cerebrum(self):
-        e = self.cerebrum_class(Database.get_database())
+        e = self.cerebrum_class(self.get_database())
         e.find(self.get_entity_id())
 
         for attr in self.slots:
             if not isinstance(attr, CerebrumAttr):
                 continue
-            if not attr.writable:
+            if not attr.write:
                 continue
             value = getattr(self, '_' + attr.name)
             value = attr.to_cerebrum(value)

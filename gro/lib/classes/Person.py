@@ -42,7 +42,7 @@ class Person(Entity):
     def load(self):
         import Types
 
-        e = Cerebrum.Person.Person(Database.get_database())
+        e = Cerebrum.Person.Person(self.get_database())
         e.find(self._entity_id)
 
         self._exportId = e.export_id
@@ -55,7 +55,7 @@ class Person(Entity):
 
         accounts = []
 
-        e = Cerebrum.Person.Person(Database.get_database())
+        e = Cerebrum.Person.Person(self.get_database())
         e.entity_id = self._entity_id
         
         for row in e.get_accounts():
@@ -67,7 +67,7 @@ class Person(Entity):
 
         names = []
 
-        e = Cerebrum.Person.Person(Database.get_database())
+        e = Cerebrum.Person.Person(self.get_database())
         e.entity_id = self._entity_id
 
         for row in e.get_all_names():

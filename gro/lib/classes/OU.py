@@ -27,11 +27,11 @@ from Entity import Entity
 __all__ = ['OU']
 
 class OU(Entity):
-    slots = Entity.slots + [CerebrumAttr('name', 'string', writable=True),
-                            CerebrumAttr('acronym', 'string', writable=True),
-                            CerebrumAttr('short_name', 'string', writable=True),
-                            CerebrumAttr('display_name', 'string', writable=True),
-                            CerebrumAttr('sort_name', 'string', writable=True)]
+    slots = Entity.slots + [CerebrumAttr('name', 'string', write=True),
+                            CerebrumAttr('acronym', 'string', write=True),
+                            CerebrumAttr('short_name', 'string', write=True),
+                            CerebrumAttr('display_name', 'string', write=True),
+                            CerebrumAttr('sort_name', 'string', write=True)]
     method_slots = Entity.method_slots + [Method('get_parent', 'OU', [('perspective','string')]), 
                                           Method('set_parent', 'void', [('perspective','string'),
                                                                         ('parent','OU')]),
@@ -52,25 +52,25 @@ class OU(Entity):
     cerebrum_class = Cerebrum.OU.OU
 
     def get_parent(self, perspective):
-        e = Cerebrum.OU.OU(Database.get_database())
+        e = Cerebrum.OU.OU(self.get_database())
         e.entity_id = self._entity_id
         parent_id = e.get_parent(perspective)
         return OU(int(parent_id))
 
     def set_parent(self, perspective, parent):
-        e = Cerebrum.OU.OU(Database.get_database())
+        e = Cerebrum.OU.OU(self.get_database())
         e.entity_id = self._entity_id
         e.set_parent(perspective, parent._entity_id)
 
     def unset_parent(self, perspective):
-        e = Cerebrum.OU.OU(Database.get_database())
+        e = Cerebrum.OU.OU(self.get_database())
         e.entity_id = self._entity_id
         e.unset_parent(perspective)
 
     def get_names(self):
         names = []
         
-        e = Cerebrum.OU.OU(Database.get_database())
+        e = Cerebrum.OU.OU(self.get_database())
         e.entity_id = self._entity_id
         result = e.get_names()
         
@@ -81,7 +81,7 @@ class OU(Entity):
     def get_acronyms(self):
         acronyms = []
         
-        e = Cerebrum.OU.OU(Database.get_database())
+        e = Cerebrum.OU.OU(self.get_database())
         e.entity_id = self._entity_id
         result = e.get_names()
         
@@ -90,13 +90,13 @@ class OU(Entity):
         return acronyms
 
     def get_structure_path(self, perspective):
-        e = Cerebrum.OU.OU(Database.get_database())
+        e = Cerebrum.OU.OU(self.get_database())
         e.entity_id = self._entity_id
         return e.structure_path(perspective)
 
     def get_structure_mappings(self, perspective):
         mappings = []
-        e = Cerebrum.OU.OU(Database.get_database())
+        e = Cerebrum.OU.OU(self.get_database())
         e.entity_id = self._entity_id
         for ou_id, parent_id in e.get_structure_mappings(perspective):
             mappings.append(OUStructure(OU(int(ou_id)), OU(int(parent_id))))
@@ -104,7 +104,7 @@ class OU(Entity):
 
     def list_children(self, perspective): # This differs from the Cerebrum API
         children = []
-        e = Cerebrum.OU.OU(Database.get_database())
+        e = Cerebrum.OU.OU(self.get_database())
         e.entity_id = self._entity_id
         for id in e.list_children(perspective):
             children.append(OU(int(id)))
@@ -114,7 +114,7 @@ class OU(Entity):
         return self.list_children(perspective)
 
     def root(self):
-        e = Cerebrum.OU.OU(Database.get_database())
+        e = Cerebrum.OU.OU(self.get_database())
         e.entity_id = self._entity_id
         return OU(int(e.root()[0][0]))
 

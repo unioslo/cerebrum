@@ -36,11 +36,11 @@ def entity_to_cerebrum(value):
 
 class Account(Entity):
     # hmm.. skipper np_type inntil videre. og konseptet rundt home/disk er litt føkka
-    slots = Entity.slots + [CerebrumAttr('name', 'string', 'account_name', writable=True),
+    slots = Entity.slots + [CerebrumAttr('name', 'string', 'account_name', write=True),
                             CerebrumEntityAttr('owner', 'long', 'owner_id'),
                             CerebrumAttr('create_date', 'Date'),
                             CerebrumEntityAttr('creator', 'long', 'creator_id'),
-                            CerebrumAttr('expire_date', 'Date', writable=True)]
+                            CerebrumAttr('expire_date', 'Date', write=True)]
     method_slots = Entity.method_slots + [Method('get_authentications', 'AccountAuthentication'),
                                           Method('authenticate', 'boolean', [('password', 'string')])]
 
@@ -48,14 +48,14 @@ class Account(Entity):
     
     def get_authentications(self): # jada... dette skal bort/gjøres på en annen måte
         authentications = []
-        for row in Database.get_database().query('''SELECT account_id, method, auth_data
+        for row in self.get_database().query('''SELECT account_id, method, auth_data
                                FROM account_authentication
                                WHERE account_id = %s''' % self._entity_id):
             authentications.append(AccountAuthentication.getByRow(row))
         return authentications
 
     def authenticate(self, password):
-        e = Cerebrum.Account.Account(Database.get_database())
+        e = Cerebrum.Account.Account(self.get_database())
 
         for auth in self.get_authentications():
             auth_data = auth.get_auth_data()
@@ -66,7 +66,7 @@ class Account(Entity):
 class AccountAuthentication(Builder):
     primary = [Attribute('account_id', 'Account'),
                Attribute('method', 'AuthenticationType')]
-    slots = primary + [Attribute('auth_data', 'string', writable=True)]
+    slots = primary + [Attribute('auth_data', 'string', write=True)]
 
     def getByRow(cls, row):
         import Types

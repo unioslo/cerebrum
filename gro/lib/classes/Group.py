@@ -32,17 +32,17 @@ __all__ = ['Group', 'GroupMember']
 
 class Group(Entity):
     slots = Entity.slots + [CerebrumAttr('name', 'string', 'group_name', True),
-                            CerebrumAttr('description', 'string', writable=True),
+                            CerebrumAttr('description', 'string', write=True),
                             CerebrumTypeAttr('visibility', 'GroupVisibilityType',
-                                             GroupVisibilityType, writable=True),
-                            CerebrumAttr('expire_date', 'Date', writable=True)]
+                                             GroupVisibilityType, write=True),
+                            CerebrumAttr('expire_date', 'Date', write=True)]
     method_slots = Entity.method_slots + [Method('get_group_members', 'GroupMemberSeq')]
 
     cerebrum_class = Cerebrum.Group.Group
 
     def get_group_members(self):
         members = []
-        e = Cerebrum.Group.Group(Database.get_database())
+        e = Cerebrum.Group.Group(self.get_database())
         e.entity_id = self._entity_id
 
         union, intersection, difference = e.list_members()

@@ -74,12 +74,12 @@ class Searchable(object):
         search_class.method_slots = []
         
         for attr in cls.slots:
-            if not attr.writable:
+            if not attr.write:
                 continue
 
             get = create_get_method(attr.name)
 
-            new_attr = Attribute(attr.name, attr.data_type, writable=True)
+            new_attr = Attribute(attr.name, attr.data_type, write=True)
             search_class.register_attribute(new_attr, get=get)
             
         if not hasattr(cls, 'cerebrum_class'): # shouldnt this be an assert?

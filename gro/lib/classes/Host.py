@@ -29,5 +29,5 @@ __all__ = ['Host']
 
 class Host(Entity):
     cerebrum_class = Cerebrum.Disk.Host
-    slots = Entity.slots + [CerebrumAttr('name', 'string', writable=True), 
-                            CerebrumAttr('description', 'string', writable=True)]
+    slots = Entity.slots + [CerebrumAttr('name', 'string', write=True), 
+                            CerebrumAttr('description', 'string', write=True)]

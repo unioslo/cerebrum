@@ -46,15 +46,20 @@ class Entity(Builder, Searchable, CerebrumClass):
     method_slots = [Method('get_spreads', 'SpreadSeq'),
                     Method('get_notes', 'NoteSeq'),
                     Method('get_contact_info', 'ContactInfoSeq'),
-                    Method('get_addresses', 'AddressSeq')]
+                    Method('get_addresses', 'AddressSeq'),
+                    Method('add_note', 'void', [('subject', 'string'), ('description', 'string')],
+                            write=True)]
 
     cerebrum_class = Cerebrum.Entity.Entity
 
-#    def add_note(self, creator_id, subject, description):
-#        e = Cerebrum.modules.Note.EntityNote(db)
-#        e.entity_id = self.get_entity_id()
-#
-#        e.add_note(creator_id, subject, description)
+    def add_note(self, subject, description):
+        db = self.get_database()
+        e = Cerebrum.modules.Note.EntityNote(db)
+        e.entity_id = self.get_entity_id()
+
+        print 'change_by', [db.change_by]
+
+        e.add_note(db.change_by, subject, description)
 
     def __new__(cls, *args, **vargs):
         obj = Builder.__new__(Entity, *args, **vargs)
@@ -80,7 +85,7 @@ class Entity(Builder, Searchable, CerebrumClass):
 
     def get_spreads(self):
         import Types
-        e = Cerebrum.Entity.Entity(Database.get_database())
+        e = Cerebrum.Entity.Entity(self.get_database())
         e.entity_id = self.get_entity_id()
         
         spreads = []
@@ -92,7 +97,7 @@ class Entity(Builder, Searchable, CerebrumClass):
     def get_notes(self):
         notes = []
 
-        e = Cerebrum.modules.Note.EntityNote(Database.get_database())
+        e = Cerebrum.modules.Note.EntityNote(self.get_database())
         e.entity_id = self.get_entity_id()
 
         for row in e.get_notes():
@@ -104,7 +109,7 @@ class Entity(Builder, Searchable, CerebrumClass):
            
     def get_addresses(self):
         addresses = []
-        e = Cerebrum.Entity.EntityAddress(Database.get_database())
+        e = Cerebrum.Entity.EntityAddress(self.get_database())
         e.entity_id = self.get_entity_id()
 
         for row in e.get_entity_address():
@@ -115,7 +120,7 @@ class Entity(Builder, Searchable, CerebrumClass):
     def get_contact_info(self):
         contact_info = []
 
-        e = Cerebrum.Entity.EntityContactInfo(Database.get_database())
+        e = Cerebrum.Entity.EntityContactInfo(self.get_database())
         e.entity_id = self._entity_id
 
         for row in e.get_contact_info():
@@ -124,12 +129,12 @@ class Entity(Builder, Searchable, CerebrumClass):
         return contact_info
 
     def is_quarantined(self):
-        account = Cerebrum.Entity.EntityQuarantine(Database.get_database())
+        account = Cerebrum.Entity.EntityQuarantine(self.get_database())
         account.entity_id = self._entity_id
 
         # koka fra bofhd
         quarantines = []      # TBD: Should the quarantine-check have a utility-API function?
-        now = Database.get_database().DateFromTicks(time.time())
+        now = self.get_database().DateFromTicks(time.time())
         for qrow in account.get_entity_quarantine():
             if (qrow['start_date'] <= now
                 and (qrow['end_date'] is None or qrow['end_date'] >= now)
@@ -138,25 +143,18 @@ class Entity(Builder, Searchable, CerebrumClass):
                 # The quarantine found in this row is currently
                 # active.
                 quarantines.append(qrow['quarantine_type'])
-        qh = Cerebrum.QuarantineHandler.QuarantineHandler(Database.get_database(), quarantines)
+        qh = Cerebrum.QuarantineHandler.QuarantineHandler(self.get_database(), quarantines)
         if qh.should_skip() or qh.is_locked():
             return True
         return False
-
-#    def load_entity_type(self):
-#        import Types
-#
-#        e = self.cerebrum_class(Database.get_database())
-#        e.find(self._entity_id)
-#        self._entity_type = Types.EntityType.get_by_id(int(e.entity_type))
 
 class ContactInfo(Builder):
     primary = [Attribute('entity_id', 'long'),
                Attribute('source_system', 'SourceSystem'),
                Attribute('contact_type', 'ContactInfoType'),
                Attribute('contact_pref', 'long')]
-    slots = primary + [Attribute('contact_value', 'string', writable=True),
-                       Attribute('description', 'string', writable=True)]
+    slots = primary + [Attribute('contact_value', 'string', write=True),
+                       Attribute('description', 'string', write=True)]
 
     def getByRow(cls, row):
         import Types
@@ -198,14 +196,15 @@ class Note(Builder):
 
 class Address(Builder):
     # country må fikses.. Lage en egen Node for det i Types kanskje..
+    # Address skal vel kanskje heller ikke ha write-attributes?
     slots = [Attribute('entity_id', 'long'),
              Attribute('source_system', 'SourceSystem'),
              Attribute('address_type', 'AddressType'),
-             Attribute('address_text', 'string', writable=True), 
-             Attribute('p_o_box', 'string', writable=True),
-             Attribute('postal_number', 'string', writable=True),
-             Attribute('city', 'string', writable=True),
-             Attribute('country', 'long', writable=True)]
+             Attribute('address_text', 'string', write=True), 
+             Attribute('p_o_box', 'string', write=True),
+             Attribute('postal_number', 'string', write=True),
+             Attribute('city', 'string', write=True),
+             Attribute('country', 'long', write=True)]
 
     def getByRow(cls, row):
         import Types

@@ -26,15 +26,15 @@ from Builder import Attribute
 __all__ = ['Disk']
 
 class Disk(Entity):
-    slots = Entity.slots + [Attribute('host', 'Host', writable=True),
-                            Attribute('path', 'string', writable=True),
-                            Attribute('description', 'string', writable=True)]
+    slots = Entity.slots + [Attribute('host', 'Host', write=True),
+                            Attribute('path', 'string', write=True),
+                            Attribute('description', 'string', write=True)]
 
     cerebrum_class = Cerebrum.Disk.Disk
 
     def _load_disk(self):
         import Host
-        e = Cerebrum.Disk.Disk(Database.get_database())
+        e = Cerebrum.Disk.Disk(self.get_database())
         e.find(self._entity_id)
 
         self._host = Host.Host(int(e.host_id))
@@ -42,7 +42,7 @@ class Disk(Entity):
         self._description  = e.description
 
     def _save_disk(self):
-        e = Cerebrum.Disk.Disk(Database.get_database())
+        e = Cerebrum.Disk.Disk(self.get_database())
         e.find(self._entity_id)
 
         e.host_id = self._host.get_entity_id()
