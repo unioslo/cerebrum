@@ -13,6 +13,7 @@ db = Factory.get('Database')()
 
 def list_disk_quotas(fname):
     f = Utils.SimilarSizeWriter(fname, "w")
+    f.set_size_change_limit(10)
     now = mx.DateTime.now()
     dq = DiskQuota(db)
     for row in dq.list_quotas():
