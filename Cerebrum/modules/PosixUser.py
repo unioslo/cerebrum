@@ -191,21 +191,18 @@ class PosixUser(Account.Account):
 
     def get_gecos(self):
         """Returns the gecos string of this object.  If self.gecos is
-        not set, gecos is determined by searching for
-        DEFAULT_GECOS_NAME in POSIX_GECOS_SOURCE_ORDER"""
+        not set, gecos is a washed version of the persons cached fullname"""
         assert self.owner_type == int(self.const.entity_person)
         if self.gecos is not None:
             return self.gecos
         p = Person.Person(self._db)
         p.find(self.owner_id)
-        for ss in cereconf.POSIX_GECOS_SOURCE_ORDER:
-            try:
-               ret = p.get_name(getattr(self.const, ss),
-                                getattr(self.const,
-                                        cereconf.DEFAULT_GECOS_NAME))
-               return ret
-            except Errors.NotFoundError:
-                pass
+        try:
+            ret = p.get_name(self.const.system_cached,
+                             self.const.name_full)
+            return self._conv_name(ret)
+        except Errors.NotFoundError:
+            pass
         return "Unknown"  # Raise error?
 
     def get_home(self):
