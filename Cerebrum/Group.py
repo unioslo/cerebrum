@@ -57,7 +57,16 @@ class Group(EntityName, Entity):
             self.__xerox__(parent)
         else:
             Entity.populate(self, self.const.entity_group)
-        self.__in_db = False
+        # If __in_db is present, it must be True; calling populate on
+        # an object where __in_db is present and False is very likely
+        # a programming error.
+        #
+        # If __in_db in not present, we'll set it to False.
+        try:
+            if not self.__in_db:
+                raise RuntimeError, "populate() called multiple times."
+        except AttributeError:
+            self.__in_db = False
         self.creator_id = creator.entity_id
         self.visibility = int(visibility)
         self.description = description
@@ -83,7 +92,8 @@ class Group(EntityName, Entity):
         self.__super.write_db()
         if not self.__updated:
             return
-        if not self.__in_db:
+        is_new = not self.__in_db
+        if is_new:
             cols = [('entity_type', ':e_type'),
                     ('group_id', ':g_id'),
                     ('description', ':desc'),
@@ -157,6 +167,7 @@ class Group(EntityName, Entity):
         del self.__in_db
         self.__in_db = True
         self.__updated = False
+        return is_new
 
     def delete(self):
         if self.__in_db:

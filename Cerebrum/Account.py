@@ -46,6 +46,11 @@ class Account(EntityName, EntityQuarantine, Entity):
         for attr in Account.__write_attr__:
             setattr(self, attr, None)
         self.__updated = False
+
+        # TODO: The following attributes are currently not in
+        #       Account.__slots__, which means they will stop working
+        #       once all Entity classes have been ported to use the
+        #       mark_update metaclass.
         self._name_info = {}
         self._auth_info = {}
         self._acc_affect_auth_types = ()
@@ -68,7 +73,16 @@ class Account(EntityName, EntityQuarantine, Entity):
             self.__xerox__(parent)
         else:
             Entity.populate(self, self.const.entity_account)
-        self.__in_db = False
+        # If __in_db is present, it must be True; calling populate on
+        # an object where __in_db is present and False is very likely
+        # a programming error.
+        #
+        # If __in_db in not present, we'll set it to False.
+        try:
+            if not self.__in_db:
+                raise RuntimeError, "populate() called multiple times."
+        except AttributeError:
+            self.__in_db = False
         self.owner_type = owner_type
         self.owner_id = owner_id
         self.np_type = np_type
@@ -93,7 +107,8 @@ class Account(EntityName, EntityQuarantine, Entity):
         for method in cereconf.AUTH_CRYPT_METHODS:
             method_const = getattr(self.const, method)
             if not method_const in self._acc_affect_auth_types:
-                self._acc_affect_auth_types = self._acc_affect_auth_types + (method_const,)
+                self._acc_affect_auth_types = self._acc_affect_auth_types + \
+                                              (method_const,)
             enc = getattr(self, "enc_%s" % method)
             enc = enc(plaintext)
             self.populate_authentication_type(getattr(self.const, method), enc)
@@ -110,7 +125,8 @@ class Account(EntityName, EntityQuarantine, Entity):
         self.__super.write_db()
         if not self.__updated:
             return
-        if not self.__in_db:
+        is_new = not self.__in_db
+        if is_new:
             cols = [('entity_type', ':e_type'),
                     ('account_id', ':acc_id'),
                     ('owner_type', ':o_type'),
@@ -188,8 +204,9 @@ class Account(EntityName, EntityQuarantine, Entity):
             if self._auth_info.get(k, None) is not None:
                 if what == 'insert':
                     self.execute("""
-                    INSERT INTO [:table schema=cerebrum name=account_authentication]
-                        (account_id, method, auth_data)
+                    INSERT INTO
+                      [:table schema=cerebrum name=account_authentication]
+                      (account_id, method, auth_data)
                     VALUES (:acc_id, :method, :auth_data)""",
                                  {'acc_id' : self.entity_id, 'method' : k,
                                   'auth_data' : self._auth_info[k]})
@@ -208,17 +225,23 @@ class Account(EntityName, EntityQuarantine, Entity):
         del self.__in_db
         self.__in_db = True
         self.__updated = False
+        return is_new
 
     def find(self, account_id):
-        super(Account, self).find(account_id)
+        self.__super.find(account_id)
 
         (self.entity_id, self.owner_type, self.owner_id,
          self.np_type, self.create_date, self.creator_id,
-         self.expire_date) = self.query_1(
-            """SELECT account_id, owner_type, owner_id, np_type, create_date, creator_id, expire_date
-               FROM [:table schema=cerebrum name=account_info]
-               WHERE account_id=:a_id""", {'a_id' : account_id})
+         self.expire_date) = self.query_1("""
+        SELECT account_id, owner_type, owner_id, np_type, create_date,
+               creator_id, expire_date
+        FROM [:table schema=cerebrum name=account_info]
+        WHERE account_id=:a_id""", {'a_id' : account_id})
         self.account_name = self.get_name(self.const.account_namespace)[0][2]
+        try:
+            del self.__in_db
+        except AttributeError:
+            pass
         self.__in_db = True
         self.__updated = False
 
@@ -230,6 +253,9 @@ class Account(EntityName, EntityQuarantine, Entity):
     def get_account_authentication(self, method):
         """Return the name with the given variant"""
 
-        return self.query_1("""SELECT auth_data FROM [:table schema=cerebrum name=account_authentication]
-            WHERE account_id=:a_id AND method=:method""",
-                            {'a_id' : self.entity_id, 'method' : int(method)})
+        return self.query_1("""
+        SELECT auth_data
+        FROM [:table schema=cerebrum name=account_authentication]
+        WHERE account_id=:a_id AND method=:method""",
+                            {'a_id': self.entity_id,
+                             'method': int(method)})
