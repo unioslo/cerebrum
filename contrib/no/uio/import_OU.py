@@ -225,6 +225,9 @@ def import_org_units(sources):
 	    phone_value = "%s%05i" % (k['innvalgnr'], int(k['linjenr']))
             ou.populate_contact_info(source_system, co.contact_phone,
 					phone_value, contact_pref=n)
+        elif int(k.get('telefonnr', 0)):
+            ou.populate_contact_info(source_system, co.contact_phone,
+					k['telefonnr'], contact_pref=n)
         op = ou.write_db()
         if verbose:
             if op is None:
