@@ -129,7 +129,7 @@ class Profile(object):
         for t in self.matcher.toplevel_settings.get('primarygroup', []):
             if self.pc.group_defs[t]['is_posix']:
                 return t
-        for t in self.matcher.toplevel_settings['gruppe']:
+        for t in self.matcher.toplevel_settings.get('gruppe', []):
             if self.pc.group_defs[t]['is_posix']:
                 return t
         for t in self.matcher.settings.get('gruppe', []):
