@@ -51,7 +51,8 @@ class CorbaSession(CorbaBuilder):
     #       - oversikt over alle brukere/transaksjoner.
 
 
-classes = registry.classes.values()
+classes = []
+classes += registry.classes
 classes.append(CorbaSession)
 
 idl_source = create_idl_source(classes, 'generated')
@@ -59,7 +60,7 @@ idl_source = create_idl_source(classes, 'generated')
 omniORB.importIDLString(idl_source, ['-I' + cereconf.IDL_PATH])
 
 import generated__POA
-for name, gro_class in registry.classes.items():
+for name, gro_class in registry.map.items():
     idl_class = getattr(generated__POA, name)
     CorbaClass.register_gro_class(gro_class, idl_class)
 

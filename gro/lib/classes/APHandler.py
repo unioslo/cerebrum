@@ -22,7 +22,7 @@ class APHandler(GroBuilder, Transaction):
         GroBuilder.__init__(self, *args, **vargs)
         Transaction.__init__(self, self.get_client())
 
-for name, gro_class in registry.classes.items():
+for name, gro_class in registry.map.items():
     method_name = 'get'
     for i in name:
         if i.isupper():

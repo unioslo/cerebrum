@@ -22,12 +22,13 @@ from Builder import Builder
 
 class Registry(object):
     def __init__(self):
-        self.classes = {}
+        self.map = {}
+        self.classes = []
 
     def register_class(self, gro_class):
         name = gro_class.__name__
 
-        assert not name in self.classes
+        assert not name in self.map
 
         if issubclass(gro_class, Builder):
             gro_class.build_methods()
@@ -35,17 +36,11 @@ class Registry(object):
         if issubclass(gro_class, Searchable) and issubclass(gro_class, Builder):
             self.register_class(gro_class.create_search_class())
 
-        self.classes[name] = gro_class
-
-    def get_gro_classes(self):
-        gro_classes = {}
-        for name, cls in self.classes.items():
-            if issubclass(cls, Builder):
-                gro_classes[name] = cls
-        return gro_classes
+        self.map[name] = gro_class
+        self.classes.append(gro_class)
 
     def __getattr__(self, key):
-        return self.classes[key]
+        return self.map[key]
 
 _registry = None
 def get_registry():
