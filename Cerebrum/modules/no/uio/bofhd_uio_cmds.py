@@ -678,7 +678,7 @@ class BofhdExtension(object):
         archive_prog = '/local/share/mta/bin/new-archive-monthly'
         arch = lp.lower() + "-archive"
         dc = dom.lower().split('.'); dc.reverse()
-        archive_dir = "/".join(["/uio/caesar/mailarkiv"] + dc + [arch])
+        archive_dir = "/uio/caesar/mailarkiv/" + ".".join(dc) + "/" + arch
         et = Email.EmailTarget(self.db)
         et.populate(self.const.email_target_pipe,
                     alias="|%s %s" % (archive_prog, archive_dir),
@@ -799,8 +799,9 @@ class BofhdExtension(object):
         ("email", "domain_info"),
         SimpleString(help_ref="email_domain"),
         fs=FormatSuggestion([
-        ("E-mail domain:    %s",
-         ("domainname",)),
+        ("E-mail domain:    %s\n"+
+         "Description:      %s",
+         ("domainname", "description")),
         ("Configuration:    %s",
          ("category",)),
         ("Affiliation:      %s@%s",
@@ -808,7 +809,8 @@ class BofhdExtension(object):
     def email_domain_info(self, operator, domainname):
         ed = self._get_email_domain(domainname)
         ret = []
-        ret.append({'domainname': domainname})
+        ret.append({'domainname': domainname,
+                    'description': ed.email_domain_description})
         for r in ed.get_categories():
             ret.append({'category': str(self.num2const[r['category']])})
         eed = Email.EntityEmailDomain(self.db)
