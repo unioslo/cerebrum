@@ -218,7 +218,6 @@ class ProfileMatcher(object):
         self.logger = logger
         self._matches, self._matched_settings = pc.select_tool.get_person_match(
             student_info, member_groups=member_groups, person_affs=person_affs)
-        self.logger.debug("Matched settings: %s" % self._matched_settings)
         if not self._matched_settings:
             raise NoMatchingProfiles, "No matching profiles"
 
