@@ -116,13 +116,14 @@ INSERT INTO [:table schema=cerebrum name=posix_shell_code]
    Hence, we need to come up with a better solution... */
 INSERT INTO [:table schema=cerebrum name=value_domain_code]
   (code, code_str, description) VALUES
-  ([:sequence schema=cerebrum name=code_seq op=next], 'def_accname_dom',
-   'Default domain for account names');
-INSERT INTO [:table schema=cerebrum name=value_domain_code]
-  (code, code_str, description) VALUES
   ([:sequence schema=cerebrum name=code_seq op=next],
    [:get_config var=DEFAULT_GROUP_NAMESPACE],
    'Default domain for group names');
+INSERT INTO [:table schema=cerebrum name=value_domain_code]
+  (code, code_str, description) VALUES
+  ([:sequence schema=cerebrum name=code_seq op=next],
+   [:get_config var=DEFAULT_ACCOUNT_NAMESPACE],
+   'Default domain for account names');
 
 INSERT INTO [:table schema=cerebrum name=authentication_code]
   (code, code_str, description) VALUES
