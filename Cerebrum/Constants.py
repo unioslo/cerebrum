@@ -217,7 +217,7 @@ class Constants(DatabaseAccessor):
 
     entity_accname_default = _ValueDomainCode("def_accname_dom")
 
-    auth_type_md5 = _AuthenticationCode("MD5")
+    auth_type_md5 = _AuthenticationCode("md5")
     
     group_memberop_union = _GroupMembershipOpCode('union')
     group_memberop_intersection = _GroupMembershipOpCode('intersection')
