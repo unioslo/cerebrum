@@ -13,6 +13,8 @@ def main():
 def makedbs(Cerebrum):
     for f in ('drop_core_tables.sql',
               'core_tables.sql',
+              'mod_drop_posix_user.sql',
+              'mod_posix_user.sql',
               'core_data.sql',
               #'pop.sql',
               'mod_drop_stedkode.sql',
