@@ -655,12 +655,13 @@ def process_move_requests():
                     br.delay_request(r['request_id'], minutes=24*60)
             db.commit()
 
-    return # We want to test the API changes before putting this in production
-
     for r in br.get_requests(operation=const.bofh_move_student):
         # TODO: Må også behandle const.bofh_move_student, men
         # student-auomatikken mangler foreløbig støtte for det.
         pass
+
+def process_delete_requests():
+    br = BofhdRequests(db, const)
     group = Factory.get('Group')(db)
     for r in br.get_requests(operation=const.bofh_delete_user):
         if not keep_running():
@@ -675,7 +676,24 @@ def process_move_requests():
             account, uname, old_host, old_disk = get_account(
                 r['entity_id'], spread=spread)
         operator = get_account(r['requestee_id'])[0].account_name
-        if delete_user(uname, old_host, '%s/%s' % (old_disk, uname), operator):
+        est = Email.EmailServerTarget(db)
+        try:
+            est.find_by_entity(account.entity_id)
+        except Errors.NotFoundError:
+            mail_server = ''
+        else:
+            es = Email.EmailServer(db)
+            es.find(est.email_server_id)
+            mail_server = es.name
+        if delete_user(uname, old_host, '%s/%s' % (old_disk, uname), operator,
+                       mail_server):
+            if is_posix:
+                # demote the user first to avoid problems with
+                # PosixUsers with names illegal for PosixUsers
+                account.delete_posixuser()
+                id = account.entity_id
+                account = Factory.get('Account')(db)
+                account.find(id)
             account.expire_date = br.now
             account.write_db()
             home = account.get_home(spread)
@@ -684,8 +702,6 @@ def process_move_requests():
             # Remove references in other tables
             # Note that we preserve the quarantines for deleted users
             # TBD: Should we have an API function for this?
-            if is_posix:
-                account.delete_posixuser()
             for s in account.get_spread():
                 account.delete_spread(s['spread'])
             for g in group.list_groups_with_entity(account.entity_id):
@@ -695,9 +711,9 @@ def process_move_requests():
             br.delete_request(request_id=r['request_id'])
             db.commit()
 
-def delete_user(uname, old_host, old_home, operator):
+def delete_user(uname, old_host, old_home, operator, mail_server):
     cmd = [SUDO_CMD, cereconf.WRAPPER_CMD, '-c', 'aruser', uname,
-           operator, old_home]
+           operator, old_home, mail_server]
     cmd = ["%s" % x for x in cmd]
     logger.debug("doing %s" % cmd)
     if debug_hostlist is None or old_host in debug_hostlist:
@@ -768,38 +784,49 @@ def keep_running():
     # the next task.  This check is necessary since job_runner is
     # single-threaded, and so this job will block LDAP updates
     # etc. while it is running.
+    global max_requests
+    max_requests -= 1
+    if max_requests < 0:
+        return False
     return time.time() - start_time < 30 * 60
 
 def main():
-    global start_time
+    global start_time, max_requests
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'dp',
-                                   ['debug', 'process'])
+        opts, args = getopt.getopt(sys.argv[1:], 'dpt:m:',
+                                   ['debug', 'process', 'type=', 'max='])
     except getopt.GetoptError:
         usage(1)
     if not opts:
         usage(1)
+    types = []
+    max_requests = 999999
     for opt, val in opts:
         if opt in ('-d', '--debug'):
             print "debug mode has not been implemented"
             sys.exit(1)
+        elif opt in ('-t', '--type',):
+            types.append(val)
+        elif opt in ('-m', '--max',):
+            max_requests = int(val)
         elif opt in ('-p', '--process'):
+            if not types:
+                types = ['move', 'email', 'mailman'] # 'delete', 
             # We set start_time for each type of requests, so that a
             # lot of home directory moves won't stop e-mail requests
             # from being processed in a timely manner.
-            start_time = time.time()
-            process_move_requests()
-            
-            start_time = time.time()
-            process_email_requests()
-            
-            start_time = time.time()
-            process_mailman_requests()
+            for t in types:
+                start_time = time.time()
+                func = globals()["process_%s_requests" % t]
+                apply(func)
 
 def usage(exitcode=0):
     print """Usage: process_bofhd_requests.py
     -d | --debug: turn on debugging
-    -p | --process: perform the queued operations"""
+    -p | --process: perform the queued operations
+    -t | --type type: performe queued operations of this type.  May be
+         repeated, and must be preceeded by -p
+    -m | --max val: perform up to this number of requests"""
     sys.exit(exitcode)
 
 if __name__ == '__main__':
