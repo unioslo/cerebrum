@@ -431,6 +431,8 @@ class CommonConstants(ConstantsBase):
     gender_unknown = _GenderCode('X', 'Unknown gender')
 
     group_visibility_all = _GroupVisibilityCode('A', 'All')
+    group_visibility_none = _GroupVisibilityCode('N', 'None')
+    group_visibility_internal = _GroupVisibilityCode('I', 'Internal')
 
     name_first = _PersonNameCode('FIRST', 'First name')
     name_last = _PersonNameCode('LAST', 'Last name')
