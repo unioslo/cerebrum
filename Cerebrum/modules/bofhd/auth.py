@@ -357,7 +357,7 @@ class BofhdAuth(DatabaseAccessor):
                                             self.const.auth_alter_printerquota,
                                             self._get_disk(account.disk_id))
     
-    def can_query_printerquta(self, operator, account=None,
+    def can_query_printerquota(self, operator, account=None,
                               query_run_any=False):
         if self.is_superuser(operator):
             return True
