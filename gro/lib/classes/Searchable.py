@@ -21,8 +21,7 @@ from __future__ import generators
 
 import copy
 
-from GroBuilder import GroBuilder
-from Builder import Attribute, Method
+from Builder import Method
 
 def create_get_method(var):
     """
@@ -37,77 +36,39 @@ def create_get_method(var):
         return getattr(self, '_' + var, default)
     return get
 
-def create_id_iterator(start=0):
-    while 1:
-        yield start
-        start += 1
-
-class SearchClass(GroBuilder):
-    search_id_iterator = create_id_iterator()
-
-    def __init__(self, search_id=None):
-        GroBuilder.__init__(self)
-
-    def save(self):
-        pass
-
-    def reset(self):
-        pass
-
-    def create_primary_key(cls, search_id=None):
-        if search_id is None:
-            search_id = cls.search_id_iterator.next()
-
-        return (search_id, )
-
-    create_primary_key = classmethod(create_primary_key)
-
-    def get_alive_slots(self): # FIXME: dårlig navn?
-        alive = {}
-        mine = object() # make a unique object
-        for attr in self.slots:
-            val = getattr(self, '_' + attr.name, mine)
-            if val is not mine:
-                alive[attr.name] = val
-        return alive
-
-    def search(self):
-        if not hasattr(self, '_result') or self.updated:
-            alive = self.get_alive_slots()
-            self._result = self._search(**alive)
-            self.updated.clear()
-
-        return self._result
-
 class Searchable(object):
     search_slots = []
 
-    def create_search_class(cls):
+    def build_search_class(cls):
+        from SearchClass import SearchClass
+
         search_class_name = '%sSearch' % cls.__name__
+        if not hasattr(cls, 'search_class') or search_class_name != cls.search_class.__name__:
         
-        exec 'class %s(SearchClass):\n\tpass\nsearch_class = %s\n' % ( 
-            search_class_name, search_class_name)
+            exec 'class %s(SearchClass):\n\tpass\ncls.search_class = %s\n' % ( 
+                search_class_name, search_class_name)
+
+        search_class = cls.search_class
             
         search_class._cls = cls
 
-        search_class.slots = []
-        search_class.method_slots = []
-        
+        search_class.slots = SearchClass.slots + []
+        search_class.method_slots = SearchClass.method_slots + []
+
         for attr in cls.slots + cls.search_slots:
             get = create_get_method(attr.name)
 
             new_attr = copy.copy(attr)
             new_attr.write = True
-            search_class.register_attribute(new_attr, get=get)
+            search_class.register_attribute(new_attr, get=get, overwrite=True)
             
         search_class._search = cls.create_search_method()
         assert search_class._search
-        search_class.method_slots.append(Method('search', search_class, sequence=True))
+        search_class.method_slots.append(Method('search', cls, sequence=True))
 
         cls.search_class = search_class
-        return search_class
 
-    create_search_class = classmethod(create_search_class)
+    build_search_class = classmethod(build_search_class)
     
     def create_search_method(cls):
         """
