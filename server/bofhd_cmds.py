@@ -7,6 +7,7 @@ from Cerebrum import Group
 from Cerebrum import Person
 from Cerebrum import cereconf
 from Cerebrum.modules import PosixUser
+import re
 
 class BofhdExtension(object):
     """All CallableFuncs takes user as first arg, and is responsible
@@ -87,16 +88,21 @@ class BofhdExtension(object):
                                  PersonId(repeat=1)),
         ## bofh> person find {<name> | <id> [<id_type>] | <birth_date>}
         'person_find': Command(("person", "find") , Id(),
-                               PersonIdType(optional=1)),
+                               PersonIdType(optional=1),
+                               fs=FormatSuggestion("%-15s%-30s%-10s",
+                                                   ("export_id", "name", "bdate"),
+                                                   hdr="%-15s%-30s%-10s" %
+                                                   ("ExportID", "Name", "Birthdate"))),
         ## bofh> person info <idtype> <id>
         'person_info': Command(("person", "info"), PersonIdType(),
                                PersonId(), fs=FormatSuggestion(
         "Navn     : %20s\nFødt     : %20s\nKjønn    : %20s\n"
-        "person id: %20s\nExport-id: %20s",
+        "person id: %20d\nExport-id: %20s",
         ("name", "birth", "gender", "pid", "expid"))),
         ## bofh> person name <id_type> {<export_id> | <fnr>} <name_type> <name>
         'person_name': Command(("person", "name"), PersonIdType(),
-                               PersonId(), PersonNameType(), PersonName())
+                               PersonId(), PersonNameType(), PersonName(),
+                               fs=FormatSuggestion("OK", []))
         }
 
     def __init__(self, db):
@@ -315,10 +321,12 @@ class BofhdExtension(object):
         (accounts, affiliations, etc.) associatied with the person."""
         raise NotImplemetedError, "Feel free to implement this function"
 
-    def person_find(self, key, keytype):
+    def person_find(self, user, key, keytype=None):
         """Search for person with 'key'.  If keytype is not set, it is
         assumed to be a date on the format YYYY-MM-DD, or a name"""
         personids = ()
+        person = self.person
+        person.clear()
         if keytype is None:  # Is name or date (YYYY-MM-DD)
             m = re.match(r'(\d{4})-(\d{2})-(\d{2})', key)
             if m is not None:
@@ -330,38 +338,32 @@ class BofhdExtension(object):
         else:
             raise NotImplementedError, "What keytypes do exist?"
         ret = ()
-        person = self.person
-        person.clear()
         for p in personids:
-            person.find(p_id.person_id)
-            name = person.get_name(self.const.system_lt, self.const.name_full)  # TBD: SourceSystem
-            ret = ret + ({'p_id' : p_id.person_id, 'name' : name},)
+            person.clear()
+            person.find(p.person_id)
+            name = self._get_person_name(person)
+            ret = ret + ({'export_id' : person.export_id, 'name' : name,
+                          'bdate': str(person.birth_date)},)
         return ret
 
     # TBD:  Should add a generic _get_person(idtype, id) method
     def person_info(self, user, idtype, id):
         """Returns some info on person with 'idtype'='id'"""
         person = self._get_person(id, idtype)
-        name = None
-        for ss in cereconf.PERSON_NAME_SS_ORDER:
-            try:
-                name = person.get_name(getattr(self.const, ss), self.const.name_full)
-                break
-            except Errors.NotFoundError:
-                raise NotImplemetedError, "Feel free to implement this function"
-        
-        return {'name': name, 'pid': person.person_id,
+        name = self._get_person_name(person)
+        return {'name': name, 'pid': person.entity_id,
                 'expid': person.export_id, 'birth': str(person.birth_date),
-                'gender': person.gender, 'dead': person.deceased,
-                'desc': person.description or ''}
+                'gender': str(self.const.map_const(person.gender)),
+                'dead': person.deceased, 'desc': person.description or ''}
 
     def person_name(self, user, idtype, id, nametype, name):
         """Set name of 'nametype' to 'name' for person with 'idtype'='id'"""
-        # TODO: Map nametype to Constant
         person = self._get_person(id, idtype)
-        person.affect_names(self.const.system_manual, nametype)
-        person.populate_name(nametype, name)
+        nametypeid = self._get_nametypeid(nametype)
+        person.affect_names(self.const.system_manual, nametypeid)
+        person.populate_name(nametypeid, name)
         person.write_db()
+        return 1
 
     #
     # misc helper functions.
@@ -386,10 +388,42 @@ class BofhdExtension(object):
         
         return group
 
+    def _get_person_name(self, person):
+        name = None
+        for ss in cereconf.PERSON_NAME_SS_ORDER:
+            try:
+                name = person.get_name(getattr(self.const, ss), self.const.name_full)
+                break
+            except Errors.NotFoundError:
+                pass
+            if name is None:
+                try:
+                    f = person.get_name(getattr(self.const, ss), self.const.name_first)
+                    l = person.get_name(getattr(self.const, ss), self.const.name_last)
+                    name = "%s %s" % (f, l)
+                except Errors.NotFoundError:
+                    pass
+                    
+        if name is None:
+            name = "Ukjent"
+        return name
+
     def _get_person(self, id, idtype='fnr'):
         person = self.person
+        person.clear()
         if idtype == 'fnr':
             person.find_by_external_id(self.const.externalid_fodselsnr, id)
         else:
             raise NotImplemetedError, "Unknown idtype: %s" % idtype
         return person
+
+    def _get_nametypeid(self, nametype):
+        if nametype == 'first':
+            return self.const.name_first
+        elif nametype == 'last':
+            return self.const.name_last
+        elif nametype == 'full':
+            return self.const.name_full
+        else:
+            raise NotImplementedError, "unkown nametype: %s" % nametye
+        
