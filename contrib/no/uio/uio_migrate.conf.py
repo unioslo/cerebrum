@@ -46,6 +46,7 @@ user_aff_mapping = {
            'n' : [co.affiliation_manuell, co.affiliation_manuell_notam2],
            'p' : [co.affiliation_tilknyttet, co.affiliation_tilknyttet_ekst_stip],
            'r' : [co.affiliation_manuell, co.affiliation_manuell_radium],
+           't' : [co.affiliation_ansatt, '*unset*'],
            'u' : [co.affiliation_manuell, co.affiliation_manuell_gjest],
            # TODO: z = frischsenteret.  Hva er rett affiliation?
            'z' : [co.affiliation_manuell, co.affiliation_manuell_ekst_person],
