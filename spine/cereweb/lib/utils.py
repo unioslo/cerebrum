@@ -18,16 +18,11 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+import time
 import cereconf
-import os.path
 from Cerebrum.Errors import ProgrammingError
 import forgetHTML
 
-try:
-    import generated
-except Exception, e:
-    raise Exception("Unable to import generated: %s" % str(e))
-    
 def url(path):
     """Returns a full path for a path relative to the base installation.
        Example:
@@ -36,12 +31,12 @@ def url(path):
     """
     return cereconf.WEBROOT + "/" + path
 
-_object_type_url_map = {
-    generated.Account:      "account",
-    generated.Group:        "group",
-    generated.Person:       "person",
-    #AbstractModel.OU:      "ou",
-}
+#_object_type_url_map = {
+#    generated.Account:      "account",
+#    generated.Group:        "group",
+#    generated.Person:       "person",
+#    #AbstractModel.OU:      "ou",
+#}
 
 def object_url(object, method="view"):
     """Returns the full path to a page treating the object.
@@ -119,5 +114,21 @@ def no_cache(req):
     """Makes the current request non-cachable"""
     req.headers_out.add("Cache-Control:","no-cache")
     req.headers_out.add("Pragma:","no-cache")
+
+def new_transaction(req, name="", description=""):
+    """Creates a new transaction."""
+    trans = req.session.get("session").new_transaction()
+    trans.name = name
+    trans.description = description
+    trans.trans_started = time.ctime()
+    if not req.session.has_key("transactions"):
+        req.session["transactions"] = []
+    req.session["transactions"].append(trans)
+    return trans
+
+def snapshot(req):
+    """Creates a new snapshot."""
+    snap = req.session["session"].snapshot()
+    return snap
 
 # arch-tag: 046d3f6d-3e27-4e00-8ae5-4721aaf7add6

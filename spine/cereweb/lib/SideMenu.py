@@ -22,7 +22,6 @@ import Menu
 import utils
 from gettext import gettext as _
 
-
 class FixUrlMixin:
     def addItem(self, name, label, url):
             # i18n and fix url

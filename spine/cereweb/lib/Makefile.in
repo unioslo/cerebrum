@@ -10,7 +10,7 @@ prefix = @prefix@
 libdir = @libdir@
 pythondir = @PYTHONDIR@/Cereweb
 
-sources = $(wildcard *.py)
+sources = $(wildcard *.py cereweb.conf*)
 
 .PHONY: all install install-lib clean distclean print
 

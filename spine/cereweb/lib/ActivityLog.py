@@ -23,7 +23,7 @@
 # the Transactions.py..
 
 import forgetHTML as html
-from Cerebrum.web.templates.ActivityLogTemplate import ActivityLogTemplate
+from Cereweb.templates.ActivityLogTemplate import ActivityLogTemplate
 
 #subclass Division to be included in a division
 class ActivityLog(html.Division):

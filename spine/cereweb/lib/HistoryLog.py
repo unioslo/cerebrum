@@ -18,15 +18,13 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-from Cerebrum.web.templates.HistoryLogTemplate import HistoryLogTemplate
-from Cerebrum.web.TableView import TableView
-from Cerebrum.web.utils import url
-from Cerebrum.web.utils import object_link
+from Cereweb.templates.HistoryLogTemplate import HistoryLogTemplate
+from Cereweb.TableView import TableView
+from Cereweb.utils import url
+from Cereweb.utils import object_link
 from Cerebrum.Utils import Factory
 ClientAPI = Factory.get_module("ClientAPI")
-#from Cerebrum.web.Main import Main
 import types
-#import forgetHTML as html
 
 def view_history_short(entity):
     # Could use some other template for 'short' view 

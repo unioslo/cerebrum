@@ -18,13 +18,11 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-from templates.MainTemplate import MainTemplate
-from templates.TransactionsTemplate import TransactionsTemplate
+from utils import new_transaction
 from SideMenu import SideMenu
 from WorkList import WorkList
-from ActivityLog import ActivityLog
-from Transactions import begin
-from utils import no_cache
+from templates.MainTemplate import MainTemplate
+from templates.TransactionsTemplate import TransactionsTemplate
 
 class Main(MainTemplate):
     """Creates the main page without any content.
@@ -42,10 +40,9 @@ class Main(MainTemplate):
         self.prepare_session(req)
         self.menu = SideMenu()
         self.worklist = WorkList()
-        self.activitylog = ActivityLog()
+        #self.activitylog = ActivityLog()
         #self.worklist = self.session['worklist']
         #self.activitylog = self.session['activitylog']
-        no_cache(req)
 
     def prepare_session(self, req):
         """Makes sure parts of the page is created only once.
@@ -54,13 +51,8 @@ class Main(MainTemplate):
         Also prepares and displays any messages stored in the session.
         """
         if not self.session.has_key("transactions"):
-            self.session['active'] = begin(req, "DefaultName")
-            self.session['transactions'] = [self.session['active']]
+            self.session['active'] = new_transaction(req)
         self.transactionbox = lambda: TransactionsTemplate().smallbox(req)
-        #if not self.session.has_key("worklist"):
-        #    self.session['worklist'] = WorkList() 
-        #if not self.session.has_key("activitylog"):
-        #    self.session['activitylog'] = ActivityLog() 
         self.prepare_messages()
     
     def prepare_messages(self):

@@ -19,7 +19,7 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 import forgetHTML as html
-from Cerebrum.web.templates.WorkListTemplate import WorkListTemplate
+from Cereweb.templates.WorkListTemplate import WorkListTemplate
 
 # subclass Division to be included in a division..
 class WorkList(html.Division):

@@ -24,10 +24,9 @@ from time import strftime
 from mod_python import apache
 from mod_python import publisher
 from mod_python.Session import Session
-
 from utils import url, no_cache, redirect
-from profile import get_profile
 
+import ServerConnection
 
 def logg(tekst):
     """Write text to a logfile for debuging."""
@@ -47,16 +46,14 @@ def handler(req):
     no_cache(req)
     req.session = Session(req)
     req.content_type = "text/html; charset=utf8"; #fix charset
-    logg("Got session %s id: %s" % (req.session.is_new(), str(req.session.id())))
     check_connection(req)
     #check_encoding()
     #check_profile(req)
-    logg("Calling normal handler")
     return publisher.handler(req)
 
 def check_connection(req):
-    if not req.session.has_key("server"):
-        logg("Redirecting since server is missing: %s" % str(req.session))
+    if not req.session.has_key("server") or not req.session.has_key("session"):
+        logg("Redirecter: %s, %s, %s" % (req.session, req.session.is_new(), req.session.created()))
         redirect(req, url("login/"))
 
 def check_encoding():
@@ -69,6 +66,6 @@ def check_encoding():
 
 def check_profile(req):
     if not req.session.has_key("profile"):
-        req.session['profile'] = get_profile(req)
+        req.session['profile'] = None
 
 # arch-tag: 1afe2a16-d38f-434d-a9fe-081e54c8b235
