@@ -1,4 +1,5 @@
 import Cerebrum.Account
+import crypt
 
 from Cerebrum.extlib import sets
 from Cerebrum.gro.Cerebrum_core import Errors
@@ -17,7 +18,7 @@ class Account(Entity):
                             Attribute('create_date', 'Date'),
                             Attribute('creator_id', 'long'),
                             Attribute('expire_date', 'Date', writable=True)]
-    methodSlots = [Method('get_authentications', 'AccountAuthentication')]
+    methodSlots = Entity.methodSlots + [Method('get_authentications', 'AccountAuthentication')]
 
     cerebrum_class = Cerebrum.Account.Account
     
@@ -41,10 +42,19 @@ class Account(Entity):
             authentications.append(AccountAuthentication.getByRow(row))
         return authentications
 
+    def authenticate(self, password):
+        e = Cerebrum.Account.Account(db)
+
+        for auth in self.get_authentications():
+            auth_data = auth.get_auth_data()
+            if auth_data == crypt.crypt(password, auth_data):
+                return True
+        return False
+
 class AccountAuthentication(Builder):
-    slots = [Attribute('account_id', 'Account'),
-             Attribute('method', 'AuthenticationType'),
-             Attribute('auth_data', 'string', writable=True)]
+    primary = [Attribute('account_id', 'Account'),
+               Attribute('method', 'AuthenticationType')]
+    slots = primary + [Attribute('auth_data', 'string', writable=True)]
 
     def getByRow(cls, row):
         import Types
@@ -56,6 +66,3 @@ class AccountAuthentication(Builder):
                    method=method,
                    auth_data=auth_data)
     getByRow = classmethod(getByRow)
-
-    def __repr__(self):
-        return 'AccountAuthentication(account_id=%s, method=%s)' % (self._account_id, self._method)
