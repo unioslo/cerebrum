@@ -139,25 +139,8 @@ class BofhdExtension(object):
     all_commands['group_create'] = Command(
         ("group", "create"), GroupName(help_ref="group_name_new"),
         SimpleString(help_ref="string_description"),
-        fs=FormatSuggestion("Group created as a PosixGroup group, posix gid: %i", ("group_id",)))
-    def group_create(self, operator, groupname, description):
-        self.ba.can_create_group(operator.get_entity_id())
-        pg = PosixGroup.PosixGroup(self.db)
-        pg.populate(creator_id=operator.get_entity_id(),
-                     visibility=self.const.group_visibility_all,
-                     name=groupname, description=description)
-        try:
-            pg.write_db()
-        except self.db.DatabaseError, m:
-            raise CerebrumError, "Database error: %s" % m
-        return {'group_id': int(pg.posix_gid)}
-
-    # group create
-    all_commands['group_create_basic'] = Command(
-        ("group", "create_basic"), GroupName(help_ref="group_name_new"),
-        SimpleString(help_ref="string_description"),
         fs=FormatSuggestion("Group created as a normal group, internal id: %i", ("group_id",)))
-    def group_create_basic(self, operator, groupname, description):
+    def group_create(self, operator, groupname, description):
         self.ba.can_create_group(operator.get_entity_id())
         g = Group.Group(self.db)
         g.populate(creator_id=operator.get_entity_id(),
@@ -239,8 +222,8 @@ class BofhdExtension(object):
     # group info
     all_commands['group_info'] = Command(
         ("group", "info"), GroupName(),
-        fs=FormatSuggestion([("id: %i\nSpreads: %s\nDescription: %s\nExpire: %s",
-                              ("entity_id", "spread", "desc", "expire")),
+        fs=FormatSuggestion([("Spreads: %s\nDescription: %s\nExpire: %s\nentity id: %i",
+                              ("spread", "desc", "expire", "entity_id")),
                              ("Gid: %i", ('gid',))]))
     def group_info(self, operator, groupname):
         # TODO: Group visibility should probably be checked against
@@ -250,7 +233,7 @@ class BofhdExtension(object):
             grp = self._get_group(groupname, grtype="PosixGroup")
             is_posix = True
         except CerebrumError:
-            grp = self._get_group(groupname)
+            grp = self._get_group(groupname, idtype="id")
         ret = {'entity_id': grp.entity_id,
                'spread': ",".join(["%s" % self.num2const[int(a['spread'])]
                                    for a in grp.get_spread()]),
@@ -350,13 +333,19 @@ class BofhdExtension(object):
     # group user
     all_commands['group_user'] = Command(
         ('group', 'user'), AccountName(), fs=FormatSuggestion(
-        "%-9s %s", ("memberop", "group"), hdr="Operation Group"))
+        "%-9s %-18s %s", ("memberop", "group", "spreads"),
+        hdr="%-9s %-18s %s" % ("Operation", "Group", "Spreads")))
     def group_user(self, operator, accountname):
         account = self._get_account(accountname)
         group = Group.Group(self.db)
-        return [{'memberop': str(self.num2const[int(r['operation'])]),
-                 'group': self._get_entity_name(self.const.entity_group, r['group_id'])}
-                for r in group.list_groups_with_entity(account.entity_id)]
+        ret = []
+        for row in group.list_groups_with_entity(account.entity_id):
+            grp = self._get_group(row['group_id'], idtype="id")
+            ret.append({'memberop': str(self.num2const[int(row['operation'])]),
+                        'group': grp.group_name,
+                        'spreads': ",".join(["%s" % self.num2const[int(a['spread'])]
+                                             for a in grp.get_spread()])})
+        return ret
 
     #
     # misc commands
@@ -393,6 +382,22 @@ class BofhdExtension(object):
         raise NotImplementedError, "Feel free to implement this function"
 
     # misc checkpassw
+    all_commands['misc_change_request'] = Command(
+        ("misc", "change_request"), Id(), Date())
+    def misc_change_request(self, operator, request_id, date):
+        date = self._parse_date(date)
+        br = BofhdRequests(self.db, self.const)
+        old_req = br.get_request(request_id=request_id)
+        if old_req['requestee_id'] != operator.get_entity_id():
+            raise PermissionDenied("You are not the requestee")
+        br.delete_request(request_id=request_id)
+        br.add_request(operator.get_entity_id(), date,
+                       old_req['operation'], old_req['entity_id'],
+                       old_req['destination_id'],
+                       old_req['state_data'])
+        return "OK"
+
+    # misc checkpassw
     all_commands['misc_checkpassw'] = Command(
         ("misc", "checkpassw"), AccountPassword())
     def misc_checkpassw(self, operator, password):
@@ -419,6 +424,17 @@ class BofhdExtension(object):
         disk.populate(host.entity_id, diskname, 'uio disk')
         disk.write_db()
         return "OK"
+
+    all_commands['misc_dls'] = Command(
+        ("misc", "dls"), SimpleString(help_ref='string_host'),
+        fs=FormatSuggestion("%s", ("path",), hdr="Path"))
+    def misc_dls(self, operator, hostname):
+        host = self._get_host(hostname)
+        disk = Disk.Disk(self.db)
+        ret = []
+        for row in disk.list(host.host_id):
+            ret.append({'path': row['path']})
+        return ret
 
     all_commands['misc_drem'] = Command(
         ("misc", "drem"), SimpleString(help_ref='string_host'), DiskId())
@@ -522,11 +538,11 @@ class BofhdExtension(object):
             tpl_lang, tpl_name, tpl_type, skriver, selection)
 
     # misc mmove
-    all_commands['misc_mmove'] = Command(
-        ("misc", "mmove"),
-        fs=FormatSuggestion("%-10s %-30s %-15s %-10s %-20s %s", ("requestee", "when", "op", "entity", "destination", "args"),
-                            hdr="%-10s %-30s %-15s %-10s %-20s %s" % ("Requestee", "When", "Op", "Entity", "Destination", "Arguments")))
-    def misc_mmove(self, operator):
+    all_commands['misc_list_requests'] = Command(
+        ("misc", "list_requests"),
+        fs=FormatSuggestion("%-6s %-10s %-30s %-15s %-10s %-20s %s", ("id", "requestee", "when", "op", "entity", "destination", "args"),
+                            hdr="%-6s %-10s %-30s %-15s %-10s %-20s %s" % ("Id", "Requestee", "When", "Op", "Entity", "Destination", "Arguments")))
+    def misc_list_requests(self, operator):
         br = BofhdRequests(self.db, self.const)
         ret = []
         for r in br.get_requests(operator_id=operator.get_entity_id(), given=True):
@@ -544,7 +560,8 @@ class BofhdExtension(object):
                         'op': str(op),
                         'entity': self._get_entity_name(self.const.entity_account, r['entity_id']),
                         'destination': dest,
-                        'args': r['state_data']
+                        'args': r['state_data'],
+                        'id': r['request_id']
                         })
         return ret
 
@@ -868,6 +885,7 @@ class BofhdExtension(object):
             return "User has no quota"
         pq.has_printerquota = False
         pq.write_db()
+        return "Quota disabled"
 
     all_commands['printer_qpq'] = Command(
         ("print", "qpq"), AccountName(),
@@ -1051,7 +1069,7 @@ class BofhdExtension(object):
             person.write_db()
         account.set_account_type(ou.entity_id, aff)
         account.write_db()
-        return "OK, added %s@%s to %s" % (aff, ou.entity_id, account.owner_id)
+        return "OK, added %s@%s to %s" % (aff, ou.short_name, account.owner_id)
     
     # user affiliation_remove
     all_commands['user_affiliation_remove'] = Command(
@@ -1074,33 +1092,52 @@ class BofhdExtension(object):
           is returned to the server, typically when user selects from
           a list."""
         all_args = list(args[:])
+
         if not all_args:
-            return {'prompt': "Enter bdate, fnr or idtype"}
+            return {'prompt': "Person identification", 'help_ref': "user_create_person_id"}
         arg = all_args.pop(0)
-        if not all_args:
-            person = self.person
-            person.clear()
-            if arg.isdigit() and len(arg) > 10:  # finn personer fra fnr
-                try:
-                    person.find_by_external_id(self.const.externalid_fodselsnr, arg)
-                except Errors.NotFoundError:
-                    raise CerebrumError, "Could not find that person"
-                c = [{'person_id': person.entity_id}]
-            elif arg.find("-") != -1:
-                # finn personer på fødselsdato
-                c = person.find_persons_by_bdate(arg)
+        if arg.startswith("group:"):
+            group_owner = True
+        else:
+            group_owner = False
+        if not all_args or group_owner:
+            if group_owner:
+                group = self._get_group(arg.split(":")[1])
+                if all_args:
+                    all_args.insert(0, group.entity_id)
+                else:
+                    all_args = [group.entity_id]
             else:
-                raise NotImplementedError, "idtype not implemented"
-            map = [(("%-8s %s", "Id", "Name"), None)]
-            for i in range(len(c)):
-                person = self._get_person("entity_id", c[i]['person_id'])
-                # TODO: We should show the persons name in the list
-                map.append((
-                    ("%8i %s", int(c[i]['person_id']),
-                     person.get_name(self.const.system_cached, self.const.name_full)),
-                    int(c[i]['person_id'])))
-            return {'prompt': "Velg person fra listen", 'map': map}
-        person_id = all_args.pop(0)
+                c = self._find_persons(arg)
+                map = [(("%-8s %s", "Id", "Name"), None)]
+                for i in range(len(c)):
+                    person = self._get_person("entity_id", c[i]['person_id'])
+                    # TODO: We should show the persons name in the list
+                    map.append((
+                        ("%8i %s", int(c[i]['person_id']),
+                         person.get_name(self.const.system_cached, self.const.name_full)),
+                        int(c[i]['person_id'])))
+                return {'prompt': "Velg person fra listen", 'map': map,
+                        'help_ref': 'user_create_select_person'}
+        owner_id = all_args.pop(0)
+        if not group_owner:
+            if not all_args:
+                # TODO: ansatt/student kun hvis personen har denne affiliation fra før
+                map = [(("%-8s %s", "Num", "Affiliation"), None),
+                       (("%s", str(self.const.affiliation_ansatt)),
+                        int(self.const.affiliation_ansatt)),
+                       (("%s", str(self.const.affiliation_student)),
+                        int(self.const.affiliation_student)),
+                       ]
+                tmp = self.person_affiliation_statusids[str(self.const.affiliation_manuell)]
+                for k in tmp.keys():
+                    map.append((("MANUELL:%s", str(tmp[k])), int(tmp[k])))
+                return {'prompt': "Velg affiliation fra listen", 'map': map}
+            affiliation = all_args.pop(0)
+        else:
+            if not all_args:
+                return {'prompt': "Oppgi np_type"}
+            np_type = all_args.pop(0)
         if ac_type == 'PosixUser':
             if not all_args:
                 return {'prompt': "Default filgruppe"}
@@ -1114,16 +1151,17 @@ class BofhdExtension(object):
         if not all_args:
             ret = {'prompt': "Brukernavn", 'last_arg': True}
             posix_user = PosixUser.PosixUser(self.db)
-            try:
-                person = self._get_person("entity_id", person_id)
-                # TODO: this requires that cereconf.DEFAULT_GECOS_NAME is name_full.  fix
-                full = person.get_name(self.const.system_cached, self.const.name_full)
-                fname, lname = full.split(" ", 1)
-                sugg = posix_user.suggest_unames(self.const.account_namespace, fname, lname)
-                if sugg:
-                    ret['default'] = sugg[0]
-            except ValueError:
-                pass    # Failed to generate a default username
+            if not group_owner:
+                try:
+                    person = self._get_person("entity_id", owner_id)
+                    # TODO: this requires that cereconf.DEFAULT_GECOS_NAME is name_full.  fix
+                    full = person.get_name(self.const.system_cached, self.const.name_full)
+                    fname, lname = full.split(" ", 1)
+                    sugg = posix_user.suggest_unames(self.const.account_namespace, fname, lname)
+                    if sugg:
+                        ret['default'] = sugg[0]
+                except ValueError:
+                    pass    # Failed to generate a default username
             return ret
         raise CerebrumError, "Client called prompt func with too many arguments"
 
@@ -1134,8 +1172,19 @@ class BofhdExtension(object):
     all_commands['user_create'] = Command(
         ('user', 'create'), prompt_func=user_create_prompt_func,
         fs=FormatSuggestion("Created uid=%i", ("uid",)))
-    def user_create(self, operator, idtype, person_id, filegroup, shell, home, uname):
-        person = self._get_person("entity_id", person_id)
+    def user_create(self, operator, *args):
+        print args
+        if len(args) == 6:
+            group_id, np_type, filegroup, shell, home, uname = args
+            owner_type = self.const.entity_group
+            owner_id = self._get_group(group_id.split(":")[1]).entity_id
+            np_type = int(self.str2const[np_type])
+        else:
+            idtype, person_id, affiliation, filegroup, shell, home, uname = args
+            owner_type = self.const.entity_person
+            owner_id = self._get_person("entity_id", person_id).entity_id
+            np_type = None
+            
         group=self._get_group(filegroup)
         posix_user = PosixUser.PosixUser(self.db)
         uid = posix_user.get_free_uid()
@@ -1149,12 +1198,12 @@ class BofhdExtension(object):
         posix_user.clear()
         gecos = None
         expire_date = None
-        self.ba.can_create_user(operator.get_entity_id(), person, disk_id)
+        self.ba.can_create_user(operator.get_entity_id(), owner_id, disk_id)
 
         posix_user.populate(uid, group.entity_id, gecos, shell, home, 
                             disk_id=disk_id, name=uname,
-                            owner_type=self.const.entity_person,
-                            owner_id=person.entity_id, np_type=None,
+                            owner_type=owner_type,
+                            owner_id=owner_id, np_type=np_type,
                             creator_id=operator.get_entity_id(),
                             expire_date=expire_date)
         passwd = posix_user.make_passwd(uname)
@@ -1167,35 +1216,6 @@ class BofhdExtension(object):
                                                     'password': passwd})
         return {'uid': uid}
 
-    def user_create_basic_prompt_func(self, session, *args):
-        return self._user_create_prompt_func_helper('Account', session, *args)
-    
-    # user create
-    all_commands['user_create_basic'] = Command(
-        ('user', 'create_basic'), prompt_func=user_create_basic_prompt_func,
-        fs=FormatSuggestion("Created account_id=%i", ("account_id",)))
-    def user_create_basic(self, operator, idtype, person_id, uname):
-        person = self._get_person("entity_id", person_id)
-        account = Account.Account(self.db)
-        account.clear()
-        if not self.ba.is_superuser(operator.get_entity_id()):
-            raise PermissionDenied("only superusers may reserve users")
-        account.populate(uname,
-                         self.const.entity_person,  # Owner type
-                         person.entity_id,
-                         None,                      # np_type
-                         operator.get_entity_id(),  # creator_id
-                         None)                      # expire_date
-        passwd = account.make_passwd(uname)
-        account.set_password(passwd)
-        try:
-            account.write_db()
-        except self.db.DatabaseError, m:
-            raise CerebrumError, "Database error: %s" % m
-        operator.store_state("new_account_passwd", {'account_id': int(account.entity_id),
-                                                    'password': passwd})
-        return {'account_id': int(account.entity_id)}
-
     # user delete
     all_commands['user_delete'] = Command(
         ("user", "delete"), AccountName())
@@ -1207,7 +1227,7 @@ class BofhdExtension(object):
         br.add_request(operator.get_entity_id(), br.now,
                        self.const.bofh_delete_user,
                        account.entity_id, None)
-        return "User queued for deletion"
+        return "User %s queued for deletion immeadeately" % account.account_name
 
         # raise NotImplementedError, "Feel free to implement this function"
 
@@ -1243,11 +1263,11 @@ class BofhdExtension(object):
     # user info
     all_commands['user_info'] = Command(
         ("user", "info"), AccountName(),
-        fs=FormatSuggestion([("entity id: %i\nSpreads: %s\nAffiliations: %s\n"+
-                              "Expire: %s\nHome: %s",
-                              ("entity_id", "spread", "affiliations", "expire", "home")),
-                             ("uid: %i\ndfg: %i\ngecos: %s\nshell: %s",
-                              ('uid', 'dfg', 'gecos', 'shell'))]))
+        fs=FormatSuggestion([("Spreads: %s\nAffiliations: %s\n"+
+                              "Expire: %s\nHome: %s\nentity id: %i",
+                              ("spread", "affiliations", "expire", "home", "entity_id")),
+                             ("uid: %i\ndefault fg: %i=%s\ngecos: %s\nshell: %s",
+                              ('uid', 'dfg_posix_gid', 'dfg_name', 'gecos', 'shell'))]))
     def user_info(self, operator, accountname):
         is_posix = False
         try: 
@@ -1272,8 +1292,10 @@ class BofhdExtension(object):
             ret['home'] = "%s/%s" % (disk.path, account.account_name)
 
         if is_posix:
+            group = self._get_group(account.gid_id, idtype='id', grtype='PosixGroup')
             ret['uid'] = account.posix_uid
-            ret['dfg'] = account.gid_id
+            ret['dfg_posix_gid'] = group.posix_gid
+            ret['dfg_name'] = group.group_name
             ret['gecos'] = account.gecos
             ret['shell'] = str(self.num2const[int(account.shell)])
         # TODO: Return more info about account
@@ -1411,7 +1433,7 @@ class BofhdExtension(object):
             elif move_type == "cancel":
                 br.delete_request(account.entity_id,
                                   operator_id=operator.get_entity_id())
-                return "OK, move data deleted"
+                return "OK, move request deleted"
         elif move_type in ("request",):
             disk, why = args[0], args[1]
             disk_id, home = self._get_disk(disk)
@@ -1474,6 +1496,35 @@ class BofhdExtension(object):
         ('user', 'demote_posix'), AccountName())
     def user_demote_posix(self, operator, accountname):
         raise NotImplementedError, "Feel free to implement this function"
+
+    def user_create_basic_prompt_func(self, session, *args):
+        return self._user_create_prompt_func_helper('Account', session, *args)
+    
+    # user create
+    all_commands['user_reserve'] = Command(
+        ('user', 'create_reserve'), prompt_func=user_create_basic_prompt_func,
+        fs=FormatSuggestion("Created account_id=%i", ("account_id",)))
+    def user_reserve(self, operator, idtype, person_id, uname):
+        person = self._get_person("entity_id", person_id)
+        account = Account.Account(self.db)
+        account.clear()
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            raise PermissionDenied("only superusers may reserve users")
+        account.populate(uname,
+                         self.const.entity_person,  # Owner type
+                         person.entity_id,
+                         None,                      # np_type
+                         operator.get_entity_id(),  # creator_id
+                         None)                      # expire_date
+        passwd = account.make_passwd(uname)
+        account.set_password(passwd)
+        try:
+            account.write_db()
+        except self.db.DatabaseError, m:
+            raise CerebrumError, "Database error: %s" % m
+        operator.store_state("new_account_passwd", {'account_id': int(account.entity_id),
+                                                    'password': passwd})
+        return {'account_id': int(account.entity_id)}
 
     # user set_expire
     all_commands['user_set_expire'] = Command(
@@ -1649,6 +1700,26 @@ class BofhdExtension(object):
         if idtype == 'group':
             return self._get_group(id)
         raise CerebrumError, "Invalid idtype"
+
+    def _find_persons(self, arg):
+        if arg.isdigit() and len(arg) > 10:  # finn personer fra fnr
+            arg = 'fnr:%s' % arg
+        ret = []
+        person = self.person
+        person.clear()
+        if arg.find("-") != -1:
+            # finn personer på fødselsdato
+            ret = person.find_persons_by_bdate(arg)
+        elif arg.find(":") != -1:
+            idtype, id = arg.split(":")
+            if idtype == 'exp':
+                raise NotImplementedError, "Lack API support for this"
+            elif idtype == 'fnr':
+                person.find_by_external_id(self.const.externalid_fodselsnr, id)
+                ret = [{'person_id': person.entity_id}]
+        else:
+            raise CerebrumError, "Unable to parse person id"
+        return ret
     
     def _get_person(self, idtype, id):
         person = self.person
@@ -1754,10 +1825,16 @@ class BofhdExtension(object):
         return False
         
     def _get_affiliationid(self, code_str):
-        return self.person_affiliation_codes[code_str]
+        for k in self.person_affiliation_codes.keys():
+            if k.lower() == code_str.lower():
+                return self.person_affiliation_codes[k]
+        raise CerebrumError("Unknown affiliation")
 
     def _get_affiliation_statusid(self, affiliation, code_str):
-        return self.person_affiliation_statusids[str(affiliation)][code_str]
+        for k in self.person_affiliation_statusids[str(affiliation)].keys():
+            if k.lower() == code_str.lower():
+                return self.person_affiliation_statusids[str(affiliation)][k]
+        raise CerebrumError("Unknown affiliation status")
 
     def _parse_date(self, date):
         if not date:
