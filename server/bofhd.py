@@ -105,7 +105,8 @@ class BofhdSession(object):
 
         """
         try:
-            f = open('/dev/random')
+            # /dev/random doesn't provide enough bytes
+            f = open('/dev/urandom')
             r = f.read(48)
         except IOError:
             r = Random().random()
