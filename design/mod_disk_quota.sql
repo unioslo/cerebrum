@@ -36,3 +36,6 @@ CREATE TABLE disk_quota (
            (override_expiration IS NOT NULL 
             AND description IS NOT NULL))
 );
+
+/* arch-tag: d6e89ac8-e67e-4f4e-8395-629cd3caa0f8
+   (do not change this comment) */
