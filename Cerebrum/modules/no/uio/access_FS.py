@@ -969,11 +969,12 @@ WHERE institusjonsnr='%s'
           ue.terminkode IN ('VÅR', 'HØST') AND
           ue.terminkode = t.terminkode AND
           (ue.arstall > :aar OR
-           (ue.arstall = :aar AND
+           (ue.arstall = :aar2 AND
             EXISTS(SELECT 'x' FROM fs.arstermin tt
             WHERE tt.terminkode = :sem AND
                   t.sorteringsnokkel >= tt.sorteringsnokkel)))""",
                              {'aar': year,
+                              'aar2': year, # db-driver bug work-around
                               'sem': sem})
 
     def list_undervisningsaktiviteter(self, start_aar=time.localtime()[0],
