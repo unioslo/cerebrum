@@ -3,9 +3,7 @@ cache: false
 cache_dir: /tmp/gro
 
 [corba]
-context: Cerebrum
-service: Gro
-object: GroServer
+url: http://localhost/gro.ior
 
 [ssl]
 ca_file: CA.crt
