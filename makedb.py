@@ -28,12 +28,17 @@ import cereconf
 from Cerebrum.Utils import Factory
 
 def main():
-    opts, args = getopt.getopt(sys.argv[1:], 'd', ['debug'])
+    opts, args = getopt.getopt(sys.argv[1:], 'd', ['debug', 'drop'])
 
     debug = 0
+    do_drop = False
     for opt, val in opts:
         if opt in ('-d', '--debug'):
             debug += 1
+        elif opt == '--drop':
+            # We won't drop any tables (which might be holding data)
+            # unless we're explicitly asked to do so.
+            do_drop = True
 
     Cerebrum = Factory.get('Database')(
         user=cereconf.CEREBRUM_DATABASE_CONNECT_DATA['table_owner'])
@@ -43,15 +48,19 @@ def main():
             runfile(f, Cerebrum, debug, None)
     else:
         files = get_filelist(Cerebrum)
-        fr = files[:]
-        fr.reverse()
-        for f in fr:
-            runfile(os.path.join(CEREBRUM_DDL_DIR, f), Cerebrum, debug, 'drop')
+        if do_drop:
+            fr = files[:]
+            fr.reverse()
+            for f in fr:
+                runfile(os.path.join(CEREBRUM_DDL_DIR, f),
+                        Cerebrum, debug, 'drop')
         for f in files:
-            runfile(os.path.join(CEREBRUM_DDL_DIR, f), Cerebrum, debug, 'code')
+            runfile(os.path.join(CEREBRUM_DDL_DIR, f),
+                    Cerebrum, debug, 'code')
         insert_code_values(Cerebrum)
         for f in files:
-            runfile(os.path.join(CEREBRUM_DDL_DIR, f), Cerebrum, debug, 'main')
+            runfile(os.path.join(CEREBRUM_DDL_DIR, f),
+                    Cerebrum, debug, 'main')
         makeInitialUsers(Cerebrum)
 
 def insert_code_values(Cerebrum):
@@ -102,11 +111,11 @@ def get_filelist(Cerebrum):
              'mod_stedkode.sql'
              ]
     if isinstance(Cerebrum, Database.Oracle):
-        files.extend(['drop_oracle_grants.sql', 'oracle_grants.sql'])
+        files.extend(['oracle_grants.sql'])
     return files
 
-def runfile(fname, Cerebrum, debug, key=None):
-    print "Reading file (key=%s): <%s>" % (key, fname)
+def runfile(fname, Cerebrum, debug, phase=None):
+    print "Reading file (phase=%s): <%s>" % (phase, fname)
     f = file(fname)
     text = "".join(f.readlines())
     long_comment = re.compile(r"/\*.*?\*/", re.DOTALL)
@@ -115,37 +124,48 @@ def runfile(fname, Cerebrum, debug, key=None):
     text = re.sub(line_comment, "", text)
     text = re.sub(r"\s+", " ", text)
     text = text.split(";")
-    for n in range(0, len(text), 2):
-        text[n] = text[n].strip()
-        if n == len(text) - 1:
-            break
-        (type_id, value) =  text[n].split(":")
-        if type_id <> 'category':
-            raise RuntimeError, "Illegal type_id in: %s" % text[n]
-        if key is not None and key <> value:
+    NO_CATEGORY, WRONG_CATEGORY, CORRECT_CATEGORY = 1, 2, 3
+    state = NO_CATEGORY
+    for i in text:
+        if state == NO_CATEGORY:
+            (type_id, value) = i.strip().split(":", 1)
+            if type_id <> 'category':
+                raise ValueError, \
+                      "Illegal type_id in file %s: %s" % (fname, i)
+            if phase is None or phase == value:
+                state = CORRECT_CATEGORY
+            else:
+                state = WRONG_CATEGORY
+        elif state == WRONG_CATEGORY:
+            state = NO_CATEGORY
             continue
-        stmt = text[n+1].strip()
-        if not stmt:
-            continue
-        try:
-            status = "."
+        elif state == CORRECT_CATEGORY:
+            state = NO_CATEGORY
+            stmt = i.strip()
+            if not stmt:
+                continue
             try:
-                Cerebrum.execute(stmt)
-            except Cerebrum.DatabaseError:
-                status = "E"
-                print "\n  ERROR: [%s]" % stmt
-                if debug:
-                    print "  Database error: ",
-                    if debug >= 2:
-                        # Re-raise error, causing us to (at least)
-                        # break out of this for loop.
-                        raise
-                    else:
-                        traceback.print_exc(file=sys.stdout)
-        finally:
-            sys.stdout.write(status)
-            sys.stdout.flush()
-            Cerebrum.commit()
+                status = "."
+                try:
+                    Cerebrum.execute(stmt)
+                except Cerebrum.DatabaseError:
+                    status = "E"
+                    print "\n  ERROR: [%s]" % stmt
+                    if debug:
+                        print "  Database error: ",
+                        if debug >= 2:
+                            # Re-raise error, causing us to (at least)
+                            # break out of this for loop.
+                            raise
+                        else:
+                            traceback.print_exc(file=sys.stdout)
+            finally:
+                sys.stdout.write(status)
+                sys.stdout.flush()
+                Cerebrum.commit()
+    if state <> NO_CATEGORY:
+        raise ValueError, \
+              "Found more category specs than statements in file %s." % fname
     print
 
 if __name__ == '__main__':
