@@ -256,7 +256,7 @@ class Account(AccountType, EntityName, EntityQuarantine, Entity):
                           'c_id' : self.creator_id,
                           'o_id' : self.owner_id,
                           'np_type' : self.np_type,
-                          'e_date' : self.expire_date,
+                          'exp_date' : self.expire_date,
                           'home' : self.home,
                           'disk_id' : self.disk_id,
                           'acc_id' : self.entity_id})
