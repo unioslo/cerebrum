@@ -28,7 +28,7 @@ created).
 The input format for this job is a file with one line per
 account/e-mail. Each line has four fields separated by ':'.
 
-<no_ssn>:<uname>:<uname>:<uid>:<gid>:<gecos>:<home>:<shell>
+<fnr>:<uname>:<fname>:<lname>
 """
 
 import getopt
@@ -93,8 +93,8 @@ def process_line(infile):
                 continue
             
             person.affect_names(co.system_migrate, co.name_first, co.name_last)
-            new_person.populate_name(co.name_first, fname)
-            new_person.populate_name(co.name_last, lname)
+            person.populate_name(co.name_first, fname)
+            person.populate_name(co.name_last, lname)
             logger.debug3("PErson %s got name %s, %s.", fnr, fname,
                           lname)
             person.write_db()
@@ -110,10 +110,10 @@ def process_line(infile):
 
 def usage():
     print """Usage: import_ext_names.py
-    -v, --verbose : Show extra information. Multiple -v's are allowed
-                    (more info).
+    -d, --dryrun  : Dryrun. No commit to database.
     -f, --file    : File to parse.
     """
+    sys.exit(0)
 # end usage
 
 
