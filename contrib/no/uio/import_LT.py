@@ -179,6 +179,10 @@ def determine_affiliations(person):
     for g in person.get('gjest', ()):
         if g['gjestetypekode'] == 'EMERITUS':
             aff_stat = const.affiliation_tilknyttet_emeritus
+        if g['gjestetypekode'] == 'PCVAKT':
+            aff_stat = const.affiliation_tilknyttet_pcvakt
+        if g['gjestetypekode'] == 'GRP-LÆRER':
+            aff_stat = const.affiliation_tilknyttet_grlaerer
 	elif g['gjestetypekode'] == 'EF-STIP':
 	    aff_stat = const.affiliation_tilknyttet_ekst_stip
 	elif g['gjestetypekode'] == 'BILAGSLØN':
