@@ -634,22 +634,24 @@ def process_move_requests():
                 else:
                     br.delay_request(r['request_id'], minutes=24*60)
 
-    # Resten fungerer ikkje enno, so vi sluttar her.
-    return
-
     for r in br.get_requests(operation=const.bofh_move_student):
         # TODO: Må også behandle const.bofh_move_student, men
         # student-auomatikken mangler foreløbig støtte for det.
         pass
     for r in br.get_requests(operation=const.bofh_delete_user):
+        spread = r['state_data']
         account, uname, old_host, old_disk = get_account(
-            r['entity_id'], spread=r['state_data'])
+            r['entity_id'], spread=spread)
         operator = get_account(r['requestee_id'])[0].account_name
         if delete_user(uname, old_host, '%s/%s' % (old_disk, uname), operator):
             account.expire_date = br.now
             account.write_db()
+            home = account.get_home(spread)
+            account.set_home(spread, disk_id=home['disk_id'], home=home['gome'],
+                             status=const.home_status_archived)
             br.delete_request(request_id=r['request_id'])
             db.commit()
+
 def delete_user(uname, old_host, old_home, operator):
     cmd = [SUDO_CMD, cereconf.WRAPPER_CMD, '-c', 'aruser', uname,
            operator, old_home]
