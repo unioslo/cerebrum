@@ -25,46 +25,51 @@ import time
 from Cerebrum import Database,Errors
 
 class LT(object):
-    """..."""
-
+    """Methods for fetching person, OU and some other information from LT"""
     def __init__(self, db):
         self.db = db
 
     def GetSteder(self):
+        "Henter informasjon om alle ikke-nedlagte steder"
         qry = """
 SELECT
   fakultetnr, instituttnr, gruppenr,
   forkstednavn, NVL(stednavnfullt, stednavn) as stednavn, akronym,
-  stedpostboks,
+  stedkortnavn_bokmal, stedkortnavn_nynorsk, stedkortnavn_engelsk,
+  stedlangnavn_bokmal, stedlangnavn_nynorsk, stedlangnavn_engelsk
   fakultetnr_for_org_sted, instituttnr_for_org_sted, gruppenr_for_org_sted,
-  opprettetmerke_for_oppf_i_kat, telefonnr,
+  opprettetmerke_for_oppf_i_kat,
+  telefonnr, innvalgnr, linjenr
+  stedpostboks,
   adrtypekode_besok_adr, adresselinje1_besok_adr, adresselinje2_besok_adr,
   poststednr_besok_adr, poststednavn_besok_adr, landnavn_besok_adr,
   adrtypekode_intern_adr, adresselinje1_intern_adr, adresselinje2_intern_adr,
   poststednr_intern_adr, poststednavn_intern_adr, landnavn_intern_adr,
   adrtypekode_alternativ_adr, adresselinje1_alternativ_adr,
   adresselinje2_alternativ_adr, poststednr_alternativ_adr,
-  poststednavn_alternativ_adr, landnavn_alternativ_adr, innvalgnr, linjenr
+  poststednavn_alternativ_adr, landnavn_alternativ_adr, 
 FROM lt.sted
 WHERE
-  dato_nedlagt > sysdate
+  dato_nedlagt > sysdate AND dato_opprettet >= sysdate
 ORDER BY fakultetnr, instituttnr, gruppenr"""
         r = self.db.query(qry)
         return ([x[0] for x in self.db.description], r)
 
     def GetStedKomm(self, fak, inst, gr):
-        qry = """SELECT kommtypekode, telefonnr, kommnrverdi
+        "Henter kontaktinformasjon for et sted"
+        qry = """SELECT kommtypekode, tlfpreftegn, telefonnr, kommnrverdi
 FROM lt.stedkomm
 WHERE
   fakultetnr=:fak AND
   instituttnr=:inst AND
   gruppenr=:gr AND
-  kommtypekode IN ('FAX', 'TLF', 'EPOST', 'TLFUTL', 'URL')
+  kommtypekode IN ('EKSTRA TLF', 'FAX', 'FAXUTLAND', 'JOBBTLFUTL')
 ORDER BY tlfpreftegn"""
         return (self._get_cols(qry),
                 self.db.query(qry, {'fak': fak, 'inst': inst, 'gr': gr}))
 
     def GetTilsettinger(self):
+        "Henter alle tilsetninger med dato_til frem i tid"
         qry = """SELECT distinct fodtdag, fodtmnd, fodtar, personnr,
 	       fakultetnr_utgift, instituttnr_utgift, gruppenr_utgift,
                stilnr, stillingkodenr_beregnet_sist, prosent_tilsetting,
@@ -74,12 +79,14 @@ ORDER BY tlfpreftegn"""
         return (self._get_cols(qry), self.db.query(qry))
 
     def GetTitler(self):
-        # skode2tittel hash'en har bare med den nyeste
+        "Hent informasjon om stillingskoder, kronologisk sortert"
         qry = """SELECT stillingkodenr, tittel, univstkatkode
         FROM lt.stillingskode ORDER BY dato_fra"""
         return (self._get_cols(qry), self.db.query(qry))
 
     def GetLonnsPosteringer(self, tid):
+        "Hent person og sted informasjon for alle lønnsposteringer med
+        relevante beløpskoder foretatt etter TID"
         qry = """SELECT belopskodenr
         FROM lt.belkodespesielle WHERE belkodeomradekode='LT35UREG' """
         koder = [str(k['belopskodenr']) for k in self.db.query(qry)]
@@ -94,6 +101,7 @@ ORDER BY tlfpreftegn"""
         return (self._get_cols(qry), self.db.query(qry))
 
     def GetPersonInfo(self, fodtdag, fodtmnd, fodtar, personnr):
+        "Hent informasjon om en bestemt person"
         qry = """SELECT
   navn, tittel_personlig, fakultetnr_for_lonnsslip,
   instituttnr_for_lonnsslip, gruppenr_for_lonnsslip,
@@ -107,6 +115,7 @@ WHERE
         return (self._get_cols(qry), self.db.query(qry, locals()))
 
     def GetTelefon(self, fodtdag, fodtmnd, fodtar, personnr):
+        "Hent en persons telefon-nr"
         qry = """SELECT
   innvalgnr, linjenr
 FROM
@@ -117,6 +126,7 @@ ORDER BY tlfpreftegn"""
         return (self._get_cols(qry), self.db.query(qry, locals()))
 
     def GetKomm(self, fodtdag, fodtmnd, fodtar, personnr):
+        "Hent kontakt informasjon for en person"
         qry = """SELECT
   kommtypekode, kommnrverdi, telefonnr
 FROM
@@ -127,6 +137,7 @@ ORDER BY tlfpreftegn"""
         return (self._get_cols(qry), self.db.query(qry, locals()))
 
     def GetHovedkategorier(self):
+        "Hent hovedkategorier (VIT for vitenskapelig ansatt o.l.)"
         qry = "SELECT univstkatkode, hovedkatkode FROM lt.univstkategori"
         return (self._get_cols(qry), self.db.query(qry))
 
