@@ -95,18 +95,15 @@ class PosixUser(Account_class):
             return self.__super.__eq__(other)
         return False
 
-    def populate(self, posix_uid, gid_id, gecos, shell, home=None, disk_id=None, name=None,
+    def populate(self, posix_uid, gid_id, gecos, shell, name=None,
                  owner_type=None, owner_id=None, np_type=None,
                  creator_id=None, expire_date=None, parent=None):
         """Populate PosixUser instance's attributes without database access."""
         if parent is not None:
             self.__xerox__(parent)
-            self.home=home
-            self.disk_id=disk_id
         else:
             super(PosixUser, self).populate(name, owner_type, owner_id,
-                                            np_type, creator_id, expire_date,
-                                            home=home, disk_id=disk_id)
+                                            np_type, creator_id, expire_date)
         self.__in_db = False
         self.posix_uid = posix_uid
         self.gid_id = gid_id
@@ -181,18 +178,24 @@ class PosixUser(Account_class):
             ecols += """, eq.quarantine_type, eq.start_date,
             eq.disable_until, eq.end_date"""
         if spread is not None:
-	    if isinstance(spread, list):
-                esprd = ' AND (' + ' OR '.join(['es.spread=%d' % x
-                                                for x in spread]) + ')'
-	    else:
-                esprd = ' AND es.spread=%d' % spread 
-            efrom += """  JOIN [:table schema=cerebrum name=entity_spread] es
-            ON pu.account_id=es.entity_id %s""" % esprd
+            if isinstance(spread, (tuple, list)):
+                spreads = spread
+            else:
+		spreads = []
+		spreads.append(spread)
+	    esprd = ' AND (' + ' OR '.join(['es.spread=%i' % x for x \
+			in spreads]) + ')'
+            ecols += ", ah.home, ah.disk_id"
+            efrom += """
+            JOIN [:table schema=cerebrum name=entity_spread] es
+              ON pu.account_id=es.entity_id %s
+            JOIN [:table schema=cerebrum name=account_home] ah
+              ON es.entity_id=ah.account_id""" % esprd
         # TBD: should we LEFT JOIN with account_authentication so that
         # users without passwords of the given type are returned?
         return self.query("""
-        SELECT ai.account_id, posix_uid, shell, gecos, entity_name, ai.home,
-          ai.disk_id, aa.auth_data, pg.posix_gid, pn.name %s
+        SELECT ai.account_id, posix_uid, shell, gecos, entity_name, 
+          aa.auth_data, pg.posix_gid, pn.name %s
         FROM
           [:table schema=cerebrum name=posix_user] pu
           %s
@@ -251,14 +254,14 @@ class PosixUser(Account_class):
             return self.gecos
         return self.__super.get_fullname()
 
-    def get_home(self):
+    def get_posix_home(self, spread):
         """Returns the full path to the users homedirectory"""
-
-        if self.home is not None:
-            return self.home
+        tmp = self.__super.get_home(spread)
+        if tmp['home'] is not None:
+            return tmp['home']
         disk = Factory.get("Disk")(self._db)
         try:
-            disk.find(self.disk_id)
+            disk.find(tmp['disk_id'])
         except Errors.NotFoundError:
             return None
         return "%s/%s" % (disk.path, self.account_name)
