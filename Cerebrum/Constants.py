@@ -498,6 +498,11 @@ class CommonConstants(ConstantsBase):
         "Password hash generated with the 'traditional' Unix crypt(3)"
         " algorithm, based on DES.  See <URL:http://www.users.zetnet.co.uk"
         "/hopwood/crypto/scan/ph.html#Traditional-crypt3>.")
+    auth_type_pgp_crypt = _AuthenticationCode(
+        'PGP-crypt',
+        "PGP-encrypt the password so that we later can get at the plaintext "
+        "password if we want to populate new backends.  The secret key "
+        "should be stored offline.")
 
     contact_phone = _ContactInfoCode('PHONE', 'Phone')
     contact_phone_private = _ContactInfoCode('PRIVPHONE',
