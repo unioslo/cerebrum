@@ -347,18 +347,10 @@ class EntityAddress(object):
                 # Note: the arg to a python exception must be casted to str :-(
                 if str(msg) == "MissingOther":
                     if self._address_info.has_key(type):
-                        self._add_entity_address(self._affect_source, type,
+                        self.add_entity_address(self._affect_source, type,
                                                  **self._address_info[type])
                 elif str(msg) == "MissingSelf":
-                    self.execute("""
-                    DELETE FROM [:table schema=cerebrum name=entity_address]
-                    WHERE
-                      entity_id=:e_id AND
-                      source_system=:src AND
-                      address_type=:a_type""",
-                                 {'e_id': as_object.entity_id,
-                                  'src': int(self._affect_source),
-                                  'a_type': int(type)})
+                    delete_entity_address(self._affect_source, type)
                 else:
                     raise
 
@@ -368,7 +360,7 @@ class EntityAddress(object):
         self._affect_types = None
         self._address_info = {}
 
-    def _add_entity_address(self, source, type, address_text=None,
+    def add_entity_address(self, source, type, address_text=None,
                             p_o_box=None, postal_number=None, city=None,
                             country=None):
         if self._debug_eq:
@@ -390,6 +382,17 @@ class EntityAddress(object):
                       'city': city,
                       'country': country})
 
+    def delete_entity_address(self, source_type, a_type):
+        self.execute("""
+                    DELETE FROM [:table schema=cerebrum name=entity_address]
+                    WHERE
+                      entity_id=:e_id AND
+                      source_system=:src AND
+                      address_type=:a_type""",
+                     {'e_id': as_object.entity_id,
+                      'src': int(source_type),
+                      'a_type': int(a_type)})
+
     def get_entity_address(self, source=None, type=None):
         # TODO: Select * gives positional args, which is error-prone: fix
         if self._is_populated:
@@ -410,8 +413,8 @@ class EntityAddress(object):
           entity_id=:e_id AND
           source_system=:src AND
           address_type=:a_type""", {'e_id': self.entity_id,
-                                    'src': source,
-                                    'a_type': type})
+                                    'src': int(source),
+                                    'a_type': int(type)})
 
 class EntityQuarantine(object):
     "Mixin class, usable alongside Entity for entities we can quarantine."
