@@ -5,7 +5,7 @@ import pickle
 import sys
 
 from Cerebrum import Database
-from Cerebrum.modules.no.uio import UioOU
+from Cerebrum.modules.no.uio import OU
 
 class StedData(object):
     colnames = """fakultetnr, instituttnr, gruppenr, forkstednavn, stednavn,
@@ -35,9 +35,9 @@ class StedData(object):
 stedfile = "/u2/dumps/LT/sted.dta";
 
 def main():
-    Cerebrum = Database.connect(user="cerebrum", service="DRESDEN.uio.no")
+    Cerebrum = Database.connect(user="cerebrum")
     steder = les_sted_info()
-    ou = UioOU.UioOU(Cerebrum)
+    ou = OU.OU(Cerebrum)
     i = 1
     sko2ou = {}
     for k in steder:
