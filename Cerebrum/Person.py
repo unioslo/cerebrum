@@ -547,6 +547,48 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
                     return
         raise ValueError, "Bad name for %s / %s" % (self.entity_id, self._name_info)
 
+    def _update_cached_fullname(self):
+	"""Update the persons cached names if it has been modified.
+	The  names is determined by evaluating the name variants
+	by using the source system order defined by
+	cereconf.SYSTEM_LOOKUP_ORDER.
+                                                                                                                                                          
+                                                                                                                                                          
+	A ValueError is raised if the not any names couldn't be established.
+	"""
+	p = Person(self._db)
+	p.find(self.entity_id)
+                                                                                                                                                          
+                                                                                                                                                          
+	for ss in cereconf.SYSTEM_LOOKUP_ORDER:
+	full_name = {}
+	    for n_part in ('name_first','name_last','name_full'):
+		try:
+		    full_name[n_part] = p.get_name(getattr(self.const, ss),
+						getattr(self.const, n_part))
+		except Errors.NotFoundError:
+		    continue
+	    if len(full_name) == 0:
+		continue
+	    if 'name_full' not in full_name.keys():
+		full_name['name_full'] =  " ".join((full_name['name_first'],
+							full_name['name_last']))
+	    for attrs,new_name in full_name.items():
+		try:
+		    old_name = self.get_name(self.const.system_cached,
+						getattr(self.const,attrs))
+		    if old_name != new_name:
+			self._update_name(self.const.system_cached,
+					getattr(self.const,attrs),
+					new_name)
+		except Errors.NotFoundError:
+		    self._set_name(self.const.system_cached,
+					getattr(self.const,attrs),
+					new_name)
+            return
+        raise ValueError, "Bad name for %s / %s" % (self.entity_id, self._name_info)
+                                                                                                                                                          
+
 
     def list_person_name_codes(self):
         return self.query("""
