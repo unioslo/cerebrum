@@ -7,9 +7,14 @@ import AbstractModel as Abstract
 import ServerConnection
 from warnings import warn
 
+class Constants(Abstract.Constants):
+    UNION = "union"
+    INTERSECTION = "intersection"
+    DIFFERENCE = "difference"
+
+
 class Address(Abstract.Address):
     pass
-
 
 class ContactInfo(Abstract.ContactInfo):
     pass
@@ -18,7 +23,6 @@ class ContactInfo(Abstract.ContactInfo):
 class Entity(Abstract.Entity):
     
     def __init__(self, server):
-        Abstract.Entity.__init__(self)
         self.server = server
     
     def fetch_by_id(cls, server, id):
@@ -108,6 +112,7 @@ class Group(Entity, Abstract.Group):
         self.gid = info.get('gid')
         # TODO - get spreads (or make a method to get spreads)
         self.spreads = []
+        return info
 
     def search(cls, server, spread=None, name=None, desc=None):
         filter = {}
@@ -155,9 +160,15 @@ class Group(Entity, Abstract.Group):
             INTESECTION or DIFFERENCE, default is UNION."""
         self.server.group_add_entity(member.id, self.id, operation)
 
-    def remove_member(self, member):
+    def remove_member(self, member_id=None, member_entity=None, operation=Constants.UNION):
         # FIXME: Make this use the soon-to-be-universiall group_remove
-        self.server.group_gremove(member.name, self.name)
+        if member_id and member_entity:
+            raise TypeError, "member_id or member_entity must be given, not both"    
+        if member_entity:
+            member_id = member_entity.id
+        if not member_id:
+            raise TypeError, "member_id or member_entity must be given"
+        self.server.group_remove_entity(member_id, self.id, operation)
 
     def delete_group(self):
         self.server.group_delete(self.name)
@@ -174,9 +185,4 @@ def fetch_object_by_id(server, id):
     info = server.entity_info(id)
     entity_class = classes.get(info['type'], Entity)
     return entity_class.fetch_by_id(server, id)
-
-class Constants(Abstract.Constants):
-    UNION = "union"
-    INTERSECTION = "intersection"
-    DIFFERENCE = "difference"
 
