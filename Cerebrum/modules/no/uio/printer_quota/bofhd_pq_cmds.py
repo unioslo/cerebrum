@@ -244,10 +244,22 @@ The currently defined id-types are:
             when = cereconf.PQ_MAX_LIGHT_HISTORY_WHEN
         for r in self._pquota_history(
             operator, self.bu.find_person(person_id), when):
+            tstamp = r['tstamp']
+            trace = r['trace'] or ""
+            # Only consider the last hop of the trace.
+            if trace.count(","):
+                trace = trace.split(",")[-1]
+            # Ignore trace values including space, they're on the
+            # obsoleted human-readable format.
+            if trace.count(":") and not trace.count(" "):
+                from mx.DateTime import DateTime, DateTimeDeltaFromSeconds
+                time_t = int(last_event.split(":")[-1])
+                tstamp = DateTime(1970) + DateTimeDeltaFromSeconds(time_t)
+
             tmp = {
                 'job_id': r['job_id'],
                 'transaction_type': r['transaction_type'],
-                'tstamp': r['tstamp'],
+                'tstamp': tstamp,
                 'pageunits_free': r['pageunits_free'],
                 'pageunits_paid': r['pageunits_paid']}
             if not r['update_by']:
