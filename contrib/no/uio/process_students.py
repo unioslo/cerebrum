@@ -77,8 +77,22 @@ class AccountUtil(object):
         except Errors.NotFoundError:
             logger.warn("OUCH! person %s not found" % fnr)
             return None
-        first_name = person.get_name(const.system_cached, const.name_first)
-        last_name = person.get_name(const.system_cached, const.name_last)
+
+        try:
+            first_name = person.get_name(const.system_cached, const.name_first)
+        except Errors.NotFoundError:
+            # This can happen if the person has no first name and no
+            # authoritative system has set an explicit name_first variant.
+            first_name = ""
+
+        try:
+            last_name = person.get_name(const.system_cached, const.name_last)
+        except Errors.NotFoundError:
+            # See above.  In such a case, name_last won't be set either,
+            # but name_full will exist.
+            last_name = person.get_name(const.system_cached, const.name_full)
+            assert last_name.count(' ') == 0
+
         account = Factory.get('Account')(db)
         uname = account.suggest_unames(const.account_namespace,
                                        first_name, last_name)[0]
