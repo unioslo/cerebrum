@@ -132,7 +132,9 @@ def import_org_units(oufile):
                                           k['forkstednavn']),
         ou.clear()
         try:
-            ou.find_stedkode(k['fakultetnr'], k['instituttnr'], k['gruppenr'])
+            ou.find_stedkode(k['fakultetnr'], k['instituttnr'], k['gruppenr'],
+                             institusjon=k.get('institusjonsnr',
+                                               cereconf.DEFAULT_INSTITUSJONSNR))
         except Errors.NotFoundError:
             pass
         ou.populate(k['stednavn'], k['fakultetnr'],
