@@ -296,7 +296,7 @@ class Fronter(object):
         # aktuelle undervisningsenhetene/EVU-kursene (og tilhørende
         # aktiviteter) fra ymse dumpfiler.
         #
-        for enhet in self._fs.GetUndervEnhetAll()[1]:
+        for enhet in self._fs.GetUndervEnhetAll():
             id_seq = (self.EMNE_PREFIX, enhet['institusjonsnr'],
                       enhet['emnekode'], enhet['versjonskode'],
                       enhet['terminkode'], enhet['arstall'],
@@ -328,9 +328,11 @@ class Fronter(object):
                     self.enhet2sko[enhet_id] = "%02d%02d00" % (
                         enhet['faknr_kontroll'],
                         enhet['instituttnr_kontroll'])
+                emne_tittel = enhet['emnenavn_bokmal']
+                if len(emne_tittel) > 50:
+                    emne_tittel = enhet['emnenavnfork']
                 self.kurs2navn.setdefault(kurs_id, []).append(
-                    [enhet['arstall'], enhet['terminkode'],
-                     enhet['emnenavn_bokmal']])
+                    [enhet['arstall'], enhet['terminkode'], emne_tittel])
 
         for kurs_id in self.kurs2navn.keys():
             navn_sorted = self.kurs2navn[kurs_id][:]

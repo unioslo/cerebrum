@@ -19,8 +19,6 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 import re
-import os
-import sys
 import time
 
 from Cerebrum import Database
@@ -774,7 +772,7 @@ ORDER BY fodselsdato, personnr
 
 
     def get_termin_aar(self, only_current=0):
-        yr, mon, md = t = time.localtime()[0:3]
+        yr, mon, md = time.localtime()[0:3]
         if mon <= 6:
             # Months January - June == Spring semester
             current = "(r.terminkode = 'VÅR' AND r.arstall=%s)\n" % yr;
@@ -901,16 +899,18 @@ WHERE institusjonsnr='%s'
 
 
     def GetAllPersonsEmail(self, fetchall = False):
-        qry = """
-SELECT fodselsdato, personnr, emailadresse
-FROM fs.person"""
-        return self.db.query(qry, fetchall = fetchall)
+        return self.db.query("""
+        SELECT fodselsdato, personnr, emailadresse
+        FROM fs.person""", fetchall = fetchall)
 
     def WriteMailAddr(self, fodselsdato, personnr, email):
         self.db.execute("""
-UPDATE fs.person
-SET emailadresse=:email
-WHERE fodselsdato=:fodselsdato AND personnr=:personnr""",locals())
+        UPDATE fs.person
+        SET emailadresse=:email
+        WHERE fodselsdato=:fodselsdato AND personnr=:personnr""",
+                        {'fodselsdato': fodselsdato,
+                         'personnr': personnr,
+                         'email': email})
 
 
 
@@ -919,26 +919,20 @@ WHERE fodselsdato=:fodselsdato AND personnr=:personnr""",locals())
 ##################################################################
 
     def GetAllPersonsUname(self, fetchall = False):
-        query = """
-                SELECT
-                  fodselsdato, personnr, brukernavn
-                FROM
-                  fs.personreg
-                """
-        return self.db.query(query, fetchall = fetchall)
+        return self.db.query("""
+        SELECT fodselsdato, personnr, brukernavn
+        FROM fs.personreg""", fetchall = fetchall)
     # end GetAllPersonsUname
 
 
     def WriteUname(self, fodselsdato, personnr, uname):
         self.db.execute("""
-                        UPDATE
-                          fs.personreg
-                        SET
-                          brukernavn = :uname
-                        WHERE
-                          fodselsdato = :fodselsdato AND
-                          personnr = :personnr
-                        """, locals())
+        UPDATE fs.personreg
+        SET brukernavn = :uname
+        WHERE fodselsdato = :fodselsdato AND personnr = :personnr""",
+                        {'fodselsdato': fodselsdato,
+                         'personnr': personnr,
+                         'uname': uname})
     # end WriteUname
 
 
@@ -955,32 +949,32 @@ WHERE fodselsdato=:fodselsdato AND personnr=:personnr""",locals())
         return 'HØST' 
 
 
-    def GetUndervEnhetAll(self, yr=time.localtime()[0], sem=None):
-        if sem == None:
-            sem=self.get_curr_semester()
-            
-        qry = """
-SELECT
-  ue.institusjonsnr, ue.emnekode, ue.versjonskode, ue.terminkode,
-  ue.arstall, ue.terminnr, e.institusjonsnr_kontroll, e.faknr_kontroll,
-  e.instituttnr_kontroll, e.gruppenr_kontroll, e.emnenavn_bokmal
-FROM
-  fs.undervisningsenhet ue, fs.emne e, fs.arstermin t
-WHERE
-  ue.institusjonsnr = e.institusjonsnr AND
-  ue.emnekode       = e.emnekode AND
-  ue.versjonskode   = e.versjonskode AND
-  ue.terminkode IN ('VÅR', 'HØST') AND
-  ue.terminkode = t.terminkode AND
-  (ue.arstall > %d OR
-   (ue.arstall = %d AND
-    EXISTS(SELECT 'x' FROM fs.arstermin tt
-           WHERE tt.terminkode = '%s' AND
-                 t.sorteringsnokkel >= tt.sorteringsnokkel)))
-  """ % (yr, yr, sem)
-        
-        return (self._get_cols(qry), self.db.query(qry))
-
+    def GetUndervEnhetAll(self, year=None, sem=None):
+        if year is None:
+            year = time.localtime()[0]
+        if sem is None:
+            sem = self.get_curr_semester()
+        return self.db.query("""
+        SELECT
+          ue.institusjonsnr, ue.emnekode, ue.versjonskode, ue.terminkode,
+          ue.arstall, ue.terminnr, e.institusjonsnr_kontroll,
+          e.faknr_kontroll, e.instituttnr_kontroll, e.gruppenr_kontroll,
+          e.emnenavn_bokmal, e.emnenavnfork
+        FROM
+          fs.undervisningsenhet ue, fs.emne e, fs.arstermin t
+        WHERE
+          ue.institusjonsnr = e.institusjonsnr AND
+          ue.emnekode       = e.emnekode AND
+          ue.versjonskode   = e.versjonskode AND
+          ue.terminkode IN ('VÅR', 'HØST') AND
+          ue.terminkode = t.terminkode AND
+          (ue.arstall > :aar OR
+           (ue.arstall = :aar AND
+            EXISTS(SELECT 'x' FROM fs.arstermin tt
+            WHERE tt.terminkode = :sem AND
+                  t.sorteringsnokkel >= tt.sorteringsnokkel)))""",
+                             {'aar': year,
+                              'sem': sem})
 
     def list_undervisningsaktiviteter(self, start_aar=time.localtime()[0],
                                       start_semester=None):

@@ -280,7 +280,7 @@ def process_kursdata():
 
 def get_undervisningsenheter():
     # TODO: Dumpe alle unervisningsenheter til fil
-    for enhet in fs.GetUndervEnhetAll()[1]:
+    for enhet in fs.GetUndervEnhetAll():
         # Prefikser alle nøkler i %UndervEnhet som stammer fra
         # undervisningsenheter med "kurs:".
         enhet_id = "kurs:%s:%s:%s:%s:%s:%s" % (
