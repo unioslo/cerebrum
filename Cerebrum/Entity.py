@@ -309,7 +309,7 @@ class EntityAddress(object):
         for k in ('address_text', 'p_o_box', 'postal_number', 'city',
                   'country'):
             if cereconf.DEBUG_COMPARE:
-                print "compare: '%s' '%s'" % (ai[k], other_addr[k])
+                print "compare: '%s' '%s'" % (ai[k], tmp[0][k])
             if(ai[k] !=tmp[0][k]):
                 return False
         return True
