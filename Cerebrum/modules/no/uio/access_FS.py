@@ -668,6 +668,29 @@ ORDER BY fodselsdato, personnr
                                                      False))
     # end GetPortalInfo
 
+
+    ################################################
+    # Kopiavgift
+    # Ny ordning fra høsten 2004.
+    ################################################
+    def GetStudFritattKopiavg(self):
+        
+        """Lister fødselsnummer på de som er fritatt fra å måtte
+        betale kopiavgift jmf den ordningen som ble innført høsten
+        2004."""
+
+
+        qry ="""
+        SELECT DISTINCT r.fodselsdato, r.personnr
+        FROM fs.registerkort r
+        WHERE r.terminkode = :semester AND
+              r.arstall = :year AND
+              r.betformkode IN ('FRITATT', 'EKSTERN')"""
+        return (self._get_cols(qry),
+                self.db.query(qry, {'semester': self.semester,
+                                    'year': self.year}))
+        
+
     ################################################
     # Papirpenger
     # Skal avvikles i løpet av sommeren 2004
@@ -682,7 +705,6 @@ ORDER BY fodselsdato, personnr
         finnes flere typer studenter med slik fritak uten at man har
         full oversikt over alle studentgrupper som omfattes av
         dette"""
-
 
         qry = """
         SELECT DISTINCT r.fodselsdato, r.personnr
@@ -755,13 +777,18 @@ ORDER BY fodselsdato, personnr
 SELECT DISTINCT
   em.emnekode, em.dato_opprettet, em.status_er_kandidat
 FROM fs.eksamensmelding em, fs.person p
-WHERE em.fodselsdato=:fnr AND
-      em.personnr=:pnr AND
-      em.fodselsdato=p.fodselsdato AND
-      em.personnr=p.personnr 
+WHERE em.fodselsdato = :fnr AND
+      em.personnr = :pnr AND
+      em.fodselsdato = p.fodselsdato AND
+      em.personnr = p.personnr AND
+      em.arstall >= :year AND
+      em.manednr > :mnd - 3
       AND %s
         """ % self.is_alive()
-        return (self._get_cols(qry), self.db.query(qry, {'fnr': fnr, 'pnr': pnr}))
+        return (self._get_cols(qry), self.db.query(qry, {'fnr': fnr,
+                                                         'pnr': pnr,
+                                                         'year': self.year,
+                                                         'mnd': self.mndnr}))
 
     def GetStudentStudierett(self,fnr,pnr):
 	"""Hent info om alle studierett en student har eller har hatt"""
