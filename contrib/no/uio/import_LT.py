@@ -29,11 +29,16 @@ import getopt
 import cereconf
 from Cerebrum import Errors
 from Cerebrum import Person
+from Cerebrum import Account
+from Cerebrum import Group
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.uio import AutoStud
 
 import xml.sax
+
+group_name = "LT-elektroniske-reservasjoner"
+group_desc = "Internal group for people from LT which will not be shown online"
 
 class LTDataParser(xml.sax.ContentHandler):
     """This class is used to iterate over all users in LT. """
@@ -45,7 +50,7 @@ class LTDataParser(xml.sax.ContentHandler):
     def startElement(self, name, attrs):
         if name == 'data':
             pass
-        elif name in ("arbtlf", "komm", "tils", "bilag", "gjest", "rolle"):
+        elif name in ("arbtlf", "komm", "tils", "bilag", "gjest", "rolle", "res"):
             tmp = {}
             for k in attrs.keys():
                 tmp[k] = attrs[k].encode('iso8859-1')
@@ -60,6 +65,32 @@ class LTDataParser(xml.sax.ContentHandler):
     def endElement(self, name):
         if name == "person":
             self.call_back_function(self.p_data)
+
+def _add_res(entity_id):
+    group = Group.Group(db)
+    try:
+        group.find_by_name(group_name)
+    except Errors.NotFoundError:
+        group.clear()
+        ac = Account.Account(db)
+        ac.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
+        group.populate(ac.entity_id, const.group_visibility_internal,
+                       group_name, group_desc)
+        group.write_db()
+
+    if not group.has_member(entity_id, const.entity_person, const.group_memberop_union):
+        group.add_member(entity_id, const.entity_person, const.group_memberop_union)
+        group.write_db()
+
+def _rem_res(entity_id):
+    group = Group.Group(db)
+    try:
+        group.find_by_name(group_name)
+    except Errors.NotFoundError:
+        return
+
+    if group.has_member(entity_id, const.entity_person, const.group_memberop_union):
+        group.remove_member(entity_id, const.group_memberop_union)
 
 def conv_name(fullname):
     fullname = fullname.strip()
@@ -166,6 +197,18 @@ def determine_contact(person):
             ret.append((const.contact_fax, val))
     return ret
 
+def determine_reservations(person):
+    # TODO: Use something "a bit more defined and permanent".
+    # This is a hack. For now we set a reservation on a person with any
+    # 'ELKAT' reservation.
+    res_on_pers = 0
+    for r in person.get('res', ()):
+        if r['katalogkode'] == "ELKAT":
+            _add_res(new_person.entity_id)
+            res_on_pers = 1
+    if res_on_pers == 0:
+        _rem_res(new_person.entity_id)
+        
 def process_person(person):
     fnr = fodselsnr.personnr_ok(
         "%02d%02d%02d%05d" % (int(person['fodtdag']), int(person['fodtmnd']),
@@ -201,6 +244,8 @@ def process_person(person):
     # TODO: We currently do nothing with PROSENT_TILSETTING
     affiliations = determine_affiliations(person)
     contact = determine_contact(person)
+    if gen_groups == 1:
+        determine_reservations(person)
     if len(affiliations) > 0:      # Legg til fax fra 1ste affiliation
         contact.append((const.contact_fax,
                         get_sted(affiliations[0][0])['fax']))
@@ -222,19 +267,20 @@ def process_person(person):
         logger.info2("**** NEW ****")
     elif op == False:
         logger.info2("**** UPDATE ****")
-    db.commit()
 
 def usage(exitcode=0):
-    print """Usage: import_LT.py -p personfile [-v]"""
+    print """Usage: import_LT.py -p personfile [-v] [-g]"""
     sys.exit(exitcode)
 
 def main():
-    global db, new_person, const, ou, logger
+    global db, new_person, const, ou, logger, gen_groups
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'vp:', ['verbose', 'person-file'])
+        opts, args = getopt.getopt(sys.argv[1:], 'vp:g', ['verbose', 'person-file',
+                                                          'group'])
     except getopt.GetoptError:
         usage(1)
 
+    gen_groups = 0
     verbose = 0
     personfile = None
     
@@ -243,6 +289,8 @@ def main():
             verbose += 1
         elif opt in ('-p', '--person-file'):
             personfile = val
+        elif opt in ('-g', '--group'):
+            gen_groups = 1
     if personfile is None:
         usage(1)
 
@@ -255,6 +303,7 @@ def main():
     ou = Factory.get('OU')(db)
     new_person = Person.Person(db)
     LTDataParser(personfile, process_person)
+    db.commit()
 
 if __name__ == '__main__':
     main()
