@@ -25,7 +25,14 @@ import config
 import unittest
 import sys
 import sets
+import popen2
 import errors
+try:
+    from os import wait
+except ImportError:
+    # on win32 :/
+    def wait():
+        return 0
 
 def fixOmniORB():
     """Workaround for bugs in omniorb
@@ -54,6 +61,20 @@ try:
     fixOmniORB()
 except:
     pass
+
+
+def pgp_decrypt(message):
+    cmd = config.sync.get("pgp", "prog")
+    cmd += " " + config.sync.get("pgp", "opts")
+    (fromchild, tochild) = popen2.popen2(cmd)
+    tochild.write(message)
+    tochild.close()
+    msg = fromchild.read()
+    exit_code = wait()
+    if exit_code:
+        raise IOError, "gpg exited with %i" % exit_code
+    return msg
+    
 
 class Sync:
     def __init__(self, incr=False, id=None):
@@ -165,7 +186,7 @@ class Sync:
     def close(self):
         self._rollback()
 
-    def _get_accounts(self):
+    def get_accounts(self):
         """Get all accounts from Spine. Returns a list of Account objects."""
         t = self._connection
 
@@ -224,6 +245,13 @@ class Sync:
                     types[auth.method] = auth.method.get_name()
                 i.passwords[types[auth.method]] = auth.auth_data
 
+            # FIXME: Make this on-demand, this is incredibly slow
+            pgp_key = "PGP-" + config.sync.get("pgp", "keyname")
+            if pgp_key in i.passwords:
+                cleartext = pgp_decrypt(i.passwords[pgp_key])
+                if cleartext: # ignore blank passwords
+                    i.passwords["cleartext"] = cleartext
+
             # Should get home directory from server.. must be
             # related to the active spread or something like that.
             i.home = "/home/%s" % i.name
@@ -240,7 +268,7 @@ class Sync:
             i.type = 'account'
         return accounts
 
-    def _get_groups(self):
+    def get_groups(self):
         t = self._connection
 
         # create a search
@@ -328,9 +356,9 @@ class Sync:
         changed = set()
 
         entities = {}
-        for i in self._get_accounts():
+        for i in self.get_accounts():
             entities[i.id] = i
-        for i in self._get_groups():
+        for i in self.get_groups():
             entities[i.id] = i
 
         for id, change, log in changes:
@@ -354,9 +382,9 @@ class Sync:
 
     def _get_all(self):
         """Get all objects from Spine."""
-        for i in self._get_accounts():
+        for i in self.get_accounts():
             yield 'add', i
-        for i in self._get_groups():
+        for i in self.get_groups():
             yield 'add', i
 
     def get_objects(self):
@@ -467,7 +495,7 @@ class TestSync(unittest.TestCase):
         self.assertRaises(SpineErrors.TransactionError, t.rollback)
     
     def testGetAccounts(self):
-        accounts = self.s._get_accounts()
+        accounts = self.s.get_accounts()
         assert accounts
         # We can assume that bootstrap_account exists for now 
         has_bootstrap = [a for a in accounts if a.name == 'bootstrap_account']
@@ -494,7 +522,7 @@ class TestSync(unittest.TestCase):
         self.assertEqual(stain.shell, "/local/gnu/bin/bash")
 
     def testGetGroups(self):
-        groups = self.s._get_groups()
+        groups = self.s.get_groups()
         assert groups
         # We can assume that bootstrap_group exists for now 
         has_bootstrap = [g for g in groups if g.name == 'bootstrap_group']
@@ -523,7 +551,7 @@ class TestSync(unittest.TestCase):
         # FIXME: Should be 1979-02-15   =) 
         self.assertEqual(soiland.birth_date, "1971-02-01")
         # FIXME: Should be "M"  =)
-        self.assertEqual(soiland.gender, "X")
+        self.assertEqual(soiland.gender, "M")
         # at least for now.. 
         self.assertEqual(soiland.deceased, False)
         # FIXME: Should be "stain" and "soiland" in soiland.users
