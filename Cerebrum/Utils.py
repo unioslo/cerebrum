@@ -69,6 +69,7 @@ def sendmail(toaddr, fromaddr, subject, body, cc=None,
     msg['Subject'] = email.Header.Header(subject, charset)
     msg['From'] = fromaddr
     msg['To'] = toaddr
+    msg['Date'] = email.Utils.formatdate(localtime=True)
     if cc:
         msg['Cc'] = cc
     if debug:
