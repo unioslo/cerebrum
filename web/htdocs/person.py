@@ -9,6 +9,7 @@ from Cerebrum.web.templates.HistoryLogTemplate import HistoryLogTemplate
 from Cerebrum.web.Main import Main
 from gettext import gettext as _
 from Cerebrum.web.utils import url
+from Cerebrum.web import profile
 import xmlrpclib
 
 def index(req):
@@ -111,9 +112,13 @@ def _create_view(req, id):
         page.add_message(_("Could not load person with id %s") % id)
         return (page, None)
 
+    msg = profile.get_last_error_message(req)
+    if msg:
+        page.add_message(_("Error: %s") % msg)
+
     page.menu.setFocus("person/view", id)
     view = PersonViewTemplate()
-    page.content = lambda: view.viewPerson(person)
+    page.content = lambda: view.viewPerson(person, req.session['profile'])
     return (page, person)
 
 def view(req, id):
