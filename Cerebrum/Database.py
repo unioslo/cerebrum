@@ -672,6 +672,16 @@ class PostgreSQL(Database):
 
     _db_mod = "pyPgSQL.PgSQL"
 
+    def connect(self, user=None, password=None, service=None):
+        if service is None:
+            service = cereconf.CEREBRUM_DATABASE_NAME
+        if user is None:
+            user = cereconf.CEREBRUM_DATABASE_CONNECT_DATA.get('user')
+        #if password is None:
+        #    password = self._read_password(service, user)
+        super(PostgreSQL, self).connect(user = user, password = password,
+                                        database = service)
+
     # According to its documentation, this driver module implements
     # the Binary constructor as a method of the connection object.
     #
