@@ -30,7 +30,8 @@ from Cerebrum.modules import PasswordHistory
 from Cerebrum.modules.bofhd.utils import BofhdRequests
 from Cerebrum.Utils import pgp_encrypt, Factory
 
-def calculate_account_type_priority(account, ou_id, affiliation, current_pri=None):
+def calculate_account_type_priority(account, ou_id, affiliation,
+                                    current_pri=None):
     # Determine the status this affiliation resolves to
     if account.owner_id is None:
         raise ValueError, "non-owned account can't have account_type"
@@ -99,37 +100,45 @@ class AccountUiOMixin(Account.Account):
             raise self._db.IntegrityError, \
                   "Can't add ifi spread to an account without uio spread."
         #
+        # Gather information on present state, to be used later.  Note
+        # that this information gathering must be done before we pass
+        # control to our superclass(es), as the superclass methods
+        # might change the state.
+        state = {}
+        if spread == self.const.spread_uio_imap:
+            # Is this account already associated with an Cyrus
+            # EmailServerTarget?
+            est = Email.EmailServerTarget(self._db)
+            try:
+                est.find_by_entity(self.entity_id)
+                state['email_server_id'] = est.email_server_id
+            except Errors.NotFoundError:
+                pass
+        #
         # (Try to) perform the actual spread addition.
         ret = self.__super.add_spread(spread)
         #
         # Additional post-add magic
-        #        
+        #
         if spread == self.const.spread_uio_imap:
             # Unless this account already has been associated with an
             # Cyrus EmailServerTarget, we need to do so.
-            est = Email.EmailServerTarget(self._db)
-            old_server = None
-            try:
-                est.find_by_entity(self.entity_id)
-                old_server = est.email_server_id
-            except Errors.NotFoundError:
-                pass
             est = self._UiO_update_email_server(
                 self.const.email_server_type_cyrus)
 
-            if old_server == est.email_server_id:
+            if state.get('email_server_id') == est.email_server_id:
                 return ret
             br = BofhdRequests(self._db, self.const)
             # Register a BofhdRequest to create the mailbox
             reqid = br.add_request(None,        # Requestor
                                    br.now, self.const.bofh_email_create,
                                    self.entity_id, est.email_server_id)
-            if old_server:
+            if state.get('email_server_id'):
                 # Move user iff we chose a new server.  Add a
                 # dependency on the create above.
-                br.add_request(None,	# Requestor
+                br.add_request(None,    # Requestor
                                br.now, self.const.bofh_email_move,
-                               self.entity_id, old_server,
+                               self.entity_id, state['email_server_id'],
                                state_data = reqid)
             # The user's email target is now associated with an email
             # server; try generating email addresses connected to the
@@ -140,8 +149,9 @@ class AccountUiOMixin(Account.Account):
             # and therefore didn't add a request.
             self.update_email_quota(force=True)
 
-        # add an account_home entry pointing to the same disk as the uio spread
-        if spread == self.const.spread_ifi_nis_user:
+        elif spread == self.const.spread_ifi_nis_user:
+            # Add an account_home entry pointing to the same disk as
+            # the uio spread
             tmp = self.get_home(self.const.spread_uio_nis_user)
             self.set_home(spread, disk_id=tmp['disk_id'],
                           home=tmp['home'], status=tmp['status'])
@@ -151,31 +161,36 @@ class AccountUiOMixin(Account.Account):
         if priority is None:
             priority, pri_min, pri_max = calculate_account_type_priority(
                 self, ou_id, affiliation)
-        ret = self.__super.set_account_type(ou_id, affiliation, priority)
+        return self.__super.set_account_type(ou_id, affiliation, priority)
 
     def set_home(self, spread, disk_id=None, home=None, status=None):
         # Assert that user has same home at ifi & uio
         ret = self.__super.set_home(spread, disk_id=disk_id,
                                     home=home, status=status)
         if spread == self.const.spread_ifi_nis_user:
+            # All users with home in "ifi" spread must have the same
+            # home in "uio" spread.
             other_home_spread = self.const.spread_uio_nis_user
         elif spread == self.const.spread_uio_nis_user:
+            # Users with defined home in both "ifi" and "uio" spread
+            # must have the same home in both spreads.
             other_home_spread = self.const.spread_ifi_nis_user
             try:
                 self.get_home(other_home_spread)
             except Errors.NotFoundError:
-                return
+                return ret
         else:
             raise ValueError, "Unexpected spread %s in set_home" % spread
-        ret = self.__super.set_home(other_home_spread, disk_id=disk_id,
-                                    home=home, status=status)        
+        self.__super.set_home(other_home_spread, disk_id=disk_id,
+                              home=home, status=status)
+        return ret
 
     def set_password(self, plaintext):
         # Override Account.set_password so that we get a copy of the
         # plaintext password
         self.__plaintext_password = plaintext
         self.__super.set_password(plaintext)
-        
+
     def write_db(self):
         try:
             plain = self.__plaintext_password
@@ -261,7 +276,7 @@ class AccountUiOMixin(Account.Account):
             if re.search("[^A-Za-z0-9\-_]", name):
                 return "contains illegal characters (%s)" % name
         return False
-        
+
     def delete_spread(self, spread):
         #
         # Pre-remove checks
@@ -282,15 +297,15 @@ class AccountUiOMixin(Account.Account):
         # TBD: It is currently a bit uncertain who and when we should
         # allow this.  Currently it should only be used when deleting
         # a user.
-        if (spread == self.const.spread_uio_imap and 
+        if (spread == self.const.spread_uio_imap and
             int(self.const.spread_uio_imap) in spreads):
             est = Email.EmailServerTarget(self._db)
-            est.find_by_entity(self.entity_id)            
+            est.find_by_entity(self.entity_id)
             br = BofhdRequests(self._db, self.const)
-            reqid = br.add_request(None,        # Requestor
-                                   br.now, self.const.bofh_email_delete,
-                                   self.entity_id, None,
-                                   state_data=est.email_server_id)
+            br.add_request(None,        # Requestor
+                           br.now, self.const.bofh_email_delete,
+                           self.entity_id, None,
+                           state_data=est.email_server_id)
             # TBD: should we also perform a "cascade delete" from EmailTarget?
 
         #
@@ -317,23 +332,25 @@ class AccountUiOMixin(Account.Account):
 
         # Avoid circular import dependency
         from Cerebrum.modules.PosixUser import PosixUser
-        if isinstance(self, PosixUser):
-            ret = self.__super.update_email_addresses()
-        else:
+
+        # Try getting the PosixUser-promoted version of self.  Failing
+        # that, use self unpromoted.
+        userobj = self
+        if not isinstance(self, PosixUser):
             try:
                 # We use the PosixUser object to get access to GECOS.
                 # TODO: This ought to be in a mixin class for Account
                 # for installations where both the PosixUser and the
                 # Email module is in use.  For now we'll just put it
                 # in the UiO specific code.
-                posixuser = PosixUser(self._db)
-                posixuser.find(self.entity_id)
-                # Return immediately, any post code will be executed
-                # on the second run of this function.
-                return posixuser.__super.update_email_addresses()
+                tmp = PosixUser(self._db)
+                tmp.find(self.entity_id)
+                userobj = tmp
             except Errors.NotFoundError:
-                ret = self.__super.update_email_addresses()
-        return ret
+                # This Account hasn't been promoted to PosixUser yet.
+                pass
+
+        return userobj.__super.update_email_addresses()
 
     def update_email_quota(self, force=False):
         """Set e-mail quota according to affiliation.  If any change
@@ -375,7 +392,7 @@ class AccountUiOMixin(Account.Account):
             # wins.
             br.delete_request(entity_id=self.entity_id,
                               operation=self.const.bofh_email_hquota)
-            br.add_request(None, br.now, self.const.bofh_email_hquota, 
+            br.add_request(None, br.now, self.const.bofh_email_hquota,
                            self.entity_id, None)
 
     def is_employee(self):
