@@ -19,6 +19,9 @@ import java.util.Iterator;
 import org.apache.log4j.Category;
 import org.apache.log4j.PropertyConfigurator;
 
+
+import com.sun.java.text.PrintfFormat;
+
 /**
  * Thrown when analyzeing of command failes.
  *
@@ -183,6 +186,7 @@ public class JBofh {
     BofhdConnection bc;
     static Category logger = Category.getInstance(JBofh.class);
     BofhdCompleter bcompleter;
+    Hashtable knownFormats;
 
     /** Creates a new instance of JBofh */
     public JBofh() {
@@ -206,7 +210,8 @@ public class JBofh {
         catch (UnsatisfiedLinkError ignore_me) {
             System.err.println("couldn't load readline lib. Using simple stdin.");
         }
-        cLine = new CommandLine();
+        cLine = new CommandLine(logger);
+        knownFormats = new Hashtable();
         enterLoop();
     }
 
@@ -240,6 +245,7 @@ public class JBofh {
     void enterLoop() {
         while(true) {
             String args[] = cLine.getSplittedCommand();
+            if(args == null) break;
             if(args.length == 0) continue;
             if(args[0].equals("commands")) {  // Neat while debugging
                 for (Enumeration e = commands.keys() ; e.hasMoreElements() ;) {
@@ -269,18 +275,46 @@ public class JBofh {
                 if(resp != null) showResponse((String) r[0], resp);
             }
         }
+        System.out.println("I'll be back");
     }
     
     void showResponse(String cmd, Object resp) {
         String args[] = { cmd };
-        Hashtable format = (Hashtable) bc.sendRawCommand("get_format_suggestion", args);
-        System.out.println("Format: "+resp);
-        System.out.println("as: "+format);
+        Hashtable format = (Hashtable) knownFormats.get(cmd);
+        if(format == null) {
+            knownFormats.put(cmd, bc.sendRawCommand("get_format_suggestion", args));
+            format = (Hashtable) knownFormats.get(cmd);
+        }
+        
+	Vector order = (Vector) format.get("var");
+	if(! (resp instanceof Vector) ){
+	    Vector tmp = new Vector();
+	    tmp.add(resp);
+	    resp = tmp;
+	} else {
+	    String hdr = (String) format.get("hdr");
+	    if(hdr != null) System.out.println(hdr);
+	}
+	for (Enumeration e = ((Vector) resp).elements() ; e.hasMoreElements() ;) {
+	    Hashtable row = (Hashtable) e.nextElement();
+	    try {
+		PrintfFormat pf = new PrintfFormat((String) format.get("str"));
+		Object a[] = new Object[order.size()];
+		for(int i = 0; i < order.size(); i++) 
+		    a[i] = row.get((String) order.get(i));
+		System.out.println(pf.sprintf(a));
+	    } catch (IllegalArgumentException ex) {
+		logger.error("Error formatting "+resp+"\n as: "+format, ex);
+		System.out.println("An error occoured formatting the response, see log for details");
+	    }
+        }
     }
     /**
      * @param args the command line arguments
      */
     public static void main(String[] args) {
+        Object obj[] = {"Mitt navn", "Min født", new Float(1234.0)};
+        System.out.println(new PrintfFormat("Navn: %20s\nFødt: %-20s\nKroner: %08.2f\n").sprintf(obj));
         new JBofh();
     }
     
