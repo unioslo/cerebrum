@@ -459,8 +459,8 @@ class PersonLTMixin(Person.Person):
 
 
 
-    def get_permisjon(self, timestamp=None):
-        return self.list_permisjon(self.entity_id, timestamp)
+    def get_permisjon(self, timestamp=None, tilsettings_id=None):
+        return self.list_permisjon(self.entity_id, timestamp, tilsettings_id)
     # end get_permisjon
     
 
@@ -601,18 +601,27 @@ class PersonLTMixin(Person.Person):
 
 
 
-    def list_permisjon(self, person_id, timestamp = None):
+    def list_permisjon(self, person_id, timestamp = None,
+                       tilsettings_id = None):
         """
         List all leaves of absence (permisjon) records for PERSON_ID
 
         If TIMESTAMP is not None (it must be a string in the format
         'YYYYMMDD'), report leave records with dato_fra <= TIMESTAMP <=
         dato_til only.
+
+        If TILSETTINGS_ID is not None, list only those leaves of absence
+        pertinent to a particular employment (tilsetting).
         """
 
         values = {"person_id" : int(person_id)}
         time_clause, extra_vars = self._make_timestamp_clause(timestamp)
         values.update(extra_vars)
+
+        if tilsettings_id is not None:
+            emp_clause = " AND tilsettings_id = :tilsettings_id "
+            values["tilsettings_id"] = int(tilsettings_id)
+        # fi
 
         return self.query("""
                           SELECT tilsettings_id, person_id,
@@ -621,7 +630,10 @@ class PersonLTMixin(Person.Person):
                           FROM %s
                           WHERE person_id = :person_id
                                 %s
-                          """ % (_PERMISJONS_SCHEMA, time_clause),
+                                %s
+                          """ % (_PERMISJONS_SCHEMA,
+                                 time_clause,
+                                 emp_clause),
                           values)
     # end list_permisjon
 
@@ -1116,5 +1128,4 @@ class PersonLTMixin(Person.Person):
                        time_clause)
         return self.query(query, values)
     # end list_frida_persons
-    
 # end PersonLTMixin
