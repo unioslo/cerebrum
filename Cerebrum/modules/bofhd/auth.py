@@ -490,19 +490,20 @@ class BofhdAuth(DatabaseAccessor):
         return self.is_account_owner(operator, self.const.auth_set_password,
                                      entity)
 
-    def can_create_disk(self, operator, query_run_any=False):
+    def can_create_disk(self, operator, host=None, query_run_any=False):
         if self.is_superuser(operator):
             return True
-        # auth_create_disk is not tied to a target
-        if self._has_operation_perm_somewhere(
-            operator, self.const.auth_add_disk):
+        if self._query_target_permissions(operator, self.const.auth_add_disk,
+                                          self.const.auth_target_type_host,
+                                          host, None):
             return True
         if query_run_any:
             return False
         raise PermissionDenied("Permission denied")
 
-    def can_remove_disk(self, operator, query_run_any=False):
-        return self.can_create_disk(operator, query_run_any=query_run_any)
+    def can_remove_disk(self, operator, host=None, query_run_any=False):
+        return self.can_create_disk(operator, host=host,
+                                    query_run_any=query_run_any)
 
     def can_create_host(self, operator, query_run_any=False):
         if self.is_superuser(operator):
@@ -967,6 +968,20 @@ class BofhdAuth(DatabaseAccessor):
         return self._is_local_postmaster(operator, self.const.auth_email_delete,
                                          account, domain, query_run_any)
 
+    def can_email_address_reassign(self, operator, account=None, domain=None,
+                                   query_run_any=False):
+        if query_run_any:
+            return True
+        # Allow a user to manipulate his own accounts
+        if account:
+            owner_acc = Factory.get("Account")(self.db)
+            owner_acc.find(operator)
+            if (owner_acc.owner_id == account.owner_id and
+                owner_acc.owner_type == account.owner_type):
+                return True
+        return self._is_local_postmaster(operator, self.const.auth_email_delete,
+                                         account, domain, query_run_any)
+
     def _is_local_postmaster(self, operator, operation, account=None,
                              domain=None, query_run_any=False):
         if self.is_superuser(operator):
@@ -1136,9 +1151,10 @@ class BofhdAuth(DatabaseAccessor):
              [:table schema=cerebrum name=auth_operation_set] aos,
              [:table schema=cerebrum name=auth_role] ar
         WHERE at.%(id_colname)s=:id AND
-              at.ou_id=aot.entity_id AND
               aot.op_target_id=ar.op_target_id AND
-              aot.target_type=:target_type AND
+              ((aot.target_type=:target_type AND
+                at.ou_id=aot.entity_id ) OR
+               aot.target_type=:global_target_type) AND
               ar.entity_id IN (%(group_list)s) AND
               aos.op_set_id=ar.op_set_id AND
               ao.op_set_id=aos.op_set_id AND
@@ -1149,7 +1165,10 @@ class BofhdAuth(DatabaseAccessor):
 
         for r in self.query(sql,
                             {'opcode': int(operation),
-                             'target_type': self.const.auth_target_type_ou,
+                             'target_type':
+                                     self.const.auth_target_type_ou,
+                             'global_target_type':
+                             	     self.const.auth_target_type_global_ou,
                              'id': entity.entity_id}):
             if not r['attr']:
                 return True
