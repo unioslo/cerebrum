@@ -291,8 +291,13 @@ public class JBofh {
                 Vector protoArgs = (Vector) r[1];
                 protoArgs = checkArgs(protoCmd, protoArgs);
                 if(protoArgs == null) continue;
-                Object resp = bc.sendCommand(protoCmd, protoArgs);
-                if(resp != null) showResponse(protoCmd, resp);
+		try {
+		    Object resp = bc.sendCommand(protoCmd, protoArgs);
+		    if(resp != null) showResponse(protoCmd, resp);
+		} catch (Exception ex) {
+		    System.out.println("Unexpected error (bug): "+ex);
+		    ex.printStackTrace();
+		}
             }
         }
         System.out.println("I'll be back");
@@ -333,8 +338,22 @@ public class JBofh {
         args.add(cmd);
         Hashtable format = (Hashtable) knownFormats.get(cmd);
         if(format == null) {
-            knownFormats.put(cmd, bc.sendRawCommand("get_format_suggestion", args));
-            format = (Hashtable) knownFormats.get(cmd);
+	    Object f = bc.sendRawCommand("get_format_suggestion", args);
+	    if(f instanceof String && ((String)f).equals(""))
+		f = null;
+	    if(f != null) {
+		knownFormats.put(cmd, f);
+		format = (Hashtable) knownFormats.get(cmd);
+	    } else {
+		if(resp instanceof String) {
+		    System.out.println(resp);
+		    return;
+		} else {
+		    throw new IllegalArgumentException("result was class: "+
+						       resp.getClass().getName()+
+						       " and no format suggestion exists");
+		}
+	    }
         }
         
 	Vector order = (Vector) format.get("var");
