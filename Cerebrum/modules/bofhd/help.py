@@ -220,17 +220,25 @@ _command_help = {
 # See Help.get_arg_help() for the meaning of a ":" in the key
 
 _arg_help = {
-    'account_name': ['uname', 'Enter accountname'],
-    'email_address': ['address', 'Enter e-mail address'],
-    'entity_type': ['entity_type', 'Entity type', """Possible values:
- - group
- - account"""],
-    'posix_gecos': ['gecos', 'Enter gecos'],
-    'string': ['string', 'Enter value'],
-    'group_search_type': ['search_type', 'Enter group search type', 
-                          'This should be a hash, so just forget it'],
-    'person_search_type': ['search_type', 'Enter person search type',
-                           """Possible values:
+    'account_name':
+        ['uname', 'Enter accountname'],
+    'email_address':
+        ['address', 'Enter e-mail address'],
+    'entity_type':
+        ['entity_type', 'Entity type',
+         "Possible values:\n - group\n - account"],
+    'integer':
+        ['number', 'Enter an integral number'],
+    'posix_gecos':
+        ['gecos', 'Enter gecos'],
+    'string':
+        ['string', 'Enter value'],
+    'group_search_type':
+        ['search_type', 'Enter group search type', 
+         'This should be a hash, so just forget it'],
+    'person_search_type':
+        ['search_type', 'Enter person search type',
+         """Possible values:
   - 'name'
   - 'date' of birth, on format YYYY-MM-DD
   - 'person_id'"""]

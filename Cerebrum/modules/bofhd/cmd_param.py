@@ -122,6 +122,10 @@ class Id(Parameter):
     _type = 'id'
     _help_ref = 'id'
 
+class Integer(Parameter):
+    _type = 'integer'
+    _help_ref = 'integer'
+
 class MoveType(Parameter):
     _type = 'moveType'
     _help_ref = 'move_type'
