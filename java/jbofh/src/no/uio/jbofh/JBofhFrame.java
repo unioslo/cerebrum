@@ -65,6 +65,8 @@ public class JBofhFrame implements ActionListener {
             if("esc".equals(getValue(Action.NAME))) {
                 wasEsc = true;
                 releaseLock();
+            } else if("clearline".equals(getValue(Action.NAME))) {
+                tfCmdLine.setText("");
             } else if("tab".equals(getValue(Action.NAME))) {
                 Vector completions = new Vector();
                 StringBuffer suggestions = new StringBuffer();
@@ -87,7 +89,7 @@ public class JBofhFrame implements ActionListener {
 
                                 for(int n = 0; n < minLen; n++) {
                                     if(tmp.charAt(n) != common.charAt(n)) {
-                                        System.out.println(n+" "+tmp+" "+common);
+                                        //System.out.println(n+" "+tmp+" "+common);
                                         common = common.substring(0, n);
                                         break;
                                     }
@@ -181,6 +183,9 @@ public class JBofhFrame implements ActionListener {
             new MyKeyAction("up"));
         keymap.addActionForKeyStroke(KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0), 
             new MyKeyAction("esc"));
+        keymap.addActionForKeyStroke(KeyStroke.getKeyStroke(KeyEvent.VK_U, 
+                                         java.awt.event.InputEvent.CTRL_MASK), 
+            new MyKeyAction("clearline"));
         tfCmdLine.setKeymap(keymap);
 
         String popups[] = {"Clear screen", "clear_screen"};
