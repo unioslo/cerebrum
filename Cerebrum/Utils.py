@@ -615,7 +615,7 @@ class RecursiveDict(dict):
            """
         for (key, value) in other.items():
             if (key in self and 
-                isinstance(self[key], Profile) and 
+                isinstance(self[key], RecursiveDict) and 
                 isinstance(value, dict)):
                 self[key].update(value)
             else:
@@ -623,7 +623,7 @@ class RecursiveDict(dict):
     def __setitem__(self, key, value):
             if isinstance(value, dict):
                 # Wrap it, make sure it follows our rules
-                value = Profile(value)
+                value = RecursiveDict(value)
             dict.__setitem__(self, key, value)    
                       
                 
