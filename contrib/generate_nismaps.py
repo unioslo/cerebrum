@@ -94,7 +94,7 @@ def generate_passwd(filename, shadow_file, spread=None):
         if gecos is None:
             gecos = "GECOS NOT SET"
         gecos = Utils.latin1_to_iso646_60(gecos)
-        home = row['home'] 
+        home = row['home']
         shell = shells[int(row['shell'])]
         if row['quarantine_type'] is not None:
             quara_rows = [row] + extra_rows
@@ -119,8 +119,11 @@ def generate_passwd(filename, shadow_file, spread=None):
 
         if home is None:
             if row['disk_id'] is None:
-                raise NoDisk, "Bad disk for %s" % uname
-            home = diskid2path[int(row['disk_id'])] + "/" + uname
+                # TBD: Is this good enough?
+                home = '/'
+                #raise NoDisk, "Bad disk for %s" % uname
+            else:
+                home = diskid2path[int(row['disk_id'])] + "/" + uname
 
         if shadow_file:
             s.write("%s:%s:::\n" % (uname, passwd))

@@ -208,12 +208,14 @@ class PosixUser(Account_class):
 		spreads.append(spread)
 	    esprd = ' AND (' + ' OR '.join(['es.spread=%i' % x for x \
 			in spreads]) + ')'
+            asprd = ' AND (' + ' OR '.join(['ah.spread=%i' % x for x \
+			in spreads]) + ')'
             ecols += ", ah.home, ah.disk_id"
             efrom += """
             JOIN [:table schema=cerebrum name=entity_spread] es
               ON pu.account_id=es.entity_id %s
-            JOIN [:table schema=cerebrum name=account_home] ah
-              ON es.entity_id=ah.account_id""" % esprd
+            LEFT JOIN [:table schema=cerebrum name=account_home] ah
+              ON es.entity_id=ah.account_id %s""" % (esprd, asprd)
         # TBD: should we LEFT JOIN with account_authentication so that
         # users without passwords of the given type are returned?
         return self.query("""
