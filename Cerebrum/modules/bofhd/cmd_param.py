@@ -130,6 +130,10 @@ class MoveType(Parameter):
     _type = 'moveType'
     _help_ref = 'move_type'
 
+class OpSet(Parameter):
+    _type = 'opSet'
+    _help_ref = 'opset'
+
 class OU(Parameter):
     _type = 'ou'
     _help_ref = 'ou'
