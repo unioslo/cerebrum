@@ -149,6 +149,14 @@ class Disk(Entity):
         GROUP BY di.disk_id, di.host_id, di.path""" % (
             ai_where, where), {'host_id': host_id})
 
+    def delete(self):
+        if self.__in_db:
+            self.execute("""
+            DELETE FROM [:table schema=cerebrum name=disk_info]
+            WHERE disk_id = :d_id""", {'d_id': self.entity_id})
+            self._db.log_change(self.entity_id, self.const.disk_del, None)
+        self.__super.delete()
+
 class Host(Entity):
     __read_attr__ = ('__in_db',)
     __write_attr__ = ('name', 'description')

@@ -102,6 +102,7 @@ class CLConstants(Constants.Constants):
                                        'ac_type del for account %(subject)s')
     disk_add = _ChangeTypeCode('disk', 'add', 'new disk %(subject)s')
     disk_mod = _ChangeTypeCode('disk', 'mod', 'update disk %(subject)s')
+    disk_del = _ChangeTypeCode('disk', 'del', "delete disk %(subject)s")
     host_add = _ChangeTypeCode('host', 'add', 'new host %(subject)s')
     host_mod = _ChangeTypeCode('host', 'mod', 'update host %(subject)s')
     ou_create = _ChangeTypeCode('ou', 'create', 'created OU %(subject)s')
