@@ -108,15 +108,6 @@ class Entity(Abstract.Entity):
     def delete(self):
         pass
         
-    def get_address_info(self):
-        pass
-        
-    def get_contact_info(self):
-        pass
-        
-    def get_spread_info(self):
-        pass
-        
     def add_quarantine(self, quarantine_type, why="", 
                        start=None, end=None):
         """Create and store a new quarantine on entity"""
