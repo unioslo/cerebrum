@@ -592,9 +592,22 @@ def get_address(address_id):
     return "%s@%s" % (ea.email_addr_local_part,
                       ed.rewrite_special_domains(ed.email_domain_name))
 
+def is_ok_time(now):
+    times = LEGAL_BATCH_MOVE_TIMES.split('-')
+    if times[0] > times[1]:   #  Like '20:00-08:00'
+        if now > times[0] or now < times[1]:
+            return True
+    else:                     #  Like '08:00-20:00'
+        if now > times[0] and now < times[1]:
+            return True
+    return False
+
 def process_move_requests():
     br = BofhdRequests(db, const)
-    for r in br.get_requests(operation=const.bofh_move_user):
+    requests = br.get_requests(operation=const.bofh_move_user_now)
+    if is_ok_batch_time(time.strftime("%H:%M")):
+        requests.extend(br.get_requests(operation=const.bofh_move_user))    
+    for r in requests:
         if keep_running() and r['run_at'] < br.now:
             logger.debug("Req %d: bofh_move_user %d",
                          r['request_id'], r['entity_id'])
