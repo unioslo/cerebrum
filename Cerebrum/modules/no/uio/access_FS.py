@@ -245,6 +245,7 @@ WHERE  p.fodselsdato=s.fodselsdato AND
        st.opphortstudierettstatkode = 'FULLFØRT'  AND
        st.studierettstatkode IN ('AUTOMATISK', 'CANDMAG', 'DIVERSE',
        'OVERGANG', 'ORDOPPTAK')
+       """
         return (self._get_cols(qry), self.db.query(qry))
 
     def GetPrivatistStudieprogram(self):
@@ -398,7 +399,7 @@ WHERE p.fodselsdato=d.fodselsdato AND
         qry = """
 
 SELECT studieprogramkode, status_utdplan, faknr_studieansv,
-       instituttnr_studieansv, gruppenr_studieansv
+       instituttnr_studieansv, gruppenr_studieansv, studienivakode
 FROM fs.studieprogram"""
         return (self._get_cols(qry), self.db.query(qry))
 
