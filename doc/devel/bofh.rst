@@ -273,7 +273,7 @@ bofhd_get_format_suggestion(cmd)
    ``Cerebrum.modules.bofhd.cmd_param.FormatSuggestion.get_format``:
 
    .. sysinclude::
-     :vardef: ext_fsug $ENV[CEREDOC]/scripts/ext_doc.py --module $ENV[CERESRC]/Cerebrum/modules/bofhd/cmd_param.py --func_template $ENV[CEREDOC]/scripts/func_doc.template
+     :vardef: ext_fsug scripts/ext_doc.py --module ,ceresrc/Cerebrum/modules/bofhd/cmd_param.py --func_template scripts/func_doc.template
 
    .. sysinclude:: %(ext_fsug)s --func FormatSuggestion:get_format
 

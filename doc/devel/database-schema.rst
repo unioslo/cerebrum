@@ -8,7 +8,7 @@ The cerebrum database schema
 .. section-numbering::
 
 .. sysinclude::
-  :vardef: ext_sqldoc $ENV[CEREDOC]/scripts/ext_sqldoc.py --file $ENV[CERESRC]/design/core_tables.sql 
+  :vardef: ext_sqldoc scripts/ext_sqldoc.py --file ,ceresrc/design/core_tables.sql 
 
 Introduction
 ============
