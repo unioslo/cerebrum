@@ -35,7 +35,7 @@ class OU(OU):
         "Clear all attributes associating instance with a DB entity."
         self.ou_id = self.institusjon = self.fakultet = self.institutt = self.avdeling = self.katalog_merke = None
 
-    def get_sko(self, fakultet, institutt, avdeling, institusjon=113):
+    def get_stedkode(self, fakultet, institutt, avdeling, institusjon=113):
         (self.ou_id, self.institusjon, self.fakultet, self.institutt,
         self.avdeling, self.katalog_merke) = self.query_1("""
         SELECT ou_id, institusjon, fakultet,  institutt, avdeling, katalog_merke
@@ -44,7 +44,7 @@ class OU(OU):
                               institusjon, fakultet, institutt, avdeling)
         return 1
 
-    def add_sko(self, fakultet, institutt, avdeling, institusjon=113, katalog_merke='T'):
+    def add_stedkode(self, fakultet, institutt, avdeling, institusjon=113, katalog_merke='T'):
         self.execute("""
         INSERT INTO cerebrum.stedkode
           (ou_id, institusjon, fakultet, institutt, avdeling, katalog_merke)
