@@ -48,6 +48,14 @@ class _EmailServerTypeCode(Constants._CerebrumCode):
 
 class EmailConstants(Constants.Constants):
 
+    EmailTarget = _EmailTargetCode
+    EmailDomainCategory = _EmailDomainCategoryCode
+    EmailServerType = _EmailServerTypeCode
+    EmailSpamLevel = _EmailSpamLevelCode
+    EmailSpamAction = _EmailSpamActionCode
+    EmailVirusFound = _EmailVirusFoundCode
+    EmailVirusRemoved = _EmailVirusRemovedCode
+
     email_domain_category_noexport = _EmailDomainCategoryCode(
         'noexport',
         'Addresses in these domains can be defined, but are not'
@@ -1215,15 +1223,6 @@ class EmailServer(Host):
              [:table schema=cerebrum name=host_info] h
         WHERE s.server_id = h.host_id
         """, fetchall=False)
-
-    def find_by_server_name(self, server):
-        server_id = self.query_1("""
-        SELECT server_id
-        FROM [:table schema=cerebrum name=email_server],
-             [:table schema=cerebrum name=host_info]
-        WHERE server_id = host_id AND
-              name=:name""", {'name': server})
-        self.find(server_id)
 
 class EmailServerTarget(EmailTarget):
     __read_attr__ = ('__in_db',)
