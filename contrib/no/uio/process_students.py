@@ -563,7 +563,11 @@ def process_student(person_info):
     if not dryrun:
         db.commit()
 
-    
+def validate_config():
+    AutoStud.AutoStud(db, logger, debug=debug, cfg_file=studconfig_file,
+                      studieprogs_file=studieprogs_file,
+                      emne_info_file=emne_info_file)
+
 def process_students():
     global autostud, students, other_account_owners
 
@@ -608,8 +612,9 @@ def main():
                                     'studconfig-file=', 'fast-test', 'with-lpr',
                                     'workdir=', 'type=', 'reprint=',
                                     'emne-info-file=', 'move-users',
-                                    'recalc-pq', 'studie-progs-file=', 'user-spread=',
-                                    'dryrun', 'remove-groupmembers'])
+                                    'recalc-pq', 'studie-progs-file=',
+                                    'user-spread=', 'remove-groupmembers'
+                                    'dryrun', 'validate'])
     except getopt.GetoptError:
         usage()
     global debug, fast_test, create_users, update_accounts, logger, skip_lpr
@@ -619,13 +624,14 @@ def main():
 
     skip_lpr = True       # Must explicitly tell that we want lpr
     update_accounts = create_users = recalc_pq = dryrun = move_users = False
-    remove_groupmembers = False
+    remove_groupmembers = validate = False
     fast_test = False
     workdir = None
     range = None
     only_dump_to = None
     user_spread = None
     to_stdout = False
+    log_level = AutoStud.Util.ProgressReporter.DEBUG
     for opt, val in opts:
         if opt in ('-d', '--debug'):
             debug += 1
@@ -656,6 +662,11 @@ def main():
             only_dump_to = val
         elif opt in ('--dryrun',):
             dryrun = True
+        elif opt in ('--validate',):
+            validate = True
+            to_stdout = True
+            workdir = '.'
+            log_level = AutoStud.Util.ProgressReporter.INFO
         elif opt in ('--with-lpr',):
             skip_lpr = False
         elif opt in ('--workdir',):
@@ -670,7 +681,8 @@ def main():
 
     if user_spread is None:
         usage()
-    elif (not update_accounts and not create_users and range is None):
+    elif (not update_accounts and not create_users and not validate and
+          range is None):
         if not recalc_pq:
             usage()
     else:
@@ -682,10 +694,14 @@ def main():
                                    os.getpid())
         os.mkdir(workdir)
     os.chdir(workdir)
-    logger = AutoStud.Util.ProgressReporter(
-        "%s/run.log.%i" % (workdir, os.getpid()), stdout=to_stdout,
-        loglevel=AutoStud.Util.ProgressReporter.DEBUG)
+    logger = AutoStud.Util.ProgressReporter("%s/run.log.%i"
+                                            % (workdir, os.getpid()),
+                                            stdout=to_stdout,
+                                            loglevel=log_level)
     bootstrap()
+    if validate:
+        validate_config()
+        sys.exit(0)
     if range is not None:
         make_letters("letters.info", type=type, range=val)
     else:
@@ -694,7 +710,7 @@ def main():
 def usage():
     print """Usage: process_students.py -d | -c | -u
     -d | --debug: increases debug verbosity
-    -c | -create-use : create new users
+    -c | --create-user : create new users
     -u | --update-accounts : update existing accounts
     -s | --student-info-file file:
     -e | --emne-info-file file:
@@ -704,6 +720,8 @@ def usage():
     --dryrun: don't do any changes to the database.  This can be used
       to get an idea of what changes a normal run would do.  TODO:
       also dryrun some parts of update/create user.
+    --validate: parse the configuration file and report any errors,
+      then exit.
     --recalc-pq : recalculate printerquota settings (does not update
       quota).  Cannot be combined with -c/-u
     --only-dump-results file: just dump results with pickle without
