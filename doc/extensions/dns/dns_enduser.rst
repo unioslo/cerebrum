@@ -328,3 +328,5 @@ Ting som kan vente til Version >= 1.1:
   inntasting av kodeverdien for disse en optimal løsning.  Finnes det
   noe bedre alternativ?
 
+..
+   arch-tag: a59f6b45-345a-4891-8226-fbccc208adc0
