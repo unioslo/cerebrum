@@ -1,9 +1,6 @@
 package no.uio.jbofh;
 
 import java.io.*;
-import javax.swing.JOptionPane;
-import javax.swing.JPasswordField;
-import javax.swing.JDialog;
 import java.awt.Frame;
 
 /**
@@ -25,8 +22,14 @@ import java.awt.Frame;
  * @author  runefro
  */
 
+class MethodFailedException extends Exception { }
+
 class ConsolePassword {
-    class MethodFailedException extends Exception { }
+    JBofhFrame jbFrame;
+
+    public ConsolePassword(JBofhFrame frame) {
+        jbFrame = frame;
+    }
 
     public void setEcho(boolean on) throws MethodFailedException {
         String[] cmd = {
@@ -67,21 +70,7 @@ class ConsolePassword {
 
     public String getPasswordByJDialog(String prompt, Frame parent) 
         throws MethodFailedException {
-        try {
-            JPasswordField pf = new JPasswordField(10);
-            JOptionPane pane = new JOptionPane(pf, JOptionPane.QUESTION_MESSAGE, 
-                JOptionPane.OK_CANCEL_OPTION);
-            JDialog dialog = pane.createDialog(parent, prompt);
-            pf.requestFocus();
-            dialog.show();
-            dialog.dispose();
-            Object value = pane.getValue();
-            if(((Integer) value).intValue() == JOptionPane.OK_OPTION) 
-                return new String(pf.getPassword());
-            return null;
-        } catch (java.lang.NoClassDefFoundError e) {
-            throw new MethodFailedException();
-        }
+        return jbFrame.getPasswordByJDialog(prompt, parent);
     }
 
     class HidingThread extends Thread {
@@ -126,7 +115,8 @@ class ConsolePassword {
             return getPasswordByStty(prompt);
         } catch (MethodFailedException e) {}
         try {
-            return getPasswordByJDialog(prompt, null);
+            if (jbFrame != null)
+                return jbFrame.getPasswordByJDialog(prompt, null);
         } catch (MethodFailedException e) {}
         try {
             return getPasswordByBusyLoop(prompt);
@@ -135,7 +125,7 @@ class ConsolePassword {
     }
 
     public static void main(String[] args) {
-        ConsolePassword cp = new ConsolePassword();
+        ConsolePassword cp = new ConsolePassword(null);
         System.out.println("You typed: "+cp.getPassword("Enter your password: "));
     }
 }

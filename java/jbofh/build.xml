@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project basedir="." default="dist" name="JBofh">
     <description>
-        simple example build file
+        Buildfile for JBofh.  Use -Dnogui if swing is not available, example:
+        JAVACMD=/usr/lib/kaffe/bin/kaffe ant -Dbuild.compiler=kjc -Dnogui dist
+        JAVACMD=/local/j2sdk1.4/bin/java ant dist
     </description>
   <!-- set global properties for this build -->
   <property location="src" name="src"/>
@@ -16,8 +18,9 @@
     <mkdir dir="${build}"/>
   </target>
 
-  <target depends="init" description="compile the source " name="compile">
+  <target depends="init" description="compile the source " name="compile" unless="${nogui}">
     <!-- Compile the java code from ${src} into ${build} -->
+    <echo>Compiling with gui </echo>
     <javac destdir="${build}" srcdir="${src}" debug="on">
             <classpath>
                 <fileset dir="lib" includes="*.jar">
@@ -26,7 +29,19 @@
         </javac>
   </target>
 
-  <target depends="compile" description="generate the distribution" name="dist">
+  <target depends="init" description="compile the source" name="compile-nogui" if="${nogui}">
+    <!-- Compile the java code from ${src} into ${build} -->
+    <echo>Compiling without gui </echo>
+    <javac destdir="${build}" srcdir="${src}" debug="on">
+            <classpath>
+                <fileset dir="lib" includes="*.jar">
+                </fileset>
+            </classpath>
+            <exclude name="no/uio/jbofh/JBofhFrameImpl.java"/>
+        </javac>
+  </target>
+
+  <target depends="compile,compile-nogui" description="generate the distribution" name="dist">
     <!-- Create the distribution directory -->
     <mkdir dir="${dist}/lib"/>
     <unzip src="lib/log4jME.jar" dest="${tmp}"/>

@@ -22,7 +22,6 @@ import org.apache.log4j.PropertyConfigurator;
 import org.apache.xmlrpc.XmlRpcClient;
 import org.apache.xmlrpc.XmlRpcException;
 import org.gnu.readline.*;
-import javax.swing.JOptionPane;
 
 import com.sun.java.text.PrintfFormat;
 
@@ -229,7 +228,28 @@ public class JBofh {
         throws BofhdException {
 	guiEnabled = gui;
         loadPropertyFiles(log4jPropertyFile);
-	if(gui) mainFrame = new JBofhFrame(this);
+	if(gui){
+            // Load class with reflection to prevent javac from trying
+            // to compile JBofhFrameImpl which requires swing.
+            try {
+                Class c = Class.forName("no.uio.jbofh.JBofhFrameImpl");
+                Object[] args = new Object[] { this };
+                Class[] cargs = new Class[] { this.getClass() };
+                java.lang.reflect.Constructor constr = c.getConstructor(cargs);
+                mainFrame = (JBofhFrame) constr.newInstance(args);
+            } catch (ClassNotFoundException e) {
+                System.out.println(e);
+            } catch (NoSuchMethodException e) {
+                System.out.println(e);
+            } catch (IllegalAccessException e) {
+                System.out.println(e);
+            } catch (InstantiationException e) {
+                System.out.println(e);
+            } catch (java.lang.reflect.InvocationTargetException e) {
+                System.out.println(e);            
+            }
+            //mainFrame = (JBofhFrame) new JBofhFrameImpl(this);
+        }
 
         bc = new BofhdConnection(logger, this);
         String intTrust = (String) props.get("InternalTrustManager.enable");
@@ -297,12 +317,12 @@ public class JBofh {
             }
 
 	    if(password == null) {
-                ConsolePassword cp = new ConsolePassword();
+                ConsolePassword cp = new ConsolePassword(mainFrame);
                 String prompt = "Password for "+uname+":";
 		if(guiEnabled) {
 		    try {
 			password = cp.getPasswordByJDialog(prompt, mainFrame.frame);
-		    } catch (ConsolePassword.MethodFailedException e) {
+		    } catch (MethodFailedException e) {
 			return false;
 		    }
 		} else {
@@ -532,12 +552,12 @@ public class JBofh {
             try {
 		String s;
 		if (type != null && type.equals("accountPassword")) {
-		    ConsolePassword cp = new ConsolePassword();
+		    ConsolePassword cp = new ConsolePassword(mainFrame);
 
 		    if(guiEnabled) {
 			try {
 			    s = cp.getPasswordByJDialog(prompt + ">", mainFrame.frame);
-			} catch (ConsolePassword.MethodFailedException e) {
+			} catch (MethodFailedException e) {
 			    s = "";
 			}
 		    } else {
@@ -727,6 +747,7 @@ public class JBofh {
     public static void main(String[] args) {
 	boolean gui = JBofh.isMSWindows();
         String uname = System.getProperty("user.name");
+        JBofh jb = null;
         try {
             String bofhd_url = null;
 	    boolean test_login = false;
@@ -756,7 +777,7 @@ public class JBofh {
                     System.exit(1);
                 }
 	    }
-            JBofh jb = new JBofh(gui, log4jPropertyFile, bofhd_url);
+            jb = new JBofh(gui, log4jPropertyFile, bofhd_url);
 	    if(test_login) {
 		jb.initialLogin("bootstrap_account", "test");
                 // "test" md5: $1$F9feZuRT$hNAtCcCIHry4HKgGkkkFF/
@@ -768,8 +789,8 @@ public class JBofh {
 	} catch (BofhdException be) {
 	    String msg = "Caught error during init, terminating: \n"+ be.getMessage();
 	    if(gui) {
-		JOptionPane.showMessageDialog(null, msg, "Fatal error", 
-					      JOptionPane.ERROR_MESSAGE);
+		System.out.println(msg);
+                jb.mainFrame.showErrorMessageDialog("Fatal error", msg);
                 System.exit(0);
 	    } else {
 		System.out.println(msg);
