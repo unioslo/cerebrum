@@ -496,7 +496,7 @@ class CommonConstants(ConstantsBase):
     system_manual = _AuthoritativeSystemCode('Manual', 'Manual registration')
 
     # bootstrap_account is of this type:
-    account_program = _AccountCode('P', 'Programvarekonto')
+    account_program = _AccountCode('programvare', 'Programvarekonto')
 
 class Constants(CoreConstants, CommonConstants):
     pass
