@@ -42,13 +42,13 @@ class PosixGroup(Group.Group):
     # If one wants to build a PosixGroup on top of a Group whose name
     # is not proper for PosixGroup, one might define a _new_
     # PosixGroup and add the Group as its only (union) member.
-    def populate(self, creator=None, visibility=None, name=None,
+    def populate(self, creator_id=None, visibility=None, name=None,
                  description=None, create_date=None, expire_date=None,
                  gid=None, parent=None):
         if parent is not None:
             self.__xerox__(parent)
         else:
-            Group.populate(creator, visibility, name, description,
+            Group.populate(creator_id, visibility, name, description,
                            create_date, expire_date)
         self.__in_db = False
         if gid is None:
@@ -81,9 +81,9 @@ class PosixGroup(Group.Group):
             return self.__super.__eq__(other)
         return False
 
-    def new(self, creator, visibility, name, description=None,
+    def new(self, creator_id, visibility, name, description=None,
             create_date=None, expire_date=None, gid=None):
-        PosixGroup.populate(self, creator, visibility, name, description,
+        PosixGroup.populate(self, creator_id, visibility, name, description,
                             create_date, expire_date, gid)
         PosixGroup.write_db(self)
         PosixGroup.find(self, self.entity_id)

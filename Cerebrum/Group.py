@@ -42,7 +42,7 @@ class Group(EntityName, Entity):
             setattr(self, attr, None)
         self.__updated = False
 
-    def populate(self, creator, visibility, name,
+    def populate(self, creator_id, visibility, name,
                  description=None, create_date=None, expire_date=None,
                  parent=None):
         """Populate group instance's attributes without database access."""
@@ -62,7 +62,7 @@ class Group(EntityName, Entity):
                 raise RuntimeError, "populate() called multiple times."
         except AttributeError:
             self.__in_db = False
-        self.creator_id = creator.entity_id
+        self.creator_id = creator_id
         self.visibility = int(visibility)
         self.description = description
         self.create_date = create_date
