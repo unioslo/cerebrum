@@ -8,11 +8,13 @@ import re
 import pickle
 import sys
 import getopt
+import time
 
 import xml.sax
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
+from Cerebrum.modules.no import Stedkode
 
 OU_class = Factory.get('OU')
 db = Factory.get('Database')()
@@ -155,6 +157,11 @@ def import_org_units(sources):
                                                cereconf.DEFAULT_INSTITUSJONSNR))
         except Errors.NotFoundError:
             pass
+	if noval_ou:
+	    del cer_ou_tab[int(ou.ou_id)]
+	    if (ou.get_entity_quarantine() <> []):
+		for quaran in ou.get_entity_quarantine():
+		    ou.delete_entity_quarantine(quaran['quarantine_type']) 
         kat_merke = 'F'
         if k.get('opprettetmerke_for_oppf_i_kat'):
             kat_merke = 'T'
@@ -259,50 +266,29 @@ def import_org_units(sources):
                     stedkode2ou, co)
     db.commit()
 
-def dump_perspective(sources):
-    """Displays the OU hierarchy in a fairly readable way"""
+def get_cere_ou_table():
+    stedkode = Stedkode.Stedkode(db)
+    sted_tab = {}
+    for entry in stedkode.get_stedkoder():
+	value = "%02d%02d%02d" % (entry['fakultet'],entry['institutt'],\
+							entry['avdeling'])
+	key = int(entry['ou_id'])
+	sted_tab[key] = value
+    return(sted_tab)
 
-    tree_info = {}
-    org_units = {}
+def set_quaran():
+    #ou = OU_class(db)
+    from Cerebrum import OU 
+    ous = OU.EntityQuarantine(db) 
+    now = db.DateFromTicks(time.time())
+    for k in cer_ou_tab.keys():
+	ous.clear()
+	ous.find(k)
+	if (ous.get_entity_quarantine(type=co.quarantine_ou_notvalid) == []):
+		ous.add_entity_quarantine(int(co.quarantine_ou_notvalid),2,\
+					description='import_OU',start = now) 
+    db.commit()
 
-    class Node(object):
-        def __init__(self, name, parent):
-            self.name = name
-            self.parent = parent
-            self.children = []
-
-    def dump_part(parent, indent):
-        print " " * indent + "%s (%s)" % (
-            str(parent),
-            org_units.get(parent, {'forkstednavn': 'n/a'})['forkstednavn'])
-        for t in tree_info.keys():
-            if tree_info[t].parent == parent:
-                if t == parent:
-                    print "WARNING: circular for %s" % t
-                else:
-                    dump_part(t, indent + 3)
-
-    # Read data source
-    for k in OUData(sources):
-        org_units[get_stedkode_str(k)] = k
-
-    # Fill tree_info with parent/child relationships
-    for k in org_units.keys():
-        sjef = get_stedkode_str(org_units[k], '_for_org_sted')
-        if not tree_info.has_key(sjef):
-            if not org_units.has_key(sjef):
-                sjef_sjef = None
-            else:
-                sjef_sjef = get_stedkode_str(org_units[sjef], '_for_org_sted')
-            tree_info[sjef] = Node(sjef, sjef_sjef)
-        tree_info[k] = Node(k, sjef)
-        tree_info[sjef].children.append(k)
-
-    # Display structure
-    dump_part(None, 0)
-    for t in tree_info.keys():
-        if tree_info[t].parent == tree_info[t].name:
-            dump_part(t, 0)
 
 def usage(exitcode=0):
     print """Usage: [options] [file ...]
@@ -310,10 +296,10 @@ Imports OU data from systems that use 'stedkoder', primarily used to
 import from UoOs LT system.
 
     -v | --verbose              increase verbosity
+    -c | --clean		quaratine not valid OU
     -o | --ou-file FILE         file to read stedinfo from
     -p | --perspective NAME     name of perspective to use
     -s | --source-spec SPEC     colon-separated (source-system, filename) pair
-    --dump-perspective          view the herarchy of the sted.xml file
 
 For backward compatibility, there still is some support for the
 following (deprecated) option; note, however, that the new option
@@ -324,13 +310,13 @@ following (deprecated) option; note, however, that the new option
     sys.exit(exitcode)
 
 def main():
-    global verbose, perspective
+    global verbose, perspective, cer_ou_tab, noval_ou
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'vp:s:o:',
+        opts, args = getopt.getopt(sys.argv[1:], 'vcp:s:o:',
                                    ['verbose',
+				    'clean',
                                     'perspective=',
                                     'source-spec=',
-                                    'dump-perspective',
                                     # Deprecated:
                                     'ou-file=', 'source-system='])
     except getopt.GetoptError:
@@ -340,9 +326,13 @@ def main():
     sources = []
     source_file = None
     source_system = None
+    noval_ou = False
+    cer_ou_tab = {}
     for opt, val in opts:
         if opt in ('-v', '--verbose'):
             verbose += 1
+	elif opt in ('-c','--clean'):
+	    noval_ou = True
         elif opt in ('-p', '--perspective',):
             perspective = getattr(co, val)
         elif opt in ('-s', '--source-spec'):
@@ -353,20 +343,21 @@ def main():
         elif opt in ('--source-system',):
             # This option is deprecated; use --source-spec instead.
             source_system = val
-        elif opt in ('--dump-perspective',):
-            dump_perspective(sources)
-            sys.exit(0)
     if perspective is None:
         usage(2)
+    if noval_ou:
+	cer_ou_tab = get_cere_ou_table() 
     if sources:
         if source_file is None and source_system is None:
             import_org_units(sources)
         else:
             usage(3)
     elif source_file is not None and source_system is not None:
+	print source_file,source_system
         import_org_units([':'.join((source_system, source_file))])
     else:
         usage(4)
+    set_quaran()
 
 if __name__ == '__main__':
     main()
