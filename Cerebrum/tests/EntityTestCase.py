@@ -3,11 +3,11 @@
 # $Id$
 
 import unittest
+import cereconf
 from Cerebrum import Database
 from Cerebrum.Entity import \
      Entity, EntityName, EntityContactInfo, EntityAddress
 from Cerebrum import Constants
-from Cerebrum import cereconf
 import traceback
 
 from Cerebrum.tests.PersonTestCase import Person_createTestCase

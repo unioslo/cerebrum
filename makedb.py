@@ -23,11 +23,11 @@ import re
 import traceback
 import getopt
 
+import cereconf
 from Cerebrum import Database
 from Cerebrum import Constants
 from Cerebrum import Group
 from Cerebrum import Account
-from Cerebrum import cereconf
 
 from Cerebrum import Entity
 

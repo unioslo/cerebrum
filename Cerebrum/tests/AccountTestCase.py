@@ -3,12 +3,12 @@
 # $Id$
 
 import unittest
+import cereconf
 from Cerebrum import Database
 from Cerebrum import OU
 from Cerebrum import Person
 from Cerebrum import Account
 from Cerebrum import Constants
-from Cerebrum import cereconf
 
 
 from Cerebrum.tests.PersonTestCase import Person_createTestCase
