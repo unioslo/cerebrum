@@ -55,7 +55,6 @@ import cerebrum_path
 import cereconf
 from Cerebrum import Errors
 from Cerebrum import Utils
-from Cerebrum.extlib import logging
 from Cerebrum.modules.bofhd.errors import CerebrumError, \
      ServerRestartedError, SessionExpiredError
 from Cerebrum.modules.bofhd.help import Help
@@ -64,8 +63,7 @@ from Cerebrum.modules.bofhd.xmlutils import \
 
 Account_class = Utils.Factory.get('Account')
 
-logging.fileConfig(cereconf.LOGGING_CONFIGFILE)
-logger = logging.getLogger("console")  # The import modules use the "import" logger
+logger = Utils.Factory.get_logger("bofhd")  # The import modules use the "import" logger
 
 # TBD: Is a BofhdSession class a good idea?  It could (optionally)
 # take a session_id argument when instantiated, and should have
@@ -265,15 +263,24 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
 
             # generate response
             try:
-                logger.debug(
+                logger.debug2(
                     "[%s] dispatch %s" % (threading.currentThread().getName(), method))
 
                 response = self._dispatch(method, params)
                 # wrap response in a singleton tuple
                 response = (response,)
             except CerebrumError, e:
+                # Due to the primitive XML-RPC support for exceptions,
+                # we want to report any subclass of CerebrumError as
+                # CerebrumError so that the client can recognize this
+                # as a user-error.
+                # TODO: This is not a perfect solution...
+                if sys.exc_type in (ServerRestartedError,):
+                    error_class = sys.exc_type
+                else:
+                    error_class = CerebrumError
                 response = xmlrpclib.dumps(
-                    xmlrpclib.Fault(1, "%s:%s" % (sys.exc_type, sys.exc_value))
+                    xmlrpclib.Fault(1, "%s:%s" % (error_class, sys.exc_value))
                     )                
             except:
                 logger.warn("Unexpected exception 1", exc_info=1)
@@ -299,7 +306,7 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
             # shut down the connection
             self.wfile.flush()
             self.connection.shutdown(1)
-        logger.debug("End of" + threading.currentThread().getName())
+        logger.debug2("End of" + threading.currentThread().getName())
         
     def finish(self):
         if self.use_encryption:
@@ -455,7 +462,7 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
             self.server.known_sessions[session_id] = 1
             raise ServerRestartedError()
         self.server.db.cl_init(change_by=entity_id)
-        logger.debug("Run command: %s (%s)" % (cmd, args))
+        logger.debug("Run command: %s (%s) by %i" % (cmd, args, entity_id))
         func = getattr(self.server.cmd2instance[cmd], cmd)
 
         try:
@@ -709,7 +716,7 @@ if __name__ == '__main__':
         usage()
         sys.exit()
         
-    print "Server starting at port: %d" % port
+    logger.info("Server starting at port: %d" % port)
     if multi_threaded:
         db = ProxyDBConnection(Utils.Factory.get('Database'))
     else:
@@ -725,7 +732,6 @@ if __name__ == '__main__':
             ctx.set_allow_unknown_ca(1)
             ctx.set_session_id_ctx('echod')
             ctx.set_info_callback()
-            print dir(ctx)
             return ctx
 
         ctx = init_context('sslv23', '%s/server.cert' % cereconf.DB_AUTH_DIR,
