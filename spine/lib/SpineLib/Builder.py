@@ -137,6 +137,14 @@ class Builder(object):
 
     map_args = classmethod(map_args)
 
+    def get_attr(cls, name):
+        for attr in cls.slots:
+            if attr.name == name:
+                return attr
+        raise KeyError('Attribute %s not found in %s' % (name, cls))
+
+    get_attr = classmethod(get_attr)
+
     def save(self):
         """ Save all changed attributes """
 
