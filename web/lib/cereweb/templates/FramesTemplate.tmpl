@@ -2,6 +2,11 @@
 ## Main template
 ## Gives a 'frames style' left menu and a bottom area
 ## 
+
+#extends InitTemplate
+#implements respond
+#from Cerebrum.web.utils import url
+
 #attr $title = "Cereweb"
 ##
 <?xml version='1.0' ?>
@@ -10,11 +15,14 @@
 ><html lang="en">
 <head>
 <title>Cereweb $title</title>
-    <link rel="stylesheet" type="text/css" href="css/fixed.css" >
+#set css = url("css/fixed.css")
+    <link rel="stylesheet" type="text/css" href="$css" />
     <!--[if IE]>
-      <link rel="stylesheet" type="text/css" href="css/fixed_ie5.css">
+#set css = url("css/fixed_ie5.css")
+      <link rel="stylesheet" type="text/css" href="$css" />
     <![endif]-->
-    <link rel="stylesheet" type="text/css" href="css/default.css" >
+#set css = url("css/default.css")
+    <link rel="stylesheet" type="text/css" href="$css" />
 </head><body>
 <div class="content">
 <h1>$title</h1>
