@@ -84,6 +84,7 @@ def synchronize_attribute(cerebrum_lookup, fs_lookup,
     fnr2attribute = cerebrum_lookup(const.externalid_fodselsnr)
     logger.debug("Done fetching information from Cerebrum")
     updates = {}
+    additions = {}
 
     for row in fs_lookup():
 	fnr = "%06d%05d" % (int(row['fodselsdato']), int(row['personnr']))
@@ -93,8 +94,10 @@ def synchronize_attribute(cerebrum_lookup, fs_lookup,
         # Cerebrum has a record of this fnr
         if cere_attribute is not None:
             if fs_attribute is None:
-                logger.debug1("Adding address for %s: %s",
+                logger.debug1("Will add address for %s: %s",
                               fnr, cere_attribute)
+                additions[cere_attribute] = [row['fodselsdato'],
+                                             row['personnr']]
             # We update only when the values differ, but we can't do
             # it here since FS may have a uniqueness constraint, and
             # an update could then lead to two entries temporarily
@@ -146,6 +149,17 @@ def synchronize_attribute(cerebrum_lookup, fs_lookup,
 
         logger.debug1("Changing address for %06d%05d: %s -> %s",
                       fdato, persnr, fs_value, cere_value)
+        fs_update(fdato, persnr, cere_value)
+        attempt_commit()
+    # od
+
+    # Now all old values are cleared away, and adding values to new(?)
+    # persons can't give duplicates.
+
+    for cere_value in additions.keys():
+        fdato, persnr = additions[cere_value]
+        logger.debug1("Adding address for %06d%05d: %s", fdato, persnr,
+                      cere_value)
         fs_update(fdato, persnr, cere_value)
         attempt_commit()
     # od
