@@ -17,8 +17,6 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-assert False, "Not finished.  Decide what variable TODO should be."
-
 from Cerebrum.modules.OrgLDIF import *
 
 class norEduLDIFMixin(OrgLDIF):
@@ -137,14 +135,25 @@ class norEduLDIFMixin(OrgLDIF):
 
     def init_person_dump(self, use_mail_module):
         self.__super.init_person_dump(use_mail_module)
+        self.init_person_fodselsnrs()
+        self.init_person_birth_dates()
+
+    def init_person_fodselsnrs(self):
+        # Set self.fodselsnrs = dict {person_id: str or instance with fnr}
+        # str(fnr) will return the person's "best" fodselsnr, or ''.
         timer = self.make_timer("Fetching fodselsnrs...")
         self.fodselsnrs = self.person.getdict_fodselsnr()
         timer("...fodselsnrs done.")
 
-    def list_persons(self):
-        # Change from superclass:
-        # Include birth dates.
-        return TODO.list_LDAP_persons_bdate(self.person_spread)
+    def init_person_birth_dates(self):
+        # Set self.birth_dates = dict {person_id: birth date}
+        timer = self.make_timer("Fetching birth dates...")
+        self.birth_dates = birth_dates = {}
+        for row in self.person.list_persons():
+            birth_date = row['birth_date']
+            if birth_date:
+                birth_dates[int(row['person_id'])] = birth_date
+        timer("...birth dates done.")
 
     def update_person_entry(self, entry, row):
         # Changes from superclass:
@@ -152,11 +161,15 @@ class norEduLDIFMixin(OrgLDIF):
         # norEduPersonNIN, norEduPersonBirthDate, eduPersonPrincipalName.
         self.__super.update_person_entry(entry, row)
         uname = entry.get('uid')
-        fnr = self.fodselsnrs.get(int(row['person_id']))
+        person_id = int(row['person_id'])
+        fnr = self.fodselsnrs.get(person_id)
         if uname and fnr:
             entry['objectClass'].append('norEduPerson')
             entry['eduPersonPrincipalName'] = (uname[0] + self.eduPPN_domain,)
             entry['norEduPersonNIN'] = (str(fnr),)
-            birth_date = row['birth_date']
+            birth_date = self.birth_dates.get(person_id)
             if birth_date:
-                entry['norEduPersonBirthDate'] = (birth_date.replace('-', ''),)
+                entry['norEduPersonBirthDate'] = (
+                    time.strftime("%Y%m%d",
+                                  time.strptime(str(birth_date),
+                                                "%Y-%m-%d %H:%M:%S.00")),)

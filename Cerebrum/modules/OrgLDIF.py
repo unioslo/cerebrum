@@ -17,8 +17,6 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-assert False, "Not finished.  Decide what variable TODO should be."
-
 import re, time
 from Cerebrum                   import Entity
 from Cerebrum.Utils             import Factory, auto_super
@@ -375,14 +373,14 @@ Set cereconf.LDAP_ORG_ROOT to the organization's root ou_id or to None."""
         # Set self.acc_quarantines = dict {account_id: [quarantine list]}.
         timer = self.make_timer("Fetching account information...")
         timer2 = self.make_timer()
-        account = Factory.get('Account')(self.db)
+        self.account = Factory.get('Account')(self.db)
         self.acc_name = acc_name = {}
         self.acc_passwd = {}
         self.acc_quarantines = acc_quarantines = {}
         fill_passwd = {
             int(self.const.auth_type_md5_crypt):  self.acc_passwd.__setitem__,
             int(self.const.auth_type_crypt3_des): self.acc_passwd.setdefault }
-        for row in account.list_account_authentication(
+        for row in self.account.list_account_authentication(
                 auth_type = fill_passwd.keys()):
             account_id           = int(row['account_id'])
             acc_name[account_id] = row['entity_name']
@@ -390,7 +388,7 @@ Set cereconf.LDAP_ORG_ROOT to the organization's root ou_id or to None."""
             if method:
                 fill_passwd[int(method)](account_id, row['auth_data'])
         timer2("...account quarantines...")
-        for entity_id, quarantine_type in account.list_entity_quarantines(
+        for entity_id, quarantine_type in self.account.list_entity_quarantines(
                 entity_types = self.const.entity_account):
             acc_quarantines.setdefault(int(entity_id), []).append(
                 int(quarantine_type))
@@ -482,7 +480,9 @@ cereconf.LDAP_ALIASES requires LDAP_ORG_DN != None / LDAP_PERSON_DN.""")
 
     def list_persons(self):
         # Return a list or iterator of persons to consider for output.
-        return TODO.list_LDAP_persons(self.person_spread)
+        return self.account.list_accounts_by_type(
+            primary_only  = True,
+            person_spread = self.person_spread)
 
     def make_person_entry(self, row):
         # Return (dn, person entry, alias_info) for a person to output,
