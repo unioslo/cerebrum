@@ -261,7 +261,7 @@ class Constants(Constants.Constants):
     email_spam_level_standard = _EmailSpamLevelCode(
         'standard_spam', 20, "Only filter email that obviously is spam")
     email_spam_level_heightened = _EmailSpamLevelCode(
-        'most_spam', 12, "Filter most emails that looks like spam ")
+        'most_spam', 12, "Filter most emails that look like spam ")
     email_spam_level_aggressive = _EmailSpamLevelCode(
         'aggressive_spam', 6, "Filter everything that resembles spam")
     email_spam_action_none = _EmailSpamActionCode(
