@@ -29,20 +29,33 @@ import sys
 import sets
 import errors
 
-## WARNING: HACK ##
-import generated
-for hack in (generated._objref_SpineGroup,
-            generated._objref_SpinePosixShell,
-            generated._objref_SpineAccountAuthentication,
-            generated._objref_SpineAccount):
+def fixOmniORB():
+    """Workaround for bugs in omniorb
+
+    Makes it possible to use obj1 == obj2 instead of having to do
+    obj1._is_equivalent(obj2).
+    Also makes it possible to use corba objects as keys in
+    dictionaries etc.
+    """
+    import omniORB.CORBA
+    import _omnipy
     def __eq__(self, other):
-        try:
-            return bool(self._is_equivalent(other))
-        except RuntimeError, e:
-            return False
-    hack.__eq__ = __eq__
-    # Why 2147483647 ?  
-    hack.__hash__ = lambda self:self._hash(2147483647)
+        if self is other:
+            return True
+        return _omnipy.isEquivalent(self, other)
+
+    def __hash__(self):
+        # sys.maxint is the maximum value returned by _hash
+        return self._hash(sys.maxint)
+
+    omniORB.CORBA.Object.__hash__ = __hash__
+    omniORB.CORBA.Object.__eq__ = __eq__
+
+try:
+    import omniORB
+    fixOmniORB()
+except:
+    pass
 
 class Sync:
     def __init__(self, incr=False, id=None):
