@@ -297,9 +297,13 @@ class EmailLDAPUiOMixin(EmailLDAP):
             self.e_id2passwd[row['account_id']] = (row['entity_name'],
                                                    row['auth_data'])
         for row in a.list_account_authentication(self.const.auth_type_crypt3_des):
-            # No need to check for "special"-cases. l_a_a returns the same for
-            # both queries. Only the passwd-hash differs.
-            if self.e_id2passwd[row['account_id']][1] == None:
+            # *sigh* Special-cases do exist. If a user is created when the
+            # above for-loop runs, this loop gets a row more. Before I ignored
+            # this, and the whole thing went BOOM on me.
+            if not self.e_id2passwd.has_key(row['account_id']):
+                self.e_id2passwd[row['account_id']] = (row['entity_name'],
+                                                       row['auth_data'])
+            elif self.e_id2passwd[row['account_id']][1] == None:
                 self.e_id2passwd[row['account_id']] = (row['entity_name'],
                                                        row['auth_data'])
 

@@ -26,7 +26,7 @@ import getopt
 
 import cerebrum_path
 import cereconf
-from Cerebrum.Utils import Factory
+from Cerebrum.Utils import Factory, SimilarSizeWriter
 from Cerebrum.modules import Email
 from Cerebrum.modules.bofhd.utils import BofhdRequests
 from Cerebrum.Constants import _SpreadCode
@@ -353,6 +353,7 @@ generate_mail_ldif.py -s|--spread <spread> [-h] [-v|--verbose]+ [-m|--mail-file 
   -s|--spread <spread>: Targets printed found in spread.
   -v|--verbose: Shows some statistics.
   -m|--mail-file <file>: Specify file to write to.
+  -i|--ignore-size: Use file class instead of SimilarSizeWriter.
   -h|--help: This message."""
     sys.exit(0)
 
@@ -361,8 +362,9 @@ def main():
     global verbose, f, db, co, ldap
     
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'vm:s:h',
-                                   ['verbose', 'mail-file=', 'spread=','help'])
+        opts, args = getopt.getopt(sys.argv[1:], 'vm:s:ih',
+                                   ['verbose', 'mail-file=', 'spread=',
+                                    'ignore-size', 'help'])
     except getopt.GetoptError:
         usage()
 
@@ -375,6 +377,7 @@ def main():
     verbose = 0
     mail_file = default_mail_file
     spread = None
+    ignore = False
     
     for opt, val in opts:
         if opt in ('-v', '--verbose'):
@@ -383,14 +386,20 @@ def main():
             mail_file = val
         elif opt in ('-s', '--spread'):
             spread = map_spread(val)
+        elif opt in ('-i', '--ignore-size'):
+            ignore = True
         elif opt in ('-h', '--help'):
             usage()
 
     if spread is None:
         raise ValueError, "Must set spread"
-    f = file(mail_file,'w')
+    if ignore:
+        f = file(mail_file, 'w')
+    else:
+        f = SimilarSizeWriter(mail_file, 'w')	
+	f.set_size_change_limit(10)
     get_data(spread)
-    
+    f.close()
 
 if __name__ == '__main__':
     main()
