@@ -127,7 +127,9 @@ class Profile(object):
             self.pc.autostud.disks[new][1] += 1
 
     def get_brev(self):
-        return self.matcher.get_match("brev") or None  # TBD: Raise error?
+        for b in self.matcher.get_match("brev"):
+            return b
+        return None  # TBD: Raise error?
         
     def get_printer_kvote_fritak(self):
         return self.matcher.get_match("print_kvote_fritak") and 1 or 0
