@@ -32,8 +32,10 @@ from binascii import \
 import cereconf
 from Cerebrum import Errors as _Errors, Utils as _Utils
 
+_dummy = object()
 
-def ldapconf(tree, attr, default=Ellipsis, utf8=True):
+
+def ldapconf(tree, attr, default=_dummy, utf8=True):
     """Return cereconf.LDAP_<tree>[<attr>] with default, translated to UTF-8.
 
     Fetch cereconf.LDAP_<tree>[<attr>], or LDAP[<attr>] if <tree> is None.
@@ -44,10 +46,10 @@ def ldapconf(tree, attr, default=Ellipsis, utf8=True):
     """
     var = tree is None and 'LDAP' or 'LDAP_' + tree
     val = getattr(cereconf, var).get(attr, default)
-    if val is Ellipsis:
+    if val is _dummy:
         raise _Errors.PoliteException("cereconf.%s['%s'] is not set"
                                       % (var, attr))
-    if val is None and default is not Ellipsis:
+    if val is None and default is not _dummy:
         val = default
     if utf8:
         val = _deep_text2utf(val, utf8)
@@ -258,21 +260,21 @@ def normalize_phone(phone):
     """Normalize phone/fax numbers for comparison of LDAP values."""
     return phone.translate(_normalize_trans, " -")
 
-def normalize_string(str):
+def normalize_string(s):
     """Normalize strings for comparison of LDAP values."""
-    str = _multi_space_re.sub(' ', str.translate(_normalize_trans)).strip()
+    s = _multi_space_re.sub(' ', s.translate(_normalize_trans)).strip()
     # Note: _normalize_trans lowercases ASCII letters.
-    if _is_eightbit(str):
-        str = unicode(str, 'utf-8').lower().encode('utf-8')
-    return str
+    if _is_eightbit(s):
+        s = unicode(s, 'utf-8').lower().encode('utf-8')
+    return s
 
-def normalize_caseExactString(str):
+def normalize_caseExactString(s):
     """Normalize case-sensitive strings for comparison of LDAP values."""
-    return _space_re.sub(' ', str).strip()
+    return _space_re.sub(' ', s).strip()
 
-def normalize_IA5String(str):
+def normalize_IA5String(s):
     """Normalize case-sensitive ASCII strings for comparison of LDAP values."""
-    return _multi_space_re.sub(' ', str.translate(_normalize_trans)).strip()
+    return _multi_space_re.sub(' ', s.translate(_normalize_trans)).strip()
 
 
 # Return true if the parameter is valid for the LDAP syntax printableString;
