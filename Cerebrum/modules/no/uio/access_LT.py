@@ -75,7 +75,8 @@ ORDER BY tlfpreftegn"""
         qry = """SELECT distinct fodtdag, fodtmnd, fodtar, personnr,
 	       fakultetnr_utgift, instituttnr_utgift, gruppenr_utgift,
                stillingkodenr_beregnet_sist, prosent_tilsetting,
-               TO_CHAR(dato_fra, 'YYYYMMDD'), TO_CHAR(dato_til, 'YYYYMMDD')
+               TO_CHAR(dato_fra, 'YYYYMMDD'), TO_CHAR(dato_til, 'YYYYMMDD'),
+               tilsnr
             FROM lt.tilsetting
 	    WHERE dato_fra <= SYSDATE AND NVL(dato_til, SYSDATE) > SYSDATE"""
         return (self._get_cols(qry), self.db.query(qry))
@@ -287,4 +288,27 @@ VALUES
                 """
         return self.db.query(query, fetchall = fetchall)
     # end list_usernames
+
+
+
+    def GetPermisjoner(self):
+        """
+        Returns current leaves of absence (permisjoner) for all individuals
+        in LT.
+        """
+        query = """
+                SELECT fodtdag, fodtmnd, fodtar, personnr,
+                       tilsnr,
+                       TO_CHAR(dato_fra, 'YYYYMMDD') as dato_fra,
+                       TO_CHAR(dato_til, 'YYYYMMDD') as dato_til,
+                       permarsakkode,
+                       prosent_permisjon
+                FROM   lt.permisjon
+                WHERE  dato_fra <= SYSDATE AND
+                       dato_til >= SYSDATE
+                """
+        return (self._get_cols(query),
+                self.db.query(query, locals()))
+    # end GetPermisjoner
+        
 
