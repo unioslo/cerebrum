@@ -291,6 +291,11 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
                     updated_name = True
             if updated_name:
                 self._update_cached_fullname()
+            # Clear affect_name() settings
+            self._pn_affect_source = None
+            self._pn_affect_variants = None
+            self._name_info = {}
+
         # TODO: Handle external_id
         del self.__in_db
         self.__in_db = True
@@ -558,9 +563,12 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
         self._pn_affect_source = source
         if variants is None:
             raise NotImplementedError
-        self._pn_affect_variants = variants
+        self._pn_affect_variants = ["%s" % v for v in variants]
 
     def populate_name(self, variant, name):
+        if (not self._pn_affect_source or
+            str(variant) not in self._pn_affect_variants):
+            raise ValueError, "Improper API usage, must call affect_names()"
         self._name_info[variant] = name
 
     def populate_affiliation(self, source_system, ou_id=None,
