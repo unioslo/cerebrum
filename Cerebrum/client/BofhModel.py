@@ -398,8 +398,16 @@ class OU(Entity, Abstract.OU):
     def delete(self):
         pass
 
-def operator_history(server, start_id=0):
-    entries = server.operator_history(start_id)
+def operator_history(server, first_change=None):
+    """Returns Change objects made by the current operator. If a
+       Change object is supplied to first_change - only changes
+       performed AFTER that change will be included."""
+    if first_change:
+        start_id = first_change._id +1
+        entries = server.operator_history(start_id)
+    else:
+        entries = server.operator_history()    
+
     return _history_to_changes(server, entries)
 
 def _history_to_changes(server, entries):        
@@ -431,6 +439,7 @@ def _history_to_changes(server, entries):
                         # change_by might be a program name 
                         # instead of entity, just include that string
                         change_by = entity_map.get(entry['change_by']) or entry['change_by'])
+        change._id = entry.id
         changes.append(change)
     return changes       
     
