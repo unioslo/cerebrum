@@ -57,7 +57,6 @@ class IMSEnterpriseParser(xml.sax.ContentHandler):
             if ename == 'datasource':
                 self.wantContent = 1
         elif self.inPerson:
-            # print "IP: %s/%s/%s/%s/%s" % (self.inSourcedId, self.inName, self.inDemographics, self.inTel, self.inAdr)
             if self.inSourcedId:
                 if ename in ("source", "id"):
                     self.wantContent = 1
@@ -78,7 +77,6 @@ class IMSEnterpriseParser(xml.sax.ContentHandler):
                 if ename in ('street', 'locality', 'region', 'pcode', 'country'):
                     self.wantContent = 1                    
             else:
-                # print "NP: %s" % ename
                 if ename == "sourcedid":
                     self.inSourcedId = 1
                 elif ename == 'name':
@@ -106,7 +104,6 @@ class IMSEnterpriseParser(xml.sax.ContentHandler):
 
     def endElement(self, ename):
         ename = ename.encode('iso8859-1').lower()   # FS (incorrectly) dumps in uppercase
-        # print "%s: iprof=%s, ipers=%s, isi=%s" % (ename, self.inProperties, self.inPerson, self.inSourcedId)
         if self.inProperties:                      # </properties>
             if ename == 'properties':
                 self.inProperties = 0
@@ -161,7 +158,6 @@ class IMSEnterpriseParser(xml.sax.ContentHandler):
                     self.addr[ename] = self._get_content()
         if self.wantContent:
             self.wantContent = 0
-            # print "%s = %s" % (ename, self.content)
             self.content = ""
 
     def _get_content(self):
@@ -211,12 +207,13 @@ class DataProcesser(object):
                              "  bday:%s" % str(bday)))
 
         if self.ss is None:
-            self.ss = self.config.source_system[self.tp.datasource]
-            
+            if self.tp.datasource <> self.config.source_system_name:
+                raise "Bad source system: %s" % self.ss
+            self.ss = self.config.source_system_value
         try:
             id = person_ids[self.config.personid_key]
         except KeyError:
-            raise   # TBD: is this a fatal error?
+            raise "Fatal error, record did not set %s" % self.config.personid_key
 
         if self.config.personid_type == const.externalid_fodselsnr:
             id = fodselsnr.personnr_ok(id)
@@ -246,7 +243,7 @@ class DataProcesser(object):
                                 const.name_given, const.name_other,
                                 const.name_full, const.name_sort,
                                 const.name_nick)
-        # new_person.populate_name(const.name_family, 
+
         for k in self.name_types.keys():
             if name.has_key(k):
                 new_person.populate_name(self.name_types[k],
@@ -273,17 +270,18 @@ class DataProcesser(object):
         db.commit()
         
 class Config(object):
-
     """Defines how things like <sourcedid>.<source> is mapped to
     authoritative_system_code
     """
     
     def __init__(self, filename):
-        # TODO: Read values from filename
-        self.source_system = {'NO-FS': const.system_fs}
-        self.personid_key = 'NO-FS'
-        self.personid_type = const.externalid_fodselsnr
-        self.address_type = const.address_post
+        f = file(filename, "r")
+        for line in f.readlines():
+            key, value = line.split("=", 2)
+            value = value.rstrip()
+            if value.startswith("const."):
+                value = getattr(const, value[6:])
+            setattr(self, key, value)
 
 def import_students(filename, config):
     try:
@@ -310,9 +308,34 @@ def main():
             max = int(val)
         else:
             usage()
+    if len(opts) == 0:
+        usage()
 
 def usage():
-    print """Usage: -c configfile [-d | -S xmlfile | -s]"""
+    print """Usage: -c configfile [-d | -S xmlfile | -s]
+
+The config file has a number of key=value settings that controls how
+certain XML attributes are mapped to cerebrum code values.  Values
+starting with const. are interpreted as references to constants in
+Constants.py.  Example file:
+
+source_system_name=NO-FS
+source_system_value=const.system_fs
+personid_key=NO-FS
+personid_type=const.externalid_fodselsnr
+address_type=const.address_post
+
+For this utility to work, you must add the following lines to one of
+your Constants file:
+
+    name_family = _PersonNameCode('FAMILY', 'Family name')
+    name_given = _PersonNameCode('GIVEN', 'Given name')
+    name_other = _PersonNameCode('OTHER', 'Other name')
+    name_sort = _PersonNameCode('SORT', 'Sort name')
+    name_nick = _PersonNameCode('NICK', 'Nick name')
+
+"""
+    
     sys.exit(0)
 
 
