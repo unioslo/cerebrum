@@ -49,6 +49,8 @@ cache holding data:
 
 """
 
+import time
+
 class Cache(dict):
     """Constructor class for cache instances."""
     def __new__(cls, mixins=(), **kwargs):
