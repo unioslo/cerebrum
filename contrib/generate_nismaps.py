@@ -222,12 +222,19 @@ def generate_group(filename, group_spread, user_spread):
     user_membership_count = {}
     for row in posix_group.list_all(spread=group_spread):
         posix_group.clear()
-        posix_group.find(row.group_id)
+        try:
+            posix_group.find(row.group_id)
+        except Cerebrum.Errors.NotFoundError:
+            print "Group %s, spread %s has no GID"%(row.group_id,group_spread)
+            continue
         # Group.get_members will flatten the member set, but returns
         # only a list of entity ids; we remove all ids with no
         # corresponding PosixUser, and resolve the remaining ones to
         # their PosixUser usernames.
         gname = posix_group.group_name
+        if len(gname) > 8:
+            print "Bad groupname %s" % gname
+            continue
         gid = str(posix_group.posix_gid)
 
         members = []
