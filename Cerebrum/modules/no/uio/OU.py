@@ -28,6 +28,8 @@ following additional properties are defined:
 
 from Cerebrum.OU import OU
 
+# Let's hope there's no need to access the module called "OU" further
+# down...
 class OU(OU):
     def __init__(self, database):
         """
@@ -121,18 +123,21 @@ class OU(OU):
         raise "Delete not implemented"
         pass
 
-    def get_stedkode(self, fakultet, institutt, avdeling, institusjon=135):
+    def find_stedkode(self, fakultet, institutt, avdeling, institusjon=185):
         (self.ou_id, self.institusjon, self.fakultet, self.institutt,
-        self.avdeling, self.katalog_merke) = self.query_1("""
-        SELECT ou_id, institusjon, fakultet,  institutt, avdeling, katalog_merke
+         self.avdeling, self.katalog_merke) = self.query_1("""
+        SELECT ou_id, institusjon, fakultet, institutt, avdeling, katalog_merke
         FROM cerebrum.stedkode
-        WHERE institusjon=:1 AND fakultet=:2 AND institutt=:3 AND avdeling=:4""",
-                              institusjon, fakultet, institutt, avdeling)
-        return 1
+        WHERE
+          institusjon = :1 AND
+          fakultet    = :2 AND
+          institutt   = :3 AND
+          avdeling    = :4""", institusjon, fakultet, institutt, avdeling)
 
-    def add_stedkode(self, fakultet, institutt, avdeling, institusjon=113, katalog_merke='T'):
-        self.execute("""
+    def add_stedkode(self, fakultet, institutt, avdeling, institusjon=185,
+                     katalog_merke='T'):
+        return self.execute("""
         INSERT INTO cerebrum.stedkode
           (ou_id, institusjon, fakultet, institutt, avdeling, katalog_merke)
-        VALUES (:1, :2, :3, :4, :5, :6)""",
-                     self.entity_id, institusjon, fakultet, institutt, avdeling, katalog_merke)
+        VALUES (:1, :2, :3, :4, :5, :6)""", self.entity_id, institusjon,
+                            fakultet, institutt, avdeling, katalog_merke)
