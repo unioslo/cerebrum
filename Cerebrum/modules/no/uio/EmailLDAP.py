@@ -300,10 +300,7 @@ class EmailLDAPUiOMixin(EmailLDAP):
             # *sigh* Special-cases do exist. If a user is created when the
             # above for-loop runs, this loop gets a row more. Before I ignored
             # this, and the whole thing went BOOM on me.
-            if not self.e_id2passwd.has_key(row['account_id']):
-                self.e_id2passwd[row['account_id']] = (row['entity_name'],
-                                                       row['auth_data'])
-            elif self.e_id2passwd[row['account_id']][1] == None:
+            if not self.e_id2passwd.get(row['account_id'], (0, 0))[1]:
                 self.e_id2passwd[row['account_id']] = (row['entity_name'],
                                                        row['auth_data'])
 
