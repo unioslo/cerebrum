@@ -31,6 +31,8 @@ import LOHandler
 import classes.Registry
 registry = classes.Registry.get_registry()
 
+from classes.Account import get_account_by_name
+
 # The major version number of Gro
 GRO_MAJOR_VERSION = 0
 
@@ -43,9 +45,7 @@ class GroImpl(Cerebrum_core__POA.Gro):
     These are provided to remote clients"""
 
     def __init__(self):
-        com = Communication.get_communication()
-
-        self.lo_handler_class = LOHandler.LOHandler
+        self.sessions = {}
 
     def get_idl(self):
         return CorbaSession.idl_source
@@ -66,11 +66,17 @@ class GroImpl(Cerebrum_core__POA.Gro):
         return com.servant_to_reference(lo)
 
     def get_ap_handler(self, username, password):
-        # FIXME: lagre sesjoner
         client = self.login(username, password)
+
+        if client in self.sessions:
+            return self.sessions[client]
+
         session = CorbaSession.CorbaSessionImpl(client)
         com = Communication.get_communication()
-        return com.servant_to_reference(session)
+        corba_obj = com.servant_to_reference(session)
+        self.sessions[client] = corba_obj
+
+        return corba_obj
 
     def login(self, username, password):
         """Login the user with the username and password.
@@ -85,12 +91,10 @@ class GroImpl(Cerebrum_core__POA.Gro):
             if char in username or char in password:
                 raise exception
 
-        search = registry.AccountSearch()
-        search.set_name(username)
-        unames = search.search()
-        if len(unames) != 1:
+        try:
+            account = get_account_by_name(username)
+        except:
             raise exception
-        account = unames[0]
 
         # Check password
         if not account.authenticate(password):
