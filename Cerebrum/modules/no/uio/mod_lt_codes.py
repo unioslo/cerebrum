@@ -1283,7 +1283,7 @@ class LTConstants(Constants.Constants):
         "PCVAKT"
     )
 
-    lt_gjestetypekode_pcvakt = GjestetypeKode(
+    lt_gjestetypekode_grlaerer = GjestetypeKode(
         "GRP-LÆRER",
         "Gruppelærere ved UiO",
         "GRP-LÆRER"
@@ -1317,6 +1317,30 @@ class LTConstants(Constants.Constants):
         "REG-ANSV",
         "Registreringsansvarlig (Frida)",
         "REG-ANSV"
+    )
+
+    lt_gjestetypekode_stud_org_fri = GjestetypeKode(
+        "ST-ORG FRI",
+        "Studentorganisasjoner, frikvote",
+        "ST-ORG FRI"
+    )
+
+    lt_gjestetypekode_stud_org_utv = GjestetypeKode(
+        "ST-ORG UTV",
+        "Studentorganisasjoner utvidet kvote",
+        "ST-ORG UTV"
+    )
+
+    lt_gjestetypekode_stud_pol_fri = GjestetypeKode(
+        "ST-POL FRI",
+        "Studentpolitikere, frikvote",
+        "ST-POL FRI"
+    )
+
+    lt_gjestetypekode_stud_pol_utv = GjestetypeKode(
+        "ST-POL UTV",
+        "Studentpolitikere, utvidet kvote",
+        "ST-POL UTV"
     )
 
     # ----[ Rollekoder ]----------------------------------------------
