@@ -264,13 +264,6 @@ class _AuthenticationCode(_CerebrumCode):
     _lookup_table = '[:table schema=cerebrum name=authentication_code]'
     pass
 
-## Module spesific constant.  Belongs somewhere else
-class _PosixShellCode(_CerebrumCode):
-    "Mappings stored in the posix_shell_code table"
-    _lookup_table = '[:table schema=cerebrum name=posix_shell_code]'
-    _lookup_desc_column = 'shell'
-    pass
-
 class _GroupMembershipOpCode(_CerebrumCode):
     "Mappings stored in the ou_perspective_code table"
     _lookup_table = '[:table schema=cerebrum name=group_membership_op_code]'
@@ -332,8 +325,6 @@ class Constants(DatabaseAccessor):
     system_manual = _AuthoritativeSystemCode('Manual', 'Manual registration')
 
     account_program = _AccountCode('P', 'Programvarekonto')
-
-    posix_shell_bash = _PosixShellCode('bash', '/bin/bash')
 
     group_namespace = _ValueDomainCode(cereconf.DEFAULT_GROUP_NAMESPACE,
                                        'Default domain for group names')
