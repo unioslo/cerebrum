@@ -26,6 +26,24 @@ class ChangeLog(object):
         self.change_program = change_program
         self.messages = []
 
+    def update_log_event(self, change_id, change_params):
+        """This method is typically used to remove informtion from the
+        changelog"""
+        if change_params is not None:
+            change_params = pickle.dumps(change_params)
+        self.execute("""
+        UPDATE [:table schema=cerebrum name=change_log]
+        SET change_params=:change_params
+        WHERE change_id=:change_id""", {
+            'change_id': int(change_id),
+            'change_params': change_params})
+        
+    def remove_log_event(self, change_id):
+        self.execute("""
+        DELETE FROM [:table schema=cerebrum name=change_log]
+        WHERE change_id=:change_id""", {
+            'change_id': int(change_id)})
+
     def log_change(self, subject_entity, change_type_id,
                    destination_entity, change_params=None,
                    change_by=None, change_program=None):
@@ -85,13 +103,11 @@ class ChangeLog(object):
                 ["%i" % x for x in types])+")")
         where = "WHERE (" + ") AND (".join(where) + ")"
         ret = []
-        for r in self.query("""
+        return self.query("""
         SELECT tstamp, change_id, subject_entity, change_type_id, dest_entity,
                change_params, change_by, change_program
         FROM [:table schema=cerebrum name=change_log] %s
-        ORDER BY change_id""" % where, bind):
-            ret.append(r)
-        return ret
+        ORDER BY change_id""" % where, bind, fetchall=False)
 
     def get_log_events_date(self, type=None, sdate=None, edate=None):
         where = []
