@@ -8,7 +8,7 @@ from Node import Node
 
 from db import db
 
-__all__ = ['Entity', 'Spread', 'Note']
+__all__ = ['Entity', 'Note']
 
 class Entity(Node):
     slots = ['id', 'entityType', 'spreads', 'notes', 'contactInfo']
@@ -58,11 +58,12 @@ class Entity(Node):
         self._parents.add(self.entityType)
 
     def loadSpreads(self):
+        import Types
         self._spreads = sets.Set()
         e = Cerebrum.Entity.Entity(db)
         e.entity_id = self.id
 
-        self._spreads.update(sets.Set([Spread(int(i[0])) for i in e.get_spread()]))
+        self._spreads.update(sets.Set([Types.Spread(int(i[0])) for i in e.get_spread()]))
 
     def loadChildren(self):
         Node.loadChildren(self)
@@ -100,36 +101,6 @@ class Entity(Node):
 
 
 Clever.prepare(Entity, 'load')
-
-class Spread(Node):
-    # hvorfor er entityType her? Den burde fjernes slik at den kan gjøres om til CodeType
-    slots = ['id', 'name', 'entityType', 'description']
-    def __init__(self, id, parents=Lazy, children=Lazy, *args, **vargs):
-        Node.__init__(self, parents, children)
-        Clever.__init__(self, Spread, id, *args, **vargs)
-
-    def getKey(id, *args, **vargs):
-        return id
-    getKey = staticmethod(getKey)
-
-    def load(self):
-        rows = db.query('''SELECT code_str, entity_type, description
-                           FROM spread_code WHERE code = %s''' % self.id)
-        if not rows:
-            raise KeyError('spread %s not found' % self.id)
-        row = rows[0]
-
-        self._entityType = EntityType(int(row['entity_type']))
-        self._name = row['code_str']
-        self._description = row['description']
-
-    def loadChildren(self):
-        Node.loadChildren(self)
-
-        e = Cerebrum.Entity.Entity(db)
-        self._children.update([Entity(int(i[0])) for i in e.list_all_with_spread(self.id)])
-
-Clever.prepare(Spread, 'load')
 
 class ContactInfo(Node):
     slots = ['entity', 'sourceSystem', 'contactInfoType', 'contactPref', 'contactValue', 'description']
