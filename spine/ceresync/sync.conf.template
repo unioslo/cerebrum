@@ -26,6 +26,9 @@ hash: md5
 [ldap]
 host: ldap-master.ntnu.no
 base: dc=ntnu,dc=no
+user_base: ou=users,%(base)s
+group_base: ou=groups,%(base)s
+people_base: ou=people,%(base)s
 realm: ntnu.no
 bind: cn=Manager,dc=ntnu,dc=no
 password: password
@@ -34,4 +37,5 @@ tls: yes
 hash: md5
 #Uri overrised host/tls-settings
 uri: ldaps://ldap-master.ntnu.no
-
+# Support for SASL/other authentication mechanisms will be added later.
+# Only simple authentication is supported at this stage.
