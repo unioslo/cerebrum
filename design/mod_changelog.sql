@@ -48,7 +48,7 @@ CREATE SEQUENCE change_log_seq;
 category:main;
 CREATE TABLE change_log
 (
-  tstamp          DATE
+  tstamp          TIMESTAMP
                   DEFAULT [:now]
                   NOT NULL,
   change_id       NUMERIC(12,0)
@@ -64,6 +64,10 @@ CREATE TABLE change_log
   change_program  CHAR VARYING(16),
   description     CHAR VARYING(255)
 );
+
+category:main;
+create index change_log_subject_idx on change_log(subject_entity);
+
 category:main;
 CREATE TABLE change_handler_data
 (
