@@ -370,7 +370,7 @@ Fra LT.STED
    - POSTSTEDNR_BESOK_ADR                     NUMBER(4)
    - POSTSTEDNAVN_BESOK_ADR                   VARCHAR2(16)
    - LANDNAVN_BESOK_ADR                       VARCHAR2(20)
-       Gir adresse info
+       Gir adresse info - importeres som address_post
 
    - ADRTYPEKODE_INTERN_ADR                   VARCHAR2(4)
    - ADRESSELINJE1_INTERN_ADR                 VARCHAR2(40)
@@ -378,7 +378,7 @@ Fra LT.STED
    - POSTSTEDNR_INTERN_ADR                    NUMBER(4)
    - POSTSTEDNAVN_INTERN_ADR                  VARCHAR2(16)
    - LANDNAVN_INTERN_ADR                      VARCHAR2(20)
-       Gir adresse info
+       Gir adresse info - importeres som address_street
 
    - ADRTYPEKODE_ALTERNATIV_ADR               VARCHAR2(4)
    - ADRESSELINJE1_ALTERNATIV_ADR             VARCHAR2(40)
@@ -386,7 +386,7 @@ Fra LT.STED
    - POSTSTEDNR_ALTERNATIV_ADR                NUMBER(4)
    - POSTSTEDNAVN_ALTERNATIV_ADR              VARCHAR2(16)
    - LANDNAVN_ALTERNATIV_ADR                  VARCHAR2(20)
-       Gir adresse info
+       Gir adresse info - importeres ikke
 
 Fra LT.STEDKOMM
 
