@@ -99,12 +99,13 @@ def nwqsync(spreads,g_spread):
     for spread in spreads.split(','):
 	spread_ids.append(int(getattr(co, spread)))
     try:
-	spread_grp = [int(getattr(co,x)) for x in (g_spread or cereconf.NW_GROUP_SPREAD)]
+	spread_grp = [int(getattr(co,x)) for x in (g_spread or \
+					cereconf.NW_GROUP_SPREAD)]
     except:
 	logger.warn('No group spread is found?')
 	sys.exit(1)	    
     for cll in ch_log_list:
-	if ch_type in [const.entity_name_del,]:
+	if int(cll.change_type_id) in [const.entity_name_del,]:
 	    param_list = string.split(ch_params,'\n')
 	    domain = re.sub('\D','',param_list[3])
             ent_name = param_list[6].split('\'')[1]
