@@ -10,6 +10,10 @@ from Cerebrum import Utils
 from Cerebrum import Disk
 from Cerebrum.modules.bofhd.errors import PermissionDenied
 
+class AuthConstants(Constants._CerebrumCode):
+    _lookup_table = '[:table schema=cerebrum name=auth_op_code]'
+    pass
+
 class BofhdAuthOpSet(DatabaseAccessor):
     __metaclass__ = Utils.mark_update
     __read_attr__ = ('__in_db', 'const')
@@ -35,6 +39,25 @@ class BofhdAuthOpSet(DatabaseAccessor):
     def clear(self):
         self.clear_class(BofhdAuthOpSet)
         self.__updated = False
+
+    def find(self, id):
+        self.name, self.op_set_id = self.query_1("""
+        SELECT name, op_set_id
+        FROM [:table schema=cerebrum name=auth_operation_set]
+        WHERE op_set_id=:id""", {'id': id})
+        try:
+            del self.__in_db
+        except AttributeError:
+            pass
+        self.__in_db = True
+        self.__updated = False
+
+    def find_by_name(self, name):
+        id = self.query_1("""
+        SELECT op_set_id
+        FROM [:table schema=cerebrum name=auth_operation_set]
+        WHERE name=:name""", {'name': name})
+        self.find(id)
 
     def populate(self, name):
         try:
@@ -67,15 +90,36 @@ class BofhdAuthOpSet(DatabaseAccessor):
 
     def add_operation(self, op_code):
         op_id = int(self.nextval('entity_id_seq'))
-        self.execute("""INSERT INTO auth_operation (op_code, op_id, op_set_id)
+        self.execute("""
+        INSERT INTO [:table schema=cerebrum name=auth_operation]
+        (op_code, op_id, op_set_id)
         VALUES (:code, :op_id, :op_set_id)""", {
             'code': int(op_code), 'op_id': op_id, 'op_set_id': self.op_set_id})
         return op_id
 
     def add_op_attrs(self, op_id, attr):
-        self.execute("""INSERT INTO auth_op_attrs (op_id, attr)
+        self.execute("""
+        INSERT INTO [:table schema=cerebrum name=auth_op_attrs] (op_id, attr)
         VALUES (:op_id, :attr)""", {
             'op_id': op_id, 'attr': attr})
+
+    def list(self):
+        return self.query("""
+        SELECT op_set_id, name
+        FROM [:table schema=cerebrum name=auth_operation_set]""")
+
+    def list_operations(self):
+        return self.query("""
+        SELECT op_code, op_id, op_set_id
+        FROM [:table schema=cerebrum name=auth_operation]
+        WHERE op_set_id=:op_set_id""", {'op_set_id': self.op_set_id})
+
+    def list_operation_attrs(self, op_id):
+        return self.query("""
+        SELECT attr
+        FROM [:table schema=cerebrum name=auth_op_attrs]
+        WHERE op_id=:op_id""", {'op_id': op_id})
+
 
 class BofhdAuthOpTarget(DatabaseAccessor):
     __metaclass__ = Utils.mark_update
@@ -137,6 +181,22 @@ class BofhdAuthOpTarget(DatabaseAccessor):
         self.has_attr = 1
         self.execute("""INSERT INTO auth_op_target_attrs (op_target_id, attr)
         VALUES (:id, :attr)""", {'id': self.op_target_id, 'attr': attr})
+
+    def list(self, target_type, entity_id=None):
+        ewhere = ""
+        if entity_id is not None:
+            ewhere = "AND entity_id=:entity_id"
+        return self.query("""
+        SELECT op_target_id, entity_id, target_type, has_attr
+        FROM [:table schema=cerebrum name=auth_op_target]
+        WHERE target_type=:target_type %s""" % ewhere, {
+            'target_type': target_type, 'entity_id': entity_id})
+
+    def list_target_attrs(self, op_target_id):
+        return self.query("""
+        SELECT attr
+        FROM [:table schema=cerebrum name=auth_op_target_attrs]
+        WHERE op_target_id=:op_target_id""", {'op_target_id': op_target_id})
 
 class BofhdAuthRole(DatabaseAccessor):
     def __init__(self, database):
