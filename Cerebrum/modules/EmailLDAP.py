@@ -23,6 +23,7 @@ import os
 import re
 import time
 import string
+import mx
 
 from Cerebrum import Errors
 from Cerebrum.modules import Email
@@ -147,7 +148,7 @@ class EmailLDAP(DatabaseAccessor):
         
     def read_vacation(self):
         mail_vaca = Email.EmailVacation(self._db)
-        cur = self._db.DateFromTicks(time.time())
+        cur = mx.DateTime.now()
         def prefer_row(row, oldval):
             o_txt, o_sdate, o_edate, o_enable = oldval
             txt, sdate, edate, enable = [row[x]
