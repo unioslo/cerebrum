@@ -21,7 +21,7 @@ $t.form($person, show_create_form=$profile['person']['edit']['show_account_creat
 #if $allaccounts
 #for $account in $allaccounts
 #set t = $AccountViewTemplate()
-$t.viewAccount($account, False, False)
+$t.viewAccountShort($account)
 #end for
 #end if
 </div>

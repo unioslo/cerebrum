@@ -9,7 +9,7 @@
 $url("account/action")#slurp
 #end def
 
-#def viewAccount($account, $show_owner=True, $show_history=True)
+#def viewAccountShort($account, $show_owner=False)
 <h1>$_("Account") $account.name</h1>
 <div class="info">
 <dl>
@@ -46,8 +46,10 @@ $url("account/action")#slurp
     <input type="submit" name="delete_account" value="$_("Remove account")" />
     <input type="submit" name="edit_account" value="$_("Edit account")" />
 </form>
+#end def
 
+#def viewAccount($account)
+$viewAccountShort($account, True)
 #if $show_history
 $view_entity($account)
 #end if
-#end def
