@@ -45,7 +45,7 @@ group_desc = "Internal group for students which will be shown online."
 
 studieprog2sko = {}
 ou_cache = {}
-gen_groups = 0
+gen_groups = False
 
 """Importerer personer fra FS iht. fs_import.txt."""
 
@@ -259,7 +259,7 @@ def process_person_callback(person_info):
         logger.info2("**** UPDATE ****")
 
     # Reservations    
-    if gen_groups == 1:
+    if gen_groups:
         for dta_type in person_info.keys():
             p = person_info[dta_type][0]
             if isinstance(p, str):
@@ -275,7 +275,7 @@ def process_person_callback(person_info):
 
 
 def main():
-    global verbose, ou, db, co, logger, fnr2person_id
+    global verbose, ou, db, co, logger, fnr2person_id, gen_groups
     verbose = 0
     opts, args = getopt.getopt(sys.argv[1:], 'vp:s:g', ['verbose', 'person-file=',
                                                        'studieprogram-file=',
@@ -290,7 +290,7 @@ def main():
         elif opt in ('-s', '--studieprogram-file'):
             studieprogramfile = val
         elif opt in ('-g', '--generate-groups'):
-            gen_groups = 1   
+            gen_groups = True
     if "system_fs" not in cereconf.SYSTEM_LOOKUP_ORDER:
         print "Check your config, SYSTEM_LOOKUP_ORDER is wrong!"
         sys.exit(1)
