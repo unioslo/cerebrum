@@ -23,12 +23,10 @@ import sys
 from omniORB import CORBA, PortableServer, sslTP
 import CosNaming
 
-from Cerebrum.Utils import Factory
-from Cerebrum.gro import Cerebrum_core__POA, Cerebrum_core
+import Cerebrum_core__POA, Cerebrum_core
 from Constants import *
 import cereconf
 
-import GroDatabase
 import LOHandler
 import APHandler
 
@@ -42,12 +40,11 @@ class GroImpl(Cerebrum_core__POA.Gro):
     """
     Implements the methods in the Gro interface.
     These are provided to remote clients"""
-    _db = GroDatabase.GroDatabase()
 
     def __init__(self, com):
         self.com = com
         self.ap_handler_class = APHandler.APHandler.create_ap_handler_impl()
-        self.loHandler = com.get_corba_representation(LOHandler.LOHandler(self, self._db))
+#        self.loHandler = com.get_corba_representation(LOHandler.LOHandler(self, self._db))
 
     def get_version(self):
         return Cerebrum_core.Version(GRO_MAJOR_VERSION, GRO_MINOR_VERSION)
@@ -64,11 +61,6 @@ class GroImpl(Cerebrum_core__POA.Gro):
         ap = self.ap_handler_class(self.com, username, password)
         return self.com.get_corba_representation(ap)
 
-    def get_database(cls):
-        return cls._db
-    get_database = classmethod(get_database)
-
-    
 class Communication(object):
     def __init__(self):
         self.context = None
