@@ -46,6 +46,10 @@ class PersonId(Parameter):
     _type = 'personId'
     _prompt = "Enter person id"
 
+class PersonName(Parameter):
+    _type = 'personName'
+    _prompt = "Enter person name"
+
 class Affiliation(Parameter):
     _type = 'affiliation'
     _prompt = "Enter affiliation"
