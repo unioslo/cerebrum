@@ -23,7 +23,8 @@ get the actual database code/code_str representing a given Entity,
 Address, Gender etc. type."""
 
 from Cerebrum import Constants
-from Cerebrum.Constants import _AuthoritativeSystemCode,_OUPerspectiveCode, _SpreadCode
+from Cerebrum.Constants import _AuthoritativeSystemCode,_OUPerspectiveCode, \
+     _SpreadCode, _QuarantineCode
 
 class Constants(Constants.Constants):
     system_lt = _AuthoritativeSystemCode('LT', 'LT')
@@ -50,3 +51,17 @@ class Constants(Constants.Constants):
                                          'Person included in LDAP directory')
     spread_uio_ldap_ou = _SpreadCode('LDAP_OU', Constants.Constants.entity_ou,
                                      'OU included in LDAP directory')
+
+    quarantine_generell = _QuarantineCode('generell', 'Generell splatt')
+    quarantine_teppe = _QuarantineCode('teppe', 'Kallt inn på teppet til drift')
+    quarantine_slutta = _QuarantineCode('slutta', 'Personen har slutta')
+    quarantine_system = _QuarantineCode('system', 'Systembrukar som ikke skal logge inn')
+    quarantine_permisjon = _QuarantineCode('permisjon', 'Brukeren har permisjon')
+    quarantine_svakt_passord = _QuarantineCode('svakt_passord', 'For dårlig passord')
+    quarantine_autopassord = _QuarantineCode('autopassord',
+                                            'Passord ikke skiftet trass pålegg')
+    quarantine_autostud = _QuarantineCode('autostud', 'Ikke aktiv student')
+    quarantine_autoekstern = _QuarantineCode('autoekstern',
+                                            'Ekstern konto gått ut på dato')
+    quarantine_autointsomm = _QuarantineCode('autointsomm',
+                                            'Sommerskolen er ferdig for i år')
