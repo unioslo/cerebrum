@@ -73,7 +73,7 @@ def _create_view(req, id):
     page.menu.setFocus("group/view", id)
     view = GroupViewTemplate()
     view.add_member = lambda group:_add_box(group)
-    page.content = lambda: view.viewGroup(group, id)
+    page.content = lambda: view.viewGroup(group)
     return (page, group)
 
 def view(req, id):
