@@ -1,0 +1,355 @@
+The Cerebrum distribution consists of the following code components:
+
+
+Core API
+--------
+  STATUS: Started, but still incomplete and likely to change.
+	  During 2002-09 this API should be somewhat usable.
+
+  RESPONSIBILITY OF:
+
+  API and utility functions for connecting to the Cerebrum database
+  and performing operations on the core entities it models.
+
+  TBD: Should not depend on what Python DB-API backend module is used
+       to access the database.
+
+  CODE DEPENDENCIES: Python 2.2.1
+		     Cerebrum core database structures
+		     Cerebrum/extlib/db_row.py
+
+  FILES:
+    Cerebrum/{Errors,Utils,Database,DatabaseAccessor}.py
+    Cerebrum/{Entity,OU,Person,Account,Group}.py
+
+
+POSIX users and groups
+----------------------
+  STATUS: Not started.
+	  Should be somewhat usable by the end of 2002-09.
+
+  RESPONSIBILITY OF:
+
+  Extra database structures for specializing the core entities
+  "Account" and "Group" into the corresponding POSIX terms, and API to
+  access these new structures.
+
+  CODE DEPENDENCIES: Core API
+
+  FILES:
+    Cerebrum/modules/POSIX_{user,group}.py
+    design/mod_posix.sql
+
+NIS export
+----------
+  STATUS: Not started.
+	  Should be usable by the end of 2002-10.
+
+  RESPONSIBILITY OF:
+
+  Database structures, API and scripts needed to define which POSIX
+  users/groups should be exported to NIS, and to build the source for
+  NIS maps "passwd", "group" and "netgroup.user".
+
+  CODE DEPENDENCIES: POSIX users and groups.
+
+  FILES:
+    design/mod_nis.sql
+
+User administration server
+--------------------------
+  STATUS: Started working on design (what protocol should we use?).
+	  Should be operative by end of 2002-10.
+
+  RESPONSIBILITY OF:
+
+  
+
+  CODE DEPENDENCIES: Core API
+
+  FILES:
+
+User administration terminal client
+-----------------------------------
+  STATUS: Not started
+          Should be operative by end of 2002-10.
+
+  RESPONSIBILITY OF:
+
+  
+
+  CODE DEPENDENCIES: User administration server
+
+  FILES:
+
+User administration web frontend
+--------------------------------
+  STATUS: Not started
+	  Should offer web-based password change by end of 2002-11.
+
+  RESPONSIBILITY OF:
+
+  
+
+  CODE DEPENDENCIES: User administration server
+
+  FILES:
+
+Import from SATS (specific to Norway)
+-------------------------------------
+  STATUS: Not started
+	  Should be operative by end of 2002-11.
+
+  RESPONSIBILITY OF:
+
+  
+
+  CODE DEPENDENCIES: Core API
+
+  FILES:
+    Cerebrum/modules/no/
+
+
+Email API
+---------
+  STATUS: Not started
+	  Should be working by end of 2002-11.
+
+  RESPONSIBILITY OF:
+
+  
+
+  CODE DEPENDENCIES: Core API
+
+  FILES:
+
+Export to LMS "Itslearning"
+---------------------------
+  STATUS: Not started
+	  Should be working by end of 2002-11.
+
+  RESPONSIBILITY OF:
+
+  
+
+  CODE DEPENDENCIES: Email API
+
+  FILES:
+
+ChangeLog API
+-------------
+  STATUS: Not started
+	  Should be operative by end of 2002-11.
+
+  RESPONSIBILITY OF:
+
+  
+
+  CODE DEPENDENCIES: Email API
+
+  FILES:
+
+Export to Active Directory
+--------------------------
+  STATUS: Not started
+	  Should be operative by end of 2002-11.
+
+  RESPONSIBILITY OF:
+
+  
+
+  CODE DEPENDENCIES: Email API
+
+  FILES:
+
+Import from FS (Specific to Norway)
+-----------------------------------
+  STATUS: Not started
+
+  RESPONSIBILITY OF:
+
+  
+
+  CODE DEPENDENCIES: Core API
+
+  FILES:
+
+Export to FS (Specific to Norway)
+---------------------------------
+  STATUS: Not started
+
+  RESPONSIBILITY OF:
+
+  
+
+  CODE DEPENDENCIES: Core API, maybe also Email API
+
+  FILES:
+
+Import from MSTAS (Specific to Norway)
+--------------------------------------
+  STATUS: Not started
+
+  RESPONSIBILITY OF:
+
+  
+
+  CODE DEPENDENCIES: Core API
+
+  FILES:
+
+Export to MSTAS (Specific to Norway)
+------------------------------------
+  STATUS: Not started
+
+  RESPONSIBILITY OF:
+
+  
+
+  CODE DEPENDENCIES: Core API, maybe also Email API
+
+  FILES:
+
+Export to SATS (Specific to Norway)
+-----------------------------------
+  STATUS: Not started
+
+  RESPONSIBILITY OF:
+
+  
+
+  CODE DEPENDENCIES: Core API
+
+  FILES:
+
+Export to UA (Specific to uio.no)
+---------------------------------
+  STATUS: Not started
+
+  RESPONSIBILITY OF:
+
+  
+
+  CODE DEPENDENCIES: Core API
+
+  FILES:
+
+Import from LT (Specific to uio.no)
+-----------------------------------
+  STATUS: Not started
+
+  RESPONSIBILITY OF:
+
+  
+
+  CODE DEPENDENCIES: Core API
+
+  FILES:
+
+Export to LT (Specific to uio.no)
+---------------------------------
+  STATUS: Not started
+
+  RESPONSIBILITY OF:
+
+  
+
+  CODE DEPENDENCIES: Core API
+
+  FILES:
+
+Export of user and filegroup data to LDAP
+-----------------------------------------
+  STATUS: Not started
+
+  RESPONSIBILITY OF:
+
+  
+
+  CODE DEPENDENCIES: POSIX users and groups
+
+  FILES:
+
+Export of OU and person data to LDAP
+------------------------------------
+  STATUS: Not started
+
+  RESPONSIBILITY OF:
+
+  
+
+  CODE DEPENDENCIES: Core API
+
+  FILES:
+
+Export of user data to Notes
+----------------------------
+  STATUS: Not started
+
+  RESPONSIBILITY OF:
+
+  
+
+  CODE DEPENDENCIES: Core API, maybe also ChangeLog API
+
+  FILES:
+
+Export to LMS ClassFronter
+--------------------------
+  STATUS: Not started
+
+  RESPONSIBILITY OF:
+
+  
+
+  CODE DEPENDENCIES: Core API
+
+  FILES:
+
+Disk quota API
+--------------
+  STATUS: Not started
+
+  RESPONSIBILITY OF:
+
+  
+
+  CODE DEPENDENCIES: POSIX users and groups
+
+  FILES:
+
+Printer quota API
+-----------------
+  STATUS: Not started
+
+  RESPONSIBILITY OF:
+
+  
+
+  CODE DEPENDENCIES: Core API
+
+  FILES:
+
+Password history API
+--------------------
+  STATUS: Not started
+
+  RESPONSIBILITY OF:
+
+  
+
+  CODE DEPENDENCIES: Core API
+
+  FILES:
+
+Export to Samba
+---------------
+  STATUS: Not started
+
+  RESPONSIBILITY OF:
+
+  
+
+  CODE DEPENDENCIES: Core API
+
+  FILES:
