@@ -25,7 +25,7 @@
 
 ## Url to go to when the form for creating the group is submittet.
 #def getAction
-$url("group/create")#slurp
+    #return $url("group/make")
 #end def
 
 ## Creates html-code for input-boxes for the form.
@@ -48,7 +48,7 @@ $url("group/create")#slurp
             #set $desc = $formvalues.get("desc", "")
             <textarea rows="3" cols="40" name="desc">$desc</textarea>
             <br />
-            $input("expiration", "Expiration date *")
+            $input("expire", "Expiration date *")
         </div>
         <div class="help">
             #for $line in $help

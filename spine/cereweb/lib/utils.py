@@ -19,9 +19,9 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 import time
+import forgetHTML
 import cereconf
 from Cerebrum.Errors import ProgrammingError
-import forgetHTML
 
 def url(path):
     """Returns a full path for a path relative to the base installation.
@@ -118,9 +118,8 @@ def no_cache(req):
 def new_transaction(req, name="", description=""):
     """Creates a new transaction."""
     trans = req.session.get("session").new_transaction()
-    trans.name = name
-    trans.description = description
-    trans.trans_started = time.ctime()
+    trans.set_name(name or "DefaultTransaction%i" % trans.get_id())
+    trans.set_description(description)
     if not req.session.has_key("transactions"):
         req.session["transactions"] = []
     req.session["transactions"].append(trans)

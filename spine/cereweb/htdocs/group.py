@@ -66,7 +66,11 @@ def search(req, name="", desc="", spread=""):
         if desc:
             searcher.set_description_like(desc)
         if spread:
-            pass
+            spreadsearcher = server.get_spread_searcher()
+            spreadsearcher.set_name_like(spread)
+            #hmm, her må det vel litt magi til? spread->entity_spread->entity?
+            #iallefall hvis vi skal støtte wildchars i spreadsøket..
+            
         groups = searcher.search()
 
         # Print results
@@ -106,7 +110,7 @@ def _get_group(req, id):
     try:
         return server.get_group(int(id))
     except Exception, e:
-        queue_message(req, _("Could not load group with id=%s") % id, error=True)
+        queue_message(req, _("Could not load group with id=%s" % id), error=True)
         queue_message(req, str(e), error=True)
         redirect(req, url("group"), temporary=True)
 
@@ -181,7 +185,7 @@ def edit(req, id):
     page.content = lambda: edit.editGroup(req, group)
     return page
 
-def create(req, name="", expiration="", description=""):
+def create(req, name="", expire="", description=""):
     """Creates a page with the form for creating a group.
 
     If names is given, a group is created.
@@ -193,7 +197,7 @@ def create(req, name="", expiration="", description=""):
     # Store given parameters in the create-form
     values = {}
     values['name'] = name
-    values['expiration'] = expiration
+    values['expire'] = expire
     values['description'] = description
     create = GroupCreateTemplate(searchList=[{'formvalues': values}])
 
@@ -203,5 +207,32 @@ def create(req, name="", expiration="", description=""):
     
     page.content = create.form
     return page
+
+def save(req, id, name, expire, description):
+    """Save the changes to the server."""
+    server = req.session.get("active")
+    group = _get_group(req, id)
+    
+    group.set_name(name)
+    group.set_expire_date(server.get_commands().strptime(expire, "%Y-%m-%d"))
+    group.set_description(description)
+
+    queue_message(req, _("Group successfully updated."))
+    redirect_object(req, group, seeOther=True)
+
+def make(req, name, expire="", description=""):
+    """Performs the creation towards the server."""
+    server = req.session.get("active")
+    group = server.get_commands().create_group(name)
+
+    if expiration:
+        expire = server.get_commands().strptime(expire, "%Y-%m-%d")
+        group.set_expire_date(expire)
+
+    if description:
+        group.set_description(description)
+    
+    queue_message(req, _("Group successfully created."))
+    redirect_object(req, person, seeOther=True)
 
 # arch-tag: d14543c1-a7d9-4c46-8938-c22c94278c34

@@ -19,8 +19,8 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 import forgetHTML as html
-from mod_python import Session
 from Cereweb import ServerConnection
+from mod_python import Session
 from Cereweb.utils import url, redirect
 
 def index(req, user="", password=""):
@@ -41,6 +41,7 @@ def index(req, user="", password=""):
             req.session = Session.Session(req)
             req.session['server'] = spine
             req.session['session'] = session
+            req.session.save()
             
             #redirect to the main page and start using the cereweb.publisher.
             redirect(req, url("/"))

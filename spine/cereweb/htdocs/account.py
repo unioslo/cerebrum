@@ -49,7 +49,6 @@ def search(req, name="", owner="", expire_date="", create_date=""):
     page = Main(req)
     page.title = _("Account search:")
     page.setFocus("account/list")
-    server = snapshot(req)
     # Store given search parameters in search form
     formvalues = {}
     formvalues['name'] = name
@@ -58,49 +57,74 @@ def search(req, name="", owner="", expire_date="", create_date=""):
     formvalues['create_date'] = create_date
     accountsearch = AccountSearchTemplate(
                        searchList=[{'formvalues': formvalues}])
-    result = html.Division()
-    result.append(html.Header(_("Account search results:"), level=2))
-    
-    searcher = server.get_account_searcher()
-    if name:
-        searcher.set_name_like(name)
-    if owner:
-        seacher.set_owner_like(owner)
-    accounts = searcher.search()
-    
-    table = html.SimpleTable(header="row")
-    table.add(_("Name"), _("Owner"))
-    for account in accounts:
-        link = url("account/view?id=%s" % account.get_id())
-        link = html.Anchor(account.get_name(), href=link)
-        table.add(link, account.get_owner())
 
-    if accounts:
-        result.append(table)
-    else:
-        page.add_message(_("Sorry, no account(s) found matching " \
-                           "the given criteria."))
+
+    if name or owner or expire_date or create_date:
+        server = snapshot(req)
+
+        entitysearch = server.get_entity_searcher()
+        accountsearch = server.get_account_searcher()
+        intersections = [accountsearch,]
         
-    result.append(html.Header(_("Search for other account(s):"), level=2))
-    result.append(accountsearch.form())
-    page.content = result.output
+        if name:
+            accountsearch.set_name_like(name)
+
+        if owner:
+            personnamesearch = server.get_person_name_searcher()
+            personnamesearch.set_name_like(owner)
+            personnamesearch.mark_person()
+            intersections.append(personnamesearch)
+        
+        if expire_date:
+            date = server.get_commands().strptime(expire_date, "%Y-%m-%d")
+            accountsearch.set_expire_date(date)
+
+        if create_date:
+            date = server.get_commands().strptime(create_date, "%Y-%m-%d")
+            accountsearch.set_create_date(date)
+
+        entitysearch.set_intersections(intersections)
+        accounts = entitysearch.search()
+   
+        if accounts:
+            result = html.Division()
+            result.append(html.Header(_("Account search results:"), level=2))
+        
+            table = html.SimpleTable(header="row")
+            table.add(_("Name"), _("Owner"), _("Create date"),
+                      _("Expire date"), _("Description"))
+
+            for account in accounts:
+                link = url("account/view?id=%s" % account.get_id())
+                link = html.Anchor(account.get_name(), href=link)
+                owner = account.get_owner().get_names()[0].get_name()
+                cdate = account.get_create_date().strftime("%Y-%m-%d")
+                edate = account.get_expire_date().strftime("%Y-%m-%d")
+                table.add(link, owner, cdate, edate, account.get_description())
+
+            result.append(table)
+            result.append(html.Header(_("Search for other account(s):"), level=2))
+            result.append(accountsearch.form())
+            page.content = result.output
+        else:
+            page.add_message(_("Sorry, no account(s) found matching " \
+                               "the given criteria."))
+            page.content = lambda: accountsearch.form()
+
     return page
 
-def create(req, ownerid="", name="", affiliation="", expire_date=""):
+def create(req, owner="", name="", expire_date=""):
     page = Main(req)
     page.title = _("Create a new person:")
     page.setFocus("account/create")
-    server = req.session.get("active")
+
     # Store given createparameters in the create-form
     values = {}
+    values['owner'] = owner
     values['name'] = name
-    values['affiliation'] = affiliation
     values['expire_date'] = expire_date
     create = AccountCreateTemplate(searchList=[{'formvalues': values}])
     
-    if name and affiliation and expire_date:
-        pass
-
     page.content = create.form
     return page
 
@@ -109,7 +133,7 @@ def _get_account(req, id):
     try:
         return server.get_account(int(id))
     except Exception, e:
-        queue_message(req, _("Could not load account with id=%s") % id, error=True)
+        queue_message(req, _("Could not load account with id=%i" % id), error=True)
         queue_message(req, _(str(e)), error=True)
         redirect(req, url("account"), temporary=True)
 
@@ -136,38 +160,13 @@ def edit(req, id):
     page.setFocus("account/edit")
     edit = AccountEditTemplate()
     edit.formvalues['name'] = account.get_name()
-# TODO: fetch more values from the server...
     page.content = lambda: edit.edit(account)
     return page
 
 def save(req, id, save=None, abort=None, expire_date=''):
     pass
-#    account = ClientAPI.Account.fetch_by_id(server, id)
-#    owner = account.get_owner_object()
-#    if not save:
-#        owner = account.get_owner_object()
-#        return redirect_object(req, owner, seeOther=True)
-#    if expire_date:
-#        # Expire date is set, check if it's changed...
-#        expire_date = DateTime.DateFrom(expire_date)
-#        if account.expire_date != expire_date:
-#            account.set_expire_date(expire_date)
-#            queue_message(req, _("Set expiration date to %s") %
-#                            expire_date.Format("%Y-%m-%d"))
-#    else:
-#        # No expire date set, check if it's to be removed
-#        if account.expire_date:
-#            account.set_expire_date(None)
-#            queue_message(req, _("Removed expiration date"))
-#    return redirect_object(req, owner, seeOther=True)
-        
 
 def delete(req, id):
     pass
-#    account = ClientAPI.Account.fetch_by_id(server, id)
-#    owner = account.get_owner_object()
-#    account.set_expire_date(DateTime.DateFrom('').Format('%Y-%m-%d'))
-#    queue_message(req, _("Account '%s' queued for removal") % account.name)
-#    return redirect_object(req, owner)
 
 # arch-tag: 4e19718e-008b-4939-861a-12bd272048df

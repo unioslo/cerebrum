@@ -42,11 +42,11 @@ $view_entity($person, $req)
         <h3>$_("General personinfo"):</h3>
     </div>
     <div>
-        #if $person.get_deceased()
+    #if $person.get_deceased()
         <div class="info">
             <strong class="deceased">$_("Person is deceased")</strong>
         </div>
-        #end if
+    #end if
         <div class="info">
             <em>$_("Gender"):</em> $person.get_gender().get_description()
         </div>

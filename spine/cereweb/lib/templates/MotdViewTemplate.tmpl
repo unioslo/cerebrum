@@ -24,7 +24,7 @@
     #set $server = $req.session.get("active")
     #set $motds = $server.get_cereweb_motd_searcher()
     #for $motd in $motds.search()
-        $motd.get_subject() - $motd.get_description() <br />
+        $motd.get_subject() - $motd.get_message() <br />
     #end for
 </div>
 #end def

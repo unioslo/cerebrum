@@ -195,10 +195,7 @@ def edit(req, id, addName=False):
     return page
 
 def create(req, birthnr="", gender="", birthdate="", ou="", affiliation="", aff_status=""):
-    """Creates a page with the form for creating a person.
-
-    If all values are given, a person is created.
-    """
+    """Creates a page with the form for creating a person."""
     page = Main(req)
     page.title = _("Create a new person:")
     page.setFocus("person/create")
@@ -213,25 +210,72 @@ def create(req, birthnr="", gender="", birthdate="", ou="", affiliation="", aff_
     page.content = lambda: create.form(req)
     return page
 
+def save(req, id, gender, birthdate, description, deceased):
+    """Store the form for editing a person into the database."""
+    server = req.session.get("active")
+    person = _get_person(req, id)
+    
+    if deceased == "True":
+        deceased = True
+    else:
+        deceased = False
+    
+    person.set_gender(server.get_gender_type(gender))
+    person.set_birth_date(server.get_commands().strptime(birthdate, "%Y-%m-%d"))
+    person.set_description(description)
+    person.set_deceased(deceased)
+    
+    queue_message(req, _("Person successfully updated."))
+    redirect_object(req, person, seeOther=True)
+
+def make(req, gender, birthdate, description=""):
+    """Create a new person with the given values."""
+    server = req.session.get("active")
+    gender = server.get_gender_type(gender)
+    birthdate = server.get_commands().strptime(birthdate, "%Y-%m-%d")
+    person = server.get_commands().create_person(gender, birthdate)
+    
+    if description:
+        person.set_description(description)
+    
+    queue_message(req, _("Person successfully created."))
+    redirect_object(req, person, seeOther=True)
+
+def delete(req, id):
+    """Delete the person from the server."""
+    person = _get_person(req, id)
+    person.delete()
+
+    queue_message(req, "Person successfully deleted.")
+    redirect(req, url("person"), seeOther=True)
+
 def add_name(req, id, name, name_type, source_system):
     """Add a new name to the person with the given id."""
-    queue_message(req, _("Error while trying to add name."), error=True)
-    redirect(req, url("person/index"), seeOther=True)
+    server = req.session.get("active")
+    person = _get_person(req, id)
+
+    name_type = server.get_name_type(name_type)
+    source_system = server.get_source_system(source_system)
+    person.add_name(name, name_type, source_system)
+
+    queue_message(req, _("Name successfully added.."))
+    redirect_object(req, person, seeOther=True)
 
 def remove_name(req, id, name, variant, ss):
     """Remove the name with the given values."""
-    queue_message(req, _("Error while trying to remove name."), error=True)
-    redirect(req, url("person/index"), seeOther=True)
-
-def save(req, id, gender, birthdate, desc):
-    """Store the form for editing a person into the database."""
+    server = req.session.get("active")
     person = _get_person(req, id)
-    queue_message(req, _("Error while trying to save to the database."), error=True)
+
+    searcher = server.get_person_name_searcher()
+    searcher.set_person(person)
+    searcher.set_name_variant(server.get_name_type(variant))
+    searcher.set_source_system(server.get_source_system(ss))
+    searcher.set_name_like(name)
+    name, = searcher.search()
+
+    person.remove_name(name)
+
+    queue_message(req, _("Name successfully removed."))
     redirect_object(req, person, seeOther=True)
-
-def make(req, birthnr, gender, birthdate, ou, affiliation, aff_status):
-    """Create a new person with the given values."""
-    queue_message(req, _("Error while trying to create the new person."), error=True)
-    redirect(req, url("person/create"), seeOther=True)
-
+ 
 # arch-tag: bef096b9-0d9d-4708-a620-32f0dbf42fe6

@@ -80,6 +80,20 @@ $view_entity($person, $req)
     </select><br />
 #end def
 
+## Create a drop-down list with true or false.
+#def boolWidget($name, $label, $$default=True)
+    <label for="$name">$_('$label'):</label>
+    <select name="$name">
+    #if $default
+        <option id="True">True</option>
+        <option id="False">False</option>
+    #else
+        <option id="False">False</option>
+        <option id="True">True</option>
+    #end if
+    </select><br />
+#end def
+
 ## Creates the form for editing the main person info.
 #def form($person, $req)
 <div class="edit">
@@ -91,7 +105,8 @@ $view_entity($person, $req)
             $gender($req, $person.get_gender())
             #set $date = $person.get_birth_date().strftime("%Y-%m-%d")
             $input("birthdate", "Birthdate *", $date)
-            $input("desc", "Description", $person.get_description())
+            $input("description", "Description", $person.get_description())
+            $boolWidget("deceased", "Deceased", $person.get_deceased())
             <input type="hidden" name="id" value="$person.get_id()" />
         </div>
         $showHelp($help)
