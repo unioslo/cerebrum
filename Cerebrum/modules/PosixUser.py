@@ -154,6 +154,29 @@ class PosixUser(Account.Account):
         SELECT account_id
         FROM [:table schema=cerebrum name=posix_user]""")
 
+    def list_extended_posix_users(self, auth_method):
+        """Returns data required for building a password map.  It is
+        not recommended to use this method.  If you do, be prepared to
+        update your code when the API changes"""
+        # TBD: should we LEFT JOIN with account_authentication so that
+        # users without passwords of the given type are returned?
+        return self.query("""
+        SELECT ai.account_id, posix_uid, shell, entity_name, ai.home,
+          ai.disk_id, aa.auth_data, pg.posix_gid
+        FROM [:table schema=cerebrum name=posix_user] pu,
+          [:table schema=cerebrum name=posix_group] pg,
+          [:table schema=cerebrum name=account_info] ai,
+          [:table schema=cerebrum name=account_authentication] aa,
+          [:table schema=cerebrum name=entity_name] en
+        WHERE pu.gid=pg.group_id AND
+            ai.account_id=pu.account_id AND
+            aa.account_id=pu.account_id AND
+            aa.method=:auth_method AND
+            pu.account_id=en.entity_id AND
+            value_domain=:vd """,
+                          {'vd': int(self.const.account_namespace),
+                           'auth_method': int(auth_method)})
+
     def get_free_uid(self):
         """Returns the next free uid from ``posix_uid_seq``"""
         while 1:
@@ -196,6 +219,11 @@ class PosixUser(Account.Account):
         except Errors.NotFoundError:
             return None
         return "%s/%s" % (disk.path, self.account_name)
+
+    def list_shells(self):
+        return self.query("""
+        SELECT code, shell
+        FROM [:table schema=cerebrum name=posix_shell_code]""")
 
     def suggest_unames(self, domain, fname, lname):
         """Returns a tuple with 15 (unused) username suggestions based
