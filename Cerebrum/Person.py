@@ -911,7 +911,7 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
         return result
 
 
-    def list_persons_atype_extid(self, spread=None, include_quarantines=False):
+    def list_persons_atype_extid(self, spread=None, include_quarantines=False,idtype=None):
         """Multiple join to increase performance on LDAP-dump.
 
         TBD: Maybe this should be nuked in favor of pure dumps like
@@ -926,6 +926,14 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
             efrom += """
             JOIN [:table schema=cerebrum name=entity_spread] es
               ON pi.person_id=es.entity_id AND es.spread=:spread"""
+	if idtype:
+	    efrom += """
+	    JOIN [:table schema=cerebrum name=person_external_id] pei
+            ON pi.person_id = pei.person_id AND pei.id_type=:idtype"""
+	else:
+	    efrom += """
+	    JOIN [:table schema=cerebrum name=person_external_id] pei
+            ON pi.person_id = pei.person_id""" 
 
         return self.query("""
         SELECT DISTINCT pi.person_id, pi.birth_date, at.account_id, pei.external_id,
@@ -939,9 +947,7 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
                  FROM [:table schema=cerebrum name=account_type] at2
                  WHERE at2.person_id = pi.person_id)
 	  %(efrom)s
-          JOIN [:table schema=cerebrum name=person_external_id] pei
-            ON pi.person_id = pei.person_id
-          """ % locals(), {'spread': spread,}, fetchall=False)
+          """ % locals(), {'spread': spread,'idtype': idtype}, fetchall=False)
 
 
     def list_extended_person(self, spread=None, include_quarantines=False,
