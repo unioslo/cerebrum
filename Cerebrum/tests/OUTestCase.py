@@ -31,7 +31,7 @@ class OU_createTestCase(unittest.TestCase, object): # 'object' because
         ou.populate_address(self.co.address_street, addr=self.ou_dta['addr'],
                             zip=self.ou_dta['zip'],
                             city=self.ou_dta['city'])
-        
+
     def setUp(self):
         try:
             self.Cerebrum.commit()
@@ -40,7 +40,7 @@ class OU_createTestCase(unittest.TestCase, object): # 'object' because
             new_ou.clear()
             self._myPopulateOU(new_ou)
             new_ou.write_db()
-            self.ou_id = new_ou.ou_id
+            self.ou_id = new_ou.entity_id
         except:
             print "error: unable to create OU."
             traceback.print_exc()
@@ -53,7 +53,7 @@ class OUTestCase(OU_createTestCase):
     def testCreateOU(self):
         "Test that one can create an OU"
         self.failIf(getattr(self, "ou_id", None) is None)
-        
+
     def testCompareOU(self):
         "Compare created OU from database with set values"
         ou = OU.OU(self.Cerebrum)
