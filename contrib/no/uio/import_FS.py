@@ -139,6 +139,12 @@ def process_person_callback(person_info):
     address_info = None
     aktiv_sted = []
     # Iterate over all person_info entries and extract relevant data    
+    if person_info.has_key('aktiv'):
+        for row in person_info['aktiv']:
+            if studieprog2sko[row['studieprogramkode']] is not None:
+                aktiv_sted.append(int(studieprog2sko[row['studieprogramkode']]))
+                logger.debug("App2akrivts")
+
     for dta_type in person_info.keys():
         x = person_info[dta_type]
 	p = x[0]
@@ -190,10 +196,6 @@ def process_person_callback(person_info):
                                  co.affiliation_tilknyttet_fagperson,
                                  affiliations, _get_sko(p, 'faknr',
                                  'instituttnr', 'gruppenr', 'institusjonsnr'))
-        elif dta_type in ('aktiv', ):
-	    for row in x:
-                if studieprog2sko[row['studieprogramkode']] is not None:
-                    aktiv_sted.append(int(studieprog2sko[row['studieprogramkode']]))
         elif dta_type in ('opptak', ):
 	    for row in x:
 		subtype = co.affiliation_status_student_opptak
