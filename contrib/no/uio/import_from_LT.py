@@ -70,8 +70,9 @@ def get_person_info():
     for p in persondta.keys():
         fodtdag, fodtmnd, fodtar, personnr = p.split('-')
         picols, pi = LT.GetPersonInfo(fodtdag, fodtmnd, fodtar, personnr)
-        f.write(_xmlify_dbrow(pi[0],  _conv_colnames(picols), 'person', 0) + "\n")
-
+        f.write(_xmlify_dbrow(pi[0],  _conv_colnames(picols), 'person', 0,
+                              extra_attr={'fodtdag': fodtdag, 'fodtmnd':fodtmnd,
+                                          'fodtar':fodtar, 'personnr': personnr}) + "\n")
         tlfcols, tlf = LT.GetTelefon(fodtdag, fodtmnd, fodtar, personnr)
         for t in tlf:
             f.write(_xmlify_dbrow(t,  _conv_colnames(tlfcols), 'arbtlf') + "\n")
@@ -85,7 +86,7 @@ def get_person_info():
             # to_char(dato_fra,'yyyymmdd') as key for rows, so we use
             # indexes here :-(
             attr = " ".join(["%s=%s" % (tilscols[i], _escape_xml_attr(t[i]))
-                             for i in (7,8,9,10,11)])
+                             for i in (4,5,6,7,8,9,10,11, )])
             if t['stillingkodenr_beregnet_sist'] is not None:
                 sk = skode2tittel[t['stillingkodenr_beregnet_sist']]
                 attr += ' hovedkat=%s' % _escape_xml_attr(
@@ -111,15 +112,20 @@ def _conv_colnames(cols):
         cols[i] = re.sub(prefix, "", cols[i]).lower()
     return cols
 
-def _xmlify_dbrow(row, cols, tag, close_tag=1):
+def _xmlify_dbrow(row, cols, tag, close_tag=1, extra_attr=None):
     if close_tag:
         close_tag = "/"
     else:
         close_tag = ""
     assert(len(row) == len(cols))
+    if extra_attr is not None:
+        extra_attr = " " + " ".join(["%s=%s" % (k, _escape_xml_attr(extra_attr[k]))
+                                     for k in extra_attr.keys()])
+    else:
+        extra_attr = ''
     return "<%s " % tag + (
         " ".join(["%s=%s" % (cols[i], _escape_xml_attr(row[i]))
-                  for i in range(len(cols))])+ "%s>" % close_tag)
+                  for i in range(len(cols))])+ "%s%s>" % (extra_attr, close_tag))
 
 def _escape_xml_attr(a):
     # TODO:  Check XML-spec to find out what to quote
