@@ -316,10 +316,13 @@ class EntityContactInfo(Entity):
                               contact_pref=50, description=None):
         if not hasattr(self, '_src_sys'):
             self._src_sys = source_system
-            self.__data = {}
         elif self._src_sys <> source_system:
             raise ValueError, \
                   "Can't populate multiple `source_system`s w/o write_db()."
+        try:
+            foo = self.__data
+        except AttributeError:
+            self.__data = {}
         if type is None:
             # No actual contact info data in this call, so only side
             # effect should be to set self.__source.
@@ -335,6 +338,10 @@ class EntityContactInfo(Entity):
     def write_db(self):
         self.__super.write_db()
         if not hasattr(self, '_src_sys'):
+            return
+        try:
+            data = self.__data
+        except AttributeError:
             return
         for row in self.get_contact_info(source=self._src_sys):
             do_del = True
@@ -387,10 +394,13 @@ class EntityAddress(Entity):
                          postal_number=None, city=None, country=None):
         if not hasattr(self, '_src_sys'):
             self._src_sys = source_system
-            self.__data = {}
         elif self._src_sys <> source_system:
             raise ValueError, \
                   "Can't populate multiple `source_system`s w/o write_db()."
+        try:
+            foo = self.__data
+        except AttributeError:
+            self.__data = {}
         if type is None:
             return
         self.__data[int(type)] = {'address_text': address_text,
@@ -402,6 +412,10 @@ class EntityAddress(Entity):
     def write_db(self):
         self.__super.write_db()
         if not hasattr(self, '_src_sys'):
+            return
+        try:
+            data = self.__data
+        except AttributeError:
             return
         for r in self.get_entity_address(source=self._src_sys):
             do_del = True
