@@ -66,6 +66,15 @@ class FeideGvsConstants(Constants.Constants):
         'TEACHER',
         'teacher in a school')
 
+    affiliation_manuell = _PersonAffiliationCode(
+	'MANUELL',
+	'Manualy registered person')
+
+    affiliation_status_manuell_active = _PersonAffStatusCode(
+        affiliation_manuell,
+        'active_manuell',
+        'Active employee, manualy registered')
+
     affiliation_status_admin_active = _PersonAffStatusCode(
         affiliation_admin,
         'active',
