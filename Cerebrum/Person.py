@@ -757,7 +757,10 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
           pn.name, en.entity_name, eci.contact_value, aa.auth_data,
           at.ou_id, at.affiliation, pas.status, eci3.contact_value AS fax,
           pn2.name AS title, pn3.name AS personal_title, ead.address_text, 
-	  ead.postal_number, ead.city, ead.country %(ecols)s
+	  ead.postal_number, ead.city, ead.country,
+	  ead1.address_text AS post_text, ead1.postal_number AS post_postal,
+          ead1.city AS post_city, ead1.country AS post_country ,
+          ead1.p_o_box AS post_box %(ecols)s
 	FROM
           [:table schema=cerebrum name=person_info] pi
           JOIN [:table schema=cerebrum name=account_type] at
@@ -814,13 +817,14 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
                         at.affiliation = pas2.affiliation AND 
 			at.ou_id = pas2.ou_id)
 	  LEFT JOIN [:table schema=cerebrum name=entity_address] ead
-	     ON ead.entity_id=pi.person_id AND
+             ON ead.entity_id=pi.person_id AND
                 ead.address_type=[:get_constant name=address_street] AND
-                ead.source_system=(SELECT MIN(source_system)
-                FROM [:table schema=cerebrum name=entity_address] ead2
-                WHERE ead2.entity_id=pi.person_id AND
-                ead2.address_type=[:get_constant name=address_street]) 
-	  """ % locals(),
+                ead.source_system=[:get_constant name=system_lt]
+          LEFT JOIN [:table schema=cerebrum name=entity_address] ead1
+             ON ead1.entity_id=pi.person_id AND
+                ead1.address_type=[:get_constant name=address_post] AND
+                ead1.source_system=[:get_constant name=system_lt]
+          """ % locals(),
                           {'vd': int(self.const.account_namespace),
                            'spread': spread,
                            'pn_ss': int(self.const.system_cached),
