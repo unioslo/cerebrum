@@ -378,28 +378,31 @@ class Factory(object):
                       'CLConstants': 'CLASS_CL_CONSTANTS',
                       'ChangeLog': 'CLASS_CHANGELOG',
                       'DBDriver': 'CLASS_DBDRIVER'}
-        if Factory.class_cache.has_key("comp"):
+        if Factory.class_cache.has_key(comp):
             return Factory.class_cache[comp]
         try:
             conf_var = components[comp]
         except KeyError:
             raise ValueError, "Unknown component %r" % comp
         import_spec = getattr(cereconf, conf_var)
-##         if type(import_spec) is str:
-##             # Assume the class to import has the same name as the
-##             # module it lives in.
-##             cls = import_spec.split(".")[-1]
-##             import_spec = (import_spec, cls)
-        if isinstance(import_spec, tuple) or isinstance(import_spec, list) :
-            bases = ()
+        if isinstance(import_spec, (tuple, list)):
+            bases = []
             for c in import_spec:
-                (mod_name, class_name) = c.split("/", 2)
+                (mod_name, class_name) = c.split("/", 1)
                 mod = dyn_import(mod_name)
-                bases += (getattr(mod, class_name), )
+                bases.append(getattr(mod, class_name))
             if len(bases) == 1:
-                return bases[0]
-            Factory.class_cache[comp] = type(comp, bases, {})
-            return Factory.class_cache[comp]
+                comp_class = bases[0]
+            else:
+                # Dynamically construct a new class that inherits from
+                # all the specified classes.  The name of the created
+                # class is the same as the component name with a
+                # prefix of "_dynamic_"; the prefix is there to reduce
+                # the probability of `auto_super` name collision
+                # problems.
+                comp_class = type('_dynamic_' + comp, bases, {})
+            Factory.class_cache[comp] = comp_class
+            return comp_class
         else:
             raise ValueError, \
                   "Invalid import spec for component %s: %r" % (comp,
