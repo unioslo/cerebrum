@@ -1,0 +1,19 @@
+# Gro connection details
+[gro]
+# context: something weird
+login: user
+password: password
+
+# Where to place generated files for file-sync
+[file]
+passwd: /etc/passwd.cerebrum
+shadow: /etc/shadow.cerebrum
+group: /etc/group.cerebrum
+
+# Connection details for ldap sync
+[ldap]
+host: at.ntnu.no
+base: dc=ntnu,dc=no
+bind: cn=Administrator,dc=ntnu,dc=no
+password: password
+tls: yes
