@@ -122,6 +122,9 @@ never_forget_homedir = True
 
 max_ages = {
     int(co.account_create): AGE_FOREVER,
+    int(co.group_create): AGE_FOREVER,
+    int(co.ou_create): AGE_FOREVER,
+    int(co.person_create): AGE_FOREVER,
     int(co.group_add): AGE_FOREVER,
     int(co.spread_add): AGE_FOREVER,
     int(co.account_password): AGE_FOREVER,
