@@ -1,0 +1,24 @@
+##
+## Makefile for gro/bin
+##
+INSTALL = @INSTALL@
+
+prefix = @prefix@
+
+sources = $(wildcard *.py)
+
+.PHONY: all install install-lib clean distclean print
+
+all: 
+
+install: $(sources)
+	@for file in $(sources); do \
+	  $(INSTALL) -D -v -m 755 $$file $(prefix)/bin/$$file || exit 1; \
+	done
+
+install-lib:
+
+clean:
+
+distclean: clean
+	rm -f Makefile
