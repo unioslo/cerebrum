@@ -409,7 +409,7 @@ def create_email_alias(otype, data):
         # command.
         prefix = ":mailman:"
         if dest.startswith(prefix):
-            alias = "|/local/Mailman/bin/wrapper " + \
+            alias = "|/local/Mailman/mail/wrapper " + \
                     dest[len(prefix):].lstrip()
         elif dest.startswith("|"):
             alias = dest
