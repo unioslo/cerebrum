@@ -47,11 +47,24 @@ object_cache = {}
 corba_types = [int, str, bool, None]
 corba_structs = {}
 
+def _convert_corba_types_to_none(data_type):
+    """Returns the value for attr.data_type which is most None."""
+    value = None
+    if data_type is int:
+        value = 0
+    elif data_type is str:
+        value = ""
+    elif data_type is bool:
+        value = False
+    elif type(data_type) is list:
+        value = []
+    return value
+
 def convert_to_corba(obj, transaction, data_type):
     """Convert obj to a data type corba knows of."""
     if obj is None and data_type is not None:
         if data_type in corba_types:
-            raise TypeError("Can't convert None, should be %s" % data_type)
+            return _convert_corba_types_to_none(data_type)
         elif data_type in class_cache:
             return None
     elif data_type in corba_types:
@@ -63,7 +76,8 @@ def convert_to_corba(obj, transaction, data_type):
         vargs = {}
         vargs['reference'] = convert_to_corba(obj['reference'], transaction, data_type)
 
-        for attr in data_type.slots + [i for i in data_type.method_slots if not i.write and not i.args]:
+        methods = [i for i in data_type.method_slots if not i.write and not i.args]
+        for attr in data_type.slots + methods:
             if attr.name in obj:
                 value = convert_to_corba(obj[attr.name], transaction, attr.data_type)
                 if getattr(attr, 'optional', False):
@@ -71,18 +85,9 @@ def convert_to_corba(obj, transaction, data_type):
             else:
                 if getattr(attr, 'optional', False):
                     vargs['%s_exists' % attr.name] = False
-                if attr.data_type == int:
-                    value = 0
-                elif attr.data_type == str:
-                    value = ''
-                elif attr.data_type == bool:
-                    value = False
-                elif type(attr.data_type) == list:
-                    value = []
-                elif attr.data_type in class_cache:
-                    value = None
-                else:
-                    raise TypeError("Can't convert attribute %s in %s to nil" % (attr, data_type))
+                value = _convert_corba_types_to_none(attr.data_type)
+                if value is None and attr.data_type not in class_cache:
+                    raise TypeError("Can't convert attribute %s to none" % attr.name)
             vargs[attr.name] = value
 
         return struct(**vargs)

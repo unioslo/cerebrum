@@ -124,11 +124,9 @@ def create_lazy_get_method(attr):
         value = getattr(self, attr.get_name_private(), lazy)
         if value is lazy:
             loadmethod = getattr(self, attr.get_name_load(), None)
-            if loadmethod is None:
-                raise NotImplementedError('load for this attribute is not implemented')
-            loadmethod()
-            value = getattr(self, attr.get_name_private(), lazy)
-            assert value is not lazy # fails if loadmethod didnt load a new value
+            if loadmethod is not None:
+                loadmethod()
+            value = getattr(self, attr.get_name_private(), None)
         return value
     return lazy_get
 
@@ -216,8 +214,8 @@ class Builder(object):
         """Save all changed attributes."""
         saved = sets.Set()
         for attr in self.updated:
-            save_method = getattr(self, 'save_' + attr.name)
-            if save_method not in saved:
+            save_method = getattr(self, attr.get_name_save(), None)
+            if save_method not in saved and save_method is not None:
                 save_method()
                 saved.add(save_method)
         self.updated.clear()
@@ -227,8 +225,8 @@ class Builder(object):
         loaded = sets.Set()
         for attr in self.slots:
             if attr not in self.primary:
-                load_method = getattr(self, 'load_' + attr.name)
-                if load_method not in loaded:
+                load_method = getattr(self, attr.get_name_load(), None)
+                if load_method not in loaded and load_method is not None:
                     load_method()
                     loaded.add(load_method)
         self.updated.clear()
@@ -238,7 +236,6 @@ class Builder(object):
 
         Used by the caching facility to identify a unique object.
         """
-
         names = [i.name for i in cls.primary]
         for var, value in zip(names, args):
             vargs[var] = value
