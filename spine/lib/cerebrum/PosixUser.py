@@ -18,6 +18,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+from SpineLib.Builder import Method
 from SpineLib.DatabaseClass import DatabaseAttr
 
 from Account import Account
@@ -65,5 +66,14 @@ Account.db_attr_aliases[table] = {'id':'account_id', 'primary_group':'gid'}
 
 Account.build_methods()
 Account.search_class.build_methods()
+
+def promote_posix(self, primary_group, shell):
+    obj = self._get_cerebrum_obj()
+    p = Cerebrum.modules.PosixUser.PosixUser(self.get_database())
+    posix_uid = p.get_free_uid()
+    p.populate(posix_uid, primary_group.get_id(), None, shell.get_id(), parent=obj)
+    p.write_db()
+
+Account.register_method(Method('promote_posix', None, args=[('primary_group', Group), ('shell', PosixShell)], write=True), promote_posix)
 
 # arch-tag: 6397155e-c46c-4e57-a5f7-54d2f046f622
