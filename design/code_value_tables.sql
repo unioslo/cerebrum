@@ -24,12 +24,18 @@ CREATE TABLE authoritative_system_code
   installation to accept data in a specific language, there has to be
   a language identifier ('code') for that language in this table.
 
+  ISO standard 639, titled "Codes for the Representation of Names of
+  Languages", should do nicely for this purpose in nearly all cases.
+  It is recommended that 3-letter bibliographic language names are
+  used.  Please be *very* sure that you know what you're doing before
+  using language codes that aren't defined in ISO 639.
+
   Note that it is probably a good policy (although not enforced by the
   data model) to demand registrations in at least one common language
   for all related data.  That is, even though some people would like
-  to have their job title registered in Spanish, it probably isn't a
-  good idea to allow this before there exists a registration in the
-  language that is most commonly used for job titles.
+  to have their job title registered in e.g. Spanish, it probably
+  isn't a good idea to allow this before there exists a registration
+  in the language your institution most commonly uses for job titles.
 
 */
 CREATE TABLE language_code
@@ -133,7 +139,7 @@ CREATE TABLE quarantine_code
  *****/
 
 
-/*	ou_structure_view_code
+/*	ou_perspective_code
 
   In some institutions the organizational structure differ among the
   various authoritative data sources.  For instance, the structure you
@@ -146,15 +152,15 @@ CREATE TABLE quarantine_code
   Thus, the data model permits Organizational Units (OUs) to be
   structured in one *or* *more* ways.
 
-  The code values for what views of the OU structure
+  The code values for what perspectives of the OU structure
   (e.g. 'Accounting' or 'HR') this installation allows, and what each
   of these code values signify, are kept in this table.
 
 */
-CREATE TABLE ou_structure_view_code
+CREATE TABLE ou_perspective_code
 (
   code		CHAR VARYING(16)
-		CONSTRAINT ou_structure_view_code_pk PRIMARY KEY,
+		CONSTRAINT ou_perspective_code_pk PRIMARY KEY,
   description	CHAR VARYING(512)
 		NOT NULL
 );
