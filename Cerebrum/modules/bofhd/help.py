@@ -42,7 +42,7 @@ Tilgjengelige hovedgrupper:
 - email domain: the domain assignet to each e-mail address in Cerebrum 
   (the part of the address after the "@")
 - export id: an internal id asigned to each entity used to ease the 
-  export of Cerebrum specific data to other systems
+  export of Cerebrum-specific data to other systems
 - external id: unique id assigned to each person registered in Cerebrum
    (e.g. national sosial security number)
 - group: a collection of users or machines usually used to assign various
@@ -78,7 +78,123 @@ user typically executes various commands and some of these (and their
 consequences) are temporarily stored in a way that allows the user to
 retrace his or hers steps.
 Online help is also available troughout the session.  
-               """
+               """,
+	       'basics': """
+Register a new employee and create an account for them:
+Preprocessing:
+
+1. Find the number of the organizational unit they will be affiliated to
+2. Find out what kind of affiliation the person is going to have to the OU
+
+1. Check whether the person is registered in Cerebrum
+  - jbofh >person find 
+    Enter person search type >name
+    Enter value >Jasmina
+    Id Birth Exp-id Name
+    *****************************************
+    72467 08.11.74 exp-72467 Jasmina Hodzic
+    ***************************************** 
+2. Check whether they already have an account at UiO
+  - bofh >person accounts
+    Enter person id >entity_id:72467
+    Id Name
+    72470 jazz
+    72468 jazztest
+    72469 jasminah
+3. Check the attributes the account has
+  -  jbofh >user info jazz
+     Spreads: AD_account,NIS_user@uio
+     Affiliations: ANSATT@USIT, GT
+
+This means that Jasmina Hodzic (id 72467) has an account (name jazz) with the 
+affiliation ANSATT, tekadm to OU 331520 (USIT, GT).
+If the person you are looking for is not registered in Cerebrum the search vil 
+return no id. Use
+
+ - jbofh >person create
+   Enter person id >?
+   Enter person id as idtype:id.
+   If idtype=fnr, the idtype does not have to be specified.
+   The currently defined id-types are:
+   - fnr : norwegian f?dselsnummer.
+   Enter person id >9090909090
+   Enter date of birth(YYYY-MM-DD) >1974-11-08
+   Enter persons fullname >Pernilla Nyansatt
+   Enter OU >331520
+   Enter affiliaton >AFFILIATION
+   Enter affiliation status >affilition_status_code
+
+Any cryptic error messages mean that you have typed something wrong. In case of 
+Pernilla the error message is 
+Error: Cerebrum.modules.no.fodselsnr.InvalidFnrError:Unknown error (a server 
+error has been logged) which means that the fødselsnummer was wrong :).
+
+4. Create an account:
+ - jbofh >user create
+   Person identification >?
+   Identify account owner (person or group) by entering:
+   Birthdate (YYYY-MM-DD)
+   Norwegian f?dselsnummer (11 digits)
+   Export-ID (exp:exportid)
+   External ID (idtype:idvalue)
+   Group name (group:name)
+
+Typing ? a any given prompt will provide you with an brief explanation about
+the parametar you have to enter.
+
+5. Create a group:
+ - jbofh >group create
+   Enter the new group name >testgruppe
+   Enter description >Jasmina tester.
+   Group created as a normal group, internal id: 224995
+
+This means that a Cerebrum group has been created. However, if you want this 
+group to act as a file group or a net group you also need to make a posix group 
+of it:
+ - jbofh >group promote_posix
+   Enter groupname >testgruppe
+   Group promoted to PosixGroup, posix gid: 1030
+
+In addition you will need to give this group a spread to make it known to the 
+rest of the system. This is done by using the command spread add. If you want to 
+make "testgruppe" a file group you need to execute the following command:
+ - jbofh >spread add
+   Entity type [account] >group
+   Enter id >224995
+   Enter spread >NIS_fg@uio
+
+For net groups use the spread "NIS_ng@uio". Groups to be included in Active 
+Directory have to be given the spread AD_group.
+
+6. Move a user
+One of the most common tasks is moving a users home directory to another disk. 
+This is usually done when a person gets an affiliation to a different OU. The 
+basic command for this is user move. user move accepts following options:
+   1. immediate (immediately move users home directory to another disk)
+   2. batch (enqueue the moving request)
+   3. nofile (do not move the home directory)
+   4. hard_nofile (move user to a non registered disk)
+   5. student (find appropriate disk for this user and enquey the request)
+   6. student_immediate (find appropriate student disk for this user and 
+      move home directory)
+   7. give (user has lost affiliation to your OU, let someone else take them)
+   8. request (ask others for a spesific users)
+   9. confirm (take a user given away)
+  10. cancel (cancel the move request)
+
+ - jbofh >user move 
+   Enter move type >give
+   Enter accountname >jazztest
+   Enter groupname >testgruppe
+   Why? >Nytt ansettelsessted.
+   OK, 'give' registered
+
+ - jbofh >user move request jasminah
+   Enter disk >/usit/saruman/gt-u1
+   Why? >Vil ha.
+   OK, request registered
+ 
+	       """
               }
 
 # Help for all commands.  Format:
@@ -291,3 +407,5 @@ if __name__ == '__main__':
                     print "%s - %s" % (c, command_help[g][c][0])
                     for argtype in command_help[g][c][2:]:
                         print "   at=%s" % argtype
+
+
