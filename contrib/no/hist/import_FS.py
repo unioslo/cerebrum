@@ -49,7 +49,8 @@ def _get_sko(a_dict, kfak, kinst, kgr, kinstitusjon=None):
     if not ou_cache.has_key(key):
         ou = Factory.get('OU')(db)
         try:
-            ou.find_stedkode(int(a_dict[kfak]), int(a_dict[kinst]), int(a_dict[kgr]))
+            ou.find_stedkode(int(a_dict[kfak]), int(a_dict[kinst]),
+				int(a_dict[kgr]), int(a_dict[kinstitusjon]))
             ou_cache[key] = ou.ou_id
         except Errors.NotFoundError:
             logger.warn("bad stedkode: %s" % key)
@@ -259,7 +260,7 @@ def main():
     for s in StudentInfo.StudieprogDefParser(studieprogramfile):
         studieprog2sko[s['studieprogramkode']] = \
             _get_sko(s, 'faknr_studieansv', 'instituttnr_studieansv',
-                     'gruppenr_studieansv')
+                     'gruppenr_studieansv', 'institusjonsnr_studieansv')
     StudentInfo.StudentInfoParser(personfile, process_person_callback, logger)
     db.commit()
     logger.info("Completed")
