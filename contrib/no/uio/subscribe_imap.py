@@ -6,7 +6,6 @@ import cereconf
 import os
 import sys
 
-# ssh server /bin/sub server user
-os.execv(cereconf.SSH, [cereconf.SSH, sys.argv[1],
-                        cereconf.SUBSCRIBE_SCRIPT_REMOTE,
-                        sys.argv[1:]])
+# Run: ssh server /bin/sub action server user
+os.execv(cereconf.SSH, [cereconf.SSH, sys.argv[2],
+                        cereconf.SUBSCRIBE_SCRIPT_REMOTE] + sys.argv[1:])
