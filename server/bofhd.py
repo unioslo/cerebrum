@@ -330,7 +330,7 @@ class CallableFuncs(object):
         # TBD: Do some filtering on uname to remove commands
         commands = {}
         for k in self.all_commands.keys():
-            commands[k] = self.all_commands[k].getStruct()
+            commands[k] = self.all_commands[k].get_struct()
         return commands
 
     def get_format_suggestion(self, cmd):

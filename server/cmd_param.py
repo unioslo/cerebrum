@@ -18,7 +18,7 @@ class Parameter(object):
             else:
                 setattr(self, '_'+k, locals()[k])
 
-    def getStruct(self):
+    def get_struct(self):
         ret = {}
         for k in ('_name', '_optional', '_default', '_repeat', '_type',
                   # '_prompt', '_prompt_func', '_tab_func'
@@ -82,8 +82,8 @@ class Command(object):
         self._cmd = cmd
         self._params = params
 
-    def getStruct(self):
-        return (self._cmd, [k.getStruct() for k in self._params])
+    def get_struct(self):
+        return (self._cmd, [k.get_struct() for k in self._params])
 
 if __name__ == '__main__':
     all_commands = {
@@ -97,4 +97,4 @@ if __name__ == '__main__':
                              GroupName("destination", repeat=1), GroupOperation(optional=1))
         }
     
-    print all_commands['account_create'].getStruct()
+    print all_commands['account_create'].get_struct()
