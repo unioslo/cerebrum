@@ -116,7 +116,8 @@ tag is present, hdr and footer will be empty.
             logfile = Utils.make_temp_file(only_name=True)
         self.logfile = logfile
         old_dir = os.getcwd()
-        os.chdir(os.path.dirname(filename))
+        if os.path.dirname(filename):
+            os.chdir(os.path.dirname(filename))
         base_filename = filename[:filename.rindex('.')]	
         try:
             if type == 'tex':
