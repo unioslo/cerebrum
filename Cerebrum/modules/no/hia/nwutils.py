@@ -319,9 +319,10 @@ def get_account_info(account_id, spread, site_callback):
     	attrs.append( ("accountBalance", print_quota) )
 	attrs.append( ("allowUnlimitedCredit", "FALSE"))
     if email:
-	attrs.append( ("EMailAddress", email))
+	attrs.append( ("mail", email))
     passwd = unicode(pwd, 'iso-8859-1').encode('utf-8')
     attrs.append( ("userPassword", passwd) )
+    attrs.append( ("uid", name) )
     if site_callback is not None:
       attrs += site_callback(account_id, spread, ext_id)
     return (ldap_dn,attrs)
