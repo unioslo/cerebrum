@@ -182,6 +182,8 @@ def determine_affiliations(person):
             aff_stat = const.affiliation_tilknyttet_emeritus
         elif g['gjestetypekode'] == 'PCVAKT':
             aff_stat = const.affiliation_tilknyttet_pcvakt
+        elif g['gjestetypekode'] == 'UNIRAND':
+            aff_stat = const.affiliation_tilknyttet_unirand
         elif g['gjestetypekode'] == 'GRP-LÆRER':
             aff_stat = const.affiliation_tilknyttet_grlaerer
 	elif g['gjestetypekode'] == 'EF-STIP':
