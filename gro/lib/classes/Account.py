@@ -60,7 +60,7 @@ class Account(Entity):
 registry.register_class(Account)
 
 def get_account_by_name(name):
-    s = registry.EntityNameSearch(name)
+    s = registry.EntityNameSearcher(name)
     s.set_value_domain(registry.ValueDomain(name='account_names'))
     s.set_name(name)
 

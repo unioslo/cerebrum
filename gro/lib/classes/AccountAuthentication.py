@@ -28,11 +28,11 @@ class AccountAuthentication(DatabaseClass):
 registry.register_class(AccountAuthentication)
 
 def get_authentications(self):
-    s = registry.AccountAuthenticationSearch(self)
+    s = registry.AccountAuthenticationSearcher(self)
     s.set_account(self)
 
     return s.search()
-Account.register_method(Method('get_authentications', AccountAuthentication, sequence=True), get_authentications)
+Account.register_method(Method('get_authentications', [AccountAuthentication]), get_authentications)
 
 def authenticate(self, password):
     # FIXME: pass på her altså. Det er mange forskjellige typer.
@@ -42,6 +42,6 @@ def authenticate(self, password):
             return True
     return False
 
-Account.register_method(Method('authenticate', bool, [('password', 'string')]), authenticate)
+Account.register_method(Method('authenticate', bool, [('password', str)]), authenticate)
 
 # arch-tag: bb277dd2-3474-4891-8666-5fe9a096b735

@@ -42,7 +42,7 @@ class Searchable(object):
     def build_search_class(cls):
         from SearchClass import SearchClass
 
-        search_class_name = '%sSearch' % cls.__name__
+        search_class_name = '%sSearcher' % cls.__name__
         if not hasattr(cls, 'search_class') or search_class_name != cls.search_class.__name__:
         
             exec 'class %s(SearchClass):\n\tpass\ncls.search_class = %s\n' % ( 
@@ -64,7 +64,7 @@ class Searchable(object):
             
         search_class._search = cls.create_search_method()
         assert search_class._search
-        search_class.method_slots.append(Method('search', cls, sequence=True))
+        search_class.method_slots.append(Method('search', [cls]))
 
         cls.search_class = search_class
 

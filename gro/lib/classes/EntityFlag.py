@@ -24,10 +24,10 @@ class EntityFlag(DatabaseClass):
 registry.register_class(EntityFlag)
 
 def get_flags(self):
-    s = registry.EntityFlagSearch(self)
+    s = registry.EntityFlagSearcher(self)
     s.set_entity(self)
     return s.search()
 
-Entity.register_method(Method('get_flags', EntityFlag, sequence=True), get_flags)
+Entity.register_method(Method('get_flags', [EntityFlag]), get_flags)
 
 # arch-tag: 10c3b8a9-0c09-4a14-8f42-5f000ff9a840

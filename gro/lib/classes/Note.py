@@ -62,10 +62,10 @@ def add_note(self, subject, description):
 Entity.register_method(Method('add_note', None, args=[('subject', str), ('description', str)], write=True), add_note)
 
 def get_notes(self):
-    s = registry.NoteSearch(self)
+    s = registry.NoteSearcher(self)
     s.set_entity(self)
     return s.search()
 
-Entity.register_method(Method('get_notes', Note, sequence=True), get_notes)
+Entity.register_method(Method('get_notes', [Note]), get_notes)
 
 # arch-tag: 051b4ae4-d46d-43b6-b339-fb857279db1f

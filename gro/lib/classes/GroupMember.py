@@ -32,28 +32,27 @@ registry = Registry.get_registry()
 table = 'group_member'
 class GroupMember(DatabaseClass):
     primary = [
-        DatabaseAttr('group', 'group_member', Group),
-        DatabaseAttr('operation', 'group_member', GroupMemberOperationType),
-        DatabaseAttr('member', 'group_member', Entity),
-        DatabaseAttr('member_type', 'group_member', EntityType)
+        DatabaseAttr('group', table, Group),
+        DatabaseAttr('operation', table, GroupMemberOperationType),
+        DatabaseAttr('member', table, Entity),
+        DatabaseAttr('member_type', table, EntityType)
     ]
     slots = []
     db_attr_aliases = {
-        table: {
+        table:{
             'group':'group_id',
             'member':'member_id'
         }
     }
 
-
 registry.register_class(GroupMember)
 
 def get_group_members(self):
-    s = registry.GroupMemberSearch((self, 'get_group_members'))
+    s = registry.GroupMemberSearcher((self, 'get_group_members'))
     s.set_group(self)
     return s.search()
 
-Group.register_method(Method('get_group_members', GroupMember, sequence=True), get_group_members)
+Group.register_method(Method('get_group_members', [GroupMember]), get_group_members)
 
 UnionType = GroupMemberOperationType(name='union')
 IntersectionType = GroupMemberOperationType(name='intersection')
@@ -92,7 +91,7 @@ def get_groups(self):
     group_members = {}
 
     def get(entity):
-        s = registry.GroupMemberSearch(('get_groups', entity))
+        s = registry.GroupMemberSearcher(('get_groups', entity))
         s.set_member(entity)
         for i in s.search():
             group = i.get_group()
@@ -104,7 +103,7 @@ def get_groups(self):
 
     return [i for i in group_members if _get_members(i, group_members)]
 
-Entity.register_method(Method('get_groups', GroupMember, sequence=True), get_groups)
+Entity.register_method(Method('get_groups', [GroupMember]), get_groups)
 
 def get_members(self):
     """
@@ -126,6 +125,6 @@ def get_members(self):
 
     return list(_get_members(self, group_members))
 
-Group.register_method(Method('get_members', Entity, sequence=True), get_members)
+Group.register_method(Method('get_members', [Entity]), get_members)
 
 # arch-tag: db95a633-1591-4f72-91e4-fcb6ab6981e6

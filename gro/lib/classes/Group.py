@@ -33,7 +33,7 @@ table = 'group_info'
 
 class Group(Entity):
     slots = Entity.slots + [
-        DatabaseAttr('description', table, str),
+        DatabaseAttr('description', table, str, write=True),
         DatabaseAttr('visibility', table, GroupVisibilityType),
         DatabaseAttr('creator', table, Entity),
         DatabaseAttr('create_date', table, Date),

@@ -36,11 +36,11 @@ class EntityQuarantine(DatabaseClass):
 registry.register_class(EntityQuarantine)
 
 def get_quarantines(self):
-    s = registry.EntityQuarantineSearch(self)
+    s = registry.EntityQuarantineSearcher(self)
     s.set_entity(self)
     return s.search()
 
-Entity.register_method(Method('get_quarantines', EntityQuarantine, sequence=True), get_quarantines)
+Entity.register_method(Method('get_quarantines', [EntityQuarantine]), get_quarantines)
 
 def is_quarantined(self):
     import Cerebrum.Entity
@@ -68,6 +68,6 @@ def is_quarantined(self):
         return True
     return False
 
-Entity.register_method(Method('is_quarantined', bool, sequence=True), is_quarantined)
+Entity.register_method(Method('is_quarantined', bool), is_quarantined)
 
 # arch-tag: b57f4fa8-20a4-47c5-b458-bd989fe6285c

@@ -60,7 +60,8 @@ class Entity(DatabaseClass, EntityAuth):
             if entity_class.entity_type is entity_type:
                 break
         else:
-            raise Exception('unknown or not implemented type %s' % entity_type.get_name())
+            entity_class = Entity
+            #raise Exception('unknown or not implemented type %s' % entity_type.get_name())
 
         if cls is not entity_class and cls is not Entity:
             raise Exception('wrong class. Asked for %s, but found %s' % (cls, entity_class))

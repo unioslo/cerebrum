@@ -30,10 +30,10 @@ class EntityContactInfo(DatabaseClass):
 registry.register_class(EntityContactInfo)
 
 def get_contact_info(self):
-    s = registry.EntityContactInfoSearch(self)
+    s = registry.EntityContactInfoSearcher(self)
     s.set_entity(self)
     return s.search()
 
-Entity.register_method(Method('get_contact_info', EntityContactInfo, sequence=True), get_contact_info)
+Entity.register_method(Method('get_contact_info', [EntityContactInfo]), get_contact_info)
 
 # arch-tag: 6de264a4-7076-4d31-8084-742a0d5cfdac

@@ -52,14 +52,14 @@ class EntityAuth(object): # Mixin for Entity
         # operation_set pr entitet/target
 
         # finner først alle operation_set's som entiten har lov til å utføre på target
-        searcher = registry.AuthRoleSearch()
+        searcher = registry.AuthRoleSearcher()
         searcher.set_entity(operator)
         searcher.set_target(self)
 
         # sjekker så om operation_type tilhører en av operation_set'ene vi finner
         for auth_role in searcher.search():
             print auth_role, operation_type, auth_role.get_operation_set()
-            searcher = registry.AuthOperationSearch()
+            searcher = registry.AuthOperationSearcher()
             searcher.set_operation_type(operation_type)
             searcher.set_operation_set(auth_role.get_operation_set())
             if searcher.search():

@@ -91,7 +91,6 @@ class SearchClass(GroBuilder):
 
         return self._result
 
-registry.register_class(SearchClass)
 
 def set_unions(self, unions):
     self._unions = unions
@@ -100,9 +99,11 @@ def set_intersections(self, intersections):
 def set_differences(self, differences):
     self._differences = differences
 
-SearchClass.register_method(Method('set_unions', SearchClass, sequence=True, write=True), set_unions)
-SearchClass.register_method(Method('set_intersections', SearchClass, sequence=True, write=True), set_intersections)
-SearchClass.register_method(Method('set_differences', SearchClass, sequence=True, write=True), set_differences)
+SearchClass.register_method(Method('set_unions', [SearchClass], write=True), set_unions)
+SearchClass.register_method(Method('set_intersections', [SearchClass], write=True), set_intersections)
+SearchClass.register_method(Method('set_differences', [SearchClass], write=True), set_differences)
+
+registry.register_class(SearchClass)
 
 
 # arch-tag: e799b5c6-7514-435c-a027-430c7941144e
