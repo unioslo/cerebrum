@@ -250,60 +250,68 @@ def user_add_del_grp(ch_type,dn_user,dn_dest,ch_id=None):
     group.clear()
     account = Account.Account(db)
     group.entity_id = int(dn_dest)
-    group_name = evaluate_grp_name(group.get_name(co.group_namespace))
-    search_str = "cn=%s" % group_name
-    search_dn = "%s" % cereconf.NW_LDAP_ROOT
-    ldap_obj = ldap_handle.GetObjects(search_dn,search_str)
-    if ldap_obj == []:
-       # Group not in LDAP (yet)
-       logger.warn("WARNING: Group %s not found in LDAP" % search_str)
-       return
+    if [spr for spr in spread_grp if group.has_spread(spr)]:
+	grp_list = [group.entiy_id,]
+    elif group.list_member_groups(dn_dest, spread_grp):
+	grp_list = group.list_member_groups(dn_dest, spread_grp)
     else:
-        (ldap_group, ldap_attrs) = ldap_obj[0]
+	return
+    # Sjekk om gruppa har riktig spread eller om den er indirecte medlem
+    # i andre grupper som har spread 
+    for grp in grp_list:
+	group.clear()
+	group.find(grp)
+	group_name = evaluate_grp_name(group.get_name(co.group_namespace))
+	search_str = "(&(cn=%s)(objectclass=group))" % group_name
+	search_dn = "%s" % cereconf.NW_LDAP_ROOT
+	ldap_obj = ldap_handle.GetObjects(search_dn,search_str)
+	if ldap_obj == []:
+	    # Group not in LDAP (yet)
+	    logger.warn("WARNING: Group %s not found in LDAP" % search_str)
+	    continue
+	(ldap_group, ldap_attrs) = ldap_obj[0]
 	if isinstance(dn_user,(str,int)):
 	    dn_user = [int(dn_user),] 
 	ldap_users = []
-	# Check if all user are LDAP-users
+	# Check if all user are registrated
 	# This might be "over the egde" with verifying,
 	# and maybe it should be removed because CPU and time
 	for user in dn_user: 
 	    account.clear()
 	    account.find(dn_user)
 	    search_str = "(&(cn=%s)(objectClass=inetOrgPerson))" % \
-							account.account_name
+						account.account_name
 	    search_dn = "%s" % cereconf.NW_LDAP_ROOT
 	    ldap_obj = ldap_handle.GetObjects(search_dn,search_str)
 	    if ldap_obj == []:
 		logger.warn("#del/add member:%s to group %, failed." & \
-							(search_str,group_name))
+						(search_str,group_name))
 		dn_user.remove(user)
 	    else:
 		ldap_users.append(account.account_name)
-        if ch_type == const.group_add:
+	if ch_type == const.group_add:
 	    # Check if user already a member of the p
 	    if ldap_attrs.has_key('member'):
-	        for user in ldap_users: 
-                    if ldap_user in ldap_attrs['member']:
+		for user in ldap_users: 
+		    if ldap_user in ldap_attrs['member']:
 			logger.info("User %s already member in group %s" % \
-							(ldap_user, ldap_group))
+						(ldap_user, ldap_group))
 			ldap_users.remove(user)
-            attrs = []
-            attrs.append( ("member", ldap_users) )
-            attr_add_ldap(ldap_group, attrs)
-        elif ch_type == const.group_rem:
+	    if ldap_users:
+		attr_add_ldap(ldap_group,[('member',ldap_users)])
+	elif ch_type == const.group_rem:
 	    grp_mem = []
 	    for spr in spread_ids:
-		# Support multiple spread. Fetch all users unique.
+	    # Support multiple spread. Fetch all users unique.
 	        grp_mem += [x for x in group.get_members(spread=spr, \
-			get_entity_name=True) if x not in grp_mem]
+				get_entity_name=True) if x not in grp_mem]
 	    # Remove users that still are suppose to be in the group
 	    # This users may be indirect members from internal groups
 	    [ldap_users.remove(x) for x in grp_mem if x in ldap_users]
-            attrs = []
-            attrs.append( ("member", ldap_users) )
-            attr_del_ldap(ldap_group, attrs)
-        else:
-            logger.info("WARNING: unhandled group logic")
+	    if ldap_users:
+		attr_del_ldap(ldap_group, [('member',ldap_users)])
+	else:
+	    logger.info("WARNING: unhandled group logic")
 
 
 def path2edir(attrs):
@@ -355,9 +363,9 @@ def change_user_spread(dn_id,ch_type,spread,uname=None):
 								acc_name)
 	else: 
 	    (ldap_user, ldap_attrs) = ldap_obj[0]
-	    delete_ldap(ldap_user)
 	    for grp in group.list_groups_with_entity(dn_id):
                 user_add_del_grp(const.group_rem, dn_id, grp['group_id'])
+	    delete_ldap(ldap_user)
     elif (ch_type == int(const.spread_add)):
 	if ldap_obj == [] and [x for x in spread_ids if account.has_spread(x)]:
 	    (ldap_user, ldap_attrs) = nwutils.get_account_info(dn_id, \
