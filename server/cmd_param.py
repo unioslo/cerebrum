@@ -127,12 +127,16 @@ class Command(object):
         return (self._cmd, [k.get_struct() for k in self._params])
 
 class FormatSuggestion(object):
-    def __init__(self, string, vars):
+    def __init__(self, string, vars, hdr=None):
         self._string = string
         self._vars = vars
+        self._hdr = hdr
 
     def get_format(self):
-        return {'str': self._string, 'var': self._vars}
+        ret = {'str': self._string, 'var': self._vars}
+        if self._hdr is not None:
+            ret['hdr'] = self._hdr
+        return ret
 
 if __name__ == '__main__':
     all_commands = {
