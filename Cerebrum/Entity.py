@@ -54,7 +54,7 @@ class Entity(DatabaseAccessor):
         self.clear()
         self.__write_db = False
         self.constants = Constants.Constants(database)
-        self._debug_eq = True
+        self._debug_eq = False
 
     def clear(self):
         "Clear all attributes associating instance with a DB entity."
@@ -203,62 +203,6 @@ class EntityContactInfo(object):
           contact_type=:3 AND
           contact_pref=:4""", self.entity_id, source, type, pref)
 
-class EntityPhone(object):
-    "Mixin class, usable alongside Entity for entities having phone nos."
-    def add_entity_phone(self, source, type, phone, pref=None,
-                         description=None):
-        # TODO: Calculate next available pref.  Should also handle the
-        # situation where the provided pref is already taken.
-        if pref is None:
-            pref = 1
-        self.execute("""
-        INSERT INTO cerebrum.entity_phone
-          (entity_id, source_system, phone_type, phone_pref,
-           phone_number, description)
-        VALUES (:1, :2, :3, :4, :5, :6)""",
-                     self.entity_id, source, type, pref, phone, description)
-
-    def get_entity_phone(self, source=None, type=None):
-        return Utils.keep_entries(
-            self.query("""
-            SELECT * FROM cerebrum.entity_phone
-            WHERE entity_id=:1""", self.entity_id),
-            ('source_system', source),
-            ('phone_type', type))
-
-    def delete_entity_phone(self, source, type, pref):
-        self.execute("""
-        DELETE cerebrum.entity_phone
-        WHERE
-          entity_id=:1 AND
-          source_system=:2 AND
-          phone_type=:3 AND
-          phone_pref=:4""", self.entity_id, source, type, pref)
-
-## p = CerebrumFactory.Person()
-## p2 = CerebrumFactory.Person()
-## for person in LT.persons():
-##     p.clear()
-##     p.affect_addresses(Constants.source_LT, Constants.address_street,
-##                        Constants.address_post)
-##     for addr in person.get_addresses():
-##         p.populate_address(addr)
-##     try:
-##         p2.find_fnr(person.get_fnr())
-##         if p <> p2:
-##             p.write_db(p2)
-##     except NotFound:
-##         p.write_db()
-
-# Må kunne signalisere tre forskjellige typer operasjoner som følge av
-# at write_db() kalles: add, change og delete.
-#
-# Må ha signalisert til ea1 hvilke(t?) source_system-innslag som er
-# interessante for sammenlikningen (og dermed også for write_db()).
-#
-# Fint med mulighet til å signalisere hvilken/hvilke adresse-typer som
-# skal tas med under sammenlikningen (og av write_db()).
-    
 
 class EntityAddress(object):
     "Mixin class, usable alongside Entity for entities having addresses."
