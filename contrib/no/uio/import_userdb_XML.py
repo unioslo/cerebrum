@@ -36,6 +36,7 @@ import sys
 import getopt
 import cereconf
 import os
+import gc
 from time import gmtime, strftime, time, localtime
 
 from Cerebrum import Account
@@ -839,7 +840,10 @@ def person_callback(person):
             tmp = tmp.split()[4]
         except:
             pass
-        print "[%s] person_callbacks last minute: %i (%s)" % (strftime("%H:%M:%S", localtime()), users_minute, tmp)
+        if False:
+            print "[%s] person_callbacks last minute: %i (mem=%s, gc=%i)" % (strftime("%H:%M:%S", localtime()), users_minute, tmp, gc.collect())
+        else:
+            print "[%s] person_callbacks last minute: %i (%s)" % (strftime("%H:%M:%S", localtime()), users_minute, tmp)
         users_minute = 0
         prev_time = tmp_time
     users_minute += 1
@@ -1064,9 +1068,9 @@ def create_account(u, owner_id, owner_type, np_type=None):
         has_this_startdate = {}
         for tmp in u.get("tripnote", []):
             startdate = parse_date(tmp['startdate'])
-            if has_this_startdate.has_key(startdate):
+            if has_this_startdate.has_key(tmp['startdate']):
                 continue   # Work-around for ureg-conflicting PK.  TBD: Warn?
-            has_this_startdate[startdate] = 1
+            has_this_startdate[tmp['startdate']] = 1
             enddate = None
             if tmp.has_key('enddate'):
                 enddate = parse_date(tmp['enddate'])
