@@ -215,7 +215,7 @@ ORDER BY fodtdag, fodtmnd, fodtar, personnr"""
         return self._GetAllPersonsKommType('UREG-EMAIL')
 
     def GetAllPersonsUregUser(self):
-        return self.GetAllPersonsKommType('UREG-USER')
+        return self._GetAllPersonsKommType('UREG-USER')
 
     def _DeleteKommtypeVerdi(self, fnr, kommtypekode, kommnrverdi):
         dag, maned, aar, personnr = fodselsnr.del_fnr_4(fnr)
