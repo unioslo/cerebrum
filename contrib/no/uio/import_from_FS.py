@@ -56,10 +56,31 @@ def write_person_info(outfile):
     for p in fagpersoner:
         f.write(xml.xmlify_dbrow(p, xml.conv_colnames(cols), 'fagperson') + "\n")
 
-    # Studenter med opptak, privatister og Alumni
+    # Studenter med opptak, privatister (=opptak i studiepgraommet
+    # privatist) og Alumni
     cols, students = fs.GetStudinfOpptak()
     for s in students:
         f.write(xml.xmlify_dbrow(s, xml.conv_colnames(cols), 'opptak') + "\n")
+
+    # Aktive studenter
+    cols, students = fs.GetStudinfAktiv()
+    for s in students:
+        f.write(xml.xmlify_dbrow(s, xml.conv_colnames(cols), 'aktiv') + "\n")
+
+    # Privatister (=eksamensmeldt i emne de ikke har opptak til)
+    cols, students = fs.GetStudinfPrivatist()
+    for s in students:
+        f.write(xml.xmlify_dbrow(s, xml.conv_colnames(cols), 'privatist') + "\n")
+
+    # Semester-registrering
+    cols, students = fs.GetStudinfRegkort()
+    for s in students:
+        f.write(xml.xmlify_dbrow(s, xml.conv_colnames(cols), 'semreg') + "\n")
+
+    # Eksamensmeldinger
+    cols, students = fs.GetAlleEksamener()
+    for s in students:
+        f.write(xml.xmlify_dbrow(s, xml.conv_colnames(cols), 'eksmeld') + "\n")
 
     # EVU students
     # En del EVU studenter vil være gitt av søket over
@@ -69,7 +90,7 @@ def write_person_info(outfile):
         f.write(xml.xmlify_dbrow(e, xml.conv_colnames(cols), 'evu') + "\n")
 
     # Studenter i permisjon (også dekket av GetStudinfOpptak)
-    cols, permstud = fs.GetStudinfPerm()
+    cols, permstud = fs.GetStudinfPermisjon()
     for p in permstud:
         f.write(xml.xmlify_dbrow(p, xml.conv_colnames(cols), 'perm') + "\n")
 
