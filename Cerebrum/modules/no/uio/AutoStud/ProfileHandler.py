@@ -303,23 +303,19 @@ class ProfileMatcher(object):
         self.matches.sort(self._matches_sort)
         set_at = {}
         for match in self.matches:
-	    profile, nivaakode = match
-	    if (profile.settings['disk'] <> []):
-		for k in profile.settings.keys():
-		    self._unique_extend(self.settings.setdefault(k, []),
-					profile.settings[k])
-		
-		    if set_at.get(k, nivaakode) == nivaakode:
-			set_at[k] = nivaakode
-			# NOTE: By using :1 we assert that disks inherited
-			# from a parent profile won't move us to a
-			# div-disk.  However, this also means that we
-			# won't be member of all default_groups
-			self._unique_extend(self.toplevel_settings.setdefault(
-			    k, []), profile.settings[k][:1])
-	    else:
-		continue
-		    
+            profile, nivaakode = match
+            for k in profile.settings.keys():
+                self._unique_extend(self.settings.setdefault(k, []),
+                                    profile.settings[k])
+                if set_at.get(k, nivaakode) == nivaakode:
+                    set_at[k] = nivaakode
+                    # NOTE: By using :1 we assert that disks inherited
+                    # from a parent profile won't move us to a
+                    # div-disk.  However, this also means that we
+                    # won't be member of all default_groups
+                    self._unique_extend(self.toplevel_settings.setdefault(
+                        k, []), profile.settings[k][:1])
+
         # Automatically add the stedkode from the studieprogram that matched
         for p in self.matching_selectors.get('studieprogram', {}).keys():
             if not self.pc.autostud.studieprogramkode2info.has_key(p):
