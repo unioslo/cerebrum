@@ -203,9 +203,13 @@ class Profile(object):
     def get_disk_kvote(self, disk_id):
         self._logger.debug2("Determine disk_quota (disk_id=%i)" % disk_id)
         # Look for profile match
+        max_quota = 0
         for m in self.matcher.get_match("disk_kvote"):
             self._logger.debug2("get_disk_kvote <tag>: %s" % m)
-            return int(m['value'])
+            if int(m['value']) > max_quota:
+                max_quota = int(m['value'])
+        if max_quota > 0:
+            return max_quota
         # Look for match by diskdef
         quota = self.pc.disk_defs['path'].get(disk_id, {}).get('disk_kvote', None)
         if quota is not None:
