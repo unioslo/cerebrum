@@ -60,7 +60,7 @@ class ChangeLog(object):
                     :change_program)""", m)
         self.messages = []
 
-    def get_log_events(self, start_id, max_id=None, types=None,
+    def get_log_events(self, start_id=0, max_id=None, types=None,
                        subject_entity=None):
         where = ["change_id >= :start_id"]
         bind = {'start_id': int(start_id)}
