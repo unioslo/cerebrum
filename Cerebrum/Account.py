@@ -115,8 +115,8 @@ class AccountType(object):
         WHERE %s""" % " AND ".join(["%s=:%s" % (x, x)
                                    for x in cols.keys() if x != "priority"]), cols)
         self._db.log_change(self.entity_id, self.const.account_type_mod,
-                            None, change_params={'new_pri': new_pri,
-                                                 'old_pri': orig_pri})
+                            None, change_params={'new_pri': int(new_pri),
+                                                 'old_pri': int(orig_pri)})
         
     def del_account_type(self, ou_id, affiliation):
         cols = {'person_id': self.owner_id,
@@ -133,7 +133,7 @@ class AccountType(object):
 
     def list_accounts_by_type(self, ou_id=None, affiliation=None,
                               status=None, filter_expired=False,
-                              fetchall=True):
+                              person_id=None, fetchall=True):
         """Return ``account_id``s of the matching accounts."""
         extra=""
         if affiliation is not None:
@@ -146,6 +146,8 @@ class AccountType(object):
             extra += " AND pas.status=:status"
         if ou_id is not None:
             extra += " AND at.ou_id=:ou_id"
+        if person_id is not None:
+            extra += " AND at.person_id=:person_id"
         if filter_expired:
             extra += " AND (ai.expire_date IS NULL OR ai.expire_date > [:now])"
         return self.query("""
@@ -162,7 +164,8 @@ class AccountType(object):
         ORDER BY at.person_id, at.priority""" % extra,
                           {'ou_id': ou_id,
                            'affiliation': affiliation,
-                           'status': status}, fetchall = fetchall)
+                           'status': status,
+                           'person_id': person_id}, fetchall = fetchall)
 
 class AccountHome(object):
     """AccountHome keeps track of where the users home dir is.  There
@@ -552,6 +555,15 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine, Entity):
         SELECT *
         FROM [:table schema=cerebrum name=account_info] ai
         WHERE ai.expire_date IS NULL AND NOT EXISTS (
+          SELECT 'foo' FROM [:table schema=cerebrum name=entity_spread] es
+          WHERE es.entity_id=ai.account_id)""")
+
+    def list_deleted_users(self):
+        """Return all deleted users"""
+        return self.query("""
+        SELECT *
+        FROM [:table schema=cerebrum name=account_info] ai
+        WHERE ai.expire_date < [:now] AND NOT EXISTS (
           SELECT 'foo' FROM [:table schema=cerebrum name=entity_spread] es
           WHERE es.entity_id=ai.account_id)""")
 
