@@ -216,6 +216,16 @@ def process_email_requests():
             except Errors.NotFoundError:
                 logger.error("%d not found", r['entity_id'])
                 continue
+            est = Email.EmailServerTarget(db)
+            est.find(get_email_target_id(r['entity_id']))
+            old_server = r['destination_id']
+            new_server = est.get_server_id()
+            if old_server == new_server:
+                logger.error("trying to move %s from and to the same server!",
+                             acc.account_name)
+                br.delete_request(request_id=r['request_id'])
+                db.commit()
+                continue
             if not email_delivery_stopped(acc.account_name):
                 logger.debug("E-mail delivery not stopped for %s",
                              acc.account_name)
@@ -223,10 +233,6 @@ def process_email_requests():
                 br.delay_request(r['request_id'])
                 db.commit()
                 continue
-            est = Email.EmailServerTarget(db)
-            est.find(get_email_target_id(r['entity_id']))
-            old_server = r['destination_id']
-            new_server = est.get_server_id()
             if move_email(r['entity_id'], r['requestee_id'],
                           old_server, new_server):
                 br.delete_request(request_id=r['request_id'])
