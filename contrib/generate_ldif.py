@@ -403,8 +403,11 @@ def generate_person(filename=None):
     dn_base = "%s" % cereconf.LDAP_BASE
     dn_string = "%s=%s,%s" % (cereconf.LDAP_ORG_ATTR,cereconf.LDAP_PERSON_DN,dn_base) 
     person_spread = acl_spread = None
-    aci_empl_gr = valid_print_affi = []
+    valid_print_affi = []
+    valid_phaddr_affi = []
+    valid_aff_aci = []
     aci_student_gr = {}
+    aci_empl_gr = {}
     if (cereconf.LDAP_PERSON_FILTER == 'Enable'):
 	try: 
 	    for status in cereconf.LDAP_PERSON_LIST_AFFI:
@@ -421,7 +424,8 @@ def generate_person(filename=None):
 	try:
 	    group.find_by_name(str(cereconf.PERSON_NOT_PUBLIC_GR))
 	    for entries in group.list_members(member_type=co.entity_person)[0]:
-		aci_empl_gr.append(entries[1])
+		aci_empl_gr[int(entries[1])] = True
+		#aci_empl_gr.append(entries[1])
 	except: pass
 	group.clear()
 	try: 
@@ -450,16 +454,22 @@ def generate_person(filename=None):
 	person.clear()
         person.entity_id = row['person_id']
 	p_affiliations = person.get_affiliations()
-	aci_person = print_person = False
+	aci_person = False 
+	print_person = False
+	print_phaddr = False
 	if (cereconf.LDAP_PERSON_FILTER == 'Enable'):
 	    for pr_status in p_affiliations:
 		status = int(pr_status['status'])
-		if status in valid_print_affi: print_person = True
-		    if status in valid_phaddr_affi: print_phaddr = True
-		    if status in valid_aff_aci: aci_person = True 
+		if status in valid_print_affi: 
+		    print_person = True
+		    if status in valid_phaddr_affi: 
+			print_phaddr = True
+		    if status in valid_aff_aci: 
+			aci_person = True 
 	else: 
 	    print_person = True
 	    aci_person = True
+	    print_phaddr = True
 	if print_person:
 	    person.clear()
 	    person.entity_id = row['person_id']
@@ -504,7 +514,7 @@ def generate_person(filename=None):
 		    break
 		except:
 		    pass
-	    if :
+	    if email_enable:
 	    	if row['local_part'] and row['domain']:
 		    domain = row['domain']
 		    if email_domains and email_domains.has_key(domain):
@@ -575,7 +585,8 @@ def generate_person(filename=None):
 		pers_string += "userPassword: {crypt}%s\n" % passwd
 	    else:
 		pers_string += "userPassword: {crypt}*Invalid\n"
-	    if aci_person  and (int(person.entity_id)  not in aci_empl_gr):
+	    #if aci_person  and (int(person.entity_id)  not in aci_empl_gr):
+	    if aci_person  and not aci_empl_gr.has_key(int(person.entity_id)):
 		pers_string += "%s\n" % cereconf.LDAP_PERSON_ACI
 	    elif  aci_student_gr.has_key(int(person.entity_id)): # (aci_student_gr[int(person.entity_id)]):
 		pers_string += "%s\n" % cereconf.LDAP_PERSON_ACI
