@@ -1,8 +1,8 @@
 from Cerebrum.Utils import Factory
 from Cerebrum.gro.Cerebrum_core import Errors
-from Cerebrum.gro.db import db
-from Cerebrum.gro import Cerebrum_core__POA, Node, Locking, Locker
-from Cerebrum.gro import Entity, Types
+from Cerebrum.gro.classes.db import db
+from Cerebrum.gro import Cerebrum_core__POA
+from Cerebrum.gro import Builder, Entity, Locking, Locker
 from Cerebrum.gro import Transaction
 
 from omniORB.any import to_any, from_any
@@ -73,7 +73,7 @@ class APHandler(Cerebrum_core__POA.APHandler, Locker):
         """
         self.transaction.commit()
 
-class APObject(Cerebrum_core__POA.Object):
+class APObject(Cerebrum_core__POA.APObject):
     """ Access point proxy node.
 
     The APOBject contains the APHandler and an object. It acts as a proxy for the object.
