@@ -35,16 +35,17 @@ def search(req, name, accountid, birthno, birthdate):
                                     accountid or None,
                                     birthno or None,
                                     birthdate or None)
-    table = html.SimpleTable(header="row")
-    table.add(_("Name"), _("Date of birth"))
-    for person in persons:
-        link = url("person/view?id=%s" % person.id)
-        link = html.Anchor(person.name, href=link)
-        table.add(link, person.birthdate.Format("%Y-%m-%d"))
-    if persons:    
+    if persons:
+        table = html.SimpleTable(header="row")
+        table.add(_("Name"), _("Date of birth"))
+        for person in persons:
+            link = url("person/view?id=%s" % person.id)
+            link = html.Anchor(person.name, href=link)
+            table.add(link, person.birthdate.Format("%Y-%m-%d"))
         result.append(table)
     else:
         result.append(html.Emphasis(_("Sorry, no person(s) found matching the given criteria.")))
+
     result.append(html.Header(_("Search for other persons"), level=2))
     result.append(personsearch.form())
     page.content = result
