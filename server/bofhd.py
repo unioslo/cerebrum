@@ -315,41 +315,25 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler):
             self.server.db.rollback()
             raise
 
-    ## Prompting and tab-completion works pretty much the same way.
-    ## First we check if the function 'name' has a function named
-    ## 'name_prompt' (or 'name_tab'), and uses this.  If no such
-    ## function is defined, we check the Parameter object to find out
-    ## what to do.
+    def bofhd_get_default_param(self, sessionid, cmd, *args):
+        """Get default value for a parameter.  Returns a string.  The
+        client should append '[<returned_string>]: ' to its prompt.
 
-    def bofhd_tab_complete(self, sessionid, cmd, *args):
-        "Attempt to TAB-complete the command."
-
+        Will either use the function defined in the command object, or
+        in the corresponding parameter object.
+        """
         session = BofhdSession(self.server.db, sessionid)
-        entity_id = session.get_entity_id()
-        func, inst, param = self.server.get_param_info(cmd, "_tab", len(args))
-        if func is not None:
-            ret = func(entity_id, *args)
+        instance, cmdObj = self.server.get_cmd_info(cmd)
+        
+        # If the client calls this method when no default function is defined,
+        # it is a bug in the client.
+        if cmdObj._default is not None:
+            func = cmdObj._default
         else:
-            if param._tab_func is None:
-                ret = ()
-            else:
-                ret = getattr(inst, param._tab_func)(user, *args)
-        return ret
-
-    def bofhd_prompt_next_param(self, sessionid, cmd, *args):
-        "Prompt for next parameter."
-
-        session = BofhdSession(self.server.db, sessionid)
-        entity_id = session.get_entity_id()
-        func, inst, param = self.server.get_param_info(cmd, "_prompt",
-                                                       len(args))
-        if func is not None:
-            return func(entity_id, *args)
-        else:
-            if param._prompt_func is None:
-                return param.getPrompt()
-            else:
-                return getattr(inst, param._prompt_func)(entity_id, *args)
+            func = cmdObj._params[len(args)]._default
+            if func is None:
+                return ""
+        return getattr(instance, func.__name__)(session, *args)  # TODO: er dette rett syntax?
 
 
 class BofhdServer(SimpleXMLRPCServer.SimpleXMLRPCServer, object):
@@ -388,40 +372,11 @@ class BofhdServer(SimpleXMLRPCServer.SimpleXMLRPCServer, object):
             if not hasattr(self.cmd2instance[k], k):
                 print "Warning, function '%s' is not implemented" % k
 
-    def get_param_info(self, cmd, fext, nargs):
-        """Return ``fext`` info for parameter #``nargs`` of ``cmd``.
-
-        Returns a tuple indicating how to get ``fext``-type
-        information on parameter #``nargs`` of command ``cmd``.  The
-        tuple has the following structure:
-
-          (function, modref, param)
-
-        `function`: Either None or a function that can be called with
-           arguments (`authenticated user`, param_1, ..., param_nargs)
-           to get ``fext``-type info on param_nargs.
-
-        `modref`: None iff `function` is not None; otherwise the
-           module-specific BofhdExtension object where command `cmd`
-           is defined.
-
-        `param`: None iff `function` is not None; otherwise the
-           Parameter object corresponding to parameter # `nargs` of
-           command `cmd`.
-
+    def get_cmd_info(self, cmd):
+        """Return BofhdExtension and Command object for this cmd
         """
         inst = self.cmd2instance[cmd]
-        try:
-            func = getattr(inst, cmd+fext)
-            return (func, None, None)
-        except AttributeError:
-            pass
-        cmdspec = inst.all_commands[cmd]
-        # prompt skal ikke kalles hvis for mange argumenter(?)
-        if nargs > len(cmdspec._params):
-            raise ValueError, \
-                  "Too many args (%d) for command '%s'." % (nargs, cmd)
-        return (None, inst, cmdspec._params[nargs])
+        return (inst, inst.all_commands[cmd])
 
     def server_bind(self):
         import socket
