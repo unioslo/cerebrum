@@ -52,6 +52,11 @@ class EmailConstants(Constants.Constants):
         'Primary user addresses in these domains will be on the'
         ' format username@domain.')
 
+    email_domain_category_include_all_uids = _EmailDomainCategoryCode(
+        'all_uids',
+        'All account email targets should get a valid address in this domain,'
+        ' on the form <accountname@domain>.')
+
     email_target_account = _EmailTargetCode(
         'account',
         "Target is the local delivery defined for the Account whose"
@@ -105,21 +110,19 @@ class EmailDomain(EmailEntity):
     __read_attr__ = ('__in_db',
                      # Won't be necessary here if we're a subclass of Entity.
                      'email_domain_id')
-    __write_attr__ = ('email_domain_name', 'email_domain_category',
-                      'email_domain_description')
+    __write_attr__ = ('email_domain_name', 'email_domain_description')
 
     def clear(self):
         self.clear_class(EmailDomain)
         self.__updated = False
 
-    def populate(self, domain, category, description):
+    def populate(self, domain, description):
         try:
             if not self.__in_db:
                 raise RuntimeError, "populate() called multiple times."
         except AttributeError:
             self.__in_db = False
         self.email_domain_name = domain
-        self.email_domain_category = category
         self.email_domain_description = description
 
     def write_db(self):
@@ -130,20 +133,18 @@ class EmailDomain(EmailEntity):
             self.email_domain_id = int(self.nextval("email_id_seq"))
             self.execute("""
             INSERT INTO [:table schema=cerebrum name=email_domain]
-              (domain_id, domain, category, description)
-            VALUES (:d_id, :name, :category, :descr)""",
+              (domain_id, domain, description)
+            VALUES (:d_id, :name, :descr)""",
                          {'d_id': self.email_domain_id,
                           'name': self.email_domain_name,
-                          'category': int(self.email_domain_category),
                           'descr': self.email_domain_description})
         else:
             self.execute("""
             UPDATE [:table schema=cerebrum name=email_domain]
-            SET domain=:name, category=:category, description=:descr
+            SET domain=:name, description=:descr
             WHERE domain_id=:d_id""",
                          {'d_id': self.email_domain_id,
                           'name': self.email_domain_name,
-                          'category': int(self.email_domain_category),
                           'descr': self.email_domain_description})
         del self.__in_db
         self.__in_db = True
@@ -152,9 +153,8 @@ class EmailDomain(EmailEntity):
 
     def find(self, domain_id):
         (self.email_domain_id, self.email_domain_name,
-         self.email_domain_category,
          self.email_domain_description) = self.query_1("""
-         SELECT domain_id, domain, category, description
+         SELECT domain_id, domain, description
          FROM [:table schema=cerebrum name=email_domain]
          WHERE domain_id=:d_id""", {'d_id': domain_id})
         try:
@@ -173,6 +173,24 @@ class EmailDomain(EmailEntity):
 
     def get_domain_name(self):
         return self.email_domain_name
+
+    def get_categories(self):
+        return self.query("""
+        SELECT category
+        FROM [:table schema=cerebrum name=email_domain_category]
+        WHERE domain_id=:d_id""", {'d_id': self.email_domain_id})
+
+    def add_category(self, category):
+        return self.execute("""
+        INSERT INTO [:table schema=cerebrum name=email_domain_category]
+          (domain_id, category)
+        VALUES (:d_id, :cat)""", {'d_id': self.email_domain_id,
+                                  'cat': category})
+
+    def remove_category(self, category):
+        return self.execute("""
+        DELETE FROM [:table schema=cerebrum name=email_domain_category]
+        WHERE domain_id=:d_id""", {'d_id': self.email_domain_id})
 
 
 class EmailTarget(EmailEntity):
@@ -394,20 +412,21 @@ class EntityEmailDomain(Entity):
     """Mixin class for Entities that can be associated with an email domain."""
 
     __read_attr__ = ('__in_db',)
-    __write_attr__ = ('entity_email_domain_id',)
+    __write_attr__ = ('entity_email_domain_id', 'entity_email_affiliation')
 
     def clear(self):
         self.__super.clear()
         self.clear_class(EntityEmailDomain)
         self.__updated = False
 
-    def populate_email_domain(self, domain_id):
+    def populate_email_domain(self, domain_id, affiliation=None):
         try:
             if not self.__in_db:
                 raise RuntimeError, "populate() called multiple times."
         except AttributeError:
             self.__in_db = False
         self.entity_email_domain_id = domain_id
+        self.entity_email_affiliation = affiliation
 
     def write_db(self):
         self.__super.write_db()
@@ -417,17 +436,18 @@ class EntityEmailDomain(Entity):
         if is_new:
             self.execute("""
             INSERT INTO [:table schema=cerebrum name=email_entity_domain]
-              (entity_id, entity_type, domain_id)
-            VALUES (:e_id, :e_type, :dom_id)""",
+              (entity_id, affiliation, domain_id)
+            VALUES (:e_id, :aff, :dom_id)""",
                          {'e_id': self.entity_id,
-                          'e_type': int(self.entity_type),
+                          'aff': int(self.entity_email_affiliation),
                           'dom_id': self.entity_email_domain_id})
         else:
             # TBD: What about DELETEs?
             self.execute("""
             UPDATE [:table schema=cerebrum name=email_entity_domain]
-            SET domain_id=:dom_id
+            SET affiliation=:aff, domain_id=:dom_id
             WHERE entity_id=:e_id""", {'e_id': self.entity_id,
+                                       'aff': self.entity_email_affiliation,
                                        'dom_id': self.entity_email_domain_id})
         del self.__in_db
         self.__in_db = True
@@ -437,8 +457,9 @@ class EntityEmailDomain(Entity):
     def find(self, entity_id):
         self.__super.find(entity_id)
         try:
-            self.entity_email_domain_id = self.query_1("""
-            SELECT domain_id
+            (self.entity_email_domain_id,
+             self.entity_email_affiliation) = self.query_1("""
+            SELECT domain_id, affiliation
             FROM [:table schema=cerebrum name=email_entity_domain]
             WHERE entity_id=:e_id""", {'e_id': entity_id})
             in_db = True
@@ -450,6 +471,11 @@ class EntityEmailDomain(Entity):
             pass
         self.__in_db = in_db
         self.__updated = False
+
+    def delete():
+        return self.execute("""
+        DELETE FROM [:table schema=cerebrum name=email_entity_domain]
+        WHERE entity_id=:e_id""", {'e_id': self.entity_id})
 
 
 class EmailQuota(EmailTarget):

@@ -113,6 +113,28 @@ category:main/Oracle;
 GRANT INSERT, UPDATE, DELETE ON email_target TO read_mod_email;
 
 
+/*	email_domain
+
+
+
+*/
+category:main;
+CREATE TABLE email_domain
+(
+  domain_id	NUMERIC(6,0)
+		CONSTRAINT email_domain_pk PRIMARY KEY,
+  domain	CHAR VARYING(128)
+		NOT NULL
+		CONSTRAINT email_domain_domain_u UNIQUE,
+  description	CHAR VARYING(512)
+		NOT NULL
+);
+category:main/Oracle;
+GRANT SELECT ON email_domain TO read_mod_email;
+category:main/Oracle;
+GRANT INSERT, UPDATE, DELETE ON email_domain TO read_mod_email;
+
+
 /*	email_domain_cat_code
 
   Define valid maildomain category types.  Some examples:
@@ -147,30 +169,26 @@ category:code/Oracle;
 GRANT INSERT, UPDATE, DELETE ON email_domain_cat_code TO read_mod_email;
 
 
-/*	email_domain
+/*	email_domain_category
 
 
 
 */
 category:main;
-CREATE TABLE email_domain
+CREATE TABLE email_domain_category
 (
   domain_id	NUMERIC(6,0)
-		CONSTRAINT email_domain_pk PRIMARY KEY,
-  domain	CHAR VARYING(128)
-		NOT NULL
-		CONSTRAINT email_domain_domain_u UNIQUE,
+		CONSTRAINT email_domain_category_dom_id
+		  REFERENCES email_domain(domain_id),
   category	NUMERIC(6,0)
-		NOT NULL
-		CONSTRAINT email_domain_category
+		CONSTRAINT email_domain_category_categ
 		  REFERENCES email_domain_cat_code(code),
-  description	CHAR VARYING(512)
-		NOT NULL
+  CONSTRAINT email_domain_category_pk PRIMARY KEY (domain_id, category)
 );
 category:main/Oracle;
-GRANT SELECT ON email_domain TO read_mod_email;
+GRANT SELECT ON email_domain_category TO read_mod_email;
 category:main/Oracle;
-GRANT INSERT, UPDATE, DELETE ON email_domain TO read_mod_email;
+GRANT INSERT, UPDATE, DELETE ON email_domain_category TO read_mod_email;
 
 
 /*	email_address
@@ -211,29 +229,47 @@ GRANT INSERT, UPDATE, DELETE ON email_address TO read_mod_email;
 
 /*	email_entity_domain
 
-  Connection Entity -> Email domain.  Useful for specifying that OU x
-  lives in mail domain Y.
+  Connection Entity -> Email domain.
 
-  TBD: It's likely that persons living in the same OU should have
-       different mail domains, e.g. based on the kind of affiliation
-       they have with the OU.  Should something like the
-       `person_affiliation_code` table be mixed into this table, or
-       would we rather want it to stay `entity_type` neutral?
+  This can e.g. be used for specifying that persons/users belonging in
+  OU X should get mail addresses in maildomain Y.
+
+  Furthermore, one can use 'affiliation' to differentiate what
+  maildomain to use for persons living in the same OU; students and
+  employees could go in separate domains.
+
+  As an example of how this table can be used, the below pseudocode
+  illustrates the algorithm used to map from a user to that user's
+  "official" maildomain at the University of Oslo:
+
+    DEFAULT_MAILDOMAIN = 'ulrik.uio.no'
+    try:
+      ou_id, affiliation = <get from account_type with highest pri for USER>
+    except <There are no account_type entries for USER>:
+      return DEFAULT_MAILDOMAIN
+    domain = <Look up domain_id corresponding to (ou_id, affiliation)>
+    if domain is not None:
+      return domain
+    domain = <Look up domain_id corresponding to (ou_id, NULL)>
+    if domain is not None:
+      return domain
+    return DEFAULT_DOMAIN
 
 */
 category:main;
 CREATE TABLE email_entity_domain
 (
   entity_id	NUMERIC(12,0)
-		CONSTRAINT email_entity_domain_pk PRIMARY KEY,
-  entity_type	NUMERIC(6,0)
-		NOT NULL,
+		CONSTRAINT email_entity_domain_pk PRIMARY KEY
+		CONSTRAINT email_entity_domain_entity_id
+		  REFERENCES entity_info(entity_id),
+  affiliation	NUMERIC(6,0)
+		CONSTRAINT email_entity_domain_affil
+		  REFERENCES person_affiliation_code(code),
   domain_id	NUMERIC(6,0)
 		NOT NULL
 		CONSTRAINT email_entity_domain_domain_id
-		  REFERENCES email_domain(domain_id),
-  CONSTRAINT email_entity_domain_entity FOREIGN KEY (entity_type, entity_id)
-    REFERENCES entity_info(entity_type, entity_id)
+		  REFERENCES email_domain(domain_id)
 );
 category:main/Oracle;
 GRANT SELECT ON email_entity_domain TO read_mod_email;
@@ -534,9 +570,11 @@ DROP TABLE email_entity_domain;
 category:drop;
 DROP TABLE email_address;
 category:drop;
-DROP TABLE email_domain;
+DROP TABLE email_domain_category;
 category:drop;
 DROP TABLE email_domain_cat_code;
+category:drop;
+DROP TABLE email_domain;
 category:drop;
 DROP TABLE email_target;
 category:drop;
