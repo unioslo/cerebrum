@@ -20,6 +20,7 @@
 import weakref
 import time
 
+import Scheduler
 
 class Caching(object):
     """ Handles caching of objects.
@@ -36,6 +37,8 @@ class Caching(object):
         cls.create_primary_key(*args, **vargs) to see if it exists in the cache. If so, then
         a reference to it is returned. Otherwise a new object is created and the reference to
         that is returned instead."""
+
+        # FIXME: vi trenger låsing her
 
         # getting the key to uniquely identify this object
         primary_key = cls.create_primary_key(*args, **vargs)
@@ -59,15 +62,29 @@ class Caching(object):
 
     def invalidate_object(cls, obj):
         """ Remove the node from the cache. """
+        assert 0 # uh. this is not the right way to do this.
         del cls.cache[obj._key]
 
     invalidate_object = classmethod(invalidate_object)
+
+    def get_minimum_lifetime(self):
+        # FIXME: where should we put this default variable?
+        return 10
 
     def cache_object(cls, obj, primary_key):
         key = cls, primary_key
 
         obj._key = key
         cls.cache[key] = obj
+
+        minimum_lifetime = obj.get_minimum_lifetime()
+
+        if minimum_lifetime:
+            def holder(): # this will make sure a reference to obj exists as long as holder exists
+                obj
+
+            scheduler = Scheduler.get_scheduler()
+            scheduler.addTimer(obj.get_minimum_lifetime(), holder)
 
     cache_object = classmethod(cache_object)
 
