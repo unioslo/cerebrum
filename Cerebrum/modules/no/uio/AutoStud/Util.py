@@ -93,19 +93,26 @@ class LookupHelper(object):
                 ou.fakultet, ou.institutt, ou.avdeling))
         return ret
 
-    def get_person_affiliations(self, fnr):
+    def get_person_affiliations(self, fnr=None, person_id=None):
         # We only need to cache the last entry as input is sorted by fnr
-        if self._cached_affiliations[0] != fnr:
+        if self._cached_affiliations[0] is None or (
+            not (self._cached_affiliations[0] in (fnr, person_id))):
             person = Factory.get('Person')(self._db)
-            person.find_by_external_id(self.const.externalid_fodselsnr,
-                                       fnr, source_system=self.const.system_fs)
+            if fnr is not None:
+                person.find_by_external_id(self.const.externalid_fodselsnr,
+                                           fnr, source_system=self.const.system_fs)
+            else:
+                person.find(person_id)
             ret = []
             for row in person.get_affiliations():
                 ret.append({
                     'ou_id': int(row['ou_id']),
                     'affiliation': int(row['affiliation']),
                     'status': int(row['status'])})
-            self._cached_affiliations = (fnr, ret)
+            if fnr is None:
+                self._cached_affiliations = (fnr, ret)
+            else:
+                self._cached_affiliations = (person_id, ret)                
         return self._cached_affiliations[1]
 
 class ProgressReporter(object):

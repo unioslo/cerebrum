@@ -46,7 +46,6 @@ class Profile(object):
         self.matcher = ProfileMatcher(pc, student_info, logger,
                                       member_groups=member_groups)
 
-
     def debug_dump(self):
         ret = "Dumping %i match entries\n" % len(self.matcher.matches)
         ret += self._logger.pformat(self.matcher.matches)
@@ -165,9 +164,13 @@ class Profile(object):
     def get_spreads(self):
         return self.matcher.get_match('spread')
 
-    def get_pquota(self):
+    def get_pquota(self, as_list=False):
         """Return information about printerquota.  Throws a
-        NoMatchingQuotaSettings if profile has no quota information"""
+        NoMatchingQuotaSettings if profile has no quota information
+
+        as_list=False is for the old quota system"""
+        if as_list:
+            return self.matcher.get_match('printer_kvote')
         ret = {}
         if not self.matcher.get_match('printer_kvote'):
             raise NoMatchingQuotaSettings, "No matching quota settings"
@@ -233,11 +236,19 @@ class ProfileMatcher(object):
                 elif select_type == 'medlem_av_gruppe':
                     self._check_group_membership(member_groups)
                 elif select_type == 'person_affiliation':
-                    fnr = fodselsnr.personnr_ok(
-                        "%06d%05d" % (int(student_info['fodselsdato']),
-                                      int(student_info['personnr'])))
-                    self._check_person_affiliation(
-                        self.pc.lookup_helper.get_person_affiliations(fnr))
+                    if len(self.pc.known_select_criterias['person_affiliation']) == 0:
+                        # Small speedup when this criteria is not used by studconfig.xml
+                        continue
+                    if student_info.has_key('person_id'):
+                        self._check_person_affiliation(
+                            self.pc.lookup_helper.get_person_affiliations(
+                            person_id=student_info['person_id']))
+                    else:
+                        fnr = fodselsnr.personnr_ok(
+                            "%06d%05d" % (int(student_info['fodselsdato']),
+                                          int(student_info['personnr'])))
+                        self._check_person_affiliation(
+                            self.pc.lookup_helper.get_person_affiliations(fnr=fnr))
 
     def _check_aktivt_sted(self, student_info):
         """Resolve all aktivt_sted criterias for this student."""

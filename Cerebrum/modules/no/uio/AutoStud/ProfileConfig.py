@@ -36,6 +36,8 @@ class Config(object):
         self.disk_defs = {}
         self.disk_spreads = {}  # defined <disk_spread> tags
         self.group_defs = {}
+        self.known_select_criterias = {'medlem_av_gruppe': {},
+                                       'person_affiliation': {}}
         self.default_values = {}
         self.profiles = []
         self.required_spread_order = []
@@ -248,8 +250,9 @@ class ProfileDefinition(object):
             id = lookup_helper.get_group(group['navn'])
             if id:
                 tmp.append({'group_id': id })
+                config.known_select_criterias['medlem_av_gruppe'][group['navn']] = id
         self.selection_criterias["medlem_av_gruppe"] = tmp  
-
+        
         tmp = []
         for aff_info in self.selection_criterias.get("person_affiliation", []):
             affiliation = config.autostud.co.PersonAffiliation(aff_info['affiliation'])
@@ -260,6 +263,9 @@ class ProfileDefinition(object):
                 aff_status = config.autostud.co.PersonAffStatus(affiliation, aff_info['status'])
                 tmp.append({'affiliation_id': int(affiliation), 'status_id': int(aff_status)})
         self.selection_criterias["person_affiliation"] = tmp
+        for t in tmp:
+            config.known_select_criterias['person_affiliation'][
+                (t['affiliation_id'], t['status_id'])] = True
 
         # Find all student disks from disk_defs
         for k in ('path', 'prefix'):
