@@ -237,6 +237,34 @@ public class BofhdConnection {
     }
 
     /**
+     * Handle bofhds extensions to XML-RPC by pre-prosessing the
+     * arguments.  Since we only send String (or Vector with
+     * String), we don't support the other extensions.
+     *
+     * @param args a <code>Vector</code> representing the arguments
+     */
+    void washCommandArgs(Vector args) {
+        for (int i = args.size()-1; i >= 0; i--) {
+            Object tmp = args.get(i);
+            if (tmp instanceof String) {
+                if (((String) tmp).charAt(0) == ':') {
+                    tmp = ":"+((String) tmp);
+                    args.setElementAt(tmp, i);
+                }
+            } else {
+                Vector v = (Vector) tmp;
+                for (int j = v.size()-1; j >= 0; j--) {
+                    tmp = v.get(j);
+                    if (((String) tmp).charAt(0) == ':') {
+                        tmp = ":"+((String) tmp);
+                        v.setElementAt(tmp, j);
+                    }
+                }
+            }
+        }
+    }
+
+    /**
      * Sends a raw command to the server.
      *
      * @param cmd a <code>String</code> with the name of the command
@@ -277,6 +305,7 @@ public class BofhdConnection {
 	    } else {
 		logger.debug("sendCommand("+cmd+", "+args);
 	    }
+            washCommandArgs(args);
 	    Object r = washResponse(xmlrpc.execute(cmd, args));
 	    logger.debug("<-"+r);
             return r;
