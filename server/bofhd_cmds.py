@@ -373,7 +373,7 @@ class BofhdExtension(object):
         account = Account.Account(self.Cerebrum)  # TBD: Flytt denne
         if idtype == 'name':
             account.clear()
-            account.find_account_by_name(self.const.account_namespace, accountname)
+            account.find_by_name(id, self.const.account_namespace)
         else:
             raise NotImplemetedError, "unknown idtype: '%s'" % idtype
         return account
