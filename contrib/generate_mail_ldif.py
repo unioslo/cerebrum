@@ -68,24 +68,38 @@ def read_addr():
         dom_code = int(dom_catg)
         domain = str(dom_catg)
         glob_addr[dom_code] = {}
+        lp_dict = glob_addr[dom_code]
         # Fill glob_addr[numeric code value][local_part]
         for row in mail_addr.list_email_addresses_ext(domain):
-            glob_addr[dom_code][row['local_part']] = row
-        # Alias glob_addr[domain name] to glob_addr[numeric code value]
+            lp_dict[row['local_part']] = row
         for row in mail_dom.list_email_domain_with_category(dom_catg):
-            glob_addr[row['domain']] = glob_addr[dom_code]
+            # Alias glob_addr[domain name] to glob_addr[numeric code
+            # value], for later "was local_part@domain overridden"
+            # check.
+            glob_addr[row['domain']] = lp_dict
+            # Update dicts 'targ2addr' and 'aid2addr' with the
+            # override addresses.
+            for lp, row2 in lp_dict.items():
+                counter += 1
+                # Use 'row', and not 'row2', for domain.  Using 'dom2'
+                # would give us 'UIO_GLOBALS'.
+                addr = "%s@%s" % (lp, row['domain'])
+                a_id, t_id = [int(row2[x])
+                              for x in ('address_id', 'target_id')]
+                targ2addr.setdefault(t_id, []).append(addr)
+                aid2addr[a_id] = addr
     for row in mail_addr.list_email_addresses_ext():
+        lp, dom = row['local_part'], row['domain']
+        # If this address is in a domain that is subject to overrides
+        # from "magic" domains, and the local_part was overridden, skip
+        # this row.
+        if glob_addr.has_key(dom) and glob_addr[dom].has_key(lp):
+            continue
         counter += 1
         if verbose and (counter % 10000) == 0:
             print "  done %d list_email_addresses_ext(): %d sec." % (
                 counter, now() - curr)
-        lp, dom = row['local_part'], row['domain']
         addr = "%s@%s" % (lp, dom)
-        # If this address is in a domain that is subject to overrides
-        # from "magic" domains, and the local_part is overridden, get
-        # 'row' from the override-domain and use that.
-        if glob_addr.has_key(dom) and glob_addr[dom].has_key(lp):
-            row = glob_addr[dom][lp]
         a_id, t_id = [int(row[x]) for x in ('address_id', 'target_id')]
         targ2addr.setdefault(t_id, []).append(addr)
         aid2addr[a_id] = addr
