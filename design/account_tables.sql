@@ -285,20 +285,6 @@ CREATE TABLE account_type
 );
 
 
-/*	authentication_code
-
-
-
-*/
-CREATE TABLE authentication_code
-(
-  code		CHAR VARYING(16)
-		CONSTRAINT authentication_code_pk PRIMARY KEY,
-  description	CHAR VARYING(512)
-		NOT NULL
-);
-
-
 /*	account_authentication
 
   Keep track of the data needed to authenticate each account.
