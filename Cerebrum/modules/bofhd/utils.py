@@ -232,8 +232,8 @@ class BofhdRequests(object):
         self._db.execute("""DELETE FROM [:table schema=cerebrum name=bofhd_request]
         WHERE %s""" % " AND ".join(["%s=:%s" % (x, x) for x in cols.keys()]), cols)
 
-    def get_requests(self, request_id=None, operator_id=None, entity_id=None, operation=None,
-                     given=False):
+    def get_requests(self, request_id=None, operator_id=None, entity_id=None,
+                     operation=None, destination_id=None, given=False):
         cols = {}
         if request_id is not None:
             cols['request_id'] = request_id
@@ -243,9 +243,16 @@ class BofhdRequests(object):
             cols['requestee_id'] = operator_id
         if operation is not None:
             cols['operation'] = int(operation)
-        qry = """SELECT request_id, requestee_id, run_at, operation, entity_id, destination_id, state_data
-        FROM [:table schema=cerebrum name=bofhd_request]"""
-        ret = self._db.query("%s WHERE %s" % (qry, " AND ".join(["%s=:%s" % (x, x) for x in cols.keys()])), cols)
+        if destination_id is not None:
+            cols['destination_id'] = int(destination_id)
+        qry = """
+        SELECT request_id, requestee_id, run_at, operation, entity_id,
+               destination_id, state_data
+        FROM [:table schema=cerebrum name=bofhd_request]
+        WHERE """
+        ret = self._db.query(qry + " AND ".join(
+            ["%s=:%s" % (x, x) for x in cols.keys()]),
+                             cols)
         if given:
             group = Factory.get('Group')(self._db)
             tmp = []
@@ -255,8 +262,8 @@ class BofhdRequests(object):
             extra_where = ""
             if len(tmp) > 0:
                 extra_where = "AND destination_id IN (%s)" % ", ".join(tmp)
-            ret.extend(self._db.query("%s WHERE operation=:op %s" % (
-                qry, extra_where), {'op': int(self.const.bofh_move_give)}))
+            ret.extend(self._db.query(qry + "operation=:op %s" % extra_where,
+                                      {'op': int(self.const.bofh_move_give)}))
         return ret
 
 # arch-tag: d6650fa6-6a9b-459f-be7e-80c9e6cbba52
