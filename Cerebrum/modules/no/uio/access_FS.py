@@ -23,10 +23,10 @@ import time
 
 from Cerebrum import Database,Errors
 
-class FSPerson(object):
-    """FSPerson klassen definerer et sett med metoder som kan
-    benyttes for å hente ut informasjon om personer fra FS.  De fleste
-    metodene returnerer en tuple med kolonnenavn fulgt av en typle med
+class FS(object):
+    """FS klassen definerer et sett med metoder som kan benyttes for å
+    hente ut informasjon om personer og OU-er fra FS. De fleste
+    metodene returnerer en tuple med kolonnenavn fulgt av en tuple med
     dbrows."""
 
     def __init__(self, db):
@@ -38,6 +38,22 @@ class FSPerson(object):
             self.sem = 'H'
         self.year = t[0]
         self.YY = str(t[0])[2:]
+
+
+    # TODO: Belongs in a separate file, and should consider using row description
+    def _get_cols(self, sql):
+        sql = sql[:sql.upper().find("FROM")+4]
+        m = re.compile(r'^\s*SELECT\s*(DISTINCT)?(.*)FROM', re.DOTALL | re.IGNORECASE).match(sql)
+        if m == None:
+            raise InternalError, "Unreconginzable SQL!"
+        return [cols.strip() for cols in m.group(2).split(",")]
+
+
+##################################################################
+# Metoder for personer:
+##################################################################
+
+
 
     def GetKursFagpersonundsemester(self):
         """Hent ut fagpersoner som har undervisning i inneværende
@@ -329,6 +345,7 @@ ORDER BY
   st.fodselsdato, st.personnr, sprog.studienivakode, st.studieprogramkode"""
         return (self._get_cols(qry), self.db.query(qry))
 
+
     def get_termin_aar(self, only_current=0):
         yr, mon, md = t = time.localtime()[0:3]
         if mon <= 6:
@@ -344,10 +361,22 @@ ORDER BY
             return current
         return "(%s OR (r.terminkode LIKE 'V_R' AND r.arstall=%d))\n" % (current, yr)
 
-    # TODO: Belongs in a separate file, and should consider using row description
-    def _get_cols(self, sql):
-        sql = sql[:sql.upper().find("FROM")+4]
-        m = re.compile(r'^\s*SELECT\s*(DISTINCT)?(.*)FROM', re.DOTALL | re.IGNORECASE).match(sql)
-        if m == None:
-            raise InternalError, "Unreconginzable SQL!"
-        return [cols.strip() for cols in m.group(2).split(",")]
+
+
+##################################################################
+# Metoder for OU-er:
+##################################################################
+
+
+    def GetAlleOUer(self):
+        qry = """
+SELECT DISTINCT
+  faknr, insituttnr, gruppenr, stedakronym, stednavn_bokmal,
+  faknr_org_under, instituttnr_org_under, gruppenr_org_under,
+  adrlin1, adrlin2, postnr, telefonnr, faxnr,
+  adrlin1_besok, adrlin2_besok, postnr, url,
+  bibsysbeststedkode
+FROM fs.sted
+
+"""
+        return (self._get_cols(qry), self.db.query(qry))
