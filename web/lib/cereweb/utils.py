@@ -67,4 +67,12 @@ def redirect_object(req, object, method="view",
     """                 
     url = object_url(object, method)                   
     redirect(req, url, temporary, seeOther)
-        
+
+def queue_message(req, message, error=False):
+    """Queues a message for display next time a Main-page is showed.
+       If error is true, the message will be indicated as such."""
+    session = req.session
+    if not session.has_key("messages"):
+        session['messages'] = []
+    session['messages'].append((message, error))
+               
