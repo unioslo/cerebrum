@@ -47,6 +47,7 @@ class Constants(central_Constants):
                                                  'Utledet av FS data')
     system_migrate = _AuthoritativeSystemCode('MIGRATE', 'Migrate from files')
     system_sap = _AuthoritativeSystemCode('SAP', 'SAP')
+    system_pbx = _AuthoritativeSystemCode('PBX', 'PBX')
     system_manual =  _AuthoritativeSystemCode('MANUELL',
                                               'Manually added information')
 
