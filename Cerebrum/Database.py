@@ -721,6 +721,10 @@ class Database(object):
             return ["'%s'" % val]
         raise ValueError
 
+    def _sql_port_get_constant(self, name):
+        Constants = Utils.Factory.get('Constants')(self)
+        return ["%d" % int(getattr(Constants, name))]
+
     def _read_password(self, database, user):
         import os
         filename = os.path.join(cereconf.DB_AUTH_DIR,
