@@ -90,7 +90,26 @@ class AccountUiOMixin(Account.Account):
             # previous call probably didn't change the database value
             # and therefore didn't add a request.
             self.update_email_quota(force=True)
+
+        # add an account_home entry pointing to the same disk as the uio spread
+        if spread == self.const.spread_ifi_nis_user:
+            tmp = self.get_home(self.const.spread_uio_nis_user)
+            self.set_home(spread, disk_id=tmp['disk_id'],
+                          home=tmp['home'], status=tmp['status'])
         return ret
+
+    def set_home(self, spread, disk_id=None, home=None, status=None):
+        # Assert that user has same home at ifi & uio
+        ret = self.__super.set_home(spread, disk_id=disk_id,
+                                    home=home, status=status)
+        if spread == self.const.spread_ifi_nis_user:
+            other_home_spread = self.const.spread_uio_nis_user
+        elif spread == self.const.spread_uio_nis_user:
+            other_home_spread = self.const.spread_ifi_nis_user
+        else:
+            raise ValueError, "Unexpected spread %s in set_home" % spread
+        ret = self.__super.set_home(other_home_spread, disk_id=disk_id,
+                                    home=home, status=status)        
 
     def _UiO_update_email_server(self, server_type):
         est = Email.EmailServerTarget(self._db)
@@ -178,10 +197,23 @@ class AccountUiOMixin(Account.Account):
                and int(self.const.spread_ifi_nis_user) in spreads:
             raise self._db.IntegrityError, \
                   "Can't remove uio spread to an account with ifi spread."
+
+        # keep account_home in sync
+        if spread == self.const.spread_ifi_nis_user:
+            self.clear_home(self.const.spread_ifi_nis_user)
+        elif spread == self.const.spread_uio_nis_user:
+            try:
+                self.get_home(spread)
+                raise self._db.IntegrityError, \
+                      "Must delete user to remove uio_nis spread"
+            except Errors.NotFoundError:
+                pass
+
         #
         # (Try to) perform the actual spread removal.
         ret = self.__super.delete_spread(spread)
         return ret
+
 
     def update_email_addresses(self):
         # Avoid circular import dependency
