@@ -65,6 +65,8 @@ def write_person_info(outfile):
     # Aktive studenter
     cols, students = fs.GetStudinfAktiv()
     for s in students:
+        # The Oracle driver thinks the result of a union of ints is float
+        fix_float(s)
         f.write(xml.xmlify_dbrow(s, xml.conv_colnames(cols), 'aktiv') + "\n")
 
     # Privatister (=eksamensmeldt i emne de ikke har opptak til)
