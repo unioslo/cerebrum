@@ -71,54 +71,76 @@ def quick_user_sync():
 # quarantine_del for account.
 
 
-    answer=cl.get_events('ad',(clco.group_add,clco.group_rem,clco.account_password,clco.spread_add,clco.spread_del))
+    answer=cl.get_events('ad',(clco.group_add,clco.group_rem,clco.account_password,clco.spread_add,clco.spread_del,clco.quarantine_add,clco.quarantine_del,clco.quarantine_mod))
 
     for ans in answer:
         chg_type = ans['change_type_id']
-        
+        cl.confirm_event(ans)
         if chg_type == clco.account_password:
             change_params = pickle.loads(ans['change_params'])
-            change_pw(ans['subject_entity'],change_params)            
-
+            if change_pw(ans['subject_entity'],change_params):
+		cl.confirm_event(ans)            
+	    else:	            
+		print 'WARNING: failed changing password for ',user
         elif chg_type == clco.group_add or chg_type == clco.group_rem:
             account.clear()
             a_obj = account.find(ans['subject_entity'])
-            #test: account.add_spread(int(co.spread_uio_ad_account))
             if account.has_spread(int(co.spread_uio_ad_account)):
                 group.clear()
                 g_obj = group.find(ans['dest_entity'])
 
                 if group.has_spread(int(co.spread_uio_ad_group)):
-                    print ans['dest_entity'], "missing spread_uio_ad_group"
-
-                else:
-                    account_id = id_to_name(ans['subject_entity'],'user')
-                    group_id = id_to_name(ans['dest_entity'],'group')
+                    account_name = id_to_name(ans['subject_entity'],'user')
+                    group_name = id_to_name(ans['dest_entity'],'group')
 
                     if chg_type == clco.group_add:
-                        group_add(account_id,group_id)
-                    else:
-                        group_rem(account_id,group_id)
+                        if group_add(account_name,group_name):
+			    cl.confirm_event(ans)
+			else:
+		            print 'WARNING: failed adding',account_name,' to group ',group_name
+                    else:    
+			if group_rem(account_name,group_name):
+			    cl.confirm_event(ans)
+			else:
+			    print 'WARNING: failed removing',account_name,' from group ',group_name            
+		else:
+                    print 'WARNING: ',ans['dest_entity'], 'missing spread_uio_ad_group'
             else:
-                print ans['subject_entity'], "missing spread_uio_ad_account"
+                print 'WARNING: ',ans['subject_entity'],' missing spread_uio_ad_account'
 
         elif chg_type == clco.spread_add:
             change_params = pickle.loads(ans['change_params'])
-            add_spread(ans['subject_entity'],change_params)
+            if add_spread(ans['subject_entity'],change_params['spread']):
+		cl.confirm_event(ans)
         elif chg_type == clco.spread_del:
             change_params = pickle.loads(ans['change_params'])
-            del_spread(ans['subject_entity'],change_params)
-        cl.commit()    
+            if del_spread(ans['subject_entity'],change_params['spread']):
+		cl.confirm_event(ans)
+	elif chg_type == clco.quarantine_add or chg_type == clco.quarantine_del or chg_type == clco.quarantine_mod:
+	
+	    change_quarantine(ans['subject_entity']) 
+    cl.commit_confirmations()    
 
 
+def change_quarantine(entity_id):
+    account.clear()
+    account.find(entity_id)
+    if account.has_spread(int(co.spread_uio_ad_account)):	
+    	if adutils.chk_quarantine(entity_id):
+	    del_spread(entity_id,co.spread_uio_ad_account,0)
+    	else:
+	    add_spread(entity_id,co.spread_uio_ad_account)
 
-def add_spread(entity_id,param):
-    spread=param['spread']
+
+def add_spread(entity_id,spread):
 
     if spread == co.spread_uio_ad_account:
         #TBD: Account must be added to relevant groups.
-        account_name =id_to_name(entity_id,'user')
-                
+        account_name =id_to_name(entity_id,'user')	
+	ou.clear()
+    	ou.find(cereconf.AD_CERE_ROOT_OU_ID)
+    	ourootname='OU=%s' % ou.acronym        
+        
         try:
             ad_object.clear()
             ad_object.find(entity_id)
@@ -127,32 +149,34 @@ def add_spread(entity_id,param):
             pri_ou = adutils.get_primary_ou( entity_id, co.account_namespace)
             if not pri_ou:
                 print "WARNING: No account_type information for object ", id
-            else:
+            	ad_ou="in_error"
+	    else:
                 ad_ou = adutils.id_to_ou_path( pri_ou, ourootname)
 
-        sock.send('TRANS&%s/%s\n' % (cereconf.AD_DOMAIN, account_name))
-        ou_in_ad = sock.read()[0]
-        if ou_in_ad[0:3] == '210':
-            #Account already in AD, we move to correct OU.
-            sock.send('MOVEOBJ&%s&LDAP://%s\n' % ( ou_in_ad[4:],ad_ou )) 
-        else:
-            sock.send('NEWUSR&LDAP://%s&%s&%s\n' % ( ad_ou, account_name, account_name))
+	if not ad_ou == "in_error":
+            sock.send('TRANS&%s/%s\n' % (cereconf.AD_DOMAIN, account_name))
+            ou_in_ad = sock.read()[0]
+            if ou_in_ad[0:3] == '210':
+        	#Account already in AD, we move to correct OU.
+                sock.send('MOVEOBJ&%s&LDAP://%s\n' % ( ou_in_ad[4:],ad_ou )) 
+            else:
+            	sock.send('NEWUSR&LDAP://%s&%s&%s\n' % ( ad_ou, account_name, account_name))
             
-        if sock.read() == ['210 OK']:
-            #Should users already in AD keep their old password??
-            pw = account.make_passwd(account_name)
-            pw=pw.replace('%','%25')
-            pw=pw.replace('&','%26')
+            if sock.read() == ['210 OK']:
+                #Should users already in AD keep their old password, we generate a random??
+                pw = account.make_passwd(account_name)
+                pw=pw.replace('%','%25')
+                pw=pw.replace('&','%26')
             
-            (full_name, account_disable, home_dir, cereconf.AD_HOME_DRIVE, login_script) = adutils.get_user_info(entity_id,account_name)
+                (full_name, account_disable, home_dir, cereconf.AD_HOME_DRIVE, login_script) = adutils.get_user_info(entity_id,account_name)
             
-            sock.send('ALTRUSR&%s/%s&pass&%s&fn&%s&dis&%s&hdir&%s&hdr&%s&ls&%s&pexp&%s&ccp&%s\n' % ( cereconf.AD_DOMAIN, account_name, pw, full_name, account_disable, home_dir, cereconf.AD_HOME_DRIVE, login_script, cereconf.AD_PASSWORD_EXPIRE, cereconf.AD_CANT_CHANGE_PW ))  
+                sock.send('ALTRUSR&%s/%s&pass&%s&fn&%s&dis&%s&hdir&%s&hdr&%s&ls&%s&pexp&%s&ccp&%s\n' % ( cereconf.AD_DOMAIN, account_name, pw, full_name, account_disable, home_dir, cereconf.AD_HOME_DRIVE, login_script, cereconf.AD_PASSWORD_EXPIRE, cereconf.AD_CANT_CHANGE_PW ))  
 
-            if sock.read() != ['210 OK']:
-                print 'WARNING: alter user failed for ', account_name
-        else:
-            print 'WARNING:create/move of account ',account_name,' in/to ',ad_ou,' failed'
-            
+                if sock.read() == ['210 OK']:
+                    return True
+	print 'WARNING: create user %s in ou %s failed' % (account_name,ad_ou)        
+        return False	            
+
     elif spread == co.spread_uio_ad_group:
         grp=id_to_name(entity_id,'group')
            
@@ -169,7 +193,13 @@ def add_spread(entity_id,param):
                 ourootname='OU=%s' % ou.acronym
                 ad_ou = id_to_ou_path(cereconf.AD_DEFAULT_OU,ourootname)
 
-        sock.send('NEWGR&LDAP://%s&%s&%s\n' % ( ad_ou, grp, grp))        
+	sock.send('TRANS&%s/%s\n' % (cereconf.AD_DOMAIN, grp))
+        ou_in_ad = sock.read()[0]
+        if ou_in_ad[0:3] == '210':
+            #Account already in AD, we move to correct OU.
+            sock.send('MOVEOBJ&%s&LDAP://%s\n' % ( ou_in_ad[4:],ad_ou )) 
+	else:
+            sock.send('NEWGR&LDAP://%s&%s&%s\n' % ( ad_ou, grp, grp))        
         if sock.read() == ['210 OK']:
             group.clear()
             group.find(entity_id)
@@ -180,20 +210,18 @@ def add_spread(entity_id,param):
                     name = account.get_name(int(co.account_namespace))
                     print 'INFO:Add', name, 'to', grp                
                     sock.send('ADDUSRGR&%s/%s&%s/%s\n' % (cereconf.AD_DOMAIN, name, cereconf.AD_DOMAIN, grp))
-                    if sock.read() != ['210 OK']:
+                    if sock.read() != ['210 OK']:		
                         print 'WARNING: Failed add', name, 'to', grp
-        else:
-            print 'WARNING: create group failed ', grp,'in Users'
-    else:
-        print 'WARNING: unknown spread ',spread,' to add'
+	    return True
+        print 'WARNING: create group failed ', grp,'in Users'
+        return False
 
 
+def del_spread(entity_id,spread,delete=delete_users):
 
-def del_spread(entity_id,param):
-    spread=param['spread']    
     if spread == co.spread_uio_ad_account:
         user=id_to_name(entity_id,'user')
-        if delete_users:
+        if delete:
             sock.send('DELUSR&%s/%s\n' % (cereconf.AD_DOMAIN, user))
             if sock.read() != ['210 OK']:
                 print 'WARNING: Error deleting, ', user
@@ -229,7 +257,7 @@ def del_spread(entity_id,param):
                     sock.send('MOVEOBJ&%s&LDAP://OU=%s,%s\n' % (
                         ldap[0], cereconf.AD_LOST_AND_FOUND, cereconf.AD_LDAP))
                     if sock.read() == ['210 OK']:
-                        TBD: Should remove all users from the group.
+                        #TBD: Should remove all users from the group.
                         pass                    
                     else:
                         print 'WARNING: Error moving:', ldap[0], 'to',cereconf.AD_LOST_AND_FOUND            
@@ -240,25 +268,26 @@ def del_spread(entity_id,param):
 
 
 
-def group_add(account_id,group_id):
-    print 'Try adding ',account_id,' to group ',group_id
-    sock.send('ADDUSRGR&%s/%s&%s/%s\n' % ( cereconf.AD_DOMAIN,account_id, cereconf.AD_DOMAIN,group_id ))
-    if sock.read() != ['210 OK']:
-        print 'WARNING: failed adding',account_id,' to group ',group_id
+def group_add(account_name,group_name):
+    sock.send('ADDUSRGR&%s/%s&%s/%s\n' % ( cereconf.AD_DOMAIN,account_name, cereconf.AD_DOMAIN,group_name ))
+    if sock.read() == ['210 OK']:
+	return True
+    return False		
 
 
 
-def group_rem(account_id,group_id):
-    print 'Try removing ',account_id,' to group ',group_id
-    sock.send('DELUSRGR&%s/%s&%s/%s\n' % ( cereconf.AD_DOMAIN,account_id, cereconf.AD_DOMAIN,group_id ))
-    if sock.read() != ['210 OK']:
-        print 'WARNING: failed removing',account_id,' from group ',group_id
+def group_rem(account_name,group_name):
+    sock.send('DELUSRGR&%s/%s&%s/%s\n' % ( cereconf.AD_DOMAIN,account_name, cereconf.AD_DOMAIN,group_name ))
+    if sock.read() == ['210 OK']:
+	return True
+    return False
+
 
         
     
 def change_pw(account_id,pw_params):
     account.clear()
-    account.find(ans['subject_entity'])
+    account.find(account_id)
     if account.has_spread(int(co.spread_uio_ad_account)):
         pw=pw_params['password']
         #These numbers represent the location in the ASCII table.
@@ -266,8 +295,9 @@ def change_pw(account_id,pw_params):
         pw=pw.replace('&','%26')
         user = id_to_name(account_id,'user')
         sock.send('ALTRUSR&%s/%s&pass&%s\n' % (cereconf.AD_DOMAIN,user,pw))
-        if sock.read() != ['210 OK']:
-            print 'WARNING: failed changing password for ',user
+        if sock.read() == ['210 OK']:
+	    return True
+    return False
 
             
 

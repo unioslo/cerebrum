@@ -23,6 +23,7 @@ import sys
 import time
 import re
 
+import cerebrum_path
 import cereconf
 import adutils
 from Cerebrum import Constants
@@ -49,7 +50,7 @@ delete_users = 0
 delete_groups = 0
 domainusers = []
 #For test,
-#max_nmbr_users = 100
+max_nmbr_users = 200
 
 def full_ou_sync():
 
@@ -58,7 +59,9 @@ def full_ou_sync():
     OUs = []
     root = cereconf.AD_CERE_ROOT_OU_ID   
     sock.send('LORGS&LDAP://%s\n' % (cereconf.AD_LDAP))
-    receive = sock.read(out=0)
+    receive = []
+    #TODO: some problem arise if out=0
+    receive = sock.read(out=1)
     res=[]
     for line in receive:
         for l in line.splitlines():
@@ -182,7 +185,7 @@ def gen_domain_users():
     global domainusers
     print 'INFO: Starting gen_domain_users at', adutils.now()
     sock.send('LUSERS&LDAP://%s&1\n' % (cereconf.AD_LDAP))
-    receive = sock.read(out=0)    
+    receive = sock.read(out=1)    
     for line in receive[1:-1]:
         fields = line.split('&')
         domainusers.append(fields[3])
@@ -313,7 +316,6 @@ def get_ad_objects(entity_type):
         spread = int(co.spread_uio_ad_group)
     ulist = {}
     count = 0    
-
     ou.clear()
     ou.find(cereconf.AD_CERE_ROOT_OU_ID)
     ourootname='OU=%s' % ou.acronym
@@ -331,9 +333,11 @@ def get_ad_objects(entity_type):
             obj_name = '%s%s' % (name,grp_postfix)
             ulist[obj_name]=id_and_ou
         except Errors.NotFoundError:
+            ent_name.clear()
+            ent_name.find(id)
+            name = ent_name.get_name(namespace)
             if entity_type == 'user':
-                pri_ou = get_primary_ou(id,namespace):
-                    
+                pri_ou = adutils.get_primary_ou(id,namespace)                    
                 if not pri_ou:
                     count = count - 1
                     print "WARNING: No account_type information for object ", id
@@ -345,13 +349,10 @@ def get_ad_objects(entity_type):
 
             else:
                 #Group not registered in ad_object table.
-                ent_name.clear()
-                ent_name.find(id)
-                name = ent_name.get_name(namespace)
                 if cereconf.AD_DEFAULT_OU == '0':
                     crbrm_ou = 'CN=Users,%s' % cereconf.AD_LDAP
                 else:
-                    crbrm_ou = adutils.get_crbrm_ou(cereconf.AD_DEFAULT_OU)
+                    crbrm_ou = adutils.get_crbrm_ou(adutils.AD_DEFAULT_OU)
                 id_and_ou = id, crbrm_ou
                 obj_name = '%s%s' % (name,grp_postfix)
                 ulist[obj_name]=id_and_ou
@@ -363,9 +364,10 @@ def get_ad_objects(entity_type):
 
                     
 if __name__ == '__main__':
+
     sock = adutils.SocketCom()    
     arg = get_args()
-    full_ou_sync()
+#    full_ou_sync()
     full_user_sync()
 #    gen_domain_users()
     full_group_sync()

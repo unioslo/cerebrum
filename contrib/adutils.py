@@ -51,8 +51,6 @@ ou = OU.OU(db)
 
 #div constants.
 
-AD_DEFAULT_OU = '0'
-AD_CERE_ROOT_OU_ID = '682'
 
 class SocketCom(object):
     """Class for Basic socket communication to connect to the ADserver"""
@@ -143,9 +141,15 @@ def get_user_info(account_id, account_name):
     except Errors.NotFoundError:
         print "WARNING: find on person or account failed, aduser_id:", account_id        
     
+    account_disable = '0'	
+    if chk_quarantine(account_id):
+	account_disable = '1'	
 
-    account_disable = '0'
+    return (full_name, account_disable, home_dir, cereconf.AD_HOME_DRIVE, login_script)
+
+def chk_quarantine(account_id):
     # Check against quarantine.
+    account_disable = 0
     quarantine.clear()
     quarantine.find(account_id)
     quarantines = quarantine.get_entity_quarantine()
@@ -155,11 +159,11 @@ def get_user_info(account_id, account_name):
     qh = QuarantineHandler.QuarantineHandler(db, qua)
     try:
         if qh.is_locked():           
-            account_disable = '1'
+            account_disable += 1
     except KeyError:        
         print "WARNING: missing QUARANTINE_RULE"    
-
-    return (full_name, account_disable, home_dir, cereconf.AD_HOME_DRIVE, login_script)
+    if account_disable:		
+	return True
 
 def get_primary_ou(account_id,namespace):
     account.clear()
@@ -192,7 +196,7 @@ def get_ad_ou(ldap_path):
 
 def get_crbrm_ou(ou_id):
      ou.clear()
-     ou.find(AD_CERE_ROOT_OU_ID)	
+     ou.find(cereconf.AD_CERE_ROOT_OU_ID)	
      return 'OU=%s' % ou.acronym
      	
 #    Do not use OU placement at UiO.
@@ -209,12 +213,12 @@ def get_crbrm_ou(ou_id):
 def id_to_ou_path(ou_id,ourootname):
     crbrm_ou = get_crbrm_ou(ou_id)
     if crbrm_ou == ourootname:
-        if AD_DEFAULT_OU == '0':
+        if cereconf.AD_DEFAULT_OU == '0':
             crbrm_ou = 'CN=Users,%s' % ourootname
-        elif AD_DEFAULT_OU == '-1':
+        elif cereconf.AD_DEFAULT_OU == '-1':
             crbrm_ou = ourootname
         else:
-            crbrm_ou = get_crbrm_ou(AD_DEFAULT_OU)
+            crbrm_ou = get_crbrm_ou(cereconf.AD_DEFAULT_OU)
 
     crbrm_ou = crbrm_ou.replace(ourootname,cereconf.AD_LDAP)
     return crbrm_ou
