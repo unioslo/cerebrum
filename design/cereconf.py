@@ -18,5 +18,5 @@
 
 # Provide defaults for all settings.
 from Cerebrum.default_config import *
-from ldapconf import *
+
 # Put any changes to the default settings below.
