@@ -2570,7 +2570,7 @@ class BofhdExtension(object):
 	    else:
 		pass	    
 	body.append("spread add group %s %s" % (groupname, spreadstring))
-	body.append("access grant Group-owner % group %s" % (moderator groupname))
+	body.append("access grant Group-owner % group %s" % (moderator, groupname))
         body.append("group info %s" % groupname)
 	body.append("")
 	body.append("")
