@@ -5,14 +5,13 @@ Core API
 --------
   STATUS: 2002-10-24: Nearing feature completion.
 	  During 2002-09 this API should be somewhat usable.
+	  2002-11-19: API is operational, but is in the process of
+		      being converted to 'mark_update' metaclass.
 
   RESPONSIBILITY OF: HM, *
 
   API and utility functions for connecting to the Cerebrum database
   and performing operations on the core entities it models.
-
-  TBD: Should not depend on what Python DB-API backend module is used
-       to access the database.
 
   CODE DEPENDENCIES: Python 2.2.1
 		     Cerebrum core database structures
@@ -27,7 +26,12 @@ Installation magic
 ------------------
   STATUS: 2002-10-24: Not started; will encourage test users to
 	  contribute.
-	  Must be ready by 2002-11-15.
+	  2002-11-19: Still missing a decision as to what files should
+		      go where.  This should either be discussed or
+		      decided by someone with a sufficiently bofhish
+		      nature. :-)
+		      RF sends a design draft before 2002-11-22.
+	  Must be ready by 2002-11-30.
 
   RESPONSIBILITY OF: HM, PR, RF
 
@@ -39,7 +43,8 @@ Installation magic
 
 Upgrade magic
 -------------
-  STATUS: Not started.
+  STATUS: 2002-11-19: HM sends a design draft for database schema
+		      versioning by 2002-11-22
 
   RESPONSIBILITY OF: HM, PR, RF
 
@@ -52,7 +57,9 @@ Upgrade magic
 POSIX users and groups
 ----------------------
   STATUS: 2002-10-24: Users seems usable; groups not quite there yet.
-	  Should be somewhat usable by 2002-10-17.
+	  2002-11-19: Seems to be operational, but hasn't really been
+		      heavily used yet.  Volunteer users are most
+		      welcome.
 
   RESPONSIBILITY OF: HM, RF
 
@@ -69,7 +76,8 @@ POSIX users and groups
 NIS export
 ----------
   STATUS: 2002-10-24: Generates passwd.
-	  Should be usable by 2002-10-21.
+	  2002-11-19: HM will make this fully operational by
+		      2002-11-22.
 
   RESPONSIBILITY OF: HM, RF, PR
 
@@ -100,7 +108,9 @@ User administration server
 --------------------------
   STATUS: 2002-10-24: Proof-on-concept has been available for some
 	  time.
-	  Should be operative by end of 2002-10.
+	  2002-11-19: Has been rewritten, approaching feature
+		      completeness (for minimal feature set).  Needs
+		      an operational client for additional testing.
 
   RESPONSIBILITY OF: RF, HM
 
@@ -132,10 +142,25 @@ User administration terminal client
 
   FILES:
 
+User administration java client
+-----------------------------------
+  STATUS: 2002-11-19: Started, but not yet in CVS.
+
+  RESPONSIBILITY OF: RF
+
+  A text terminal client for requesting the operations offered by the
+  User administration server.
+
+  CODE DEPENDENCIES: User administration protocol
+
+  FILES:
+
 User administration web frontend
 --------------------------------
   STATUS: 2002-10-24: Proof-of-concept for password change ready.
 	  Should offer web-based password change by 2002-11-15.
+	  2002-11-19: Needs testing, RF will discuss what web server
+		      to use with KS (UiO webmaster).
 
   RESPONSIBILITY OF: RF, KS? RM? Webgruppa?
 
@@ -148,8 +173,8 @@ User administration web frontend
 
 Import from SATS (specific to Norway)
 -------------------------------------
-  STATUS: 2002-10-31: Still waiting for specification and access.
-	  Should be operative by 2002-11-15.
+  STATUS: 2002-11-19: Still waiting for specification and access.
+	  Should be operative by 2002-12-15.
 
   RESPONSIBILITY OF: BHMJ, RF, HM
 
@@ -164,8 +189,8 @@ Import from SATS (specific to Norway)
 
 Email API
 ---------
-  STATUS: 2002-10-31: Not started
-	  Should be working by 2002-11-15.
+  STATUS: 2002-11-19: Not started
+	  Should be working by 2002-12-15.
 
   RESPONSIBILITY OF: HM
 
@@ -183,8 +208,10 @@ Email API
 
 Export to LMS "Itslearning"
 ---------------------------
-  STATUS: 2002-10-31: BHMJ delivers specification/example by 2002-11-01.
-	  Should be working by 2002-11-15.
+  STATUS: 2002-11-19: BHMJ might deliver specification/example by
+		      2002-11-22, if this component really fulfills a
+		      need.
+	  Should be working by 2002-12-15.
 
   RESPONSIBILITY OF: BHMJ, PR
 
@@ -210,8 +237,9 @@ ChangeLog API
 
 Export to Active Directory
 --------------------------
-  STATUS: 2002-10-31: Nearly started.
-	  Should be operative by end of 2002-11-15.
+  STATUS: 2002-11-19: Very nearly started; design meeting scheduled
+		      2002-11-21.
+	  Should be operative by 2002-12-15.
 
   RESPONSIBILITY OF: FV, RF
 
@@ -253,8 +281,10 @@ Export to FS (Specific to Norway)
 Import from MSTAS (Specific to Norway)
 --------------------------------------
   STATUS: 2002-10-31: Started looking at specification.
+	  2002-11-19: Have access to test database, but no schema
+		      specification/description.
 
-  RESPONSIBILITY OF: RF
+  RESPONSIBILITY OF: BHMJ, RF
 
   Scripts (and possibly database structures/API) for importing person
   and grouping info from the Norwegian student administration system
@@ -288,6 +318,26 @@ Export to SATS (Specific to Norway)
   info to the Norwegian pupil administration system SATS.
 
   CODE DEPENDENCIES: Core API
+
+  FILES:
+
+Import from Ureg2000 (Specific to uio.no)
+-----------------------------------------
+  STATUS: 2002-11-19: Not started, but will be very useful for testing
+		      of other components; hence, start is scheduled
+		      before 2002-11-22.
+
+  RESPONSIBILITY OF: RF
+
+  Scripts for importing user, email, filegroup and and netgroup data
+  from Ureg2000.  Person data not appearing in any of Cerebrum's
+  authoritative sources must also be imported.
+
+  CODE DEPENDENCIES: Core API
+		     POSIX users and groups
+		     Email API
+
+  DATA DEPENDENCIES: Import LT+FS
 
   FILES:
 
@@ -335,7 +385,8 @@ Export to LT (Specific to uio.no)
 
 Export of user and filegroup data to LDAP
 -----------------------------------------
-  STATUS: Not started
+  STATUS: 2002-11-19: All prerequisites for this should be ready; can
+		      be started whenever someone has the time.
 	  This is needed for (a future version of) MacOS X
 	  authentication; usable by 2002-12-31.
 
@@ -349,7 +400,10 @@ Export of user and filegroup data to LDAP
 
 Export of OU and person data to LDAP
 ------------------------------------
-  STATUS: Not started
+  STATUS: 2002-11-19: Correlation of person names in Cerebrum to
+		      person object attributes in LDAP is not entirely
+		      clear.  Apart from that, implementation can be
+		      started whenever someone has the time.
 	  Usable by 2002-12-31.
 
   RESPONSIBILITY OF: MM, HBF
@@ -410,8 +464,9 @@ Printer quota API
 
 Password quality check API
 --------------------------
-  STATUS: Not started
-	  Should be usable by 2002-11-15.
+  STATUS: 2002-11-19: Still not started.
+	  Interface should be usable by 2002-11-30; full default
+	  implementation by 2002-12-31.
 
   RESPONSIBILITY OF: SS
 
