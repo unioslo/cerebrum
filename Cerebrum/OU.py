@@ -100,7 +100,8 @@ class OU(OUStructure, EntityContactInfo, EntityAddress, Entity):
         self.__super.write_db()
         if not self.__updated:
             return
-        if not self.__in_db:
+        is_new = not self.__in_db
+        if is_new:
             self.execute("""
             INSERT INTO [:table schema=cerebrum name=ou_info]
               (entity_type, ou_id, name, acronym, short_name, display_name,
@@ -129,6 +130,7 @@ class OU(OUStructure, EntityContactInfo, EntityAddress, Entity):
         del self.__in_db
         self.__in_db = True
         self.__updated = False
+        return is_new
 
     def __eq__(self, other):
         """Overide the == test for objects."""
