@@ -26,6 +26,8 @@ default username is stored in is yet to be determined.
 
 from Cerebrum.Entity import \
      Entity, EntityName, EntityQuarantine
+from Cerebrum import cereconf
+import crypt,random,string
 
 # TODO: I'm not sure how PosixUser should be imported as a mix-in
 # class.  The current implementation makes Account depending on Posix
@@ -71,7 +73,26 @@ class Account(Entity, EntityName, EntityQuarantine, PosixUser):
         self._acc_affect_auth_types = authtypes
 
     def populate_authentication_type(self, type, value):
-        self._auth_info[type] = value
+        self._auth_info[int(type)] = value
+
+    def set_password(self, plaintext):
+        # Updates all account_authentication entries with an encrypted
+        # version of the plaintext password.  The methods to be used
+        # are determined by AUTH_CRYPT_METHODS
+        for method in cereconf.AUTH_CRYPT_METHODS:
+            # TODO: We should probably assert that the corresponding
+            # self._acc_affect_auth_types is set
+            enc = getattr(self, "enc_%s" % method)
+            enc = enc(plaintext)
+            self.populate_authentication_type(getattr(self.const, method), enc)
+
+    def enc_auth_type_md5(self, plaintext):
+        saltchars = string.uppercase + string.lowercase + string.digits + "./" 
+        s = []
+        for i in range(8):
+            s.append(random.choice(saltchars))
+        salt = "$1$" + string.join(s, "")
+        return crypt.crypt(plaintext, salt)
     
     def write_db(self, as_object=None):
         # TODO: Update existing records
@@ -104,11 +125,12 @@ class Account(Entity, EntityName, EntityQuarantine, PosixUser):
         # account_authentication methods.
 
         for k in self._acc_affect_auth_types:
+            k = int(k)
             if self._auth_info.get(k, None) != None:
                 self.execute("""
                 INSERT INTO cerebrum.account_authentication (account_id, method, auth_data)
                 VALUES (:acc_id, :method, :auth_data)""",
-                             {'acc_id' : self.account_id, 'method' : int(k),
+                             {'acc_id' : self.account_id, 'method' : k,
                               'auth_data' : self._auth_info[k]})
         return new_id
 
@@ -121,6 +143,10 @@ class Account(Entity, EntityName, EntityQuarantine, PosixUser):
             """SELECT account_id, owner_type, owner_id, np_type, create_date, creator_id, expire_date
                FROM cerebrum.account_info
                WHERE account_id=:a_id""", {'a_id' : account_id})
+
+    def find_account_by_name(self, domain, name):
+        self.find_by_name(domain, name)
+        self.find(self.entity_id)
 
     def get_account_authentication(self, method):
         """Return the name with the given variant"""
