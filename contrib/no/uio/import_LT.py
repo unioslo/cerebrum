@@ -107,7 +107,7 @@ def main():
                                                   int(tils['gruppenr_utgift']))
         if stedkode == '' and person.has_key('bilag'):
             stedkode = person['bilag'][0]['stedkode']
-        if stedkode == '':
+        if stedkode == '' and person.has_key('fakultetnr_for_lonnsslip'):
             # TODO: Kan være NONE
             stedkode = "%02d%02d%02d" % (int(person['fakultetnr_for_lonnsslip']),
                                          int(person['instituttnr_for_lonnsslip']),
@@ -129,7 +129,7 @@ def main():
             new_person.populate_contact_info(co.contact_fax, fax)
 
         new_person.affect_addresses(co.system_lt, co.address_post)
-       if person.has_key('adresselinje1_privatadresse'):
+        if person.has_key('adresselinje1_privatadresse'):
             new_person.populate_address(co.address_post, addr="%s\n%s" %
                                        (person['adresselinje1_privatadresse'],
                                         person.get('adresselinje2_privatadresse', '')),
