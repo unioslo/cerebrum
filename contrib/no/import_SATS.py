@@ -864,7 +864,7 @@ def write_account(rows, person_id, gname):
     # - account affiliations
 
     posix_user = PosixUser.PosixUser(Cerebrum)
-    for t in posix_user.get_accounts_by_owner_id(person_id):
+    for t in posix_user.list_accounts_by_owner_id(person_id):
         return  # TBD: er oppdatering aktuelt?
     gid = group_cache.get(gname)
     if gid is None:
@@ -909,6 +909,11 @@ def write_group(name, members):
                   # TODO: Add more *descriptive* group descriptions.
                   "SATS auto-derived group.")
     members = uniq(members)
+    u, i, d = group.list_members()
+    for m in u:  # TODO: this is a bit slow
+        e_type, e_id = m
+        if int(e_id) in members:
+            members.remove(int(e_id))
     for m in members:
         group.add_member(m, co.entity_person, co.group_memberop_union)
     return group.entity_id
