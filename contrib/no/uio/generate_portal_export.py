@@ -258,7 +258,7 @@ def output_text(output_file):
         lookup_order.append(getattr(constants, authoritative_system_name))
     # od
     
-    names, rows = db_fs.GetPortalInfo()
+    names, rows = db_fs.GetPortalInfo_50()
     logger.debug("Fetched portal information from FS")
     for row in rows:
         output_row(row, output_stream,
