@@ -44,7 +44,7 @@ const = Factory.get('Constants')(db)
 all_passwords = {}
 person_affiliations = {}
 debug = 0
-max_errors = 10          # Max number of errors to accept in person-callback
+max_errors = 50          # Max number of errors to accept in person-callback
 
 def bootstrap():
     global default_creator_id, default_expire_date, default_shell
@@ -348,7 +348,7 @@ def make_letters(data_file=None, type=None, range=None):
     tpls = {}
     counters = {}
     for account_id in keys:
-        if not dta[account_id]['zip'] or tpl['country']:
+        if not dta[account_id]['zip'] or dta[account_id]['country']:
             # TODO: Improve this check, which is supposed to skip foreign addresses
             logger.warn("Not sending abroad: %s" % dta[account_id]['uname'])
             continue
