@@ -24,7 +24,6 @@ group_help = {
     'group': "Group commands",
     'misc': 'Miscellaneous commands',
     'person': 'Person related commands',
-    'print': 'Printer quota manipulation',
     'quarantine': 'Quarantine related commands',
     'spread': 'Spread related commands',
     'user': 'Account building and manipulation',
@@ -141,11 +140,6 @@ command_help = {
     'person_set_name': 'Change the full name of a manually registered person',
     'person_student_info': 'View student information for a person',
     'person_set_user_priority': 'Change account priorities for a person',
-    },
-    'print': {
-    'printer_qoff': 'Turn off the printer quota for an account',
-    'printer_qpq': 'View the printer quota information for an account',
-    'printer_upq': 'Manually update printer quota for an account',
     },
     'quarantine': {
     'quarantine_disable': 'Temporarily remove a quarantine',

@@ -60,7 +60,6 @@ from Cerebrum.modules.bofhd.utils import BofhdRequests
 from Cerebrum.modules.bofhd.auth import BofhdAuth, BofhdAuthOpSet, \
      AuthConstants, BofhdAuthOpTarget, BofhdAuthRole
 from Cerebrum.modules.no import fodselsnr
-from Cerebrum.modules.no.uio import PrinterQuotas
 from Cerebrum.modules.no.uio import bofhd_uio_help
 from Cerebrum.modules.no.uio.access_FS import FS
 from Cerebrum.modules.templates.letters import TemplateHandler
@@ -3586,62 +3585,6 @@ class BofhdExtension(object):
             ## This seems to trigger a wierd python bug:
             ## self.num2const[int(row['affiliation'], self._format_ou_name(ou))])})
         return ret
-    #
-    # printer commands
-    #
-
-    all_commands['printer_qoff'] = Command(
-        ("print", "qoff"), AccountName(), perm_filter='can_alter_printerquota')
-    def printer_qoff(self, operator, accountname):
-        account = self._get_account(accountname)
-        self.ba.can_alter_printerquota(operator.get_entity_id(), account)
-        pq = self._get_printerquota(account.entity_id)
-        if pq is None:
-            return "User has no quota"
-        pq.has_printerquota = 'F'
-        pq.write_db()
-        return "Quota disabled"
-
-    all_commands['printer_qpq'] = Command(
-        ("print", "qpq"), AccountName(),
-        fs=FormatSuggestion("Has quota Quota Pages printed This "+
-                            "term Weekly q. Max acc. Term q. \n"+
-                            "%-9s %5i %13i %9i %9i %8i %7i",
-                            ('has_printerquota', 'printer_quota',
-                            'pages_printed', 'pages_this_semester',
-                            'weekly_quota', 'max_quota', 'termin_quota')))
-    def printer_qpq(self, operator, accountname):
-        account = self._get_account(accountname)
-        self.ba.can_query_printerquota(operator.get_entity_id(), account)
-        pq = self._get_printerquota(account.entity_id)
-        if pq is None:
-            return "User has no quota"
-        return {'printer_quota': pq.printer_quota,
-                'pages_printed': pq.pages_printed,
-                'pages_this_semester': pq.pages_this_semester,
-                'termin_quota': pq.termin_quota,
-                'has_printerquota': pq.has_printerquota,
-                'weekly_quota': pq.weekly_quota,
-                'max_quota': pq.max_quota}
-
-    all_commands['printer_upq'] = Command(
-        ("print", "upq"), AccountName(), SimpleString(), perm_filter='can_alter_printerquota')
-    def printer_upq(self, operator, accountname, pages):
-        account = self._get_account(accountname)
-        self.ba.can_alter_printerquota(operator.get_entity_id(), account)
-        pq = self._get_printerquota(account.entity_id)
-        if pq is None:
-            return "User has no quota"
-        try:
-            pages = int(pages)
-        except ValueError:
-            raise CerebrumError("Enter an integer")
-        if pages > pq.max_quota:
-            raise CerebrumError("Quota too high, max is %i" % (
-                pq.max_quota or 0))
-        pq.printer_quota = pages
-        pq.write_db()
-        return "OK"
 
     #
     # quarantine commands
@@ -4767,14 +4710,6 @@ class BofhdExtension(object):
         if id_type is not None:
             return id_type, id
         raise CerebrumError, "Unknown person_id type"
-
-    def _get_printerquota(self, account_id):
-        pq = PrinterQuotas.PrinterQuotas(self.db)
-        try:
-            pq.find(account_id)
-            return pq
-        except Errors.NotFoundError:
-            return None
 
     def _get_name_from_object(self, entity):
         # optimise for common case
