@@ -1,0 +1,96 @@
+## Copyright 2004 University of Oslo, Norway
+##
+## This file is part of Cerebrum.
+##
+## Cerebrum is free software; you can redistribute it and/or modify it
+## under the terms of the GNU General Public License as published by
+## the Free Software Foundation; either version 2 of the License, or
+## (at your option) any later version.
+##
+## Cerebrum is distributed in the hope that it will be useful, but
+## WITHOUT ANY WARRANTY; without even the implied warranty of
+## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+## General Public License for more details.
+##
+## You should have received a copy of the GNU General Public License
+## along with Cerebrum; if not, write to the Free Software Foundation,
+## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
+#from Cerebrum.web.InitTemplate import InitTemplate
+#extends InitTemplate
+#from Cerebrum.web.utils import url
+#from Cerebrum.web.utils import object_url
+
+#attr $fields = []
+#attr $formvalues = {}
+
+#def generate_option($name, $types, $selected=None)
+    <select name="$name" >
+#for $row in $types
+#set $is_selected = ""
+#if $selected==$row.name
+#set $is_selected = " selected"
+#end if
+        <option$is_selected value="$row.name">$row.name</option>
+#end for
+    </select>
+#end def
+
+#def quarantine_form($entity, $action, $types = None)
+<div class="quarantine">
+<form action="$url($action)" method="POST">
+    <h2>$_("Add new/edit quarantine for: ") <i>$formvalues['entity_type'] $formvalues['entity_name']</i></h2>
+#set $why = $formvalues['why']
+#set $type = $formvalues['type']
+#set $start = $formvalues['start']
+#set $end = $formvalues['end']
+#set disable_until = $formvalues['disable_until']
+    <table cellpadding=3 linespacing=3>
+        <tr>
+            <th align=right>Quarantine type:</th>
+            <td>
+#if $types:
+$generate_option("type", $types, $type)
+#else:
+                $type
+                <input type=hidden name="type" value="$type" />
+#end if
+            </td>
+        </tr>
+        <tr>
+            <th align=right>Description:</th>
+            <td colspan=2><textarea name="why" rows="5"
+                          cols="40">$why</textarea></td>
+        </tr>
+        <tr>
+            <th align=right>Start date:</th>
+            <td><input type="text" name="start" value="$start"
+                       size="10" maxlength="10"></td>
+            <td><i>(Format: yyyy-mm-dd)</td>
+        </tr>
+        <tr>
+            <th align=right>End date:</th>
+            <td><input type="text" name="end" value="$end"
+                       size="10" maxlength="10"></td>
+            <td><i>(Format: yyyy-mm-dd)</td>
+        </tr>
+        <tr>
+            <th align=right>Disable until:</th>
+            <td><input type="text" name="disable_until" value="$disable_until"
+                       size="10" maxlength="10"></td>
+            <td><i>(Format: yyyy-mm-dd)</td>
+        </tr>
+        <tr></tr>
+        <tr>
+            <td></td>
+            <td><input type="submit" value="$_("Save")" name="submit" /></td>
+        </tr>
+    </table>
+    <input type=hidden name="entity_id" value="$entity.id" />
+</form>
+<form action="$object_url($entity)" method="POST">
+  <input type="submit" value="$_('Cancel')" name="cancel" />
+</form>
+    
+</div>
+#end def

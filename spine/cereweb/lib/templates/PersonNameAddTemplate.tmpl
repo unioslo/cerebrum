@@ -1,0 +1,49 @@
+## Copyright 2004 University of Oslo, Norway
+##
+## This file is part of Cerebrum.
+##
+## Cerebrum is free software; you can redistribute it and/or modify it
+## under the terms of the GNU General Public License as published by
+## the Free Software Foundation; either version 2 of the License, or
+## (at your option) any later version.
+##
+## Cerebrum is distributed in the hope that it will be useful, but
+## WITHOUT ANY WARRANTY; without even the implied warranty of
+## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+## General Public License for more details.
+##
+## You should have received a copy of the GNU General Public License
+## along with Cerebrum; if not, write to the Free Software Foundation,
+## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
+#from Cerebrum.web.InitTemplate import InitTemplate
+#from Cerebrum.web.utils import url
+#from Cerebrum.web import ServerConnection
+#extends InitTemplate
+
+
+## Creates a form for adding a name to a person.
+#def addForm($entity, $req)
+<form action="$url('person/add_name')" type="post">
+    #set $title = $_("Add a name")
+    <h2>$title:</h2>
+    <input type="hidden" name="id" value="$entity.get_entity_id()" />
+    <label for="name">$_("Name"):</label>
+    <input type="text" size="40" name="name" /> <br />
+    <label for="name_type">$_('Name type'):</label>
+    <select name="name_type">
+        #set $server = ServerConnection.get_server($req)
+        #for $name_type in $server.get_name_type_search().search()
+        <option value="$name_type.get_name()">$_($name_type.get_description())</option>
+        #end for
+    </select> <br />
+    <label for="source_system">$_("Source system"):</label>
+    <input type="text" size="40" name="source_system" /> <br />
+    <div class="actions">
+        <input type="submit" value="$_('Add')" />
+        #set $tmp_url = "person/view?id=%s#names" % ($entity.get_entity_id())
+        <a href="$url($tmp_url)">$_("Cancel")</a>
+    </div>
+</form>
+#end def
+

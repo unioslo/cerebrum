@@ -1,0 +1,46 @@
+## Copyright 2004 University of Oslo, Norway
+##
+## This file is part of Cerebrum.
+##
+## Cerebrum is free software; you can redistribute it and/or modify it
+## under the terms of the GNU General Public License as published by
+## the Free Software Foundation; either version 2 of the License, or
+## (at your option) any later version.
+##
+## Cerebrum is distributed in the hope that it will be useful, but
+## WITHOUT ANY WARRANTY; without even the implied warranty of
+## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+## General Public License for more details.
+##
+## You should have received a copy of the GNU General Public License
+## along with Cerebrum; if not, write to the Free Software Foundation,
+## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
+#from Cerebrum.web.InitTemplate import InitTemplate
+#from Cerebrum.web.utils import url
+#from Cerebrum.web import ServerConnection
+#extends InitTemplate
+
+#def viewNotes($entity, $req)
+#set $notes = $entity.get_notes()
+#if $notes
+#set $server = ServerConnection.get_server($req)
+<h2>$_("Notes:")</h2>
+#for $note in $notes
+    #set $id = $note.get_creator_id()
+    #set $creator = $server.get_account($id).get_name()
+    #set $creator = '<a href="%s">%s</a>' % ($url('account/view?id=%s' % $id), $_($creator))
+    #set $delete = $url('note/delete?id=%s&entity=%s' %
+                        ($note.get_note_id(), $entity.get_entity_id()))
+    <div class="note">
+        <div>
+            <em>Todo: dato!$note.get_create_date()</em>&nbsp;
+            <em>Creator: $creator</em>&nbsp;
+            <a href="$delete" class="actions">$_("delete")</a>
+        </div>
+        <div>$note.get_subject()</div>
+        <div>$note.get_description()</div>
+  </div>
+#end for
+#end if
+#end def

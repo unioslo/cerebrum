@@ -1,0 +1,32 @@
+
+
+#from Cerebrum.web.InitTemplate import InitTemplate
+#extends InitTemplate
+
+#def getAction
+    #import cereconf
+    #return cereconf.WEBROOT + "/login/index/search/"
+#end def
+
+#def output($req)
+#set $person_name_advanced = False
+<div>
+    <form action="$getAction" method="POST">
+        <div class="searchsection">
+        #if not $person_name_advanced
+            <table>
+                <tr>
+                    <th><label for="name">$_("Personname:")</label></td>
+                    <th class="more" align="right" valign="top"><a href="">[more]</a></td>
+                </tr>
+                <tr>
+                    <td colspan="2">
+                        <input type="text" name="name" id="name" value="" />
+                    </td>
+                </tr>
+            </table>
+        #end if
+        </div>
+    </form>
+</div>
+#end def

@@ -1,0 +1,91 @@
+## Copyright 2004 University of Oslo, Norway
+##
+## This file is part of Cerebrum.
+##
+## Cerebrum is free software; you can redistribute it and/or modify it
+## under the terms of the GNU General Public License as published by
+## the Free Software Foundation; either version 2 of the License, or
+## (at your option) any later version.
+##
+## Cerebrum is distributed in the hope that it will be useful, but
+## WITHOUT ANY WARRANTY; without even the implied warranty of
+## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+## General Public License for more details.
+##
+## You should have received a copy of the GNU General Public License
+## along with Cerebrum; if not, write to the Free Software Foundation,
+## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
+#from Cerebrum.web.InitTemplate import InitTemplate
+#extends InitTemplate
+#from Cerebrum.web.TableView import TableView
+#from MemberTableTemplate import MemberTableTemplate
+#from SortedTableTemplate import SortedTableTemplate
+#from Cerebrum.web.utils import url
+## I don't like involving ClientAPI from the templates..
+#from Cerebrum.Utils import Factory 
+#set ClientAPI = Factory.get_module("ClientAPI")
+
+#def view_quarantines($entity)
+
+#set $entity_id = $entity.id 
+#set $quarantines = $entity.get_quarantines()
+
+<div class="quarantines">
+<h2>$_("Quarantines")</h2>
+#if quarantines
+#set $table=$TableView("type","start","end","disable_until","who","why", "edit", "remove")
+
+#for $quarantine in $quarantines
+    ## Get string values
+    #set $start = $quarantine.start and $quarantine.start.strftime("%Y-%m-%d")
+    #set $end = $quarantine.end and $quarantine.end.strftime("%Y-%m-%d")
+    #set $disable_until = $quarantine.disable_until and $quarantine.disable_until.strftime("%Y-%m-%d")
+    #set $qtype = $quarantine.type.name
+    #set $editurl = $url('quarantine/edit?entity_id=%s&amp;type=%s' % ($entity_id, $qtype))
+    #set $removeurl = $url('quarantine/remove?entity_id=%s&amp;type=%s' % ($entity_id, $qtype))
+    #set $edit = "<a href='%s'>[%s]</a>" % ($editurl, $_("Edit"))
+    #set $remove= "<a href='%s'>[%s]</a>" % ($removeurl, $_("Remove"))
+    $table.add($qtype, $start, $end, $disable_until,
+               $quarantine.who, $quarantine.why,
+               $edit, $remove)
+#end for
+
+## and output the table
+$table.html(type=$_("Type"),
+            start=$_("Start"),
+            end=$_("End"),
+            disable_until=$_("Disabled until"),
+            who=$_("Registered by"),
+            why=$_("Description"), edit="", remove="")
+                
+##<table>
+##    <tr>
+###for $column in $table.columns
+###set $header = $headers.get($column, "")
+##        <th>$header</th>
+###end for
+##    </tr>
+###for $row, $rowdata in $table.sorted(includeData=True)
+###
+##    <tr>
+###set $i = 0
+###for $col in $row
+##        <td>$col</td>
+###set $i +=1
+###end for
+##
+##
+##        <td><a href="$removeurl">[Remove] </a></td>
+##        <td><a href="$editurl">[Edit]</a></td>
+##    </tr>
+###end for
+##</table>
+#end if
+#set $addurl = $url('quarantine/add?entity_id=%s' % $entity_id)
+    <div>
+        <a href="$addurl">[Add new quarantine]</a>
+    </div>    
+</div>
+
+#end def

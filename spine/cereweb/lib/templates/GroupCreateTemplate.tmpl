@@ -1,0 +1,72 @@
+## Copyright 2004 University of Oslo, Norway
+##
+## This file is part of Cerebrum.
+##
+## Cerebrum is free software; you can redistribute it and/or modify it
+## under the terms of the GNU General Public License as published by
+## the Free Software Foundation; either version 2 of the License, or
+## (at your option) any later version.
+##
+## Cerebrum is distributed in the hope that it will be useful, but
+## WITHOUT ANY WARRANTY; without even the implied warranty of
+## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+## General Public License for more details.
+##
+## You should have received a copy of the GNU General Public License
+## along with Cerebrum; if not, write to the Free Software Foundation,
+## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
+#from Cerebrum.web.InitTemplate import InitTemplate
+#from Cerebrum.web.utils import url
+#extends InitTemplate
+
+#attr $formvalues = {}
+#attr $help = ["* Expiration date: The date the group should expire, format: YYYY-MM-DD"]
+
+## Url to go to when the form for creating the group is submittet.
+#def getAction
+$url("group/create")#slurp
+#end def
+
+## Creates html-code for input-boxes for the form.
+#def input($name, $label)
+    #set $value = $formvalues.get($name, "")
+    <label for="$name">$_($label):</label>
+    <input type="text" name="$name" id="$name" value="$value" /><br />
+#end def
+
+## Creates the form for creating a new group.
+#def form
+<div class="create">
+    <div class="subtitle">
+        <h3>$_("General groupinfo"):</h3>
+    </div>
+    <form action="$getAction()" method="POST">
+        <div class="createform">
+            $input("name", "Name")
+            <label for="desc">$_('Description'):</label>
+            #set $desc = $formvalues.get("desc", "")
+            <textarea rows="3" cols="40" name="desc">$desc</textarea>
+            <br />
+            $input("expiration", "Expiration date *")
+        </div>
+        <div class="help">
+            #for $line in $help
+            <div class="extra">
+                $_($line)
+            </div>
+            #end for
+        </div>
+        <div>
+            <center>
+                <input type="submit" value="$_('Create')" />&nbsp;
+                <input type="reset" value="$_('Clear')" />
+            </center>
+        </div>
+    </form>
+    <div class="subtitle">
+        <h3>$_("Posix groupinfo")</h3>
+    </div>
+</div>
+#end def
+

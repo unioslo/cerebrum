@@ -1,0 +1,62 @@
+## Copyright 2004 University of Oslo, Norway
+##
+## This file is part of Cerebrum.
+##
+## Cerebrum is free software; you can redistribute it and/or modify it
+## under the terms of the GNU General Public License as published by
+## the Free Software Foundation; either version 2 of the License, or
+## (at your option) any later version.
+##
+## Cerebrum is distributed in the hope that it will be useful, but
+## WITHOUT ANY WARRANTY; without even the implied warranty of
+## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+## General Public License for more details.
+##
+## You should have received a copy of the GNU General Public License
+## along with Cerebrum; if not, write to the Free Software Foundation,
+## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
+#from Cerebrum.web.InitTemplate import InitTemplate
+#from Cerebrum.web.utils import url
+#extends InitTemplate
+
+
+## List of tuples (name, label)
+#attr $fields = [("name", "Name"),
+                 ("affiliation", "Affiliation"),
+                 ("expire_date", "Expire date")]
+
+#attr $formvalues = {}
+
+
+#def getAction
+$url("account/create")#slurp
+#end def
+
+
+#def input($name, $label)
+    #set $value = $formvalues.get($name, "")
+    <label for="$name">$_($label):</label>
+    <input type="text" name="$name" id="$name" value="$value" /><br />
+#end def
+
+
+#def form
+<div class="create">
+    <form action="$getAction()" method="POST">
+        <div class="createform">
+            #for $name, $label in $fields #
+                #echo $input($name, $label) #
+            #end for
+        </div>
+        <div>
+            <center>
+                <input type="submit" name="create" value="$_('Create')" />&nbsp;
+                <input type="submit" name="abort" value="$_('Abort')" />&nbsp;
+                <input type="reset" name="reset" value="$_('Clear')" />
+            </center>
+        </div>
+    </form>
+</div>
+#end def
+

@@ -1,0 +1,75 @@
+## Copyright 2004 University of Oslo, Norway
+##
+## This file is part of Cerebrum.
+##
+## Cerebrum is free software; you can redistribute it and/or modify it
+## under the terms of the GNU General Public License as published by
+## the Free Software Foundation; either version 2 of the License, or
+## (at your option) any later version.
+##
+## Cerebrum is distributed in the hope that it will be useful, but
+## WITHOUT ANY WARRANTY; without even the implied warranty of
+## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+## General Public License for more details.
+##
+## You should have received a copy of the GNU General Public License
+## along with Cerebrum; if not, write to the Free Software Foundation,
+## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
+#from Cerebrum.web.InitTemplate import InitTemplate
+#extends InitTemplate
+#def sorted_table($tableview, $headers, $change_sort_priority, $change_sort_order, $css_class=None)
+##doc: Presents a TableView instance.
+##doc:   tableview -- instance of TableView filled with data, with 
+##doc:      tableview.columns and tableview..sort set
+##doc:   headers -- a dictionary of headers, keys are column names
+##doc:      as in tableview.columns, values are inserted 
+##doc:      into HTML for those columns that are chosen for 
+##doc:      presentation in tableview.columns
+##doc:   change_sort_priority -- URL to script that changes 
+##doc:      tableview's sort priority, ie. which columns are first
+##doc:      in tableview.columns. The URL should include %s that will
+##doc:      be replaced with the column name to be prioritized
+##doc:   change_sort_order -- URL to script that changes
+##doc:      tableview's sort order for a column (ie. switching between 
+##doc:      ascending/descending). The URL should include %s that will
+##doc:      be replaced with the column name to be reordered
+##doc:   css_class -- optional parameter, a string selecting a css 
+##doc:      class to be set for the returned table
+
+#if $css_class
+<table class="$css_class">
+#else
+<table>
+#end if
+<tr>
+
+#for $column in $tableview.columns
+#set $header = $headers.get($column, "")
+#set $pri_link = $change_sort_priority % $column    
+#set $ord_link = $change_sort_order % column
+#set $dir = $tableview.column_order($column)    
+<td>
+        <a href='$pri_link'></a> 
+        <a href='$ord_link'>$header</a></td>
+#end for
+    </tr>
+#for $row, $rowdata in $tableview.sorted(includeData=True)
+<tr>
+        $beforeColumns($rowdata)
+#for $col in $row
+<td>
+        $col</td>
+#end for
+        $afterColumns($rowdata)
+    </tr>
+#end for
+</table>
+#end def
+
+#def beforeColumns($rowdata)
+#end def
+
+#def afterColumns($rowdata) 
+#end def
+

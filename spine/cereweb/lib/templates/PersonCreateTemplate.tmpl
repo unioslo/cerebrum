@@ -1,0 +1,58 @@
+## Copyright 2004 University of Oslo, Norway
+##
+## This file is part of Cerebrum.
+##
+## Cerebrum is free software; you can redistribute it and/or modify it
+## under the terms of the GNU General Public License as published by
+## the Free Software Foundation; either version 2 of the License, or
+## (at your option) any later version.
+##
+## Cerebrum is distributed in the hope that it will be useful, but
+## WITHOUT ANY WARRANTY; without even the implied warranty of
+## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+## General Public License for more details.
+##
+## You should have received a copy of the GNU General Public License
+## along with Cerebrum; if not, write to the Free Software Foundation,
+## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
+#from Cerebrum.web.InitTemplate import InitTemplate
+#from Cerebrum.web.utils import url
+#from PersonEditTemplate import PersonEditTemplate
+#extends InitTemplate
+
+#attr $formvalues = {}
+#attr $help = ["* Birthnumber: 11 digits",
+               "* Date of birth: YYYY-MM-DD",
+               "* Others: not sure yet.."]
+
+## Url to go to when the form for creating the person is submittet.
+#def getAction
+    #return $url("person/make")
+#end def
+
+## The main method for creating the form for the person create page.
+#def form($req)
+#set $edit = PersonEditTemplate()
+<div class="create">
+    <form action="$getAction()" method="POST">
+        <div class="createform">
+            $edit.input("birthnr", "Birthnumber *", $formvalues.get("birthnr", ""))
+            $edit.gender($req)
+            $edit.input("birthdate", "Birthdate *", $formvalues.get("birthdate", ""))
+            $edit.input("ou", "Organization unit *", $formvalues.get("ou", ""))
+            $edit.input("affiliation", "Affiliation *", $formvalues.get("affiliation", ""))
+            $edit.input("aff_status", "Affilation status", $formvalues.get("aff_status", ""))
+            $edit.input("description", "Description", $formvalues.get("description", ""))
+        </div>
+        $edit.showHelp($help)
+        <div>
+            <center>
+                <input type="submit" value="$_('Create')" />&nbsp;
+                <input type="reset" value="$_('Clear')" />
+            </center>
+        </div>
+    </form>
+</div>
+#end def
+

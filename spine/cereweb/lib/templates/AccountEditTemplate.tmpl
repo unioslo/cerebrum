@@ -1,0 +1,60 @@
+## Copyright 2004 University of Oslo, Norway
+##
+## This file is part of Cerebrum.
+##
+## Cerebrum is free software; you can redistribute it and/or modify it
+## under the terms of the GNU General Public License as published by
+## the Free Software Foundation; either version 2 of the License, or
+## (at your option) any later version.
+##
+## Cerebrum is distributed in the hope that it will be useful, but
+## WITHOUT ANY WARRANTY; without even the implied warranty of
+## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+## General Public License for more details.
+##
+## You should have received a copy of the GNU General Public License
+## along with Cerebrum; if not, write to the Free Software Foundation,
+## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
+#from Cerebrum.web.InitTemplate import InitTemplate
+#from Cerebrum.web.utils import url
+#extends InitTemplate
+
+
+## List of tuples (name, label)
+#attr $fields = [("name", "Name"),
+                 ("owner", "Owner"),
+                 ("affiliation", "Affiliation"),
+                 ("expire_date", "Expire date"),
+                ]
+#def getAction
+$url("account/save")#slurp
+#end def
+
+#attr $formvalues = {}
+
+
+#def input($name, $label)
+    #set $value = $formvalues.get($name, "")
+    <label for="$name">$label</label>
+    <input type="text" name="$name" id="$name" value="$value" /><br />
+#end def
+
+
+#def edit($account)
+<div class="editaccount">
+
+#set $heading = $_("Edit account %s") % ($account.get_name())
+<h2>$heading:</h2>
+
+<form action="$getAction()" method="POST">
+#for $name, $label in $fields
+    #echo $input($name, $label)
+#end for
+    <input type="hidden" name="id" value="$account.get_entity_id()" />
+    <input type="submit" name="save" value="$_('Save')" />
+    <input type="submit" name="abort" value="$_('Abort')" />
+</form>
+</div>
+#end def
+

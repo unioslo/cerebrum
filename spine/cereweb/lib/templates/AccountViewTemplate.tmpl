@@ -1,0 +1,65 @@
+## Copyright 2004 University of Oslo, Norway
+##
+## This file is part of Cerebrum.
+##
+## Cerebrum is free software; you can redistribute it and/or modify it
+## under the terms of the GNU General Public License as published by
+## the Free Software Foundation; either version 2 of the License, or
+## (at your option) any later version.
+##
+## Cerebrum is distributed in the hope that it will be useful, but
+## WITHOUT ANY WARRANTY; without even the implied warranty of
+## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+## General Public License for more details.
+##
+## You should have received a copy of the GNU General Public License
+## along with Cerebrum; if not, write to the Free Software Foundation,
+## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
+#extends EntityViewTemplate
+#from Cerebrum.web.utils import url
+#from Cerebrum.web.utils import object_link
+
+## Main method for creating the view of accounts.
+#def viewAccount($req, $account)
+$viewAccountInfo($account)
+$view_entity($account, $req)
+#end def
+
+## Shows info about the account.
+#def viewAccountInfo($account)
+<h2>$_("Account") $account.get_name():</h2>
+<div class="accountinfo">
+    <dl>
+        <dt>$_("Date created")</dt>
+        <dd>date!</dd>
+        ##<dd>$account.get_create_date()</dd>
+
+        ##if $account.get_expire_date()
+        <dt>$_("Expire date")</dt>
+        <dd>date!</dd>
+        ##<dd>$account.get_expire_date()</dd>
+        ##end if
+
+        <dt>$_("Created by")</dt>
+        <dd>GoD32!</dd>
+        ##<dd>$account.get_creator()</dd>
+
+        <dt>$_("Owned by")</dt>
+        <dd>0wned!</dd>
+        ##<dd>$account.get_owner()</dd>
+
+        ##if $account.spread
+        <dt>$_("Spreads")</dt>
+        <dd>spreads!</dd>
+        ##<dd>$account.spread</dd>
+        ##end if    
+    </dl>
+</div>
+<div class="actions">
+    #set link = $url("account/edit?id=%s" % $account.get_entity_id())
+    #set link2 = $url("account/delete?id=%s" % $account.get_entity_id())
+    <a href="$link">$_("Edit account")</a><a href="$link2">$_("Remove account")</a>
+</div>
+#end def
+
