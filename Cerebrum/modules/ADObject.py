@@ -57,15 +57,18 @@ class ADObject(Entity, EntityName, EntityQuarantine):
         return False   
 
 
-    def populate(self, type, ou):
+    def populate(self, ou, type=None, parent=None):
+        if parent is not None:
+            self.__xerox__(parent)
+        else:
+            Entity.populate(self,type)
         try:
             if not self.__in_db:
                 raise RuntimeError, "populate() called multiple times."
         except AttributeError:
-            self.__in_db = False        
-        Entity.populate(self, type)
-        self.ou_id = ou
-        
+            self.__in_db = False
+        self.ou_id=ou
+
 
     def write_db(self):
 #                 
@@ -93,9 +96,8 @@ class ADObject(Entity, EntityName, EntityQuarantine):
         self.__updated = False
 
     def find(self, entity_id):
-        """Associate the object with the ADUser whose identifier is account_id.
-
-        If account_id isn't an existing ID identifier,
+        """Associate the object with the ADObject whose identifier is entity_id
+        If entity_id isn't an existing ID identifier,
         NotFoundError is raised."""
         self.__super.find(entity_id)
         (self.ou_id) = self.query_1("""

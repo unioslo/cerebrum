@@ -53,13 +53,17 @@ class ADAccount(ADObject):
         return False
 
 
-    def populate(self, type, ou, login_script, home_dir):
+    def populate(self,  login_script, home_dir, ou=None, type=None , parent=None):
+        if parent is not None:
+            self.__xerox__(parent)
+        else:
+            ADObject.populate(self, ou, type)
         try:
             if not self.__in_db:
                 raise RuntimeError, "populate() called multiple times."
         except AttributeError:
             self.__in_db = False        
-        ADObject.populate(self, type, ou)
+        
         self.login_script = login_script
         self.home_dir = home_dir
         
