@@ -21,7 +21,7 @@
 category:metainfo;
 name=changelog;
 category:metainfo;
-version=1.0;
+version=1.1;
 category:drop;
 drop TABLE change_handler_data;
 category:drop;
@@ -88,6 +88,8 @@ CREATE TABLE change_log
   change_program  CHAR VARYING(16),
   description     CHAR VARYING(255)
 );
+category:main;
+CREATE INDEX change_log_change_by_idx ON change_log(change_by);
 
 category:main;
 create index change_log_subject_idx on change_log(subject_entity);
