@@ -23,7 +23,7 @@ import random
 
 from Cerebrum import Account
 from Cerebrum import Errors
-from Cerebrum import Email
+from Cerebrum.modules import Email
 from Cerebrum.modules.bofhd.utils import BofhdRequests
 
 
@@ -40,15 +40,21 @@ class AccountUiOMixin(Account.Account):
     def add_spread(self, spread):
         self.__super.add_spread(spread)
         if spread == self.const.spread_uio_imap:
-            # If there is no EmailServerTarget registered for this
-            # account, we need to assign one.
+            # Unless this account already has been associated with an
+            # Cyrus EmailServerTarget, we need to do so.
             est = Email.EmailServerTarget(self._db)
+            es = Email.EmailServer(self._db)
+            is_on_cyrus = False
             try:
                 est.find_by_entity(self.entity_id)
+                es.find(est.email_server_id)
+                if es.email_server_type == self.const.email_server_type_cyrus:
+                    is_on_cyrus = True
             except Errors.NotFoundError:
+                pass
+            if not is_on_cyrus:
                 # Randomly choose which IMAP server the user should
                 # reside on.
-                es = Email.EmailServer(self._db)
                 imap_servs = []
                 for svr in es.list_email_server_ext():
                     if (svr['server_type']
