@@ -1283,3 +1283,5 @@ class FS(object):
         FROM all_users
         """
         return self.db.query(query, fetchall = fetchall)
+
+# arch-tag: 15c18bb0-05e8-4c3b-a47c-c84566e57803
