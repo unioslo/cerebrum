@@ -22,6 +22,9 @@ uio_mx_dict = {
     'smtp.uio.no':	1
     }
 
+# Consider these hosts to have DNS A records
+extra_hosts = ('notes.uio.no',)
+
 dig_cmd  = '/local/bin/dig %s. @%s. axfr'
 dig_args = (('uio.no',     'nissen.uio.no'),
             ('ifi.uio.no', 'bestemor.ifi.uio.no'))
@@ -42,6 +45,8 @@ def get_hosts_and_cnames():
     cname2host  = {}
     host2mx     = {}
     lower2host  = {}
+    for host in extra_hosts:
+        got_host[host] = 1
     for args in dig_args:
         dig_version_found = 0
         f = os.popen(dig_cmd % args, 'r')
