@@ -1230,15 +1230,17 @@ def showtime(msg):
 def read_config(fname):
     "Reads configuration from a python-script specified by filename"
     global person_aff_mapping, user_aff_mapping, default_ou,\
-           shell2shellconst, ureg_domtyp2catgs
+           shell2shellconst, ureg_domtyp2catgs, spamlvl2const, spamact2const
     globs = {}
     locs = {}
     execfile(fname, globs, locs)
-    person_aff_mapping = locs.get('person_aff_mapping')
-    user_aff_mapping = locs.get('user_aff_mapping')
+    person_aff_mapping = locs.get('person_aff_mapping', {})
+    user_aff_mapping = locs.get('user_aff_mapping', {})
     default_ou = locs.get('default_ou')
-    shell2shellconst = locs.get('shell2shellconst')
-    ureg_domtyp2catgs = locs.get('ureg_domtyp2catgs')
+    shell2shellconst = locs.get('shell2shellconst', {})
+    ureg_domtyp2catgs = locs.get('ureg_domtyp2catgs', {})
+    spamlvl2const = locs.get('spamlvl2const', {})
+    spamact2const = locs.get('spamact2const', {})
 
 def parse_date(d):
     elems = [int(x) for x in d.split("-")]
