@@ -49,6 +49,7 @@ cl_events = (
 		const.group_add, \
 		const.group_rem, \
 		const.group_mod, \
+		const.entity_name_del,
 		const.spread_add, \
 		const.spread_del, \
 		const.quarantine_add, \
@@ -66,15 +67,15 @@ DEBUG = 4
 
 cltype = {}
 cl_entry = {'group_mod' : 'pass', 	
-	#'group_add' : 'group_mod(cll.change_type_id,cll.subject_entity,\
+	#'group_add' : 'group_user(cll.change_type_id,cll.subject_entity,\
 	#				cll.dest_entity,cll.change_id)',
-	#'group_rem' : 'group_mod(cll.change_type_id,cll.subject_entity,\
+	#'group_rem' : 'group_user(cll.change_type_id,cll.subject_entity,\
 	#				cll.dest_entity,cll.change_id)',
 	#'account_mod' : 'mod_account(cll.subject_entity,i)',
 	'spread_add' : 'change_spread(cll.subject_entity,cll.change_type_id,\
-							cll.change_params)',
+						cll.change_params,cll.change_id)',
 	'spread_del' : 'change_spread(cll.subject_entity,cll.change_type_id,\
-							cll.change_params)',
+						cll.change_params,cll.change_id)',
 	#'quarantine_add' : 'change_quarantine(cll.subject_entity,\
 	#						cll.change_type_id)',
 	#'quarantine_mod' : 'change_quarantine(cll.subject_entity,\
@@ -88,13 +89,22 @@ cl_entry = {'group_mod' : 'pass',
 
 def nwqsync(spreads):
     i = 0
-    global spread_ids
+    global spread_ids, spread_grp, ent_name_cache
     spread_ids = []
+    # Since delete entity_name are done before delete of group and spread
+    # we will cache all entity_id/entity_name
+    ent_name_cache = {}
     clh = CLHandler.CLHandler(db)
     ch_log_list = clh.get_events('nwqsync',cl_events)
     for spread in spreads.split(','):
       spread_ids.append(int(getattr(co, spread)))
     for cll in ch_log_list:
+	if ch_type in [const.entity_name_del,]:
+	    param_list = string.split(ch_params,'\n')
+	    domain = re.sub('\D','',param_list[3])
+            ent_name = param_list[6].split('\'')[1]
+	    ent_name_cache[cll.subject_id] = {'name':ent_name,'value_domain':domain}
+	    continue
         try:
             func = cltype[int(cll.change_type_id)]
         except KeyError:
@@ -290,89 +300,127 @@ def path2edir(attrs):
     return disk_str
 
 
-def change_user_spread(dn_id,ch_type,ch_params):
+def change_user_spread(dn_id,ch_type,spread,uname=None):
     account = Account.Account(db)
     group = Group.Group(db)
-    param_list = []
-    param_list = string.split(ch_params,'\n')
-    cl_spread = int(re.sub('\D','',param_list[3]))
-    if cl_spread in spread_ids:
-        account.find(dn_id)
-        search_str = "(&(cn=%s)(objectClass=inetOrgPerson))" % account.account_name
-        search_dn = "%s" % cereconf.NW_LDAP_ROOT
-        #ldap_obj = ldap_handle.GetObjects(search_dn,search_str)
-	ldap_obj = get_ldap_value(search_dn,search_str)
-        if (ch_type == int(const.spread_del)):
-	    if ldap_obj <> []:
-		(ldap_user, ldap_attrs) = ldap_obj[0][0]
-                if not nwutils.touchable(ldap_attrs):
-                    return
-                delete_ldap(ldap_user)
-        elif (ch_type == int(const.spread_add)):
-            if (ldap_obj == []):
-                (ldap_user, ldap_attrs) = nwutils.get_account_info(dn_id, cl_spread, None)
-                path2edir(ldap_attrs)
+    if not uname:
+    #if cl_spread in spread_ids:
+	try:
+	    account.find(dn_id)
+	    ac_name = account.account_name
+	except Error.NotFoundError:
+	    logger.error("Account could not be found: %s" % dn_id)
+	    return
+    else: acc_name = uname
+    search_str = "(&(cn=%s)(objectClass=inetOrgPerson))" % acc_name
+    search_dn = "%s" % cereconf.NW_LDAP_ROOT
+    #ldap_obj = ldap_handle.GetObjects(search_dn,search_str)
+    ldap_obj = get_ldap_value(search_dn,search_str)
+    if (ch_type == int(const.spread_del)):
+	if not nwutils.touchable(ldap_attrs):
+	    return
+	if ldap_obj <> []:
+	    logger.info('User doesnt exist on LDAP-server: %s' % acc_name)
+	else: 
+	    delete_ldap(ldap_obj[0][0][0])
+	    for grp in group.list_groups_with_entity(dn_id):
+                user_add_del_grp(const.group_rem, dn_id, grp['group_id'])
+	    #(ldap_user, ldap_attrs) = ldap_obj[0][0]
+    elif (ch_type == int(const.spread_add)):
+	if ldap_obj == [] and [x for x in spread_ids if account.has_spread(x)]:
+	    (ldap_user, ldap_attrs) = nwutils.get_account_info(dn_id, \
+							cl_spread, None)
+            path2edir(ldap_attrs)
                 #ldap_user = ldap_user.replace('ou=HIST', 'o=HiST')
 		#if input.lower() == 'y':
 		#print ldap_user,ldap_attrs
-		add_ldap(ldap_user,ldap_attrs)
-            else:
-                (ldap_user, ldap_attrs) = ldap_obj [0][0]
-                logger.info("WARNING: User %s already exist as %s" % (account.account_name, ldap_user))
-            for grp in group.list_groups_with_entity(dn_id):
+	    add_ldap(ldap_user,ldap_attrs)
+	    for grp in group.list_groups_with_entity(dn_id):
                 user_add_del_grp(const.group_add, dn_id, grp['group_id'])
+	else:
+            (ldap_user, ldap_attrs) = ldap_obj [0][0]
+            logger.info("WARNING: User %s already exist as %s" % (acc_name,\
+								ldap_user))
+    else:
+	logger.info('Something is really wrong (id:%s,ch-type:%s' % (dn_id,\
+								ch_type))
 
 
-
-def change_group_spread(dn_id,ch_type,ch_params):    
+def change_group_spread(dn_id,ch_type,spread,gname=None):    
     group = Group.Group(db)
-    param_list = []
-    param_list = string.split(ch_params,'\n')
-    cl_spread = int(re.sub('\D','',param_list[3]))
-    if cl_spread not in spread_ids:
-        return
-    if group_done.has_key(dn_id) and group_done[dn_id] is ch_type:
-        return
+    #if group_done.has_key(dn_id) and group_done[dn_id] is ch_type:
+    #    return
     group.clear()
-    group.entity_id = int(dn_id)
-    group_name = cereconf.NW_GROUP_PREFIX + group.get_name(co.group_namespace) + cereconf.NW_GROUP_POSTFIX
+    if not gname:
+	try: 
+	    group.find(dn_id)
+	    grp_name = group.name 
+        except:
+	    logger.error('Group-entity can not be found: ch-id:%s subj-id:%s' % (ch_id,dn_id))
+    else: grp_name = gname	
+    group_name = cereconf.NW_GROUP_PREFIX + grp_name + cereconf.NW_GROUP_POSTFIX
     utf8_ou = nwutils.get_ldap_group_ou(group_name)
     utf8_dn = unicode('cn=%s,' % group_name, 'iso-8859-1').encode('utf-8') + utf8_ou
     search_dn = "%s" % cereconf.NW_LDAP_ROOT
     ldap_obj = get_ldap_value(search_dn, utf8_dn)
-    if ldap_obj <> []:
-        (ldap_group, ldap_attrs) = ldap_obj [0][0]
-        if not nwutils.touchable(ldap_attrs):
-            logger.info("ERROR: LDAP object %s not managed by Cerebrum." % ldap_group)
-            return
-    if True in [group.has_spread(x) for x in spread_ids]:
-        attrs = []
-        attrs.append( ("ObjectClass", "group") )
-        attrs.append( ("description", "Cerebrum;%d;%s" % (dn_id,nwutils.now()) ) )
-        add_ldap(utf8_dn, attrs)
-        for mem in group.get_members():
-            user_add_del_grp(const.group_add,mem,dn_id)
-        group_done[dn_id] = ch_type
+    if ch_type==int(const.spread_del) and ldap_obj <> []:
+	(ldap_group, ldap_attrs) = ldap_obj [0][0]
+	if not nwutils.touchable(ldap_attrs):
+	    logger.info("ERROR: LDAP object %s not managed by Cerebrum." % ldap_group)
+	    return
+	else: delete_ldap(ldap_group)
+    elif (ch_type==co.spread_add):
+	try:
+	    if ch_type == int(const.spread_add) \
+			and ([x for x in spread_grp if group.has_spread(x)]):
+		attrs = []
+		attrs.append(("ObjectClass", "group"))
+		attrs.append(("description", "Cerebrum;%d;%s" % (dn_id,
+							nwutils.now())))
+		add_ldap(utf8_dn, attrs)
+		for mem in group.get_members():
+            	    user_add_del_grp(const.group_add,mem,dn_id)
+        	group_done[dn_id] = ch_type
+	except:
+	    logger.error('Error occured while creating group %s' % dn_id)
     else:
-        delete_ldap(utf8_dn)
+	logger.error('Spread del/add could not be prossesed (group %s)' % dn_id) 
 
 
-def change_spread(dn_id,ch_type,ch_params):
+def change_spread(dn_id,ch_type,ch_params,ch_id):
+    spread = int(re.sub('\D','',(string.split(ch_params,'\n')[3])))
+    if spread not in (spread_ids + spread_grp): return
     entity = Entity.Entity(db)
     try:
 	entity.find(int(dn_id))
+	if entity.entity_type == int(co.entity_account) and spread in spread_ids:
+	    change_user_spread(dn_id,ch_type,spread)
+	elif entity.entity_type == int(co.entity_group) and spread in spread_grp:
+	    change_group_spread(dn_id,ch_type,spread)
+	else: pass 
+	    # Maybe it should be a logger message
     except Errors.NotFoundError:
-	logger.info("Entity_id %d do not exist" % dn_id)
-	return
-    #What to do with ch_param
-    if entity.entity_type == int(co.entity_account):
-	print "in user spread"
-        change_user_spread(dn_id,ch_type,ch_params)
-    elif entity.entity_type == int(co.entity_group):
-        change_group_spread(dn_id,ch_type,ch_params)
-    else:
-        logger.info("# Change_spread did not resolve request (%s,%s)" 
-					% (dn_id,ch_type)) 
+	if not (ch_type == const.spread_del):
+	    log_txt = "Could not resolve account/group name for entity-id: "
+            logger.error(log_txt + dn_id)
+	    return
+	if ent_name_cache.has_key(dn_id):
+	    if (ent_name_cache[dn_id]['domain'] == const.group_namespace) \ 
+						and spread in spread_grp:
+		change_group_spread(dn_id,ch_type, spread,\
+			gname=ent_name_cache[dn_id]['name'])
+	    elif ent_name_cache[dn_id]['domain'] == const.account_namespace \
+						and spread in spread_ids:
+	    	change_user_spread(dn_id,ch_type, spread,\
+                        uname=ent_name_cache[dn_id]['name'])
+	    else: pass
+	else:
+	    log_txt = "Could not resolve account/group name for entity-id: "
+	    logger.error(log_txt + dn_id)
+	    # If entry not in cache, search changelog for event: subject_id=dn_id,
+	    # change_type_id=const.entity_name_del, if none then  
+	    # logger.error("Could not delete because could not resolve 
+	    # group/account: %s name" % dn_id)
 
 
 def mod_account(dn_id,i):
@@ -440,27 +488,48 @@ def change_passwd(dn_id, ch_params):
 
 
 
-def group_mod(ch_type,dn_id,dn_dest,log_id):
+def group_mod(ch_type,dn_id,log_id):
     # We remember groups we're done with because we don't want to
     # re-read LDAP for every group_mod event.
+    #entity = Entity.Entity(db)
+    #entity.find(int(dn_id))
+    group = Group.Group(db)
+    group.clear()
+    group.find(dn_id)
+    if (ch_type 
+    if entity.entity_type == co.entity_group:
+	if 
+    if entity.entity_type == co.entity_account:
+	if True in [entity.has_spread(x) for x in spread_ids]:
+	    if True in [group.has_spread(x) for x in spread_nwgrp]:
+		user_add_de_grp()
+		for grp in group.list_group_with entity
+	    else:
+		
+	else:
+	    return
+    if True in [entity 
     group = Group.Group(db)
     group.clear()
     group.entity_id = int(dn_dest)
-    group_name = cereconf.NW_GROUP_PREFIX + group.get_name(co.group_namespace) + cereconf.NW_GROUP_POSTFIX
-    search_str = "cn=%s" % group_name	# Find a proper objectclass to avoid name-space collition
-    search_dn = "%s" % cereconf.NW_LDAP_ROOT
-    if group_done.has_key(dn_dest):
-        return
-    ldap_obj = get_ldap_value(search_dn,search_str)
-    if ldap_obj <> []:
-        (ldap_group, ldap_attrs) = ldap_obj [0][0]
-        for mem in group.get_members(spread=spread_ids[0]):
-            user_add_del_grp(ch_type,mem,dn_dest)
-        group_done[dn_dest] = "Synced"
+    if True in [group.has_spread(x) for x in spread_ids]:
+	group_name = cereconf.NW_GROUP_PREFIX + group.get_name(co.group_namespace) + cereconf.NW_GROUP_POSTFIX
+	search_str = "cn=%s" % group_name	# Find a proper objectclass to avoid name-space collition
+	search_dn = "%s" % cereconf.NW_LDAP_ROOT
+	if group_done.has_key(dn_dest):
+	    return
+	ldap_obj = get_ldap_value(search_dn,search_str)
+	if ldap_obj <> []:
+	    (ldap_group, ldap_attrs) = ldap_obj [0][0]
+	    for mem in group.get_members(spread=spread_ids[0]):
+		user_add_del_grp(ch_type,mem,dn_dest)
+	    group_done[dn_dest] = "Synced"
+	else:
+	    # Group not in LDAP (yet)
+	    logger.info("WARNING: Group %s not found in LDAP" % search_str)
+	    group_done[dn_dest] = "not found"
     else:
-       # Group not in LDAP (yet)
-       logger.info("WARNING: Group %s not found in LDAP" % search_str)
-       group_done[dn_dest] = "not found"
+	for mem in group.get_members(get_members(spread=u_spreads[0])):
     
     
 
