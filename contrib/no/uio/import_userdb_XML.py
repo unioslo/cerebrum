@@ -45,6 +45,7 @@ from Cerebrum.modules import PosixGroup
 from Cerebrum.modules import PosixUser
 from Cerebrum.modules import PasswordHistory
 from Cerebrum.modules.no import Stedkode
+from Cerebrum.modules.no.uio import PrinterQuotas
 from Cerebrum.Utils import Factory
 
 default_personfile = ''
@@ -68,6 +69,7 @@ account = Account.Account(db)
 account.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
 acc_creator_id = account.entity_id
 pwdhist = PasswordHistory.PasswordHistory(db)
+pquotas = PrinterQuotas.PrinterQuotas(db)
 
 shell2shellconst = {
     'bash': co.posix_shell_bash,
@@ -264,7 +266,7 @@ def import_groups(groupfile, fill=0):
                         account.clear()
                         account.find_by_name(m['name'])
                     else:  # Delay insertion as group may not exist yet
-                        group_group.setdefault(groupObj.entity_id, []).append(m['name'])
+                        group_group.setdefault(int(groupObj.entity_id), []).append(m['name'])
                         continue
 
                     if not group_has_member.get(int(destination.entity_id), {}
@@ -288,14 +290,17 @@ def import_groups(groupfile, fill=0):
             try:
                 tmp.find_by_name(m)
             except Errors.NotFoundError:
-                print "E:%i/%s" % (group, m),
+                print "E:%i/%s" % (group, m)
+                continue
+            if int(group) == int(tmp.entity_id):
+                print "Warning group memember of itself, skipping %s" % m
+                continue
             groupObj.add_member(tmp.entity_id, tmp.entity_type, co.group_memberop_union)
     db.commit()
 
 def import_person_users(personfile):
     global gid2entity_id, stedkode2ou_id
 
-    showtime("Preparing")
     group=PosixGroup.PosixGroup(db)
     gid2entity_id = {}
     if 0:
@@ -542,7 +547,15 @@ def create_account(u, owner_id):
                                          acc_creator_id, # TODO: Set this
                                          description=why,
                                          start=when)
-
+    if u.has_key("printerquota"):
+        p = u['printerquota']
+        pquotas.clear()
+        pquotas.populate(accountObj.entity_id, p['printer_quota'],
+                         p['pages_printed'], p['pages_this_semester'],
+                         p['termin_quota'], p['has_printerquota'],
+                         p['weekly_quota'], p['max_quota'])
+        pquotas.write_db()
+ 
     for tmp in u.get('spread', []):
         if tmp['domain'] == 'u':
             accountObj.add_spread(co.spread_uio_nis_user)
@@ -602,6 +615,7 @@ if __name__ == '__main__':
     max_cb = None
     pfile = default_personfile
     gfile = default_groupfile
+    showtime("Started")
     for o, a in opts:
         if o in ('-p', '--pfile'):
             pfile = a
