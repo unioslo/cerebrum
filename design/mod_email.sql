@@ -224,7 +224,9 @@ CREATE TABLE email_address
   address_id	NUMERIC(12,0)
 		CONSTRAINT email_address_pk PRIMARY KEY,
   local_part	CHAR VARYING(128)
-		NOT NULL,
+		NOT NULL
+		CONSTRAINT email_address_caseless_chk
+		  CHECK (local_part = LOWER(local_part)),
   domain_id	NUMERIC(12,0)
 		NOT NULL
 		CONSTRAINT email_address_domain_id
