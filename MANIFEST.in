@@ -1,8 +1,9 @@
 include *.in *.py
 include COPYING
+include HACKING
 include configure
 include configure.ac
-include testsuite/Makefile.in
+include testsuite/*.in testsuite/*.sh testsuite/*.dat  testsuite/*.py
 recursive-include java *.java *.jar *.xml *.properties *.so
 recursive-include client *.py *.html
 recursive-include contrib *.py
