@@ -26,7 +26,7 @@ from Cerebrum.modules import Email
 from Cerebrum.modules.EmailLDAP import EmailLDAP
 
 class EmailLDAPFeideGvsMixin(EmailLDAP):
-    """Methods specific for UiO."""
+    """Methods specific for FEIDE-GVS."""
 
     def __init__(self, db):
         self.__super.__init__(db)
