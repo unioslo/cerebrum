@@ -76,7 +76,7 @@ class ExportedFuncs(object):
             # Sub-modules may override functions.
             modfile = line.strip()
             mod = Utils.dyn_import(modfile)
-            modref = mod.BofhdExtention(self.Cerebrum)
+            modref = mod.BofhdExtension(self.Cerebrum)
             self.modules[modfile] = modref
             for k in modref.all_commands.keys():
                 self.command2module[k] = modfile
