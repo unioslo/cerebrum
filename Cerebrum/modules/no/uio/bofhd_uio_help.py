@@ -151,6 +151,8 @@ command_help = {
     "misc": {
     "misc_affiliations":
         "List all known affiliations",
+    "misc_cancel_request":
+        "Cancel a pending request",
     "misc_change_request":
         "Change execution time for a pending request",
     "misc_checkpassw":
