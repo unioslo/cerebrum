@@ -154,7 +154,8 @@ def set_quota(person_id, has_quota=False, has_blocked_quota=False,
         pu.set_free_pages(person_id,
                           int(autostud.pc.default_values['print_start']),
                           '%s%s' % (term_init_prefix, 'default'),
-                          update_program=update_program)
+                          update_program=update_program,
+                          force=True)
 
     # Tildele eventuelle utvidede fri-kvoter jmf. 2.2 og 2.3
     for uq in utv_person.get(person_id, []):
