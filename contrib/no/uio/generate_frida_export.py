@@ -117,7 +117,9 @@ class LTPersonRepresentation(object):
 	      tittel CDATA #REQUIRED>
     <!ELEMENT gjest EMPTY>
     <!ATTLIST gjest
-              sko CDATA #REQUIRED
+              fakultetnr CDATA #REQUIRED
+              instituttnr CDATA #REQUIRED
+              gruppenr CDATA #REQUIRED
               gjestetypekode CDATA #REQUIRED
               dato_fra CDATA #REQUIRED
               dato_til CDATA #REQUIRED>
@@ -230,10 +232,6 @@ class LTPersonRepresentation(object):
 
         An element is active if it has dato_fra in the past and dato_til in
         the future (or right *now*).
-
-        FIXME: NB! Since <gjest>-elements do *NOT* have dates yet, any
-        person having a <gjest> element is deemed active. Yes, it is wrong,
-        but LT dumps violate the DTD.
         """
 
         return (self.has_active("gjest") or
@@ -345,12 +343,11 @@ class LTPersonParser(xml.sax.ContentHandler, object):
             dato_fra="20021201" dato_til="20031031"
             hovedkat="VIT"
             tittel="stipendiat"/>
-      <gjest sko="130447" gjestetypekode="EMERITUS"/>
+      <gjest fakultetnr="15" instituttnr="4" gruppenr="30"
+             gjestetypekode="IKKE ANGIT"
+             dato_fra="20030901" dato_til="20041231"/>
       <res katalogkode="ELKAT" felttypekode="PRIVADR"/>
     </person>
-
-    FIXME: Note that the example above does not validate with lt-person.dtd
-    (dato_fra and dato_til are missing from the <gjest>-element).
     '''
 
     PERSON_ELEMENT = LTPersonRepresentation.PERSON_ELEMENT
@@ -892,6 +889,8 @@ def output_guest_information(writer, pobj):
         for output, index in [("guestFak", "fakultetnr"),
                               ("guestInstitutt", "instituttnr"),
                               ("guestGroup", "gruppenr"),
+                              ("fraDato", "dato_fra"),
+                              ("tilDato", "dato_til"),
                               ]:
             output_element(writer, element[index], output)
         # od
