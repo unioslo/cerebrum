@@ -329,7 +329,7 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
             binds['src'] = int(source_system)
             where = " AND source_system=:src"
         person_id = self.query_1("""
-        SELECT person_id
+        SELECT DISTINCT person_id
         FROM [:table schema=cerebrum name=person_external_id]
         WHERE id_type=:id_type AND external_id=:ext_id %s""" % where, binds)
         self.find(person_id)
