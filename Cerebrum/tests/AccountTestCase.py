@@ -28,16 +28,16 @@ class Account_createTestCase(Person_createTestCase):
         account = Account.Account(self.Cerebrum)
         account.clear()
         self._myPopulateAccount(account)
-        
+
         account.write_db()
-        self.account_id = account.account_id
+        self.account_id = int(account.account_id)
 
     def _myPopulateAccount(self, account):
         ad = self.account_dta
         ad['owner_id'] = self.person_id
         account.clear()
-        Account.Account.populate(account, ad['name'], ad['owner_type'], ad['owner_id'], ad['np_type'],
-                         ad['creator_id'], ad['expire_date'])
+        account.populate(ad['name'], ad['owner_type'], ad['owner_id'],
+                         ad['np_type'], ad['creator_id'], ad['expire_date'])
 
     def tearDown(self):
         # print "Account_createTestCase.tearDown()"
@@ -66,7 +66,7 @@ class AccountTestCase(Account_createTestCase):
 
         self.failIf(new_account <> account, "Error: should be equal")
         new_account.account_name = 'foobar'
-        self.failIf(new_account == account, "Error: should be different") 
+        self.failIf(new_account == account, "Error: should be different")
 
     def testDeleteAccount(self):
         "Delete the person"
