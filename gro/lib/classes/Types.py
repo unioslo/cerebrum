@@ -18,37 +18,38 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 import Cerebrum.Entity
+import Database
 
 from Cerebrum.gro.Cerebrum_core import Errors
 
 from Builder import Builder, Attribute
-from db import db
 
 __all__ = ['AddressType', 'ContactInfoType', 'GenderType', 'EntityType',
            'SourceSystem', 'NameType', 'AuthenticationType', 'Spread',
-           'GroupMemberOperationType', 'GroupVisibilityType', 'QuarantineType']
+           'GroupMemberOperationType', 'GroupVisibilityType', 'QuarantineType',
+           'OUPerspectiveType']
 
 class CodeType(Builder):
-    primary = [Attribute('id', 'long')]
-    slots = primary + [Attribute('name', 'string'),
+    primary = [Attribute('name', 'string')]
+    slots = primary + [Attribute('id', 'long'),
                        Attribute('description', 'string')]
 
-    def getByName(cls, name):
-        rows = db.query('''SELECT code, description
-                           FROM %s WHERE code_str = %s''' % (cls._tableName, `name`)) # ugh. stygg escaping
+    def get_by_id(cls, id):
+        rows = Database.get_database().query('''SELECT code_str, description
+                           FROM %s WHERE code = %s''' % (cls._tableName, id)) # ugh. stygg escaping
         if not rows:
-            raise Errors.NoSuchNodeError('%s %s not found' % (cls.__name__, name))
+            raise Errors.NoSuchNodeError('%s(%s) not found' % (cls.__name__, id))
         row = rows[0]
 
-        id = int(row['code'])
+        name = row['code_str']
         description = row['description']
 
         return cls(id, name=name, description=description)
 
-    getByName = classmethod(getByName)
+    get_by_id = classmethod(get_by_id)
 
     def _load(self):
-        rows = db.query('''SELECT code_str, description
+        rows = Database.get_database().query('''SELECT code_str, description
                            FROM %s WHERE code = %s''' % (self._tableName, self._id))
         if not rows:
             raise Errors.NoSuchNodeError('%s %s not found' % (self.__class__.__name__, self._id))
@@ -75,8 +76,7 @@ class EntityType(CodeType):
     _tableName = 'entity_type_code'
 
     def get_class(self):
-        # TODO: legg til OU
-        import Account, Disk, Group, Host, Person
+        import Account, Disk, Group, Host, OU, Person
         if self.get_name() == 'account':
             return Account.Account
         elif self.get_name() == 'disk':
@@ -86,7 +86,7 @@ class EntityType(CodeType):
         elif self.get_name() == 'host':
             return Host.Host
         elif self.get_name() == 'ou':
-            raise NotImplementedError('OU is not implemented')
+            return OU.OU
         elif self.get_name('person'):
             return Person.Person
 
@@ -104,6 +104,9 @@ class GroupMemberOperationType(CodeType):
 
 class GroupVisibilityType(CodeType):
     _tableName = 'group_visibility_code'
+
+class OUPerspectiveType(CodeType):
+    _tableName = 'ou_perspective_code'
 
 class QuarantineType(CodeType):
     _tableName = 'quarantine_code'
