@@ -423,7 +423,22 @@ LDAP_REWRITE_EMAIL_DOMAIN = {}
 # LDIF files to insert in the LDAP dumps from generate_<org,posix>_ldif.
 LDAP_ORG_ADD_LDIF_FILE = LDAP_POSIX_ADD_LDIF_FILE = None
 
-# generate_mail_dns_ldif.py parameter:
+# generate_mail_dns_ldif.py parameters:
+#
+# Only consider hosts which have these hosts as lowest priority
+# MX record and also are A records.
+#LDAP_MAIL_DNS_MX_HOSTS = ("some-host", ...)
+#
+# Treat these hosts as if they have A records.
+LDAP_MAIL_DNS_EXTRA_A_HOSTS = ()
+#
+# 'dig' command used to fetch information from DNS.
+LDAP_MAIL_DNS_DIG_CMD = "/usr/bin/dig %s. @%s. axfr"
+#
+# Sequence of sequence of arguments to LDAP_MAIL_DNS_DIG_CMD.  The command
+# is run once for each sequence of arguments.  The resulsts are combined.
+#LDAP_MAIL_DNS_DIG_ARGS = ((domain, name server), (domain, name server), ...)
+#
 # Maximum percent change of the size of the output file since last run.
 # With a larger change, an error is reported and the file if not updated.
 LDAP_MAIL_DNS_MAX_CHANGE = 10
