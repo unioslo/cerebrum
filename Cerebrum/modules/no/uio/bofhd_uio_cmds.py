@@ -2639,7 +2639,10 @@ class BofhdExtension(object):
         host = self._get_host(hostname)
         disk = Utils.Factory.get('Disk')(self.db)
         disk.populate(host.entity_id, diskname, 'uio disk')
-        disk.write_db()
+        try:
+            disk.write_db()
+        except self.db.DatabaseError, m:
+            raise CerebrumError, "Database error: %s" % m
         if len(diskname.split("/")) != 4:
             return "OK.  Warning: disk did not follow expected pattern."
         return "OK"
@@ -2671,7 +2674,10 @@ class BofhdExtension(object):
         host = self._get_host(hostname)
         disk = Utils.Factory.get('Disk')(self.db)
         disk.find_by_path(diskname, host_id=host.entity_id)
-        disk.delete()
+        try:
+            disk.delete()
+        except self.db.DatabaseError, m:
+            raise CerebrumError, "Database error: %s" % m
         return "OK, %s deleted" % diskname
     
     all_commands['misc_hadd'] = Command(
@@ -2681,7 +2687,10 @@ class BofhdExtension(object):
         self.ba.can_create_host(operator.get_entity_id())
         host = Utils.Factory.get('Host')(self.db)
         host.populate(hostname, 'uio host')
-        host.write_db()
+        try:
+            host.write_db()
+        except self.db.DatabaseError, m:
+            raise CerebrumError, "Database error: %s" % m
         return "OK"
 
     all_commands['misc_hrem'] = Command(
@@ -2690,7 +2699,10 @@ class BofhdExtension(object):
     def misc_hrem(self, operator, hostname):
         self.ba.can_remove_host(operator.get_entity_id())
         host = self._get_host(hostname)
-        host.delete()
+        try:
+            host.delete()
+        except self.db.DatabaseError, m:
+            raise CerebrumError, "Database error: %s" % m
         return "OK, %s deleted" % hostname
 
     # misc list_passwords
