@@ -133,9 +133,11 @@ class AccountType(object):
 
     def list_accounts_by_type(self, ou_id=None, affiliation=None,
                               status=None, filter_expired=False,
-                              account_id=None, person_id=None, fetchall=True):
-        """Return ``account_id``s of the matching accounts."""
-        extra=""
+                              account_id=None, person_id=None,
+                              primary_only=False, person_spread=None,
+                              fetchall=True):
+        """Return information about the matching accounts."""
+        join = extra = order = ""
         if affiliation is not None:
             extra += " AND at.affiliation=:affiliation"
             # To use 'affiliation' as a bind param, it might need
@@ -152,18 +154,35 @@ class AccountType(object):
             extra += " AND (ai.expire_date IS NULL OR ai.expire_date > [:now])"
         if account_id:
             extra += " AND ai.account_id=:account_id"
+        if primary_only:
+            extra += """ AND at.priority = (
+                  SELECT MIN(priority)
+                  FROM [:table schema=cerebrum name=account_type] at2
+                  WHERE at2.person_id = at.person_id)"""
+        else:
+            order = ", at.priority"
+        if person_spread is not None:
+            if isinstance(person_spread, (list, tuple)):
+                person_spread = "IN (%s)" % \
+                                ", ".join(map(str, map(int, person_spread)))
+            else:
+                person_spread = "= %d" % int(person_spread)
+            join += " JOIN [:table schema=cerebrum name=entity_spread] es" \
+                    " ON es.entity_id = at.person_id" \
+                    " AND es.spread " + person_spread
         return self.query("""
         SELECT DISTINCT at.person_id, at.ou_id, at.affiliation, at.account_id,
                         at.priority
         FROM [:table schema=cerebrum name=account_type] at,
              [:table schema=cerebrum name=person_affiliation_source] pas,
              [:table schema=cerebrum name=account_info] ai
+             %s
         WHERE at.person_id=pas.person_id AND
               at.ou_id=pas.ou_id AND
               at.affiliation=pas.affiliation AND
               ai.account_id=at.account_id
               %s
-        ORDER BY at.person_id, at.priority""" % extra,
+        ORDER BY at.person_id%s""" % (join, extra, order),
                           {'ou_id': ou_id,
                            'affiliation': affiliation,
                            'status': status,
