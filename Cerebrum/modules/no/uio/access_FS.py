@@ -53,6 +53,7 @@ class FS(object):
             self.sem = 'H'
             self.semester = 'HØST'
         self.year = t[0]
+        self.mndnr = t[1]
         self.YY = str(t[0])[2:]
 
 
@@ -303,15 +304,15 @@ WHERE s.fodselsdato = p.fodselsdato AND
         return (self._get_cols(qry), self.db.query(qry))
 
     def GetStudinfAktiv(self):
-        """Hent fødselsnummer+studieprogram for alle aktive 
-        studenter.  Som aktive studenter regner vi alle studenter med
-   	opptak til et studieprogram som samtidig har en
-	eksamensmelding i et emne som kan inngå i dette
-	studieprogrammet, eller som har bekreftet sin utdanningsplan
-	Disse får affiliation student med kode aktiv til 
-        sp.faknr_studieansv+sp.instituttnr_studieansv+
+        """Hent fødselsnummer+studieprogram for alle aktive studenter.
+        Som aktive studenter regner vi alle studenter med opptak til
+        et studieprogram som samtidig har en eksamensmelding eller en
+        avlagt eksamen inneverende semester i et emne som kan inngå i
+        dette studieprogrammet, eller som har bekreftet sin
+        utdanningsplan.  Disse får affiliation student med kode aktiv
+        til sp.faknr_studieansv+sp.instituttnr_studieansv+
         sp.gruppenr_studieansv.  Vi har alt hentet opplysninger om
-	adresse ol. efter som de har opptak.  Henter derfor kun
+        adresse ol. efter som de har opptak.  Henter derfor kun
         fødselsnummer og studieprogram.  Medfører at du kan få med
         linjer som du ikke har personinfo for, dette vil være snakk om
         ekte-døde personer."""
@@ -337,6 +338,8 @@ WHERE s.fodselsdato=r.fodselsdato AND
       %s
 UNION """ %(self.get_termin_aar(only_current=1))
 
+        
+
         qry = qry + """
 SELECT DISTINCT
      s.fodselsdato, s.personnr, sp.studieprogramkode
@@ -352,7 +355,21 @@ WHERE s.fodselsdato=st.fodselsdato AND
       st.studieprogramkode=sp.studieprogramkode AND
       NVL(st.dato_gyldig_til,SYSDATE) >= sysdate AND
       r.dato_bekreftet < SYSDATE
-      """ 
+UNION
+SELECT DISTINCT sp.fodselsdato, sp.personnr, st.studieprogramkode
+FROM fs.studentseksprotokoll sp, fs.studierett st,
+     fs.emne_i_studieprogram es
+WHERE sp.arstall >= %s AND
+      (%s <= 6 OR sp.manednr > 6 ) AND
+      sp.fodselsdato = st.fodselsdato AND
+      sp.personnr = st.personnr AND
+      sp.institusjonsnr = '185' AND
+      sp.emnekode = es.emnekode AND
+      es.studieprogramkode = st.studieprogramkode AND
+      (st.opphortstudierettstatkode IS NULL OR
+      st.DATO_GYLDIG_TIL >= sysdate) AND
+      st.status_privatist = 'N'
+      """ %(self.year, self.mndnr)
      	return (self._get_cols(qry), self.db.query(qry))
 
 
