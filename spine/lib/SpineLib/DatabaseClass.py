@@ -92,11 +92,7 @@ class DatabaseClass(SpineClass, Searchable, Dumpable):
 
     def _load_db_attributes(self, attributes=None):
         if attributes is None:
-            attributes = []
-            for attr in self.slots:
-                if not isinstance(attr, DatabaseAttr) or attr.optional:
-                    continue
-                attributes.append(attr)
+            attributes = self._db_load_attributes
 
         db = self.get_database()
         
@@ -132,7 +128,11 @@ class DatabaseClass(SpineClass, Searchable, Dumpable):
         for table, attributes in self._get_sql_tables().items():
 
             # only update tables with changed attributes
-            attributes = [i for i in attributes if i in self.updated]
+            attributes = []
+            for i in self.updated:
+                if i in attributes and i in self._db_save_attributes:
+                    attributes.append(i)
+
             if not attributes:
                 continue
 
@@ -330,30 +330,32 @@ class DatabaseClass(SpineClass, Searchable, Dumpable):
     create_search_method = classmethod(create_search_method)
     
     def build_methods(cls):
-        optionals = []
-        attributes = []
-        for i in cls.slots:
-            if isinstance(i, DatabaseAttr):
-                if i.optional:
-                    optionals.append(i)
-                else:
-                    attributes.append(i)
+        if '_db_load_attributes' not in cls.__dict__:
+            cls._db_load_attributes = []
+            cls._db_save_attributes = []
 
-        for i in optionals + attributes:
-            if not hasattr(cls, i.get_name_save()):
-                setattr(cls, i.get_name_save(), cls._save_all_db)
+        for attr in cls.slots:
+            if not isinstance(attr, DatabaseAttr):
+                continue
 
-        for i in attributes:
-            if not hasattr(cls, i.get_name_load()):
-                setattr(cls, i.get_name_load(), cls._load_db_attributes)
+            if attr.optional:
+                def create_load(attr):
+                    def load_db_attribute(self):
+                        self._load_db_attributes([attr])
+                    return load_db_attribute
+                load = create_load(attr)
+            else:
+                load = cls._load_db_attributes
+            save = cls._save_all_db
 
-        for i in optionals:
-            def create(attr):
-                def load_db_attribute(self):
-                    self._load_db_attributes([attr])
-                return load_db_attribute
-            if not hasattr(cls, i.get_name_load()):
-                setattr(cls, i.get_name_load(), create(i))
+            if not hasattr(cls, attr.get_name_load()):
+                if not attr.optional:
+                    cls._db_load_attributes.append(attr)
+                setattr(cls, attr.get_name_load(), load)
+
+            if attr.write and not hasattr(cls, attr.get_name_save()):
+                cls._db_save_attributes.append(attr)
+                setattr(cls, attr.get_name_save(), save)
 
         super(DatabaseClass, cls).build_methods()
         cls.build_search_class()
