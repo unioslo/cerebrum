@@ -123,57 +123,76 @@ command_help = {
     }
 
 arg_help = {
-    'account_name': ['uname', 'Enter account name',
-                     'Enter the name of the account for this operation'],
-    'account_name_member': ['uname', 'Enter members accountname',
-                            "Enter the name of an account that already is a member"],
-    'account_name_src': ['uname', 'Enter source accountname',
-                         'You should enter the name of the source account for this operation'],
-    'account_password': ['password', 'Enter password'],
-    'affiliation': ['affiliation', 'Enter affiliaton',
-"""A persons affiliation defines the current rolle of that person
+    'account_name':
+        ['uname', 'Enter account name',
+         'Enter the name of the account for this operation'],
+    'account_name_member':
+        ['uname', 'Enter members accountname',
+         "Enter the name of an account that already is a member"],
+    'account_name_src':
+        ['uname', 'Enter source accountname',
+         'You should enter the name of the source account for this operation'],
+    'account_password':
+        ['password', 'Enter password'],
+    'affiliation':
+        ['affiliation', 'Enter affiliaton',
+         """A persons affiliation defines the current rolle of that person
 within a defined organizational unit.  'misc affiliations' lists all
 possible affiliations"""],
-    'affiliation_status': ['aff_status', 'Enter affiliation status',
+    'affiliation_status':
+        ['aff_status', 'Enter affiliation status',
 """Affiliation status describes a persons current status within a
 defined organizational unit (e.a. whether the person is an active
 student or an employee on leave).  'misc aff_status_codes' lists
 affiliation status codes"""],
-    'date': ['date', 'Enter date (YYYY-MM-DD)',
-             "The legal date format is 2003-12-31"],
-    'date_birth': ['date', 'Enter date of birth(YYYY-MM-DD)',
-             "The legal date format is 2003-12-31"],
-    'disk': ['disk', 'Enter disk',
- """Enter the path to the disc without trailing slash or username.
+    'date':
+        ['date', 'Enter date (YYYY-MM-DD)',
+         "The legal date format is 2003-12-31"],
+    'date_birth':
+        ['date', 'Enter date of birth(YYYY-MM-DD)',
+         "The legal date format is 2003-12-31"],
+    'disk':
+        ['disk', 'Enter disk',
+         """Enter the path to the disc without trailing slash or username.
  Example: /usit/sauron/u1
  For non-cerebrum disks, prepend the path with a :"""],
-    'email_address': ['address', 'Enter e-mail address'],
-    'email_forward_action': ['action', 'Enter action',
-"""Legal forward actions:
- - on
- - off
- - local"""],
-    'email_tripnote_action': ['action', 'Enter action',
-"""Legal tripnote actions:
- - on
- - off"""],
-    'group_name': ['gname', 'Enter groupname'],
-    'group_name_dest': ['gname', 'Enter the destination group'],
-    'group_name_new': ['gname', 'Enter the new group name'],
-    'group_name_src': ['gname', 'Enter the source group'],
-    'group_operation': ['op', 'Enter group operation',
-"""Three values are legal: union, intersection and difference.
+    'email_address':
+        ['address', 'Enter e-mail address'],
+    'email_forward_action':
+        ['action', 'Enter action',
+         "Legal forward actions:\n - on\n - off\n - local"],
+    'email_tripnote_action':
+        ['action', 'Enter action',
+         "Legal tripnote actions:\n - on\n - off"],
+    'group_name':
+        ['gname', 'Enter groupname'],
+    'group_name_dest':
+        ['gname', 'Enter the destination group'],
+    'group_name_new':
+        ['gname', 'Enter the new group name'],
+    'group_name_src':
+        ['gname', 'Enter the source group'],
+    'group_operation':
+        ['op', 'Enter group operation',
+         """Three values are legal: union, intersection and difference.
 Normally only union is used."""],
-    'group_visibility': ['vis', 'Enter visibility', "Example: A (= all)"],
-    'id': ['id', 'Enter id',
-"""Enter a groups internal id"""],
-    'id:entity_ext': ['entity_id', 'Enter entity_id, example: group:foo',
-    'Enter an entity_id either as number or as group:name / account:name'],
-    'id:op_target': ['op_target_id', 'Enter op_target_id'],
-    'mailman_list': ['address', 'Enter address for Mailman list'],
-    'mailman_list_exist': ['address', 'Enter address of existing Mailman list'],
-    'move_type': ['move_type', 'Enter move type',
-                  """Legal move types:
+    'group_visibility':
+        ['vis', 'Enter visibility', "Example: A (= all)"],
+    'id':
+        ['id', 'Enter id',
+         "Enter a group's internal id"],
+    'id:entity_ext':
+        ['entity_id', 'Enter entity_id, example: group:foo',
+         'Enter an entity_id either as number or as group:name / account:name'],
+    'id:op_target':
+        ['op_target_id', 'Enter op_target_id'],
+    'mailman_list':
+        ['address', 'Enter address for Mailman list'],
+    'mailman_list_exist':
+        ['address', 'Enter address of existing Mailman list'],
+    'move_type':
+        ['move_type', 'Enter move type',
+         """Legal move types:
  - immediate
  - batch
  - nofile
@@ -184,80 +203,116 @@ Normally only union is used."""],
  - request
  - confirm
  - cancel"""],
-    'ou': ['ou', 'Enter OU',
-    'Enter the 6-digit code of the organizational unit the person is affiliated to'],
-    'person_id': ['person_id', 'Enter person id',
-    """Enter person id as idtype:id.
+    'number_size_mib':
+        ['size', 'Enter size (in MiB)',
+        'Enter the size of storage, in mebibytes (1024*1024 bytes)'],
+    'number_percent':
+        ['percent', 'Enter percent',
+        'Enter the percentage (without trailing percent sign)'],
+    'ou':
+        ['ou', 'Enter OU',
+        'Enter the 6-digit code of the organizational unit the person is '+
+        'affiliated to'],
+    'person_id':
+        ['person_id', 'Enter person id',
+        """Enter person id as idtype:id.
 If idtype=fnr, the idtype does not have to be specified.
 The currently defined id-types are:
   - fnr : norwegian fødselsnummer."""],
-    'person_id_other':['person_id','Enter person id',
-    """Enter person id as idtype:id.
+    'person_id_other':
+        ['person_id', 'Enter person id',
+         """Enter person id as idtype:id.
 If idtype=fnr, the idtype does not have to be specified.
 You may also use entity_id:id."""],
-    'person_id:current': ['[id_type:]current_id',
-                          'Enter current person id',
-                          'Enter current person id.  Example: fnr:01020312345'],
-    'person_id:new': ['[id_type:]new_id', 'Enter new person id',
-                      'Enter new person id.  Example: fnr:01020312345'],
-    'person_name': ['name', 'Enter person name'],
-    'person_name_full': ['fullname', 'Enter persons fullname'],
-    'person_name_type': ['nametype', 'Enter person name type'],
-    'posix_shell': ['shell', 'Enter shell',
-                    'Enter the required shell without path.  Example: bash'],
-    'print_select_range': ['range', 'Select range',
-"""Select persons by entering a space-separated list of numbers.
+    'person_id:current':
+        ['[id_type:]current_id', 'Enter current person id',
+         'Enter current person id.  Example: fnr:01020312345'],
+    'person_id:new':
+        ['[id_type:]new_id', 'Enter new person id',
+         'Enter new person id.  Example: fnr:01020312345'],
+    'person_name':
+        ['name', 'Enter person name'],
+    'person_name_full':
+        ['fullname', 'Enter persons fullname'],
+    'person_name_type':
+        ['nametype', 'Enter person name type'],
+    'posix_shell':
+        ['shell', 'Enter shell',
+         'Enter the required shell without path.  Example: bash'],
+    'print_select_range':
+        ['range', 'Select range',
+         """Select persons by entering a space-separated list of numbers.
 Ranges can be written as "3-15" """],
-    'print_select_template': ['template', 'Select template',
-"""Choose template by entering its template.  The format of the
+    'print_select_template':
+        ['template', 'Select template',
+         """Choose template by entering its template.  The format of the
 template name is: <language>:<template-name>.  If language ends with
 -letter the letter will be sendt through snail-mail from a central
 printer."""],
-    'quarantine_type': ['qtype', 'Enter quarantine type',
-                        "'quarantine list' lists defined quarantines"],
-    'spread': ['spread', 'Enter spread',
-               "'spread list' lists possible values"],
-    'string_attribute': ['attr', 'Enter attribute',
-                         "Experts only.  See the documentation for details"],
-    'string_description': ['description', 'Enter description'],
-    'string_email_host': ['hostname',
-                          'Enter e-mail server.  Example: mail-sg2'],
-    'string_filename': ['filename', 'Enter filename'],
-    'string_group_filter': ['filter', 'Enter filter'],
-    'string_host': ['hostname', 'Enter hostname.  Example: ulrik'],
-    'string_new_priority': ['new_priority', 'Enter value new priority value',
-                            'Enter a positive integer (1..999), lower integers give higher priority'],
-    'string_np_type': ['np_type', 'Enter np_type',
-                       """Type of non-personal account.  Valid values include:
+    'quarantine_type':
+        ['qtype', 'Enter quarantine type',
+          "'quarantine list' lists defined quarantines"],
+    'spread':
+        ['spread', 'Enter spread',
+         "'spread list' lists possible values"],
+    'string_attribute':
+        ['attr', 'Enter attribute',
+         "Experts only.  See the documentation for details"],
+    'string_description':
+        ['description', 'Enter description'],
+    'string_email_host':
+        ['hostname', 'Enter e-mail server.  Example: mail-sg2'],
+    'string_filename':
+        ['filename', 'Enter filename'],
+    'string_group_filter':
+        ['filter', 'Enter filter'],
+    'string_host':
+        ['hostname', 'Enter hostname.  Example: ulrik'],
+    'string_new_priority':
+        ['new_priority', 'Enter value new priority value',
+         'Enter a positive integer (1..999), lower integers give higher priority'],
+    'string_np_type':
+        ['np_type', 'Enter np_type',
+         """Type of non-personal account.  Valid values include:
 'kursbruker'  - Course related
 'programvare' - Software packages
 'testbruker'  - Accounts for testing purposes"""],
-    'string_op_set': ['op_set_name', 'Enter name of operation set',
-                      "Experts only.  See the documentation for details"],
-    'string_old_priority': ['old_priority', 'Enter old priority value',
-                            "Select the old priority value"],
-    'string_perm_target': ['id|type', 'Enter target id or type',
-                           'Legal types: host, disk, group'],
-    'string_perm_target_type': ['type', 'Enter target type',
-                           'Legal types: host, disk, group'],
-    'string_from_to': ['from_to', 'Enter end date (YYYY-MM-DD) or '+
-                       'begin and end date (YYYY-MM-DD--YYYY-MM-DD)'],
-    'string_why': ['why', 'Why?',
-                   'You should type a text indicating why you perform the operation'],
-    'tripnote_text': ['text', 'Tripnote',
-                      'Enter message to be sent.  You may use \n to separate '+
-                      'lines of text.'],
-    'user_create_person_id': ['owner', 'Enter account owner',
-"""Identify account owner (person or group) by entering:
+    'string_op_set':
+        ['op_set_name', 'Enter name of operation set',
+         "Experts only.  See the documentation for details"],
+    'string_old_priority':
+        ['old_priority', 'Enter old priority value',
+         "Select the old priority value"],
+    'string_perm_target':
+        ['id|type', 'Enter target id or type',
+         'Legal types: host, disk, group'],
+    'string_perm_target_type':
+        ['type', 'Enter target type',
+         'Legal types: host, disk, group'],
+    'string_from_to':
+        ['from_to', 'Enter end date (YYYY-MM-DD) or '+
+         'begin and end date (YYYY-MM-DD--YYYY-MM-DD)'],
+    'string_why':
+        ['why', 'Why?',
+         'You should type a text indicating why you perform the operation'],
+    'tripnote_text':
+        ['text', 'Tripnote',
+         'Enter message to be sent.  You may use \\n to separate lines of text.'],
+    'user_create_person_id':
+        ['owner', 'Enter account owner',
+         """Identify account owner (person or group) by entering:
   Birthdate (YYYY-MM-DD)
   Norwegian fødselsnummer (11 digits)
   Export-ID (exp:exportid)
   External ID (idtype:idvalue)
   Group name (group:name)"""],
-'user_create_select_person': ['<not displayed>', '<not displayed>',
-"""Select a person from the list by entering the corresponding
-number.  If the person is not registered, you must create an instance with "person
-create" """],
-'user_existing': ['uname', 'Enter an existing user name'],
-    'yes_no_force': ['force', 'Force the operation?']
+    'user_create_select_person':
+        ['<not displayed>', '<not displayed>',
+         """Select a person from the list by entering the corresponding
+number.  If the person is not registered, you must create an instance with
+"person create" """],
+    'user_existing':
+        ['uname', 'Enter an existing user name'],
+    'yes_no_force':
+        ['force', 'Force the operation?']
     }
