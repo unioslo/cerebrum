@@ -32,21 +32,21 @@ class PosixUser_createTestCase(Account_createTestCase):
 
     def _myPopulatePosixUser(self, posix_user):
         pd = self.posixuser_dta
-        pd['account_id'] = self.account_id
-        posix_user.clear()
-        self._myPopulateAccount(posix_user)
+        pd['account_id'] = self.entity_id
         if(pd['posix_uid'] is None):
             pd['posix_uid'] = posix_user.get_free_uid()
+        account = Account.Account(self.Cerebrum)
+        account.find(self.entity_id)
 
-        posix_user.populate(pd['account_id'], pd['posix_uid'], pd['gid'],
-                            pd['gecos'], pd['home'], pd['shell'])
+        posix_user.populate(pd['posix_uid'], pd['gid'],
+                            pd['gecos'], pd['home'], pd['shell'], parent=account)
         self.posix_uid = pd['posix_uid'] 
 
     def tearDown(self):
         # print "PosixUser_createTestCase.tearDown()"
         self.Cerebrum.execute(
             """DELETE FROM [:table schema=cerebrum name=posix_user]
-               WHERE account_id=:id""", {'id': self.account_id})
+               WHERE account_id=:id""", {'id': self.entity_id})
         super(PosixUser_createTestCase, self).tearDown()
 
 class PosixUserTestCase(PosixUser_createTestCase):
@@ -58,7 +58,7 @@ class PosixUserTestCase(PosixUser_createTestCase):
         "Check that created database posix_user object has correct values"
         posix_user = PosixUser.PosixUser(self.Cerebrum)
         posix_user.clear()
-        posix_user.find(self.account_id)
+        posix_user.find(self.entity_id)
         new_posix_user = PosixUser.PosixUser(self.Cerebrum)
         new_posix_user.clear()
         self._myPopulatePosixUser(new_posix_user)
@@ -74,7 +74,7 @@ class PosixUserTestCase(PosixUser_createTestCase):
         self.tearDown()
         posix_user = PosixUser.PosixUser(self.Cerebrum)
         try:
-            posix_user.find(self.account_id)
+            posix_user.find(self.entity_id)
             fail("Error: Should no longer exist")
         except:
             # OK
