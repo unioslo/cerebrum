@@ -93,6 +93,7 @@ def create_readonly_set_method(var):
     return readonly_set
 
 class CorbaBuilder:
+    corba_parents = []
 #    def create_idl_class(cls):
 #        # TODO: bør vi legge CorbaBuilder i en egen fil?
 #        idl_string = cls.create_idl('generated') # TODO: hvor skal generert idl havne?
@@ -143,6 +144,12 @@ class CorbaBuilder:
     def create_idl_interface(cls):
         txt = 'interface %s {\n' % cls.__name__
 
+        txt = 'interface ' + cls.__name__
+        if cls.corba_parents:
+            txt += ': ' + ', '.join(cls.corba_parents)
+
+        txt += ' {\n'
+
         txt += '\t//constructors\n'
 #        txt += '\t%s get_object(%s);\n' % (cls.__name__, ', '.join(['in %s %s' % (attr.data_type, attr.name) for attr in cls.primary]))
 
@@ -155,7 +162,7 @@ class CorbaBuilder:
 
         txt += '\n\t//other methods\n'
         for method in cls.method_slots:
-            args = ['in %s %s' % (attr.data_type, attr.name) for attr in method.args]
+            args = ['in %s in_%s' % (data_type, name) for name, data_type in method.args]
             txt += '\t%s %s(%s);\n' % (method.data_type, method.name, ', '.join(args))
 
         txt += '};\n'
@@ -173,6 +180,9 @@ class Builder(Caching, Locking, CorbaBuilder):
     method_slots = []
 
     def __init__(self, *args, **vargs):
+        if len(args) + len(vargs) > len(self.slots):
+            raise TypeError('too many arguments')
+
         cls = self.__class__
         mark = '_%s%s' % (cls.__name__, id(self))
         # check if the object is old
@@ -181,8 +191,6 @@ class Builder(Caching, Locking, CorbaBuilder):
         
         Locking.__init__(self)
         Caching.__init__(self)
-
-        self.prepare() # FIXME: finne på noe lurt her
 
         slotNames = [i.name for i in cls.slots]
         # set all variables give in args and vargs
@@ -204,8 +212,12 @@ class Builder(Caching, Locking, CorbaBuilder):
     def save(self):
         """ Save all changed attributes """
 
+        saved = sets.Set()
         for var in self.updated:
-            getattr(self, 'save_' + var)()
+            save_method = getattr(self, 'save_' + var)
+            if save_method not in saved:
+                save_method()
+                saved.add(save_method)
         self.updated.clear()
 
     def reload(self):
@@ -232,7 +244,7 @@ class Builder(Caching, Locking, CorbaBuilder):
             key.append(vargs[i])
         return tuple(key)
 
-
+    create_primary_key = classmethod(create_primary_key)
  
     def register_attribute(cls, attribute, load=None, save=None, get=None, set=None, overwrite=False, override=False, register=True):
         """ Registers an attribute
@@ -294,6 +306,8 @@ class Builder(Caching, Locking, CorbaBuilder):
         if register:
             cls.slots.append(attribute)
 
+    register_attribute = classmethod(register_attribute)
+
     def register_method(cls, method, method_func, overwrite=False):
         """ Registers a method
         """
@@ -302,13 +316,13 @@ class Builder(Caching, Locking, CorbaBuilder):
         setattr(cls, method.name, meth_func)
         # TODO: This needs work
 
-    def prepare(cls):
+    register_method = classmethod(register_method)
+
+    def build_methods(cls):
         for attribute in cls.slots:
             cls.register_attribute(attribute, get=attribute.get, set=attribute.set, override=True, register=False)
 
-    create_primary_key = classmethod(create_primary_key)
-    register_attribute = classmethod(register_attribute)
-    prepare = classmethod(prepare)
+    build_methods = classmethod(build_methods)
 
     def __repr__(self):
         key = self._key[1]
