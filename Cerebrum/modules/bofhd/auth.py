@@ -839,6 +839,15 @@ class BofhdAuth(DatabaseAccessor):
                                  query_run_any=False):
         return self.can_email_archive_create(operator, domain, query_run_any)
 
+    def can_email_domain_create(self, operator, query_run_any=False):
+        if self.is_superuser(operator):
+            return True
+        if self.is_postmaster(operator):
+            return True
+        if query_run_any:
+            return False
+        raise PermissionDenied("Currently limited to superusers")
+        
     def can_email_list_create(self, operator, domain=None,
                               query_run_any=False):
         if self.is_superuser(operator):
