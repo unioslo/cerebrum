@@ -46,7 +46,8 @@ class LTDataParser(xml.sax.ContentHandler):
     def startElement(self, name, attrs):
         if name == 'data':
             pass
-        elif name in ("arbtlf", "komm", "tils", "bilag", "gjest", "rolle", "res"):
+        elif name in ("arbtlf", "komm", "tils", "bilag",
+                      "gjest", "rolle", "res", "permisjon"):
             tmp = {}
             for k in attrs.keys():
                 tmp[k] = attrs[k].encode('iso8859-1')
