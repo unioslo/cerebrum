@@ -70,7 +70,7 @@ class CerebrumTypeAttr(CerebrumAttr):
         return self.type_class(id=int(value))
 
 class CerebrumBooleanAttr(CerebrumAttr):
-    def __inti__(self, name, data_type, cerebrum_name=None, write=False):
+    def __init__(self, name, data_type, cerebrum_name=None, write=False):
         CerebrumAttr.__init__(self, name, data_type, cerebrum_name, write)
 
     def to_cerebrum(self, value):
