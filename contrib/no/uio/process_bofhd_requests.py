@@ -647,7 +647,7 @@ def process_move_requests():
             account.expire_date = br.now
             account.write_db()
             home = account.get_home(spread)
-            account.set_home(spread, disk_id=home['disk_id'], home=home['gome'],
+            account.set_home(spread, disk_id=home['disk_id'], home=home['home'],
                              status=const.home_status_archived)
             br.delete_request(request_id=r['request_id'])
             db.commit()
