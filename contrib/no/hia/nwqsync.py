@@ -463,7 +463,7 @@ def change_user_spread(dn_id,ch_type,spread,uname=None):
                 logger.warn("Could not verify that user:%s was created on eDir-server"\
                             % ldap_user)
 	    for grp in group.list_groups_with_entity(dn_id):
-                user_add_del_grp(const.group_add, dn_id, grp['group_id'])
+                user_add_del_grp(const.group_add, int(dn_id), grp['group_id'])
 	elif ldap_obj <> []:
             (ldap_user, ldap_attrs) = ldap_obj[0]
             logger.warn("WARNING: add_user but user %s already exist as %s" % \
