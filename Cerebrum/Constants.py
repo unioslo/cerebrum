@@ -24,6 +24,13 @@ Address, Gender etc. type."""
 
 import cereconf
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
+from Cerebrum import Errors
+
+
+class CodeValuePresentError(RuntimeError):
+    """Error raised when an already existing code value is inserted."""
+    pass
+
 
 class _CerebrumCode(DatabaseAccessor):
     """Abstract base class for accessing code tables in Cerebrum."""
@@ -32,13 +39,21 @@ class _CerebrumCode(DatabaseAccessor):
     _lookup_code_column = 'code'
     _lookup_str_column = 'code_str'
     _lookup_desc_column = 'description'
+    _code_sequence = '[:sequence schema=cerebrum name=code_seq op=next]'
+
+    # Should we postpone INSERTion of code value in this class until
+    # some other code value class has been fully INSERTed (e.g. due to
+    # foreign key constraint checks)?
+    _insert_dependency = None
 
     # TBD: Should this take DatabaseAccessor args as well?  Maybe use
     # some kind of currying in Constants to avoid having to pass the
     # Database arg every time?
-    def __init__(self, code):
+    def __init__(self, code, description=None):
         self.int = None
-        self._desc = None
+        if isinstance(description, str):
+            description = description.strip()
+        self._desc = description
         if type(code) is int:
             self.int = code
             self.str = self.sql.query_1("SELECT %s FROM %s WHERE %s=:code" %
@@ -49,7 +64,7 @@ class _CerebrumCode(DatabaseAccessor):
         elif type(code) is str:
             self.str = code
         else:
-            raise ValueError
+            raise TypeError, "Argument 'code' must be int or str."
 
     def __str__(self):
         return self.str
@@ -108,6 +123,33 @@ class _CerebrumCode(DatabaseAccessor):
 
     def __ne__(self, other): return not self.__eq__(other)
 
+    def _pre_insert_check(self):
+        try:
+            # Attempt converting self into integer code value; this
+            # should raise NotFoundError for not-yet-created code
+            # values.
+            code = int(self)
+            # If conversion worked without raising NotFoundError, our
+            # job has been done before.
+            raise CodeValuePresentError, "Code value %r present." % self
+        except Errors.NotFoundError:
+            pass
+
+    def insert(self):
+        self._pre_insert_check()
+        self.sql.execute("""
+        INSERT INTO %(code_table)s
+          (%(code_col)s, %(str_col)s, %(desc_col)s)
+        VALUES
+          (%(code_seq)s, :str, :desc)""" % {
+            'code_table': self._lookup_table,
+            'code_col': self._lookup_code_column,
+            'str_col': self._lookup_str_column,
+            'desc_col': self._lookup_desc_column,
+            'code_seq': self._code_sequence},
+                         {'str': self.str,
+                          'desc': self._desc})
+
 
 class _EntityTypeCode(_CerebrumCode):
     "Mappings stored in the entity_type_code table"
@@ -161,10 +203,11 @@ class _PersonAffStatusCode(_CerebrumCode):
     _lookup_code_column = 'status'
     _lookup_str_column = 'status_str'
     _lookup_table = '[:table schema=cerebrum name=person_aff_status_code]'
+    _insert_dependency = _PersonAffiliationCode
 
-    def __init__(self, affiliation, status):
+    def __init__(self, affiliation, status, description=None):
         self.affiliation = affiliation
-        super(_PersonAffStatusCode, self).__init__(status)
+        super(_PersonAffStatusCode, self).__init__(status, description)
 
     def __int__(self):
         if self.int is None:
@@ -179,6 +222,22 @@ class _PersonAffStatusCode(_CerebrumCode):
 
     ## Should __str__ be overriden as well, to indicate both
     ## affiliation and status?
+
+    def insert(self):
+        self._pre_insert_check()
+        self.sql.execute("""
+        INSERT INTO %(code_table)s
+          (affiliation, %(code_col)s, %(str_col)s, %(desc_col)s)
+        VALUES
+          (:affiliation, %(code_seq)s, :str, :desc)""" % {
+            'code_table': self._lookup_table,
+            'code_col': self._lookup_code_column,
+            'str_col': self._lookup_str_column,
+            'desc_col': self._lookup_desc_column,
+            'code_seq': self._code_sequence},
+                         {'affiliation': int(self.affiliation),
+                          'str': self.str,
+                          'desc': self._desc})
 
 class _AuthoritativeSystemCode(_CerebrumCode):
     "Mappings stored in the authoritative_system_code table"
@@ -229,55 +288,68 @@ class Constants(DatabaseAccessor):
     Defines a number of variables that are used to get access to the
     string/int value of the corresponding database key."""
 
-    entity_person = _EntityTypeCode('person')
-    entity_ou = _EntityTypeCode('ou')
-    entity_account = _EntityTypeCode('account')
-    entity_group = _EntityTypeCode('group')
+    entity_person = _EntityTypeCode(
+        'person',
+        'Person - see table "cerebrum.person_info" and friends.')
+    entity_ou = _EntityTypeCode(
+        'ou',
+        'Organizational Unit - see table "cerebrum.ou_info" and friends.')
+    entity_account = _EntityTypeCode(
+        'account',
+        'User Account - see table "cerebrum.account_info" and friends.')
+    entity_group = _EntityTypeCode(
+        'group',
+        'Group - see table "cerebrum.group_info" and friends.')
 
-    contact_phone = _ContactInfoCode('PHONE')
-    contact_fax = _ContactInfoCode('FAX')
-    contact_email = _ContactInfoCode('EMAIL')
+    contact_phone = _ContactInfoCode('PHONE', 'Phone')
+    contact_fax = _ContactInfoCode('FAX', 'Fax')
+    contact_email = _ContactInfoCode('EMAIL', 'Email')
 
-    address_post = _AddressCode('POST')
-    address_street = _AddressCode('STREET')
+    address_post = _AddressCode('POST', 'Post address')
+    address_street = _AddressCode('STREET', 'Street address')
 
-    gender_male = _GenderCode('M')
-    gender_female = _GenderCode('F')
-    gender_unknown = _GenderCode('X')
+    gender_male = _GenderCode('M', 'Male')
+    gender_female = _GenderCode('F', 'Female')
+    gender_unknown = _GenderCode('X', 'Unknown gender')
 
-    externalid_fodselsnr = _PersonExternalIdCode('NO_BIRTHNO')
+    externalid_fodselsnr = _PersonExternalIdCode('NO_BIRTHNO',
+                                                 'Norwegian birth number')
 
-    name_first = _PersonNameCode('FIRST')
-    name_last = _PersonNameCode('LAST')
-    name_full = _PersonNameCode('FULL')
+    name_first = _PersonNameCode('FIRST', 'First name')
+    name_last = _PersonNameCode('LAST', 'Last name')
+    name_full = _PersonNameCode('FULL', 'Full name')
 
-    affiliation_student = _PersonAffiliationCode('STUDENT')
-    affiliation_employee = _PersonAffiliationCode('EMPLOYEE')
-
-    affiliation_status_student_valid = _PersonAffStatusCode(
-        affiliation_student, 'VALID')
+    affiliation_employee = _PersonAffiliationCode('EMPLOYEE', 'Employed')
     affiliation_status_employee_valid = _PersonAffStatusCode(
-        affiliation_employee, 'VALID')
+        affiliation_employee, 'VALID', 'Valid')
+
+    affiliation_student = _PersonAffiliationCode('STUDENT', 'Student')
+    affiliation_status_student_valid = _PersonAffStatusCode(
+        affiliation_student, 'VALID', 'Valid')
 
     # UIO specific constants, belong in UiOConstants once we get the
     # CerebrumFactory up and running
-    system_manual = _AuthoritativeSystemCode('Manual')
+    system_manual = _AuthoritativeSystemCode('Manual', 'Manual registration')
 
-    account_program = _AccountCode('P')
+    account_program = _AccountCode('P', 'Programvarekonto')
 
-    posix_shell_bash = _PosixShellCode('bash')
+    posix_shell_bash = _PosixShellCode('bash', '/bin/bash')
 
-    group_namespace = _ValueDomainCode(cereconf.DEFAULT_GROUP_NAMESPACE)
-    account_namespace = _ValueDomainCode(cereconf.DEFAULT_ACCOUNT_NAMESPACE)
+    group_namespace = _ValueDomainCode(cereconf.DEFAULT_GROUP_NAMESPACE,
+                                       'Default domain for group names')
+    account_namespace = _ValueDomainCode(cereconf.DEFAULT_ACCOUNT_NAMESPACE,
+                                         'Default domain for account names')
 
-    auth_type_md5 = _AuthenticationCode("md5")
-    auth_type_crypt = _AuthenticationCode("crypt")
+    auth_type_md5 = _AuthenticationCode("md5", 'MD5 password')
+    auth_type_crypt = _AuthenticationCode("crypt", 'crypt(3) password')
 
-    group_memberop_union = _GroupMembershipOpCode('union')
-    group_memberop_intersection = _GroupMembershipOpCode('intersection')
-    group_memberop_difference = _GroupMembershipOpCode('difference')
+    group_memberop_union = _GroupMembershipOpCode('union', 'Union')
+    group_memberop_intersection = _GroupMembershipOpCode(
+        'intersection', 'Intersection')
+    group_memberop_difference = _GroupMembershipOpCode(
+        'difference', 'Difference')
 
-    group_visibility_all = _GroupVisibilityCode('A')
+    group_visibility_all = _GroupVisibilityCode('A', 'All')
 
     def map_const(self, num):
         skip = dir(_CerebrumCode.sql)
@@ -286,6 +358,34 @@ class Constants(DatabaseAccessor):
             if int(v) == num:
                 return v
         return None
+
+    def initialize(self):
+        # {dependency1: {class: [object1, ...]},
+        #  ...}
+        order = {}
+        for x in dir(self):
+            attr = getattr(self, x)
+            if isinstance(attr, _CerebrumCode):
+                dep = attr._insert_dependency
+                if not order.has_key(dep):
+                    order[dep] = {}
+                cls = type(attr)
+                if not order[dep].has_key(cls):
+                    order[dep][cls] = []
+                order[dep][cls].append(attr)
+        if not order.has_key(None):
+            raise ValueError, "All code values have circular dependencies."
+        def insert(root):
+            for cls in order[root].keys():
+                for code in order[root][cls]:
+                    code.insert()
+                del order[root][cls]
+                if order.has_key(cls):
+                    insert(cls)
+            del order[root]
+        insert(None)
+        if order:
+            raise ValueError, "Some code values have circular dependencies."
 
     def __init__(self, database):
         super(Constants, self).__init__(database)
