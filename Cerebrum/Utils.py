@@ -323,7 +323,7 @@ class mark_update(auto_super):
                 setattr(self, mupdated, getattr(from_obj, mupdated))
         dict.setdefault('__xerox__', __xerox__)
 
-        if hasattr(dict('__slots__')):
+        if hasattr(dict, '__slots__'):
             slots = list(dict['__slots__'])
             for slot in read + write + [mupdated]:
                 slots.append(slot)
