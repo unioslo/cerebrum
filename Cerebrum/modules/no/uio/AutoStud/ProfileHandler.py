@@ -277,7 +277,7 @@ class ProfileMatcher(object):
                 elif select_type == 'match_any':
                     self._append_match(
                         select_type, None,
-                        None, self.pc.select_mapping[select_type])
+                        None, self.pc.select_mapping.get(select_type, []))
                 else:
                     raise ValueError, "Unknown select-type: %s" % select_type
 
