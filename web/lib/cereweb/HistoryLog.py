@@ -21,24 +21,6 @@ def view_history(entity):
     table = _history_tableview(events)
     return template.viewCompleteHistoryLog(table)
 
-def view_operator_history(session, limit=10):
-    template = HistoryLogTemplate()
-    server = session['server']
-    events = session.get('operator_events')
-    if not events:
-        # get all  (TODO: Only one week or younger)
-        events = ClientAPI.operator_history(server, )
-    else:
-        last_event = events[-1]
-        # just get the new ones
-        events.extend(ClientAPI.operator_history(server, last_event))
-
-    # chop of the limit last events (if limit is 0 - all events)    
-    events = events[-limit:]    
-    session['operator_events'] = events
-    table = _history_tableview(events)
-    return template.viewHistoryLog(table)
-
 def _history_tableview(events):    
     table = TableView("timestamp", "icon", "who", "message")
     for change in events:
