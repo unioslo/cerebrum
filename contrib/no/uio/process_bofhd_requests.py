@@ -12,7 +12,6 @@ import cereconf
 
 from Cerebrum import Account
 from Cerebrum import Errors
-from Cerebrum import Database
 from Cerebrum.modules import Email
 from Cerebrum.modules import PosixUser
 from Cerebrum.modules import PosixGroup
@@ -26,9 +25,12 @@ from Cerebrum.extlib import logging
 
 db = Factory.get('Database')()
 db.cl_init(change_program='process_bofhd_r')
+dryrun = True
 const = Factory.get('Constants')(db)
 logging.fileConfig(cereconf.LOGGING_CONFIGFILE)
 logger = logging.getLogger("cronjob")
+# for debug:
+# logger = logging.getLogger("console")
 # Hosts to connect to, set to None in a production environment:
 debug_hostlist = None
 SUDO_CMD = "/usr/bin/sudo"
@@ -60,6 +62,14 @@ def get_primary_email_address(user_id):
     d = Email.EmailDomain(db)
     d.find(a.get_domain_id())
     return "%s@%s" % (a.get_localpart(), d.get_domain_name())
+
+def get_email_hardquota(user_id):
+    eq = Email.EmailQuota(db)
+    try:
+        eq.find_by_entity(user_id)
+    except Errors.NotFoundError:
+        return 0	# unlimited/no quota
+    return eq.email_quota_hard
 
 # get_imaphost
 # input:  entity ID of account
@@ -99,8 +109,7 @@ def connect_cyrus(host=None, user_id=None):
     if imapconn is None:
         imapconn = cyruslib.CYRUS(host = host)
         # TODO: _read_password should moved into Utils or something
-        pw = Database.Database._read_password(cereconf.CYRUS_ADMIN,
-                                              cereconf.CYRUS_HOST)
+        pw = db._read_password(cereconf.CYRUS_HOST, cereconf.CYRUS_ADMIN)
         if imapconn.login(cereconf.CYRUS_ADMIN, pw) is None:
             raise CerebrumError("Connection to IMAP server %s failed" % host)
         imaphost = host
@@ -109,12 +118,10 @@ def connect_cyrus(host=None, user_id=None):
 def process_email_requests():
     br = BofhdRequests(db, const)
     for r in br.get_requests(operation=const.bofh_email_create):
+        logger.debug("Req: email_create %d at %d",
+                     r['request_id'],r['run_at'])
 	if r['run_at'] < br.now:
-            if hquota in r['state_data']:
-                hq = r['state_data']['hqouta']
-            else:
-                # TODO: should look up in tables
-                hq = 100
+            hq = get_email_hardquota(r['entity_id'])
             if (cyrus_create(r['entity_id']) and
                 cyrus_set_quota(r['entity_id'], hq)):
                 br.delete_request(request_id=r['request_id'])
@@ -124,12 +131,9 @@ def process_email_requests():
             db.commit()
 
     for r in br.get_requests(operation=const.bofh_email_hquota):
+        logger.debug("Req: email_hquota %d", r['run_at'])
 	if r['run_at'] < br.now:
-            if hquota in r['state_data']:
-                hq = r['state_data']['hqouta']
-            else:
-                # TODO: should look up in tables
-                hq = 100
+            hq = get_email_hardquota(r['entity_id'])
             if cyrus_set_quota(r['entity_id'], hq):
                 br.delete_request(request_id=r['request_id'])
             else:
@@ -138,6 +142,7 @@ def process_email_requests():
             db.commit()
 
     for r in br.get_requests(operation=const.bofh_email_delete):
+        logger.debug("Req: email_delete %d", r['run_at'])
 	if r['run_at'] < br.now:
 	    try:
                 uname = get_account(r['entity_id'])[1]
@@ -145,6 +150,8 @@ def process_email_requests():
                 logger.error("bofh_email_delete: %d: " % r['entity_id'] +
                              "user not found")
                 continue
+            # we can't use get_imaphost(), since the database contains
+            # the new host.
             host = r['state_data']['imaphost']
             try:
                 cyradm = connect_cyrus(host = host)
@@ -177,6 +184,7 @@ def process_email_requests():
             db.commit()
 
     for r in br.get_requests(operation=const.bofh_email_will_move):
+        logger.debug("Req: email_will_move %d", r['run_at'])
 	if r['run_at'] < br.now:
 	    try:
                 uname = get_account(r['entity_id'])[1]
@@ -201,6 +209,7 @@ def process_email_requests():
             db.commit()
 
     for r in br.get_requests(operation=const.bofh_email_move):
+        logger.debug("Req: email_move %d", r['run_at'])
 	if r['run_at'] < br.now:
             # TBD: make it a general feature in BofhdRequests?
             if "depend_req" in r['state_data']:
@@ -215,20 +224,20 @@ def process_email_requests():
                           r['destination_id']):
                 br.delete_request(request_id=r['request_id'])
                 br.add_request(r['requestee_id'], r['run_at'],
-                               const.bofh_email_move,
-                               r['entity_id'], r['destination_id'],
-                               r['state_data'])
+                               const.bofh_email_convert,
+                               r['entity_id'], r['destination_id'])
             else:
                 db.rollback()
                 br.delay_request(r['request_id'])
             db.commit()
 
     for r in br.get_requests(operation=const.bofh_email_convert):
+        logger.debug("Req: email_convert %d", r['run_at'])
 	if r['run_at'] < br.now:
             user_id = r['entity_id']
             try:
                 # uname, home, uid, dfg
-                acc = Account.Account(db)
+                acc = Factory.get('Account')(db)
                 acc.find(user_id)
             except Errors.NotFoundErrors:
                 logger.error("bofh_email_convert: %d not found" % user_id)
@@ -286,7 +295,7 @@ def cyrus_create(user_id):
     try:
         uname = get_account(user_id)[1]
     except Errors.NotFoundError:
-        logger.error("cyrus_create: %d not found" % user_id)
+        logger.error("cyrus_create: %d not found", user_id)
         return False
     assert uname is not None
     try:
@@ -297,9 +306,12 @@ def cyrus_create(user_id):
     boxes = ["user.%s%s" % (uname, sub)
              for sub in "", ".spam", ".Sent", ".Drafts", ".Trash"]
     for box in boxes:
+        res = cyradm.m.list(box)
+        if res[0] == 'OK':
+            continue
         res = cyradm.m.create(box)
-        if (not res[0] == 'OK'):
-            logger.error("IMAP create %s failed: %s", (box, res[1]))
+        if res[0] <> 'OK':
+            logger.error("IMAP create %s failed: %s", box, res[1])
             return False
 
     # restrict access to INBOX.spam.  the user can change the
@@ -315,23 +327,22 @@ def cyrus_set_quota(user_id, hq):
     try:
         uname = get_account(user_id)[1]
     except Errors.NotFoundError:
-        logger.error("cyrus_set_quota: %d: " % user_id +
-                     "user not found")
+        logger.error("cyrus_set_quota: %d: user not found", user_id)
         return False
     try:
         cyradm = connect_cyrus(user_id = user_id)
     except CerebrumError, e:
         logger.error("cyrus_set_quota: " + str(e))
         return False
-    return cyradm.sq("user", uname, hq * 1024) is not None
+    res = cyradm.sq("user", uname, hq * 1024)
+    return res == 'OK'
 
 def cyrus_subscribe(uname, server, action="create"):
     cmd = [SUDO_CMD, cereconf.WRAPPER_CMD, '-c', 'subscribeimap',
            action, server, uname];
     cmd = ["%s" % x for x in cmd]
-    logger.debug("doing %s" % cmd)
     if debug_hostlist is None or old_host in debug_hostlist:
-        errnum = os.spawnv(os.P_WAIT, cmd)
+        errnum = os.spawnv(os.P_WAIT, cmd[0], cmd)
     else:
         errnum = 0
     if not errnum:
@@ -351,11 +362,10 @@ def move_email(user_id, mailto_id, from_host, to_host):
     es_to.find(to_host)
     es_fr = Email.EmailServer(self._db)
     es_fr.find(from_host)
-    eq = Email.EmailQuota(self._db)
-    eq.find_by_entity(user_id)
+    hq = get_email_hardquota()
 
     cmd = [SUDO_CMD, cereconf.WRAPPER_CMD, '-c', 'mvmail',
-           uname, mailto, eq.email_quota_hard,
+           uname, mailto, hq,
            es_fr.name, str(es_fr.email_server_type),
            es_to.name, str(es_to.email_server_type)]
     cmd = ["%s" % x for x in cmd]
@@ -365,7 +375,7 @@ def move_email(user_id, mailto_id, from_host, to_host):
     EXIT_NOTIMPL = 2
     EXIT_QUOTAEXCEEDED = 3
     EXIT_FAILED = 4
-    errnum = os.spawnv(os.P_WAIT, cmd)
+    errnum = os.spawnv(os.P_WAIT, cmd[0], cmd)
     if errnum == EXIT_QUOTAEXCEEDED:
         # TODO: bump quota, or something else
         return True
@@ -403,7 +413,7 @@ def process_move_requests():
                 br.delete_request(request_id=r['request_id'])
                 db.commit()
     # Resten fungerer ikkje enno, so vi sluttar her.
-    sys.exit(0)
+    return
 
     for r in br.get_requests(operation=const.bofh_move_student):
         # TODO: Må også behandle const.bofh_move_student, men
@@ -424,7 +434,7 @@ def delete_user(uname, old_host, old_home, operator):
     cmd = ["%s" % x for x in cmd]
     logger.debug("doing %s" % cmd)
     if debug_hostlist is None or old_host in debug_hostlist:
-        errnum = os.spawnv(os.P_WAIT, cmd)
+        errnum = os.spawnv(os.P_WAIT, cmd[0], cmd)
     else:
         errnum = 0
     if not errnum:
@@ -460,7 +470,7 @@ def get_disk(disk_id):
 
 def get_account(account_id, type='Account'):
     if type == 'Account':
-        account = Account.Account(db)
+        account = Factory.get('Account')(db)
     elif type == 'PosixUser':
         account = PosixUser.PosixUser(db)        
     account.clear()
