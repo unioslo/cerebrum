@@ -1,7 +1,7 @@
 #!/usr/bin/env python2.2
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2003 University of Oslo, Norway
+# Copyright 2003, 2004 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -29,14 +29,14 @@ import cereconf
 from Cerebrum.Utils import Factory, SimilarSizeWriter
 from Cerebrum.modules import Email
 from Cerebrum.modules.bofhd.utils import BofhdRequests
+from Cerebrum.modules.LDIFutils import container_entry_string
 from Cerebrum.Constants import _SpreadCode
 from time import time as now
 
 default_mail_file = "/cerebrum/dumps/LDAP/mail-db.ldif"
 default_spam_level = 9999
 default_spam_action = 0
-base_dn = cereconf.LDAP_BASE_DN
-base_object = cereconf.LDAP_MAIL_BASE
+mail_dn = cereconf.LDAP_MAIL_DN
 
 
 def write_ldif():
@@ -45,7 +45,7 @@ def write_ldif():
     curr = now()
     ldap.read_pending_moves()
 
-    f.write(base_object)
+    f.write(container_entry_string('MAIL'))
 
     for row in mail_targ.list_email_targets_ext():
         t = int(row['target_id'])
@@ -215,7 +215,7 @@ def write_ldif():
             sys.stderr.write("Wrong target-type in target: %s: %s\n" % ( t, tt ))
             continue
 
-        f.write("dn: cn=d%s,ou=mail,%s\n" % (t, base_dn))
+        f.write("dn: cn=d%s,%s\n" % (t, mail_dn))
         f.write("objectClass: mailAddr\n")
         f.write("cn: d%s\n" % t)
         f.write("targetType: %s\n" % ldap.get_targettype(tt))
