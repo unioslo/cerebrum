@@ -606,13 +606,14 @@ class EntityQuarantine(Entity):
     "Mixin class, usable alongside Entity for entities we can quarantine."
 
     def delete(self):
-        """Delete all address info for this entity"""
+        """Delete all quarantines for this entity"""
         for r in self.get_entity_quarantine():
             self.delete_entity_quarantine(r['quarantine_type'])
         self.__super.delete()
 
     def add_entity_quarantine(self, type, creator, description=None,
                               start=None, end=None):
+        type = int(type)
         self.execute("""
         INSERT INTO [:table schema=cerebrum name=entity_quarantine]
           (entity_id, quarantine_type,
