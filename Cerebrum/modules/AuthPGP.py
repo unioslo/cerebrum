@@ -1,5 +1,5 @@
 # -*- coding: iso-8859-1 -*-
-# Copyright 2004 University of Oslo, Norway
+# Copyright 2005 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -35,6 +35,8 @@ storing each system as a seperate authentication code."""
 ##
 ##CLASS_CONSTANTS = [(..)
 ##                   'Cerebrum.modules.AuthPGP/Constants']
+
+# Remember to run makedb --update-codes to add constants to the database
 
 
 # Mixin for encryption methods
