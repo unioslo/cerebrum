@@ -34,7 +34,7 @@ from Cerebrum.Utils import Factory
 from Cerebrum.modules import Email
 from Cerebrum.modules import PosixUser
 from Cerebrum.modules.no import fodselsnr
-from Cerebrum.modules.no.feide-gvs  import FeideGvs
+from Cerebrum.modules.no.feidegvs import FeideGvs
 
 fnr2person_id = {}
 teacher2school = {}
@@ -49,6 +49,7 @@ per_l2ou_l = {}
 ou_id2dns = {}
 fnr2local_id = {}
 par_l2ch_l = {}
+per_l2per_id = {}
 
 class SASDataParser(xml.sax.ContentHandler):
     """This class is used to iterate over information from SAS-XML-file. """
@@ -70,8 +71,10 @@ class SASDataParser(xml.sax.ContentHandler):
             self.ad = 't'
         elif name in ("administration",):
             self.ad = 'a'
-        elif name in ('parents',):
+        elif name in ("parents",):
             self.ad = 'p'
+        elif name in ("employees",):
+            self.ad = 'e'
         elif name in ("teacherschool","classcoursestudents","studentinclass",
                       "program","student","person","institution",
                       "employee-school","parent"):
@@ -161,6 +164,8 @@ class SASDataParser(xml.sax.ContentHandler):
                 person[self.data['localid']]['type'] = 'teacher'
             elif self.ad == 'p':
                 person[self.data['localid']]['type'] = 'parent'
+            elif self.ad == 'e':
+                person[self.data['localid']]['type'] = 'employee'
             else:
                 person[self.data['localid']]['type'] = 'pupil'
 
@@ -177,10 +182,12 @@ class SASDataParser(xml.sax.ContentHandler):
         else:
             self.data[name] = self.var
 
+
 def process_data():
     process_OUs()
     init_mail()
     process_persons(person)
+    process_guardians()
 
 def process_OUs():
     for o in institution.keys():
@@ -222,6 +229,9 @@ def process_persons(pers):
     # Iterate over all persons:
     for p in pers.keys():
         fnr = 0
+        if not person[p].has_key('localid'):
+            print "WARNING: No localid for person. Skipping."
+            continue
         # Get the persons norSSN:
         if person[p].has_key('borndate') and person[p].has_key('socialsecno'):
             try:
@@ -266,17 +276,13 @@ def process_persons(pers):
         new_person.affect_names(co.system_sas, co.name_first, co.name_last)
         new_person.populate_name(co.name_first, firstname)
         new_person.populate_name(co.name_last, lastname)
-        
-        if person[p].has_key('localid'):
-            new_person.affect_external_id(co.system_sas,
-                                          co.externalid_sas_id,
-                                          co.externalid_fodselsnr)
-            new_person.populate_external_id(co.system_sas,
-                                            co.externalid_sas_id,
-                                            person[p]['localid'])
-        else:
-            new_person.affect_external_id(co.system_sas,
-                                          co.externalid_fodselsnr)
+
+        new_person.affect_external_id(co.system_sas,
+                                      co.externalid_sas_id,
+                                      co.externalid_fodselsnr)
+        new_person.populate_external_id(co.system_sas,
+                                        co.externalid_sas_id,
+                                        person[p]['localid'])
         new_person.populate_external_id(co.system_sas,
                                         co.externalid_fodselsnr,
                                         fnr)
@@ -299,16 +305,16 @@ def process_persons(pers):
                             p_id,c) 
                                 
         # Process person <-> OU:
-        ou_ids = []
+        ou_ids = {}
         if per_l2ou_l.has_key(person[p]['localid']):
             p_id = person[p]['localid']
             try:
                 for ou_l in per_l2ou_l[p_id]:
-                    ou_ids.append(ou_local2ou_id[ou_l])
+                    ou_ids[ou_local2ou_id[ou_l]] = ou_local2ou_id[ou_l]
             except KeyError:
                 print "WARNING: Person '%s' belongs to OU not defined: %s" % (
                     p_id, ou_l)
-            if ou_ids == []:
+            if ou_ids.keys() == []:
                 print "WARNING: Found no OU for person: %s. Skipping." % p_id
                 continue
         else:
@@ -331,7 +337,10 @@ def process_persons(pers):
         elif person[p]['type'] == 'parent' and person[p].has_key('localid'):
             aff = co.affiliation_guardian
             aff_status = co.affiliation_status_guardian_active
-        for ou in ou_ids:
+        elif person[p]['type'] == 'employee' and person[p].has_key('localid'):
+            aff = co.affiliation_employee
+            aff_status = co.affiliation_status_employee_active
+        for ou in ou_ids.keys():
             new_person.populate_affiliation(co.system_sas,
                                             int(ou),
                                             aff,
@@ -339,18 +348,23 @@ def process_persons(pers):
         
         # Write to db:
         op = new_person.write_db()
+        # Register fnr<->e_id and local_id<->e_id:
         if not fnr2person_id.has_key(fnr):
             fnr2person_id[fnr] = new_person.entity_id
         db.commit()
+        per_l2per_id[person[p]['localid']] = new_person.entity_id
+        
         #Make user and e-mail addresses:
-        for ou in ou_ids:
-            lst = process_user(new_person.entity_id,
-                               ou,
-                               int(aff),
-                               firstname,
-                               lastname)
+        lst = []
+        for ou in ou_ids.keys():
+            lst.append(process_user(new_person.entity_id,
+                                    ou,
+                                    int(aff),
+                                    firstname,
+                                    lastname))
         if lst != []:
             process_mail_address(lst)
+
         # Commit it.
         db.commit()
         
@@ -366,11 +380,19 @@ def process_user(owner_id, ou_id, aff, fname, lname):
     ac.clear()
     rows = ac.list_accounts_by_owner_id(owner_id)
     if len(rows) > 0:
-        lst = []
         for row in rows:
-            lst.append((row['account_id'],ou_id))
-        return lst
-    
+            a_id = row['account_id']
+            ac.clear()
+            ac.find(a_id)
+            found = False
+            for row2 in ac.get_account_types():
+                if row2['ou_id'] == ou_id and \
+                   row2['person_id'] == owner_id:
+                    found = True
+            if not found:
+                ac.set_account_type(ou_id, aff)
+        return (row['account_id'],ou_id)
+            
     posix_user = PosixUser.PosixUser(db)
     unames = posix_user.suggest_unames(co.account_namespace,
                                       fname, lname)
@@ -395,11 +417,13 @@ def process_user(owner_id, ou_id, aff, fname, lname):
     ac.set_account_type(ou_id, aff)
     
     tmp = ac.write_db()
-    lst = ((ac.entity_id,ou_id),)
+    lst = (ac.entity_id,ou_id)
     return lst
         
 
 def process_mail_address(ac_list):
+    et = Email.EmailTarget(db)
+    ea = Email.EmailAddress(db)
     est = Email.EmailServerTarget(db)
     epat = Email.EmailPrimaryAddressTarget(db)
     for a,o in ac_list:
@@ -408,71 +432,87 @@ def process_mail_address(ac_list):
         est.clear()
         try:
             est.find_by_entity(a)
-            return
+            #continue
         except Errors.NotFoundError:
-            et = Email.EmailTarget(db)
-            ea = Email.EmailAddress(db)
             et.clear()
             et.find_by_entity(a)
             est.clear()
             est.populate(mser.entity_id, parent=et)
             est.write_db()
             ea.clear()
-            mdom.clear()
-            try:
-                mdom.find_by_domain(ou_id2dns[o])
-            except KeyError:
-                print o
-                for i in ou_id2dns.keys():
-                    print i, ou_id2dns[i]
-                sys.exit(0)
-            prim = None
+        mdom.clear()
+        mdom.find_by_domain(ou_id2dns[o])
+
+        try:
             # Does the foo.bar-address exist:
+            ea.clear()
+            ea.find_by_local_part_and_domain(ac.get_email_cn_local_part(),
+                                             mdom.email_domain_id)
             try:
-                ea.find_by_local_part_and_domain(ac.get_email_cn_local_part(),
-                                                 mdom.email_domain_id)
                 # If it did, we want to make uname an address:
-                try:
-                    ea.clear()
-                    ea.find_by_local_part_and_domain(ac.account_name,
-                                                 mdom.email_domain_id)
-                    print "WARNING: Warning! Could not make mail-address. Exists."
-                    return
-                # uname wasn't taken:
-                except Errors.NotFoundError:
-                    ea.clear()
-                    ea.populate(ac.account_name,
-                                mdom.email_domain_id,
-                                et.email_target_id)
-                    ea.write_db()
-                    prim = ea.email_addr_id
-            # foo.bar didn't exist:
-            except Errors.NotFoundError:
                 ea.clear()
-                ea.populate(ac.get_email_cn_local_part(),
+                ea.find_by_local_part_and_domain(ac.account_name,mdom.email_domain_id)
+                # Iff found:
+                found = False
+                for row in ea.list_target_addresses(est.email_target_id):
+                    ea.clear()
+                    ea.find(row['address_id'])
+                    if ea.email_addr_local_part == ac.get_email_cn_local_part() \
+                       and ea.email_addr_domain_id == mdom.email_domain_id:
+                        # It is the targets own. No update needed.
+                        found = True
+                if not found:
+                    print "WARNING: Could not make mail-address. Exists."
+                    continue
+            except Errors.NotFoundError:
+                # uname wasn't taken:
+                ea.clear()
+                ea.populate(ac.account_name,
                             mdom.email_domain_id,
-                            et.email_target_id)
+                            est.email_target_id)
                 ea.write_db()
                 prim = ea.email_addr_id
-                # Make uname here as well:
-                try:
-                    ea.clear()
-                    ea.find_by_local_part_and_domain(ac.account_name,
-                                                     mdom.email_domain_id)
-                except Errors.NotFoundError:
-                    ea.clear()
-                    ea.populate(ac.account_name,
-                                mdom.email_domain_id,
-                                et.email_target_id)
-                    ea.write_db()
                 
-            epat.clear()
+        except Errors.NotFoundError:
+            # foo.bar didn't exist:
+            ea.clear()
+            ea.populate(ac.get_email_cn_local_part(),
+                        mdom.email_domain_id,
+                        est.email_target_id)
+            ea.write_db()
+            prim = ea.email_addr_id
+                
             try:
-                epat.find(et.email_target_id)
+                # Make uname here as well:
+                ea.clear()
+                ea.find_by_local_part_and_domain(ac.account_name,
+                                                 mdom.email_domain_id)
+                # Iff found:
+                found = False
+                for row in ea.list_target_addresses(est.email_target_id):
+                    ea.clear()
+                    ea.find(row['address_id'])
+                    if ea.email_addr_local_part == ac.get_email_cn_local_part() \
+                       and ea.email_addr_domain_id == mdom.email_domain_id:
+                        # It is the targets own. No update needed.
+                        found = True
+                if not found:
+                    print "WARNING: Could not make mail-address. Exists."
+                    continue
             except Errors.NotFoundError:
-                epat.clear()
-                epat.populate(prim, et)
-                epat.write_db()
+                ea.clear()
+                ea.populate(ac.account_name,
+                            mdom.email_domain_id,
+                            est.email_target_id)
+                ea.write_db()
+                
+        epat.clear()
+        try:
+            epat.find(est.email_target_id)
+        except Errors.NotFoundError:
+            epat.clear()
+            epat.populate(prim, est)
+            epat.write_db()
         
 
 
@@ -480,22 +520,44 @@ def process_teachers_schools(data):
     pass
 
 
-def process_guardians(data):
-    pass
+def process_guardians():
+    fgg = FeideGvs.FeideGvsGuardian(db)
+    for p in par_l2ch_l.keys():
+        fgg.clear()
+        for ch_l in par_l2ch_l[p]:
+            p_id = None
+            c_id = None
+            if per_l2per_id.has_key(p):
+                p_id = per_l2per_id[p]
+            else:
+                print "WARNING: (proc_guard) Parent not found: %s" % p
+                continue
+            if per_l2per_id.has_key(ch_l):
+                c_id = per_l2per_id[ch_l]
+            else:
+                print "WARNING: (proc_guard) Child not found: %s" % ch_l
+                continue
+            try:
+                fgg.find(p_id, c_id)
+            except Errors.NotFoundError:
+                fgg.clear()
+                fgg.populate(p_id, c_id, co.feide_gvs_guardian_parent)
+                fgg.write_db()
+    db.commit()
 
 
 def init_mail():
     global mdom, mser
     mdom = Email.EmailDomain(db)
 
-    #    try:
-    #        mdom.find_by_domain(cereconf.EMAIL_DEFAULT_DOMAIN)
-    #    except Errors.NotFoundError:
-    #        mdom.clear()
-    #        mdom.populate(cereconf.EMAIL_DEFAULT_DOMAIN,
-    #                      'Default Email-domain')
-    #        mdom.write_db()
-    #        db.commit()
+    try:
+        mdom.find_by_domain(cereconf.EMAIL_DEFAULT_DOMAIN)
+    except Errors.NotFoundError:
+        mdom.clear()
+        mdom.populate(cereconf.EMAIL_DEFAULT_DOMAIN,
+                      'Default Email-domain')
+        mdom.write_db()
+        db.commit()
 
     for d in ou_id2dns.keys():
         mdom.clear()
