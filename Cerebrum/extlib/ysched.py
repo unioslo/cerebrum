@@ -83,8 +83,15 @@ class YScheduler:
         def internal():
             while 1:
                 yield NOTHING
-                self._checkSelect()
-                yield NOTHING
+                if self.rlist or self.wlist or self.xlist:
+                    self._checkSelect()
+                    yield NOTHING
+                next = self._next()
+                while next is None or next > 0.05:
+                    time.sleep(0.05)
+                    next = self._next()
+                if next > 0:
+                    time.sleep(next)
                 self._checkWait()
         self.queue.put(internal())
 
@@ -181,13 +188,6 @@ class YScheduler:
         wkeys = self.wlist.keys()
         xkeys = self.xlist.keys()
         try:
-            next = self._next()
-            if not (next is not None or rkeys or wkeys or xkeys):
-                try:
-                    # We might get a problem if an exception other than Queue.Empty is raised
-                    self.work()
-                except Queue.Empty, e:
-                    return
             r, w, x = select.select(rkeys, wkeys, xkeys, self._next())
         except:
             traceback.print_exc()
@@ -248,4 +248,4 @@ def test2():
     time.sleep(6)
 
 if __name__ == '__main__':
-    test2()
+    test()
