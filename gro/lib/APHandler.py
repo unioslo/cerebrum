@@ -20,7 +20,7 @@
 import omniORB
 
 from Cerebrum_core import Errors
-import Transaction
+from Transaction import Transaction
 from classes.Builder import CorbaBuilder, Method, Attribute
 from classes.Account import Account # FIXME: midlertidig. bruker denne til å lage søkeklasse. GroRegistry noen?
 
@@ -95,7 +95,7 @@ def create_ap_handler_get_method(data_type):
         return APHandler.convert_to_corba(obj, data_type, self)
     return get
 
-class APHandler(CorbaBuilder):
+class APHandler(CorbaBuilder, Transaction):
     """Access point handler.
 
     Each client has his own access point, wich will be used to identify the client
@@ -142,20 +142,21 @@ class APHandler(CorbaBuilder):
     convert_from_corba = classmethod(convert_from_corba)
 
     def __init__(self, com, username, password):
-        # Login raises exception if it fails, or returns entity_id if not.
-        self.entity_id = self.login(username, password)
+        self.client = self.login(username, password)
         self.username = username
         self.com = com
-        self.transaction = None
 
     def login(self, username, password):
         """Login the user with the username and password.
         """
         # We will always throw the same exception in here.
-        exception = Errors.LoginError('Wrong username or password.')
+        # this is important
+
+        exception = Errors.LoginError('Wrong username or password')
+
         # Check username
         for char in ['*','?']:
-            if char in username:
+            if char in username or char in password:
                 raise exception
 
         search = Account.create_search_class()() # FIXME: midlertidig. hente ut fra GroRegistry
@@ -175,34 +176,12 @@ class APHandler(CorbaBuilder):
 
         # Log successfull login..
         
-        return account.get_entity_id()
+        return account
     
     def get_username(self):
         """Returns the username of the client.
         """
         return self.username
-
-    def begin(self):
-        """Starts a new transaction. If this APHandler already got a transaction
-        running, an error will be raised.
-        """
-        if self.transaction is None:
-            self.transaction = Transaction.Transaction(self)
-        else:
-            raise Errors.TransactionError("Transaction already created.")
-
-    def rollback(self):
-        """Rollback changes done in the transaction.
-        """
-        self.transaction.rollback()
-        self.transaction = None
-        
-    def commit(self):
-        """Commit changes to the database.
-
-        Tries first to commit all nodes, then unlocks them.
-        """
-        self.transaction.commit()
 
     def register_gro_class(cls, gro_class):
         gro_class.build_methods()

@@ -30,22 +30,25 @@ class GroDatabase(Database):
     commit at a time.
     """
     def __init__(self):
-        self.lock = Lock()
+        self._lock = Lock()
         Database.__init__(self)
         Database.cl_init(self, change_program='GRO')
-    def commit(self):
-        self.lock.acquire()
-        try:
-            Database.commit(self)
-        except Exception, e:
-            self.lock.release()
-            raise Errors.TransactionError('Failed to commit: %s' % e)
+
+    def lock(self, entity_id):
+        self._lock.acquire()
+        self.cl_init(change_by=entity_id)
+
+    def release(self):
+        self.rollback_log() # just in case
+        self.rollback() # will this break the database?
+        Database.cl_init(self, change_program='GRO')
         self.lock.release()
 
 db = None
 
 def get_database():
     global db
+
     if db is None:
         db = GroDatabase()
     return db
