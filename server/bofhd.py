@@ -217,9 +217,11 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
         try:
             ret = apply(func, xmlrpc_to_native(params))
         except CerebrumError, e:
-            # ret = ":".join((":Exception:", type(e).__name__, str(e)))
-            ret = str(e)
-            raise sys.exc_info()[0], ret
+            # Exceptions with unicode characters in the message
+            # produce a UnicodeError when cast to str().  Fix by
+            # encoding as utf-8
+            ret = "%s: %s"  % (e.__class__.__name__, e.args[0])
+            raise sys.exc_info()[0], ret.encode('utf-8')
         except NotImplementedError, e:
             logger.warn("Not-implemented: ", exc_info=1)
             raise CerebrumError, "NotImplemented: %s" % str(e)
