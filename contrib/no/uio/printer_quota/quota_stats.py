@@ -85,6 +85,53 @@ def user_type_stats(from_date, to_date, sort_by='total'):
         print "%-14s:" % k , format % tuple(
             [v[c] for c in range(len(cols))])
     
+def person_type_stats(from_date, to_date, sort_by='total'):
+    """Group #jobs, #free, #paid and total# pages by persons
+    affiliation
+    """
+    p = Factory.get('Person')(db)
+    p_type = {}
+    pri_order = {}
+    num2aff = {}
+    n = 0
+    for c in [co.affiliation_ansatt, co.affiliation_tilknyttet,
+              co.affiliation_student, co.affiliation_manuell,
+              co.affiliation_upersonlig]:
+        pri_order[int(c)] = n
+        num2aff[n] = c
+        n += 1
+    
+    for r in p.list_affiliations(fetchall=False):
+        p_type[int(r['person_id'])] = min(
+            pri_order.get(int(r['affiliation']), 99),
+            p_type.get(int(r['person_id']), 99))
+    
+    cols = ['jobs', 'free', 'paid', 'total']
+    rows = ppq.get_pagecount_stats(from_date, to_date, group_by=('person_id',))
+    stats = {}
+    for r in rows:
+        if r['person_id'] is None:
+            t = 'unknown'
+        else:
+            t = p_type.get(int(r['person_id']), 'other')
+        if not stats.has_key(t):
+            stats[t] = [0, 0, 0, 0, 0]
+        for c in range(len(cols)):
+            stats[t][c] += int(r[cols[c]])
+        stats[t][4] += 1
+
+    format = "%-12s %-12s %-12s %-12s"
+    t = ['PersonType']
+    t.extend(cols)
+    print ("%-14s "+format) % tuple(t)
+    format = format.replace('-', '')
+
+    for k, v in stats.items():
+        if type(k) == int:
+            k = num2aff[k]
+        print "%-14s:" % k , format % tuple(
+            [v[c] for c in range(len(cols))])
+    
 def printjob_stats(from_date, to_date, sted_level=None):
     cols = ['jobs', 'free', 'paid', 'total']
     if sted_level:
@@ -149,7 +196,7 @@ def main():
         opts, args = getopt.getopt(sys.argv[1:], '', [
             'help', 'from=', 'to=', 'sted-level=', 'printjobs',
             'payments', 'top-user', 'sort-user-by=', 'user-rows=',
-            'user-type'])
+            'user-type', 'person-type'])
     except getopt.GetoptError:
         usage(1)
 
@@ -180,6 +227,8 @@ def main():
             num_user_rows = int(val)
         elif opt in ('--user-type',):
             user_type_stats(from_date, to_date)
+        elif opt in ('--person-type',):
+            person_type_stats(from_date, to_date)
 
 def usage(exitcode=0):
     print """Usage: [options]
@@ -197,6 +246,7 @@ def usage(exitcode=0):
        --payments:  show number of payments
        --top-user:  show top users
        --user-type: show stats by np_type
+       --person-type: show stats by person-type
        
     Example:
       Show top-20 users whos paid qouta was reduced from june to august:
