@@ -117,25 +117,26 @@ def main():
         n = 0
         for t in k.get('komm', []):
             n += 1       # TODO: set contact_pref properly
-            if t['kommtypekode'] == 'FAX': 
+            if t['kommtypekode'] == 'FAX':
                 ou.populate_contact_info(co.system_lt, co.contact_fax,
                                          t['telefonnr'], contact_pref=n)
-            elif t['kommtypekode'] == 'TLF': 
+            elif t['kommtypekode'] == 'TLF':
                 if len(t['telefonnr']) == 5:
                     t['telefonnr'] = "228%s" % t['telefonnr']
                 ou.populate_contact_info(co.system_lt, co.contact_fax,
                                          t['telefonnr'], contact_pref=n)
-            elif t['kommtypekode'] == 'EPOST': 
+            elif t['kommtypekode'] == 'EPOST':
                 ou.populate_contact_info(co.system_lt, co.contact_email,
                                          t['kommnrverdi'], contact_pref=n)
         op = ou.write_db()
-        if op is None:
-            print "**** EQUAL ****"
-        elif op:
-            print "**** NEW ****"
-        else:
-            print "**** UPDATE ****"
-            
+        if verbose:
+            if op is None:
+                print "**** EQUAL ****"
+            elif op:
+                print "**** NEW ****"
+            else:
+                print "**** UPDATE ****"
+
         stedkode = get_stedkode_str(k)
         # Not sure why this casting to int is required for PostgreSQL
         stedkode2ou[stedkode] = int(ou.entity_id)
