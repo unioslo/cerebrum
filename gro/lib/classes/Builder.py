@@ -36,6 +36,8 @@ def LazyMethod(var, load):
         value = getattr(self, var)
         if value is Lazy:
             loadmethod = getattr(self, load)
+            if loadmethod is None:
+                raise NotImplementedError('load for this attribute is not implemented')
             loadmethod()
             value = getattr(self, var)
             if value is Lazy:
@@ -51,17 +53,18 @@ def SetWrapper(var):
         orig = getattr(self, 'get_' + var) # farlig...... kan alle variabler hentes ut?
                                            # men skal jo brukes til rollback....
 
-        # set the variable
-        setattr(self, '_' + var, value)
-        self.updated.add(var)
-#        if var not in self.updated:
-#            self.updated[var] = orig
+        if orig != value: # we only set a new value if it is different
+            # set the variable
+            setattr(self, '_' + var, value)
+            self.updated.add(var)
     return set
 
 def ReadOnly(var):
     def readOnly(self, *args, **vargs):
         raise Errors.ReadOnlyAttributeError('attribute %s is read only' % var)
     return readOnly
+
+# FIXME: slots blir ikke oppdatert hvis register_atttribute blir kjørt og den ikke finnes fra før
 
 class Builder(Caching, Locking):
     primary = []
@@ -97,7 +100,33 @@ class Builder(Caching, Locking):
         # mark the object as old
         setattr(self, mark, time.time())
 
+    def load(self):
+        # vil vi ha dette?
+        # load kan laste _alle_ attributter vel å iterere gjennom slots...
+        raise NotImplementedError('this should not happen')
+
+    def save(self):
+        """ Save all changed attributes """
+
+        for var in self.updated:
+            getattr(self, 'save_' + var)()
+        self.updated.clear()
+
+    def reload(self):
+        """ Reload all changed attributes """
+
+        for var in self.updated:
+            getattr(self, 'load_' + var)()
+        self.updated.clear()
+
+    # class methods
+    
     def getKey(cls, *args, **vargs):
+        """ Get primary key from args and vargs
+
+        Used by the caching facility to identify a unique object
+        """
+        
         names = [i.name for i in cls.primary]
         for var, value in zip(names, args):
             vargs[var] = value
@@ -106,55 +135,65 @@ class Builder(Caching, Locking):
         for i in names:
             key.append(vargs[i])
         return tuple(key)
-    getKey = classmethod(getKey)
 
-    def load(self):
-        raise NotImplementedError('this should be implemented in subclass')
 
-    def save(self):
-        for var in self.updated:
-            getattr(self, 'save_' + var)()
-        self.updated.clear()
+ 
+    def register_attribute(cls, attribute, load=None, save=None, get=None, set=None, overwrite=False, override=False):
+        """ Registers an attribute
 
-    def reload(self):
-        for var in self.updated:
-            getattr(self, 'load_' + var)()
-        self.updated.clear()
+        attribute contains the name and data_type as it will be in the API
+        load - loads the value for this attribute
+        save - saves a new attribute
+        get  - returns the value
+        set  - sets the value. Validation can be done here.
 
-    # class methods
-    
-    def register_attribute(cls, name, data_type, load, save, set=None, get=None, overwrite=False):
-        var_private = '_' + name
-        var_get = 'get_' + name
-        var_set = 'set_' + name
-        var_load = 'load_' + name
-        var_save = 'save_' + name
+        load/save/get/set must take self as first argument.
+
+        overwrite - decides whether to overwrite existing definitions
+        override  - decides whether to raise an exception when a definition of this
+                    attribute allready exists
+
+        If the attribute does not exist, it will be added to the class
+        If overwrite=True load/save/get/set will be overwritten if they allready exists.
+        If override=False and load/save/get/set exists, an exception will be raised.
+
+        If get and set is None, the default behavior is for set and get to use
+        self._`attribute.name`. load will then be run automatically by get if the
+        attribute has not yet been loaded.
+
+        If attribute is not writable, save will not be used.
+        """
+
+        var_private = '_' + attribute.name
+        var_get = 'get_' + attribute.name
+        var_set = 'set_' + attribute.name
+        var_load = 'load_' + attribute.name
+        var_save = 'save_' + attribute.name
 
         if get is None:
             get = LazyMethod(var_private, var_load)
 
-        if overwrite or not hasattr(cls, var_get):
-            setattr(cls, var_get, get)
+        if set is None:
+            if attribute.writable:
+                set = SetWrapper(attribute.name)
+            else:
+                set = ReadOnly(attribute.name)
 
-        if overwrite or not hasattr(cls, var_set):
-            setattr(cls, var_set, set)
+        def register(var, method):
+            if hasattr(cls, var) and not overwrite:
+                if not override:
+                    raise AttributeAllreadyExistsError('%s allready exists in %s' % (attribute.name, cls.__name__))
+            else:
+                setattr(cls, var, method)
 
-        if overwrite or not hasattr(cls, var_load):
-            setattr(cls, var_load, load)
-
-        if overwrite or not hasattr(cls, var_save):
-            setattr(cls, var_save, save)
+        register(var_load, load)
+        register(var_save, save)
+        register(var_get, get)
+        register(var_set, set)
 
     def prepare(cls):
-        for attr in cls.slots:
-            if attr.writable:
-                set = SetWrapper(attr.name)
-            else:
-                set = ReadOnly(attr.name)
-            load = getattr(cls, 'load_' + attr.name, None)
-            save = getattr(cls, 'save_' + attr.name, None)
-
-            cls.register_attribute(attr.name, attr.data_type, load, save, set)
+        for attribute in cls.slots:
+            cls.register_attribute(attribute, override=True)
 
     def build_idl_header( cls ):
         txt = 'interface %s;\n' % cls.__name__
@@ -182,11 +221,13 @@ class Builder(Caching, Locking):
 
         return txt
             
+    getKey = classmethod(getKey)
     register_attribute = classmethod(register_attribute)
     prepare = classmethod(prepare)
     build_idl_header = classmethod(build_idl_header)
     build_idl_interface = classmethod(build_idl_interface)
 
     def __repr__(self):
-        return '%s(%s)' % (self.__class__.__name__, getattr(self, 'id', ''))
+        key = [repr(i) for i in self._key[1]]
+        return '%s(%s)' % (self.__class__.__name__, ', '.join(key))
 
