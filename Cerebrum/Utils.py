@@ -171,8 +171,9 @@ def latin1_to_iso646_60(s, substitute=''):
     return string.join(map(lambda x:xlate.get(x, x), s), '')
 
 def pgp_encrypt(message, id):
-    cmd = [cereconf.PGPPROG, '--recipient', id, '--default-key', id,
-           '--encrypt', '--armor', '--batch', '--quiet']
+    cmd = [cereconf.PGPPROG]
+    cmd.extend(cereconf.PGP_ENC_OPTS)
+    cmd.extend(('--recipient', id, '--default-key', id))
 
     child = popen2.Popen3(cmd)
     child.tochild.write(message)
@@ -184,8 +185,8 @@ def pgp_encrypt(message, id):
     return msg
 
 def pgp_decrypt(message, password):
-    cmd = [cereconf.PGPPROG, '--batch', '--passphrase-fd', "0",
-           '--decrypt', '--quiet']
+    cmd = [cereconf.PGPPROG]
+    cmd.extend(cereconf.PGP_DEC_OPTS)
     child = popen2.Popen3(cmd)
     
     child.tochild.write(password+"\n")

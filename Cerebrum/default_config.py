@@ -201,6 +201,7 @@ AUTOADMIN_LOG_DIR='.'     # Set to a place where only 'cerebrum' has write acces
 JOB_RUNNER_SOCKET="/tmp/jr-socket"
 
 JOB_RUNNER_LOG_DIR='.'   # Set to a place where only 'cerebrum' has write access
+JOB_RUNNER_MAX_PARALELL_JOBS = 3
 
 # Used by Cerebrum/no/Stedkode.py
 DEFAULT_INSTITUSJONSNR=None
@@ -227,3 +228,6 @@ WEBROOT = "/"
 # Used when pgp-encrypting passwords:
 PGPPROG = '/usr/bin/gpg'
 PGPID = "enter your string here"
+PGP_DEC_OPTS = ['--batch', '--passphrase-fd', "0", '--decrypt', '--quiet']
+# ['--recipient', id, '--default-key', id] is appended to PGP_ENC_OPTS
+PGP_ENC_OPTS = ['--encrypt', '--armor', '--batch', '--quiet']
