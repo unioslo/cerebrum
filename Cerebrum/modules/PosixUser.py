@@ -66,8 +66,10 @@ class PosixUser(Account.Account):
         if parent is not None:
             self.__xerox__(parent)
         else:
-            # super(PosixUser, self).populate(name, owner_type, owner_id, np_type, creator_id, expire_date)
-            Account.Account.populate(self, name, owner_type, owner_id, np_type, creator_id, expire_date)
+            # super(PosixUser, self).populate(name, owner_type,
+            # owner_id, np_type, creator_id, expire_date)
+            Account.Account.populate(self, name, owner_type, owner_id,
+                                     np_type, creator_id, expire_date)
         self.__in_db = False
         self.posix_uid = posix_uid
         self.gid = gid
@@ -75,12 +77,13 @@ class PosixUser(Account.Account):
         self.home = home
         self.shell = shell
 
-    def write_db(self, as_object=None):
+    def write_db(self):
         """Write PosixUser instance to database."""
         self.__super.write_db()
         if not self.__updated:
             return
-        if not self.__in_db:
+        is_new = not self.__in_db
+        if is_new:
             self.execute("""
             INSERT INTO [:table schema=cerebrum name=posix_user]
               (account_id, posix_uid, gid, gecos, home, shell)
@@ -107,6 +110,7 @@ class PosixUser(Account.Account):
         del self.__in_db
         self.__in_db = True
         self.__updated = False
+        return is_new
 
     def find(self, account_id):
         """Connect object to PosixUser with ``account_id`` in database."""
@@ -122,7 +126,9 @@ class PosixUser(Account.Account):
 
     def get_all_posix_users(self):
         """Return account_id of all PosixUsers in database"""
-        return self.query("SELECT account_id FROM posix_user")
+        return self.query("""
+        SELECT account_id
+        FROM [:table schema=cerebrum name=posix_user]""")
 
     def get_free_uid(self):
         """Returns the next free uid from ``posix_uid_seq``"""
@@ -197,7 +203,7 @@ class PosixUser(Account.Account):
         if firstinit and len(firstinit) > 1:
             i = len (firstinit)
             llen = len (lname)
-            if llen > 8 - i: llen = 8 - i 
+            if llen > 8 - i: llen = 8 - i
             for j in range(llen, 0, -1):
                 un = firstinit + lname[0:j]
                 if self.validate_new_uname(domain, un): potuname += (un, )
@@ -206,7 +212,7 @@ class PosixUser(Account.Account):
                     un = firstinit + initial + lname[0:j-1]
                     if self.validate_new_uname(domain, un): potuname += (un, )
                     if len(potuname) >= goal: break
-        
+
 
         # Now try different substrings from first and last name.
         #
@@ -227,16 +233,16 @@ class PosixUser(Account.Account):
 
         for i in range(flen, 0, -1):
             llim = len(lname)
-            if llim > 8 - i: llim = 8 - i 
+            if llim > 8 - i: llim = 8 - i
             for j in range(1, llim):
                 if initial:
-    		# Is there room for an initial?
+		# Is there room for an initial?
                     if j == llim and i + llim < 8:
                         un = fname[0:i] + initial + lname[0:j]
                         if self.validate_new_uname(domain, un):
                             potuname += (un, )
-    		# Is there room for an initial if we chop a letter off
-    		# last name?
+		# Is there room for an initial if we chop a letter off
+		# last name?
                     if j > 1:
                         un = fname[0:i] + initial + lname[0:j-1]
                         if self.validate_new_uname(domain, un):
@@ -327,14 +333,14 @@ class PosixUser(Account.Account):
                        " least three of these four character groups:"
                        " Uppercase letters, lowercase letters, numbers and"
                        " special characters."),
-        
+
         'was_like_old': ("That was to close to an old password.  You must"
                          " select a new one."),
         'dict_hit': "Don't use words in a dictionary."
         }
     words = ("huge.sorted.txt",)
     dir = "/u2/dicts"
-    
+
     def check_password_history(self, uname, passwd):
         """Check wether uname had this passwd earlier.  Raises a
         TODOError if this is true"""
@@ -391,7 +397,7 @@ class PosixUser(Account.Account):
 
         if len(passwd) < 8:
             raise msgs['atleast8']
-    
+
 
         if re.search(r'[\200-\376]', passwd):
             raise msgs['8bit']
@@ -403,7 +409,7 @@ class PosixUser(Account.Account):
         # causes most users to include a digit in their password, one
         # has managed to reduce the password space by 26*2/10 provided
         # that a hacker performs a bruteforce attack
-        
+
         good_try = variation = 0
         if re.search(r'[a-z]', passwd): variation += 1
         if re.search(r'[A-Z][^A-Z]{7}', passwd): good_try += 1
@@ -446,7 +452,7 @@ class PosixUser(Account.Account):
                 print "Check %s in %s" % (chk, d)
                 f = file("%s/%s" % (self.dir, d))
                 look(f, chk, 1, 1)
-                
+
                 # Do the lookup (dictionary order, case folded)
                 while (1):
                     line = f.readline()
@@ -456,5 +462,3 @@ class PosixUser(Account.Account):
                     if line[0:len(chk)] != chk: break
                     raise msgs['dict_hit']
         return 1
-
-
