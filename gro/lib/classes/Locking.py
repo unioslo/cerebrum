@@ -87,12 +87,7 @@ class Locking( object ):
     with a readlock.
     """
     def isReadLockedByOther:( self, client ):
-        if client not in self.readLocks and self.readLocks:
-            return True
-        elif client in self.readLocks and len( self.readLocks ) > 1:
-            return True
-        else:
-            return False
+        return len(readLocks) > 1 or ( client not in readLocks and readLocks )
 
 
     """ Check if this object is locked for writing by the client.
