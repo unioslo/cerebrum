@@ -445,7 +445,15 @@ def get_sted(stedkode=None, entity_id=None):
                            cereconf.DEFAULT_INSTITUSJONSNR)
     else:
         sted.find(entity_id)
-    return sted
+    # Only OUs where katalog_merke is set should be returned; if no
+    # such OU can be found by moving towards the root of the OU tree,
+    # return None.
+    if sted.katalog_merke == 'T':
+        return sted
+    parent_id = sted.get_parent(const.perspective_lt)
+    if parent_id is not None and parent_id <> sted.entity_id:
+        return get_sted(entity_id = parent_id)
+    return None
 
 def build_structure(sko, allow_room=0, allow_contact=0):
     # rekursiv bygging av sted som en gruppe
@@ -464,14 +472,20 @@ def build_structure(sko, allow_room=0, allow_contact=0):
 	# tree, we're causing nodes that are created purely as
 	# ancestors to allow neither rooms nor contacts.
         sted = get_sted(stedkode=sko)
+        if sted is None:
+            # This shouldn't happen, but if it does, there's not much
+            # we can do to salvage the situation.  Bail out by
+            # returning None.
+            return None
 	parent_sted = get_sted(entity_id=sted.get_parent(const.perspective_lt))
-	parent = build_structure("%02d%02d%02d" % (
-            parent_sted.fakultet, parent_sted.institutt, parent_sted.avdeling))
-            
-        if not parent:
+        if parent_sted is None:
 	    print "Stedkode <%s> er uten foreldre; bruker %s" % (sko, root_sko)
 	    parent = build_structure(root_sko)
-
+        else:
+            parent = build_structure("%02d%02d%02d" % (
+                parent_sted.fakultet,
+                parent_sted.institutt,
+                parent_sted.avdeling))
 	register_group(sted.name, id, parent, allow_room, allow_contact)
     return id
 
