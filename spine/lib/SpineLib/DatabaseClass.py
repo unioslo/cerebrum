@@ -50,6 +50,8 @@ class DatabaseAttr(Attribute):
             return value
 
     def from_db(self, value):
+        if value is None:
+            return None
         # Depends on the db-driver, should be done in a cleaner way.
         if isinstance(value, pyPgSQL.PgSQL.PgNumeric):
             value = int(value)

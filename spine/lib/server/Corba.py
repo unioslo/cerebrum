@@ -35,7 +35,10 @@ corba_structs = {}
 
 def convert_to_corba(obj, transaction, data_type):
     if obj is None and data_type is not None:
-        raise TypeError("Can't convert None, should be %s" % data_type)
+        if data_type in corba_types:
+            raise TypeError("Can't convert None, should be %s" % data_type)
+        elif data_type in class_cache:
+            return None
     elif data_type in corba_types:
         return obj
     elif isinstance(data_type, Struct):
