@@ -94,6 +94,11 @@ from distutils.util import change_root, convert_path
 import os
 import pwd
 
+#
+# Which user should own the installed files
+#
+cerebrum_user = "cerebrum"
+
 class my_install_data (install_data.install_data):
     def run (self):
         self.mkpath(self.install_dir)
@@ -106,10 +111,10 @@ class my_install_data (install_data.install_data):
             elif self.root:
                 dir = change_root(self.root, dir)
             self.mkpath(dir)
-            uinfo = pwd.getpwnam(tdict['owner'])
-            uid, gid = uinfo[2], uinfo[3]
             os.chmod(dir, tdict['mode'])
             if(os.geteuid() == 0):
+                uinfo = pwd.getpwnam(tdict['owner'])
+                uid, gid = uinfo[2], uinfo[3]
                 os.chown(dir, uid, gid)
             if f[1] == []:
                 # If there are no files listed, the user must be
@@ -127,7 +132,6 @@ class my_install_data (install_data.install_data):
                         os.chown(out, uid, gid)
 
 # class my_install_data
-
 
 prefix="."  # Should preferably be initialized from the command-line argument
 sharedir="%s/share" % prefix
@@ -148,8 +152,8 @@ setup (name = "Cerebrum", version = "0.1",
        #                            'install_dir': '/dddddddd' # prefix on no-slash
        #                            }},
        # data_files doesn't seem to handle wildcards
-       data_files = [({'path': "%s/design" % sharedir,
-                       'owner': "cerebrum",
+       data_files = [({'path': "%s/doc/cerebrum/design" % sharedir,
+                       'owner': cerebrum_user,
                        'mode': 0750},
                       [('design/drop_mod_stedkode.sql', 0644),
                        ('design/drop_mod_nis.sql', 0644),
@@ -163,7 +167,7 @@ setup (name = "Cerebrum", version = "0.1",
                        ('design/mod_stedkode.sql', 0644)
                        ]),
                      ({'path': "%s/doc/cerebrum" % sharedir,
-                       'owner': "cerebrum",
+                       'owner': cerebrum_user,
                        'mode': 0750},
                       [('design/cerebrum-core.dia', 0644),
                        ('design/cerebrum-core.html', 0644),
@@ -175,7 +179,7 @@ setup (name = "Cerebrum", version = "0.1",
                      ## ("%s/samples" % sharedir,
                      ##  ['doc/*.cron']),
                      ({'path': "%s" % sbindir,
-                       'owner': "cerebrum",
+                       'owner': cerebrum_user,
                        'mode': 0750},
                       [('server/bofhd.py', 0755),
                        ('server/bofhd_cmds.py', 0644),   # WRONG!
@@ -190,31 +194,31 @@ setup (name = "Cerebrum", version = "0.1",
                        
                        ]),
                      ({'path': "%s" % bindir,
-                       'owner': "cerebrum",
+                       'owner': cerebrum_user,
                        'mode': 0750},
                       [('client/bofh.py', 0755)]),
                      ({'path': "%s/cerebrum/client" % sharedir,
-                       'owner': "cerebrum",
+                       'owner': cerebrum_user,
                        'mode': 0750},
                        [('client/passweb.py', 0755),
                         ('client/pform.html', 0644),
                         ('java/jbofh/dist/lib/JBofh.jar', 0644)]),
                      ({'path': "%s/cerebrum/client/linux" % sharedir,  # TODO: arch
-                       'owner': "cerebrum",
+                       'owner': cerebrum_user,
                        'mode': 0750},
                       [('java/jbofh/lib/libJavaReadline.so', 0644)]),
                      ({'path': "/etc/cerebrum",
-                       'owner': "cerebrum",
+                       'owner': cerebrum_user,
                        'mode': 0750},
                       [('Cerebrum/cereconf.py', 0644),
                        ('server/config.dat', 0644)
                        ]),
                      ({'path': "/var/log/cerebrum",
-                       'owner': "cerebrum",
+                       'owner': cerebrum_user,
                        'mode': 0750},
                       []),
                      ({'path': "%s/cerebrum/data" % sharedir,
-                       'owner': "cerebrum",
+                       'owner': cerebrum_user,
                        'mode': 0750},
                       []),
                      ],
