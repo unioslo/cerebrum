@@ -31,6 +31,7 @@ class EmailLDAPFeideGvsMixin(EmailLDAP):
     def __init__(self, db):
         self.__super.__init__(db)
         self.a_id2name = {}
+        self.e_id2passwd = {}
   
     def get_target(self, entity_id, target_id):
         tmp_addr = self.aid2addr[self.targ2prim[target_id]]
@@ -50,9 +51,39 @@ class EmailLDAPFeideGvsMixin(EmailLDAP):
             o_id = row['owner_id']
             if p_id2name.has_key(o_id):
                 self.a_id2name[a_id] = p_id2name[o_id]
+        a = Factory.get('Account')(self._db)
+        for row in a.list_account_authentication():
+            self.e_id2passwd[row['account_id']] = (row['entity_name'],
+                                                   row['auth_data'])
+        for row in a.list_account_authentication(self.const.auth_type_crypt3_des):
+            # *sigh* Special-cases do exist. If a user is created when the
+            # above for-loop runs, this loop gets a row more. Before I ignored
+            # this, and the whole thing went BOOM on me.
+            if not self.e_id2passwd.has_key(row['account_id']):
+                self.e_id2passwd[row['account_id']] = (row['entity_name'],
+                                                       row['auth_data'])
+            elif self.e_id2passwd[row['account_id']][1] == None:
+                self.e_id2passwd[row['account_id']] = (row['entity_name'],
+                                                       row['auth_data'])
+
 
     def get_misc(self, entity_id, target_id, email_target_type):
-        if  self.a_id2name.has_key(entity_id):
-            return "name: %s" % self.a_id2name[entity_id]
-
+        txt = ""
+        if self.a_id2name.has_key(entity_id):
+            txt = "name: %s" % self.a_id2name[entity_id]
+        if self.a_id2name.has_key(entity_id) and \
+           email_target_type == self.const.email_target_account and \
+           self.e_id2passwd.has_key(entity_id):
+            txt += "\n"
+        if email_target_type == self.const.email_target_account:
+            if self.e_id2passwd.has_key(entity_id):
+                uname, passwd = self.e_id2passwd[entity_id]
+                if not passwd:
+                    passwd = "*invalid"
+                txt += "userPassword: {crypt}%s" % passwd
+                return txt
+            else:
+                txt = "No auth-data for user: %s\n" % entity_id
+                sys.stderr.write(txt)
+        return txt
 # arch-tag: 26ce1aea-d940-4e0d-83b5-78b4e0e7b822
