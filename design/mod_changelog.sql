@@ -1,7 +1,11 @@
+category:drop;
 drop table change_type;
+category:drop;
 drop SEQUENCE change_log_seq;
+category:drop;
 drop TABLE change_log;
 
+category:code;
 CREATE TABLE change_type
 (
     change_type_id NUMERIC(6,0)
@@ -37,7 +41,9 @@ CREATE TABLE change_type
         null
 */
 
+category:code;
 CREATE SEQUENCE change_log_seq;
+category:code;
 CREATE TABLE change_log
 (
   tstamp          DATE
@@ -56,43 +62,3 @@ CREATE TABLE change_log
   change_program  CHAR VARYING(16),
   comment         CHAR VARYING(255)
 );
-
-INSERT INTO [:table schema=cerebrum name=change_type]
-  (change_type_id, category, type, msg_string) VALUES
-  ([:sequence schema=cerebrum name=code_seq op=next],
-'e_group', 'add', 'added %%(subject)s to %%(dest)s');
-
-INSERT INTO [:table schema=cerebrum name=change_type]
-  (change_type_id, category, type, msg_string) VALUES
-  ([:sequence schema=cerebrum name=code_seq op=next],
-'e_group', 'rem', 'removed %%(subject)s from %%(dest)s');
-
-INSERT INTO [:table schema=cerebrum name=change_type]
-  (change_type_id, category, type, msg_string) VALUES
-  ([:sequence schema=cerebrum name=code_seq op=next],
-'e_group', 'create', 'created %%(subject)s');
-
-INSERT INTO [:table schema=cerebrum name=change_type]
-  (change_type_id, category, type, msg_string) VALUES
-  ([:sequence schema=cerebrum name=code_seq op=next],
-'e_group', 'destroy', 'destroyed %%(subject)s');
-
-INSERT INTO [:table schema=cerebrum name=change_type]
-  (change_type_id, category, type, msg_string) VALUES
-  ([:sequence schema=cerebrum name=code_seq op=next],
-'e_account', 'create', 'created %%(subject)s');
-
-INSERT INTO [:table schema=cerebrum name=change_type]
-  (change_type_id, category, type, msg_string) VALUES
-  ([:sequence schema=cerebrum name=code_seq op=next],
-'e_account', 'def_fg', 'set %%(dest)s as default group for %%(subject)s');
-
-INSERT INTO [:table schema=cerebrum name=change_type]
-  (change_type_id, category, type, msg_string) VALUES
-  ([:sequence schema=cerebrum name=code_seq op=next],
-'e_account', 'password', 'new password for %%(subject)s');
-
-INSERT INTO [:table schema=cerebrum name=change_type]
-  (change_type_id, category, type, msg_string) VALUES
-  ([:sequence schema=cerebrum name=code_seq op=next],
-'e_account', 'move', '%%(subject)s moved to %%(param_name)s');
