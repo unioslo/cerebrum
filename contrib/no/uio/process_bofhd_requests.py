@@ -538,7 +538,7 @@ def process_move_requests():
                 if new_disk == old_disk:
                     br.delete_request(request_id=r['request_id'])
                 else:
-                    br.delay_request(r['request_id'], 86400)
+                    br.delay_request(r['request_id'], minutes=24*60)
 
     # Resten fungerer ikkje enno, so vi sluttar her.
     return
