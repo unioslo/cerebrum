@@ -20,8 +20,8 @@ commands = {
     #'rmuser': [cereconf.RMUSER_SCRIPT, 3],
     # action, server, uname
     'subscribeimap': [cereconf.SUBSCRIBE_SCRIPT, 3],
-    # uname, mailto, hquota, from_host, from_type, to_host, to_type
-    'mvmail': [cereconf.MVMAIL_SCRIPT, 7],
+    # uname, home, mailto, hquota, from_host, from_type, to_host, to_type
+    'mvmail': [cereconf.MVMAIL_SCRIPT, 8],
     # uname, home, uid, dfg
     'convertmail': [cereconf.CONVERT_MAILCONFIG_SCRIPT, 4],
     }
