@@ -30,8 +30,13 @@ class DatabaseAccessor(object):
         assert isinstance(database, Database.Database)
         self._db = database
         # Copy driver-specific type constructors and exceptions.
+        # We need this since the standard only defines their
+        # names, and don't define any driver-independent way 
+        # to retrieve them. 
+        # These are type constructors as defined in DB-API 2.0
         for ctor in Database.API_TYPE_CTOR_NAMES:
             setattr(self, ctor, getattr(database, ctor))
+        # These are exception constructors as defined in DB-API 2.0
         for exc in Database.API_EXCEPTION_NAMES:
             setattr(self, exc, getattr(database, exc))
 
