@@ -204,12 +204,25 @@ class PaidPrinterQuotas(DatabaseAccessor):
             total_pages = total_pages + :pageunits_total
         WHERE person_id=:person_id""", {
             'person_id': person_id,
-            'pageunits_free': pageunits_free,
-            'pageunits_paid': pageunits_paid,
-            'pageunits_total': pageunits_total})
+            'pageunits_free': int(pageunits_free),  # Avoid db-driver 0 = NULL
+            'pageunits_paid': int(pageunits_paid),
+            'pageunits_total': int(pageunits_total)})
 
     def delete_history(self, job_id):
         pass
+
+    def get_quoata_status(self, has_quota_filter=None):
+        if has_quota_filter is not None:
+            if has_quota_filter:
+                where = "WHERE has_quota='T'"
+            else:
+                where = "WHERE has_quota='F'"
+        else:
+            where = ""
+        return self.query(
+            """SELECT person_id, has_quota, has_blocked_quota, weekly_quota,
+                      max_quota, paid_quota, free_quota
+            FROM [:table schema=cerebrum name=paid_quota_status] %s""" % where)
 
     def get_history_payments(self, transaction_type=None, desc_mask=None,
                              bank_id_mask=None, fetchall=False):
