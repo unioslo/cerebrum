@@ -206,6 +206,7 @@ public class BofhdConnection {
 		    logArgs.add(args.get(1));
 		    int i = 2;
 		    for (Enumeration e = protoArgs.elements() ; e.hasMoreElements() ;) {
+			if(i >= args.size()) break;
 			Hashtable h = (Hashtable) e.nextElement();
 			String type = (String) h.get("type");
 			if (type != null && type.equals("accountPassword")) {
@@ -214,7 +215,6 @@ public class BofhdConnection {
 			    logArgs.add(args.get(i));
 			}
 			i++;
-			if(i >= args.size()) break;
 		    }
 		    logger.debug("sendCommand("+cmd+", "+logArgs);
 		}
