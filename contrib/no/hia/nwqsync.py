@@ -231,13 +231,13 @@ def attr_mod_ldap(obj_dn, attrs):
 
 def evaluate_grp_name(grp_name):
     try:
-	grp_name  = cereconf.NW_GROUP_PREFIX + '-' + grp_name
+	grp_name  = '-'.join((cereconf.NW_GROUP_PREFIX, grp_name))
     except AttributeError:
 	pass
     except TypeError:
 	logger.warn('Cereconf variabel NW_GROUP_PREFIX is not a string')
     try:
-	grp_name  = grp_name + '-' + cereconf.NW_GROUP_POSTFIX
+	grp_name  = '-'.join((grp_name,cereconf.NW_GROUP_POSTFIX))
     except AttributeError:
         pass
     except TypeError:
@@ -413,9 +413,9 @@ def change_group_spread(dn_id,ch_type,spread,gname=None):
 	    #add_ldap(utf8_dn, attrs)
 	    student_grp = False
 	    members = []
-	    for mem in group.get_members(spread = spread_ids[0],entity_name=True):
+	    for mem in group.get_members(spread = spread_ids[0],get_entity_name=True):
 		if  (co.affiliation_student == \
-				nwutils.get_primary_affiliation(mem,co.account_namespace)):
+				nwutils.get_primary_affiliation(mem[0],co.account_namespace)):
 		    student_grp = True
 		members.append(mem[1])
 		#user_add_del_grp(const.group_add,mem,dn_id)
