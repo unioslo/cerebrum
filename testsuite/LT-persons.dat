@@ -1,9 +1,26 @@
 <?xml version="1.0" encoding="ISO-8859-1"?>
 <data>
-<person navn="Normann Tre" fodtdag="41" personnr="68091" fodtmnd="02" fodtar="34"
- fakultetnr_for_lonnsslip="33" instituttnr_for_lonnsslip="15" gruppenr_for_lonnsslip="10" 
- adresselinje1_privatadresse="Gåsebystranda 13" poststednr_privatadresse="1313" 
- poststednavn_privatadresse="Andeby">
-<bilag stedkode="331510"/>
-</person>
+  <person fornavn="Ola" etternavn="Normann" navn="Normann Ola"
+          adrtypekode_privatadresse="EKST"
+          adresselinje1_privatadresse="Oppi lia"
+          adresselinje2_privatadresse="(Det røde huset)"
+          poststednr_privatadresse="9999" poststednavn_privatadresse="Dalom"
+          tittel_personlig="førsteamanuensis"
+          fakultetnr_for_lonnsslip="12" instituttnr_for_lonnsslip="34"
+          gruppenr_for_lonnsslip="56"
+          fodtdag="1" personnr="12381" fodtmnd="1" fodtar="55">
+    <arbtlf telefonnr="0" innvalgnr="228" linjenr="51234" tlfpreftegn="-"/>
+    <komm kommtypekode="FAX" telefonnr="22852730" tlfpreftegn="-"/>
+    <komm kommtypekode="UREG-EMAIL" kommnrverdi="ola.normann@extern.uio.no"
+  	tlfpreftegn="A"/>
+    <komm kommtypekode="UREG-USER" kommnrverdi="olanorma" tlfpreftegn="A"/>
+    <tils fakultetnr_utgift="12" instituttnr_utgift="34" gruppenr_utgift="56"
+  	stillingkodenr_beregnet_sist="1011" prosent_tilsetting="100.0"
+  	dato_fra="20020101" dato_til="30000101" hovedkat="VIT"
+  	tittel="førsteamanuensis"/>
+    <res katalogkode="ADRTLF" felttypekode="PRIVADR"/>
+    <res katalogkode="ADRTLF" felttypekode="PRIVTLF"/>
+    <res katalogkode="ELKAT" felttypekode="PRIVADR"/>
+    <bilag stedkode="331520"/>
+  </person>
 </data>
