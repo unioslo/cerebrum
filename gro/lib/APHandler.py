@@ -17,26 +17,22 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-from Cerebrum.Utils import Factory
 from Cerebrum.gro.Cerebrum_core import Errors
-from Cerebrum.gro.classes.db import db
-from Cerebrum.gro import Cerebrum_core__POA
-from Cerebrum.gro import Builder, Entity, Locking, Locker, Account
-from Cerebrum.gro import Transaction
+from Cerebrum.gro import Account, Builder, Transaction
+from Cerebrum.gro.registry import APRegistry
+from Builder import CorbaBuilder, Attribute, Method
 
-from omniORB.any import to_any, from_any
-import mx.DateTime
-
-
-class APHandler(Cerebrum_core__POA.APHandler, Locker):
+class APHandler(CorbaBuilder):
     """Access point handler.
 
     Each client has his own access point, wich will be used to identify the client
-    so we can lock down nodes to the client and check if the client got access to
-    make the changes he tries to do. The client has to provide the GRO a username
-    and password before he gets the aphandler. This information will be stored in
+    so we can lock down objects to the client and check if the client has access to
+    make the changes he tries to do. The client has to provide GRO a username
+    and password before he gets the APHandler. This information will be stored in
     this object.
     """
+
+    method_slots = [Method('begin','void'), Method('rollback', 'void'), Method('commit', 'void')]
 
     def __init__(self, com, username, password):
         # Login raises exception if it fails, or returns entity_id if not.
@@ -44,6 +40,12 @@ class APHandler(Cerebrum_core__POA.APHandler, Locker):
         self.username = username
         self.com = com
         self.transaction = None
+        for name, cls in APRegistry.classes.items():
+            def get(*args, **vargs):
+                return com.get_corba_representation(cls(*args, **vargs))
+            method_name = 'get_%s' % name.lower()
+            setattr(self, method_name, get)
+            method_slots.append(Method(method_name, name))
 
     def login(self, username, password):
         """Login the user with the username and password.
@@ -98,92 +100,3 @@ class APHandler(Cerebrum_core__POA.APHandler, Locker):
         Tries first to commit all nodes, then unlocks them.
         """
         self.transaction.commit()
-
-class APObject(Cerebrum_core__POA.APObject):
-    """ Access point proxy node.
-
-    The APOBject contains the APHandler and an object. It acts as a proxy for the object.
-    This is to give us a sort of automatic session handling that will solve two problems:
-    1 - The client does not have to deal with a session id
-    2 - GRO can perform locking on objects requested by an client,
-        using the APHandler to identify it.
-    """
-
-    def __init__(self, ap, obj):
-        self.ap = ap
-        self.obj = obj
-
-    def _convert(self, obj):
-        """Convert an object.
-    
-        If the object is a list, it will be converted to a tuple.
-        If the object is a node, it will be converted to a corba-node.
-        If the object is an int, a long, a float or a string it will not be converted.
-        """
-        if hasattr(obj, '__iter__') or type(obj) in (list, tuple):
-            return [self._convert(i) for i in obj]
-
-        elif type(obj) in (int, long, float, str):
-            return obj
-
-        elif type(obj) == mx.DateTime.DateTimeType:
-            return obj.ticks()
-
-        elif isinstance(obj, Builder):
-            ap_object = APObject(self.ap, obj)
-            return self.ap.com.get_corba_representation(ap_object)
-
-        elif obj is None:
-            return 'wtf. None!'
-
-        else:
-            raise Errors.ServerError('Server failed to convert object')
-
-    def get_primary_key(self):
-        """ Returns a tuple with the primary key changed into an anyobject. """
-        key = self.obj.get_primary_key()[1]
-        if type(key) != tuple:
-            key = [key]
-        return to_any(self._convert(key))
-
-    def get_class_name(self):
-        """ Returns the classname for the object. """
-        return self.obj.__class__.__name__
-
-    def get_read_attributes(self):
-        """ Returns a list over all readable attributes for the object. """
-        return self.obj.read_slots
-
-    def get_write_attributes(self):
-        """ Returns a list over all writeable attributes for the node. """
-        return self.obj.write_slots
-
-    def begin(self):
-        """Begins a transaction.
-    
-        A read lock will be requested on this node. Raises an 
-        AlreadyLockedError if the node is already locked for writing.
-        """
-        self.lock_for_reading()
-
-    def rollback(self):
-        """Remove/drop changes done to the node.
-    
-        Rollbacks changes done to this node, and unlocks all locks on this node.
-        """
-        self.obj.rollback()
-
-    def commit(self):
-        """Save changes to the database.
-    
-        Commits the changes in this node to the database. Returns a list with
-        al changed attributes. Raises a NotLockedError if the node isn't locked
-        for writing.
-        """
-        if not self.updated:
-            return []
-
-        updated = self.obj.updated
-        changed = self.obj.commit()
-        assert updated.issubset(changed)
-        return updated
