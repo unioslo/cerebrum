@@ -26,11 +26,14 @@
 # Work in progress, current implementation, expect big changes
 #
 
-import cerebrum_path
-
-from SimpleXMLRPCServer import SimpleXMLRPCServer
-
+import sys
+import crypt
+import md5
 import socket
+import SimpleXMLRPCServer
+from random import Random
+
+import cerebrum_path
 import cereconf
 from Cerebrum import Errors
 from Cerebrum import Account
@@ -38,164 +41,216 @@ from Cerebrum.Utils import Factory
 from Cerebrum import Utils
 from bofhd_errors import CerebrumError
 
-import sys
-import crypt
-from random import Random
-import md5
 
-class HelperFuncs(object):
-    """Internal helper functions that are not remotely callable"""
+# TBD: Is a BofhdSession class a good idea?  It could (optionally)
+# take a session_id argument when instantiated, and should have
+# methods for setting and retrieving state info for that particular
+# session.
+class BofhdSession(object):
+    def __init__(self, db, id=None):
+        self._db = db
+        self._id = id
+        self._entity_id = None
 
-    def __init__(self, Cerebrum, ef):
-        self.db = Cerebrum
-        self.ef = ef
+    def set_authenticated_entity(self, entity_id):
+        """Create persistent entity/session mapping; return new session_id.
 
-    def create_user_session(self, account_id):
-        r = Random().random()
-        session_id = "%s-ok%s" %  (account_id, r)  # TODO: strong-random
-        m = md5.md5()
-        m.update(session_id)
+        This method assumes that entity_id is already sufficiently
+        authenticated, so the actual authentication of entity_id
+        authentication must be done before calling this method.
+
+        """
+        r = Random().random()           # TODO: strong-random
+        # TBD: We might want to assert that `entity_id` does in fact
+        # exist (if that isn't taken care of by constraints on table
+        # 'bofhd_session').
+        m = md5.new("%s-ok%s" % (entity_id, r))
         session_id = m.hexdigest()
-        self.db.execute("""
-        INSERT INTO [:table schema=cerebrum name=bofhd_session] (session_id,
-            account_id, auth_time)
+        # TBD: Is it OK for table 'bofhd_session' to have multiple
+        # rows for the same `entity_id`?
+        self._db.execute("""
+        INSERT INTO [:table schema=cerebrum name=bofhd_session]
+          (session_id, account_id, auth_time)
         VALUES (:session_id, :account_id, [:now])""", {
             'session_id': session_id,
-            'account_id': account_id
+            'account_id': entity_id
             })
+        self._entity_id = entity_id
+        self._id = session_id
         return session_id
 
-    def get_user_from_session(self, session_id):
-        """Map sessionid to an existing authenticated user"""
+    def get_entity_id(self):
+        if self._id is None:
+            # TBD: Proper exception class?
+            raise RuntimeError, \
+                  "Unable to get entity_id; not associated with any session."
+        if self._entity_id is not None:
+            return self._entity_id
         try:
-            entity_id = self.db.query_1("""
+            self._entity_id = self._db.query_1("""
             SELECT account_id
             FROM [:table schema=cerebrum name=bofhd_session]
-            WHERE session_id=:session_id""",
-                                     {'session_id': session_id})
+            WHERE session_id=:session_id""", {'session_id': self._id})
         except Errors.NotFoundError:
             raise CerebrumError, "Authentication failure"
-        return entity_id
+        return self._entity_id
 
-    def store_session_state(self, session_id, state_type, entity_id, state_data):
-        self.db.execute("""
+    def store_state(self, state_type, state_data, entity_id):
+        """Add state tuple to ``session_id``."""
+        return self._db.execute("""
         INSERT INTO [:table schema=cerebrum name=bofhd_session_state]
           (session_id, state_type, entity_id, state_data, set_time)
-        VALUES (:session_id, :state_type, :entity_id, :state_data, [:now])""" % {
-            'session_id': session_id,
-            'state_type': state_type,
-            'entity_id': entity_id,
-            'state_data': state_data
-            })
+        VALUES (:session_id, :state_type, :entity_id, :state_data, [:now])""",
+                        {'session_id': self._id,
+                         'state_type': state_type,
+                         'entity_id': entity_id,
+                         'state_data': state_data
+                         })
 
-    def get_session_state(self, session_id, state_type):
-        return self.db.query("""
-        SELECT entity_id, state_data
-        FROM  [:table schema=cerebrum name=bofhd_session_state]
+    def get_state(self):
+        """Retrieve all state tuples for ``session_id``."""
+        return self._db.query("""
+        SELECT state_type, entity_id, state_data, set_time
+        FROM [:table schema=cerebrum name=bofhd_session_state]
         WHERE session_id=:session_id
-        ORDER BY set_time""", {'session_id': session_id})
+        ORDER BY set_time""", {'session_id': self._id}) 
 
-    def lookupParamInfo(self, cmd, fext, nargs):
-        modref = self.ef.modules[ self.ef.command2module[cmd] ]
+
+class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler):
+
+    """Class defining all XML-RPC-callable methods.
+
+    These methods can be called by anyone with access to the port that
+    the server is running on.  Care must be taken to validate input.
+
+    """
+
+    def _dispatch(self, method, params):
+        # Translate params between Python objects and XML-RPC-usable
+        # structures.  We could have used marshal.{loads,dumps} here,
+        # but then the Java client would have trouble
+        # encoding/decoding requests/responses.
+        def wash_params(obj):
+            if isinstance(obj, str):
+                if obj == ':None':
+                    return None
+                elif obj.startswith(":"):
+                    return obj[1:]
+                return obj
+            elif isinstance(obj, (tuple, list)):
+                obj_type = type(obj)
+                return obj_type([wash_params(x) for x in obj])
+            elif isinstance(obj, dict):
+                obj_type = type(obj)
+                return obj_type([(wash_params(x), wash_params(obj[x]))
+                                 for x in obj])
+            elif isinstance(obj, (int, long, float)):
+                return obj
+            else:
+                raise ValueError, "Unrecognized parameter type: '%r'" % obj
+
+        def wash_response(obj):
+            if obj is None:
+                return ':None'
+            elif isinstance(obj, str):
+                if obj.startswith(":"):
+                    return ":" + obj
+                return obj
+            elif isinstance(obj, (tuple, list)):
+                obj_type = type(obj)
+                return obj_type([wash_response(x) for x in obj])
+            elif isinstance(obj, dict):
+                obj_type = type(obj)
+                return obj_type([(wash_response(x), wash_response(obj[x]))
+                                 for x in obj])
+            elif isinstance(obj, (int, long, float)):
+                return obj
+            else:
+                raise ValueError, "Unrecognized parameter type: '%r'" % obj
         try:
-            func = getattr(modref, cmd+fext)
-            return (func, None, None, None)
+            func = getattr(self, 'bofhd_' + method)
         except AttributeError:
-            pass
-        cmdspec = modref.all_commands[cmd]
-        assert(nargs < len(cmdspec._params)) # prompt skal ikke kalles hvis for mange argumenter(?)
-        return (None, modref, cmdspec._params[nargs])
-    
+            raise Exception('method "%s" is not supported' % method)
+        try:
+            ret = apply(func, wash_params(params))
+        except CerebrumError, e:
+            ret = ":".join((":Exception", type(e).__name__, str(e)))
+            raise
+        except Exception, e:
+##            self.log_traceback()
+            ret = ":".join((":Exception" + type(e).__name__, "Unknown error."))
+            raise
+        return wash_response(ret)
 
-class ExportedFuncs(object):
-
-    """
-
-    These functions can be called by anyone with access to the port
-    that the server is running on.  Care must be taken to validate
-    input.
-
-    """
-
-    def __init__(self, Cerebrum, fname):
-        self.modules = {}           # Maps modulenames to a module reference
-        self.command2module = {}    # Maps a command to a modulename
-        self.module_order = []
-        self.Cerebrum = Cerebrum
-        self.const = Factory.get('Constants')(Cerebrum)
-
-        self.helper = HelperFuncs(Cerebrum, self)
-            
-        f = file(fname)
-        while 1:
-            line = f.readline()
-            if not line: break
-            if line[0] == '#':
-                continue
-
-            # Import module, create an instance of it, and update
-            # mapping between command and the module implementing it.
-            # Sub-modules may override functions.
-            modfile = line.strip()
-            mod = Utils.dyn_import(modfile)
-            modref = mod.BofhdExtension(self.Cerebrum)
-            self.modules[modfile] = modref
-            self.module_order.append(modfile)
-            for k in modref.all_commands.keys():
-                self.command2module[k] = modfile
-        t = self.command2module.keys()
-        t.sort()
-        for k in t:
-            if getattr(self.modules[self.command2module[k]], k, None) is None:
-                print "Warning, function '%s' is not implemented" % k
-        
-    def login(self, uname, password):
-        account = Account.Account(self.Cerebrum)
+    def bofhd_login(self, uname, password):
+        account = Account.Account(self.server.db)
         try:
             account.find_by_name(uname)
-            enc_pass = account.get_account_authentication(self.const.auth_type_md5)
+            enc_pass = account.get_account_authentication(
+                self.server.const.auth_type_md5)
         except Errors.NotFoundError:
             raise CerebrumError, "Invalid user"
+        # TODO: Add API for credential verification to Account.py.
         if enc_pass <> crypt.crypt(password, enc_pass):
-            raise CerebrumError, "Invalid user"  # 'hides' legal usernames
+            # Use same error message as above; un-authenticated
+            # parties should not be told that this in fact is a valid
+            # username.
+            raise CerebrumError, "Invalid user"
         try:
-            sessionId = self.helper.create_user_session(account.entity_id)
-            self.Cerebrum.commit()
-            return sessionId
+            session = BofhdSession(self.server.db)
+            session_id = session.set_authenticated_entity(account.entity_id)
+            self.server.db.commit()
+            return session_id
         except Exception:
-            self.Cerebrum.rollback()
+            self.server.db.rollback()
             raise
 
-    def get_commands(self, sessionid):
-        # Build a tuple of tuples describing the commands available to
-        # the client
+    def bofhd_get_commands(self, sessionid):
+        """Build a dict of the commands available to the client."""
 
-        user = self.helper.get_user_from_session(sessionid)
-        # TODO: This may potentially return a different command
-        # than self.command2module
+        session = BofhdSession(self.server.db, sessionid)
+        entity_id = session.get_entity_id()
         commands = {}
-        for mn in self.module_order:
-            newcmd = self.modules[mn].get_commands("uname")
+        for inst in self.server.cmd_instances:
+            newcmd = inst.get_commands(entity_id)
             for k in newcmd.keys():
+                if inst is not self.server.cmd2instance[k]:
+                    # If module B is imported after module A, and both
+                    # implement 'command', only the implementation in
+                    # the latter module will actually be callable.
+                    #
+                    # However, A.get_commands() and B.get_commands()
+                    # might not agree on whether or not the
+                    # authenticated user should be allowed to invoke
+                    # 'command'.
+                    #
+                    # Hence, to avoid including overridden,
+                    # non-callable functions in our return value, we
+                    # verify that the module in
+                    # self.command2module[command] matches the module
+                    # whose .get_commands() we're processing.
+                    print "Skipping:", k
+                    continue
                 commands[k] = newcmd[k]
         return commands
 
-    def get_format_suggestion(self, cmd):
-        modfile = self.command2module[cmd]
-        suggestion = self.modules[modfile].get_format_suggestion(cmd)
+    def bofhd_get_format_suggestion(self, cmd):
+        suggestion = self.server.cmd2instance[cmd].get_format_suggestion(cmd)
         if suggestion is not None:
             suggestion['str'] = unicode(suggestion['str'], 'iso8859-1')
         else:
-            return ''    # TODO:  Would be better to allow xmlrpc-wrapper to handle none
+            # TODO:  Would be better to allow xmlrpc-wrapper to handle None
+            return ''
         return suggestion
 
-    def validate(self, argtype, arg):
-        """Check if arg is a legal value for the given argtype"""
-        pass
-    
-    def help(self, *group):
-        # TBD: Re-think this
-        # Show help by parsing the help file.  This is only partially implemented
+##     def validate(self, argtype, arg):
+##         """Check if arg is a legal value for the given argtype"""
+##         pass
+
+    def bofhd_help(self, *group):
+        # TBD: Re-think this.
+        # Show help by parsing the help file.
+        # This is only partially implemented.
         f = file("help.txt")
         ret = ''
         while 1:
@@ -207,34 +262,32 @@ class ExportedFuncs(object):
         ret = ret + "End of help text"
         return unicode(ret.strip(), 'iso8859-1')
 
-    def run_command(self, sessionid, *args):
+    def bofhd_run_command(self, sessionid, cmd, *args):
         """Execute the callable function (in the correct module) with
         the given name after mapping sessionid to username"""
 
-        user = self.helper.get_user_from_session(sessionid)
+        session = BofhdSession(self.server.db, sessionid)
+        entity_id = session.get_entity_id()
 
-        print "Run command: %s (%s)" % (args[0], args)
-        modfile = self.command2module[args[0]]
-        func = getattr(self.modules[modfile], args[0])
+        print "Run command: %s (%s)" % (cmd, args)
+        func = getattr(self.server.cmd2instance[cmd], cmd)
+
         try:
-            new_args = ()
-            for n in range(1, len(args)):
-                if args[n] == 'XNone':     # TBD: Don't do this this way
-                    new_args += (None,)
-                else:
-                    new_args += (args[n],)
-                # TBD: Hvis vi får lister/tupler som input, skal func
-                # kalles flere ganger
-                if isinstance(args[n], list) or isinstance(args[n], tuple):
-                    raise NotImplemetedError, "tuple argumenter ikke implemetert enda"
-            ret = func(user, *new_args)
-            self.Cerebrum.commit()
-            return self.process_returndata(self.Cerebrum.pythonify_data(ret))
+            for x in args:
+                if isinstance(x, tuple):
+                    raise NotImplementedError, "Tuple params not implemented."
+            # TBD: It would probably be better to pass the full
+            # `session`, and not merely `entity_id`, to `func`.
+            ret = func(entity_id, *args)
+            self.server.db.commit()
+            # TBD: What should be returned if `args' contains tuple,
+            # indicating that `func` should be called multiple times?
+            return self.server.db.pythonify_data(ret)
         except Exception:
             # ret = "Feil: %s" % sys.exc_info()[0]
             # print "Error: %s: %s " % (sys.exc_info()[0], sys.exc_info()[1])
             # traceback.print_tb(sys.exc_info()[2])
-            self.Cerebrum.rollback()
+            self.server.db.rollback()
             raise
 
     ## Prompting and tab-completion works pretty much the same way.
@@ -243,60 +296,115 @@ class ExportedFuncs(object):
     ## function is defined, we check the Parameter object to find out
     ## what to do.
 
-    def tab_complete(self, sessionid, *args):
-        "Atempt to tab-complete the command."
-        
-        user = self.helper.get_user_from_session(sessionid)
-        func, modref, param = self.helper.lookupParamInfo(args[0], "_tab", len(args)-1)
+    def bofhd_tab_complete(self, sessionid, cmd, *args):
+        "Attempt to TAB-complete the command."
+
+        session = BofhdSession(self.server.db, sessionid)
+        entity_id = session.get_entity_id()
+        func, inst, param = self.server.get_param_info(cmd, "_tab", len(args))
         if func is not None:
-            ret = func(user, *args[1:])
+            ret = func(entity_id, *args)
         else:
             if param._tab_func is None:
                 ret = ()
             else:
-                ret = getattr(modref, param._tab_func)(user, *args[1:])
-        return self.process_returndata(ret)
+                ret = getattr(inst, param._tab_func)(user, *args)
+        return ret
 
-    def prompt_next_param(self, sessionid, *args):
+    def bofhd_prompt_next_param(self, sessionid, cmd, *args):
         "Prompt for next parameter."
 
-        user = self.helper.get_user_from_session(sessionid)
-        func, modref, param = self.helper.lookupParamInfo(args[0], "_prompt", len(args)-1)
+        session = BofhdSession(self.server.db, sessionid)
+        entity_id = session.get_entity_id()
+        func, inst, param = self.server.get_param_info(cmd, "_prompt",
+                                                       len(args))
         if func is not None:
-            ret = func(user, *args[1:])
-            return self.process_returndata(ret)
+            return func(entity_id, *args)
         else:
             if param._prompt_func is None:
                 return param.getPrompt()
             else:
-                return getattr(modref, param._prompt_func)(user, *args[1:])
+                return getattr(inst, param._prompt_func)(entity_id, *args)
 
-    def process_returndata(self, ret):
-        """Encode the returndata so that it is a legal XML-RPC structure."""
-        # Todo: process recursive structures
-        if isinstance(ret, list) or isinstance(ret, tuple):
-            for x in range(len(ret)):
-                if isinstance(ret[x], str):
-                    ret[x] = unicode(ret[x], 'iso8859-1')
-                elif ret[x] is None:
-                    ret[x] = ''
-            return ret
-        elif isinstance(ret, dict):
-            for x in ret.keys():
-                if isinstance(ret[x], str):
-                    ret[x] = unicode(ret[x], 'iso8859-1')
-                elif ret[x] is None:
-                    ret[x] = ''
-            return ret
-        else:
-            if isinstance(ret, str):
-                ret = unicode(ret, 'iso8859-1')
-            return ret
+
+class BofhdServer(SimpleXMLRPCServer.SimpleXMLRPCServer, object):
+
+    def __init__(self, database, config_fname, addr,
+                 requestHandler=BofhdRequestHandler, logRequests=1):
+        super(BofhdServer, self).__init__(addr, requestHandler, logRequests)
+        self.db = database
+        self.const = Factory.get('Constants')(database)
+        self.cmd2instance = {}
+        self.cmd_instances = []
+
+        config_file = file(config_fname)
+        while True:
+            line = config_file.readline()
+            if not line:
+                break
+            line = line.strip()
+            if line[0] == '#' or not line:
+                continue
+            # Import module and create an instance of it; update
+            # mapping from command name to a class instance with a
+            # method that implements that command.  This means that
+            # any command's implementation can be overridden by
+            # providing a new implementation in a later class.
+            modfile, class_name = line.split("/", 1)
+            mod = Utils.dyn_import(modfile)
+            cls = getattr(mod, class_name)
+            instance = cls(database)
+            self.cmd_instances.append(instance)
+            for k in instance.all_commands.keys():
+                self.cmd2instance[k] = instance
+        t = self.cmd2instance.keys()
+        t.sort()
+        for k in t:
+            if not hasattr(self.cmd2instance[k], k):
+                print "Warning, function '%s' is not implemented" % k
+
+    def get_param_info(self, cmd, fext, nargs):
+        """Return ``fext`` info for parameter #``nargs`` of ``cmd``.
+
+        Returns a tuple indicating how to get ``fext``-type
+        information on parameter #``nargs`` of command ``cmd``.  The
+        tuple has the following structure:
+
+          (function, modref, param)
+
+        `function`: Either None or a function that can be called with
+           arguments (`authenticated user`, param_1, ..., param_nargs)
+           to get ``fext``-type info on param_nargs.
+
+        `modref`: None iff `function` is not None; otherwise the
+           module-specific BofhdExtension object where command `cmd`
+           is defined.
+
+        `param`: None iff `function` is not None; otherwise the
+           Parameter object corresponding to parameter # `nargs` of
+           command `cmd`.
+
+        """
+        inst = self.cmd2instance[cmd]
+        try:
+            func = getattr(inst, cmd+fext)
+            return (func, None, None)
+        except AttributeError:
+            pass
+        cmdspec = inst.all_commands[cmd]
+        # prompt skal ikke kalles hvis for mange argumenter(?)
+        if nargs > len(cmdspec._params):
+            raise ValueError, \
+                  "Too many args (%d) for command '%s'." % (nargs, cmd)
+        return (None, inst, cmdspec._params[nargs])
+
 
 def find_config_dat():
     # XXX This should get the path from configure
-    for filename in "config.dat", "/etc/cerebrum/config.dat", \
-            "/tmp/cerebrum/etc/cerebrum/config.dat":
+    for filename in ("server/config.dat",
+                     "config.dat",
+                     "/etc/cerebrum/config.dat",
+                     "/tmp/cerebrum/etc/cerebrum/config.dat"):
         try:
             print "Testing filename ",filename
             f = file(filename)
@@ -313,7 +421,8 @@ if __name__ == '__main__':
         try:
             print "Server starting at port: %d" % port
             if not cereconf.ENABLE_BOFHD_CRYPTO:
-                server = SimpleXMLRPCServer(("0.0.0.0", port))
+                server = BofhdServer(Factory.get('Database')(), conffile,
+                                     ("0.0.0.0", port))
             else:
                 from server import MySimpleXMLRPCServer
                 from M2Crypto import SSL
@@ -324,8 +433,8 @@ if __name__ == '__main__':
                 ctx.set_tmp_dh('dh1024.pem')
                 server = MySimpleXMLRPCServer.SimpleXMLRPCServer(('',port),ctx)
 
-            server.register_instance(ExportedFuncs(Factory.get('Database')(),
-                                                   conffile))
+##             server.register_instance(ExportedFuncs(Factory.get('Database')(),
+##                                                    conffile))
             server.serve_forever()
         except socket.error:
             print "Failed, trying another port"
