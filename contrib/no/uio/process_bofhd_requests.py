@@ -54,6 +54,13 @@ ldapconn = None
 imapconn = None
 imaphost = None
 
+# TODO: now that we support multiple homedirs, we need to which one an
+# operation is valid for.  This information should be stored in
+# state_data, but for e-mail commands this column is already used for
+# something else.  The proper solution is to change the databasetable
+# and/or letting state_data be pickled.
+default_spread = const.spread_uio_nis_user
+
 def email_delivery_stopped(user):
     global ldapconn
     if ldapconn is None:
@@ -102,12 +109,15 @@ def get_imaphost(user_id):
         return server.name
     return None
 
-def get_home(acc):
-    if acc.home:
-        return acc.home
-    elif acc.disk_id is not None:
+def get_home(acc, spread=None):
+    if not spread:
+        spread = default_spread
+    tmp = acc.get_home(spread)
+    if tmp['home']:
+        return tmp['home']
+    elif tmp['disk_id'] is not None:
         disk = Factory.get('Disk')(db)
-        disk.find(acc.disk_id)
+        disk.find(tmp['disk_id'])
         return "%s/%s" % (disk.path, acc.account_name)
     else:
         return None
@@ -589,7 +599,7 @@ def process_move_requests():
                          r['request_id'], r['entity_id'])
             try:
                 account, uname, old_host, old_disk = get_account(
-                    r['entity_id'], type='PosixUser')
+                    r['entity_id'], type='PosixUser', spread=r['state_data'])
                 new_host, new_disk  = get_disk(r['destination_id'])
             except Errors.NotFoundError:
                 logger.error("%i not found" % r['entity_id'])
@@ -632,7 +642,8 @@ def process_move_requests():
         # student-auomatikken mangler foreløbig støtte for det.
         pass
     for r in br.get_requests(operation=const.bofh_delete_user):
-        account, uname, old_host, old_disk = get_account(r['entity_id'])
+        account, uname, old_host, old_disk = get_account(
+            r['entity_id'], spread=r['state_data'])
         operator = get_account(r['requestee_id'])[0].account_name
         if delete_user(uname, old_host, '%s/%s' % (old_disk, uname), operator):
             account.expire_date = br.now
@@ -679,19 +690,21 @@ def get_disk(disk_id):
     host.find(disk.host_id)
     return host.name, disk.path
 
-def get_account(account_id, type='Account'):
+def get_account(account_id, type='Account', spread=None):
     if type == 'Account':
         account = Factory.get('Account')(db)
     elif type == 'PosixUser':
         account = PosixUser.PosixUser(db)        
     account.clear()
     account.find(account_id)
-    home = account.home
+    if spread is None:
+        spread = default_spread
+    home = account.get_home(spread)
     uname = account.account_name
-    if home is None:
-        if account.disk_id is None:
+    if home['home'] is None:
+        if home['disk_id'] is None:
             return account, uname, None, None
-        host, home = get_disk(account.disk_id)
+        host, home = get_disk(home['disk_id'])
     else:
         host = None  # TODO:  How should we handle this?
     return account, uname, host, home

@@ -3555,8 +3555,7 @@ class BofhdExtension(object):
         expire_date = None
         self.ba.can_create_user(operator.get_entity_id(), owner_id, disk_id)
 
-        posix_user.populate(uid, group.entity_id, gecos, shell, home, 
-                            disk_id=disk_id, name=uname,
+        posix_user.populate(uid, group.entity_id, gecos, shell, name=uname,
                             owner_type=owner_type,
                             owner_id=owner_id, np_type=np_type,
                             creator_id=operator.get_entity_id(),
@@ -3566,9 +3565,13 @@ class BofhdExtension(object):
             for spread in cereconf.BOFHD_NEW_USER_SPREADS:
                 posix_user.add_spread(self._get_constant(spread,
                                                          "No such spread"))
+            posix_user.set_home(self.const.spread_uio_nis_user,
+                                disk_id=disk_id, home=home,
+                                status=self.const.home_status_not_created)
             # For correct ordering of ChangeLog events, new users
             # should be signalled as "exported to" a certain system
-            # before the new user's password is set.
+            # before the new user's password is set.  Such systems are
+            # flawed, and should be fixed.
             passwd = posix_user.make_passwd(uname)
             posix_user.set_password(passwd)
             # And, to write the new password to the database, we have
@@ -3592,7 +3595,8 @@ class BofhdExtension(object):
         br = BofhdRequests(self.db, self.const)
         br.add_request(operator.get_entity_id(), br.now,
                        self.const.bofh_delete_user,
-                       account.entity_id, None)
+                       account.entity_id, None,
+                       state_data=self.const.spread_uio_nis_user)
         return "User %s queued for deletion immediately" % account.account_name
 
         # raise NotImplementedError, "Feel free to implement this function"
@@ -3660,15 +3664,16 @@ class BofhdExtension(object):
             ou = self._get_ou(ou_id=row['ou_id'])
             affiliations.append("%s@%s" % (self.num2const[int(row['affiliation'])],
                                            self._format_ou_name(ou)))
+        tmp = account.get_home(self.const.spread_uio_nis_user)
         ret = {'entity_id': account.entity_id,
                'spread': ",".join(["%s" % self.num2const[int(a['spread'])]
                                    for a in account.get_spread()]),
                'affiliations': (",\n" + (" " * 15)).join(affiliations),
                'expire': account.expire_date,
-               'home': account.home}
-        if account.disk_id is not None:
+               'home': tmp['home']}
+        if tmp['disk_id'] is not None:
             disk = Utils.Factory.get('Disk')(self.db)
-            disk.find(account.disk_id)
+            disk.find(tmp['disk_id'])
             ret['home'] = "%s/%s" % (disk.path, account.account_name)
 
         if is_posix:
@@ -3765,6 +3770,7 @@ class BofhdExtension(object):
         if account.is_expired():
             raise CerebrumError, "Account %s has expired" % account.account_name
         br = BofhdRequests(self.db, self.const)
+        spread = int(self.const.spread_uio_nis_user)
         if move_type in ("immediate", "batch", "nofile"):
             disk = args[0]
             disk_id, home = self._get_disk(disk)
@@ -3774,16 +3780,16 @@ class BofhdExtension(object):
             if move_type == "immediate":
                 br.add_request(operator.get_entity_id(), br.now,
                                self.const.bofh_move_user,
-                               account.entity_id, disk_id)
+                               account.entity_id, disk_id, state_data=spread)
                 return "Command queued for immediate execution"
             elif move_type == "batch":
                 br.add_request(operator.get_entity_id(), br.batch_time,
                                self.const.bofh_move_user,
-                               account.entity_id, disk_id)
+                               account.entity_id, disk_id, state_data=spread)
                 return "move queued for execution at %s" % br.batch_time
             elif move_type == "nofile":
-                account.disk_id = disk_id
-                account.home = home
+                account.set_home(self.const.spread_uio_nis_user,
+                                 disk_id=disk_id, home=home)
                 account.write_db()
                 return "OK, user moved"
         elif move_type in ("hard_nofile",):
@@ -3798,12 +3804,12 @@ class BofhdExtension(object):
             if move_type == "student":
                 br.add_request(operator.get_entity_id(), br.batch_time,
                                self.const.bofh_move_student,
-                               account.entity_id, None)
+                               account.entity_id, None, state_data=spread)
                 return "student-move queued for execution at %s" % br.batch_time
             elif move_type == "student_immediate":
                 br.add_request(operator.get_entity_id(), br.now,
                                const.bofh_move_student,
-                               account.entity_id, None)
+                               account.entity_id, None, state_data=spread)
                 return "student-move queued for immediate execution"
             elif move_type == "confirm":
                 r = br.get_requests(entity_id=account.entity_id,
@@ -3815,7 +3821,8 @@ class BofhdExtension(object):
                 # Flag as authenticated
                 br.add_request(operator.get_entity_id(), br.batch_time,
                                self.const.bofh_move_user,
-                               account.entity_id, r[0]['destination_id'])
+                               account.entity_id, r[0]['destination_id'],
+                               state_data=spread)
                 return "move queued for execution at %s" % br.batch_time
             elif move_type == "cancel":
                 # TBD: Should superuser delete other request types as well?
@@ -3871,7 +3878,7 @@ class BofhdExtension(object):
             return "OK.  Warning: user has quarantine"
         return "OK"
     
-    # user posix_create
+    # user promote_posix
     all_commands['user_promote_posix'] = Command(
         ('user', 'promote_posix'), AccountName(), GroupName(),
         PosixShell(default="bash"), DiskId(),
@@ -3894,8 +3901,10 @@ class BofhdExtension(object):
         disk_id, home = self._get_disk(home)
         person = self._get_person("entity_id", account.owner_id)
         self.ba.can_create_user(operator.get_entity_id(), person, disk_id)
-        pu.populate(uid, group.entity_id, None, shell, home=home,
-                    disk_id=disk_id, parent=account)
+        pu.populate(uid, group.entity_id, None, shell, parent=account)
+        pu.set_home(self.const.spread_uio_nis_user,
+                    disk_id=disk_id, home=home,
+                    status=self.const.home_status_not_created)
         pu.write_db()
         return "OK"
 
