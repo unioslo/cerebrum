@@ -6,3 +6,4 @@ cerebrum_path.py
 config.log
 config.status
 configure
+{arch}
