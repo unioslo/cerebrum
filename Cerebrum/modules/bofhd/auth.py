@@ -831,6 +831,41 @@ class BofhdAuth(DatabaseAccessor):
                               query_run_any=False):
         return self.can_email_list_create(operator, domain, query_run_any)
 
+    def can_email_archive_create(self, operator, domain=None,
+                                 query_run_any=False):
+        return self.can_email_list_create(operator, domain, query_run_any)
+
+    def can_email_archive_delete(self, operator, domain=None,
+                                 query_run_any=False):
+        return self.can_email_archive_create(operator, domain, query_run_any)
+
+    def can_email_list_create(self, operator, domain=None,
+                              query_run_any=False):
+        if self.is_superuser(operator):
+            return True
+        if self.is_postmaster(operator):
+            return True
+        if query_run_any:
+            return False
+        raise PermissionDenied("Currently limited to superusers")
+
+    # create e-mail targets of type "multi"
+    def can_email_multi_create(self, operator, domain=None, group=None,
+                               query_run_any=False):
+        if self.is_superuser(operator):
+            return True
+        if self.is_postmaster(operator):
+            return True
+        if query_run_any:
+            return False
+        raise PermissionDenied("Currently limited to superusers")
+
+    # delete e-mail targets of type "multi"
+    def can_email_multi_delete(self, operator, domain=None, group=None,
+                               query_run_any=False):
+        return self.can_email_multi_create(operator, domain, group,
+                                           query_run_any)
+
     # associate a new e-mail address with an account, or other target.
     def can_email_address_add(self, operator, account=None, domain=None,
                               query_run_any=False):
