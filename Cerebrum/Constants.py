@@ -123,7 +123,7 @@ class _SpreadCode(_CerebrumCode):
         SELECT entity_type
         FROM [:table schema=cerebrum name=%s]
         WHERE %s=:code""" % (self._lookup_table, self._lookup_code_column),
-                                                {'code': int(self)})
+                                                {'code': int(self)}))
 
 class _ContactInfoCode(_CerebrumCode):
     "Mappings stored in the contact_info_code table"
