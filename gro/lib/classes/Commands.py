@@ -28,3 +28,5 @@ class Commands(Builder):
 
         id = group.entity_id
         return Group(id, write_lock=self.get_writelock_holder())
+
+# arch-tag: d756f6b2-7b09-4bf5-a65e-81cacfea017a

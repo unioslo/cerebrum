@@ -139,3 +139,5 @@ def suite():
 if __name__ == '__main__':
     # When executed as a script, perform all tests in suite().
     unittest.main(defaultTest='suite')
+
+# arch-tag: 51359932-1584-4b98-8505-236336c29a2a

@@ -40,3 +40,6 @@ category:post;
 ALTER TABLE account_info DROP COLUMN disk_id;
 category:post;
 ALTER TABLE account_info DROP COLUMN home;
+
+/* arch-tag: 6bc03197-1d6c-4b77-b939-6fc10887eb0a
+   (do not change this comment) */

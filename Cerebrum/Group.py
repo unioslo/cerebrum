@@ -534,3 +534,4 @@ class Group(EntityQuarantine, EntityName, Entity):
 		    self._rec_member_groups(grp_id, spreads, grp_sup, ent_type)
 
 	       
+# arch-tag: 880c43c0-16da-4b32-a70d-0fda8ec600db

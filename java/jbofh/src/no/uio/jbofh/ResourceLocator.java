@@ -100,3 +100,5 @@ public class ResourceLocator {
 	return ret;
     }
 }
+
+// arch-tag: dd371cc5-77c0-4205-8f3a-832a98afccff

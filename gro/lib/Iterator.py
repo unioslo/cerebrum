@@ -53,3 +53,5 @@ if __name__ == '__main__':
     for i in BufferedIterator(BulkIteratorImpl([1,2,3,4])):
         print i,
     print
+
+# arch-tag: 069179c8-c053-45ae-a502-410517a9dca1

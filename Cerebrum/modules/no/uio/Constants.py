@@ -331,3 +331,5 @@ automatically generated from FS.''')
         'spamfolder', "Deliver spam to a separate IMAP folder")
     email_spam_action_delete = _EmailSpamActionCode(
         'dropspam', "Messages classified as spam won't be delivered at all")
+
+# arch-tag: 2b7d46eb-fc77-4ce2-a691-0d49cbf3e597

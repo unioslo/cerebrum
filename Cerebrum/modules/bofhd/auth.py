@@ -1206,3 +1206,5 @@ class BofhdAuth(DatabaseAccessor):
         disk = Factory.get('Disk')(self._db)
         disk.find(disk_id)
         return disk
+
+# arch-tag: d00d6a92-e331-4624-a47a-f979b72db880

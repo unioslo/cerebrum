@@ -1416,3 +1416,4 @@ WHERE k.etterutdkurskode=:kurs AND
         return self.db.query(query, fetchall = fetchall)
     # end list_usernames
 
+# arch-tag: 22ae9ce8-a845-40b8-bc4d-dcb51a54ca2a

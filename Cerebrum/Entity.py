@@ -741,3 +741,5 @@ def object_by_entityid(id, database):
     object = Class(database)
     object.find(id)
     return object        
+
+# arch-tag: 49f3e35b-09b5-4e4a-8d53-cd98df5b1d10

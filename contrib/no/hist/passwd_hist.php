@@ -235,3 +235,5 @@ handle_request();
 //pageFooter(DEFAULT_DESIGN);
 
 ?>
+<!-- arch-tag: 6c740716-cc03-443c-b441-9f76c738e773
+     (do not change this comment) -->

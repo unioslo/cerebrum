@@ -67,3 +67,4 @@ class QuarantineHandler(object):
                 return 1
         return 0
 
+# arch-tag: cfaaa1c8-a42d-4205-bb13-51dd9954ca8e

@@ -160,3 +160,5 @@ class BofhdExtension(bofhd_uio_cmds.BofhdExtension):
         change_types = dict([(str(t), self.change_type2details.get(t))
                         for t in change_types])
         return events, entities, change_types
+
+# arch-tag: 9bdf84de-c837-4e5b-8c69-840e8ee2c5e0

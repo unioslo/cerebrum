@@ -619,3 +619,5 @@ if __name__ == '__main__':
 # Get CLdata. Activate elseif on entry_type (modify-,delete- or add-user, same 
 # for filegroups and netgroups
 # user_modify: check datebase and ldap -> generate ldif, do ldap_mod (exception 
+
+# arch-tag: f630e336-42c1-4294-8f00-f5042129ef41

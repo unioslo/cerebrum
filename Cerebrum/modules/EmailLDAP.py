@@ -250,3 +250,4 @@ class EmailLDAP(DatabaseAccessor):
         # Return optional strings to the script.
         pass
     
+# arch-tag: ec5fc24f-7ccb-415c-a0f9-c87c7230a2cb

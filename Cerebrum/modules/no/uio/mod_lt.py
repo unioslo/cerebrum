@@ -1157,3 +1157,5 @@ class PersonLTMixin(Person.Person):
         return self.query(query, values)
     # end list_frida_persons
 # end PersonLTMixin
+
+# arch-tag: c04d5d4f-66b4-498a-87f0-b499d01f2161

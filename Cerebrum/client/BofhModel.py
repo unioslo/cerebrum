@@ -513,3 +513,4 @@ def fetch_object_by_id(server, id, info=None):
     entity._load_entity_info(info)
     return entity
 
+# arch-tag: 626916a2-4e0d-4197-933c-cf2b96ea5599

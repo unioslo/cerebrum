@@ -59,3 +59,5 @@ del attr
 # Configure for Cerebrum logging.
 import cereconf
 logging.fileConfig(cereconf.LOGGING_CONFIGFILE)
+
+# arch-tag: 96c6a522-fdd5-41f5-975d-a25bb69fa8d1

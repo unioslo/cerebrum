@@ -271,3 +271,5 @@ Example: notify_change_password.py --logger-name=console --debug --debug-data un
 
 if __name__ == '__main__':
     main()
+
+# arch-tag: 8e553a68-4576-4c67-a6c3-8d8f0a0c02ab

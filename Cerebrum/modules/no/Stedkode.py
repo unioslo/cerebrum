@@ -207,3 +207,5 @@ class Stedkode(OU):
         FROM [:table schema=cerebrum name=ou_info]
         WHERE
           lower(short_name) LIKE :pattern""", locals())
+
+# arch-tag: 99dde402-1e0c-47c7-b3ee-19aad9f3096c

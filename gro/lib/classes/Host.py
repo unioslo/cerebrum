@@ -32,3 +32,5 @@ class Host(Entity):
                             CerebrumAttr('description', 'string', write=True)]
 
     cerebrum_class = Cerebrum.Disk.Host
+
+# arch-tag: 8351c2b3-4238-447d-b168-3e396a9d2646

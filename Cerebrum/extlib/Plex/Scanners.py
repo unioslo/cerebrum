@@ -376,3 +376,5 @@ class Scanner:
 
 # For backward compatibility:
 setattr(Scanner, "yield", Scanner.produce)
+
+# arch-tag: 79db3fad-8bb7-4911-9439-a6383a321ddf

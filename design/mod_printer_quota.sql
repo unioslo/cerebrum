@@ -230,3 +230,6 @@ CREATE TABLE paid_quota_printjob (
 );
 category:main;
 CREATE INDEX paid_quota_printjob_job_id_idx ON paid_quota_printjob(job_id);
+
+/* arch-tag: 48922078-61f1-4374-a6b1-d16d4f8d9cd1
+   (do not change this comment) */

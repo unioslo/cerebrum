@@ -53,3 +53,5 @@ def get_database():
     if db is None:
         db = GroDatabase()
     return db
+
+# arch-tag: 8e087d10-06ee-4ef5-a3e2-4ba097319645

@@ -177,3 +177,4 @@ if __name__ == '__main__':
     quick_sync()
     sock.close()
 
+# arch-tag: 48c504c8-c03c-4e43-a0e0-96243876ef41

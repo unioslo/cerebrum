@@ -176,3 +176,4 @@ class Spread(CodeType):
 class AuthOperationType(CodeType):
     _tableName = 'auth_op_code'
 
+# arch-tag: 8c22fbba-ab80-405e-8d56-1e62b7da1cae

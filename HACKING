@@ -40,3 +40,5 @@ take care of importing and/or exporting data from/to other systems
 (e.g. import person data from a student system), or specialize the
 generic nature of the core to the needs of your organization
 (e.g. allow Accounts to be specialized as "POSIX users").
+
+arch-tag: f7b02199-5df4-4717-8919-e5e35519c8ae

@@ -79,3 +79,5 @@ class PersonName(Builder):
     primary = [Attribute('person', 'Person'), Attribute('name_variant', 'NameType'),
                Attribute('source_system', 'SourceSystem'), Attribute('name', 'string')]
     slots = primary + []
+
+# arch-tag: 73b26bd2-5c22-455a-bccd-4eb8a03fc9f1

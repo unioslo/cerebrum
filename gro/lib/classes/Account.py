@@ -80,3 +80,5 @@ class AccountAuthentication(Builder):
                    method=method,
                    auth_data=auth_data)
     getByRow = classmethod(getByRow)
+
+# arch-tag: 96b23dbe-d907-44f6-b6ac-a953ec3034e0

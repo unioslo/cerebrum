@@ -423,3 +423,5 @@ number.  If the person is not registered, you must create an instance with
     'yes_no_force':
         ['force', 'Force the operation?']
     }
+
+# arch-tag: 9a914c2f-f0bd-472e-9f1b-bfb3aa757dc7

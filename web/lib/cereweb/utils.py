@@ -94,3 +94,5 @@ def no_cache(req):
     """Makes the current request non-cachable"""
     req.headers_out.add("Cache-Control:","no-cache")
     req.headers_out.add("Pragma:","no-cache")
+
+# arch-tag: 046d3f6d-3e27-4e00-8ae5-4721aaf7add6

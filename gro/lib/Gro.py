@@ -102,3 +102,5 @@ class GroImpl(Cerebrum_core__POA.Gro):
         # Log successfull login..
         
         return account
+
+# arch-tag: 92c1fc71-f0db-4cd7-b8ed-4d2cf1033b6d

@@ -52,3 +52,4 @@ def get_icon_by_change_type(changetype):
     return icon
             
 
+# arch-tag: ed8a9388-5b3e-4650-96bf-add0ba181744

@@ -54,3 +54,5 @@ class DatabaseAccessor(object):
 
     def commit(self):
         return self._db.commit()
+
+# arch-tag: 00d1fe61-c527-4159-9f4f-74510846d83d

@@ -79,3 +79,5 @@ class ChangeEvent(Builder, Searchable):
         return search
 
     create_search_method = classmethod(create_search_method)
+
+# arch-tag: 1ca69631-04d1-44b1-b766-1eebd7b072fc

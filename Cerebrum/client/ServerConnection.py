@@ -154,3 +154,4 @@ class ServerConnection:
             func = CommandWrapper(self, command)        
             setattr(self, command, func)
 
+# arch-tag: 645965c1-5f76-4327-be60-cb3904195ad8

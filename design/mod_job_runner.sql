@@ -10,3 +10,6 @@ CREATE TABLE job_ran
 
 category:drop;
 DROP TABLE job_ran;
+
+/* arch-tag: aa468296-bbb1-427f-aac9-cdeedeabf59a
+   (do not change this comment) */

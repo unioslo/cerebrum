@@ -865,3 +865,5 @@ if __name__ == '__main__':
     #                  cfg_file="/home/runefro/usit/cerebrum/uiocerebrum/etc/config/studconfig.xml")
 
     main()
+
+# arch-tag: 99817548-9213-4dc3-8d03-002fc6a2f138

@@ -170,3 +170,6 @@ category:drop/Oracle;
 DROP ROLE change_mod_posix_user;
 category:drop/Oracle;
 DROP ROLE read_mod_posix_user;
+
+/* arch-tag: 6c6f3432-c8ff-4f57-b05b-44f56e7c1540
+   (do not change this comment) */

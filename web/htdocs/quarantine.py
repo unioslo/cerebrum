@@ -136,3 +136,5 @@ def add(req, entity_id, submit=None,entity_type=None,\
         page.add_message(err_msg, True)
 
     return page
+
+# arch-tag: fd438bb2-ecb9-480b-b833-e42484da0a39

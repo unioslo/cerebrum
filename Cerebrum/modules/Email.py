@@ -1707,3 +1707,5 @@ class PersonEmailMixin(Person.Person):
                 row['local_part'],
                 ed.rewrite_special_domains(row['domain'])))
         return ret
+
+# arch-tag: f323adc6-a14f-441c-ab1d-ab203065cae8

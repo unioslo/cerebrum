@@ -98,3 +98,5 @@ if __name__ == '__main__':
     Cerebrum = Factory.get('Database')()
     sm = BofhdExtension(Cerebrum)
     print "Ret: %s" % sm.get_stedkode_info('user', '900547')
+
+# arch-tag: 3a5c8804-4c9b-41bf-8feb-ed18a3c2d0ed

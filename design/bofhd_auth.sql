@@ -121,3 +121,6 @@ category:main;
 CREATE INDEX auth_role_osid ON auth_role(op_set_id);
 category:main;
 CREATE INDEX auth_role_tid ON auth_role(op_target_id);
+
+/* arch-tag: 22302f40-144d-4371-ab01-64ef86dccfde
+   (do not change this comment) */

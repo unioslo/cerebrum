@@ -368,3 +368,5 @@ class Builder(Caching, Locking, CorbaBuilder):
         else:
             key = [repr(key)]
         return '%s(%s)' % (self.__class__.__name__, ', '.join(key))
+
+# arch-tag: 246ee465-24a3-4541-a55a-7548356aebfb

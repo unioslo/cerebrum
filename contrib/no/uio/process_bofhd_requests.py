@@ -1002,3 +1002,5 @@ def usage(exitcode=0):
 
 if __name__ == '__main__':
     main()
+
+# arch-tag: 51f90579-3b28-439f-867f-34c14ac97b10

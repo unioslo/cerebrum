@@ -156,3 +156,5 @@ if __name__ == '__main__':
         f.write(th._footer)
     f.close()
     th.spool_job("t.ps", th._type, 'nosuchprinter', skip_lpr=False)
+
+# arch-tag: 65950d2a-b88f-4987-b93d-c948f7c61f57

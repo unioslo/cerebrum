@@ -42,3 +42,6 @@ CREATE TABLE notur_site_user
   CONSTRAINT notur_site_user_pk PRIMARY KEY(account_id, notur_domain),
   CONSTRAINT notur_site_user_unique UNIQUE(notur_domain, user_name)
 );
+
+/* arch-tag: c97b6767-c98e-4577-bc8f-a70f7257bd25
+   (do not change this comment) */

@@ -770,3 +770,4 @@ class FronterXML(object):
         self.xml.endTag(self.rootEl)
         self.xml.endDocument()
         
+# arch-tag: e0d7b201-21a2-48ae-b7d1-81440c2ab113

@@ -92,3 +92,5 @@ def get_communication():
         _com = Communication()
 
     return _com
+
+# arch-tag: 8f1cc382-a927-4722-aa79-8c6f96d6f02b

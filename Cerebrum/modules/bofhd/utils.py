@@ -259,3 +259,4 @@ class BofhdRequests(object):
                 qry, extra_where), {'op': int(self.const.bofh_move_give)}))
         return ret
 
+# arch-tag: d6650fa6-6a9b-459f-be7e-80c9e6cbba52

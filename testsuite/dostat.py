@@ -19,3 +19,5 @@ pdta.dump_stats('profile')
 s = pstats.Stats('profile')
 s.strip_dirs()
 s.sort_stats('time').print_stats(20)
+
+# arch-tag: ccb0a8d1-64ce-4e95-9ab2-8a11398a52de

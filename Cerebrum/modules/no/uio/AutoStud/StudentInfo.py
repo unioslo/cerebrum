@@ -100,3 +100,5 @@ class StudieprogDefParser(GeneralDataParser):
 class EmneDefParser(GeneralDataParser):
     def __init__(self, studieprogs_file):
         super(EmneDefParser, self).__init__(studieprogs_file, 'emne')
+
+# arch-tag: 0d9f1ca2-1647-47f4-a395-cac03e07a4d3

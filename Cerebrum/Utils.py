@@ -798,3 +798,5 @@ class RecursiveDict(dict):
                 # Wrap it, make sure it follows our rules
                 value = RecursiveDict(value)
             dict.__setitem__(self, key, value)    
+
+# arch-tag: 1479b97e-9261-4e86-9ca6-eef4719f6a94

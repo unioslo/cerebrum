@@ -22,3 +22,6 @@ CREATE TABLE person_external_id_change
   CONSTRAINT person_external_id_change_pk PRIMARY KEY
     (person_id, id_type, change_date, source_system)
 );
+
+/* arch-tag: 7d3a9dea-e9e4-4349-b060-534303750fc2
+   (do not change this comment) */

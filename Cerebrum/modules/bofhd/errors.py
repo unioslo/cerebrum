@@ -33,3 +33,4 @@ class SessionExpiredError(CerebrumError):
     """The received session_id was unknown.  It was probably expired."""
     pass
 
+# arch-tag: 5ea39013-bd1c-4e4c-94d6-0bcf2aa9a9c6

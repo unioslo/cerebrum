@@ -46,3 +46,5 @@ Documentation
     design/entity_usage.txt - describes how to modify data in the database
 
   The documentation for the core api can be read using pydoc.
+
+arch-tag: d628597f-d5cd-432a-8c67-62a1e0407c92

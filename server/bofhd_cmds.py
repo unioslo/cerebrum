@@ -647,3 +647,5 @@ class BofhdExtension(object):
             return self.Cerebrum.Date(*([ int(x) for x in date.split('-')]))
         except:
             raise CerebrumError, "Illegal date: %s" % date
+
+# arch-tag: 0f146efb-d732-4929-9055-0b883a98e4c7

@@ -116,3 +116,5 @@ class PersonFnrMixin(Person.Person):
             for person_id, nums in multi.iteritems():
                 result[person_id] = fnr_selector(person_id, nums.keys())
         return result
+
+# arch-tag: 64f8187c-3b85-401b-b11d-8c5ab1c41049

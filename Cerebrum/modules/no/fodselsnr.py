@@ -186,3 +186,5 @@ if __name__ == '__main__':
     print "er_mann: %s" % `er_mann(fnr)`
     print "er_kvinne: %s" % `er_kvinne(fnr)`
     print "fodt_dato: %s" % `fodt_dato(fnr)`
+
+# arch-tag: 2a1021cd-1605-4415-ac20-e61278bf7c3c

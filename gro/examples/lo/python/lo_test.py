@@ -87,3 +87,5 @@ if __name__ == '__main__':
         print_items( deleted )
 
         print 'latest changeid:', latest
+
+# arch-tag: 45d624d6-9466-4c8f-877c-80436ae80c65

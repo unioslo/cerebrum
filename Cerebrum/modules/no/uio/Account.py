@@ -430,3 +430,5 @@ class AccountUiOMixin(Account.Account):
     def enc_auth_type_md4_nt(self,plaintext,salt=None):
         import smbpasswd
         return smbpasswd.nthash(plaintext)
+
+# arch-tag: 7bc3f7a8-183f-45c7-8a8f-f2ffff5029c5

@@ -52,3 +52,6 @@ category:drop;
 DROP TABLE ad_account;
 category:drop;
 DROP TABLE ad_entity;
+
+/* arch-tag: aa131b66-5b6a-482b-bd71-34f121232a70
+   (do not change this comment) */

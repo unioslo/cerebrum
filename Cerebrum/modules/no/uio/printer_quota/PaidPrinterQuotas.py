@@ -324,3 +324,4 @@ class PaidPrinterQuotas(DatabaseAccessor):
         GROUP BY transaction_type"""
         return self.query(qry, binds)
     
+# arch-tag: 3e72fdb7-3f9f-41ca-bc3e-6d626b02ed45

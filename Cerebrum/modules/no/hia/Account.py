@@ -26,3 +26,5 @@ class AccountHiAMixin(Account.Account):
         # The email data should, for now, not be touched by any kind
         # of internal Cerebrum update magic.
         pass
+
+# arch-tag: e0828813-9221-4e43-96f0-0194d131e683

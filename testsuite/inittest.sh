@@ -41,3 +41,5 @@ $TESTDIR/create_user.py 41023468415 || true
 ./contrib/generate_nismaps.py
 
 exit 0
+
+# arch-tag: 37a84fea-93e9-4377-826c-ff4ec28a23e7

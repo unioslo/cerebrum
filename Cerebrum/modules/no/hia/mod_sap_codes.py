@@ -1927,3 +1927,4 @@ class SAPConstants(Constants.Constants):
         "K810 Tilsettingsutvalget"
     )
     
+# arch-tag: 450c388b-e05d-4e39-acc9-d2a4aa3a1833

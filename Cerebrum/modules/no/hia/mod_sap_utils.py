@@ -41,3 +41,5 @@ def tuple_to_sap_row(tuple):
     return string.join(map(lambda x: str(x), tuple),
                        ";")
 # end tuple_to_sap_row
+
+# arch-tag: 681c9a14-b395-4fd4-820e-3b9b0e7dd3e3

@@ -46,3 +46,5 @@ person  Personrelaterte kommandoer
 profile  Profil relaterte kommandoer
            upload filnavn
            download
+
+arch-tag: 4088604b-1ddf-4349-a120-a0ef2100cf4b

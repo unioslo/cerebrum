@@ -1,5 +1,7 @@
 # Config file for bofhd
 # 
+# arch-tag: e79f0e1f-0faf-4302-8386-0e2beee90507
+#
 # This file specifies which plugins should be used for this installation
 # of bofhd.  The current format is just a list of files to be imported.
 Cerebrum.modules.no.bofhd_module_example/BofhdExtension

@@ -115,3 +115,5 @@ class ADObject(Entity, EntityName, EntityQuarantine):
         FROM [:table schema=cerebrum name=ad_entity]
         WHERE entity_type=:e_type""",
                           {'e_type': int(e_type)})
+
+# arch-tag: 26aff135-8cb9-4edb-8714-3caa3143a48d

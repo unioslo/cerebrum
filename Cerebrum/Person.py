@@ -1122,3 +1122,5 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
         FROM %s %s""" % (','.join(tables), where_str),
             {'spread': spread, 'entity_type': int(self.const.entity_person),
              'name': name, 'description': description})
+
+# arch-tag: 10f7dbc0-0edf-466d-ab33-ba0c84c5a2b3

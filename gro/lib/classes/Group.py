@@ -125,3 +125,5 @@ class GroupMember(Builder, Searchable):
             return list(group_members)
         return search
     create_search_method = classmethod(create_search_method)
+
+# arch-tag: e485b7a1-290b-467a-a746-761c30b71e13

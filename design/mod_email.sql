@@ -679,3 +679,6 @@ category:drop/Oracle;
 DROP ROLE change_mod_email;
 category:drop/Oracle;
 DROP ROLE read_mod_email;
+
+/* arch-tag: b70813ea-d289-4445-ba2f-2075b0b8c847
+   (do not change this comment) */

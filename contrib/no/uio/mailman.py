@@ -47,3 +47,5 @@ else:
 args = ['/local/bin/ssh', 'lister', 'su', '-', 'mailman', '-c',
         "'" + cmd + ">/dev/null'"]
 os.execv(args[0], args)
+
+# arch-tag: 5dff24c4-7a6c-4af2-83ba-55ac75180457

@@ -266,3 +266,5 @@ if __name__ == '__main__':
         }
 
     print all_commands['account_create'].get_struct()
+
+# arch-tag: fdde8173-3d4a-4699-8dd3-4d0972d5765d

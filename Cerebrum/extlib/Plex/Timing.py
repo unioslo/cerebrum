@@ -21,3 +21,4 @@ else:
     "Don't know how to get time on platform %s\n" % repr(platform))
   exit(1)
 
+# arch-tag: 4ea742b1-d908-41a2-9222-5dbcbdb9849c

@@ -315,3 +315,5 @@ public class JBofhFrameImpl implements ActionListener, JBofhFrame {
             JOptionPane.ERROR_MESSAGE);
     }
 }
+
+// arch-tag: f9ab9f2a-5606-4a77-9fba-4ec72459b18b

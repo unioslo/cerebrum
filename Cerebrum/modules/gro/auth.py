@@ -466,3 +466,4 @@ class Auth( object ):
                 ["%i" % x for x in self._get_users_auth_entities(operator)])),
                 {'target_id': target_id})
 
+# arch-tag: f65b2899-a8d9-4007-a490-91e7c3816dba

@@ -148,3 +148,5 @@ class ChangeLog(object):
 ##     def commit(self):
 ##         self.commit_log()
 ##         self.orig_commit()
+
+# arch-tag: 199ad3d8-a467-462e-bb6e-b34d20bda841

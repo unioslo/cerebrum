@@ -76,3 +76,5 @@
   # Should remove any 'last'-name-entries with source LT, and do
   # INSERT/UPDATE (as appropriate) of 'full' and 'nick'-entries.
   p.write_db()
+
+arch-tag: ce0eb988-5984-4d92-b59d-93e7624cc6a6

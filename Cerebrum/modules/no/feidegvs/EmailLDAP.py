@@ -54,3 +54,5 @@ class EmailLDAPFeideGvsMixin(EmailLDAP):
     def get_misc(self, entity_id, target_id, email_target_type):
         if  self.a_id2name.has_key(entity_id):
             return "name: %s" % self.a_id2name[entity_id]
+
+# arch-tag: 26ce1aea-d940-4e0d-83b5-78b4e0e7b822

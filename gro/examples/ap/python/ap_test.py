@@ -49,3 +49,5 @@ for person in persons:
         print '\t- ', account.getString('name')
         account.unlock()
     person.unlock()
+
+# arch-tag: 551b810d-a617-4ccf-88cb-99da108cf4f5

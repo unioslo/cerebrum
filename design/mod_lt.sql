@@ -293,3 +293,6 @@ CREATE INDEX lt_permisjon_person_id_index ON lt_permisjon(person_id) ;
 category:main;
 CREATE INDEX lt_permisjon_person_tilsetting_index 
   ON lt_permisjon(tilsettings_id, person_id) ;
+
+/* arch-tag: fdbb1254-8db3-4237-8641-3b16e246e5aa
+   (do not change this comment) */

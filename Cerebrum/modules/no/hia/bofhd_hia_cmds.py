@@ -4909,3 +4909,5 @@ class BofhdExtension(object):
             raise CerebrumError, "Error parsing range '%s'" % selection
         lst.sort()
         return lst
+
+# arch-tag: 026450dd-e22a-421e-a22f-2e24333e399c

@@ -7,3 +7,5 @@
 #    Current version: 1.5  (requires Python 2.2)
 #    Source: http://opensource.theopalgroup.com/files/db_row.py
 #
+
+# arch-tag: 6ad9c06d-29cd-4cab-88d0-bf364b3cf24b

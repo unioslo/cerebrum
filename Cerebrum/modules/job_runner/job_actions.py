@@ -223,3 +223,5 @@ class AssertRunning(System):
             self.logger.debug("%s already running" % self.id)
             return 0
         return 1
+
+# arch-tag: 37d161cf-d977-4e15-8ef1-53c64dba60d1

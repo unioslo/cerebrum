@@ -308,3 +308,5 @@ def runfile(fname, db, debug, phase):
 
 if __name__ == '__main__':
     main()
+
+# arch-tag: 4b01504e-d98e-4331-acea-9e2d0478a18f

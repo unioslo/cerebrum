@@ -412,3 +412,5 @@ LDAP_REWRITE_EMAIL_DOMAIN = {}
 
 # LDIF files to insert in the LDAP dumps from generate_<org,posix>_ldif.
 LDAP_ORG_ADD_LDIF_FILE = LDAP_POSIX_ADD_LDIF_FILE = None
+
+# arch-tag: 58fc16b3-e7ef-4304-b561-477ced8d6b96

@@ -113,3 +113,6 @@ category:drop;
 DROP TABLE bofhd_session;
 category:drop;
 DROP SEQUENCE request_id_seq;
+
+/* arch-tag: 36c03c76-7ffe-4f84-b080-7e92073fd119
+   (do not change this comment) */

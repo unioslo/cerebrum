@@ -26,3 +26,5 @@ CREATE TABLE note
   description   CHAR VARYING(1024)
 );
 
+/* arch-tag: 285dc8de-aa86-4720-be3e-33b8fae0a84c
+   (do not change this comment) */

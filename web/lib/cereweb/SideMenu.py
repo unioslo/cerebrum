@@ -61,3 +61,4 @@ class SideMenu(FixUrlMixin, Menu.Menu):
         self.group.addItem("view", "View", "options/view?id=%s")
         self.group.addItem("edit", "Edit", "options/edit?id=%s")
 
+# arch-tag: 6af7ba3d-76dc-46e1-8327-1ed3e307e9e8

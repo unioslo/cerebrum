@@ -255,3 +255,5 @@ Studentbrukere til studenter som ikke oppfyller krav fra 2.0 per
 2. Etter 15. mars/15. oktober slettes alle brukere som har vært sperret i
    tre måneder.
 3. EVU-studenter slettes ca. to uker etter at kurset er avsluttet.
+
+arch-tag: 3c373626-af02-43b1-ae9f-4f2f4396a404

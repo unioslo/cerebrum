@@ -29,3 +29,5 @@ __all__ = ['Date']
 class Date(Builder):
     primary = [Attribute('date', 'long')]
     slots = primary
+
+# arch-tag: b91bce22-4551-41a3-a2ea-b84cd02944f2

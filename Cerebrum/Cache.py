@@ -142,3 +142,5 @@ class cache_timeout(Cache):
             self.__delitem__(key)
             raise KeyError, "Timed out"
         return val
+
+# arch-tag: 40287917-369a-46c5-8154-ca389c695e95

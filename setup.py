@@ -324,3 +324,5 @@ setup (name = "Cerebrum", version = Cerebrum.__version__,
                    'sdist': my_sdist,
                    'test': test}
       )
+
+# arch-tag: 9be53bbd-d5f4-4bcd-bcca-34d123099623

@@ -60,3 +60,5 @@ def suite():
 
 if __name__ == '__main__':
     unittest.main(defaultTest='suite')
+
+# arch-tag: 10e7852a-ca0d-496a-8dd4-30b4458436a0

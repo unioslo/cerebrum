@@ -108,3 +108,4 @@ class PrinterQuotas(Entity):
             is_new = None
         return is_new
 
+# arch-tag: cd40bf66-ff55-4d5b-925c-c7908f8dae45

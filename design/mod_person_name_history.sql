@@ -22,3 +22,6 @@ CREATE TABLE person_name_history
    a value for one name_variant. */
   name		CHAR VARYING(256)
 );
+
+/* arch-tag: 429df112-847f-44d5-a8e9-5f10c9f64f9e
+   (do not change this comment) */

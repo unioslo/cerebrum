@@ -94,3 +94,5 @@ class GroupUiOMixin(Group.Group):
             if re.search("[^a-z0-9\-_]", name):
                 return "contains illegal characters (%s)" % name
         return False
+
+# arch-tag: ed190fbb-c85a-4b09-820d-4296aa7b4197

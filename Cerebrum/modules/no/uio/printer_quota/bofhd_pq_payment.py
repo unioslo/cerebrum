@@ -88,3 +88,5 @@ if __name__ == '__main__':  # For testing
     data = {'ekstern-betaling-id': '12345', 'fnr': '12345678901', 'kroner': 123.45, 'intern-betaling-id': '12345', 'bruker-ip': '123.123.123.123', 'betaling-datostempel': '2004-05-05 14:32:00'}
     print svr.run_command(secret, 'new_data', PPQUtil.EPAY, data)
     # select * from person_external_id where source_system=(select code from authoritative_system_code where code_str='FS');
+
+# arch-tag: 1ae465b8-d991-4437-ba55-b6b1ab947ec9

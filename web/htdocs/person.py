@@ -130,3 +130,5 @@ def _create_view(req, id):
 def view(req, id):
     (page, person) = _create_view(req, id)
     return page
+
+# arch-tag: bef096b9-0d9d-4708-a620-32f0dbf42fe6

@@ -50,3 +50,5 @@ class Metainfo(object):
             INSERT INTO [:table schema=cerebrum name=cerebrum_metainfo]
               (name, value)
             VALUES (:name, :value)""", {'name': name, 'value': value}) 
+
+# arch-tag: 4ed9f901-881e-444d-9983-e09d74f76870

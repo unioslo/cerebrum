@@ -46,3 +46,5 @@ chgrp -R "$gid" "$homedir"
 if [ -f "$scriptdir/mkhomedir.post" ]; then
    . "$scriptdir/mkhomedir.post"
 fi
+
+# arch-tag: 8e6c4093-4fa0-4902-b5ad-86e52c246464

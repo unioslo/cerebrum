@@ -28,3 +28,6 @@ category:drop;
 DROP TABLE mount_host;
 category:drop;
 DROP TABLE mount_host_type_code;
+
+/* arch-tag: f2eaf07f-2347-408d-b880-f54354f01d57
+   (do not change this comment) */

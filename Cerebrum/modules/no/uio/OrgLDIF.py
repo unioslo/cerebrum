@@ -49,3 +49,5 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
             val = postal_escape_re.sub(hex_escape_match, val)
         return iso2utf(val.replace("\n", sep))
     make_address = staticmethod(make_address)
+
+# arch-tag: e13d2650-dd88-4cac-a5fb-6a7cc6884914

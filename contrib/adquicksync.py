@@ -498,3 +498,5 @@ if __name__ == '__main__':
     sock = adutils.SocketCom()
     quick_user_sync()
     sock.close()
+
+# arch-tag: 4a6f6aad-20a9-474e-a9cb-cefddec96106

@@ -390,3 +390,4 @@ class OU(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
              'name': name, 'acronym': acronym, 'short_name': short_name,
              'display_name': display_name, 'sort_name': sort_name})
 
+# arch-tag: 45bda60e-7677-4c5e-a1ba-f07621d9c791

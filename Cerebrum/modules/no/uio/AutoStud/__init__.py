@@ -87,3 +87,5 @@ class AutoStud(object):
         quotas, groups must also be set."""
         return ProfileHandler.Profile(student_info, self._logger, self.pc,
                                       member_groups=member_groups)
+
+# arch-tag: 0e864798-ed01-4eca-a57d-4a7654072b46

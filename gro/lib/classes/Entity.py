@@ -222,3 +222,5 @@ class Address(Builder):
                    postal_number=row['postal_number'],
                    city=row['city'],
                    country=int(row['country']))
+
+# arch-tag: 1e0044b4-5c17-42a9-84f5-0b1013665681

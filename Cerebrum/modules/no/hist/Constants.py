@@ -121,3 +121,4 @@ class Constants(Constants.Constants):
     
     account_test = _AccountCode('T', 'Testkonto')
     
+# arch-tag: c92b130b-6d78-46f3-9e1b-dbc8b0322c9a

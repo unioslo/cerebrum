@@ -80,3 +80,7 @@ AC_CONFIG_FILES([
 	cerebrum_path.py
 	])
 AC_OUTPUT
+
+m4_if(dnl	Do not change this comment
+   arch-tag: ee0d0ca0-48a5-4d8e-b645-134b4e0f9e07
+)dnl

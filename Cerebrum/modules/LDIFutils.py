@@ -238,3 +238,5 @@ def attr_lines(name, strings, normalize = None, verify = None, raw = False):
         else:
             ret.append("%s: %s\n" % (name, s))
     return ret
+
+# arch-tag: 9544a041-07cb-4494-92ea-c8dc82c9808a

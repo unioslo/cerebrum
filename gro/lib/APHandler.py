@@ -271,3 +271,5 @@ def get_ap_handler_class():
         APHandler.build_classes()
         _ap_handler_class = APHandler.create_ap_handler_impl()
     return _ap_handler_class
+
+# arch-tag: 2625e142-6958-4544-96bc-e062dfe7565a

@@ -83,3 +83,5 @@ def xmlrpc_to_native(obj):
     else:
         # unknown type, no need to recurse (probably DateTime =) ) 
         return obj
+
+# arch-tag: 7e79d02e-d91a-4d1f-96cc-9065c2afa392

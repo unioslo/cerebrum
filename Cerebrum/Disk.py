@@ -374,3 +374,4 @@ class Host(Entity):
         FROM %s %s""" % (','.join(tables), where_str),
             {'name': name, 'description': description })
 
+# arch-tag: 6a63bc5c-14aa-48f2-9e98-1c8f45ab3e47

@@ -130,3 +130,5 @@ class CerebrumClass(Searchable):
         return search
 
     create_search_method = classmethod(create_search_method)
+
+# arch-tag: a7da5f91-4f75-4ca1-b086-61f070bb15b3

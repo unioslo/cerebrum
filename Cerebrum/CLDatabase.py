@@ -33,3 +33,5 @@ class CLDatabase(db, cl):
     def commit(self):
         self.commit_log()
         super(db, self).commit()
+
+# arch-tag: 438b72f1-1a0a-4a58-9507-0b43705c4e01

@@ -71,3 +71,5 @@ class OF(object):
         return self.db.query(query, fetchall = fetchall)
     # end list_applsys_users
 # end OF
+
+# arch-tag: 80106781-3a0a-4f30-8917-ca6c3075e69f

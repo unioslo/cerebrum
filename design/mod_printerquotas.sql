@@ -22,3 +22,6 @@ CREATE TABLE printerquotas (
  weekly_quota         NUMERIC(8),
  max_quota            NUMERIC(8)
 );
+
+/* arch-tag: 21c9c20a-90ba-4366-b628-32697837ae03
+   (do not change this comment) */

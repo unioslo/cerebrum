@@ -195,3 +195,4 @@ if __name__ == '__main__':
     server = MyServer(('', socket.getservbyname("prissquota", "tcp")), RequestHandler)
     server.serve_forever()
 
+# arch-tag: 869ce848-27d0-45a2-9b16-8e806bacf61d

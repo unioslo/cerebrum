@@ -76,3 +76,6 @@
     <delete file="version.txt"/>
   </target>
 </project>
+
+<!-- arch-tag: 6037b3ca-369d-4912-8f0a-823872d2c6f5
+     (do not change this comment) -->

@@ -76,3 +76,5 @@ def handler(req):
     req.write('</html></body>\n')
     
     return apache.OK
+
+# arch-tag: 2e2043eb-37ee-4f93-a4c4-d6fa3fa64dc0

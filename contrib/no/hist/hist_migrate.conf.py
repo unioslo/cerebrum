@@ -26,3 +26,5 @@ shell2shellconst = {
 
 ureg_domtyp2catgs = {
     }
+
+# arch-tag: b231ff53-0751-4d47-95eb-9dea490d2c61

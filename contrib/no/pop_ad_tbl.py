@@ -102,3 +102,4 @@ for row in ad_account.list_all_with_type(co.entity_group):
         print "Already updated %s" % (id)
 
 
+# arch-tag: 9bf298cc-c246-4650-a38a-94945f3bec68

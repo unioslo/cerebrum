@@ -31,3 +31,5 @@ if __name__ == '__main__':
     # This can be useful for non-Python scripts that want to get at
     # the Cerebrum release number.
     print __version__
+
+# arch-tag: b0961329-08b6-40ac-884c-52d29232a992

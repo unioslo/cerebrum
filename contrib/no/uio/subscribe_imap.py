@@ -28,3 +28,5 @@ import sys
 # Run: ssh server /bin/sub action server user
 os.execv(cereconf.RSH_CMD, [cereconf.RSH_CMD, sys.argv[2],
                             cereconf.SUBSCRIBE_SCRIPT_REMOTE] + sys.argv[1:])
+
+# arch-tag: 3fc0cb70-7119-4b06-b1ed-e4c315fd9d84

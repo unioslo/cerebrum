@@ -60,3 +60,4 @@ class EntityNote(Entity):
         self._db.log_change(self.entity_id, self.const.note_del,
                             None, change_params={'note_id': int(note_id)})
 
+# arch-tag: 6eb714b3-3b6a-4441-89e2-bcc3151d6402

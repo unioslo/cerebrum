@@ -47,3 +47,5 @@ class Constants(Constants.Constants):
                                                   'Foresatt for elev')
     affiliation_status_foresatt_valid = _PersonAffStatusCode(
         affiliation_foresatt, 'VALID', 'Valid')
+
+# arch-tag: 4ba57e9c-75bd-40b6-8d6c-1340312241bb

@@ -159,3 +159,5 @@ def delete(req, id):
     account.set_expire_date(DateTime.DateFrom('').Format('%Y-%m-%d'))
     queue_message(req, _("Account '%s' queued for removal") % account.name)
     return redirect_object(req, owner)
+
+# arch-tag: 4e19718e-008b-4939-861a-12bd272048df

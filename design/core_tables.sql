@@ -1905,3 +1905,6 @@ category:drop/Oracle;
 DROP ROLE change_code;
 category:drop/Oracle;
 DROP ROLE read_code;
+
+/* arch-tag: 710d0ba3-adb6-4a5b-a0e8-62b5d637f3a9
+   (do not change this comment) */

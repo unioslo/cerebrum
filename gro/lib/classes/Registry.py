@@ -34,3 +34,5 @@ def get_registry():
     if _registry is None:
         _registry = Registry()
     return _registry
+
+# arch-tag: 3421aaa4-b539-4969-b7d1-6ddf738492f0

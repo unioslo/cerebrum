@@ -83,3 +83,6 @@ CREATE TABLE change_handler_data
   first_id       NUMERIC(12,0) NOT NULL,
   last_id        NUMERIC(12,0) NOT NULL
 );
+
+/* arch-tag: 36e9a720-cbcf-441e-9b2e-76b53deb979d
+   (do not change this comment) */

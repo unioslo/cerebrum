@@ -87,3 +87,6 @@ category:drop/Oracle;
 DROP ROLE change_mod_stedkode;
 category:drop/Oracle;
 DROP ROLE read_mod_stedkode;
+
+/* arch-tag: 17913c75-9f94-4064-a462-acdd2e785aa3
+   (do not change this comment) */

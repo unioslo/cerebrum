@@ -33,3 +33,5 @@ for row in person.list_external_ids(const.system_fs,
 	    account.write_db()
     
 db.commit()
+
+# arch-tag: 0e2a514f-f354-4279-b603-73ac3577447c

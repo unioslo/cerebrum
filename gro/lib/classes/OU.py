@@ -142,3 +142,5 @@ class OUString(Builder):
     primary = [Attribute('value', 'string'),
                 Attribute('language', 'string')]
     slots = primary
+
+# arch-tag: 47cbce24-9c35-4973-a13d-9fd96f74b917

@@ -1036,3 +1036,5 @@ if __name__ == '__main__':
     for i in range(len(rows)):
         print i, rows[i]
     print "EOF"
+
+# arch-tag: 69650cb9-563b-4242-8885-e7bfd1b035a3

@@ -38,3 +38,4 @@ def view(req, id):
     (page, entity) = _create_view(req, id)
     return page
 
+# arch-tag: b5256b7a-e7d9-48f8-9623-92875f2a4f46

@@ -37,3 +37,5 @@ for row in ent.list_all_with_type(co.entity_account):
         acc.write_db()
 
 db.commit()
+
+# arch-tag: 13430f5e-be96-4c8f-8820-37f6a39538b9

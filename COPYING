@@ -338,3 +338,5 @@ proprietary programs.  If your program is a subroutine library, you may
 consider it more useful to permit linking proprietary applications with the
 library.  If this is what you want to do, use the GNU Library General
 Public License instead of this License.
+
+arch-tag: a2c3efb4-6641-4401-8317-76ed5598cce2

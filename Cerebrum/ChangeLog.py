@@ -32,3 +32,5 @@ class ChangeLog(object):
 
     def commit_log(self):
         pass
+
+# arch-tag: 57c6b385-bc9d-4386-9470-febeb1944447

@@ -176,3 +176,5 @@ The currently defined id-types are:
     'user_existing': ['uname', 'Enter an existing user name'],
     'yes_no_force': ['force', 'Force the operation?']
     }
+
+# arch-tag: fe916c60-3175-4206-b25d-c4c27bf2bed5

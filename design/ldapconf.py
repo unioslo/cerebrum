@@ -120,3 +120,5 @@ LDAP_GROUP_DESCRIPTION = 'All filegroups in Example INC.'
 
 LDAP_NETGROUP_ALTERNATIVE_NAME = ('netgroups','Netgroup in Example INC')
 LDAP_NETGROUP_DESCRIPTION = 'All acccess groups in Example INC'
+
+# arch-tag: d60574a0-a8f4-4fe9-9084-c3c2a159ff72

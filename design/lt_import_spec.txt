@@ -418,3 +418,4 @@ Fra LT.STEDKOMM
      N/A her betyr at det ikke er aktuelt å legge denne typen info ut
      vår LDAP-katalog.
 
+arch-tag: 1073393a-a3e8-4696-bfd9-75fdda09a4ca

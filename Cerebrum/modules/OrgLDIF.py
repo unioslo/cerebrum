@@ -901,3 +901,5 @@ cereconf.LDAP_ALIASES requires LDAP_ORG_DN != None / LDAP_PERSON_DN.""")
             self.logger.debug(msg)
         timer.start = time.time()
         return timer
+
+# arch-tag: 3081b642-8577-4f6f-bc98-b9a144bbb2c1

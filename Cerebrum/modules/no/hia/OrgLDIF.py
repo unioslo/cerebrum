@@ -42,3 +42,5 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
                          (self.person_dn_suffix
                           or primary_ou_dn
                           or self.person_default_parent_dn))), primary_ou_dn
+
+# arch-tag: f7098a5b-0019-4466-b4d7-becffc95a421

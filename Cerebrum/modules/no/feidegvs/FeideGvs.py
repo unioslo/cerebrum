@@ -244,3 +244,4 @@ class FeideGvsGuardian(FeideGvsEntity):
         self.__in_db = True
         self.__updated = []
 
+# arch-tag: b98b994a-7666-45fb-a96c-f1ccd57643fe

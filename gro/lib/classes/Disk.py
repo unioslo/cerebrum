@@ -36,3 +36,5 @@ class Disk(Entity):
                             CerebrumAttr('description', 'string', write=True)]
 
     cerebrum_class = Cerebrum.Disk.Disk
+
+# arch-tag: 239b4bea-84e4-412d-9158-e1af43362885

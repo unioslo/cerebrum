@@ -774,3 +774,5 @@ class student_undenh_xml_parser(non_nested_xml_parser):
     elements = {'data': False,
                 'student': True
                 }
+
+# arch-tag: 57960926-bfc8-429c-858e-b76f8b0ca6c4

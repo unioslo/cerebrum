@@ -506,3 +506,4 @@ if __name__ == '__main__':
 #    del_our_groups()
     full_group_sync('spread_HiST_nds_stud_aft_group')
 
+# arch-tag: 765ec9d3-4ebe-4ee8-95fb-01edd32c09c4

@@ -91,3 +91,5 @@ class LOHandler(Cerebrum_core__POA.LOHandler):
     def get_lastest_change_event(self):
         # FIXME: ChangeEventSearch trenger mer funksjonalitet
         return ChangeEventSearch('latest').search()[-1]
+
+# arch-tag: ad03a9db-fe3f-4e1a-b130-4ad767579e93

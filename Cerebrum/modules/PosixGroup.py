@@ -140,3 +140,5 @@ class PosixGroup(Group_class):
 ##                 raise ValueError, \
 ##                       "PosixGroup name '%s' contains illegal char '%s'." % \
 ##                       (name, c)
+
+# arch-tag: 79e9fb4a-7366-46ec-b41c-48b046f13838

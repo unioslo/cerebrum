@@ -132,3 +132,5 @@ spamact2const = {'0': co.email_spam_action_none,
                  '2': co.email_spam_action_delete,
                  '*default*': co.email_spam_action_none
                  }
+
+# arch-tag: 5329b885-645f-487c-bb5d-f599d665000d

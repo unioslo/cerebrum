@@ -42,3 +42,6 @@ CREATE TABLE country_alias
 );
 categrory:drop;
 DROP TABLE country_alias;
+
+/* arch-tag: 9003ab69-5434-43ea-a534-3a3fa932df8a
+   (do not change this comment) */

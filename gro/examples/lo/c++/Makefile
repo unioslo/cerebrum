@@ -25,3 +25,5 @@ distclean: clean
 	rm -f $(CORBA_SOURCES)
 	rm -f $(CORBA_SOURCES:.cc=.hh)
 	rm -f $(CORBA_SOURCES:SK.cc=.hh)
+
+# arch-tag: 71a6c3f9-418e-40de-9661-7fa4e5a8b30d

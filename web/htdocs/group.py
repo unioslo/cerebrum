@@ -198,3 +198,5 @@ def save(req, id, name, desc, expire_date):
 
     redirect_object(req, group, seeOther=True)
     raise Errors.UnreachableCodeError
+
+# arch-tag: d14543c1-a7d9-4c46-8938-c22c94278c34

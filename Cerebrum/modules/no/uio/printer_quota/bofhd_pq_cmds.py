@@ -310,3 +310,5 @@ if __name__ == '__main__':  # For testing
     print svr.run_command(secret, 'pquota_status', '05107747682')
     print svr.run_command(secret, 'pquota_history', '05107747682')
     print svr.run_command(secret, 'pquota_status', '15035846422')
+
+# arch-tag: 1e9fee18-ec8a-4c30-9099-8504e196d5d0

@@ -814,3 +814,5 @@ if __name__ == '__main__':
             server = StandardBofhdServer(db, conffile,
                                          ("0.0.0.0", port), BofhdRequestHandler)
     server.serve_forever()
+
+# arch-tag: 65c53099-96e5-4d49-aa19-18b9800f26d6

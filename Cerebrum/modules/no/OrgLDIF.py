@@ -173,3 +173,5 @@ class norEduLDIFMixin(OrgLDIF):
                     time.strftime("%Y%m%d",
                                   time.strptime(str(birth_date),
                                                 "%Y-%m-%d %H:%M:%S.00")),)
+
+# arch-tag: f895ee98-7185-40df-83bb-96aa506d8b21

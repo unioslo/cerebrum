@@ -571,3 +571,5 @@ contrib/no/uio/quota_update.py -s /cerebrum/dumps/FS/merged_persons_small.xml -e
 
 if __name__ == '__main__':
     main()
+
+# arch-tag: e0fc5f99-a3bf-4739-9f8a-be8d46142ed1

@@ -38,3 +38,6 @@ CREATE TABLE password_history
 );
 category:main;
 CREATE INDEX password_hist_ety_idx ON password_history(entity_id);
+
+/* arch-tag: ccd17681-96b9-4d9a-8d1f-412c313f9202
+   (do not change this comment) */

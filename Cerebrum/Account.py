@@ -916,3 +916,4 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine, Entity):
              'name': name, 'owner_id': owner_id, 'owner_type': owner_type,
              'vdomain': int(self.const.account_namespace)})
 
+# arch-tag: 680912b6-ae4f-4915-bbec-4e71ffc302be

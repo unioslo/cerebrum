@@ -1422,3 +1422,5 @@ if __name__ == '__main__':
 # TODO:
 # * Hvordan skal defaultgruppe for slettede brukere huskes?
 # * Sette account_info.create_date til opprettelsesdato fra Ureg.
+
+# arch-tag: 5dd9ae1c-c876-4785-a05e-02e225b6ef39

@@ -57,3 +57,5 @@ if __name__ == '__main__':
         except Cerebrum_core.Errors.IteratorEmptyError:
             break
     print time.time() - a
+
+# arch-tag: 053bd304-03a1-46a8-95a8-3f2cfcbe1385

@@ -39,3 +39,5 @@ def suite():
 if __name__ == '__main__':
     # When this module is executed from the command-line, run all its tests
     unittest.main(defaultTest='suite')
+
+# arch-tag: 9c94837a-4177-4da1-b6ab-67b0fdd1dd66

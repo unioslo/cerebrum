@@ -338,3 +338,5 @@ number.  If the person is not registered, you must create an instance with
     'yes_no_force':
         ['force', 'Force the operation?']
     }
+
+# arch-tag: 6981ed71-c680-4180-80b8-348494024709

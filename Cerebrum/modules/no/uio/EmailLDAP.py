@@ -318,3 +318,5 @@ class EmailLDAPUiOMixin(EmailLDAP):
             else:
                 txt = "No auth-data for user: %s\n" % entity_id
                 sys.stderr.write(txt)
+
+# arch-tag: 7bb4c2b7-8112-4bd0-85dd-0112db222638

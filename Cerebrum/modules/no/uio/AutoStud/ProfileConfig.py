@@ -458,3 +458,5 @@ class StudconfigParser(xml.sax.ContentHandler):
         self.elementstack.pop()
         if self._in_profil and ename == 'profil':
             self._in_profil = None
+
+# arch-tag: 8d52e58e-fdc3-456f-a9d0-7fe2d2281398

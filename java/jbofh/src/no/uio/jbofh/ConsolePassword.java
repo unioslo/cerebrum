@@ -129,3 +129,5 @@ class ConsolePassword {
         System.out.println("You typed: "+cp.getPassword("Enter your password: "));
     }
 }
+
+// arch-tag: 93d4725e-f3c3-4994-a945-9dacd6f188b5

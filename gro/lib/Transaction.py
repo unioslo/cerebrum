@@ -79,3 +79,5 @@ class Transaction(LockHolder):
             raise Errors.TransactionError('No transaction started')
         else:
             return self._db
+
+# arch-tag: a615bcdc-e962-4f74-a865-64ba66fffdfa

@@ -163,3 +163,5 @@ while 1:
     cmd = ext_prompt('PyBofh', 'string').split()
     print "Cmd: '%s'" % cmd
     run_command(sessid, cmd)
+
+# arch-tag: 9f9190ab-cabd-4e4d-b8ec-399edc87b3fc

@@ -298,3 +298,5 @@ class PosixUser(Account_class):
         return self.query("""
         SELECT code, shell
         FROM [:table schema=cerebrum name=posix_shell_code]""")
+
+# arch-tag: 27c62731-8174-4853-ace3-0609278eb3ae

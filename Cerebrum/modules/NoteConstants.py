@@ -28,3 +28,5 @@ class NoteConstants(Constants.Constants):
             'added note #%(note_id)s, Re: %(subject)s')
     note_del = _ChangeTypeCode('note', 'del',
             'deleted note #%(note_id)s')
+
+# arch-tag: be32060b-7c76-4bc1-bd9e-14ba63bb76c2
