@@ -51,4 +51,18 @@ def get_spreads(self):
 
 Entity.register_method(Method('get_spreads', [Spread]), get_spreads)
 
+def add_spread(self, spread):
+    obj = self._get_cerebrum_obj()
+    obj.add_spread(spread.get_id())
+    obj.write_db()
+
+Entity.register_method(Method('add_spread', None, args=[('spread', Spread)], write=True), add_spread)
+
+def delete_spread(self, spread):
+    obj = self._get_cerebrum_obj()
+    obj.delete_spread(spread.get_id())
+    obj.write_db()
+
+Entity.register_method(Method('delete_spread', None, args=[('spread', Spread)], write=True), delete_spread)
+
 # arch-tag: 225423b6-e786-4494-90a1-2b33ba481a92
