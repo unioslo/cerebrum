@@ -108,8 +108,8 @@ def nwqsync(spreads):
     clh.commit_confirmations()
 
 def ldap_connect(serv_l=None):
-    con = None
     global con
+    con = None
     if not serv_l:
 	serv_l = []
 	serv_l.append('%s:%s' % (cereconf.NW_LDAPHOST,
