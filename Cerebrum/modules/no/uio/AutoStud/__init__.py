@@ -1,11 +1,10 @@
 # -*- coding: iso-8859-1 -*-
 """This is the only class that should be directly accessed within
 this package"""
-TOPICS_FILE="/cerebrum/dumps/FS/topics.xml"   # TODO: cereconf
-STUDIEPROGS_FILE="/cerebrum/dumps/FS/studieprogrammer.xml"   # TODO: cereconf
-STUDCONFIG_FILE="/cerebrum/uiocerebrum/etc/config/studconfig.xml"
 
 import re
+
+import cereconf
 
 from Cerebrum.modules.no.uio.AutoStud import ProfileConfig
 from Cerebrum.modules.no.uio.AutoStud import ProfileHandler
@@ -13,8 +12,8 @@ from Cerebrum.modules.no.uio.AutoStud import StudentInfo
 from Cerebrum import Disk
 
 class AutoStud(object):
-    def __init__(self, db, logger, cfg_file=STUDCONFIG_FILE, debug=0,
-                 studieprogs_file=STUDIEPROGS_FILE):
+    def __init__(self, db, logger, cfg_file=None, debug=0,
+                 studieprogs_file=None):
         self._logger = logger
         self.debug = debug
         self.db = db
@@ -27,7 +26,6 @@ class AutoStud(object):
             self.disks_order = self.disks.keys()
             self.disks_order.sort(self._disk_sort)
         self.pc = ProfileConfig.Config(self, logger, debug=debug, cfg_file=cfg_file)
-
         self.studieprogramkode2info = {}
         for sp in StudentInfo.StudieprogDefParser(studieprogs_file=studieprogs_file):
             self.studieprogramkode2info[sp['studieprogramkode']] = sp
