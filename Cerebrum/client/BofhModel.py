@@ -316,11 +316,29 @@ class Account(Entity, Abstract.Account):
         self.owner_id = info['owner_id']
         self.creator_id = info['creator_id']
 
+    def create(cls, server, name, owner, affiliation):
+        """Creates an account, returns created account-object or None"""
+        
+        # FIXME: only supported owner-type right now is person
+        try:
+            if owner.type != 'person':
+                return None
+        except:
+            return None
+            
+        info = server.user_reserve("idtype-not_in_use", owner.id, affiliation, name)
+        if info.get('account_id'):
+            return fetch_object_by_id(server, info['account_id'])
+        else:
+            return None
+        
+    create = classmethod(create)
+
     def fetch_by_name(cls, name):
         pass
     fetch_by_name = classmethod(fetch_by_name)
     
-    def search(cls, name=None, create_date=None, creator_id=None, 
+    def search(cls, server, name=None, create_date=None, creator_id=None, 
                expire_date=None, owner_id=None, np_type=None):
         pass
     search = classmethod(search)
@@ -353,7 +371,6 @@ class Person(Entity, Abstract.Person):
     def create(cls, server, name, birthno, birthdate, ou, affiliation, aff_status):
         """Creates a person, and returns the object, if successfull, 
            returns None otherwise"""
-        info = None
         info = server.person_create(birthno, birthdate, name, ou, affiliation, aff_status)
         if info.get('person_id'):
             person = fetch_object_by_id(server, info['person_id'])
