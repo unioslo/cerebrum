@@ -136,7 +136,7 @@ def generate_netgroup(filename, group_spread, user_spread):
                     group_members.append(entity2gname[int(row2[1])])
         # TODO: Also process intersection and difference members.
         line = " ".join((join(group_members, ' '), join(account_members, ' ')))
-        maxlen = MAX_LINE_LENGTH - (len(group.group_name) + 1)
+        maxlen = MAX_LINE_LENGTH - (len(group.group_name) + 1)*2
         while len(line) > maxlen:
             pos = line.index(" ", len(line) - maxlen)
             tmp_gname = "x%02x" % num
@@ -181,7 +181,7 @@ def generate_group(filename, group_spread, user_spread):
                     id, gname)
 
         gline = join((gname, '*', gid, join(members, ',')))
-        if len(gline) <= MAX_LINE_LENGTH:
+        if len(gline) + len(gname) + 1 <= MAX_LINE_LENGTH:
             f.write(gline+"\n")
             groups[gname] = None
         else:
@@ -216,9 +216,9 @@ def generate_group(filename, group_spread, user_spread):
         gname = g
         gid, members = groups[g]
         while members:
-            # gname:*:gid:
+            # gname gname:*:gid:
             memb_str, members = maxjoin(members, MAX_LINE_LENGTH -
-                                        (len(gname) + len(gid) + 4))
+                                        (len(gname)*2 + 1 + len(gid) + 4))
             if memb_str is None:
                 break
             f.write(join((gname, '*', gid, memb_str))+"\n")
