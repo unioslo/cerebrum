@@ -63,14 +63,6 @@ class LookupHelper(object):
         return self._group_cache[name] 
 
     def get_stedkode(self, name, institusjon):
-        #TODO: not quite right, remove once xml file is fixed
-        name = name.replace("SV-student", "140000")
-        name = name.replace("UV-student", "140000")
-        name = name.replace("Jus-student", "140000")
-        name = name.replace("MNF-student", "140000")
-        name = name.replace("S", "0")
-        if(int(name) > 300000):
-            name = "140000"
         if self._sko_cache.has_key(name):
             return self._sko_cache[name]
         try:
