@@ -1,8 +1,11 @@
 from classes import Database
 from Cerebrum_core import Errors
 
-class Transaction:
+from classes.LockHolder import LockHolder
+
+class Transaction(LockHolder):
     def __init__(self, client):
+        LockHolder.__init__(self)
         self.client = client
         self._refs = None
         self._db = None
@@ -37,16 +40,13 @@ class Transaction:
             raise Errors.TransactionError('No transaction started')
 
         try:
+            self._db.commit()
             for item in self._refs:
-                if item.updated and item.has_writelock(self):
-                    item.save()
                 item.unlock(self)
 
         except Exception, e:
-            db.release()
             raise Errors.TransactionError('Failed to commit: %s' % e)
 
-        self._db.commit()
         self._refs = None
         self.transaction_started = False
         
@@ -60,12 +60,13 @@ class Transaction:
         if not self.transaction_started:
             raise Errors.TransactionError('No transaction started')
 
+        self._db.rollback()
+
         for item in self._refs:
-            if item.updated and item.has_writelock(self):
-                item.reload()
+            if item.has_writelock(self):
+                item.reset()
             item.unlock(self)
 
-        self._db.rollback()
         self._db = None
         self._refs = None
         self.transaction_started = False
