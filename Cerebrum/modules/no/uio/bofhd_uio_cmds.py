@@ -15,15 +15,18 @@ from Cerebrum import Errors
 from Cerebrum import Group
 from Cerebrum import Person
 from Cerebrum import Disk
+from Cerebrum import Entity
 from Cerebrum.modules import PosixGroup
 from Cerebrum.modules.no.uio import PrinterQuotas
 from Cerebrum.Utils import Factory
 from templates.letters import TemplateHandler
 from server.bofhd_errors import CerebrumError
 from Cerebrum.modules.no.uio import bofhd_uio_help
+from Cerebrum.Constants import _CerebrumCode, _QuarantineCode
 import cereconf
 from Cerebrum.modules import PosixUser
 import re
+import sys
 
 class BofhdExtension(object):
     """All CallableFuncs takes user as first arg, and is responsible
@@ -31,6 +34,7 @@ class BofhdExtension(object):
 
     all_commands = {}
     OU_class = Factory.get('OU')
+    external_id_mappings = {}
 
     def __init__(self, server):
         self.server = server
@@ -43,6 +47,15 @@ class BofhdExtension(object):
         self.person_affiliation_codes = {}
         for t in self.person.list_person_affiliation_codes():
             self.person_affiliation_codes[t.code_str] = (int(t.code), t.description)
+        self.external_id_mappings['fnr'] = self.const.externalid_fodselsnr
+        # TODO: str2const is not guaranteed to be unique (OK for now, though)
+        self.num2const = {}
+        self.str2const = {}
+        for c in dir(self.const):
+            tmp = getattr(self.const, c)
+            if isinstance(tmp, _CerebrumCode):
+                self.num2const[int(tmp)] = tmp
+                self.str2const["%s" % tmp] = tmp
 
     def get_commands(self, uname):
         # TBD: Do some filtering on uname to remove commands
@@ -101,17 +114,17 @@ class BofhdExtension(object):
     all_commands['group_create'] = Command(
         ("group", "create"), GroupName(help_ref="group_name_new"),
         SimpleString(help_ref="string_description"),
-        fs=FormatSuggestion("Created with posixgid: %i", ("group_id",)))
+        fs=FormatSuggestion("Group created as a normal group, internal id: %i", ("group_id",)))
     def group_create(self, operator, groupname, description):
-        pg = PosixGroup.PosixGroup(self.db)
-        pg.populate(creator_id=operator.get_entity_id(),
-                    visibility=self.const.group_visibility_all,
-                    name=groupname, description=description)
+        g = Group.Group(self.db)
+        g.populate(creator_id=operator.get_entity_id(),
+                   visibility=self.const.group_visibility_all,
+                   name=groupname, description=description)
         try:
-            pg.write_db()
+            g.write_db()
         except self.db.DatabaseError, m:
             raise CerebrumError, "Database error: %s" % m
-        return {'group_id': int(pg.posix_gid)}
+        return {'group_id': int(g.entity_id)}
 
     #  group def
     all_commands['group_def'] = Command(
@@ -127,6 +140,8 @@ class BofhdExtension(object):
     all_commands['group_delete'] = Command(
         ("group", "delete"), GroupName(), YesNo(help_ref="yes_no_force", optional=True, default="No"))
     def group_delete(self, operator, groupname, force=None):
+        if self._is_yes(force):
+            raise NotImplementedError, "Force not implemented"
         grp = self._get_group(groupname)
         grp.delete()
         return "OK"
@@ -176,7 +191,7 @@ class BofhdExtension(object):
         # TODO: We need a method for formating lists (here: spreads)
         #       as part of the result
         return {'entity_id': grp.entity_id,
-                'spread': ",".join([self._get_const(int(a['spread']))
+                'spread': ",".join(["%s" % self.num2const[int(a['spread'])]
                                     for a in grp.get_spread()])}
 
     # group list
@@ -192,7 +207,7 @@ class BofhdExtension(object):
         for t, rows in ('union', u), ('inters.', i), ('diff', d):
             for r in rows:
                 ret.append({'op': t,
-                            'type': self._get_const(r[0]),
+                            'type': self.num2const[r[0]],
                             'id': r[1],
                             'name': self._get_entity_name(r[0], r[1])})
         return ret
@@ -246,7 +261,7 @@ class BofhdExtension(object):
     def group_user(self, operator, accountname):
         account = self._get_account(accountname)
         group = Group.Group(self.db)
-        return [{'memberop': self._get_const(r['operation']),
+        return [{'memberop': self.num2const[r['operation']],
                  'group': self._get_entity_name(self.const.entity_group, r['group_id'])}
                 for r in group.list_groups_with_entity(account.entity_id)]
 
@@ -258,48 +273,60 @@ class BofhdExtension(object):
     all_commands['misc_aff_status_codes'] = Command(
         ("misc", "aff_status_codes"), )
     def misc_aff_status_codes(self, operator):
+        # TODO: Define aff_status_codes for UiO
         raise NotImplementedError, "Feel free to implement this function"
 
     # misc affiliations
     all_commands['misc_affiliations'] = Command(
         ("misc", "affiliations"), )
     def misc_affiliations(self, operator):
+        # TODO: Defile affiliations for UiO
         raise NotImplementedError, "Feel free to implement this function"
 
     # misc all_requests
     all_commands['misc_all_requests'] = Command(
         ("misc", "all_requests"), )
     def misc_all_requests(self, operator):
+        # TODO: Add support for storing move requests
         raise NotImplementedError, "Feel free to implement this function"
 
     # misc checkpassw
     all_commands['misc_checkpassw'] = Command(
         ("misc", "checkpassw"), AccountPassword())
-    def misc_checkpassw(self, operator):
-        raise NotImplementedError, "Feel free to implement this function"
+    def misc_checkpassw(self, operator, password):
+        posix_user = PosixUser.PosixUser(self.db)
+        try:
+            posix_user.goodenough("foobar", password)
+        except:
+            raise CerebrumError, "Bad password: %s" % sys.exc_info()[0]
+        return "OK"
 
     # misc lmy
     all_commands['misc_lmy'] = Command(
         ("misc", "lmy"), )
     def misc_lmy(self, operator):
+        # TODO: Dunno what this command is supposed to do
         raise NotImplementedError, "Feel free to implement this function"
 
     # misc lsko
     all_commands['misc_lsko'] = Command(
         ("misc", "lsko"), SimpleString())
     def misc_lsko(self, operator):
+        # TODO: Dunno what this command is supposed to do
         raise NotImplementedError, "Feel free to implement this function"
 
     # misc mmove_confirm
     all_commands['misc_mmove_confirm'] = Command(
         ("misc", "mmove_confirm"), )
     def misc_mmove_confirm(self, operator):
+        # TODO: Add support for storing move requests
         raise NotImplementedError, "Feel free to implement this function"
 
     # misc mmove_requests
     all_commands['misc_mmove_requests'] = Command(
         ("misc", "mmove_requests"), )
     def misc_mmove_requests(self, operator):
+        # TODO: Add support for storing move requests
         raise NotImplementedError, "Feel free to implement this function"
 
 
@@ -307,19 +334,27 @@ class BofhdExtension(object):
     all_commands['misc_profile_download'] = Command(
         ("misc", "profile_download"), SimpleString(help_ref="string_filename"))
     def misc_profile_download(self, operator, filename):
+        # TODO: Add support for up/downloading files
+        # TODO: Add support for profile handling
         raise NotImplementedError, "Feel free to implement this function"
 
     # misc profile_upload
     all_commands['misc_profile_upload'] = Command(
         ("misc", "profile_upload"), SimpleString(help_ref="string_filename"))
     def misc_profile_upload(self, operator, filename):
+        # TODO: Add support for up/downloading files
         raise NotImplementedError, "Feel free to implement this function"
 
     # misc user_passwd
     all_commands['misc_user_passwd'] = Command(
         ("misc", "user_passwd"), AccountName(), AccountPassword())
-    def misc_user_passwd(self, operator):
-        raise NotImplementedError, "Feel free to implement this function"
+    def misc_user_passwd(self, operator, accountname, password):
+        ac = self._get_account(accountname)
+        old_pass = ac.get_account_authentication(self.const.auth_type_md5_crypt)
+        if(ac.enc_auth_type_md5_crypt(password, salt=old_pass[:old_pass.rindex('$')])
+           == old_pass):
+            return "Password is correct"
+        return "Incorrect password"
 
     #
     # person commands
@@ -330,7 +365,8 @@ class BofhdExtension(object):
         ("person", "accounts"), PersonId(),
         fs=FormatSuggestion("%6i %s", ("account_id", "name"), hdr="Id     Name"))
     def person_accounts(self, operator, id):
-        person = self._get_person(id)
+        # TODO (haster ikke): allow id to be an accountname
+        person = self._get_person(*self._map_person_id(id))
         account = Account.Account(self.db)
         ret = []
         for r in account.list_accounts_by_owner_id(person.entity_id):
@@ -340,20 +376,15 @@ class BofhdExtension(object):
                         'name': account.account_name})
         return ret
 
-    # person bcreate  # TODO: Prøve å slå sammen med "person accounts"
-    all_commands['person_bcreate'] = Command(
-        ("person", "bcreate"), PersonName(), Date(),
-        fs=FormatSuggestion("Created: %i", ("person_id",)))
-    def person_bcreate(self, operator, display_name, birth_date=None):
-        return self._person_create(operator, display_name, birth_date=birth_date)
-
     # person create
     all_commands['person_create'] = Command(
-        ("person", "create"), PersonName(), 
-        PersonId(), fs=FormatSuggestion("Created: %i",
+        ("person", "create"), PersonId(),
+        Date(), PersonName(help_ref="person_name_full"), OU(),
+        Affiliation(), AffiliationStatus(),
+        fs=FormatSuggestion("Created: %i",
         ("person_id",)))
-    def person_create(self, operator, display_name,
-                      id=None):
+    def person_create(self, operator, person_id, bdate, person_name,
+                      ou, affiliation, aff_status):
         return self._person_create(operator, display_name, id=id)
 
     def _person_create(self, operator, display_name, birth_date=None,
@@ -383,31 +414,53 @@ class BofhdExtension(object):
     all_commands['person_find'] = Command(
         ("person", "find"), PersonSearchType(), SimpleString())
     def person_find(self, operator, search_type, value):
+        # TODO: Need API support for this
+        if search_type == 'name':
+            pass
+        elif search_type == 'date':
+            pass
+        elif search_type == 'person_id':
+            person = self._get_person(*self._map_person_id(person_id))
         raise NotImplementedError, "Feel free to implement this function"
 
     # person info
     all_commands['person_info'] = Command(
-        ("person", "info"), PersonId())
+        ("person", "info"), PersonId(),
+        fs=FormatSuggestion("Name: %s\nExport ID: %s\n", ("name", "export_id")))
     def person_info(self, operator, person_id):
-        raise NotImplementedError, "Feel free to implement this function"
+        person = self._get_person(*self._map_person_id(person_id))
+        # TODO: also return all affiliations for the person
+        # TODO: remove """ when we get a correctly populated database
+        return {'name': """person.get_name(self.const.system_cached,
+                                        getattr(self.const, cereconf.DEFAULT_GECOS_NAME))""",
+                'export_id': person.export_id}
 
     # person set_id
     all_commands['person_set_id'] = Command(
         ("person", "set_id"), PersonId(help_ref="person_id:current"),
         PersonId(help_ref="person_id:new"))
     def person_set_id(self, operator, current_id, new_id):
-        raise NotImplementedError, "Feel free to implement this function"
-
+        person = self._get_person(*self._map_person_id(current_id))
+        idtype, id = self._map_person_id(current_id)
+        person.populate_external_id(self.const.system_manual,
+                                    idtype, id)
+        person.write_db()
+        # TODO:  This currently does not work as it is not implemented in Person
+        return "OK"
+    
     # person student_info
     all_commands['person_student_info'] = Command(
-        ("person", "set_id"), PersonId())
+        ("person", "student_info"), PersonId())
     def person_student_info(self, operator, person_id):
+        person = self._get_person(*self._map_person_id(current_id))
+        # TODO: We don't have an API for this yet
         raise NotImplementedError, "Feel free to implement this function"
 
     # person user_priority
     all_commands['person_user_priority'] = Command(
         ("person", "user_priority"), AccountName(), SimpleString())
     def person_user_priority(self, operator, person_id):
+        # TODO: The API doesn't support this yet
         raise NotImplementedError, "Feel free to implement this function"
 
     #
@@ -464,42 +517,81 @@ class BofhdExtension(object):
 
     # quarantine disable
     all_commands['quarantine_disable'] = Command(
-        ("quarantine", "disable"), EntityType(), Id(), QuarantineType(), Date())
+        ("quarantine", "disable"), EntityType(default="account"), Id(), QuarantineType(), Date())
     def quarantine_disable(self, operator, entity_type, id, qtype, date):
-        raise NotImplementedError, "Feel free to implement this function"
+        entity = self._get_entity(entity_type, id)
+        date = self._parse_date(date)
+        qtype = int(self.str2const[qtype])
+        entity.disable_entity_quarantine(qtype, date)
+        return "OK"
 
     # quarantine info
     all_commands['quarantine_info'] = Command(
         ("quarantine", "info"), QuarantineType())
     def quarantine_info(self, operator, qtype):
+        # TODO: I'm uncertain as to what this is supposed to do
         raise NotImplementedError, "Feel free to implement this function"
 
     # quarantine list
     all_commands['quarantine_list'] = Command(
-        ("quarantine", "list"), )
+        ("quarantine", "list"),
+        fs=FormatSuggestion("%-14s %s", ('name', 'desc'),
+                            hdr="%-14s %s" % ('Name', 'Description')))
     def quarantine_list(self, operator):
-        raise NotImplementedError, "Feel free to implement this function"
+        ret = []
+        for c in dir(self.const):
+            tmp = getattr(self.const, c)
+            if isinstance(tmp, _QuarantineCode):
+                ret.append({'name': "%s" % tmp, 'desc': unicode(tmp._get_description(), 'iso8859-1')})
+        return ret
 
     # quarantine remove
     all_commands['quarantine_remove'] = Command(
-        ("quarantine", "remove"), EntityType(), Id(), QuarantineType())
-    def quarantine_remove(self, operator, entity_type, id):
-        raise NotImplementedError, "Feel free to implement this function"
+        ("quarantine", "remove"), EntityType(default="account"), Id(), QuarantineType())
+    def quarantine_remove(self, operator, entity_type, id, qtype):
+        entity = self._get_entity(entity_type, id)
+        qtype = int(self.str2const[qtype])
+        entity.delete_entity_quarantine(qtype)
+        return "OK"
 
     # quarantine set
     all_commands['quarantine_set'] = Command(
-        ("quarantine", "set"), EntityType(), Id(repeat=True), QuarantineType(),
+        ("quarantine", "set"), EntityType(default="account"), Id(repeat=True), QuarantineType(),
         SimpleString(help_ref="string_why"),
-        SimpleString(help_ref="string_from_to", optional=True))
-    def quarantine_set(self, operator, entity_type, id, spread):
-        raise NotImplementedError, "Feel free to implement this function"
+        SimpleString(help_ref="string_from_to"))
+    def quarantine_set(self, operator, entity_type, id, qtype, why, date):
+        date_start = date_end = None
+        if date is not None:
+            tmp = date.split("-")
+            if len(tmp) == 6:
+                date_start = self._parse_date("-".join(tmp[:3]))
+                date_end = self._parse_date("-".join(tmp[3:]))
+            else:
+                date_start = self._parse_date(date)
+        entity = self._get_entity(entity_type, id)
+        qtype = int(self.str2const[qtype])
+        entity.add_entity_quarantine(qtype, operator.get_entity_id(), why, date_start, date_end)
+        return "OK"
 
     # quarantine show
     all_commands['quarantine_show'] = Command(
-        ("quarantine", "show"), EntityType(), Id())
+        ("quarantine", "show"), EntityType(default="account"), Id(),
+        fs=FormatSuggestion("%-14s %-30s %-30s %-30s %-8s %s",
+                            ('type', 'start', 'end', 'disable_until', 'who', 'why'),
+                            hdr="%-14s %-30s %-30s %-30s %-8s %s" % \
+                            ('Type', 'Start', 'End', 'Disable until', 'Who', 'Why')))
     def quarantine_show(self, operator, entity_type, id):
-        raise NotImplementedError, "Feel free to implement this function"
-
+        ret = []
+        entity = self._get_entity(entity_type, id)
+        for r in entity.get_entity_quarantine():
+            acc = self._get_account(r['creator_id'], idtype='id')
+            ret.append({'type': "%s" % self.num2const[int(r['quarantine_type'])],
+                        'start': r['start_date'],
+                        'end': r['end_date'],
+                        'disable_until': r['disable_until'],
+                        'who': acc.account_name,
+                        'why': r['description']})
+        return ret
     #
     # spread commands
     #
@@ -535,7 +627,7 @@ class BofhdExtension(object):
 
     # user affiliation_add
     all_commands['user_affiliation_add'] = Command(
-        ("user", "affiliation_add"), AccountName(), Affiliation(), OU(), AffiliationStatus())
+        ("user", "affiliation_add"), AccountName(), OU(), Affiliation(), AffiliationStatus())
     def user_affiliation_add(self, operator, accountname):
         raise NotImplementedError, "Feel free to implement this function"
 
@@ -607,7 +699,7 @@ class BofhdExtension(object):
             ret = {'prompt': "Brukernavn", 'last_arg': 1}
             posix_user = PosixUser.PosixUser(self.db)
             try:
-                person = self._get_person(person_id, "id")
+                person = self._get_person("entity_id", person_id)
                 # TODO: this requires that cereconf.DEFAULT_GECOS_NAME is name_full.  fix
                 full = person.get_name(self.const.system_cached, self.const.name_full)
                 lname, fname = full.split(" ", 1)
@@ -624,7 +716,7 @@ class BofhdExtension(object):
         ('user', 'create'), prompt_func=user_create_prompt_func,
         fs=FormatSuggestion("Created uid=%i, password=%s", ("uid", "password")))
     def user_create(self, operator, idtype, person_id, filegroup, shell, home, uname):
-        person = self._get_person(person_id, "id")
+        person = self._get_person("entity_id", person_id)
         group=self._get_group(filegroup)
         posix_user = PosixUser.PosixUser(self.db)
         uid = posix_user.get_free_uid()
@@ -689,7 +781,7 @@ class BofhdExtension(object):
         account = self._get_account(accountname)
         # TODO: Return more info about account
         return {'entity_id': account.entity_id,
-                'spread': ",".join([self._get_const(int(a['spread']))
+                'spread': ",".join([self.num2const[int(a['spread'])]
                                     for a in account.get_spread()])}
 
     # user list_created
@@ -760,13 +852,6 @@ class BofhdExtension(object):
         account.write_db()
         return "OK"
 
-    # user splatt
-    all_commands['user_splatt'] = Command(
-        ("user", "splatt"), AccountName(), SimpleString(help_ref="string_description"))
-    def user_splatt(self, operator, accountname, shell=None):
-        # TODO: How do we splatt a user?
-        raise NotImplementedError, "Feel free to implement this function"
-
     # user student_create
     all_commands['user_student_create'] = Command(
         ('user', 'student_create'), PersonId())
@@ -812,10 +897,6 @@ class BofhdExtension(object):
             raise CerebrumError, "Could not find group with %s=%s" % (idtype, id)
         return group
 
-    def _get_const(self, num):
-        c = self.const.map_const(num)
-        return str(c)
-    
     def _get_shell(self, shell):
         if shell == 'bash':
             return self.const.posix_shell_bash
@@ -857,19 +938,40 @@ class BofhdExtension(object):
             name = "Ukjent"
         return name
 
-    def _get_person(self, id, idtype='fnr'):
+    def _get_entity(self, idtype, id):
+        if idtype == 'account':
+            return self._get_account(id)
+        if idtype == 'person':
+            return self._get_person(*self._map_person_id(id))
+        raise CerebrumError, "Invalid idtype"
+    
+    def _get_person(self, idtype, id):
         person = self.person
         person.clear()
         try:
-            if idtype == 'fnr':
-                person.find_by_external_id(self.const.externalid_fodselsnr, id)
-            elif idtype == 'id':
+            if isinstance(idtype, _CerebrumCode):
+                person.find_by_external_id(idtype, id)
+            elif idtype == 'entity_id':
                 person.find(id)
             else:
-                raise NotImplementedError, "Unknown idtype: %s" % idtype
+                raise CerebrumError, "Unkown idtype"
         except Errors.NotFoundError:
             raise CerebrumError, "Could not find person with %s=%s" % (idtype, id)
         return person
+
+    def _map_person_id(self, id):
+        """Map <idtype:id> to const.<idtype>, id.  Recognices
+        fødselsnummer without <idtype>.  Also recognizes entity_id"""
+        if id.isdigit() and len(id) >= 10:
+            return self.const.externalid_fodselsnr, id
+        idx = id.find(":")
+        id_type = id[:idx]
+        id = id[idx+1:]
+        if id_type != 'entity_id':
+            id_type = self.external_id_mappings.get(id_type, None)
+        if id_type is not None:
+            return id_type, id
+        raise CerebrumError, "Unkown person_id type"        
 
     def _get_printerquota(self, account_id):
         pq = PrinterQuotas.PrinterQuotas(self.db)
@@ -899,6 +1001,12 @@ class BofhdExtension(object):
         else:
             return "%s:%s" % (type, id)
 
+    def _is_yes(self, val):
+        val = val.lower()
+        if(val == 'y' or val == 'yes' or val == 'ja' or val == 'j'):
+            return True
+        return False
+        
     # TODO: the mapping of user typed description to numeric db-id for
     # codes, and from id -> description should be done in an elegant way
     def _get_affiliationid(self, code_str):
