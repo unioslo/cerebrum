@@ -35,7 +35,7 @@ Description: common files for cerebrum systems
 
 Package: cerebrum-server 
 Architecture: any 
-Depends: ${shlibs:Depends}, ${misc:Depends}, python-pgsql, cerebrum-common				 
+Depends: ${shlibs:Depends}, ${misc:Depends}, python, python-pgsql, cerebrum-common 
 Description: cerebrum server 
  files needed for the server of the advanced automated user
  administration and management system "cerebrum" on debian.
@@ -48,3 +48,16 @@ Description: cerebrum server
  can be Oracle or PostgreSQL.
 
 
+Package: cerebrum-jbofh
+Architecture: any
+Depends: kaffe | java2-runtime
+Description: java client with command line interface for cerebrum systems
+ The java bofh client to cerebrum systems with a commandline 
+ interface without propriatary libs
+ .
+ Cerebrum is a meta-directory, made to administer information
+ about mainly people, users, groups and organizations. It has
+ modules for integration with other authoritative system an
+ organization has (HR, SR, SAS) and exports user-data to numerous
+ systems/front-ends like NIS, AD, LDAP. It has an backend which
+ can be Oracle or PostgreSQL.
