@@ -120,7 +120,8 @@ class AccountUtil(object):
                                             'affs': [],
                                             'home': {},
                                             'gid': None,
-                                            'quarantines': []}
+                                            'quarantines': [],
+                                            'disk_kvote': None}
         AccountUtil.update_account(account.entity_id, fnr, profile, as_posix)
         return account.entity_id
     create_user=staticmethod(create_user)
@@ -292,7 +293,8 @@ class AccountUtil(object):
 
         if current_disk_id is not None and autostud.pc.using_disk_kvote:
             quota = profile.get_disk_kvote(current_disk_id)
-            changes.append(('disk_kvote', (quota,)))
+            if ac['disk_kvote'] != quota:
+                changes.append(('disk_kvote', (quota,)))
 
         # TBD: Is it OK to ignore date on existing quarantines when
         # determining if it should be added?
@@ -664,7 +666,8 @@ def get_existing_accounts():
             'home': {},
             'groups': [],
             'affs': [],
-            'quarantines': []}
+            'quarantines': [],
+            'disk_kvote': None}
     # PosixGid
     for row in posix_user_obj.list_posix_users():
         tmp = accounts.get(int(row['account_id']), None)
@@ -681,6 +684,11 @@ def get_existing_accounts():
         tmp = accounts.get(int(row['entity_id']), None)
         if tmp is not None:
             tmp['quarantines'].append(int(row['quarantine_type']))
+    # Disk kvote
+    for row in disk_quota_obj.list_quotas():
+        tmp = accounts.get(int(row['account_id']), None)
+        if tmp is not None:
+            tmp['disk_kvote'] = row['quota']
     # Spreads
     for spread_id in autostud.pc.spread_defs:
         spread = const.Spread(spread_id)
