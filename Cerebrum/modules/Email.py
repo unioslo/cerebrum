@@ -434,6 +434,15 @@ class EmailAddress(EmailEntity):
         SELECT address_id
         FROM [:table schema=cerebrum name=email_address]""")
 
+    def list_email_addresses_ext(self):
+        """Return address_id, target_id, local_part and domainof all
+        EmailAddress in database"""
+        return self.query("""
+        SELECT a.address_id, a.target_id, a.local_part, d.domain
+        FROM [:table schema=cerebrum name=email_address] a,
+             [:table schema=cerebrum name=email_domain] d
+        WHERE a.domain_id = d.domain_id""")
+
     def get_target_id(self):
         """Return target_id of this EmailAddress in database"""
         return self.email_addr_target_id
@@ -586,6 +595,11 @@ class EmailQuota(EmailTarget):
     def get_quota_hard(self):
         return self.email_quota_hard
 
+    def list_email_quota_ext(self):
+        """Return all quotas in database. target_id, quota_soft and quota_hard"""
+        return self.query("""
+        SELECT target_id, quota_soft, quota_hard
+        FROM [:table schema=cerebrum name=email_quota]""")
 
 class _EmailSpamLevelCode(Constants._CerebrumCode):
     _lookup_table = '[:table schema=cerebrum name=email_spam_level_code]'
@@ -697,6 +711,15 @@ class EmailSpamFilter(EmailTarget):
         action = _EmailSpamActionCode(action)
         return action
 
+    def list_email_spam_filters_ext(self):
+        """Join between spam_filter, email_spam_level_code and
+        email_spam_action_code. Returns target_id, gradeand code_str."""        
+        return self.query("""
+        SELECT f.target_id, l.grade, a.code_str
+        FROM [:table schema=cerebrum name=email_spam_filter] f,
+             [:table schema=cerebrum name=email_spam_level_code] l,
+             [:table schema=cerebrum name=email_spam_action_code] a
+        WHERE f.grade = l.code AND f.action = a.code""")
 
 class _EmailVirusFoundCode(Constants._CerebrumCode):
     _lookup_table = '[:table schema=cerebrum name=email_virus_found_code]'
@@ -784,6 +807,15 @@ class EmailVirusScan(EmailTarget):
         removed = _EmailVirusRemovedCode(removed)
         return removed
 
+    def list_email_virus_ext(self):
+        """Join between email_virus_scan, email_virus_found_code and
+        email_virus_removed_code. Returns """
+        return self.query("""
+        SELECT s.target_id, f.code_str, r.code_str, s.enable
+        FROM [:table schema=cerebrum name=email_virus_scan] s,
+             [:table schema=cerebrum name=email_virus_found_code] f,
+             [:table schema=cerebrum name=email_virus_removed_code] r
+        WHERE s.found_action = f.code AND s.rem_action = r.code""")
 
 class EmailForward(EmailTarget):
 
