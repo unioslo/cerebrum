@@ -29,8 +29,8 @@ from Cerebrum import Account
 
 
 class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
-
-    __read_attr__ = ('__in_db', '_affil_source', '__affil_data')
+    __read_attr__ = ('__in_db', '_affil_source', '__affil_data',
+                     '_extid_source', '_extid_types')
     __write_attr__ = ('birth_date', 'gender', 'description', 'deceased')
 
     def clear(self):
@@ -47,7 +47,7 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
         #       Person.__slots__, which means they will stop working
         #       once all Entity classes have been ported to use the
         #       mark_update metaclass.
-        self._external_id= ()
+        self._external_id= {}
         # Person names:
         self._pn_affect_source = None
         self._pn_affect_types = None
@@ -164,9 +164,6 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
                               'gender': int(self.gender),
                               'deceased': 'F',
                               'desc': self.description})
-                # print "X: %s" % str(self._external_id)
-                for t_ss, t_type, t_id in self._external_id:
-                    self._set_external_id(t_ss, t_type, t_id)
             else:
                 self.execute("""
                 UPDATE [:table schema=cerebrum name=person_info]
@@ -181,6 +178,24 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
                               'p_id': self.entity_id})
         else:
             is_new = None
+
+        # Handle external_id
+        if hasattr(self, '_extid_source'):
+            types = list(self._extid_types[:])
+            for row in self.get_external_id(source_system=self._extid_source):
+                if int(row['id_type']) not in self._extid_types:
+                    continue
+                tmp = self._external_id.get(int(row['id_type']), None)
+                if tmp is None:
+                    self._delete_external_id(self._extid_source, row['id_type'])
+                elif tmp <> row['external_id']:
+                    self._set_external_id(self._extid_source, row['id_type'],
+                                          tmp, update=True)
+                types.remove(int(row['id_type']))
+            for type in types:
+                if self._external_id.has_key(type):
+                    self._set_external_id(self._extid_source, type,
+                                          self._external_id[type])
 
         # Handle PersonAffiliations
         if hasattr(self, '_affil_source'):
@@ -276,19 +291,41 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
         self.__in_db = True
         self.__updated = False
 
+    def affect_external_id(self, source, *types):
+        self._extid_source = source
+        self._extid_types = [int(x) for x in types]
+
     def populate_external_id(self, source_system, id_type, external_id):
-        self._external_id += ((source_system, id_type, external_id),)
+        if not hasattr(self, '_extid_source'):
+            raise ValueError, \
+                  "Must call affect_external_id"
+        elif self._extid_source != source_system:
+            raise ValueError, \
+                  "Can't populate multiple `source_system`s w/o write_db()."
+        self._external_id[int(id_type)] = external_id
         self.__updated = True
 
-    def _set_external_id(self, source_system, id_type, external_id):
-        self.execute("""
-        INSERT INTO [:table schema=cerebrum name=person_external_id]
-          (person_id, id_type, source_system, external_id)
-        VALUES (:p_id, :id_type, :src, :ext_id)""",
+    def _delete_external_id(self, source_system, id_type):
+        self.execute("""DELETE FROM [:table schema=cerebrum name=person_external_id]
+        WHERE person_id=:p_id AND id_type=:id_type AND source_system=:src""",
                      {'p_id': self.entity_id,
                       'id_type': int(id_type),
-                      'src': int(source_system),
-                      'ext_id': external_id})
+                      'src': int(source_system)})
+
+    def _set_external_id(self, source_system, id_type, external_id,
+                         update=False):
+        if update:
+            sql = """UPDATE [:table schema=cerebrum name=person_external_id]
+            SET external_id=:ext_id
+            WHERE person_id=:p_id AND id_type=:id_type AND source_system=:src"""
+        else:
+            sql = """INSERT INTO [:table schema=cerebrum name=person_external_id]
+            (person_id, id_type, source_system, external_id)
+            VALUES (:p_id, :id_type, :src, :ext_id)"""
+        self.execute(sql, {'p_id': self.entity_id,
+                           'id_type': int(id_type),
+                           'src': int(source_system),
+                           'ext_id': external_id})
 
     def get_external_id(self, source_system=None, id_type=None):
         cols = {'person_id': int(self.entity_id)}
