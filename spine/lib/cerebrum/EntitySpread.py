@@ -47,7 +47,7 @@ registry.register_class(EntitySpread)
 def get_spreads(self):
     s = registry.EntitySpreadSearcher(self)
     s.set_entity(self)
-    return s.search()
+    return [i.get_spread() for i in s.search()]
 
 Entity.register_method(Method('get_spreads', [Spread]), get_spreads)
 
