@@ -140,7 +140,7 @@ def update_account(profile, account_ids, account_info={}):
             current_disk_id = user.get_home(user_spread)['disk_id']
         except Errors.NotFoundError:
             current_disk_id = None
-        if move_users or current_disk_id is None:
+        if keep_account_home[fnr] and (move_users or current_disk_id is None):
             try:
                 new_disk = profile.get_disk(current_disk_id)
             except ValueError, msg:  # TODO: get_disk should raise DiskError
@@ -539,8 +539,18 @@ def process_student(person_info):
         # Note that we don't pass current_disk to get_disks() here.
         # Thus this value may differ from the one used during an
         # update
+        try:
+            dfg = profile.get_dfg()       # dfg is only mandatory for PosixGroups
+        except ValueError:
+            dfg = "<no_dfg>"
+        if keep_account_home[fnr]:
+            # This will throw an exception if <build home="true">, and
+            # we can't get a disk.  This is what we want
+            disk = profile.get_disk()
+        else:
+            disk = "<no_home>"
         logger.debug("disk=%s, dfg=%s, fg=%s sko=%s" % \
-                     (profile.get_disk(), profile.get_dfg(),
+                     (disk, dfg,
                       profile.get_grupper(),
                       profile.get_stedkoder()))
         if dryrun:
