@@ -9,6 +9,7 @@ binary-post-install/%::
 	-mv debian/tmp/usr/var debian/tmp/
 	-mv debian/tmp/usr/etc debian/tmp/
 	cp debian/cereconf.py.default debian/tmp/etc/cerebrum/cereconf.py
+	cp debian/debian_config.py.default debian/tmp/usr/lib/python2.3/site-packages/Cerebrum/debian_config.py
 	cp debian/jbofh.sh debian/tmp/usr/bin/jbofh
 	# This cant be a patch because the file is generated.
 	perl -pi -e 's:$(PWD)/debian/tmp::; s:/usr/etc/:/etc/:' \

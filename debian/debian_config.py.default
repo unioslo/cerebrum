@@ -1,0 +1,23 @@
+# -*- coding: iso-8859-1 -*-
+# Provide debian defaults for all settings.
+from Cerebrum.default_config import *
+
+CEREBRUM_DATABASE_CONNECT_DATA['user'] = 'cerebrum'
+DATABASE_DRIVER = 'PostgreSQL'
+CEREBRUM_DATABASE_NAME = "cerebrum"
+DB_AUTH_DIR = '/etc/cerebrum'
+CLASS_CONSTANTS = (
+        'Cerebrum.modules.PosixUser/Constants',
+        'Cerebrum.modules.CLConstants/CLConstants',
+        'Cerebrum.modules.bofhd.utils/Constants',
+        'Cerebrum.modules.Email/EmailConstants'
+)
+
+CLASS_OU = ('Cerebrum.modules.no.Stedkode/Stedkode',)
+
+
+CEREBRUM_DDL_DIR="../share/cerebrum/design"
+
+LOGGING_CONFIGFILE     = "/etc/cerebrum/logging.ini"
+LOGGING_CONFIGFILE_NEW = "/etc/cerebrum/logging.ini"
+
