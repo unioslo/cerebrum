@@ -93,23 +93,29 @@ def dump_new_users(db, const, spread, start_date=None):
                     break
         except:
             pass
-        os.write(sys.stdout,
-                 "%(brukernavn)s:%(pwd):%(sko)s:%(fname)s:%(lname)s:"+
-                 "%(aff)s:%(affstatus)s" %
+
+        # Finn brukerens eiers for- og etternavn (fra FS)
+        fname = lname = ''
+        try:
+            fname = person.get_name(const.system_fs,
+                                    const.name_first)
+            lname = person.get_name(const.system_fs,
+                                    const.name_last)
+        except:
+            pass
+        sys.stdout.write("%(brukernavn)s:%(pwd)s:%(sko)s:%(fname)s:%(lname)s:%(aff)s:%(affstatus)s\n" %
                  {'brukernavn': account.account_name,
                   'pwd': pwd,
                   'sko': stedkode,
-                  'fname': person.get_name(const.system_cached,
-                                           const.name_first),
-                  'lname': person.get_name(const.system_cached,
-                                           const.name_last),
+                  'fname': fname,
+                  'lname': lname,
                   'aff': aff,
                   'affstatus': affstatus
                   })
 
 
 def _get_ou(db, e_id):
-    ou = OU.OU(db)
+    ou = Factory.get("OU")(db)
     ou.find(e_id)
     return ou
 
