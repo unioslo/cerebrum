@@ -41,10 +41,13 @@ def index(req, username="", password=""):
             error = error.replace("<", "")
             error = error.replace(">", "")
         else:
-            #create new session. Security & obscurity
-            if not req.session:
+            
+            if not req.session: # Create new session. Security & obscurity
                 id = md5.new('ce%sre%swe%sb' % (time.time(), username, password))
                 req.session = Session(id.hexdigest(), create=True)
+            else: # Reuse an old session, but clear it first.
+                req.session.clear()
+
             req.session['session'] = session
             req.session.save()
             
