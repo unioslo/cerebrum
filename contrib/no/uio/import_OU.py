@@ -100,6 +100,7 @@ def main():
                                     zip=k.get('poststednr_besok_adr', None),
                                     city=k.get('poststednavn_besok_adr', None))
         try:
+            ou.clear()
             ou.find_stedkode(k['fakultetnr'], k['instituttnr'], k['gruppenr'])
 
             if not (new_ou == ou):
@@ -157,6 +158,7 @@ def rec_make_stedkode(stedkode, ou, existing_ou_mappings, steder,
         rec_make_stedkode(org_stedkode, ou, existing_ou_mappings, steder,
                           stedkode2ou, co)
 
+    ou.clear()
     ou.find(stedkode2ou[stedkode])
     if stedkode2ou.has_key(org_stedkode):
         ou.set_parent(co.perspective_lt, stedkode2ou[org_stedkode])
