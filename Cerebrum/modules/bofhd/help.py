@@ -201,8 +201,6 @@ class Help(object):
 if __name__ == '__main__':
     import getopt
     import sys
-    import server.bofhd
-    
 
     opts, args = getopt.getopt(sys.argv[1:], 'hga',
                                ['help', 'group', 'arg'])

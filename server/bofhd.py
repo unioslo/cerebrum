@@ -34,7 +34,6 @@ import pickle
 import SimpleXMLRPCServer
 import xmlrpclib
 import getopt
-import time
 from random import Random
 
 try:
@@ -49,114 +48,16 @@ import cerebrum_path
 import cereconf
 from Cerebrum import Errors
 from Cerebrum import Account
-from Cerebrum import Constants
-from Cerebrum import Group
 from Cerebrum.Utils import Factory
 from Cerebrum import Utils
 from Cerebrum.extlib import logging
-from server.bofhd_errors import CerebrumError
-from server.bofhd_help import Help
+from Cerebrum.modules.bofhd.errors import CerebrumError
+from Cerebrum.modules.bofhd.help import Help
 import traceback
 
 logging.fileConfig(cereconf.LOGGING_CONFIGFILE)
 logger = logging.getLogger("console")  # The import modules use the "import" logger
 
-class _BofhdRequestOpCode(Constants._CerebrumCode):
-    "Mappings stored in the auth_role_op_code table"
-    _lookup_table = '[:table schema=cerebrum name=bofhd_request_code]'
-
-class _AuthRoleOpCode(Constants._CerebrumCode):
-    "Mappings stored in the auth_role_op_code table"
-    _lookup_table = '[:table schema=cerebrum name=auth_op_code]'
-
-class Constants(Constants.Constants):
-    auth_alter_printerquota = _AuthRoleOpCode('alter_printerquo', 'desc')
-    auth_set_password = _AuthRoleOpCode('set_password', 'desc')
-    auth_move_from_disk = _AuthRoleOpCode('move_from_disk',
-                                         'can move from disk')
-    auth_move_to_disk = _AuthRoleOpCode('move_to_disk',
-                                         'can move to disk')
-    auth_alter_group_membership = _AuthRoleOpCode('alter_group_memb', 'desc')
-
-    bofh_move_user = _BofhdRequestOpCode('br_move_user', 'Move user')
-    bofh_move_student = _BofhdRequestOpCode('br_move_student', 'Move student')
-    bofh_move_request = _BofhdRequestOpCode('br_move_request', 'Move request')
-    bofh_move_give = _BofhdRequestOpCode('br_move_give', 'Give away user')
-    bofh_delete_user = _BofhdRequestOpCode('br_delete_user', 'Delete user')
-
-class BofhdRequests(object):
-    def __init__(self, db, const, id=None):
-        self._db = db
-        self.const = const
-        now = time.time()
-        tmp = list(time.localtime(now))
-        for i in range(-6,-1):
-            tmp[i] = 0
-        midnight = time.mktime(tmp)
-        if now - midnight > 3600 * 22:
-            self.batch_time = self._db.TimestampFromTicks(midnight + 3600 * (24+22))
-        else:
-            self.batch_time = self._db.TimestampFromTicks(midnight + 3600 * 22)
-        self.now = self._db.TimestampFromTicks(time.time())
-
-    def add_request(self, operator, when, op_code, entity_id,
-                    destination_id, state_data=None):
-        # bofh_move_give is the only place where multiple entries are legal
-        if op_code != self.const.bofh_move_give:
-            rows = self.get_requests(entity_id=entity_id)
-            for r in rows:
-                if r['operation'] != self.const.bofh_move_give:
-                    raise CerebrumError, "Conflicting request exists"
-
-        cols = {
-            'requestee_id': operator,
-            'run_at': when,
-            'operation': int(op_code),
-            'entity_id': entity_id,
-            'destination_id': destination_id,
-            'state_data': state_data
-            }
-        self._db.execute("""
-        INSERT INTO [:table schema=cerebrum name=bofhd_request] (%(tcols)s)
-        VALUES (%(binds)s)""" % {
-            'tcols': ", ".join(cols.keys()),
-            'binds': ", ".join([":%s" % t for t in cols.keys()])},
-                         cols)
-
-    def delete_request(self, entity_id, operator_id=None, operation=None):
-        cols = {'entity_id': entity_id}
-        if operator_id is not None:
-            cols['requestee_id'] = operator_id
-        if operation is not None:
-            cols['operation'] = int(operation)
-        self._db.execute("""DELETE FROM [:table schema=cerebrum name=bofhd_request]
-        WHERE %s""" % " AND ".join(["%s=:%s" % (x, x) for x in cols.keys()]), cols)
-
-    def get_requests(self, operator_id=None, entity_id=None, operation=None,
-                     given=False):
-        cols = {}
-        if entity_id is not None:
-            cols['entity_id'] = entity_id
-        if operator_id is not None:
-            cols['requestee_id'] = operator_id
-        if operation is not None:
-            cols['operation'] = int(operation)
-        qry = """SELECT requestee_id, run_at, operation, entity_id, destination_id, state_data
-        FROM [:table schema=cerebrum name=bofhd_request]"""
-        ret = self._db.query("%s WHERE %s" % (qry, " AND ".join(["%s=:%s" % (x, x) for x in cols.keys()])), cols)
-        if given:
-            group = Group.Group(self._db)
-            tmp = []
-            # TODO: include_indirect_members=1 when Group supports it
-            for r in group.list_groups_with_entity(operator_id):
-                tmp.append(str(r['group_id']))
-            extra_where = ""
-            if len(tmp) > 0:
-                extra_where = "AND destination_id IN (%s)" % ", ".join(tmp)
-            ret.extend(self._db.query("%s WHERE operation=:op %s" % (
-                qry, extra_where), {'op': int(self.const.bofh_move_give)}))
-        return ret
-    
 # TBD: Is a BofhdSession class a good idea?  It could (optionally)
 # take a session_id argument when instantiated, and should have
 # methods for setting and retrieving state info for that particular
@@ -353,6 +254,10 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
                 response = self._dispatch(method, params)
                 # wrap response in a singleton tuple
                 response = (response,)
+            except CerebrumError, e:
+                response = xmlrpclib.dumps(
+                    xmlrpclib.Fault(1, "%s" % e)
+                    )                
             except:
                 logger.warn("Unexpected exception 1", exc_info=1)
                 # report exception back to server
