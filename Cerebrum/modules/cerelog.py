@@ -522,7 +522,7 @@ class CerebrumLogger(logging.Logger):
     This is the logger class used by the Cerebrum framework.
     """
 
-    def __init__(self, name, level=logging.ALL):
+    def __init__(self, name, level=logging.NOTSET):
         logging.Logger.__init__(self, name, level)
     # end __init__
 

@@ -112,7 +112,9 @@ ERROR = 40
 WARN = 30
 INFO = 20
 DEBUG = 10
-ALL = 0
+NOTSET = 0
+# Compatibility mode
+ALL = NOTSET
 
 _levelNames = {
     CRITICAL : 'CRITICAL',
@@ -120,13 +122,15 @@ _levelNames = {
     WARN     : 'WARN',
     INFO     : 'INFO',
     DEBUG    : 'DEBUG',
-    ALL      : 'ALL',
+    ALL      : 'NOTSET',
+    NOTSET   : 'NOTSET',
     'CRITICAL'  : CRITICAL,
     'ERROR'     : ERROR,
     'WARN'      : WARN,
     'INFO'      : INFO,
     'DEBUG'     : DEBUG,
-    'ALL'       : ALL,
+    'ALL'       : NOTSET,
+    'NOTSET'       : NOTSET,
 }
 
 def getLevelName(lvl):
