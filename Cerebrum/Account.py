@@ -93,7 +93,7 @@ class AccountType(object):
             self._db.log_change(self.entity_id, self.const.account_type_add,
                                 None, change_params={'ou_id': int(ou_id),
                                                      'affiliation': int(affiliation),
-                                                     'priority': priority})
+                                                     'priority': int(priority)})
         else:
             if orig_pri <> priority:
                 self._set_account_type_priority(all_pris, orig_pri, priority)
@@ -198,7 +198,7 @@ class AccountHome(object):
             self._db.log_change(
                 self.entity_id, self.const.account_home_updated, None,
                 change_params={'spread': int(spread),
-                               'old_disk_id': old['disk_id'],
+                               'old_disk_id': Utils.format_as_int(old['disk_id']),
                                'old_home': old['home']})
         except Errors.NotFoundError:
             self.execute("""
