@@ -67,28 +67,11 @@ class LTDataParser(xml.sax.ContentHandler):
             self.call_back_function(self.p_data)
 
 def _add_res(entity_id):
-    group = Group.Group(db)
-    try:
-        group.find_by_name(group_name)
-    except Errors.NotFoundError:
-        group.clear()
-        ac = Account.Account(db)
-        ac.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
-        group.populate(ac.entity_id, const.group_visibility_internal,
-                       group_name, group_desc)
-        group.write_db()
-
     if not group.has_member(entity_id, const.entity_person, const.group_memberop_union):
         group.add_member(entity_id, const.entity_person, const.group_memberop_union)
         group.write_db()
 
 def _rem_res(entity_id):
-    group = Group.Group(db)
-    try:
-        group.find_by_name(group_name)
-    except Errors.NotFoundError:
-        return
-
     if group.has_member(entity_id, const.entity_person, const.group_memberop_union):
         group.remove_member(entity_id, const.group_memberop_union)
 
@@ -278,7 +261,6 @@ def process_person(person):
             new_person.populate_address(
                 const.system_lt, type=const.address_street,
                 **sted['addr'])
-
     op = new_person.write_db()
     if gen_groups == 1:
         # determine_reservation() needs new_person.entity_id to be
@@ -297,7 +279,7 @@ def usage(exitcode=0):
     sys.exit(exitcode)
 
 def main():
-    global db, new_person, const, ou, logger, gen_groups
+    global db, new_person, const, ou, logger, gen_groups, group
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'vp:g', ['verbose', 'person-file',
                                                           'group'])
@@ -323,7 +305,16 @@ def main():
     db = Factory.get('Database')()
     db.cl_init(change_program='import_LT')
     const = Factory.get('Constants')(db)
-
+    group = Group.Group(db)
+    try:
+	group.find_by_name(group_name)
+    except Errors,NotFoundError:
+	group.clear()
+        ac = Account.Account(db)
+        ac.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
+        group.populate(ac.entity_id, const.group_visibility_internal,
+                       group_name, group_desc)
+        group.write_db()	
     ou = Factory.get('OU')(db)
     new_person = Person.Person(db)
     LTDataParser(personfile, process_person)
