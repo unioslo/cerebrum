@@ -257,7 +257,7 @@ class EntityName(Entity):
                             {'e_id': self.entity_id,
                              'domain': int(domain)})
 
-    def find_by_name(self, domain, name):
+    def find_by_name(self, name, domain):
         "Associate instance with the entity having NAME in DOMAIN."
         entity_id = self.query_1("""
         SELECT entity_id

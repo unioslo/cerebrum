@@ -123,7 +123,7 @@ class EntityNameTestCase(EntityName_createTestCase):
         "Test that one can find an entity by name"
         old_id = self.entity_id
         self.entity.clear()
-        self.entity.find_by_name(self.co.account_namespace, self.test_name)
+        self.entity.find_by_name(self.test_name, self.co.account_namespace)
         self.failIf(self.entity_id <> old_id,
                     "EntityNames entity_id should be equal")
 

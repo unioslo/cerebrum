@@ -320,7 +320,7 @@ class Account(AccountType, EntityName, EntityQuarantine, Entity):
     def find_by_name(self, name, domain=None):
         if domain is None:
             domain = int(self.const.account_namespace)
-        EntityName.find_by_name(self, domain, name)
+        EntityName.find_by_name(self, name, domain)
 
     def get_account_authentication(self, method):
         """Return the name with the given variant"""

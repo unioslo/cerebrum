@@ -235,7 +235,7 @@ class Group(EntityName, Entity):
         """Connect object to group having ``name`` in ``domain``."""
         if domain is None:
             domain = self.const.group_namespace
-        EntityName.find_by_name(self, domain, name)
+        EntityName.find_by_name(self, name, domain)
 
     def validate_member(self, member):
         """Raise ValueError iff ``member`` not of proper type."""
