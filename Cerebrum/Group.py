@@ -207,8 +207,6 @@ class Group(EntityName, Entity):
         self.populate(creator, visibility, name, description,
                       create_date, expire_date)
         self.write_db()
-        # TBD: What is the following call meant to do?
-        self.find(self.entity_id)
 
     def find(self, group_id):
         """Connect object to group with ``group_id`` in database."""
