@@ -348,7 +348,7 @@ class PaidPrinterQuotas(DatabaseAccessor):
             """SELECT pqh.job_id, transaction_type, person_id, tstamp,
                   update_by, update_program, pageunits_free,
                   pageunits_paid, pageunits_total, target_job_id, description,
-                  bank_id, kroner
+                  bank_id, kroner, payment_tstamp
             FROM [:table schema=cerebrum name=paid_quota_history] pqh,
                  [:table schema=cerebrum name=paid_quota_transaction] pqt
             WHERE pqh.job_id=pqt.job_id %s""" % where, binds,
@@ -357,7 +357,7 @@ class PaidPrinterQuotas(DatabaseAccessor):
         if not target_job_id:
             for r in self.query(
                 """SELECT pqh.job_id, transaction_type, person_id,
-                      tstamp, update_by, update_program,
+                      tstamp, update_by, update_program, account_id,
                       pageunits_free, pageunits_paid, pageunits_total,
                       job_name, printer_queue, stedkode, spool_trace,
                       priss_queue_id, paper_type, pages
