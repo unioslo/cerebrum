@@ -9,13 +9,13 @@
 #from Cerebrum.web.utils import url
 #from Cerebrum.web import HistoryLog
 
-#def viewGroup($group)
+#def viewGroup($group, $id)
 <h1>$_("Group") $group.name</h1>
 $groupInfo($group)
 $groupMembers($group)
 $add_member($group)
 $add_note($group)
-$HistoryLog.view_history_short($group)
+$HistoryLog.view_history_short($group, $id)
 #end def
 
 #def add_note(group)
