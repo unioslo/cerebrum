@@ -205,11 +205,13 @@ class Constants(Constants.Constants):
                                 'Person exported to UA')
     spread_uio_imap = _SpreadCode('IMAP@uio', Constants.Constants.entity_account,
                                   'IMAP account')
-
+    spread_uio_notes_account = _SpreadCode('Notes_user', Constants.Constants.entity_account,
+                                           'Account exported to Notes')
 
     # LDAP: Brukere, grupper
 
     # Notes: OU, brukere, ACL-grupper, andre grupper
+
 
     # TODO: Kunne begrense tillatte spreads for spesielt priviligerte
     # brukere.
