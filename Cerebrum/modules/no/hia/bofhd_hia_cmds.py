@@ -2737,7 +2737,7 @@ class BofhdExtension(object):
 	try:
             acc = self._get_account(operator.get_entity_id(), idtype='id')
 	    opr=account.account_name
-        except NotFoundError:
+        except Errors.NotFoundError:
 	    raise CerebrumError, ("Could not find the operator id!")
 	time_temp = strftime("%Y-%m-%d-%H%M", localtime())
 	selection = args.pop(0)
