@@ -1,0 +1,33 @@
+#from Cerebrum.web.InitTemplate import InitTemplate
+#extends InitTemplate
+
+## List of tuples (name, label)
+#attr $fields = [ ("name", "Name"),
+                  ("desc", "Description"),
+                  ("expire", "Expiration"),
+                ]
+#def getAction
+$url("group/save")#slurp
+#end def
+
+#attr $formvalues = {}
+
+#def getAction
+/some/where#slurp
+#end def
+
+#def input($name, $label)
+    #set $value = $formvalues.get($name, "")
+    <label for='$name'>$label</label>
+    <input type='text' name='$name' id='$name' value='$value' /><br />
+#end def
+
+#def form($id=-1)
+<form action="$getAction()" method="POST">
+#for $name, $label in $fields #
+    #echo $input($name, $label) #
+#end for  
+    <input type="hidden" name="id" value="$id" />
+    <input type="submit" value="Save" />
+</form>
+#end def

@@ -1,0 +1,12 @@
+#extends SortedTableTemplate
+#from Cerebrum.web.utils import url
+
+#def afterColumns($rowdata)
+#set $id = $rowdata.get("id", "")
+#set $groupid = $rowdata.get("groupid", "")
+#set $operation = $rowdata.get("operation", "")
+#set $removeurl = $url('/group/remove_member?memberid=%s&amp;groupid=%s' 
+                       '&amp;operation=%s' % ($id, $groupid, $operation))
+  <td><input type="checkbox" name="member" value="$id" /></td>
+  <td><a href="$removeurl">[remove]</a></td>
+#end def
