@@ -47,10 +47,6 @@ def _deep_text2utf(obj):
     return obj
 
 
-_ldap_base_dn = (getattr(cereconf, 'LDAP_BASE_DN', None)
-                 # Previous name of LDAP_BASE_DN variable
-                 or cereconf.LDAP_BASE)
-
 def get_tree_dn(tree_name, *default_arg):
     """Get dn of tree_name (cereconf.LDAP_<tree_name>_DN).
 
@@ -59,7 +55,7 @@ def get_tree_dn(tree_name, *default_arg):
     variable could previously be just the value of an OU."""
     dn = getattr(cereconf, tree_name.join(('LDAP_', '_DN')), *default_arg)
     if dn and '=' not in dn:
-        dn = "ou=%s,%s" % (dn, _ldap_base_dn)
+        dn = "ou=%s,%s" % (dn, cereconf.LDAP_BASE_DN)
     return dn
 
 
