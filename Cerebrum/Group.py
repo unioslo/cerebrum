@@ -163,7 +163,7 @@ class Group(Entity, EntityName):
           gi.group_id=:g_id AND
           en.entity_id=:g_id AND
           en.value_domain=:domain""",
-                      {'g_id': group_id
+                      {'g_id': group_id,
                        'domain': int(self.const.group_namespace)})
         super(self, Group).find(group_id)
 
