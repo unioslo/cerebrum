@@ -142,15 +142,17 @@ def init_cerebrum_extensions():
 
 
 
-def fetch_logger_arguments(args, keys):
+def fetch_logger_arguments(keys):
     """
     Unfortunately getopt reacts adversely to unknown arguments. Thus we'd
     have to process command-line arguments ourselves.
 
     This is a hack. The problem could probably be remedied by optparse.
     """
-    
+
     result = dict()
+    args = sys.argv[:]
+    filter_list = list()
 
     i = 0
     while i < len(args):
@@ -163,14 +165,25 @@ def fetch_logger_arguments(args, keys):
             # Case 1: key=value
             if args[i].find("=") != -1:
                 result[key] = string.split(args[i], "=")[1]
+                filter_list.append(i)
             # Case 2: key value. In this case we peek into the next argument
             elif i < len(args)-1:
                 result[key] = args[i+1]
+                filter_list.append(i); filter_list.append(i+1)
                 i += 1
             # fi
         # od
 
         i += 1
+    # od
+
+    # We must make sure that every references to sys.argv already made
+    # remains intact
+    sys.argv[:] = list()
+    for i in range(0,len(args)):
+        if i not in filter_list:
+            sys.argv.append(args[i])
+        # fi
     # od
 
     return result
@@ -196,8 +209,7 @@ def process_arguments():
                          between python 2.2 and 2.3)
     """
 
-    result = fetch_logger_arguments(sys.argv,
-                                    ["--logger-name",
+    result = fetch_logger_arguments(["--logger-name",
                                      "--logger-level"])
 
     return (result.get("--logger-name", None),
