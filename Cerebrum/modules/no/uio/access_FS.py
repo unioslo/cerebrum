@@ -60,7 +60,7 @@ class FS(object):
         sql = sql[:sql.upper().find("FROM")+4]
         m = re.compile(r'^\s*SELECT\s*(DISTINCT)?(.*)FROM', re.DOTALL | re.IGNORECASE).match(sql)
         if m == None:
-            raise InternalError, "Unreconginzable SQL!"
+            raise RuntimeError, "Unrecognizable SQL!"
 
         # Simple SQL-parser. Read TODO above.
         #  Problem: Some statements in a SELECT ... are not colomn-names
@@ -101,8 +101,6 @@ class FS(object):
         # return [ self._clean_col_name(cols) for cols in m.group(2).split(",")]
 
     def _clean_col_name(self, col):
-        lpar = re.compile("\(")
-        rpar = re.compile("\)")
         patt = re.compile("^.*\s+AS\s+\"?([a-zA-Z0-9_]+)\"?\s*")
         mobj = patt.match(col)
         if mobj:
@@ -1289,8 +1287,9 @@ WHERE
     # GetStudUndervEnhet
     #
     #   Gir en oversikt over hvilke studenter som følger et gitt emne.
-    #   Lister alle som er undervisningsmeldt til et emne og/eller som er
-    #   meldt til eksamen i emnet.
+    #   Lister alle som er undervisningsmeldt til et emne i
+    #   inneværende termin og/eller som skal ha/har hatt eksamen i
+    #   emnet i løpet av denne terminen.
     #
     # Input:
     #
@@ -1308,7 +1307,16 @@ WHERE
     #
     # For gitt emne (se input)
     #
-    def GetStudUndervEnhet(self, Instnr, emnekode, versjon, termk, aar, termnr):
+    def GetStudUndervEnhet(self,
+                           Instnr, emnekode, versjon, termk, aar, termnr):
+        if termk == 'VÅR':
+            minmaned, maxmaned = 1, 6
+        elif termk == 'HØST':
+            minmaned, maxmaned = 7, 12
+        else:
+            # Ikke blant de terminkodene vi støtter i dag; sørg for at
+            # eksamensmelding-delen av søket ikke gir noe resultat.
+            minmaned, maxmaned = 13, 0
         qry = """
 SELECT
   fodselsdato, personnr
@@ -1330,7 +1338,9 @@ WHERE
   institusjonsnr = :instnr AND
   emnekode       = :emnekode AND
   versjonskode   = :versjon AND
-  arstall       >= :arstall"""
+  arstall        = :arstall AND
+  manednr       >= :minmaned AND
+  manednr       <= :maxmaned"""
         return (self._get_cols(qry),
                 self.db.query(qry, {
             'instnr': Instnr,
@@ -1338,7 +1348,9 @@ WHERE
             'versjon': versjon,
             'terminkode': termk,
             'arstall': aar,
-            'terminnr': termnr}))
+            'terminnr': termnr,
+            'minmaned': minmaned,
+            'maxmaned': maxmaned}))
 
     def GetAnsvEvuAktivitet(self, kurs, tid, aktkode):
         qry = """
