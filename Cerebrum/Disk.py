@@ -153,10 +153,13 @@ class Disk(Entity):
         SELECT count(ah.account_id), ah.spread,
                di.disk_id, di.host_id, di.path
         FROM [:table schema=cerebrum name=disk_info] di
-          LEFT JOIN [:table schema=cerebrum name=account_home] ah
-            ON di.disk_id=ah.disk_id %s
-          LEFT JOIN [:table schema=cerebrum name=account_info] ai
-            ON ah.account_id=ai.account_id %s
+          LEFT JOIN ([:table schema=cerebrum name=homedir] hd
+          JOIN [:table schema=cerebrum name=account_home] ah
+            ON hd.homedir_id=ah.homedir_id %s
+          JOIN [:table schema=cerebrum name=account_info] ai
+            ON ah.account_id=ai.account_id
+          )
+            ON di.disk_id=hd.disk_id %s
         GROUP BY di.disk_id, di.host_id, di.path, ah.spread""" %
                           (spread_where, where),
                           {'host_id': host_id, 'spread': spread})

@@ -176,8 +176,9 @@ class AccountUtil(object):
                 current_disk_id, disk_spread, new_disk = dta
                 if current_disk_id is None:
                     logger.debug("Set home: %s" % new_disk)
-                    user.set_home(disk_spread, disk_id = new_disk,
-                                  status=const.home_status_not_created)
+                    homedir_id = user.set_homedir(
+                        disk_id=new_disk, status=const.home_status_not_created)
+                    user.set_home(disk_spread, homedir_id)
                 else:
                     br = BofhdRequests(db, const)
                     # TBD: Is it correct to set requestee_id=None?

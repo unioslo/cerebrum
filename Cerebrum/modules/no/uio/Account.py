@@ -148,13 +148,11 @@ class AccountUiOMixin(Account.Account):
             # previous call probably didn't change the database value
             # and therefore didn't add a request.
             self.update_email_quota(force=True)
-
         elif spread == self.const.spread_ifi_nis_user:
             # Add an account_home entry pointing to the same disk as
             # the uio spread
             tmp = self.get_home(self.const.spread_uio_nis_user)
-            self.set_home(spread, disk_id=tmp['disk_id'],
-                          home=tmp['home'], status=tmp['status'])
+            self.set_home(spread, tmp['homedir_id'])
         return ret
 
     def set_account_type(self, ou_id, affiliation, priority=None):
@@ -162,28 +160,6 @@ class AccountUiOMixin(Account.Account):
             priority, pri_min, pri_max = calculate_account_type_priority(
                 self, ou_id, affiliation)
         return self.__super.set_account_type(ou_id, affiliation, priority)
-
-    def set_home(self, spread, disk_id=None, home=None, status=None):
-        # Assert that user has same home at ifi & uio
-        ret = self.__super.set_home(spread, disk_id=disk_id,
-                                    home=home, status=status)
-        if spread == self.const.spread_ifi_nis_user:
-            # All users with home in "ifi" spread must have the same
-            # home in "uio" spread.
-            other_home_spread = self.const.spread_uio_nis_user
-        elif spread == self.const.spread_uio_nis_user:
-            # Users with defined home in both "ifi" and "uio" spread
-            # must have the same home in both spreads.
-            other_home_spread = self.const.spread_ifi_nis_user
-            try:
-                self.get_home(other_home_spread)
-            except Errors.NotFoundError:
-                return ret
-        else:
-            raise ValueError, "Unexpected spread %s in set_home" % spread
-        self.__super.set_home(other_home_spread, disk_id=disk_id,
-                              home=home, status=status)
-        return ret
 
     def set_password(self, plaintext):
         # Override Account.set_password so that we get a copy of the
@@ -300,7 +276,10 @@ class AccountUiOMixin(Account.Account):
             raise self._db.IntegrityError, \
                   "Can't remove uio spread to an account with ifi spread."
 
-        # keep ifi-part of account_home in sync
+        # keep ifi-part of account_home in sync.  We do not do this
+        # for uio-spread as that would result in the removal of the
+        # homedir uppon user-deletion making it hard to know where the
+        # user used to live.
         if spread == self.const.spread_ifi_nis_user:
             self.clear_home(self.const.spread_ifi_nis_user)
 

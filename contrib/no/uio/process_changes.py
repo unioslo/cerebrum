@@ -112,8 +112,8 @@ class MakeUser(EvtHandler):
                 return True # A reserved user or similar that don't get a homedir
             # posix_user was set by get_make_user_data
             home = posix_user.get_home(self.home_spread)
-            posix_user.set_home(self.home_spread, disk_id=home['disk_id'],
-                                home=home['home'], status=status)
+            posix_user.set_homedir(current_id=home['homedir_id'],
+                                   status=status)
             db.commit()
         return True
    

@@ -668,8 +668,9 @@ def process_move_requests():
                          operator, spool):
                 logger.debug('user %s moved from %s to %s' %
                              (uname,old_disk,new_disk))
-                account.set_home(default_spread, disk_id = r['destination_id'],
-                                 status=const.home_status_on_disk)
+                ah = account.get_home(default_spread)
+                account.set_homedir(current_id=ah['homedir_id'],
+                                    disk_id=r['destination_id'])
                 account.write_db()
                 br.delete_request(request_id=r['request_id'])
             else:
@@ -856,8 +857,8 @@ def process_delete_requests():
             account.expire_date = br.now
             account.write_db()
             home = account.get_home(spread)
-            account.set_home(spread, disk_id=home['disk_id'], home=home['home'],
-                             status=const.home_status_archived)
+            account.set_homedir(current_id=home['homedir_id'],
+                                status=const.home_status_archived)
             # Remove references in other tables
             # Note that we preserve the quarantines for deleted users
             # TBD: Should we have an API function for this?

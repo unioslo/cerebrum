@@ -3028,9 +3028,10 @@ class BofhdExtension(object):
                 raise CerebrumError, "Users still on disk"
             account.clear()
             account.find(row['account_id'])
-            account.set_home(row['home_spread'], disk_id=None,
-                             home='%s/%s' % (row['path'], account.account_name),
-                             status=row['status'])
+            ah = account.get_home(row['home_spread'])
+            account.set_homedir(
+                current_id=ah['homedir_id'], disk_id=None,
+                home='%s/%s' % (row['path'], account.account_name))
         try:
             disk.delete()
         except self.db.DatabaseError, m:
@@ -4425,9 +4426,10 @@ class BofhdExtension(object):
             for spread in cereconf.BOFHD_NEW_USER_SPREADS:
                 posix_user.add_spread(self._get_constant(spread,
                                                          "No such spread"))
-            posix_user.set_home(self.const.spread_uio_nis_user,
-                                disk_id=disk_id, home=home,
-                                status=self.const.home_status_not_created)
+            homedir_id = posix_user.set_homedir(
+                disk_id=disk_id, home=home,
+                status=self.const.home_status_not_created)
+            posix_user.set_home(self.const.spread_uio_nis_user, homedir_id)
             # For correct ordering of ChangeLog events, new users
             # should be signalled as "exported to" a certain system
             # before the new user's password is set.  Such systems are
@@ -4698,17 +4700,16 @@ class BofhdExtension(object):
                                account.entity_id, disk_id, state_data=spread)
                 return "move queued for execution at %s" % br.batch_time
             elif move_type == "nofile":
-                old = account.get_home(spread)
-                account.set_home(spread, disk_id=disk_id, home=None,
-                                 status=old['status'])
+                ah = account.get_home(spread)
+                account.set_homedir(current_id=ah['homedir_id'],
+                                    disk_id=disk_id)
                 account.write_db()
                 return "OK, user moved"
         elif move_type in ("hard_nofile",):
             if not self.ba.is_superuser(operator.get_entity_id()):
                 raise PermissionDenied("only superusers may use hard_nofile")
-            account.set_home(spread, disk_id=None, home=args[0],
-                             status=self.const.home_status_on_disk)
-            account.write_db()
+            ah = account.get_home(spread)
+            account.set_homedir(current_id=ah['homedir_id'], home=args[0])
             return "OK, user moved to hardcoded homedir"
         elif move_type in ("student", "student_immediate", "confirm", "cancel"):
             self.ba.can_give_user(operator.get_entity_id(), account)
@@ -4836,10 +4837,12 @@ class BofhdExtension(object):
             person = None
         self.ba.can_create_user(operator.get_entity_id(), person, disk_id)
         pu.populate(uid, group.entity_id, None, shell, parent=account)
-        pu.set_home(self.const.spread_uio_nis_user,
-                    disk_id=disk_id, home=home,
-                    status=self.const.home_status_not_created)
         pu.write_db()
+        homedir_id = pu.set_homedir(
+            disk_id=disk_id, home=home,
+            status=self.const.home_status_not_created)
+        pu.set_home(self.const.spread_uio_nis_user,
+                    homedir_id)
         return "OK, promoted %s to posix user" % accountname
 
     # user posix_delete
@@ -4914,10 +4917,8 @@ class BofhdExtension(object):
         account = self._get_account(accountname)
         if not self.ba.is_superuser(operator.get_entity_id()):
             raise PermissionDenied("Currently limited to superusers")
-        tmp = account.get_home(self.const.spread_uio_nis_user)
-        account.set_home(self.const.spread_uio_nis_user,
-                         disk_id=tmp['disk_id'], home=tmp['home'],
-                         status=status)
+        ah = account.get_home(self.const.spread_uio_nis_user)
+        account.set_homedir(current_id=ah['homedir_id'], status=status)
         return "OK, set home-status for %s to %s" % (accountname, status)
 
     # user set_expire

@@ -709,25 +709,23 @@ category:code/Oracle;
 GRANT INSERT, UPDATE, DELETE ON home_status_code TO change_code;
 
 
-/*	account_home
+/*	homedir
 
   home or disk_id
     Location of the users home directory.
-  spread
-    Spread indicates what spread this homedir applies to.  API logic
-    asserts that only relevant spreads are used in this column.
   status
     Status indicates the state of the homedir.
 
+  - two different accounts may not point to the same homedir
+  - an account may only have one homedir_id for a given home/disk_id
 */
 category:main;
-CREATE TABLE account_home
-(
-  account_id	NUMERIC(12,0)
-		CONSTRAINT account_home_account_id
+CREATE TABLE homedir (
+  homedir_id	NUMERIC(12,0)
+		CONSTRAINT homedir_pk PRIMARY KEY,
+  account_id	NUMERIC(12,0) NOT NULL
+		CONSTRAINT homedir_account_id
 		  REFERENCES account_info(account_id),
-  spread	NUMERIC(6,0)
-		CONSTRAINT account_home_spread REFERENCES spread_code(code),
   home		CHAR VARYING(512),
   disk_id	NUMERIC(12,0)
 		CONSTRAINT account_home_disk_id REFERENCES disk_info(disk_id),
@@ -735,11 +733,41 @@ CREATE TABLE account_home
 		NOT NULL
 		CONSTRAINT account_home_status
 		  REFERENCES home_status_code(code),
+  CONSTRAINT homedir_chk
+    CHECK ((home IS NOT NULL AND disk_id IS NULL) OR
+	   (home IS NULL AND disk_id IS NOT NULL)),
+  CONSTRAINT homedir_ac_hid_u UNIQUE (homedir_id, account_id),
+  CONSTRAINT homedir_ac_home_u UNIQUE (homedir_id, home),
+  CONSTRAINT homedir_ac_disk_u UNIQUE (homedir_id, disk_id)
+);
+category:main/Oracle;
+GRANT SELECT ON homedir TO read_account;
+category:main/Oracle;
+GRANT INSERT, UPDATE, DELETE ON homedir TO change_account;
+category:main;
+CREATE SEQUENCE homedir_id_seq;
+
+/*	account_home
+
+  spread
+    Spread indicates what spread this homedir applies to.  API logic
+    asserts that only relevant spreads are used in this column.
+*/
+category:main;
+CREATE TABLE account_home
+(
+  account_id	NUMERIC(12,0) NOT NULL
+		CONSTRAINT account_home_account_id
+		  REFERENCES account_info(account_id),
+  spread	NUMERIC(6,0) NOT NULL
+		CONSTRAINT account_home_spread REFERENCES spread_code(code),
+  homedir_id	NUMERIC(12,0) NOT NULL
+		CONSTRAINT account_home_homedir REFERENCES homedir(homedir_id),
   CONSTRAINT account_home_pk
     PRIMARY KEY (account_id, spread),
-  CONSTRAINT account_home_chk
-    CHECK ((home IS NOT NULL AND disk_id IS NULL) OR
-	   (home IS NULL AND disk_id IS NOT NULL))
+  CONSTRAINT account_home_homedir
+    FOREIGN KEY(account_id, homedir_id) REFERENCES 
+    homedir(homedir_id, account_id)
 );
 category:main/Oracle;
 GRANT SELECT ON account_home TO read_account;
@@ -1836,6 +1864,10 @@ category:drop;
 DROP TABLE entity_quarantine;
 category:drop;
 DROP TABLE account_home;
+category:drop;
+DROP TABLE homedir;
+category:drop;
+DROP SEQUENCE homedir_id_seq;
 category:drop;
 DROP TABLE home_status_code;
 category:drop;

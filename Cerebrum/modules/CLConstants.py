@@ -111,6 +111,12 @@ class CLConstants(Constants.Constants):
                                        'ac_type mod for account %(subject)s')
     account_type_del = _ChangeTypeCode('ac_type', 'del',
                                        'ac_type del for account %(subject)s')
+    homedir_remove = _ChangeTypeCode('homedir', 'del',
+                                     'homedir del for account %(subject)s')
+    homedir_add = _ChangeTypeCode('homedir', 'add',
+                                  'homedir add for account %(subject)s')
+    homedir_update = _ChangeTypeCode('homedir', 'update',
+                                     'homedir update for account %(subject)s')
     disk_add = _ChangeTypeCode('disk', 'add', 'new disk %(subject)s')
     disk_mod = _ChangeTypeCode('disk', 'mod', 'update disk %(subject)s')
     disk_del = _ChangeTypeCode('disk', 'del', "delete disk %(subject)s")

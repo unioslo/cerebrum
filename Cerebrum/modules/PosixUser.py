@@ -210,12 +210,14 @@ class PosixUser(Account_class):
 			in spreads]) + ')'
             asprd = ' AND (' + ' OR '.join(['ah.spread=%i' % x for x \
 			in spreads]) + ')'
-            ecols += ", ah.home, ah.disk_id"
+            ecols += ", hd.home, hd.disk_id"
             efrom += """
             JOIN [:table schema=cerebrum name=entity_spread] es
               ON pu.account_id=es.entity_id %s
             LEFT JOIN [:table schema=cerebrum name=account_home] ah
-              ON es.entity_id=ah.account_id %s""" % (esprd, asprd)
+              ON es.entity_id=ah.account_id %s
+            LEFT JOIN [:table schema=cerebrum name=homedir] hd
+              ON ah.homedir_id=hd.homedir_id""" % (esprd, asprd)
         return self.query("""
         SELECT ai.account_id, posix_uid, shell, gecos, entity_name, 
           aa.auth_data, pg.posix_gid, pn.name %s

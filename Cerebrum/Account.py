@@ -222,6 +222,8 @@ class AccountHome(object):
                     home=NotSet, disk_id=NotSet, status=NotSet):
         """If current_id=NotSet, insert a new entry.  Otherwise update
         the values != NotSet for the given homedir_id=current_id"""
+        if not isinstance(status, AccountHome.NotSet.__class__):
+            status = int(status)   # Constants.__eq__ don't like strings
         tmp = [['account_id', self.entity_id],
                ['home', home],
                ['disk_id', disk_id],
@@ -241,14 +243,20 @@ class AccountHome(object):
                 ", ".join([t[0] for t in tmp]),
                 ", ".join([":%s" % t[0] for t in tmp])),
                        dict([(t[0], t[1]) for t in tmp]))
+            self._db.log_change(
+                self.entity_id, self.const.homedir_add, None,
+                change_params={'homedir_id': tmp[-1][1]})
         else:
-            tmp = filter(lambda k: k[1] != AccountHome.NotSet, tmp)
+            tmp = filter(lambda k: str(k[1]) != AccountHome.NotSet, tmp)
             self.execute("""
             UPDATE [:table schema=cerebrum name=homedir]
               SET %s
             WHERE homedir_id=:homedir_id""" % (
                 ", ".join(["%s=:%s" % (t[0], t[0]) for t in tmp])),
                        dict([(t[0], t[1]) for t in tmp]))
+            self._db.log_change(
+                self.entity_id, self.const.homedir_update, None,
+                change_params={'homedir_id': tmp[-1][1]})
         return tmp[-1][1]
 
     def clear_homedir(self, homedir_id):
@@ -256,6 +264,9 @@ class AccountHome(object):
         DELETE FROM [:table schema=cerebrum name=homedir]
         WHERE homedir_id=:homedir_id""",
                      {'homedir_id' : homedir_id})
+        self._db.log_change(
+            self.entity_id, self.const.homedir_remove, None,
+            change_params={'homedir_id': homedir_id})
 
     def set_home(self, spread, homedir_id):
         binds = {'account_id': self.entity_id,
@@ -631,28 +642,32 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine, Entity):
                     'LEFT JOIN [:table schema=cerebrum name=account_home] ah' +
                     '  ON ah.account_id=ai.account_id')
             tables.append(
-                'LEFT JOIN [:table schema=cerebrum name=disk_info] d' +
-                '  ON d.disk_id = ah.disk_id')
+                'LEFT JOIN ([:table schema=cerebrum name=homedir] hd' +
+                '           JOIN [:table schema=cerebrum name=disk_info] d'+
+                '           ON d.disk_id = hd.disk_id)'+
+                'ON hd.homedir_id=ah.homedir_id')
         else:
             tables.extend([
                 ', [:table schema=cerebrum name=account_home] ah ',
+                ', [:table schema=cerebrum name=homedir] hd',
                 ', [:table schema=cerebrum name=disk_info] d'])
             where.extend(["ai.account_id=ah.account_id",
-                          "d.disk_id=ah.disk_id"])
+                          "ah.homedir_id=hd.homedir_id",
+                          "d.disk_id=hd.disk_id"])
             if home_spread is not None:
                 where.append("ah.spread=:home_spread")
 
         if disk_id is not None:
-            where.append("ah.disk_id=:disk_id")
+            where.append("hd.disk_id=:disk_id")
         if host_id is not None:
-            where.append("ah.host_id=:host_id")
+            where.append("hd.host_id=:host_id")
         where = " AND ".join(where)
         tables = "\n".join(tables)
 
         return self.query("""
-        SELECT ai.account_id, en.entity_name, ah.home,
+        SELECT ai.account_id, en.entity_name, hd.home,
                ah.spread AS home_spread, d.path,
-               ah.status, ai.expire_date, d.disk_id
+               hd.status, ai.expire_date, d.disk_id
         FROM %s
         WHERE %s""" % (tables, where), {
             'home_spread': int(home_spread or 0),
@@ -674,8 +689,10 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine, Entity):
                  [:table schema=cerebrum name=account_info] ai
                  LEFT JOIN [:table schema=cerebrum name=account_home] ah
                    ON ah.account_id=ai.account_id AND ah.spread=:spread
+                 LEFT JOIN [:table schema=cerebrum name=homedir] hd
+                   ON ah.homedir_id=hd.homedir_id
                  LEFT JOIN [:table schema=cerebrum name=disk_info] d
-                   ON d.disk_id = ah.disk_id
+                   ON d.disk_id = hd.disk_id
             WHERE ai.account_id=en.entity_id""", {'spread': int(spread)})
 
         return self.query("""
@@ -685,6 +702,8 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine, Entity):
                  [:table schema=cerebrum name=entity_spread] es
                  LEFT JOIN [:table schema=cerebrum name=account_home] ah
                    ON ah.account_id=es.entity_id AND es.spread = ah.spread
+                 LEFT JOIN [:table schema=cerebrum name=homedir] hd
+                   ON ah.homedir_id=hd.homedir_id
                  LEFT JOIN [:table schema=cerebrum name=disk_info] d
                    ON d.disk_id = ah.disk_id
             WHERE ai.account_id=en.entity_id AND en.entity_id=es.entity_id
