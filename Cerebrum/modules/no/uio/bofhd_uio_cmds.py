@@ -3133,7 +3133,8 @@ class BofhdExtension(object):
     # person accounts
     all_commands['person_accounts'] = Command(
         ("person", "accounts"), PersonId(),
-        fs=FormatSuggestion("%6i %s", ("account_id", "name"), hdr="Id     Name"))
+        fs=FormatSuggestion("%6i %-10s %s", ("account_id", "name", format_day("expire")),
+                            hdr="%6s %-10s %s" % ("Id", "Name", "Expire")))
     def person_accounts(self, operator, id):
         if id.find(":") == -1 and not id.isdigit():
             ac = self._get_account(id)
@@ -3145,7 +3146,8 @@ class BofhdExtension(object):
             account = self._get_account(r['account_id'], idtype='id')
 
             ret.append({'account_id': r['account_id'],
-                        'name': account.account_name})
+                        'name': account.account_name,
+                        'expire': account.expire_date})
         return ret
 
     def _person_affiliation_add_helper(self, operator, person, ou, aff, aff_status):
@@ -3338,7 +3340,9 @@ class BofhdExtension(object):
          ("name", "export_id", format_day("birth"),
           "affiliation_1", "source_system_1")),
         ("               %s [from %s]",
-         ("affiliation", "source_system"))
+         ("affiliation", "source_system")),
+        ("Fnr:           %s [from %s]",
+         ("fnr", "fnr_src"))
         ]))
     def person_info(self, operator, person_id):
         try:
@@ -3367,6 +3371,11 @@ class BofhdExtension(object):
         for i in range(1, len(affiliations)):
             data.append({'affiliation': affiliations[i],
                          'source_system': sources[i]})
+        if self.ba.is_superuser(operator.get_entity_id()):
+            for row in person.get_external_id(id_type=self.const.externalid_fodselsnr):
+                data.append({'fnr': row['external_id'],
+                             'fnr_src': str(
+                    self.const.AuthoritativeSystem(row['source_system']))})
         return data
 
     # person set_id
@@ -3392,7 +3401,8 @@ class BofhdExtension(object):
 	perm_filter='is_superuser')
     def person_set_name(self, operator, person_id, person_fullname):
         person = self._get_person(*self._map_person_id(person_id))
-	self.ba.is_superuser(operator.get_entity_id())
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            raise PermissionDenied("Currently limited to superusers")
 
 	for a in person.get_affiliations():
 	    if (int(a['source_system']) in \
@@ -4611,13 +4621,15 @@ class BofhdExtension(object):
         ret = []
         person = self.person
         person.clear()
-        if arg.find("-") != -1:
-            # finn personer på fødselsdato
-            ret = person.find_persons_by_bdate(self._parse_date(arg))
-        elif arg.find(":") != -1:
+        if arg.find(":") != -1:
             idtype, id = arg.split(":")
             if idtype == 'exp':
-                raise NotImplementedError, "Lack API support for this"
+                person.clear()
+                try:
+                    person.find_by_export_id(id)
+                    ret.append({'person_id': person.entity_id})
+                except Errors.NotFoundError:
+                    raise CerebrumError, "Unkown person id"
             elif idtype == 'entity_id':
                 person.clear()
                 try:
@@ -4635,6 +4647,10 @@ class BofhdExtension(object):
                         ret.append({'person_id': person.entity_id})
                     except Errors.NotFoundError:
                         pass
+        elif arg.find("-") != -1:
+            # finn personer på fødselsdato
+            ret = person.find_persons_by_bdate(self._parse_date(arg))
+
         else:
             raise CerebrumError, "Unable to parse person id"
         return ret
