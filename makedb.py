@@ -22,14 +22,10 @@ import sys
 import re
 import traceback
 import getopt
+import os
 
 import cereconf
-from Cerebrum import Database
-from Cerebrum import Constants
-from Cerebrum import Group
-from Cerebrum import Account
-
-from Cerebrum import Entity
+from Cerebrum.Utils import Factory
 
 def main():
     opts, args = getopt.getopt(sys.argv[1:], 'd', ['debug'])
@@ -39,8 +35,7 @@ def main():
         if opt in ('-d', '--debug'):
             debug += 1
 
-    global Cerebrum
-    Cerebrum = Database.connect(
+    Cerebrum = Factory.get('Database')(
         user=cereconf.CEREBRUM_DATABASE_CONNECT_DATA['table_owner'])
 
     if args:
@@ -48,9 +43,21 @@ def main():
             runfile(f, Cerebrum, debug)
     else:
         makedbs(Cerebrum, debug)
-        makeInitialUsers()
+        insert_code_values(Cerebrum)
+        makeInitialUsers(Cerebrum)
 
-def makeInitialUsers():
+def insert_code_values(Cerebrum):
+    const = Factory.get('Constants')(Cerebrum)
+    print "Inserting code values."
+    const.initialize()
+    Cerebrum.commit()
+
+def makeInitialUsers(Cerebrum):
+    print "Creating initial entities."
+    from Cerebrum import Constants
+    from Cerebrum import Group
+    from Cerebrum import Account
+    from Cerebrum import Entity
     co = Constants.Constants(Cerebrum)
     eg = Entity.Entity(Cerebrum)
     eg.populate(co.entity_group)
@@ -74,7 +81,13 @@ def makeInitialUsers():
 
     Cerebrum.commit()
 
+
+CEREBRUM_DDL_DIR = "design"
+
 def makedbs(Cerebrum, debug):
+    # Need to import Database.py for testing whether the database
+    # class we're using is an Oracle (sub)class.
+    from Cerebrum import Database
     files = ['drop_mod_stedkode.sql',
              'drop_mod_nis.sql',
              'drop_mod_posix_user.sql',
@@ -82,14 +95,14 @@ def makedbs(Cerebrum, debug):
              'core_tables.sql',
              'mod_posix_user.sql',
              'mod_nis.sql',
-             'core_data.sql',
+##              'core_data.sql',
              'mod_stedkode.sql'
              ]
     if isinstance(Cerebrum, Database.Oracle):
         files.extend(['drop_oracle_grants.sql', 'oracle_grants.sql'])
 
     for f in files:
-        runfile("design/%s" % f, Cerebrum, debug)
+        runfile(os.path.join(CEREBRUM_DDL_DIR, f), Cerebrum, debug)
 
 
 def runfile(fname, Cerebrum, debug):
@@ -106,12 +119,12 @@ def runfile(fname, Cerebrum, debug):
         if not stmt:
             continue
         try:
+            status = "."
             try:
                 Cerebrum.execute(stmt)
-                status = "."
             except Cerebrum.DatabaseError:
-                print "\n  ERROR: [%s]" % stmt
                 status = "E"
+                print "\n  ERROR: [%s]" % stmt
                 if debug:
                     print "  Database error: ",
                     if debug >= 2:
