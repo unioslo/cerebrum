@@ -1,0 +1,8 @@
+Template: cerebrum-server/autodb
+Type: boolean
+Default: true
+Description: Automatic handling of the database backend for cerebrum
+ I can attempt to setup and configure the database backend (postgresql) 
+ automatically for you now.
+ .
+ Should i attempt automatic database configuration?
