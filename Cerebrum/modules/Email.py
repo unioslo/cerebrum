@@ -1684,20 +1684,45 @@ class PersonEmailMixin(Person.Person):
 
     """Email-module mixin for core class ``Person''."""
 
+    def list_primary_email_address(self, entity_type):
+        """Returns a list of (entity_id, address) pairs for entities
+        of type 'entity_type'"""
+        return self._id2mailaddr(entity_type=entity_type).items()
+
     def getdict_external_id2mailaddr(self, id_type):
+        """Return dict mapping person_external_id to email for
+        person_external_id type 'id_type'"""
+        return self._id2mailaddr(id_type=id_type)
+
+    def _id2mailaddr(self, id_type=None, entity_type=None):
         ret = {}
         # TODO: How should multiple external_id entries, only
         # differing in person_external_id.source_system, be treated?
         target_type = int(self.const.email_target_account)
+        if id_type is not None:
+            id_type = int(id_type)
+            select_col = "pei.external_id"
+            main_table = "[:table schema=cerebrum name=person_external_id] pei"
+            primary_col = "pei.person_id"
+            where = "pei.id_type = :id_type"
+            key_col = 'external_id'
+        else:
+            entity_type = int(entity_type)
+            select_col = "ei.entity_id"
+            main_table = "[:table schema=cerebrum name=entity_info] ei"
+            primary_col = "ei.entity_id"
+            where = "ei.entity_type=:entity_type"
+            key_col = 'entity_id'
+            
         ed = EmailDomain(self._db)
         for row in self.query("""
-        SELECT pei.external_id, ea.local_part, ed.domain
-        FROM [:table schema=cerebrum name=person_external_id] pei
+        SELECT %s, ea.local_part, ed.domain
+        FROM %s
         JOIN [:table schema=cerebrum name=account_type] at
-          ON at.person_id = pei.person_id AND
+          ON at.person_id = %s AND
              at.priority = (SELECT min(at2.priority)
                             FROM [:table schema=cerebrum name=account_type] at2
-                            WHERE at2.person_id = pei.person_id)
+                            WHERE at2.person_id = %s)
         JOIN [:table schema=cerebrum name=email_target] et
           ON et.target_type = :targ_type AND
              et.entity_id = at.account_id
@@ -1707,10 +1732,11 @@ class PersonEmailMixin(Person.Person):
           ON ea.address_id = epa.address_id
         JOIN [:table schema=cerebrum name=email_domain] ed
           ON ed.domain_id = ea.domain_id
-        WHERE pei.id_type = :id_type""",
-                              {'id_type': int(id_type),
-                               'targ_type': target_type}):
-            ret[row['external_id']] = '@'.join((
+        WHERE %s""" % (select_col, main_table, primary_col, primary_col, where),
+                              {'id_type': id_type,
+                               'targ_type': target_type,
+                               'entity_type': entity_type}):
+            ret[row[key_col]] = '@'.join((
                 row['local_part'],
                 ed.rewrite_special_domains(row['domain'])))
         return ret
