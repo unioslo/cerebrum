@@ -51,4 +51,5 @@ def xmlrpc_to_native(obj):
     elif isinstance(obj, (int, long, float)):
         return obj
     else:
-        raise ValueError, "Unrecognized parameter type: '%r'" % obj
+        # unknown type, no need to recurse (probably DateTime =) ) 
+        return obj
