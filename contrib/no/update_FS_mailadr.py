@@ -1,6 +1,6 @@
-#!/usr/bin/env python2.2
-# -*- coding: iso-8859-1 -*-
-
+#! /usr/bin/env python2.2
+# -*- coding: iso8859-1 -*-
+#
 # Copyright 2003 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
@@ -19,21 +19,45 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import getopt
-import re
-import sys
-from Cerebrum.Utils import Factory
-from Cerebrum import Database
+"""
 
-def usage(exitcode=0):
-    print """Usage: [options]
-    Updates all e-mail adresses in FS that come from Cerebrum
-    -v | --verbose
-    -d | --dryrun
-    --db-user name: connect with given database username
-    --db-service name: connect to given database
-    """
-    sys.exit(exitcode)
+This file is a part of the Cerebrum framework. At the University of Oslo 
+Cerebrum is considerer authoritative source system in respect to the
+mail addresses of the persons with an affiliation to any of the 
+organizational units at the University of Oslo.
+
+As specified by the system owners for FS at the University of Oslo
+(representened by SSA, Central student administration) each student 
+at the University og Oslo has to have a working, official email address 
+registered in FS (more specifically in the table FS.PERSON, the field 
+EMAILADRESSE). Any other email addresses (privat email accounts) may be
+registered in the field EMAILADRESSE_PRIVAT. 
+
+Addresses of all the persons registered in FS are fetched via the
+method GetAllPersonsEmail() as defined in 
+/cerebrum/Cerebrum/modules/no/uio/access_FS.py. Currently registered 
+primary address is then compared to the default mailadress for the 
+primary account the person posesses. If there is a difference between 
+these two addresses then FS is updated.
+
+Problems: the addresses fetched from Cerebrum do not take the 
+account_type nor the source system into consideration. This means that 
+the default address fetched for a person is the primary address of 
+that person primary account, not the persons primary student account. 
+Something should probably be done about this. There is also a number of 
+users in the Cerebrum database registered with faulty affiliations. 
+This causes a number of persons to be registered with the addresses
+uname@ulrik.uio.no
+
+"""
+
+import sys
+import getopt
+import cerebrum_path
+from Cerebrum import Database
+from Cerebrum import Errors
+from Cerebrum.Utils import Factory
+from Cerebrum.modules.no.uio.access_FS import FS
 
 def main():
     db_user = db_service = None
@@ -59,26 +83,42 @@ def main():
                           DB_driver='Oracle')
     fs = FS(db)
     db = Factory.get('Database')()
-    fnr2primary = {}            # TODO: Fill with mapping fnr -> email adress
-    re_cerebrum_addr = re.compile('[@.]uio\.no$', re.IGNORECASE)
-    # TODO: should either be in cereconf, or deduced from the email system
+    acc = Factory.get('Account')(db)
+    person = Factory.get('Person')(db)
+    const = Factory.get('Constants')(db)
 
-    for r in fs.GetAllPersonsEmail():
-        fnr = "%06d%05d" % (int(r['fodselsdato']), int(r['personnr']))
-        current_email_addr = fnr2primary.get(fnr, None)
-        if current_email_addr is None and r['emailadresse'] is not None:
-            # Only update address if it is a cerebrum address
-            if re_cerebrum_addr.search(r['emailadresse']) is None:
-                continue
-        if current_email_addr <> r['emailadresse']:
-            if verbose:
-                if r['emailadresse'] is not None:
-                    print "%s: deleting %s" % (fnr, r['emailadresse'])
-                print "%s: writing %s" % (fnr, current_email_addr)
-            if not dryrun:
-                fs.WriteMailAddr(r['fodselsdato'], r['personnr'],
-                                 current_email_addr)
-                fs.db.commit()
+    fnr2primary = {}
+    fnr2primary = person.getdict_external_id2mailaddr(const.externalid_fodselsnr)
+
+    print "Start processing addresses."
+    for row in fs.GetAllPersonsEmail():
+	fnr = "%06d%05d" % (int(row['fodselsdato']), int(row['personnr']))
+	if fnr2primary.has_key(fnr):
+	    if fnr2primary[fnr] != row['emailadresse']:
+		if verbose:
+		    print "Updating address for %s, writing %s." % (fnr, fnr2primary[fnr])
+		if not dryrun: 
+		    fs.WriteMailAddr(row['fodselsdato'], row['personnr'], fnr2primary[fnr])
+		    fs.db.commit()
+	    else:
+		# address registered in FS does not exist in Cerebrum anymore
+		if row['emailadresse'] is not None:
+		    if verbose:
+			print "Deleting address for %s." % fnr
+			fs.WriteMailAddr(row['fodselsdato'], row['personnr'],None)
+			fs.db.commit() 
+
+    print "Done processing addresses."
 
 if __name__ == '__main__':
     main()
+
+
+
+
+
+
+
+
+
+
