@@ -54,9 +54,13 @@ co = Factory.get('Constants')(db)
 # </data>
 
 class OUData(xml.sax.ContentHandler):
-    def __init__(self, filename):
+    def __init__(self, sources):
+        global source_system
         self.tp = TrivialParser()
-        xml.sax.parse(filename, self.tp)
+        for source_spec in sources:
+            source_sys_name, filename = source_spec.split(':')
+            source_system = getattr(co, source_sys_name)
+            xml.sax.parse(filename, self.tp)
 
     def __iter__(self):
         return self
@@ -133,12 +137,12 @@ def rec_make_ou(stedkode, ou, existing_ou_mappings, org_units,
         ou.set_parent(perspective, None)
     existing_ou_mappings[stedkode2ou[stedkode]] = org_stedkode_ou
 
-def import_org_units(oufile):
+def import_org_units(sources):
     org_units = {}
     ou = OU_class(db)
     i = 1
     stedkode2ou = {}
-    for k in OUData(oufile):
+    for k in OUData(sources):
         i += 1
         org_units[get_stedkode_str(k)] = k
         if verbose:
@@ -248,42 +252,63 @@ def import_org_units(oufile):
     db.commit()
 
 def usage(exitcode=0):
-    print """Usage: [options]
-    -v | --verbose: increase verbosity
-    -o | --ou-file file: file to read stedinfo from
-    --source-system name: name of source-system to use
-    --perspective name: name of perspective to use
+    print """Usage: [options] [file ...]
+Imports OU data from systems that use 'stedkoder', primarily used to
+import from UoOs LT system.
 
-    Imports OU data from systems that use 'stedkoder', primarily used
-    to import from UoOs LT system"""
+    -v | --verbose              increase verbosity
+    -o | --ou-file FILE         file to read stedinfo from
+    -p | --perspective NAME     name of perspective to use
+    -s | --source-spec SPEC     colon-separated (source-system, filename) pair
+
+For backward compatibility, there still is some support for the
+following (deprecated) option; note, however, that the new option
+--source-spec is the preferred way to specify input data:
+    --source-system name: name of source-system to use
+
+    """
     sys.exit(exitcode)
-    
+
 def main():
-    global source_system, verbose, perspective
+    global verbose, perspective
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'vo:p:',
-                                   ['verbose', 'ou-file=', 'source-system=',
-                                    'perspective='])
+        opts, args = getopt.getopt(sys.argv[1:], 'vp:s:o:',
+                                   ['verbose',
+                                    'perspective=',
+                                    'source-spec=',
+                                    # Deprecated:
+                                    'ou-file=', 'source-system='])
     except getopt.GetoptError:
         usage(1)
     verbose = 0
-    oufile = None
+    perspective = None
+    sources = []
+    source_file = None
     source_system = None
     for opt, val in opts:
         if opt in ('-v', '--verbose'):
             verbose += 1
-        elif opt in ('-o', '--ou-file'):
-            oufile = val
-        elif opt in ('--source-system',):
-            source_system = getattr(co, val)
-        elif opt in ('--perspective',):
+        elif opt in ('-p', '--perspective',):
             perspective = getattr(co, val)
-    if not (source_system is None
-            or perspective is None
-            or oufile is None):
-        import_org_units(oufile)
-    else:
+        elif opt in ('-s', '--source-spec'):
+            sources.append(val)
+        elif opt in ('-o', '--ou-file'):
+            # This option is deprecated; use --source-spec instead.
+            source_file = val
+        elif opt in ('--source-system',):
+            # This option is deprecated; use --source-spec instead.
+            source_system = val
+    if perspective is None:
         usage(2)
+    if sources:
+        if source_file is None and source_system is None:
+            import_org_units(sources)
+        else:
+            usage(3)
+    elif source_file is not None and source_system is not None:
+        import_org_units([':'.join((source_system, source_file))])
+    else:
+        usage(4)
 
 if __name__ == '__main__':
     main()
