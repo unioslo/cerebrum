@@ -43,9 +43,31 @@ class OA(object):
         """
 
         query = """
-                SELECT user_name as username
-                FROM applsys.fnd_user
+                SELECT
+                  user_name as username
+                FROM
+                  applsys.fnd_user
                 """
         return self.db.query(query, fetchall = fetchall)
     # end list_usernames
+
+
+
+    def list_applsys_usernames(self, fetchall = False):
+        """
+        """
+
+        query = """
+                SELECT 
+                  lower(user_name) as username
+                FROM
+                  applsys.fnd_user
+                WHERE
+                  (lower(email_address) LIKE '%.uio.%' OR
+                   lower(email_address) = 'uio') AND
+                  NVL(end_date, SYSDATE) >= SYSDATE
+                """
+
+        return self.db.query(query, fetchall = fetchall)
+    # end list_applsys_users
 # end OF

@@ -70,6 +70,7 @@ import traceback
 import Cerebrum
 from Cerebrum import Database
 from Cerebrum.Utils import Factory
+from Cerebrum.Utils import AtomicFileWriter
 from Cerebrum.modules.no.uio.access_LT import LT
 from Cerebrum.modules.no.uio.access_FS import FS
 from Cerebrum.modules.no.uio.access_OF import OF
@@ -388,7 +389,87 @@ def perform_synchronization(user, services):
 
 
 
+import StringIO
+def report_expired_users(user, filename):
+    """
 
+    Select user names from the financial database and report the ones that
+    have been expired.
+
+    'expired' means that the expiration date is in the past. Furthermore, we
+    require that the user names have spread NIS_user@uio.
+    """
+
+    db_cerebrum = Factory.get("Database")()
+    account = Factory.get("Account")(db_cerebrum)
+    constants = Factory.get("Constants")(db_cerebrum)
+    report_stream = AtomicFileWriter(filename, "w")
+
+    for service, accessor in [("OFPROD.uio.no", OF),
+                              ("OAPRD.uio.no", OA),]:
+        db = Database.connect(user = user, service = service,
+                              DB_driver = "Oracle")
+        source = accessor(db)
+        stream = StringIO.StringIO()
+
+        for db_row in source.list_applsys_usernames():
+            username = db_row.username
+                
+            try:
+                account.clear()
+                account.find_by_name(username)
+            except Cerebrum.Errors.NotFoundError:
+                stream.write("No such account in Cerebrum: %s\n" % username)
+                continue
+            # yrt
+
+            if account.get_account_expired():
+                stream.write("Account expired: %s\n" % username)
+            # fi
+
+            is_nis = False
+            for spread in account.get_spread():
+                if int(spread.spread) == int(constants.spread_uio_nis_user):
+                    is_nis = True
+                # fi
+            # od
+
+            if not is_nis:
+                stream.write("No spread NIS_user@uio for %s\n" % username)
+            # fi
+        # od
+
+        report_data = stream.getvalue()
+        stream.close()
+        if report_data:
+            report_stream.write("%s contains these strange accounts:\n" %
+                                service)
+            report_stream.write(report_data)
+        # fi
+    # od
+
+    report_stream.close()
+# end report_expired_users
+
+
+
+def usage():
+
+    message = """
+This script performes updates of certain groups in Cerebrum and fetches
+information about certain kind of expired accounts
+
+--ofprod, -o		update ofprod group
+--fsprod, -f		update fsprod group
+--ltprod, -l		update ltprod group
+--ajprod, -a		update ajprod group
+--oaprd,  -p		update oaprd group
+--expired-file, -e=file	locate expired accounts and generate a report
+"""
+    logger.info(message)
+# end usage
+                
+    
 
 def main(argv):
     """
@@ -402,21 +483,23 @@ def main(argv):
     
     try:
         options, rest = getopt.getopt(argv,
-                                      "dvhoflap", ["dryrun",
-                                                   "verbose",
-                                                   "help",
-                                                   "ofprod",
-                                                   "fsprod",
-                                                   "ltprod",
-                                                   "ajprod",
-                                                   "oaprd",
-                                                   ])
+                                      "dvhoflape:", ["dryrun",
+                                                     "verbose",
+                                                     "help",
+                                                     "expired-file=",
+                                                     "ofprod",
+                                                     "fsprod",
+                                                     "ltprod",
+                                                     "ajprod",
+                                                     "oaprd",
+                                                     ])
     except getopt.GetoptError:
         usage()
         sys.exit(1)
     # yrt
 
     user = "ureg2000"
+    expired_filename = None
     services = []
     global dryrun
     dryrun = False
@@ -439,6 +522,8 @@ def main(argv):
             services.append(("AJPROD.uio.no", AJ, "ajprod"))
         elif option in ("-p", "--oaprd"):
             services.append(("OAPRD.uio.no", OA, "oaprd"))
+        elif option in ("-e", "--expired-file"):
+            report_expired_users(user, value)
         # fi
     # od
 
