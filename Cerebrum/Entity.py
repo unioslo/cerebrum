@@ -223,7 +223,8 @@ class Entity(DatabaseAccessor):
         """Remove ``spread`` from this entity."""
         return self.execute("""
         DELETE FROM [:table schema=cerebrum name=entity_spread]
-        WHERE entity_id=:e_id""", {'e_id': self.entity_id})
+        WHERE entity_id=:e_id AND spread=:spread""", {'e_id': self.entity_id,
+                                                      'spread': int(spread)})
 
     def list_all_with_spread(self, spread):
         """Return sequence of all 'entity_id's that has ``spread``."""
