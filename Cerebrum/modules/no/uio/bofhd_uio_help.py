@@ -377,6 +377,7 @@ printer."""],
   Norwegian fødselsnummer (11 digits)
   Export-ID (exp:exportid)
   External ID (idtype:idvalue)
+  Entity ID (entity_id:value)
   Group name (group:name)"""],
     'user_create_select_person':
         ['<not displayed>', '<not displayed>',

@@ -3789,8 +3789,9 @@ class BofhdExtension(object):
                                account.entity_id, disk_id, state_data=spread)
                 return "move queued for execution at %s" % br.batch_time
             elif move_type == "nofile":
-                account.set_home(self.const.spread_uio_nis_user,
-                                 disk_id=disk_id, home=home)
+                old = account.get_home(spread)
+                account.set_home(spread, disk_id=disk_id, home=home,
+                                 status=old['status'])
                 account.write_db()
                 return "OK, user moved"
         elif move_type in ("hard_nofile",):
@@ -4176,6 +4177,13 @@ class BofhdExtension(object):
             idtype, id = arg.split(":")
             if idtype == 'exp':
                 raise NotImplementedError, "Lack API support for this"
+            elif idtype == 'entity_id':
+                person.clear()
+                try:
+                    person.find(id)
+                    ret.append({'person_id': person.entity_id})
+                except Errors.NotFoundError:
+                    raise CerebrumError, "Unkown person id"
             elif idtype == 'fnr':
                 for ss in [self.const.system_fs, self.const.system_lt,
                            self.const.system_manual, self.const.system_ureg]:
