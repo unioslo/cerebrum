@@ -19,8 +19,6 @@
 
 """MountDisk is a class for mapping a user homedisk to a different logon server. As is the case with Samba connections"""
 
-import string
-
 import cerebrum_path
 import cereconf
 from Cerebrum import Utils
@@ -43,14 +41,14 @@ class MountHost(Host):
         self.__updated = []
 
     def find(self, host_id):
-        """Associate the object with MountHost whose identifier is host_id
-        If host_id isn't an existing ID identifier,
+        """Associate the object with MountHost whose identifier is 
+	mount_host_id. If mount_host_id isn't an existing ID identifier,
         NotFoundError is raised."""
         self.__super.find(host_id)
-        (self.host_id, self.mount_type, self.mount_name) = self.query_1("""
-        SELECT host_id, mount_type, mount_name
+        (self.mount_host_id, self.mount_type, self.mount_name) = self.query_1("""
+        SELECT mount_host_id, mount_type, mount_name
         FROM [:table schema=cerebrum name=mount_host]
-        WHERE host_id=:host_id""", {'host_id': host_id})
+        WHERE mount_host_id=:m_host_id""", {'m_host_id': self.entity_id})
         try:
             del self.__in_db
         except AttributeError:
