@@ -4,6 +4,7 @@
 import getopt
 import sys
 import os
+import re
 import ldap
 import cyruslib
 
@@ -25,7 +26,6 @@ from Cerebrum.extlib import logging
 
 db = Factory.get('Database')()
 db.cl_init(change_program='process_bofhd_r')
-dryrun = True
 const = Factory.get('Constants')(db)
 logging.fileConfig(cereconf.LOGGING_CONFIGFILE)
 logger = logging.getLogger("cronjob")
@@ -43,25 +43,25 @@ def email_delivery_stopped(user):
     if ldapconn is None:
         ldapconn = ldap.open("ldap.uio.no")
         ldapconn.set_option(ldap.OPT_PROTOCOL_VERSION, 3)
-        ldapconn.simple_bind_s("","")
-    res = ldapconn.search_s("ou=mail,dc=uio,dc=no",
-                            ldap.SCOPE_SUBTREE,
-                            "(&(target=%s)(mailPause=true))" % user)
+        try:
+            ldapconn.simple_bind_s("","")
+        except ldap.LDAPError, e:
+            logger.error("Connect to LDAP failed: %s", e)
+            return False
+    try:
+        res = ldapconn.search_s("ou=mail,dc=uio,dc=no",
+                                ldap.SCOPE_SUBTREE,
+                                "(&(target=%s)(mailPause=TRUE))" % user)
+    except ldap.LDAPError, e:
+        logger.error("LDAP search failed: %s", e)
+        return False
+
     return len(res) == 1
 
 def get_email_target_id(user_id):
     t = Email.EmailTarget(db)
     t.find_by_entity(user_id)
     return t.email_target_id
-
-def get_primary_email_address(user_id):
-    t = Email.EmailPrimaryAddressTarget(db)
-    t.find_by_entity(user_id)
-    a = Email.EmailAddress(db)
-    a.find(t.get_address_id())
-    d = Email.EmailDomain(db)
-    d.find(a.get_domain_id())
-    return "%s@%s" % (a.get_localpart(), d.get_domain_name())
 
 def get_email_hardquota(user_id):
     eq = Email.EmailQuota(db)
@@ -71,12 +71,13 @@ def get_email_hardquota(user_id):
         return 0	# unlimited/no quota
     return eq.email_quota_hard
 
-# get_imaphost
-# input:  entity ID of account
-# output: hostname of IMAP server, or None if user's mail is stored in
-#         a different system
 
 def get_imaphost(user_id):
+    """
+    user_id is entity id of account to look up. Return hostname of
+    IMAP server, or None if user's mail is stored in a different
+    system.
+    """
     em = Email.EmailServerTarget(db)
     em.find(get_email_target_id(user_id))
     server = Email.EmailServer(db)
@@ -85,10 +86,23 @@ def get_imaphost(user_id):
         return server.name
     return None
 
+def get_home(acc):
+    if acc.home:
+        return acc.home
+    elif acc.disk_id is not None:
+        disk = Disk.Disk(db)
+        disk.find(acc.disk_id)
+        return "%s/%s" % (disk.path, acc.account_name)
+    else:
+        return None
+
 def add_forward(user_id, addr):
-    forw = Email.EmailForward(db)
-    forw.find_by_entity(user_id, const.entity_account)
-    forw.add_forward(addr)
+    ef = Email.EmailForward(db)
+    ef.find_by_entity(user_id)
+    for r in ef.get_forward():
+        if r['forward_to'] == addr:
+            return
+    ef.add_forward(addr)
 
 def connect_cyrus(host=None, user_id=None):
     global imapconn, imaphost
@@ -116,10 +130,11 @@ def connect_cyrus(host=None, user_id=None):
     return imapconn
 
 def process_email_requests():
+    acc = Factory.get('Account')(db)
     br = BofhdRequests(db, const)
     for r in br.get_requests(operation=const.bofh_email_create):
-        logger.debug("Req: email_create %d at %d",
-                     r['request_id'],r['run_at'])
+        logger.debug("Req: email_create %d at %s",
+                     r['request_id'], r['run_at'])
         if r['run_at'] < br.now:
             hq = get_email_hardquota(r['entity_id'])
             if (cyrus_create(r['entity_id']) and
@@ -131,7 +146,7 @@ def process_email_requests():
             db.commit()
 
     for r in br.get_requests(operation=const.bofh_email_hquota):
-        logger.debug("Req: email_hquota %d", r['run_at'])
+        logger.debug("Req: email_hquota %s", r['run_at'])
 	if r['run_at'] < br.now:
             hq = get_email_hardquota(r['entity_id'])
             if cyrus_set_quota(r['entity_id'], hq):
@@ -142,10 +157,12 @@ def process_email_requests():
             db.commit()
 
     for r in br.get_requests(operation=const.bofh_email_delete):
-        logger.debug("Req: email_delete %d", r['run_at'])
+        logger.debug("Req: email_delete %s", r['run_at'])
 	if r['run_at'] < br.now:
 	    try:
-                uname = get_account(r['entity_id'])[1]
+                acc.clear()
+                acc.find(r['entity_id'])
+                uname = acc.account_name
             except Errors.NotFoundError:
                 logger.error("bofh_email_delete: %d: user not found",
                              r['entity_id'])
@@ -164,105 +181,69 @@ def process_email_requests():
                 br.delay_request(request_id=r['request_id'])
                 db.commit()
                 continue
-            host = server.name
-            logger.debug("will delete %s from %s", uname, host)
-            try:
-                cyradm = connect_cyrus(host = host)
-            except CerebrumError, e:
-                logger.error("bofh_email_delete: %s: %s" % (host, str(e)))
-                continue
-            res, list = cyradm.m.list("user.", pattern=uname)
-            if res <> 'OK' or list[0] == None:
-                # TBD: is this an error we need to keep around?
-                db.rollback()
-                logger.error("bofh_email_delete: %s: no mailboxes", uname)
-                br.delay_request(r['request_id'])
-                db.commit()
-                continue
-            folders = ["user.%s" % uname]
-            res, list = cyradm.m.list("user.%s." % uname)
-            if res == 'OK' and list[0]:
-                for line in list:
-                    folder = line.split(' ')[2]
-                    folders += [ folder[1:-1] ]
-            # Make sure the subfolders are deleted first by reversing
-            # the sorted list.
-            folders.sort()
-            folders.reverse()
-            allok = True
-            for folder in folders:
-                logger.debug("deleting %s ... ", folder)
-                cyradm.m.setacl(folder, cereconf.CYRUS_ADMIN, 'c')
-                res = cyradm.m.delete(folder)
-                if res[0] <> 'OK':
-                    logger.error("IMAP delete %s failed: %s", folder, res[1])
-                    allok = False
-            if allok:
-                cyrus_subscribe(uname, host, action="delete")
+            if cyrus_delete(server.name, uname):
                 br.delete_request(request_id=r['request_id'])
             else:
                 db.rollback()
                 br.delay_request(r['request_id'])
             db.commit()
 
-    for r in br.get_requests(operation=const.bofh_email_will_move):
-        logger.debug("Req: email_will_move %d", r['run_at'])
-	if r['run_at'] < br.now:
-	    try:
-                uname = get_account(r['entity_id'])[1]
-            except Errors.NotFoundError:
-                logger.error("%i not found" % r['entity_id'])
-                continue
-            try:
-                if not email_delivery_stopped(uname):
-                    db.rollback()
-                    br.delay_request(r['request_id'])
-                    db.commit()
-                    continue
-            except _ldap.LDAPError:
-                logger.error("connect to LDAP failed")
-
-            # delivery is stopped, go to next phase
-            br.delete_request(request_id=r['request_id'])
-            br.add_request(r['requestee_id'], r['run_at'],
-                           const.bofh_email_move,
-                           r['entity_id'], r['destination_id'],
-                           r['state_data'])
-            db.commit()
-
     for r in br.get_requests(operation=const.bofh_email_move):
-        logger.debug("Req: email_move %d", r['run_at'])
+        logger.debug("Req: email_move %s %d", r['run_at'], int(r['state_data']))
 	if r['run_at'] < br.now:
             # state_data is a request-id which must complete first,
-            # typically a email_create request.
+            # typically an email_create request.
             # TBD: make it a general feature in BofhdRequests?
             if r['state_data']:
-                try:
-                    br.get_requests(request_id=r['state_data'])
+                found_dep = False
+                for dr in br.get_requests(request_id=r['state_data']):
+                    found_dep = True
+                if found_dep:
                     br.delay_request(r['request_id'])
+                    logger.debug("waiting for request %d", int(r['state_data']))
                     continue
-                except Errors.NotFoundError:
-                    pass
-            em = Email.EmailServerTarget(db)
-            em.find(get_email_target_id(r['entity_id']))
+	    try:
+                acc.clear()
+                acc.find(r['entity_id'])
+            except Errors.NotFoundError:
+                logger.error("%d not found", r['entity_id'])
+                continue
+            if not email_delivery_stopped(acc.account_name):
+                logger.debug("E-mail delivery not stopped for %s",
+                             acc.account_name)
+                db.rollback()
+                br.delay_request(r['request_id'])
+                db.commit()
+                continue
+            est = Email.EmailServerTarget(db)
+            est.find(get_email_target_id(r['entity_id']))
+            old_server = r['destination_id']
+            new_server = est.get_server_id()
             if move_email(r['entity_id'], r['requestee_id'],
-                          em.get_server_id(), r['destination_id']):
+                          old_server, new_server):
                 br.delete_request(request_id=r['request_id'])
-                br.add_request(r['requestee_id'], r['run_at'],
-                               const.bofh_email_convert,
-                               r['entity_id'], r['destination_id'])
+                es = Email.EmailServer(db)
+                es.find(old_server)
+                if es.email_server_type == const.email_server_type_nfsmbox:
+                    br.add_request(r['requestee_id'], r['run_at'],
+                                   const.bofh_email_convert,
+                                   r['entity_id'], old_server)
+                elif es.email_server_type == const.email_server_type_cyrus:
+                    br.add_request(r['requestee_id'], r['run_at'],
+                                   const.bofh_email_delete,
+                                   r['entity_id'], None,
+                                   state_data=old_server)
             else:
                 db.rollback()
                 br.delay_request(r['request_id'])
             db.commit()
 
     for r in br.get_requests(operation=const.bofh_email_convert):
-        logger.debug("Req: email_convert %d", r['run_at'])
+        logger.debug("Req: email_convert %s", r['run_at'])
 	if r['run_at'] < br.now:
             user_id = r['entity_id']
             try:
-                # uname, home, uid, dfg
-                acc = Factory.get('Account')(db)
+                acc.clear()
                 acc.find(user_id)
             except Errors.NotFoundErrors:
                 logger.error("bofh_email_convert: %d not found" % user_id)
@@ -271,50 +252,72 @@ def process_email_requests():
                 posix = PosixUser.PosixUser(db)
                 posix.find(user_id)
             except Errors.NotFoundErrors:
-                logger.debug("bofh_email_convert: %s: " % acc.name +
+                logger.debug("bofh_email_convert: %s: " % acc.account_name +
                              "not a PosixUser, skipping e-mail conversion")
                 br.delete_request(request_id=r['request_id'])
                 db.commit()
                 continue
-                
+
             cmd = [SUDO_CMD, cereconf.WRAPPER_CMD, '-c', 'convertmail',
-                   acc.name, acc.home, posix.posix_uid, posix.gid_id]
+                   acc.account_name, get_home(acc),
+                   posix.posix_uid, posix.gid_id]
+            cmd = ["%s" % x for x in cmd]
+            unsafe = False
+            for word in cmd:
+                if not re.match("^[A-Za-z0-9./_-]*$", word):
+                    unsafe = True
+            if unsafe:
+                logger.error("possible unsafe invocation to popen: %s", cmd)
+                continue
+
             try:
-                fd = os.popen(cmd)
+                fd = os.popen(" ".join(cmd))
             except:
-                logger.error("bofh_email_convert: %s: " % acc.name +
+                logger.error("bofh_email_convert: %s: " % acc.account_name +
                              "running %s failed" % cmd)
                 continue
             success = True
             try:
                 subsep = '\037'
-                for line in fs.readlines():
-                    line = line[:-1]
-                    if line.starts_with("forward: "):
+                for line in fd.readlines():
+                    if line.endswith('\n'):
+                        line = line[:-1]
+                    logger.debug("email_convert: %s", repr(line))
+                    if line.startswith("forward: "):
                         for addr in [t.split(subsep)
                                      for t in line.split(": ")][1]:
                             add_forward(user_id, addr)
-                    elif line.starts_with("forward+local: "):
-                        add_forward(user_id, get_primary_email_address(user_id))
+                    elif line.startswith("forward+local: "):
+                        add_forward(user_id, acc.get_primary_mailaddress())
                         for addr in [t.split(subsep)
                                      for t in line.split(": ")][1]:
                             add_forward(user_id, addr)
-                    elif line.starts_with("tripnote: "):
+                    elif line.startswith("tripnote: "):
                         msg = "\n".join([t.split(subsep)
                                          for t in line.split(": ")][1])
                         vac = Email.EmailVacation(db)
-                        vac.find(get_email_target_id(user_id))
-                        vac.add_vacation(start = db.Date(1970, 1, 1),
-                                         end = None, text=msg, enable=True)
+                        vac.find_by_entity(user_id)
+                        # if there's a message imported from ~/tripnote
+                        # already, get rid of it -- this message will
+                        # be the same or fresher.
+                        try:
+                            vac.delete_vacation(db.Date(1970, 1, 1))
+                        except OperationalError:
+                            pass
+                        vac.add_vacation(db.Date(1970, 1, 1), msg, enable='T')
                     else:
                         logger.error("convertmail reported: %s\n" % line)
-            except:
+            except Exception, e:
                     db.rollback()
                     # TODO better diagnostics
                     success = False
-                    logger.error("convertmail failed")
+                    logger.error("convertmail failed: %s (%s)", repr(e), e)
             if success:
-                db.commit()
+                br.delete_request(request_id=r['request_id'])
+            else:
+                db.rollback()
+                br.delay_request(r['request_id'])
+            db.commit()
         
 def cyrus_create(user_id):
     try:
@@ -332,19 +335,51 @@ def cyrus_create(user_id):
         res, list = cyradm.m.list ('user.', pattern='%s%s' % (uname, sub))
         if res == 'OK' and list[0]:
             continue
-        res = cyradm.m.create(folder)
+        res = cyradm.m.create('user.%s%s' % (uname, sub))
         if res[0] <> 'OK':
             logger.error("IMAP create user.%s%s failed: %s",
                          uname, sub, res[1])
             return False
-
     # restrict access to INBOX.spam.  the user can change the
     # ACL to override this, though.
     cyradm.m.setacl("user.%s.spam" % uname, uname, "lrswipd")
-
     # we don't care to check if the next command runs OK.
     # almost all IMAP clients ignore the file, anyway ...
     cyrus_subscribe(uname, imaphost)
+    return True
+
+def cyrus_delete(host, uname):
+    logger.debug("will delete %s from %s", uname, host)
+    try:
+        cyradm = connect_cyrus(host=host)
+    except CerebrumError, e:
+        logger.error("bofh_email_delete: %s: %s" % (host, e))
+        return False
+    res, list = cyradm.m.list("user.", pattern=uname)
+    if res <> 'OK' or list[0] == None:
+        # TBD: is this an error we need to keep around?
+        db.rollback()
+        logger.error("bofh_email_delete: %s: no mailboxes", uname)
+        return False
+    folders = ["user.%s" % uname]
+    res, list = cyradm.m.list("user.%s." % uname)
+    if res == 'OK' and list[0]:
+        for line in list:
+            folder = line.split(' ')[2]
+            folders += [ folder[1:-1] ]
+    # Make sure the subfolders are deleted first by reversing
+    # the sorted list.
+    folders.sort()
+    folders.reverse()
+    allok = True
+    for folder in folders:
+        logger.debug("deleting %s ... ", folder)
+        cyradm.m.setacl(folder, cereconf.CYRUS_ADMIN, 'c')
+        res = cyradm.m.delete(folder)
+        if res[0] <> 'OK':
+            logger.error("IMAP delete %s failed: %s", folder, res[1])
+            return False
+    cyrus_subscribe(uname, host, action="delete")
     return True
 
 def cyrus_set_quota(user_id, hq):
@@ -376,39 +411,55 @@ def cyrus_subscribe(uname, server, action="create"):
     return False
 
 def move_email(user_id, mailto_id, from_host, to_host):
+    acc = Factory.get("Account")(db)
     try:
-        uname = get_account(user_id)[1]
-        mailto = get_primary_email_address(mailto_id)
+        acc.find(mailto_id)
     except Errors.NotFoundError:
-        logger.error("%d or %d not found" % (user_id, mailto_id))
+        logger.error("move_email: operator %d not found" % mailto_id)
+        return False
+    try:
+        mailto = acc.get_primary_mailaddress()
+    except Errors.NotFoundError:
+        mailto = ""
+    try:
+        acc.clear()
+        acc.find(user_id)
+    except Errors.NotFoundError:
+        logger.error("move_email: %d not found" % user_id)
         return False
 
-    es_to = Email.EmailServer(self._db)
+    es_to = Email.EmailServer(db)
     es_to.find(to_host)
-    es_fr = Email.EmailServer(self._db)
+    type_to = int(es_to.email_server_type)
+    
+    es_fr = Email.EmailServer(db)
     es_fr.find(from_host)
-    hq = get_email_hardquota()
+    type_fr = int(es_fr.email_server_type)
 
     cmd = [SUDO_CMD, cereconf.WRAPPER_CMD, '-c', 'mvmail',
-           uname, mailto, hq,
-           es_fr.name, str(es_fr.email_server_type),
-           es_to.name, str(es_to.email_server_type)]
+           acc.account_name, get_home(acc),
+           mailto, get_email_hardquota(user_id),
+           es_fr.name, str(Email._EmailServerTypeCode(type_fr)),
+           es_to.name, str(Email._EmailServerTypeCode(type_to))]
     cmd = ["%s" % x for x in cmd]
     logger.debug("doing %s" % cmd)
     EXIT_SUCCESS = 0
-    EXIT_LOCKED = 1
-    EXIT_NOTIMPL = 2
-    EXIT_QUOTAEXCEEDED = 3
-    EXIT_FAILED = 4
+    EXIT_LOCKED = 101
+    EXIT_NOTIMPL = 102
+    EXIT_QUOTAEXCEEDED = 103
+    EXIT_FAILED = 104
     errnum = os.spawnv(os.P_WAIT, cmd[0], cmd)
     if errnum == EXIT_QUOTAEXCEEDED:
         # TODO: bump quota, or something else
-        return True
+        pass
     elif errnum == EXIT_SUCCESS:
-        return True
+        pass
     else:
         logger.error('mvmail failed, returned %d' % errnum)
         return False
+    if es_fr.email_server_type == const.email_server_type_cyrus:
+        return cyrus_delete(es_fr.name, acc.account_name)
+    return True
 
 def process_move_requests():
     br = BofhdRequests(db, const)
