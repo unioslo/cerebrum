@@ -474,6 +474,13 @@ class fs_undenh_users(fs_undenh_group):
         super(fs_undenh_users, self).__init__(parent)
         self._name = (category,)
         self._emnekode = ue['emnekode']
+        # Det viser seg at HiA ønsker seg grupper over studenter på
+        # undervisningsenheter inn i AD.  Da det haster en del å få
+        # dette på plass, gjøres dette med et hack her.
+        #
+        # TODO: Generalisere dette svært HiA-spesifikke hacket.
+        if category == 'student':
+            self.spreads = (const.spread_hia_ad_group,)
 
     def description(self):
         ctg = self._name[0]
