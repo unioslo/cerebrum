@@ -118,7 +118,7 @@ def write_ou_info(outfile):
     """Lager fil med informasjon om alle OU-er"""
     f=open(outfile, 'w')
     f.write(xml.xml_hdr + "<data>\n")
-    cols, ouer = fs.GetAlleOUer(cereconf.ORGANIZATIONAL_INSTNR)  # TODO
+    cols, ouer = fs.GetAlleOUer(cereconf.DEFAULT_INSTITUSJONSNR)  # TODO
     for o in ouer:
         sted = {}
         for fs_col, xml_attr in (
