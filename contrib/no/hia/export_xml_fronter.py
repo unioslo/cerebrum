@@ -314,9 +314,11 @@ def register_spread_groups(emne_info, stprog_info):
                     register_group(stprog.upper(), brukere_stprog_id,
                                    brukere_studenter_id)
                     register_group(
-                        # "Studenter på kull <terminkode_kull> <arstall_kull>"
-                        'Studenter på kull %s %s' % (subg_name_el[7],
-                                                     subg_name_el[6]),
+                        # "Studenter på <STUDIEPROGRAMKODE>
+                        #  <arstall_kull> <terminkode_kull>"
+                        'Studenter på %s %s %s' % (stprog.upper(),
+                                                   subg_name_el[6],
+                                                   subg_name_el[7]),
                         fronter_gname, brukere_stprog_id,
                         allow_contact=True)
                     # Gi denne studiekullgruppen 'skrive'-rettighet i
