@@ -26,7 +26,6 @@ import Cerebrum_core__POA
 import Cerebrum_core
 
 import CorbaSession
-import LOHandler
 
 import classes.Registry
 registry = classes.Registry.get_registry()
@@ -50,6 +49,9 @@ class GroImpl(Cerebrum_core__POA.Gro):
     def get_idl(self):
         return CorbaSession.idl_source
 
+    def get_idl_md5(self):
+        return CorbaSession.idl_source_md5
+
     def get_version(self):
         return Cerebrum_core.Version(GRO_MAJOR_VERSION, GRO_MINOR_VERSION)
         
@@ -59,25 +61,6 @@ class GroImpl(Cerebrum_core__POA.Gro):
         print "server: %s"% (txt)
         return txt
     
-    def get_lo_handler(self, username, password):
-        client = self.login(username, password)
-        lo = self.lo_handler_class(client)
-        com = Communication.get_communication()
-        return com.servant_to_reference(lo)
-
-    def get_ap_handler(self, username, password):
-        client = self.login(username, password)
-
-        if client in self.sessions:
-            return self.sessions[client]
-
-        session = CorbaSession.CorbaSessionImpl(client)
-        com = Communication.get_communication()
-        corba_obj = com.servant_to_reference(session)
-        self.sessions[client] = corba_obj
-
-        return corba_obj
-
     def login(self, username, password):
         """Login the user with the username and password.
         """
@@ -106,6 +89,14 @@ class GroImpl(Cerebrum_core__POA.Gro):
 
         # Log successfull login..
         
-        return account
+        if account in self.sessions:
+            return self.sessions[account]
+
+        session = CorbaSession.CorbaSessionImpl(account)
+        com = Communication.get_communication()
+        corba_obj = com.servant_to_reference(session)
+        self.sessions[account] = corba_obj
+
+        return corba_obj
 
 # arch-tag: 92c1fc71-f0db-4cd7-b8ed-4d2cf1033b6d
