@@ -92,7 +92,7 @@ def get_person_info(outfile):
         sko = "%02d%02d%02d" % (g['fakultetnr'],
                                 g['instituttnr'],
                                 g['gruppenr'])
-        persondta.setdefault(key, {}).setdefault('bil', []).append(
+        persondta.setdefault(key, {}).setdefault('gjest', []).append(
             {'sko': sko, 'gjestetypekode': g['gjestetypekode']})
 
     # Skriv ut informasjon om de personer vi allerede har hentet, og
@@ -109,17 +109,17 @@ def get_person_info(outfile):
                              ) + "\n")
         tlfcols, tlf = LT.GetArbTelefon(fodtdag, fodtmnd, fodtar, personnr)
         for t in tlf:
-            f.write(xml.xmlify_dbrow(
+            f.write("  "+xml.xmlify_dbrow(
                 t, xml.conv_colnames(tlfcols), 'arbtlf') + "\n")
 
         kcols, komm = LT.GetPersKomm(fodtdag, fodtmnd, fodtar, personnr)
         for k in komm:
-            f.write(xml.xmlify_dbrow(
+            f.write("  "+xml.xmlify_dbrow(
                 k,  xml.conv_colnames(kcols), 'komm') + "\n")
 
         rcols, roller = LT.GetPersonRoller(fodtdag, fodtmnd, fodtar, personnr)
         for r in roller:
-            f.write(xml.xmlify_dbrow(
+            f.write("  "+xml.xmlify_dbrow(
                 r, xml.conv_colnames(rcols), 'rolle') +"\n")
 
         for t in persondta[p].get('tils', ()):
@@ -133,15 +133,20 @@ def get_person_info(outfile):
                 attr += ' hovedkat=%s' % xml.escape_xml_attr(
                     kate2hovedkat[sk[1]])
                 attr += ' tittel=%s' % xml.escape_xml_attr(sk[0])
-                f.write("<tils "+attr+"/>\n")
+                f.write("  <tils "+attr+"/>\n")
 
         prev = ''
         persondta[p].get('bil', []).sort()
         for t in persondta[p].get('bil', []):
             if t == prev:
                 continue
-            f.write('<bilag stedkode="%s"' % t + "/>\n")
+            f.write('  <bilag stedkode="%s"' % t + "/>\n")
             prev = t
+        for g in persondta[p].get('gjest', ()):
+            attr = " ".join(["%s=%s" % (k, xml.escape_xml_attr(g[k]))
+                             for k in g.keys()])
+            f.write("  <gjest "+attr+"/>\n")
+ 
         f.write("</person>\n")
 
     f.write("</data>\n")
