@@ -91,6 +91,7 @@ class AccountType(object):
         priority with one if there is a conflict"""
         if all_pris.has_key(new_pri):
             self._set_account_type_priority(all_pris, new_pri, new_pri + 1)
+        orig_pri = int(orig_pri)
         cols = {'person_id': all_pris[orig_pri]['person_id'],
                 'ou_id': all_pris[orig_pri]['ou_id'],
                 'affiliation': all_pris[orig_pri]['affiliation'],
