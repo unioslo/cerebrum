@@ -132,7 +132,7 @@ class AccountType(object):
                                                  'affiliation': int(affiliation)})
 
     def list_accounts_by_type(self, ou_id=None, affiliation=None,
-                              status=None):
+                              status=None, filter_expired=False):
         """Return ``account_id``s of the matching accounts."""
         extra=""
         if affiliation is not None:
@@ -145,14 +145,18 @@ class AccountType(object):
             extra += " AND pas.status=:status"
         if ou_id is not None:
             extra += " AND at.ou_id=:ou_id"
+        if filter_expired:
+            extra += " AND (ai.expire_date IS NULL OR ai.expire_date > [:now])"
         return self.query("""
         SELECT DISTINCT at.person_id, at.ou_id, at.affiliation, at.account_id,
                         at.priority
         FROM [:table schema=cerebrum name=account_type] at,
-             [:table schema=cerebrum name=person_affiliation_source] pas
+             [:table schema=cerebrum name=person_affiliation_source] pas,
+             [:table schema=cerebrum name=account_info] ai
         WHERE at.person_id=pas.person_id AND
               at.ou_id=pas.ou_id AND
-              at.affiliation=pas.affiliation
+              at.affiliation=pas.affiliation AND
+              ai.account_id=at.account_id
               %s
         ORDER BY at.person_id, at.priority""" % extra,
                           {'ou_id': ou_id,
@@ -457,11 +461,18 @@ class Account(AccountType, EntityName, EntityQuarantine, Entity):
             return False
         return True
 
-    def list(self):
+    def list(self, filter_expired=False):
         """Returns all accounts"""
+        where = []
+        if filter_expired:
+            where.append("(ai.expire_date IS NULL OR ai.expire_date > [:now])")
+        if where:
+            where = "WHERE %s" % " AND ".join(where)
+        else:
+            where = ""
         return self.query("""
         SELECT *
-        FROM [:table schema=cerebrum name=account_info]""")
+        FROM [:table schema=cerebrum name=account_info] ai %s""" % where)
 
     def list_account_name_home(self):
         """Returns a list of account_id, name, home and path."""
