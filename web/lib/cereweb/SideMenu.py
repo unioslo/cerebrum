@@ -39,11 +39,17 @@ class MenuItem(FixUrlMixin, Menu.MenuItem):
 class SideMenu(FixUrlMixin, Menu.Menu):
     def __init__(self):
         Menu.Menu.__init__(self)
+        self.makeMain()
         self.makePerson()
+        self.makeAccount()
         self.makeGroup()
         #self.makeRoles()
         #self.makeSpread()
         self.makeOptions()
+
+    def makeMain(self):
+        self.main = self.addItem("main", "Main", "index")
+
     def makePerson(self):
         self.person = self.addItem("person", "Person", "person")
         self.person.addItem("search", "Search", "person/search")
@@ -51,7 +57,13 @@ class SideMenu(FixUrlMixin, Menu.Menu):
         self.person.addItem("create", "Create", "person/create")
         self.person.addItem("view", "View", "person/view?id=%s")
         self.person.addItem("edit", "Edit", "person/edit?id=%s")
-        
+    
+    def makeAccount(self):
+        self.account = self.addItem("account", "Account", "account")
+        self.account.addItem("search", "Seach", "account/search")
+        self.account.addItem("list", "List", "account/list")
+        self.account.addItem("create", "Create", "account/create")
+
     def makeGroup(self):    
         self.group = self.addItem("group", "Group", "group")
         self.group.addItem("search", "Search", "group")
