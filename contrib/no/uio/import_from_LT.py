@@ -249,7 +249,7 @@ def get_person_info(outfile):
                                                    "gruppenr_kontering",)])
             f.write("  " +
                     xml.xmlify_dbrow(attr.values(), attr.keys(),
-                                     "res") + "\n")
+                                     "bil") + "\n")
             prev = t
         # od
 
@@ -395,7 +395,7 @@ def main():
             fnr_update = val
         # fi
     # od
-            
+
     if user is None or sid is None:
         usage(1)
 
