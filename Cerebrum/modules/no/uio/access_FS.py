@@ -417,8 +417,7 @@ FROM fs.studieprogram"""
                e.faknr_reglement, e.instituttnr_reglement,
                e.gruppenr_reglement, e.studienivakode
         FROM fs.emne e
-        WHERE e.arstall_eks_siste is NULL OR
-              e.arstall_eks_siste <= :year"""
+        WHERE NVL(e.arstall_eks_siste, :year) >= :year - 1"""
         return (self._get_cols(qry), self.db.query(qry, {'year': self.year}))
 
 
