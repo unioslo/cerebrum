@@ -35,7 +35,7 @@ class CommandWrapper(FunctionWrapper):
 class ServerConnection:
 
     _url = "http://localhost:8000/"
-    _encoding = "iso-8859-1"
+    #_encoding = "utf8"
     _server = None
     _server_lock = Lock()
     _acquire = _server_lock.acquire
@@ -57,7 +57,8 @@ class ServerConnection:
         cls._acquire()
         try:
             if cls._server is None:
-                cls._server = xmlrpclib.Server(cls._url, encoding=cls._encoding)
+                #cls._server = xmlrpclib.Server(cls._url, encoding=cls._encoding)
+                cls._server = xmlrpclib.Server(cls._url)
         finally:
             cls._release()
 
