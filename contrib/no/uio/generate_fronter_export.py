@@ -538,7 +538,7 @@ def process_single_enhet_id(kurs_id, enhet_id, struct_id, emnekode,
 
         aktid = "%s:%s" % (struct_id, aktkode)
         new_rooms["ROOM/Aktivitet:%s:%s" % (kurs_id, aktkode)] = {
-            'title': "%s - %s" % (emnekode, aktnavn),
+            'title': "%s - %s" % (emnekode.upper(), aktnavn),
              'parent': enhet_node,
              'CFid': "ROOM/Aktivitet:%s" % aktid}
         new_acl.setdefault("ROOM/Aktivitet:%s" % aktid, {})[aktans] = {
@@ -602,7 +602,9 @@ def process_kurs2enhet():
             enhet_node = "STRUCTURE/Enhet:%s" % struct_id
             undervisning_node = "STRUCTURE/Studentkorridor:%s" % struct_id
 
-            tittel = "%s - %s, %s %s" % (emnekode, fronter.kurs2navn[kurs_id], termk, aar)
+            tittel = "%s - %s, %s %s" % (emnekode.upper(),
+                                         fronter.kurs2navn[kurs_id],
+                                         termk.upper(), aar)
             multi_enhet = []
             multi_id = ":".join((Instnr, emnekode, termk, aar))
             if len(fronter.emne_termnr[multi_id]) > 1:
@@ -619,11 +621,11 @@ def process_kurs2enhet():
             # Alle eksporterte kurs skal i alle fall ha ett fellesrom og
             # ett lærerrom.
             new_rooms["ROOM/Felles:%s" % kurs_id] = {
-                'title': "%s - Fellesrom" % emnekode,
+                'title': "%s - Fellesrom" % emnekode.upper(),
                 'parent': enhet_node,
                 'CFid': "ROOM/Felles:%s" % struct_id}
             new_rooms["ROOM/Larer:%s" % kurs_id] = {
-                'title': "%s - Lærerrom" % emnekode,
+                'title': "%s - Lærerrom" % emnekode.upper(),
                 'parent': enhet_node,
                 'CFid': "ROOM/Larer:%s" % struct_id}
 
@@ -675,9 +677,11 @@ def process_kurs2enhet():
                 struct_id = enhet_id.upper()
                 enhet_node = "STRUCTURE/Enhet:%s" % struct_id
                 undervisning_node = "STRUCTURE/Studentkorridor:%s" % struct_id
-                tittel = "%s - %s, %s" % (kurskode, fronter.kurs2navn[kurs_id], tidskode)
+                tittel = "%s - %s, %s" % (kurskode.upper(),
+                                          fronter.kurs2navn[kurs_id],
+                                          tidskode.upper())
                 register_group(tittel, enhet_node, sko_node, 1)
-                register_group("%s  - Undervisningsrom" % kurskode,
+                register_group("%s  - Undervisningsrom" % kurskode.upper(),
                                undervisning_node, enhet_node, 1)
                 enhans = "uio.no:fs:%s:enhetsansvar" % enhet_id.lower()
                 enhstud = "uio.no:fs:%s:student" % enhet_id.lower()
@@ -695,20 +699,20 @@ def process_kurs2enhet():
                 # Alle eksporterte emner skal i alle fall ha ett
                 # fellesrom og ett lærerrom.
                 new_rooms["ROOM/Felles:%s" % kurs_id] = {
-                    'title': "%s - Fellesrom" % kurskode,
+                    'title': "%s - Fellesrom" % kurskode.upper(),
                     'parent': enhet_node,
-                    'CFid': "ROOM/Felles:%s" % enhet_id}
-                new_acl.setdefault("ROOM/Felles:%s" % enhet_id,
+                    'CFid': "ROOM/Felles:%s" % struct_id}
+                new_acl.setdefault("ROOM/Felles:%s" % struct_id,
                                    {})[enhans] = {
                     'role': fronter.ROLE_CHANGE}
-                new_acl.setdefault("ROOM/Felles:%s" % enhet_id,
+                new_acl.setdefault("ROOM/Felles:%s" % struct_id,
                                    {})[enhstud] = {
                     'role': fronter.ROLE_WRITE}
                 new_rooms["ROOM/Larer:%s" % kurs_id] = {
-                    'title': "%s - Lærerrom" % kurskode,
+                    'title': "%s - Lærerrom" % kurskode.upper(),
                     'parent': enhet_node,
-                    'CFid': "ROOM/Larer:%s" % enhet_id}
-                new_acl.setdefault("ROOM/Larer:%s" % enhet_id,
+                    'CFid': "ROOM/Larer:%s" % struct_id}
+                new_acl.setdefault("ROOM/Larer:%s" % struct_id,
                                    {})[enhans] = {
                     'role': fronter.ROLE_CHANGE}
                 groups = {'enhansv': [enhans],
@@ -716,7 +720,7 @@ def process_kurs2enhet():
                           'aktansv': [],
                           'aktstud': [],
                           }
-                process_single_enhet_id(kurs_id, enhet_id, enhet_id,
+                process_single_enhet_id(kurs_id, enhet_id, struct_id,
                                         kurskode, groups,
                                         enhet_node, undervisning_node)
         else:
