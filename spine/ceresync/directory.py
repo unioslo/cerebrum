@@ -329,13 +329,15 @@ class Person:
         s['cn'] = obj.full_name
         s['sn'] = obj.full_name.split()[len(obj.full_name)-1] # presume last name, is surname
         s['uid'] = obj.name
-        s['userPassword'] = '{MD5}' + 'secrethashhere' 
+        # FIXME
+        #s['userPassword'] = '{MD5}' + 'secrethashhere' 
         #obj.password # until further notice, presume md5-hash
         s['eduPersonPrincipalName'] = obj.name + "@" + config.sync.get('ldap','eduperson_realm')
         s['norEduPersonBirthDate'] = str(obj.birth_date) # Norwegian "Birth date" 
+        #FIXME
         #s['norEduPersonNIN'] = str(obj.birth_date) # Norwegian "Birth number" / SSN
-        s['mail'] = 'nobody@ntnu.no' # obj.email_address 
-        s['description'] = obj.description
+        s['mail'] = s['eduPersonPrincipalName'] # FIXME 
+        #s['description'] = obj.description
         return s
 
 class Alias:
@@ -360,9 +362,11 @@ class OU:
         self.obj_class = ['top','organizationalUnit']
 
     def get_dn(self,obj):
+        #FIXME
         pass
 
     def get_attributes(self,obj):
+        #FIXME: add support for storing unit-id,parent-id and rootnode-id
         s = {}
         s['objectClass'] = ('top','organizationalUnit')
         s['ou'] = obj.name
