@@ -222,7 +222,8 @@ def recalc_quota_callback(person_info):
         profile = None
     
     # Har fritak fra kvote
-    if profile and profile.get_printer_betaling_fritak():
+    if (betaling_fritak.has_key(person_id) or 
+        profile and profile.get_printer_betaling_fritak()):
         set_quota(person_id, has_quota=False)
         logger.set_indent(0)
         return
