@@ -725,12 +725,13 @@ class BofhdExtension(object):
         lp, dom = listname.split('@')
         ed = self._get_email_domain(dom)
         self.ba.can_email_list_create(operator.get_entity_id(), ed)
-        self._check_mailman_official_name(listname)
-        if mlist is None:
-            raise CerebrumError, "%s is not a Mailman list" % listname
-        if listname <> mlist:
-            raise CerebrumError, ("%s is not the official name of the list %s" %
-                                  (listname, mlist))
+        ea = Email.EmailAddress(self.db)
+        try:
+            ea.find_by_local_part_and_domain(lp, ed.email_domain_id)
+        except Errors.NotFoundError:
+            pass
+        else:
+            raise CerebrumError, "Address %s already exists" % listname
         try:
             self._get_account(lp)
         except CerebrumError:
