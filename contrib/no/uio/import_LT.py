@@ -347,7 +347,7 @@ def process_person(person):
         logger.info2("**** UPDATE ****")
 
 def usage(exitcode=0):
-    print """Usage: import_LT.py -p personfile [-v] [-g] [-d] [-f fnr.xml]"""
+    print """Usage: import_LT.py -p personfile [-v] [-g] [-d]"""
     sys.exit(exitcode)
 # end usage
 
@@ -371,105 +371,7 @@ def clean_affi_s_list():
 	    #new_person.find(int(ent_id))
 	    new_person.entity_id = int(ent_id)
 	    new_person.delete_affiliation(ou, affi, const.system_lt)
-
-
-class LTFnrParser(xml.sax.ContentHandler):
-    """
-    This class parses the file containing no_ssn (fnr) changes data from LT.
-
-    Each entry is of the form
-
-    <fnr fnr_ny=<11 digit value> fnr_gammel=<11 digit value>
-         dato_endret=<timestamp>>
-    </fnr>
-    """
-
-    def __init__(self, filename, call_back_function):
-        self.call_back_function = call_back_function
-        self.current = None
-        xml.sax.parse(filename, self)
-    # end __init__
-
-    
-
-    def startElement(self, name, attrs):
-        if name == "data":
-            pass
-        elif name == "fnr":
-            self.current = dict([ (key, value.encode("iso8859-1"))
-                                  for (key, value) in attrs.items() ])
-        else:
-            logger.warn("WARNING: unknown element: %s" % name)
-        # fi
-    # end startElement
-
-    
-
-    def endElement(self, name):
-        if name == "fnr":
-            self.call_back_function(self.current)
-        # fi
-    # end endElement
-# end LTFnrParser
-
-
-
-def process_person_fnr(fnr_info):
-    """
-    Update a person's fnr.
-
-    There are three possible scenarios:
-
-    - old fnr ('fnr_gammel') does not exist in Cerebrum => no action
-      necessary
-
-    - old fnr exists in Cerebrum, but new fnr ('fnr_ny') does not => update
-      fnr for this person. This part can be done automatically.
-
-    - Both fnrs exist in Cerebrum (and they point to persons with different
-      person_ids). In this case the two persons should be 'joined'. This
-      part should be done by humans rather than this script.
-
-    A message is generated for each case.
-    """
-
-    old = fnr_info["fnr_gammel"]
-    new = fnr_info["fnr_ny"]
-
-    # Sanity check
-    if old == new:
-        logger.info("%s == %s from LT. No changes in Cerebrum", old, new)
-        return
-    # fi
-
-    try:
-        # How expensive is this call?
-        person_old = Factory.get("Person")(db)
-        person_old.find_by_external_id(const.externalid_fodselsnr, old)
-    except Errors.NotFoundError:
-        logger.info("%s does not exist in Cerebrum. No changes in Cerebrum",
-                    old)
-        return
-    # yrt
-
-    person_new = None
-    try:
-        person_new = Factory.get("Person")(db)
-        person_new.find_by_external_id(const.externalid_fodselsnr, new)
-    except Errors.NotFoundError:
-        logger.info("%s (old) exists in Cerebrum, but %s (new) does not. "
-                    "Cerebrum has been updated", old, new)
-        person_old.affect_external_id(const.system_lt, const.externalid_fodselsnr)
-        person_old.populate_external_id(const.system_lt, const.externalid_fodselsnr,
-                                        new)
-        person_old.write_db()
-        return
-    # yrt
-
-    # *Both* exist in Cerebrum. Manual intervention required
-    logger.info("Both %s (old) and %s (new) exist in Cerebrum. "
-                "Manual intervention required", old, new)
-# end process_person_fnr
+# end clean_affi_s_list
 
 
 
@@ -482,10 +384,9 @@ def main():
     
     try:
         opts, args = getopt.getopt(sys.argv[1:],
-                                   'p:gdf:r',
+                                   'p:gdr',
                                    ['person-file=',
                                     'group', 'include_delete',
-                                    'fnr-source=',
                                     'dryrun'])
     except getopt.GetoptError:
         usage(1)
@@ -495,7 +396,6 @@ def main():
     verbose = 0
     personfile = None
     include_del = False
-    fnr_source = None
     dryrun = False
     
     for opt, val in opts:
@@ -505,15 +405,10 @@ def main():
             gen_groups = 1
 	elif opt in ('-d', '--include_delete'):
 	    include_del = True
-        elif opt in ('-f', '--fnr-source'):
-            fnr_source = val
         elif opt in ('-r', '--dryrun'):
             dryrun = True
         # fi
     # od
-
-    logger.debug("opts == %s", opts)
-    logger.debug("fnr_source == %s", fnr_source)
 
     db = Factory.get('Database')()
     db.cl_init(change_program='import_LT')
@@ -542,12 +437,6 @@ def main():
 
     if include_del:
 	clean_affi_s_list()
-    # fi
-
-    if fnr_source:
-        logger.debug("Starting FNR updates")
-        LTFnrParser(fnr_source, process_person_fnr)
-        logger.debug("Done with FNR updates")
     # fi
 
     if dryrun:

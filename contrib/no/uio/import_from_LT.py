@@ -34,6 +34,7 @@ from Cerebrum import Database,Errors
 from Cerebrum.Utils import XMLHelper
 from Cerebrum.Utils import AtomicFileWriter
 from Cerebrum.extlib import xmlprinter
+from Cerebrum.Utils import Factory
 
 
 def get_sted_info(outfile):
@@ -328,25 +329,26 @@ def get_fnr_update_info(filename):
                                    input_encoding = 'latin1')
     writer.startDocument(encoding = "iso8859-1")
 
-    writer.startElement("data")
+    db = Factory.get("Database")()
+    const = Factory.get("Constants")(db)
+    writer.startElement("data", {"source_system" : str(const.system_lt)})
     
     for row in LT.GetFnrEndringer():
         # Make the format resemble the corresponding FS output as close as
-        # possible
-        attributes = { "fnr_ny" :
-                         "%02d%02d%02d%05d" % (row["fodtdag_ble_til"],
-                                               row["fodtmnd_ble_til"],
-                                               row["fodtar_ble_til"],
-                                               row["personnr_ble_til"]),
-                       "fnr_gammel" :
-                         "%02d%02d%02d%05d" % (row["fodtdag_kom_fra"],
-                                               row["fodtmnd_kom_fra"],
-                                               row["fodtar_kom_fra"],
-                                               row["personnr_kom_fra"]),
-                       "dato_foretatt" : str(row["dato_endret"]),
+        # possible.
+        attributes = { "type" : str(const.externalid_fodselsnr), 
+                       "new"  : "%02d%02d%02d%05d" % (row["fodtdag_ble_til"],
+                                                      row["fodtmnd_ble_til"],
+                                                      row["fodtar_ble_til"],
+                                                      row["personnr_ble_til"]),
+                       "old"  : "%02d%02d%02d%05d" % (row["fodtdag_kom_fra"],
+                                                      row["fodtmnd_kom_fra"],
+                                                      row["fodtar_kom_fra"],
+                                                      row["personnr_kom_fra"]),
+                       "date" : str(row["dato_endret"]),
                      }
         
-        writer.emptyElement("fnr", attributes)
+        writer.emptyElement("external_id", attributes)
     # od
 
     writer.endElement("data")

@@ -31,6 +31,13 @@ from Cerebrum import Database
 from Cerebrum import Errors
 from Cerebrum.Utils import XMLHelper
 from Cerebrum.modules.no.uio.access_FS import FS
+from Cerebrum.extlib import xmlprinter
+from Cerebrum.Utils import AtomicFileWriter
+from Cerebrum.Utils import Factory
+
+
+
+
 
 default_person_file = "/cerebrum/dumps/FS/persons.xml"
 default_emne_file = "/cerebrum/dumps/FS/emner.xml"
@@ -203,14 +210,44 @@ def write_emne_info(outfile):
         f.write(xml.xmlify_dbrow(t, xml.conv_colnames(cols), 'emne') + "\n")
     f.write("</data>\n")
 
+
+
 def write_fnrupdate_info(outfile):
     """Lager fil med informasjon om alle fødselsnummerendringer"""
-    f=open(outfile, 'w')
-    f.write(xml.xml_hdr + "<data>\n")
-    cols, dta = fs.GetFnrEndringer()
-    for t in dta:
-        f.write(xml.xmlify_dbrow(t, xml.conv_colnames(cols), 'fnr') + "\n")
-    f.write("</data>\n")
+    stream = AtomicFileWriter(outfile, 'w')
+    writer = xmlprinter.xmlprinter(stream,
+                                   indent_level = 2,
+                                   # Human-readable output
+                                   data_mode = True,
+                                   input_encoding = "latin1")
+    writer.startDocument(encoding = "iso8859-1")
+
+    db = Factory.get("Database")()
+    const = Factory.get("Constants")(db)
+
+    writer.startElement("data", {"source_system" : str(const.system_fs)})
+
+    junk, data = fs.GetFnrEndringer()
+    for row in data:
+        # Make the format resemble the corresponding FS output as close as
+        # possible.
+        attributes = { "type" : str(const.externalid_fodselsnr), 
+                       "new"  : "%06d%05d" % (row["fodselsdato_naverende"],
+                                              row["personnr_naverende"]),
+                       "old"  : "%06d%05d" % (row["fodselsdato_tidligere"],
+                                              row["personnr_tidligere"]),
+                       "date" : str(row["dato_foretatt"]),
+                     }
+        
+        writer.emptyElement("external_id", attributes)
+    # od
+
+    writer.endElement("data")
+    writer.endDocument()
+    stream.close()
+# end get_fnr_update_info
+
+
 
 def write_betalt_papir_info(outfile):
     """Lager fil med informasjon om alle som har betalt papirpenger"""
