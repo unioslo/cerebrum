@@ -7,23 +7,24 @@ PATH=/bin:/usr/bin:/local/bin:/etc:/usr/ucb:/usr/etc:/usr/bsd
 export PATH
 umask 066			# drwx--x--x
 
-uname=$1
-homedir=$2
-uid=$3
-gid=$4
-tpldir=$5
-scriptdir=$6
-fullname=$7
+uname="$1"
+homedir="$2"
+uid="$3"
+gid="$4"
+tpldir="$5"
+scriptdir="$6"
+fullname="$7"
 
-if [ -f $scriptdir/mkhomedir.pre ]; then
-   . $scriptdir/mkhomedir.pre
+if [ -f "$scriptdir/mkhomedir.pre" ]; then
+   . "$scriptdir/mkhomedir.pre"
 fi
 
-mkdir $homedir
-cp -rp $tpldir $homedir
-chown -R $uid $homedir
-chgrp -R $gid $homedir
+mkdir "$homedir"
+# The "/." suffix is needed to cope with $tpldir being a symlink.
+cp -rp "$tpldir/." "$homedir"
+chown -R "$uid" "$homedir"
+chgrp -R "$gid" "$homedir"
 
-if [ -f $scriptdir/mkhomedir.post ]; then
-   . $scriptdir/mkhomedir.post
+if [ -f "$scriptdir/mkhomedir.post" ]; then
+   . "$scriptdir/mkhomedir.post"
 fi
