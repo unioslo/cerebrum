@@ -185,7 +185,8 @@ class EntityName(object):
         WHERE value_domain=:domain AND entity_name=:name""",
                                  {'domain': int(domain),
                                   'name': name})
-        Entity.find(self, entity_id)
+        # Populate all of self's class (and base class) attributes.
+        self.find(self, entity_id)
 
 class EntityContactInfo(object):
     "Mixin class, usable alongside Entity for entities having contact info."
