@@ -34,17 +34,17 @@ class Person_createTestCase(OU_createTestCase):
         pd = self.person_dta
 
         person.populate(pd['birth'], pd['gender'])
-        person.affect_names(self.co.system_fs, self.co.name_full)
+        person.affect_names(self.co.system_manual, self.co.name_full)
         person.populate_name(self.co.name_full, pd['full_name'])
 
-        # person.populate_external_id(co.system_fs, co.externalid_fodselsnr,
+        # person.populate_external_id(co.system_manual, co.externalid_fodselsnr,
         #                             fnr)
 
-        person.affect_addresses(self.co.system_fs, self.co.address_post)
+        person.affect_addresses(self.co.system_manual, self.co.address_post)
         person.populate_address(self.co.address_post, addr=pd['adr'],
                                 zip=pd['zip'],
                                 city=pd['city'])
-        person.affect_affiliations(self.co.system_fs,
+        person.affect_affiliations(self.co.system_manual,
                                    self.co.affiliation_student)
         person.populate_affiliation(self.ou_id, self.co.affiliation_student,
                                     self.co.affiliation_status_student_valid)

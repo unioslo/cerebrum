@@ -26,7 +26,7 @@ class OU_createTestCase(unittest.TestCase, object): # 'object' because
                     short_name=self.ou_dta['short_name'],
                     display_name=self.ou_dta['display_name'],
                     sort_name=self.ou_dta['sort_name'])
-        ou.affect_addresses(self.co.system_lt, self.co.address_street)
+        ou.affect_addresses(self.co.system_manual, self.co.address_street)
         ou.populate_address(self.co.address_street, addr=self.ou_dta['addr'],
                             zip=self.ou_dta['zip'],
                             city=self.ou_dta['city'])
