@@ -1277,6 +1277,18 @@ class LTConstants(Constants.Constants):
         "EKST. KONS"
     )
 
+    lt_gjestetypekode_pcvakt = GjestetypeKode(
+        "PCVAKT",
+        "Pc-stue vakter ved UiO",
+        "PCVAKT"
+    )
+
+    lt_gjestetypekode_pcvakt = GjestetypeKode(
+        "GRP-LÆRER",
+        "Gruppelærere ved UiO",
+        "GRP-LÆRER"
+    )
+
     lt_gjestetypekode_ikke_angit = GjestetypeKode(
         "IKKE ANGIT",
         "<ikke angitt>",
