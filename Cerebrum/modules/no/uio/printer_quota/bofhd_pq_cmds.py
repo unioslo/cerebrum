@@ -282,6 +282,10 @@ The currently defined id-types are:
     def pquota_undo(self, operator, person_id, job_id, num_pages, why):
         person_id = self.bu.find_person(person_id)
         self.ba.can_pquota_undo(operator, person_id)
+        try:
+            job_id = int(job_id)
+        except ValueError:
+            raise CerebrumError, "job_id should be a number"
         pu = PPQUtil.PPQUtil(self.db)
         # Throws subclass for CerebrumError, which bofhd.py will handle
         pu.undo_transaction(person_id, job_id, num_pages,
