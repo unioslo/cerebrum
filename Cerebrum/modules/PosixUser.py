@@ -221,7 +221,7 @@ class PosixUser(Account.Account):
         try:
             ret = p.get_name(self.const.system_cached,
                              self.const.name_full)
-            return self._conv_name(ret)
+            return self._conv_name(ret, as_gecos=1)
         except Errors.NotFoundError:
             pass
         return "Unknown"  # Raise error?
@@ -373,9 +373,11 @@ class PosixUser(Account.Account):
                 pass  # Wasn't good enough
         return r
 
-    def _conv_name(self, s, alt=0):
+    def _conv_name(self, s, alt=0, as_gecos=0):
         """Convert string so that it only contains characters that are
-        legal in a posix username"""
+        legal in a posix username.  If as_gecos=1, it may also be
+        used for the gecos field"""
+
         xlate = {'Æ' : 'ae', 'æ' : 'ae', 'Å' : 'aa', 'å' : 'aa'}
         if alt:
             s = string.join(map(lambda x:xlate.get(x, x), s), '')
@@ -392,7 +394,11 @@ class PosixUser(Account.Account):
         xlate['Þ'] = 'Th'
         xlate['þ'] = 'th'
         xlate['ß'] = 'ss'
-        s = string.join(map(lambda x:xlate.get(x, x), s), '').lower()
+        s = string.join(map(lambda x:xlate.get(x, x), s), '')
+        if as_gecos:
+            s = re.sub(r'[^a-zA-Z0-9 ]', '', s)
+            return s
+        s = s.lower()
         s = re.sub(r'[^a-z0-9 ]', '', s)
         return s
 
