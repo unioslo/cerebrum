@@ -130,7 +130,7 @@ class BofhdRequests(object):
             t = r['run_at']
             if t < self.now:
                 t = self.now
-            when = self._db.TimestampFromTicks(t + minutes*60)
+            when = self._db.TimestampFromTicks(t) + minutes/24.0/60.0
             self._db.execute("""
 		UPDATE [:table schema=cerebrum name=bofhd_request]
 		SET run_at=:when WHERE request_id=:id""",
