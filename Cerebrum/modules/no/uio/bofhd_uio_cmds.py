@@ -926,10 +926,13 @@ class BofhdExtension(object):
         gender = self.const.gender_unknown
         if id_type is not None and id:
             if id_type == self.const.externalid_fodselsnr:
-                if fodselsnr.er_mann(id):
-                    gender = self.const.gender_male
-                else:
-                    gender = self.const.gender_female
+                try:
+                    if fodselsnr.er_mann(id):
+                        gender = self.const.gender_male
+                    else:
+                        gender = self.const.gender_female
+                except fodselsnr.InvalidFnrError, msg:
+                    raise CerebrumError("Invalid birth-no")
                 person.affect_external_id(self.const.system_manual,
                                           self.const.externalid_fodselsnr)
                 person.populate_external_id(self.const.system_manual,
@@ -2008,6 +2011,8 @@ class BofhdExtension(object):
         if ou_id is not None:
             ou.find(ou_id)
         else:
+            if len(stedkode) != 6 or not stedkode.isdigit():
+                raise CerebrumError("Expected 6 digits in stedkode")
             ou.find_stedkode(stedkode[0:2], stedkode[2:4], stedkode[4:6],
                              institusjon=cereconf.DEFAULT_INSTITUSJONSNR)
         return ou
@@ -2017,7 +2022,7 @@ class BofhdExtension(object):
             return self.const.group_memberop_union
         if operator == 'union':
             return self.const.group_memberop_union
-        raise NotImplementedError, "unknown group opcode: '%s'" % operator
+        raise CerebrumError("unknown group opcode: '%s'" % operator)
 
     def _get_entity(self, idtype, id):
         if idtype == 'account':
@@ -2036,7 +2041,7 @@ class BofhdExtension(object):
         person.clear()
         if arg.find("-") != -1:
             # finn personer på fødselsdato
-            ret = person.find_persons_by_bdate(arg)
+            ret = person.find_persons_by_bdate(self._parse_date(arg))
         elif arg.find(":") != -1:
             idtype, id = arg.split(":")
             if idtype == 'exp':
@@ -2079,6 +2084,7 @@ class BofhdExtension(object):
         if id.isdigit() and len(id) >= 10:
             return self.const.externalid_fodselsnr, id
         if id.find(":") == -1:
+            self._get_account(id)  # We assume this is an account
             return "account_name", id
 
         id_type, id = id.split(":", 1)
