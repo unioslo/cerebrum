@@ -48,6 +48,9 @@ fullcheck: bootstrap check testrun
 clean:
 	$(RM) -r build
 
+theantthingy:
+	cd java/jbofh && ant dist
+
 distclean: clean
 	-$(RM) config.log config.status Makefile
 
