@@ -21,11 +21,6 @@
 import copy
 
 from Builder import Method, Attribute
-from DumpClass import DumpClass, Struct
-from SearchClass import SearchClass
-
-import Registry
-registry = Registry.get_registry()
 
 def create_mark_method(name, method_name):
     """
@@ -34,19 +29,24 @@ def create_mark_method(name, method_name):
     """
 
     def dump(self):
+        holder = self.get_writelock_holder()
         for struct, obj in zip(self.structs, self._objects):
+            obj.lock_for_reading(holder)
             value = getattr(obj, method_name)()
             struct[name] = value
     return dump
 
 class Dumpable(object):
     def build_dumper_class(cls):
+        from DumpClass import DumpClass, Struct
+        from Searchable import Searchable
+
         dumper_class_name = '%sDumper' % cls.__name__
         if not hasattr(cls, 'dumper_class') or dumper_class_name != cls.dumper_class.__name__:
         
             exec 'class %s(DumpClass):\n\tpass\ncls.dumper_class = %s\n' % ( 
                 dumper_class_name, dumper_class_name)
-
+                
         dumper_class = cls.dumper_class
             
         dumper_class.cls = cls
@@ -64,17 +64,24 @@ class Dumpable(object):
             mark = copy.copy(method)
             mark.name = 'mark_' + mark.name
             mark.data_type = None
+            mark.write = True
             dumper_class.register_method(mark, get, overwrite=True)
 
         def dump(self):
             return self.structs
-        dumper_class.register_method(Method('dump', [Struct(cls)]), dump, overwrite=True)
+        m = Method('dump', [Struct(cls)], write=True)
+        dumper_class.register_method(m, dump, overwrite=True)
+
+        if issubclass(cls, Searchable):
+            get_dump = create_get_dumper(cls.dumper_class)
+            m = Method('get_dumper', cls.dumper_class, write=True)
+            cls.search_class.register_method(m, get_dump, overwrite=True)
 
     build_dumper_class = classmethod(build_dumper_class)
 
-def get_dumper(self):
-    return self._cls.dumper_class(self.search())
-
-SearchClass.register_method(Method('get_dumper', DumpClass), get_dumper)
+def create_get_dumper(dumper_class):
+    def get_dumper(self):
+        return dumper_class(self.search())
+    return get_dumper
 
 # arch-tag: 94dead40-0291-4725-a4dd-a37303eec825

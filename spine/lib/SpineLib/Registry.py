@@ -18,7 +18,6 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-from Searchable import Searchable
 from Builder import Builder
 
 class Registry(object):
@@ -27,6 +26,9 @@ class Registry(object):
         self.classes = []
 
     def register_class(self, cls):
+        from Searchable import Searchable
+        from Dumpable import Dumpable
+        
         name = cls.__name__
 
         assert not name in self.map
@@ -38,6 +40,7 @@ class Registry(object):
             cls.build_search_class()
             self.register_class(cls.search_class)
 
+        if issubclass(cls, Dumpable) and issubclass(cls, Builder):
             cls.build_dumper_class()
             self.register_class(cls.dumper_class)
 

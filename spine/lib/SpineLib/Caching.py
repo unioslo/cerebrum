@@ -76,8 +76,10 @@ class Caching(object):
         return self.__key[1]
 
     def invalidate_object(cls, obj):
-        """ Remove the node from the cache. """
-        assert 0 # uh. this is not the right way to do this.
+        """Remove the node from the cache.
+        
+        Will not prevent this object from futher use.
+        """
         del cls.cache[obj.__key]
 
     invalidate_object = classmethod(invalidate_object)
