@@ -285,4 +285,35 @@ verify_printableString = re.compile(r"[-a-zA-Z0-9'()+,.=/:? ]+\Z").match
 # mail, dc, gecos, homeDirectory, loginShell, memberUid, memberNisNetgroup.
 verify_IA5String = re.compile("[\0-\x7e]*\\Z").match
 
+class ldif_parser(object):
+    """
+    Use the python-ldap's ldif.LDIFParser(). Redirect handle routine
+    to local routine. Input is file and following parameter are optionals: 
+    ignored_attr_types(=None), max_entries(=0), process_url_schemes(=None), 
+    line_sep(='\n').
+    """
+
+    def __init__(self,inputfile,
+		ignored_attr_types=None,
+		max_entries=0,
+		process_url_schemes=None,
+		line_sep='\n'):
+	try:
+            import ldif
+	except ImportError:
+	    raise _Errors.PoliteException("Missing ldif-modul from python-ldap")
+        self._ldif = ldif.LDIFParser(inputfile,ignored_attr_types,max_entries,
+					process_url_schemes,line_sep)
+        self._ldif.handle = self.handle
+	self.res_dict = {}
+
+    def handle(self,dn,entry):
+	""" Load into a dict"""
+	self.res_dict[dn] = entry
+
+    def parse(self):
+	self._ldif.parse()
+	return(self.res_dict)
+
+
 # arch-tag: 9544a041-07cb-4494-92ea-c8dc82c9808a
