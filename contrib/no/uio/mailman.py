@@ -24,9 +24,10 @@ import sys
 import re
 
 def validate_address(addr):
-    if re.match(r'[a-z0-9][a-z0-9.-]*[a-z0-9]@[a-z0-9-]+(\.[a-z0-9]+)+$', addr):
+    if re.match(r'[a-z0-9][a-z0-9._-]*[a-z0-9]@[a-z0-9-]+(\.[a-z0-9]+)+$',
+                addr):
         return True
-    raise ValueError
+    raise ValueError("illegal address: '%s'" % addr)
 
 mode, listname, admin = sys.argv[1:]
 
@@ -41,7 +42,7 @@ elif mode == 'add_admin':
 elif mode == 'rmlist':
     cmd = "/local/bin/python bin/rmlist -a %s" % listname
 else:
-    raise ValueError
+    raise ValueError("unknown mode: '%s'" % mode)
 
 args = ['/local/bin/ssh', 'lister', 'su', '-', 'mailman', '-c',
         "'" + cmd + ">/dev/null'"]
