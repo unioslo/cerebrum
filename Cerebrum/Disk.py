@@ -169,6 +169,58 @@ class Disk(Entity):
             self._db.log_change(self.entity_id, self.const.disk_del, None)
         self.__super.delete()
 
+    def search(self, spread=None, host_id=None, path=None, description=None):
+        """Retrives a list of Disks filtered by the given criterias.
+        
+        Returns a list of tuples with the info (disk_id, path, description).
+        If no criteria is given, all persons are returned."""
+
+        def prepare_string(value):
+            value = value.replace("*", "%")
+            value = value.replace("?", "_")
+            value = value.lower()
+            return value
+
+        tables = []
+        where = []
+        tables.append("[:table schema=cerebrum name=disk_info] di")
+
+        if spread:
+            tables.append("[:table schema=cerebrum name=entity_spread] es")
+            where.append("di.disk_id=es.entity_id")
+            where.append("es.entity_type=:entity_type")
+            try:
+                spread = int(spread)
+            except (TypeError, ValueError):
+                spread = prepare_string(spread)
+                tables.append("[:table schema=cerebrum name=spread_code] sc")
+                where.append("es.spread=sc.code")
+                where.append("LOWER(sc.code_str) LIKE :spread")
+            else:
+                where.append("es.spread=:spread")
+
+        if host_id:
+            where.append("di.host_id=:host_id")
+            
+        if path:
+            path = prepare_string(path)
+            where.append("LOWER(di.path) LIKE :path")
+
+        if description:
+            description = prepare_string(description)
+            where.append("LOWER(di.description) LIKE :description")
+        
+        where_str = ""
+        if where:
+            where_str = "WHERE " + " AND ".join(where)
+
+        return self.query("""
+        SELECT DISTINCT di.disk_id AS disk_id, di.path AS path,
+                di.description AS description
+        FROM %s %s""" % (','.join(tables), where_str),
+            {'spread': spread, 'entity_type': int(self.const.entity_disk),
+             'host_id': host_id, 'path': path, 'description': description})
+        
 class Host(Entity):
     __read_attr__ = ('__in_db',)
     __write_attr__ = ('name', 'description')
@@ -282,3 +334,38 @@ class Host(Entity):
             self._db.log_change(self.entity_id, self.const.host_del, None,
                                 change_params={'old_name': self.name})
         self.__super.delete()
+
+    def search(self, name=None, description=None):
+        """Retrieves a list of Hosts filtered by the given criterias.
+
+        Returns a list of tuples with the info (host_id, name, description).
+        If no criteria is given, all hosts are returned."""
+    
+        def prepare_string(value):
+            value = value.replace("*", "%")
+            value = value.replace("?", "_")
+            value = value.lower()
+            return value
+
+        tables = []
+        where = []
+        tables.append("[:table schema=cerebrum name=host_info] hi")
+
+        if name:
+            name = prepare_string(name)
+            where.append("LOWER(hi.name) LIKE :name")
+
+        if description:
+            description = prepare_string(description)
+            where.append("LOWER(hi.description) LIKE :description")
+
+        where_str = ""
+        if where:
+            where_str = "WHERE " + " AND ".join(where)
+
+        return self.query("""
+        SELECT DISTINCT hi.host_id AS host_id, hi.name AS name,
+                hi.description AS description
+        FROM %s %s""" % (','.join(tables), where_str),
+            {'name': name, 'description': description })
+

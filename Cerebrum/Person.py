@@ -1062,3 +1062,59 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
                            'em_type' : int(self.const.email_target_account),
                            'et_type': int(self.const.entity_account)})
 
+    def search(self, spread=None, name=None, description=None,
+               exclude_deceased=False):
+        """Retrieves a list over Persons filtered by the given criterias.
+        
+        Returns a list of tuples with the info (person_id, name, description).
+        If no criteria is given, all persons are returned."""
+
+        def prepare_string(value):
+            value = value.replace("*", "%")
+            value = value.replace("?", "_")
+            value = value.lower()
+            return value
+
+        tables = []
+        where = []
+        tables.append("[:table schema=cerebrum name=person_info] pi")
+        tables.append("[:table schema=cerebrum name=person_name] pn")
+        where.append("pi.person_id=pn.person_id")
+
+        if spread:
+            tables.append("[:table schema=cerebrum name=entity_spread] es")
+            where.append("pi.person_id=es.entity_id")
+            where.append("es.entity_type=:entity_type")
+            try:
+                spread = int(spread)
+            except (TypeError, ValueError):
+                spread = prepare_string(spread)
+                tables.append("[:table schema=cerebrum name=spread_code] sc")
+                where.append("es.spread=sc.code")
+                where.append("LOWER(sc.code_str) LIKE :spread")
+            else:
+                where.append("es.spread=:spread")
+
+        if exclude_deceased:
+            where.append("pi.deceased LIKE F")
+
+        if name:
+            name = prepare_string(name)
+            where.append("LOWER(pn.name) LIKE :name")
+
+        if description:
+            description = prepare_string(description)
+            where.append("LOWER(pi.description) LIKE :description")
+        
+        where_str = ""
+        if where:
+            where_str = "WHERE " + " AND ".join(where)
+
+        return self.query("""
+        SELECT DISTINCT pi.person_id AS person_id,
+                pn.name AS name, pi.description AS description
+        FROM %s %s""" % (','.join(tables), where_str),
+            {'spread': spread, 'entity_type': int(self.const.entity_person),
+             'name': name, 'description': description})
+
+

@@ -322,3 +322,66 @@ class OU(EntityContactInfo, EntityAddress, Entity, EntityQuarantine):
         SELECT ou_id
         FROM [:table schema=cerebrum name=ou_structure]
         WHERE parent_id ISNULL""")
+
+    def search(self, name=None, acronym=None, short_name=None
+               display_name=None, sort_name=None):
+        """Retrives a list of OUs filtered by the given criterias.
+        
+        Returns a list of tuples with the info (ou_id, name).
+        If no criteria is given, all OUs are returned."""
+
+        def prepare_string(value):
+            value = value.replace("*", "%")
+            value = value.replace("?", "_")
+            value = value.lower()
+            return value
+
+        tables = []
+        where = []
+        tables.append("[:table schema=cerebrum name=ou_info] oi")
+
+        if spread:
+            tables.append("[:table schema=cerebrum name=entity_spread] es")
+            where.append("oi.ou_id=es.entity_id")
+            where.append("es.entity_type=:entity_type")
+            try:
+                spread = int(spread)
+            except (TypeError, ValueError):
+                spread = prepare_string(spread)
+                tables.append("[:table schema=cerebrum name=spread_code] sc")
+                where.append("es.spread=sc.code")
+                where.append("LOWER(sc.code_str) LIKE :spread")
+            else:
+                where.append("es.spread=:spread")
+
+        if name:
+            name = prepare_string(name)
+            where.append("LOWER(oi.name) LIKE :name")
+
+        if acronym:
+            acronym = prepare_string(acronym)
+            where.append("LOWER(oi.acronym) LIKE :acronym")
+
+        if short_name:
+            short_name = prepare_string(short_name)
+            where.append("LOWER(oi.short_name) LIKE :short_name")
+
+        if display_name:
+            display_name = prepare_string(display_name)
+            where.append("LOWER(oi.display_name) LIKE :display_name")
+        
+        if sort_name:
+            sort_name = prepare_string(sort_name)
+            where.append("LOWE(oi.sort_name) LIKE :sort_name")
+
+        where_str = ""
+        if where:
+            where_str = "WHERE " + " AND ".join(where)
+
+        return self.query("""
+        SELECT DISTINCT oi.ou_id AS ou_id, oi.name AS name
+        FROM %s %s""", % (','.join(tables), where_str),
+            {'spread': spread, 'entity_type': int(self.const.entity_ou),
+             'name': name, 'acronym': acronym, 'short_name': short_name,
+             'display_name': display_name, 'sort_name': sort_name})
+

@@ -408,15 +408,23 @@ class Group(EntityQuarantine, EntityName, Entity):
         return self.search(filter_spread=spread)
 
     def search(self, filter_spread=None, filter_name=None, filter_desc=None,
-               exclude_expired=False):
+               spread=None, name=None, description=None, exclude_expired=False):
         """Retrieves a list of groups filtered by the given criterias.
-           (list of tuples (id, name, desc)).
+           (list of tuples (group_id, name, description)).
            If no criteria is given, all groups are returned.
            ``filter_name`` and ``filter_desc`` should be strings if
            given, wildcards * and ? are expanded for "any chars" and
            "one char".""" 
-            
-        def prep_string(value):
+
+        # If the new names arent use, use the old ones.
+        if not spread:
+            spread = filter_spread
+        if not name:
+            name = filter_name
+        if not description:
+            description = filter_desc
+
+        def prepare_string(value):
             value = value.replace("*", "%")
             value = value.replace("?", "_")
             value = value.lower()
@@ -429,46 +437,45 @@ class Group(EntityQuarantine, EntityName, Entity):
         where.append("en.entity_id=gi.group_id")
         where.append("en.value_domain=:vdomain")
         
-        if filter_spread is not None:
+        if spread:
             tables.append("[:table schema=cerebrum name=entity_spread] es")
             where.append("gi.group_id=es.entity_id")
-            where.append("es.entity_type=:etype")
+            where.append("es.entity_type=:entity_type")
             # Support both integers (id-s) and strings. Strings could be
             # with wildcards
             try: 
-                filter_spread = int(filter_spread)
+                spread = int(spread)
             except (TypeError, ValueError):
                 # match code_str
-                filter_spread = prep_string(filter_spread)
+                spread = prepare_string(spread)
                 tables.append("[:table schema=cerebrum name=spread_code] sc")
                 where.append("es.spread=sc.code")
-                where.append("LOWER(sc.code_str) LIKE :filterspread")
-            else:    
+                where.append("LOWER(sc.code_str) LIKE :spread")
+            else:
                 # Go for the simple int version
-                where.append("es.spread=:filterspread")
+                where.append("es.spread=:spread")
 
         if exclude_expired:
             where.append("(gi.expire_date IS NULL OR gi.expire_date > [:now])")
 
-        if filter_name is not None:
-            filter_name = prep_string(filter_name)
-            where.append("LOWER(en.entity_name) LIKE :filtername")
+        if name:
+            name = prepare_string(name)
+            where.append("LOWER(en.entity_name) LIKE :name")
 
-        if filter_desc is not None:
-            filter_desc = prep_string(filter_desc)
-            where.append("LOWER(gi.description) LIKE :filterdesc")
+        if description:
+            description = prepare_string(description)
+            where.append("LOWER(gi.description) LIKE :description")
             
         where_str = ""
         if where:
             where_str = "WHERE " + " AND ".join(where)
             
         return self.query("""
-        SELECT DISTINCT gi.group_id AS group_id, 
-               en.entity_name AS name,  
+        SELECT DISTINCT gi.group_id AS group_id, en.entity_name AS name,  
                gi.description AS description
         FROM %s %s""" % (', '.join(tables), where_str), 
-            {'filterspread': filter_spread, 'etype': int(self.const.entity_group),
-             'filtername': filter_name, 'filterdesc': filter_desc,
+            {'spread': spread, 'entity_type': int(self.const.entity_group),
+             'name': name, 'description': description,
              'vdomain': int(self.const.group_namespace)})
 
 

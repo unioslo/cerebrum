@@ -767,3 +767,62 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine, Entity):
         if not as_gecos:
             s = s.lower()
         return s
+
+    def search(self, spread=None, name=None, owner_id=None, owner_type=None,
+               exclude_expired=False):
+        """Retrieves a list of Accounts filtered by the given criterias.
+        
+        Returns a list of tuples with the info (account_id, name).
+        If no criteria is given, all accounts are returned."""
+
+        def prepare_string(value):
+            value = value.replace("*", "%")
+            value = value.replace("?", "_")
+            value = value.lower()
+            return value
+
+        tables = []
+        where = []
+        tables.append("[:table schema=cerebrum name=account_info] ai")
+        tables.append("[:table schema=cerebrum name=entity_name] en")
+        where.append("en.entity_id=ai.account_id")
+        where.append("en.value_domain=:vdomain")
+
+        if spread:
+            tables.append("[:table schema=cerebrum name=entity_spread] es")
+            where.append("ai.account_id=es.entity_id")
+            where.append("es.entity_type=:entity_type")
+            try:
+                spread = int(spread)
+            except (TypeError, ValueError):
+                spread = prepare_string(spread)
+                tables.append("[:table schema=cerebrum name=spread_code] sc")
+                where.append("es.spread=sc.code")
+                where.append("LOWER(sc.code_str) LIKE :spread")
+            else:
+                where.append("es.spread=:spread")
+
+        if exclude_expired:
+            where.append("(ai.expire_date IS NULL OR ai.expire_date > [:now])")
+
+        if name:
+            name = prepare_string(name)
+            where.append("LOWER(en.entity_name) LIKE :name")
+
+        if owner_id:
+            where.append("ai.owner_id=:owner_id")
+
+        if owner_type:
+            where.append("ai.owner_type=:owner_type")
+
+        where_str = ""
+        if where:
+            where_str = "WHERE " + " AND ".join(where)
+
+        return self.query("""
+        SELECT DISTINCT ai.account_id AS account_id, en.entity_name AS name
+        FROM %s %s""" % (','.join(tables), where_str),
+            {'spread': spread, 'entity_type': int(self.const.entity_account),
+             'name': name, 'owner_id': owner_id, 'owner_type': owner_type,
+             'vdomain': int(self.const.account_namespace)})
+
