@@ -46,9 +46,10 @@ from Cerebrum.modules import PosixUser
 from Cerebrum.modules.no import Stedkode
 from Cerebrum.Utils import Factory
 
-default_personfile = '/local2/home/runefro/usit/cerebrum/contrib/no/uio/users.xml'
-default_groupfile = '/local2/home/runefro/usit/cerebrum/contrib/no/uio/filegroups.xml'
+default_personfile = ''
+default_groupfile = ''
 db = Factory.get('Database')()
+db.cl_init(change_program='migrate_iux')
 personObj = Factory.get('Person')(db)
 co = Factory.get('Constants')(db)
 pp = pprint.PrettyPrinter(indent=4)
@@ -63,6 +64,7 @@ shell2shellconst = {
     'nologin.brk': co.posix_shell_nologin,
     'nologin.chpwd': co.posix_shell_nologin,
     'nologin.ftpuser': co.posix_shell_nologin,
+    'nologin.nystudent': co.posix_shell_nologin,
     'nologin.sh': co.posix_shell_nologin,
     'nologin.sluttet': co.posix_shell_nologin,
     'nologin.stengt': co.posix_shell_nologin,
@@ -143,7 +145,7 @@ class GroupData(object):
 
     def __init__(self, filename):
         # Ugly memory-wasting, inflexible way:
-        self.tp = FilegroupParser()
+        self.tp = GroupParser()
         xml.sax.parse(filename, self.tp)
 
     def __iter__(self):
@@ -156,9 +158,8 @@ class GroupData(object):
         except IndexError:
             raise StopIteration, "End of file"
 
-# TODO: Extend to also handle netgroups
-class FilegroupParser(xml.sax.ContentHandler):
-    """Parser for the filegroups.xml file.  Stores recognized data in an
+class GroupParser(xml.sax.ContentHandler):
+    """Parser for the groups.xml file.  Stores recognized data in an
     internal datastructure"""
 
     def __init__(self):
@@ -199,34 +200,76 @@ def import_groups(groupfile, fill=0):
     G : a group in the file did not exist (when -M is used)
     A : an account was added as member to a group
     n : the member being populated was missing"""
+    group_group = {}
+    group_exists = {}
+    group_has_member = {}
+    # Note: File and netgroups are merged
     for group in GroupData(groupfile):
         # pp.pprint(group)
         print ".",
         sys.stdout.flush()
-        if int(group['gid']) < 1:
-            continue
+        if group['type'] == 'fg' and int(group['gid']) < 1:
+            continue   # TODO: failes database constraint
         groupObj = Group.Group(db)
         pg = PosixGroup.PosixGroup(db)
         if not fill:
-            groupObj.populate(account.entity_id, co.group_visibility_all,
-                              group['name'], group['comment'])
-            groupObj.write_db()
-            pg.populate(parent=groupObj, gid=group['gid'])
-            pg.write_db()
+            if group['type'] == 'ng':
+                group['comment'] = group['description']
+            if not group_exists.has_key(group['name']):
+                groupObj.populate(account.entity_id, co.group_visibility_all,
+                                  group['name'], group['comment'])
+                groupObj.write_db()
+                group_exists[group['name']] = groupObj.entity_id
+            else:
+                groupObj.find(group_exists[group['name']])
+
+            if group['type'] == 'fg':
+                pg.populate(parent=groupObj, gid=group['gid'])
+                pg.write_db()
+            else:
+                pass   # TODO:  Marker som nettgruppe med rett spread
         else:
             try:
-                pg.find_by_gid(group['gid'])
+                if group['type'] == 'fg':
+                    pg.find_by_gid(group['gid'])
+                    destination = pg
+                else:
+                    groupObj.find_by_name(group['name'])
+                    destination = groupObj
             except Errors.NotFoundError:
                 print "G",
                 continue
             for m in group.get('member', []):
                 try:
-                    account.find_by_name(m['uname'])
-                    pg.add_member(account, co.group_memberop_union);
+                    if m['type'] == 'user':
+                        account.find_by_name(m['uname'])
+                    else:  # Delay insertion as group may not exist yet
+                        group_group.setdefault(groupObj.entity_id, []).append(m['name'])
+                        continue
+
+                    if not group_has_member.get(destination.entity_id, {}
+                                                ).has_key(account.entity_id):
+                        destination.add_member(account.entity_id, account.entity_type,
+                                               co.group_memberop_union);
+                        group_has_member.setdefault(destination.entity_id, {}
+                                                    )[account.entity_id] = 1
                     print "A",
                 except Errors.NotFoundError:
                     print "n",
                     continue
+
+    groupObj = Group.Group(db)
+    tmp = Group.Group(db)
+    for group in group_group.keys():
+        groupObj.clear()
+        groupObj.find(group)
+        for m in group_group[group]:
+            tmp.clear()
+            try:
+                tmp.find_by_name(m)
+            except Errors.NotFoundError:
+                print "E:%i/%s" % (group, m),
+            groupObj.add_member(tmp.entity_id, tmp.entity_type, co.group_memberop_union)
     db.commit()
 
 def import_person_users(personfile):
@@ -275,16 +318,21 @@ def import_person_users(personfile):
             except Errors.NotFoundError:
                 print " ********* NEW *************"
                 pass
+        else:
+            print "No fnr",
         if person_id is None:
             # Personen fantes ikke, lag den
-            # TODO:  hvorfor finnes dato 1999-99-99 i dumpen fra ureg?
-            try:
-                bdate = [int(x) for x in person['bdate'].split('-')]
-                bdate = db.Date(*bdate)
-            except:
-                print "Warning, %s is an illegal date" % person['bdate']
-                bdate = [1970, 1, 1]
-                bdate = db.Date(*bdate)
+            if person['bdate'] == '999999':
+                bdate = None
+            else:
+                try:
+                    bdate = [int(x) for x in person['bdate'].split('-')]
+                    bdate = db.Date(*bdate)
+                except:
+                    print "Warning, %s is an illegal date" % person['bdate']
+                    #bdate = [1970, 1, 1]
+                    #bdate = db.Date(*bdate)
+                    bdate = None
             personObj.populate(bdate,
                                 co.gender_unknown)
             personObj.affect_names(co.system_ureg, *(namestr2const.values()))
@@ -338,6 +386,9 @@ def import_person_users(personfile):
         # - hvis disken ikke finnes, registrer den
 
         for u in person['user']:
+            if int(u['uid']) <= 0:
+                print "WARNING, skipped %s" % u
+                continue
             expire_date = None  # TODO
             gecos = None        # TODO
             shell = shell2shellconst[u['shell']]
@@ -367,7 +418,7 @@ def import_person_users(personfile):
                     posix_user.populate_authentication_type(
                         co.auth_type_crypt3_des, au['val'])
             posix_user.populate(u['uid'],
-                                group.entity_id,
+                                gid2entity_id[int(u['dfg'])],
                                 gecos,
                                 shell,
                                 home=u['home'], # TODO: disk_id
