@@ -7,7 +7,7 @@ import time
 from Cerebrum import Group
 from Cerebrum.modules.no.uio.access_FS import FS
 from Cerebrum import Database
-from xml.sax import saxutils
+from Cerebrum.extlib import xmlprinter
 
 # TODO: This file should not have UiO hardcoded data in it
 SYDRadmins = ['baardj', 'frankjs']
@@ -192,6 +192,7 @@ class Fronter(object):
         for k in host_config[fronterHost].keys():
             setattr(self, k, host_config[fronterHost][k])
         self.supergroups = self.GetSuperGroupnames()
+        self.logger.debug("Fronter: len(self.supergroups)=%i" % len(self.supergroups))
         fronter_db = Database.connect(user='fronter',
                                       service=self.DBinst,
                                       DB_driver='Oracle')
@@ -324,9 +325,11 @@ class Fronter(object):
                 kurs_id = FronterUtils.UE2KursID(*id_seq)
                 if kurs.has_key(kurs_id):
                     enhet_id = ":".join(id_seq)
-                    self.enhet2akt[enhet_id].append([evukursakt['etterutdkurskode'],
-                                                     evukursakt['aktivitetsnavn']])
-
+                    self.enhet2akt[enhet_id].append(
+                        [evukursakt['etterutdkurskode'],
+                         evukursakt['aktivitetsnavn']])
+        self.logger.debug("read_kurs_data: len(self.kurs2enhet)=%i" % \
+                          len(self.kurs2enhet))
 
     def get_fronter_users(self):
         """Return a dict with info on all users in Fronter"""
@@ -359,6 +362,7 @@ class Fronter(object):
             for gm in self._accessFronter.GetGroupMembers(gid):
                 if users.has_key(gm['username']):
                     users[gm['username']]['USERACCESS'] = gid2access[gid]
+        self.logger.debug("get_fronter_users ret %i users" % len(users))
         return users
 
     def pwd(self, p):
@@ -402,6 +406,7 @@ class Fronter(object):
                          'allow_contact': (int(gi['allowsflag']) & 2),
                          'CFid': gi['importid'],
                          }
+        self.logger.debug("get_fronter_groups ret %i groups" % len(group))
         return group
 
     def get_fronter_rooms(self):
@@ -422,6 +427,7 @@ class Fronter(object):
                            'profile': ri['profile'],
                            'CFid': ri['room']
                            }
+        self.logger.debug("get_fronter_rooms ret %i rooms" % len(rooms))
         return rooms
 
     def get_fronter_groupmembers(self, current_groups):
@@ -429,6 +435,8 @@ class Fronter(object):
         for m in self._accessFronter.ListAllGroupMembers():
             if current_groups.has_key(m['importid']):
                 groupmembers.setdefault(m['importid'], {})[m['username']] = 1
+        self.logger.debug("get_fronter_groupmembers ret %i groups" % \
+                          len(groupmembers))
         return groupmembers
 
     def get_fronter_acl(self, current_groups, current_rooms):
@@ -462,12 +470,15 @@ class Fronter(object):
                 current_groups.has_key(r['groupid']) or
                 current_groups.has_key(newgroup))):
                 acl[room][group] = {'role': role}
+        self.logger.debug("get_fronter_acl ret %i acls" % len(acl))
         return acl
 
 class XMLWriter(object):   # TODO: Move to separate file
     # TODO: should produce indented XML for easier readability
     def __init__(self, fname):
-        self.gen = saxutils.XMLGenerator(file(fname, 'w'))
+        self.gen = xmlprinter.xmlprinter(
+            file(fname, 'w'), indent_level=2, data_mode=1,
+            input_encoding='ISO-8859-1')
 
     def startTag(self, tag, attrs={}):
         a = {}
@@ -477,22 +488,21 @@ class XMLWriter(object):   # TODO: Move to separate file
 
     def endTag(self, tag):
         self.gen.endElement(tag)
-        self.gen._out.write("\n")
 
     def emptyTag(self, tag, attrs={}):
-        self.startTag(tag, attrs)
-        self.gen.endElement(tag)
+        a = {}
+        for k in attrs.keys():   # saxutils don't like integers as values
+            a[k] = "%s" % attrs[k]
+        self.gen.emptyElement(tag, a)
 
-    def dataElement(self, tag, data):
-        self.gen.startElement(tag, {})
-        self.gen.characters(data)
-        self.gen.endElement(tag)
+    def dataElement(self, tag, data, attrs={}):
+        self.gen.dataElement(tag, data, attrs)
 
     def comment(self, data):  # TODO: implement
-        pass
+        self.gen.comment(data)
     
-    def startDocument(self):
-        self.gen.startDocument()
+    def startDocument(self, encoding):
+        self.gen.startDocument(encoding)
 
     def endDocument(self):
         self.gen.endDocument()
@@ -501,7 +511,7 @@ class FronterXML(object):
     def __init__(self, fname, cf_dir=None, debug_file=None, debug_level=None,
                  fronter=None):
         self.xml = XMLWriter(fname)
-        self.xml.startDocument()
+        self.xml.startDocument(encoding='ISO-8859-1')
         self.rootEl = 'ENTERPRISE'
         self.DataSource = 'UREG2000@uio.no'
         self.cf_dir = cf_dir
