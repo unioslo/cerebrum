@@ -1452,7 +1452,7 @@ class BofhdExtension(object):
         ed = self._get_email_domain(dom)
         op = operator.get_entity_id()
         self.ba.can_email_list_delete(op, ed)
-        self._check_mailman_official_name(listname)
+        listname = self._check_mailman_official_name(listname)
         # All OK, let's nuke it all.
         result = []
         et = Email.EmailTarget(self.db)
@@ -1501,12 +1501,11 @@ class BofhdExtension(object):
         if mlist is None:
             raise CerebrumError, "%s is not a Mailman list" % listname
         # List names without complete e-mail address are probably legacy
-        if mlist.count('@') == 0 and listname.startswith(mlist + "@"):
-            return
-        if listname <> mlist:
-            raise CerebrumError, ("%s is not the official name of the list %s" %
-                                  (listname, mlist))
-
+        if (mlist.count('@') == 0 and listname.startswith(mlist + "@")
+            or listname == mlist):
+            return mlist
+        raise CerebrumError, ("%s is not the official name of the list %s" %
+                              (listname, mlist))
 
     def _register_list_addresses(self, listname, lp, dom):
         """Add list, owner and request addresses.  listname is the
