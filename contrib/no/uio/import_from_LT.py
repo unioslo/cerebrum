@@ -103,12 +103,12 @@ def get_person_info(outfile):
         reservasjoner[key]['res'] = reservasjoner[key].get('res', []) + [r]
     # od
 
-    # Hent alle lønnsposteringer siste 180 dager.
+    # Hent alle lønnsposteringer siste 30 dager.
     #
     # Tidligere cachet vi disse dataene slik at vi kunne søke over
     # færre dager, men det ser ikke ut til å være nødvendig da søket
     # ikke tar mer enn ca et minutt
-    tid = time.strftime("%Y%m%d", time.gmtime(time.time() - (3600*24*180)))
+    tid = time.strftime("%Y%m%d", time.gmtime(time.time() - (3600*24*30)))
     lonnspost = LT.GetLonnsPosteringer(tid)
     for lp in lonnspost:
         key = '-'.join(["%i" % x for x in [lp['fodtdag'], lp['fodtmnd'],
