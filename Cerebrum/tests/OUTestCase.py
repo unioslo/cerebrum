@@ -49,11 +49,9 @@ class OUTestCase(OU_createTestCase):
         new_ou = OU.OU(self.Cerebrum)
         new_ou.clear()
         self._myPopulateOU(new_ou)
-        if(new_ou <> ou):
-            print "Error: should be equal"
+        self.failIf(new_ou <> ou, "Error: should be equal")
         ou.populate('test')
-        if(new_ou == ou):
-            print "Error: should be different"
+        self.failIf(new_ou == ou, "Error: should be different")
 
     def suite():
         suite = unittest.TestSuite()
