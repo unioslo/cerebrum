@@ -7,7 +7,7 @@
 from Cerebrum import Database
 from Cerebrum.modules.no.uio import OU
 
-class SkeletonModule:
+class BofhdExtention:
     def __init__(self, Cerebrum):
         self.all_commands = {
             'get_stedkode_info' : ['ou', 'stedkode', 'number', 1]
