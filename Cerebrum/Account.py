@@ -227,6 +227,13 @@ class Account(EntityName, EntityQuarantine, Entity):
         self.__updated = False
         return is_new
 
+    def new(self, name, owner_type, owner_id, np_type, creator_id,
+            expire_date):
+        self.populate(name, owner_type, owner_id, np_type, creator_id,
+                      expire_date)
+        self.write_db()
+        self.find(self.entity_id)
+
     def find(self, account_id):
         self.__super.find(account_id)
 
