@@ -1,4 +1,3 @@
-#!/usr/bin/env python2.2
 # -*- coding: iso-8859-1 -*-
 
 # Copyright 2004 University of Oslo, Norway
@@ -67,7 +66,6 @@ References:
   [2] <URL: http://www.red-dove.com/python_logging.html>
 """
 
-import cerebrum_path
 import cereconf
 
 

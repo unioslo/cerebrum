@@ -1,5 +1,5 @@
 # -*- coding: iso-8859-1 -*-
-# Copyright 2002 University of Oslo, Norway
+# Copyright 2002, 2004 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,7 +19,6 @@
 
 """MountDisk is a class for mapping a user homedisk to a different logon server. As is the case with Samba connections"""
 
-import cerebrum_path
 import cereconf
 from Cerebrum import Utils
 from Cerebrum import Errors

@@ -1,7 +1,6 @@
-#! /usr/bin/env python2.2
 # -*- coding: iso8859-1 -*-
 #
-# Copyright 2003 University of Oslo, Norway
+# Copyright 2003, 2004 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -46,7 +45,6 @@ attributes are cached within the object. I.e. an explicit get/list call is
 required to fetch them. PersonSAPMixin is very similar to PersonLTMixin.
 """
 
-import cerebrum_path
 import cereconf
 
 from Cerebrum import OU

@@ -1,7 +1,6 @@
-#! /usr/bin/env python2.2
 # -*- coding: iso8859-1 -*-
 #
-# Copyright 2003 University of Oslo, Norway
+# Copyright 2003, 2004 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -46,7 +45,6 @@ from mx.DateTime import strptime
 import xml
 import xml.sax
 
-import cerebrum_path
 import cereconf
 
 from Cerebrum import Person
