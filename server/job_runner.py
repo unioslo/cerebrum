@@ -91,6 +91,9 @@ if True:
         def fatal(self, msg):
             self.show_msg("FATAL", msg)
 
+        def critical(self, msg):
+            self.show_msg("CRITICAL", msg)
+
     logger = MyLogger()
 
 def sigchld_handler(signum, frame):
