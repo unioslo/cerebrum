@@ -2,6 +2,7 @@
 
 import re
 import os
+import sys
 
 from Cerebrum import Database,Constants,Errors
 from Cerebrum import Person
@@ -39,6 +40,9 @@ class FSData(object):
         return persondta
 
 personfile = "/u2/dumps/FS/persons.dat";
+
+if len(sys.argv) == 2:
+    personfile = sys.argv[1]
 
 Cerebrum = Database.connect()
 ou = OU.OU(Cerebrum)

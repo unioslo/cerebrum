@@ -2,6 +2,7 @@
 
 import re
 import os
+import sys
 
 from Cerebrum import Database, Person, Constants, Errors
 from Cerebrum.modules.no.uio import OU
@@ -9,6 +10,9 @@ from Cerebrum.modules.no import fodselsnr
 import pprint
 
 personfile = "/u2/dumps/LT/persons.dat";
+
+if len(sys.argv) == 2:
+    personfile = sys.argv[1]
 
 class LTData(object):
     """This class is used to iterate over all users in LT. """

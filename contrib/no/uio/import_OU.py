@@ -40,8 +40,11 @@ class StedData(object):
                                  stedinfo['gruppenr'])
         return (stedkode, stedinfo)
 
-stedfile = "/u2/dumps/LT/sted.dta";
 verbose = 1
+stedfile = "/u2/dumps/LT/sted.dta"
+
+if len(sys.argv) == 2:
+    stedfile = sys.argv[1]
 
 def main():
     Cerebrum = Database.connect()
