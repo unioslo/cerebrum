@@ -89,14 +89,14 @@ def process_group(sp, name, description = None, members = None):
 	 if not dryrun:
 	     db.commit()
 	     logger.debug3("Created group |%s|.", name)
-	     if members != "":
-		 process_members(name,members)
-		 if not group.has_spread(sp):
-		     group.add_spread(sp)
-		     group.write_db()
-		     if not dryrun:
-			 db.commit()
-			 logger.debug5("Added spread |%s| to group |%s|.", sp, name)
+    if members != "":
+	process_members(name,members)
+    if not group.has_spread(int(sp)):
+	group.add_spread(int(sp))
+	group.write_db()
+	if not dryrun:
+	    db.commit()
+	    logger.debug5("Added spread |%s| to group |%s|.", sp, name)
 
 def process_members(gname,mem):
     """
