@@ -283,6 +283,13 @@ Fra LT.GJEST
        SIVILARB                       Sivilarbeider
 
 
+1.4 Generelt
+------------
+
+Når en persons OU-tilhørighet refererer et sted som er nedlagt, søker
+man oppover i stedkodehierarkiet til man finner en ikke-nedlagt
+stedkode.
+
 
 2.0 Import av roller fra LT til Cerebrum
 ========================================
