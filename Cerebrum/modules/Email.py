@@ -1056,7 +1056,7 @@ class EmailServer(Host):
         self.email_server_type = self.query_1("""
         SELECT server_type
         FROM [:table schema=cerebrum name=email_server]
-        WHERE server_id=:s_id""", {'t_id': self.entity_id})
+        WHERE server_id=:s_id""", {'s_id': self.entity_id})
         try:
             del self.__in_db
         except AttributeError:
