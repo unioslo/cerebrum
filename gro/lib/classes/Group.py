@@ -3,11 +3,12 @@ import Cerebrum.Entity
 from Cerebrum.extlib import sets
 from Cerebrum.gro.Utils import Lazy, LazyMethod, Clever
 
+from Node import Node
 from Entity import Entity
 
 from db import db
 
-__all__ = ['Group']
+__all__ = ['Group', 'GroupMember']
 
 class Group(Entity):
     slots = ['name', 'description', 'expireDate', 'members', 'posixGid']
@@ -56,11 +57,19 @@ class Group(Entity):
         self._children.update(self.members)
     
     def loadMembers(self):
+        import Types, Entity
+
         self._members = sets.Set()
         e = Cerebrum.Group.Group(db)
         e.entity_id = self.id
 
-        self._members.update([Entity(int(i)) for i in e.get_members()])
+        for row in db.query('''SELECT operation, member_id, member_type
+                               FROM group_member
+                               WHERE group_id = %s''' % self.id):
+            operation = Types.GroupMemberOperationType(int(row['operation']))
+            member = Entity.Entity(int(row['member_id']),
+                                   entityType=Types.EntityType(int(row['member_type'])))
+            self._members.add(GroupMember(group=self, operation=operation, member=member))
 
     def loadPosixGid(self):
         try: # sukk.. Cerebrum er så teit..
@@ -76,3 +85,22 @@ class Group(Entity):
     getPosixGid = LazyMethod('_posixGid', 'loadPosixGid')
 
 Clever.prepare(Group, 'load')
+
+class GroupMember(Node):
+    slots = ['group', 'operation', 'member']
+
+    def __init__(self, parents=Lazy, children=Lazy, *args, **vargs):
+        Node.__init__(self, parents, children)
+        Clever.__init__(self, GroupMember, *args, **vargs)
+
+    def getKey(group, operation, member, *args, **vargs):
+        return group, operation, member
+    getKey = staticmethod(getKey)
+
+    def __repr__(self):
+        return '%s(group=%s, operation=%s, member=%s)' % (self.__class__.__name__, self.group, self.operation, self.member)
+    
+    def load(self):
+        raise Exception('FU')
+
+Clever.prepare(GroupMember, 'load')
