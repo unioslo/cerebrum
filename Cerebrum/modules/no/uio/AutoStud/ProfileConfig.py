@@ -159,7 +159,7 @@ class StudconfigParser(xml.sax.ContentHandler):
     values from the super."""
 
     select_elements = {"aktiv": ['studieprogram'],
-                       "privatist_emne": ['emne', 'studieprogram'],
+                       "privatist_emne": ['emnekode', 'studieprogram'],
                        "privatist_studieprogram": ['studieprogram'],
                        "fagperson": ['stedkode'],
                        "tilbud": ['studieprogram'],
@@ -245,7 +245,7 @@ class StudconfigParser(xml.sax.ContentHandler):
                 self._in_profil.add_selection_criteria(ename, tmp)
             else:
                 raise SyntaxWarning, "Unexpected tag %s on in profil" % ename
-        elif ename == 'config':
+        elif ename == 'studconfig':
             pass
         elif ename in ('spreaddef',):
             pass
@@ -262,5 +262,5 @@ class StudconfigParser(xml.sax.ContentHandler):
             self._in_gruppe_oversikt = None
         elif self._in_disk_oversikt and ename == 'disk_oversikt':
             self._in_disk_oversikt = None
-        elif len(self.elementstack) == 0 and ename == 'config':
+        elif len(self.elementstack) == 0 and ename == 'studconfig':
             pass
