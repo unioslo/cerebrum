@@ -1290,7 +1290,7 @@ ORDER BY fodselsdato, personnr
         frk.arstall = r.arstall AND
         frk.fakturastatuskode ='OPPGJORT' and
         fkd.fakturanr = frk.fakturanr AND
-        fkd.fakturadetaljtypekode = 'PAPIRAVG'"""
+        fkd.fakturadetaljtypekode IN ('PAPIRAVG', 'KOPIAVG')"""
 	qry += """ UNION
         SELECT DISTINCT r.fodselsdato, r.personnr
         FROM fs.registerkort r
