@@ -53,77 +53,166 @@ uname@ulrik.uio.no
 
 import sys
 import getopt
+
 import cerebrum_path
+import cereconf
+
 from Cerebrum import Database
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no.uio.access_FS import FS
 
 
-def usage(exitcode=0):
-    print """Usage: [options]
-    Updates all e-mail adresses in FS that come from Cerebrum
-    -v | --verbose
-    -d | --dryrun
-    --db-user name: connect with given database username
-    --db-service name: connect to given database
+
+
+
+def synchronize_attribute(cerebrum_lookup, fs_lookup, 
+                          fs_update, index, const):
     """
+    Synchronize an attribute A (e-mail or primary account) between Cerebrum
+    and FS.
+
+    CEREBRUM_LOOKUP is a function yielding a mapping between no_ssn and A
+    from Cerebrum.
+
+    FS_LOOKUP is a function yielding a mapping between no_ssn and A from FS.
+
+    FS_UPDATE is a function that update A's value for a given no_ssn in FS.
+    """
+
+    logger.debug("Fetching information from Cerebrum")
+    fnr2attribute = cerebrum_lookup(const.externalid_fodselsnr)
+    logger.debug("Done fetching information from Cerebrum")
+
+    for row in fs_lookup():
+	fnr = "%06d%05d" % (int(row['fodselsdato']), int(row['personnr']))
+        cere_attribute = fnr2attribute.get(fnr, None)
+        fs_attribute = row[index]
+        
+        # Cerebrum has a record of this fnr
+        if fnr in fnr2attribute:
+            # We update only when the values differ
+            if cere_attribute != fs_attribute:
+                logger.debug1("Updating for %s: %s -> %s",
+                              fnr, fs_attribute, cere_attribute)
+
+                fs_update(row['fodselsdato'], row['personnr'], cere_attribute)
+		attempt_commit()
+            # fi
+
+        # Attribute registered in FS does not exist in Cerebrum anymore
+	else:
+
+	    if fs_attribute is not None:
+                logger.debug1("Deleting address for %s.", fnr)
+
+                # None in FS means "no value"
+                fs_update(row['fodselsdato'], row['personnr'], None)
+                attempt_commit()
+            # fi
+        # fi
+    # od
+
+    logger.debug("Done updating attributes")
+# end 
+
+
+
+def usage( exitcode = 0 ):
+    print """
+Updates all e-mail adresses in FS that come from Cerebrum
+Usage: update_FS_mailadr.py [options]
+-d | --dryrun	       - Run synchronization, but do *not* update FS
+-u | --db-user name    - Connect with given database username
+-s | --db-service name - Connect to given database
+-e | --email           - Synchronize e-mail information
+-a | --account         - Synchronize account information
+"""
     sys.exit(exitcode)
+# end usage
+
+
 
 def main():
-    db_user = db_service = None
-    verbose = dryrun = 0
+    global logger
+
+    logger = Factory.get_logger("cronjob")
+    logger.info("Synchronizing FS with Cerebrum")
+
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "dv",
-                                   ["dryrun", "verbose", "db-user=",
-                                    "db-service="])
+        opts, args = getopt.getopt(sys.argv[1:],
+                                   "du:s:ea",
+                                   ["dryrun",
+                                    "db-user=",
+                                    "db-service=",
+                                    "email",
+                                    "account",])
     except getopt.GetoptError:
         usage()
         sys.exit(2)
-    for o, val in opts:
-        if o in ('-v', '--verbose'):
-            verbose += 1
-        elif o in ('-d', '--dryrun'):
-            dryrun = 1
-        elif o in ('--db-user',):
-            db_user = val
-        elif o in ('--db-service',):
-            db_service = val
+    # yrt
 
-    db = Database.connect(user=db_user, service=db_service,
-                          DB_driver='Oracle')
-    fs = FS(db)
+    user = "ureg2000"
+    service = "fsprod.uio.no"
+    dryrun = False
+    email = False
+    account = False
+
+    for option, value in opts:
+        if option in ('-d', '--dryrun'):
+            dryrun = True
+        elif option in ('-u', '--db-user',):
+            user = value
+        elif option in ('-s', '--db-service',):
+            service = value
+        elif option in ('-e', '--email',):
+            email = True
+        elif option in ('-a', '--account'):
+            account = True
+        # fi
+    # od
+
+    fs_db = Database.connect(user = user, service = service, DB_driver='DCOracle2')
+    fs = FS(fs_db)
+
     db = Factory.get('Database')()
-    acc = Factory.get('Account')(db)
     person = Factory.get('Person')(db)
     const = Factory.get('Constants')(db)
 
-    fnr2primary = {}
-    fnr2primary = person.getdict_external_id2mailaddr(const.externalid_fodselsnr)
+    def my_commit():
+        if dryrun:
+            fs.db.rollback()
+            logger.info("Rolled back all changes")
+        else:
+            fs.db.commit()
+            logger.info("Commited all changes")
+        # fi
+    # end my_commit
+    global attempt_commit
+    attempt_commit = my_commit
 
-    print "Start processing addresses."
-    for row in fs.GetAllPersonsEmail():
-	fnr = "%06d%05d" % (int(row['fodselsdato']), int(row['personnr']))
-	if fnr2primary.has_key(fnr):
-	    if fnr2primary[fnr] != row['emailadresse']:
-		if verbose:
-		    print "Updating address for %s, writing %s." % (fnr, fnr2primary[fnr])
-		if not dryrun: 
-		    fs.WriteMailAddr(row['fodselsdato'], row['personnr'], fnr2primary[fnr])
-		    fs.db.commit()
-	else:
-	    # address registered in FS does not exist in Cerebrum anymore
-	    if row['emailadresse'] is not None:
-		if verbose:
-		    print "Deleting address for %s." % fnr
-		if not dryrun:
-		    fs.WriteMailAddr(row['fodselsdato'], row['personnr'],None)
-		    fs.db.commit() 
+    if email:
+        synchronize_attribute(person.getdict_external_id2mailaddr,
+                              fs.GetAllPersonsEmail,
+                              fs.WriteMailAddr,
+                              "emailadresse", const)
+    # fi
 
-    print "Done processing addresses."
+    if account:
+        synchronize_attribute(person.getdict_external_id2primary_account,
+                              fs.GetAllPersonsUname,
+                              fs.WriteUname,
+                              "brukernavn", const)
+    # fi
+# end main
+
+
+
+
 
 if __name__ == '__main__':
     main()
+# fi
 
 
 

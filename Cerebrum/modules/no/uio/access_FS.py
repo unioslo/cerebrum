@@ -846,6 +846,36 @@ UPDATE fs.person
 SET emailadresse=:email
 WHERE fodselsdato=:fodselsdato AND personnr=:personnr""",locals())
 
+
+
+##################################################################
+## Brukernavn i FS:
+##################################################################
+
+    def GetAllPersonsUname(self, fetchall = False):
+        query = """
+                SELECT
+                  fodselsdato, personnr, brukernavn
+                FROM
+                  fs.personreg
+                """
+        return self.db.query(query, fetchall = fetchall)
+    # end GetAllPersonsUname
+
+
+    def WriteUname(self, fodselsdato, personnr, uname):
+        self.db.execute("""
+                        UPDATE
+                          fs.personreg
+                        SET
+                          brukernavn = :uname
+                        WHERE
+                          fodselsdato = :fodselsdato AND
+                          personnr = :personnr
+                        """, locals())
+    # end WriteUname
+
+
 ##################################################################
 ## Metoder for grupper:
 ##################################################################
