@@ -43,7 +43,8 @@ class Constants(Constants.Constants):
     perspective_lt = _OUPerspectiveCode('LT', 'LT')
     perspective_fs = _OUPerspectiveCode('FS', 'FS')
 
-    account_test = _AccountCode('T', 'Testkonto')
+    account_test = _AccountCode('testbruker', 'Testkonto')
+    account_kurs = _AccountCode('kursbruker','Kurskonto')
 
     affiliation_ansatt = _PersonAffiliationCode('ANSATT',
                                                 'Ansatt ved UiO (i følge LT)')
