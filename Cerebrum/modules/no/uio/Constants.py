@@ -26,9 +26,9 @@ from Cerebrum import Constants
 from Cerebrum.Constants import _AuthoritativeSystemCode,_OUPerspectiveCode
 
 class Constants(Constants.Constants):
-    system_lt = _AuthoritativeSystemCode('LT')
-    system_fs = _AuthoritativeSystemCode('FS')
-    system_ureg = _AuthoritativeSystemCode('Ureg')
+    system_lt = _AuthoritativeSystemCode('LT', 'LT')
+    system_fs = _AuthoritativeSystemCode('FS', 'FS')
+    system_ureg = _AuthoritativeSystemCode('Ureg', 'Imported from ureg')
 
-    perspective_lt = _OUPerspectiveCode('LT')
-    perspective_fs = _OUPerspectiveCode('FS')
+    perspective_lt = _OUPerspectiveCode('LT', 'LT')
+    perspective_fs = _OUPerspectiveCode('FS', 'FS')
