@@ -3,6 +3,8 @@
 import getopt
 import sys
 import cereconf
+from time import gmtime, strftime, time
+
 from Cerebrum import Account
 from Cerebrum import Errors
 from Cerebrum import Group
@@ -20,6 +22,8 @@ db = Factory.get('Database')()
 db.cl_init(change_program='process_students')
 const = Factory.get('Constants')(db)
 all_passwords = {}
+person_affiliations = {}
+prev_msgtime = time()
 debug = 0
 
 def bootstrap():
@@ -63,20 +67,16 @@ def update_account(profile, account_ids, do_move=0, rem_grp=0, account_info={}):
     affiliations are correct.  For existing accounts, account_info
     should be filled with affiliation info """
     
-    account = Account.Account(db)
     group = Group.Group(db)
     posix_user = PosixUser.PosixUser(db)
     person = Person.Person(db)
         
     for account_id in account_ids:
         print " UPDATE:%s" % account_id,
-        account.clear()
-        account.find(account_id)
-        person.find(account.owner_id)
         try:
             posix_user.find(account_id)
             # populate logic asserts that db-write is only done if needed
-            disk = profile.get_disk()
+            disk = profile.get_disk(posix_user.disk_id)
             if posix_user.disk_id <> disk:
                 profile.notify_used_disk(old=posix_user.disk_id, new=disk)
                 posix_user.disk_id = disk
@@ -92,14 +92,14 @@ def update_account(profile, account_ids, do_move=0, rem_grp=0, account_info={}):
                                 parent=account_id)
             show_update('U', posix_user.write_db())
         already_member = {}
-        for r in group.list_groups_with_entity(account.entity_id):
+        for r in group.list_groups_with_entity(account_id):
             if r['operation'] == const.group_memberop_union:
                 already_member[int(r['group_id'])] = 1
         for g in profile.get_filgrupper():  # TODO: Vil antagelig være get_groups()
             if not already_member.get(g, 0):
                 group.clear()
                 group.find(g)
-                group.add_member(account.entity_id, account.entity_type,
+                group.add_member(account_id, const.entity_account,
                                  const.group_memberop_union)
             else:
                 del(already_member[g])
@@ -107,10 +107,26 @@ def update_account(profile, account_ids, do_move=0, rem_grp=0, account_info={}):
             for g in already_member.keys():
                 if g in autostud.autogroups:
                     pass  # TODO:  studxonfig.xml should have the list...
+
+        # Speedup: Only fetch person obj from DB if it is modified
+        changed = 0
+        paffs = person_affiliations.get(int(posix_user.owner_id), [])
         for ou_id in profile.get_stedkoder():
-            person.populate_affiliation(const.system_fs, ou_id, const.affiliation_student,
-                                        const.affiliation_status_student_valid)
-        show_update('p', person.write_db())
+            try:
+                idx = paffs.index((const.system_fs, ou_id, const.affiliation_student,
+                                   const.affiliation_status_student_valid))
+                del(paffs[idx])
+            except ValueError:
+                changed = 1
+                pass
+        if len(paffs) > 0:
+            changed = 1
+        if changed:
+            person.find(posix_user.owner_id)
+            for ou_id in profile.get_stedkoder():
+                person.populate_affiliation(const.system_fs, ou_id, const.affiliation_student,
+                                            const.affiliation_status_student_valid)
+            show_update('p', person.write_db())
         for ou_id in profile.get_stedkoder():
             has = 0
             for has_ou, has_aff in account_info.get(account_id, []):
@@ -124,16 +140,21 @@ def update_account(profile, account_ids, do_move=0, rem_grp=0, account_info={}):
 def get_student_accounts():
     account = Account.Account(db)
     person = Person.Person(db)
+    for p in person.list_affiliations(source_system=const.system_fs,
+                                      affiliation=const.affiliation_student):
+        person_affiliations.setdefault(int(p['person_id']), []).append(
+            (int(p['source_system']), int(p['ou_id']), int(p['affiliation']), int(p['status'])))
     ret = {}
     if debug:
         print "Finding student accounts...",
         sys.stdout.flush()
+    pid2fnr = {}
+    for p in person.list_external_ids(source_system=const.system_fs,
+                                      id_type=const.externalid_fodselsnr):
+        pid2fnr[int(p['person_id'])] = p['external_id']
     for a in account.list_accounts_by_type(affiliation=const.affiliation_student):
-        person.clear()
-        person.find(a['person_id'])
-        for it, ss, eid in person.get_external_id(id_type=const.externalid_fodselsnr):
-            eid = fodselsnr.personnr_ok(eid)
-            ret.setdefault(eid, {}).setdefault(int(a['account_id']), []).append([ int(a['ou_id']), int(a['affiliation']) ])
+        ret.setdefault(pid2fnr[int(a['person_id'])], {}).setdefault(
+            int(a['account_id']), []).append([ int(a['ou_id']), int(a['affiliation']) ])
     if debug:
         print " found %i entires" % len(ret)
     return ret
@@ -187,24 +208,30 @@ def make_letters():
 
     keys = dta.keys()
     keys.sort(lambda x,y: cmp(dta[x]['zip'], dta[y]['zip']))
-    num = 1
-    th_new = TemplateHandler('no', 'new_user', 'txt')
-    th_reserved = TemplateHandler('no', 'new_user', 'txt')  # TODO: write this template
-    for k in keys:
-        dta[k]['lopenr'] = num
-        if all_passwords[k][1]:
-            th = th_reserved
+
+    for run_no in range(2):
+        num = 1
+        out = file("ps_run.%i.%i" % (time(), run_no), "w")
+        if run_no == 0:
+            th = TemplateHandler('no', 'new_user', 'txt')
         else:
-            th = th_new
-        print th._hdr
-        print th.apply_template('body', dta[k])
-        print th._footer
-        num += 1
+            th = TemplateHandler('no', 'new_user', 'txt')  # TODO: write this template
+        out.write(th._hdr)
+        for k in keys:
+            dta[k]['lopenr'] = num
+            out.write(th.apply_template('body', dta[k]))
+            num += 1
+        out.write(th._footer)
+        out.close()
 
 def process_students(update_accounts=0, create_users=0):
+    showtime("process_students started")
     students = get_student_accounts()
+    showtime("got student accounts")
+    
     global autostud
     autostud = AutoStud.AutoStud(db, debug=debug)
+    showtime("config processed")
 
     for run_no in range(2):
         if run_no == 0:
@@ -213,7 +240,7 @@ def process_students(update_accounts=0, create_users=0):
         else:
             # Deretter de som bare har et gyldig opptak
             lst = autostud.get_studieprog_list(studieprogs_file=studieprogs_file)
-
+        showtime("topic xml parsed (%i)" % run_no)
         for t in lst:
             fnr = fodselsnr.personnr_ok("%06d%05d" % (int(t[0]['fodselsdato']),
                                                       int(t[0]['personnr'])))
@@ -234,16 +261,24 @@ def process_students(update_accounts=0, create_users=0):
             try:
                 if create_users and not students.has_key(fnr):
                     students.setdefault(fnr, []).append(create_user(fnr, profile, reserve=run_no))
-                elif update_account and run_no == 0 and students.has_key(fnr):
+                elif update_accounts and run_no == 0 and students.has_key(fnr):
                     # update_account must only be done on run_no = 0
                     update_account(profile, students[fnr].keys(), account_info=students[fnr])
                 if debug:
                     print
             except ValueError, msg:  # TODO: Bad disk should throw a spesific class
                 print "  Error for %s: %s" % (fnr, msg)
+        showtime("topics processed")
     db.commit()  # TBD: should we commit more frequently?
+    showtime("making letters")
     make_letters()
-            
+    showtime("process_students finished")
+
+def showtime(msg):
+    global prev_msgtime
+    print "[%s] %s (delta: %i)" % (strftime("%H:%M:%S", gmtime()), msg, (time()-prev_msgtime))
+    prev_msgtime = time()
+    
 def main():
     opts, args = getopt.getopt(sys.argv[1:], 'dcut:s:',
                                ['debug', 'create-users', 'update-accounts',
