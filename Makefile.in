@@ -14,7 +14,7 @@ top_builddir = .
 all: Makefile
 
 .PHONY: install
-install: Makefile
+install: Makefile java/jbofh/dist/lib/JBofh.jar
 	#./setup.py install install_data --install-dir=$(prefix)
 	./setup.py install --prefix=$(prefix)
 
