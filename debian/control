@@ -1,7 +1,7 @@
 Source: cerebrum
 Section: admin
 Priority: optional
-Maintainer: Andreas Schuldei <andreas@schuldei.org>
+Maintainer: Andreas Schuldei <andreas@debian.org>
 Build-Depends: debhelper (>= 4.0.0), ant, python, cdbs
 Standards-Version: 3.6.1.0
 
@@ -14,9 +14,9 @@ Description: advanced automated user administration and management system
  modules for integration with other authoritative system an
  organization has (HR, SR, SAS) and exports user-data to numerous
  systems/front-ends like NIS, AD, LDAP. It has an backend which
- can be oracle or PostgreSQL.
+ can be Oracle or PostgreSQL.
 
 Package: cerebrum-doc
 Architecture: all
 Description: Documentation for cerebrum
- <insert long description, indented with spaces>
+ Cerebrums design and operation manuals

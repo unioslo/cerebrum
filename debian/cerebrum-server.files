@@ -1,0 +1,6 @@
+debian/tmp/usr/sbin/
+debian/tmp/var/log/cerebrum
+debian/tmp/etc/cerebrum/cereconf.py
+debian/tmp/etc/cerebrum/config.dat
+debian/tmp/etc/cerebrum/scheduled_jobs.py
+debian/tmp/etc/cerebrum/logging.ini
