@@ -25,6 +25,7 @@ Address, Gender etc. type."""
 from Cerebrum import Constants
 from Cerebrum.Constants import _AuthoritativeSystemCode,_OUPerspectiveCode, \
      _SpreadCode, _QuarantineCode
+from Cerebrum.modules.PosixUser import _PosixShellCode
 
 class Constants(Constants.Constants):
     system_lt = _AuthoritativeSystemCode('LT', 'LT')
@@ -34,6 +35,48 @@ class Constants(Constants.Constants):
     perspective_lt = _OUPerspectiveCode('LT', 'LT')
     perspective_fs = _OUPerspectiveCode('FS', 'FS')
 
+    # We override the default settings for shells, thus this file
+    # should be before PosixUser in cereconf.CLASS_CONSTANTS
+
+    posix_shell_bash = _PosixShellCode('bash', '/local/gnu/bin/bash')
+    posix_shell_csh = _PosixShellCode('csh', '/bin/csh')
+    posix_shell_false = _PosixShellCode('false', '/bin/false')
+    posix_shell_ksh = _PosixShellCode('ksh', '/bin/ksh')
+    posix_shell_ma104 = _PosixShellCode('ma104', '/local/bin/ma104')
+    posix_shell_nologin = _PosixShellCode('nologin', '/local/etc/nologin')
+    posix_shell_nologin_autostud = _PosixShellCode('nologin.autostud',
+                                                   '/local/etc/shells/nologin.autostud')
+    posix_shell_nologin_brk = _PosixShellCode('nologin.brk',
+                                              '/local/etc/shells/nologin.brk')
+    posix_shell_nologin_chpwd = _PosixShellCode('nologin.chpwd',
+                                                '/local/etc/shells/nologin.chpwd')
+    posix_shell_nologin_ftpuser = _PosixShellCode('nologin.ftpuser',
+                                                  '/local/etc/shells/nologin.ftpuser')
+    posix_shell_nologin_nystudent = _PosixShellCode('nologin.nystuden',
+                                                    '/local/etc/shells/nologin.nystudent')
+    posix_shell_nologin_permisjon = _PosixShellCode('nologin.permisjo',
+                                                    '/local/etc/shells/nologin.permisjon')
+    posix_shell_nologin_pwd = _PosixShellCode('nologin.pwd',
+                                              '/local/etc/shells/nologin.pwd')
+    posix_shell_nologin_sh = _PosixShellCode('nologin.sh',
+                                             '/local/etc/shells/nologin.sh')
+    posix_shell_nologin_sluttet = _PosixShellCode('nologin.sluttet',
+                                                  '/local/etc/shells/nologin.sluttet')
+    posix_shell_nologin_stengt = _PosixShellCode('nologin.stengt',
+                                                 '/local/etc/shells/nologin.stengt')
+    posix_shell_nologin_teppe = _PosixShellCode('nologin.teppe',
+                                                '/local/etc/shells/nologin.teppe')
+    posix_shell_puberos = _PosixShellCode('puberos', '/local/bin/puberos')
+    posix_shell_pwsh = _PosixShellCode('pwsh', '/etc/pw/sh')
+    posix_shell_sftp_server = _PosixShellCode('sftp-server',
+                                              '/local/openssh/libexec/sftp-server')
+    posix_shell_sh = _PosixShellCode('sh', '/bin/sh')
+    posix_shell_simonshell = _PosixShellCode('simonshell',
+                                             '/hom/simon/simonshell')
+    posix_shell_sync = _PosixShellCode('sync', '/bin/sync')
+    posix_shell_tcsh = _PosixShellCode('tcsh', '/local/bin/tcsh')
+    posix_shell_true = _PosixShellCode('true', '/bin/true')
+    posix_shell_zsh = _PosixShellCode('zsh', '/local/bin/zsh')
     
     spread_uio_nis_user = _SpreadCode('NIS_user@uio', Constants.Constants.entity_account,
                                       'User in NIS domain "uio"')
