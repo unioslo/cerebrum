@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2004 University of Oslo, Norway
+# Copyright 2004, 2005 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -21,18 +21,7 @@
 """File based backends for ceresync. (like /etc/passwd)"""
 
 import os
-
-from sync import SyncError
-from doc_exception import ProgrammingError
-
-class WrongModeError(ProgrammingError, SyncError):
-    """Not supported in this mode of operation"""
-
-class NotSupportedError(SyncError):
-    """Object not supported"""
-
-class NotPosixError(NotSupportedError):
-    """Not POSIX user/group"""    
+import errors
 
 # Need to handle exceptions better?
 class MultiHandler:
@@ -108,12 +97,12 @@ class FileBack:
             
     def update(self, obj):
         if not self.incr: 
-            raise WrongModeError, "update"
+            raise errors.WrongModeError, "update"
         self.records[obj.name]=self.format(obj)
 
     def delete(self, obj):
         if not self.incr: 
-            raise WrongModeError, "delete"
+            raise errors.WrongModeError, "delete"
         del self.records[obj.name]
     
     def format(self, obj):
@@ -141,7 +130,7 @@ class PasswdFile(CLFileBack):
     filename="/etc/ceresync/passwd"
     def format(self, account):
         if account.uid is None:
-            raise NotPosixError, account.name
+            raise errors.NotPosixError, account.name
         return "%s:%s:%s:%s:%s:%s:%s\n" % (
             account.name, "x", account.uid, account.gid,
             account.fullname, account.home, account.shell )
@@ -151,7 +140,7 @@ class GroupFile(CLFileBack):
     filename="/etc/ceresync/group"
     def format(self, group):
         if group.gid is None:
-            raise NotPosixError, group.name
+            raise errors.NotPosixError, group.name
         return "%s:*:%d:%s\n" % (
             group.name, group.gid, ",".join(group.membernames) )
 
@@ -160,7 +149,7 @@ class ShadowFile(CLFileBack):
     filename="/etc/ceresync/shadow"
     def format(self, account):
         if account.uid is None:
-            raise NotPosixError, account.name
+            raise errors.NotPosixError, account.name
         return "%s:%s:::::::\n" % ( account.name, account.password )
 
 class AliasFile(CLFileBack):
@@ -180,7 +169,7 @@ class SambaFile(CLFileBack):
     filename="/etc/cerecync/smbpasswd"
     def format(self,account):
         if account.uid is None:
-            raise NotPosixError, account.name
+            raise errors.NotPosixError, account.name
         return "%s:%s:%s:%s:%s:%s:%s\n" % ( account.name,account.uid,account.lmhash,\
             account.nthash,account.fullname,account.homedir,account.shell)
 
