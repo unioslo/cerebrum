@@ -396,6 +396,8 @@ def read_accounts():
 def read_pending_moves():
     br = BofhdRequests(db, co)
     pending = {}
+    for r in br.get_requests(operation=co.bofh_email_create):
+        pending[int(r['entity_id'])] = True
     for r in br.get_requests(operation=co.bofh_email_will_move):
         pending[int(r['entity_id'])] = True
     for r in br.get_requests(operation=co.bofh_email_move):
