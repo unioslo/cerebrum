@@ -31,6 +31,11 @@ max_errors = 10          # Max number of errors to accept in person-callback
 
 def bootstrap():
     global default_creator_id, default_expire_date, default_shell
+    for t in ('PRINT_PRINTER', 'PRINT_BARCODE', 'AUTOADMIN_LOG_DIR',
+              'TEMPLATE_DIR', 'PRINT_LATEX_CMD', 'PRINT_DVIPS_CMD',
+              'PRINT_LPR_CMD'):
+        if not getattr(cereconf, t):
+            logger.warn("%s not set, check your cereconf file" % t)
     account = Factory.get('Account')(db)
     account.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
     default_creator_id = account.entity_id
@@ -172,28 +177,49 @@ def update_account(profile, account_ids, do_move=False, rem_grp=False,
             
         # TODO: update default e-mail address
 
-def get_student_accounts():
+def get_existing_accounts():
+    """Return a mapping of <fnr>:{account_id}[(ou_id, affiliation)]
+    for all students, and a mapping <fnr>:<account_id|None>
+    (account_id is used when the account is a reservation) for all
+    others that owns an account"""
+    
     if fast_test:
-        return {}
+        return {}, {}
     account = Account.Account(db)
     person = Person.Person(db)
     for p in person.list_affiliations(source_system=const.system_fs,
                                       affiliation=const.affiliation_student):
         person_affiliations.setdefault(int(p['person_id']), []).append(
             (int(p['source_system']), int(p['ou_id']), int(p['affiliation']), int(p['status'])))
-    ret = {}
     logger.info("Finding student accounts...")
     pid2fnr = {}
     for p in person.list_external_ids(source_system=const.system_fs,
                                       id_type=const.externalid_fodselsnr):
         pid2fnr[int(p['person_id'])] = p['external_id']
+    for p in person.list_external_ids(id_type=const.externalid_fodselsnr):
+        if not pid2fnr.has_key(int(p['person_id'])):
+            pid2fnr[int(p['person_id'])] = p['external_id']
+    students = {}
     for a in account.list_accounts_by_type(affiliation=const.affiliation_student):
         if not pid2fnr.has_key(int(a['person_id'])):
             continue
-        ret.setdefault(pid2fnr[int(a['person_id'])], {}).setdefault(
+        students.setdefault(pid2fnr[int(a['person_id'])], {}).setdefault(
             int(a['account_id']), []).append([ int(a['ou_id']), int(a['affiliation']) ])
-    logger.info(" found %i entires" % len(ret))
-    return ret
+    others = {}
+    # We only register the reserved account if the user doesn't
+    # have another active account
+    for a in account.list_reserved_users():
+        fnr = pid2fnr.get(int(a['owner_id']), None)
+        if (fnr is not None) and (not students.has_key(fnr)):
+            others[fnr] = int(a['account_id'])
+    for a in account.list():
+        fnr = pid2fnr.get(int(a['owner_id']), None)
+        if (fnr is not None) and (not students.has_key(fnr) and
+                                  not others.has_key(fnr)):
+            others[fnr] = None
+    logger.info(" found %i + %i entires" % (len(students), len(others)))
+
+    return students, others
 
 def make_letters(data_file=None, type=None, range=None):
     if data_file is not None:  # Load info on letters to print from file
@@ -264,6 +290,8 @@ def make_letters(data_file=None, type=None, range=None):
             counters[letter_type] = 1
         if data_file is not None:
             dta[account_id]['lopenr'] = all_passwords[account_id][2]
+            if not os.path.exists("barcode_%s.eps" % account_id):
+                make_barcode(account_id)
         else:
             dta[account_id]['lopenr'] = counters[letter_type]
             letter_info["%s-%i" % (brev_profil['mal'], counters[letter_type])] = \
@@ -316,16 +344,20 @@ def process_student(person_info):
                                               int(person_info['personnr'])))
     logger.set_indent(0)
     logger.debug("Callback for %s" % fnr)
+    alternative_account_id = other_account_owners.get(fnr, -1)
+    if alternative_account_id is None:
+        logger.debug("Has active non-student account, skipping")
+        return
     logger.set_indent(3)
     logger.debug2(logger.pformat(person_info))
     try:
         profile = autostud.get_profile(person_info)
     except ValueError, msg:
-        logger.warn("  Error for %s: %s" %  (fnr, msg))
+        logger.warn("Error for %s: %s" %  (fnr, msg))
         logger.set_indent(0)
         return
     except Errors.NotFoundError, msg:
-        logger.warn("  Error for %s: %s" %  (fnr, msg))
+        logger.warn("Error for %s: %s" %  (fnr, msg))
         logger.set_indent(0)
         return
     if fast_test:
@@ -334,14 +366,20 @@ def process_student(person_info):
         return
     try:
         try:
-            logger.debug(" disk=%s, dfg=%s, fg=%s sko=%s" % \
+            logger.debug("disk=%s, dfg=%s, fg=%s sko=%s" % \
                          (profile.get_disk(), profile.get_dfg(),
                           profile.get_grupper(),
                           profile.get_stedkoder()))
         except ValueError:
             pass
         if create_users and not students.has_key(fnr):
-            account_id = create_user(fnr, profile)
+            if alternative_account_id != -1:  # has a reserved account
+                logger.debug("using reserved: %i" % alternative_account_id)
+                account_id = alternative_account_id
+                update_account(profile, [account_id],
+                               account_info=students.get(fnr, {}))
+            else:
+                account_id = create_user(fnr, profile)
             if account_id is None:
                 logger.set_indent(0)
                 return
@@ -354,10 +392,11 @@ def process_student(person_info):
     logger.set_indent(0)
     
 def process_students():
-    global autostud, students
+    global autostud, students, other_account_owners
 
     logger.info("process_students started")
-    students = get_student_accounts()
+    students, other_account_owners = get_existing_accounts()
+    
     logger.info("got student accounts")
     autostud = AutoStud.AutoStud(db, logger, debug=debug, cfg_file=studconfig_file,
                                  studieprogs_file=studieprogs_file)
@@ -396,7 +435,6 @@ def main():
     range = None
     only_dump_to = None
     to_stdout = False
-    bootstrap()
     for opt, val in opts:
         if opt in ('-d', '--debug'):
             debug += 1
@@ -423,6 +461,7 @@ def main():
             type = val
         elif opt in ('--reprint',):
             range = val
+            to_stdout = True
         else:
             usage()
     if (not update_accounts and not create_users and range is None):
@@ -435,6 +474,7 @@ def main():
     os.chdir(workdir)
     logger = AutoStud.Util.ProgressReporter(
         "%s/run.log.%i" % (workdir, os.getpid()), stdout=to_stdout)
+    bootstrap()
     if range is not None:
         make_letters("letters.info", type=type, range=val)
     else:
@@ -451,12 +491,15 @@ def usage():
     --only-dump-results file: just dump results with pickle without
       entering make_letters
     --workdir dir:  set workdir for --reprint
-    --type type: set type for --reprint
-    --reprint range:  Re-print letters in case of paper-jam etc.
+    --type type: set type (=the mal attribute to <brev> in -C) for --reprint
+    --reprint range:  Re-print letters in case of paper-jam etc. (comma separated)
     --with-lpr: Spool the file with new user letters to printer
 
-./contrib/no/uio/process_students.py --fast-test -d -d -C ../uiocerebrum/etc/config/studconfig.xml -s ~/.usit.cerebrum.etc/fsprod/merged_info.xml -c
+To create new users:
+  ./contrib/no/uio/process_students.py -C .../studconfig.xml -s .../studieprogrammer.xml -p .../merged_persons.xml -c
 
+To reprint letters of a given type:
+  ./contrib/no/uio/process_students.py --workdir tmp/ps-2003-09-25.1265 --type nye-stud-brukerkonto-brev --reprint 1,2
     """
     sys.exit(0)
 
