@@ -1,0 +1,34 @@
+Installation instructions for Cerebrum web interface
+====================================================
+
+:Date: $Date$
+:Revision: $Revision$
+:Author: Stian Søiland <stain@itea.ntnu.no>
+
+Minimal requirements
+====================
+
+* Apache 2.0.x
+
+* mod_python 2.1.x
+  (if you want to use 2.0.x - you'll need to find your own Session provider)
+
+* Python 2.2
+
+* forgetHTML 
+  http://forgethtml.sourceforge.net/
+
+
+Install
+=======
+
+Run ./configure --prefix=yada-yada 
+    (and optionally --with-webroot=some-where )
+from the root.   (remember autoconf if this is a CVS release)
+
+Run make install from the web directory.
+
+You should then be up and running. If you're not - make sure
+mod_python is enabled, and that the .htaccess files are working
+for your configuration.
+

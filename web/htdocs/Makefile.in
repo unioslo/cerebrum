@@ -1,0 +1,37 @@
+##
+## Makefile for Cheetah templates
+##
+SHELL = @SHELL@
+INSTALL = @INSTALL@
+
+prefix = @prefix@
+libdir = @libdir@
+webroot = @webroot@
+
+sources = $(wildcard *.py)
+
+.PHONY: all install install-lib clean distclean print
+
+all: 
+	$(MAKE) -C css $@
+
+print:
+	@echo Sources
+	@echo $(sources)
+
+install-lib:
+
+install: $(sources) htaccess
+	@for file in $(sources); do \
+	  $(INSTALL) -D -v -m 644 $$file $(DESTDIR)/$(webroot)/$$file || exit 1; \
+	done
+	$(INSTALL) -D -v -m 644 htaccess $(DESTDIR)/$(webroot)/.htaccess
+	$(MAKE) -C css $@
+
+clean:
+	rm -f *~ 
+	$(MAKE) -C css $@
+
+distclean: clean
+	rm -f Makefile
+	$(MAKE) -C css $@

@@ -1,0 +1,10 @@
+Options +Indexes
+SetHandler mod_python
+#SetHandler python-program
+PythonHandler mod_python.publisher
+PythonDebug On
+PythonInterpPerDirectory On
+# husk at DirectoryIndex-filen må finnes ...
+DirectoryIndex index.py
+# Make sure our local libs are available (dev only)
+PythonPath "['@PYTHONDIR@'] + sys.path"

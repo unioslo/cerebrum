@@ -1,0 +1,34 @@
+Cerebrum web-interface (Cereweb)
+================================
+
+:Date: $Date$
+:Revision: $Revision$
+:Author: Stian Søiland <stain@itea.ntnu.no>
+:Status: Draft
+
+Cereweb is a part of the Cerebrum project, 
+see http://cerebrum.sourceforge.net/ for more information.
+
+Architecture
+------------
+
+Cereweb provides a usable web interface to Cerebrum, avoiding the text
+based clients. The web interface is however itself a bohf-based client
+agains bohfd.
+
+
+Credits
+-------
+
+Initial development on Cereweb was performed by NTNU IT-seksjonen in
+Trondheim, Norway, financed by NTNU and UNINETT. 
+
+Developers:
+  
+  * Stian Søiland
+  * Thomas Langås
+  * Andreas Aannerud Nilsen
+  * Odd Arne Haugen
+  * Steinar Hamre
+  
+

@@ -1,0 +1,22 @@
+
+body {
+  overflow-y: hidden;
+}
+div.content {
+  height: 100%;
+  overflow: auto;
+}
+/* Nice trick to avoid overlapping the scroll bar... */
+div.bottom {
+  left: -20px;
+  padding-left: 20px;
+  z-index: 1;
+  overflow: hidden;
+  overflow-y: auto;
+}
+div.menu {
+  /* re-overlap the -20px from div.bottom */
+  z-index: 2;
+}
+
+

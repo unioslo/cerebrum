@@ -1,0 +1,88 @@
+##
+## Very simple template for CSS-'frames'
+## 
+##
+
+#set $menuwidth = 10
+#set $bottomheight = 9
+
+
+/* Magic to do 'frames' from CSS.
+ * 
+ * This file is part of the Cereweb project of Cerebrum
+ * ( http://cerebrum.sf.net/ )
+ * (c) NTNU ITEA 2003 
+ * Author: Stian Søiland <stain@itea.ntnu.no>
+ *
+ * Large parts of this file is however copied freely from
+ * the site http://devnull.tagsoup.com/fixed/
+ * Many thanks to Eric Bednarz <devnull@tagsoup.com>
+ *
+ * Essentially the trick is to make body only 100% high (ie. the screen
+ * size) - and let div.content be the main content, and that div can
+ * scroll away down the side.
+ * 
+ * This allows fixed positioning even in Microsoft IE, as we can use
+ * position: absolute for elements directly within body.
+ * 
+ * Note however that a little trick in fixed.css needs to be included:
+ *   <link rel="stylesheet" type="text/css" href="css/fixed.css" >
+ *   <!--[if IE]>
+ *     <link rel="stylesheet" type="text/css" href="css/fixed_ie5.css">
+ *   <![endif]-->
+ *
+ * 
+ */
+body {
+  margin: 0;
+  background: white;
+}
+
+div.menu,div.bottom {
+  position: absolute;
+  margin: 0;
+  /* Debuglines */
+  border: 1px dashed #aaa;
+  background: white;
+  /* If scrolling is needed: */
+  overflow: auto; 
+}
+div.menu {
+  /* Placed in the upper left corner */
+  top: 0;
+  left: 0;
+  /* Width of menu */
+  width: ${menuwidth}em;
+  height: 100%;
+}
+div.bottom  {
+  /* Placed in the lower left corner */
+  bottom: 0;
+  left: 0;
+  /* width: 100% is too wide.. use right: 0; although this shrinks
+     the thingie in IE.. avoid background color! */
+  right: 0;
+  /* Height of bottom part */
+  height: ${bottomheight}em;
+  /* avoid collission with div.menu */
+  margin-left: ${menuwidth}em;
+}
+/* This trick is to fix something i IE 5 on Mac..  */
+@media screen {
+  body>div.menu,body>div.bottom {
+    position: fixed;
+  }
+}
+
+/* The actual text area, remember to update
+ * the margins according to div.menu and div.bottom (+1em)
+ */
+#set $realpadding = 1
+#set $paddingleft = $menuwidth + $realpadding
+#set $paddingbottom = $bottomheight + $realpadding  
+div.content {
+  padding-top: ${realpadding}em; 
+  padding-right: ${realpadding}em; 
+  padding-left: ${paddingleft}em; 
+  padding-bottom: ${paddingbottom}em;
+}

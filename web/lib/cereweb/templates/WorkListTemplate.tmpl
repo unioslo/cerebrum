@@ -1,0 +1,40 @@
+## Worklist - the place to remember things
+##
+##
+
+## Creates a worklist based on the list of objects and actions. 
+## objects is a list of tuples (key, label), likewise for
+## action. Any keys in the list selected will be marked
+## selected by default in the worklist.
+
+#def worklist(objects, actions, selected)
+
+<div class="worklist" name="worklist", selected>
+  <h2>
+    Work list
+  </h2>
+  <form action="#">
+    <select multiple="multiple" size="7">
+      <option>
+        -- Remembered objects --
+      </option>
+#for $key, $label in $objects
+      <option id="$key" 
+#if $key in $selected
+              selected="selected"
+#end if
+              value="$key">
+        $label
+      </option>
+#end for      
+    </select>
+    <div class="buttons">
+#for $key, $label in $objects
+        <input type="submit" class="workbutton"
+               name="$key" value="$label" /><br />
+#end for      
+    </div>       
+  </form>
+</div>
+
+#end def
