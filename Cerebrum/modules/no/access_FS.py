@@ -1074,7 +1074,7 @@ class EVU(FSObject):
     def get_kurs_aktivitet(self, kurs, tid): # GetAktivitetEvuKurs
         qry = """
         SELECT k.etterutdkurskode, k.kurstidsangivelsekode, k.aktivitetskode,
-               k.aktivitetsnavn
+               k.aktivitetsnavn, k.undformkode
         FROM fs.kursaktivitet k
         WHERE k.etterutdkurskode='%s' AND
               k.kurstidsangivelsekode='%s'

@@ -503,6 +503,47 @@ def build_structure(sko, allow_room=0, allow_contact=0):
 	register_group(sted.name, id, parent, allow_room, allow_contact)
     return id
 
+
+def make_profile(enhet_id, aktkode):
+    """
+    Lag en profil basert på undformkode.
+
+    CF vil ha det slik at en profil for et *nytt* rom, skal være avhengig av
+    undformkode som finnes i
+    fs.{undaktivitet,kursaktivtet}.undformkode. Dette gjelder ikke alle
+    undformkodene, kun et lite utvalg, og dette utvalget er dessverre
+    hardkodet (vi får dessverre ingen behagelig tabell i FS/CF som vi kan
+    bruke).
+
+    NB! Vi returnerer en id (som skal plasseres rett i XML dump) for det
+    aktuelle utvalget av undformkoder. Dersom en slik id ikke finnes,
+    returnerer vi None.
+    """
+
+    undformkode2cfname = {
+        "FOR"     : "UiOforelesning",
+        "GR"      : "UiOgruppe",
+        "KOL"     : "UiOkollokvie",
+        "KURS"    : "UiOkurs",
+        "LAB"     : "UiOlaboratorie",
+        "OBLOPPG" : "UiOoblig",
+        "PRO"     : "UiOprosjekt",
+        "ØV"      : "UiOøving",
+        }
+
+    akt_id = ":".join((enhet_id, aktkode))
+    undformkode = fronter.akt2undform.get(akt_id)
+    if undformkode not in undformkode2cfname:
+        return None
+    # fi
+        
+    profile_id = fronter._accessFronter.GetProfileId(
+        undformkode2cfname[undformkode])
+
+    return profile_id
+# end make_profile
+
+
 def process_single_enhet_id(kurs_id, enhet_id, struct_id, emnekode,
                             groups, enhet_node, undervisning_node,
                             termin_suffix=""):
@@ -550,6 +591,11 @@ def process_single_enhet_id(kurs_id, enhet_id, struct_id, emnekode,
         new_rooms[akt_rom_id] = {'title': akt_tittel,
                                  'parent': enhet_node,
                                  'CFid': akt_rom_id}
+        profile = make_profile(enhet_id, aktkode)
+        if profile is not None:
+            new_rooms[akt_rom_id]["profile"] = int(profile)
+        # fi
+        
         new_acl.setdefault(akt_rom_id, {})[aktans] = {
             'role': fronter.ROLE_CHANGE}
         new_acl.setdefault(akt_rom_id, {})[aktstud] = {

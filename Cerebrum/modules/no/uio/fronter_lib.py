@@ -21,6 +21,7 @@
 import re
 import time
 
+from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no.uio.access_FS import FS
 from Cerebrum import Database
@@ -233,6 +234,7 @@ class Fronter(object):
         self.enhet2akt = {}
         self.emne_versjon = {}
         self.emne_termnr = {}
+        self.akt2undform = {}
 
     def GetSuperGroupnames(self):
         if 'FS' in self.export:
@@ -353,12 +355,14 @@ class Fronter(object):
 #	    self.logger.debug("read_kurs_data_getundaktivitet: %s, %s, %s, %s, %s, %s, %s" % (self.EMNE_PREFIX,akt['institusjonsnr'],akt['emnekode'],akt['versjonskode'],akt['terminkode'],akt['arstall'],akt['terminnr']))
 
             kurs_id = FronterUtils.UE2KursID(*id_seq)
-#	    self.logger.debug("read_kurs_data_getundaktivitet: kurs_id=%s" % kurs_id)
+#           self.logger.debug("read_kurs_data_getundaktivitet: kurs_id=%s" % kurs_id)
             if kurs.has_key(kurs_id):
                 enhet_id = ":".join([str(x) for x in id_seq]).lower()
+                akt_id = ":".join((enhet_id, akt["aktivitetkode"])).lower()
 #		self.logger.debug("read_kurs_data: enhet_id=%s" % enhet_id)
 		self.enhet2akt.setdefault(enhet_id, []).append(
                 [akt['aktivitetkode'], akt['aktivitetsnavn']])
+                self.akt2undform[akt_id] = akt["undformkode"]
 
         for evu in self._fs.evu.list_kurs():
             id_seq = (self.EVU_PREFIX, evu['etterutdkurskode'],
@@ -379,8 +383,10 @@ class Fronter(object):
 
                 for akt in self._fs.evu.get_kurs_aktivitet(
                     evu['etterutdkurskode'], evu['kurstidsangivelsekode']):
+                    akt_id = ":".join((enhet_id, akt["aktivitetskode"])).lower()
                     self.enhet2akt.setdefault(enhet_id, []).append(
                         (akt['etterutdkurskode'], akt['aktivitetsnavn']))
+                    self.akt2undform[akt_id] = akt["undformkode"]
         self.logger.debug("read_kurs_data: len(self.kurs2enhet)=%i" % \
                           len(self.kurs2enhet))
 
