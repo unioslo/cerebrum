@@ -98,7 +98,7 @@ class BofhdExtension(object):
         self.const = self.person.const
         self.name_codes = {}
         for t in self.person.list_person_name_codes():
-            self.name_codes[int(t.code)] = t.description
+            self.name_codes[int(t['code'])] = t['description']
         self.external_id_mappings['fnr'] = self.const.externalid_fodselsnr
         # TODO: str2const is not guaranteed to be unique (OK for now, though)
         self.num2const = {}
@@ -5329,6 +5329,8 @@ class BofhdExtension(object):
         # Date-type.
         if y > 2050:
             raise CerebrumError, "Too far into the future: %s" % date
+        if y < 1800:
+            raise CerebrumError, "Too long ago: %s" % date
         try:
             return self.db.Date(y, m, d)
         except:
