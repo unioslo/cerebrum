@@ -201,6 +201,8 @@ class Entity(DatabaseAccessor):
         if self.entity_id is None:
             raise Errors.NoEntityAssociationError, \
                   "Unable to determine which entity to delete."
+        for s in self.get_spread():
+            self.delete_spread(s['spread'])
         self.execute("""
         DELETE FROM [:table schema=cerebrum name=entity_info]
         WHERE entity_id=:e_id""", {'e_id': self.entity_id})
