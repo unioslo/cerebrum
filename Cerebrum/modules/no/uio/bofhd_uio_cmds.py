@@ -857,7 +857,9 @@ class BofhdExtension(object):
         if not self.ba.is_superuser(operator.get_entity_id()):
             raise PermissionDenied("Currently limited to superusers")
         bar = BofhdAuthRole(self.db)
-        bar.revoke_auth(entity_id, op_set_id, op_target_id)
+        aos = BofhdAuthOpSet(self.db)
+        aos.find_by_name(op_set_name)
+        bar.revoke_auth(entity_id, aos.op_set_id, op_target_id)
         return "OK"
 
     # perm who_owns
