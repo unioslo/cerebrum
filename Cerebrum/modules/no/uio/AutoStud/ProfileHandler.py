@@ -118,19 +118,24 @@ class Profile(object):
                     if d['prefix'] == disk_path[0:len(d['prefix'])]:
                         return current_disk
 
-        if new_disk.has_key('path'):
-            # TBD: Should we ignore max_on_disk when path is explisitly set?
-            return new_disk['path']
+        if new_disk.has_key('pool'):
+            tmp = self.pc.disk_pools[new_disk['pool']]
+        else:
+            tmp = [new_disk]
+        for new_disk in tmp:
+            if new_disk.has_key('path'):
+                # TBD: Should we ignore max_on_disk when path is explisitly set?
+                return new_disk['path']
 
-        dest_pfix = new_disk['prefix']
-        max_on_disk = int(self.pc.disk_defs['prefix'][dest_pfix]['max'])
-        if max_on_disk == -1:
-            max_on_disk = 999999
-        for d in self.pc.autostud.disks_order:
-            tmp_path, tmp_count = self.pc.autostud.disks[d]
-            if (dest_pfix == tmp_path[0:len(dest_pfix)]
-                and tmp_count < max_on_disk):
-                 return d
+            dest_pfix = new_disk['prefix']
+            max_on_disk = int(self.pc.disk_defs['prefix'][dest_pfix]['max'])
+            if max_on_disk == -1:
+                max_on_disk = 999999
+            for d in self.pc.autostud.disks_order:
+                tmp_path, tmp_count = self.pc.autostud.disks[d]
+                if (dest_pfix == tmp_path[0:len(dest_pfix)]
+                    and tmp_count < max_on_disk):
+                     return d
         raise NoAvailableDisk, "No disks with free space matches %s" % new_disk
 
     def notify_used_disk(self, old=None, new=None):
