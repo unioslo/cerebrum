@@ -58,12 +58,12 @@ class fileback:
     def __init__(self, filename=None, mode=0644):
 	if filename: self.filename=filename
 	self.mode=mode
-    def begin(inkr=False)
+    def begin(self, inkr=False):
 	self.inkr=inkr
 	if self.inkr: self.readin(self.filename)
         self.tmpname=self.filename + ".tmp." + str(os.getpid())
-        self.f=open(self.tmpfile, 'w')
-        os.chmod(self.tmpfile, mode)
+        self.f=open(self.tmpname, 'w')
+        os.chmod(self.tmpname, self.mode)
     def close(self):
 	if self.inkr: self.writeout()
         self.f.flush()
@@ -88,11 +88,11 @@ class fileback:
 class clfileback(fileback):
     def readin(self, srcfile):
         self.records={}
-        for l in readlines(open(srcfile)):
+        for l in open(srcfile):
             key=l.split(":",1)[0]
             self.records[key]=l
     def writeout(self):
-        for l in records.values():
+        for l in self.records.values():
             self.f.write(l)
 
 
