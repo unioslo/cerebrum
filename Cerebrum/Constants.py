@@ -65,7 +65,17 @@ class _PersonAffStatusCode(_CerebrumCode):
     _lookup_code_column = 'status'
     _lookup_str_column = 'status_str'
     _lookup_table = 'person_aff_status_code'
-    pass
+
+    def __init__(self, affiliation, status):
+        self.affiliation = affiliation
+        super(_PersonAffStatusCode, self).__init__(status)
+
+    def __int__(self):
+        if self.int is None:
+            self.int = self.sql.query_1("SELECT %s FROM %s WHERE %s=:str AND affiliation=:aff" %
+                                   (self._lookup_code_column, self._lookup_table,
+                                    self._lookup_str_column), {'str': self.str, 'aff' : int(self.affiliation)})
+        return self.int
 
 class _AuthoritativeSystemCode(_CerebrumCode):
     "Mappings stored in the authoritative_system_code table"
@@ -105,7 +115,8 @@ class Constants(DatabaseAccessor):
     affiliation_student = _PersonAffiliationCode('STUDENT')
     affiliation_employee = _PersonAffiliationCode('EMPLOYEE')
 
-    affiliation_status_valid = _PersonAffStatusCode('VALID')
+    affiliation_status_student_valid = _PersonAffStatusCode(affiliation_student, 'VALID')
+    affiliation_status_employee_valid = _PersonAffStatusCode(affiliation_employee, 'VALID')
 
     # UIO specific constants, belong in UiOConstants once we get the
     # CerebrumFactory up and running
@@ -126,8 +137,9 @@ def main():
     Cerebrum = Database.connect(user="cerebrum")
     co = Constants(Cerebrum)
 
-    skip = dir(DatabaseAccessor)
+    skip = dir(Cerebrum)
     for x in filter(lambda x: x[0] != '_' and not x in skip, dir(co)):
+        print "map: %s" % x
         print "co.%s: %s = %d" % (x, getattr(co, x), getattr(co, x))
 
 if __name__ == '__main__':
