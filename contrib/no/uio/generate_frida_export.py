@@ -84,7 +84,7 @@ def output_element(writer, value, element, attributes = {}):
     '''
 
     # skip "empty" elements
-    if not attributes and not str(value):
+    if not attributes and (value is None or not str(value)):
         return
     # fi
 
