@@ -111,10 +111,22 @@ class Sync:
         t = self._transaction()
         search = t.get_person_searcher()
         persons = search.search()
-        try:
-            return [Person(p) for p in persons]
-        finally:    
-            t.rollback()
+        results = []
+        for p in persons:
+            person = Person(p)
+            results.append(person)
+
+            # Find user names for person
+            # (this might get heavy: FIXME) 
+            accounts = t.get_account_searcher()
+            accounts.set_owner(p)
+            # FIXME
+            # WHICH IS THE PRIMARY USER? What about different user name
+            # domains? 
+            person.users = [a.get_name() for a in accounts.search()]
+
+        t.rollback()
+        return results
  
 class Group:           
     """Stub object for representation of an account"""
@@ -336,6 +348,9 @@ class TestSync(unittest.TestCase):
         self.assertEqual(soiland.gender, "X")
         # at least for now.. 
         self.assertEqual(soiland.deceased, False)
+        # FIXME: Should be "stain" and "soiland" in soiland.users
+        self.assertEqual(soiland.users, ["cxx"])
+
 
 if __name__ == "__main__":
     unittest.main()
