@@ -52,10 +52,11 @@ def create_ap_set_method(attribute):
 class APClass:
     """ Creator of Access point proxy object.
 
-    The APOBject contains the APHandler and an object. It acts as a proxy for the object.
+    An APClass object contains the APHandler and an object from the GRO API. 
+    It acts as a proxy for the object.
     This is to give us a sort of automatic session handling that will solve two problems:
     1 - The client does not have to deal with a session id
-    2 - GRO can perform locking on objects requested by an client,
+    2 - GRO can perform locking on objects requested by a client,
         using the APHandler to identify it.
     """
 
@@ -104,12 +105,12 @@ class APHandler(CorbaBuilder):
     """
 
     classes = {} # Access Point classes
-    gro_classes = {} # gro classes to be used
+    gro_classes = {} # GRO API classes to be used
     slots = []
     method_slots = [Method('begin','void'), Method('rollback', 'void'), Method('commit', 'void')]
 
     def convert(cls, value, data_type, ap_handler):
-        # TODO: skummel navnekonvesjon
+        # TODO: skummel bruk av navnekonvesjon, burde legge til flags i Attribute i stedet
         if data_type.endswith('Seq'):
             return [cls.convert(i) for i in value]
         elif data_type[0].isupper():
@@ -224,7 +225,8 @@ class APHandler(CorbaBuilder):
 
     def create_ap_handler_impl(cls):
         import generated__POA
-        exec 'class APHandlerImpl(cls, generated__POA.APHandler):\n\tpass\n'
+        class APHandlerImpl(cls, generated__POA.APHandler):
+            pass
         return APHandlerImpl
 
     create_ap_handler_impl = classmethod(create_ap_handler_impl)
