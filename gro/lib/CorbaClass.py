@@ -10,24 +10,24 @@ corba_types = [int, str, bool, None]
 
 def convert_to_corba(obj, transaction, data_type, sequence):
     def convert(obj, data_type):
-        # ugly hack to make casting work with Entity
-        if data_type.__name__ == 'Entity':
-            data_type = obj.__class__
-
         if obj is None and data_type is not None:
             raise TypeError('cant convert None')
         elif data_type in corba_types:
             return obj
         elif data_type in class_cache:
+            # corba casting
+            if obj.__class__ in data_type.builder_children:
+                data_type = obj.__class__
+
             corba_class = class_cache[data_type]
             key = (corba_class, transaction, obj)
             if key in object_cache:
-                corba_object = object_cache[key]
-            else:
-                corba_object = corba_class(obj, transaction)
+                return object_cache[key]
 
             com = Communication.get_communication()
-            return com.servant_to_reference(corba_object)
+            corba_object = com.servant_to_reference(corba_class(obj, transaction))
+            object_cache[key] = corba_object
+            return corba_object
         else:
             raise TypeError('unknown data_type', data_type)
 
@@ -127,7 +127,7 @@ def register_gro_class(gro_class, idl_class):
 
         if attr.write:
             set_name = 'set_' + attr.name
-            set = Method(set_name, None, False, [(attr.name, attr.data_type, attr.sequence)])
+            set = Method(set_name, None, False, [(attr.name, attr.data_type, attr.sequence)], write=True)
 
             setattr(corba_class, set_name, create_corba_method(set))
 
