@@ -79,4 +79,3 @@ def bootstrap():
 if __name__ == '__main__':
     bootstrap()
 
-# arch-tag: 3da72f49-4a08-47ab-b189-5147403d3181
