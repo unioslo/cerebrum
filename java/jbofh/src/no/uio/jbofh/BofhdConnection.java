@@ -11,6 +11,7 @@ import org.apache.log4j.Category;
 import java.util.Arrays;
 import java.util.Vector;
 import java.util.Hashtable;
+import java.util.Enumeration;
 import java.io.*;
 
 /**
@@ -62,13 +63,47 @@ public class BofhdConnection {
         return sendRawCommand("run_command", args);
     }
 
+    private String washSingleObject(String str) {
+	if(str.startsWith(":")) {
+	    str = str.substring(1);
+	    if(str.equals("None")) return null;
+	    if(! (str.substring(0,1).equals(":"))) {
+		System.err.println("Warning: unknown escape sequence: "+str);
+	    }
+	}
+	return str;
+    }
+
+    Object washResponse(Object o) {
+	if(o instanceof Vector) {
+	    Vector ret = new Vector();
+	    for (Enumeration e = ((Vector) o).elements() ; e.hasMoreElements() ;) {
+		ret.add(washResponse(e.nextElement()));
+	    }
+ 	    return ret;
+	} else if(o instanceof String) {
+	    return washSingleObject((String) o);
+	} else if(o instanceof Hashtable) {
+	    Hashtable ret = new Hashtable();
+            for (Enumeration e = ((Hashtable) o).keys (); e.hasMoreElements (); ) {
+		Object key = e.nextElement();
+		ret.put(key, washResponse(((Hashtable) o).get(key)));
+	    }
+	    return ret;
+	} else {
+	    return o;
+	}
+    }
+
     Object sendRawCommand(String cmd, Vector args) throws BofhdException {
         try {
             logger.debug("sendCommand("+cmd+", "+args);
-            return xmlrpc.execute(cmd, args);
+            return washResponse(xmlrpc.execute(cmd, args));
         } catch (XmlRpcException e) {
-	    if(e.getMessage().startsWith("CerebrumError")) {
-		throw new BofhdException("User error: "+e.getMessage());
+	    logger.debug("exception-message: "+e.getMessage());
+	    String match = "server.bofhd_errors.CerebrumError:";
+	    if(e.getMessage().startsWith(match)) {
+		throw new BofhdException("User error: "+e.getMessage().substring(match.length()));
 	    } else {
 		logger.error("err: code="+e.code, e);
 		throw new BofhdException("Error: "+e.getMessage());

@@ -319,6 +319,8 @@ public class JBofh {
 		    try {
 			Object resp = bc.sendCommand(protoCmd, protoArgs);
 			if(resp != null) showResponse(protoCmd, resp);
+		    } catch (BofhdException ex) {
+			System.out.println(ex.getMessage());
 		    } catch (Exception ex) {
 			System.out.println("Unexpected error (bug): "+ex);
 			ex.printStackTrace();
