@@ -269,7 +269,6 @@ def process_person(person):
         return
     new_person.populate(db.Date(year, mon, day), gender)
     new_person.affect_names(const.system_lt, const.name_first, const.name_last,
-						const.name_work_title,
 						const.name_personal_title)
     new_person.affect_external_id(const.system_lt, const.externalid_fodselsnr)
     new_person.populate_name(const.name_first, person['fornavn'])
@@ -284,6 +283,8 @@ def process_person(person):
     # assigned to it.
     op = new_person.write_db()
 
+    # work_title is set by determine_affiliations
+    new_person.affect_names(const.system_lt, const.name_work_title)
     affiliations = determine_affiliations(person)
     new_person.populate_affiliation(const.system_lt)
     contact = determine_contact(person)
