@@ -108,6 +108,7 @@ class SqlScanner(Scanner):
               # them.
               | Str("''"))
         + Str("'"))
+    value = integer | float | name | stringlit
     open_paren = Any("(")
     close_paren = Any(")")
     punctuation = Any(",.*")
@@ -135,7 +136,7 @@ class SqlScanner(Scanner):
         (Str('[:'), Begin('sql_portability')),
         State('sql_portability',
               [(Str(']'), Begin('')),
-               (name + Str('=') + name, SQL_PORTABILITY_ARG),
+               (name + Str('=') + value, SQL_PORTABILITY_ARG),
                (name, SQL_PORTABILITY_FUNCTION),
                (spaces, IGNORE)
                ])
