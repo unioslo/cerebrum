@@ -759,19 +759,25 @@ class ProxyDBConnection(object):
             _db_pool_lock.release()
         return getattr(obj, attrib)
 
-def usage():
+def usage(exitcode=0):
     print """Usage: bofhd.py -c filename [-t keyword]
   -c | --config-file <filename>: use as config file
   -t | --test-help <keyword>: check help consistency
   -m : run multithreaded (experimental)
+  -p | --port num: run on alternative port (default: 8000)
   --unencrypted: don't use https
 """
+    sys.exit(exitcode)
 
 if __name__ == '__main__':
-    opts, args = getopt.getopt(sys.argv[1:], 'c:t:p:m',
-                               ['config-file=', 'test-help=',
-                                'port=', 'unencrypted',
-                                'multi-threaded'])
+    try:
+        opts, args = getopt.getopt(sys.argv[1:], 'c:t:p:m',
+                                   ['config-file=', 'test-help=',
+                                    'port=', 'unencrypted',
+                                    'multi-threaded'])
+    except getopt.GetoptError:
+        usage(1)
+        
     use_encryption = CRYPTO_AVAILABLE
     conffile = None
     port = 8000
