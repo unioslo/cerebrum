@@ -39,9 +39,10 @@ class AutoStud(object):
         self.disks = {}
         self.disks_order = []
         self.student_disk = {}
+        co = Factory.get('Constants')(db)
         if True:
             disk = Factory.get('Disk')(db)
-            for d in disk.list(filter_expired=True):
+            for d in disk.list(filter_expired=True, spread=getattr(co, cereconf.HOME_SPREADS[0])):
                 self.disks[int(d['disk_id'])] = [d['path'], int(d['count'])]
             self.disks_order = self.disks.keys()
             self.disks_order.sort(self._disk_sort)
