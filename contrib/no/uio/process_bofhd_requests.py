@@ -120,7 +120,8 @@ def add_forward(user_id, addr):
         addr = addr[1:]
     if addr.endswith('\r'):
         addr = addr[:-1]
-        
+    addr = addr.strip()
+
     if addr.startswith('|') or addr.startswith('"|'):
         logger.warn("forward to pipe ignored: %s", addr)
         return
