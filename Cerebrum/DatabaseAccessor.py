@@ -35,14 +35,14 @@ class DatabaseAccessor(object):
         for exc in Database.API_EXCEPTION_NAMES:
             setattr(self, exc, getattr(database, exc))
 
-    def execute(self, operation, *parameters):
-        return self._db.execute(operation, *parameters)
+    def execute(self, operation, *params, **kws):
+        return self._db.execute(operation, *params, **kws)
 
-    def query(self, query, *params):
-        return self._db.query(query, *params)
+    def query(self, query, *params, **kws):
+        return self._db.query(query, *params, **kws)
 
-    def query_1(self, query, *params):
-        return self._db.query_1(query, *params)
+    def query_1(self, query, *params, **kws):
+        return self._db.query_1(query, *params, **kws)
 
     def nextval(self, seq_name):
         return self._db.nextval(seq_name)
