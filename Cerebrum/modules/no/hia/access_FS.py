@@ -198,7 +198,8 @@ WHERE p.fodselsdato=d.fodselsdato AND
     def GetStudieproginf(self):
         """For hvert definerte studieprogram henter vi 
         informasjon om utd_plan og eier samt studieprogkode. Dumpen fra
-	denne (studieprog.xml) skal også brukes i forbindelse med bygging av rom i CF."""
+	denne (studieprog.xml) skal også brukes i forbindelse med bygging 
+	av rom i CF."""
         qry = """
 SELECT studieprogramkode, studieprognavn, studienivakode,
        status_utdplan, institusjonsnr_studieansv,
@@ -253,9 +254,9 @@ WHERE dato_fra < SYSDATE AND
 	og terminnr."""
 	qry = """
 SELECT DISTINCT
-  r.institusjonsnr, r.emnekode, r.versjonskode, e.emnenavnfork, 
-  e.faknr_kontroll, e.instituttnr_kontroll, e.gruppenr_kontroll,
-  r.terminnr, r.terminkode, r.arstall
+  r.institusjonsnr, r.emnekode, r.versjonskode, e.emnenavnfork,
+  e.emnenavn_bokmal, e.faknr_kontroll, e.instituttnr_kontroll, 
+  e.gruppenr_kontroll, r.terminnr, r.terminkode, r.arstall
 FROM fs.emne e, fs.undervisningsenhet r
 WHERE r.emnekode = e.emnekode AND
       r.versjonskode = e.versjonskode AND
@@ -285,18 +286,36 @@ WHERE
        return (self._get_cols(qry), self.db.query(qry))
 
     def StudprogAlleStud(self, faknr, studprogkode):
-	"""Henter data om alle studenter på et gitt studieprogram og fakultetet
-	denne tilhører"""
+	"""Henter data om alle studenter på et gitt studieprogram og 
+	fakultetet denne tilhører. Med alle studenter mener vi her de
+	studentene som er med i et aktivt studiekull tilknyttet et 
+	studieprogram."""
 	qry = """
 SELECT DISTINCT
-  sp.faknr_studieansv, nk.fodselsdato, nk.personnr, nk.studieprogramkode, nk.kullkode,
-  nk.klassekode
+  sp.faknr_studieansv, nk.fodselsdato, nk.personnr, 
+  nk.studieprogramkode, nk.kullkode,nk.klassekode
 FROM fs.naverende_klasse nk, fs.studieprogram sp, fs.studiekull sk
 WHERE sp.faknr_studieansv = :faknr AND
       sp.studieprogramkode = :studprogkode AND
       sp.studieprogramkode = nk.studieprogramkode
       nk.kullkode = sk.kullkode AND
       sk.statusaktiv = 'J'"""
+        return (self._get_cols(qry),self.db.query(qry))
+
+
+    def AlternativtGetAlleStudStudprog(self, studprogkode):
+	"""Finn alle studenter på et studieprogram.
+	Skal brukes for å populere fellesrom i CF. 
+	Henter opplysninger om alle studenter som har
+	en (hvilken som helt) gyldig studierett til 
+	studieprogrammet 'studprogkode'"""
+	qry = """
+SELECT DISTINCT
+  fodselsdato, personnr, studieprogramkode
+from fs.studierett 
+WHERE
+  studieprogramkode = :studprogkode AND
+  NVL(st.dato_gyldig_til,SYSDATE) >= sysdate""" 
         return (self._get_cols(qry),self.db.query(qry))
 
 ##################################################################
@@ -323,20 +342,6 @@ WHERE institusjonsnr='%s'
 # Øvrige metoder (ikke i bruk ennå)
 ##################################################################
 
-    def AlternativtGetAlleStudStudprog(self, studprogkode):
-	"""Finn alle studenter på et studieprogram.
-	Dette er et alternativt søk dersom det viser seg at søket som 
-	skal returnere studiprogram + kullkode ikke kan brukes (dette fordi
-	den aktuelle tabellen i FS ikke nødvendigvis er populert for alle
-	HiA anser som gyldige studenter"""
-	qry = """
-SELECT DISTINCT
-  fodselsdato, personnr, studieprogramkode
-from fs.studierett 
-WHERE
-  studieprogramkode = :studporgkode AND
-  NVL(st.dato_gyldig_til,SYSDATE) >= sysdate""" 
-        return (self._get_cols(qry),self.db.query(qry))
 
     def GetAlleEmner(self):
         """Hent informasjon om alle emner i FS. Denne brukes foreløpig 
