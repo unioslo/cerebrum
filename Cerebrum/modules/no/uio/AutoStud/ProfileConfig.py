@@ -178,6 +178,8 @@ class StudconfigParser(xml.sax.ContentHandler):
             return entry.get('emnekode', None)
         if(id_type == 'stedkode'):   # TODO
             return None
+        if(id_type == 'fraverskode'):
+            return entry.get('fraverarsakkode_hovedarsak', None)
         raise ValueError, "Bad id_type %s" % id_type
 
     get_value_for_select_id = staticmethod(get_value_for_select_id)
