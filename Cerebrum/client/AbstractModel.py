@@ -51,22 +51,23 @@ class Change(object):
     def __repr__(self):
         date = self.date.strftime("%Y-%m-%d")
         if self.dest:
-            dest = " " + self.dest
+            dest = " " + str(self.dest)
         else:
             dest = ""    
-        return "<Change %s %s %s%s>" % (date, self.type, self.subject, self.dest)
+        return "<Change %s %s %s%s>" % (date, self.type, self.subject, dest)
     def __str__(self):    
+        date = self.date.strftime("%Y-%m-%d")    
+        return "%s <%s> %s" % (date, self.change_by, self.message())
+    def message(self):
         words = self.__dict__.copy()
         try:
             words.update(self.params)
         except Exception, e:
             pass
         try:
-            msg = self.type.message % words
+            return self.type.message % words
         except KeyError:
-            msg = "%s %s" % (self.type.message, self.subject)
-        date = self.date.strftime("%Y-%m-%d")    
-        return "%s %s" % (date, msg)
+            return "%s %s" % (self.type.message, self.subject)
 
 class ContactInfo(object):
 
@@ -84,9 +85,25 @@ class ContactInfo(object):
         pass
     get_info = classmethod(get_info)
 
+class Note(object):
+    def __init__(self, id, entity, create_date, creator, 
+                 subject, description):
+        self.id = id         
+        self.entity = entity
+        self.create_date = create_date
+        self.creator = creator
+        self.subject = subject
+        self.description = description
+    def __repr__(self):
+        return "<Note #%s %s %s>" % (self.id, 
+                                     self.create_date.strftime("%Y-%m-%d"), 
+                                     self.creator)       
+    def __str__(self):
+        return "%s <%s> %s" % (self.create_date.strftime("%Y-%m-%d"),
+                              self.creator, self.subject)
+
 class QuarantineType(object):
     """A type of quarantine that can be set on entities"""
-    _all = None
     def __init__(self, name, description):
         self.name = name
         self.description = description
@@ -122,19 +139,6 @@ class Quarantine(object):
         return "<Quarantine %s on %s from %s>" % (self.quarantine_type.name, 
                                                   self.entity,
                                                   self.start)
-
-    def remove(self):
-        """Remove quarantine from entity"""
-        pass
-    
-    def disable(self, until=None):
-        """Disables this quarantine until date.
-           This indicates that the quarantine is lifted
-           until given date. This is useful e.g. for giving users who have been
-           quarantined for having too old passwords a limited time to change
-           their password; in order to change their password they must use
-           their old password, and this won't work when they're quarantined."""
-        pass
 
 class Entity(object):
     
@@ -172,19 +176,50 @@ class Entity(object):
     fetch_by_id = classmethod(fetch_by_id)
     
     def delete(self):
-        """ Deletes this entity from the database.
+        """Deletes this entity from the database.
         """
         pass
     
     def add_quarantine(self, quarantine_type, why="", 
                        start=None, end=None):
-        """Create and store a new quarantine on entity"""
+        """Create and store a new quarantine on entity.
+        Note: Only one quarantine of each quarantine type can be set on any
+        given entity.
+        
+        quarantine_type must be given, see QuarantineType.get_all()
+
+        why is a string explaining the quarantine in verbose, if needed
+
+        start - if given - is a date (mx.DateTime or iso8601-string) of
+              when to start the quarantine. If not given, start==today
+
+        end - likewise - but when to end. If not given, the quarantine has no given
+                         end date.
+        """
         
     def get_quarantines(self):
-        """ Returns a list of quarantine-objects, if the entity has any quarantines
+        """Returns a list of quarantine-objects, if the entity has any quarantines
             set.
         """
         pass
+
+    def remove_quarantine(self, quarantine=None, quarantine_type=None):    
+        """Removes an existing quarantine from entity. 
+        Parameters should be *either* a matching Quarantine object quarantine
+        or a quarantine_type - that could be QuarantineType or string."""
+        pass
+    
+    def disable_quarantine(self, quarantine=None, quarantine_type=None,
+                           until=None):
+        """Disables an existing quarantine on entity.
+        
+        Parameters should be *either* a matching Quarantine object quarantine
+        or a quarantine_type - that could be QuarantineType or string.
+        until, if given, is the day to disable until - either a 
+        
+        mx.DateTime object or a ISO8601-formatted date, ex: "2003-12-24"
+        """
+        pass                       
     
     def get_history(self):
         """Returns a list of Change objects for recent changes"""
