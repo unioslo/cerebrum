@@ -166,7 +166,7 @@ class _ADAccount(_AdsiBack):
         domain = self._domain()
         for u in domain.search("sAMAccountName='%s'" % accountname):
             # There's only one, so let's raise it
-            raise OutsideOUError, u
+            raise OutsideOUError, (u, accountname)
             
         # OK, it's really really not here
         return None   
@@ -220,9 +220,10 @@ class ADUser(_ADAccount):
         ad_obj.com_object.accountDisabled = False
         # FIXME: should fetch names from owner, and not require Posix
         ad_obj.fullName = obj.gecos or ""
-        # FIXME: Must have clear text password :(
-        password = "fisk4Me"
-        ad_obj.setPassword(password)
+        password = obj.passwords.get("cleartext")
+        if password is not None:
+            print "Setting password for", obj.name
+            ad_obj.setPassword(password)
         ad_obj.setInfo()
         return ad_obj
     
