@@ -3,14 +3,7 @@
    providing network communication, updating the database or
    whatever might be neccessary. """
 
-class CerebrumError(Exception):
-    """General Cerebrum error"""
-    def __str__(self):
-        args = Exception.__str__(self) # Get our arguments
-        if args: 
-            return self.__doc__ + ': ' + args
-        else:
-            return self.__doc__
+from Cerebrum.Errors import CerebrumError
 
 class ServerError(CerebrumError):
     """Server error"""
@@ -23,6 +16,7 @@ class NotSupportedError(ServerError):
 
 class NoQuarantineSupport(NotSupportedError):
     """Entity type does not support quarantines"""
+
 
 class Address(object):
 
