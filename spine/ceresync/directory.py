@@ -165,6 +165,7 @@ class LdapBack:
         """
         print "Syncronizing LDAP database"
         for entry in self.notinsync:
+            print "Found %s in database.. should not be here.. removing" % entry
             self.delete(dn=entry)
         print "Done syncronizing"
 
@@ -204,13 +205,14 @@ class LdapBack:
         attrs=self.get_attributes(obj)
         if old == None:
             # Fetch old values from LDAP
-            res = self.search(dn) # using dn as base, and fetch first record
+            res = self.search(base=dn) # using dn as base, and fetch first record
             old_attrs = res[0][1]
         else:
             old_attrs = {}
         mod_attrs = modlist.modifyModlist(old_attrs,attrs,ignore_attr_types,ignore_oldexistent)
         try:
             self.l.modify_s(dn,mod_attrs)
+            self.notinsync.remove(dn)
             print "%s updated successfully" % (obj.name)
         except ldap.NO_SUCH_OBJECT,e:
             # Object does not exist.. add it instead
@@ -301,13 +303,11 @@ class PosixGroup(LdapBack):
         s = {}
         s['objectClass'] = self.obj_class
         s['cn'] = obj.name
-        try:
+        if (len(obj.membernames) > 0):
             s['memberUid'] = obj.membernames
-        except:
-            #group might not have any members at first add
-            pass
-        s['description'] = obj.description
-        s['gidNumber'] = obj.gid
+        if (len(obj.description) > 0):
+            s['description'] = obj.description
+        s['gidNumber'] = str(obj.posix_gid)
         return s
 
     def get_dn(self,obj):
@@ -326,13 +326,16 @@ class Person:
     def get_attributes(self,obj):
         s = {}
         s['objectClass'] = self.obj_class
-        s['cn'] = obj.fullname
-        s['sn'] = obj.fullname.split()[len(obj.fullname)-1] # presume last name, is surname
+        s['cn'] = obj.full_name
+        s['sn'] = obj.full_name.split()[len(obj.full_name)-1] # presume last name, is surname
         s['uid'] = obj.name
-        s['userPassword'] = '{MD5}' + obj.password # until further notice, presume md5-hash
+        s['userPassword'] = '{MD5}' + 'secrethashhere' 
+        #obj.password # until further notice, presume md5-hash
         s['eduPersonPrincipalName'] = obj.name + "@" + config.sync.get('ldap','eduperson_realm')
-        s['norEduPersonNIN'] = '01012005 99999' # Norwegian "Birth number" / SSN
-        s['mail'] = self.email
+        s['norEduPersonBirthDate'] = str(obj.birth_date) # Norwegian "Birth date" 
+        #s['norEduPersonNIN'] = str(obj.birth_date) # Norwegian "Birth number" / SSN
+        s['mail'] = 'nobody@ntnu.no' # obj.email_address 
+        s['description'] = obj.description
         return s
 
 class Alias:
