@@ -665,6 +665,8 @@ def process_delete_requests():
     for r in br.get_requests(operation=const.bofh_delete_user):
         if not keep_running():
             break
+        if r['run_at'] > br.now:
+            continue
         spread = default_spread
         is_posix = False
         try:
@@ -820,7 +822,7 @@ def main():
             max_requests = int(val)
         elif opt in ('-p', '--process'):
             if not types:
-                types = ['move', 'email', 'mailman'] # 'delete', 
+                types = ['delete', 'move', 'email', 'mailman']
             # We set start_time for each type of requests, so that a
             # lot of home directory moves won't stop e-mail requests
             # from being processed in a timely manner.
