@@ -29,8 +29,7 @@ posix_user = PosixUser.PosixUser(db)
 posix_group = PosixGroup.PosixGroup(db)
 host = Disk.Host(db)
 disk = Disk.Disk(db)
-# Hosts to connect to, set to None in a production environment:
-debug_hostlist = ['cerebellum']
+debug_hostlist = None
 
 def insert_account_in_cl(account_name):
     """Add an account_create event to the ChangeLog.  Useful for
@@ -104,13 +103,16 @@ def usage(exitcode=0):
     print """process_changes.py [options]
     -h | --help
     -i | --insert account_name
-    -p | --process-changes"""
+    -p | --process-changes
+    --debug-hosts <comma-serparated list> limit rsh targets to hosts in host_info"""
     sys.exit(exitcode)
 
 def main():
+    global debug_hostlist
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'hi:p',
-                                   ['help', 'insert=', 'process-changes'])
+                                   ['help', 'insert=', 'process-changes',
+                                    'debug-hosts='])
     except getopt.GetoptError:
         usage(1)
     if not opts:
@@ -122,6 +124,8 @@ def main():
             insert_account_in_cl(val)
         elif opt in ('-p', '--process-changes'):
             process_changes()
-            
+        elif opt == '--debug-hosts':
+            debug_hostlist = val.split(",")
+            print debug_hostlist
 if __name__ == '__main__':
     main()
