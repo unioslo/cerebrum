@@ -527,11 +527,18 @@ def process_move_requests():
             if move_user(uname, int(account.posix_uid), int(group.posix_gid),
                          old_host, old_disk, new_host, new_disk, spread,
                          operator, spool):
-                account.disk_id =  r['destination_id']
+                logger.debug('user %s moved from %s to %s' %
+                             (uname,old_disk,new_disk))
+                account.disk_id = r['destination_id']
                 account.write_db()
                 br.delete_request(request_id=r['request_id'])
 		db.log_change(r['entity_id'], cl_const.account_move , None, change_params={ 'old_host':old_host , 'new_host':new_host , 'old_disk':old_disk, 'new_disk':new_disk })
                 db.commit()
+            else:
+                if new_disk == old_disk:
+                    br.delete_request(request_id=r['request_id'])
+                else:
+                    br.delay_request(r['request_id'], 86400)
 
     # Resten fungerer ikkje enno, so vi sluttar her.
     return
