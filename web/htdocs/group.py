@@ -10,6 +10,7 @@ from Cerebrum.web.templates.HistoryLogTemplate import HistoryLogTemplate
 from Cerebrum.web.Main import Main
 from gettext import gettext as _
 from Cerebrum.web.utils import url
+from Cerebrum.web.utils import redirect
 
 def index(req):
     page = Main(req)
@@ -134,6 +135,7 @@ def remove_member(req, groupid, memberid, operation):
 def edit(req, id):
     server = req.session['server']
     page = Main(req)
+    page.menu.setFocus("group/edit")
     edit = GroupEditTemplate()
     group = ClientAPI.Group.fetch_by_id(server, id)
     edit.formvalues['name'] = group.name
@@ -144,6 +146,7 @@ def edit(req, id):
 
 def new(req):
     page = Main(req)
+    page.menu.setFocus("group/new")
     edit = GroupEditTemplate()
     page.content = lambda: edit.form()
     return page
@@ -151,8 +154,9 @@ def new(req):
 def save(req, id, name, desc, expire):
     server = req.session['server']
     if not(id):
-        ClientAPI.Group.create(server, name, desc)
-        return "OK, created group %s" % name
+        group = ClientAPI.Group.create(server, name, desc)
+        return redirect(req, url("/group/view?id=%s" % group.id), 
+                             seeOther=True)
     if expire:
         return "Cannot set expire yet"    
     return "Don't know how to edit group"
