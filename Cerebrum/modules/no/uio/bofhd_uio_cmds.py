@@ -2719,8 +2719,8 @@ class BofhdExtension(object):
         ("misc", "dadd"), SimpleString(help_ref='string_host'), DiskId(),
         perm_filter='can_create_disk')
     def misc_dadd(self, operator, hostname, diskname):
-        self.ba.can_create_disk(operator.get_entity_id())
         host = self._get_host(hostname)
+        self.ba.can_create_disk(operator.get_entity_id(), host)
         disk = Utils.Factory.get('Disk')(self.db)
         disk.populate(host.entity_id, diskname, 'uio disk')
         try:
@@ -2754,8 +2754,8 @@ class BofhdExtension(object):
         ("misc", "drem"), SimpleString(help_ref='string_host'), DiskId(),
         perm_filter='can_remove_disk')
     def misc_drem(self, operator, hostname, diskname):
-        self.ba.can_remove_disk(operator.get_entity_id())
         host = self._get_host(hostname)
+        self.ba.can_remove_disk(operator.get_entity_id(), host)
         disk = Utils.Factory.get('Disk')(self.db)
         disk.find_by_path(diskname, host_id=host.entity_id)
         account = self.Account_class(self.db)
