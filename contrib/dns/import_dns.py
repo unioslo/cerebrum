@@ -59,6 +59,8 @@ class FileParsers(object):
                 continue
             rest = rest[rest.find('#')+1:]
             rest = rest.strip()
+            if not hostname[-1] == '.':
+                hostname = hostname + zone_postfix
             ret[hostname] = rest
         return ret
 
@@ -125,6 +127,8 @@ class FileParsers(object):
                 if m is not None:
                     logger.debug2("Contact: %s=%s" % (m.group(1), m.group(2)))
                     name = filter_name(m.group(1))
+                    if not name[-1] == '.':
+                        name = name + zone_postfix
                     return 'contact', name, m.group(2)
                 continue
             comment = None
@@ -214,13 +218,9 @@ def parse_netgroups(fname):
     return netgroups
 
 def ng_machine_filter(name):
-#    orig = name
-    tmp = zone_postfix[:-1]
-    if name.endswith(tmp):
-        name = name[:-len(tmp)]
-#    if orig != name:
-#        print "%s -> %s" % (orig, name)
-    return name
+    if len(name.split(".")) > 2:
+        return name + "."
+    return name + zone_postfix
 
 def import_netgroups(fname):
     netgroups = parse_netgroups(fname)
@@ -335,8 +335,9 @@ def filter_name(name):
             if not filter_warned.has_key(name):
                 logger.warn("bad target postfix: %s" % name)
                 filter_warned[name] = True
-        return name
-    return name[:-len(zone_postfix)]
+            return name
+        return name+".uio.no."
+    return name
 
 def find_dns_owner(name, target_type=None):
     """Lookup a dns_owner by name, prioritying hosts/arecords/cnames
@@ -367,13 +368,7 @@ def find_dns_owner(name, target_type=None):
         return None, None
 
 def _make_foreign_owner(name):
-    dnsowner.clear()
-    dnsowner.populate(name, is_foreign=True)
-    dnsowner.write_db()
-    owner_id = int(dnsowner.entity_id)
-    name2dns_owner[name] = (owner_id, owner_id)
-    logger.debug("Making foreign owner %s=%i" % (name, owner_id))
-    return name2dns_owner[name]
+    return _make_dns_owner(name)  # We no longger differenciate
 
 def _make_dns_owner(name):
     dnsowner.clear()

@@ -1,4 +1,5 @@
 # -*- coding: iso-8859-1 -*-
+import cereconf
 
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.bofhd.errors import CerebrumError
@@ -167,7 +168,7 @@ class BofhdExtension(object):
              'will be interpreted as a subnet.  You may skip the 129.240 part'],
             'hinfo':
             ['hinfo', 'Enter HINFO code',
-             'Use "ip list_hinfo" to get a list of legal values, some examples are:\n'
+             'Use "ip hinfo_list" to get a list of legal values, some examples are:\n'
              "- unix\n",
              "- windows\n",
              "- mac\n",

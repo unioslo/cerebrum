@@ -2,7 +2,7 @@
 
 from Cerebrum import Utils
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
-from Cerebrum.Entity import Entity
+from Cerebrum.Entity import Entity, EntityName
 from Cerebrum.modules import dns
 
 class MXSet(DatabaseAccessor):
@@ -94,16 +94,18 @@ class MXSet(DatabaseAccessor):
         FROM [:table schema=cerebrum name=dns_mx_set]""")
 
     def list_mx_sets(self, mx_set_id=None, target_id=None):
-        where = ['mxs.target_id=d.dns_owner_id']
+        where = ['mxs.target_id=d.dns_owner_id',
+                 'mxs.target_id=en.entity_id']
         if mx_set_id:
             where.append('mxs.mx_set_id=:mx_set_id')
         if target_id:
             where.append('target_id=:target_id')
         where = " AND ".join(where)
         return self.query("""
-        SELECT mxs.mx_set_id, ttl, pri, target_id, d.name AS target_name
+        SELECT mxs.mx_set_id, ttl, pri, target_id, en.entity_name AS target_name
         FROM [:table schema=cerebrum name=dns_mx_set_member] mxs,
-             [:table schema=cerebrum name=dns_owner] d
+             [:table schema=cerebrum name=dns_owner] d,
+             [:table schema=cerebrum name=entity_name] en
         WHERE %s
         ORDER BY mxs.mx_set_id""" % where, {
             'mx_set_id': mx_set_id,
@@ -199,19 +201,37 @@ class GeneralDnsRecord(object):
                           locals())
 
 
-class DnsOwner(GeneralDnsRecord, Entity):
+class DnsOwner(GeneralDnsRecord, EntityName, Entity):
     """``DnsOwner(GeneralDnsRecord, Entity)`` primarily updates the
-    DnsOwner table using the standard Cerebrum populate framework."""
+    DnsOwner table using the standard Cerebrum populate framework.
+
+    The actual name of the machine is stored using EntityName.  Names
+    are stored as fully-qualified, including the trailing dot, and all
+    share the same namespace (const.dns_namespace).  This makes
+    netgroup handling easier.  At a later time, we expect to handle
+    multiple zones.  At such time it will be easier to keep data in
+    sync if only one namespace is used.
+    
+    TODO: The dns_zone table is expected to have the columns zone_id
+    and name, and dns_owner will have a FK there.  The only purpose of
+    the dns_zone table is to group which hosts should be included in
+    the forward-map (in the reverse-map this is deduced from the
+    ip-number).
+
+    For mappings such as 129.240.x.y -> gutta.org (i.e, where we only
+    have a reverse-map), the zone 'other' will be used rather than
+    generating dozens of nearly empty zones.
+    """
 
     __read_attr__ = ('__in_db',)
-    __write_attr__ = ('name', 'is_foreign', 'mx_set_id')
+    __write_attr__ = ('name', 'mx_set_id')
 
     def clear(self):
         super(DnsOwner, self).clear()
         self.clear_class(DnsOwner)
         self.__updated = []
 
-    def populate(self, name, mx_set_id=None, is_foreign=None, parent=None):
+    def populate(self, name, mx_set_id=None, parent=None):
         #print "DnsOwner.populate: %s" % name
         if parent is not None:
             self.__xerox__(parent)
@@ -224,39 +244,39 @@ class DnsOwner(GeneralDnsRecord, Entity):
             self.__in_db = False
         self.name = name
         self.mx_set_id = mx_set_id
-        self.is_foreign = is_foreign
 
     def __eq__(self, other):
         assert isinstance(other, DnsOwner)
         return (self.name == other.name and
-                self.mx_set_id == other.mx_set_id and
-                self.is_foreign == other.is_foreign)
+                self.mx_set_id == other.mx_set_id)
     
     def write_db(self):
         self.__super.write_db()
         if not self.__updated:
             return
         is_new = not self.__in_db
-        if self.name.endswith(dns.ZONE+'.'):
-            # remove zone suffix from name only if it ends with a dot
-            # to allow typos like ahusbaerbar1.uio.no.uio.no.
-            self.name = self.name[:-(len(dns.ZONE)+2)]
+##         if self.name.endswith(dns.ZONE+'.'):
+##             # remove zone suffix from name only if it ends with a dot
+##             # to allow typos like ahusbaerbar1.uio.no.uio.no.
+##             self.name = self.name[:-(len(dns.ZONE)+2)]
         binds = {
             'e_id': self.entity_id,
             'e_type': int(self.const.entity_dns_owner),
             'name': self.name,
-            'is_foreign': self.is_foreign and 1 or 0,
             'mx_set_id': self.mx_set_id}
         if is_new:
             self.execute("""
             INSERT INTO [:table schema=cerebrum name=dns_owner]
-              (dns_owner_id, entity_type, name, is_foreign, mx_set_id)
-            VALUES (:e_id, :e_type, :name, :is_foreign, :mx_set_id)""", binds)
+              (dns_owner_id, entity_type, mx_set_id)
+            VALUES (:e_id, :e_type, :mx_set_id)""", binds)
+            self.add_entity_name(self.const.dns_owner_namespace, self.name)
         else:
             self.execute("""
             UPDATE [:table schema=cerebrum name=dns_owner]
-            SET name=:name, is_foreign=:is_foreign, mx_set_id=:mx_set_id
+            SET mx_set_id=:mx_set_id
             WHERE dns_owner_id=:e_id""", binds)
+            if 'name' in self.__updated:
+                self.update_entity_name(self.const.dns_owner_namespace, self.name)
         del self.__in_db
         
         self.__in_db = True
@@ -265,10 +285,11 @@ class DnsOwner(GeneralDnsRecord, Entity):
 
     def find(self, host_id):
         self.__super.find(host_id)
-        self.name, self.is_foreign, self.mx_set_id = self.query_1("""
-        SELECT name, is_foreign, mx_set_id
+        self.mx_set_id = self.query_1("""
+        SELECT mx_set_id
         FROM [:table schema=cerebrum name=dns_owner]
         WHERE dns_owner_id=:e_id""", {'e_id': self.entity_id})
+        self.name = self.get_name(self.const.dns_owner_namespace)
         try:
             del self.__in_db
         except AttributeError:
@@ -277,11 +298,7 @@ class DnsOwner(GeneralDnsRecord, Entity):
         self.__updated = []
 
     def find_by_name(self, name):
-        dns_owner_id= self.query_1("""
-        SELECT dns_owner_id
-        FROM [:table schema=cerebrum name=dns_owner]
-        WHERE name=:name""", {'name': name})
-        self.find(dns_owner_id)
+        EntityName.find_by_name(self, name, self.const.dns_owner_namespace)
 
     def delete(self):
         for r in self.list_srv_records(owner_id=self.entity_id):
@@ -294,8 +311,10 @@ class DnsOwner(GeneralDnsRecord, Entity):
 
     def list(self):
         return self.query("""
-        SELECT dns_owner_id, name, is_foreign, mx_set_id
-        FROM [:table schema=cerebrum name=dns_owner]""")
+        SELECT dns_owner_id, mx_set_id, en.entity_name AS name
+        FROM [:table schema=cerebrum name=dns_owner] d,
+             [:table schema=cerebrum name=entity_name] en
+        WHERE d.dns_owner_id=en.entity_id""")
 
     # TBD: Should we have the SRV methods in a separate class?  The
     # methods are currently not connected with the object in any way.
@@ -325,7 +344,9 @@ class DnsOwner(GeneralDnsRecord, Entity):
 
     def list_srv_records(self, owner_id=None, target_owner_id=None):
         where = ['srv.target_owner_id=d_tgt.dns_owner_id',
-                 'srv.service_owner_id=d_own.dns_owner_id']
+                 'srv.service_owner_id=d_own.dns_owner_id',
+                 'srv.target_owner_id=en_tgt.entity_id',
+                 'srv.service_owner_id=en_own.entity_id']
         if owner_id is not None:
             where.append("service_owner_id=:owner_id")
         if target_owner_id is not None:
@@ -333,11 +354,13 @@ class DnsOwner(GeneralDnsRecord, Entity):
         where = " AND ".join(where)
         return self.query("""
         SELECT service_owner_id, pri, weight, port, ttl,
-               target_owner_id, d_tgt.name AS target_name,
-               d_own.name AS service_name
+               target_owner_id, en_tgt.entity_name AS target_name,
+               en_own.entity_name AS service_name
         FROM [:table schema=cerebrum name=dns_srv_record] srv,
              [:table schema=cerebrum name=dns_owner] d_own,
-             [:table schema=cerebrum name=dns_owner] d_tgt
+             [:table schema=cerebrum name=dns_owner] d_tgt,
+             [:table schema=cerebrum name=entity_name] en_own,
+             [:table schema=cerebrum name=entity_name] en_tgt
         WHERE %s""" % where, {
             'owner_id': owner_id,
             'target_owner_id': target_owner_id} )

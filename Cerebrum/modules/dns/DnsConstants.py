@@ -85,8 +85,8 @@ class Constants(Constants.Constants):
     entity_dns_owner = Constants._EntityTypeCode(
         'dns_owner',
         'dns_owner - see table "cerebrum.dns_owner" and friends.')
-#    dns_owner_namespace = Constants._ValueDomainCode('dns_owner_ns',
-#                                                     'Domain for dns_owners')
+    dns_owner_namespace = Constants._ValueDomainCode('dns_owner_ns',
+                                                     'Domain for dns_owners')
 
     spread_uio_machine_netgroup = Constants._SpreadCode(
         'NIS_mng@uio', Constants.Constants.entity_group,

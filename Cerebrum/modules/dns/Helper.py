@@ -58,11 +58,11 @@ class Helper(DatabaseAccessor):
                 raise DNSError, "name already in use by a HOST entry"
         if record_type == dns.A_RECORD:
             if dns.A_RECORD in referers:
-                return dns.entity_id, True
+                return dns_owner.entity_id, True
         return dns_owner.entity_id, False
 
     def legal_dns_owner_name(self, name):
-        if not re.search(r'^[0-9]*[a-zA-Z]+[a-zA-Z\-0-9]*', name):
+        if not re.search(r'^[0-9]*[a-zA-Z]+[a-zA-Z\-0-9]*$', name):
             raise DNSError, "Illegal name: '%s'" % name
 
     def get_referers(self, ip_number_id=None, dns_owner_id=None):
@@ -98,7 +98,7 @@ class Helper(DatabaseAccessor):
             ret.append(dns.SRV_OWNER)
         for row in dns_owner.list_srv_records(target_owner_id=dns_owner_id):
             ret.append(dns.SRV_TARGET)
-        for row in dns_owner.list_ttl_records(dns_owner_id=dns_owner_id):
+        for row in dns_owner.list_general_dns_records(dns_owner_id=dns_owner_id):
             ret.append(dns.GENERAL_DNS_RECORD)
         cn = CNameRecord.CNameRecord(self._db)
         for row in cn.list_ext(cname_owner=dns_owner_id):

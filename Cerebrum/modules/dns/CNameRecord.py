@@ -108,7 +108,9 @@ class CNameRecord(EntityNote, Entity):
 
     def list_ext(self, target_owner=None, cname_owner=None):
         where = ['c.cname_owner_id=d_own.dns_owner_id',
-                 'c.target_owner_id=d_tgt.dns_owner_id']
+                 'c.target_owner_id=d_tgt.dns_owner_id',
+                 'c.cname_owner_id=en_own.entity_id',
+                 'c.target_owner_id=en_tgt.entity_id']
         if target_owner:
             where.append("c.target_owner_id=:target_owner_id")
         if cname_owner:
@@ -116,10 +118,12 @@ class CNameRecord(EntityNote, Entity):
         where = " AND ".join(where)
         return self.query("""
         SELECT c.cname_id, c.cname_owner_id, c.ttl, c.target_owner_id,
-            d_own.name AS name, d_tgt.name AS target_name
+            en_own.entity_name AS name, en_tgt.entity_name AS target_name
         FROM [:table schema=cerebrum name=dns_cname_record] c,
              [:table schema=cerebrum name=dns_owner] d_own,
-             [:table schema=cerebrum name=dns_owner] d_tgt
+             [:table schema=cerebrum name=dns_owner] d_tgt,
+             [:table schema=cerebrum name=entity_name] en_own,
+             [:table schema=cerebrum name=entity_name] en_tgt
         WHERE %s""" % where, {
                'target_owner_id': target_owner,
                'cname_owner_id': cname_owner} )

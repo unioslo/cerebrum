@@ -35,8 +35,8 @@ def test_cname(a_rec_id):
         cname.cname = "kake.iuo.no"
         print "W=", cname.write_db()
     db.commit()
-    
-def clear_db():
+
+def clean_netgroup():
     group = Group.Group(db)
     group2 = Group.Group(db)
     for g in group.search(filter_spread=co.spread_uio_machine_netgroup):
@@ -49,9 +49,13 @@ def clear_db():
         
         group.delete()
         db.commit()
+
+def clear_db():
+    clean_netgroup()
     entity_types = ", ".join(["%i" % i for i in (co.entity_dns_host,
                                                  co.entity_dns_a_record,
                                                  co.entity_dns_owner)])
+    db.execute("delete from entity_name where value_domain=%i" % int(co.dns_owner_namespace))
     db.execute("delete from entity_info where entity_type in (%s)" % entity_types)
     #print "test.clean_db No longer needed"
 ##     for tab in ('general_ttl_record', 'override_reversemap',

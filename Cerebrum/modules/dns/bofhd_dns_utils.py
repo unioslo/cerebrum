@@ -137,11 +137,13 @@ class DnsParser(object):
             ret.append(("%s%0"+fill+"i") % (m.group(1), n))
         return ret
 
-    def filter_zone_suffix(self, name):
-        if name.endswith(dns.ZONE):
-            name=name[:-(len(dns.ZONE)+1)]
-        elif name.endswith(dns.ZONE+"."):
-            name=name[:-(len(dns.ZONE)+2)]
+    def append_zone_suffix(self, name):
+        """Convert dns names to fully qualified by appending default domain"""
+        if not name[-1] == '.':
+            if name.endswith("uio.no"):
+                return name+"."
+            else:
+                return name+".uio.no."                
         return name
 
     def find_target_by_parsing(self, host_id, target_type):
@@ -177,7 +179,7 @@ class DnsParser(object):
 
         self._dns_owner.clear()
         try:
-            host_id = self.filter_zone_suffix(host_id)
+            host_id = self.append_zone_suffix(host_id)
             self._dns_owner.find_by_name(host_id)
         except Errors.NotFoundError:
             raise CerebrumError, "Could not find dns-owner: %s" % host_id

@@ -143,7 +143,8 @@ class ARecord(EntityNote, Entity):
 
     def list_ext(self, ip_number_id=None, dns_owner_id=None):
         where = ['a.dns_owner_id=d.dns_owner_id',
-                 'a.ip_number_id=i.ip_number_id']
+                 'a.ip_number_id=i.ip_number_id',
+                 'd.dns_owner_id=en.entity_id']
         if ip_number_id is not None:
             where.append("i.ip_number_id=:ip_number_id")
         if dns_owner_id is not None:
@@ -151,10 +152,11 @@ class ARecord(EntityNote, Entity):
         where = " AND ".join(where)
         return self.query("""
         SELECT a.a_record_id, a.ip_number_id, i.a_ip, i.ipnr, a.ttl,
-               a.mac, d.name, d.dns_owner_id
+               a.mac, en.entity_name AS name, d.dns_owner_id
         FROM [:table schema=cerebrum name=dns_a_record] a,
              [:table schema=cerebrum name=dns_ip_number] i,
-             [:table schema=cerebrum name=dns_owner] d
+             [:table schema=cerebrum name=dns_owner] d,
+             [:table schema=cerebrum name=entity_name] en
         WHERE %s """ % where, {
             'ip_number_id': ip_number_id,
             'dns_owner_id': dns_owner_id} )
