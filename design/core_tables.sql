@@ -1488,6 +1488,8 @@ category:main/Oracle;
 GRANT SELECT ON group_member TO read_group;
 category:main/Oracle;
 GRANT INSERT, UPDATE, DELETE ON group_member TO change_group;
+category:main;
+CREATE INDEX group_member_member_id_idx ON group_member(member_id);
 
 
 -- Grant roles to users
