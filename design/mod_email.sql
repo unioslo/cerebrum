@@ -19,6 +19,10 @@
  *
  */
 
+category:metainfo;
+name=email;
+category:metainfo;
+version=1.0;
 
 category:code/Oracle;
 CREATE ROLE read_mod_email NOT IDENTIFIED;

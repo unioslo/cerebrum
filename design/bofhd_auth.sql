@@ -1,3 +1,8 @@
+category:metainfo;
+name=bofhd_auth;
+category:metainfo;
+version=1.0;
+
 category:drop;
 DROP TABLE auth_role;
 category:drop;

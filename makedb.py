@@ -28,6 +28,8 @@ import os
 import cerebrum_path
 import cereconf
 from Cerebrum.Utils import Factory
+from Cerebrum import Metainfo
+import Cerebrum
 
 all_ok = True
 def usage(exitcode=0):
@@ -59,6 +61,7 @@ won't be included.
     sys.exit(exitcode)
 
 def main():
+    global meta
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'dc:',
                                    ['debug', 'help', 'drop',
@@ -79,6 +82,7 @@ def main():
             print "Will use regular 'user' (%s) instead." % db_user
     db = Factory.get('Database')(user=db_user)
     db.cl_init(change_program="makedb")
+    meta = Metainfo.Metainfo(db)
     for opt, val in opts:
         if opt == '--help':
             usage()
@@ -136,6 +140,8 @@ def main():
                 runfile(f, db, debug, phase)
     if do_bootstrap:
         makeInitialUsers(db)
+        meta.set_metainfo(Metainfo.SCHEMA_VERSION_KEY, Cerebrum._version)
+        db.commit()
     if not all_ok:
         sys.exit(1)
 
@@ -230,10 +236,11 @@ def runfile(fname, db, debug, phase):
     text = re.sub(line_comment, "", text)
     text = re.sub(r"\s+", " ", text)
     text = text.split(";")
-    NO_CATEGORY, WRONG_CATEGORY, CORRECT_CATEGORY = 1, 2, 3
+    NO_CATEGORY, WRONG_CATEGORY, CORRECT_CATEGORY, SET_METAINFO = 1, 2, 3, 4
     state = NO_CATEGORY
     output_col = None
     max_col = 78
+    metainfo = {}
     for stmt in text:
         stmt = stmt.strip()
         if not stmt:
@@ -244,6 +251,9 @@ def runfile(fname, db, debug, phase):
                 raise ValueError, \
                       "Illegal type_id in file %s: %s" % (fname, i)
             for_rdbms = None
+            if for_phase == 'metainfo':
+                state = SET_METAINFO
+                continue
             if '/' in for_phase:
                 for_phase, for_rdbms = for_phase.split("/", 1)
             if for_phase == phase and (for_rdbms is None or
@@ -254,6 +264,10 @@ def runfile(fname, db, debug, phase):
         elif state == WRONG_CATEGORY:
             state = NO_CATEGORY
             continue
+        elif state == SET_METAINFO:
+            state = NO_CATEGORY
+            (key, val) = stmt.split("=", 1)
+            metainfo[key] = val
         elif state == CORRECT_CATEGORY:
             state = NO_CATEGORY
             try:
@@ -283,6 +297,8 @@ def runfile(fname, db, debug, phase):
                     output_col = 0
                 sys.stdout.flush()
                 db.commit()
+    if phase == 'main' and metainfo:
+        meta.set_metainfo('sqlmodule_%s' % metainfo['name'], metainfo['version'])
     if state <> NO_CATEGORY:
         raise ValueError, \
               "Found more category specs than statements in file %s." % fname

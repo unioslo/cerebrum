@@ -1,3 +1,7 @@
+category:metainfo;
+name=changelog;
+category:metainfo;
+version=1.0;
 category:drop;
 drop TABLE change_handler_data;
 category:drop;

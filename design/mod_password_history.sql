@@ -19,6 +19,10 @@
  *
  */
 
+category:metainfo;
+name=password_history;
+category:metainfo;
+version=1.0;
 category:drop;
 DROP TABLE password_history;
 category:main;
@@ -32,3 +36,5 @@ CREATE TABLE password_history
   set_at        TIMESTAMP
                 DEFAULT [:now]
 );
+category:main;
+CREATE INDEX password_hist_ety_idx ON password_history(entity_id);

@@ -1,3 +1,7 @@
+category:metainfo;
+name=printerquotas;
+category:metainfo;
+version=1.0;
 category:drop;
 DROP TABLE printerquotas;
 

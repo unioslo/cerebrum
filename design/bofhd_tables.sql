@@ -10,6 +10,10 @@
   auth_time : time-stamp for last authentication
 */
 
+category:metainfo;
+name=bofhd;
+category:metainfo;
+version=1.0;
 
 category:main;
 CREATE TABLE bofhd_session
