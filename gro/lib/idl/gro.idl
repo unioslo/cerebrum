@@ -140,7 +140,8 @@ module Cerebrum_core {
         /**
         * Get a type node
         */
-        Node getTypeByName(in string className, in string name);
+        Node getTypeByName(in string className, in string name)
+            raises (Errors::NoSuchTypeError, Errors::NoSuchNodeError);
         /**
         * Get an entity
         */
@@ -187,7 +188,16 @@ module Cerebrum_core {
         /**
         * get an attribute for this node
         */
-        any get(in string key);
+        any get(in string key)
+            raises (Errors::NotLockedError, Errors::NoSuchAttributeError);
+        string getString(in string key)
+            raises (Errors::NotLockedError, Errors::NoSuchAttributeError);
+        long getLong(in string key)
+            raises (Errors::NotLockedError, Errors::NoSuchAttributeError);
+        Node getNode(in string key)
+            raises (Errors::NotLockedError, Errors::NoSuchAttributeError);
+        NodeSeq getNodeSeq(in string key)
+            raises (Errors::NotLockedError, Errors::NoSuchAttributeError);
  
         /**
         * set an attribute for this node
@@ -218,7 +228,8 @@ module Cerebrum_core {
         * Remove your locks on this node. Will remove both read and write
         * locks if you got them.
         */
-        void unlock();
+        void unlock()
+            raises( Errors::NotLockedError );
 
         /**
         * Check if the node is locked for reading by me.
@@ -255,6 +266,25 @@ module Cerebrum_core {
         * \return The username if exists, empty string if not.
         */
         string getWriteLocker();
+
+        /**
+        * Begins a transaction
+        */
+        void begin()
+            raises( Errors::AlreadyLockedError );
+
+        /**
+        * Commit changes to the database.
+        * \return A list over changed attributes
+        */
+        StringSeq commit()
+            raises( Errors::CommitError, Errors::NotLockedError );
+
+        /**
+        * Rollback changes done to node, and unlocks all locks.
+        */
+        void rollback()
+            raises( Errors::NotLockedError );
     };
 };
 /** \page info Additional information
