@@ -72,7 +72,8 @@ def get_account(name):
     account.clear()
     account.find_by_name(name)
     return account
-                                                                                                                                
+
+
 def get_group(id):
     get_grp = Factory.get('Group')(db)
     if isinstance(id, str):
@@ -127,7 +128,7 @@ def remove_memb_parent(group_id, op, member):
     """ Remove membership in parent group"""
     parent = get_group(group_id)
     parent.remove_member(member, op)
-    
+
 
 def destroy_group(group_id):
     del_grp = get_group(group_id)
@@ -145,7 +146,6 @@ def destroy_group(group_id):
 				% (del_grp.group_name,del_grp.entity_id))
     #print "Removed group:",del_grp.group_name, "group-id:",del_grp.entity_id
     del_grp.delete()
-                                                                                                                                                                    
 
 
 class group_tree(object):
@@ -296,13 +296,14 @@ class create_superservgrp(group_tree):
 
 
 class srv_grp(group_tree):
-	
-                                                                                                                            
+
+
     def __init__(self, parent):
         super(srv_grp, self).__init__()
         self.parent = parent
         self.child_class = None
-                                                                                                                                
+
+
     def add(self,ue):
         new_child = self.child_class(self, ue)
         children = self.subnodes
@@ -315,13 +316,15 @@ class srv_grp(group_tree):
 
 class server_grp(srv_grp):
                    
-    #max_recurse = 2                                                                                                           
-                                                                                                                                
+    #max_recurse = 2
+
+
     def __init__(self, parent, ue):
         super(server_grp, self).__init__(parent)
         self._prefix = ((ue.name + '.' + cereconf.INSTITUTION_DOMAIN_NAME),)
         self.child_class = disk_grp
-                                                                                                                                
+
+
     def description(self):
         return ("Server in %s " % cereconf.INSTITUTION_DOMAIN_NAME)
 
@@ -335,21 +338,24 @@ class disk_grp(srv_grp):
 
     def __init__(self, parent, ue):
         super(disk_grp, self).__init__(parent)
-	self._prefix = (ue.path,)
+        self._prefix = (ue.path,)
         self.child_class = None
-                                                                                                                                            
+
     def description(self):
         return ("Disk in %s " %
                 cereconf.INSTITUTION_DOMAIN_NAME)
 
     def add(self, ue):
 	self.users = {}
-	for acc in [x['account_id'] for x in account.list_account_home(\
-                                                        account_spread=u_spread,
-                                                        disk_id=ue.entity_id)]:
-	    self.users[int(acc)] = const.entity_account
+	for acc in [int(x.account_id) for x in account.list_account_home(\
+						account_spread=u_spread,
+						disk_id=ue.entity_id)\
+						if x.status in (\
+						const.home_status_on_disk,\
+						const.home_status_not_created)]:
+            self.users[acc] = const.entity_account
 
-                                                                                                                                
+          
 
 def usage(err=0):
     if err:
@@ -411,7 +417,7 @@ def main():
     db.commit()
     db.close()
     # db.close() Because of local setup in postgres, remove after test
-    
+
 
 if __name__ == '__main__':
     main()
