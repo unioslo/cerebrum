@@ -18,164 +18,123 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import time
 import weakref
-import threading
 
+import cereconf
+
+from Cerebrum.gro import Transaction
 from Cerebrum.gro.Cerebrum_core import Errors
-import Caching
 
-__all__ = ['Locking', 'Locker']
+import Caching, Scheduler
 
-class Locking( object ):
-    """Adds methods to lock down nodes.
 
-    Will give nodes the possibility to be locked for reading and writing
-    for a certain client, with a timeout with the help of the LockTimeout-class.
-    Locks will be granted according to the following matrix:
+__all__ = ['Locking']
 
-    Existing  |  Read(self)  | Read(others) | Write(self) | Write(others)
+class Locking(object):
+    """
+    Implements support for locking an object.
+     Existing |  read(self)  | read(others) | write(self) | write(others)
     Requested |              |              |             |
     ----------+--------------+--------------+-------------+---------------
-      Read    |      N/A     |       Y      |   N/A       |       N
-      Write   |      Y       |       N      |   N/A       |       N
+      read    |      N/A     |       Y      |   N/A       |       N
+      write   |      Y       |       N      |   N/A       |       N
 
     In other words:
-    - You need a read lock to obtain a write lock
-    - You will not get a lock if someone else got a write lock
-    - You will not get a write lock if someone else got a lock
+        - A write lock implies a read lock.
+        - If a client has a write lock, no others have a read lock.
+        - If a client has a read lock, no others can get a write lock.
+        - Many clients can have read locks simultaneously.
     """
 
-    def __init__( self ):
-        # Weak dictionary which contains the clients and the time
-        # they were locked. Time is used to timeout locks.
+    def __init__(self):
         self.readLocks = weakref.WeakKeyDictionary()
         self.writeLock = None
 
-    def lock_for_reading( self, client ):
-        """Request a readlock on this node.
-
-        If the node is already writelocked an exception is raised.
+    def lock_for_reading(self, client):
         """
-        if self.is_writelocked_by_other( client ):
-            raise Errors.AlreadyLockedError, 'Node is writelocked by someone else.'
-        self.readLocks[ client ] = time.time()
-
-    def lock_for_writing( self, client ):
-        """Request a writelock on this node.
-
-        If the node is already writelocked an exception is raised.
-        If someone else also got a readlock on the node, an exception is raised.
+        Try to lock the object for reading.
         """
-        if self.is_writelocked_by_other( client ):
-            raise Errors.AlreadyLockedError, 'A writelock already exists on this node'
+        if self.writeLock:
+            if self.writeLock() is client:
+                return
+            raise Errors.AlreadyLockedError, 'Write lock exists'
+        if self.readLocks.has_key(client):
+            return
+        self.readLocks[client] = None
 
-        if self.is_readlocked_by_other( client ):
-            raise Errors.AlreadyLockedError( 'Others got a readlock on this node,' \
-                'preventing you from getting a writelock' )
+        def unlock(ref):
+            o = ref()
+            if o is not None and self.readLocks.has_key(o):
+                self.reload()
+                self.unlock(o)
+                self._timed_out()
+        scheduler = Scheduler.get_scheduler()
+        scheduler.addTimer(cereconf.GRO_LOCK_TIMEOUT, unlock, weakref.ref(client))
 
-        if not self.is_readlocked_by_me( client ):
-            self.lock_for_reading( client )
+    def lock_for_writing(self, client):
+        """
+        Try to lock the object for writing.
+        """
+        if self.writeLock and self.writeLock() is not client:
+            raise Errors.AlreadyLockedError, 'Write lock exists'
+
+        if self.readLocks.has_key(client):
+            if len(self.readLocks) > 1:
+                raise Errors.AlreadyLockedError, 'Other read locks exist'
+            del self.readLocks[client]
+        elif len(self.readLocks) > 0:
+            raise Errors.AlreadyLockedError, 'Other read locks exist'
 
         def rollback(obj):
             self.reload()
-        self.writeLock = weakref.ref( client, rollback )
+        self.writeLock = weakref.ref(client, rollback)
+        
+        def unlock(ref):
+            o = ref()
+            if o is not None and self.has_writelock(o):
+                self.reload()
+                self.unlock(o)
+                self._timed_out()
+        scheduler = Scheduler.get_scheduler()
+        scheduler.addTimer(cereconf.GRO_LOCK_TIMEOUT, unlock, weakref.ref(client))
 
-    def unlock( self, client ):
-        """Remove all locks held by client on this node.
+    def _timed_out(self):
         """
-        assert not getattr(self, 'updated', None) # trying to unlock a changed object
-
-        if self.is_readlocked_by_me( client ):
-            if self.is_writelocked_by_me( client ):
-                self.writeLock = None
-            del self.readLocks[ client ]
-
-    def is_readlocked_by_me( self, client ):
-        """Check if this node is locked for reading by the client
-    
-        Returns true if the client got a readlock and false otherwise.
-        Other locks are disregarded.
+        Raise a TransactionError telling that the lock has timed out.
         """
-        return ( client in self.readLocks.keys() )
+        raise Errors.TransactionError('Your lock has timed out')
 
-    def is_readlocked_by_other( self, client ):
-        """Check if this node is locked for reading by other clients.
-    
-        Returns true if a client different to the specified client got a readlock
-        and false otherwise.
+    def unlock(self, client):
         """
-        return len( self.readLocks ) > 1 or (
-               self.readLocks and not self.is_readlocked_by_me( client ) )
-
-    def is_writelocked_by_me( self, client ):
-        """Check if this node is locked for writing by the client.
-    
-        Returns true if the client specified got a write lock and false otherwise.
+        Remove all locks held by the given client.
         """
-        return ( self.writeLock and client is self.writeLock() ) 
+        assert not getattr(self, 'updated', None)
+        
+        if self.has_writelock(client):
+            self.writeLock = None
+        elif self.readLocks.has_key(client):
+            del self.readLocks[client]
 
-    def is_writelocked_by_other( self, client ):
-        """Check if this node is locked for writing by another client.
-
-        Returns true if a client different to the client specified got a writelock
-        and false otherwise.
+    def has_writelock(self, locker):
         """
-        return self.writeLock and ( client is not self.writeLock() )
-
-    def get_readlockers( self ):
-        """Returns a list over all who got a readlock.
-
-        Returns a list with usernames for all who got a readlock on this node.
-        Will return an informative string if the node isn't locked for reading.
+        Checks if the given client has a write lock.
         """
-        if self.readLocks:
-            str = 'Users with readlock on this node:\n'
-            for client in self.readLocks.keys():
-                str += '%s\n' % client.get_username()
-        else:
-            str = 'No readlock exists on this node'
-        return str
+        return self.writeLock and self.writeLock() is locker
 
-    def get_writelocker( self ):
-        """Returns the username wich got a writelock.
+    def get_readlockers(self):
+        """
+        Returns a list of clients with a read lock on this item.
+        """
+        users = []
+        for client in self.readLocks.keys():
+            users.append(client)
+        return users
 
-        Will return an informative string if the node isn't locked for writing.
+    def get_writelockers(self):
+        """
+        Returns the client with a write lock or None.
         """
         if self.writeLock:
-            str = '%s got a write lock on this node' % self.writeLock().get_username()
-        else:
-            str = 'No write lock exists on this node'
-        return str
-
-
-
-class Locker:
-    """Interface for clients.
-
-    Locker is the client which locks the node. If you want to lock a node
-    you should extend this class, and implement the getUsername() method.
-    """
-
-    def __init__( self, username ):
-        self.username = username
-
-    def get_username(self):
-        """The name of the locking client.
-
-        Should return a username wich identifies the person behind the client.
-        """
-        return self.username
-
-
-
-class LockTimeout( threading.Thread ):
-    """Handles timeout of locked nodes.
-
-    This class should have it's own thread which removes locks after a certain time.
-    Still not sure how it will work together with Locking.
-    """
-
-    def __init__( self ):
-        threading.Thread.__init__( self )
-
+            obj = self.writeLock()
+            return obj
+        return None
