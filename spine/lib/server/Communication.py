@@ -18,7 +18,6 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import sys
 
 from omniORB import CORBA, sslTP
 
@@ -30,7 +29,7 @@ class Communication(object):
         sslTP.key_file(cereconf.SSL_KEY_FILE)
         sslTP.key_file_password(cereconf.SSL_KEY_FILE_PASSWORD)
 
-        self.orb = CORBA.ORB_init(sys.argv + ['-ORBendPoint', 'giop:ssl::'], CORBA.ORB_ID)
+        self.orb = CORBA.ORB_init(['-ORBendPoint', 'giop:ssl::'], CORBA.ORB_ID)
 
         self.rootPOA = self.orb.resolve_initial_references("RootPOA")
 
