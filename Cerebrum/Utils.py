@@ -28,8 +28,6 @@ import time
 import os
 import filecmp
 import smtplib
-import email
-from email.MIMEText import MIMEText
 import string
 import new
 import popen2
@@ -66,11 +64,16 @@ def sendmail(toaddr, fromaddr, subject, body, cc=None,
     """Sends e-mail, mime-encoding the subject.  If debug is set,
     message won't be send, and the encoded message will be
     returned."""
+
+    from email.MIMEText import MIMEText
+    from email.Header import Header
+    from email.Utils import formatdate
+
     msg = MIMEText(body, _charset=charset)
-    msg['Subject'] = email.Header.Header(subject, charset)
+    msg['Subject'] = Header(subject, charset)
     msg['From'] = fromaddr
     msg['To'] = toaddr
-    msg['Date'] = email.Utils.formatdate(localtime=True)
+    msg['Date'] = formatdate(localtime=True)
     if cc:
         msg['Cc'] = cc
     if debug:
