@@ -386,7 +386,7 @@ class EntityContactInfo(Entity):
           entity_id=:e_id AND
           source_system=:src AND
           contact_type=:c_type"""
-        if pref <> 'ALL':
+        if str(pref) <> 'ALL':
             sql += """ AND contact_pref=:pref"""
         return self.execute(sql, {'e_id': self.entity_id,
                                   'src': int(source),
