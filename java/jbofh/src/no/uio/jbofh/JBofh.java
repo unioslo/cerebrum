@@ -471,8 +471,12 @@ public class JBofh {
             Vector protoArgs = (Vector) r[1];
             try {
                 showMessage(((String) props.get("console_prompt"))+cmd, true);
+                boolean multiple_cmds = false;
+                for (Enumeration e2 = protoArgs.elements() ; e2.hasMoreElements() ;) 
+                    if(e2.nextElement() instanceof Vector)
+                        multiple_cmds = true;
                 Object resp = bc.sendCommand(protoCmd, protoArgs);
-                if(resp != null) showResponse(protoCmd, resp, false);
+                if(resp != null) showResponse(protoCmd, resp, multiple_cmds);
             } catch (BofhdException ex) {
                 showMessage(ex.getMessage(), true);
             } catch (Exception ex) {
