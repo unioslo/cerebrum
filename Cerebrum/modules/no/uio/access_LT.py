@@ -122,8 +122,7 @@ class LT(object):
         FROM
           lt.tilsetting t, lt.stilling s
         WHERE
-          dato_fra <= SYSDATE AND
-          NVL(dato_til, SYSDATE) >= SYSDATE AND
+          NVL(dato_til, SYSDATE) >= SYSDATE - 365 AND
           t.stilnr = s.stilnr
         """
 
@@ -199,7 +198,7 @@ class LT(object):
         FROM
           lt.gjest
         WHERE
-          dato_fra <= SYSDATE AND NVL(dato_til, SYSDATE) > SYSDATE
+          NVL(dato_til, SYSDATE) > SYSDATE - 365
         """
 
         return self.db.query(qry)

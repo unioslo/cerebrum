@@ -23,6 +23,7 @@ import re
 import os
 import sys
 import getopt
+import time
 
 import xml.sax
 
@@ -141,6 +142,10 @@ def determine_affiliations(person):
     tittel = None
     prosent_tilsetting = -1
     for t in person.get('tils', ()):
+        if not type_is_active(t):
+            continue
+        # fi
+        
         fakultet, institutt, gruppe = (t['fakultetnr_utgift'],
                                        t['instituttnr_utgift'],
                                        t['gruppenr_utgift'])
@@ -164,6 +169,7 @@ def determine_affiliations(person):
                           int(const.affiliation_ansatt)) 
 	if not ret.has_key(k):
 	    ret[k] = sted['id'],const.affiliation_ansatt, aff_stat
+    
     if tittel:
         new_person.populate_name(const.name_work_title, tittel)
     for b in person.get('bilag', ()):
@@ -252,12 +258,55 @@ def determine_contact(person):
             ret.append((const.contact_fax, val))
     return ret
 
+
+def person_has_active(person, entry_type):
+    """
+    Determine if the person represented by PERSON has active ENTRY_TYPE
+    entries.  'active' is defined as: dato_fra <= now <= dato_til.
+    ENTRY_TYPE can be either 'tils' or 'gjest'
+    """
+
+    data = person.get(entry_type, list())
+
+    for entry in data:
+        if type_is_active(entry):
+            return True
+        # fi
+    # od
+
+    return False
+# end person_is_active
+
+
+def type_is_active(entry_type):
+    """
+    Check whether given TYPE is active. TYPE is a dictionary
+    representing either a 'tils' record or a 'gjest' record.
+    """
+
+    now = time.strftime("%Y%m%d")
+
+    dato_fra = entry_type.get("dato_fra")
+    dato_til = entry_type.get("dato_til")
+
+    # dato_til can be empty
+    #
+    if dato_fra <= now and ((not dato_til) or (now <= dato_til)):
+        return True
+    # fi
+
+    return False
+# end type_is_active
+    
+
+
 def determine_reservations(person):
     # TODO: Use something "a bit more defined and permanent".
     # This is a hack. For now we set a reservation on non-guests with
     # any 'ELKAT' reservation except 'PRIVADR' and 'PRIVTLF', and
     # on guests without 'ELKAT'+'GJESTEOPPL' anti-reservations.
-    res_on_pers = person.has_key('gjest') and not person.has_key('tils')
+    res_on_pers = (person_has_active(person, "gjest")
+                   and not person_has_active(person, 'tils'))
     for r in person.get('res', ()):
         if r['katalogkode'] == "ELKAT":
             if r['felttypekode'] not in ("PRIVADR", "PRIVTLF"):
