@@ -210,7 +210,15 @@ def write_emne_info(outfile):
         f.write(xml.xmlify_dbrow(t, xml.conv_colnames(cols), 'emne') + "\n")
     f.write("</data>\n")
 
-
+def write_misc_info(outfile, tag, func_name):
+    """Lager fil med data fra gitt funksjon i access_FS"""
+    f=open(outfile, 'w')
+    f.write(xml.xml_hdr + "<data>\n")
+    cols, dta = getattr(fs, func_name)()
+    for t in dta:
+        fix_float(t)
+        f.write(xml.xmlify_dbrow(t, xml.conv_colnames(cols), tag) + "\n")
+    f.write("</data>\n")
 
 def write_fnrupdate_info(outfile):
     """Lager fil med informasjon om alle fødselsnummerendringer"""
@@ -273,6 +281,9 @@ def usage(exitcode=0):
     --regkort-file name: override regkort xml filename
     --fnr-update-file name: override fnr-update xml filename
     --betalt-papir-file name: override betalt-papir xml filename
+    --misc-func func: name of function in access_FS to call
+    --misc-file name: name of output file for misc-func
+    --misc-tag tag: tag to use in misc-file
     --ou-file name: override ou xml filename
     --db-user name: connect with given database username
     --db-service name: connect to given database
@@ -301,7 +312,8 @@ def main():
                                     "studprog-file=", "regkort-file=",
                                     'emne-file=', "ou-file=", "db-user=",
                                     'fnr-update-file=', 'betalt-papir-file=',
-                                    "db-service="])
+                                    "db-service=", "misc-func=", "misc-file=",
+                                    "misc-tag="])
     except getopt.GetoptError:
         usage()
         sys.exit(2)
@@ -355,6 +367,13 @@ def main():
             write_regkort_info(regkort_file)
         elif o in ('-o',):
             write_ou_info(ou_file)
+        # We want misc-* to be able to produce multiple file in one script-run
+        elif o in ('--misc-func',):
+            misc_func = val
+        elif o in ('--misc-tag',):
+            misc_tag = val
+        elif o in ('--misc-file',):
+            write_misc_info(val, misc_tag, misc_func)
 
 if __name__ == '__main__':
     main()
