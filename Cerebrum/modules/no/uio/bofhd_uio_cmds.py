@@ -1325,8 +1325,13 @@ class BofhdExtension(object):
         except CerebrumError:
             pass
         else:
-            raise CerebrumError, ("Won't create list %s, as %s is an "
-                                  "existing username") % (listname, lp)
+            if lp not in ('drift',):
+                # TBD: This exception list should probably not be
+                # hardcoded here -- but it's not obvious whether it
+                # should be a cereconf value (implying that only site
+                # admins can modify the list) or a database table.
+                raise CerebrumError, ("Won't create list %s, as %s is an "
+                                      "existing username") % (listname, lp)
         self._register_list_addresses(listname, lp, dom)
         if admins:
             br = BofhdRequests(self.db, self.const)
