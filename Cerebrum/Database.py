@@ -931,6 +931,7 @@ class PsycoPG(PostgreSQLBase):
         cdata['dsn_string'] = dsn_string
 
         super(PsycoPG, self).connect(dsn_string)
+        self._db.set_isolation_level(1)  # read-committed
         self.execute("SET CLIENT_ENCODING TO '%s'" % 'ISO_8859_1')        
         #self.execute("SET CLIENT_ENCODING TO '%s'" % 'UTF-8')
         self.commit()
