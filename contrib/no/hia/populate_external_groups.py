@@ -26,7 +26,7 @@ from __future__ import generators
 import sys
 import os
 
-if False:
+if True:
     import cerebrum_path
     import cereconf
     from Cerebrum import Errors
@@ -129,6 +129,10 @@ def get_group(id):
     return gr
 
 def destroy_group(group_id, max_recurse):
+    if max_recurse is None:
+        logger.fatal("destroy_group(%r) vil ikke slette permanent gruppe.",
+                     group_id)
+        sys.exit(1)
     gr = get_group(group_id)
     logger.debug("destroy_group(%s/%d, %d) [After get_group]"
                  % (gr.group_name, gr.entity_id, max_recurse))
@@ -181,8 +185,13 @@ def destroy_group(group_id, max_recurse):
 
 class group_tree(object):
 
+    # Dersom destroy_group() kalles med max_recurse == None, aborterer
+    # programmet.
+    max_recurse = None
+
     def __init__(self):
         self.subnodes = {}
+        self.users = {}
 
     def name_prefix(self):
         prefix = ()
@@ -200,7 +209,7 @@ class group_tree(object):
     def description(self):
         pass
 
-    def list_matches(self, *args, **kws):
+    def list_matches(self, gtype, data, category):
         pass
 
     def list_matches_1(self, *args, **kws):
@@ -214,20 +223,25 @@ class group_tree(object):
     def sync(self):
         db_group = self.maybe_create()
         sub_ids = {}
-        if hasattr(self, 'users'):
-            for person in self.users:
-                pass
+        if self.users:
+            for fnr in self.users.iterkeys():
+                a_ids = fnr2account_id.get(fnr)
+                if a_ids is not None:
+                    primary_account_id = int(a_ids[0])
+                    sub_ids[primary_account_id] = const.entity_account
+                else:
+                    logger.warn("Fant ingen bruker for fnr=%r", fnr)
         else:
             # Sørg for at alle subgrupper er synkronisert, og samle
             # samtidig inn entity_id'ene deres.
             for subg in self.subnodes:
-                sub_ids[int(subg.sync())] = 1
+                sub_ids[int(subg.sync())] = const.entity_group
         membership_ops = (const.group_memberop_union,
                           const.group_memberop_intersection,
                           const.group_memberop_difference)
         for members_with_op, op in zip(db_group.list_members(),
                                        membership_ops):
-            for member_type, member_id in member_with_operation:
+            for member_type, member_id in members_with_op:
                 member_id = int(member_id)
                 if member_id in sub_ids:
                     del sub_ids[member_id]
@@ -236,7 +250,8 @@ class group_tree(object):
                     if member_type == const.entity_group:
                         destroy_group(member_id, self.max_recurse)
         for member_id in sub_ids.iterkeys():
-            db_group.add_member(member_id, const.group_memberop_union)
+            db_group.add_member(member_id, sub_ids[member_id],
+                                const.group_memberop_union)
         return db_group.entity_id
 
     def maybe_create(self):
@@ -244,18 +259,24 @@ class group_tree(object):
             return get_group(self.name())
         except Errors.NotFoundError:
             gr = Factory.get('Group')(db)
-            gr.populate(get_account(cereconf.INITIAL_ACCOUNTNAME).account_id,
+            gr.populate(self.group_creator(),
                         const.group_visibility_internal,
                         self.name(),
                         description=self.description())
             gr.write_db()
             return gr
 
+    def group_creator(self):
+        acc = get_account(cereconf.INITIAL_ACCOUNTNAME)
+        return acc.entity_id
+
     def __hash__(self):
         return hash(self.name())
 
 
 class fs_supergroup(group_tree):
+
+    max_recurse = None
 
     def __init__(self):
         super(fs_supergroup, self).__init__()
@@ -279,9 +300,9 @@ class fs_supergroup(group_tree):
             children[subg] = subg
         subg.add(attrs)
 
-    def list_matches(self, gtype, ue, category):
+    def list_matches(self, gtype, data, category):
         for subg in self.subnodes.itervalues():
-            for match in subg.list_matches(gtype, ue, category):
+            for match in subg.list_matches(gtype, data, category):
                 yield match
 
 
@@ -304,6 +325,8 @@ class fs_undenh_group(group_tree):
 
 class fs_undenh_1(fs_undenh_group):
 
+    max_recurse = 3
+
     def __init__(self, parent, ue):
         super(fs_undenh_1, self).__init__(parent)
         self._prefix = (ue['institusjonsnr'], 'undenh')
@@ -314,17 +337,19 @@ class fs_undenh_1(fs_undenh_group):
                 " undervisningsenhetene i %s sin FS" %
                 cereconf.INSTITUTION_DOMAIN_NAME)
 
-    def list_matches(self, gtype, ue, category):
+    def list_matches(self, gtype, data, category):
         if gtype <> 'undenh':
             return
-        if ue.get('institusjonsnr', self._prefix[0]) <> self._prefix[0]:
+        if data.get('institusjonsnr', self._prefix[0]) <> self._prefix[0]:
             return
         for subg in self.subnodes.itervalues():
-            for match in subg.list_matches(gtype, ue, category):
+            for match in subg.list_matches(gtype, data, category):
                 yield match
 
 
 class fs_undenh_2(fs_undenh_group):
+
+    max_recurse = 2
 
     def __init__(self, parent, ue):
         super(fs_undenh_2, self).__init__(parent)
@@ -336,13 +361,13 @@ class fs_undenh_2(fs_undenh_group):
                 " %s %s" % (cereconf.INSTITUTION_DOMAIN_NAME,
                             self._prefix[1], self._prefix[0]))
 
-    def list_matches(self, gtype, ue, category):
-        if ue.get('arstall', self._prefix[0]) <> self._prefix[0]:
+    def list_matches(self, gtype, data, category):
+        if data.get('arstall', self._prefix[0]) <> self._prefix[0]:
             return
-        if ue.get('terminkode', self._prefix[1]) <> self._prefix[1]:
+        if data.get('terminkode', self._prefix[1]) <> self._prefix[1]:
             return
         for subg in self.subnodes.itervalues():
-            for match in subg.list_matches(gtype, ue, category):
+            for match in subg.list_matches(gtype, data, category):
                 yield match
 
 
@@ -350,6 +375,7 @@ class fs_undenh_3(fs_undenh_group):
 
     ue_versjon = {}
     ue_termin = {}
+    max_recurse = 1
 
     def __init__(self, parent, ue):
         super(fs_undenh_3, self).__init__(parent)
@@ -369,22 +395,22 @@ class fs_undenh_3(fs_undenh_group):
         if len(self.ue_termin.get(multi_id, {})) > 1:
             multi_suffix.append("%s. termin" % (self._prefix[2],))
         if multi_suffix:
-            return (" " + " ".join(multi_enhet))
+            return (" " + " ".join(multi_suffix))
         return ""
 
     def description(self):
         return ("Supergruppe for grupper tilknyttet undervisningsenhet"
                 " %s%s" % (self._multi_id, self.multi_suffix()))
 
-    def list_matches(self, gtype, ue, category):
-        if ue.get('emnekode', self._prefix[0]) <> self._prefix[0]:
+    def list_matches(self, gtype, data, category):
+        if data.get('emnekode', self._prefix[0]) <> self._prefix[0]:
             return
-        if ue.get('versjonskode', self._prefix[1]) <> self._prefix[1]:
+        if data.get('versjonskode', self._prefix[1]) <> self._prefix[1]:
             return
-        if ue.get('terminnr', self._prefix[2]) <> self._prefix[2]:
+        if data.get('terminnr', self._prefix[2]) <> self._prefix[2]:
             return
         for subg in self.subnodes.itervalues():
-            for match in subg.list_matches(gtype, ue, category):
+            for match in subg.list_matches(gtype, data, category):
                 yield match
 
     def add(self, ue):
@@ -400,15 +426,16 @@ class fs_undenh_3(fs_undenh_group):
 
 class fs_undenh_users(fs_undenh_group):
 
+    max_recurse = 0
+
     def __init__(self, parent, ue, category):
         super(fs_undenh_users, self).__init__(parent)
         self._name = (category,)
         self._emnekode = ue['emnekode']
-        self.users = {}
 
     def description(self):
         ctg = self._name[0]
-        emne = self.emnekode + self.parent.multi_suffix()
+        emne = self._emnekode + self.parent.multi_suffix()
         if ctg == 'student':
             return "Studenter på %s" % (emne,)
         elif ctg == 'foreleser':
@@ -418,17 +445,18 @@ class fs_undenh_users(fs_undenh_group):
         else:
             raise ValueError, "Ukjent UE-bruker-gruppe: %r" % (ctg,)
 
-    def list_matches(self, gtype, ue, category):
+    def list_matches(self, gtype, data, category):
         if category == self._name[0]:
             yield self
 
     def add(self, user):
-        # TBD: Oversette fnr til primærbruker (account_id?)
-        if user in self.users:
+        fnr = "%06d%05d" % (user['fodselsdato'], user['personnr'])
+        # TBD: Key on account_id (of primary user) instead?
+        if fnr in self.users:
             logger.error("Bruker %r forsøkt meldt inn i gruppe flere ganger.",
                          user)
             return
-        self.users[user] = user
+        self.users[fnr] = user
 
 
 class fs_stprog_group(group_tree):
@@ -450,52 +478,58 @@ class fs_stprog_group(group_tree):
 
 class fs_stprog_1(fs_stprog_group):
 
+    max_recurse = 3
+
     def __init__(self, parent, stprog):
         super(fs_stprog_1, self).__init__(parent)
         self._prefix = (stprog['institusjonsnr'], 'studieprogram')
         self.child_class = fs_stprog_2
 
-    def list_matches(self, gtype, stprog, category):
+    def list_matches(self, gtype, data, category):
         if gtype <> 'undenh':
             return
-        if stprog.get('institusjonsnr', self._prefix[0]) <> self._prefix[0]:
+        if data.get('institusjonsnr', self._prefix[0]) <> self._prefix[0]:
             return
         for subg in self.subnodes.itervalues():
-            for match in subg.list_matches(gtype, stprog, category):
+            for match in subg.list_matches(gtype, data, category):
                 yield match
 
 
 class fs_stprog_2(fs_stprog_group):
+
+    max_recurse = 2
 
     def __init__(self, parent, stprog):
         super(fs_stprog_2, self).__init__(parent)
         self._prefix = (stprog['studieprogramkode'],)
         self.child_class = fs_stprog_3
 
-    def list_matches(self, gtype, stprog, category):
-        if stprog.get('studieprogramkode', self._prefix[0]) <> self._prefix[0]:
+    def list_matches(self, gtype, data, category):
+        if data.get('studieprogramkode', self._prefix[0]) <> self._prefix[0]:
             return
         for subg in self.subnodes.itervalues():
-            for match in subg.list_matches(gtype, stprog, category):
+            for match in subg.list_matches(gtype, data, category):
                 yield match
 
 
 class fs_stprog_3(fs_stprog_group):
+
+    max_recurse = 1
 
     def __init__(self, parent, stprog):
         super(fs_stprog_3, self).__init__(parent)
         self._prefix = ('studiekull',)
         self.child_class = fs_stprog_users
 
-    def list_matches(self, gtype, stprog, category):
+    def list_matches(self, gtype, data, category):
         for subg in self.subnodes.itervalues():
-            for match in subg.list_matches(gtype, stprog, category):
+            for match in subg.list_matches(gtype, data, category):
                 yield match
 
     def add(self, stprog):
         children = self.subnodes
         for category in ('student',):
-            gr = fs_studprog_users(self, stprog, category)
+            gr = fs_stprog_users(self, stprog, category)
             if gr in children:
                 logger.error("Kull %r forekommer flere ganger.", stprog)
                 return
@@ -504,24 +538,26 @@ class fs_stprog_3(fs_stprog_group):
 
 class fs_stprog_users(fs_stprog_group):
 
+    max_recurse = 0
+
     def __init__(self, parent, stprog, category):
         super(fs_stprog_users, self).__init__(parent)
         self._prefix = (stprog['kullkode'],)
         self._name = (category,)
-        self.users = {}
 
-    def list_matches(self, gtype, stprog, category):
-        if (stprog.get('kullkode', self._prefix[0]) == self._prefix[0]
+    def list_matches(self, gtype, data, category):
+        if (data.get('kullkode', self._prefix[0]) == self._prefix[0]
             and category == self._name[0]):
             yield self
 
     def add(self, user):
-        # TBD: Oversette fnr til primærbruker (account_id?)
-        if user in self.users:
+        fnr = "%06d%05d" % (user['fodselsdato'], user['personnr'])
+        # TBD: Key on account_id (of primary user) instead?
+        if fnr in self.users:
             logger.error("Bruker %r forsøkt meldt inn i gruppe flere ganger.",
                          user)
             return
-        self.users[user] = user
+        self.users[fnr] = user
 
 
 def prefetch_primaryusers():
@@ -548,8 +584,8 @@ def prefetch_primaryusers():
             # Determine which person's fnr registration to use.
             source_weight = {int(const.system_fs): 4,
                              int(const.system_manual): 3,
-                             int(const.system_lt): 2,
-                             int(const.system_ureg): 1}
+                             int(const.system_sap): 2,
+                             int(const.system_migrate): 1}
             old_weight = source_weight.get(fnr_source[fnr][1], 0)
             if source_weight.get(src_sys, 0) <= old_weight:
                 continue
@@ -561,8 +597,8 @@ def prefetch_primaryusers():
         fnr_source[fnr] = (p_id, src_sys)
         if personid2accountid.has_key(p_id):
             account_ids = personid2accountid[p_id]
-            for acc in account_ids:
-                account_id2fnr[acc] = fnr
+##             for acc in account_ids:
+##                 account_id2fnr[acc] = fnr
             fnr2account_id[fnr] = account_ids
     del fnr_source
 
@@ -571,7 +607,9 @@ def init_globals():
     db = Factory.get("Database")()
     const = Factory.get("Constants")(db)
     logger = Factory.get_logger("console")
+
     fnr2account_id = {}
+    prefetch_primaryusers()
 
 def main():
     init_globals()
