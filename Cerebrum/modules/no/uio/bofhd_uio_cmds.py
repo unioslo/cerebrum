@@ -47,9 +47,6 @@ class BofhdExtension(object):
     all_commands = {}
     OU_class = Utils.Factory.get('OU')
     external_id_mappings = {}
-    format_time = "date:dd.MM.yy HH:mm"
-    #format_day = "date:dd.MM.yy"
-    format_day = "date:yyyy-MM-dd"
 
     def __init__(self, server):
         self.server = server
@@ -243,9 +240,14 @@ class BofhdExtension(object):
     # group info
     all_commands['group_info'] = Command(
         ("group", "info"), GroupName(),
-        fs=FormatSuggestion([("Name:\t\t%s\nSpreads:\t%s\nDescription:\t%s\nExpire:\t\t%s\nEntity id:\t%i",
-                              ("name", "spread", "desc", "expire:%s" % format_day, "entity_id")),
-                             ("Gid:\t\t%i", ('gid',))]))
+        fs=FormatSuggestion([("Name:         %s\n" +
+                              "Spreads:      %s\n" +
+                              "Description:  %s\n" +
+                              "Expire:       %s\n" +
+                              "Entity id:    %i""", ("name", "spread", "desc",
+                                                     format_day("expire"),
+                                                     "entity_id")),
+                             ("Gid:          %i", ('gid',))]))
     def group_info(self, operator, groupname):
         # TODO: Group visibility should probably be checked against
         # operator for a number of commands
@@ -639,11 +641,12 @@ class BofhdExtension(object):
     # misc mmove
     all_commands['misc_list_requests'] = Command(
         ("misc", "list_requests"),
-        fs=FormatSuggestion("%-6i %-10s %-14s %-15s %-10s %-20s %s",
-                            ("id", "requestee", "when:%s" % format_time,
+        fs=FormatSuggestion("%-6i %-10s %-16s %-15s %-10s %-20s %s",
+                            ("id", "requestee", format_time("when"),
                              "op", "entity", "destination", "args"),
-                            hdr="%-6s %-10s %-14s %-15s %-10s %-20s %s" % (
-        "Id", "Requestee", "When", "Op", "Entity", "Destination", "Arguments")))
+                            hdr="%-6s %-10s %-16s %-15s %-10s %-20s %s" % \
+                            ("Id", "Requestee", "When", "Op", "Entity",
+                             "Destination", "Arguments")))
     def misc_list_requests(self, operator):
         br = BofhdRequests(self.db, self.const)
         ret = []
@@ -978,8 +981,10 @@ class BofhdExtension(object):
     # person find
     all_commands['person_find'] = Command(
         ("person", "find"), PersonSearchType(), SimpleString(),
-        fs=FormatSuggestion("%6i \t%8s \t%10s \t%s", ('id', 'birth:%s' % format_day, 'export_id', 'name'),
-                            hdr="%6s \t%8s \t%10s \t%s" % ('Id', 'Birth', 'Exp-id', 'Name')))
+        fs=FormatSuggestion("%6i   %10s   %10s   %s",
+                            ('id', format_day('birth'), 'export_id', 'name'),
+                            hdr="%6s   %10s   %10s   %s" % \
+                            ('Id', 'Birth', 'Exp-id', 'Name')))
     def person_find(self, operator, search_type, value):
         # TODO: Need API support for this
         matches = []
@@ -1009,8 +1014,12 @@ class BofhdExtension(object):
     # person info
     all_commands['person_info'] = Command(
         ("person", "info"), PersonId(),
-        fs=FormatSuggestion("Name:\t\t%s\nExport ID:\t%s\nBirth:\t\t%s\nAffiliations:\t%s",
-                            ("name", "export_id", "birth:%s" % format_day, "affiliations")))
+        fs=FormatSuggestion("Name:          %s\n" +
+                            "Export ID:     %s\n" +
+                            "Birth:         %s\n" +
+                            "Affiliations:  %s",
+                            ("name", "export_id", format_day("birth"),
+                             "affiliations")))
     def person_info(self, operator, person_id):
         try:
             person = self._get_person(*self._map_person_id(person_id))
@@ -1024,8 +1033,9 @@ class BofhdExtension(object):
                 self.num2const[int(row['status'])],
                 self._format_ou_name(ou)))
         return {'name': person.get_name(self.const.system_cached,
-                                        getattr(self.const, cereconf.DEFAULT_GECOS_NAME)),
-                'affiliations': ", \n\t\t".join(affiliations),
+                                        getattr(self.const,
+                                                cereconf.DEFAULT_GECOS_NAME)),
+                'affiliations': (",\n" + (" " * 15)).join(affiliations),
                 'export_id': person.export_id,
                 'birth': person.birth_date}
 
@@ -1047,16 +1057,17 @@ class BofhdExtension(object):
     all_commands['person_student_info'] = Command(
         ("person", "student_info"), PersonId(),
         fs=FormatSuggestion([
-        ("Studieprogrammer: %s, %s, tildelt=%s->%s privatist: %s", (
-        "studprogkode", "studierettstatkode", "dato_tildelt:%s" % format_day,
-        "dato_gyldig_til:%s" % format_day, "privatist")),
-        ("Eksamensmeldinger: %s (%s), %s", ("ekskode", "programmer", "dato:%s" % format_day)),
-        ("Utd. plan: %s, %s, %d, %s", (
-        "studieprogramkode", "terminkode_bekreft", "arstall_bekreft",
-        "dato_bekreftet:%s" % format_day)),
-        ("Semesterreg: %s, %s, betalt: %s, endret: %s", (
-        "regformkode", "betformkode", "dato_betaling:%s" % format_day,
-        "dato_regform_endret:%s" % format_day))
+        ("Studieprogrammer: %s, %s, tildelt=%s->%s privatist: %s",
+         ("studprogkode", "studierettstatkode", format_day("dato_tildelt"),
+          format_day("dato_gyldig_til"), "privatist")),
+        ("Eksamensmeldinger: %s (%s), %s",
+         ("ekskode", "programmer", format_day("dato"))),
+        ("Utd. plan: %s, %s, %d, %s",
+         ("studieprogramkode", "terminkode_bekreft", "arstall_bekreft",
+          format_day("dato_bekreftet"))),
+        ("Semesterreg: %s, %s, betalt: %s, endret: %s",
+         ("regformkode", "betformkode", format_day("dato_betaling"),
+          format_day("dato_regform_endret")))
         ]),
         perm_filter='can_get_student_info')
     def person_student_info(self, operator, person_id):
@@ -1274,12 +1285,12 @@ class BofhdExtension(object):
     # quarantine show
     all_commands['quarantine_show'] = Command(
         ("quarantine", "show"), EntityType(default="account"), Id(),
-        fs=FormatSuggestion("%-14s %-14s %-14s %-14s %-8s %s",
-                            ('type', 'start:%s' % format_time,
-                             'end:%s' % format_time,
-                             'disable_until:%s' % format_day, 'who', 'why'),
-                            hdr="%-14s %-14s %-14s %-14s %-8s %s" % \
-                            ('Type', 'Start', 'End', 'Disable until', 'Who', 'Why')),
+        fs=FormatSuggestion("%-14s %-16s %-16s %-14s %-8s %s",
+                            ('type', format_time('start'), format_time('end'),
+                             format_day('disable_until'), 'who', 'why'),
+                            hdr="%-14s %-16s %-16s %-14s %-8s %s" % \
+                            ('Type', 'Start', 'End', 'Disable until', 'Who',
+                             'Why')),
         perm_filter='can_show_quarantines')
     def quarantine_show(self, operator, entity_type, id):
         ret = []
@@ -1602,11 +1613,19 @@ class BofhdExtension(object):
     # user info
     all_commands['user_info'] = Command(
         ("user", "info"), AccountName(),
-        fs=FormatSuggestion([("Spreads:\t%s\nAffiliations:\t%s\n"+
-                              "Expire:\t\t%s\nHome:\t\t%s\nEntity id:\t%i",
-                              ("spread", "affiliations", "expire:%s" % format_day, "home", "entity_id")),
-                             ("uid:\t\t%i\ndefault fg:\t%i=%s\ngecos:\t\t%s\nshell:\t\t%s",
-                              ('uid', 'dfg_posix_gid', 'dfg_name', 'gecos', 'shell'))]))
+        fs=FormatSuggestion([("Spreads:       %s\n" +
+                              "Affiliations:  %s\n" +
+                              "Expire:        %s\n" +
+                              "Home:          %s\n" +
+                              "Entity id:     %i",
+                              ("spread", "affiliations", format_day("expire"),
+                               "home", "entity_id")),
+                             ("uid:           %i\n" +
+                              "default fg:    %i=%s\n" +
+                              "gecos:         %s\n" +
+                              "shell:         %s",
+                              ('uid', 'dfg_posix_gid', 'dfg_name', 'gecos',
+                               'shell'))]))
     def user_info(self, operator, accountname):
         is_posix = False
         try: 
@@ -1624,7 +1643,7 @@ class BofhdExtension(object):
         ret = {'entity_id': account.entity_id,
                'spread': ",".join(["%s" % self.num2const[int(a['spread'])]
                                    for a in account.get_spread()]),
-               'affiliations': ", \n\t\t".join(affiliations),
+               'affiliations': (",\n" + (" " * 15)).join(affiliations),
                'expire': account.expire_date,
                'home': account.home}
         if account.disk_id is not None:
@@ -2245,3 +2264,14 @@ class BofhdExtension(object):
                     lst.append(part)
         lst.sort()
         return lst
+
+
+# TBD: It would probably be cleaner if our time formats were specified
+# in a non-Java-SimpleDateTime-specific way.
+def format_day(field):
+    fmt = "yyyy-MM-dd"                  # 10 characters wide
+    return ":".join(field, "date", fmt)
+
+def format_time(field):
+    fmt = "yyyy-MM-dd HH:mm"            # 16 characters wide
+    return '.'.join(field, "date", fmt)
