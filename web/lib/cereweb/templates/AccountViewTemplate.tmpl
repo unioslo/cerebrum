@@ -5,7 +5,7 @@
 #from Cerebrum.web.utils import url
 #from Cerebrum.web import HistoryLog
 
-#def viewAccount($account, $show_owner=True)
+#def viewAccount($account, $show_owner=True, $show_history=True)
 <h1>$_("Account") $account.name</h1>
 <div class="info">
 <dl>
@@ -15,16 +15,25 @@
     <dt>$_("Expire date")</dt>
     <dd>$account.expire_date</dd>
     
+#set $creator = $account.get_creator_object()
+#set $creatorurl = $url("%s/view?id=%d" % ($creator.type, $creator.id))
+    
     <dt>$_("Created by")</dt>
-    <dd>...</dd>
+    <dd><a href="$creatorurl">$creator.name ($creator.type)</a></dd>
 
 #if $show_owner
+#set $owner = $account.get_owner_object()
+#set $ownerurl = $url("%s/view?id=%d" % ($owner.type, $owner.id))
     <dt>$_("Owned by")</dt>
-    <dd>...</dd>
+    <dd><a href="$ownerurl">$owner.name ($owner.type)</a></dd>
 #end if
 
     <dt>$_("Spreads")</dt>
     <dd>$account.spread</dd>
 </dl>
 </div>
+
+#if $show_history
+    $HistoryLog.view_history_short($account, $account.id)
+#end if
 #end def
