@@ -463,7 +463,7 @@ description: mail-config ved UiO.\n
                     rest += "tripnoteActive: TRUE\n"
 
             # See if e-mail delivery should be suspended
-            if ei in pending:
+            if ei in pending_move:
                 rest += "mailPause: TRUE\n"
 
             # Find mail-server settings:
