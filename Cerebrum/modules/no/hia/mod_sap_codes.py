@@ -1918,8 +1918,8 @@ class SAPConstants(Constants.Constants):
     )
 
     sap_tilsettingsradet_for_administrative_tekn = SAPUtvalgsKode(
-        "Tilsettingsrådet for administrative/tekn",
-        "K810 Tilsettingsrådet for administrative/tekn"
+        "Tilsettingsrådet for admin/tekn",
+        "K810 Tilsettingsrådet for admin/tekn"
     )
 
     sap_tilsettingsutvalget = SAPUtvalgsKode(
