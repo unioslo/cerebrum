@@ -45,7 +45,7 @@ def init_globals():
     global db, const, logger
     db = Factory.get("Database")()
     const = Factory.get("Constants")(db)
-    logger = Factory.get_logger("console")
+    logger = Factory.get_logger("cronjob")
 
     cf_dir = '/cerebrum/dumps/Fronter'
 
