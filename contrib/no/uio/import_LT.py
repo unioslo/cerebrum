@@ -111,7 +111,7 @@ def get_sted(stedkode):
 
 def determine_affiliations(person):
     "Determine affiliations in order of significance"
-    ret = []
+    ret = {}
     for t in person.get('tils', ()):
         stedkode =  "%02d%02d%02d" % (int(t['fakultetnr_utgift']),
                                       int(t['instituttnr_utgift']),
@@ -126,14 +126,19 @@ def determine_affiliations(person):
         sted = get_sted(stedkode)
         if sted is None:
             continue
-        ret.append((sted['id'],
-                    const.affiliation_ansatt, aff_stat))
+	k = "%s:%s:%s" % (new_person.entity_id,sted['id'],
+					int(const.affiliation_ansatt)) 
+	if not ret.has_key(k):
+	    ret[k] = sted['id'],const.affiliation_ansatt, aff_stat
     for b in person.get('bilag', ()):
         sted = get_sted(b['stedkode'])
         if sted is None:
             continue
-        ret.append((sted['id'], const.affiliation_ansatt,
-                    const.affiliation_status_ansatt_bil))
+	k = "%s:%s:%s" % (new_person.entity_id,sted['id'],
+                                        int(const.affiliation_ansatt))
+	if not ret.has_key(k):
+	    ret[k] = sted['id'], const.affiliation_ansatt,\
+                   		const.affiliation_status_ansatt_bil
     for g in person.get('gjest', ()):
         if g['gjestetypekode'] == 'EMERITUS':
             aff_stat = const.affiliation_tilknyttet_emeritus
@@ -143,8 +148,10 @@ def determine_affiliations(person):
         sted = get_sted(g['sko'])
         if sted is None:
             continue
-        ret.append((sted['id'],
-                    const.affiliation_tilknyttet, aff_stat))
+	k = "%s:%s:%s" % (new_person.entity_id,sted['id'],
+                                        int(const.affiliation_tilknyttet))
+	if not ret.has_key(k):
+	    ret[k] = sted['id'], const.affiliation_tilknyttet, aff_stat
     return ret
 
 def determine_contact(person):
@@ -212,13 +219,11 @@ def process_person(person):
                 const.externalid_fodselsnr, fnr, const.system_lt)
         except Errors.NotFoundError:
             pass
-
     if (person.get('fornavn', ' ').isspace() or
         person.get('etternavn', ' ').isspace()):
         logger.warn("Ikke noe navn for %s" % fnr)
         return
     new_person.populate(db.Date(year, mon, day), gender)
-
     new_person.affect_names(const.system_lt, const.name_first, const.name_last)
     new_person.affect_external_id(const.system_lt, const.externalid_fodselsnr)
     new_person.populate_name(const.name_first, person['fornavn'])
@@ -232,8 +237,10 @@ def process_person(person):
     new_person.populate_affiliation(const.system_lt)
     contact = determine_contact(person)
     added_ou_fax = False
-    for ou_id, aff, aff_stat in affiliations:
-        new_person.populate_affiliation(const.system_lt, ou_id, aff, aff_stat)
+    for k,v in affiliations.items():
+	ou_id, aff, aff_stat = v
+        new_person.populate_affiliation(const.system_lt, ou_id,\
+						int(aff), int(aff_stat))
         if not added_ou_fax:
             sted = get_sted(ou_id)
             if sted is not None and sted['fax'] is not None:
@@ -242,10 +249,8 @@ def process_person(person):
                 contact.append((const.contact_fax, sted['fax']))
                 added_ou_fax = True
 	if include_del:
-	    key1 = str(new_person.entity_id) + 'a' + str(ou_id) 
-				+ 'a' + str(int(aff))
-	    if cere_list.has_key(key1):
-		cere_list.__delitem__(key1)
+	    if cere_list.has_key(k):
+		cere_list[k] = False
     c_prefs = {}
     new_person.populate_contact_info(const.system_lt)
     for c_type, value in contact:
@@ -253,7 +258,6 @@ def process_person(person):
         pref = c_prefs.get(c_type, 0)
         new_person.populate_contact_info(const.system_lt, c_type, value, pref)
         c_prefs[c_type] = pref + 1
-
     if person.has_key('fakultetnr_for_lonnsslip'):
         sko = "%02i%02i%02i" % tuple([int(
             person["%s_for_lonnsslip" % x]) for x in (
@@ -277,28 +281,30 @@ def process_person(person):
         logger.info2("**** UPDATE ****")
 
 def usage(exitcode=0):
-    print """Usage: import_LT.py -p personfile [-v] [-g]"""
+    print """Usage: import_LT.py -p personfile [-v] [-g] [-d]"""
     sys.exit(exitcode)
 
 def load_all_affi_entry():
     affi_list = {}
     for row in new_person.list_affiliations(source_system=const.system_lt):
-	key_l = str(row['person_id']) + 'a' + str(row['ou_id']) + 'a' + str(row['affiliation'])
-	affi_list[key_l] = int(row['person_id']), int(row['ou_id']), int(row['affiliation'])
+	key_l = "%s:%s:%s" % (row['person_id'],row['ou_id'],row['affiliation'])
+	affi_list[key_l] = True
     return(affi_list)
 
 def clean_affi_s_list():
-    for l_key,l_entry in cere_list.items():
-	ent_id,ou,affi = l_entry
-	new_person.clear()
-	#new_person.find(int(ent_id))
-	new_person.entity_id = int(ent_id)
-	new_person.delete_affiliation(ou,affi,const.system_lt,1)
+    for k,v in cere_list.items():
+	if v:
+	    ent_id,ou,affi = re.split(':',k)
+	    new_person.clear()
+	    #new_person.find(int(ent_id))
+	    new_person.entity_id = int(ent_id)
+	    new_person.delete_affiliation(int(ou),int(affi),const.system_lt,1)
 
 def main():
-    global db, new_person, const, ou, logger, gen_groups, group, cere_list, include_del, test_list
+    global db, new_person, const, ou, logger, gen_groups, group, cere_list,\
+							 include_del, test_list
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'vp:g:d', ['verbose', 'person-file',
+        opts,args = getopt.getopt(sys.argv[1:], 'vp:g:d', ['verbose', 'person-file',
                                                           'group','include_delete'])
     except getopt.GetoptError:
         usage(1)
