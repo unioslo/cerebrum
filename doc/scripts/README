@@ -22,7 +22,7 @@ To build the html version, do something like::
 To build the pdf version, do something like::
   cd $CEREDOC
   scripts/build.py --xml book.xml
-  cd ,build
+  cd build
   db2pdf book.xml 
 
 
@@ -41,7 +41,7 @@ modifications to the core of docutils, see ``docutils.diff``.
 sysinclude
 -------------
 This extension allows running commands, and inserting their results in
-the document.  Unfortunately, docutils currently has noe mecanism for
+the document.  Unfortunately, docutils currently has no mechanism for
 adding new directives without patching the rst2* scripts.  Therefore
 the ``scripts/`` directory contains patched variants of these scripts.
 
