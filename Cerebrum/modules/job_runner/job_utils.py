@@ -399,7 +399,7 @@ class JobQueue(object):
 
         if self._started_at.has_key(job_name):
             self.logger.debug("Completed [%s/%i] after %f seconds" % (
-                job_name,  pid, self._last_duration[job_name]))
+                job_name,  pid or -1, self._last_duration[job_name]))
             self._last_duration[job_name] = (
                 self._last_run[job_name] - self._started_at[job_name])
         else:
