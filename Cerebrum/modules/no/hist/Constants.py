@@ -134,3 +134,4 @@ class Constants(Constants.Constants):
         's_hist',
         "The email server type for students at HiST.")
     
+# arch-tag: adf134a1-7038-445d-b3d7-7e27fa16f0b9
