@@ -798,14 +798,16 @@ def get_netgrp(netgrp_id,spreads,f):
     try:
         for id in pos_netgrp.list_members(None,int(co.entity_account))[0]:
             uname_id = int(id[1])
-            if entity2uname.has_key(uname_id) and \
-			(entity2uname[uname_id].find('_') == -1):
-                f.write("nisNetgroupTriple: (,%s,)\n" % entity2uname[uname_id])
+            if entity2uname.has_key(uname_id):
+                uname = entity2uname[uname_id]
             else:
                 pos_user.clear()
                 pos_user.find(uname_id)
-		if (pos_user.account_name.find('_') == -1):
-                    f.write("nisNetgroupTriple: (,%s,)\n" % pos_user.account_name
+                uname = pos_user.account_name
+            # The LDAP schema for NIS netgroups doesn't allow
+            # usernames with '_' in.
+            if '_' not in uname:
+                f.write("nisNetgroupTriple: (,%s,)\n" % uname)
         for group in pos_netgrp.list_members(None,int(co.entity_group))[0]:
             valid_spread = False
             pos_netgrp.clear()
