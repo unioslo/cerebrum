@@ -2125,7 +2125,7 @@ class BofhdExtension(object):
         now = self._today()
         act_date = None
         for r in ev.get_vacation():
-            if r['start_date'] > r['end_date']:
+            if r['end_date'] is not None and r['start_date'] > r['end_date']:
                 self.logger.warn(
                     "bogus tripnote for %s, start at %s, end at %s"
                     % (uname, r['start_date'], r['end_date']))
@@ -2134,7 +2134,7 @@ class BofhdExtension(object):
                 continue
             if r['enable'] == 'F':
                 continue
-            if r['end_date'] < now:
+            if r['end_date'] is not None and r['end_date'] < now:
                 continue
             if r['start_date'] > now:
                 break
