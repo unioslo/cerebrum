@@ -23,7 +23,7 @@
 import sys
 
 def dyn_import(name):
-    """Dynamically import python module NAME."""
+    """Dynamically import python module ``name``."""
     try:
         mod = __import__(name)
         components = name.split(".")
@@ -34,7 +34,7 @@ def dyn_import(name):
         raise ImportError, mesg
 
 def this_module():
-    'Return module object of the caller.'
+    """Return module object of the caller."""
     caller_frame = sys._getframe(1)
     globals = caller_frame.f_globals
     #
@@ -50,10 +50,10 @@ def this_module():
     return correct_mod
 
 def separate_entries(rows, *predicates):
-    """Separate `rows' into (keep, reject) tuple based on `predicates'.
+    """Separate ``rows`` into (keep, reject) tuple based on ``predicates``.
 
-    The `rows' argument should be a sequence of db_row.py-generated
-    objects.  Each predicate in `predicate' should be a (key, value)
+    The ``rows`` argument should be a sequence of db_row.py-generated
+    objects.  Each predicate in ``predicate`` should be a (key, value)
     tuple.  The key must be a valid attribute name of each row object.
 
     The rows are separated according to these rules:
@@ -81,9 +81,9 @@ def separate_entries(rows, *predicates):
     return (keep, reject)
 
 def keep_entries(rows, *predicates):
-    "Return the `keep' part of separate_entries() return value."
+    """Return the 'keep' part of separate_entries() return value."""
     return separate_entries(rows, *predicates)[0]
 
 def reject_entries(rows, *predicates):
-    "Return the `reject' part of separate_entries() return value."
+    """Return the 'reject' part of separate_entries() return value."""
     return separate_entries(rows, *predicates)[1]
