@@ -1,7 +1,7 @@
 #!/usr/bin/env python2.2
 # -*- coding: iso-8859-1 -*-
 #
-# Copyright 2003 University of Oslo, Norway
+# Copyright 2002, 2003 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -21,28 +21,49 @@
 
 import sys
 import time
+import pickle
 import re
 
 import cerebrum_path
 import cereconf
-import nwutils
+from Cerebrum import Constants
 from Cerebrum import Errors
+from Cerebrum import OU
+from Cerebrum import Account
+from Cerebrum import Group
 from Cerebrum import Entity
 from Cerebrum.Utils import Factory
-
+from Cerebrum.modules import CLHandler
+import nwutils
 
 db = Factory.get('Database')()
 co = Factory.get('Constants')(db)
-ou = Factory.get('OU')(db)
+ou = OU.OU(db)
 ent_name = Entity.EntityName(db)
-group = Factory.get('Group')(db)
-account = Factory.get('Account')(db)
+group = Group.Group(db)
+account = Account.Account(db)
+cl = CLHandler.CLHandler(db)
+clco = Factory.get('CLConstants')(db)
 
-delete_users = 1
+delete_users = 0
 delete_groups = 0
 domainusers = []
 #For test,
-max_nmbr_users = 100
+max_nmbr_users = 10000
+
+
+def create_ou(iso_ou):
+    utf8name = unicode(iso_ou, 'iso-8859-1').encode('utf-8')
+    attrs = []
+    # first attr is mandatory in eDirectory
+    attrs.append( ("objectClass", "OrganizationalUnit") )
+    attrs.append( ("description","Cerebrum-OU") )
+    try:
+        LDAPHandle.CreateObject('%s' % utf8name, attrs)
+        print "INFO:created %s\n" % utf8name
+    except:
+        print "Failed creating ",utf8name
+
 
 def full_ou_sync():
 
@@ -57,21 +78,11 @@ def full_ou_sync():
 #        except:
 #            pass
 #        continue
-        
-        OUs.append(nextou[0])
+
         iso_ou = unicode(nextou[0],'utf-8').encode('iso-8859-1')
-    if not 'ou=%s,%s' % (cereconf.NW_LOST_AND_FOUND,cereconf.NW_LDAP_ROOT) in OUs:
-        utf8name = unicode('%s,%s' % (cereconf.NW_LOST_AND_FOUND,cereconf.NW_LDAP_ROOT),
-                            'iso-8859-1').encode('utf-8')
-        attrs = []
-        # first attr is mandatory in eDirectory
-        attrs.append( ("ObjectClass", "OrganizationalUnit") )
-        attrs.append( ("Description","Cerebrum-OU") )
-        try:
-            LDAPHandle.CreateObject('%s' % utf8name, attrs)
-        except:
-            print "Failed creating ",utf8name
-        
+        OUs.append(iso_ou)
+#    return
+     
     def find_children(parent_id,parent_acro):
 
         ou.clear()
@@ -84,23 +95,25 @@ def full_ou_sync():
             ou.find(child['ou_id'])
             if ou.acronym:
                 name = 'ou=%s,%s' % (ou.acronym, parent_acro)
-                name_utf8 = unicode(name, 'iso-8859-1').encode('utf-8')
-                if not name_utf8.replace('/','\/') in OUs:
-                    print "INFO:creating %s\n" % name
-                    attrs = []
-                    # first attr is mandatory in eDirectory
-                    attrs.append( ("ObjectClass", "OrganizationalUnit") )
-                    attrs.append( ("Description","Cerebrum-OU") )
-                    try:
-                        LDAPHandle.CreateObject('%s' % name_utf8, attrs)
-                    except:
-                        print "Failed creating ",name
+                if not name in OUs:
+                    create_ou(name)
             chldrn = ou.list_children(co.perspective_fs)
             find_children(child['ou_id'], name)
-
-    ou.clear()
-    root_id = cereconf.NW_CERE_ROOT_OU_ID # ou.root()
-    children = find_children(root_id, cereconf.NW_LDAP_ROOT)
+    if cereconf.NW_LDAP_USEOUS:
+        ou.clear()
+        root_id = cereconf.NW_CERE_ROOT_OU_ID # ou.root()
+        children = find_children(root_id, cereconf.NW_LDAP_ROOT)
+    else:
+ #       if not 'ou=stud,ou=HiST3,ou=user,o=NOVELL' in OUs:
+ #           create_ou('ou=stud,ou=HiST3,ou=user,o=NOVELL')
+ #       if not 'ou=ans,ou=HiST3,ou=user,o=NOVELL' in OUs:
+ #           create_ou('ou=ans,ou=HiST3,ou=user,o=NOVELL')
+        if not cereconf.NW_LDAP_STUDOU in OUs:
+            create_ou(cereconf.NW_LDAP_STUDOU)
+        if not cereconf.NW_LDAP_ANSOU in OUs:
+            create_ou(cereconf.NW_LDAP_ANSOU)
+        if not 'ou=%s,%s' % (cereconf.NW_LOST_AND_FOUND,cereconf.NW_LDAP_ROOT) in OUs:
+            create_ou('ou=%s,%s' % (cereconf.NW_LOST_AND_FOUND,cereconf.NW_LDAP_ROOT))
 
 
 def full_user_sync(spread_str):
@@ -112,44 +125,53 @@ def full_user_sync(spread_str):
     print 'INFO: Starting full_user_sync at', nwutils.now()
     entity = Entity.Entity(db)
     users = {}
-#    spread_code = int(getattr(co, 'spread_HiST_nds_stud_aft'))
-#    rows = entity.list_all_with_spread(spread_code)
-
-    # All changes we want to 'spread' (mv to quick-sync)
-#    changelog = db.get_log_events(start_id=0, max_id=None, 
-#                     types=(co.account_password,co.person_name_mod,
-#                            co.spread_add)) 
     
     spreadusers = get_objects('user', spread_str)
-
+    passwords = db.get_log_events_date(type=(int(co.account_password),)) 
+    
+    print "INFO: Base LDAP OU: ", cereconf.NW_LDAP_ROOT
     eDir = LDAPHandle.GetObjects(cereconf.NW_LDAP_ROOT, '(objectclass=user)')
     for (eDirUsr, eDirUsrAttr) in eDir:
         # This better be created by us if we should touch it
         # Every object in eDirectory created by us has Cerebrum as first 8 letters
         # in description attribute
-        if not touchable(eDirUsrAttr):
+        print eDirUsr
+        if not nwutils.touchable(eDirUsrAttr):
            continue
         domainusers.append(eDirUsr)
         isousr = unicode(eDirUsrAttr['cn'][0],'utf-8').encode('iso-8859-1' )
         # Uncomment to empty eDir for all users with 'Cerebrum' in desc.
         # They will flow into eDir again later in this func
-        # LDAPHandle.DeleteObject(eDirUsr)
-        # continue
+        if (eDirUsr != cereconf.NW_ADMINUSER):
+           print "Sletter", eDirUsr
+           LDAPHandle.DeleteObject(eDirUsr)
+           continue
         if isousr in spreadusers:
             user_id = spreadusers[isousr]
-            utfcrbm_ou = unicode(user_id[1], 'iso-8859-1').encode('utf-8')
-            utf8_dn = unicode('cn=%s,%s' % (isousr, user_id[1]), 'iso-8859-1').encode('utf-8')
+            
+            # Finn brukerens nyeste passord, i klartekst.
+            pwd_rows = [row for row in passwords
+                    if row.subject_entity == user_id[0]]
+            try:
+               pwd = pickle.loads(pwd_rows[-1].change_params)['password']
+            except:
+                type, value, tb = sys.exc_info()
+                print "Aiee! %s %s" % (str(type), str(value))
+                pwd = ''
+                continue
 
-            if 'cn=%s,%s' % (isousr,utfcrbm_ou) != eDirUsr:
-                # MOVE
+            (g_name,s_name,account_disable,home_dir, aff, ext_id) = nwutils.get_user_info(user_id[0],eDirUsrAttr['cn'][0], spread=int(getattr(co, spread_str)))
+            utf8_ou = nwutils.get_utf8_ou('user', user_id[1], aff)
+            utf8_dn = unicode('cn=%s,' % isousr, 'iso-8859-1').encode('utf-8') + utf8_ou
+            if utf8_dn != eDirUsr:
+            # MOVE
                 print "Move: %s to %s" % (eDirUsr, user_id[1])
                 try:
-                    utf8_dn = "%s,%s" % (eDirUsrAttr['cn'][0], utfcrbm_ou)
+                    utf8_dn = "%s,%s" % (eDirUsrAttr['cn'][0], utf8_ou)
                     LDAPHandle.RenameObject(eDirUsr, utf8_dn)                    
                 except:    
                     print "WARNING: move user failed, ", eDirUsr, 'to', user_id[1]
             # UPDATE
-            (g_name,s_name,account_disable,home_dir) = nwutils.get_user_info(user_id[0],eDirUsrAttr['cn'][0])
             g_name = unicode(g_name, 'iso-8859-1').encode('utf-8')
             s_name = unicode(s_name, 'iso-8859-1').encode('utf-8')
 
@@ -160,27 +182,27 @@ def full_user_sync(spread_str):
                 
             print eDirUsrAttr
             attrs = []
-            op = nwutils.op_check(eDirUsrAttr, 'givenName', g_name)
+            fullName = unicode(g_name, 'iso-8859-1').encode('utf-8') +" "+ unicode(s_name, 'iso-8859-1').encode('utf-8')
+            op = nwutils.op_check(eDirUsrAttr, 'fullName', fullName)
             if op is not None:
+                attrs.append( ("fullName",  fullName) )
                 attrs.append( (op, "givenName", g_name) )
-            op = nwutils.op_check(eDirUsrAttr, 'sn', s_name)
-            if op is not None:
                 attrs.append( (op, "sn", s_name) )
             op = nwutils.op_check(eDirUsrAttr, 'loginDisabled', account_disable)
             if op is not None:
                 attrs.append( (op, "loginDisabled", account_disable) )
             op = nwutils.op_check(eDirUsrAttr, 'homeDirectory', home_dir)
             if op is not None:
-                attrs.append( (op, "homeDirectory", home_dir) )
+                attrs.append( (op, "ndsHomeDirectory", home_dir) )
             op = nwutils.op_check(eDirUsrAttr, 'passwordAllowChange', cereconf.NW_CAN_CHANGE_PW)
             if op is not None:
                 attrs.append( (op, "passwordAllowChange", cereconf.NW_CAN_CHANGE_PW) )
-
-            if attrs:
-                try:
-                    LDAPHandle.RawModifyAttributes(utf8_dn, attrs)
-                except:
-                    print "WARNING: Error updating attributes for", isousr
+#            attrs.append( ( ldap.MOD_DELETE, "userPassword", ) )
+#            attrs.append( ( ldap.MOD_ADD, "userPassword", pwd) )
+            try:
+                LDAPHandle.RawModifyAttributes(utf8_dn, attrs)
+            except:
+                print "WARNING: Error updating attributes for", isousr
             del spreadusers[isousr]
         else:
             if delete_users:
@@ -202,26 +224,43 @@ def full_user_sync(spread_str):
     for user in spreadusers:
         # The remaining accounts in the list should be created.
         user_id = spreadusers[user]
-        print "\nINFO:creating %s" % user
-        utf8_dn = unicode('cn=%s,%s' % (user, user_id[1]), 'iso-8859-1').encode('utf-8')
-        
-        (g_name,s_name,account_disable,home_dir) = nwutils.get_user_info(user_id[0],user)
+
+        # Finn brukerens nyeste passord, i klartekst.
+        pwd_rows = [row for row in passwords
+                if row.subject_entity == user_id[0]]
+        try:
+            pwd = pickle.loads(pwd_rows[-1].change_params)['password']
+        except:
+            type, value, tb = sys.exc_info()
+            print "Aiee! %s %s" % (str(type), str(value))
+            pwd = ''
+            continue
+
+        (g_name,s_name,account_disable,home_dir,aff,ext_id) = nwutils.get_user_info(user_id[0], user, spread=int(getattr(co, spread_str)))
+        utf8_ou = nwutils.get_ldap_usr_ou(user_id[1], aff)
+        utf8_dn = unicode('cn=%s,' % user, 'iso-8859-1').encode('utf-8') + utf8_ou
         attrs = []
         # ObjectClass and sn are mandatory on person in eDirectory
         attrs.append( ("ObjectClass", "user" ) )
         attrs.append( ("givenName", unicode(g_name, 'iso-8859-1').encode('utf-8') ) )
         attrs.append( ("sn", unicode(s_name, 'iso-8859-1').encode('utf-8') ) )
-        attrs.append( ("homeDirectory", home_dir ) )
-        attrs.append( ("description","Cerebrum-managed") )
+        fullName = unicode(g_name, 'iso-8859-1').encode('utf-8') +" "+ unicode(s_name, 'iso-8859-1').encode('utf-8')
+        attrs.append( ("fullName",  fullName) )
+        utf8_home = unicode("cn=DEVNET-PUBLIC_VOL1,o=NOVELL#0#USER\\HiST3", 'iso-8859-1').encode('utf-8')
+ #       attrs.append( ("ndsHomeDirectory",  utf8_home) )
+        attrs.append( ("description","Cerebrum;%d;%s" % (ext_id, nwutils.now()) ) )
         attrs.append( ("passwordAllowChange", cereconf.NW_CAN_CHANGE_PW) )
-        attrs.append( ("PasswordExpire", cereconf.NW_PASSWORD_EXPIRE) )
         attrs.append( ("loginDisabled", account_disable) )
-        attrs.append( ("userPassword", "muuuhhhhaaaaaa") )
+        passwd = unicode("ÆøÅS0mething", 'iso-8859-1').encode('utf-8')
+        attrs.append( ("userPassword", passwd) )
         try:                
             LDAPHandle.CreateObject(utf8_dn, attrs)
+            print "INFO:New user %s" % utf8_dn
             domainusers.append(utf8_dn)
         except:
-            print "WARNING: Failed creating ", user_id[0]
+            type, value, tb = sys.exc_info()
+            print "ERROR: %s %s" % (str(type), str(value))
+            print "WARNING: Failed creating", utf8_dn
  
 
 # If we run grp_sync without user_sync first
@@ -237,13 +276,13 @@ def gen_domain_users():
 
 
 
-#helper to clean up in AD-LDAP while testing
+#helper to clean up in NW-LDAP while testing
 def del_our_groups():
     eDir = LDAPHandle.GetObjects(cereconf.NW_LDAP_ROOT, '(objectclass=group)')
  
     for (eDirGrp, eDirGrpAttr) in eDir:
         print "Deleting eDirectory Group:", eDirGrp
-        if not touchable(eDirGrpAttr):
+        if not nwutil.touchable(eDirGrpAttr):
            continue
         LDAPHandle.DeleteObject(eDirGrp)
    
@@ -259,14 +298,13 @@ def full_group_sync(spread_str):
  
     for (eDirGrp, eDirGrpAttr) in eDir:
         print "eDirectory Group:", eDirGrp
-        if not touchable(eDirGrpAttr):
+        if not nwutil.touchable(eDirGrpAttr):
            continue
-        print "Our: ", eDirGrp
         isogrp = unicode(eDirGrpAttr['cn'][0],'utf-8').encode('iso-8859-1' )
         if isogrp in spreadgroups:
             grp_id = spreadgroups[isogrp]
             print 'INFO: updating group:', isogrp
-            utfcrbm_ou = unicode(grp_id[1], 'iso-8859-1').encode('utf-8')
+            utfcrbm_ou = unicode(grp_id[1], 'iso-8859-1').encode('utf-8')    
             utf8_dn = unicode('cn=%s,%s' % (isogrp, grp_id[1]), 'iso-8859-1').encode('utf-8')
             # Should we move it?
             if utf8_dn != eDirGrp:
@@ -276,7 +314,10 @@ def full_group_sync(spread_str):
                     print "WARNING: move group failed, ", isogrp, 'to', grp_id[1]
             # Figure who (DN) is in this group (Cerebrum)
             group.clear()
+            for row in group.list_affiliations(group_id=grp_id[0]):
+                affiliation = row['affiliation']
             group.find(grp_id[0])
+
             memblist = []
             for grpmemb in group.get_members():
                 try:
@@ -337,14 +378,21 @@ def full_group_sync(spread_str):
         # The remaining is new groups and should be created.
         attrs = []
         attrs.append( ("ObjectClass", "group") )
-        attrs.append( ("description", "Cerebrum") )
-        utf8_dn = unicode('cn=%s,%s' % (grp, spreadgroups[grp][1]), 'iso-8859-1').encode('utf-8')
+        attrs.append( ("description", "Cerebrum-group") )
+        if grp.find('stud') != -1:
+            aff = co.affiliation_student
+        else:
+            aff = co.affiliation_ansatt    
+        utf8_ou = nwutils.get_utf8_ou('group', grp[1], aff)
+        utf8_dn = "cn=%s,%s" % (unicode(grp, 'iso-8859-1').encode('utf-8'), utf8_ou)
+
+#        utf8_dn = unicode('cn=%s,%s' % (grp, spreadgroups[grp][1]), 'iso-8859-1').encode('utf-8')
         try:  
             LDAPHandle.CreateObject(utf8_dn, attrs)
         except:
-            print "WARNING: Failed creating group", grp
+            print "WARNING: Failed creating group ", utf8_dn
             continue
-        print "Created ",grp,"in ", spreadgroups[grp][1]
+        print "Created ",utf8_dn
         group.clear()
         group.find(spreadgroups[grp][0])
         for grpmemb in group.get_members():
@@ -352,13 +400,8 @@ def full_group_sync(spread_str):
                 ent_name.clear()
                 ent_name.find(grpmemb)
                 name = ent_name.get_name(int(co.account_namespace))
-                try:
-                    ou_id = nwutils.get_primary_ou(ent_name.entity_id, co.account_namespace)
-                    crbrm_ou = nwutils.get_crbrm_ou(ou_id)
-                except:
-                    print "WARNING: Could not get primary OU for %s(%d)" % (name, grpmemb)
-                    continue
-                utf8membr_dn = unicode('cn=%s,%s' % (name, spreadgroups[grp][1]), 'iso-8859-1').encode('utf-8')
+                utf8membr_ou = nwutils.get_utf8_ou('user', grpmemb, aff)
+                utf8membr_dn = unicode('cn=%s,' % name, 'iso-8859-1').encode('utf-8') + utf8membr_ou
                 if utf8membr_dn in domainusers:
                     print 'INFO:Add', utf8membr_dn, 'to', utf8_dn
                     attrs = []
@@ -366,7 +409,22 @@ def full_group_sync(spread_str):
                     try:
                         LDAPHandle.AddAttributes(utf8_dn, attrs)
                     except:    
-                        print 'WARNING: Failed add', membr_dn, 'to', utf8_dn
+                        print 'WARNING: Failed add', utf8membr_dn, 'to', utf8_dn
+                        continue
+                    attrs = []
+                    attrs.append( ("groupMembership", utf8_dn) )
+                    try:
+                        LDAPHandle.AddAttributes(utf8membr_dn, attrs)
+                    except:    
+                        print 'WARNING: Failed giving', utf8membr_dn, 'group membership to', utf8_dn
+                        continue
+                    attrs = []
+                    attrs.append( ("securityEquals", utf8_dn) )
+                    try:
+                        LDAPHandle.AddAttributes(utf8membr_dn, attrs)
+                    except:    
+                        print 'WARNING: Failed giving', utf8membr_dn, 'security equal to', utf8_dn
+                        continue
                 else:
                     print 'WARNING: Group member', utf8membr_dn, 'does not exist in eDirectory'
             except Errors.NotFoundError:
@@ -374,13 +432,7 @@ def full_group_sync(spread_str):
 
 
 
-def touchable(attrs):
-    """Given attributes and their values we determine if we are allowed to
-       modify this object"""
-    if attrs.has_key('description'):
-        if attrs['description'][0][0:8] == 'Cerebrum':
-           return True
-    return False
+
 
 
 def get_args():
@@ -395,12 +447,10 @@ def get_args():
 
 def get_objects(entity_type, spread_str):
     #get all objects with spread 'spread_str', in a hash identified by name with id and ou.
-    print entity_type, spread_str
     global max_nmbr_users
     entity = Entity.Entity(db)
-    grp_postfix = ''
+    grp_postfix = grp_prefix = ''
     spread_id = int(getattr(co, spread_str))
-#    rows = entity.list_all_with_spread(spread_id)
     if entity_type == 'user':
         e_type = int(co.entity_account)
         namespace = int(co.account_namespace)
@@ -408,6 +458,7 @@ def get_objects(entity_type, spread_str):
         e_type = int(co.entity_group)
         namespace = int(co.group_namespace)
         grp_postfix = cereconf.NW_GROUP_POSTFIX
+        grp_prefix = cereconf.NW_GROUP_PREFIX
     ulist = {}
     count = 0    
 
@@ -416,6 +467,7 @@ def get_objects(entity_type, spread_str):
     ourootname='ou=%s' % ou.acronym
     
     for row in ent_name.list_all_with_spread(spread_id):
+        pri_ou = 0
         if count >= max_nmbr_users: break
         id = row['entity_id']
         ent_name.clear()
@@ -432,7 +484,7 @@ def get_objects(entity_type, spread_str):
         count = count+1
         crbrm_ou = nwutils.id_to_ou_path(pri_ou ,ourootname)
         id_and_ou = id, crbrm_ou
-        obj_name = '%s%s' % (name, grp_postfix)
+        obj_name = '%s%s%s' % (grp_prefix, name, grp_postfix)
         ulist[obj_name]=id_and_ou    
         
     print "INFO: Found %s nmbr of objects" % (count)
@@ -442,6 +494,7 @@ def get_objects(entity_type, spread_str):
 
                     
 if __name__ == '__main__':
+    print 'INFO: Starting Novell eDirectory full sync at', nwutils.now()
     LDAPHandle = nwutils.LDAPConnection(cereconf.NW_LDAPHOST, cereconf.NW_LDAPPORT,
                                     binddn=cereconf.NW_ADMINUSER, password=cereconf.NW_PASSWORD, scope='sub')
 #    LDAPHandle = nwutils.LDAPConnection(cereconf.NW_LDAPHOST, cereconf.NW_LDAPPORT,
@@ -451,5 +504,5 @@ if __name__ == '__main__':
     full_user_sync('spread_HiST_nds_stud_aft')
 #    gen_domain_users()
 #    del_our_groups()
-#    full_group_sync('spread_HiST_nds_stud_aft_group')
+    full_group_sync('spread_HiST_nds_stud_aft_group')
 
