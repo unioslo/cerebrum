@@ -117,7 +117,7 @@ class AccountUtil(object):
                                             'spreads': [],
                                             'groups': [],
                                             'affs': [],
-                                            'home': [],
+                                            'home': {},
                                             'gid': None}
         AccountUtil.update_account(account.entity_id, fnr, profile, as_posix)
         return account.entity_id
@@ -192,7 +192,12 @@ class AccountUtil(object):
                 user.delete_entity_quarantine(const.quarantine_autostud)
             elif c_id == 'add_spread':
                 user.add_spread(dta)
-            elif c_id == 'person_spread':
+            elif c_id == 'add_person_spread':
+                if (not hasattr(person_obj, 'entity_id') or
+                    person_obj.entity_id != user.owner_id):
+                    person_obj.clear()
+                    person_obj.find(user.owner_id)
+                person_obj.add_spread(dta)
                 logger.warn("Person spread?  TODO: implement")
             elif c_id == 'set_ac_type':
                 user.set_account_type(dta[0], dta[1])
@@ -212,7 +217,6 @@ class AccountUtil(object):
 
         logger.debug("%i already in %s" % (account_id, repr(already_member)))
         for g in profile.get_grupper():
-            logger.debug("In %s ?" % repr(g))
             if not already_member.has_key(g):
                 group_obj.clear()
                 group_obj.find(g)
@@ -239,8 +243,9 @@ class AccountUtil(object):
         ac = accounts[account_id]
         if as_posix:
             gid = profile.get_dfg()
-            if (ac['gid'] is None or ac['gid'] != gid):
-                changes.append(('dfg', gid))   # dfg has changed og new PosixUser
+            # we no longer want to change the default-group
+            if (ac['gid'] is None): # or ac['gid'] != gid):
+                changes.append(('dfg', gid))
 
         if ac['expire_date'] != default_expire_date:
             changes.append(('expire', default_expire_date))
@@ -273,7 +278,7 @@ class AccountUtil(object):
                     changes.append(('add_spread', spread))
             elif spread.entity_type == const.entity_person:
                 if not int(spread) in has_person_spreads:
-                    changes.append(('person_spread', spread))
+                    changes.append(('add_person_spread', spread))
 
         changes.extend(AccountUtil._populate_account_affiliations(account_id, fnr))
         # We have now collected all changes that would need fetching of
@@ -585,14 +590,9 @@ def get_existing_accounts():
 
     logger.info("Listing persons")
     pid2fnr = {}
-    had_fs_fnr = {}
     for row in person_obj.list_external_ids(id_type=const.externalid_fodselsnr):
-        if not pid2fnr.has_key(int(row['person_id'])):
-            if had_fs_fnr.has_key(int(row['person_id'])):
-                continue
-            pid2fnr[int(row['person_id'])] = row['external_id']
-            if row['source_system'] == int(const.system_fs):
-                had_fs_fnr[int(row['person_id'])] = True
+        if (row['source_system'] == int(const.system_fs) or
+            (not pid2fnr.has_key(int(row['person_id'])))):
             persons[row['external_id']] = {
                 'affs': [], 'stud_ac': [], 'other_ac': [], 'reserved_ac': [], 'spreads': [],
                 'groups': []}
