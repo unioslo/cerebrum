@@ -75,7 +75,14 @@ class DatabaseClass(SpineClass, Searchable, Dumpable):
     db_attr_aliases = {}
     db_table_order = []
 
-    def _load_db_attributes(self, attributes):
+    def _load_db_attributes(self, attributes=None):
+        if attributes is None:
+            attributes = []
+            for attr in self.slots:
+                if not isinstance(attr, DatabaseAttr) or attr.optional:
+                    continue
+                attributes.append(attr)
+
         db = self.get_database()
         
         tables = sets.Set([i.table for i in attributes])
@@ -314,19 +321,20 @@ class DatabaseClass(SpineClass, Searchable, Dumpable):
                     attributes.append(i)
 
         for i in optionals + attributes:
-            setattr(cls, i.get_name_save(), cls._save_all_db)
+            if not hasattr(cls, i.get_name_save()):
+                setattr(cls, i.get_name_save(), cls._save_all_db)
 
-        def load_db_attributes(self):
-            self._load_db_attributes(attributes)
         for i in attributes:
-            setattr(cls, i.get_name_load(), load_db_attributes)
+            if not hasattr(cls, i.get_name_load()):
+                setattr(cls, i.get_name_load(), cls._load_db_attributes)
 
         for i in optionals:
             def create(attr):
                 def load_db_attribute(self):
                     self._load_db_attributes([attr])
                 return load_db_attribute
-            setattr(cls, i.get_name_load(), create(i))
+            if not hasattr(cls, i.get_name_load()):
+                setattr(cls, i.get_name_load(), create(i))
 
         super(DatabaseClass, cls).build_methods()
         cls.build_search_class()
