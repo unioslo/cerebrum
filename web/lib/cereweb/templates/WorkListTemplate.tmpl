@@ -11,31 +11,33 @@
 
 #def worklist(objects, actions, selected)
 
-<div class="worklist" name="worklist", selected>
+<div class="worklist" id="worklist">
   <h2>
     Work list
   </h2>
   <form action="#">
-    <select multiple="multiple" size="7">
-      <option>
-        -- Remembered objects --
-      </option>
+    <div>
+      <select multiple="multiple" size="7">
+        <option>
+          -- Remembered objects --
+        </option>
 #for $key, $label in $objects
-      <option id="$key" 
+        <option id="$key" 
 #if $key in $selected
               selected="selected"
 #end if
               value="$key">
         $label
-      </option>
+        </option>
 #end for      
-    </select>
-    <div class="buttons">
+      </select>
+      <div class="buttons">
 #for $key, $label in $objects
-        <input type="submit" class="workbutton"
-               name="$key" value="$label" /><br />
+          <input type="submit" class="workbutton"
+                 name="$key" value="$label" /><br />
 #end for      
-    </div>       
+      </div>       
+    </div>
   </form>
 </div>
 
