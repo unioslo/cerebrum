@@ -1,17 +1,33 @@
-#!/usr/bin/env python
+# Copyright 2002 University of Oslo, Norway
 #
-# Check Norwegian Social security numbers
+# This file is part of Cerebrum.
 #
-# This documentation is written in Norwegian.
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
 #
-# Denne modulen kan brukes for å sjekke norske personnummer.  De 2 siste
-# siffrene i personnummerene er kontrollsiffre og må stemme overens med
-# resten for at det skal være et gyldig nummer.  Modulen inneholder også
-# funksjoner for å bestemme personens kjønn og personens fødselsdato.
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
 #
-# Ved ugyldig fødselsnummer reises en InvalidFnrError.
-#
-# Ported from the perl version written by  Gisle Aas <aas@sn.no>
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
+"""Check Norwegian Social security numbers.
+
+This documentation is written in Norwegian.
+
+Denne modulen kan brukes for å sjekke norske personnummer.  De 2 siste
+siffrene i personnummerene er kontrollsiffre og må stemme overens med
+resten for at det skal være et gyldig nummer.  Modulen inneholder også
+funksjoner for å bestemme personens kjønn og personens fødselsdato.
+
+Ved ugyldig fødselsnummer reises en InvalidFnrError.
+
+Ported from the perl version written by Gisle Aas <aas@sn.no>"""
 
 import re
 
