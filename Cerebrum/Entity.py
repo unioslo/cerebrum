@@ -710,6 +710,21 @@ class EntityQuarantine(Entity):
         self._db.log_change(self.entity_id, self.const.quarantine_del,
                             None, change_params={'q_type': int(type)})
 
+    def list_entity_quarantines(self, entity_types=None):
+        sel = ""
+        if entity_types:
+            sel = """
+            JOIN [:table schema=cerebrum name=entity_info] ei
+	      ON ei.entity_id = eq.entity_id AND ei.entity_type """
+            if isinstance(entity_types, (list, tuple)):
+                sel += "IN (%s)" % ", ".join(map(str, map(int, entity_types)))
+            else:
+                sel += "= %d" % entity_types
+        return self.query("""
+        SELECT eq.entity_id, eq.quarantine_type
+          FROM [:table schema=cerebrum name=entity_quarantine] eq""" + sel)
+
+
 # TODO: OBSOLETE.  use Entity.get_subclassed_object()
 def object_by_entityid(id, database): 
     """Instanciates and returns a object of the proper class
