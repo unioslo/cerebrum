@@ -554,7 +554,8 @@ class Factory(object):
                       'CLConstants': 'CLASS_CL_CONSTANTS',
                       'ChangeLog': 'CLASS_CHANGELOG',
                       'DBDriver': 'CLASS_DBDRIVER',
-                      'EmailLDAP': 'CLASS_EMAILLDAP'}
+                      'EmailLDAP': 'CLASS_EMAILLDAP',
+                      'OrgLDIF': 'CLASS_ORGLDIF'}
         if Factory.class_cache.has_key(comp):
             return Factory.class_cache[comp]
         try:
