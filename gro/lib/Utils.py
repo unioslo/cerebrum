@@ -1,3 +1,5 @@
+import time
+
 class Lazy(object):
     pass
 
