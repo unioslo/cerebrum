@@ -28,7 +28,7 @@ import cerebrum_path
 import cereconf
 from Cerebrum import Database
 from Cerebrum import Errors
-from Cerebrum.Utils import XMLHelper, MinimumSizeWriter
+from Cerebrum.Utils import XMLHelper, MinimumSizeWriter, AtomicFileWriter
 from Cerebrum.modules.no.hia.access_FS import HiAFS
 
 default_person_file = "/cerebrum/dumps/FS/person.xml"
