@@ -70,7 +70,7 @@ def generate_passwd():
         shell = shell.description
         print join((uname, passwd, str(posix_user.posix_uid),
                     str(posix_group.posix_gid), gecos,
-                    posix_user.home, shell))
+                    str(posix_user.get_home()), shell))
         # convert to 7-bit
 
 

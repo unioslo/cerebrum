@@ -76,7 +76,7 @@ def generate_users():
         print "uid: %s" % uname
         print "uidNumber: %s" % str(posix_user.posix_uid)
         print "gidNumber: %s" % str(posix_group.posix_gid)
-        print "homeDirectory: %s" % posix_user.home
+        print "homeDirectory: %s" % str(posix_user.get_home())
         print "userPassword: {crypt}%s" % passwd
         print "loginShell: %s" % shell
         print "gecos: %s" % gecos
