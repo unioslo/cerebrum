@@ -38,16 +38,20 @@ from Cerebrum import Group
 from Cerebrum import Entity
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import CLHandler
+
+sys.path.append("/cerebrum/share/cerebrum/contrib/")
+
 import nwutils
 
 
-global spread_id, ldap_handle, cl_mask, group_done
+global ldap_handle, cl_mask, group_done
 group_done = {}
 db = Factory.get('Database')()
 const = Factory.get('CLConstants')(db)
 co = Factory.get('Constants')(db)
-cl_events = (const.account_mod, \
-		const.account_password, \
+cl_events = (
+#		const.account_mod, \
+#		const.account_password, \
 		const.group_add, \
 		const.group_rem, \
 		const.group_mod, \
@@ -86,12 +90,14 @@ cl_entry = {'group_mod' : 'pass',
 							cll.change_type_id)'}
 
 
-def nwqsync(spread):
-    global spread_id
+def nwqsync(spreads):
     i = 0
+    global spread_ids
+    spread_ids = []
     clh = CLHandler.CLHandler(db)
     ch_log_list = clh.get_events('nwqsync',cl_events)
-    spread_id = int(getattr(co, spread))
+    for spread in spreads.split(','):
+      spread_ids.append(int(getattr(co, spread)))
     for cll in ch_log_list:
         try:
             func = cltype[int(cll.change_type_id)]
@@ -204,30 +210,39 @@ def user_add_del_grp(ch_type,dn_user,dn_dest):
 
 
 def path2edir(attrs):
+    idx = 0
+    disk_str = None
+    for (attr, value) in attrs:
+      if attr == 'ndsHomeDirectory':
+        break
+      idx=idx+1
+    if attr != 'ndsHomeDirectory':
+      return None
+    print attr, value
     try:
-        idx = attrs.index('ndsHomeDirectory')
+      (foo,srv,vol,path) = value.split("/", 3)
     except:
-        return
-    value = attrs[idx+1]
-    (foo,srv,vol,path) = value.split("/", 3)
+      del attrs[idx]
+      return None
     search_str = "cn=%s_%s" % (srv,vol)
     search_dn = "%s" % cereconf.NW_LDAP_ROOT
     ldap_disk = ldap_handle.GetObjects(search_dn,search_str)
     if ldap_disk == []:
-        del attrs[idx:idx+1]
+      del attrs[idx]
     else:
-        attrs[idx+1] = "%s#0#%s" % (ldap_disk[0][0], path)
-    
-
+      disk_str = "%s#0#%s" % (ldap_disk[0][0], path)
+      attrs[idx] = ('ndsHomeDirectory', disk_str)
+    return disk_str
 
 
 def change_user_spread(dn_id,ch_type,ch_params):
+    return
     account = Account.Account(db)
     group = Group.Group(db)
     param_list = []
     param_list = string.split(ch_params,'\n')
     cl_spread = int(re.sub('\D','',param_list[3]))
-    if cl_spread == spread_id:
+    if cl_spread in spread_ids:
         account.find(dn_id)
         search_str = "cn=%s" % account.account_name
         search_dn = "%s" % cereconf.NW_LDAP_ROOT
@@ -239,8 +254,9 @@ def change_user_spread(dn_id,ch_type,ch_params):
                 delete_ldap(ldap_user)
         elif (ch_type == int(const.spread_add)):
             if (ldap_obj == []):
-                (ldap_user, ldap_attrs) = nwutils.get_account_info(dn_id, spread_id)
+                (ldap_user, ldap_attrs) = nwutils.get_account_info(dn_id, cl_spread, None)
                 path2edir(ldap_attrs)
+                ldap_user = ldap_user.replace('ou=HIST', 'o=HiST')
                 add_ldap(ldap_user,ldap_attrs)
             else:
                 (ldap_user, ldap_attrs) = ldap_obj [0]
@@ -255,7 +271,7 @@ def change_group_spread(dn_id,ch_type,ch_params):
     param_list = []
     param_list = string.split(ch_params,'\n')
     cl_spread = int(re.sub('\D','',param_list[3]))
-    if cl_spread != spread_id:
+    if cl_spread not in spread_ids:
         return
     if group_done.has_key(dn_id) and group_done[dn_id] is ch_type:
         return
@@ -271,7 +287,7 @@ def change_group_spread(dn_id,ch_type,ch_params):
         if not nwutils.touchable(ldap_attrs):
             dbg_print((ERROR, "ERROR: LDAP object %s not managed by Cerebrum." % ldap_group))
             return
-    if group.has_spread(spread_id):
+    if True in [group.has_spread(x) for x in spread_ids]:
         attrs = []
         attrs.append( ("ObjectClass", "group") )
         attrs.append( ("description", "Cerebrum;%d;%s" % (dn_id,nwutils.now()) ) )
@@ -300,19 +316,23 @@ def mod_account(dn_id,i):
     account = Account.Account(db)
     account.clear()
     account.find(dn_id)
-    if account.has_spread(spread_id):
+    has_spread = 0
+    if True in [account.has_spread(x) for x in spread_ids]:
         search_str = "cn=%s" % account.account_name
         search_dn = "%s" % cereconf.NW_LDAP_ROOT
         ldap_entry = ldap_handle.GetObjects(search_dn,search_str)
-        (cerebrm_dn, base_entry) = nwutils.get_account_dict(dn_id, spread_id)
+        (cerebrm_dn, base_entry) = nwutils.get_account_dict(dn_id, spread_ids[0], None)
         if ldap_entry != []:
             (dn_str,ldap_attr) = ldap_entry[0]
         else:
             dbg_print(WARN, "WARNING: CL Modify on object not in LDAP")
             return
         if base_entry.has_key('ndsHomeDirectory'):
-            newpath = path2edir(('ndsHomeDirectory', base_entry['ndsHomeDirectory']))
-            base_entry['ndsHomeDirectory'] = newpath[1]
+            newpath = path2edir([('ndsHomeDirectory', base_entry['ndsHomeDirectory'])])
+            if newpath != None:
+            	base_entry['ndsHomeDirectory'] = newpath[1]
+            else:
+		del base_entry['ndsHomeDirectory']
         for entry in base_entry.keys():
             try:
                 if (ldap_attr[entry] <> base_entry[entry]):
@@ -331,7 +351,7 @@ def change_passwd(dn_id, ch_params):
     account.clear()
     account.find(dn_id)
     ldap_entry = []
-    if account.has_spread(spread_id):
+    if True in [account.has_spread(x) for x in spread_ids]:
         search_str = "cn=%s" % account.account_name
         search_dn = "%s" % cereconf.NW_LDAP_ROOT
         ldap_entry = ldap_handle.GetObjects(search_dn,search_str)
@@ -359,12 +379,10 @@ def group_mod(ch_type,dn_id,dn_dest,log_id):
     search_dn = "%s" % cereconf.NW_LDAP_ROOT
     if group_done.has_key(dn_dest):
         return
-    else:
-        print "Group mod on id", dn_dest
     ldap_obj = ldap_handle.GetObjects(search_dn,search_str)
     if ldap_obj <> []:
         (ldap_group, ldap_attrs) = ldap_obj [0]
-        for mem in group.get_members(spread=spread_id):
+        for mem in group.get_members(spread=spread_ids[0]):
             user_add_del_grp(ch_type,mem,dn_dest)
         group_done[dn_dest] = "Synced"
     else:

@@ -31,6 +31,7 @@ from Cerebrum.Utils import Factory
 from Cerebrum import Entity
 from Cerebrum import Errors
 from Cerebrum import QuarantineHandler
+from Cerebrum.modules.no.uio import PrinterQuotas
 from ldap import modlist
  
 # Set up the basics.
@@ -252,11 +253,12 @@ def get_primary_affiliation(account_id, namespace):
 
 
 
-# Creates the array we can feed directly to ldap, key'ed on full dn like the return value from ldap.search"
-def get_account_info(account_id, spread):
+# Creates the array we can feed directly to ldap"
+def get_account_info(account_id, spread, site_callback):
     usr_attr = {}
     ent_name.clear()
     ent_name.find(account_id)
+    pq = PrinterQuotas.PrinterQuotas(db);
     name = ent_name.get_name(co.account_namespace)
     (first_n, last_n, account_disable, home_dir, affiliation, ext_id) = get_user_info(account_id, spread)
     passwords = db.get_log_events(types=(int(co.account_password),), subject_entity=account_id)
@@ -278,6 +280,12 @@ def get_account_info(account_id, spread):
     crbrm_ou = id_to_ou_path(pri_ou , cereconf.NW_LDAP_ROOT)
     ldap_ou = get_ldap_usr_ou(crbrm_ou, affiliation)
     ldap_dn = unicode('cn=%s,' % name, 'iso-8859-1').encode('utf-8') + ldap_ou
+    
+    try:
+        pq.clear();
+    	pq.find(account_id)
+    except Errors.NotFoundError:
+        pq = None  # User has no quota
 
     attrs = []
     attrs.append( ("ObjectClass", "user" ) )
@@ -292,15 +300,19 @@ def get_account_info(account_id, spread):
     attrs.append( ("generationQualifier","%d" % ext_id ) )
     attrs.append( ("passwordAllowChange", cereconf.NW_CAN_CHANGE_PW) )
     attrs.append( ("loginDisabled", account_disable) )
+    if pq is not None:
+    	attrs.append( ("accountBalance", pq.printer_quota) )
     passwd = unicode(pwd, 'iso-8859-1').encode('utf-8')
     attrs.append( ("userPassword", passwd) )
+    if site_callback is not None:
+      attrs += site_callback(account_id, spread, ext_id)
     return (ldap_dn,attrs)
 
 
 
-def get_account_dict(dn_id, spread):
+def get_account_dict(dn_id, spread, site_callback):
     return_dict = {}
-    (ldap_dn, entry) = get_account_info(dn_id, spread)
+    (ldap_dn, entry) = get_account_info(dn_id, spread, site_callback)
     for attr in entry:
         return_dict[attr[0]] = attr[1]
     return (ldap_dn, return_dict)
@@ -441,7 +453,8 @@ def id_to_ou_path(ou_id,ourootname):
             crbrm_ou = 'cn=Users,%s' % ourootname
         else:
             crbrm_ou = get_crbrm_ou(cereconf.NW_DEFAULT_OU_ID)
-    crbrm_ou = crbrm_ou.replace(ourootname,cereconf.NW_LDAP_ROOT)
+    if (cereconf.NW_LDAP_ROOT != ""):
+    	crbrm_ou = crbrm_ou.replace(ourootname,cereconf.NW_LDAP_ROOT)
     return crbrm_ou
 
 
