@@ -45,6 +45,7 @@ class SideMenu(FixUrlMixin, Menu.Menu):
         self.makeGroup()
         #self.makeRoles()
         #self.makeSpread()
+        self.makeTransactions()
         self.makeOptions()
 
     def makeMain(self):
@@ -86,11 +87,16 @@ class SideMenu(FixUrlMixin, Menu.Menu):
         self.group.addItem("view", "View", "spread/view?id=%s")
         self.group.addItem("edit", "Edit", "spread/edit?id=%s")
 
+    def makeTransactions(self):
+        self.transactions = self.addItem("transactions", "Transactions", "transactions")
+        self.transactions.addItem("list", "List", "transactions/list")
+        self.transactions.addItem("view", "View", "transactions/view?id=%s")
+        self.transactions.addItem("edit", "Edit", "transactions/edit?id=%s")
+        self.transactions.addItem("history", "History", "transactions/history?id=%s")
+
     def makeOptions(self):
         self.group = self.addItem("options", "Options", "options")
-        self.group.addItem("search", "Search", "options/search")
-        self.group.addItem("list", "List", "options/list")
-        self.group.addItem("view", "View", "options/view?id=%s")
-        self.group.addItem("edit", "Edit", "options/edit?id=%s")
+        self.group.addItem("view", "View", "options/view")
+        self.group.addItem("edit", "Edit", "options/edit")
 
 # arch-tag: 6af7ba3d-76dc-46e1-8327-1ed3e307e9e8
