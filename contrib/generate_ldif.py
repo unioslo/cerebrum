@@ -755,7 +755,6 @@ def generate_group(spread=None, filename=None):
 
 def generate_netgroup(spread=None, filename=None):
     pos_netgrp = Factory.get('Group')(Cerebrum)
-    posix_user = PosixUser.PosixUser(Cerebrum)
     if filename:
         f = file(filename, 'w')
     else:
@@ -792,19 +791,21 @@ def generate_netgroup(spread=None, filename=None):
     f.close()
 
 def get_netgrp(netgrp_id,spreads,f):
-    pos_netgrp = Group.Group(Cerebrum)
+    pos_netgrp = Factory.get('Group')(Cerebrum)
     pos_user = PosixUser.PosixUser(Cerebrum)
     pos_netgrp.clear()
     pos_netgrp.find(int(netgrp_id))
     try:
         for id in pos_netgrp.list_members(None,int(co.entity_account))[0]:
             uname_id = int(id[1])
-            if entity2uname.has_key(uname_id):
-                f.write("nisNetgroupTriple: (,%s,)\n" % entity2uname[uname_id].replace('_',''))
+            if entity2uname.has_key(uname_id) and \
+			(entity2uname[uname_id].find('_') == -1):
+                f.write("nisNetgroupTriple: (,%s,)\n" % entity2uname[uname_id])
             else:
                 pos_user.clear()
                 pos_user.find(uname_id)
-                f.write("nisNetgroupTriple: (,%s,)\n" % pos_user.account_name.replace('_',''))
+		if (pos_user.account_name.find('_') == -1):
+                    f.write("nisNetgroupTriple: (,%s,)\n" % pos_user.account_name
         for group in pos_netgrp.list_members(None,int(co.entity_group))[0]:
             valid_spread = False
             pos_netgrp.clear()
