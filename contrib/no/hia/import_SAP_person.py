@@ -387,7 +387,7 @@ def main():
     """ 
         
     global logger
-    logger = Factory.get_logger("console")
+    logger = Factory.get_logger("cronjob")
 
     options, rest = getopt.getopt(sys.argv[1:],
                                   "s:d",

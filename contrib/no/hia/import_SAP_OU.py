@@ -102,11 +102,12 @@ def main():
     """ 
 	
     global logger
-    logger = Factory.get_logger("console")
+    logger = Factory.get_logger("cronjob")
 
     options, rest = getopt.getopt(sys.argv[1:],
-                                  "s:",
-                                  ["sap-file=",])
+                                  "s:l",
+                                  ["sap-file=",
+				   "logger-name=",])
     input_name = None
     for option, value in options:
         if option in ("-s", "--sap-file"):
