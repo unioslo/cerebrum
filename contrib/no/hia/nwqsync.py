@@ -72,6 +72,8 @@ cl_entry = {'group_mod' : 'pass',
 	'quarantine_add' : 'change_quarantine(cll.subject_entity)',
 	'quarantine_mod' : 'change_quarantine(cll.subject_entity)',
 	'quarantine_del' : 'change_quarantine(cll.subject_entity)',
+	'person_name_mod': 'pers_name_mod(cll.subject_entity)',
+	'person_name_add': 'pers_name_mod(cll.subject_entity)',
 	'account_password' : 'change_passwd(cll.subject_entity, cll.change_params)'
 	}
 
@@ -644,7 +646,29 @@ def change_passwd(dn_id, ch_params):
             logger.warn('Could not update password on user:%s\n' % account.account_name)  
     
 
-
+def pers_name_mod(pers_id):
+    acc = Factory.get('Account')(db)
+    person = Factory.get('Person')(db)
+    person.find(pers_id)
+    names = {}
+    for var, attr in {'FIRST':'givenName', 'LAST':'sn', 
+					'FULL':'fullName'}.items():
+	names[attr] = person.get_name(co.system_cached, co.PersonName(var))
+    for row in acc.list_accounts_by_owner_id(pers_id):
+	acc.clear()
+	acc.find(int(row.account_id))
+	if [x for x in spread_ids if acc.has_spread(x)] and names:
+	    search_str = "(&(cn=%s)(objectClass=inetOrgPerson))" % \
+							acc.account_name
+	    (l_user, l_attr) = ldap_handle.GetObjects(cereconf.NW_LDAP_ROOT,\
+								search_str)[0]
+	    for attr, name in names.items():
+		upd_str = [((attr,[name]))]
+	    	if attr in l_attr.keys():
+		    attr_mod_ldap(l_user, upd_str)  
+		else:
+		    attr_add_ldap(l_user, upd_str)
+	    
 
 def group_mod(ch_type,dn_id,dest_id,log_id):
     # We remember groups we're done with because we don't want to
