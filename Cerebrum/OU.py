@@ -193,6 +193,10 @@ class OU(EntityContactInfo, EntityAddress, Entity):
                           {'e_id': self.entity_id,
                            'perspective': int(perspective)})
 
+    def list_all(self):
+        return self.query("""
+        SELECT ou_id FROM [:table schema=cerebrum name=ou_info]""")
+
     def get_structure_mappings(self, perspective):
         """Return list of ou_id -> parent_id connections in ``perspective``."""
         return self.query("""
