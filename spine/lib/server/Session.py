@@ -65,7 +65,13 @@ class Session:
         return corba_obj
 
     def snapshot(self):
-        return convert_to_corba(CerebrumHandler(self.client, -1), None, CerebrumHandler)
+        id = self.counter.next()
+        cache = {}
+        transaction = CerebrumHandler(self.client, id, cache=cache)
+        transaction.snapshot = cache
+        corba_obj = convert_to_corba(transaction, transaction, CerebrumHandler)
+        self.transactions[id] = corba_obj
+        return corba_obj
 
     def cleanup(self):
         dirty = []

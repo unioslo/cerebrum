@@ -30,7 +30,7 @@ class Caching(object):
     object will be returned. The object is automatically removed from the cache when no one
     is no longer holding a reference to it"""
 
-    cache = weakref.WeakValueDictionary()
+    global_cache = weakref.WeakValueDictionary()
 
     def __new__(cls, *args, **vargs):
         """
@@ -41,7 +41,7 @@ class Caching(object):
 
         # FIXME: vi trenger låsing her
 
-        cache = vargs.get('cache', cls.cache)
+        cache = vargs.get('cache', cls.global_cache)
         if 'cache' in vargs:
             del vargs['cache']
 
