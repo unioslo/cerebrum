@@ -8,7 +8,7 @@ from Cerebrum import Person
 from Cerebrum.modules.no.uio import OU
 from Cerebrum.modules.no import fodselsnr
 from DCOracle2 import Date
-import pprint
+# import pprint
 
 class FSData(object):
     cols_n = """fdato, pnr, lname, fname, adr1, adr2, postnr,adr3,
@@ -50,13 +50,12 @@ def main():
     f = os.popen("sort -u "+personfile)
 
     dta = FSData()
-    i = 0
     for line in f.readlines():
         persondta = dta.parse_line(line)
-        process_person(person, persondta)
+        process_person(persondta)
     Cerebrum.commit()
 
-def process_person(person, persondta):
+def process_person(persondta):
     print "Process %06d%05d %s %s " % (
         int(persondta['fdato']), int(persondta['pnr']),
         persondta['fname'], persondta['lname']),
@@ -93,7 +92,7 @@ def process_person(person, persondta):
     ou.find_stedkode(int(persondta['fak']), int(persondta['inst']), int(persondta['gruppe']))
 
     new_person.affect_affiliations(co.system_fs, co.affiliation_student)
-    new_person.populate_affiliation(ou.ou_id, co.affiliation_student, co.affiliation_status_valid)
+    new_person.populate_affiliation(ou.ou_id, co.affiliation_student, co.affiliation_status_student_valid)
 
     try:
         person.find_by_external_id(co.externalid_fodselsnr, fnr)
