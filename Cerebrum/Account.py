@@ -430,17 +430,22 @@ class Account(AccountType, EntityName, EntityQuarantine, Entity):
     def is_reserved(self):
         """We define a reserved account as an account with no
         expire_date and no spreads"""
-        if (self.expire_date is not None) or self.get_spread():
-            return False
-        return True
+        if (not self.is_expired()) and (not self.get_spread()):
+            return True
+        return False
 
     def is_deleted(self):
         """We define a reserved account as an account with 
         expire_date < now() and no spreads"""
-        if (self.expire_date is not None and
-            self.expire_date < time.time and (not self.get_spread())):
+        if self.is_expired() and not self.get_spread():
             return True
         return False
+
+    def is_expired(self):
+        now = self._db.DateFromTicks(time.time())
+        if self.expire_date is None or self.expire_date >= now:
+            return False
+        return True
 
     def list(self):
         """Returns all accounts"""
