@@ -38,8 +38,6 @@ NAME_LOOKUP_ORDER = (("name_full",),
                      ("name_first", "name_last"))
 DEFAULT_GECOS_NAME="name_full"
 
-LOG_CONFIG_FILE = "/etc/cerebrum/logconfig.ini"
-
 DEFAULT_GROUP_NAMESPACE = 'group_names'
 DEFAULT_ACCOUNT_NAMESPACE = 'account_names'
 
