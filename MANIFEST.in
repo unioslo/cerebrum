@@ -9,7 +9,7 @@ include java/jbofh/mkversion.py
 recursive-include java *.java *.jar *.xml *.properties *.so
 recursive-include client *.py *.html
 recursive-include contrib *.py
-recursive-include design *.sql *.dia *.html *.ini
+recursive-include design *.sql *.dia *.html *.ini *.py
 recursive-include Cerebrum/tests *.py
 recursive-include Cerebrum/modules/tests *.py
 recursive-include Cerebrum/modules/no/tests *.py
