@@ -1313,6 +1313,11 @@ class AccountEmailMixin(Account.Account):
             et.find_by_email_target_attrs(entity_id = self.entity_id)
             et.email_target_type = target_type
         except Errors.NotFoundError:
+            # We don't want to create e-mail targets for reserved or
+            # deleted accounts, but we do convert the type of existing
+            # e-mail targets above.
+            if target_type == self.const.email_target_deleted:
+                return
             et.populate(target_type, self.entity_id, self.const.entity_account)
         et.write_db()
         # For deleted/reserved users, set expire_date for all of the
