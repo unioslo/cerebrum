@@ -132,8 +132,20 @@ class AccountUiOMixin(Account.Account):
             est.write_db()
             return est
         elif is_on_cyrus:
-            raise RuntimeError, \
-                  "Can't move email target away from Cyrus."
+            # Even though this Account's email target already resides
+            # on one of the Cyrus servers, something has called this
+            # method with a non-Cyrus-servertype arg.
+            #
+            # The most likely cause for this is the Account not having
+            # spread_uio_imap.  Check if this is indeed the case, and
+            # report error accordingly.
+            spreads = [int(r['spread']) for r in self.get_spread()]
+            if int(self.const.spread_uio_imap) not in spreads:
+                raise self._db.IntegrityError, \
+                      "Database inconsistency; need to add spread IMAP@uio."
+            else:
+                raise self._db.IntegrityError, \
+                      "Can't move email target away from IMAP."
 
     def delete_spread(self, spread):
         #
