@@ -203,15 +203,77 @@ def change_spread(dn_id,ch_type,ch_params):
     not necesary include spread to posix, creation of user-,filegroup- and
     netgroup-record will be based on add/mod/del spread"""
     entity = Entity.Entity(db)
-    entity.find(int(dn_id))
-    """What to do with ch_param"""
+    try:
+	entity.find(int(dn_id))
+    except Errors.NotFoundError:
+	return
     if entity.entity_type == int(co.entity_account):
 	change_user_spread(dn_id,ch_type,ch_params)
     elif entity.entity_type == int(co.entity_group):
-	change_group_spread(dn_id,ch_type,ch_params)
+	# change_group_spread(dn_id,ch_type,ch_params)
+	#  group_destroy,group_create
+	param_list = string.split(ch_params,'\n')
+    	cl_spread = int(re.sub('\D','',param_list[3]))
+	if 
+	if True in [entity.has_spread(x) for x in g_spreads]:
+	    if (ch_type = int(const.spread_del)):
+		#make dn and send delete
+	    elif (ch_type = int(const.spread_add)):
+		# get group-info and send ldap_add
+	if True in [entity.has_spread(x) for x in n_spreads]:
+	    if (ch_type = int(const.spread_del)):
+		#make dn and send delete
+	    elif (ch_type = int(const.spread_add)):
+		#get group-info and send ldap_add 
     else:
 	logger.info("Change_spread did not resolve request (%s,%s)" 
 					% (dn_id,ch_type)) 
+
+def change_group_spread(dn_id,ch_type,ch_params):
+    group = Group.Group(db)
+    #posgrp = PosixGroup.PosixGroup(db)
+    try:
+	group.find(int(dn_id))
+    except Errors.NotfoundError:
+	# Not sure whats happening if group is deleted
+	# maybe it should search as entity and not group
+	logger.info("Fault could not find group: %d " % dn_id)
+	return
+    search_dn = "cn=%s" % group.group_name
+    param_list = string.split(ch_params,'\n')
+    cl_spread = int(re.sub('\D','',param_list[3]))
+    if cl_spread in g_spreads:
+	search_dn = "%s,%s" % (search_str,group_dn)
+	if True in [group.has_spread(x) for x in g_spreads]:
+	    spread_stat = True
+	else:
+	    spread_stat = False
+	ldap_res = lc.get_ldap_value(group_dn,search_str,None)
+	if (ch_type = int(const.spread_del)) and not spread_stat and ldap_res <> []:
+	    lc.delete_ldap(search_dn)
+	elif (ch_type = int(const.spread_add)) and spread_stat and ldap_res == []:
+	    grp_list = get_group_info(dn_id)
+	    lc.add_ldap(search_dn,grp_list)
+	else:
+	    logger.info("Could not resolve changelog request on group: %s" % \
+							group.group_name) 
+    elif cl_spread in n_spreads:
+	search_dn = "%s,%s" % (search_str,ngroup_dn)
+        if True in [group.has_spread(x) for x in n_spreads]:
+            spread_stat = True
+        else:
+            spread_stat = False
+        ldap_res = lc.get_ldap_value(group_dn,search_str,None)
+        if (ch_type = int(const.spread_del)) and not spread_stat and ldap_res <> []:
+            lc.delete_ldap(search_dn)
+        elif (ch_type = int(const.spread_add)) and spread_stat and ldap_res == []:
+            grp_list = get_netgroup_info(dn_id)
+            lc.add_ldap(search_dn,grp_list)
+        else:
+            logger.info("Could not resolve changelog request on group: %s" % \
+                                                        group.group_name)
+
+
 
 def change_user_spread(dn_id, ch_type, ch_params):
     account = Account.Account(db)
