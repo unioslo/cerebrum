@@ -1025,6 +1025,9 @@ category:main/Oracle;
 GRANT SELECT ON person_external_id TO read_person;
 category:main/Oracle;
 GRANT INSERT, UPDATE, DELETE ON person_external_id TO change_person;
+category:main;
+CREATE INDEX person_external_id_ext_id ON person_external_id(external_id);
+
 
 
 /*	person_name_code
