@@ -6,7 +6,7 @@ class Profile(object):
     (and optionaly groups) to the apropriate home, default group etc
     using rules read by the StudconfigParser."""
 
-    def __init__(self, autostud, student_info, logger, groups=None):
+    def __init__(self, autostud, student_info, logger, pc, groups=None):
         """The logic for resolving conflicts and enumerating settings
         is similar for most attributes, thus we resolve the settings
         applicatble for this profile in the constructor
@@ -16,12 +16,14 @@ class Profile(object):
         self._groups = groups
         self._autostud = autostud
         self._logger = logger
+        self._pc = pc
         
         reserve = 0
         mail_user = 0
         full_account = 0
 
         self.matches = []
+        self.matching_selectors = {}
         self.settings = {}
         self.toplevel_settings = {}
         self._get_profile_matches(student_info)
@@ -51,6 +53,17 @@ class Profile(object):
                     set_at[k] = nivaakode
                     self._unique_extend(self.toplevel_settings.setdefault(k, []),
                                         profile.settings[k])
+
+        # Automatically add the stedkode from the studieprogram that matched
+        for p in self.matching_selectors.get('studieprogram', {}).keys():
+            if not self._autostud.studieprogramkode2info.has_key(p):
+                continue
+            d = self._autostud.studieprogramkode2info[p]
+            sko = self._pc.lookup_helper.get_stedkode(
+                "%02i%02i%02i" % (int(d['faknr_studieansv']),
+                                  int(d['instituttnr_studieansv']),
+                                  int(d['gruppenr_studieansv'])))
+            self._unique_extend(self.settings.setdefault("stedkode", []), [sko])
 
     def _unique_extend(self, list, values):
         for item in values:
@@ -98,6 +111,7 @@ class Profile(object):
         if use_id == 'studieprogram':
             nivakode = self._autostud.studieprogramkode2info.get(
                 value, {}).get('studienivakode', 0)
+        self.matching_selectors.setdefault(use_id, {})[value] = 1
         for match in matches:
             self.matches.append((match, nivakode))
 

@@ -19,13 +19,13 @@ class Config(object):
         xml.sax.parse(cfg_file, sp)
 
         # Generate select_mapping dict and expand super profiles
-        lookup_helper = LookupHelper(autostud.db, logger)
+        self.lookup_helper = LookupHelper(autostud.db, logger)
         profilename2profile = {}
         self.select_mapping = {}
         for p in self.profiles:
             profilename2profile[p.name] = p
             p.expand_profile_settings()
-            p.convertToDatabaseRefs(lookup_helper, self)
+            p.convertToDatabaseRefs(self.lookup_helper, self)
             p.set_select_mapping(self.select_mapping)
         for p in self.profiles:
             p.expand_super(profilename2profile)
