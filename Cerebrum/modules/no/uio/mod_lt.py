@@ -1136,14 +1136,14 @@ class PersonLTMixin(Person.Person):
                   [:table schema=cerebrum name=person_info] p
                 WHERE
                   EXISTS (SELECT
-                            *
+                            1
                           FROM
                             %s t
                           WHERE
                             p.person_id = t.person_id
                             %s)
                   OR EXISTS (SELECT
-                               *
+                               1
                              FROM
                                %s g
                              WHERE p.person_id = g.person_id
