@@ -432,9 +432,9 @@ class Account(AccountType, EntityName, EntityQuarantine, Entity):
         pot = ('-+?=*()/&%#\'_!,;.:'
                'abcdefghijklmnopqrstuvwxyABCDEFGHIJKLMNOPQRSTUVWXY0123456789')
         pc = PasswordChecker.PasswordChecker(self._db)
-        while 1:
+        while True:
             r = ''
-            while(len(r) < 8):
+            while len(r) < 8:
                 r += pot[random.randint(0, len(pot)-1)]
             try:
                 pc.goodenough(None, r, uname=uname)
