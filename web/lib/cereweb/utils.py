@@ -1,6 +1,7 @@
 import cereconf
 import os.path
 from Cerebrum.client import AbstractModel
+import forgetHTML
 
 def url(path):
     """Returns a full path for a path relative to the base installation.
@@ -28,6 +29,15 @@ def object_url(object, method="view"):
             return url("%s/%s/?id=%s" % 
                        (path, method, object.id))
     raise "Unknown object %r" % object
+
+def object_link(object, text=None, method="view"):
+    """Creates a HTML anchor (a href=..) for the object.
+       The text of the anchor will be str(object) - unless
+       the parameter text is given."""
+    url = object_url(object, method)   
+    if text is None:
+        text = str(object)
+    return forgetHTML.Anchor(text, href=url)        
 
 def redirect(req, url, temporary=False, seeOther=False):
     """
