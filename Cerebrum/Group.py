@@ -291,7 +291,7 @@ class Group(EntityName, Entity):
         FROM [:table schema=cerebrum name=group_member]
         WHERE member_id=:member_id""", {'member_id': entity_id})
 
-    def list_members(self):
+    def list_members(self, spread=None):
         """Return a list of lists indicating the members of the group.
 
         The top-level list returned is on the form
@@ -302,23 +302,30 @@ class Group(EntityName, Entity):
         operation.
 
         """
+        extfrom = extwhere = ""
+        if spread is not None:
+            extfrom = "gm, [:table schema=cerebrum name=entity_spread] es"
+            extwhere = """gm.member_id=es.entity_id AND es.spread=:spread AND """
+
         members = [[], [], []]
         op2set = {int(self.const.group_memberop_union): members[0],
                   int(self.const.group_memberop_intersection): members[1],
                   int(self.const.group_memberop_difference): members[2]}
         for op, mtype, mid in self.query("""
         SELECT operation, member_type, member_id
-        FROM [:table schema=cerebrum name=group_member]
-        WHERE group_id=:g_id""", {'g_id': self.entity_id}):
+        FROM [:table schema=cerebrum name=group_member] %s
+        WHERE %sgroup_id=:g_id""" % (extfrom, extwhere), {
+            'g_id': self.entity_id,
+            'spread': spread}):
             op2set[int(op)].append((mtype, mid))
         return members
 
-    def get_members(self, _trace=()):
+    def get_members(self, _trace=(), spread=None):
         my_id = self.entity_id
         if my_id in _trace:
             # TODO: Circular list definition, log value of _trace.
             return ()
-        u, i, d = self.list_members()
+        u, i, d = self.list_members(spread=spread)
         if not u:
             # The only "positive" members are unions; if there are
             # none of those, the resulting set must be empty.
@@ -331,8 +338,9 @@ class Group(EntityName, Entity):
                 if mtype == self.const.entity_account:
                     ret.append(m_id)
                 elif mtype == self.const.entity_group:
+                    temp.clear()
                     temp.find(m_id)
-                    ret.extend(temp.get_members(_trace + (my_id,)))
+                    ret.extend(temp.get_members(_trace + (my_id,)), spread=spread)
             return ret
         # Expand u to get a set of account_ids.
         res = expand(u)
@@ -343,10 +351,15 @@ class Group(EntityName, Entity):
         return res
 
 
-    def list_all(self):
+    def list_all(self, spread=None):
+        where = ""
+        if spread is not None:
+            where = """gi, [:table schema=cerebrum name=entity_spread] es
+            WHERE gi.group_id=es.entity_id AND es.entity_type=:etype AND es.spread=:spread"""
         return self.query("""
         SELECT group_id
-        FROM [:table schema=cerebrum name=group_info]""")
+        FROM [:table schema=cerebrum name=group_info] %s""" % where,
+                          {'spread': int(spread), 'etype': int(self.const.entity_group)})
 
 # Python 2.3 has a 'set' module in the standard library; for now we'll
 # roll our own.
