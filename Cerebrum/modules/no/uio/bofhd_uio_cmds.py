@@ -9,6 +9,11 @@
 #  - det er ikke lenger mulig å lage nye pesoner under bygging av
 #    konto, "person create" må kjøres først
 
+import re
+import sys
+import time
+
+import cereconf
 from cmd_param import *
 from Cerebrum import Account
 from Cerebrum import Errors
@@ -24,10 +29,7 @@ from server.bofhd_errors import CerebrumError
 from Cerebrum.modules.no.uio import bofhd_uio_help
 from Cerebrum.Constants import _CerebrumCode, _QuarantineCode, _SpreadCode,\
      _PersonAffiliationCode, _PersonAffStatusCode
-import cereconf
 from Cerebrum.modules import PosixUser
-import re
-import sys
 
 class BofhdExtension(object):
     """All CallableFuncs takes user as first arg, and is responsible
@@ -208,7 +210,7 @@ class BofhdExtension(object):
         for t, rows in ('union', u), ('inters.', i), ('diff', d):
             for r in rows:
                 ret.append({'op': t,
-                            'type': self.num2const[r[0]],
+                            'type': str(self.num2const[r[0]]),
                             'id': r[1],
                             'name': self._get_entity_name(r[0], r[1])})
         return ret
@@ -239,8 +241,8 @@ class BofhdExtension(object):
 
     # group posix_delete
     all_commands['group_posix_delete'] = Command(
-        ("group", "posix_delete"), GroupName(), SimpleString(help_ref="string_description"))
-    def group_posix_delete(self, operator, group, description):
+        ("group", "posix_delete"), GroupName())
+    def group_posix_delete(self, operator, group):
         raise NotImplementedError, "Feel free to implement this function"
 
     # group set_expire
@@ -262,7 +264,7 @@ class BofhdExtension(object):
     def group_user(self, operator, accountname):
         account = self._get_account(accountname)
         group = Group.Group(self.db)
-        return [{'memberop': self.num2const[r['operation']],
+        return [{'memberop': str(self.num2const[r['operation']]),
                  'group': self._get_entity_name(self.const.entity_group, r['group_id'])}
                 for r in group.list_groups_with_entity(account.entity_id)]
 
@@ -402,7 +404,8 @@ class BofhdExtension(object):
         ("person_id",)))
     def person_create(self, operator, person_id, bdate, person_name,
                       ou, affiliation, aff_status):
-        return self._person_create(operator, display_name, id=id)
+        id_type, id = self._map_person_id(person_id)
+        return self._person_create(operator, person_name, bdate, id_type, id)
 
     def _person_create(self, operator, display_name, birth_date=None,
                       id_type=None, id=None):
@@ -418,7 +421,7 @@ class BofhdExtension(object):
                              display_name.encode('iso8859-1'))
         try:
             if id_type is not None:
-                if id_type == 'fnr':
+                if id_type == self.const.externalid_fodselsnr:
                     person.populate_external_id(self.const.system_manual,
                                                 self.const.externalid_fodselsnr,
                                                 id)
@@ -448,8 +451,8 @@ class BofhdExtension(object):
         person = self._get_person(*self._map_person_id(person_id))
         # TODO: also return all affiliations for the person
         # TODO: remove """ when we get a correctly populated database
-        return {'name': """person.get_name(self.const.system_cached,
-                                        getattr(self.const, cereconf.DEFAULT_GECOS_NAME))""",
+        return {'name': person.get_name(self.const.system_cached,
+                                        getattr(self.const, cereconf.DEFAULT_GECOS_NAME)),
                 'export_id': person.export_id}
 
     # person set_id
@@ -469,14 +472,14 @@ class BofhdExtension(object):
     all_commands['person_student_info'] = Command(
         ("person", "student_info"), PersonId())
     def person_student_info(self, operator, person_id):
-        person = self._get_person(*self._map_person_id(current_id))
+        person = self._get_person(*self._map_person_id(person_id))
         # TODO: We don't have an API for this yet
         raise NotImplementedError, "Feel free to implement this function"
 
     # person user_priority
     all_commands['person_user_priority'] = Command(
         ("person", "user_priority"), AccountName(), SimpleString())
-    def person_user_priority(self, operator, person_id):
+    def person_user_priority(self, operator, account_name, priority):
         # TODO: The API doesn't support this yet
         raise NotImplementedError, "Feel free to implement this function"
 
@@ -577,14 +580,17 @@ class BofhdExtension(object):
         SimpleString(help_ref="string_why"),
         SimpleString(help_ref="string_from_to"))
     def quarantine_set(self, operator, entity_type, id, qtype, why, date):
-        date_start = date_end = None
-        if date is not None:
-            tmp = date.split("-")
-            if len(tmp) == 6:
-                date_start = self._parse_date("-".join(tmp[:3]))
-                date_end = self._parse_date("-".join(tmp[3:]))
+        date_start = self.db.TimestampFromTicks(time.time())
+        date_end = None
+        if date:
+            tmp = date.split("--")
+            if len(tmp) == 2:
+                date_start = self._parse_date(tmp[0])
+                date_end = self._parse_date(tmp[1])
+            elif len(tmp) == 1:
+                date_end = self._parse_date(date)
             else:
-                date_start = self._parse_date(date)
+                raise CerebrumError, "Incorrect date specification: %s." % date
         entity = self._get_entity(entity_type, id)
         qtype = int(self.str2const[qtype])
         entity.add_entity_quarantine(qtype, operator.get_entity_id(), why, date_start, date_end)
@@ -615,7 +621,7 @@ class BofhdExtension(object):
 
     # spread add
     all_commands['spread_add'] = Command(
-        ("spread", "add"), EntityType(), Id(), Spread())
+        ("spread", "add"), EntityType(default='account'), Id(), Spread())
     def spread_add(self, operator, entity_type, id, spread):
         entity = self._get_entity(entity_type, id)
         spread = int(self.str2const[spread])
@@ -644,7 +650,7 @@ class BofhdExtension(object):
 
     # spread remove
     all_commands['spread_remove'] = Command(
-        ("spread", "remove"), EntityType(), Id(), Spread())
+        ("spread", "remove"), EntityType(default='account'), Id(), Spread())
     def spread_remove(self, operator, entity_type, id, spread):
         entity = self._get_entity(entity_type, id)
         spread = int(self.str2const[spread])
@@ -683,7 +689,8 @@ class BofhdExtension(object):
     all_commands['user_clear_created'] = Command(
         ("user", "clear_created"), AccountName(optional=True))
     def user_clear_created(self, operator, account_name=None):
-        raise NotImplementedError, "Feel free to implement this function"
+        operator.clear_state(state_types=('new_account_passwd', 'user_passwd'))
+        return "OK"
 
     def user_create_prompt_func(self, session, *args):
         """A prompt_func on the command level should return
@@ -796,7 +803,8 @@ class BofhdExtension(object):
         ("user", "gecos"), AccountName(), PosixGecos())
     def user_gecos(self, operator, accountname, gecos):
         account = self._get_account(accountname, actype="PosixUser")
-        account.gecos = gecos
+        # Set gecos to NULL if user requests a whitespace-only string.
+        account.gecos = gecos.strip() or None
         account.write_db()
         return "OK"
 
@@ -831,14 +839,19 @@ class BofhdExtension(object):
         return ret
 
     # user list_created
-    all_commands['user_list_created'] = Command(
-        ("user", "list_created"), fs=FormatSuggestion("%6i %s", ("account_id", "password")))
-    def user_list_created(self, operator):
+    all_commands['user_list_passwords'] = Command(
+        ("user", "list_passwords"),
+        fs=FormatSuggestion("%12s %20s %s", ("account_id", "operation", "password"),
+                            hdr="%12s %20s %s" % ("Id", "Operation", "Password")))
+    def user_list_passwords(self, operator):
         ret = []
         for r in operator.get_state():
             # state_type, entity_id, state_data, set_time
-            if r['state_type'] == 'new_account_passwd':
-                ret.append(r['state_data'])
+            if r['state_type'] in ('new_account_passwd', 'user_passwd'):
+                ret.append({'account_id': self._get_entity_name(
+                    self.const.entity_account, r['state_data']['account_id']),
+                            'password': r['state_data']['password'],
+                            'operation': r['state_type']})
         return ret
 
     # user move
@@ -853,8 +866,7 @@ class BofhdExtension(object):
     def user_password(self, operator, accountname, password=None):
         account = self._get_account(accountname)
         if password is None:
-            raise NotImplementedError, \
-                  'make_passwd må flyttes fra PosixUser til Account'
+            password = account.make_passwd(accountname)
         account.set_password(password)
         try:
             account.write_db()
@@ -1048,8 +1060,7 @@ class BofhdExtension(object):
             return "%s:%s" % (type, id)
 
     def _is_yes(self, val):
-        val = val.lower()
-        if(val == 'y' or val == 'yes' or val == 'ja' or val == 'j'):
+        if isinstance(val, str) and val.lower() in ('y', 'yes', 'ja', 'j'):
             return True
         return False
         
@@ -1059,6 +1070,8 @@ class BofhdExtension(object):
         return self.person_affiliation_codes(code_str)[0]
 
     def _parse_date(self, date):
+        if not date:
+            return None
         try:
             return self.db.Date(*([ int(x) for x in date.split('-')]))
         except:
