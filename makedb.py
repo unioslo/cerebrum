@@ -105,20 +105,18 @@ def makeInitialUsers(Cerebrum):
 CEREBRUM_DDL_DIR = "design"
 
 def get_filelist(Cerebrum):
-    # Need to import Database.py for testing whether the database
-    # class we're using is an Oracle (sub)class.
-    from Cerebrum import Database
     files = ['core_tables.sql',
              'mod_posix_user.sql',
              'mod_nis.sql',
              'mod_stedkode.sql'
              ]
-    if isinstance(Cerebrum, Database.Oracle):
-        files.append('oracle_grants.sql')
     return [os.path.join(CEREBRUM_DDL_DIR, f) for f in files]
 
 def runfile(fname, Cerebrum, debug, phase):
     print "Reading file (phase=%s): <%s>" % (phase, fname)
+    # Run both the generic (e.g. 'main') and driver-specific
+    # (e.g. 'main/Oracle' categories for this phase in one run.
+    phase_driver = "/".join((phase, Cerebrum.__class__.__name__))
     f = file(fname)
     text = "".join(f.readlines())
     long_comment = re.compile(r"/\*.*?\*/", re.DOTALL)
@@ -129,6 +127,8 @@ def runfile(fname, Cerebrum, debug, phase):
     text = text.split(";")
     NO_CATEGORY, WRONG_CATEGORY, CORRECT_CATEGORY = 1, 2, 3
     state = NO_CATEGORY
+    output_col = None
+    max_col = 78
     for stmt in text:
         stmt = stmt.strip()
         if not stmt:
@@ -138,7 +138,7 @@ def runfile(fname, Cerebrum, debug, phase):
             if type_id <> 'category':
                 raise ValueError, \
                       "Illegal type_id in file %s: %s" % (fname, i)
-            if phase == value:
+            if value in (phase, phase_driver):
                 state = CORRECT_CATEGORY
             else:
                 state = WRONG_CATEGORY
@@ -163,13 +163,21 @@ def runfile(fname, Cerebrum, debug, phase):
                         else:
                             traceback.print_exc(file=sys.stdout)
             finally:
+                if not output_col:
+                    status = "    " + status
+                    output_col = 0
                 sys.stdout.write(status)
+                output_col += len(status)
+                if output_col >= max_col:
+                    sys.stdout.write("\n")
+                    output_col = 0
                 sys.stdout.flush()
                 Cerebrum.commit()
     if state <> NO_CATEGORY:
         raise ValueError, \
               "Found more category specs than statements in file %s." % fname
-    print
+    if output_col is not None:
+        print
 
 if __name__ == '__main__':
     main()
