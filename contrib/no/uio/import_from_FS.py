@@ -34,7 +34,7 @@ from Cerebrum.modules.no.uio.access_FS import FS
 
 default_person_file = "/cerebrum/dumps/FS/persons.xml"
 default_topics_file = "/cerebrum/dumps/FS/topics.xml"
-default_studprog_file = "/cerebrum/dumps/FS/studprog.xml"
+default_studieprogram_file = "/cerebrum/dumps/FS/studieprogrammer.xml"
 default_regkort_file = "/cerebrum/dumps/FS/regkort.xml"
 default_ou_file = "/cerebrum/dumps/FS/ou.xml"
 
@@ -125,6 +125,7 @@ def write_ou_info(outfile):
             ('instituttnr', 'instituttnr'),
             ('gruppenr', 'gruppenr'),
             ('stedakronym', 'akronym'),
+            ('stedakronym', 'forkstednavn'),
             ('stednavn_bokmal', 'stednavn'),
             ('faknr_org_under', 'fakultetnr_for_org_sted'),
             ('instituttnr_org_under', 'instituttnr_for_org_sted'),
@@ -228,7 +229,7 @@ def main():
 
     person_file = default_person_file
     topics_file = default_topics_file
-    studprog_file = default_studprog_file
+    studprog_file = default_studieprogram_file
     regkort_file = default_regkort_file
     ou_file = default_ou_file
     db_user = None         # TBD: cereconf value?
