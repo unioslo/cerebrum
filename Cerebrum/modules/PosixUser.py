@@ -95,6 +95,18 @@ class PosixUser(Account_class):
             return self.__super.__eq__(other)
         return False
 
+    def delete_posixuser(self):
+        """Demotes this PosixUser to a normal Account."""
+        if self.entity_id is None:
+            raise Errors.NoEntityAssociationError, \
+                  "Unable to determine which entity to delete."
+        self._db.log_change(self.entity_id, self.const.posix_demote,
+                            None, change_params={'uid': int(self.posix_uid),
+                                                 'gid': int(self.gid_id)})
+        self.execute("""
+        DELETE FROM [:table schema=cerebrum name=posix_user]
+        WHERE account_id=:e_id""", {'e_id': self.entity_id})
+
     def populate(self, posix_uid, gid_id, gecos, shell, name=None,
                  owner_type=None, owner_id=None, np_type=None,
                  creator_id=None, expire_date=None, parent=None):
