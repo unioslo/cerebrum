@@ -77,3 +77,4 @@ for (system, pgpkey) in cereconf.AUTH_PGP.items():
     # Add to our mixin so set_password() will find the method 
     setattr(Account, method.func_name, method)
         
+# arch-tag: 6ad76a99-2280-4a12-b04d-cf1b8ea40629
