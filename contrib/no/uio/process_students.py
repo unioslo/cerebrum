@@ -44,6 +44,7 @@ db.cl_init(change_program='process_students')
 const = Factory.get('Constants')(db)
 all_passwords = {}
 derived_person_affiliations = {}
+has_quota = {}
 processed_students = {}
 keep_account_home = {}
 debug = 0
@@ -490,6 +491,7 @@ def recalc_quota_callback(person_info):
             pq.max_quota = quota['max_quota']
             pq.termin_quota = quota['termin_quota']
         pq.write_db()
+        has_quota[int(account_id)] = True
     logger.set_indent(0)
 
 def process_students_callback(person_info):
@@ -588,6 +590,24 @@ def process_students():
     if recalc_pq:
         autostud.start_student_callbacks(student_info_file,
                                          recalc_quota_callback)
+        # Set default_quota for the rest that already has quota
+        pq = PrinterQuotas.PrinterQuotas(db)
+        dv = autostud.pc.default_values
+        for row in pq.list_quotas():
+            account_id = int(row['account_id'])
+            if row['has_printerquota'] == 'F' or has_quota.get(account_id, False):
+                continue
+            logger.debug("Default quota for %i" % account_id)
+            pq.clear()
+            try:
+                pq.find(account_id)
+            except Errors.NotFoundError:
+                logger.error("not found: %i, recently deleted?" % account_id)
+                continue
+            pq.weekly_quota = dv['print_uke']
+            pq.max_quota = dv['print_max_akk']
+            pq.termin_quota = dv['print_max_sem']
+            pq.write_db()
         if not dryrun:
             db.commit()
         else:
