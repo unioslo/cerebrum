@@ -609,7 +609,7 @@ class BofhdExtension(object):
             raise CerebrumError, ("Won't create list %s, as %s is an "
                                   "existing username") % (listname, lp)
         self._register_list_addresses(listname, lp, dom)
-        if admin:
+        if admins:
             # TODO: add bofh request to run newlist on lister
             pass
         return "OK"
