@@ -593,7 +593,7 @@ class EntityQuarantine(Entity):
                       'q_type': int(type),
                       'd_until': until})
         self._db.log_change(self.entity_id, self.const.quarantine_mod,
-                            None, change_params={'q_type': type})
+                            None, change_params={'q_type': int(type)})
 
     def delete_entity_quarantine(self, type):
         self.execute("""
@@ -602,7 +602,7 @@ class EntityQuarantine(Entity):
                      {'e_id': self.entity_id,
                       'q_type': int(type)})
         self._db.log_change(self.entity_id, self.const.quarantine_del,
-                            None, change_params={'q_type': type})
+                            None, change_params={'q_type': int(type)})
 
 def object_by_entityid(id, database): 
     """Instanciates and returns a object of the proper class
