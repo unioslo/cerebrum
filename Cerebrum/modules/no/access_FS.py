@@ -97,6 +97,21 @@ class Person(FSObject):
             'kjonn': kjonn, 'birth_date': birth_date,
             'fornavn2': fornavn, 'etternavn2': etternavn})
 
+    def get_personroller(self, fnr, pnr):
+	return self.db.query("""
+        SELECT fodselsdato, personnr, rollenr, rollekode, 
+          dato_fra, dato_til, institusjonsnr, faknr, gruppenr, 
+          studieprogramkode, emnekode, versjonskode, aktivitetkode, 
+          terminkode, arstall, terminnr, etterutdkurskode, 
+          kurstidsangivelsekode
+        FROM 
+          fs.personrolle
+        WHERE 
+          fodselsdato=:fnr AND 
+          personnr=:pnr AND
+          dato_fra < SYSDATE AND 
+          NVL(dato_til,SYSDATE) >= sysdate""", {'fnr': fnr, 'pnr': pnr})
+
     def get_fagperson(self, fnr, pnr):
         return self.db.query("""
         SELECT
@@ -774,6 +789,23 @@ class Undervisning(FSObject):
             'arstall': aar,
             'terminnr': termnr,
             'aktkode': aktkode})
+
+    def list_alle_personroller(self):
+	qry = """
+	SELECT DISTINCT
+	  fodselsdato, personnr, rollenr, rollekode,
+	  dato_fra, dato_til, institusjonsnr, faknr, 
+	  gruppenr, studieprogramkode, emnekode,
+	  versjonskode, aktivitetkode, terminkode, 
+	  arstall, terminnr, etterutdkurskode, 
+	  kurstidsangivelsekode
+        FROM 
+          fs.personrolle
+	WHERE 
+          dato_fra < SYSDATE AND
+	  NVL(dato_til,SYSDATE) >= sysdate"""
+
+        return self.db.query(qry)
 
     def list_ansvarlig_for_enhet(self, Instnr, emnekode, versjon,
                                  termk, aar, termnr): # GetAnsvUndervEnhet
