@@ -300,8 +300,9 @@ class ldif_parser(object):
 		line_sep='\n'):
 	try:
             import ldif
-	except ImportError:
-	    raise _Errors.PoliteException("Missing ldif-modul from python-ldap")
+	except ImportError, e:
+	    raise _Errors.PoliteException((str(e) + '\n' + \
+				"python-ldap module probably not installed."))
         self._ldif = ldif.LDIFParser(inputfile,ignored_attr_types,max_entries,
 					process_url_schemes,line_sep)
         self._ldif.handle = self.handle
