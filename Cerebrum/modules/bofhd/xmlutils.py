@@ -19,6 +19,7 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 import xmlrpclib
+from mx import DateTime
 
 def native_to_xmlrpc(obj, no_unicodify=0):
     """Translate Python objects to XML-RPC-usable structures."""
@@ -39,7 +40,7 @@ def native_to_xmlrpc(obj, no_unicodify=0):
                          for x in obj])
     elif isinstance(obj, (int, long, float)):
         return obj
-    elif str(type(obj)) == "<type 'DateTime'>":  # TODO: use isinstance instead
+    elif isinstance(obj, (xmlrpclib.DateTime, DateTime.DateTimeType)):
         # TODO: This only works for Postgres.  Needs support
         # in Database.py as the Python database API doesn't
         # define any return type for Date
@@ -67,6 +68,8 @@ def xmlrpc_to_native(obj):
                          for x in obj])
     elif isinstance(obj, (int, long, float)):
         return obj
+    elif isinstance(obj, xmlrpclib.DateTime):
+        return DateTime.ISO.ParseDateTime(obj.value)
     else:
         # unknown type, no need to recurse (probably DateTime =) ) 
         return obj
