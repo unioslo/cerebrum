@@ -150,7 +150,8 @@ class JobRunner(object):
         self.runner_cw.acquire()
         self.runner_cw.notify()
         self.runner_cw.release()
-        self.timer_wait.cancel()
+        if self.hasattr('timer_wait'):
+            self.timer_wait.cancel()
 
     # There is a python supplied sched module, but we don't use it for now...
     def runner(self):
