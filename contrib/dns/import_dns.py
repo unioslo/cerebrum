@@ -425,7 +425,7 @@ def pass_one(name, dta):
                 if len(dta['TXT']) > 1:
                     logger.warn("Multiple TXT records for %s" % name)
                 ttl, txt_val = dta['TXT'][0]
-                dnsowner.add_ttl_record(host.dns_owner_id, co.field_type_txt, ttl, txt_val)
+                dnsowner.add_general_dns_record(host.dns_owner_id, co.field_type_txt, ttl, txt_val)
                 del dta['TXT']
         del dta['A']
 
@@ -593,7 +593,7 @@ def records_to_revdb(reverse_file):
         
 def clear_db():
     logger.info("clear_db()")
-    for tab in ('general_ttl_record', 'reserved_host',
+    for tab in ('general_dns_record', 'reserved_host',
                 'override_reversemap', 'other_mx', 'cname_record', 'dns_host_info',
                 'a_record'):
         db.execute("delete from %s" % tab)

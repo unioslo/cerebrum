@@ -22,8 +22,8 @@ migrate_uio() {
     time ./contrib/dns/import_dns.py -z data/uio.no.orig -r data/129.240.orig -h data/hosts.orig -i
     time ./contrib/dns/import_dns.py --netgroups data/netgroup.host.orig -n
     time ./contrib/generate_nismaps.py --group_spread NIS_mng@uio --user_spread NIS_user@uio -n data/netgroup.host.new
-    time ./contrib/dns/build_zone.py -r data/129.240.new
-    time ./contrib/dns/build_zone.py -b data/uio.no.new
+    time ./contrib/dns/build_zone.py --head /cerebrum/etc/cerebrum/dns/129.240.head -r data/129.240.new
+    time ./contrib/dns/build_zone.py --head /cerebrum/etc/cerebrum/dns/uio.no.static_head --head /cerebrum/etc/cerebrum/dns/uio.no.head -b data/uio.no.new
     ./contrib/dns/strip4cmp.py -i data/129.240.new -o data/129.240.new.cmp -r
     ./contrib/dns/strip4cmp.py -i data/uio.no.new -o data/uio.no.new.cmp -z
 

@@ -29,16 +29,6 @@ class Helper(DatabaseAccessor):
     TODO: that is easier said than done, as we don't really know from
     the DnsOwner class what type of data is being registered."""
 
-##     IP_NUMBER = 'IPNumber'
-##     A_RECORD = 'ARecord'
-##     HOST_INFO = 'HostInfo'
-##     MX_SET = 'MXSet'
-##     SRV_TARGET = "SRV_target"
-##     SRV_OWNER = "SRV_owner"
-##     GENERAL_TTL_RECORD = "GeneralTTLRecord"
-##     CNAME_OWNER = "Cname_owner"
-##     CNAME_TARGET = "Cname_target"
-
     def __init__(self, database):
         super(Helper, self).__init__(database)
 
@@ -109,7 +99,7 @@ class Helper(DatabaseAccessor):
         for row in dns_owner.list_srv_records(target_owner_id=dns_owner_id):
             ret.append(dns.SRV_TARGET)
         for row in dns_owner.list_ttl_records(dns_owner_id=dns_owner_id):
-            ret.append(dns.GENERAL_TTL_RECORD)
+            ret.append(dns.GENERAL_DNS_RECORD)
         cn = CNameRecord.CNameRecord(self._db)
         for row in cn.list_ext(cname_owner=dns_owner_id):
             ret.append(dns.CNAME_OWNER)

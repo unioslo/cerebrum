@@ -8,7 +8,7 @@ HOST_INFO = 'HostInfo'
 MX_SET = 'MXSet'
 SRV_TARGET = "SRV_target"
 SRV_OWNER = "SRV_owner"
-GENERAL_TTL_RECORD = "GeneralTTLRecord"
+GENERAL_DNS_RECORD = "GeneralDnsRecord"
 CNAME_OWNER = "Cname_owner"
 CNAME_TARGET = "Cname_target"
 

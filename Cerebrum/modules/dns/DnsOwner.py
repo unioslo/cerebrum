@@ -138,7 +138,7 @@ class MXSet(DatabaseAccessor):
         WHERE mx_set_id=:mx_set_id""", {
             'mx_set_id': self.mx_set_id})
         
-class GeneralTTLRecord(object):
+class GeneralDnsRecord(object):
     """Mix-in class for additional TTL-enabled data like TXT records"""
 
     def __fill_coldata(self, coldata):
@@ -148,38 +148,38 @@ class GeneralTTLRecord(object):
         cols = [ ("%s" % x, ":%s" % x) for x in binds.keys() ]
         return cols, binds
 
-    def get_ttl_record(self, dns_owner_id, field_type):
+    def get_general_dns_record(self, dns_owner_id, field_type):
         return self.query_1("""
         SELECT ttl, data
-        FROM [:table schema=cerebrum name=dns_general_ttl_record]
+        FROM [:table schema=cerebrum name=dns_general_dns_record]
         WHERE dns_owner_id=:dns_owner_id AND field_type=:field_type""", locals())
 
-    def add_ttl_record(self, dns_owner_id, field_type, ttl, data):
+    def add_general_dns_record(self, dns_owner_id, field_type, ttl, data):
         cols, binds = self.__fill_coldata(locals())
         self.execute("""
-        INSERT INTO [:table schema=cerebrum name=dns_general_ttl_record] (%(tcols)s)
+        INSERT INTO [:table schema=cerebrum name=dns_general_dns_record] (%(tcols)s)
         VALUES (%(binds)s)""" % {'tcols': ", ".join([x[0] for x in cols]),
                                  'binds': ", ".join([x[1] for x in cols])},
                      binds)
 
-    def delete_ttl_record(self, dns_owner_id, field_type=None):
+    def delete_general_dns_record(self, dns_owner_id, field_type=None):
         where = ['dns_owner_id=:dns_owner_id']
         if field_type:
             where.append('field_type=:field_type')
         where = " AND ".join(where)
         return self.execute("""
-        DELETE FROM [:table schema=cerebrum name=dns_general_ttl_record]
+        DELETE FROM [:table schema=cerebrum name=dns_general_dns_record]
         WHERE  %s """ % where, locals())
 
-    def update_ttl_record(self, dns_owner_id, field_type, ttl, data):
+    def update_general_dns_record(self, dns_owner_id, field_type, ttl, data):
         cols, binds = self.__fill_coldata(locals())
         self.execute("""
-        UPDATE [:table schema=cerebrum name=dns_general_ttl_record]
+        UPDATE [:table schema=cerebrum name=dns_general_dns_record]
         SET %(defs)s
         WHERE dns_owner_id=:dns_owner_id AND field_type=:field_type""" % {'defs': ", ".join(
             ["%s=%s" % x for x in cols])}, binds)
 
-    def list_ttl_records(self, field_type=None, dns_owner_id=None):
+    def list_general_dns_records(self, field_type=None, dns_owner_id=None):
         where = []
         if field_type is not None:
             field_type = int(field_type)
@@ -192,11 +192,11 @@ class GeneralTTLRecord(object):
             where = ""
         return self.query("""
         SELECT dns_owner_id, field_type, ttl, data
-        FROM [:table schema=cerebrum name=dns_general_ttl_record] %s""" % where,
+        FROM [:table schema=cerebrum name=dns_general_dns_record] %s""" % where,
                           locals())
 
 
-class DnsOwner(GeneralTTLRecord, Entity):
+class DnsOwner(GeneralDnsRecord, Entity):
     __read_attr__ = ('__in_db',)
     __write_attr__ = ('name', 'is_foreign', 'mx_set_id')
 

@@ -3,7 +3,7 @@ DROP TABLE dns_srv_record;
 category:drop;
 DROP TABLE dns_override_reversemap;
 category:drop;
-DROP TABLE dns_general_ttl_record;
+DROP TABLE dns_general_dns_record;
 category:drop;
 DROP TABLE dns_field_type_code;
 category:drop;
@@ -249,7 +249,7 @@ CREATE TABLE dns_cname_record(
 
 );
 
-/* Defines the legal field types for the general_ttl_record.  Typical
+/* Defines the legal field types for the general_dns_record.  Typical
    values are TXT, RP */
 
 category:code;
@@ -269,7 +269,7 @@ CREATE TABLE dns_field_type_code
  */
 
 category:main;
-CREATE TABLE dns_general_ttl_record(
+CREATE TABLE dns_general_dns_record(
   dns_owner_id    NUMERIC(12,0)
                     CONSTRAINT a_record_owner_fk 
                     REFERENCES dns_owner(dns_owner_id),
@@ -278,7 +278,7 @@ CREATE TABLE dns_general_ttl_record(
                   REFERENCES dns_field_type_code(code),
   ttl             NUMERIC(6,0), 
   data            CHAR VARYING(128) NOT NULL,
-  CONSTRAINT general_ttl_record_pk PRIMARY KEY (dns_owner_id, field_type)
+  CONSTRAINT general_dns_record_pk PRIMARY KEY (dns_owner_id, field_type)
 );
 
 /* Default is that the reversemap can be automatically deduced from
@@ -331,7 +331,7 @@ CREATE TABLE dns_reserved_host(
   id              CHAR VARYING(128)
 );
 */
-/* Defines the legal field types for the general_ttl_record.  Typical
+/* Defines the legal field types for the general_dns_record.  Typical
    values are TXT, RP */
 
 category:code;

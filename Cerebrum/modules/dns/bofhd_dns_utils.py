@@ -335,7 +335,7 @@ class DnsBofhdUtils(IPUtils, DnsParser):
             refs = self.mr_helper.get_referers(dns_owner_id=owner_id)
             if not force and (
                 refs.count(dns.A_RECORD) > 1 or
-                dns.GENERAL_TTL_RECORD in refs):
+                dns.GENERAL_DNS_RECORD in refs):
                 raise CerebrumError(
                     "Multiple records would be deleted, must force")
             try:
@@ -414,7 +414,7 @@ class DnsBofhdUtils(IPUtils, DnsParser):
         return self._ip_number.ip_number_id
 
     #
-    # dns-owners, general_ttl_records and mx-sets, srv_records
+    # dns-owners, general_dns_records and mx-sets, srv_records
     #
     
     def alloc_dns_owner(self, name, mx_set=None):
@@ -423,19 +423,19 @@ class DnsBofhdUtils(IPUtils, DnsParser):
         self._dns_owner.write_db()
         return self._dns_owner.entity_id
 
-    def alter_ttl_record(self, owner_id, ttl_type, dta, ttl=None):
+    def alter_dns_record(self, owner_id, ttl_type, dta, ttl=None):
         self._dns_owner.clear()
         self._dns_owner.find(owner_id)
         if not dta:
-            self._dns_owner.delete_ttl_record(self._dns_owner.entity_id, ttl_type)
+            self._dns_owner.delete_dns_record(self._dns_owner.entity_id, ttl_type)
             return "removed"
         try:
-            self._dns_owner.get_ttl_record(self._dns_owner.entity_id, ttl_type)
+            self._dns_owner.get_dns_record(self._dns_owner.entity_id, ttl_type)
         except Errors.NotFoundError:
-            self._dns_owner.add_ttl_record(
+            self._dns_owner.add_dns_record(
                 self._dns_owner.entity_id, ttl_type, ttl, dta)
             return "added"
-        self._dns_owner.update_ttl_record(
+        self._dns_owner.update_dns_record(
             self._dns_owner.entity_id, ttl_type, ttl, dta)
         return "updated"
 
@@ -514,8 +514,8 @@ class DnsBofhdUtils(IPUtils, DnsParser):
             host.ttl = ttl
             host.write_db()
 
-        for row in dns_owner.list_ttl_records(dns_owner_id=owner_id):
-            dns_owner.update_ttl_record(owner_id, row['field_type'],
+        for row in dns_owner.list_dns_records(dns_owner_id=owner_id):
+            dns_owner.update_dns_record(owner_id, row['field_type'],
                                         ttl, row['data'])
 
         mx_set = DnsOwner.MXSet(self.db)

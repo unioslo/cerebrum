@@ -78,7 +78,7 @@ def get_zone_data():
         owner_id2mx_set[int(row['dns_owner_id'])] = int(row['mx_set_id'] or 0)
 
     dnsowner2txt_record = {}
-    for row in DnsOwner.DnsOwner(db).list_ttl_records(field_type=co.field_type_txt):
+    for row in DnsOwner.DnsOwner(db).list_general_dns_records(field_type=co.field_type_txt):
         dnsowner2txt_record[int(row['dns_owner_id'])] = row
 
     srv_records = {}

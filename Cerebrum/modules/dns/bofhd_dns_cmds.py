@@ -404,7 +404,7 @@ class BofhdExtension(object):
             except Errors.NotFoundError:
                 pass
 
-            txt = dns_owner.list_ttl_records(
+            txt = dns_owner.list_general_dns_records(
                 field_type=self.const.field_type_txt,
                 dns_owner_id=dns_owner.entity_id)
             if txt:
@@ -616,7 +616,7 @@ class BofhdExtension(object):
             ttl = int(ttl)
         else:
             ttl = None
-        operation = self.mb_utils.alter_ttl_record(
+        operation = self.mb_utils.alter_general_dns_record(
             owner_id, int(self.const.field_type_txt), txt)
         return "OK, %s TXT record for %s" % (operation, host_name)
 

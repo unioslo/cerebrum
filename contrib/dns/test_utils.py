@@ -38,9 +38,15 @@ def test_cname(a_rec_id):
     
 def clear_db():
     group = Group.Group(db)
+    group2 = Group.Group(db)
     for g in group.search(filter_spread=co.spread_uio_machine_netgroup):
         group.clear()
         group.find(g['group_id'])
+        for g2 in group.list_groups_with_entity(g['group_id']):
+            group2.clear()
+            group2.find(g2['group_id'])
+            group2.remove_member(g['group_id'], g2['operation'])
+        
         group.delete()
         db.commit()
     entity_types = ", ".join(["%i" % i for i in (co.entity_dns_host,
@@ -62,7 +68,7 @@ def test_ttl(id):
     cname = Host.CnameRecord(db)
     cname.clear()
     cname.find(id)
-    cname.add_ttl_record(id, co.FieldTypeCode('TXT'), 11, 'noedata')
+    cname.add_general_dns_record(id, co.FieldTypeCode('TXT'), 11, 'noedata')
     db.commit()
 
 auto_hinfo_num = 0
