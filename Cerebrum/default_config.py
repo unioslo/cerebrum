@@ -202,3 +202,6 @@ objectClass: norOrganizationalUnit
 ou: mail
 description: mail-config ved UiO.\n
 """ % LDAP_BASE_DN
+
+# Base reference for URLs on webpages
+WEBROOT = "/"
