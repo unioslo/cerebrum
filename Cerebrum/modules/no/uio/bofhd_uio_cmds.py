@@ -1894,7 +1894,19 @@ class BofhdExtension(object):
         ("person_id",)), perm_filter='can_create_person')
     def person_create(self, operator, person_id, bdate, person_name,
                       ou, affiliation, aff_status):
-        self.ba.can_create_person(operator.get_entity_id())
+        try:
+            ou = self._get_ou(stedkode=ou)
+        except Errors.NotFoundError:
+            raise CerebrumError, "Unknown OU (%s)" % ou
+        try:
+            aff = self._get_affiliationid(affiliation)
+        except Errors.NotFoundError:
+            raise CerebrumError, "Unknown affiliation type (%s)" % affiliation
+        try:
+            aff_status = self._get_affiliation_statusid(aff, aff_status)
+        except Errors.NotFoundError:
+            raise CerebrumError, "Unknown affiliation status (%s)" % aff_status
+        self.ba.can_create_person(operator.get_entity_id(), ou, aff)
         person = self.person
         person.clear()
         if bdate is not None:
@@ -1927,13 +1939,10 @@ class BofhdExtension(object):
                                             self.const.externalid_fodselsnr,
                                             id)
         person.populate(bdate, gender,
-                        description='Manualy created')
+                        description='Manually created')
         person.affect_names(self.const.system_manual, self.const.name_full)
         person.populate_name(self.const.name_full,
                              person_name.encode('iso8859-1'))
-        ou = self._get_ou(stedkode=ou)
-        aff = self._get_affiliationid(affiliation)
-        aff_status = self._get_affiliation_statusid(aff, aff_status)
         try:
             person.write_db()
             person.add_affiliation(ou.entity_id, aff,
