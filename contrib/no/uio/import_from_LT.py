@@ -125,7 +125,8 @@ def _xmlify_dbrow(row, cols, tag, close_tag=1, extra_attr=None):
         extra_attr = ''
     return "<%s " % tag + (
         " ".join(["%s=%s" % (cols[i], _escape_xml_attr(row[i]))
-                  for i in range(len(cols))])+ "%s%s>" % (extra_attr, close_tag))
+                  for i in range(len(cols)) if row[i] is not None])+
+        "%s%s>" % (extra_attr, close_tag))
 
 def _escape_xml_attr(a):
     # TODO:  Check XML-spec to find out what to quote
