@@ -250,6 +250,7 @@ class Constants(DatabaseAccessor):
     # CerebrumFactory up and running
     system_lt = _AuthoritativeSystemCode('LT')
     system_fs = _AuthoritativeSystemCode('FS')
+    system_manual = _AuthoritativeSystemCode('Manual')
 
     perspective_lt = _OUPerspectiveCode('LT')
     perspective_fs = _OUPerspectiveCode('FS')

@@ -139,6 +139,9 @@ INSERT INTO [:table schema=cerebrum name=authoritative_system_code]
 INSERT INTO [:table schema=cerebrum name=authoritative_system_code]
   (code, code_str, description) VALUES
   ([:sequence schema=cerebrum name=code_seq op=next], 'FS', 'FS');
+INSERT INTO [:table schema=cerebrum name=authoritative_system_code]
+  (code, code_str, description) VALUES
+  ([:sequence schema=cerebrum name=code_seq op=next], 'Manual', 'Manual registration');
 
 INSERT INTO [:table schema=cerebrum name=ou_perspective_code]
   (code, code_str, description) VALUES
