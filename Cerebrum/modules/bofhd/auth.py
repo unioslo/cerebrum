@@ -624,11 +624,19 @@ class BofhdAuth(DatabaseAccessor):
 
     # TODO: the can_email_xxx functions do not belong in core Cerebrum
 
-    def can_email_migrate(self, operator, account=None, query_run_any=False):
+    # everyone can see basic information
+    def can_email_info(self, operator, account=None, query_run_any=False):
+        return True
+
+    # detailed information about tripnotes etc. is available to
+    # the user's local sysadmin and helpdesk operators.
+    def can_email_info_detail(self, operator, account=None,
+                              query_run_any=False):
         if self.is_superuser(operator):
             return True
         if query_run_any:
-            return True
+            return self._has_operation_perm_somewhere(
+                operator, self.const.auth_set_password)
         if operator == account.entity_id:
             return True
         return self._query_disk_permissions(operator,
@@ -636,6 +644,11 @@ class BofhdAuth(DatabaseAccessor):
                                             self._get_disk(account.disk_id),
                                             account.entity_id)
 
+    # the user, local sysadmin, and helpdesk can ask for migration
+    def can_email_migrate(self, operator, account=None, query_run_any=False):
+        return self.can_email_info_detail(operator, account, query_run_any)
+
+    # not even the user is allowed this operation
     def can_email_move(self, operator, account=None, query_run_any=False):
         if self.is_superuser(operator):
             return True
@@ -643,14 +656,10 @@ class BofhdAuth(DatabaseAccessor):
             return False
         raise PermissionDenied("Currently limited to superusers")
 
-    # everyone can see basic information
-    def can_email_info(self, operator, account=None, query_run_any=False):
-        return True
-
-    # detailed information about tripnotes etc. is only available to
-    # the user's local sysadmin
-    def can_email_info_detail(self, operator, account=None,
-                              query_run_any=False):
+    # the user and local sysadmin is allowed to turn forwarding and
+    # tripnote on/off
+    def can_email_forward_toggle(self, operator, account=None,
+                                 query_run_any=False):
         if self.is_superuser(operator):
             return True
         if query_run_any:
@@ -663,16 +672,11 @@ class BofhdAuth(DatabaseAccessor):
                                             self._get_disk(account.disk_id),
                                             account.entity_id)
 
-    # the local sysadmin is allowed to turn forwarding and tripnote on/off
-    def can_email_forward_toggle(self, operator, account=None,
-                                 query_run_any=False):
-        return self.can_email_info_detail(operator, account, query_run_any)
-
     def can_email_tripnote_toggle(self, operator, account=None,
                                   query_run_any=False):
-        return self.can_email_info_detail(operator, account, query_run_any)
+        return self.can_email_forward_toggle(operator, account, query_run_any)
 
-    # the local sysadmin may not add or remove forward addresses.
+    # only the user may add or remove forward addresses.
     def can_email_forward_edit(self, operator, account=None,
                                 query_run_any=False):
         if self.is_superuser(operator):
@@ -683,16 +687,10 @@ class BofhdAuth(DatabaseAccessor):
             return True
         return PermissionDenied("Currently limited to superusers")
 
-    # nor edit the tripnote messages or add new ones.
+    # or edit the tripnote messages or add new ones.
     def can_email_tripnote_edit(self, operator, account=None,
                                 query_run_any=False):
-        if self.is_superuser(operator):
-            return True
-        if query_run_any:
-            return True
-        if operator == account.entity_id:
-            return True
-        return PermissionDenied("Currently limited to superusers")
+        return self.can_email_forward_edit(operator, account, query_run_any)
 
     def _query_disk_permissions(self, operator, operation, disk, victim_id):
         """Permissions on disks may either be granted to a specific
