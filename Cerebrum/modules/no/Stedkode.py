@@ -30,11 +30,13 @@ following additional properties are defined:
 """
 
 from Cerebrum.OU import OU
+from Cerebrum import Utils
 
 # Let's hope there's no need to access the module called "OU" further
 # down...
 class Stedkode(OU):
 
+    __metaclass__ = Utils.mark_update
     __read_attr__ = ('__in_db',)
     __write_attr__ = ('institusjon', 'fakultet', 'institutt', 'avdeling',
                       'katalog_merke')
@@ -66,7 +68,16 @@ class Stedkode(OU):
         else:
             self.__super.populate(name, acronym, short_name,
                                   display_name, sort_name)
-        self.__in_db = False
+        # If __in_db is present, it must be True; calling populate on
+        # an object where __in_db is present and False is very likely
+        # a programming error.
+        #
+        # If __in_db in not present, we'll set it to False.
+        try:
+            if not self.__in_db:
+                raise RuntimeError, "populate() called multiple times."
+        except AttributeError:
+            self.__in_db = False
         self.fakultet = int(fakultet)
         self.institutt = int(institutt)
         self.avdeling = int(avdeling)
@@ -106,7 +117,8 @@ class Stedkode(OU):
         self.__super.write_db()
         if not self.__updated:
             return
-        if not self.__in_db:
+        is_new = not self.__in_db
+        if is_new:
             self.execute("""
             INSERT INTO [:table schema=cerebrum name=stedkode]
               (ou_id, institusjon, fakultet, institutt, avdeling,
@@ -136,6 +148,7 @@ class Stedkode(OU):
         del self.__in_db
         self.__in_db = True
         self.__updated = False
+        return is_new
 
     def delete(self):
         raise NotImplementedError
@@ -147,6 +160,12 @@ class Stedkode(OU):
         SELECT institusjon, fakultet, institutt, avdeling, katalog_merke
         FROM [:table schema=cerebrum name=stedkode]
         WHERE ou_id = :ou_id""", locals())
+        try:
+            del self.__in_db
+        except AttributeError:
+            pass
+        self.__in_db = True
+        self.__updated = False
 
     def find_stedkode(self, fakultet, institutt, avdeling, institusjon=185):
         ou_id = self.query_1("""
