@@ -135,12 +135,13 @@ class Disk(Entity):
         self.find(entity_id)
 
     def list(self, host_id=None, filter_expired=False, spread=None):
-        spread_where = ""
+        spread_where = expire_where = ""
         where = []
         if host_id is not None:
             where.append("host_id=:host_id")
         if filter_expired:
-            where.append("(ai.expire_date IS NULL OR ai.expire_date > [:now])")
+            expire_where = """AND (ai.expire_date IS NULL OR
+                                   ai.expire_date > [:now])"""
         if spread is not None:
             spread_where = "AND ah.spread=:spread"
             spread = int(spread)
@@ -154,14 +155,14 @@ class Disk(Entity):
                di.disk_id, di.host_id, di.path
         FROM [:table schema=cerebrum name=disk_info] di
           LEFT JOIN ([:table schema=cerebrum name=homedir] hd
-          JOIN [:table schema=cerebrum name=account_home] ah
-            ON hd.homedir_id=ah.homedir_id %s
-          JOIN [:table schema=cerebrum name=account_info] ai
-            ON ah.account_id=ai.account_id
-          )
-            ON di.disk_id=hd.disk_id %s
+                     JOIN [:table schema=cerebrum name=account_home] ah
+                       ON hd.homedir_id=ah.homedir_id %s
+                     JOIN [:table schema=cerebrum name=account_info] ai
+                       ON ah.account_id=ai.account_id %s)
+            ON di.disk_id=hd.disk_id
+        %s
         GROUP BY di.disk_id, di.host_id, di.path, ah.spread""" %
-                          (spread_where, where),
+                          (spread_where, expire_where, where),
                           {'host_id': host_id, 'spread': spread})
 
     def delete(self):
