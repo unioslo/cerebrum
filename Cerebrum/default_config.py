@@ -72,7 +72,13 @@ CLASS_PERSON = ('Cerebrum.Person', 'Person')
 CLASS_ACCOUNT = ('Cerebrum.Account', 'Account')
 CLASS_GROUP = ('Cerebrum.Group', 'Group')
 CLASS_CONSTANTS = ('Cerebrum.Constants', 'Constants')
-CLASS_DATABASE = ('Cerebrum.Database', 'PostgreSQL')
+CLASS_CL_CONSTANTS = ('Cerebrum.modules.CLConstants', 'CLConstants')
+
+CLASS_DBDRIVER = ('Cerebrum.Database', 'PostgreSQL')
+CLASS_DATABASE = ('Cerebrum.CLDatabase', 'CLDatabase')
+# To enable logging, use this:
+#CLASS_CHANGELOG = ('Cerebrum.modules.ChangeLog', 'ChangeLog')
+CLASS_CHANGELOG = ('Cerebrum.ChangeLog', 'ChangeLog')
 
 # Path to templates for passweb.py et. al.
 TEMPLATE_DIR='/path'
