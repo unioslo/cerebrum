@@ -1,0 +1,344 @@
+Index: design/logging.ini
+===================================================================
+RCS file: /cvsroot/cerebrum/cerebrum/design/logging.ini,v
+retrieving revision 1.3
+diff -u -w -B -r1.3 logging.ini
+--- design/logging.ini	21 Aug 2003 10:37:10 -0000	1.3
++++ design/logging.ini	9 Aug 2004 22:16:50 -0000
+@@ -4,10 +4,10 @@
+ # the console logger can be used.  It doesn't propagate log messages.
+ 
+ [loggers]
+-keys=root,cronjob,console
++keys=root,cronjob,console,bofhd,big_shortlived
+ 
+ [handlers]
+-keys=hand_root,hand_cronjob,hand_console
++keys=hand_root_error,hand_root_warn,hand_cronjob,hand_console,hand_bofhd1,hand_bofhd2,hand_big_shortlived
+ 
+ [formatters]
+ keys=form_root,form_cronjob,form_console
+@@ -15,49 +15,70 @@
+ # Note: When propagating messages to other loggers, the handler level
+ # is used to determine wheter to log or not.
+ 
++# This is a common log for every script in Cerebrum, it should not
++# be used directly.
+ [logger_root]
+ level=WARN
+-propagate=1
+ channel=
+-parent=
+-qualname=(root)
+-handlers=hand_root
++qualname=root
++handlers=hand_root_error,hand_root_warn
+ 
++# cronjob should be the normal logger for Cerebrum tasks.  It will log
++# to a different directory for every script, with automatic rotation
++# of old logs.  Messages are copied to the root logger.
+ [logger_cronjob]
+ level=DEBUG
+ propagate=1
+ channel=cronjob
+-parent=(root)
+ qualname=cronjob
+ handlers=hand_cronjob
+ 
++# console should only be used for interactive testing.  Notice that
++# these log messages are not copied into the root logger.
+ [logger_console]
+-level=DEBUG
++level=ALL
+ propagate=0
+-channel=
+-parent=
+ qualname=console
+ handlers=hand_console
+ 
+-[handler_hand_root]
++[logger_bofhd]
++level=DEBUG
++propagate=1
++qualname=bofhd
++handlers=hand_bofhd1,hand_bofhd2
++
++[logger_big_shortlived]
++level=DEBUG
++propagate=1
++channel=big_shortlived
++qualname=big_shortlived
++handlers=hand_big_shortlived
++
++# 
++# The root logger has two handlers -- one scanned continuously with
++# only errors; the other with WARN and higher which is scanned on
++# daily basis.
++[handler_hand_root_warn]
+ class=FileHandler
+ level=WARN
+ formatter=form_root
+-filename=root.log
+-mode=a+
+ maxsize=0
+ backcount=1
+-args=('root.log', 'a+')
++args=('/var/log/cerebrum/rootwarn.log', 'a+')
+ 
+-[handler_hand_cronjob]
++[handler_hand_root_error]
+ class=FileHandler
+-level=ALL
+-formatter=form_cronjob
+-filename=cronjob.log
+-mode=a+
++level=ERROR
++formatter=form_root
+ maxsize=0
+ backcount=1
+-args=('cronjob.log', 'a+')
++args=('/var/log/cerebrum/rooterror.log', 'a+')
++
++[handler_hand_cronjob]
++class=CerebrumRotatingHandler
++level=ALL
++formatter=form_cronjob
++args=('/var/log/cerebrum', 'a+', 20*1024*1024, 9)
+ 
+ [handler_hand_console]
+ class=StreamHandler
+@@ -66,14 +87,37 @@
+ stream=sys.stdout
+ args=(sys.stdout,)
+ 
++[handler_hand_bofhd1]
++class=CerebrumSubstituteHandler
++level=ALL
++formatter=form_cronjob
++# It is a pitty that no other handlers support permissions
++args=("/var/log/cerebrum/bofhd.py/secret/", 2*1024*1024, 5, 0600, '', '')
++
++[handler_hand_bofhd2]
++class=CerebrumSubstituteHandler
++level=ALL
++formatter=form_cronjob
++args=("/var/log/cerebrum/", 50*1024*1024, 5, 0644, 
++      r"((?:user_password|misc_user_passwd) \(\('.*?', '|misc_checkpassw \(\(')(.*?)(')",
++      r"\1secret\3")
++
++# What we want here is a handler that rotates by date.  Unfortunately
++# we currently don't have such a handler.
++[handler_hand_big_shortlived]
++class=CerebrumRotatingHandler
++level=ALL
++formatter=form_cronjob
++args=('/var/log/cerebrum', 'a+', 50*1024*1024, 9)
++
+ [formatter_form_root]
+-format=%(asctime)s %(filename)s(%(lineno)d): %(levelname)s %(message)s
+-datefmt=
++format=%(asctime)s %(filename)s[%(process)d]: %(levelname)s %(message)s
++datefmt=%F %T
+ 
+ [formatter_form_cronjob]
+ format=%(asctime)s %(levelname)s %(message)s
+-datefmt=
++datefmt=%F %T
+ 
+ [formatter_form_console]
+-format=%(levelname)s %(message)s
+-datefmt=
++format=%(levelname)s %(asctime)s %(message)s
++datefmt=%F %T
+Index: Cerebrum/default_config.py
+===================================================================
+RCS file: /cvsroot/cerebrum/cerebrum/Cerebrum/default_config.py,v
+retrieving revision 1.71
+diff -u -w -B -r1.71 default_config.py
+--- Cerebrum/default_config.py	9 Aug 2004 14:52:44 -0000	1.71
++++ Cerebrum/default_config.py	9 Aug 2004 22:16:50 -0000
+@@ -167,14 +167,14 @@
+ NOTES_SOURCE_SEARCH_ORDER = ('system_ureg','system_lt','system_fs')
+ 
+ # You should set this variable to the location of your logging ini file
+-LOGGING_CONFIGFILE = None
++LOGGING_CONFIGFILE_NEW = '/etc/cerebrum/logging.ini'
+ 
+ QUARANTINE_RULES = {}
+ # QUARANTINE_RULES = {
+ #   'system': {'lock': 1, 'shell': '/local/etc/shells/nologin.system'}
+ # }
+ 
+-CEREBRUM_DDL_DIR="../share/doc/cerebrum/design"
++CEREBRUM_DDL_DIR="../share/cerebrum/design"
+ BOFHD_SUPERUSER_GROUP=INITIAL_GROUPNAME
+ BOFHD_STUDADM_GROUP=BOFHD_SUPERUSER_GROUP
+ # Should contain mapping lang: [('template-prefix', 'tpl-type)...]
+@@ -246,167 +246,3 @@
+ PGP_DEC_OPTS = ['--batch', '--passphrase-fd', "0", '--decrypt', '--quiet']
+ # ['--recipient', id, '--default-key', id] is appended to PGP_ENC_OPTS
+ PGP_ENC_OPTS = ['--encrypt', '--armor', '--batch', '--quiet']
+-
+-
+-#
+-# LDAP stuff
+-#
+-
+-# Generation of LDIF-file for organizational data
+-CLASS_ORGLDIF = ['Cerebrum.modules.OrgLDIF/OrgLDIF']
+-
+-# LDAP server used for LDAP quick-sync?
+-#LDAP_SERVER = 'ldap.example.com'
+-
+-# Default directory in which to write LDIF files
+-LDAP_DUMP_DIR   = '/cerebrum/dumps/LDAP/'
+-# Default output files in LDAP_DUMP_DIR for generate_*_ldif.py
+-LDAP_ORG_FILE   = 'organization.ldif'
+-LDAP_POSIX_FILE = 'posix.ldif'
+-
+-# DNs of the LDAP trees to make.  Only trees whose DNs are set will be made.
+-#
+-# Generated by generate_org_ldif.py:
+-# Top level DN of LDAP tree.  Should normally have the following value:
+-#LDAP_BASE_DN        = ('.' + INSTITUTION_DOMAIN_NAME).replace('.', ',dc=')
+-# Base of tree of organizational units.  Can be == LDAP_BASE_DN.
+-#LDAP_ORG_DN         = 'cn=organization,' + LDAP_BASE_DN
+-# Base of tree with people.  If it is == LDAP_ORG_DN, people are
+-# placed below their primary org.units in the organization tree.
+-# Otherwise, they are placed in a flat structure below LDAP_PERSON_DN.
+-# Attributes from object class eduPerson will refer to the persons' org.units.
+-#LDAP_PERSON_DN      = 'cn=people,'       + LDAP_BASE_DN
+-#
+-# Generated by generate_posix_ldif.py:
+-# Note: LDAP_POSIX_DN should not be set if it is == LDAP_BASE_DN
+-# and one uses generate_org_ldif.py to make that entry.
+-#LDAP_POSIX_DN       = 'cn=system,'       + LDAP_BASE_DN
+-# Unix users, Unix filegroups and netgroups.
+-#LDAP_USER_DN        = 'cn=users,'        + LDAP_POSIX_DN
+-#LDAP_FILEGROUP_DN   = 'cn=filegroups,'   + LDAP_POSIX_DN
+-#LDAP_NETGROUP_DN    = 'cn=netgroups,'    + LDAP_POSIX_DN
+-#
+-# Generated by generate_mail_ldif.py:
+-# E-mail information, used by the mail system.
+-#LDAP_MAIL_DN        = 'cn=mail,'         + LDAP_BASE_DN
+-#
+-# Generated by generate_mail_dns_ldif.py:
+-# Host and domain names, used by the mail system.
+-#LDAP_MAIL_DNS_DN    = 'cn=mail-dns,'     + LDAP_BASE_DN
+-
+-# Attributes for the objects named by the above DNs, in dicts of
+-# {'attribute type': (value, value, ...), ...}:
+-#LDAP_<BASE/ORG/PERSON/POSIX/...>_ATTRS = {'description': ('nice text',), ...}
+-#
+-# Attributes used by default in all the above objects except BASE.  Each
+-# attribute is added if the object does not already have that attribute:
+-#LDAP_CONTAINER_ATTRS= {'objectClass': ('top', 'uioUntypedObject')}
+-# (uioUntypedObject is an object class which allows the 'cn' in the RDNs.)
+-#
+-# Note that LDAP_BASE_ATTRS is special:
+-# It must at least contain
+-# - 'objectClass' which allows the RDN of LDAP_BASE_DN (typically 'dcObject'),
+-# - 'o' (variants of the organization's name),
+-# - preferably 'eduOrgLegalName' (organization's legal corporate name).
+-# Generate_org_ldif.py adds objectClasses organization, eduOrg and norEduOrg.
+-# It also takes the phone, fax, postal addres and street address, if those
+-# are not set in LDAP_BASE_ATTRS, from the LDAP_ORG_ROOT org.unit.
+-# Example LDAP_BASE_ATTRS = {
+-#    'objectClass':       ('dcObject', 'labeledURIObject'),
+-#    'o':                 ('Our fine Organization', 'OfO'),
+-#    'eduOrgLegalName':   ('Our fine Organization A/S',),
+-#    'telephoneNumber':   ('+47-12345678',),
+-#    'labeledURI':        ('http://www.ofo.no/',)}
+-
+-# Whether to give the organization tree alias entries for persons.
+-# Disabled by default: Aliases defeat indexing in OpenLDAP since the
+-# server does not index a value 'through' an alias, so a search which
+-# has aliasing turned on must examine all aliases that are in scope.
+-LDAP_ALIASES         = False
+-
+-# If one org.unit in Cerebrum actually represents the organization, set
+-# this variable to its ou_id, or to 'base' to have Cerebrum deduce the
+-# root OU from the org.unit structure.  This OU is excluded from LDAP,
+-# instead phone numbers etc. from it are included in the LDAP_BASE_DN
+-# object.  Other root OUs, if any, are put below LDAP_ORG_DN as usual.
+-LDAP_ORG_ROOT        = None
+-
+-# If set, make a fake org.unit <ou=LDAP_DUMMY_OU_NAME,LDAP_ORG_DN>.
+-# It becomes the parent entry of any person or alias entries that would
+-# otherwise end up just below LDAP_ORG_DN instead of under some org.unit.
+-#LDAP_DUMMY_OU_NAME  = '--'
+-LDAP_DUMMY_OU_ATTRS  = {'description': ('Other organizational units',)}
+-
+-# Name of source system with perspective of org.unit structure.
+-#LDAP_OU_PERSPECTIVE = 'FOOBAR'
+-
+-# Constants.py varname of source system with phone and fax for people and
+-# organization, plus postal and street addresses for people.
+-#LDAP_CONTACT_SOURCE_SYSTEM = 'system_foobar'
+-
+-# Lists of Constants.py varnames for spreads to select entries to these trees.
+-#LDAP_USER_SPREAD      = ('spread_whatever', 'spread_something_else')
+-#LDAP_FILEGROUP_SPREAD = ('spread_whatever', 'spread_something_else')
+-#LDAP_NETGROUP_SPREAD  = ('spread_whatever', 'spread_something_else')
+-
+-# Constants.py varname for spread to select persons, or None.
+-LDAP_PERSON_SPREAD     = None
+-
+-# Constants.py varname of source system(s) of personal affiliations, or None.
+-LDAP_PERSON_AFFILIATION_SOURCE_SYSTEM = None
+-
+-# Selectors for person-entries:
+-# Each selector is evaluated for a person with some (affiliation, status)es.
+-# A selector can be a simple-selector (below), or a dict
+-#   {'affiliation': {'status': simple-selector,
+-#                    True:     simple-selector, ...},  # True means wildcard
+-#    True:          {True:     simple-selector, ...},  # True means wildcard
+-#    # Shorthand for 'affiliation': {True: simple-selector}:
+-#    'affiliation': simple-selector}
+-# where for each (aff., status), the first existing simple-selector is used
+-# of selector[aff.][status], selector[aff.][True] and selector[True][True].
+-# For convenience, each affiliation or status can be a tuple of several values.
+-#
+-# A list selector evaluates to a list of the selected values for the
+-# affiliations it is applied to.  Each simple-selector is a list of values.
+-#
+-# A boolean selector evaluates to True or False.  Each simple-selector is
+-# a bool, a tuple ('group', 'name of group whose members will be selected'),
+-# or a tuple ('not', simple-selector).
+-#
+-# Example:
+-# LDAP_PERSON_AFFILIATION_SELECTOR = {
+-#     # Select all employees and affiliates:
+-#     ('EMPLOYEE', 'AFFILIATE'): True,
+-#     # Select all active students except members of group 'no-LDAP-student':
+-#     'STUDENT': {'active': ('not', ('group', 'no-LDAP-student'))}}
+-#
+-# Boolean selector: Persons and their affiliations to include in LDAP.
+-# Select the affiliations to use for generating a person's entry.
+-# (Even the other selectors only use these affiliations.)
+-# The person is excluded from LDAP if no affiliations are left.
+-#LDAP_PERSON_AFFILIATION_SELECTOR   = True
+-# Boolean selector: Persons who should be visible in LDAP.
+-LDAP_VISIBLE_PERSON_SELECTOR       = True
+-# Boolean selector: Persons to get postal address, phone, work title, etc.
+-#LDAP_PERSON_CONTACT_SELECTOR       = True
+-# List selector: eduPersonAffiliation attribute values for the person.
+-LDAP_EDUPERSONAFFILIATION_SELECTOR = []
+-
+-# ACI (Access control information) attributes for visible persons.
+-# With OpenLDAP-2.1.4 or later, one can e.g. configure with --enable-aci,
+-# put something like this in slapd.conf:
+-#   access to dn.children=<cereconf.LDAP_PERSON_DN>  by self read  by aci read
+-# so a person without OpenLDAPaci only will be visible to that person,
+-# and then give this ACI to persons who should be visible:
+-#   LDAP_VISIBLE_PERSON_ATTRS = {
+-#       'OpenLDAPaci': ('1.1#entry#grant;c,r,s,x;[all],[entry]#public#',)}
+-LDAP_VISIBLE_PERSON_ATTRS = {}
+-
+-# Mapping used to rewrite domains in e-mail addresses:
+-# {'domain returned from Cerebrum': 'real domain', ...}.
+-# This variable should be renamed.  Used in the Email module.
+-LDAP_REWRITE_EMAIL_DOMAIN = {}
+-
+-# LDIF files to insert in the LDAP dumps from generate_<org,posix>_ldif.
+-LDAP_ORG_ADD_LDIF_FILE = LDAP_POSIX_ADD_LDIF_FILE = None
