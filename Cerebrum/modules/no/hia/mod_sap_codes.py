@@ -417,7 +417,7 @@ class SAPConstants(Constants.Constants):
     sap_1008_hogskolelektor = SAPLonnsTittelKode(
         "20001008",
         "1008 Høgskolelektor",
-        "ØVR"
+        "VIT"
     )
 
     sap_1010_amanuensis = SAPLonnsTittelKode(
