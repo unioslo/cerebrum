@@ -1,9 +1,10 @@
-import cerebrum_path
+import cerebrum_path 
 import forgetHTML as html
 from Cerebrum.Utils import Factory
 ClientAPI = Factory.get_module("ClientAPI")
 from Cerebrum.web.templates.AccountSearchTemplate import AccountSearchTemplate
 from Cerebrum.web.templates.AccountViewTemplate import AccountViewTemplate
+from Cerebrum.web.templates.AccountEditTemplate import AccountEditTemplate
 from Cerebrum.web.templates.HistoryLogTemplate import HistoryLogTemplate
 from Cerebrum.web.Main import Main
 from gettext import gettext as _
@@ -24,7 +25,7 @@ def index(req):
 
 def list(req):
     no_cache(req)
-    (name, owner, expire_date, create_date) = 
+    (name, owner, expire_date, create_date) = \
         req.session.get('account_lastsearch', ("", "", "", ""))
     return search(req, name, accountid, birthno, birthdate)
 
@@ -63,7 +64,7 @@ def search(req, name, owner, expire_date, create_date):
         
     result.append(html.Header(_("Search for other accounts"), level=2))
     result.append(accountsearch.form())
-    page.content = result.output().encode("utf8")
+    page.content = result.output()
     return page    
 
 def create(req, ownerid="", ownertype="", id="", name="", affiliation="", 
@@ -113,20 +114,48 @@ def view(req, id):
     (page, account) = _create_view(req, id)
     return page
 
-def action(req, id, delete_account="", edit_account=""):
-    """Handles the form at the bottom of AccountView"""
+def edit(req, id):
     server = req.session['server']
-    
     account = ClientAPI.Account.fetch_by_id(server, id)
     owner = account.get_owner_object()
-    
-    if delete_account:
-        name = account.name
-        account.set_expire_date(DateTime.DateFrom('').Format('%Y-%m-%d'))
-        queue_message(req, _("Account '%s' queued for removal") % name)
+    page = Main(req)
+    page.menu.setFocus("account/edit")
+    edit = AccountEditTemplate()
+    if account.expire_date:
+        edit.formvalues['expire_date'] = account.expire_date.Format("%Y-%m-%d")
+    else:
+        edit.formvalues['expire_date'] = ""    
+    page.content = lambda: edit.edit(account)
+    return page
 
-    elif edit_account:
-        # FIXME: Edit account
-        pass
-
+def save(req, id, save=None, abort=None, expire_date=''):
+    server = req.session['server']
+    account = ClientAPI.Account.fetch_by_id(server, id)
+    owner = account.get_owner_object()
+    if not save:
+        owner = account.get_owner_object()
+        return redirect_object(req, owner, seeOther=True)
+    if expire_date:
+        # Expire date is set, check if it's changed...
+        expire_date = DateTime.DateFrom(expire_date)
+        if account.expire_date != expire_date:
+            account.set_expire_date(expire_date)
+            queue_message(req, _("Set expiration date to %s") %
+                            expire_date.Format("%Y-%m-%d"))
+    else:
+        # No expire date set, check if it's to be removed
+        if account.expire_date:
+            account.set_expire_date(None)
+            queue_message(req, _("Removed expiration date"))
     return redirect_object(req, owner, seeOther=True)
+               
+
+        
+
+def delete(req, id):    
+    server = req.session['server']
+    account = ClientAPI.Account.fetch_by_id(server, id)
+    owner = account.get_owner_object()
+    account.set_expire_date(DateTime.DateFrom('').Format('%Y-%m-%d'))
+    queue_message(req, _("Account '%s' queued for removal") % account.name)
+    return redirect_object(req, owner)
