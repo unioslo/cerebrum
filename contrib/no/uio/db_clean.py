@@ -32,15 +32,16 @@ from Cerebrum import Errors
 from Cerebrum import Utils
 from Cerebrum.Constants import _SpreadCode
 from Cerebrum.modules import ChangeLog
-from Cerebrum.extlib import logging
 from Cerebrum.modules.bofhd.auth import BofhdAuthOpTarget, BofhdAuthRole
 
 Factory = Utils.Factory
 db = Factory.get('Database')()
 co = Factory.get('Constants')(db)
 
-logging.fileConfig(cereconf.LOGGING_CONFIGFILE)
-logger = logging.getLogger("console")
+# TODO: Should have a cereconf variable for /cerebrum/var/log
+status_file = "%s/db_clean_password.id" % cereconf.JOB_RUNNER_LOG_DIR  
+
+logger = Factory.get_logger("cronjob")
 
 """
 Hva skal ryddes bort?
@@ -264,20 +265,41 @@ def remove_plaintext_passwords():
     # quickly.
 
     now = time.time()
-    for e in db.get_log_events():  # TODO: add start_id
+    try:
+        f = file(status_file)
+        start_id = f.readline()
+        start_id = int(start_id)
+    except IOError:
+        start_id = 0
+    logger.debug("start_id=%i" % start_id)
+    max_id = 0
+    not_removed = 0
+    num_removed = 0
+    for e in db.get_log_events(start_id=start_id, types=[co.account_password]):
         age = now - e['tstamp'].ticks()
         # Remove plaintext passwords
         if (e['change_type_id'] == int(co.account_password) and
             age > password_age):
+            if not e['change_params']:
+                continue
             dta = pickle.loads(e['change_params'])
             if dta.has_key('password'):
                 del(dta['password'])
                 logger.debug(
-                    "Removed password for id=%i" % e['change_type_id'])
+                    "Removed password for id=%i" % e['subject_entity'])
                 if not dryrun:
                     db.update_log_event(e['change_id'], dta)
+            max_id = e['change_id']
+            num_removed += 1
+        else:
+            not_removed += 1
+
+    logger.debug("Removed %i, kept %i passwords" % (num_removed, not_removed))
     if not dryrun:
         db.commit()
+        f = file(status_file, 'w')
+        f.write("%s\n" % max_id)
+        f.close()
     else:
         db.rollback()   # noia rollback just in case
 
@@ -299,12 +321,14 @@ def process_log():
     db2 = Factory.get('Database')()  # Work-around for fetchmany cursor re-usage
     for e in db2.get_log_events():
         n += 1
-        
+        tmp = e['change_params']
+        if e['change_type_id'] == int(co.account_password):
+            tmp = 'password'      # Don't write password in log
         logger.debug((e['tstamp'].strftime('%Y-%m-%d'),
                       int(e['change_id']), int(e['change_type_id']),
                       format_as_int(e['subject_entity']),
                       format_as_int(e['dest_entity']),
-                      repr(e['change_params'])))
+                      repr(tmp)))
 
         if not trigger_mapping.has_key(int(e['change_type_id'])):
             logger.warn("Unknown change_type_id:%i for change_id=%i" % (
@@ -453,7 +477,7 @@ def main():
             do_remove_bofh = True
         elif opt in ('--changelog',):
             do_process_log = True
-        elif opt in ('password-age',):
+        elif opt in ('--password-age',):
             global password_age
             password_age = int(val)
         else:
