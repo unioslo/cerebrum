@@ -185,14 +185,12 @@ def generate_netgroup(filename, group_spread, user_spread):
                                          member_type=co.entity_account)
             for row in u:
                 entity_id = int(row[1])
-                try:
-                    uname = entity2uname[entity_id]
-                except KeyError:
+                if not entity_id in entity2uname:
                     acc = Factory.get('Account')(db)
                     # This find shouldn't fail, so don't catch the exception
                     acc.find(entity_id)
                     entity2uname[entity_id] = acc.account_name
-                    uname = acc.account_name
+                uname = entity2uname[entity_id]
                 tmp = posix_user.illegal_name(uname)
                 if tmp:
                     print "Bad username %s in %s" % (tmp, group.group_name)
