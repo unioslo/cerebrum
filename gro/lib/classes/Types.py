@@ -23,13 +23,14 @@ import Database
 from Cerebrum.gro.Cerebrum_core import Errors
 
 from Builder import Builder, Attribute
+from Searchable import Searchable
 
 __all__ = ['AddressType', 'ContactInfoType', 'GenderType', 'EntityType',
            'SourceSystem', 'NameType', 'AuthenticationType', 'Spread',
            'GroupMemberOperationType', 'GroupVisibilityType', 'QuarantineType',
-           'OUPerspectiveType']
+           'OUPerspectiveType', 'AuthOperationType']
 
-class CodeType(Builder):
+class CodeType(Builder, Searchable):
     primary = [Attribute('name', 'string')]
     slots = primary + [Attribute('id', 'long'),
                        Attribute('description', 'string')]
@@ -59,6 +60,43 @@ class CodeType(Builder):
         self._description = row['description']
 
     load_id = load_description = _load
+
+    def create_search_method(cls):
+        def search(self, id=None, name=None, description=None):
+            def prepare_string(value):
+                value = value.replace("*", "%")
+                value = value.replace("?", "_")
+                value = value.lower()
+                return value
+
+            where = []
+            if id is not None:
+                where.append('code = %i' % entity.get_id())
+            if name is not None:
+                where.append('LOWER(code_str) LIKE :name')
+                name = prepare_string(name)
+            if description is not None:
+                where.append('LOWER(description) LIKE :description')
+                description = prepare_string(description)
+
+            if where:
+                where = 'WHERE %s' % ' AND '.join(where)
+            else:
+                where = ''
+
+            objects = []
+            db = self.get_database()
+            for row in db.query("""SELECT code, code_str, description
+                                   FROM [:table schema=cerebrum name=%s]
+                                   %s""" % (cls._tableName, where),
+                                            {'name':name, 'description':description}):
+                id = int(row['code'])
+                name = row['code_str']
+                description = row['description']
+                objects.append(cls(id=id, name=name, description=description))
+            return objects
+        return search
+    create_search_method = classmethod(create_search_method)
 
 class AddressType(CodeType):
     _tableName = 'address_code'
@@ -113,3 +151,7 @@ class QuarantineType(CodeType):
 
 class Spread(CodeType):
     _tableName = 'spread_code'
+
+class AuthOperationType(CodeType):
+    _tableName = 'auth_op_code'
+
