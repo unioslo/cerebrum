@@ -61,7 +61,7 @@ class LOHandler( Cerebrum_core__POA.LOHandler ):
             try:
                 return Factory.get( entity_type_class )
             except ValueError:
-                raise Cerebrum_core.Errors.NoSuchTypeError( 'Unknown type \'%s\'' % type )
+                raise Cerebrum_core.Errors.NoSuchTypeError( 'Unknown type \'%s\'' % entity_type_class )
 
     def _get_latest_change( self ):
         """
