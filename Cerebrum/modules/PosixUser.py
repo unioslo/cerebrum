@@ -293,6 +293,12 @@ class PosixUser(Account_class):
             pass
         return "Unknown"  # Raise error?
 
+    def get_fullname(self):
+        """The GECOS contains the full name the user wants to be
+        associated with POSIX account.  If the official name of the
+        person is needed, look up the Person object explicitly."""
+        return self.get_gecos()
+
     def get_home(self):
         """Returns the full path to the users homedirectory"""
 
