@@ -23,5 +23,31 @@
 from Cerebrum.Entity import \
      Entity, EntityContactInfo, EntityPhone, EntityAddress
 
-class OU(Entity, EntityContactInfo, EntityPhone, EntityAddress):
-    pass
+class OUStructure(object):
+    "Mixin class, used by OU for OUs with structure."
+
+    def add_structure_maping(self, perspective, parent_id):
+        self.execute("""
+    INSERT INTO cerebrum.ou_structure
+      (ou_id, perspective, parent_id)
+    VALUES (:1, :2, :3)""",
+                     self.entity_id, perspective, parent_id)
+    
+class OU(Entity, EntityContactInfo, EntityPhone, EntityAddress, OUStructure):
+
+    def new(self, name, acronym, short_name, display_name, sort_name):
+        """Register a new entity of ENTITY_TYPE.  Return new entity_id.
+        
+        Note that the object is not automatically associated with the
+        new entity.
+        
+        """
+        
+        new_id = super(OU, self).new('o')
+        self.execute("""
+        INSERT INTO cerebrum.ou_info(entity_type, ou_id, name, acronym, short_name,
+           display_name, sort_name)
+        VALUES (:1, :2, :3, :4, :5, :6, :7)""", 'o', new_id, name,
+                    acronym, short_name, display_name, sort_name)
+        return new_id
+
